@@ -10,14 +10,20 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Trash2, CalendarCheck, Phone, Home as HomeIcon, ArrowRight } from "lucide-react";
+import { Plus, Trash2, CalendarCheck, Phone, Home as HomeIcon, ArrowRight, RotateCcw } from "lucide-react";
 import { AcolhimentoPanel } from "./AcolhimentoPanel";
 import type { Membro } from "@/pages/Membros";
+
+interface VisitanteMembro extends Membro {
+  numero_visitas?: number | null;
+  ultimo_contato_em?: string | null;
+  created_at: string;
+}
 
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  pessoa: Membro | null;
+  pessoa: Membro | VisitanteMembro | null;
   onSaved?: () => void;
 }
 
@@ -59,6 +65,7 @@ export default function VisitanteDialog({ open, onOpenChange, pessoa, onSaved }:
   const [visitas, setVisitas] = useState<Visita[]>([]);
   const [acomp, setAcomp] = useState<Acompanhamento[]>([]);
   const [loading, setLoading] = useState(false);
+  const [busyAction, setBusyAction] = useState<"retorno" | "contato" | null>(null);
 
   // novo registro de visita
   const [novaVisita, setNovaVisita] = useState({
@@ -147,6 +154,38 @@ export default function VisitanteDialog({ open, onOpenChange, pessoa, onSaved }:
     load();
   };
 
+  const registrarRetorno = async () => {
+    if (!pessoa) return;
+    setBusyAction("retorno");
+    const p = pessoa as VisitanteMembro;
+    const novaContagem = (p.numero_visitas ?? 1) + 1;
+    const { error } = await supabase
+      .from("membros")
+      .update({
+        numero_visitas: novaContagem,
+        ...(novaContagem >= 2 ? { status_acolhimento: "retornou" } : {}),
+      })
+      .eq("id", pessoa.id);
+    if (error) toast.error(error.message);
+    else { toast.success("Retorno registrado!"); onSaved?.(); }
+    setBusyAction(null);
+  };
+
+  const marcarContato = async () => {
+    if (!pessoa) return;
+    setBusyAction("contato");
+    const { error } = await supabase
+      .from("membros")
+      .update({
+        ultimo_contato_em: new Date().toISOString(),
+        status_acolhimento: "em_acompanhamento",
+      })
+      .eq("id", pessoa.id);
+    if (error) toast.error(error.message);
+    else { toast.success("Contato registrado!"); onSaved?.(); }
+    setBusyAction(null);
+  };
+
   const converter = async () => {
     if (!pessoa) return;
     const ok = window.confirm(
@@ -177,6 +216,32 @@ export default function VisitanteDialog({ open, onOpenChange, pessoa, onSaved }:
             Histórico de visitas, follow-up pastoral e conversão em congregado/membro.
           </DialogDescription>
         </DialogHeader>
+
+        {/* Ações rápidas */}
+        {isVisitante && (
+          <div className="flex flex-wrap gap-2 pt-1 pb-2 border-b">
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-2"
+              disabled={!!busyAction}
+              onClick={registrarRetorno}
+            >
+              <RotateCcw className="w-4 h-4" />
+              <span translate="no">Registrar retorno</span>
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-2"
+              disabled={!!busyAction}
+              onClick={marcarContato}
+            >
+              <Phone className="w-4 h-4" />
+              <span translate="no">Marcar contato realizado</span>
+            </Button>
+          </div>
+        )}
 
         <Tabs defaultValue="visitas">
           <TabsList className="grid w-full grid-cols-4">
