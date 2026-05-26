@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Pencil, Link2, Briefcase, UserPlus, Sparkles, BarChart3 } from "lucide-react";
+import { Plus, Search, Pencil, Link2, Briefcase, Sparkles, BarChart3 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
@@ -14,7 +14,6 @@ import { MembroForm } from "@/components/membros/MembroForm";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { VinculosPessoaDialog } from "@/components/familias/VinculosPessoaDialog";
 import AtuacoesDialog from "@/components/membros/AtuacoesDialog";
-import { VisitorForm } from "@/components/membros/VisitorForm";
 import VisitanteDialog from "@/components/membros/VisitanteDialog";
 import { ListSkeleton, EmptyState, ErrorState } from "@/components/ListState";
 
@@ -93,7 +92,6 @@ export default function Membros() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
-  const [visitorOpen, setVisitorOpen] = useState(false);
   const [editing, setEditing] = useState<Membro | null>(null);
   const [tipoFiltro, setTipoFiltro] = useState<string>("todos");
   const [perfilFiltro, setPerfilFiltro] = useState<string>("todos");
@@ -158,11 +156,6 @@ export default function Membros() {
               >
                 <Plus className="w-4 h-4" /> Nova pessoa
               </Button>
-              {hasRole(["admin", "secretaria", "lideranca"]) && (
-                <Button variant="outline" onClick={() => setVisitorOpen(true)} className="gap-2">
-                  <UserPlus className="w-4 h-4" /> Novo Visitante
-                </Button>
-              )}
               <Button asChild variant="outline" className="gap-2">
                 <Link to="/visitantes"><BarChart3 className="w-4 h-4" /> <span translate="no">Painel</span></Link>
               </Button>
@@ -297,7 +290,6 @@ export default function Membros() {
       </div>
 
       <MembroForm open={open} onOpenChange={setOpen} membro={editing} onSaved={load} />
-      <VisitorForm open={visitorOpen} onOpenChange={setVisitorOpen} onSaved={load} />
       <VinculosPessoaDialog
         open={!!vinculosPessoa}
         onOpenChange={(v) => {
