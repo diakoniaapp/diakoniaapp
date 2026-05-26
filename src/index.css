@@ -1,0 +1,164 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* DIAKONIA — Tema escuro refinado (default) */
+    /* Fundo escuro suave (não preto puro) */
+    --background: 220 14% 11%;
+    --foreground: 0 0% 96%; /* #F5F5F5 - branco suave */
+
+    /* Cards levemente mais claros que o fundo */
+    --card: 220 12% 15%;
+    --card-foreground: 0 0% 96%;
+
+    --popover: 220 12% 15%;
+    --popover-foreground: 0 0% 96%;
+
+    /* Dourado suave (algodão egípcio) */
+    --primary: 42 65% 62%;
+    --primary-foreground: 220 14% 11%;
+    --primary-glow: 42 75% 70%;
+
+    --secondary: 220 10% 19%;
+    --secondary-foreground: 0 0% 96%;
+
+    --muted: 220 10% 18%;
+    --muted-foreground: 0 0% 80%; /* #CCCCCC - cinza claro p/ conteúdo */
+
+    --accent: 42 65% 62%;
+    --accent-foreground: 220 14% 11%;
+
+    --gold: 42 65% 62%;
+    --gold-foreground: 220 14% 11%;
+
+    --teal: 42 40% 50%;
+    --teal-foreground: 220 14% 11%;
+
+    --success: 145 50% 48%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 36 80% 60%;
+    --warning-foreground: 220 14% 11%;
+
+    --destructive: 0 65% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Bordas sutis para separar conteúdo */
+    --border: 220 10% 24%;
+    --input: 220 10% 22%;
+    --ring: 42 65% 62%;
+
+    --radius: 0.625rem;
+
+    --gradient-hero: linear-gradient(140deg, hsl(220 14% 9%) 0%, hsl(220 12% 14%) 60%, hsl(42 30% 22%) 100%);
+    --gradient-gold: linear-gradient(135deg, hsl(42 75% 68%), hsl(36 60% 48%));
+    --gradient-verse: linear-gradient(135deg, hsl(220 12% 13%), hsl(220 10% 18%));
+    --shadow-card: 0 1px 3px 0 hsl(0 0% 0% / 0.45), 0 1px 2px -1px hsl(0 0% 0% / 0.55);
+    --shadow-elevated: 0 14px 36px -14px hsl(0 0% 0% / 0.65);
+    --shadow-gold: 0 8px 24px -8px hsl(42 65% 62% / 0.4);
+
+    --sidebar-background: 220 14% 9%;
+    --sidebar-foreground: 0 0% 92%;
+    --sidebar-primary: 42 65% 62%;
+    --sidebar-primary-foreground: 220 14% 11%;
+    --sidebar-accent: 220 12% 16%;
+    --sidebar-accent-foreground: 0 0% 97%;
+    --sidebar-border: 220 10% 20%;
+    --sidebar-ring: 42 65% 62%;
+  }
+
+  /* Tema claro institucional — algodão egípcio + azul Allure */
+  .light {
+    --background: 36 30% 94%; /* algodão egípcio (bege claro) */
+    --foreground: 25 25% 18%; /* preto suave / marrom escuro */
+
+    --card: 0 0% 100%; /* branco */
+    --card-foreground: 25 25% 18%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 25 25% 18%;
+
+    /* Azul Allure como destaque */
+    --primary: 210 60% 42%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 210 70% 55%;
+
+    --secondary: 36 25% 88%;
+    --secondary-foreground: 25 30% 22%;
+
+    --muted: 36 22% 90%;
+    --muted-foreground: 25 15% 38%;
+
+    --accent: 210 60% 42%;
+    --accent-foreground: 0 0% 100%;
+
+    --gold: 42 65% 50%;
+    --gold-foreground: 0 0% 100%;
+
+    --teal: 188 55% 38%;
+    --teal-foreground: 0 0% 100%;
+
+    --success: 145 55% 38%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 36 85% 50%;
+    --warning-foreground: 25 25% 18%;
+
+    --destructive: 0 70% 48%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 30 25% 78%; /* marrom claro */
+    --input: 30 25% 82%;
+    --ring: 210 60% 42%;
+
+    --gradient-hero: linear-gradient(140deg, hsl(36 32% 96%) 0%, hsl(36 28% 92%) 60%, hsl(210 40% 85%) 100%);
+    --gradient-gold: linear-gradient(135deg, hsl(42 70% 55%), hsl(36 65% 42%));
+    --gradient-verse: linear-gradient(135deg, hsl(36 30% 96%), hsl(36 22% 90%));
+    --shadow-card: 0 1px 3px 0 hsl(25 25% 18% / 0.08), 0 1px 2px -1px hsl(25 25% 18% / 0.06);
+    --shadow-elevated: 0 14px 36px -14px hsl(25 25% 18% / 0.18);
+    --shadow-gold: 0 8px 24px -8px hsl(210 60% 42% / 0.3);
+
+    --sidebar-background: 25 30% 16%; /* marrom escuro */
+    --sidebar-foreground: 36 30% 94%;
+    --sidebar-primary: 210 65% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 25 25% 22%;
+    --sidebar-accent-foreground: 36 30% 96%;
+    --sidebar-border: 25 20% 26%;
+    --sidebar-ring: 210 65% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: "ss01", "cv02";
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: none;
+    overflow-x: hidden;
+  }
+
+  html { overflow-x: hidden; }
+
+  h1, h2, h3, h4 {
+    @apply font-serif tracking-tight;
+  }
+
+  /* iOS safe areas + minimum tap targets */
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+  .pt-safe { padding-top: env(safe-area-inset-top); }
+  input, select, textarea, button { font-size: 16px; }
+  @media (min-width: 768px) {
+    input, select, textarea, button { font-size: inherit; }
+  }
+}
