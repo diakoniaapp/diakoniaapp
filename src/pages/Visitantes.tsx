@@ -30,6 +30,8 @@ interface VisitanteMembro extends Membro {
   numero_visitas?:        number | null;
   ultimo_contato_em?:     string | null;
   ultimo_contato_tipo?:   string | null;
+  data_congregado?:       string | null;
+  data_membro?:           string | null;
   created_at:             string;
 }
 
@@ -77,7 +79,11 @@ export default function Visitantes() {
         created_at:          v.created_at,
       }).sugestao !== null
     ).length;
-    return { total: visitantes.length, retornaram, naoVoltaram, precisamContato, pendentesHoje, prontosCrescer };
+    const emRisco = visitantes.filter(v => {
+      const dias = Math.floor((Date.now() - new Date(v.created_at).getTime()) / 86_400_000);
+      return (v.numero_visitas ?? 1) === 1 && dias > 15 && !v.ultimo_contato_em;
+    }).length;
+    return { total: visitantes.length, retornaram, naoVoltaram, precisamContato, pendentesHoje, prontosCrescer, emRisco };
   }, [visitantes]);
 
   const listaNaoVoltou = useMemo(
@@ -121,17 +127,22 @@ export default function Visitantes() {
     window.open(link, "_blank", "noopener,noreferrer");
   };
 
+  // M3.5 — preenche data_congregado / data_membro ao promover
   const promoverPessoa = async (v: VisitanteMembro, para: "congregado" | "membro") => {
     setBusyPromote(v.id);
+    const agora = new Date().toISOString();
+    const dataField = para === "congregado"
+      ? { data_congregado: agora }
+      : { data_membro: agora };
     const { error } = await supabase
       .from("membros")
-      .update({ tipo_pessoa: para } as any)
+      .update({ tipo_pessoa: para, ...dataField } as any)
       .eq("id", v.id);
     if (error) {
       toast.error(error.message);
     } else {
       const label = para === "congregado" ? "Congregado" : "Membro";
-      toast.success(`${v.nome_completo.split(" ")[0]} promovido(a) para ${label}! 🎉`);
+      toast.success(`${v.nome_completo.split(" ")[0]} deu o próximo passo — agora é ${label}! 🎉`);
       load();
     }
     setBusyPromote(null);
@@ -163,19 +174,35 @@ export default function Visitantes() {
           <StatCard icon={<Phone className="w-5 h-5" />}       label="Precisam contato"    value={stats.precisamContato} color={stats.precisamContato > 0 ? "warning" : undefined} />
         </div>
 
-        {/* Banner de evolução pronta */}
+        {/* M3.3 — Pessoas prontas para crescer */}
         {stats.prontosCrescer > 0 && (
           <div className="flex items-center justify-between gap-3 rounded-lg border border-success/30 bg-success/5 px-4 py-3">
             <div className="flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-success shrink-0" />
+              <Sparkles className="w-4 h-4 text-success shrink-0" />
               <p className="text-sm font-medium text-success" translate="no">
                 <span className="font-bold">{stats.prontosCrescer}</span>{" "}
-                {stats.prontosCrescer === 1 ? "visitante pronto" : "visitantes prontos"} para avançar na jornada
+                {stats.prontosCrescer === 1
+                  ? "pessoa está pronta para dar o próximo passo na jornada"
+                  : "pessoas estão prontas para dar o próximo passo na jornada"}
               </p>
             </div>
             <Badge className="shrink-0 bg-success/15 text-success border border-success/30 text-xs hover:bg-success/15" translate="no">
               Ver abaixo
             </Badge>
+          </div>
+        )}
+
+        {/* M3.4 — Visitantes em risco */}
+        {stats.emRisco > 0 && (
+          <div className="flex items-center gap-3 rounded-lg border border-warning/30 bg-warning/5 px-4 py-3">
+            <AlertTriangle className="w-4 h-4 text-warning shrink-0" />
+            <p className="text-sm font-medium text-warning" translate="no">
+              <span className="font-bold">{stats.emRisco}</span>{" "}
+              {stats.emRisco === 1
+                ? "visitante pode estar se perdendo"
+                : "visitantes podem estar se perdendo"}{" "}
+              — apenas 1 visita, sem contato há mais de 15 dias
+            </p>
           </div>
         )}
 
@@ -302,7 +329,7 @@ function StatCard({ icon, label, value, color }: {
   );
 }
 
-// ── JornalBar — barra de progresso Visitante → Congregado → Membro ────────────
+// ── JornadaBar — barra de progresso Visitante → Congregado → Membro ────────────
 
 function JornadaBar({ tipoPessoa, pronto }: { tipoPessoa: string; pronto: boolean }) {
   const currentIdx = ETAPAS_JORNADA.findIndex((s) => s.key === tipoPessoa);
@@ -352,6 +379,7 @@ function VisitanteCard({ v, busy, busyPromote, variant, onOpen, onRetorno, onCon
   const prioStyle = PRIORIDADE_STYLE[prio];
   const dias      = Math.floor((Date.now() - new Date(v.created_at).getTime()) / 86_400_000);
   const iconBg    = variant === "success" ? "bg-success/15 text-success" : "bg-warning/15 text-warning";
+  const nome      = v.nome_completo.split(" ")[0];
 
   const evolucao = avaliarEvolucao({
     tipo_pessoa:         v.tipo_pessoa,
@@ -359,6 +387,13 @@ function VisitanteCard({ v, busy, busyPromote, variant, onOpen, onRetorno, onCon
     ultimo_contato_tipo: v.ultimo_contato_tipo ?? null,
     created_at:          v.created_at,
   });
+
+  // M3.2 — abre WhatsApp com mensagem de sugestão pastoral
+  const abrirWhatsAppSugestao = (msg: string) => {
+    const cel = v.telefone_celular?.replace(/\D/g, "");
+    if (!cel) return toast.error("Telefone nao cadastrado");
+    window.open(`https://wa.me/55${cel}?text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
+  };
 
   return (
     <Card className={`shadow-card-soft hover:shadow-elevated transition-shadow border-l-4 ${prioStyle.border}`}>
@@ -396,29 +431,58 @@ function VisitanteCard({ v, busy, busyPromote, variant, onOpen, onRetorno, onCon
               {" — "}Dia {dias} · {nv} {nv === 1 ? "visita" : "visitas"}
             </p>
 
-            {/* Banner de evolução */}
+            {/* M3.1 + M3.2 — Banner de evolução humanizado + ações sugeridas */}
             {evolucao.sugestao && (
-              <div className="flex items-center justify-between gap-2 rounded-md border border-success/30 bg-success/5 px-3 py-2">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <TrendingUp className="w-3.5 h-3.5 text-success shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-xs font-medium text-success" translate="no">
-                      Pronto para {evolucao.proximo}
-                    </p>
-                    <p className="text-[10px] text-success/70 truncate" translate="no">
-                      {evolucao.descricao}
-                    </p>
+              <div className="rounded-md border border-success/30 bg-success/5 px-3 py-2.5 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start gap-1.5 min-w-0">
+                    <Sparkles className="w-3.5 h-3.5 text-success shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-success leading-snug" translate="no">
+                        Este visitante pode estar pronto para dar o próximo passo
+                      </p>
+                      <p className="text-[10px] text-success/70 truncate" translate="no">
+                        {evolucao.descricao}
+                      </p>
+                    </div>
                   </div>
+                  <Button
+                    size="sm"
+                    className="shrink-0 text-[10px] h-6 px-2 gap-1 bg-success hover:bg-success/90 text-white border-0"
+                    disabled={busyPromote}
+                    onClick={() => onPromover(evolucao.sugestao!)}
+                  >
+                    <TrendingUp className="w-3 h-3" />
+                    Promover
+                  </Button>
                 </div>
-                <Button
-                  size="sm"
-                  className="shrink-0 text-[10px] h-6 px-2 gap-1 bg-success hover:bg-success/90 text-white border-0"
-                  disabled={busyPromote}
-                  onClick={() => onPromover(evolucao.sugestao!)}
-                >
-                  <TrendingUp className="w-3 h-3" />
-                  Promover
-                </Button>
+                {/* M3.2 — Ações pastorais sugeridas */}
+                <div className="flex gap-1.5 flex-wrap">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-[10px] h-6 px-2 gap-1 border-success/40 text-success hover:bg-success/10"
+                    disabled={!v.telefone_celular}
+                    onClick={() => abrirWhatsAppSugestao(
+                      `Olá, ${nome}! 😊 Gostaríamos de te convidar para nossa célula de comunhão — um espaço para se conectar com mais irmãos e crescer juntos na fé. Você toparia participar? 💙`
+                    )}
+                  >
+                    <MessageCircle className="w-3 h-3" />
+                    Convidar para célula
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-[10px] h-6 px-2 gap-1 border-success/40 text-success hover:bg-success/10"
+                    disabled={!v.telefone_celular}
+                    onClick={() => abrirWhatsAppSugestao(
+                      `Olá, ${nome}! 😊 Gostaríamos de marcar uma conversa para te conhecer melhor e acompanhar sua caminhada. Quando seria um bom momento? 💙`
+                    )}
+                  >
+                    <Phone className="w-3 h-3" />
+                    Agendar conversa
+                  </Button>
+                </div>
               </div>
             )}
           </div>

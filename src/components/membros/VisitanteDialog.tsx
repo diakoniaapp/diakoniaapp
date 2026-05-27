@@ -15,9 +15,11 @@ import { AcolhimentoPanel } from "./AcolhimentoPanel";
 import type { Membro } from "@/pages/Membros";
 
 interface VisitanteMembro extends Membro {
-  numero_visitas?: number | null;
+  numero_visitas?:   number | null;
   ultimo_contato_em?: string | null;
-  created_at: string;
+  data_congregado?:  string | null;
+  data_membro?:      string | null;
+  created_at:        string;
 }
 
 interface Props {
@@ -192,12 +194,16 @@ export default function VisitanteDialog({ open, onOpenChange, pessoa, onSaved }:
       `Confirmar conversão de "${pessoa.nome_completo}" para ${novoTipo === "membro" ? "Membro" : "Congregado"}? A história como visitante será preservada.`
     );
     if (!ok) return;
+    const agora = new Date().toISOString();
+    const dataField = novoTipo === "congregado"
+      ? { data_congregado: agora }
+      : { data_membro: agora };
     const { error } = await supabase
       .from("membros")
-      .update({ tipo_pessoa: novoTipo })
+      .update({ tipo_pessoa: novoTipo, ...dataField } as any)
       .eq("id", pessoa.id);
     if (error) return toast.error(error.message);
-    toast.success(`Convertido para ${novoTipo === "membro" ? "Membro" : "Congregado"}`);
+    toast.success(`${pessoa.nome_completo.split(" ")[0]} deu o próximo passo — agora é ${novoTipo === "membro" ? "Membro" : "Congregado"}! 🎉`);
     onSaved?.();
     onOpenChange(false);
   };
@@ -242,6 +248,40 @@ export default function VisitanteDialog({ open, onOpenChange, pessoa, onSaved }:
             </Button>
           </div>
         )}
+
+        {/* M3.5 — Jornada Pastoral */}
+        {(() => {
+          const p = pessoa as VisitanteMembro;
+          const dataCongregado = p.data_congregado;
+          const dataMembro     = p.data_membro;
+          const fmtDate = (iso: string) =>
+            new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
+          return (
+            <div className="rounded-lg border bg-muted/20 px-4 py-3 space-y-2">
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider" translate="no">
+                Jornada Pastoral
+              </p>
+              <div className="flex flex-wrap gap-x-6 gap-y-1">
+                <span className="text-xs text-muted-foreground" translate="no">
+                  🏠 Visitante desde{" "}
+                  <span className="font-medium text-foreground">{fmtDate(p.created_at)}</span>
+                </span>
+                {dataCongregado && (
+                  <span className="text-xs text-success" translate="no">
+                    ✨ Congregado em{" "}
+                    <span className="font-medium">{fmtDate(dataCongregado)}</span>
+                  </span>
+                )}
+                {dataMembro && (
+                  <span className="text-xs text-primary" translate="no">
+                    🌟 Membro desde{" "}
+                    <span className="font-medium">{fmtDate(dataMembro)}</span>
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         <Tabs defaultValue="visitas">
           <TabsList className="grid w-full grid-cols-4">

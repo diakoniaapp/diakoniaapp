@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { EmptyState, ListSkeleton } from "@/components/ListState";
 import ContatoResultadoDialog from "@/components/membros/ContatoResultadoDialog";
 import {
@@ -14,6 +15,8 @@ import {
   Heart,
   RefreshCw,
   TrendingUp,
+  Pencil,
+  RotateCcw as Restore,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -40,7 +43,6 @@ interface RawMembro extends Membro {
   created_at:                  string;
 }
 
-/** Extensão local de VisitanteFluxo com campos de histórico e evolução */
 interface VisitanteFluxoExt extends VisitanteFluxo {
   ultimo_contato_tipo:        string | null;
   ultimo_contato_observacao:  string | null;
@@ -55,17 +57,19 @@ const PRIO_ICON: Record<string, React.ReactNode> = {
 };
 
 interface AcoesHojeProps {
-  /** Limitar a N visitantes exibidos (padrão: sem limite) */
   limit?: number;
 }
 
 // ── Componente ────────────────────────────────────────────────────────────────
 
 export default function AcoesHoje({ limit }: AcoesHojeProps = {}) {
-  const [membros, setMembros]         = useState<RawMembro[]>([]);
-  const [loading, setLoading]         = useState(true);
-  const [busyId, setBusyId]           = useState<string | null>(null);
-  const [contatoAlvo, setContatoAlvo] = useState<VisitanteFluxoExt | null>(null);
+  const [membros, setMembros]                       = useState<RawMembro[]>([]);
+  const [loading, setLoading]                       = useState(true);
+  const [busyId, setBusyId]                         = useState<string | null>(null);
+  const [contatoAlvo, setContatoAlvo]               = useState<VisitanteFluxoExt | null>(null);
+  // ─ Edição de mensagem ────────────────────────────────────────────────────
+  const [editandoId, setEditandoId]                 = useState<string | null>(null);
+  const [mensagensEditadas, setMensagensEditadas]   = useState<Record<string, string>>({});
 
   const load = async () => {
     setLoading(true);
@@ -76,6 +80,8 @@ export default function AcoesHoje({ limit }: AcoesHojeProps = {}) {
       .order("created_at", { ascending: true });
     if (error) toast.error(error.message);
     setMembros((data ?? []) as RawMembro[]);
+    setMensagensEditadas({});   // limpa edições ao recarregar
+    setEditandoId(null);
     setLoading(false);
   };
 
@@ -114,12 +120,34 @@ export default function AcoesHoje({ limit }: AcoesHojeProps = {}) {
       .slice(0, limit ?? undefined);
   }, [membros, limit]);
 
+  // ── Helpers de edição ─────────────────────────────────────────────────────
+
+  const getMsgFinal = (v: VisitanteFluxoExt) =>
+    mensagensEditadas[v.id] ?? getMensagem(v.etapa_fluxo, v.nome_completo);
+
+  const abrirEdicao = (v: VisitanteFluxoExt) => {
+    if (!mensagensEditadas[v.id]) {
+      setMensagensEditadas((prev) => ({
+        ...prev,
+        [v.id]: getMensagem(v.etapa_fluxo, v.nome_completo),
+      }));
+    }
+    setEditandoId(v.id);
+  };
+
+  const restaurarMensagem = (v: VisitanteFluxoExt) => {
+    setMensagensEditadas((prev) => ({
+      ...prev,
+      [v.id]: getMensagem(v.etapa_fluxo, v.nome_completo),
+    }));
+  };
+
   // ── Ações ─────────────────────────────────────────────────────────────────
 
   const marcarEnviado = async (
-    v:           VisitanteFluxoExt,
-    tipo:        string,
-    observacao:  string
+    v:          VisitanteFluxoExt,
+    tipo:       string,
+    observacao: string
   ) => {
     setBusyId(v.id);
     const { error } = await supabase
@@ -129,7 +157,7 @@ export default function AcoesHoje({ limit }: AcoesHojeProps = {}) {
         status_acolhimento:         getStatusPorEtapa(v.etapa_fluxo),
         ultimo_contato_tipo:        tipo,
         ultimo_contato_observacao:  observacao || null,
-      } as any)          // eslint-disable-line @typescript-eslint/no-explicit-any
+      } as any)
       .eq("id", v.id);
 
     if (error) {
@@ -143,8 +171,7 @@ export default function AcoesHoje({ limit }: AcoesHojeProps = {}) {
   };
 
   const abrirWhatsApp = (v: VisitanteFluxoExt) => {
-    const msg  = getMensagem(v.etapa_fluxo, v.nome_completo);
-    const link = buildWhatsAppLink(v.telefone, msg);
+    const link = buildWhatsAppLink(v.telefone, getMsgFinal(v));
     if (!link) return toast.error("Telefone não cadastrado para este visitante");
     window.open(link, "_blank", "noopener,noreferrer");
   };
@@ -178,23 +205,20 @@ export default function AcoesHoje({ limit }: AcoesHojeProps = {}) {
         </Button>
       </div>
 
-      {/* Legenda de prioridades */}
+      {/* Legenda */}
       <div className="flex gap-2 flex-wrap text-[11px] text-muted-foreground">
         <span className="flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-destructive inline-block" />
-          Alta — mais de 15 dias
+          <span className="w-2 h-2 rounded-full bg-destructive inline-block" />Alta — mais de 15 dias
         </span>
         <span className="flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-warning inline-block" />
-          Média — mais de 7 dias
+          <span className="w-2 h-2 rounded-full bg-warning inline-block" />Média — mais de 7 dias
         </span>
         <span className="flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-success inline-block" />
-          Baixa — recém chegou
+          <span className="w-2 h-2 rounded-full bg-success inline-block" />Baixa — recém chegou
         </span>
       </div>
 
-      {/* Conteúdo */}
+      {/* Lista */}
       {loading ? (
         <ListSkeleton count={3} />
       ) : visitantes.length === 0 ? (
@@ -202,12 +226,15 @@ export default function AcoesHoje({ limit }: AcoesHojeProps = {}) {
       ) : (
         <div className="grid gap-3">
           {visitantes.map((v) => {
-            const prio     = PRIORIDADE_STYLE[v.prioridade];
-            const msg      = getMensagem(v.etapa_fluxo, v.nome_completo);
-            const link     = buildWhatsAppLink(v.telefone, msg);
-            const busy     = busyId === v.id;
-            const evolucao = avaliarEvolucao({
-              tipo_pessoa:         v.status_acolhimento ? "visitante" : "visitante",
+            const prio      = PRIORIDADE_STYLE[v.prioridade];
+            const busy      = busyId === v.id;
+            const msgFinal  = getMsgFinal(v);
+            const link      = buildWhatsAppLink(v.telefone, msgFinal);
+            const editando  = editandoId === v.id;
+            const editada   = !!mensagensEditadas[v.id] &&
+                              mensagensEditadas[v.id] !== getMensagem(v.etapa_fluxo, v.nome_completo);
+            const evolucao  = avaliarEvolucao({
+              tipo_pessoa:         "visitante",
               numero_visitas:      v.numero_visitas,
               ultimo_contato_tipo: v.ultimo_contato_tipo,
               created_at:          v.created_at,
@@ -224,57 +251,93 @@ export default function AcoesHoje({ limit }: AcoesHojeProps = {}) {
               >
                 <CardContent className="p-4">
                   <div className="flex items-start gap-3">
-
-                    {/* Avatar */}
                     <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center shrink-0 mt-0.5">
                       <Sparkles className="w-4 h-4 text-muted-foreground" />
                     </div>
 
                     <div className="flex-1 min-w-0 space-y-2">
 
-                      {/* Nome + badges de prioridade */}
+                      {/* Nome + badges */}
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="font-medium leading-tight">{v.nome_completo}</span>
-                        <Badge
-                          variant="outline"
-                          className={`text-[10px] h-4 px-1.5 gap-1 ${prio.badge}`}
-                        >
-                          {PRIO_ICON[v.prioridade]}
-                          {prio.label}
+                        <Badge variant="outline" className={`text-[10px] h-4 px-1.5 gap-1 ${prio.badge}`}>
+                          {PRIO_ICON[v.prioridade]}{prio.label}
                         </Badge>
                         <Badge variant="outline" className="text-[10px] h-4 px-1.5">
                           {ETAPA_LABEL[v.etapa_fluxo]}
                         </Badge>
-                        {/* Badge de evolução — informativo */}
                         {evolucao.sugestao && (
                           <Badge className="text-[10px] h-4 px-1.5 gap-1 bg-success/15 text-success border border-success/30 hover:bg-success/15">
-                            <TrendingUp className="w-2.5 h-2.5" />
-                            Pronto para {evolucao.proximo}
+                            <Sparkles className="w-2.5 h-2.5" />
+                            Próximo passo ✨
                           </Badge>
                         )}
                       </div>
 
-                      {/* Meta — dias, visitas, telefone */}
+                      {/* Meta */}
                       <p className="text-xs text-muted-foreground" translate="no">
                         Dia {v.dias_desde_cadastro} · {v.numero_visitas}{" "}
                         {v.numero_visitas === 1 ? "visita" : "visitas"}
                         {v.telefone ? ` · ${v.telefone}` : " · Sem telefone"}
                       </p>
 
-                      {/* Contexto do último contato */}
+                      {/* Último contato */}
                       <p className={`text-xs ${ultimoContato ? "text-muted-foreground" : "text-muted-foreground/60 italic"}`} translate="no">
-                        {ultimoContato
-                          ? `Último contato: ${ultimoContato}`
-                          : "Sem contato ainda"}
+                        {ultimoContato ? `Último contato: ${ultimoContato}` : "Sem contato ainda"}
                       </p>
 
-                      {/* Preview da mensagem */}
-                      <blockquote
-                        className="text-xs text-muted-foreground italic border-l-2 border-muted pl-2"
-                        translate="no"
-                      >
-                        "{msg}"
-                      </blockquote>
+                      {/* ─ Mensagem — preview ou editor ─────────────────── */}
+                      {editando ? (
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] text-muted-foreground">Editar mensagem</span>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-5 px-1.5 text-[10px] gap-1 text-muted-foreground"
+                              onClick={() => restaurarMensagem(v)}
+                              title="Restaurar mensagem original"
+                            >
+                              <Restore className="w-3 h-3" /> Restaurar
+                            </Button>
+                          </div>
+                          <Textarea
+                            className="text-xs resize-none min-h-[120px] leading-relaxed"
+                            value={mensagensEditadas[v.id] ?? ""}
+                            onChange={(e) =>
+                              setMensagensEditadas((prev) => ({ ...prev, [v.id]: e.target.value }))
+                            }
+                            autoFocus
+                          />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full text-xs h-6"
+                            onClick={() => setEditandoId(null)}
+                          >
+                            OK — confirmar edição
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="relative group">
+                          <blockquote
+                            className="text-xs text-muted-foreground border-l-2 border-muted pl-2 pr-6 whitespace-pre-line leading-relaxed"
+                            translate="no"
+                          >
+                            {msgFinal}
+                          </blockquote>
+                          <button
+                            className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded text-muted-foreground/60 hover:text-muted-foreground"
+                            onClick={() => abrirEdicao(v)}
+                            title="Editar mensagem"
+                          >
+                            <Pencil className="w-3 h-3" />
+                          </button>
+                          {editada && (
+                            <span className="text-[10px] text-warning mt-0.5 block">✏️ Mensagem editada</span>
+                          )}
+                        </div>
+                      )}
 
                       {/* Ações */}
                       <div className="flex gap-2 flex-wrap pt-0.5">
@@ -287,7 +350,6 @@ export default function AcoesHoje({ limit }: AcoesHojeProps = {}) {
                           <MessageCircle className="w-3.5 h-3.5" />
                           <span translate="no">Enviar WhatsApp</span>
                         </Button>
-
                         <Button
                           size="sm"
                           variant="outline"
@@ -308,7 +370,6 @@ export default function AcoesHoje({ limit }: AcoesHojeProps = {}) {
         </div>
       )}
 
-      {/* Modal de resultado do contato */}
       <ContatoResultadoDialog
         open={!!contatoAlvo}
         onOpenChange={(open) => { if (!open) setContatoAlvo(null); }}
