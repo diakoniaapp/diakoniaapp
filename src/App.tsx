@@ -13,6 +13,7 @@ import Ministerios from "./pages/Ministerios.tsx";
 import Eventos from "./pages/Eventos.tsx";
 import Locais from "./pages/Locais.tsx";
 import Visitantes from "./pages/Visitantes.tsx";
+import PainelEstrategico from "./pages/PainelEstrategico.tsx";
 import AgendaPrint from "./pages/AgendaPrint.tsx";
 import { AuthProvider } from "./hooks/useAuth.tsx";
 import { ErrorBoundary } from "./components/ErrorBoundary.tsx";
@@ -41,6 +42,7 @@ const App = () => (
               <Route path="/agenda" element={<Navigate to="/eventos" replace />} />
               <Route path="/locais" element={<Locais />} />
               <Route path="/visitantes" element={<Visitantes />} />
+              <Route path="/painel-estrategico" element={<PainelEstrategico />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

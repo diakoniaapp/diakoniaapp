@@ -11,6 +11,7 @@ import {
   CalendarDays,
   ChevronLeft,
   MapPin,
+  BarChart2,
 } from "lucide-react";
 import { BrandMark } from "@/components/Brand";
 import { useEffect } from "react";
@@ -25,6 +26,7 @@ const desktopNav = [
   { to: "/ministerios", label: "Ministérios", icon: HeartHandshake },
   { to: "/eventos", label: "Agenda", icon: CalendarDays },
   { to: "/locais", label: "Locais", icon: MapPin },
+  { to: "/painel-estrategico", label: "Crescimento", icon: BarChart2 },
 ];
 
 const pageTitles: Record<string, string> = {
@@ -35,6 +37,7 @@ const pageTitles: Record<string, string> = {
   "/eventos": "Agenda",
   "/locais": "Locais",
   "/visitantes": "Visitantes",
+  "/painel-estrategico": "Crescimento",
 };
 
 export default function AppLayout() {
