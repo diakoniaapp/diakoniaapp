@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import PessoaCard from "@/components/membros/PessoaCard";
 import {
   ChevronDown, ChevronRight, Users, Crown, Church, MapPin,
-  Building2, Star, Shield, Loader2, AlertTriangle,
+  Building2, Star, Shield, Loader2, AlertTriangle, BookOpen, Network,
 } from "lucide-react";
 
 // ── Tipos ─────────────────────────────────────────────────────
@@ -251,6 +251,9 @@ export default function Organograma() {
   const [stats, setStats]            = useState({ total: 0, membros: 0, congregados: 0, visitantes: 0 });
   const [loading, setLoading]        = useState(true);
   const [pessoaId, setPessoaId]      = useState<string | null>(null);
+  // Estrutura derivada dos documentos
+  const [estDoc, setEstDoc]          = useState<any[]>([]);
+  const [loadingEst, setLoadingEst]  = useState(false);
 
   useEffect(() => {
     const carregar = async () => {
@@ -413,10 +416,23 @@ export default function Organograma() {
         )}
 
         {/* Abas principais */}
-        <Tabs defaultValue="estrutura">
-          <TabsList className="grid w-full grid-cols-3">
+        <Tabs defaultValue="estrutura" onValueChange={(v) => {
+          if (v === "regimento" && estDoc.length === 0) {
+            setLoadingEst(true);
+            supabase
+              .from("documento_estrutura")
+              .select("*")
+              .eq("ativo", true)
+              .order("nivel").order("ordem").order("nome")
+              .then(({ data }) => { setEstDoc(data ?? []); setLoadingEst(false); });
+          }
+        }}>
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="estrutura" translate="no">
               <Building2 className="w-4 h-4 mr-1.5" /> Estrutura
+            </TabsTrigger>
+            <TabsTrigger value="regimento" translate="no">
+              <Network className="w-4 h-4 mr-1.5" /> Regimento
             </TabsTrigger>
             <TabsTrigger value="diretoria" translate="no">
               <Crown className="w-4 h-4 mr-1.5" /> Diretoria
@@ -425,6 +441,79 @@ export default function Organograma() {
               <Shield className="w-4 h-4 mr-1.5" /> Conselho
             </TabsTrigger>
           </TabsList>
+
+          {/* ── ABA: Do Regimento (documento_estrutura) ── */}
+          <TabsContent value="regimento" className="mt-4">
+            {loadingEst ? (
+              <div className="flex items-center justify-center py-16 text-muted-foreground gap-2">
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span>Carregando estrutura do regimento…</span>
+              </div>
+            ) : estDoc.length === 0 ? (
+              <div className="text-center py-12 space-y-2">
+                <BookOpen className="w-12 h-12 mx-auto text-muted-foreground/40" />
+                <p className="text-sm text-muted-foreground">Nenhuma estrutura derivada cadastrada.</p>
+                <p className="text-xs text-muted-foreground/70">
+                  Acesse Documentos → aba Estrutura Derivada para cadastrar elementos do estatuto/regimento.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Diretoria/Institucional */}
+                {(["institucional", "ministerial", "area"] as const).map(nivel => {
+                  const itens = estDoc.filter((e: any) => e.nivel === nivel);
+                  if (!itens.length) return null;
+                  const labelNivel: Record<string, string> = {
+                    institucional: "Diretoria & Conselhos",
+                    ministerial:   "Ministérios",
+                    area:          "Áreas & Setores",
+                  };
+                  const corNivel: Record<string, string> = {
+                    institucional: "border-purple-200 bg-purple-50/50",
+                    ministerial:   "border-blue-200 bg-blue-50/50",
+                    area:          "border-green-200 bg-green-50/50",
+                  };
+                  const iconeNivel: Record<string, string> = {
+                    institucional: "👔", ministerial: "⛪", area: "📂",
+                  };
+                  return (
+                    <div key={nivel}>
+                      <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-1.5">
+                        <span>{iconeNivel[nivel]}</span> {labelNivel[nivel]} ({itens.length})
+                      </h3>
+                      <div className="space-y-2">
+                        {itens.map((item: any) => (
+                          <div key={item.id}
+                            className={`rounded-xl border px-4 py-3 ${corNivel[nivel] ?? "border-border bg-background"}`}>
+                            <div className="flex items-start gap-3">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex flex-wrap items-center gap-2 mb-1">
+                                  <span className="text-sm font-semibold">{item.nome}</span>
+                                  {item.base_institucional && (
+                                    <span className="text-[10px] bg-gold/10 text-gold border border-gold/20 px-1.5 py-0.5 rounded">
+                                      📄 {item.base_institucional}
+                                    </span>
+                                  )}
+                                </div>
+                                {item.descricao && (
+                                  <p className="text-xs text-muted-foreground">{item.descricao}</p>
+                                )}
+                                {item.responsabilidades && (
+                                  <p className="text-[11px] text-muted-foreground/80 mt-1 line-clamp-2">
+                                    {item.responsabilidades}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </TabsContent>
 
           {/* ── ABA: Estrutura (organograma de ministérios) ── */}
           <TabsContent value="estrutura" className="mt-4">

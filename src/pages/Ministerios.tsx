@@ -33,7 +33,10 @@ export default function Ministerios() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const emptyForm = { nome: "", sigla: "", descricao: "", lider_id: "", co_lider_id: "", ativo: true };
   const [form, setForm] = useState<any>(emptyForm);
-  const [sugestao, setSugestao] = useState<{ nome: string; descricao: string; responsabilidades: string } | null>(null);
+  const [sugestao, setSugestao] = useState<{
+    nome: string; descricao: string; responsabilidades: string;
+    origem: "documento" | "modelo"; base_institucional?: string;
+  } | null>(null);
   const [buscandoModelo, setBuscandoModelo] = useState(false);
 
   const load = async () => {
@@ -65,25 +68,28 @@ export default function Ministerios() {
   };
   useEffect(()=>{ load(); }, []);
 
-  // Auto-preenchimento via buscar_modelo_ministerio()
+  // Auto-preenchimento — busca em documento_estrutura (prioridade) e modelos_ministerio (fallback)
   useEffect(() => {
     if (editingId || !open) { setSugestao(null); return; }
     const nome = form.nome?.trim();
-    if (!nome || nome.length < 4) { setSugestao(null); return; }
+    if (!nome || nome.length < 3) { setSugestao(null); return; }
     setBuscandoModelo(true);
     const timer = setTimeout(async () => {
       const { data } = await supabase.rpc("buscar_modelo_ministerio", { p_nome: nome });
       setBuscandoModelo(false);
-      if (data && (data as any).encontrado) {
+      const d = data as any;
+      if (d?.encontrado) {
         setSugestao({
-          nome: (data as any).nome ?? "",
-          descricao: (data as any).descricao ?? "",
-          responsabilidades: (data as any).responsabilidades ?? "",
+          nome:              d.nome ?? "",
+          descricao:         d.descricao ?? "",
+          responsabilidades: d.responsabilidades ?? "",
+          origem:            d.origem === "documento" ? "documento" : "modelo",
+          base_institucional: d.base_institucional ?? undefined,
         });
       } else {
         setSugestao(null);
       }
-    }, 600);
+    }, 500);
     return () => { clearTimeout(timer); setBuscandoModelo(false); };
   }, [form.nome, editingId, open]);
 
@@ -127,12 +133,17 @@ export default function Ministerios() {
 
   const aplicarModelo = () => {
     if (!sugestao) return;
-    const desc = sugestao.responsabilidades
-      ? `${sugestao.descricao}\n\nResponsabilidades:\n${sugestao.responsabilidades}`
-      : sugestao.descricao;
-    setForm((f: any) => ({ ...f, descricao: desc }));
+    const partes: string[] = [];
+    if (sugestao.descricao) partes.push(sugestao.descricao);
+    if (sugestao.responsabilidades) partes.push(`Responsabilidades:\n${sugestao.responsabilidades}`);
+    if (sugestao.base_institucional) partes.push(`Base: ${sugestao.base_institucional}`);
+    setForm((f: any) => ({ ...f, descricao: partes.join("\n\n") }));
     setSugestao(null);
-    toast.success("Modelo aplicado — ajuste conforme necessário");
+    toast.success(
+      sugestao.origem === "documento"
+        ? "Preenchido com base nos documentos da igreja — ajuste conforme necessário"
+        : "Modelo padrão aplicado — ajuste conforme necessário"
+    );
   };
 
   return (
@@ -211,15 +222,26 @@ export default function Ministerios() {
               <div><Label>Sigla</Label><Input value={form.sigla} onChange={(e)=>setForm({...form, sigla: e.target.value})}/></div>
             </div>
             {sugestao && (
-              <div className="rounded-md border border-gold/40 bg-gold/5 px-3 py-2.5 flex items-start gap-2">
-                <Sparkles className="w-4 h-4 text-gold mt-0.5 shrink-0"/>
+              <div className={`rounded-md border px-3 py-2.5 flex items-start gap-2 ${
+                sugestao.origem === "documento"
+                  ? "border-gold/50 bg-gold/8"
+                  : "border-muted bg-muted/30"
+              }`}>
+                <Sparkles className={`w-4 h-4 mt-0.5 shrink-0 ${sugestao.origem === "documento" ? "text-gold" : "text-muted-foreground"}`}/>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-gold">Modelo encontrado: {sugestao.nome}</p>
+                  <p className={`text-xs font-medium ${sugestao.origem === "documento" ? "text-gold" : "text-foreground"}`}>
+                    {sugestao.origem === "documento"
+                      ? `📄 Sugerido pelo regimento da igreja: ${sugestao.nome}`
+                      : `Modelo padrão: ${sugestao.nome}`}
+                  </p>
+                  {sugestao.base_institucional && (
+                    <p className="text-[10px] text-gold/70 mt-0.5">{sugestao.base_institucional}</p>
+                  )}
                   <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">{sugestao.descricao}</p>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <Button type="button" size="sm" variant="outline"
-                    className="h-7 text-xs border-gold/40 text-gold hover:bg-gold/10"
+                    className={`h-7 text-xs ${sugestao.origem === "documento" ? "border-gold/40 text-gold hover:bg-gold/10" : ""}`}
                     onClick={aplicarModelo}>
                     Aplicar
                   </Button>

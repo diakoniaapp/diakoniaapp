@@ -1,0 +1,565 @@
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { PageHeader } from "@/components/PageHeader";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import {
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import {
+  FileText, Plus, Pencil, CheckCircle2, Clock, Loader2,
+  BookOpen, ChevronDown, ChevronUp, Trash2, Network, Info,
+} from "lucide-react";
+import { toast } from "sonner";
+
+type TipoDoc = "estatuto" | "regimento" | "manual" | "ata" | "circular" | "outro";
+
+interface Documento {
+  id: string;
+  tipo: TipoDoc;
+  titulo: string;
+  conteudo: string;
+  versao: string;
+  vigente: boolean;
+  aprovado_em: string | null;
+  aprovado_por: string | null;
+  arquivo_url: string | null;
+  created_at: string;
+}
+
+interface Secao {
+  id: string;
+  documento_id: string;
+  titulo: string;
+  conteudo: string;
+  tipo_secao: string | null;
+  ministerio_ref: string | null;
+  palavras_chave: string[];
+  nivel_hierarquico: number | null;
+  ordem: number;
+}
+
+const TIPOS: { value: TipoDoc; label: string; color: string }[] = [
+  { value: "estatuto",   label: "Estatuto",    color: "bg-purple-500/10 text-purple-700 border-purple-500/30" },
+  { value: "regimento",  label: "Regimento",   color: "bg-blue-500/10 text-blue-700 border-blue-500/30" },
+  { value: "manual",     label: "Manual",      color: "bg-emerald-500/10 text-emerald-700 border-emerald-500/30" },
+  { value: "ata",        label: "Ata",         color: "bg-amber-500/10 text-amber-700 border-amber-500/30" },
+  { value: "circular",   label: "Circular",    color: "bg-sky-500/10 text-sky-700 border-sky-500/30" },
+  { value: "outro",      label: "Outro",       color: "bg-muted text-muted-foreground" },
+];
+
+const tipoMeta = (tipo: TipoDoc) => TIPOS.find(t => t.value === tipo) ?? TIPOS[5];
+
+const TIPOS_SECAO = [
+  { value: "ministerio",  label: "Ministério" },
+  { value: "diretoria",   label: "Diretoria" },
+  { value: "conselho",    label: "Conselho" },
+  { value: "assembleia",  label: "Assembleia" },
+  { value: "geral",       label: "Geral" },
+  { value: "outro",       label: "Outro" },
+];
+
+// ── Estrutura Derivada ────────────────────────────────────────
+interface EstruturaItem {
+  id: string;
+  tipo: string;
+  nome: string;
+  descricao: string | null;
+  responsabilidades: string | null;
+  base_institucional: string | null;
+  referencia_documento: string | null;
+  nivel: string;
+  ordem: number;
+  ativo: boolean;
+}
+
+const TIPOS_ESTRUTURA = [
+  { value: "ministerio", label: "Ministério",  icon: "⛪" },
+  { value: "area",       label: "Área",        icon: "📂" },
+  { value: "diretoria",  label: "Diretoria",   icon: "👔" },
+  { value: "conselho",   label: "Conselho",    icon: "🤝" },
+  { value: "cargo",      label: "Cargo",       icon: "🏅" },
+  { value: "regra",      label: "Regra",       icon: "📋" },
+  { value: "outro",      label: "Outro",       icon: "🔖" },
+];
+
+const NIVEIS_ESTRUTURA = [
+  { value: "institucional", label: "Institucional" },
+  { value: "ministerial",   label: "Ministerial" },
+  { value: "area",          label: "Área" },
+];
+
+export default function DocumentosAdmin() {
+  const { hasRole } = useAuth();
+  const navigate = useNavigate();
+
+  const [docs, setDocs] = useState<Documento[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [tipoFiltro, setTipoFiltro] = useState<TipoDoc | "todos">("todos");
+
+  // Dialog documento
+  const [docOpen, setDocOpen] = useState(false);
+  const [editingDocId, setEditingDocId] = useState<string | null>(null);
+  const emptyDoc = { tipo: "outro" as TipoDoc, titulo: "", conteudo: "", versao: "1.0", vigente: false, aprovado_em: "", aprovado_por: "", arquivo_url: "" };
+  const [formDoc, setFormDoc] = useState<any>(emptyDoc);
+  const [savingDoc, setSavingDoc] = useState(false);
+
+  // Aba ativa (documentos | estrutura)
+  const [abaAtiva, setAbaAtiva] = useState<"documentos" | "estrutura">("documentos");
+
+  // Estrutura derivada
+  const [estruturas, setEstruturas] = useState<EstruturaItem[]>([]);
+  const [loadingEst, setLoadingEst] = useState(false);
+  const [estOpen, setEstOpen] = useState(false);
+  const [editingEstId, setEditingEstId] = useState<string | null>(null);
+  const emptyEst = {
+    tipo: "ministerio", nome: "", descricao: "", responsabilidades: "",
+    base_institucional: "", referencia_documento: "", nivel: "ministerial", ordem: 0,
+  };
+  const [formEst, setFormEst] = useState<any>(emptyEst);
+  const [savingEst, setSavingEst] = useState(false);
+  const [filtroTipoEst, setFiltroTipoEst] = useState<string>("todos");
+
+  // Painel de seções
+  const [secaoDocId, setSecaoDocId] = useState<string | null>(null);
+  const [secoes, setSecoes] = useState<Secao[]>([]);
+  const [loadingSecoes, setLoadingSecoes] = useState(false);
+  const [secaoOpen, setSecaoOpen] = useState(false);
+  const [editingSecaoId, setEditingSecaoId] = useState<string | null>(null);
+  const emptySecao = { titulo: "", conteudo: "", tipo_secao: "geral", ministerio_ref: "", palavras_chave: "", nivel_hierarquico: "", ordem: 0 };
+  const [formSecao, setFormSecao] = useState<any>(emptySecao);
+
+  useEffect(() => {
+    if (!hasRole(["admin", "secretaria"])) navigate("/", { replace: true });
+  }, []);
+
+  const loadDocs = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("documentos")
+      .select("*")
+      .order("tipo")
+      .order("titulo");
+    if (error) toast.error(error.message);
+    setDocs((data ?? []) as Documento[]);
+    setLoading(false);
+  };
+
+  useEffect(() => { loadDocs(); }, []);
+  useEffect(() => { if (abaAtiva === "estrutura") loadEstruturas(); }, [abaAtiva]);
+
+  const loadSecoes = async (docId: string) => {
+    setLoadingSecoes(true);
+    const { data } = await supabase
+      .from("secoes_documento")
+      .select("*")
+      .eq("documento_id", docId)
+      .order("ordem");
+    setSecoes((data ?? []) as Secao[]);
+    setLoadingSecoes(false);
+  };
+
+  // ── Salvar documento ──
+  const salvarDoc = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingDoc(true);
+    const payload: any = { ...formDoc };
+    Object.keys(payload).forEach(k => { if (payload[k] === "") payload[k] = null; });
+    let error;
+    if (editingDocId) {
+      ({ error } = await supabase.from("documentos").update(payload).eq("id", editingDocId));
+    } else {
+      ({ error } = await supabase.from("documentos").insert(payload));
+    }
+    setSavingDoc(false);
+    if (error) return toast.error(error.message);
+    toast.success(editingDocId ? "Documento atualizado" : "Documento criado");
+    setDocOpen(false);
+    setEditingDocId(null);
+    setFormDoc(emptyDoc);
+    loadDocs();
+  };
+
+  const startEditDoc = (d: Documento) => {
+    setEditingDocId(d.id);
+    setFormDoc({
+      tipo: d.tipo,
+      titulo: d.titulo,
+      conteudo: d.conteudo,
+      versao: d.versao,
+      vigente: d.vigente,
+      aprovado_em: d.aprovado_em ?? "",
+      aprovado_por: d.aprovado_por ?? "",
+      arquivo_url: d.arquivo_url ?? "",
+    });
+    setDocOpen(true);
+  };
+
+  const marcarVigente = async (d: Documento) => {
+    // Remove vigente dos do mesmo tipo, depois marca este
+    await supabase.from("documentos").update({ vigente: false }).eq("tipo", d.tipo);
+    const { error } = await supabase.from("documentos").update({ vigente: true }).eq("id", d.id);
+    if (error) return toast.error(error.message);
+    toast.success(`"${d.titulo}" marcado como vigente`);
+    loadDocs();
+  };
+
+  // ── Salvar seção ──
+  const salvarSecao = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const kw = (formSecao.palavras_chave as string)
+      .split(",").map((s: string) => s.trim().toLowerCase()).filter(Boolean);
+    const payload: any = {
+      documento_id: secaoDocId,
+      titulo: formSecao.titulo,
+      conteudo: formSecao.conteudo,
+      tipo_secao: formSecao.tipo_secao || null,
+      ministerio_ref: formSecao.ministerio_ref || null,
+      palavras_chave: kw,
+      nivel_hierarquico: formSecao.nivel_hierarquico ? Number(formSecao.nivel_hierarquico) : null,
+      ordem: Number(formSecao.ordem),
+    };
+    let error;
+    if (editingSecaoId) {
+      ({ error } = await supabase.from("secoes_documento").update(payload).eq("id", editingSecaoId));
+    } else {
+      ({ error } = await supabase.from("secoes_documento").insert(payload));
+    }
+    if (error) return toast.error(error.message);
+    toast.success(editingSecaoId ? "Seção atualizada" : "Seção adicionada");
+    setSecaoOpen(false);
+    setEditingSecaoId(null);
+    setFormSecao(emptySecao);
+    loadSecoes(secaoDocId!);
+  };
+
+  const startEditSecao = (s: Secao) => {
+    setEditingSecaoId(s.id);
+    setFormSecao({
+      titulo: s.titulo,
+      conteudo: s.conteudo,
+      tipo_secao: s.tipo_secao ?? "geral",
+      ministerio_ref: s.ministerio_ref ?? "",
+      palavras_chave: (s.palavras_chave ?? []).join(", "),
+      nivel_hierarquico: s.nivel_hierarquico?.toString() ?? "",
+      ordem: s.ordem,
+    });
+    setSecaoOpen(true);
+  };
+
+  const excluirSecao = async (id: string) => {
+    const { error } = await supabase.from("secoes_documento").delete().eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success("Seção removida");
+    loadSecoes(secaoDocId!);
+  };
+
+  // ── Estrutura derivada ──
+  const loadEstruturas = async () => {
+    setLoadingEst(true);
+    const { data, error } = await supabase
+      .from("documento_estrutura")
+      .select("*")
+      .eq("ativo", true)
+      .order("nivel")
+      .order("ordem")
+      .order("nome");
+    if (error) toast.error(error.message);
+    setEstruturas((data ?? []) as EstruturaItem[]);
+    setLoadingEst(false);
+  };
+
+  const salvarEstrutura = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingEst(true);
+    const payload: any = { ...formEst };
+    Object.keys(payload).forEach(k => { if (payload[k] === "") payload[k] = null; });
+    // Buscar o igreja_id da primeira identidade_igreja
+    const { data: igr } = await supabase
+      .from("identidade_igreja").select("id").eq("ativa", true).maybeSingle();
+    if (!igr?.id) { toast.error("Nenhuma identidade da igreja configurada."); setSavingEst(false); return; }
+    payload.igreja_id = igr.id;
+    let error;
+    if (editingEstId) {
+      ({ error } = await supabase.from("documento_estrutura").update(payload).eq("id", editingEstId));
+    } else {
+      ({ error } = await supabase.from("documento_estrutura").insert(payload));
+    }
+    setSavingEst(false);
+    if (error) return toast.error(error.message);
+    toast.success(editingEstId ? "Item atualizado" : "Item adicionado à estrutura");
+    setEstOpen(false);
+    setEditingEstId(null);
+    setFormEst(emptyEst);
+    loadEstruturas();
+  };
+
+  const excluirEstrutura = async (id: string) => {
+    if (!confirm("Remover este item da estrutura?")) return;
+    const { error } = await supabase.from("documento_estrutura").update({ ativo: false }).eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success("Item removido");
+    setEstruturas(prev => prev.filter(e => e.id !== id));
+  };
+
+  const startEditEstrutura = (item: EstruturaItem) => {
+    setEditingEstId(item.id);
+    setFormEst({
+      tipo: item.tipo,
+      nome: item.nome,
+      descricao: item.descricao ?? "",
+      responsabilidades: item.responsabilidades ?? "",
+      base_institucional: item.base_institucional ?? "",
+      referencia_documento: item.referencia_documento ?? "",
+      nivel: item.nivel,
+      ordem: item.ordem,
+    });
+    setEstOpen(true);
+  };
+
+  const abrirSecoes = (docId: string) => {
+    setSecaoDocId(docId);
+    loadSecoes(docId);
+  };
+
+  const docAtual = docs.find(d => d.id === secaoDocId);
+
+  const docsFiltrados = tipoFiltro === "todos"
+    ? docs
+    : docs.filter(d => d.tipo === tipoFiltro);
+
+  const countsPorTipo = TIPOS.reduce((acc, t) => {
+    acc[t.value] = docs.filter(d => d.tipo === t.value).length;
+    return acc;
+  }, {} as Record<string, number>);
+
+  return (
+    <div>
+      <PageHeader
+        title="Documentos Institucionais"
+        description={`${docs.length} documento${docs.length !== 1 ? "s" : ""} cadastrado${docs.length !== 1 ? "s" : ""}`}
+        actions={
+          <Button onClick={() => { setEditingDocId(null); setFormDoc(emptyDoc); setDocOpen(true); }}>
+            <Plus className="w-4 h-4 mr-2" /> Novo documento
+          </Button>
+        }
+      />
+
+      <div className="p-4 md:p-8">
+        <Tabs value={abaAtiva} onValueChange={(v) => setAbaAtiva(v as any)} className="mb-6">
+          <TabsList>
+            <TabsTrigger value="documentos" className="gap-1.5">
+              <FileText className="w-3.5 h-3.5" /> Documentos ({docs.length})
+            </TabsTrigger>
+            <TabsTrigger value="estrutura" className="gap-1.5">
+              <Network className="w-3.5 h-3.5" /> Estrutura Derivada ({estruturas.length})
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        {abaAtiva === "estrutura" && (
+          <div>
+            {/* Cabeçalho da aba estrutura */}
+            <div className="rounded-md border border-gold/30 bg-gold/5 px-4 py-3 mb-5 flex items-start gap-2">
+              <Info className="w-4 h-4 text-gold mt-0.5 shrink-0" />
+              <div>
+                <p className="text-xs font-medium text-gold">Estrutura Derivada dos Documentos Institucionais</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Ministérios, áreas e cargos extraídos do estatuto/regimento. Usados como base para autocompletar
+                  cadastros e gerar o organograma automaticamente.
+                </p>
+              </div>
+            </div>
+
+            {/* Filtros */}
+            <div className="flex flex-wrap gap-2 mb-4">
+              <button onClick={() => setFiltroTipoEst("todos")}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                  filtroTipoEst === "todos" ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border text-muted-foreground hover:bg-muted"
+                }`}>
+                Todos ({estruturas.length})
+              </button>
+              {TIPOS_ESTRUTURA.map(t => {
+                const cnt = estruturas.filter(e => e.tipo === t.value).length;
+                if (!cnt) return null;
+                return (
+                  <button key={t.value} onClick={() => setFiltroTipoEst(t.value)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                      filtroTipoEst === t.value ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border text-muted-foreground hover:bg-muted"
+                    }`}>
+                    {t.icon} {t.label} ({cnt})
+                  </button>
+                );
+              })}
+              <Button size="sm" className="ml-auto h-7 text-xs"
+                onClick={() => { setEditingEstId(null); setFormEst(emptyEst); setEstOpen(true); }}>
+                <Plus className="w-3 h-3 mr-1" /> Adicionar item
+              </Button>
+            </div>
+
+            {loadingEst ? (
+              <div className="flex items-center justify-center h-32 text-muted-foreground">
+                <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando…
+              </div>
+            ) : estruturas.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <Network className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                <p className="text-sm">Nenhum item cadastrado ainda.</p>
+                <p className="text-xs mt-1">Adicione ministérios, áreas e cargos derivados do estatuto.</p>
+                <Button className="mt-4" onClick={() => { setEditingEstId(null); setFormEst(emptyEst); setEstOpen(true); }}>
+                  <Plus className="w-4 h-4 mr-2" /> Adicionar primeiro item
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {estruturas
+                  .filter(e => filtroTipoEst === "todos" || e.tipo === filtroTipoEst)
+                  .map(item => {
+                    const meta = TIPOS_ESTRUTURA.find(t => t.value === item.tipo) ?? TIPOS_ESTRUTURA[6];
+                    return (
+                      <Card key={item.id} className="shadow-card-soft">
+                        <CardContent className="p-4 flex items-start gap-3">
+                          <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center text-base shrink-0">
+                            {meta.icon}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2 mb-1">
+                              <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded border">{meta.label}</span>
+                              <span className="text-[10px] text-muted-foreground">{NIVEIS_ESTRUTURA.find(n => n.value === item.nivel)?.label ?? item.nivel}</span>
+                            </div>
+                            <p className="font-medium text-sm leading-tight">{item.nome}</p>
+                            {item.descricao && (
+                              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{item.descricao}</p>
+                            )}
+                            {item.base_institucional && (
+                              <p className="text-[10px] text-gold/80 mt-1">📄 {item.base_institucional}</p>
+                            )}
+                          </div>
+                          <div className="flex gap-1 shrink-0">
+                            <button onClick={() => startEditEstrutura(item)}
+                              className="w-7 h-7 flex items-center justify-center rounded hover:bg-muted">
+                              <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
+                            </button>
+                            <button onClick={() => excluirEstrutura(item.id)}
+                              className="w-7 h-7 flex items-center justify-center rounded hover:bg-destructive/10">
+                              <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                            </button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {abaAtiva === "documentos" && <>
+        {/* Filtros por tipo */}
+        <div className="flex flex-wrap gap-2 mb-6">
+          <button
+            onClick={() => setTipoFiltro("todos")}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
+              tipoFiltro === "todos"
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-background border-border text-muted-foreground hover:bg-muted"
+            }`}
+          >
+            Todos ({docs.length})
+          </button>
+          {TIPOS.filter(t => countsPorTipo[t.value] > 0).map(t => (
+            <button
+              key={t.value}
+              onClick={() => setTipoFiltro(t.value)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors border ${
+                tipoFiltro === t.value
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-background border-border text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              {t.label} ({countsPorTipo[t.value]})
+            </button>
+          ))}
+        </div>
+
+        {/* Lista de documentos */}
+        {loading ? (
+          <div className="flex items-center justify-center h-32 text-muted-foreground">
+            <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando…
+          </div>
+        ) : docsFiltrados.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground">
+            <FileText className="w-10 h-10 mx-auto mb-3 opacity-30" />
+            <p className="text-sm">Nenhum documento encontrado.</p>
+            <Button className="mt-3" onClick={() => { setEditingDocId(null); setFormDoc(emptyDoc); setDocOpen(true); }}>
+              <Plus className="w-4 h-4 mr-2" /> Criar primeiro documento
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {docsFiltrados.map(d => {
+              const meta = tipoMeta(d.tipo);
+              const isOpen = secaoDocId === d.id;
+              return (
+                <Card key={d.id} className="shadow-card-soft overflow-hidden">
+                  <CardContent className="p-0">
+                    {/* Cabeçalho do documento */}
+                    <div className="p-4 flex items-start gap-3">
+                      <div className="w-9 h-9 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                        <FileText className="w-4 h-4 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 mb-1">
+                          <Badge variant="outline" className={`text-[10px] ${meta.color}`}>{meta.label}</Badge>
+                          <span className="text-[10px] text-muted-foreground border rounded px-1.5 py-0.5">v{d.versao}</span>
+                          {d.vigente && (
+                            <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-700 border-emerald-500/30 gap-1">
+                              <CheckCircle2 className="w-2.5 h-2.5" /> Vigente
+                            </Badge>
+                          )}
+                        </div>
+                        <h3 className="font-medium leading-tight">{d.titulo}</h3>
+                        {d.aprovado_por && (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Aprovado por {d.aprovado_por}
+                            {d.aprovado_em && ` em ${new Date(d.aprovado_em).toLocaleDateString("pt-BR")}`}
+                          </p>
+                        )}
+                        {d.conteudo && (
+                          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{d.conteudo}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {!d.vigente && (
+                          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => marcarVigente(d)}>
+                            <Clock className="w-3 h-3 mr-1" /> Marcar vigente
+                          </Button>
+                        )}
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => startEditDoc(d)}>
+                          <Pencil className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost" size="icon" className="h-7 w-7"
+                          onClick={() => isOpen ? setSecaoDocId(null) : abrirSecoes(d.id)}
+                        >
+                          {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Painel de seções (expansível) */}
+                    {isOpen && (
+                      <div className="border-t bg-muted/30 px-4 py-3">
+                        <div className="flex items-center justify-between mb-3">
+                          <p className="text-xs font-medium text-muted-foregro
