@@ -7,8 +7,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { CheckCircle2, Circle, Plus } from "lucide-react";
+import { CheckCircle2, Circle, Plus, MessageCircle } from "lucide-react";
 import type { Membro } from "@/pages/Membros";
+import { calcularEtapa, getMensagem, buildWhatsAppLink } from "@/lib/visitantesFluxo";
 
 interface Tarefa {
   id: string;
@@ -33,12 +34,6 @@ const STATUS_OPTIONS: { value: string; label: string; color: string }[] = [
   { value: "membro",           label: "Membro",            color: "bg-indigo-100 text-indigo-700 border-indigo-300" },
 ];
 
-const WHATSAPP_TEMPLATES = [
-  { id: "boas_vindas",    label: "Boas-vindas",    emoji: "💙", text: "Oi! Que alegria ter você conosco 💙 Estamos à disposição!" },
-  { id: "contato",        label: "Contato",        emoji: "😊", text: "Oi! Foi muito bom ter você com a gente 😊" },
-  { id: "convite",        label: "Convite",        emoji: "💙", text: "Neste domingo teremos algo especial, esperamos você 💙" },
-  { id: "acompanhamento", label: "Acompanhamento", emoji: "😊", text: "Passando para saber como você está 😊" },
-];
 
 export function AcolhimentoPanel({ pessoa, onUpdated }: Props) {
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
@@ -93,10 +88,14 @@ export function AcolhimentoPanel({ pessoa, onUpdated }: Props) {
     load();
   };
 
-  const sendWhatsApp = (tpl: typeof WHATSAPP_TEMPLATES[0]) => {
-    if (!telefone) { toast.error("Telefone não cadastrado para este visitante"); return; }
-    const numero = telefone.replace(/\D/g, "");
-    window.open(`https://wa.me/55${numero}?text=${encodeURIComponent(tpl.text)}`, "_blank");
+  const enviarWhatsApp = () => {
+    const nv     = (pessoa as any).numero_visitas ?? 1;
+    const criado = (pessoa as any).created_at ?? new Date().toISOString();
+    const etapa  = calcularEtapa(nv, criado);
+    const msg    = getMensagem(etapa, pessoa.nome_completo);
+    const link   = buildWhatsAppLink(telefone || null, msg);
+    if (!link) { toast.error("Telefone não cadastrado para este visitante"); return; }
+    window.open(link, "_blank", "noopener,noreferrer");
   };
 
   const checklist = [
@@ -161,16 +160,28 @@ export function AcolhimentoPanel({ pessoa, onUpdated }: Props) {
       {telefone ? (
         <section>
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Enviar por WhatsApp</p>
-          <div className="grid grid-cols-2 gap-2">
-            {WHATSAPP_TEMPLATES.map((tpl) => (
-              <Button key={tpl.id} type="button" variant="outline" size="sm"
-                className="h-auto py-2 px-3 flex-col items-start justify-start text-left gap-0.5"
-                onClick={() => sendWhatsApp(tpl)}>
-                <span className="text-xs font-semibold">{tpl.emoji} {tpl.label}</span>
-                <span className="text-[11px] text-muted-foreground leading-tight line-clamp-2 w-full" title={tpl.text}>{tpl.text}</span>
-              </Button>
-            ))}
-          </div>
+          {(() => {
+            const nv     = (pessoa as any).numero_visitas ?? 1;
+            const criado = (pessoa as any).created_at ?? new Date().toISOString();
+            const etapa  = calcularEtapa(nv, criado);
+            const msg    = getMensagem(etapa, pessoa.nome_completo);
+            return (
+              <div className="space-y-2">
+                <blockquote className="text-xs text-muted-foreground border-l-2 border-muted pl-3 whitespace-pre-line leading-relaxed bg-muted/20 rounded-r-md py-2 pr-2">
+                  {msg}
+                </blockquote>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="w-full gap-2 text-xs bg-[#25D366] hover:bg-[#128C7E] text-white border-0"
+                  onClick={enviarWhatsApp}
+                >
+                  <MessageCircle className="w-3.5 h-3.5" />
+                  Enviar mensagem de acolhimento
+                </Button>
+              </div>
+            );
+          })()}
         </section>
       ) : (
         <p className="text-xs text-muted-foreground italic">Cadastre o telefone celular para enviar mensagens pelo WhatsApp.</p>
