@@ -27,32 +27,32 @@ const App = () => (
   <ErrorBoundary>
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
-          <Routes>
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/agenda/imprimir" element={<AgendaPrint />} />
-            <Route element={<AppLayout />}>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/membros" element={<Membros />} />
-              <Route path="/familias" element={<Familias />} />
-              <Route path="/ministerios" element={<Ministerios />} />
-              <Route path="/eventos" element={<Eventos />} />
-              <Route path="/agenda" element={<Navigate to="/eventos" replace />} />
-              <Route path="/locais" element={<Locais />} />
-              <Route path="/visitantes" element={<Visitantes />} />
-              <Route path="/painel-estrategico" element={<PainelEstrategico />} />
-              <Route path="/organograma" element={<Organograma />} />
-              <Route path="/admin/recuperacao-senha" element={<RecuperacaoSenhaAdmin />} />
-            </Route>
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <AuthProvider>
+              <Routes>
+                <Route path="/auth" element={<Auth />} />
+                <Route path="/agenda/imprimir" element={<AgendaPrint />} />
+                <Route element={<AppLayout />}>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/membros" element={<Membros />} />
+                  <Route path="/familias" element={<Familias />} />
+                  <Route path="/ministerios" element={<Ministerios />} />
+                  <Route path="/eventos" element={<Eventos />} />
+                  <Route path="/agenda" element={<Navigate to="/eventos" replace />} />
+                  <Route path="/locais" element={<Locais />} />
+                  <Route path="/visitantes" element={<Visitantes />} />
+                  <Route path="/painel-estrategico" element={<PainelEstrategico />} />
+                  <Route path="/organograma" element={<Organograma />} />
+                  <Route path="/admin/recuperacao-senha" element={<RecuperacaoSenhaAdmin />} />
+                </Route>
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </AuthProvider>
+          </BrowserRouter>
+        </TooltipProvider>
       </QueryClientProvider>
     </ThemeProvider>
   </ErrorBoundary>
