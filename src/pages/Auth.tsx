@@ -208,33 +208,24 @@ export default function Auth() {
       <div className="w-full max-w-sm relative z-10">
 
         {/* ── Logo ── */}
-        <div className="text-center mb-7">
+        <div className="text-center mb-8">
           <BrandMark className="text-[3.5rem] text-foreground inline-block" />
-          <p className="text-foreground/50 mt-2 text-[10px] tracking-[0.22em] uppercase font-medium">
-            Sistema de Gestão Ministerial
+          <p className="text-foreground/45 mt-2.5 text-[10px] tracking-[0.24em] uppercase font-medium">
+            Conectando Pessoas, Organizando o Propósito
           </p>
-        </div>
-
-        {/* ── Versículo dinâmico ── */}
-        <div className="mb-5 px-1">
-          <div className="bg-gold/8 border border-gold/20 rounded-xl px-4 py-3 text-center space-y-1">
-            <p className="text-[13px] text-foreground/75 font-serif italic leading-relaxed">
-              "{versiculo.texto}"
-            </p>
-            <p className="text-[11px] text-gold font-medium tracking-wide">
-              — {versiculo.ref}
-            </p>
-          </div>
         </div>
 
         {/* ── TELA: Login ── */}
         {tela === "login" && (
           <div className="bg-card rounded-2xl shadow-elevated border border-border/50 p-7 space-y-5">
-            <div>
-              <h1 className="font-serif text-xl font-semibold">
-                {getSaudacao()}! Que Deus abençoe sua jornada hoje 🙏
+            <div className="space-y-0.5">
+              <h1 className="font-serif text-2xl font-bold tracking-wide">
+                Graça e Paz ✝️
               </h1>
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="text-sm text-muted-foreground font-medium">
+                Que Deus abençoe sua jornada hoje 🙏
+              </p>
+              <p className="text-xs text-muted-foreground/70 pt-1">
                 Entre com seu e-mail e senha para continuar.
               </p>
             </div>
@@ -401,10 +392,13 @@ export default function Auth() {
         )}
 
         {/* ── Rodapé institucional ── */}
-        <p className="text-center text-[10px] text-foreground/30 mt-6 tracking-wide">
-          DiakoniaApp.com.br · CNPJ 34.926.658/0001-40
+        <p className="text-center text-[10px] text-foreground/30 mt-6 tracking-wide leading-relaxed">
+          DiakoniaApp — Sistema de Gestão Ministerial
+          <br />
+          CNPJ: 34.926.658/0001-40
         </p>
       </div>
     </div>
   );
 }
+                                                                                                                                                                                                                                                                     
