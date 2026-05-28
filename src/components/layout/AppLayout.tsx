@@ -20,6 +20,7 @@ import { useEffect } from "react";
 import { QuickActionsFab } from "@/components/QuickActionsFab";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { UserMenuButton } from "@/components/layout/UserMenuButton";
 
 const desktopNav = [
   { to: "/", label: "Painel", icon: LayoutDashboard, end: true },
@@ -75,6 +76,7 @@ export default function AppLayout() {
 
   return (
     <div className="h-screen overflow-hidden flex w-full bg-background">
+      {/* ─── Sidebar desktop ─── */}
       <aside className="hidden md:flex w-64 flex-col bg-sidebar text-sidebar-foreground">
         <div className="p-6 border-b border-sidebar-border">
           <BrandMark className="text-2xl text-sidebar-foreground" />
@@ -150,8 +152,8 @@ export default function AppLayout() {
       </aside>
 
       <div className="flex-1 flex flex-col min-h-0">
-        {/* App-like mobile header (fixed, with back/title) */}
-        <header className="md:hidden sticky top-0 z-40 flex items-center gap-3 h-14 px-3 bg-sidebar text-sidebar-foreground border-b border-sidebar-border pt-safe">
+        {/* ─── Header mobile ─── */}
+        <header className="md:hidden sticky top-0 z-40 flex items-center gap-2 h-14 px-3 bg-sidebar text-sidebar-foreground border-b border-sidebar-border pt-safe">
           {!isHome && (
             <button
               onClick={() => navigate(-1)}
@@ -161,15 +163,27 @@ export default function AppLayout() {
               <ChevronLeft className="w-5 h-5" />
             </button>
           )}
+
           <BrandMark className="text-base text-sidebar-foreground shrink-0" />
+
           {!isHome && (
-            <h1 translate="no" className="font-serif text-base truncate ml-auto text-sidebar-foreground/90">
+            <h1
+              translate="no"
+              className="font-serif text-base truncate ml-auto text-sidebar-foreground/90 mr-1"
+            >
               {currentTitle}
             </h1>
           )}
-          <ThemeToggle
-            className={`text-sidebar-foreground hover:bg-sidebar-accent shrink-0 ${isHome ? "ml-auto" : "ml-2"}`}
-          />
+
+          {/* Espaço flexível quando na home */}
+          {isHome && <span className="flex-1" />}
+
+          {/* Botões topo direito */}
+          <div className="flex items-center gap-1 shrink-0">
+            <ThemeToggle className="text-sidebar-foreground hover:bg-sidebar-accent" />
+            {/* Menu do usuário — avatar + dropdown */}
+            <UserMenuButton />
+          </div>
         </header>
 
         <main

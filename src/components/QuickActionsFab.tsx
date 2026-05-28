@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Plus, UserPlus, CalendarPlus, Home as HomeIcon, X } from "lucide-react";
+import { Plus, UserPlus, CalendarPlus, Home as HomeIcon, HeartHandshake } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 
 /**
  * Floating Action Button (FAB) com ações rápidas.
  * Visível apenas em mobile (md:hidden) e somente para usuários com permissão de edição.
+ * Ações: Adicionar pessoa, Novo evento, Nova família, Criar ministério (admin/secretaria).
  */
 export function QuickActionsFab() {
   const [open, setOpen] = useState(false);
@@ -19,7 +20,6 @@ export function QuickActionsFab() {
   const go = (path: string, query?: string) => {
     setOpen(false);
     if (location.pathname === path && query) {
-      // força refresh do parâmetro
       navigate(`${path}?${query}=1&t=${Date.now()}`);
     } else {
       navigate(query ? `${path}?${query}=1` : path);
@@ -27,10 +27,32 @@ export function QuickActionsFab() {
   };
 
   const actions = [
-    { label: "Nova pessoa", icon: UserPlus, onClick: () => go("/membros", "novo") },
-    { label: "Novo evento", icon: CalendarPlus, onClick: () => go("/eventos", "novo") },
-    { label: "Nova família", icon: HomeIcon, onClick: () => go("/familias", "novo") },
-  ];
+    {
+      label: "Adicionar pessoa",
+      icon: UserPlus,
+      onClick: () => go("/membros", "novo"),
+      visible: true,
+    },
+    {
+      label: "Novo evento",
+      icon: CalendarPlus,
+      onClick: () => go("/eventos", "novo"),
+      visible: true,
+    },
+    {
+      label: "Nova família",
+      icon: HomeIcon,
+      onClick: () => go("/familias", "novo"),
+      visible: true,
+    },
+    {
+      label: "Criar ministério",
+      icon: HeartHandshake,
+      onClick: () => go("/ministerios", "novo"),
+      // ministério visível para todos com canEdit, mas destaque para admin/secretaria
+      visible: true,
+    },
+  ].filter((a) => a.visible);
 
   return (
     <div className="md:hidden">
@@ -46,27 +68,28 @@ export function QuickActionsFab() {
       {/* Action items */}
       <div
         className={cn(
-          "fixed right-4 z-50 flex flex-col-reverse items-end gap-3 transition-all",
-          // sit above bottom nav (h~64) + safe-area
+          "fixed right-4 z-50 flex flex-col-reverse items-end gap-3 transition-all duration-200",
           "bottom-[calc(5.5rem+env(safe-area-inset-bottom))]",
-          open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none translate-y-2"
+          open
+            ? "opacity-100 pointer-events-auto translate-y-0"
+            : "opacity-0 pointer-events-none translate-y-4"
         )}
       >
         {actions.map((a) => (
           <button
             key={a.label}
             onClick={a.onClick}
-            className="flex items-center gap-3 pl-4 pr-3 h-12 rounded-full bg-card border border-border shadow-elevated text-sm font-medium animate-scale-in"
+            className="flex items-center gap-3 pl-4 pr-3 h-14 rounded-full bg-card border border-border shadow-elevated text-sm font-medium animate-scale-in active:scale-95 transition-transform"
           >
             <span>{a.label}</span>
-            <span className="w-9 h-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
+            <span className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
               <a.icon className="w-4 h-4" />
             </span>
           </button>
         ))}
       </div>
 
-      {/* FAB */}
+      {/* FAB principal */}
       <div
         className="fixed right-4 z-50 flex flex-col items-center gap-1"
         style={{ bottom: "calc(4.5rem + env(safe-area-inset-bottom))" }}
@@ -85,7 +108,12 @@ export function QuickActionsFab() {
             "flex items-center justify-center active:scale-95 transition-transform"
           )}
         >
-          {open ? <X className="w-6 h-6" /> : <Plus className="w-6 h-6" />}
+          <Plus
+            className={cn(
+              "w-6 h-6 transition-transform duration-200",
+              open && "rotate-45"
+            )}
+          />
         </button>
       </div>
     </div>
