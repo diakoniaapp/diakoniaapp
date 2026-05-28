@@ -13,6 +13,7 @@ import {
   MapPin,
   BarChart2,
   Building2,
+  KeyRound,
 } from "lucide-react";
 import { BrandMark } from "@/components/Brand";
 import { useEffect } from "react";
@@ -41,10 +42,11 @@ const pageTitles: Record<string, string> = {
   "/visitantes": "Visitantes",
   "/painel-estrategico": "Crescimento",
   "/organograma": "Organograma",
+  "/admin/recuperacao-senha": "Recuperação de Senhas",
 };
 
 export default function AppLayout() {
-  const { user, loading, signOut, roles } = useAuth();
+  const { user, loading, signOut, roles, hasRole } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -102,6 +104,29 @@ export default function AppLayout() {
             );
           })}
         </nav>
+
+        {/* Seção Admin — visível apenas para admin e secretaria */}
+        {hasRole(["admin", "secretaria"]) && (
+          <div className="px-3 pb-2">
+            <div className="text-[10px] uppercase tracking-widest text-sidebar-foreground/40 px-3 pb-1">
+              Administração
+            </div>
+            <NavLink
+              to="/admin/recuperacao-senha"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors ${
+                  isActive
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground border-l-2 border-gold"
+                    : "hover:bg-sidebar-accent/60 text-sidebar-foreground/80"
+                }`
+              }
+            >
+              <KeyRound className="w-4 h-4" />
+              <span translate="no">Recuperação de Senhas</span>
+            </NavLink>
+          </div>
+        )}
+
         <div className="p-4 border-t border-sidebar-border space-y-3">
           <div className="flex items-center gap-2 text-xs">
             <ShieldCheck className="w-3.5 h-3.5 text-gold" />
