@@ -67,17 +67,27 @@ export function QuickActionsFab() {
       </div>
 
       {/* FAB */}
-      <button
-        aria-label={open ? "Fechar ações rápidas" : "Abrir ações rápidas"}
-        onClick={() => setOpen((v) => !v)}
-        className={cn(
-          "fixed right-4 z-50 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-elevated",
-          "flex items-center justify-center active:scale-95 transition-transform",
-          "bottom-[calc(4.5rem+env(safe-area-inset-bottom))]"
-        )}
+      <div
+        className="fixed right-4 z-50 flex flex-col items-center gap-1"
+        style={{ bottom: "calc(4.5rem + env(safe-area-inset-bottom))" }}
       >
-        {open ? <X className="w-6 h-6" /> : <Plus className="w-6 h-6" />}
-      </button>
+        {!open && (
+          <span className="text-[10px] font-semibold tracking-wide text-primary/80 bg-background/80 backdrop-blur-sm px-2 py-0.5 rounded-full shadow-sm border border-border/40 select-none">
+            Adicionar
+          </span>
+        )}
+        <button
+          aria-label={open ? "Fechar ações rápidas" : "Adicionar pessoa, evento ou família"}
+          title={open ? "Fechar" : "Adicionar pessoa, evento ou família"}
+          onClick={() => setOpen((v) => !v)}
+          className={cn(
+            "w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-elevated",
+            "flex items-center justify-center active:scale-95 transition-transform"
+          )}
+        >
+          {open ? <X className="w-6 h-6" /> : <Plus className="w-6 h-6" />}
+        </button>
+      </div>
     </div>
   );
 }
