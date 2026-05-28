@@ -12,15 +12,19 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Upload, FileSpreadsheet, CheckCircle2, AlertTriangle, XCircle,
   Loader2, Users, SkipForward, RefreshCw, Download, History,
-  ChevronRight, Eye, Check,
+  ChevronRight, Eye, Check, Trash2, Lock, AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
 type Etapa = "upload" | "mapeamento" | "revisao" | "importando" | "concluido";
+type EtapaExclusao = "opcoes" | "senha" | "confirmacao";
 
 interface LinhaImport {
   _idx: number;
@@ -56,7 +60,6 @@ const CAMPOS_SISTEMA = [
   { value: "_ignorar",    label: "— Ignorar coluna —" },
 ];
 
-// Detecta automaticamente o campo do sistema pela coluna da planilha
 const detectarCampo = (col: string): string => {
   const c = col.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
   if (/^nome|name|completo/.test(c)) return "nome";
@@ -67,16 +70,14 @@ const detectarCampo = (col: string): string => {
   return "_ignorar";
 };
 
-// Normaliza tipo_pessoa para valores válidos do sistema
 const normalizarTipo = (v: string): string => {
   const s = (v ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
   if (/membro/.test(s)) return "membro";
   if (/congreg/.test(s)) return "congregado";
   if (/visit/.test(s)) return "visitante";
-  return "congregado"; // default seguro
+  return "congregado";
 };
 
-// Carrega SheetJS dinamicamente (sem alterar package.json)
 const carregarXLSX = (): Promise<any> => {
   if ((window as any).XLSX) return Promise.resolve((window as any).XLSX);
   return new Promise((resolve, reject) => {
@@ -107,6 +108,14 @@ export default function ImportacaoMembros() {
   const [emailsExistentes, setEmailsExistentes] = useState<Set<string>>(new Set());
   const [telefonesExistentes, setTelefonesExistentes] = useState<Set<string>>(new Set());
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // ── Estado: fluxo de exclusão ──────────────────────────────────────────────
+  const [excluirAlvo, setExcluirAlvo] = useState<ImportHistorico | null>(null);
+  const [etapaExclusao, setEtapaExclusao] = useState<EtapaExclusao>("opcoes");
+  const [opcaoExclusao, setOpcaoExclusao] = useState<"somente_historico" | "completa">("somente_historico");
+  const [senhaExclusao, setSenhaExclusao] = useState("");
+  const [erroSenha, setErroSenha] = useState("");
+  const [executandoExclusao, setExecutandoExclusao] = useState(false);
 
   useEffect(() => {
     if (!hasRole(["admin", "secretaria"])) navigate("/", { replace: true });
@@ -161,7 +170,6 @@ export default function ImportacaoMembros() {
       setMapeamento(map);
       setCarregando(false);
       setEtapa("mapeamento");
-      // guarda linhas brutas para usar no passo seguinte
       (window as any).__importRows = rows;
     } catch (err: any) {
       toast.error("Erro ao processar arquivo: " + (err.message ?? "formato inválido"));
@@ -177,7 +185,6 @@ export default function ImportacaoMembros() {
           const text   = e.target?.result as string;
           const linhas = text.split(/\r?\n/).filter(l => l.trim());
           if (linhas.length < 2) { resolve([]); return; }
-          // detecta separador
           const sep = linhas[0].includes(";") ? ";" : ",";
           const headers = linhas[0].split(sep).map(h => h.trim().replace(/^"|"$/g,""));
           const rows = linhas.slice(1).map(l => {
@@ -229,7 +236,6 @@ export default function ImportacaoMembros() {
     let importados = 0;
     let erros      = 0;
 
-    // Salva registro de importação
     const { data: impRec } = await supabase.from("importacoes_membros").insert({
       nome_arquivo: arquivo?.name ?? "importacao",
       status: "processando",
@@ -248,6 +254,7 @@ export default function ImportacaoMembros() {
           tipo_pessoa:   l.tipo_pessoa,
           status:        "ativo",
           perfil_acesso: "membro",
+          importacao_id: impRec?.id ?? null,
         };
         if (l.email)    payload.email    = l.email;
         if (l.telefone) payload.telefone = l.telefone;
@@ -258,7 +265,6 @@ export default function ImportacaoMembros() {
 
     const duplicados = linhas.filter(l => l._duplicado && !l._ignorar).length;
 
-    // Atualiza o registro de importação
     if (impRec?.id) {
       await supabase.from("importacoes_membros").update({
         status: "concluido",
@@ -283,13 +289,66 @@ export default function ImportacaoMembros() {
     setLinhas(prev => prev.map(l => {
       if (l._idx !== idx) return l;
       const updated: any = { ...l, [campo]: valor };
-      // Re-valida
       const erros: string[] = [];
       if (!updated.nome) erros.push("Nome obrigatório");
       if (updated.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(updated.email)) erros.push("E-mail inválido");
       updated._erros = erros;
       return updated;
     }));
+
+  // ── Exclusão segura ────────────────────────────────────────────────────────
+
+  const iniciarExclusao = (h: ImportHistorico) => {
+    setExcluirAlvo(h);
+    setEtapaExclusao("opcoes");
+    setOpcaoExclusao("somente_historico");
+    setSenhaExclusao("");
+    setErroSenha("");
+  };
+
+  const fecharModalExclusao = () => {
+    setExcluirAlvo(null);
+    setSenhaExclusao("");
+    setErroSenha("");
+  };
+
+  const validarSenhaExclusao = async () => {
+    if (!senhaExclusao.trim()) { setErroSenha("Digite sua senha."); return; }
+    setExecutandoExclusao(true);
+    setErroSenha("");
+    const { error } = await supabase.auth.signInWithPassword({
+      email: user?.email ?? "",
+      password: senhaExclusao,
+    });
+    setExecutandoExclusao(false);
+    if (error) { setErroSenha("Senha incorreta. Tente novamente."); return; }
+    setEtapaExclusao("confirmacao");
+  };
+
+  const confirmarExclusao = async () => {
+    if (!excluirAlvo) return;
+    setExecutandoExclusao(true);
+    try {
+      const { data, error } = await supabase.rpc("excluir_importacao", {
+        p_importacao_id: excluirAlvo.id,
+        p_deletar_dados: opcaoExclusao === "completa",
+      });
+      if (error) throw error;
+      const resultado = data as any;
+      const msg = opcaoExclusao === "completa"
+        ? `Importação excluída — ${resultado.membros_excluidos ?? 0} membro(s) removido(s)`
+        : "Histórico removido (dados dos membros mantidos)";
+      toast.success(msg);
+      fecharModalExclusao();
+      carregarHistorico();
+    } catch (err: any) {
+      const msg = err?.message ?? "Erro ao excluir";
+      if (msg.includes("PERMISSAO_NEGADA")) toast.error("Permissão negada: somente administradores.");
+      else toast.error(msg);
+    } finally {
+      setExecutandoExclusao(false);
+    }
+  };
 
   // ── Stats ─────────────────────────────────────────────────────────────────
 
@@ -350,8 +409,18 @@ export default function ImportacaoMembros() {
                       </div>
                       <Badge variant="outline" className={
                         h.status === "concluido" ? "text-emerald-600 border-emerald-300" :
-                        h.status === "cancelado" ? "text-destructive" : "text-amber-600"
+                        h.status === "cancelado" ? "text-destructive border-destructive/30" :
+                        "text-amber-600"
                       }>{h.status}</Badge>
+                      {hasRole(["admin"]) && h.status !== "cancelado" && (
+                        <button
+                          title="Excluir importação"
+                          onClick={() => iniciarExclusao(h)}
+                          className="w-7 h-7 flex items-center justify-center rounded hover:bg-destructive/10 shrink-0"
+                        >
+                          <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -409,7 +478,7 @@ export default function ImportacaoMembros() {
           </Card>
         )}
 
-        {/* ── ETAPA 2: Mapeamento de colunas ── */}
+        {/* ── ETAPA 2: Mapeamento ── */}
         {etapa === "mapeamento" && (
           <Card className="shadow-card-soft">
             <CardHeader>
@@ -443,7 +512,6 @@ export default function ImportacaoMembros() {
                   </div>
                 ))}
               </div>
-              {/* Validação: nome é obrigatório */}
               {!Object.values(mapeamento).includes("nome") && (
                 <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive flex items-center gap-2">
                   <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
@@ -466,7 +534,6 @@ export default function ImportacaoMembros() {
         {/* ── ETAPA 3: Revisão ── */}
         {etapa === "revisao" && (
           <div className="space-y-4">
-            {/* Resumo */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {[
                 { label: "Total", value: total, icon: <Users className="w-4 h-4"/>, cor: "text-primary" },
@@ -647,6 +714,164 @@ export default function ImportacaoMembros() {
           </Card>
         )}
       </div>
+
+      {/* ── Modal: Exclusão de Importação ─────────────────────────────────────── */}
+      <Dialog open={!!excluirAlvo} onOpenChange={(o) => { if (!o) fecharModalExclusao(); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-serif text-xl flex items-center gap-2 text-destructive">
+              <Trash2 className="w-5 h-5" />
+              Excluir importação
+            </DialogTitle>
+          </DialogHeader>
+
+          {/* ── Etapa 1: Opções ── */}
+          {etapaExclusao === "opcoes" && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Importação: <strong className="text-foreground">{excluirAlvo?.nome_arquivo}</strong>
+                <br />
+                <span className="text-xs">{excluirAlvo?.importados ?? 0} membro(s) importado(s) neste lote.</span>
+              </p>
+
+              {/* Alerta para volume alto */}
+              {(excluirAlvo?.importados ?? 0) > 100 && (
+                <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 px-3 py-2.5 flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                  <p className="text-xs text-amber-800 dark:text-amber-300 font-medium">
+                    Atenção: você está excluindo um <strong>grande volume de dados</strong> ({excluirAlvo?.importados} registros).
+                  </p>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">O que deseja excluir?</Label>
+                <div className="space-y-2">
+                  <label className={`flex items-start gap-3 rounded-md border p-3 cursor-pointer transition-colors ${
+                    opcaoExclusao === "somente_historico" ? "border-primary bg-primary/5" : "border-border hover:bg-muted/40"
+                  }`}>
+                    <input
+                      type="radio"
+                      name="opcao_exclusao"
+                      checked={opcaoExclusao === "somente_historico"}
+                      onChange={() => setOpcaoExclusao("somente_historico")}
+                      className="mt-0.5"
+                    />
+                    <div>
+                      <p className="text-sm font-medium">Somente o histórico</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Remove o registro desta importação do histórico, mas mantém os membros cadastrados no sistema.
+                      </p>
+                    </div>
+                  </label>
+                  <label className={`flex items-start gap-3 rounded-md border p-3 cursor-pointer transition-colors ${
+                    opcaoExclusao === "completa" ? "border-destructive bg-destructive/5" : "border-border hover:bg-muted/40"
+                  }`}>
+                    <input
+                      type="radio"
+                      name="opcao_exclusao"
+                      checked={opcaoExclusao === "completa"}
+                      onChange={() => setOpcaoExclusao("completa")}
+                      className="mt-0.5"
+                    />
+                    <div>
+                      <p className="text-sm font-medium text-destructive">Histórico + dados importados</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Remove o histórico <strong>e</strong> todos os {excluirAlvo?.importados ?? 0} membros importados neste lote. Um backup será criado automaticamente.
+                      </p>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={fecharModalExclusao}>Cancelar</Button>
+                <Button
+                  variant={opcaoExclusao === "completa" ? "destructive" : "default"}
+                  onClick={() => setEtapaExclusao("senha")}
+                >
+                  Continuar
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+
+          {/* ── Etapa 2: Senha ── */}
+          {etapaExclusao === "senha" && (
+            <div className="space-y-4">
+              <div className="rounded-md border border-border bg-muted/30 px-3 py-2.5 flex items-center gap-2">
+                <Lock className="w-4 h-4 text-muted-foreground shrink-0" />
+                <p className="text-xs text-muted-foreground">
+                  Por segurança, confirme sua senha de administrador antes de prosseguir.
+                </p>
+              </div>
+              <div>
+                <Label htmlFor="senha-exclusao">Senha de administrador</Label>
+                <Input
+                  id="senha-exclusao"
+                  type="password"
+                  autoFocus
+                  className={`mt-1.5 ${erroSenha ? "border-destructive" : ""}`}
+                  value={senhaExclusao}
+                  onChange={(e) => { setSenhaExclusao(e.target.value); setErroSenha(""); }}
+                  onKeyDown={(e) => { if (e.key === "Enter") validarSenhaExclusao(); }}
+                  placeholder="Digite sua senha"
+                />
+                {erroSenha && (
+                  <p className="text-xs text-destructive mt-1 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" /> {erroSenha}
+                  </p>
+                )}
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setEtapaExclusao("opcoes")}>Voltar</Button>
+                <Button
+                  variant="destructive"
+                  onClick={validarSenhaExclusao}
+                  disabled={executandoExclusao}
+                >
+                  {executandoExclusao
+                    ? <><Loader2 className="w-3.5 h-3.5 animate-spin mr-2" />Verificando…</>
+                    : "Confirmar senha"
+                  }
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+
+          {/* ── Etapa 3: Confirmação final ── */}
+          {etapaExclusao === "confirmacao" && (
+            <div className="space-y-4">
+              <div className="rounded-md border border-destructive/40 bg-destructive/5 px-4 py-3 text-center">
+                <AlertCircle className="w-8 h-8 text-destructive mx-auto mb-2" />
+                <p className="text-sm font-semibold text-destructive">Esta ação não pode ser desfeita</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {opcaoExclusao === "completa"
+                    ? `Você está prestes a excluir o histórico e ${excluirAlvo?.importados ?? 0} membro(s) importado(s). Um backup JSONB será gerado automaticamente para fins de auditoria.`
+                    : "Você está prestes a remover apenas o histórico desta importação. Os membros continuarão no sistema."
+                  }
+                </p>
+              </div>
+              <p className="text-sm text-center">
+                Tem certeza que deseja excluir <strong>"{excluirAlvo?.nome_arquivo}"</strong>?
+              </p>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setEtapaExclusao("senha")}>Voltar</Button>
+                <Button
+                  variant="destructive"
+                  onClick={confirmarExclusao}
+                  disabled={executandoExclusao}
+                >
+                  {executandoExclusao
+                    ? <><Loader2 className="w-3.5 h-3.5 animate-spin mr-2" />Excluindo…</>
+                    : "Sim, excluir definitivamente"
+                  }
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
