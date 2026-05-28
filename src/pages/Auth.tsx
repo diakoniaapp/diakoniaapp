@@ -194,25 +194,27 @@ export default function Auth() {
   );
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-hero p-4 relative overflow-hidden">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-hero p-4">
 
-      {/* Versículo de fundo — decorativo */}
-      <div className="absolute inset-0 flex items-end justify-center pb-6 pointer-events-none select-none">
-        <div className="max-w-lg text-center px-6 opacity-[0.06]">
-          <p className="text-3xl font-serif italic leading-relaxed text-foreground">
-            "{versiculo.texto}"
-          </p>
-        </div>
-      </div>
-
-      <div className="w-full max-w-sm relative z-10">
+      <div className="w-full max-w-sm">
 
         {/* ── Logo ── */}
-        <div className="text-center mb-8">
-          <BrandMark className="text-[3.5rem] text-foreground inline-block" />
-          <p className="text-foreground/45 mt-2.5 text-[10px] tracking-[0.24em] uppercase font-medium">
-            Conectando Pessoas, Organizando o Propósito
-          </p>
+        <div className="text-center mb-10">
+          {/* Container com sombra sutil para destacar a logo */}
+          <div className="inline-flex flex-col items-center gap-3">
+            <div className="drop-shadow-[0_2px_8px_rgba(0,0,0,0.18)]">
+              <BrandMark className="text-[4rem] text-foreground" />
+            </div>
+            {/* Tagline em 2 linhas — legível e elegante */}
+            <div className="text-center space-y-0.5">
+              <p className="text-[11px] tracking-[0.20em] uppercase font-semibold text-foreground/60 leading-relaxed">
+                Conectando Pessoas,
+              </p>
+              <p className="text-[11px] tracking-[0.20em] uppercase font-semibold text-foreground/60 leading-relaxed">
+                Organizando o Propósito
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* ── TELA: Login ── */}
