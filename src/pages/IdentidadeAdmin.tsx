@@ -751,7 +751,7 @@ export default function IdentidadeAdmin() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Slug (URL amigável)</Label>
-                <Input value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} placeholder="qibrj" />
+                <Input value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} placeholder="minha-igreja" />
               </div>
               <div>
                 <Label>URL do Logo</Label>
