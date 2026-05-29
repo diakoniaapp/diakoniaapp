@@ -107,7 +107,8 @@ export default function ImportacaoMembros() {
   const [verHistorico, setVerHistorico] = useState(false);
   const [emailsExistentes, setEmailsExistentes] = useState<Set<string>>(new Set());
   const [telefonesExistentes, setTelefonesExistentes] = useState<Set<string>>(new Set());
-  const fileRef = useRef<HTMLInputElement>(null);
+  const fileRef  = useRef<HTMLInputElement>(null);
+  const rowsRef  = useRef<Record<string, any>[]>([]); // substitui window.__importRows
 
   // ── Estado: fluxo de exclusão ──────────────────────────────────────────────
   const [excluirAlvo, setExcluirAlvo] = useState<ImportHistorico | null>(null);
@@ -170,7 +171,7 @@ export default function ImportacaoMembros() {
       setMapeamento(map);
       setCarregando(false);
       setEtapa("mapeamento");
-      (window as any).__importRows = rows;
+      rowsRef.current = rows;
     } catch (err: any) {
       toast.error("Erro ao processar arquivo: " + (err.message ?? "formato inválido"));
       setCarregando(false);
@@ -203,7 +204,7 @@ export default function ImportacaoMembros() {
   // ── Etapa 2 → 3: Processar com mapeamento ─────────────────────────────────
 
   const processarComMapeamento = () => {
-    const rows: Record<string,any>[] = (window as any).__importRows ?? [];
+    const rows: Record<string,any>[] = rowsRef.current;
     const processadas: LinhaImport[] = rows.map((row, idx) => {
       const get = (campo: string) => {
         const col = Object.keys(mapeamento).find(k => mapeamento[k] === campo);
