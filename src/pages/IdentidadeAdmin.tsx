@@ -179,6 +179,9 @@ export default function IdentidadeAdmin() {
     slug: "",
     logo_url: "",
     site_oficial: "",
+    // Camada 2: referências documentais
+    origem_missao_ref: "",
+    origem_visao_ref: "",
   });
 
   // Pastor
@@ -189,6 +192,38 @@ export default function IdentidadeAdmin() {
   const [showPastorDrop, setShowPastorDrop] = useState(false);
   const pastorDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pastorRef = useRef<HTMLDivElement>(null);
+
+  // ── Sugestão a partir dos documentos (Camada 1 → Camada 2) ──
+  const [sugerindoDoc, setSugerindoDoc]         = useState(false);
+  const [sugestaoDocAberta, setSugestaoDocAberta] = useState<"missao"|"visao"|null>(null);
+  const [secoesDocSugeridas, setSecoesDocSugeridas] = useState<any[]>([]);
+
+  const sugerirAPartirDosDocumentos = async (campo: "missao" | "visao") => {
+    setSugerindoDoc(true);
+    setSugestaoDocAberta(campo);
+    const { data, error } = await supabase
+      .rpc("sugerir_identidade_por_tag", { p_tag: campo, p_limite: 5 });
+    setSugerindoDoc(false);
+    if (error || !data || (data as any[]).length === 0) {
+      toast.info(`Nenhuma seção de documento está marcada com a tag "${campo}". Vá em Documentos e adicione tags conceituais às seções relevantes.`);
+      setSugestaoDocAberta(null);
+      return;
+    }
+    setSecoesDocSugeridas(data as any[]);
+  };
+
+  const aplicarSugestaoDoc = (campo: "missao"|"visao", secao: any) => {
+    const texto = secao.trecho?.trim() ?? "";
+    const ref   = secao.referencia ?? "";
+    setForm(p => ({
+      ...p,
+      [campo]:                       texto,
+      [`origem_${campo}_ref` as any]: ref,
+    }));
+    setSugestaoDocAberta(null);
+    setSecoesDocSugeridas([]);
+    toast.success(`${campo === "missao" ? "Missão" : "Visão"} preenchida! Revise e edite antes de salvar.`);
+  };
 
   // Cadastro de novo pastor
   const [showCadastrarPastor, setShowCadastrarPastor] = useState(false);
@@ -256,15 +291,17 @@ export default function IdentidadeAdmin() {
       const ident = id as any;
       setIdentidade(ident);
       setForm({
-        nome_igreja:  ident.nome_igreja   ?? "",
-        cnpj:         ident.cnpj          ?? "",
-        missao:       ident.missao        ?? "",
-        visao:        ident.visao         ?? "",
-        fundada_em:   ident.fundada_em    ?? "",
-        resumo:       ident.resumo        ?? "",
-        slug:         ident.slug          ?? "",
-        logo_url:     ident.logo_url      ?? "",
-        site_oficial: ident.site_oficial  ?? "",
+        nome_igreja:       ident.nome_igreja        ?? "",
+        cnpj:              ident.cnpj               ?? "",
+        missao:            ident.missao             ?? "",
+        visao:             ident.visao              ?? "",
+        fundada_em:        ident.fundada_em         ?? "",
+        resumo:            ident.resumo             ?? "",
+        slug:              ident.slug               ?? "",
+        logo_url:          ident.logo_url           ?? "",
+        site_oficial:      ident.site_oficial       ?? "",
+        origem_missao_ref: ident.origem_missao_ref  ?? "",
+        origem_visao_ref:  ident.origem_visao_ref   ?? "",
       });
       setRedes(
         Array.isArray(ident.redes_sociais)
@@ -597,20 +634,116 @@ export default function IdentidadeAdmin() {
               </div>
             </div>
 
-            {/* Missão */}
-            <div>
-              <Label>Missão</Label>
+            {/* Missão — Camada 2: com origem documental + sugestão IA */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label>Missão</Label>
+                <button
+                  type="button"
+                  onClick={() => sugerirAPartirDosDocumentos("missao")}
+                  disabled={sugerindoDoc}
+                  className="flex items-center gap-1.5 text-xs text-primary hover:opacity-80 transition-opacity"
+                >
+                  {sugerindoDoc && sugestaoDocAberta === "missao"
+                    ? <Loader2 className="w-3 h-3 animate-spin" />
+                    : <Sparkles className="w-3 h-3" />}
+                  Sugerir a partir dos documentos
+                </button>
+              </div>
               <Textarea rows={3} value={form.missao}
                 onChange={(e) => setForm({ ...form, missao: e.target.value })}
                 placeholder="A missão da nossa igreja é…" className="resize-none" />
+              {/* Origem documental */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground shrink-0">📄 Base:</span>
+                <input
+                  type="text"
+                  className="flex-1 text-xs bg-transparent border-0 border-b border-dashed border-border focus:outline-none focus:border-primary text-muted-foreground placeholder:text-muted-foreground/50 pb-0.5"
+                  placeholder="Ex: Estatuto — Art. 3 (opcional)"
+                  value={form.origem_missao_ref}
+                  onChange={(e) => setForm({ ...form, origem_missao_ref: e.target.value })}
+                />
+              </div>
+              {/* Painel de sugestões de documentos */}
+              {sugestaoDocAberta === "missao" && secoesDocSugeridas.length > 0 && (
+                <div className="rounded-md border bg-muted/40 p-3 space-y-2 mt-1">
+                  <p className="text-xs font-medium flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-gold" />
+                    Seções com tag "missão" nos documentos vigentes:
+                  </p>
+                  {secoesDocSugeridas.map((s, i) => (
+                    <div key={i} className="rounded border bg-background p-2.5 space-y-1">
+                      <p className="text-xs font-medium text-foreground">{s.referencia}</p>
+                      <p className="text-[11px] text-muted-foreground line-clamp-3">{s.trecho}</p>
+                      <button
+                        type="button"
+                        onClick={() => aplicarSugestaoDoc("missao", s)}
+                        className="text-xs text-primary underline underline-offset-2"
+                      >
+                        Usar este trecho como Missão →
+                      </button>
+                    </div>
+                  ))}
+                  <button type="button" onClick={() => { setSugestaoDocAberta(null); setSecoesDocSugeridas([]); }}
+                    className="text-xs text-muted-foreground">Fechar</button>
+                </div>
+              )}
             </div>
 
-            {/* Visão */}
-            <div>
-              <Label>Visão</Label>
+            {/* Visão — Camada 2: com origem documental + sugestão IA */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label>Visão</Label>
+                <button
+                  type="button"
+                  onClick={() => sugerirAPartirDosDocumentos("visao")}
+                  disabled={sugerindoDoc}
+                  className="flex items-center gap-1.5 text-xs text-primary hover:opacity-80 transition-opacity"
+                >
+                  {sugerindoDoc && sugestaoDocAberta === "visao"
+                    ? <Loader2 className="w-3 h-3 animate-spin" />
+                    : <Sparkles className="w-3 h-3" />}
+                  Sugerir a partir dos documentos
+                </button>
+              </div>
               <Textarea rows={3} value={form.visao}
                 onChange={(e) => setForm({ ...form, visao: e.target.value })}
                 placeholder="Nossa visão é ser uma igreja que…" className="resize-none" />
+              {/* Origem documental */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground shrink-0">📄 Base:</span>
+                <input
+                  type="text"
+                  className="flex-1 text-xs bg-transparent border-0 border-b border-dashed border-border focus:outline-none focus:border-primary text-muted-foreground placeholder:text-muted-foreground/50 pb-0.5"
+                  placeholder="Ex: Regimento — Cap. 2 (opcional)"
+                  value={form.origem_visao_ref}
+                  onChange={(e) => setForm({ ...form, origem_visao_ref: e.target.value })}
+                />
+              </div>
+              {/* Painel de sugestões de documentos */}
+              {sugestaoDocAberta === "visao" && secoesDocSugeridas.length > 0 && (
+                <div className="rounded-md border bg-muted/40 p-3 space-y-2 mt-1">
+                  <p className="text-xs font-medium flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-gold" />
+                    Seções com tag "visão" nos documentos vigentes:
+                  </p>
+                  {secoesDocSugeridas.map((s, i) => (
+                    <div key={i} className="rounded border bg-background p-2.5 space-y-1">
+                      <p className="text-xs font-medium text-foreground">{s.referencia}</p>
+                      <p className="text-[11px] text-muted-foreground line-clamp-3">{s.trecho}</p>
+                      <button
+                        type="button"
+                        onClick={() => aplicarSugestaoDoc("visao", s)}
+                        className="text-xs text-primary underline underline-offset-2"
+                      >
+                        Usar este trecho como Visão →
+                      </button>
+                    </div>
+                  ))}
+                  <button type="button" onClick={() => { setSugestaoDocAberta(null); setSecoesDocSugeridas([]); }}
+                    className="text-xs text-muted-foreground">Fechar</button>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

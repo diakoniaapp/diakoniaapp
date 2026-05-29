@@ -298,6 +298,22 @@ function CampanhaCard({ campanha: c, onEditar, onExcluir, onStatus }: {
               <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{c.descricao}</p>
             )}
 
+            {/* Camada 3: base espiritual da campanha */}
+            {(c as any).origem_identidade && (
+              <div className="flex items-center gap-1 mt-1.5">
+                <span className="text-[10px] bg-gold/10 text-gold border border-gold/25 rounded-full px-2 py-0.5 font-medium">
+                  🔥 {
+                    (c as any).origem_identidade === "missao" ? "Missão" :
+                    (c as any).origem_identidade === "visao"  ? "Visão"  :
+                    (c as any).origem_identidade === "valor"  ? "Valor"  : "Princípio"
+                  }
+                </span>
+                {(c as any).contexto_espiritual && (
+                  <span className="text-[10px] text-muted-foreground truncate max-w-[140px]">{(c as any).contexto_espiritual}</span>
+                )}
+              </div>
+            )}
+
             <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
                 <CalendarDays className="w-3 h-3" />
@@ -364,15 +380,33 @@ function WizardCampanha({ campanha, onClose, onSalvo }: {
 
   // Formulário base
   const [form, setForm] = useState({
-    nome:          campanha?.nome         ?? "",
-    descricao:     campanha?.descricao    ?? "",
-    tipo:          campanha?.tipo         ?? "igreja",
-    prioridade:    String(campanha?.prioridade ?? "1"),
-    data_inicio:   campanha?.data_inicio  ?? "",
-    data_fim:      campanha?.data_fim     ?? "",
-    cor_tema:      campanha?.cor_tema     ?? "#6366f1",
-    criar_eventos: true,
+    nome:                campanha?.nome         ?? "",
+    descricao:           campanha?.descricao    ?? "",
+    tipo:                campanha?.tipo         ?? "igreja",
+    prioridade:          String(campanha?.prioridade ?? "1"),
+    data_inicio:         campanha?.data_inicio  ?? "",
+    data_fim:            campanha?.data_fim     ?? "",
+    cor_tema:            campanha?.cor_tema     ?? "#6366f1",
+    criar_eventos:       true,
+    // Camada 3: vínculo com a Identidade da Igreja
+    origem_identidade:   (campanha as any)?.origem_identidade   ?? "",
+    origem_valor_id:     (campanha as any)?.origem_valor_id     ?? "",
+    contexto_espiritual: (campanha as any)?.contexto_espiritual ?? "",
   });
+
+  // Camada 3: carregar identidade para sugestões
+  const [valoresIdentidade, setValoresIdentidade] = useState<{ id: string; valor: string; descricao: string; icone: string }[]>([]);
+  const [missaoIgreja, setMissaoIgreja] = useState("");
+  const [visaoIgreja,  setVisaoIgreja]  = useState("");
+
+  useEffect(() => {
+    supabase.from("identidade_igreja").select("missao, visao").eq("ativa", true).maybeSingle()
+      .then(({ data }) => {
+        if (data) { setMissaoIgreja((data as any).missao ?? ""); setVisaoIgreja((data as any).visao ?? ""); }
+      });
+    supabase.from("identidade_valores").select("id, valor, descricao, icone").eq("ativo", true).order("ordem")
+      .then(({ data }) => setValoresIdentidade((data ?? []) as any[]));
+  }, []);
 
   // Materiais e estrutura de dias
   const [materiais, setMateriais]   = useState<Material[]>([]);
@@ -471,13 +505,16 @@ function WizardCampanha({ campanha, onClose, onSalvo }: {
       // 1. Criar/atualizar campanha
       let campanhaId = campanha?.id ?? null;
       const payload = {
-        nome:        form.nome.trim(),
-        descricao:   form.descricao.trim() || null,
-        tipo:        form.tipo,
-        prioridade:  parseInt(form.prioridade),
-        data_inicio: form.data_inicio,
-        data_fim:    form.data_fim,
-        cor_tema:    form.cor_tema,
+        nome:                form.nome.trim(),
+        descricao:           form.descricao.trim() || null,
+        tipo:                form.tipo,
+        prioridade:          parseInt(form.prioridade),
+        data_inicio:         form.data_inicio,
+        data_fim:            form.data_fim,
+        cor_tema:            form.cor_tema,
+        origem_identidade:   form.origem_identidade   || null,
+        origem_valor_id:     form.origem_valor_id      || null,
+        contexto_espiritual: form.contexto_espiritual.trim() || null,
         criado_por:  user?.id ?? null,
       };
 
@@ -664,6 +701,94 @@ function WizardCampanha({ campanha, onClose, onSalvo }: {
                     style={{ backgroundColor: cor }} />
                 ))}
               </div>
+            </div>
+
+            {/* ── Camada 3: Origem na Identidade da Igreja ── */}
+            <div className="rounded-md border bg-muted/30 p-3 space-y-3">
+              <p className="text-xs font-medium flex items-center gap-1.5">
+                <Flame className="w-3.5 h-3.5 text-gold" />
+                Base espiritual desta campanha
+                <span className="text-muted-foreground font-normal">(opcional — conecta com a Identidade)</span>
+              </p>
+
+              {/* Origem: missão, visão ou valor */}
+              <div>
+                <Label className="text-xs">Esta campanha está baseada em…</Label>
+                <Select value={form.origem_identidade} onValueChange={(v) => setForm({ ...form, origem_identidade: v, origem_valor_id: "" })}>
+                  <SelectTrigger className="mt-1 h-8 text-sm">
+                    <SelectValue placeholder="Selecionar origem (opcional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">— Não definir —</SelectItem>
+                    <SelectItem value="missao">🎯 Missão da Igreja</SelectItem>
+                    <SelectItem value="visao">👁 Visão da Igreja</SelectItem>
+                    <SelectItem value="valor">💎 Valor Institucional</SelectItem>
+                    <SelectItem value="outro">✨ Outro princípio</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Mostrar missão ou visão como referência */}
+              {form.origem_identidade === "missao" && missaoIgreja && (
+                <div className="rounded bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 px-3 py-2 text-xs text-blue-800 dark:text-blue-300">
+                  <span className="font-medium">Missão: </span>{missaoIgreja}
+                </div>
+              )}
+              {form.origem_identidade === "visao" && visaoIgreja && (
+                <div className="rounded bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 px-3 py-2 text-xs text-purple-800 dark:text-purple-300">
+                  <span className="font-medium">Visão: </span>{visaoIgreja}
+                </div>
+              )}
+
+              {/* Seleção de valor específico */}
+              {form.origem_identidade === "valor" && valoresIdentidade.length > 0 && (
+                <div>
+                  <Label className="text-xs">Qual valor?</Label>
+                  <div className="flex flex-wrap gap-1.5 mt-1.5">
+                    {valoresIdentidade.map((v) => (
+                      <button
+                        key={v.id} type="button"
+                        onClick={() => setForm({ ...form, origem_valor_id: v.id })}
+                        className={`text-xs px-2.5 py-1 rounded-full border transition-all ${
+                          form.origem_valor_id === v.id
+                            ? "bg-gold/20 border-gold/50 text-foreground font-medium"
+                            : "border-border text-muted-foreground hover:border-gold/30"
+                        }`}
+                      >
+                        {v.icone && <span className="mr-1">{v.icone}</span>}{v.valor}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Sugestões baseadas nos valores */}
+              {form.origem_identidade === "valor" && valoresIdentidade.length > 0 && !form.nome.trim() && (
+                <div className="rounded bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-3 py-2 space-y-1.5">
+                  <p className="text-xs font-medium text-amber-800 dark:text-amber-300">💡 Sugestões de campanha baseadas nos valores:</p>
+                  {valoresIdentidade.slice(0, 3).map((v) => (
+                    <button key={v.id} type="button"
+                      className="block text-left text-xs text-amber-700 dark:text-amber-400 hover:underline"
+                      onClick={() => setForm({ ...form, nome: `Campanha: ${v.valor}`, origem_valor_id: v.id })}>
+                      → Campanha sobre "{v.valor}"
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Contexto espiritual */}
+              {form.origem_identidade && (
+                <div>
+                  <Label className="text-xs">Contexto espiritual / propósito</Label>
+                  <Textarea
+                    rows={2}
+                    className="mt-1 text-sm resize-none"
+                    placeholder="Descreva como esta campanha se conecta com a identidade da igreja…"
+                    value={form.contexto_espiritual}
+                    onChange={(e) => setForm({ ...form, contexto_espiritual: e.target.value })}
+                  />
+                </div>
+              )}
             </div>
 
             {/* Upload de materiais */}

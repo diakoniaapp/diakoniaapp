@@ -46,9 +46,26 @@ interface Secao {
   tipo_secao: string | null;
   ministerio_ref: string | null;
   palavras_chave: string[];
+  tags_conceituais: string[];   // ← Camada 1: conexão semântica com Identidade
   nivel_hierarquico: number | null;
   ordem: number;
 }
+
+// Tags conceituais pré-definidas (conectam Documentos → Identidade → Campanhas)
+const TAGS_CONCEITUAIS = [
+  { value: "missao",       label: "Missão",       color: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300" },
+  { value: "visao",        label: "Visão",        color: "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300" },
+  { value: "valores",      label: "Valores",      color: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300" },
+  { value: "doutrina",     label: "Doutrina",     color: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300" },
+  { value: "liderança",    label: "Liderança",    color: "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300" },
+  { value: "oração",       label: "Oração",       color: "bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300" },
+  { value: "discipulado",  label: "Discipulado",  color: "bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300" },
+  { value: "evangelismo",  label: "Evangelismo",  color: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300" },
+  { value: "adoração",     label: "Adoração",     color: "bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-300" },
+  { value: "família",      label: "Família",      color: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300" },
+  { value: "ministério",   label: "Ministério",   color: "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-300" },
+  { value: "outro",        label: "Outro",        color: "bg-muted text-muted-foreground" },
+];
 
 interface HistoricoItem {
   id: string;
@@ -156,7 +173,7 @@ export default function DocumentosAdmin() {
   const [loadingSecoes, setLoadingSecoes] = useState(false);
   const [secaoOpen, setSecaoOpen] = useState(false);
   const [editingSecaoId, setEditingSecaoId] = useState<string | null>(null);
-  const emptySecao = { titulo: "", conteudo: "", tipo_secao: "geral", ministerio_ref: "", palavras_chave: "", nivel_hierarquico: "", ordem: 0 };
+  const emptySecao = { titulo: "", conteudo: "", tipo_secao: "geral", ministerio_ref: "", palavras_chave: "", tags_conceituais: [] as string[], nivel_hierarquico: "", ordem: 0 };
   const [formSecao, setFormSecao] = useState<any>(emptySecao);
 
   // Histórico de documento
@@ -263,6 +280,7 @@ export default function DocumentosAdmin() {
       tipo_secao: formSecao.tipo_secao || null,
       ministerio_ref: formSecao.ministerio_ref || null,
       palavras_chave: kw,
+      tags_conceituais: (formSecao.tags_conceituais as string[]) ?? [],
       nivel_hierarquico: formSecao.nivel_hierarquico ? Number(formSecao.nivel_hierarquico) : null,
       ordem: Number(formSecao.ordem),
     };
@@ -288,6 +306,7 @@ export default function DocumentosAdmin() {
       tipo_secao: s.tipo_secao ?? "geral",
       ministerio_ref: s.ministerio_ref ?? "",
       palavras_chave: (s.palavras_chave ?? []).join(", "),
+      tags_conceituais: s.tags_conceituais ?? [],
       nivel_hierarquico: s.nivel_hierarquico?.toString() ?? "",
       ordem: s.ordem,
     });
@@ -634,6 +653,19 @@ export default function DocumentosAdmin() {
                                     {s.conteudo && (
                                       <p className="text-[11px] text-muted-foreground line-clamp-2">{s.conteudo}</p>
                                     )}
+                                    {/* Tags conceituais — conexão com Identidade */}
+                                    {s.tags_conceituais?.length > 0 && (
+                                      <div className="flex flex-wrap gap-1 mt-1.5">
+                                        {s.tags_conceituais.map((tag, i) => {
+                                          const tc = TAGS_CONCEITUAIS.find(t => t.value === tag);
+                                          return (
+                                            <span key={i} className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full border-0 ${tc?.color ?? "bg-muted text-muted-foreground"}`}>
+                                              🏷 {tc?.label ?? tag}
+                                            </span>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
                                     {s.palavras_chave?.length > 0 && (
                                       <div className="flex flex-wrap gap-1 mt-1">
                                         {s.palavras_chave.map((kw, i) => (
@@ -766,8 +798,48 @@ export default function DocumentosAdmin() {
               <Input value={formSecao.ministerio_ref} onChange={e => setFormSecao({ ...formSecao, ministerio_ref: e.target.value })} placeholder="Nome do ministério mencionado" />
             </div>
             <div>
-              <Label>Palavras-chave (separadas por vírgula)</Label>
+              <Label>Palavras-chave <span className="text-xs text-muted-foreground font-normal">(separadas por vírgula)</span></Label>
               <Input value={formSecao.palavras_chave} onChange={e => setFormSecao({ ...formSecao, palavras_chave: e.target.value })} placeholder="louvor, jovens, missões…" />
+            </div>
+
+            {/* Tags conceituais — conecta esta seção à Camada de Identidade */}
+            <div>
+              <Label className="flex items-center gap-1.5">
+                🏷 Tags conceituais
+                <span className="text-xs text-muted-foreground font-normal">(conectam aos campos de Identidade)</span>
+              </Label>
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {TAGS_CONCEITUAIS.map(tag => {
+                  const ativa = (formSecao.tags_conceituais as string[]).includes(tag.value);
+                  return (
+                    <button
+                      key={tag.value}
+                      type="button"
+                      onClick={() => {
+                        const atual = formSecao.tags_conceituais as string[];
+                        setFormSecao({
+                          ...formSecao,
+                          tags_conceituais: ativa
+                            ? atual.filter(t => t !== tag.value)
+                            : [...atual, tag.value],
+                        });
+                      }}
+                      className={`text-xs px-2.5 py-1 rounded-full transition-all border ${
+                        ativa
+                          ? `${tag.color} border-transparent font-medium`
+                          : "bg-background border-border text-muted-foreground hover:border-primary/40"
+                      }`}
+                    >
+                      {ativa ? "✓ " : ""}{tag.label}
+                    </button>
+                  );
+                })}
+              </div>
+              {(formSecao.tags_conceituais as string[]).length > 0 && (
+                <p className="text-xs text-muted-foreground mt-1.5 flex items-center gap-1">
+                  💡 Esta seção ficará disponível para sugestão automática de Missão/Visão/Valores na tela de Identidade.
+                </p>
+              )}
             </div>
             <div>
               <Label>Nível hierárquico</Label>
