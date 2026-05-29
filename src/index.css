@@ -4,167 +4,150 @@
 
 /*
  * DIAKONIA APP — Design System
- * Tema escuro (padrão, :root) + Tema claro (.light)
- * Todas as cores em HSL para compatibilidade com Tailwind.
+ * Estrutura: :root = tema escuro (padrão), .light = tema claro
+ * Regra: APENAS variáveis CSS e overrides mínimos seguros.
+ * Não sobrescrever classes shadcn/ui com seletores de elemento.
  */
-
-/* ── Google Fonts fallback (Inter já carregado via index.html) ── */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 @layer base {
 
   /* ════════════════════════════════════════════════════════════
-     TEMA ESCURO (padrão)
-     Fundo: #0F172A  Cards: #1E293B  Texto: #F1F5F9  Sec: #94A3B8
+     TEMA ESCURO — padrão (sem classe no <html>)
+     Fundo: #0F172A | Cards: #1E293B | Texto: #F1F5F9 | Sec: #94A3B8
      ════════════════════════════════════════════════════════════ */
   :root {
-    /* ── Superfícies ── */
-    --background:        222 47% 11%;   /* #0F172A — slate-900 */
-    --foreground:        210 40% 98%;   /* #F1F5F9 — slate-100 */
+    /* Superfícies */
+    --background:         222 47% 11%;   /* #0F172A — slate‑900          */
+    --foreground:         210 40% 98%;   /* #F1F5F9 — slate‑100          */
+    --card:               217 33% 17%;   /* #1E293B — slate‑800          */
+    --card-foreground:    210 40% 98%;
+    --popover:            217 33% 17%;   /* dropdowns no escuro          */
+    --popover-foreground: 210 40% 98%;
 
-    --card:              217 33% 17%;   /* #1E293B — slate-800 */
-    --card-foreground:   210 40% 98%;
+    /* Marca — dourado Diakonia */
+    --primary:            42 68% 60%;
+    --primary-foreground: 222 47% 11%;
+    --primary-glow:       42 78% 68%;
 
-    --popover:           217 33% 17%;
-    --popover-foreground:210 40% 98%;
-
-    /* ── Acento dourado (marca Diakonia) ── */
-    --primary:           42 70% 60%;    /* dourado suave */
-    --primary-foreground:222 47% 11%;
-    --primary-glow:      42 80% 68%;
-
-    /* ── Secundárias ── */
-    --secondary:         217 28% 22%;
+    /* Secundárias */
+    --secondary:          217 28% 22%;
     --secondary-foreground: 210 35% 92%;
+    --muted:              217 28% 20%;
+    --muted-foreground:   215 20% 65%;   /* #94A3B8 — slate‑400          */
+    --accent:             42 68% 60%;
+    --accent-foreground:  222 47% 11%;
 
-    --muted:             217 28% 20%;
-    --muted-foreground:  215 20% 65%;   /* #94A3B8 — slate-400 */
+    /* Personalizada */
+    --gold:               42 68% 60%;
+    --gold-foreground:    222 47% 11%;
+    --teal:               188 52% 42%;
+    --teal-foreground:    0 0% 100%;
 
-    --accent:            42 70% 60%;
-    --accent-foreground: 222 47% 11%;
-
-    /* ── Marca ── */
-    --gold:              42 70% 60%;
-    --gold-foreground:   222 47% 11%;
-
-    --teal:              188 55% 42%;
-    --teal-foreground:   0 0% 100%;
-
-    /* ── Feedback ── */
-    --success:           142 72% 42%;
-    --success-foreground:0 0% 100%;
-
-    --warning:           38 92% 55%;
-    --warning-foreground:222 47% 11%;
-
-    --destructive:       0 72% 55%;
+    /* Feedback */
+    --success:            142 70% 42%;
+    --success-foreground: 0 0% 100%;
+    --warning:            38 90% 55%;
+    --warning-foreground: 222 47% 11%;
+    --destructive:        0 70% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    /* ── Estrutura ── */
-    --border:            217 25% 24%;
-    --input:             217 28% 20%;
-    --ring:              42 70% 60%;
+    /* Estrutura */
+    --border:             217 25% 24%;
+    --input:              217 28% 20%;
+    --ring:               42 68% 60%;
+    --radius:             0.625rem;
 
-    --radius: 0.625rem;
-
-    /* ── Gradientes ── */
+    /* Gradientes */
     --gradient-hero:  linear-gradient(140deg, hsl(222 47% 9%) 0%, hsl(217 33% 14%) 60%, hsl(42 30% 20%) 100%);
     --gradient-gold:  linear-gradient(135deg, hsl(42 75% 65%), hsl(36 60% 46%));
     --gradient-verse: linear-gradient(135deg, hsl(217 33% 15%), hsl(217 28% 20%));
 
-    /* ── Sombras ── */
+    /* Sombras */
     --shadow-card:     0 1px 3px hsl(0 0% 0% / 0.40), 0 1px 2px hsl(0 0% 0% / 0.50);
     --shadow-elevated: 0 16px 40px -12px hsl(0 0% 0% / 0.60);
-    --shadow-gold:     0 8px 24px -8px hsl(42 70% 60% / 0.35);
+    --shadow-gold:     0 8px 24px -8px hsl(42 68% 60% / 0.35);
 
-    /* ── Sidebar ── */
-    --sidebar-background:       222 47% 9%;
-    --sidebar-foreground:       210 35% 92%;
-    --sidebar-primary:          42 70% 60%;
+    /* Sidebar — mais escura que o fundo */
+    --sidebar-background:        222 47% 9%;
+    --sidebar-foreground:        210 35% 92%;
+    --sidebar-primary:           42 68% 60%;
     --sidebar-primary-foreground:222 47% 11%;
-    --sidebar-accent:           217 33% 16%;
-    --sidebar-accent-foreground:210 40% 97%;
-    --sidebar-border:           217 25% 20%;
-    --sidebar-ring:             42 70% 60%;
+    --sidebar-accent:            217 33% 16%;
+    --sidebar-accent-foreground: 210 40% 97%;
+    --sidebar-border:            217 25% 20%;
+    --sidebar-ring:              42 68% 60%;
   }
 
   /* ════════════════════════════════════════════════════════════
-     TEMA CLARO
-     Fundo: #F7F9FB  Texto: #1A202C  Secundário: #4A5568
-     Cards: #FFFFFF   Sidebar: escura (contraste com conteúdo)
+     TEMA CLARO — ativado pela classe .light no <html>
+     Fundo: #F7F9FB | Texto: #1A202C | Secundário: #4A5568
+     Dropdowns/Cards: branco puro
      ════════════════════════════════════════════════════════════ */
   .light {
-    /* ── Superfícies ── */
-    --background:        210 17% 97%;   /* #F7F9FB — azul-cinza suave */
-    --foreground:        220 26% 14%;   /* #1A202C — quase preto */
+    /* Superfícies */
+    --background:         210 17% 97%;   /* #F7F9FB — azul‑cinza suave  */
+    --foreground:         220 26% 14%;   /* #1A202C — quase preto        */
+    --card:               0 0% 100%;     /* branco puro para cards       */
+    --card-foreground:    220 26% 14%;
+    --popover:            0 0% 100%;     /* dropdowns brancos no claro   */
+    --popover-foreground: 220 26% 14%;
 
-    --card:              0 0% 100%;     /* branco limpo para cards */
-    --card-foreground:   220 26% 14%;
+    /* Marca — dourado mais escuro (contraste ok no claro) */
+    --primary:            42 62% 46%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow:       42 70% 54%;
 
-    --popover:           0 0% 100%;
-    --popover-foreground:220 26% 14%;
+    /* Secundárias */
+    --secondary:          210 14% 93%;
+    --secondary-foreground: 220 20% 25%;
+    --muted:              210 14% 91%;
+    --muted-foreground:   220 16% 36%;   /* #4A5568 — cinza‑azul médio  */
+    --accent:             42 62% 46%;
+    --accent-foreground:  0 0% 100%;
 
-    /* ── Acento dourado ── */
-    --primary:           42 65% 48%;    /* dourado mais escuro (contraste ok no claro) */
-    --primary-foreground:0 0% 100%;
-    --primary-glow:      42 72% 56%;
+    /* Personalizada */
+    --gold:               42 62% 46%;
+    --gold-foreground:    0 0% 100%;
+    --teal:               188 52% 36%;
+    --teal-foreground:    0 0% 100%;
 
-    /* ── Secundárias ── */
-    --secondary:         210 14% 93%;
-    --secondary-foreground:220 20% 25%;
-
-    --muted:             210 14% 91%;
-    --muted-foreground:  220 16% 36%;   /* #4A5568 — cinza-azul médio */
-
-    --accent:            42 65% 48%;
-    --accent-foreground: 0 0% 100%;
-
-    /* ── Marca ── */
-    --gold:              42 65% 48%;
-    --gold-foreground:   0 0% 100%;
-
-    --teal:              188 55% 36%;
-    --teal-foreground:   0 0% 100%;
-
-    /* ── Feedback ── */
-    --success:           142 60% 36%;
-    --success-foreground:0 0% 100%;
-
-    --warning:           38 90% 48%;
-    --warning-foreground:220 26% 14%;
-
-    --destructive:       0 72% 48%;
+    /* Feedback */
+    --success:            142 58% 36%;
+    --success-foreground: 0 0% 100%;
+    --warning:            38 88% 48%;
+    --warning-foreground: 220 26% 14%;
+    --destructive:        0 70% 48%;
     --destructive-foreground: 0 0% 100%;
 
-    /* ── Estrutura ── */
-    --border:            210 18% 88%;
-    --input:             210 18% 92%;
-    --ring:              42 65% 48%;
+    /* Estrutura */
+    --border:             210 18% 88%;
+    --input:              210 18% 92%;
+    --ring:               42 62% 46%;
 
-    /* ── Gradientes ── */
+    /* Gradientes */
     --gradient-hero:  linear-gradient(140deg, hsl(210 17% 98%) 0%, hsl(210 14% 94%) 60%, hsl(42 30% 88%) 100%);
-    --gradient-gold:  linear-gradient(135deg, hsl(42 70% 52%), hsl(36 64% 40%));
+    --gradient-gold:  linear-gradient(135deg, hsl(42 68% 50%), hsl(36 62% 40%));
     --gradient-verse: linear-gradient(135deg, hsl(210 17% 97%), hsl(210 14% 91%));
 
-    /* ── Sombras (mais suaves no claro) ── */
+    /* Sombras (bem suaves no claro) */
     --shadow-card:     0 1px 3px hsl(220 26% 14% / 0.07), 0 1px 2px hsl(220 26% 14% / 0.05);
     --shadow-elevated: 0 16px 40px -12px hsl(220 26% 14% / 0.14);
-    --shadow-gold:     0 8px 24px -8px hsl(42 65% 48% / 0.25);
+    --shadow-gold:     0 8px 24px -8px hsl(42 62% 46% / 0.22);
 
-    /* ── Sidebar (mantida escura no claro — melhor contraste) ── */
-    --sidebar-background:       220 26% 14%;  /* #1A202C */
-    --sidebar-foreground:       210 17% 95%;
-    --sidebar-primary:          42 65% 58%;
+    /* Sidebar — mantida escura no claro (contraste com conteúdo claro) */
+    --sidebar-background:        220 26% 14%;  /* #1A202C                */
+    --sidebar-foreground:        210 17% 95%;
+    --sidebar-primary:           42 65% 58%;
     --sidebar-primary-foreground:220 26% 10%;
-    --sidebar-accent:           220 20% 20%;
-    --sidebar-accent-foreground:210 17% 97%;
-    --sidebar-border:           220 18% 22%;
-    --sidebar-ring:             42 65% 58%;
+    --sidebar-accent:            220 20% 20%;
+    --sidebar-accent-foreground: 210 17% 97%;
+    --sidebar-border:            220 18% 22%;
+    --sidebar-ring:              42 65% 58%;
   }
 }
 
 /* ════════════════════════════════════════════════════════════
-   BASE GLOBAL
+   BASE — somente overrides seguros que NÃO conflitam com shadcn
    ════════════════════════════════════════════════════════════ */
 @layer base {
   * {
@@ -175,72 +158,37 @@
   html {
     overflow-x: hidden;
     scroll-behavior: smooth;
-    /* Transição suave ao trocar de tema */
-    transition: background-color 0.2s ease, color 0.2s ease;
   }
 
   body {
     @apply bg-background text-foreground antialiased;
+    /* Inter é carregado via <head> no index.html */
     font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
     font-size: 15px;
     line-height: 1.6;
-    font-feature-settings: "cv02", "cv03", "cv04", "ss01";
-    -webkit-tap-highlight-color: transparent;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    -webkit-tap-highlight-color: transparent;
     overscroll-behavior-y: none;
     overflow-x: hidden;
   }
 
-  /* ── Hierarquia tipográfica ── */
-  h1 {
+  /* Hierarquia tipográfica */
+  h1, h2, h3, h4 {
     @apply font-serif tracking-tight;
-    font-size: 2rem;
-    line-height: 1.25;
-    font-weight: 600;
-  }
-  h2 {
-    @apply font-serif tracking-tight;
-    font-size: 1.5rem;
-    line-height: 1.3;
-    font-weight: 600;
-  }
-  h3 {
-    @apply font-serif tracking-tight;
-    font-size: 1.25rem;
-    line-height: 1.35;
-    font-weight: 600;
-  }
-  h4 {
-    @apply font-serif;
-    font-size: 1.1rem;
-    line-height: 1.4;
-    font-weight: 500;
   }
 
-  p {
-    line-height: 1.7;
-    color: hsl(var(--foreground));
-  }
-
-  /* ── Seleção de texto ── */
+  /* Seleção de texto com cor da marca */
   ::selection {
-    background-color: hsl(var(--gold) / 0.25);
+    background-color: hsl(var(--gold) / 0.22);
     color: hsl(var(--foreground));
   }
 
-  /* ── Foco acessível ── */
-  :focus-visible {
-    outline: 2px solid hsl(var(--ring));
-    outline-offset: 2px;
-    border-radius: calc(var(--radius) - 2px);
-  }
-
-  /* ── iOS safe areas ── */
+  /* Safe areas iOS */
   .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
   .pt-safe { padding-top: env(safe-area-inset-top); }
 
-  /* ── Font size mínimo em mobile para evitar zoom ── */
+  /* Tamanho mínimo em mobile (evita zoom automático) */
   input, select, textarea, button { font-size: 16px; }
   @media (min-width: 768px) {
     input, select, textarea, button { font-size: inherit; }
@@ -248,117 +196,17 @@
 }
 
 /* ════════════════════════════════════════════════════════════
-   COMPONENTES — Melhorias globais
+   COMPONENTES — animações e utilitários visuais
    ════════════════════════════════════════════════════════════ */
-@layer components {
+@layer utilities {
 
-  /* ── Botões — hover lift + transição ── */
-  button:not(:disabled),
-  [role="button"]:not(:disabled) {
-    transition: all 0.15s ease;
-  }
+  /* Scrollbar fina e discreta */
+  ::-webkit-scrollbar          { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track    { background: transparent; }
+  ::-webkit-scrollbar-thumb    { background: hsl(var(--border)); border-radius: 99px; }
+  ::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / 0.45); }
 
-  /* Botão primário: leve elevação no hover */
-  .btn-lift:hover:not(:disabled) {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px hsl(var(--gold) / 0.3);
-  }
-
-  /* ── Inputs — focus suave ── */
-  input[type="text"],
-  input[type="email"],
-  input[type="tel"],
-  input[type="password"],
-  input[type="date"],
-  input[type="number"],
-  input[type="search"],
-  textarea,
-  select {
-    transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
-    background-color: hsl(var(--input));
-    border-color: hsl(var(--border));
-    color: hsl(var(--foreground));
-  }
-
-  input:focus,
-  textarea:focus,
-  select:focus {
-    outline: none;
-    border-color: hsl(var(--ring));
-    box-shadow: 0 0 0 3px hsl(var(--ring) / 0.15);
-  }
-
-  /* ── Cards — transição e hover state ── */
-  .shadow-card-soft {
-    box-shadow: var(--shadow-card);
-    transition: box-shadow 0.2s ease, transform 0.15s ease;
-  }
-
-  /* ── Scrollbar customizada ── */
-  ::-webkit-scrollbar { width: 6px; height: 6px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb {
-    background: hsl(var(--border));
-    border-radius: 99px;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--muted-foreground) / 0.5);
-  }
-
-  /* ── Placeholder ── */
-  ::placeholder {
-    color: hsl(var(--muted-foreground) / 0.6);
-    font-size: 0.9em;
-  }
-
-  /* ── Link de navegação ativo (sidebar) ── */
-  .nav-active {
-    background-color: hsl(var(--sidebar-accent));
-    border-left: 2px solid hsl(var(--gold));
-    color: hsl(var(--sidebar-accent-foreground));
-    font-weight: 500;
-  }
-
-  /* ── Badge / status ── */
-  .badge-gold {
-    background-color: hsl(var(--gold) / 0.15);
-    color: hsl(var(--gold));
-    border: 1px solid hsl(var(--gold) / 0.3);
-    border-radius: 99px;
-    padding: 0.1rem 0.6rem;
-    font-size: 0.75rem;
-    font-weight: 500;
-  }
-
-  /* ── Animações de entrada ── */
-  @keyframes fade-in {
-    from { opacity: 0; transform: translateY(6px); }
-    to   { opacity: 1; transform: translateY(0);   }
-  }
-
-  @keyframes scale-in {
-    from { opacity: 0; transform: scale(0.97); }
-    to   { opacity: 1; transform: scale(1);    }
-  }
-
-  @keyframes slide-in-right {
-    from { opacity: 0; transform: translateX(12px); }
-    to   { opacity: 1; transform: translateX(0);    }
-  }
-
-  .animate-fade-in        { animation: fade-in 0.22s ease-out both; }
-  .animate-scale-in       { animation: scale-in 0.18s ease-out both; }
-  .animate-slide-in-right { animation: slide-in-right 0.2s ease-out both; }
-
-  /* ── Divisor com degradê ── */
-  .divider-gold {
-    height: 1px;
-    background: linear-gradient(to right, transparent, hsl(var(--gold) / 0.4), transparent);
-    border: none;
-    margin: 1rem 0;
-  }
-
-  /* ── Texto com gradiente dourado ── */
+  /* Gradiente dourado no texto */
   .text-gradient-gold {
     background: var(--gradient-gold);
     -webkit-background-clip: text;
@@ -366,56 +214,41 @@
     background-clip: text;
   }
 
-  /* ── Muted text mais legível ── */
-  .text-muted-readable {
-    color: hsl(var(--muted-foreground));
-    line-height: 1.6;
+  /* Separador com fade */
+  .divider-gold {
+    height: 1px;
+    background: linear-gradient(to right, transparent, hsl(var(--gold) / 0.38), transparent);
+    border: none;
+    margin: 1rem 0;
   }
 
-  /* ── Tema claro: ajustes de card ── */
-  .light .shadow-card-soft {
-    box-shadow: 0 1px 4px hsl(220 26% 14% / 0.08),
-                0 4px 12px hsl(220 26% 14% / 0.04);
-    border: 1px solid hsl(var(--border));
-  }
-
-  /* ── Dialog overlay ── */
-  [data-radix-dialog-overlay] {
-    backdrop-filter: blur(2px);
-    background-color: hsl(0 0% 0% / 0.5);
-  }
-}
-
-/* ════════════════════════════════════════════════════════════
-   UTILITÁRIOS EXTRAS
-   ════════════════════════════════════════════════════════════ */
-@layer utilities {
-  /* Transições globais de tema */
-  .theme-transition,
-  .theme-transition * {
-    transition-property: background-color, border-color, color, box-shadow;
-    transition-duration: 0.2s;
-    transition-timing-function: ease;
-  }
-
-  /* Truncate multi-linha */
-  .line-clamp-2 {
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-  .line-clamp-3 {
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-
-  /* Superfícies com opacidade */
+  /* Superfície vidro (cards flutuantes) */
   .surface-glass {
-    background: hsl(var(--card) / 0.85);
+    background: hsl(var(--card) / 0.88);
     backdrop-filter: blur(8px);
-    border: 1px solid hsl(var(--border) / 0.6);
+    border: 1px solid hsl(var(--border) / 0.55);
   }
+
+  /* Animações de entrada (mantidas iguais ao que já funciona) */
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0);   }
+  }
+  @keyframes scale-in {
+    from { opacity: 0; transform: scale(0.97); }
+    to   { opacity: 1; transform: scale(1);    }
+  }
+  @keyframes accordion-down {
+    from { height: 0; }
+    to   { height: var(--radix-accordion-content-height); }
+  }
+  @keyframes accordion-up {
+    from { height: var(--radix-accordion-content-height); }
+    to   { height: 0; }
+  }
+
+  .animate-fade-in  { animation: fade-in 0.22s ease-out both; }
+  .animate-scale-in { animation: scale-in 0.18s ease-out both; }
+  .animate-accordion-down { animation: accordion-down 0.2s ease-out; }
+  .animate-accordion-up   { animation: accordion-up 0.2s ease-out;   }
 }
