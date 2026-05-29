@@ -4,90 +4,92 @@
 
 /*
  * DIAKONIA APP — Tema da Igreja
- * Paleta: Allure (#2F4A6D) · Algodão Egípcio (#F5F3F0) · Rosa Queimado (#B06A73)
+ * Paleta: Pinheiro (#4A6741) · Algodão Egípcio (#F5F3F0) · Rosa Queimado (#BE7060)
+ * Conversões HSL:
+ *   Pinheiro     → hsl(107 22% 33%)
+ *   Algodão Egíp → hsl(36  20% 95%)
+ *   Rosa Queimado→ hsl(12  42% 56%)
  * Tema único — sem alternância claro/escuro.
- * Conversões HSL: #2F4A6D→214 40% 31% | #F5F3F0→36 20% 95% | #B06A73→352 31% 55%
  */
 
 @layer base {
 
   /* ════════════════════════════════════════════════════════════
      TEMA ÚNICO — identidade da igreja
-     Aplicado sempre, independente de preferência do sistema.
      ════════════════════════════════════════════════════════════ */
   :root {
 
     /* ── Superfícies ──────────────────────────────────────────── */
     --background:         36 20% 95%;    /* #F5F3F0 — Algodão Egípcio   */
-    --foreground:         0 0% 16%;      /* #2A2A2A — cinza escuro       */
+    --foreground:         0 0% 15%;      /* #262626 — cinza escuro       */
 
-    --card:               36 15% 98%;    /* off-white quente para cards  */
-    --card-foreground:    0 0% 16%;
+    --card:               36 18% 98%;    /* off-white quente para cards  */
+    --card-foreground:    0 0% 15%;
 
     --popover:            0 0% 100%;     /* branco puro em dropdowns     */
-    --popover-foreground: 0 0% 16%;
+    --popover-foreground: 0 0% 15%;
 
-    /* ── Primário: Allure (azul) ──────────────────────────────── */
-    --primary:            214 40% 31%;   /* #2F4A6D                      */
-    --primary-foreground: 36 20% 95%;   /* texto Algodão nos botões     */
-    --primary-glow:       214 45% 42%;  /* hover / glow                 */
+    /* ── Primário: Pinheiro (verde floresta) ──────────────────── */
+    --primary:            107 22% 33%;   /* ≈ #4A6741                    */
+    --primary-foreground: 36 20% 96%;   /* texto algodão sobre verde    */
+    --primary-glow:       107 25% 42%;  /* hover / glow mais claro      */
 
-    /* ── Secundário: variante mais clara do azul ─────────────── */
-    --secondary:          214 25% 88%;
-    --secondary-foreground: 214 40% 25%;
+    /* ── Secundário: verde mais suave ────────────────────────── */
+    --secondary:          107 15% 88%;
+    --secondary-foreground: 107 22% 22%;
 
-    /* ── Muted / neutros ─────────────────────────────────────── */
-    --muted:              36 15% 91%;    /* fundo neutro leve            */
+    /* ── Muted / neutros quentes ─────────────────────────────── */
+    --muted:              36 15% 91%;    /* fundo neutro quente          */
     --muted-foreground:   0 0% 36%;      /* #5C5C5C — cinza médio        */
 
-    /* ── Accent: Rosa Queimado ────────────────────────────────── */
-    --accent:             352 31% 55%;   /* #B06A73                      */
+    /* ── Accent + Gold: Rosa Queimado (terracota) ─────────────── */
+    --accent:             12 42% 56%;    /* ≈ #BE7060                    */
     --accent-foreground:  0 0% 100%;
 
-    /* ── Gold → Rosa Queimado (substitui o dourado no código) ─── */
-    --gold:               352 31% 55%;   /* #B06A73 — accent principal   */
+    /* gold → Rosa Queimado (todos os text-gold/bg-gold do sistema) */
+    --gold:               12 42% 56%;    /* ≈ #BE7060                    */
     --gold-foreground:    0 0% 100%;
 
-    /* ── Teal → complementar azul-esverdeado ─────────────────── */
-    --teal:               188 45% 38%;
+    /* ── Teal → verde-musgo complementar ─────────────────────── */
+    --teal:               142 25% 40%;
     --teal-foreground:    0 0% 100%;
 
     /* ── Feedback ────────────────────────────────────────────── */
-    --success:            142 55% 36%;
+    --success:            142 52% 36%;
     --success-foreground: 0 0% 100%;
 
     --warning:            38 88% 48%;
-    --warning-foreground: 0 0% 16%;
+    --warning-foreground: 0 0% 15%;
 
     --destructive:        0 68% 50%;
     --destructive-foreground: 0 0% 100%;
 
     /* ── Estrutura ───────────────────────────────────────────── */
-    --border:             36 18% 85%;    /* borda quente discreta        */
-    --input:              36 15% 93%;    /* fundo dos inputs             */
-    --ring:               214 40% 31%;   /* foco igual ao primary        */
+    --border:             36 18% 84%;    /* borda quente e discreta      */
+    --input:              36 15% 92%;    /* fundo dos inputs             */
+    --ring:               107 22% 33%;   /* foco igual ao primary        */
 
     --radius: 0.625rem;
 
     /* ── Gradientes ──────────────────────────────────────────── */
-    --gradient-hero:  linear-gradient(140deg, hsl(36 20% 97%) 0%, hsl(36 20% 93%) 60%, hsl(214 20% 85%) 100%);
-    --gradient-gold:  linear-gradient(135deg, hsl(352 35% 60%), hsl(352 28% 48%));
-    --gradient-verse: linear-gradient(135deg, hsl(36 20% 95%), hsl(36 15% 91%));
+    --gradient-hero:  linear-gradient(140deg, hsl(36 20% 97%) 0%, hsl(36 18% 93%) 55%, hsl(107 12% 86%) 100%);
+    --gradient-gold:  linear-gradient(135deg, hsl(12 46% 62%), hsl(12 38% 48%));
+    --gradient-verse: linear-gradient(135deg, hsl(36 20% 95%), hsl(107 10% 90%));
 
-    /* ── Sombras (suaves no tema claro) ──────────────────────── */
-    --shadow-card:     0 1px 3px hsl(214 30% 20% / 0.08), 0 1px 2px hsl(214 30% 20% / 0.05);
-    --shadow-elevated: 0 16px 40px -12px hsl(214 30% 20% / 0.16);
-    --shadow-gold:     0 8px 24px -8px hsl(352 31% 55% / 0.28);
+    /* ── Sombras ─────────────────────────────────────────────── */
+    --shadow-card:     0 1px 3px hsl(107 20% 15% / 0.08), 0 1px 2px hsl(107 20% 15% / 0.05);
+    --shadow-elevated: 0 16px 40px -12px hsl(107 20% 15% / 0.15);
+    --shadow-gold:     0 8px 24px -8px hsl(12 42% 56% / 0.28);
 
-    /* ── Sidebar: Allure azul ─────────────────────────────────── */
-    --sidebar-background:        214 40% 31%;   /* #2F4A6D                */
-    --sidebar-foreground:        36 20% 92%;    /* Algodão Egípcio claro  */
-    --sidebar-primary:           352 31% 62%;   /* Rosa queimado + claro  */
+    /* ── Sidebar: fundo Pinheiro (verde floresta) ─────────────── */
+    --sidebar-background:        107 22% 28%;   /* verde escuro principal */
+    --sidebar-foreground:        36 20% 93%;    /* texto Algodão          */
+    --sidebar-primary:           12 42% 62%;    /* Rosa queimado + claro  */
     --sidebar-primary-foreground:0 0% 100%;
-    --sidebar-accent:            214 35% 38%;   /* hover: azul mais claro */
+    --sidebar-accent:            107 18% 35%;   /* hover: verde um pouco + claro */
     --sidebar-accent-foreground: 36 20% 97%;
-    --sidebar-border:            214 32% 26%;   /* borda mais escura      */
-    --sidebar-ring:              352 31% 62%;
+    --sidebar-border:            107 20% 23%;   /* borda mais escura      */
+    --sidebar-ring:              12 42% 62%;
   }
 
   /* ════════════════════════════════════════════════════════════
@@ -95,52 +97,52 @@
      ════════════════════════════════════════════════════════════ */
   .light {
     --background:         36 20% 95%;
-    --foreground:         0 0% 16%;
-    --card:               36 15% 98%;
-    --card-foreground:    0 0% 16%;
+    --foreground:         0 0% 15%;
+    --card:               36 18% 98%;
+    --card-foreground:    0 0% 15%;
     --popover:            0 0% 100%;
-    --popover-foreground: 0 0% 16%;
-    --primary:            214 40% 31%;
-    --primary-foreground: 36 20% 95%;
-    --primary-glow:       214 45% 42%;
-    --secondary:          214 25% 88%;
-    --secondary-foreground: 214 40% 25%;
+    --popover-foreground: 0 0% 15%;
+    --primary:            107 22% 33%;
+    --primary-foreground: 36 20% 96%;
+    --primary-glow:       107 25% 42%;
+    --secondary:          107 15% 88%;
+    --secondary-foreground: 107 22% 22%;
     --muted:              36 15% 91%;
     --muted-foreground:   0 0% 36%;
-    --accent:             352 31% 55%;
+    --accent:             12 42% 56%;
     --accent-foreground:  0 0% 100%;
-    --gold:               352 31% 55%;
+    --gold:               12 42% 56%;
     --gold-foreground:    0 0% 100%;
-    --teal:               188 45% 38%;
+    --teal:               142 25% 40%;
     --teal-foreground:    0 0% 100%;
-    --success:            142 55% 36%;
+    --success:            142 52% 36%;
     --success-foreground: 0 0% 100%;
     --warning:            38 88% 48%;
-    --warning-foreground: 0 0% 16%;
+    --warning-foreground: 0 0% 15%;
     --destructive:        0 68% 50%;
     --destructive-foreground: 0 0% 100%;
-    --border:             36 18% 85%;
-    --input:              36 15% 93%;
-    --ring:               214 40% 31%;
-    --gradient-hero:  linear-gradient(140deg, hsl(36 20% 97%) 0%, hsl(36 20% 93%) 60%, hsl(214 20% 85%) 100%);
-    --gradient-gold:  linear-gradient(135deg, hsl(352 35% 60%), hsl(352 28% 48%));
-    --gradient-verse: linear-gradient(135deg, hsl(36 20% 95%), hsl(36 15% 91%));
-    --shadow-card:     0 1px 3px hsl(214 30% 20% / 0.08), 0 1px 2px hsl(214 30% 20% / 0.05);
-    --shadow-elevated: 0 16px 40px -12px hsl(214 30% 20% / 0.16);
-    --shadow-gold:     0 8px 24px -8px hsl(352 31% 55% / 0.28);
-    --sidebar-background:        214 40% 31%;
-    --sidebar-foreground:        36 20% 92%;
-    --sidebar-primary:           352 31% 62%;
+    --border:             36 18% 84%;
+    --input:              36 15% 92%;
+    --ring:               107 22% 33%;
+    --gradient-hero:  linear-gradient(140deg, hsl(36 20% 97%) 0%, hsl(36 18% 93%) 55%, hsl(107 12% 86%) 100%);
+    --gradient-gold:  linear-gradient(135deg, hsl(12 46% 62%), hsl(12 38% 48%));
+    --gradient-verse: linear-gradient(135deg, hsl(36 20% 95%), hsl(107 10% 90%));
+    --shadow-card:     0 1px 3px hsl(107 20% 15% / 0.08), 0 1px 2px hsl(107 20% 15% / 0.05);
+    --shadow-elevated: 0 16px 40px -12px hsl(107 20% 15% / 0.15);
+    --shadow-gold:     0 8px 24px -8px hsl(12 42% 56% / 0.28);
+    --sidebar-background:        107 22% 28%;
+    --sidebar-foreground:        36 20% 93%;
+    --sidebar-primary:           12 42% 62%;
     --sidebar-primary-foreground:0 0% 100%;
-    --sidebar-accent:            214 35% 38%;
+    --sidebar-accent:            107 18% 35%;
     --sidebar-accent-foreground: 36 20% 97%;
-    --sidebar-border:            214 32% 26%;
-    --sidebar-ring:              352 31% 62%;
+    --sidebar-border:            107 20% 23%;
+    --sidebar-ring:              12 42% 62%;
   }
 }
 
 /* ════════════════════════════════════════════════════════════
-   BASE GLOBAL — overrides seguros
+   BASE GLOBAL
    ════════════════════════════════════════════════════════════ */
 @layer base {
   * {
@@ -151,7 +153,6 @@
   html {
     overflow-x: hidden;
     scroll-behavior: smooth;
-    /* Força o tema da igreja independente da preferência do sistema */
     color-scheme: light;
   }
 
@@ -167,20 +168,17 @@
     overflow-x: hidden;
   }
 
-  /* Hierarquia tipográfica */
   h1, h2, h3, h4 { @apply font-serif tracking-tight; }
 
-  /* Seleção com a cor da marca */
+  /* Seleção com Rosa Queimado */
   ::selection {
-    background-color: hsl(352 31% 55% / 0.20);
-    color: hsl(0 0% 16%);
+    background-color: hsl(12 42% 56% / 0.20);
+    color: hsl(0 0% 15%);
   }
 
-  /* Safe areas iOS */
   .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
   .pt-safe { padding-top:    env(safe-area-inset-top);    }
 
-  /* Font size mínimo mobile (evita zoom) */
   input, select, textarea, button { font-size: 16px; }
   @media (min-width: 768px) {
     input, select, textarea, button { font-size: inherit; }
@@ -188,22 +186,22 @@
 }
 
 /* ════════════════════════════════════════════════════════════
-   UTILITÁRIOS — apenas o essencial
+   UTILITÁRIOS
    ════════════════════════════════════════════════════════════ */
 @layer utilities {
 
-  /* Scrollbar discreta na paleta da igreja */
+  /* Scrollbar na paleta Pinheiro */
   ::-webkit-scrollbar       { width: 5px; height: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb {
-    background: hsl(214 25% 70%);
+    background: hsl(107 18% 65%);
     border-radius: 99px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: hsl(214 40% 55%);
+    background: hsl(107 22% 50%);
   }
 
-  /* Texto com gradiente Rosa Queimado */
+  /* Gradiente Rosa Queimado */
   .text-gradient-gold {
     background: var(--gradient-gold);
     -webkit-background-clip: text;
@@ -214,16 +212,16 @@
   /* Separador */
   .divider-gold {
     height: 1px;
-    background: linear-gradient(to right, transparent, hsl(352 31% 55% / 0.35), transparent);
+    background: linear-gradient(to right, transparent, hsl(12 42% 56% / 0.35), transparent);
     border: none;
     margin: 1rem 0;
   }
 
   /* Superfície glass */
   .surface-glass {
-    background: hsl(36 15% 98% / 0.90);
+    background: hsl(36 18% 98% / 0.90);
     backdrop-filter: blur(8px);
-    border: 1px solid hsl(36 18% 85% / 0.60);
+    border: 1px solid hsl(36 18% 84% / 0.60);
   }
 
   /* Animações */
