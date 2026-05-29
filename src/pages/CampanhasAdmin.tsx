@@ -577,7 +577,6 @@ function WizardCampanha({ campanha, onClose, onSalvo }: {
         url_publica: urlFinal,
       });
     }
-      }
 
       // 3. Inserir materiais
       if (materiaisSalvos.length > 0) {
