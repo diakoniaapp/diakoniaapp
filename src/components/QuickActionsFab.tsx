@@ -1,13 +1,12 @@
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Plus, UserPlus, CalendarPlus, Home as HomeIcon, HeartHandshake } from "lucide-react";
+import { Plus, UserPlus, CalendarPlus, Home as HomeIcon, HeartHandshake, Flame } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 
 /**
- * Floating Action Button (FAB) com ações rápidas.
- * Visível apenas em mobile (md:hidden) e somente para usuários com permissão de edição.
- * Ações: Adicionar pessoa, Novo evento, Nova família, Criar ministério (admin/secretaria).
+ * FAB com ações rápidas mobile.
+ * Ações: Adicionar pessoa, Novo evento, Nova família, Criar ministério, Nova campanha.
  */
 export function QuickActionsFab() {
   const [open, setOpen] = useState(false);
@@ -30,29 +29,34 @@ export function QuickActionsFab() {
     {
       label: "Adicionar pessoa",
       icon: UserPlus,
+      color: "bg-primary",
       onClick: () => go("/membros", "novo"),
-      visible: true,
     },
     {
       label: "Novo evento",
       icon: CalendarPlus,
+      color: "bg-primary",
       onClick: () => go("/eventos", "novo"),
-      visible: true,
     },
     {
       label: "Nova família",
       icon: HomeIcon,
+      color: "bg-primary",
       onClick: () => go("/familias", "novo"),
-      visible: true,
     },
     {
       label: "Criar ministério",
       icon: HeartHandshake,
+      color: "bg-primary",
       onClick: () => go("/ministerios", "novo"),
-      // ministério visível para todos com canEdit, mas destaque para admin/secretaria
-      visible: true,
     },
-  ].filter((a) => a.visible);
+    {
+      label: "Nova campanha",
+      icon: Flame,
+      color: "bg-gold",
+      onClick: () => go("/admin/campanhas", "novo"),
+    },
+  ];
 
   return (
     <div className="md:hidden">
@@ -79,10 +83,10 @@ export function QuickActionsFab() {
           <button
             key={a.label}
             onClick={a.onClick}
-            className="flex items-center gap-3 pl-4 pr-3 h-14 rounded-full bg-card border border-border shadow-elevated text-sm font-medium animate-scale-in active:scale-95 transition-transform"
+            className="flex items-center gap-3 pl-4 pr-3 h-14 rounded-full bg-card border border-border shadow-[var(--shadow-elevated)] text-sm font-medium animate-scale-in active:scale-95 transition-transform"
           >
-            <span>{a.label}</span>
-            <span className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
+            <span className="text-foreground">{a.label}</span>
+            <span className={`w-10 h-10 rounded-full ${a.color} text-primary-foreground flex items-center justify-center`}>
               <a.icon className="w-4 h-4" />
             </span>
           </button>
@@ -100,11 +104,10 @@ export function QuickActionsFab() {
           </span>
         )}
         <button
-          aria-label={open ? "Fechar ações rápidas" : "Adicionar pessoa, evento ou família"}
-          title={open ? "Fechar" : "Adicionar pessoa, evento ou família"}
+          aria-label={open ? "Fechar ações rápidas" : "Ações rápidas"}
           onClick={() => setOpen((v) => !v)}
           className={cn(
-            "w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-elevated",
+            "w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-[var(--shadow-elevated)]",
             "flex items-center justify-center active:scale-95 transition-transform"
           )}
         >
