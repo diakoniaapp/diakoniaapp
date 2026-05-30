@@ -1,4 +1,11 @@
-import { useEffect, useState } from "react";
+import { u  estado: "",
+  endereco      setEnderecoData(emptyEndereco());
+_completo: "",
+  latitude: null as number | null,
+  longitude: null as number | null,
+  geo_fonte: "manual",
+  geo_place_id: "",
+seEffect, useState } from "react";
 import {
 Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -18,6 +25,8 @@ import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import type { Membro } from "@/pages/Membros";
 import { FamiliaSection } from "@/components/familias/FamiliaSection";
+import { EnderecoInteligente, emptyEndereco } from "@/components/membros/EnderecoInteligente";
+import type { EnderecoData } from "@/components/membros/EnderecoInteligente";
 import { cn } from "@/lib/utils";
 
 // ── Opções "Como conheceu" ────────────────────────────────────────────────
@@ -148,6 +157,8 @@ const [confirmDelete, setConfirmDelete] = useState(false);
 const [pessoasLookup, setPessoasLookup] = useState<PessoaLookup[]>([]);
 const [searchPessoa, setSearchPessoa] = useState("");
 const [showPastorSuggestion, setShowPastorSuggestion] = useState(false);
+  // Endereço inteligente — estado separado para o componente EnderecoInteligente
+  const [enderecoData, setEnderecoData] = useState<EnderecoData>(emptyEndereco());
 
 // Preencher ao editar
 useEffect(() => {
@@ -155,6 +166,21 @@ if (membro) {
 const f: any = { ...empty };
 Object.keys(empty).forEach((k) => { f[k] = (membro as any)[k] ?? ""; });
 setForm(f);
+      // Restaurar endereçoData ao editar
+      setEnderecoData({
+        endereco:          (membro as any).endereco          ?? "",
+        numero:            (membro as any).numero            ?? "",
+        complemento:       (membro as any).complemento       ?? "",
+        bairro:            (membro as any).bairro            ?? "",
+        cidade:            (membro as any).cidade            ?? "",
+        estado:            (membro as any).estado            ?? "",
+        cep:               (membro as any).cep               ?? "",
+        endereco_completo: (membro as any).endereco_completo ?? "",
+        latitude:          (membro as any).latitude  ?? null,
+        longitude:         (membro as any).longitude ?? null,
+        geo_fonte:         (membro as any).geo_fonte  ?? "manual",
+        geo_place_id:      (membro as any).geo_place_id ?? "",
+      });
 } else {
 setForm(empty);
 setSearchPessoa("");
@@ -202,6 +228,21 @@ return toast.error("Informe a data de consagracao pastoral para pastores");
 setBusy(true);
 
 const payload: any = { ...form, nome_completo: form.nome_completo.trim() };
+    // Mesclar dados de endereço do componente EnderecoInteligente
+    Object.assign(payload, {
+      endereco:          enderecoData.endereco          || null,
+      numero:            enderecoData.numero            || null,
+      complemento:       enderecoData.complemento       || null,
+      bairro:            enderecoData.bairro            || null,
+      cidade:            enderecoData.cidade            || null,
+      estado:            enderecoData.estado            || null,
+      cep:               enderecoData.cep               || null,
+      endereco_completo: enderecoData.endereco_completo || null,
+      latitude:          enderecoData.latitude,
+      longitude:         enderecoData.longitude,
+      geo_fonte:         enderecoData.latitude ? enderecoData.geo_fonte : null,
+      geo_place_id:      enderecoData.geo_place_id      || null,
+    });
 Object.keys(payload).forEach((k) => { if (payload[k] === "") payload[k] = null; });
 
 const VALID_PERFIL = ["admin","pastor","secretaria","tesoureiro","lideranca","professor_ebd","voluntario","membro"];
@@ -493,53 +534,16 @@ placeholder="000.000.000-00"
 </div>
 </Section>
 
-{/* ── SEÇÃO: ENDEREÇO ── */}
-{(isCongregado || isMembro) && (
-<Section title="Endereco" icon={MapPin} collapsible defaultOpen={false}>
-<div className="grid md:grid-cols-2 gap-4">
-<div className="md:col-span-2 space-y-1.5">
-<Label translate="no">Logradouro</Label>
-<Input value={form.endereco} className="h-11" onChange={(e) => set("endereco", e.target.value)} />
-</div>
-<div className="space-y-1.5">
-<Label translate="no">Numero</Label>
-<Input value={form.numero} className="h-11" onChange={(e) => set("numero", e.target.value)} />
-</div>
-<div className="space-y-1.5">
-<Label translate="no">Complemento</Label>
-<Input value={form.complemento} className="h-11" onChange={(e) => set("complemento", e.target.value)} />
-</div>
-<div className="space-y-1.5">
-<Label translate="no">Bairro</Label>
-<Input value={form.bairro} className="h-11" onChange={(e) => set("bairro", e.target.value)} />
-</div>
-<div className="space-y-1.5">
-<Label translate="no">Cidade</Label>
-<Input value={form.cidade} className="h-11" onChange={(e) => set("cidade", e.target.value)} />
-</div>
-<div className="space-y-1.5">
-<Label translate="no">CEP</Label>
-<Input value={form.cep} className="h-11" inputMode="numeric" onChange={(e) => set("cep", e.target.value)} placeholder="00000-000" />
-</div>
-</div>
-</Section>
-)}
+{/* ── SEÇÃO: ENDEREÇO INTELIGENTE ── */}
+      <Section title="Endereço" icon={MapPin} collapsible defaultOpen={!isVisitante}>
+        <EnderecoInteligente
+          value={enderecoData}
+          onChange={setEnderecoData}
+          compact={isVisitante}
+        />
+      </Section>
 
-{/* ── ENDEREÇO VISITANTE (bairro/cidade apenas) ── */}
-{isVisitante && (
-<div className="grid md:grid-cols-2 gap-4">
-<div className="space-y-1.5">
-<Label translate="no">Bairro</Label>
-<Input value={form.bairro} className="h-11" onChange={(e) => set("bairro", e.target.value)} />
-</div>
-<div className="space-y-1.5">
-<Label translate="no">Cidade</Label>
-<Input value={form.cidade} className="h-11" onChange={(e) => set("cidade", e.target.value)} />
-</div>
-</div>
-)}
-
-{/* ── SEÇÃO: VISITA (visitante) ── */}
+      {/* ── SEÇÃO: VISITA (visitante) ── */}
 {isVisitante && (
 <Section title="Informacoes da Visita" icon={Church}>
 <div className="grid md:grid-cols-2 gap-4">
