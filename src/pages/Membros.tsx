@@ -51,6 +51,7 @@ export interface Membro {
   como_conheceu?: string | null;
   quem_convidou_id?: string | null;
   como_conheceu_descricao?: string | null;
+  data_consagracao_pastoral?: string | null;
 }
 
 const statusColor: Record<string, string> = {
