@@ -3,132 +3,87 @@
 @tailwind utilities;
 
 /*
- * DIAKONIA APP — Tema da Igreja
- * Paleta: Dourado Cobre · Algodão Egípcio (#F5F3F0) · Rosa Queimado (#BE7060)
- * Dourado Cobre ≈ #A87230 → hsl(30 62% 42%)
- * Algodão Egípcio        → hsl(36 20% 95%)
- * Rosa Queimado          → hsl(12 42% 56%)
- * Tema único — sem alternância claro/escuro.
+ * DIAKONIA APP — Tema Institucional da Igreja
+ * Paleta Claro: Dourado Cobre · Algodão Egípcio (#F5F3F0) · Rosa Queimado (#BE7060)
+ * Paleta Escuro: Ardósia profunda · Dourado suave · Cobre tênue
+ * Dark mode: classe .dark no <html>
  */
 
 @layer base {
 
   /* ════════════════════════════════════════════════════════════
-     TEMA ÚNICO — identidade da igreja
+     TEMA CLARO (padrão)
      ════════════════════════════════════════════════════════════ */
-  :root {
+  :root,
+  .light {
 
     /* ── Superfícies ──────────────────────────────────────────── */
     --background:         36 20% 95%;    /* #F5F3F0 — Algodão Egípcio   */
     --foreground:         0 0% 15%;      /* #262626 — cinza escuro       */
 
-    --card:               36 18% 98%;    /* off-white quente para cards  */
+    --card:               36 18% 98%;
     --card-foreground:    0 0% 15%;
 
-    --popover:            0 0% 100%;     /* branco puro em dropdowns     */
+    --popover:            0 0% 100%;
     --popover-foreground: 0 0% 15%;
 
     /* ── Primário: Dourado Cobre ──────────────────────────────── */
-    --primary:            30 62% 42%;    /* ≈ #A87230 — cobre quente     */
-    --primary-foreground: 36 20% 97%;   /* texto claro sobre o cobre    */
-    --primary-glow:       30 65% 52%;   /* hover / foco mais claro      */
+    --primary:            30 62% 42%;    /* ≈ #A87230                   */
+    --primary-foreground: 36 20% 97%;
+    --primary-glow:       30 65% 52%;
 
-    /* ── Secundário: cobre amuado claro ──────────────────────── */
+    /* ── Secundário ───────────────────────────────────────────── */
     --secondary:          30 20% 88%;
     --secondary-foreground: 30 35% 25%;
 
     /* ── Muted / neutros quentes ─────────────────────────────── */
     --muted:              36 15% 91%;
-    --muted-foreground:   0 0% 36%;      /* #5C5C5C — cinza médio        */
+    --muted-foreground:   0 0% 36%;
 
-    /* ── Accent + Gold: Rosa Queimado (terracota) ─────────────── */
-    --accent:             12 42% 56%;    /* ≈ #BE7060                    */
+    /* ── Gold / Rosa Queimado (terracota) ─────────────────────── */
+    --accent:             12 42% 56%;    /* ≈ #BE7060                   */
     --accent-foreground:  0 0% 100%;
-
-    /* gold → Rosa Queimado (todos os text-gold/bg-gold do sistema) */
-    --gold:               12 42% 56%;    /* ≈ #BE7060                    */
+    --gold:               12 42% 56%;
     --gold-foreground:    0 0% 100%;
 
-    /* ── Teal → complementar âmbar quente ────────────────────── */
+    /* ── Teal / Âmbar complementar ───────────────────────────── */
     --teal:               38 45% 40%;
     --teal-foreground:    0 0% 100%;
 
     /* ── Feedback ────────────────────────────────────────────── */
     --success:            142 52% 36%;
     --success-foreground: 0 0% 100%;
-
     --warning:            38 88% 48%;
     --warning-foreground: 0 0% 15%;
-
     --destructive:        0 68% 50%;
     --destructive-foreground: 0 0% 100%;
 
     /* ── Estrutura ───────────────────────────────────────────── */
     --border:             36 18% 84%;
     --input:              36 15% 92%;
-    --ring:               30 62% 42%;    /* foco igual ao primary        */
-
-    --radius: 0.625rem;
+    --ring:               30 62% 42%;
+    --radius:             0.625rem;
 
     /* ── Gradientes ──────────────────────────────────────────── */
-    --gradient-hero:  linear-gradient(140deg, hsl(36 20% 97%) 0%, hsl(36 18% 93%) 55%, hsl(30 18% 87%) 100%);
+    --gradient-hero:  linear-gradient(145deg,
+                        hsl(36 30% 97%) 0%,
+                        hsl(36 20% 93%) 45%,
+                        hsl(30 22% 88%) 100%);
     --gradient-gold:  linear-gradient(135deg, hsl(12 46% 62%), hsl(12 38% 48%));
     --gradient-verse: linear-gradient(135deg, hsl(36 20% 95%), hsl(30 12% 90%));
+    --gradient-auth:  linear-gradient(160deg,
+                        hsl(36 35% 96%) 0%,
+                        hsl(36 22% 92%) 40%,
+                        hsl(30 28% 86%) 100%);
 
     /* ── Sombras ─────────────────────────────────────────────── */
-    --shadow-card:     0 1px 3px hsl(25 35% 18% / 0.09), 0 1px 2px hsl(25 35% 18% / 0.06);
+    --shadow-card:     0 1px 3px hsl(25 35% 18% / 0.09),
+                       0 1px 2px hsl(25 35% 18% / 0.06);
     --shadow-elevated: 0 16px 40px -12px hsl(25 35% 18% / 0.16);
     --shadow-gold:     0 8px 24px -8px hsl(12 42% 56% / 0.28);
+    --shadow-auth:     0 20px 60px -15px hsl(25 35% 18% / 0.18);
 
-    /* ── Sidebar: fundo Dourado Cobre escuro (bronze) ─────────── */
-    --sidebar-background:        25 45% 28%;   /* bronze escuro ≈ #63381C  */
-    --sidebar-foreground:        36 20% 93%;   /* texto Algodão            */
-    --sidebar-primary:           12 42% 62%;   /* Rosa queimado + claro    */
-    --sidebar-primary-foreground:0 0% 100%;
-    --sidebar-accent:            25 40% 35%;   /* hover: bronze mais claro */
-    --sidebar-accent-foreground: 36 20% 97%;
-    --sidebar-border:            25 42% 22%;   /* borda mais escura        */
-    --sidebar-ring:              12 42% 62%;
-  }
-
-  /* ════════════════════════════════════════════════════════════
-     .light — mesmas variáveis (tema único, toggle sem efeito)
-     ════════════════════════════════════════════════════════════ */
-  .light {
-    --background:         36 20% 95%;
-    --foreground:         0 0% 15%;
-    --card:               36 18% 98%;
-    --card-foreground:    0 0% 15%;
-    --popover:            0 0% 100%;
-    --popover-foreground: 0 0% 15%;
-    --primary:            30 62% 42%;
-    --primary-foreground: 36 20% 97%;
-    --primary-glow:       30 65% 52%;
-    --secondary:          30 20% 88%;
-    --secondary-foreground: 30 35% 25%;
-    --muted:              36 15% 91%;
-    --muted-foreground:   0 0% 36%;
-    --accent:             12 42% 56%;
-    --accent-foreground:  0 0% 100%;
-    --gold:               12 42% 56%;
-    --gold-foreground:    0 0% 100%;
-    --teal:               38 45% 40%;
-    --teal-foreground:    0 0% 100%;
-    --success:            142 52% 36%;
-    --success-foreground: 0 0% 100%;
-    --warning:            38 88% 48%;
-    --warning-foreground: 0 0% 15%;
-    --destructive:        0 68% 50%;
-    --destructive-foreground: 0 0% 100%;
-    --border:             36 18% 84%;
-    --input:              36 15% 92%;
-    --ring:               30 62% 42%;
-    --gradient-hero:  linear-gradient(140deg, hsl(36 20% 97%) 0%, hsl(36 18% 93%) 55%, hsl(30 18% 87%) 100%);
-    --gradient-gold:  linear-gradient(135deg, hsl(12 46% 62%), hsl(12 38% 48%));
-    --gradient-verse: linear-gradient(135deg, hsl(36 20% 95%), hsl(30 12% 90%));
-    --shadow-card:     0 1px 3px hsl(25 35% 18% / 0.09), 0 1px 2px hsl(25 35% 18% / 0.06);
-    --shadow-elevated: 0 16px 40px -12px hsl(25 35% 18% / 0.16);
-    --shadow-gold:     0 8px 24px -8px hsl(12 42% 56% / 0.28);
+    /* ── Sidebar: bronze escuro ───────────────────────────────── */
     --sidebar-background:        25 45% 28%;
     --sidebar-foreground:        36 20% 93%;
     --sidebar-primary:           12 42% 62%;
@@ -137,6 +92,87 @@
     --sidebar-accent-foreground: 36 20% 97%;
     --sidebar-border:            25 42% 22%;
     --sidebar-ring:              12 42% 62%;
+  }
+
+  /* ════════════════════════════════════════════════════════════
+     TEMA ESCURO — classe .dark no <html>
+     ════════════════════════════════════════════════════════════ */
+  .dark {
+
+    /* ── Superfícies ──────────────────────────────────────────── */
+    --background:         224 20% 10%;   /* ardósia profunda            */
+    --foreground:         36 20% 92%;    /* algodão tênue               */
+
+    --card:               224 18% 14%;   /* card ligeiramente mais claro */
+    --card-foreground:    36 18% 92%;
+
+    --popover:            224 18% 12%;
+    --popover-foreground: 36 18% 92%;
+
+    /* ── Primário: cobre mais vivo no escuro ──────────────────── */
+    --primary:            30 55% 52%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow:       30 60% 60%;
+
+    /* ── Secundário ───────────────────────────────────────────── */
+    --secondary:          224 15% 20%;
+    --secondary-foreground: 36 20% 85%;
+
+    /* ── Muted ───────────────────────────────────────────────── */
+    --muted:              224 15% 18%;
+    --muted-foreground:   36 10% 55%;
+
+    /* ── Gold / terracota mais suave no escuro ────────────────── */
+    --accent:             12 48% 60%;
+    --accent-foreground:  0 0% 100%;
+    --gold:               12 48% 60%;
+    --gold-foreground:    0 0% 100%;
+
+    /* ── Teal ────────────────────────────────────────────────── */
+    --teal:               38 40% 48%;
+    --teal-foreground:    0 0% 100%;
+
+    /* ── Feedback ────────────────────────────────────────────── */
+    --success:            142 45% 40%;
+    --success-foreground: 0 0% 100%;
+    --warning:            38 80% 52%;
+    --warning-foreground: 0 0% 10%;
+    --destructive:        0 60% 52%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* ── Estrutura ───────────────────────────────────────────── */
+    --border:             224 15% 22%;
+    --input:              224 15% 18%;
+    --ring:               12 48% 60%;
+
+    /* ── Gradientes escuros ───────────────────────────────────── */
+    --gradient-hero:  linear-gradient(145deg,
+                        hsl(224 20% 12%) 0%,
+                        hsl(224 18% 10%) 50%,
+                        hsl(220 22% 8%)  100%);
+    --gradient-gold:  linear-gradient(135deg, hsl(12 52% 56%), hsl(12 40% 42%));
+    --gradient-verse: linear-gradient(135deg, hsl(224 18% 16%), hsl(224 15% 13%));
+    --gradient-auth:  linear-gradient(160deg,
+                        hsl(224 22% 14%) 0%,
+                        hsl(224 20% 11%) 45%,
+                        hsl(220 24% 8%)  100%);
+
+    /* ── Sombras escuras ─────────────────────────────────────── */
+    --shadow-card:     0 1px 3px hsl(0 0% 0% / 0.3),
+                       0 1px 2px hsl(0 0% 0% / 0.2);
+    --shadow-elevated: 0 16px 40px -12px hsl(0 0% 0% / 0.45);
+    --shadow-gold:     0 8px 24px -8px hsl(12 48% 60% / 0.30);
+    --shadow-auth:     0 20px 60px -15px hsl(0 0% 0% / 0.50);
+
+    /* ── Sidebar escura: ardósia mais profunda ────────────────── */
+    --sidebar-background:        224 28% 8%;
+    --sidebar-foreground:        36 16% 88%;
+    --sidebar-primary:           12 48% 60%;
+    --sidebar-primary-foreground:0 0% 100%;
+    --sidebar-accent:            224 22% 14%;
+    --sidebar-accent-foreground: 36 16% 92%;
+    --sidebar-border:            224 20% 14%;
+    --sidebar-ring:              12 48% 60%;
   }
 }
 
@@ -152,7 +188,6 @@
   html {
     overflow-x: hidden;
     scroll-behavior: smooth;
-    color-scheme: light;
   }
 
   body {
@@ -165,18 +200,20 @@
     -webkit-tap-highlight-color: transparent;
     overscroll-behavior-y: none;
     overflow-x: hidden;
+    transition: background-color 0.25s ease, color 0.25s ease;
   }
 
   h1, h2, h3, h4 { @apply font-serif tracking-tight; }
 
   ::selection {
-    background-color: hsl(12 42% 56% / 0.20);
-    color: hsl(0 0% 15%);
+    background-color: hsl(12 42% 56% / 0.25);
+    color: inherit;
   }
 
   .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
   .pt-safe { padding-top:    env(safe-area-inset-top);    }
 
+  /* Evita zoom em inputs no iOS */
   input, select, textarea, button { font-size: 16px; }
   @media (min-width: 768px) {
     input, select, textarea, button { font-size: inherit; }
@@ -184,21 +221,18 @@
 }
 
 /* ════════════════════════════════════════════════════════════
-   UTILITÁRIOS
+   UTILITÁRIOS GLOBAIS — animações, bg-auth, classes custom
    ════════════════════════════════════════════════════════════ */
 @layer utilities {
 
-  /* Scrollbar na paleta cobre */
+  /* ── Scrollbar ───────────────────────────────────────────── */
   ::-webkit-scrollbar       { width: 5px; height: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb {
-    background: hsl(30 40% 65%);
-    border-radius: 99px;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background: hsl(30 50% 50%);
-  }
+  ::-webkit-scrollbar-thumb { background: hsl(30 40% 65% / 0.6); border-radius: 99px; }
+  ::-webkit-scrollbar-thumb:hover { background: hsl(30 50% 50%); }
+  .dark ::-webkit-scrollbar-thumb { background: hsl(12 48% 45% / 0.5); }
 
+  /* ── Gradiente no texto ──────────────────────────────────── */
   .text-gradient-gold {
     background: var(--gradient-gold);
     -webkit-background-clip: text;
@@ -206,6 +240,7 @@
     background-clip: text;
   }
 
+  /* ── Divisor dourado ─────────────────────────────────────── */
   .divider-gold {
     height: 1px;
     background: linear-gradient(to right, transparent, hsl(12 42% 56% / 0.35), transparent);
@@ -213,19 +248,57 @@
     margin: 1rem 0;
   }
 
+  /* ── Glass card ──────────────────────────────────────────── */
   .surface-glass {
-    background: hsl(36 18% 98% / 0.90);
-    backdrop-filter: blur(8px);
-    border: 1px solid hsl(36 18% 84% / 0.60);
+    background: hsl(36 18% 98% / 0.88);
+    backdrop-filter: blur(12px);
+    border: 1px solid hsl(36 18% 84% / 0.55);
+  }
+  .dark .surface-glass {
+    background: hsl(224 18% 14% / 0.88);
+    border-color: hsl(224 15% 22% / 0.55);
   }
 
+  /* ── Fundo tela de autenticação ──────────────────────────── */
+  .bg-auth {
+    background: var(--gradient-auth);
+    position: relative;
+  }
+  .bg-auth::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      radial-gradient(circle at 20% 20%, hsl(12 42% 56% / 0.06) 0%, transparent 55%),
+      radial-gradient(circle at 80% 80%, hsl(30 62% 42% / 0.05) 0%, transparent 55%);
+    pointer-events: none;
+  }
+
+  /* ── Keyframes ───────────────────────────────────────────── */
   @keyframes fade-in {
-    from { opacity: 0; transform: translateY(6px); }
+    from { opacity: 0; transform: translateY(8px); }
     to   { opacity: 1; transform: translateY(0);   }
   }
+  @keyframes fade-in-up {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0);    }
+  }
   @keyframes scale-in {
-    from { opacity: 0; transform: scale(0.97); }
+    from { opacity: 0; transform: scale(0.96); }
     to   { opacity: 1; transform: scale(1);    }
+  }
+  @keyframes logo-appear {
+    0%   { opacity: 0; transform: scale(0.90) translateY(-8px); }
+    60%  { opacity: 1; transform: scale(1.03) translateY(0); }
+    100% { opacity: 1; transform: scale(1)    translateY(0); }
+  }
+  @keyframes verse-slide {
+    from { opacity: 0; transform: translateX(8px); }
+    to   { opacity: 1; transform: translateX(0);   }
+  }
+  @keyframes pulse-gold {
+    0%, 100% { box-shadow: 0 0 0 0 hsl(12 42% 56% / 0.25); }
+    50%       { box-shadow: 0 0 0 8px hsl(12 42% 56% / 0); }
   }
   @keyframes accordion-down {
     from { height: 0; }
@@ -235,9 +308,25 @@
     from { height: var(--radix-accordion-content-height); }
     to   { height: 0; }
   }
+  @keyframes bounce-subtle {
+    0%, 100% { transform: translateY(0); }
+    50%       { transform: translateY(-3px); }
+  }
 
-  .animate-fade-in        { animation: fade-in 0.22s ease-out both; }
-  .animate-scale-in       { animation: scale-in 0.18s ease-out both; }
+  /* ── Classes de animação ─────────────────────────────────── */
+  .animate-fade-in        { animation: fade-in 0.25s ease-out both; }
+  .animate-fade-in-up     { animation: fade-in-up 0.35s ease-out both; }
+  .animate-scale-in       { animation: scale-in 0.20s ease-out both; }
+  .animate-logo-appear    { animation: logo-appear 0.55s cubic-bezier(.22,1,.36,1) both; }
+  .animate-verse-slide    { animation: verse-slide 0.40s ease-out both; }
+  .animate-pulse-gold     { animation: pulse-gold 2.5s ease-in-out infinite; }
   .animate-accordion-down { animation: accordion-down 0.2s ease-out; }
   .animate-accordion-up   { animation: accordion-up 0.2s ease-out;   }
+  .animate-bounce-subtle  { animation: bounce-subtle 1.8s ease-in-out infinite; }
+
+  /* ── Delays para cascata ─────────────────────────────────── */
+  .delay-100 { animation-delay: 0.10s; }
+  .delay-200 { animation-delay: 0.20s; }
+  .delay-300 { animation-delay: 0.30s; }
+  .delay-400 { animation-delay: 0.40s; }
 }

@@ -23,6 +23,9 @@ import ImportacaoMembros from "./pages/ImportacaoMembros.tsx";
 import ExportacaoAdmin from "./pages/ExportacaoAdmin.tsx";
 import CampanhasAdmin from "./pages/CampanhasAdmin.tsx";
 import AgendaPrint from "./pages/AgendaPrint.tsx";
+import ResetSenha from "./pages/ResetSenha.tsx";
+import PrimeiroAcesso from "./pages/PrimeiroAcesso.tsx";
+import AceiteLgpd from "./pages/AceiteLgpd.tsx";
 import { AuthProvider } from "./hooks/useAuth.tsx";
 import { ErrorBoundary } from "./components/ErrorBoundary.tsx";
 import { ThemeProvider } from "./hooks/useTheme.tsx";
@@ -40,6 +43,9 @@ const App = () => (
             <AuthProvider>
               <Routes>
                 <Route path="/auth" element={<Auth />} />
+                <Route path="/auth/reset" element={<ResetSenha />} />
+                <Route path="/primeiro-acesso" element={<PrimeiroAcesso />} />
+                <Route path="/aceite-lgpd" element={<AceiteLgpd />} />
                 <Route path="/agenda/imprimir" element={<AgendaPrint />} />
                 <Route element={<AppLayout />}>
                   <Route path="/" element={<Dashboard />} />
