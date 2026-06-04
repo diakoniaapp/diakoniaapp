@@ -97,7 +97,7 @@ function BadgeAcesso({ pessoaId }: { pessoaId: string }) {
     return (
           <span title={label} className={`shrink-0 ${className}`}>
                   <Icon className="w-4 h-4" />
-          </span>span>
+          </span>
         );
 }
 
@@ -187,7 +187,7 @@ export default function Membros() {
                                                                                 <Plus className="w-4 h-4" /> Nova pessoa
                                                                 </Button>Button>
                                                                 <Button asChild variant="outline" className="gap-2">
-                                                                                <Link to="/visitantes"><BarChart3 className="w-4 h-4" /> <span translate="no">Painel</span>span></Link>Link>
+                                                                                <Link to="/visitantes"><BarChart3 className="w-4 h-4" /> <span translate="no">Painel</span></Link>Link>
                                                                 </Button>Button>
                                                   </div>div>
                         )
@@ -254,7 +254,7 @@ export default function Membros() {
                                                                                         </div>div>
                                                                                       <div className="flex-1 min-w-0">
                                                                                                           <div className="flex items-center gap-2 flex-wrap">
-                                                                                                                                <span className="font-medium truncate">{m.nome_completo}</span>span>
+                                                                                                                                <span className="font-medium truncate">{m.nome_completo}</span>
                                                                                                                                 <Badge variant="outline" className={tipoPessoaColor[m.tipo_pessoa]}>
                                                                                                                                   {tipoPessoaLabel[m.tipo_pessoa]}
                                                                                                                                   </Badge>Badge>
