@@ -18,12 +18,16 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import {
-  FileText, Plus, Pencil, CheckCircle2, Clock, Loader2,
+  FileText, Plus, Pencil, CheckCircle2, Clock, Loader2, Upload, X, FileCheck2,
   BookOpen, ChevronDown, ChevronUp, Trash2, Network, Info, History, RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import SyncEstruturaModal from "@/components/documentos/SyncEstruturaModal";
+import {
+  ingerirDocumento, validarArquivo, formatarTamanho,
+  type ProgressoIngestao,
+} from "@/services/documentoIngestaoService";
 type TipoDoc = "estatuto" | "regimento" | "manual" | "ata" | "circular" | "outro";
 
 interface Documento {
@@ -150,6 +154,9 @@ export default function DocumentosAdmin() {
   const [editingDocId, setEditingDocId] = useState<string | null>(null);
   const emptyDoc = { tipo: "outro" as TipoDoc, titulo: "", conteudo: "", versao: "1.0", vigente: false, aprovado_em: "", aprovado_por: "", arquivo_url: "" };
   const [formDoc, setFormDoc] = useState<any>(emptyDoc);
+const [arquivo, setArquivo] = useState<File | null>(null);
+const [uploadProgresso, setUploadProgresso] = useState<ProgressoIngestao | null>(null);
+const [uploadando, setUploadando] = useState(false);
   const [savingDoc, setSavingDoc] = useState(false);
 
   // Aba ativa (documentos | estrutura)
@@ -228,23 +235,51 @@ export default function DocumentosAdmin() {
 
   // ── Salvar documento ──
   const salvarDoc = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSavingDoc(true);
-    const payload: any = { ...formDoc };
-    Object.keys(payload).forEach(k => { if (payload[k] === "") payload[k] = null; });
-    let error;
-    if (editingDocId) {
-      ({ error } = await supabase.from("documentos").update(payload).eq("id", editingDocId));
-    } else {
-      ({ error } = await supabase.from("documentos").insert(payload));
+  e.preventDefault();
+  setSavingDoc(true);
+  const payload: any = { ...formDoc };
+  Object.keys(payload).forEach(k => { if (payload[k] === "") payload[k] = null; });
+  let error;
+  if (editingId) {
+    ({ error } = await supabase.from("documentos").update(payload).eq("id", editingId));
+  } else {
+    ({ error } = await supabase.from("documentos").insert(payload));
+  }
+  if (error) { setSavingDoc(false); return toast.error(error.message); }
+
+  // Ingestao de arquivo se selecionado
+  if (arquivo) {
+    let docId = editingId;
+    if (!docId) {
+      const { data: nd } = await supabase.from("documentos").select("id")
+        .eq("titulo", formDoc.titulo).order("created_at", { ascending: false }).limit(1).maybeSingle();
+      docId = nd?.id ?? null;
     }
-    setSavingDoc(false);
-    if (error) return toast.error(error.message);
-    toast.success(editingDocId ? "Documento atualizado" : "Documento criado");
-    setDocOpen(false);
-    setEditingDocId(null);
-    setFormDoc(emptyDoc);
-    loadDocs();
+    if (docId) {
+      setUploadando(true);
+      try {
+        await ingerirDocumento(arquivo, docId, setUploadProgresso);
+        toast.success(editingId ? "Documento atualizado e arquivo ingerido!" : "Documento criado e arquivo ingerido!");
+      } catch (err) {
+        toast.error("Salvo, mas falha na ingestao: " + (err as Error).message);
+      } finally {
+        setUploadando(false);
+        setArquivo(null);
+        setUploadProgresso(null);
+      }
+    } else {
+      toast.success(editingId ? "Documento atualizado" : "Documento criado");
+    }
+  } else {
+    toast.success(editingId ? "Documento atualizado" : "Documento criado");
+  }
+
+  setSavingDoc(false);
+  setDocOpen(false);
+  setEditingId(null);
+  setFormDoc(emptyDoc);
+  setArquivo(null);
+  loadDocs();
   };
 
   const startEditDoc = (d: Documento) => {
@@ -258,6 +293,9 @@ export default function DocumentosAdmin() {
       aprovado_em: d.aprovado_em ?? "",
       aprovado_por: d.aprovado_por ?? "",
       arquivo_url: d.arquivo_url ?? "",
+      arquivo_storage_path: d.arquivo_storage_path ?? "",
+      arquivo_nome: d.arquivo_nome ?? "",
+      arquivo_tamanho_bytes: d.arquivo_tamanho_bytes ?? 0,
     });
     setDocOpen(true);
   };
@@ -706,7 +744,7 @@ export default function DocumentosAdmin() {
       </div>
 
       {/* ─── Dialog: Documento ─── */}
-      <Dialog open={docOpen} onOpenChange={(o) => { setDocOpen(o); if (!o) { setEditingDocId(null); setFormDoc(emptyDoc); } }}>
+      <Dialog open={docOpen} onOpenChange={(o) => { setDocOpen(o); if (!o) { setEditingDocId(null); setFormDoc(emptyDoc); setArquivo(null); setUploadProgresso(null); } }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-serif text-2xl">{editingDocId ? "Editar documento" : "Novo documento"}</DialogTitle>
@@ -745,10 +783,74 @@ export default function DocumentosAdmin() {
                 <Input type="date" value={formDoc.aprovado_em} onChange={e => setFormDoc({ ...formDoc, aprovado_em: e.target.value })} />
               </div>
             </div>
-            <div>
-              <Label>URL do arquivo (opcional)</Label>
-              <Input value={formDoc.arquivo_url} onChange={e => setFormDoc({ ...formDoc, arquivo_url: e.target.value })} placeholder="https://…" />
-            </div>
+            <div className="space-y-3">
+                <Label>Arquivo do documento</Label>
+
+                {/* Upload de arquivo */}
+                <div className={[
+                  "relative flex flex-col items-center justify-center gap-2",
+                  "border-2 border-dashed rounded-lg px-4 py-5 text-center transition-colors",
+                  arquivo ? "border-primary/50 bg-primary/5" : "border-border hover:border-primary/30 hover:bg-muted/30",
+                ].join(" ")}>
+                  <input
+                    type="file"
+                    accept=".pdf,.docx,.doc"
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0] ?? null;
+                      if (f) {
+                        const err = validarArquivo(f);
+                        if (err) { toast.error(err); return; }
+                        setArquivo(f);
+                        setFormDoc({ ...formDoc, arquivo_url: null });
+                      }
+                    }}
+                  />
+                  {arquivo ? (
+                    <div className="flex items-center gap-2 pointer-events-none">
+                      <FileCheck2 className="w-5 h-5 text-primary shrink-0" />
+                      <div className="text-left">
+                        <p className="text-sm font-medium truncate max-w-[220px]">{arquivo.name}</p>
+                        <p className="text-xs text-muted-foreground">{formatarTamanho(arquivo.size)}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="pointer-events-none space-y-1">
+                      <Upload className="w-6 h-6 mx-auto text-muted-foreground/60" />
+                      <p className="text-sm text-muted-foreground">Clique ou arraste o arquivo aqui</p>
+                      <p className="text-xs text-muted-foreground/70">PDF ou DOCX · máx. 20 MB</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Progresso de upload */}
+                {uploadProgresso && (
+                  <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground flex items-center gap-2">
+                    <Loader2 className="w-3 h-3 animate-spin shrink-0" />
+                    <span>{uploadProgresso.mensagem}</span>
+                    {uploadProgresso.progresso != null && (
+                      <span className="ml-auto font-mono">{uploadProgresso.progresso}%</span>
+                    )}
+                  </div>
+                )}
+
+                {/* URL alternativa (Google Drive, etc) */}
+                {!arquivo && (
+                  <div>
+                    <p className="text-[11px] text-muted-foreground mb-1.5">Ou informe URL externa (Google Drive, etc):</p>
+                    <Input value={formDoc.arquivo_url ?? ""} onChange={e => setFormDoc({ ...formDoc, arquivo_url: e.target.value })} placeholder="https://drive.google.com/..." />
+                  </div>
+                )}
+
+                {/* Badge do arquivo já existente no storage */}
+                {formDoc.arquivo_storage_path && !arquivo && (
+                  <div className="flex items-center gap-2 rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-xs">
+                    <FileCheck2 className="w-3.5 h-3.5 text-primary shrink-0" />
+                    <span className="text-primary font-medium truncate">{formDoc.arquivo_nome ?? "Arquivo existente"}</span>
+                    <span className="text-muted-foreground ml-auto">{formDoc.arquivo_tamanho_bytes ? formatarTamanho(formDoc.arquivo_tamanho_bytes) : ""}</span>
+                  </div>
+                )}
+              </div>
             <div className="flex items-center justify-between rounded-md border bg-background px-3 py-2">
               <div>
                 <Label className="text-sm">Documento Vigente</Label>
