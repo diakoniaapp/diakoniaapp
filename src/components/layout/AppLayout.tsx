@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard, Users, HeartHandshake, Home, LogOut, ShieldCheck,
   CalendarDays, ChevronLeft, MapPin, BarChart2, Building2, KeyRound,
-  ShieldAlert, Church, FileText, Upload, Download, Flame,
+  ShieldAlert, Church, FileText, Upload, Download, Flame, UserCheck,
 } from "lucide-react";
 import { BrandMark } from "@/components/Brand";
 import { useEffect } from "react";
@@ -15,6 +15,7 @@ import { UserMenuButton } from "@/components/layout/UserMenuButton";
 const desktopNav = [
   { to: "/",                  label: "Painel",      icon: LayoutDashboard, end: true },
   { to: "/membros",           label: "Pessoas",     icon: Users },
+  { to: "/visitantes",        label: "Visitantes",  icon: UserCheck },
   { to: "/familias",          label: "Familias",    icon: Home },
   { to: "/ministerios",       label: "Ministerios", icon: HeartHandshake },
   { to: "/eventos",           label: "Agenda",      icon: CalendarDays },
