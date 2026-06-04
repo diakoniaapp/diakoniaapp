@@ -185,10 +185,10 @@ export default function Membros() {
                                                                                   className="gap-2"
                                                                                 >
                                                                                 <Plus className="w-4 h-4" /> Nova pessoa
-                                                                </Button>Button>
+                                                                </Button>
                                                                 <Button asChild variant="outline" className="gap-2">
                                                                                 <Link to="/visitantes"><BarChart3 className="w-4 h-4" /> <span translate="no">Painel</span></Link>Link>
-                                                                </Button>Button>
+                                                                </Button>
                                                   </div>div>
                         )
                 }
@@ -283,7 +283,7 @@ export default function Membros() {
                                                                                                                                 onClick={() => setVisitantePessoa(m)}
                                                                                                                               >
                                                                                                                               <Sparkles className="w-4 h-4 text-warning" />
-                                                                                                      </Button>Button>
+                                                                                                      </Button>
                                                                                                 )}
                                                                                                 <Button
                                                                                                                           variant="ghost"
@@ -293,7 +293,7 @@ export default function Membros() {
                                                                                                                           onClick={() => setVinculosPessoa(m)}
                                                                                                                         >
                                                                                                                         <Link2 className="w-4 h-4" />
-                                                                                                  </Button>Button>
+                                                                                                  </Button>
                                                                                                 <Button
                                                                                                                           variant="ghost"
                                                                                                                           size="icon"
@@ -302,7 +302,7 @@ export default function Membros() {
                                                                                                                           onClick={() => setAtuacoesPessoa(m)}
                                                                                                                         >
                                                                                                                         <Briefcase className="w-4 h-4" />
-                                                                                                  </Button>Button>
+                                                                                                  </Button>
                                                                                                 <Button
                                                                                                                           variant="ghost"
                                                                                                                           size="icon"
@@ -313,7 +313,7 @@ export default function Membros() {
                                                                                                                             }}
                                                                                                                         >
                                                                                                                         <Pencil className="w-4 h-4" />
-                                                                                                  </Button>Button>
+                                                                                                  </Button>
                                                                           </div>div>
                                                                                       )}
                                                                     </CardContent>CardContent>
