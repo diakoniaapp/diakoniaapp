@@ -346,4 +346,4 @@ export default function Membros() {
                             />
               </div>
           );
-          }</div>
+          }
