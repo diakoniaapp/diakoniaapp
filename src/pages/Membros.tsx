@@ -187,9 +187,9 @@ export default function Membros() {
                                                                                 <Plus className="w-4 h-4" /> Nova pessoa
                                                                 </Button>
                                                                 <Button asChild variant="outline" className="gap-2">
-                                                                                <Link to="/visitantes"><BarChart3 className="w-4 h-4" /> <span translate="no">Painel</span></Link>Link>
+                                                                                <Link to="/visitantes"><BarChart3 className="w-4 h-4" /> <span translate="no">Painel</span></Link>
                                                                 </Button>
-                                                  </div>div>
+                                                  </div>
                         )
                 }
                     />
@@ -203,36 +203,36 @@ export default function Membros() {
                                                                   value={search}
                                                                   onChange={(e) => setSearch(e.target.value)}
                                                                 />
-                                      </div>div>
+                                      </div>
                                       <Select value={tipoFiltro} onValueChange={setTipoFiltro}>
                                                   <SelectTrigger className="md:w-56">
                                                                 <SelectValue placeholder="Tipo de pessoa" />
-                                                  </SelectTrigger>SelectTrigger>
+                                                  </SelectTrigger>
                                                   <SelectContent>
-                                                                <SelectItem value="todos">Todos os tipos</SelectItem>SelectItem>
-                                                                <SelectItem value="membro">Membro</SelectItem>SelectItem>
-                                                                <SelectItem value="congregado">Congregado</SelectItem>SelectItem>
-                                                                <SelectItem value="visitante">Visitante</SelectItem>SelectItem>
-                                                                <SelectItem value="ex_membro">Ex-Membro</SelectItem>SelectItem>
-                                                  </SelectContent>SelectContent>
-                                      </Select>Select>
+                                                                <SelectItem value="todos">Todos os tipos</SelectItem>
+                                                                <SelectItem value="membro">Membro</SelectItem>
+                                                                <SelectItem value="congregado">Congregado</SelectItem>
+                                                                <SelectItem value="visitante">Visitante</SelectItem>
+                                                                <SelectItem value="ex_membro">Ex-Membro</SelectItem>
+                                                  </SelectContent>
+                                      </Select>
                                       <Select value={perfilFiltro} onValueChange={setPerfilFiltro}>
                                                   <SelectTrigger className="md:w-56">
                                                                 <SelectValue placeholder="Perfil de Acesso" />
-                                                  </SelectTrigger>SelectTrigger>
+                                                  </SelectTrigger>
                                                   <SelectContent>
-                                                                <SelectItem value="todos">Todos os perfis</SelectItem>SelectItem>
-                                                                <SelectItem value="admin">Admin</SelectItem>SelectItem>
-                                                                <SelectItem value="pastor">Pastor</SelectItem>SelectItem>
-                                                                <SelectItem value="secretaria">Secretaria</SelectItem>SelectItem>
-                                                                <SelectItem value="tesoureiro">Tesoureiro</SelectItem>SelectItem>
-                                                                <SelectItem value="lideranca">Liderança</SelectItem>SelectItem>
-                                                                <SelectItem value="professor_ebd">Professor EBD</SelectItem>SelectItem>
-                                                                <SelectItem value="voluntario">Voluntário</SelectItem>SelectItem>
-                                                                <SelectItem value="membro">Membro</SelectItem>SelectItem>
-                                                  </SelectContent>SelectContent>
-                                      </Select>Select>
-                            </div>div>
+                                                                <SelectItem value="todos">Todos os perfis</SelectItem>
+                                                                <SelectItem value="admin">Admin</SelectItem>
+                                                                <SelectItem value="pastor">Pastor</SelectItem>
+                                                                <SelectItem value="secretaria">Secretaria</SelectItem>
+                                                                <SelectItem value="tesoureiro">Tesoureiro</SelectItem>
+                                                                <SelectItem value="lideranca">Liderança</SelectItem>
+                                                                <SelectItem value="professor_ebd">Professor EBD</SelectItem>
+                                                                <SelectItem value="voluntario">Voluntário</SelectItem>
+                                                                <SelectItem value="membro">Membro</SelectItem>
+                                                  </SelectContent>
+                                      </Select>
+                            </div>
                     
                       {loading ? (
                                     <ListSkeleton className="grid gap-3" count={5} />
@@ -251,23 +251,23 @@ export default function Membros() {
                                                                                                                 .slice(0, 2)
                                                                                                                 .map((n) => n[0])
                                                                                                                 .join("")}
-                                                                                        </div>div>
+                                                                                        </div>
                                                                                       <div className="flex-1 min-w-0">
                                                                                                           <div className="flex items-center gap-2 flex-wrap">
                                                                                                                                 <span className="font-medium truncate">{m.nome_completo}</span>
                                                                                                                                 <Badge variant="outline" className={tipoPessoaColor[m.tipo_pessoa]}>
                                                                                                                                   {tipoPessoaLabel[m.tipo_pessoa]}
-                                                                                                                                  </Badge>Badge>
+                                                                                                                                  </Badge>
                                                                                                             {m.tipo_pessoa === "membro" && (
                                                                               <Badge variant="outline" className={statusColor[m.status]}>
                                                                                 {m.status}
-                                                                                </Badge>Badge>
+                                                                                </Badge>
                                                                                                                                 )}
-                                                                                                            </div>div>
+                                                                                                            </div>
                                                                                                           <div className="text-sm text-muted-foreground truncate">
                                                                                                             {[m.telefone_celular, m.email, m.bairro].filter(Boolean).join(" • ") || "—"}
-                                                                                                            </div>div>
-                                                                                        </div>div>
+                                                                                                            </div>
+                                                                                        </div>
                                                                       {/* Indicador de acesso para congregados e membros */}
                                                                       {(m.tipo_pessoa === "congregado" || m.tipo_pessoa === "membro") && (
                                                                           <BadgeAcesso pessoaId={m.id} />
@@ -314,14 +314,14 @@ export default function Membros() {
                                                                                                                         >
                                                                                                                         <Pencil className="w-4 h-4" />
                                                                                                   </Button>
-                                                                          </div>div>
+                                                                          </div>
                                                                                       )}
-                                                                    </CardContent>CardContent>
-                                                    </Card>Card>
+                                                                    </CardContent>
+                                                    </Card>
                                                   ))}
-                                    </div>div>
+                                    </div>
                             )}
-                    </div>div>
+                    </div>
               
                     <MembroForm open={open} onOpenChange={setOpen} membro={editing} onSaved={load} />
                     <VinculosPessoaDialog
@@ -344,6 +344,6 @@ export default function Membros() {
                               pessoa={visitantePessoa}
                               onSaved={load}
                             />
-              </PageHeader>div>
+              </div>
           );
           }</div>
