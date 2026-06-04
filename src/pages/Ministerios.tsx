@@ -245,11 +245,11 @@ export default function Ministerios() {
                                                                               ? <span className="flex items-center gap-1.5"><Loader2 className="w-4 h-4 animate-spin" />Analisando...</span>
                                                                               : <span className="flex items-center gap-1.5"><RefreshCw className="w-4 h-4" />Atualizar com base no documento</span>
                                                           }
-                                                      </Button>Button>
+                                                      </Button>
                                                       <Button className="whitespace-nowrap" onClick={() => { setEditingId(null); setForm(emptyForm); setOpen(true); }}>
                                                                     <Plus className="w-4 h-4 mr-2" />Novo ministerio
-                                                      </Button>Button>
-                                          </div>div>
+                                                      </Button>
+                                          </div>
                         )}
                       />
                       <div className="p-4 md:p-8">
@@ -267,7 +267,7 @@ export default function Ministerios() {
                                                                                               <div className="flex items-start gap-3">
                                                                                                                   <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center">
                                                                                                                                         <HeartHandshake className="w-5 h-5 text-primary" />
-                                                                                                                      </div>div>
+                                                                                                                      </div>
                                                                                                                   <div className="flex-1 min-w-0">
                                                                                                                                         <div className="flex items-start justify-between gap-2">
                                                                                                                                                                 <div className="flex items-center gap-2 flex-wrap">
@@ -276,35 +276,35 @@ export default function Ministerios() {
                                                                                                                                                                     {m.ativo
                                                                                                                                                                                                     ? <Badge variant="outline" className="bg-emerald-500/10 text-emerald-700 border-emerald-500/30">Ativo</Badge>Badge>
                                                                                                                                                                                             : <Badge variant="outline" className="bg-muted text-muted-foreground">Inativo</Badge>Badge>}
-                                                                                                                                                                    </div>div>
+                                                                                                                                                                    </div>
                                                                                                                                             {canEdit && (
                                                                                           <Button variant="ghost" size="icon" onClick={() => startEdit(m)} aria-label="Editar ministerio">
                                                                                                                       <Pencil className="w-4 h-4" />
-                                                                                              </Button>Button>
+                                                                                              </Button>
                                                                                                                                                                 )}
-                                                                                                                                            </div>div>
+                                                                                                                                            </div>
                                                                                                                       {m.descricao && <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{m.descricao}</p>p>}
                                                                                                                                         <div className="text-xs text-muted-foreground mt-3 space-y-0.5">
-                                                                                                                                            {m.lider_id && <div>Lider: <span className="text-foreground">{memberName(m.lider_id)}</span>span></div>div>}
-                                                                                                                                            {m.co_lider_id && <div>Co-lider: <span className="text-foreground">{memberName(m.co_lider_id)}</span>span></div>div>}
-                                                                                                                                            </div>div>
+                                                                                                                                            {m.lider_id && <div>Lider: <span className="text-foreground">{memberName(m.lider_id)}</span>span></div>}
+                                                                                                                                            {m.co_lider_id && <div>Co-lider: <span className="text-foreground">{memberName(m.co_lider_id)}</span>span></div>}
+                                                                                                                                            </div>
                                                                                                                                         <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
                                                                                                                                                                 <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" />{loadingCounts ? "..." : `${counts[m.id] ?? 0} integrantes`}</span>span>
                                                                                                                                                                 <span className="flex items-center gap-1"><Layers className="w-3.5 h-3.5" />{loadingCounts ? "..." : `${areaCounts[m.id] ?? 0} areas`}</span>span>
-                                                                                                                                            </div>div>
+                                                                                                                                            </div>
                                                                                                                                         <div className="mt-3">
                                                                                                                                                                 <Button variant="outline" size="sm" onClick={() => setAreasOpenFor(m)}>
                                                                                                                                                                                           <Layers className="w-3.5 h-3.5 mr-1.5" />Areas
-                                                                                                                                                                    </Button>Button>
-                                                                                                                                            </div>div>
-                                                                                                                      </div>div>
-                                                                                                  </div>div>
+                                                                                                                                                                    </Button>
+                                                                                                                                            </div>
+                                                                                                                      </div>
+                                                                                                  </div>
                                                                             </CardContent>CardContent>
                                                             </Card>Card>
                                                           ))}
-                                          </div>div>
+                                          </div>
                               )}
-                      </div>div>
+                      </div>
                 
                       <Dialog open={open} onOpenChange={handleOpenChange}>
                               <DialogContent>
@@ -320,10 +320,10 @@ export default function Ministerios() {
                                                                                       {buscandoModelo && (
                                                     <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground animate-pulse">buscando...</span>span>
                                                                                                     )}
-                                                                                  </div>div>
-                                                                  </div>div>
-                                                                  <div><Label>Sigla</Label>Label><Input value={form.sigla as string} onChange={(e) => setForm({ ...form, sigla: e.target.value })} /></div>div>
-                                                    </div>div>
+                                                                                  </div>
+                                                                  </div>
+                                                                  <div><Label>Sigla</Label>Label><Input value={form.sigla as string} onChange={(e) => setForm({ ...form, sigla: e.target.value })} /></div>
+                                                    </div>
                                             {sugestao && (
                                               <div className={`rounded-md border px-3 py-2.5 flex items-start gap-2 ${sugestao.origem === "documento" ? "border-gold/50 bg-gold/8" : "border-muted bg-muted/30"}`}>
                                                               <Sparkles className={`w-4 h-4 mt-0.5 shrink-0 ${sugestao.origem === "documento" ? "text-gold" : "text-muted-foreground"}`} />
@@ -333,19 +333,19 @@ export default function Ministerios() {
                                                                                 </p>p>
                                                                   {sugestao.base_institucional && <p className="text-[10px] text-gold/70 mt-0.5">{sugestao.base_institucional}</p>p>}
                                                                                 <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">{sugestao.descricao}</p>p>
-                                                              </div>div>
+                                                              </div>
                                                               <div className="flex items-center gap-1 shrink-0">
                                                                                 <Button type="button" size="sm" variant="outline"
                                                                                                         className={`h-7 text-xs ${sugestao.origem === "documento" ? "border-gold/40 text-gold hover:bg-gold/10" : ""}`}
-                                                                                                        onClick={aplicarModelo}>Aplicar</Button>Button>
+                                                                                                        onClick={aplicarModelo}>Aplicar</Button>
                                                                                 <button type="button" onClick={() => setSugestao(null)}
                                                                                                         className="w-6 h-6 flex items-center justify-center rounded hover:bg-muted">
                                                                                                     <X className="w-3.5 h-3.5 text-muted-foreground" />
-                                                                                </button>button>
-                                                              </div>div>
-                                              </div>div>
+                                                                                </Button>
+                                                              </div>
+                                              </div>
                                                     )}
-                                                    <div><Label>Descricao</Label>Label><Textarea rows={3} value={form.descricao as string} onChange={(e) => setForm({ ...form, descricao: e.target.value })} /></div>div>
+                                                    <div><Label>Descricao</Label>Label><Textarea rows={3} value={form.descricao as string} onChange={(e) => setForm({ ...form, descricao: e.target.value })} /></div>
                                                     <div className="grid grid-cols-2 gap-3">
                                                                   <div>
                                                                                   <Label>Lider</Label>Label>
@@ -353,25 +353,25 @@ export default function Ministerios() {
                                                                                                     <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>SelectTrigger>
                                                                                                     <SelectContent>{membros.map(m => <SelectItem key={m.id} value={m.id}>{m.nome_completo}</SelectItem>SelectItem>)}</SelectContent>SelectContent>
                                                                                   </Select>Select>
-                                                                  </div>div>
+                                                                  </div>
                                                                   <div>
                                                                                   <Label>Co-lider</Label>Label>
                                                                                   <Select value={(form.co_lider_id as string) || undefined} onValueChange={(v) => setForm({ ...form, co_lider_id: v })}>
                                                                                                     <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>SelectTrigger>
                                                                                                     <SelectContent>{membros.map(m => <SelectItem key={m.id} value={m.id}>{m.nome_completo}</SelectItem>SelectItem>)}</SelectContent>SelectContent>
                                                                                   </Select>Select>
-                                                                  </div>div>
-                                                    </div>div>
+                                                                  </div>
+                                                    </div>
                                                     <div className="flex items-center justify-between rounded-md border bg-background px-3 py-2">
                                                                   <div>
                                                                                   <Label className="text-sm">Status do Ministerio</Label>Label>
                                                                                   <p className="text-xs text-muted-foreground">{form.ativo ? "Ativo" : "Inativo"}</p>p>
-                                                                  </div>div>
+                                                                  </div>
                                                                   <Switch checked={form.ativo as boolean} onCheckedChange={(v) => setForm({ ...form, ativo: v })} />
-                                                    </div>div>
+                                                    </div>
                                                     <DialogFooter>
-                                                                  <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>Cancelar</Button>Button>
-                                                                  <Button type="submit">{editingId ? "Atualizar" : "Salvar"}</Button>Button>
+                                                                  <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>Cancelar</Button>
+                                                                  <Button type="submit">{editingId ? "Atualizar" : "Salvar"}</Button>
                                                     </DialogFooter>DialogFooter>
                                         </form>form>
                               </DialogContent>DialogContent>
