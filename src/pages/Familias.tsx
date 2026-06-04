@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { CamposEndereco } from "@/components/ui/CamposEndereco";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
@@ -179,11 +180,15 @@ export default function Familias() {
               />
               <p className="text-xs text-muted-foreground mt-1">Não inclua o prefixo "Família" — ele é exibido automaticamente.</p>
             </div>
-            <div><Label>Endereço</Label><Input value={form.endereco} onChange={(e) => setForm({ ...form, endereco: e.target.value })} /></div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label>Bairro</Label><Input value={form.bairro} onChange={(e) => setForm({ ...form, bairro: e.target.value })} /></div>
-              <div><Label>Cidade</Label><Input value={form.cidade} onChange={(e) => setForm({ ...form, cidade: e.target.value })} /></div>
-            </div>
+            <CamposEndereco
+              cep={(form as any).cep ?? ""}
+              endereco={form.endereco ?? ""}
+              bairro={form.bairro ?? ""}
+              cidade={form.cidade ?? ""}
+              onChange={(campo, valor) => setForm((f) => ({ ...f, [campo]: valor }))}
+              mostrarNumero={false}
+              mostrarComplemento={false}
+            />
             <div><Label>Observações</Label><Textarea rows={3} value={form.observacoes} onChange={(e) => setForm({ ...form, observacoes: e.target.value })} /></div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>

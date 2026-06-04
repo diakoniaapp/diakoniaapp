@@ -419,12 +419,12 @@ function VisitanteCard({ v, busy, busyPromote, variant, onOpen, onRetorno, onCon
 
             {/* Nome + badges */}
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span
-                className="font-medium truncate cursor-pointer hover:underline"
-                onClick={onOpen}
+              <Link
+                to={`/visitantes/${v.id}`}
+                className="font-medium truncate hover:underline"
               >
                 {v.nome_completo}
-              </span>
+              </Link>
               <Badge variant="outline" className={`text-[10px] h-4 px-1.5 ${prioStyle.badge}`}>
                 {prioStyle.label}
               </Badge>

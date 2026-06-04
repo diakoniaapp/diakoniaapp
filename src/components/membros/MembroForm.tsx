@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
+import { AcessoCard }      from "@/components/pessoas/AcessoCard";
+import { CamposEndereco } from "@/components/ui/CamposEndereco";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -35,7 +37,7 @@ const PRECISA_QUEM_CONVIDOU = ["amigo_familiar", "indicacao_membro"];
 // ── Estado vazio ──────────────────────────────────────────────────────────
 const empty = {
   nome_completo:            "",
-  tipo_pessoa:              "visitante" as const,
+  tipo_pessoa:              "congregado" as const,
   perfil_acesso:            "membro"    as const,
   cpf:                      "",
   data_nascimento:          "",
@@ -231,7 +233,6 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
 
   const tituloDialog = membro
     ? "Editar pessoa"
-    : isVisitante ? "Novo visitante"
     : isCongregado ? "Novo congregado"
     : "Novo membro";
 
@@ -262,7 +263,6 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="visitante">Visitante</SelectItem>
                   <SelectItem value="congregado">Congregado</SelectItem>
                   <SelectItem value="membro">Membro</SelectItem>
                 </SelectContent>
@@ -359,48 +359,35 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
             {/* ── ENDEREÇO (congregado e membro) ── */}
             {(isCongregado || isMembro) && (
               <>
-                <h3 className="font-semibold text-sm mt-2 text-muted-foreground" translate="no">Endereco</h3>
-                <section className="grid md:grid-cols-2 gap-3">
-                  <div className="md:col-span-2">
-                    <Label translate="no">Logradouro</Label>
-                    <Input value={form.endereco} onChange={(e) => set("endereco", e.target.value)} />
-                  </div>
-                  <div>
-                    <Label translate="no">Numero</Label>
-                    <Input value={form.numero} onChange={(e) => set("numero", e.target.value)} />
-                  </div>
-                  <div>
-                    <Label translate="no">Complemento</Label>
-                    <Input value={form.complemento} onChange={(e) => set("complemento", e.target.value)} />
-                  </div>
-                  <div>
-                    <Label translate="no">Bairro</Label>
-                    <Input value={form.bairro} onChange={(e) => set("bairro", e.target.value)} />
-                  </div>
-                  <div>
-                    <Label translate="no">Cidade</Label>
-                    <Input value={form.cidade} onChange={(e) => set("cidade", e.target.value)} />
-                  </div>
-                  <div>
-                    <Label translate="no">CEP</Label>
-                    <Input value={form.cep} onChange={(e) => set("cep", e.target.value)} placeholder="00000-000" />
-                  </div>
-                </section>
+                <h3 className="font-semibold text-sm mt-2 text-muted-foreground" translate="no">Endereço</h3>
+                <CamposEndereco
+                  cep={form.cep ?? ""}
+                  endereco={form.endereco ?? ""}
+                  numero={form.numero ?? ""}
+                  complemento={form.complemento ?? ""}
+                  bairro={form.bairro ?? ""}
+                  cidade={form.cidade ?? ""}
+                  onChange={(campo, valor) => set(campo, valor)}
+                  disabled={busy}
+                  mostrarNumero
+                  mostrarComplemento
+                  mostrarUf
+                />
               </>
             )}
 
-            {/* ── ENDEREÇO VISITANTE (bairro/cidade apenas) ── */}
+            {/* ── ENDEREÇO VISITANTE (CEP + bairro + cidade) ── */}
             {isVisitante && (
-              <section className="grid md:grid-cols-2 gap-3">
-                <div>
-                  <Label translate="no">Bairro</Label>
-                  <Input value={form.bairro} onChange={(e) => set("bairro", e.target.value)} />
-                </div>
-                <div>
-                  <Label translate="no">Cidade</Label>
-                  <Input value={form.cidade} onChange={(e) => set("cidade", e.target.value)} />
-                </div>
-              </section>
+              <CamposEndereco
+                cep={form.cep ?? ""}
+                endereco={form.endereco ?? ""}
+                bairro={form.bairro ?? ""}
+                cidade={form.cidade ?? ""}
+                onChange={(campo, valor) => set(campo, valor)}
+                disabled={busy}
+                mostrarNumero={false}
+                mostrarComplemento={false}
+              />
             )}
 
             {/* ── CAMPOS VISITANTE ── */}
@@ -538,6 +525,21 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                   </div>
                 </section>
               </>
+            )}
+
+            {/* ── ACESSO AO SISTEMA (congregado e membro — somente ao editar) ── */}
+            {membro && (isCongregado || isMembro) && (
+              <div className="pt-2">
+                <h3 className="font-semibold text-sm mb-2 text-muted-foreground" translate="no">
+                  Acesso ao sistema
+                </h3>
+                <AcessoCard
+                  pessoaId={membro.id}
+                  nomeCompleto={form.nome_completo || membro.nome_completo}
+                  telefone={form.telefone_celular || membro.telefone_celular}
+                  roleInicial={isMembro ? "membro" : "congregado"}
+                />
+              </div>
             )}
 
             {/* ── FOOTER ── */}

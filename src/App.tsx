@@ -12,7 +12,8 @@ import Familias from "./pages/Familias.tsx";
 import Ministerios from "./pages/Ministerios.tsx";
 import Eventos from "./pages/Eventos.tsx";
 import Locais from "./pages/Locais.tsx";
-import Visitantes from "./pages/Visitantes.tsx";
+import Visitantes       from "./pages/Visitantes.tsx";
+import VisitanteDetalhe from "./pages/VisitanteDetalhe.tsx";
 import PainelEstrategico from "./pages/PainelEstrategico.tsx";
 import Organograma from "./pages/Organograma.tsx";
 import RecuperacaoSenhaAdmin from "./pages/RecuperacaoSenhaAdmin.tsx";
@@ -26,6 +27,7 @@ import AgendaPrint from "./pages/AgendaPrint.tsx";
 import ResetSenha from "./pages/ResetSenha.tsx";
 import PrimeiroAcesso from "./pages/PrimeiroAcesso.tsx";
 import AceiteLgpd from "./pages/AceiteLgpd.tsx";
+import Usuarios from "./pages/Usuarios.tsx";
 import { AuthProvider } from "./hooks/useAuth.tsx";
 import { ErrorBoundary } from "./components/ErrorBoundary.tsx";
 import { ThemeProvider } from "./hooks/useTheme.tsx";
@@ -42,11 +44,14 @@ const App = () => (
           <BrowserRouter>
             <AuthProvider>
               <Routes>
+                {/* Rotas públicas (sem layout) */}
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/auth/reset" element={<ResetSenha />} />
                 <Route path="/primeiro-acesso" element={<PrimeiroAcesso />} />
                 <Route path="/aceite-lgpd" element={<AceiteLgpd />} />
                 <Route path="/agenda/imprimir" element={<AgendaPrint />} />
+
+                {/* Rotas protegidas (dentro do AppLayout) */}
                 <Route element={<AppLayout />}>
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/membros" element={<Membros />} />
@@ -55,9 +60,11 @@ const App = () => (
                   <Route path="/eventos" element={<Eventos />} />
                   <Route path="/agenda" element={<Navigate to="/eventos" replace />} />
                   <Route path="/locais" element={<Locais />} />
-                  <Route path="/visitantes" element={<Visitantes />} />
+                  <Route path="/visitantes"     element={<Visitantes />} />
+                  <Route path="/visitantes/:id" element={<VisitanteDetalhe />} />
                   <Route path="/painel-estrategico" element={<PainelEstrategico />} />
                   <Route path="/organograma" element={<Organograma />} />
+                  <Route path="/usuarios" element={<Usuarios />} />
                   <Route path="/admin/recuperacao-senha" element={<RecuperacaoSenhaAdmin />} />
                   <Route path="/admin/lgpd" element={<LgpdAdmin />} />
                   <Route path="/admin/identidade" element={<IdentidadeAdmin />} />
@@ -66,6 +73,10 @@ const App = () => (
                   <Route path="/admin/exportacao" element={<ExportacaoAdmin />} />
                   <Route path="/admin/campanhas" element={<CampanhasAdmin />} />
                 </Route>
+
+                {/* Redirecionar /dashboard para a raiz */}
+                <Route path="/dashboard" element={<Navigate to="/" replace />} />
+
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </AuthProvider>

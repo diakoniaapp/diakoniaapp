@@ -35,6 +35,7 @@ function mascaraTelefone(valor: string): string {
   return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`;
 }
 
+
 const ERROS: Record<string, string> = {
   "Invalid login credentials":    "Telefone ou senha incorretos 😕 Verifique seus dados.",
   "Email not confirmed":          "Acesso não confirmado. Fale com a secretaria da Igreja.",

@@ -9,6 +9,7 @@
  */
 
 import { useEffect, useState } from "react";
+import { CamposEndereco } from "@/components/ui/CamposEndereco";
 import {
   Dialog,
   DialogContent,
@@ -263,16 +264,17 @@ export function VisitorForm({ open, onOpenChange, onSaved }: Props) {
               />
             </div>
 
-            {/* Bairro */}
-            <div>
-              <Label translate="no">Bairro</Label>
-              <Input value={form.bairro} onChange={(e) => set("bairro", e.target.value)} />
-            </div>
-
-            {/* Cidade */}
-            <div>
-              <Label translate="no">Cidade</Label>
-              <Input value={form.cidade} onChange={(e) => set("cidade", e.target.value)} />
+            {/* Endereço com busca por CEP */}
+            <div className="md:col-span-2">
+              <CamposEndereco
+                cep={form.cep ?? ""}
+                endereco={form.endereco ?? ""}
+                bairro={form.bairro ?? ""}
+                cidade={form.cidade ?? ""}
+                onChange={(campo, valor) => set(campo, valor)}
+                mostrarNumero={false}
+                mostrarComplemento={false}
+              />
             </div>
 
             {/* Data da visita */}
