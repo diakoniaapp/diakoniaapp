@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Skeleton } from "@/components/ui/skeleton";h
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -26,6 +26,7 @@ import {
 
 import { AcolhimentoPanel } from "@/components/membros/AcolhimentoPanel";
 import VisitanteTimeline   from "@/components/membros/VisitanteTimeline";
+import { ProximaAcaoCard } from "@/components/membros/ProximaAcaoCard";
 
 import {
   buscarVisitante,
@@ -432,6 +433,16 @@ export default function VisitanteDetalhe() {
         />
       )}
 
+      {/* ── Próxima ação sugerida ─────────────────────────────────────────── */}
+      {!isCongregadoOuMembro && (
+              <ProximaAcaoCard
+                          pessoaId={visitante.id}
+                          nomeCompleto={visitante.nome_completo}
+                          statusAtual={visitante.status_acolhimento}
+                          onRegistrado={carregar}
+                        />
+            )}
+      
       {/* ── Painel de acolhimento (tarefas, próxima ação) ─────────────────────── */}
       <AcolhimentoPanel
         pessoa={visitante as any}
