@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard, Users, HeartHandshake, Home, LogOut, ShieldCheck,
-  CalendarDays, ChevronLeft, MapPin, BarChart2, Building2, KeyRound,
+  CalendarDays, ChevronLeft, MapPin, BarChart2, Building2, Network, KeyRound,
   ShieldAlert, Church, FileText, Upload, Download, Flame, UserCheck,
 } from "lucide-react";
 import { BrandMark } from "@/components/Brand";
@@ -22,6 +22,7 @@ const desktopNav = [
   { to: "/locais",            label: "Locais",      icon: MapPin },
   { to: "/painel-estrategico",label: "Crescimento", icon: BarChart2 },
   { to: "/organograma",       label: "Organograma", icon: Building2 },
+  { to: "/estrutura", label: "Estrutura", icon: Network },
 ];
 
 const pageTitles: Record<string, string> = {
@@ -34,6 +35,7 @@ const pageTitles: Record<string, string> = {
   "/visitantes":              "Visitantes",
   "/painel-estrategico":      "Crescimento",
   "/organograma":             "Organograma",
+  "/estrutura":               "Estrutura",
   "/admin/recuperacao-senha": "Recuperacao de Senhas",
   "/admin/lgpd":              "Painel LGPD",
   "/admin/identidade":        "Identidade da Igreja",
