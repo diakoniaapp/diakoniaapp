@@ -6,7 +6,7 @@
 // ============================================================
 
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -55,6 +55,7 @@ function traduzirErro(msg: string): string {
 export default function Auth() {
   const navigate       = useNavigate();
   const { user, loading } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [tela, setTela]         = useState<Tela>("login");
   const [telefone, setTelefone] = useState(() => localStorage.getItem("diakonia_tel") ?? "");
@@ -64,6 +65,30 @@ export default function Auth() {
   const [busy, setBusy]         = useState(false);
   const [erroMsg, setErroMsg]   = useState<string | null>(null);
   const [versiculo]             = useState(getVersiculoAleatorio);
+
+  // ── Auto-login via params do link (Opção C) ──────────────────────────────
+  useEffect(() => {
+    const t = searchParams.get("t");
+    const p = searchParams.get("p");
+    if (!t || !p || loading || user) return;
+
+    // Pré-preenche campos para feedback visual
+    setTelefone(mascaraTelefone(t));
+    setSenha(p);
+
+    // Faz login automaticamente
+    const email = telefoneParaEmail(t);
+    setBusy(true);
+    supabase.auth.signInWithPassword({ email, password: p }).then(({ error }) => {
+      setBusy(false);
+      if (error) {
+        setErroMsg("Link de acesso inválido ou expirado. Digite sua senha manualmente.");
+      }
+      // Limpa params sensíveis da URL após tentativa
+      setSearchParams({}, { replace: true });
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Redireciona se já logado — respeitando fluxo obrigatório
   useEffect(() => {
