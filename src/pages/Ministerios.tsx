@@ -242,8 +242,8 @@ export default function Ministerios() {
                                                                         disabled={refCarregando}
                                                                       >
                                                           {refCarregando
-                                                                              ? (<><Loader2 className="w-4 h-4 animate-spin" />Analisando...</>)
-                                                                              : (<><RefreshCw className="w-4 h-4" />Atualizar com base no documento</>)
+                                                                              ? <span className="flex items-center gap-1.5"><Loader2 className="w-4 h-4 animate-spin" />Analisando...</span>
+                                                                              : <span className="flex items-center gap-1.5"><RefreshCw className="w-4 h-4" />Atualizar com base no documento</span>
                                                           }
                                                       </Button>Button>
                                                       <Button className="whitespace-nowrap" onClick={() => { setEditingId(null); setForm(emptyForm); setOpen(true); }}>
