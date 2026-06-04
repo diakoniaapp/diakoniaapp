@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, HeartHandshake, Users, Layers, Pencil, Sparkles, X, RefreshCw, Loader2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/useAuth";h
 import AreasDialog from "@/components/ministerios/AreasDialog";
 import RefatoracaoComparacao from "@/components/ministerios/RefatoracaoComparacao";
 import { ListSkeleton, EmptyState, ErrorState } from "@/components/ListState";
@@ -242,8 +242,8 @@ export default function Ministerios() {
                                                                         disabled={refCarregando}
                                                                       >
                                                           {refCarregando
-                                                                              ? <><Loader2 className="w-4 h-4 animate-spin" />Analisando...</>>
-                                                                              : <><RefreshCw className="w-4 h-4" />Atualizar com base no documento</>>
+                                                                              ? (<><Loader2 className="w-4 h-4 animate-spin" />Analisando...</>)
+                                                                              : (<><RefreshCw className="w-4 h-4" />Atualizar com base no documento</>)
                                                           }
                                                       </Button>Button>
                                                       <Button className="whitespace-nowrap" onClick={() => { setEditingId(null); setForm(emptyForm); setOpen(true); }}>
