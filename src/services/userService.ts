@@ -77,7 +77,7 @@ export function enviarWhatsApp(
     `🔐 *Dados de acesso:*`,
     `👤 Login (telefone): ${tel}`,
     `🔑 Senha: ${senha}`,
-    `🌐 Sistema: ${sistemaUrl}`,
+    `🌐 Acesse: ${sistemaUrl}/auth?t=${tel}&p=${encodeURIComponent(senha)}`,
     ``,
     `⚠️ No primeiro acesso você precisará trocar sua senha.`,
     ``,
