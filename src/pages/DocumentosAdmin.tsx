@@ -19,10 +19,11 @@ import {
 import { Switch } from "@/components/ui/switch";
 import {
   FileText, Plus, Pencil, CheckCircle2, Clock, Loader2,
-  BookOpen, ChevronDown, ChevronUp, Trash2, Network, Info, History,
+  BookOpen, ChevronDown, ChevronUp, Trash2, Network, Info, History, RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 
+import SyncEstruturaModal from "@/components/documentos/SyncEstruturaModal";
 type TipoDoc = "estatuto" | "regimento" | "manual" | "ata" | "circular" | "outro";
 
 interface Documento {
@@ -166,6 +167,7 @@ export default function DocumentosAdmin() {
   const [formEst, setFormEst] = useState<any>(emptyEst);
   const [savingEst, setSavingEst] = useState(false);
   const [filtroTipoEst, setFiltroTipoEst] = useState<string>("todos");
+  const [syncOpen, setSyncOpen] = useState(false);
 
   // Painel de seções
   const [secaoDocId, setSecaoDocId] = useState<string | null>(null);
@@ -455,7 +457,10 @@ export default function DocumentosAdmin() {
                   </button>
                 );
               })}
-              <Button size="sm" className="ml-auto h-7 text-xs"
+              <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setSyncOpen(true)}>
+              <RefreshCw className="w-3 h-3" /> Sincronizar
+            </Button>
+            <Button size="sm" className="ml-auto h-7 text-xs"
                 onClick={() => { setEditingEstId(null); setFormEst(emptyEst); setEstOpen(true); }}>
                 <Plus className="w-3 h-3 mr-1" /> Adicionar item
               </Button>
@@ -971,6 +976,12 @@ export default function DocumentosAdmin() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <SyncEstruturaModal
+        open={syncOpen}
+        onOpenChange={setSyncOpen}
+        onConcluido={() => { setSyncOpen(false); loadEstruturas(); }}
+      />
     </div>
   );
 }
