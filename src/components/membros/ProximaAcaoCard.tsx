@@ -118,18 +118,18 @@ export function ProximaAcaoCard({ pessoaId, nomeCompleto, statusAtual, onRegistr
                         <div className="flex items-start gap-3">
                                   <div className="w-8 h-8 rounded-full bg-white/70 dark:bg-white/10 flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
                                               <Zap className="w-4 h-4 text-amber-500" />
-                                  </div>div>
+                                  </div>
                                   <div className="flex-1 min-w-0">
                                               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
                                                             Próxima ação sugerida
-                                              </p>p>
+                                              </p>
                                               <p className="text-sm font-semibold text-foreground leading-snug">
                                                 {sugestao.acao}
-                                              </p>p>
+                                              </p>
                                               <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
                                                 {sugestao.descricao}
-                                              </p>p>
-                                  </div>div>
+                                              </p>
+                                  </div>
                                   <Button
                                                 size="sm"
                                                 variant="outline"
@@ -138,8 +138,8 @@ export function ProximaAcaoCard({ pessoaId, nomeCompleto, statusAtual, onRegistr
                                               >
                                               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
                                               Registrar
-                                  </Button>Button>
-                        </div>div>
+                                  </Button>
+                        </div>
                 
                   {/* Formulário de registro rápido */}
                   {expandido && (
@@ -159,10 +159,10 @@ export function ProximaAcaoCard({ pessoaId, nomeCompleto, statusAtual, onRegistr
                                                 className="h-8 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white shrink-0"
                                               >
                                   {salvando ? "..." : "Salvar"}
-                                </Button>Button>
-                    </div>div>
+                                </Button>
+                    </div>
                         )}
-                </CardContent>CardContent>
-        </Card>Card>
+                </CardContent>
+        </Card>
       );
-}</CardContent>
+}
