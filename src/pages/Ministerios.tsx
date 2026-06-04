@@ -331,6 +331,6 @@ export default function Ministerios() {
                                       carregando={refCarregando}
                                       onAplicar={aplicarRefatoracao}
                                     />
-                  </PageHeader>div>
+                  </div>
               );
-                  }</div>
+                  }
