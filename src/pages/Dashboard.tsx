@@ -10,6 +10,7 @@ import { ErrorState } from "@/components/ListState";
 import { Button } from "@/components/ui/button";
 import { verseOfTheDay } from "@/lib/agenda/verses";
 import VisitantesDashWidget from "@/components/membros/VisitantesDashWidget";
+import AcessosDashWidget from "@/components/membros/AcessosDashWidget";
 import VisitanteRapidoDialog from "@/components/membros/VisitanteRapidoDialog";
 
 interface Stats { membros: number; ativos: number; ministerios: number; familias: number; }
@@ -178,6 +179,8 @@ export default function Dashboard() {
 
         {error && <ErrorState message={error} onRetry={loadStats} />}
         <VisitantesDashWidget />
+
+        <AcessosDashWidget />
 
         <div className="grid md:grid-cols-2 gap-6">
           <Card className="shadow-card-soft">
