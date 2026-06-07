@@ -240,8 +240,8 @@ const [uploadando, setUploadando] = useState(false);
   const payload: any = { ...formDoc };
   Object.keys(payload).forEach(k => { if (payload[k] === "") payload[k] = null; });
   let error;
-  if (editingId) {
-    ({ error } = await supabase.from("documentos").update(payload).eq("id", editingId));
+  if (editingDocId) {
+    ({ error } = await supabase.from("documentos").update(payload).eq("id", editingDocId));
   } else {
     ({ error } = await supabase.from("documentos").insert(payload));
   }
@@ -249,7 +249,7 @@ const [uploadando, setUploadando] = useState(false);
 
   // Ingestao de arquivo se selecionado
   if (arquivo) {
-    let docId = editingId;
+    let docId = editingDocId;
     if (!docId) {
       const { data: nd } = await supabase.from("documentos").select("id")
         .eq("titulo", formDoc.titulo).order("created_at", { ascending: false }).limit(1).maybeSingle();
@@ -259,7 +259,7 @@ const [uploadando, setUploadando] = useState(false);
       setUploadando(true);
       try {
         await ingerirDocumento(arquivo, docId, setUploadProgresso);
-        toast.success(editingId ? "Documento atualizado e arquivo ingerido!" : "Documento criado e arquivo ingerido!");
+        toast.success(editingDocId ? "Documento atualizado e arquivo ingerido!" : "Documento criado e arquivo ingerido!");
       } catch (err) {
         toast.error("Salvo, mas falha na ingestao: " + (err as Error).message);
       } finally {
@@ -268,15 +268,15 @@ const [uploadando, setUploadando] = useState(false);
         setUploadProgresso(null);
       }
     } else {
-      toast.success(editingId ? "Documento atualizado" : "Documento criado");
+      toast.success(editingDocId ? "Documento atualizado" : "Documento criado");
     }
   } else {
-    toast.success(editingId ? "Documento atualizado" : "Documento criado");
+    toast.success(editingDocId ? "Documento atualizado" : "Documento criado");
   }
 
   setSavingDoc(false);
   setDocOpen(false);
-  setEditingId(null);
+  setEditingDocId(null);
   setFormDoc(emptyDoc);
   setArquivo(null);
   loadDocs();
