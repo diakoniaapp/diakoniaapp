@@ -58,17 +58,25 @@ export function gerarSenha(): string {
 }
 
 /**
- * Abre o WhatsApp com mensagem de credenciais formatada.
- * Não faz nada se o telefone for inválido — retorna false.
+ * Gera a URL do WhatsApp com mensagem de credenciais formatada
+ * e tenta abrir em nova aba. Browsers bloqueiam window.open chamado
+ * após await — por isso retornamos a URL para o componente decidir
+ * (toast clicável é o fallback seguro).
  */
+export interface ResultadoWhatsApp {
+  ok: boolean;          // tem telefone válido e mensagem montada
+  url?: string;         // URL pronta para window.open ou copy-paste
+  abertaAutomaticamente?: boolean;  // janela conseguiu abrir (pop-up não bloqueado)
+}
+
 export function enviarWhatsApp(
   telefone: string,
   nome:     string,
   senha:    string,
   reenvio = false
-): boolean {
+): ResultadoWhatsApp {
   const tel = limparTelefone(telefone);
-  if (!tel || tel.length < 10) return false;
+  if (!tel || tel.length < 10) return { ok: false };
 
   const sistemaUrl = window.location.origin;
   const acao       = reenvio ? "reenviado" : "criado";
@@ -89,12 +97,16 @@ export function enviarWhatsApp(
     `_"Conectando pessoas, organizando o propósito."_`,
   ].join("\n");
 
-  window.open(
-    `https://wa.me/${normalizarTelefone(tel)}?text=${encodeURIComponent(mensagem)}`,
-    "_blank",
-    "noopener,noreferrer"
-  );
-  return true;
+  const url = `https://wa.me/${normalizarTelefone(tel)}?text=${encodeURIComponent(mensagem)}`;
+
+  // Tenta abrir; browsers bloqueiam silenciosamente se não for gesto do user.
+  // window.open retorna a janela ou null se bloqueada.
+  const janela = window.open(url, "_blank", "noopener,noreferrer");
+  return {
+    ok: true,
+    url,
+    abertaAutomaticamente: janela !== null && !janela.closed,
+  };
 }
 
 // ─── Operações de banco ───────────────────────────────────────────────────────
