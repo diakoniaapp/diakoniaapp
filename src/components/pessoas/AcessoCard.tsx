@@ -37,7 +37,7 @@ import {
 import { enviarWhatsApp } from "@/services/userService";
 import { ROLE_LABEL } from "@/types/usuario";
 import type { RoleOption } from "@/types/usuario";
-import { formatarTelefone } from "@/lib/telefone";
+import { formatarTelefone, normalizarTelefone } from "@/lib/telefone";
 
 // ─── Helpers visuais ──────────────────────────────────────────────────────────
 
@@ -273,7 +273,7 @@ export function AcessoCard({
                 variant="ghost" size="sm"
                 onClick={() => {
                   const tel = (acesso.telefone || telefone!).replace(/\D/g, "");
-                  window.open(`https://wa.me/55${tel}`, "_blank", "noopener,noreferrer");
+                  window.open(`https://wa.me/${normalizarTelefone(tel)}`, "_blank", "noopener,noreferrer");
                 }}
                 className="gap-1.5 text-xs text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
                 title="Abrir WhatsApp"

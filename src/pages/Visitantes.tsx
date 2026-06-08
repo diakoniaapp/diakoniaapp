@@ -24,6 +24,7 @@ import {
   ETAPAS_JORNADA,
 } from "@/lib/evolucaoFluxo";
 import { logHistorico } from "@/lib/historicoFluxo";
+import { normalizarTelefone } from "@/lib/telefone";
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
 
@@ -400,7 +401,7 @@ function VisitanteCard({ v, busy, busyPromote, variant, onOpen, onRetorno, onCon
   const abrirWhatsAppSugestao = (msg: string) => {
     const cel = v.telefone_celular?.replace(/\D/g, "");
     if (!cel) return toast.error("Telefone nao cadastrado");
-    window.open(`https://wa.me/55${cel}?text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
+    window.open(`https://wa.me/${normalizarTelefone(cel)}?text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
   };
 
   return (

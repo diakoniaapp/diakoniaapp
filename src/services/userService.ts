@@ -90,7 +90,7 @@ export function enviarWhatsApp(
   ].join("\n");
 
   window.open(
-    `https://wa.me/55${tel}?text=${encodeURIComponent(mensagem)}`,
+    `https://wa.me/${normalizarTelefone(tel)}?text=${encodeURIComponent(mensagem)}`,
     "_blank",
     "noopener,noreferrer"
   );
