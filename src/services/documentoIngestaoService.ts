@@ -6,6 +6,18 @@
 
 import { supabase } from "@/integrations/supabase/client";
 
+// ── Utilitários ───────────────────────────────────────────────
+
+/** Promise com timeout — evita "Salvando..." infinito (Fase E). */
+function comTimeout<T>(p: Promise<T>, ms: number, msg: string): Promise<T> {
+  return Promise.race<T>([
+    p,
+    new Promise<T>((_, rej) =>
+      setTimeout(() => rej(new Error(msg + " (timeout " + ms + "ms)")), ms)
+    ),
+  ]);
+}
+
 // ── Tipos ────────────────────────────────────────────────────
 
 export interface ResultadoIngestao {
@@ -48,9 +60,13 @@ export function validarArquivo(file: File): string | null {
 async function extrairTextoPDF(file: File): Promise<{ texto: string; paginas: number }> {
   const arrayBuffer = await file.arrayBuffer();
 
-  // Carrega PDF.js dinamicamente — funciona em qualquer browser moderno
+  // Carrega PDF.js dinamicamente (CDN) — com timeout para não travar (Fase E).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const pdfjsLib = await import("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs" as any);
+  const pdfjsLib = await comTimeout(
+    import("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs" as any),
+    15000,
+    "Falha ao carregar leitor de PDF"
+  );
   pdfjsLib.GlobalWorkerOptions.workerSrc =
     "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs";
 
@@ -82,7 +98,11 @@ async function extrairTextoDOCX(file: File): Promise<{ texto: string }> {
   // Carrega mammoth.js dinamicamente para extração precisa de DOCX
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const mammoth = await import("https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.esm.js" as any);
+    const mammoth = await comTimeout(
+      import("https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.esm.js" as any),
+      15000,
+      "Falha ao carregar leitor de DOCX"
+    );
     const arrayBuffer = await file.arrayBuffer();
     const result = await mammoth.extractRawText({ arrayBuffer });
     return { texto: result.value || "" };
@@ -169,12 +189,13 @@ async function uploadParaStorage(
   const timestamp = Date.now();
   const path = `${documentoId}/${timestamp}_${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
 
-  const { error } = await supabase.storage
-    .from("documentos")
-    .upload(path, file, {
-      contentType: file.type,
-      upsert: true,
-    });
+  const { error } = await comTimeout(
+    supabase.storage
+      .from("documentos")
+      .upload(path, file, { contentType: file.type, upsert: true }),
+    60000,
+    "Upload do arquivo demorou demais"
+  );
 
   if (error) throw new Error("Erro no upload: " + error.message);
   return path;
@@ -223,9 +244,8 @@ export async function ingerirDocumento(
 
   // 4. Salvar metadados no banco
   progress("salvando", "Salvando no banco...", 90);
-  const { error: dbErr } = await supabase
-    .from("documentos")
-    .update({
+  const { error: dbErr } = await comTimeout(
+    supabase.from("documentos").update({
       arquivo_storage_path: storagePath,
       arquivo_nome: file.name,
       arquivo_mime: file.type,
@@ -234,13 +254,12 @@ export async function ingerirDocumento(
       ingestao_status: textoExtraido ? "concluido" : "erro",
       ingestao_erro: textoExtraido ? null : "Extração de texto falhou",
       ingestao_em: new Date().toISOString(),
-      // Atualiza conteudo do documento com resumo do texto extraído
-      // (primeiros 500 chars como preview, o texto completo fica em texto_extraido)
-      ...(textoExtraido && !'' ? {
-        arquivo_url: null, // remove URL manual se havia
-      } : {}),
-    })
-    .eq("id", documentoId);
+      // Limpa arquivo_url legado quando ingestao termina com sucesso
+      ...(textoExtraido ? { arquivo_url: null } : {}),
+    }).eq("id", documentoId),
+    30000,
+    "Salvar metadados demorou demais"
+  );
 
   if (dbErr) throw new Error("Erro ao salvar metadados: " + dbErr.message);
 

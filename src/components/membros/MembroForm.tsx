@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Trash2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
@@ -38,7 +39,7 @@ const PRECISA_QUEM_CONVIDOU = ["amigo_familiar", "indicacao_membro"];
 const empty = {
   nome_completo:            "",
   tipo_pessoa:              "congregado" as const,
-  perfil_acesso:            "membro"    as const,
+  perfil_acesso:            ""               as const, // null no banco; preenchido só se Membro
   cpf:                      "",
   data_nascimento:          "",
   sexo:                     "",
@@ -102,6 +103,33 @@ async function criarTarefasAcolhimento(visitanteId: string, nome: string) {
 // ── Componente principal ──────────────────────────────────────────────────
 export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
   const { hasRole } = useAuth();
+  // FASE D: helper unificado — "editando" vs "criando".
+  const isEditing = Boolean(membro);
+  // FASE B: gerencia acesso via toggle (substitui antiga lógica perfil_acesso).
+  // O AcessoCard só renderiza se este toggle estiver ON e a pessoa já estiver salva.
+  const [possuiAcesso, setPossuiAcesso] = useState(false);
+
+  // FASE B: ao abrir o formulário de uma pessoa existente, detecta se já tem acesso ativo
+  useEffect(() => {
+    if (!membro?.id) {
+      setPossuiAcesso(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("pessoa_id", membro.id)
+          .maybeSingle();
+        if (!cancelled) setPossuiAcesso(Boolean(data?.id));
+      } catch {
+        // Silencioso: o AcessoCard tem fallback próprio para carregar status.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [membro?.id]);
   const isAdmin = hasRole("admin");
 
   const [form, setForm] = useState<any>(empty);
@@ -157,14 +185,9 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
     // Strings vazias → null
     Object.keys(payload).forEach((k) => { if (payload[k] === "") payload[k] = null; });
 
-    // FIX CRITICO: perfil_acesso nunca pode ser valor livre
-    const VALID_PERFIL = ["admin","pastor","secretaria","tesoureiro","lideranca","professor_ebd","voluntario","membro"];
-    payload.perfil_acesso = VALID_PERFIL.includes(payload.perfil_acesso)
-      ? payload.perfil_acesso
-      : "membro";
-
-    // Para visitantes e congregados, nunca permite perfil elevado via form
-    if (payload.tipo_pessoa !== "membro") payload.perfil_acesso = "membro";
+    // FASE C: membros.perfil_acesso é COLUNA LEGADA. Fonte de verdade do acesso é user_roles.role.
+    // Sempre gravamos null aqui para não criar dado fantasma.
+    payload.perfil_acesso = null;
 
     // Campos exclusivos de visitante
     if (!membro && payload.tipo_pessoa === "visitante") {
@@ -495,24 +518,9 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                     </Select>
                   </div>
 
-                  {/* Perfil de acesso — apenas membro */}
-                  {isMembro && (
-                    <div className="md:col-span-2">
-                      <Label translate="no">Perfil de acesso no sistema</Label>
-                      <Select value={form.perfil_acesso || "membro"} onValueChange={(v) => set("perfil_acesso", v)}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="pastor">Pastor</SelectItem>
-                          <SelectItem value="secretaria">Secretaria</SelectItem>
-                          <SelectItem value="tesoureiro">Tesoureiro</SelectItem>
-                          <SelectItem value="lideranca">Lideranca</SelectItem>
-                          <SelectItem value="professor_ebd">Professor EBD</SelectItem>
-                          <SelectItem value="voluntario">Voluntario</SelectItem>
-                          <SelectItem value="membro">Membro</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
+                  {/* FASE B: Bloco "Perfil de acesso no sistema" REMOVIDO.
+                      O acesso ao sistema vive em user_roles.role e é gerenciado pelo
+                      bloco "Acesso ao sistema" abaixo (Toggle + AcessoCard). */}
 
                   <div className="md:col-span-2">
                     <Label translate="no">Observacoes pastorais</Label>
@@ -527,18 +535,40 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
               </>
             )}
 
-            {/* ── ACESSO AO SISTEMA (congregado e membro — somente ao editar) ── */}
-            {membro && (isCongregado || isMembro) && (
-              <div className="pt-2">
-                <h3 className="font-semibold text-sm mb-2 text-muted-foreground" translate="no">
-                  Acesso ao sistema
-                </h3>
-                <AcessoCard
-                  pessoaId={membro.id}
-                  nomeCompleto={form.nome_completo || membro.nome_completo}
-                  telefone={form.telefone_celular || membro.telefone_celular}
-                  roleInicial={isMembro ? "membro" : "congregado"}
-                />
+            {/* ── ACESSO AO SISTEMA (FASE B: Toggle "Possui acesso") ── */}
+            {(isCongregado || isMembro) && (
+              <div className="pt-2 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-semibold text-sm text-muted-foreground" translate="no">
+                      Acesso ao sistema
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                      Permite que esta pessoa faça login no Diakonia
+                    </p>
+                  </div>
+                  <Switch
+                    checked={possuiAcesso}
+                    onCheckedChange={setPossuiAcesso}
+                    disabled={!membro}
+                    aria-label="Possui acesso ao sistema"
+                  />
+                </div>
+
+                {possuiAcesso && membro && (
+                  <AcessoCard
+                    pessoaId={membro.id}
+                    nomeCompleto={form.nome_completo || membro.nome_completo}
+                    telefone={form.telefone_celular || membro.telefone_celular}
+                    roleInicial="voluntario"
+                  />
+                )}
+
+                {possuiAcesso && !membro && (
+                  <p className="text-xs text-amber-600 px-2 py-1.5 bg-amber-50 rounded border border-amber-200">
+                    Salve a pessoa primeiro para criar o acesso.
+                  </p>
+                )}
               </div>
             )}
 
