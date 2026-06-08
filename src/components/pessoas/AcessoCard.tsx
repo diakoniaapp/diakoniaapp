@@ -99,14 +99,35 @@ export function AcessoCard({
       toast.error(resultado.erro ?? "Erro ao criar acesso.");
       if (resultado.senha && resultado.tel) {
         // Auth criado mas profile falhou — não perder a senha
-        enviarWhatsApp(resultado.tel, nomeCompleto, resultado.senha, false);
+        const wa = enviarWhatsApp(resultado.tel, nomeCompleto, resultado.senha, false);
+        if (wa.url && !wa.abertaAutomaticamente) {
+          toast.warning("Pop-up bloqueado — clique para abrir o WhatsApp", {
+            duration: 20000,
+            action: { label: "Abrir", onClick: () => window.open(wa.url!, "_blank", "noopener,noreferrer") },
+          });
+        }
       }
       return;
     }
 
     await carregar();
-    toast.success(`Acesso criado para ${nomeCompleto.split(" ")[0]}!`);
-    enviarWhatsApp(resultado.tel!, nomeCompleto, resultado.senha!, false);
+    {
+      const wa = enviarWhatsApp(resultado.tel!, nomeCompleto, resultado.senha!, false);
+      const primeiroNome = nomeCompleto.split(" ")[0];
+      if (wa.abertaAutomaticamente) {
+        toast.success(`Acesso criado para ${primeiroNome}! WhatsApp aberto.`);
+      } else if (wa.url) {
+        toast.success(`Acesso criado para ${primeiroNome}!`, {
+          duration: 20000,
+          action: {
+            label: "Abrir WhatsApp",
+            onClick: () => window.open(wa.url!, "_blank", "noopener,noreferrer"),
+          },
+        });
+      } else {
+        toast.success(`Acesso criado para ${primeiroNome}! (sem telefone — envie senha manualmente: ${resultado.senha})`, { duration: 20000 });
+      }
+    }
   }
 
   // ── Reenviar / Resetar ─────────────────────────────────────────────────────
@@ -129,12 +150,26 @@ export function AcessoCard({
     }
 
     if (resultado.tel) {
-      toast.success(`Acesso reenviado para ${nomeCompleto.split(" ")[0]}!`);
-      enviarWhatsApp(resultado.tel, nomeCompleto, resultado.senha!, true);
+      const wa = enviarWhatsApp(resultado.tel, nomeCompleto, resultado.senha!, true);
+      const primeiroNome = nomeCompleto.split(" ")[0];
+      if (wa.abertaAutomaticamente) {
+        toast.success(`Acesso reenviado para ${primeiroNome}! WhatsApp aberto.`);
+      } else if (wa.url) {
+        // Pop-up bloqueado — toast com botão clicável (clique do user libera).
+        toast.success(`Acesso reenviado para ${primeiroNome}!`, {
+          duration: 20000,
+          action: {
+            label: "Abrir WhatsApp",
+            onClick: () => window.open(wa.url!, "_blank", "noopener,noreferrer"),
+          },
+        });
+      } else {
+        toast.success(`Nova senha: ${resultado.senha} (envie manualmente)`, { duration: 20000 });
+      }
     } else {
       toast.success(
         `Nova senha: ${resultado.senha}  (sem telefone — copie e envie manualmente)`,
-        { duration: 15000 }
+        { duration: 20000 }
       );
     }
   }

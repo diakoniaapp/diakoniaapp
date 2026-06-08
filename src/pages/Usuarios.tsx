@@ -93,8 +93,20 @@ export default function Usuarios() {
     }
 
     if (resultado.tel) {
-      toast.success(`Acesso reenviado para ${a.nomeCompleto}!`);
-      enviarWhatsApp(resultado.tel, a.nomeCompleto, resultado.senha!, true);
+      const wa = enviarWhatsApp(resultado.tel, a.nomeCompleto, resultado.senha!, true);
+      if (wa.abertaAutomaticamente) {
+        toast.success(`Acesso reenviado para ${a.nomeCompleto}! WhatsApp aberto.`);
+      } else if (wa.url) {
+        toast.success(`Acesso reenviado para ${a.nomeCompleto}!`, {
+          duration: 20000,
+          action: {
+            label: "Abrir WhatsApp",
+            onClick: () => window.open(wa.url!, "_blank", "noopener,noreferrer"),
+          },
+        });
+      } else {
+        toast.success(`Nova senha: ${resultado.senha} (envie manualmente)`, { duration: 20000 });
+      }
     } else {
       toast.success(
         `Nova senha para ${a.nomeCompleto}: ${resultado.senha}  (copie manualmente)`,
