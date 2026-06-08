@@ -156,8 +156,10 @@ export function AcessoCard({
     setAgindo(false);
     await carregar();
 
+    console.log("[handleReenviar] resultado:", resultado);
+
     if (!resultado.ok) {
-      toast.error(resultado.erro ?? "Erro ao reenviar acesso.");
+      toast.error(`Erro RPC: ${resultado.erro ?? "sem mensagem"}`, { duration: 15000 });
       return;
     }
 
@@ -165,7 +167,9 @@ export function AcessoCard({
 
     if (resultado.tel) {
       const wa = montarMensagemWhatsApp(resultado.tel, nomeCompleto, resultado.senha!, true);
+      console.log("[handleReenviar] wa:", wa);
       if (wa.url) {
+        toast.info("Abrindo dialog...", { duration: 2000 });
         setDialogAcesso({
           open: true,
           primeiroNome,
