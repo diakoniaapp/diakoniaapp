@@ -16,7 +16,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Trash2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
-import { formatarTelefone, limparTelefone, normalizarTelefone, validarTelefone } from "@/lib/telefone";
+import { normalizarTelefone, validarTelefone } from "@/lib/telefone";
+import { TelefoneInput } from "@/components/ui/TelefoneInput";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
@@ -317,11 +318,9 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                 <Label translate="no">
                   Telefone celular {isVisitante && <span className="text-destructive">*</span>}
                 </Label>
-                <Input
-                  value={formatarTelefone(form.telefone_celular)}
-                  placeholder="+55 (00) 00000-0000"
-                  inputMode="tel"
-                  onChange={(e) => set("telefone_celular", limparTelefone(e.target.value))}
+                <TelefoneInput
+                  value={form.telefone_celular}
+                  onChange={(v) => set("telefone_celular", v)}
                 />
               </div>
 

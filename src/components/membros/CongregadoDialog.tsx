@@ -12,7 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Users, Check, Loader2, Search, X } from "lucide-react";
 import { toast } from "sonner";
-import { formatarTelefone, limparTelefone, normalizarTelefone, validarTelefone } from "@/lib/telefone";
+import { normalizarTelefone, validarTelefone } from "@/lib/telefone";
+import { TelefoneInput } from "@/components/ui/TelefoneInput";
 
 interface Props {
   open: boolean;
@@ -184,9 +185,11 @@ export default function CongregadoDialog({ open, onOpenChange, onSaved }: Props)
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Telefone / WhatsApp <span className="text-destructive">*</span></Label>
-              <Input type="tel" placeholder="+55 (00) 00000-0000" inputMode="tel" value={formatarTelefone(form.telefone_celular)}
+              <TelefoneInput
+                value={form.telefone_celular}
                 className={errors.telefone_celular ? "border-destructive" : ""}
-                onChange={(e) => { set("telefone_celular")(limparTelefone(e.target.value)); if (errors.telefone_celular) setErrors(p => ({ ...p, telefone_celular: undefined })); }} />
+                onChange={(v) => { set("telefone_celular")(v); if (errors.telefone_celular) setErrors(p => ({ ...p, telefone_celular: undefined })); }}
+              />
               {errors.telefone_celular && <p className="text-xs text-destructive">{errors.telefone_celular}</p>}
             </div>
             <div className="space-y-1.5">
