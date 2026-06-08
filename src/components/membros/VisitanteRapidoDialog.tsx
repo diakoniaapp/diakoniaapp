@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { UserPlus, Check, Loader2, Search, X } from "lucide-react";
 import { toast } from "sonner";
+import { formatarTelefone, limparTelefone, normalizarTelefone, validarTelefone } from "@/lib/telefone";
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -133,7 +134,7 @@ export default function VisitanteRapidoDialog({ open, onOpenChange, onSaved }: P
       .from("membros")
       .insert({
         nome_completo:    miniNome.trim(),
-        telefone_celular: miniTelefone.trim() || null,
+        telefone_celular: normalizarTelefone(miniTelefone) || null,
         tipo_pessoa:      "visitante",
         perfil_acesso:    "membro",
       } as any)
@@ -151,7 +152,8 @@ export default function VisitanteRapidoDialog({ open, onOpenChange, onSaved }: P
   const validate = () => {
     const e: typeof errors = {};
     if (!nome.trim())     e.nome     = "Nome é obrigatório";
-    if (!telefone.trim()) e.telefone = "WhatsApp/telefone é obrigatório";
+    const _vTel = validarTelefone(telefone);
+    if (!_vTel.ok) e.telefone = _vTel.erro || "WhatsApp/telefone é obrigatório";
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -189,7 +191,7 @@ export default function VisitanteRapidoDialog({ open, onOpenChange, onSaved }: P
       .from("membros")
       .insert({
         nome_completo:      nome.trim(),
-        telefone_celular:   telefone.trim(),
+        telefone_celular:   normalizarTelefone(telefone) || null,
         email:              email.trim() || null,
         data_entrada:       dataVisita,
         tipo_pessoa:        "visitante",
@@ -245,8 +247,8 @@ export default function VisitanteRapidoDialog({ open, onOpenChange, onSaved }: P
             <Label htmlFor="vr-tel">WhatsApp / Telefone <span className="text-destructive">*</span></Label>
             <Input
               id="vr-tel" type="tel" inputMode="tel" placeholder="(11) 99999-9999"
-              value={telefone} autoComplete="off"
-              onChange={(e) => { setTelefone(e.target.value); if (errors.telefone) setErrors(p => ({ ...p, telefone: undefined })); }}
+              value={formatarTelefone(telefone)} autoComplete="off" inputMode="tel" placeholder="+55 (00) 00000-0000"
+              onChange={(e) => { setTelefone(limparTelefone(e.target.value)); if (errors.telefone) setErrors(p => ({ ...p, telefone: undefined })); }}
               className={errors.telefone ? "border-destructive" : ""}
             />
             {errors.telefone && <p className="text-xs text-destructive">{errors.telefone}</p>}

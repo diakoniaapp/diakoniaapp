@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Trash2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { formatarTelefone, limparTelefone, normalizarTelefone, validarTelefone } from "@/lib/telefone";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
@@ -182,6 +183,13 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
     // ── Montar payload ─────────────────────────────────────────────────
     const payload: any = { ...form, nome_completo: form.nome_completo.trim() };
 
+    // Normaliza telefone para formato canônico (55DDDNNNNNNNNN).
+    if (payload.telefone_celular) {
+      const valid = validarTelefone(payload.telefone_celular);
+      if (!valid.ok) { setBusy(false); return toast.error(valid.erro!); }
+      payload.telefone_celular = normalizarTelefone(payload.telefone_celular);
+    }
+
     // Strings vazias → null
     Object.keys(payload).forEach((k) => { if (payload[k] === "") payload[k] = null; });
 
@@ -310,9 +318,10 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                   Telefone celular {isVisitante && <span className="text-destructive">*</span>}
                 </Label>
                 <Input
-                  value={form.telefone_celular}
-                  placeholder="(00) 00000-0000"
-                  onChange={(e) => set("telefone_celular", e.target.value)}
+                  value={formatarTelefone(form.telefone_celular)}
+                  placeholder="+55 (00) 00000-0000"
+                  inputMode="tel"
+                  onChange={(e) => set("telefone_celular", limparTelefone(e.target.value))}
                 />
               </div>
 
