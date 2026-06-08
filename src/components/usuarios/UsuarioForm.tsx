@@ -119,14 +119,11 @@ export function UsuarioForm({ aberto, processando, onFechar, onSubmit }: Usuario
             <Label htmlFor="form-telefone">
               Telefone (WhatsApp) <span className="text-destructive">*</span>
             </Label>
-            <Input
+            <TelefoneInput
               id="form-telefone"
-              placeholder="+55 (21) 99988-7766"
-              value={formatarTelefone(telefone)}
-              onChange={(e) => { setTelefone(limparTelefone(e.target.value)); if (erroTel) setErroTel(""); }}
+              value={telefone}
+              onChange={(v) => { setTelefone(v); if (erroTel) setErroTel(""); }}
               disabled={processando}
-              inputMode="tel"
-              maxLength={20}
               className={erroTel ? "border-destructive" : ""}
             />
             {erroTel ? (

@@ -126,3 +126,39 @@ export function validarTelefone(
 export function telefoneValido(tel: string | null | undefined): boolean {
   return validarTelefone(tel).ok;
 }
+
+/**
+ * Formata para exibição SEM o prefixo "+55" — usado em inputs que mostram
+ * o "+55" como adornment visual fixo. O usuário não vê nem digita o DDI.
+ *
+ *   ""                  → ""
+ *   "2"                 → "(2"
+ *   "21"                → "(21)"
+ *   "2199"              → "(21) 99"
+ *   "21999998399"       → "(21) 99999-8399"
+ *   "5521999998399"     → "(21) 99999-8399"   (DDI strippado)
+ */
+export function formatarTelefoneSemDDI(tel: string | null | undefined): string {
+  const limpo = limparTelefone(tel);
+  if (!limpo) return "";
+
+  // Remove DDI 55 se vier (banco grava com DDI; UI sem DDI).
+  let d = limpo;
+  if (d.startsWith("55") && d.length > 11) {
+    d = d.slice(2);
+  }
+  d = d.slice(0, 11); // hard cap em 11 dígitos brasileiros
+
+  const ddd = d.slice(0, 2);
+  const numero = d.slice(2);
+
+  let out = "";
+  if (ddd) out += `(${ddd}`;
+  if (ddd.length === 2) out += ")";
+
+  if (numero.length === 0) return out;
+  if (numero.length <= 4) return `${out} ${numero}`;
+  if (numero.length <= 8) return `${out} ${numero.slice(0, 4)}-${numero.slice(4)}`;
+  return `${out} ${numero.slice(0, 5)}-${numero.slice(5, 9)}`;
+}
+

@@ -11,7 +11,8 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { UserPlus, Check, Loader2, Search, X } from "lucide-react";
 import { toast } from "sonner";
-import { formatarTelefone, limparTelefone, normalizarTelefone, validarTelefone } from "@/lib/telefone";
+import { normalizarTelefone, validarTelefone } from "@/lib/telefone";
+import { TelefoneInput } from "@/components/ui/TelefoneInput";
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -245,11 +246,9 @@ export default function VisitanteRapidoDialog({ open, onOpenChange, onSaved }: P
           {/* Telefone */}
           <div className="space-y-1.5">
             <Label htmlFor="vr-tel">WhatsApp / Telefone <span className="text-destructive">*</span></Label>
-            <Input
-              id="vr-tel" type="tel" inputMode="tel" placeholder="(11) 99999-9999"
-              value={formatarTelefone(telefone)} autoComplete="off" inputMode="tel" placeholder="+55 (00) 00000-0000"
-              onChange={(e) => { setTelefone(limparTelefone(e.target.value)); if (errors.telefone) setErrors(p => ({ ...p, telefone: undefined })); }}
-              className={errors.telefone ? "border-destructive" : ""}
+            <TelefoneInput
+              value={telefone}
+              onChange={(v) => { setTelefone(v); if (errors.telefone) setErrors(p => ({ ...p, telefone: undefined })); }}
             />
             {errors.telefone && <p className="text-xs text-destructive">{errors.telefone}</p>}
           </div>
