@@ -38,6 +38,7 @@ import { enviarWhatsApp, montarMensagemWhatsApp } from "@/services/userService";
 import { ROLE_LABEL } from "@/types/usuario";
 import type { RoleOption } from "@/types/usuario";
 import { formatarTelefone, normalizarTelefone } from "@/lib/telefone";
+import { AcessoEnviadoDialog } from "@/components/pessoas/AcessoEnviadoDialog";
 
 // ─── Helpers visuais ──────────────────────────────────────────────────────────
 
@@ -69,6 +70,14 @@ export function AcessoCard({
   const [criando,    setCriando]    = useState(false);
   const [agindo,     setAgindo]     = useState(false);
   const [role,       setRole]       = useState<RoleOption>(roleInicial);
+  const [dialogAcesso, setDialogAcesso] = useState<{
+    open: boolean;
+    primeiroNome: string;
+    telefone: string;
+    senha: string;
+    url: string;
+    acao: "criado" | "reenviado";
+  }>({ open: false, primeiroNome: "", telefone: "", senha: "", url: "", acao: "criado" });
 
   // ── Carregar estado atual ──────────────────────────────────────────────────
 
