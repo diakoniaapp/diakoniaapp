@@ -77,6 +77,7 @@ export default function Usuarios() {
   // ── Ação: resetar/reenviar ──────────────────────────────────────────────────
 
   async function handleReenviar(a: AcessoComNome) {
+    const waWindow = window.open("about:blank", "_blank", "noopener,noreferrer");
     setAgindo(a.userId);
     const resultado = await reenviarAcessoPessoa({
       userId:       a.userId,
@@ -94,7 +95,8 @@ export default function Usuarios() {
 
     if (resultado.tel) {
       const wa = enviarWhatsApp(resultado.tel, a.nomeCompleto, resultado.senha!, true);
-      if (wa.abertaAutomaticamente) {
+      if (waWindow && !waWindow.closed && wa.url) {
+        try { waWindow.location.href = wa.url; } catch { /* ignore */ }
         toast.success(`Acesso reenviado para ${a.nomeCompleto}! WhatsApp aberto.`);
       } else if (wa.url) {
         toast.success(`Acesso reenviado para ${a.nomeCompleto}!`, {

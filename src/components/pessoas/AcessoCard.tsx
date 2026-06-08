@@ -89,6 +89,8 @@ export function AcessoCard({
       toast.error("Cadastre um telefone na ficha da pessoa antes de criar o acesso.");
       return;
     }
+    // Abre janela em branco sincronamente para evitar bloqueio de pop-up
+    const waWindow = window.open("about:blank", "_blank", "noopener,noreferrer");
     setCriando(true);
     const resultado = await criarAcessoPessoa({
       pessoaId, nomeCompleto, telefone, role,
@@ -114,7 +116,8 @@ export function AcessoCard({
     {
       const wa = enviarWhatsApp(resultado.tel!, nomeCompleto, resultado.senha!, false);
       const primeiroNome = nomeCompleto.split(" ")[0];
-      if (wa.abertaAutomaticamente) {
+      if (waWindow && !waWindow.closed && wa.url) {
+        try { waWindow.location.href = wa.url; } catch { /* ignore */ }
         toast.success(`Acesso criado para ${primeiroNome}! WhatsApp aberto.`);
       } else if (wa.url) {
         toast.success(`Acesso criado para ${primeiroNome}!`, {
@@ -125,6 +128,7 @@ export function AcessoCard({
           },
         });
       } else {
+        if (waWindow && !waWindow.closed) waWindow.close();
         toast.success(`Acesso criado para ${primeiroNome}! (sem telefone — envie senha manualmente: ${resultado.senha})`, { duration: 20000 });
       }
     }
@@ -134,6 +138,12 @@ export function AcessoCard({
 
   async function handleReenviar() {
     if (!acesso) return;
+
+    // ⚡ CRÍTICO: abre uma janela em branco SINCRONAMENTE no gesto do user.
+    // Depois do await, mudar location dessa janela NÃO é bloqueado pelo browser.
+    // Se o user já permitiu pop-ups, vamos direto pro wa.me com a senha quando chegar.
+    const waWindow = window.open("about:blank", "_blank", "noopener,noreferrer");
+
     setAgindo(true);
     const resultado = await reenviarAcessoPessoa({
       userId:       acesso.userId,
@@ -145,17 +155,23 @@ export function AcessoCard({
     await carregar();
 
     if (!resultado.ok) {
+      if (waWindow && !waWindow.closed) waWindow.close();
       toast.error(resultado.erro ?? "Erro ao reenviar acesso.");
       return;
     }
 
+    const primeiroNome = nomeCompleto.split(" ")[0];
+
     if (resultado.tel) {
+      // Monta URL e mensagem mas NÃO abre janela nova — usa a janela já aberta.
       const wa = enviarWhatsApp(resultado.tel, nomeCompleto, resultado.senha!, true);
-      const primeiroNome = nomeCompleto.split(" ")[0];
-      if (wa.abertaAutomaticamente) {
+
+      if (waWindow && !waWindow.closed && wa.url) {
+        // Navega a janela já aberta — não é bloqueado.
+        try { waWindow.location.href = wa.url; } catch { /* ignore */ }
         toast.success(`Acesso reenviado para ${primeiroNome}! WhatsApp aberto.`);
       } else if (wa.url) {
-        // Pop-up bloqueado — toast com botão clicável (clique do user libera).
+        // Janela inicial foi bloqueada — toast com action clicável.
         toast.success(`Acesso reenviado para ${primeiroNome}!`, {
           duration: 20000,
           action: {
@@ -167,6 +183,7 @@ export function AcessoCard({
         toast.success(`Nova senha: ${resultado.senha} (envie manualmente)`, { duration: 20000 });
       }
     } else {
+      if (waWindow && !waWindow.closed) waWindow.close();
       toast.success(
         `Nova senha: ${resultado.senha}  (sem telefone — copie e envie manualmente)`,
         { duration: 20000 }
