@@ -67,6 +67,9 @@ export interface ResultadoWhatsApp {
   ok: boolean;          // tem telefone válido e mensagem montada
   url?: string;         // URL pronta para window.open ou copy-paste
   abertaAutomaticamente?: boolean;  // janela conseguiu abrir (pop-up não bloqueado)
+  senha?: string;       // senha gerada (eco)
+  telefone?: string;    // telefone limpo
+  mensagem?: string;    // mensagem montada (copy-paste fallback)
 }
 
 export function enviarWhatsApp(
@@ -102,10 +105,20 @@ export function enviarWhatsApp(
   // Tenta abrir; browsers bloqueiam silenciosamente se não for gesto do user.
   // window.open retorna a janela ou null se bloqueada.
   const janela = window.open(url, "_blank", "noopener,noreferrer");
+  const abertaAutomaticamente = janela !== null && !janela.closed;
+
+  // Garantia adicional: copia a mensagem pro clipboard para o user enviar manualmente.
+  if (!abertaAutomaticamente && typeof navigator !== "undefined" && navigator.clipboard) {
+    navigator.clipboard.writeText(mensagem).catch(() => {});
+  }
+
   return {
     ok: true,
     url,
-    abertaAutomaticamente: janela !== null && !janela.closed,
+    senha,
+    telefone: tel,
+    mensagem,
+    abertaAutomaticamente,
   };
 }
 
