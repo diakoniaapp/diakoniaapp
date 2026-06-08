@@ -44,6 +44,17 @@ export async function analisarSyncEstrutura(): Promise<ResultadoSync> {
     .order("ordem");
   if (errSec) throw new Error("Erro ao buscar secoes: " + errSec.message);
 
+  // Fase E: log diagnóstico para investigar "sync vazia"
+  if (!secoes || secoes.length === 0) {
+    console.warn(
+      "[estruturaSync] Nenhuma seção encontrada com tipo_secao em " +
+      "[diretoria, conselho, ministerio, area, assembleia]. " +
+      "Verifique se algum documento foi ingerido E classificado em secoes_documento."
+    );
+  } else {
+    console.info("[estruturaSync] " + secoes.length + " seção(ões) candidatas encontradas.");
+  }
+
   const { data: existentes } = await supabase
     .from("documento_estrutura").select("id,nome,tipo").eq("ativo",true);
 
@@ -109,13 +120,16 @@ export async function aplicarSync(
           .eq("id",item.idExistente);
         if (error) throw error; atualizados++;
       }
-    } catch { erros++; }
+    } catch (e) {
+      console.warn("[estruturaSync] Erro ao processar item " + item.nome + ":", e);
+      erros++;
+    }
   }
   if (criados+atualizados>0) {
     await supabase.from("documentos_historico").insert({
       acao:"sincronizacao_estrutura", usuario_email:emailUsuario,
       observacao:"Sync: "+criados+" criado(s), "+atualizados+" atualizado(s)",
-    }).then(()=>{}).catch(()=>{});
+    }).then(()=>{}).catch((e)=>console.warn("[estruturaSync] Falha ao registrar histórico:", e));
   }
   return { criados, atualizados, erros };
 }

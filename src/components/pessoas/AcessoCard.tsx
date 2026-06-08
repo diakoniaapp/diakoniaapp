@@ -61,7 +61,7 @@ export function AcessoCard({
   pessoaId,
   nomeCompleto,
   telefone,
-  roleInicial = "membro",
+  roleInicial = "voluntario",
 }: AcessoCardProps) {
   const [acesso,     setAcesso]     = useState<AcessoPessoa | null>(null);
   const [carregando, setCarregando] = useState(true);
@@ -187,12 +187,11 @@ export function AcessoCard({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="membro">Membro</SelectItem>
-                  <SelectItem value="congregado">Congregado</SelectItem>
+                  {/* Enum app_role após migration Fase C: voluntario, lideranca, secretaria, pastor, admin */}
                   <SelectItem value="voluntario">Voluntário</SelectItem>
                   <SelectItem value="lideranca">Liderança</SelectItem>
                   <SelectItem value="secretaria">Secretaria</SelectItem>
-                  <SelectItem value="diakonia">Pastor</SelectItem>
+                  <SelectItem value="pastor">Pastor</SelectItem>
                   <SelectItem value="admin">Administrador</SelectItem>
                 </SelectContent>
               </Select>

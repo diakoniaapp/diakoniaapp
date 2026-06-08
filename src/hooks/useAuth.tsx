@@ -2,7 +2,15 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
-export type AppRole = "admin" | "secretaria" | "diakonia" | "lideranca";
+// AppRole reflete o enum app_role do Supabase.
+// FASE C: migration adiciona "voluntario" e "pastor"; "diakonia" mantido para compat.
+export type AppRole =
+  | "admin"
+  | "secretaria"
+  | "pastor"
+  | "diakonia"  // legado — migrado para "pastor" pela migration; mantido para compat de bundle
+  | "lideranca"
+  | "voluntario";
 
 interface AuthContextValue {
   user: User | null;

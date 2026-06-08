@@ -30,7 +30,7 @@ interface UsuarioFormProps {
 export function UsuarioForm({ aberto, processando, onFechar, onSubmit }: UsuarioFormProps) {
   const [nome,     setNome]     = useState("");
   const [telefone, setTelefone] = useState("");
-  const [role,     setRole]     = useState<RoleOption>("membro");
+  const [role,     setRole]     = useState<RoleOption>("voluntario");
   const [erroNome, setErroNome] = useState("");
   const [erroTel,  setErroTel]  = useState("");
 
@@ -71,7 +71,7 @@ export function UsuarioForm({ aberto, processando, onFechar, onSubmit }: Usuario
 
   function handleFechar() {
     if (processando) return;
-    setNome(""); setTelefone(""); setRole("membro");
+    setNome(""); setTelefone(""); setRole("voluntario");
     setErroNome(""); setErroTel("");
     onFechar();
   }
@@ -150,12 +150,11 @@ export function UsuarioForm({ aberto, processando, onFechar, onSubmit }: Usuario
             >
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="membro">Membro</SelectItem>
-                <SelectItem value="congregado">Congregado</SelectItem>
+                {/* Enum app_role após migration Fase C: voluntario, lideranca, secretaria, pastor, admin */}
                 <SelectItem value="voluntario">Voluntário</SelectItem>
                 <SelectItem value="lideranca">Liderança</SelectItem>
                 <SelectItem value="secretaria">Secretaria</SelectItem>
-                <SelectItem value="diakonia">Pastor</SelectItem>
+                <SelectItem value="pastor">Pastor</SelectItem>
                 <SelectItem value="admin">Administrador</SelectItem>
               </SelectContent>
             </Select>

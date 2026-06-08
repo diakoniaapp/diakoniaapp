@@ -8,18 +8,25 @@ export interface Usuario {
   primeiro_acesso: boolean | null;
 }
 
+// RoleOption = enum app_role do Supabase.
+// FASE C: migration adiciona "voluntario" e "pastor".
+// "diakonia" é legado (mesma semântica de "pastor"); mantemos no tipo para
+// compatibilidade com registros antigos. UI nova só oferece "pastor".
 export type RoleOption =
-  | "admin" | "secretaria" | "diakonia" | "lideranca"
-  | "membro" | "voluntario" | "congregado";
+  | "admin"
+  | "secretaria"
+  | "pastor"
+  | "diakonia"
+  | "lideranca"
+  | "voluntario";
 
 export const ROLE_LABEL: Record<string, string> = {
   admin:      "Administrador",
   secretaria: "Secretaria",
-  diakonia:   "Pastor",
+  pastor:     "Pastor",
+  diakonia:   "Pastor",     // legado — exibido como Pastor
   lideranca:  "Liderança",
-  membro:     "Membro",
   voluntario: "Voluntário",
-  congregado: "Congregado",
 };
 
 export const ROLE_VARIANT: Record<
@@ -28,11 +35,10 @@ export const ROLE_VARIANT: Record<
 > = {
   admin:      "default",
   secretaria: "secondary",
+  pastor:     "outline",
   diakonia:   "outline",
   lideranca:  "outline",
-  membro:     "outline",
   voluntario: "outline",
-  congregado: "outline",
 };
 
 export interface NovoUsuarioDados {

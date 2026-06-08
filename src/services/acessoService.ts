@@ -62,7 +62,7 @@ export async function buscarAcessoPorPessoa(
     userId:        data.id,
     pessoaId:      data.pessoa_id!,
     telefone:      data.telefone ?? "",
-    role:          data.role ?? "membro",
+    role:          data.role ?? "voluntario",
     primeiroAcesso: data.primeiro_acesso ?? true,
     status:        data.primeiro_acesso ? "aguardando" : "ativo",
   };
@@ -99,7 +99,7 @@ export async function listarTodosAcessos(): Promise<
     userId:        p.id,
     pessoaId:      p.pessoa_id ?? "",
     telefone:      p.telefone ?? "",
-    role:          p.role ?? "membro",
+    role:          p.role ?? "voluntario",
     primeiroAcesso: p.primeiro_acesso ?? true,
     status:        (p.primeiro_acesso ? "aguardando" : "ativo") as StatusAcesso,
     nomeCompleto:  p.membros?.nome_completo ?? "—",
