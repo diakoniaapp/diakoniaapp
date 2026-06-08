@@ -118,6 +118,15 @@ export function AcessoCard({
       const primeiroNome = nomeCompleto.split(" ")[0];
       if (waWindow && !waWindow.closed && wa.url) {
         try { waWindow.location.href = wa.url; } catch { /* ignore */ }
+        setTimeout(() => {
+          try {
+            if (waWindow.location.href === "about:blank" || waWindow.document.body.children.length === 0) {
+              waWindow.document.open();
+              waWindow.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Diakonia — Acesso ${primeiroNome}</title><style>body{font-family:system-ui;max-width:600px;margin:40px auto;padding:24px;background:#faf7f2}.card{background:white;padding:24px;border-radius:12px;margin-bottom:16px}.val{font-family:monospace;background:#fff7ed;padding:8px 12px;border-radius:6px;display:inline-block;user-select:all}a.btn{display:block;background:#25D366;color:white;padding:18px;border-radius:12px;text-align:center;font-size:18px;font-weight:600;text-decoration:none;margin-top:16px}</style></head><body><h1>📲 Acesso criado para ${primeiroNome}</h1><div class="card"><p>Telefone: <span class="val">${resultado.tel}</span></p><p>Senha: <span class="val">${resultado.senha}</span></p></div><a class="btn" href="${wa.url}" target="_blank">💬 Abrir WhatsApp</a></body></html>`);
+              waWindow.document.close();
+            }
+          } catch {}
+        }, 800);
         toast.success(`Acesso criado para ${primeiroNome}! WhatsApp aberto.`);
       } else if (wa.url) {
         toast.success(`Acesso criado para ${primeiroNome}!`, {
@@ -167,9 +176,51 @@ export function AcessoCard({
       const wa = montarMensagemWhatsApp(resultado.tel, nomeCompleto, resultado.senha!, true);
 
       if (waWindow && !waWindow.closed && wa.url) {
-        // Navega a janela já aberta — não é bloqueado.
-        try { waWindow.location.href = wa.url; } catch { /* ignore */ }
-        toast.success(`Acesso reenviado para ${primeiroNome}! WhatsApp aberto.`);
+        // Estratégia tripla: location.href → HTML inline fallback → toast com action
+        let navegou = false;
+        try {
+          waWindow.location.href = wa.url;
+          navegou = true;
+        } catch (e) {
+          console.warn("[AcessoCard] location.href falhou:", e);
+        }
+
+        // Fallback: se em 800ms ainda for about:blank, escrever HTML com link
+        setTimeout(() => {
+          try {
+            const stillBlank = waWindow.location.href === "about:blank" ||
+              waWindow.document.body.children.length === 0;
+            if (stillBlank) {
+              waWindow.document.open();
+              waWindow.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Diakonia — Acesso ${primeiroNome}</title><style>
+                body{font-family:system-ui,sans-serif;max-width:600px;margin:40px auto;padding:24px;background:#faf7f2;color:#2a1810}
+                h1{color:#b45309;margin:0 0 16px}
+                .card{background:white;padding:24px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08);margin-bottom:16px}
+                .label{font-size:12px;color:#78716c;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px}
+                .val{font-size:18px;font-weight:600;font-family:ui-monospace,monospace;background:#fff7ed;padding:8px 12px;border-radius:6px;display:inline-block;margin-bottom:12px;user-select:all}
+                a.btn{display:block;background:#25D366;color:white;padding:18px;border-radius:12px;text-align:center;font-size:18px;font-weight:600;text-decoration:none;margin-top:24px}
+                a.btn:hover{background:#1ea952}
+                p{line-height:1.6}
+              </style></head><body>
+                <h1>📲 Acesso reenviado para ${primeiroNome}</h1>
+                <div class="card">
+                  <div class="label">Telefone (login)</div>
+                  <div class="val">${resultado.tel}</div>
+                  <div class="label">Senha temporária</div>
+                  <div class="val">${resultado.senha}</div>
+                </div>
+                <a class="btn" href="${wa.url}" target="_blank" rel="noopener">💬 Abrir WhatsApp com a mensagem</a>
+                <p style="margin-top:20px;color:#78716c;font-size:13px">A senha já foi copiada para sua área de transferência. Cole-a no WhatsApp se preferir digitar manualmente.</p>
+              </body></html>`);
+              waWindow.document.close();
+              try { navigator.clipboard.writeText(resultado.senha || ""); } catch {}
+            }
+          } catch (e) {
+            console.warn("[AcessoCard] HTML fallback falhou:", e);
+          }
+        }, 800);
+
+        toast.success(`Acesso reenviado para ${primeiroNome}!`);
       } else if (wa.url) {
         // Janela inicial foi bloqueada — toast com action clicável.
         toast.success(`Acesso reenviado para ${primeiroNome}!`, {
