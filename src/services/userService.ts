@@ -72,6 +72,42 @@ export interface ResultadoWhatsApp {
   mensagem?: string;    // mensagem montada (copy-paste fallback)
 }
 
+/**
+ * Monta a URL do WhatsApp + mensagem (sem efeito colateral).
+ * Útil quando o componente precisa controlar a abertura via janela já aberta.
+ */
+export function montarMensagemWhatsApp(
+  telefone: string,
+  nome:     string,
+  senha:    string,
+  reenvio = false
+): { ok: boolean; url?: string; mensagem?: string; telefone?: string } {
+  const tel = limparTelefone(telefone);
+  if (!tel || tel.length < 10) return { ok: false };
+
+  const sistemaUrl = window.location.origin;
+  const acao       = reenvio ? "reenviado" : "criado";
+  const nomeUso    = nomeValido(nome) ? nome.trim() : "membro";
+
+  const mensagem = [
+    `✝️ *DiakoniaApp — Acesso ${acao}*`,
+    ``,
+    `Olá, ${nomeUso}! Seu acesso ao sistema da igreja foi ${acao}.`,
+    ``,
+    `🔐 *Dados de acesso:*`,
+    `👤 Login (telefone): ${tel}`,
+    `🔑 Senha: ${senha}`,
+    `🌐 Acesse: ${sistemaUrl}/auth?t=${tel}&p=${encodeURIComponent(senha)}`,
+    ``,
+    `⚠️ No primeiro acesso você precisará trocar sua senha.`,
+    ``,
+    `_"Conectando pessoas, organizando o propósito."_`,
+  ].join("\n");
+
+  const url = `https://wa.me/${normalizarTelefone(tel)}?text=${encodeURIComponent(mensagem)}`;
+  return { ok: true, url, mensagem, telefone: tel };
+}
+
 export function enviarWhatsApp(
   telefone: string,
   nome:     string,

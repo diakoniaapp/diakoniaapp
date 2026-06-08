@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 
 import { listarTodosAcessos, reenviarAcessoPessoa, type AcessoPessoa } from "@/services/acessoService";
-import { enviarWhatsApp } from "@/services/userService";
+import { enviarWhatsApp, montarMensagemWhatsApp } from "@/services/userService";
 import { ROLE_LABEL, ROLE_VARIANT } from "@/types/usuario";
 import { Badge as UiBadge } from "@/components/ui/badge";
 
@@ -94,7 +94,7 @@ export default function Usuarios() {
     }
 
     if (resultado.tel) {
-      const wa = enviarWhatsApp(resultado.tel, a.nomeCompleto, resultado.senha!, true);
+      const wa = montarMensagemWhatsApp(resultado.tel, a.nomeCompleto, resultado.senha!, true);
       if (waWindow && !waWindow.closed && wa.url) {
         try { waWindow.location.href = wa.url; } catch { /* ignore */ }
         toast.success(`Acesso reenviado para ${a.nomeCompleto}! WhatsApp aberto.`);

@@ -34,7 +34,7 @@ import {
   type AcessoPessoa,
   type StatusAcesso,
 } from "@/services/acessoService";
-import { enviarWhatsApp } from "@/services/userService";
+import { enviarWhatsApp, montarMensagemWhatsApp } from "@/services/userService";
 import { ROLE_LABEL } from "@/types/usuario";
 import type { RoleOption } from "@/types/usuario";
 import { formatarTelefone, normalizarTelefone } from "@/lib/telefone";
@@ -114,7 +114,7 @@ export function AcessoCard({
 
     await carregar();
     {
-      const wa = enviarWhatsApp(resultado.tel!, nomeCompleto, resultado.senha!, false);
+      const wa = montarMensagemWhatsApp(resultado.tel!, nomeCompleto, resultado.senha!, false);
       const primeiroNome = nomeCompleto.split(" ")[0];
       if (waWindow && !waWindow.closed && wa.url) {
         try { waWindow.location.href = wa.url; } catch { /* ignore */ }
@@ -163,8 +163,8 @@ export function AcessoCard({
     const primeiroNome = nomeCompleto.split(" ")[0];
 
     if (resultado.tel) {
-      // Monta URL e mensagem mas NÃO abre janela nova — usa a janela já aberta.
-      const wa = enviarWhatsApp(resultado.tel, nomeCompleto, resultado.senha!, true);
+      // Monta URL SEM abrir janela nova — usa a janela waWindow já aberta no clique.
+      const wa = montarMensagemWhatsApp(resultado.tel, nomeCompleto, resultado.senha!, true);
 
       if (waWindow && !waWindow.closed && wa.url) {
         // Navega a janela já aberta — não é bloqueado.
