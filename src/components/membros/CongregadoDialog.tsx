@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Users, Check, Loader2, Search, X } from "lucide-react";
 import { toast } from "sonner";
+import { formatarTelefone, limparTelefone, normalizarTelefone, validarTelefone } from "@/lib/telefone";
 
 interface Props {
   open: boolean;
@@ -113,7 +114,8 @@ export default function CongregadoDialog({ open, onOpenChange, onSaved }: Props)
   const validate = () => {
     const e: typeof errors = {};
     if (!form.nome_completo.trim())    e.nome_completo    = "Nome é obrigatório";
-    if (!form.telefone_celular.trim()) e.telefone_celular = "Telefone é obrigatório";
+    const _vTel = validarTelefone(form.telefone_celular);
+    if (!_vTel.ok) e.telefone_celular = _vTel.erro || "Telefone é obrigatório";
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -128,7 +130,7 @@ export default function CongregadoDialog({ open, onOpenChange, onSaved }: Props)
 
     const payload: any = {
       nome_completo:    form.nome_completo.trim(),
-      telefone_celular: form.telefone_celular.trim(),
+      telefone_celular: normalizarTelefone(form.telefone_celular) || null,
       email:            form.email.trim()           || null,
       data_nascimento:  form.data_nascimento         || null,
       sexo:             form.sexo                    || null,
@@ -182,9 +184,9 @@ export default function CongregadoDialog({ open, onOpenChange, onSaved }: Props)
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Telefone / WhatsApp <span className="text-destructive">*</span></Label>
-              <Input type="tel" placeholder="(11) 99999-9999" value={form.telefone_celular}
+              <Input type="tel" placeholder="+55 (00) 00000-0000" inputMode="tel" value={formatarTelefone(form.telefone_celular)}
                 className={errors.telefone_celular ? "border-destructive" : ""}
-                onChange={(e) => { set("telefone_celular")(e.target.value); if (errors.telefone_celular) setErrors(p => ({ ...p, telefone_celular: undefined })); }} />
+                onChange={(e) => { set("telefone_celular")(limparTelefone(e.target.value)); if (errors.telefone_celular) setErrors(p => ({ ...p, telefone_celular: undefined })); }} />
               {errors.telefone_celular && <p className="text-xs text-destructive">{errors.telefone_celular}</p>}
             </div>
             <div className="space-y-1.5">

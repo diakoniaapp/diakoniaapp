@@ -64,7 +64,7 @@ export function UsuarioForm({ aberto, processando, onFechar, onSubmit }: Usuario
 
   async function handleSubmit() {
     if (!validar()) return;
-    await onSubmit({ nome: nome.trim(), telefone, role });
+    await onSubmit({ nome: nome.trim(), telefone: normalizarTelefone(telefone), role });
   }
 
   // ── Reset ao fechar ────────────────────────────────────────────────────────
@@ -121,12 +121,12 @@ export function UsuarioForm({ aberto, processando, onFechar, onSubmit }: Usuario
             </Label>
             <Input
               id="form-telefone"
-              placeholder="Ex: 21999887766"
-              value={telefone}
-              onChange={(e) => { setTelefone(e.target.value.replace(/\D/g, "")); if (erroTel) setErroTel(""); }}
+              placeholder="+55 (21) 99988-7766"
+              value={formatarTelefone(telefone)}
+              onChange={(e) => { setTelefone(limparTelefone(e.target.value)); if (erroTel) setErroTel(""); }}
               disabled={processando}
               inputMode="tel"
-              maxLength={13}
+              maxLength={20}
               className={erroTel ? "border-destructive" : ""}
             />
             {erroTel ? (

@@ -25,6 +25,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { formatarTelefone, limparTelefone, normalizarTelefone, validarTelefone } from "@/lib/telefone";
 
 // ─── Opções do dropdown "Como conheceu a igreja?" ──────────────────────────
 
@@ -228,9 +229,10 @@ export function VisitorForm({ open, onOpenChange, onSaved }: Props) {
             <div>
               <Label translate="no">Telefone celular</Label>
               <Input
-                value={form.telefone_celular}
-                placeholder="(00) 00000-0000"
-                onChange={(e) => set("telefone_celular", e.target.value)}
+                value={formatarTelefone(form.telefone_celular)}
+                placeholder="+55 (00) 00000-0000"
+                inputMode="tel"
+                onChange={(e) => set("telefone_celular", limparTelefone(e.target.value))}
               />
             </div>
 

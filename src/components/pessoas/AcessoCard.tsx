@@ -37,6 +37,7 @@ import {
 import { enviarWhatsApp } from "@/services/userService";
 import { ROLE_LABEL } from "@/types/usuario";
 import type { RoleOption } from "@/types/usuario";
+import { formatarTelefone } from "@/lib/telefone";
 
 // ─── Helpers visuais ──────────────────────────────────────────────────────────
 
@@ -172,7 +173,7 @@ export function AcessoCard({
           </Badge>
           {acesso && (
             <span className="text-xs text-muted-foreground">
-              Login: {acesso.telefone || telefone?.replace(/\D/g, "") || "—"}
+              Login: {formatarTelefone(acesso.telefone || telefone || "") || "—"}
             </span>
           )}
         </div>

@@ -22,10 +22,15 @@ const supabaseSignup = createClient(
 
 // ─── Utilitários puros ────────────────────────────────────────────────────────
 
-/** Remove qualquer caractere não-numérico. */
-export function limparTelefone(tel: string): string {
-  return tel.replace(/\D/g, "");
-}
+// Reexportado de @/lib/telefone para manter compatibilidade.
+// A fonte de verdade está em src/lib/telefone.ts.
+export {
+  limparTelefone,
+  formatarTelefone,
+  normalizarTelefone,
+  validarTelefone,
+  telefoneValido,
+} from "@/lib/telefone";
 
 /**
  * Retorna true se o nome é um nome humano válido:
