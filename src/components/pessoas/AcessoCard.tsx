@@ -147,14 +147,24 @@ export function AcessoCard({
     }
     toast.info(`Reenviando acesso para ${nomeCompleto.split(" ")[0]}…`, { duration: 4000 });
     setAgindo(true);
-    const resultado = await reenviarAcessoPessoa({
-      userId:       acesso.userId,
-      pessoaId,
-      nomeCompleto,
-      telefone:     acesso.telefone || telefone,
-    });
+    let resultado;
+    try {
+      console.log("[handleReenviar] chamando reenviarAcessoPessoa", { userId: acesso.userId, pessoaId, telefone: acesso.telefone || telefone });
+      resultado = await reenviarAcessoPessoa({
+        userId:       acesso.userId,
+        pessoaId,
+        nomeCompleto,
+        telefone:     acesso.telefone || telefone,
+      });
+      console.log("[handleReenviar] retornou:", resultado);
+    } catch (e: any) {
+      console.error("[handleReenviar] EXCEPTION:", e);
+      setAgindo(false);
+      toast.error(`Exception: ${e?.message ?? String(e)}`, { duration: 30000 });
+      return;
+    }
     setAgindo(false);
-    await carregar();
+    try { await carregar(); } catch (e) { console.error("[carregar] err:", e); }
 
     console.log("[handleReenviar] resultado:", resultado);
 
