@@ -141,7 +141,11 @@ export function AcessoCard({
   // ── Reenviar / Resetar ─────────────────────────────────────────────────────
 
   async function handleReenviar() {
-    if (!acesso) return;
+    if (!acesso) {
+      toast.error("Acesso ainda não carregou. Aguarde um instante e tente novamente.");
+      return;
+    }
+    toast.info(`Reenviando acesso para ${nomeCompleto.split(" ")[0]}…`, { duration: 4000 });
     setAgindo(true);
     const resultado = await reenviarAcessoPessoa({
       userId:       acesso.userId,
