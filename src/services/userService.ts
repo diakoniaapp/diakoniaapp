@@ -22,15 +22,23 @@ const supabaseSignup = createClient(
 
 // ─── Utilitários puros ────────────────────────────────────────────────────────
 
-// Reexportado de @/lib/telefone para manter compatibilidade.
+// Importa para uso interno + reexporta para compat com imports externos antigos.
 // A fonte de verdade está em src/lib/telefone.ts.
-export {
+import {
   limparTelefone,
   formatarTelefone,
   normalizarTelefone,
   validarTelefone,
   telefoneValido,
 } from "@/lib/telefone";
+
+export {
+  limparTelefone,
+  formatarTelefone,
+  normalizarTelefone,
+  validarTelefone,
+  telefoneValido,
+};
 
 /**
  * Retorna true se o nome é um nome humano válido:
