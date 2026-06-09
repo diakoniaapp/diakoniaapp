@@ -208,12 +208,13 @@ export async function criarAcessoPessoa(params: {
     }
 
     // 3. Registrar log
-    await supabase.rpc("registrar_audit_log", {
+    // .maybeSingle() em RPC void trava o cliente — usar promise simples com catch.
+    supabase.rpc("registrar_audit_log", {
       p_tipo_evento: "acesso_criado",
       p_pessoa_id:   params.pessoaId,
       p_user_id:     uid,
       p_detalhes:    { role: params.role, telefone: tel },
-    }).maybeSingle();
+    }).then(() => {}).catch((e) => console.warn("[audit_log]", e));
 
     return { ok: true, senha, tel };
   } catch (e: unknown) {
@@ -250,12 +251,12 @@ export async function resetarSenhaAcesso(
 
   // Log de auditoria
   if (pessoaId) {
-    await supabase.rpc("registrar_audit_log", {
+    supabase.rpc("registrar_audit_log", {
       p_tipo_evento: "senha_resetada",
       p_pessoa_id:   pessoaId,
       p_user_id:     userId,
       p_detalhes:    {},
-    }).maybeSingle();
+    }).then(() => {}).catch((e) => console.warn("[audit_log]", e));
   }
 
   return { ok: true, senha };
