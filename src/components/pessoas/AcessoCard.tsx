@@ -164,24 +164,26 @@ export function AcessoCard({
     const primeiroNome = nomeCompleto.split(" ")[0];
 
     const mensagem = [
-      `✝️ *Diakonia — Novo convite de acesso*`,
+      `*Diakonia — Novo convite de acesso*`,
       ``,
-      `Olá, ${primeiroNome}! Aqui está seu novo link para entrar:`,
+      `Ola, ${primeiroNome}!`,
+      `Aqui esta seu novo link para entrar:`,
       ``,
-      `🔗 ${url}`,
+      url,
       ``,
-      `⏰ Link válido até ${expira}.`,
+      `Link valido ate ${expira}.`,
     ].join("\n");
 
-    setDialogAcesso({
-      open: true,
-      primeiroNome,
-      telefone: telefone ?? "",
-      senha: "",
-      url: telefone
-        ? `https://wa.me/${(telefone ?? "").replace(/\D/g, "")}?text=${encodeURIComponent(mensagem)}`
-        : `https://wa.me/?text=${encodeURIComponent(mensagem)}`,
-      acao: "reenviado",
+    try { await navigator.clipboard.writeText(url); } catch {}
+
+    const waUrl = telefone
+      ? `https://wa.me/${(telefone ?? "").replace(/\D/g, "")}?text=${encodeURIComponent(mensagem)}`
+      : `https://wa.me/?text=${encodeURIComponent(mensagem)}`;
+    window.open(waUrl, "_blank", "noopener,noreferrer");
+
+    toast.success(`Convite gerado para ${primeiroNome}! Link copiado e WhatsApp aberto.`, {
+      duration: 12000,
+      action: { label: "Copiar link", onClick: () => { try { navigator.clipboard.writeText(url); toast.info("Link copiado!"); } catch {} } },
     });
 
     await carregar();
