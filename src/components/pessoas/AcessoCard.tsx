@@ -69,17 +69,7 @@ export function AcessoCard({
   const [carregando, setCarregando] = useState(true);
   const [criando,    setCriando]    = useState(false);
   const [agindo,     setAgindo]     = useState(false);
-  const [role,       setRole]       = useState<RoleOption>(roleInicial);
-  const [dialogAcesso, setDialogAcesso] = useState<{
-    open: boolean;
-    primeiroNome: string;
-    telefone: string;
-    senha: string;
-    url: string;
-    acao: "criado" | "reenviado";
-  }>({ open: false, primeiroNome: "", telefone: "", senha: "", url: "", acao: "criado" });
-
-  // ── Carregar estado atual ──────────────────────────────────────────────────
+  const [role,       setRole]       = useState<RoleOption>(roleInicial);  // ── Carregar estado atual ──────────────────────────────────────────────────
 
   async function carregar() {
     setCarregando(true);
@@ -119,28 +109,28 @@ export function AcessoCard({
     const expira = new Date(tokenRow.expires_at).toLocaleDateString("pt-BR");
     const primeiroNome = nomeCompleto.split(" ")[0];
 
-    // Monta mensagem WhatsApp
     const mensagem = [
-      `✝️ *Diakonia — Convite de acesso*`,
+      `*Diakonia — Convite de acesso*`,
       ``,
-      `Olá, ${primeiroNome}! Você foi convidada(o) a acessar o sistema da igreja.`,
+      `Ola, ${primeiroNome}!`,
+      `Voce foi convidada(o) a acessar o sistema da igreja.`,
       ``,
-      `🔗 Crie sua senha em:`,
+      `Crie sua senha em:`,
       url,
       ``,
-      `⏰ Link válido até ${expira}.`,
-      `_"Conectando pessoas, organizando o propósito."_`,
+      `Link valido ate ${expira}.`,
     ].join("\n");
 
-    setDialogAcesso({
-      open: true,
-      primeiroNome,
-      telefone: telefone ?? "",
-      senha: "",
-      url: telefone
-        ? `https://wa.me/${(telefone ?? "").replace(/\D/g, "").replace(/^55/, "55")}?text=${encodeURIComponent(mensagem)}`
-        : `https://wa.me/?text=${encodeURIComponent(mensagem)}`,
-      acao: "criado",
+    try { await navigator.clipboard.writeText(url); } catch {}
+
+    const waUrl = telefone
+      ? `https://wa.me/${(telefone ?? "").replace(/\D/g, "")}?text=${encodeURIComponent(mensagem)}`
+      : `https://wa.me/?text=${encodeURIComponent(mensagem)}`;
+    window.open(waUrl, "_blank", "noopener,noreferrer");
+
+    toast.success(`Convite criado para ${primeiroNome}! Link copiado e WhatsApp aberto.`, {
+      duration: 12000,
+      action: { label: "Copiar link", onClick: () => { try { navigator.clipboard.writeText(url); toast.info("Link copiado!"); } catch {} } },
     });
 
     await carregar();
@@ -214,7 +204,6 @@ export function AcessoCard({
   }
 
   return (
-    <>
     <Card className="rounded-2xl shadow">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
