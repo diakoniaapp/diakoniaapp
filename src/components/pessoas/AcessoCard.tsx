@@ -94,13 +94,20 @@ export function AcessoCard({
   // ── Criar acesso ───────────────────────────────────────────────────────────
 
   async function handleCriarAcesso() {
-    if (!pessoaId) return;
+    if (!pessoaId) { toast.error("ID da pessoa não encontrado"); return; }
     setCriando(true);
-    const { data, error } = await supabase.rpc("criar_convite_acesso", {
-      p_pessoa_id: pessoaId,
-      p_role:      role,
-    });
-    setCriando(false);
+    let data: any = null, error: any = null;
+    try {
+      const r = await supabase.rpc("criar_convite_acesso", {
+        p_pessoa_id: pessoaId,
+        p_role:      role,
+      });
+      data = r.data; error = r.error;
+    } catch (e: any) {
+      error = e;
+    } finally {
+      setCriando(false);
+    }
 
     if (error || !data || data.length === 0) {
       toast.error(error?.message ?? "Erro ao gerar convite");
@@ -141,14 +148,21 @@ export function AcessoCard({
   // ── Reenviar / Resetar ─────────────────────────────────────────────────────
 
   async function handleReenviar() {
-    if (!pessoaId) return;
+    if (!pessoaId) { toast.error("ID da pessoa não encontrado"); return; }
     toast.info(`Gerando novo convite para ${nomeCompleto.split(" ")[0]}…`, { duration: 4000 });
     setAgindo(true);
-    const { data, error } = await supabase.rpc("criar_convite_acesso", {
-      p_pessoa_id: pessoaId,
-      p_role:      role,
-    });
-    setAgindo(false);
+    let data: any = null, error: any = null;
+    try {
+      const r = await supabase.rpc("criar_convite_acesso", {
+        p_pessoa_id: pessoaId,
+        p_role:      role,
+      });
+      data = r.data; error = r.error;
+    } catch (e: any) {
+      error = e;
+    } finally {
+      setAgindo(false);
+    }
 
     if (error || !data || data.length === 0) {
       toast.error(error?.message ?? "Erro ao gerar convite");
