@@ -94,117 +94,95 @@ export function AcessoCard({
   // ── Criar acesso ───────────────────────────────────────────────────────────
 
   async function handleCriarAcesso() {
-    if (!telefone) {
-      toast.error("Cadastre um telefone na ficha da pessoa antes de criar o acesso.");
-      return;
-    }
+    if (!pessoaId) return;
     setCriando(true);
-    const resultado = await criarAcessoPessoa({
-      pessoaId, nomeCompleto, telefone, role,
+    const { data, error } = await supabase.rpc("criar_convite_acesso", {
+      p_pessoa_id: pessoaId,
+      p_role:      role,
     });
     setCriando(false);
 
-    if (!resultado.ok) {
-      toast.error(resultado.erro ?? "Erro ao criar acesso.");
-      if (resultado.senha && resultado.tel) {
-        // Auth criado mas profile falhou — não perder a senha
-        const wa = enviarWhatsApp(resultado.tel, nomeCompleto, resultado.senha, false);
-        if (wa.url && !wa.abertaAutomaticamente) {
-          toast.warning("Pop-up bloqueado — clique para abrir o WhatsApp", {
-            duration: 20000,
-            action: { label: "Abrir", onClick: () => window.open(wa.url!, "_blank", "noopener,noreferrer") },
-          });
-        }
-      }
+    if (error || !data || data.length === 0) {
+      toast.error(error?.message ?? "Erro ao gerar convite");
       return;
     }
 
-    await carregar();
-    {
-      const wa = montarMensagemWhatsApp(resultado.tel!, nomeCompleto, resultado.senha!, false);
-      const primeiroNome = nomeCompleto.split(" ")[0];
-      if (wa.url) {
-        setDialogAcesso({
-          open: true,
-          primeiroNome,
-          telefone: resultado.tel,
-          senha: resultado.senha!,
-          url: wa.url,
-          acao: "criado",
-        });
-      } else {
-        toast.success(`Acesso criado para ${primeiroNome}! Senha: ${resultado.senha} (envie manualmente)`, { duration: 20000 });
-      }
-    }
-  }
+    const tokenRow = data[0] as { token: string; expires_at: string };
+    const url = `${window.location.origin}/convite/${tokenRow.token}`;
+    const expira = new Date(tokenRow.expires_at).toLocaleDateString("pt-BR");
+    const primeiroNome = nomeCompleto.split(" ")[0];
 
+    // Monta mensagem WhatsApp
+    const mensagem = [
+      `✝️ *Diakonia — Convite de acesso*`,
+      ``,
+      `Olá, ${primeiroNome}! Você foi convidada(o) a acessar o sistema da igreja.`,
+      ``,
+      `🔗 Crie sua senha em:`,
+      url,
+      ``,
+      `⏰ Link válido até ${expira}.`,
+      `_"Conectando pessoas, organizando o propósito."_`,
+    ].join("\n");
+
+    setDialogAcesso({
+      open: true,
+      primeiroNome,
+      telefone: telefone ?? "",
+      senha: "",
+      url: telefone
+        ? `https://wa.me/${(telefone ?? "").replace(/\D/g, "").replace(/^55/, "55")}?text=${encodeURIComponent(mensagem)}`
+        : `https://wa.me/?text=${encodeURIComponent(mensagem)}`,
+      acao: "criado",
+    });
+
+    await carregar();
+  }
   // ── Reenviar / Resetar ─────────────────────────────────────────────────────
 
   async function handleReenviar() {
-    if (!acesso) {
-      toast.error("Acesso ainda não carregou. Aguarde um instante e tente novamente.");
-      return;
-    }
-    toast.info(`Reenviando acesso para ${nomeCompleto.split(" ")[0]}…`, { duration: 4000 });
+    if (!pessoaId) return;
+    toast.info(`Gerando novo convite para ${nomeCompleto.split(" ")[0]}…`, { duration: 4000 });
     setAgindo(true);
-    let resultado;
-    try {
-      console.log("[handleReenviar] chamando reenviarAcessoPessoa", { userId: acesso.userId, pessoaId, telefone: acesso.telefone || telefone });
-      resultado = await reenviarAcessoPessoa({
-        userId:       acesso.userId,
-        pessoaId,
-        nomeCompleto,
-        telefone:     acesso.telefone || telefone,
-      });
-      console.log("[handleReenviar] retornou:", resultado);
-      toast.info(`DBG6: voltou. ok=${resultado.ok} tel=${resultado.tel}`, { duration: 5000 });
-    } catch (e: any) {
-      console.error("[handleReenviar] EXCEPTION:", e);
-      setAgindo(false);
-      toast.error(`Exception: ${e?.message ?? String(e)}`, { duration: 30000 });
-      return;
-    }
+    const { data, error } = await supabase.rpc("criar_convite_acesso", {
+      p_pessoa_id: pessoaId,
+      p_role:      role,
+    });
     setAgindo(false);
-    toast.info("DBG7: chamando carregar()…", { duration: 2000 });
-    try { await carregar(); } catch (e) { console.error("[carregar] err:", e); }
-    toast.info("DBG8: carregar() OK", { duration: 2000 });
 
-    console.log("[handleReenviar] resultado:", resultado);
-
-    if (!resultado.ok) {
-      toast.error(`Erro RPC: ${resultado.erro ?? "sem mensagem"}`, { duration: 15000 });
+    if (error || !data || data.length === 0) {
+      toast.error(error?.message ?? "Erro ao gerar convite");
       return;
     }
 
+    const tokenRow = data[0] as { token: string; expires_at: string };
+    const url = `${window.location.origin}/convite/${tokenRow.token}`;
+    const expira = new Date(tokenRow.expires_at).toLocaleDateString("pt-BR");
     const primeiroNome = nomeCompleto.split(" ")[0];
-    toast.info(`DBG9: primeiroNome=${primeiroNome} tel=${resultado.tel}`, { duration: 5000 });
 
-    if (resultado.tel) {
-      const wa = montarMensagemWhatsApp(resultado.tel, nomeCompleto, resultado.senha!, true);
-      console.log("[handleReenviar] wa:", wa);
-      toast.info(`DBG10: wa.ok=${wa.ok} wa.url length=${wa.url?.length ?? 0}`, { duration: 5000 });
-      if (wa.url) {
-        toast.info("DBG11: chamando setDialogAcesso({open:true})…", { duration: 5000 });
-        setDialogAcesso({
-          open: true,
-          primeiroNome,
-          telefone: resultado.tel,
-          senha: resultado.senha!,
-          url: wa.url,
-          acao: "reenviado",
-        });
-        toast.info("DBG12: setDialogAcesso chamado!", { duration: 5000 });
-      } else {
-        toast.success(`Nova senha: ${resultado.senha} (envie manualmente)`, { duration: 20000 });
-      }
-    } else {
-      toast.success(
-        `Nova senha: ${resultado.senha}  (sem telefone — copie e envie manualmente)`,
-        { duration: 20000 }
-      );
-    }
+    const mensagem = [
+      `✝️ *Diakonia — Novo convite de acesso*`,
+      ``,
+      `Olá, ${primeiroNome}! Aqui está seu novo link para entrar:`,
+      ``,
+      `🔗 ${url}`,
+      ``,
+      `⏰ Link válido até ${expira}.`,
+    ].join("\n");
+
+    setDialogAcesso({
+      open: true,
+      primeiroNome,
+      telefone: telefone ?? "",
+      senha: "",
+      url: telefone
+        ? `https://wa.me/${(telefone ?? "").replace(/\D/g, "")}?text=${encodeURIComponent(mensagem)}`
+        : `https://wa.me/?text=${encodeURIComponent(mensagem)}`,
+      acao: "reenviado",
+    });
+
+    await carregar();
   }
-
   // ─── Render ────────────────────────────────────────────────────────────────
 
   const status: StatusAcesso = acesso?.status ?? "sem_acesso";

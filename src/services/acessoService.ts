@@ -232,17 +232,11 @@ export async function resetarSenhaAcesso(
   userId:    string,
   pessoaId?: string
 ): Promise<ResultadoAcesso> {
-  const { toast } = await import("sonner");
-  toast.info("DBG1: gerando senha…", { duration: 2000 });
   const senha = gerarSenha();
-  toast.info("DBG2: chamando reset_user_password…", { duration: 2000 });
-
   const { error } = await supabase.rpc("reset_user_password", {
     target_user_id: userId,
     new_password:   senha,
   });
-  toast.info(`DBG3: RPC retornou. error=${error?.message ?? "null"}`, { duration: 5000 });
-
   if (error) {
     const msgAmigavel = error.message.includes("does not exist")
       ? "Execute sql/funcoes_admin.sql no Supabase Dashboard primeiro."
@@ -251,11 +245,7 @@ export async function resetarSenhaAcesso(
   }
 
   // Marca como primeiro_acesso = true (forçar troca)
-  const t = await import("sonner");
-  t.toast.info("DBG4: update primeiro_acesso…", { duration: 2000 });
   await supabase.from("profiles").update({ primeiro_acesso: true }).eq("id", userId);
-  t.toast.info("DBG5: update OK, vai retornar", { duration: 2000 });
-
   // Log de auditoria
   if (pessoaId) {
     supabase.rpc("registrar_audit_log", {

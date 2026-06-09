@@ -6,7 +6,7 @@
 // ============================================================
 
 import { useState, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -232,12 +232,12 @@ export default function Auth() {
           </form>
 
           {/* Link recuperar */}
-          <button
-            onClick={() => { setTela("recuperar"); setErroMsg(null); setSenha(""); }}
+          <Link
+            to="/esqueci-senha"
             className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors underline-offset-4 hover:underline text-center"
           >
             Esqueci minha senha
-          </button>
+          </Link>
 
           {/* Aviso de convite */}
           <div className="bg-muted/50 dark:bg-muted/30 rounded-xl px-4 py-3 border border-border/40 dark:border-border/30">

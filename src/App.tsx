@@ -25,6 +25,9 @@ import ImportacaoMembros from "./pages/ImportacaoMembros.tsx";
 import ExportacaoAdmin from "./pages/ExportacaoAdmin.tsx";
 import CampanhasAdmin from "./pages/CampanhasAdmin.tsx";
 import AgendaPrint from "./pages/AgendaPrint.tsx";
+import Convite from "@/pages/Convite";
+import ResetSenhaToken from "@/pages/ResetSenhaToken";
+import EsqueciSenha from "@/pages/EsqueciSenha";
 import ResetSenha from "./pages/ResetSenha.tsx";
 import PrimeiroAcesso from "./pages/PrimeiroAcesso.tsx";
 import AceiteLgpd from "./pages/AceiteLgpd.tsx";
@@ -48,6 +51,9 @@ const App = () => (
                 {/* Rotas públicas (sem layout) */}
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/auth/reset" element={<ResetSenha />} />
+                <Route path="/convite/:token" element={<Convite />} />
+                <Route path="/reset/:token" element={<ResetSenhaToken />} />
+                <Route path="/esqueci-senha" element={<EsqueciSenha />} />
                 <Route path="/primeiro-acesso" element={<PrimeiroAcesso />} />
                 <Route path="/aceite-lgpd" element={<AceiteLgpd />} />
                 <Route path="/agenda/imprimir" element={<AgendaPrint />} />
