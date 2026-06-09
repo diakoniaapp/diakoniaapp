@@ -157,6 +157,7 @@ export function AcessoCard({
         telefone:     acesso.telefone || telefone,
       });
       console.log("[handleReenviar] retornou:", resultado);
+      toast.info(`DBG6: voltou. ok=${resultado.ok} tel=${resultado.tel}`, { duration: 5000 });
     } catch (e: any) {
       console.error("[handleReenviar] EXCEPTION:", e);
       setAgindo(false);
@@ -164,7 +165,9 @@ export function AcessoCard({
       return;
     }
     setAgindo(false);
+    toast.info("DBG7: chamando carregar()…", { duration: 2000 });
     try { await carregar(); } catch (e) { console.error("[carregar] err:", e); }
+    toast.info("DBG8: carregar() OK", { duration: 2000 });
 
     console.log("[handleReenviar] resultado:", resultado);
 
@@ -174,12 +177,14 @@ export function AcessoCard({
     }
 
     const primeiroNome = nomeCompleto.split(" ")[0];
+    toast.info(`DBG9: primeiroNome=${primeiroNome} tel=${resultado.tel}`, { duration: 5000 });
 
     if (resultado.tel) {
       const wa = montarMensagemWhatsApp(resultado.tel, nomeCompleto, resultado.senha!, true);
       console.log("[handleReenviar] wa:", wa);
+      toast.info(`DBG10: wa.ok=${wa.ok} wa.url length=${wa.url?.length ?? 0}`, { duration: 5000 });
       if (wa.url) {
-        toast.info("Abrindo dialog...", { duration: 2000 });
+        toast.info("DBG11: chamando setDialogAcesso({open:true})…", { duration: 5000 });
         setDialogAcesso({
           open: true,
           primeiroNome,
@@ -188,6 +193,7 @@ export function AcessoCard({
           url: wa.url,
           acao: "reenviado",
         });
+        toast.info("DBG12: setDialogAcesso chamado!", { duration: 5000 });
       } else {
         toast.success(`Nova senha: ${resultado.senha} (envie manualmente)`, { duration: 20000 });
       }
