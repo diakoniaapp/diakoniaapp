@@ -38,7 +38,6 @@ import { enviarWhatsApp, montarMensagemWhatsApp } from "@/services/userService";
 import { ROLE_LABEL } from "@/types/usuario";
 import type { RoleOption } from "@/types/usuario";
 import { formatarTelefone, normalizarTelefone } from "@/lib/telefone";
-import { AcessoEnviadoDialog } from "@/components/pessoas/AcessoEnviadoDialog";
 
 // ─── Helpers visuais ──────────────────────────────────────────────────────────
 
@@ -333,16 +332,5 @@ export function AcessoCard({
         )}
       </CardContent>
     </Card>
-
-      <AcessoEnviadoDialog
-        open={dialogAcesso.open}
-        onClose={() => setDialogAcesso({ ...dialogAcesso, open: false })}
-        primeiroNome={dialogAcesso.primeiroNome}
-        telefone={dialogAcesso.telefone}
-        senha={dialogAcesso.senha}
-        urlWhatsApp={dialogAcesso.url}
-        acao={dialogAcesso.acao}
-      />
-    </>
   );
 }
