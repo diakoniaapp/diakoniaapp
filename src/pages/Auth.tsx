@@ -24,11 +24,22 @@ type Tela = "login" | "recuperar" | "recuperar_ok";
 
 // ── Utilitários ────────────────────────────────────────────
 function telefoneParaEmail(tel: string): string {
-  return `${tel.replace(/\D/g, "")}@app.diakonia`;
+  // Normaliza para o formato canônico do banco: 55DDDNNNNNNNNN.
+  // Se vier sem DDI (10-11 dígitos), prefixa 55. Se vier com (12-13), mantém.
+  let d = tel.replace(/\D/g, "");
+  if (d.startsWith("55") && d.length >= 12 && d.length <= 13) {
+    // já tem DDI
+  } else if (d.length === 10 || d.length === 11) {
+    d = "55" + d;
+  }
+  return `${d}@app.diakonia`;
 }
 
 function mascaraTelefone(valor: string): string {
-  const d = valor.replace(/\D/g, "").slice(0, 11);
+  let d = valor.replace(/\D/g, "");
+  // Remove DDI 55 se vier no inicio (input do usuario deve ser DDD+numero)
+  if (d.startsWith("55") && d.length > 11) d = d.slice(2);
+  d = d.slice(0, 11);
   if (d.length <= 2)  return d.length ? `(${d}` : "";
   if (d.length <= 6)  return `(${d.slice(0,2)}) ${d.slice(2)}`;
   if (d.length <= 10) return `(${d.slice(0,2)}) ${d.slice(2,6)}-${d.slice(6)}`;
