@@ -38,6 +38,7 @@ import { enviarWhatsApp, montarMensagemWhatsApp } from "@/services/userService";
 import { ROLE_LABEL } from "@/types/usuario";
 import type { RoleOption } from "@/types/usuario";
 import { formatarTelefone, normalizarTelefone } from "@/lib/telefone";
+import { supabase } from "@/integrations/supabase/client";
 
 // ─── Helpers visuais ──────────────────────────────────────────────────────────
 
@@ -254,6 +255,7 @@ export function AcessoCard({
             )}
 
             <Button
+              type="button"
               size="sm"
               onClick={handleCriarAcesso}
               disabled={criando || !telefone}
@@ -272,6 +274,7 @@ export function AcessoCard({
           <div className="flex gap-2 flex-wrap">
             {/* Reenviar */}
             <Button
+              type="button"
               variant="outline" size="sm"
               onClick={handleReenviar}
               disabled={agindo}
@@ -288,6 +291,7 @@ export function AcessoCard({
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button
+                  type="button"
                   variant="outline" size="sm"
                   disabled={agindo}
                   className="gap-1.5 text-xs flex-1 text-orange-600 hover:text-orange-700 hover:bg-orange-50 border-orange-200"
@@ -319,6 +323,7 @@ export function AcessoCard({
             {/* WhatsApp direto */}
             {(acesso.telefone || telefone) && (
               <Button
+                type="button"
                 variant="ghost" size="sm"
                 onClick={() => {
                   const tel = (acesso.telefone || telefone!).replace(/\D/g, "");
