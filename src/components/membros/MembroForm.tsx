@@ -14,7 +14,8 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Trash2 } from "lucide-react";
+import { Trash2, Heart } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { normalizarTelefone, validarTelefone } from "@/lib/telefone";
 import { TelefoneInput } from "@/components/ui/TelefoneInput";
 import { supabase } from "@/integrations/supabase/client";
@@ -113,6 +114,9 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [pessoasLookup, setPessoasLookup] = useState<PessoaLookup[]>([]);
   const [searchPessoa, setSearchPessoa] = useState("");
+  // D2: ministérios disponíveis e selecionados para a pessoa
+  const [ministerios, setMinisterios] = useState<{ id: string; nome: string }[]>([]);
+  const [ministeriosSelecionados, setMinisteriosSelecionados] = useState<Set<string>>(new Set());
 
   // Preencher ao editar
   useEffect(() => {
@@ -135,6 +139,35 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
       .eq("status", "ativo").order("nome_completo")
       .then(({ data }) => setPessoasLookup((data ?? []) as PessoaLookup[]));
   }, [form.como_conheceu]);
+
+  // D2: Carregar lista de ministérios e os vínculos já existentes da pessoa
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    (async () => {
+      const { data: minLista } = await supabase
+        .from("ministerios")
+        .select("id, nome")
+        .order("nome");
+      if (cancelled) return;
+      setMinisterios((minLista ?? []) as { id: string; nome: string }[]);
+      if (membro?.id) {
+        const { data: vinculos } = await supabase
+          .from("pessoa_participacao")
+          .select("ministerio_id")
+          .eq("pessoa_id", membro.id)
+          .eq("ativo", true)
+          .is("area_id", null);
+        if (cancelled) return;
+        setMinisteriosSelecionados(
+          new Set((vinculos ?? []).map((v: any) => v.ministerio_id))
+        );
+      } else {
+        setMinisteriosSelecionados(new Set());
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [open, membro?.id]);
 
   const set = (k: string, v: any) => setForm((f: any) => ({ ...f, [k]: v }));
 
@@ -199,6 +232,49 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
     if (error) {
       setBusy(false);
       return toast.error(error.message);
+    }
+
+    // D2: sincronizar vínculos com ministérios (apenas para pessoas com cadastro)
+    const pessoaId = membro?.id ?? savedId;
+    if (pessoaId) {
+      try {
+        // Buscar vínculos atuais (apenas ministério, sem área)
+        const { data: atuais } = await supabase
+          .from("pessoa_participacao")
+          .select("id, ministerio_id")
+          .eq("pessoa_id", pessoaId)
+          .eq("ativo", true)
+          .is("area_id", null);
+        const atuaisSet = new Set((atuais ?? []).map((a: any) => a.ministerio_id));
+
+        // Adicionar novos
+        const novos = [...ministeriosSelecionados].filter(id => !atuaisSet.has(id));
+        if (novos.length > 0) {
+          await supabase.from("pessoa_participacao").insert(
+            novos.map(id => ({
+              pessoa_id:     pessoaId,
+              ministerio_id: id,
+              area_id:       null,
+              funcao:        "voluntario",
+              ativo:         true,
+            }))
+          );
+        }
+
+        // Desativar removidos
+        const removidos = [...atuaisSet].filter(id => !ministeriosSelecionados.has(id));
+        if (removidos.length > 0) {
+          await supabase
+            .from("pessoa_participacao")
+            .update({ ativo: false })
+            .eq("pessoa_id", pessoaId)
+            .is("area_id", null)
+            .in("ministerio_id", removidos);
+        }
+      } catch (e: any) {
+        // Falha de sync de ministérios não bloqueia o cadastro
+        console.warn("Sync ministerios falhou:", e?.message);
+      }
     }
 
     // Tarefas de acolhimento so para novos visitantes
@@ -513,6 +589,38 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                   </div>
                 </section>
               </>
+            )}
+
+            {/* ── MINISTÉRIOS (D2) ── */}
+            {(isCongregado || isMembro) && ministerios.length > 0 && (
+              <div className="pt-2 space-y-2">
+                <h3 className="font-semibold text-sm text-muted-foreground flex items-center gap-1.5" translate="no">
+                  <Heart className="w-3.5 h-3.5" /> Ministérios
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Em quais ministérios esta pessoa serve? (Pode marcar mais de um.)
+                </p>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-48 overflow-y-auto rounded-md border p-3">
+                  {ministerios.map(m => {
+                    const checked = ministeriosSelecionados.has(m.id);
+                    return (
+                      <label key={m.id} className="flex items-center gap-2 cursor-pointer text-sm hover:bg-muted/40 px-2 py-1 rounded">
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={(v) => {
+                            setMinisteriosSelecionados(prev => {
+                              const next = new Set(prev);
+                              if (v) next.add(m.id); else next.delete(m.id);
+                              return next;
+                            });
+                          }}
+                        />
+                        <span>{m.nome}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
             )}
 
             {/* ── ACESSO AO SISTEMA (A4: botão único Convidar como…) ── */}
