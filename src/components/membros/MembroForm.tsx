@@ -120,9 +120,12 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
   const [ebdClasseSelecionada, setEbdClasseSelecionada] = useState<string>("");
   const [ebdSugestaoId, setEbdSugestaoId] = useState<string | null>(null);
 
-  // D2: ministérios disponíveis e selecionados para a pessoa
-  const [ministerios, setMinisterios] = useState<{ id: string; nome: string }[]>([]);
-  const [ministeriosSelecionados, setMinisteriosSelecionados] = useState<Set<string>>(new Set());
+  // Áreas disponíveis (agrupadas por ministério) e selecionadas
+  const [areasPorMinisterio, setAreasPorMinisterio] = useState<{
+    ministerio: { id: string; nome: string };
+    areas: { id: string; nome: string }[];
+  }[]>([]);
+  const [areasSelecionadas, setAreasSelecionadas] = useState<Set<string>>(new Set());
 
   // Preencher ao editar
   useEffect(() => {
@@ -174,30 +177,40 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
     return () => { cancelled = true; };
   }, [form.data_nascimento, form.sexo]);
 
-  // D2: Carregar lista de ministérios e os vínculos já existentes da pessoa
+  // Carregar áreas ativas agrupadas por ministério ativo, e seleção atual da pessoa
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
     (async () => {
-      const { data: minLista } = await supabase
-        .from("ministerios")
-        .select("id, nome")
+      const { data: rawAreas } = await supabase
+        .from("areas")
+        .select("id, nome, ministerio_id, ativo, ministerios(id, nome, ativo)")
+        .eq("ativo", true)
         .order("nome");
       if (cancelled) return;
-      setMinisterios((minLista ?? []) as { id: string; nome: string }[]);
+      // Agrupar por ministério (apenas ativos)
+      const mapaMin: Map<string, { ministerio: { id: string; nome: string }; areas: { id: string; nome: string }[] }> = new Map();
+      (rawAreas ?? []).forEach((a: any) => {
+        const m = a.ministerios;
+        if (!m || m.ativo === false) return;
+        if (!mapaMin.has(m.id)) mapaMin.set(m.id, { ministerio: { id: m.id, nome: m.nome }, areas: [] });
+        mapaMin.get(m.id)!.areas.push({ id: a.id, nome: a.nome });
+      });
+      const grupos = Array.from(mapaMin.values()).sort((a, b) =>
+        a.ministerio.nome.localeCompare(b.ministerio.nome)
+      );
+      setAreasPorMinisterio(grupos);
+
       if (membro?.id) {
         const { data: vinculos } = await supabase
-          .from("pessoa_participacao")
-          .select("ministerio_id")
-          .eq("pessoa_id", membro.id)
-          .eq("ativo", true)
-          .is("area_id", null);
+          .from("area_voluntarios")
+          .select("area_id")
+          .eq("membro_id", membro.id)
+          .eq("status", "ativa");
         if (cancelled) return;
-        setMinisteriosSelecionados(
-          new Set((vinculos ?? []).map((v: any) => v.ministerio_id))
-        );
+        setAreasSelecionadas(new Set((vinculos ?? []).map((v: any) => v.area_id)));
       } else {
-        setMinisteriosSelecionados(new Set());
+        setAreasSelecionadas(new Set());
       }
     })();
     return () => { cancelled = true; };
@@ -259,46 +272,52 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
       return toast.error(error.message);
     }
 
-    // D2: sincronizar vínculos com ministérios (apenas para pessoas com cadastro)
+    // Sincronizar vínculos com áreas (area_voluntarios)
     const pessoaId = membro?.id ?? savedId;
     if (pessoaId) {
       try {
-        // Buscar vínculos atuais (apenas ministério, sem área)
+        // Buscar áreas atuais (status='ativa')
         const { data: atuais } = await supabase
-          .from("pessoa_participacao")
-          .select("id, ministerio_id")
-          .eq("pessoa_id", pessoaId)
-          .eq("ativo", true)
-          .is("area_id", null);
-        const atuaisSet = new Set((atuais ?? []).map((a: any) => a.ministerio_id));
+          .from("area_voluntarios")
+          .select("id, area_id")
+          .eq("membro_id", pessoaId)
+          .eq("status", "ativa");
+        const atuaisSet = new Set((atuais ?? []).map((a: any) => a.area_id));
 
-        // Adicionar novos
-        const novos = [...ministeriosSelecionados].filter(id => !atuaisSet.has(id));
+        // Adicionar novos: precisa do ministerio_id da área
+        const novos = [...areasSelecionadas].filter(id => !atuaisSet.has(id));
         if (novos.length > 0) {
-          await supabase.from("pessoa_participacao").insert(
-            novos.map(id => ({
-              pessoa_id:     pessoaId,
-              ministerio_id: id,
-              area_id:       null,
-              funcao:        "voluntario",
-              ativo:         true,
+          // Buscar ministerio_id de cada área nova
+          const { data: areasInfo } = await supabase
+            .from("areas")
+            .select("id, ministerio_id")
+            .in("id", novos);
+          const infoMap = new Map((areasInfo ?? []).map((a: any) => [a.id, a.ministerio_id]));
+          const hoje = new Date().toISOString().slice(0, 10);
+          await supabase.from("area_voluntarios").insert(
+            novos.map(areaId => ({
+              area_id:       areaId,
+              ministerio_id: infoMap.get(areaId),
+              membro_id:     pessoaId,
+              funcao:        "Voluntário",
+              data_inicio:   hoje,
+              status:        "ativa",
             }))
           );
         }
 
-        // Desativar removidos
-        const removidos = [...atuaisSet].filter(id => !ministeriosSelecionados.has(id));
+        // Encerrar removidos (status='encerrada')
+        const removidos = [...atuaisSet].filter(id => !areasSelecionadas.has(id));
         if (removidos.length > 0) {
           await supabase
-            .from("pessoa_participacao")
-            .update({ ativo: false })
-            .eq("pessoa_id", pessoaId)
-            .is("area_id", null)
-            .in("ministerio_id", removidos);
+            .from("area_voluntarios")
+            .update({ status: "encerrada", data_fim: new Date().toISOString().slice(0, 10) })
+            .eq("membro_id", pessoaId)
+            .in("area_id", removidos)
+            .eq("status", "ativa");
         }
       } catch (e: any) {
-        // Falha de sync de ministérios não bloqueia o cadastro
-        console.warn("Sync ministerios falhou:", e?.message);
+        console.warn("Sync de áreas falhou:", e?.message);
       }
     }
 
@@ -652,35 +671,48 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
               </div>
             )}
 
-            {/* ── MINISTÉRIOS (D2) ── */}
-            {(isCongregado || isMembro) && ministerios.length > 0 && (
+            {/* ── ÁREAS DE ATUAÇÃO (agrupadas por ministério) ── */}
+            {(isCongregado || isMembro) && areasPorMinisterio.length > 0 && (
               <div className="pt-2 space-y-2">
                 <h3 className="font-semibold text-sm text-muted-foreground flex items-center gap-1.5" translate="no">
-                  <Heart className="w-3.5 h-3.5" /> Ministérios
+                  <Heart className="w-3.5 h-3.5" /> Áreas de atuação
                 </h3>
                 <p className="text-xs text-muted-foreground">
-                  Em quais ministérios esta pessoa serve? (Pode marcar mais de um.)
+                  Em quais áreas esta pessoa serve? (Pode marcar mais de uma; agrupadas pelo ministério.)
                 </p>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-48 overflow-y-auto rounded-md border p-3">
-                  {ministerios.map(m => {
-                    const checked = ministeriosSelecionados.has(m.id);
-                    return (
-                      <label key={m.id} className="flex items-center gap-2 cursor-pointer text-sm hover:bg-muted/40 px-2 py-1 rounded">
-                        <Checkbox
-                          checked={checked}
-                          onCheckedChange={(v) => {
-                            setMinisteriosSelecionados(prev => {
-                              const next = new Set(prev);
-                              if (v) next.add(m.id); else next.delete(m.id);
-                              return next;
-                            });
-                          }}
-                        />
-                        <span>{m.nome}</span>
-                      </label>
-                    );
-                  })}
+                <div className="space-y-3 max-h-72 overflow-y-auto rounded-md border p-3">
+                  {areasPorMinisterio.map(grupo => (
+                    <div key={grupo.ministerio.id} className="space-y-1.5">
+                      <p className="text-[11px] uppercase tracking-wide text-muted-foreground/80 font-semibold">
+                        {grupo.ministerio.nome}
+                      </p>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                        {grupo.areas.map(a => {
+                          const checked = areasSelecionadas.has(a.id);
+                          return (
+                            <label key={a.id} className="flex items-center gap-2 cursor-pointer text-sm hover:bg-muted/40 px-2 py-1 rounded">
+                              <Checkbox
+                                checked={checked}
+                                onCheckedChange={(v) => {
+                                  setAreasSelecionadas(prev => {
+                                    const next = new Set(prev);
+                                    if (v) next.add(a.id); else next.delete(a.id);
+                                    return next;
+                                  });
+                                }}
+                              />
+                              <span>{a.nome}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
                 </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Função padrão registrada: <strong>Voluntário</strong>. Para ajustar (líder, coordenador, etc), 
+                  abra Ministérios → o ministério desejado → Voluntários.
+                </p>
               </div>
             )}
 
