@@ -517,10 +517,6 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                         <SelectItem value="ativo">Ativo</SelectItem>
                         <SelectItem value="inativo">Inativo</SelectItem>
                         <SelectItem value="transferido">Transferido</SelectItem>
-                        {isMembro && <>
-                          <SelectItem value="desligado">Desligado</SelectItem>
-                          <SelectItem value="excluido">Excluido</SelectItem>
-                        </>}
                         <SelectItem value="falecido">Falecido</SelectItem>
                       </SelectContent>
                     </Select>
