@@ -43,6 +43,11 @@ AS $$
    WHERE m.status = 'ativo'
      AND m.tipo_pessoa IN ('membro','congregado')
      AND m.data_nascimento IS NOT NULL
+     -- Exclui professores ativos em qualquer classe (professor nao eh aluno)
+     AND NOT EXISTS (
+       SELECT 1 FROM public.ebd_professores ep
+        WHERE ep.pessoa_id = m.id AND ep.ativo = true
+     )
      AND (c.idade_min IS NULL OR EXTRACT(YEAR FROM AGE(CURRENT_DATE, m.data_nascimento)) >= c.idade_min)
      AND (c.idade_max IS NULL OR EXTRACT(YEAR FROM AGE(CURRENT_DATE, m.data_nascimento)) <= c.idade_max)
      AND (c.genero = 'misto' OR (m.sexo IS NOT NULL AND c.genero = m.sexo::text))
