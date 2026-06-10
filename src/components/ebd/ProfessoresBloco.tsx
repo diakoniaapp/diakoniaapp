@@ -24,8 +24,9 @@ interface PessoaLookup { id: string; nome_completo: string; }
 export function ProfessoresBloco({ classeId }: Props) {
   const [professores, setProfessores] = useState<EbdProfessor[]>([]);
   const [open, setOpen] = useState(false);
-  const [lookup, setLookup] = useState<PessoaLookup[]>([]);
   const [busca, setBusca] = useState("");
+  const [resultados, setResultados] = useState<PessoaLookup[]>([]);
+  const [buscando, setBuscando] = useState(false);
   const [pessoaSelecionada, setPessoaSelecionada] = useState<string>("");
   const [tipo, setTipo] = useState<EbdProfessor["tipo"]>("principal");
   const [busy, setBusy] = useState(false);
@@ -37,16 +38,30 @@ export function ProfessoresBloco({ classeId }: Props) {
     catch (e: any) { toast.error(e?.message ?? "Erro ao carregar professores"); }
   }
 
-  async function abrirDialog() {
+  function abrirDialog() {
     setOpen(true);
     setPessoaSelecionada(""); setBusca(""); setTipo("principal");
-    const { data } = await supabase
-      .from("membros")
-      .select("id, nome_completo")
-      .in("tipo_pessoa", ["membro", "congregado"])
-      .eq("status", "ativo").order("nome_completo").limit(200);
-    setLookup((data ?? []) as PessoaLookup[]);
+    setResultados([]);
   }
+
+  // Busca server-side com debounce
+  useEffect(() => {
+    if (busca.length < 2) { setResultados([]); return; }
+    const handle = setTimeout(async () => {
+      setBuscando(true);
+      const { data } = await supabase
+        .from("membros")
+        .select("id, nome_completo")
+        .in("tipo_pessoa", ["membro", "congregado"])
+        .eq("status", "ativo")
+        .ilike("nome_completo", `%${busca}%`)
+        .order("nome_completo")
+        .limit(20);
+      setResultados((data ?? []) as PessoaLookup[]);
+      setBuscando(false);
+    }, 250);
+    return () => clearTimeout(handle);
+  }, [busca]);
 
   async function adicionar() {
     if (!pessoaSelecionada) { toast.error("Selecione uma pessoa"); return; }
@@ -72,7 +87,6 @@ export function ProfessoresBloco({ classeId }: Props) {
     finally { setBusy(false); }
   }
 
-  const filtrados = lookup.filter(p => p.nome_completo.toLowerCase().includes(busca.toLowerCase()));
   const tipoLabel: Record<EbdProfessor["tipo"], string> = {
     principal: "Principal", auxiliar: "Auxiliar", substituto: "Substituto",
   };
@@ -130,9 +144,11 @@ export function ProfessoresBloco({ classeId }: Props) {
               <Input placeholder="Digite o nome..." value={busca} onChange={(e) => setBusca(e.target.value)} />
               {busca.length >= 2 && (
                 <div className="border rounded-md max-h-40 overflow-y-auto mt-2 bg-background">
-                  {filtrados.length === 0 ? (
+                  {buscando ? (
+                    <p className="text-sm text-muted-foreground p-3 text-center">Buscando...</p>
+                  ) : resultados.length === 0 ? (
                     <p className="text-sm text-muted-foreground p-3 text-center">Nenhuma pessoa encontrada</p>
-                  ) : filtrados.slice(0, 10).map(p => (
+                  ) : resultados.map(p => (
                     <button key={p.id} type="button"
                       onClick={() => { setPessoaSelecionada(p.id); setBusca(p.nome_completo); }}
                       className={`w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors border-b last:border-0 ${
