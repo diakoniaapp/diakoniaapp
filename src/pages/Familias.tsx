@@ -12,7 +12,7 @@ import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Plus, Home, Users, Link2, Trash2, Pencil, Crown, Heart, CalendarHeart } from "lucide-react";
+import { Plus, Home, Users, Link2, Trash2, Pencil, Crown, Heart, CalendarHeart, Search, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { VinculosDialog } from "@/components/familias/VinculosDialog";
@@ -40,6 +40,10 @@ export default function Familias() {
   const [form, setForm]                   = useState({ nome_familia: "", endereco: "", numero: "", complemento: "", bairro: "", cidade: "", cep: "", data_casamento: "", observacoes: "" });
   const [editingId, setEditingId]         = useState<string | null>(null);
   const [responsaveis, setResponsaveis]   = useState<Record<string, string>>({});
+  // F1: busca por nome
+  const [busca, setBusca] = useState("");
+  // F2: lista de membros por familia
+  const [membrosPorFamilia, setMembrosPorFamilia] = useState<Record<string, { id: string; nome: string }[]>>({});
   const [vinculosOpen, setVinculosOpen]   = useState(false);
   const [familiaSelecionada, setFamiliaSelecionada] = useState<Familia | null>(null);
   const [loading, setLoading]             = useState(true);
@@ -76,20 +80,28 @@ export default function Familias() {
     setLoadingCounts(false);
     setLoading(false);
 
-    // Carregar nomes dos responsáveis de cada família
+    // Carregar TODOS os vinculos para popular responsaveis + lista de membros
     if (rows.length > 0) {
       const { data: vincs } = await supabase
         .from("vinculos_familiares")
-        .select("familia_id, membro_id, responsavel_familia, membros(nome_completo)")
-        .eq("responsavel_familia", true)
+        .select("familia_id, membro_id, responsavel_familia, membros(id, nome_completo)")
         .in("familia_id", rows.map((r: any) => r.id));
       const respMap: Record<string, string> = {};
+      const memMap: Record<string, { id: string; nome: string }[]> = {};
       (vincs ?? []).forEach((v: any) => {
-        if (v.familia_id && v.membros?.nome_completo) respMap[v.familia_id] = v.membros.nome_completo;
+        if (!v.membros) return;
+        const nome = v.membros.nome_completo;
+        if (v.responsavel_familia && v.familia_id) respMap[v.familia_id] = nome;
+        if (!memMap[v.familia_id]) memMap[v.familia_id] = [];
+        memMap[v.familia_id].push({ id: v.membros.id, nome });
       });
       setResponsaveis(respMap);
+      setMembrosPorFamilia(memMap);
     }
   };
+
+  const iniciaisDe = (nome: string) =>
+    nome.split(" ").filter(Boolean).slice(0, 2).map(p => p[0]?.toUpperCase()).join("") || "?";
   useEffect(() => { load(); }, []);
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -164,7 +176,17 @@ export default function Familias() {
           <EmptyState message="Nenhuma família cadastrada" />
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {familias.map((f) => (
+            {familias
+              .filter(f => {
+                const q = busca.trim().toLowerCase();
+                if (!q) return true;
+                return f.nome_familia.toLowerCase().includes(q)
+                  || (f.bairro ?? "").toLowerCase().includes(q)
+                  || (f.cidade ?? "").toLowerCase().includes(q)
+                  || (responsaveis[f.id] ?? "").toLowerCase().includes(q)
+                  || (membrosPorFamilia[f.id] ?? []).some(m => m.nome.toLowerCase().includes(q));
+              })
+              .map((f) => (
               <Card key={f.id} className="shadow-card-soft">
                 <CardContent className="p-5">
                   <div className="flex items-start gap-3">
@@ -185,6 +207,11 @@ export default function Familias() {
                           </Button>
                         )}
                       </div>
+                      {!responsaveis[f.id] && (counts[f.id] ?? 0) > 0 && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 rounded-full px-2 py-0.5 mt-1">
+                          <AlertCircle className="w-3 h-3" /> Sem responsável
+                        </span>
+                      )}
                       <p className="text-sm text-muted-foreground line-clamp-2">
                         {[f.endereco, f.numero, f.bairro, f.cidade].filter(Boolean).join(", ") || "—"}
                       </p>
@@ -202,6 +229,24 @@ export default function Familias() {
                         <Users className="w-3.5 h-3.5" />
                         {loadingCounts ? "…" : `${counts[f.id] ?? 0} membros vinculados`}
                       </div>
+                      {(membrosPorFamilia[f.id]?.length ?? 0) > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          {membrosPorFamilia[f.id].slice(0, 8).map(m => (
+                            <span
+                              key={m.id}
+                              title={m.nome}
+                              className="w-7 h-7 rounded-full bg-gold/15 border border-gold/30 flex items-center justify-center text-[10px] font-semibold text-foreground/80"
+                            >
+                              {iniciaisDe(m.nome)}
+                            </span>
+                          ))}
+                          {(membrosPorFamilia[f.id]?.length ?? 0) > 8 && (
+                            <span className="w-7 h-7 rounded-full bg-muted border flex items-center justify-center text-[10px] text-muted-foreground">
+                              +{(membrosPorFamilia[f.id]?.length ?? 0) - 8}
+                            </span>
+                          )}
+                        </div>
+                      )}
                       <div className="flex gap-2 mt-3 flex-wrap">
                         <Button
                           variant="outline" size="sm"
@@ -224,7 +269,8 @@ export default function Familias() {
                 </CardContent>
               </Card>
             ))}
-          </div>
+            </div>
+          </>
         )}
       </div>
 
