@@ -26,7 +26,7 @@ export interface Membro {
     telefone_celular: string | null;
     email: string | null;
     bairro: string | null;
-    status: "ativo" | "inativo" | "transferido" | "falecido";
+    status: "ativo" | "inativo" | "transferido" | "falecido" | "desligado";
     estado_civil: string | null;
     data_casamento: string | null;
     data_entrada: string | null;
@@ -58,6 +58,7 @@ const statusColor: Record<string, string> = {
     ativo: "bg-success/15 text-success border-success/30",
     inativo: "bg-muted text-muted-foreground border-border",
     transferido: "bg-warning/15 text-warning border-warning/30",
+    desligado: "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-700",
     falecido: "bg-destructive/10 text-destructive border-destructive/30",
 };
 
