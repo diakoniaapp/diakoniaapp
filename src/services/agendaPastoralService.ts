@@ -97,3 +97,50 @@ export function linkWhatsApp(evento: EventoPastoral, telefoneSelecionado?: strin
   const msg = encodeURIComponent(mensagemPastoral(evento));
   return tel ? `https://wa.me/${tel}?text=${msg}` : `https://wa.me/?text=${msg}`;
 }
+
+// ─── Inteligência Pastoral ─────────────────────────────────────────────────
+
+export interface FamiliaSemResponsavel {
+  familia_id: string;
+  nome_familia: string;
+  qtd_membros: number;
+  primeiro_membro_id: string;
+  primeiro_membro_nome: string;
+}
+
+export interface PessoaSemFamilia {
+  pessoa_id: string;
+  nome_completo: string;
+  sobrenome: string;
+  qtd_pessoas_mesmo_sobrenome: number;
+  familia_sugerida_id: string | null;
+  familia_sugerida_nome: string | null;
+}
+
+export interface ResumoPastoral {
+  aniversarios_hoje: number;
+  bodas_hoje: number;
+  aniversarios_semana: number;
+  bodas_semana: number;
+  familias_sem_resp: number;
+  pessoas_sem_familia_sugerida: number;
+}
+
+export async function familiasSemResponsavel(): Promise<FamiliaSemResponsavel[]> {
+  const { data, error } = await supabase.rpc("familias_sem_responsavel");
+  if (error) throw error;
+  return (data ?? []) as FamiliaSemResponsavel[];
+}
+
+export async function pessoasSemFamiliaSugerida(): Promise<PessoaSemFamilia[]> {
+  const { data, error } = await supabase.rpc("pessoas_sem_familia_sobrenome_conhecido");
+  if (error) throw error;
+  return (data ?? []) as PessoaSemFamilia[];
+}
+
+export async function resumoPainel(): Promise<ResumoPastoral | null> {
+  const { data, error } = await supabase.rpc("resumo_painel_pastoral");
+  if (error) throw error;
+  const linhas = (data ?? []) as ResumoPastoral[];
+  return linhas[0] ?? null;
+}
