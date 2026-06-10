@@ -134,13 +134,13 @@ export default function Membros() {
         setError(null);
         const [
                 { data, error },
-                { data: areasMap },
+                { data: areaVolList },
+                { data: areasNames },
                 { data: ebdMap },
         ] = await Promise.all([
                 supabase.from("membros").select("*").order("nome_completo"),
-                supabase
-                  .from("area_voluntarios")
-                  .select("membro_id, status, areas(nome)"),
+                supabase.from("area_voluntarios").select("membro_id, status, area_id"),
+                supabase.from("areas").select("id, nome"),
                 supabase
                   .from("ebd_matriculas")
                   .select("pessoa_id, ebd_classes(nome)")
@@ -153,13 +153,14 @@ export default function Membros() {
         }
 
         // Indexar por id
+        const nomePorArea = new Map<string, string>();
+        (areasNames ?? []).forEach((a: any) => { if (a?.id && a?.nome) nomePorArea.set(a.id, a.nome); });
         const areasPorPessoa = new Map<string, string[]>();
-        (areasMap ?? []).forEach((av: any) => {
-                const nome = av.areas?.nome;
-                if (!nome) return;
-                // Aceita status 'ativa' OU 'ativo' (ambos vistos em registros)
+        (areaVolList ?? []).forEach((av: any) => {
                 const st = String(av.status ?? "").toLowerCase();
                 if (st !== "ativa" && st !== "ativo") return;
+                const nome = nomePorArea.get(av.area_id);
+                if (!nome) return;
                 if (!areasPorPessoa.has(av.membro_id)) areasPorPessoa.set(av.membro_id, []);
                 areasPorPessoa.get(av.membro_id)!.push(nome);
         });
