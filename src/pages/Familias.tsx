@@ -175,7 +175,17 @@ export default function Familias() {
         ) : familias.length === 0 ? (
           <EmptyState message="Nenhuma família cadastrada" />
         ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <>
+            <div className="mb-4 relative">
+              <Search className="w-4 h-4 absolute left-3 top-3 text-muted-foreground" />
+              <Input
+                className="pl-9"
+                placeholder="Buscar por nome, bairro, cidade, responsável ou membro..."
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+              />
+            </div>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
             {familias
               .filter(f => {
                 const q = busca.trim().toLowerCase();
