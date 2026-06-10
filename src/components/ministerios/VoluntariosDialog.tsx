@@ -40,8 +40,20 @@ export default function VoluntariosDialog({ area, open, onOpenChange }: Props) {
   const load = async () => {
     const { data } = await supabase.from("area_voluntarios").select("*")
       .eq("area_id", area.id).order("status").order("data_inicio", { ascending: false });
-    setList((data ?? []) as Atuacao[]);
-    // pessoas carregadas server-side pelo BuscaPessoa
+    const lista = (data ?? []) as Atuacao[];
+    setList(lista);
+
+    // Carregar nomes dos voluntarios listados (apenas os IDs presentes)
+    const ids = Array.from(new Set(lista.map(a => a.membro_id))).filter(Boolean);
+    if (ids.length > 0) {
+      const { data: ps } = await supabase
+        .from("membros")
+        .select("id, nome_completo, cpf, telefone_celular, tipo_pessoa, status")
+        .in("id", ids);
+      setPessoas((ps ?? []) as Pessoa[]);
+    } else {
+      setPessoas([]);
+    }
   };
   useEffect(()=>{ if(open) { load(); resetForm(); } }, [open, area.id]);
 
