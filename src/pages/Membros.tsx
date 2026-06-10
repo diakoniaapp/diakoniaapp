@@ -140,8 +140,7 @@ export default function Membros() {
                 supabase.from("membros").select("*").order("nome_completo"),
                 supabase
                   .from("area_voluntarios")
-                  .select("membro_id, areas(nome)")
-                  .eq("status", "ativa"),
+                  .select("membro_id, status, areas(nome)"),
                 supabase
                   .from("ebd_matriculas")
                   .select("pessoa_id, ebd_classes(nome)")
@@ -158,6 +157,9 @@ export default function Membros() {
         (areasMap ?? []).forEach((av: any) => {
                 const nome = av.areas?.nome;
                 if (!nome) return;
+                // Aceita status 'ativa' OU 'ativo' (ambos vistos em registros)
+                const st = String(av.status ?? "").toLowerCase();
+                if (st !== "ativa" && st !== "ativo") return;
                 if (!areasPorPessoa.has(av.membro_id)) areasPorPessoa.set(av.membro_id, []);
                 areasPorPessoa.get(av.membro_id)!.push(nome);
         });

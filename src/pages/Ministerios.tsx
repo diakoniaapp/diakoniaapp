@@ -71,12 +71,13 @@ export default function Ministerios() {
             // Contador real de voluntarios ativos por ministerio (via area_voluntarios)
             const { data: vol } = await supabase
                 .from("area_voluntarios")
-                .select("ministerio_id, membro_id")
-                .eq("status", "ativa");
+                .select("ministerio_id, membro_id, status");
             const c: Record<string, number> = {};
             const ac: Record<string, number> = {};
             const seenByMin = new Map<string, Set<string>>();
             (vol ?? []).forEach((v: any) => {
+                const st = String(v.status ?? "").toLowerCase();
+                if (st !== "ativa" && st !== "ativo") return;
                 if (!seenByMin.has(v.ministerio_id)) seenByMin.set(v.ministerio_id, new Set());
                 seenByMin.get(v.ministerio_id)!.add(v.membro_id);
             });
