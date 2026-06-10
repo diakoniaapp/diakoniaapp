@@ -74,7 +74,6 @@ interface Props {
   onSaved: () => void;
 }
 
-interface PessoaLookup { id: string; nome_completo: string; tipo_pessoa: string | null; }
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 function calcIdade(dataNasc: string): number {
@@ -133,7 +132,6 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
       setForm(f);
     } else {
       setForm(empty);
-      setSearchPessoa("");
     }
   }, [membro, open]);
 
@@ -405,7 +403,6 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                   set("tipo_pessoa", v);
                   set("como_conheceu", "");
                   set("quem_convidou_id", "");
-                  setSearchPessoa("");
                 }}
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -556,7 +553,6 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                         set("como_conheceu", v);
                         set("quem_convidou_id", "");
                         set("como_conheceu_descricao", "");
-                        setSearchPessoa("");
                       }}
                     >
                       <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
