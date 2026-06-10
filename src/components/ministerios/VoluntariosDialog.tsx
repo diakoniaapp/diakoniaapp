@@ -17,7 +17,7 @@ interface Atuacao {
   funcao: string; data_inicio: string; data_fim: string|null;
   status: "ativa" | "encerrada";
 }
-interface AreaInfo { id: string; nome: string; ativo: boolean; ministerio_id: string; ministerio_ativo: boolean; }
+interface AreaInfo { id: string; nome: string; ativo: boolean; ministerio_id: string; ministerio_ativo: boolean; lider_id?: string | null; co_lider_id?: string | null; }
 
 interface Props {
   area: AreaInfo;
@@ -121,6 +121,11 @@ export default function VoluntariosDialog({ area, open, onOpenChange }: Props) {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-medium">{pessoaName(a.membro_id)}</span>
+                    {(a.membro_id === area.lider_id || a.membro_id === area.co_lider_id) && (
+                      <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-300">
+                        {a.membro_id === area.lider_id ? "Líder" : "Co-líder"}
+                      </Badge>
+                    )}
                     <Badge variant="outline" className="bg-muted/50">{a.funcao}</Badge>
                     {a.status === "ativa"
                       ? <Badge variant="outline" className="bg-emerald-500/10 text-emerald-700 border-emerald-500/30">Ativa</Badge>

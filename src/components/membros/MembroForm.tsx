@@ -123,7 +123,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
   // Áreas disponíveis (agrupadas por ministério) e selecionadas
   const [areasPorMinisterio, setAreasPorMinisterio] = useState<{
     ministerio: { id: string; nome: string };
-    areas: { id: string; nome: string }[];
+    areas: { id: string; nome: string; lider_id: string | null; co_lider_id: string | null }[];
   }[]>([]);
   const [areasSelecionadas, setAreasSelecionadas] = useState<Set<string>>(new Set());
 
@@ -184,7 +184,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
     (async () => {
       const { data: rawAreas } = await supabase
         .from("areas")
-        .select("id, nome, ministerio_id, ativo, ministerios(id, nome, ativo)")
+        .select("id, nome, ministerio_id, ativo, lider_id, co_lider_id, ministerios(id, nome, ativo)")
         .eq("ativo", true)
         .order("nome");
       if (cancelled) return;
@@ -194,7 +194,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
         const m = a.ministerios;
         if (!m || m.ativo === false) return;
         if (!mapaMin.has(m.id)) mapaMin.set(m.id, { ministerio: { id: m.id, nome: m.nome }, areas: [] });
-        mapaMin.get(m.id)!.areas.push({ id: a.id, nome: a.nome });
+        mapaMin.get(m.id)!.areas.push({ id: a.id, nome: a.nome, lider_id: a.lider_id ?? null, co_lider_id: a.co_lider_id ?? null });
       });
       const grupos = Array.from(mapaMin.values()).sort((a, b) =>
         a.ministerio.nome.localeCompare(b.ministerio.nome)
@@ -689,6 +689,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                         {grupo.areas.map(a => {
                           const checked = areasSelecionadas.has(a.id);
+                          const ehLider = !!membro && (a.lider_id === membro.id || a.co_lider_id === membro.id);
                           return (
                             <label key={a.id} className="flex items-center gap-2 cursor-pointer text-sm hover:bg-muted/40 px-2 py-1 rounded">
                               <Checkbox
@@ -701,7 +702,14 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                                   });
                                 }}
                               />
-                              <span>{a.nome}</span>
+                              <span className="flex items-center gap-1 min-w-0">
+                                <span className="truncate">{a.nome}</span>
+                                {ehLider && (
+                                  <span className="text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 border border-rose-300 shrink-0">
+                                    Líder
+                                  </span>
+                                )}
+                              </span>
                             </label>
                           );
                         })}
@@ -710,8 +718,9 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                   ))}
                 </div>
                 <p className="text-[11px] text-muted-foreground">
-                  Função padrão registrada: <strong>Voluntário</strong>. Para ajustar (líder, coordenador, etc), 
-                  abra Ministérios → o ministério desejado → Voluntários.
+                  Função padrão registrada: <strong>Voluntário</strong>. Líderes de área podem (e geralmente devem) 
+                  marcar a própria área aqui também — assim aparecem nas escalas. Para ajustes finos (líder, 
+                  coordenador, etc), abra Ministérios → o ministério desejado → Voluntários.
                 </p>
               </div>
             )}

@@ -184,6 +184,8 @@ export default function AreasDialog({ ministerio, membros, open, onOpenChange }:
             ativo: voluntariosFor.ativo,
             ministerio_id: ministerio.id,
             ministerio_ativo: ministerio.ativo !== false,
+            lider_id: voluntariosFor.lider_id,
+            co_lider_id: voluntariosFor.co_lider_id,
           }}
           open={!!voluntariosFor}
           onOpenChange={(o)=>{ if(!o) setVoluntariosFor(null); }}
