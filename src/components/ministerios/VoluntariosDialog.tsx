@@ -138,7 +138,17 @@ export default function VoluntariosDialog({ area, open, onOpenChange }: Props) {
                         {a.membro_id === area.lider_id ? "Líder" : "Co-líder"}
                       </Badge>
                     )}
-                    <Badge variant="outline" className="bg-muted/50">{a.funcao}</Badge>
+                    {/* Função: esconde se for redundante com papel já mostrado em badge vermelho */}
+                    {(() => {
+                      const f = (a.funcao ?? "").trim().toLowerCase();
+                      const ehLider = a.membro_id === area.lider_id;
+                      const ehColider = a.membro_id === area.co_lider_id;
+                      const redundante =
+                        (ehLider && (f === "líder" || f === "lider")) ||
+                        (ehColider && (f === "co-líder" || f === "co-lider" || f === "colider"));
+                      if (redundante || !a.funcao) return null;
+                      return <Badge variant="outline" className="bg-muted/50">{a.funcao}</Badge>;
+                    })()}
                     {a.status === "ativa"
                       ? <Badge variant="outline" className="bg-emerald-500/10 text-emerald-700 border-emerald-500/30">Ativa</Badge>
                       : <Badge variant="outline" className="bg-muted text-muted-foreground">Encerrada</Badge>}
