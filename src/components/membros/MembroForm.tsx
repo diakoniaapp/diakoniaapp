@@ -15,7 +15,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Trash2 } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
 import { normalizarTelefone, validarTelefone } from "@/lib/telefone";
 import { TelefoneInput } from "@/components/ui/TelefoneInput";
 import { supabase } from "@/integrations/supabase/client";
@@ -107,31 +106,6 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
   const { hasRole } = useAuth();
   // FASE D: helper unificado — "editando" vs "criando".
   const isEditing = Boolean(membro);
-  // FASE B: gerencia acesso via toggle (substitui antiga lógica perfil_acesso).
-  // O AcessoCard só renderiza se este toggle estiver ON e a pessoa já estiver salva.
-  const [possuiAcesso, setPossuiAcesso] = useState(false);
-
-  // FASE B: ao abrir o formulário de uma pessoa existente, detecta se já tem acesso ativo
-  useEffect(() => {
-    if (!membro?.id) {
-      setPossuiAcesso(false);
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      try {
-        const { data } = await supabase
-          .from("profiles")
-          .select("id")
-          .eq("pessoa_id", membro.id)
-          .maybeSingle();
-        if (!cancelled) setPossuiAcesso(Boolean(data?.id));
-      } catch {
-        // Silencioso: o AcessoCard tem fallback próprio para carregar status.
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [membro?.id]);
   const isAdmin = hasRole("admin");
 
   const [form, setForm] = useState<any>(empty);
@@ -541,41 +515,21 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
               </>
             )}
 
-            {/* ── ACESSO AO SISTEMA (FASE B: Toggle "Possui acesso") ── */}
-            {(isCongregado || isMembro) && (
+            {/* ── ACESSO AO SISTEMA (A4: botão único Convidar como…) ── */}
+            {(isCongregado || isMembro) && membro && (
               <div className="pt-2 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-semibold text-sm text-muted-foreground" translate="no">
-                      Acesso ao sistema
-                    </h3>
-                    <p className="text-xs text-muted-foreground">
-                      Permite que esta pessoa faça login no Diakonia
-                    </p>
-                  </div>
-                  <Switch
-                    checked={possuiAcesso}
-                    onCheckedChange={setPossuiAcesso}
-                    disabled={!membro}
-                    aria-label="Possui acesso ao sistema"
-                  />
-                </div>
-
-                {possuiAcesso && membro && (
-                  <AcessoCard
-                    pessoaId={membro.id}
-                    nomeCompleto={form.nome_completo || membro.nome_completo}
-                    telefone={form.telefone_celular || membro.telefone_celular}
-                    roleInicial="voluntario"
-                  />
-                )}
-
-                {possuiAcesso && !membro && (
-                  <p className="text-xs text-amber-600 px-2 py-1.5 bg-amber-50 rounded border border-amber-200">
-                    Salve a pessoa primeiro para criar o acesso.
-                  </p>
-                )}
+                <AcessoCard
+                  pessoaId={membro.id}
+                  nomeCompleto={form.nome_completo || membro.nome_completo}
+                  telefone={form.telefone_celular || membro.telefone_celular}
+                />
               </div>
+            )}
+
+            {(isCongregado || isMembro) && !membro && (
+              <p className="text-xs text-amber-600 px-2 py-1.5 bg-amber-50 rounded border border-amber-200">
+                Salve a pessoa primeiro para criar o acesso ao sistema.
+              </p>
             )}
 
             {/* ── FOOTER ── */}
