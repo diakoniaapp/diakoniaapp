@@ -242,11 +242,6 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
       payload.status            = "ativo";
     }
 
-    // candidato_membresia para congregado
-    if (payload.tipo_pessoa === "congregado" && payload.data_nascimento) {
-      payload.candidato_membresia = calcIdade(payload.data_nascimento) >= 9;
-    }
-
     // ── Salvar ─────────────────────────────────────────────────────────
     let savedId: string | null = null;
     let error: any;
