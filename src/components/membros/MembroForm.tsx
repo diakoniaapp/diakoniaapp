@@ -18,6 +18,7 @@ import { Trash2, Heart } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { GraduationCap } from "lucide-react";
 import { BuscaPessoa } from "@/components/ui/BuscaPessoa";
+import { FamiliaBloco } from "@/components/familias/FamiliaBloco";
 import { listarClasses, sugerirClasse, classesDaPessoa, type EbdClasse } from "@/services/ebdService";
 import { normalizarTelefone, validarTelefone } from "@/lib/telefone";
 import { TelefoneInput } from "@/components/ui/TelefoneInput";
@@ -723,6 +724,22 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                   coordenador, etc), abra Ministérios → o ministério desejado → Voluntários.
                 </p>
               </div>
+            )}
+
+            {/* ── FAMÍLIA (Fase A) ── */}
+            {(isCongregado || isMembro) && (
+              <FamiliaBloco
+                pessoaId={membro?.id ?? null}
+                nomeCompleto={form.nome_completo ?? ""}
+                endereco={{
+                  endereco: form.endereco ?? undefined,
+                  numero: form.numero ?? undefined,
+                  complemento: form.complemento ?? undefined,
+                  bairro: form.bairro ?? undefined,
+                  cidade: form.cidade ?? undefined,
+                  cep: form.cep ?? undefined,
+                }}
+              />
             )}
 
             {/* ── ACESSO AO SISTEMA (A4: botão único Convidar como…) ── */}
