@@ -37,7 +37,8 @@ AS $$
          CASE WHEN om.classe_id = p_classe_id THEN om.matricula_id ELSE NULL END AS matricula_id,
          CASE WHEN om.classe_id IS NOT NULL AND om.classe_id <> p_classe_id THEN om.classe_id ELSE NULL END AS outra_classe_id,
          CASE WHEN om.classe_id IS NOT NULL AND om.classe_id <> p_classe_id THEN om.classe_nome ELSE NULL END AS outra_classe_nome
-    FROM public.membros m, c
+    FROM public.membros m
+    CROSS JOIN c
     LEFT JOIN outras_mat om ON om.pessoa_id = m.id
    WHERE m.status = 'ativo'
      AND m.tipo_pessoa IN ('membro','congregado')
