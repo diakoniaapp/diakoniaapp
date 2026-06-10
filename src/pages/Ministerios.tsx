@@ -63,14 +63,27 @@ export default function Ministerios() {
   const load = async () => {
             setLoading(true); setLoadingCounts(true); setError(null);
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const { data, error: err } = await supabase.from("ministerios").select("*, ministerio_membros(count), areas(count)").order("nome");
+            const { data, error: err } = await supabase.from("ministerios").select("*, areas(count)").order("nome");
             if (err) { toast.error(err.message); setError(err.message); }
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const rows = (data ?? []) as any[];
             setList(rows as Ministerio[]);
+            // Contador real de voluntarios ativos por ministerio (via area_voluntarios)
+            const { data: vol } = await supabase
+                .from("area_voluntarios")
+                .select("ministerio_id, membro_id")
+                .eq("status", "ativa");
             const c: Record<string, number> = {};
             const ac: Record<string, number> = {};
-            rows.forEach((m) => { c[m.id] = m.ministerio_membros?.[0]?.count ?? 0; ac[m.id] = m.areas?.[0]?.count ?? 0; });
+            const seenByMin = new Map<string, Set<string>>();
+            (vol ?? []).forEach((v: any) => {
+                if (!seenByMin.has(v.ministerio_id)) seenByMin.set(v.ministerio_id, new Set());
+                seenByMin.get(v.ministerio_id)!.add(v.membro_id);
+            });
+            rows.forEach((m) => {
+                c[m.id] = seenByMin.get(m.id)?.size ?? 0;
+                ac[m.id] = m.areas?.[0]?.count ?? 0;
+            });
             setCounts(c); setAreaCounts(ac);
             const { data: ms } = await supabase.from("membros").select("id, nome_completo").order("nome_completo");
             setMembros((ms ?? []) as MembroOpt[]);

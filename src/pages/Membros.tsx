@@ -28,6 +28,9 @@ export interface Membro {
     bairro: string | null;
     status: "ativo" | "inativo" | "transferido" | "falecido" | "desligado";
     estado_civil: string | null;
+    // Campos calculados na query (não persistem na tabela)
+    areas?: string[];
+    classe_ebd?: string | null;
     data_casamento: string | null;
     data_entrada: string | null;
     observacoes_pastorais: string | null;
@@ -129,12 +132,26 @@ export default function Membros() {
   const load = async () => {
         setLoading(true);
         setError(null);
-        const { data, error } = await supabase.from("membros").select("*").order("nome_completo");
+        const { data, error } = await supabase
+                .from("membros")
+                .select(`
+                  *,
+                  area_voluntarios!area_voluntarios_membro_id_fkey(area_id, status, areas(nome)),
+                  ebd_matriculas(classe_id, ativo, ebd_classes(nome))
+                `)
+                .order("nome_completo");
         if (error) {
                 toast.error(error.message);
                 setError(error.message);
         }
-        const lista = (data ?? []) as Membro[];
+        const lista = ((data ?? []) as any[]).map((m: any) => ({
+                ...m,
+                areas: (m.area_voluntarios ?? [])
+                  .filter((av: any) => av.status === "ativa" && av.areas?.nome)
+                  .map((av: any) => av.areas.nome),
+                classe_ebd: (m.ebd_matriculas ?? [])
+                  .find((em: any) => em.ativo && em.ebd_classes?.nome)?.ebd_classes?.nome ?? null,
+        })) as Membro[];
         setMembros(lista);
         setLoading(false);
 
@@ -265,6 +282,20 @@ export default function Membros() {
                                                                                                           <div className="text-sm text-muted-foreground truncate">
                                                                                                             {[m.telefone_celular, m.email, m.bairro].filter(Boolean).join(" • ") || "—"}
                                                                                                             </div>
+                                                                                                          {(m.classe_ebd || (m.areas && m.areas.length > 0)) && (
+                                                                                                            <div className="flex flex-wrap gap-1 mt-1.5">
+                                                                                                              {m.classe_ebd && (
+                                                                                                                <Badge variant="outline" className="text-[10px] bg-gold/10 border-gold/30 text-foreground/80">
+                                                                                                                  EBD: {m.classe_ebd}
+                                                                                                                </Badge>
+                                                                                                              )}
+                                                                                                              {(m.areas ?? []).map((a) => (
+                                                                                                                <Badge key={a} variant="outline" className="text-[10px] bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/30 dark:text-purple-300">
+                                                                                                                  {a}
+                                                                                                                </Badge>
+                                                                                                              ))}
+                                                                                                            </div>
+                                                                                                          )}
                                                                                         </div>
                                                                       {/* Indicador de acesso para congregados e membros */}
                                                                       {(m.tipo_pessoa === "congregado" || m.tipo_pessoa === "membro") && (
