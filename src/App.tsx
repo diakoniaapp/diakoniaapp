@@ -26,6 +26,8 @@ import ExportacaoAdmin from "./pages/ExportacaoAdmin.tsx";
 import CampanhasAdmin from "./pages/CampanhasAdmin.tsx";
 import AgendaPrint from "./pages/AgendaPrint.tsx";
 import Convite from "@/pages/Convite";
+import Ebd from "./pages/Ebd.tsx";
+import EbdClasse from "./pages/EbdClasse.tsx";
 import ResetSenhaToken from "@/pages/ResetSenhaToken";
 import EsqueciSenha from "@/pages/EsqueciSenha";
 import ResetSenha from "./pages/ResetSenha.tsx";
@@ -73,6 +75,8 @@ const App = () => (
                   <Route path="/organograma" element={<Organograma />} />
               <Route path="/estrutura" element={<EstruturaDaIgreja />} />
                   <Route path="/usuarios" element={<Usuarios />} />
+                  <Route path="/ebd" element={<Ebd />} />
+                  <Route path="/ebd/:classeId" element={<EbdClasse />} />
                   <Route path="/admin/recuperacao-senha" element={<RecuperacaoSenhaAdmin />} />
                   <Route path="/admin/lgpd" element={<LgpdAdmin />} />
                   <Route path="/admin/identidade" element={<IdentidadeAdmin />} />

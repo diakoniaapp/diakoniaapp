@@ -3,7 +3,7 @@ import { useAuth, type AppRole } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard, Users, HeartHandshake, Home, LogOut,
-  CalendarDays, ChevronLeft, ChevronDown, MapPin, BarChart2,
+  CalendarDays, ChevronLeft, ChevronDown, MapPin, BarChart2, GraduationCap,
   Building2, Network, KeyRound, ShieldAlert, Church, FileText,
   Upload, Download, Flame, UserCheck, Settings, Briefcase,
   Database, Cog, type LucideIcon,
@@ -54,6 +54,7 @@ const NAV_GROUPS: NavGroup[] = [
       { to: "/visitantes",   label: "Visitantes",  icon: UserCheck },
       { to: "/familias",     label: "Famílias",    icon: Home,           allowedRoles: ROLES_LIDERES },
       { to: "/ministerios",  label: "Ministérios", icon: HeartHandshake, allowedRoles: ROLES_LIDERES },
+      { to: "/ebd",          label: "EBD",         icon: GraduationCap,  allowedRoles: ROLES_LIDERES },
       { to: "/organograma",  label: "Organograma", icon: Building2,      allowedRoles: ROLES_LIDERES },
     ],
   },
@@ -111,6 +112,7 @@ const pageTitles: Record<string, string> = {
   "/locais":                  "Locais",
   "/visitantes":              "Visitantes",
   "/painel-estrategico":      "Crescimento",
+  "/ebd":                     "EBD",
   "/organograma":             "Organograma",
   "/estrutura":               "Estrutura",
   "/usuarios":                "Usuários",
@@ -129,6 +131,7 @@ const ROUTE_ROLES: Record<string, AppRole[]> = {
   "/ministerios":        ROLES_LIDERES,
   "/locais":             ROLES_LIDERES,
   "/painel-estrategico": ROLES_PASTORAL,
+  "/ebd":                ROLES_LIDERES,
   "/organograma":        ROLES_LIDERES,
   "/estrutura":          ROLES_PASTORAL,
   "/usuarios":           ROLES_ADMIN,

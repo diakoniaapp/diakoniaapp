@@ -16,6 +16,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Trash2, Heart } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { GraduationCap } from "lucide-react";
+import { listarClasses, sugerirClasse, classesDaPessoa, type EbdClasse } from "@/services/ebdService";
 import { normalizarTelefone, validarTelefone } from "@/lib/telefone";
 import { TelefoneInput } from "@/components/ui/TelefoneInput";
 import { supabase } from "@/integrations/supabase/client";
@@ -114,6 +116,11 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [pessoasLookup, setPessoasLookup] = useState<PessoaLookup[]>([]);
   const [searchPessoa, setSearchPessoa] = useState("");
+  // EBD: classes disponíveis e seleção atual
+  const [ebdClasses, setEbdClasses] = useState<EbdClasse[]>([]);
+  const [ebdClasseSelecionada, setEbdClasseSelecionada] = useState<string>("");
+  const [ebdSugestaoId, setEbdSugestaoId] = useState<string | null>(null);
+
   // D2: ministérios disponíveis e selecionados para a pessoa
   const [ministerios, setMinisterios] = useState<{ id: string; nome: string }[]>([]);
   const [ministeriosSelecionados, setMinisteriosSelecionados] = useState<Set<string>>(new Set());
@@ -139,6 +146,45 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
       .eq("status", "ativo").order("nome_completo")
       .then(({ data }) => setPessoasLookup((data ?? []) as PessoaLookup[]));
   }, [form.como_conheceu]);
+
+  // EBD: carregar classes disponíveis e classe atual da pessoa (se houver)
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const cs = await listarClasses();
+        if (cancelled) return;
+        setEbdClasses(cs);
+        if (membro?.id) {
+          const atuais = await classesDaPessoa(membro.id);
+          if (cancelled) return;
+          setEbdClasseSelecionada(atuais[0]?.classe_id ?? "");
+        } else {
+          setEbdClasseSelecionada("");
+        }
+      } catch (e) {
+        console.warn("EBD: erro ao carregar classes", e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [open, membro?.id]);
+
+  // EBD: ao mudar data_nascimento/sexo, calcular sugestão
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!form.data_nascimento) { setEbdSugestaoId(null); return; }
+      const id = await sugerirClasse(form.data_nascimento, form.sexo || null);
+      if (!cancelled) {
+        setEbdSugestaoId(id);
+        if (!membro && !ebdClasseSelecionada && id) {
+          setEbdClasseSelecionada(id);
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [form.data_nascimento, form.sexo]);
 
   // D2: Carregar lista de ministérios e os vínculos já existentes da pessoa
   useEffect(() => {
@@ -274,6 +320,38 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
       } catch (e: any) {
         // Falha de sync de ministérios não bloqueia o cadastro
         console.warn("Sync ministerios falhou:", e?.message);
+      }
+    }
+
+    // EBD: sincronizar matrícula
+    const pessoaIdEbd = membro?.id ?? savedId;
+    if (pessoaIdEbd) {
+      try {
+        const atuais = await classesDaPessoa(pessoaIdEbd);
+        const atualId = atuais[0]?.classe_id ?? null;
+        if (ebdClasseSelecionada && ebdClasseSelecionada !== atualId) {
+          // Desativar matrículas anteriores
+          for (const a of atuais) {
+            await supabase
+              .from("ebd_matriculas")
+              .update({ ativo: false })
+              .eq("pessoa_id", pessoaIdEbd)
+              .eq("classe_id", a.classe_id)
+              .eq("ativo", true);
+          }
+          await supabase
+            .from("ebd_matriculas")
+            .insert({ pessoa_id: pessoaIdEbd, classe_id: ebdClasseSelecionada, ativo: true });
+        } else if (!ebdClasseSelecionada && atualId) {
+          // Removeu a classe
+          await supabase
+            .from("ebd_matriculas")
+            .update({ ativo: false })
+            .eq("pessoa_id", pessoaIdEbd)
+            .eq("ativo", true);
+        }
+      } catch (e: any) {
+        console.warn("EBD sync falhou:", e?.message);
       }
     }
 
@@ -589,6 +667,34 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                   </div>
                 </section>
               </>
+            )}
+
+            {/* ── EBD ── */}
+            {(isCongregado || isMembro) && ebdClasses.length > 0 && (
+              <div className="pt-2 space-y-2">
+                <h3 className="font-semibold text-sm text-muted-foreground flex items-center gap-1.5" translate="no">
+                  <GraduationCap className="w-3.5 h-3.5" /> Classe EBD
+                </h3>
+                <Select value={ebdClasseSelecionada || undefined} onValueChange={setEbdClasseSelecionada}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecionar classe..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__" disabled>— Nenhuma —</SelectItem>
+                    {ebdClasses.map(c => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.nome}
+                        {ebdSugestaoId === c.id && " ✨"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {ebdSugestaoId && (
+                  <p className="text-[11px] text-muted-foreground">
+                    ✨ Sugestão pela idade e sexo: {ebdClasses.find(c => c.id === ebdSugestaoId)?.nome ?? "—"}
+                  </p>
+                )}
+              </div>
             )}
 
             {/* ── MINISTÉRIOS (D2) ── */}
