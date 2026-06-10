@@ -182,3 +182,108 @@ export async function moverParaClasse(pessoaId: string, classeNovaId: string): P
   if (error) throw error;
   return data as string;
 }
+
+// ─── Chamada / Aula ────────────────────────────────────────────────────────
+export interface EbdAula {
+  id: string;
+  classe_id: string;
+  data: string;
+  professor_id?: string | null;
+  tema?: string | null;
+  foto_url?: string | null;
+  observacoes?: string | null;
+  created_at?: string;
+}
+
+export interface EbdChamadaRow {
+  pessoa_id: string;
+  nome_completo: string;
+  idade: number | null;
+  presente: boolean;
+  eh_visitante: boolean;
+  tipo: "matriculado" | "visitante";
+}
+
+export async function obterOuCriarAula(classeId: string, data: string): Promise<string> {
+  const { data: id, error } = await supabase.rpc("ebd_obter_ou_criar_aula", {
+    p_classe_id: classeId,
+    p_data: data,
+  });
+  if (error) throw error;
+  return id as string;
+}
+
+export async function carregarAula(aulaId: string): Promise<EbdAula | null> {
+  const { data } = await supabase
+    .from("ebd_aulas")
+    .select("*")
+    .eq("id", aulaId)
+    .maybeSingle();
+  return (data ?? null) as EbdAula | null;
+}
+
+export async function atualizarAula(aulaId: string, patch: Partial<EbdAula>) {
+  const { error } = await supabase
+    .from("ebd_aulas")
+    .update(patch)
+    .eq("id", aulaId);
+  if (error) throw error;
+}
+
+export async function chamadaView(aulaId: string): Promise<EbdChamadaRow[]> {
+  const { data, error } = await supabase.rpc("ebd_chamada_view", { p_aula_id: aulaId });
+  if (error) throw error;
+  return (data ?? []) as EbdChamadaRow[];
+}
+
+export async function marcarPresenca(
+  aulaId: string, pessoaId: string, presente: boolean, ehVisitante = false,
+): Promise<void> {
+  const { error } = await supabase.rpc("ebd_marcar_presenca", {
+    p_aula_id: aulaId,
+    p_pessoa_id: pessoaId,
+    p_presente: presente,
+    p_eh_visitante: ehVisitante,
+  });
+  if (error) throw error;
+}
+
+export async function adicionarVisitanteAula(
+  aulaId: string,
+  nome: string,
+  telefone?: string,
+): Promise<string> {
+  // 1. Criar pessoa do tipo visitante
+  const payload: any = {
+    nome_completo: nome.trim(),
+    tipo_pessoa: "visitante",
+    status: "ativo",
+    data_entrada: new Date().toISOString().slice(0, 10),
+    como_conheceu: "evento_igreja",
+    como_conheceu_descricao: "Veio na EBD",
+  };
+  if (telefone) payload.telefone_celular = telefone.replace(/\D/g, "");
+  const { data: novaPessoa, error: e1 } = await supabase
+    .from("membros")
+    .insert(payload)
+    .select("id")
+    .single();
+  if (e1) throw e1;
+
+  // 2. Marcar presença com eh_visitante=true
+  await marcarPresenca(aulaId, novaPessoa.id, true, true);
+  return novaPessoa.id;
+}
+
+export async function uploadFotoAula(aulaId: string, classeId: string, file: File): Promise<string> {
+  const ext = file.name.split(".").pop() || "jpg";
+  const path = `${classeId}/${aulaId}.${ext}`;
+  const { error: upErr } = await supabase.storage
+    .from("ebd-aulas")
+    .upload(path, file, { upsert: true });
+  if (upErr) throw upErr;
+  const { data } = supabase.storage.from("ebd-aulas").getPublicUrl(path);
+  const publicUrl = data.publicUrl;
+  await atualizarAula(aulaId, { foto_url: publicUrl });
+  return publicUrl;
+}
