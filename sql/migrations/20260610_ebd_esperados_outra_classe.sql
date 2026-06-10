@@ -1,5 +1,7 @@
 -- ─── EBD: esperados_da_classe agora retorna info de outra matricula ──────────
 
+DROP FUNCTION IF EXISTS public.esperados_da_classe(uuid);
+
 CREATE OR REPLACE FUNCTION public.esperados_da_classe(p_classe_id uuid)
 RETURNS TABLE(
   pessoa_id            uuid,
