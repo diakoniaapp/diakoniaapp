@@ -27,6 +27,8 @@ export function ProfessoresBloco({ classeId }: Props) {
   const [pessoaSelecionada, setPessoaSelecionada] = useState<string>("");
   const [tipo, setTipo] = useState<EbdProfessor["tipo"]>("principal");
   const [busy, setBusy] = useState(false);
+  // IDs de todas as pessoas que já são professor ativo em qualquer classe
+  const [idsProfessoresGlobais, setIdsProfessoresGlobais] = useState<string[]>([]);
 
   useEffect(() => { carregar(); }, [classeId]);
 
@@ -35,10 +37,16 @@ export function ProfessoresBloco({ classeId }: Props) {
     catch (e: any) { toast.error(e?.message ?? "Erro ao carregar professores"); }
   }
 
-  function abrirDialog() {
+  async function abrirDialog() {
     setOpen(true);
     setPessoaSelecionada("");
     setTipo("principal");
+    // Carrega todos pessoa_ids que já sao professor ativo em qualquer classe
+    const { data } = await supabase
+      .from("ebd_professores")
+      .select("pessoa_id")
+      .eq("ativo", true);
+    setIdsProfessoresGlobais((data ?? []).map((r: any) => r.pessoa_id));
   }
 
   async function adicionar() {
@@ -123,9 +131,13 @@ export function ProfessoresBloco({ classeId }: Props) {
                 value={pessoaSelecionada}
                 onChange={(id) => setPessoaSelecionada(id)}
                 tipos={["membro", "congregado"]}
-                ignorarIds={professores.map(p => p.pessoa_id)}
+                ignorarIds={Array.from(new Set([...idsProfessoresGlobais, ...professores.map(p => p.pessoa_id)]))}
                 autoFocus
+                placeholder="Buscar pessoa (so quem ainda nao for professor)..."
               />
+              <p className="text-[11px] text-muted-foreground -mt-1">
+                Pessoas que ja sao professor em outra classe nao aparecem na lista.
+              </p>
             </div>
             <div>
               <Label>Tipo</Label>
