@@ -12,7 +12,7 @@ import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Plus, Home, Users, Link2, Trash2 } from "lucide-react";
+import { Plus, Home, Users, Link2, Trash2, Pencil, Crown, Heart, CalendarHeart } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { VinculosDialog } from "@/components/familias/VinculosDialog";
@@ -24,6 +24,10 @@ interface Familia {
   bairro: string | null;
   cidade: string | null;
   endereco: string | null;
+  numero: string | null;
+  complemento: string | null;
+  cep: string | null;
+  data_casamento: string | null;
   observacoes: string | null;
 }
 
@@ -33,7 +37,9 @@ export default function Familias() {
   const [counts, setCounts]               = useState<Record<string, number>>({});
   const [loadingCounts, setLoadingCounts] = useState(true);
   const [open, setOpen]                   = useState(false);
-  const [form, setForm]                   = useState({ nome_familia: "", endereco: "", bairro: "", cidade: "", observacoes: "" });
+  const [form, setForm]                   = useState({ nome_familia: "", endereco: "", numero: "", complemento: "", bairro: "", cidade: "", cep: "", data_casamento: "", observacoes: "" });
+  const [editingId, setEditingId]         = useState<string | null>(null);
+  const [responsaveis, setResponsaveis]   = useState<Record<string, string>>({});
   const [vinculosOpen, setVinculosOpen]   = useState(false);
   const [familiaSelecionada, setFamiliaSelecionada] = useState<Familia | null>(null);
   const [loading, setLoading]             = useState(true);
@@ -69,6 +75,20 @@ export default function Familias() {
     setCounts(c);
     setLoadingCounts(false);
     setLoading(false);
+
+    // Carregar nomes dos responsáveis de cada família
+    if (rows.length > 0) {
+      const { data: vincs } = await supabase
+        .from("vinculos_familiares")
+        .select("familia_id, membro_id, responsavel_familia, membros(nome_completo)")
+        .eq("responsavel_familia", true)
+        .in("familia_id", rows.map((r: any) => r.id));
+      const respMap: Record<string, string> = {};
+      (vincs ?? []).forEach((v: any) => {
+        if (v.familia_id && v.membros?.nome_completo) respMap[v.familia_id] = v.membros.nome_completo;
+      });
+      setResponsaveis(respMap);
+    }
   };
   useEffect(() => { load(); }, []);
 
@@ -78,13 +98,35 @@ export default function Familias() {
     payload.nome_familia = (payload.nome_familia ?? "").replace(/^\s*fam[ií]lia\s+/i, "").trim();
     if (!payload.nome_familia) return toast.error("Informe o sobrenome da família (sem o prefixo 'Família').");
     Object.keys(payload).forEach(k => { if (payload[k] === "") payload[k] = null; });
-    const { error } = await supabase.from("familias").insert(payload);
+    let error;
+    if (editingId) {
+      ({ error } = await supabase.from("familias").update(payload).eq("id", editingId));
+    } else {
+      ({ error } = await supabase.from("familias").insert(payload));
+    }
     if (error) return toast.error(error.message);
-    toast.success("Família cadastrada");
-    setForm({ nome_familia: "", endereco: "", bairro: "", cidade: "", observacoes: "" });
+    toast.success(editingId ? "Família atualizada" : "Família cadastrada");
+    setForm({ nome_familia: "", endereco: "", numero: "", complemento: "", bairro: "", cidade: "", cep: "", data_casamento: "", observacoes: "" });
+    setEditingId(null);
     setOpen(false);
     load();
   };
+
+  function abrirEdicao(f: Familia) {
+    setEditingId(f.id);
+    setForm({
+      nome_familia: f.nome_familia,
+      endereco: f.endereco ?? "",
+      numero: f.numero ?? "",
+      complemento: f.complemento ?? "",
+      bairro: f.bairro ?? "",
+      cidade: f.cidade ?? "",
+      cep: f.cep ?? "",
+      data_casamento: f.data_casamento ?? "",
+      observacoes: f.observacoes ?? "",
+    });
+    setOpen(true);
+  }
 
   // Desvincula membros e exclui o núcleo familiar
   const confirmarExclusao = async () => {
@@ -129,12 +171,34 @@ export default function Familias() {
                     <div className="w-10 h-10 rounded-md bg-gold/15 flex items-center justify-center">
                       <Home className="w-5 h-5 text-gold" />
                     </div>
-                    <div className="flex-1">
-                      <h3 className="font-serif text-xl">Família {f.nome_familia}</h3>
-                      <p className="text-sm text-muted-foreground">
-                        {[f.endereco, f.bairro, f.cidade].filter(Boolean).join(", ") || "—"}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <h3 className="font-serif text-xl truncate">Família {f.nome_familia}</h3>
+                        {canEdit && (
+                          <Button
+                            type="button" variant="ghost" size="icon"
+                            onClick={() => abrirEdicao(f)}
+                            className="h-7 w-7 shrink-0"
+                            title="Editar família"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground line-clamp-2">
+                        {[f.endereco, f.numero, f.bairro, f.cidade].filter(Boolean).join(", ") || "—"}
                       </p>
-                      <div className="flex items-center gap-1 mt-3 text-xs text-muted-foreground">
+                      {responsaveis[f.id] && (
+                        <p className="text-xs text-rose-700 dark:text-rose-300 mt-1 flex items-center gap-1">
+                          <Crown className="w-3 h-3" /> {responsaveis[f.id]}
+                        </p>
+                      )}
+                      {f.data_casamento && (
+                        <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
+                          <Heart className="w-3 h-3 text-rose-400" /> Casados em {new Date(f.data_casamento).toLocaleDateString("pt-BR")}
+                        </p>
+                      )}
+                      <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
                         <Users className="w-3.5 h-3.5" />
                         {loadingCounts ? "…" : `${counts[f.id] ?? 0} membros vinculados`}
                       </div>
@@ -147,11 +211,11 @@ export default function Familias() {
                         </Button>
                         {canEdit && (
                           <Button
-                            variant="outline" size="sm"
-                            className="text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/30"
+                            variant="ghost" size="sm"
+                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                             onClick={() => setFamiliaParaExcluir(f)}
                           >
-                            <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Excluir família
+                            <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Excluir
                           </Button>
                         )}
                       </div>
@@ -164,11 +228,13 @@ export default function Familias() {
         )}
       </div>
 
-      {/* ── Dialog: Nova família ── */}
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
+      {/* ── Dialog: Nova/Editar família ── */}
+      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditingId(null); setForm({ nome_familia: "", endereco: "", numero: "", complemento: "", bairro: "", cidade: "", cep: "", data_casamento: "", observacoes: "" }); } }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="font-serif text-2xl">Nova família</DialogTitle>
+            <DialogTitle className="font-serif text-2xl">
+              {editingId ? "Editar família" : "Nova família"}
+            </DialogTitle>
           </DialogHeader>
           <form onSubmit={onSubmit} className="space-y-3">
             <div>
@@ -180,19 +246,36 @@ export default function Familias() {
               />
               <p className="text-xs text-muted-foreground mt-1">Não inclua o prefixo "Família" — ele é exibido automaticamente.</p>
             </div>
+
+            <div>
+              <Label className="flex items-center gap-1.5">
+                <CalendarHeart className="w-3.5 h-3.5 text-rose-500" /> Data de casamento (opcional)
+              </Label>
+              <Input
+                type="date"
+                value={form.data_casamento ?? ""}
+                onChange={(e) => setForm({ ...form, data_casamento: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground mt-1">Usado pra calcular bodas e mostrar evento na agenda.</p>
+            </div>
+
+            <h4 className="text-sm font-semibold text-muted-foreground pt-1">Endereço da família</h4>
             <CamposEndereco
-              cep={(form as any).cep ?? ""}
+              cep={form.cep ?? ""}
               endereco={form.endereco ?? ""}
+              numero={form.numero ?? ""}
+              complemento={form.complemento ?? ""}
               bairro={form.bairro ?? ""}
               cidade={form.cidade ?? ""}
               onChange={(campo, valor) => setForm((f) => ({ ...f, [campo]: valor }))}
-              mostrarNumero={false}
-              mostrarComplemento={false}
+              mostrarNumero
+              mostrarComplemento
             />
+
             <div><Label>Observações</Label><Textarea rows={3} value={form.observacoes} onChange={(e) => setForm({ ...form, observacoes: e.target.value })} /></div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-              <Button type="submit">Salvar</Button>
+              <Button type="button" variant="outline" onClick={() => { setOpen(false); setEditingId(null); }}>Cancelar</Button>
+              <Button type="submit">{editingId ? "Salvar alterações" : "Criar família"}</Button>
             </DialogFooter>
           </form>
         </DialogContent>
