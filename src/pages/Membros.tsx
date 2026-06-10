@@ -132,25 +132,44 @@ export default function Membros() {
   const load = async () => {
         setLoading(true);
         setError(null);
-        const { data, error } = await supabase
-                .from("membros")
-                .select(`
-                  *,
-                  area_voluntarios!area_voluntarios_membro_id_fkey(area_id, status, areas(nome)),
-                  ebd_matriculas(classe_id, ativo, ebd_classes(nome))
-                `)
-                .order("nome_completo");
+        const [
+                { data, error },
+                { data: areasMap },
+                { data: ebdMap },
+        ] = await Promise.all([
+                supabase.from("membros").select("*").order("nome_completo"),
+                supabase
+                  .from("area_voluntarios")
+                  .select("membro_id, areas(nome)")
+                  .eq("status", "ativa"),
+                supabase
+                  .from("ebd_matriculas")
+                  .select("pessoa_id, ebd_classes(nome)")
+                  .eq("ativo", true),
+        ]);
+
         if (error) {
                 toast.error(error.message);
                 setError(error.message);
         }
+
+        // Indexar por id
+        const areasPorPessoa = new Map<string, string[]>();
+        (areasMap ?? []).forEach((av: any) => {
+                const nome = av.areas?.nome;
+                if (!nome) return;
+                if (!areasPorPessoa.has(av.membro_id)) areasPorPessoa.set(av.membro_id, []);
+                areasPorPessoa.get(av.membro_id)!.push(nome);
+        });
+        const classePorPessoa = new Map<string, string>();
+        (ebdMap ?? []).forEach((em: any) => {
+                if (em.ebd_classes?.nome) classePorPessoa.set(em.pessoa_id, em.ebd_classes.nome);
+        });
+
         const lista = ((data ?? []) as any[]).map((m: any) => ({
                 ...m,
-                areas: (m.area_voluntarios ?? [])
-                  .filter((av: any) => av.status === "ativa" && av.areas?.nome)
-                  .map((av: any) => av.areas.nome),
-                classe_ebd: (m.ebd_matriculas ?? [])
-                  .find((em: any) => em.ativo && em.ebd_classes?.nome)?.ebd_classes?.nome ?? null,
+                areas: areasPorPessoa.get(m.id) ?? [],
+                classe_ebd: classePorPessoa.get(m.id) ?? null,
         })) as Membro[];
         setMembros(lista);
         setLoading(false);
