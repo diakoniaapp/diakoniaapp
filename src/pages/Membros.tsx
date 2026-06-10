@@ -31,6 +31,9 @@ export interface Membro {
     // Campos calculados na query (não persistem na tabela)
     areas?: string[];
     classe_ebd?: string | null;
+    classes_professor?: string[];   // Classes onde é professor
+    lider_ministerios?: string[];   // Ministérios que lidera (ou co-lidera)
+    lider_areas?: string[];          // Áreas que lidera (ou co-lidera)
     data_casamento: string | null;
     data_entrada: string | null;
     observacoes_pastorais: string | null;
@@ -137,14 +140,25 @@ export default function Membros() {
                 { data: areaVolList },
                 { data: areasNames },
                 { data: ebdMap },
+                { data: ebdProfList },
+                { data: ebdClassesAll },
+                { data: minLideres },
+                { data: areasLideres },
         ] = await Promise.all([
                 supabase.from("membros").select("*").order("nome_completo"),
                 supabase.from("area_voluntarios").select("membro_id, status, area_id"),
-                supabase.from("areas").select("id, nome"),
+                supabase.from("areas").select("id, nome, lider_id, co_lider_id, ministerio_id"),
                 supabase
                   .from("ebd_matriculas")
                   .select("pessoa_id, ebd_classes(nome)")
                   .eq("ativo", true),
+                supabase
+                  .from("ebd_professores")
+                  .select("pessoa_id, classe_id, ativo")
+                  .eq("ativo", true),
+                supabase.from("ebd_classes").select("id, nome"),
+                supabase.from("ministerios").select("id, nome, lider_id, co_lider_id"),
+                supabase.from("areas").select("id, nome, lider_id, co_lider_id"),
         ]);
 
         if (error) {
@@ -155,6 +169,42 @@ export default function Membros() {
         // Indexar por id
         const nomePorArea = new Map<string, string>();
         (areasNames ?? []).forEach((a: any) => { if (a?.id && a?.nome) nomePorArea.set(a.id, a.nome); });
+
+        // Professores EBD: agrupa por pessoa
+        const nomePorClasseEbd = new Map<string, string>();
+        (ebdClassesAll ?? []).forEach((c: any) => { if (c?.id && c?.nome) nomePorClasseEbd.set(c.id, c.nome); });
+        const profPorPessoa = new Map<string, string[]>();
+        (ebdProfList ?? []).forEach((p: any) => {
+                const nome = nomePorClasseEbd.get(p.classe_id);
+                if (!nome) return;
+                if (!profPorPessoa.has(p.pessoa_id)) profPorPessoa.set(p.pessoa_id, []);
+                profPorPessoa.get(p.pessoa_id)!.push(nome);
+        });
+
+        // Liderança de ministério (lider_id OU co_lider_id)
+        const minLideresPorPessoa = new Map<string, string[]>();
+        (minLideres ?? []).forEach((m: any) => {
+                [m.lider_id, m.co_lider_id].forEach((uid: string | null) => {
+                        if (!uid || !m.nome) return;
+                        if (!minLideresPorPessoa.has(uid)) minLideresPorPessoa.set(uid, []);
+                        if (!minLideresPorPessoa.get(uid)!.includes(m.nome)) {
+                                minLideresPorPessoa.get(uid)!.push(m.nome);
+                        }
+                });
+        });
+
+        // Liderança de área (lider_id OU co_lider_id)
+        const areaLideresPorPessoa = new Map<string, string[]>();
+        (areasLideres ?? []).forEach((a: any) => {
+                [a.lider_id, a.co_lider_id].forEach((uid: string | null) => {
+                        if (!uid || !a.nome) return;
+                        if (!areaLideresPorPessoa.has(uid)) areaLideresPorPessoa.set(uid, []);
+                        if (!areaLideresPorPessoa.get(uid)!.includes(a.nome)) {
+                                areaLideresPorPessoa.get(uid)!.push(a.nome);
+                        }
+                });
+        });
+        
         const areasPorPessoa = new Map<string, string[]>();
         (areaVolList ?? []).forEach((av: any) => {
                 const st = String(av.status ?? "").toLowerCase();
@@ -173,6 +223,9 @@ export default function Membros() {
                 ...m,
                 areas: areasPorPessoa.get(m.id) ?? [],
                 classe_ebd: classePorPessoa.get(m.id) ?? null,
+                classes_professor: profPorPessoa.get(m.id) ?? [],
+                lider_ministerios: minLideresPorPessoa.get(m.id) ?? [],
+                lider_areas: areaLideresPorPessoa.get(m.id) ?? [],
         })) as Membro[];
         setMembros(lista);
         setLoading(false);
@@ -304,15 +357,35 @@ export default function Membros() {
                                                                                                           <div className="text-sm text-muted-foreground truncate">
                                                                                                             {[m.telefone_celular, m.email, m.bairro].filter(Boolean).join(" • ") || "—"}
                                                                                                             </div>
-                                                                                                          {(m.classe_ebd || (m.areas && m.areas.length > 0)) && (
+                                                                                                          {(m.classe_ebd 
+                                                                                                              || (m.areas?.length ?? 0) > 0
+                                                                                                              || (m.classes_professor?.length ?? 0) > 0
+                                                                                                              || (m.lider_ministerios?.length ?? 0) > 0
+                                                                                                              || (m.lider_areas?.length ?? 0) > 0
+                                                                                                          ) && (
                                                                                                             <div className="flex flex-wrap gap-1 mt-1.5">
                                                                                                               {m.classe_ebd && (
                                                                                                                 <Badge variant="outline" className="text-[10px] bg-gold/10 border-gold/30 text-foreground/80">
                                                                                                                   EBD: {m.classe_ebd}
                                                                                                                 </Badge>
                                                                                                               )}
+                                                                                                              {(m.classes_professor ?? []).map((c) => (
+                                                                                                                <Badge key={`prof-${c}`} variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-300 dark:bg-blue-950/30 dark:text-blue-300">
+                                                                                                                  Professor: {c}
+                                                                                                                </Badge>
+                                                                                                              ))}
+                                                                                                              {(m.lider_ministerios ?? []).map((n) => (
+                                                                                                                <Badge key={`lid-min-${n}`} variant="outline" className="text-[10px] bg-rose-50 text-rose-700 border-rose-300 dark:bg-rose-950/30 dark:text-rose-300">
+                                                                                                                  Líder: {n}
+                                                                                                                </Badge>
+                                                                                                              ))}
+                                                                                                              {(m.lider_areas ?? []).map((n) => (
+                                                                                                                <Badge key={`lid-ar-${n}`} variant="outline" className="text-[10px] bg-orange-50 text-orange-700 border-orange-300 dark:bg-orange-950/30 dark:text-orange-300">
+                                                                                                                  Líder de área: {n}
+                                                                                                                </Badge>
+                                                                                                              ))}
                                                                                                               {(m.areas ?? []).map((a) => (
-                                                                                                                <Badge key={a} variant="outline" className="text-[10px] bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/30 dark:text-purple-300">
+                                                                                                                <Badge key={`area-${a}`} variant="outline" className="text-[10px] bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/30 dark:text-purple-300">
                                                                                                                   {a}
                                                                                                                 </Badge>
                                                                                                               ))}
