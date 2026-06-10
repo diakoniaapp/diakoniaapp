@@ -133,7 +133,7 @@ AS $$
   WITH c AS (
     SELECT * FROM public.ebd_classes WHERE id = p_classe_id
   )
-  SELECT m.id, m.nome_completo, m.sexo, m.data_nascimento,
+  SELECT m.id, m.nome_completo, m.sexo::text, m.data_nascimento,
          EXTRACT(YEAR FROM AGE(CURRENT_DATE, m.data_nascimento))::int AS idade,
          EXISTS (SELECT 1 FROM public.ebd_matriculas em
                   WHERE em.pessoa_id = m.id AND em.classe_id = p_classe_id AND em.ativo) AS ja_matriculado
@@ -143,7 +143,7 @@ AS $$
      AND m.data_nascimento IS NOT NULL
      AND (c.idade_min IS NULL OR EXTRACT(YEAR FROM AGE(CURRENT_DATE, m.data_nascimento)) >= c.idade_min)
      AND (c.idade_max IS NULL OR EXTRACT(YEAR FROM AGE(CURRENT_DATE, m.data_nascimento)) <= c.idade_max)
-     AND (c.genero = 'misto' OR (m.sexo IS NOT NULL AND c.genero = m.sexo))
+     AND (c.genero = 'misto' OR (m.sexo IS NOT NULL AND c.genero = m.sexo::text))
    ORDER BY m.nome_completo;
 $$;
 GRANT EXECUTE ON FUNCTION public.esperados_da_classe(uuid) TO authenticated;
@@ -196,10 +196,10 @@ GRANT EXECUTE ON FUNCTION public.resumo_campanha_ebd(uuid) TO authenticated;
 
 -- ── VIEW: alertas de idade (para Fase D, criando ja) ─────────────────────
 CREATE OR REPLACE VIEW public.vw_ebd_alertas_idade AS
-SELECT em.pessoa_id, m.nome_completo, m.sexo, m.data_nascimento,
+SELECT em.pessoa_id, m.nome_completo, m.sexo::text AS sexo, m.data_nascimento,
        EXTRACT(YEAR FROM AGE(CURRENT_DATE, m.data_nascimento))::int AS idade_atual,
        em.classe_id AS classe_atual_id, c.nome AS classe_atual,
-       public.sugerir_classe_ebd(m.data_nascimento, m.sexo) AS classe_sugerida_id
+       public.sugerir_classe_ebd(m.data_nascimento, m.sexo::text) AS classe_sugerida_id
   FROM public.ebd_matriculas em
   JOIN public.membros m ON m.id = em.pessoa_id
   JOIN public.ebd_classes c ON c.id = em.classe_id
