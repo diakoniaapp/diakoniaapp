@@ -16,15 +16,17 @@ export type RoleOption =
   | "admin"
   | "secretaria"
   | "pastor"
-  | "diakonia"
   | "lideranca"
   | "voluntario";
 
+// Mapa renderiza "diakonia" como Pastor para registros legados, mas UI nova
+// nao oferece a opcao. Migracao SQL (sql/migrations/diakonia_para_pastor.sql)
+// converte os registros existentes.
 export const ROLE_LABEL: Record<string, string> = {
   admin:      "Administrador",
   secretaria: "Secretaria",
   pastor:     "Pastor",
-  diakonia:   "Pastor",     // legado — exibido como Pastor
+  diakonia:   "Pastor",     // legado, somente leitura
   lideranca:  "Liderança",
   voluntario: "Voluntário",
 };
