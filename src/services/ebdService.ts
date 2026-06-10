@@ -20,6 +20,9 @@ export interface EbdEsperado {
   data_nascimento: string | null;
   idade: number | null;
   ja_matriculado: boolean;
+  matricula_id?: string | null;
+  outra_classe_id?: string | null;
+  outra_classe_nome?: string | null;
 }
 
 export async function listarClasses(): Promise<EbdClasse[]> {
@@ -169,4 +172,13 @@ export async function removerProfessor(id: string): Promise<void> {
     .update({ ativo: false, updated_at: new Date().toISOString() })
     .eq("id", id);
   if (error) throw error;
+}
+
+export async function moverParaClasse(pessoaId: string, classeNovaId: string): Promise<string> {
+  const { data, error } = await supabase.rpc("mover_aluno_classe", {
+    p_pessoa_id: pessoaId,
+    p_classe_nova: classeNovaId,
+  });
+  if (error) throw error;
+  return data as string;
 }

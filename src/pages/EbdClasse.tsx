@@ -9,12 +9,12 @@ import {
   Tabs, TabsContent, TabsList, TabsTrigger,
 } from "@/components/ui/tabs";
 import {
-  Loader2, ArrowLeft, UserPlus, UserMinus, Users, GraduationCap, Search, Pencil, Trash2,
+  Loader2, ArrowLeft, UserPlus, UserMinus, Users, GraduationCap, Search, Pencil, Trash2, ArrowRightLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
   carregarClasse, esperadosDaClasse, matriculadosDaClasse,
-  matricular, desmatricular, excluirClasse,
+  matricular, desmatricular, excluirClasse, moverParaClasse,
   type EbdClasse, type EbdEsperado,
 } from "@/services/ebdService";
 import { supabase } from "@/integrations/supabase/client";
@@ -108,6 +108,18 @@ export default function EbdClasse() {
     } catch (e: any) {
       // Erro do trigger é vindo como mensagem
       toast.error(e?.message ?? "Erro ao excluir");
+    } finally { setBusy(false); }
+  }
+
+  async function handleMover(pessoaId: string, deClasseNome?: string | null) {
+    if (deClasseNome && !confirm(`Mover esta pessoa de "${deClasseNome}" para "${classe?.nome}"?`)) return;
+    setBusy(true);
+    try {
+      await moverParaClasse(pessoaId, classeId);
+      toast.success(`Pessoa movida para ${classe?.nome}`);
+      await recarregar();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erro ao mover");
     } finally { setBusy(false); }
   }
 
@@ -250,28 +262,53 @@ export default function EbdClasse() {
               Ninguém na faixa etária ainda.
             </p>
           )}
-          {espFiltrados.map((e) => (
-            <Card key={e.pessoa_id}>
-              <CardContent className="flex items-center justify-between py-3">
-                <div>
-                  <p className="font-medium">{e.nome_completo}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {e.idade ?? "?"} anos
-                    {e.sexo && ` · ${e.sexo}`}
-                    {e.ja_matriculado && <Badge variant="outline" className="ml-2 text-[10px] text-emerald-600 border-emerald-300">Matriculado</Badge>}
-                  </p>
-                </div>
-                {!e.ja_matriculado && (
-                  <Button
-                    size="sm" onClick={() => handleMatricular(e.pessoa_id)}
-                    disabled={busy} className="gap-1.5"
-                  >
-                    <UserPlus className="w-4 h-4" /> Matricular
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+          {espFiltrados.map((e) => {
+            const emOutra = !!e.outra_classe_id;
+            return (
+              <Card key={e.pessoa_id} className={emOutra ? "border-amber-200 bg-amber-50/40" : undefined}>
+                <CardContent className="flex items-center justify-between py-3 gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-medium truncate">{e.nome_completo}</p>
+                      {e.ja_matriculado && (
+                        <Badge variant="outline" className="text-[10px] text-emerald-600 border-emerald-300">
+                          Matriculado aqui
+                        </Badge>
+                      )}
+                      {emOutra && (
+                        <Badge variant="outline" className="text-[10px] text-amber-700 border-amber-300 bg-amber-100/60">
+                          Já em {e.outra_classe_nome}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {e.idade ?? "?"} anos
+                      {e.sexo && ` · ${e.sexo}`}
+                    </p>
+                  </div>
+                  {!e.ja_matriculado && !emOutra && (
+                    <Button
+                      size="sm" onClick={() => handleMatricular(e.pessoa_id)}
+                      disabled={busy} className="gap-1.5"
+                    >
+                      <UserPlus className="w-4 h-4" /> Matricular
+                    </Button>
+                  )}
+                  {!e.ja_matriculado && emOutra && (
+                    <Button
+                      size="sm" variant="outline"
+                      onClick={() => handleMover(e.pessoa_id, e.outra_classe_nome)}
+                      disabled={busy}
+                      className="gap-1.5 text-amber-700 hover:text-amber-800 border-amber-300 hover:bg-amber-100"
+                      title={`Mover de ${e.outra_classe_nome} para ${classe?.nome}`}
+                    >
+                      <ArrowRightLeft className="w-4 h-4" /> Mover pra cá
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </TabsContent>
 
         {/* Não matriculados (outras pessoas) */}
