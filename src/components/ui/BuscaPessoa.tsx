@@ -21,6 +21,7 @@ export interface PessoaResultado {
   tipo_pessoa?: string | null;
   telefone_celular?: string | null;
   cpf?: string | null;
+  status?: string | null;
 }
 
 interface Props {
@@ -74,7 +75,7 @@ export function BuscaPessoa({
       setBuscando(true);
       let q = supabase
         .from("membros")
-        .select("id, nome_completo, tipo_pessoa, telefone_celular, cpf")
+        .select("id, nome_completo, tipo_pessoa, telefone_celular, cpf, status")
         .ilike("nome_completo", `%${busca}%`)
         .order("nome_completo")
         .limit(20);
