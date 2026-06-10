@@ -29,6 +29,7 @@ import Convite from "@/pages/Convite";
 import Ebd from "./pages/Ebd.tsx";
 import EbdClasse from "./pages/EbdClasse.tsx";
 import EbdChamada from "./pages/EbdChamada.tsx";
+import AgendaPastoral from "./pages/AgendaPastoral.tsx";
 import ResetSenhaToken from "@/pages/ResetSenhaToken";
 import EsqueciSenha from "@/pages/EsqueciSenha";
 import ResetSenha from "./pages/ResetSenha.tsx";
@@ -79,6 +80,7 @@ const App = () => (
                   <Route path="/ebd" element={<Ebd />} />
                   <Route path="/ebd/:classeId" element={<EbdClasse />} />
                   <Route path="/ebd/:classeId/chamada" element={<EbdChamada />} />
+                  <Route path="/agenda-pastoral" element={<AgendaPastoral />} />
                   <Route path="/admin/recuperacao-senha" element={<RecuperacaoSenhaAdmin />} />
                   <Route path="/admin/lgpd" element={<LgpdAdmin />} />
                   <Route path="/admin/identidade" element={<IdentidadeAdmin />} />

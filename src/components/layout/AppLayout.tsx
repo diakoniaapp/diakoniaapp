@@ -3,7 +3,7 @@ import { useAuth, type AppRole } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard, Users, HeartHandshake, Home, LogOut,
-  CalendarDays, ChevronLeft, ChevronDown, MapPin, BarChart2, GraduationCap,
+  CalendarDays, CalendarCheck, ChevronLeft, ChevronDown, MapPin, BarChart2, GraduationCap,
   Building2, Network, KeyRound, ShieldAlert, Church, FileText,
   Upload, Download, Flame, UserCheck, Settings, Briefcase,
   Database, Cog, type LucideIcon,
@@ -64,6 +64,7 @@ const NAV_GROUPS: NavGroup[] = [
     icon: Briefcase,
     items: [
       { to: "/eventos",  label: "Agenda",     icon: CalendarDays },
+      { to: "/agenda-pastoral", label: "Agenda Pastoral", icon: CalendarCheck },
       { to: "/locais",   label: "Locais",     icon: MapPin,    allowedRoles: ROLES_LIDERES },
     ],
   },
@@ -109,6 +110,7 @@ const pageTitles: Record<string, string> = {
   "/familias":                "Famílias",
   "/ministerios":             "Ministérios",
   "/eventos":                 "Agenda",
+  "/agenda-pastoral":         "Agenda Pastoral",
   "/locais":                  "Locais",
   "/visitantes":              "Visitantes",
   "/painel-estrategico":      "Crescimento",
