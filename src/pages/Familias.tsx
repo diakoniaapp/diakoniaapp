@@ -239,40 +239,14 @@ export default function Familias() {
                         <Users className="w-3.5 h-3.5" />
                         {loadingCounts ? "…" : `${counts[f.id] ?? 0} membros vinculados`}
                       </div>
-                      {(membrosPorFamilia[f.id]?.length ?? 0) > 0 && (
-                        <div className="flex flex-wrap gap-1.5 mt-2">
-                          {membrosPorFamilia[f.id].slice(0, 8).map(m => (
-                            <span
-                              key={m.id}
-                              title={m.nome}
-                              className="w-7 h-7 rounded-full bg-gold/15 border border-gold/30 flex items-center justify-center text-[10px] font-semibold text-foreground/80"
-                            >
-                              {iniciaisDe(m.nome)}
-                            </span>
-                          ))}
-                          {(membrosPorFamilia[f.id]?.length ?? 0) > 8 && (
-                            <span className="w-7 h-7 rounded-full bg-muted border flex items-center justify-center text-[10px] text-muted-foreground">
-                              +{(membrosPorFamilia[f.id]?.length ?? 0) - 8}
-                            </span>
-                          )}
-                        </div>
-                      )}
                       <div className="flex gap-2 mt-3 flex-wrap">
                         <Button
                           variant="outline" size="sm"
                           onClick={() => { setFamiliaSelecionada(f); setVinculosOpen(true); }}
                         >
-                          <Link2 className="w-3.5 h-3.5 mr-1.5" /> Vínculos familiares
+                          <Link2 className="w-3.5 h-3.5 mr-1.5" /> Visualizar família
                         </Button>
-                        {canEdit && (
-                          <Button
-                            variant="ghost" size="sm"
-                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                            onClick={() => setFamiliaParaExcluir(f)}
-                          >
-                            <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Excluir
-                          </Button>
-                        )}
+
                       </div>
                     </div>
                   </div>
@@ -329,9 +303,27 @@ export default function Familias() {
             />
 
             <div><Label>Observações</Label><Textarea rows={3} value={form.observacoes} onChange={(e) => setForm({ ...form, observacoes: e.target.value })} /></div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => { setOpen(false); setEditingId(null); }}>Cancelar</Button>
-              <Button type="submit">{editingId ? "Salvar alterações" : "Criar família"}</Button>
+            <DialogFooter className="flex-col sm:flex-row sm:justify-between gap-2">
+              {editingId && canEdit && (
+                <Button
+                  type="button" variant="ghost"
+                  className="text-destructive hover:bg-destructive/10 hover:text-destructive sm:mr-auto gap-2"
+                  onClick={() => {
+                    const fam = familias.find(x => x.id === editingId);
+                    if (fam) {
+                      setOpen(false);
+                      setEditingId(null);
+                      setFamiliaParaExcluir(fam);
+                    }
+                  }}
+                >
+                  <Trash2 className="w-4 h-4" /> Excluir família
+                </Button>
+              )}
+              <div className="flex gap-2 justify-end">
+                <Button type="button" variant="outline" onClick={() => { setOpen(false); setEditingId(null); }}>Cancelar</Button>
+                <Button type="submit">{editingId ? "Salvar alterações" : "Criar família"}</Button>
+              </div>
             </DialogFooter>
           </form>
         </DialogContent>
