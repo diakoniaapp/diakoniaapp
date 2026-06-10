@@ -8,7 +8,7 @@ export interface PessoaAniv {
   nome_completo: string;
   data_nascimento: string | null;
   data_casamento: string | null;
-  tipo_pessoa: "membro" | "congregado" | "visitante" | "ex_membro";
+  tipo_pessoa: "membro" | "congregado" | "visitante";
 }
 
 function ymd(d: Date): string {
@@ -57,7 +57,7 @@ function buildVirtual(opts: {
 }
 
 const tipoLabel = (t: PessoaAniv["tipo_pessoa"]) =>
-  t === "membro" ? "Membro" : t === "congregado" ? "Congregado" : t === "visitante" ? "Visitante" : "Ex-membro";
+  t === "membro" ? "Membro" : t === "congregado" ? "Congregado" : "Visitante";
 
 /**
  * Gera ocorrências virtuais (somente leitura) de aniversários de nascimento

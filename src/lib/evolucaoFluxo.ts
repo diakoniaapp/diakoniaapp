@@ -30,7 +30,6 @@ export const TIPO_LABEL: Record<string, string> = {
     visitante: "Visitante",
     congregado: "Congregado",
     membro: "Membro",
-    ex_membro: "Ex-Membro",
 };
 
 /** Ordem na jornada pastoral (para barra de progresso) */

@@ -48,7 +48,6 @@ const TIPO_CONFIG: Record<string, { label: string; cor: string }> = {
   membro:     { label: "Membro",     cor: "bg-blue-100 text-blue-700 border-blue-300" },
   congregado: { label: "Congregado", cor: "bg-emerald-100 text-emerald-700 border-emerald-300" },
   visitante:  { label: "Visitante",  cor: "bg-yellow-100 text-yellow-700 border-yellow-300" },
-  ex_membro:  { label: "Ex-Membro",  cor: "bg-gray-100 text-gray-600 border-gray-300" },
 };
 
 const FUNCAO_CONFIG: Record<string, { label: string; cor: string }> = {

@@ -37,7 +37,7 @@ export interface Membro {
     cidade: string | null;
     cep: string | null;
     sexo: string | null;
-    tipo_pessoa: "membro" | "congregado" | "visitante" | "ex_membro";
+    tipo_pessoa: "membro" | "congregado" | "visitante";
     perfil_acesso:
       | "admin"
       | "pastor"
@@ -65,14 +65,12 @@ const tipoPessoaLabel: Record<string, string> = {
     membro: "Membro",
     congregado: "Congregado",
     visitante: "Visitante",
-    ex_membro: "Ex-Membro",
 };
 
 const tipoPessoaColor: Record<string, string> = {
     membro: "bg-primary/10 text-primary border-primary/30",
     congregado: "bg-accent/15 text-accent-foreground border-accent/30",
     visitante: "bg-warning/15 text-warning border-warning/30",
-    ex_membro: "bg-muted text-muted-foreground border-border",
 };
 
 // ── Indicador visual de status de acesso ─────────────────────────────────────
@@ -213,7 +211,6 @@ export default function Membros() {
                                                                 <SelectItem value="membro">Membro</SelectItem>
                                                                 <SelectItem value="congregado">Congregado</SelectItem>
                                                                 <SelectItem value="visitante">Visitante</SelectItem>
-                                                                <SelectItem value="ex_membro">Ex-Membro</SelectItem>
                                                   </SelectContent>
                                       </Select>
                                       <Select value={perfilFiltro} onValueChange={setPerfilFiltro}>
