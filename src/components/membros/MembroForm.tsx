@@ -277,7 +277,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
               </Select>
               {isVisitante && (
                 <p className="text-xs text-muted-foreground mt-1" translate="no">
-                  Cadastro rapido. Pode ser convertido em congregado ou membro depois.
+                  Cadastro rápido — pode virar congregado depois sem perder o histórico.
                 </p>
               )}
             </div>
