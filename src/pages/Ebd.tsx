@@ -4,9 +4,11 @@ import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, GraduationCap, ChevronRight, Users } from "lucide-react";
+import { Loader2, GraduationCap, ChevronRight, Users, Plus, Pencil } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { listarClasses, type EbdClasse } from "@/services/ebdService";
+import { ClasseForm } from "@/components/ebd/ClasseForm";
+import { useAuth } from "@/hooks/useAuth";
 
 interface ClasseCard extends EbdClasse {
   qtd_matriculados: number;
@@ -14,8 +16,12 @@ interface ClasseCard extends EbdClasse {
 }
 
 export default function Ebd() {
+  const { hasRole } = useAuth();
+  const podeCriar = hasRole(["admin", "secretaria", "pastor", "diakonia"]);
   const [classes, setClasses] = useState<ClasseCard[]>([]);
   const [loading, setLoading] = useState(true);
+  const [formOpen, setFormOpen] = useState(false);
+  const [classeEditando, setClasseEditando] = useState<EbdClasse | null>(null);
 
   useEffect(() => { carregar(); }, []);
 
@@ -76,6 +82,11 @@ export default function Ebd() {
             Classes, matrículas, presenças e campanhas — uma classe por vez.
           </p>
         </div>
+        {podeCriar && (
+          <Button onClick={() => { setClasseEditando(null); setFormOpen(true); }} className="gap-1.5">
+            <Plus className="w-4 h-4" /> Nova classe
+          </Button>
+        )}
       </header>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -120,16 +131,34 @@ export default function Ebd() {
                   {taxa}% da faixa etária matriculada
                 </p>
 
-                <Link to={`/ebd/${c.id}`}>
-                  <Button variant="outline" size="sm" className="w-full mt-1 gap-1.5">
-                    Abrir classe <ChevronRight className="w-3.5 h-3.5" />
-                  </Button>
-                </Link>
+                <div className="flex gap-1.5 mt-1">
+                  <Link to={`/ebd/${c.id}`} className="flex-1">
+                    <Button variant="outline" size="sm" className="w-full gap-1.5">
+                      Abrir <ChevronRight className="w-3.5 h-3.5" />
+                    </Button>
+                  </Link>
+                  {podeCriar && (
+                    <Button
+                      type="button" variant="ghost" size="sm"
+                      onClick={(e) => { e.preventDefault(); setClasseEditando(c); setFormOpen(true); }}
+                      title="Editar classe"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </Button>
+                  )}
+                </div>
               </CardContent>
             </Card>
           );
         })}
       </div>
+
+      <ClasseForm
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        classe={classeEditando}
+        onSaved={carregar}
+      />
     </div>
   );
 }

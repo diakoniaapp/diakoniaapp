@@ -9,14 +9,23 @@ import {
   Tabs, TabsContent, TabsList, TabsTrigger,
 } from "@/components/ui/tabs";
 import {
-  Loader2, ArrowLeft, UserPlus, UserMinus, Users, GraduationCap, Search,
+  Loader2, ArrowLeft, UserPlus, UserMinus, Users, GraduationCap, Search, Pencil, Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
   carregarClasse, esperadosDaClasse, matriculadosDaClasse,
-  matricular, desmatricular, type EbdClasse, type EbdEsperado,
+  matricular, desmatricular, excluirClasse,
+  type EbdClasse, type EbdEsperado,
 } from "@/services/ebdService";
 import { supabase } from "@/integrations/supabase/client";
+import { ClasseForm } from "@/components/ebd/ClasseForm";
+import { ProfessoresBloco } from "@/components/ebd/ProfessoresBloco";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useAuth } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 
 interface MatRow {
   id: string;
@@ -39,6 +48,11 @@ export default function EbdClasse() {
   const [filtro, setFiltro] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const { hasRole } = useAuth();
+  const podeEditar = hasRole(["admin", "secretaria", "pastor", "diakonia"]);
+  const navigate = useNavigate();
 
   useEffect(() => { recarregar(); }, [classeId]);
 
@@ -81,6 +95,19 @@ export default function EbdClasse() {
       await recarregar();
     } catch (e: any) {
       toast.error(e?.message ?? "Erro ao matricular");
+    } finally { setBusy(false); }
+  }
+
+  async function handleExcluirClasse() {
+    if (!classe) return;
+    setBusy(true);
+    try {
+      await excluirClasse(classe.id);
+      toast.success("Classe excluída");
+      navigate("/ebd");
+    } catch (e: any) {
+      // Erro do trigger é vindo como mensagem
+      toast.error(e?.message ?? "Erro ao excluir");
     } finally { setBusy(false); }
   }
 
@@ -130,9 +157,21 @@ export default function EbdClasse() {
             </p>
           </div>
         </div>
-        <Button asChild variant="outline">
-          <Link to={`/ebd/${classeId}/chamada`}>Chamada (em breve)</Link>
-        </Button>
+        <div className="flex gap-2 items-center">
+          {podeEditar && (
+            <>
+              <Button variant="outline" size="sm" onClick={() => setEditOpen(true)} className="gap-1.5">
+                <Pencil className="w-3.5 h-3.5" /> Editar
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setConfirmDelete(true)} className="gap-1.5 text-destructive hover:text-destructive">
+                <Trash2 className="w-3.5 h-3.5" /> Excluir
+              </Button>
+            </>
+          )}
+          <Button asChild variant="outline" size="sm">
+            <Link to={`/ebd/${classeId}/chamada`}>Chamada (em breve)</Link>
+          </Button>
+        </div>
       </div>
 
       {/* Stats rápidas */}
@@ -150,6 +189,9 @@ export default function EbdClasse() {
           <p className="text-2xl font-semibold text-amber-600">{naoMatriculados.length}</p>
         </CardContent></Card>
       </div>
+
+      {/* Professores */}
+      <ProfessoresBloco classeId={classeId} />
 
       {/* Filtro */}
       <div className="relative">
@@ -261,6 +303,40 @@ export default function EbdClasse() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Dialog editar */}
+      <ClasseForm
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        classe={classe}
+        onSaved={recarregar}
+      />
+
+      {/* Confirmar exclusão */}
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir classe?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir <strong>{classe.nome}</strong>?
+              <br /><br />
+              A exclusão será bloqueada pelo banco se houver matriculados ou aulas
+              registradas. Use "Editar" e desative a classe se preferir mantê-la
+              no histórico.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleExcluirClasse}
+              className="bg-destructive text-white hover:bg-destructive/90"
+              disabled={busy}
+            >
+              {busy ? "Excluindo..." : "Excluir definitivamente"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -90,3 +90,83 @@ export async function classesDaPessoa(pessoaId: string) {
     .eq("ativo", true);
   return data ?? [];
 }
+
+// ─── CRUD de Classes ────────────────────────────────────────────────────────
+export interface ClasseInput {
+  nome: string;
+  idade_min: number | null;
+  idade_max: number | null;
+  genero: "masculino" | "feminino" | "misto";
+  descricao?: string | null;
+  cor?: string | null;
+  ordem?: number;
+  ativo?: boolean;
+}
+
+export async function criarClasse(input: ClasseInput): Promise<EbdClasse> {
+  const { data, error } = await supabase
+    .from("ebd_classes")
+    .insert({ ...input, ativo: input.ativo ?? true })
+    .select("*")
+    .single();
+  if (error) throw error;
+  return data as EbdClasse;
+}
+
+export async function atualizarClasse(id: string, patch: Partial<ClasseInput>): Promise<EbdClasse> {
+  const { data, error } = await supabase
+    .from("ebd_classes")
+    .update({ ...patch, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select("*")
+    .single();
+  if (error) throw error;
+  return data as EbdClasse;
+}
+
+export async function excluirClasse(id: string): Promise<void> {
+  // Trigger no banco impede DELETE se houver matriculados ou aulas
+  const { error } = await supabase.from("ebd_classes").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// ─── Professores ────────────────────────────────────────────────────────────
+export interface EbdProfessor {
+  id: string;
+  classe_id: string;
+  pessoa_id: string;
+  tipo: "principal" | "auxiliar" | "substituto";
+  ativo: boolean;
+  desde: string;
+  membros?: { id: string; nome_completo: string } | null;
+}
+
+export async function listarProfessores(classeId: string): Promise<EbdProfessor[]> {
+  const { data, error } = await supabase
+    .from("ebd_professores")
+    .select("id, classe_id, pessoa_id, tipo, ativo, desde, membros(id, nome_completo)")
+    .eq("classe_id", classeId)
+    .eq("ativo", true)
+    .order("tipo");
+  if (error) throw error;
+  return (data ?? []) as EbdProfessor[];
+}
+
+export async function adicionarProfessor(
+  classeId: string,
+  pessoaId: string,
+  tipo: EbdProfessor["tipo"] = "principal",
+): Promise<void> {
+  const { error } = await supabase
+    .from("ebd_professores")
+    .insert({ classe_id: classeId, pessoa_id: pessoaId, tipo, ativo: true });
+  if (error) throw error;
+}
+
+export async function removerProfessor(id: string): Promise<void> {
+  const { error } = await supabase
+    .from("ebd_professores")
+    .update({ ativo: false, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw error;
+}
