@@ -1,24 +1,34 @@
 import { NavLink } from "react-router-dom";
 import {
-  LayoutDashboard, Users, Home, Heart, Calendar, MapPin,
+  LayoutDashboard, Users, Home, Heart, Calendar, MapPin, UserCheck,
 } from "lucide-react";
+import { useAuth, type AppRole } from "@/hooks/useAuth";
 
-const items = [
+const ROLES_LIDERES: AppRole[] = ["admin", "secretaria", "pastor", "diakonia", "lideranca"];
+
+const items: {
+  to: string; label: string; icon: typeof LayoutDashboard;
+  end?: boolean; allowedRoles?: AppRole[];
+}[] = [
   { to: "/", label: "Painel", icon: LayoutDashboard, end: true },
-  { to: "/membros", label: "Pessoas", icon: Users },
-  { to: "/familias", label: "Famílias", icon: Home },
-  { to: "/ministerios", label: "Ministérios", icon: Heart },
+  { to: "/membros", label: "Pessoas", icon: Users, allowedRoles: ROLES_LIDERES },
+  { to: "/visitantes", label: "Visitantes", icon: UserCheck },
+  { to: "/familias", label: "Famílias", icon: Home, allowedRoles: ROLES_LIDERES },
+  { to: "/ministerios", label: "Ministérios", icon: Heart, allowedRoles: ROLES_LIDERES },
   { to: "/eventos", label: "Agenda", icon: Calendar },
-  { to: "/locais", label: "Locais", icon: MapPin },
+  { to: "/locais", label: "Locais", icon: MapPin, allowedRoles: ROLES_LIDERES },
 ];
 
 export function MobileBottomNav() {
+  const { hasRole } = useAuth();
+  const visible = items.filter(i => !i.allowedRoles || hasRole(i.allowedRoles));
+
   return (
     <nav
       className="flex md:hidden fixed bottom-0 inset-x-0 z-40 bg-sidebar text-sidebar-foreground border-t border-sidebar-border pb-safe"
       aria-label="Navegação principal"
     >
-      {items.map((item) => {
+      {visible.map((item) => {
         const Icon = item.icon;
         return (
           <NavLink

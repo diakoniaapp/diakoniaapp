@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate, useLocation } from "react-router-dom";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth, type AppRole } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard, Users, HeartHandshake, Home, LogOut, ShieldCheck,
@@ -12,17 +12,25 @@ import { QuickActionsFab } from "@/components/QuickActionsFab";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
 import { UserMenuButton } from "@/components/layout/UserMenuButton";
 
-const desktopNav = [
+// ─── Itens do menu com roles permitidas ──────────────────────────────────────
+// allowedRoles ausente = todos. Para restringir, listar roles que veem o item.
+const ROLES_LIDERES: AppRole[] = ["admin", "secretaria", "pastor", "diakonia", "lideranca"];
+const ROLES_PASTORAL: AppRole[] = ["admin", "secretaria", "pastor", "diakonia"];
+
+const desktopNav: {
+  to: string; label: string; icon: typeof LayoutDashboard;
+  end?: boolean; allowedRoles?: AppRole[];
+}[] = [
   { to: "/",                  label: "Painel",      icon: LayoutDashboard, end: true },
-  { to: "/membros",           label: "Pessoas",     icon: Users },
+  { to: "/membros",           label: "Pessoas",     icon: Users,           allowedRoles: ROLES_LIDERES },
   { to: "/visitantes",        label: "Visitantes",  icon: UserCheck },
-  { to: "/familias",          label: "Familias",    icon: Home },
-  { to: "/ministerios",       label: "Ministerios", icon: HeartHandshake },
+  { to: "/familias",          label: "Familias",    icon: Home,            allowedRoles: ROLES_LIDERES },
+  { to: "/ministerios",       label: "Ministerios", icon: HeartHandshake,  allowedRoles: ROLES_LIDERES },
   { to: "/eventos",           label: "Agenda",      icon: CalendarDays },
-  { to: "/locais",            label: "Locais",      icon: MapPin },
-  { to: "/painel-estrategico",label: "Crescimento", icon: BarChart2 },
-  { to: "/organograma",       label: "Organograma", icon: Building2 },
-  { to: "/estrutura", label: "Estrutura", icon: Network },
+  { to: "/locais",            label: "Locais",      icon: MapPin,          allowedRoles: ROLES_LIDERES },
+  { to: "/painel-estrategico",label: "Crescimento", icon: BarChart2,       allowedRoles: ROLES_PASTORAL },
+  { to: "/organograma",       label: "Organograma", icon: Building2,       allowedRoles: ROLES_LIDERES },
+  { to: "/estrutura",         label: "Estrutura",   icon: Network,         allowedRoles: ROLES_PASTORAL },
 ];
 
 const pageTitles: Record<string, string> = {
@@ -45,6 +53,18 @@ const pageTitles: Record<string, string> = {
   "/admin/campanhas":         "Campanhas Espirituais",
 };
 
+// Mapa rota -> roles permitidos. Se ausente, todos podem.
+const ROUTE_ROLES: Record<string, AppRole[]> = {
+  "/membros":            ROLES_LIDERES,
+  "/familias":           ROLES_LIDERES,
+  "/ministerios":        ROLES_LIDERES,
+  "/locais":             ROLES_LIDERES,
+  "/painel-estrategico": ROLES_PASTORAL,
+  "/organograma":        ROLES_LIDERES,
+  "/estrutura":          ROLES_PASTORAL,
+  "/usuarios":           ["admin", "secretaria"],
+};
+
 export default function AppLayout() {
   const { user, loading, signOut, roles, hasRole } = useAuth();
   const navigate = useNavigate();
@@ -64,8 +84,15 @@ export default function AppLayout() {
     const lgpdOk = sessionStorage.getItem(`lgpd_ok_${user.id}`);
     if (!lgpdOk) {
       navigate("/aceite-lgpd", { replace: true });
+      return;
     }
-  }, [user, loading, navigate]);
+
+    // Bloqueio de rota por role: se a rota atual exige roles, valida.
+    const required = ROUTE_ROLES[location.pathname];
+    if (required && roles.length > 0 && !hasRole(required)) {
+      navigate("/", { replace: true });
+    }
+  }, [user, loading, navigate, location.pathname, roles, hasRole]);
 
   if (loading || !user) {
     return (
@@ -80,11 +107,16 @@ export default function AppLayout() {
     admin:      "Administrador",
     secretaria: "Secretaria",
     diakonia:   "Pastor",
+    pastor:     "Pastor",
     lideranca:  "Lideranca",
+    voluntario: "Voluntario",
   };
 
   const currentTitle = pageTitles[location.pathname] ?? "Diakonia";
   const isHome = location.pathname === "/";
+
+  // Filtrar itens do menu por role
+  const visibleNav = desktopNav.filter(item => !item.allowedRoles || hasRole(item.allowedRoles));
 
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>
     `flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors ${
@@ -105,7 +137,7 @@ export default function AppLayout() {
         </div>
 
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          {desktopNav.map((item) => {
+          {visibleNav.map((item) => {
             const Icon = item.icon;
             return (
               <NavLink key={item.to} to={item.to} end={item.end} className={navLinkClass}>
