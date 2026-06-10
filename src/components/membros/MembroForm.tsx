@@ -265,6 +265,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
 
   const tituloDialog = membro
     ? "Editar pessoa"
+    : isVisitante ? "Novo visitante"
     : isCongregado ? "Novo congregado"
     : "Novo membro";
 
@@ -295,6 +296,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="visitante">Visitante</SelectItem>
                   <SelectItem value="congregado">Congregado</SelectItem>
                   <SelectItem value="membro">Membro</SelectItem>
                 </SelectContent>
