@@ -65,7 +65,6 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: "/painel-pastoral", label: "Painel Pastoral", icon: Sparkles, allowedRoles: ROLES_LIDERES },
       { to: "/eventos",  label: "Agenda",     icon: CalendarDays },
-      { to: "/agenda-pastoral", label: "Agenda Pastoral", icon: CalendarCheck, allowedRoles: ROLES_LIDERES },
       { to: "/locais",   label: "Locais",     icon: MapPin,    allowedRoles: ROLES_LIDERES },
     ],
   },
