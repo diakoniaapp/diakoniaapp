@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Trash2, Heart } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { GraduationCap } from "lucide-react";
+import { BuscaPessoa } from "@/components/ui/BuscaPessoa";
 import { listarClasses, sugerirClasse, classesDaPessoa, type EbdClasse } from "@/services/ebdService";
 import { normalizarTelefone, validarTelefone } from "@/lib/telefone";
 import { TelefoneInput } from "@/components/ui/TelefoneInput";
@@ -114,8 +115,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
   const [form, setForm] = useState<any>(empty);
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [pessoasLookup, setPessoasLookup] = useState<PessoaLookup[]>([]);
-  const [searchPessoa, setSearchPessoa] = useState("");
+
   // EBD: classes disponíveis e seleção atual
   const [ebdClasses, setEbdClasses] = useState<EbdClasse[]>([]);
   const [ebdClasseSelecionada, setEbdClasseSelecionada] = useState<string>("");
@@ -136,16 +136,6 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
       setSearchPessoa("");
     }
   }, [membro, open]);
-
-  // Carregar lookup de pessoas quando campo "Quem convidou?" aparecer
-  useEffect(() => {
-    if (!PRECISA_QUEM_CONVIDOU.includes(form.como_conheceu)) return;
-    supabase
-      .from("membros").select("id,nome_completo,tipo_pessoa")
-      .in("tipo_pessoa", ["membro", "congregado", "visitante"])
-      .eq("status", "ativo").order("nome_completo")
-      .then(({ data }) => setPessoasLookup((data ?? []) as PessoaLookup[]));
-  }, [form.como_conheceu]);
 
   // EBD: carregar classes disponíveis e classe atual da pessoa (se houver)
   useEffect(() => {
@@ -216,10 +206,6 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
   }, [open, membro?.id]);
 
   const set = (k: string, v: any) => setForm((f: any) => ({ ...f, [k]: v }));
-
-  const filteredPessoas = pessoasLookup.filter((p) =>
-    p.nome_completo.toLowerCase().includes(searchPessoa.toLowerCase())
-  );
 
   // ── Submit ─────────────────────────────────────────────────────────────
   const onSubmit = async (e: React.FormEvent) => {
@@ -585,35 +571,12 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                   {mostraQuemConvidou && (
                     <div className="md:col-span-2 space-y-1">
                       <Label translate="no">Quem convidou?</Label>
-                      <Input
-                        placeholder="Digite o nome para buscar..."
-                        value={searchPessoa}
-                        onChange={(e) => {
-                          setSearchPessoa(e.target.value);
-                          if (form.quem_convidou_id) set("quem_convidou_id", "");
-                        }}
+                      <BuscaPessoa
+                        value={form.quem_convidou_id || ""}
+                        onChange={(id) => set("quem_convidou_id", id)}
+                        tipos={["membro", "congregado", "visitante"]}
+                        ignorarIds={membro ? [membro.id] : []}
                       />
-                      {searchPessoa.length >= 2 && !form.quem_convidou_id && (
-                        <div className="border rounded-md max-h-40 overflow-y-auto bg-background shadow-sm">
-                          {filteredPessoas.length === 0 ? (
-                            <p className="text-sm text-muted-foreground p-3">Nenhuma pessoa encontrada</p>
-                          ) : (
-                            filteredPessoas.slice(0, 10).map((p) => (
-                              <button
-                                key={p.id} type="button"
-                                className="w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors border-b last:border-0"
-                                onClick={() => { set("quem_convidou_id", p.id); setSearchPessoa(p.nome_completo); }}
-                              >
-                                {p.nome_completo}
-                                <span className="text-xs text-muted-foreground ml-2">({p.tipo_pessoa ?? "-"})</span>
-                              </button>
-                            ))
-                          )}
-                        </div>
-                      )}
-                      {form.quem_convidou_id && (
-                        <p className="text-xs text-emerald-600 font-medium">Selecionado: {searchPessoa}</p>
-                      )}
                     </div>
                   )}
 

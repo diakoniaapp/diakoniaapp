@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { BuscaPessoa } from "@/components/ui/BuscaPessoa";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,15 +56,11 @@ export function VinculosDialog({ open, onOpenChange, familiaId, familiaNome }: P
   const load = async () => {
     if (!familiaId) return;
     setLoading(true);
-    const [{ data: vs }, { data: ps }] = await Promise.all([
-      supabase
-        .from("vinculos_familiares" as any)
-        .select("id, familia_id, membro_id, parentesco, responsavel_familia, membro:membros(id, nome_completo)")
-        .eq("familia_id", familiaId),
-      supabase.from("membros").select("id, nome_completo").order("nome_completo"),
-    ]);
+    const { data: vs } = await supabase
+      .from("vinculos_familiares" as any)
+      .select("id, familia_id, membro_id, parentesco, responsavel_familia, membro:membros(id, nome_completo)")
+      .eq("familia_id", familiaId);
     setVinculos(((vs as any) ?? []) as Vinculo[]);
-    setPessoas(((ps as any) ?? []) as PessoaLite[]);
     setLoading(false);
   };
 
@@ -145,46 +142,12 @@ export function VinculosDialog({ open, onOpenChange, familiaId, familiaNome }: P
             <Label>Adicionar pessoa à família</Label>
             <div className="grid md:grid-cols-[1fr,200px,auto] gap-2 items-end">
               <div>
-                <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start font-normal">
-                      <Search className="w-4 h-4 mr-2 text-muted-foreground" />
-                      {nomeSelecionado || "Buscar pessoa..."}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
-                    <div className="p-2 border-b">
-                      <Input
-                        autoFocus
-                        placeholder="Buscar por nome..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                      />
-                    </div>
-                    <div className="max-h-64 overflow-y-auto py-1">
-                      {disponiveis.length === 0 ? (
-                        <div className="px-3 py-6 text-center text-sm text-muted-foreground">
-                          Nenhuma pessoa disponível
-                        </div>
-                      ) : (
-                        disponiveis.slice(0, 50).map((p) => (
-                          <button
-                            type="button"
-                            key={p.id}
-                            onClick={() => {
-                              setNovoMembroId(p.id);
-                              setPickerOpen(false);
-                            }}
-                            className="w-full text-left px-3 py-2 text-sm hover:bg-accent flex items-center justify-between"
-                          >
-                            <span>{p.nome_completo}</span>
-                            {novoMembroId === p.id && <Check className="w-4 h-4" />}
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  </PopoverContent>
-                </Popover>
+                <BuscaPessoa
+                  value={novoMembroId}
+                  onChange={(id) => setNovoMembroId(id)}
+                  ignorarIds={[...jaVinculados]}
+                  placeholder="Buscar pessoa por nome..."
+                />
               </div>
               <Select value={novoParentesco} onValueChange={setNovoParentesco}>
                 <SelectTrigger><SelectValue /></SelectTrigger>

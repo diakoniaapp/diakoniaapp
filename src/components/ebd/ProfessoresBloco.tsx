@@ -11,6 +11,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { UserPlus, UserMinus, GraduationCap } from "lucide-react";
+import { BuscaPessoa } from "@/components/ui/BuscaPessoa";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -19,14 +20,10 @@ import {
 } from "@/services/ebdService";
 
 interface Props { classeId: string; }
-interface PessoaLookup { id: string; nome_completo: string; }
 
 export function ProfessoresBloco({ classeId }: Props) {
   const [professores, setProfessores] = useState<EbdProfessor[]>([]);
   const [open, setOpen] = useState(false);
-  const [busca, setBusca] = useState("");
-  const [resultados, setResultados] = useState<PessoaLookup[]>([]);
-  const [buscando, setBuscando] = useState(false);
   const [pessoaSelecionada, setPessoaSelecionada] = useState<string>("");
   const [tipo, setTipo] = useState<EbdProfessor["tipo"]>("principal");
   const [busy, setBusy] = useState(false);
@@ -40,28 +37,9 @@ export function ProfessoresBloco({ classeId }: Props) {
 
   function abrirDialog() {
     setOpen(true);
-    setPessoaSelecionada(""); setBusca(""); setTipo("principal");
-    setResultados([]);
+    setPessoaSelecionada("");
+    setTipo("principal");
   }
-
-  // Busca server-side com debounce
-  useEffect(() => {
-    if (busca.length < 2) { setResultados([]); return; }
-    const handle = setTimeout(async () => {
-      setBuscando(true);
-      const { data } = await supabase
-        .from("membros")
-        .select("id, nome_completo")
-        .in("tipo_pessoa", ["membro", "congregado"])
-        .eq("status", "ativo")
-        .ilike("nome_completo", `%${busca}%`)
-        .order("nome_completo")
-        .limit(20);
-      setResultados((data ?? []) as PessoaLookup[]);
-      setBuscando(false);
-    }, 250);
-    return () => clearTimeout(handle);
-  }, [busca]);
 
   async function adicionar() {
     if (!pessoaSelecionada) { toast.error("Selecione uma pessoa"); return; }
@@ -141,24 +119,13 @@ export function ProfessoresBloco({ classeId }: Props) {
           <div className="space-y-3">
             <div>
               <Label>Buscar pessoa</Label>
-              <Input placeholder="Digite o nome..." value={busca} onChange={(e) => setBusca(e.target.value)} />
-              {busca.length >= 2 && (
-                <div className="border rounded-md max-h-40 overflow-y-auto mt-2 bg-background">
-                  {buscando ? (
-                    <p className="text-sm text-muted-foreground p-3 text-center">Buscando...</p>
-                  ) : resultados.length === 0 ? (
-                    <p className="text-sm text-muted-foreground p-3 text-center">Nenhuma pessoa encontrada</p>
-                  ) : resultados.map(p => (
-                    <button key={p.id} type="button"
-                      onClick={() => { setPessoaSelecionada(p.id); setBusca(p.nome_completo); }}
-                      className={`w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors border-b last:border-0 ${
-                        pessoaSelecionada === p.id ? "bg-accent" : ""
-                      }`}>
-                      {p.nome_completo}
-                    </button>
-                  ))}
-                </div>
-              )}
+              <BuscaPessoa
+                value={pessoaSelecionada}
+                onChange={(id) => setPessoaSelecionada(id)}
+                tipos={["membro", "congregado"]}
+                ignorarIds={professores.map(p => p.pessoa_id)}
+                autoFocus
+              />
             </div>
             <div>
               <Label>Tipo</Label>

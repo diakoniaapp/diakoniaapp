@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { BuscaPessoa, type PessoaResultado } from "@/components/ui/BuscaPessoa";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,12 +41,7 @@ export default function VoluntariosDialog({ area, open, onOpenChange }: Props) {
     const { data } = await supabase.from("area_voluntarios").select("*")
       .eq("area_id", area.id).order("status").order("data_inicio", { ascending: false });
     setList((data ?? []) as Atuacao[]);
-    const { data: ps } = await supabase.from("membros")
-      .select("id, nome_completo, cpf, telefone_celular, tipo_pessoa, status")
-      .in("tipo_pessoa", ["membro","congregado"])
-      .eq("status", "ativo")
-      .order("nome_completo");
-    setPessoas((ps ?? []) as Pessoa[]);
+    // pessoas carregadas server-side pelo BuscaPessoa
   };
   useEffect(()=>{ if(open) { load(); resetForm(); } }, [open, area.id]);
 
@@ -165,26 +161,12 @@ export default function VoluntariosDialog({ area, open, onOpenChange }: Props) {
                     <Button type="button" variant="ghost" size="sm" onClick={()=>setSelected(null)}>Trocar</Button>
                   </div>
                 ) : (
-                  <>
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"/>
-                      <Input className="pl-9" placeholder="Buscar por nome, CPF ou telefone..." value={search} onChange={(e)=>setSearch(e.target.value)}/>
-                    </div>
-                    {filteredPessoas.length > 0 && (
-                      <div className="border rounded-md mt-2 bg-background divide-y max-h-48 overflow-y-auto">
-                        {filteredPessoas.map(p => (
-                          <button key={p.id} type="button" className="w-full text-left p-2 hover:bg-muted text-sm"
-                            onClick={()=>{ setSelected(p); setSearch(""); }}>
-                            <div className="font-medium">{p.nome_completo}</div>
-                            <div className="text-xs text-muted-foreground">{p.tipo_pessoa}{p.cpf?` • ${p.cpf}`:""}{p.telefone_celular?` • ${p.telefone_celular}`:""}</div>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                    {search && filteredPessoas.length === 0 && (
-                      <p className="text-xs text-muted-foreground mt-2">Nenhuma pessoa ativa encontrada (Membro/Congregado).</p>
-                    )}
-                  </>
+                  <BuscaPessoa
+                    value={selected?.id ?? ""}
+                    onChange={(_id, p) => setSelected(p ? p as any : null)}
+                    tipos={["membro", "congregado"]}
+                    placeholder="Buscar por nome..."
+                  />
                 )}
               </div>
               <div className="grid grid-cols-2 gap-3">
