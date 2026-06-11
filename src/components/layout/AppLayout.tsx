@@ -56,6 +56,7 @@ const NAV_GROUPS: NavGroup[] = [
       { to: "/ministerios",  label: "Ministérios", icon: HeartHandshake, allowedRoles: ROLES_LIDERES },
       { to: "/areas",        label: "Áreas",       icon: Layers,         allowedRoles: ROLES_LIDERES },
       { to: "/ebd",          label: "EBD",         icon: GraduationCap,  allowedRoles: ROLES_LIDERES },
+      { to: "/pgm",          label: "PGM",         icon: Users,          allowedRoles: ROLES_LIDERES },
       { to: "/organograma",  label: "Organograma", icon: Building2,      allowedRoles: ROLES_LIDERES },
     ],
   },
