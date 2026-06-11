@@ -92,20 +92,27 @@ begin
 end;$$;
 
 -- ─── 4) RPC: sugerir PGM por bairro ────────────────────────────────────────
-create or replace function public.pgm_sugerir_por_bairro(p_bairro text)
+drop function if exists public.pgm_sugerir_por_bairro(text);
+create function public.pgm_sugerir_por_bairro(p_bairro text)
 returns table (
   id uuid, nome text, dia_semana smallint, horario time,
   bairro text, qtd_membros int, lider_nome text
 )
 language sql stable security definer set search_path = public as $$
-  select g.id, g.nome, g.dia_semana, g.horario, g.bairro,
-         (select count(*) from public.pgm_membros m where m.grupo_id = g.id and m.ativo)::int,
-         m.nome_completo
-  from public.pgm_grupos g
-  left join public.membros m on m.id = g.lider_id
-  where g.ativo
-    and lower(coalesce(g.bairro, '')) = lower(coalesce(p_bairro, ''))
-  order by (select count(*) from public.pgm_membros m where m.grupo_id = g.id and m.ativo) desc;
+  with res as (
+    select g.id, g.nome, g.dia_semana, g.horario, g.bairro,
+           (select count(*) from public.pgm_membros pm
+              where pm.grupo_id = g.id and pm.ativo)::int as qm,
+           lider.nome_completo as ln
+    from public.pgm_grupos g
+    left join public.membros lider on lider.id = g.lider_id
+    where g.ativo
+      and lower(coalesce(g.bairro, '')) = lower(coalesce(p_bairro, ''))
+  )
+  select res.id, res.nome, res.dia_semana, res.horario, res.bairro,
+         res.qm, res.ln
+  from res
+  order by res.qm desc;
 $$;
 
 -- ─── 5) RPC: alerta de ausência (≥ 3 reuniões consecutivas) ────────────────
