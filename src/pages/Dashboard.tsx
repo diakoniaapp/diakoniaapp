@@ -16,6 +16,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { verseOfTheDay } from "@/lib/agenda/verses";
 import VisitanteRapidoDialog from "@/components/membros/VisitanteRapidoDialog";
+import { AlertasInteligentes } from "@/components/dashboard/AlertasInteligentes";
 
 // ─── Saudação por horário ────────────────────────────────────────────────
 function getSaudacao(): string {
@@ -123,9 +124,9 @@ export default function Dashboard() {
           </div>
         </BlocoSecao>
 
-        {/* ── BLOCO 2 — ALERTAS INTELIGENTES (placeholder) ──────────────── */}
+        {/* ── BLOCO 2 — ALERTAS INTELIGENTES ───────────────────────────── */}
         <BlocoSecao titulo="Alertas inteligentes" icon={Bell} subtitulo="Coisas que precisam da sua decisão">
-          <Placeholder texto="Em construção (Fase 2): pessoas sem família vinculada, famílias sem responsável, alunos fora da faixa etária da EBD, classes com baixa frequência, campanhas próximas da meta." />
+          <AlertasInteligentes />
         </BlocoSecao>
 
         {/* ── BLOCO 3 — VIDA DAS FAMÍLIAS (placeholder) ─────────────────── */}
