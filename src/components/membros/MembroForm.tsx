@@ -115,6 +115,12 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
   const [form, setForm] = useState<any>(empty);
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+
+  // Reset wizard step quando abrir
+  useEffect(() => {
+    if (open) setStep(1);
+  }, [open]);
 
   // EBD: classes disponíveis e seleção atual
   const [ebdClasses, setEbdClasses] = useState<EbdClasse[]>([]);
@@ -409,6 +415,36 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
 
           <form onSubmit={onSubmit} className="space-y-4">
 
+            {/* ── INDICADOR DE PASSOS ── */}
+            <div className="flex items-center justify-between gap-1 pt-1">
+              {([
+                { n: 1 as const, label: "Identificação" },
+                { n: 2 as const, label: "Contato" },
+                { n: 3 as const, label: "Vínculos" },
+              ]).map((p, idx, arr) => (
+                <div key={p.n} className="flex items-center flex-1">
+                  <button
+                    type="button"
+                    onClick={() => setStep(p.n)}
+                    className={`flex flex-col items-center gap-1 ${step === p.n ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold border-2 transition-colors ${
+                      step === p.n ? "bg-gold text-white border-gold"
+                        : step > p.n ? "bg-emerald-500/15 text-emerald-700 border-emerald-500/40"
+                        : "bg-muted border-border"
+                    }`}>
+                      {step > p.n ? "✓" : p.n}
+                    </div>
+                    <span className="text-[10px] font-medium uppercase tracking-wide">{p.label}</span>
+                  </button>
+                  {idx < arr.length - 1 && (
+                    <div className={`flex-1 h-0.5 mx-1 mb-4 ${step > p.n ? "bg-emerald-500/40" : "bg-border"}`} />
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {step === 1 && (<>
             {/* ── TIPO DE PESSOA ── */}
             <div>
               <Label translate="no">Tipo de pessoa *</Label>
@@ -434,6 +470,9 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
               )}
             </div>
 
+                        </>)}
+
+            {step === 1 && (<>
             {/* ── CAMPOS BASICOS (todos os tipos) ── */}
             <section className="grid md:grid-cols-2 gap-3">
 
@@ -515,6 +554,9 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
 
             </section>
 
+                        </>)}
+
+            {step === 2 && (<>
             {/* ── ENDEREÇO (congregado e membro) ── */}
             {(isCongregado || isMembro) && (
               <>
@@ -535,6 +577,9 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
               </>
             )}
 
+                        </>)}
+
+            {step === 2 && (<>
             {/* ── ENDEREÇO VISITANTE (CEP + bairro + cidade) ── */}
             {isVisitante && (
               <CamposEndereco
@@ -549,6 +594,9 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
               />
             )}
 
+                        </>)}
+
+            {step === 1 && (<>
             {/* ── CAMPOS VISITANTE ── */}
             {isVisitante && (
               <>
@@ -602,6 +650,9 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
               </>
             )}
 
+                        </>)}
+
+            {step === 1 && (<>
             {/* ── SITUACAO (congregado e membro) ── */}
             {(isCongregado || isMembro) && (
               <>
@@ -644,6 +695,9 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
               </>
             )}
 
+                        </>)}
+
+            {step === 3 && (<>
             {/* ── EBD ── */}
             {(isCongregado || isMembro) && ebdClasses.length > 0 && (
               <div className="pt-2 space-y-2">
@@ -672,6 +726,9 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
               </div>
             )}
 
+                        </>)}
+
+            {step === 3 && (<>
             {/* ── ÁREAS DE ATUAÇÃO (agrupadas por ministério) ── */}
             {(isCongregado || isMembro) && areasPorMinisterio.length > 0 && (
               <div className="pt-2 space-y-2">
@@ -726,6 +783,9 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
               </div>
             )}
 
+                        </>)}
+
+            {step === 3 && (<>
             {/* ── FAMÍLIA (Fase A) ── */}
             {(isCongregado || isMembro) && (
               <FamiliaBloco
@@ -742,6 +802,9 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
               />
             )}
 
+                        </>)}
+
+            {step === 3 && (<>
             {/* ── ACESSO AO SISTEMA (A4: botão único Convidar como…) ── */}
             {(isCongregado || isMembro) && membro && (
               <div className="pt-2 space-y-2">
@@ -759,20 +822,50 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
               </p>
             )}
 
+                        </>)}
+
             {/* ── FOOTER ── */}
             <DialogFooter className="flex flex-col sm:flex-row gap-2 pt-2">
-              {isAdmin && membro && (
+              {isAdmin && membro && step === 1 && (
                 <Button type="button" variant="destructive" className="sm:mr-auto gap-2"
                   onClick={() => setConfirmDelete(true)} disabled={busy}>
                   <Trash2 className="h-4 w-4" /> Excluir
                 </Button>
               )}
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={busy}>
-                {busy ? "Salvando..." : membro ? "Salvar alteracoes" : `Cadastrar ${tipo}`}
-              </Button>
+              {step > 1 ? (
+                <Button type="button" variant="outline"
+                  onClick={() => setStep((step - 1) as 1 | 2 | 3)}
+                  disabled={busy}>
+                  ← Anterior
+                </Button>
+              ) : (
+                <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
+                  Cancelar
+                </Button>
+              )}
+
+              {step < 3 ? (
+                <Button type="button"
+                  onClick={() => {
+                    // Valida campos obrigatórios do passo atual
+                    if (step === 1 && !form.nome_completo.trim()) {
+                      toast.error("Informe o nome completo");
+                      return;
+                    }
+                    if (step === 1 && isVisitante && !form.telefone_celular.trim()) {
+                      toast.error("Telefone é obrigatório para visitante");
+                      return;
+                    }
+                    setStep((step + 1) as 1 | 2 | 3);
+                  }}
+                  disabled={busy}>
+                  Próximo →
+                </Button>
+              ) : (
+                <Button type="submit" disabled={busy}>
+                  {busy ? "Salvando..." : membro ? "Salvar alteracoes" : `Cadastrar ${tipo}`}
+                </Button>
+              )}
             </DialogFooter>
           </form>
         </DialogContent>
