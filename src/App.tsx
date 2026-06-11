@@ -43,6 +43,7 @@ import FinancasAdmin from "./pages/FinancasAdmin.tsx";
 import FinancasRecorrencias from "./pages/FinancasRecorrencias.tsx";
 import FinancasAgenda from "./pages/FinancasAgenda.tsx";
 import FinancasRelatorio from "./pages/FinancasRelatorio.tsx";
+import FinancasEstoque from "./pages/FinancasEstoque.tsx";
 import AgendaPastoral from "./pages/AgendaPastoral.tsx";
 import PainelPastoral from "./pages/PainelPastoral.tsx";
 import ResetSenhaToken from "@/pages/ResetSenhaToken";
@@ -110,6 +111,7 @@ const App = () => (
                   <Route path="/financas/agenda" element={<FinancasAgenda />} />
                   <Route path="/financas/relatorio" element={<FinancasRelatorio />} />
                   <Route path="/financas/relatorio/:ano/:mes" element={<FinancasRelatorio />} />
+                  <Route path="/financas/estoque" element={<FinancasEstoque />} />
                   <Route path="/agenda-pastoral" element={<AgendaPastoral />} />
                   <Route path="/painel-pastoral" element={<PainelPastoral />} />
                   <Route path="/admin/recuperacao-senha" element={<RecuperacaoSenhaAdmin />} />
