@@ -179,7 +179,7 @@ export default function FinancasCentros() {
               {filtrados.map((c, idx) => {
                 const pct = totalGasto > 0 ? (Number(c.gasto_90d) / totalGasto) * 100 : 0;
                 return (
-                  <div key={c.id} className="border rounded-md px-3 py-2 hover:bg-muted/30">
+                  <Link key={c.id} to={`/financas/centro/${c.id}`} className="block border rounded-md px-3 py-2 hover:bg-muted/30 cursor-pointer">
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                       <div className="flex items-center gap-2 min-w-0 flex-1">
                         <span className="text-xs text-muted-foreground w-5">{idx + 1}.</span>
@@ -208,7 +208,7 @@ export default function FinancasCentros() {
                         <div className="h-full bg-gold/60" style={{ width: `${Math.min(100, pct * 3)}%` }} />
                       </div>
                     )}
-                  </div>
+                  </Link>
                 );
               })}
             </div>
@@ -232,10 +232,11 @@ export default function FinancasCentros() {
                     <p className="text-sm font-semibold tabular-nums text-rose-700">{brl(total)}</p>
                   </div>
                   {lista.slice(0, 5).map(c => (
-                    <div key={c.id} className="flex items-center justify-between text-xs border-b border-border/40 py-1">
+                    <Link key={c.id} to={`/financas/centro/${c.id}`}
+                      className="flex items-center justify-between text-xs border-b border-border/40 py-1 hover:bg-muted/30 transition-colors">
                       <span className="truncate">{c.nome}</span>
                       <span className="tabular-nums text-rose-700 shrink-0 ml-2">{brl(Number(c.gasto_90d))}</span>
-                    </div>
+                    </Link>
                   ))}
                   {lista.length > 5 && (
                     <p className="text-[10px] text-muted-foreground text-center">+{lista.length - 5} centro(s)…</p>

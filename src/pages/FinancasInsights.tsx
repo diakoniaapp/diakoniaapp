@@ -9,10 +9,11 @@ import {
 } from "lucide-react";
 import {
   anomaliasMes, previsaoCaixa, comparativoMeses, topFornecedores,
-  alertasFinanceiros, brl,
+  alertasFinanceiros, listarCentrosComResumo, brl,
   type FinAnomalia, type FinPrevisaoCaixa, type FinComparativoMes,
-  type FinTopFornecedor, type FinAlertaFinanceiro,
+  type FinTopFornecedor, type FinAlertaFinanceiro, type FinCentroResumo,
 } from "@/services/finService";
+import { DonutChart } from "@/components/financas/DonutChart";
 
 export default function FinancasInsights() {
   const [previsao, setPrevisao] = useState<FinPrevisaoCaixa | null>(null);
@@ -20,23 +21,26 @@ export default function FinancasInsights() {
   const [comparativo, setComparativo] = useState<FinComparativoMes[]>([]);
   const [topForns, setTopForns] = useState<FinTopFornecedor[]>([]);
   const [alertas, setAlertas] = useState<FinAlertaFinanceiro[]>([]);
+  const [centros, setCentros] = useState<FinCentroResumo[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
       try {
-        const [p, a, c, t, al] = await Promise.all([
+        const [p, a, c, t, al, ce] = await Promise.all([
           previsaoCaixa().catch(() => null),
           anomaliasMes().catch(() => []),
           comparativoMeses(6).catch(() => []),
           topFornecedores(10, 90).catch(() => []),
           alertasFinanceiros().catch(() => []),
+          listarCentrosComResumo().catch(() => []),
         ]);
         setPrevisao(p);
         setAnomalias(a);
         setComparativo(c);
         setTopForns(t);
         setAlertas(al);
+        setCentros(ce);
       } finally { setLoading(false); }
     })();
   }, []);
@@ -155,6 +159,51 @@ export default function FinancasInsights() {
           </CardContent>
         </Card>
       )}
+
+      {/* Distribuição por tipo de centro */}
+      {centros.length > 0 && (() => {
+        const porTipo: Record<string, { label: string; valor: number; cor: string }> = {
+          ministerio: { label: "Ministérios", valor: 0, cor: "#a855f7" },
+          area:       { label: "Áreas", valor: 0, cor: "#3b82f6" },
+          ebd_classe: { label: "EBD", valor: 0, cor: "#10b981" },
+          pgm_grupo:  { label: "PGM", valor: 0, cor: "#f59e0b" },
+          campanha:   { label: "Campanhas", valor: 0, cor: "#ec4899" },
+          evento:     { label: "Eventos", valor: 0, cor: "#06b6d4" },
+          geral:      { label: "Geral/Operacional", valor: 0, cor: "#737373" },
+        };
+        centros.forEach(c => {
+          if (porTipo[c.vinculo_tipo]) porTipo[c.vinculo_tipo].valor += Number(c.gasto_90d);
+        });
+        const lista = Object.values(porTipo).filter(p => p.valor > 0);
+        const total = lista.reduce((s, p) => s + p.valor, 0);
+        if (total === 0) return null;
+        return (
+          <Card>
+            <CardContent className="py-3 space-y-2">
+              <h3 className="font-serif text-base flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-gold" /> Distribuição de gastos por tipo de centro
+              </h3>
+              <p className="text-[11px] text-muted-foreground">Últimos 90 dias</p>
+              <div className="flex flex-wrap gap-4 items-center justify-center">
+                <DonutChart data={lista} tamanho={160} espessura={28} />
+                <div className="space-y-1 min-w-[200px]">
+                  {lista.sort((a, b) => b.valor - a.valor).map(p => {
+                    const pct = (p.valor / total) * 100;
+                    return (
+                      <div key={p.label} className="flex items-center gap-2 text-xs">
+                        <span className="w-3 h-3 rounded shrink-0" style={{ background: p.cor }} />
+                        <span className="flex-1 truncate">{p.label}</span>
+                        <span className="tabular-nums font-medium">{brl(p.valor)}</span>
+                        <span className="tabular-nums text-muted-foreground text-[10px] w-10 text-right">{pct.toFixed(1)}%</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* Anomalias detectadas */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

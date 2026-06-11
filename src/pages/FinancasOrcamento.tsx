@@ -143,11 +143,12 @@ export default function FinancasOrcamento() {
                 <CardContent className="py-2.5 px-3 space-y-1.5">
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate flex items-center gap-1.5">
+                      <Link to={`/financas/centro/${o.centro_custo_id}`}
+                        className="font-medium text-sm truncate flex items-center gap-1.5 hover:underline">
                         {o.centro_nome}
                         {pct >= 100 && <Badge variant="outline" className="text-[9px] bg-rose-100 text-rose-700 border-rose-300">Estourou</Badge>}
                         {pct >= 80 && pct < 100 && <Badge variant="outline" className="text-[9px] bg-amber-100 text-amber-700 border-amber-300">Alerta</Badge>}
-                      </p>
+                      </Link>
                       <p className="text-[11px] text-muted-foreground">
                         {o.mes ? `Mês ${String(o.mes).padStart(2, "0")}/${o.ano}` : `Ano ${o.ano}`}
                       </p>
