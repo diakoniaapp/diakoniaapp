@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Printer, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { BrandMark } from "@/components/Brand";
+import logoDiakonia from "@/assets/logo-diakonia.png";
 import {
   carregarCampanha, resumoCampanha, listarEntradas, carregarClasse,
   type CampanhaEbd, type ResumoCampanha, type EntradaEbd, type EbdClasse,
@@ -159,14 +159,22 @@ export default function EbdCampanhaRelatorio() {
       <div className="relatorio-page max-w-4xl mx-auto bg-white text-foreground p-8 md:p-10 my-4 md:my-6 shadow-elevated border border-border/40 rounded-md print:my-0">
         {/* Cabeçalho institucional */}
         <header className="avoid-break flex items-start justify-between gap-4 pb-4 border-b-2 border-gold/30">
-          <div className="flex items-center gap-3">
-            {/* Logo com fundo gold para garantir contraste do DIAKONIA (logo branco) */}
-            <div className="bg-gold rounded-md px-3 py-2 flex items-center justify-center shadow-sm print:bg-gold print:!bg-gold" style={{ printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" }}>
-              <BrandMark className="text-2xl" />
-            </div>
+          <div className="flex items-center gap-4">
+            {/* Logo sem fundo, com drop-shadow para destacar letras brancas */}
+            <img
+              src={logoDiakonia}
+              alt="DIAKONIA"
+              className="h-14 w-auto object-contain"
+              style={{
+                filter: "drop-shadow(0 2px 3px rgba(0,0,0,0.35)) drop-shadow(0 1px 1px rgba(0,0,0,0.25))",
+                printColorAdjust: "exact",
+                WebkitPrintColorAdjust: "exact",
+              }}
+              draggable={false}
+            />
             <div>
               <h2 className="font-serif text-lg leading-tight">Diakonia APP — Sistema de Igrejas</h2>
-              <p className="text-[11px] text-muted-foreground mt-0.5 tracking-wide">
+              <p className="text-[11px] text-muted-foreground mt-0.5 tracking-[0.12em] uppercase">
                 Conectando pessoas, organizando o propósito
               </p>
             </div>
