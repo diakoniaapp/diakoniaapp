@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/tabs";
 import {
   Loader2, ArrowLeft, UserPlus, UserMinus, Users, GraduationCap, Search, Pencil, Trash2,
+  PowerOff, RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
 import {

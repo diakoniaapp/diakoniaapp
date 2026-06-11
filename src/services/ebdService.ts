@@ -26,11 +26,9 @@ export interface EbdEsperado {
 }
 
 export async function listarClasses(incluirInativas = false): Promise<EbdClasse[]> {
-  const { data, error } = await supabase
-    .from("ebd_classes")
-    .select("*")
-    .eq("ativo", true)
-    .order("ordem");
+  let q = supabase.from("ebd_classes").select("*").order("ordem");
+  if (!incluirInativas) q = q.eq("ativo", true);
+  const { data, error } = await q;
   if (error) throw error;
   return (data ?? []) as EbdClasse[];
 }
