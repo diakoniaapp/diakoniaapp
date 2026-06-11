@@ -19,6 +19,7 @@ import VisitanteRapidoDialog from "@/components/membros/VisitanteRapidoDialog";
 import { AlertasInteligentes } from "@/components/dashboard/AlertasInteligentes";
 import { VidaDasFamilias } from "@/components/dashboard/VidaDasFamilias";
 import { AcoesDoDia } from "@/components/dashboard/AcoesDoDia";
+import { AtencaoEmPessoas } from "@/components/dashboard/AtencaoEmPessoas";
 
 // ─── Saudação por horário ────────────────────────────────────────────────
 function getSaudacao(): string {
@@ -151,9 +152,9 @@ export default function Dashboard() {
           <Placeholder texto="Em construção (Fase 6): cada campanha com meta vs arrecadado, porcentagem e barra de progresso. Requer EBD Fase C." />
         </BlocoSecao>
 
-        {/* ── BLOCO 7 — PESSOAS (placeholder) ───────────────────────────── */}
-        <BlocoSecao titulo="Atenção em pessoas" icon={Users} subtitulo="Visitantes, sem família, aniversariantes">
-          <Placeholder texto="Em construção (Fase 7): novos visitantes recentes, pessoas sem vínculo familiar ou sem classe EBD, aniversariantes próximos." />
+        {/* ── BLOCO 7 — PESSOAS ────────────────────────────────────────── */}
+        <BlocoSecao titulo="Atenção em pessoas" icon={Users} subtitulo="Visitantes recentes, sem família, sem classe EBD">
+          <AtencaoEmPessoas />
         </BlocoSecao>
 
         {/* ── BLOCO 8 — AGENDA DO DIA (placeholder) ─────────────────────── */}
