@@ -204,3 +204,183 @@ export function horarioTexto(h: string | null): string {
   if (!h) return "—";
   return h.slice(0, 5);
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FASE B — Reuniões + Presenças + Visitas
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface PgmReuniao {
+  id: string;
+  grupo_id: string;
+  data: string;
+  tema: string | null;
+  texto_base: string | null;
+  observacoes: string | null;
+  local_alterado: string | null;
+  foto_url: string | null;
+  fechada: boolean;
+  registrada_por: string | null;
+  created_at?: string;
+}
+
+export interface PgmPresenca {
+  id: string;
+  reuniao_id: string;
+  pessoa_id: string;
+  presente: boolean;
+  observacao: string | null;
+}
+
+export interface PgmPresencaComPessoa extends PgmPresenca {
+  nome_completo?: string;
+  papel?: PgmPapel;
+}
+
+export interface PgmVisita {
+  id: string;
+  reuniao_id: string;
+  nome: string;
+  telefone: string | null;
+  bairro: string | null;
+  convidado_por: string | null;
+  observacao: string | null;
+  virou_pessoa_id: string | null;
+}
+
+export interface ResumoPresenca {
+  reuniao_id: string;
+  data: string;
+  tema: string | null;
+  total: number;
+  presentes: number;
+  percentual: number;
+}
+
+// ─── Reuniões ────────────────────────────────────────────────────────────
+export async function listarReunioes(grupoId: string): Promise<PgmReuniao[]> {
+  const { data, error } = await supabase
+    .from("pgm_reunioes")
+    .select("*")
+    .eq("grupo_id", grupoId)
+    .order("data", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as PgmReuniao[];
+}
+
+export async function carregarReuniao(id: string): Promise<PgmReuniao | null> {
+  const { data } = await supabase.from("pgm_reunioes").select("*").eq("id", id).maybeSingle();
+  return (data ?? null) as PgmReuniao | null;
+}
+
+export async function iniciarReuniao(grupoId: string, data: string, tema?: string | null): Promise<string> {
+  const { data: rid, error } = await supabase.rpc("pgm_iniciar_reuniao", {
+    p_grupo_id: grupoId,
+    p_data: data,
+    p_tema: tema ?? null,
+  });
+  if (error) throw error;
+  return rid as string;
+}
+
+export async function atualizarReuniao(id: string, patch: Partial<Omit<PgmReuniao, "id" | "grupo_id" | "created_at">>): Promise<void> {
+  const { error } = await supabase.from("pgm_reunioes").update(patch).eq("id", id);
+  if (error) throw error;
+}
+
+export async function excluirReuniao(id: string): Promise<void> {
+  const r = await carregarReuniao(id);
+  if (r?.foto_url) await removerFotoReuniao(r.foto_url);
+  const { error } = await supabase.from("pgm_reunioes").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// ─── Presenças ───────────────────────────────────────────────────────────
+export async function listarPresencas(reuniaoId: string): Promise<PgmPresencaComPessoa[]> {
+  const { data, error } = await supabase
+    .from("pgm_presencas")
+    .select("*")
+    .eq("reuniao_id", reuniaoId);
+  if (error) throw error;
+  const presencas = (data ?? []) as PgmPresenca[];
+  if (presencas.length === 0) return [];
+
+  const ids = presencas.map(p => p.pessoa_id);
+  const [{ data: pessoas }, { data: vinculos }] = await Promise.all([
+    supabase.from("membros").select("id, nome_completo").in("id", ids),
+    supabase.from("pgm_membros").select("pessoa_id, papel").in("pessoa_id", ids),
+  ]);
+  const pMap = new Map((pessoas ?? []).map((p: any) => [p.id, p.nome_completo]));
+  const vMap = new Map((vinculos ?? []).map((v: any) => [v.pessoa_id, v.papel]));
+
+  return presencas
+    .map(p => ({
+      ...p,
+      nome_completo: pMap.get(p.pessoa_id),
+      papel: vMap.get(p.pessoa_id),
+    }))
+    .sort((a, b) => (a.nome_completo ?? "").localeCompare(b.nome_completo ?? "", "pt-BR"));
+}
+
+export async function marcarPresenca(presencaId: string, presente: boolean): Promise<void> {
+  const { error } = await supabase.from("pgm_presencas").update({ presente }).eq("id", presencaId);
+  if (error) throw error;
+}
+
+// ─── Visitas ────────────────────────────────────────────────────────────
+export async function listarVisitas(reuniaoId: string): Promise<PgmVisita[]> {
+  const { data, error } = await supabase
+    .from("pgm_visitas")
+    .select("*")
+    .eq("reuniao_id", reuniaoId)
+    .order("created_at");
+  if (error) throw error;
+  return (data ?? []) as PgmVisita[];
+}
+
+export async function registrarVisita(reuniaoId: string, input: {
+  nome: string; telefone?: string | null; bairro?: string | null;
+  convidado_por?: string | null; observacao?: string | null;
+}): Promise<PgmVisita> {
+  const { data, error } = await supabase.from("pgm_visitas").insert({
+    reuniao_id: reuniaoId,
+    nome: input.nome,
+    telefone: input.telefone ?? null,
+    bairro: input.bairro ?? null,
+    convidado_por: input.convidado_por ?? null,
+    observacao: input.observacao ?? null,
+  }).select("*").single();
+  if (error) throw error;
+  return data as PgmVisita;
+}
+
+export async function excluirVisita(id: string): Promise<void> {
+  const { error } = await supabase.from("pgm_visitas").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// ─── Foto da reunião ─────────────────────────────────────────────────────
+export async function uploadFotoReuniao(file: File, reuniaoId: string): Promise<string> {
+  if (file.size > 5 * 1024 * 1024) throw new Error("Foto maior que 5 MB");
+  const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+  const path = `${reuniaoId}/${Date.now()}.${ext}`;
+  const { error } = await supabase.storage.from("pgm-reunioes")
+    .upload(path, file, { upsert: true, contentType: file.type });
+  if (error) throw error;
+  return path;
+}
+
+export async function removerFotoReuniao(path: string): Promise<void> {
+  await supabase.storage.from("pgm-reunioes").remove([path]);
+}
+
+export async function fotoReuniaoSignedUrl(path: string, segs = 600): Promise<string | null> {
+  const { data } = await supabase.storage.from("pgm-reunioes").createSignedUrl(path, segs);
+  return data?.signedUrl ?? null;
+}
+
+// ─── Resumo de presenças ─────────────────────────────────────────────────
+export async function resumoPresenca(grupoId: string, n = 4): Promise<ResumoPresenca[]> {
+  const { data, error } = await supabase.rpc("pgm_resumo_presenca", { p_grupo_id: grupoId, p_n: n });
+  if (error) throw error;
+  return (data ?? []) as ResumoPresenca[];
+}

@@ -15,13 +15,15 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import {
-  carregarGrupo, listarMembrosDoGrupo,
+  carregarGrupo, listarMembrosDoGrupo, listarReunioes, iniciarReuniao, resumoPresenca,
   vincularPessoa, desvincularPessoa, marcarPrincipal,
   alterarPapel, desativarGrupo, reativarGrupo, excluirGrupo,
   diaSemanaTexto, horarioTexto, PAPEL_LABEL,
   type PgmGrupoResumo, type PgmMembroComPessoa, type PgmPapel,
+  type PgmReuniao, type ResumoPresenca,
 } from "@/services/pgmService";
 import { GrupoForm } from "@/components/pgm/GrupoForm";
+import { Play, BookOpen, ChevronRight as ChevR, Calendar as Cal } from "lucide-react";
 import { BuscaPessoa } from "@/components/ui/BuscaPessoa";
 
 const PAPEL_ICONE: Record<PgmPapel, JSX.Element> = {
@@ -44,6 +46,9 @@ export default function PgmGrupo() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
   const [novoMembroId, setNovoMembroId] = useState("");
+  const [reunioes, setReunioes] = useState<PgmReuniao[]>([]);
+  const [resumo, setResumo] = useState<ResumoPresenca[]>([]);
+  const [iniciandoReuniao, setIniciandoReuniao] = useState(false);
 
   useEffect(() => { carregar(); }, [grupoId]);
 
@@ -51,13 +56,28 @@ export default function PgmGrupo() {
     if (!grupoId) return;
     setLoading(true);
     try {
-      const [g, ms] = await Promise.all([
+      const [g, ms, rs, rp] = await Promise.all([
         carregarGrupo(grupoId),
         listarMembrosDoGrupo(grupoId),
+        listarReunioes(grupoId),
+        resumoPresenca(grupoId, 4),
       ]);
       setGrupo(g);
       setMembros(ms);
+      setReunioes(rs);
+      setResumo(rp);
     } finally { setLoading(false); }
+  }
+
+  async function startNovaReuniao() {
+    setIniciandoReuniao(true);
+    try {
+      const hoje = new Date().toISOString().slice(0, 10);
+      const rid = await iniciarReuniao(grupoId, hoje);
+      navigate(`/pgm/${grupoId}/reuniao/${rid}`);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erro ao iniciar reuniao");
+    } finally { setIniciandoReuniao(false); }
   }
 
   async function adicionar() {
@@ -218,6 +238,54 @@ export default function PgmGrupo() {
           <Lideranca icon={<Crown className="w-3.5 h-3.5 text-gold" />} label="Líder" nome={grupo.lider_nome} />
           <Lideranca icon={<Star className="w-3.5 h-3.5 text-amber-600" />} label="Co-líder" nome={grupo.co_lider_nome} />
           <Lideranca icon={<HomeIcon className="w-3.5 h-3.5 text-blue-600" />} label="Anfitrião" nome={grupo.anfitriao_nome} />
+        </CardContent>
+      </Card>
+
+      {/* Reuniões */}
+      <Card>
+        <CardContent className="py-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <h3 className="font-serif text-base flex items-center gap-2">
+              <Cal className="w-4 h-4 text-gold" /> Reuniões
+            </h3>
+            {podeEditar && (
+              <Button size="sm" onClick={startNovaReuniao} disabled={iniciandoReuniao} className="gap-1.5 bg-gold hover:bg-gold/90 text-white">
+                <Play className="w-3.5 h-3.5" /> {iniciandoReuniao ? "..." : "Iniciar reunião de hoje"}
+              </Button>
+            )}
+          </div>
+          {reunioes.length === 0 ? (
+            <p className="text-sm text-muted-foreground italic text-center py-3">
+              Nenhuma reunião registrada ainda.
+            </p>
+          ) : (
+            <div className="space-y-1">
+              {reunioes.slice(0, 5).map(r => {
+                const res = resumo.find(rr => rr.reuniao_id === r.id);
+                return (
+                  <Link key={r.id} to={`/pgm/${grupoId}/reuniao/${r.id}`}
+                    className="flex items-center justify-between border rounded-md px-3 py-2 hover:bg-muted/40 transition-colors">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium flex items-center gap-2">
+                        {new Date(r.data + "T00:00").toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" })}
+                        {r.tema && (
+                          <span className="text-xs text-muted-foreground italic truncate">
+                            <BookOpen className="w-3 h-3 inline mr-0.5" /> {r.tema}
+                          </span>
+                        )}
+                      </p>
+                      {res && (
+                        <p className="text-[11px] text-muted-foreground">
+                          {res.presentes}/{res.total} presentes · {res.percentual}%
+                        </p>
+                      )}
+                    </div>
+                    <ChevR className="w-3.5 h-3.5 text-muted-foreground" />
+                  </Link>
+                );
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
 
