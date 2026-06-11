@@ -18,6 +18,7 @@ import { verseOfTheDay } from "@/lib/agenda/verses";
 import VisitanteRapidoDialog from "@/components/membros/VisitanteRapidoDialog";
 import { AlertasInteligentes } from "@/components/dashboard/AlertasInteligentes";
 import { VidaDasFamilias } from "@/components/dashboard/VidaDasFamilias";
+import { AcoesDoDia } from "@/components/dashboard/AcoesDoDia";
 
 // ─── Saudação por horário ────────────────────────────────────────────────
 function getSaudacao(): string {
@@ -135,9 +136,9 @@ export default function Dashboard() {
           <VidaDasFamilias />
         </BlocoSecao>
 
-        {/* ── BLOCO 4 — AÇÕES DO DIA (placeholder) ──────────────────────── */}
+        {/* ── BLOCO 4 — AÇÕES DO DIA ───────────────────────────────────── */}
         <BlocoSecao titulo="Ações de hoje" icon={CalendarCheck} subtitulo="Aniversários e bodas que acontecem agora">
-          <Placeholder texto="Em construção (Fase 4): eventos do dia com mensagem pronta + botão WhatsApp por contato." />
+          <AcoesDoDia />
         </BlocoSecao>
 
         {/* ── BLOCO 5 — RESUMO DA EBD (placeholder) ─────────────────────── */}
