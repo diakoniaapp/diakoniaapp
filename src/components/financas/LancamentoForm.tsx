@@ -10,15 +10,17 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { TrendingUp, TrendingDown, Camera, FileUp, X, Paperclip } from "lucide-react";
+import { TrendingUp, TrendingDown, Camera, FileUp, X, Paperclip, Sparkles, Loader2 } from "lucide-react";
 import {
   listarContas, listarCategorias, listarCentrosCusto, listarFornecedores,
   criarLancamento, atualizarLancamento, uploadComprovante, removerComprovante,
+  buscarFornecedorPorCnpj, criarFornecedor, brl,
   FORMA_LABEL, STATUS_LABEL,
   type FinConta, type FinCategoria, type FinCentroCusto, type FinFornecedor,
   type FinLancamento, type FinMovimentoTipo, type FinFormaPagamento, type FinStatus,
   FIN_COMPROVANTE_MAX,
 } from "@/services/finService";
+import { extrairDadosDoComprovante, type OcrResultado } from "@/services/ocrService";
 
 interface Props {
   open: boolean;
@@ -62,6 +64,11 @@ export function LancamentoForm({
   // Comprovante
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  // OCR
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const [ocr, setOcr] = useState<OcrResultado | null>(null);
+  const [fornecedorOcrSugerido, setFornecedorOcrSugerido] = useState<FinFornecedor | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -110,10 +117,68 @@ export function LancamentoForm({
     return () => URL.revokeObjectURL(u);
   }, [arquivo]);
 
-  function escolheArquivo(file: File | null) {
+  async function escolheArquivo(file: File | null) {
     if (!file) return;
     if (file.size > FIN_COMPROVANTE_MAX) { toast.error("Arquivo > 5MB"); return; }
     setArquivo(file);
+    setOcr(null);
+    setFornecedorOcrSugerido(null);
+
+    // Roda OCR só em imagens (PDF não é suportado pelo Tesseract por enquanto)
+    if (file.type.startsWith("image/")) {
+      setOcrLoading(true);
+      try {
+        const res = await extrairDadosDoComprovante(file);
+        setOcr(res);
+        // Procura fornecedor por CNPJ
+        if (res.cnpj) {
+          const f = await buscarFornecedorPorCnpj(res.cnpj).catch(() => null);
+          if (f) setFornecedorOcrSugerido(f);
+        }
+      } catch (e: any) {
+        toast.error("OCR falhou: " + (e?.message ?? ""));
+      } finally { setOcrLoading(false); }
+    }
+  }
+
+  async function aplicarSugestoesOcr() {
+    if (!ocr) return;
+    if (ocr.valor && ocr.valor > 0) setValor(ocr.valor);
+    if (ocr.data) setData(ocr.data);
+    if (ocr.numeroDoc) setDocumentoNumero(ocr.numeroDoc);
+
+    if (fornecedorOcrSugerido) {
+      setFornecedorId(fornecedorOcrSugerido.id);
+      setFornecedorBusca(fornecedorOcrSugerido.nome);
+      if (fornecedorOcrSugerido.categoria_padrao_id && !categoriaId) {
+        setCategoriaId(fornecedorOcrSugerido.categoria_padrao_id);
+      }
+    } else if (ocr.razaoSocial) {
+      setFornecedorBusca(ocr.razaoSocial);
+    }
+
+    if (!descricao && ocr.razaoSocial) {
+      setDescricao(ocr.razaoSocial);
+    }
+
+    toast.success("Dados aplicados ao formulário");
+  }
+
+  async function salvarFornecedorDoOcr() {
+    if (!ocr?.razaoSocial || !ocr.cnpj) return;
+    try {
+      const f = await criarFornecedor({
+        nome: ocr.razaoSocial,
+        cnpj_cpf: ocr.cnpj,
+        tipo: "juridica",
+      });
+      setFornecedorOcrSugerido(f);
+      setFornecedorId(f.id);
+      setFornecedorBusca(f.nome);
+      toast.success("Fornecedor salvo para usar de novo");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erro");
+    }
   }
 
   async function onSubmit(e: React.FormEvent) {
@@ -347,6 +412,65 @@ export function LancamentoForm({
             )}
             <p className="text-[10px] text-muted-foreground">JPG, PNG ou PDF — máx 5 MB</p>
           </div>
+
+          {/* Resultado do OCR */}
+          {(ocrLoading || ocr) && (
+            <div className="rounded-md p-3 border border-blue-300 bg-blue-50/30 text-xs space-y-2">
+              {ocrLoading && (
+                <p className="flex items-center gap-1.5 text-blue-900">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Lendo comprovante...
+                </p>
+              )}
+              {ocr && (
+                <>
+                  <p className="flex items-center gap-1.5 text-blue-900 font-medium">
+                    <Sparkles className="w-3.5 h-3.5" /> Detectamos:
+                  </p>
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+                    {ocr.valor && (
+                      <p><span className="text-muted-foreground">Valor:</span> <strong>{brl(ocr.valor)}</strong></p>
+                    )}
+                    {ocr.data && (
+                      <p><span className="text-muted-foreground">Data:</span> <strong>{new Date(ocr.data + "T00:00").toLocaleDateString("pt-BR")}</strong></p>
+                    )}
+                    {ocr.cnpjFormatado && (
+                      <p className="col-span-2"><span className="text-muted-foreground">CNPJ:</span> <strong>{ocr.cnpjFormatado}</strong></p>
+                    )}
+                    {ocr.razaoSocial && (
+                      <p className="col-span-2"><span className="text-muted-foreground">Fornecedor:</span> <strong>{ocr.razaoSocial}</strong></p>
+                    )}
+                    {ocr.numeroDoc && (
+                      <p><span className="text-muted-foreground">Nº NF:</span> <strong>{ocr.numeroDoc}</strong></p>
+                    )}
+                  </div>
+                  {fornecedorOcrSugerido && (
+                    <p className="text-emerald-700 text-[11px]">
+                      ✓ Fornecedor reconhecido: <strong>{fornecedorOcrSugerido.nome}</strong>
+                    </p>
+                  )}
+                  <div className="flex gap-1.5 pt-1">
+                    <Button type="button" size="sm" onClick={aplicarSugestoesOcr}
+                      className="h-7 text-[11px] bg-blue-600 hover:bg-blue-700 text-white gap-1">
+                      <Sparkles className="w-3 h-3" /> Aplicar sugestões
+                    </Button>
+                    {ocr.razaoSocial && ocr.cnpj && !fornecedorOcrSugerido && (
+                      <Button type="button" size="sm" variant="outline" onClick={salvarFornecedorDoOcr}
+                        className="h-7 text-[11px]">
+                        Salvar como fornecedor
+                      </Button>
+                    )}
+                    <Button type="button" size="sm" variant="ghost" onClick={() => setOcr(null)}
+                      className="h-7 text-[11px] ml-auto">
+                      Ignorar
+                    </Button>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground text-right">
+                    OCR em {(ocr.duracaoMs / 1000).toFixed(1)}s · confiança {ocr.confianca}%
+                  </p>
+                </>
+              )}
+            </div>
+          )}
 
           <div>
             <Label>Observações</Label>

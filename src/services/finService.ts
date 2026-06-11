@@ -405,3 +405,12 @@ export async function transferir(input: {
     throw e;
   }
 }
+
+export async function buscarFornecedorPorCnpj(cnpjDigitos: string): Promise<FinFornecedor | null> {
+  if (!cnpjDigitos || cnpjDigitos.length < 11) return null;
+  const { data } = await supabase.from("fin_fornecedores")
+    .select("*")
+    .eq("cnpj_cpf", cnpjDigitos)
+    .limit(1).maybeSingle();
+  return (data ?? null) as FinFornecedor | null;
+}
