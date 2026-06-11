@@ -171,6 +171,9 @@ export default function EbdClasse() {
           <Button asChild variant="outline" size="sm">
             <Link to={`/ebd/${classeId}/chamada`}>Fazer chamada</Link>
           </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link to={`/ebd/${classeId}/campanhas`}>Campanhas</Link>
+          </Button>
         </div>
       </div>
 

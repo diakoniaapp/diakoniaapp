@@ -287,3 +287,116 @@ export async function uploadFotoAula(aulaId: string, classeId: string, file: Fil
   await atualizarAula(aulaId, { foto_url: publicUrl });
   return publicUrl;
 }
+
+// ─── Campanhas EBD ─────────────────────────────────────────────────────────
+export interface CampanhaEbd {
+  id: string;
+  classe_id: string | null;
+  nome: string;
+  descricao: string | null;
+  data_inicio: string;
+  data_fim: string;
+  meta_valor: number;
+  ativo: boolean;
+  created_at?: string;
+}
+
+export interface CampanhaInput {
+  classe_id: string | null;
+  nome: string;
+  descricao?: string | null;
+  data_inicio: string;
+  data_fim: string;
+  meta_valor: number;
+  ativo?: boolean;
+}
+
+export interface EntradaEbd {
+  id: string;
+  campanha_id: string;
+  data: string;
+  valor: number;
+  tipo: "oferta" | "evento" | "produto";
+  forma: "pix" | "envelope" | "outro";
+  descricao: string | null;
+  registrado_por?: string | null;
+  created_at?: string;
+}
+
+export interface ResumoCampanha {
+  meta: number;
+  arrecadado: number;
+  percentual: number;
+  dias_decorridos: number;
+  dias_totais: number;
+  meta_diaria: number;
+  esperado_ate_hoje: number;
+  status: "meta_atingida" | "acima_esperado" | "no_ritmo" | "abaixo_esperado" | "muito_abaixo";
+}
+
+// Centavos simbólicos (R$ 0,10) para identificar oferta de campanha no extrato
+export const CENTAVOS_SIMBOLICOS = 0.10;
+
+export async function listarCampanhas(classeId?: string | null): Promise<CampanhaEbd[]> {
+  let q = supabase.from("ebd_campanhas").select("*").order("data_fim", { ascending: false });
+  if (classeId) q = q.eq("classe_id", classeId);
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data ?? []) as CampanhaEbd[];
+}
+
+export async function carregarCampanha(id: string): Promise<CampanhaEbd | null> {
+  const { data } = await supabase.from("ebd_campanhas").select("*").eq("id", id).maybeSingle();
+  return (data ?? null) as CampanhaEbd | null;
+}
+
+export async function criarCampanha(input: CampanhaInput): Promise<CampanhaEbd> {
+  const { data, error } = await supabase.from("ebd_campanhas")
+    .insert({ ...input, ativo: input.ativo ?? true })
+    .select("*").single();
+  if (error) throw error;
+  return data as CampanhaEbd;
+}
+
+export async function atualizarCampanha(id: string, patch: Partial<CampanhaInput>): Promise<void> {
+  const { error } = await supabase.from("ebd_campanhas").update(patch).eq("id", id);
+  if (error) throw error;
+}
+
+export async function excluirCampanha(id: string): Promise<void> {
+  const { error } = await supabase.from("ebd_campanhas").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function listarEntradas(campanhaId: string): Promise<EntradaEbd[]> {
+  const { data, error } = await supabase.from("ebd_entradas")
+    .select("*")
+    .eq("campanha_id", campanhaId)
+    .order("data", { ascending: false })
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as EntradaEbd[];
+}
+
+export async function registrarEntrada(
+  campanhaId: string,
+  input: Omit<EntradaEbd, "id" | "campanha_id" | "created_at" | "registrado_por">,
+): Promise<EntradaEbd> {
+  const { data, error } = await supabase.from("ebd_entradas")
+    .insert({ campanha_id: campanhaId, ...input })
+    .select("*").single();
+  if (error) throw error;
+  return data as EntradaEbd;
+}
+
+export async function excluirEntrada(id: string): Promise<void> {
+  const { error } = await supabase.from("ebd_entradas").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function resumoCampanha(campanhaId: string): Promise<ResumoCampanha | null> {
+  const { data, error } = await supabase.rpc("resumo_campanha_ebd", { p_campanha_id: campanhaId });
+  if (error) throw error;
+  const linhas = (data ?? []) as ResumoCampanha[];
+  return linhas[0] ?? null;
+}

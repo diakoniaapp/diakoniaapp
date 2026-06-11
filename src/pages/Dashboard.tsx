@@ -23,6 +23,7 @@ import { AtencaoEmPessoas } from "@/components/dashboard/AtencaoEmPessoas";
 import { AgendaDoDia } from "@/components/dashboard/AgendaDoDia";
 import { ResumoEbd } from "@/components/dashboard/ResumoEbd";
 import { InsightsDoSistema } from "@/components/dashboard/InsightsDoSistema";
+import { CampanhasEbd } from "@/components/dashboard/CampanhasEbd";
 
 // ─── Saudação por horário ────────────────────────────────────────────────
 function getSaudacao(): string {
@@ -150,9 +151,9 @@ export default function Dashboard() {
           <ResumoEbd />
         </BlocoSecao>
 
-        {/* ── BLOCO 6 — CAMPANHAS (placeholder) ─────────────────────────── */}
+        {/* ── BLOCO 6 — CAMPANHAS ──────────────────────────────────────── */}
         <BlocoSecao titulo="Campanhas em andamento" icon={DollarSign} subtitulo="Metas e arrecadação">
-          <Placeholder texto="Em construção (Fase 6): cada campanha com meta vs arrecadado, porcentagem e barra de progresso. Requer EBD Fase C." />
+          <CampanhasEbd />
         </BlocoSecao>
 
         {/* ── BLOCO 7 — PESSOAS ────────────────────────────────────────── */}
