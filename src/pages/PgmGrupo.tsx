@@ -23,6 +23,8 @@ import {
   type PgmReuniao, type ResumoPresenca,
 } from "@/services/pgmService";
 import { GrupoForm } from "@/components/pgm/GrupoForm";
+import { OracaoBlock } from "@/components/pgm/OracaoBlock";
+import { MultiplicarDialog } from "@/components/pgm/MultiplicarDialog";
 import { Play, BookOpen, ChevronRight as ChevR, Calendar as Cal } from "lucide-react";
 import { BuscaPessoa } from "@/components/ui/BuscaPessoa";
 
@@ -49,6 +51,7 @@ export default function PgmGrupo() {
   const [reunioes, setReunioes] = useState<PgmReuniao[]>([]);
   const [resumo, setResumo] = useState<ResumoPresenca[]>([]);
   const [iniciandoReuniao, setIniciandoReuniao] = useState(false);
+  const [multiplicarOpen, setMultiplicarOpen] = useState(false);
 
   useEffect(() => { carregar(); }, [grupoId]);
 
@@ -205,6 +208,11 @@ export default function PgmGrupo() {
                 <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
               </Button>
             </a>
+          )}
+          {podeEditar && grupo.ativo && (
+            <Button variant="outline" size="sm" onClick={() => setMultiplicarOpen(true)} className="gap-1.5 text-emerald-700 hover:text-emerald-700 hover:bg-emerald-50">
+              <Sparkles className="w-3.5 h-3.5" /> Multiplicar
+            </Button>
           )}
           {podeEditar && (
             <>
@@ -370,7 +378,16 @@ export default function PgmGrupo() {
         )}
       </div>
 
+      {/* Pedidos de Oração */}
+      <OracaoBlock grupoId={grupoId} podeEditar={podeEditar} />
+
       {/* Dialogs */}
+      <MultiplicarDialog
+        open={multiplicarOpen}
+        onOpenChange={setMultiplicarOpen}
+        grupoPaiId={grupoId}
+        grupoPaiNome={grupo.nome}
+      />
       <GrupoForm
         open={editOpen}
         onOpenChange={setEditOpen}

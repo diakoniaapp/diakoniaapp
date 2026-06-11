@@ -384,3 +384,157 @@ export async function resumoPresenca(grupoId: string, n = 4): Promise<ResumoPres
   if (error) throw error;
   return (data ?? []) as ResumoPresenca[];
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FASE C — Oração + Multiplicação + Geografia + Discipulado
+// ═══════════════════════════════════════════════════════════════════════════
+
+export type PgmOracaoVisibilidade = "privada" | "lideranca" | "grupo";
+export type PgmOracaoStatus = "ativo" | "respondido" | "arquivado";
+
+export interface PgmPedidoOracao {
+  id: string;
+  grupo_id: string;
+  pessoa_id: string | null;
+  nome_avulso: string | null;
+  texto: string;
+  visibilidade: PgmOracaoVisibilidade;
+  status: PgmOracaoStatus;
+  respondido_em: string | null;
+  resposta: string | null;
+  created_at?: string;
+}
+
+export interface PgmPedidoComPessoa extends PgmPedidoOracao {
+  pessoa_nome?: string | null;
+}
+
+export interface PgmMarcosDiscipulado {
+  pessoa_id: string;
+  batizado: boolean;
+  data_batismo: string | null;
+  classe_descobrindo: boolean;
+  classe_novos_crentes: boolean;
+  tem_mentor: boolean;
+  mentor_id: string | null;
+  observacao: string | null;
+}
+
+export const VISIBILIDADE_LABEL: Record<PgmOracaoVisibilidade, string> = {
+  privada: "Só líder",
+  lideranca: "Líder e co-líder",
+  grupo: "Grupo todo",
+};
+
+// ─── Pedidos de oração ────────────────────────────────────────────────────
+export async function listarPedidosOracao(
+  grupoId: string, status: PgmOracaoStatus | "todos" = "ativo",
+): Promise<PgmPedidoComPessoa[]> {
+  let q = supabase.from("pgm_pedidos_oracao").select("*").eq("grupo_id", grupoId);
+  if (status !== "todos") q = q.eq("status", status);
+  const { data, error } = await q.order("created_at", { ascending: false });
+  if (error) throw error;
+  const ped = (data ?? []) as PgmPedidoOracao[];
+  if (ped.length === 0) return [];
+
+  const ids = ped.map(p => p.pessoa_id).filter(Boolean) as string[];
+  if (ids.length === 0) return ped.map(p => ({ ...p, pessoa_nome: p.nome_avulso }));
+  const { data: pessoas } = await supabase
+    .from("membros").select("id, nome_completo").in("id", ids);
+  const pMap = new Map((pessoas ?? []).map((p: any) => [p.id, p.nome_completo]));
+  return ped.map(p => ({
+    ...p,
+    pessoa_nome: p.pessoa_id ? pMap.get(p.pessoa_id) ?? null : p.nome_avulso,
+  }));
+}
+
+export async function registrarPedidoOracao(input: {
+  grupo_id: string;
+  pessoa_id?: string | null;
+  nome_avulso?: string | null;
+  texto: string;
+  visibilidade?: PgmOracaoVisibilidade;
+}): Promise<PgmPedidoOracao> {
+  const { data, error } = await supabase.from("pgm_pedidos_oracao").insert({
+    grupo_id: input.grupo_id,
+    pessoa_id: input.pessoa_id ?? null,
+    nome_avulso: input.nome_avulso ?? null,
+    texto: input.texto,
+    visibilidade: input.visibilidade ?? "lideranca",
+    status: "ativo",
+  }).select("*").single();
+  if (error) throw error;
+  return data as PgmPedidoOracao;
+}
+
+export async function responderPedidoOracao(
+  id: string, resposta: string,
+): Promise<void> {
+  const { error } = await supabase.from("pgm_pedidos_oracao").update({
+    status: "respondido",
+    respondido_em: new Date().toISOString().slice(0, 10),
+    resposta,
+  }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function arquivarPedidoOracao(id: string): Promise<void> {
+  const { error } = await supabase.from("pgm_pedidos_oracao")
+    .update({ status: "arquivado" }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function excluirPedidoOracao(id: string): Promise<void> {
+  const { error } = await supabase.from("pgm_pedidos_oracao").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// ─── Multiplicação ────────────────────────────────────────────────────────
+export async function multiplicarGrupo(
+  paiId: string, nomeFilho: string, liderId: string, pessoasIds: string[],
+): Promise<string> {
+  const { data, error } = await supabase.rpc("pgm_multiplicar_grupo", {
+    p_pai_id: paiId,
+    p_nome_filho: nomeFilho,
+    p_lider_id: liderId,
+    p_pessoas_ids: pessoasIds,
+  });
+  if (error) throw error;
+  return data as string;
+}
+
+// ─── Geografia ────────────────────────────────────────────────────────────
+export async function sugerirPgmPorBairro(bairro: string): Promise<Array<{
+  id: string; nome: string; dia_semana: number | null; horario: string | null;
+  bairro: string | null; qtd_membros: number; lider_nome: string | null;
+}>> {
+  if (!bairro?.trim()) return [];
+  const { data, error } = await supabase.rpc("pgm_sugerir_por_bairro", { p_bairro: bairro.trim() });
+  if (error) throw error;
+  return data ?? [];
+}
+
+// ─── Alertas pastorais ────────────────────────────────────────────────────
+export async function alertasAusencia(grupoId?: string): Promise<Array<{
+  pessoa_id: string; nome: string; grupo_id: string; grupo_nome: string;
+  faltas_seguidas: number; ultima_presenca: string | null;
+}>> {
+  const { data, error } = await supabase.rpc("pgm_alertas_ausencia", {
+    p_grupo_id: grupoId ?? null,
+  });
+  if (error) throw error;
+  return data ?? [];
+}
+
+// ─── Marcos de discipulado ────────────────────────────────────────────────
+export async function carregarMarcos(pessoaId: string): Promise<PgmMarcosDiscipulado | null> {
+  const { data } = await supabase.from("pgm_marcos_discipulado")
+    .select("*").eq("pessoa_id", pessoaId).maybeSingle();
+  return (data ?? null) as PgmMarcosDiscipulado | null;
+}
+
+export async function salvarMarcos(input: PgmMarcosDiscipulado): Promise<void> {
+  const { error } = await supabase.from("pgm_marcos_discipulado")
+    .upsert(input, { onConflict: "pessoa_id" });
+  if (error) throw error;
+}
