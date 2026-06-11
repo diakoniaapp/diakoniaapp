@@ -20,6 +20,7 @@ import { AlertasInteligentes } from "@/components/dashboard/AlertasInteligentes"
 import { VidaDasFamilias } from "@/components/dashboard/VidaDasFamilias";
 import { AcoesDoDia } from "@/components/dashboard/AcoesDoDia";
 import { AtencaoEmPessoas } from "@/components/dashboard/AtencaoEmPessoas";
+import { ResumoPgm } from "@/components/dashboard/ResumoPgm";
 import { AgendaDoDia } from "@/components/dashboard/AgendaDoDia";
 import { ResumoEbd } from "@/components/dashboard/ResumoEbd";
 import { InsightsDoSistema } from "@/components/dashboard/InsightsDoSistema";
@@ -126,6 +127,7 @@ export default function Dashboard() {
             <AcaoRapida to="/familias"             icon={Home}           label="Gerenciar famílias" />
             <AcaoRapida to="/ebd"                  icon={GraduationCap}  label="Abrir EBD" />
             <AcaoRapida to="/ebd"                  icon={CalendarCheck}  label="Fazer chamada" />
+            <AcaoRapida to="/pgm"                  icon={Users}          label="Pequenos Grupos" />
             <AcaoRapida to="/painel-pastoral"      icon={Sparkles}       label="Painel Pastoral" />
             <AcaoRapida to="/admin/documentos"     icon={FileText}       label="Documentos" />
           </div>
@@ -159,6 +161,11 @@ export default function Dashboard() {
         {/* ── BLOCO 7 — PESSOAS ────────────────────────────────────────── */}
         <BlocoSecao titulo="Atenção em pessoas" icon={Users} subtitulo="Visitantes recentes, sem família, sem classe EBD">
           <AtencaoEmPessoas />
+        </BlocoSecao>
+
+        {/* ── BLOCO 7.5 — PGM (Pequenos Grupos) ────────────────────────── */}
+        <BlocoSecao titulo="Pequenos Grupos" icon={Users} subtitulo="Onde a vida da igreja acontece durante a semana">
+          <ResumoPgm />
         </BlocoSecao>
 
         {/* ── BLOCO 8 — AGENDA DO DIA ──────────────────────────────────── */}

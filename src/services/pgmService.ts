@@ -538,3 +538,36 @@ export async function salvarMarcos(input: PgmMarcosDiscipulado): Promise<void> {
     .upsert(input, { onConflict: "pessoa_id" });
   if (error) throw error;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FASE D — Dashboard / Resumo geral
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface PgmResumoGeral {
+  total_grupos: number;
+  grupos_ativos: number;
+  multiplicadores: number;
+  total_membros: number;
+  reunioes_semana: number;
+  presenca_media_pct: number;
+  pedidos_ativos: number;
+}
+
+export async function resumoGeralPgm(): Promise<PgmResumoGeral | null> {
+  const { data, error } = await supabase.rpc("pgm_resumo_geral");
+  if (error) throw error;
+  const linhas = (data ?? []) as PgmResumoGeral[];
+  return linhas[0] ?? null;
+}
+
+export async function proximasReunioes(): Promise<Array<{
+  grupo_id: string; nome: string; dia_semana: number | null;
+  horario: string | null; bairro: string | null; proxima_data: string | null;
+}>> {
+  const { data, error } = await supabase
+    .from("vw_pgm_proxima_reuniao")
+    .select("*")
+    .order("proxima_data");
+  if (error) throw error;
+  return data ?? [];
+}
