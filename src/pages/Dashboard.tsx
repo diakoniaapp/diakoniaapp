@@ -20,6 +20,7 @@ import { AlertasInteligentes } from "@/components/dashboard/AlertasInteligentes"
 import { VidaDasFamilias } from "@/components/dashboard/VidaDasFamilias";
 import { AcoesDoDia } from "@/components/dashboard/AcoesDoDia";
 import { AtencaoEmPessoas } from "@/components/dashboard/AtencaoEmPessoas";
+import { AgendaDoDia } from "@/components/dashboard/AgendaDoDia";
 
 // ─── Saudação por horário ────────────────────────────────────────────────
 function getSaudacao(): string {
@@ -157,9 +158,9 @@ export default function Dashboard() {
           <AtencaoEmPessoas />
         </BlocoSecao>
 
-        {/* ── BLOCO 8 — AGENDA DO DIA (placeholder) ─────────────────────── */}
+        {/* ── BLOCO 8 — AGENDA DO DIA ──────────────────────────────────── */}
         <BlocoSecao titulo="Agenda do dia" icon={CalendarDays} subtitulo="Eventos da igreja hoje">
-          <Placeholder texto="Em construção (Fase 8): eventos de hoje da agenda da igreja + aniversários + bodas." />
+          <AgendaDoDia />
         </BlocoSecao>
 
         {/* ── BLOCO 9 — INSIGHTS DO SISTEMA (placeholder) ───────────────── */}
