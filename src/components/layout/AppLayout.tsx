@@ -3,7 +3,7 @@ import { useAuth, type AppRole } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard, Users, HeartHandshake, Home, LogOut,
-  CalendarDays, CalendarCheck, ChevronLeft, ChevronDown, MapPin, BarChart2, GraduationCap, Sparkles, Layers,
+  CalendarDays, CalendarCheck, ChevronLeft, ChevronDown, MapPin, BarChart2, GraduationCap, Sparkles, DollarSign, Layers,
   Building2, Network, KeyRound, ShieldAlert, Church, FileText,
   Upload, Download, Flame, UserCheck, Settings, Briefcase,
   Database, Cog, type LucideIcon,
@@ -67,6 +67,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: "/painel-pastoral", label: "Painel Pastoral", icon: Sparkles, allowedRoles: ROLES_LIDERES },
       { to: "/eventos",  label: "Agenda",     icon: CalendarDays },
+      { to: "/financas", label: "Finanças",   icon: DollarSign,   allowedRoles: ROLES_LIDERES },
       { to: "/locais",   label: "Locais",     icon: MapPin,    allowedRoles: ROLES_LIDERES },
     ],
   },
