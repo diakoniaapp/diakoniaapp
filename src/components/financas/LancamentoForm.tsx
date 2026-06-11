@@ -14,7 +14,7 @@ import { TrendingUp, TrendingDown, Camera, FileUp, X, Paperclip, Sparkles, Loade
 import {
   listarContas, listarCategorias, listarCentrosCusto, listarFornecedores,
   criarLancamento, atualizarLancamento, uploadComprovante, removerComprovante,
-  buscarFornecedorPorCnpj, criarFornecedor, brl,
+  buscarFornecedorPorCnpj, criarFornecedor, sugerirCentroPorCategoria, brl,
   FORMA_LABEL, STATUS_LABEL,
   type FinConta, type FinCategoria, type FinCentroCusto, type FinFornecedor,
   type FinLancamento, type FinMovimentoTipo, type FinFormaPagamento, type FinStatus,
@@ -81,6 +81,15 @@ export function LancamentoForm({
       setContas(cs); setCategorias(ks); setCentros(ccs); setFornecedores(fs);
     });
   }, [open, tipo]);
+
+  // Auto-sugestão: quando muda categoria e centro está vazio, sugere baseado no histórico
+  useEffect(() => {
+    if (!categoriaId || centroCustoId || !open) return;
+    (async () => {
+      const sugerido = await sugerirCentroPorCategoria(categoriaId);
+      if (sugerido) setCentroCustoId(sugerido);
+    })();
+  }, [categoriaId, open]);
 
   useEffect(() => {
     if (!open) return;

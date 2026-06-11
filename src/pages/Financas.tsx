@@ -13,7 +13,7 @@ import {
 } from "@/services/finService";
 import { LancamentoForm } from "@/components/financas/LancamentoForm";
 import { TransferenciaForm } from "@/components/financas/TransferenciaForm";
-import { Settings, ArrowRightLeft, RotateCw, Package, Sparkles } from "lucide-react";
+import { Settings, ArrowRightLeft, RotateCw, Package, Sparkles, Layers, Target } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 const ICONE_CONTA: Record<string, JSX.Element> = {
@@ -146,12 +146,14 @@ export default function Financas() {
       </div>
 
       {/* Atalhos */}
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-2 pt-2">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pt-2">
         <Atalho to="/financas/agenda?tipo=saida" icon={<TrendingDown className="w-4 h-4 text-rose-600" />} label="Contas a pagar" />
         <Atalho to="/financas/agenda?tipo=entrada" icon={<TrendingUp className="w-4 h-4 text-emerald-600" />} label="Contas a receber" />
         <Atalho to="/financas/recorrencias" icon={<RotateCw className="w-4 h-4 text-gold" />} label="Recorrências" />
         <Atalho to="/financas/estoque" icon={<Package className="w-4 h-4 text-blue-600" />} label="Estoque" />
         <Atalho to="/financas/relatorio" icon={<AlertTriangle className="w-4 h-4 text-amber-600" />} label="Malote contábil" />
+        <Atalho to="/financas/centros" icon={<Layers className="w-4 h-4 text-purple-600" />} label="Centros" />
+        <Atalho to="/financas/orcamento" icon={<Target className="w-4 h-4 text-emerald-600" />} label="Orçamento" />
         <Atalho to="/financas/insights" icon={<Sparkles className="w-4 h-4 text-gold" />} label="Insights" />
       </div>
       <p className="text-[10px] text-muted-foreground text-center pt-2">

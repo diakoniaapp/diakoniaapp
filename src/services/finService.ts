@@ -698,3 +698,114 @@ export async function alertasFinanceiros(): Promise<FinAlertaFinanceiro[]> {
   if (error) throw error;
   return (data ?? []) as FinAlertaFinanceiro[];
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FASE 7 — Centros de Custo Inteligentes
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface FinCentroResumo {
+  id: string; nome: string;
+  vinculo_tipo: FinCentroVinculo;
+  vinculo_id: string | null;
+  vinculo_nome: string | null;
+  centro_pai_id: string | null;
+  cor: string | null;
+  ativo: boolean;
+  gasto_90d: number;
+  recebido_90d: number;
+  gasto_mes: number;
+  qtd_lancamentos_90d: number;
+  ultima_movimentacao: string | null;
+}
+
+export interface FinOrcamento {
+  id: string;
+  ano: number;
+  mes: number | null;
+  centro_custo_id: string;
+  categoria_id: string | null;
+  valor_planejado: number;
+  observacao: string | null;
+}
+
+export interface FinOrcamentoVsReal {
+  id: string;
+  ano: number;
+  mes: number | null;
+  centro_custo_id: string;
+  centro_nome: string;
+  categoria_id: string | null;
+  valor_planejado: number;
+  valor_real: number;
+  percentual_consumido: number;
+}
+
+export interface FinAlertaCentro {
+  centro_id: string;
+  centro_nome: string;
+  tipo_alerta: "acima_orcamento" | "orcamento_atencao" | "crescimento" | "sem_movimento";
+  titulo: string;
+  descricao: string;
+  severidade: "critico" | "atencao" | "info";
+}
+
+// ─── Seed automático ───────────────────────────────────────────────────
+export async function seedCentrosCusto(): Promise<{ criados: number; ja_existiam: number } | null> {
+  const { data, error } = await supabase.rpc("fin_seed_centros_custo");
+  if (error) throw error;
+  const arr = (data ?? []) as any[];
+  return arr[0] ?? null;
+}
+
+// ─── Listar com resumo ─────────────────────────────────────────────────
+export async function listarCentrosComResumo(): Promise<FinCentroResumo[]> {
+  const { data, error } = await supabase
+    .from("vw_fin_centros_resumo").select("*").order("gasto_90d", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as FinCentroResumo[];
+}
+
+// ─── Orçamentos ────────────────────────────────────────────────────────
+export async function listarOrcamentos(ano?: number, mes?: number | null): Promise<FinOrcamento[]> {
+  let q = supabase.from("fin_orcamentos").select("*").order("ano", { ascending: false }).order("mes", { ascending: false });
+  if (ano) q = q.eq("ano", ano);
+  if (mes !== undefined) q = mes === null ? q.is("mes", null) : q.eq("mes", mes);
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data ?? []) as FinOrcamento[];
+}
+
+export async function criarOrcamento(input: Partial<FinOrcamento>): Promise<FinOrcamento> {
+  const { data, error } = await supabase.from("fin_orcamentos")
+    .upsert(input as any, { onConflict: "ano,mes,centro_custo_id,categoria_id" })
+    .select("*").single();
+  if (error) throw error;
+  return data as FinOrcamento;
+}
+
+export async function excluirOrcamento(id: string): Promise<void> {
+  const { error } = await supabase.from("fin_orcamentos").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function listarOrcamentoVsReal(): Promise<FinOrcamentoVsReal[]> {
+  const { data, error } = await supabase
+    .from("vw_fin_orcamento_vs_real").select("*")
+    .order("percentual_consumido", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as FinOrcamentoVsReal[];
+}
+
+// ─── Alertas de centros ────────────────────────────────────────────────
+export async function alertasCentros(): Promise<FinAlertaCentro[]> {
+  const { data, error } = await supabase.rpc("fin_alertas_centros");
+  if (error) throw error;
+  return (data ?? []) as FinAlertaCentro[];
+}
+
+// ─── Sugestão automática ───────────────────────────────────────────────
+export async function sugerirCentroPorCategoria(categoriaId: string): Promise<string | null> {
+  const { data, error } = await supabase.rpc("fin_sugerir_centro_por_categoria", { p_categoria_id: categoriaId });
+  if (error) return null;
+  return (data as string | null) ?? null;
+}
