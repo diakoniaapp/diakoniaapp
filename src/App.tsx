@@ -36,6 +36,7 @@ import EbdCampanhaRelatorio from "./pages/EbdCampanhaRelatorio.tsx";
 import Pgm from "./pages/Pgm.tsx";
 import PgmGrupo from "./pages/PgmGrupo.tsx";
 import PgmReuniaoPage from "./pages/PgmReuniao.tsx";
+import PgmReuniaoRelatorio from "./pages/PgmReuniaoRelatorio.tsx";
 import AgendaPastoral from "./pages/AgendaPastoral.tsx";
 import PainelPastoral from "./pages/PainelPastoral.tsx";
 import ResetSenhaToken from "@/pages/ResetSenhaToken";
@@ -95,6 +96,7 @@ const App = () => (
                   <Route path="/pgm" element={<Pgm />} />
                   <Route path="/pgm/:grupoId" element={<PgmGrupo />} />
                   <Route path="/pgm/:grupoId/reuniao/:reuniaoId" element={<PgmReuniaoPage />} />
+                  <Route path="/pgm/:grupoId/reuniao/:reuniaoId/relatorio" element={<PgmReuniaoRelatorio />} />
                   <Route path="/agenda-pastoral" element={<AgendaPastoral />} />
                   <Route path="/painel-pastoral" element={<PainelPastoral />} />
                   <Route path="/admin/recuperacao-senha" element={<RecuperacaoSenhaAdmin />} />

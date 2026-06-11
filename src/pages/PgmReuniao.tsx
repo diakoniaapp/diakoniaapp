@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  ArrowLeft, Users, Loader2, Camera, FileImage, X, Check,
+  ArrowLeft, Users, Loader2, Camera, FileImage, X, Check, FileText,
   UserPlus, Trash2, Save, BookOpen, MessageCircle, Calendar,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -81,7 +81,7 @@ export default function PgmReuniaoPage() {
         texto_base: textoBase.trim() || null,
         observacoes: observacoes.trim() || null,
       });
-      toast.success("Dados da reunião salvos");
+      toast.success("Dados do encontro salvos");
       await carregar();
     } catch (e: any) {
       toast.error(e?.message ?? "Erro");
@@ -115,7 +115,7 @@ export default function PgmReuniaoPage() {
 
   async function removerFoto() {
     if (!reuniao?.foto_url) return;
-    if (!confirm("Remover foto da reunião?")) return;
+    if (!confirm("Remover foto do encontro?")) return;
     setBusy(true);
     try {
       await removerFotoReuniao(reuniao.foto_url);
@@ -155,12 +155,12 @@ export default function PgmReuniaoPage() {
 
   if (loading) {
     return <div className="p-8 flex items-center justify-center text-muted-foreground">
-      <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando reunião...
+      <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando encontro...
     </div>;
   }
   if (!reuniao) {
     return <div className="p-8 text-center text-muted-foreground">
-      Reunião não encontrada. <Link to={`/pgm/${grupoId}`} className="text-primary underline">Voltar</Link>
+      Encontro não encontrado. <Link to={`/pgm/${grupoId}`} className="text-primary underline">Voltar</Link>
     </div>;
   }
 
@@ -177,13 +177,20 @@ export default function PgmReuniaoPage() {
         <div className="flex-1 min-w-0">
           <h1 className="font-serif text-xl flex items-center gap-2 truncate">
             <Calendar className="w-5 h-5 text-gold" />
-            Reunião de {new Date(reuniao.data + "T00:00").toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })}
+            Encontro de {new Date(reuniao.data + "T00:00").toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })}
           </h1>
           {grupo && <p className="text-xs text-muted-foreground">{grupo.nome}</p>}
         </div>
-        <Badge variant="outline" className="text-xs whitespace-nowrap bg-emerald-50 text-emerald-700 border-emerald-300">
-          <Check className="w-3 h-3 mr-0.5" /> {totalGeral} presença{totalGeral === 1 ? "" : "s"}
-        </Badge>
+        <div className="flex items-center gap-1.5 flex-wrap justify-end">
+          <Link to={`/pgm/${grupoId}/reuniao/${reuniaoId}/relatorio`}>
+            <Button variant="outline" size="sm" className="gap-1.5">
+              <FileText className="w-3.5 h-3.5" /> Relatório
+            </Button>
+          </Link>
+          <Badge variant="outline" className="text-xs whitespace-nowrap bg-emerald-50 text-emerald-700 border-emerald-300">
+            <Check className="w-3 h-3 mr-0.5" /> {totalGeral} presença{totalGeral === 1 ? "" : "s"}
+          </Badge>
+        </div>
       </div>
 
       {/* Tema + Texto base + Observações */}
@@ -202,7 +209,7 @@ export default function PgmReuniaoPage() {
               placeholder="Ex: Gálatas 5:22-23" />
           </div>
           <div>
-            <Label className="text-xs">Observações da reunião</Label>
+            <Label className="text-xs">Observações do encontro</Label>
             <Textarea value={observacoes} onChange={(e) => setObservacoes(e.target.value)}
               rows={2} placeholder="O que aconteceu, decisões, pedidos relevantes..." />
           </div>
@@ -218,11 +225,11 @@ export default function PgmReuniaoPage() {
       <Card>
         <CardContent className="py-3 space-y-2">
           <Label className="flex items-center gap-1.5 text-xs">
-            <Camera className="w-3 h-3 text-gold" /> Foto da reunião
+            <Camera className="w-3 h-3 text-gold" /> Foto do encontro
           </Label>
           {fotoUrl ? (
             <div className="relative inline-block">
-              <img src={fotoUrl} alt="Reunião" className="rounded-md max-h-48 object-cover" />
+              <img src={fotoUrl} alt="Encontro" className="rounded-md max-h-48 object-cover" />
               <Button type="button" variant="ghost" size="icon"
                 className="absolute top-1 right-1 h-7 w-7 bg-background/80 hover:bg-background"
                 onClick={removerFoto} disabled={busy}>

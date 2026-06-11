@@ -61,12 +61,12 @@ export function ResumoPgm() {
         <Stat icon={<HandHeart className="w-4 h-4 text-rose-600" />} valor={resumo.pedidos_ativos} label="Pedidos ativos" />
       </div>
 
-      {/* Próximas reuniões */}
+      {/* Próximos encontros */}
       {proximas.length > 0 && (
         <Card>
           <CardContent className="py-3 space-y-1.5">
             <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-              <Calendar className="w-3 h-3 text-gold" /> Próximas reuniões
+              <Calendar className="w-3 h-3 text-gold" /> Próximos encontros
             </p>
             {proximas.map(p => (
               <Link key={p.grupo_id} to={`/pgm/${p.grupo_id}`}

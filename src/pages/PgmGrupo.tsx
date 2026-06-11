@@ -249,22 +249,22 @@ export default function PgmGrupo() {
         </CardContent>
       </Card>
 
-      {/* Reuniões */}
+      {/* Encontros */}
       <Card>
         <CardContent className="py-3 space-y-2">
           <div className="flex items-center justify-between">
             <h3 className="font-serif text-base flex items-center gap-2">
-              <Cal className="w-4 h-4 text-gold" /> Reuniões
+              <Cal className="w-4 h-4 text-gold" /> Encontros
             </h3>
             {podeEditar && (
               <Button size="sm" onClick={startNovaReuniao} disabled={iniciandoReuniao} className="gap-1.5 bg-gold hover:bg-gold/90 text-white">
-                <Play className="w-3.5 h-3.5" /> {iniciandoReuniao ? "..." : "Iniciar reunião de hoje"}
+                <Play className="w-3.5 h-3.5" /> {iniciandoReuniao ? "..." : "Iniciar encontro de hoje"}
               </Button>
             )}
           </div>
           {reunioes.length === 0 ? (
             <p className="text-sm text-muted-foreground italic text-center py-3">
-              Nenhuma reunião registrada ainda.
+              Nenhum encontro registrado ainda.
             </p>
           ) : (
             <div className="space-y-1">
@@ -401,7 +401,7 @@ export default function PgmGrupo() {
             <AlertDialogTitle>Desativar grupo?</AlertDialogTitle>
             <AlertDialogDescription>
               <strong>{grupo.nome}</strong> será ocultado da lista padrão. Você pode reativar a qualquer momento.
-              O histórico (reuniões, participantes) é preservado.
+              O histórico (encontros, participantes) é preservado.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -418,7 +418,7 @@ export default function PgmGrupo() {
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir grupo?</AlertDialogTitle>
             <AlertDialogDescription>
-              Apaga <strong>permanentemente</strong> o grupo, vínculos e histórico de reuniões.
+              Apaga <strong>permanentemente</strong> o grupo, vínculos e histórico de encontros.
               <br />Para preservar o histórico, prefira <strong>Desativar</strong>.
             </AlertDialogDescription>
           </AlertDialogHeader>
