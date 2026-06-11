@@ -5,12 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   ArrowLeft, DollarSign, Plus, Loader2, Trash2,
-  TrendingUp, Sparkles, Calendar, Pencil,
+  TrendingUp, Sparkles, Calendar, Pencil, Paperclip,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
   carregarCampanha, resumoCampanha, listarEntradas, excluirEntrada,
-  carregarClasse,
+  carregarClasse, comprovanteSignedUrl,
   type CampanhaEbd, type ResumoCampanha, type EntradaEbd, type EbdClasse,
 } from "@/services/ebdService";
 import { CampanhaForm } from "@/components/ebd/CampanhaForm";
@@ -40,6 +40,16 @@ export default function EbdCampanha() {
   const [loading, setLoading] = useState(true);
   const [editOpen, setEditOpen] = useState(false);
   const [novaEntradaOpen, setNovaEntradaOpen] = useState(false);
+  const [entradaEdit, setEntradaEdit] = useState<EntradaEbd | null>(null);
+
+  async function abrirComprovante(path: string) {
+    const url = await comprovanteSignedUrl(path);
+    if (url) {
+      window.open(url, "_blank", "noopener,noreferrer");
+    } else {
+      toast.error("Não foi possível abrir o comprovante");
+    }
+  }
 
   useEffect(() => { carregar(); }, [classeId, campanhaId]);
 
@@ -175,7 +185,7 @@ export default function EbdCampanha() {
       )}
 
       {/* Botão registrar */}
-      <Button onClick={() => setNovaEntradaOpen(true)} className="w-full gap-1.5">
+      <Button onClick={() => { setEntradaEdit(null); setNovaEntradaOpen(true); }} className="w-full gap-1.5">
         <Plus className="w-4 h-4" /> Registrar entrada
       </Button>
 
@@ -204,6 +214,16 @@ export default function EbdCampanha() {
                     {tinhaSimbolico && (
                       <Sparkles className="w-3 h-3 text-gold" title="Inclui R$0,10 simbólicos" />
                     )}
+                    {e.comprovante_url && (
+                      <button
+                        type="button"
+                        onClick={() => abrirComprovante(e.comprovante_url!)}
+                        className="inline-flex items-center gap-0.5 text-[10px] text-blue-700 hover:underline"
+                        title="Ver comprovante"
+                      >
+                        <Paperclip className="w-3 h-3" /> ver
+                      </button>
+                    )}
                   </div>
                   <p className="text-[11px] text-muted-foreground mt-0.5">
                     <Calendar className="w-3 h-3 inline mr-1" />
@@ -211,11 +231,20 @@ export default function EbdCampanha() {
                     {e.descricao && ` · ${e.descricao}`}
                   </p>
                 </div>
-                <Button type="button" variant="ghost" size="icon"
-                  onClick={() => deletarEntrada(e.id)}
-                  className="h-8 w-8 text-destructive hover:bg-destructive/10 shrink-0">
-                  <Trash2 className="w-3.5 h-3.5" />
-                </Button>
+                <div className="flex items-center gap-0.5 shrink-0">
+                  <Button type="button" variant="ghost" size="icon"
+                    onClick={() => { setEntradaEdit(e); setNovaEntradaOpen(true); }}
+                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                    title="Editar entrada">
+                    <Pencil className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button type="button" variant="ghost" size="icon"
+                    onClick={() => deletarEntrada(e.id)}
+                    className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                    title="Excluir entrada">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
               </div>
             );
           })
@@ -233,7 +262,8 @@ export default function EbdCampanha() {
       <EntradaForm
         campanhaId={campanhaId}
         open={novaEntradaOpen}
-        onOpenChange={setNovaEntradaOpen}
+        onOpenChange={(v) => { setNovaEntradaOpen(v); if (!v) setEntradaEdit(null); }}
+        entrada={entradaEdit}
         onSaved={carregar}
       />
     </div>

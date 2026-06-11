@@ -319,6 +319,7 @@ export interface EntradaEbd {
   tipo: "oferta" | "evento" | "produto";
   forma: "pix" | "envelope" | "outro";
   descricao: string | null;
+  comprovante_url: string | null;
   registrado_por?: string | null;
   created_at?: string;
 }
@@ -389,9 +390,56 @@ export async function registrarEntrada(
   return data as EntradaEbd;
 }
 
+export async function atualizarEntrada(
+  id: string,
+  patch: Partial<Omit<EntradaEbd, "id" | "campanha_id" | "created_at" | "registrado_por">>,
+): Promise<void> {
+  const { error } = await supabase.from("ebd_entradas").update(patch).eq("id", id);
+  if (error) throw error;
+}
+
 export async function excluirEntrada(id: string): Promise<void> {
+  // Apaga comprovante do Storage antes (se houver)
+  const { data: entrada } = await supabase.from("ebd_entradas")
+    .select("comprovante_url").eq("id", id).maybeSingle();
+  if (entrada?.comprovante_url) {
+    await removerComprovante(entrada.comprovante_url);
+  }
   const { error } = await supabase.from("ebd_entradas").delete().eq("id", id);
   if (error) throw error;
+}
+
+// ─── Comprovantes (storage: ebd-comprovantes, bucket privado) ──────────────
+export const COMPROVANTE_MAX_BYTES = 5 * 1024 * 1024; // 5 MB
+export const COMPROVANTE_MIMES = ["image/jpeg", "image/png", "image/jpg", "application/pdf"];
+
+export async function uploadComprovante(file: File, campanhaId: string): Promise<string> {
+  if (file.size > COMPROVANTE_MAX_BYTES) {
+    throw new Error(`Arquivo grande demais (max ${COMPROVANTE_MAX_BYTES / 1024 / 1024} MB)`);
+  }
+  if (!COMPROVANTE_MIMES.includes(file.type)) {
+    throw new Error("Formato não aceito. Use JPG, PNG ou PDF.");
+  }
+  const ext = file.name.split(".").pop()?.toLowerCase() || "bin";
+  const path = `${campanhaId}/${Date.now()}_${crypto.randomUUID().slice(0, 8)}.${ext}`;
+  const { error: upErr } = await supabase.storage
+    .from("ebd-comprovantes")
+    .upload(path, file, { upsert: false, contentType: file.type });
+  if (upErr) throw upErr;
+  return path; // armazenamos o path; signed URL é gerada on-demand
+}
+
+export async function comprovanteSignedUrl(path: string, segs = 600): Promise<string | null> {
+  const { data, error } = await supabase.storage
+    .from("ebd-comprovantes")
+    .createSignedUrl(path, segs);
+  if (error) return null;
+  return data?.signedUrl ?? null;
+}
+
+export async function removerComprovante(path: string): Promise<void> {
+  // ignora erro (idempotente)
+  await supabase.storage.from("ebd-comprovantes").remove([path]);
 }
 
 export async function resumoCampanha(campanhaId: string): Promise<ResumoCampanha | null> {
