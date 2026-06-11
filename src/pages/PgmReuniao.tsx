@@ -7,12 +7,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  ArrowLeft, Users, Loader2, Camera, FileImage, X, Check, FileText,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  ArrowLeft, Users, Loader2, Camera, FileImage, X, Check, FileText, Trash2,
   UserPlus, Trash2, Save, BookOpen, MessageCircle, Calendar,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  carregarReuniao, atualizarReuniao, listarPresencas, marcarPresenca,
+  carregarReuniao, atualizarReuniao, excluirReuniao, listarPresencas, marcarPresenca,
   listarVisitas, registrarVisita, excluirVisita,
   uploadFotoReuniao, removerFotoReuniao, fotoReuniaoSignedUrl,
   carregarGrupo, PAPEL_LABEL,
@@ -35,6 +39,8 @@ export default function PgmReuniaoPage() {
   const [textoBase, setTextoBase] = useState("");
   const [observacoes, setObservacoes] = useState("");
   const [salvandoCabecalho, setSalvandoCabecalho] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [dataEditavel, setDataEditavel] = useState("");
 
   // Form: novo visitante
   const [vNome, setVNome] = useState("");
@@ -60,6 +66,7 @@ export default function PgmReuniaoPage() {
       setTema(r?.tema ?? "");
       setTextoBase(r?.texto_base ?? "");
       setObservacoes(r?.observacoes ?? "");
+      setDataEditavel(r?.data ?? "");
 
       if (r?.foto_url) {
         const url = await fotoReuniaoSignedUrl(r.foto_url);
@@ -76,11 +83,15 @@ export default function PgmReuniaoPage() {
     if (!reuniao) return;
     setSalvandoCabecalho(true);
     try {
-      await atualizarReuniao(reuniao.id, {
+      const patch: any = {
         tema: tema.trim() || null,
         texto_base: textoBase.trim() || null,
         observacoes: observacoes.trim() || null,
-      });
+      };
+      if (dataEditavel && dataEditavel !== reuniao.data) {
+        patch.data = dataEditavel;
+      }
+      await atualizarReuniao(reuniao.id, patch);
       toast.success("Dados do encontro salvos");
       await carregar();
     } catch (e: any) {
@@ -121,6 +132,18 @@ export default function PgmReuniaoPage() {
       await removerFotoReuniao(reuniao.foto_url);
       await atualizarReuniao(reuniao.id, { foto_url: null });
       await carregar();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erro");
+    } finally { setBusy(false); }
+  }
+
+  async function handleExcluirEncontro() {
+    if (!reuniao) return;
+    setBusy(true);
+    try {
+      await excluirReuniao(reuniao.id);
+      toast.success("Encontro excluído");
+      navigate(`/pgm/${grupoId}`);
     } catch (e: any) {
       toast.error(e?.message ?? "Erro");
     } finally { setBusy(false); }
@@ -187,6 +210,10 @@ export default function PgmReuniaoPage() {
               <FileText className="w-3.5 h-3.5" /> Relatório
             </Button>
           </Link>
+          <Button variant="outline" size="sm" onClick={() => setConfirmDelete(true)}
+            className="gap-1.5 text-destructive hover:text-destructive">
+            <Trash2 className="w-3.5 h-3.5" /> Excluir
+          </Button>
           <Badge variant="outline" className="text-xs whitespace-nowrap bg-emerald-50 text-emerald-700 border-emerald-300">
             <Check className="w-3 h-3 mr-0.5" /> {totalGeral} presença{totalGeral === 1 ? "" : "s"}
           </Badge>
@@ -196,6 +223,13 @@ export default function PgmReuniaoPage() {
       {/* Tema + Texto base + Observações */}
       <Card>
         <CardContent className="py-3 space-y-2">
+          <div>
+            <Label className="text-xs">Data do encontro</Label>
+            <Input type="date" value={dataEditavel} onChange={(e) => setDataEditavel(e.target.value)} />
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              Pode ajustar caso o registro tenha sido feito em outra data.
+            </p>
+          </div>
           <div>
             <Label className="flex items-center gap-1.5 text-xs">
               <BookOpen className="w-3 h-3 text-gold" /> Tema da semana
@@ -358,6 +392,34 @@ export default function PgmReuniaoPage() {
           ← Voltar ao grupo
         </Button>
       </div>
+
+      {/* Confirmação de exclusão */}
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir encontro?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Você está prestes a excluir este encontro permanentemente — incluindo:
+              <br /><br />
+              • Todas as presenças marcadas
+              <br />• Os visitantes registrados
+              <br />• A foto da reunião (se houver)
+              <br /><br />
+              Esta ação <strong>não pode ser desfeita</strong>. Confirma?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleExcluirEncontro}
+              disabled={busy}
+              className="bg-destructive text-white hover:bg-destructive/90"
+            >
+              {busy ? "Excluindo..." : "Sim, excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -15,7 +15,7 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import {
-  carregarGrupo, listarMembrosDoGrupo, listarReunioes, iniciarReuniao, resumoPresenca,
+  carregarGrupo, listarMembrosDoGrupo, listarReunioes, iniciarReuniao, excluirReuniao, resumoPresenca,
   vincularPessoa, desvincularPessoa, marcarPrincipal,
   alterarPapel, desativarGrupo, reativarGrupo, excluirGrupo,
   diaSemanaTexto, horarioTexto, PAPEL_LABEL,
@@ -25,7 +25,7 @@ import {
 import { GrupoForm } from "@/components/pgm/GrupoForm";
 import { OracaoBlock } from "@/components/pgm/OracaoBlock";
 import { MultiplicarDialog } from "@/components/pgm/MultiplicarDialog";
-import { Play, BookOpen, ChevronRight as ChevR, Calendar as Cal } from "lucide-react";
+import { Play, BookOpen, ChevronRight as ChevR, Calendar as Cal, Trash2 as TrashEnc } from "lucide-react";
 import { BuscaPessoa } from "@/components/ui/BuscaPessoa";
 
 const PAPEL_ICONE: Record<PgmPapel, JSX.Element> = {
@@ -70,6 +70,17 @@ export default function PgmGrupo() {
       setReunioes(rs);
       setResumo(rp);
     } finally { setLoading(false); }
+  }
+
+  async function excluirEncontroInline(reuniaoId: string, dataLabel: string) {
+    if (!confirm(`Excluir encontro de ${dataLabel}? Isso apaga presenças, visitantes e foto. Não tem como desfazer.`)) return;
+    try {
+      await excluirReuniao(reuniaoId);
+      toast.success("Encontro excluído");
+      await carregar();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erro ao excluir");
+    }
   }
 
   async function startNovaReuniao() {
@@ -270,26 +281,37 @@ export default function PgmGrupo() {
             <div className="space-y-1">
               {reunioes.slice(0, 5).map(r => {
                 const res = resumo.find(rr => rr.reuniao_id === r.id);
+                const dataLabel = new Date(r.data + "T00:00").toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" });
                 return (
-                  <Link key={r.id} to={`/pgm/${grupoId}/reuniao/${r.id}`}
-                    className="flex items-center justify-between border rounded-md px-3 py-2 hover:bg-muted/40 transition-colors">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium flex items-center gap-2">
-                        {new Date(r.data + "T00:00").toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" })}
-                        {r.tema && (
-                          <span className="text-xs text-muted-foreground italic truncate">
-                            <BookOpen className="w-3 h-3 inline mr-0.5" /> {r.tema}
-                          </span>
-                        )}
-                      </p>
-                      {res && (
-                        <p className="text-[11px] text-muted-foreground">
-                          {res.presentes}/{res.total} presentes · {res.percentual}%
+                  <div key={r.id} className="flex items-center justify-between border rounded-md hover:bg-muted/40 transition-colors">
+                    <Link to={`/pgm/${grupoId}/reuniao/${r.id}`}
+                      className="flex items-center justify-between flex-1 min-w-0 px-3 py-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium flex items-center gap-2">
+                          {dataLabel}
+                          {r.tema && (
+                            <span className="text-xs text-muted-foreground italic truncate">
+                              <BookOpen className="w-3 h-3 inline mr-0.5" /> {r.tema}
+                            </span>
+                          )}
                         </p>
-                      )}
-                    </div>
-                    <ChevR className="w-3.5 h-3.5 text-muted-foreground" />
-                  </Link>
+                        {res && (
+                          <p className="text-[11px] text-muted-foreground">
+                            {res.presentes}/{res.total} presentes · {res.percentual}%
+                          </p>
+                        )}
+                      </div>
+                      <ChevR className="w-3.5 h-3.5 text-muted-foreground shrink-0 ml-2" />
+                    </Link>
+                    {podeEditar && (
+                      <Button type="button" variant="ghost" size="icon"
+                        onClick={() => excluirEncontroInline(r.id, dataLabel)}
+                        className="h-8 w-8 text-destructive hover:bg-destructive/10 mr-1"
+                        title="Excluir encontro">
+                        <TrashEnc className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
+                  </div>
                 );
               })}
             </div>
