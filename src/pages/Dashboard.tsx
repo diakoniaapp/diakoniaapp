@@ -22,6 +22,7 @@ import { AcoesDoDia } from "@/components/dashboard/AcoesDoDia";
 import { AtencaoEmPessoas } from "@/components/dashboard/AtencaoEmPessoas";
 import { AgendaDoDia } from "@/components/dashboard/AgendaDoDia";
 import { ResumoEbd } from "@/components/dashboard/ResumoEbd";
+import { InsightsDoSistema } from "@/components/dashboard/InsightsDoSistema";
 
 // ─── Saudação por horário ────────────────────────────────────────────────
 function getSaudacao(): string {
@@ -164,9 +165,9 @@ export default function Dashboard() {
           <AgendaDoDia />
         </BlocoSecao>
 
-        {/* ── BLOCO 9 — INSIGHTS DO SISTEMA (placeholder) ───────────────── */}
+        {/* ── BLOCO 9 — INSIGHTS DO SISTEMA ────────────────────────────── */}
         <BlocoSecao titulo="Insights do sistema" icon={Lightbulb} subtitulo="Sugestões automáticas para a liderança">
-          <Placeholder texto="Em construção (Fase 9): inteligência cruzada — quedas de presença, padrões anômalos, áreas com poucos voluntários, sugestões de cuidado pastoral." />
+          <InsightsDoSistema />
         </BlocoSecao>
 
       </div>
