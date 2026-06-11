@@ -32,6 +32,7 @@ import Areas from "./pages/Areas.tsx";
 import EbdChamada from "./pages/EbdChamada.tsx";
 import EbdCampanhas from "./pages/EbdCampanhas.tsx";
 import EbdCampanha from "./pages/EbdCampanha.tsx";
+import EbdCampanhaRelatorio from "./pages/EbdCampanhaRelatorio.tsx";
 import AgendaPastoral from "./pages/AgendaPastoral.tsx";
 import PainelPastoral from "./pages/PainelPastoral.tsx";
 import ResetSenhaToken from "@/pages/ResetSenhaToken";
@@ -87,6 +88,7 @@ const App = () => (
                   <Route path="/ebd/:classeId/chamada" element={<EbdChamada />} />
                   <Route path="/ebd/:classeId/campanhas" element={<EbdCampanhas />} />
                   <Route path="/ebd/:classeId/campanhas/:campanhaId" element={<EbdCampanha />} />
+                  <Route path="/ebd/:classeId/campanhas/:campanhaId/relatorio" element={<EbdCampanhaRelatorio />} />
                   <Route path="/agenda-pastoral" element={<AgendaPastoral />} />
                   <Route path="/painel-pastoral" element={<PainelPastoral />} />
                   <Route path="/admin/recuperacao-senha" element={<RecuperacaoSenhaAdmin />} />

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   ArrowLeft, DollarSign, Plus, Loader2, Trash2,
-  TrendingUp, Sparkles, Calendar, Pencil, Paperclip,
+  TrendingUp, Sparkles, Calendar, Pencil, Paperclip, FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -112,6 +112,11 @@ export default function EbdCampanha() {
             {classe?.nome} · {new Date(campanha.data_inicio + "T00:00").toLocaleDateString("pt-BR")} → {new Date(campanha.data_fim + "T00:00").toLocaleDateString("pt-BR")}
           </p>
         </div>
+        <Link to={`/ebd/${classeId}/campanhas/${campanhaId}/relatorio`}>
+          <Button type="button" variant="outline" size="sm" className="gap-1.5">
+            <FileText className="w-3.5 h-3.5" /> Relatório
+          </Button>
+        </Link>
         <Button type="button" variant="outline" size="sm" onClick={() => setEditOpen(true)} className="gap-1.5">
           <Pencil className="w-3.5 h-3.5" /> Editar
         </Button>
