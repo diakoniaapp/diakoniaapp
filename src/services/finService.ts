@@ -623,3 +623,78 @@ export function downloadCSV(nome: string, conteudo: string) {
   document.body.appendChild(a); a.click();
   document.body.removeChild(a); URL.revokeObjectURL(url);
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FASE 6 — Insights inteligentes + Previsão de caixa
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface FinAnomalia {
+  categoria_id: string;
+  categoria_nome: string;
+  tipo: string;
+  valor_mes: number;
+  media_6m: number;
+  variacao_pct: number | null;
+  severidade: "novo" | "critico" | "atencao" | "normal";
+}
+
+export interface FinPrevisaoCaixa {
+  saldo_atual: number;
+  entradas_previstas_30d: number; saidas_previstas_30d: number; saldo_projetado_30d: number;
+  entradas_previstas_60d: number; saidas_previstas_60d: number; saldo_projetado_60d: number;
+  entradas_previstas_90d: number; saidas_previstas_90d: number; saldo_projetado_90d: number;
+}
+
+export interface FinComparativoMes {
+  ano: number; mes: number; rotulo: string;
+  entradas: number; saidas: number; resultado: number;
+}
+
+export interface FinTopFornecedor {
+  fornecedor_id: string;
+  fornecedor_nome: string;
+  total: number;
+  qtd_lancamentos: number;
+}
+
+export interface FinAlertaFinanceiro {
+  tipo: string;
+  titulo: string;
+  descricao: string;
+  severidade: "critico" | "atencao" | "info";
+  link: string | null;
+}
+
+export async function anomaliasMes(ano?: number, mes?: number): Promise<FinAnomalia[]> {
+  const { data, error } = await supabase.rpc("fin_anomalias_mes", {
+    p_ano: ano ?? null,
+    p_mes: mes ?? null,
+  });
+  if (error) throw error;
+  return (data ?? []) as FinAnomalia[];
+}
+
+export async function previsaoCaixa(): Promise<FinPrevisaoCaixa | null> {
+  const { data, error } = await supabase.rpc("fin_previsao_caixa");
+  if (error) throw error;
+  const arr = (data ?? []) as FinPrevisaoCaixa[];
+  return arr[0] ?? null;
+}
+
+export async function comparativoMeses(n = 6): Promise<FinComparativoMes[]> {
+  const { data, error } = await supabase.rpc("fin_comparativo_meses", { p_n: n });
+  if (error) throw error;
+  return (data ?? []) as FinComparativoMes[];
+}
+
+export async function topFornecedores(n = 10, dias = 90): Promise<FinTopFornecedor[]> {
+  const { data, error } = await supabase.rpc("fin_top_fornecedores", { p_n: n, p_dias: dias });
+  if (error) throw error;
+  return (data ?? []) as FinTopFornecedor[];
+}
+
+export async function alertasFinanceiros(): Promise<FinAlertaFinanceiro[]> {
+  const { data, error } = await supabase.rpc("fin_alertas_financeiros");
+  if (error) throw error;
+  return (data ?? []) as FinAlertaFinanceiro[];
+}
