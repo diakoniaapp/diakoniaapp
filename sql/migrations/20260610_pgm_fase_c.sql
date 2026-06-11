@@ -105,7 +105,7 @@ language sql stable security definer set search_path = public as $$
   left join public.membros m on m.id = g.lider_id
   where g.ativo
     and lower(coalesce(g.bairro, '')) = lower(coalesce(p_bairro, ''))
-  order by qtd_membros desc;
+  order by (select count(*) from public.pgm_membros m where m.grupo_id = g.id and m.ativo) desc;
 $$;
 
 -- ─── 5) RPC: alerta de ausência (≥ 3 reuniões consecutivas) ────────────────

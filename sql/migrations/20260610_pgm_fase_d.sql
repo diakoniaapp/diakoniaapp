@@ -1,8 +1,7 @@
 -- ═══════════════════════════════════════════════════════════════════════════
--- PGM — FASE D — Dashboard + Resumo Geral
+-- PGM — FASE D — Dashboard + Resumo Geral (corrigido)
 -- ═══════════════════════════════════════════════════════════════════════════
 
--- RPC: resumo geral pra o dashboard
 create or replace function public.pgm_resumo_geral()
 returns table (
   total_grupos       int,
@@ -14,12 +13,7 @@ returns table (
   pedidos_ativos     int
 )
 language sql stable security definer set search_path = public as $$
-  with sm as (
-    select avg(percentual) as media
-    from public.pgm_resumo_presenca('00000000-0000-0000-0000-000000000000'::uuid, 0)
-    -- placeholder: vamos calcular real abaixo
-  ),
-  rs as (
+  with rs as (
     select
       r.id,
       (select count(*) from public.pgm_presencas p where p.reuniao_id = r.id) as total,
@@ -41,10 +35,7 @@ language sql stable security definer set search_path = public as $$
     (select count(*) from public.pgm_pedidos_oracao where status = 'ativo')::int;
 $$;
 
--- RPC: alunos próximos ao aniversário do grupo (próxima reunião)
--- (já temos rpc geral de aniversariantes — não precisa duplicar)
-
--- View: próxima reunião por grupo (calcula baseado no dia_semana)
+-- View: próxima reunião por grupo
 create or replace view public.vw_pgm_proxima_reuniao as
 select
   g.id as grupo_id, g.nome, g.dia_semana, g.horario, g.bairro,
