@@ -21,6 +21,7 @@ import { VidaDasFamilias } from "@/components/dashboard/VidaDasFamilias";
 import { AcoesDoDia } from "@/components/dashboard/AcoesDoDia";
 import { AtencaoEmPessoas } from "@/components/dashboard/AtencaoEmPessoas";
 import { AgendaDoDia } from "@/components/dashboard/AgendaDoDia";
+import { ResumoEbd } from "@/components/dashboard/ResumoEbd";
 
 // ─── Saudação por horário ────────────────────────────────────────────────
 function getSaudacao(): string {
@@ -143,9 +144,9 @@ export default function Dashboard() {
           <AcoesDoDia />
         </BlocoSecao>
 
-        {/* ── BLOCO 5 — RESUMO DA EBD (placeholder) ─────────────────────── */}
+        {/* ── BLOCO 5 — RESUMO DA EBD ──────────────────────────────────── */}
         <BlocoSecao titulo="Resumo da EBD" icon={GraduationCap} subtitulo="Presença, crescimento e atenção pastoral">
-          <Placeholder texto="Em construção (Fase 5): presença do último domingo, total de alunos por classe, faltas relevantes, comparativo semanal." />
+          <ResumoEbd />
         </BlocoSecao>
 
         {/* ── BLOCO 6 — CAMPANHAS (placeholder) ─────────────────────────── */}
