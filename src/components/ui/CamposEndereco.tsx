@@ -15,11 +15,11 @@
 // Quando o CEP atinge 8 dígitos, consulta o ViaCEP e preenche
 // logradouro, bairro e cidade automaticamente.
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, MapPin, CheckCircle2, AlertCircle } from "lucide-react";
-import { buscarCep, mascaraCep, limparCep } from "@/services/enderecoService";
+import { Loader2, MapPin, CheckCircle2, AlertCircle, Search } from "lucide-react";
+import { buscarCep, buscarCepPorLogradouro, mascaraCep, limparCep, type EnderecoViaCep } from "@/services/enderecoService";
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -56,6 +56,47 @@ export function CamposEndereco({
 
   const [status,    setStatus]    = useState<StatusCep>("idle");
   const [msgErro,   setMsgErro]   = useState<string>("");
+
+  // ── Busca reversa por nome da rua ──────────────────────────────────────
+  const [sugestoes, setSugestoes] = useState<EnderecoViaCep[]>([]);
+  const [buscandoRua, setBuscandoRua] = useState(false);
+  const [mostrandoSugestoes, setMostrandoSugestoes] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function dispararBuscaRua(valor: string) {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (valor.trim().length < 3 || !uf || !cidade) {
+      setSugestoes([]);
+      setMostrandoSugestoes(false);
+      return;
+    }
+    debounceRef.current = setTimeout(async () => {
+      setBuscandoRua(true);
+      try {
+        const r = await buscarCepPorLogradouro(uf, cidade, valor);
+        if (r.ok && r.resultados) {
+          setSugestoes(r.resultados.slice(0, 8));
+          setMostrandoSugestoes(true);
+        } else {
+          setSugestoes([]);
+          setMostrandoSugestoes(false);
+        }
+      } finally {
+        setBuscandoRua(false);
+      }
+    }, 500);
+  }
+
+  function aplicarSugestao(e: EnderecoViaCep) {
+    onChange("cep",       e.cep);
+    onChange("endereco",  e.logradouro);
+    onChange("bairro",    e.bairro);
+    if (mostrarUf) onChange("uf", e.uf);
+    onChange("cidade",    e.localidade);
+    setSugestoes([]);
+    setMostrandoSugestoes(false);
+    setStatus("ok");
+  }
 
   // ── Busca CEP quando atingir 8 dígitos ──────────────────────────────────────
 
@@ -133,15 +174,54 @@ export function CamposEndereco({
         )}
       </div>
 
-      {/* Logradouro */}
-      <div>
-        <Label translate="no">Logradouro</Label>
-        <Input
-          value={endereco}
-          onChange={(e) => onChange("endereco", e.target.value)}
-          placeholder="Rua, Avenida, Travessa..."
-          disabled={disabled}
-        />
+      {/* Logradouro com busca por nome */}
+      <div className="relative">
+        <Label translate="no" className="flex items-center gap-1.5">
+          Logradouro
+          {buscandoRua && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
+        </Label>
+        <div className="relative">
+          <Input
+            value={endereco}
+            onChange={(e) => {
+              onChange("endereco", e.target.value);
+              dispararBuscaRua(e.target.value);
+            }}
+            onFocus={() => sugestoes.length > 0 && setMostrandoSugestoes(true)}
+            onBlur={() => setTimeout(() => setMostrandoSugestoes(false), 200)}
+            placeholder="Rua, Avenida, Travessa... (digite 3+ letras)"
+            disabled={disabled}
+            className="pr-8"
+          />
+          <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+        </div>
+
+        {mostrandoSugestoes && sugestoes.length > 0 && (
+          <div className="absolute z-30 left-0 right-0 mt-1 bg-popover border rounded-md shadow-lg max-h-60 overflow-y-auto">
+            <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-muted-foreground border-b bg-muted/50">
+              {sugestoes.length} resultado{sugestoes.length === 1 ? "" : "s"} em {cidade}/{uf}
+            </div>
+            {sugestoes.map((s, i) => (
+              <button
+                key={`${s.cep}-${i}`}
+                type="button"
+                onMouseDown={(e) => { e.preventDefault(); aplicarSugestao(s); }}
+                className="w-full text-left px-2 py-1.5 hover:bg-muted/60 border-b last:border-0"
+              >
+                <p className="text-sm font-medium leading-tight">{s.logradouro}</p>
+                <p className="text-[11px] text-muted-foreground">
+                  {s.bairro} · CEP {s.cep}
+                </p>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {!cidade && (
+          <p className="text-[10px] text-muted-foreground mt-0.5">
+            💡 Preencha primeiro a cidade pra habilitar a busca por nome da rua.
+          </p>
+        )}
       </div>
 
       {/* Número + Complemento (mesma linha) */}

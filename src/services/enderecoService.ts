@@ -59,3 +59,37 @@ export async function buscarCep(cep: string): Promise<ResultadoCep> {
     return { ok: false, erro: "Sem conexão para consultar o CEP." };
   }
 }
+
+// ─── Busca reversa: por nome da rua ──────────────────────────────────────
+// API: https://viacep.com.br/ws/{UF}/{CIDADE}/{LOGRADOURO}/json/
+// Mínimo: UF (2 letras), cidade (3+ letras), logradouro (3+ letras)
+// Retorna até 50 resultados.
+
+export interface ResultadoBuscaLogradouro {
+  ok: boolean;
+  resultados?: EnderecoViaCep[];
+  erro?: string;
+}
+
+export async function buscarCepPorLogradouro(
+  uf: string, cidade: string, logradouro: string,
+): Promise<ResultadoBuscaLogradouro> {
+  const ufClean = (uf ?? "").trim().toUpperCase();
+  const cidClean = (cidade ?? "").trim();
+  const logClean = (logradouro ?? "").trim();
+
+  if (ufClean.length !== 2) return { ok: false, erro: "UF inválida" };
+  if (cidClean.length < 3)  return { ok: false, erro: "Cidade muito curta" };
+  if (logClean.length < 3)  return { ok: false, erro: "Rua muito curta" };
+
+  try {
+    const url = `https://viacep.com.br/ws/${ufClean}/${encodeURIComponent(cidClean)}/${encodeURIComponent(logClean)}/json/`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
+    if (!res.ok) return { ok: false, erro: "Erro na consulta" };
+    const data = await res.json();
+    if (!Array.isArray(data)) return { ok: false, erro: "Resposta inesperada" };
+    return { ok: true, resultados: data as EnderecoViaCep[] };
+  } catch {
+    return { ok: false, erro: "Sem conexão" };
+  }
+}
