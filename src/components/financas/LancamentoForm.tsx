@@ -124,8 +124,9 @@ export function LancamentoForm({
     setOcr(null);
     setFornecedorOcrSugerido(null);
 
-    // Roda OCR só em imagens (PDF não é suportado pelo Tesseract por enquanto)
-    if (file.type.startsWith("image/")) {
+    // Roda OCR em imagens e PDFs (PDFs são convertidos pra imagem internamente)
+    const ehPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+    if (file.type.startsWith("image/") || ehPdf) {
       setOcrLoading(true);
       try {
         const res = await extrairDadosDoComprovante(file);

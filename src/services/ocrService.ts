@@ -121,11 +121,18 @@ function extrairNumeroNf(texto: string): string | null {
 /** Função principal — roda OCR e devolve dados estruturados */
 export async function extrairDadosDoComprovante(file: File): Promise<OcrResultado> {
   const t0 = performance.now();
+
+  // Se for PDF, converte primeira página em imagem antes
+  let arquivoParaOcr: File = file;
+  if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
+    arquivoParaOcr = await pdfParaImagem(file);
+  }
+
   const worker = await getWorker();
   let texto = "";
   let confianca = 0;
   try {
-    const { data } = await worker.recognize(file);
+    const { data } = await worker.recognize(arquivoParaOcr);
     texto = data.text;
     confianca = data.confidence ?? 0;
   } finally {
@@ -149,4 +156,36 @@ export async function extrairDadosDoComprovante(file: File): Promise<OcrResultad
     duracaoMs: Math.round(performance.now() - t0),
     confianca: Math.round(confianca),
   };
+}
+
+// ─── PDF → imagem (primeira página) ──────────────────────────────────────
+// Carrega pdfjs lazy. Renderiza a página 1 em um canvas e devolve blob/file.
+export async function pdfParaImagem(file: File, escala = 2): Promise<File> {
+  const pdfjs: any = await import("pdfjs-dist");
+  // Configura worker via CDN (não precisa bundlar)
+  const v = pdfjs.version;
+  pdfjs.GlobalWorkerOptions.workerSrc =
+    `https://cdn.jsdelivr.net/npm/pdfjs-dist@${v}/build/pdf.worker.min.mjs`;
+
+  const arrayBuf = await file.arrayBuffer();
+  const pdf = await pdfjs.getDocument({ data: arrayBuf }).promise;
+  const page = await pdf.getPage(1);
+  const viewport = page.getViewport({ scale: escala });
+
+  const canvas = document.createElement("canvas");
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas não suportado");
+
+  await page.render({ canvasContext: ctx, viewport }).promise;
+
+  // Canvas → blob PNG
+  const blob: Blob = await new Promise((resolve, reject) => {
+    canvas.toBlob(b => b ? resolve(b) : reject(new Error("Falha no toBlob")), "image/png", 0.92);
+  });
+
+  // Wrap como File pra Tesseract aceitar
+  const nome = file.name.replace(/\.pdf$/i, ".png");
+  return new File([blob], nome, { type: "image/png" });
 }
