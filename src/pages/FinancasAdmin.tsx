@@ -10,6 +10,7 @@ import {
   ArrowLeft, DollarSign, Loader2, Plus, Pencil, Trash2,
   Wallet, Tag, RotateCcw, PowerOff,
   TrendingUp, TrendingDown,
+  Building2, CreditCard, PiggyBank, Mail, Coins,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -20,6 +21,16 @@ import {
 } from "@/services/finService";
 import { ContaForm } from "@/components/financas/ContaForm";
 import { CategoriaForm } from "@/components/financas/CategoriaForm";
+
+const ICONE_CONTA: Record<string, JSX.Element> = {
+  caixa:     <Wallet className="w-4 h-4" />,
+  banco:     <Building2 className="w-4 h-4" />,
+  cartao:    <CreditCard className="w-4 h-4" />,
+  envelope:  <Mail className="w-4 h-4" />,
+  aplicacao: <PiggyBank className="w-4 h-4" />,
+  cofre:     <Coins className="w-4 h-4" />,
+  pix:       <Wallet className="w-4 h-4" />,
+};
 
 export default function FinancasAdmin() {
   const [contas, setContas] = useState<FinConta[]>([]);
@@ -140,8 +151,11 @@ export default function FinancasAdmin() {
               {contas.map(c => (
                 <div key={c.id}
                   className={`flex items-center justify-between border rounded-md px-3 py-2 hover:bg-muted/30 ${!c.ativo ? "opacity-60 border-dashed" : ""}`}>
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: c.cor ?? "#cfa451" }} />
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ring-1 ring-border"
+                      style={{ background: (c.cor ?? "#cfa451") + "22", color: c.cor ?? "#cfa451" }}>
+                      {ICONE_CONTA[c.tipo] ?? <Wallet className="w-4 h-4" />}
+                    </div>
                     <div className="min-w-0 flex-1">
                       <p className="font-medium text-sm truncate flex items-center gap-1.5">
                         {c.nome}
