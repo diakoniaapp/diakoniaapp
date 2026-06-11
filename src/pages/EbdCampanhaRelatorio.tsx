@@ -104,14 +104,33 @@ export default function EbdCampanhaRelatorio() {
       <style>{`
         @media print {
           @page { size: A4; margin: 1.2cm 1.5cm; }
-          html, body { background: white !important; }
-          .no-print { display: none !important; }
-          .print-only { display: block !important; }
+          html, body { background: white !important; height: auto !important; overflow: visible !important; }
+
+          /* Esconde TUDO do shell do app (sidebar, topbar mobile, bottom nav etc.) */
+          body * { visibility: hidden !important; }
+
+          /* Mostra somente o container do relatório e seus filhos */
+          .relatorio-page, .relatorio-page * { visibility: visible !important; }
+
+          /* Posiciona o relatório ocupando o papel inteiro, sem cards/sombras da UI */
+          .relatorio-page {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            box-shadow: none !important;
+            border: none !important;
+            background: white !important;
+          }
+
           .page-break { page-break-before: always; }
           .avoid-break { page-break-inside: avoid; }
           table { page-break-inside: auto; }
           tr { page-break-inside: avoid; page-break-after: auto; }
-          .relatorio-page { box-shadow: none !important; border: none !important; padding: 0 !important; max-width: 100% !important; }
+          .print-only { display: block !important; }
         }
         .print-only { display: none; }
       `}</style>
