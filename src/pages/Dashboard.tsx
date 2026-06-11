@@ -17,6 +17,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { verseOfTheDay } from "@/lib/agenda/verses";
 import VisitanteRapidoDialog from "@/components/membros/VisitanteRapidoDialog";
 import { AlertasInteligentes } from "@/components/dashboard/AlertasInteligentes";
+import { VidaDasFamilias } from "@/components/dashboard/VidaDasFamilias";
 
 // ─── Saudação por horário ────────────────────────────────────────────────
 function getSaudacao(): string {
@@ -129,9 +130,9 @@ export default function Dashboard() {
           <AlertasInteligentes />
         </BlocoSecao>
 
-        {/* ── BLOCO 3 — VIDA DAS FAMÍLIAS (placeholder) ─────────────────── */}
+        {/* ── BLOCO 3 — VIDA DAS FAMÍLIAS ──────────────────────────────── */}
         <BlocoSecao titulo="Vida das famílias" icon={Heart} subtitulo="Aniversários e bodas da semana">
-          <Placeholder texto="Em construção (Fase 3): aniversários individuais e bodas de casamento da semana, com botão de envio direto via WhatsApp." />
+          <VidaDasFamilias />
         </BlocoSecao>
 
         {/* ── BLOCO 4 — AÇÕES DO DIA (placeholder) ──────────────────────── */}
