@@ -115,7 +115,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
   const [form, setForm] = useState<any>(empty);
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
 
   // Reset wizard step quando abrir
   useEffect(() => {
@@ -228,6 +228,8 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
   // ── Submit ─────────────────────────────────────────────────────────────
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // ⚠️ Guard: só salva no STEP FINAL (Revisão). Avancos intermediarios sao no botao "Proximo".
+    if (step !== 4) return;
 
     if (!form.nome_completo.trim()) return toast.error("Informe o nome");
 
@@ -421,6 +423,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                 { n: 1 as const, label: "Identificação" },
                 { n: 2 as const, label: "Contato" },
                 { n: 3 as const, label: "Vínculos" },
+                { n: 4 as const, label: "Revisão" },
               ]).map((p, idx, arr) => (
                 <div key={p.n} className="flex items-center flex-1">
                   <button
@@ -435,7 +438,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                     }`}>
                       {step > p.n ? "✓" : p.n}
                     </div>
-                    <span className="text-[10px] font-medium uppercase tracking-wide">{p.label}</span>
+                    <span className="text-[9px] font-medium uppercase tracking-wide">{p.label}</span>
                   </button>
                   {idx < arr.length - 1 && (
                     <div className={`flex-1 h-0.5 mx-1 mb-4 ${step > p.n ? "bg-emerald-500/40" : "bg-border"}`} />
@@ -656,24 +659,37 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
             {/* ── SITUACAO (congregado e membro) ── */}
             {(isCongregado || isMembro) && (
               <>
-                <h3 className="font-semibold text-sm mt-2 text-muted-foreground" translate="no">Situacao</h3>
+                <h3 className="font-semibold text-sm mt-2 text-muted-foreground" translate="no">Situação</h3>
                 <section className="grid md:grid-cols-2 gap-3">
 
-                  <div>
-                    <Label translate="no">Data de entrada</Label>
-                    <Input type="date" value={form.data_entrada} onChange={(e) => set("data_entrada", e.target.value)} />
-                  </div>
+                  {/* Data de entrada — apenas para MEMBRO */}
+                  {isMembro && (
+                    <div>
+                      <Label translate="no">Data de entrada</Label>
+                      <Input type="date" value={form.data_entrada} onChange={(e) => set("data_entrada", e.target.value)} />
+                      <p className="text-[10px] text-muted-foreground mt-0.5">Data do batismo/profissão de fé.</p>
+                    </div>
+                  )}
 
-                  <div>
-                    <Label translate="no">{isMembro ? "Status do membro" : "Status"}</Label>
+                  <div className={isMembro ? "" : "md:col-span-2"}>
+                    <Label translate="no">{isMembro ? "Status do membro" : "Status do congregado"}</Label>
                     <Select value={form.status || "ativo"} onValueChange={(v) => set("status", v)}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="ativo">Ativo</SelectItem>
-                        <SelectItem value="inativo">Inativo (afastamento)</SelectItem>
-                        <SelectItem value="transferido">Transferido</SelectItem>
-                        <SelectItem value="desligado">Desligado</SelectItem>
-                        <SelectItem value="falecido">Falecido</SelectItem>
+                        {isMembro ? (
+                          <>
+                            <SelectItem value="ativo">Ativo</SelectItem>
+                            <SelectItem value="inativo">Inativo (afastamento)</SelectItem>
+                            <SelectItem value="transferido">Transferido</SelectItem>
+                            <SelectItem value="desligado">Desligado</SelectItem>
+                            <SelectItem value="falecido">Falecido</SelectItem>
+                          </>
+                        ) : (
+                          <>
+                            <SelectItem value="ativo">Ativo</SelectItem>
+                            <SelectItem value="inativo">Inativo</SelectItem>
+                          </>
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
@@ -824,6 +840,50 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
 
                         </>)}
 
+            {/* ── STEP 4 — REVISÃO ── */}
+            {step === 4 && (
+              <section className="space-y-3">
+                <div className="rounded-md border bg-gradient-verse p-4 text-center">
+                  <h3 className="font-serif text-lg">Quase lá! Confira os dados</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Revise antes de salvar. Clique em <strong>Anterior</strong> se precisar ajustar algo.
+                  </p>
+                </div>
+
+                <RevisaoLinha label="Tipo">{tipoPessoaLabelMap[form.tipo_pessoa] ?? form.tipo_pessoa}</RevisaoLinha>
+                <RevisaoLinha label="Nome">{form.nome_completo || "—"}</RevisaoLinha>
+                <RevisaoLinha label="Telefone">{form.telefone_celular || "—"}</RevisaoLinha>
+                {(isCongregado || isMembro) && (
+                  <>
+                    <RevisaoLinha label="E-mail">{form.email || "—"}</RevisaoLinha>
+                    <RevisaoLinha label="Sexo">{form.sexo || "—"}</RevisaoLinha>
+                    <RevisaoLinha label="Data de nasc.">{form.data_nascimento || "—"}</RevisaoLinha>
+                    <RevisaoLinha label="Estado civil">{form.estado_civil || "—"}</RevisaoLinha>
+                    {isMembro && (
+                      <RevisaoLinha label="Data de entrada">{form.data_entrada || "—"}</RevisaoLinha>
+                    )}
+                    <RevisaoLinha label="Status">{form.status || "ativo"}</RevisaoLinha>
+                    <RevisaoLinha label="Endereço">
+                      {[form.endereco, form.numero, form.bairro, form.cidade]
+                        .filter(Boolean).join(", ") || "—"}
+                    </RevisaoLinha>
+                    <RevisaoLinha label="Classe EBD">
+                      {ebdClasseSelecionada
+                        ? (ebdClasses.find(c => c.id === ebdClasseSelecionada)?.nome ?? "—")
+                        : "—"}
+                    </RevisaoLinha>
+                    <RevisaoLinha label="Áreas de atuação">
+                      {areasSelecionadas.size === 0 ? "Nenhuma" : `${areasSelecionadas.size} selecionada(s)`}
+                    </RevisaoLinha>
+                  </>
+                )}
+
+                <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-2 text-center">
+                  Clique em <strong>Salvar</strong> para confirmar o cadastro.
+                </p>
+              </section>
+            )}
+
             {/* ── FOOTER ── */}
             <DialogFooter className="flex flex-col sm:flex-row gap-2 pt-2">
               {isAdmin && membro && step === 1 && (
@@ -834,7 +894,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
               )}
               {step > 1 ? (
                 <Button type="button" variant="outline"
-                  onClick={() => setStep((step - 1) as 1 | 2 | 3)}
+                  onClick={() => setStep(((step as number) - 1) as 1 | 2 | 3 | 4)}
                   disabled={busy}>
                   ← Anterior
                 </Button>
@@ -844,7 +904,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                 </Button>
               )}
 
-              {step < 3 ? (
+              {step < 4 ? (
                 <Button type="button"
                   onClick={() => {
                     // Valida campos obrigatórios do passo atual
@@ -856,14 +916,14 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                       toast.error("Telefone é obrigatório para visitante");
                       return;
                     }
-                    setStep((step + 1) as 1 | 2 | 3);
+                    setStep(((step as number) + 1) as 1 | 2 | 3 | 4);
                   }}
                   disabled={busy}>
                   Próximo →
                 </Button>
               ) : (
                 <Button type="submit" disabled={busy}>
-                  {busy ? "Salvando..." : membro ? "Salvar alteracoes" : `Cadastrar ${tipo}`}
+                  {busy ? "Salvando..." : membro ? "Salvar alterações" : `Cadastrar ${tipo}`}
                 </Button>
               )}
             </DialogFooter>
@@ -890,5 +950,21 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
         </AlertDialogContent>
       </AlertDialog>
     </>
+  );
+}
+
+// ── Helpers Revisão ──────────────────────────────────────────────────────
+const tipoPessoaLabelMap: Record<string, string> = {
+  visitante: "Visitante",
+  congregado: "Congregado",
+  membro: "Membro",
+};
+
+function RevisaoLinha({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-start justify-between gap-3 text-sm border-b py-1.5">
+      <span className="text-[11px] uppercase tracking-wide text-muted-foreground shrink-0">{label}</span>
+      <span className="font-medium text-right break-words min-w-0">{children}</span>
+    </div>
   );
 }
