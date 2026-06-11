@@ -14,7 +14,7 @@ import {
 import { toast } from "sonner";
 import {
   carregarClasse, esperadosDaClasse, matriculadosDaClasse,
-  matricular, desmatricular, excluirClasse,
+  matricular, desmatricular, excluirClasse, desativarClasse, reativarClasse,
   type EbdClasse, type EbdEsperado,
 } from "@/services/ebdService";
 import { supabase } from "@/integrations/supabase/client";
@@ -50,6 +50,7 @@ export default function EbdClasse() {
   const [busy, setBusy] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmDeactivate, setConfirmDeactivate] = useState(false);
   const { hasRole } = useAuth();
   const podeEditar = hasRole(["admin", "secretaria", "pastor", "diakonia"]);
   const navigate = useNavigate();
@@ -95,6 +96,30 @@ export default function EbdClasse() {
       await recarregar();
     } catch (e: any) {
       toast.error(e?.message ?? "Erro ao matricular");
+    } finally { setBusy(false); }
+  }
+
+  async function handleDesativarClasse() {
+    if (!classe) return;
+    setBusy(true);
+    try {
+      await desativarClasse(classe.id);
+      toast.success("Classe desativada — mantida no histórico");
+      navigate("/ebd");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erro ao desativar");
+    } finally { setBusy(false); }
+  }
+
+  async function handleReativarClasse() {
+    if (!classe) return;
+    setBusy(true);
+    try {
+      await reativarClasse(classe.id);
+      toast.success("Classe reativada");
+      await recarregar();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erro ao reativar");
     } finally { setBusy(false); }
   }
 
@@ -163,7 +188,16 @@ export default function EbdClasse() {
               <Button variant="outline" size="sm" onClick={() => setEditOpen(true)} className="gap-1.5">
                 <Pencil className="w-3.5 h-3.5" /> Editar
               </Button>
-              <Button variant="outline" size="sm" onClick={() => setConfirmDelete(true)} className="gap-1.5 text-destructive hover:text-destructive">
+              {classe.ativo ? (
+                <Button variant="outline" size="sm" onClick={() => setConfirmDeactivate(true)} className="gap-1.5 text-amber-700 hover:text-amber-700" title="Mantém no histórico, oculta da lista padrão">
+                  <PowerOff className="w-3.5 h-3.5" /> Desativar
+                </Button>
+              ) : (
+                <Button variant="outline" size="sm" onClick={handleReativarClasse} disabled={busy} className="gap-1.5 text-emerald-700 hover:text-emerald-700" title="Volta a aparecer na lista de classes ativas">
+                  <RotateCcw className="w-3.5 h-3.5" /> Reativar
+                </Button>
+              )}
+              <Button variant="outline" size="sm" onClick={() => setConfirmDelete(true)} className="gap-1.5 text-destructive hover:text-destructive" title="Apaga permanentemente — bloqueado se houver matriculados ou aulas">
                 <Trash2 className="w-3.5 h-3.5" /> Excluir
               </Button>
             </>
@@ -320,6 +354,31 @@ export default function EbdClasse() {
         classe={classe}
         onSaved={recarregar}
       />
+
+      {/* Confirmar desativação (soft) */}
+      <AlertDialog open={confirmDeactivate} onOpenChange={setConfirmDeactivate}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Desativar classe?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong>{classe.nome}</strong> será ocultada da lista padrão de classes,
+              mas todo o histórico (matrículas, chamadas, campanhas) será preservado.
+              <br /><br />
+              Você pode <strong>reativar</strong> a qualquer momento mostrando classes desativadas.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDesativarClasse}
+              className="bg-amber-700 text-white hover:bg-amber-700/90"
+              disabled={busy}
+            >
+              {busy ? "..." : "Desativar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Confirmar exclusão */}
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>

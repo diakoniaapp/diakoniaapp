@@ -25,7 +25,7 @@ export interface EbdEsperado {
   outra_classe_nome?: string | null;
 }
 
-export async function listarClasses(): Promise<EbdClasse[]> {
+export async function listarClasses(incluirInativas = false): Promise<EbdClasse[]> {
   const { data, error } = await supabase
     .from("ebd_classes")
     .select("*")
@@ -130,6 +130,20 @@ export async function atualizarClasse(id: string, patch: Partial<ClasseInput>): 
 export async function excluirClasse(id: string): Promise<void> {
   // Trigger no banco impede DELETE se houver matriculados ou aulas
   const { error } = await supabase.from("ebd_classes").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function desativarClasse(id: string): Promise<void> {
+  const { error } = await supabase.from("ebd_classes")
+    .update({ ativo: false, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+export async function reativarClasse(id: string): Promise<void> {
+  const { error } = await supabase.from("ebd_classes")
+    .update({ ativo: true, updated_at: new Date().toISOString() })
+    .eq("id", id);
   if (error) throw error;
 }
 

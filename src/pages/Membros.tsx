@@ -17,6 +17,7 @@ import AtuacoesDialog from "@/components/membros/AtuacoesDialog";
 import VisitanteDialog from "@/components/membros/VisitanteDialog";
 import { ListSkeleton, EmptyState, ErrorState } from "@/components/ListState";
 import { buscarAcessoPorPessoa, type StatusAcesso } from "@/services/acessoService";
+import { StatusMembroBadge } from "@/components/membros/StatusMembroBadge";
 
 export interface Membro {
     id: string;
@@ -349,9 +350,7 @@ export default function Membros() {
                                                                                                                                   {tipoPessoaLabel[m.tipo_pessoa]}
                                                                                                                                   </Badge>
                                                                                                             {m.tipo_pessoa === "membro" && (
-                                                                              <Badge variant="outline" className={statusColor[m.status]}>
-                                                                                {m.status}
-                                                                                </Badge>
+                                                                              <StatusMembroBadge status={m.status} compact />
                                                                                                                                 )}
                                                                                                             </div>
                                                                                                           <div className="text-sm text-muted-foreground truncate">

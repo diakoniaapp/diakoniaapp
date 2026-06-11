@@ -22,13 +22,14 @@ export default function Ebd() {
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [classeEditando, setClasseEditando] = useState<EbdClasse | null>(null);
+  const [mostrarInativas, setMostrarInativas] = useState(false);
 
-  useEffect(() => { carregar(); }, []);
+  useEffect(() => { carregar(); }, [mostrarInativas]);
 
   async function carregar() {
     setLoading(true);
     try {
-      const cs = await listarClasses();
+      const cs = await listarClasses(mostrarInativas);
       const enriched: ClasseCard[] = [];
       for (const c of cs) {
         const { count: qtdMat } = await supabase
@@ -82,6 +83,10 @@ export default function Ebd() {
             Classes, matrículas, presenças e campanhas — uma classe por vez.
           </p>
         </div>
+        <label className="flex items-center gap-1.5 text-xs cursor-pointer mr-2">
+          <input type="checkbox" checked={mostrarInativas} onChange={(e) => setMostrarInativas(e.target.checked)} />
+          Mostrar desativadas
+        </label>
         {podeCriar && (
           <Button onClick={() => { setClasseEditando(null); setFormOpen(true); }} className="gap-1.5">
             <Plus className="w-4 h-4" /> Nova classe
@@ -95,16 +100,23 @@ export default function Ebd() {
             ? Math.round((c.qtd_matriculados / c.qtd_esperados) * 100)
             : 0;
           return (
-            <Card key={c.id} className="rounded-2xl shadow hover:shadow-md transition-shadow">
+            <Card key={c.id} className={`rounded-2xl shadow hover:shadow-md transition-shadow ${!c.ativo ? "opacity-60 border-dashed" : ""}`}>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base flex items-center gap-2 justify-between">
                   <span className="flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full" style={{ background: c.cor ?? "#cfa451" }} />
                     {c.nome}
                   </span>
-                  <Badge variant="outline" className="text-[10px]">
-                    {generoTexto(c.genero)}
-                  </Badge>
+                  <span className="flex items-center gap-1">
+                    {!c.ativo && (
+                      <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-300">
+                        Desativada
+                      </Badge>
+                    )}
+                    <Badge variant="outline" className="text-[10px]">
+                      {generoTexto(c.genero)}
+                    </Badge>
+                  </span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
