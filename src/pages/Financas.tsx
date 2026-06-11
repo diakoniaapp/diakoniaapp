@@ -150,7 +150,7 @@ export default function Financas() {
         <Atalho to="/financas/agenda?tipo=saida" icon={<TrendingDown className="w-4 h-4 text-rose-600" />} label="Contas a pagar" />
         <Atalho to="/financas/agenda?tipo=entrada" icon={<TrendingUp className="w-4 h-4 text-emerald-600" />} label="Contas a receber" />
         <Atalho to="/financas/recorrencias" icon={<RotateCw className="w-4 h-4 text-gold" />} label="Recorrências" />
-        <Atalho to="#" icon={<AlertTriangle className="w-4 h-4 text-amber-600" />} label="Malote contábil" disabled />
+        <Atalho to="/financas/relatorio" icon={<AlertTriangle className="w-4 h-4 text-amber-600" />} label="Malote contábil" />
       </div>
       <p className="text-[10px] text-muted-foreground text-center pt-2">
         Mais módulos chegando nas próximas fases — F2: IA documentos, F3: agenda fiscal, F4: estoque, F5: malote, F6: insights.

@@ -517,3 +517,109 @@ export async function confirmarPagamento(lancamentoId: string, opts?: {
   if (opts?.valorReal && opts.valorReal > 0) patch.valor = opts.valorReal;
   await atualizarLancamento(lancamentoId, patch);
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FASE 5 — Malote Contábil (relatório mensal consolidado)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface ResumoMensal {
+  ano: number;
+  mes: number;
+  totalEntradas: number;
+  totalSaidas: number;
+  resultado: number;
+  qtdLancamentos: number;
+  porCategoria: { id: string | null; nome: string; tipo: FinMovimentoTipo; total: number; cor: string | null }[];
+  porConta:    { id: string; nome: string; entradas: number; saidas: number; saldo: number }[];
+  lancamentos: FinLancamentoExtenso[];
+}
+
+export async function resumoMensal(ano: number, mes: number): Promise<ResumoMensal> {
+  const ini = `${ano}-${String(mes).padStart(2, "0")}-01`;
+  const fim = new Date(ano, mes, 0).toISOString().slice(0, 10); // último dia
+
+  const lancs = await listarLancamentos({
+    dataInicio: ini, dataFim: fim,
+  });
+  // Filtra: só realizados/conciliados entram no malote
+  const realizados = lancs.filter(l => l.status === "realizado" || l.status === "conciliado");
+
+  const totalEntradas = realizados.filter(l => l.tipo === "entrada").reduce((s, l) => s + Number(l.valor), 0);
+  const totalSaidas   = realizados.filter(l => l.tipo === "saida").reduce((s, l) => s + Number(l.valor), 0);
+
+  // Por categoria
+  const catMap = new Map<string, { nome: string; tipo: FinMovimentoTipo; total: number; cor: string | null }>();
+  realizados.forEach(l => {
+    const key = l.categoria_id ?? "_sem";
+    const ex = catMap.get(key);
+    const nome = l.categoria_nome ?? "Sem categoria";
+    const cor = l.categoria_cor ?? null;
+    if (ex) ex.total += Number(l.valor);
+    else catMap.set(key, { nome, tipo: l.tipo, total: Number(l.valor), cor });
+  });
+  const porCategoria = Array.from(catMap.entries())
+    .map(([id, v]) => ({ id: id === "_sem" ? null : id, ...v }))
+    .sort((a, b) => b.total - a.total);
+
+  // Por conta
+  const conMap = new Map<string, { nome: string; entradas: number; saidas: number }>();
+  realizados.forEach(l => {
+    const key = l.conta_id;
+    const nome = l.conta_nome ?? "—";
+    const ex = conMap.get(key);
+    if (ex) {
+      if (l.tipo === "entrada") ex.entradas += Number(l.valor);
+      else ex.saidas += Number(l.valor);
+    } else {
+      conMap.set(key, {
+        nome,
+        entradas: l.tipo === "entrada" ? Number(l.valor) : 0,
+        saidas:   l.tipo === "saida"   ? Number(l.valor) : 0,
+      });
+    }
+  });
+  const porConta = Array.from(conMap.entries()).map(([id, v]) => ({
+    id, ...v, saldo: v.entradas - v.saidas,
+  })).sort((a, b) => Math.abs(b.entradas - b.saidas) - Math.abs(a.entradas - a.saidas));
+
+  return {
+    ano, mes,
+    totalEntradas, totalSaidas,
+    resultado: totalEntradas - totalSaidas,
+    qtdLancamentos: realizados.length,
+    porCategoria, porConta,
+    lancamentos: realizados,
+  };
+}
+
+// ─── Exportação CSV ─────────────────────────────────────────────────────
+export function gerarCSV(lancamentos: FinLancamentoExtenso[]): string {
+  const linhas = [
+    "Data,Tipo,Conta,Categoria,Centro Custo,Fornecedor,Descricao,Valor,Status,Documento"
+  ];
+  lancamentos.forEach(l => {
+    const campos = [
+      l.data,
+      l.tipo,
+      l.conta_nome ?? "",
+      l.categoria_nome ?? "",
+      l.centro_nome ?? "",
+      l.fornecedor_nome ?? "",
+      (l.descricao ?? "").replace(/"/g, '""'),
+      Number(l.valor).toFixed(2).replace(".", ","),
+      l.status,
+      l.documento_numero ?? "",
+    ];
+    linhas.push(campos.map(c => `"${c}"`).join(","));
+  });
+  return linhas.join("\n");
+}
+
+export function downloadCSV(nome: string, conteudo: string) {
+  const blob = new Blob([conteudo], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = nome;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
