@@ -12,7 +12,8 @@ import {
   type FinConta, type FinResumoMes,
 } from "@/services/finService";
 import { LancamentoForm } from "@/components/financas/LancamentoForm";
-import { Settings } from "lucide-react";
+import { TransferenciaForm } from "@/components/financas/TransferenciaForm";
+import { Settings, ArrowRightLeft } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 const ICONE_CONTA: Record<string, JSX.Element> = {
@@ -33,6 +34,7 @@ export default function Financas() {
   const [resumo, setResumo] = useState<FinResumoMes | null>(null);
   const [loading, setLoading] = useState(true);
   const [lancarOpen, setLancarOpen] = useState(false);
+  const [transfOpen, setTransfOpen] = useState(false);
 
   useEffect(() => { carregar(); }, []);
 
@@ -78,6 +80,9 @@ export default function Financas() {
               <Settings className="w-3.5 h-3.5" /> Configurações
             </Button>
           </Link>
+          <Button variant="outline" size="sm" onClick={() => setTransfOpen(true)} className="gap-1.5 text-blue-600 hover:text-blue-700">
+            <ArrowRightLeft className="w-3.5 h-3.5" /> Transferir
+          </Button>
           <Button onClick={() => setLancarOpen(true)} className="gap-1.5 bg-gold hover:bg-gold/90 text-white">
             <Plus className="w-4 h-4" /> Novo lançamento
           </Button>
@@ -154,6 +159,11 @@ export default function Financas() {
       <LancamentoForm
         open={lancarOpen}
         onOpenChange={setLancarOpen}
+        onSaved={carregar}
+      />
+      <TransferenciaForm
+        open={transfOpen}
+        onOpenChange={setTransfOpen}
         onSaved={carregar}
       />
     </div>

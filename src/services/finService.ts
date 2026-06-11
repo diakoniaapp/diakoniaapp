@@ -343,3 +343,65 @@ export async function excluirConta(id: string): Promise<void> {
   const { error } = await supabase.from("fin_contas").delete().eq("id", id);
   if (error) throw error;
 }
+
+// ─── Transferência entre contas ──────────────────────────────────────────
+// Cria 2 lançamentos vinculados (saída origem + entrada destino).
+// Se falhar no meio, tenta reverter o primeiro.
+export async function transferir(input: {
+  contaOrigemId: string;
+  contaDestinoId: string;
+  valor: number;
+  data: string;
+  descricao?: string | null;
+  comprovanteFile?: File | null;
+}): Promise<void> {
+  if (input.contaOrigemId === input.contaDestinoId) {
+    throw new Error("Origem e destino precisam ser contas diferentes");
+  }
+  if (input.valor <= 0) throw new Error("Valor inválido");
+
+  // Buscar nomes pra descrição
+  const [orig, dest] = await Promise.all([
+    carregarConta(input.contaOrigemId),
+    carregarConta(input.contaDestinoId),
+  ]);
+  if (!orig || !dest) throw new Error("Conta inválida");
+
+  const descBase = input.descricao?.trim() ||
+    `Transferência: ${orig.nome} → ${dest.nome}`;
+
+  // 1) saída na origem
+  const saida = await criarLancamento({
+    tipo: "saida",
+    data: input.data,
+    valor: input.valor,
+    conta_id: input.contaOrigemId,
+    status: "realizado",
+    descricao: `${descBase} (saída)`,
+    origem: "transferencia",
+  });
+
+  try {
+    // 2) entrada no destino — referencia a saída como pai
+    await criarLancamento({
+      tipo: "entrada",
+      data: input.data,
+      valor: input.valor,
+      conta_id: input.contaDestinoId,
+      status: "realizado",
+      descricao: `${descBase} (entrada)`,
+      origem: "transferencia",
+      lancamento_pai_id: saida.id,
+    } as any);
+
+    // 3) Upload de comprovante (opcional) — anexa ao lançamento da saída
+    if (input.comprovanteFile) {
+      const path = await uploadComprovante(input.comprovanteFile, saida.id);
+      await atualizarLancamento(saida.id, { comprovante_url: path });
+    }
+  } catch (e: any) {
+    // Reverte: se a entrada falhou, apaga a saída pra não ficar inconsistente
+    await excluirLancamento(saida.id).catch(() => {});
+    throw e;
+  }
+}

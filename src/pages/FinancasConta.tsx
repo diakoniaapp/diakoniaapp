@@ -20,6 +20,8 @@ import {
   STATUS_LABEL,
 } from "@/services/finService";
 import { LancamentoForm } from "@/components/financas/LancamentoForm";
+import { TransferenciaForm } from "@/components/financas/TransferenciaForm";
+import { ArrowRightLeft } from "lucide-react";
 
 function dataBr(s: string) {
   return new Date(s + "T00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
@@ -50,6 +52,7 @@ export default function FinancasConta() {
   const [busca, setBusca] = useState("");
   const [novoOpen, setNovoOpen] = useState(false);
   const [editando, setEditando] = useState<FinLancamentoExtenso | null>(null);
+  const [transfOpen, setTransfOpen] = useState(false);
 
   // Período do filtro — mês atual por default
   const hoje = new Date();
@@ -127,6 +130,9 @@ export default function FinancasConta() {
             Saldo atual: <strong style={{ color: conta.cor ?? undefined }}>{brl(Number(conta.saldo_atual))}</strong>
           </p>
         </div>
+        <Button variant="outline" size="sm" onClick={() => setTransfOpen(true)} className="gap-1.5 text-blue-600 hover:text-blue-700">
+          <ArrowRightLeft className="w-3.5 h-3.5" /> Transferir
+        </Button>
         <Button onClick={() => { setEditando(null); setNovoOpen(true); }}
           className="gap-1.5 bg-gold hover:bg-gold/90 text-white">
           <Plus className="w-4 h-4" /> Novo lançamento
@@ -278,7 +284,13 @@ export default function FinancasConta() {
         {lancamentos.length} lançamento{lancamentos.length === 1 ? "" : "s"} no período · até 300 mais recentes
       </p>
 
-      {/* Dialog */}
+      {/* Dialogs */}
+      <TransferenciaForm
+        open={transfOpen}
+        onOpenChange={setTransfOpen}
+        contaOrigemPadrao={contaId}
+        onSaved={carregar}
+      />
       <LancamentoForm
         open={novoOpen}
         onOpenChange={(v) => { setNovoOpen(v); if (!v) setEditando(null); }}
