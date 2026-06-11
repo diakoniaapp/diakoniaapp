@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Printer, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { BrandMark } from "@/components/Brand";
-import { IGREJA_NOME } from "@/lib/igreja";
 import {
   carregarCampanha, resumoCampanha, listarEntradas, carregarClasse,
   type CampanhaEbd, type ResumoCampanha, type EntradaEbd, type EbdClasse,
@@ -160,12 +159,15 @@ export default function EbdCampanhaRelatorio() {
       <div className="relatorio-page max-w-4xl mx-auto bg-white text-foreground p-8 md:p-10 my-4 md:my-6 shadow-elevated border border-border/40 rounded-md print:my-0">
         {/* Cabeçalho institucional */}
         <header className="avoid-break flex items-start justify-between gap-4 pb-4 border-b-2 border-gold/30">
-          <div className="flex items-start gap-3">
-            <BrandMark className="text-3xl" />
+          <div className="flex items-center gap-3">
+            {/* Logo com fundo gold para garantir contraste do DIAKONIA (logo branco) */}
+            <div className="bg-gold rounded-md px-3 py-2 flex items-center justify-center shadow-sm print:bg-gold print:!bg-gold" style={{ printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" }}>
+              <BrandMark className="text-2xl" />
+            </div>
             <div>
-              <h2 className="font-serif text-lg leading-tight">{IGREJA_NOME}</h2>
-              <p className="text-[11px] text-muted-foreground mt-0.5">
-                Sistema Diakonia · Gestão Pastoral
+              <h2 className="font-serif text-lg leading-tight">Diakonia APP — Sistema de Igrejas</h2>
+              <p className="text-[11px] text-muted-foreground mt-0.5 tracking-wide">
+                Conectando pessoas, organizando o propósito
               </p>
             </div>
           </div>
@@ -338,13 +340,15 @@ export default function EbdCampanhaRelatorio() {
           <div className="grid grid-cols-2 gap-12 text-center text-xs">
             <div>
               <div className="border-t border-foreground/60 pt-1 mx-4">
-                <p className="font-medium">Pastor Responsável</p>
-                <p className="text-muted-foreground text-[10px]">{IGREJA_NOME}</p>
+                <p className="font-medium">Professor da Classe</p>
+                {classe && (
+                  <p className="text-muted-foreground text-[10px]">{classe.nome}</p>
+                )}
               </div>
             </div>
             <div>
               <div className="border-t border-foreground/60 pt-1 mx-4">
-                <p className="font-medium">Tesouraria</p>
+                <p className="font-medium">Área | Apoio Administrativo</p>
                 <p className="text-muted-foreground text-[10px]">Responsável pela conta</p>
               </div>
             </div>
