@@ -414,3 +414,106 @@ export async function buscarFornecedorPorCnpj(cnpjDigitos: string): Promise<FinF
     .limit(1).maybeSingle();
   return (data ?? null) as FinFornecedor | null;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FASE 3 — Recorrências + Contas a Pagar/Receber
+// ═══════════════════════════════════════════════════════════════════════════
+
+export type FinFrequencia = "mensal" | "bimestral" | "trimestral" | "semestral" | "anual";
+
+export const FREQUENCIA_LABEL: Record<FinFrequencia, string> = {
+  mensal: "Mensal", bimestral: "Bimestral", trimestral: "Trimestral",
+  semestral: "Semestral", anual: "Anual",
+};
+
+export interface FinRecorrencia {
+  id: string;
+  descricao: string;
+  tipo: FinMovimentoTipo;
+  valor: number;
+  valor_variavel: boolean;
+  conta_id: string;
+  categoria_id: string | null;
+  centro_custo_id: string | null;
+  fornecedor_id: string | null;
+  frequencia: FinFrequencia;
+  dia_vencimento: number;
+  data_inicio: string;
+  data_fim: string | null;
+  ativo: boolean;
+  ajusta_dia_util: boolean;
+  lembrar_5d: boolean;
+  lembrar_1d: boolean;
+  lembrar_dia: boolean;
+  ultimo_gerado_ate: string | null;
+  observacao: string | null;
+}
+
+export interface FinVencimento {
+  id: string; data: string; tipo: FinMovimentoTipo;
+  status: FinStatus; valor: number; descricao: string | null;
+  conta_id: string; conta_nome: string | null;
+  categoria_id: string | null; categoria_nome: string | null; categoria_cor: string | null;
+  fornecedor_id: string | null; fornecedor_nome: string | null;
+  dias_para_vencer: number;
+  urgencia: "vencido" | "vence_hoje" | "urgente" | "esta_semana" | "futuro";
+}
+
+// ─── CRUD ────────────────────────────────────────────────────────────────
+export async function listarRecorrencias(incluirInativas = false): Promise<FinRecorrencia[]> {
+  let q = supabase.from("fin_recorrencias").select("*").order("dia_vencimento").order("descricao");
+  if (!incluirInativas) q = q.eq("ativo", true);
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data ?? []) as FinRecorrencia[];
+}
+
+export async function criarRecorrencia(input: Partial<FinRecorrencia>): Promise<FinRecorrencia> {
+  const { data, error } = await supabase.from("fin_recorrencias").insert(input as any).select("*").single();
+  if (error) throw error;
+  return data as FinRecorrencia;
+}
+
+export async function atualizarRecorrencia(id: string, patch: Partial<FinRecorrencia>): Promise<void> {
+  const { error } = await supabase.from("fin_recorrencias").update(patch as any).eq("id", id);
+  if (error) throw error;
+}
+
+export async function excluirRecorrencia(id: string): Promise<void> {
+  const { error } = await supabase.from("fin_recorrencias").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// ─── Gerar previstos ────────────────────────────────────────────────────
+export async function gerarRecorrencias(opts: { ateData?: string; recorrenciaId?: string } = {}): Promise<number> {
+  const { data, error } = await supabase.rpc("fin_gerar_recorrencias", {
+    p_ate_data: opts.ateData ?? null,
+    p_recorrencia_id: opts.recorrenciaId ?? null,
+  });
+  if (error) throw error;
+  return data as number;
+}
+
+// ─── Próximos vencimentos ──────────────────────────────────────────────
+export async function listarProximosVencimentos(opts: {
+  ateData?: string; tipo?: FinMovimentoTipo;
+} = {}): Promise<FinVencimento[]> {
+  let q = supabase.from("vw_fin_proximos_vencimentos").select("*").order("data");
+  if (opts.ateData) q = q.lte("data", opts.ateData);
+  if (opts.tipo)   q = q.eq("tipo", opts.tipo);
+  const { data, error } = await q.limit(200);
+  if (error) throw error;
+  return (data ?? []) as FinVencimento[];
+}
+
+// ─── Confirmar pagamento — previsto → realizado ─────────────────────────
+export async function confirmarPagamento(lancamentoId: string, opts?: {
+  dataPagamento?: string; valorReal?: number;
+}): Promise<void> {
+  const patch: any = {
+    status: "realizado",
+    data_pagamento: opts?.dataPagamento ?? new Date().toISOString().slice(0, 10),
+  };
+  if (opts?.valorReal && opts.valorReal > 0) patch.valor = opts.valorReal;
+  await atualizarLancamento(lancamentoId, patch);
+}

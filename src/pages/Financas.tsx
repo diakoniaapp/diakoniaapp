@@ -13,7 +13,7 @@ import {
 } from "@/services/finService";
 import { LancamentoForm } from "@/components/financas/LancamentoForm";
 import { TransferenciaForm } from "@/components/financas/TransferenciaForm";
-import { Settings, ArrowRightLeft } from "lucide-react";
+import { Settings, ArrowRightLeft, RotateCw } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 const ICONE_CONTA: Record<string, JSX.Element> = {
@@ -147,9 +147,9 @@ export default function Financas() {
 
       {/* Atalhos */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pt-2">
-        <Atalho to="#" icon={<TrendingUp className="w-4 h-4 text-emerald-600" />} label="Contas a receber" disabled />
-        <Atalho to="#" icon={<TrendingDown className="w-4 h-4 text-rose-600" />} label="Contas a pagar" disabled />
-        <Atalho to="#" icon={<DollarSign className="w-4 h-4 text-gold" />} label="Relatórios" disabled />
+        <Atalho to="/financas/agenda?tipo=saida" icon={<TrendingDown className="w-4 h-4 text-rose-600" />} label="Contas a pagar" />
+        <Atalho to="/financas/agenda?tipo=entrada" icon={<TrendingUp className="w-4 h-4 text-emerald-600" />} label="Contas a receber" />
+        <Atalho to="/financas/recorrencias" icon={<RotateCw className="w-4 h-4 text-gold" />} label="Recorrências" />
         <Atalho to="#" icon={<AlertTriangle className="w-4 h-4 text-amber-600" />} label="Malote contábil" disabled />
       </div>
       <p className="text-[10px] text-muted-foreground text-center pt-2">
