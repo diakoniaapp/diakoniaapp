@@ -307,3 +307,39 @@ export async function resumoFinanceiroMes(): Promise<FinResumoMes | null> {
 export function brl(v: number | null | undefined): string {
   return (v ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
+
+// ─── Editar categoria ───────────────────────────────────────────────────
+export async function criarCategoria(input: Partial<FinCategoria>): Promise<FinCategoria> {
+  const { data, error } = await supabase.from("fin_categorias")
+    .insert(input as any).select("*").single();
+  if (error) throw error;
+  return data as FinCategoria;
+}
+
+export async function atualizarCategoria(id: string, patch: Partial<FinCategoria>): Promise<void> {
+  const { error } = await supabase.from("fin_categorias").update(patch as any).eq("id", id);
+  if (error) throw error;
+}
+
+export async function excluirCategoria(id: string): Promise<void> {
+  const { error } = await supabase.from("fin_categorias").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function listarCategoriasTodas(): Promise<FinCategoria[]> {
+  const { data, error } = await supabase
+    .from("fin_categorias").select("*").order("tipo").order("ordem").order("nome");
+  if (error) throw error;
+  return (data ?? []) as FinCategoria[];
+}
+
+// ─── Reativar conta ─────────────────────────────────────────────────────
+export async function reativarConta(id: string): Promise<void> {
+  const { error } = await supabase.from("fin_contas").update({ ativo: true }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function excluirConta(id: string): Promise<void> {
+  const { error } = await supabase.from("fin_contas").delete().eq("id", id);
+  if (error) throw error;
+}

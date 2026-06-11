@@ -12,6 +12,7 @@ import {
   type FinConta, type FinResumoMes,
 } from "@/services/finService";
 import { LancamentoForm } from "@/components/financas/LancamentoForm";
+import { Settings } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 const ICONE_CONTA: Record<string, JSX.Element> = {
@@ -71,9 +72,16 @@ export default function Financas() {
             Tesouraria digital — entradas, saídas, contas e relatórios.
           </p>
         </div>
-        <Button onClick={() => setLancarOpen(true)} className="gap-1.5 bg-gold hover:bg-gold/90 text-white">
-          <Plus className="w-4 h-4" /> Novo lançamento
-        </Button>
+        <div className="flex items-center gap-2">
+          <Link to="/financas/admin">
+            <Button variant="outline" size="sm" className="gap-1.5">
+              <Settings className="w-3.5 h-3.5" /> Configurações
+            </Button>
+          </Link>
+          <Button onClick={() => setLancarOpen(true)} className="gap-1.5 bg-gold hover:bg-gold/90 text-white">
+            <Plus className="w-4 h-4" /> Novo lançamento
+          </Button>
+        </div>
       </div>
 
       {/* Stats do mês */}
