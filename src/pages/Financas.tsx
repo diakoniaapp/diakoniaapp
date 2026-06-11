@@ -155,7 +155,7 @@ export default function Financas() {
         <Atalho to="/financas/insights" icon={<Sparkles className="w-4 h-4 text-gold" />} label="Insights" />
       </div>
       <p className="text-[10px] text-muted-foreground text-center pt-2">
-        Mais módulos chegando nas próximas fases — F2: IA documentos, F3: agenda fiscal, F4: estoque, F5: malote, F6: insights.
+        ✨ Sistema financeiro completo · 6 fases entregues · OCR · Recorrências · Estoque · Malote · Insights
       </p>
 
       <LancamentoForm
