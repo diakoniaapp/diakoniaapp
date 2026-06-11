@@ -16,6 +16,7 @@ import {
   type PgmGrupo,
 } from "@/services/pgmService";
 import { BuscaPessoa } from "@/components/ui/BuscaPessoa";
+import { CamposEndereco } from "@/components/ui/CamposEndereco";
 
 interface Props {
   open: boolean;
@@ -30,9 +31,13 @@ export function GrupoForm({ open, onOpenChange, grupo, onSaved }: Props) {
   const [descricao, setDescricao] = useState("");
   const [diaSemana, setDiaSemana] = useState<number | null>(null);
   const [horario, setHorario] = useState("");
+  const [cep, setCep] = useState("");
   const [endereco, setEndereco] = useState("");
+  const [numero, setNumero] = useState("");
+  const [complemento, setComplemento] = useState("");
   const [bairro, setBairro] = useState("");
   const [cidade, setCidade] = useState("Rio de Janeiro");
+  const [uf, setUf] = useState("RJ");
   const [whatsappLink, setWhatsappLink] = useState("");
   const [liderId, setLiderId] = useState<string>("");
   const [coLiderId, setCoLiderId] = useState<string>("");
@@ -46,16 +51,21 @@ export function GrupoForm({ open, onOpenChange, grupo, onSaved }: Props) {
       setDescricao(grupo.descricao ?? "");
       setDiaSemana(grupo.dia_semana);
       setHorario(grupo.horario ?? "");
+      setCep(grupo.cep ?? "");
       setEndereco(grupo.endereco ?? "");
+      setNumero(grupo.numero ?? "");
+      setComplemento(grupo.complemento ?? "");
       setBairro(grupo.bairro ?? "");
       setCidade(grupo.cidade ?? "Rio de Janeiro");
+      setUf(grupo.uf ?? "RJ");
       setWhatsappLink(grupo.whatsapp_link ?? "");
       setLiderId(grupo.lider_id ?? "");
       setCoLiderId(grupo.co_lider_id ?? "");
       setAnfitriaoId(grupo.anfitriao_id ?? "");
     } else {
       setNome(""); setDescricao(""); setDiaSemana(null); setHorario("");
-      setEndereco(""); setBairro(""); setCidade("Rio de Janeiro");
+      setCep(""); setEndereco(""); setNumero(""); setComplemento("");
+      setBairro(""); setCidade("Rio de Janeiro"); setUf("RJ");
       setWhatsappLink("");
       setLiderId(""); setCoLiderId(""); setAnfitriaoId("");
     }
@@ -72,9 +82,13 @@ export function GrupoForm({ open, onOpenChange, grupo, onSaved }: Props) {
         descricao: descricao.trim() || null,
         dia_semana: diaSemana,
         horario: horario || null,
+        cep: cep.trim() || null,
         endereco: endereco.trim() || null,
+        numero: numero.trim() || null,
+        complemento: complemento.trim() || null,
         bairro: bairro.trim() || null,
         cidade: cidade.trim() || null,
+        uf: uf.trim() || null,
         whatsapp_link: whatsappLink.trim() || null,
         lider_id: liderId || null,
         co_lider_id: coLiderId || null,
@@ -143,27 +157,43 @@ export function GrupoForm({ open, onOpenChange, grupo, onSaved }: Props) {
             <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
               <MapPin className="w-3 h-3" /> Onde se reúne
             </p>
-            <Input value={endereco} onChange={(e) => setEndereco(e.target.value)}
-              placeholder="Endereço (rua, número)" />
-            <div className="grid grid-cols-2 gap-2">
-              <Input value={bairro} onChange={(e) => setBairro(e.target.value)} placeholder="Bairro" />
-              <Input value={cidade} onChange={(e) => setCidade(e.target.value)} placeholder="Cidade" />
-            </div>
+            <CamposEndereco
+              cep={cep}
+              endereco={endereco}
+              numero={numero}
+              complemento={complemento}
+              bairro={bairro}
+              cidade={cidade}
+              uf={uf}
+              mostrarUf={true}
+              onChange={(campo, valor) => {
+                if (campo === "cep")         setCep(valor);
+                else if (campo === "endereco")    setEndereco(valor);
+                else if (campo === "numero")      setNumero(valor);
+                else if (campo === "complemento") setComplemento(valor);
+                else if (campo === "bairro")      setBairro(valor);
+                else if (campo === "cidade")      setCidade(valor);
+                else if (campo === "uf")          setUf(valor);
+              }}
+            />
+            <p className="text-[10px] text-muted-foreground">
+              💡 Digite o CEP — o resto preenche sozinho.
+            </p>
           </div>
 
           <div className="space-y-2">
             <Label className="text-xs uppercase tracking-wide text-muted-foreground">Liderança</Label>
             <div>
               <Label className="text-xs">Líder</Label>
-              <BuscaPessoa value={liderId} onChange={(id) => setLiderId(id)} placeholder="Buscar líder…" />
+              <BuscaPessoa value={liderId} onChange={(id) => setLiderId(id)} placeholder="Buscar líder (membros/congregados)…" tipos={["membro", "congregado"]} />
             </div>
             <div>
               <Label className="text-xs">Co-líder</Label>
-              <BuscaPessoa value={coLiderId} onChange={(id) => setCoLiderId(id)} placeholder="Buscar co-líder…" />
+              <BuscaPessoa value={coLiderId} onChange={(id) => setCoLiderId(id)} placeholder="Buscar co-líder (membros/congregados)…" tipos={["membro", "congregado"]} />
             </div>
             <div>
               <Label className="text-xs">Anfitrião</Label>
-              <BuscaPessoa value={anfitriaoId} onChange={(id) => setAnfitriaoId(id)} placeholder="Quem cede a casa…" />
+              <BuscaPessoa value={anfitriaoId} onChange={(id) => setAnfitriaoId(id)} placeholder="Anfitrião (membros/congregados)…" tipos={["membro", "congregado"]} />
             </div>
           </div>
 

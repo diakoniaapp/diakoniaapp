@@ -9,9 +9,13 @@ export interface PgmGrupo {
   descricao: string | null;
   dia_semana: number | null;
   horario: string | null;
+  cep: string | null;
   endereco: string | null;
+  numero: string | null;
+  complemento: string | null;
   bairro: string | null;
   cidade: string | null;
+  uf: string | null;
   lider_id: string | null;
   co_lider_id: string | null;
   anfitriao_id: string | null;
@@ -55,9 +59,13 @@ export interface GrupoInput {
   descricao?: string | null;
   dia_semana?: number | null;
   horario?: string | null;
+  cep?: string | null;
   endereco?: string | null;
+  numero?: string | null;
+  complemento?: string | null;
   bairro?: string | null;
   cidade?: string | null;
+  uf?: string | null;
   lider_id?: string | null;
   co_lider_id?: string | null;
   anfitriao_id?: string | null;
