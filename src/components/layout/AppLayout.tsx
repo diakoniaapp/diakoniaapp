@@ -3,7 +3,7 @@ import { useAuth, type AppRole } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard, Users, HeartHandshake, Home, LogOut,
-  CalendarDays, CalendarCheck, ChevronLeft, ChevronDown, MapPin, BarChart2, GraduationCap, Sparkles,
+  CalendarDays, CalendarCheck, ChevronLeft, ChevronDown, MapPin, BarChart2, GraduationCap, Sparkles, Layers,
   Building2, Network, KeyRound, ShieldAlert, Church, FileText,
   Upload, Download, Flame, UserCheck, Settings, Briefcase,
   Database, Cog, type LucideIcon,
@@ -54,6 +54,7 @@ const NAV_GROUPS: NavGroup[] = [
       { to: "/visitantes",   label: "Visitantes",  icon: UserCheck },
       { to: "/familias",     label: "Famílias",    icon: Home,           allowedRoles: ROLES_LIDERES },
       { to: "/ministerios",  label: "Ministérios", icon: HeartHandshake, allowedRoles: ROLES_LIDERES },
+      { to: "/areas",        label: "Áreas",       icon: Layers,         allowedRoles: ROLES_LIDERES },
       { to: "/ebd",          label: "EBD",         icon: GraduationCap,  allowedRoles: ROLES_LIDERES },
       { to: "/organograma",  label: "Organograma", icon: Building2,      allowedRoles: ROLES_LIDERES },
     ],
@@ -109,6 +110,7 @@ const pageTitles: Record<string, string> = {
   "/membros":                 "Pessoas",
   "/familias":                "Famílias",
   "/ministerios":             "Ministérios",
+  "/areas":                   "Áreas",
   "/eventos":                 "Agenda",
   "/agenda-pastoral":         "Agenda Pastoral",
   "/painel-pastoral":         "Painel Pastoral",

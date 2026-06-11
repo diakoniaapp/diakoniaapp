@@ -28,6 +28,7 @@ import AgendaPrint from "./pages/AgendaPrint.tsx";
 import Convite from "@/pages/Convite";
 import Ebd from "./pages/Ebd.tsx";
 import EbdClasse from "./pages/EbdClasse.tsx";
+import Areas from "./pages/Areas.tsx";
 import EbdChamada from "./pages/EbdChamada.tsx";
 import AgendaPastoral from "./pages/AgendaPastoral.tsx";
 import PainelPastoral from "./pages/PainelPastoral.tsx";
@@ -80,6 +81,7 @@ const App = () => (
                   <Route path="/usuarios" element={<Usuarios />} />
                   <Route path="/ebd" element={<Ebd />} />
                   <Route path="/ebd/:classeId" element={<EbdClasse />} />
+                  <Route path="/areas" element={<Areas />} />
                   <Route path="/ebd/:classeId/chamada" element={<EbdChamada />} />
                   <Route path="/agenda-pastoral" element={<AgendaPastoral />} />
                   <Route path="/painel-pastoral" element={<PainelPastoral />} />
