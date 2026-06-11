@@ -356,8 +356,8 @@ export default function EbdCampanhaRelatorio() {
             </div>
             <div>
               <div className="border-t border-foreground/60 pt-1 mx-4">
-                <p className="font-medium">Área | Apoio Administrativo</p>
-                <p className="text-muted-foreground text-[10px]">Responsável pela conta</p>
+                <p className="font-medium">Apoio Administrativo</p>
+                <p className="text-muted-foreground text-[10px]">Conferente</p>
               </div>
             </div>
           </div>
