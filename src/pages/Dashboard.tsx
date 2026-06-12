@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { verseOfTheDay } from "@/lib/agenda/verses";
+import { usePermissoes } from "@/hooks/usePermissoes";
 import VisitanteRapidoDialog from "@/components/membros/VisitanteRapidoDialog";
 import { AlertasInteligentes } from "@/components/dashboard/AlertasInteligentes";
 import { VidaDasFamilias } from "@/components/dashboard/VidaDasFamilias";
@@ -47,6 +48,7 @@ const ROLE_VALORES = [
 
 export default function Dashboard() {
   const { user, roles } = useAuth();
+  const { podeFazer } = usePermissoes();
   const principalRole = roles[0] ?? "lideranca";
   const [nome, setNome] = useState<string>("Visitante");
   const [openVisitanteRapido, setOpenVisitanteRapido] = useState(false);
@@ -120,28 +122,33 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* ── BLOCO 1 — AÇÕES RÁPIDAS ───────────────────────────────────── */}
-        <BlocoSecao titulo="Ações rápidas" icon={Sparkles}>
+        {/* ── BLOCO 1 — AÇÕES RÁPIDAS (adaptado ao perfil) ────────────── */}
+        <BlocoSecao titulo="Ações rápidas" icon={Sparkles} subtitulo="Atalhos relevantes para você">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
-            <AcaoRapida to="/membros?abrir=novo"   icon={UserPlus}       label="Cadastrar pessoa" />
-            <AcaoRapida to="/familias"             icon={Home}           label="Gerenciar famílias" />
-            <AcaoRapida to="/ebd"                  icon={GraduationCap}  label="Abrir EBD" />
-            <AcaoRapida to="/ebd"                  icon={CalendarCheck}  label="Fazer chamada" />
-            <AcaoRapida to="/pgm"                  icon={Users}          label="Pequenos Grupos" />
-            <AcaoRapida to="/painel-pastoral"      icon={Sparkles}       label="Painel Pastoral" />
-            <AcaoRapida to="/admin/documentos"     icon={FileText}       label="Documentos" />
+            {podeFazer("criar_pessoa") && <AcaoRapida to="/membros?abrir=novo" icon={UserPlus} label="Cadastrar pessoa" />}
+            {podeFazer("ver_familias") && <AcaoRapida to="/familias" icon={Home} label="Gerenciar famílias" />}
+            {podeFazer("ver_ebd") && <AcaoRapida to="/ebd" icon={GraduationCap} label="Abrir EBD" />}
+            {podeFazer("ver_pgm") && <AcaoRapida to="/pgm" icon={Users} label="Pequenos Grupos" />}
+            {podeFazer("ver_painel_pastoral") && <AcaoRapida to="/painel-pastoral" icon={Sparkles} label="Painel Pastoral" />}
+            {podeFazer("ver_painel_secretaria") && <AcaoRapida to="/painel-secretaria" icon={Sparkles} label="Painel Secretaria" />}
+            {podeFazer("ver_membresia") && <AcaoRapida to="/membresia" icon={FileText} label="Membresia" />}
+            {podeFazer("ver_governanca") && <AcaoRapida to="/governanca" icon={FileText} label="Governança" />}
+            {podeFazer("ver_assuntos") && <AcaoRapida to="/assuntos" icon={FileText} label="Assuntos" />}
+            {podeFazer("ver_financeiro") && <AcaoRapida to="/financas" icon={FileText} label="Finanças" />}
           </div>
         </BlocoSecao>
 
-        {/* ── BLOCO 2 — ALERTAS INTELIGENTES ───────────────────────────── */}
+        {/* ── BLOCO 2 — ALERTAS INTELIGENTES (todos) ────────────────────── */}
         <BlocoSecao titulo="Alertas inteligentes" icon={Bell} subtitulo="Coisas que precisam da sua decisão">
           <AlertasInteligentes />
         </BlocoSecao>
 
         {/* ── BLOCO 3 — VIDA DAS FAMÍLIAS ──────────────────────────────── */}
+{podeFazer("ver_familias") && (
         <BlocoSecao titulo="Vida das famílias" icon={Heart} subtitulo="Aniversários e bodas da semana">
           <VidaDasFamilias />
         </BlocoSecao>
+        )}
 
         {/* ── BLOCO 4 — AÇÕES DO DIA ───────────────────────────────────── */}
         <BlocoSecao titulo="Ações de hoje" icon={CalendarCheck} subtitulo="Aniversários e bodas que acontecem agora">
@@ -149,24 +156,32 @@ export default function Dashboard() {
         </BlocoSecao>
 
         {/* ── BLOCO 5 — RESUMO DA EBD ──────────────────────────────────── */}
+{podeFazer("ver_ebd") && (
         <BlocoSecao titulo="Resumo da EBD" icon={GraduationCap} subtitulo="Presença, crescimento e atenção pastoral">
           <ResumoEbd />
         </BlocoSecao>
+        )}
 
         {/* ── BLOCO 6 — CAMPANHAS ──────────────────────────────────────── */}
+{podeFazer("ver_financeiro") && (
         <BlocoSecao titulo="Campanhas em andamento" icon={DollarSign} subtitulo="Metas e arrecadação">
           <CampanhasEbd />
         </BlocoSecao>
+        )}
 
         {/* ── BLOCO 7 — PESSOAS ────────────────────────────────────────── */}
+{podeFazer("ver_pessoas") && (
         <BlocoSecao titulo="Atenção em pessoas" icon={Users} subtitulo="Visitantes recentes, sem família, sem classe EBD">
           <AtencaoEmPessoas />
         </BlocoSecao>
+        )}
 
         {/* ── BLOCO 7.5 — PGM (Pequenos Grupos) ────────────────────────── */}
+{podeFazer("ver_pgm") && (
         <BlocoSecao titulo="Pequenos Grupos" icon={Users} subtitulo="Onde a vida da igreja acontece durante a semana">
           <ResumoPgm />
         </BlocoSecao>
+        )}
 
         {/* ── BLOCO 8 — AGENDA DO DIA ──────────────────────────────────── */}
         <BlocoSecao titulo="Agenda do dia" icon={CalendarDays} subtitulo="Eventos da igreja hoje">
@@ -174,9 +189,11 @@ export default function Dashboard() {
         </BlocoSecao>
 
         {/* ── BLOCO 9 — INSIGHTS DO SISTEMA ────────────────────────────── */}
+{podeFazer("ver_painel_admin") && (
         <BlocoSecao titulo="Insights do sistema" icon={Lightbulb} subtitulo="Sugestões automáticas para a liderança">
           <InsightsDoSistema />
         </BlocoSecao>
+        )}
 
       </div>
 
