@@ -6,3 +6,4 @@ export default function Caixa() {
     </div>
   )
 }
+<h2>teste deploy</h2>
