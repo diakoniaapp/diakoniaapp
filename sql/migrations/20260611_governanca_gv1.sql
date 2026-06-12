@@ -287,8 +287,9 @@ language sql stable security definer set search_path = public as $$
   -- Pastor (role)
   select distinct m.id, m.nome_completo, 'diretoria'
   from public.membros m
-  join public.user_roles ur on ur.pessoa_id = m.id
-  where ur.role in ('pastor','diakonia') and m.status = 'ativo';
+  join public.profiles p on p.pessoa_id = m.id
+  join public.user_roles ur on ur.user_id = p.id
+  where ur.role::text in ('pastor','diakonia') and m.status = 'ativo';
 $$;
 
 -- ─── 11) RPC: sugerir pautas (a partir de pendências) ─────────────────
