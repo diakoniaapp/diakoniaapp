@@ -49,6 +49,9 @@ import FinancasCentros from "./pages/FinancasCentros.tsx";
 import FinancasOrcamento from "./pages/FinancasOrcamento.tsx";
 import FinancasCentroDetalhe from "./pages/FinancasCentroDetalhe.tsx";
 import FinancasFolha from "./pages/FinancasFolha.tsx";
+import Membresia from "./pages/Membresia.tsx";
+import MembresiaDetalhe from "./pages/MembresiaDetalhe.tsx";
+import PainelSecretaria from "./pages/PainelSecretaria.tsx";
 import AgendaPastoral from "./pages/AgendaPastoral.tsx";
 import PainelPastoral from "./pages/PainelPastoral.tsx";
 import ResetSenhaToken from "@/pages/ResetSenhaToken";
@@ -122,6 +125,9 @@ const App = () => (
                   <Route path="/financas/orcamento" element={<FinancasOrcamento />} />
                   <Route path="/financas/centro/:centroId" element={<FinancasCentroDetalhe />} />
                   <Route path="/financas/folha" element={<FinancasFolha />} />
+                  <Route path="/membresia" element={<Membresia />} />
+                  <Route path="/membresia/:id" element={<MembresiaDetalhe />} />
+                  <Route path="/painel-secretaria" element={<PainelSecretaria />} />
                   <Route path="/agenda-pastoral" element={<AgendaPastoral />} />
                   <Route path="/painel-pastoral" element={<PainelPastoral />} />
                   <Route path="/admin/recuperacao-senha" element={<RecuperacaoSenhaAdmin />} />

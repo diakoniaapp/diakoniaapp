@@ -66,6 +66,8 @@ const NAV_GROUPS: NavGroup[] = [
     icon: Briefcase,
     items: [
       { to: "/painel-pastoral", label: "Painel Pastoral", icon: Sparkles, allowedRoles: ROLES_LIDERES },
+      { to: "/painel-secretaria", label: "Painel Secretaria", icon: Sparkles, allowedRoles: ROLES_LIDERES },
+      { to: "/membresia",         label: "Membresia",         icon: FileText, allowedRoles: ROLES_LIDERES },
       { to: "/eventos",  label: "Agenda",     icon: CalendarDays },
       { to: "/financas", label: "Finanças",   icon: DollarSign,   allowedRoles: ROLES_LIDERES },
       { to: "/locais",   label: "Locais",     icon: MapPin,    allowedRoles: ROLES_LIDERES },
