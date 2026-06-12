@@ -53,7 +53,8 @@ const ROUTES: CommandRoute[] = [
   { to: "/assuntos",   label: "Assuntos",   icon: CheckSquare, group: "Administração", keywords: ["pendencia","tarefa"] },
 
   // ── Financeiro ────────────────────────────────────────────────────
-  { to: "/financas",   label: "Tesouraria", icon: DollarSign,  group: "Financeiro", keywords: ["dinheiro","caixa","contas","conta"] },
+  { to: "/financas",         label: "Tesouraria",     icon: DollarSign, group: "Financeiro", keywords: ["dinheiro","caixa","contas","conta"] },
+  { to: "/financas/fiscal",  label: "Módulo Fiscal",  icon: DollarSign, group: "Financeiro", keywords: ["fgts","dctfweb","esocial","iss","darf","dirf","obrigacao","imposto","tributo","fisco"], permissoes: ["ver_fiscal","ver_financeiro"] },
 
   // ── Agenda & Espaços ──────────────────────────────────────────────
   { to: "/eventos",    label: "Agenda",     icon: CalendarDays, group: "Navegação", keywords: ["evento","calendario"] },
