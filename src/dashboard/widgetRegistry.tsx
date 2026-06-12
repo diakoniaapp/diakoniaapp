@@ -12,7 +12,7 @@
 import { lazy, ComponentType, LazyExoticComponent } from "react";
 import {
   Bell, Heart, CalendarCheck, GraduationCap, DollarSign, Users,
-  CalendarDays, Lightbulb,
+  CalendarDays, Lightbulb, CheckSquare, AlertTriangle,
 } from "lucide-react";
 
 export type Prioridade = 0 | 1 | 2 | 3;
@@ -37,6 +37,8 @@ const CampanhasEbd        = lazy(() => import("@/components/dashboard/CampanhasE
 const ResumoPgm           = lazy(() => import("@/components/dashboard/ResumoPgm").then(m => ({ default: m.ResumoPgm })));
 const AtencaoEmPessoas    = lazy(() => import("@/components/dashboard/AtencaoEmPessoas").then(m => ({ default: m.AtencaoEmPessoas })));
 const AgendaDoDia         = lazy(() => import("@/components/dashboard/AgendaDoDia").then(m => ({ default: m.AgendaDoDia })));
+const MeusAssuntos        = lazy(() => import("@/components/dashboard/MeusAssuntos").then(m => ({ default: m.MeusAssuntos })));
+const AssuntosUrgentes    = lazy(() => import("@/components/dashboard/AssuntosUrgentes").then(m => ({ default: m.AssuntosUrgentes })));
 const InsightsDoSistema   = lazy(() => import("@/components/dashboard/InsightsDoSistema").then(m => ({ default: m.InsightsDoSistema })));
 
 export const widgetRegistry: Widget[] = [
@@ -80,6 +82,16 @@ export const widgetRegistry: Widget[] = [
     subtitulo: "Onde a vida da igreja acontece durante a semana",
     icone: Users, component: ResumoPgm,
     permissoes: ["ver_pgm"], prioridade: 2 },
+
+  { id: "meus-assuntos", label: "Meus assuntos",
+    subtitulo: "Tarefas sob sua responsabilidade",
+    icone: CheckSquare, component: MeusAssuntos,
+    permissoes: ["ver_assuntos"], prioridade: 1 },
+
+  { id: "assuntos-urgentes", label: "Assuntos urgentes da igreja",
+    subtitulo: "Atrasados e vencendo essa semana",
+    icone: AlertTriangle, component: AssuntosUrgentes,
+    permissoes: ["ver_painel_admin","ver_painel_secretaria","ver_painel_pastoral"], prioridade: 0 },
 
   { id: "insights-sistema", label: "Insights do sistema",
     subtitulo: "Sugestões automáticas para a liderança",

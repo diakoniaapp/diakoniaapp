@@ -9,14 +9,16 @@ import {
 } from "@/components/ui/select";
 import {
   CheckSquare, Plus, Loader2, ChevronRight, Search,
-  Calendar, AlertTriangle, Clock,
+  Calendar, AlertTriangle, Clock, MessageCircle, Users as UsersIcon,
 } from "lucide-react";
 import {
-  listarAssuntos,
+  listarAssuntos, carregarAssunto, montarLembreteAssuntoIndividual,
   PRIORIDADE_LABEL, PRIORIDADE_COR, PRIORIDADE_ICONE,
   STATUS_LABEL, STATUS_COR, SITUACAO_COR,
   type AssuntoDashboard, type AssuntoPrioridade, type AssuntoStatus,
 } from "@/services/assuntosService";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { AssuntoForm } from "@/components/assuntos/AssuntoForm";
 
 export default function Assuntos() {
@@ -28,6 +30,75 @@ export default function Assuntos() {
   const [novoOpen, setNovoOpen] = useState(false);
 
   useEffect(() => { carregar(); }, [filtroStatus, filtroPrioridade, busca]);
+
+  async function enviarLembreteWhats(assuntoId: string, e: React.MouseEvent) {
+    e.preventDefault(); e.stopPropagation();
+    try {
+      const assunto = await carregarAssunto(assuntoId);
+      if (!assunto) { toast.error("Assunto não encontrado"); return; }
+      if (!assunto.responsavel_id) {
+        toast.error("Assunto sem responsável definido"); return;
+      }
+      // Buscar telefone do responsável
+      const { data: pessoa } = await supabase
+        .from("membros")
+        .select("telefone")
+        .eq("id", assunto.responsavel_id)
+        .maybeSingle();
+      const { url } = montarLembreteAssuntoIndividual(assunto, pessoa?.telefone ?? null);
+      window.open(url, "_blank");
+    } catch (err: any) {
+      toast.error("Erro ao montar lembrete: " + (err?.message ?? "desconhecido"));
+    }
+  }
+
+  async function cobrarTodosAtrasados() {
+    const atrasados = lista.filter(a => a.situacao === "atrasado" && a.responsavel_id);
+    if (atrasados.length === 0) {
+      toast.info("Nenhum assunto atrasado com responsável definido"); return;
+    }
+    if (!confirm(`Vai abrir o WhatsApp em ${atrasados.length} aba(s) — uma por responsável. Continuar?`)) return;
+
+    // Agrupa por responsável (pode haver mais de um assunto por responsável)
+    const porResp = new Map<string, typeof atrasados>();
+    atrasados.forEach(a => {
+      if (!a.responsavel_id) return;
+      const key = a.responsavel_id;
+      if (!porResp.has(key)) porResp.set(key, []);
+      porResp.get(key)!.push(a);
+    });
+
+    for (const [respId, lista] of porResp) {
+      const { data: pessoa } = await supabase
+        .from("membros")
+        .select("telefone, nome_completo")
+        .eq("id", respId)
+        .maybeSingle();
+      if (!pessoa) continue;
+
+      // Mensagem coletiva: lembra de todos os assuntos atrasados desse responsável
+      const linhas = [
+        `Olá *${pessoa.nome_completo}*! 👋`,
+        "",
+        `Você tem *${lista.length}* assunto(s) atrasado(s):`,
+        "",
+      ];
+      lista.forEach(a => {
+        linhas.push(`🔴 *${a.titulo}*`);
+        if (a.prazo) linhas.push(`   Vencia ${new Date(a.prazo+"T00:00").toLocaleDateString("pt-BR")}`);
+        linhas.push("");
+      });
+      linhas.push("_Por gentileza, sinaliza pra mim como anda cada um?_", "", "_Secretaria · QIBRJ_");
+      const mensagem = linhas.join("\n");
+      const tel = (pessoa.telefone ?? "").replace(/\D/g, "");
+      const url = tel ? `https://wa.me/${tel}?text=${encodeURIComponent(mensagem)}` : `https://wa.me/?text=${encodeURIComponent(mensagem)}`;
+      window.open(url, "_blank");
+      // Pequena pausa pra navegador não bloquear pop-ups
+      await new Promise(r => setTimeout(r, 400));
+    }
+    toast.success(`WhatsApp aberto para ${porResp.size} responsável(is)`);
+  }
+
 
   async function carregar() {
     setLoading(true);
@@ -174,7 +245,19 @@ export default function Assuntos() {
                     )}
                   </p>
                 </div>
-                <ChevronRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                <div className="flex items-center gap-1 shrink-0">
+                  {a.responsavel_id && (
+                    <button
+                      type="button"
+                      onClick={(e) => enviarLembreteWhats(a.id, e)}
+                      title="Lembrar via WhatsApp"
+                      className="w-6 h-6 rounded-md flex items-center justify-center hover:bg-emerald-50 text-emerald-600 transition-colors"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+                </div>
               </div>
             </Link>
           ))}

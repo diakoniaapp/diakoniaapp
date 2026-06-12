@@ -255,3 +255,110 @@ export async function montarMensagemTarefasResponsavel(
     : `https://wa.me/?text=${encodeURIComponent(mensagem)}`;
   return { mensagem, url };
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// Dashboard widgets — RPCs e lembrete WhatsApp individual
+// ═══════════════════════════════════════════════════════════════════════
+
+export interface MeuAssuntoResumo {
+  id: string;
+  titulo: string;
+  prazo: string | null;
+  prioridade: AssuntoPrioridade;
+  situacao: "atrasado" | "vence_breve" | "parado" | "normal";
+}
+
+export interface MeusAssuntosResposta {
+  total_abertos: number;
+  total_atrasados: number;
+  total_vence_breve: number;
+  total_parados: number;
+  proximos: MeuAssuntoResumo[];
+}
+
+export async function buscarMeusAssuntos(): Promise<MeusAssuntosResposta> {
+  const { data, error } = await supabase.rpc("assuntos_meus_resumo");
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) return { total_abertos: 0, total_atrasados: 0, total_vence_breve: 0, total_parados: 0, proximos: [] };
+  return {
+    total_abertos: row.total_abertos ?? 0,
+    total_atrasados: row.total_atrasados ?? 0,
+    total_vence_breve: row.total_vence_breve ?? 0,
+    total_parados: row.total_parados ?? 0,
+    proximos: row.proximos ?? [],
+  };
+}
+
+export interface AssuntoUrgenteIgreja {
+  id: string;
+  titulo: string;
+  prazo: string | null;
+  prioridade: AssuntoPrioridade;
+  situacao: "atrasado" | "vence_semana";
+  responsavel_id: string | null;
+  responsavel_nome: string | null;
+}
+
+export interface UrgentesIgrejaResposta {
+  total_atrasados: number;
+  total_vence_semana: number;
+  lista: AssuntoUrgenteIgreja[];
+}
+
+export async function buscarUrgentesIgreja(): Promise<UrgentesIgrejaResposta> {
+  const { data, error } = await supabase.rpc("assuntos_urgentes_igreja");
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) return { total_atrasados: 0, total_vence_semana: 0, lista: [] };
+  return {
+    total_atrasados: row.total_atrasados ?? 0,
+    total_vence_semana: row.total_vence_semana ?? 0,
+    lista: row.lista ?? [],
+  };
+}
+
+/** Lembrete WhatsApp para UM assunto específico. */
+export function montarLembreteAssuntoIndividual(
+  assunto: Assunto,
+  telefoneResponsavel: string | null,
+): { mensagem: string; url: string } {
+  const prazoFmt = assunto.prazo
+    ? new Date(assunto.prazo + "T00:00").toLocaleDateString("pt-BR")
+    : "sem prazo definido";
+  const diasAtraso = assunto.prazo
+    ? Math.floor((Date.now() - new Date(assunto.prazo + "T00:00").getTime()) / 86_400_000)
+    : 0;
+  const prazoLinha = assunto.prazo && diasAtraso > 0
+    ? `⏰ Prazo: ${prazoFmt} *(vencido há ${diasAtraso} dia${diasAtraso > 1 ? "s" : ""})*`
+    : `⏰ Prazo: ${prazoFmt}`;
+
+  const linhas = [
+    `Olá *${assunto.responsavel_nome ?? "irmão(ã)"}*! 👋`,
+    "",
+    "Passando para lembrar do assunto sob sua responsabilidade:",
+    "",
+    `📋 *${assunto.titulo}*`,
+    prazoLinha,
+    `${PRIORIDADE_ICONE[assunto.prioridade]} Prioridade: ${PRIORIDADE_LABEL[assunto.prioridade]}`,
+  ];
+
+  if (assunto.descricao) {
+    linhas.push("", `📝 ${assunto.descricao}`);
+  }
+
+  linhas.push(
+    "",
+    "_Sem pressão — só pra não passar batido. Qualquer dúvida estou à disposição._",
+    "",
+    "_Secretaria · QIBRJ_",
+    "_Enviado pelo Diakonia APP_",
+  );
+
+  const mensagem = linhas.join("\n");
+  const tel = (telefoneResponsavel ?? "").replace(/\D/g, "");
+  const url = tel
+    ? `https://wa.me/${tel}?text=${encodeURIComponent(mensagem)}`
+    : `https://wa.me/?text=${encodeURIComponent(mensagem)}`;
+  return { mensagem, url };
+}
