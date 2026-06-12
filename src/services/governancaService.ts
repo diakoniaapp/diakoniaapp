@@ -262,7 +262,7 @@ export function montarConvocacaoWhatsApp(reuniao: GovReuniao, pessoa: { nome: st
     "Sua presença é fundamental para o andamento das decisões da igreja.",
     "",
     `Em Cristo,`,
-    "_Secretaria da Igreja_`,
+    "_Secretaria da Igreja_",
     "",
     "_Enviado pelo Diakonia APP_",
   ];
