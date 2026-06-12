@@ -11,6 +11,7 @@ import {
   alertasSecretaria, listarSolicitacoes,
   type AlertaSecretaria, type PrioridadeAlerta,
 } from "@/services/membresiaService";
+import { alertasGovernanca, type AlertaGovernanca } from "@/services/governancaService";
 
 const PRIORIDADE_INFO: Record<PrioridadeAlerta, { label: string; cor: string }> = {
   urgente:      { label: "Urgente",      cor: "border-rose-300 bg-rose-50/30 text-rose-700" },
@@ -20,6 +21,7 @@ const PRIORIDADE_INFO: Record<PrioridadeAlerta, { label: string; cor: string }> 
 
 export default function PainelSecretaria() {
   const [alertas, setAlertas] = useState<AlertaSecretaria[]>([]);
+  const [alertasGov, setAlertasGov] = useState<AlertaGovernanca[]>([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ total: 0, pendentes: 0, assembleia: 0, aprovadas: 0 });
 
@@ -28,11 +30,13 @@ export default function PainelSecretaria() {
   async function carregar() {
     setLoading(true);
     try {
-      const [als, lista] = await Promise.all([
+      const [als, lista, gov] = await Promise.all([
         alertasSecretaria().catch(() => []),
         listarSolicitacoes().catch(() => []),
+        alertasGovernanca().catch(() => []),
       ]);
       setAlertas(als);
+      setAlertasGov(gov);
       setStats({
         total: lista.length,
         pendentes: lista.filter(s => s.status !== "concluida" && s.status !== "cancelada" && s.status !== "rejeitada").length,
@@ -92,6 +96,39 @@ export default function PainelSecretaria() {
         </Card>
       ) : (
         <>
+          {alertasGov.length > 0 && (
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 px-1">
+                <Badge variant="outline" className="text-[10px] bg-purple-100 text-purple-700 border-purple-300">
+                  ⚖ Governança
+                </Badge>
+                <span className="text-xs text-muted-foreground">({alertasGov.length})</span>
+              </div>
+              {alertasGov.slice(0, 6).map((a, i) => (
+                <Card key={i} className={
+                  a.prioridade === "urgente" ? "border-rose-300 bg-rose-50/30" :
+                  a.prioridade === "atencao" ? "border-amber-300 bg-amber-50/30" :
+                  "border-blue-200 bg-blue-50/20"
+                }>
+                  <CardContent className="py-2.5 px-3 flex items-center gap-2">
+                    <AlertTriangle className={`w-3.5 h-3.5 shrink-0 ${a.prioridade === "urgente" ? "text-rose-700" : a.prioridade === "atencao" ? "text-amber-700" : "text-blue-700"}`} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium">{a.titulo}</p>
+                      <p className="text-[11px] text-muted-foreground">{a.descricao}</p>
+                    </div>
+                    {a.link && (
+                      <Link to={a.link}>
+                        <Button size="sm" variant="outline" className="h-7 text-[11px] gap-1">
+                          {a.acao_sugerida} <ChevronRight className="w-3 h-3" />
+                        </Button>
+                      </Link>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+
           {(["urgente", "atencao", "informativo"] as PrioridadeAlerta[]).map(prio => {
             const lista = porPrioridade[prio];
             if (lista.length === 0) return null;

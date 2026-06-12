@@ -484,3 +484,93 @@ export async function decidirPauta(
     observacao_decisao: observacao ?? null,
   });
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FASE Gv3 — Execução automática + Alertas + WhatsApp em massa
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface ResultadoExecucao {
+  pauta_id: string;
+  titulo: string;
+  resultado: string;
+}
+
+export interface AlertaGovernanca {
+  prioridade: "urgente" | "atencao" | "informativo";
+  tipo: string;
+  titulo: string;
+  descricao: string;
+  acao_sugerida: string;
+  link: string;
+  entidade_id: string;
+}
+
+export interface ConvocacaoPessoa {
+  assembleia_id: string;
+  pessoa_id: string;
+  pessoa_nome: string;
+  telefone_celular: string | null;
+  email: string | null;
+}
+
+// ─── Execução de pautas decididas ──────────────────────────────────────
+export async function executarPauta(pautaId: string): Promise<string> {
+  const { data, error } = await supabase.rpc("gov_executar_pauta", { p_pauta_id: pautaId });
+  if (error) throw error;
+  return (data as string) ?? "Executada";
+}
+
+export async function executarAssembleia(assembleiaId: string): Promise<ResultadoExecucao[]> {
+  const { data, error } = await supabase.rpc("gov_executar_assembleia", { p_assembleia_id: assembleiaId });
+  if (error) throw error;
+  return (data ?? []) as ResultadoExecucao[];
+}
+
+// ─── Alertas inteligentes ──────────────────────────────────────────────
+export async function alertasGovernanca(): Promise<AlertaGovernanca[]> {
+  const { data, error } = await supabase.rpc("gov_alertas");
+  if (error) throw error;
+  return (data ?? []) as AlertaGovernanca[];
+}
+
+// ─── Convocação em massa ───────────────────────────────────────────────
+export async function listarConvocacao(assembleiaId: string): Promise<ConvocacaoPessoa[]> {
+  const { data, error } = await supabase
+    .from("vw_gov_convocacao_lista").select("*")
+    .eq("assembleia_id", assembleiaId)
+    .order("pessoa_nome");
+  if (error) throw error;
+  return (data ?? []) as ConvocacaoPessoa[];
+}
+
+export function montarConvocacaoAssembleia(ass: GovAssembleia, pessoa: { nome: string; telefone?: string | null }): { mensagem: string; url: string } {
+  const data = new Date(ass.data_assembleia + "T00:00").toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" });
+  const horario = ass.horario ? ` às ${ass.horario.slice(0, 5)}` : "";
+  const linhas = [
+    `🙏 *Convocação para Assembleia*`,
+    "",
+    `Prezado(a) *${pessoa.nome}*,`,
+    "",
+    `Convocamos os membros para a *${ass.titulo}*:`,
+    "",
+    `📅 *Data:* ${data}${horario}`,
+    `📍 ${ass.local ?? "Templo"}`,
+    "",
+    "Sua presença é fundamental para as decisões da igreja.",
+    "",
+    "Em Cristo,",
+    "_Secretaria da Igreja_",
+    "",
+    "_Enviado pelo Diakonia APP_",
+  ];
+  const mensagem = linhas.join("\n");
+  const tel = (pessoa.telefone ?? "").replace(/\D/g, "");
+  const url = tel
+    ? `https://wa.me/${tel}?text=${encodeURIComponent(mensagem)}`
+    : `https://wa.me/?text=${encodeURIComponent(mensagem)}`;
+  return { mensagem, url };
+}
+
+export async function marcarConvocacaoEnviada(assembleiaId: string): Promise<void> {
+  await atualizarAssembleia(assembleiaId, { convocacao_enviada: true });
+}

@@ -19,9 +19,15 @@ import {
   listarPautasAssembleia, listarPresentes,
   marcarPresencaAssembleia, sincronizarMembrosAptos,
   recalcQuorum, calcularQuorum, decidirPauta,
+  executarAssembleia, listarConvocacao, montarConvocacaoAssembleia, marcarConvocacaoEnviada,
   REUNIAO_STATUS_LABEL, REUNIAO_STATUS_COR, PAUTA_STATUS_LABEL,
   type GovAssembleia, type GovPauta, type GovPresente, type ResultadoVoto,
+  type ConvocacaoPessoa,
 } from "@/services/governancaService";
+import {
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
+} from "@/components/ui/dialog";
+import { Zap, MessageCircle, Send } from "lucide-react";
 
 export default function GovernancaAssembleia() {
   const { id = "" } = useParams();
@@ -31,6 +37,7 @@ export default function GovernancaAssembleia() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [busca, setBusca] = useState("");
+  const [convOpen, setConvOpen] = useState(false);
 
   useEffect(() => { carregar(); }, [id]);
 
@@ -52,6 +59,21 @@ export default function GovernancaAssembleia() {
     try {
       const qtd = await sincronizarMembrosAptos(id);
       toast.success(`${qtd} membros aptos sincronizados`);
+      await carregar();
+    } catch (e: any) { toast.error(e?.message ?? "Erro"); }
+    finally { setBusy(false); }
+  }
+
+  async function executarPendentes() {
+    if (!confirm("Executar todas as decisões aprovadas pendentes?\nIsto atualizará automaticamente as solicitações vinculadas.")) return;
+    setBusy(true);
+    try {
+      const r = await executarAssembleia(id);
+      if (r.length === 0) {
+        toast.info("Nenhuma pauta pendente para executar");
+      } else {
+        toast.success(`${r.length} pauta(s) executada(s)`);
+      }
       await carregar();
     } catch (e: any) { toast.error(e?.message ?? "Erro"); }
     finally { setBusy(false); }
@@ -169,6 +191,15 @@ export default function GovernancaAssembleia() {
             ✓ Concluir
           </Button>
         )}
+        <Button size="sm" variant="outline" onClick={() => setConvOpen(true)} className="gap-1.5 text-emerald-700">
+          <MessageCircle className="w-3.5 h-3.5" /> Convocação WhatsApp
+        </Button>
+        {ass.status === "concluida" && (
+          <Button size="sm" onClick={executarPendentes} disabled={busy}
+            className="bg-purple-600 hover:bg-purple-700 text-white gap-1.5">
+            <Zap className="w-3.5 h-3.5" /> Executar decisões
+          </Button>
+        )}
         <Button size="sm" variant="outline" onClick={sincronizar} disabled={busy} className="gap-1.5">
           <RefreshCw className="w-3.5 h-3.5" /> Sincronizar membros aptos
         </Button>
@@ -251,7 +282,98 @@ export default function GovernancaAssembleia() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Dialog Convocação em massa */}
+      <ConvocacaoDialog assembleia={ass} open={convOpen} onOpenChange={setConvOpen} onMarked={carregar} />
     </div>
+  );
+}
+
+function ConvocacaoDialog({ assembleia, open, onOpenChange, onMarked }: {
+  assembleia: GovAssembleia; open: boolean; onOpenChange: (v: boolean) => void; onMarked: () => void;
+}) {
+  const [lista, setLista] = useState<ConvocacaoPessoa[]>([]);
+  const [enviados, setEnviados] = useState<Set<string>>(new Set());
+  const [loading, setLoadingC] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setLoadingC(true);
+    listarConvocacao(assembleia.id).then(setLista).finally(() => setLoadingC(false));
+    setEnviados(new Set());
+  }, [open, assembleia.id]);
+
+  function enviar(p: ConvocacaoPessoa) {
+    const { url } = montarConvocacaoAssembleia(assembleia, { nome: p.pessoa_nome, telefone: p.telefone_celular });
+    window.open(url, "_blank", "noopener,noreferrer");
+    setEnviados(prev => new Set([...prev, p.pessoa_id]));
+  }
+
+  async function marcarTodosEnviados() {
+    try {
+      await marcarConvocacaoEnviada(assembleia.id);
+      toast.success("Marcada como convocação enviada");
+      onMarked();
+      onOpenChange(false);
+    } catch (e: any) { toast.error(e?.message ?? "Erro"); }
+  }
+
+  const comTelefone = lista.filter(p => p.telefone_celular);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="font-serif text-xl flex items-center gap-2">
+            <MessageCircle className="w-5 h-5 text-emerald-600" />
+            Convocação WhatsApp
+          </DialogTitle>
+          <DialogDescription>
+            Envie a convocação para cada membro com 1 click. Os que não tem telefone aparecem no fim.
+          </DialogDescription>
+        </DialogHeader>
+        {loading ? (
+          <div className="py-6 text-center text-muted-foreground">
+            <Loader2 className="w-5 h-5 animate-spin inline mr-2" /> Carregando...
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between text-xs mb-2">
+              <span className="text-muted-foreground">
+                {comTelefone.length} de {lista.length} têm telefone · {enviados.size} enviado(s)
+              </span>
+              <Button size="sm" variant="outline" onClick={marcarTodosEnviados}>
+                Marcar como enviada
+              </Button>
+            </div>
+            <div className="space-y-1 max-h-96 overflow-y-auto">
+              {lista.map(p => {
+                const enviado = enviados.has(p.pessoa_id);
+                const semTel = !p.telefone_celular;
+                return (
+                  <div key={p.pessoa_id} className={`flex items-center gap-2 border rounded-md px-3 py-1.5 ${semTel ? "opacity-50" : enviado ? "bg-emerald-50 border-emerald-200" : ""}`}>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{p.pessoa_nome}</p>
+                      <p className="text-[10px] text-muted-foreground">{p.telefone_celular ?? "sem telefone"}</p>
+                    </div>
+                    {!semTel && (
+                      <Button size="sm" variant={enviado ? "outline" : "default"}
+                        onClick={() => enviar(p)}
+                        className={`h-7 text-[11px] gap-1 ${enviado ? "" : "bg-emerald-600 hover:bg-emerald-700 text-white"}`}>
+                        {enviado ? <><Check className="w-3 h-3" /> Reenviar</> : <><Send className="w-3 h-3" /> Enviar</>}
+                      </Button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Fechar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
