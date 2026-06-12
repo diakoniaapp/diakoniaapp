@@ -17,15 +17,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { verseOfTheDay } from "@/lib/agenda/verses";
 import { usePermissoes } from "@/hooks/usePermissoes";
 import VisitanteRapidoDialog from "@/components/membros/VisitanteRapidoDialog";
-import { AlertasInteligentes } from "@/components/dashboard/AlertasInteligentes";
-import { VidaDasFamilias } from "@/components/dashboard/VidaDasFamilias";
-import { AcoesDoDia } from "@/components/dashboard/AcoesDoDia";
-import { AtencaoEmPessoas } from "@/components/dashboard/AtencaoEmPessoas";
-import { ResumoPgm } from "@/components/dashboard/ResumoPgm";
-import { AgendaDoDia } from "@/components/dashboard/AgendaDoDia";
-import { ResumoEbd } from "@/components/dashboard/ResumoEbd";
-import { InsightsDoSistema } from "@/components/dashboard/InsightsDoSistema";
-import { CampanhasEbd } from "@/components/dashboard/CampanhasEbd";
+import { Suspense } from "react";
+import { Loader2 } from "lucide-react";
+import { getWidgetsParaUsuario } from "@/dashboard/widgetRegistry";
 
 // ─── Saudação por horário ────────────────────────────────────────────────
 function getSaudacao(): string {
@@ -48,7 +42,7 @@ const ROLE_VALORES = [
 
 export default function Dashboard() {
   const { user, roles } = useAuth();
-  const { podeFazer } = usePermissoes();
+  const { podeFazer, permissoes } = usePermissoes();
   const principalRole = roles[0] ?? "lideranca";
   const [nome, setNome] = useState<string>("Visitante");
   const [openVisitanteRapido, setOpenVisitanteRapido] = useState(false);
@@ -138,62 +132,22 @@ export default function Dashboard() {
           </div>
         </BlocoSecao>
 
-        {/* ── BLOCO 2 — ALERTAS INTELIGENTES (todos) ────────────────────── */}
-        <BlocoSecao titulo="Alertas inteligentes" icon={Bell} subtitulo="Coisas que precisam da sua decisão">
-          <AlertasInteligentes />
-        </BlocoSecao>
-
-        {/* ── BLOCO 3 — VIDA DAS FAMÍLIAS ──────────────────────────────── */}
-{podeFazer("ver_familias") && (
-        <BlocoSecao titulo="Vida das famílias" icon={Heart} subtitulo="Aniversários e bodas da semana">
-          <VidaDasFamilias />
-        </BlocoSecao>
-        )}
-
-        {/* ── BLOCO 4 — AÇÕES DO DIA ───────────────────────────────────── */}
-        <BlocoSecao titulo="Ações de hoje" icon={CalendarCheck} subtitulo="Aniversários e bodas que acontecem agora">
-          <AcoesDoDia />
-        </BlocoSecao>
-
-        {/* ── BLOCO 5 — RESUMO DA EBD ──────────────────────────────────── */}
-{podeFazer("ver_ebd") && (
-        <BlocoSecao titulo="Resumo da EBD" icon={GraduationCap} subtitulo="Presença, crescimento e atenção pastoral">
-          <ResumoEbd />
-        </BlocoSecao>
-        )}
-
-        {/* ── BLOCO 6 — CAMPANHAS ──────────────────────────────────────── */}
-{podeFazer("ver_financeiro") && (
-        <BlocoSecao titulo="Campanhas em andamento" icon={DollarSign} subtitulo="Metas e arrecadação">
-          <CampanhasEbd />
-        </BlocoSecao>
-        )}
-
-        {/* ── BLOCO 7 — PESSOAS ────────────────────────────────────────── */}
-{podeFazer("ver_pessoas") && (
-        <BlocoSecao titulo="Atenção em pessoas" icon={Users} subtitulo="Visitantes recentes, sem família, sem classe EBD">
-          <AtencaoEmPessoas />
-        </BlocoSecao>
-        )}
-
-        {/* ── BLOCO 7.5 — PGM (Pequenos Grupos) ────────────────────────── */}
-{podeFazer("ver_pgm") && (
-        <BlocoSecao titulo="Pequenos Grupos" icon={Users} subtitulo="Onde a vida da igreja acontece durante a semana">
-          <ResumoPgm />
-        </BlocoSecao>
-        )}
-
-        {/* ── BLOCO 8 — AGENDA DO DIA ──────────────────────────────────── */}
-        <BlocoSecao titulo="Agenda do dia" icon={CalendarDays} subtitulo="Eventos da igreja hoje">
-          <AgendaDoDia />
-        </BlocoSecao>
-
-        {/* ── BLOCO 9 — INSIGHTS DO SISTEMA ────────────────────────────── */}
-{podeFazer("ver_painel_admin") && (
-        <BlocoSecao titulo="Insights do sistema" icon={Lightbulb} subtitulo="Sugestões automáticas para a liderança">
-          <InsightsDoSistema />
-        </BlocoSecao>
-        )}
+        {/* ── WIDGETS DINÂMICOS (registry) ─────────────────────────────── */}
+        {getWidgetsParaUsuario({ permissoes }).map(w => {
+          const Icon = w.icone;
+          const Comp = w.component;
+          return (
+            <BlocoSecao key={w.id} titulo={w.label} icon={Icon} subtitulo={w.subtitulo}>
+              <Suspense fallback={
+                <div className="py-4 text-center text-xs text-muted-foreground">
+                  <Loader2 className="w-3 h-3 animate-spin inline mr-1.5" /> Carregando...
+                </div>
+              }>
+                <Comp />
+              </Suspense>
+            </BlocoSecao>
+          );
+        })}
 
       </div>
 
