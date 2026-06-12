@@ -11,8 +11,17 @@
 
 import { lazy, ComponentType, LazyExoticComponent } from "react";
 import {
-  Bell, Heart, CalendarCheck, GraduationCap, DollarSign, Users,
-  CalendarDays, Lightbulb, CheckSquare, AlertTriangle,
+  Bell,
+  Heart,
+  CalendarCheck,
+  GraduationCap,
+  DollarSign,
+  Users,
+  CalendarDays,
+  Lightbulb,
+  CheckSquare,
+  AlertTriangle,
+  Receipt // ✅ ADICIONE ISSO AQUI
 } from "lucide-react";
 
 export type Prioridade = 0 | 1 | 2 | 3;
