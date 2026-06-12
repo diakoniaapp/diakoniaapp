@@ -244,12 +244,16 @@ export function sugerirProximasReunioes(dataAtual: string, qtd = 5): string[] {
 }
 
 // ─── Convocação WhatsApp ─────────────────────────────────────────────────
-export function montarConvocacaoWhatsApp(reuniao: GovReuniao, pessoa: { nome: string; telefone?: string }): { mensagem: string; url: string } {
+export function montarConvocacaoWhatsApp(
+  reuniao: GovReuniao,
+  pessoa: { nome: string; telefone?: string },
+  pautas?: GovPauta[],
+): { mensagem: string; url: string } {
   const data = new Date(reuniao.data_reuniao + "T00:00").toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" });
   const horario = reuniao.horario ?? "";
   const local = reuniao.online ? `🌐 Online: ${reuniao.link_online ?? "(link a definir)"}` : `📍 ${reuniao.local ?? "(local a definir)"}`;
 
-  const linhas = [
+  const linhas: string[] = [
     `🙏 *Convocação — ${reuniao.titulo}*`,
     "",
     `Prezado(a) *${pessoa.nome}*,`,
@@ -258,14 +262,37 @@ export function montarConvocacaoWhatsApp(reuniao: GovReuniao, pessoa: { nome: st
     "",
     `📅 *Data:* ${data}${horario ? ` às ${horario.slice(0, 5)}` : ""}`,
     local,
+  ];
+
+  // PAUTA — se já existe, vai no convite
+  if (pautas && pautas.length > 0) {
+    linhas.push("", "📋 *Pauta:*");
+    pautas.forEach((p, i) => {
+      const icone = p.classificacao === "deliberativa" ? "⚖" : "ℹ";
+      linhas.push(`${icone} ${i + 1}. ${p.titulo}`);
+      if (p.descricao) {
+        // primeira linha de descrição como contexto
+        const primeiraLinha = p.descricao.split("\n")[0].trim();
+        if (primeiraLinha && primeiraLinha.length <= 100) {
+          linhas.push(`   _${primeiraLinha}_`);
+        }
+      }
+    });
+    const delibQtd = pautas.filter(p => p.classificacao === "deliberativa").length;
+    if (delibQtd > 0) {
+      linhas.push("", `(${delibQtd} item(ns) deliberativo(s) — irá para assembleia)`);
+    }
+  }
+
+  linhas.push(
     "",
     "Sua presença é fundamental para o andamento das decisões da igreja.",
     "",
-    `Em Cristo,`,
+    "Em Cristo,",
     "_Secretaria da Igreja_",
     "",
     "_Enviado pelo Diakonia APP_",
-  ];
+  );
   const mensagem = linhas.join("\n");
   const tel = (pessoa.telefone ?? "").replace(/\D/g, "");
   const url = tel
@@ -543,10 +570,14 @@ export async function listarConvocacao(assembleiaId: string): Promise<Convocacao
   return (data ?? []) as ConvocacaoPessoa[];
 }
 
-export function montarConvocacaoAssembleia(ass: GovAssembleia, pessoa: { nome: string; telefone?: string | null }): { mensagem: string; url: string } {
+export function montarConvocacaoAssembleia(
+  ass: GovAssembleia,
+  pessoa: { nome: string; telefone?: string | null },
+  pautas?: GovPauta[],
+): { mensagem: string; url: string } {
   const data = new Date(ass.data_assembleia + "T00:00").toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" });
   const horario = ass.horario ? ` às ${ass.horario.slice(0, 5)}` : "";
-  const linhas = [
+  const linhas: string[] = [
     `🙏 *Convocação para Assembleia*`,
     "",
     `Prezado(a) *${pessoa.nome}*,`,
@@ -555,6 +586,23 @@ export function montarConvocacaoAssembleia(ass: GovAssembleia, pessoa: { nome: s
     "",
     `📅 *Data:* ${data}${horario}`,
     `📍 ${ass.local ?? "Templo"}`,
+  ];
+
+  // PAUTA da assembleia — fundamental para a votação consciente
+  if (pautas && pautas.length > 0) {
+    linhas.push("", "📋 *Pauta a ser deliberada:*");
+    pautas.forEach((p, i) => {
+      linhas.push(`${i + 1}. ${p.titulo}`);
+      if (p.descricao) {
+        const primeiraLinha = p.descricao.split("\n")[0].trim();
+        if (primeiraLinha && primeiraLinha.length <= 100) {
+          linhas.push(`   _${primeiraLinha}_`);
+        }
+      }
+    });
+  }
+
+  linhas.push(
     "",
     "Sua presença é fundamental para as decisões da igreja.",
     "",
@@ -562,7 +610,7 @@ export function montarConvocacaoAssembleia(ass: GovAssembleia, pessoa: { nome: s
     "_Secretaria da Igreja_",
     "",
     "_Enviado pelo Diakonia APP_",
-  ];
+  );
   const mensagem = linhas.join("\n");
   const tel = (pessoa.telefone ?? "").replace(/\D/g, "");
   const url = tel

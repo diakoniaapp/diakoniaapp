@@ -284,13 +284,13 @@ export default function GovernancaAssembleia() {
       </Tabs>
 
       {/* Dialog Convocação em massa */}
-      <ConvocacaoDialog assembleia={ass} open={convOpen} onOpenChange={setConvOpen} onMarked={carregar} />
+      <ConvocacaoDialog assembleia={ass} pautas={pautas} open={convOpen} onOpenChange={setConvOpen} onMarked={carregar} />
     </div>
   );
 }
 
-function ConvocacaoDialog({ assembleia, open, onOpenChange, onMarked }: {
-  assembleia: GovAssembleia; open: boolean; onOpenChange: (v: boolean) => void; onMarked: () => void;
+function ConvocacaoDialog({ assembleia, pautas, open, onOpenChange, onMarked }: {
+  assembleia: GovAssembleia; pautas: GovPauta[]; open: boolean; onOpenChange: (v: boolean) => void; onMarked: () => void;
 }) {
   const [lista, setLista] = useState<ConvocacaoPessoa[]>([]);
   const [enviados, setEnviados] = useState<Set<string>>(new Set());
@@ -304,7 +304,7 @@ function ConvocacaoDialog({ assembleia, open, onOpenChange, onMarked }: {
   }, [open, assembleia.id]);
 
   function enviar(p: ConvocacaoPessoa) {
-    const { url } = montarConvocacaoAssembleia(assembleia, { nome: p.pessoa_nome, telefone: p.telefone_celular });
+    const { url } = montarConvocacaoAssembleia(assembleia, { nome: p.pessoa_nome, telefone: p.telefone_celular }, pautas);
     window.open(url, "_blank", "noopener,noreferrer");
     setEnviados(prev => new Set([...prev, p.pessoa_id]));
   }
@@ -338,6 +338,19 @@ function ConvocacaoDialog({ assembleia, open, onOpenChange, onMarked }: {
           </div>
         ) : (
           <>
+            {pautas.length > 0 ? (
+              <div className="border rounded-md p-2 bg-purple-50/30 border-purple-200 text-[11px] mb-2">
+                <p className="font-medium text-purple-900 mb-1">📋 Pauta incluída no convite ({pautas.length}):</p>
+                {pautas.slice(0, 5).map((p, i) => (
+                  <p key={p.id} className="truncate">{i + 1}. {p.titulo}</p>
+                ))}
+                {pautas.length > 5 && <p className="text-muted-foreground">+{pautas.length - 5} item(ns)...</p>}
+              </div>
+            ) : (
+              <div className="border rounded-md p-2 bg-amber-50/30 border-amber-200 text-[11px] mb-2 text-amber-900">
+                ⚠ Sem pautas vinculadas. O convite irá apenas com data e local.
+              </div>
+            )}
             <div className="flex items-center justify-between text-xs mb-2">
               <span className="text-muted-foreground">
                 {comTelefone.length} de {lista.length} têm telefone · {enviados.size} enviado(s)

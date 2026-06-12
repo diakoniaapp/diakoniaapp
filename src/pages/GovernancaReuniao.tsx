@@ -120,8 +120,21 @@ export default function GovernancaReuniao() {
         .select("telefone_celular").eq("id", p.pessoa_id).maybeSingle();
       telefone = data?.telefone_celular ?? undefined;
     }
-    const { url } = montarConvocacaoWhatsApp(reun, { nome: p.pessoa_nome, telefone });
+    // Inclui as pautas no convite (vão como parte da mensagem)
+    if (pautas.length === 0) {
+      if (!confirm("⚠ Nenhuma pauta cadastrada ainda. Enviar convocação sem pauta?\n\nSugestão: cadastre as pautas primeiro para enviar tudo no mesmo convite.")) return;
+    }
+    const { url } = montarConvocacaoWhatsApp(reun, { nome: p.pessoa_nome, telefone }, pautas);
     window.open(url, "_blank", "noopener,noreferrer");
+  }
+
+  function copiarConvocacao(p: GovParticipante) {
+    if (!reun) return;
+    const { mensagem } = montarConvocacaoWhatsApp(reun, { nome: p.pessoa_nome, telefone: "" }, pautas);
+    navigator.clipboard.writeText(mensagem).then(
+      () => toast.success("Mensagem copiada"),
+      () => toast.error("Falha ao copiar"),
+    );
   }
 
   if (loading) return <div className="p-8 flex items-center justify-center text-muted-foreground">
