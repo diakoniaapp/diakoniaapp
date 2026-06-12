@@ -6,7 +6,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,6 +21,23 @@ import { Suspense } from "react";
 import { Loader2 } from "lucide-react";
 import { getWidgetsDivididos } from "@/dashboard/widgetRegistry";
 import { getAcoesParaUsuario } from "@/dashboard/quickActionsRegistry";
+
+
+// ─── Frase de servir por perfil ──────────────────────────────────────────
+// Substitui "O que precisa da sua atenção hoje?" por algo alinhado à
+// vocação cristã da pessoa. Cada perfil recebe uma palavra de incentivo
+// específica para o trabalho que faz no Reino.
+const FRASE_SERVIR: Record<string, string> = {
+  admin:      "Servir com fidelidade é adorar ao SENHOR.",
+  secretaria: "Tudo o que fizermos, façamos de coração — como ao SENHOR.",
+  pastor:     "Apascentemos o rebanho de Deus com amor.",
+  diakonia:   "Apascentemos o rebanho de Deus com amor.",
+  lideranca:  "Cada dom recebido é para servir aos irmãos.",
+  voluntario: "Servi uns aos outros pelo amor — assim glorificamos a Cristo.",
+};
+function fraseServir(role: string) {
+  return FRASE_SERVIR[role] ?? "Sirvamos ao SENHOR com alegria.";
+}
 
 // ─── Saudação por horário ────────────────────────────────────────────────
 function getSaudacao(): string {
@@ -82,30 +98,32 @@ export default function Dashboard() {
             <h1 className="font-serif text-2xl md:text-4xl text-foreground">
               {getSaudacao()}, {nome}! 🙏
             </h1>
-            <p className="text-sm md:text-base text-muted-foreground">
-              O que precisa da sua atenção hoje?
+            <p className="text-sm md:text-base text-muted-foreground italic">
+              {fraseServir(principalRole)}
             </p>
           </div>
           <div className="flex gap-2 shrink-0 self-end md:self-auto">
-                        <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="ghost" size="icon" className="text-gold hover:bg-gold/10 shrink-0" title="Versículo do dia">
-                  <Quote className="w-4 h-4" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="w-80 bg-gradient-verse border-0 shadow-elevated">
-                <div className="space-y-2">
-                  <div className="text-[10px] tracking-[0.2em] uppercase text-gold/90">Versículo do dia</div>
-                  <p className="font-serif text-base leading-relaxed text-foreground/95">&ldquo;{verse.texto}&rdquo;</p>
-                  <div className="text-gold text-sm font-medium tracking-wide">{verse.ref}</div>
-                </div>
-              </PopoverContent>
-            </Popover>
             <Button onClick={() => setOpenVisitanteRapido(true)}
               className="gap-2 bg-gold hover:bg-gold/90 text-white border-0 shadow-sm">
               <UserPlus className="w-4 h-4" />
               <span translate="no">Visitante Rápido</span>
             </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── FAIXA VERSÍCULO DO DIA ─────────────────────────────────────── */}
+      <div className="bg-gradient-verse border-b">
+        <div className="px-4 md:px-8 py-3 md:py-4 max-w-7xl mx-auto">
+          <div className="flex items-start gap-3 md:gap-4">
+            <div className="flex w-8 h-8 md:w-9 md:h-9 rounded-full bg-gold/20 ring-1 ring-gold/40 items-center justify-center shrink-0 mt-0.5">
+              <Quote className="w-3.5 h-3.5 text-gold" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[9px] md:text-[10px] tracking-[0.2em] uppercase text-gold/80 mb-0.5">Versículo do dia</div>
+              <p className="font-serif text-sm md:text-base leading-snug text-foreground/95">&ldquo;{verse.texto}&rdquo;</p>
+              <div className="text-gold mt-1 text-xs font-medium tracking-wide">{verse.ref}</div>
+            </div>
           </div>
         </div>
       </div>
