@@ -113,3 +113,21 @@ export function getWidgetsParaUsuario(
   });
   return opts.limite ? ordenados.slice(0, opts.limite) : ordenados;
 }
+
+
+/**
+ * Para UX "menos é mais": retorna o painel essencial (P0-P2) e os
+ * widgets secundários (P3+) separados. Útil quando se quer mostrar
+ * "Ver mais widgets" depois.
+ */
+export function getWidgetsDivididos(
+  ctx: ContextoUsuario,
+  opts: { limiteEssencial?: number } = {},
+): { essenciais: Widget[]; secundarios: Widget[] } {
+  const todos = getWidgetsParaUsuario(ctx);
+  const limite = opts.limiteEssencial ?? 5;
+  return {
+    essenciais: todos.slice(0, limite),
+    secundarios: todos.slice(limite),
+  };
+}

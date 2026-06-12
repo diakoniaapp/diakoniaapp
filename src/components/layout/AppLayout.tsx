@@ -10,6 +10,7 @@ import {
 import { BrandMark } from "@/components/Brand";
 import { useEffect, useState } from "react";
 import { QuickActionsFab } from "@/components/QuickActionsFab";
+import { CommandPalette } from "@/components/CommandPalette";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
 import { UserMenuButton } from "@/components/layout/UserMenuButton";
 import { supabase } from "@/integrations/supabase/client";
@@ -399,6 +400,7 @@ export default function AppLayout() {
           <Outlet />
         </main>
 
+        <CommandPalette />
         <QuickActionsFab />
         <MobileBottomNav />
       </div>

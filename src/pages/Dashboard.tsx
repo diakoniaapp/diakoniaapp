@@ -20,7 +20,8 @@ import { usePermissoes } from "@/hooks/usePermissoes";
 import VisitanteRapidoDialog from "@/components/membros/VisitanteRapidoDialog";
 import { Suspense } from "react";
 import { Loader2 } from "lucide-react";
-import { getWidgetsParaUsuario } from "@/dashboard/widgetRegistry";
+import { getWidgetsDivididos } from "@/dashboard/widgetRegistry";
+import { getAcoesParaUsuario } from "@/dashboard/quickActionsRegistry";
 
 // ─── Saudação por horário ────────────────────────────────────────────────
 function getSaudacao(): string {
@@ -113,38 +114,20 @@ export default function Dashboard() {
       <div className="p-4 md:p-8 space-y-6 max-w-7xl mx-auto">
 
 
-        {/* ── BLOCO 1 — AÇÕES RÁPIDAS (adaptado ao perfil) ────────────── */}
+        {/* ── ZONA 2 — AÇÃO: atalhos rápidos do perfil (registry) ───── */}
         <BlocoSecao titulo="Ações rápidas" icon={Sparkles} subtitulo="Atalhos relevantes para você">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
-            {podeFazer("criar_pessoa") && <AcaoRapida to="/membros?abrir=novo" icon={UserPlus} label="Cadastrar pessoa" />}
-            {podeFazer("ver_familias") && <AcaoRapida to="/familias" icon={Home} label="Gerenciar famílias" />}
-            {podeFazer("ver_ebd") && <AcaoRapida to="/ebd" icon={GraduationCap} label="Abrir EBD" />}
-            {podeFazer("ver_pgm") && <AcaoRapida to="/pgm" icon={Users} label="Pequenos Grupos" />}
-            {podeFazer("ver_painel_pastoral") && <AcaoRapida to="/painel-pastoral" icon={Sparkles} label="Painel Pastoral" />}
-            {podeFazer("ver_painel_secretaria") && <AcaoRapida to="/painel-secretaria" icon={Sparkles} label="Painel Secretaria" />}
-            {podeFazer("ver_membresia") && <AcaoRapida to="/membresia" icon={FileText} label="Membresia" />}
-            {podeFazer("ver_governanca") && <AcaoRapida to="/governanca" icon={FileText} label="Governança" />}
-            {podeFazer("ver_assuntos") && <AcaoRapida to="/assuntos" icon={FileText} label="Assuntos" />}
-            {podeFazer("ver_financeiro") && <AcaoRapida to="/financas" icon={FileText} label="Finanças" />}
+            {getAcoesParaUsuario({ permissoes }, { limite: 6 }).map(a => (
+              <AcaoRapida key={a.id} to={a.to} icon={a.icon} label={a.label} />
+            ))}
+          </div>
+          <div className="mt-2 text-[10px] text-muted-foreground/70 text-right">
+            Dica: <kbd className="px-1 py-0.5 rounded bg-muted text-[10px]">Ctrl/Cmd + K</kbd> abre busca global.
           </div>
         </BlocoSecao>
 
-        {/* ── WIDGETS DINÂMICOS (registry) ─────────────────────────────── */}
-        {getWidgetsParaUsuario({ permissoes }).map(w => {
-          const Icon = w.icone;
-          const Comp = w.component;
-          return (
-            <BlocoSecao key={w.id} titulo={w.label} icon={Icon} subtitulo={w.subtitulo}>
-              <Suspense fallback={
-                <div className="py-4 text-center text-xs text-muted-foreground">
-                  <Loader2 className="w-3 h-3 animate-spin inline mr-1.5" /> Carregando...
-                </div>
-              }>
-                <Comp />
-              </Suspense>
-            </BlocoSecao>
-          );
-        })}
+        {/* ── ZONA 3 — CONTEXTO: widgets essenciais (P0-P2 até limite) ─ */}
+        <WidgetsDinamicos permissoes={permissoes} />
 
       </div>
 
@@ -210,3 +193,39 @@ function Placeholder({ texto }: { texto: string }) {
   );
 }
 
+
+
+// ─── Sub-componente: lista de widgets com "Ver mais" ────────────────────
+function WidgetsDinamicos({ permissoes }: { permissoes: Set<string> }) {
+  const [verTodos, setVerTodos] = useState(false);
+  const { essenciais, secundarios } = getWidgetsDivididos({ permissoes }, { limiteEssencial: 5 });
+  const lista = verTodos ? [...essenciais, ...secundarios] : essenciais;
+
+  return (
+    <>
+      {lista.map(w => {
+        const Icon = w.icone;
+        const Comp = w.component;
+        return (
+          <BlocoSecao key={w.id} titulo={w.label} icon={Icon} subtitulo={w.subtitulo}>
+            <Suspense fallback={
+              <div className="py-4 text-center text-xs text-muted-foreground">
+                <Loader2 className="w-3 h-3 animate-spin inline mr-1.5" /> Carregando...
+              </div>
+            }>
+              <Comp />
+            </Suspense>
+          </BlocoSecao>
+        );
+      })}
+      {!verTodos && secundarios.length > 0 && (
+        <div className="text-center pt-2">
+          <Button variant="ghost" size="sm" className="text-xs text-muted-foreground"
+            onClick={() => setVerTodos(true)}>
+            Ver mais {secundarios.length} widget{secundarios.length > 1 ? "s" : ""}
+          </Button>
+        </div>
+      )}
+    </>
+  );
+}
