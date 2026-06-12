@@ -55,6 +55,8 @@ import PainelSecretaria from "./pages/PainelSecretaria.tsx";
 import Governanca from "./pages/Governanca.tsx";
 import GovernancaReuniao from "./pages/GovernancaReuniao.tsx";
 import GovernancaAssembleia from "./pages/GovernancaAssembleia.tsx";
+import Assuntos from "./pages/Assuntos.tsx";
+import AssuntoDetalhe from "./pages/AssuntoDetalhe.tsx";
 import AgendaPastoral from "./pages/AgendaPastoral.tsx";
 import PainelPastoral from "./pages/PainelPastoral.tsx";
 import ResetSenhaToken from "@/pages/ResetSenhaToken";
@@ -134,6 +136,8 @@ const App = () => (
                   <Route path="/governanca" element={<Governanca />} />
                   <Route path="/governanca/reuniao/:id" element={<GovernancaReuniao />} />
                   <Route path="/governanca/assembleia/:id" element={<GovernancaAssembleia />} />
+                  <Route path="/assuntos" element={<Assuntos />} />
+                  <Route path="/assunto/:id" element={<AssuntoDetalhe />} />
                   <Route path="/agenda-pastoral" element={<AgendaPastoral />} />
                   <Route path="/painel-pastoral" element={<PainelPastoral />} />
                   <Route path="/admin/recuperacao-senha" element={<RecuperacaoSenhaAdmin />} />

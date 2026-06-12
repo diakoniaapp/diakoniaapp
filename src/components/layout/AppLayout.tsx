@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard, Users, HeartHandshake, Home, LogOut,
   CalendarDays, CalendarCheck, ChevronLeft, ChevronDown, MapPin, BarChart2, GraduationCap, Sparkles, DollarSign, Layers,
-  Building2, Network, KeyRound, ShieldAlert, Church, FileText, ScrollText,
+  Building2, Network, KeyRound, ShieldAlert, Church, FileText, ScrollText, CheckSquare,
   Upload, Download, Flame, UserCheck, Settings, Briefcase,
   Database, Cog, type LucideIcon,
 } from "lucide-react";
@@ -67,8 +67,9 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: "/painel-pastoral", label: "Painel Pastoral", icon: Sparkles, allowedRoles: ROLES_LIDERES },
       { to: "/painel-secretaria", label: "Painel Secretaria", icon: Sparkles, allowedRoles: ROLES_LIDERES },
-      { to: "/membresia",         label: "Membresia",         icon: FileText, ScrollText, allowedRoles: ROLES_LIDERES },
-      { to: "/governanca",        label: "Governança",        icon: ScrollText, allowedRoles: ROLES_LIDERES },
+      { to: "/membresia",         label: "Membresia",         icon: FileText, ScrollText, CheckSquare, allowedRoles: ROLES_LIDERES },
+      { to: "/governanca",        label: "Governança",        icon: ScrollText, CheckSquare, allowedRoles: ROLES_LIDERES },
+      { to: "/assuntos",          label: "Assuntos",          icon: CheckSquare, allowedRoles: ROLES_LIDERES },
       { to: "/eventos",  label: "Agenda",     icon: CalendarDays },
       { to: "/financas", label: "Finanças",   icon: DollarSign,   allowedRoles: ROLES_LIDERES },
       { to: "/locais",   label: "Locais",     icon: MapPin,    allowedRoles: ROLES_LIDERES },
@@ -82,7 +83,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: "/estrutura",          label: "Estrutura",            icon: Network,   allowedRoles: ROLES_PASTORAL },
       { to: "/admin/identidade",   label: "Identidade da Igreja", icon: Church,    allowedRoles: ROLES_ADMIN },
-      { to: "/admin/documentos",   label: "Documentos",           icon: FileText, ScrollText,  allowedRoles: ROLES_ADMIN },
+      { to: "/admin/documentos",   label: "Documentos",           icon: FileText, ScrollText, CheckSquare,  allowedRoles: ROLES_ADMIN },
       { to: "/admin/campanhas",    label: "Campanhas",            icon: Flame,     allowedRoles: ROLES_ADMIN },
     ],
   },
