@@ -9,3 +9,4 @@ export default function Bazar() {
     </div>
   )
 }
+<h1>Bazar / Cantina</h1>
