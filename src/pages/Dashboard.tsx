@@ -6,6 +6,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -84,7 +85,21 @@ export default function Dashboard() {
               O que precisa da sua atenção hoje?
             </p>
           </div>
-          <div className="hidden md:flex gap-2 shrink-0">
+          <div className="flex gap-2 shrink-0 self-end md:self-auto">
+                        <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="icon" className="text-gold hover:bg-gold/10 shrink-0" title="Versículo do dia">
+                  <Quote className="w-4 h-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-80 bg-gradient-verse border-0 shadow-elevated">
+                <div className="space-y-2">
+                  <div className="text-[10px] tracking-[0.2em] uppercase text-gold/90">Versículo do dia</div>
+                  <p className="font-serif text-base leading-relaxed text-foreground/95">&ldquo;{verse.texto}&rdquo;</p>
+                  <div className="text-gold text-sm font-medium tracking-wide">{verse.ref}</div>
+                </div>
+              </PopoverContent>
+            </Popover>
             <Button onClick={() => setOpenVisitanteRapido(true)}
               className="gap-2 bg-gold hover:bg-gold/90 text-white border-0 shadow-sm">
               <UserPlus className="w-4 h-4" />
@@ -97,24 +112,6 @@ export default function Dashboard() {
       {/* ── CORPO ───────────────────────────────────────────────────────── */}
       <div className="p-4 md:p-8 space-y-6 max-w-7xl mx-auto">
 
-        {/* Versículo do dia */}
-        <Card className="overflow-hidden border-0 shadow-elevated bg-gradient-verse text-foreground relative">
-          <div className="absolute -top-8 -right-8 opacity-10 pointer-events-none">
-            <Quote className="w-36 h-36" />
-          </div>
-          <CardContent className="px-6 py-6 md:px-8 md:py-8 relative">
-            <div className="flex items-start gap-3 md:gap-4">
-              <div className="hidden md:flex w-10 h-10 rounded-full bg-gold/20 ring-1 ring-gold/40 items-center justify-center shrink-0">
-                <Quote className="w-4 h-4 text-gold" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-[10px] tracking-[0.2em] uppercase text-gold/90 mb-2">Versículo do dia</div>
-                <p className="font-serif text-lg md:text-xl leading-relaxed text-foreground/95 line-clamp-4">"{verse.texto}"</p>
-                <div className="text-gold mt-3 text-sm font-medium tracking-wide">{verse.ref}</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* ── BLOCO 1 — AÇÕES RÁPIDAS (adaptado ao perfil) ────────────── */}
         <BlocoSecao titulo="Ações rápidas" icon={Sparkles} subtitulo="Atalhos relevantes para você">

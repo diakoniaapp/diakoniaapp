@@ -1,12 +1,11 @@
 import { Outlet, NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useAuth, type AppRole } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard, Users, HeartHandshake, Home, LogOut,
-  CalendarDays, CalendarCheck, ChevronLeft, ChevronDown, MapPin, BarChart2, GraduationCap, Sparkles, DollarSign, Layers,
+  CalendarDays, ChevronLeft, ChevronDown, MapPin, BarChart2, GraduationCap, Sparkles, DollarSign, Layers,
   Building2, Network, KeyRound, ShieldAlert, Church, FileText, ScrollText, CheckSquare,
-  Upload, Download, Flame, UserCheck, Settings, Briefcase,
-  Database, Cog, type LucideIcon,
+  Upload, Download, Flame, UserCheck, Settings,
+  Cog, Sprout, Gavel, type LucideIcon,
 } from "lucide-react";
 import { BrandMark } from "@/components/Brand";
 import { useEffect, useState } from "react";
@@ -44,69 +43,83 @@ interface NavGroup {
 // Painel sempre visível no topo, fora dos grupos
 const PAINEL: NavItem = { to: "/", label: "Painel", icon: LayoutDashboard, end: true };
 
+// Refatoração UX (Fase 1):
+//   • "Operacional" → "Administração"
+//   • "Locais" → "Espaços"  (continua /locais)
+//   • "Áreas" → "Equipes"   (continua /areas)
+//   • EBD + PGM saem de "Pessoas" e viram grupo "Discipulado"
+//   • Painel Pastoral entra em Discipulado (acompanhamento)
+//   • Painel Secretaria removido do menu (já é o painel principal pra perfil de secretaria)
+//   • Institucional + Dados + Admin antigo se consolidam em "Configurações"
+//   • Bug dos ícones com vírgula corrigido (FileText, ScrollText, CheckSquare)
 const NAV_GROUPS: NavGroup[] = [
   {
     key: "pessoas",
     label: "Pessoas",
     icon: Users,
     items: [
-      { to: "/membros",      label: "Pessoas",     icon: Users,          allowedRoles: ROLES_LIDERES },
+      { to: "/membros",      label: "Catálogo",    icon: Users,          allowedRoles: ROLES_LIDERES },
       { to: "/visitantes",   label: "Visitantes",  icon: UserCheck },
       { to: "/familias",     label: "Famílias",    icon: Home,           allowedRoles: ROLES_LIDERES },
       { to: "/ministerios",  label: "Ministérios", icon: HeartHandshake, allowedRoles: ROLES_LIDERES },
-      { to: "/areas",        label: "Áreas",       icon: Layers,         allowedRoles: ROLES_LIDERES },
-      { to: "/ebd",          label: "EBD",         icon: GraduationCap,  allowedRoles: ROLES_LIDERES },
-      { to: "/pgm",          label: "PGM",         icon: Users,          allowedRoles: ROLES_LIDERES },
-      { to: "/organograma",  label: "Organograma", icon: Building2,      allowedRoles: ROLES_LIDERES },
+      { to: "/areas",        label: "Equipes",     icon: Layers,         allowedRoles: ROLES_LIDERES },
     ],
   },
   {
-    key: "operacional",
-    label: "Operacional",
-    icon: Briefcase,
+    key: "discipulado",
+    label: "Discipulado",
+    icon: GraduationCap,
     items: [
-      { to: "/painel-pastoral", label: "Painel Pastoral", icon: Sparkles, allowedRoles: ROLES_LIDERES },
-      { to: "/painel-secretaria", label: "Painel Secretaria", icon: Sparkles, allowedRoles: ROLES_LIDERES },
-      { to: "/membresia",         label: "Membresia",         icon: FileText, ScrollText, CheckSquare, allowedRoles: ROLES_LIDERES },
-      { to: "/governanca",        label: "Governança",        icon: ScrollText, CheckSquare, allowedRoles: ROLES_LIDERES },
-      { to: "/assuntos",          label: "Assuntos",          icon: CheckSquare, allowedRoles: ROLES_LIDERES },
-      { to: "/eventos",  label: "Agenda",     icon: CalendarDays },
-      { to: "/financas", label: "Finanças",   icon: DollarSign,   allowedRoles: ROLES_LIDERES },
-      { to: "/locais",   label: "Locais",     icon: MapPin,    allowedRoles: ROLES_LIDERES },
-    ],
-  },
-  {
-    key: "institucional",
-    label: "Institucional",
-    icon: Church,
-    allowedRoles: ROLES_LIDERES,
-    items: [
-      { to: "/estrutura",          label: "Estrutura",            icon: Network,   allowedRoles: ROLES_PASTORAL },
-      { to: "/admin/identidade",   label: "Identidade da Igreja", icon: Church,    allowedRoles: ROLES_ADMIN },
-      { to: "/admin/documentos",   label: "Documentos",           icon: FileText, ScrollText, CheckSquare,  allowedRoles: ROLES_ADMIN },
-      { to: "/admin/campanhas",    label: "Campanhas",            icon: Flame,     allowedRoles: ROLES_ADMIN },
-    ],
-  },
-  {
-    key: "dados",
-    label: "Dados",
-    icon: Database,
-    allowedRoles: ROLES_PASTORAL,
-    items: [
-      { to: "/painel-estrategico", label: "Crescimento",  icon: BarChart2, allowedRoles: ROLES_PASTORAL },
-      { to: "/admin/importacao",   label: "Importação",   icon: Upload,    allowedRoles: ROLES_ADMIN },
-      { to: "/admin/exportacao",   label: "Exportação",   icon: Download,  allowedRoles: ROLES_ADMIN },
+      { to: "/ebd",              label: "EBD",                icon: GraduationCap, allowedRoles: ROLES_LIDERES },
+      { to: "/pgm",              label: "Pequenos Grupos",    icon: Sprout,        allowedRoles: ROLES_LIDERES },
+      { to: "/painel-pastoral",  label: "Acompanhamento",     icon: Sparkles,      allowedRoles: ROLES_LIDERES },
     ],
   },
   {
     key: "administracao",
     label: "Administração",
-    icon: Cog,
-    allowedRoles: ROLES_ADMIN,
+    icon: ScrollText,
     items: [
-      { to: "/usuarios",                label: "Usuários",            icon: Users,       allowedRoles: ROLES_ADMIN },
-      { to: "/admin/recuperacao-senha", label: "Recuperar Senha",     icon: KeyRound,    allowedRoles: ROLES_ADMIN },
-      { to: "/admin/lgpd",              label: "LGPD",                icon: ShieldAlert, allowedRoles: ROLES_ADMIN },
+      { to: "/membresia",   label: "Membresia",  icon: FileText,    allowedRoles: ROLES_LIDERES },
+      { to: "/governanca",  label: "Reuniões",   icon: Gavel,       allowedRoles: ROLES_LIDERES },
+      { to: "/assuntos",    label: "Assuntos",   icon: CheckSquare, allowedRoles: ROLES_LIDERES },
+    ],
+  },
+  {
+    key: "financeiro",
+    label: "Financeiro",
+    icon: DollarSign,
+    allowedRoles: ROLES_LIDERES,
+    items: [
+      { to: "/financas",  label: "Tesouraria", icon: DollarSign, allowedRoles: ROLES_LIDERES },
+    ],
+  },
+  {
+    key: "agenda",
+    label: "Agenda & Espaços",
+    icon: CalendarDays,
+    items: [
+      { to: "/eventos", label: "Agenda",  icon: CalendarDays },
+      { to: "/locais",  label: "Espaços", icon: MapPin,        allowedRoles: ROLES_LIDERES },
+    ],
+  },
+  {
+    key: "configuracoes",
+    label: "Configurações",
+    icon: Cog,
+    allowedRoles: ROLES_PASTORAL,
+    items: [
+      { to: "/admin/identidade",        label: "Identidade",        icon: Church,      allowedRoles: ROLES_ADMIN },
+      { to: "/admin/documentos",        label: "Documentos",        icon: ScrollText,  allowedRoles: ROLES_ADMIN },
+      { to: "/admin/campanhas",         label: "Campanhas",         icon: Flame,       allowedRoles: ROLES_ADMIN },
+      { to: "/estrutura",               label: "Estrutura",         icon: Network,     allowedRoles: ROLES_PASTORAL },
+      { to: "/organograma",             label: "Organograma",       icon: Building2,   allowedRoles: ROLES_LIDERES },
+      { to: "/painel-estrategico",      label: "Crescimento",       icon: BarChart2,   allowedRoles: ROLES_PASTORAL },
+      { to: "/admin/importacao",        label: "Importação",        icon: Upload,      allowedRoles: ROLES_ADMIN },
+      { to: "/admin/exportacao",        label: "Exportação",        icon: Download,    allowedRoles: ROLES_ADMIN },
+      { to: "/usuarios",                label: "Usuários",          icon: Users,       allowedRoles: ROLES_ADMIN },
+      { to: "/admin/recuperacao-senha", label: "Recuperar Senha",   icon: KeyRound,    allowedRoles: ROLES_ADMIN },
+      { to: "/admin/lgpd",              label: "LGPD",              icon: ShieldAlert, allowedRoles: ROLES_ADMIN },
     ],
   },
 ];
@@ -116,17 +129,22 @@ const pageTitles: Record<string, string> = {
   "/membros":                 "Pessoas",
   "/familias":                "Famílias",
   "/ministerios":             "Ministérios",
-  "/areas":                   "Áreas",
+  "/areas":                   "Equipes",
   "/eventos":                 "Agenda",
   "/agenda-pastoral":         "Agenda Pastoral",
-  "/painel-pastoral":         "Painel Pastoral",
-  "/locais":                  "Locais",
+  "/painel-pastoral":         "Acompanhamento Pastoral",
+  "/locais":                  "Espaços",
   "/visitantes":              "Visitantes",
   "/painel-estrategico":      "Crescimento",
   "/ebd":                     "EBD",
+  "/pgm":                     "Pequenos Grupos",
   "/organograma":             "Organograma",
   "/estrutura":               "Estrutura",
   "/usuarios":                "Usuários",
+  "/membresia":               "Membresia",
+  "/governanca":              "Reuniões",
+  "/assuntos":                "Assuntos",
+  "/financas":                "Tesouraria",
   "/admin/recuperacao-senha": "Recuperar Senha",
   "/admin/lgpd":              "LGPD",
   "/admin/identidade":        "Identidade",
@@ -157,15 +175,15 @@ export default function AppLayout() {
   // Estado de expand/collapse por grupo, persistido em localStorage
   const [expanded, setExpanded] = useState<Record<string, boolean>>(() => {
     try {
-      const raw = localStorage.getItem("nav_expanded");
+      const raw = localStorage.getItem("nav_expanded_v2");
       if (raw) return JSON.parse(raw);
     } catch {}
-    // padrão: tudo expandido
-    return Object.fromEntries(NAV_GROUPS.map(g => [g.key, true]));
+    // padrão: tudo expandido, menos Configurações (raramente usado)
+    return Object.fromEntries(NAV_GROUPS.map(g => [g.key, g.key !== "configuracoes"]));
   });
 
   useEffect(() => {
-    try { localStorage.setItem("nav_expanded", JSON.stringify(expanded)); } catch {}
+    try { localStorage.setItem("nav_expanded_v2", JSON.stringify(expanded)); } catch {}
   }, [expanded]);
 
   // Nome bonito do user (vindo do membro vinculado, se houver)
