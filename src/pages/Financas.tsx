@@ -13,7 +13,7 @@ import {
 } from "@/services/finService";
 import { LancamentoForm } from "@/components/financas/LancamentoForm";
 import { TransferenciaForm } from "@/components/financas/TransferenciaForm";
-import { Settings, ArrowRightLeft, RotateCw, Package, Sparkles, Layers, Target } from "lucide-react";
+import { Settings, ArrowRightLeft, RotateCw, Package, Sparkles, Layers, Target, Briefcase } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 const ICONE_CONTA: Record<string, JSX.Element> = {
@@ -155,6 +155,7 @@ export default function Financas() {
         <Atalho to="/financas/centros" icon={<Layers className="w-4 h-4 text-purple-600" />} label="Centros" />
         <Atalho to="/financas/orcamento" icon={<Target className="w-4 h-4 text-emerald-600" />} label="Orçamento" />
         <Atalho to="/financas/insights" icon={<Sparkles className="w-4 h-4 text-gold" />} label="Insights" />
+        <Atalho to="/financas/folha" icon={<Briefcase className="w-4 h-4 text-purple-600" />} label="Folha" />
       </div>
       <p className="text-[10px] text-muted-foreground text-center pt-2">
         ✨ Sistema financeiro completo · 6 fases entregues · OCR · Recorrências · Estoque · Malote · Insights
