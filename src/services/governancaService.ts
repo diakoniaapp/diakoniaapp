@@ -130,6 +130,11 @@ export async function atualizarReuniao(id: string, patch: Partial<GovReuniao>): 
   if (error) throw error;
 }
 
+export async function excluirReuniao(id: string): Promise<void> {
+  const { error } = await supabase.from("gov_reunioes").delete().eq("id", id);
+  if (error) throw error;
+}
+
 // ─── Participantes ──────────────────────────────────────────────────────
 export async function listarParticipantes(reuniaoId: string): Promise<GovParticipante[]> {
   const { data, error } = await supabase

@@ -7,8 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Tabs, TabsContent, TabsList, TabsTrigger,
 } from "@/components/ui/tabs";
@@ -17,11 +21,11 @@ import {
 } from "@/components/ui/select";
 import {
   ArrowLeft, ScrollText, Plus, Loader2, Calendar, Users, FileText,
-  Sparkles, Check, Trash2, MessageCircle, History, UserPlus,
+  Sparkles, Check, Trash2, MessageCircle, History, UserPlus, Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  carregarReuniao, atualizarReuniao,
+  carregarReuniao, atualizarReuniao, excluirReuniao,
   listarParticipantes, autoConvocarLideranca, marcarPresenca, removerParticipante,
   listarPautas, criarPauta, atualizarPauta, excluirPauta, sugerirPautas,
   listarHistorico, montarConvocacaoWhatsApp, gerarAssembleiaDaReuniao,
@@ -45,6 +49,8 @@ export default function GovernancaReuniao() {
 
   const [pautaOpen, setPautaOpen] = useState(false);
   const [partOpen, setPartOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => { carregar(); }, [id]);
 
@@ -68,6 +74,16 @@ export default function GovernancaReuniao() {
       const qtd = await autoConvocarLideranca(id);
       toast.success(`${qtd} pessoa(s) adicionada(s) à convocação`);
       await carregar();
+    } catch (e: any) { toast.error(e?.message ?? "Erro"); }
+    finally { setBusy(false); }
+  }
+
+  async function handleExcluir() {
+    setBusy(true);
+    try {
+      await excluirReuniao(id);
+      toast.success("Reunião excluída");
+      navigate("/governanca");
     } catch (e: any) { toast.error(e?.message ?? "Erro"); }
     finally { setBusy(false); }
   }
@@ -168,6 +184,15 @@ export default function GovernancaReuniao() {
             {reun.horario && ` · ${reun.horario.slice(0, 5)}`}
             {reun.local && ` · ${reun.local}`}
           </p>
+        </div>
+        <div className="flex gap-1 shrink-0">
+          <Button size="sm" variant="outline" onClick={() => setEditOpen(true)} className="gap-1.5">
+            <Pencil className="w-3.5 h-3.5" /> Editar
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => setConfirmDelete(true)}
+            className="gap-1.5 text-destructive hover:text-destructive">
+            <Trash2 className="w-3.5 h-3.5" /> Excluir
+          </Button>
         </div>
       </div>
 
@@ -308,6 +333,32 @@ export default function GovernancaReuniao() {
 
       <NovaPautaDialog reuniaoId={id} open={pautaOpen} onOpenChange={setPautaOpen} onSaved={carregar} />
       <NovoParticipanteDialog reuniaoId={id} open={partOpen} onOpenChange={setPartOpen} onSaved={carregar} />
+      <EditarReuniaoDialog reuniao={reun} open={editOpen} onOpenChange={setEditOpen} onSaved={carregar} />
+
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir esta reunião?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Você está prestes a excluir <strong>{reun.titulo}</strong>.
+              <br /><br />
+              Isso vai apagar permanentemente:
+              <br />• Todas as <strong>{pautas.length} pauta(s)</strong> cadastrada(s)
+              <br />• Todos os <strong>{parts.length} participante(s)</strong> convocado(s)
+              <br />• Histórico completo da reunião
+              <br /><br />
+              <strong>Esta ação não pode ser desfeita.</strong>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleExcluir} disabled={busy}
+              className="bg-destructive text-white hover:bg-destructive/90">
+              {busy ? "Excluindo..." : "Sim, excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -396,6 +447,111 @@ function PautaLinha({ pauta, onChange }: { pauta: GovPauta; onChange: () => void
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function EditarReuniaoDialog({ reuniao, open, onOpenChange, onSaved }: {
+  reuniao: GovReuniao; open: boolean; onOpenChange: (v: boolean) => void; onSaved: () => void;
+}) {
+  const [titulo, setTitulo] = useState(reuniao.titulo);
+  const [tipo, setTipo] = useState<GovReuniao["tipo"]>(reuniao.tipo);
+  const [data, setData] = useState(reuniao.data_reuniao);
+  const [horario, setHorario] = useState(reuniao.horario ?? "");
+  const [local, setLocal] = useState(reuniao.local ?? "");
+  const [observacoes, setObservacoes] = useState(reuniao.observacoes ?? "");
+  const [status, setStatus] = useState<GovReuniao["status"]>(reuniao.status);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setTitulo(reuniao.titulo);
+    setTipo(reuniao.tipo);
+    setData(reuniao.data_reuniao);
+    setHorario(reuniao.horario ?? "");
+    setLocal(reuniao.local ?? "");
+    setObservacoes(reuniao.observacoes ?? "");
+    setStatus(reuniao.status);
+  }, [open, reuniao]);
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!titulo.trim()) { toast.error("Informe o título"); return; }
+    setBusy(true);
+    try {
+      await atualizarReuniao(reuniao.id, {
+        titulo: titulo.trim(),
+        tipo, status,
+        data_reuniao: data,
+        horario: horario || null,
+        local: local.trim() || null,
+        observacoes: observacoes.trim() || null,
+      });
+      toast.success("Reunião atualizada");
+      onOpenChange(false);
+      onSaved();
+    } catch (e: any) { toast.error(e?.message ?? "Erro"); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="font-serif text-xl">Editar reunião</DialogTitle>
+          <DialogDescription>Ajuste detalhes da reunião.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={onSubmit} className="space-y-3">
+          <div>
+            <Label>Título *</Label>
+            <Input value={titulo} onChange={(e) => setTitulo(e.target.value)} required autoFocus />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label>Tipo</Label>
+              <Select value={tipo} onValueChange={(v) => setTipo(v as any)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {(Object.entries(REUNIAO_TIPO_LABEL) as [GovReuniao["tipo"], string][]).map(([k, l]) => (
+                    <SelectItem key={k} value={k}>{l}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Status</Label>
+              <Select value={status} onValueChange={(v) => setStatus(v as any)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {(Object.entries(REUNIAO_STATUS_LABEL) as [GovReuniao["status"], string][]).map(([k, l]) => (
+                    <SelectItem key={k} value={k}>{l}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Data *</Label>
+              <Input type="date" value={data} onChange={(e) => setData(e.target.value)} required />
+            </div>
+            <div>
+              <Label>Horário</Label>
+              <Input type="time" value={horario} onChange={(e) => setHorario(e.target.value)} />
+            </div>
+          </div>
+          <div>
+            <Label>Local</Label>
+            <Input value={local} onChange={(e) => setLocal(e.target.value)} />
+          </div>
+          <div>
+            <Label>Observações</Label>
+            <Textarea rows={2} value={observacoes} onChange={(e) => setObservacoes(e.target.value)} />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>Cancelar</Button>
+            <Button type="submit" disabled={busy}>{busy ? "..." : "Salvar"}</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
