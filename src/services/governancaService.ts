@@ -273,3 +273,214 @@ export function montarConvocacaoWhatsApp(reuniao: GovReuniao, pessoa: { nome: st
     : `https://wa.me/?text=${encodeURIComponent(mensagem)}`;
   return { mensagem, url };
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FASE Gv2 — Assembleias + Quórum + Votação ao vivo
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface GovAssembleia {
+  id: string;
+  reuniao_origem_id: string | null;
+  titulo: string;
+  data_assembleia: string;
+  horario: string | null;
+  local: string | null;
+  status: GovReuniaoStatus;
+  quorum_minimo_pct: number;
+  total_membros_aptos: number | null;
+  total_presentes: number;
+  quorum_atingido: boolean;
+  presidente_id: string | null;
+  presidente_nome: string | null;
+  secretaria_id: string | null;
+  secretaria_nome: string | null;
+  ata_url: string | null;
+  ata_versao: number;
+  convocacao_enviada: boolean;
+  observacoes: string | null;
+}
+
+export interface GovPresente {
+  id: string;
+  assembleia_id: string;
+  pessoa_id: string;
+  pessoa_nome: string;
+  presente: boolean;
+  hora_chegada: string | null;
+  observacao: string | null;
+}
+
+// ─── CRUD assembleias ────────────────────────────────────────────────────
+export async function listarAssembleias(): Promise<GovAssembleia[]> {
+  const { data, error } = await supabase
+    .from("gov_assembleias").select("*")
+    .order("data_assembleia", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as GovAssembleia[];
+}
+
+export async function carregarAssembleia(id: string): Promise<GovAssembleia | null> {
+  const { data } = await supabase.from("gov_assembleias").select("*").eq("id", id).maybeSingle();
+  return (data ?? null) as GovAssembleia | null;
+}
+
+export async function criarAssembleia(input: Partial<GovAssembleia>): Promise<GovAssembleia> {
+  const { data, error } = await supabase.from("gov_assembleias").insert(input as any).select("*").single();
+  if (error) throw error;
+  return data as GovAssembleia;
+}
+
+export async function atualizarAssembleia(id: string, patch: Partial<GovAssembleia>): Promise<void> {
+  const { error } = await supabase.from("gov_assembleias").update(patch as any).eq("id", id);
+  if (error) throw error;
+}
+
+// ─── Gerar assembleia a partir de pautas marcadas em reuniao ─────────────
+export async function gerarAssembleiaDaReuniao(reuniaoId: string, opts?: {
+  dataAssembleia?: string; horario?: string; local?: string;
+}): Promise<GovAssembleia> {
+  // 1) Carrega reunião + pautas marcadas pra assembleia
+  const reun = await carregarReuniao(reuniaoId);
+  if (!reun) throw new Error("Reunião não encontrada");
+  const pautas = await listarPautas(reuniaoId);
+  const pautasParaAssembleia = pautas.filter(p =>
+    p.classificacao === "deliberativa" &&
+    (p.status === "para_assembleia" || p.status === "rascunho")
+  );
+  if (pautasParaAssembleia.length === 0) {
+    throw new Error("Nenhuma pauta deliberativa pronta para assembleia");
+  }
+
+  // 2) Próximo domingo
+  const proxDomingo = opts?.dataAssembleia ?? (() => {
+    const d = new Date();
+    const dias = (7 - d.getDay()) % 7 || 7;
+    d.setDate(d.getDate() + dias);
+    return d.toISOString().slice(0, 10);
+  })();
+
+  // 3) Cria assembleia
+  const ass = await criarAssembleia({
+    reuniao_origem_id: reuniaoId,
+    titulo: `Assembleia · ${reun.titulo}`,
+    data_assembleia: proxDomingo,
+    horario: opts?.horario ?? "10:00",
+    local: opts?.local ?? reun.local ?? "Templo",
+    status: "agendada",
+  });
+
+  // 4) Move pautas pra essa assembleia
+  for (const p of pautasParaAssembleia) {
+    await atualizarPauta(p.id, {
+      assembleia_id: ass.id,
+      status: "para_assembleia",
+    });
+  }
+
+  // 5) Sincroniza membros aptos
+  await sincronizarMembrosAptos(ass.id);
+
+  return ass;
+}
+
+// ─── Sincroniza membros aptos a votar ────────────────────────────────────
+export async function sincronizarMembrosAptos(assembleiaId: string): Promise<number> {
+  // Lista todos os membros ativos
+  const { data: membros, error } = await supabase
+    .from("membros")
+    .select("id, nome_completo")
+    .eq("tipo_pessoa", "membro")
+    .eq("status", "ativo");
+  if (error) throw error;
+  const lista = membros ?? [];
+
+  // Inserir (ignora conflito - upsert)
+  if (lista.length > 0) {
+    const rows = lista.map((m: any) => ({
+      assembleia_id: assembleiaId,
+      pessoa_id: m.id,
+      pessoa_nome: m.nome_completo,
+      presente: false,
+    }));
+    const { error: insErr } = await supabase.from("gov_assembleia_presentes")
+      .upsert(rows, { onConflict: "assembleia_id,pessoa_id" });
+    if (insErr) throw insErr;
+  }
+
+  // Atualizar total na assembleia
+  await atualizarAssembleia(assembleiaId, { total_membros_aptos: lista.length });
+  return lista.length;
+}
+
+// ─── Presentes ───────────────────────────────────────────────────────────
+export async function listarPresentes(assembleiaId: string): Promise<GovPresente[]> {
+  const { data, error } = await supabase
+    .from("gov_assembleia_presentes").select("*")
+    .eq("assembleia_id", assembleiaId)
+    .order("pessoa_nome");
+  if (error) throw error;
+  return (data ?? []) as GovPresente[];
+}
+
+export async function marcarPresencaAssembleia(id: string, presente: boolean): Promise<void> {
+  const patch: any = { presente };
+  if (presente) patch.hora_chegada = new Date().toTimeString().slice(0, 8);
+  const { error } = await supabase.from("gov_assembleia_presentes").update(patch).eq("id", id);
+  if (error) throw error;
+}
+
+// ─── Quórum (recalculado client-side + atualiza no banco) ────────────────
+export function calcularQuorum(presentes: number, aptos: number, minPct: number) {
+  if (aptos <= 0) return { pct: 0, atingido: false };
+  const pct = (presentes / aptos) * 100;
+  return { pct, atingido: pct >= minPct };
+}
+
+export async function recalcQuorum(assembleiaId: string): Promise<{ presentes: number; aptos: number; atingido: boolean }> {
+  const ass = await carregarAssembleia(assembleiaId);
+  if (!ass) throw new Error("Assembleia não encontrada");
+  const presentes = await listarPresentes(assembleiaId);
+  const presNum = presentes.filter(p => p.presente).length;
+  const aptos = ass.total_membros_aptos ?? presentes.length;
+  const q = calcularQuorum(presNum, aptos, Number(ass.quorum_minimo_pct));
+  await atualizarAssembleia(assembleiaId, {
+    total_presentes: presNum,
+    quorum_atingido: q.atingido,
+  });
+  return { presentes: presNum, aptos, atingido: q.atingido };
+}
+
+// ─── Pautas da assembleia ────────────────────────────────────────────────
+export async function listarPautasAssembleia(assembleiaId: string): Promise<GovPauta[]> {
+  const { data, error } = await supabase
+    .from("gov_pautas").select("*")
+    .eq("assembleia_id", assembleiaId)
+    .order("ordem").order("created_at");
+  if (error) throw error;
+  return (data ?? []) as GovPauta[];
+}
+
+// ─── Votação ─────────────────────────────────────────────────────────────
+export type ResultadoVoto = "aprovada" | "rejeitada" | "adiada";
+
+export async function decidirPauta(
+  pautaId: string,
+  resultado: ResultadoVoto,
+  votos: { sim: number; nao: number; abstencao: number; impedimento: number },
+  observacao?: string,
+): Promise<void> {
+  const status: GovPautaStatus =
+    resultado === "aprovada" ? "aprovada_assembleia" :
+    resultado === "rejeitada" ? "rejeitada" :
+    "adiada";
+  await atualizarPauta(pautaId, {
+    status,
+    decisao: resultado === "aprovada" ? "APROVADA" : resultado === "rejeitada" ? "REJEITADA" : "ADIADA",
+    votos_sim: votos.sim,
+    votos_nao: votos.nao,
+    votos_abstencao: votos.abstencao,
+    votos_impedimento: votos.impedimento,
+    data_decisao: new Date().toISOString().slice(0, 10),
+    observacao_decisao: observacao ?? null,
+  });
+}

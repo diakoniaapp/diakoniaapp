@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,7 +24,7 @@ import {
   carregarReuniao, atualizarReuniao,
   listarParticipantes, autoConvocarLideranca, marcarPresenca, removerParticipante,
   listarPautas, criarPauta, atualizarPauta, excluirPauta, sugerirPautas,
-  listarHistorico, montarConvocacaoWhatsApp,
+  listarHistorico, montarConvocacaoWhatsApp, gerarAssembleiaDaReuniao,
   REUNIAO_TIPO_LABEL, REUNIAO_STATUS_LABEL, REUNIAO_STATUS_COR,
   PAUTA_STATUS_LABEL,
   type GovReuniao, type GovParticipante, type GovPauta, type GovHistorico,
@@ -35,6 +35,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export default function GovernancaReuniao() {
   const { id = "" } = useParams();
+  const navigate = useNavigate();
   const [reun, setReun] = useState<GovReuniao | null>(null);
   const [parts, setParts] = useState<GovParticipante[]>([]);
   const [pautas, setPautas] = useState<GovPauta[]>([]);
@@ -67,6 +68,17 @@ export default function GovernancaReuniao() {
       const qtd = await autoConvocarLideranca(id);
       toast.success(`${qtd} pessoa(s) adicionada(s) à convocação`);
       await carregar();
+    } catch (e: any) { toast.error(e?.message ?? "Erro"); }
+    finally { setBusy(false); }
+  }
+
+  async function criarAssembleia() {
+    if (!confirm("Gerar assembleia com as pautas marcadas?\nVai criar para o próximo domingo.")) return;
+    setBusy(true);
+    try {
+      const a = await gerarAssembleiaDaReuniao(id);
+      toast.success("Assembleia criada!");
+      navigate(`/governanca/assembleia/${a.id}`);
     } catch (e: any) { toast.error(e?.message ?? "Erro"); }
     finally { setBusy(false); }
   }
@@ -200,6 +212,12 @@ export default function GovernancaReuniao() {
             <Button size="sm" onClick={() => setPautaOpen(true)} className="bg-gold hover:bg-gold/90 text-white">
               <Plus className="w-3.5 h-3.5 mr-1.5" /> Nova pauta
             </Button>
+            {deliberativas > 0 && (
+              <Button size="sm" onClick={criarAssembleia} disabled={busy}
+                className="bg-purple-600 hover:bg-purple-700 text-white ml-auto">
+                ⚖ Gerar assembleia ({deliberativas})
+              </Button>
+            )}
           </div>
 
           {pautas.length === 0 ? (

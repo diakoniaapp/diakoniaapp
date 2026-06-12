@@ -17,13 +17,14 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  listarReunioes, criarReuniao, sugerirProximasReunioes,
+  listarReunioes, criarReuniao, sugerirProximasReunioes, listarAssembleias,
   REUNIAO_TIPO_LABEL, REUNIAO_STATUS_LABEL, REUNIAO_STATUS_COR,
-  type GovReuniao, type GovReuniaoTipo,
+  type GovReuniao, type GovReuniaoTipo, type GovAssembleia,
 } from "@/services/governancaService";
 
 export default function Governanca() {
   const [reunioes, setReunioes] = useState<GovReuniao[]>([]);
+  const [assembleias, setAssembleias] = useState<GovAssembleia[]>([]);
   const [loading, setLoading] = useState(true);
   const [novoOpen, setNovoOpen] = useState(false);
 
@@ -32,8 +33,9 @@ export default function Governanca() {
   async function carregar() {
     setLoading(true);
     try {
-      const r = await listarReunioes();
+      const [r, a] = await Promise.all([listarReunioes(), listarAssembleias()]);
       setReunioes(r);
+      setAssembleias(a);
     } finally { setLoading(false); }
   }
 
@@ -56,6 +58,40 @@ export default function Governanca() {
           <Plus className="w-4 h-4" /> Nova reunião
         </Button>
       </div>
+
+      {/* ASSEMBLEIAS */}
+      {assembleias.length > 0 && (
+        <div className="space-y-1.5">
+          <h2 className="text-xs uppercase tracking-wide text-muted-foreground px-1 flex items-center gap-1.5">
+            ⚖ Assembleias ({assembleias.length})
+          </h2>
+          {assembleias.map(a => (
+            <Link key={a.id} to={`/governanca/assembleia/${a.id}`} className="block">
+              <div className="border rounded-md px-3 py-2 hover:bg-muted/30 transition-colors flex items-center gap-2 border-purple-200 bg-purple-50/20">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-medium text-sm">{a.titulo}</span>
+                    <Badge variant="outline" className={`text-[9px] ${REUNIAO_STATUS_COR[a.status]}`}>
+                      {REUNIAO_STATUS_LABEL[a.status]}
+                    </Badge>
+                    {a.quorum_atingido && <Badge variant="outline" className="text-[9px] bg-emerald-100 text-emerald-700 border-emerald-300">Quórum OK</Badge>}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground flex items-center gap-2">
+                    <Calendar className="w-2.5 h-2.5" />
+                    {new Date(a.data_assembleia + "T00:00").toLocaleDateString("pt-BR")}
+                    {a.horario && ` · ${a.horario.slice(0, 5)}`}
+                    {a.total_membros_aptos && ` · ${a.total_presentes}/${a.total_membros_aptos} presentes`}
+                  </p>
+                </div>
+                <ChevronRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+              </div>
+            </Link>
+          ))}
+          <h2 className="text-xs uppercase tracking-wide text-muted-foreground px-1 flex items-center gap-1.5 pt-2">
+            <Users className="w-3 h-3" /> Reuniões ({reunioes.length})
+          </h2>
+        </div>
+      )}
 
       {reunioes.length === 0 ? (
         <Card className="border-dashed">
