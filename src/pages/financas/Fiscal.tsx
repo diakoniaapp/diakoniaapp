@@ -10,13 +10,14 @@ import {
 } from "@/components/ui/tabs";
 import {
   Receipt, Settings, CalendarDays, Loader2, RefreshCw, Save, CheckCircle2,
-  AlertCircle, Clock, Wallet,
+  AlertCircle, Clock, Wallet, Paperclip, Download, FileArchive,
 } from "lucide-react";
 import { toast } from "sonner";
+import { DocumentosFiscaisDialog } from "@/components/fiscal/DocumentosFiscaisDialog";
 import {
   carregarConfig, atualizarConfig,
   listarTiposObrigacao, listarObrigacoesAtivas, definirObrigacaoAtiva,
-  gerarAgenda, listarAgenda, darBaixaObrigacao, criarLancamentoFiscal,
+  gerarAgenda, listarAgenda, darBaixaObrigacao, criarLancamentoFiscal, exportarMaloteFiscalZip,
   type FiscalConfig, type FiscalTipoObrigacao, type FiscalObrigacaoAtiva,
   type FiscalAgendaItem,
 } from "@/services/fiscalService";
@@ -206,6 +207,8 @@ function AbaObrigacoes() {
 // ─── Aba Agenda ───────────────────────────────────────────────────────
 function AbaAgenda() {
   const [items, setItems] = useState<FiscalAgendaItem[]>([]);
+  const [docDialog, setDocDialog] = useState<{ id: string; nome: string } | null>(null);
+  const [exportando, setExportando] = useState(false);
   const [loading, setLoading] = useState(true);
   const [gerando, setGerando] = useState(false);
 
@@ -252,6 +255,19 @@ function AbaAgenda() {
     }
   }
 
+  async function exportarMaloteMes() {
+    setExportando(true);
+    try {
+      const hoje = new Date();
+      await exportarMaloteFiscalZip(hoje.getFullYear(), hoje.getMonth() + 1);
+      toast.success("Malote ZIP gerado e baixado");
+    } catch (err: any) {
+      toast.error(err?.message ?? "Erro ao gerar malote");
+    } finally {
+      setExportando(false);
+    }
+  }
+
   async function baixar(it: FiscalAgendaItem) {
     const valor = Number(prompt(`Valor pago para ${it.tipo?.nome}:`)?.replace(",", ".") ?? "");
     if (isNaN(valor) || valor <= 0) return;
@@ -275,12 +291,18 @@ function AbaAgenda() {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap">
         <CardTitle className="text-base">Próximos vencimentos</CardTitle>
-        <Button size="sm" onClick={gerar12} disabled={gerando} className="gap-2">
-          {gerando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-          Gerar próximos 12 meses
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={exportarMaloteMes} disabled={exportando} className="gap-2">
+            {exportando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileArchive className="w-3.5 h-3.5" />}
+            Malote ZIP do mês
+          </Button>
+          <Button size="sm" onClick={gerar12} disabled={gerando} className="gap-2">
+            {gerando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+            Gerar próximos 12 meses
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="space-y-2 text-sm">
         {items.length === 0 ? (
@@ -310,6 +332,13 @@ function AbaAgenda() {
                   {it.valor_pago && ` · pago R$ ${it.valor_pago.toFixed(2).replace(".", ",")}`}
                 </p>
               </div>
+              <Button
+                size="sm" variant="ghost"
+                className="text-[10px] gap-1 h-7 px-2"
+                onClick={() => setDocDialog({ id: it.id, nome: it.tipo?.nome ?? "Obrigação" })}
+                title="Documentos anexados">
+                <Paperclip className="w-3 h-3 text-blue-600" />
+              </Button>
               {it.status === "pendente" && !it.lancamento_id && (
                 <Button size="sm" variant="outline" className="text-[10px] gap-1" onClick={() => gerarLancamentoPagar(it)}>
                   <Wallet className="w-3 h-3" /> Gerar lançamento
@@ -329,6 +358,14 @@ function AbaAgenda() {
           );
         })}
       </CardContent>
+      {docDialog && (
+        <DocumentosFiscaisDialog
+          open={!!docDialog}
+          onOpenChange={(v) => { if (!v) setDocDialog(null); }}
+          agendaId={docDialog.id}
+          nomeObrigacao={docDialog.nome}
+        />
+      )}
     </Card>
   );
 }

@@ -276,3 +276,245 @@ export function montarAlertaFiscalWhatsApp(
     : `https://wa.me/?text=${encodeURIComponent(mensagem)}`;
   return { mensagem, url };
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// FB-3: Documentos + Malote ZIP
+// ═══════════════════════════════════════════════════════════════════════
+
+import JSZip from "jszip";
+import { saveAs } from "file-saver";
+
+export type FiscalDocTipo = "guia" | "comprovante" | "recibo" | "outro";
+
+export interface FiscalDocumento {
+  id: string;
+  agenda_id: string;
+  tipo: FiscalDocTipo;
+  nome_arquivo: string;
+  storage_path: string;
+  mime_type: string | null;
+  tamanho_bytes: number | null;
+  observacao: string | null;
+  enviado_em: string;
+}
+
+/** Upload de um documento fiscal vinculado a um item da agenda. */
+export async function uploadDocumentoFiscal(
+  agendaId: string,
+  arquivo: File,
+  tipo: FiscalDocTipo,
+  observacao?: string,
+): Promise<FiscalDocumento> {
+  // path: {agendaId}/{tipo}-{timestamp}-{nome}
+  const safeName = arquivo.name.replace(/[^\w.\-]+/g, "_");
+  const storagePath = `${agendaId}/${tipo}-${Date.now()}-${safeName}`;
+
+  const { error: upErr } = await supabase.storage
+    .from("fiscal-docs")
+    .upload(storagePath, arquivo, {
+      cacheControl: "3600",
+      upsert: false,
+      contentType: arquivo.type || undefined,
+    });
+  if (upErr) throw upErr;
+
+  const { data, error } = await supabase
+    .from("fiscal_documentos")
+    .insert({
+      agenda_id: agendaId,
+      tipo,
+      nome_arquivo: arquivo.name,
+      storage_path: storagePath,
+      mime_type: arquivo.type,
+      tamanho_bytes: arquivo.size,
+      observacao: observacao ?? null,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data as FiscalDocumento;
+}
+
+export async function listarDocumentosObrigacao(agendaId: string): Promise<FiscalDocumento[]> {
+  const { data, error } = await supabase
+    .from("fiscal_documentos")
+    .select("*")
+    .eq("agenda_id", agendaId)
+    .order("enviado_em", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as FiscalDocumento[];
+}
+
+export async function excluirDocumentoFiscal(doc: FiscalDocumento): Promise<void> {
+  // Remove do storage
+  await supabase.storage.from("fiscal-docs").remove([doc.storage_path]);
+  const { error } = await supabase
+    .from("fiscal_documentos")
+    .delete()
+    .eq("id", doc.id);
+  if (error) throw error;
+}
+
+/** URL assinada (válida por 1h) para visualizar/baixar. */
+export async function urlDocumentoFiscal(storagePath: string): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from("fiscal-docs")
+    .createSignedUrl(storagePath, 3600);
+  if (error) throw error;
+  return data.signedUrl;
+}
+
+// ─── Malote ZIP ───────────────────────────────────────────────────────
+export interface MaloteDocItem {
+  documento_id: string;
+  codigo_obrigacao: string;
+  nome_obrigacao: string;
+  competencia: string;
+  vencimento: string;
+  status_obrigacao: string;
+  valor_pago: number | null;
+  data_pagamento: string | null;
+  tipo_doc: string;
+  nome_arquivo: string;
+  storage_path: string;
+  mime_type: string | null;
+  observacao: string | null;
+}
+
+export async function listarDocumentosDoMes(ano: number, mes: number): Promise<MaloteDocItem[]> {
+  const { data, error } = await supabase.rpc("fiscal_documentos_mes", {
+    p_ano: ano, p_mes: mes,
+  });
+  if (error) throw error;
+  return (data ?? []) as MaloteDocItem[];
+}
+
+export interface ResumoMaloteFiscal {
+  ano: number;
+  mes: number;
+  total_obrigacoes: number;
+  total_pagas: number;
+  total_pendentes: number;
+  valor_total_pago: number;
+  por_obrigacao: Array<{
+    codigo: string;
+    nome: string;
+    icone: string;
+    status: string;
+    vencimento: string;
+    valor_pago: number | null;
+    data_pagamento: string | null;
+    qtd_documentos: number;
+  }>;
+}
+
+export async function resumoMaloteFiscal(ano: number, mes: number): Promise<ResumoMaloteFiscal> {
+  const { data, error } = await supabase.rpc("fiscal_resumo_malote", {
+    p_ano: ano, p_mes: mes,
+  });
+  if (error) throw error;
+  return data as ResumoMaloteFiscal;
+}
+
+/**
+ * Exporta o malote fiscal do mês como ZIP estruturado:
+ *   /MaloteFiscal_2026-06/
+ *     ├── INDICE.txt
+ *     ├── FGTS/comprovante-...pdf
+ *     ├── DCTFWeb/guia-...pdf
+ *     ├── ISS/...
+ *     └── ...
+ */
+export async function exportarMaloteFiscalZip(ano: number, mes: number): Promise<void> {
+  const [docs, resumo] = await Promise.all([
+    listarDocumentosDoMes(ano, mes),
+    resumoMaloteFiscal(ano, mes),
+  ]);
+
+  if (docs.length === 0 && resumo.total_obrigacoes === 0) {
+    throw new Error(`Nenhuma obrigação ou documento encontrado para ${mes}/${ano}`);
+  }
+
+  const zip = new JSZip();
+  const pastaNome = `MaloteFiscal_${ano}-${String(mes).padStart(2, "0")}`;
+  const root = zip.folder(pastaNome)!;
+
+  // ─── Capa / índice ────────────────────────────────────────────────
+  const fmtBR = (n: number) =>
+    n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const fmtData = (s: string | null) =>
+    s ? new Date(s + "T00:00").toLocaleDateString("pt-BR") : "—";
+
+  const linhas: string[] = [
+    `MALOTE FISCAL — QIBRJ`,
+    `Período: ${String(mes).padStart(2, "0")}/${ano}`,
+    `Gerado em ${new Date().toLocaleString("pt-BR")}`,
+    "",
+    "=".repeat(60),
+    "RESUMO",
+    "=".repeat(60),
+    `Total de obrigações no período: ${resumo.total_obrigacoes}`,
+    `  • Pagas:     ${resumo.total_pagas}`,
+    `  • Pendentes: ${resumo.total_pendentes}`,
+    `Valor total pago: ${fmtBR(resumo.valor_total_pago)}`,
+    "",
+    "=".repeat(60),
+    "POR OBRIGAÇÃO",
+    "=".repeat(60),
+    "",
+  ];
+
+  for (const o of resumo.por_obrigacao) {
+    linhas.push(
+      `${o.icone} ${o.nome} (${o.codigo})`,
+      `   Vencimento:       ${fmtData(o.vencimento)}`,
+      `   Status:           ${o.status.toUpperCase()}`,
+      `   Valor pago:       ${o.valor_pago != null ? fmtBR(o.valor_pago) : "—"}`,
+      `   Data pagamento:   ${fmtData(o.data_pagamento)}`,
+      `   Documentos:       ${o.qtd_documentos}`,
+      "",
+    );
+  }
+
+  linhas.push(
+    "=".repeat(60),
+    "ESTRUTURA DESTE MALOTE",
+    "=".repeat(60),
+    "Os documentos estão organizados em pastas por código de obrigação.",
+    "Exemplo: /FGTS/comprovante-*.pdf",
+    "",
+    "_Gerado pelo Diakonia APP — Módulo Fiscal_",
+  );
+
+  root.file("INDICE.txt", linhas.join("\n"));
+
+  // ─── Documentos por obrigação ─────────────────────────────────────
+  // Agrupa por código
+  const porCodigo = new Map<string, MaloteDocItem[]>();
+  docs.forEach(d => {
+    if (!porCodigo.has(d.codigo_obrigacao)) porCodigo.set(d.codigo_obrigacao, []);
+    porCodigo.get(d.codigo_obrigacao)!.push(d);
+  });
+
+  // Baixa cada arquivo do storage e adiciona ao ZIP
+  for (const [codigo, lista] of porCodigo) {
+    const pasta = root.folder(codigo)!;
+    for (const doc of lista) {
+      try {
+        const { data: blob, error } = await supabase.storage
+          .from("fiscal-docs")
+          .download(doc.storage_path);
+        if (error || !blob) continue;
+        const nomeFinal = `${doc.tipo_doc}-${doc.nome_arquivo}`;
+        pasta.file(nomeFinal, blob);
+      } catch {
+        // Falha silenciosa — registra no índice
+        pasta.file(`ERRO-${doc.nome_arquivo}.txt`,
+          `Não foi possível baixar este documento.\nStorage path: ${doc.storage_path}`);
+      }
+    }
+  }
+
+  const zipBlob = await zip.generateAsync({ type: "blob" });
+  saveAs(zipBlob, `${pastaNome}.zip`);
+}
