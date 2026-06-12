@@ -37,6 +37,7 @@ const CampanhasEbd        = lazy(() => import("@/components/dashboard/CampanhasE
 const ResumoPgm           = lazy(() => import("@/components/dashboard/ResumoPgm").then(m => ({ default: m.ResumoPgm })));
 const AtencaoEmPessoas    = lazy(() => import("@/components/dashboard/AtencaoEmPessoas").then(m => ({ default: m.AtencaoEmPessoas })));
 const AgendaDoDia         = lazy(() => import("@/components/dashboard/AgendaDoDia").then(m => ({ default: m.AgendaDoDia })));
+const AgendaFiscalUrgente = lazy(() => import("@/components/dashboard/AgendaFiscalUrgente").then(m => ({ default: m.AgendaFiscalUrgente })));
 const MeusAssuntos        = lazy(() => import("@/components/dashboard/MeusAssuntos").then(m => ({ default: m.MeusAssuntos })));
 const AssuntosUrgentes    = lazy(() => import("@/components/dashboard/AssuntosUrgentes").then(m => ({ default: m.AssuntosUrgentes })));
 const InsightsDoSistema   = lazy(() => import("@/components/dashboard/InsightsDoSistema").then(m => ({ default: m.InsightsDoSistema })));
@@ -87,6 +88,11 @@ export const widgetRegistry: Widget[] = [
     subtitulo: "Tarefas sob sua responsabilidade",
     icone: CheckSquare, component: MeusAssuntos,
     permissoes: ["ver_assuntos"], prioridade: 1 },
+
+  { id: "agenda-fiscal-urgente", label: "Agenda fiscal",
+    subtitulo: "Obrigações vencendo e atrasadas",
+    icone: Receipt, component: AgendaFiscalUrgente,
+    permissoes: ["ver_fiscal","ver_financeiro","ver_painel_tesouraria","ver_painel_admin"], prioridade: 0 },
 
   { id: "assuntos-urgentes", label: "Assuntos urgentes da igreja",
     subtitulo: "Atrasados e vencendo essa semana",

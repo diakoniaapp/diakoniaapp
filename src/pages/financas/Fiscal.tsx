@@ -10,13 +10,13 @@ import {
 } from "@/components/ui/tabs";
 import {
   Receipt, Settings, CalendarDays, Loader2, RefreshCw, Save, CheckCircle2,
-  AlertCircle, Clock,
+  AlertCircle, Clock, Wallet,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
   carregarConfig, atualizarConfig,
   listarTiposObrigacao, listarObrigacoesAtivas, definirObrigacaoAtiva,
-  gerarAgenda, listarAgenda, darBaixaObrigacao,
+  gerarAgenda, listarAgenda, darBaixaObrigacao, criarLancamentoFiscal,
   type FiscalConfig, type FiscalTipoObrigacao, type FiscalObrigacaoAtiva,
   type FiscalAgendaItem,
 } from "@/services/fiscalService";
@@ -236,6 +236,22 @@ function AbaAgenda() {
     }
   }
 
+  async function gerarLancamentoPagar(it: FiscalAgendaItem) {
+    if (it.lancamento_id) {
+      toast.info("Esta obrigação já tem lançamento vinculado");
+      return;
+    }
+    const valor = Number(prompt(`Valor estimado para ${it.tipo?.nome}:`)?.replace(",", ".") ?? "");
+    if (isNaN(valor) || valor <= 0) return;
+    try {
+      await criarLancamentoFiscal(it.id, valor);
+      toast.success("Lançamento criado em 'Contas a pagar'");
+      await carregar();
+    } catch (err: any) {
+      toast.error(err?.message ?? "Erro ao criar lançamento");
+    }
+  }
+
   async function baixar(it: FiscalAgendaItem) {
     const valor = Number(prompt(`Valor pago para ${it.tipo?.nome}:`)?.replace(",", ".") ?? "");
     if (isNaN(valor) || valor <= 0) return;
@@ -294,10 +310,20 @@ function AbaAgenda() {
                   {it.valor_pago && ` · pago R$ ${it.valor_pago.toFixed(2).replace(".", ",")}`}
                 </p>
               </div>
+              {it.status === "pendente" && !it.lancamento_id && (
+                <Button size="sm" variant="outline" className="text-[10px] gap-1" onClick={() => gerarLancamentoPagar(it)}>
+                  <Wallet className="w-3 h-3" /> Gerar lançamento
+                </Button>
+              )}
               {it.status === "pendente" && (
                 <Button size="sm" variant="outline" className="text-[10px] gap-1" onClick={() => baixar(it)}>
                   <CheckCircle2 className="w-3 h-3" /> Baixar
                 </Button>
+              )}
+              {it.lancamento_id && it.status === "pendente" && (
+                <span className="text-[9px] text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                  Em contas a pagar
+                </span>
               )}
             </div>
           );
