@@ -253,7 +253,8 @@ export default function ReservaDetalhe() {
             )}
           </CardContent>
         </Card>
-      )
+      )}
+
       {/* Checklist */}
       <Card>
         <CardHeader>
@@ -299,7 +300,6 @@ export default function ReservaDetalhe() {
           )}
         </CardContent>
       </Card>
-}
 
       {fechamentoOpen && caixa && (
         <FechamentoDialog
