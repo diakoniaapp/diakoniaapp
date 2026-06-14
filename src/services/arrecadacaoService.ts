@@ -385,3 +385,205 @@ export async function carregarResumoCaixa(caixaId: string): Promise<CaixaResumo 
   if (error) throw error;
   return data as CaixaResumo | null;
 }
+
+// ════════════════════════════════════════════════════════════════════════
+// Onda 3C: PDV + caixa + fechamento + operadores + produtos avançado
+// ════════════════════════════════════════════════════════════════════════
+
+export interface Venda {
+  id: string;
+  caixa_id: string;
+  operador_id: string | null;
+  registrada_por: string | null;
+  forma_pagamento: FormaPagamento;
+  valor_total: number;
+  cliente_nome: string | null;
+  observacao: string | null;
+  cancelada: boolean;
+  motivo_cancelamento: string | null;
+  cancelada_em: string | null;
+  data_venda: string;
+}
+
+export interface ItemVendaInput {
+  produto_id?: string | null;
+  descricao: string;
+  qtd: number;
+  preco_unit: number;
+  subtotal: number;
+}
+
+export interface ItemVenda extends ItemVendaInput { id: string; venda_id: string; }
+
+export interface Operador {
+  id: string;
+  caixa_id: string;
+  membro_id: string;
+  papel: "operador" | "coordenador";
+  designado_em: string;
+  // joined
+  membro?: { id: string; nome_completo: string };
+}
+
+// ─── Abertura automática do caixa (chamado pelo iniciarUso) ────────────
+export async function abrirCaixaParaReserva(reservaId: string): Promise<Caixa> {
+  // Já existe um caixa? (pode ter sido criado manualmente)
+  const { data: existente } = await supabase
+    .from("arr_caixas")
+    .select("*")
+    .eq("reserva_id", reservaId)
+    .is("arquivado_em", null)
+    .maybeSingle();
+  if (existente) return existente as Caixa;
+
+  // Snapshot das taxas do espaço da reserva
+  const { data: reserva, error: errR } = await supabase
+    .from("arr_reservas")
+    .select("espaco_id")
+    .eq("id", reservaId)
+    .single();
+  if (errR) throw errR;
+
+  const { data: espaco, error: errE } = await supabase
+    .from("arr_espacos")
+    .select("taxa_debito_pct, taxa_credito_pct, taxa_pix_pct")
+    .eq("id", reserva.espaco_id)
+    .single();
+  if (errE) throw errE;
+
+  const { data: caixa, error: errC } = await supabase
+    .from("arr_caixas")
+    .insert({
+      reserva_id: reservaId,
+      estado: "aberto",
+      taxa_debito_pct: espaco.taxa_debito_pct,
+      taxa_credito_pct: espaco.taxa_credito_pct,
+      taxa_pix_pct: espaco.taxa_pix_pct,
+    })
+    .select().single();
+  if (errC) throw errC;
+  return caixa as Caixa;
+}
+
+/** Inicia uso E garante caixa aberto. Substitui o iniciarUso "puro". */
+export async function iniciarUsoEAbrirCaixa(reservaId: string): Promise<Caixa> {
+  await iniciarUso(reservaId);
+  return abrirCaixaParaReserva(reservaId);
+}
+
+export async function carregarCaixa(caixaId: string): Promise<Caixa | null> {
+  const { data, error } = await supabase
+    .from("arr_caixas").select("*").eq("id", caixaId).maybeSingle();
+  if (error) throw error;
+  return data as Caixa | null;
+}
+
+// ─── Transição de estado do caixa ───────────────────────────────────────
+export async function moverCaixaParaConciliando(caixaId: string): Promise<void> {
+  const { error } = await supabase
+    .from("arr_caixas")
+    .update({ estado: "conciliando", conciliando_desde: new Date().toISOString() })
+    .eq("id", caixaId);
+  if (error) throw error;
+}
+
+export async function fecharCaixa(caixaId: string, observacao?: string): Promise<void> {
+  const userId = (await supabase.auth.getUser()).data.user?.id;
+  const { error } = await supabase
+    .from("arr_caixas")
+    .update({
+      estado: "fechado",
+      fechado_em: new Date().toISOString(),
+      fechado_por: userId,
+      observacao: observacao ?? null,
+    })
+    .eq("id", caixaId);
+  if (error) throw error;
+}
+
+// ─── Vendas ─────────────────────────────────────────────────────────────
+export async function listarVendasCaixa(caixaId: string): Promise<Venda[]> {
+  const { data, error } = await supabase
+    .from("arr_vendas")
+    .select("*")
+    .eq("caixa_id", caixaId)
+    .is("arquivado_em", null)
+    .order("data_venda", { ascending: false })
+    .limit(500);
+  if (error) throw error;
+  return (data ?? []) as Venda[];
+}
+
+export async function registrarVendaPDV(
+  caixaId: string,
+  itens: ItemVendaInput[],
+  forma: FormaPagamento,
+  operador: { id: string | null; nome: string },
+  extras: { cliente_nome?: string; observacao?: string } = {},
+): Promise<Venda> {
+  const valor_total = itens.reduce((acc, i) => acc + i.subtotal, 0);
+  const userId = (await supabase.auth.getUser()).data.user?.id;
+
+  const { data: venda, error: vErr } = await supabase
+    .from("arr_vendas")
+    .insert({
+      caixa_id: caixaId,
+      operador_id: operador.id,
+      registrada_por: userId,
+      forma_pagamento: forma,
+      valor_total,
+      cliente_nome: extras.cliente_nome ?? null,
+      observacao: extras.observacao ?? null,
+    })
+    .select().single();
+  if (vErr) throw vErr;
+
+  if (itens.length > 0) {
+    const linhas = itens.map(i => ({ ...i, venda_id: venda.id }));
+    const { error: iErr } = await supabase.from("arr_itens_venda").insert(linhas);
+    if (iErr) throw iErr;
+  }
+  return venda as Venda;
+}
+
+export async function cancelarVenda(vendaId: string, motivo: string): Promise<void> {
+  const userId = (await supabase.auth.getUser()).data.user?.id;
+  const { error } = await supabase
+    .from("arr_vendas")
+    .update({
+      cancelada: true,
+      motivo_cancelamento: motivo,
+      cancelada_em: new Date().toISOString(),
+      cancelada_por: userId,
+    })
+    .eq("id", vendaId);
+  if (error) throw error;
+}
+
+// ─── Operadores designados ─────────────────────────────────────────────
+export async function listarOperadores(caixaId: string): Promise<Operador[]> {
+  const { data, error } = await supabase
+    .from("arr_caixa_operadores")
+    .select("*, membro:membros!membro_id(id, nome_completo)")
+    .eq("caixa_id", caixaId);
+  if (error) throw error;
+  return (data ?? []) as Operador[];
+}
+
+export async function designarOperador(
+  caixaId: string,
+  membroId: string,
+  papel: "operador" | "coordenador" = "operador",
+): Promise<void> {
+  const userId = (await supabase.auth.getUser()).data.user?.id;
+  const { error } = await supabase
+    .from("arr_caixa_operadores")
+    .insert({ caixa_id: caixaId, membro_id: membroId, papel, designado_por: userId });
+  if (error) throw error;
+}
+
+export async function removerOperador(operadorId: string): Promise<void> {
+  const { error } = await supabase
+    .from("arr_caixa_operadores").delete().eq("id", operadorId);
+  if (error) throw error;
+}

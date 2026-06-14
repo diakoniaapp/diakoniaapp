@@ -7,13 +7,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   ArrowLeft, Loader2, CheckCircle2, XCircle, PlayCircle, Trash2,
-  Calendar, MapPin, Sparkles, ClipboardList, AlertCircle,
+  Calendar, MapPin, Sparkles, ClipboardList, AlertCircle, ShoppingCart, FileBarChart,
 } from "lucide-react";
+import { FechamentoDialog } from "@/components/arrecadacao/FechamentoDialog";
 import { toast } from "sonner";
 import {
   carregarReserva, listarChecklist, marcarChecklist,
-  aprovarReserva, recusarReserva, iniciarUso, arquivarReserva,
-  type Reserva, type ChecklistItem, type ReservaStatus,
+  aprovarReserva, recusarReserva, iniciarUsoEAbrirCaixa, arquivarReserva,
+  listarCaixasDeReserva, carregarResumoCaixa,
+  type Reserva, type ChecklistItem, type ReservaStatus, type Caixa, type CaixaResumo,
 } from "@/services/arrecadacaoService";
 
 const STATUS_LABEL: Record<ReservaStatus, string> = {
@@ -45,13 +47,21 @@ export default function ReservaDetalhe() {
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [motivoRecusa, setMotivoRecusa] = useState("");
+  const [caixa, setCaixa] = useState<Caixa | null>(null);
+  const [resumo, setResumo] = useState<CaixaResumo | null>(null);
+  const [fechamentoOpen, setFechamentoOpen] = useState(false);
 
   async function carregar() {
     if (!id) return;
     setLoading(true);
     try {
-      const [r, c] = await Promise.all([carregarReserva(id), listarChecklist(id)]);
+      const [r, c, cxs] = await Promise.all([
+        carregarReserva(id), listarChecklist(id), listarCaixasDeReserva(id),
+      ]);
       setReserva(r); setChecklist(c);
+      const cx = cxs[0] ?? null;
+      setCaixa(cx);
+      if (cx) setResumo(await carregarResumoCaixa(cx.id));
     } finally { setLoading(false); }
   }
   useEffect(() => { carregar(); }, [id]);
@@ -65,7 +75,7 @@ export default function ReservaDetalhe() {
         await recusarReserva(reserva.id, motivoRecusa);
         setMotivoRecusa("");
       }
-      if (tipo === "iniciar") await iniciarUso(reserva.id);
+      if (tipo === "iniciar") await iniciarUsoEAbrirCaixa(reserva.id);
       if (tipo === "arquivar") {
         if (!confirm("Arquivar esta reserva e todos os caixas/vendas vinculados?")) return;
         await arquivarReserva(reserva.id);
@@ -216,15 +226,61 @@ export default function ReservaDetalhe() {
         </CardContent>
       </Card>
 
-      {/* Próximos passos (caixa, produtos) chegam na Onda 3C */}
-      {reserva.status === "em_uso" && (
+      {/* Caixa (3C) */}
+      {reserva.status === "em_uso" && caixa && (
         <Card className="border-emerald-200 bg-emerald-50/30">
-          <CardContent className="p-3 text-xs text-emerald-900">
-            <strong>Em uso!</strong> O caixa do PDV será disponibilizado na próxima onda da Fase 3 (3C).
-            Por enquanto, use o módulo Bazar/Cantina antigo (em paralelo).
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <ShoppingCart className="w-4 h-4 text-emerald-700" />
+              Caixa do PDV — {caixa.estado}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {resumo && (
+              <div className="grid grid-cols-3 gap-2 text-xs">
+                <Bloco titulo="Vendas" valor={`${resumo.qtd_vendas}`} />
+                <Bloco titulo="Bruto" valor={`R$ ${resumo.total_bruto.toFixed(2).replace(".", ",")}`} cor="emerald" />
+                <Bloco titulo="Líquido" valor={`R$ ${resumo.saldo_virtual.toFixed(2).replace(".", ",")}`} destaque />
+              </div>
+            )}
+            <div className="flex flex-wrap gap-2">
+              {caixa.estado === "aberto" && (
+                <Button asChild size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700">
+                  <Link to={`/arrecadacao/caixa/${caixa.id}`}>
+                    <ShoppingCart className="w-3.5 h-3.5" /> Abrir PDV
+                  </Link>
+                </Button>
+              )}
+              {caixa.estado !== "fechado" && (
+                <Button size="sm" variant="outline" onClick={() => setFechamentoOpen(true)} className="gap-1.5">
+                  <FileBarChart className="w-3.5 h-3.5" /> Fechar caixa
+                </Button>
+              )}
+            </div>
           </CardContent>
         </Card>
       )}
+
+      {fechamentoOpen && caixa && (
+        <FechamentoDialog
+          open={fechamentoOpen}
+          onOpenChange={setFechamentoOpen}
+          caixaId={caixa.id}
+          reservaFinalidade={reserva.finalidade}
+          espacoNome={reserva.espaco?.nome}
+          onFechado={carregar}
+        />
+      )}
+    </div>
+  );
+}
+
+function Bloco({ titulo, valor, cor, destaque }: { titulo: string; valor: string; cor?: string; destaque?: boolean }) {
+  const corClasses: Record<string, string> = { emerald: "text-emerald-700", rose: "text-rose-700" };
+  return (
+    <div className={"border rounded-md p-2 " + (destaque ? "border-emerald-300 bg-emerald-50/40" : "")}>
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{titulo}</div>
+      <div className={"text-sm font-serif font-medium " + (cor ? corClasses[cor] : "")}>{valor}</div>
     </div>
   );
 }
