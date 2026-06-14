@@ -20,10 +20,10 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  listarMovimentos, arquivarMovimento,
+  listarMovimentos, arquivarMovimento, carregarResumoCaixa,
   registrarCusto, registrarReembolsoPessoa, registrarAbateCompraCNPJ, registrarReversaoAdmin,
   uploadAnexoNF, urlNF, listarLancamentosSaidaDisponiveis,
-  type Movimento, type MovimentoTipo, type FinLancamentoDisp,
+  type Movimento, type MovimentoTipo, type FinLancamentoDisp, type CaixaResumo,
 } from "@/services/arrecadacaoService";
 
 const fmtBR = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -53,13 +53,19 @@ interface Props {
 
 export function MovimentosDialog({ open, onOpenChange, caixaId, onChange }: Props) {
   const [movs, setMovs] = useState<Movimento[]>([]);
+  const [resumo, setResumo] = useState<CaixaResumo | null>(null);
   const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState<"lista" | "custo" | "reembolso" | "abate" | "reversao">("lista");
 
   async function carregar() {
     setLoading(true);
-    try { setMovs(await listarMovimentos(caixaId)); }
-    finally { setLoading(false); }
+    try {
+      const [m, r] = await Promise.all([
+        listarMovimentos(caixaId),
+        carregarResumoCaixa(caixaId),
+      ]);
+      setMovs(m); setResumo(r);
+    } finally { setLoading(false); }
   }
   useEffect(() => { if (open) carregar(); }, [open, caixaId]);
 
@@ -73,12 +79,12 @@ export function MovimentosDialog({ open, onOpenChange, caixaId, onChange }: Prop
       await arquivarMovimento(id);
       toast.success("Arquivado");
       carregar(); onChange?.();
-    } catch (err: any) { toast.error(err?.message ?? "Erro"); }
+    } catch (err: any) { toast.error(explicarErro(err)); }
   }
 
   async function verAnexo(path: string) {
     try { window.open(await urlNF(path), "_blank"); }
-    catch (err: any) { toast.error(err?.message ?? "Erro"); }
+    catch (err: any) { toast.error(explicarErro(err)); }
   }
 
   return (
@@ -89,6 +95,27 @@ export function MovimentosDialog({ open, onOpenChange, caixaId, onChange }: Prop
             <TrendingDown className="w-4 h-4 text-gold" /> Movimentos do caixa
           </DialogTitle>
         </DialogHeader>
+        {resumo && (
+          <div className={
+            "border rounded-md p-2 text-xs flex items-center gap-3 " +
+            (resumo.saldo_virtual <= 0 ? "bg-rose-50 border-rose-200" : "bg-emerald-50/30 border-emerald-200")
+          }>
+            <span className="text-muted-foreground">Saldo virtual atual:</span>
+            <span className={"font-medium text-base font-serif " +
+              (resumo.saldo_virtual <= 0 ? "text-rose-700" : "text-emerald-700")
+            }>
+              {fmtBR(resumo.saldo_virtual)}
+            </span>
+            <span className="text-muted-foreground ml-auto">
+              ({resumo.qtd_vendas} venda{resumo.qtd_vendas !== 1 ? "s" : ""})
+            </span>
+          </div>
+        )}
+        {resumo && resumo.saldo_virtual <= 0 && (
+          <p className="text-[10px] text-rose-700 -mt-2">
+            ⚠ Saldo zerado. Não é possível registrar custos, reembolsos ou reversões enquanto não houver vendas.
+          </p>
+        )}
         <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
           <TabsList className="w-full grid grid-cols-5">
             <TabsTrigger value="lista">Lista</TabsTrigger>
@@ -143,6 +170,29 @@ export function MovimentosDialog({ open, onOpenChange, caixaId, onChange }: Prop
   );
 }
 
+
+/** Traduz erros do Postgres das triggers em mensagens amigáveis. */
+function explicarErro(err: any): string {
+  const msg = String(err?.message ?? err?.error_description ?? err ?? "");
+  if (msg.includes("Saldo virtual ficaria negativo")) {
+    return "💸 Saldo do caixa não suporta este valor. " +
+           "Registre vendas primeiro ou diminua o valor do movimento.";
+  }
+  if (msg.includes("já está vinculado")) {
+    return "Este lançamento financeiro já foi usado em outro movimento.";
+  }
+  if (msg.includes("não pode apontar")) {
+    return "O lançamento selecionado não é uma saída válida.";
+  }
+  if (msg.includes("Nenhuma fin_contas com is_principal")) {
+    return "Configure a conta CNPJ principal antes de registrar reembolsos.";
+  }
+  if (msg.includes("violates row-level security")) {
+    return "Você não tem permissão para registrar este movimento.";
+  }
+  return msg || "Erro desconhecido";
+}
+
 // ─── Formulários ───────────────────────────────────────────────────────
 function FormCusto({ caixaId, onSaved }: { caixaId: string; onSaved: () => void }) {
   const [desc, setDesc] = useState(""); const [valor, setValor] = useState("");
@@ -154,7 +204,7 @@ function FormCusto({ caixaId, onSaved }: { caixaId: string; onSaved: () => void 
     try {
       await registrarCusto(caixaId, v, desc);
       toast.success("Custo registrado"); setDesc(""); setValor(""); onSaved();
-    } catch (err: any) { toast.error(err?.message ?? "Erro"); }
+    } catch (err: any) { toast.error(explicarErro(err), { duration: 6000 }); }
     finally { setSalvando(false); }
   }
   return (
@@ -203,7 +253,7 @@ function FormReembolso({ caixaId, onSaved }: { caixaId: string; onSaved: () => v
       });
       toast.success("Reembolso registrado · fin_lancamentos gerado automaticamente");
       onSaved();
-    } catch (err: any) { toast.error(err?.message ?? "Erro"); }
+    } catch (err: any) { toast.error(explicarErro(err)); }
     finally { setSalvando(false); }
   }
 
@@ -267,7 +317,7 @@ function FormAbate({ caixaId, onSaved }: { caixaId: string; onSaved: () => void 
       });
       toast.success("Abate registrado · sem nova saída bancária");
       onSaved();
-    } catch (err: any) { toast.error(err?.message ?? "Erro"); }
+    } catch (err: any) { toast.error(explicarErro(err)); }
     finally { setSalvando(false); }
   }
 
@@ -322,7 +372,7 @@ function FormReversao({ caixaId, onSaved }: { caixaId: string; onSaved: () => vo
     try {
       await registrarReversaoAdmin(caixaId, v, desc);
       toast.success("Reversão registrada"); onSaved();
-    } catch (err: any) { toast.error(err?.message ?? "Erro"); }
+    } catch (err: any) { toast.error(explicarErro(err)); }
     finally { setSalvando(false); }
   }
   return (
