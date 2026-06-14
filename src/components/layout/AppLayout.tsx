@@ -94,7 +94,8 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: "/financas",         label: "Tesouraria",   icon: DollarSign, allowedRoles: ROLES_LIDERES },
       { to: "/financas/fiscal",   label: "Módulo Fiscal",   icon: DollarSign, allowedRoles: ROLES_LIDERES },
-      { to: "/financas/reunioes", label: "Reuniões",        icon: DollarSign, allowedRoles: ROLES_LIDERES },
+      { to: "/financas/reunioes",  label: "Reuniões",          icon: DollarSign, allowedRoles: ROLES_LIDERES },
+      { to: "/financas/executivo", label: "Dashboard Executivo", icon: DollarSign, allowedRoles: ROLES_PASTORAL },
     ],
   },
   {

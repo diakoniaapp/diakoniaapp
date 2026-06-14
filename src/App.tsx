@@ -51,6 +51,7 @@ import FinancasCentroDetalhe from "./pages/FinancasCentroDetalhe.tsx";
 import FinancasFolha from "./pages/FinancasFolha.tsx";
 import FinancasFiscal from "./pages/financas/Fiscal.tsx";
 import ReunioesFinanceiras from "./pages/financas/ReunioesFinanceiras.tsx";
+import DashboardExecutivo from "./pages/financas/DashboardExecutivo.tsx";
 import Membresia from "./pages/Membresia.tsx";
 import MembresiaDetalhe from "./pages/MembresiaDetalhe.tsx";
 import PainelSecretaria from "./pages/PainelSecretaria.tsx";
@@ -136,6 +137,7 @@ const App = () => (
                   <Route path="/financas/folha" element={<FinancasFolha />} />
                   <Route path="/financas/fiscal" element={<FinancasFiscal />} />
                   <Route path="/financas/reunioes" element={<ReunioesFinanceiras />} />
+                  <Route path="/financas/executivo" element={<DashboardExecutivo />} />
                   <Route path="/membresia" element={<Membresia />} />
                   <Route path="/membresia/:id" element={<MembresiaDetalhe />} />
                   <Route path="/painel-secretaria" element={<PainelSecretaria />} />
