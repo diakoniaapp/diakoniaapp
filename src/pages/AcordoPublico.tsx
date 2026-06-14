@@ -17,6 +17,9 @@ import {
   consultarAcordoPublico, aceitarAcordoPublico,
   type AcordoConsulta,
 } from "@/services/arrecadacaoService";
+import { supabase } from "@/integrations/supabase/client";
+import { Link } from "react-router-dom";
+import { ArrowLeft, Home } from "lucide-react";
 
 function fmtPeriodo(p: string) {
   // tstzrange: '["2026-10-26 00:00:00+00","2026-10-26 23:59:00+00")'
@@ -32,12 +35,21 @@ export default function AcordoPublico() {
   const [acordo, setAcordo] = useState<AcordoConsulta | null>(null);
   const [loading, setLoading] = useState(true);
   const [aceitando, setAceitando] = useState(false);
+  const [logado, setLogado] = useState(false);
+  const [reservaId, setReservaId] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setLogado(!!data.session));
+  }, []);
 
   async function carregar() {
     if (!token) return;
     setLoading(true);
-    try { setAcordo(await consultarAcordoPublico(token)); }
-    catch (err: any) { toast.error(err?.message ?? "Erro"); }
+    try {
+      const r = await consultarAcordoPublico(token);
+      setAcordo(r);
+      if (r?.reserva_id) setReservaId(r.reserva_id);
+    } catch (err: any) { toast.error(err?.message ?? "Erro"); }
     finally { setLoading(false); }
   }
   useEffect(() => { carregar(); }, [token]);
@@ -72,28 +84,35 @@ export default function AcordoPublico() {
   if (!acordo || acordo.erro) {
     return (
       <Tela tipo="erro" titulo="Link inválido"
-        msg="Este link de acordo não existe ou foi revogado." />
+        msg="Este link de acordo não existe ou foi revogado."
+        logado={logado} />
     );
   }
   if (acordo.acordo_aceito_em) {
     return (
       <Tela tipo="ok" titulo="Acordo aceito ✓"
         msg={`Você aceitou em ${new Date(acordo.acordo_aceito_em).toLocaleString("pt-BR")}.`}
-        acordo={acordo} />
+        acordo={acordo}
+        logado={logado}
+        reservaId={reservaId} />
     );
   }
   if (acordo.expirado || acordo.status === "expirada") {
     return (
       <Tela tipo="expirado" titulo="Prazo vencido"
         msg={`Este acordo expirou em ${new Date(acordo.acordo_prazo_aceite!).toLocaleString("pt-BR")}. Entre em contato com a secretaria pra solicitar nova aprovação.`}
-        acordo={acordo} />
+        acordo={acordo}
+        logado={logado}
+        reservaId={reservaId} />
     );
   }
   if (acordo.status !== "aprovada") {
     return (
       <Tela tipo="erro" titulo="Estado inesperado"
         msg={`Status atual da reserva: ${acordo.status}`}
-        acordo={acordo} />
+        acordo={acordo}
+        logado={logado}
+        reservaId={reservaId} />
     );
   }
 
@@ -149,23 +168,56 @@ export default function AcordoPublico() {
   );
 }
 
-function Tela({ tipo, titulo, msg, acordo }: {
+function Tela({ tipo, titulo, msg, acordo, logado, reservaId }: {
   tipo: "ok" | "erro" | "expirado";
   titulo: string;
   msg: string;
   acordo?: AcordoConsulta;
+  logado?: boolean;
+  reservaId?: string | null;
 }) {
-  const cor = tipo === "ok" ? "emerald" : tipo === "expirado" ? "amber" : "rose";
-  const Icon = tipo === "ok" ? CheckCircle2 : tipo === "expirado" ? AlertTriangle : XCircle;
+  // Classes Tailwind precisam ser inteiras (não dinâmicas) pra purge não cortar
+  const styles: Record<string, { border: string; bg: string; text: string; Icon: typeof CheckCircle2 }> = {
+    ok:       { border: "border-emerald-300", bg: "bg-emerald-50/30", text: "text-emerald-700", Icon: CheckCircle2 },
+    expirado: { border: "border-amber-300",   bg: "bg-amber-50/30",   text: "text-amber-700",   Icon: AlertTriangle },
+    erro:     { border: "border-rose-300",    bg: "bg-rose-50/30",    text: "text-rose-700",    Icon: XCircle },
+  };
+  const s = styles[tipo];
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
-      <Card className={`max-w-md w-full border-${cor}-200`}>
-        <CardContent className="p-8 text-center space-y-3">
-          <Icon className={`w-12 h-12 text-${cor}-600 mx-auto`} />
+      <Card className={`max-w-md w-full ${s.border}`}>
+        <CardContent className={`p-8 text-center space-y-3 ${s.bg}`}>
+          <s.Icon className={`w-12 h-12 ${s.text} mx-auto`} />
           <h1 className="font-serif text-xl">{titulo}</h1>
           <p className="text-sm text-muted-foreground">{msg}</p>
           {acordo && <ResumoReserva acordo={acordo} className="mt-4 text-left text-xs border-t pt-3" />}
-          <p className="text-[10px] text-muted-foreground pt-3 border-t">
+
+          {/* Botões de navegação quando o usuário está logado */}
+          {logado && (
+            <div className="pt-3 border-t space-y-2">
+              {reservaId && (
+                <Button asChild size="sm" className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700">
+                  <Link to={`/arrecadacao/reserva/${reservaId}`}>
+                    <ArrowLeft className="w-4 h-4" /> Voltar para a reserva
+                  </Link>
+                </Button>
+              )}
+              <Button asChild size="sm" variant="outline" className="w-full gap-2">
+                <Link to="/arrecadacao">
+                  <Home className="w-4 h-4" /> Ir para Arrecadação
+                </Link>
+              </Button>
+            </div>
+          )}
+
+          {/* Sem login → instrução pro solicitante */}
+          {!logado && (
+            <p className="text-[10px] text-muted-foreground pt-3 border-t">
+              Pode fechar esta página. Em caso de dúvida, contate a secretaria.
+            </p>
+          )}
+
+          <p className="text-[10px] text-muted-foreground pt-1">
             Quarta Igreja Batista do Rio de Janeiro · Diakonia APP
           </p>
         </CardContent>

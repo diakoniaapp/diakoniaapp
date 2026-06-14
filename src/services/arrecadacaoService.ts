@@ -1124,3 +1124,29 @@ export function montarWhatsAppAprovacao(
     : `https://wa.me/?text=${encodeURIComponent(mensagem)}`;
   return { mensagem, url };
 }
+
+/**
+ * Lista reservas que conflitam com o período/espaço dados.
+ * Útil para mostrar PRÉ-VALIDAÇÃO antes de aprovar.
+ */
+export async function listarConflitosReserva(
+  espacoId: string,
+  ignorarReservaId?: string,
+): Promise<Array<{ id: string; finalidade: string; status: string; area_nome: string | null; periodo: string }>> {
+  let q = supabase
+    .from("arr_reservas")
+    .select(`
+      id, finalidade, status, periodo,
+      area:areas!area_solicitante_id(nome)
+    `)
+    .eq("espaco_id", espacoId)
+    .in("status", ["aprovada", "confirmada", "em_uso"])
+    .is("arquivado_em", null);
+  if (ignorarReservaId) q = q.neq("id", ignorarReservaId);
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data ?? []).map((r: any) => ({
+    id: r.id, finalidade: r.finalidade, status: r.status,
+    area_nome: r.area?.nome ?? null, periodo: r.periodo,
+  }));
+}

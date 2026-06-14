@@ -73,7 +73,18 @@ export function AprovacaoDialog({ open, onOpenChange, reserva, onAprovado }: Pro
       toast.success("Reserva aprovada · acordo gerado · WhatsApp pronto");
       onAprovado?.();
     } catch (err: any) {
-      toast.error(err?.message ?? "Erro");
+      const msg = String(err?.message ?? "");
+      if (msg.includes("arr_reservas_sem_conflito") || msg.includes("exclusion constraint")) {
+        toast.error(
+          "⚠ Conflito de datas: já existe outra reserva APROVADA, CONFIRMADA ou EM USO " +
+          "deste mesmo espaço no período. Verifique a agenda em /arrecadacao antes de aprovar.",
+          { duration: 9000 }
+        );
+      } else if (msg.includes("Nenhum template")) {
+        toast.error("Nenhum template de acordo encontrado. Aplique Arrecadacao_F6_acordo_migration.sql primeiro.");
+      } else {
+        toast.error(msg || "Erro ao aprovar");
+      }
     } finally { setSalvando(false); }
   }
 
