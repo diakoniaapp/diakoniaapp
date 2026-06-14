@@ -51,14 +51,10 @@ const ROUTES: CommandRoute[] = [
   { to: "/membresia",  label: "Membresia",  icon: FileText,    group: "Administração", keywords: ["solicitacao","batismo"] },
   { to: "/governanca", label: "Reuniões e Assembleias", icon: Gavel, group: "Administração", keywords: ["assembleia","ata","pauta","decisao"] },
   { to: "/assuntos",   label: "Assuntos",   icon: CheckSquare, group: "Administração", keywords: ["pendencia","tarefa"] },
-  { to: "/bazar",      label: "Bazar / Cantina", icon: ShoppingBag, group: "Administração", keywords: ["venda","caixa","pdv","cantina","arrecadacao","campanha","missoes","aniversario","oferta"], permissoes: ["ver_bazar","ver_financeiro"] },
-  { to: "/bazar/campanhas/nova", label: "+ Novo evento de bazar/cantina", icon: ShoppingBag, group: "Ações", keywords: ["bazar","cantina","campanha","nova"], permissoes: ["gerenciar_bazar","ver_financeiro"] },
-  { to: "/bazar", label: "🛒 PDV / Caixa do bazar", icon: ShoppingBag, group: "Ações", keywords: ["caixa","pdv","venda","vender","registrar","fechar caixa","cantina"], permissoes: ["operar_caixa_bazar","ver_bazar","ver_financeiro"] },
-  { to: "/arrecadacao", label: "🛒 PDV Arrecadação (novo)", icon: ShoppingBag, group: "Ações", keywords: ["pdv","caixa","arrecada","vender","venda","cantina","bazar"], permissoes: ["operar_caixa","ver_arrecadacao","ver_financeiro"] },
-  { to: "/arrecadacao", label: "Arrecadação (novo)", icon: ShoppingBag, group: "Administração", keywords: ["arrecada","bazar","cantina","reserva","espaco","novo"], permissoes: ["ver_arrecadacao","ver_arrecadacao_admin","gerenciar_arrecadacao","ver_financeiro"] },
+  { to: "/arrecadacao", label: "🛒 PDV — Bazar/Cantina", icon: ShoppingBag, group: "Ações", keywords: ["pdv","caixa","arrecada","vender","venda","cantina","bazar"], permissoes: ["operar_caixa","ver_arrecadacao","ver_financeiro"] },
+  { to: "/arrecadacao", label: "Bazar e Cantina", icon: ShoppingBag, group: "Administração", keywords: ["arrecada","bazar","cantina","reserva","espaco","novo"], permissoes: ["ver_arrecadacao","ver_arrecadacao_admin","gerenciar_arrecadacao","ver_financeiro"] },
   { to: "/arrecadacao/reservas/nova", label: "+ Nova reserva de espaço", icon: ShoppingBag, group: "Ações", keywords: ["reservar","arrecada","bazar","cantina"], permissoes: ["ver_arrecadacao","gerenciar_arrecadacao"] },
   { to: "/arrecadacao/espacos", label: "Configurar Bazar/Cantina (taxas)", icon: ShoppingBag, group: "Configurações", keywords: ["taxa","cartao","arrecada","bazar","cantina","espaco"], permissoes: ["gerenciar_arrecadacao","ver_financeiro"] },
-  { to: "/bazar/config", label: "Configurar taxas do bazar", icon: ShoppingBag, group: "Configurações", keywords: ["taxa","cartao","debito","credito","pix","bazar","cantina","pagseguro","cielo"], permissoes: ["gerenciar_bazar","ver_financeiro"] },
 
   // ── Financeiro ────────────────────────────────────────────────────
   { to: "/financas",         label: "Tesouraria",     icon: DollarSign, group: "Financeiro", keywords: ["dinheiro","caixa","contas","conta"] },

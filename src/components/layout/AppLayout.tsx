@@ -84,8 +84,7 @@ const NAV_GROUPS: NavGroup[] = [
       { to: "/membresia",   label: "Membresia",  icon: FileText,    allowedRoles: ROLES_LIDERES },
       { to: "/governanca",  label: "Reuniões",   icon: Gavel,       allowedRoles: ROLES_LIDERES },
       { to: "/assuntos",    label: "Assuntos",   icon: CheckSquare, allowedRoles: ROLES_LIDERES },
-      { to: "/bazar",        label: "Bazar/Cantina",       icon: ShoppingBag, allowedRoles: ROLES_LIDERES },
-      { to: "/arrecadacao", label: "Arrecadação (novo)",  icon: ShoppingBag, allowedRoles: ROLES_LIDERES },
+      { to: "/arrecadacao", label: "Bazar e Cantina",     icon: ShoppingBag, allowedRoles: ROLES_LIDERES },
     ],
   },
   {

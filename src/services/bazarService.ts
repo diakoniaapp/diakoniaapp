@@ -1,3 +1,10 @@
+/**
+ * @deprecated Esta service foi substituída por arrecadacaoService.ts (Fase 3).
+ * Rotas /bazar/* continuam vivas para não quebrar bookmarks, mas a UI ativa
+ * usa /arrecadacao/*. Esta camada será REMOVIDA na Fase 4, junto com
+ * o DROP das tabelas bazar_*.
+ */
+
 import { supabase } from "@/integrations/supabase/client";
 
 export type ModalidadeBazar = "bazar" | "cantina" | "ambos";
