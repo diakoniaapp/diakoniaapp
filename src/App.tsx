@@ -52,12 +52,6 @@ import FinancasFolha from "./pages/FinancasFolha.tsx";
 import FinancasFiscal from "./pages/financas/Fiscal.tsx";
 import ReunioesFinanceiras from "./pages/financas/ReunioesFinanceiras.tsx";
 import DashboardExecutivo from "./pages/financas/DashboardExecutivo.tsx";
-import BazarHome from "./pages/bazar/index.tsx";
-import BazarCampanha from "./pages/bazar/Campanha.tsx";
-import BazarNovaCampanha from "./pages/bazar/NovaCampanha.tsx";
-import BazarCaixa from "./pages/bazar/caixa.tsx";
-import BazarConfigPage from "./pages/bazar/Config.tsx";
-// Arrecadação (Fase 3 — novo módulo, paralelo ao bazar)
 import ArrecadacaoHome from "./pages/arrecadacao/index.tsx";
 import ArrecadacaoEspacos from "./pages/arrecadacao/Espacos.tsx";
 import ArrecadacaoNovaReserva from "./pages/arrecadacao/NovaReserva.tsx";
@@ -148,11 +142,6 @@ const App = () => (
                   <Route path="/financas/fiscal" element={<FinancasFiscal />} />
                   <Route path="/financas/reunioes" element={<ReunioesFinanceiras />} />
                   <Route path="/financas/executivo" element={<DashboardExecutivo />} />
-                  <Route path="/bazar" element={<BazarHome />} />
-                  <Route path="/bazar/campanhas/nova" element={<BazarNovaCampanha />} />
-                  <Route path="/bazar/campanha/:id" element={<BazarCampanha />} />
-                  <Route path="/bazar/caixa/:id" element={<BazarCaixa />} />
-                  <Route path="/bazar/config" element={<BazarConfigPage />} />
                   <Route path="/arrecadacao" element={<ArrecadacaoHome />} />
                   <Route path="/arrecadacao/espacos" element={<ArrecadacaoEspacos />} />
                   <Route path="/arrecadacao/reservas/nova" element={<ArrecadacaoNovaReserva />} />
