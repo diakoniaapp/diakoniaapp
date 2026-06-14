@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  ShoppingBag, Plus, Loader2, ChevronRight, Calendar, Target, TrendingUp,
+  ShoppingBag, Plus, Loader2, ChevronRight, Calendar, Target, TrendingUp, ShoppingCart,
   Sparkles,
 } from "lucide-react";
 import { carregarResumoBazar, type ResumoBazar } from "@/services/bazarService";
@@ -67,11 +67,10 @@ export default function BazarHome() {
           ) : (
             <div className="space-y-2">
               {resumo?.ativas.map(c => (
-                <Link key={c.id} to={`/bazar/campanha/${c.id}`}
-                  className="block border rounded-md p-3 hover:bg-muted/30 transition-colors">
+                <div key={c.id} className="border rounded-md p-3 hover:bg-muted/30 transition-colors">
                   <div className="flex items-center gap-2">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-1.5">
+                    <Link to={`/bazar/campanha/${c.id}`} className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="font-medium text-sm">{c.nome}</span>
                         <Badge variant="outline" className="text-[9px]">{MODAL_LABEL[c.modalidade]}</Badge>
                         <Badge className="text-[9px] bg-emerald-100 text-emerald-700 border-emerald-200">ATIVA</Badge>
@@ -81,8 +80,12 @@ export default function BazarHome() {
                         {" "}{new Date(c.data_fim + "T00:00").toLocaleDateString("pt-BR")}
                         {" · "}{c.qtd_vendas} venda(s)
                       </p>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                    </Link>
+                    <Button size="sm" asChild className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 shrink-0">
+                      <Link to={`/bazar/caixa/${c.id}`}>
+                        <ShoppingCart className="w-3.5 h-3.5" /> Abrir caixa
+                      </Link>
+                    </Button>
                   </div>
                   {/* Progresso */}
                   <div className="mt-2 flex items-center gap-2">
@@ -95,7 +98,7 @@ export default function BazarHome() {
                       {c.meta && (<> / <span>{fmtBR(c.meta)}</span> ({c.percentual_meta?.toFixed(0)}%)</>)}
                     </div>
                   </div>
-                </Link>
+                </div>
               ))}
             </div>
           )}
