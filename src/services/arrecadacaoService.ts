@@ -283,8 +283,16 @@ export async function arquivarReserva(id: string): Promise<void> {
 // ════════════════════════════════════════════════════════════════════════
 // Checklist
 // ════════════════════════════════════════════════════════════════════════
-/** Após criar reserva, materializa a checklist a partir do template default. */
+/** Após criar reserva, materializa a checklist a partir do template default.
+ *  Idempotente: se já houver itens na reserva, não duplica. */
 export async function materializarChecklist(reservaId: string, espacoId: string): Promise<void> {
+  // Já materializado? Se já tem qualquer item na reserva, não faz nada.
+  const { count } = await supabase
+    .from("arr_reserva_checklist")
+    .select("*", { count: "exact", head: true })
+    .eq("reserva_id", reservaId);
+  if ((count ?? 0) > 0) return;
+
   // Templates aplicáveis: válidos pra todos (NULL) OU específicos do espaço
   const { data: tpls, error } = await supabase
     .from("arr_checklist_template")
@@ -302,7 +310,10 @@ export async function materializarChecklist(reservaId: string, espacoId: string)
     obrigatorio: t.obrigatorio,
     ordem: t.ordem,
   }));
-  const { error: insErr } = await supabase.from("arr_reserva_checklist").insert(linhas);
+  // upsert para tolerar UNIQUE (reserva_id, item) caso o fix SQL esteja aplicado
+  const { error: insErr } = await supabase
+    .from("arr_reserva_checklist")
+    .upsert(linhas, { onConflict: "reserva_id,item", ignoreDuplicates: true });
   if (insErr) throw insErr;
 }
 
