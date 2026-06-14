@@ -54,7 +54,8 @@ const ROUTES: CommandRoute[] = [
 
   // ── Financeiro ────────────────────────────────────────────────────
   { to: "/financas",         label: "Tesouraria",     icon: DollarSign, group: "Financeiro", keywords: ["dinheiro","caixa","contas","conta"] },
-  { to: "/financas/fiscal",  label: "Módulo Fiscal",  icon: DollarSign, group: "Financeiro", keywords: ["fgts","dctfweb","esocial","iss","darf","dirf","obrigacao","imposto","tributo","fisco"], permissoes: ["ver_fiscal","ver_financeiro"] },
+  { to: "/financas/fiscal",    label: "Módulo Fiscal",       icon: DollarSign, group: "Financeiro", keywords: ["fgts","dctfweb","esocial","iss","darf","dirf","obrigacao","imposto","tributo","fisco"], permissoes: ["ver_fiscal","ver_financeiro"] },
+  { to: "/financas/reunioes",  label: "Reuniões financeiras", icon: DollarSign, group: "Financeiro", keywords: ["pauta","reunia","ata","decisao","tesouraria","balancete","conciliacao"], permissoes: ["ver_financeiro"] },
 
   // ── Agenda & Espaços ──────────────────────────────────────────────
   { to: "/eventos",    label: "Agenda",     icon: CalendarDays, group: "Navegação", keywords: ["evento","calendario"] },
