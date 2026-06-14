@@ -21,7 +21,8 @@ import {
   Lightbulb,
   CheckSquare,
   AlertTriangle,
-  Receipt // ✅ ADICIONE ISSO AQUI
+  Receipt,
+  Wrench,
 } from "lucide-react";
 
 export type Prioridade = 0 | 1 | 2 | 3;
