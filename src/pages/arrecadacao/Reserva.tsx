@@ -184,12 +184,84 @@ export default function ReservaDetalhe() {
         </Card>
       )}
 
+
+      {/* Caixa do PDV (destaque) */}
+      {(reserva.status === "em_uso" || reserva.status === "encerrada") && caixa && (
+        <Card className={
+          "border-2 shadow-md " +
+          (caixa.estado === "aberto"      ? "border-emerald-400 bg-emerald-50/40" :
+           caixa.estado === "conciliando" ? "border-amber-400 bg-amber-50/30" :
+                                            "border-muted bg-muted/20")
+        }>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base md:text-lg flex items-center gap-2">
+              <ShoppingCart className={
+                "w-5 h-5 " +
+                (caixa.estado === "aberto"      ? "text-emerald-700" :
+                 caixa.estado === "conciliando" ? "text-amber-700" : "text-muted-foreground")
+              } />
+              Caixa do PDV
+              <Badge className={
+                "ml-2 text-[10px] " +
+                (caixa.estado === "aberto"      ? "bg-emerald-100 text-emerald-700 border-emerald-200" :
+                 caixa.estado === "conciliando" ? "bg-amber-100 text-amber-700 border-amber-200" :
+                                                   "bg-muted text-muted-foreground")
+              }>
+                {caixa.estado.toUpperCase()}
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {resumo && (
+              <div className="grid grid-cols-3 gap-2 md:gap-3">
+                <BlocoGrande titulo="Vendas" valor={`${resumo.qtd_vendas}`} />
+                <BlocoGrande titulo="Bruto"
+                  valor={`R$ ${resumo.total_bruto.toFixed(2).replace(".", ",")}`}
+                  cor="emerald" />
+                <BlocoGrande titulo="Líquido"
+                  valor={`R$ ${resumo.saldo_virtual.toFixed(2).replace(".", ",")}`}
+                  destaque
+                  cor={resumo.saldo_virtual >= 0 ? "emerald" : "rose"} />
+              </div>
+            )}
+            <div className="flex flex-wrap gap-2">
+              {caixa.estado === "aberto" && (
+                <Button asChild size="lg"
+                  className="gap-2 bg-emerald-600 hover:bg-emerald-700 flex-1 md:flex-none h-12 text-base font-semibold shadow">
+                  <Link to={`/arrecadacao/caixa/${caixa.id}`}>
+                    <ShoppingCart className="w-5 h-5" /> Abrir PDV
+                  </Link>
+                </Button>
+              )}
+              {caixa.estado !== "fechado" && (
+                <Button size="lg" variant="outline" onClick={() => setMovimentosOpen(true)}
+                  className="gap-2 h-12 px-4">
+                  <TrendingDown className="w-4 h-4" /> Movimentos
+                </Button>
+              )}
+              {caixa.estado !== "fechado" && (
+                <Button size="lg" variant="outline" onClick={() => setFechamentoOpen(true)}
+                  className="gap-2 h-12 px-4">
+                  <FileBarChart className="w-4 h-4" /> Fechar caixa
+                </Button>
+              )}
+            </div>
+            {resumo && resumo.saldo_virtual <= 0 && caixa.estado === "aberto" && (
+              <p className="text-[11px] text-muted-foreground italic">
+                💡 Registre vendas no PDV antes de lançar custos, reembolsos ou reversões.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )
       {/* Checklist */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <ClipboardList className="w-4 h-4 text-gold" />
-            Checklist de uso
+            {reserva.status === "em_uso" || reserva.status === "encerrada"
+              ? "Checklist (registro do uso)"
+              : "Checklist de uso"}
             {obrigatorios.length > 0 && (
               <Badge variant="outline" className="text-[9px] ml-auto">
                 {obrigatoriosOk}/{obrigatorios.length} obrigatórios
@@ -227,46 +299,7 @@ export default function ReservaDetalhe() {
           )}
         </CardContent>
       </Card>
-
-      {/* Caixa (3C) */}
-      {reserva.status === "em_uso" && caixa && (
-        <Card className="border-emerald-200 bg-emerald-50/30">
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <ShoppingCart className="w-4 h-4 text-emerald-700" />
-              Caixa do PDV — {caixa.estado}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {resumo && (
-              <div className="grid grid-cols-3 gap-2 text-xs">
-                <Bloco titulo="Vendas" valor={`${resumo.qtd_vendas}`} />
-                <Bloco titulo="Bruto" valor={`R$ ${resumo.total_bruto.toFixed(2).replace(".", ",")}`} cor="emerald" />
-                <Bloco titulo="Líquido" valor={`R$ ${resumo.saldo_virtual.toFixed(2).replace(".", ",")}`} destaque />
-              </div>
-            )}
-            <div className="flex flex-wrap gap-2">
-              {caixa.estado === "aberto" && (
-                <Button asChild size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700">
-                  <Link to={`/arrecadacao/caixa/${caixa.id}`}>
-                    <ShoppingCart className="w-3.5 h-3.5" /> Abrir PDV
-                  </Link>
-                </Button>
-              )}
-              {caixa.estado !== "fechado" && (
-                <Button size="sm" variant="outline" onClick={() => setMovimentosOpen(true)} className="gap-1.5">
-                  <TrendingDown className="w-3.5 h-3.5" /> Movimentos
-                </Button>
-              )}
-              {caixa.estado !== "fechado" && (
-                <Button size="sm" variant="outline" onClick={() => setFechamentoOpen(true)} className="gap-1.5">
-                  <FileBarChart className="w-3.5 h-3.5" /> Fechar caixa
-                </Button>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+}
 
       {fechamentoOpen && caixa && (
         <FechamentoDialog
@@ -287,6 +320,25 @@ export default function ReservaDetalhe() {
           onChange={carregar}
         />
       )}
+    </div>
+  );
+}
+
+function BlocoGrande({ titulo, valor, cor, destaque }: { titulo: string; valor: string; cor?: string; destaque?: boolean }) {
+  const corClasses: Record<string, string> = {
+    emerald: "text-emerald-700",
+    rose:    "text-rose-700",
+  };
+  return (
+    <div className={
+      "border-2 rounded-lg p-2.5 md:p-3 text-center " +
+      (destaque ? "border-emerald-400 bg-white shadow-sm" : "border-border bg-white/70")
+    }>
+      <div className="text-[10px] md:text-[11px] uppercase tracking-wider text-muted-foreground">{titulo}</div>
+      <div className={
+        "text-lg md:text-2xl font-serif font-semibold mt-0.5 " +
+        (cor ? corClasses[cor] : "text-foreground")
+      }>{valor}</div>
     </div>
   );
 }
