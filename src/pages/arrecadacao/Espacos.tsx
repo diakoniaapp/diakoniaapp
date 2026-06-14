@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, Settings, Loader2, Save, ShoppingBag, Package } from "lucide-react";
-import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { listarEspacos, atualizarTaxasEspaco, atualizarResponsavelEspaco, type Espaco } from "@/services/arrecadacaoService";
 
