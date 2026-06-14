@@ -9,12 +9,13 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  ArrowLeft, Wrench, Loader2, CheckCircle2, AlertTriangle, Filter, X,
+  ArrowLeft, Wrench, Loader2, CheckCircle2, AlertTriangle, Filter, X, MessageCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
   listarProblemas, resolverProblema, atualizarProblema,
-  type ProblemaManutencao, type ProblemaStatus,
+  listarEspacos, montarWhatsAppManutencao,
+  type ProblemaManutencao, type ProblemaStatus, type Espaco,
 } from "@/services/arrecadacaoService";
 
 const STATUS_COR: Record<ProblemaStatus, string> = {
@@ -34,6 +35,29 @@ export default function ManutencaoLista() {
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState<"abertos" | "todos" | ProblemaStatus>("abertos");
   const [resolvendo, setResolvendo] = useState<ProblemaManutencao | null>(null);
+  const [espacos, setEspacos] = useState<Espaco[]>([]);
+
+  useEffect(() => { listarEspacos().then(setEspacos); }, []);
+
+  function abrirWhatsAppPorEspaco(espacoId: string, espacoNome: string) {
+    const espaco = espacos.find(e => e.id === espacoId) as any;
+    if (!espaco?.whatsapp_manutencao) {
+      alert("Configure o WhatsApp do responsável de manutenção em /arrecadacao/espacos primeiro.");
+      return;
+    }
+    const pendentes = problemas.filter(
+      p => p.espaco_id === espacoId && (p.status === "aberto" || p.status === "em_andamento")
+    );
+    if (pendentes.length === 0) {
+      alert("Não há pendências pra este espaço."); return;
+    }
+    const { url } = montarWhatsAppManutencao(
+      pendentes, espacoNome,
+      espaco.responsavel_manutencao_nome ?? "irmão(ã)",
+      espaco.whatsapp_manutencao,
+    );
+    window.open(url, "_blank");
+  }
 
   async function carregar() {
     setLoading(true);
@@ -54,7 +78,15 @@ export default function ManutencaoLista() {
         </Button>
         <Wrench className="w-5 h-5 text-gold" />
         <h1 className="font-serif text-xl">Manutenção dos espaços</h1>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-2 flex-wrap">
+          {espacos.map(esp => (
+            <Button key={esp.id} size="sm" variant="outline"
+              onClick={() => abrirWhatsAppPorEspaco(esp.id, esp.nome)}
+              className="gap-1.5 text-xs h-8">
+              <MessageCircle className="w-3 h-3 text-emerald-600" />
+              Avisar {esp.codigo}
+            </Button>
+          ))}
           <Filter className="w-3.5 h-3.5 text-muted-foreground" />
           <Select value={filtro} onValueChange={(v) => setFiltro(v as any)}>
             <SelectTrigger className="w-40 h-8 text-xs"><SelectValue /></SelectTrigger>

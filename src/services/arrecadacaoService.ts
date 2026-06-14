@@ -925,3 +925,98 @@ export async function resolverProblema(id: string, descricao: string): Promise<v
     .eq("id", id);
   if (error) throw error;
 }
+
+// ════════════════════════════════════════════════════════════════════════
+// Manutenção extras: resumo + WhatsApp + responsável por espaço
+// ════════════════════════════════════════════════════════════════════════
+
+export interface ResumoManutencao {
+  total_aberto: number;
+  total_andamento: number;
+  total_alta_prioridade: number;
+  por_categoria: Array<{ categoria: string; qtd: number }>;
+  recorrentes: Array<{ titulo: string; qtd: number; categoria: string | null }>;
+  top_espaco: Array<{ espaco_id: string; codigo: string; nome: string; qtd: number }>;
+}
+
+export async function carregarResumoManutencao(): Promise<ResumoManutencao> {
+  const { data, error } = await supabase.rpc("arr_problemas_resumo");
+  if (error) throw error;
+  return (data ?? {
+    total_aberto: 0, total_andamento: 0, total_alta_prioridade: 0,
+    por_categoria: [], recorrentes: [], top_espaco: [],
+  }) as ResumoManutencao;
+}
+
+export async function atualizarResponsavelEspaco(
+  espacoId: string,
+  nome: string | null,
+  whatsapp: string | null,
+): Promise<void> {
+  const { error } = await supabase
+    .from("arr_espacos")
+    .update({
+      responsavel_manutencao_nome: nome,
+      whatsapp_manutencao: whatsapp,
+    })
+    .eq("id", espacoId);
+  if (error) throw error;
+}
+
+/** Monta link wa.me com lista de problemas pendentes pra responsável. */
+export function montarWhatsAppManutencao(
+  problemas: ProblemaManutencao[],
+  espacoNome: string,
+  responsavelNome: string,
+  telefone: string | null,
+): { mensagem: string; url: string } {
+  const CAT_LABEL: Record<string, string> = {
+    eletrico: "🔌 Elétrico",
+    hidraulico: "🚿 Hidráulico",
+    eletrodomestico: "🏠 Eletrodoméstico",
+    mobiliario: "🪑 Mobiliário",
+    limpeza: "🧹 Limpeza",
+    esquadrias: "🪟 Porta/Janela",
+    estoque: "📦 Estoque",
+    outros: "🔧 Outros",
+  };
+  // Agrupa por categoria
+  const grupos = new Map<string, ProblemaManutencao[]>();
+  problemas.forEach(p => {
+    const k = p.categoria ?? "outros";
+    if (!grupos.has(k)) grupos.set(k, []);
+    grupos.get(k)!.push(p);
+  });
+
+  const linhas: string[] = [
+    `Olá *${responsavelNome}*! 👋`,
+    "",
+    `Tem *${problemas.length} pendência(s) de manutenção* no espaço *${espacoNome}*:`,
+    "",
+  ];
+
+  grupos.forEach((lista, cat) => {
+    linhas.push(`*${CAT_LABEL[cat] ?? "🔧 " + cat}*`);
+    lista.forEach(p => {
+      const prio = p.prioridade === "alta" ? " 🚨" : "";
+      linhas.push(`• ${p.titulo}${prio}`);
+      if (p.descricao && p.descricao !== p.titulo) {
+        linhas.push(`  _${p.descricao}_`);
+      }
+    });
+    linhas.push("");
+  });
+
+  linhas.push(
+    "_Pode dar uma olhada quando puder?_",
+    "",
+    "_Secretaria · QIBRJ_",
+    "_Diakonia APP — Manutenção_",
+  );
+  const mensagem = linhas.join("\n");
+  const tel = (telefone ?? "").replace(/\D/g, "");
+  const url = tel
+    ? `https://wa.me/${tel}?text=${encodeURIComponent(mensagem)}`
+    : `https://wa.me/?text=${encodeURIComponent(mensagem)}`;
+  return { mensagem, url };
+}

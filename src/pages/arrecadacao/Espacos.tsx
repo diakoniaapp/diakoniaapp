@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { ArrowLeft, Settings, Loader2, Save, ShoppingBag, Package } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
-import { listarEspacos, atualizarTaxasEspaco, type Espaco } from "@/services/arrecadacaoService";
+import { listarEspacos, atualizarTaxasEspaco, atualizarResponsavelEspaco, type Espaco } from "@/services/arrecadacaoService";
 
 export default function ArrecadacaoEspacos() {
   const [espacos, setEspacos] = useState<Espaco[]>([]);
@@ -74,10 +74,32 @@ export default function ArrecadacaoEspacos() {
                   onChange={ev => atualizar(e.id, { taxa_pix_pct: Number(ev.target.value) })} />
               </Field>
             </div>
+            <div className="border-t pt-3 mt-3 space-y-2">
+              <Label className="text-[11px] text-muted-foreground">Responsável pela manutenção (recebe WhatsApp)</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <Input placeholder="Nome do responsável" value={(e as any).responsavel_manutencao_nome ?? ""}
+                  onChange={ev => atualizar(e.id, { responsavel_manutencao_nome: ev.target.value } as any)} />
+                <Input placeholder="WhatsApp (21) 99999-9999" value={(e as any).whatsapp_manutencao ?? ""}
+                  onChange={ev => atualizar(e.id, { whatsapp_manutencao: ev.target.value } as any)} />
+              </div>
+              <Button size="sm" variant="outline" className="w-full gap-2"
+                onClick={async () => {
+                  try {
+                    await atualizarResponsavelEspaco(
+                      e.id,
+                      (e as any).responsavel_manutencao_nome ?? null,
+                      (e as any).whatsapp_manutencao ?? null,
+                    );
+                    toast.success("Responsável atualizado");
+                  } catch (err: any) { toast.error(err?.message ?? "Erro"); }
+                }}>
+                <Save className="w-3.5 h-3.5" /> Salvar responsável
+              </Button>
+            </div>
             <div className="flex gap-2">
               <Button size="sm" onClick={() => salvar(e)} disabled={salvandoId === e.id} className="gap-2">
                 {salvandoId === e.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                Salvar {e.nome}
+                Salvar taxas
               </Button>
               <Button size="sm" variant="outline" asChild className="gap-2">
                 <Link to={`/arrecadacao/produtos/${e.id}`}>

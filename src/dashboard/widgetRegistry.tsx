@@ -47,6 +47,7 @@ const ResumoPgm           = lazy(() => import("@/components/dashboard/ResumoPgm"
 const AtencaoEmPessoas    = lazy(() => import("@/components/dashboard/AtencaoEmPessoas").then(m => ({ default: m.AtencaoEmPessoas })));
 const AgendaDoDia         = lazy(() => import("@/components/dashboard/AgendaDoDia").then(m => ({ default: m.AgendaDoDia })));
 const AgendaFiscalUrgente = lazy(() => import("@/components/dashboard/AgendaFiscalUrgente").then(m => ({ default: m.AgendaFiscalUrgente })));
+const ManutencaoArrec     = lazy(() => import("@/components/dashboard/ManutencaoArrecadacao").then(m => ({ default: m.ManutencaoArrecadacao })));
 const MeusAssuntos        = lazy(() => import("@/components/dashboard/MeusAssuntos").then(m => ({ default: m.MeusAssuntos })));
 const AssuntosUrgentes    = lazy(() => import("@/components/dashboard/AssuntosUrgentes").then(m => ({ default: m.AssuntosUrgentes })));
 const InsightsDoSistema   = lazy(() => import("@/components/dashboard/InsightsDoSistema").then(m => ({ default: m.InsightsDoSistema })));
@@ -102,6 +103,11 @@ export const widgetRegistry: Widget[] = [
     subtitulo: "Obrigações vencendo e atrasadas",
     icone: Receipt, component: AgendaFiscalUrgente,
     permissoes: ["ver_fiscal","ver_financeiro","ver_painel_tesouraria","ver_painel_admin"], prioridade: 0 },
+
+  { id: "manutencao-arrecadacao", label: "Manutenção Bazar/Cantina",
+    subtitulo: "Problemas reportados e recorrências",
+    icone: Wrench, component: ManutencaoArrec,
+    permissoes: ["ver_manutencao","ver_arrecadacao_admin"], prioridade: 1 },
 
   { id: "assuntos-urgentes", label: "Assuntos urgentes da igreja",
     subtitulo: "Atrasados e vencendo essa semana",
