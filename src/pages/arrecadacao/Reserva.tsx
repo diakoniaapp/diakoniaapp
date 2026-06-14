@@ -11,12 +11,14 @@ import {
 } from "lucide-react";
 import { FechamentoDialog } from "@/components/arrecadacao/FechamentoDialog";
 import { MovimentosDialog } from "@/components/arrecadacao/MovimentosDialog";
+import { PosUsoCheckDialog } from "@/components/arrecadacao/PosUsoCheckDialog";
 import { toast } from "sonner";
 import {
   carregarReserva, listarChecklist, marcarChecklist,
   aprovarReserva, recusarReserva, iniciarUsoEAbrirCaixa, arquivarReserva,
   listarCaixasDeReserva, carregarResumoCaixa,
-  type Reserva, type ChecklistItem, type ReservaStatus, type Caixa, type CaixaResumo,
+  listarChecklistPorTipo,
+  type Reserva, type ChecklistItem, type ReservaStatus, type Caixa, type CaixaResumo, type ChecklistItemV2,
 } from "@/services/arrecadacaoService";
 
 const STATUS_LABEL: Record<ReservaStatus, string> = {
@@ -52,15 +54,22 @@ export default function ReservaDetalhe() {
   const [resumo, setResumo] = useState<CaixaResumo | null>(null);
   const [fechamentoOpen, setFechamentoOpen] = useState(false);
   const [movimentosOpen, setMovimentosOpen] = useState(false);
+  const [posUsoOpen, setPosUsoOpen] = useState(false);
+  const [preUso, setPreUso] = useState<ChecklistItemV2[]>([]);
+  const [posUsoCount, setPosUsoCount] = useState(0);
 
   async function carregar() {
     if (!id) return;
     setLoading(true);
     try {
-      const [r, c, cxs] = await Promise.all([
+      const [r, c, cxs, split] = await Promise.all([
         carregarReserva(id), listarChecklist(id), listarCaixasDeReserva(id),
+        listarChecklistPorTipo(id),
       ]);
-      setReserva(r); setChecklist(c);
+      setReserva(r);
+      setChecklist(c);
+      setPreUso(split.pre_uso);
+      setPosUsoCount(split.pos_uso.length);
       const cx = cxs[0] ?? null;
       setCaixa(cx);
       if (cx) setResumo(await carregarResumoCaixa(cx.id));
@@ -99,9 +108,14 @@ export default function ReservaDetalhe() {
     return <div className="py-12 text-center"><Loader2 className="w-5 h-5 animate-spin inline" /></div>;
   }
 
+  // V2: só PRE_USO obrigatório libera 'Iniciar uso' (pos_uso vem no fechamento)
+  const preUsoObrigatorios = preUso.filter(c => c.obrigatorio);
+  const preUsoObrigatoriosOk = preUsoObrigatorios.filter(c => c.ok).length;
+  const podeIniciar = reserva.status === "aprovada"
+    && preUsoObrigatoriosOk === preUsoObrigatorios.length;
+  // Compat (usado em outros lugares):
   const obrigatorios = checklist.filter(c => c.obrigatorio);
   const obrigatoriosOk = obrigatorios.filter(c => c.ok).length;
-  const podeIniciar = reserva.status === "aprovada" && obrigatoriosOk === obrigatorios.length;
 
   return (
     <div className="p-4 md:p-8 max-w-3xl mx-auto space-y-4">
@@ -240,7 +254,8 @@ export default function ReservaDetalhe() {
                 </Button>
               )}
               {caixa.estado !== "fechado" && (
-                <Button size="lg" variant="outline" onClick={() => setFechamentoOpen(true)}
+                <Button size="lg" variant="outline"
+                  onClick={() => posUsoCount > 0 ? setPosUsoOpen(true) : setFechamentoOpen(true)}
                   className="gap-2 h-12 px-4">
                   <FileBarChart className="w-4 h-4" /> Fechar caixa
                 </Button>
@@ -255,29 +270,29 @@ export default function ReservaDetalhe() {
         </Card>
       )}
 
-      {/* Checklist */}
+      {/* Acordo pré-uso (4-5 itens leves) */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <ClipboardList className="w-4 h-4 text-gold" />
             {reserva.status === "em_uso" || reserva.status === "encerrada"
-              ? "Checklist (registro do uso)"
-              : "Checklist de uso"}
-            {obrigatorios.length > 0 && (
+              ? "Acordo pré-uso (registro)"
+              : "Acordo pré-uso"}
+            {preUsoObrigatorios.length > 0 && (
               <Badge variant="outline" className="text-[9px] ml-auto">
-                {obrigatoriosOk}/{obrigatorios.length} obrigatórios
+                {preUsoObrigatoriosOk}/{preUsoObrigatorios.length} obrigatórios
               </Badge>
             )}
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {checklist.length === 0 ? (
+          {preUso.length === 0 ? (
             <p className="text-xs text-muted-foreground text-center py-3">
-              Nenhum item no checklist. (Verifique se há templates ativos em arr_checklist_template.)
+              Nenhum item de acordo (aplique Arrecadacao_F5_checklist_v2.sql).
             </p>
           ) : (
             <div className="space-y-1.5">
-              {checklist.map(item => (
+              {preUso.map(item => (
                 <div key={item.id} className="flex items-start gap-2 p-2 border rounded-md text-sm">
                   <Checkbox checked={item.ok} onCheckedChange={(v) => toggleChecklist(item, !!v)}
                     className="mt-0.5" />
@@ -298,8 +313,23 @@ export default function ReservaDetalhe() {
               ))}
             </div>
           )}
+          {(reserva.status === "em_uso" || reserva.status === "encerrada") && posUsoCount > 0 && (
+            <p className="text-[11px] text-muted-foreground italic mt-3">
+              💡 Checklist de entrega ({posUsoCount} itens) será exibido ao clicar em
+              "Fechar caixa", junto com a possibilidade de reportar problemas do espaço.
+            </p>
+          )}
         </CardContent>
       </Card>
+
+      {posUsoOpen && reserva && (
+        <PosUsoCheckDialog
+          open={posUsoOpen}
+          onOpenChange={setPosUsoOpen}
+          reservaId={reserva.id}
+          onConcluido={() => setFechamentoOpen(true)}
+        />
+      )}
 
       {fechamentoOpen && caixa && (
         <FechamentoDialog

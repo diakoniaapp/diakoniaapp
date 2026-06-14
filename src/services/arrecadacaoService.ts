@@ -806,3 +806,122 @@ export async function listarLancamentosSaidaDisponiveis(): Promise<FinLancamento
   const usados = new Set((vinculados ?? []).map((v: any) => v.fin_lancamento_id));
   return ((data ?? []) as FinLancamentoDisp[]).filter(l => !usados.has(l.id));
 }
+
+// ════════════════════════════════════════════════════════════════════════
+// Checklist v2 — pré-uso / pós-uso / manutenção
+// ════════════════════════════════════════════════════════════════════════
+
+export type ChecklistTipo = "pre_uso" | "pos_uso";
+
+export interface ChecklistItemV2 extends ChecklistItem {
+  tipo: ChecklistTipo;
+  problema_reportado: boolean;
+}
+
+export async function listarChecklistPorTipo(reservaId: string): Promise<{
+  pre_uso: ChecklistItemV2[];
+  pos_uso: ChecklistItemV2[];
+}> {
+  const { data, error } = await supabase
+    .from("arr_reserva_checklist")
+    .select("*")
+    .eq("reserva_id", reservaId)
+    .order("ordem");
+  if (error) throw error;
+  const todos = (data ?? []) as ChecklistItemV2[];
+  return {
+    pre_uso: todos.filter(i => i.tipo === "pre_uso"),
+    pos_uso: todos.filter(i => i.tipo === "pos_uso"),
+  };
+}
+
+export async function marcarChecklistComObs(
+  itemId: string,
+  ok: boolean,
+  observacao?: string,
+  problema_reportado?: boolean,
+): Promise<void> {
+  const userId = (await supabase.auth.getUser()).data.user?.id;
+  const patch: any = {
+    ok,
+    ok_em: ok ? new Date().toISOString() : null,
+    ok_por: ok ? userId : null,
+    observacao: observacao ?? null,
+  };
+  if (problema_reportado !== undefined) patch.problema_reportado = problema_reportado;
+  const { error } = await supabase
+    .from("arr_reserva_checklist").update(patch).eq("id", itemId);
+  if (error) throw error;
+}
+
+// ─── Problemas de manutenção ───────────────────────────────────────────
+export type ProblemaStatus = "aberto" | "em_andamento" | "resolvido" | "descartado";
+export type ProblemaPrioridade = "baixa" | "media" | "alta";
+
+export interface ProblemaManutencao {
+  id: string;
+  reserva_id: string | null;
+  reserva_checklist_id: string | null;
+  espaco_id: string;
+  titulo: string;
+  descricao: string | null;
+  categoria: string | null;
+  status: ProblemaStatus;
+  prioridade: ProblemaPrioridade;
+  reportado_por: string | null;
+  reportado_em: string;
+  resolvido_por: string | null;
+  resolvido_em: string | null;
+  resolucao_descricao: string | null;
+  // joined
+  espaco?: { id: string; codigo: string; nome: string };
+}
+
+export interface FiltroProblemas {
+  status?: ProblemaStatus | ProblemaStatus[];
+  espaco_id?: string;
+}
+
+export async function listarProblemas(f: FiltroProblemas = {}): Promise<ProblemaManutencao[]> {
+  let q = supabase
+    .from("arr_problemas_manutencao")
+    .select("*, espaco:arr_espacos!espaco_id(id, codigo, nome)")
+    .order("reportado_em", { ascending: false })
+    .limit(200);
+  if (f.status) {
+    q = Array.isArray(f.status) ? q.in("status", f.status) : q.eq("status", f.status);
+  }
+  if (f.espaco_id) q = q.eq("espaco_id", f.espaco_id);
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data ?? []) as unknown as ProblemaManutencao[];
+}
+
+export async function contarProblemasAbertos(): Promise<number> {
+  const { count, error } = await supabase
+    .from("arr_problemas_manutencao")
+    .select("*", { count: "exact", head: true })
+    .in("status", ["aberto","em_andamento"]);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+export async function atualizarProblema(id: string, patch: Partial<ProblemaManutencao>): Promise<void> {
+  const { error } = await supabase
+    .from("arr_problemas_manutencao").update(patch).eq("id", id);
+  if (error) throw error;
+}
+
+export async function resolverProblema(id: string, descricao: string): Promise<void> {
+  const userId = (await supabase.auth.getUser()).data.user?.id;
+  const { error } = await supabase
+    .from("arr_problemas_manutencao")
+    .update({
+      status: "resolvido",
+      resolvido_em: new Date().toISOString(),
+      resolvido_por: userId,
+      resolucao_descricao: descricao,
+    })
+    .eq("id", id);
+  if (error) throw error;
+}

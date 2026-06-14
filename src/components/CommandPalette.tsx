@@ -54,6 +54,7 @@ const ROUTES: CommandRoute[] = [
   { to: "/arrecadacao", label: "🛒 PDV — Bazar/Cantina", icon: ShoppingBag, group: "Ações", keywords: ["pdv","caixa","arrecada","vender","venda","cantina","bazar"], permissoes: ["operar_caixa","ver_arrecadacao","ver_financeiro"] },
   { to: "/arrecadacao", label: "Bazar e Cantina", icon: ShoppingBag, group: "Administração", keywords: ["arrecada","bazar","cantina","reserva","espaco","novo"], permissoes: ["ver_arrecadacao","ver_arrecadacao_admin","gerenciar_arrecadacao","ver_financeiro"] },
   { to: "/arrecadacao/reservas/nova", label: "+ Nova reserva de espaço", icon: ShoppingBag, group: "Ações", keywords: ["reservar","arrecada","bazar","cantina"], permissoes: ["ver_arrecadacao","gerenciar_arrecadacao"] },
+  { to: "/arrecadacao/manutencao", label: "🔧 Manutenção dos espaços", icon: ShoppingBag, group: "Administração", keywords: ["manutencao","conserto","problema","geladeira","lampada","reparo","bazar","cantina"], permissoes: ["ver_manutencao"] },
   { to: "/arrecadacao/espacos", label: "Configurar Bazar/Cantina (taxas)", icon: ShoppingBag, group: "Configurações", keywords: ["taxa","cartao","arrecada","bazar","cantina","espaco"], permissoes: ["gerenciar_arrecadacao","ver_financeiro"] },
 
   // ── Financeiro ────────────────────────────────────────────────────
