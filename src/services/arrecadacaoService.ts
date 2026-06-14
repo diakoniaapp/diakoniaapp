@@ -15,8 +15,8 @@ import { supabase } from "@/integrations/supabase/client";
 
 // ─── Enums (refletem os enums SQL exatamente) ───────────────────────────
 export type ReservaStatus =
-  | "solicitada" | "aprovada" | "recusada"
-  | "em_uso"    | "encerrada" | "cancelada";
+  | "solicitada" | "aprovada" | "recusada" | "confirmada"
+  | "em_uso"    | "encerrada" | "cancelada" | "expirada";
 
 export type CaixaEstado = "aberto" | "conciliando" | "fechado";
 
@@ -1015,6 +1015,110 @@ export function montarWhatsAppManutencao(
   );
   const mensagem = linhas.join("\n");
   const tel = (telefone ?? "").replace(/\D/g, "");
+  const url = tel
+    ? `https://wa.me/${tel}?text=${encodeURIComponent(mensagem)}`
+    : `https://wa.me/?text=${encodeURIComponent(mensagem)}`;
+  return { mensagem, url };
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// FASE 6 — Acordo pré-uso + token + aprovação com WhatsApp
+// ════════════════════════════════════════════════════════════════════════
+
+export interface AprovacaoResult {
+  reserva_id: string;
+  token: string;
+  prazo_aceite: string;
+  template_id: string;
+}
+
+export async function aprovarReservaComAcordo(
+  reservaId: string,
+  prazoDias: number = 3,
+): Promise<AprovacaoResult> {
+  const { data, error } = await supabase.rpc("arr_aprovar_reserva", {
+    p_reserva_id: reservaId,
+    p_prazo_dias: prazoDias,
+  });
+  if (error) throw error;
+  return data as AprovacaoResult;
+}
+
+export interface AcordoConsulta {
+  reserva_id?: string;
+  finalidade?: string;
+  periodo?: string;
+  espaco_codigo?: string;
+  espaco_nome?: string;
+  area_nome?: string;
+  acordo_titulo?: string;
+  acordo_texto?: string;
+  status?: ReservaStatus;
+  acordo_aceito_em?: string | null;
+  acordo_prazo_aceite?: string | null;
+  expirado?: boolean;
+  erro?: string;
+}
+
+/** Pública: lê os dados do acordo por token (sem login). */
+export async function consultarAcordoPublico(token: string): Promise<AcordoConsulta> {
+  const { data, error } = await supabase.rpc("arr_consultar_acordo", { p_token: token });
+  if (error) throw error;
+  return (data ?? { erro: "vazio" }) as AcordoConsulta;
+}
+
+/** Pública: aceita o acordo. */
+export async function aceitarAcordoPublico(token: string): Promise<{
+  ok: boolean; ja_aceito?: boolean; aceito_em?: string; erro?: string;
+}> {
+  const { data, error } = await supabase.rpc("arr_aceitar_acordo", { p_token: token });
+  if (error) throw error;
+  return data as any;
+}
+
+/** Marca como 'expirada' as aprovadas sem aceite no prazo. */
+export async function marcarReservasExpiradas(): Promise<number> {
+  const { data, error } = await supabase.rpc("arr_marcar_reservas_expiradas");
+  if (error) throw error;
+  return Number(data ?? 0);
+}
+
+/** Monta link wa.me com mensagem de aprovação + link de aceite. */
+export function montarWhatsAppAprovacao(
+  info: {
+    finalidade: string;
+    espaco_nome: string;
+    area_nome: string;
+    periodo_inicio: string;     // YYYY-MM-DD
+    periodo_fim: string;        // YYYY-MM-DD
+  },
+  responsavel: { nome: string; telefone: string | null },
+  token: string,
+  prazoDias: number,
+  baseUrl: string = (typeof window !== "undefined" ? window.location.origin : ""),
+): { mensagem: string; url: string } {
+  const fmt = (s: string) => new Date(s + "T00:00").toLocaleDateString("pt-BR");
+  const linkAceite = `${baseUrl}/acordo/${token}`;
+  const linhas = [
+    `Olá *${responsavel.nome}*! 👋`,
+    "",
+    `Sua reserva foi *APROVADA*:`,
+    "",
+    `🏛 ${info.espaco_nome}`,
+    `📋 ${info.finalidade}`,
+    `📅 ${fmt(info.periodo_inicio)} → ${fmt(info.periodo_fim)}`,
+    `👥 ${info.area_nome}`,
+    "",
+    `Para *confirmar a reserva*, leia e aceite o acordo de uso:`,
+    `🔗 ${linkAceite}`,
+    "",
+    `_O aceite tem prazo de ${prazoDias} dia${prazoDias > 1 ? "s" : ""}. Sem aceite, a reserva é cancelada e a data liberada._`,
+    "",
+    "_Secretaria · QIBRJ_",
+    "_Diakonia APP — Arrecadação_",
+  ];
+  const mensagem = linhas.join("\n");
+  const tel = (responsavel.telefone ?? "").replace(/\D/g, "");
   const url = tel
     ? `https://wa.me/${tel}?text=${encodeURIComponent(mensagem)}`
     : `https://wa.me/?text=${encodeURIComponent(mensagem)}`;
