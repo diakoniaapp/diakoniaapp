@@ -163,11 +163,11 @@ export default function Caixa() {
   if (campanha.status !== "ativa") {
     return (
       <div className="p-8 max-w-md mx-auto text-center space-y-3">
-        <h2 className="font-serif text-xl">Campanha não está ativa</h2>
+        <h2 className="font-serif text-xl">Evento não está ativo</h2>
         <p className="text-sm text-muted-foreground">
           Status atual: <Badge>{campanha.status}</Badge>
         </p>
-        <Button asChild><Link to={`/bazar/campanha/${campanha.id}`}>Voltar à campanha</Link></Button>
+        <Button asChild><Link to={`/bazar/campanha/${campanha.id}`}>Voltar ao evento</Link></Button>
       </div>
     );
   }
@@ -197,16 +197,34 @@ export default function Caixa() {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                  {catalogo.map(item => (
-                    <button key={item.id} onClick={() => addCatalogo(item)}
-                      className="border rounded-md p-2 text-left hover:bg-emerald-50 hover:border-emerald-300 transition">
-                      <div className="text-xs font-medium">{item.nome}</div>
-                      <div className="text-base font-serif text-emerald-700">{fmtBR(item.preco_sugerido)}</div>
-                      {item.categoria && (
-                        <Badge variant="outline" className="text-[9px] mt-1">{item.categoria}</Badge>
-                      )}
-                    </button>
-                  ))}
+                  {catalogo.map(item => {
+                    const semEstoque = item.quantidade_estoque != null && item.quantidade_estoque <= 0;
+                    const baixoEstoque = item.quantidade_estoque != null && item.quantidade_estoque <= (item.estoque_minimo ?? 5);
+                    return (
+                      <button key={item.id}
+                        onClick={() => !semEstoque && addCatalogo(item)}
+                        disabled={semEstoque}
+                        className={
+                          "border-2 rounded-lg p-3 text-left transition active:scale-95 " +
+                          (semEstoque
+                            ? "opacity-40 cursor-not-allowed bg-muted"
+                            : "hover:bg-emerald-50 hover:border-emerald-500 hover:shadow-md")
+                        }>
+                        <div className="text-sm font-medium leading-tight">{item.nome}</div>
+                        <div className="text-lg md:text-xl font-serif text-emerald-700 font-semibold mt-1">{fmtBR(item.preco_sugerido)}</div>
+                        <div className="flex items-center gap-1 mt-1 flex-wrap">
+                          {item.categoria && (
+                            <Badge variant="outline" className="text-[9px]">{item.categoria}</Badge>
+                          )}
+                          {semEstoque ? (
+                            <Badge className="text-[9px] bg-rose-100 text-rose-700 border-rose-200">esgotado</Badge>
+                          ) : baixoEstoque ? (
+                            <Badge className="text-[9px] bg-amber-100 text-amber-700 border-amber-200">restam {item.quantidade_estoque}</Badge>
+                          ) : null}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>
@@ -285,10 +303,12 @@ export default function Caixa() {
                   return (
                     <button key={f} onClick={() => setPagamento(f)}
                       className={
-                        "border rounded-md p-1.5 text-xs flex flex-col items-center gap-0.5 transition " +
-                        (pagamento === f ? "bg-emerald-50 border-emerald-300 text-emerald-700 font-medium" : "hover:bg-muted/30")
+                        "border-2 rounded-lg p-2 text-xs flex flex-col items-center gap-1 transition active:scale-95 " +
+                        (pagamento === f
+                          ? "bg-emerald-50 border-emerald-500 text-emerald-700 font-semibold shadow"
+                          : "hover:bg-muted/30")
                       }>
-                      <Icon className="w-3.5 h-3.5" />
+                      <Icon className="w-4 h-4" />
                       {FORMA_LABEL[f]}
                     </button>
                   );
@@ -303,8 +323,9 @@ export default function Caixa() {
 
             <Button onClick={finalizar}
               disabled={finalizando || carrinho.length === 0}
-              className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700">
-              {finalizando ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+              size="lg"
+              className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700 text-base h-12 font-semibold">
+              {finalizando ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
               Finalizar venda
             </Button>
           </CardContent>

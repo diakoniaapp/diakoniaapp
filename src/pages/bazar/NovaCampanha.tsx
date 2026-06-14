@@ -77,12 +77,12 @@ export default function NovaCampanha() {
           <Link to="/bazar"><ArrowLeft className="w-4 h-4" /></Link>
         </Button>
         <ShoppingBag className="w-5 h-5 text-gold" />
-        <h1 className="font-serif text-xl">Nova campanha</h1>
+        <h1 className="font-serif text-xl">Novo evento</h1>
       </header>
 
       <Card>
         <CardContent className="p-4 space-y-3 text-sm">
-          <Field label="Nome da campanha *">
+          <Field label="Nome do evento *">
             <Input value={form.nome} onChange={e => setForm({...form, nome: e.target.value})}
               placeholder="Ex: Cantina aniversário 75 anos QIBRJ" />
           </Field>

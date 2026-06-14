@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 import { atualizarItemCatalogo, type ItemCatalogo } from "@/services/bazarService";
@@ -16,7 +17,7 @@ interface Props {
 }
 
 export function EditarItemCatalogoDialog({ open, onOpenChange, item, onSaved }: Props) {
-  const [form, setForm] = useState({ nome: "", preco: "", categoria: "", ativo: true });
+  const [form, setForm] = useState({ nome: "", preco: "", categoria: "", ativo: true, estoque: "", estoque_min: "", observacao: "" });
   const [salvando, setSalvando] = useState(false);
 
   useEffect(() => {
@@ -26,6 +27,9 @@ export function EditarItemCatalogoDialog({ open, onOpenChange, item, onSaved }: 
         preco: String(item.preco_sugerido).replace(".", ","),
         categoria: item.categoria ?? "",
         ativo: item.ativo,
+        estoque: item.quantidade_estoque != null ? String(item.quantidade_estoque) : "",
+        estoque_min: item.estoque_minimo != null ? String(item.estoque_minimo) : "5",
+        observacao: item.observacao ?? "",
       });
     }
   }, [item]);
@@ -39,6 +43,9 @@ export function EditarItemCatalogoDialog({ open, onOpenChange, item, onSaved }: 
       await atualizarItemCatalogo(item.id, {
         nome: form.nome, preco_sugerido: v,
         categoria: form.categoria || null, ativo: form.ativo,
+        quantidade_estoque: form.estoque ? Number(form.estoque) : null,
+        estoque_minimo: form.estoque_min ? Number(form.estoque_min) : null,
+        observacao: form.observacao || null,
       });
       toast.success("Item atualizado");
       onSaved();
@@ -63,8 +70,27 @@ export function EditarItemCatalogoDialog({ open, onOpenChange, item, onSaved }: 
             </div>
             <div className="space-y-1">
               <Label className="text-[11px]">Categoria</Label>
-              <Input value={form.categoria} onChange={e => setForm({...form, categoria: e.target.value})} />
+              <Input value={form.categoria} onChange={e => setForm({...form, categoria: e.target.value})} placeholder="bebida, comida..." />
             </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2 border-t pt-2">
+            <div className="space-y-1">
+              <Label className="text-[11px]">Estoque (opcional)</Label>
+              <Input type="number" min="0" value={form.estoque}
+                onChange={e => setForm({...form, estoque: e.target.value})}
+                placeholder="Deixe vazio se não controlar estoque" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[11px]">Alerta quando ≤</Label>
+              <Input type="number" min="0" value={form.estoque_min}
+                onChange={e => setForm({...form, estoque_min: e.target.value})}
+                placeholder="5" />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-[11px]">Observação</Label>
+            <Textarea value={form.observacao} onChange={e => setForm({...form, observacao: e.target.value})}
+              placeholder="Ex: 'sem cebola', 'doação de Maria'" className="min-h-[60px]" />
           </div>
           <div className="flex items-center gap-2 border-t pt-2">
             <Switch checked={form.ativo} onCheckedChange={(v) => setForm({...form, ativo: v})} />

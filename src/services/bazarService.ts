@@ -36,6 +36,10 @@ export interface ItemCatalogo {
   preco_sugerido: number;
   categoria: string | null;
   ativo: boolean;
+  // v3 — estoque opcional
+  quantidade_estoque?: number | null;
+  estoque_minimo?: number | null;
+  observacao?: string | null;
 }
 
 export interface Venda {
@@ -364,4 +368,36 @@ export async function listarFechamentos(campanhaId: string): Promise<FechamentoS
     .order("data_referencia", { ascending: false });
   if (error) throw error;
   return (data ?? []) as FechamentoSalvo[];
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// v3: estoque por produto + apenas 1 evento ativo
+// ═══════════════════════════════════════════════════════════════════════
+
+// Atualizar interface ItemCatalogo: agora tem estoque e observação
+// (campos novos opcionais; sem breaking change)
+declare module "./bazarService" {}
+
+export interface ItemEstoqueBaixo {
+  id: string;
+  campanha_id: string;
+  campanha_nome: string;
+  nome: string;
+  categoria: string | null;
+  quantidade_estoque: number;
+  estoque_minimo: number;
+}
+
+export async function listarEstoqueBaixo(): Promise<ItemEstoqueBaixo[]> {
+  const { data, error } = await supabase.rpc("bazar_estoque_baixo");
+  if (error) throw error;
+  return (data ?? []) as ItemEstoqueBaixo[];
+}
+
+export async function reabastecerEstoque(itemId: string, quantidade: number): Promise<void> {
+  const { error } = await supabase.rpc("bazar_reabastecer_estoque", {
+    p_item_id: itemId,
+    p_quantidade: quantidade,
+  });
+  if (error) throw error;
 }

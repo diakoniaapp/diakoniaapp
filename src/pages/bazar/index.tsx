@@ -4,10 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  ShoppingBag, Plus, Loader2, ChevronRight, Calendar, Target, TrendingUp, ShoppingCart, Settings,
+  ShoppingBag, Plus, Loader2, ChevronRight, Calendar, Target, TrendingUp, ShoppingCart, Settings, AlertTriangle, Package,
   Sparkles,
 } from "lucide-react";
-import { carregarResumoBazar, type ResumoBazar } from "@/services/bazarService";
+import { carregarResumoBazar, listarEstoqueBaixo, type ResumoBazar, type ItemEstoqueBaixo } from "@/services/bazarService";
 
 const MODAL_LABEL: Record<string, string> = {
   bazar: "Bazar", cantina: "Cantina", ambos: "Bazar + Cantina",
@@ -18,10 +18,13 @@ const fmtBR = (n: number | null | undefined) =>
 
 export default function BazarHome() {
   const [resumo, setResumo] = useState<ResumoBazar | null>(null);
+  const [estoqueBaixo, setEstoqueBaixo] = useState<ItemEstoqueBaixo[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    carregarResumoBazar().then(setResumo).finally(() => setLoading(false));
+    Promise.all([carregarResumoBazar(), listarEstoqueBaixo()])
+      .then(([r, eb]) => { setResumo(r); setEstoqueBaixo(eb); })
+      .finally(() => setLoading(false));
   }, []);
 
   if (loading) {
@@ -34,13 +37,13 @@ export default function BazarHome() {
         <ShoppingBag className="w-5 h-5 text-gold" />
         <div className="flex-1">
           <h1 className="font-serif text-xl md:text-2xl">Bazar e Cantina</h1>
-          <p className="text-xs text-muted-foreground">Área compartilhada — campanhas pra arrecadação por ministério</p>
+          <p className="text-xs text-muted-foreground">Área compartilhada — eventos pra arrecadação por ministério</p>
         </div>
         <Button size="sm" variant="ghost" asChild>
           <Link to="/bazar/config" title="Configurar taxas"><Settings className="w-4 h-4" /></Link>
         </Button>
         <Button size="sm" asChild className="gap-2">
-          <Link to="/bazar/campanhas/nova"><Plus className="w-4 h-4" /> Nova campanha</Link>
+          <Link to="/bazar/campanhas/nova"><Plus className="w-4 h-4" /> Novo evento</Link>
         </Button>
       </header>
 
@@ -59,13 +62,13 @@ export default function BazarHome() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-emerald-600" /> Campanhas ativas
+            <TrendingUp className="w-4 h-4 text-emerald-600" /> Eventos ativos
           </CardTitle>
         </CardHeader>
         <CardContent>
           {resumo?.ativas.length === 0 ? (
             <p className="text-xs text-muted-foreground text-center py-3">
-              Nenhuma campanha em andamento.
+              Nenhum evento em andamento.
             </p>
           ) : (
             <div className="space-y-2">
@@ -108,12 +111,37 @@ export default function BazarHome() {
         </CardContent>
       </Card>
 
+      {/* Alerta estoque baixo */}
+      {estoqueBaixo.length > 0 && (
+        <Card className="border-amber-200 bg-amber-50/40">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600" /> Estoque baixo ({estoqueBaixo.length} item{estoqueBaixo.length>1?"s":""})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-1.5">
+            {estoqueBaixo.map(i => (
+              <div key={i.id} className="flex items-center gap-2 text-xs border-b pb-1.5 last:border-0">
+                <Package className="w-3.5 h-3.5 text-amber-600" />
+                <span className="flex-1">
+                  <span className="font-medium">{i.nome}</span>
+                  <span className="text-muted-foreground"> · {i.campanha_nome}</span>
+                </span>
+                <Badge variant="outline" className="text-[9px] bg-amber-100 text-amber-700 border-amber-200">
+                  restam {i.quantidade_estoque}
+                </Badge>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Próximas */}
       {resumo && resumo.proximas.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-gold" /> Próximas campanhas planejadas
+              <Calendar className="w-4 h-4 text-gold" /> Próximos eventos planejados
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-1.5">

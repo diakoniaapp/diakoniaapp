@@ -59,7 +59,7 @@ export function FechamentoCaixaDialog({ open, onOpenChange, campanhaId, tipo, da
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>
-            {tipo === "diario" ? "Fechamento do dia" : "Encerramento da campanha"}
+            {tipo === "diario" ? "Fechamento do dia" : "Encerramento do evento"}
             {" · "}
             <span className="text-muted-foreground text-sm font-normal">{preview.campanha_nome}</span>
           </DialogTitle>
@@ -123,6 +123,21 @@ export function FechamentoCaixaDialog({ open, onOpenChange, campanhaId, tipo, da
             <Textarea value={observacao} onChange={e => setObservacao(e.target.value)}
               placeholder="Ex: caixa conferido, sem divergências" className="mt-1 text-xs" />
           </div>
+
+          {/* Assinatura — só aparece na impressão */}
+          <div className="hidden print:block pt-12 mt-12">
+            <div className="grid grid-cols-2 gap-12">
+              <div className="text-center">
+                <div className="border-t border-foreground pt-1 text-xs">Responsável pelo caixa</div>
+              </div>
+              <div className="text-center">
+                <div className="border-t border-foreground pt-1 text-xs">Tesouraria / Administração</div>
+              </div>
+            </div>
+            <p className="text-center text-[10px] text-muted-foreground mt-6">
+              Quarta Igreja Batista do Rio de Janeiro · Diakonia APP
+            </p>
+          </div>
         </div>
 
         <div className="flex gap-2 print:hidden">
@@ -135,7 +150,7 @@ export function FechamentoCaixaDialog({ open, onOpenChange, campanhaId, tipo, da
           <Button onClick={confirmar} disabled={salvando}
             className={tipo === "final" ? "bg-rose-600 hover:bg-rose-700 gap-1.5" : "bg-emerald-600 hover:bg-emerald-700 gap-1.5"}>
             {salvando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-            {tipo === "diario" ? "Confirmar fechamento" : "Encerrar campanha"}
+            {tipo === "diario" ? "Confirmar fechamento" : "Encerrar evento"}
           </Button>
         </div>
       </DialogContent>

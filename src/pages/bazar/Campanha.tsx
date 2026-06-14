@@ -56,14 +56,21 @@ export default function CampanhaPage() {
   async function acao(acao: "ativar"|"encerrar"|"excluir") {
     if (!camp) return;
     if (acao === "excluir" && !confirm("Excluir campanha e TODOS os registros vinculados?")) return;
-    if (acao === "encerrar" && !confirm("Encerrar campanha? Não dá pra registrar mais vendas depois.")) return;
+    if (acao === "encerrar" && !confirm("Encerrar evento? Não dá pra registrar mais vendas depois.")) return;
     try {
       if (acao === "ativar") await ativarCampanha(camp.id);
       if (acao === "encerrar") await encerrarCampanha(camp.id);
       if (acao === "excluir") { await excluirCampanha(camp.id); nav("/bazar"); return; }
       toast.success("Atualizado");
       await carregar();
-    } catch (err: any) { toast.error(err?.message ?? "Erro"); }
+    } catch (err: any) {
+      const msg = String(err?.message ?? "Erro");
+      if (msg.includes("Já existe outro evento ATIVO")) {
+        toast.error("Já existe outro evento ATIVO. Encerre ou pause o atual antes de ativar este.");
+      } else {
+        toast.error(msg);
+      }
+    }
   }
 
   if (loading || !camp) {
@@ -108,7 +115,7 @@ export default function CampanhaPage() {
               <FileBarChart className="w-3.5 h-3.5" /> Fechar dia (X)
             </Button>
             <Button size="sm" variant="outline" onClick={() => setFechamento("final")} className="gap-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Encerrar campanha
+              <CheckCircle2 className="w-3.5 h-3.5" /> Encerrar evento
             </Button>
           </>
         )}
@@ -175,7 +182,22 @@ export default function CampanhaPage() {
                 <div className="flex-1">
                   <span className="font-medium">{item.nome}</span>
                   {item.categoria && <Badge variant="outline" className="text-[9px] ml-1.5">{item.categoria}</Badge>}
+                  {item.quantidade_estoque != null && (
+                    <Badge variant="outline" className={
+                      "text-[9px] ml-1 " +
+                      (item.quantidade_estoque <= (item.estoque_minimo ?? 5)
+                        ? "bg-rose-50 text-rose-700 border-rose-200"
+                        : item.quantidade_estoque <= (item.estoque_minimo ?? 5) * 2
+                        ? "bg-amber-50 text-amber-700 border-amber-200"
+                        : "bg-emerald-50 text-emerald-700 border-emerald-200")
+                    }>
+                      estoque: {item.quantidade_estoque}
+                    </Badge>
+                  )}
                   {!item.ativo && <Badge variant="outline" className="text-[9px] ml-1">inativo</Badge>}
+                  {item.observacao && (
+                    <div className="text-[10px] text-muted-foreground mt-0.5 italic">{item.observacao}</div>
+                  )}
                 </div>
                 <span className="font-medium">{fmtBR(item.preco_sugerido)}</span>
                 <button onClick={() => setEditItem(item)}
@@ -262,6 +284,7 @@ function NovoItemCatalogo({ campanhaId, onAdded }: { campanhaId: string; onAdded
   const [nome, setNome] = useState("");
   const [preco, setPreco] = useState("");
   const [categoria, setCategoria] = useState("");
+  const [estoque, setEstoque] = useState("");
 
   async function add() {
     const v = Number(preco.replace(",", "."));
@@ -270,20 +293,23 @@ function NovoItemCatalogo({ campanhaId, onAdded }: { campanhaId: string; onAdded
       await criarItemCatalogo({
         campanha_id: campanhaId, nome, preco_sugerido: v,
         categoria: categoria || null, ativo: true,
+        quantidade_estoque: estoque ? Number(estoque) : null,
       });
-      setNome(""); setPreco(""); setCategoria("");
+      setNome(""); setPreco(""); setCategoria(""); setEstoque("");
       onAdded();
     } catch (err: any) { toast.error(err?.message ?? "Erro"); }
   }
 
   return (
     <div className="border rounded-md p-2 bg-muted/30 space-y-1.5">
-      <Label className="text-[10px]">Novo item do cardápio</Label>
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-1.5">
-        <Input placeholder="Nome (ex: Cachorro-quente)" value={nome} onChange={e => setNome(e.target.value)} className="md:col-span-2 text-xs" />
+      <Label className="text-[10px]">Novo produto do cardápio</Label>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5">
+        <Input placeholder="Nome (ex: X-burguer)" value={nome} onChange={e => setNome(e.target.value)} className="md:col-span-2 text-xs" />
         <Input placeholder="R$ 0,00" value={preco} onChange={e => setPreco(e.target.value)} className="text-xs" />
         <Input placeholder="Categoria" value={categoria} onChange={e => setCategoria(e.target.value)} className="text-xs" />
       </div>
+      <Input type="number" placeholder="Estoque inicial (opcional)" value={estoque}
+        onChange={e => setEstoque(e.target.value)} className="text-xs" />
       <Button size="sm" onClick={add} className="w-full gap-1.5">
         <ListPlus className="w-3.5 h-3.5" /> Adicionar ao cardápio
       </Button>
