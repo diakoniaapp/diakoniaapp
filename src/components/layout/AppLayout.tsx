@@ -5,7 +5,7 @@ import {
   CalendarDays, ChevronLeft, ChevronDown, MapPin, BarChart2, GraduationCap, Sparkles, DollarSign, Layers,
   Building2, Network, KeyRound, ShieldAlert, Church, FileText, ScrollText, CheckSquare,
   Upload, Download, Flame, UserCheck, Settings,
-  Cog, Sprout, Gavel, type LucideIcon,
+  Cog, Sprout, Gavel, ShoppingBag, type LucideIcon,
 } from "lucide-react";
 import { BrandMark } from "@/components/Brand";
 import { useEffect, useState } from "react";
@@ -84,6 +84,7 @@ const NAV_GROUPS: NavGroup[] = [
       { to: "/membresia",   label: "Membresia",  icon: FileText,    allowedRoles: ROLES_LIDERES },
       { to: "/governanca",  label: "Reuniões",   icon: Gavel,       allowedRoles: ROLES_LIDERES },
       { to: "/assuntos",    label: "Assuntos",   icon: CheckSquare, allowedRoles: ROLES_LIDERES },
+      { to: "/bazar",       label: "Bazar/Cantina", icon: ShoppingBag, allowedRoles: ROLES_LIDERES },
     ],
   },
   {

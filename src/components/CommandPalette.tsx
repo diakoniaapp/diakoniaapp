@@ -6,7 +6,7 @@ import {
 } from "@/components/ui/command";
 import {
   LayoutDashboard, Users, Home, HeartHandshake, Layers, UserCheck,
-  GraduationCap, Sprout, Sparkles, FileText, Gavel, CheckSquare,
+  GraduationCap, Sprout, Sparkles, FileText, Gavel, CheckSquare, ShoppingBag,
   DollarSign, CalendarDays, MapPin, Church, ScrollText, Flame,
   Network, Building2, BarChart2, Upload, Download, KeyRound,
   ShieldAlert, UserPlus, type LucideIcon,
@@ -51,6 +51,8 @@ const ROUTES: CommandRoute[] = [
   { to: "/membresia",  label: "Membresia",  icon: FileText,    group: "Administração", keywords: ["solicitacao","batismo"] },
   { to: "/governanca", label: "Reuniões e Assembleias", icon: Gavel, group: "Administração", keywords: ["assembleia","ata","pauta","decisao"] },
   { to: "/assuntos",   label: "Assuntos",   icon: CheckSquare, group: "Administração", keywords: ["pendencia","tarefa"] },
+  { to: "/bazar",      label: "Bazar / Cantina", icon: ShoppingBag, group: "Administração", keywords: ["venda","caixa","pdv","cantina","arrecadacao","campanha","missoes","aniversario","oferta"], permissoes: ["ver_bazar","ver_financeiro"] },
+  { to: "/bazar/campanhas/nova", label: "+ Nova campanha de bazar/cantina", icon: ShoppingBag, group: "Ações", keywords: ["bazar","cantina","campanha","nova"], permissoes: ["gerenciar_bazar","ver_financeiro"] },
 
   // ── Financeiro ────────────────────────────────────────────────────
   { to: "/financas",         label: "Tesouraria",     icon: DollarSign, group: "Financeiro", keywords: ["dinheiro","caixa","contas","conta"] },
