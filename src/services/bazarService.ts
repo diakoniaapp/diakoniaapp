@@ -142,7 +142,7 @@ export async function registrarVenda(
   campanhaId: string,
   itens: ItemVenda[],
   pagamento: FormaPagamento,
-  vendedor: { id: string; nome: string },
+  vendedor: { id: string | null; nome: string },
   extras: { cliente_nome?: string; observacao?: string } = {},
 ): Promise<Venda> {
   const valor_total = itens.reduce((acc, i) => acc + i.subtotal, 0);
@@ -150,7 +150,7 @@ export async function registrarVenda(
     .from("bazar_vendas")
     .insert({
       campanha_id: campanhaId,
-      vendedor_id: vendedor.id,
+      vendedor_id: vendedor.id,        // pode ser NULL — registra venda anônima
       vendedor_nome: vendedor.nome,
       valor_total,
       forma_pagamento: pagamento,

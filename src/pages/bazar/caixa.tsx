@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import {
   carregarCampanha, listarCatalogo, registrarVenda,
   type Campanha, type ItemCatalogo, type ItemVenda, type FormaPagamento,
@@ -43,6 +44,7 @@ export default function Caixa() {
   const [pagamento, setPagamento] = useState<FormaPagamento>("dinheiro");
   const [clienteNome, setClienteNome] = useState("");
   const [finalizando, setFinalizando] = useState(false);
+  const [vendedor, setVendedor] = useState<{ id: string | null; nome: string } | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -50,6 +52,34 @@ export default function Caixa() {
       .then(([c, cat]) => { setCampanha(c); setCatalogo(cat.filter(x => x.ativo)); })
       .finally(() => setLoading(false));
   }, [id]);
+
+  // Resolve quem é o vendedor: tenta pegar a pessoa vinculada ao profile.
+  // Se o user logado não tem pessoa_id em profile, deixa vendedor_id NULL
+  // e usa o e-mail como nome cosmético.
+  useEffect(() => {
+    if (!user?.id) return;
+    (async () => {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("nome, pessoa_id")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (profile?.pessoa_id) {
+        const { data: m } = await supabase
+          .from("membros")
+          .select("nome_completo")
+          .eq("id", profile.pessoa_id)
+          .maybeSingle();
+        setVendedor({
+          id: profile.pessoa_id,
+          nome: m?.nome_completo ?? profile.nome ?? user.email ?? "Vendedor",
+        });
+      } else {
+        // Sem pessoa vinculada — registra venda anônima
+        setVendedor({ id: null, nome: profile?.nome ?? user.email ?? "Vendedor" });
+      }
+    })();
+  }, [user?.id]);
 
   const total = carrinho.reduce((acc, i) => acc + i.subtotal, 0);
 
@@ -108,7 +138,7 @@ export default function Caixa() {
         campanha.id,
         carrinho,
         pagamento,
-        { id: user.id, nome: user.email ?? "Vendedor" },
+        vendedor ?? { id: null, nome: user.email ?? "Vendedor" },
         { cliente_nome: clienteNome || undefined },
       );
       toast.success(`Venda de ${fmtBR(total)} registrada`);
@@ -146,7 +176,7 @@ export default function Caixa() {
         </Button>
         <div className="flex-1 min-w-0">
           <h1 className="font-serif text-lg truncate">PDV — {campanha.nome}</h1>
-          <p className="text-[10px] text-muted-foreground">{user?.email}</p>
+          <p className="text-[10px] text-muted-foreground">{vendedor?.nome ?? user?.email}</p>
         </div>
       </header>
 
