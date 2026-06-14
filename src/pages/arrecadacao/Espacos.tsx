@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Settings, Loader2, Save, ShoppingBag } from "lucide-react";
+import { ArrowLeft, Settings, Loader2, Save, ShoppingBag, Package } from "lucide-react";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { listarEspacos, atualizarTaxasEspaco, type Espaco } from "@/services/arrecadacaoService";
 
@@ -73,10 +74,17 @@ export default function ArrecadacaoEspacos() {
                   onChange={ev => atualizar(e.id, { taxa_pix_pct: Number(ev.target.value) })} />
               </Field>
             </div>
-            <Button size="sm" onClick={() => salvar(e)} disabled={salvandoId === e.id} className="gap-2">
-              {salvandoId === e.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-              Salvar {e.nome}
-            </Button>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={() => salvar(e)} disabled={salvandoId === e.id} className="gap-2">
+                {salvandoId === e.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                Salvar {e.nome}
+              </Button>
+              <Button size="sm" variant="outline" asChild className="gap-2">
+                <Link to={`/arrecadacao/produtos/${e.id}`}>
+                  <Package className="w-3.5 h-3.5" /> Produtos
+                </Link>
+              </Button>
+            </div>
           </CardContent>
         </Card>
       ))}

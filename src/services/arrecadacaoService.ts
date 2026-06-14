@@ -598,3 +598,211 @@ export async function removerOperador(operadorId: string): Promise<void> {
     .from("arr_caixa_operadores").delete().eq("id", operadorId);
   if (error) throw error;
 }
+
+// ════════════════════════════════════════════════════════════════════════
+// Onda 3D: movimentos avançados + NF storage + fin_lancamentos integration
+// ════════════════════════════════════════════════════════════════════════
+
+export interface Movimento {
+  id: string;
+  caixa_id: string;
+  tipo: MovimentoTipo;
+  valor: number;
+  ajuste_positivo: boolean | null;
+  data_movimento: string;
+  descricao: string;
+  beneficiario_membro_id: string | null;
+  nf_numero: string | null;
+  nf_serie: string | null;
+  nf_emitida_em: string | null;
+  nf_cnpj_emitente: string | null;
+  nf_anexo_path: string | null;
+  fin_lancamento_id: string | null;
+  registrado_em: string;
+  arquivado_em: string | null;
+  // joined
+  beneficiario?: { id: string; nome_completo: string };
+}
+
+export async function listarMovimentos(caixaId: string): Promise<Movimento[]> {
+  const { data, error } = await supabase
+    .from("arr_movimentos")
+    .select("*, beneficiario:membros!beneficiario_membro_id(id, nome_completo)")
+    .eq("caixa_id", caixaId)
+    .is("arquivado_em", null)
+    .order("data_movimento", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as Movimento[];
+}
+
+// ─── Custo: despesa simples vinculada ao caixa ─────────────────────────
+export async function registrarCusto(
+  caixaId: string,
+  valor: number,
+  descricao: string,
+  dataMovimento?: string,
+): Promise<Movimento> {
+  const { data, error } = await supabase
+    .from("arr_movimentos")
+    .insert({
+      caixa_id: caixaId,
+      tipo: "custo" as MovimentoTipo,
+      valor,
+      descricao,
+      data_movimento: dataMovimento ?? new Date().toISOString().slice(0,10),
+      registrado_por: (await supabase.auth.getUser()).data.user?.id,
+    })
+    .select().single();
+  if (error) throw error;
+  return data as Movimento;
+}
+
+// ─── Upload de NF anexa ────────────────────────────────────────────────
+export async function uploadAnexoNF(
+  caixaId: string,
+  arquivo: File,
+): Promise<string> {
+  const safe = arquivo.name.replace(/[^\w.\-]+/g, "_");
+  const path = `${caixaId}/${Date.now()}-${safe}`;
+  const { error } = await supabase.storage
+    .from("arrecadacao-nf")
+    .upload(path, arquivo, {
+      cacheControl: "3600",
+      upsert: false,
+      contentType: arquivo.type || undefined,
+    });
+  if (error) throw error;
+  return path;
+}
+
+export async function urlNF(path: string): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from("arrecadacao-nf")
+    .createSignedUrl(path, 3600);
+  if (error) throw error;
+  return data.signedUrl;
+}
+
+// ─── Reembolso a pessoa: gera fin_lancamentos automaticamente (trigger) ─
+export interface NFDados {
+  numero: string;
+  serie?: string;
+  emitida_em: string;
+  cnpj_emitente?: string;
+  anexo_path?: string;
+}
+
+export async function registrarReembolsoPessoa(
+  caixaId: string,
+  valor: number,
+  beneficiarioId: string,
+  descricao: string,
+  nf: NFDados,
+): Promise<Movimento> {
+  const { data, error } = await supabase
+    .from("arr_movimentos")
+    .insert({
+      caixa_id: caixaId,
+      tipo: "reembolso_pessoa" as MovimentoTipo,
+      valor,
+      descricao,
+      beneficiario_membro_id: beneficiarioId,
+      nf_numero: nf.numero,
+      nf_serie: nf.serie ?? null,
+      nf_emitida_em: nf.emitida_em,
+      nf_cnpj_emitente: nf.cnpj_emitente ?? null,
+      nf_anexo_path: nf.anexo_path ?? null,
+      data_movimento: nf.emitida_em,
+      registrado_por: (await supabase.auth.getUser()).data.user?.id,
+    })
+    .select().single();
+  if (error) throw error;
+  return data as Movimento;
+}
+
+// ─── Abate compra CNPJ: vincula a fin_lancamento existente ─────────────
+export async function registrarAbateCompraCNPJ(
+  caixaId: string,
+  finLancamentoId: string,
+  valor: number,
+  descricao: string,
+  nf: NFDados,
+): Promise<Movimento> {
+  const { data, error } = await supabase
+    .from("arr_movimentos")
+    .insert({
+      caixa_id: caixaId,
+      tipo: "abate_compra_cnpj" as MovimentoTipo,
+      valor,
+      descricao,
+      fin_lancamento_id: finLancamentoId,
+      nf_numero: nf.numero,
+      nf_serie: nf.serie ?? null,
+      nf_emitida_em: nf.emitida_em,
+      nf_cnpj_emitente: nf.cnpj_emitente ?? null,
+      nf_anexo_path: nf.anexo_path ?? null,
+      data_movimento: nf.emitida_em,
+      registrado_por: (await supabase.auth.getUser()).data.user?.id,
+    })
+    .select().single();
+  if (error) throw error;
+  return data as Movimento;
+}
+
+// ─── Reversão Admin: devolve saldo virtual para o ministério dono ──────
+export async function registrarReversaoAdmin(
+  caixaId: string,
+  valor: number,
+  descricao: string,
+): Promise<Movimento> {
+  const { data, error } = await supabase
+    .from("arr_movimentos")
+    .insert({
+      caixa_id: caixaId,
+      tipo: "reversao_admin" as MovimentoTipo,
+      valor,
+      descricao,
+      data_movimento: new Date().toISOString().slice(0,10),
+      registrado_por: (await supabase.auth.getUser()).data.user?.id,
+    })
+    .select().single();
+  if (error) throw error;
+  return data as Movimento;
+}
+
+export async function arquivarMovimento(id: string): Promise<void> {
+  const { error } = await supabase
+    .from("arr_movimentos")
+    .update({ arquivado_em: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+// ─── Listar fin_lancamentos saída disponíveis (não vinculados) ─────────
+export interface FinLancamentoDisp {
+  id: string;
+  descricao: string;
+  valor: number;
+  data: string | null;
+  data_competencia: string | null;
+}
+
+export async function listarLancamentosSaidaDisponiveis(): Promise<FinLancamentoDisp[]> {
+  // Lançamentos de saída realizados sem arr_movimentos vinculado
+  const { data, error } = await supabase
+    .from("fin_lancamentos")
+    .select("id, descricao, valor, data, data_competencia")
+    .eq("tipo", "saida")
+    .eq("status", "realizado")
+    .order("data", { ascending: false })
+    .limit(200);
+  if (error) throw error;
+  // Filtra os já vinculados
+  const { data: vinculados } = await supabase
+    .from("arr_movimentos")
+    .select("fin_lancamento_id")
+    .not("fin_lancamento_id", "is", null)
+    .is("arquivado_em", null);
+  const usados = new Set((vinculados ?? []).map((v: any) => v.fin_lancamento_id));
+  return ((data ?? []) as FinLancamentoDisp[]).filter(l => !usados.has(l.id));
+}

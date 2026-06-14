@@ -7,9 +7,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   ArrowLeft, Loader2, CheckCircle2, XCircle, PlayCircle, Trash2,
-  Calendar, MapPin, Sparkles, ClipboardList, AlertCircle, ShoppingCart, FileBarChart,
+  Calendar, MapPin, Sparkles, ClipboardList, AlertCircle, ShoppingCart, FileBarChart, TrendingDown,
 } from "lucide-react";
 import { FechamentoDialog } from "@/components/arrecadacao/FechamentoDialog";
+import { MovimentosDialog } from "@/components/arrecadacao/MovimentosDialog";
 import { toast } from "sonner";
 import {
   carregarReserva, listarChecklist, marcarChecklist,
@@ -50,6 +51,7 @@ export default function ReservaDetalhe() {
   const [caixa, setCaixa] = useState<Caixa | null>(null);
   const [resumo, setResumo] = useState<CaixaResumo | null>(null);
   const [fechamentoOpen, setFechamentoOpen] = useState(false);
+  const [movimentosOpen, setMovimentosOpen] = useState(false);
 
   async function carregar() {
     if (!id) return;
@@ -252,6 +254,11 @@ export default function ReservaDetalhe() {
                 </Button>
               )}
               {caixa.estado !== "fechado" && (
+                <Button size="sm" variant="outline" onClick={() => setMovimentosOpen(true)} className="gap-1.5">
+                  <TrendingDown className="w-3.5 h-3.5" /> Movimentos
+                </Button>
+              )}
+              {caixa.estado !== "fechado" && (
                 <Button size="sm" variant="outline" onClick={() => setFechamentoOpen(true)} className="gap-1.5">
                   <FileBarChart className="w-3.5 h-3.5" /> Fechar caixa
                 </Button>
@@ -269,6 +276,15 @@ export default function ReservaDetalhe() {
           reservaFinalidade={reserva.finalidade}
           espacoNome={reserva.espaco?.nome}
           onFechado={carregar}
+        />
+      )}
+
+      {movimentosOpen && caixa && (
+        <MovimentosDialog
+          open={movimentosOpen}
+          onOpenChange={setMovimentosOpen}
+          caixaId={caixa.id}
+          onChange={carregar}
         />
       )}
     </div>
