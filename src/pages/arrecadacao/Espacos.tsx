@@ -1,0 +1,94 @@
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ArrowLeft, Settings, Loader2, Save, ShoppingBag } from "lucide-react";
+import { toast } from "sonner";
+import { listarEspacos, atualizarTaxasEspaco, type Espaco } from "@/services/arrecadacaoService";
+
+export default function ArrecadacaoEspacos() {
+  const [espacos, setEspacos] = useState<Espaco[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [salvandoId, setSalvandoId] = useState<string | null>(null);
+
+  useEffect(() => { listarEspacos().then(setEspacos).finally(() => setLoading(false)); }, []);
+
+  async function salvar(esp: Espaco) {
+    setSalvandoId(esp.id);
+    try {
+      await atualizarTaxasEspaco(esp.id, {
+        taxa_debito_pct: esp.taxa_debito_pct,
+        taxa_credito_pct: esp.taxa_credito_pct,
+        taxa_pix_pct: esp.taxa_pix_pct,
+      });
+      toast.success(`${esp.nome} atualizado`);
+    } catch (err: any) { toast.error(err?.message ?? "Erro"); }
+    finally { setSalvandoId(null); }
+  }
+
+  function atualizar(id: string, patch: Partial<Espaco>) {
+    setEspacos(espacos.map(e => e.id === id ? { ...e, ...patch } : e));
+  }
+
+  if (loading) return <div className="py-12 text-center"><Loader2 className="w-5 h-5 animate-spin inline" /></div>;
+
+  return (
+    <div className="p-4 md:p-8 max-w-3xl mx-auto space-y-4">
+      <header className="flex items-center gap-2">
+        <Button size="sm" variant="ghost" asChild>
+          <Link to="/arrecadacao"><ArrowLeft className="w-4 h-4" /></Link>
+        </Button>
+        <Settings className="w-5 h-5 text-gold" />
+        <h1 className="font-serif text-xl">Configuração dos espaços</h1>
+      </header>
+
+      <p className="text-xs text-muted-foreground">
+        Taxas configuradas aqui são aplicadas em cada caixa novo (snapshot).
+        Caixas já abertos preservam as taxas que tinham no momento da abertura.
+      </p>
+
+      {espacos.map(e => (
+        <Card key={e.id}>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <ShoppingBag className="w-4 h-4 text-gold" /> {e.nome}
+              <span className="text-[10px] text-muted-foreground font-normal ml-auto">{e.codigo}</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            {e.descricao && <p className="text-xs text-muted-foreground">{e.descricao}</p>}
+            <div className="grid grid-cols-3 gap-2">
+              <Field label="Taxa débito (%)">
+                <Input type="number" step="0.01" value={e.taxa_debito_pct}
+                  onChange={ev => atualizar(e.id, { taxa_debito_pct: Number(ev.target.value) })} />
+              </Field>
+              <Field label="Taxa crédito (%)">
+                <Input type="number" step="0.01" value={e.taxa_credito_pct}
+                  onChange={ev => atualizar(e.id, { taxa_credito_pct: Number(ev.target.value) })} />
+              </Field>
+              <Field label="Taxa PIX (%)">
+                <Input type="number" step="0.01" value={e.taxa_pix_pct}
+                  onChange={ev => atualizar(e.id, { taxa_pix_pct: Number(ev.target.value) })} />
+              </Field>
+            </div>
+            <Button size="sm" onClick={() => salvar(e)} disabled={salvandoId === e.id} className="gap-2">
+              {salvandoId === e.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+              Salvar {e.nome}
+            </Button>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1">
+      <Label className="text-[11px] text-muted-foreground">{label}</Label>
+      {children}
+    </div>
+  );
+}

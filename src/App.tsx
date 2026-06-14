@@ -57,6 +57,11 @@ import BazarCampanha from "./pages/bazar/Campanha.tsx";
 import BazarNovaCampanha from "./pages/bazar/NovaCampanha.tsx";
 import BazarCaixa from "./pages/bazar/caixa.tsx";
 import BazarConfigPage from "./pages/bazar/Config.tsx";
+// Arrecadação (Fase 3 — novo módulo, paralelo ao bazar)
+import ArrecadacaoHome from "./pages/arrecadacao/index.tsx";
+import ArrecadacaoEspacos from "./pages/arrecadacao/Espacos.tsx";
+import ArrecadacaoNovaReserva from "./pages/arrecadacao/NovaReserva.tsx";
+import ArrecadacaoReserva from "./pages/arrecadacao/Reserva.tsx";
 import Membresia from "./pages/Membresia.tsx";
 import MembresiaDetalhe from "./pages/MembresiaDetalhe.tsx";
 import PainelSecretaria from "./pages/PainelSecretaria.tsx";
@@ -146,6 +151,10 @@ const App = () => (
                   <Route path="/bazar/campanha/:id" element={<BazarCampanha />} />
                   <Route path="/bazar/caixa/:id" element={<BazarCaixa />} />
                   <Route path="/bazar/config" element={<BazarConfigPage />} />
+                  <Route path="/arrecadacao" element={<ArrecadacaoHome />} />
+                  <Route path="/arrecadacao/espacos" element={<ArrecadacaoEspacos />} />
+                  <Route path="/arrecadacao/reservas/nova" element={<ArrecadacaoNovaReserva />} />
+                  <Route path="/arrecadacao/reserva/:id" element={<ArrecadacaoReserva />} />
                   <Route path="/membresia" element={<Membresia />} />
                   <Route path="/membresia/:id" element={<MembresiaDetalhe />} />
                   <Route path="/painel-secretaria" element={<PainelSecretaria />} />

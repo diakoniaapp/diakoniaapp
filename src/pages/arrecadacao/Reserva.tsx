@@ -1,0 +1,240 @@
+import { useEffect, useState } from "react";
+import { Link, useParams, useNavigate } from "react-router-dom";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  ArrowLeft, Loader2, CheckCircle2, XCircle, PlayCircle, Trash2,
+  Calendar, MapPin, Sparkles, ClipboardList, AlertCircle,
+} from "lucide-react";
+import { toast } from "sonner";
+import {
+  carregarReserva, listarChecklist, marcarChecklist,
+  aprovarReserva, recusarReserva, iniciarUso, arquivarReserva,
+  type Reserva, type ChecklistItem, type ReservaStatus,
+} from "@/services/arrecadacaoService";
+
+const STATUS_LABEL: Record<ReservaStatus, string> = {
+  solicitada: "Solicitada", aprovada: "Aprovada", recusada: "Recusada",
+  em_uso: "Em uso", encerrada: "Encerrada", cancelada: "Cancelada",
+};
+
+const STATUS_COR: Record<ReservaStatus, string> = {
+  solicitada: "bg-amber-50 text-amber-700 border-amber-200",
+  aprovada:   "bg-blue-50 text-blue-700 border-blue-200",
+  em_uso:     "bg-emerald-50 text-emerald-700 border-emerald-200",
+  encerrada:  "bg-muted text-muted-foreground border-border",
+  recusada:   "bg-rose-50 text-rose-700 border-rose-200",
+  cancelada:  "bg-muted text-muted-foreground line-through",
+};
+
+function fmtPeriodo(p: string) {
+  const m = p.match(/\["?([^",]+)[",)]+"?([^",)]+)/);
+  if (!m) return p;
+  const ini = new Date(m[1]).toLocaleDateString("pt-BR");
+  const fim = new Date(m[2]).toLocaleDateString("pt-BR");
+  return `${ini} → ${fim}`;
+}
+
+export default function ReservaDetalhe() {
+  const { id } = useParams<{ id: string }>();
+  const nav = useNavigate();
+  const [reserva, setReserva] = useState<Reserva | null>(null);
+  const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [motivoRecusa, setMotivoRecusa] = useState("");
+
+  async function carregar() {
+    if (!id) return;
+    setLoading(true);
+    try {
+      const [r, c] = await Promise.all([carregarReserva(id), listarChecklist(id)]);
+      setReserva(r); setChecklist(c);
+    } finally { setLoading(false); }
+  }
+  useEffect(() => { carregar(); }, [id]);
+
+  async function acao(tipo: "aprovar" | "recusar" | "iniciar" | "arquivar") {
+    if (!reserva) return;
+    try {
+      if (tipo === "aprovar") await aprovarReserva(reserva.id);
+      if (tipo === "recusar") {
+        if (!motivoRecusa.trim()) { toast.error("Informe o motivo da recusa"); return; }
+        await recusarReserva(reserva.id, motivoRecusa);
+        setMotivoRecusa("");
+      }
+      if (tipo === "iniciar") await iniciarUso(reserva.id);
+      if (tipo === "arquivar") {
+        if (!confirm("Arquivar esta reserva e todos os caixas/vendas vinculados?")) return;
+        await arquivarReserva(reserva.id);
+        nav("/arrecadacao"); return;
+      }
+      toast.success("Atualizado");
+      await carregar();
+    } catch (err: any) { toast.error(err?.message ?? "Erro"); }
+  }
+
+  async function toggleChecklist(item: ChecklistItem, ok: boolean) {
+    try {
+      await marcarChecklist(item.id, ok);
+      setChecklist(checklist.map(c => c.id === item.id ? { ...c, ok } : c));
+    } catch (err: any) { toast.error(err?.message ?? "Erro"); }
+  }
+
+  if (loading || !reserva) {
+    return <div className="py-12 text-center"><Loader2 className="w-5 h-5 animate-spin inline" /></div>;
+  }
+
+  const obrigatorios = checklist.filter(c => c.obrigatorio);
+  const obrigatoriosOk = obrigatorios.filter(c => c.ok).length;
+  const podeIniciar = reserva.status === "aprovada" && obrigatoriosOk === obrigatorios.length;
+
+  return (
+    <div className="p-4 md:p-8 max-w-3xl mx-auto space-y-4">
+      <header className="flex items-center gap-2 flex-wrap">
+        <Button size="sm" variant="ghost" asChild>
+          <Link to="/arrecadacao"><ArrowLeft className="w-4 h-4" /></Link>
+        </Button>
+        <div className="flex-1 min-w-0">
+          <h1 className="font-serif text-lg md:text-xl truncate">{reserva.finalidade}</h1>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <Badge variant="outline" className={`text-[9px] ${STATUS_COR[reserva.status]}`}>
+              {STATUS_LABEL[reserva.status]}
+            </Badge>
+            <Badge variant="outline" className="text-[9px]">{reserva.espaco?.codigo}</Badge>
+          </div>
+        </div>
+        {reserva.status === "solicitada" && (
+          <>
+            <Button size="sm" onClick={() => acao("aprovar")} className="gap-1.5 bg-emerald-600 hover:bg-emerald-700">
+              <CheckCircle2 className="w-3.5 h-3.5" /> Aprovar
+            </Button>
+          </>
+        )}
+        {reserva.status === "aprovada" && (
+          <Button size="sm" onClick={() => acao("iniciar")} disabled={!podeIniciar}
+            className="gap-1.5 bg-emerald-600 hover:bg-emerald-700"
+            title={podeIniciar ? "" : "Conclua os itens obrigatórios do checklist"}>
+            <PlayCircle className="w-3.5 h-3.5" /> Iniciar uso
+          </Button>
+        )}
+        <Button size="sm" variant="ghost" onClick={() => acao("arquivar")} className="text-rose-600">
+          <Trash2 className="w-3.5 h-3.5" />
+        </Button>
+      </header>
+
+      {/* Resumo */}
+      <Card>
+        <CardContent className="p-3 text-xs space-y-1.5">
+          <Linha icon={<MapPin className="w-3.5 h-3.5" />} label="Espaço">
+            {reserva.espaco?.nome}
+          </Linha>
+          <Linha icon={<Calendar className="w-3.5 h-3.5" />} label="Período">
+            {fmtPeriodo(reserva.periodo)}
+          </Linha>
+          <Linha icon={<Sparkles className="w-3.5 h-3.5" />} label="Área solicitante">
+            {reserva.area?.nome ?? "—"}
+          </Linha>
+          <Linha icon={<Sparkles className="w-3.5 h-3.5" />} label="Responsável">
+            {reserva.responsavel?.nome_completo ?? "—"}
+          </Linha>
+          {reserva.observacoes && (
+            <Linha icon={<AlertCircle className="w-3.5 h-3.5" />} label="Observações">
+              {reserva.observacoes}
+            </Linha>
+          )}
+          {reserva.motivo_recusa && (
+            <Linha icon={<XCircle className="w-3.5 h-3.5 text-rose-600" />} label="Motivo da recusa">
+              <span className="text-rose-700">{reserva.motivo_recusa}</span>
+            </Linha>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Recusar (somente solicitadas) */}
+      {reserva.status === "solicitada" && (
+        <Card className="border-rose-200">
+          <CardHeader>
+            <CardTitle className="text-sm flex items-center gap-2 text-rose-700">
+              <XCircle className="w-3.5 h-3.5" /> Recusar reserva
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <Textarea value={motivoRecusa} onChange={e => setMotivoRecusa(e.target.value)}
+              placeholder="Motivo da recusa (obrigatório)" />
+            <Button variant="outline" size="sm" onClick={() => acao("recusar")} disabled={!motivoRecusa.trim()}
+              className="gap-1.5 text-rose-700 border-rose-300">
+              <XCircle className="w-3.5 h-3.5" /> Confirmar recusa
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Checklist */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <ClipboardList className="w-4 h-4 text-gold" />
+            Checklist de uso
+            {obrigatorios.length > 0 && (
+              <Badge variant="outline" className="text-[9px] ml-auto">
+                {obrigatoriosOk}/{obrigatorios.length} obrigatórios
+              </Badge>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {checklist.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-3">
+              Nenhum item no checklist. (Verifique se há templates ativos em arr_checklist_template.)
+            </p>
+          ) : (
+            <div className="space-y-1.5">
+              {checklist.map(item => (
+                <div key={item.id} className="flex items-start gap-2 p-2 border rounded-md text-sm">
+                  <Checkbox checked={item.ok} onCheckedChange={(v) => toggleChecklist(item, !!v)}
+                    className="mt-0.5" />
+                  <div className="flex-1">
+                    <span className={item.ok ? "line-through text-muted-foreground" : ""}>{item.item}</span>
+                    {item.obrigatorio && (
+                      <Badge variant="outline" className="text-[9px] ml-1.5 bg-amber-50 text-amber-700 border-amber-200">
+                        obrigatório
+                      </Badge>
+                    )}
+                    {item.ok && item.ok_em && (
+                      <span className="text-[10px] text-muted-foreground ml-1.5">
+                        ✓ {new Date(item.ok_em).toLocaleString("pt-BR")}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Próximos passos (caixa, produtos) chegam na Onda 3C */}
+      {reserva.status === "em_uso" && (
+        <Card className="border-emerald-200 bg-emerald-50/30">
+          <CardContent className="p-3 text-xs text-emerald-900">
+            <strong>Em uso!</strong> O caixa do PDV será disponibilizado na próxima onda da Fase 3 (3C).
+            Por enquanto, use o módulo Bazar/Cantina antigo (em paralelo).
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+function Linha({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-start gap-2">
+      <span className="text-muted-foreground mt-0.5">{icon}</span>
+      <span className="text-muted-foreground w-32 shrink-0">{label}:</span>
+      <span className="flex-1">{children}</span>
+    </div>
+  );
+}
