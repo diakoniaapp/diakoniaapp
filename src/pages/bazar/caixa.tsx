@@ -24,7 +24,13 @@ const fmtBR = (n: number) => n.toLocaleString("pt-BR", { style: "currency", curr
 
 const FORMA_ICONE: Record<FormaPagamento, any> = {
   dinheiro: Banknote, pix: QrCode, cartao: CreditCard,
+  debito: CreditCard, credito: CreditCard,
   fiado: Wallet, outros: ShoppingCart,
+};
+const FORMA_LABEL: Record<FormaPagamento, string> = {
+  dinheiro: "Dinheiro", pix: "PIX", cartao: "Cartão",
+  debito: "Débito", credito: "Crédito",
+  fiado: "Fiado", outros: "Outros",
 };
 
 export default function Caixa() {
@@ -274,7 +280,7 @@ export default function Caixa() {
             <div>
               <Label className="text-[11px]">Forma de pagamento</Label>
               <div className="grid grid-cols-3 gap-1 mt-1">
-                {(["dinheiro","pix","cartao","fiado"] as FormaPagamento[]).map(f => {
+                {(["dinheiro","pix","debito","credito","fiado"] as FormaPagamento[]).map(f => {
                   const Icon = FORMA_ICONE[f];
                   return (
                     <button key={f} onClick={() => setPagamento(f)}
@@ -283,7 +289,7 @@ export default function Caixa() {
                         (pagamento === f ? "bg-emerald-50 border-emerald-300 text-emerald-700 font-medium" : "hover:bg-muted/30")
                       }>
                       <Icon className="w-3.5 h-3.5" />
-                      {f}
+                      {FORMA_LABEL[f]}
                     </button>
                   );
                 })}

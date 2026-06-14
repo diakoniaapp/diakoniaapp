@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export type ModalidadeBazar = "bazar" | "cantina" | "ambos";
 export type StatusCampanha = "planejada" | "ativa" | "encerrada" | "cancelada";
-export type FormaPagamento = "dinheiro" | "pix" | "cartao" | "fiado" | "outros";
+export type FormaPagamento = "dinheiro" | "pix" | "cartao" | "debito" | "credito" | "fiado" | "outros";
 
 export interface Campanha {
   id: string;
@@ -248,4 +248,120 @@ export async function carregarResumoBazar(): Promise<ResumoBazar> {
   const { data, error } = await supabase.rpc("bazar_resumo");
   if (error) throw error;
   return (data ?? { ativas: [], proximas: [], total_arrecadado_ano: 0 }) as ResumoBazar;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// v2: config global de taxas + fechamento de caixa
+// ═══════════════════════════════════════════════════════════════════════
+
+export interface BazarConfig {
+  id: number;
+  taxa_debito_pct: number;
+  taxa_credito_pct: number;
+  taxa_pix_pct: number;
+  taxa_outros_pct: number;
+  observacao: string | null;
+  atualizado_em: string;
+}
+
+export async function carregarBazarConfig(): Promise<BazarConfig | null> {
+  const { data, error } = await supabase
+    .from("bazar_config").select("*").eq("id", 1).maybeSingle();
+  if (error) throw error;
+  return data as BazarConfig | null;
+}
+
+export async function atualizarBazarConfig(patch: Partial<BazarConfig>): Promise<void> {
+  const { error } = await supabase
+    .from("bazar_config")
+    .update({ ...patch, atualizado_em: new Date().toISOString() })
+    .eq("id", 1);
+  if (error) throw error;
+}
+
+// ─── Catálogo: editar (faltava no v1) ────────────────────────────────
+export async function atualizarItemCatalogo(id: string, patch: Partial<ItemCatalogo>): Promise<void> {
+  const { error } = await supabase.from("bazar_itens_catalogo").update(patch).eq("id", id);
+  if (error) throw error;
+}
+
+// ─── Fechamento de caixa ─────────────────────────────────────────────
+export interface ResumoFechamento {
+  campanha_nome: string;
+  campanha_modalidade: string;
+  tipo: "diario" | "final";
+  data_referencia: string;
+  periodo_inicio: string;
+  periodo_fim: string;
+  total_bruto: number;
+  qtd_vendas: number;
+  total_custos: number;
+  taxa_debito_pct: number;
+  taxa_credito_pct: number;
+  taxa_pix_pct: number;
+  taxa_debito: number;
+  taxa_credito: number;
+  taxa_pix: number;
+  total_taxas: number;
+  total_liquido: number;
+  vendas_por_forma: Record<string, number>;
+  top_vendedores: Array<{ vendedor: string; total: number; qtd: number }>;
+}
+
+export async function previewFechamento(
+  campanhaId: string,
+  data?: string,    // YYYY-MM-DD; null = final
+): Promise<ResumoFechamento> {
+  const { data: resp, error } = await supabase.rpc("bazar_resumo_fechamento", {
+    p_campanha_id: campanhaId,
+    p_data: data ?? null,
+  });
+  if (error) throw error;
+  return resp as ResumoFechamento;
+}
+
+export async function fecharCaixa(
+  campanhaId: string,
+  tipo: "diario" | "final",
+  data?: string,
+  observacao?: string,
+): Promise<string> {
+  const { data: resp, error } = await supabase.rpc("bazar_fechar_caixa", {
+    p_campanha_id: campanhaId,
+    p_tipo: tipo,
+    p_data: tipo === "diario" ? (data ?? new Date().toISOString().slice(0,10)) : null,
+    p_observacao: observacao ?? null,
+  });
+  if (error) throw error;
+  return resp as string;
+}
+
+export interface FechamentoSalvo {
+  id: string;
+  campanha_id: string;
+  tipo: "diario" | "final";
+  data_referencia: string;
+  fechado_em: string;
+  fechado_por_nome: string | null;
+  total_dinheiro: number;
+  total_pix: number;
+  total_debito: number;
+  total_credito: number;
+  total_fiado: number;
+  total_outros: number;
+  total_bruto: number;
+  qtd_vendas: number;
+  total_custos_periodo: number;
+  total_taxas: number;
+  total_liquido: number;
+  observacao: string | null;
+}
+
+export async function listarFechamentos(campanhaId: string): Promise<FechamentoSalvo[]> {
+  const { data, error } = await supabase
+    .from("bazar_fechamentos").select("*")
+    .eq("campanha_id", campanhaId)
+    .order("data_referencia", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as FechamentoSalvo[];
 }

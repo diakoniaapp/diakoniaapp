@@ -54,6 +54,7 @@ const ROUTES: CommandRoute[] = [
   { to: "/bazar",      label: "Bazar / Cantina", icon: ShoppingBag, group: "Administração", keywords: ["venda","caixa","pdv","cantina","arrecadacao","campanha","missoes","aniversario","oferta"], permissoes: ["ver_bazar","ver_financeiro"] },
   { to: "/bazar/campanhas/nova", label: "+ Nova campanha de bazar/cantina", icon: ShoppingBag, group: "Ações", keywords: ["bazar","cantina","campanha","nova"], permissoes: ["gerenciar_bazar","ver_financeiro"] },
   { to: "/bazar", label: "🛒 PDV / Caixa do bazar", icon: ShoppingBag, group: "Ações", keywords: ["caixa","pdv","venda","vender","registrar","fechar caixa","cantina"], permissoes: ["operar_caixa_bazar","ver_bazar","ver_financeiro"] },
+  { to: "/bazar/config", label: "Configurar taxas do bazar", icon: ShoppingBag, group: "Configurações", keywords: ["taxa","cartao","debito","credito","pix","bazar","cantina","pagseguro","cielo"], permissoes: ["gerenciar_bazar","ver_financeiro"] },
 
   // ── Financeiro ────────────────────────────────────────────────────
   { to: "/financas",         label: "Tesouraria",     icon: DollarSign, group: "Financeiro", keywords: ["dinheiro","caixa","contas","conta"] },

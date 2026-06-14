@@ -14,7 +14,10 @@ import {
 import {
   ArrowLeft, Loader2, ShoppingCart, Plus, TrendingUp, TrendingDown,
   ListPlus, Trash2, Calendar, Target, AlertCircle, PlayCircle, CheckCircle2,
+  Edit3, FileBarChart,
 } from "lucide-react";
+import { EditarItemCatalogoDialog } from "@/components/bazar/EditarItemCatalogoDialog";
+import { FechamentoCaixaDialog } from "@/components/bazar/FechamentoCaixaDialog";
 import { toast } from "sonner";
 import {
   carregarCampanha, listarCatalogo, criarItemCatalogo, excluirItemCatalogo,
@@ -34,6 +37,8 @@ export default function CampanhaPage() {
   const [vendas, setVendas] = useState<Venda[]>([]);
   const [custos, setCustos] = useState<Custo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editItem, setEditItem] = useState<ItemCatalogo | null>(null);
+  const [fechamento, setFechamento] = useState<"diario" | "final" | null>(null);
 
   async function carregar() {
     if (!id) return;
@@ -99,8 +104,11 @@ export default function CampanhaPage() {
             <Button size="sm" asChild className="gap-1.5">
               <Link to={`/bazar/caixa/${camp.id}`}><ShoppingCart className="w-3.5 h-3.5" /> Abrir caixa</Link>
             </Button>
-            <Button size="sm" variant="outline" onClick={() => acao("encerrar")} className="gap-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Encerrar
+            <Button size="sm" variant="outline" onClick={() => setFechamento("diario")} className="gap-1.5">
+              <FileBarChart className="w-3.5 h-3.5" /> Fechar dia (X)
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setFechamento("final")} className="gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5" /> Encerrar campanha
             </Button>
           </>
         )}
@@ -163,14 +171,24 @@ export default function CampanhaPage() {
           <NovoItemCatalogo campanhaId={camp.id} onAdded={carregar} />
           <div className="space-y-1.5 mt-2">
             {catalogo.map(item => (
-              <div key={item.id} className="border rounded-md p-2 text-xs flex items-center gap-2">
+              <div key={item.id} className={"border rounded-md p-2 text-xs flex items-center gap-2 " + (item.ativo ? "" : "opacity-50")}>
                 <div className="flex-1">
                   <span className="font-medium">{item.nome}</span>
                   {item.categoria && <Badge variant="outline" className="text-[9px] ml-1.5">{item.categoria}</Badge>}
+                  {!item.ativo && <Badge variant="outline" className="text-[9px] ml-1">inativo</Badge>}
                 </div>
                 <span className="font-medium">{fmtBR(item.preco_sugerido)}</span>
-                <button onClick={async () => { await excluirItemCatalogo(item.id); carregar(); }}
-                  className="text-rose-600 hover:bg-rose-50 p-1 rounded">
+                <button onClick={() => setEditItem(item)}
+                  className="text-blue-600 hover:bg-blue-50 p-1 rounded" title="Editar">
+                  <Edit3 className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!confirm(`Excluir "${item.nome}"?`)) return;
+                    try { await excluirItemCatalogo(item.id); toast.success("Excluído"); carregar(); }
+                    catch (err: any) { toast.error(err?.message ?? "Erro"); }
+                  }}
+                  className="text-rose-600 hover:bg-rose-50 p-1 rounded" title="Excluir">
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -188,7 +206,11 @@ export default function CampanhaPage() {
                   <span className="text-muted-foreground"> · {new Date(c.data_compra + "T00:00").toLocaleDateString("pt-BR")}</span>
                 </div>
                 <span className="font-medium">{fmtBR(c.valor)}</span>
-                <button onClick={async () => { await excluirCusto(c.id); carregar(); }}
+                <button onClick={async () => {
+                    if (!confirm(`Excluir custo "${c.descricao}"?`)) return;
+                    try { await excluirCusto(c.id); toast.success("Excluído"); carregar(); }
+                    catch (err: any) { toast.error(err?.message ?? "Erro"); }
+                  }}
                   className="text-rose-600 hover:bg-rose-50 p-1 rounded">
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
@@ -197,6 +219,23 @@ export default function CampanhaPage() {
           </div>
         </TabsContent>
       </Tabs>
+
+      <EditarItemCatalogoDialog
+        open={!!editItem}
+        onOpenChange={(v) => { if (!v) setEditItem(null); }}
+        item={editItem}
+        onSaved={carregar}
+      />
+
+      {fechamento && (
+        <FechamentoCaixaDialog
+          open={!!fechamento}
+          onOpenChange={(v) => { if (!v) setFechamento(null); }}
+          campanhaId={camp.id}
+          tipo={fechamento}
+          onFechado={carregar}
+        />
+      )}
     </div>
   );
 }

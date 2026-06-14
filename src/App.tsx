@@ -56,6 +56,7 @@ import BazarHome from "./pages/bazar/index.tsx";
 import BazarCampanha from "./pages/bazar/Campanha.tsx";
 import BazarNovaCampanha from "./pages/bazar/NovaCampanha.tsx";
 import BazarCaixa from "./pages/bazar/caixa.tsx";
+import BazarConfigPage from "./pages/bazar/Config.tsx";
 import Membresia from "./pages/Membresia.tsx";
 import MembresiaDetalhe from "./pages/MembresiaDetalhe.tsx";
 import PainelSecretaria from "./pages/PainelSecretaria.tsx";
@@ -144,6 +145,7 @@ const App = () => (
                   <Route path="/bazar/campanhas/nova" element={<BazarNovaCampanha />} />
                   <Route path="/bazar/campanha/:id" element={<BazarCampanha />} />
                   <Route path="/bazar/caixa/:id" element={<BazarCaixa />} />
+                  <Route path="/bazar/config" element={<BazarConfigPage />} />
                   <Route path="/membresia" element={<Membresia />} />
                   <Route path="/membresia/:id" element={<MembresiaDetalhe />} />
                   <Route path="/painel-secretaria" element={<PainelSecretaria />} />

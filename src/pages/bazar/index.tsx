@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  ShoppingBag, Plus, Loader2, ChevronRight, Calendar, Target, TrendingUp, ShoppingCart,
+  ShoppingBag, Plus, Loader2, ChevronRight, Calendar, Target, TrendingUp, ShoppingCart, Settings,
   Sparkles,
 } from "lucide-react";
 import { carregarResumoBazar, type ResumoBazar } from "@/services/bazarService";
@@ -36,6 +36,9 @@ export default function BazarHome() {
           <h1 className="font-serif text-xl md:text-2xl">Bazar e Cantina</h1>
           <p className="text-xs text-muted-foreground">Área compartilhada — campanhas pra arrecadação por ministério</p>
         </div>
+        <Button size="sm" variant="ghost" asChild>
+          <Link to="/bazar/config" title="Configurar taxas"><Settings className="w-4 h-4" /></Link>
+        </Button>
         <Button size="sm" asChild className="gap-2">
           <Link to="/bazar/campanhas/nova"><Plus className="w-4 h-4" /> Nova campanha</Link>
         </Button>
