@@ -518,3 +518,105 @@ export async function exportarMaloteFiscalZip(ano: number, mes: number): Promise
   const zipBlob = await zip.generateAsync({ type: "blob" });
   saveAs(zipBlob, `${pastaNome}.zip`);
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// FB-4: OCR + IA + Inteligência
+// ═══════════════════════════════════════════════════════════════════════
+
+import { extrairDadosDoComprovante, pdfParaImagem, type OcrResultado } from "@/services/ocrService";
+
+export interface AnaliseGuiaFiscal {
+  ocr: OcrResultado;
+  codigo_obrigacao_sugerido: string | null;
+  nome_obrigacao_sugerida: string | null;
+  competencia_sugerida: string | null;
+  vencimento_sugerido: string | null;
+  valor_sugerido: number | null;
+}
+
+function inferirCodigoObrigacao(texto: string): string | null {
+  const t = texto.toUpperCase();
+  if (/\bFGTS\b/.test(t) || /FUNDO.*GARANTIA/.test(t) || /\bGRF\b/.test(t)) return "FGTS";
+  if (/\bDCTFWEB\b/.test(t) || /DECLARA[ÇC][ÃA]O.*D[ÉE]BITOS.*CR[ÉE]DITOS/.test(t)) return "DCTFWeb";
+  if (/\bESOCIAL\b/.test(t)) return "eSocial";
+  if (/\bISS\b/.test(t) || /SERVI[ÇC]O.*MUNICIPAL/.test(t) || /\bNFS-?E\b/.test(t)) return "ISS";
+  if (/\bDARF\b/.test(t)) {
+    if (/IRRF|IMPOSTO.*RENDA.*FONTE/.test(t)) return "DARF_IRRF";
+    if (/INSS|PREVID[ÊE]NCIA/.test(t)) return "DARF_INSS";
+    return "DARF_INSS";
+  }
+  if (/\bDIRF\b/.test(t)) return "DIRF";
+  return null;
+}
+
+function extrairCompetenciaOCR(texto: string): string | null {
+  const m1 = texto.match(/(?:compet[êe]ncia|per[íi]odo|m[êe]s)[:\s]*(\d{2})[\/.](\d{4})/i);
+  if (m1) return `${m1[2]}-${m1[1]}-01`;
+  const m2 = texto.match(/\b(0[1-9]|1[0-2])[\/.](\d{4})\b/);
+  if (m2) return `${m2[2]}-${m2[1]}-01`;
+  return null;
+}
+
+export async function analisarGuiaFiscal(arquivo: File): Promise<AnaliseGuiaFiscal> {
+  let arquivoOCR = arquivo;
+  if (arquivo.type === "application/pdf" || arquivo.name.toLowerCase().endsWith(".pdf")) {
+    arquivoOCR = await pdfParaImagem(arquivo, 2);
+  }
+  const ocr = await extrairDadosDoComprovante(arquivoOCR);
+  const codigo = inferirCodigoObrigacao(ocr.textoBruto);
+
+  let nomeSugerido: string | null = null;
+  if (codigo) {
+    const { data } = await supabase
+      .from("fiscal_tipos_obrigacao")
+      .select("nome")
+      .eq("codigo", codigo)
+      .maybeSingle();
+    nomeSugerido = data?.nome ?? null;
+  }
+  return {
+    ocr,
+    codigo_obrigacao_sugerido: codigo,
+    nome_obrigacao_sugerida: nomeSugerido,
+    competencia_sugerida: extrairCompetenciaOCR(ocr.textoBruto),
+    vencimento_sugerido: ocr.data,
+    valor_sugerido: ocr.valor,
+  };
+}
+
+export type SeveridadeInc = "alta" | "media" | "baixa";
+export type TipoInconsistencia = "valor_anomalo" | "sem_documento" | "sem_movimento";
+
+export interface InconsistenciaFiscal {
+  tipo: TipoInconsistencia;
+  severidade: SeveridadeInc;
+  agenda_id: string;
+  codigo_obrigacao: string;
+  nome_obrigacao: string;
+  competencia: string;
+  mensagem: string;
+  detalhes: Record<string, any>;
+}
+
+export async function listarInconsistencias(): Promise<InconsistenciaFiscal[]> {
+  const { data, error } = await supabase.rpc("fiscal_inconsistencias");
+  if (error) throw error;
+  return (data ?? []) as InconsistenciaFiscal[];
+}
+
+export interface InsightsFiscais {
+  ano: number;
+  total_pago_ytd: number;
+  total_pago_mes_atual: number;
+  total_pago_mes_anterior: number;
+  variacao_mes_pct: number | null;
+  obrigacao_mais_cara: string | null;
+  obrigacao_mais_cara_total: number | null;
+  count_inconsistencias: number;
+}
+
+export async function carregarInsightsFiscais(): Promise<InsightsFiscais> {
+  const { data, error } = await supabase.rpc("fiscal_insights");
+  if (error) throw error;
+  return data as InsightsFiscais;
+}

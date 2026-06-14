@@ -10,14 +10,17 @@ import {
 } from "@/components/ui/tabs";
 import {
   Receipt, Settings, CalendarDays, Loader2, RefreshCw, Save, CheckCircle2,
-  AlertCircle, Clock, Wallet, Paperclip, Download, FileArchive,
+  AlertCircle, Clock, Wallet, Paperclip, Download, FileArchive, Sparkles, TrendingUp, TrendingDown, Lightbulb,
 } from "lucide-react";
 import { toast } from "sonner";
 import { DocumentosFiscaisDialog } from "@/components/fiscal/DocumentosFiscaisDialog";
+import { AnalisarGuiaDialog } from "@/components/fiscal/AnalisarGuiaDialog";
 import {
   carregarConfig, atualizarConfig,
   listarTiposObrigacao, listarObrigacoesAtivas, definirObrigacaoAtiva,
   gerarAgenda, listarAgenda, darBaixaObrigacao, criarLancamentoFiscal, exportarMaloteFiscalZip,
+  listarInconsistencias, carregarInsightsFiscais,
+  type InconsistenciaFiscal, type InsightsFiscais,
   type FiscalConfig, type FiscalTipoObrigacao, type FiscalObrigacaoAtiva,
   type FiscalAgendaItem,
 } from "@/services/fiscalService";
@@ -31,7 +34,7 @@ const COR_CHIP: Record<string, string> = {
 };
 
 export default function Fiscal() {
-  const [tab, setTab] = useState<"agenda" | "config" | "obrigacoes">("agenda");
+  const [tab, setTab] = useState<"agenda" | "config" | "obrigacoes" | "insights">("agenda");
   return (
     <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-4">
       <header className="flex items-center gap-2">
@@ -46,6 +49,7 @@ export default function Fiscal() {
         <TabsList>
           <TabsTrigger value="agenda"><CalendarDays className="w-3.5 h-3.5 mr-1.5" />Agenda</TabsTrigger>
           <TabsTrigger value="obrigacoes"><Receipt className="w-3.5 h-3.5 mr-1.5" />Obrigações</TabsTrigger>
+          <TabsTrigger value="insights"><Lightbulb className="w-3.5 h-3.5 mr-1.5" />Insights</TabsTrigger>
           <TabsTrigger value="config"><Settings className="w-3.5 h-3.5 mr-1.5" />Configuração</TabsTrigger>
         </TabsList>
 
@@ -54,6 +58,9 @@ export default function Fiscal() {
         </TabsContent>
         <TabsContent value="obrigacoes" className="mt-4">
           <AbaObrigacoes />
+        </TabsContent>
+        <TabsContent value="insights" className="mt-4">
+          <AbaInsights />
         </TabsContent>
         <TabsContent value="config" className="mt-4">
           <AbaConfig />
@@ -208,6 +215,7 @@ function AbaObrigacoes() {
 function AbaAgenda() {
   const [items, setItems] = useState<FiscalAgendaItem[]>([]);
   const [docDialog, setDocDialog] = useState<{ id: string; nome: string } | null>(null);
+  const [ocrDialog, setOcrDialog] = useState<{ id: string; nome: string } | null>(null);
   const [exportando, setExportando] = useState(false);
   const [loading, setLoading] = useState(true);
   const [gerando, setGerando] = useState(false);
@@ -335,6 +343,13 @@ function AbaAgenda() {
               <Button
                 size="sm" variant="ghost"
                 className="text-[10px] gap-1 h-7 px-2"
+                onClick={() => setOcrDialog({ id: it.id, nome: it.tipo?.nome ?? "Obrigação" })}
+                title="Analisar guia com OCR">
+                <Sparkles className="w-3 h-3 text-gold" />
+              </Button>
+              <Button
+                size="sm" variant="ghost"
+                className="text-[10px] gap-1 h-7 px-2"
                 onClick={() => setDocDialog({ id: it.id, nome: it.tipo?.nome ?? "Obrigação" })}
                 title="Documentos anexados">
                 <Paperclip className="w-3 h-3 text-blue-600" />
@@ -366,6 +381,100 @@ function AbaAgenda() {
           nomeObrigacao={docDialog.nome}
         />
       )}
+      {ocrDialog && (
+        <AnalisarGuiaDialog
+          open={!!ocrDialog}
+          onOpenChange={(v) => { if (!v) setOcrDialog(null); }}
+          agendaId={ocrDialog.id}
+          nomeObrigacao={ocrDialog.nome}
+          onAplicado={carregar}
+        />
+      )}
+    </Card>
+  );
+}
+
+
+// ─── Aba Insights ─────────────────────────────────────────────────────
+function AbaInsights() {
+  const [insights, setInsights] = useState<InsightsFiscais | null>(null);
+  const [inc, setInc] = useState<InconsistenciaFiscal[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([carregarInsightsFiscais(), listarInconsistencias()])
+      .then(([i, c]) => { setInsights(i); setInc(c); })
+      .finally(() => setLoading(false));
+  }, []);
+
+  const fmtBR = (n: number | null) =>
+    n == null ? "—" : n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+  if (loading) return <Loading />;
+
+  return (
+    <div className="space-y-4">
+      {/* Métricas */}
+      {insights && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <Metrica titulo={"Pago em " + insights.ano} valor={fmtBR(insights.total_pago_ytd)} />
+          <Metrica titulo="Mês atual" valor={fmtBR(insights.total_pago_mes_atual)}
+            variacao={insights.variacao_mes_pct} />
+          <Metrica titulo="Mês anterior" valor={fmtBR(insights.total_pago_mes_anterior)} />
+          <Metrica titulo={"Mais cara: " + (insights.obrigacao_mais_cara ?? "—")}
+            valor={fmtBR(insights.obrigacao_mais_cara_total)} />
+        </div>
+      )}
+
+      {/* Inconsistências */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Lightbulb className="w-4 h-4 text-gold" /> Inconsistências detectadas
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          {inc.length === 0 ? (
+            <p className="text-xs text-emerald-700 text-center py-3">
+              ✓ Nenhuma inconsistência detectada
+            </p>
+          ) : inc.map((x, idx) => (
+            <div key={idx} className={
+              "border rounded-md p-2 text-xs " +
+              (x.severidade === "alta" ? "border-rose-200 bg-rose-50/30" :
+               x.severidade === "media" ? "border-amber-200 bg-amber-50/30" : "border-blue-200 bg-blue-50/30")
+            }>
+              <div className="flex items-center gap-1.5 mb-1">
+                <Badge variant="outline" className="text-[9px]">
+                  {x.tipo.replace("_", " ")}
+                </Badge>
+                <Badge variant="outline" className="text-[9px]">
+                  {x.severidade}
+                </Badge>
+                <span className="font-medium">{x.nome_obrigacao}</span>
+              </div>
+              <p className="text-muted-foreground">{x.mensagem}</p>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function Metrica({ titulo, valor, variacao }: { titulo: string; valor: string; variacao?: number | null }) {
+  return (
+    <Card>
+      <CardContent className="p-3">
+        <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{titulo}</div>
+        <div className="text-base font-medium font-serif">{valor}</div>
+        {variacao != null && (
+          <div className={"flex items-center gap-1 text-[10px] " + (variacao >= 0 ? "text-emerald-700" : "text-rose-700")}>
+            {variacao >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+            {variacao.toFixed(1)}% vs mês anterior
+          </div>
+        )}
+      </CardContent>
     </Card>
   );
 }
