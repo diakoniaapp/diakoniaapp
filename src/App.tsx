@@ -75,8 +75,6 @@ import Usuarios from "./pages/Usuarios.tsx";
 import { AuthProvider } from "./hooks/useAuth.tsx";
 import { ErrorBoundary } from "./components/ErrorBoundary.tsx";
 import { ThemeProvider } from "./hooks/useTheme.tsx";
-import Bazar from "./pages/bazar";
-import Caixa from "./pages/bazar/caixa";
 
 const queryClient = new QueryClient();
 
@@ -163,8 +161,6 @@ const App = () => (
                   <Route path="/admin/importacao" element={<ImportacaoMembros />} />
                   <Route path="/admin/exportacao" element={<ExportacaoAdmin />} />
                   <Route path="/admin/campanhas" element={<CampanhasAdmin />} />
-                  <Route path="/bazar" element={<Bazar />} />
-                  <Route path="/bazar/caixa" element={<Caixa />} />
                 </Route>
 
                 {/* Redirecionar /dashboard para a raiz */}
