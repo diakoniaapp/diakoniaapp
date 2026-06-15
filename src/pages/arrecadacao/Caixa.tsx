@@ -14,9 +14,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import {
   carregarCaixa,
-  reabrirCaixa, listarProdutos, registrarVendaPDV,
+  reabrirCaixa, listarProdutosVendaveis, registrarVendaPDV,
   carregarResumoCaixa,
-  type Caixa, type Produto, type FormaPagamento, type ItemVendaInput,
+  type Caixa, type ProdutoVendavel, type FormaPagamento, type ItemVendaInput,
   type CaixaResumo,
 } from "@/services/arrecadacaoService";
 
@@ -38,7 +38,7 @@ export default function CaixaPDV() {
 
   const [caixa, setCaixa] = useState<Caixa | null>(null);
   const [reserva, setReserva] = useState<any>(null);
-  const [produtos, setProdutos] = useState<Produto[]>([]);
+  const [produtos, setProdutos] = useState<ProdutoVendavel[]>([]);
   const [resumo, setResumo] = useState<CaixaResumo | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -65,8 +65,8 @@ export default function CaixaPDV() {
         .select("*, espaco:arr_espacos!espaco_id(id, codigo, nome)")
         .eq("id", c.reserva_id).single();
       setReserva(r);
-      if (r?.espaco_id) {
-        setProdutos((await listarProdutos(r.espaco_id)).filter(p => p.ativo));
+      if (c?.reserva_id) {
+        setProdutos(await listarProdutosVendaveis(c.reserva_id));
       }
       setResumo(await carregarResumoCaixa(id));
     } finally { setLoading(false); }
@@ -92,7 +92,7 @@ export default function CaixaPDV() {
 
   const total = carrinho.reduce((acc, i) => acc + i.subtotal, 0);
 
-  function addCatalogo(item: Produto) {
+  function addCatalogo(item: ProdutoVendavel) {
     const idx = carrinho.findIndex(c => c.produto_id === item.id);
     if (idx >= 0) {
       ajustarQtd(idx, 1);
@@ -224,13 +224,26 @@ export default function CaixaPDV() {
                           "border-2 rounded-lg p-3 text-left transition active:scale-95 " +
                           (semEstoque
                             ? "opacity-40 cursor-not-allowed bg-muted"
-                            : "hover:bg-emerald-50 hover:border-emerald-500 hover:shadow-md")
+                            : p.is_acervo
+                              ? "border-blue-200 hover:bg-blue-50 hover:border-blue-500 hover:shadow-md"
+                              : "border-purple-200 hover:bg-purple-50 hover:border-purple-500 hover:shadow-md")
                         }>
-                        <div className="text-sm font-medium leading-tight">{p.nome}</div>
+                        <div className="flex items-start justify-between gap-1">
+                          <div className="text-sm font-medium leading-tight flex-1">{p.nome}</div>
+                          <Badge variant="outline"
+                            className={"text-[9px] shrink-0 " + (p.is_acervo
+                              ? "bg-blue-50 text-blue-700 border-blue-200"
+                              : "bg-purple-50 text-purple-700 border-purple-200")}>
+                            {p.is_acervo ? "acervo" : "campanha"}
+                          </Badge>
+                        </div>
                         <div className="text-lg md:text-xl font-serif text-emerald-700 font-semibold mt-1">
                           {fmtBR(p.preco_sugerido)}
                         </div>
                         <div className="flex items-center gap-1 mt-1 flex-wrap">
+                          {p.codigo && (
+                            <Badge variant="outline" className="text-[9px]">#{p.codigo}</Badge>
+                          )}
                           {p.subcategoria && (
                             <Badge variant="outline" className="text-[9px]">{p.subcategoria}</Badge>
                           )}
