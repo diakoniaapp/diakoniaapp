@@ -154,7 +154,7 @@ export default function ReservaDetalhe() {
           <>
             <Button size="sm" variant="outline" onClick={() => setAprovacaoOpen(true)}
               className="gap-1.5">
-              <MessageCircle className="w-3.5 h-3.5" /> Reenviar termo
+              <MessageCircle className="w-3.5 h-3.5" /> Enviar termo
             </Button>
             <Button size="sm" onClick={() => setPreUsoOpen(true)}
               className="gap-1.5 bg-emerald-600 hover:bg-emerald-700">

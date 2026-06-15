@@ -151,7 +151,7 @@ export function AprovacaoDialog({ open, onOpenChange, reserva, onAprovado }: Pro
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileCheck className="w-4 h-4 text-gold" />
-            {jaAprovada ? "Reenviar termo de uso" : "Aprovar reserva"}
+            {jaAprovada ? "Enviar termo de uso" : "Aprovar reserva"}
           </DialogTitle>
         </DialogHeader>
 
@@ -178,7 +178,7 @@ export function AprovacaoDialog({ open, onOpenChange, reserva, onAprovado }: Pro
         ) : (
           <div className="space-y-3 text-sm">
             <div className="border-2 border-emerald-300 bg-emerald-50/40 rounded-md p-2 flex items-center gap-2 text-emerald-700 text-xs">
-              <CheckCircle2 className="w-4 h-4" /> {jaAprovada ? "Reenvie" : "Reserva aprovada · envie"} o termo pelos contatos abaixo
+              <CheckCircle2 className="w-4 h-4" /> {jaAprovada ? "Envie" : "Reserva aprovada · envie"} o termo pelos contatos abaixo
             </div>
 
             {carregandoDest && (
