@@ -36,7 +36,7 @@ export async function fetchReservasAgenda(from: Date, to: Date): Promise<Reserva
     .from("arr_reservas")
     .select(`
       id, finalidade, status, periodo,
-      espaco:arr_espacos!espaco_id(codigo, nome)
+      espaco:arr_espacos!espaco_id(codigo, nome, local_id)
     `)
     .in("status", ["aprovada", "em_uso", "encerrada"])
     .is("arquivado_em", null);
@@ -64,7 +64,7 @@ export async function fetchReservasAgenda(from: Date, to: Date): Promise<Reserva
     finalidade: r.finalidade,
     status: r.status,
     periodo: r.periodo,
-    local_id: null,    // resolvido depois via mapEspacoParaLocal()
+    local_id: r.espaco?.local_id ?? null,   // F7 já preencheu arr_espacos.local_id
     espaco_nome: r.espaco?.nome ?? null,
     espaco_codigo: r.espaco?.codigo ?? null,
   }));
@@ -81,24 +81,12 @@ function parseTstzrange(s: string): { lower: string; upper: string } | null {
 }
 
 /**
- * Cache simples de mapeamento espaco_codigo -> local_id (locais).
- * A F7 garantiu sincronização Bazar/Cozinha em locais por nome.
+ * @deprecated A F7 já preencheu arr_espacos.local_id; o local_id agora vem
+ * direto no JOIN da query principal. Mantida como no-op pra compatibilidade
+ * com chamadas existentes.
  */
-let _cacheMapEspacoLocal: Record<string, string> | null = null;
-
 export async function mapEspacoCodigoParaLocalId(): Promise<Record<string, string>> {
-  if (_cacheMapEspacoLocal) return _cacheMapEspacoLocal;
-  const { data } = await supabase
-    .from("locais" as any)
-    .select("id, nome")
-    .in("nome", ["Bazar", "Cozinha"]);
-  const map: Record<string, string> = {};
-  for (const l of (data ?? []) as Array<{ id: string; nome: string }>) {
-    if (l.nome === "Bazar") map["BAZAR"] = l.id;
-    if (l.nome === "Cozinha") map["CANTINA"] = l.id;
-  }
-  _cacheMapEspacoLocal = map;
-  return map;
+  return {};
 }
 
 /**
@@ -118,7 +106,7 @@ export function reservasComoOcorrencias(
     const data = ymd(dt);
     const hora_inicio = hhmm(dt);
     const hora_fim = hhmm(dtFim);
-    const localId = r.espaco_codigo ? (mapLocal[r.espaco_codigo] ?? null) : null;
+    const localId = r.local_id ?? null;
     const evento: EventoRow = {
       id: `arr_${r.id}`,
       titulo: `🛍️ ${r.finalidade}`,
