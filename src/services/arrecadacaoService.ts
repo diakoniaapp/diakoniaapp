@@ -1103,7 +1103,7 @@ export async function listarConflitosReserva(
       area:areas!area_solicitante_id(nome)
     `)
     .eq("espaco_id", espacoId)
-    .in("status", ["aprovada", "confirmada", "em_uso"])
+    .in("status", ["aprovada", "em_uso"])
     .is("arquivado_em", null);
   if (ignorarReservaId) q = q.neq("id", ignorarReservaId);
   const { data, error } = await q;
