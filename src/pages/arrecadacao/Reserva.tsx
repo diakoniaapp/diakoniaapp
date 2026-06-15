@@ -19,7 +19,7 @@ import { toast } from "sonner";
 import {
   carregarReserva, listarChecklist, marcarChecklist,
   aprovarReserva, recusarReserva, iniciarUsoEAbrirCaixa, arquivarReserva,
-  listarCaixasDeReserva, carregarResumoCaixa, reabrirCaixa,
+  listarCaixasDeReserva, carregarResumoCaixa, reabrirCaixa, encerrarReserva,
   listarChecklistPorTipo,
   type Reserva, type ChecklistItem, type ReservaStatus, type Caixa, type CaixaResumo, type ChecklistItemV2,
 } from "@/services/arrecadacaoService";
@@ -272,7 +272,31 @@ export default function ReservaDetalhe() {
                   <RotateCcw className="w-4 h-4" /> Reabrir caixa
                 </Button>
               )}
+              {caixa.estado === "fechado" && reserva.status === "em_uso" && (
+                <Button size="lg" variant="outline"
+                  onClick={async () => {
+                    if (!confirm("Encerrar esta reserva? O caixa já está fechado e a reserva ainda consta como em uso.")) return;
+                    try {
+                      await encerrarReserva(reserva.id);
+                      toast.success("Reserva encerrada");
+                      carregar();
+                    } catch (err: any) { toast.error(err?.message ?? "Erro"); }
+                  }}
+                  className="gap-2 h-12 px-4 border-rose-300 text-rose-700 hover:bg-rose-50">
+                  <CheckCircle2 className="w-4 h-4" /> Encerrar reserva
+                </Button>
+              )}
             </div>
+            {caixa.estado === "fechado" && reserva.status === "em_uso" && (
+              <div className="border-2 border-rose-300 bg-rose-50/60 rounded p-2 text-xs text-rose-800 flex gap-2 items-start">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <div>
+                  <strong>Estado inconsistente:</strong> o caixa já foi fechado mas a
+                  reserva ainda consta como "em uso". Clique em <em>Encerrar reserva</em>
+                  pra normalizar (ou <em>Reabrir caixa</em> se ainda precisa registrar venda).
+                </div>
+              </div>
+            )}
             {resumo && resumo.saldo_virtual <= 0 && caixa.estado === "aberto" && (
               <p className="text-[11px] text-muted-foreground italic">
                 💡 Registre vendas no PDV antes de lançar custos, reembolsos ou reversões.

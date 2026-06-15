@@ -1565,3 +1565,18 @@ export async function listarReservasDoEspaco(
   if (error) throw error;
   return (data ?? []) as any;
 }
+
+
+/**
+ * F12c — encerra manualmente uma reserva (estado em_uso → encerrada),
+ * útil pra normalizar reservas órfãs cujo caixa já foi fechado mas a
+ * reserva ficou pendurada em "em_uso" (caso pré-F12a).
+ */
+export async function encerrarReserva(reservaId: string): Promise<void> {
+  const { error } = await supabase
+    .from("arr_reservas")
+    .update({ status: "encerrada" })
+    .eq("id", reservaId)
+    .in("status", ["em_uso", "aprovada"]);
+  if (error) throw error;
+}
