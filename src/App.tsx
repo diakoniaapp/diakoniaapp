@@ -59,7 +59,6 @@ import ArrecadacaoReserva from "./pages/arrecadacao/Reserva.tsx";
 import ArrecadacaoCaixa from "./pages/arrecadacao/Caixa.tsx";
 import ArrecadacaoProdutos from "./pages/arrecadacao/Produtos.tsx";
 import ArrecadacaoManutencao from "./pages/arrecadacao/Manutencao.tsx";
-import AcordoPublico from "./pages/AcordoPublico.tsx";
 import Membresia from "./pages/Membresia.tsx";
 import MembresiaDetalhe from "./pages/MembresiaDetalhe.tsx";
 import PainelSecretaria from "./pages/PainelSecretaria.tsx";
@@ -101,7 +100,6 @@ const App = () => (
                 <Route path="/primeiro-acesso" element={<PrimeiroAcesso />} />
                 <Route path="/aceite-lgpd" element={<AceiteLgpd />} />
                 <Route path="/agenda/imprimir" element={<AgendaPrint />} />
-                <Route path="/acordo/:token" element={<AcordoPublico />} />
 
                 {/* Rotas protegidas (dentro do AppLayout) */}
                 <Route element={<AppLayout />}>

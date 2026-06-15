@@ -25,20 +25,18 @@ import {
 } from "@/services/arrecadacaoService";
 
 const STATUS_LABEL: Record<ReservaStatus, string> = {
-  solicitada: "Solicitada", aprovada: "Aprovada · aguardando aceite",
-  recusada: "Recusada", confirmada: "Confirmada", em_uso: "Em uso",
-  encerrada: "Encerrada", cancelada: "Cancelada", expirada: "Expirada",
+  solicitada: "Solicitada", aprovada: "Aprovada",
+  recusada: "Recusada", em_uso: "Em uso",
+  encerrada: "Encerrada", cancelada: "Cancelada",
 } as any;
 
 const STATUS_COR: Record<ReservaStatus, string> = {
   solicitada: "bg-amber-50 text-amber-700 border-amber-200",
-  aprovada:   "bg-blue-50 text-blue-700 border-blue-200",
-  confirmada: "bg-emerald-50 text-emerald-800 border-emerald-300",
+  aprovada:   "bg-emerald-50 text-emerald-800 border-emerald-300",
   em_uso:     "bg-emerald-100 text-emerald-700 border-emerald-300",
   encerrada:  "bg-muted text-muted-foreground border-border",
   recusada:   "bg-rose-50 text-rose-700 border-rose-200",
   cancelada:  "bg-muted text-muted-foreground line-through",
-  expirada:   "bg-orange-50 text-orange-700 border-orange-300 line-through",
 } as any;
 
 function fmtPeriodo(p: string) {
@@ -120,7 +118,7 @@ export default function ReservaDetalhe() {
   // V2: só PRE_USO obrigatório libera 'Iniciar uso' (pos_uso vem no fechamento)
   const preUsoObrigatorios = preUso.filter(c => c.obrigatorio);
   const preUsoObrigatoriosOk = preUsoObrigatorios.filter(c => c.ok).length;
-  const podeIniciar = reserva.status === "confirmada"
+  const podeIniciar = reserva.status === "aprovada"
     && preUsoObrigatoriosOk === preUsoObrigatorios.length;
   // Compat (usado em outros lugares):
   const obrigatorios = checklist.filter(c => c.obrigatorio);
@@ -152,7 +150,7 @@ export default function ReservaDetalhe() {
             </Button>
           </>
         )}
-        {reserva.status === "confirmada" && (
+        {reserva.status === "aprovada" && (
           <Button size="sm" onClick={() => setPreUsoOpen(true)}
             className="gap-1.5 bg-emerald-600 hover:bg-emerald-700">
             <PlayCircle className="w-3.5 h-3.5" /> Iniciar uso
@@ -190,41 +188,6 @@ export default function ReservaDetalhe() {
           )}
         </CardContent>
       </Card>
-
-      {/* Card de status do acordo (apenas em aprovada/expirada/confirmada) */}
-      {reserva.status === "aprovada" && (reserva as any).acordo_token && (
-        <Card className="border-amber-300 bg-amber-50/40">
-          <CardContent className="p-3 space-y-2 text-xs">
-            <div className="flex items-center gap-2 font-medium text-amber-800">
-              ⏳ Aguardando aceite do solicitante
-            </div>
-            {(reserva as any).acordo_prazo_aceite && (
-              <p>Prazo: até {new Date((reserva as any).acordo_prazo_aceite).toLocaleString("pt-BR")}</p>
-            )}
-            <div className="flex gap-2 flex-wrap items-center pt-1">
-              <span className="text-muted-foreground">Link:</span>
-              <a href={`/acordo/${(reserva as any).acordo_token}`}
-                target="_blank" rel="noopener noreferrer"
-                className="text-blue-600 hover:underline">
-                /acordo/{((reserva as any).acordo_token).slice(0,8)}...
-              </a>
-              <button onClick={() => {
-                navigator.clipboard.writeText(`${window.location.origin}/acordo/${(reserva as any).acordo_token}`);
-                toast.success("Link copiado");
-              }} className="text-[10px] text-muted-foreground hover:text-foreground underline">copiar</button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {reserva.status === "expirada" && (
-        <Card className="border-orange-300 bg-orange-50/40">
-          <CardContent className="p-3 text-xs">
-            <div className="font-medium text-orange-800">⏰ Acordo expirou sem aceite</div>
-            <p className="mt-1">A data foi liberada. Pra reaprovar, mude o status pra solicitada manualmente e aprove de novo.</p>
-          </CardContent>
-        </Card>
-      )}
 
 
       {/* Caixa do PDV (destaque) */}

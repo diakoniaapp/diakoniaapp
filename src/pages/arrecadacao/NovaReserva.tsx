@@ -12,15 +12,22 @@ import { ArrowLeft, Loader2, Save, ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  listarEspacos, solicitarReserva, materializarChecklist,
+  listarEspacos, solicitarReserva, materializarChecklist, localIdDoEspaco,
   type Espaco,
 } from "@/services/arrecadacaoService";
+import { AvisoConflitoOcupacao } from "@/components/arrecadacao/AvisoConflitoOcupacao";
 
 export default function NovaReserva() {
   const nav = useNavigate();
   const hoje = new Date();
   const proximaSemana = new Date(hoje.getTime() + 7 * 86_400_000);
-  const fmt = (d: Date) => d.toISOString().slice(0,10);
+  // datetime-local precisa de YYYY-MM-DDTHH:mm sem timezone
+  const fmtLocal = (d: Date, hora: string) => {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}T${hora}`;
+  };
 
   const [espacos, setEspacos] = useState<Espaco[]>([]);
   const [areas, setAreas] = useState<any[]>([]);
@@ -33,11 +40,19 @@ export default function NovaReserva() {
     centro_custo_id: "",
     responsavel_id: "",
     finalidade: "",
-    data_inicio: fmt(proximaSemana),
-    data_fim: fmt(proximaSemana),
+    inicio: fmtLocal(proximaSemana, "09:00"),
+    fim:    fmtLocal(proximaSemana, "17:00"),
     observacoes: "",
   });
   const [salvando, setSalvando] = useState(false);
+  const [localId, setLocalId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!form.espaco_id) { setLocalId(null); return; }
+    const esp = espacos.find(e => e.id === form.espaco_id);
+    if (!esp) { setLocalId(null); return; }
+    localIdDoEspaco(esp.codigo).then(setLocalId);
+  }, [form.espaco_id, espacos]);
 
   useEffect(() => {
     (async () => {
@@ -57,8 +72,8 @@ export default function NovaReserva() {
     if (!form.espaco_id || !form.area_solicitante_id || !form.centro_custo_id || !form.responsavel_id) {
       toast.error("Preencha espaço, área, centro de custo e responsável"); return;
     }
-    if (form.data_fim < form.data_inicio) {
-      toast.error("Data fim antes do início"); return;
+    if (form.fim <= form.inicio) {
+      toast.error("Horário de fim deve ser depois do início"); return;
     }
     setSalvando(true);
     try {
@@ -68,8 +83,8 @@ export default function NovaReserva() {
         centro_custo_id: form.centro_custo_id,
         responsavel_id: form.responsavel_id,
         finalidade: form.finalidade,
-        periodo_inicio: `${form.data_inicio}T00:00:00`,
-        periodo_fim:    `${form.data_fim}T23:59:59`,
+        periodo_inicio: form.inicio,
+        periodo_fim:    form.fim,
         observacoes: form.observacoes || undefined,
       });
       // Já materializa o checklist a partir do template
@@ -116,14 +131,22 @@ export default function NovaReserva() {
 
           <div className="grid grid-cols-2 gap-2">
             <Field label="Início *">
-              <Input type="date" value={form.data_inicio}
-                onChange={e => setForm({...form, data_inicio: e.target.value})} />
+              <Input type="datetime-local" value={form.inicio}
+                onChange={e => setForm({...form, inicio: e.target.value})} />
             </Field>
             <Field label="Fim *">
-              <Input type="date" value={form.data_fim}
-                onChange={e => setForm({...form, data_fim: e.target.value})} />
+              <Input type="datetime-local" value={form.fim}
+                onChange={e => setForm({...form, fim: e.target.value})} />
             </Field>
           </div>
+
+          {localId && form.inicio && form.fim && form.fim > form.inicio && (
+            <AvisoConflitoOcupacao
+              localId={localId}
+              periodoInicio={form.inicio}
+              periodoFim={form.fim}
+            />
+          )}
 
           <Field label="Área solicitante *">
             <Select value={form.area_solicitante_id} onValueChange={(v) => setForm({...form, area_solicitante_id: v})}>

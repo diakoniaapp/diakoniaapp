@@ -1,11 +1,9 @@
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
-  CheckCircle2, Loader2, MessageCircle, FileCheck, ExternalLink,
+  CheckCircle2, Loader2, MessageCircle, FileCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,21 +22,18 @@ interface Props {
 function extrairPeriodo(tstzrange: string): { inicio: string; fim: string } {
   const m = tstzrange.match(/\["?([^",]+)[",)]+"?([^",)]+)/);
   if (!m) return { inicio: "", fim: "" };
-  return {
-    inicio: new Date(m[1]).toISOString().slice(0, 10),
-    fim: new Date(m[2]).toISOString().slice(0, 10),
-  };
+  return { inicio: m[1], fim: m[2] };
 }
 
 export function AprovacaoDialog({ open, onOpenChange, reserva, onAprovado }: Props) {
-  const [prazoDias, setPrazoDias] = useState(3);
   const [salvando, setSalvando] = useState(false);
-  const [resultado, setResultado] = useState<{ token: string; whatsappUrl: string; linkAceite: string } | null>(null);
+  const [resultado, setResultado] = useState<{ whatsappUrl: string; mensagem: string } | null>(null);
   const [telefone, setTelefone] = useState<string>("");
   const [nomeResp, setNomeResp] = useState<string>("");
 
   useEffect(() => {
     if (!open || !reserva.responsavel_id) return;
+    setResultado(null);
     (async () => {
       const { data } = await supabase.from("membros")
         .select("nome_completo, telefone_celular")
@@ -51,7 +46,7 @@ export function AprovacaoDialog({ open, onOpenChange, reserva, onAprovado }: Pro
   async function aprovar() {
     setSalvando(true);
     try {
-      const r = await aprovarReservaComAcordo(reserva.id, prazoDias);
+      const r = await aprovarReservaComAcordo(reserva.id);
       const periodo = extrairPeriodo(reserva.periodo);
       const wa = montarWhatsAppAprovacao(
         {
@@ -62,36 +57,31 @@ export function AprovacaoDialog({ open, onOpenChange, reserva, onAprovado }: Pro
           periodo_fim: periodo.fim,
         },
         { nome: nomeResp || "irmão(ã)", telefone },
-        r.token,
-        prazoDias,
+        r.acordo_texto,
       );
-      setResultado({
-        token: r.token,
-        whatsappUrl: wa.url,
-        linkAceite: `${window.location.origin}/acordo/${r.token}`,
-      });
-      toast.success("Reserva aprovada · acordo gerado · WhatsApp pronto");
+      setResultado({ whatsappUrl: wa.url, mensagem: wa.mensagem });
+      toast.success("Reserva aprovada — envie o termo pelo WhatsApp");
       onAprovado?.();
     } catch (err: any) {
       const msg = String(err?.message ?? "");
       if (msg.includes("arr_reservas_sem_conflito") || msg.includes("exclusion constraint")) {
         toast.error(
-          "⚠ Conflito de datas: já existe outra reserva APROVADA, CONFIRMADA ou EM USO " +
-          "deste mesmo espaço no período. Verifique a agenda em /arrecadacao antes de aprovar.",
+          "⚠ Conflito de datas: já existe outra reserva APROVADA ou EM USO " +
+          "deste mesmo espaço no período. Veja a agenda antes de aprovar.",
           { duration: 9000 }
         );
       } else if (msg.includes("Nenhum template")) {
-        toast.error("Nenhum template de acordo encontrado. Aplique Arrecadacao_F6_acordo_migration.sql primeiro.");
+        toast.error("Nenhum template de acordo. Cadastre em arr_acordo_template.");
       } else {
         toast.error(msg || "Erro ao aprovar");
       }
     } finally { setSalvando(false); }
   }
 
-  function copiarLink() {
+  function copiarMensagem() {
     if (!resultado) return;
-    navigator.clipboard.writeText(resultado.linkAceite);
-    toast.success("Link copiado");
+    navigator.clipboard.writeText(resultado.mensagem);
+    toast.success("Mensagem copiada");
   }
 
   return (
@@ -111,22 +101,20 @@ export function AprovacaoDialog({ open, onOpenChange, reserva, onAprovado }: Pro
               <Linha label="Área">{reserva.area?.nome ?? "—"}</Linha>
               <Linha label="Responsável">{nomeResp || "—"}</Linha>
             </div>
-            <Field label="Prazo de aceite (dias)">
-              <Input type="number" min={1} max={30} value={prazoDias}
-                onChange={e => setPrazoDias(Math.max(1, Math.min(30, Number(e.target.value))))} />
-            </Field>
             {!telefone && (
               <p className="text-[11px] text-amber-700">
-                ⚠ Responsável sem telefone cadastrado. Link de aceite vai precisar ser enviado manualmente.
+                ⚠ Responsável sem telefone. O termo precisará ser enviado manualmente.
               </p>
             )}
             <p className="text-[10px] text-muted-foreground">
-              Ao aprovar: a reserva passa pra <strong>aprovada (aguardando aceite)</strong>,
-              a data fica segurada e um link único é gerado pro solicitante aceitar.
+              Ao aprovar: a reserva fica <Badge variant="outline">aprovada</Badge>,
+              a data fica reservada e o termo de uso é montado pra você enviar pelo WhatsApp.
+              Não há mais aceite digital — o uso é o aceite (Fase 7).
             </p>
-            <Button onClick={aprovar} disabled={salvando} className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700">
+            <Button onClick={aprovar} disabled={salvando}
+              className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700">
               {salvando ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-              Aprovar e gerar acordo
+              Aprovar e montar mensagem
             </Button>
           </div>
         ) : (
@@ -136,16 +124,9 @@ export function AprovacaoDialog({ open, onOpenChange, reserva, onAprovado }: Pro
                 <CheckCircle2 className="w-4 h-4" /> Reserva aprovada
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                Agora envie o link de aceite pro solicitante. Sem aceite no prazo, a reserva expira.
+                Envie o termo de uso pelo WhatsApp do solicitante.
               </p>
             </div>
-
-            <Field label="Link de aceite (pra enviar manualmente se necessário)">
-              <div className="flex gap-1.5">
-                <Input value={resultado.linkAceite} readOnly className="text-xs" />
-                <Button size="sm" variant="outline" onClick={copiarLink}>copiar</Button>
-              </div>
-            </Field>
 
             <Button asChild size="lg"
               className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700 h-12 font-semibold text-base">
@@ -153,10 +134,9 @@ export function AprovacaoDialog({ open, onOpenChange, reserva, onAprovado }: Pro
                 <MessageCircle className="w-5 h-5" /> Abrir WhatsApp e enviar
               </a>
             </Button>
-            <a href={resultado.linkAceite} target="_blank" rel="noopener noreferrer"
-              className="block text-xs text-center text-gold hover:underline">
-              <ExternalLink className="w-3 h-3 inline mr-1" /> Ver página de aceite (testar)
-            </a>
+            <Button variant="outline" onClick={copiarMensagem} className="w-full text-xs">
+              copiar mensagem
+            </Button>
             <Button variant="ghost" onClick={() => onOpenChange(false)} className="w-full">
               Fechar
             </Button>
@@ -167,19 +147,11 @@ export function AprovacaoDialog({ open, onOpenChange, reserva, onAprovado }: Pro
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-1">
-      <Label className="text-[11px] text-muted-foreground">{label}</Label>
-      {children}
-    </div>
-  );
-}
 function Linha({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex gap-2">
-      <span className="text-muted-foreground w-24">{label}:</span>
-      <span className="flex-1">{children}</span>
+      <span className="text-muted-foreground min-w-[80px]">{label}:</span>
+      <span className="font-medium">{children}</span>
     </div>
   );
 }

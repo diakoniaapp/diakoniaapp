@@ -15,8 +15,8 @@ import { supabase } from "@/integrations/supabase/client";
 
 // ─── Enums (refletem os enums SQL exatamente) ───────────────────────────
 export type ReservaStatus =
-  | "solicitada" | "aprovada" | "recusada" | "confirmada"
-  | "em_uso"    | "encerrada" | "cancelada" | "expirada";
+  | "solicitada" | "aprovada" | "recusada"
+  | "em_uso"    | "encerrada" | "cancelada";
 
 export type CaixaEstado = "aberto" | "conciliando" | "fechado";
 
@@ -1027,98 +1027,61 @@ export function montarWhatsAppManutencao(
 
 export interface AprovacaoResult {
   reserva_id: string;
-  token: string;
-  prazo_aceite: string;
   template_id: string;
+  acordo_texto: string;
 }
 
 export async function aprovarReservaComAcordo(
   reservaId: string,
-  prazoDias: number = 3,
 ): Promise<AprovacaoResult> {
   const { data, error } = await supabase.rpc("arr_aprovar_reserva", {
     p_reserva_id: reservaId,
-    p_prazo_dias: prazoDias,
   });
   if (error) throw error;
   return data as AprovacaoResult;
 }
 
-export interface AcordoConsulta {
-  reserva_id?: string;
-  finalidade?: string;
-  periodo?: string;
-  espaco_codigo?: string;
-  espaco_nome?: string;
-  area_nome?: string;
-  acordo_titulo?: string;
-  acordo_texto?: string;
-  status?: ReservaStatus;
-  acordo_aceito_em?: string | null;
-  acordo_prazo_aceite?: string | null;
-  expirado?: boolean;
-  erro?: string;
-}
 
-/** Pública: lê os dados do acordo por token (sem login). */
-export async function consultarAcordoPublico(token: string): Promise<AcordoConsulta> {
-  const { data, error } = await supabase.rpc("arr_consultar_acordo", { p_token: token });
-  if (error) throw error;
-  return (data ?? { erro: "vazio" }) as AcordoConsulta;
-}
 
-/** Pública: aceita o acordo. */
-export async function aceitarAcordoPublico(token: string): Promise<{
-  ok: boolean; ja_aceito?: boolean; aceito_em?: string; erro?: string;
-}> {
-  const { data, error } = await supabase.rpc("arr_aceitar_acordo", { p_token: token });
-  if (error) throw error;
-  return data as any;
-}
 
-/** Marca como 'expirada' as aprovadas sem aceite no prazo. */
-export async function marcarReservasExpiradas(): Promise<number> {
-  const { data, error } = await supabase.rpc("arr_marcar_reservas_expiradas");
-  if (error) throw error;
-  return Number(data ?? 0);
-}
 
-/** Monta link wa.me com mensagem de aprovação + link de aceite. */
+
+
+/** Monta link wa.me com termo de uso completo (sem link de aceite — F7). */
 export function montarWhatsAppAprovacao(
   info: {
     finalidade: string;
     espaco_nome: string;
     area_nome: string;
-    periodo_inicio: string;     // YYYY-MM-DD
-    periodo_fim: string;        // YYYY-MM-DD
+    periodo_inicio: string;
+    periodo_fim: string;
   },
   responsavel: { nome: string; telefone: string | null },
-  token: string,
-  prazoDias: number,
-  baseUrl: string = (typeof window !== "undefined" ? window.location.origin : ""),
+  termoTexto: string,
 ): { mensagem: string; url: string } {
-  const fmt = (s: string) => new Date(s + "T00:00").toLocaleDateString("pt-BR");
-  const linkAceite = `${baseUrl}/acordo/${token}`;
+  const fmt = (s: string) => {
+    const d = new Date(s);
+    return d.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  };
   const linhas = [
     `Olá *${responsavel.nome}*! 👋`,
     "",
-    `Sua reserva foi *APROVADA*:`,
+    "Sua reserva foi *APROVADA*:",
     "",
     `🏛 ${info.espaco_nome}`,
     `📋 ${info.finalidade}`,
     `📅 ${fmt(info.periodo_inicio)} → ${fmt(info.periodo_fim)}`,
     `👥 ${info.area_nome}`,
     "",
-    `Para *confirmar a reserva*, leia e aceite o acordo de uso:`,
-    `🔗 ${linkAceite}`,
+    "*Termo de uso do espaço:*",
     "",
-    `_O aceite tem prazo de ${prazoDias} dia${prazoDias > 1 ? "s" : ""}. Sem aceite, a reserva é cancelada e a data liberada._`,
+    termoTexto,
     "",
     "_Secretaria · QIBRJ_",
     "_Diakonia APP — Arrecadação_",
   ];
   const mensagem = linhas.join("\n");
-  const tel = (responsavel.telefone ?? "").replace(/\D/g, "");
+  const tel = (responsavel.telefone ?? "").replace(/[^0-9]/g, "");
   const url = tel
     ? `https://wa.me/${tel}?text=${encodeURIComponent(mensagem)}`
     : `https://wa.me/?text=${encodeURIComponent(mensagem)}`;
@@ -1149,4 +1112,55 @@ export async function listarConflitosReserva(
     id: r.id, finalidade: r.finalidade, status: r.status,
     area_nome: r.area?.nome ?? null, periodo: r.periodo,
   }));
+}
+
+
+/**
+ * Consulta vw_ocupacao_local pra detectar conflitos de eventos materializados
+ * no mesmo local físico. NÃO expande recorrência (frontend faz via rrule.js).
+ */
+export interface ConflitoOcupacao {
+  conflito: boolean;
+  origem?: "evento" | "arrecadacao";
+  ref_id?: string;
+  periodo?: string;
+}
+
+export async function verificarConflitoOcupacao(
+  localId: string,
+  periodoInicio: string,
+  periodoFim: string,
+  origem: "arrecadacao" | "evento" = "arrecadacao",
+  excluirRefId?: string,
+): Promise<ConflitoOcupacao> {
+  const periodo = `[${periodoInicio},${periodoFim})`;
+  const { data, error } = await supabase.rpc("verifica_conflito_ocupacao", {
+    p_local_id: localId,
+    p_periodo: periodo,
+    p_origem: origem,
+    p_excluir_ref_id: excluirRefId ?? null,
+  });
+  if (error) throw error;
+  return (data ?? { conflito: false }) as ConflitoOcupacao;
+}
+
+
+/**
+ * Resolve o local_id (tabela locais_fisicos) correspondente a um arr_espaco.
+ * Usa o nome do espaço (BAZAR → "Bazar", CANTINA → "Cozinha") como chave de
+ * lookup, refletindo a sincronização feita na F7. Cacheado por chamada.
+ */
+const _localCache = new Map<string, string | null>();
+export async function localIdDoEspaco(codigo: "BAZAR" | "CANTINA"): Promise<string | null> {
+  if (_localCache.has(codigo)) return _localCache.get(codigo) ?? null;
+  const nome = codigo === "BAZAR" ? "Bazar" : "Cozinha";
+  const { data } = await supabase
+    .from("locais_fisicos")
+    .select("id")
+    .ilike("nome", nome)
+    .limit(1)
+    .maybeSingle();
+  const id = data?.id ?? null;
+  _localCache.set(codigo, id);
+  return id;
 }
