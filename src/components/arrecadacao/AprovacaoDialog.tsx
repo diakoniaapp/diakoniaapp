@@ -10,7 +10,8 @@ import {
 import { toast } from "sonner";
 import {
   aprovarReservaComAcordo, montarWhatsAppAprovacao,
-  listarDestinatariosTermo, type DestinatarioTermo,
+  listarDestinatariosTermo, obterTermoAcordoAtivo,
+  type DestinatarioTermo,
   type Reserva,
 } from "@/services/arrecadacaoService";
 
@@ -40,24 +41,33 @@ export function AprovacaoDialog({ open, onOpenChange, reserva, onAprovado }: Pro
   const [destinatarios, setDestinatarios] = useState<DestinatarioState[]>([]);
   const [carregandoDest, setCarregandoDest] = useState(false);
 
+  // Se a reserva já está aprovada (ou foi acabou de ser), vai direto pra lista
+  // de destinatários — funciona como modo reenvio do termo.
+  const jaAprovada = reserva.status === "aprovada" || reserva.status === "em_uso";
+
   useEffect(() => {
     if (!open) return;
-    setAprovado(false);
+    setAprovado(jaAprovada);
     setAcordoTexto("");
     setDestinatarios([]);
     setCarregandoDest(true);
-    listarDestinatariosTermo(reserva.id)
-      .then((lst) => {
+
+    Promise.all([
+      listarDestinatariosTermo(reserva.id),
+      jaAprovada ? obterTermoAcordoAtivo() : Promise.resolve(null),
+    ])
+      .then(([lst, termo]) => {
         setDestinatarios(lst.map((d, i) => ({
           ...d,
-          selecionado: i === 0,            // responsável marcado por padrão
+          selecionado: i === 0,
           telefone_editado: d.telefone ?? "",
           enviado: false,
         })));
+        if (termo) setAcordoTexto(termo);
       })
       .catch(() => setDestinatarios([]))
       .finally(() => setCarregandoDest(false));
-  }, [open, reserva.id]);
+  }, [open, reserva.id, jaAprovada]);
 
   async function aprovar() {
     setSalvando(true);
@@ -69,7 +79,13 @@ export function AprovacaoDialog({ open, onOpenChange, reserva, onAprovado }: Pro
       onAprovado?.();
     } catch (err: any) {
       const msg = String(err?.message ?? "");
-      if (msg.includes("arr_reservas_sem_conflito") || msg.includes("exclusion constraint")) {
+      if (msg.includes("não pode ser aprovada")) {
+        // Já está aprovada — entra em modo reenvio carregando o termo ativo
+        toast.info("Esta reserva já foi aprovada — abrindo modo reenvio do termo");
+        const termo = await obterTermoAcordoAtivo();
+        if (termo) setAcordoTexto(termo);
+        setAprovado(true);
+      } else if (msg.includes("arr_reservas_sem_conflito") || msg.includes("exclusion constraint")) {
         toast.error(
           "⚠ Conflito de datas: já existe outra reserva APROVADA ou EM USO " +
           "deste mesmo espaço no período.",
@@ -134,7 +150,8 @@ export function AprovacaoDialog({ open, onOpenChange, reserva, onAprovado }: Pro
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <FileCheck className="w-4 h-4 text-gold" /> Aprovar reserva
+            <FileCheck className="w-4 h-4 text-gold" />
+            {jaAprovada ? "Reenviar termo de uso" : "Aprovar reserva"}
           </DialogTitle>
         </DialogHeader>
 
@@ -161,7 +178,7 @@ export function AprovacaoDialog({ open, onOpenChange, reserva, onAprovado }: Pro
         ) : (
           <div className="space-y-3 text-sm">
             <div className="border-2 border-emerald-300 bg-emerald-50/40 rounded-md p-2 flex items-center gap-2 text-emerald-700 text-xs">
-              <CheckCircle2 className="w-4 h-4" /> Reserva aprovada · envie o termo pelos contatos abaixo
+              <CheckCircle2 className="w-4 h-4" /> {jaAprovada ? "Reenvie" : "Reserva aprovada · envie"} o termo pelos contatos abaixo
             </div>
 
             {carregandoDest && (

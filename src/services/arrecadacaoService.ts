@@ -1331,3 +1331,19 @@ export async function arquivarChecklistTemplate(id: string): Promise<void> {
     .eq("id", id);
   if (error) throw error;
 }
+
+
+/**
+ * Retorna o texto do termo de uso ativo (template global).
+ * Usado pra reenvio do termo em reservas já aprovadas (F9 — reenvio).
+ */
+export async function obterTermoAcordoAtivo(): Promise<string | null> {
+  const { data } = await supabase
+    .from("arr_acordo_template")
+    .select("texto")
+    .eq("ativo", true)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return (data as any)?.texto ?? null;
+}

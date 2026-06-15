@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  ArrowLeft, Loader2, CheckCircle2, XCircle, PlayCircle, Trash2,
+  ArrowLeft, Loader2, CheckCircle2, XCircle, PlayCircle, MessageCircle, Trash2,
   Calendar, MapPin, Sparkles, ClipboardList, AlertCircle, ShoppingCart, FileBarChart, TrendingDown,
 } from "lucide-react";
 import { FechamentoDialog } from "@/components/arrecadacao/FechamentoDialog";
@@ -151,10 +151,16 @@ export default function ReservaDetalhe() {
           </>
         )}
         {reserva.status === "aprovada" && (
-          <Button size="sm" onClick={() => setPreUsoOpen(true)}
-            className="gap-1.5 bg-emerald-600 hover:bg-emerald-700">
-            <PlayCircle className="w-3.5 h-3.5" /> Iniciar uso
-          </Button>
+          <>
+            <Button size="sm" variant="outline" onClick={() => setAprovacaoOpen(true)}
+              className="gap-1.5">
+              <MessageCircle className="w-3.5 h-3.5" /> Reenviar termo
+            </Button>
+            <Button size="sm" onClick={() => setPreUsoOpen(true)}
+              className="gap-1.5 bg-emerald-600 hover:bg-emerald-700">
+              <PlayCircle className="w-3.5 h-3.5" /> Iniciar uso
+            </Button>
+          </>
         )}
         <Button size="sm" variant="ghost" onClick={() => acao("arquivar")} className="text-rose-600">
           <Trash2 className="w-3.5 h-3.5" />
