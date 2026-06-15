@@ -84,6 +84,7 @@ export interface ChecklistItem {
 export interface Produto {
   id: string;
   espaco_id: string;
+  reserva_id: string | null;     // F11: NULL = acervo, preenchido = campanha
   codigo: string | null;
   nome: string;
   categoria: ProdutoCategoria;
@@ -361,7 +362,11 @@ export async function marcarChecklist(itemId: string, ok: boolean, obs?: string)
 // ════════════════════════════════════════════════════════════════════════
 // Produtos
 // ════════════════════════════════════════════════════════════════════════
-export async function listarProdutos(espacoId: string, incluirInativos = false): Promise<Produto[]> {
+export async function listarProdutos(
+  espacoId: string,
+  incluirInativos = false,
+  filtro?: { reservaId?: string | null }
+): Promise<Produto[]> {
   let q = supabase
     .from("arr_produtos")
     .select("*")
@@ -369,6 +374,11 @@ export async function listarProdutos(espacoId: string, incluirInativos = false):
     .is("arquivado_em", null)
     .order("nome");
   if (!incluirInativos) q = q.eq("ativo", true);
+  // filtro?.reservaId === null  → só acervo
+  // filtro?.reservaId === "abc" → só essa campanha
+  // undefined                   → todos
+  if (filtro?.reservaId === null) q = q.is("reserva_id", null);
+  else if (filtro?.reservaId) q = q.eq("reserva_id", filtro.reservaId);
   const { data, error } = await q;
   if (error) throw error;
   return (data ?? []) as Produto[];
@@ -1363,4 +1373,135 @@ export async function obterTermoAcordoAtivo(): Promise<string | null> {
     .limit(1)
     .maybeSingle();
   return (data as any)?.texto ?? null;
+}
+
+
+// ════════════════════════════════════════════════════════════════════════
+// PDV híbrido (F12) — produtos vendáveis na campanha + movimentos
+// ════════════════════════════════════════════════════════════════════════
+export interface ProdutoVendavel {
+  id: string;
+  espaco_id: string;
+  reserva_id: string | null;
+  codigo: string | null;
+  nome: string;
+  categoria: ProdutoCategoria;
+  subcategoria: string | null;
+  preco_sugerido: number;
+  estoque_atual: number | null;
+  estoque_minimo: number | null;
+  observacao: string | null;
+  is_acervo: boolean;
+}
+
+/** Lista produtos vendáveis numa reserva (acervo + campanha). Usa RPC F11. */
+export async function listarProdutosVendaveis(reservaId: string): Promise<ProdutoVendavel[]> {
+  const { data, error } = await supabase.rpc("arr_produtos_vendaveis", {
+    p_reserva_id: reservaId,
+  });
+  if (error) throw error;
+  return (data ?? []) as ProdutoVendavel[];
+}
+
+// ─── Movimentos de estoque ──────────────────────────────────────────────
+export interface EstoqueMovimento {
+  id: string;
+  produto_id: string;
+  tipo: EstoqueMovTipo;
+  qtd: number;
+  motivo: string | null;
+  ref_tipo: string | null;
+  ref_id: string | null;
+  registrado_por: string | null;
+  registrado_em: string;
+}
+
+export async function listarMovimentosEstoque(
+  produtoId: string,
+  limite = 50,
+): Promise<EstoqueMovimento[]> {
+  const { data, error } = await supabase
+    .from("arr_estoque_movimentos")
+    .select("*")
+    .eq("produto_id", produtoId)
+    .order("registrado_em", { ascending: false })
+    .limit(limite);
+  if (error) throw error;
+  return (data ?? []) as EstoqueMovimento[];
+}
+
+/**
+ * Registra ajuste / reabastecimento / perda no estoque.
+ * Atualiza estoque_atual atomicamente em arr_produtos.
+ * - reabastecimento: qtd > 0 (entrada)
+ * - perda:           qtd > 0 (saída — internamente vira negativo)
+ * - ajuste:          qtd pode ser +/- (correção de inventário)
+ */
+export async function registrarMovimentoEstoque(input: {
+  produto_id: string;
+  tipo: "ajuste" | "reabastecimento" | "perda";
+  qtd: number;       // sempre informe positivo; o sinal interno é calculado
+  motivo?: string;
+}): Promise<void> {
+  if (!Number.isFinite(input.qtd) || input.qtd === 0) {
+    throw new Error("Quantidade precisa ser diferente de zero");
+  }
+  const userId = (await supabase.auth.getUser()).data.user?.id;
+
+  // sinal da movimentação
+  let delta: number;
+  if (input.tipo === "reabastecimento") delta = Math.abs(input.qtd);
+  else if (input.tipo === "perda")      delta = -Math.abs(input.qtd);
+  else                                  delta = input.qtd; // ajuste preserva o sinal
+
+  // Lê estoque atual
+  const { data: prod, error: er } = await supabase
+    .from("arr_produtos")
+    .select("estoque_atual, nome")
+    .eq("id", input.produto_id)
+    .maybeSingle();
+  if (er) throw er;
+  if (!prod) throw new Error("Produto não encontrado");
+  const atual = prod.estoque_atual ?? 0;
+  const novo  = atual + delta;
+  if (novo < 0) {
+    throw new Error(`Estoque ficaria negativo (atual ${atual}, delta ${delta})`);
+  }
+
+  // Grava movimento
+  const { error: e1 } = await supabase
+    .from("arr_estoque_movimentos")
+    .insert({
+      produto_id: input.produto_id,
+      tipo: input.tipo,
+      qtd: Math.abs(input.qtd),
+      motivo: input.motivo ?? null,
+      registrado_por: userId,
+    } as any);
+  if (e1) throw e1;
+
+  // Atualiza estoque
+  const { error: e2 } = await supabase
+    .from("arr_produtos")
+    .update({ estoque_atual: novo, updated_at: new Date().toISOString() })
+    .eq("id", input.produto_id);
+  if (e2) throw e2;
+}
+
+/** Listar campanhas ativas/recentes de um espaço (pra UI escolher onde vincular produto). */
+export async function listarReservasDoEspaco(
+  espacoId: string,
+  apenasAtivas = true,
+): Promise<Array<{ id: string; finalidade: string; status: string; periodo: string }>> {
+  let q = supabase
+    .from("arr_reservas")
+    .select("id, finalidade, status, periodo")
+    .eq("espaco_id", espacoId)
+    .is("arquivado_em", null)
+    .order("solicitada_em", { ascending: false })
+    .limit(50);
+  if (apenasAtivas) q = q.in("status", ["aprovada", "em_uso"]);
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data ?? []) as any;
 }
