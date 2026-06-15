@@ -309,6 +309,10 @@ export async function materializarChecklist(reservaId: string, espacoId: string)
     item: t.item,
     obrigatorio: t.obrigatorio,
     ordem: t.ordem,
+    // F10a: a coluna 'tipo' tem default 'pos_uso' no banco, precisamos copiar
+    // explicitamente do template senão os itens pre_uso ficam invisíveis no
+    // PreUsoCheckDialog.
+    tipo: t.tipo ?? "pos_uso",
   }));
   // upsert para tolerar UNIQUE (reserva_id, item) caso o fix SQL esteja aplicado
   const { error: insErr } = await supabase
@@ -1163,4 +1167,167 @@ export async function localIdDoEspaco(codigo: "BAZAR" | "CANTINA"): Promise<stri
   const id = data?.id ?? null;
   _localCache.set(codigo, id);
   return id;
+}
+
+
+// ════════════════════════════════════════════════════════════════════════
+// Destinatários do termo (F9 — múltiplos destinatários)
+// ════════════════════════════════════════════════════════════════════════
+export type PapelDestinatario = "responsavel" | "lider_area" | "co_lider_area" | "solicitante";
+
+export interface DestinatarioTermo {
+  membro_id: string;
+  nome: string;
+  telefone: string | null;
+  papel: PapelDestinatario;
+  papel_label: string;
+}
+
+const PAPEL_LABEL: Record<PapelDestinatario, string> = {
+  responsavel: "Responsável da reserva",
+  lider_area: "Líder da área",
+  co_lider_area: "Co-líder da área",
+  solicitante: "Quem solicitou",
+};
+
+/**
+ * Retorna até 4 candidatos para receber o termo de uso pelo WhatsApp.
+ * Deduplica por membro_id (se o líder é o próprio responsável, aparece só uma vez).
+ */
+export async function listarDestinatariosTermo(reservaId: string): Promise<DestinatarioTermo[]> {
+  // Carrega a reserva com FKs essenciais
+  const { data: r, error: er } = await supabase
+    .from("arr_reservas")
+    .select(`
+      responsavel_id, area_solicitante_id, solicitada_por,
+      responsavel:membros!responsavel_id(id, nome_completo, telefone_celular),
+      area:areas!area_solicitante_id(id, nome, lider_id, co_lider_id)
+    `)
+    .eq("id", reservaId)
+    .maybeSingle();
+  if (er) throw er;
+  if (!r) return [];
+
+  const candidatos: Array<{ id: string; papel: PapelDestinatario; nome?: string; tel?: string | null }> = [];
+
+  if ((r as any).responsavel) {
+    const m = (r as any).responsavel;
+    candidatos.push({ id: m.id, papel: "responsavel", nome: m.nome_completo, tel: m.telefone_celular });
+  }
+  const area = (r as any).area;
+  if (area?.lider_id) candidatos.push({ id: area.lider_id, papel: "lider_area" });
+  if (area?.co_lider_id) candidatos.push({ id: area.co_lider_id, papel: "co_lider_area" });
+
+  // Solicitante (auth user → membros.user_id)
+  if (r.solicitada_por) {
+    const { data: sol } = await supabase
+      .from("membros")
+      .select("id, nome_completo, telefone_celular")
+      .eq("user_id", r.solicitada_por)
+      .limit(1)
+      .maybeSingle();
+    if (sol) candidatos.push({ id: sol.id, papel: "solicitante", nome: sol.nome_completo, tel: sol.telefone_celular });
+  }
+
+  // Busca nomes/telefones dos que ainda não temos (líder, co-líder)
+  const idsParaBuscar = candidatos.filter(c => !c.nome).map(c => c.id);
+  if (idsParaBuscar.length > 0) {
+    const { data: ms } = await supabase
+      .from("membros")
+      .select("id, nome_completo, telefone_celular")
+      .in("id", idsParaBuscar);
+    const mapa = new Map((ms ?? []).map(m => [m.id, m]));
+    for (const c of candidatos) {
+      if (!c.nome) {
+        const m = mapa.get(c.id);
+        if (m) { c.nome = m.nome_completo; c.tel = m.telefone_celular; }
+      }
+    }
+  }
+
+  // Dedup por id mantendo a primeira ocorrência (ordem de prioridade)
+  const vistos = new Set<string>();
+  const out: DestinatarioTermo[] = [];
+  for (const c of candidatos) {
+    if (vistos.has(c.id)) continue;
+    if (!c.nome) continue;
+    vistos.add(c.id);
+    out.push({
+      membro_id: c.id,
+      nome: c.nome,
+      telefone: c.tel ?? null,
+      papel: c.papel,
+      papel_label: PAPEL_LABEL[c.papel],
+    });
+  }
+  return out;
+}
+
+
+// ════════════════════════════════════════════════════════════════════════
+// Itens-template do checklist (F10 — gestão por espaço)
+// ════════════════════════════════════════════════════════════════════════
+export type ChecklistTipo = "pre_uso" | "pos_uso";
+
+export interface ChecklistTemplate {
+  id: string;
+  espaco_id: string | null;     // null = global (vale pra todos)
+  item: string;
+  ordem: number;
+  obrigatorio: boolean;
+  ativo: boolean;
+  tipo: ChecklistTipo;
+  created_at: string;
+}
+
+export async function listarChecklistTemplates(filtro?: {
+  espaco_id?: string | null;    // undefined = todos, null = só globais
+  tipo?: ChecklistTipo;
+  apenas_ativos?: boolean;
+}): Promise<ChecklistTemplate[]> {
+  let q = supabase.from("arr_checklist_template").select("*");
+  if (filtro?.espaco_id === null) q = q.is("espaco_id", null);
+  else if (filtro?.espaco_id) {
+    q = q.or(`espaco_id.is.null,espaco_id.eq.${filtro.espaco_id}`);
+  }
+  if (filtro?.tipo) q = q.eq("tipo", filtro.tipo);
+  if (filtro?.apenas_ativos) q = q.eq("ativo", true);
+  const { data, error } = await q.order("tipo").order("ordem");
+  if (error) throw error;
+  return (data ?? []) as ChecklistTemplate[];
+}
+
+export async function criarChecklistTemplate(input: {
+  espaco_id: string | null;
+  item: string;
+  ordem: number;
+  obrigatorio: boolean;
+  tipo: ChecklistTipo;
+}): Promise<ChecklistTemplate> {
+  const { data, error } = await supabase
+    .from("arr_checklist_template")
+    .insert({ ...input, ativo: true })
+    .select("*")
+    .single();
+  if (error) throw error;
+  return data as ChecklistTemplate;
+}
+
+export async function atualizarChecklistTemplate(
+  id: string,
+  patch: Partial<Pick<ChecklistTemplate, "item" | "ordem" | "obrigatorio" | "ativo" | "tipo" | "espaco_id">>,
+): Promise<void> {
+  const { error } = await supabase
+    .from("arr_checklist_template")
+    .update(patch)
+    .eq("id", id);
+  if (error) throw error;
+}
+
+export async function arquivarChecklistTemplate(id: string): Promise<void> {
+  const { error } = await supabase
+    .from("arr_checklist_template")
+    .update({ ativo: false })
+    .eq("id", id);
+  if (error) throw error;
 }

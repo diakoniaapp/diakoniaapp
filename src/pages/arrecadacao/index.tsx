@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   ShoppingBag, Plus, Loader2, ChevronRight, Settings, Calendar,
-  Clock, CheckCircle2, AlertCircle, Sparkles,
+  Clock, CheckCircle2, AlertCircle, Sparkles, ListChecks,
 } from "lucide-react";
 import {
   listarEspacos, listarReservas,
@@ -63,6 +63,11 @@ export default function ArrecadacaoHome() {
             Bazar e Cantina · áreas reservam para campanhas
           </p>
         </div>
+        <Button size="sm" variant="ghost" asChild>
+          <Link to="/arrecadacao/checklist-templates" title="Itens do checklist (pré-uso e pós-uso)">
+            <ListChecks className="w-4 h-4" />
+          </Link>
+        </Button>
         <Button size="sm" variant="ghost" asChild>
           <Link to="/arrecadacao/espacos" title="Configurar espaços">
             <Settings className="w-4 h-4" />

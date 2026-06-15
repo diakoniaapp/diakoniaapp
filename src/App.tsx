@@ -59,6 +59,7 @@ import ArrecadacaoReserva from "./pages/arrecadacao/Reserva.tsx";
 import ArrecadacaoCaixa from "./pages/arrecadacao/Caixa.tsx";
 import ArrecadacaoProdutos from "./pages/arrecadacao/Produtos.tsx";
 import ArrecadacaoManutencao from "./pages/arrecadacao/Manutencao.tsx";
+import ArrecadacaoChecklistTemplates from "./pages/arrecadacao/ChecklistTemplates.tsx";
 import Membresia from "./pages/Membresia.tsx";
 import MembresiaDetalhe from "./pages/MembresiaDetalhe.tsx";
 import PainelSecretaria from "./pages/PainelSecretaria.tsx";
@@ -150,6 +151,7 @@ const App = () => (
                   <Route path="/arrecadacao/caixa/:id" element={<ArrecadacaoCaixa />} />
                   <Route path="/arrecadacao/produtos/:espacoId" element={<ArrecadacaoProdutos />} />
                   <Route path="/arrecadacao/manutencao" element={<ArrecadacaoManutencao />} />
+                  <Route path="/arrecadacao/checklist-templates" element={<ArrecadacaoChecklistTemplates />} />
                   <Route path="/membresia" element={<Membresia />} />
                   <Route path="/membresia/:id" element={<MembresiaDetalhe />} />
                   <Route path="/painel-secretaria" element={<PainelSecretaria />} />
