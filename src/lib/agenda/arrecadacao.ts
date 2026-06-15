@@ -81,15 +81,15 @@ function parseTstzrange(s: string): { lower: string; upper: string } | null {
 }
 
 /**
- * Cache simples de mapeamento espaco_codigo -> local_id (locais_fisicos).
- * A F7 garantiu sincronização Bazar/Cozinha em locais_fisicos por nome.
+ * Cache simples de mapeamento espaco_codigo -> local_id (locais).
+ * A F7 garantiu sincronização Bazar/Cozinha em locais por nome.
  */
 let _cacheMapEspacoLocal: Record<string, string> | null = null;
 
 export async function mapEspacoCodigoParaLocalId(): Promise<Record<string, string>> {
   if (_cacheMapEspacoLocal) return _cacheMapEspacoLocal;
   const { data } = await supabase
-    .from("locais_fisicos")
+    .from("locais" as any)
     .select("id, nome")
     .in("nome", ["Bazar", "Cozinha"]);
   const map: Record<string, string> = {};

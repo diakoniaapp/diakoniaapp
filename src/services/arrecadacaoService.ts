@@ -1246,7 +1246,7 @@ export async function localIdDoEspaco(codigo: "BAZAR" | "CANTINA"): Promise<stri
   if (_localCache.has(codigo)) return _localCache.get(codigo) ?? null;
   const nome = codigo === "BAZAR" ? "Bazar" : "Cozinha";
   const { data } = await supabase
-    .from("locais_fisicos")
+    .from("locais" as any)
     .select("id")
     .ilike("nome", nome)
     .limit(1)
