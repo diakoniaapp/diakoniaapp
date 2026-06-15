@@ -13,6 +13,8 @@ import { FechamentoDialog } from "@/components/arrecadacao/FechamentoDialog";
 import { MovimentosDialog } from "@/components/arrecadacao/MovimentosDialog";
 import { PosUsoCheckDialog } from "@/components/arrecadacao/PosUsoCheckDialog";
 import { AprovacaoDialog } from "@/components/arrecadacao/AprovacaoDialog";
+import { PreUsoCheckDialog } from "@/components/arrecadacao/PreUsoCheckDialog";
+import { RecusarDialog } from "@/components/arrecadacao/RecusarDialog";
 import { toast } from "sonner";
 import {
   carregarReserva, listarChecklist, marcarChecklist,
@@ -60,6 +62,8 @@ export default function ReservaDetalhe() {
   const [movimentosOpen, setMovimentosOpen] = useState(false);
   const [posUsoOpen, setPosUsoOpen] = useState(false);
   const [aprovacaoOpen, setAprovacaoOpen] = useState(false);
+  const [preUsoOpen, setPreUsoOpen] = useState(false);
+  const [recusarOpen, setRecusarOpen] = useState(false);
   const [preUso, setPreUso] = useState<ChecklistItemV2[]>([]);
   const [posUsoCount, setPosUsoCount] = useState(0);
 
@@ -138,14 +142,19 @@ export default function ReservaDetalhe() {
           </div>
         </div>
         {reserva.status === "solicitada" && (
-          <Button size="sm" onClick={() => setAprovacaoOpen(true)} className="gap-1.5 bg-emerald-600 hover:bg-emerald-700">
-            <CheckCircle2 className="w-3.5 h-3.5" /> Aprovar
-          </Button>
+          <>
+            <Button size="sm" onClick={() => setAprovacaoOpen(true)} className="gap-1.5 bg-emerald-600 hover:bg-emerald-700">
+              <CheckCircle2 className="w-3.5 h-3.5" /> Aprovar
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setRecusarOpen(true)}
+              className="gap-1.5 text-rose-600 hover:bg-rose-50">
+              <XCircle className="w-3.5 h-3.5" /> Recusar
+            </Button>
+          </>
         )}
         {reserva.status === "confirmada" && (
-          <Button size="sm" onClick={() => acao("iniciar")} disabled={!podeIniciar}
-            className="gap-1.5 bg-emerald-600 hover:bg-emerald-700"
-            title={podeIniciar ? "" : "Conclua o acordo pré-uso obrigatório"}>
+          <Button size="sm" onClick={() => setPreUsoOpen(true)}
+            className="gap-1.5 bg-emerald-600 hover:bg-emerald-700">
             <PlayCircle className="w-3.5 h-3.5" /> Iniciar uso
           </Button>
         )}
@@ -213,25 +222,6 @@ export default function ReservaDetalhe() {
           <CardContent className="p-3 text-xs">
             <div className="font-medium text-orange-800">⏰ Acordo expirou sem aceite</div>
             <p className="mt-1">A data foi liberada. Pra reaprovar, mude o status pra solicitada manualmente e aprove de novo.</p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Recusar (somente solicitadas) */}
-      {reserva.status === "solicitada" && (
-        <Card className="border-rose-200">
-          <CardHeader>
-            <CardTitle className="text-sm flex items-center gap-2 text-rose-700">
-              <XCircle className="w-3.5 h-3.5" /> Recusar reserva
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <Textarea value={motivoRecusa} onChange={e => setMotivoRecusa(e.target.value)}
-              placeholder="Motivo da recusa (obrigatório)" />
-            <Button variant="outline" size="sm" onClick={() => acao("recusar")} disabled={!motivoRecusa.trim()}
-              className="gap-1.5 text-rose-700 border-rose-300">
-              <XCircle className="w-3.5 h-3.5" /> Confirmar recusa
-            </Button>
           </CardContent>
         </Card>
       )}
@@ -308,57 +298,6 @@ export default function ReservaDetalhe() {
         </Card>
       )}
 
-      {/* Acordo pré-uso (4-5 itens leves) */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <ClipboardList className="w-4 h-4 text-gold" />
-            {reserva.status === "em_uso" || reserva.status === "encerrada"
-              ? "Acordo pré-uso (registro)"
-              : "Acordo pré-uso"}
-            {preUsoObrigatorios.length > 0 && (
-              <Badge variant="outline" className="text-[9px] ml-auto">
-                {preUsoObrigatoriosOk}/{preUsoObrigatorios.length} obrigatórios
-              </Badge>
-            )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {preUso.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-3">
-              Nenhum item de acordo (aplique Arrecadacao_F5_checklist_v2.sql).
-            </p>
-          ) : (
-            <div className="space-y-1.5">
-              {preUso.map(item => (
-                <div key={item.id} className="flex items-start gap-2 p-2 border rounded-md text-sm">
-                  <Checkbox checked={item.ok} onCheckedChange={(v) => toggleChecklist(item, !!v)}
-                    className="mt-0.5" />
-                  <div className="flex-1">
-                    <span className={item.ok ? "line-through text-muted-foreground" : ""}>{item.item}</span>
-                    {item.obrigatorio && (
-                      <Badge variant="outline" className="text-[9px] ml-1.5 bg-amber-50 text-amber-700 border-amber-200">
-                        obrigatório
-                      </Badge>
-                    )}
-                    {item.ok && item.ok_em && (
-                      <span className="text-[10px] text-muted-foreground ml-1.5">
-                        ✓ {new Date(item.ok_em).toLocaleString("pt-BR")}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-          {(reserva.status === "em_uso" || reserva.status === "encerrada") && posUsoCount > 0 && (
-            <p className="text-[11px] text-muted-foreground italic mt-3">
-              💡 Checklist de entrega ({posUsoCount} itens) será exibido ao clicar em
-              "Fechar caixa", junto com a possibilidade de reportar problemas do espaço.
-            </p>
-          )}
-        </CardContent>
-      </Card>
 
       {aprovacaoOpen && reserva && (
         <AprovacaoDialog
@@ -366,6 +305,29 @@ export default function ReservaDetalhe() {
           onOpenChange={setAprovacaoOpen}
           reserva={reserva}
           onAprovado={carregar}
+        />
+      )}
+
+      {recusarOpen && reserva && (
+        <RecusarDialog
+          open={recusarOpen}
+          onOpenChange={setRecusarOpen}
+          reservaId={reserva.id}
+          onRecusado={carregar}
+        />
+      )}
+
+      {preUsoOpen && reserva && (
+        <PreUsoCheckDialog
+          open={preUsoOpen}
+          onOpenChange={setPreUsoOpen}
+          reservaId={reserva.id}
+          onConfirmado={async () => {
+            // Confirmou itens pré-uso → roda iniciarUsoEAbrirCaixa
+            try {
+              await acao("iniciar");
+            } catch {}
+          }}
         />
       )}
 
