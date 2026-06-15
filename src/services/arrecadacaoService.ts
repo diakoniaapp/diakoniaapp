@@ -219,8 +219,21 @@ export interface ReservaNova {
   observacoes?: string;
 }
 
+/**
+ * Anexa explicitamente o offset de Brasília (-03:00) se o caller não passou
+ * timezone. O datetime-local do navegador retorna "YYYY-MM-DDTHH:mm" sem TZ
+ * e o Postgres interpretaria como UTC, deslocando 3h no display.
+ */
+function comFusoBrasilia(s: string): string {
+  // já tem TZ? (ex: ...+00:00, ...-03:00, ...Z)
+  if (/[zZ]$|[+-]\d{2}:?\d{2}$/.test(s)) return s;
+  return `${s}-03:00`;
+}
+
 export async function solicitarReserva(input: ReservaNova): Promise<Reserva> {
-  const periodo = `[${input.periodo_inicio}, ${input.periodo_fim})`;
+  const inicio = comFusoBrasilia(input.periodo_inicio);
+  const fim    = comFusoBrasilia(input.periodo_fim);
+  const periodo = `[${inicio}, ${fim})`;
   const { data, error } = await supabase
     .from("arr_reservas")
     .insert({
@@ -1065,7 +1078,11 @@ export function montarWhatsAppAprovacao(
 ): { mensagem: string; url: string } {
   const fmt = (s: string) => {
     const d = new Date(s);
-    return d.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    return d.toLocaleString("pt-BR", {
+      timeZone: "America/Sao_Paulo",
+      day: "2-digit", month: "2-digit", year: "numeric",
+      hour: "2-digit", minute: "2-digit",
+    });
   };
   const linhas = [
     `Olá *${responsavel.nome}*! 👋`,
@@ -1137,7 +1154,7 @@ export async function verificarConflitoOcupacao(
   origem: "arrecadacao" | "evento" = "arrecadacao",
   excluirRefId?: string,
 ): Promise<ConflitoOcupacao> {
-  const periodo = `[${periodoInicio},${periodoFim})`;
+  const periodo = `[${comFusoBrasilia(periodoInicio)},${comFusoBrasilia(periodoFim)})`;
   const { data, error } = await supabase.rpc("verifica_conflito_ocupacao", {
     p_local_id: localId,
     p_periodo: periodo,

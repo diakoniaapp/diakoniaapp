@@ -193,6 +193,13 @@ export function AprovacaoDialog({ open, onOpenChange, reserva, onAprovado }: Pro
                 Nenhum contato encontrado (responsável, líder ou solicitante). Use 'copiar' e envie manualmente.
               </div>
             )}
+            {!carregandoDest && !acordoTexto && (
+              <div className="border border-rose-300 bg-rose-50/50 rounded p-2 text-xs text-rose-800 flex gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                Texto do termo de uso está vazio. Cadastre/edite o template ativo em
+                arr_acordo_template antes de enviar.
+              </div>
+            )}
 
             <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
               {destinatarios.map((d, i) => (
