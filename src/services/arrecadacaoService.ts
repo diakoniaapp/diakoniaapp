@@ -527,6 +527,16 @@ export async function moverCaixaParaConciliando(caixaId: string): Promise<void> 
 
 export async function fecharCaixa(caixaId: string, observacao?: string): Promise<void> {
   const userId = (await supabase.auth.getUser()).data.user?.id;
+  // 1. Lê o caixa pra pegar a reserva associada
+  const { data: caixa, error: er } = await supabase
+    .from("arr_caixas")
+    .select("reserva_id, estado")
+    .eq("id", caixaId)
+    .maybeSingle();
+  if (er) throw er;
+  if (!caixa) throw new Error("Caixa não encontrado");
+
+  // 2. Fecha o caixa
   const { error } = await supabase
     .from("arr_caixas")
     .update({
@@ -537,6 +547,56 @@ export async function fecharCaixa(caixaId: string, observacao?: string): Promise
     })
     .eq("id", caixaId);
   if (error) throw error;
+
+  // 3. F12a: encerra a reserva (sai do "em uso") — só se ainda estiver em uso
+  if (caixa.reserva_id) {
+    await supabase
+      .from("arr_reservas")
+      .update({ status: "encerrada" })
+      .eq("id", caixa.reserva_id)
+      .eq("status", "em_uso");
+  }
+}
+
+/**
+ * F12a — Reabre um caixa fechado: estado → aberto + reserva volta pra em_uso.
+ * Útil quando a secretária fechou cedo demais e ainda precisa registrar venda
+ * ou estornar algo.
+ */
+export async function reabrirCaixa(caixaId: string, motivo?: string): Promise<void> {
+  const userId = (await supabase.auth.getUser()).data.user?.id;
+
+  const { data: caixa, error: er } = await supabase
+    .from("arr_caixas")
+    .select("reserva_id, estado")
+    .eq("id", caixaId)
+    .maybeSingle();
+  if (er) throw er;
+  if (!caixa) throw new Error("Caixa não encontrado");
+  if (caixa.estado !== "fechado") {
+    throw new Error(`Caixa não está fechado (estado atual: ${caixa.estado})`);
+  }
+
+  // 1. Reabre o caixa (limpa fechado_em + observacao opcional)
+  const { error } = await supabase
+    .from("arr_caixas")
+    .update({
+      estado: "aberto",
+      fechado_em: null,
+      fechado_por: null,
+      observacao: motivo ? `[REABERTO em ${new Date().toLocaleString("pt-BR")} por user ${userId}: ${motivo}]` : null,
+    })
+    .eq("id", caixaId);
+  if (error) throw error;
+
+  // 2. Volta reserva pra em_uso
+  if (caixa.reserva_id) {
+    await supabase
+      .from("arr_reservas")
+      .update({ status: "em_uso" })
+      .eq("id", caixa.reserva_id)
+      .eq("status", "encerrada");
+  }
 }
 
 // ─── Vendas ─────────────────────────────────────────────────────────────

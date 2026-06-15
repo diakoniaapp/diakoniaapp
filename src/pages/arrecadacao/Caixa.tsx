@@ -13,7 +13,8 @@ import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  carregarCaixa, listarProdutos, registrarVendaPDV,
+  carregarCaixa,
+  reabrirCaixa, listarProdutos, registrarVendaPDV,
   carregarResumoCaixa,
   type Caixa, type Produto, type FormaPagamento, type ItemVendaInput,
   type CaixaResumo,
@@ -156,7 +157,26 @@ export default function CaixaPDV() {
         <p className="text-sm text-muted-foreground">
           Estado atual: <Badge>{caixa.estado}</Badge>
         </p>
-        <Button asChild><Link to={`/arrecadacao/reserva/${caixa.reserva_id}`}>Voltar à reserva</Link></Button>
+        <div className="flex gap-2 justify-center">
+          <Button asChild variant="outline"><Link to={`/arrecadacao/reserva/${caixa.reserva_id}`}>Voltar à reserva</Link></Button>
+          {caixa.estado === "fechado" && (
+            <Button
+              onClick={async () => {
+                const motivo = prompt("Motivo da reabertura (opcional):") ?? undefined;
+                if (motivo === null) return;
+                try {
+                  await reabrirCaixa(caixa.id, motivo || undefined);
+                  toast.success("Caixa reaberto");
+                  // Recarrega
+                  const c = await carregarCaixa(caixa.id);
+                  if (c) setCaixa(c);
+                } catch (err: any) { toast.error(err?.message ?? "Erro"); }
+              }}
+              className="bg-amber-600 hover:bg-amber-700">
+              Reabrir caixa
+            </Button>
+          )}
+        </div>
       </div>
     );
   }

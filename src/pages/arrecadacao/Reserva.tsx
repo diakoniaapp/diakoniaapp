@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  ArrowLeft, Loader2, CheckCircle2, XCircle, PlayCircle, MessageCircle, Trash2,
+  ArrowLeft, Loader2, CheckCircle2, XCircle, PlayCircle, MessageCircle, Trash2, RotateCcw,
   Calendar, MapPin, Sparkles, ClipboardList, AlertCircle, ShoppingCart, FileBarChart, TrendingDown,
 } from "lucide-react";
 import { FechamentoDialog } from "@/components/arrecadacao/FechamentoDialog";
@@ -19,7 +19,7 @@ import { toast } from "sonner";
 import {
   carregarReserva, listarChecklist, marcarChecklist,
   aprovarReserva, recusarReserva, iniciarUsoEAbrirCaixa, arquivarReserva,
-  listarCaixasDeReserva, carregarResumoCaixa,
+  listarCaixasDeReserva, carregarResumoCaixa, reabrirCaixa,
   listarChecklistPorTipo,
   type Reserva, type ChecklistItem, type ReservaStatus, type Caixa, type CaixaResumo, type ChecklistItemV2,
 } from "@/services/arrecadacaoService";
@@ -255,6 +255,21 @@ export default function ReservaDetalhe() {
                   onClick={() => posUsoCount > 0 ? setPosUsoOpen(true) : setFechamentoOpen(true)}
                   className="gap-2 h-12 px-4">
                   <FileBarChart className="w-4 h-4" /> Fechar caixa
+                </Button>
+              )}
+              {caixa.estado === "fechado" && (
+                <Button size="lg" variant="outline"
+                  onClick={async () => {
+                    const motivo = prompt("Motivo da reabertura (opcional):") ?? undefined;
+                    if (motivo === null) return; // usuário cancelou
+                    try {
+                      await reabrirCaixa(caixa.id, motivo || undefined);
+                      toast.success("Caixa reaberto");
+                      carregar();
+                    } catch (err: any) { toast.error(err?.message ?? "Erro"); }
+                  }}
+                  className="gap-2 h-12 px-4 border-amber-300 text-amber-800 hover:bg-amber-50">
+                  <RotateCcw className="w-4 h-4" /> Reabrir caixa
                 </Button>
               )}
             </div>
