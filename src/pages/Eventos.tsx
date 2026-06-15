@@ -37,6 +37,9 @@ import {
 } from "@/lib/agenda/types";
 import { expandirOcorrencias } from "@/lib/agenda/recurrence";
 import { eventosExternos } from "@/lib/agenda/externalEvents";
+import {
+  fetchReservasAgenda, reservasComoOcorrencias, mapEspacoCodigoParaLocalId,
+} from "@/lib/agenda/arrecadacao";
 import { aniversariosNoIntervalo, type PessoaAniv } from "@/lib/agenda/birthdays";
 import { AgendaFilters } from "@/components/agenda/AgendaFilters";
 import { EventDialog, EventFormPayload } from "@/components/agenda/EventDialog";
@@ -79,6 +82,8 @@ export default function Eventos() {
 
   // UI state
   const [refDate, setRefDate] = useState<Date>(() => startOfDay(new Date()));
+  // F13: reservas da arrecadação como camada
+  const [reservasOcc, setReservasOcc] = useState<EventoOcorrencia[]>([]);
   const [view, setView] = useState<AgendaView>(() => {
     const saved = localStorage.getItem(VIEW_KEY);
     return (saved as AgendaView) || "mes";
@@ -92,6 +97,15 @@ export default function Eventos() {
     }
     return DEFAULT_FILTROS;
   });
+
+  // F13: aplicar ?locais=<id> da URL como filtro inicial (vindo da página Locais)
+  useEffect(() => {
+    const localFromUrl = searchParams.get("locais");
+    if (localFromUrl && !filtros.locais.includes(localFromUrl)) {
+      setFiltros((f) => ({ ...f, locais: [localFromUrl] }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   // Dialog state
   const [editing, setEditing] = useState<EventoOcorrencia | null>(null);
@@ -204,6 +218,23 @@ export default function Eventos() {
     return [startOfDay(refDate), addDays(refDate, 90)];
   }, [refDate, effectiveView]);
 
+  // F13: busca reservas e mapeia pra ocorrências
+  useEffect(() => {
+    let cancelado = false;
+    (async () => {
+      try {
+        const [reservas, map] = await Promise.all([
+          fetchReservasAgenda(from, to),
+          mapEspacoCodigoParaLocalId(),
+        ]);
+        if (!cancelado) setReservasOcc(reservasComoOcorrencias(reservas, map));
+      } catch (err) {
+        console.warn("[agenda] falha ao carregar reservas:", err);
+      }
+    })();
+    return () => { cancelado = true; };
+  }, [from, to]);
+
   // Expand and filter
   const ocorrencias = useMemo(() => {
     const internos = expandirOcorrencias(eventos, from, to).map((o) => ({
@@ -212,14 +243,14 @@ export default function Eventos() {
     }));
     const externos = eventosExternos(from, to);
     const aniversarios = aniversariosNoIntervalo(pessoasAniv, from, to);
-    const cats = filtros.categorias ?? ["igreja", "batista", "feriado", "aniversario", "casamento"];
-    const all = [...internos, ...externos, ...aniversarios].filter((o) => {
+    const cats = filtros.categorias ?? ["igreja", "batista", "feriado", "aniversario", "casamento", "arrecadacao"];
+    const all = [...internos, ...externos, ...aniversarios, ...reservasOcc].filter((o) => {
       const cat = o.categoria ?? "igreja";
       return cats.includes(cat);
     });
-    return all
+    const filtrado = all
       .filter((o) => {
-        if (o.externalReadOnly) return true; // externos não obedecem aos filtros internos
+        if (o.externalReadOnly && o.categoria !== "arrecadacao") return true; // externos sem filtros
         if (filtros.tipos.length && !filtros.tipos.includes(o.evento.tipo)) return false;
         if (filtros.status.length && !filtros.status.includes(o.evento.status)) return false;
         if (filtros.locais.length && !filtros.locais.includes(o.evento.local_id || "")) return false;
@@ -235,7 +266,39 @@ export default function Eventos() {
         const hb = b.evento.hora_inicio || "";
         return ha < hb ? -1 : ha > hb ? 1 : 0;
       });
-  }, [eventos, from, to, filtros, evMin, evArea, pessoasAniv]);
+
+    // F13 D: detectar uso compartilhado (mesmo local, mesmo dia, períodos sobrepostos)
+    // Agrupa por (data, local_id); se 2+ ocorrências e há overlap por hora, marca todas.
+    const byKey = new Map<string, typeof filtrado>();
+    for (const o of filtrado) {
+      const lid = o.evento.local_id;
+      if (!lid) continue;
+      const k = `${o.data}|${lid}`;
+      if (!byKey.has(k)) byKey.set(k, []);
+      byKey.get(k)!.push(o);
+    }
+    for (const grupo of byKey.values()) {
+      if (grupo.length < 2) continue;
+      const hasOverlap = grupo.some((a, i) =>
+        grupo.slice(i + 1).some((b) => {
+          const aIni = a.evento.hora_inicio ?? "00:00";
+          const aFim = a.evento.hora_fim ?? "23:59";
+          const bIni = b.evento.hora_inicio ?? "00:00";
+          const bFim = b.evento.hora_fim ?? "23:59";
+          return aIni < bFim && bIni < aFim;
+        })
+      );
+      if (hasOverlap) {
+        for (const o of grupo) {
+          (o as any).compartilhado = true;
+          if (!o.evento.titulo.startsWith("🤝")) {
+            o.evento = { ...o.evento, titulo: `🤝 ${o.evento.titulo}` };
+          }
+        }
+      }
+    }
+    return filtrado;
+  }, [eventos, from, to, filtros, evMin, evArea, pessoasAniv, reservasOcc]);
 
   // Navigation
   const nav = (dir: -1 | 0 | 1) => {
@@ -401,6 +464,11 @@ export default function Eventos() {
   };
 
   const openEdit = (occ: EventoOcorrencia) => {
+    if (occ.categoria === "arrecadacao") {
+      // F13: link inteligente pra reserva (camada de arrecadação)
+      window.location.href = `/arrecadacao/reserva/${occ.baseId}`;
+      return;
+    }
     if (occ.externalReadOnly) {
       toast.message(occ.evento.titulo, {
         description: occ.evento.descricao ?? undefined,

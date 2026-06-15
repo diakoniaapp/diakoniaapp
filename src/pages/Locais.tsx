@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -407,16 +408,23 @@ export default function Locais() {
                     {(l.descricao || l.observacoes) && (
                       <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{l.descricao ?? l.observacoes}</p>
                     )}
-                    {canEdit && (
-                      <div className="flex gap-2 mt-3">
-                        <Button variant="outline" size="sm" onClick={() => abrirEdicao(l)}>
-                          <Pencil className="w-3.5 h-3.5 mr-1.5" /> Editar
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => toggleStatus(l)}>
-                          {l.status === "ativo" ? "Inativar" : "Reativar"}
-                        </Button>
-                      </div>
-                    )}
+                    <div className="flex gap-2 mt-3 flex-wrap">
+                      <Button asChild variant="outline" size="sm">
+                        <Link to={`/eventos?locais=${l.id}`}>
+                          <Calendar className="w-3.5 h-3.5 mr-1.5" /> Ver agenda
+                        </Link>
+                      </Button>
+                      {canEdit && (
+                        <>
+                          <Button variant="outline" size="sm" onClick={() => abrirEdicao(l)}>
+                            <Pencil className="w-3.5 h-3.5 mr-1.5" /> Editar
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => toggleStatus(l)}>
+                            {l.status === "ativo" ? "Inativar" : "Reativar"}
+                          </Button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
               </CardContent>

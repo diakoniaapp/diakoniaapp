@@ -3,7 +3,7 @@ export type EventoTipo = "culto" | "reuniao" | "ensaio" | "acao_social" | "curso
 export type Resp = "principal" | "apoio";
 export type AgendaView = "dia" | "semana" | "mes" | "lista";
 export type ColorBy = "ministerio" | "tipo";
-export type CategoriaEvento = "igreja" | "batista" | "feriado" | "aniversario" | "casamento";
+export type CategoriaEvento = "igreja" | "batista" | "feriado" | "aniversario" | "casamento" | "arrecadacao";
 
 export type RecorrenciaFreq = "nao" | "diario" | "semanal" | "mensal" | "anual" | "personalizado";
 
@@ -51,6 +51,8 @@ export interface EventoOcorrencia {
   categoria?: CategoriaEvento;
   /** Bloqueia edição (eventos externos / institucionais). */
   externalReadOnly?: boolean;
+  /** F13: marca quando há outras ocorrências sobrepostas no mesmo local (uso compartilhado). */
+  compartilhado?: boolean;
 }
 
 export interface MinisterioOpt { id: string; nome: string; sigla: string | null; ativo: boolean; }
