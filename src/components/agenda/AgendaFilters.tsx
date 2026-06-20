@@ -94,6 +94,7 @@ export function AgendaFilters({ filtros, onChange, ministerios, areas, locais }:
         label="Categoria"
         items={[
           { id: "igreja", nome: "Igreja" },
+          { id: "arrecadacao", nome: "🛍️ Arrecadação" },
           ...CATEGORIA_EXTERNAS.map((c) => ({ id: c.id, nome: c.label })),
           ...CATEGORIA_PESSOAS.map((c) => ({ id: c.id, nome: c.label })),
         ]}

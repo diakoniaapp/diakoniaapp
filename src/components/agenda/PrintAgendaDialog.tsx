@@ -97,7 +97,7 @@ export function PrintAgendaDialog({ open, onClose, filtrosAtuais, ministerios, a
             <FilterBox label="Locais" items={locais.map(l => ({ id: l.id, nome: l.nome_completo || l.nome }))} selected={locs} onToggle={(v) => setLocs((s) => toggle(s, v))} onAll={() => setLocs(locais.map(l => l.id))} onNone={() => setLocs([])} />
             <FilterBox label="Tipos" items={(Object.entries(TIPO_LABEL) as [EventoTipo, string][]).map(([id, nome]) => ({ id, nome }))} selected={tipos} onToggle={(v) => setTipos((s) => toggle(s, v as EventoTipo))} onAll={() => setTipos(Object.keys(TIPO_LABEL) as EventoTipo[])} onNone={() => setTipos([])} />
             <FilterBox label="Status" items={(Object.entries(STATUS_LABEL) as [EventoStatus, string][]).map(([id, nome]) => ({ id, nome }))} selected={status} onToggle={(v) => setStatus((s) => toggle(s, v as EventoStatus))} onAll={() => setStatus(Object.keys(STATUS_LABEL) as EventoStatus[])} onNone={() => setStatus([])} />
-            <FilterBox label="Categorias" items={[{ id: "igreja", nome: "Igreja" }, ...CATEGORIA_EXTERNAS.map(c => ({ id: c.id, nome: c.label })), ...CATEGORIA_PESSOAS.map(c => ({ id: c.id, nome: c.label }))]} selected={cats} onToggle={(v) => setCats((s) => toggle(s, v as CategoriaEvento))} onAll={() => setCats(ALL_CATS)} onNone={() => setCats([])} />
+            <FilterBox label="Categorias" items={[{ id: "igreja", nome: "Igreja" }, { id: "arrecadacao", nome: "🛍️ Arrecadação" }, ...CATEGORIA_EXTERNAS.map(c => ({ id: c.id, nome: c.label })), ...CATEGORIA_PESSOAS.map(c => ({ id: c.id, nome: c.label }))]} selected={cats} onToggle={(v) => setCats((s) => toggle(s, v as CategoriaEvento))} onAll={() => setCats(ALL_CATS)} onNone={() => setCats([])} />
           </div>
         </div>
 
