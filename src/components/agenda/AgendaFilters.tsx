@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { CATEGORIA_EXTERNAS } from "@/lib/agenda/externalEvents";
 import { CATEGORIA_PESSOAS } from "@/lib/agenda/birthdays";
 
-const ALL_CATS: CategoriaEvento[] = ["igreja", "batista", "feriado", "aniversario", "casamento"];
+const ALL_CATS: CategoriaEvento[] = ["igreja", "batista", "feriado", "aniversario", "casamento", "arrecadacao"];
 
 interface Props {
   filtros: AgendaFiltros;

@@ -91,7 +91,15 @@ export default function Eventos() {
   const [filtros, setFiltros] = useState<AgendaFiltros>(() => {
     try {
       const raw = localStorage.getItem(FILTROS_KEY);
-      if (raw) return { ...DEFAULT_FILTROS, ...JSON.parse(raw) };
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        // F13b: migração — se o usuário tem filtro antigo sem 'arrecadacao',
+        // adiciona automaticamente pra essa camada nova aparecer
+        if (Array.isArray(parsed.categorias) && !parsed.categorias.includes("arrecadacao")) {
+          parsed.categorias = [...parsed.categorias, "arrecadacao"];
+        }
+        return { ...DEFAULT_FILTROS, ...parsed };
+      }
     } catch {
       /* ignore */
     }

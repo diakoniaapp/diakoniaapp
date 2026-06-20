@@ -44,7 +44,7 @@ export async function fetchReservasAgenda(from: Date, to: Date): Promise<Reserva
     console.warn("[agenda] reservas indisponíveis (RLS/tabela?):", error.message);
     return [];
   }
-  console.info("[agenda] reservas brutas do banco:", data?.length ?? 0, data);
+  console.debug("[agenda] reservas brutas:", data?.length ?? 0);
   // filtra no JS pelo overlap (período é texto tstzrange — parseamos)
   const inIntervalo = (data ?? []).filter((r: any) => {
     const p = parseTstzrange(r.periodo);
@@ -58,7 +58,7 @@ export async function fetchReservasAgenda(from: Date, to: Date): Promise<Reserva
     }
     return overlap;
   });
-  console.info("[agenda] reservas no intervalo:", inIntervalo.length, "de", data?.length ?? 0);
+  console.debug("[agenda] reservas no intervalo:", inIntervalo.length, "de", data?.length ?? 0);
   return inIntervalo.map((r: any) => ({
     id: r.id,
     finalidade: r.finalidade,

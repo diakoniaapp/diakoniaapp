@@ -98,5 +98,5 @@ export const DEFAULT_FILTROS: AgendaFiltros = {
   locais: [],
   status: ["agendado", "realizado", "cancelado"],
   colorBy: "tipo",
-  categorias: ["igreja", "batista", "feriado", "aniversario", "casamento"],
+  categorias: ["igreja", "batista", "feriado", "aniversario", "casamento", "arrecadacao"],
 };
