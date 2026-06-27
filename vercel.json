@@ -1,5 +1,8 @@
 {
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/nome/:path*",
+      "destination": "https://vercel.app*"
+    }
   ]
 }
