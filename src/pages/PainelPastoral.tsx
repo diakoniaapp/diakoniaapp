@@ -4,6 +4,13 @@ import { Link, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import {
   Cake, Heart, MessageCircle, CalendarCheck, Loader2,
   Sparkles, AlertCircle, UserPlus, Users, ChevronRight, Calendar, Crown,
@@ -15,6 +22,9 @@ import {
   type EventoPastoral, type FamiliaSemResponsavel, type PessoaSemFamilia,
   type ResumoPastoral,
 } from "@/services/agendaPastoralService";
+import {
+  vincularPessoa, PARENTESCO_LABEL, type ParentescoTipo,
+} from "@/services/familiaService";
 
 export default function PainelPastoral() {
   const navigate = useNavigate();
@@ -23,6 +33,12 @@ export default function PainelPastoral() {
   const [familiasSemResp, setFamiliasSemResp] = useState<FamiliaSemResponsavel[]>([]);
   const [pessoasSugeridas, setPessoasSugeridas] = useState<PessoaSemFamilia[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // ── Seleção múltipla / ação em lote (só pessoas com família sugerida concreta) ──
+  const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
+  const [loteOpen, setLoteOpen] = useState(false);
+  const [loteParentesco, setLoteParentesco] = useState<ParentescoTipo>("outro");
+  const [loteBusy, setLoteBusy] = useState(false);
 
   useEffect(() => { carregar(); }, []);
 
@@ -39,6 +55,7 @@ export default function PainelPastoral() {
       setResumo(r);
       setFamiliasSemResp(fs);
       setPessoasSugeridas(ps);
+      setSelecionados(new Set());
     } catch (e: any) {
       toast.error(e?.message ?? "Erro ao carregar painel");
     } finally {
@@ -48,6 +65,58 @@ export default function PainelPastoral() {
 
   function abrirWhats(ev: EventoPastoral) {
     window.open(linkWhatsApp(ev), "_blank", "noopener,noreferrer");
+  }
+
+  // Só pessoas com uma família sugerida concreta podem entrar na seleção em lote
+  // (as demais só têm "sobrenome em comum" sem família existente pra vincular).
+  const elegiveisLote = pessoasSugeridas.filter(p => !!p.familia_sugerida_id);
+  const todosElegiveisSelecionados =
+    elegiveisLote.length > 0 && elegiveisLote.every(p => selecionados.has(p.pessoa_id));
+
+  function alternarSelecao(pessoaId: string, marcado: boolean) {
+    setSelecionados(prev => {
+      const next = new Set(prev);
+      if (marcado) next.add(pessoaId); else next.delete(pessoaId);
+      return next;
+    });
+  }
+
+  function alternarSelecionarTodos(marcado: boolean) {
+    if (marcado) {
+      setSelecionados(new Set(elegiveisLote.map(p => p.pessoa_id)));
+    } else {
+      setSelecionados(new Set());
+    }
+  }
+
+  async function confirmarVinculoLote() {
+    const alvos = pessoasSugeridas.filter(
+      p => selecionados.has(p.pessoa_id) && p.familia_sugerida_id
+    );
+    if (alvos.length === 0) return;
+    setLoteBusy(true);
+    let sucesso = 0;
+    let falhas = 0;
+    for (const p of alvos) {
+      try {
+        await vincularPessoa(p.familia_sugerida_id as string, p.pessoa_id, loteParentesco, false, false);
+        sucesso++;
+      } catch {
+        falhas++;
+      }
+    }
+    setLoteBusy(false);
+    setLoteOpen(false);
+    if (sucesso > 0) {
+      toast.success(
+        falhas === 0
+          ? `${sucesso} ${sucesso === 1 ? "pessoa vinculada" : "pessoas vinculadas"} à família sugerida!`
+          : `${sucesso} vinculadas, ${falhas} falharam.`
+      );
+    } else {
+      toast.error("Não foi possível vincular as pessoas selecionadas.");
+    }
+    await carregar();
   }
 
   if (loading) {
@@ -161,41 +230,90 @@ export default function PainelPastoral() {
       {pessoasSugeridas.length > 0 && (
         <Card className="border-blue-200">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-blue-600" />
-              Possíveis vínculos familiares
-              <Badge variant="outline" className="text-[10px] bg-blue-100 border-blue-300">
-                {pessoasSugeridas.length}
-              </Badge>
+            <CardTitle className="text-sm flex items-center justify-between gap-2">
+              <span className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-blue-600" />
+                Possíveis vínculos familiares
+                <Badge variant="outline" className="text-[10px] bg-blue-100 border-blue-300">
+                  {pessoasSugeridas.length}
+                </Badge>
+              </span>
+              {elegiveisLote.length > 0 && (
+                <label className="flex items-center gap-1.5 text-xs font-normal text-muted-foreground cursor-pointer">
+                  <Checkbox
+                    checked={todosElegiveisSelecionados}
+                    onCheckedChange={(v) => alternarSelecionarTodos(!!v)}
+                  />
+                  Selecionar todos com família sugerida
+                </label>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             <p className="text-xs text-muted-foreground mb-1">
               Pessoas com sobrenome em comum com alguém já cadastrado. Considere vincular à mesma família.
             </p>
-            {pessoasSugeridas.slice(0, 15).map(p => (
-              <div key={p.pessoa_id} className="flex items-center justify-between border rounded-md px-3 py-2 bg-blue-50/40">
-                <div className="min-w-0">
-                  <p className="font-medium text-sm">{p.nome_completo}</p>
-                  <p className="text-xs text-muted-foreground flex items-center gap-1 flex-wrap">
-                    Sobrenome: <strong>{p.sobrenome}</strong>
-                    {p.familia_sugerida_nome && (
-                      <Badge variant="outline" className="text-[9px] ml-1 border-rose-300 text-rose-700">
-                        → Família {p.familia_sugerida_nome}
-                      </Badge>
-                    )}
-                    {!p.familia_sugerida_nome && p.qtd_pessoas_mesmo_sobrenome > 1 && (
-                      <span>· {p.qtd_pessoas_mesmo_sobrenome - 1} outras com mesmo sobrenome</span>
-                    )}
-                  </p>
-                </div>
-                <Link to={`/membros?abrir=${p.pessoa_id}`}>
-                  <Button type="button" size="sm" variant="outline" className="gap-1.5 text-xs shrink-0">
-                    <UserPlus className="w-3.5 h-3.5" /> Vincular
+
+            {selecionados.size > 0 && (
+              <div className="flex items-center justify-between rounded-md border border-blue-300 bg-blue-50 px-3 py-2">
+                <span className="text-xs font-medium text-blue-800">
+                  {selecionados.size} {selecionados.size === 1 ? "pessoa selecionada" : "pessoas selecionadas"}
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    type="button" size="sm" variant="ghost"
+                    className="text-xs h-7"
+                    onClick={() => setSelecionados(new Set())}
+                  >
+                    Limpar
                   </Button>
-                </Link>
+                  <Button
+                    type="button" size="sm"
+                    className="gap-1.5 text-xs h-7"
+                    onClick={() => setLoteOpen(true)}
+                  >
+                    <UserPlus className="w-3.5 h-3.5" /> Vincular selecionados
+                  </Button>
+                </div>
               </div>
-            ))}
+            )}
+
+            {pessoasSugeridas.slice(0, 15).map(p => {
+              const temFamiliaConcreta = !!p.familia_sugerida_id;
+              const checked = selecionados.has(p.pessoa_id);
+              return (
+                <div key={p.pessoa_id} className="flex items-center justify-between border rounded-md px-3 py-2 bg-blue-50/40 gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {temFamiliaConcreta && (
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={(v) => alternarSelecao(p.pessoa_id, !!v)}
+                        aria-label={`Selecionar ${p.nome_completo}`}
+                      />
+                    )}
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm truncate">{p.nome_completo}</p>
+                      <p className="text-xs text-muted-foreground flex items-center gap-1 flex-wrap">
+                        Sobrenome: <strong>{p.sobrenome}</strong>
+                        {p.familia_sugerida_nome && (
+                          <Badge variant="outline" className="text-[9px] ml-1 border-rose-300 text-rose-700">
+                            → Família {p.familia_sugerida_nome ?? "sugerida"}
+                          </Badge>
+                        )}
+                        {!p.familia_sugerida_nome && p.qtd_pessoas_mesmo_sobrenome > 1 && (
+                          <span>· {p.qtd_pessoas_mesmo_sobrenome - 1} outras com mesmo sobrenome</span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                  <Link to={`/membros?abrir=${p.pessoa_id}`}>
+                    <Button type="button" size="sm" variant="outline" className="gap-1.5 text-xs shrink-0">
+                      <UserPlus className="w-3.5 h-3.5" /> Vincular
+                    </Button>
+                  </Link>
+                </div>
+              );
+            })}
             {pessoasSugeridas.length > 15 && (
               <p className="text-xs text-muted-foreground text-center pt-1">
                 ... e mais {pessoasSugeridas.length - 15} pessoas
@@ -212,6 +330,53 @@ export default function PainelPastoral() {
           </Button>
         </Link>
       </div>
+
+      {/* Dialog: vínculo em lote */}
+      <Dialog open={loteOpen} onOpenChange={setLoteOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              Vincular {selecionados.size} {selecionados.size === 1 ? "pessoa" : "pessoas"} à família sugerida
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Cada pessoa selecionada será vinculada à família já sugerida ao lado do nome dela
+              (sobrenome em comum). O parentesco abaixo será aplicado a todas — ajuste depois,
+              individualmente, se algum caso precisar de um parentesco diferente.
+            </p>
+            <div>
+              <Select value={loteParentesco} onValueChange={(v) => setLoteParentesco(v as ParentescoTipo)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(PARENTESCO_LABEL) as ParentescoTipo[]).map(k => (
+                    <SelectItem key={k} value={k}>{PARENTESCO_LABEL[k]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <ul className="text-xs text-muted-foreground max-h-32 overflow-y-auto space-y-0.5 border rounded-md p-2">
+              {pessoasSugeridas
+                .filter(p => selecionados.has(p.pessoa_id))
+                .map(p => (
+                  <li key={p.pessoa_id} className="truncate">
+                    {p.nome_completo} → Família {p.familia_sugerida_nome ?? "sugerida"}
+                  </li>
+                ))}
+            </ul>
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setLoteOpen(false)} disabled={loteBusy}>
+              Cancelar
+            </Button>
+            <Button type="button" onClick={confirmarVinculoLote} disabled={loteBusy}>
+              {loteBusy ? "Vinculando..." : `Vincular ${selecionados.size}`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
