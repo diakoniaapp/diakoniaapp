@@ -1,18 +1,28 @@
 // ─── Ebd.tsx — Listagem de classes ─────────────────────────────────────────
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, GraduationCap, ChevronRight, Users, Plus, Pencil } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Loader2, GraduationCap, ChevronRight, Users, Plus, Pencil, AlertCircle, ArrowRight } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { listarClasses, type EbdClasse } from "@/services/ebdService";
+import { listarClasses, moverParaClasse, type EbdClasse } from "@/services/ebdService";
 import { ClasseForm } from "@/components/ebd/ClasseForm";
 import { useAuth } from "@/hooks/useAuth";
 
 interface ClasseCard extends EbdClasse {
   qtd_matriculados: number;
   qtd_esperados: number;
+}
+
+interface AlunoForaFaixa {
+  pessoa_id: string;
+  nome_completo: string;
+  idade_atual: number;
+  classe_atual: string;
+  classe_sugerida_id: string | null;
 }
 
 export default function Ebd() {
@@ -24,7 +34,14 @@ export default function Ebd() {
   const [classeEditando, setClasseEditando] = useState<EbdClasse | null>(null);
   const [mostrarInativas, setMostrarInativas] = useState(false);
 
+  // ── Alunos fora da faixa etária (ação em lote) ─────────────────────────
+  const [alunosForaFaixa, setAlunosForaFaixa] = useState<AlunoForaFaixa[]>([]);
+  const [todasClasses, setTodasClasses] = useState<EbdClasse[]>([]);
+  const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
+  const [moveBusy, setMoveBusy] = useState(false);
+
   useEffect(() => { carregar(); }, [mostrarInativas]);
+  useEffect(() => { carregarAlertasIdade(); }, []);
 
   async function carregar() {
     setLoading(true);
@@ -48,6 +65,73 @@ export default function Ebd() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function carregarAlertasIdade() {
+    try {
+      const [{ data: alertas }, todas] = await Promise.all([
+        supabase.from("vw_ebd_alertas_idade")
+          .select("pessoa_id, nome_completo, idade_atual, classe_atual, classe_sugerida_id")
+          .limit(50),
+        listarClasses(true),
+      ]);
+      setAlunosForaFaixa((alertas ?? []) as AlunoForaFaixa[]);
+      setTodasClasses(todas);
+      setSelecionados(new Set());
+    } catch (e: any) {
+      // Não bloqueia a tela de classes se o alerta falhar
+      console.warn("Erro ao carregar alertas de idade EBD:", e?.message);
+    }
+  }
+
+  const nomeClassePorId = useMemo(() => {
+    const map: Record<string, string> = {};
+    todasClasses.forEach(c => { map[c.id] = c.nome; });
+    return map;
+  }, [todasClasses]);
+
+  const elegiveisLote = alunosForaFaixa.filter(a => !!a.classe_sugerida_id);
+  const todosElegiveisSelecionados =
+    elegiveisLote.length > 0 && elegiveisLote.every(a => selecionados.has(a.pessoa_id));
+
+  function alternarSelecao(pessoaId: string, marcado: boolean) {
+    setSelecionados(prev => {
+      const next = new Set(prev);
+      if (marcado) next.add(pessoaId); else next.delete(pessoaId);
+      return next;
+    });
+  }
+
+  function alternarSelecionarTodos(marcado: boolean) {
+    setSelecionados(marcado ? new Set(elegiveisLote.map(a => a.pessoa_id)) : new Set());
+  }
+
+  async function confirmarMoverLote() {
+    const alvos = alunosForaFaixa.filter(a => selecionados.has(a.pessoa_id) && a.classe_sugerida_id);
+    if (alvos.length === 0) return;
+    if (!confirm(`Mover ${alvos.length} ${alvos.length === 1 ? "aluno" : "alunos"} para a classe sugerida?`)) return;
+    setMoveBusy(true);
+    let sucesso = 0;
+    let falhas = 0;
+    for (const a of alvos) {
+      try {
+        await moverParaClasse(a.pessoa_id, a.classe_sugerida_id as string);
+        sucesso++;
+      } catch {
+        falhas++;
+      }
+    }
+    setMoveBusy(false);
+    if (sucesso > 0) {
+      toast.success(
+        falhas === 0
+          ? `${sucesso} ${sucesso === 1 ? "aluno movido" : "alunos movidos"} de classe!`
+          : `${sucesso} movidos, ${falhas} falharam.`
+      );
+    } else {
+      toast.error("Não foi possível mover os alunos selecionados.");
+    }
+    await Promise.all([carregar(), carregarAlertasIdade()]);
   }
 
   function faixaTexto(c: EbdClasse) {
@@ -93,6 +177,97 @@ export default function Ebd() {
           </Button>
         )}
       </header>
+
+      {alunosForaFaixa.length > 0 && (
+        <Card className="border-amber-200">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center justify-between gap-2">
+              <span className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-600" />
+                Alunos fora da faixa etária
+                <Badge variant="outline" className="text-[10px] bg-amber-100 border-amber-300">
+                  {alunosForaFaixa.length}
+                </Badge>
+              </span>
+              {elegiveisLote.length > 0 && (
+                <label className="flex items-center gap-1.5 text-xs font-normal text-muted-foreground cursor-pointer">
+                  <Checkbox
+                    checked={todosElegiveisSelecionados}
+                    onCheckedChange={(v) => alternarSelecionarTodos(!!v)}
+                  />
+                  Selecionar todos com classe sugerida
+                </label>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <p className="text-xs text-muted-foreground mb-1">
+              A idade atual não bate mais com a faixa da classe matriculada. Considere mover para a classe sugerida.
+            </p>
+
+            {selecionados.size > 0 && (
+              <div className="flex items-center justify-between rounded-md border border-amber-300 bg-amber-50 px-3 py-2">
+                <span className="text-xs font-medium text-amber-800">
+                  {selecionados.size} {selecionados.size === 1 ? "aluno selecionado" : "alunos selecionados"}
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    type="button" size="sm" variant="ghost"
+                    className="text-xs h-7"
+                    onClick={() => setSelecionados(new Set())}
+                    disabled={moveBusy}
+                  >
+                    Limpar
+                  </Button>
+                  <Button
+                    type="button" size="sm"
+                    className="gap-1.5 text-xs h-7"
+                    onClick={confirmarMoverLote}
+                    disabled={moveBusy}
+                  >
+                    <ArrowRight className="w-3.5 h-3.5" /> {moveBusy ? "Movendo..." : "Mover selecionados"}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {alunosForaFaixa.slice(0, 15).map(a => {
+              const temSugestao = !!a.classe_sugerida_id;
+              const checked = selecionados.has(a.pessoa_id);
+              const nomeSugerida = a.classe_sugerida_id ? (nomeClassePorId[a.classe_sugerida_id] ?? "outra classe") : null;
+              return (
+                <div key={a.pessoa_id} className="flex items-center justify-between border rounded-md px-3 py-2 bg-amber-50/40 gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {temSugestao && (
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={(v) => alternarSelecao(a.pessoa_id, !!v)}
+                        aria-label={`Selecionar ${a.nome_completo}`}
+                      />
+                    )}
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm truncate">{a.nome_completo}</p>
+                      <p className="text-xs text-muted-foreground flex items-center gap-1 flex-wrap">
+                        {a.idade_atual} anos em <strong>{a.classe_atual}</strong>
+                        {nomeSugerida && (
+                          <Badge variant="outline" className="text-[9px] ml-1 border-emerald-300 text-emerald-700">
+                            → {nomeSugerida}
+                          </Badge>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            {alunosForaFaixa.length > 15 && (
+              <p className="text-xs text-muted-foreground text-center pt-1">
+                ... e mais {alunosForaFaixa.length - 15} alunos
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {classes.map((c) => {
