@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   ArrowLeft, Users, Loader2, Camera, FileImage, X, Check, FileText, Trash2,
-  UserPlus, Trash2, Save, BookOpen, MessageCircle, Calendar,
+  UserPlus, Save, BookOpen, MessageCircle, Calendar,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
