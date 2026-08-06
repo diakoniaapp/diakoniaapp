@@ -52,7 +52,8 @@ export function UserMenuButton() {
 
   const roleLabel: Record<string, string> = {
     admin: "Administrador", secretaria: "Secretaria",
-    diakonia: "Pastor",     lideranca:  "Lideranca",
+    diakonia: "Pastor",     pastor:     "Pastor",
+    lideranca: "Liderança", voluntario: "Voluntário",
   };
   const principalRole = roles[0] ?? "lideranca";
 
@@ -65,7 +66,7 @@ export function UserMenuButton() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
-          aria-label="Menu do usuario"
+          aria-label="Menu do usuário"
           className="w-9 h-9 rounded-full ring-2 ring-gold/40 hover:ring-gold/80 active:scale-95 transition-all focus:outline-none"
         >
           <Avatar className="w-9 h-9">
@@ -81,7 +82,7 @@ export function UserMenuButton() {
               <AvatarFallback className="bg-gold/20 text-gold font-bold text-xs">{initials}</AvatarFallback>
             </Avatar>
             <div className="min-w-0">
-              <p className="font-semibold text-sm truncate">{nome || "Usuario"}</p>
+              <p className="font-semibold text-sm truncate">{nome || "Usuário"}</p>
               <p className="text-[11px] text-muted-foreground truncate">{user.email}</p>
             </div>
           </div>
@@ -102,17 +103,17 @@ export function UserMenuButton() {
         {hasRole(["admin", "secretaria"]) && (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-muted-foreground/60 py-1">
-              Administracao
+            <DropdownMenuLabel className="text-[11px] uppercase tracking-widest text-muted-foreground/60 py-1">
+              Administração
             </DropdownMenuLabel>
             {[
-              { path: "/ministerios?novo=1",      label: "Criar Ministerio",       Icon: HeartHandshake },
-              { path: "/admin/recuperacao-senha", label: "Recuperacao de Senhas",  Icon: KeyRound },
+              { path: "/ministerios?novo=1",      label: "Criar Ministério",       Icon: HeartHandshake },
+              { path: "/admin/recuperacao-senha", label: "Recuperação de Senhas",  Icon: KeyRound },
               { path: "/admin/lgpd",              label: "Painel LGPD",            Icon: ShieldAlert },
               { path: "/admin/identidade",        label: "Identidade da Igreja",   Icon: Church },
               { path: "/admin/documentos",        label: "Documentos",             Icon: FileText },
-              { path: "/admin/importacao",        label: "Importacao de Membros",  Icon: Upload },
-              { path: "/admin/exportacao",        label: "Exportacao de Dados",    Icon: Download },
+              { path: "/admin/importacao",        label: "Importação de Membros",  Icon: Upload },
+              { path: "/admin/exportacao",        label: "Exportação de Dados",    Icon: Download },
               { path: "/admin/campanhas",         label: "Campanhas Espirituais",  Icon: Flame },
             ].map(({ path, label, Icon }) => (
               <DropdownMenuItem key={path} className="gap-2 cursor-pointer py-2.5"

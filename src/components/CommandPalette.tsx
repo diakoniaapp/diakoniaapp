@@ -12,6 +12,7 @@ import {
   ShieldAlert, UserPlus, type LucideIcon,
 } from "lucide-react";
 import { usePermissoes } from "@/hooks/usePermissoes";
+import { EVENTO_ABRIR_BUSCA } from "@/lib/commandPalette";
 
 interface CommandRoute {
   to: string;
@@ -98,6 +99,13 @@ export function CommandPalette() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
+  }, []);
+
+  // Abertura por clique (mobile / botão de busca)
+  useEffect(() => {
+    const abrir = () => setOpen(true);
+    window.addEventListener(EVENTO_ABRIR_BUSCA, abrir);
+    return () => window.removeEventListener(EVENTO_ABRIR_BUSCA, abrir);
   }, []);
 
   // Filtra rotas por permissão e agrupa

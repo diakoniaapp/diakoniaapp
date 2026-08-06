@@ -1,23 +1,28 @@
 import { NavLink } from "react-router-dom";
-import {
-  LayoutDashboard, Users, Home, Heart, Calendar, MapPin, UserCheck,
-} from "lucide-react";
+import { LayoutDashboard, Users, Calendar, UserCheck, Menu } from "lucide-react";
 import { useAuth, type AppRole } from "@/hooks/useAuth";
+import { MobileNavDrawer } from "@/components/layout/MobileNavDrawer";
 
 const ROLES_LIDERES: AppRole[] = ["admin", "secretaria", "pastor", "diakonia", "lideranca"];
 
+// Máximo 4 destinos fixos + "Menu".
+//
+// Antes eram 7 abas: num aparelho de 360px cada uma ficava com ~51px, e
+// rótulos como "Ministérios"/"Visitantes" em 10px não cabiam. Famílias,
+// Ministérios e Espaços passaram para o menu completo, junto com todo o
+// resto do sistema.
 const items: {
   to: string; label: string; icon: typeof LayoutDashboard;
   end?: boolean; allowedRoles?: AppRole[];
 }[] = [
-  { to: "/", label: "Painel", icon: LayoutDashboard, end: true },
-  { to: "/membros", label: "Pessoas", icon: Users, allowedRoles: ROLES_LIDERES },
+  { to: "/",           label: "Painel",     icon: LayoutDashboard, end: true },
+  { to: "/membros",    label: "Pessoas",    icon: Users, allowedRoles: ROLES_LIDERES },
   { to: "/visitantes", label: "Visitantes", icon: UserCheck },
-  { to: "/familias", label: "Famílias", icon: Home, allowedRoles: ROLES_LIDERES },
-  { to: "/ministerios", label: "Ministérios", icon: Heart, allowedRoles: ROLES_LIDERES },
-  { to: "/eventos", label: "Agenda", icon: Calendar },
-  { to: "/locais", label: "Locais", icon: MapPin, allowedRoles: ROLES_LIDERES },
+  { to: "/eventos",    label: "Agenda",     icon: Calendar },
 ];
+
+const tabClass =
+  "flex-1 flex flex-col items-center justify-center py-2 min-h-[56px] text-[11px] gap-0.5 transition-colors";
 
 export function MobileBottomNav() {
   const { hasRole } = useAuth();
@@ -36,7 +41,7 @@ export function MobileBottomNav() {
             to={item.to}
             end={item.end}
             className={({ isActive }) =>
-              `flex-1 flex flex-col items-center justify-center py-2 min-h-[56px] text-[10px] gap-0.5 transition-colors ${
+              `${tabClass} ${
                 isActive
                   ? "text-gold"
                   : "text-sidebar-foreground/70 hover:text-sidebar-foreground"
@@ -48,6 +53,17 @@ export function MobileBottomNav() {
           </NavLink>
         );
       })}
+
+      <MobileNavDrawer>
+        <button
+          type="button"
+          aria-label="Abrir menu completo"
+          className={`${tabClass} text-sidebar-foreground/70 hover:text-sidebar-foreground`}
+        >
+          <Menu className="w-5 h-5" />
+          <span className="leading-none">Menu</span>
+        </button>
+      </MobileNavDrawer>
     </nav>
   );
 }

@@ -8,17 +8,13 @@ import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import {
-  Quote, ShieldCheck, UserPlus, Users, Home, GraduationCap,
-  CalendarCheck, DollarSign, FileText, Sparkles, Bell, Heart,
-  CalendarDays, BarChart3, Lightbulb,
-} from "lucide-react";
+import { Quote, ShieldCheck, UserPlus, Sparkles, Search, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { verseOfTheDay } from "@/lib/agenda/verses";
 import { usePermissoes } from "@/hooks/usePermissoes";
 import VisitanteRapidoDialog from "@/components/membros/VisitanteRapidoDialog";
+import { openCommandPalette } from "@/lib/commandPalette";
 import { Suspense } from "react";
-import { Loader2 } from "lucide-react";
 import { getWidgetsDivididos } from "@/dashboard/widgetRegistry";
 import { getAcoesParaUsuario } from "@/dashboard/quickActionsRegistry";
 
@@ -60,7 +56,7 @@ const ROLE_VALORES = [
 
 export default function Dashboard() {
   const { user, roles } = useAuth();
-  const { podeFazer, permissoes } = usePermissoes();
+  const { permissoes } = usePermissoes();
   const principalRole = roles[0] ?? "lideranca";
   const [nome, setNome] = useState<string>("Visitante");
   const [openVisitanteRapido, setOpenVisitanteRapido] = useState(false);
@@ -139,8 +135,17 @@ export default function Dashboard() {
               <AcaoRapida key={a.id} to={a.to} icon={a.icon} label={a.label} />
             ))}
           </div>
-          <div className="mt-2 text-[10px] text-muted-foreground/70 text-right">
-            Dica: <kbd className="px-1 py-0.5 rounded bg-muted text-[10px]">Ctrl/Cmd + K</kbd> abre busca global.
+          {/* Busca global: clicável em qualquer aparelho — o Ctrl+K só existe no desktop */}
+          <div className="mt-2 text-right">
+            <button
+              type="button"
+              onClick={openCommandPalette}
+              className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Search className="w-3.5 h-3.5" />
+              <span>Buscar qualquer página ou ação</span>
+              <kbd className="hidden md:inline px-1 py-0.5 rounded bg-muted text-[11px]">Ctrl K</kbd>
+            </button>
           </div>
         </BlocoSecao>
 
@@ -198,20 +203,6 @@ function AcaoRapida({ to, icon: Icon, label }: AcaoRapidaProps) {
     </Link>
   );
 }
-
-function Placeholder({ texto }: { texto: string }) {
-  return (
-    <Card className="border-dashed">
-      <CardContent className="py-5 text-center">
-        <p className="text-xs text-muted-foreground leading-relaxed max-w-xl mx-auto">
-          {texto}
-        </p>
-      </CardContent>
-    </Card>
-  );
-}
-
-
 
 // ─── Sub-componente: lista de widgets com "Ver mais" ────────────────────
 function WidgetsDinamicos({ permissoes }: { permissoes: Set<string> }) {
