@@ -33,6 +33,7 @@ export default function PainelPastoral() {
   const [familiasSemResp, setFamiliasSemResp] = useState<FamiliaSemResponsavel[]>([]);
   const [pessoasSugeridas, setPessoasSugeridas] = useState<PessoaSemFamilia[]>([]);
   const [loading, setLoading] = useState(true);
+  const [atualizadoEm, setAtualizadoEm] = useState<Date | null>(null);
 
   // ── Seleção múltipla / ação em lote (só pessoas com família sugerida concreta) ──
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
@@ -41,6 +42,13 @@ export default function PainelPastoral() {
   const [loteBusy, setLoteBusy] = useState(false);
 
   useEffect(() => { carregar(); }, []);
+
+  // Força um re-render a cada minuto só para o texto "Atualizado há X" continuar fresco
+  const [, forcarAtualizacaoRelogio] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => forcarAtualizacaoRelogio(t => t + 1), 60000);
+    return () => clearInterval(id);
+  }, []);
 
   async function carregar() {
     setLoading(true);
@@ -56,6 +64,7 @@ export default function PainelPastoral() {
       setFamiliasSemResp(fs);
       setPessoasSugeridas(ps);
       setSelecionados(new Set());
+      setAtualizadoEm(new Date());
     } catch (e: any) {
       toast.error(e?.message ?? "Erro ao carregar painel");
     } finally {
@@ -140,6 +149,21 @@ export default function PainelPastoral() {
           Ações do dia e alertas para a liderança pastoral
         </p>
       </div>
+
+      {/* Resumo em linguagem natural, inspirado no card "Visão geral" do Omie */}
+      {resumo && (
+        <div className="text-sm text-muted-foreground bg-muted/40 border rounded-md px-3 py-2 flex items-center justify-between gap-2 flex-wrap">
+          <span className="flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-gold shrink-0" />
+            {resumoNatural(resumo)}
+          </span>
+          {atualizadoEm && (
+            <span className="text-[10px] text-muted-foreground/70 shrink-0">
+              Atualizado {formatarAtualizadoHa(atualizadoEm)}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Cards de resumo */}
       {resumo && (
@@ -382,6 +406,48 @@ export default function PainelPastoral() {
 }
 
 // ─── Helpers de UI ─────────────────────────────────────────────────────────
+
+// Resumo em linguagem natural do estado do dia, inspirado no card
+// "Visão geral" do painel inicial do Omie.
+function resumoNatural(r: ResumoPastoral): string {
+  const celebra: string[] = [];
+  if (r.aniversarios_hoje > 0) {
+    celebra.push(`${r.aniversarios_hoje} ${r.aniversarios_hoje === 1 ? "aniversariante" : "aniversariantes"} hoje`);
+  }
+  if (r.bodas_hoje > 0) {
+    celebra.push(`${r.bodas_hoje} ${r.bodas_hoje === 1 ? "casal em bodas" : "casais em bodas"} hoje`);
+  }
+
+  const pendencias: string[] = [];
+  if (r.familias_sem_resp > 0) {
+    pendencias.push(`${r.familias_sem_resp} ${r.familias_sem_resp === 1 ? "família sem responsável" : "famílias sem responsável"}`);
+  }
+  if (r.pessoas_sem_familia_sugerida > 0) {
+    pendencias.push(`${r.pessoas_sem_familia_sugerida} ${r.pessoas_sem_familia_sugerida === 1 ? "vínculo familiar" : "vínculos familiares"} para revisar`);
+  }
+
+  const partes: string[] = [];
+  if (celebra.length > 0) partes.push(`Hoje: ${celebra.join(" e ")}.`);
+  if (pendencias.length > 0) partes.push(`Pendências: ${pendencias.join(" e ")}.`);
+
+  if (partes.length === 0) return "Nenhuma celebração hoje e nenhuma pendência no momento — tudo em dia! 🙏";
+  return partes.join(" ");
+}
+
+// "Atualizado há X", no mesmo espírito do timestamp que o Omie mostra
+// perto de números importantes.
+function formatarAtualizadoHa(data: Date | null): string {
+  if (!data) return "";
+  const diffMs = Date.now() - data.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return "agora mesmo";
+  if (diffMin === 1) return "há 1 minuto";
+  if (diffMin < 60) return `há ${diffMin} minutos`;
+  const diffH = Math.floor(diffMin / 60);
+  if (diffH === 1) return "há 1 hora";
+  return `há ${diffH} horas`;
+}
+
 function ResumoCard({ label, value, cor }: { label: string; value: number; cor: string }) {
   return (
     <div className={`rounded-md border p-2 text-center ${cor}`}>
