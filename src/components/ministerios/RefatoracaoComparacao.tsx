@@ -44,7 +44,7 @@ function FonteBadge({ fonte }: { fonte: "ia" | "parser" | "combinado" }) {
         };
     const m = map[fonte];
     return (
-          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${m.color}`}>
+          <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${m.color}`}>
             <Sparkles className="w-2.5 h-2.5 inline mr-1" />{m.label}
           </span>
         );
@@ -58,7 +58,7 @@ function SimilaridadeBadge({ pct }: { pct: number }) {
       pct >= 70 ? "text-amber-700 bg-amber-50 border-amber-200" :
       "text-rose-700 bg-rose-50 border-rose-200";
     return (
-          <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded border ${color}`}>
+          <span className={`text-xs font-mono px-1.5 py-0.5 rounded border ${color}`}>
             {pct}% similar
           </span>
         );
@@ -93,17 +93,17 @@ function ItemCard({
               <div className="flex-1 min-w-0">
                 <div className="flex flex-wrap items-center gap-1.5 mb-1">
                   {tipo === "atualizar" && (
-                                  <Badge variant="outline" className="text-[10px] bg-amber-100 text-amber-700 border-amber-300 gap-1">
+                                  <Badge variant="outline" className="text-xs bg-amber-100 text-amber-700 border-amber-300 gap-1">
                                     <RefreshCw className="w-2.5 h-2.5" /> Atualizar
                                   </Badge>
                                 )}
                   {tipo === "criar" && (
-                                  <Badge variant="outline" className="text-[10px] bg-emerald-100 text-emerald-700 border-emerald-300 gap-1">
+                                  <Badge variant="outline" className="text-xs bg-emerald-100 text-emerald-700 border-emerald-300 gap-1">
                                     <Plus className="w-2.5 h-2.5" /> Novo
                                   </Badge>
                                 )}
                   {tipo === "manter" && (
-                                  <Badge variant="outline" className="text-[10px] bg-muted text-muted-foreground gap-1">
+                                  <Badge variant="outline" className="text-xs bg-muted text-muted-foreground gap-1">
                                     <CheckCircle2 className="w-2.5 h-2.5" /> Sincronizado
                                   </Badge>
                                 )}
@@ -113,21 +113,21 @@ function ItemCard({
                 <div className="flex items-baseline gap-2">
                   <p className="font-medium text-sm">{item.extraido.nome}</p>
                   {item.existente && item.existente.nome !== item.extraido.nome && (
-                                  <span className="text-[10px] text-muted-foreground">
+                                  <span className="text-xs text-muted-foreground">
                                     (existente: {item.existente.nome})
                                   </span>
                                 )}
                 </div>
 
                 {item.extraido.descricao && (
-                              <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">
+                              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
                                 {item.extraido.descricao}
                               </p>
                             )}
 
                 {temDif && (
                               <button
-                                className="flex items-center gap-1 text-[10px] text-primary mt-1.5 hover:underline"
+                                className="flex items-center gap-1 text-xs text-primary mt-1.5 hover:underline"
                                 onClick={() => setExpandido(!expandido)}
                               >
                                 {expandido ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
@@ -139,13 +139,13 @@ function ItemCard({
                               <div className="mt-2 space-y-1.5">
                                 {item.diferencas.filter(d => d.tipo !== "sem_mudanca").map((dif, i) => (
                                                   <div key={i} className="rounded-md bg-background border p-2 text-xs">
-                                                    <p className="font-medium text-[10px] uppercase text-muted-foreground mb-1">
+                                                    <p className="font-medium text-xs uppercase text-muted-foreground mb-1">
                                                       {dif.label}
                                                       {dif.tipo === "novo" && (
-                                                                              <Badge variant="outline" className="ml-2 text-[9px] bg-emerald-50 text-emerald-700 border-emerald-200">Novo campo</Badge>
+                                                                              <Badge variant="outline" className="ml-2 text-xs bg-emerald-50 text-emerald-700 border-emerald-200">Novo campo</Badge>
                                                                             )}
                                                       {dif.tipo === "modificado" && (
-                                                                              <Badge variant="outline" className="ml-2 text-[9px] bg-amber-50 text-amber-700 border-amber-200">Mais completo</Badge>
+                                                                              <Badge variant="outline" className="ml-2 text-xs bg-amber-50 text-amber-700 border-amber-200">Mais completo</Badge>
                                                                             )}
                                                     </p>
                                                     {dif.valorAtual && (
@@ -172,7 +172,7 @@ function ItemCard({
                               <>
                                 <button
                                   onClick={() => onDecidir("atualizar")}
-                                  className={`px-2.5 py-1 rounded text-[11px] font-medium transition-all border ${
+                                  className={`px-2.5 py-1 rounded text-xs font-medium transition-all border ${
                                                       decisao === "atualizar"
                                                         ? "bg-amber-500 text-white border-amber-500"
                                                         : "bg-background border-border text-muted-foreground hover:border-amber-300"
@@ -182,7 +182,7 @@ function ItemCard({
                                 </button>
                                 <button
                                   onClick={() => onDecidir("manter")}
-                                  className={`px-2.5 py-1 rounded text-[11px] font-medium transition-all border ${
+                                  className={`px-2.5 py-1 rounded text-xs font-medium transition-all border ${
                                                       decisao === "manter"
                                                         ? "bg-muted text-foreground border-muted-foreground"
                                                         : "bg-background border-border text-muted-foreground hover:border-muted-foreground"
@@ -196,7 +196,7 @@ function ItemCard({
                               <>
                                 <button
                                   onClick={() => onDecidir("criar")}
-                                  className={`px-2.5 py-1 rounded text-[11px] font-medium transition-all border ${
+                                  className={`px-2.5 py-1 rounded text-xs font-medium transition-all border ${
                                                       decisao === "criar"
                                                         ? "bg-emerald-500 text-white border-emerald-500"
                                                         : "bg-background border-border text-muted-foreground hover:border-emerald-300"
@@ -206,7 +206,7 @@ function ItemCard({
                                 </button>
                                 <button
                                   onClick={() => onDecidir("ignorar")}
-                                  className={`px-2.5 py-1 rounded text-[11px] font-medium transition-all border ${
+                                  className={`px-2.5 py-1 rounded text-xs font-medium transition-all border ${
                                                       decisao === "ignorar"
                                                         ? "bg-muted text-foreground border-muted-foreground"
                                                         : "bg-background border-border text-muted-foreground hover:border-muted-foreground"
@@ -292,7 +292,7 @@ export default function RefatoracaoComparacao({
                     </DialogTitle>
                     <div className="flex items-center gap-2 mt-0.5">
                       <FonteBadge fonte={fonte} />
-                      <span className="text-[10px] text-muted-foreground">
+                      <span className="text-xs text-muted-foreground">
                         {totalItens} ministerio(s) analisado(s)
                       </span>
                     </div>
@@ -304,7 +304,7 @@ export default function RefatoracaoComparacao({
                           <div className="flex flex-col items-center justify-center py-16 gap-3">
                             <Loader2 className="w-8 h-8 text-primary animate-spin" />
                             <p className="text-sm text-muted-foreground animate-pulse">Analisando documento...</p>
-                            <p className="text-[11px] text-muted-foreground">Comparando com ministerios existentes</p>
+                            <p className="text-xs text-muted-foreground">Comparando com ministerios existentes</p>
                           </div>
                         ) : (
                           <ScrollArea className="flex-1 px-6 py-4">
@@ -320,7 +320,7 @@ export default function RefatoracaoComparacao({
                                                   ].map(({ label, count, color }) => (
                                                     <div key={label} className={`rounded-lg border px-3 py-2 text-center ${color}`}>
                                                       <p className="text-xl font-bold">{count}</p>
-                                                      <p className="text-[10px] leading-tight">{label}</p>
+                                                      <p className="text-xs leading-tight">{label}</p>
                                                     </div>
                                                   ))}
                               </div>
@@ -331,7 +331,7 @@ export default function RefatoracaoComparacao({
                                                   <div className="flex items-center gap-2 mb-2">
                                                     <RefreshCw className="w-3.5 h-3.5 text-amber-500" />
                                                     <h3 className="text-sm font-semibold">Para enriquecer ({paraAtualizar.length})</h3>
-                                                    <span className="text-[10px] text-muted-foreground">dados podem ser melhorados</span>
+                                                    <span className="text-xs text-muted-foreground">dados podem ser melhorados</span>
                                                   </div>
                                                   <div className="space-y-2">
                                                     {paraAtualizar.map((item, i) => (
@@ -353,7 +353,7 @@ export default function RefatoracaoComparacao({
                                                   <div className="flex items-center gap-2 mb-2">
                                                     <Plus className="w-3.5 h-3.5 text-emerald-500" />
                                                     <h3 className="text-sm font-semibold">Novos no documento ({paraCriar.length})</h3>
-                                                    <span className="text-[10px] text-muted-foreground">nao encontrados no sistema</span>
+                                                    <span className="text-xs text-muted-foreground">nao encontrados no sistema</span>
                                                   </div>
                                                   <div className="space-y-2">
                                                     {paraCriar.map((item, i) => (
@@ -400,7 +400,7 @@ export default function RefatoracaoComparacao({
                                                     <h3 className="text-sm font-semibold">Nao encontrados no documento ({orfaos.length})</h3>
                                                   </div>
                                                   <div className="rounded-md border border-blue-200 bg-blue-50/50 p-3">
-                                                    <p className="text-[11px] text-blue-700 mb-2">
+                                                    <p className="text-xs text-blue-700 mb-2">
                                                       Estes ministerios existem no sistema mas nao foram identificados no documento.
                                                       Eles serao preservados automaticamente.
                                                     </p>
@@ -410,9 +410,9 @@ export default function RefatoracaoComparacao({
                                                                                   <Shield className="w-3 h-3 text-blue-400 shrink-0" />
                                                                                   <span className="font-medium">{orfao.nome}</span>
                                                                                   {orfao.sigla && (
-                                                                                                                <span className="text-[10px] text-muted-foreground">({orfao.sigla})</span>
+                                                                                                                <span className="text-xs text-muted-foreground">({orfao.sigla})</span>
                                                                                                               )}
-                                                                                  <Badge variant="outline" className="text-[9px] bg-blue-50 text-blue-600 border-blue-200 ml-auto">
+                                                                                  <Badge variant="outline" className="text-xs bg-blue-50 text-blue-600 border-blue-200 ml-auto">
                                                                                     Preservado
                                                                                   </Badge>
                                                                                 </div>
@@ -437,7 +437,7 @@ export default function RefatoracaoComparacao({
 
               {!carregando && (
                           <DialogFooter className="px-6 py-3 border-t bg-muted/20">
-                            <div className="flex items-center gap-2 flex-1 text-[11px] text-muted-foreground">
+                            <div className="flex items-center gap-2 flex-1 text-xs text-muted-foreground">
                               {atualizar > 0 && <span className="text-amber-600 font-medium">{atualizar} para atualizar</span>}
                               {atualizar > 0 && criar > 0 && <span>•</span>}
                               {criar > 0 && <span className="text-emerald-600 font-medium">{criar} para criar</span>}

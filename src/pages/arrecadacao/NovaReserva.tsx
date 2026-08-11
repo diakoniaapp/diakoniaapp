@@ -184,7 +184,7 @@ export default function NovaReserva() {
             {salvando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             Enviar solicitação
           </Button>
-          <p className="text-[10px] text-muted-foreground text-center">
+          <p className="text-xs text-muted-foreground text-center">
             Depois de enviar, a Administração analisa e aprova/recusa.
           </p>
         </CardContent>
@@ -196,7 +196,7 @@ export default function NovaReserva() {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1">
-      <Label className="text-[11px] text-muted-foreground">{label}</Label>
+      <Label className="text-xs text-muted-foreground">{label}</Label>
       {children}
     </div>
   );

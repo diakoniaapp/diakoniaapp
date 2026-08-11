@@ -106,7 +106,7 @@ export function AcoesDoDia() {
                           : ehAnis ? "Aniversário" : "Aniversário de casamento"}
                       </p>
                       {ev.telefone && (
-                        <p className="text-[10px] text-muted-foreground mt-0.5">📞 {ev.telefone}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">📞 {ev.telefone}</p>
                       )}
                     </div>
                   </div>
@@ -120,7 +120,7 @@ export function AcoesDoDia() {
                     </Button>
                   )}
                   {!hasTel && (
-                    <p className="text-[10px] text-muted-foreground text-center italic">
+                    <p className="text-xs text-muted-foreground text-center italic">
                       Sem telefone cadastrado
                     </p>
                   )}

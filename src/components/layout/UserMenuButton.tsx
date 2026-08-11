@@ -83,12 +83,12 @@ export function UserMenuButton() {
             </Avatar>
             <div className="min-w-0">
               <p className="font-semibold text-sm truncate">{nome || "Usuário"}</p>
-              <p className="text-[11px] text-muted-foreground truncate">{user.email}</p>
+              <p className="text-xs text-muted-foreground truncate">{user.email}</p>
             </div>
           </div>
           <div className="flex items-center gap-1.5 mt-2">
             <ShieldCheck className="w-3 h-3 text-gold" />
-            <span className="text-[11px] text-muted-foreground">{roleLabel[principalRole] ?? principalRole}</span>
+            <span className="text-xs text-muted-foreground">{roleLabel[principalRole] ?? principalRole}</span>
           </div>
         </DropdownMenuLabel>
 
@@ -103,7 +103,7 @@ export function UserMenuButton() {
         {hasRole(["admin", "secretaria"]) && (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-[11px] uppercase tracking-widest text-muted-foreground/60 py-1">
+            <DropdownMenuLabel className="text-xs uppercase tracking-widest text-muted-foreground/60 py-1">
               Administração
             </DropdownMenuLabel>
             {[

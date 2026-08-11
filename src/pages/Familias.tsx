@@ -218,7 +218,7 @@ export default function Familias() {
                         )}
                       </div>
                       {!responsaveis[f.id] && (counts[f.id] ?? 0) > 0 && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 rounded-full px-2 py-0.5 mt-1">
+                        <span className="inline-flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 rounded-full px-2 py-0.5 mt-1">
                           <AlertCircle className="w-3 h-3" /> Sem responsável
                         </span>
                       )}

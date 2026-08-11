@@ -54,7 +54,7 @@ export default function ArrecadacaoEspacos() {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <ShoppingBag className="w-4 h-4 text-gold" /> {e.nome}
-              <span className="text-[10px] text-muted-foreground font-normal ml-auto">{e.codigo}</span>
+              <span className="text-xs text-muted-foreground font-normal ml-auto">{e.codigo}</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
@@ -74,7 +74,7 @@ export default function ArrecadacaoEspacos() {
               </Field>
             </div>
             <div className="border-t pt-3 mt-3 space-y-2">
-              <Label className="text-[11px] text-muted-foreground">Responsável pela manutenção (recebe WhatsApp)</Label>
+              <Label className="text-xs text-muted-foreground">Responsável pela manutenção (recebe WhatsApp)</Label>
               <div className="grid grid-cols-2 gap-2">
                 <Input placeholder="Nome do responsável" value={(e as any).responsavel_manutencao_nome ?? ""}
                   onChange={ev => atualizar(e.id, { responsavel_manutencao_nome: ev.target.value } as any)} />
@@ -116,7 +116,7 @@ export default function ArrecadacaoEspacos() {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1">
-      <Label className="text-[11px] text-muted-foreground">{label}</Label>
+      <Label className="text-xs text-muted-foreground">{label}</Label>
       {children}
     </div>
   );

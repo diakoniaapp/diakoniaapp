@@ -496,7 +496,7 @@ export default function ImportacaoMembros() {
                   <div key={col} className="flex items-center gap-3">
                     <div className="w-48 shrink-0">
                       <p className="text-sm font-medium truncate" title={col}>{col}</p>
-                      <p className="text-[10px] text-muted-foreground">Coluna da planilha</p>
+                      <p className="text-xs text-muted-foreground">Coluna da planilha</p>
                     </div>
                     <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
                     <Select
@@ -625,15 +625,15 @@ export default function ImportacaoMembros() {
                           </td>
                           <td className="py-2 pr-3">
                             {l._ignorar ? (
-                              <Badge variant="outline" className="text-[10px] text-muted-foreground">ignorado</Badge>
+                              <Badge variant="outline" className="text-xs text-muted-foreground">ignorado</Badge>
                             ) : l._erros.length > 0 ? (
-                              <Badge variant="outline" className="text-[10px] text-destructive border-destructive/30">
+                              <Badge variant="outline" className="text-xs text-destructive border-destructive/30">
                                 {l._erros[0]}
                               </Badge>
                             ) : l._duplicado ? (
-                              <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-300">duplicado</Badge>
+                              <Badge variant="outline" className="text-xs text-amber-600 border-amber-300">duplicado</Badge>
                             ) : (
-                              <Badge variant="outline" className="text-[10px] text-emerald-600 border-emerald-300">
+                              <Badge variant="outline" className="text-xs text-emerald-600 border-emerald-300">
                                 <Check className="w-2.5 h-2.5 mr-1" /> ok
                               </Badge>
                             )}
@@ -641,7 +641,7 @@ export default function ImportacaoMembros() {
                           <td className="py-2 text-right">
                             <button
                               onClick={() => toggleIgnorar(l._idx)}
-                              className="text-[10px] underline text-muted-foreground hover:text-foreground"
+                              className="text-xs underline text-muted-foreground hover:text-foreground"
                             >
                               {l._ignorar ? "Incluir" : "Ignorar"}
                             </button>

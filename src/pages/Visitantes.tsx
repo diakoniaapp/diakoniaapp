@@ -222,14 +222,14 @@ export default function Visitantes() {
               <Zap className="w-4 h-4" />
               Acao do dia
               {stats.pendentesHoje > 0 && (
-                <Badge className="ml-1 h-4 px-1.5 text-[10px]" variant="destructive">{stats.pendentesHoje}</Badge>
+                <Badge className="ml-1 h-4 px-1.5 text-xs" variant="destructive">{stats.pendentesHoje}</Badge>
               )}
             </TabsTrigger>
             <TabsTrigger value="nao_voltou" className="gap-1.5" translate="no">
               <AlertTriangle className="w-4 h-4" />
               Nao voltaram
               {listaNaoVoltou.length > 0 && (
-                <Badge className="ml-1 h-4 px-1.5 text-[10px]" variant="outline">{listaNaoVoltou.length}</Badge>
+                <Badge className="ml-1 h-4 px-1.5 text-xs" variant="outline">{listaNaoVoltou.length}</Badge>
               )}
             </TabsTrigger>
             <TabsTrigger value="todos" className="gap-1.5" translate="no">
@@ -351,10 +351,10 @@ function JornadaBar({ tipoPessoa, pronto }: { tipoPessoa: string; pronto: boolea
         return (
           <span key={s.key} className="flex items-center gap-0.5">
             {i > 0 && (
-              <span className={`text-[10px] mx-0.5 ${isDone || isNext ? "text-muted-foreground" : "text-muted-foreground/30"}`}>→</span>
+              <span className={`text-xs mx-0.5 ${isDone || isNext ? "text-muted-foreground" : "text-muted-foreground/30"}`}>→</span>
             )}
             <span className={[
-              "text-[10px] font-medium px-1.5 py-0.5 rounded-full border transition-colors",
+              "text-xs font-medium px-1.5 py-0.5 rounded-full border transition-colors",
               isCurrent ? "bg-primary/10 text-primary border-primary/30" : "",
               isDone    ? "bg-success/10 text-success border-success/30" : "",
               isNext    ? "bg-success/15 text-success border-success/40 ring-1 ring-success/30" : "",
@@ -426,10 +426,10 @@ function VisitanteCard({ v, busy, busyPromote, variant, onOpen, onRetorno, onCon
               >
                 {v.nome_completo}
               </Link>
-              <Badge variant="outline" className={`text-[10px] h-4 px-1.5 ${prioStyle.badge}`}>
+              <Badge variant="outline" className={`text-xs h-4 px-1.5 ${prioStyle.badge}`}>
                 {prioStyle.label}
               </Badge>
-              <Badge variant="outline" className="text-[10px] h-4 px-1.5">
+              <Badge variant="outline" className="text-xs h-4 px-1.5">
                 {ETAPA_LABEL[etapa]}
               </Badge>
             </div>
@@ -450,14 +450,14 @@ function VisitanteCard({ v, busy, busyPromote, variant, onOpen, onRetorno, onCon
                       <p className="text-xs font-medium text-success leading-snug" translate="no">
                         Este visitante pode estar pronto para dar o próximo passo
                       </p>
-                      <p className="text-[10px] text-success/70 truncate" translate="no">
+                      <p className="text-xs text-success/70 truncate" translate="no">
                         {evolucao.descricao}
                       </p>
                     </div>
                   </div>
                   <Button
                     size="sm"
-                    className="shrink-0 text-[10px] h-6 px-2 gap-1 bg-success hover:bg-success/90 text-white border-0"
+                    className="shrink-0 text-xs h-6 px-2 gap-1 bg-success hover:bg-success/90 text-white border-0"
                     disabled={busyPromote}
                     onClick={() => onPromover(evolucao.sugestao!)}
                   >
@@ -470,7 +470,7 @@ function VisitanteCard({ v, busy, busyPromote, variant, onOpen, onRetorno, onCon
                   <Button
                     size="sm"
                     variant="outline"
-                    className="text-[10px] h-6 px-2 gap-1 border-success/40 text-success hover:bg-success/10"
+                    className="text-xs h-6 px-2 gap-1 border-success/40 text-success hover:bg-success/10"
                     disabled={!v.telefone_celular}
                     onClick={() => abrirWhatsAppSugestao(
                       `Olá, ${nome}! 😊 Gostaríamos de te convidar para nossa célula de comunhão — um espaço para se conectar com mais irmãos e crescer juntos na fé. Você toparia participar? 💙`
@@ -482,7 +482,7 @@ function VisitanteCard({ v, busy, busyPromote, variant, onOpen, onRetorno, onCon
                   <Button
                     size="sm"
                     variant="outline"
-                    className="text-[10px] h-6 px-2 gap-1 border-success/40 text-success hover:bg-success/10"
+                    className="text-xs h-6 px-2 gap-1 border-success/40 text-success hover:bg-success/10"
                     disabled={!v.telefone_celular}
                     onClick={() => abrirWhatsAppSugestao(
                       `Olá, ${nome}! 😊 Gostaríamos de marcar uma conversa para te conhecer melhor e acompanhar sua caminhada. Quando seria um bom momento? 💙`
@@ -498,13 +498,13 @@ function VisitanteCard({ v, busy, busyPromote, variant, onOpen, onRetorno, onCon
 
           {/* Botões de ação */}
           <div className="flex flex-col gap-1 shrink-0">
-            <Button size="sm" variant="outline" className="gap-1 text-[11px] h-6 px-2" disabled={busy} onClick={onRetorno}>
+            <Button size="sm" variant="outline" className="gap-1 text-xs h-6 px-2" disabled={busy} onClick={onRetorno}>
               <RotateCcw className="w-3 h-3" /> Retorno
             </Button>
-            <Button size="sm" variant="outline" className="gap-1 text-[11px] h-6 px-2" disabled={busy} onClick={onContato}>
+            <Button size="sm" variant="outline" className="gap-1 text-xs h-6 px-2" disabled={busy} onClick={onContato}>
               <Phone className="w-3 h-3" /> Contato
             </Button>
-            <Button size="sm" className="gap-1 text-[11px] h-6 px-2 bg-[#25D366] hover:bg-[#128C7E] text-white border-0"
+            <Button size="sm" className="gap-1 text-xs h-6 px-2 bg-[#25D366] hover:bg-[#128C7E] text-white border-0"
               disabled={busy || !v.telefone_celular} onClick={onWhatsApp}>
               <MessageCircle className="w-3 h-3" /> WhatsApp
             </Button>

@@ -121,7 +121,7 @@ export default function FinancasCentros() {
                 <AlertTriangle className={`w-3.5 h-3.5 shrink-0 ${a.severidade === "critico" ? "text-rose-700" : a.severidade === "atencao" ? "text-amber-700" : "text-blue-700"}`} />
                 <div className="flex-1 min-w-0 text-xs">
                   <p className="font-medium">{a.titulo}</p>
-                  <p className="text-[11px] text-muted-foreground">{a.descricao}</p>
+                  <p className="text-xs text-muted-foreground">{a.descricao}</p>
                 </div>
               </CardContent>
             </Card>
@@ -186,11 +186,11 @@ export default function FinancasCentros() {
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="font-medium text-sm">{c.nome}</span>
-                            <Badge variant="outline" className={`text-[9px] ${VINCULO_COR[c.vinculo_tipo]}`}>
+                            <Badge variant="outline" className={`text-xs ${VINCULO_COR[c.vinculo_tipo]}`}>
                               {VINCULO_LABEL[c.vinculo_tipo]}
                             </Badge>
                           </div>
-                          <div className="text-[10px] text-muted-foreground flex gap-3 flex-wrap mt-0.5">
+                          <div className="text-xs text-muted-foreground flex gap-3 flex-wrap mt-0.5">
                             <span>{c.qtd_lancamentos_90d} lançamento(s) nos últimos 90d</span>
                             {c.ultima_movimentacao && (
                               <span>Última: {new Date(c.ultima_movimentacao + "T00:00").toLocaleDateString("pt-BR")}</span>
@@ -200,7 +200,7 @@ export default function FinancasCentros() {
                       </div>
                       <div className="text-right shrink-0">
                         <p className="text-sm font-semibold tabular-nums text-rose-700">{brl(Number(c.gasto_90d))}</p>
-                        <p className="text-[10px] text-muted-foreground">{pct.toFixed(1)}%</p>
+                        <p className="text-xs text-muted-foreground">{pct.toFixed(1)}%</p>
                       </div>
                     </div>
                     {pct > 0 && (
@@ -226,7 +226,7 @@ export default function FinancasCentros() {
                 <CardContent className="py-3 space-y-1.5">
                   <div className="flex items-center justify-between">
                     <h3 className="font-serif text-base flex items-center gap-2">
-                      <Badge variant="outline" className={`text-[10px] ${VINCULO_COR[tipo]}`}>{label}</Badge>
+                      <Badge variant="outline" className={`text-xs ${VINCULO_COR[tipo]}`}>{label}</Badge>
                       <span>{lista.length} centro(s)</span>
                     </h3>
                     <p className="text-sm font-semibold tabular-nums text-rose-700">{brl(total)}</p>
@@ -239,7 +239,7 @@ export default function FinancasCentros() {
                     </Link>
                   ))}
                   {lista.length > 5 && (
-                    <p className="text-[10px] text-muted-foreground text-center">+{lista.length - 5} centro(s)…</p>
+                    <p className="text-xs text-muted-foreground text-center">+{lista.length - 5} centro(s)…</p>
                   )}
                 </CardContent>
               </Card>
@@ -248,7 +248,7 @@ export default function FinancasCentros() {
         </TabsContent>
       </Tabs>
 
-      <div className="text-center text-[10px] text-muted-foreground pt-2">
+      <div className="text-center text-xs text-muted-foreground pt-2">
         Período de análise: últimos 90 dias · {centros.length} centros ativos
       </div>
     </div>

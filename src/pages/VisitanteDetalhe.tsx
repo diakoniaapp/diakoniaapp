@@ -134,7 +134,7 @@ function TrilhaAcolhimento({
               return (
                 <span
                   key={s}
-                  className={`text-[9px] hidden sm:block truncate max-w-[60px] text-center ${
+                  className={`text-xs hidden sm:block truncate max-w-[60px] text-center ${
                     ativo ? "text-primary font-semibold" : "text-muted-foreground"
                   }`}
                 >

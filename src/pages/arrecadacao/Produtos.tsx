@@ -86,7 +86,7 @@ export default function ArrecadacaoProdutos() {
         <Package className="w-5 h-5 text-gold" />
         <div className="flex-1 min-w-0">
           <h1 className="font-serif text-xl truncate">Produtos · {espaco?.nome ?? "..."}</h1>
-          <p className="text-[10px] text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             Acervo do espaço + itens das campanhas
           </p>
         </div>
@@ -208,19 +208,19 @@ function ProdutoCard({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-sm font-medium truncate">{produto.nome}</span>
-              {produto.codigo && <Badge variant="outline" className="text-[9px]">#{produto.codigo}</Badge>}
+              {produto.codigo && <Badge variant="outline" className="text-xs">#{produto.codigo}</Badge>}
               {isAcervo
-                ? <Badge variant="outline" className="text-[9px] bg-blue-50 text-blue-700 border-blue-200">acervo</Badge>
-                : <Badge className="text-[9px] bg-purple-100 text-purple-700 border-purple-300">
+                ? <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">acervo</Badge>
+                : <Badge className="text-xs bg-purple-100 text-purple-700 border-purple-300">
                     <Sparkles className="w-2.5 h-2.5 mr-0.5" />{campanhaNome}
                   </Badge>}
-              {!produto.ativo && <Badge variant="outline" className="text-[9px]">inativo</Badge>}
+              {!produto.ativo && <Badge variant="outline" className="text-xs">inativo</Badge>}
             </div>
-            <div className="text-[10px] text-muted-foreground">{CATEGORIA_LABEL[produto.categoria]}{produto.subcategoria ? ` · ${produto.subcategoria}` : ""}</div>
+            <div className="text-xs text-muted-foreground">{CATEGORIA_LABEL[produto.categoria]}{produto.subcategoria ? ` · ${produto.subcategoria}` : ""}</div>
           </div>
           <span className="text-sm font-semibold text-emerald-700">{fmtBR(produto.preco_sugerido)}</span>
         </div>
-        <div className="flex items-center justify-between text-[11px]">
+        <div className="flex items-center justify-between text-xs">
           <div>
             Estoque:{" "}
             <span className={estBaixo ? "text-rose-700 font-medium" : "font-medium"}>
@@ -229,13 +229,13 @@ function ProdutoCard({
             {produto.estoque_minimo !== null && (
               <span className="text-muted-foreground"> / mín {produto.estoque_minimo}</span>
             )}
-            {estBaixo && <Badge className="ml-1.5 text-[8px] bg-rose-100 text-rose-700 border-rose-300">BAIXO</Badge>}
+            {estBaixo && <Badge className="ml-1.5 text-xs bg-rose-100 text-rose-700 border-rose-300">BAIXO</Badge>}
           </div>
           <div className="flex gap-1">
-            <Button size="sm" variant="ghost" className="h-6 text-[10px] gap-0.5" onClick={onEstoque}>
+            <Button size="sm" variant="ghost" className="h-6 text-xs gap-0.5" onClick={onEstoque}>
               <ClipboardEdit className="w-3 h-3" /> estoque
             </Button>
-            <Button size="sm" variant="ghost" className="h-6 text-[10px] gap-0.5" onClick={onEditar}>
+            <Button size="sm" variant="ghost" className="h-6 text-xs gap-0.5" onClick={onEditar}>
               <Edit3 className="w-3 h-3" /> editar
             </Button>
           </div>
@@ -328,7 +328,7 @@ function ProdutoDialog({
             <Package className="w-4 h-4 text-gold" />
             {editando ? "Editar produto" : "Novo produto"}
           </DialogTitle>
-          <DialogDescription className="text-[11px]">
+          <DialogDescription className="text-xs">
             {espaco.nome} · {form.is_acervo ? "vai pro acervo do espaço" : "vai pra uma campanha"}
           </DialogDescription>
         </DialogHeader>
@@ -483,7 +483,7 @@ function EstoqueDialog({
           <DialogTitle className="flex items-center gap-2">
             <ClipboardEdit className="w-4 h-4 text-gold" /> Estoque · {produto.nome}
           </DialogTitle>
-          <DialogDescription className="text-[11px]">
+          <DialogDescription className="text-xs">
             Atual: <strong>{produto.estoque_atual ?? "—"}</strong>
             {produto.estoque_minimo !== null && <> · mín {produto.estoque_minimo}</>}
           </DialogDescription>
@@ -516,17 +516,17 @@ function EstoqueDialog({
 
           {/* Histórico */}
           <div className="pt-2 border-t">
-            <div className="text-[11px] font-medium text-muted-foreground mb-1">Últimas movimentações</div>
+            <div className="text-xs font-medium text-muted-foreground mb-1">Últimas movimentações</div>
             {loadingHist ? (
-              <div className="text-[11px] text-muted-foreground">carregando...</div>
+              <div className="text-xs text-muted-foreground">carregando...</div>
             ) : historico.length === 0 ? (
-              <div className="text-[11px] text-muted-foreground italic">nenhuma ainda</div>
+              <div className="text-xs text-muted-foreground italic">nenhuma ainda</div>
             ) : (
-              <div className="max-h-[180px] overflow-y-auto space-y-0.5 text-[11px]">
+              <div className="max-h-[180px] overflow-y-auto space-y-0.5 text-xs">
                 {historico.map(m => (
                   <div key={m.id} className="flex justify-between gap-1 py-0.5 border-b border-dashed">
                     <span className="flex gap-1 items-center min-w-0">
-                      <Badge variant="outline" className={`text-[9px] ${
+                      <Badge variant="outline" className={`text-xs ${
                         m.tipo === "reabastecimento" ? "bg-emerald-50 text-emerald-700" :
                         m.tipo === "perda" ? "bg-rose-50 text-rose-700" :
                         m.tipo === "venda" ? "bg-blue-50 text-blue-700" :
@@ -566,7 +566,7 @@ function TipoBtn({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1">
-      <Label className="text-[11px] text-muted-foreground">{label}</Label>
+      <Label className="text-xs text-muted-foreground">{label}</Label>
       {children}
     </div>
   );

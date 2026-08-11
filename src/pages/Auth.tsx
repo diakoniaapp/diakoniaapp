@@ -244,7 +244,7 @@ export default function Auth() {
 
           {/* Aviso de convite */}
           <div className="bg-muted/50 dark:bg-muted/30 rounded-xl px-4 py-3 border border-border/40 dark:border-border/30">
-            <p className="text-[11px] text-muted-foreground text-center leading-relaxed">
+            <p className="text-xs text-muted-foreground text-center leading-relaxed">
               📱 O acesso é concedido pela secretaria via convite por WhatsApp.
               <br />Não possui acesso? Fale com a liderança da Igreja.
             </p>

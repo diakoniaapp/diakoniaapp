@@ -159,7 +159,7 @@ export default function PainelPastoral() {
           <CardTitle className="text-sm flex items-center gap-2">
             <CalendarCheck className="w-4 h-4 text-gold" />
             Ações de hoje
-            <Badge variant="outline" className="text-[10px]">{eventosHoje.length}</Badge>
+            <Badge variant="outline" className="text-xs">{eventosHoje.length}</Badge>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
@@ -180,7 +180,7 @@ export default function PainelPastoral() {
             <CardTitle className="text-sm flex items-center gap-2">
               <Calendar className="w-4 h-4 text-muted-foreground" />
               Próximos 7 dias
-              <Badge variant="outline" className="text-[10px]">{eventosSemana.length}</Badge>
+              <Badge variant="outline" className="text-xs">{eventosSemana.length}</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
@@ -196,7 +196,7 @@ export default function PainelPastoral() {
             <CardTitle className="text-sm flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-amber-600" />
               Famílias sem responsável
-              <Badge variant="outline" className="text-[10px] bg-amber-100 border-amber-300">
+              <Badge variant="outline" className="text-xs bg-amber-100 border-amber-300">
                 {familiasSemResp.length}
               </Badge>
             </CardTitle>
@@ -234,7 +234,7 @@ export default function PainelPastoral() {
               <span className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-blue-600" />
                 Possíveis vínculos familiares
-                <Badge variant="outline" className="text-[10px] bg-blue-100 border-blue-300">
+                <Badge variant="outline" className="text-xs bg-blue-100 border-blue-300">
                   {pessoasSugeridas.length}
                 </Badge>
               </span>
@@ -296,7 +296,7 @@ export default function PainelPastoral() {
                       <p className="text-xs text-muted-foreground flex items-center gap-1 flex-wrap">
                         Sobrenome: <strong>{p.sobrenome}</strong>
                         {p.familia_sugerida_nome && (
-                          <Badge variant="outline" className="text-[9px] ml-1 border-rose-300 text-rose-700">
+                          <Badge variant="outline" className="text-xs ml-1 border-rose-300 text-rose-700">
                             → Família {p.familia_sugerida_nome ?? "sugerida"}
                           </Badge>
                         )}
@@ -386,7 +386,7 @@ function ResumoCard({ label, value, cor }: { label: string; value: number; cor: 
   return (
     <div className={`rounded-md border p-2 text-center ${cor}`}>
       <p className="text-2xl font-semibold leading-none">{value}</p>
-      <p className="text-[10px] uppercase tracking-wide mt-1 leading-tight">{label}</p>
+      <p className="text-xs uppercase tracking-wide mt-1 leading-tight">{label}</p>
     </div>
   );
 }

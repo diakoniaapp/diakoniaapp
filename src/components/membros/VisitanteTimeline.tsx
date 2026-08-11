@@ -120,13 +120,13 @@ export default function VisitanteTimeline({ pessoaId, dataCadastro, dataCongrega
     <div className="space-y-1">
       {/* Cabeçalho */}
       <div className="flex items-center justify-between mb-3">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground" translate="no">
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground" translate="no">
           Histórico de contatos
         </p>
         <Button
           variant="ghost"
           size="sm"
-          className="h-5 px-1.5 text-[10px] gap-1 text-muted-foreground"
+          className="h-5 px-1.5 text-xs gap-1 text-muted-foreground"
           onClick={carregar}
           disabled={loading}
         >
@@ -161,12 +161,12 @@ export default function VisitanteTimeline({ pessoaId, dataCadastro, dataCongrega
                   <span className="text-xs font-medium leading-tight" translate="no">
                     {cfg.label}
                   </span>
-                  <span className="text-[10px] text-muted-foreground" translate="no">
+                  <span className="text-xs text-muted-foreground" translate="no">
                     {formatarData(item.created_at)} · {formatarHora(item.created_at)}
                   </span>
                 </div>
                 {item.observacao && (
-                  <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed" translate="no">
+                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed" translate="no">
                     {item.observacao}
                   </p>
                 )}

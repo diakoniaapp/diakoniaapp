@@ -438,7 +438,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                     }`}>
                       {step > p.n ? "✓" : p.n}
                     </div>
-                    <span className="text-[9px] font-medium uppercase tracking-wide">{p.label}</span>
+                    <span className="text-xs font-medium uppercase tracking-wide">{p.label}</span>
                   </button>
                   {idx < arr.length - 1 && (
                     <div className={`flex-1 h-0.5 mx-1 mb-4 ${step > p.n ? "bg-emerald-500/40" : "bg-border"}`} />
@@ -516,7 +516,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                 <Label translate="no">Data de nascimento</Label>
                 <Input type="date" value={form.data_nascimento} onChange={(e) => set("data_nascimento", e.target.value)} />
                 {candidatoMembresia && (
-                  <Badge variant="outline" className="mt-1 text-[10px] bg-primary/5">
+                  <Badge variant="outline" className="mt-1 text-xs bg-primary/5">
                     Candidato a membresia ({idadeEstimada} anos)
                   </Badge>
                 )}
@@ -667,7 +667,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                     <div>
                       <Label translate="no">Data de entrada</Label>
                       <Input type="date" value={form.data_entrada} onChange={(e) => set("data_entrada", e.target.value)} />
-                      <p className="text-[10px] text-muted-foreground mt-0.5">Data do batismo/profissão de fé.</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Data do batismo/profissão de fé.</p>
                     </div>
                   )}
 
@@ -735,7 +735,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                   </SelectContent>
                 </Select>
                 {ebdSugestaoId && (
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     ✨ Sugestão pela idade e sexo: {ebdClasses.find(c => c.id === ebdSugestaoId)?.nome ?? "—"}
                   </p>
                 )}
@@ -757,7 +757,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                 <div className="space-y-3 max-h-72 overflow-y-auto rounded-md border p-3">
                   {areasPorMinisterio.map(grupo => (
                     <div key={grupo.ministerio.id} className="space-y-1.5">
-                      <p className="text-[11px] uppercase tracking-wide text-muted-foreground/80 font-semibold">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground/80 font-semibold">
                         {grupo.ministerio.nome}
                       </p>
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
@@ -779,7 +779,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                               <span className="flex items-center gap-1 min-w-0">
                                 <span className="truncate">{a.nome}</span>
                                 {ehLider && (
-                                  <span className="text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 border border-rose-300 shrink-0">
+                                  <span className="text-xs font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 border border-rose-300 shrink-0">
                                     Líder
                                   </span>
                                 )}
@@ -791,7 +791,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                     </div>
                   ))}
                 </div>
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   Função padrão registrada: <strong>Voluntário</strong>. Líderes de área podem (e geralmente devem) 
                   marcar a própria área aqui também — assim aparecem nas escalas. Para ajustes finos (líder, 
                   coordenador, etc), abra Ministérios → o ministério desejado → Voluntários.
@@ -878,7 +878,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                   </>
                 )}
 
-                <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-2 text-center">
+                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-2 text-center">
                   Clique em <strong>Salvar</strong> para confirmar o cadastro.
                 </p>
               </section>
@@ -963,7 +963,7 @@ const tipoPessoaLabelMap: Record<string, string> = {
 function RevisaoLinha({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-start justify-between gap-3 text-sm border-b py-1.5">
-      <span className="text-[11px] uppercase tracking-wide text-muted-foreground shrink-0">{label}</span>
+      <span className="text-xs uppercase tracking-wide text-muted-foreground shrink-0">{label}</span>
       <span className="font-medium text-right break-words min-w-0">{children}</span>
     </div>
   );

@@ -88,7 +88,7 @@ export function FechamentoDialog({ open, onOpenChange, caixaId, reservaFinalidad
 
           {/* Por forma de pagamento */}
           <div className="border rounded-md p-3">
-            <Label className="text-[11px]">Por forma de pagamento</Label>
+            <Label className="text-xs">Por forma de pagamento</Label>
             <table className="w-full text-xs mt-1">
               <tbody className="divide-y">
                 <Linha label="Dinheiro" valor={resumo.total_dinheiro} />
@@ -103,7 +103,7 @@ export function FechamentoDialog({ open, onOpenChange, caixaId, reservaFinalidad
           {/* Taxas */}
           {(resumo.taxa_debito_calc + resumo.taxa_credito_calc + resumo.taxa_pix_calc) > 0 && (
             <div className="border rounded-md p-3 bg-rose-50/30">
-              <Label className="text-[11px] flex items-center gap-1">
+              <Label className="text-xs flex items-center gap-1">
                 <TrendingDown className="w-3 h-3" /> Taxas descontadas
               </Label>
               <table className="w-full text-xs mt-1">
@@ -125,7 +125,7 @@ export function FechamentoDialog({ open, onOpenChange, caixaId, reservaFinalidad
           {/* Movimentos não-venda */}
           {(resumo.total_custos + resumo.total_reemb_pessoa + resumo.total_abate_cnpj + resumo.total_revertido) > 0 && (
             <div className="border rounded-md p-3">
-              <Label className="text-[11px]">Movimentos do livro-razão</Label>
+              <Label className="text-xs">Movimentos do livro-razão</Label>
               <table className="w-full text-xs mt-1">
                 <tbody className="divide-y">
                   {resumo.total_custos        > 0 && <Linha label="Custos"            valor={resumo.total_custos} />}
@@ -140,7 +140,7 @@ export function FechamentoDialog({ open, onOpenChange, caixaId, reservaFinalidad
           {/* Lista de vendas */}
           {vendasAtivas.length > 0 && (
             <div className="border rounded-md p-3">
-              <Label className="text-[11px] flex items-center gap-1">
+              <Label className="text-xs flex items-center gap-1">
                 <TrendingUp className="w-3 h-3" /> Vendas registradas
               </Label>
               <div className="max-h-40 overflow-y-auto mt-1">
@@ -154,7 +154,7 @@ export function FechamentoDialog({ open, onOpenChange, caixaId, reservaFinalidad
                       </tr>
                     ))}
                     {vendasAtivas.length > 20 && (
-                      <tr><td colSpan={3} className="text-center text-muted-foreground text-[10px] py-1">
+                      <tr><td colSpan={3} className="text-center text-muted-foreground text-xs py-1">
                         + {vendasAtivas.length - 20} venda(s) anteriores
                       </td></tr>
                     )}
@@ -165,7 +165,7 @@ export function FechamentoDialog({ open, onOpenChange, caixaId, reservaFinalidad
           )}
 
           <div className="print:hidden">
-            <Label className="text-[11px]">Observação</Label>
+            <Label className="text-xs">Observação</Label>
             <Textarea value={observacao} onChange={e => setObservacao(e.target.value)}
               placeholder="Ex: caixa conferido, sem divergências" className="mt-1 text-xs" />
           </div>
@@ -180,7 +180,7 @@ export function FechamentoDialog({ open, onOpenChange, caixaId, reservaFinalidad
                 <div className="border-t border-foreground pt-1 text-xs">Tesouraria / Administração</div>
               </div>
             </div>
-            <p className="text-center text-[10px] text-muted-foreground mt-6">
+            <p className="text-center text-xs text-muted-foreground mt-6">
               Quarta Igreja Batista do Rio de Janeiro · Diakonia APP
             </p>
           </div>
@@ -208,7 +208,7 @@ function Bloco({ titulo, valor, cor, destaque }: { titulo: string; valor: string
   const corClasses: Record<string, string> = { emerald: "text-emerald-700", rose: "text-rose-700" };
   return (
     <div className={"border rounded-md p-2 " + (destaque ? "border-emerald-300 bg-emerald-50/40" : "")}>
-      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{titulo}</div>
+      <div className="text-xs uppercase tracking-wide text-muted-foreground">{titulo}</div>
       <div className={"text-base font-serif font-medium " + (cor ? corClasses[cor] : "")}>{valor}</div>
     </div>
   );

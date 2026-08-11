@@ -295,7 +295,7 @@ export default function EbdClasse() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-medium truncate">{e.nome_completo}</p>
                     {e.ja_matriculado && (
-                      <Badge variant="outline" className="text-[10px] text-emerald-600 border-emerald-300">
+                      <Badge variant="outline" className="text-xs text-emerald-600 border-emerald-300">
                         Matriculado
                       </Badge>
                     )}

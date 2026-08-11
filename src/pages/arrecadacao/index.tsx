@@ -88,10 +88,10 @@ export default function ArrecadacaoHome() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
                     <span className="font-medium">{e.nome}</span>
-                    <Badge variant="outline" className="text-[9px]">{e.codigo}</Badge>
+                    <Badge variant="outline" className="text-xs">{e.codigo}</Badge>
                   </div>
-                  <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-2">{e.descricao}</p>
-                  <div className="text-[10px] text-muted-foreground mt-1">
+                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{e.descricao}</p>
+                  <div className="text-xs text-muted-foreground mt-1">
                     Taxas: déb {e.taxa_debito_pct}% · créd {e.taxa_credito_pct}% · pix {e.taxa_pix_pct}%
                   </div>
                 </div>
@@ -161,16 +161,16 @@ export default function ArrecadacaoHome() {
     return (
       <Link to={`/arrecadacao/reserva/${r.id}`}
         className="flex items-center gap-2 border rounded-md p-2 hover:bg-muted/30 transition text-xs">
-        <Badge variant="outline" className="text-[9px]">{r.espaco?.codigo}</Badge>
+        <Badge variant="outline" className="text-xs">{r.espaco?.codigo}</Badge>
         <div className="flex-1 min-w-0">
           <div className="font-medium truncate">{r.finalidade}</div>
-          <div className="text-[10px] text-muted-foreground flex items-center gap-1.5 flex-wrap">
+          <div className="text-xs text-muted-foreground flex items-center gap-1.5 flex-wrap">
             <Calendar className="w-2.5 h-2.5" /> {fmtPeriodo(r.periodo)}
             {r.area && <span>· {r.area.nome}</span>}
             {r.responsavel && <span>· {r.responsavel.nome_completo}</span>}
           </div>
         </div>
-        <Badge variant="outline" className={`text-[9px] ${STATUS_COR[r.status]}`}>
+        <Badge variant="outline" className={`text-xs ${STATUS_COR[r.status]}`}>
           {STATUS_LABEL[r.status]}
         </Badge>
         <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />

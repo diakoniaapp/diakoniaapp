@@ -144,25 +144,25 @@ export default function Assuntos() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
         <Card>
           <CardContent className="py-2 px-3">
-            <p className="text-[10px] uppercase text-muted-foreground">Em aberto</p>
+            <p className="text-xs uppercase text-muted-foreground">Em aberto</p>
             <p className="text-base font-semibold">{stats.abertos}</p>
           </CardContent>
         </Card>
         <Card className="bg-rose-50/30 border-rose-200">
           <CardContent className="py-2 px-3">
-            <p className="text-[10px] uppercase text-rose-700">Atrasados</p>
+            <p className="text-xs uppercase text-rose-700">Atrasados</p>
             <p className="text-base font-semibold text-rose-700">{stats.atrasados}</p>
           </CardContent>
         </Card>
         <Card className="bg-amber-50/30 border-amber-200">
           <CardContent className="py-2 px-3">
-            <p className="text-[10px] uppercase text-amber-700">Vencem em breve</p>
+            <p className="text-xs uppercase text-amber-700">Vencem em breve</p>
             <p className="text-base font-semibold text-amber-700">{stats.proximos}</p>
           </CardContent>
         </Card>
         <Card className="bg-emerald-50/30 border-emerald-200">
           <CardContent className="py-2 px-3">
-            <p className="text-[10px] uppercase text-emerald-700">Concluídos</p>
+            <p className="text-xs uppercase text-emerald-700">Concluídos</p>
             <p className="text-base font-semibold text-emerald-700">{stats.concluidos}</p>
           </CardContent>
         </Card>
@@ -218,16 +218,16 @@ export default function Assuntos() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="font-medium text-sm">{a.titulo}</span>
-                    <Badge variant="outline" className={`text-[9px] ${STATUS_COR[a.status]}`}>
+                    <Badge variant="outline" className={`text-xs ${STATUS_COR[a.status]}`}>
                       {STATUS_LABEL[a.status]}
                     </Badge>
                     {a.vezes_discutido >= 3 && (
-                      <Badge variant="outline" className="text-[9px] bg-purple-100 text-purple-700 border-purple-300">
+                      <Badge variant="outline" className="text-xs bg-purple-100 text-purple-700 border-purple-300">
                         {a.vezes_discutido}× discutido
                       </Badge>
                     )}
                   </div>
-                  <p className="text-[10px] text-muted-foreground flex items-center gap-2 flex-wrap mt-0.5">
+                  <p className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap mt-0.5">
                     {a.responsavel_nome && <>👤 {a.responsavel_nome}</>}
                     {a.prazo && (
                       <span className={a.situacao === "atrasado" ? "text-rose-700 font-medium" : ""}>

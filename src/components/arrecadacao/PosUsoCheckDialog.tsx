@@ -80,11 +80,11 @@ export function PosUsoCheckDialog({ open, onOpenChange, reservaId, onConcluido }
           <DialogTitle className="flex items-center gap-2">
             <ClipboardList className="w-4 h-4 text-gold" />
             Checklist de entrega
-            <Badge variant="outline" className="text-[10px] ml-2">
+            <Badge variant="outline" className="text-xs ml-2">
               {obrigatoriosOk}/{obrigatorios.length} obrigatórios
             </Badge>
             {totalProblemas > 0 && (
-              <Badge className="text-[10px] bg-amber-100 text-amber-700 border-amber-200">
+              <Badge className="text-xs bg-amber-100 text-amber-700 border-amber-200">
                 ⚠ {totalProblemas} problema{totalProblemas > 1 ? "s" : ""}
               </Badge>
             )}
@@ -109,18 +109,18 @@ export function PosUsoCheckDialog({ open, onOpenChange, reservaId, onConcluido }
                 <div className="flex-1">
                   <span className={item.ok ? "line-through text-muted-foreground" : ""}>{item.item}</span>
                   {item.obrigatorio && (
-                    <Badge variant="outline" className="text-[9px] ml-1.5 bg-amber-50 text-amber-700 border-amber-200">
+                    <Badge variant="outline" className="text-xs ml-1.5 bg-amber-50 text-amber-700 border-amber-200">
                       obrigatório
                     </Badge>
                   )}
                 </div>
                 <button onClick={() => setExpandido({...expandido, [item.id]: !expandido[item.id]})}
-                  className={"text-[10px] px-1.5 py-0.5 rounded hover:bg-muted gap-1 flex items-center " +
+                  className={"text-xs px-1.5 py-0.5 rounded hover:bg-muted gap-1 flex items-center " +
                     (item.observacao || expandido[item.id] ? "text-blue-600" : "text-muted-foreground")}>
                   <MessageSquare className="w-3 h-3" /> {item.observacao ? "obs" : "📝"}
                 </button>
                 <button onClick={() => atualizarItem(item.id, { problema_reportado: !item.problema_reportado })}
-                  className={"text-[10px] px-1.5 py-0.5 rounded hover:bg-amber-100 flex items-center gap-1 " +
+                  className={"text-xs px-1.5 py-0.5 rounded hover:bg-amber-100 flex items-center gap-1 " +
                     (item.problema_reportado ? "text-amber-700 bg-amber-100" : "text-muted-foreground")}>
                   <AlertTriangle className="w-3 h-3" /> {item.problema_reportado ? "problema" : "⚠"}
                 </button>
@@ -145,7 +145,7 @@ export function PosUsoCheckDialog({ open, onOpenChange, reservaId, onConcluido }
         </div>
 
         {!podeProsseguir && (
-          <p className="text-[11px] text-rose-700">
+          <p className="text-xs text-rose-700">
             ⚠ Marque os {obrigatorios.length} itens obrigatórios pra continuar.
           </p>
         )}

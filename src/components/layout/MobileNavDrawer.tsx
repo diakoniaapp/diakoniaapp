@@ -53,7 +53,7 @@ export function MobileNavDrawer({ children }: { children: React.ReactNode }) {
           <SheetTitle asChild>
             <div>
               <BrandMark className="text-xl text-sidebar-foreground" />
-              <div className="text-[11px] tracking-[0.18em] uppercase text-sidebar-foreground/55 mt-1">
+              <div className="text-xs tracking-[0.18em] uppercase text-sidebar-foreground/55 mt-1">
                 Sistema da Igreja
               </div>
             </div>
@@ -86,7 +86,7 @@ export function MobileNavDrawer({ children }: { children: React.ReactNode }) {
             const Icon = group.icon;
             return (
               <div key={group.key} className="space-y-0.5">
-                <div className="flex items-center gap-2 px-3 py-1.5 text-[11px] uppercase tracking-widest text-sidebar-foreground/45">
+                <div className="flex items-center gap-2 px-3 py-1.5 text-xs uppercase tracking-widest text-sidebar-foreground/45">
                   <Icon className="w-3.5 h-3.5 shrink-0" />
                   <span>{group.label}</span>
                 </div>

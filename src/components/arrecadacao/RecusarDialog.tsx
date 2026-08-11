@@ -45,7 +45,7 @@ export function RecusarDialog({ open, onOpenChange, reservaId, onRecusado }: Pro
             automaticamente — use este aqui pra outros casos.
           </p>
           <div className="space-y-1">
-            <Label className="text-[11px]">Motivo *</Label>
+            <Label className="text-xs">Motivo *</Label>
             <Textarea value={motivo} onChange={e => setMotivo(e.target.value)}
               placeholder="Ex: Período coincide com Conferência Anual" rows={4} />
           </div>

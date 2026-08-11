@@ -282,7 +282,7 @@ export function FamiliaBloco({ pessoaId, nomeCompleto, endereco, onChange }: Pro
               </Button>
             </div>
             {(atual.familia.endereco || atual.familia.bairro) && (
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 📍 {[atual.familia.endereco, atual.familia.numero, atual.familia.bairro, atual.familia.cidade].filter(Boolean).join(", ")}
               </p>
             )}
@@ -316,7 +316,7 @@ export function FamiliaBloco({ pessoaId, nomeCompleto, endereco, onChange }: Pro
                       />
                       <span className="font-medium truncate">{s.nome_completo}</span>
                       {s.familia_nome && (
-                        <Badge variant="outline" className="text-[10px] border-rose-300 text-rose-700">
+                        <Badge variant="outline" className="text-xs border-rose-300 text-rose-700">
                           {s.familia_nome}
                         </Badge>
                       )}
@@ -326,7 +326,7 @@ export function FamiliaBloco({ pessoaId, nomeCompleto, endereco, onChange }: Pro
                         type="button"
                         size="sm" variant="ghost"
                         onClick={(e) => { e.preventDefault(); abrirVincSugestao(s); }}
-                        className="gap-1 text-[10px] shrink-0 h-6 px-2"
+                        className="gap-1 text-xs shrink-0 h-6 px-2"
                         title="Vincular só esta pessoa (modo individual)"
                       >
                         Só esta
@@ -351,11 +351,11 @@ export function FamiliaBloco({ pessoaId, nomeCompleto, endereco, onChange }: Pro
                 Ignorar por agora
               </Button>
             </div>
-            <p className="text-[10px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               Marque os checkboxes pra vincular várias pessoas de uma vez à mesma família.
             </p>
             {!pessoaId && (
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 Salve a pessoa antes de vincular.
               </p>
             )}

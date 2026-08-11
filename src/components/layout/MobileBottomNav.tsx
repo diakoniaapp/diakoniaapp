@@ -22,7 +22,7 @@ const items: {
 ];
 
 const tabClass =
-  "flex-1 flex flex-col items-center justify-center py-2 min-h-[56px] text-[11px] gap-0.5 transition-colors";
+  "flex-1 flex flex-col items-center justify-center py-2 min-h-[56px] text-xs gap-0.5 transition-colors";
 
 export function MobileBottomNav() {
   const { hasRole } = useAuth();

@@ -91,7 +91,7 @@ export function MultiplicarDialog({ open, onOpenChange, grupoPaiId, grupoPaiNome
 
           <div>
             <Label className="text-xs">Quem vai com o líder ({selecionados.size} selecionado{selecionados.size === 1 ? "" : "s"})</Label>
-            <p className="text-[10px] text-muted-foreground mb-1">
+            <p className="text-xs text-muted-foreground mb-1">
               Selecione os que vão para o novo grupo. Eles deixam o atual.
             </p>
             <div className="border rounded-md max-h-48 overflow-y-auto">

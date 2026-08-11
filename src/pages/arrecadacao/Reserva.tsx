@@ -133,10 +133,10 @@ export default function ReservaDetalhe() {
         <div className="flex-1 min-w-0">
           <h1 className="font-serif text-lg md:text-xl truncate">{reserva.finalidade}</h1>
           <div className="flex items-center gap-1.5 flex-wrap">
-            <Badge variant="outline" className={`text-[9px] ${STATUS_COR[reserva.status]}`}>
+            <Badge variant="outline" className={`text-xs ${STATUS_COR[reserva.status]}`}>
               {STATUS_LABEL[reserva.status]}
             </Badge>
-            <Badge variant="outline" className="text-[9px]">{reserva.espaco?.codigo}</Badge>
+            <Badge variant="outline" className="text-xs">{reserva.espaco?.codigo}</Badge>
           </div>
         </div>
         {reserva.status === "solicitada" && (
@@ -213,7 +213,7 @@ export default function ReservaDetalhe() {
               } />
               Caixa do PDV
               <Badge className={
-                "ml-2 text-[10px] " +
+                "ml-2 text-xs " +
                 (caixa.estado === "aberto"      ? "bg-emerald-100 text-emerald-700 border-emerald-200" :
                  caixa.estado === "conciliando" ? "bg-amber-100 text-amber-700 border-amber-200" :
                                                    "bg-muted text-muted-foreground")
@@ -298,7 +298,7 @@ export default function ReservaDetalhe() {
               </div>
             )}
             {resumo && resumo.saldo_virtual <= 0 && caixa.estado === "aberto" && (
-              <p className="text-[11px] text-muted-foreground italic">
+              <p className="text-xs text-muted-foreground italic">
                 💡 Registre vendas no PDV antes de lançar custos, reembolsos ou reversões.
               </p>
             )}
@@ -381,7 +381,7 @@ function BlocoGrande({ titulo, valor, cor, destaque }: { titulo: string; valor: 
       "border-2 rounded-lg p-2.5 md:p-3 text-center " +
       (destaque ? "border-emerald-400 bg-white shadow-sm" : "border-border bg-white/70")
     }>
-      <div className="text-[10px] md:text-[11px] uppercase tracking-wider text-muted-foreground">{titulo}</div>
+      <div className="text-xs md:text-xs uppercase tracking-wider text-muted-foreground">{titulo}</div>
       <div className={
         "text-lg md:text-2xl font-serif font-semibold mt-0.5 " +
         (cor ? corClasses[cor] : "text-foreground")
@@ -394,7 +394,7 @@ function Bloco({ titulo, valor, cor, destaque }: { titulo: string; valor: string
   const corClasses: Record<string, string> = { emerald: "text-emerald-700", rose: "text-rose-700" };
   return (
     <div className={"border rounded-md p-2 " + (destaque ? "border-emerald-300 bg-emerald-50/40" : "")}>
-      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{titulo}</div>
+      <div className="text-xs uppercase tracking-wide text-muted-foreground">{titulo}</div>
       <div className={"text-sm font-serif font-medium " + (cor ? corClasses[cor] : "")}>{valor}</div>
     </div>
   );

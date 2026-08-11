@@ -92,7 +92,7 @@ function ColunaEventos({ cor, icon: Icon, titulo, lista, onWhats, sufixo }: Colu
           <h3 className={`text-xs font-semibold flex items-center gap-1.5 ${corTitulo}`}>
             <Icon className="w-3.5 h-3.5" /> {titulo}
           </h3>
-          <Badge variant="outline" className="text-[10px]">{lista.length}</Badge>
+          <Badge variant="outline" className="text-xs">{lista.length}</Badge>
         </div>
         {lista.length === 0 ? (
           <p className="text-xs text-muted-foreground text-center py-2">
@@ -110,7 +110,7 @@ function ColunaEventos({ cor, icon: Icon, titulo, lista, onWhats, sufixo }: Colu
                 <li key={ev.ref_id} className="flex items-center justify-between gap-2 border rounded-md px-2 py-1.5 bg-background hover:bg-muted/40 transition-colors">
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium truncate">{ev.titulo}</p>
-                    <p className="text-[11px] text-muted-foreground">
+                    <p className="text-xs text-muted-foreground">
                       {quando}
                       {(ev.anos_vai_completar ?? 0) > 0 && ` · ${ev.anos_vai_completar} ${sufixo}`}
                     </p>
@@ -129,7 +129,7 @@ function ColunaEventos({ cor, icon: Icon, titulo, lista, onWhats, sufixo }: Colu
               );
             })}
             {lista.length > 6 && (
-              <li className="text-[10px] text-muted-foreground italic text-center pt-1">
+              <li className="text-xs text-muted-foreground italic text-center pt-1">
                 ... e mais {lista.length - 6} esta semana
               </li>
             )}

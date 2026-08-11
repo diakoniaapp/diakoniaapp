@@ -167,7 +167,7 @@ export function BuscaPessoa({
               >
                 <div className="font-medium">{p.nome_completo}</div>
                 {p.tipo_pessoa && (
-                  <div className="text-[11px] text-muted-foreground">
+                  <div className="text-xs text-muted-foreground">
                     {p.tipo_pessoa}
                     {p.telefone_celular && ` · ${p.telefone_celular}`}
                   </div>

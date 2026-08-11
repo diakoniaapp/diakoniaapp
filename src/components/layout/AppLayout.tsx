@@ -143,7 +143,7 @@ export default function AppLayout() {
         {/* Logo */}
         <div className="p-5 border-b border-sidebar-border">
           <BrandMark className="text-2xl text-sidebar-foreground" />
-          <div className="text-[11px] tracking-[0.18em] uppercase text-sidebar-foreground/55 mt-1.5">
+          <div className="text-xs tracking-[0.18em] uppercase text-sidebar-foreground/55 mt-1.5">
             Sistema da Igreja
           </div>
         </div>
@@ -157,7 +157,7 @@ export default function AppLayout() {
           >
             <Search className="w-4 h-4 shrink-0" />
             <span className="flex-1 text-left">Buscar...</span>
-            <kbd className="text-[11px] px-1.5 py-0.5 rounded bg-sidebar-foreground/10 tracking-wider">
+            <kbd className="text-xs px-1.5 py-0.5 rounded bg-sidebar-foreground/10 tracking-wider">
               Ctrl K
             </kbd>
           </button>
@@ -183,7 +183,7 @@ export default function AppLayout() {
                   type="button"
                   onClick={() => toggleGroup(group.key)}
                   aria-expanded={isExpanded}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] uppercase tracking-widest text-sidebar-foreground/45 hover:text-sidebar-foreground/70 transition-colors"
+                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs uppercase tracking-widest text-sidebar-foreground/45 hover:text-sidebar-foreground/70 transition-colors"
                 >
                   <Icon className="w-3 h-3" />
                   <span className="flex-1 text-left">{group.label}</span>
@@ -217,7 +217,7 @@ export default function AppLayout() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium truncate">{nomeDisplay ?? "Sem nome"}</div>
-                  <div className="text-[11px] text-sidebar-foreground/60 truncate">{user.email}</div>
+                  <div className="text-xs text-sidebar-foreground/60 truncate">{user.email}</div>
                 </div>
                 <ChevronDown className="w-4 h-4 text-sidebar-foreground/60 shrink-0" />
               </button>
@@ -226,8 +226,8 @@ export default function AppLayout() {
               <DropdownMenuLabel>
                 <div className="flex flex-col">
                   <span className="font-medium">{nomeDisplay ?? "Sem nome"}</span>
-                  <span className="text-[11px] font-normal text-muted-foreground truncate">{user.email}</span>
-                  <span className="text-[11px] text-muted-foreground mt-0.5">
+                  <span className="text-xs font-normal text-muted-foreground truncate">{user.email}</span>
+                  <span className="text-xs text-muted-foreground mt-0.5">
                     {roleLabel[principalRole] ?? principalRole}
                   </span>
                 </div>
@@ -241,7 +241,10 @@ export default function AppLayout() {
         </div>
       </aside>
 
-      <div className="flex-1 flex flex-col min-h-0">
+      {/* min-w-0 e essencial: sem ele este item flex nao encolhe abaixo da
+          largura min-content do conteudo, e qualquer texto longo empurra a
+          area util para fora do viewport no celular. */}
+      <div className="flex-1 min-w-0 flex flex-col min-h-0">
         {/* Header mobile */}
         <header className="md:hidden sticky top-0 z-40 flex items-center gap-2 h-14 px-3 bg-sidebar text-sidebar-foreground border-b border-sidebar-border pt-safe">
           {!isHome && (

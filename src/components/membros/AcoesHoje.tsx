@@ -208,7 +208,7 @@ export default function AcoesHoje({ limit }: AcoesHojeProps = {}) {
       </div>
 
       {/* Legenda */}
-      <div className="flex gap-2 flex-wrap text-[11px] text-muted-foreground">
+      <div className="flex gap-2 flex-wrap text-xs text-muted-foreground">
         <span className="flex items-center gap-1">
           <span className="w-2 h-2 rounded-full bg-destructive inline-block" />Alta — mais de 15 dias
         </span>
@@ -262,14 +262,14 @@ export default function AcoesHoje({ limit }: AcoesHojeProps = {}) {
                       {/* Nome + badges */}
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="font-medium leading-tight">{v.nome_completo}</span>
-                        <Badge variant="outline" className={`text-[10px] h-4 px-1.5 gap-1 ${prio.badge}`}>
+                        <Badge variant="outline" className={`text-xs h-4 px-1.5 gap-1 ${prio.badge}`}>
                           {PRIO_ICON[v.prioridade]}{prio.label}
                         </Badge>
-                        <Badge variant="outline" className="text-[10px] h-4 px-1.5">
+                        <Badge variant="outline" className="text-xs h-4 px-1.5">
                           {ETAPA_LABEL[v.etapa_fluxo]}
                         </Badge>
                         {evolucao.sugestao && (
-                          <Badge className="text-[10px] h-4 px-1.5 gap-1 bg-success/15 text-success border border-success/30 hover:bg-success/15">
+                          <Badge className="text-xs h-4 px-1.5 gap-1 bg-success/15 text-success border border-success/30 hover:bg-success/15">
                             <Sparkles className="w-2.5 h-2.5" />
                             Próximo passo ✨
                           </Badge>
@@ -292,11 +292,11 @@ export default function AcoesHoje({ limit }: AcoesHojeProps = {}) {
                       {editando ? (
                         <div className="space-y-1.5">
                           <div className="flex items-center justify-between">
-                            <span className="text-[10px] text-muted-foreground">Editar mensagem</span>
+                            <span className="text-xs text-muted-foreground">Editar mensagem</span>
                             <Button
                               size="sm"
                               variant="ghost"
-                              className="h-5 px-1.5 text-[10px] gap-1 text-muted-foreground"
+                              className="h-5 px-1.5 text-xs gap-1 text-muted-foreground"
                               onClick={() => restaurarMensagem(v)}
                               title="Restaurar mensagem original"
                             >
@@ -336,7 +336,7 @@ export default function AcoesHoje({ limit }: AcoesHojeProps = {}) {
                             <Pencil className="w-3 h-3" />
                           </button>
                           {editada && (
-                            <span className="text-[10px] text-warning mt-0.5 block">✏️ Mensagem editada</span>
+                            <span className="text-xs text-warning mt-0.5 block">✏️ Mensagem editada</span>
                           )}
                         </div>
                       )}

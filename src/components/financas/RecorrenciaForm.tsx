@@ -176,7 +176,7 @@ export function RecorrenciaForm({ open, onOpenChange, recorrencia, onSaved }: Pr
               <Label>Valor *</Label>
               <Input type="number" step="0.01" min={0.01} required
                 value={valor || ""} onChange={(e) => setValor(Number(e.target.value))} />
-              <label className="flex items-center gap-1.5 text-[10px] mt-0.5 cursor-pointer">
+              <label className="flex items-center gap-1.5 text-xs mt-0.5 cursor-pointer">
                 <input type="checkbox" checked={valorVariavel} onChange={(e) => setValorVariavel(e.target.checked)} />
                 Valor varia mês a mês (ex: energia)
               </label>
@@ -239,12 +239,12 @@ export function RecorrenciaForm({ open, onOpenChange, recorrencia, onSaved }: Pr
           <div>
             <Label>Encerra em (opcional)</Label>
             <Input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} />
-            <p className="text-[10px] text-muted-foreground mt-0.5">Em branco = indefinido</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Em branco = indefinido</p>
           </div>
 
           <div className="border rounded-md p-2 bg-muted/20 space-y-1">
-            <p className="text-[11px] font-medium">🔔 Lembrar antes do vencimento</p>
-            <div className="grid grid-cols-3 gap-1 text-[11px]">
+            <p className="text-xs font-medium">🔔 Lembrar antes do vencimento</p>
+            <div className="grid grid-cols-3 gap-1 text-xs">
               <label className="flex items-center gap-1 cursor-pointer">
                 <input type="checkbox" checked={lembrar5d} onChange={(e) => setLembrar5d(e.target.checked)} />
                 5 dias antes

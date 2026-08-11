@@ -103,13 +103,13 @@ export default function FinancasAgenda() {
       <div className="grid grid-cols-2 gap-2">
         <Card className="bg-rose-50/30 border-rose-200">
           <CardContent className="py-2 px-3">
-            <p className="text-[10px] uppercase text-rose-700 flex items-center gap-1"><TrendingDown className="w-3 h-3" /> A pagar (30d)</p>
+            <p className="text-xs uppercase text-rose-700 flex items-center gap-1"><TrendingDown className="w-3 h-3" /> A pagar (30d)</p>
             <p className="text-base font-semibold text-rose-700 tabular-nums">{brl(totalSaidas)}</p>
           </CardContent>
         </Card>
         <Card className="bg-emerald-50/30 border-emerald-200">
           <CardContent className="py-2 px-3">
-            <p className="text-[10px] uppercase text-emerald-700 flex items-center gap-1"><TrendingUp className="w-3 h-3" /> A receber (30d)</p>
+            <p className="text-xs uppercase text-emerald-700 flex items-center gap-1"><TrendingUp className="w-3 h-3" /> A receber (30d)</p>
             <p className="text-base font-semibold text-emerald-700 tabular-nums">{brl(totalEntradas)}</p>
           </CardContent>
         </Card>
@@ -133,7 +133,7 @@ export default function FinancasAgenda() {
             const info = URGENCIA_INFO[u];
             return (
               <div key={u} className="space-y-1.5">
-                <p className="text-[11px] uppercase tracking-wide font-medium text-muted-foreground px-1">
+                <p className="text-xs uppercase tracking-wide font-medium text-muted-foreground px-1">
                   {u === "vencido" && <AlertTriangle className="w-3 h-3 inline mr-1 text-rose-600" />}
                   {info.label} ({lista.length})
                 </p>
@@ -145,7 +145,7 @@ export default function FinancasAgenda() {
                         : <TrendingDown className="w-4 h-4 text-rose-600 shrink-0" />}
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium truncate">{v.descricao ?? "—"}</p>
-                        <p className="text-[10px] flex items-center gap-1.5">
+                        <p className="text-xs flex items-center gap-1.5">
                           <Clock className="w-2.5 h-2.5" /> {dataBr(v.data)}
                           {v.dias_para_vencer >= 0
                             ? <> · em <strong>{v.dias_para_vencer}d</strong></>
@@ -159,7 +159,7 @@ export default function FinancasAgenda() {
                       {brl(Number(v.valor))}
                     </p>
                     <Button size="sm" onClick={() => confirmar(v)}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1 h-7 text-[11px]">
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1 h-7 text-xs">
                       <CheckCircle2 className="w-3 h-3" /> {v.tipo === "saida" ? "Pagar" : "Receber"}
                     </Button>
                   </div>

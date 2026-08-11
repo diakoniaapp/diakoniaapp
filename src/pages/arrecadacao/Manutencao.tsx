@@ -118,20 +118,20 @@ export default function ManutencaoLista() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <AlertTriangle className="w-4 h-4 text-amber-600" />
                   <span className="font-medium text-sm">{p.titulo}</span>
-                  <Badge variant="outline" className={`text-[9px] ${STATUS_COR[p.status]}`}>
+                  <Badge variant="outline" className={`text-xs ${STATUS_COR[p.status]}`}>
                     {p.status.replace("_", " ")}
                   </Badge>
-                  <Badge variant="outline" className={`text-[9px] ${PRIO_COR[p.prioridade]}`}>
+                  <Badge variant="outline" className={`text-xs ${PRIO_COR[p.prioridade]}`}>
                     {p.prioridade}
                   </Badge>
                   {p.espaco && (
-                    <Badge variant="outline" className="text-[9px]">{p.espaco.codigo}</Badge>
+                    <Badge variant="outline" className="text-xs">{p.espaco.codigo}</Badge>
                   )}
                 </div>
                 {p.descricao && (
                   <p className="text-xs text-muted-foreground italic">{p.descricao}</p>
                 )}
-                <div className="text-[10px] text-muted-foreground flex items-center gap-2 flex-wrap">
+                <div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
                   <span>📅 {new Date(p.reportado_em).toLocaleString("pt-BR")}</span>
                   {p.resolvido_em && (
                     <span className="text-emerald-700">
@@ -140,7 +140,7 @@ export default function ManutencaoLista() {
                   )}
                 </div>
                 {p.resolucao_descricao && (
-                  <p className="text-[11px] text-emerald-700 bg-emerald-50/30 p-1.5 rounded mt-1">
+                  <p className="text-xs text-emerald-700 bg-emerald-50/30 p-1.5 rounded mt-1">
                     {p.resolucao_descricao}
                   </p>
                 )}
@@ -209,7 +209,7 @@ function ResolverDialog({ problema, onCancel, onResolved }: {
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-xs text-muted-foreground">{problema.titulo}</p>
-          <Label className="text-[11px]">Como foi resolvido?</Label>
+          <Label className="text-xs">Como foi resolvido?</Label>
           <Textarea value={desc} onChange={e => setDesc(e.target.value)}
             placeholder="Ex: Lâmpada trocada em 14/06" />
           <div className="flex gap-2 justify-end">

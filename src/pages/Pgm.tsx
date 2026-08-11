@@ -92,12 +92,12 @@ export default function Pgm() {
                   </span>
                   <span className="flex items-center gap-1 shrink-0">
                     {g.qtd_filhos > 0 && (
-                      <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-300" title={`Multiplicou em ${g.qtd_filhos} grupo(s)`}>
+                      <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700 border-emerald-300" title={`Multiplicou em ${g.qtd_filhos} grupo(s)`}>
                         <Sparkles className="w-2.5 h-2.5 mr-0.5" /> Multiplicador
                       </Badge>
                     )}
                     {!g.ativo && (
-                      <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-300">
+                      <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-300">
                         Desativado
                       </Badge>
                     )}

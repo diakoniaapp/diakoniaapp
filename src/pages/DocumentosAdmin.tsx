@@ -469,7 +469,7 @@ const [uploadando, setUploadando] = useState(false);
               <Info className="w-4 h-4 text-gold mt-0.5 shrink-0" />
               <div>
                 <p className="text-xs font-medium text-gold">Estrutura Derivada dos Documentos Institucionais</p>
-                <p className="text-[11px] text-muted-foreground mt-0.5">
+                <p className="text-xs text-muted-foreground mt-0.5">
                   Ministérios, áreas e cargos extraídos do estatuto/regimento. Usados como base para autocompletar
                   cadastros e gerar o organograma automaticamente.
                 </p>
@@ -531,15 +531,15 @@ const [uploadando, setUploadando] = useState(false);
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex flex-wrap items-center gap-2 mb-1">
-                              <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded border">{meta.label}</span>
-                              <span className="text-[10px] text-muted-foreground">{NIVEIS_ESTRUTURA.find(n => n.value === item.nivel)?.label ?? item.nivel}</span>
+                              <span className="text-xs bg-muted px-1.5 py-0.5 rounded border">{meta.label}</span>
+                              <span className="text-xs text-muted-foreground">{NIVEIS_ESTRUTURA.find(n => n.value === item.nivel)?.label ?? item.nivel}</span>
                             </div>
                             <p className="font-medium text-sm leading-tight">{item.nome}</p>
                             {item.descricao && (
                               <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{item.descricao}</p>
                             )}
                             {item.base_institucional && (
-                              <p className="text-[10px] text-gold/80 mt-1">📄 {item.base_institucional}</p>
+                              <p className="text-xs text-gold/80 mt-1">📄 {item.base_institucional}</p>
                             )}
                           </div>
                           <div className="flex gap-1 shrink-0">
@@ -619,10 +619,10 @@ const [uploadando, setUploadando] = useState(false);
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex flex-wrap items-center gap-2 mb-1">
-                            <Badge variant="outline" className={`text-[10px] ${meta.color}`}>{meta.label}</Badge>
-                            <span className="text-[10px] text-muted-foreground border rounded px-1.5 py-0.5">v{d.versao}</span>
+                            <Badge variant="outline" className={`text-xs ${meta.color}`}>{meta.label}</Badge>
+                            <span className="text-xs text-muted-foreground border rounded px-1.5 py-0.5">v{d.versao}</span>
                             {d.vigente && (
-                              <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-700 border-emerald-500/30 gap-1">
+                              <Badge variant="outline" className="text-xs bg-emerald-500/10 text-emerald-700 border-emerald-500/30 gap-1">
                                 <CheckCircle2 className="w-2.5 h-2.5" /> Vigente
                               </Badge>
                             )}
@@ -688,13 +688,13 @@ const [uploadando, setUploadando] = useState(false);
                                     <div className="flex items-center gap-2 mb-0.5">
                                       <span className="text-xs font-medium truncate">{s.titulo}</span>
                                       {s.tipo_secao && (
-                                        <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded border shrink-0">
+                                        <span className="text-xs bg-muted px-1.5 py-0.5 rounded border shrink-0">
                                           {TIPOS_SECAO.find(t => t.value === s.tipo_secao)?.label ?? s.tipo_secao}
                                         </span>
                                       )}
                                     </div>
                                     {s.conteudo && (
-                                      <p className="text-[11px] text-muted-foreground line-clamp-2">{s.conteudo}</p>
+                                      <p className="text-xs text-muted-foreground line-clamp-2">{s.conteudo}</p>
                                     )}
                                     {/* Tags conceituais — conexão com Identidade */}
                                     {s.tags_conceituais?.length > 0 && (
@@ -702,7 +702,7 @@ const [uploadando, setUploadando] = useState(false);
                                         {s.tags_conceituais.map((tag, i) => {
                                           const tc = TAGS_CONCEITUAIS.find(t => t.value === tag);
                                           return (
-                                            <span key={i} className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full border-0 ${tc?.color ?? "bg-muted text-muted-foreground"}`}>
+                                            <span key={i} className={`text-xs font-medium px-1.5 py-0.5 rounded-full border-0 ${tc?.color ?? "bg-muted text-muted-foreground"}`}>
                                               🏷 {tc?.label ?? tag}
                                             </span>
                                           );
@@ -712,7 +712,7 @@ const [uploadando, setUploadando] = useState(false);
                                     {s.palavras_chave?.length > 0 && (
                                       <div className="flex flex-wrap gap-1 mt-1">
                                         {s.palavras_chave.map((kw, i) => (
-                                          <span key={i} className="text-[10px] bg-primary/5 border border-primary/20 rounded px-1">{kw}</span>
+                                          <span key={i} className="text-xs bg-primary/5 border border-primary/20 rounded px-1">{kw}</span>
                                         ))}
                                       </div>
                                     )}
@@ -837,7 +837,7 @@ const [uploadando, setUploadando] = useState(false);
                 {/* URL alternativa (Google Drive, etc) */}
                 {!arquivo && (
                   <div>
-                    <p className="text-[11px] text-muted-foreground mb-1.5">Ou informe URL externa (Google Drive, etc):</p>
+                    <p className="text-xs text-muted-foreground mb-1.5">Ou informe URL externa (Google Drive, etc):</p>
                     <Input value={formDoc.arquivo_url ?? ""} onChange={e => setFormDoc({ ...formDoc, arquivo_url: e.target.value })} placeholder="https://drive.google.com/..." />
                   </div>
                 )}
@@ -1052,19 +1052,19 @@ const [uploadando, setUploadando] = useState(false);
                         {ACAO_LABELS[h.acao] ?? h.acao}
                       </span>
                       {(h.versao_de || h.versao_para) && (
-                        <span className="text-[10px] text-muted-foreground ml-2">
+                        <span className="text-xs text-muted-foreground ml-2">
                           {h.versao_de && <>v{h.versao_de}</>}
                           {h.versao_de && h.versao_para && " → "}
                           {h.versao_para && <>v{h.versao_para}</>}
                         </span>
                       )}
                     </div>
-                    <span className="text-[10px] text-muted-foreground shrink-0">
+                    <span className="text-xs text-muted-foreground shrink-0">
                       {new Date(h.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                     </span>
                   </div>
                   {h.usuario_email && (
-                    <p className="text-[11px] text-muted-foreground mt-0.5">por {h.usuario_email}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">por {h.usuario_email}</p>
                   )}
                   {h.observacao && (
                     <p className="text-xs text-muted-foreground mt-1 italic">"{h.observacao}"</p>

@@ -79,7 +79,7 @@ export function CampanhasEbd() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <h3 className="font-medium text-sm truncate">{c.nome}</h3>
-                    <p className="text-[11px] text-muted-foreground truncate">{c.classe_nome}</p>
+                    <p className="text-xs text-muted-foreground truncate">{c.classe_nome}</p>
                   </div>
                   {atingiu && <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />}
                 </div>
@@ -87,7 +87,7 @@ export function CampanhasEbd() {
                   <>
                     <div className="flex items-baseline justify-between text-xs">
                       <span className="font-semibold">{brl(r.arrecadado)}</span>
-                      <Badge variant="outline" className="text-[10px]">
+                      <Badge variant="outline" className="text-xs">
                         {pct}% de {brl(r.meta)}
                       </Badge>
                     </div>

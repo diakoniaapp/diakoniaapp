@@ -273,7 +273,7 @@ export default function Ministerios() {
                                                                                     <Label>Nome *</Label>
                                                                                     <div className="relative">
                                                                                                       <Input required value={form.nome as string} onChange={(e) => setForm({ ...form, nome: e.target.value })} />
-                                                                                          {buscandoModelo && <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground animate-pulse">buscando...</span>}
+                                                                                          {buscandoModelo && <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground animate-pulse">buscando...</span>}
                                                                                           </div>
                                                                     </div>
                                                                     <div><Label>Sigla</Label><Input value={form.sigla as string} onChange={(e) => setForm({ ...form, sigla: e.target.value })} /></div>
@@ -285,8 +285,8 @@ export default function Ministerios() {
                                                                                       <p className={"text-xs font-medium " + (sugestao.origem === "documento" ? "text-gold" : "text-foreground")}>
                                                                                             {sugestao.origem === "documento" ? "Sugerido pelo regimento: " : "Modelo padrao: "}{sugestao.nome}
                                                                                             </p>
-                                                                          {sugestao.base_institucional && <p className="text-[10px] text-gold/70 mt-0.5">{sugestao.base_institucional}</p>}
-                                                                                      <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">{sugestao.descricao}</p>
+                                                                          {sugestao.base_institucional && <p className="text-xs text-gold/70 mt-0.5">{sugestao.base_institucional}</p>}
+                                                                                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{sugestao.descricao}</p>
                                                                     </div>
                                                                     <div className="flex items-center gap-1 shrink-0">
                                                                                       <Button type="button" size="sm" variant="outline" className={"h-7 text-xs " + (sugestao.origem === "documento" ? "border-gold/40 text-gold hover:bg-gold/10" : "")} onClick={aplicarModelo}>Aplicar</Button>

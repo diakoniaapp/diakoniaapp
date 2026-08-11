@@ -164,7 +164,7 @@ export function AprovacaoDialog({ open, onOpenChange, reserva, onAprovado }: Pro
 
         {!aprovado ? (
           <div className="space-y-3 text-sm">
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               Ao aprovar: a reserva fica <Badge variant="outline">aprovada</Badge>,
               a data fica reservada e os destinatários do termo aparecem aqui pra
               envio pelo WhatsApp.
@@ -210,9 +210,9 @@ export function AprovacaoDialog({ open, onOpenChange, reserva, onAprovado }: Pro
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="font-medium text-xs truncate">{d.nome}</span>
-                        <Badge variant="outline" className="text-[9px]">{d.papel_label}</Badge>
+                        <Badge variant="outline" className="text-xs">{d.papel_label}</Badge>
                         {d.enviado && (
-                          <Badge className="text-[9px] bg-emerald-100 text-emerald-700 border-emerald-300">enviado</Badge>
+                          <Badge className="text-xs bg-emerald-100 text-emerald-700 border-emerald-300">enviado</Badge>
                         )}
                       </div>
                       <div className="flex items-center gap-1 mt-1">
@@ -221,7 +221,7 @@ export function AprovacaoDialog({ open, onOpenChange, reserva, onAprovado }: Pro
                           value={d.telefone_editado}
                           onChange={(e) => atualizarTel(i, e.target.value)}
                           placeholder="ex: 21 9 1234-5678"
-                          className={`h-7 text-[11px] ${!d.telefone_editado ? "border-amber-300" : ""}`}
+                          className={`h-7 text-xs ${!d.telefone_editado ? "border-amber-300" : ""}`}
                         />
                       </div>
                     </div>
@@ -243,7 +243,7 @@ export function AprovacaoDialog({ open, onOpenChange, reserva, onAprovado }: Pro
             </div>
 
             {selecionados.length > 0 && (
-              <p className="text-[10px] text-muted-foreground text-center">
+              <p className="text-xs text-muted-foreground text-center">
                 {selecionados.length} destinatário(s) selecionado(s) — abra um por um.
               </p>
             )}

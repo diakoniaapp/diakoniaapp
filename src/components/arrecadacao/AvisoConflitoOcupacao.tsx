@@ -132,7 +132,7 @@ export function AvisoConflitoOcupacao({
 
   if (loading) {
     return (
-      <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+      <div className="text-xs text-muted-foreground flex items-center gap-1.5">
         <Loader2 className="w-3 h-3 animate-spin" /> verificando agenda...
       </div>
     );
@@ -140,7 +140,7 @@ export function AvisoConflitoOcupacao({
 
   if (erro) {
     return (
-      <div className="text-[11px] text-rose-700">
+      <div className="text-xs text-rose-700">
         Falha ao verificar agenda: {erro}
       </div>
     );
@@ -164,13 +164,13 @@ export function AvisoConflitoOcupacao({
                 · {fmtBr(c.inicio)} → {fmtBr(c.fim)}
               </span>
               {c.fonte === "recorrente" && (
-                <span className="ml-1 text-[10px] text-amber-700">(recorrente)</span>
+                <span className="ml-1 text-xs text-amber-700">(recorrente)</span>
               )}
             </div>
           </li>
         ))}
       </ul>
-      <p className="text-[10px] text-amber-700 italic">
+      <p className="text-xs text-amber-700 italic">
         Este local permite uso simultâneo — a reserva pode prosseguir, mas confirme
         com o responsável do outro agendamento se houver risco de tumulto.
       </p>

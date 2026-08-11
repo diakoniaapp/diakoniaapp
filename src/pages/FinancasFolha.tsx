@@ -157,12 +157,12 @@ function CalcCLT() {
           <div className="space-y-3 pt-2">
             {/* Empregado recebe */}
             <div className="border rounded-md p-3 bg-emerald-50/30 border-emerald-200">
-              <p className="text-[10px] uppercase tracking-wide text-emerald-700 mb-1">Empregado recebe</p>
+              <p className="text-xs uppercase tracking-wide text-emerald-700 mb-1">Empregado recebe</p>
               {res.passos.map((p, i) => (
                 <div key={i} className="flex items-center justify-between text-xs py-0.5 border-b border-border/30 last:border-0">
                   <span className={i === res.passos.length - 1 ? "font-semibold" : ""}>
                     {p.titulo}
-                    {p.descricao && <span className="text-[10px] text-muted-foreground ml-1">({p.descricao})</span>}
+                    {p.descricao && <span className="text-xs text-muted-foreground ml-1">({p.descricao})</span>}
                   </span>
                   <span className={`tabular-nums ${i === res.passos.length - 1 ? "font-semibold text-emerald-700 text-base" : p.valor < 0 ? "text-rose-700" : ""}`}>
                     {brl(p.valor)}
@@ -173,7 +173,7 @@ function CalcCLT() {
 
             {/* Igreja paga */}
             <div className="border rounded-md p-3 bg-rose-50/30 border-rose-200">
-              <p className="text-[10px] uppercase tracking-wide text-rose-700 mb-1">Igreja paga</p>
+              <p className="text-xs uppercase tracking-wide text-rose-700 mb-1">Igreja paga</p>
               <div className="space-y-0.5 text-xs">
                 <Linha label="Salário base" valor={res.salario_base} />
                 <Linha label="+ FGTS 8%" valor={res.fgts} />
@@ -188,7 +188,7 @@ function CalcCLT() {
                   <span>💰 CUSTO TOTAL MENSAL</span>
                   <span className="tabular-nums text-rose-700">{brl(res.custo_total)}</span>
                 </div>
-                <p className="text-[10px] text-muted-foreground text-right">
+                <p className="text-xs text-muted-foreground text-right">
                   {Math.round((res.custo_total / res.salario_base) * 100)}% do salário base
                 </p>
               </div>
@@ -260,11 +260,11 @@ function CalcRPA() {
         {res && (
           <div className="space-y-3 pt-2">
             <div className="border rounded-md p-3 bg-emerald-50/30 border-emerald-200">
-              <p className="text-[10px] uppercase tracking-wide text-emerald-700 mb-1">Autônomo recebe</p>
+              <p className="text-xs uppercase tracking-wide text-emerald-700 mb-1">Autônomo recebe</p>
               {res.passos.map((p, i) => (
                 <div key={i} className="flex items-center justify-between text-xs py-0.5 border-b border-border/30 last:border-0">
                   <span className={i === res.passos.length - 1 ? "font-semibold" : ""}>
-                    {p.titulo}{p.descricao && <span className="text-[10px] text-muted-foreground ml-1">({p.descricao})</span>}
+                    {p.titulo}{p.descricao && <span className="text-xs text-muted-foreground ml-1">({p.descricao})</span>}
                   </span>
                   <span className={`tabular-nums ${i === res.passos.length - 1 ? "font-semibold text-emerald-700 text-base" : p.valor < 0 ? "text-rose-700" : ""}`}>
                     {brl(p.valor)}
@@ -273,7 +273,7 @@ function CalcRPA() {
               ))}
             </div>
             <div className="border rounded-md p-3 bg-rose-50/30 border-rose-200">
-              <p className="text-[10px] uppercase tracking-wide text-rose-700 mb-1">Igreja paga</p>
+              <p className="text-xs uppercase tracking-wide text-rose-700 mb-1">Igreja paga</p>
               <Linha label="Valor bruto" valor={res.bruto} />
               <Linha label="+ INSS Patronal 20%" valor={res.inss_patronal} hint={cebas ? "isento" : ""} />
               <div className="flex items-center justify-between text-sm font-semibold pt-1.5 border-t border-rose-300 mt-1">
@@ -281,7 +281,7 @@ function CalcRPA() {
                 <span className="tabular-nums text-rose-700">{brl(res.custo_total)}</span>
               </div>
             </div>
-            <div className="border rounded-md p-2 bg-blue-50/30 border-blue-200 text-[11px] text-blue-900 space-y-0.5">
+            <div className="border rounded-md p-2 bg-blue-50/30 border-blue-200 text-xs text-blue-900 space-y-0.5">
               <p className="font-medium">📋 Obrigações:</p>
               <p>• Emitir RPA · Recolher INSS (GPS) até dia 20 · IRRF (DARF 0588) se aplicável</p>
               <p>• Informar na GFIP / eSocial</p>
@@ -327,7 +327,7 @@ function CalcMEI() {
             <Input type="number" step="0.01" value={valor} onChange={(e) => setValor(Number(e.target.value))} />
           </div>
           <div className="border rounded-md p-2 bg-amber-50/30 border-amber-200 space-y-1">
-            <p className="text-[11px] font-medium text-amber-900">⚠ Check de risco trabalhista:</p>
+            <p className="text-xs font-medium text-amber-900">⚠ Check de risco trabalhista:</p>
             <label className="flex items-center gap-1.5 text-xs cursor-pointer">
               <input type="checkbox" checked={sub} onChange={(e) => setSub(e.target.checked)} />
               Há subordinação direta (horário fixo, regras)?
@@ -354,19 +354,19 @@ function CalcMEI() {
         {res && (
           <div className="space-y-2 pt-2">
             <div className="border rounded-md p-3 bg-emerald-50/30 border-emerald-200">
-              <p className="text-[10px] uppercase tracking-wide text-emerald-700 mb-1">Resultado</p>
+              <p className="text-xs uppercase tracking-wide text-emerald-700 mb-1">Resultado</p>
               <Linha label="Valor NF" valor={res.valor_nf} />
               <Linha label="💰 Custo total pra igreja" valor={res.custo_total} bold />
-              <p className="text-[10px] text-muted-foreground mt-1">Sem encargos da contratante — MEI emite a própria NF.</p>
+              <p className="text-xs text-muted-foreground mt-1">Sem encargos da contratante — MEI emite a própria NF.</p>
             </div>
 
             {res.alertas.length > 0 && (
               <div className="border rounded-md p-3 bg-rose-50/30 border-rose-200 space-y-1">
-                <p className="text-[11px] font-medium text-rose-900 flex items-center gap-1.5">
+                <p className="text-xs font-medium text-rose-900 flex items-center gap-1.5">
                   <AlertCircle className="w-3.5 h-3.5" /> Avisos
                 </p>
                 {res.alertas.map((a, i) => (
-                  <p key={i} className="text-[11px] text-rose-900">• {a}</p>
+                  <p key={i} className="text-xs text-rose-900">• {a}</p>
                 ))}
               </div>
             )}
@@ -437,11 +437,11 @@ function CalcPrebenda() {
         {res && (
           <div className="space-y-3 pt-2">
             <div className="border rounded-md p-3 bg-emerald-50/30 border-emerald-200">
-              <p className="text-[10px] uppercase tracking-wide text-emerald-700 mb-1">Pastor recebe</p>
+              <p className="text-xs uppercase tracking-wide text-emerald-700 mb-1">Pastor recebe</p>
               {res.passos.map((p, i) => (
                 <div key={i} className="flex items-center justify-between text-xs py-0.5 border-b border-border/30 last:border-0">
                   <span className={i === res.passos.length - 1 ? "font-semibold" : ""}>
-                    {p.titulo}{p.descricao && <span className="text-[10px] text-muted-foreground ml-1">({p.descricao})</span>}
+                    {p.titulo}{p.descricao && <span className="text-xs text-muted-foreground ml-1">({p.descricao})</span>}
                   </span>
                   <span className={`tabular-nums ${i === res.passos.length - 1 ? "font-semibold text-emerald-700 text-base" : p.valor < 0 ? "text-rose-700" : ""}`}>
                     {brl(p.valor)}
@@ -450,11 +450,11 @@ function CalcPrebenda() {
               ))}
             </div>
             <div className="border rounded-md p-3 bg-rose-50/30 border-rose-200">
-              <p className="text-[10px] uppercase tracking-wide text-rose-700 mb-1">Igreja paga</p>
+              <p className="text-xs uppercase tracking-wide text-rose-700 mb-1">Igreja paga</p>
               <Linha label="Bruto total" valor={res.bruto_total} bold />
-              <p className="text-[10px] text-muted-foreground mt-1">Sem INSS Patronal · sem FGTS · sem 13º · sem férias</p>
+              <p className="text-xs text-muted-foreground mt-1">Sem INSS Patronal · sem FGTS · sem 13º · sem férias</p>
             </div>
-            <div className="border rounded-md p-2 bg-blue-50/30 border-blue-200 text-[11px] text-blue-900 space-y-0.5">
+            <div className="border rounded-md p-2 bg-blue-50/30 border-blue-200 text-xs text-blue-900 space-y-0.5">
               <p className="font-medium">📋 Obrigações:</p>
               <p>• Reter IRRF (DARF 0561) · Emitir Recibo de Prebenda</p>
               <p>• Pastor declara no IRPF (carnê-leão ou completo)</p>
@@ -472,7 +472,7 @@ function Linha({ label, valor, hint, bold }: { label: string; valor: number; hin
     <div className="flex items-center justify-between text-xs">
       <span className={bold ? "font-semibold" : ""}>
         {label}
-        {hint && <span className="text-[10px] text-muted-foreground ml-1">({hint})</span>}
+        {hint && <span className="text-xs text-muted-foreground ml-1">({hint})</span>}
       </span>
       <span className={`tabular-nums ${bold ? "font-semibold" : ""} ${valor < 0 ? "text-rose-700" : ""}`}>
         {brl(valor)}
@@ -505,9 +505,9 @@ function ListaContratados({ contratados }: { contratados: FinContratado[] }) {
               <div key={c.id} className="border rounded-md px-3 py-2 flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium">{c.nome}</p>
-                  <p className="text-[10px] text-muted-foreground">{c.cargo}</p>
+                  <p className="text-xs text-muted-foreground">{c.cargo}</p>
                 </div>
-                <Badge variant="outline" className={`text-[10px] ${VINCULO_COR[c.vinculo]}`}>
+                <Badge variant="outline" className={`text-xs ${VINCULO_COR[c.vinculo]}`}>
                   {VINCULO_LABEL[c.vinculo]}
                 </Badge>
               </div>

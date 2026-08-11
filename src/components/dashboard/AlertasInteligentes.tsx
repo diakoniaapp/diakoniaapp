@@ -88,11 +88,11 @@ export function AlertasInteligentes() {
         {familiasSemResp.slice(0, 3).map(f => (
           <li key={f.familia_id} className="truncate">
             Família {f.nome_familia}
-            <span className="text-[10px] text-muted-foreground ml-1">· {f.qtd_membros}</span>
+            <span className="text-xs text-muted-foreground ml-1">· {f.qtd_membros}</span>
           </li>
         ))}
         {familiasSemResp.length > 3 && (
-          <li className="text-[10px] text-muted-foreground italic">
+          <li className="text-xs text-muted-foreground italic">
             ... e mais {familiasSemResp.length - 3}
           </li>
         )}
@@ -110,12 +110,12 @@ export function AlertasInteligentes() {
           <li key={p.pessoa_id} className="truncate">
             {p.nome_completo}
             {p.familia_sugerida_nome && (
-              <span className="text-[10px] text-muted-foreground ml-1">→ {p.familia_sugerida_nome}</span>
+              <span className="text-xs text-muted-foreground ml-1">→ {p.familia_sugerida_nome}</span>
             )}
           </li>
         ))}
         {pessoasSugeridas.length > 3 && (
-          <li className="text-[10px] text-muted-foreground italic">
+          <li className="text-xs text-muted-foreground italic">
             ... e mais {pessoasSugeridas.length - 3}
           </li>
         )}
@@ -132,13 +132,13 @@ export function AlertasInteligentes() {
         {alunosForaFaixa.slice(0, 3).map(a => (
           <li key={a.pessoa_id} className="truncate">
             {a.nome_completo}
-            <span className="text-[10px] text-muted-foreground ml-1">
+            <span className="text-xs text-muted-foreground ml-1">
               · {a.idade_atual} anos em {a.classe_atual}
             </span>
           </li>
         ))}
         {alunosForaFaixa.length > 3 && (
-          <li className="text-[10px] text-muted-foreground italic">
+          <li className="text-xs text-muted-foreground italic">
             ... e mais {alunosForaFaixa.length - 3}
           </li>
         )}
@@ -181,7 +181,7 @@ function AlertaCard({ cor, icon: Icon, titulo, contagem, descricao, cta, childre
         <CardContent className="py-4 text-center">
           <Icon className={`w-4 h-4 mx-auto mb-1 ${cls.icon}`} />
           <p className="text-xs font-medium">{titulo}</p>
-          <p className="text-[10px] text-muted-foreground">Nada pendente ✓</p>
+          <p className="text-xs text-muted-foreground">Nada pendente ✓</p>
         </CardContent>
       </Card>
     );
@@ -195,9 +195,9 @@ function AlertaCard({ cor, icon: Icon, titulo, contagem, descricao, cta, childre
               <Icon className={`w-3.5 h-3.5 ${cls.icon}`} />
               {titulo}
             </p>
-            <p className="text-[10px] text-muted-foreground">{descricao}</p>
+            <p className="text-xs text-muted-foreground">{descricao}</p>
           </div>
-          <Badge variant="outline" className={`text-[10px] ${cls.chip}`}>{contagem}</Badge>
+          <Badge variant="outline" className={`text-xs ${cls.chip}`}>{contagem}</Badge>
         </div>
         <ul className="text-xs space-y-0.5 ml-1">{children}</ul>
         <Link to={cta.to}>

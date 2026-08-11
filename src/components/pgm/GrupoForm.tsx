@@ -176,7 +176,7 @@ export function GrupoForm({ open, onOpenChange, grupo, onSaved }: Props) {
                 else if (campo === "uf")          setUf(valor);
               }}
             />
-            <p className="text-[10px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               💡 Digite o CEP — o resto preenche sozinho.
             </p>
           </div>
@@ -203,7 +203,7 @@ export function GrupoForm({ open, onOpenChange, grupo, onSaved }: Props) {
             </Label>
             <Input value={whatsappLink} onChange={(e) => setWhatsappLink(e.target.value)}
               placeholder="https://chat.whatsapp.com/..." />
-            <p className="text-[11px] text-muted-foreground mt-0.5">
+            <p className="text-xs text-muted-foreground mt-0.5">
               Cole o link de convite. Vai virar botão de acesso rápido no card.
             </p>
           </div>

@@ -133,7 +133,7 @@ export default function Financas() {
                       {brl(Number(c.saldo_atual))}
                     </p>
                     {c.tipo === "cartao" && c.limite_credito && (
-                      <p className="text-[10px] text-muted-foreground">
+                      <p className="text-xs text-muted-foreground">
                         Limite: {brl(Number(c.limite_credito))}
                       </p>
                     )}
@@ -157,7 +157,7 @@ export default function Financas() {
         <Atalho to="/financas/insights" icon={<Sparkles className="w-4 h-4 text-gold" />} label="Insights" />
         <Atalho to="/financas/folha" icon={<Briefcase className="w-4 h-4 text-purple-600" />} label="Folha" />
       </div>
-      <p className="text-[10px] text-muted-foreground text-center pt-2">
+      <p className="text-xs text-muted-foreground text-center pt-2">
         ✨ Sistema financeiro completo · 6 fases entregues · OCR · Recorrências · Estoque · Malote · Insights
       </p>
 
@@ -179,7 +179,7 @@ function Stat({ icon, label, valor, destaque }: { icon: JSX.Element; label: stri
   return (
     <Card className={destaque ? "border-gold/40 bg-gold/5" : ""}>
       <CardContent className="py-2.5 px-3">
-        <p className="text-[10px] uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+        <p className="text-xs uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
           {icon} {label}
         </p>
         <p className={`font-semibold tabular-nums mt-0.5 ${destaque ? "text-xl text-gold" : "text-lg"}`}>
@@ -195,7 +195,7 @@ function Atalho({ to, icon, label, disabled }: { to: string; icon: JSX.Element; 
     <div className={`border rounded-md p-3 flex items-center gap-2 ${disabled ? "opacity-50" : "hover:bg-muted/40 cursor-pointer"}`}>
       {icon}
       <span className="text-xs font-medium">{label}</span>
-      {disabled && <Badge variant="outline" className="text-[9px] ml-auto">Em breve</Badge>}
+      {disabled && <Badge variant="outline" className="text-xs ml-auto">Em breve</Badge>}
     </div>
   );
 }

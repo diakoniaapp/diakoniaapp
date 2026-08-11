@@ -117,7 +117,7 @@ export function AnalisarGuiaDialog({ open, onOpenChange, agendaId, nomeObrigacao
               </Linha>
 
               <div className="pt-1 border-t">
-                <Label className="text-[11px]">Valor a lançar (confirme antes de aplicar)</Label>
+                <Label className="text-xs">Valor a lançar (confirme antes de aplicar)</Label>
                 <Input value={valor} onChange={e => setValor(e.target.value)}
                   placeholder="0,00" className="mt-1" />
               </div>

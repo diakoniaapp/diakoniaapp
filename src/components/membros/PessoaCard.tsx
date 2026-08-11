@@ -216,11 +216,11 @@ export default function PessoaCard({ pessoaId, open, onClose }: PessoaCardProps)
                   <p className="text-xs text-muted-foreground truncate">{pessoa.nome_completo}</p>
                 )}
                 <div className="flex flex-wrap gap-1.5 mt-1.5">
-                  <Badge variant="outline" className={`text-[10px] h-4 px-1.5 ${tipoCfg.cor}`}>
+                  <Badge variant="outline" className={`text-xs h-4 px-1.5 ${tipoCfg.cor}`}>
                     {tipoCfg.label}
                   </Badge>
                   {pessoa.perfil_acesso && (
-                    <Badge variant="outline" className={`text-[10px] h-4 px-1.5 ${perfilCfg.cor}`}>
+                    <Badge variant="outline" className={`text-xs h-4 px-1.5 ${perfilCfg.cor}`}>
                       <Shield className="w-2.5 h-2.5 mr-1" />{perfilCfg.label}
                     </Badge>
                   )}
@@ -231,7 +231,7 @@ export default function PessoaCard({ pessoaId, open, onClose }: PessoaCardProps)
             {/* Cargo estatutário (Diretoria) */}
             {cargos.length > 0 && (
               <div className="rounded-lg border border-purple-200 bg-purple-50/60 px-4 py-3 space-y-1.5">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-purple-700">
+                <p className="text-xs font-semibold uppercase tracking-wider text-purple-700">
                   Diretoria Estatutária
                 </p>
                 {cargos.map((c, i) => (
@@ -239,7 +239,7 @@ export default function PessoaCard({ pessoaId, open, onClose }: PessoaCardProps)
                     <span className="text-sm">{NIVEL_CARGO_EMOJI[c.nivel] ?? "📌"}</span>
                     <span className="text-sm font-medium text-purple-800">{c.cargo}</span>
                     {c.mandato && (
-                      <span className="text-[10px] text-purple-500 ml-auto">
+                      <span className="text-xs text-purple-500 ml-auto">
                         Mandato {c.mandato}
                       </span>
                     )}
@@ -251,7 +251,7 @@ export default function PessoaCard({ pessoaId, open, onClose }: PessoaCardProps)
             {/* Ministérios */}
             {ministerios.length > 0 && (
               <div className="space-y-2">
-                <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   <Church className="w-3 h-3" /> Ministérios
                 </div>
                 <div className="flex flex-wrap gap-1.5">
@@ -260,7 +260,7 @@ export default function PessoaCard({ pessoaId, open, onClose }: PessoaCardProps)
                     return (
                       <div key={i} className="flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs bg-background">
                         <span className="font-medium truncate max-w-[140px]">{m.ministerio_nome}</span>
-                        <Badge variant="outline" className={`text-[9px] h-3.5 px-1 ${fCfg.cor}`}>
+                        <Badge variant="outline" className={`text-xs h-3.5 px-1 ${fCfg.cor}`}>
                           {fCfg.label}
                         </Badge>
                       </div>
@@ -273,7 +273,7 @@ export default function PessoaCard({ pessoaId, open, onClose }: PessoaCardProps)
             {/* Áreas */}
             {areas.length > 0 && (
               <div className="space-y-2">
-                <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   <MapPin className="w-3 h-3" /> Áreas de atuação
                 </div>
                 <div className="space-y-1">
@@ -282,7 +282,7 @@ export default function PessoaCard({ pessoaId, open, onClose }: PessoaCardProps)
                       <span className="text-foreground font-medium">{a.area_nome}</span>
                       <span>em</span>
                       <span>{a.ministerio_nome}</span>
-                      <Badge variant="outline" className="text-[9px] h-3.5 px-1 ml-auto">
+                      <Badge variant="outline" className="text-xs h-3.5 px-1 ml-auto">
                         {FUNCAO_CONFIG[a.funcao]?.label ?? a.funcao}
                       </Badge>
                     </div>

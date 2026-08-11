@@ -184,7 +184,7 @@ export default function Areas() {
                         <Layers className="w-3.5 h-3.5 text-gold" />
                         {a.nome}
                         {a.sigla && (
-                          <Badge variant="outline" className="text-[9px] ml-1">{a.sigla}</Badge>
+                          <Badge variant="outline" className="text-xs ml-1">{a.sigla}</Badge>
                         )}
                       </h3>
                       <p className="text-xs text-muted-foreground truncate">{a.ministerio_nome}</p>
@@ -202,16 +202,16 @@ export default function Areas() {
                   </div>
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <Badge variant="outline" className={a.ativo 
-                      ? "text-[10px] bg-emerald-50 text-emerald-700 border-emerald-300"
-                      : "text-[10px] bg-muted text-muted-foreground"}>
+                      ? "text-xs bg-emerald-50 text-emerald-700 border-emerald-300"
+                      : "text-xs bg-muted text-muted-foreground"}>
                       {a.ativo ? "Ativa" : "Inativa"}
                     </Badge>
                     {!a.ministerio_ativo && (
-                      <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-300">
+                      <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-300">
                         Ministério inativo
                       </Badge>
                     )}
-                    <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                    <span className="text-xs text-muted-foreground flex items-center gap-1">
                       <Users className="w-3 h-3" /> {a.qtd_voluntarios} voluntário{a.qtd_voluntarios !== 1 ? "s" : ""}
                     </span>
                   </div>

@@ -277,7 +277,7 @@ export function EventDialog({
                 })}
               </div>
             )}
-            <p className="text-[11px] text-muted-foreground italic">Escalas de voluntários poderão ser vinculadas posteriormente.</p>
+            <p className="text-xs text-muted-foreground italic">Escalas de voluntários poderão ser vinculadas posteriormente.</p>
           </div>
 
           <DialogFooter>

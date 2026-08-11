@@ -131,7 +131,7 @@ export function ItemEstoqueForm({ open, onOpenChange, item, onSaved }: Props) {
               <Input type="number" step="0.001" value={estoqueAtual}
                 onChange={(e) => setEstoqueAtual(Number(e.target.value))} disabled={isEdit}/>
               {isEdit && (
-                <p className="text-[10px] text-muted-foreground mt-0.5">
+                <p className="text-xs text-muted-foreground mt-0.5">
                   Ajuste via "Registrar movimento" (entrada/saída/ajuste)
                 </p>
               )}
@@ -140,7 +140,7 @@ export function ItemEstoqueForm({ open, onOpenChange, item, onSaved }: Props) {
               <Label>Estoque mínimo *</Label>
               <Input type="number" step="0.001" value={estoqueMinimo}
                 onChange={(e) => setEstoqueMinimo(Number(e.target.value))} required />
-              <p className="text-[10px] text-muted-foreground mt-0.5">Abaixo deste, vira alerta crítico</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Abaixo deste, vira alerta crítico</p>
             </div>
           </div>
 
@@ -150,7 +150,7 @@ export function ItemEstoqueForm({ open, onOpenChange, item, onSaved }: Props) {
               <Input type="number" step="0.001" value={pontoPedido}
                 onChange={(e) => setPontoPedido(Number(e.target.value) || "")}
                 placeholder="(opcional)" />
-              <p className="text-[10px] text-muted-foreground mt-0.5">Atingiu = sugere compra</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Atingiu = sugere compra</p>
             </div>
             <div>
               <Label>Custo médio (R$)</Label>

@@ -364,27 +364,27 @@ export default function Membros() {
                                                                                                           ) && (
                                                                                                             <div className="flex flex-wrap gap-1 mt-1.5">
                                                                                                               {m.classe_ebd && (
-                                                                                                                <Badge variant="outline" className="text-[10px] bg-gold/10 border-gold/30 text-foreground/80">
+                                                                                                                <Badge variant="outline" className="text-xs bg-gold/10 border-gold/30 text-foreground/80">
                                                                                                                   EBD: {m.classe_ebd}
                                                                                                                 </Badge>
                                                                                                               )}
                                                                                                               {(m.classes_professor ?? []).map((c) => (
-                                                                                                                <Badge key={`prof-${c}`} variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-300 dark:bg-blue-950/30 dark:text-blue-300">
+                                                                                                                <Badge key={`prof-${c}`} variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-300 dark:bg-blue-950/30 dark:text-blue-300">
                                                                                                                   Professor: {c}
                                                                                                                 </Badge>
                                                                                                               ))}
                                                                                                               {(m.lider_ministerios ?? []).map((n) => (
-                                                                                                                <Badge key={`lid-min-${n}`} variant="outline" className="text-[10px] bg-rose-50 text-rose-700 border-rose-300 dark:bg-rose-950/30 dark:text-rose-300">
+                                                                                                                <Badge key={`lid-min-${n}`} variant="outline" className="text-xs bg-rose-50 text-rose-700 border-rose-300 dark:bg-rose-950/30 dark:text-rose-300">
                                                                                                                   Líder: {n}
                                                                                                                 </Badge>
                                                                                                               ))}
                                                                                                               {(m.lider_areas ?? []).map((n) => (
-                                                                                                                <Badge key={`lid-ar-${n}`} variant="outline" className="text-[10px] bg-orange-50 text-orange-700 border-orange-300 dark:bg-orange-950/30 dark:text-orange-300">
+                                                                                                                <Badge key={`lid-ar-${n}`} variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-300 dark:bg-orange-950/30 dark:text-orange-300">
                                                                                                                   Líder de área: {n}
                                                                                                                 </Badge>
                                                                                                               ))}
                                                                                                               {(m.areas ?? []).map((a) => (
-                                                                                                                <Badge key={`area-${a}`} variant="outline" className="text-[10px] bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/30 dark:text-purple-300">
+                                                                                                                <Badge key={`area-${a}`} variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/30 dark:text-purple-300">
                                                                                                                   {a}
                                                                                                                 </Badge>
                                                                                                               ))}

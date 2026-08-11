@@ -160,7 +160,7 @@ export default function EbdCampanha() {
                   />
                 )}
               </div>
-              <div className="flex justify-between text-[11px] text-muted-foreground">
+              <div className="flex justify-between text-xs text-muted-foreground">
                 <span>R$ 0</span>
                 {resumo.dias_decorridos > 0 && resumo.dias_decorridos < resumo.dias_totais && (
                   <span title="Esperado até hoje">
@@ -214,8 +214,8 @@ export default function EbdCampanha() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-sm">{brl(valorMostra)}</span>
-                    <Badge variant="outline" className="text-[10px]">{TIPO_LABEL[e.tipo]}</Badge>
-                    <Badge variant="outline" className="text-[10px]">{FORMA_LABEL[e.forma]}</Badge>
+                    <Badge variant="outline" className="text-xs">{TIPO_LABEL[e.tipo]}</Badge>
+                    <Badge variant="outline" className="text-xs">{FORMA_LABEL[e.forma]}</Badge>
                     {tinhaSimbolico && (
                       <span title="Inclui R$0,10 simbólicos">
                         <Sparkles className="w-3 h-3 text-gold" />
@@ -225,14 +225,14 @@ export default function EbdCampanha() {
                       <button
                         type="button"
                         onClick={() => abrirComprovante(e.comprovante_url!)}
-                        className="inline-flex items-center gap-0.5 text-[10px] text-blue-700 hover:underline"
+                        className="inline-flex items-center gap-0.5 text-xs text-blue-700 hover:underline"
                         title="Ver comprovante"
                       >
                         <Paperclip className="w-3 h-3" /> ver
                       </button>
                     )}
                   </div>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     <Calendar className="w-3 h-3 inline mr-1" />
                     {new Date(e.data + "T00:00").toLocaleDateString("pt-BR")}
                     {e.descricao && ` · ${e.descricao}`}

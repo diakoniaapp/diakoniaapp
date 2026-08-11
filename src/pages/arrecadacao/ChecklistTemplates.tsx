@@ -105,7 +105,7 @@ export default function ChecklistTemplates() {
         </Button>
         <ListChecks className="w-5 h-5 text-gold" />
         <h1 className="font-serif text-xl">Checklist · templates</h1>
-        <Badge variant="outline" className="text-[10px] ml-2">{itens.length} {itens.length === 1 ? "item" : "itens"}</Badge>
+        <Badge variant="outline" className="text-xs ml-2">{itens.length} {itens.length === 1 ? "item" : "itens"}</Badge>
       </header>
 
       <p className="text-xs text-muted-foreground">
@@ -251,7 +251,7 @@ function SecaoTipo({
       <CardHeader className="pb-2">
         <CardTitle className="text-sm flex items-center gap-2">
           <ClipboardList className={`w-4 h-4 text-${cor}-700`} /> {titulo}
-          <Badge variant="outline" className="text-[9px] ml-1">{itens.length}</Badge>
+          <Badge variant="outline" className="text-xs ml-1">{itens.length}</Badge>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-1">
@@ -284,13 +284,13 @@ function ItemEditavel({
   if (!editando) {
     return (
       <div className={`flex items-center gap-2 p-2 rounded border ${item.ativo ? "border-border" : "border-dashed opacity-60"}`}>
-        <span className="text-[10px] text-muted-foreground w-8 text-right shrink-0">#{item.ordem}</span>
+        <span className="text-xs text-muted-foreground w-8 text-right shrink-0">#{item.ordem}</span>
         <div className="flex-1 min-w-0">
           <div className="text-xs font-medium truncate">{item.item}</div>
           <div className="flex items-center gap-1 flex-wrap mt-0.5">
-            <Badge variant="outline" className="text-[9px]">{nomeEspaco}</Badge>
-            {item.obrigatorio && <Badge className="text-[9px] bg-rose-100 text-rose-700 border-rose-300">obrigatório</Badge>}
-            {!item.ativo && <Badge variant="outline" className="text-[9px]">arquivado</Badge>}
+            <Badge variant="outline" className="text-xs">{nomeEspaco}</Badge>
+            {item.obrigatorio && <Badge className="text-xs bg-rose-100 text-rose-700 border-rose-300">obrigatório</Badge>}
+            {!item.ativo && <Badge variant="outline" className="text-xs">arquivado</Badge>}
           </div>
         </div>
         <Button size="sm" variant="ghost" onClick={() => { setDraft(item); setEditando(true); }}
@@ -358,7 +358,7 @@ function ItemEditavel({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1">
-      <label className="text-[11px] text-muted-foreground">{label}</label>
+      <label className="text-xs text-muted-foreground">{label}</label>
       {children}
     </div>
   );

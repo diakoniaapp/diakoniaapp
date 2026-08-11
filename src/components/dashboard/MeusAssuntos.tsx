@@ -67,7 +67,7 @@ export function MeusAssuntos() {
             </span>
             <span className="flex-1 truncate">{a.titulo}</span>
             <span className={
-              "text-[10px] tabular-nums shrink-0 " +
+              "text-xs tabular-nums shrink-0 " +
               (a.situacao === "atrasado" ? "text-rose-600 font-semibold" :
                a.situacao === "vence_breve" ? "text-amber-700" : "text-muted-foreground")
             }>

@@ -181,7 +181,7 @@ function AbaObrigacoes() {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-base">Obrigações fiscais</CardTitle>
-        <p className="text-[10px] text-muted-foreground">Ative as obrigações que se aplicam à igreja</p>
+        <p className="text-xs text-muted-foreground">Ative as obrigações que se aplicam à igreja</p>
       </CardHeader>
       <CardContent className="space-y-2 text-sm">
         {tipos.map(t => {
@@ -193,14 +193,14 @@ function AbaObrigacoes() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
                   <span className="font-medium">{t.nome}</span>
-                  <Badge variant="outline" className={`text-[9px] ${COR_CHIP[t.cor] ?? ""}`}>
+                  <Badge variant="outline" className={`text-xs ${COR_CHIP[t.cor] ?? ""}`}>
                     {t.esfera}
                   </Badge>
-                  <Badge variant="outline" className="text-[9px]">
+                  <Badge variant="outline" className="text-xs">
                     {t.periodicidade}
                   </Badge>
                 </div>
-                <p className="text-[10px] text-muted-foreground">{t.descricao}</p>
+                <p className="text-xs text-muted-foreground">{t.descricao}</p>
               </div>
               <Switch checked={isAtiva} onCheckedChange={() => toggle(t.codigo, isAtiva)} />
             </div>
@@ -329,43 +329,43 @@ function AbaAgenda() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="font-medium">{it.tipo?.nome}</span>
-                  <Badge variant="outline" className="text-[9px]">
+                  <Badge variant="outline" className="text-xs">
                     {new Date(it.competencia + "T00:00").toLocaleDateString("pt-BR", { month: "short", year: "numeric" })}
                   </Badge>
-                  {it.status === "pago" && <Badge className="text-[9px] bg-emerald-100 text-emerald-700">Pago</Badge>}
-                  {atrasado && <Badge className="text-[9px] bg-rose-100 text-rose-700">Atrasado</Badge>}
+                  {it.status === "pago" && <Badge className="text-xs bg-emerald-100 text-emerald-700">Pago</Badge>}
+                  {atrasado && <Badge className="text-xs bg-rose-100 text-rose-700">Atrasado</Badge>}
                 </div>
-                <p className="text-[10px] text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   Vence em {fmtData(it.vencimento)}
                   {it.valor_pago && ` · pago R$ ${it.valor_pago.toFixed(2).replace(".", ",")}`}
                 </p>
               </div>
               <Button
                 size="sm" variant="ghost"
-                className="text-[10px] gap-1 h-7 px-2"
+                className="text-xs gap-1 h-7 px-2"
                 onClick={() => setOcrDialog({ id: it.id, nome: it.tipo?.nome ?? "Obrigação" })}
                 title="Analisar guia com OCR">
                 <Sparkles className="w-3 h-3 text-gold" />
               </Button>
               <Button
                 size="sm" variant="ghost"
-                className="text-[10px] gap-1 h-7 px-2"
+                className="text-xs gap-1 h-7 px-2"
                 onClick={() => setDocDialog({ id: it.id, nome: it.tipo?.nome ?? "Obrigação" })}
                 title="Documentos anexados">
                 <Paperclip className="w-3 h-3 text-blue-600" />
               </Button>
               {it.status === "pendente" && !it.lancamento_id && (
-                <Button size="sm" variant="outline" className="text-[10px] gap-1" onClick={() => gerarLancamentoPagar(it)}>
+                <Button size="sm" variant="outline" className="text-xs gap-1" onClick={() => gerarLancamentoPagar(it)}>
                   <Wallet className="w-3 h-3" /> Gerar lançamento
                 </Button>
               )}
               {it.status === "pendente" && (
-                <Button size="sm" variant="outline" className="text-[10px] gap-1" onClick={() => baixar(it)}>
+                <Button size="sm" variant="outline" className="text-xs gap-1" onClick={() => baixar(it)}>
                   <CheckCircle2 className="w-3 h-3" /> Baixar
                 </Button>
               )}
               {it.lancamento_id && it.status === "pendente" && (
-                <span className="text-[9px] text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                <span className="text-xs text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
                   Em contas a pagar
                 </span>
               )}
@@ -445,10 +445,10 @@ function AbaInsights() {
                x.severidade === "media" ? "border-amber-200 bg-amber-50/30" : "border-blue-200 bg-blue-50/30")
             }>
               <div className="flex items-center gap-1.5 mb-1">
-                <Badge variant="outline" className="text-[9px]">
+                <Badge variant="outline" className="text-xs">
                   {x.tipo.replace("_", " ")}
                 </Badge>
-                <Badge variant="outline" className="text-[9px]">
+                <Badge variant="outline" className="text-xs">
                   {x.severidade}
                 </Badge>
                 <span className="font-medium">{x.nome_obrigacao}</span>
@@ -466,10 +466,10 @@ function Metrica({ titulo, valor, variacao }: { titulo: string; valor: string; v
   return (
     <Card>
       <CardContent className="p-3">
-        <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{titulo}</div>
+        <div className="text-xs uppercase tracking-wide text-muted-foreground">{titulo}</div>
         <div className="text-base font-medium font-serif">{valor}</div>
         {variacao != null && (
-          <div className={"flex items-center gap-1 text-[10px] " + (variacao >= 0 ? "text-emerald-700" : "text-rose-700")}>
+          <div className={"flex items-center gap-1 text-xs " + (variacao >= 0 ? "text-emerald-700" : "text-rose-700")}>
             {variacao >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
             {variacao.toFixed(1)}% vs mês anterior
           </div>
@@ -483,7 +483,7 @@ function Metrica({ titulo, valor, variacao }: { titulo: string; valor: string; v
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1">
-      <Label className="text-[11px] text-muted-foreground">{label}</Label>
+      <Label className="text-xs text-muted-foreground">{label}</Label>
       {children}
     </div>
   );

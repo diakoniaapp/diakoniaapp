@@ -175,11 +175,11 @@ function EventoCard({ evento, ehHoje, dia, onWhats }: EventoCardProps) {
               ? `${evento.anos_vai_completar} ${ehAnis ? "anos" : `${evento.anos_vai_completar === 1 ? "ano" : "anos"} de casados`}` 
               : "—"}</span>
             {ehHoje && (
-              <Badge variant="outline" className="text-[9px] bg-gold/15 border-gold text-foreground/80">HOJE</Badge>
+              <Badge variant="outline" className="text-xs bg-gold/15 border-gold text-foreground/80">HOJE</Badge>
             )}
           </div>
           {evento.telefone && (
-            <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1">
+            <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
               <Phone className="w-2.5 h-2.5" /> {evento.telefone}
             </p>
           )}

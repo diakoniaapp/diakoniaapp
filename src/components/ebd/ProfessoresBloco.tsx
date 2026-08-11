@@ -107,7 +107,7 @@ export function ProfessoresBloco({ classeId }: Props) {
                 <span className="text-sm font-medium truncate">
                   {p.membros?.nome_completo ?? "Pessoa removida"}
                 </span>
-                <Badge variant="outline" className={`text-[10px] ${tipoCor[p.tipo]}`}>
+                <Badge variant="outline" className={`text-xs ${tipoCor[p.tipo]}`}>
                   {tipoLabel[p.tipo]}
                 </Badge>
               </div>
@@ -135,7 +135,7 @@ export function ProfessoresBloco({ classeId }: Props) {
                 autoFocus
                 placeholder="Buscar pessoa (so quem ainda nao for professor)..."
               />
-              <p className="text-[11px] text-muted-foreground -mt-1">
+              <p className="text-xs text-muted-foreground -mt-1">
                 Pessoas que ja sao professor em outra classe nao aparecem na lista.
               </p>
             </div>

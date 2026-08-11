@@ -171,7 +171,7 @@ function ColunaPessoas({ cor, icon: Icon, titulo, descricao, lista, total, cta }
         <CardContent className="py-4 text-center">
           <Icon className={`w-4 h-4 mx-auto mb-1 ${cls.icon}`} />
           <p className="text-xs font-medium">{titulo}</p>
-          <p className="text-[10px] text-muted-foreground">Nada pendente ✓</p>
+          <p className="text-xs text-muted-foreground">Nada pendente ✓</p>
         </CardContent>
       </Card>
     );
@@ -185,19 +185,19 @@ function ColunaPessoas({ cor, icon: Icon, titulo, descricao, lista, total, cta }
               <Icon className={`w-3.5 h-3.5 ${cls.icon}`} />
               {titulo}
             </p>
-            <p className="text-[10px] text-muted-foreground">{descricao}</p>
+            <p className="text-xs text-muted-foreground">{descricao}</p>
           </div>
-          <Badge variant="outline" className={`text-[10px] ${cls.chip}`}>{total}</Badge>
+          <Badge variant="outline" className={`text-xs ${cls.chip}`}>{total}</Badge>
         </div>
         <ul className="text-xs space-y-0.5 ml-1">
           {lista.map(p => (
             <li key={p.id} className="truncate">
               {p.nome}
-              {p.extra && <span className="text-[10px] text-muted-foreground ml-1">· {p.extra}</span>}
+              {p.extra && <span className="text-xs text-muted-foreground ml-1">· {p.extra}</span>}
             </li>
           ))}
           {total > lista.length && (
-            <li className="text-[10px] text-muted-foreground italic">
+            <li className="text-xs text-muted-foreground italic">
               ... e mais {total - lista.length}
             </li>
           )}

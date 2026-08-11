@@ -193,12 +193,12 @@ export default function EbdCampanhaRelatorio() {
             />
             <div>
               <h2 className="font-serif text-lg leading-tight">Diakonia APP — Sistema de Igrejas</h2>
-              <p className="text-[11px] text-muted-foreground mt-0.5 tracking-[0.12em] uppercase">
+              <p className="text-xs text-muted-foreground mt-0.5 tracking-[0.12em] uppercase">
                 Conectando pessoas, organizando o propósito
               </p>
             </div>
           </div>
-          <div className="text-right text-[11px] text-muted-foreground space-y-0.5">
+          <div className="text-right text-xs text-muted-foreground space-y-0.5">
             <p>Emitido em <strong className="text-foreground">{hoje}</strong> às {horaHoje}</p>
             <p>Por <strong className="text-foreground">{emitidoPor}</strong></p>
           </div>
@@ -206,7 +206,7 @@ export default function EbdCampanhaRelatorio() {
 
         {/* Título */}
         <div className="text-center my-6 avoid-break">
-          <p className="text-[10px] tracking-[0.25em] uppercase text-gold">{tituloModo}</p>
+          <p className="text-xs tracking-[0.25em] uppercase text-gold">{tituloModo}</p>
           <h1 className="font-serif text-3xl mt-2">{campanha.nome}</h1>
           {classe && (
             <p className="text-sm text-muted-foreground mt-1">
@@ -223,13 +223,13 @@ export default function EbdCampanhaRelatorio() {
         {/* Identificação */}
         <section className="avoid-break grid grid-cols-2 gap-3 text-sm border-y border-border py-3 mb-6">
           <div>
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Período</p>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Período</p>
             <p className="font-medium">
               {dataBr(campanha.data_inicio)} → {dataBr(campanha.data_fim)}
             </p>
           </div>
           <div>
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Situação</p>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Situação</p>
             <p className="font-medium">{campanha.ativo ? "Ativa" : "Encerrada"}</p>
           </div>
         </section>
@@ -253,13 +253,13 @@ export default function EbdCampanhaRelatorio() {
                   style={{ width: `${Math.min(100, resumo.percentual)}%` }}
                 />
               </div>
-              <div className="flex justify-between text-[10px] text-muted-foreground">
+              <div className="flex justify-between text-xs text-muted-foreground">
                 <span>R$ 0</span>
                 <span>{brl(resumo.meta)}</span>
               </div>
             </div>
 
-            <div className="grid grid-cols-4 gap-2 text-center text-[11px] mt-4">
+            <div className="grid grid-cols-4 gap-2 text-center text-xs mt-4">
               <DadoMini label="Decorrido" valor={`${resumo.dias_decorridos}/${resumo.dias_totais} dias`} />
               <DadoMini label="Meta diária" valor={brl(resumo.meta_diaria)} />
               <DadoMini label="Entradas" valor={String(entradas.length)} />
@@ -347,7 +347,7 @@ export default function EbdCampanhaRelatorio() {
               </tbody>
               <tfoot>
                 <tr className="border-t-2 border-gold/40 font-semibold">
-                  <td colSpan={2} className="py-2 text-right uppercase text-[10px] tracking-wide pr-2">Total</td>
+                  <td colSpan={2} className="py-2 text-right uppercase text-xs tracking-wide pr-2">Total</td>
                   <td className="py-2 pr-2 text-right tabular-nums">{brl(totalEntradas)}</td>
                   <td colSpan={mostrarDescricao ? 4 : 3}></td>
                 </tr>
@@ -369,14 +369,14 @@ export default function EbdCampanhaRelatorio() {
               <div className="border-t border-foreground/60 pt-1 mx-4">
                 <p className="font-medium">Professor da Classe</p>
                 {classe && (
-                  <p className="text-muted-foreground text-[10px]">{classe.nome}</p>
+                  <p className="text-muted-foreground text-xs">{classe.nome}</p>
                 )}
               </div>
             </div>
             <div>
               <div className="border-t border-foreground/60 pt-1 mx-4">
                 <p className="font-medium">Apoio Administrativo</p>
-                <p className="text-muted-foreground text-[10px]">Conferente</p>
+                <p className="text-muted-foreground text-xs">Conferente</p>
               </div>
             </div>
           </div>
@@ -387,7 +387,7 @@ export default function EbdCampanhaRelatorio() {
           <p className="text-xs italic text-muted-foreground font-serif">
             "Cada um contribua segundo propôs no seu coração; não com tristeza, ou por necessidade; porque Deus ama ao que dá com alegria."
           </p>
-          <p className="text-[10px] text-gold tracking-wide mt-1">2 Coríntios 9:7</p>
+          <p className="text-xs text-gold tracking-wide mt-1">2 Coríntios 9:7</p>
         </footer>
       </div>
     </div>
@@ -398,7 +398,7 @@ export default function EbdCampanhaRelatorio() {
 function ResumoBox({ label, valor, destaque }: { label: string; valor: string; destaque?: boolean }) {
   return (
     <div className={`border rounded-md py-2.5 px-3 text-center ${destaque ? "border-gold bg-gold/5" : "border-border"}`}>
-      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className="text-xs uppercase tracking-wider text-muted-foreground">{label}</p>
       <p className={`font-semibold mt-0.5 tabular-nums ${destaque ? "text-xl text-gold" : "text-lg"}`}>{valor}</p>
     </div>
   );
@@ -407,7 +407,7 @@ function ResumoBox({ label, valor, destaque }: { label: string; valor: string; d
 function DadoMini({ label, valor }: { label: string; valor: string }) {
   return (
     <div className="border border-border/60 rounded py-1 px-1">
-      <p className="text-muted-foreground text-[9px] uppercase tracking-wide">{label}</p>
+      <p className="text-muted-foreground text-xs uppercase tracking-wide">{label}</p>
       <p className="font-medium text-xs mt-0.5">{valor}</p>
     </div>
   );
@@ -416,7 +416,7 @@ function DadoMini({ label, valor }: { label: string; valor: string }) {
 function Bloco({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
     <div>
-      <h4 className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2 font-medium">{titulo}</h4>
+      <h4 className="text-xs uppercase tracking-wider text-muted-foreground mb-2 font-medium">{titulo}</h4>
       {children}
     </div>
   );
@@ -437,7 +437,7 @@ function Tabelinha({ linhas, total }: { linhas: [string, string][]; total: strin
       </tbody>
       <tfoot>
         <tr className="border-t-2 border-gold/40 font-semibold">
-          <td className="pt-1.5 text-[10px] uppercase tracking-wide">Total</td>
+          <td className="pt-1.5 text-xs uppercase tracking-wide">Total</td>
           <td className="pt-1.5 text-right tabular-nums">{total}</td>
         </tr>
       </tfoot>

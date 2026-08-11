@@ -141,7 +141,7 @@ export function ContaForm({ open, onOpenChange, conta, onSaved }: Props) {
               <Label>Saldo inicial (R$)</Label>
               <Input type="number" step="0.01" value={saldoInicial || ""}
                 onChange={(e) => setSaldoInicial(Number(e.target.value))} />
-              <p className="text-[10px] text-muted-foreground mt-0.5">
+              <p className="text-xs text-muted-foreground mt-0.5">
                 {isEdit ? "Alterar muda o saldo atual" : "Saldo que já está nesta conta"}
               </p>
             </div>
@@ -183,17 +183,17 @@ export function ContaForm({ open, onOpenChange, conta, onSaved }: Props) {
               <p className="text-xs font-medium text-muted-foreground">💳 Cartão</p>
               <div className="grid grid-cols-3 gap-2">
                 <div>
-                  <Label className="text-[10px]">Limite (R$)</Label>
+                  <Label className="text-xs">Limite (R$)</Label>
                   <Input type="number" step="0.01" value={limiteCredito || ""}
                     onChange={(e) => setLimiteCredito(Number(e.target.value) || "")} />
                 </div>
                 <div>
-                  <Label className="text-[10px]">Fechamento (dia)</Label>
+                  <Label className="text-xs">Fechamento (dia)</Label>
                   <Input type="number" min={1} max={31} value={diaFechamento || ""}
                     onChange={(e) => setDiaFechamento(Number(e.target.value) || "")} />
                 </div>
                 <div>
-                  <Label className="text-[10px]">Vencimento (dia)</Label>
+                  <Label className="text-xs">Vencimento (dia)</Label>
                   <Input type="number" min={1} max={31} value={diaVencimento || ""}
                     onChange={(e) => setDiaVencimento(Number(e.target.value) || "")} />
                 </div>

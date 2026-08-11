@@ -226,7 +226,7 @@ export default function PgmReuniaoPage() {
           <div>
             <Label className="text-xs">Data do encontro</Label>
             <Input type="date" value={dataEditavel} onChange={(e) => setDataEditavel(e.target.value)} />
-            <p className="text-[10px] text-muted-foreground mt-0.5">
+            <p className="text-xs text-muted-foreground mt-0.5">
               Pode ajustar caso o registro tenha sido feito em outra data.
             </p>
           </div>
@@ -277,7 +277,7 @@ export default function PgmReuniaoPage() {
                   className="hidden" onChange={onFotoChange} disabled={busy} />
                 <div className="flex flex-col items-center gap-1 border-2 border-dashed rounded-md p-3 hover:border-gold/40 hover:bg-muted/30 transition-colors">
                   <Camera className="w-5 h-5 text-muted-foreground" />
-                  <span className="text-[11px] font-medium">Tirar foto</span>
+                  <span className="text-xs font-medium">Tirar foto</span>
                 </div>
               </label>
               <label className="cursor-pointer">
@@ -285,7 +285,7 @@ export default function PgmReuniaoPage() {
                   className="hidden" onChange={onFotoChange} disabled={busy} />
                 <div className="flex flex-col items-center gap-1 border-2 border-dashed rounded-md p-3 hover:border-gold/40 hover:bg-muted/30 transition-colors">
                   <FileImage className="w-5 h-5 text-muted-foreground" />
-                  <span className="text-[11px] font-medium">Galeria</span>
+                  <span className="text-xs font-medium">Galeria</span>
                 </div>
               </label>
             </div>
@@ -328,7 +328,7 @@ export default function PgmReuniaoPage() {
                     </div>
                     <span className="font-medium">{p.nome_completo ?? "—"}</span>
                     {p.papel && p.papel !== "participante" && (
-                      <Badge variant="outline" className="text-[9px]">{PAPEL_LABEL[p.papel]}</Badge>
+                      <Badge variant="outline" className="text-xs">{PAPEL_LABEL[p.papel]}</Badge>
                     )}
                   </span>
                 </button>
@@ -361,7 +361,7 @@ export default function PgmReuniaoPage() {
                 <div key={v.id} className="flex items-center justify-between border rounded-md px-3 py-1.5 text-sm">
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">{v.nome}</p>
-                    <p className="text-[11px] text-muted-foreground truncate">
+                    <p className="text-xs text-muted-foreground truncate">
                       {[v.telefone, v.bairro].filter(Boolean).join(" · ") || "—"}
                     </p>
                   </div>

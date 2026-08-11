@@ -141,10 +141,10 @@ export default function ResetSenha() {
               <BrandMark className="text-[4rem] text-foreground" />
             </div>
             <div className="text-center space-y-0.5">
-              <p className="text-[11px] tracking-[0.20em] uppercase font-semibold text-foreground/60 leading-relaxed">
+              <p className="text-xs tracking-[0.20em] uppercase font-semibold text-foreground/60 leading-relaxed">
                 Conectando Pessoas,
               </p>
-              <p className="text-[11px] tracking-[0.20em] uppercase font-semibold text-foreground/60 leading-relaxed">
+              <p className="text-xs tracking-[0.20em] uppercase font-semibold text-foreground/60 leading-relaxed">
                 Organizando o Propósito
               </p>
             </div>
@@ -231,7 +231,7 @@ export default function ResetSenha() {
           </form>
         </div>
 
-        <p className="text-center text-[10px] text-foreground/30 tracking-wide leading-relaxed">
+        <p className="text-center text-xs text-foreground/30 tracking-wide leading-relaxed">
           DiakoniaApp — Sistema de Gestão Ministerial
         </p>
       </div>

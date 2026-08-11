@@ -674,7 +674,7 @@ export default function IdentidadeAdmin() {
                   {secoesDocSugeridas.map((s, i) => (
                     <div key={i} className="rounded border bg-background p-2.5 space-y-1">
                       <p className="text-xs font-medium text-foreground">{s.referencia}</p>
-                      <p className="text-[11px] text-muted-foreground line-clamp-3">{s.trecho}</p>
+                      <p className="text-xs text-muted-foreground line-clamp-3">{s.trecho}</p>
                       <button
                         type="button"
                         onClick={() => aplicarSugestaoDoc("missao", s)}
@@ -730,7 +730,7 @@ export default function IdentidadeAdmin() {
                   {secoesDocSugeridas.map((s, i) => (
                     <div key={i} className="rounded border bg-background p-2.5 space-y-1">
                       <p className="text-xs font-medium text-foreground">{s.referencia}</p>
-                      <p className="text-[11px] text-muted-foreground line-clamp-3">{s.trecho}</p>
+                      <p className="text-xs text-muted-foreground line-clamp-3">{s.trecho}</p>
                       <button
                         type="button"
                         onClick={() => aplicarSugestaoDoc("visao", s)}
@@ -1063,19 +1063,19 @@ export default function IdentidadeAdmin() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="text-sm font-medium leading-tight">{inst.nome}</p>
-                        {inst.sigla && <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded font-mono">{inst.sigla}</span>}
+                        {inst.sigla && <span className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono">{inst.sigla}</span>}
                         {inst.permite_integracao && (
                           <span title="Permite integração com agenda">
                             <Zap className="w-3 h-3 text-amber-500" />
                           </span>
                         )}
-                        <Badge variant="outline" className="text-[10px] py-0 px-1.5 h-4">
+                        <Badge variant="outline" className="text-xs py-0 px-1.5 h-4">
                           {TIPOS_INSTITUICAO[inst.tipo_instituicao] ?? inst.tipo_instituicao}
                         </Badge>
                       </div>
                       {inst.site_oficial && (
                         <a href={inst.site_oficial} target="_blank" rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline mt-0.5"
+                          className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-0.5"
                           onClick={(e) => e.stopPropagation()}>
                           <ExternalLink className="w-3 h-3" /> Visitar site
                         </a>
@@ -1096,14 +1096,14 @@ export default function IdentidadeAdmin() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="text-sm font-medium leading-tight">{inst.nome}</p>
-                        {inst.sigla && <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded font-mono">{inst.sigla}</span>}
-                        <Badge variant="outline" className="text-[10px] py-0 px-1.5 h-4">
+                        {inst.sigla && <span className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono">{inst.sigla}</span>}
+                        <Badge variant="outline" className="text-xs py-0 px-1.5 h-4">
                           {TIPOS_INSTITUICAO[inst.tipo_instituicao] ?? inst.tipo_instituicao}
                         </Badge>
                       </div>
                       {inst.site_oficial && (
                         <a href={inst.site_oficial} target="_blank" rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline mt-0.5"
+                          className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-0.5"
                           onClick={(e) => e.stopPropagation()}>
                           <ExternalLink className="w-3 h-3" /> Visitar site
                         </a>
@@ -1130,11 +1130,11 @@ export default function IdentidadeAdmin() {
                           <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
                           <div className="min-w-0">
                             <p className="text-sm font-medium truncate">{s.nome}</p>
-                            {s.site_oficial && <p className="text-[11px] text-muted-foreground truncate">{s.site_oficial}</p>}
+                            {s.site_oficial && <p className="text-xs text-muted-foreground truncate">{s.site_oficial}</p>}
                           </div>
                         </button>
                       ))}
-                      <p className="text-[11px] text-muted-foreground">Ou continue abaixo para criar uma nova.</p>
+                      <p className="text-xs text-muted-foreground">Ou continue abaixo para criar uma nova.</p>
                     </div>
                   )}
 
@@ -1174,7 +1174,7 @@ export default function IdentidadeAdmin() {
                       </p>
                     )}
                     {buscandoSugestoes && (
-                      <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
+                      <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                         <Loader2 className="w-3 h-3 animate-spin" /> Verificando duplicidade…
                       </p>
                     )}

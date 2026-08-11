@@ -104,10 +104,10 @@ export default function FinancasRecorrencias() {
                 <div className="min-w-0 flex-1">
                   <p className="font-medium text-sm truncate flex items-center gap-1.5">
                     {r.descricao}
-                    {!r.ativo && <Badge variant="outline" className="text-[9px] bg-amber-50 text-amber-700 border-amber-300">Inativa</Badge>}
-                    {r.valor_variavel && <Badge variant="outline" className="text-[9px]">variável</Badge>}
+                    {!r.ativo && <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-300">Inativa</Badge>}
+                    {r.valor_variavel && <Badge variant="outline" className="text-xs">variável</Badge>}
                   </p>
-                  <p className="text-[10px] text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     {FREQUENCIA_LABEL[r.frequencia]} · todo dia {r.dia_vencimento}
                   </p>
                 </div>

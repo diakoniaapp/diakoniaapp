@@ -91,12 +91,12 @@ export default function SyncEstruturaModal({ open, onOpenChange, onConcluido }: 
           <div className="w-8 h-8 flex items-center justify-center text-lg shrink-0">{TIPO_ICONE[item.tipo]??"\uD83D\uDD16"}</div>
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
-              <Badge variant="outline" className={"text-[10px] "+cor}>{item.tipo}</Badge>
-              <span className="text-[10px] text-muted-foreground">{NIVEL_LABEL[item.nivel]??"–"}</span>
+              <Badge variant="outline" className={"text-xs "+cor}>{item.tipo}</Badge>
+              <span className="text-xs text-muted-foreground">{NIVEL_LABEL[item.nivel]??"–"}</span>
             </div>
             <p className="font-medium text-sm">{item.nome}</p>
-            {item.descricao && <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">{item.descricao}</p>}
-            <p className="text-[10px] text-muted-foreground mt-1">\uD83D\uDCC4 {item.base_institucional} — {item.secao_titulo}</p>
+            {item.descricao && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{item.descricao}</p>}
+            <p className="text-xs text-muted-foreground mt-1">\uD83D\uDCC4 {item.base_institucional} — {item.secao_titulo}</p>
           </div>
           <div className="flex flex-col gap-1 shrink-0">
             {tipo === "novo" ? (
@@ -173,15 +173,15 @@ export default function SyncEstruturaModal({ open, onOpenChange, onConcluido }: 
               <div className="grid grid-cols-3 gap-2 shrink-0">
                 <div className="rounded-lg border bg-emerald-50 border-emerald-200 p-3 text-center">
                   <p className="text-xl font-bold text-emerald-700">{totalCriar}</p>
-                  <p className="text-[11px] text-emerald-600">para criar</p>
+                  <p className="text-xs text-emerald-600">para criar</p>
                 </div>
                 <div className="rounded-lg border bg-blue-50 border-blue-200 p-3 text-center">
                   <p className="text-xl font-bold text-blue-700">{totalAtualizar}</p>
-                  <p className="text-[11px] text-blue-600">para atualizar</p>
+                  <p className="text-xs text-blue-600">para atualizar</p>
                 </div>
                 <div className="rounded-lg border bg-amber-50 border-amber-200 p-3 text-center">
                   <p className="text-xl font-bold text-amber-700">{totalIgnorar}</p>
-                  <p className="text-[11px] text-amber-600">ignorados</p>
+                  <p className="text-xs text-amber-600">ignorados</p>
                 </div>
               </div>
 

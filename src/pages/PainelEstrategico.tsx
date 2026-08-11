@@ -319,7 +319,7 @@ export default function PainelEstrategico() {
                 ))
               )}
               {!loading && visitantes.length > 0 && (
-                <p className="text-[10px] text-muted-foreground text-center pt-1" translate="no">
+                <p className="text-xs text-muted-foreground text-center pt-1" translate="no">
                   {fmtPct((congregados.length / visitantes.length) * 100)} dos visitantes se tornaram congregados
                 </p>
               )}
@@ -484,7 +484,7 @@ function PontoGrupo({ label, cor, items }: {
         {items.map((item, i) => (
           <li key={i} className="flex items-start justify-between gap-2 text-xs">
             <span className="font-medium truncate">{item.nome}</span>
-            <Badge variant="outline" className={`text-[10px] h-4 px-1.5 shrink-0 whitespace-nowrap ${corBadge}`}>
+            <Badge variant="outline" className={`text-xs h-4 px-1.5 shrink-0 whitespace-nowrap ${corBadge}`}>
               {item.detalhe}
             </Badge>
           </li>

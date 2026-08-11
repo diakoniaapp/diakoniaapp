@@ -99,7 +99,7 @@ export default function FinancasCentroDetalhe() {
           <h1 className="font-serif text-xl flex items-center gap-2">
             <Layers className="w-5 h-5 text-gold" />
             {centro.nome}
-            <Badge variant="outline" className="text-[10px]">{centro.vinculo_tipo}</Badge>
+            <Badge variant="outline" className="text-xs">{centro.vinculo_tipo}</Badge>
           </h1>
           {centro.vinculo_nome && (
             <p className="text-xs text-muted-foreground">Vinculado a: {centro.vinculo_nome}</p>
@@ -111,19 +111,19 @@ export default function FinancasCentroDetalhe() {
       <div className="grid grid-cols-3 gap-2">
         <Card>
           <CardContent className="py-2 px-3">
-            <p className="text-[10px] uppercase text-muted-foreground">Total lançamentos</p>
+            <p className="text-xs uppercase text-muted-foreground">Total lançamentos</p>
             <p className="text-base font-semibold">{stats.total}</p>
           </CardContent>
         </Card>
         <Card className="bg-rose-50/30 border-rose-200">
           <CardContent className="py-2 px-3">
-            <p className="text-[10px] uppercase text-rose-700">Total gasto</p>
+            <p className="text-xs uppercase text-rose-700">Total gasto</p>
             <p className="text-base font-semibold text-rose-700 tabular-nums">{brl(stats.gastoTotal)}</p>
           </CardContent>
         </Card>
         <Card className="bg-emerald-50/30 border-emerald-200">
           <CardContent className="py-2 px-3">
-            <p className="text-[10px] uppercase text-emerald-700">Total recebido</p>
+            <p className="text-xs uppercase text-emerald-700">Total recebido</p>
             <p className="text-base font-semibold text-emerald-700 tabular-nums">{brl(stats.recebidoTotal)}</p>
           </CardContent>
         </Card>
@@ -155,7 +155,7 @@ export default function FinancasCentroDetalhe() {
                         title={`Gasto: ${brl(v.gasto)}`} />
                     )}
                   </div>
-                  <div className="flex justify-between text-[9px] text-muted-foreground">
+                  <div className="flex justify-between text-xs text-muted-foreground">
                     {v.recebido > 0 && <span className="text-emerald-700">+{brl(v.recebido)}</span>}
                     {v.gasto > 0 && <span className="text-rose-700 ml-auto">−{brl(v.gasto)}</span>}
                   </div>
@@ -186,7 +186,7 @@ export default function FinancasCentroDetalhe() {
                   : <TrendingDown className="w-3.5 h-3.5 text-rose-600 shrink-0" />}
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium truncate">{l.descricao ?? "—"}</p>
-                  <p className="text-[10px] text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     {dataBr(l.data)}
                     {l.categoria_nome && ` · ${l.categoria_nome}`}
                     {l.conta_nome && ` · ${l.conta_nome}`}

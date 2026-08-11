@@ -87,7 +87,7 @@ export default function Dashboard() {
           <div className="min-w-0 space-y-1">
             <div className="flex items-center gap-1.5">
               <ShieldCheck className="w-3.5 h-3.5 text-gold shrink-0" />
-              <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gold/80">
+              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-gold/80">
                 {ROLE_LABEL[principalRole] ?? principalRole}
               </span>
             </div>
@@ -116,7 +116,7 @@ export default function Dashboard() {
               <Quote className="w-3.5 h-3.5 text-gold" />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-[9px] md:text-[10px] tracking-[0.2em] uppercase text-gold/80 mb-0.5">Versículo do dia</div>
+              <div className="text-xs md:text-xs tracking-[0.2em] uppercase text-gold/80 mb-0.5">Versículo do dia</div>
               <p className="font-serif text-sm md:text-base leading-snug text-foreground/95">&ldquo;{verse.texto}&rdquo;</p>
               <div className="text-gold mt-1 text-xs font-medium tracking-wide">{verse.ref}</div>
             </div>
@@ -144,7 +144,7 @@ export default function Dashboard() {
             >
               <Search className="w-3.5 h-3.5" />
               <span>Buscar qualquer página ou ação</span>
-              <kbd className="hidden md:inline px-1 py-0.5 rounded bg-muted text-[11px]">Ctrl K</kbd>
+              <kbd className="hidden md:inline px-1 py-0.5 rounded bg-muted text-xs">Ctrl K</kbd>
             </button>
           </div>
         </BlocoSecao>

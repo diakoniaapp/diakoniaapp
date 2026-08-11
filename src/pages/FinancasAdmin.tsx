@@ -159,9 +159,9 @@ export default function FinancasAdmin() {
                     <div className="min-w-0 flex-1">
                       <p className="font-medium text-sm truncate flex items-center gap-1.5">
                         {c.nome}
-                        {!c.ativo && <Badge variant="outline" className="text-[9px] bg-amber-50 text-amber-700 border-amber-300">Desativada</Badge>}
+                        {!c.ativo && <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-300">Desativada</Badge>}
                       </p>
-                      <p className="text-[10px] text-muted-foreground">
+                      <p className="text-xs text-muted-foreground">
                         {CONTA_TIPO_LABEL[c.tipo]}
                         {c.banco_nome && ` · ${c.banco_nome}`}
                         {c.conta_numero && ` · Ag ${c.agencia ?? "-"} / CC ${c.conta_numero}`}
@@ -170,7 +170,7 @@ export default function FinancasAdmin() {
                   </div>
                   <div className="text-right shrink-0 mr-2">
                     <p className="text-sm font-semibold tabular-nums">{brl(Number(c.saldo_atual))}</p>
-                    <p className="text-[10px] text-muted-foreground">
+                    <p className="text-xs text-muted-foreground">
                       Inicial: {brl(Number(c.saldo_inicial))}
                     </p>
                   </div>
@@ -237,7 +237,7 @@ export default function FinancasAdmin() {
             </Card>
           </div>
 
-          <p className="text-[10px] text-muted-foreground text-center">
+          <p className="text-xs text-muted-foreground text-center">
             Categorias do <strong>sistema</strong> não podem ser excluídas — só desativadas.
             Categorias <strong>em uso</strong> em lançamentos também precisam ser desativadas.
           </p>
@@ -268,8 +268,8 @@ function CategoriaLinha({ k, onEdit, onToggle, onDelete }: {
          style={{ borderColor: k.cor ?? "#888" }}>
       <span className="truncate flex-1">
         {k.nome}
-        {k.sistema && <Badge variant="outline" className="text-[8px] ml-1">sys</Badge>}
-        {!k.ativo && <Badge variant="outline" className="text-[8px] ml-1 bg-amber-50 text-amber-700">desat.</Badge>}
+        {k.sistema && <Badge variant="outline" className="text-xs ml-1">sys</Badge>}
+        {!k.ativo && <Badge variant="outline" className="text-xs ml-1 bg-amber-50 text-amber-700">desat.</Badge>}
       </span>
       <div className="flex items-center gap-0 shrink-0">
         <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={onEdit} title="Editar">

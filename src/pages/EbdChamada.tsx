@@ -245,15 +245,15 @@ export default function EbdChamada() {
       {/* Stats */}
       <div className="grid grid-cols-3 gap-2">
         <Card><CardContent className="py-2 text-center">
-          <p className="text-[10px] text-muted-foreground uppercase">Presentes</p>
+          <p className="text-xs text-muted-foreground uppercase">Presentes</p>
           <p className="text-xl font-semibold text-emerald-600">{stats.totalPresentes}</p>
         </CardContent></Card>
         <Card><CardContent className="py-2 text-center">
-          <p className="text-[10px] text-muted-foreground uppercase">Matriculados</p>
+          <p className="text-xs text-muted-foreground uppercase">Matriculados</p>
           <p className="text-xl font-semibold">{stats.presMat}/{stats.totalMat}</p>
         </CardContent></Card>
         <Card><CardContent className="py-2 text-center">
-          <p className="text-[10px] text-muted-foreground uppercase">Visitantes</p>
+          <p className="text-xs text-muted-foreground uppercase">Visitantes</p>
           <p className="text-xl font-semibold text-amber-600">{stats.presVis}/{stats.totalVis}</p>
         </CardContent></Card>
       </div>
@@ -287,7 +287,7 @@ export default function EbdChamada() {
           >
             <div className="text-left min-w-0">
               <div className="font-medium truncate">{r.nome_completo}</div>
-              <div className="text-[11px] text-muted-foreground">
+              <div className="text-xs text-muted-foreground">
                 {r.idade != null ? `${r.idade} anos` : "Sem idade"}
               </div>
             </div>
@@ -324,11 +324,11 @@ export default function EbdChamada() {
               <div className="text-left min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="font-medium truncate">{r.nome_completo}</span>
-                  <Badge variant="outline" className="text-[10px] text-amber-700 border-amber-300">
+                  <Badge variant="outline" className="text-xs text-amber-700 border-amber-300">
                     Visitante
                   </Badge>
                 </div>
-                <div className="text-[11px] text-muted-foreground">
+                <div className="text-xs text-muted-foreground">
                   {r.idade != null ? `${r.idade} anos` : "Sem idade"}
                 </div>
               </div>
@@ -382,7 +382,7 @@ export default function EbdChamada() {
                 onChange={setVisitTel}
               />
             </div>
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               Será cadastrada(o) como visitante em Pessoas e marcado como presente nesta aula.
             </p>
             <DialogFooter>

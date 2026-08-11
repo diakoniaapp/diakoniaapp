@@ -389,7 +389,7 @@ export function LancamentoForm({
                     className="hidden" onChange={(e) => escolheArquivo(e.target.files?.[0] ?? null)} />
                   <div className="flex flex-col items-center gap-1 border-2 border-dashed rounded-md p-3 hover:border-gold/40 hover:bg-muted/30">
                     <Camera className="w-5 h-5 text-muted-foreground" />
-                    <span className="text-[11px] font-medium">Tirar foto</span>
+                    <span className="text-xs font-medium">Tirar foto</span>
                   </div>
                 </label>
                 <label className="cursor-pointer">
@@ -397,7 +397,7 @@ export function LancamentoForm({
                     className="hidden" onChange={(e) => escolheArquivo(e.target.files?.[0] ?? null)} />
                   <div className="flex flex-col items-center gap-1 border-2 border-dashed rounded-md p-3 hover:border-gold/40 hover:bg-muted/30">
                     <FileUp className="w-5 h-5 text-muted-foreground" />
-                    <span className="text-[11px] font-medium">Escolher</span>
+                    <span className="text-xs font-medium">Escolher</span>
                   </div>
                 </label>
               </div>
@@ -412,7 +412,7 @@ export function LancamentoForm({
                 )}
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium truncate">{arquivo.name}</p>
-                  <p className="text-[11px] text-muted-foreground">{(arquivo.size / 1024).toFixed(0)} KB</p>
+                  <p className="text-xs text-muted-foreground">{(arquivo.size / 1024).toFixed(0)} KB</p>
                 </div>
                 <Button type="button" variant="ghost" size="icon"
                   className="h-8 w-8 text-destructive" onClick={() => setArquivo(null)}>
@@ -420,7 +420,7 @@ export function LancamentoForm({
                 </Button>
               </div>
             )}
-            <p className="text-[10px] text-muted-foreground">JPG, PNG ou PDF — máx 5 MB</p>
+            <p className="text-xs text-muted-foreground">JPG, PNG ou PDF — máx 5 MB</p>
           </div>
 
           {/* Resultado do OCR */}
@@ -454,27 +454,27 @@ export function LancamentoForm({
                     )}
                   </div>
                   {fornecedorOcrSugerido && (
-                    <p className="text-emerald-700 text-[11px]">
+                    <p className="text-emerald-700 text-xs">
                       ✓ Fornecedor reconhecido: <strong>{fornecedorOcrSugerido.nome}</strong>
                     </p>
                   )}
                   <div className="flex gap-1.5 pt-1">
                     <Button type="button" size="sm" onClick={aplicarSugestoesOcr}
-                      className="h-7 text-[11px] bg-blue-600 hover:bg-blue-700 text-white gap-1">
+                      className="h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white gap-1">
                       <Sparkles className="w-3 h-3" /> Aplicar sugestões
                     </Button>
                     {ocr.razaoSocial && ocr.cnpj && !fornecedorOcrSugerido && (
                       <Button type="button" size="sm" variant="outline" onClick={salvarFornecedorDoOcr}
-                        className="h-7 text-[11px]">
+                        className="h-7 text-xs">
                         Salvar como fornecedor
                       </Button>
                     )}
                     <Button type="button" size="sm" variant="ghost" onClick={() => setOcr(null)}
-                      className="h-7 text-[11px] ml-auto">
+                      className="h-7 text-xs ml-auto">
                       Ignorar
                     </Button>
                   </div>
-                  <p className="text-[10px] text-muted-foreground text-right">
+                  <p className="text-xs text-muted-foreground text-right">
                     OCR em {(ocr.duracaoMs / 1000).toFixed(1)}s · confiança {ocr.confianca}%
                   </p>
                 </>

@@ -71,12 +71,12 @@ export default function Governanca() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-medium text-sm">{a.titulo}</span>
-                    <Badge variant="outline" className={`text-[9px] ${REUNIAO_STATUS_COR[a.status]}`}>
+                    <Badge variant="outline" className={`text-xs ${REUNIAO_STATUS_COR[a.status]}`}>
                       {REUNIAO_STATUS_LABEL[a.status]}
                     </Badge>
-                    {a.quorum_atingido && <Badge variant="outline" className="text-[9px] bg-emerald-100 text-emerald-700 border-emerald-300">Quórum OK</Badge>}
+                    {a.quorum_atingido && <Badge variant="outline" className="text-xs bg-emerald-100 text-emerald-700 border-emerald-300">Quórum OK</Badge>}
                   </div>
-                  <p className="text-[10px] text-muted-foreground flex items-center gap-2">
+                  <p className="text-xs text-muted-foreground flex items-center gap-2">
                     <Calendar className="w-2.5 h-2.5" />
                     {new Date(a.data_assembleia + "T00:00").toLocaleDateString("pt-BR")}
                     {a.horario && ` · ${a.horario.slice(0, 5)}`}
@@ -111,12 +111,12 @@ export default function Governanca() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-medium text-sm">{r.titulo}</span>
-                    <Badge variant="outline" className="text-[9px]">{REUNIAO_TIPO_LABEL[r.tipo]}</Badge>
-                    <Badge variant="outline" className={`text-[9px] ${REUNIAO_STATUS_COR[r.status]}`}>
+                    <Badge variant="outline" className="text-xs">{REUNIAO_TIPO_LABEL[r.tipo]}</Badge>
+                    <Badge variant="outline" className={`text-xs ${REUNIAO_STATUS_COR[r.status]}`}>
                       {REUNIAO_STATUS_LABEL[r.status]}
                     </Badge>
                   </div>
-                  <p className="text-[10px] text-muted-foreground flex items-center gap-2">
+                  <p className="text-xs text-muted-foreground flex items-center gap-2">
                     <Calendar className="w-2.5 h-2.5" />
                     {new Date(r.data_reuniao + "T00:00").toLocaleDateString("pt-BR")}
                     {r.horario && ` · ${r.horario.slice(0, 5)}`}

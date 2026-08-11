@@ -155,9 +155,9 @@ export function DocumentosFiscaisDialog({ open, onOpenChange, agendaId, nomeObri
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
                   <span className="font-medium truncate">{d.nome_arquivo}</span>
-                  <span className="px-1.5 py-0.5 rounded bg-muted text-[9px]">{TIPO_LABEL[d.tipo]}</span>
+                  <span className="px-1.5 py-0.5 rounded bg-muted text-xs">{TIPO_LABEL[d.tipo]}</span>
                 </div>
-                <div className="text-[10px] text-muted-foreground">
+                <div className="text-xs text-muted-foreground">
                   {fmtTam(d.tamanho_bytes)} · {new Date(d.enviado_em).toLocaleString("pt-BR")}
                   {d.observacao && ` · ${d.observacao}`}
                 </div>

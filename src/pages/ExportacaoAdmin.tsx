@@ -220,7 +220,7 @@ export default function ExportacaoAdmin() {
           <ShieldCheck className="w-4 h-4 text-gold mt-0.5 shrink-0" />
           <div>
             <p className="text-xs font-medium text-gold">Área protegida — LGPD</p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
+            <p className="text-xs text-muted-foreground mt-0.5">
               Toda exportação exige confirmação de senha e é registrada em log auditável.
               Dados sensíveis estão marcados com 🔒.
             </p>
@@ -352,7 +352,7 @@ export default function ExportacaoAdmin() {
                     <div className="flex items-center gap-2 text-xs shrink-0">
                       <Users className="w-3 h-3 text-muted-foreground" />
                       <span>{log.total_registros} registros</span>
-                      <Badge variant="outline" className="text-[10px]">{log.formato}</Badge>
+                      <Badge variant="outline" className="text-xs">{log.formato}</Badge>
                     </div>
                   </div>
                 ))}

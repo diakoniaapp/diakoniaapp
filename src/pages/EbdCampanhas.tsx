@@ -124,7 +124,7 @@ function CampanhaCard({ c, classeId }: { c: CampanhaComResumo; classeId: string 
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
               <h3 className="font-medium truncate">{c.nome}</h3>
-              <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
                 <Calendar className="w-3 h-3" />
                 {new Date(c.data_inicio + "T00:00").toLocaleDateString("pt-BR")} → {new Date(c.data_fim + "T00:00").toLocaleDateString("pt-BR")}
               </p>

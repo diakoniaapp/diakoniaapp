@@ -137,7 +137,7 @@ export default function MembresiaDetalhe() {
           <h1 className="font-serif text-xl flex items-center gap-2 flex-wrap">
             <FileText className="w-5 h-5 text-gold" />
             {sol.pessoa_nome}
-            <Badge variant="outline" className={`text-[10px] ${STATUS_COR[sol.status]}`}>
+            <Badge variant="outline" className={`text-xs ${STATUS_COR[sol.status]}`}>
               {STATUS_LABEL[sol.status]}
             </Badge>
           </h1>
@@ -160,7 +160,7 @@ export default function MembresiaDetalhe() {
                 {item.label}
               </span>
               {!item.ok && item.acao && (
-                <Badge variant="outline" className="text-[9px] bg-amber-50 text-amber-700 border-amber-300">
+                <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-300">
                   {item.acao}
                 </Badge>
               )}
@@ -183,7 +183,7 @@ export default function MembresiaDetalhe() {
                 <div key={d.id} className="flex items-center justify-between border rounded-md px-2 py-1.5">
                   <button onClick={() => abrirDoc(d)} className="text-left flex-1 min-w-0 hover:underline">
                     <p className="text-sm font-medium truncate">{d.arquivo_nome ?? d.tipo}</p>
-                    <p className="text-[10px] text-muted-foreground">{d.tipo} · v{d.versao}</p>
+                    <p className="text-xs text-muted-foreground">{d.tipo} · v{d.versao}</p>
                   </button>
                   <Button type="button" variant="ghost" size="icon"
                     onClick={() => deletarDoc(d)} className="h-7 w-7 text-destructive">
@@ -199,7 +199,7 @@ export default function MembresiaDetalhe() {
                 onChange={(e) => escolheArquivo(e.target.files?.[0] ?? null, "pedido")} disabled={busy} />
               <div className="flex flex-col items-center gap-1 border-2 border-dashed rounded-md p-2 hover:border-gold/40 hover:bg-muted/30">
                 <FileUp className="w-4 h-4 text-muted-foreground" />
-                <span className="text-[10px]">Anexar pedido</span>
+                <span className="text-xs">Anexar pedido</span>
               </div>
             </label>
             <label className="cursor-pointer">
@@ -207,7 +207,7 @@ export default function MembresiaDetalhe() {
                 onChange={(e) => escolheArquivo(e.target.files?.[0] ?? null, "carta")} disabled={busy} />
               <div className="flex flex-col items-center gap-1 border-2 border-dashed rounded-md p-2 hover:border-gold/40 hover:bg-muted/30">
                 <FileText className="w-4 h-4 text-muted-foreground" />
-                <span className="text-[10px]">Anexar carta</span>
+                <span className="text-xs">Anexar carta</span>
               </div>
             </label>
           </div>
@@ -280,9 +280,9 @@ export default function MembresiaDetalhe() {
             <p className="text-xs text-muted-foreground italic">Sem registros.</p>
           ) : (
             hist.map(h => (
-              <div key={h.id} className="text-[11px] border-l-2 border-gold/40 pl-2 py-0.5">
+              <div key={h.id} className="text-xs border-l-2 border-gold/40 pl-2 py-0.5">
                 <p className="font-medium">{h.descricao ?? h.acao}</p>
-                <p className="text-[10px] text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   {new Date(h.created_at).toLocaleString("pt-BR")}
                   {h.user_nome && ` · ${h.user_nome}`}
                 </p>

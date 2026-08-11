@@ -62,7 +62,7 @@ export default function Membresia() {
           <Link to="/painel-secretaria">
             <Button variant="outline" size="sm" className="gap-1.5">
               <AlertTriangle className="w-3.5 h-3.5 text-amber-600" /> Painel
-              {pendentes > 0 && <Badge variant="outline" className="text-[9px] bg-amber-100 text-amber-700 border-amber-300">{pendentes}</Badge>}
+              {pendentes > 0 && <Badge variant="outline" className="text-xs bg-amber-100 text-amber-700 border-amber-300">{pendentes}</Badge>}
             </Button>
           </Link>
           <Button onClick={() => setNovoOpen(true)} className="gap-1.5 bg-gold hover:bg-gold/90 text-white">
@@ -119,11 +119,11 @@ export default function Membresia() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-medium text-sm">{s.pessoa_nome}</span>
-                    <Badge variant="outline" className={`text-[9px] ${STATUS_COR[s.status]}`}>
+                    <Badge variant="outline" className={`text-xs ${STATUS_COR[s.status]}`}>
                       {STATUS_LABEL[s.status]}
                     </Badge>
                   </div>
-                  <p className="text-[10px] text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     {TIPO_LABEL[s.tipo]} · solicitada em {new Date(s.data_solicitacao + "T00:00").toLocaleDateString("pt-BR")}
                     {s.data_assembleia && ` · assembleia ${new Date(s.data_assembleia + "T00:00").toLocaleDateString("pt-BR")}`}
                   </p>

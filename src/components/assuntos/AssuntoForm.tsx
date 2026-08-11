@@ -149,7 +149,7 @@ export function AssuntoForm({ open, onOpenChange, assunto, reuniaoId, onSaved }:
           <div>
             <Label>Prazo</Label>
             <Input type="date" value={prazo} onChange={(e) => setPrazo(e.target.value)} />
-            <p className="text-[10px] text-muted-foreground mt-0.5">Data limite para conclusão (opcional)</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Data limite para conclusão (opcional)</p>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>Cancelar</Button>

@@ -87,11 +87,11 @@ export default function FinancasInsights() {
                   <p className={`text-xs font-medium ${al.severidade === "critico" ? "text-rose-700" : "text-amber-700"}`}>
                     {al.titulo}
                   </p>
-                  <p className="text-[11px] text-muted-foreground">{al.descricao}</p>
+                  <p className="text-xs text-muted-foreground">{al.descricao}</p>
                 </div>
                 {al.link && (
                   <Link to={al.link}>
-                    <Button size="sm" variant="ghost" className="h-7 text-[10px]">
+                    <Button size="sm" variant="ghost" className="h-7 text-xs">
                       Ver <ChevronRight className="w-3 h-3 ml-1" />
                     </Button>
                   </Link>
@@ -118,7 +118,7 @@ export default function FinancasInsights() {
               <PrevisaoBox label="Em 90 dias" valor={previsao.saldo_projetado_90d}
                 entrada={previsao.entradas_previstas_90d} saida={previsao.saidas_previstas_90d} />
             </div>
-            <p className="text-[10px] text-muted-foreground text-center">
+            <p className="text-xs text-muted-foreground text-center">
               Baseado no saldo atual + lançamentos previstos (recorrências e contas a pagar/receber)
             </p>
           </CardContent>
@@ -149,7 +149,7 @@ export default function FinancasInsights() {
                       style={{ flex: Number(m.saidas) / maxComparativo }}
                       title={`Saídas: ${brl(Number(m.saidas))}`} />
                   </div>
-                  <div className="flex justify-between text-[9px] text-muted-foreground">
+                  <div className="flex justify-between text-xs text-muted-foreground">
                     <span>+{brl(Number(m.entradas))}</span>
                     <span>−{brl(Number(m.saidas))}</span>
                   </div>
@@ -183,7 +183,7 @@ export default function FinancasInsights() {
               <h3 className="font-serif text-base flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-gold" /> Distribuição de gastos por tipo de centro
               </h3>
-              <p className="text-[11px] text-muted-foreground">Últimos 90 dias</p>
+              <p className="text-xs text-muted-foreground">Últimos 90 dias</p>
               <div className="flex flex-wrap gap-4 items-center justify-center">
                 <DonutChart data={lista} tamanho={160} espessura={28} />
                 <div className="space-y-1 min-w-[200px]">
@@ -194,7 +194,7 @@ export default function FinancasInsights() {
                         <span className="w-3 h-3 rounded shrink-0" style={{ background: p.cor }} />
                         <span className="flex-1 truncate">{p.label}</span>
                         <span className="tabular-nums font-medium">{brl(p.valor)}</span>
-                        <span className="tabular-nums text-muted-foreground text-[10px] w-10 text-right">{pct.toFixed(1)}%</span>
+                        <span className="tabular-nums text-muted-foreground text-xs w-10 text-right">{pct.toFixed(1)}%</span>
                       </div>
                     );
                   })}
@@ -228,14 +228,14 @@ export default function FinancasInsights() {
                     <div className="flex items-center justify-between">
                       <span className="font-medium truncate">{a.categoria_nome}</span>
                       {a.variacao_pct != null && (
-                        <Badge variant="outline" className={`text-[10px] ${
+                        <Badge variant="outline" className={`text-xs ${
                           Number(a.variacao_pct) > 0 ? "text-rose-700 border-rose-300" : "text-emerald-700 border-emerald-300"
                         }`}>
                           {Number(a.variacao_pct) > 0 ? "+" : ""}{Number(a.variacao_pct).toFixed(0)}%
                         </Badge>
                       )}
                     </div>
-                    <p className="text-[10px] text-muted-foreground">
+                    <p className="text-xs text-muted-foreground">
                       Este mês: <strong>{brl(Number(a.valor_mes))}</strong>
                       {Number(a.media_6m) > 0 && (
                         <> · Média 6m: {brl(Number(a.media_6m))}</>
@@ -276,7 +276,7 @@ export default function FinancasInsights() {
         </Card>
       </div>
 
-      <p className="text-[10px] text-muted-foreground text-center pt-2">
+      <p className="text-xs text-muted-foreground text-center pt-2">
         Diakonia Insights — análises atualizadas em tempo real conforme você lança os movimentos.
       </p>
     </div>
@@ -293,7 +293,7 @@ function PrevisaoBox({ label, valor, entrada, saida, destaque }: {
       : valorNum < 0 ? "border-rose-300 bg-rose-50/30"
       : ""
     }`}>
-      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className={`font-semibold tabular-nums ${
         destaque ? "text-lg text-gold"
         : valorNum < 0 ? "text-base text-rose-700"
@@ -302,7 +302,7 @@ function PrevisaoBox({ label, valor, entrada, saida, destaque }: {
         {brl(valorNum)}
       </p>
       {(entrada != null || saida != null) && (
-        <div className="text-[9px] mt-0.5 space-y-0">
+        <div className="text-xs mt-0.5 space-y-0">
           {entrada != null && Number(entrada) > 0 && (
             <p className="text-emerald-700">+{brl(Number(entrada))}</p>
           )}

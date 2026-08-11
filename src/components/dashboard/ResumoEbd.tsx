@@ -96,7 +96,7 @@ export function ResumoEbd() {
           <CardContent className="py-3 text-center">
             <Users className="w-4 h-4 mx-auto text-gold mb-1" />
             <p className="text-2xl font-semibold leading-none">{resumo.total_alunos}</p>
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground mt-1">Matriculados</p>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground mt-1">Matriculados</p>
           </CardContent>
         </Card>
 
@@ -104,7 +104,7 @@ export function ResumoEbd() {
           <CardContent className="py-3 text-center">
             <GraduationCap className="w-4 h-4 mx-auto text-gold mb-1" />
             <p className="text-2xl font-semibold leading-none">{resumo.total_classes_ativas}</p>
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground mt-1">Classes ativas</p>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground mt-1">Classes ativas</p>
           </CardContent>
         </Card>
 
@@ -116,7 +116,7 @@ export function ResumoEbd() {
                 <p className="text-2xl font-semibold leading-none">
                   {resumo.taxa_presenca_ult}<span className="text-sm">%</span>
                 </p>
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground mt-1">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground mt-1">
                   Presença · {dataUlt}
                 </p>
               </>
@@ -134,7 +134,7 @@ export function ResumoEbd() {
             <p className={`text-2xl font-semibold leading-none ${corVariacao}`}>
               {variacao > 0 ? "+" : ""}{variacao}<span className="text-sm">pp</span>
             </p>
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground mt-1">vs semana ant.</p>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground mt-1">vs semana ant.</p>
           </CardContent>
         </Card>
       </div>
@@ -148,11 +148,11 @@ export function ResumoEbd() {
                 <AlertCircle className="w-3.5 h-3.5" /> 
                 Classes com baixa presença
               </p>
-              <Badge variant="outline" className="text-[10px] bg-amber-100 text-amber-700 border-amber-300">
+              <Badge variant="outline" className="text-xs bg-amber-100 text-amber-700 border-amber-300">
                 {classesBaixas.length}
               </Badge>
             </div>
-            <p className="text-[10px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               Média &lt; 60% nas últimas aulas. Considere ação pastoral.
             </p>
             <ul className="space-y-0.5 text-xs">
@@ -161,13 +161,13 @@ export function ResumoEbd() {
                   <Link to={`/ebd/${c.classe_id}`} className="hover:underline truncate flex-1">
                     {c.classe_nome}
                   </Link>
-                  <span className="text-muted-foreground text-[10px] ml-2 shrink-0">
+                  <span className="text-muted-foreground text-xs ml-2 shrink-0">
                     {c.taxa_media}% · {c.qtd_aulas_recentes} aulas
                   </span>
                 </li>
               ))}
               {classesBaixas.length > 5 && (
-                <li className="text-[10px] text-muted-foreground italic">
+                <li className="text-xs text-muted-foreground italic">
                   ... e mais {classesBaixas.length - 5}
                 </li>
               )}
@@ -186,7 +186,7 @@ export function ResumoEbd() {
       </div>
 
       {!teveAula && classesBaixas.length === 0 && (
-        <p className="text-[10px] text-muted-foreground text-center italic">
+        <p className="text-xs text-muted-foreground text-center italic">
           Faça a chamada das classes hoje para ver presença atualizada.
         </p>
       )}
