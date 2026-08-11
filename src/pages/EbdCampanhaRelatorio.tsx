@@ -138,11 +138,9 @@ export default function EbdCampanhaRelatorio() {
       {/* ── Barra de controles (não imprime) ───────────────────── */}
       <div className="no-print sticky top-0 z-10 bg-card border-b">
         <div className="max-w-4xl mx-auto px-4 py-2 flex items-center gap-2 flex-wrap">
-          <Link to={`/ebd/${classeId}/campanhas/${campanhaId}`}>
-            <Button variant="ghost" size="sm" className="gap-1.5">
+          <Button asChild variant="ghost" size="sm" className="gap-1.5"><Link to={`/ebd/${classeId}/campanhas/${campanhaId}`}>
               <ArrowLeft className="w-3.5 h-3.5" /> Voltar
-            </Button>
-          </Link>
+            </Link></Button>
 
           <div className="flex items-center gap-1 ml-auto">
             <span className="text-xs text-muted-foreground mr-1">Modo:</span>

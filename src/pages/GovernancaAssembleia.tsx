@@ -121,9 +121,7 @@ export default function GovernancaAssembleia() {
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-4">
       {/* Cabeçalho */}
       <div className="flex items-center gap-2 flex-wrap">
-        <Link to="/governanca">
-          <Button variant="ghost" size="icon"><ArrowLeft className="w-4 h-4" /></Button>
-        </Link>
+        <Button asChild variant="ghost" size="icon"><Link to="/governanca"><ArrowLeft className="w-4 h-4" /></Link></Button>
         <div className="flex-1 min-w-0">
           <h1 className="font-serif text-xl flex items-center gap-2 flex-wrap">
             <Users className="w-5 h-5 text-gold" />

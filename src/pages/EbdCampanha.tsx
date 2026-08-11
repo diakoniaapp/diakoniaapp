@@ -100,9 +100,7 @@ export default function EbdCampanha() {
     <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-4">
       {/* Cabeçalho */}
       <div className="flex items-center gap-2">
-        <Link to={`/ebd/${classeId}/campanhas`}>
-          <Button variant="ghost" size="icon"><ArrowLeft className="w-4 h-4" /></Button>
-        </Link>
+        <Button asChild variant="ghost" size="icon"><Link to={`/ebd/${classeId}/campanhas`}><ArrowLeft className="w-4 h-4" /></Link></Button>
         <div className="flex-1 min-w-0">
           <h1 className="font-serif text-xl flex items-center gap-2 truncate">
             <DollarSign className="w-5 h-5 text-gold" />
@@ -112,11 +110,9 @@ export default function EbdCampanha() {
             {classe?.nome} · {new Date(campanha.data_inicio + "T00:00").toLocaleDateString("pt-BR")} → {new Date(campanha.data_fim + "T00:00").toLocaleDateString("pt-BR")}
           </p>
         </div>
-        <Link to={`/ebd/${classeId}/campanhas/${campanhaId}/relatorio`}>
-          <Button type="button" variant="outline" size="sm" className="gap-1.5">
+        <Button asChild variant="outline" size="sm" className="gap-1.5"><Link to={`/ebd/${classeId}/campanhas/${campanhaId}/relatorio`}>
             <FileText className="w-3.5 h-3.5" /> Relatório
-          </Button>
-        </Link>
+          </Link></Button>
         <Button type="button" variant="outline" size="sm" onClick={() => setEditOpen(true)} className="gap-1.5">
           <Pencil className="w-3.5 h-3.5" /> Editar
         </Button>

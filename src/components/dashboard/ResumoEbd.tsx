@@ -178,11 +178,9 @@ export function ResumoEbd() {
 
       {/* CTA */}
       <div className="text-center pt-1">
-        <Link to="/ebd">
-          <Button type="button" variant="ghost" size="sm" className="gap-1.5 text-xs">
+        <Button asChild variant="ghost" size="sm" className="gap-1.5 text-xs"><Link to="/ebd">
             Ver EBD completa <ChevronRight className="w-3 h-3" />
-          </Button>
-        </Link>
+          </Link></Button>
       </div>
 
       {!teveAula && classesBaixas.length === 0 && (

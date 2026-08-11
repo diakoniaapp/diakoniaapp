@@ -306,11 +306,9 @@ export default function PainelPastoral() {
                       </p>
                     </div>
                   </div>
-                  <Link to={`/membros?abrir=${p.pessoa_id}`}>
-                    <Button type="button" size="sm" variant="outline" className="gap-1.5 text-xs shrink-0">
+                  <Button asChild size="sm" variant="outline" className="gap-1.5 text-xs shrink-0"><Link to={`/membros?abrir=${p.pessoa_id}`}>
                       <UserPlus className="w-3.5 h-3.5" /> Vincular
-                    </Button>
-                  </Link>
+                    </Link></Button>
                 </div>
               );
             })}
@@ -324,11 +322,9 @@ export default function PainelPastoral() {
       )}
 
       <div className="text-center pt-2">
-        <Link to="/agenda-pastoral">
-          <Button type="button" variant="outline" size="sm" className="gap-1.5">
+        <Button asChild variant="outline" size="sm" className="gap-1.5"><Link to="/agenda-pastoral">
             Ver agenda do mês completa <ChevronRight className="w-3 h-3" />
-          </Button>
-        </Link>
+          </Link></Button>
       </div>
 
       {/* Dialog: vínculo em lote */}

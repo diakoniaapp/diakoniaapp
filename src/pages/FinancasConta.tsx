@@ -117,9 +117,7 @@ export default function FinancasConta() {
     <div className="p-3 md:p-5 max-w-7xl mx-auto space-y-3">
       {/* Cabeçalho */}
       <div className="flex items-center gap-2 flex-wrap">
-        <Link to="/financas">
-          <Button variant="ghost" size="icon"><ArrowLeft className="w-4 h-4" /></Button>
-        </Link>
+        <Button asChild variant="ghost" size="icon"><Link to="/financas"><ArrowLeft className="w-4 h-4" /></Link></Button>
         <div className="flex-1 min-w-0">
           <h1 className="font-serif text-lg flex items-center gap-2 truncate">
             <DollarSign className="w-5 h-5 text-gold" />

@@ -202,11 +202,9 @@ function ColunaPessoas({ cor, icon: Icon, titulo, descricao, lista, total, cta }
             </li>
           )}
         </ul>
-        <Link to={cta.to}>
-          <Button type="button" variant="ghost" size="sm" className="w-full gap-1.5 h-7 text-xs">
+        <Button asChild variant="ghost" size="sm" className="w-full gap-1.5 h-7 text-xs"><Link to={cta.to}>
             {cta.label} <ArrowRight className="w-3 h-3" />
-          </Button>
-        </Link>
+          </Link></Button>
       </CardContent>
     </Card>
   );

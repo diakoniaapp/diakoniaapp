@@ -200,11 +200,15 @@ function AlertaCard({ cor, icon: Icon, titulo, contagem, descricao, cta, childre
           <Badge variant="outline" className={`text-xs ${cls.chip}`}>{contagem}</Badge>
         </div>
         <ul className="text-xs space-y-0.5 ml-1">{children}</ul>
-        <Link to={cta.to}>
-          <Button type="button" variant="ghost" size="sm" className="w-full gap-1.5 h-7 text-xs">
+        {/* asChild: antes era <Button> dentro de <Link>, ou seja um <button>
+            aninhado num <a>. HTML invalido — conteudo interativo nao aninha —
+            e o <a> resultante media 19px de altura, abaixo do minimo de 24px
+            da WCAG 2.2. Agora e um unico elemento, com 36px de altura. */}
+        <Button asChild variant="ghost" size="sm" className="w-full gap-1.5 h-9 text-xs">
+          <Link to={cta.to}>
             {cta.label} <ArrowRight className="w-3 h-3" />
-          </Button>
-        </Link>
+          </Link>
+        </Button>
       </CardContent>
     </Card>
   );

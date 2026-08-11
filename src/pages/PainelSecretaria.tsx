@@ -60,9 +60,7 @@ export default function PainelSecretaria() {
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-4">
       <div className="flex items-center gap-2">
-        <Link to="/membresia">
-          <Button variant="ghost" size="icon"><ArrowLeft className="w-4 h-4" /></Button>
-        </Link>
+        <Button asChild variant="ghost" size="icon"><Link to="/membresia"><ArrowLeft className="w-4 h-4" /></Link></Button>
         <div className="flex-1">
           <h1 className="font-serif text-xl flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-gold" /> Painel da Secretaria
@@ -71,11 +69,9 @@ export default function PainelSecretaria() {
             Tudo que precisa da sua atenção em um só lugar.
           </p>
         </div>
-        <Link to="/membresia">
-          <Button variant="outline" size="sm" className="gap-1.5">
+        <Button asChild variant="outline" size="sm" className="gap-1.5"><Link to="/membresia">
             <BarChart3 className="w-3.5 h-3.5" /> Ver todas
-          </Button>
-        </Link>
+          </Link></Button>
       </div>
 
       {/* Stats topo */}
@@ -117,11 +113,9 @@ export default function PainelSecretaria() {
                       <p className="text-xs text-muted-foreground">{a.descricao}</p>
                     </div>
                     {a.link && (
-                      <Link to={a.link}>
-                        <Button size="sm" variant="outline" className="h-7 text-xs gap-1">
+                      <Button asChild size="sm" variant="outline" className="h-7 text-xs gap-1"><Link to={a.link}>
                           {a.acao_sugerida} <ChevronRight className="w-3 h-3" />
-                        </Button>
-                      </Link>
+                        </Link></Button>
                     )}
                   </CardContent>
                 </Card>
@@ -148,11 +142,9 @@ export default function PainelSecretaria() {
                           <p className="text-sm font-medium">{a.titulo}</p>
                           <p className="text-xs text-muted-foreground mt-0.5">{a.descricao}</p>
                           {a.acao_sugerida && (
-                            <Link to={a.link} className="inline-block mt-1.5">
-                              <Button size="sm" variant="outline" className="h-7 text-xs gap-1">
+                            <Button asChild size="sm" variant="outline" className="h-7 text-xs gap-1"><Link to={a.link} className="inline-block mt-1.5">
                                 {a.acao_sugerida} <ChevronRight className="w-3 h-3" />
-                              </Button>
-                            </Link>
+                              </Link></Button>
                           )}
                         </div>
                       </div>

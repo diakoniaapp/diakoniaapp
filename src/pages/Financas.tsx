@@ -75,11 +75,9 @@ export default function Financas() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Link to="/financas/admin">
-            <Button variant="outline" size="sm" className="gap-1.5">
+          <Button asChild variant="outline" size="sm" className="gap-1.5"><Link to="/financas/admin">
               <Settings className="w-3.5 h-3.5" /> Configurações
-            </Button>
-          </Link>
+            </Link></Button>
           <Button variant="outline" size="sm" onClick={() => setTransfOpen(true)} className="gap-1.5 text-blue-600 hover:text-blue-700">
             <ArrowRightLeft className="w-3.5 h-3.5" /> Transferir
           </Button>

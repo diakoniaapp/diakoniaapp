@@ -319,11 +319,9 @@ export default function Ebd() {
                 </p>
 
                 <div className="flex gap-1.5 mt-1">
-                  <Link to={`/ebd/${c.id}`} className="flex-1">
-                    <Button variant="outline" size="sm" className="w-full gap-1.5">
+                  <Button asChild variant="outline" size="sm" className="w-full gap-1.5"><Link to={`/ebd/${c.id}`} className="flex-1">
                       Abrir <ChevronRight className="w-3.5 h-3.5" />
-                    </Button>
-                  </Link>
+                    </Link></Button>
                   {podeCriar && (
                     <Button
                       type="button" variant="ghost" size="sm"

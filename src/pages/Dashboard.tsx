@@ -140,7 +140,7 @@ export default function Dashboard() {
             <button
               type="button"
               onClick={openCommandPalette}
-              className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              className="inline-flex items-center gap-1.5 min-h-[44px] px-2 -mr-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
               <Search className="w-3.5 h-3.5" />
               <span>Buscar qualquer página ou ação</span>

@@ -323,14 +323,18 @@ export default function AcoesHoje({ limit }: AcoesHojeProps = {}) {
                       ) : (
                         <div className="relative group">
                           <blockquote
-                            className="text-xs text-muted-foreground border-l-2 border-muted pl-2 pr-6 whitespace-pre-line leading-relaxed"
+                            className="text-xs text-muted-foreground border-l-2 border-muted pl-2 pr-9 whitespace-pre-line leading-relaxed"
                             translate="no"
                           >
                             {msgFinal}
                           </blockquote>
                           <button
-                            className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded text-muted-foreground/60 hover:text-muted-foreground"
+                            // Visivel por padrao no toque: group-hover nao existe
+                            // sem mouse, e o botao ficava inalcancavel no celular.
+                            // 32px atende o minimo de 24px da WCAG 2.2 (antes 16px).
+                            className="absolute top-0 right-0 flex items-center justify-center w-8 h-8 opacity-70 md:opacity-0 md:group-hover:opacity-100 transition-opacity rounded text-muted-foreground/60 hover:text-muted-foreground"
                             onClick={() => abrirEdicao(v)}
+                            aria-label="Editar mensagem"
                             title="Editar mensagem"
                           >
                             <Pencil className="w-3 h-3" />

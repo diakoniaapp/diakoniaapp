@@ -103,11 +103,9 @@ export default function FinancasRelatorio() {
       {/* Barra de controles */}
       <div className="no-print sticky top-0 z-10 bg-card border-b">
         <div className="max-w-5xl mx-auto px-4 py-2 flex items-center gap-2 flex-wrap">
-          <Link to="/financas">
-            <Button variant="ghost" size="sm" className="gap-1.5">
+          <Button asChild variant="ghost" size="sm" className="gap-1.5"><Link to="/financas">
               <ArrowLeft className="w-3.5 h-3.5" /> Voltar
-            </Button>
-          </Link>
+            </Link></Button>
           <div className="flex items-center gap-1">
             <Button size="sm" variant="outline" onClick={() => navegarMes(-1)}>
               <ChevronLeft className="w-3.5 h-3.5" />

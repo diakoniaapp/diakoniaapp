@@ -70,11 +70,9 @@ export function AcoesDoDia() {
                 <p className="text-xs text-muted-foreground">Lembra de fazer a chamada da EBD?</p>
               </div>
             </div>
-            <Link to="/ebd">
-              <Button type="button" size="sm" className="gap-1.5 bg-gold hover:bg-gold/90 text-white border-0">
+            <Button asChild size="sm" className="gap-1.5 bg-gold hover:bg-gold/90 text-white border-0"><Link to="/ebd">
                 Abrir EBD <ChevronRight className="w-3.5 h-3.5" />
-              </Button>
-            </Link>
+              </Link></Button>
           </CardContent>
         </Card>
       )}

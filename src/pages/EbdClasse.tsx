@@ -170,9 +170,7 @@ export default function EbdClasse() {
       {/* Cabeçalho */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3">
-          <Link to="/ebd">
-            <Button variant="ghost" size="icon"><ArrowLeft className="w-4 h-4" /></Button>
-          </Link>
+          <Button asChild variant="ghost" size="icon"><Link to="/ebd"><ArrowLeft className="w-4 h-4" /></Link></Button>
           <div>
             <h1 className="font-serif text-2xl flex items-center gap-2">
               <GraduationCap className="w-6 h-6 text-gold" />

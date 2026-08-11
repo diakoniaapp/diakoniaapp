@@ -171,9 +171,7 @@ export default function EbdChamada() {
     <div className="p-4 max-w-3xl mx-auto space-y-4">
       {/* Cabeçalho */}
       <div className="flex items-center gap-2">
-        <Link to={`/ebd/${classeId}`}>
-          <Button variant="ghost" size="icon"><ArrowLeft className="w-4 h-4" /></Button>
-        </Link>
+        <Button asChild variant="ghost" size="icon"><Link to={`/ebd/${classeId}`}><ArrowLeft className="w-4 h-4" /></Link></Button>
         <div className="min-w-0">
           <h1 className="font-serif text-xl flex items-center gap-2 truncate">
             <GraduationCap className="w-5 h-5 text-gold" />
