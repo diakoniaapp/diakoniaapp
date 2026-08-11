@@ -7,7 +7,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, supabaseRel } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
@@ -268,7 +268,7 @@ export default function EstruturaDaIgreja() {
       .from("membros").select("id,tipo_pessoa").eq("status", "ativo");
 
     // Diretoria eleita (cargos estatutarios)
-    const { data: ce } = await supabase
+    const { data: ce } = await supabaseRel
       .from("pessoa_cargo_estatutario")
       .select("id,mandato,pessoa_id,cargos_estatutarios(nome,nivel),membros(nome_completo,foto_url)")
       .eq("ativo", true)

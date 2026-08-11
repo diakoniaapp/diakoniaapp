@@ -5,7 +5,7 @@
 // ============================================================
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, supabaseRel } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -274,7 +274,7 @@ export default function Organograma() {
       }
 
       // Diretoria estatutária
-      const { data: ce } = await supabase
+      const { data: ce } = await supabaseRel
         .from("pessoa_cargo_estatutario")
         .select("id,mandato,pessoa_id,cargos_estatutarios(nome,nivel),membros(nome_completo,foto_url)")
         .eq("ativo", true)
@@ -296,7 +296,7 @@ export default function Organograma() {
       setConselho((cv ?? []) as ConselhoMembro[]);
 
       // Ministérios com líderes
-      const { data: mins } = await supabase
+      const { data: mins } = await supabaseRel
         .from("ministerios")
         .select(`
           id, nome, sigla, cor, tipo,
@@ -308,19 +308,19 @@ export default function Organograma() {
         .order("nome");
 
       // Áreas com líderes
-      const { data: allAreas } = await supabase
+      const { data: allAreas } = await supabaseRel
         .from("areas")
         .select("id,ministerio_id,nome,lider:membros(id,nome_completo,foto_url)")
         .eq("ativo", true);
 
       // Setores
-      const { data: allSetores } = await supabase
+      const { data: allSetores } = await supabaseRel
         .from("setores")
         .select("id,area_id,nome,lider:membros(id,nome_completo,foto_url)")
         .eq("ativo", true);
 
       // Membros por ministério
-      const { data: membMin } = await supabase
+      const { data: membMin } = await supabaseRel
         .from("ministerio_membros")
         .select("ministerio_id,funcao,membros(id,nome_completo)")
         .eq("ativo", true);

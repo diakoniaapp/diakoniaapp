@@ -4,7 +4,7 @@
 // ============================================================
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, supabaseRel } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, User, Shield, Church, MapPin, Calendar, Star } from "lucide-react";
@@ -120,7 +120,7 @@ export default function PessoaCard({ pessoaId, open, onClose }: PessoaCardProps)
       setPessoa(p ?? null);
 
       // Cargos estatutários
-      const { data: ce } = await supabase
+      const { data: ce } = await supabaseRel
         .from("pessoa_cargo_estatutario")
         .select("mandato, cargos_estatutarios(nome, nivel)")
         .eq("pessoa_id", pessoaId)
@@ -132,12 +132,12 @@ export default function PessoaCard({ pessoaId, open, onClose }: PessoaCardProps)
       })));
 
       // Ministérios (via ministerio_membros legado + pessoa_participacao)
-      const { data: mm } = await supabase
+      const { data: mm } = await supabaseRel
         .from("ministerio_membros")
         .select("funcao, ministerios(nome, cor)")
         .eq("membro_id", pessoaId)
         .eq("ativo", true);
-      const { data: pp } = await supabase
+      const { data: pp } = await supabaseRel
         .from("pessoa_participacao")
         .select("funcao, ministerios(nome, cor)")
         .eq("pessoa_id", pessoaId)
@@ -163,7 +163,7 @@ export default function PessoaCard({ pessoaId, open, onClose }: PessoaCardProps)
       setMinerios(uniqMin);
 
       // Áreas
-      const { data: pa } = await supabase
+      const { data: pa } = await supabaseRel
         .from("pessoa_participacao")
         .select("funcao, areas(nome, ministerios(nome))")
         .eq("pessoa_id", pessoaId)
