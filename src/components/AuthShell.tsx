@@ -166,7 +166,12 @@ export function AuthShell({ children, versiculoFixo, wide = false, semVersiculo 
 }
 
 // ── Card padrão de autenticação ────────────────────────────
-export function AuthCard({ children, className }: { children: React.ReactNode; className?: string }) {
+export function AuthCard({ children, titulo, className }: {
+  children: React.ReactNode;
+  /** Cabeçalho do card. Segue a mesma tipografia do título em Auth.tsx. */
+  titulo?: string;
+  className?: string;
+}) {
   return (
     <div
       className={cn(
@@ -175,6 +180,11 @@ export function AuthCard({ children, className }: { children: React.ReactNode; c
         className,
       )}
     >
+      {titulo && (
+        <h1 className="font-serif text-2xl font-bold tracking-wide text-foreground">
+          {titulo}
+        </h1>
+      )}
       {children}
     </div>
   );
