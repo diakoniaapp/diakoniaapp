@@ -49,6 +49,7 @@ export default function EsqueciSenha() {
             </p>
             <form onSubmit={solicitar} className="space-y-4">
               <AuthCampo
+                id="telefone"
                 label="Telefone (com DDD)"
                 type="tel"
                 value={formatarTelefone(telefone)}

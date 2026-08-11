@@ -217,7 +217,9 @@ export default function EbdCampanha() {
                     <Badge variant="outline" className="text-[10px]">{TIPO_LABEL[e.tipo]}</Badge>
                     <Badge variant="outline" className="text-[10px]">{FORMA_LABEL[e.forma]}</Badge>
                     {tinhaSimbolico && (
-                      <Sparkles className="w-3 h-3 text-gold" title="Inclui R$0,10 simbólicos" />
+                      <span title="Inclui R$0,10 simbólicos">
+                        <Sparkles className="w-3 h-3 text-gold" />
+                      </span>
                     )}
                     {e.comprovante_url && (
                       <button

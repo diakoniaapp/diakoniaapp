@@ -149,8 +149,11 @@ export default function Auth() {
     });
     // Registra solicitação administrativa
     const { data: membro } = await supabase
+      // membros nao tem coluna `telefone`; o celular fica em telefone_celular,
+      // gravado so com digitos (ver ebdService). Consultando o nome errado, a
+      // query falhava e a solicitacao era registrada sem nome nem pessoa_id.
       .from("membros").select("id, nome_completo")
-      .eq("telefone", digits).maybeSingle();
+      .eq("telefone_celular", digits).maybeSingle();
     await supabase.from("recuperacao_senha").insert({
       email, nome: membro?.nome_completo ?? null,
       pessoa_id: membro?.id ?? null, status: "pendente",

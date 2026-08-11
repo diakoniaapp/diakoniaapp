@@ -1064,7 +1064,11 @@ export default function IdentidadeAdmin() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="text-sm font-medium leading-tight">{inst.nome}</p>
                         {inst.sigla && <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded font-mono">{inst.sigla}</span>}
-                        {inst.permite_integracao && <Zap className="w-3 h-3 text-amber-500" title="Permite integração com agenda" />}
+                        {inst.permite_integracao && (
+                          <span title="Permite integração com agenda">
+                            <Zap className="w-3 h-3 text-amber-500" />
+                          </span>
+                        )}
                         <Badge variant="outline" className="text-[10px] py-0 px-1.5 h-4">
                           {TIPOS_INSTITUICAO[inst.tipo_instituicao] ?? inst.tipo_instituicao}
                         </Badge>

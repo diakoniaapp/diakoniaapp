@@ -90,11 +90,12 @@ export function UsuarioTable({
                       <span className={nomeInconsistente ? "text-muted-foreground italic" : "font-medium"}>
                         {nomeExibido(u.nome)}
                       </span>
+                      {/* Tooltip precisa vir de um elemento HTML: `title` num ícone
+                          Lucide vira atributo do <svg>, que não exibe dica. */}
                       {nomeInconsistente && (
-                        <TriangleAlert
-                          className="inline w-3.5 h-3.5 text-amber-500 mb-0.5 ml-1"
-                          title="Nome inválido no banco — execute o SQL de limpeza"
-                        />
+                        <span title="Nome inválido no banco — execute o SQL de limpeza">
+                          <TriangleAlert className="inline w-3.5 h-3.5 text-amber-500 mb-0.5 ml-1" />
+                        </span>
                       )}
                     </td>
 

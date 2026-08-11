@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/select";
 import { AlertCircle, MessageCircle, RefreshCw, UserPlus } from "lucide-react";
 import { limparTelefone, nomeValido } from "@/services/userService";
+import { normalizarTelefone } from "@/lib/telefone";
+import { TelefoneInput } from "@/components/ui/TelefoneInput";
 import type { NovoUsuarioDados, RoleOption } from "@/types/usuario";
 
 // ─── Props ────────────────────────────────────────────────────────────────────
