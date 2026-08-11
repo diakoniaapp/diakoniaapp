@@ -101,8 +101,8 @@ export function AcoesDoDia() {
                     <div className="flex-1 min-w-0">
                       <p className="font-medium truncate">{ev.titulo}</p>
                       <p className="text-xs text-muted-foreground">
-                        {(ev.anos_completar ?? 0) > 0 
-                          ? `${ev.anos_completar} ${sufixo}` 
+                        {(ev.anos_vai_completar ?? 0) > 0
+                          ? `${ev.anos_vai_completar} ${sufixo}`
                           : ehAnis ? "Aniversário" : "Aniversário de casamento"}
                       </p>
                       {ev.telefone && (

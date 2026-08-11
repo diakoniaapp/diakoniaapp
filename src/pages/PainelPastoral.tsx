@@ -410,8 +410,8 @@ function LinhaEvento({ ev, onWhats }: { ev: EventoPastoral; onWhats: (e: EventoP
         <div className="min-w-0">
           <p className="font-medium truncate text-sm">{ev.titulo}</p>
           <p className="text-xs text-muted-foreground">
-            {quando} · {(ev.anos_completar ?? ev.anos_vai_completar) > 0 
-              ? `${ev.anos_completar ?? ev.anos_vai_completar} ${ehAnis ? "anos" : "anos de casados"}`
+            {quando} · {(ev.anos_vai_completar ?? 0) > 0
+              ? `${ev.anos_vai_completar} ${ehAnis ? "anos" : "anos de casados"}`
               : "—"}
           </p>
         </div>

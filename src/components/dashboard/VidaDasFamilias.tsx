@@ -112,7 +112,7 @@ function ColunaEventos({ cor, icon: Icon, titulo, lista, onWhats, sufixo }: Colu
                     <p className="text-sm font-medium truncate">{ev.titulo}</p>
                     <p className="text-[11px] text-muted-foreground">
                       {quando}
-                      {(ev.anos_completar ?? 0) > 0 && ` · ${ev.anos_completar} ${sufixo}`}
+                      {(ev.anos_vai_completar ?? 0) > 0 && ` · ${ev.anos_vai_completar} ${sufixo}`}
                     </p>
                   </div>
                   {(ev.telefone || ev.telefone_secundario) && (

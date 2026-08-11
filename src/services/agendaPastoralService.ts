@@ -28,12 +28,23 @@ export async function agendaDoMes(ano?: number, mes?: number): Promise<EventoPas
 }
 
 // ── Próximos N dias ────────────────────────────────────────────────────────
+// As duas RPCs divergem no nome do campo: agenda_pastoral_mes devolve
+// `anos_vai_completar` e agenda_pastoral_proximos_dias devolve
+// `anos_completar`. Normalizamos aqui para que EventoPastoral seja verdadeiro
+// nas duas origens.
+//
+// Sem isso o campo chegava `undefined` a quem consome esta função (painel,
+// Vida das Famílias, Painel Pastoral) e `undefined > 0` silenciosamente
+// derrubava a contagem de anos da mensagem de bodas no WhatsApp.
 export async function proximosDias(dias = 7): Promise<EventoPastoral[]> {
   const { data, error } = await supabase.rpc("agenda_pastoral_proximos_dias", {
     p_dias: dias,
   });
   if (error) throw error;
-  return (data ?? []) as EventoPastoral[];
+  return (data ?? []).map((ev) => {
+    const { anos_completar, ...resto } = ev as EventoPastoral & { anos_completar?: number };
+    return { ...resto, anos_vai_completar: anos_completar ?? resto.anos_vai_completar ?? 0 };
+  });
 }
 
 // ─── Templates de mensagem pastoral ───────────────────────────────────────
