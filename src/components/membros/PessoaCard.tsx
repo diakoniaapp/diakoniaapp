@@ -120,7 +120,8 @@ export default function PessoaCard({ pessoaId, open, onClose }: PessoaCardProps)
       setPessoa(p ?? null);
 
       // Cargos estatutários
-      const { data: ce } = await supabaseRel
+      // TABELA AUSENTE EM PRODUCAO — ver migration 20260528_estrutura_organizacional.sql
+      const { data: ce } = await supabase
         .from("pessoa_cargo_estatutario")
         .select("mandato, cargos_estatutarios(nome, nivel)")
         .eq("pessoa_id", pessoaId)
@@ -137,7 +138,8 @@ export default function PessoaCard({ pessoaId, open, onClose }: PessoaCardProps)
         .select("funcao, ministerios(nome, cor)")
         .eq("membro_id", pessoaId)
         .eq("ativo", true);
-      const { data: pp } = await supabaseRel
+      // TABELA AUSENTE EM PRODUCAO — ver migration 20260528_estrutura_organizacional.sql
+      const { data: pp } = await supabase
         .from("pessoa_participacao")
         .select("funcao, ministerios(nome, cor)")
         .eq("pessoa_id", pessoaId)
@@ -163,7 +165,8 @@ export default function PessoaCard({ pessoaId, open, onClose }: PessoaCardProps)
       setMinerios(uniqMin);
 
       // Áreas
-      const { data: pa } = await supabaseRel
+      // TABELA AUSENTE EM PRODUCAO — ver migration 20260528_estrutura_organizacional.sql
+      const { data: pa } = await supabase
         .from("pessoa_participacao")
         .select("funcao, areas(nome, ministerios(nome))")
         .eq("pessoa_id", pessoaId)

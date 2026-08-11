@@ -268,7 +268,8 @@ export default function EstruturaDaIgreja() {
       .from("membros").select("id,tipo_pessoa").eq("status", "ativo");
 
     // Diretoria eleita (cargos estatutarios)
-    const { data: ce } = await supabaseRel
+    // TABELA AUSENTE EM PRODUCAO — ver migration 20260528_estrutura_organizacional.sql
+    const { data: ce } = await supabase
       .from("pessoa_cargo_estatutario")
       .select("id,mandato,pessoa_id,cargos_estatutarios(nome,nivel),membros(nome_completo,foto_url)")
       .eq("ativo", true)

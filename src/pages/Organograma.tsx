@@ -274,7 +274,8 @@ export default function Organograma() {
       }
 
       // Diretoria estatutária
-      const { data: ce } = await supabaseRel
+      // TABELA AUSENTE EM PRODUCAO — ver migration 20260528_estrutura_organizacional.sql
+      const { data: ce } = await supabase
         .from("pessoa_cargo_estatutario")
         .select("id,mandato,pessoa_id,cargos_estatutarios(nome,nivel),membros(nome_completo,foto_url)")
         .eq("ativo", true)
@@ -314,7 +315,8 @@ export default function Organograma() {
         .eq("ativo", true);
 
       // Setores
-      const { data: allSetores } = await supabaseRel
+      // TABELA AUSENTE EM PRODUCAO — ver migration 20260528_estrutura_organizacional.sql
+      const { data: allSetores } = await supabase
         .from("setores")
         .select("id,area_id,nome,lider:membros(id,nome_completo,foto_url)")
         .eq("ativo", true);

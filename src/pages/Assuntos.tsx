@@ -42,10 +42,10 @@ export default function Assuntos() {
       // Buscar telefone do responsável
       const { data: pessoa } = await supabase
         .from("membros")
-        .select("telefone")
+        .select("telefone_celular")
         .eq("id", assunto.responsavel_id)
         .maybeSingle();
-      const { url } = montarLembreteAssuntoIndividual(assunto, pessoa?.telefone ?? null);
+      const { url } = montarLembreteAssuntoIndividual(assunto, pessoa?.telefone_celular ?? null);
       window.open(url, "_blank");
     } catch (err: any) {
       toast.error("Erro ao montar lembrete: " + (err?.message ?? "desconhecido"));
@@ -71,7 +71,7 @@ export default function Assuntos() {
     for (const [respId, lista] of porResp) {
       const { data: pessoa } = await supabase
         .from("membros")
-        .select("telefone, nome_completo")
+        .select("telefone_celular, nome_completo")
         .eq("id", respId)
         .maybeSingle();
       if (!pessoa) continue;
@@ -90,7 +90,7 @@ export default function Assuntos() {
       });
       linhas.push("_Por gentileza, sinaliza pra mim como anda cada um?_", "", "_Secretaria · QIBRJ_");
       const mensagem = linhas.join("\n");
-      const tel = (pessoa.telefone ?? "").replace(/\D/g, "");
+      const tel = (pessoa.telefone_celular ?? "").replace(/\D/g, "");
       const url = tel ? `https://wa.me/${tel}?text=${encodeURIComponent(mensagem)}` : `https://wa.me/?text=${encodeURIComponent(mensagem)}`;
       window.open(url, "_blank");
       // Pequena pausa pra navegador não bloquear pop-ups
