@@ -104,12 +104,16 @@ export function AvisoConflitoOcupacao({
           for (const oc of ocorrencias) {
             // ignora a si mesmo
             if (excluirRefId && (oc.baseId === excluirRefId || oc.serieId === excluirRefId)) continue;
-            const ocIni = combinarData(oc.data, oc.hora_inicio ?? "00:00");
-            const ocFim = combinarData(oc.data, oc.hora_fim ?? "23:59", oc.hora_inicio);
+            // Os campos do evento ficam em oc.evento (EventoRow), não na
+            // ocorrência. Lidos do lugar errado, vinham undefined e o
+            // fallback fazia o recorrente ocupar o dia inteiro na checagem
+            // de conflito — barrando reservas válidas por falso positivo.
+            const ocIni = combinarData(oc.data, oc.evento.hora_inicio ?? "00:00");
+            const ocFim = combinarData(oc.data, oc.evento.hora_fim ?? "23:59", oc.evento.hora_inicio);
             if (sobrepoe(ocIni, ocFim, ini, fim)) {
               achados.push({
                 fonte: "recorrente",
-                titulo: oc.titulo ?? "Evento recorrente",
+                titulo: oc.evento.titulo ?? "Evento recorrente",
                 inicio: ocIni.toISOString(),
                 fim: ocFim.toISOString(),
               });

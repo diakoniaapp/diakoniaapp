@@ -3,6 +3,12 @@ import { supabase } from "@/integrations/supabase/client";
 export type Periodicidade = "mensal" | "trimestral" | "anual" | "extraordinaria";
 export type StatusReuniao = "agendada" | "em_andamento" | "realizada" | "cancelada";
 
+// Nota sobre os casts via `unknown` neste arquivo:
+// pauta_jsonb é uma coluna jsonb, tipada como Json pelo gerador — uma união
+// que inclui primitivos. TypeScript recusa a conversão direta para
+// PautaFinanceira ("neither type sufficiently overlaps") e recomenda passar
+// por unknown. A forma do JSON é garantida pela RPC montar_pauta_financeira,
+// não pelo schema, então o cast é a única opção honesta aqui.
 export interface ReuniaoFinanceira {
   id: string;
   titulo: string;
@@ -55,7 +61,7 @@ export async function listarReunioes(): Promise<ReuniaoFinanceira[]> {
     .order("data_reuniao", { ascending: false })
     .limit(50);
   if (error) throw error;
-  return (data ?? []) as ReuniaoFinanceira[];
+  return (data ?? []) as unknown as ReuniaoFinanceira[];
 }
 
 export async function carregarReuniao(id: string): Promise<ReuniaoFinanceira | null> {
@@ -65,23 +71,23 @@ export async function carregarReuniao(id: string): Promise<ReuniaoFinanceira | n
     .eq("id", id)
     .maybeSingle();
   if (error) throw error;
-  return data as ReuniaoFinanceira | null;
+  return data as unknown as ReuniaoFinanceira | null;
 }
 
 export async function criarReuniao(input: Partial<ReuniaoFinanceira>): Promise<ReuniaoFinanceira> {
   const { data, error } = await supabase
     .from("fin_reunioes_financeiras")
-    .insert(input)
+    .insert(input as never)
     .select()
     .single();
   if (error) throw error;
-  return data as ReuniaoFinanceira;
+  return data as unknown as ReuniaoFinanceira;
 }
 
 export async function atualizarReuniao(id: string, patch: Partial<ReuniaoFinanceira>): Promise<void> {
   const { error } = await supabase
     .from("fin_reunioes_financeiras")
-    .update({ ...patch, atualizado_em: new Date().toISOString() })
+    .update({ ...patch, atualizado_em: new Date().toISOString() } as never)
     .eq("id", id);
   if (error) throw error;
 }
@@ -101,7 +107,7 @@ export async function gerarPautaAutomatica(inicio: string, fim: string): Promise
     p_competencia_fim: fim,
   });
   if (error) throw error;
-  return data as PautaFinanceira;
+  return data as unknown as PautaFinanceira;
 }
 
 /** Atalho: gera a pauta E salva como snapshot na reunião. */
@@ -130,11 +136,11 @@ export async function listarDecisoes(reuniaoId: string): Promise<DecisaoReuniao[
 export async function adicionarDecisao(input: Partial<DecisaoReuniao>): Promise<DecisaoReuniao> {
   const { data, error } = await supabase
     .from("fin_decisoes_reuniao")
-    .insert(input)
+    .insert(input as never)
     .select()
     .single();
   if (error) throw error;
-  return data as DecisaoReuniao;
+  return data as unknown as DecisaoReuniao;
 }
 
 export async function atualizarDecisao(id: string, patch: Partial<DecisaoReuniao>): Promise<void> {
