@@ -65,11 +65,12 @@ export default function ResetSenha() {
       return;
     }
 
-    // Marca must_change_password como false caso ainda esteja ativo
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      await supabase.from("profiles").update({ must_change_password: false }).eq("id", user.id);
-    }
+    // Limpa must_change_password, que mora no metadata do usuário de auth e
+    // não na tabela profiles. Escrito no lugar errado, o update falhava e o
+    // flag continuava ativo: o guard do AppLayout devolvia a pessoa para
+    // /primeiro-acesso logo após ela ter acabado de trocar a senha.
+    // Mesmo caminho usado em PrimeiroAcesso.tsx.
+    await supabase.auth.updateUser({ data: { must_change_password: false } });
 
     toast.success("Senha redefinida com sucesso! Faça login para continuar.");
     setConcluido(true);

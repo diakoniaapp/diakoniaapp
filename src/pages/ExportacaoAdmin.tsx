@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { useAuth } from "@/hooks/useAuth";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -77,7 +78,10 @@ export default function ExportacaoAdmin() {
   const navigate = useNavigate();
 
   // Filtros de exportação
-  const [filtroTipo, setFiltroTipo] = useState<string>("todos");
+  // Tipado a partir do enum real: `string` deixava passar valores que a
+  // coluna tipo_pessoa rejeita.
+  const [filtroTipo, setFiltroTipo] =
+    useState<Database["public"]["Enums"]["tipo_pessoa"] | "todos">("todos");
   const [filtroMinist, setFiltroMinist] = useState<string>("todos");
   const [camposSel, setCamposSel] = useState<string[]>(["nome_completo","email","telefone","tipo_pessoa","status"]);
   const [ministerios, setMinerios] = useState<Ministerio[]>([]);
@@ -235,7 +239,10 @@ export default function ExportacaoAdmin() {
             <CardContent className="space-y-4">
               <div>
                 <Label>Tipo de pessoa</Label>
-                <Select value={filtroTipo} onValueChange={setFiltroTipo}>
+                <Select
+                  value={filtroTipo}
+                  onValueChange={(v) => setFiltroTipo(v as typeof filtroTipo)}
+                >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="todos">Todos</SelectItem>

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 import { useAuth } from "@/hooks/useAuth";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -242,7 +243,8 @@ export default function ImportacaoMembros() {
       status: "processando",
       total_linhas: linhas.length,
       mapeamento,
-      preview_dados: linhas.slice(0,5),
+      // coluna jsonb: LinhaImport[] não é atribuível a Json diretamente
+      preview_dados: linhas.slice(0,5) as unknown as Json,
       enviado_por: user?.id,
     }).select("id").single();
 

@@ -3,7 +3,7 @@
 // Acrescenta: estrutura modular dos 9 blocos com shells e Bloco 1 (Ações Rápidas)
 // Fases seguintes vão preencher cada Bloco como widget próprio.
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ComponentType } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -164,7 +164,8 @@ export default function Dashboard() {
 interface BlocoSecaoProps {
   titulo: string;
   subtitulo?: string;
-  icon: typeof Sparkles;
+  /** Aceita ícones Lucide e os do widgetRegistry, tipados como ComponentType. */
+  icon: ComponentType<{ className?: string }>;
   children: React.ReactNode;
 }
 function BlocoSecao({ titulo, subtitulo, icon: Icon, children }: BlocoSecaoProps) {

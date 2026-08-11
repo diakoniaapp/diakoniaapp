@@ -26,7 +26,6 @@ const VINCULO_LABEL: Record<FinCentroVinculo, string> = {
   ebd_classe: "Classe EBD",
   pgm_grupo: "PGM",
   campanha: "Campanha",
-  evento: "Evento",
   geral: "Geral",
 };
 
@@ -35,8 +34,9 @@ const VINCULO_COR: Record<FinCentroVinculo, string> = {
   area:       "bg-blue-100 text-blue-700 border-blue-300",
   ebd_classe: "bg-emerald-100 text-emerald-700 border-emerald-300",
   pgm_grupo:  "bg-amber-100 text-amber-700 border-amber-300",
+  // O enum fin_centro_vinculo não tem "evento" — entradas removidas por serem
+  // inalcançáveis.
   campanha:   "bg-rose-100 text-rose-700 border-rose-300",
-  evento:     "bg-cyan-100 text-cyan-700 border-cyan-300",
   geral:      "bg-muted text-muted-foreground border-border",
 };
 

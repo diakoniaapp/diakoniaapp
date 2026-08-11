@@ -480,7 +480,14 @@ export default function VisitanteDetalhe() {
       </Card>
 
       {/* ── Histórico ─────────────────────────────────────────────────────────── */}
-      <VisitanteTimeline pessoaId={visitante.id} />
+      {/* dataCadastro é obrigatório: sem ele o marco "primeiro culto" recebia
+          created_at undefined e virava Invalid Date na ordenação. */}
+      <VisitanteTimeline
+        pessoaId={visitante.id}
+        dataCadastro={visitante.created_at}
+        dataCongregado={visitante.data_congregado}
+        dataMembro={visitante.data_membro}
+      />
 
       {/* ── Ação: Tornar Congregado ────────────────────────────────────────────── */}
       {visitante.tipo_pessoa === "visitante" && (
