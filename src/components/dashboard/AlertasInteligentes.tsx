@@ -38,8 +38,7 @@ export function AlertasInteligentes() {
           supabase.from("vw_ebd_alertas_idade")
             .select("pessoa_id, nome_completo, idade_atual, classe_atual, classe_sugerida_id")
             .limit(50)
-            .then(r => (r.data ?? []) as AlertaIdade[])
-            .catch(() => []),
+            .then(r => (r.data ?? []) as AlertaIdade[], () => [] as AlertaIdade[]),
         ]);
         if (!cancelled) {
           setFamiliasSemResp(fs);

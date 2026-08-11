@@ -214,7 +214,7 @@ export async function criarAcessoPessoa(params: {
       p_pessoa_id:   params.pessoaId,
       p_user_id:     uid,
       p_detalhes:    { role: params.role, telefone: tel },
-    }).then(() => {}).catch((e) => console.warn("[audit_log]", e));
+    }).then(() => {}, (e) => console.warn("[audit_log]", e));
 
     return { ok: true, senha, tel };
   } catch (e: unknown) {
@@ -253,7 +253,7 @@ export async function resetarSenhaAcesso(
       p_pessoa_id:   pessoaId,
       p_user_id:     userId,
       p_detalhes:    {},
-    }).then(() => {}).catch((e) => console.warn("[audit_log]", e));
+    }).then(() => {}, (e) => console.warn("[audit_log]", e));
   }
 
   return { ok: true, senha };

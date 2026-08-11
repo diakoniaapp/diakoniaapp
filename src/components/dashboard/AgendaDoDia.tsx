@@ -44,11 +44,14 @@ export function AgendaDoDia() {
   useEffect(() => {
     let cancelled = false;
     const hoje = new Date().toISOString().slice(0, 10);
-    supabase.from("eventos")
-      .select("id, titulo, tipo, hora_inicio, hora_fim, local, status, cor")
-      .eq("data", hoje)
-      .neq("status", "cancelado")
-      .order("hora_inicio", { ascending: true, nullsFirst: false })
+    // Promise.resolve porque o builder do Supabase é PromiseLike e não expõe .finally
+    Promise.resolve(
+      supabase.from("eventos")
+        .select("id, titulo, tipo, hora_inicio, hora_fim, local, status, cor")
+        .eq("data", hoje)
+        .neq("status", "cancelado")
+        .order("hora_inicio", { ascending: true, nullsFirst: false })
+    )
       .then(({ data }) => { if (!cancelled) setEventos((data ?? []) as EventoHoje[]); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
