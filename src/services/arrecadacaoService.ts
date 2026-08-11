@@ -11,7 +11,7 @@
 // A onda 3B traz UI; 3C traz PDV/caixa; 3D traz movimentos; 3E remove bazar.
 // ══════════════════════════════════════════════════════════════════════
 
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, supabaseRel } from "@/integrations/supabase/client";
 
 // ─── Enums (refletem os enums SQL exatamente) ───────────────────────────
 export type ReservaStatus =
@@ -387,7 +387,7 @@ export async function listarProdutos(
 export async function criarProduto(input: Partial<Produto>): Promise<Produto> {
   const { data, error } = await supabase
     .from("arr_produtos")
-    .insert(input).select().single();
+    .insert(input as never).select().single();
   if (error) throw error;
   return data as Produto;
 }
@@ -993,7 +993,11 @@ export async function contarProblemasAbertos(): Promise<number> {
   return count ?? 0;
 }
 
-export async function atualizarProblema(id: string, patch: Partial<ProblemaManutencao>): Promise<void> {
+// `espaco` vem de join, não é coluna: incluí-lo no patch quebraria o update.
+export async function atualizarProblema(
+  id: string,
+  patch: Partial<Omit<ProblemaManutencao, "espaco">>,
+): Promise<void> {
   const { error } = await supabase
     .from("arr_problemas_manutencao").update(patch).eq("id", id);
   if (error) throw error;
@@ -1029,10 +1033,12 @@ export interface ResumoManutencao {
 export async function carregarResumoManutencao(): Promise<ResumoManutencao> {
   const { data, error } = await supabase.rpc("arr_problemas_resumo");
   if (error) throw error;
+  // RPCs devolvem jsonb (Json): união com primitivos, sem sobreposição
+  // suficiente para conversão direta. A forma vem garantida pela função.
   return (data ?? {
     total_aberto: 0, total_andamento: 0, total_alta_prioridade: 0,
     por_categoria: [], recorrentes: [], top_espaco: [],
-  }) as ResumoManutencao;
+  }) as unknown as ResumoManutencao;
 }
 
 export async function atualizarResponsavelEspaco(
@@ -1125,7 +1131,7 @@ export async function aprovarReservaComAcordo(
     p_reserva_id: reservaId,
   });
   if (error) throw error;
-  return data as AprovacaoResult;
+  return data as unknown as AprovacaoResult;
 }
 
 
@@ -1232,7 +1238,7 @@ export async function verificarConflitoOcupacao(
     p_excluir_ref_id: excluirRefId ?? null,
   });
   if (error) throw error;
-  return (data ?? { conflito: false }) as ConflitoOcupacao;
+  return (data ?? { conflito: false }) as unknown as ConflitoOcupacao;
 }
 
 
@@ -1246,7 +1252,7 @@ export async function localIdDoEspaco(codigo: "BAZAR" | "CANTINA"): Promise<stri
   if (_localCache.has(codigo)) return _localCache.get(codigo) ?? null;
   const nome = codigo === "BAZAR" ? "Bazar" : "Cozinha";
   const { data } = await supabase
-    .from("locais" as any)
+    .from("locais")
     .select("id")
     .ilike("nome", nome)
     .limit(1)
@@ -1283,7 +1289,7 @@ const PAPEL_LABEL: Record<PapelDestinatario, string> = {
  */
 export async function listarDestinatariosTermo(reservaId: string): Promise<DestinatarioTermo[]> {
   // Carrega a reserva com FKs essenciais
-  const { data: r, error: er } = await supabase
+  const { data: r, error: er } = await supabaseRel
     .from("arr_reservas")
     .select(`
       responsavel_id, area_solicitante_id, solicitada_por,
@@ -1305,15 +1311,25 @@ export async function listarDestinatariosTermo(reservaId: string): Promise<Desti
   if (area?.lider_id) candidatos.push({ id: area.lider_id, papel: "lider_area" });
   if (area?.co_lider_id) candidatos.push({ id: area.co_lider_id, papel: "co_lider_area" });
 
-  // Solicitante (auth user → membros.user_id)
+  // Solicitante: membros não tem coluna user_id. O vínculo com o usuário
+  // autenticado passa por profiles.id (uid) → profiles.pessoa_id →
+  // membros.id, que é o mesmo caminho usado no AppLayout. Consultando
+  // membros.user_id, a query falhava e o solicitante nunca era incluído
+  // entre os destinatários do termo.
   if (r.solicitada_por) {
-    const { data: sol } = await supabase
-      .from("membros")
-      .select("id, nome_completo, telefone_celular")
-      .eq("user_id", r.solicitada_por)
-      .limit(1)
+    const { data: perfil } = await supabase
+      .from("profiles")
+      .select("pessoa_id")
+      .eq("id", r.solicitada_por)
       .maybeSingle();
-    if (sol) candidatos.push({ id: sol.id, papel: "solicitante", nome: sol.nome_completo, tel: sol.telefone_celular });
+    if (perfil?.pessoa_id) {
+      const { data: sol } = await supabase
+        .from("membros")
+        .select("id, nome_completo, telefone_celular")
+        .eq("id", perfil.pessoa_id)
+        .maybeSingle();
+      if (sol) candidatos.push({ id: sol.id, papel: "solicitante", nome: sol.nome_completo, tel: sol.telefone_celular });
+    }
   }
 
   // Busca nomes/telefones dos que ainda não temos (líder, co-líder)
@@ -1354,7 +1370,7 @@ export async function listarDestinatariosTermo(reservaId: string): Promise<Desti
 // ════════════════════════════════════════════════════════════════════════
 // Itens-template do checklist (F10 — gestão por espaço)
 // ════════════════════════════════════════════════════════════════════════
-export type ChecklistTipo = "pre_uso" | "pos_uso";
+// ChecklistTipo já é declarado na seção de checklist v2, acima.
 
 export interface ChecklistTemplate {
   id: string;
