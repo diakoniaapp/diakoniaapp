@@ -12,42 +12,53 @@
 
 -- ############ origem: 20260528_estrutura_organizacional.sql ############
 -- ============================================================
--- REESTRUTURAÃ‡ÃƒO ORGANIZACIONAL COMPLETA
--- Diakonia App v3.0 â€” Estrutura Oficial da Igreja
+-- REESTRUTURAÇÃO ORGANIZACIONAL COMPLETA
+-- Diakonia App v3.0 - Estrutura Oficial da Igreja
 -- ============================================================
--- Camadas: Assembleia â†’ Diretoria â†’ Conselho â†’ MinistÃ©rios
---          â†’ Ãreas â†’ Setores â†’ Pessoas â†’ Escalas
+-- Camadas: Assembleia -  Diretoria -  Conselho -  Ministérios
+--          -  Áreas -  Setores -  Pessoas -  Escalas
 -- ============================================================
 
--- â”€â”€ 1. Aprimorar ministerios com tipo â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- ----------------------------------------
 ALTER TABLE public.ministerios
   ADD COLUMN IF NOT EXISTS tipo TEXT DEFAULT 'operacional'
     CHECK (tipo IN ('operacional', 'governanca'));
 
 ALTER TABLE public.ministerios
-  ADD COLUMN IF NOT EXISTS cor TEXT;   -- ex: '#7C3AED' para identificaÃ§Ã£o visual
+  ADD COLUMN IF NOT EXISTS cor TEXT;   -- ex: '#7C3AED' para identificação visual
 
--- Seed: ministÃ©rios oficiais (ON CONFLICT Ã© por nome)
-INSERT INTO public.ministerios (nome, tipo, ativo, cor) VALUES
-  ('Celebrando a TransformaÃ§Ã£o', 'operacional', true, '#7C3AED'),
+-- Seed: ministérios oficiais.
+-- Nao usa ON CONFLICT (nome): nao existe constraint unica em
+-- ministerios.nome neste banco, e ON CONFLICT sem constraint
+-- correspondente aborta com 42P10 — derrubando a migration inteira antes
+-- de criar qualquer tabela. WHERE NOT EXISTS e idempotente sem exigir
+-- constraint, e nao impoe uma decisao de modelagem que nao e desta
+-- migration tomar.
+INSERT INTO public.ministerios (nome, tipo, ativo, cor)
+SELECT v.nome, v.tipo, v.ativo, v.cor
+FROM (VALUES
+  ('Celebrando a Transformação', 'operacional', true, '#7C3AED'),
   ('Pastoral',                   'operacional', true, '#2563EB'),
-  ('AdministraÃ§Ã£o',              'operacional', true, '#0891B2'),
-  ('ComunicaÃ§Ã£o',                'operacional', true, '#7C3AED'),
-  ('Diaconia e AÃ§Ã£o Social',     'operacional', true, '#DC2626'),
-  ('EducaÃ§Ã£o CristÃ£',            'operacional', true, '#D97706'),
-  ('MÃºsica',                     'operacional', true, '#7C3AED'),
-  ('MissÃµes e Evangelismo',      'operacional', true, '#059669'),
-  ('ComunhÃ£o e IntegraÃ§Ã£o',      'operacional', true, '#DB2777'),
-  ('FamÃ­lias',                   'operacional', true, '#EA580C'),
-  ('OraÃ§Ã£o',                     'operacional', true, '#6D28D9')
-ON CONFLICT (nome) DO NOTHING;
+  ('Administração',              'operacional', true, '#0891B2'),
+  ('Comunicação',                'operacional', true, '#7C3AED'),
+  ('Diaconia e Ação Social',     'operacional', true, '#DC2626'),
+  ('Educação Cristã',            'operacional', true, '#D97706'),
+  ('Música',                     'operacional', true, '#7C3AED'),
+  ('Missões e Evangelismo',      'operacional', true, '#059669'),
+  ('Comunhão e Integração',      'operacional', true, '#DB2777'),
+  ('Famílias',                   'operacional', true, '#EA580C'),
+  ('Oração',                     'operacional', true, '#6D28D9')
+) AS v(nome, tipo, ativo, cor)
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.ministerios m WHERE m.nome = v.nome
+);
 
--- â”€â”€ 2. Cargos EstatutÃ¡rios (Diretoria â€” NUNCA Ã© ministÃ©rio) â”€â”€
+-- ----------------------------------------
 CREATE TABLE IF NOT EXISTS public.cargos_estatutarios (
   id         UUID    PRIMARY KEY DEFAULT gen_random_uuid(),
   nome       TEXT    NOT NULL UNIQUE,
   nivel      INTEGER NOT NULL DEFAULT 1 CHECK (nivel IN (1,2,3,4)),
-  -- 1=Presidente, 2=Vice-presidente, 3=SecretÃ¡rio, 4=Tesoureiro
+  -- 1=Presidente, 2=Vice-presidente, 3=Secretário, 4=Tesoureiro
   descricao  TEXT,
   ativo      BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT now()
@@ -55,14 +66,14 @@ CREATE TABLE IF NOT EXISTS public.cargos_estatutarios (
 
 INSERT INTO public.cargos_estatutarios (nome, nivel, descricao) VALUES
   ('Presidente',      1, 'Representa legalmente a Igreja'),
-  ('Vice-presidente', 2, 'Substitui o Presidente em suas ausÃªncias'),
-  ('SecretÃ¡rio',      3, 'ResponsÃ¡vel pela documentaÃ§Ã£o oficial'),
-  ('2Âº SecretÃ¡rio',   3, 'Auxilia o SecretÃ¡rio'),
-  ('Tesoureiro',      4, 'GestÃ£o financeira e patrimonial'),
-  ('2Âº Tesoureiro',   4, 'Auxilia o Tesoureiro')
+  ('Vice-presidente', 2, 'Substitui o Presidente em suas ausências'),
+  ('Secretário',      3, 'Responsável pela documentação oficial'),
+  ('2º Secretário',   3, 'Auxilia o Secretário'),
+  ('Tesoureiro',      4, 'Gestão financeira e patrimonial'),
+  ('2º Tesoureiro',   4, 'Auxilia o Tesoureiro')
 ON CONFLICT (nome) DO NOTHING;
 
--- â”€â”€ 3. Pessoa â†” Cargo EstatutÃ¡rio â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- ----------------------------------------
 CREATE TABLE IF NOT EXISTS public.pessoa_cargo_estatutario (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   pessoa_id   UUID NOT NULL REFERENCES public.membros(id)              ON DELETE CASCADE,
@@ -75,7 +86,7 @@ CREATE TABLE IF NOT EXISTS public.pessoa_cargo_estatutario (
   UNIQUE(pessoa_id, cargo_id, data_inicio)
 );
 
--- â”€â”€ 4. Ãreas (subdivisÃµes de um ministÃ©rio) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- ----------------------------------------
 CREATE TABLE IF NOT EXISTS public.areas (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   ministerio_id UUID NOT NULL REFERENCES public.ministerios(id) ON DELETE CASCADE,
@@ -88,7 +99,7 @@ CREATE TABLE IF NOT EXISTS public.areas (
   created_at    TIMESTAMPTZ DEFAULT now()
 );
 
--- â”€â”€ 5. Setores (subdivisÃµes de uma Ã¡rea) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- ----------------------------------------
 CREATE TABLE IF NOT EXISTS public.setores (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   area_id     UUID NOT NULL REFERENCES public.areas(id) ON DELETE CASCADE,
@@ -99,8 +110,8 @@ CREATE TABLE IF NOT EXISTS public.setores (
   created_at  TIMESTAMPTZ DEFAULT now()
 );
 
--- â”€â”€ 6. ParticipaÃ§Ã£o flexÃ­vel (pessoa â†” ministÃ©rio/Ã¡rea/setor) â”€
---   Permite mÃºltiplos vÃ­nculos simultÃ¢neos por pessoa
+-- ----------------------------------------
+--   Permite múltiplos vínculos simultâneos por pessoa
 CREATE TABLE IF NOT EXISTS public.pessoa_participacao (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   pessoa_id     UUID NOT NULL REFERENCES public.membros(id) ON DELETE CASCADE,
@@ -117,7 +128,7 @@ CREATE TABLE IF NOT EXISTS public.pessoa_participacao (
   ativo         BOOLEAN DEFAULT true,
   observacao    TEXT,
   created_at    TIMESTAMPTZ DEFAULT now(),
-  -- exige pelo menos um vÃ­nculo
+  -- exige pelo menos um vínculo
   CONSTRAINT fk_vinculo_obrigatorio CHECK (
     ministerio_id IS NOT NULL OR area_id IS NOT NULL OR setor_id IS NOT NULL
   )
@@ -129,7 +140,7 @@ CREATE INDEX IF NOT EXISTS idx_participacao_pessoa
 CREATE INDEX IF NOT EXISTS idx_participacao_ministerio
   ON public.pessoa_participacao(ministerio_id) WHERE ativo = true;
 
--- â”€â”€ 7. Escalas (cabeÃ§alho) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- ----------------------------------------
 CREATE TABLE IF NOT EXISTS public.escalas (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   ministerio_id UUID REFERENCES public.ministerios(id) ON DELETE SET NULL,
@@ -142,7 +153,7 @@ CREATE TABLE IF NOT EXISTS public.escalas (
   created_at    TIMESTAMPTZ DEFAULT now()
 );
 
--- â”€â”€ 8. Escala â†” Participantes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- ----------------------------------------
 CREATE TABLE IF NOT EXISTS public.escala_participantes (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   escala_id  UUID NOT NULL REFERENCES public.escalas(id) ON DELETE CASCADE,
@@ -155,36 +166,61 @@ CREATE TABLE IF NOT EXISTS public.escala_participantes (
   UNIQUE(escala_id, pessoa_id, data_slot)
 );
 
--- â”€â”€ RLS em todas as tabelas novas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- ----------------------------------------
+-- RLS basica APENAS nas tabelas que esta migration cria.
+--
+-- 'areas' e 'escalas' sairam desta lista de proposito. As duas ja existem
+-- neste banco com RLS ligada e 11 politicas cada, escritas por papel
+-- (admin, lider, pastor, staff, voluntario, bloqueio de anonimo). Politica
+-- do Postgres e permissiva: as varias politicas de uma tabela sao somadas
+-- com OU. Acrescentar aqui um "SELECT USING (auth.role() = authenticated)"
+-- nao somaria uma regra — anularia todas as outras, e qualquer pessoa
+-- logada passaria a ler e alterar toda area e toda escala da igreja.
+--
+-- O bloco tambem foi reescrito: o original montava um DO aninhado dentro
+-- de uma string com aspas quadruplicadas e nao chegava a compilar
+-- (42601, unterminated quoted string). Aqui as politicas sao criadas
+-- direto, com DROP ... IF EXISTS antes de cada CREATE para ficar
+-- reexecutavel.
 DO $$
 DECLARE tbl TEXT;
 BEGIN
   FOREACH tbl IN ARRAY ARRAY[
     'cargos_estatutarios', 'pessoa_cargo_estatutario',
-    'areas', 'setores', 'pessoa_participacao',
-    'escalas', 'escala_participantes'
+    'setores', 'pessoa_participacao', 'escala_participantes'
   ] LOOP
+    -- Guarda: se a tabela ja tiver qualquer politica, nao e uma tabela
+    -- nova e nao cabe a esta migration redefinir seu acesso.
+    IF EXISTS (
+      SELECT 1 FROM pg_policies
+      WHERE schemaname = 'public' AND tablename = tbl
+    ) THEN
+      CONTINUE;
+    END IF;
+
+    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', tbl);
+
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'read_' || tbl, tbl);
     EXECUTE format(
-      'DO $inner$ BEGIN
-         IF NOT EXISTS (
-           SELECT 1 FROM pg_policies
-           WHERE tablename = %L AND policyname = %L
-         ) THEN
-           EXECUTE ''ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY'';
-           EXECUTE ''CREATE POLICY "read_%s" ON public.%I FOR SELECT USING (auth.role() = ''''authenticated'''')'';
-           EXECUTE ''CREATE POLICY "ins_%s" ON public.%I FOR INSERT WITH CHECK (auth.role() = ''''authenticated'''')'';
-           EXECUTE ''CREATE POLICY "upd_%s" ON public.%I FOR UPDATE USING (auth.role() = ''''authenticated'''')'';
-         END IF;
-       END $inner$'',
-      tbl, ''read_''||tbl, tbl, tbl, tbl, tbl, tbl, tbl
-    );
+      'CREATE POLICY %I ON public.%I FOR SELECT USING (auth.role() = %L)',
+      'read_' || tbl, tbl, 'authenticated');
+
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'ins_' || tbl, tbl);
+    EXECUTE format(
+      'CREATE POLICY %I ON public.%I FOR INSERT WITH CHECK (auth.role() = %L)',
+      'ins_' || tbl, tbl, 'authenticated');
+
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'upd_' || tbl, tbl);
+    EXECUTE format(
+      'CREATE POLICY %I ON public.%I FOR UPDATE USING (auth.role() = %L)',
+      'upd_' || tbl, tbl, 'authenticated');
   END LOOP;
 END $$;
 
--- â”€â”€ VIEW: Conselho da Igreja (calculado) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+-- ----------------------------------------
 CREATE OR REPLACE VIEW public.v_conselho_da_igreja AS
 
--- Diretoria estatutÃ¡ria
+-- Diretoria estatutária
 SELECT
   m.id                        AS pessoa_id,
   m.nome_completo,
@@ -200,12 +236,12 @@ WHERE pce.ativo = true
 
 UNION ALL
 
--- LÃ­deres de ministÃ©rio operacional
+-- Líderes de ministério operacional
 SELECT
   m.id,
   m.nome_completo,
   m.foto_url,
-  'LÃ­der de MinistÃ©rio'       AS cargo,
+  'Líder de Ministério'       AS cargo,
   10                          AS nivel_cargo,
   'ministerio'                AS tipo_participacao,
   mi.nome                     AS ministerio_nome
@@ -215,12 +251,12 @@ WHERE mi.ativo = true AND mi.lider_id IS NOT NULL
 
 UNION ALL
 
--- LÃ­deres de Ã¡rea
+-- Líderes de área
 SELECT
   m.id,
   m.nome_completo,
   m.foto_url,
-  'LÃ­der de Ãrea'             AS cargo,
+  'Líder de Área'             AS cargo,
   20                          AS nivel_cargo,
   'area'                      AS tipo_participacao,
   mi.nome                     AS ministerio_nome
@@ -231,12 +267,12 @@ WHERE a.ativo = true AND a.lider_id IS NOT NULL
 
 UNION ALL
 
--- DiÃ¡conos
+-- Diáconos
 SELECT
   m.id,
   m.nome_completo,
   m.foto_url,
-  'DiÃ¡cono'                   AS cargo,
+  'Diácono'                   AS cargo,
   30                          AS nivel_cargo,
   'diacono'                   AS tipo_participacao,
   mi.nome                     AS ministerio_nome
@@ -248,10 +284,10 @@ WHERE pp.funcao = 'diacono' AND pp.ativo = true;
 
 -- ############ origem: 20260528_visita_historico.sql ############
 -- ============================================================
--- Sprint A â€” Log imutÃ¡vel de contatos e interaÃ§Ãµes pastorais
+-- Sprint A - Log imutável de contatos e interações pastorais
 -- ============================================================
 
--- Tabela principal de histÃ³rico
+-- Tabela principal de histórico
 CREATE TABLE IF NOT EXISTS visita_historico (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   visitante_id  UUID NOT NULL REFERENCES membros(id) ON DELETE CASCADE,
@@ -285,19 +321,19 @@ CREATE POLICY "auth_insert_historico"
   ON visita_historico FOR INSERT
   WITH CHECK (auth.role() = 'authenticated');
 
--- Ãndice para busca por visitante ordenada cronologicamente
+-- Índice para busca por visitante ordenada cronologicamente
 CREATE INDEX IF NOT EXISTS idx_visita_historico_visitante
   ON visita_historico(visitante_id, created_at DESC);
 
 -- ============================================================
--- Seed automÃ¡tico: criar entrada de "cadastro" para visitantes
--- jÃ¡ existentes (executa uma vez)
+-- Seed automático: criar entrada de "cadastro" para visitantes
+-- já existentes (executa uma vez)
 -- ============================================================
 INSERT INTO visita_historico (visitante_id, tipo, observacao, created_at)
 SELECT
   id,
   'cadastro',
-  'Primeiro culto â€” cadastro inicial',
+  'Primeiro culto - cadastro inicial',
   created_at
 FROM membros
 WHERE tipo_pessoa IN ('visitante', 'congregado', 'membro')
@@ -308,7 +344,7 @@ ON CONFLICT DO NOTHING;
 -- ============================================================
 -- 20260604000000_storage_documentos.sql
 -- Bucket de storage para documentos institucionais
--- Adiciona campos de ingestÃ£o na tabela documentos
+-- Adiciona campos de ingestão na tabela documentos
 -- ============================================================
 
 -- 1. Criar bucket "documentos" (publico=false, tamanho max 20MB)
@@ -387,7 +423,7 @@ COMMENT ON COLUMN public.documentos.ingestao_status IS 'pendente | processando |
 -- ############ origem: sql/migrations/20260610_ebd_esperados_outra_classe.sql ############
 -- Aplicado parcialmente em producao: esperados_da_classe existe, mover_aluno_classe nao.
 -- Ambas usam CREATE OR REPLACE, entao reexecutar o arquivo inteiro e seguro.
--- ─── EBD: esperados_da_classe agora retorna info de outra matricula ──────────
+--  EBD: esperados_da_classe agora retorna info de outra matricula 
 
 DROP FUNCTION IF EXISTS public.esperados_da_classe(uuid);
 
@@ -411,7 +447,7 @@ AS $$
     SELECT * FROM public.ebd_classes WHERE id = p_classe_id
   ),
   outras_mat AS (
-    -- Para cada pessoa, qual classe ela está hoje (se nao for a atual)
+    -- Para cada pessoa, qual classe ela est- hoje (se nao for a atual)
     SELECT em.pessoa_id, em.classe_id, em.id AS matricula_id, cl.nome AS classe_nome
       FROM public.ebd_matriculas em
       JOIN public.ebd_classes cl ON cl.id = em.classe_id
@@ -451,7 +487,7 @@ AS $$
 $$;
 GRANT EXECUTE ON FUNCTION public.esperados_da_classe(uuid) TO authenticated;
 
--- ─── RPC: mover pessoa entre classes (desativa outras e cria nova) ───────────
+--  RPC: mover pessoa entre classes (desativa outras e cria nova) 
 CREATE OR REPLACE FUNCTION public.mover_aluno_classe(
   p_pessoa_id    uuid,
   p_classe_nova  uuid
