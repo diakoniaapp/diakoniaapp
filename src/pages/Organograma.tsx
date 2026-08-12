@@ -90,17 +90,13 @@ const NIVEL_COR: Record<string, string> = {
   diacono:    "border-amber-300 bg-amber-50",
 };
 
+// Mesma regra da EstruturaDaIgreja: foto sim, iniciais nao.
 function AvatarPessoa({ nome, foto, size = "sm" }: { nome: string; foto?: string | null; size?: "sm" | "md" }) {
+  if (!foto) return null;
   const sz = size === "sm" ? "w-7 h-7 text-xs" : "w-10 h-10 text-xs";
-  const iniciais = nome.split(" ").slice(0, 2).map(n => n[0]).join("").toUpperCase();
-  if (foto) return (
+  return (
     <img src={foto} alt={nome}
       className={`${sz} rounded-full object-cover border border-border shrink-0`} />
-  );
-  return (
-    <div className={`${sz} rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center shrink-0 border border-primary/20`}>
-      {iniciais}
-    </div>
   );
 }
 

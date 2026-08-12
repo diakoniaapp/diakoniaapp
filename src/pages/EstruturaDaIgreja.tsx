@@ -83,20 +83,18 @@ const NIVEL_LABELS: Record<number, string> = {
   4: "Tesouraria",
 };
 
+// Foto de verdade identifica uma pessoa no organograma. Iniciais nao:
+// no lugar da foto ficava um circulo com as duas letras que ja abrem o
+// nome escrito ao lado. Sem foto, nao entra nada — a pilula fica so com
+// o nome, que e a informacao.
 function AvatarPessoa({ nome, foto, size = "sm" }: {
   nome: string; foto?: string | null; size?: "sm" | "md" | "lg";
 }) {
+  if (!foto) return null;
   const sz =
     size === "lg" ? "w-12 h-12 text-sm" :
     size === "md" ? "w-9 h-9 text-xs" : "w-7 h-7 text-xs";
-  const iniciais = nome.split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase();
-  if (foto)
-    return <img src={foto} alt={nome} className={`${sz} rounded-full object-cover border border-border shrink-0`} />;
-  return (
-    <div className={`${sz} rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center shrink-0 border border-primary/20`}>
-      {iniciais}
-    </div>
-  );
+  return <img src={foto} alt={nome} className={`${sz} rounded-full object-cover border border-border shrink-0`} />;
 }
 
 function PessoaPill({ id, nome, foto, funcao, onClick }: {

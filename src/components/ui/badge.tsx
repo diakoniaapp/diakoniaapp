@@ -22,8 +22,15 @@ const badgeVariants = cva(
 
 export interface BadgeProps extends React.HTMLAttributes<HTMLDivElement>, VariantProps<typeof badgeVariants> {}
 
-function Badge({ className, variant, ...props }: BadgeProps) {
-  return <div className={cn(badgeVariants({ variant }), className)} {...props} />;
-}
+// forwardRef e obrigatorio aqui: o Radix usa `asChild` para ancorar
+// tooltip e dropdown no proprio filho, e para isso precisa da ref do no
+// do DOM. Sem ela o React avisava "Function components cannot be given
+// refs" e o tooltip do StatusMembroBadge nao tinha onde se posicionar.
+const Badge = React.forwardRef<HTMLDivElement, BadgeProps>(
+  ({ className, variant, ...props }, ref) => (
+    <div ref={ref} className={cn(badgeVariants({ variant }), className)} {...props} />
+  ),
+);
+Badge.displayName = "Badge";
 
 export { Badge, badgeVariants };

@@ -341,19 +341,15 @@ export default function Membros() {
                                                     // conteudo. Sem isso, nome longo e etiquetas esticavam o cartao
                                                     // muito alem da tela do celular.
                                                     <Card key={m.id} className="min-w-0 shadow-card-soft hover:shadow-elevated transition-shadow">
-                                                                    <CardContent className="p-4 flex flex-wrap items-center gap-x-4 gap-y-2">
-                                                                                      <div className="w-12 h-12 rounded-full bg-primary/10 text-primary font-serif text-lg flex items-center justify-center shrink-0">
-                                                                                        {m.nome_completo
-                                                                                                                .split(" ")
-                                                                                                                .slice(0, 2)
-                                                                                                                .map((n) => n[0])
-                                                                                                                .join("")}
-                                                                                        </div>
-                                                                                      {/* min-w-[12rem] em vez de min-w-0: da ao nome um piso de
-                                                                                          largura. Quando nao cabe junto dos 4 botoes de acao — que
-                                                                                          sao shrink-0 e ocupam ~148px — a linha quebra e os botoes
-                                                                                          descem, em vez de espremerem o nome ate 80px. */}
-                                                                                      <div className="flex-1 min-w-[12rem]">
+                                                                    <CardContent className="p-4 flex items-center gap-x-3">
+                                                                                      {/* O circulo de iniciais saiu. Ele nao identificava ninguem:
+                                                                                          numa lista ordenada por nome, "AD" aparecia tres vezes
+                                                                                          seguidas, e a inicial ja esta na primeira letra do nome,
+                                                                                          logo ao lado. Em troca ocupava 48px mais 16px de
+                                                                                          espacamento e um circulo colorido por linha — 20 manchas
+                                                                                          de cor por pagina competindo com o texto que importa.
+                                                                                          Sem ele o cartao volta a caber numa linha so. */}
+                                                                                      <div className="flex-1 min-w-0">
                                                                                                           {/* O nome ocupa a linha inteira e as etiquetas descem para a
                                                                                                               seguinte. Quando dividiam a mesma linha flex, as etiquetas
                                                                                                               venciam a disputa por espaco e o nome — a informacao que
@@ -388,7 +384,7 @@ export default function Membros() {
                                                                           cada acao tem nome em vez de simbolo. O indicador de acesso
                                                                           tambem saiu da linha: era um quarto icone, mudo. */}
                                                                       {canEdit && (
-                                                                        <div className="flex items-center gap-0.5 shrink-0 ml-auto">
+                                                                        <div className="flex items-center gap-0.5 shrink-0">
                                                                           <Button
                                                                             variant="ghost"
                                                                             size="icon"

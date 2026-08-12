@@ -82,15 +82,6 @@ function calcularTempo(dataEntrada: string | null): string {
   return `${anos} ano${anos !== 1 ? "s" : ""}`;
 }
 
-function Inicial({ nome }: { nome: string }) {
-  const iniciais = nome.split(" ").slice(0, 2).map(n => n[0]).join("").toUpperCase();
-  return (
-    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-primary/40 flex items-center justify-center text-primary font-bold text-xl border-2 border-primary/20 shrink-0">
-      {iniciais}
-    </div>
-  );
-}
-
 // ── Componente Principal ──────────────────────────────────────
 
 interface PessoaCardProps {
@@ -200,13 +191,14 @@ export default function PessoaCard({ pessoaId, open, onClose }: PessoaCardProps)
         ) : (
           <div className="space-y-5">
 
-            {/* Cabeçalho: foto + nome + status */}
+            {/* Cabeçalho: foto + nome + status.
+                Sem foto nao entra nada no lugar: as iniciais eram um
+                circulo de 64px repetindo a letra que ja esta no nome ao
+                lado. Foto de verdade identifica; duas letras nao. */}
             <div className="flex items-center gap-4">
-              {pessoa.foto_url ? (
+              {pessoa.foto_url && (
                 <img src={pessoa.foto_url} alt={pessoa.nome_completo}
                   className="w-16 h-16 rounded-full object-cover border-2 border-primary/20 shrink-0" />
-              ) : (
-                <Inicial nome={pessoa.nome_completo} />
               )}
               <div className="flex-1 min-w-0">
                 <h2 className="font-serif font-semibold text-base leading-tight truncate">
