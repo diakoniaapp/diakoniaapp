@@ -179,7 +179,7 @@ export default function Visitantes() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <StatCard icon={<UserPlus className="w-5 h-5" />}    label="Total visitantes"    value={stats.total} />
           <StatCard icon={<TrendingUp className="w-5 h-5" />}  label="Retornaram (15d)"    value={stats.retornaram}      color="success" />
-          <StatCard icon={<AlertTriangle className="w-5 h-5" />} label="Nao voltaram"      value={stats.naoVoltaram}     color="warning" />
+          <StatCard icon={<AlertTriangle className="w-5 h-5" />} label="Não voltaram"      value={stats.naoVoltaram}     color="warning" />
           <StatCard icon={<Phone className="w-5 h-5" />}       label="Precisam contato"    value={stats.precisamContato} color={stats.precisamContato > 0 ? "warning" : undefined} />
         </div>
 
@@ -220,14 +220,14 @@ export default function Visitantes() {
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="acao" className="gap-1.5" translate="no">
               <Zap className="w-4 h-4" />
-              Acao do dia
+              Ação do dia
               {stats.pendentesHoje > 0 && (
                 <Badge className="ml-1 h-4 px-1.5 text-xs" variant="destructive">{stats.pendentesHoje}</Badge>
               )}
             </TabsTrigger>
             <TabsTrigger value="nao_voltou" className="gap-1.5" translate="no">
               <AlertTriangle className="w-4 h-4" />
-              Nao voltaram
+              Não voltaram
               {listaNaoVoltou.length > 0 && (
                 <Badge className="ml-1 h-4 px-1.5 text-xs" variant="outline">{listaNaoVoltou.length}</Badge>
               )}

@@ -12,7 +12,7 @@ import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Plus, Home, Users, Link2, Trash2, Pencil, Crown, Heart, CalendarHeart, Search, AlertCircle } from "lucide-react";
+import { Plus, Trash2, Pencil, Heart, CalendarHeart, Search, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { VinculosDialog } from "@/components/familias/VinculosDialog";
@@ -195,59 +195,71 @@ export default function Familias() {
                   || (membrosPorFamilia[f.id] ?? []).some(m => m.nome.toLowerCase().includes(q));
               })
               .map((f) => (
-              <Card key={f.id} className="shadow-card-soft">
-                <CardContent className="p-5">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-md bg-gold/15 flex items-center justify-center">
-                      <Home className="w-5 h-5 text-gold" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <h3 className="font-serif text-xl truncate">Família {f.nome_familia}</h3>
-                        {canEdit && (
-                          <Button
-                            type="button" variant="ghost" size="icon"
-                            onClick={() => abrirEdicao(f)}
-                            className="h-7 w-7 shrink-0"
-                            title="Editar família"
-                          >
-                            <Pencil className="w-3.5 h-3.5" />
-                          </Button>
-                        )}
-                      </div>
-                      {!responsaveis[f.id] && (counts[f.id] ?? 0) > 0 && (
-                        <span className="inline-flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 rounded-full px-2 py-0.5 mt-1">
-                          <AlertCircle className="w-3 h-3" /> Sem responsável
-                        </span>
-                      )}
-                      <p className="text-sm text-muted-foreground line-clamp-2">
-                        {[f.endereco, f.numero, f.bairro, f.cidade].filter(Boolean).join(", ") || "—"}
-                      </p>
-                      {responsaveis[f.id] && (
-                        <p className="text-xs text-rose-700 dark:text-rose-300 mt-1 flex items-center gap-1">
-                          <Crown className="w-3 h-3" /> {responsaveis[f.id]}
-                        </p>
-                      )}
-                      {f.data_casamento && (
-                        <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
-                          <Heart className="w-3 h-3 text-rose-400" /> Casados em {new Date(f.data_casamento).toLocaleDateString("pt-BR")}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
-                        <Users className="w-3.5 h-3.5" />
-                        {loadingCounts ? "…" : `${counts[f.id] ?? 0} membros vinculados`}
-                      </div>
-                      <div className="flex gap-2 mt-3 flex-wrap">
-                        <Button
-                          variant="outline" size="sm"
-                          onClick={() => { setFamiliaSelecionada(f); setVinculosOpen(true); }}
-                        >
-                          <Link2 className="w-3.5 h-3.5 mr-1.5" /> Visualizar família
-                        </Button>
-
-                      </div>
-                    </div>
+              // `relative` sustenta o alvo esticado do botao abaixo, e
+              // focus-within marca o cartao quando o foco entra nele —
+              // sem isso, quem navega por teclado nao ve onde esta,
+              // porque o botao em si e invisivel.
+              <Card
+                key={f.id}
+                className="min-w-0 shadow-card-soft hover:shadow-elevated transition-shadow relative focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2"
+              >
+                <CardContent className="p-4 flex items-center gap-3">
+                  {/* O quadrado com a casinha saiu: toda familia e uma familia,
+                      entao o icone aparecia em 100% dos cartoes. Icone que nunca
+                      varia nao distingue nada — so cobra 40px e uma mancha de cor
+                      por linha. */}
+                  <div className="flex-1 min-w-0">
+                    {/* Alvo esticado: o ::after cobre o cartao inteiro, entao
+                        clicar em qualquer ponto abre a familia. Antes era preciso
+                        acertar um botao de 130px la embaixo. Feito com UM botao
+                        de verdade em vez de onClick no cartao: o leitor de tela
+                        anuncia a acao e o teclado alcanca por Tab. */}
+                    <button
+                      type="button"
+                      onClick={() => { setFamiliaSelecionada(f); setVinculosOpen(true); }}
+                      // `block w-full` e obrigatorio: <button> e inline-block e
+                      // encolhe-para-caber, entao o h3 com `truncate` (que traz
+                      // white-space: nowrap) esticava o botao ate a largura do
+                      // nome inteiro — 593px num cartao de 338px. Com w-full o
+                      // botao herda a largura ja limitada do pai e o h3 trunca.
+                      className="block w-full min-w-0 text-left after:absolute after:inset-0 after:rounded-lg focus:outline-none"
+                    >
+                      <h3 className="font-serif text-lg truncate">Família {f.nome_familia}</h3>
+                    </button>
+                    {/* Etiqueta de excecao: familia com membros e sem responsavel
+                        e um problema que alguem precisa resolver. Familia em ordem
+                        nao ganha etiqueta nenhuma. */}
+                    {!responsaveis[f.id] && (counts[f.id] ?? 0) > 0 && (
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 rounded-full px-2 py-0.5 mt-0.5">
+                        <AlertCircle className="w-3 h-3" /> Sem responsável
+                      </span>
+                    )}
+                    {/* Uma linha de apoio no lugar de quatro. O endereco completo
+                        ocupava ate tres linhas para dizer o que o bairro ja diz
+                        nesta tela; rua e numero continuam na ficha. A data de
+                        casamento tambem saiu: quem precisa dela e a faixa de bodas
+                        do HOJE, nao quem procura uma familia. */}
+                    <p className="text-sm text-muted-foreground truncate">
+                      {[
+                        responsaveis[f.id],
+                        f.bairro,
+                        loadingCounts ? null : `${counts[f.id] ?? 0} ${(counts[f.id] ?? 0) === 1 ? "membro" : "membros"}`,
+                      ].filter(Boolean).join(" • ")}
+                    </p>
                   </div>
+                  {canEdit && (
+                    // z-10 tira o lapis de baixo do alvo esticado. Sem isso o
+                    // ::after do botao cobriria o lapis e editar viraria abrir.
+                    <Button
+                      type="button" variant="ghost" size="icon"
+                      onClick={() => abrirEdicao(f)}
+                      className="h-11 w-11 shrink-0 relative z-10"
+                      aria-label={`Editar Família ${f.nome_familia}`}
+                      title="Editar"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             ))}

@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, HeartHandshake, Users, Layers, Pencil, Sparkles, X, RefreshCw, Loader2 } from "lucide-react";
+import { Plus, Pencil, Sparkles, X, RefreshCw, Loader2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
@@ -116,7 +116,7 @@ export default function Ministerios() {
                         const { ministerios: extraidos, fonte } = await extrairEstrutura();
                         setRefFonte(fonte);
                         if (extraidos.length === 0) {
-                                      toast.info("Nenhum ministerio encontrado nos documentos.");
+                                      toast.info("Nenhum ministério encontrado nos documentos.");
                                       setRefOpen(false); setRefCarregando(false); return;
                         }
                         setRefResultado(analisarRefatoracao(list as MinisterioExistente[], extraidos));
@@ -194,8 +194,8 @@ export default function Ministerios() {
   return (
             <div>
                   <PageHeader
-                                title="Ministerios"
-                                description={list.length + " ministerios cadastrados"}
+                                title="Ministérios"
+                                description={list.length + (list.length === 1 ? " ministério cadastrado" : " ministérios cadastrados")}
                                 actions={canEdit && (
                                                 <div className="flex items-center gap-2">
                                                             <Button variant="outline" className="whitespace-nowrap gap-1.5" onClick={iniciarRefatoracao} disabled={refCarregando}>
@@ -206,56 +206,70 @@ export default function Ministerios() {
                                                                   {btnLabel}
                                                             </Button>
                                                             <Button className="whitespace-nowrap" onClick={() => { setEditingId(null); setForm(emptyForm); setOpen(true); }}>
-                                                                          <Plus className="w-4 h-4 mr-2" />Novo ministerio
+                                                                          <Plus className="w-4 h-4 mr-2" />Novo ministério
                                                             </Button>
                                                 </div>
                           )}
                         />
                         <div className="p-4 md:p-8">
                               {loading ? <ListSkeleton /> : error ? <ErrorState onRetry={load} /> : list.length === 0 ? (
-                                                <EmptyState message="Nenhum ministerio cadastrado" />
+                                                <EmptyState message="Nenhum ministério cadastrado" />
                                               ) : (
                                                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                                                       {list.map((m) => (
-                                                                    <Card key={m.id} className={"shadow-card-soft " + (m.ativo ? "" : "opacity-60")}>
-                                                                                    <CardContent className="p-5">
-                                                                                                      <div className="flex items-start gap-3">
-                                                                                                                          <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center">
-                                                                                                                                                <HeartHandshake className="w-5 h-5 text-primary" />
-                                                                                                                                </div>
-                                                                                                                          <div className="flex-1 min-w-0">
-                                                                                                                                                <div className="flex items-start justify-between gap-2">
-                                                                                                                                                                        <div className="flex items-center gap-2 flex-wrap">
-                                                                                                                                                                                                  <h3 className="font-serif text-xl">{m.nome}</h3>
-                                                                                                                                                                              {m.sigla && <Badge variant="outline" className="bg-gold/10 text-gold border-gold/30">{m.sigla}</Badge>}
-                                                                                                                                                                              {m.ativo
-                                                                                                                                                                                                                ? <Badge variant="outline" className="bg-emerald-500/10 text-emerald-700 border-emerald-500/30">Ativo</Badge>
-                                                                                                                                                                                                    : <Badge variant="outline" className="bg-muted text-muted-foreground">Inativo</Badge>
-                                                                                                                                                                              }
-                                                                                                                                                                              </div>
-                                                                                                                                                      {canEdit && (
-                                                                                                    <Button variant="ghost" size="icon" onClick={() => startEdit(m)} aria-label="Editar ministerio">
-                                                                                                                                <Pencil className="w-4 h-4" />
-                                                                                                          </Button>
-                                                                                                                                                                        )}
-                                                                                                                                                      </div>
-                                                                                                                                {m.descricao && <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{m.descricao}</p>}
-                                                                                                                                                <div className="text-xs text-muted-foreground mt-3 space-y-0.5">
-                                                                                                                                                      {m.lider_id && <div>Lider: <span className="text-foreground">{memberName(m.lider_id)}</span></div>}
-                                                                                                                                                      {m.co_lider_id && <div>Co-lider: <span className="text-foreground">{memberName(m.co_lider_id)}</span></div>}
-                                                                                                                                                      </div>
-                                                                                                                                                <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
-                                                                                                                                                                        <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" />{loadingCounts ? "..." : counts[m.id] ?? 0} integrantes</span>
-                                                                                                                                                                        <span className="flex items-center gap-1"><Layers className="w-3.5 h-3.5" />{loadingCounts ? "..." : areaCounts[m.id] ?? 0} areas</span>
-                                                                                                                                                      </div>
-                                                                                                                                                <div className="mt-3">
-                                                                                                                                                                        <Button variant="outline" size="sm" onClick={() => setAreasOpenFor(m)}>
-                                                                                                                                                                                                  <Layers className="w-3.5 h-3.5 mr-1.5" />Areas
-                                                                                                                                                                              </Button>
-                                                                                                                                                      </div>
-                                                                                                                                </div>
-                                                                                                            </div>
-                                                                                          </CardContent>
+                                                                    // Mesmo padrao de linha de Pessoas e Familias: sem quadradinho
+                                                                    // de icone (era igual nos 11 cartoes), etiqueta so na excecao,
+                                                                    // e o cartao inteiro clicavel para a acao principal.
+                                                                    <Card
+                                                                      key={m.id}
+                                                                      className={"min-w-0 shadow-card-soft hover:shadow-elevated transition-shadow relative focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 " + (m.ativo ? "" : "opacity-60")}
+                                                                    >
+                                                                      <CardContent className="p-4 flex items-center gap-3">
+                                                                        <div className="flex-1 min-w-0">
+                                                                          {/* Alvo esticado. Antes a acao principal era um botao
+                                                                              "Areas" de 90px no rodape do cartao; agora o cartao
+                                                                              inteiro abre as areas do ministerio.
+                                                                              `block w-full` impede que o h3 com truncate estique
+                                                                              o botao ate a largura do nome. */}
+                                                                          <button
+                                                                            type="button"
+                                                                            onClick={() => setAreasOpenFor(m)}
+                                                                            aria-label={`Áreas de ${m.nome}`}
+                                                                            className="block w-full min-w-0 text-left after:absolute after:inset-0 after:rounded-lg focus:outline-none"
+                                                                          >
+                                                                            <h3 className="font-serif text-lg truncate">{m.nome}</h3>
+                                                                          </button>
+                                                                          {/* A sigla saiu: e a abreviacao do nome que esta ao lado
+                                                                              por extenso. "Ativo" tambem — 10 dos 11 ministerios
+                                                                              estao ativos, e o cartao inativo ja fica esmaecido.
+                                                                              Sobra so a marca de quem foge do padrao. */}
+                                                                          {!m.ativo && (
+                                                                            <Badge variant="outline" className="bg-muted text-muted-foreground mt-0.5">Inativo</Badge>
+                                                                          )}
+                                                                          {/* Uma linha de apoio no lugar de quatro. Lider, tamanho
+                                                                              e numero de areas e o que distingue um ministerio do
+                                                                              outro nesta tela; descricao e co-lider sao da ficha. */}
+                                                                          <p className="text-sm text-muted-foreground truncate">
+                                                                            {[
+                                                                              m.lider_id ? memberName(m.lider_id) : null,
+                                                                              loadingCounts ? null : `${counts[m.id] ?? 0} ${(counts[m.id] ?? 0) === 1 ? "integrante" : "integrantes"}`,
+                                                                              loadingCounts ? null : `${areaCounts[m.id] ?? 0} ${(areaCounts[m.id] ?? 0) === 1 ? "área" : "áreas"}`,
+                                                                            ].filter(Boolean).join(" • ")}
+                                                                          </p>
+                                                                        </div>
+                                                                        {canEdit && (
+                                                                          // z-10 tira o lapis de baixo do alvo esticado.
+                                                                          <Button
+                                                                            variant="ghost" size="icon"
+                                                                            onClick={() => startEdit(m)}
+                                                                            aria-label={`Editar ${m.nome}`}
+                                                                            title="Editar"
+                                                                            className="h-11 w-11 shrink-0 relative z-10"
+                                                                          >
+                                                                            <Pencil className="w-4 h-4" />
+                                                                          </Button>
+                                                                        )}
+                                                                      </CardContent>
                                                                     </Card>
                                                                   ))}
                                                 </div>
@@ -265,7 +279,7 @@ export default function Ministerios() {
                         <Dialog open={open} onOpenChange={handleOpenChange}>
                                 <DialogContent>
                                           <DialogHeader>
-                                                      <DialogTitle className="font-serif text-2xl">{editingId ? "Editar ministerio" : "Novo ministerio"}</DialogTitle>
+                                                      <DialogTitle className="font-serif text-2xl">{editingId ? "Editar ministério" : "Novo ministério"}</DialogTitle>
                                           </DialogHeader>
                                           <form onSubmit={onSubmit} className="space-y-3">
                                                       <div className="grid grid-cols-3 gap-3">
@@ -296,17 +310,17 @@ export default function Ministerios() {
                                                                     </div>
                                                     </div>
                                                       )}
-                                                      <div><Label>Descricao</Label><Textarea rows={3} value={form.descricao as string} onChange={(e) => setForm({ ...form, descricao: e.target.value })} /></div>
+                                                      <div><Label>Descrição</Label><Textarea rows={3} value={form.descricao as string} onChange={(e) => setForm({ ...form, descricao: e.target.value })} /></div>
                                                       <div className="grid grid-cols-2 gap-3">
                                                                     <div>
-                                                                                    <Label>Lider</Label>
+                                                                                    <Label>Líder</Label>
                                                                                     <Select value={(form.lider_id as string) || undefined} onValueChange={(v) => setForm({ ...form, lider_id: v })}>
                                                                                                       <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                                                                                                       <SelectContent>{membros.map(m => <SelectItem key={m.id} value={m.id}>{m.nome_completo}</SelectItem>)}</SelectContent>
                                                                                           </Select>
                                                                     </div>
                                                                     <div>
-                                                                                    <Label>Co-lider</Label>
+                                                                                    <Label>Co-líder</Label>
                                                                                     <Select value={(form.co_lider_id as string) || undefined} onValueChange={(v) => setForm({ ...form, co_lider_id: v })}>
                                                                                                       <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                                                                                                       <SelectContent>{membros.map(m => <SelectItem key={m.id} value={m.id}>{m.nome_completo}</SelectItem>)}</SelectContent>
