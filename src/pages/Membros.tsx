@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
@@ -6,7 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Pencil, Link2, Briefcase, Sparkles, BarChart3, ShieldCheck, ShieldOff, Clock } from "lucide-react";
+import { Plus, Search, Pencil, Link2, Briefcase, Sparkles, BarChart3, MoreHorizontal } from "lucide-react";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
@@ -16,7 +19,6 @@ import { VinculosPessoaDialog } from "@/components/familias/VinculosPessoaDialog
 import AtuacoesDialog from "@/components/membros/AtuacoesDialog";
 import VisitanteDialog from "@/components/membros/VisitanteDialog";
 import { ListSkeleton, EmptyState, ErrorState } from "@/components/ListState";
-import { buscarAcessoPorPessoa, type StatusAcesso } from "@/services/acessoService";
 import { StatusMembroBadge } from "@/components/membros/StatusMembroBadge";
 
 export interface Membro {
@@ -81,31 +83,10 @@ const tipoPessoaColor: Record<string, string> = {
     visitante: "bg-warning/15 text-warning border-warning/30",
 };
 
-// ── Indicador visual de status de acesso ─────────────────────────────────────
-function BadgeAcesso({ pessoaId }: { pessoaId: string }) {
-    const [status, setStatus] = useState<StatusAcesso | null>(null);
-
-  useEffect(() => {
-        buscarAcessoPorPessoa(pessoaId).then((a) => {
-                setStatus(a?.status ?? "sem_acesso");
-        });
-  }, [pessoaId]);
-
-  if (status === null) return null;
-
-  const cfg: Record<StatusAcesso, { icon: typeof ShieldCheck; label: string; className: string }> = {
-        sem_acesso: { icon: ShieldOff, label: "Sem acesso", className: "text-slate-400" },
-        aguardando: { icon: Clock, label: "Aguardando 1° acesso", className: "text-amber-500" },
-        ativo: { icon: ShieldCheck, label: "Acesso ativo", className: "text-emerald-500" },
-  };
-
-  const { icon: Icon, label, className } = cfg[status];
-    return (
-          <span title={label} className={`shrink-0 ${className}`}>
-                  <Icon className="w-4 h-4" />
-          </span>
-        );
-}
+// O indicador de status de acesso saiu da listagem. Alem de ser um icone mudo
+// disputando espaco com o nome, ele disparava uma consulta ao Supabase POR
+// PESSOA — com a lista inteira renderizada, eram 281 requisicoes so para
+// desenhar 281 escudinhos. Essa informacao tem tela propria em /usuarios.
 
 export default function Membros() {
     const { canEdit, hasRole } = useAuth();
@@ -120,6 +101,13 @@ export default function Membros() {
     const [atuacoesPessoa, setAtuacoesPessoa] = useState<Membro | null>(null);
     const [visitantePessoa, setVisitantePessoa] = useState<Membro | null>(null);
     const [error, setError] = useState<string | null>(null);
+
+  // Paginação: 281 cadastros renderizados de uma vez davam 34.553px de
+  // rolagem e 848 botões numa página só. Quem procura alguém usa a busca;
+  // quem varre a lista não deveria percorrer 47 telas.
+  const POR_PAGINA = 20;
+  const [pagina, setPagina] = useState(1);
+  const buscaRef = useRef<HTMLInputElement>(null);
     const [searchParams, setSearchParams] = useSearchParams();
 
   // ── Tratar parâmetros de query ao carregar ──────────────────────────────────
@@ -249,7 +237,7 @@ export default function Membros() {
         load();
   }, []);
 
-  const filtered = membros.filter((m) => {
+  const filtered = useMemo(() => membros.filter((m) => {
         const q = search.toLowerCase();
         const matchSearch =
                 !q ||
@@ -259,7 +247,21 @@ export default function Membros() {
         const matchTipo = tipoFiltro === "todos" || m.tipo_pessoa === tipoFiltro;
         const matchPerfil = perfilFiltro === "todos" || m.perfil_acesso === perfilFiltro;
         return matchSearch && matchTipo && matchPerfil;
-  });
+  }), [membros, search, tipoFiltro, perfilFiltro]);
+
+  const totalPaginas = Math.max(1, Math.ceil(filtered.length / POR_PAGINA));
+  const paginaAtual = Math.min(pagina, totalPaginas);
+  const visiveis = filtered.slice((paginaAtual - 1) * POR_PAGINA, paginaAtual * POR_PAGINA);
+
+  // Voltar à primeira página quando o resultado muda: continuar na página 7
+  // de uma busca que agora tem 3 resultados deixaria a tela vazia.
+  useEffect(() => { setPagina(1); }, [search, tipoFiltro, perfilFiltro]);
+
+  // Foco na busca ao abrir: quem entra em Pessoas quase sempre vem procurar
+  // alguém. Só no desktop — em celular abriria o teclado por cima da lista.
+  useEffect(() => {
+        if (window.matchMedia("(min-width: 768px)").matches) buscaRef.current?.focus();
+  }, []);
 
   return (
         <div>
@@ -290,6 +292,7 @@ export default function Membros() {
                                       <div className="relative max-w-md flex-1">
                                                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                                                   <Input
+                                                                  ref={buscaRef}
                                                                   className="pl-9"
                                                                   placeholder="Buscar por nome, CPF ou bairro..."
                                                                   value={search}
@@ -333,7 +336,7 @@ export default function Membros() {
                                     <EmptyState message="Nenhuma pessoa encontrada" />
                                   ) : (
                                     <div className="grid gap-3">
-                                      {filtered.map((m) => (
+                                      {visiveis.map((m) => (
                                                     // min-w-0: item de grid nao encolhe abaixo do min-content do
                                                     // conteudo. Sem isso, nome longo e etiquetas esticavam o cartao
                                                     // muito alem da tela do celular.
@@ -356,104 +359,111 @@ export default function Membros() {
                                                                                                               venciam a disputa por espaco e o nome — a informacao que
                                                                                                               identifica a pessoa — era truncado ate virar "Adriana ...". */}
                                                                                                           <p className="font-medium truncate">{m.nome_completo}</p>
-                                                                                                          <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
-                                                                                                                                <Badge variant="outline" className={tipoPessoaColor[m.tipo_pessoa]}>
-                                                                                                                                  {tipoPessoaLabel[m.tipo_pessoa]}
-                                                                                                                                  </Badge>
-                                                                                                            {m.tipo_pessoa === "membro" && (
-                                                                              <StatusMembroBadge status={m.status} compact />
-                                                                                                                                )}
+                                                                                                          {/* Etiqueta marca excecao, nao regra. "Membro" aparecia na
+                                                                                                              maioria dos 281 cadastros e "Ativo" em 273 deles — uma marca
+                                                                                                              presente em 97% dos casos nao informa nada. Aqui so aparece
+                                                                                                              quem foge do padrao, e no maximo uma por linha. */}
+                                                                                                          {(m.tipo_pessoa !== "membro" || m.status !== "ativo") && (
+                                                                                                            <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                                                                                                              {m.tipo_pessoa !== "membro" ? (
+                                                                                                                <Badge variant="outline" className={tipoPessoaColor[m.tipo_pessoa]}>
+                                                                                                                  {tipoPessoaLabel[m.tipo_pessoa]}
+                                                                                                                </Badge>
+                                                                                                              ) : (
+                                                                                                                <StatusMembroBadge status={m.status} compact />
+                                                                                                              )}
                                                                                                             </div>
+                                                                                                          )}
                                                                                                           <div className="text-sm text-muted-foreground truncate">
                                                                                                             {[m.telefone_celular, m.email, m.bairro].filter(Boolean).join(" • ") || "—"}
                                                                                                             </div>
-                                                                                                          {(m.classe_ebd 
-                                                                                                              || (m.areas?.length ?? 0) > 0
-                                                                                                              || (m.classes_professor?.length ?? 0) > 0
-                                                                                                              || (m.lider_ministerios?.length ?? 0) > 0
-                                                                                                              || (m.lider_areas?.length ?? 0) > 0
-                                                                                                          ) && (
-                                                                                                            <div className="flex flex-wrap gap-1 mt-1.5">
-                                                                                                              {m.classe_ebd && (
-                                                                                                                <Badge variant="outline" className="text-xs bg-gold/10 border-gold/30 text-foreground/80">
-                                                                                                                  EBD: {m.classe_ebd}
-                                                                                                                </Badge>
-                                                                                                              )}
-                                                                                                              {(m.classes_professor ?? []).map((c) => (
-                                                                                                                <Badge key={`prof-${c}`} variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-300 dark:bg-blue-950/30 dark:text-blue-300">
-                                                                                                                  Professor: {c}
-                                                                                                                </Badge>
-                                                                                                              ))}
-                                                                                                              {(m.lider_ministerios ?? []).map((n) => (
-                                                                                                                <Badge key={`lid-min-${n}`} variant="outline" className="text-xs bg-rose-50 text-rose-700 border-rose-300 dark:bg-rose-950/30 dark:text-rose-300">
-                                                                                                                  Líder: {n}
-                                                                                                                </Badge>
-                                                                                                              ))}
-                                                                                                              {(m.lider_areas ?? []).map((n) => (
-                                                                                                                <Badge key={`lid-ar-${n}`} variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-300 dark:bg-orange-950/30 dark:text-orange-300">
-                                                                                                                  Líder de área: {n}
-                                                                                                                </Badge>
-                                                                                                              ))}
-                                                                                                              {(m.areas ?? []).map((a) => (
-                                                                                                                <Badge key={`area-${a}`} variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/30 dark:text-purple-300">
-                                                                                                                  {a}
-                                                                                                                </Badge>
-                                                                                                              ))}
-                                                                                                            </div>
-                                                                                                          )}
+                                                                                                          {/* Etiquetas de vinculo — EBD, professor, lider, areas — saem
+                                                                                                              da listagem. Sao contexto de ficha: ninguem procura uma pessoa
+                                                                                                              por classe de EBD nesta tela, e chegavam a seis por linha,
+                                                                                                              competindo com o nome. Continuam na ficha e no filtro de perfil. */}
                                                                                         </div>
-                                                                      {/* Indicador de acesso para congregados e membros */}
-                                                                      {(m.tipo_pessoa === "congregado" || m.tipo_pessoa === "membro") && (
-                                                                          <BadgeAcesso pessoaId={m.id} />
-                                                                        )}
+                                                                      {/* Uma acao visivel — editar — mais um menu para as secundarias.
+                                                                          Antes eram ate quatro icones sem rotulo, que ninguem entende
+                                                                          sem passar o mouse, e no celular nao ha mouse. Dentro do menu
+                                                                          cada acao tem nome em vez de simbolo. O indicador de acesso
+                                                                          tambem saiu da linha: era um quarto icone, mudo. */}
                                                                       {canEdit && (
-                                                                          <div className="flex gap-0.5 shrink-0">
-                                                                            {m.tipo_pessoa === "visitante" && (
-                                                                                                    <Button
-                                                                                                                                variant="ghost"
-                                                                                                                                size="icon"
-                                                                                                                                className="h-9 w-9"
-                                                                                                                                title="Acompanhar visitante"
-                                                                                                                                onClick={() => setVisitantePessoa(m)}
-                                                                                                                              >
-                                                                                                                              <Sparkles className="w-4 h-4 text-warning" />
-                                                                                                      </Button>
-                                                                                                )}
-                                                                                                <Button
-                                                                                                                          variant="ghost"
-                                                                                                                          size="icon"
-                                                                                                                          className="h-9 w-9"
-                                                                                                                          title="Vínculos familiares"
-                                                                                                                          onClick={() => setVinculosPessoa(m)}
-                                                                                                                        >
-                                                                                                                        <Link2 className="w-4 h-4" />
-                                                                                                  </Button>
-                                                                                                <Button
-                                                                                                                          variant="ghost"
-                                                                                                                          size="icon"
-                                                                                                                          className="h-9 w-9"
-                                                                                                                          title="Atuações voluntárias"
-                                                                                                                          onClick={() => setAtuacoesPessoa(m)}
-                                                                                                                        >
-                                                                                                                        <Briefcase className="w-4 h-4" />
-                                                                                                  </Button>
-                                                                                                <Button
-                                                                                                                          variant="ghost"
-                                                                                                                          size="icon"
-                                                                                                                          className="h-9 w-9"
-                                                                                                                          onClick={() => {
-                                                                                                                                                      setEditing(m);
-                                                                                                                                                      setOpen(true);
-                                                                                                                            }}
-                                                                                                                        >
-                                                                                                                        <Pencil className="w-4 h-4" />
-                                                                                                  </Button>
-                                                                          </div>
+                                                                        <div className="flex items-center gap-0.5 shrink-0 ml-auto">
+                                                                          <Button
+                                                                            variant="ghost"
+                                                                            size="icon"
+                                                                            className="h-11 w-11"
+                                                                            aria-label={`Editar ${m.nome_completo}`}
+                                                                            title="Editar"
+                                                                            onClick={() => { setEditing(m); setOpen(true); }}
+                                                                          >
+                                                                            <Pencil className="w-4 h-4" />
+                                                                          </Button>
+                                                                          <DropdownMenu>
+                                                                            <DropdownMenuTrigger asChild>
+                                                                              <Button
+                                                                                variant="ghost"
+                                                                                size="icon"
+                                                                                className="h-11 w-11"
+                                                                                aria-label={`Mais ações para ${m.nome_completo}`}
+                                                                              >
+                                                                                <MoreHorizontal className="w-4 h-4" />
+                                                                              </Button>
+                                                                            </DropdownMenuTrigger>
+                                                                            <DropdownMenuContent align="end" className="w-56">
+                                                                              <DropdownMenuItem onClick={() => setVinculosPessoa(m)}>
+                                                                                <Link2 className="w-4 h-4 mr-2 text-muted-foreground" />
+                                                                                Vínculos familiares
+                                                                              </DropdownMenuItem>
+                                                                              <DropdownMenuItem onClick={() => setAtuacoesPessoa(m)}>
+                                                                                <Briefcase className="w-4 h-4 mr-2 text-muted-foreground" />
+                                                                                Atuações voluntárias
+                                                                              </DropdownMenuItem>
+                                                                              {m.tipo_pessoa === "visitante" && (
+                                                                                <DropdownMenuItem onClick={() => setVisitantePessoa(m)}>
+                                                                                  <Sparkles className="w-4 h-4 mr-2 text-warning" />
+                                                                                  Acompanhar visitante
+                                                                                </DropdownMenuItem>
+                                                                              )}
+                                                                            </DropdownMenuContent>
+                                                                          </DropdownMenu>
+                                                                        </div>
                                                                                       )}
                                                                     </CardContent>
                                                     </Card>
                                                   ))}
                                     </div>
+                            )}
+
+                            {!loading && !error && totalPaginas > 1 && (
+                              <nav
+                                className="flex items-center justify-between gap-3 pt-1"
+                                aria-label="Paginação da lista de pessoas"
+                              >
+                                <Button
+                                  variant="outline"
+                                  className="min-h-[44px]"
+                                  disabled={paginaAtual === 1}
+                                  onClick={() => setPagina(p => Math.max(1, p - 1))}
+                                >
+                                  Anterior
+                                </Button>
+                                <span
+                                  className="text-sm text-muted-foreground tabular-nums"
+                                  aria-live="polite"
+                                >
+                                  {(paginaAtual - 1) * POR_PAGINA + 1}–
+                                  {Math.min(paginaAtual * POR_PAGINA, filtered.length)} de {filtered.length}
+                                </span>
+                                <Button
+                                  variant="outline"
+                                  className="min-h-[44px]"
+                                  disabled={paginaAtual === totalPaginas}
+                                  onClick={() => setPagina(p => Math.min(totalPaginas, p + 1))}
+                                >
+                                  Próxima
+                                </Button>
+                              </nav>
                             )}
                     </div>
               
