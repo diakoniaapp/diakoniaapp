@@ -16,6 +16,7 @@ import {
   RefreshCw,
   TrendingUp,
   Pencil,
+  ChevronDown,
   RotateCcw as Restore,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -71,6 +72,16 @@ export default function AcoesHoje({ limit }: AcoesHojeProps = {}) {
   // ─ Edição de mensagem ────────────────────────────────────────────────────
   const [editandoId, setEditandoId]                 = useState<string | null>(null);
   const [mensagensEditadas, setMensagensEditadas]   = useState<Record<string, string>>({});
+  // A mensagem pronta ocupava 215px dos 413px do cartao — mais da metade,
+  // repetindo texto quase igual em cada visitante. Fica recolhida em duas
+  // linhas; quem quiser conferir antes de enviar abre uma de cada vez.
+  const [msgAbertas, setMsgAbertas]                 = useState<Set<string>>(new Set());
+  const alternarMsg = (id: string) =>
+    setMsgAbertas(prev => {
+      const p = new Set(prev);
+      if (p.has(id)) p.delete(id); else p.add(id);
+      return p;
+    });
 
   const load = async () => {
     setLoading(true);
@@ -196,30 +207,20 @@ export default function AcoesHoje({ limit }: AcoesHojeProps = {}) {
           </p>
         </div>
         <Button
-          size="sm"
           variant="ghost"
           onClick={load}
           disabled={loading}
-          className="shrink-0 gap-1.5 text-xs text-muted-foreground"
+          className="shrink-0 gap-1.5 h-11 text-xs text-muted-foreground"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
           Atualizar
         </Button>
       </div>
 
-      {/* Legenda */}
-      <div className="flex gap-2 flex-wrap text-xs text-muted-foreground">
-        <span className="flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-destructive inline-block" />Alta — mais de 15 dias
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-warning inline-block" />Média — mais de 7 dias
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-success inline-block" />Baixa — recém chegou
-        </span>
-      </div>
-
+      {/* A legenda de cores saiu. Ela existia para traduzir tres bolinhas,
+          mas a etiqueta de cada cartao ja escreve "Alta", "Média" ou "Baixa"
+          por extenso — a legenda decodificava algo que nao estava cifrado, e
+          custava tres linhas antes da primeira pessoa da lista. */}
       {/* Lista */}
       {loading ? (
         <ListSkeleton count={3} />
@@ -252,11 +253,10 @@ export default function AcoesHoje({ limit }: AcoesHojeProps = {}) {
                 className={`shadow-card-soft border-l-4 ${prio.border} transition-opacity ${busy ? "opacity-60" : ""}`}
               >
                 <CardContent className="p-4">
+                  {/* O circulo com a estrelinha saiu: era identico nos dois
+                      cartoes e em todos os que virao. A prioridade ja esta na
+                      borda colorida a esquerda e na etiqueta ao lado do nome. */}
                   <div className="flex items-start gap-3">
-                    <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center shrink-0 mt-0.5">
-                      <Sparkles className="w-4 h-4 text-muted-foreground" />
-                    </div>
-
                     <div className="flex-1 min-w-0 space-y-2">
 
                       {/* Nome + badges */}
@@ -296,7 +296,7 @@ export default function AcoesHoje({ limit }: AcoesHojeProps = {}) {
                             <Button
                               size="sm"
                               variant="ghost"
-                              className="h-5 px-1.5 text-xs gap-1 text-muted-foreground"
+                              className="h-11 px-2 text-xs gap-1 text-muted-foreground"
                               onClick={() => restaurarMensagem(v)}
                               title="Restaurar mensagem original"
                             >
@@ -312,58 +312,79 @@ export default function AcoesHoje({ limit }: AcoesHojeProps = {}) {
                             autoFocus
                           />
                           <Button
-                            size="sm"
                             variant="outline"
-                            className="w-full text-xs h-6"
+                            className="w-full text-xs h-11"
                             onClick={() => setEditandoId(null)}
                           >
                             OK — confirmar edição
                           </Button>
                         </div>
                       ) : (
-                        <div className="relative group">
+                        <div>
                           <blockquote
-                            className="text-xs text-muted-foreground border-l-2 border-muted pl-2 pr-9 whitespace-pre-line leading-relaxed"
+                            className={`text-xs text-muted-foreground border-l-2 border-muted pl-2 whitespace-pre-line leading-relaxed ${
+                              msgAbertas.has(v.id) ? "" : "line-clamp-2"
+                            }`}
+                            id={`msg-${v.id}`}
                             translate="no"
                           >
                             {msgFinal}
                           </blockquote>
-                          <button
-                            // Visivel por padrao no toque: group-hover nao existe
-                            // sem mouse, e o botao ficava inalcancavel no celular.
-                            // 32px atende o minimo de 24px da WCAG 2.2 (antes 16px).
-                            className="absolute top-0 right-0 flex items-center justify-center w-8 h-8 opacity-70 md:opacity-0 md:group-hover:opacity-100 transition-opacity rounded text-muted-foreground/60 hover:text-muted-foreground"
-                            onClick={() => abrirEdicao(v)}
-                            aria-label="Editar mensagem"
-                            title="Editar mensagem"
-                          >
-                            <Pencil className="w-3 h-3" />
-                          </button>
-                          {editada && (
-                            <span className="text-xs text-warning mt-0.5 block">✏️ Mensagem editada</span>
-                          )}
+                          <div className="flex items-center gap-1 mt-0.5">
+                            {/* Rotulo em texto, nao seta muda: diz o que faz e
+                                informa se esta aberta (aria-expanded). */}
+                            <Button
+                              size="sm" variant="ghost"
+                              className="h-11 px-2 text-xs gap-1 text-muted-foreground"
+                              onClick={() => alternarMsg(v.id)}
+                              aria-expanded={msgAbertas.has(v.id)}
+                              aria-controls={`msg-${v.id}`}
+                            >
+                              <ChevronDown
+                                className={`w-3.5 h-3.5 transition-transform ${msgAbertas.has(v.id) ? "rotate-180" : ""}`}
+                              />
+                              {msgAbertas.has(v.id) ? "Ocultar mensagem" : "Ver mensagem"}
+                            </Button>
+                            <Button
+                              size="sm" variant="ghost"
+                              className="h-11 px-2 text-xs gap-1 text-muted-foreground"
+                              onClick={() => abrirEdicao(v)}
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                              Editar
+                            </Button>
+                            {editada && (
+                              <span className="text-xs text-warning">✏️ editada</span>
+                            )}
+                          </div>
                         </div>
                       )}
 
                       {/* Ações */}
                       <div className="flex gap-2 flex-wrap pt-0.5">
+                        {/* h-11 = 44px. As duas acoes principais da tela estavam
+                            em 28px, abaixo dos 44px que Pessoas, Familias e
+                            Ministerios ja adotaram — e sao justamente as que se
+                            usa com o celular na mao, no meio do culto. */}
                         <Button
-                          size="sm"
-                          className="gap-1.5 text-xs h-7 bg-[#25D366] hover:bg-[#128C7E] text-white border-0"
+                          className="gap-1.5 text-sm h-11 px-3 bg-[#25D366] hover:bg-[#128C7E] text-white border-0"
                           disabled={!link || busy}
                           onClick={() => abrirWhatsApp(v)}
                         >
-                          <MessageCircle className="w-3.5 h-3.5" />
-                          <span translate="no">Enviar WhatsApp</span>
+                          <MessageCircle className="w-4 h-4" />
+                          {/* "Enviar WhatsApp" nao cabia ao lado de "Registrar
+                              contato" depois que os botoes subiram para 44px, e
+                              os dois quebravam em duas linhas. O icone mais a
+                              marca ja dizem a acao inteira. */}
+                          <span translate="no">WhatsApp</span>
                         </Button>
                         <Button
-                          size="sm"
                           variant="outline"
-                          className="gap-1.5 text-xs h-7"
+                          className="gap-1.5 text-sm h-11 px-3"
                           disabled={busy}
                           onClick={() => setContatoAlvo(v)}
                         >
-                          <CheckCircle2 className="w-3.5 h-3.5 text-success" />
+                          <CheckCircle2 className="w-4 h-4 text-success" />
                           <span translate="no">Registrar contato</span>
                         </Button>
                       </div>

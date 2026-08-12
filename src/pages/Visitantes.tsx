@@ -11,7 +11,7 @@ import VisitanteDialog from "@/components/membros/VisitanteDialog";
 import AcoesHoje from "@/components/membros/AcoesHoje";
 import type { Membro } from "@/pages/Membros";
 import {
-  UserPlus, TrendingUp, AlertTriangle, Phone,
+  TrendingUp, AlertTriangle, Phone,
   ArrowRight, Sparkles, RotateCcw, Zap, List, MessageCircle,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -175,13 +175,21 @@ export default function Visitantes() {
       />
       <div className="p-4 md:p-8 space-y-6">
 
-        {/* Cards de estatísticas */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <StatCard icon={<UserPlus className="w-5 h-5" />}    label="Total visitantes"    value={stats.total} />
-          <StatCard icon={<TrendingUp className="w-5 h-5" />}  label="Retornaram (15d)"    value={stats.retornaram}      color="success" />
-          <StatCard icon={<AlertTriangle className="w-5 h-5" />} label="Não voltaram"      value={stats.naoVoltaram}     color="warning" />
-          <StatCard icon={<Phone className="w-5 h-5" />}       label="Precisam contato"    value={stats.precisamContato} color={stats.precisamContato > 0 ? "warning" : undefined} />
-        </div>
+        {/* Os quatro cartoes de numero viraram uma linha.
+            Ocupavam 180px no celular — quase um quarto da tela — antes do
+            primeiro nome, e dois deles ja apareciam logo abaixo como contador
+            das abas: "Precisam contato" e "Ação do dia" sao o mesmo numero, e
+            "Não voltaram" tambem se repetia. O total ja esta no subtitulo da
+            lista. Sobra aqui o que nao estava em lugar nenhum. */}
+        <p className="text-sm text-muted-foreground" translate="no">
+          <span className="font-medium text-foreground">{stats.total}</span>{" "}
+          {stats.total === 1 ? "visitante" : "visitantes"}
+          {" · "}
+          <span className={stats.retornaram > 0 ? "font-medium text-success" : ""}>
+            {stats.retornaram}
+          </span>{" "}
+          {stats.retornaram === 1 ? "retornou" : "retornaram"} em {DIAS_RETORNO} dias
+        </p>
 
         {/* M3.3 — Pessoas prontas para crescer */}
         {stats.prontosCrescer > 0 && (
@@ -217,24 +225,31 @@ export default function Visitantes() {
 
         {/* Abas */}
         <Tabs defaultValue="acao">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="acao" className="gap-1.5" translate="no">
-              <Zap className="w-4 h-4" />
-              Ação do dia
+          {/* As abas transbordavam: 113px de conteudo numa caixa de 110px, e o
+              contador invadia a aba vizinha — lia-se "Ação do dia 2Não voltaram".
+              Tres correcoes: h-11 (eram 32px, abaixo do alvo de toque de 44px que
+              o resto do sistema ja adota), icone so a partir de md (no celular
+              custava 16px mais o espacamento para repetir o que o rotulo diz), e
+              o rotulo com min-w-0 + truncate, para que falta de espaco vire corte
+              limpo em vez de sobreposicao. */}
+          <TabsList className="grid w-full grid-cols-3 h-auto">
+            <TabsTrigger value="acao" className="gap-1 h-11 px-1.5 min-w-0 text-xs sm:text-sm" translate="no">
+              <Zap className="w-4 h-4 hidden md:inline-block shrink-0" />
+              <span className="truncate">Ação do dia</span>
               {stats.pendentesHoje > 0 && (
-                <Badge className="ml-1 h-4 px-1.5 text-xs" variant="destructive">{stats.pendentesHoje}</Badge>
+                <Badge className="h-4 px-1.5 text-xs shrink-0" variant="destructive">{stats.pendentesHoje}</Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="nao_voltou" className="gap-1.5" translate="no">
-              <AlertTriangle className="w-4 h-4" />
-              Não voltaram
+            <TabsTrigger value="nao_voltou" className="gap-1 h-11 px-1.5 min-w-0 text-xs sm:text-sm" translate="no">
+              <AlertTriangle className="w-4 h-4 hidden md:inline-block shrink-0" />
+              <span className="truncate">Não voltaram</span>
               {listaNaoVoltou.length > 0 && (
-                <Badge className="ml-1 h-4 px-1.5 text-xs" variant="outline">{listaNaoVoltou.length}</Badge>
+                <Badge className="h-4 px-1.5 text-xs shrink-0" variant="outline">{listaNaoVoltou.length}</Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="todos" className="gap-1.5" translate="no">
-              <List className="w-4 h-4" />
-              Todos
+            <TabsTrigger value="todos" className="gap-1 h-11 px-1.5 min-w-0 text-xs sm:text-sm" translate="no">
+              <List className="w-4 h-4 hidden md:inline-block shrink-0" />
+              <span className="truncate">Todos</span>
             </TabsTrigger>
           </TabsList>
 
@@ -324,26 +339,14 @@ export default function Visitantes() {
 
 // ── StatCard ──────────────────────────────────────────────────────────────────
 
-function StatCard({ icon, label, value, color }: {
-  icon: React.ReactNode; label: string; value: number | string; color?: "success" | "warning";
-}) {
-  const cls = color === "success" ? "text-success" : color === "warning" ? "text-warning" : "";
-  return (
-    <Card className="shadow-card-soft">
-      <CardContent className="p-4">
-        <div className="flex items-center gap-2 text-muted-foreground text-xs" translate="no">{icon} {label}</div>
-        <div className={`font-serif text-2xl mt-1 ${cls}`}>{value}</div>
-      </CardContent>
-    </Card>
-  );
-}
-
 // ── JornadaBar — barra de progresso Visitante → Congregado → Membro ────────────
 
 function JornadaBar({ tipoPessoa, pronto }: { tipoPessoa: string; pronto: boolean }) {
   const currentIdx = ETAPAS_JORNADA.findIndex((s) => s.key === tipoPessoa);
   return (
-    <div className="flex items-center gap-0.5 mt-1">
+    // flex-wrap: a trilha "Visitante -> Congregado -> Membro" nao quebrava e
+    // media 394px, esticando o cartao para 431px numa tela de 375px.
+    <div className="flex items-center gap-0.5 mt-1 flex-wrap">
       {ETAPAS_JORNADA.map((s, i) => {
         const isCurrent = i === currentIdx;
         const isDone    = i < currentIdx;
@@ -405,7 +408,7 @@ function VisitanteCard({ v, busy, busyPromote, variant, onOpen, onRetorno, onCon
   };
 
   return (
-    <Card className={`shadow-card-soft hover:shadow-elevated transition-shadow border-l-4 ${prioStyle.border}`}>
+    <Card className={`min-w-0 shadow-card-soft hover:shadow-elevated transition-shadow border-l-4 ${prioStyle.border}`}>
       <CardContent className="p-4">
 
         {/* Barra de jornada */}
@@ -456,8 +459,7 @@ function VisitanteCard({ v, busy, busyPromote, variant, onOpen, onRetorno, onCon
                     </div>
                   </div>
                   <Button
-                    size="sm"
-                    className="shrink-0 text-xs h-6 px-2 gap-1 bg-success hover:bg-success/90 text-white border-0"
+                    className="shrink-0 text-xs h-11 px-3 gap-1 bg-success hover:bg-success/90 text-white border-0"
                     disabled={busyPromote}
                     onClick={() => onPromover(evolucao.sugestao!)}
                   >
@@ -470,7 +472,7 @@ function VisitanteCard({ v, busy, busyPromote, variant, onOpen, onRetorno, onCon
                   <Button
                     size="sm"
                     variant="outline"
-                    className="text-xs h-6 px-2 gap-1 border-success/40 text-success hover:bg-success/10"
+                    className="text-xs h-11 px-3 gap-1 border-success/40 text-success hover:bg-success/10"
                     disabled={!v.telefone_celular}
                     onClick={() => abrirWhatsAppSugestao(
                       `Olá, ${nome}! 😊 Gostaríamos de te convidar para nossa célula de comunhão — um espaço para se conectar com mais irmãos e crescer juntos na fé. Você toparia participar? 💙`
@@ -482,7 +484,7 @@ function VisitanteCard({ v, busy, busyPromote, variant, onOpen, onRetorno, onCon
                   <Button
                     size="sm"
                     variant="outline"
-                    className="text-xs h-6 px-2 gap-1 border-success/40 text-success hover:bg-success/10"
+                    className="text-xs h-11 px-3 gap-1 border-success/40 text-success hover:bg-success/10"
                     disabled={!v.telefone_celular}
                     onClick={() => abrirWhatsAppSugestao(
                       `Olá, ${nome}! 😊 Gostaríamos de marcar uma conversa para te conhecer melhor e acompanhar sua caminhada. Quando seria um bom momento? 💙`
@@ -496,17 +498,21 @@ function VisitanteCard({ v, busy, busyPromote, variant, onOpen, onRetorno, onCon
             )}
           </div>
 
-          {/* Botões de ação */}
+          {/* Botões de ação — h-11 = 44px.
+              Estavam em 24px: pouco mais do que o minimo absoluto da WCAG 2.2
+              (SC 2.5.8) e bem abaixo dos 44px que Pessoas, Familias e
+              Ministerios ja adotaram. Sao acoes de registro pastoral, usadas
+              com o celular na mao. */}
           <div className="flex flex-col gap-1 shrink-0">
-            <Button size="sm" variant="outline" className="gap-1 text-xs h-6 px-2" disabled={busy} onClick={onRetorno}>
-              <RotateCcw className="w-3 h-3" /> Retorno
+            <Button variant="outline" className="gap-1 text-xs h-11 px-3" disabled={busy} onClick={onRetorno}>
+              <RotateCcw className="w-3.5 h-3.5" /> Retorno
             </Button>
-            <Button size="sm" variant="outline" className="gap-1 text-xs h-6 px-2" disabled={busy} onClick={onContato}>
-              <Phone className="w-3 h-3" /> Contato
+            <Button variant="outline" className="gap-1 text-xs h-11 px-3" disabled={busy} onClick={onContato}>
+              <Phone className="w-3.5 h-3.5" /> Contato
             </Button>
-            <Button size="sm" className="gap-1 text-xs h-6 px-2 bg-[#25D366] hover:bg-[#128C7E] text-white border-0"
+            <Button className="gap-1 text-xs h-11 px-3 bg-[#25D366] hover:bg-[#128C7E] text-white border-0"
               disabled={busy || !v.telefone_celular} onClick={onWhatsApp}>
-              <MessageCircle className="w-3 h-3" /> WhatsApp
+              <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
             </Button>
           </div>
         </div>
