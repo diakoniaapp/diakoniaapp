@@ -2,10 +2,16 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Loader2, AlertCircle, Clock, ArrowRight } from "lucide-react";
 import { buscarMeusAssuntos, type MeusAssuntosResposta, PRIORIDADE_ICONE } from "@/services/assuntosService";
+import { useReportarVazio } from "@/components/hoje/vazio";
 
 export function MeusAssuntos() {
   const [data, setData] = useState<MeusAssuntosResposta | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Faixa do HOJE desaparece quando não há tarefa sob responsabilidade.
+  useReportarVazio(
+    loading || !data || (data.total_abertos + data.total_atrasados) === 0
+  );
 
   useEffect(() => {
     buscarMeusAssuntos()

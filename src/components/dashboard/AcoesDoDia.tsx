@@ -10,6 +10,7 @@ import {
   proximosDias, linkWhatsApp,
   type EventoPastoral,
 } from "@/services/agendaPastoralService";
+import { useReportarVazio } from "@/components/hoje/vazio";
 
 function ehDomingo(): boolean {
   return new Date().getDay() === 0;
@@ -18,6 +19,9 @@ function ehDomingo(): boolean {
 export function AcoesDoDia() {
   const [eventos, setEventos] = useState<EventoPastoral[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Faixa do HOJE desaparece quando não há aniversário ou boda na semana.
+  useReportarVazio(loading || eventos.length === 0);
 
   useEffect(() => {
     let cancelled = false;
@@ -90,7 +94,9 @@ export function AcoesDoDia() {
             const sufixo = ehAnis ? "anos" : "anos de casados";
             const hasTel = !!ev.telefone || !!ev.telefone_secundario;
             return (
-              <Card key={ev.ref_id} className={grad}>
+              // min-w-0: sem isso um nome longo alarga o cartão além da
+              // célula do grid e a tela rola de lado no celular.
+              <Card key={ev.ref_id} className={`${grad} min-w-0`}>
                 <CardContent className="py-4 space-y-2">
                   <div className="flex items-start gap-3">
                     <div className={`w-10 h-10 rounded-full bg-white/60 ring-1 ring-current/20 flex items-center justify-center shrink-0 ${iconCor}`}>

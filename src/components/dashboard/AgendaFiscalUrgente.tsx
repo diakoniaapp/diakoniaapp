@@ -7,10 +7,17 @@ import {
   carregarResumoFiscal, marcarAtrasados, montarAlertaFiscalWhatsApp, carregarConfig,
   type ResumoFiscalDashboard,
 } from "@/services/fiscalService";
+import { useReportarVazio } from "@/components/hoje/vazio";
 
 export function AgendaFiscalUrgente() {
   const [data, setData] = useState<ResumoFiscalDashboard | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Faixa do HOJE desaparece quando não há obrigação vencendo.
+  useReportarVazio(
+    loading || !data ||
+    (data.total_atrasados + data.total_urgentes + data.total_proximos) === 0
+  );
 
   async function carregar() {
     setLoading(true);

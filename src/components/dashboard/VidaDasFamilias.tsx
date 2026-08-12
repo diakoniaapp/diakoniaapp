@@ -10,10 +10,14 @@ import {
   proximosDias, linkWhatsApp,
   type EventoPastoral,
 } from "@/services/agendaPastoralService";
+import { useReportarVazio } from "@/components/hoje/vazio";
 
 export function VidaDasFamilias() {
   const [eventos, setEventos] = useState<EventoPastoral[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Faixa do HOJE desaparece quando não há data para celebrar.
+  useReportarVazio(loading || eventos.length === 0);
 
   useEffect(() => {
     let cancelled = false;

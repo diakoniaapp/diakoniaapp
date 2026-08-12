@@ -9,6 +9,7 @@ import {
   CalendarDays, MapPin, Clock, Loader2, CheckCircle2, ChevronRight,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useReportarVazio } from "@/components/hoje/vazio";
 
 interface EventoHoje {
   id: string;
@@ -40,6 +41,11 @@ function formatarHora(h: string | null): string | null {
 export function AgendaDoDia() {
   const [eventos, setEventos] = useState<EventoHoje[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Na tela HOJE, uma faixa sem conteúdo não deve existir. Reportamos vazio
+  // também durante o carregamento para que a faixa nasça escondida e apareça
+  // já preenchida, em vez de piscar. No painel antigo o hook é inerte.
+  useReportarVazio(loading || eventos.length === 0);
 
   useEffect(() => {
     let cancelled = false;

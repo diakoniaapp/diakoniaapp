@@ -27,6 +27,21 @@ import {
 
 export type Prioridade = 0 | 1 | 2 | 3;
 
+/**
+ * Faixa da tela HOJE em que o widget aparece.
+ *
+ * Widget sem `faixa` continua existindo só no painel — é o que permite
+ * migrar de forma incremental, sem tocar em todos de uma vez.
+ *
+ *   trava  → impede alguém de seguir; some quando resolvido
+ *   gente  → o lado humano do dia (aniversários, ausências, visitantes)
+ *   agenda → compromissos de hoje
+ *
+ * A faixa "tarefa" não vem daqui: ela é uma acao unica resolvida em
+ * hoje/tarefaPrincipal.ts, e nao um bloco informativo.
+ */
+export type FaixaHoje = "trava" | "gente" | "agenda";
+
 export interface Widget {
   id: string;
   label: string;
@@ -36,6 +51,7 @@ export interface Widget {
   permissoes: string[];
   areas?: string[];
   prioridade: Prioridade;
+  faixa?: FaixaHoje;
   ativo?: boolean;
 }
 
@@ -58,22 +74,22 @@ export const widgetRegistry: Widget[] = [
     subtitulo: "Coisas que precisam da sua decisão",
     icone: Bell, component: AlertasInteligentes,
     permissoes: ["ver_pessoas","ver_painel_pastoral","ver_painel_secretaria","ver_painel_admin"],
-    prioridade: 0 },
+    prioridade: 0, faixa: "trava" },
 
   { id: "acoes-do-dia", label: "Ações de hoje",
     subtitulo: "Aniversários, bodas e visitas que acontecem agora",
     icone: CalendarCheck, component: AcoesDoDia,
-    permissoes: ["ver_pessoas"], prioridade: 1 },
+    permissoes: ["ver_pessoas"], prioridade: 1, faixa: "gente" },
 
   { id: "agenda-do-dia", label: "Agenda do dia",
     subtitulo: "Eventos da igreja hoje",
     icone: CalendarDays, component: AgendaDoDia,
-    permissoes: ["ver_pessoas","ver_familias","ver_ebd","ver_pgm"], prioridade: 1 },
+    permissoes: ["ver_pessoas","ver_familias","ver_ebd","ver_pgm"], prioridade: 1, faixa: "agenda" },
 
   { id: "vida-das-familias", label: "Vida das famílias",
     subtitulo: "Aniversários e bodas da semana",
     icone: Heart, component: VidaDasFamilias,
-    permissoes: ["ver_familias","ver_painel_pastoral"], prioridade: 2 },
+    permissoes: ["ver_familias","ver_painel_pastoral"], prioridade: 2, faixa: "gente" },
 
   { id: "resumo-ebd", label: "Resumo da EBD",
     subtitulo: "Presença, crescimento e atenção pastoral",
@@ -88,7 +104,7 @@ export const widgetRegistry: Widget[] = [
   { id: "atencao-pessoas", label: "Atenção em pessoas",
     subtitulo: "Visitantes recentes, sem família, sem classe EBD",
     icone: Users, component: AtencaoEmPessoas,
-    permissoes: ["ver_pessoas"], prioridade: 2 },
+    permissoes: ["ver_pessoas"], prioridade: 2, faixa: "gente" },
 
   { id: "resumo-pgm", label: "Pequenos Grupos",
     subtitulo: "Onde a vida da igreja acontece durante a semana",
@@ -98,22 +114,22 @@ export const widgetRegistry: Widget[] = [
   { id: "meus-assuntos", label: "Meus assuntos",
     subtitulo: "Tarefas sob sua responsabilidade",
     icone: CheckSquare, component: MeusAssuntos,
-    permissoes: ["ver_assuntos"], prioridade: 1 },
+    permissoes: ["ver_assuntos"], prioridade: 1, faixa: "trava" },
 
   { id: "agenda-fiscal-urgente", label: "Agenda fiscal",
     subtitulo: "Obrigações vencendo e atrasadas",
     icone: Receipt, component: AgendaFiscalUrgente,
-    permissoes: ["ver_fiscal","ver_financeiro","ver_painel_tesouraria","ver_painel_admin"], prioridade: 0 },
+    permissoes: ["ver_fiscal","ver_financeiro","ver_painel_tesouraria","ver_painel_admin"], prioridade: 0, faixa: "trava" },
 
   { id: "manutencao-arrecadacao", label: "Manutenção Bazar/Cantina",
     subtitulo: "Problemas reportados e recorrências",
     icone: Wrench, component: ManutencaoArrec,
-    permissoes: ["ver_manutencao","ver_arrecadacao_admin"], prioridade: 1 },
+    permissoes: ["ver_manutencao","ver_arrecadacao_admin"], prioridade: 1, faixa: "trava" },
 
   { id: "assuntos-urgentes", label: "Assuntos urgentes da igreja",
     subtitulo: "Atrasados e vencendo essa semana",
     icone: AlertTriangle, component: AssuntosUrgentes,
-    permissoes: ["ver_painel_admin","ver_painel_secretaria","ver_painel_pastoral"], prioridade: 0 },
+    permissoes: ["ver_painel_admin","ver_painel_secretaria","ver_painel_pastoral"], prioridade: 0, faixa: "trava" },
 
   { id: "insights-sistema", label: "Insights do sistema",
     subtitulo: "Sugestões automáticas para a liderança",
@@ -148,6 +164,24 @@ export function getWidgetsParaUsuario(
   return opts.limite ? ordenados.slice(0, opts.limite) : ordenados;
 }
 
+
+/**
+ * Widgets de uma faixa da tela HOJE, já filtrados por permissão e
+ * ordenados por prioridade.
+ *
+ * O limite é parte da regra de produto, não detalhe de layout: a tela HOJE
+ * existe para responder "o que preciso fazer agora", e uma lista longa
+ * deixa de responder isso. Travas e Gente ficam em 3; Agenda idem.
+ */
+export function getWidgetsDaFaixa(
+  ctx: ContextoUsuario,
+  faixa: NonNullable<Widget["faixa"]>,
+  limite = 3,
+): Widget[] {
+  return getWidgetsParaUsuario(ctx)
+    .filter(w => w.faixa === faixa)
+    .slice(0, limite);
+}
 
 /**
  * Para UX "menos é mais": retorna o painel essencial (P0-P2) e os

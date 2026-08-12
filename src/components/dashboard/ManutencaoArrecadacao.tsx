@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Loader2, AlertCircle, Wrench, ArrowRight, AlertTriangle } from "lucide-react";
 import { carregarResumoManutencao, type ResumoManutencao } from "@/services/arrecadacaoService";
+import { useReportarVazio } from "@/components/hoje/vazio";
 
 const CAT_ICONE: Record<string, string> = {
   eletrico: "🔌", hidraulico: "🚿", eletrodomestico: "🏠",
@@ -12,6 +13,11 @@ const CAT_ICONE: Record<string, string> = {
 export function ManutencaoArrecadacao() {
   const [data, setData] = useState<ResumoManutencao | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Faixa do HOJE desaparece quando não há problema reportado.
+  useReportarVazio(
+    loading || !data || (data.total_aberto + data.total_andamento) === 0
+  );
 
   useEffect(() => {
     carregarResumoManutencao().then(setData)

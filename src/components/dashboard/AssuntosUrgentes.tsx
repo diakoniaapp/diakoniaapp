@@ -2,10 +2,14 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Loader2, AlertCircle, Clock, ArrowRight } from "lucide-react";
 import { buscarUrgentesIgreja, type UrgentesIgrejaResposta } from "@/services/assuntosService";
+import { useReportarVazio } from "@/components/hoje/vazio";
 
 export function AssuntosUrgentes() {
   const [data, setData] = useState<UrgentesIgrejaResposta | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Faixa do HOJE desaparece quando não há o que decidir.
+  useReportarVazio(loading || !data || data.lista.length === 0);
 
   useEffect(() => {
     buscarUrgentesIgreja()

@@ -1,7 +1,11 @@
+import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { LayoutDashboard, Users, Calendar, UserCheck, Menu } from "lucide-react";
 import { useAuth, type AppRole } from "@/hooks/useAuth";
+import { usePermissoes } from "@/hooks/usePermissoes";
+import { supabase } from "@/integrations/supabase/client";
 import { MobileNavDrawer } from "@/components/layout/MobileNavDrawer";
+import { resolverTarefaPrincipal, type TarefaPrincipal } from "@/hoje/tarefaPrincipal";
 
 const ROLES_LIDERES: AppRole[] = ["admin", "secretaria", "pastor", "diakonia", "lideranca"];
 
@@ -25,8 +29,42 @@ const tabClass =
   "flex-1 flex flex-col items-center justify-center py-2 min-h-[56px] text-xs gap-0.5 transition-colors";
 
 export function MobileBottomNav() {
-  const { hasRole } = useAuth();
-  const visible = items.filter(i => !i.allowedRoles || hasRole(i.allowedRoles));
+  const { hasRole, user } = useAuth();
+  const { permissoes } = usePermissoes();
+  const [tarefa, setTarefa] = useState<TarefaPrincipal | null>(null);
+
+  // Aba adaptativa: o mesmo resolvedor que alimenta a faixa "Sua tarefa" do
+  // HOJE. Para o professor ela diz Chamada; para o operador, Caixa. É ela
+  // que encurta os fluxos que hoje custam cinco cliques.
+  useEffect(() => {
+    if (!user?.id || permissoes.size === 0) return;
+    let cancelado = false;
+    (async () => {
+      const { data } = await supabase
+        .from("profiles").select("pessoa_id").eq("id", user.id).maybeSingle();
+      if (cancelado) return;
+      const t = await resolverTarefaPrincipal({
+        pessoaId: data?.pessoa_id ?? null, permissoes,
+      });
+      if (!cancelado) setTarefa(t);
+    })();
+    return () => { cancelado = true; };
+  }, [user?.id, permissoes]);
+
+  // A barra tem no máximo 5 alvos. A aba adaptativa não soma: ela ocupa o
+  // lugar de Visitantes, que é o item fixo de menor frequência. Sem tarefa
+  // resolvida, a barra segue exatamente como antes.
+  const base = items.filter(i => !i.allowedRoles || hasRole(i.allowedRoles));
+  let visible = base;
+  if (tarefa) {
+    const semVisitantes = base.filter(i => i.to !== "/visitantes");
+    // logo após Painel: é o segundo alvo mais provável do dedo
+    visible = [
+      semVisitantes[0],
+      { to: tarefa.to, label: tarefa.abaLabel, icon: tarefa.icon },
+      ...semVisitantes.slice(1),
+    ].filter(Boolean);
+  }
 
   return (
     <nav

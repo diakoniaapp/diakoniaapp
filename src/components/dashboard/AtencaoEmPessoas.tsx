@@ -8,6 +8,7 @@ import {
   UserCheck, Home, GraduationCap, Loader2, ArrowRight, CheckCircle2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useReportarVazio } from "@/components/hoje/vazio";
 
 interface Pessoa { id: string; nome_completo: string; }
 interface Visitante extends Pessoa {
@@ -23,6 +24,11 @@ export function AtencaoEmPessoas() {
   const [visitantes, setVisitantes] = useState<Visitante[]>([]);
   const [semFamilia, setSemFamilia] = useState<Pessoa[]>([]);
   const [semEbd, setSemEbd] = useState<Pessoa[]>([]);
+
+  // Faixa do HOJE desaparece quando ninguém precisa de atenção.
+  useReportarVazio(
+    loading || (visitantes.length + semFamilia.length + semEbd.length) === 0
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -177,7 +183,9 @@ function ColunaPessoas({ cor, icon: Icon, titulo, descricao, lista, total, cta }
     );
   }
   return (
-    <Card className={cls.card}>
+    // min-w-0 pelo mesmo motivo de AlertasInteligentes: nome longo não pode
+    // alargar o cartão além da célula do grid.
+    <Card className={`${cls.card} min-w-0`}>
       <CardContent className="py-3 space-y-2">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">

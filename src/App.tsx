@@ -7,6 +7,7 @@ import NotFound from "./pages/NotFound.tsx";
 import Auth from "./pages/Auth.tsx";
 import AppLayout from "./components/layout/AppLayout.tsx";
 import Dashboard from "./pages/Dashboard.tsx";
+import Hoje from "./pages/Hoje.tsx";
 import Membros from "./pages/Membros.tsx";
 import Familias from "./pages/Familias.tsx";
 import Ministerios from "./pages/Ministerios.tsx";
@@ -105,6 +106,9 @@ const App = () => (
                 {/* Rotas protegidas (dentro do AppLayout) */}
                 <Route element={<AppLayout />}>
                   <Route path="/" element={<Dashboard />} />
+                  {/* HOJE convive com o painel até ser promovido a "/". A troca
+                      é de uma linha, e só depois de validada com usuários. */}
+                  <Route path="/hoje" element={<Hoje />} />
                   <Route path="/membros" element={<Membros />} />
                   <Route path="/familias" element={<Familias />} />
                   <Route path="/ministerios" element={<Ministerios />} />
