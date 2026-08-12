@@ -46,7 +46,7 @@ export default function DashboardExecutivo() {
   if (loading) {
     return (
       <div className="py-12 text-center text-sm text-muted-foreground">
-        <Loader2 className="w-5 h-5 animate-spin inline mr-2" /> Carregando dashboard executivo...
+        <Loader2 className="w-5 h-5 animate-spin inline mr-2" /> Carregando visão executiva...
       </div>
     );
   }
@@ -57,7 +57,7 @@ export default function DashboardExecutivo() {
       <header className="flex items-center gap-2 print:hidden">
         <Briefcase className="w-5 h-5 text-gold" />
         <div className="flex-1">
-          <h1 className="font-serif text-xl md:text-2xl">Dashboard Executivo</h1>
+          <h1 className="font-serif text-xl md:text-2xl">Visão Executiva</h1>
           <p className="text-xs text-muted-foreground">Visão estratégica financeira · {fmtMes()}</p>
         </div>
         <Button size="sm" variant="outline" onClick={() => window.print()} className="gap-1.5">

@@ -47,7 +47,7 @@ export default function PainelSecretaria() {
   }
 
   if (loading) return <div className="p-8 flex items-center justify-center text-muted-foreground">
-    <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando painel...
+    <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando pendências...
   </div>;
 
   // Agrupar por prioridade
@@ -63,7 +63,7 @@ export default function PainelSecretaria() {
         <Button asChild variant="ghost" size="icon"><Link to="/membresia"><ArrowLeft className="w-4 h-4" /></Link></Button>
         <div className="flex-1">
           <h1 className="font-serif text-xl flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-gold" /> Painel da Secretaria
+            <Sparkles className="w-5 h-5 text-gold" /> Pendências da Secretaria
           </h1>
           <p className="text-xs text-muted-foreground">
             Tudo que precisa da sua atenção em um só lugar.

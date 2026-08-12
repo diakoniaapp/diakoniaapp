@@ -82,7 +82,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: "/financas",           label: "Tesouraria",          icon: DollarSign, allowedRoles: ROLES_LIDERES },
       { to: "/financas/fiscal",    label: "Módulo Fiscal",       icon: DollarSign, allowedRoles: ROLES_LIDERES },
       { to: "/financas/reunioes",  label: "Reuniões",            icon: DollarSign, allowedRoles: ROLES_LIDERES },
-      { to: "/financas/executivo", label: "Dashboard Executivo", icon: DollarSign, allowedRoles: ROLES_PASTORAL },
+      { to: "/financas/executivo", label: "Visão Executiva",     icon: DollarSign, allowedRoles: ROLES_PASTORAL },
     ],
   },
   {
@@ -136,6 +136,8 @@ export const pageTitles: Record<string, string> = {
   "/governanca":              "Reuniões",
   "/assuntos":                "Assuntos",
   "/financas":                "Tesouraria",
+  "/financas/executivo":      "Visão Executiva",
+  "/painel-secretaria":       "Pendências da Secretaria",
   "/arrecadacao":             "Bazar e Cantina",
   "/admin/recuperacao-senha": "Recuperar Senha",
   "/admin/lgpd":              "LGPD",
