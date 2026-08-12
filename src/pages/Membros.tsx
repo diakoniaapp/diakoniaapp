@@ -88,6 +88,60 @@ const tipoPessoaColor: Record<string, string> = {
 // PESSOA — com a lista inteira renderizada, eram 281 requisicoes so para
 // desenhar 281 escudinhos. Essa informacao tem tela propria em /usuarios.
 
+// Uma acao visivel — editar — mais um menu para as secundarias. Antes eram ate
+// quatro icones sem rotulo, que ninguem entende sem passar o mouse, e no celular
+// nao ha mouse. Dentro do menu cada acao tem nome em vez de simbolo.
+//
+// Fica em componente proprio porque cartao (celular) e tabela (desktop) usam o
+// mesmo conjunto: duplicar o menu seria garantir que um dia so um dos dois ganhe
+// uma acao nova.
+function AcoesPessoa({ m, onEditar, onVinculos, onAtuacoes, onVisitante }: {
+  m: Membro;
+  onEditar:    (m: Membro) => void;
+  onVinculos:  (m: Membro) => void;
+  onAtuacoes:  (m: Membro) => void;
+  onVisitante: (m: Membro) => void;
+}) {
+  return (
+    <div className="flex items-center gap-0.5 shrink-0">
+      <Button
+        variant="ghost" size="icon" className="h-11 w-11"
+        aria-label={`Editar ${m.nome_completo}`}
+        title="Editar"
+        onClick={() => onEditar(m)}
+      >
+        <Pencil className="w-4 h-4" />
+      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost" size="icon" className="h-11 w-11"
+            aria-label={`Mais ações para ${m.nome_completo}`}
+          >
+            <MoreHorizontal className="w-4 h-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuItem onClick={() => onVinculos(m)}>
+            <Link2 className="w-4 h-4 mr-2 text-muted-foreground" />
+            Vínculos familiares
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onAtuacoes(m)}>
+            <Briefcase className="w-4 h-4 mr-2 text-muted-foreground" />
+            Atuações voluntárias
+          </DropdownMenuItem>
+          {m.tipo_pessoa === "visitante" && (
+            <DropdownMenuItem onClick={() => onVisitante(m)}>
+              <Sparkles className="w-4 h-4 mr-2 text-warning" />
+              Acompanhar visitante
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
 export default function Membros() {
     const { canEdit, hasRole } = useAuth();
     const [membros, setMembros] = useState<Membro[]>([]);
@@ -251,7 +305,17 @@ export default function Membros() {
 
   const totalPaginas = Math.max(1, Math.ceil(filtered.length / POR_PAGINA));
   const paginaAtual = Math.min(pagina, totalPaginas);
-  const visiveis = filtered.slice((paginaAtual - 1) * POR_PAGINA, paginaAtual * POR_PAGINA);
+  const inicio = (paginaAtual - 1) * POR_PAGINA;
+  const visiveis = filtered.slice(inicio, inicio + POR_PAGINA);
+
+  // Um unico conjunto de acoes para cartao e tabela. Duplicar o menu nos dois
+  // lugares seria garantir que um dia so um deles ganhe uma acao nova.
+  const acoes = {
+    onEditar:    (m: Membro) => { setEditing(m); setOpen(true); },
+    onVinculos:  setVinculosPessoa,
+    onAtuacoes:  setAtuacoesPessoa,
+    onVisitante: setVisitantePessoa,
+  };
 
   // Voltar à primeira página quando o resultado muda: continuar na página 7
   // de uma busca que agora tem 3 resultados deixaria a tela vazia.
@@ -335,7 +399,8 @@ export default function Membros() {
                                   ) : filtered.length === 0 ? (
                                     <EmptyState message="Nenhuma pessoa encontrada" />
                                   ) : (
-                                    <div className="grid gap-3">
+                                    // md:hidden — no desktop entra a tabela logo abaixo.
+                                    <div className="grid gap-3 md:hidden">
                                       {visiveis.map((m) => (
                                                     // min-w-0: item de grid nao encolhe abaixo do min-content do
                                                     // conteudo. Sem isso, nome longo e etiquetas esticavam o cartao
@@ -383,52 +448,89 @@ export default function Membros() {
                                                                           sem passar o mouse, e no celular nao ha mouse. Dentro do menu
                                                                           cada acao tem nome em vez de simbolo. O indicador de acesso
                                                                           tambem saiu da linha: era um quarto icone, mudo. */}
-                                                                      {canEdit && (
-                                                                        <div className="flex items-center gap-0.5 shrink-0">
-                                                                          <Button
-                                                                            variant="ghost"
-                                                                            size="icon"
-                                                                            className="h-11 w-11"
-                                                                            aria-label={`Editar ${m.nome_completo}`}
-                                                                            title="Editar"
-                                                                            onClick={() => { setEditing(m); setOpen(true); }}
-                                                                          >
-                                                                            <Pencil className="w-4 h-4" />
-                                                                          </Button>
-                                                                          <DropdownMenu>
-                                                                            <DropdownMenuTrigger asChild>
-                                                                              <Button
-                                                                                variant="ghost"
-                                                                                size="icon"
-                                                                                className="h-11 w-11"
-                                                                                aria-label={`Mais ações para ${m.nome_completo}`}
-                                                                              >
-                                                                                <MoreHorizontal className="w-4 h-4" />
-                                                                              </Button>
-                                                                            </DropdownMenuTrigger>
-                                                                            <DropdownMenuContent align="end" className="w-56">
-                                                                              <DropdownMenuItem onClick={() => setVinculosPessoa(m)}>
-                                                                                <Link2 className="w-4 h-4 mr-2 text-muted-foreground" />
-                                                                                Vínculos familiares
-                                                                              </DropdownMenuItem>
-                                                                              <DropdownMenuItem onClick={() => setAtuacoesPessoa(m)}>
-                                                                                <Briefcase className="w-4 h-4 mr-2 text-muted-foreground" />
-                                                                                Atuações voluntárias
-                                                                              </DropdownMenuItem>
-                                                                              {m.tipo_pessoa === "visitante" && (
-                                                                                <DropdownMenuItem onClick={() => setVisitantePessoa(m)}>
-                                                                                  <Sparkles className="w-4 h-4 mr-2 text-warning" />
-                                                                                  Acompanhar visitante
-                                                                                </DropdownMenuItem>
-                                                                              )}
-                                                                            </DropdownMenuContent>
-                                                                          </DropdownMenu>
-                                                                        </div>
-                                                                                      )}
+                                                                      {canEdit && <AcoesPessoa m={m} {...acoes} />}
                                                                     </CardContent>
                                                     </Card>
                                                   ))}
                                     </div>
+                            )}
+
+                            {/* ── Tabela: 768px para cima ──────────────────────────────
+                                Medido em 1416px: o nome recebia 955px de largura e usava
+                                330px — cerca de 600px vazios por linha. So nove pessoas
+                                cabiam sem rolar, e uma pagina de 20 levava 2,1 telas.
+                                A tabela usa esse espaco para colunas de verdade (tipo,
+                                situacao, telefone, bairro) em vez de concatenar tudo com
+                                bolinhas, e dobra quantas pessoas aparecem de uma vez.
+                                No celular a tabela nao entra: os cartoes continuam. */}
+                            {!loading && !error && filtered.length > 0 && (
+                              <div className="hidden md:block rounded-lg border overflow-hidden">
+                                <table className="w-full text-sm">
+                                  <caption className="sr-only">
+                                    Pessoas cadastradas — {filtered.length} no filtro atual,
+                                    mostrando {inicio + 1} a {Math.min(inicio + POR_PAGINA, filtered.length)}
+                                  </caption>
+                                  <thead className="bg-muted/50">
+                                    <tr className="text-left text-xs text-muted-foreground">
+                                      <th scope="col" className="font-medium px-3 py-2">Nome</th>
+                                      <th scope="col" className="font-medium px-3 py-2 w-32">Tipo</th>
+                                      <th scope="col" className="font-medium px-3 py-2 w-40">Telefone</th>
+                                      <th scope="col" className="font-medium px-3 py-2 w-44">Bairro</th>
+                                      <th scope="col" className="font-medium px-3 py-2 w-24">
+                                        <span className="sr-only">Ações</span>
+                                      </th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {visiveis.map((m) => (
+                                      <tr key={m.id} className="border-t hover:bg-muted/40 transition-colors">
+                                        <th scope="row" className="font-normal text-left px-3 py-0 max-w-0">
+                                          {/* Botao de verdade, e nao onClick na <tr>: alcancavel por
+                                              Tab e anunciado como acao. Alvo esticado sobre a linha
+                                              nao serve aqui — <tr> com position: relative nao e
+                                              confiavel entre navegadores. */}
+                                          <button
+                                            type="button"
+                                            // py-3 leva o botao aos 44px de altura da linha. Sem
+                                            // isso ele media 20px — so a altura do texto — e virava
+                                            // um alvo estreito no meio de uma linha alta, alem de
+                                            // ficar abaixo dos 24px minimos da WCAG 2.5.8.
+                                            className="block w-full min-w-0 py-3 text-left truncate font-medium hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+                                            onClick={() => { setEditing(m); setOpen(true); }}
+                                          >
+                                            {m.nome_completo}
+                                          </button>
+                                        </th>
+                                        <td className="px-3 py-0">
+                                          {/* Etiqueta so na excecao, como nos cartoes. */}
+                                          {m.tipo_pessoa !== "membro" ? (
+                                            <Badge variant="outline" className={tipoPessoaColor[m.tipo_pessoa]}>
+                                              {tipoPessoaLabel[m.tipo_pessoa]}
+                                            </Badge>
+                                          ) : m.status !== "ativo" ? (
+                                            <StatusMembroBadge status={m.status} compact />
+                                          ) : null}
+                                          {/* Celula vazia, e nao "—": 274 dos 279 sao membros
+                                              ativos, entao a coluna virava uma fileira de tracos.
+                                              Traco numa tabela le como dado; vazio le como "nada
+                                              a notar", que e o que se quer dizer aqui. Em telefone
+                                              e bairro o traco fica, porque ali a ausencia importa:
+                                              sem telefone ninguem consegue ser contatado. */}
+                                        </td>
+                                        <td className="px-3 py-0 text-muted-foreground tabular-nums">
+                                          {m.telefone_celular || "—"}
+                                        </td>
+                                        <td className="px-3 py-0 text-muted-foreground max-w-0 truncate">
+                                          {m.bairro || "—"}
+                                        </td>
+                                        <td className="px-3 py-0">
+                                          {canEdit && <AcoesPessoa m={m} {...acoes} />}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
                             )}
 
                             {!loading && !error && totalPaginas > 1 && (
