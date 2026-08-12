@@ -67,7 +67,10 @@ export function UserMenuButton() {
       <DropdownMenuTrigger asChild>
         <button
           aria-label="Menu do usuário"
-          className="w-9 h-9 rounded-full ring-2 ring-gold/40 hover:ring-gold/80 active:scale-95 transition-all focus:outline-none"
+          // focus:outline-none removia o contorno tambem no teclado, sem nada
+          // no lugar: quem navega por Tab nao via onde estava. Trocado por
+          // focus-visible + anel, o mesmo padrao dos componentes shadcn.
+          className="w-9 h-9 rounded-full ring-2 ring-gold/40 hover:ring-gold/80 active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar"
         >
           <Avatar className="w-9 h-9">
             <AvatarFallback className="bg-gold/20 text-gold font-bold text-sm">{initials}</AvatarFallback>
