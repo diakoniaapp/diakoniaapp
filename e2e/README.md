@@ -2,11 +2,17 @@
 
 ## Para que servem
 
-Pegam defeitos que só existem quando há layout de verdade — transbordo
-horizontal, alvo de toque pequeno demais, sobreposição. O `vitest` do projeto
-roda em **jsdom, que não calcula layout**: `getBoundingClientRect()` devolve
-zero em tudo. Um teste de transbordo escrito em jsdom passaria sempre, inclusive
-nas seis vezes em que o defeito era real neste projeto.
+Pegam defeitos que só existem quando há layout de verdade. São dois arquivos:
+
+| | |
+|---|---|
+| `transbordo.spec.ts` | conteúdo que passa da borda em 375px |
+| `alvos-de-toque.spec.ts` | alvo clicável abaixo de 24px (WCAG 2.2 SC 2.5.8) |
+
+O `vitest` do projeto roda em **jsdom, que não calcula layout**:
+`getBoundingClientRect()` devolve zero em tudo. Um teste de transbordo escrito
+em jsdom passaria sempre, inclusive nas seis vezes em que o defeito era real
+neste projeto.
 
 Por isso estes ficam em `e2e/` e rodam em Chromium. Os dois mundos não se
 atrapalham: o `vitest.config.ts` só inclui `src/**`.
@@ -91,3 +97,41 @@ Sem essa distinção o teste reprovava `/hoje` por um `<span>` de 149px dentro d
 um `<li class="truncate">` que terminava dentro da tela — falso positivo, e
 falso positivo é o que faz uma equipe apagar o teste em vez de consertar o
 produto.
+
+## Alvos de toque
+
+O piso é **24px** (WCAG 2.2 SC 2.5.8, nível AA), e não os 44px que o projeto
+adota nas telas principais. 44px é a meta de conforto; 24px é a linha que não
+se cruza. Um teste exigindo 44 reprovaria coisas legitimamente densas e viraria
+ruído — e teste ruidoso acaba desligado.
+
+Três armadilhas, todas encontradas medindo:
+
+1. **Alvo esticado por pseudo-elemento.** Em Famílias e Ministérios o título do
+   cartão é um `<button>` de 28px cujo `::after` cobre o cartão inteiro
+   (336×80). Medir só a caixa acusaria 46 violações inexistentes. O tamanho
+   efetivo considera `::after`/`::before` absolutos.
+
+2. **Amostrar pontos com `elementFromPoint` é instável.** Parece mais fiel, mas
+   numa lista rolável a barra inferior fixa cobre transitoriamente o que estiver
+   embaixo: o mesmo botão passa e reprova conforme a rolagem. Medida geométrica
+   é determinística.
+
+3. **Link dentro de frase é isento pela própria norma.** Em `/usuarios` há um
+   `<a>Pessoas</a>` de 56×17 no meio de "Para criar acesso, abra a ficha da
+   pessoa em Pessoas". Reprovar isso obrigaria a inchar texto corrido.
+
+### Quando falhar
+
+Duas saídas, nesta ordem:
+
+1. Aumentar o alvo — `h-11` (44px) é o padrão das telas principais.
+2. Quando o desenho precisa continuar pequeno, esticar só a **área**:
+
+```
+relative after:absolute after:-inset-2 after:content-['']
+```
+
+O `::after` é absoluto, então não ocupa espaço e nada no layout muda. Foi o que
+resolveu as checkboxes de 16px da chamada da EBD: desenho igual, área de toque
+de 30px.
