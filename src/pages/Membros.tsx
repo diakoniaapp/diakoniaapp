@@ -334,8 +334,11 @@ export default function Membros() {
                                   ) : (
                                     <div className="grid gap-3">
                                       {filtered.map((m) => (
-                                                    <Card key={m.id} className="shadow-card-soft hover:shadow-elevated transition-shadow">
-                                                                    <CardContent className="p-4 flex items-center gap-4">
+                                                    // min-w-0: item de grid nao encolhe abaixo do min-content do
+                                                    // conteudo. Sem isso, nome longo e etiquetas esticavam o cartao
+                                                    // muito alem da tela do celular.
+                                                    <Card key={m.id} className="min-w-0 shadow-card-soft hover:shadow-elevated transition-shadow">
+                                                                    <CardContent className="p-4 flex flex-wrap items-center gap-x-4 gap-y-2">
                                                                                       <div className="w-12 h-12 rounded-full bg-primary/10 text-primary font-serif text-lg flex items-center justify-center shrink-0">
                                                                                         {m.nome_completo
                                                                                                                 .split(" ")
@@ -343,9 +346,17 @@ export default function Membros() {
                                                                                                                 .map((n) => n[0])
                                                                                                                 .join("")}
                                                                                         </div>
-                                                                                      <div className="flex-1 min-w-0">
-                                                                                                          <div className="flex items-center gap-2 flex-wrap">
-                                                                                                                                <span className="font-medium truncate">{m.nome_completo}</span>
+                                                                                      {/* min-w-[12rem] em vez de min-w-0: da ao nome um piso de
+                                                                                          largura. Quando nao cabe junto dos 4 botoes de acao — que
+                                                                                          sao shrink-0 e ocupam ~148px — a linha quebra e os botoes
+                                                                                          descem, em vez de espremerem o nome ate 80px. */}
+                                                                                      <div className="flex-1 min-w-[12rem]">
+                                                                                                          {/* O nome ocupa a linha inteira e as etiquetas descem para a
+                                                                                                              seguinte. Quando dividiam a mesma linha flex, as etiquetas
+                                                                                                              venciam a disputa por espaco e o nome — a informacao que
+                                                                                                              identifica a pessoa — era truncado ate virar "Adriana ...". */}
+                                                                                                          <p className="font-medium truncate">{m.nome_completo}</p>
+                                                                                                          <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
                                                                                                                                 <Badge variant="outline" className={tipoPessoaColor[m.tipo_pessoa]}>
                                                                                                                                   {tipoPessoaLabel[m.tipo_pessoa]}
                                                                                                                                   </Badge>
