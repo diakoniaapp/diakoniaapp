@@ -74,7 +74,11 @@ export default function Financas() {
             Tesouraria digital — entradas, saídas, contas e relatórios.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        {/* flex-wrap: as tres acoes somavam 447px numa linha so, numa tela de
+            375px. Como o <main> tem overflow-x-hidden, nada rolava de lado —
+            "Novo lançamento" simplesmente sumia na borda, que e a acao mais
+            usada da tela. Encontrado pela varredura de transbordo. */}
+        <div className="flex items-center gap-2 flex-wrap">
           <Button asChild variant="outline" size="sm" className="gap-1.5"><Link to="/financas/admin">
               <Settings className="w-3.5 h-3.5" /> Configurações
             </Link></Button>

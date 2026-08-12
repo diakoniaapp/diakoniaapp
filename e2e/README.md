@@ -60,9 +60,34 @@ Um `trace` e uma captura de tela ficam em `test-results/` quando falha.
 
 ## Por que medir elemento por elemento
 
-O reflexo é comparar `document.scrollWidth` com `clientWidth`. **Não serve.**
-Quando o transbordo acontece dentro de um ancestral com `overflow-hidden` — o
-caso comum neste layout — o documento não rola de lado e o `scrollWidth` fica
-limpo, enquanto o conteúdo está cortado na borda. No defeito de Famílias o
-cartão media 593px numa tela de 375px e o `scrollWidth` do documento não acusou
-nada. Aqui a medida é a posição de cada elemento.
+O reflexo é comparar `document.scrollWidth` com `clientWidth`. **Não serve
+neste app**, e a razão vale entender porque muda o raciocínio inteiro:
+
+O `<main>` deste layout é `overflow-x-hidden` — está lá para a página nunca
+rolar de lado. Consequência: **nada aqui "vaza". Tudo é cortado.** O documento
+nunca rola na horizontal, o `scrollWidth` fica sempre limpo, e o conteúdo largo
+demais simplesmente **desaparece na borda**.
+
+Foi assim que "os nomes dos cards não cabem" apareceu: o nome não vazava para
+fora da tela — ele sumia. No defeito de Famílias o cartão media 593px numa tela
+de 375px e o `scrollWidth` do documento não acusou nada.
+
+Por isso a medida é a posição de cada elemento, não o scroll do documento.
+
+## Truncagem intencional vs. corte pelo casco
+
+`getBoundingClientRect()` devolve a caixa de **layout** e ignora recorte. Isso
+cria duas situações que medem igual e são opostas no produto:
+
+| | |
+|---|---|
+| `<span>` dentro de `<li class="truncate">` | O `li` corta e mostra reticências. **É o comportamento pedido.** |
+| Cartão largo demais dentro de `<main>` | O `main` corta também — mas aqui o corte **é** o defeito. |
+
+A regra do teste: só conta como truncagem intencional o ancestral que corta e
+está **abaixo do `<main>`**. O corte do próprio casco não absolve ninguém.
+
+Sem essa distinção o teste reprovava `/hoje` por um `<span>` de 149px dentro de
+um `<li class="truncate">` que terminava dentro da tela — falso positivo, e
+falso positivo é o que faz uma equipe apagar o teste em vez de consertar o
+produto.

@@ -81,6 +81,42 @@ async function elementosForaDaBorda(page: Page, largura: number) {
         if (r.width === 0 || r.height === 0) continue;
         if (r.right <= largura + folga) continue;
 
+        // Truncagem INTENCIONAL nao e defeito; corte pelo casco do app e.
+        //
+        // getBoundingClientRect() devolve a caixa de LAYOUT e ignora recorte.
+        // Isso cria duas situacoes que parecem iguais na medida e sao opostas
+        // no produto:
+        //
+        //  - um <span> dentro de <li class="truncate">: a caixa passa da tela,
+        //    mas o li corta e mostra reticencias. E o comportamento pedido.
+        //    Reprovar isso e o tipo de falso positivo que faz uma equipe apagar
+        //    o teste em vez de consertar o produto. (Acontecia em /hoje.)
+        //
+        //  - um cartao largo demais dentro de <main>: o <main> deste app tem
+        //    `overflow-x-hidden` — existe para a pagina nao rolar de lado —
+        //    entao ele corta tambem. Mas aqui o corte E o defeito: foi assim
+        //    que "os nomes dos cards nao cabem" apareceu. O nome nao vazava,
+        //    ele sumia.
+        //
+        // Por isso a busca por ancestral que corta para ANTES da raiz: so conta
+        // como truncagem intencional quem esta abaixo do <main>. O corte do
+        // proprio casco nao absolve ninguem.
+        //
+        // E tambem por isso o teste nao pode se apoiar em document.scrollWidth:
+        // com overflow-x-hidden no <main>, o documento nunca rola de lado e o
+        // scrollWidth fica limpo mesmo com o conteudo cortado.
+        let truncadoDeProposito = false;
+        for (let p = el.parentElement; p && p !== raiz; p = p.parentElement) {
+          if (getComputedStyle(p).overflowX === "visible") continue;
+          // So absolve se o proprio ancestral cabe na tela — senao e ele que
+          // esta transbordando, e e ele que deve ser reportado.
+          if (p.getBoundingClientRect().right <= largura + folga) {
+            truncadoDeProposito = true;
+            break;
+          }
+        }
+        if (truncadoDeProposito) continue;
+
         fora.push({
           el,
           tag: el.tagName.toLowerCase(),
