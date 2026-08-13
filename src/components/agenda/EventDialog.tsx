@@ -11,6 +11,7 @@ import {
   RecorrenciaFreq, RecorrenciaRegra, Resp, STATUS_LABEL, TIPO_LABEL,
 } from "@/lib/agenda/types";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import { RecurrenceEditor } from "./RecurrenceEditor";
 
 export interface EventFormPayload {
@@ -113,9 +114,27 @@ export function EventDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!titulo.trim()) return;
-    if (mins.length === 0) return;
-    if (!mins.some(m => m.responsabilidade === "principal")) return;
+
+    // Estas tres condicoes eram `return` secos: clicar em "Salvar" com um
+    // ministerio faltando nao gravava, nao fechava e NAO DIZIA NADA. Do lado
+    // de quem usa, o botao simplesmente nao funcionava — e a conclusao
+    // razoavel e que o sistema esta quebrado, nao que falta um campo.
+    //
+    // O aviso na secao ("Adicione ao menos 1 ministério principal") ja existia,
+    // mas como texto fixo la embaixo: nao aparece como resposta ao clique, e
+    // num formulario com rolagem pode nem estar na tela na hora.
+    if (!titulo.trim()) {
+      toast.error("Dê um título ao evento.");
+      return;
+    }
+    if (mins.length === 0) {
+      toast.error("Escolha ao menos um ministério responsável pelo evento.");
+      return;
+    }
+    if (!mins.some(m => m.responsabilidade === "principal")) {
+      toast.error("Marque um dos ministérios como principal.");
+      return;
+    }
     setSaving(true);
     try {
       await onSubmit({
