@@ -344,6 +344,39 @@ export default function Eventos() {
     return format(refDate, "MMMM 'de' yyyy", { locale: ptBR });
   }, [refDate, effectiveView]);
 
+  // ───── Excluir evento ─────
+  //
+  // A agenda ficou sem exclusao quando o dialogo "Procurar duplicados" saiu:
+  // era o unico lugar do sistema que chamava delete em `eventos`. Dava para
+  // criar e editar, mas nao apagar — so marcar como cancelado.
+  //
+  // A trava de series vem de la e continua valendo: um evento que serve de
+  // origem para excecoes nao pode sumir, senao as excecoes ficam orfas
+  // apontando para um id que nao existe mais. Nesse caso o certo e cancelar.
+  const excluirEvento = async (eventoId: string) => {
+    try {
+      const { count } = await supabase
+        .from("eventos")
+        .select("id", { count: "exact", head: true })
+        .eq("serie_origem_id", eventoId);
+      if ((count || 0) > 0) {
+        toast.error("Este evento tem datas alteradas na série. Cancele em vez de excluir.");
+        return;
+      }
+      // Os vinculos primeiro: sem isso a exclusao esbarra na chave estrangeira.
+      await supabase.from("evento_ministerios").delete().eq("evento_id", eventoId);
+      await supabase.from("evento_areas").delete().eq("evento_id", eventoId);
+      const { error } = await supabase.from("eventos").delete().eq("id", eventoId);
+      if (error) throw error;
+      toast.success("Evento excluído");
+      setDialogOpen(false);
+      setEditing(null);
+      load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao excluir o evento");
+    }
+  };
+
   // ───── Save flow ─────
   const insertLinks = async (
     eventoId: string,
@@ -701,6 +734,10 @@ export default function Eventos() {
         initialMinisterios={initialMins}
         initialAreas={initialAreas}
         onSubmit={handleSubmit}
+        // Sem permissao de edicao, sem exclusao: o botao nem e montado.
+        // Aniversario e feriado tambem ficam de fora — sao gerados, nao estao
+        // na tabela `eventos`, e chegam marcados com externalReadOnly.
+        onDelete={canEdit && !editing?.externalReadOnly ? excluirEvento : undefined}
       />
 
       {/* Hide unused-import warning */}

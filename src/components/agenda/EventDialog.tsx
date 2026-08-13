@@ -42,11 +42,13 @@ interface Props {
   initialMinisterios: { ministerio_id: string; responsabilidade: Resp }[];
   initialAreas: string[];
   onSubmit: (payload: EventFormPayload) => Promise<void>;
+  /** Exclui o evento. Ausente = sem botao (evento novo ou somente leitura). */
+  onDelete?: (eventoId: string) => Promise<void>;
 }
 
 export function EventDialog({
   open, onClose, ocorrencia, defaultDate, defaultHora,
-  ministerios, areas, locais, initialMinisterios, initialAreas, onSubmit,
+  ministerios, areas, locais, initialMinisterios, initialAreas, onSubmit, onDelete,
 }: Props) {
   const ev = ocorrencia?.evento;
   const [titulo, setTitulo] = useState("");
@@ -63,6 +65,12 @@ export function EventDialog({
   const [recFreq, setRecFreq] = useState<RecorrenciaFreq>("nao");
   const [recRegra, setRecRegra] = useState<RecorrenciaRegra | null>(null);
   const [saving, setSaving] = useState(false);
+  const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
+  const [excluindo, setExcluindo] = useState(false);
+
+  // Fecha a confirmacao sempre que o dialogo abre ou troca de evento, para nao
+  // reabrir armado de uma vez anterior.
+  useEffect(() => { setConfirmandoExclusao(false); }, [open, ocorrencia?.evento?.id]);
 
   useEffect(() => {
     if (!open) return;
@@ -299,7 +307,44 @@ export function EventDialog({
             <p className="text-xs text-muted-foreground italic">Escalas de voluntários poderão ser vinculadas posteriormente.</p>
           </div>
 
-          <DialogFooter>
+          {/* Excluir fica separado das outras acoes — a esquerda, com o
+              `mr-auto` empurrando Cancelar e Atualizar para a direita. Botao
+              destrutivo encostado no de confirmar e convite a errar.
+              So aparece ao editar um evento existente. */}
+          <DialogFooter className="sm:justify-end">
+            {editingExisting && onDelete && ev && (
+              confirmandoExclusao ? (
+                <div className="mr-auto flex items-center gap-2 flex-wrap">
+                  <span className="text-sm text-destructive">Excluir mesmo?</span>
+                  <Button
+                    type="button" variant="destructive" size="sm"
+                    disabled={excluindo}
+                    onClick={async () => {
+                      setExcluindo(true);
+                      try { await onDelete(ev.id); } finally { setExcluindo(false); }
+                    }}
+                  >
+                    {excluindo ? "Excluindo…" : "Sim, excluir"}
+                  </Button>
+                  <Button
+                    type="button" variant="ghost" size="sm"
+                    disabled={excluindo}
+                    onClick={() => setConfirmandoExclusao(false)}
+                  >
+                    Não
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  type="button" variant="ghost" size="sm"
+                  className="mr-auto text-destructive hover:text-destructive hover:bg-destructive/10"
+                  onClick={() => setConfirmandoExclusao(true)}
+                >
+                  <Trash2 className="w-4 h-4 mr-1.5" />
+                  Excluir
+                </Button>
+              )
+            )}
             <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
             <Button type="submit" disabled={saving}>{saving ? "Salvando…" : editingExisting ? "Atualizar" : "Salvar"}</Button>
           </DialogFooter>
