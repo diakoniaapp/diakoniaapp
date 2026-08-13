@@ -8,14 +8,7 @@ import { EmptyState, ListSkeleton } from "@/components/ListState";
 import ContatoResultadoDialog from "@/components/membros/ContatoResultadoDialog";
 import {
   MessageCircle,
-  CheckCircle2,
-  Sparkles,
-  AlertTriangle,
-  Clock,
-  Heart,
   RefreshCw,
-  TrendingUp,
-  Pencil,
   ChevronDown,
   RotateCcw as Restore,
 } from "lucide-react";
@@ -52,11 +45,6 @@ interface VisitanteFluxoExt extends VisitanteFluxo {
 
 // ── Constantes ───────────────────────────────────────────────────────────────
 
-const PRIO_ICON: Record<string, React.ReactNode> = {
-  alta:  <AlertTriangle className="w-3 h-3" />,
-  media: <Clock         className="w-3 h-3" />,
-  baixa: <Heart         className="w-3 h-3" />,
-};
 
 interface AcoesHojeProps {
   limit?: number;
@@ -210,9 +198,12 @@ export default function AcoesHoje({ limit }: AcoesHojeProps = {}) {
           variant="ghost"
           onClick={load}
           disabled={loading}
-          className="shrink-0 gap-1.5 h-11 text-xs text-muted-foreground"
+          className="shrink-0 h-11 text-xs text-muted-foreground"
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+          {/* A seta so aparece girando. Parada ela e enfeite ao lado de uma
+              palavra que ja se explica; girando ela e o unico retorno de que
+              a lista esta sendo recarregada. */}
+          {loading && <RefreshCw className="w-3.5 h-3.5 animate-spin mr-1.5" />}
           Atualizar
         </Button>
       </div>
@@ -262,16 +253,19 @@ export default function AcoesHoje({ limit }: AcoesHojeProps = {}) {
                       {/* Nome + badges */}
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="font-medium leading-tight">{v.nome_completo}</span>
-                        <Badge variant="outline" className={`text-xs h-4 px-1.5 gap-1 ${prio.badge}`}>
-                          {PRIO_ICON[v.prioridade]}{prio.label}
+                        {/* Etiquetas sem icone dentro. "Baixa" ja diz baixa, e
+                            a prioridade tambem esta na barra colorida da borda
+                            esquerda do cartao — o simbolo era o terceiro sinal
+                            do mesmo dado. */}
+                        <Badge variant="outline" className={`text-xs h-4 px-1.5 ${prio.badge}`}>
+                          {prio.label}
                         </Badge>
                         <Badge variant="outline" className="text-xs h-4 px-1.5">
                           {ETAPA_LABEL[v.etapa_fluxo]}
                         </Badge>
                         {evolucao.sugestao && (
-                          <Badge className="text-xs h-4 px-1.5 gap-1 bg-success/15 text-success border border-success/30 hover:bg-success/15">
-                            <Sparkles className="w-2.5 h-2.5" />
-                            Próximo passo ✨
+                          <Badge className="text-xs h-4 px-1.5 bg-success/15 text-success border border-success/30 hover:bg-success/15">
+                            Próximo passo
                           </Badge>
                         )}
                       </div>
@@ -345,12 +339,12 @@ export default function AcoesHoje({ limit }: AcoesHojeProps = {}) {
                               />
                               {msgAbertas.has(v.id) ? "Ocultar mensagem" : "Ver mensagem"}
                             </Button>
+                            {/* Sem lapis: a palavra "Editar" ja e o rotulo. */}
                             <Button
                               size="sm" variant="ghost"
-                              className="h-11 px-2 text-xs gap-1 text-muted-foreground"
+                              className="h-11 px-2 text-xs text-muted-foreground"
                               onClick={() => abrirEdicao(v)}
                             >
-                              <Pencil className="w-3.5 h-3.5" />
                               Editar
                             </Button>
                             {editada && (
@@ -378,13 +372,15 @@ export default function AcoesHoje({ limit }: AcoesHojeProps = {}) {
                               marca ja dizem a acao inteira. */}
                           <span translate="no">WhatsApp</span>
                         </Button>
+                        {/* O visto verde saiu: "Registrar contato" ja se explica,
+                            e a cor puxava o olho para a acao secundaria em vez
+                            da principal, que e enviar a mensagem. */}
                         <Button
                           variant="outline"
-                          className="gap-1.5 text-sm h-11 px-3"
+                          className="text-sm h-11 px-3"
                           disabled={busy}
                           onClick={() => setContatoAlvo(v)}
                         >
-                          <CheckCircle2 className="w-4 h-4 text-success" />
                           <span translate="no">Registrar contato</span>
                         </Button>
                       </div>

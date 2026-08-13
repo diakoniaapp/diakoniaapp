@@ -126,7 +126,12 @@ export default function Dashboard() {
       </div>
 
       {/* ── CORPO ───────────────────────────────────────────────────────── */}
-      <div className="p-4 md:p-8 space-y-6 max-w-7xl mx-auto">
+      {/* Ritmo: 40px ENTRE secoes, 8px entre titulo e conteudo.
+          Antes tudo era 24px — o vao que separava duas secoes era o mesmo que
+          separava um titulo do seu proprio bloco, entao nada agrupava nada e a
+          pagina lia como uma lista continua. Hierarquia se faz com a razao
+          entre os espacos, nao com linha, cor ou moldura. */}
+      <div className="p-4 md:p-8 space-y-10 max-w-7xl mx-auto">
 
 
         {/* ── ZONA 2 — AÇÃO: atalhos rápidos do perfil (registry) ───── */}

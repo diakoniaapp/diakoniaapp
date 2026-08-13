@@ -12,7 +12,7 @@ import AcoesHoje from "@/components/membros/AcoesHoje";
 import type { Membro } from "@/pages/Membros";
 import {
   TrendingUp, AlertTriangle, Phone,
-  ArrowRight, Sparkles, RotateCcw, Zap, List, MessageCircle,
+  ArrowRight, Sparkles, RotateCcw, List, MessageCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -233,22 +233,23 @@ export default function Visitantes() {
               o rotulo com min-w-0 + truncate, para que falta de espaco vire corte
               limpo em vez de sobreposicao. */}
           <TabsList className="grid w-full grid-cols-3 h-auto">
+            {/* Sem icone nas abas. Tres rotulos claros — "Ação do dia",
+                "Não voltaram", "Todos" — nao precisam de simbolo, e o icone
+                aparecia so no desktop, o que ja dizia que ele nao era
+                necessario para entender. */}
             <TabsTrigger value="acao" className="gap-1 h-11 px-1.5 min-w-0 text-xs sm:text-sm" translate="no">
-              <Zap className="w-4 h-4 hidden md:inline-block shrink-0" />
               <span className="truncate">Ação do dia</span>
               {stats.pendentesHoje > 0 && (
                 <Badge className="h-4 px-1.5 text-xs shrink-0" variant="destructive">{stats.pendentesHoje}</Badge>
               )}
             </TabsTrigger>
             <TabsTrigger value="nao_voltou" className="gap-1 h-11 px-1.5 min-w-0 text-xs sm:text-sm" translate="no">
-              <AlertTriangle className="w-4 h-4 hidden md:inline-block shrink-0" />
               <span className="truncate">Não voltaram</span>
               {listaNaoVoltou.length > 0 && (
                 <Badge className="h-4 px-1.5 text-xs shrink-0" variant="outline">{listaNaoVoltou.length}</Badge>
               )}
             </TabsTrigger>
             <TabsTrigger value="todos" className="gap-1 h-11 px-1.5 min-w-0 text-xs sm:text-sm" translate="no">
-              <List className="w-4 h-4 hidden md:inline-block shrink-0" />
               <span className="truncate">Todos</span>
             </TabsTrigger>
           </TabsList>
