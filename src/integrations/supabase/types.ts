@@ -1816,6 +1816,33 @@ export type Database = {
           },
         ]
       }
+      cargos_estatutarios: {
+        Row: {
+          ativo: boolean | null
+          created_at: string | null
+          descricao: string | null
+          id: string
+          nivel: number
+          nome: string
+        }
+        Insert: {
+          ativo?: boolean | null
+          created_at?: string | null
+          descricao?: string | null
+          id?: string
+          nivel?: number
+          nome: string
+        }
+        Update: {
+          ativo?: boolean | null
+          created_at?: string | null
+          descricao?: string | null
+          id?: string
+          nivel?: number
+          nome?: string
+        }
+        Relationships: []
+      }
       cargos_institucionais: {
         Row: {
           ativo: boolean
@@ -2278,11 +2305,19 @@ export type Database = {
         Row: {
           aprovado_em: string | null
           aprovado_por: string | null
+          arquivo_mime: string | null
+          arquivo_nome: string | null
+          arquivo_storage_path: string | null
+          arquivo_tamanho_bytes: number | null
           arquivo_url: string | null
           conteudo: string | null
           created_at: string
           id: string
           igreja_id: string
+          ingestao_em: string | null
+          ingestao_erro: string | null
+          ingestao_status: string | null
+          texto_extraido: string | null
           tipo: string
           titulo: string
           updated_at: string
@@ -2292,11 +2327,19 @@ export type Database = {
         Insert: {
           aprovado_em?: string | null
           aprovado_por?: string | null
+          arquivo_mime?: string | null
+          arquivo_nome?: string | null
+          arquivo_storage_path?: string | null
+          arquivo_tamanho_bytes?: number | null
           arquivo_url?: string | null
           conteudo?: string | null
           created_at?: string
           id?: string
           igreja_id?: string
+          ingestao_em?: string | null
+          ingestao_erro?: string | null
+          ingestao_status?: string | null
+          texto_extraido?: string | null
           tipo: string
           titulo: string
           updated_at?: string
@@ -2306,11 +2349,19 @@ export type Database = {
         Update: {
           aprovado_em?: string | null
           aprovado_por?: string | null
+          arquivo_mime?: string | null
+          arquivo_nome?: string | null
+          arquivo_storage_path?: string | null
+          arquivo_tamanho_bytes?: number | null
           arquivo_url?: string | null
           conteudo?: string | null
           created_at?: string
           id?: string
           igreja_id?: string
+          ingestao_em?: string | null
+          ingestao_erro?: string | null
+          ingestao_status?: string | null
+          texto_extraido?: string | null
           tipo?: string
           titulo?: string
           updated_at?: string
@@ -2852,6 +2903,96 @@ export type Database = {
           },
           {
             foreignKeyName: "ebd_professores_pessoa_id_fkey"
+            columns: ["pessoa_id"]
+            isOneToOne: false
+            referencedRelation: "v_visitantes_alerta"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      escala_participantes: {
+        Row: {
+          confirmado: boolean | null
+          created_at: string | null
+          data_slot: string | null
+          escala_id: string
+          funcao: string | null
+          id: string
+          observacao: string | null
+          pessoa_id: string
+        }
+        Insert: {
+          confirmado?: boolean | null
+          created_at?: string | null
+          data_slot?: string | null
+          escala_id: string
+          funcao?: string | null
+          id?: string
+          observacao?: string | null
+          pessoa_id: string
+        }
+        Update: {
+          confirmado?: boolean | null
+          created_at?: string | null
+          data_slot?: string | null
+          escala_id?: string
+          funcao?: string | null
+          id?: string
+          observacao?: string | null
+          pessoa_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "escala_participantes_escala_id_fkey"
+            columns: ["escala_id"]
+            isOneToOne: false
+            referencedRelation: "escalas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "escala_participantes_escala_id_fkey"
+            columns: ["escala_id"]
+            isOneToOne: false
+            referencedRelation: "v_minha_escala"
+            referencedColumns: ["escala_id"]
+          },
+          {
+            foreignKeyName: "escala_participantes_escala_id_fkey"
+            columns: ["escala_id"]
+            isOneToOne: false
+            referencedRelation: "v_proximas_escalas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "escala_participantes_pessoa_id_fkey"
+            columns: ["pessoa_id"]
+            isOneToOne: false
+            referencedRelation: "membros"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "escala_participantes_pessoa_id_fkey"
+            columns: ["pessoa_id"]
+            isOneToOne: false
+            referencedRelation: "v_membros_mapa"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "escala_participantes_pessoa_id_fkey"
+            columns: ["pessoa_id"]
+            isOneToOne: false
+            referencedRelation: "v_membros_perfil"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "escala_participantes_pessoa_id_fkey"
+            columns: ["pessoa_id"]
+            isOneToOne: false
+            referencedRelation: "v_ranking_convidadores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "escala_participantes_pessoa_id_fkey"
             columns: ["pessoa_id"]
             isOneToOne: false
             referencedRelation: "v_visitantes_alerta"
@@ -7278,6 +7419,7 @@ export type Database = {
           ativo: boolean
           co_lider_id: string | null
           congregacao_id: string | null
+          cor: string | null
           cor_identidade: string | null
           created_at: string
           data_fundacao: string | null
@@ -7294,6 +7436,7 @@ export type Database = {
           objetivo: string | null
           publico_alvo: string | null
           sigla: string | null
+          tipo: string | null
           updated_at: string
           vice_lider_id: string | null
         }
@@ -7301,6 +7444,7 @@ export type Database = {
           ativo?: boolean
           co_lider_id?: string | null
           congregacao_id?: string | null
+          cor?: string | null
           cor_identidade?: string | null
           created_at?: string
           data_fundacao?: string | null
@@ -7317,6 +7461,7 @@ export type Database = {
           objetivo?: string | null
           publico_alvo?: string | null
           sigla?: string | null
+          tipo?: string | null
           updated_at?: string
           vice_lider_id?: string | null
         }
@@ -7324,6 +7469,7 @@ export type Database = {
           ativo?: boolean
           co_lider_id?: string | null
           congregacao_id?: string | null
+          cor?: string | null
           cor_identidade?: string | null
           created_at?: string
           data_fundacao?: string | null
@@ -7340,6 +7486,7 @@ export type Database = {
           objetivo?: string | null
           publico_alvo?: string | null
           sigla?: string | null
+          tipo?: string | null
           updated_at?: string
           vice_lider_id?: string | null
         }
@@ -7989,6 +8136,195 @@ export type Database = {
           role?: Database["public"]["Enums"]["app_role"]
         }
         Relationships: []
+      }
+      pessoa_cargo_estatutario: {
+        Row: {
+          ativo: boolean | null
+          cargo_id: string
+          created_at: string | null
+          data_fim: string | null
+          data_inicio: string
+          id: string
+          mandato: string | null
+          pessoa_id: string
+        }
+        Insert: {
+          ativo?: boolean | null
+          cargo_id: string
+          created_at?: string | null
+          data_fim?: string | null
+          data_inicio?: string
+          id?: string
+          mandato?: string | null
+          pessoa_id: string
+        }
+        Update: {
+          ativo?: boolean | null
+          cargo_id?: string
+          created_at?: string | null
+          data_fim?: string | null
+          data_inicio?: string
+          id?: string
+          mandato?: string | null
+          pessoa_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pessoa_cargo_estatutario_cargo_id_fkey"
+            columns: ["cargo_id"]
+            isOneToOne: false
+            referencedRelation: "cargos_estatutarios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pessoa_cargo_estatutario_pessoa_id_fkey"
+            columns: ["pessoa_id"]
+            isOneToOne: false
+            referencedRelation: "membros"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pessoa_cargo_estatutario_pessoa_id_fkey"
+            columns: ["pessoa_id"]
+            isOneToOne: false
+            referencedRelation: "v_membros_mapa"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pessoa_cargo_estatutario_pessoa_id_fkey"
+            columns: ["pessoa_id"]
+            isOneToOne: false
+            referencedRelation: "v_membros_perfil"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pessoa_cargo_estatutario_pessoa_id_fkey"
+            columns: ["pessoa_id"]
+            isOneToOne: false
+            referencedRelation: "v_ranking_convidadores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pessoa_cargo_estatutario_pessoa_id_fkey"
+            columns: ["pessoa_id"]
+            isOneToOne: false
+            referencedRelation: "v_visitantes_alerta"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pessoa_participacao: {
+        Row: {
+          area_id: string | null
+          ativo: boolean | null
+          created_at: string | null
+          data_fim: string | null
+          data_inicio: string
+          funcao: string
+          id: string
+          ministerio_id: string | null
+          observacao: string | null
+          pessoa_id: string
+          setor_id: string | null
+        }
+        Insert: {
+          area_id?: string | null
+          ativo?: boolean | null
+          created_at?: string | null
+          data_fim?: string | null
+          data_inicio?: string
+          funcao?: string
+          id?: string
+          ministerio_id?: string | null
+          observacao?: string | null
+          pessoa_id: string
+          setor_id?: string | null
+        }
+        Update: {
+          area_id?: string | null
+          ativo?: boolean | null
+          created_at?: string | null
+          data_fim?: string | null
+          data_inicio?: string
+          funcao?: string
+          id?: string
+          ministerio_id?: string | null
+          observacao?: string | null
+          pessoa_id?: string
+          setor_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pessoa_participacao_area_id_fkey"
+            columns: ["area_id"]
+            isOneToOne: false
+            referencedRelation: "areas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pessoa_participacao_area_id_fkey"
+            columns: ["area_id"]
+            isOneToOne: false
+            referencedRelation: "v_voluntarios_completo"
+            referencedColumns: ["area_id"]
+          },
+          {
+            foreignKeyName: "pessoa_participacao_ministerio_id_fkey"
+            columns: ["ministerio_id"]
+            isOneToOne: false
+            referencedRelation: "ministerios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pessoa_participacao_ministerio_id_fkey"
+            columns: ["ministerio_id"]
+            isOneToOne: false
+            referencedRelation: "v_voluntarios_completo"
+            referencedColumns: ["ministerio_id"]
+          },
+          {
+            foreignKeyName: "pessoa_participacao_pessoa_id_fkey"
+            columns: ["pessoa_id"]
+            isOneToOne: false
+            referencedRelation: "membros"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pessoa_participacao_pessoa_id_fkey"
+            columns: ["pessoa_id"]
+            isOneToOne: false
+            referencedRelation: "v_membros_mapa"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pessoa_participacao_pessoa_id_fkey"
+            columns: ["pessoa_id"]
+            isOneToOne: false
+            referencedRelation: "v_membros_perfil"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pessoa_participacao_pessoa_id_fkey"
+            columns: ["pessoa_id"]
+            isOneToOne: false
+            referencedRelation: "v_ranking_convidadores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pessoa_participacao_pessoa_id_fkey"
+            columns: ["pessoa_id"]
+            isOneToOne: false
+            referencedRelation: "v_visitantes_alerta"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pessoa_participacao_setor_id_fkey"
+            columns: ["setor_id"]
+            isOneToOne: false
+            referencedRelation: "setores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pessoas: {
         Row: {
@@ -9341,6 +9677,86 @@ export type Database = {
           },
         ]
       }
+      setores: {
+        Row: {
+          area_id: string
+          ativo: boolean | null
+          created_at: string | null
+          descricao: string | null
+          id: string
+          lider_id: string | null
+          nome: string
+        }
+        Insert: {
+          area_id: string
+          ativo?: boolean | null
+          created_at?: string | null
+          descricao?: string | null
+          id?: string
+          lider_id?: string | null
+          nome: string
+        }
+        Update: {
+          area_id?: string
+          ativo?: boolean | null
+          created_at?: string | null
+          descricao?: string | null
+          id?: string
+          lider_id?: string | null
+          nome?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "setores_area_id_fkey"
+            columns: ["area_id"]
+            isOneToOne: false
+            referencedRelation: "areas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "setores_area_id_fkey"
+            columns: ["area_id"]
+            isOneToOne: false
+            referencedRelation: "v_voluntarios_completo"
+            referencedColumns: ["area_id"]
+          },
+          {
+            foreignKeyName: "setores_lider_id_fkey"
+            columns: ["lider_id"]
+            isOneToOne: false
+            referencedRelation: "membros"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "setores_lider_id_fkey"
+            columns: ["lider_id"]
+            isOneToOne: false
+            referencedRelation: "v_membros_mapa"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "setores_lider_id_fkey"
+            columns: ["lider_id"]
+            isOneToOne: false
+            referencedRelation: "v_membros_perfil"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "setores_lider_id_fkey"
+            columns: ["lider_id"]
+            isOneToOne: false
+            referencedRelation: "v_ranking_convidadores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "setores_lider_id_fkey"
+            columns: ["lider_id"]
+            isOneToOne: false
+            referencedRelation: "v_visitantes_alerta"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       solicitacoes_documentos: {
         Row: {
           arquivo_nome: string | null
@@ -9897,6 +10313,69 @@ export type Database = {
           },
         ]
       }
+      visita_historico: {
+        Row: {
+          created_at: string
+          id: string
+          observacao: string | null
+          registrado_por: string | null
+          tipo: string
+          visitante_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          observacao?: string | null
+          registrado_por?: string | null
+          tipo: string
+          visitante_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          observacao?: string | null
+          registrado_por?: string | null
+          tipo?: string
+          visitante_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visita_historico_visitante_id_fkey"
+            columns: ["visitante_id"]
+            isOneToOne: false
+            referencedRelation: "membros"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visita_historico_visitante_id_fkey"
+            columns: ["visitante_id"]
+            isOneToOne: false
+            referencedRelation: "v_membros_mapa"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visita_historico_visitante_id_fkey"
+            columns: ["visitante_id"]
+            isOneToOne: false
+            referencedRelation: "v_membros_perfil"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visita_historico_visitante_id_fkey"
+            columns: ["visitante_id"]
+            isOneToOne: false
+            referencedRelation: "v_ranking_convidadores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visita_historico_visitante_id_fkey"
+            columns: ["visitante_id"]
+            isOneToOne: false
+            referencedRelation: "v_visitantes_alerta"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       visitas: {
         Row: {
           acompanhado_por: string | null
@@ -9988,6 +10467,18 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      v_conselho_da_igreja: {
+        Row: {
+          cargo: string | null
+          foto_url: string | null
+          ministerio_nome: string | null
+          nivel_cargo: number | null
+          nome_completo: string | null
+          pessoa_id: string | null
+          tipo_participacao: string | null
+        }
+        Relationships: []
       }
       v_dashboard_visitantes: {
         Row: {
@@ -11690,6 +12181,10 @@ export type Database = {
       montar_pauta_financeira: {
         Args: { p_competencia_fim: string; p_competencia_inicio: string }
         Returns: Json
+      }
+      mover_aluno_classe: {
+        Args: { p_classe_nova: string; p_pessoa_id: string }
+        Returns: string
       }
       normalizar_site: { Args: { p_url: string }; Returns: string }
       normalizar_telefone: { Args: { tel: string }; Returns: string }
