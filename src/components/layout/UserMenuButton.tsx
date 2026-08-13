@@ -7,10 +7,8 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  User, LogOut, HeartHandshake, ShieldCheck,
-  KeyRound, ShieldAlert, Church, FileText, Upload, Download, Flame,
-} from "lucide-react";
+import { User, LogOut, ShieldCheck } from "lucide-react";
+import { ADMIN_MENU_ITEMS } from "@/components/layout/adminMenuItems";
 
 export function UserMenuButton() {
   const { user, signOut, hasRole, roles } = useAuth();
@@ -109,16 +107,10 @@ export function UserMenuButton() {
             <DropdownMenuLabel className="text-xs uppercase tracking-widest text-muted-foreground/60 py-1">
               Administração
             </DropdownMenuLabel>
-            {[
-              { path: "/ministerios?novo=1",      label: "Criar Ministério",       Icon: HeartHandshake },
-              { path: "/admin/recuperacao-senha", label: "Recuperação de Senhas",  Icon: KeyRound },
-              { path: "/admin/lgpd",              label: "Painel LGPD",            Icon: ShieldAlert },
-              { path: "/admin/identidade",        label: "Identidade da Igreja",   Icon: Church },
-              { path: "/admin/documentos",        label: "Documentos",             Icon: FileText },
-              { path: "/admin/importacao",        label: "Importação de Membros",  Icon: Upload },
-              { path: "/admin/exportacao",        label: "Exportação de Dados",    Icon: Download },
-              { path: "/admin/campanhas",         label: "Campanhas Espirituais",  Icon: Flame },
-            ].map(({ path, label, Icon }) => (
+            {/* A lista mora em adminMenuItems.ts e e a mesma do menu do
+                desktop (rodape da barra lateral). Eram duas copias, e so esta
+                tinha os itens — no desktop nao havia entrada nenhuma. */}
+            {ADMIN_MENU_ITEMS.map(({ path, label, icon: Icon }) => (
               <DropdownMenuItem key={path} className="gap-2 cursor-pointer py-2.5"
                 onClick={() => navigate(path)}>
                 <Icon className="w-4 h-4 text-muted-foreground" />

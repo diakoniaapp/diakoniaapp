@@ -10,7 +10,7 @@ import {
   LayoutDashboard, Users, HeartHandshake, Home, CalendarDays, MapPin,
   BarChart2, GraduationCap, Sparkles, DollarSign, Building2,
   Network, FileText, ScrollText,
-  CheckSquare, UserCheck, Cog, Sprout, Gavel,
+  CheckSquare, UserCheck, Sprout, Gavel,
   ShoppingBag, type LucideIcon,
 } from "lucide-react";
 import type { AppRole } from "@/hooks/useAuth";
@@ -49,6 +49,10 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: "/visitantes",   label: "Visitantes",  icon: UserCheck },
       { to: "/familias",     label: "Famílias",    icon: Home,           allowedRoles: ROLES_LIDERES },
       { to: "/ministerios",  label: "Ministérios", icon: HeartHandshake, allowedRoles: ROLES_LIDERES },
+      // Organograma veio de "Configurações". Ele nao configura nada: e uma
+      // VISTA das pessoas e de como se organizam — mesma materia de Catalogo,
+      // Familias e Ministerios, e para o mesmo publico (liderancas).
+      { to: "/organograma",  label: "Organograma", icon: Building2,      allowedRoles: ROLES_LIDERES },
       // "Equipes" (/areas) saiu do menu: area mora dentro de ministerio, e
       // agora se chega la pelo proprio ministerio — o cartao inteiro abre
       // "Áreas — <ministério>". Um item de primeiro nivel para algo que e
@@ -64,6 +68,10 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: "/ebd",              label: "EBD",             icon: GraduationCap, allowedRoles: ROLES_LIDERES },
       { to: "/pgm",              label: "Pequenos Grupos", icon: Sprout,        allowedRoles: ROLES_LIDERES },
       { to: "/painel-pastoral",  label: "Acompanhamento",  icon: Sparkles,      allowedRoles: ROLES_LIDERES },
+      // "Crescimento" tambem estava em "Configurações", e tambem nao configura
+      // nada: mede a jornada visitante -> congregado -> membro. E o painel do
+      // discipulado, nao um ajuste de sistema.
+      { to: "/painel-estrategico", label: "Crescimento",   icon: BarChart2,     allowedRoles: ROLES_PASTORAL },
     ],
   },
   {
@@ -72,8 +80,16 @@ export const NAV_GROUPS: NavGroup[] = [
     icon: ScrollText,
     items: [
       { to: "/membresia",   label: "Membresia",       icon: FileText,    allowedRoles: ROLES_LIDERES },
-      { to: "/governanca",  label: "Reuniões",        icon: Gavel,       allowedRoles: ROLES_LIDERES },
+      // "Reuniões" aparecia DUAS vezes na barra — aqui e no Financeiro — com o
+      // mesmo rotulo para coisas diferentes. Esta trata de reunioes e
+      // assembleias da igreja; a outra, das financeiras. Agora cada uma diz
+      // qual e, sem depender de o usuario reparar em qual grupo esta.
+      { to: "/governanca",  label: "Reuniões e Atas", icon: Gavel,       allowedRoles: ROLES_LIDERES },
       { to: "/assuntos",    label: "Assuntos",        icon: CheckSquare, allowedRoles: ROLES_LIDERES },
+      // Estrutura veio de "Configurações": e a estrutura institucional da
+      // igreja, extraida dos documentos — materia administrativa, e continua
+      // aberta a pastores, que o menu da conta nao alcanca.
+      { to: "/estrutura",   label: "Estrutura",       icon: Network,     allowedRoles: ROLES_PASTORAL },
       { to: "/arrecadacao", label: "Bazar e Cantina", icon: ShoppingBag, allowedRoles: ROLES_LIDERES },
     ],
   },
@@ -85,7 +101,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: "/financas",           label: "Tesouraria",          icon: DollarSign, allowedRoles: ROLES_LIDERES },
       { to: "/financas/fiscal",    label: "Módulo Fiscal",       icon: DollarSign, allowedRoles: ROLES_LIDERES },
-      { to: "/financas/reunioes",  label: "Reuniões",            icon: DollarSign, allowedRoles: ROLES_LIDERES },
+      { to: "/financas/reunioes",  label: "Reuniões financeiras", icon: DollarSign, allowedRoles: ROLES_LIDERES },
       { to: "/financas/executivo", label: "Visão Executiva",     icon: DollarSign, allowedRoles: ROLES_PASTORAL },
     ],
   },
@@ -98,26 +114,21 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: "/locais",  label: "Espaços", icon: MapPin, allowedRoles: ROLES_LIDERES },
     ],
   },
-  {
-    key: "configuracoes",
-    label: "Configurações",
-    icon: Cog,
-    allowedRoles: ROLES_PASTORAL,
-    // Sete itens sairam daqui por estarem DUPLICADOS no menu da conta
-    // (UserMenuButton), que ja lista Identidade da Igreja, Documentos,
-    // Campanhas Espirituais, Importacao de Membros, Exportacao de Dados,
-    // Recuperacao de Senhas e Painel LGPD — la com nomes mais claros.
-    //
-    // Nenhum acesso se perdeu: sao os mesmos destinos, a um clique no avatar.
-    // O que se ganhou foi a barra deixar de ter 11 itens de sistema
-    // competindo com o trabalho do dia. Sobra o que so existe aqui.
-    items: [
-      { to: "/estrutura",          label: "Estrutura",   icon: Network,   allowedRoles: ROLES_PASTORAL },
-      { to: "/organograma",        label: "Organograma", icon: Building2, allowedRoles: ROLES_LIDERES },
-      { to: "/painel-estrategico", label: "Crescimento", icon: BarChart2, allowedRoles: ROLES_PASTORAL },
-      { to: "/usuarios",           label: "Usuários",    icon: Users,     allowedRoles: ROLES_ADMIN },
-    ],
-  },
+  // O grupo "Configurações" deixou de existir.
+  //
+  // Ele comecou com onze itens, sete dos quais ja estavam no menu da conta.
+  // Removidos aqueles, sobraram quatro — e nenhum era configuracao:
+  // Organograma e uma vista das pessoas, Crescimento e um painel do
+  // discipulado, Estrutura e materia administrativa. Cada um foi para o grupo
+  // que trata do mesmo assunto.
+  //
+  // O que restou de fato administracao do sistema — "Usuários", que gerencia
+  // acessos — foi para o menu da conta, junto de Recuperacao de Senhas e
+  // Painel LGPD, que sao da mesma familia e ja estavam la.
+  //
+  // Um grupo chamado "Configurações" que nao guardava configuracao nenhuma
+  // custava uma faixa na barra e uma decisao a cada busca: "sera que esta em
+  // Configurações?".
 ];
 
 export const pageTitles: Record<string, string> = {

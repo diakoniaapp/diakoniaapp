@@ -12,6 +12,7 @@ import {
   NAV_GROUPS, PAINEL, pageTitles, ROUTE_ROLES,
   type NavGroup, type NavItem,
 } from "@/components/layout/navConfig";
+import { ADMIN_MENU_ITEMS } from "@/components/layout/adminMenuItems";
 import { supabase } from "@/integrations/supabase/client";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
@@ -243,6 +244,24 @@ export default function AppLayout() {
                   </span>
                 </div>
               </DropdownMenuLabel>
+              {/* As funcoes de administracao do sistema ficam aqui, no menu do
+                  perfil. Este e o menu do DESKTOP; o do celular vive no
+                  UserMenuButton e le a mesma lista — antes so ele tinha os
+                  itens, e no desktop nao havia entrada nenhuma. */}
+              {hasRole(["admin", "secretaria"]) && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel className="text-xs uppercase tracking-widest text-muted-foreground/60 py-1">
+                    Administração
+                  </DropdownMenuLabel>
+                  {ADMIN_MENU_ITEMS.map(({ path, label, icon: Icon }) => (
+                    <DropdownMenuItem key={path} className="cursor-pointer" onClick={() => navigate(path)}>
+                      <Icon className="w-4 h-4 mr-2 text-muted-foreground" />
+                      {label}
+                    </DropdownMenuItem>
+                  ))}
+                </>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={signOut} className="text-destructive focus:text-destructive">
                 <LogOut className="w-4 h-4 mr-2" /> Sair
