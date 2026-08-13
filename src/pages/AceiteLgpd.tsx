@@ -52,12 +52,25 @@ export default function AceiteLgpd() {
     if (!user) return;
     (async () => {
       try {
-        // Verifica aceite existente pelo auth_user_id
+        // Verifica aceite existente pelo auth_user_id.
+        //
+        // O `.limit(1)` nao e detalhe: sem ele, `maybeSingle()` DA ERRO quando
+        // encontra mais de uma linha, e o erro so era registrado no console —
+        // `aceite` ficava nulo e a tela de aceite reaparecia. Como o aceite
+        // grava uma linha nova a cada vez, a segunda linha travava a
+        // verificacao para sempre, e cada volta somava outra. Uma conta chegou
+        // a dez aceites do mesmo usuario; as que tinham uma linha so nunca
+        // foram perguntadas de novo.
+        //
+        // `revogado_em` tambem entrou: um consentimento revogado nao vale como
+        // aceite, e antes valia.
         const { data: aceite, error: errSelect } = await supabase
           .from("consentimento")
           .select("id")
           .eq("auth_user_id", user.id)
           .eq("aceito", true)
+          .is("revogado_em", null)
+          .limit(1)
           .maybeSingle();
 
         if (errSelect) {
@@ -94,15 +107,32 @@ export default function AceiteLgpd() {
     setBusy(true);
     setErroMsg(null);
 
+    // Nao grava um aceite se ja houver um valido para esta mesma versao da
+    // politica. Antes o insert era incondicional, e cada passagem pela tela
+    // somava uma linha — o que alimentava justamente o defeito acima. O
+    // consentimento continua sendo registro de auditoria: o que muda e que
+    // uma versao aceita e registrada uma vez, e nao dez.
+    const { data: jaAceito } = await supabase
+      .from("consentimento")
+      .select("id")
+      .eq("auth_user_id", user.id)
+      .eq("aceito", true)
+      .eq("texto_versao", versao)
+      .is("revogado_em", null)
+      .limit(1)
+      .maybeSingle();
+
     // Insert com auth_user_id — FK válida para auth.users (sempre existe)
-    const { error } = await supabase.from("consentimento").insert({
-      auth_user_id: user.id,
-      tipo:         "politica_privacidade",
-      base_legal:   "consentimento",
-      aceito:       true,
-      texto_versao: versao,
-      canal:        "web_app",
-    });
+    const { error } = jaAceito
+      ? { error: null }
+      : await supabase.from("consentimento").insert({
+          auth_user_id: user.id,
+          tipo:         "politica_privacidade",
+          base_legal:   "consentimento",
+          aceito:       true,
+          texto_versao: versao,
+          canal:        "web_app",
+        });
 
     if (error) {
       console.error("Erro ao registrar consentimento:", error);
