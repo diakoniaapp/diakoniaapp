@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Pencil, Link2, Briefcase, Sparkles, BarChart3, MoreHorizontal } from "lucide-react";
+import { Plus, Search, Pencil, Link2, Briefcase, Sparkles, BarChart3, MoreHorizontal, MessageCircle } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -20,6 +20,8 @@ import AtuacoesDialog from "@/components/membros/AtuacoesDialog";
 import VisitanteDialog from "@/components/membros/VisitanteDialog";
 import { ListSkeleton, EmptyState, ErrorState } from "@/components/ListState";
 import { StatusMembroBadge } from "@/components/membros/StatusMembroBadge";
+import ContatoResultadoDialog from "@/components/membros/ContatoResultadoDialog";
+import { logHistorico } from "@/lib/historicoFluxo";
 
 export interface Membro {
     id: string;
@@ -95,12 +97,13 @@ const tipoPessoaColor: Record<string, string> = {
 // Fica em componente proprio porque cartao (celular) e tabela (desktop) usam o
 // mesmo conjunto: duplicar o menu seria garantir que um dia so um dos dois ganhe
 // uma acao nova.
-function AcoesPessoa({ m, onEditar, onVinculos, onAtuacoes, onVisitante, mostrarEditar = true }: {
+function AcoesPessoa({ m, onEditar, onVinculos, onAtuacoes, onVisitante, onContato, mostrarEditar = true }: {
   m: Membro;
   onEditar:    (m: Membro) => void;
   onVinculos:  (m: Membro) => void;
   onAtuacoes:  (m: Membro) => void;
   onVisitante: (m: Membro) => void;
+  onContato:   (m: Membro) => void;
   /** Na tabela do desktop o nome ja abre a edicao; o lapis so repetiria. */
   mostrarEditar?: boolean;
 }) {
@@ -126,6 +129,15 @@ function AcoesPessoa({ m, onEditar, onVinculos, onAtuacoes, onVisitante, mostrar
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
+          {/* Registrar contato existia so na tela de Visitantes, e so para
+              visitante. As 275 outras pessoas nao tinham como receber um
+              "falei com ela" — os campos ultimo_contato_* ja existiam no banco
+              e estavam com ZERO registros. Mesma acao, mesmo dialogo, mesma
+              tabela de historico; muda so quem alcanca. */}
+          <DropdownMenuItem onClick={() => onContato(m)}>
+            <MessageCircle className="w-4 h-4 mr-2 text-muted-foreground" />
+            Registrar contato
+          </DropdownMenuItem>
           <DropdownMenuItem onClick={() => onVinculos(m)}>
             <Link2 className="w-4 h-4 mr-2 text-muted-foreground" />
             Vínculos familiares
@@ -158,7 +170,44 @@ export default function Membros() {
     const [vinculosPessoa, setVinculosPessoa] = useState<Membro | null>(null);
     const [atuacoesPessoa, setAtuacoesPessoa] = useState<Membro | null>(null);
     const [visitantePessoa, setVisitantePessoa] = useState<Membro | null>(null);
+    const [contatoPessoa, setContatoPessoa] = useState<Membro | null>(null);
+    const [salvandoContato, setSalvandoContato] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+  // Registrar contato com qualquer pessoa.
+  //
+  // Grava nos MESMOS campos que a tela de Visitantes ja usava
+  // (ultimo_contato_em / tipo / observacao) e no MESMO historico
+  // (visita_historico, via logHistorico). Nenhuma tabela nova: o que faltava
+  // nao era estrutura, era a acao estar ao alcance de quem cuida.
+  const registrarContato = async (pessoa: Membro, tipo: string, observacao: string) => {
+    setSalvandoContato(true);
+    const { error: err } = await supabase
+      .from("membros")
+      .update({
+        ultimo_contato_em: new Date().toISOString(),
+        ultimo_contato_tipo: tipo,
+        ultimo_contato_observacao: observacao || null,
+      })
+      .eq("id", pessoa.id);
+
+    if (err) {
+      toast.error(err.message);
+      setSalvandoContato(false);
+      return;
+    }
+
+    // "observacao" e o canal generico do historico. O `tipo` que vem do dialogo
+    // NAO e canal — e o resultado ("Respondeu", "Não respondeu"), e por isso
+    // entra no texto. Em Visitantes o canal era fixo em "whatsapp"; aqui o
+    // contato pode ter sido conversa no culto, ligacao ou recado, e afirmar
+    // WhatsApp seria registrar algo que nao aconteceu.
+    await logHistorico(pessoa.id, "observacao", tipo + (observacao ? ` — ${observacao}` : ""));
+    toast.success(`Contato registrado para ${pessoa.nome_completo.split(" ")[0]}`);
+    setSalvandoContato(false);
+    setContatoPessoa(null);
+    load();
+  };
 
   // Paginação: 281 cadastros renderizados de uma vez davam 34.553px de
   // rolagem e 848 botões numa página só. Quem procura alguém usa a busca;
@@ -319,6 +368,7 @@ export default function Membros() {
     onVinculos:  setVinculosPessoa,
     onAtuacoes:  setAtuacoesPessoa,
     onVisitante: setVisitantePessoa,
+    onContato:   setContatoPessoa,
   };
 
   // Voltar à primeira página quando o resultado muda: continuar na página 7
@@ -594,6 +644,19 @@ export default function Membros() {
                               onOpenChange={(v) => { if (!v) setVisitantePessoa(null); }}
                               pessoa={visitantePessoa}
                               onSaved={load}
+                            />
+
+                    {/* O mesmo dialogo usado na tela de Visitantes. Ele ja
+                        perguntava "como foi o contato?" e aceitava observacao;
+                        so nao estava disponivel fora dali. */}
+                    <ContatoResultadoDialog
+                              open={!!contatoPessoa}
+                              onOpenChange={(v) => { if (!v) setContatoPessoa(null); }}
+                              nomeVisitante={contatoPessoa?.nome_completo ?? ""}
+                              saving={salvandoContato}
+                              onConfirm={async (tipo, obs) => {
+                                if (contatoPessoa) await registrarContato(contatoPessoa, tipo, obs);
+                              }}
                             />
               </div>
           );

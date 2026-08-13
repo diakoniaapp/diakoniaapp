@@ -36,6 +36,8 @@ interface Pendencia {
   texto: (n: number) => string;
   /** O que se perde enquanto nao for corrigido. */
   consequencia: string;
+  /** Bloqueia o cuidado inteiro, nao so um recurso. Sobe e ganha cor. */
+  destaque?: boolean;
 }
 
 export function CadastrosInconsistentes() {
@@ -56,7 +58,9 @@ export function CadastrosInconsistentes() {
       }
 
       try {
-        const [casados, membrosSemEntrada] = await Promise.all([
+        const [semContato, ativos, casados, membrosSemEntrada] = await Promise.all([
+          contar(q => q.is("telefone_celular", null)),
+          contar(q => q),
           contar(q => q.eq("estado_civil", "casado").is("data_casamento", null)),
           contar(q => q.eq("tipo_pessoa", "membro").is("data_entrada", null)),
         ]);
@@ -64,6 +68,29 @@ export function CadastrosInconsistentes() {
         if (cancelado) return;
 
         const achadas: Pendencia[] = [];
+
+        // ALCANCE VEM PRIMEIRO, e nao por ordem alfabetica de importancia.
+        //
+        // Quando este bloco nasceu, eu deixei "sem telefone" DE FORA: sao 46%
+        // da base, e marca presente em quase metade nao distingue nada — era a
+        // regra certa quando o objetivo era reduzir ruido visual.
+        //
+        // Sob o Diakonia Care o objetivo mudou, e com ele a resposta. Quem nao
+        // tem telefone nao recebe aniversario, nao recebe convite, nao entra em
+        // nenhuma jornada de cuidado. Nao e um campo em branco: e uma pessoa
+        // fora de alcance. Deixou de ser ruido para virar a primeira linha.
+        if (semContato > 0) {
+          const alcancaveis = ativos - semContato;
+          const pct = ativos > 0 ? Math.round((alcancaveis / ativos) * 100) : 0;
+          achadas.push({
+            chave: "sem-telefone",
+            quantidade: semContato,
+            destaque: true,
+            texto: n => `${n} ${n === 1 ? "pessoa" : "pessoas"} sem telefone cadastrado`,
+            consequencia: `a igreja alcança ${pct}% de quem está ativo`,
+          });
+        }
+
         if (casados > 0) {
           achadas.push({
             chave: "casado-sem-data",
@@ -111,7 +138,12 @@ export function CadastrosInconsistentes() {
         <ul className="space-y-1.5">
           {pendencias.map(p => (
             <li key={p.chave} className="text-sm">
-              <span className="font-medium">{p.texto(p.quantidade)}</span>
+              {/* A linha de alcance leva a cor de alerta: das tres, e a unica
+                  que impede QUALQUER cuidado de chegar. As outras impedem um
+                  recurso especifico. */}
+              <span className={p.destaque ? "font-medium text-warning" : "font-medium"}>
+                {p.texto(p.quantidade)}
+              </span>
               <span className="text-muted-foreground"> — {p.consequencia}</span>
             </li>
           ))}
