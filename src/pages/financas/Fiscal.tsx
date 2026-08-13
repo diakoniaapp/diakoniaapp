@@ -46,11 +46,29 @@ export default function Fiscal() {
       </p>
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
-        <TabsList>
-          <TabsTrigger value="agenda"><CalendarDays className="w-3.5 h-3.5 mr-1.5" />Agenda</TabsTrigger>
-          <TabsTrigger value="obrigacoes"><Receipt className="w-3.5 h-3.5 mr-1.5" />Obrigações</TabsTrigger>
-          <TabsTrigger value="insights"><Lightbulb className="w-3.5 h-3.5 mr-1.5" />Insights</TabsTrigger>
-          <TabsTrigger value="config"><Settings className="w-3.5 h-3.5 mr-1.5" />Configuração</TabsTrigger>
+        {/* As quatro abas somavam 457px numa tela de 375px e saiam pela borda.
+            Como o <main> e overflow-x-hidden, "Configuração" nao ficava atras
+            de uma barra de rolagem: sumia. Em grade de quatro colunas cada aba
+            recebe a mesma fatia, o rotulo trunca em vez de empurrar, e o icone
+            so aparece a partir de sm — no celular ele custava 22px por aba
+            para repetir o que o rotulo ja diz. */}
+        <TabsList className="grid w-full grid-cols-4 h-auto">
+          <TabsTrigger value="agenda" className="h-11 px-1.5 min-w-0 text-xs sm:text-sm">
+            <CalendarDays className="w-3.5 h-3.5 mr-1.5 hidden sm:inline-block shrink-0" />
+            <span className="truncate">Agenda</span>
+          </TabsTrigger>
+          <TabsTrigger value="obrigacoes" className="h-11 px-1.5 min-w-0 text-xs sm:text-sm">
+            <Receipt className="w-3.5 h-3.5 mr-1.5 hidden sm:inline-block shrink-0" />
+            <span className="truncate">Obrigações</span>
+          </TabsTrigger>
+          <TabsTrigger value="insights" className="h-11 px-1.5 min-w-0 text-xs sm:text-sm">
+            <Lightbulb className="w-3.5 h-3.5 mr-1.5 hidden sm:inline-block shrink-0" />
+            <span className="truncate">Insights</span>
+          </TabsTrigger>
+          <TabsTrigger value="config" className="h-11 px-1.5 min-w-0 text-xs sm:text-sm">
+            <Settings className="w-3.5 h-3.5 mr-1.5 hidden sm:inline-block shrink-0" />
+            <span className="truncate">Config.</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="agenda" className="mt-4">
@@ -301,7 +319,10 @@ function AbaAgenda() {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap">
         <CardTitle className="text-base">Próximos vencimentos</CardTitle>
-        <div className="flex items-center gap-2">
+        {/* flex-wrap: os dois botoes somavam 399px numa tela de 375px. O pai
+            ja tinha flex-wrap, mas este bloco interno nao, entao os dois
+            desciam juntos e continuavam estourando a largura. */}
+        <div className="flex items-center gap-2 flex-wrap">
           <Button size="sm" variant="outline" onClick={exportarMaloteMes} disabled={exportando} className="gap-2">
             {exportando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileArchive className="w-3.5 h-3.5" />}
             Malote ZIP do mês

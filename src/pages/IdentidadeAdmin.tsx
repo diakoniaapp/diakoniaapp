@@ -642,7 +642,12 @@ export default function IdentidadeAdmin() {
                   type="button"
                   onClick={() => sugerirAPartirDosDocumentos("missao")}
                   disabled={sugerindoDoc}
-                  className="flex items-center gap-1.5 text-xs text-primary hover:opacity-80 transition-opacity"
+                  // relative + ::after esticado: o botao tem so a altura do
+                  // texto (16px), abaixo dos 24px minimos da WCAG 2.5.8.
+                  // O ::after e absoluto e nao ocupa espaco, entao o desenho
+                  // fica igual e so a area de toque cresce. Mesma solucao das
+                  // checkboxes.
+                  className="relative after:absolute after:-inset-y-2 after:inset-x-0 after:content-[''] flex items-center gap-1.5 text-xs text-primary hover:opacity-80 transition-opacity"
                 >
                   {sugerindoDoc && sugestaoDocAberta === "missao"
                     ? <Loader2 className="w-3 h-3 animate-spin" />
@@ -698,7 +703,12 @@ export default function IdentidadeAdmin() {
                   type="button"
                   onClick={() => sugerirAPartirDosDocumentos("visao")}
                   disabled={sugerindoDoc}
-                  className="flex items-center gap-1.5 text-xs text-primary hover:opacity-80 transition-opacity"
+                  // relative + ::after esticado: o botao tem so a altura do
+                  // texto (16px), abaixo dos 24px minimos da WCAG 2.5.8.
+                  // O ::after e absoluto e nao ocupa espaco, entao o desenho
+                  // fica igual e so a area de toque cresce. Mesma solucao das
+                  // checkboxes.
+                  className="relative after:absolute after:-inset-y-2 after:inset-x-0 after:content-[''] flex items-center gap-1.5 text-xs text-primary hover:opacity-80 transition-opacity"
                 >
                   {sugerindoDoc && sugestaoDocAberta === "visao"
                     ? <Loader2 className="w-3 h-3 animate-spin" />
@@ -855,7 +865,7 @@ export default function IdentidadeAdmin() {
                 </div>
                 <button
                   type="button"
-                  className="text-xs text-muted-foreground underline underline-offset-2 shrink-0"
+                  className="relative after:absolute after:-inset-y-2 after:inset-x-0 after:content-[''] text-xs text-muted-foreground underline underline-offset-2 shrink-0"
                   onClick={() => { setPastorId(""); setPastorNome(""); setPastorBusca(""); }}
                 >
                   Alterar
@@ -1075,7 +1085,7 @@ export default function IdentidadeAdmin() {
                       </div>
                       {inst.site_oficial && (
                         <a href={inst.site_oficial} target="_blank" rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-0.5"
+                          className="relative after:absolute after:-inset-y-2 after:inset-x-0 after:content-[''] inline-flex items-center gap-1 text-xs text-primary hover:underline mt-0.5"
                           onClick={(e) => e.stopPropagation()}>
                           <ExternalLink className="w-3 h-3" /> Visitar site
                         </a>
@@ -1103,7 +1113,7 @@ export default function IdentidadeAdmin() {
                       </div>
                       {inst.site_oficial && (
                         <a href={inst.site_oficial} target="_blank" rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-0.5"
+                          className="relative after:absolute after:-inset-y-2 after:inset-x-0 after:content-[''] inline-flex items-center gap-1 text-xs text-primary hover:underline mt-0.5"
                           onClick={(e) => e.stopPropagation()}>
                           <ExternalLink className="w-3 h-3" /> Visitar site
                         </a>
