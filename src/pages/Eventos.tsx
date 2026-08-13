@@ -570,6 +570,27 @@ export default function Eventos() {
                   ficava pior: "Quarta-Feira, 12 De Agosto De 2026". */}
               <h2 className="font-serif text-lg md:text-xl first-letter:uppercase ml-1">{headerLabel}</h2>
 
+              {/* Tudo na MESMA faixa: navegar, filtrar e trocar de visao.
+                  Eram duas faixas empilhadas — a barra chegava a 226px antes do
+                  primeiro dia do calendario. Agora e uma linha; no celular ela
+                  quebra sozinha, que e o que flex-wrap faz. */}
+              <AgendaFilters
+                filtros={filtros}
+                onChange={setFiltros}
+                ministerios={ministerios.filter((m) => m.ativo)}
+                areas={areas.filter((a) => a.ativo)}
+                locais={locais}
+              />
+
+              <Button
+                variant="outline" size="sm"
+                onClick={() => setPrintOpen(true)}
+                className="h-11 gap-1.5 md:hidden"
+              >
+                <Printer className="w-4 h-4" />
+                Imprimir
+              </Button>
+
               {!isMobile && (
                 <div className="ml-auto">
                   <Tabs value={view} onValueChange={(v) => setView(v as AgendaView)}>
@@ -582,30 +603,6 @@ export default function Eventos() {
                   </Tabs>
                 </div>
               )}
-            </div>
-
-            {/* No celular "Filtros" e "Mais ações" dividem a mesma faixa; cada
-                um sozinho gastava 56px de altura para um botao de 90px. */}
-            <div className="flex flex-wrap items-center gap-2">
-              <AgendaFilters
-                filtros={filtros}
-                onChange={setFiltros}
-                ministerios={ministerios.filter((m) => m.ativo)}
-                areas={areas.filter((a) => a.ativo)}
-                locais={locais}
-              />
-
-              {/* Imprimir ficava numa faixa propria de largura inteira, junto
-                  com "Duplicados". Duplicados saiu; sobrou uma acao, e um menu
-                  de um item so e pior que o botao. Divide a faixa com Filtros. */}
-              <Button
-                variant="outline" size="sm"
-                onClick={() => setPrintOpen(true)}
-                className="h-11 gap-1.5 md:hidden"
-              >
-                <Printer className="w-4 h-4" />
-                Imprimir
-              </Button>
             </div>
           </CardContent>
         </Card>

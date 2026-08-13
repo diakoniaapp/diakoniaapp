@@ -154,41 +154,40 @@ export function AgendaFilters({ filtros, onChange, ministerios, areas, locais }:
     </div>
   );
 
+  // UM controle, em qualquer largura.
+  //
+  // Antes os seis chips mais o "Cor por" ficavam abertos no desktop: com a
+  // navegacao e as abas de visao, a barra chegava a 226px e 16 controles em
+  // seis linhas antes do primeiro dia do calendario. Numa agenda, o que se
+  // olha e o calendario; filtrar e o que se faz de vez em quando.
+  //
+  // O painel nao e estrutura nova — e o mesmo que ja existia no celular,
+  // agora tambem no desktop. E o botao avisa quando ha filtro ligado, para
+  // recolher nao virar esconder.
+  //
+  // "Cor por" veio junto: e preferencia de exibicao, nao filtro, e ninguem
+  // troca duas vezes no mesmo dia.
   return (
-    <>
-      {/* CELULAR — tudo recolhido atras de um botao.
-          Os seis chips mais o "Cor por" ocupavam tres faixas da barra, e a
-          barra inteira comia 53% da tela antes do primeiro evento. Filtrar a
-          agenda pelo telefone e excecao; ver o que vem a seguir e a regra. */}
-      <div className="md:hidden">
-        <Sheet>
-          <SheetTrigger asChild>
-            <Button variant="outline" size="sm" className={`h-11 gap-1.5 ${restringindo ? "border-primary/50 text-primary" : ""}`}>
-              <Filter className="w-4 h-4" />
-              Filtros
-              {restringindo > 0 && (
-                <Badge variant="secondary" className="h-5 px-1.5">{restringindo}</Badge>
-              )}
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto">
-            <SheetHeader className="text-left">
-              <SheetTitle className="font-serif">Filtros da agenda</SheetTitle>
-            </SheetHeader>
-            <div className="flex flex-wrap items-center gap-2 py-4">{chips}</div>
-            <div className="border-t pt-4">{corPor}</div>
-          </SheetContent>
-        </Sheet>
-      </div>
-
-      {/* DESKTOP — sobra largura, os chips ficam a vista. */}
-      <div className="hidden md:flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-1 text-xs text-muted-foreground mr-1">
-          <Filter className="w-3.5 h-3.5" /> Filtros
-        </div>
-        {chips}
-        <div className="ml-auto">{corPor}</div>
-      </div>
-    </>
+    <Sheet>
+      <SheetTrigger asChild>
+        <Button
+          variant="outline" size="sm"
+          className={`h-11 gap-1.5 ${restringindo ? "border-primary/50 text-primary" : ""}`}
+        >
+          <Filter className="w-4 h-4" />
+          Filtros
+          {restringindo > 0 && (
+            <Badge variant="secondary" className="h-5 px-1.5">{restringindo}</Badge>
+          )}
+        </Button>
+      </SheetTrigger>
+      <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto">
+        <SheetHeader className="text-left">
+          <SheetTitle className="font-serif">Filtros da agenda</SheetTitle>
+        </SheetHeader>
+        <div className="flex flex-wrap items-center gap-2 py-4">{chips}</div>
+        <div className="border-t pt-4">{corPor}</div>
+      </SheetContent>
+    </Sheet>
   );
 }
