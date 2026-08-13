@@ -42,8 +42,8 @@ const ROTAS = [
   "/areas",   // o menu chama de "Equipes"; nao existe rota /equipes
   "/ebd",
   "/pgm",
-  "/agenda",
-  "/eventos",
+  "/eventos",   // "/agenda" e so um <Navigate> para ca; testar la falharia na
+                // assercao de destino, como aconteceu com "/equipes"
   "/locais",
   "/assuntos",
   "/membresia",

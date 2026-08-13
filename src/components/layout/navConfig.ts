@@ -8,7 +8,7 @@
 
 import {
   LayoutDashboard, Users, HeartHandshake, Home, CalendarDays, MapPin,
-  BarChart2, GraduationCap, Sparkles, DollarSign, Layers, Building2,
+  BarChart2, GraduationCap, Sparkles, DollarSign, Building2,
   Network, KeyRound, ShieldAlert, Church, FileText, ScrollText,
   CheckSquare, Upload, Download, Flame, UserCheck, Cog, Sprout, Gavel,
   ShoppingBag, type LucideIcon,
@@ -49,7 +49,11 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: "/visitantes",   label: "Visitantes",  icon: UserCheck },
       { to: "/familias",     label: "Famílias",    icon: Home,           allowedRoles: ROLES_LIDERES },
       { to: "/ministerios",  label: "Ministérios", icon: HeartHandshake, allowedRoles: ROLES_LIDERES },
-      { to: "/areas",        label: "Equipes",     icon: Layers,         allowedRoles: ROLES_LIDERES },
+      // "Equipes" (/areas) saiu do menu: area mora dentro de ministerio, e
+      // agora se chega la pelo proprio ministerio — o cartao inteiro abre
+      // "Áreas — <ministério>". Um item de primeiro nivel para algo que e
+      // filho de outro item disputava atencao e sugeria dois caminhos
+      // paralelos. A rota continua existindo e atendendo quem tem link salvo.
     ],
   },
   {

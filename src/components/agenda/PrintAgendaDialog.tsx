@@ -92,7 +92,12 @@ export function PrintAgendaDialog({ open, onClose, filtrosAtuais, ministerios, a
             <Button type="button" variant="outline" size="sm" onClick={() => { setInicio(format(startOfMonth(refDate), "yyyy-MM-dd")); setFim(format(endOfMonth(refDate), "yyyy-MM-dd")); }}>Mês atual</Button>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-4 max-h-[40vh] overflow-y-auto pr-1">
+          {/* grid-cols-[minmax(0,1fr)] no celular: sem coluna declarada, a
+              trilha implicita e `auto` e tem como piso o min-content do filho
+              mais largo — os blocos ficavam com 352px dentro de um pai de
+              325px. No md o `grid-cols-2` do Tailwind ja e
+              repeat(2, minmax(0,1fr)) e nao tem o problema. */}
+          <div className="grid grid-cols-[minmax(0,1fr)] md:grid-cols-2 gap-4 max-h-[40vh] overflow-y-auto pr-1">
             <FilterBox label="Ministérios" items={ministerios.filter(m => m.ativo).map(m => ({ id: m.id, nome: m.nome }))} selected={mins} onToggle={(v) => setMins((s) => toggle(s, v))} onAll={() => setMins(ministerios.filter(m => m.ativo).map(m => m.id))} onNone={() => setMins([])} />
             <FilterBox label="Locais" items={locais.map(l => ({ id: l.id, nome: l.nome_completo || l.nome }))} selected={locs} onToggle={(v) => setLocs((s) => toggle(s, v))} onAll={() => setLocs(locais.map(l => l.id))} onNone={() => setLocs([])} />
             <FilterBox label="Tipos" items={(Object.entries(TIPO_LABEL) as [EventoTipo, string][]).map(([id, nome]) => ({ id, nome }))} selected={tipos} onToggle={(v) => setTipos((s) => toggle(s, v as EventoTipo))} onAll={() => setTipos(Object.keys(TIPO_LABEL) as EventoTipo[])} onNone={() => setTipos([])} />

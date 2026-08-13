@@ -33,7 +33,7 @@ const MINIMO  = 24;   // WCAG 2.2 SC 2.5.8, nivel AA
 
 const ROTAS = [
   "/hoje", "/dashboard", "/membros", "/familias", "/ministerios", "/visitantes",
-  "/areas", "/ebd", "/pgm", "/agenda", "/eventos", "/assuntos", "/membresia",
+  "/areas", "/ebd", "/pgm", "/eventos", "/assuntos", "/membresia",
   "/usuarios", "/financas", "/painel-pastoral", "/painel-secretaria",
 ];
 

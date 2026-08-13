@@ -49,6 +49,11 @@ function evChipCls(o: EventoOcorrencia) {
   return o.evento.status === "cancelado" ? "opacity-60" : "";
 }
 
+/** Evento com horario marcado — o resto e do dia inteiro e nao precisa dizer. */
+function temHora(o: EventoOcorrencia) {
+  return !!o.evento.hora_inicio;
+}
+
 function timeRange(o: EventoOcorrencia) {
   const hi = o.evento.hora_inicio?.slice(0, 5);
   const hf = o.evento.hora_fim?.slice(0, 5);
@@ -344,8 +349,11 @@ export function ListView({ ocorrencias, colorBy, ministerios, onEventClick }: Co
           <div key={ymd}>
             <div className={cn("flex items-baseline gap-3 mb-2 pb-1.5 border-b", today && "border-primary")}>
               <span className={cn("text-2xl font-serif", today && "text-primary")}>{d.getDate()}</span>
-              <span className="text-sm text-muted-foreground capitalize">
-                {format(d, "EEEE, MMMM yyyy", { locale: ptBR })}
+              {/* first-letter:uppercase em vez de capitalize, pelo mesmo motivo
+                  do cabecalho: `capitalize` produzia "Quarta-Feira, Agosto 2026".
+                  E faltava o "de" — o formato dizia "agosto 2026". */}
+              <span className="text-sm text-muted-foreground first-letter:uppercase">
+                {format(d, "EEEE, MMMM 'de' yyyy", { locale: ptBR })}
               </span>
               {today && (
                 <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30">
@@ -375,19 +383,31 @@ export function ListView({ ocorrencias, colorBy, ministerios, onEventClick }: Co
                         {o.serieId && <RepeatIcon className="w-3 h-3 inline ml-1.5 opacity-60" />}
                       </div>
                       <div className="text-xs text-muted-foreground flex items-center gap-3 flex-wrap">
-                        <span className="inline-flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {timeRange(o)}
-                        </span>
+                        {/* Hora so quando ha hora. "Dia todo" aparecia nos 42
+                            itens da lista — aniversario, feriado e semana de
+                            oracao nao tem horario — e um rotulo presente em
+                            100% dos casos nao distingue nada. Sem hora escrita,
+                            o item ja e do dia inteiro. */}
+                        {temHora(o) && (
+                          <span className="inline-flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {timeRange(o)}
+                          </span>
+                        )}
                         {o.evento.local && (
                           <span className="inline-flex items-center gap-1">
                             <MapPin className="w-3 h-3" />
                             {formatLocal(o.evento.local)}
                           </span>
                         )}
-                        <Badge variant="outline" className="text-xs py-0">
-                          {TIPO_LABEL[o.evento.tipo]}
-                        </Badge>
+                        {/* Idem para o tipo: "Outro" e o valor de reserva, e
+                            estava nos mesmos 42 itens. Etiqueta so quando ela
+                            realmente diz de que tipo e o evento. */}
+                        {o.evento.tipo !== "outro" && (
+                          <Badge variant="outline" className="text-xs py-0">
+                            {TIPO_LABEL[o.evento.tipo]}
+                          </Badge>
+                        )}
                         {cancelado && (
                           <Badge variant="outline" className="text-xs py-0 border-destructive text-destructive">
                             Cancelado

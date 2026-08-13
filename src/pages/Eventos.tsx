@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, ChevronLeft, ChevronRight, CalendarDays, Printer, Copy } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, CalendarDays, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -47,7 +47,6 @@ import { EditScopeDialog, EditScope } from "@/components/agenda/EditScopeDialog"
 import { MonthView, WeekView, DayView, ListView, VIEW_LABELS } from "@/components/agenda/AgendaViews";
 import { ListSkeleton, EmptyState, ErrorState } from "@/components/ListState";
 import { PrintAgendaDialog } from "@/components/agenda/PrintAgendaDialog";
-import { DuplicatesDialog } from "@/components/agenda/DuplicatesDialog";
 
 const FILTROS_KEY = "agenda:filtros:v1";
 const VIEW_KEY = "agenda:view:v1";
@@ -123,7 +122,6 @@ export default function Eventos() {
   const [scopeOpen, setScopeOpen] = useState(false);
   const [scopePending, setScopePending] = useState<EventoOcorrencia | null>(null);
   const [printOpen, setPrintOpen] = useState(false);
-  const [dupOpen, setDupOpen] = useState(false);
 
   useEffect(() => {
     localStorage.setItem(FILTROS_KEY, JSON.stringify(filtros));
@@ -256,16 +254,34 @@ export default function Eventos() {
       const cat = o.categoria ?? "igreja";
       return cats.includes(cat);
     });
+    // "Tudo marcado" nao e filtrar — e nao filtrar.
+    //
+    // Armadilha: um evento SEM ministerio vinculado tem ems = [], entao
+    // `!ems.some(...)` e verdadeiro e ele e escondido. Com os 11 ministerios
+    // marcados — que e o estado salvo por padrao — o usuario acredita estar
+    // vendo tudo, e um evento recem-criado, ainda sem vinculo, sumiria sem
+    // aviso. Hoje nao morde porque quase todos os itens da agenda sao externos
+    // (aniversarios, feriados, reservas) e saem na linha de cima; morderia no
+    // dia em que se criasse um evento proprio sem escolher area.
+    //
+    // Regra: so restringe quem deixou alguma opcao de fora. Mesma definicao
+    // usada no contador do chip, para o que se ve bater com o que se filtra.
+    const minAtivos  = ministerios.filter((m) => m.ativo).length;
+    const areasAtivas = areas.filter((a) => a.ativo).length;
+    const narrowMin   = filtros.ministerios.length > 0 && filtros.ministerios.length < minAtivos;
+    const narrowArea  = filtros.areas.length > 0 && filtros.areas.length < areasAtivas;
+    const narrowLocal = filtros.locais.length > 0 && filtros.locais.length < locais.length;
+
     const filtrado = all
       .filter((o) => {
         if (o.externalReadOnly && o.categoria !== "arrecadacao") return true; // externos sem filtros
         if (filtros.tipos.length && !filtros.tipos.includes(o.evento.tipo)) return false;
         if (filtros.status.length && !filtros.status.includes(o.evento.status)) return false;
-        if (filtros.locais.length && !filtros.locais.includes(o.evento.local_id || "")) return false;
+        if (narrowLocal && !filtros.locais.includes(o.evento.local_id || "")) return false;
         const ems = evMin.filter((x) => x.evento_id === o.baseId).map((x) => x.ministerio_id);
-        if (filtros.ministerios.length && !ems.some((id) => filtros.ministerios.includes(id))) return false;
+        if (narrowMin && !ems.some((id) => filtros.ministerios.includes(id))) return false;
         const eas = evArea.filter((x) => x.evento_id === o.baseId).map((x) => x.area_id);
-        if (filtros.areas.length && !eas.some((id) => filtros.areas.includes(id))) return false;
+        if (narrowArea && !eas.some((id) => filtros.areas.includes(id))) return false;
         return true;
       })
       .sort((a, b) => {
@@ -306,7 +322,7 @@ export default function Eventos() {
       }
     }
     return filtrado;
-  }, [eventos, from, to, filtros, evMin, evArea, pessoasAniv, reservasOcc]);
+  }, [eventos, from, to, filtros, evMin, evArea, pessoasAniv, reservasOcc, ministerios, areas, locais]);
 
   // Navigation
   const nav = (dir: -1 | 0 | 1) => {
@@ -518,10 +534,6 @@ export default function Eventos() {
         description={loading ? "Carregando…" : `${ocorrencias.length} eventos no período`}
         actions={
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => setDupOpen(true)}>
-              <Copy className="w-4 h-4 mr-2" />
-              Duplicados
-            </Button>
             <Button variant="outline" onClick={() => setPrintOpen(true)}>
               <Printer className="w-4 h-4 mr-2" />
               Imprimir / PDF
@@ -552,7 +564,11 @@ export default function Eventos() {
                   <ChevronRight className="w-4 h-4" />
                 </Button>
               </div>
-              <h2 className="font-serif text-lg md:text-xl capitalize ml-1">{headerLabel}</h2>
+              {/* first-letter:uppercase, e nao capitalize: `capitalize` poe
+                  maiuscula em TODA palavra, e o date-fns ja devolve
+                  "agosto de 2026" — saia "Agosto De 2026". Na visao de dia
+                  ficava pior: "Quarta-Feira, 12 De Agosto De 2026". */}
+              <h2 className="font-serif text-lg md:text-xl first-letter:uppercase ml-1">{headerLabel}</h2>
 
               {!isMobile && (
                 <div className="ml-auto">
@@ -568,21 +584,27 @@ export default function Eventos() {
               )}
             </div>
 
-            <AgendaFilters
-              filtros={filtros}
-              onChange={setFiltros}
-              ministerios={ministerios.filter((m) => m.ativo)}
-              areas={areas.filter((a) => a.ativo)}
-              locais={locais}
-            />
+            {/* No celular "Filtros" e "Mais ações" dividem a mesma faixa; cada
+                um sozinho gastava 56px de altura para um botao de 90px. */}
+            <div className="flex flex-wrap items-center gap-2">
+              <AgendaFilters
+                filtros={filtros}
+                onChange={setFiltros}
+                ministerios={ministerios.filter((m) => m.ativo)}
+                areas={areas.filter((a) => a.ativo)}
+                locais={locais}
+              />
 
-            {/* Ações sempre visíveis (especialmente no mobile) */}
-            <div className="flex flex-wrap items-center gap-2 md:hidden">
-              <Button variant="outline" size="sm" onClick={() => setPrintOpen(true)} className="flex-1 min-w-[140px]">
-                <Printer className="w-4 h-4 mr-2" /> Imprimir
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setDupOpen(true)} className="flex-1 min-w-[140px]">
-                <Copy className="w-4 h-4 mr-2" /> Duplicados
+              {/* Imprimir ficava numa faixa propria de largura inteira, junto
+                  com "Duplicados". Duplicados saiu; sobrou uma acao, e um menu
+                  de um item so e pior que o botao. Divide a faixa com Filtros. */}
+              <Button
+                variant="outline" size="sm"
+                onClick={() => setPrintOpen(true)}
+                className="h-11 gap-1.5 md:hidden"
+              >
+                <Printer className="w-4 h-4" />
+                Imprimir
               </Button>
             </div>
           </CardContent>
@@ -665,13 +687,6 @@ export default function Eventos() {
         areas={areas}
         locais={locais}
         refDate={refDate}
-      />
-
-      <DuplicatesDialog
-        open={dupOpen}
-        onClose={() => setDupOpen(false)}
-        ocorrencias={ocorrencias}
-        onChanged={load}
       />
 
       <EventDialog

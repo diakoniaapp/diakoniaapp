@@ -10,6 +10,7 @@ import {
   STATUS_LABEL, TIPO_LABEL,
 } from "@/lib/agenda/types";
 import { Badge } from "@/components/ui/badge";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { CATEGORIA_EXTERNAS } from "@/lib/agenda/externalEvents";
 import { CATEGORIA_PESSOAS } from "@/lib/agenda/birthdays";
 
@@ -32,13 +33,31 @@ function MultiPopover({
   onToggle: (id: string) => void;
   onClear: () => void;
 }) {
+  // Contador so quando o filtro REALMENTE restringe.
+  //
+  // Antes o badge mostrava selected.length, e o estado salvo vinha com tudo
+  // marcado: lia-se "Ministério 11, Área 10, Local 4, Status 3, Categoria 6".
+  // Cinco contadores anunciando filtro ativo enquanto nada era filtrado —
+  // e, pior, sugerindo que havia eventos escondidos.
+  //
+  // Selecionar tudo e selecionar nada dao o mesmo resultado: nenhum evento sai
+  // da lista. Nos dois casos o filtro esta desligado, e o badge some.
+  const restringe = selected.length > 0 && selected.length < items.length;
+
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="h-8 gap-1.5">
+        <Button
+          variant="outline" size="sm"
+          className={`h-11 gap-1.5 ${restringe ? "border-primary/50 text-primary" : ""}`}
+        >
           {label}
-          {selected.length > 0 && (
-            <Badge variant="secondary" className="h-5 px-1.5">{selected.length}</Badge>
+          {restringe && (
+            // "3/11" diz o que "3" sozinho nao dizia: quanto do total esta a
+            // vista. E o numero que responde "estou deixando de ver algo?".
+            <Badge variant="secondary" className="h-5 px-1.5 tabular-nums">
+              {selected.length}/{items.length}
+            </Badge>
           )}
         </Button>
       </PopoverTrigger>
@@ -74,11 +93,22 @@ export function AgendaFilters({ filtros, onChange, ministerios, areas, locais }:
   const clear = <K extends keyof AgendaFiltros>(key: K) =>
     onChange({ ...filtros, [key]: [] } as AgendaFiltros);
 
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      <div className="flex items-center gap-1 text-xs text-muted-foreground mr-1">
-        <Filter className="w-3.5 h-3.5" /> Filtros
-      </div>
+  // Quantos filtros de fato restringem — a mesma definicao do contador de cada
+  // chip. Serve de aviso no celular, onde os chips ficam recolhidos: sem isso,
+  // um filtro esquecido ligado viraria "sumiram eventos da agenda".
+  const totalCategorias =
+    2 + CATEGORIA_EXTERNAS.length + CATEGORIA_PESSOAS.length;
+  const restringindo = [
+    [filtros.ministerios.length, ministerios.length],
+    [filtros.areas.length,       areas.length],
+    [filtros.tipos.length,       Object.keys(TIPO_LABEL).length],
+    [filtros.locais.length,      locais.length],
+    [filtros.status.length,      Object.keys(STATUS_LABEL).length],
+    [(filtros.categorias ?? ALL_CATS).length, totalCategorias],
+  ].filter(([sel, tot]) => sel > 0 && sel < tot).length;
+
+  const chips = (
+    <>
       <MultiPopover label="Ministério" items={ministerios.map(m => ({ id: m.id, nome: m.nome }))}
         selected={filtros.ministerios} onToggle={(v) => toggle("ministerios", v)} onClear={() => clear("ministerios")} />
       <MultiPopover label="Área" items={areas.map(a => ({ id: a.id, nome: a.nome }))}
@@ -89,7 +119,6 @@ export function AgendaFilters({ filtros, onChange, ministerios, areas, locais }:
         selected={filtros.locais} onToggle={(v) => toggle("locais", v)} onClear={() => clear("locais")} />
       <MultiPopover label="Status" items={statusItems}
         selected={filtros.status} onToggle={(v) => toggle("status", v)} onClear={() => clear("status")} />
-
       <MultiPopover
         label="Categoria"
         items={[
@@ -108,18 +137,58 @@ export function AgendaFilters({ filtros, onChange, ministerios, areas, locais }:
         }}
         onClear={() => onChange({ ...filtros, categorias: ALL_CATS })}
       />
+    </>
+  );
 
-      <div className="flex items-center gap-1.5 ml-auto">
-        <Palette className="w-3.5 h-3.5 text-muted-foreground" />
-        <Label className="text-xs text-muted-foreground">Cor por:</Label>
-        <Select value={filtros.colorBy} onValueChange={(v) => onChange({ ...filtros, colorBy: v as "ministerio" | "tipo" })}>
-          <SelectTrigger className="h-8 w-36"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="tipo">Tipo de evento</SelectItem>
-            <SelectItem value="ministerio">Ministério</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+  const corPor = (
+    <div className="flex items-center gap-1.5">
+      <Palette className="w-3.5 h-3.5 text-muted-foreground" />
+      <Label className="text-xs text-muted-foreground">Cor por:</Label>
+      <Select value={filtros.colorBy} onValueChange={(v) => onChange({ ...filtros, colorBy: v as "ministerio" | "tipo" })}>
+        <SelectTrigger className="h-11 w-36"><SelectValue /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="tipo">Tipo de evento</SelectItem>
+          <SelectItem value="ministerio">Ministério</SelectItem>
+        </SelectContent>
+      </Select>
     </div>
+  );
+
+  return (
+    <>
+      {/* CELULAR — tudo recolhido atras de um botao.
+          Os seis chips mais o "Cor por" ocupavam tres faixas da barra, e a
+          barra inteira comia 53% da tela antes do primeiro evento. Filtrar a
+          agenda pelo telefone e excecao; ver o que vem a seguir e a regra. */}
+      <div className="md:hidden">
+        <Sheet>
+          <SheetTrigger asChild>
+            <Button variant="outline" size="sm" className={`h-11 gap-1.5 ${restringindo ? "border-primary/50 text-primary" : ""}`}>
+              <Filter className="w-4 h-4" />
+              Filtros
+              {restringindo > 0 && (
+                <Badge variant="secondary" className="h-5 px-1.5">{restringindo}</Badge>
+              )}
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto">
+            <SheetHeader className="text-left">
+              <SheetTitle className="font-serif">Filtros da agenda</SheetTitle>
+            </SheetHeader>
+            <div className="flex flex-wrap items-center gap-2 py-4">{chips}</div>
+            <div className="border-t pt-4">{corPor}</div>
+          </SheetContent>
+        </Sheet>
+      </div>
+
+      {/* DESKTOP — sobra largura, os chips ficam a vista. */}
+      <div className="hidden md:flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-1 text-xs text-muted-foreground mr-1">
+          <Filter className="w-3.5 h-3.5" /> Filtros
+        </div>
+        {chips}
+        <div className="ml-auto">{corPor}</div>
+      </div>
+    </>
   );
 }
