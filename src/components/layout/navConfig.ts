@@ -9,8 +9,8 @@
 import {
   LayoutDashboard, Users, HeartHandshake, Home, CalendarDays, MapPin,
   BarChart2, GraduationCap, Sparkles, DollarSign, Building2,
-  Network, KeyRound, ShieldAlert, Church, FileText, ScrollText,
-  CheckSquare, Upload, Download, Flame, UserCheck, Cog, Sprout, Gavel,
+  Network, FileText, ScrollText,
+  CheckSquare, UserCheck, Cog, Sprout, Gavel,
   ShoppingBag, type LucideIcon,
 } from "lucide-react";
 import type { AppRole } from "@/hooks/useAuth";
@@ -103,18 +103,19 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Configurações",
     icon: Cog,
     allowedRoles: ROLES_PASTORAL,
+    // Sete itens sairam daqui por estarem DUPLICADOS no menu da conta
+    // (UserMenuButton), que ja lista Identidade da Igreja, Documentos,
+    // Campanhas Espirituais, Importacao de Membros, Exportacao de Dados,
+    // Recuperacao de Senhas e Painel LGPD — la com nomes mais claros.
+    //
+    // Nenhum acesso se perdeu: sao os mesmos destinos, a um clique no avatar.
+    // O que se ganhou foi a barra deixar de ter 11 itens de sistema
+    // competindo com o trabalho do dia. Sobra o que so existe aqui.
     items: [
-      { to: "/admin/identidade",        label: "Identidade",      icon: Church,      allowedRoles: ROLES_ADMIN },
-      { to: "/admin/documentos",        label: "Documentos",      icon: ScrollText,  allowedRoles: ROLES_ADMIN },
-      { to: "/admin/campanhas",         label: "Campanhas",       icon: Flame,       allowedRoles: ROLES_ADMIN },
-      { to: "/estrutura",               label: "Estrutura",       icon: Network,     allowedRoles: ROLES_PASTORAL },
-      { to: "/organograma",             label: "Organograma",     icon: Building2,   allowedRoles: ROLES_LIDERES },
-      { to: "/painel-estrategico",      label: "Crescimento",     icon: BarChart2,   allowedRoles: ROLES_PASTORAL },
-      { to: "/admin/importacao",        label: "Importação",      icon: Upload,      allowedRoles: ROLES_ADMIN },
-      { to: "/admin/exportacao",        label: "Exportação",      icon: Download,    allowedRoles: ROLES_ADMIN },
-      { to: "/usuarios",                label: "Usuários",        icon: Users,       allowedRoles: ROLES_ADMIN },
-      { to: "/admin/recuperacao-senha", label: "Recuperar Senha", icon: KeyRound,    allowedRoles: ROLES_ADMIN },
-      { to: "/admin/lgpd",              label: "LGPD",            icon: ShieldAlert, allowedRoles: ROLES_ADMIN },
+      { to: "/estrutura",          label: "Estrutura",   icon: Network,   allowedRoles: ROLES_PASTORAL },
+      { to: "/organograma",        label: "Organograma", icon: Building2, allowedRoles: ROLES_LIDERES },
+      { to: "/painel-estrategico", label: "Crescimento", icon: BarChart2, allowedRoles: ROLES_PASTORAL },
+      { to: "/usuarios",           label: "Usuários",    icon: Users,     allowedRoles: ROLES_ADMIN },
     ],
   },
 ];
