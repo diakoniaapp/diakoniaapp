@@ -376,13 +376,56 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
   };
 
   // ── Excluir ────────────────────────────────────────────────────────────
+  //
+  // Excluir uma pessoa nao apaga so a pessoa. Sao 61 tabelas apontando para
+  // `membros`: 40 apenas soltam o vinculo, mas DEZESSEIS apagam em cascata —
+  // entre elas presencas de EBD, presencas de PGM, vinculos familiares,
+  // historico do membro e presenca em assembleias. Anos de chamada somem
+  // junto, e a confirmacao dizia apenas "tem certeza?".
+  //
+  // Este levantamento conta o que sera perdido para mostrar ANTES, na propria
+  // confirmacao. Nao impede nada: informa.
+  const [oQueSePerde, setOQueSePerde] = useState<string[] | null>(null);
+
+  const levantarVinculos = async (pessoaId: string) => {
+    setOQueSePerde(null);
+    const alvos: { tabela: string; coluna: string; rotulo: (n: number) => string }[] = [
+      { tabela: "ebd_presencas",         coluna: "pessoa_id", rotulo: n => `${n} ${n === 1 ? "presença" : "presenças"} na EBD` },
+      { tabela: "ebd_matriculas",        coluna: "pessoa_id", rotulo: n => `${n} ${n === 1 ? "matrícula" : "matrículas"} na EBD` },
+      { tabela: "pgm_presencas",         coluna: "pessoa_id", rotulo: n => `${n} ${n === 1 ? "presença" : "presenças"} em Pequenos Grupos` },
+      { tabela: "vinculos_familiares",   coluna: "pessoa_id", rotulo: n => `${n} ${n === 1 ? "vínculo familiar" : "vínculos familiares"}` },
+      { tabela: "historico_membro",      coluna: "membro_id", rotulo: n => `${n} ${n === 1 ? "registro" : "registros"} de histórico` },
+      { tabela: "escala_voluntarios",    coluna: "membro_id", rotulo: n => `${n} ${n === 1 ? "escala" : "escalas"} de voluntário` },
+    ];
+    const achados: string[] = [];
+    for (const a of alvos) {
+      const { count } = await supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .from(a.tabela as any)
+        .select("*", { count: "exact", head: true })
+        .eq(a.coluna, pessoaId);
+      if ((count ?? 0) > 0) achados.push(a.rotulo(count!));
+    }
+    setOQueSePerde(achados);
+  };
+
   const onDelete = async () => {
     if (!membro) return;
     setBusy(true);
     const { error } = await supabase.from("membros").delete().eq("id", membro.id);
     setBusy(false);
-    if (error) return toast.error("Erro ao excluir: " + error.message);
-    toast.success("Contato excluido");
+    if (error) {
+      // Cinco tabelas do Bazar e Cantina bloqueiam a exclusao (NO ACTION).
+      // A mensagem crua do Postgres — "violates foreign key constraint
+      // arr_vendas_membro_id_fkey" — nao diz nada a quem esta na secretaria.
+      const bloqueio = /foreign key|violates/i.test(error.message);
+      return toast.error(
+        bloqueio
+          ? "Esta pessoa tem movimentações no Bazar e Cantina e não pode ser excluída. Marque como inativa."
+          : "Erro ao excluir: " + error.message,
+      );
+    }
+    toast.success("Contato excluído");
     setConfirmDelete(false);
     onOpenChange(false);
     onSaved();
@@ -888,7 +931,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
             <DialogFooter className="flex flex-col sm:flex-row gap-2 pt-2">
               {isAdmin && membro && step === 1 && (
                 <Button type="button" variant="destructive" className="sm:mr-auto gap-2"
-                  onClick={() => setConfirmDelete(true)} disabled={busy}>
+                  onClick={() => { setConfirmDelete(true); levantarVinculos(membro.id); }} disabled={busy}>
                   <Trash2 className="h-4 w-4" /> Excluir
                 </Button>
               )}
@@ -936,9 +979,35 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir contato</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja excluir <strong>{membro?.nome_completo}</strong>?
-              Esta acao nao pode ser desfeita.
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>
+                  Tem certeza que deseja excluir <strong>{membro?.nome_completo}</strong>?
+                  Esta ação não pode ser desfeita.
+                </p>
+                {/* O que a cascata leva junto, contado no banco na hora de
+                    abrir. Antes a pergunta era so "tem certeza?", e anos de
+                    chamada de EBD podiam sumir sem que ninguem soubesse. */}
+                {oQueSePerde === null ? (
+                  <p className="text-xs text-muted-foreground">Verificando o que está vinculado…</p>
+                ) : oQueSePerde.length > 0 ? (
+                  <div className="rounded-md border border-destructive/30 bg-destructive/5 p-2.5">
+                    <p className="text-xs font-medium text-destructive">
+                      Isto também será apagado:
+                    </p>
+                    <ul className="mt-1 text-xs text-destructive/90 list-disc list-inside">
+                      {oQueSePerde.map(t => <li key={t}>{t}</li>)}
+                    </ul>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Para preservar o histórico, marque a pessoa como inativa em vez de excluir.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Nenhum histórico de EBD, Pequenos Grupos, família ou escala vinculado.
+                  </p>
+                )}
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

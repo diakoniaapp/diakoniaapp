@@ -23,6 +23,7 @@ import {
   AlertTriangle,
   Receipt,
   Wrench,
+  ClipboardCheck,
 } from "lucide-react";
 
 export type Prioridade = 0 | 1 | 2 | 3;
@@ -56,6 +57,7 @@ export interface Widget {
 }
 
 const AlertasInteligentes = lazy(() => import("@/components/dashboard/AlertasInteligentes").then(m => ({ default: m.AlertasInteligentes })));
+const CadastrosInconsistentes = lazy(() => import("@/components/dashboard/CadastrosInconsistentes").then(m => ({ default: m.CadastrosInconsistentes })));
 const AcoesDoDia          = lazy(() => import("@/components/dashboard/AcoesDoDia").then(m => ({ default: m.AcoesDoDia })));
 const VidaDasFamilias     = lazy(() => import("@/components/dashboard/VidaDasFamilias").then(m => ({ default: m.VidaDasFamilias })));
 const ResumoEbd           = lazy(() => import("@/components/dashboard/ResumoEbd").then(m => ({ default: m.ResumoEbd })));
@@ -75,6 +77,16 @@ export const widgetRegistry: Widget[] = [
     icone: Bell, component: AlertasInteligentes,
     permissoes: ["ver_pessoas","ver_painel_pastoral","ver_painel_secretaria","ver_painel_admin"],
     prioridade: 0, faixa: "trava" },
+
+  // Prioridade 1, nao 0: cadastro contraditorio pede correcao, mas nao e
+  // urgente como um visitante que esta se perdendo. Faixa "trava" porque e
+  // exatamente isso — algo que impede outra coisa de funcionar (as bodas do
+  // mes, o tempo de casa).
+  { id: "cadastros-inconsistentes", label: "Cadastros a corrigir",
+    subtitulo: "Registros que se contradizem",
+    icone: ClipboardCheck, component: CadastrosInconsistentes,
+    permissoes: ["ver_pessoas","ver_painel_secretaria","ver_painel_admin"],
+    prioridade: 1, faixa: "trava" },
 
   { id: "acoes-do-dia", label: "Ações de hoje",
     subtitulo: "Aniversários, bodas e visitas que acontecem agora",
