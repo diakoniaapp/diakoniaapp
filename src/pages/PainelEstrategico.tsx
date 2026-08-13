@@ -460,7 +460,15 @@ function IndicadorCard({ icon, label, sub, valor, cor }: {
       <CardContent className="p-5">
         <div className="flex items-start justify-between">
           <div className="flex-1 min-w-0">
-            <p translate="no" className="text-xs tracking-wider uppercase text-muted-foreground truncate">{label}</p>
+            {/* Sem uppercase, sem tracking-wider, sem truncate.
+                Em dois cartoes por linha no celular sobram ~75px para o
+                rotulo depois do icone, e "NOVOS VISITANTES" em caixa alta
+                com tracking-wider precisa de ~130px — virava "NOVOS VI...",
+                que nao diz nada. Caixa alta e a forma mais larga do mesmo
+                texto e ainda por cima e a mais dificil de ler; deixando
+                quebrar em duas linhas o rotulo cabe inteiro. A grade iguala
+                a altura das linhas, entao os cartoes continuam alinhados. */}
+            <p translate="no" className="text-xs text-muted-foreground leading-tight">{label}</p>
             {valor === null ? (
               <Skeleton className="h-9 w-16 mt-2" />
             ) : (
@@ -468,7 +476,14 @@ function IndicadorCard({ icon, label, sub, valor, cor }: {
             )}
             <p translate="no" className="text-xs text-muted-foreground mt-1">{sub}</p>
           </div>
-          <div className={`w-10 h-10 rounded-md flex items-center justify-center shrink-0 ${bgMap[cor]} ${corMap[cor]}`}>
+          {/* O quadradinho do icone so a partir de sm.
+              No celular sao dois cartoes por linha, 161px cada: o icone
+              levava 40px mais espacamento de uma largura util de 121px, e
+              sobravam 79px para o rotulo. Ele nao acrescenta nada que o
+              rotulo nao diga — um coracao ao lado de "Novos membros" nao
+              informa; so disputa a largura. No desktop, onde sobra espaco,
+              ele fica. */}
+          <div className={`hidden sm:flex w-10 h-10 rounded-md items-center justify-center shrink-0 ${bgMap[cor]} ${corMap[cor]}`}>
             {icon}
           </div>
         </div>
