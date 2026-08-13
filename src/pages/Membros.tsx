@@ -95,15 +95,18 @@ const tipoPessoaColor: Record<string, string> = {
 // Fica em componente proprio porque cartao (celular) e tabela (desktop) usam o
 // mesmo conjunto: duplicar o menu seria garantir que um dia so um dos dois ganhe
 // uma acao nova.
-function AcoesPessoa({ m, onEditar, onVinculos, onAtuacoes, onVisitante }: {
+function AcoesPessoa({ m, onEditar, onVinculos, onAtuacoes, onVisitante, mostrarEditar = true }: {
   m: Membro;
   onEditar:    (m: Membro) => void;
   onVinculos:  (m: Membro) => void;
   onAtuacoes:  (m: Membro) => void;
   onVisitante: (m: Membro) => void;
+  /** Na tabela do desktop o nome ja abre a edicao; o lapis so repetiria. */
+  mostrarEditar?: boolean;
 }) {
   return (
     <div className="flex items-center gap-0.5 shrink-0">
+      {mostrarEditar && (
       <Button
         variant="ghost" size="icon" className="h-11 w-11"
         aria-label={`Editar ${m.nome_completo}`}
@@ -112,6 +115,7 @@ function AcoesPessoa({ m, onEditar, onVinculos, onAtuacoes, onVisitante }: {
       >
         <Pencil className="w-4 h-4" />
       </Button>
+      )}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
@@ -524,7 +528,12 @@ export default function Membros() {
                                           {m.bairro || "—"}
                                         </td>
                                         <td className="px-3 py-0">
-                                          {canEdit && <AcoesPessoa m={m} {...acoes} />}
+                                          {/* Sem o lapis aqui: nesta tabela o nome ja e o
+                                              botao que abre a edicao. Eram 20 lapis por
+                                              pagina repetindo uma acao que ja existe a
+                                              dois centimetros de distancia — 20 icones a
+                                              menos numa tela que tinha 85. */}
+                                          {canEdit && <AcoesPessoa m={m} {...acoes} mostrarEditar={false} />}
                                         </td>
                                       </tr>
                                     ))}

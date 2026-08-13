@@ -44,16 +44,30 @@ export function colorForEvento(
 /** Retorna estilos inline (bg suave, borda forte, texto contrast) */
 export function eventoStyles(color: string, cancelado = false) {
   return {
-    backgroundColor: color + (cancelado ? "22" : "1f"),
+    // Sem fundo tingido: a cor do evento ja esta na barra da esquerda, e
+    // pintar a linha inteira era o mesmo dado duas vezes. Numa agenda com 42
+    // itens isso virava uma parede de cor — cada linha reivindicando destaque,
+    // e portanto nenhuma destacada. A barra sozinha continua agrupando por
+    // ministerio ou tipo, que e para o que a cor serve aqui.
     borderLeft: `3px solid ${color}`,
-    color: cancelado ? "var(--muted-foreground)" : "#0f172a",
+    // A cor do texto volta a ser a do tema. Era "#0f172a" fixo, quase preto,
+    // que so funcionava sobre o fundo claro tingido: no modo escuro ficava
+    // texto escuro sobre fundo escuro.
+    color: cancelado ? "var(--muted-foreground)" : undefined,
+    opacity: cancelado ? 0.6 : undefined,
   } as React.CSSProperties;
 }
 
 export function chipStyles(color: string, cancelado = false) {
   return {
-    backgroundColor: color,
-    color: "#fff",
+    // Fundo sólido virou marca à esquerda.
+    //
+    // No mês, cada evento era um bloco de cor cheia com texto branco. Numa
+    // grade de 42 eventos isso vira um mosaico: a cor deixa de codificar e
+    // passa a ser só ruído, porque tudo grita no mesmo volume. A barra de 3px
+    // codifica igual — é o mesmo dado, na mesma cor — e devolve o texto ao
+    // contraste normal, que é mais legível que branco sobre amarelo.
+    borderLeft: `3px solid ${color}`,
     opacity: cancelado ? 0.55 : 1,
     textDecoration: cancelado ? "line-through" : "none",
   } as React.CSSProperties;

@@ -174,7 +174,6 @@ export default function AppLayout() {
         {/* Categorias colapsáveis */}
         <nav className="flex-1 px-3 py-3 space-y-1 overflow-y-auto">
           {NAV_GROUPS.filter(groupAllowed).map((group) => {
-            const Icon = group.icon;
             const isExpanded = expanded[group.key] ?? true;
             const visibleItems = group.items.filter(itemAllowed);
             return (
@@ -185,7 +184,10 @@ export default function AppLayout() {
                   aria-expanded={isExpanded}
                   className="w-full flex items-center gap-2 px-3 py-1.5 text-xs uppercase tracking-widest text-sidebar-foreground/45 hover:text-sidebar-foreground/70 transition-colors"
                 >
-                  <Icon className="w-3 h-3" />
+                  {/* O icone do grupo saiu. Ele nao tinha funcao: o rotulo
+                      nomeia o grupo e a seta ja mostra se esta aberto ou
+                      fechado. Eram seis marcas a mais numa coluna que fica
+                      permanentemente a vista. */}
                   <span className="flex-1 text-left">{group.label}</span>
                   <ChevronDown className={`w-3 h-3 transition-transform ${isExpanded ? "" : "-rotate-90"}`} />
                 </button>
@@ -195,8 +197,17 @@ export default function AppLayout() {
                       const ItemIcon = item.icon;
                       return (
                         <NavLink key={item.to} to={item.to} end={item.end} className={itemClass}>
-                          <ItemIcon className="w-4 h-4" />
-                          <span translate="no">{item.label}</span>
+                          {/* O icone do item fica, mas recuado: numa lista de
+                              18 destinos ele ajuda a mirar sem ler, e a 55% de
+                              opacidade deixa de disputar com o rotulo. No item
+                              ativo volta ao peso normal — ali ele tem funcao,
+                              que e dizer onde voce esta. */}
+                          {({ isActive }) => (
+                            <>
+                              <ItemIcon className={`w-4 h-4 ${isActive ? "" : "opacity-55"}`} />
+                              <span translate="no">{item.label}</span>
+                            </>
+                          )}
                         </NavLink>
                       );
                     })}

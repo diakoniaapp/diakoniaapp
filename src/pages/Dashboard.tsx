@@ -85,12 +85,13 @@ export default function Dashboard() {
       <div className="border-b bg-card">
         <div className="px-4 md:px-8 py-4 md:py-6 flex flex-col md:flex-row md:items-end md:justify-between gap-3 md:gap-4">
           <div className="min-w-0 space-y-1">
-            <div className="flex items-center gap-1.5">
-              <ShieldCheck className="w-3.5 h-3.5 text-gold shrink-0" />
-              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-gold/80">
-                {ROLE_LABEL[principalRole] ?? principalRole}
-              </span>
-            </div>
+            {/* Rotulo de perfil sem escudo e sem dourado. Quem usa o sistema
+                todo dia sabe que e administrador; a informacao serve no maximo
+                como referencia, nao como destaque no alto da tela. Cinza
+                resolve, e devolve o dourado ao que de fato pede acao. */}
+            <span className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
+              {ROLE_LABEL[principalRole] ?? principalRole}
+            </span>
             <h1 className="font-serif text-2xl md:text-4xl text-foreground">
               {getSaudacao()}, {nome}! 🙏
             </h1>
@@ -111,15 +112,15 @@ export default function Dashboard() {
       {/* ── FAIXA VERSÍCULO DO DIA ─────────────────────────────────────── */}
       <div className="bg-gradient-verse border-b">
         <div className="px-4 md:px-8 py-3 md:py-4 max-w-7xl mx-auto">
-          <div className="flex items-start gap-3 md:gap-4">
-            <div className="flex w-8 h-8 md:w-9 md:h-9 rounded-full bg-gold/20 ring-1 ring-gold/40 items-center justify-center shrink-0 mt-0.5">
-              <Quote className="w-3.5 h-3.5 text-gold" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-xs md:text-xs tracking-[0.2em] uppercase text-gold/80 mb-0.5">Versículo do dia</div>
-              <p className="font-serif text-sm md:text-base leading-snug text-foreground/95">&ldquo;{verse.texto}&rdquo;</p>
-              <div className="text-gold mt-1 text-xs font-medium tracking-wide">{verse.ref}</div>
-            </div>
+          {/* O versiculo fica; a moldura sai. Eram quatro marcas douradas
+              para uma frase: o circulo com anel, o icone de aspas, o rotulo
+              "VERSÍCULO DO DIA" em caixa alta espacada, e a referencia. As
+              aspas tipograficas ja dizem que e citacao, e a referencia
+              biblica logo abaixo ja diz que e versiculo — o rotulo repetia em
+              caixa alta o que o proprio texto informava. */}
+          <div className="min-w-0">
+            <p className="font-serif text-sm md:text-base leading-snug text-foreground/95">&ldquo;{verse.texto}&rdquo;</p>
+            <div className="text-muted-foreground mt-1 text-xs">{verse.ref}</div>
           </div>
         </div>
       </div>
@@ -173,10 +174,12 @@ function BlocoSecao({ titulo, subtitulo, icon: Icon, children }: BlocoSecaoProps
     <section className="space-y-2">
       <div className="flex items-baseline justify-between gap-2 px-1">
         <div>
-          <h2 className="font-serif text-lg flex items-center gap-2">
-            <Icon className="w-4 h-4 text-gold" />
-            {titulo}
-          </h2>
+          {/* Sem icone no titulo de secao. "Ações rápidas", "Alertas
+              inteligentes", "Agenda fiscal" — o titulo ja diz o que a secao e;
+              o icone dourado ao lado nao acrescenta e coloca uma mancha de cor
+              em cada cabecalho da tela. Hierarquia se faz com tamanho e
+              espaco, nao com enfeite. */}
+          <h2 className="font-serif text-lg">{titulo}</h2>
           {subtitulo && <p className="text-xs text-muted-foreground">{subtitulo}</p>}
         </div>
       </div>
@@ -193,11 +196,14 @@ interface AcaoRapidaProps {
 function AcaoRapida({ to, icon: Icon, label }: AcaoRapidaProps) {
   return (
     <Link to={to}>
-      <Card className="shadow-card-soft hover:shadow-elevated hover:border-gold/40 transition-all cursor-pointer group">
+      {/* O quadrado dourado com anel saiu de tras do icone. Eram seis
+          atalhos, e portanto seis blocos de cor mais seis aneis, logo abaixo
+          do versiculo que ja e dourado. O icone fica — num painel de seis
+          atalhos ele ajuda a mirar sem ler — mas em cinza, do peso de um
+          rotulo, nao de um destaque. */}
+      <Card className="hover:border-gold/40 transition-colors cursor-pointer">
         <CardContent className="p-3 flex flex-col items-center gap-1.5 text-center">
-          <div className="w-9 h-9 rounded-md bg-gold/15 ring-1 ring-gold/30 flex items-center justify-center group-hover:bg-gold/25 transition-colors">
-            <Icon className="w-4 h-4 text-gold" />
-          </div>
+          <Icon className="w-4 h-4 text-muted-foreground" />
           <span className="text-xs font-medium leading-tight">{label}</span>
         </CardContent>
       </Card>
