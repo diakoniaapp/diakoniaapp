@@ -58,6 +58,12 @@ export interface Membro {
       | "professor_ebd"
       | "voluntario"
       | "membro";
+    // Registro do ultimo contato pastoral. As colunas ja existiam no banco e
+    // eram lidas pelo `select("*")`, mas nao estavam declaradas aqui — por isso
+    // a lista nunca soube que possuia essa informacao.
+    ultimo_contato_em?: string | null;
+    ultimo_contato_tipo?: string | null;
+    ultimo_contato_observacao?: string | null;
     status_acolhimento?: string | null;
     responsavel_id?: string | null;
     como_conheceu?: string | null;
@@ -158,6 +164,29 @@ function AcoesPessoa({ m, onEditar, onVinculos, onAtuacoes, onVisitante, onConta
   );
 }
 
+// Quanto tempo faz que alguem falou com esta pessoa.
+//
+// Cor com significado, nao decoracao: cinza ate 30 dias, ambar depois, e a
+// mesma cor de alerta do painel para quem nunca foi contatado. Numa lista de
+// 20 linhas, e o que deixa a resposta aparecer sem precisar ler data por data.
+function UltimoContato({ quando }: { quando?: string | null }) {
+  if (!quando) {
+    return <span className="text-sm text-warning">Nunca</span>;
+  }
+  const dias = Math.floor((Date.now() - new Date(quando).getTime()) / 86_400_000);
+  const texto =
+    dias === 0 ? "Hoje"
+    : dias === 1 ? "Ontem"
+    : dias < 30 ? `${dias} dias`
+    : dias < 60 ? "1 mês"
+    : `${Math.floor(dias / 30)} meses`;
+  return (
+    <span className={`text-sm ${dias >= 30 ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}>
+      {texto}
+    </span>
+  );
+}
+
 export default function Membros() {
     const { canEdit, hasRole } = useAuth();
     const [membros, setMembros] = useState<Membro[]>([]);
@@ -167,6 +196,10 @@ export default function Membros() {
     const [editing, setEditing] = useState<Membro | null>(null);
     const [tipoFiltro, setTipoFiltro] = useState<string>("todos");
     const [perfilFiltro, setPerfilFiltro] = useState<string>("todos");
+    // Filtro de cuidado. Nao e um modulo nem uma tela: e mais uma opcao na
+    // mesma barra de filtros, respondendo a pergunta que o pastor faz e que a
+    // lista nao respondia — "de quem ninguem cuida ha tempo?".
+    const [cuidadoFiltro, setCuidadoFiltro] = useState<string>("todos");
     const [vinculosPessoa, setVinculosPessoa] = useState<Membro | null>(null);
     const [atuacoesPessoa, setAtuacoesPessoa] = useState<Membro | null>(null);
     const [visitantePessoa, setVisitantePessoa] = useState<Membro | null>(null);
@@ -353,8 +386,21 @@ export default function Membros() {
                 (m.bairro ?? "").toLowerCase().includes(q);
         const matchTipo = tipoFiltro === "todos" || m.tipo_pessoa === tipoFiltro;
         const matchPerfil = perfilFiltro === "todos" || m.perfil_acesso === perfilFiltro;
-        return matchSearch && matchTipo && matchPerfil;
-  }), [membros, search, tipoFiltro, perfilFiltro]);
+
+        // "Nunca" e "ha mais de N dias" sao perguntas diferentes e ambas
+        // importam: nunca contatado e alguem que o sistema nunca alcancou;
+        // contatado ha 90 dias e alguem que se esfriou. Misturar as duas
+        // esconderia o primeiro grupo dentro do segundo.
+        const diasSemContato = m.ultimo_contato_em
+          ? Math.floor((Date.now() - new Date(m.ultimo_contato_em).getTime()) / 86_400_000)
+          : null;
+        const matchCuidado =
+          cuidadoFiltro === "todos" ? true
+          : cuidadoFiltro === "nunca" ? diasSemContato === null
+          : diasSemContato === null || diasSemContato >= Number(cuidadoFiltro);
+
+        return matchSearch && matchTipo && matchPerfil && matchCuidado;
+  }), [membros, search, tipoFiltro, perfilFiltro, cuidadoFiltro]);
 
   const totalPaginas = Math.max(1, Math.ceil(filtered.length / POR_PAGINA));
   const paginaAtual = Math.min(pagina, totalPaginas);
@@ -373,7 +419,7 @@ export default function Membros() {
 
   // Voltar à primeira página quando o resultado muda: continuar na página 7
   // de uma busca que agora tem 3 resultados deixaria a tela vazia.
-  useEffect(() => { setPagina(1); }, [search, tipoFiltro, perfilFiltro]);
+  useEffect(() => { setPagina(1); }, [search, tipoFiltro, perfilFiltro, cuidadoFiltro]);
 
   // Foco na busca ao abrir: quem entra em Pessoas quase sempre vem procurar
   // alguém. Só no desktop — em celular abriria o teclado por cima da lista.
@@ -426,6 +472,22 @@ export default function Membros() {
                                                                 <SelectItem value="membro">Membro</SelectItem>
                                                                 <SelectItem value="congregado">Congregado</SelectItem>
                                                                 <SelectItem value="visitante">Visitante</SelectItem>
+                                                  </SelectContent>
+                                      </Select>
+                                      {/* Terceiro filtro, mesma barra. A pergunta pastoral entra
+                                          como opcao de uma lista que ja existia, e nao como tela
+                                          separada — quem procura uma pessoa e quem procura os
+                                          esquecidos usam a mesma lista. */}
+                                      <Select value={cuidadoFiltro} onValueChange={setCuidadoFiltro}>
+                                                  <SelectTrigger className="md:w-56">
+                                                                <SelectValue placeholder="Cuidado" />
+                                                  </SelectTrigger>
+                                                  <SelectContent>
+                                                                <SelectItem value="todos">Qualquer contato</SelectItem>
+                                                                <SelectItem value="nunca">Nunca contatadas</SelectItem>
+                                                                <SelectItem value="30">Sem contato há 30 dias</SelectItem>
+                                                                <SelectItem value="60">Sem contato há 60 dias</SelectItem>
+                                                                <SelectItem value="90">Sem contato há 90 dias</SelectItem>
                                                   </SelectContent>
                                       </Select>
                                       <Select value={perfilFiltro} onValueChange={setPerfilFiltro}>
@@ -529,7 +591,7 @@ export default function Membros() {
                                       <th scope="col" className="font-medium px-3 py-2">Nome</th>
                                       <th scope="col" className="font-medium px-3 py-2 w-32">Tipo</th>
                                       <th scope="col" className="font-medium px-3 py-2 w-40">Telefone</th>
-                                      <th scope="col" className="font-medium px-3 py-2 w-44">Bairro</th>
+                                      <th scope="col" className="font-medium px-3 py-2 w-40">Último contato</th>
                                       <th scope="col" className="font-medium px-3 py-2 w-24">
                                         <span className="sr-only">Ações</span>
                                       </th>
@@ -574,8 +636,14 @@ export default function Membros() {
                                         <td className="px-3 py-0 text-muted-foreground tabular-nums">
                                           {m.telefone_celular || "—"}
                                         </td>
-                                        <td className="px-3 py-0 text-muted-foreground max-w-0 truncate">
-                                          {m.bairro || "—"}
+                                        {/* O bairro saiu daqui para o "Último contato" entrar.
+                                            Numa tela de cuidado, quando alguem falou com a
+                                            pessoa pela ultima vez pesa mais do que em que
+                                            bairro ela mora — e o bairro continua na busca e
+                                            na ficha. A coluna e o que torna a pergunta
+                                            pastoral visivel sem abrir nada. */}
+                                        <td className="px-3 py-0">
+                                          <UltimoContato quando={m.ultimo_contato_em} />
                                         </td>
                                         <td className="px-3 py-0">
                                           {/* Sem o lapis aqui: nesta tabela o nome ja e o
