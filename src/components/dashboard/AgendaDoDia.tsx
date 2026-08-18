@@ -24,8 +24,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  CalendarDays, MapPin, Clock, Loader2, ChevronRight,
+  CalendarDays, MapPin, Clock, Loader2, ChevronRight, Share2,
 } from "lucide-react";
+import { ConvidarParaEvento } from "@/components/dashboard/ConvidarParaEvento";
 import { supabase } from "@/integrations/supabase/client";
 import { useReportarVazio } from "@/components/hoje/vazio";
 import { expandirOcorrencias } from "@/lib/agenda/recurrence";
@@ -35,15 +36,19 @@ import {
 } from "@/lib/agenda/arrecadacao";
 import type { EventoOcorrencia, EventoRow } from "@/lib/agenda/types";
 
+// Os seis valores do enum `evento_tipo` no banco, e só eles.
+//
+// O mapa anterior listava "estudo", "evento", "visita", "oracao" e "retiro",
+// que não existem no enum — nenhum evento poderia tê-los. Rótulo para valor
+// impossível não quebra nada, mas descreve um sistema que não é este, e é
+// assim que alguém depois passa a acreditar que o tipo existe.
 const TIPO_LABEL: Record<string, string> = {
-  culto: "Culto",
-  ensaio: "Ensaio",
-  reuniao: "Reunião",
-  estudo: "Estudo",
-  evento: "Evento",
-  visita: "Visita",
-  oracao: "Oração",
-  retiro: "Retiro",
+  culto:       "Culto",
+  reuniao:     "Reunião",
+  ensaio:      "Ensaio",
+  acao_social: "Ação social",
+  curso:       "Curso",
+  outro:       "Outro",
 };
 
 const CATEGORIA_LABEL: Record<string, string> = {
@@ -67,6 +72,7 @@ function hojeLocal(): Date {
 export function AgendaDoDia() {
   const [ocorrencias, setOcorrencias] = useState<EventoOcorrencia[]>([]);
   const [loading, setLoading] = useState(true);
+  const [convite, setConvite] = useState<EventoOcorrencia | null>(null);
 
   useReportarVazio(loading || ocorrencias.length === 0);
 
@@ -172,6 +178,21 @@ export function AgendaDoDia() {
                   )}
                 </div>
               </div>
+
+              {/* Convidar só para o que é da igreja. Feriado nacional e data
+                  do calendário batista não se convida ninguém para ir, e
+                  reserva de espaço é de terceiro — o convite seria da pessoa
+                  que reservou, não da igreja. */}
+              {cat === "igreja" && (
+                <Button
+                  type="button" variant="ghost" size="sm"
+                  onClick={() => setConvite(o)}
+                  className="shrink-0 gap-1.5 text-xs text-muted-foreground hover:text-foreground min-h-[44px]"
+                >
+                  <Share2 className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Convidar</span>
+                </Button>
+              )}
             </li>
           );
         })}
@@ -181,6 +202,16 @@ export function AgendaDoDia() {
           <Link to="/eventos">Abrir agenda <ChevronRight className="w-3.5 h-3.5" /></Link>
         </Button>
       </div>
+
+      <ConvidarParaEvento
+        open={!!convite}
+        onOpenChange={(v) => { if (!v) setConvite(null); }}
+        titulo={convite?.evento?.titulo ?? ""}
+        data={convite?.data ?? ""}
+        horaInicio={convite?.evento?.hora_inicio}
+        horaFim={convite?.evento?.hora_fim}
+        local={convite?.evento?.local}
+      />
     </div>
   );
 }
