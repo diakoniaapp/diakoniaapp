@@ -62,6 +62,21 @@ function formatarHora(h: string | null | undefined): string | null {
   return h.slice(0, 5);
 }
 
+/**
+ * Data local no formato YYYY-MM-DD.
+ *
+ * NAO usar toISOString().slice(0,10) para isto: ele devolve a data em UTC. No
+ * Rio (UTC-3), das 21h em diante o UTC ja esta no dia seguinte — e a
+ * separacao entre "hoje" e "amanha" se inverteria justamente no horario em
+ * que o bloco precisa virar o dia. Este defeito nasceria funcionando de manha
+ * e quebrando a noite, que e a pior forma de nascer.
+ */
+function dataLocal(d = new Date()): string {
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
 /** Meia-noite local de hoje — o mesmo instante nas duas pontas da janela. */
 function hojeLocal(): Date {
   const d = new Date();
@@ -163,19 +178,30 @@ export function AgendaDoDia() {
 
   // Relogio: reclassifica os eventos a cada virada de minuto.
   const agoraMin = useAgoraEmMinutos();
-  const momentos = classificar(ocorrencias, agoraMin);
+  // Classifica so os de HOJE. Aplicar o relogio de hoje a um evento de
+  // amanha faria a Live Matinal das 06:30 nascer riscada as 20h de hoje.
+  const hojeISO  = dataLocal();
+  const momentos = classificar(
+    ocorrencias.filter(o => (o.data ?? hojeISO) === hojeISO),
+    agoraMin,
+  );
 
   useReportarVazio(loading || ocorrencias.length === 0);
 
   useEffect(() => {
     let cancelado = false;
     const hoje = hojeLocal();
+    const amanha = new Date(hoje);
+    amanha.setDate(amanha.getDate() + 1);
 
     (async () => {
       try {
+        // A janela vai ate AMANHA, nao so ate hoje. Ver o comentario de
+        // `sobrouHoje` mais abaixo: sem o dia seguinte carregado, o bloco vira
+        // uma lista de riscados a partir das 22h.
         const [{ data: eventos }, reservas, mapa] = await Promise.all([
           supabase.from("eventos").select("*"),
-          fetchReservasAgenda(hoje, hoje).catch(() => []),
+          fetchReservasAgenda(hoje, amanha).catch(() => []),
           mapEspacoCodigoParaLocalId().catch(() => ({})),
         ]);
         if (cancelado) return;
@@ -183,14 +209,16 @@ export function AgendaDoDia() {
         // `as unknown as` porque o tipo gerado do banco e EventoRow divergem em
         // campos opcionais. É a mesma conversão que a tela de Agenda faz na
         // linha equivalente — não invento aqui um contrato diferente do dela.
-        const internos = expandirOcorrencias((eventos ?? []) as unknown as EventoRow[], hoje, hoje)
+        const internos = expandirOcorrencias((eventos ?? []) as unknown as EventoRow[], hoje, amanha)
           .map(o => ({ ...o, categoria: "igreja" as const }));
-        const externos = eventosExternos(hoje, hoje);
+        const externos = eventosExternos(hoje, amanha);
         const espacos  = reservasComoOcorrencias(reservas, mapa);
 
         const tudo = [...internos, ...externos, ...espacos]
           .filter(o => o.evento?.status !== "cancelado")
-          .sort((a, b) => (a.evento?.hora_inicio ?? "99").localeCompare(b.evento?.hora_inicio ?? "99"));
+          .sort((a, b) =>
+            (a.data ?? "").localeCompare(b.data ?? "") ||
+            (a.evento?.hora_inicio ?? "99").localeCompare(b.evento?.hora_inicio ?? "99"));
 
         setOcorrencias(tudo);
       } catch {
@@ -213,15 +241,37 @@ export function AgendaDoDia() {
     );
   }
 
+  // ── Quando o dia vira ────────────────────────────────────────────────────
+  //
+  // Uma agenda que so olha para hoje fica inutil justamente no fim do dia:
+  // as 22h, com tudo ja realizado, o bloco vira uma lista de cinco itens
+  // riscados. Nao informa nada, e ainda ocupa o alto da tela.
+  //
+  // A regra: enquanto sobrar QUALQUER coisa por acontecer hoje, mostra hoje.
+  // Quando nao sobrar, mostra amanha — que e a pergunta que a pessoa passa a
+  // ter as 22h de uma terca: "o que tem amanha?".
+  //
+  // Nao e por horario fixo. Um dia que acaba as 15h vira as 15h; um que tem
+  // culto as 20h so vira depois das 21h30. Quem manda e a agenda, nao o
+  // relogio.
+  const chaveHoje = dataLocal();
+  const deHoje   = ocorrencias.filter(o => (o.data ?? chaveHoje) === chaveHoje);
+  const deAmanha = ocorrencias.filter(o => (o.data ?? chaveHoje) !== chaveHoje);
+
+  const sobrouHoje = deHoje.some(o => momentos.get(o.key) !== "passou");
+  const viraOdia   = !sobrouHoje && deAmanha.length > 0;
+
   // O que já terminou desce para o fim da lista, mantendo a ordem de horário
   // dentro de cada grupo. O bloco passa a responder "o que vem agora" em vez
   // de "como o dia foi planejado de manhã" — e o que passou continua visível,
   // porque saber que a reunião das 9h já aconteceu também é informação.
-  const ordenadas = [...ocorrencias].sort((a, b) => {
-    const pa = momentos.get(a.key) === "passou" ? 1 : 0;
-    const pb = momentos.get(b.key) === "passou" ? 1 : 0;
-    return pa - pb;
-  });
+  const ordenadas = viraOdia
+    ? deAmanha
+    : [...deHoje].sort((a, b) => {
+        const pa = momentos.get(a.key) === "passou" ? 1 : 0;
+        const pb = momentos.get(b.key) === "passou" ? 1 : 0;
+        return pa - pb;
+      });
 
   if (ocorrencias.length === 0) {
     return (
@@ -239,6 +289,16 @@ export function AgendaDoDia() {
 
   return (
     <div className="space-y-2">
+
+      {/* Diz de que dia e a lista, porque o titulo da secao continua sendo
+          "Acontecendo hoje" — e as 22h ele estaria mentindo sem esta linha. */}
+      {viraOdia && (
+        <p className="text-xs text-muted-foreground px-1 flex items-center gap-1.5">
+          <CalendarDays className="w-3.5 h-3.5 shrink-0" />
+          Hoje já passou. <b className="text-foreground font-medium">Amanhã:</b>
+        </p>
+      )}
+
       <ul className="divide-y rounded-md border bg-card">
         {ordenadas.map(o => {
           const ev    = o.evento;
@@ -248,7 +308,9 @@ export function AgendaDoDia() {
           const rotulo = cat === "igreja"
             ? (ev?.tipo ? TIPO_LABEL[ev.tipo] ?? ev.tipo : null)
             : CATEGORIA_LABEL[cat] ?? null;
-          const momento = momentos.get(o.key) ?? "futuro";
+          // Virou o dia: nenhum evento de amanha e "agora", "a seguir" nem
+          // "passou" — eles simplesmente ainda vao acontecer.
+          const momento = viraOdia ? "futuro" : (momentos.get(o.key) ?? "futuro");
           const passou  = momento === "passou";
 
           return (
