@@ -7,7 +7,7 @@ import {
 import { BrandMark } from "@/components/Brand";
 import { useAuth } from "@/hooks/useAuth";
 import { openCommandPalette } from "@/lib/commandPalette";
-import { NAV_GROUPS, PAINEL, type NavGroup, type NavItem } from "@/components/layout/navConfig";
+import { NAV_GROUPS, PAINEL, HOJE, type NavGroup, type NavItem } from "@/components/layout/navConfig";
 
 /**
  * Menu completo para celular.
@@ -78,6 +78,10 @@ export function MobileNavDrawer({ children }: { children: React.ReactNode }) {
           <NavLink to={PAINEL.to} end={PAINEL.end} onClick={fechar} className={itemClass}>
             <PAINEL.icon className="w-4 h-4 shrink-0" />
             <span translate="no">{PAINEL.label}</span>
+          </NavLink>
+          <NavLink to={HOJE.to} onClick={fechar} className={itemClass}>
+            <HOJE.icon className="w-4 h-4 shrink-0" />
+            <span translate="no">{HOJE.label}</span>
           </NavLink>
         </nav>
 
