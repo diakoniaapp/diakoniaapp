@@ -337,24 +337,27 @@ export async function getResumoVisitantes(): Promise<ResumoVisitantes> {
  * Abre WhatsApp com mensagem pastoral contextualizada e registra no histórico.
  */
 export function enviarMensagemPastoral(
-  visitante: Pick<Visitante, "id" | "nome_completo" | "telefone_celular" | "numero_visitas" | "status_acolhimento" | "ultimo_contato_em" | "created_at">
+  visitante: Pick<Visitante, "id" | "nome_completo" | "telefone_celular" | "numero_visitas" | "status_acolhimento" | "ultimo_contato_em" | "created_at" | "tipo_pessoa">
 ): void {
   const tel = visitante.telefone_celular?.replace(/\D/g, "") ?? "";
   if (!tel || tel.length < 10) return;
 
-  const etapa = calcularEtapa({
-    id:                  visitante.id,
-    nome_completo:       visitante.nome_completo,
-    telefone:            tel,
-    numero_visitas:      visitante.numero_visitas ?? 1,
-    status_acolhimento:  visitante.status_acolhimento,
-    ultimo_contato_em:   visitante.ultimo_contato_em,
-    created_at:          visitante.created_at,
-    dias_desde_cadastro: Math.floor((Date.now() - new Date(visitante.created_at).getTime()) / 86_400_000),
-    etapa_fluxo:         "boas_vindas",
-    prioridade:          "baixa",
-    precisa_acao:        false,
-  });
+  // A regua de etapas foi desenhada para VISITANTE: ela conta dias desde o
+  // cadastro. Num membro esse numero e sempre grande, entao ele cairia em
+  // "nao voltou" e receberia "Sentimos a sua falta!" — para quem esta na
+  // igreja todo domingo. Membro e congregado ficam em "em_acompanhamento",
+  // que e a mensagem neutra e cabe em qualquer um.
+  //
+  // Ate aqui esse era o comportamento de fato, mas por acidente: a chamada
+  // abaixo passava um OBJETO onde calcularEtapa espera dois valores
+  // (numero_visitas, created_at), como fazem os outros seis chamadores. Com
+  // um objeto no lugar do numero e undefined no lugar da data, todas as
+  // comparacoes falhavam e a funcao caia sempre na ultima linha. Resultado: a
+  // igreja tinha quatro mensagens pastorais escritas e usava uma so.
+  const ehMembroOuCongregado = ["membro", "congregado"].includes(visitante.tipo_pessoa);
+  const etapa = ehMembroOuCongregado
+    ? "em_acompanhamento" as const
+    : calcularEtapa(visitante.numero_visitas ?? 1, visitante.created_at);
 
   const mensagem = getMensagem(etapa, visitante.nome_completo);
   const link     = buildWhatsAppLink(tel, mensagem);
