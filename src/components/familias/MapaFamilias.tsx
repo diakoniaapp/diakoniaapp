@@ -29,7 +29,7 @@ import "leaflet/dist/leaflet.css";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, MessageCircle, Users, TriangleAlert, ChevronRight, Sprout } from "lucide-react";
+import { Loader2, MessageCircle, Users, TriangleAlert, ChevronRight, Sprout, Compass } from "lucide-react";
 
 interface FamiliaMapa {
   id: string;
@@ -110,6 +110,55 @@ function agrupar(familias: FamiliaMapa[], idsEmPgm: Set<string>): Agrupamento[] 
   return grupos
     .filter(g => g.familias.length >= 3)
     .sort((a, b) => b.pessoas - a.pessoas);
+}
+
+// ── O outro lado da mesma conta ────────────────────────────────────────────
+//
+// Agrupar responde "quem pode formar um grupo". Sobra a pergunta oposta, que é
+// pastoral e não organizacional: quem está longe de todo mundo?
+//
+// Uma família a 2,6 km da família da igreja mais próxima não vai ser atendida
+// por nenhuma estratégia de grupo de bairro — não porque foi esquecida, mas
+// porque não há vizinhança de igreja ao redor dela. É um tipo de solidão que
+// só a geografia mostra: na lista alfabética ela parece igual às outras.
+//
+// 1 km porque abaixo disso ainda se caminha. Acima, a pessoa depende de
+// conducao para encontrar qualquer irmão — e isso muda o que a igreja precisa
+// oferecer a ela.
+const LONGE_METROS = 1000;
+
+interface Distante {
+  familia: FamiliaMapa;
+  metros: number;
+  emPgm: number;
+}
+
+function maisDistantes(familias: FamiliaMapa[], idsEmPgm: Set<string>): Distante[] {
+  const exatas = familias.filter(f => f.geo_precisao === "rua");
+  if (exatas.length < 2) return [];
+
+  return exatas
+    .map(f => {
+      const metros = Math.min(
+        ...exatas
+          .filter(o => o.id !== f.id)
+          .map(o => distancia(f.latitude, f.longitude, o.latitude, o.longitude)),
+      );
+      return {
+        familia: f,
+        metros,
+        emPgm: f.pessoas.filter(p => idsEmPgm.has(p.id)).length,
+      };
+    })
+    .filter(d => d.metros > LONGE_METROS)
+    .sort((a, b) => b.metros - a.metros);
+}
+
+/** "2,6 km" / "820 m" */
+function distanciaLegivel(m: number): string {
+  return m >= 1000
+    ? `${(m / 1000).toFixed(1).replace(".", ",")} km`
+    : `${Math.round(m)} m`;
 }
 
 /**
@@ -211,6 +260,7 @@ export function MapaFamilias() {
   ];
 
   const agrupamentos = semRepetir(agrupar(familias, idsEmPgm));
+  const distantes    = maisDistantes(familias, idsEmPgm);
 
   return (
     <div className="space-y-3">
@@ -253,6 +303,36 @@ export function MapaFamilias() {
             <Button asChild variant="ghost" size="sm" className="gap-1 text-xs -ml-2">
               <Link to="/pgm">Abrir Pequenos Grupos <ChevronRight className="w-3.5 h-3.5" /></Link>
             </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Longe de todo mundo. Fica depois dos agrupamentos porque é a
+          pergunta menor em quantidade — e antes do mapa porque também pede
+          uma ação, e de um tipo que o mapa sozinho não sugere. */}
+      {distantes.length > 0 && (
+        <Card className="border-l-4 border-l-warning">
+          <CardContent className="py-4 space-y-2">
+            <p className="text-sm font-medium flex items-center gap-2">
+              <Compass className="w-4 h-4 text-warning shrink-0" />
+              Longe de todo mundo
+            </p>
+            <ul className="space-y-1.5">
+              {distantes.map(d => (
+                <li key={d.familia.id} className="text-sm text-muted-foreground">
+                  <b className="text-foreground">Família {d.familia.nome_familia}</b>
+                  {d.familia.bairro ? `, ${d.familia.bairro}` : ""} — a{" "}
+                  <b className="text-foreground">{distanciaLegivel(d.metros)}</b> da
+                  família da igreja mais próxima
+                  {d.familia.pessoas.length > 0 && `, ${d.familia.pessoas.length} ${d.familia.pessoas.length === 1 ? "pessoa" : "pessoas"}`}
+                  {d.emPgm === 0 ? ", nenhuma em pequeno grupo." : `, ${d.emPgm} em pequeno grupo.`}
+                </li>
+              ))}
+            </ul>
+            <p className="text-xs text-muted-foreground pt-1">
+              Nenhum grupo de bairro vai alcançar estas famílias — não há
+              vizinhança de igreja em volta delas.
+            </p>
           </CardContent>
         </Card>
       )}
