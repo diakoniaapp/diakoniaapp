@@ -29,7 +29,7 @@ import "leaflet/dist/leaflet.css";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, MessageCircle, Users, TriangleAlert, ChevronRight } from "lucide-react";
+import { Loader2, MessageCircle, Users, TriangleAlert, ChevronRight, Sprout, Compass } from "lucide-react";
 
 interface FamiliaMapa {
   id: string;
@@ -47,6 +47,139 @@ interface FamiliaMapa {
 // algum motivo, nenhuma família tiver coordenada.
 const CENTRO_PADRAO: [number, number] = [-22.9126, -43.2118];
 
+// ── Proximidade ────────────────────────────────────────────────────────────
+//
+// 300 metros, e não 1 km.
+//
+// Eu havia projetado 1 km — "o que uma pessoa caminha à noite para ir a um
+// grupo". Medido nestes dados, 1 km NÃO SEPARA NADA: quase toda família tem
+// 16 a 18 vizinhas nesse raio, porque a igreja está concentrada em bairros
+// contíguos (Praça da Bandeira, Rio Comprido e Maracanã se tocam).
+//
+// Um raio em que todo mundo é vizinho de todo mundo não responde "quem mora
+// perto de quem" — responde "a igreja é do centro do Rio", que já se sabia.
+//
+// A 300 m os números passam a discriminar: de 9 vizinhas a nenhuma. É a
+// distância de dois ou três quarteirões, que é onde alguém de fato aceita ir
+// a pé numa terça à noite.
+const RAIO_METROS = 300;
+
+/** Distância em metros entre dois pontos (haversine). */
+function distancia(aLat: number, aLon: number, bLat: number, bLon: number): number {
+  const R = 6_371_000;
+  const rad = (g: number) => (g * Math.PI) / 180;
+  const s =
+    Math.cos(rad(aLat)) * Math.cos(rad(bLat)) * Math.cos(rad(bLon) - rad(aLon)) +
+    Math.sin(rad(aLat)) * Math.sin(rad(bLat));
+  return R * Math.acos(Math.min(1, s));
+}
+
+interface Agrupamento {
+  centro: FamiliaMapa;
+  familias: FamiliaMapa[];
+  pessoas: number;
+  emPgm: number;
+}
+
+/**
+ * Agrupamentos possíveis: para cada família, quem está dentro do raio.
+ *
+ * Só entram famílias com precisão de RUA. Ponto de bairro é o centroide do
+ * bairro inteiro — usá-lo aqui faria duas famílias a 2 km parecerem vizinhas,
+ * e é justamente esta conta que vai sugerir pequeno grupo.
+ *
+ * Devolve ordenado por quantidade de PESSOAS, não de famílias: um grupo se
+ * forma com gente, e duas famílias de cinco valem mais que quatro de um.
+ */
+function agrupar(familias: FamiliaMapa[], idsEmPgm: Set<string>): Agrupamento[] {
+  const exatas = familias.filter(f => f.geo_precisao === "rua");
+
+  const grupos = exatas.map(centro => {
+    const perto = exatas.filter(
+      o => o.id === centro.id ||
+           distancia(centro.latitude, centro.longitude, o.latitude, o.longitude) <= RAIO_METROS,
+    );
+    const pessoas = perto.reduce((s, f) => s + f.pessoas.length, 0);
+    const emPgm = perto.reduce(
+      (s, f) => s + f.pessoas.filter(p => idsEmPgm.has(p.id)).length, 0,
+    );
+    return { centro, familias: perto, pessoas, emPgm };
+  });
+
+  // Um "agrupamento" de uma família só é uma família, não um grupo.
+  return grupos
+    .filter(g => g.familias.length >= 3)
+    .sort((a, b) => b.pessoas - a.pessoas);
+}
+
+// ── O outro lado da mesma conta ────────────────────────────────────────────
+//
+// Agrupar responde "quem pode formar um grupo". Sobra a pergunta oposta, que é
+// pastoral e não organizacional: quem está longe de todo mundo?
+//
+// Uma família a 2,6 km da família da igreja mais próxima não vai ser atendida
+// por nenhuma estratégia de grupo de bairro — não porque foi esquecida, mas
+// porque não há vizinhança de igreja ao redor dela. É um tipo de solidão que
+// só a geografia mostra: na lista alfabética ela parece igual às outras.
+//
+// 1 km porque abaixo disso ainda se caminha. Acima, a pessoa depende de
+// conducao para encontrar qualquer irmão — e isso muda o que a igreja precisa
+// oferecer a ela.
+const LONGE_METROS = 1000;
+
+interface Distante {
+  familia: FamiliaMapa;
+  metros: number;
+  emPgm: number;
+}
+
+function maisDistantes(familias: FamiliaMapa[], idsEmPgm: Set<string>): Distante[] {
+  const exatas = familias.filter(f => f.geo_precisao === "rua");
+  if (exatas.length < 2) return [];
+
+  return exatas
+    .map(f => {
+      const metros = Math.min(
+        ...exatas
+          .filter(o => o.id !== f.id)
+          .map(o => distancia(f.latitude, f.longitude, o.latitude, o.longitude)),
+      );
+      return {
+        familia: f,
+        metros,
+        emPgm: f.pessoas.filter(p => idsEmPgm.has(p.id)).length,
+      };
+    })
+    .filter(d => d.metros > LONGE_METROS)
+    .sort((a, b) => b.metros - a.metros);
+}
+
+/** "2,6 km" / "820 m" */
+function distanciaLegivel(m: number): string {
+  return m >= 1000
+    ? `${(m / 1000).toFixed(1).replace(".", ",")} km`
+    : `${Math.round(m)} m`;
+}
+
+/**
+ * Tira os grupos que se sobrepõem: se duas famílias vizinhas produzem
+ * praticamente a mesma lista, mostrar as duas seria repetir o mesmo grupo com
+ * outro nome no topo.
+ */
+function semRepetir(grupos: Agrupamento[], limite = 3): Agrupamento[] {
+  const escolhidos: Agrupamento[] = [];
+  const usadas = new Set<string>();
+
+  for (const g of grupos) {
+    const novas = g.familias.filter(f => !usadas.has(f.id)).length;
+    if (novas < g.familias.length / 2) continue;   // mais da metade já contada
+    escolhidos.push(g);
+    g.familias.forEach(f => usadas.add(f.id));
+    if (escolhidos.length >= limite) break;
+  }
+  return escolhidos;
+}
+
 function linkWhats(tel: string | null): string | null {
   const d = (tel ?? "").replace(/\D/g, "");
   if (d.length < 10) return null;
@@ -56,18 +189,22 @@ function linkWhats(tel: string | null): string | null {
 export function MapaFamilias() {
   const [familias, setFamilias] = useState<FamiliaMapa[] | null>(null);
   const [semCoordenada, setSemCoordenada] = useState(0);
+  const [idsEmPgm, setIdsEmPgm] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     let cancelado = false;
 
     (async () => {
-      const [fam, vinc] = await Promise.all([
+      const [fam, vinc, pgm] = await Promise.all([
         supabase.from("familias")
           .select("id, nome_familia, endereco, numero, bairro, latitude, longitude, geo_precisao"),
         supabase.from("vinculos_familiares")
           .select("familia_id, membros(id, nome_completo, telefone_celular)"),
+        supabase.from("pgm_membros").select("pessoa_id"),
       ]);
       if (cancelado) return;
+
+      setIdsEmPgm(new Set((pgm.data ?? []).map(p => p.pessoa_id)));
 
       const porFamilia = new Map<string, FamiliaMapa["pessoas"]>();
       for (const v of (vinc.data ?? []) as any[]) {
@@ -122,8 +259,84 @@ export function MapaFamilias() {
     [Math.max(...lats), Math.max(...lons)],
   ];
 
+  const agrupamentos = semRepetir(agrupar(familias, idsEmPgm));
+  const distantes    = maisDistantes(familias, idsEmPgm);
+
   return (
     <div className="space-y-3">
+
+      {/* Agrupamentos possíveis: a pergunta que o mapa responde e a lista não.
+          Vem antes do mapa porque é a única parte desta tela que sugere uma
+          ação — o mapa em si informa. */}
+      {agrupamentos.length > 0 && (
+        <Card className="border-l-4 border-l-success">
+          <CardContent className="py-4 space-y-2">
+            <p className="text-sm font-medium flex items-center gap-2">
+              <Sprout className="w-4 h-4 text-success shrink-0" />
+              Quem mora perto de quem
+            </p>
+            <ul className="space-y-1.5">
+              {agrupamentos.map(g => (
+                // O bairro sozinho não serve de nome: dois agrupamentos
+                // distintos podem cair na Praça da Bandeira, e a lista ficaria
+                // com duas linhas de rótulo idêntico. A família do centro
+                // desempata e ainda diz por onde procurar no mapa.
+                <li key={g.centro.id} className="text-sm text-muted-foreground">
+                  <b className="text-foreground">
+                    {g.centro.bairro ? `${g.centro.bairro}, ` : ""}
+                    em torno da família {g.centro.nome_familia}
+                  </b>
+                  {" — "}
+                  <b className="text-foreground">{g.familias.length} famílias</b> e{" "}
+                  <b className="text-foreground">{g.pessoas} pessoas</b> a menos de{" "}
+                  {RAIO_METROS} m umas das outras
+                  {g.emPgm === 0
+                    ? ", e nenhuma em pequeno grupo."
+                    : `, ${g.emPgm} em pequeno grupo.`}
+                </li>
+              ))}
+            </ul>
+            <p className="text-xs text-muted-foreground pt-1">
+              Distância em linha reta entre os pontos de rua. Famílias com ponto
+              só de bairro ficam de fora desta conta.
+            </p>
+            <Button asChild variant="ghost" size="sm" className="gap-1 text-xs -ml-2">
+              <Link to="/pgm">Abrir Pequenos Grupos <ChevronRight className="w-3.5 h-3.5" /></Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Longe de todo mundo. Fica depois dos agrupamentos porque é a
+          pergunta menor em quantidade — e antes do mapa porque também pede
+          uma ação, e de um tipo que o mapa sozinho não sugere. */}
+      {distantes.length > 0 && (
+        <Card className="border-l-4 border-l-warning">
+          <CardContent className="py-4 space-y-2">
+            <p className="text-sm font-medium flex items-center gap-2">
+              <Compass className="w-4 h-4 text-warning shrink-0" />
+              Longe de todo mundo
+            </p>
+            <ul className="space-y-1.5">
+              {distantes.map(d => (
+                <li key={d.familia.id} className="text-sm text-muted-foreground">
+                  <b className="text-foreground">Família {d.familia.nome_familia}</b>
+                  {d.familia.bairro ? `, ${d.familia.bairro}` : ""} — a{" "}
+                  <b className="text-foreground">{distanciaLegivel(d.metros)}</b> da
+                  família da igreja mais próxima
+                  {d.familia.pessoas.length > 0 && `, ${d.familia.pessoas.length} ${d.familia.pessoas.length === 1 ? "pessoa" : "pessoas"}`}
+                  {d.emPgm === 0 ? ", nenhuma em pequeno grupo." : `, ${d.emPgm} em pequeno grupo.`}
+                </li>
+              ))}
+            </ul>
+            <p className="text-xs text-muted-foreground pt-1">
+              Nenhum grupo de bairro vai alcançar estas famílias — não há
+              vizinhança de igreja em volta delas.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="rounded-lg overflow-hidden border" style={{ height: "60vh", minHeight: 320 }}>
         <MapContainer
           bounds={limites}
