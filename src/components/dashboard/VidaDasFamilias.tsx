@@ -64,7 +64,7 @@ export function VidaDasFamilias() {
         titulo="Aniversários"
         lista={aniversarios}
         onWhats={abrirWhats}
-        sufixo="anos"
+        sufixo="anos de vida"
       />
       <ColunaEventos
         cor="pink"
@@ -72,7 +72,7 @@ export function VidaDasFamilias() {
         titulo="Bodas de casamento"
         lista={casamentos}
         onWhats={abrirWhats}
-        sufixo="anos de casados"
+        sufixo="anos de casamento"
       />
     </div>
   );

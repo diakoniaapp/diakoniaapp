@@ -25,13 +25,19 @@ function ehDomingo(): boolean {
 const DIAS_ADIANTE = 30;
 const QUANTOS_ADIANTE = 5;
 
+// Os quatro sufixos dizem de que tipo de ano se trata, sempre — inclusive o
+// aniversário, que antes era só "anos".
+//
+// Numa lista misturada, "12 anos" ao lado de "4 anos de casa" obriga quem lê a
+// adivinhar o que cada número conta: idade? tempo de igreja? tempo de
+// casamento? O nome do tipo custa duas palavras e tira a adivinhação.
 const APARENCIA: Record<TipoEfemeride, { Icon: typeof Cake; sufixo: string; semAnos: string; grad: string; cor: string }> = {
-  aniversario: { Icon: Cake,  sufixo: "anos",              semAnos: "Aniversário",
-    grad: "bg-gradient-to-br from-pink-100 to-pink-50 border-pink-200", cor: "text-pink-600" },
-  casamento:   { Icon: Heart, sufixo: "anos de casados",   semAnos: "Aniversário de casamento",
-    grad: "bg-gradient-to-br from-rose-100 to-rose-50 border-rose-200", cor: "text-rose-600" },
-  membresia:   { Icon: Users, sufixo: "anos de casa",      semAnos: "Aniversário de membresia",
-    grad: "bg-gradient-to-br from-sky-100 to-sky-50 border-sky-200",    cor: "text-sky-700" },
+  aniversario: { Icon: Cake,   sufixo: "anos de vida",      semAnos: "Aniversário",
+    grad: "bg-gradient-to-br from-pink-100 to-pink-50 border-pink-200",   cor: "text-pink-600" },
+  casamento:   { Icon: Heart,  sufixo: "anos de casamento", semAnos: "Aniversário de casamento",
+    grad: "bg-gradient-to-br from-rose-100 to-rose-50 border-rose-200",   cor: "text-rose-600" },
+  membresia:   { Icon: Users,  sufixo: "anos de membresia", semAnos: "Aniversário de membresia",
+    grad: "bg-gradient-to-br from-sky-100 to-sky-50 border-sky-200",      cor: "text-sky-700" },
   pastorado:   { Icon: Church, sufixo: "anos de pastorado", semAnos: "Aniversário de pastorado",
     grad: "bg-gradient-to-br from-amber-100 to-amber-50 border-amber-200", cor: "text-amber-700" },
 };
