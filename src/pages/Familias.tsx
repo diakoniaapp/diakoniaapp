@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
 import { PorBairro } from "@/components/familias/PorBairro";
+import { MapaFamilias } from "@/components/familias/MapaFamilias";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -43,7 +44,7 @@ export default function Familias() {
   const [responsaveis, setResponsaveis]   = useState<Record<string, string>>({});
   // F1: busca por nome
   const [busca, setBusca] = useState("");
-  const [vista, setVista] = useState<"lista" | "bairro">("lista");
+  const [vista, setVista] = useState<"lista" | "bairro" | "mapa">("lista");
   // F2: lista de membros por familia
   const [membrosPorFamilia, setMembrosPorFamilia] = useState<Record<string, { id: string; nome: string }[]>>({});
   const [vinculosOpen, setVinculosOpen]   = useState(false);
@@ -183,6 +184,7 @@ export default function Familias() {
               {([
                 ["lista",  "Lista"],
                 ["bairro", "Por bairro"],
+                ["mapa",   "Mapa"],
               ] as const).map(([v, rotulo]) => (
                 <button
                   key={v}
@@ -200,7 +202,7 @@ export default function Familias() {
               ))}
             </div>
 
-            {vista === "bairro" ? <PorBairro /> : (
+            {vista === "bairro" ? <PorBairro /> : vista === "mapa" ? <MapaFamilias /> : (
             <>
             <div className="mb-4 relative">
               <Search className="w-4 h-4 absolute left-3 top-3 text-muted-foreground" />
