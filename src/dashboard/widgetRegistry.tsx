@@ -83,13 +83,14 @@ const MeusAssuntos        = lazy(() => import("@/components/dashboard/MeusAssunt
 const AssuntosUrgentes    = lazy(() => import("@/components/dashboard/AssuntosUrgentes").then(m => ({ default: m.AssuntosUrgentes })));
 const InsightsDoSistema   = lazy(() => import("@/components/dashboard/InsightsDoSistema").then(m => ({ default: m.InsightsDoSistema })));
 
+// A ORDEM DESTE ARRAY DECIDE EMPATES de prioridade — em duas telas ao mesmo
+// tempo. Mexer aqui muda o painel e o HOJE juntos, e nem sempre na mesma
+// direção. Os dois primeiros itens abaixo estão nesta ordem de propósito:
+// ambos são prioridade 0 e faixa "gente", e o HOJE mostra só um da faixa. Se
+// "Ações de hoje" viesse antes, ela tomaria o lugar do bloco do cuidado na
+// tela do cuidado — enquanto no painel, de onde "Quem ninguém procurou" está
+// excluído, quem aparece primeiro é a de baixo.
 export const widgetRegistry: Widget[] = [
-  { id: "alertas-inteligentes", label: "Alertas inteligentes",
-    subtitulo: "Coisas que precisam da sua decisão",
-    icone: Bell, component: AlertasInteligentes,
-    permissoes: ["ver_pessoas","ver_painel_pastoral","ver_painel_secretaria","ver_painel_admin"],
-    prioridade: 0, faixa: "trava" },
-
   // Faixa "gente", prioridade 0: e a pergunta pastoral do dia, e vem antes de
   // qualquer pendencia de cadastro. Um cadastro incompleto espera; uma pessoa
   // que ninguem procura ha meses, nao.
@@ -98,6 +99,21 @@ export const widgetRegistry: Widget[] = [
     icone: HeartHandshake, component: QuemNinguemProcurou,
     permissoes: ["ver_pessoas","ver_painel_pastoral","ver_painel_secretaria","ver_painel_admin"],
     prioridade: 0, faixa: "gente", apenasHoje: true },
+
+  // Primeiro widget do painel. Aniversario, bodas e visita de hoje sao a unica
+  // coisa da tela que perde a validade ao fim do dia — um cadastro incompleto
+  // continua incompleto amanha. E, quando o dia nao tem nenhum, o bloco se
+  // apaga e devolve o espaco.
+  { id: "acoes-do-dia", label: "Ações de hoje",
+    subtitulo: "Aniversários, bodas e visitas que acontecem agora",
+    icone: CalendarCheck, component: AcoesDoDia,
+    permissoes: ["ver_pessoas"], prioridade: 0, faixa: "gente" },
+
+  { id: "alertas-inteligentes", label: "Alertas inteligentes",
+    subtitulo: "Coisas que precisam da sua decisão",
+    icone: Bell, component: AlertasInteligentes,
+    permissoes: ["ver_pessoas","ver_painel_pastoral","ver_painel_secretaria","ver_painel_admin"],
+    prioridade: 0, faixa: "trava" },
 
   // Prioridade 1, nao 0: cadastro contraditorio pede correcao, mas nao e
   // urgente como um visitante que esta se perdendo. Faixa "trava" porque e
@@ -108,11 +124,6 @@ export const widgetRegistry: Widget[] = [
     icone: ClipboardCheck, component: CadastrosInconsistentes,
     permissoes: ["ver_pessoas","ver_painel_secretaria","ver_painel_admin"],
     prioridade: 1, faixa: "trava" },
-
-  { id: "acoes-do-dia", label: "Ações de hoje",
-    subtitulo: "Aniversários, bodas e visitas que acontecem agora",
-    icone: CalendarCheck, component: AcoesDoDia,
-    permissoes: ["ver_pessoas"], prioridade: 1, faixa: "gente" },
 
   { id: "agenda-do-dia", label: "Agenda do dia",
     subtitulo: "Eventos da igreja hoje",

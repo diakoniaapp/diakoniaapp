@@ -3,7 +3,7 @@
 // Acrescenta: estrutura modular dos 9 blocos com shells e Bloco 1 (Ações Rápidas)
 // Fases seguintes vão preencher cada Bloco como widget próprio.
 
-import { useEffect, useState, type ComponentType } from "react";
+import { useCallback, useEffect, useState, type ComponentType } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,6 +14,7 @@ import { verseOfTheDay } from "@/lib/agenda/verses";
 import { usePermissoes } from "@/hooks/usePermissoes";
 import VisitanteRapidoDialog from "@/components/membros/VisitanteRapidoDialog";
 import { openCommandPalette } from "@/lib/commandPalette";
+import { VazioCtx, type ReportarVazio } from "@/components/hoje/vazio";
 import { Suspense } from "react";
 import { getWidgetsDivididos } from "@/dashboard/widgetRegistry";
 import { getAcoesParaUsuario } from "@/dashboard/quickActionsRegistry";
@@ -158,21 +159,39 @@ interface BlocoSecaoProps {
   children: React.ReactNode;
 }
 function BlocoSecao({ titulo, subtitulo, icon: Icon, children }: BlocoSecaoProps) {
+  // Secao que se apaga sozinha quando o widget avisa que nao tem o que
+  // mostrar. O canal (VazioCtx) e os avisos ja existiam: onze widgets do
+  // painel chamam useReportarVazio ha tempos. So que o provider morava
+  // apenas na tela HOJE — e o proprio arquivo do canal registrava isso:
+  // "fora do HOJE nao ha provider e o hook e inerte".
+  //
+  // Era por isso que o painel gastava uma secao inteira, com titulo e
+  // subtitulo, para dizer "Tudo em ordem — nada fiscal pendente". O widget
+  // vinha avisando que estava vazio, e nao havia quem escutasse.
+  //
+  // `hidden` em vez de devolver null, pelo mesmo motivo do BlocoHoje: com
+  // null o filho desmonta, o aviso se perde, a secao reaparece e o ciclo
+  // recomeca. Escondido, o filho segue montado e segue reportando.
+  const [vazio, setVazio] = useState(false);
+  const reportar = useCallback<ReportarVazio>((v) => setVazio(v), []);
+
   return (
-    <section className="space-y-2">
-      <div className="flex items-baseline justify-between gap-2 px-1">
-        <div>
-          {/* Sem icone no titulo de secao. "Ações rápidas", "Alertas
-              inteligentes", "Agenda fiscal" — o titulo ja diz o que a secao e;
-              o icone dourado ao lado nao acrescenta e coloca uma mancha de cor
-              em cada cabecalho da tela. Hierarquia se faz com tamanho e
-              espaco, nao com enfeite. */}
-          <h2 className="font-serif text-lg">{titulo}</h2>
-          {subtitulo && <p className="text-xs text-muted-foreground">{subtitulo}</p>}
+    <VazioCtx.Provider value={reportar}>
+      <section className="space-y-2" hidden={vazio} aria-hidden={vazio || undefined}>
+        <div className="flex items-baseline justify-between gap-2 px-1">
+          <div>
+            {/* Sem icone no titulo de secao. "Ações rápidas", "Alertas
+                inteligentes", "Agenda fiscal" — o titulo ja diz o que a secao e;
+                o icone dourado ao lado nao acrescenta e coloca uma mancha de cor
+                em cada cabecalho da tela. Hierarquia se faz com tamanho e
+                espaco, nao com enfeite. */}
+            <h2 className="font-serif text-lg">{titulo}</h2>
+            {subtitulo && <p className="text-xs text-muted-foreground">{subtitulo}</p>}
+          </div>
         </div>
-      </div>
-      <div>{children}</div>
-    </section>
+        <div>{children}</div>
+      </section>
+    </VazioCtx.Provider>
   );
 }
 
