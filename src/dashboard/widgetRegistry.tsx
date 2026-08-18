@@ -29,20 +29,11 @@ import {
 
 export type Prioridade = 0 | 1 | 2 | 3;
 
-/**
- * Faixa da tela HOJE em que o widget aparece.
- *
- * Widget sem `faixa` continua existindo só no painel — é o que permite
- * migrar de forma incremental, sem tocar em todos de uma vez.
- *
- *   trava  → impede alguém de seguir; some quando resolvido
- *   gente  → o lado humano do dia (aniversários, ausências, visitantes)
- *   agenda → compromissos de hoje
- *
- * A faixa "tarefa" não vem daqui: ela é uma acao unica resolvida em
- * hoje/tarefaPrincipal.ts, e nao um bloco informativo.
- */
-export type FaixaHoje = "trava" | "gente" | "agenda";
+// As faixas ("trava", "gente", "agenda") e a marca `apenasHoje` sumiram
+// junto com a tela HOJE. Elas existiam para repartir os mesmos widgets entre
+// duas telas — e era justamente essa repartição que produzia duas versões da
+// mesma coisa, por mais bem feito que fosse o corte. Com uma tela só, o
+// registry volta a ter uma regra só: prioridade.
 
 export interface Widget {
   id: string;
@@ -53,30 +44,7 @@ export interface Widget {
   permissoes: string[];
   areas?: string[];
   prioridade: Prioridade;
-  faixa?: FaixaHoje;
   ativo?: boolean;
-  /**
-   * Aparece só na tela HOJE, nunca no painel inicial.
-   *
-   * ── A DIVISÃO ENTRE AS DUAS TELAS ──────────────────────────────────────
-   *
-   * O painel lê o registry inteiro, então todo widget com faixa aparecia nos
-   * dois lugares. O resultado medido: três dos cinco blocos do HOJE eram os
-   * mesmos três do painel, com o mesmo conteúdo — quem abria uma já tinha
-   * visto a outra, e a tela do cuidado não tinha o que a justificasse.
-   *
-   * A régua que separa as duas não é técnica, é de assunto:
-   *
-   *   HOJE   → pessoas e ações. Quem precisa de atenção, quem merece
-   *            contato, quem está sendo perdido, o que depende de mim hoje.
-   *   PAINEL → o estado da igreja. Qualidade de cadastro, pendências
-   *            institucionais, resumos dos módulos.
-   *
-   * Por isso "Alertas inteligentes" saiu do HOJE: 50 possíveis vínculos
-   * familiares e 4 alunos fora da faixa da EBD são qualidade de dado, não
-   * gente esperando por alguém. São trabalho legítimo — de outra tela.
-   */
-  apenasHoje?: boolean;
 }
 
 const AlertasInteligentes = lazy(() => import("@/components/dashboard/AlertasInteligentes").then(m => ({ default: m.AlertasInteligentes })));
@@ -95,15 +63,9 @@ const MeusAssuntos        = lazy(() => import("@/components/dashboard/MeusAssunt
 const AssuntosUrgentes    = lazy(() => import("@/components/dashboard/AssuntosUrgentes").then(m => ({ default: m.AssuntosUrgentes })));
 const InsightsDoSistema   = lazy(() => import("@/components/dashboard/InsightsDoSistema").then(m => ({ default: m.InsightsDoSistema })));
 
-// A ORDEM DESTE ARRAY DECIDE EMPATES de prioridade — em duas telas ao mesmo
-// tempo. Mexer aqui muda o painel e o HOJE juntos, e nem sempre na mesma
-// direção. Os dois primeiros itens abaixo estão nesta ordem de propósito:
-// ambos são prioridade 0 e faixa "gente", e o HOJE mostra só um da faixa. Se
-// "Ações de hoje" viesse antes, ela tomaria o lugar do bloco do cuidado na
-// tela do cuidado — enquanto no painel, de onde "Quem ninguém procurou" está
-// excluído, quem aparece primeiro é a de baixo.
+// A ordem deste array decide empates de prioridade — é o desempate da tela.
 export const widgetRegistry: Widget[] = [
-  // DESATIVADO por decisão de produto: a tela HOJE passou a ser sobre o que
+  // DESATIVADO por decisão de produto: o painel passou a ser sobre o que
   // acontece hoje e nos próximos dias — agenda, cultos, reuniões, contas a
   // vencer —, e não uma fila de trabalho pastoral.
   //
@@ -112,15 +74,12 @@ export const widgetRegistry: Widget[] = [
   //
   // A pergunta "quem ninguém procurou?" não some do sistema: a tela de
   // Pessoas responde a mesma coisa pelo filtro de cuidado
-  // (/membros?cuidado=nunca), que ordena pelos mais esquecidos primeiro. O que
-  // se perde é ela aparecer sem ser procurada — e vale dizer que, hoje, ela
-  // mostraria as mesmas cinco pessoas todo dia, porque ainda não há um único
-  // contato registrado no sistema.
+  // (/membros?cuidado=nunca), que ordena pelos mais esquecidos primeiro.
   { id: "quem-ninguem-procurou", label: "Quem ninguém procurou?",
     subtitulo: "Pessoas esperando um contato — as mais esquecidas primeiro",
     icone: HeartHandshake, component: QuemNinguemProcurou,
     permissoes: ["ver_pessoas","ver_painel_pastoral","ver_painel_secretaria","ver_painel_admin"],
-    prioridade: 0, faixa: "gente", apenasHoje: true, ativo: false },
+    prioridade: 0, ativo: false },
 
   // Primeiro widget do painel. Aniversario, bodas e visita de hoje sao a unica
   // coisa da tela que perde a validade ao fim do dia — um cadastro incompleto
@@ -129,7 +88,7 @@ export const widgetRegistry: Widget[] = [
   { id: "acoes-do-dia", label: "Ações de hoje",
     subtitulo: "Aniversários, bodas e visitas que acontecem agora",
     icone: CalendarCheck, component: AcoesDoDia,
-    permissoes: ["ver_pessoas"], prioridade: 0, faixa: "agenda" },
+    permissoes: ["ver_pessoas"], prioridade: 0 },
 
   { id: "alertas-inteligentes", label: "Alertas inteligentes",
     subtitulo: "Coisas que precisam da sua decisão",
@@ -150,7 +109,7 @@ export const widgetRegistry: Widget[] = [
   { id: "agenda-do-dia", label: "Agenda do dia",
     subtitulo: "Eventos da igreja hoje",
     icone: CalendarDays, component: AgendaDoDia,
-    permissoes: ["ver_pessoas","ver_familias","ver_ebd","ver_pgm"], prioridade: 1, faixa: "agenda", apenasHoje: true },
+    permissoes: ["ver_pessoas","ver_familias","ver_ebd","ver_pgm"], prioridade: 1 },
 
   { id: "vida-das-familias", label: "Vida das famílias",
     subtitulo: "Aniversários e bodas da semana",
@@ -170,7 +129,7 @@ export const widgetRegistry: Widget[] = [
   { id: "atencao-pessoas", label: "Atenção em pessoas",
     subtitulo: "Visitantes recentes, sem família, sem classe EBD",
     icone: Users, component: AtencaoEmPessoas,
-    permissoes: ["ver_pessoas"], prioridade: 2, faixa: "gente", apenasHoje: true },
+    permissoes: ["ver_pessoas"], prioridade: 2 },
 
   { id: "resumo-pgm", label: "Pequenos Grupos",
     subtitulo: "Onde a vida da igreja acontece durante a semana",
@@ -180,7 +139,7 @@ export const widgetRegistry: Widget[] = [
   { id: "meus-assuntos", label: "Meus assuntos",
     subtitulo: "Tarefas sob sua responsabilidade",
     icone: CheckSquare, component: MeusAssuntos,
-    permissoes: ["ver_assuntos"], prioridade: 1, faixa: "trava", apenasHoje: true },
+    permissoes: ["ver_assuntos"], prioridade: 1 },
 
   { id: "agenda-fiscal-urgente", label: "Agenda fiscal",
     subtitulo: "Obrigações vencendo e atrasadas",
@@ -210,13 +169,10 @@ export interface ContextoUsuario {
 
 export function getWidgetsParaUsuario(
   ctx: ContextoUsuario,
-  opts: { limite?: number; incluirApenasHoje?: boolean } = {},
+  opts: { limite?: number } = {},
 ): Widget[] {
   const filtrados = widgetRegistry.filter(w => {
     if (w.ativo === false) return false;
-    // Por padrão exclui os exclusivos do HOJE. Quem chama para montar as
-    // faixas daquela tela pede explicitamente para incluí-los.
-    if (w.apenasHoje && !opts.incluirApenasHoje) return false;
     const temPerm = w.permissoes.some(p => ctx.permissoes.has(p));
     if (!temPerm) return false;
     if (w.areas && w.areas.length > 0) {
@@ -233,24 +189,6 @@ export function getWidgetsParaUsuario(
   return opts.limite ? ordenados.slice(0, opts.limite) : ordenados;
 }
 
-
-/**
- * Widgets de uma faixa da tela HOJE, já filtrados por permissão e
- * ordenados por prioridade.
- *
- * O limite é parte da regra de produto, não detalhe de layout: a tela HOJE
- * existe para responder "o que preciso fazer agora", e uma lista longa
- * deixa de responder isso. Travas e Gente ficam em 3; Agenda idem.
- */
-export function getWidgetsDaFaixa(
-  ctx: ContextoUsuario,
-  faixa: NonNullable<Widget["faixa"]>,
-  limite = 3,
-): Widget[] {
-  return getWidgetsParaUsuario(ctx, { incluirApenasHoje: true })
-    .filter(w => w.faixa === faixa)
-    .slice(0, limite);
-}
 
 /**
  * Para UX "menos é mais": retorna o painel essencial (P0-P2) e os

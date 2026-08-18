@@ -9,7 +9,7 @@ import { openCommandPalette } from "@/lib/commandPalette";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
 import { UserMenuButton } from "@/components/layout/UserMenuButton";
 import {
-  NAV_GROUPS, PAINEL, HOJE, pageTitles, ROUTE_ROLES,
+  NAV_GROUPS, PAINEL, pageTitles, ROUTE_ROLES,
   type NavGroup, type NavItem,
 } from "@/components/layout/navConfig";
 import { ADMIN_MENU_ITEMS } from "@/components/layout/adminMenuItems";
@@ -169,10 +169,6 @@ export default function AppLayout() {
           <NavLink to={PAINEL.to} end={PAINEL.end} className={itemClass}>
             <PAINEL.icon className="w-4 h-4" />
             <span translate="no">{PAINEL.label}</span>
-          </NavLink>
-          <NavLink to={HOJE.to} className={itemClass}>
-            <HOJE.icon className="w-4 h-4" />
-            <span translate="no">{HOJE.label}</span>
           </NavLink>
         </nav>
 

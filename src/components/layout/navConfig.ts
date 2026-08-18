@@ -7,7 +7,7 @@
 // ficavam inalcançáveis. Agora sidebar e menu mobile leem daqui.
 
 import {
-  LayoutDashboard, Sun, Users, HeartHandshake, Home, CalendarDays, MapPin,
+  LayoutDashboard, Users, HeartHandshake, Home, CalendarDays, MapPin,
   BarChart2, GraduationCap, Sparkles, DollarSign, Building2,
   Network, FileText, ScrollText,
   CheckSquare, UserCheck, Sprout, Gavel,
@@ -38,17 +38,6 @@ export interface NavGroup {
 
 // Painel sempre visível no topo, fora dos grupos
 export const PAINEL: NavItem = { to: "/", label: "Painel", icon: LayoutDashboard, end: true };
-
-// HOJE, ao lado do Painel — e nao dentro de um grupo.
-//
-// A rota /hoje existia desde que a tela foi construida, e NAO havia um unico
-// link para ela em todo o sistema: so se chegava digitando a URL. A tela do
-// cuidado pastoral estava pronta e inalcancavel.
-//
-// Fica fora dos grupos pelo mesmo motivo do Painel: nao pertence a um modulo,
-// e a pergunta com que se abre o dia. Sem grupo novo, sem estrutura nova — um
-// item ao lado de outro que ja era assim.
-export const HOJE: NavItem = { to: "/hoje", label: "Hoje", icon: Sun };
 
 export const NAV_GROUPS: NavGroup[] = [
   {
@@ -144,7 +133,6 @@ export const NAV_GROUPS: NavGroup[] = [
 
 export const pageTitles: Record<string, string> = {
   "/":                        "Diakonia",
-  "/hoje":                    "Hoje",
   "/membros":                 "Pessoas",
   "/familias":                "Famílias",
   "/ministerios":             "Ministérios",

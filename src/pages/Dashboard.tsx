@@ -15,6 +15,7 @@ import { usePermissoes } from "@/hooks/usePermissoes";
 import VisitanteRapidoDialog from "@/components/membros/VisitanteRapidoDialog";
 import { openCommandPalette } from "@/lib/commandPalette";
 import { VazioCtx, type ReportarVazio } from "@/components/hoje/vazio";
+import { resolverTarefaPrincipal, type TarefaPrincipal } from "@/hoje/tarefaPrincipal";
 import { Suspense } from "react";
 import { getWidgetsDivididos } from "@/dashboard/widgetRegistry";
 import { getAcoesParaUsuario } from "@/dashboard/quickActionsRegistry";
@@ -139,6 +140,15 @@ export default function Dashboard() {
           </div>
         </BlocoSecao>
 
+        {/* ── Sua tarefa — a única ação, resolvida pelo perfil ───────── */}
+        {/* Veio da tela HOJE, e era a única peça dela sem equivalente aqui: o
+            registry resolve BLOCOS por permissão; isto resolve UMA AÇÃO, com
+            contexto que só o banco sabe — qual classe a pessoa leciona, qual
+            grupo lidera, se há caixa aberto, se há conta vencendo. Fica antes
+            dos widgets porque é o único item da tela que é para fazer, e não
+            para ler. */}
+        <SuaTarefa permissoes={permissoes} />
+
         {/* ── ZONA 3 — CONTEXTO: widgets essenciais (P0-P2 até limite) ─ */}
         <WidgetsDinamicos permissoes={permissoes} />
 
@@ -215,6 +225,51 @@ function AcaoRapida({ to, icon: Icon, label }: AcaoRapidaProps) {
         </CardContent>
       </Card>
     </Link>
+  );
+}
+
+// ─── Sub-componente: a tarefa única do perfil ───────────────────────────
+function SuaTarefa({ permissoes }: { permissoes: Set<string> }) {
+  const { user } = useAuth();
+  const [tarefa, setTarefa] = useState<TarefaPrincipal | null>(null);
+
+  useEffect(() => {
+    if (!user?.id || permissoes.size === 0) return;
+    let cancelado = false;
+    (async () => {
+      const { data } = await supabase
+        .from("profiles").select("pessoa_id").eq("id", user.id).maybeSingle();
+      if (cancelado) return;
+      const t = await resolverTarefaPrincipal({
+        pessoaId: data?.pessoa_id ?? null, permissoes,
+      });
+      if (!cancelado) setTarefa(t);
+    })();
+    return () => { cancelado = true; };
+  }, [user?.id, permissoes]);
+
+  // Sem tarefa, sem seção — a mesma regra dos widgets.
+  if (!tarefa) return null;
+
+  return (
+    <BlocoSecao titulo="Sua tarefa" icon={Sparkles} subtitulo="O que depende de você agora">
+      <Card className="border-gold/40 bg-gold/5">
+        <CardContent className="py-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="font-medium leading-snug">{tarefa.titulo}</p>
+            {tarefa.subtitulo && (
+              <p className="text-xs text-muted-foreground mt-0.5">{tarefa.subtitulo}</p>
+            )}
+          </div>
+          <Button asChild className="gap-2 shrink-0 min-h-[44px] bg-gold hover:bg-gold/90 text-white border-0">
+            <Link to={tarefa.to}>
+              <tarefa.icon className="w-4 h-4" />
+              {tarefa.acao}
+            </Link>
+          </Button>
+        </CardContent>
+      </Card>
+    </BlocoSecao>
   );
 }
 
