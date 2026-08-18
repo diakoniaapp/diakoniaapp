@@ -3,6 +3,7 @@ import { CamposEndereco } from "@/components/ui/CamposEndereco";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
+import { PorBairro } from "@/components/familias/PorBairro";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -42,6 +43,7 @@ export default function Familias() {
   const [responsaveis, setResponsaveis]   = useState<Record<string, string>>({});
   // F1: busca por nome
   const [busca, setBusca] = useState("");
+  const [vista, setVista] = useState<"lista" | "bairro">("lista");
   // F2: lista de membros por familia
   const [membrosPorFamilia, setMembrosPorFamilia] = useState<Record<string, { id: string; nome: string }[]>>({});
   const [vinculosOpen, setVinculosOpen]   = useState(false);
@@ -174,6 +176,32 @@ export default function Familias() {
           <EmptyState message="Nenhuma família cadastrada" />
         ) : (
           <>
+            {/* Lista continua sendo o padrao. "Por bairro" e uma pergunta
+                especifica — quem entra em Familias quase sempre procura uma —,
+                entao ela e uma segunda vista e nao a tela inicial. */}
+            <div className="mb-4 flex gap-1 border-b">
+              {([
+                ["lista",  "Lista"],
+                ["bairro", "Por bairro"],
+              ] as const).map(([v, rotulo]) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setVista(v)}
+                  aria-current={vista === v ? "page" : undefined}
+                  className={`px-3 min-h-[44px] text-sm border-b-2 -mb-px transition-colors ${
+                    vista === v
+                      ? "border-gold text-foreground font-medium"
+                      : "border-transparent text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {rotulo}
+                </button>
+              ))}
+            </div>
+
+            {vista === "bairro" ? <PorBairro /> : (
+            <>
             <div className="mb-4 relative">
               <Search className="w-4 h-4 absolute left-3 top-3 text-muted-foreground" />
               <Input
@@ -264,6 +292,8 @@ export default function Familias() {
               </Card>
             ))}
             </div>
+            </>
+            )}
           </>
         )}
       </div>
