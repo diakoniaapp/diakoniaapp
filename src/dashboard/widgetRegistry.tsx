@@ -81,6 +81,11 @@ export const widgetRegistry: Widget[] = [
     permissoes: ["ver_pessoas","ver_painel_pastoral","ver_painel_secretaria","ver_painel_admin"],
     prioridade: 0, ativo: false },
 
+  { id: "agenda-do-dia", label: "Acontecendo hoje",
+    subtitulo: "Cultos, reuniões, ensaios e reservas de hoje",
+    icone: CalendarDays, component: AgendaDoDia,
+    permissoes: ["ver_pessoas","ver_familias","ver_ebd","ver_pgm"], prioridade: 0 },
+
   // Primeiro widget do painel. Aniversario, bodas e visita de hoje sao a unica
   // coisa da tela que perde a validade ao fim do dia — um cadastro incompleto
   // continua incompleto amanha. E, quando o dia nao tem nenhum, o bloco se
@@ -105,11 +110,6 @@ export const widgetRegistry: Widget[] = [
     icone: ClipboardCheck, component: CadastrosInconsistentes,
     permissoes: ["ver_pessoas","ver_painel_secretaria","ver_painel_admin"],
     prioridade: 1 },
-
-  { id: "agenda-do-dia", label: "Agenda do dia",
-    subtitulo: "Eventos da igreja hoje",
-    icone: CalendarDays, component: AgendaDoDia,
-    permissoes: ["ver_pessoas","ver_familias","ver_ebd","ver_pgm"], prioridade: 1 },
 
   { id: "vida-das-familias", label: "Vida das famílias",
     subtitulo: "Aniversários e bodas da semana",
