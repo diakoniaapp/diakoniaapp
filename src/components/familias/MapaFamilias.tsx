@@ -27,9 +27,13 @@ import { Link } from "react-router-dom";
 import { MapContainer, TileLayer, CircleMarker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import {
+  familiasPendentes, geocodificarPendentes, MAX_POR_VEZ,
+} from "@/services/geocodificacaoService";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, MessageCircle, Users, TriangleAlert, ChevronRight, Sprout, Compass } from "lucide-react";
+import { Loader2, MessageCircle, Users, TriangleAlert, ChevronRight, Sprout, Compass, MapPinned } from "lucide-react";
 
 interface FamiliaMapa {
   id: string;
@@ -190,6 +194,9 @@ export function MapaFamilias() {
   const [familias, setFamilias] = useState<FamiliaMapa[] | null>(null);
   const [semCoordenada, setSemCoordenada] = useState(0);
   const [idsEmPgm, setIdsEmPgm] = useState<Set<string>>(new Set());
+  const [pendentes, setPendentes] = useState(0);
+  const [geocodificando, setGeocodificando] = useState<string | null>(null);
+  const [recarregar, setRecarregar] = useState(0);
 
   useEffect(() => {
     let cancelado = false;
@@ -228,7 +235,41 @@ export function MapaFamilias() {
     })();
 
     return () => { cancelado = true; };
-  }, []);
+  }, [recarregar]);
+
+  // Quantas famílias precisam de coordenada — nova, ou com endereço alterado
+  // depois da última geocodificação.
+  useEffect(() => {
+    let cancelado = false;
+    familiasPendentes()
+      .then(p => { if (!cancelado) setPendentes(p.length); })
+      .catch(() => { if (!cancelado) setPendentes(0); });
+    return () => { cancelado = true; };
+  }, [recarregar]);
+
+  const rodarGeocodificacao = async () => {
+    setGeocodificando("Começando...");
+    try {
+      const r = await geocodificarPendentes((feitas, total, nome) =>
+        setGeocodificando(nome ? `${feitas + 1} de ${total} — ${nome}` : "Finalizando..."),
+      );
+      const ok = r.filter(x => x.ok).length;
+      const falhas = r.filter(x => !x.ok);
+
+      if (ok > 0) toast.success(`${ok} ${ok === 1 ? "família localizada" : "famílias localizadas"} no mapa`);
+      // Cada recusa é dita com o motivo: "não encontrado" pede correção do
+      // endereço, "caiu em outro bairro" pede conferência do bairro. Um
+      // "falhou" genérico não diz o que fazer.
+      for (const f of falhas) toast.error(`${f.nome}: ${f.motivo}`);
+      if (ok === 0 && falhas.length === 0) toast.info("Nenhum endereço para localizar.");
+
+      setRecarregar(n => n + 1);
+    } catch {
+      toast.error("Não foi possível falar com o serviço de mapas. Tente de novo em alguns minutos.");
+    } finally {
+      setGeocodificando(null);
+    }
+  };
 
   if (familias === null) {
     return (
@@ -264,6 +305,45 @@ export function MapaFamilias() {
 
   return (
     <div className="space-y-3">
+
+      {/* Só aparece quando há endereço esperando. Um botão permanente de
+          "atualizar coordenadas" seria mais um controle a ignorar todo dia; um
+          aviso que some quando não há nada a fazer é informação. */}
+      {(pendentes > 0 || geocodificando) && (
+        <Card className="border-l-4 border-l-primary">
+          <CardContent className="py-3 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm min-w-0">
+              {geocodificando ? (
+                <span className="text-muted-foreground">
+                  <Loader2 className="w-3.5 h-3.5 inline animate-spin mr-1.5" />
+                  Localizando — {geocodificando}
+                </span>
+              ) : (
+                <>
+                  <b>{pendentes}</b>{" "}
+                  {pendentes === 1
+                    ? "família com endereço ainda não localizada no mapa"
+                    : "famílias com endereço ainda não localizadas no mapa"}
+                  {pendentes > MAX_POR_VEZ && (
+                    <span className="text-muted-foreground">
+                      {" "}— serão {MAX_POR_VEZ} por vez
+                    </span>
+                  )}
+                </>
+              )}
+            </p>
+            <Button
+              type="button" size="sm" variant="outline"
+              disabled={!!geocodificando}
+              onClick={rodarGeocodificacao}
+              className="gap-1.5 shrink-0 min-h-[44px]"
+            >
+              <MapPinned className="w-4 h-4" />
+              Localizar no mapa
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Agrupamentos possíveis: a pergunta que o mapa responde e a lista não.
           Vem antes do mapa porque é a única parte desta tela que sugere uma

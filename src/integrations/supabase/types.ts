@@ -3556,8 +3556,12 @@ export type Database = {
           created_at: string
           data_casamento: string | null
           endereco: string | null
+          geo_precisao: string | null
+          geocodificado_em: string | null
           id: string
           igreja_id: string
+          latitude: number | null
+          longitude: number | null
           nome_familia: string
           numero: string | null
           observacoes: string | null
@@ -3572,8 +3576,12 @@ export type Database = {
           created_at?: string
           data_casamento?: string | null
           endereco?: string | null
+          geo_precisao?: string | null
+          geocodificado_em?: string | null
           id?: string
           igreja_id?: string
+          latitude?: number | null
+          longitude?: number | null
           nome_familia: string
           numero?: string | null
           observacoes?: string | null
@@ -3588,8 +3596,12 @@ export type Database = {
           created_at?: string
           data_casamento?: string | null
           endereco?: string | null
+          geo_precisao?: string | null
+          geocodificado_em?: string | null
           id?: string
           igreja_id?: string
+          latitude?: number | null
+          longitude?: number | null
           nome_familia?: string
           numero?: string | null
           observacoes?: string | null
