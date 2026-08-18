@@ -129,7 +129,7 @@ export async function aplicarSync(
     await supabase.from("documentos_historico").insert({
       acao:"sincronizacao_estrutura", usuario_email:emailUsuario,
       observacao:"Sync: "+criados+" criado(s), "+atualizados+" atualizado(s)",
-    }).then(()=>{}).catch((e)=>console.warn("[estruturaSync] Falha ao registrar histórico:", e));
+    }).then(()=>{}, (e)=>console.warn("[estruturaSync] Falha ao registrar histórico:", e));
   }
   return { criados, atualizados, erros };
 }

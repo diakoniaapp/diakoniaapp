@@ -12,6 +12,7 @@ import {
   ShieldAlert, UserPlus, type LucideIcon,
 } from "lucide-react";
 import { usePermissoes } from "@/hooks/usePermissoes";
+import { EVENTO_ABRIR_BUSCA } from "@/lib/commandPalette";
 
 interface CommandRoute {
   to: string;
@@ -49,6 +50,9 @@ const ROUTES: CommandRoute[] = [
 
   // ── Administração ─────────────────────────────────────────────────
   { to: "/membresia",  label: "Membresia",  icon: FileText,    group: "Administração", keywords: ["solicitacao","batismo"] },
+  // Estava fora do menu e da busca: so era alcancavel por um botao dentro de Membresia.
+  { to: "/painel-secretaria", label: "Pendências da Secretaria", icon: CheckSquare, group: "Administração",
+    keywords: ["alertas","pendencia","secretaria","governanca","painel"], permissoes: ["ver_painel_secretaria","ver_membresia"] },
   { to: "/governanca", label: "Reuniões e Assembleias", icon: Gavel, group: "Administração", keywords: ["assembleia","ata","pauta","decisao"] },
   { to: "/assuntos",   label: "Assuntos",   icon: CheckSquare, group: "Administração", keywords: ["pendencia","tarefa"] },
   { to: "/arrecadacao", label: "🛒 PDV — Bazar/Cantina", icon: ShoppingBag, group: "Ações", keywords: ["pdv","caixa","arrecada","vender","venda","cantina","bazar"], permissoes: ["operar_caixa","ver_arrecadacao","ver_financeiro"] },
@@ -61,7 +65,7 @@ const ROUTES: CommandRoute[] = [
   { to: "/financas",         label: "Tesouraria",     icon: DollarSign, group: "Financeiro", keywords: ["dinheiro","caixa","contas","conta"] },
   { to: "/financas/fiscal",    label: "Módulo Fiscal",       icon: DollarSign, group: "Financeiro", keywords: ["fgts","dctfweb","esocial","iss","darf","dirf","obrigacao","imposto","tributo","fisco"], permissoes: ["ver_fiscal","ver_financeiro"] },
   { to: "/financas/reunioes",   label: "Reuniões financeiras", icon: DollarSign, group: "Financeiro", keywords: ["pauta","reunia","ata","decisao","tesouraria","balancete","conciliacao"], permissoes: ["ver_financeiro"] },
-  { to: "/financas/executivo",  label: "Dashboard Executivo",  icon: DollarSign, group: "Financeiro", keywords: ["executivo","conselho","pastor","tesoureiro","saldo","fluxo","caixa","grafico","dizimo","oferta","missao"], permissoes: ["ver_dashboard_executivo","ver_financeiro"] },
+  { to: "/financas/executivo",  label: "Visão Executiva",      icon: DollarSign, group: "Financeiro", keywords: ["executivo","dashboard","conselho","pastor","tesoureiro","saldo","fluxo","caixa","grafico","dizimo","oferta","missao"], permissoes: ["ver_dashboard_executivo","ver_financeiro"] },
 
   // ── Agenda & Espaços ──────────────────────────────────────────────
   { to: "/eventos",    label: "Agenda",     icon: CalendarDays, group: "Navegação", keywords: ["evento","calendario"] },
@@ -98,6 +102,13 @@ export function CommandPalette() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
+  }, []);
+
+  // Abertura por clique (mobile / botão de busca)
+  useEffect(() => {
+    const abrir = () => setOpen(true);
+    window.addEventListener(EVENTO_ABRIR_BUSCA, abrir);
+    return () => window.removeEventListener(EVENTO_ABRIR_BUSCA, abrir);
   }, []);
 
   // Filtra rotas por permissão e agrupa

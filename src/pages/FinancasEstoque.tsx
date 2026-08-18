@@ -70,9 +70,7 @@ export default function FinancasEstoque() {
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-4">
       {/* Cabeçalho */}
       <div className="flex items-center gap-2">
-        <Link to="/financas">
-          <Button variant="ghost" size="icon"><ArrowLeft className="w-4 h-4" /></Button>
-        </Link>
+        <Button asChild variant="ghost" size="icon"><Link to="/financas"><ArrowLeft className="w-4 h-4" /></Link></Button>
         <div className="flex-1">
           <h1 className="font-serif text-xl flex items-center gap-2">
             <Package className="w-5 h-5 text-gold" /> Estoque
@@ -163,12 +161,12 @@ export default function FinancasEstoque() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-medium text-sm">{a.nome}</span>
-                    <Badge variant="outline" className={`text-[9px] ${URGENCIA_COR[a.urgencia]}`}>
+                    <Badge variant="outline" className={`text-xs ${URGENCIA_COR[a.urgencia]}`}>
                       {URGENCIA_LABEL[a.urgencia]}
                     </Badge>
-                    {a.categoria && <Badge variant="outline" className="text-[9px]">{a.categoria}</Badge>}
+                    {a.categoria && <Badge variant="outline" className="text-xs">{a.categoria}</Badge>}
                   </div>
-                  <div className="text-[11px] text-muted-foreground flex items-center gap-3 flex-wrap mt-0.5">
+                  <div className="text-xs text-muted-foreground flex items-center gap-3 flex-wrap mt-0.5">
                     <span>
                       <strong className="text-foreground">{Number(a.estoque_atual)} {a.unidade}</strong>
                       {Number(a.estoque_minimo) > 0 && <> / mín {Number(a.estoque_minimo)}</>}
@@ -187,7 +185,7 @@ export default function FinancasEstoque() {
                   </div>
                 </div>
                 <div className="flex items-center gap-0.5 shrink-0">
-                  <Button size="sm" variant="outline" className="gap-1 h-7 text-[11px]"
+                  <Button size="sm" variant="outline" className="gap-1 h-7 text-xs"
                     onClick={() => { setItemMov(a as EstoqueItem); setMovOpen(true); }}>
                     <PlusCircle className="w-3 h-3" /> Movimento
                   </Button>
@@ -227,7 +225,7 @@ function Stat({ label, valor, cor }: { label: string; valor: number | string; co
   return (
     <Card>
       <CardContent className="py-2 px-3">
-        <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
+        <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
         <p className={`text-base font-semibold tabular-nums ${corClass}`}>{valor}</p>
       </CardContent>
     </Card>

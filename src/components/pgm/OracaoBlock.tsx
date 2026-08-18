@@ -112,14 +112,14 @@ export function OracaoBlock({ grupoId, podeEditar }: Props) {
 
         {podeEditar && (
           <form onSubmit={adicionar} className="space-y-2 border rounded-md p-2 bg-muted/20">
-            <p className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
+            <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
               <Plus className="w-3 h-3" /> Novo pedido
             </p>
 
             <Textarea rows={2} value={novoTexto} onChange={(e) => setNovoTexto(e.target.value)}
               placeholder="O que vamos levar diante do Senhor?" />
 
-            <label className="flex items-center gap-1.5 text-[11px] cursor-pointer">
+            <label className="flex items-center gap-1.5 text-xs cursor-pointer">
               <input type="checkbox" checked={usarPessoaAvulsa} onChange={(e) => setUsarPessoaAvulsa(e.target.checked)} />
               É de alguém de fora (não cadastrado)
             </label>
@@ -134,7 +134,7 @@ export function OracaoBlock({ grupoId, podeEditar }: Props) {
 
             <div className="grid grid-cols-3 gap-2 items-end">
               <div className="col-span-2">
-                <Label className="text-[10px]">Visibilidade</Label>
+                <Label className="text-xs">Visibilidade</Label>
                 <Select value={novaVisibilidade} onValueChange={(v) => setNovaVisibilidade(v as PgmOracaoVisibilidade)}>
                   <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -172,25 +172,25 @@ export function OracaoBlock({ grupoId, podeEditar }: Props) {
                 <div className="flex items-start gap-2">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm leading-snug whitespace-pre-wrap">{p.texto}</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1.5 flex-wrap">
+                    <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5 flex-wrap">
                       {p.pessoa_nome && <span>por <strong className="text-foreground">{p.pessoa_nome}</strong></span>}
-                      <Badge variant="outline" className="text-[9px] gap-0.5">
+                      <Badge variant="outline" className="text-xs gap-0.5">
                         {p.visibilidade === "privada" ? <EyeOff className="w-2 h-2" />
                           : p.visibilidade === "grupo" ? <Users className="w-2 h-2" />
                           : <Eye className="w-2 h-2" />}
                         {VISIBILIDADE_LABEL[p.visibilidade]}
                       </Badge>
                       {p.status === "respondido" && (
-                        <Badge variant="outline" className="text-[9px] bg-emerald-100 text-emerald-700 border-emerald-300">
+                        <Badge variant="outline" className="text-xs bg-emerald-100 text-emerald-700 border-emerald-300">
                           ✓ Respondido
                         </Badge>
                       )}
                       {p.status === "arquivado" && (
-                        <Badge variant="outline" className="text-[9px]">Arquivado</Badge>
+                        <Badge variant="outline" className="text-xs">Arquivado</Badge>
                       )}
                     </p>
                     {p.resposta && (
-                      <p className="text-[11px] italic text-emerald-700 mt-1 pl-2 border-l-2 border-emerald-300">
+                      <p className="text-xs italic text-emerald-700 mt-1 pl-2 border-l-2 border-emerald-300">
                         "{p.resposta}"
                       </p>
                     )}

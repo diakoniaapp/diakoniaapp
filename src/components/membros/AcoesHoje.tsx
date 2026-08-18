@@ -8,14 +8,8 @@ import { EmptyState, ListSkeleton } from "@/components/ListState";
 import ContatoResultadoDialog from "@/components/membros/ContatoResultadoDialog";
 import {
   MessageCircle,
-  CheckCircle2,
-  Sparkles,
-  AlertTriangle,
-  Clock,
-  Heart,
   RefreshCw,
-  TrendingUp,
-  Pencil,
+  ChevronDown,
   RotateCcw as Restore,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -51,11 +45,6 @@ interface VisitanteFluxoExt extends VisitanteFluxo {
 
 // ── Constantes ───────────────────────────────────────────────────────────────
 
-const PRIO_ICON: Record<string, React.ReactNode> = {
-  alta:  <AlertTriangle className="w-3 h-3" />,
-  media: <Clock         className="w-3 h-3" />,
-  baixa: <Heart         className="w-3 h-3" />,
-};
 
 interface AcoesHojeProps {
   limit?: number;
@@ -71,6 +60,16 @@ export default function AcoesHoje({ limit }: AcoesHojeProps = {}) {
   // ─ Edição de mensagem ────────────────────────────────────────────────────
   const [editandoId, setEditandoId]                 = useState<string | null>(null);
   const [mensagensEditadas, setMensagensEditadas]   = useState<Record<string, string>>({});
+  // A mensagem pronta ocupava 215px dos 413px do cartao — mais da metade,
+  // repetindo texto quase igual em cada visitante. Fica recolhida em duas
+  // linhas; quem quiser conferir antes de enviar abre uma de cada vez.
+  const [msgAbertas, setMsgAbertas]                 = useState<Set<string>>(new Set());
+  const alternarMsg = (id: string) =>
+    setMsgAbertas(prev => {
+      const p = new Set(prev);
+      if (p.has(id)) p.delete(id); else p.add(id);
+      return p;
+    });
 
   const load = async () => {
     setLoading(true);
@@ -151,7 +150,10 @@ export default function AcoesHoje({ limit }: AcoesHojeProps = {}) {
     observacao: string
   ) => {
     setBusyId(v.id);
-    const { error } = await supabase
+    // Nao usa a funcao registrar_contato porque aqui tambem se grava
+    // status_acolhimento, que ela nao toca. O .select() garante que um UPDATE
+    // barrado pela politica apareca como erro, e nao como falso sucesso.
+    const { data: alterados, error } = await supabase
       .from("membros")
       .update({
         ultimo_contato_em:          new Date().toISOString(),
@@ -159,10 +161,13 @@ export default function AcoesHoje({ limit }: AcoesHojeProps = {}) {
         ultimo_contato_tipo:        tipo,
         ultimo_contato_observacao:  observacao || null,
       } as any)
-      .eq("id", v.id);
+      .eq("id", v.id)
+      .select("id");
 
     if (error) {
       toast.error(error.message);
+    } else if ((alterados?.length ?? 0) === 0) {
+      toast.error("Sem permissão para registrar o contato desta pessoa.");
     } else {
       toast.success(`Contato registrado para ${v.nome_completo.split(" ")[0]}! ✅`);
       await logHistorico(v.id, "whatsapp", tipo + (observacao ? ` — ${observacao}` : ""));
@@ -196,30 +201,23 @@ export default function AcoesHoje({ limit }: AcoesHojeProps = {}) {
           </p>
         </div>
         <Button
-          size="sm"
           variant="ghost"
           onClick={load}
           disabled={loading}
-          className="shrink-0 gap-1.5 text-xs text-muted-foreground"
+          className="shrink-0 h-11 text-xs text-muted-foreground"
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+          {/* A seta so aparece girando. Parada ela e enfeite ao lado de uma
+              palavra que ja se explica; girando ela e o unico retorno de que
+              a lista esta sendo recarregada. */}
+          {loading && <RefreshCw className="w-3.5 h-3.5 animate-spin mr-1.5" />}
           Atualizar
         </Button>
       </div>
 
-      {/* Legenda */}
-      <div className="flex gap-2 flex-wrap text-[11px] text-muted-foreground">
-        <span className="flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-destructive inline-block" />Alta — mais de 15 dias
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-warning inline-block" />Média — mais de 7 dias
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-success inline-block" />Baixa — recém chegou
-        </span>
-      </div>
-
+      {/* A legenda de cores saiu. Ela existia para traduzir tres bolinhas,
+          mas a etiqueta de cada cartao ja escreve "Alta", "Média" ou "Baixa"
+          por extenso — a legenda decodificava algo que nao estava cifrado, e
+          custava tres linhas antes da primeira pessoa da lista. */}
       {/* Lista */}
       {loading ? (
         <ListSkeleton count={3} />
@@ -252,26 +250,28 @@ export default function AcoesHoje({ limit }: AcoesHojeProps = {}) {
                 className={`shadow-card-soft border-l-4 ${prio.border} transition-opacity ${busy ? "opacity-60" : ""}`}
               >
                 <CardContent className="p-4">
+                  {/* O circulo com a estrelinha saiu: era identico nos dois
+                      cartoes e em todos os que virao. A prioridade ja esta na
+                      borda colorida a esquerda e na etiqueta ao lado do nome. */}
                   <div className="flex items-start gap-3">
-                    <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center shrink-0 mt-0.5">
-                      <Sparkles className="w-4 h-4 text-muted-foreground" />
-                    </div>
-
                     <div className="flex-1 min-w-0 space-y-2">
 
                       {/* Nome + badges */}
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="font-medium leading-tight">{v.nome_completo}</span>
-                        <Badge variant="outline" className={`text-[10px] h-4 px-1.5 gap-1 ${prio.badge}`}>
-                          {PRIO_ICON[v.prioridade]}{prio.label}
+                        {/* Etiquetas sem icone dentro. "Baixa" ja diz baixa, e
+                            a prioridade tambem esta na barra colorida da borda
+                            esquerda do cartao — o simbolo era o terceiro sinal
+                            do mesmo dado. */}
+                        <Badge variant="outline" className={`text-xs h-4 px-1.5 ${prio.badge}`}>
+                          {prio.label}
                         </Badge>
-                        <Badge variant="outline" className="text-[10px] h-4 px-1.5">
+                        <Badge variant="outline" className="text-xs h-4 px-1.5">
                           {ETAPA_LABEL[v.etapa_fluxo]}
                         </Badge>
                         {evolucao.sugestao && (
-                          <Badge className="text-[10px] h-4 px-1.5 gap-1 bg-success/15 text-success border border-success/30 hover:bg-success/15">
-                            <Sparkles className="w-2.5 h-2.5" />
-                            Próximo passo ✨
+                          <Badge className="text-xs h-4 px-1.5 bg-success/15 text-success border border-success/30 hover:bg-success/15">
+                            Próximo passo
                           </Badge>
                         )}
                       </div>
@@ -292,11 +292,11 @@ export default function AcoesHoje({ limit }: AcoesHojeProps = {}) {
                       {editando ? (
                         <div className="space-y-1.5">
                           <div className="flex items-center justify-between">
-                            <span className="text-[10px] text-muted-foreground">Editar mensagem</span>
+                            <span className="text-xs text-muted-foreground">Editar mensagem</span>
                             <Button
                               size="sm"
                               variant="ghost"
-                              className="h-5 px-1.5 text-[10px] gap-1 text-muted-foreground"
+                              className="h-11 px-2 text-xs gap-1 text-muted-foreground"
                               onClick={() => restaurarMensagem(v)}
                               title="Restaurar mensagem original"
                             >
@@ -312,54 +312,81 @@ export default function AcoesHoje({ limit }: AcoesHojeProps = {}) {
                             autoFocus
                           />
                           <Button
-                            size="sm"
                             variant="outline"
-                            className="w-full text-xs h-6"
+                            className="w-full text-xs h-11"
                             onClick={() => setEditandoId(null)}
                           >
                             OK — confirmar edição
                           </Button>
                         </div>
                       ) : (
-                        <div className="relative group">
+                        <div>
                           <blockquote
-                            className="text-xs text-muted-foreground border-l-2 border-muted pl-2 pr-6 whitespace-pre-line leading-relaxed"
+                            className={`text-xs text-muted-foreground border-l-2 border-muted pl-2 whitespace-pre-line leading-relaxed ${
+                              msgAbertas.has(v.id) ? "" : "line-clamp-2"
+                            }`}
+                            id={`msg-${v.id}`}
                             translate="no"
                           >
                             {msgFinal}
                           </blockquote>
-                          <button
-                            className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded text-muted-foreground/60 hover:text-muted-foreground"
-                            onClick={() => abrirEdicao(v)}
-                            title="Editar mensagem"
-                          >
-                            <Pencil className="w-3 h-3" />
-                          </button>
-                          {editada && (
-                            <span className="text-[10px] text-warning mt-0.5 block">✏️ Mensagem editada</span>
-                          )}
+                          <div className="flex items-center gap-1 mt-0.5">
+                            {/* Rotulo em texto, nao seta muda: diz o que faz e
+                                informa se esta aberta (aria-expanded). */}
+                            <Button
+                              size="sm" variant="ghost"
+                              className="h-11 px-2 text-xs gap-1 text-muted-foreground"
+                              onClick={() => alternarMsg(v.id)}
+                              aria-expanded={msgAbertas.has(v.id)}
+                              aria-controls={`msg-${v.id}`}
+                            >
+                              <ChevronDown
+                                className={`w-3.5 h-3.5 transition-transform ${msgAbertas.has(v.id) ? "rotate-180" : ""}`}
+                              />
+                              {msgAbertas.has(v.id) ? "Ocultar mensagem" : "Ver mensagem"}
+                            </Button>
+                            {/* Sem lapis: a palavra "Editar" ja e o rotulo. */}
+                            <Button
+                              size="sm" variant="ghost"
+                              className="h-11 px-2 text-xs text-muted-foreground"
+                              onClick={() => abrirEdicao(v)}
+                            >
+                              Editar
+                            </Button>
+                            {editada && (
+                              <span className="text-xs text-warning">✏️ editada</span>
+                            )}
+                          </div>
                         </div>
                       )}
 
                       {/* Ações */}
                       <div className="flex gap-2 flex-wrap pt-0.5">
+                        {/* h-11 = 44px. As duas acoes principais da tela estavam
+                            em 28px, abaixo dos 44px que Pessoas, Familias e
+                            Ministerios ja adotaram — e sao justamente as que se
+                            usa com o celular na mao, no meio do culto. */}
                         <Button
-                          size="sm"
-                          className="gap-1.5 text-xs h-7 bg-[#25D366] hover:bg-[#128C7E] text-white border-0"
+                          className="gap-1.5 text-sm h-11 px-3 bg-[#25D366] hover:bg-[#128C7E] text-white border-0"
                           disabled={!link || busy}
                           onClick={() => abrirWhatsApp(v)}
                         >
-                          <MessageCircle className="w-3.5 h-3.5" />
-                          <span translate="no">Enviar WhatsApp</span>
+                          <MessageCircle className="w-4 h-4" />
+                          {/* "Enviar WhatsApp" nao cabia ao lado de "Registrar
+                              contato" depois que os botoes subiram para 44px, e
+                              os dois quebravam em duas linhas. O icone mais a
+                              marca ja dizem a acao inteira. */}
+                          <span translate="no">WhatsApp</span>
                         </Button>
+                        {/* O visto verde saiu: "Registrar contato" ja se explica,
+                            e a cor puxava o olho para a acao secundaria em vez
+                            da principal, que e enviar a mensagem. */}
                         <Button
-                          size="sm"
                           variant="outline"
-                          className="gap-1.5 text-xs h-7"
+                          className="text-sm h-11 px-3"
                           disabled={busy}
                           onClick={() => setContatoAlvo(v)}
                         >
-                          <CheckCircle2 className="w-3.5 h-3.5 text-success" />
                           <span translate="no">Registrar contato</span>
                         </Button>
                       </div>

@@ -149,8 +149,11 @@ export default function Auth() {
     });
     // Registra solicitação administrativa
     const { data: membro } = await supabase
+      // membros nao tem coluna `telefone`; o celular fica em telefone_celular,
+      // gravado so com digitos (ver ebdService). Consultando o nome errado, a
+      // query falhava e a solicitacao era registrada sem nome nem pessoa_id.
       .from("membros").select("id, nome_completo")
-      .eq("telefone", digits).maybeSingle();
+      .eq("telefone_celular", digits).maybeSingle();
     await supabase.from("recuperacao_senha").insert({
       email, nome: membro?.nome_completo ?? null,
       pessoa_id: membro?.id ?? null, status: "pendente",
@@ -241,7 +244,7 @@ export default function Auth() {
 
           {/* Aviso de convite */}
           <div className="bg-muted/50 dark:bg-muted/30 rounded-xl px-4 py-3 border border-border/40 dark:border-border/30">
-            <p className="text-[11px] text-muted-foreground text-center leading-relaxed">
+            <p className="text-xs text-muted-foreground text-center leading-relaxed">
               📱 O acesso é concedido pela secretaria via convite por WhatsApp.
               <br />Não possui acesso? Fale com a liderança da Igreja.
             </p>

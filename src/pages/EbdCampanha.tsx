@@ -100,9 +100,7 @@ export default function EbdCampanha() {
     <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-4">
       {/* Cabeçalho */}
       <div className="flex items-center gap-2">
-        <Link to={`/ebd/${classeId}/campanhas`}>
-          <Button variant="ghost" size="icon"><ArrowLeft className="w-4 h-4" /></Button>
-        </Link>
+        <Button asChild variant="ghost" size="icon"><Link to={`/ebd/${classeId}/campanhas`}><ArrowLeft className="w-4 h-4" /></Link></Button>
         <div className="flex-1 min-w-0">
           <h1 className="font-serif text-xl flex items-center gap-2 truncate">
             <DollarSign className="w-5 h-5 text-gold" />
@@ -112,11 +110,9 @@ export default function EbdCampanha() {
             {classe?.nome} · {new Date(campanha.data_inicio + "T00:00").toLocaleDateString("pt-BR")} → {new Date(campanha.data_fim + "T00:00").toLocaleDateString("pt-BR")}
           </p>
         </div>
-        <Link to={`/ebd/${classeId}/campanhas/${campanhaId}/relatorio`}>
-          <Button type="button" variant="outline" size="sm" className="gap-1.5">
+        <Button asChild variant="outline" size="sm" className="gap-1.5"><Link to={`/ebd/${classeId}/campanhas/${campanhaId}/relatorio`}>
             <FileText className="w-3.5 h-3.5" /> Relatório
-          </Button>
-        </Link>
+          </Link></Button>
         <Button type="button" variant="outline" size="sm" onClick={() => setEditOpen(true)} className="gap-1.5">
           <Pencil className="w-3.5 h-3.5" /> Editar
         </Button>
@@ -160,7 +156,7 @@ export default function EbdCampanha() {
                   />
                 )}
               </div>
-              <div className="flex justify-between text-[11px] text-muted-foreground">
+              <div className="flex justify-between text-xs text-muted-foreground">
                 <span>R$ 0</span>
                 {resumo.dias_decorridos > 0 && resumo.dias_decorridos < resumo.dias_totais && (
                   <span title="Esperado até hoje">
@@ -214,23 +210,25 @@ export default function EbdCampanha() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-sm">{brl(valorMostra)}</span>
-                    <Badge variant="outline" className="text-[10px]">{TIPO_LABEL[e.tipo]}</Badge>
-                    <Badge variant="outline" className="text-[10px]">{FORMA_LABEL[e.forma]}</Badge>
+                    <Badge variant="outline" className="text-xs">{TIPO_LABEL[e.tipo]}</Badge>
+                    <Badge variant="outline" className="text-xs">{FORMA_LABEL[e.forma]}</Badge>
                     {tinhaSimbolico && (
-                      <Sparkles className="w-3 h-3 text-gold" title="Inclui R$0,10 simbólicos" />
+                      <span title="Inclui R$0,10 simbólicos">
+                        <Sparkles className="w-3 h-3 text-gold" />
+                      </span>
                     )}
                     {e.comprovante_url && (
                       <button
                         type="button"
                         onClick={() => abrirComprovante(e.comprovante_url!)}
-                        className="inline-flex items-center gap-0.5 text-[10px] text-blue-700 hover:underline"
+                        className="inline-flex items-center gap-0.5 text-xs text-blue-700 hover:underline"
                         title="Ver comprovante"
                       >
                         <Paperclip className="w-3 h-3" /> ver
                       </button>
                     )}
                   </div>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     <Calendar className="w-3 h-3 inline mr-1" />
                     {new Date(e.data + "T00:00").toLocaleDateString("pt-BR")}
                     {e.descricao && ` · ${e.descricao}`}

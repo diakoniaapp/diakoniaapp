@@ -114,7 +114,7 @@ export function CategoriaForm({ open, onOpenChange, categoria, tipoPadrao = "sai
             <div>
               <Label>Ordem</Label>
               <Input type="number" value={ordem} onChange={(e) => setOrdem(Number(e.target.value) || 50)} />
-              <p className="text-[10px] text-muted-foreground mt-0.5">Menor aparece primeiro</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Menor aparece primeiro</p>
             </div>
             <div>
               <Label>Conta contábil</Label>

@@ -117,14 +117,12 @@ export default function FinancasConta() {
     <div className="p-3 md:p-5 max-w-7xl mx-auto space-y-3">
       {/* Cabeçalho */}
       <div className="flex items-center gap-2 flex-wrap">
-        <Link to="/financas">
-          <Button variant="ghost" size="icon"><ArrowLeft className="w-4 h-4" /></Button>
-        </Link>
+        <Button asChild variant="ghost" size="icon"><Link to="/financas"><ArrowLeft className="w-4 h-4" /></Link></Button>
         <div className="flex-1 min-w-0">
           <h1 className="font-serif text-lg flex items-center gap-2 truncate">
             <DollarSign className="w-5 h-5 text-gold" />
             {conta.nome}
-            <Badge variant="outline" className="text-[10px]">{CONTA_TIPO_LABEL[conta.tipo]}</Badge>
+            <Badge variant="outline" className="text-xs">{CONTA_TIPO_LABEL[conta.tipo]}</Badge>
           </h1>
           <p className="text-xs text-muted-foreground">
             Saldo atual: <strong style={{ color: conta.cor ?? undefined }}>{brl(Number(conta.saldo_atual))}</strong>
@@ -143,15 +141,15 @@ export default function FinancasConta() {
       <Card>
         <CardContent className="py-2.5 px-3 grid grid-cols-2 md:grid-cols-5 gap-2 items-end">
           <div>
-            <label className="text-[10px] uppercase tracking-wide text-muted-foreground">Data inicial</label>
+            <label className="text-xs uppercase tracking-wide text-muted-foreground">Data inicial</label>
             <Input type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} className="h-8 text-xs" />
           </div>
           <div>
-            <label className="text-[10px] uppercase tracking-wide text-muted-foreground">Data final</label>
+            <label className="text-xs uppercase tracking-wide text-muted-foreground">Data final</label>
             <Input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} className="h-8 text-xs" />
           </div>
           <div>
-            <label className="text-[10px] uppercase tracking-wide text-muted-foreground">Tipo</label>
+            <label className="text-xs uppercase tracking-wide text-muted-foreground">Tipo</label>
             <Select value={filtroTipo} onValueChange={(v) => setFiltroTipo(v as any)}>
               <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -162,7 +160,7 @@ export default function FinancasConta() {
             </Select>
           </div>
           <div className="md:col-span-2">
-            <label className="text-[10px] uppercase tracking-wide text-muted-foreground">Buscar descrição</label>
+            <label className="text-xs uppercase tracking-wide text-muted-foreground">Buscar descrição</label>
             <div className="relative">
               <Search className="w-3 h-3 absolute left-2 top-2.5 text-muted-foreground" />
               <Input value={busca} onChange={(e) => setBusca(e.target.value)}
@@ -176,19 +174,19 @@ export default function FinancasConta() {
       <div className="grid grid-cols-3 gap-2">
         <Card className="bg-emerald-50/40 border-emerald-200">
           <CardContent className="py-2 px-3">
-            <p className="text-[10px] uppercase text-emerald-700 flex items-center gap-1"><TrendingUp className="w-3 h-3" /> Entradas</p>
+            <p className="text-xs uppercase text-emerald-700 flex items-center gap-1"><TrendingUp className="w-3 h-3" /> Entradas</p>
             <p className="text-sm font-semibold text-emerald-700 tabular-nums">{brl(totalEntradasPeriodo)}</p>
           </CardContent>
         </Card>
         <Card className="bg-rose-50/40 border-rose-200">
           <CardContent className="py-2 px-3">
-            <p className="text-[10px] uppercase text-rose-700 flex items-center gap-1"><TrendingDown className="w-3 h-3" /> Saídas</p>
+            <p className="text-xs uppercase text-rose-700 flex items-center gap-1"><TrendingDown className="w-3 h-3" /> Saídas</p>
             <p className="text-sm font-semibold text-rose-700 tabular-nums">{brl(totalSaidasPeriodo)}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="py-2 px-3">
-            <p className="text-[10px] uppercase text-muted-foreground">Saldo do período</p>
+            <p className="text-xs uppercase text-muted-foreground">Saldo do período</p>
             <p className="text-sm font-semibold tabular-nums">{brl(totalEntradasPeriodo - totalSaidasPeriodo)}</p>
           </CardContent>
         </Card>
@@ -207,7 +205,7 @@ export default function FinancasConta() {
             </p>
           ) : (
             <table className="w-full text-xs">
-              <thead className="bg-muted/40 text-[10px] uppercase tracking-wide text-muted-foreground">
+              <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
                   <th className="text-left py-2 px-2 w-20">Situação</th>
                   <th className="text-left py-2 px-2 w-16">Data</th>
@@ -223,7 +221,7 @@ export default function FinancasConta() {
                 {lancamentos.map(l => (
                   <tr key={l.id} className="border-t hover:bg-muted/30">
                     <td className="py-1.5 px-2">
-                      <span className={`inline-flex items-center gap-1 text-[10px] ${STATUS_COR[l.status]}`}>
+                      <span className={`inline-flex items-center gap-1 text-xs ${STATUS_COR[l.status]}`}>
                         {STATUS_ICONE[l.status]} {STATUS_LABEL[l.status]}
                       </span>
                     </td>
@@ -231,21 +229,21 @@ export default function FinancasConta() {
                     <td className="py-1.5 px-2 min-w-[200px]">
                       <p className="font-medium truncate">{l.descricao ?? "—"}</p>
                       {l.fornecedor_nome && (
-                        <p className="text-[10px] text-muted-foreground truncate">{l.fornecedor_nome}</p>
+                        <p className="text-xs text-muted-foreground truncate">{l.fornecedor_nome}</p>
                       )}
                       {l.pessoa_nome && (
-                        <p className="text-[10px] text-muted-foreground truncate">de {l.pessoa_nome}</p>
+                        <p className="text-xs text-muted-foreground truncate">de {l.pessoa_nome}</p>
                       )}
                     </td>
                     <td className="py-1.5 px-2">
                       {l.categoria_nome && (
-                        <Badge variant="outline" className="text-[9px]"
+                        <Badge variant="outline" className="text-xs"
                           style={l.categoria_cor ? { borderColor: l.categoria_cor, color: l.categoria_cor } : undefined}>
                           {l.categoria_nome}
                         </Badge>
                       )}
                     </td>
-                    <td className="py-1.5 px-2 text-[10px] text-muted-foreground truncate">
+                    <td className="py-1.5 px-2 text-xs text-muted-foreground truncate">
                       {l.centro_nome ?? "—"}
                     </td>
                     <td className={`py-1.5 px-2 text-right tabular-nums font-medium ${l.tipo === "entrada" ? "text-emerald-700" : "text-rose-700"}`}>
@@ -280,7 +278,7 @@ export default function FinancasConta() {
         </CardContent>
       </Card>
 
-      <p className="text-[10px] text-muted-foreground text-right">
+      <p className="text-xs text-muted-foreground text-right">
         {lancamentos.length} lançamento{lancamentos.length === 1 ? "" : "s"} no período · até 300 mais recentes
       </p>
 

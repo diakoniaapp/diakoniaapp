@@ -108,9 +108,7 @@ export default function FinancasAdmin() {
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-4">
       <div className="flex items-center gap-2">
-        <Link to="/financas">
-          <Button variant="ghost" size="icon"><ArrowLeft className="w-4 h-4" /></Button>
-        </Link>
+        <Button asChild variant="ghost" size="icon"><Link to="/financas"><ArrowLeft className="w-4 h-4" /></Link></Button>
         <div className="flex-1">
           <h1 className="font-serif text-xl flex items-center gap-2">
             <DollarSign className="w-5 h-5 text-gold" /> Configurações financeiras
@@ -159,9 +157,9 @@ export default function FinancasAdmin() {
                     <div className="min-w-0 flex-1">
                       <p className="font-medium text-sm truncate flex items-center gap-1.5">
                         {c.nome}
-                        {!c.ativo && <Badge variant="outline" className="text-[9px] bg-amber-50 text-amber-700 border-amber-300">Desativada</Badge>}
+                        {!c.ativo && <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-300">Desativada</Badge>}
                       </p>
-                      <p className="text-[10px] text-muted-foreground">
+                      <p className="text-xs text-muted-foreground">
                         {CONTA_TIPO_LABEL[c.tipo]}
                         {c.banco_nome && ` · ${c.banco_nome}`}
                         {c.conta_numero && ` · Ag ${c.agencia ?? "-"} / CC ${c.conta_numero}`}
@@ -170,7 +168,7 @@ export default function FinancasAdmin() {
                   </div>
                   <div className="text-right shrink-0 mr-2">
                     <p className="text-sm font-semibold tabular-nums">{brl(Number(c.saldo_atual))}</p>
-                    <p className="text-[10px] text-muted-foreground">
+                    <p className="text-xs text-muted-foreground">
                       Inicial: {brl(Number(c.saldo_inicial))}
                     </p>
                   </div>
@@ -237,7 +235,7 @@ export default function FinancasAdmin() {
             </Card>
           </div>
 
-          <p className="text-[10px] text-muted-foreground text-center">
+          <p className="text-xs text-muted-foreground text-center">
             Categorias do <strong>sistema</strong> não podem ser excluídas — só desativadas.
             Categorias <strong>em uso</strong> em lançamentos também precisam ser desativadas.
           </p>
@@ -268,8 +266,8 @@ function CategoriaLinha({ k, onEdit, onToggle, onDelete }: {
          style={{ borderColor: k.cor ?? "#888" }}>
       <span className="truncate flex-1">
         {k.nome}
-        {k.sistema && <Badge variant="outline" className="text-[8px] ml-1">sys</Badge>}
-        {!k.ativo && <Badge variant="outline" className="text-[8px] ml-1 bg-amber-50 text-amber-700">desat.</Badge>}
+        {k.sistema && <Badge variant="outline" className="text-xs ml-1">sys</Badge>}
+        {!k.ativo && <Badge variant="outline" className="text-xs ml-1 bg-amber-50 text-amber-700">desat.</Badge>}
       </span>
       <div className="flex items-center gap-0 shrink-0">
         <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={onEdit} title="Editar">

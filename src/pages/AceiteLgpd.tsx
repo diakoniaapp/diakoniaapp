@@ -52,12 +52,25 @@ export default function AceiteLgpd() {
     if (!user) return;
     (async () => {
       try {
-        // Verifica aceite existente pelo auth_user_id
+        // Verifica aceite existente pelo auth_user_id.
+        //
+        // O `.limit(1)` nao e detalhe: sem ele, `maybeSingle()` DA ERRO quando
+        // encontra mais de uma linha, e o erro so era registrado no console —
+        // `aceite` ficava nulo e a tela de aceite reaparecia. Como o aceite
+        // grava uma linha nova a cada vez, a segunda linha travava a
+        // verificacao para sempre, e cada volta somava outra. Uma conta chegou
+        // a dez aceites do mesmo usuario; as que tinham uma linha so nunca
+        // foram perguntadas de novo.
+        //
+        // `revogado_em` tambem entrou: um consentimento revogado nao vale como
+        // aceite, e antes valia.
         const { data: aceite, error: errSelect } = await supabase
           .from("consentimento")
           .select("id")
           .eq("auth_user_id", user.id)
           .eq("aceito", true)
+          .is("revogado_em", null)
+          .limit(1)
           .maybeSingle();
 
         if (errSelect) {
@@ -94,15 +107,32 @@ export default function AceiteLgpd() {
     setBusy(true);
     setErroMsg(null);
 
+    // Nao grava um aceite se ja houver um valido para esta mesma versao da
+    // politica. Antes o insert era incondicional, e cada passagem pela tela
+    // somava uma linha — o que alimentava justamente o defeito acima. O
+    // consentimento continua sendo registro de auditoria: o que muda e que
+    // uma versao aceita e registrada uma vez, e nao dez.
+    const { data: jaAceito } = await supabase
+      .from("consentimento")
+      .select("id")
+      .eq("auth_user_id", user.id)
+      .eq("aceito", true)
+      .eq("texto_versao", versao)
+      .is("revogado_em", null)
+      .limit(1)
+      .maybeSingle();
+
     // Insert com auth_user_id — FK válida para auth.users (sempre existe)
-    const { error } = await supabase.from("consentimento").insert({
-      auth_user_id: user.id,
-      tipo:         "politica_privacidade",
-      base_legal:   "consentimento",
-      aceito:       true,
-      texto_versao: versao,
-      canal:        "web_app",
-    });
+    const { error } = jaAceito
+      ? { error: null }
+      : await supabase.from("consentimento").insert({
+          auth_user_id: user.id,
+          tipo:         "politica_privacidade",
+          base_legal:   "consentimento",
+          aceito:       true,
+          texto_versao: versao,
+          canal:        "web_app",
+        });
 
     if (error) {
       console.error("Erro ao registrar consentimento:", error);
@@ -165,7 +195,7 @@ export default function AceiteLgpd() {
             <div className="w-8 h-8 rounded-full bg-gold/15 dark:bg-gold/20 flex items-center justify-center">
               <ShieldCheck className="w-4 h-4 text-gold" />
             </div>
-            <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-gold/80">
+            <span className="text-xs font-bold uppercase tracking-[0.22em] text-gold/80">
               Privacidade e LGPD
             </span>
           </div>
@@ -203,7 +233,7 @@ export default function AceiteLgpd() {
           </div>
           {!lido && (
             <div className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-muted/80 dark:from-card/80 to-transparent rounded-b-xl pointer-events-none flex items-end justify-center pb-1">
-              <span className="text-[10px] text-muted-foreground animate-bounce-subtle">
+              <span className="text-xs text-muted-foreground animate-bounce-subtle">
                 ▼ role para ler
               </span>
             </div>
@@ -244,7 +274,7 @@ export default function AceiteLgpd() {
           {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : "Aceitar e continuar"}
         </Button>
 
-        <p className="text-[11px] text-muted-foreground/60 dark:text-muted-foreground/50 text-center leading-relaxed">
+        <p className="text-xs text-muted-foreground/60 dark:text-muted-foreground/50 text-center leading-relaxed">
           Seu consentimento será registrado no banco de dados com data, hora
           e versão do documento, conforme exige a LGPD.
         </p>
@@ -252,7 +282,7 @@ export default function AceiteLgpd() {
         <div className="flex items-center justify-center gap-2">
           <div className="w-2 h-2 rounded-full bg-muted" />
           <div className="w-2 h-2 rounded-full bg-gold" />
-          <p className="text-[10px] text-muted-foreground ml-1">Passo 2 de 2</p>
+          <p className="text-xs text-muted-foreground ml-1">Passo 2 de 2</p>
         </div>
 
       </AuthCard>

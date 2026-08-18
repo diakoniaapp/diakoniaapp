@@ -193,7 +193,7 @@ export default function CaixaPDV() {
           <h1 className="font-serif text-lg truncate">
             PDV — {reserva?.espaco?.nome} · {reserva?.finalidade}
           </h1>
-          <p className="text-[10px] text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             Operador: {vendedor?.nome} ·
             Bruto: {fmtBR(resumo?.total_bruto ?? 0)} ·
             Líquido: {fmtBR(resumo?.saldo_virtual ?? 0)}
@@ -231,7 +231,7 @@ export default function CaixaPDV() {
                         <div className="flex items-start justify-between gap-1">
                           <div className="text-sm font-medium leading-tight flex-1">{p.nome}</div>
                           <Badge variant="outline"
-                            className={"text-[9px] shrink-0 " + (p.is_acervo
+                            className={"text-xs shrink-0 " + (p.is_acervo
                               ? "bg-blue-50 text-blue-700 border-blue-200"
                               : "bg-purple-50 text-purple-700 border-purple-200")}>
                             {p.is_acervo ? "acervo" : "campanha"}
@@ -242,15 +242,15 @@ export default function CaixaPDV() {
                         </div>
                         <div className="flex items-center gap-1 mt-1 flex-wrap">
                           {p.codigo && (
-                            <Badge variant="outline" className="text-[9px]">#{p.codigo}</Badge>
+                            <Badge variant="outline" className="text-xs">#{p.codigo}</Badge>
                           )}
                           {p.subcategoria && (
-                            <Badge variant="outline" className="text-[9px]">{p.subcategoria}</Badge>
+                            <Badge variant="outline" className="text-xs">{p.subcategoria}</Badge>
                           )}
                           {semEstoque ? (
-                            <Badge className="text-[9px] bg-rose-100 text-rose-700 border-rose-200">esgotado</Badge>
+                            <Badge className="text-xs bg-rose-100 text-rose-700 border-rose-200">esgotado</Badge>
                           ) : baixo ? (
-                            <Badge className="text-[9px] bg-amber-100 text-amber-700 border-amber-200">
+                            <Badge className="text-xs bg-amber-100 text-amber-700 border-amber-200">
                               restam {p.estoque_atual}
                             </Badge>
                           ) : null}
@@ -300,7 +300,7 @@ export default function CaixaPDV() {
                   <li key={idx} className="flex items-center gap-1.5 text-xs border-b pb-1.5">
                     <div className="flex-1 min-w-0">
                       <div className="font-medium truncate">{it.descricao}</div>
-                      <div className="text-[10px] text-muted-foreground">
+                      <div className="text-xs text-muted-foreground">
                         {fmtBR(it.preco_unit)} × {it.qtd}
                       </div>
                     </div>
@@ -326,7 +326,7 @@ export default function CaixaPDV() {
             </div>
 
             <div>
-              <Label className="text-[11px]">Forma de pagamento</Label>
+              <Label className="text-xs">Forma de pagamento</Label>
               <div className="grid grid-cols-3 gap-1 mt-1">
                 {(["dinheiro","pix","debito","credito","outros"] as FormaPagamento[]).map(f => {
                   const Icon = FORMA_ICONE[f];

@@ -286,7 +286,7 @@ export async function buscarMeusAssuntos(): Promise<MeusAssuntosResposta> {
     total_atrasados: row.total_atrasados ?? 0,
     total_vence_breve: row.total_vence_breve ?? 0,
     total_parados: row.total_parados ?? 0,
-    proximos: row.proximos ?? [],
+    proximos: (row.proximos ?? []) as unknown as MeuAssuntoResumo[],
   };
 }
 
@@ -314,7 +314,7 @@ export async function buscarUrgentesIgreja(): Promise<UrgentesIgrejaResposta> {
   return {
     total_atrasados: row.total_atrasados ?? 0,
     total_vence_semana: row.total_vence_semana ?? 0,
-    lista: row.lista ?? [],
+    lista: (row.lista ?? []) as unknown as AssuntoUrgenteIgreja[],
   };
 }
 

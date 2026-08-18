@@ -10,10 +10,14 @@ import {
   proximosDias, linkWhatsApp,
   type EventoPastoral,
 } from "@/services/agendaPastoralService";
+import { useReportarVazio } from "@/components/hoje/vazio";
 
 export function VidaDasFamilias() {
   const [eventos, setEventos] = useState<EventoPastoral[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Faixa do HOJE desaparece quando não há data para celebrar.
+  useReportarVazio(loading || eventos.length === 0);
 
   useEffect(() => {
     let cancelled = false;
@@ -60,7 +64,7 @@ export function VidaDasFamilias() {
         titulo="Aniversários"
         lista={aniversarios}
         onWhats={abrirWhats}
-        sufixo="anos"
+        sufixo="anos de vida"
       />
       <ColunaEventos
         cor="pink"
@@ -68,7 +72,7 @@ export function VidaDasFamilias() {
         titulo="Bodas de casamento"
         lista={casamentos}
         onWhats={abrirWhats}
-        sufixo="anos de casados"
+        sufixo="anos de casamento"
       />
     </div>
   );
@@ -92,7 +96,7 @@ function ColunaEventos({ cor, icon: Icon, titulo, lista, onWhats, sufixo }: Colu
           <h3 className={`text-xs font-semibold flex items-center gap-1.5 ${corTitulo}`}>
             <Icon className="w-3.5 h-3.5" /> {titulo}
           </h3>
-          <Badge variant="outline" className="text-[10px]">{lista.length}</Badge>
+          <Badge variant="outline" className="text-xs">{lista.length}</Badge>
         </div>
         {lista.length === 0 ? (
           <p className="text-xs text-muted-foreground text-center py-2">
@@ -110,9 +114,9 @@ function ColunaEventos({ cor, icon: Icon, titulo, lista, onWhats, sufixo }: Colu
                 <li key={ev.ref_id} className="flex items-center justify-between gap-2 border rounded-md px-2 py-1.5 bg-background hover:bg-muted/40 transition-colors">
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium truncate">{ev.titulo}</p>
-                    <p className="text-[11px] text-muted-foreground">
+                    <p className="text-xs text-muted-foreground">
                       {quando}
-                      {(ev.anos_completar ?? 0) > 0 && ` · ${ev.anos_completar} ${sufixo}`}
+                      {(ev.anos_vai_completar ?? 0) > 0 && ` · ${ev.anos_vai_completar} ${sufixo}`}
                     </p>
                   </div>
                   {(ev.telefone || ev.telefone_secundario) && (
@@ -129,7 +133,7 @@ function ColunaEventos({ cor, icon: Icon, titulo, lista, onWhats, sufixo }: Colu
               );
             })}
             {lista.length > 6 && (
-              <li className="text-[10px] text-muted-foreground italic text-center pt-1">
+              <li className="text-xs text-muted-foreground italic text-center pt-1">
                 ... e mais {lista.length - 6} esta semana
               </li>
             )}

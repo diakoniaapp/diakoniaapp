@@ -82,9 +82,7 @@ export default function FinancasOrcamento() {
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-4">
       <div className="flex items-center gap-2">
-        <Link to="/financas">
-          <Button variant="ghost" size="icon"><ArrowLeft className="w-4 h-4" /></Button>
-        </Link>
+        <Button asChild variant="ghost" size="icon"><Link to="/financas"><ArrowLeft className="w-4 h-4" /></Link></Button>
         <div className="flex-1">
           <h1 className="font-serif text-xl flex items-center gap-2">
             <Target className="w-5 h-5 text-gold" /> Orçamento
@@ -103,19 +101,19 @@ export default function FinancasOrcamento() {
         <div className="grid grid-cols-3 gap-2">
           <Card>
             <CardContent className="py-2 px-3">
-              <p className="text-[10px] uppercase text-muted-foreground">Linhas</p>
+              <p className="text-xs uppercase text-muted-foreground">Linhas</p>
               <p className="text-base font-semibold">{orc.length}</p>
             </CardContent>
           </Card>
           <Card className="bg-rose-50/30 border-rose-200">
             <CardContent className="py-2 px-3">
-              <p className="text-[10px] uppercase text-rose-700">Acima do limite</p>
+              <p className="text-xs uppercase text-rose-700">Acima do limite</p>
               <p className="text-base font-semibold text-rose-700">{acimaLimite}</p>
             </CardContent>
           </Card>
           <Card className="bg-amber-50/30 border-amber-200">
             <CardContent className="py-2 px-3">
-              <p className="text-[10px] uppercase text-amber-700">≥ 80%</p>
+              <p className="text-xs uppercase text-amber-700">≥ 80%</p>
               <p className="text-base font-semibold text-amber-700">{proximoLimite}</p>
             </CardContent>
           </Card>
@@ -127,7 +125,7 @@ export default function FinancasOrcamento() {
           <CardContent className="py-10 text-center text-sm text-muted-foreground space-y-2">
             <Target className="w-10 h-10 mx-auto opacity-30" />
             <p>Ainda sem orçamento.</p>
-            <p className="text-[11px]">Defina quanto cada centro pode gastar por mês.</p>
+            <p className="text-xs">Defina quanto cada centro pode gastar por mês.</p>
             <Button onClick={() => setDlgOpen(true)} variant="outline" className="gap-1.5 mt-2">
               <Plus className="w-4 h-4" /> Definir primeiro orçamento
             </Button>
@@ -146,10 +144,10 @@ export default function FinancasOrcamento() {
                       <Link to={`/financas/centro/${o.centro_custo_id}`}
                         className="font-medium text-sm truncate flex items-center gap-1.5 hover:underline">
                         {o.centro_nome}
-                        {pct >= 100 && <Badge variant="outline" className="text-[9px] bg-rose-100 text-rose-700 border-rose-300">Estourou</Badge>}
-                        {pct >= 80 && pct < 100 && <Badge variant="outline" className="text-[9px] bg-amber-100 text-amber-700 border-amber-300">Alerta</Badge>}
+                        {pct >= 100 && <Badge variant="outline" className="text-xs bg-rose-100 text-rose-700 border-rose-300">Estourou</Badge>}
+                        {pct >= 80 && pct < 100 && <Badge variant="outline" className="text-xs bg-amber-100 text-amber-700 border-amber-300">Alerta</Badge>}
                       </Link>
-                      <p className="text-[11px] text-muted-foreground">
+                      <p className="text-xs text-muted-foreground">
                         {o.mes ? `Mês ${String(o.mes).padStart(2, "0")}/${o.ano}` : `Ano ${o.ano}`}
                       </p>
                     </div>
@@ -157,7 +155,7 @@ export default function FinancasOrcamento() {
                       <p className="text-sm font-semibold tabular-nums">
                         {brl(Number(o.valor_real))} / <span className="text-muted-foreground">{brl(Number(o.valor_planejado))}</span>
                       </p>
-                      <p className={`text-[10px] font-medium ${pct >= 100 ? "text-rose-700" : pct >= 80 ? "text-amber-700" : "text-emerald-700"}`}>
+                      <p className={`text-xs font-medium ${pct >= 100 ? "text-rose-700" : pct >= 80 ? "text-amber-700" : "text-emerald-700"}`}>
                         {pct.toFixed(1)}% consumido
                       </p>
                     </div>
@@ -211,7 +209,7 @@ export default function FinancasOrcamento() {
               </Button>
             </div>
 
-            <p className="text-[10px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               {mensal ? "Aplica para este mês" : "Aplica para todo o ano"}
             </p>
           </div>

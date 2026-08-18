@@ -175,7 +175,7 @@ export function TransferenciaForm({ open, onOpenChange, contaOrigemPadrao, onSav
                     className="hidden" onChange={(e) => escolheArquivo(e.target.files?.[0] ?? null)} />
                   <div className="flex flex-col items-center gap-1 border-2 border-dashed rounded-md p-2 hover:border-gold/40">
                     <Camera className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-[10px]">Foto</span>
+                    <span className="text-xs">Foto</span>
                   </div>
                 </label>
                 <label className="cursor-pointer">
@@ -183,7 +183,7 @@ export function TransferenciaForm({ open, onOpenChange, contaOrigemPadrao, onSav
                     className="hidden" onChange={(e) => escolheArquivo(e.target.files?.[0] ?? null)} />
                   <div className="flex flex-col items-center gap-1 border-2 border-dashed rounded-md p-2 hover:border-gold/40">
                     <FileUp className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-[10px]">Arquivo</span>
+                    <span className="text-xs">Arquivo</span>
                   </div>
                 </label>
               </div>

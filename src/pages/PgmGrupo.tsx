@@ -185,15 +185,13 @@ export default function PgmGrupo() {
     <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-4">
       {/* Cabeçalho */}
       <div className="flex items-start gap-2 flex-wrap">
-        <Link to="/pgm">
-          <Button variant="ghost" size="icon"><ArrowLeft className="w-4 h-4" /></Button>
-        </Link>
+        <Button asChild variant="ghost" size="icon"><Link to="/pgm"><ArrowLeft className="w-4 h-4" /></Link></Button>
         <div className="flex-1 min-w-0">
           <h1 className="font-serif text-xl flex items-center gap-2">
             <Users className="w-5 h-5 text-gold" />
             <span className="truncate">{grupo.nome}</span>
             {grupo.qtd_filhos > 0 && (
-              <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-300">
+              <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700 border-emerald-300">
                 <Sparkles className="w-2.5 h-2.5 mr-0.5" /> Multiplicador ({grupo.qtd_filhos})
               </Badge>
             )}
@@ -296,7 +294,7 @@ export default function PgmGrupo() {
                           )}
                         </p>
                         {res && (
-                          <p className="text-[11px] text-muted-foreground">
+                          <p className="text-xs text-muted-foreground">
                             {res.presentes}/{res.total} presentes · {res.percentual}%
                           </p>
                         )}
@@ -361,7 +359,7 @@ export default function PgmGrupo() {
                 {PAPEL_ICONE[m.papel]}
                 <span className="font-medium text-sm truncate">{m.nome_completo ?? "—"}</span>
                 {m.principal && (
-                  <Badge variant="outline" className="text-[9px] bg-gold/10 text-gold border-gold/40 shrink-0" title="Grupo principal desta pessoa">
+                  <Badge variant="outline" className="text-xs bg-gold/10 text-gold border-gold/40 shrink-0" title="Grupo principal desta pessoa">
                     ★ principal
                   </Badge>
                 )}
@@ -372,7 +370,7 @@ export default function PgmGrupo() {
                     <select
                       value={m.papel}
                       onChange={(e) => trocarPapel(m.id, e.target.value as PgmPapel)}
-                      className="text-[10px] border rounded px-1 py-0.5 bg-background"
+                      className="text-xs border rounded px-1 py-0.5 bg-background"
                     >
                       {(Object.entries(PAPEL_LABEL) as [PgmPapel, string][]).map(([v, l]) => (
                         <option key={v} value={v}>{l}</option>
@@ -459,7 +457,7 @@ export default function PgmGrupo() {
 function Lideranca({ icon, label, nome }: { icon: JSX.Element; label: string; nome: string | null | undefined }) {
   return (
     <div className="text-center">
-      <div className="flex items-center justify-center gap-1 text-muted-foreground text-[10px] uppercase tracking-wide">
+      <div className="flex items-center justify-center gap-1 text-muted-foreground text-xs uppercase tracking-wide">
         {icon} {label}
       </div>
       <p className="font-medium mt-0.5 truncate text-xs">{nome ?? "—"}</p>

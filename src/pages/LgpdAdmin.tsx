@@ -246,7 +246,7 @@ export default function LgpdAdmin() {
               <ClipboardList className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Solicitações</span>
               {pendentes > 0 && (
-                <span className="ml-1 bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full px-1.5 py-0.5">
+                <span className="ml-1 bg-destructive text-destructive-foreground text-xs font-bold rounded-full px-1.5 py-0.5">
                   {pendentes}
                 </span>
               )}

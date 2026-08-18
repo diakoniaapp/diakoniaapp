@@ -198,7 +198,7 @@ export function CamposEndereco({
 
         {mostrandoSugestoes && sugestoes.length > 0 && (
           <div className="absolute z-30 left-0 right-0 mt-1 bg-popover border rounded-md shadow-lg max-h-60 overflow-y-auto">
-            <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-muted-foreground border-b bg-muted/50">
+            <div className="px-2 py-1 text-xs uppercase tracking-wide text-muted-foreground border-b bg-muted/50">
               {sugestoes.length} resultado{sugestoes.length === 1 ? "" : "s"} em {cidade}/{uf}
             </div>
             {sugestoes.map((s, i) => (
@@ -209,7 +209,7 @@ export function CamposEndereco({
                 className="w-full text-left px-2 py-1.5 hover:bg-muted/60 border-b last:border-0"
               >
                 <p className="text-sm font-medium leading-tight">{s.logradouro}</p>
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   {s.bairro} · CEP {s.cep}
                 </p>
               </button>
@@ -218,7 +218,7 @@ export function CamposEndereco({
         )}
 
         {!cidade && (
-          <p className="text-[10px] text-muted-foreground mt-0.5">
+          <p className="text-xs text-muted-foreground mt-0.5">
             💡 Preencha primeiro a cidade pra habilitar a busca por nome da rua.
           </p>
         )}

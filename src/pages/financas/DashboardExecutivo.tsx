@@ -46,7 +46,7 @@ export default function DashboardExecutivo() {
   if (loading) {
     return (
       <div className="py-12 text-center text-sm text-muted-foreground">
-        <Loader2 className="w-5 h-5 animate-spin inline mr-2" /> Carregando dashboard executivo...
+        <Loader2 className="w-5 h-5 animate-spin inline mr-2" /> Carregando visão executiva...
       </div>
     );
   }
@@ -57,7 +57,7 @@ export default function DashboardExecutivo() {
       <header className="flex items-center gap-2 print:hidden">
         <Briefcase className="w-5 h-5 text-gold" />
         <div className="flex-1">
-          <h1 className="font-serif text-xl md:text-2xl">Dashboard Executivo</h1>
+          <h1 className="font-serif text-xl md:text-2xl">Visão Executiva</h1>
           <p className="text-xs text-muted-foreground">Visão estratégica financeira · {fmtMes()}</p>
         </div>
         <Button size="sm" variant="outline" onClick={() => window.print()} className="gap-1.5">
@@ -150,7 +150,7 @@ export default function DashboardExecutivo() {
                   <div key={i.indicador} className="flex items-center gap-2 border-b pb-1.5 last:border-0">
                     <div className="flex-1">
                       <div className="text-sm font-medium">{i.indicador}</div>
-                      <div className="text-[10px] text-muted-foreground">
+                      <div className="text-xs text-muted-foreground">
                         Mês atual {fmtBR(i.total_mes_atual)} · Ano {fmtBR(i.total_ano)}
                       </div>
                     </div>
@@ -201,7 +201,7 @@ export default function DashboardExecutivo() {
                           />
                         </div>
                         <span className={
-                          "text-[10px] tabular-nums " +
+                          "text-xs tabular-nums " +
                           (c.percentual >= 100 ? "text-rose-700 font-semibold" :
                            c.percentual >= 90 ? "text-amber-700" : "text-muted-foreground")
                         }>
@@ -242,9 +242,9 @@ export default function DashboardExecutivo() {
                     : <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />}
                   <div className="flex-1">
                     <div className="font-medium">{a.mensagem}</div>
-                    {a.detalhe && <div className="text-muted-foreground text-[10px] mt-0.5">{a.detalhe}</div>}
+                    {a.detalhe && <div className="text-muted-foreground text-xs mt-0.5">{a.detalhe}</div>}
                   </div>
-                  <Badge variant="outline" className="text-[9px] shrink-0">{a.categoria}</Badge>
+                  <Badge variant="outline" className="text-xs shrink-0">{a.categoria}</Badge>
                 </div>
               ))}
             </div>
@@ -252,7 +252,7 @@ export default function DashboardExecutivo() {
         </CardContent>
       </Card>
 
-      <p className="text-[10px] text-muted-foreground text-right print:text-center pt-2 border-t print:border-0">
+      <p className="text-xs text-muted-foreground text-right print:text-center pt-2 border-t print:border-0">
         _Dashboard Executivo · Diakonia APP_ · Gerado em {new Date().toLocaleString("pt-BR")}
       </p>
     </div>
@@ -269,10 +269,10 @@ function MetricaGrande({ titulo, valor, subtitulo, icon, variacao }: {
       <CardContent className="p-3">
         <div className="flex items-start gap-2">
           <div className="flex-1">
-            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{titulo}</div>
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">{titulo}</div>
             <div className="text-lg md:text-xl font-serif font-medium mt-0.5">{fmtBR(valor)}</div>
             {subtitulo && (
-              <div className="text-[10px] text-muted-foreground mt-0.5">{subtitulo}</div>
+              <div className="text-xs text-muted-foreground mt-0.5">{subtitulo}</div>
             )}
           </div>
           {icon && <div className="shrink-0">{icon}</div>}

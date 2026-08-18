@@ -77,8 +77,14 @@
                         hsl(30 28% 86%) 100%);
 
     /* ── Sombras ─────────────────────────────────────────────── */
-    --shadow-card:     0 1px 3px hsl(25 35% 18% / 0.09),
-                       0 1px 2px hsl(25 35% 18% / 0.06);
+    /* Cartao separa-se do fundo pela BORDA, nao pela sombra.
+       Antes eram tres sinais para a mesma coisa — borda, shadow-sm do
+       componente base e shadow-card-soft por cima — e cada cartao virava
+       uma peca flutuante disputando profundidade. Medido no painel: 19
+       sombras numa tela so. Zerar o token apaga as 47 ocorrencias de
+       shadow-card-soft de uma vez, sem tocar em 47 arquivos, e volta atras
+       do mesmo jeito se um dia se quiser. */
+    --shadow-card:     none;
     --shadow-elevated: 0 16px 40px -12px hsl(25 35% 18% / 0.16);
     --shadow-gold:     0 8px 24px -8px hsl(12 42% 56% / 0.28);
     --shadow-auth:     0 20px 60px -15px hsl(25 35% 18% / 0.18);
@@ -158,8 +164,7 @@
                         hsl(220 24% 8%)  100%);
 
     /* ── Sombras escuras ─────────────────────────────────────── */
-    --shadow-card:     0 1px 3px hsl(0 0% 0% / 0.3),
-                       0 1px 2px hsl(0 0% 0% / 0.2);
+    --shadow-card:     none;
     --shadow-elevated: 0 16px 40px -12px hsl(0 0% 0% / 0.45);
     --shadow-gold:     0 8px 24px -8px hsl(12 48% 60% / 0.30);
     --shadow-auth:     0 20px 60px -15px hsl(0 0% 0% / 0.50);

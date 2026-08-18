@@ -109,7 +109,7 @@ function Stat({ icon, valor, label, link }: { icon: JSX.Element; valor: number |
     <div className="border rounded-md py-2 px-2 text-center bg-card hover:bg-muted/40 transition-colors">
       <div className="flex items-center justify-center gap-1">{icon}</div>
       <p className="text-lg font-semibold tabular-nums leading-tight">{valor}</p>
-      <p className="text-[10px] text-muted-foreground">{label}</p>
+      <p className="text-xs text-muted-foreground">{label}</p>
     </div>
   );
   return link ? <Link to={link}>{inner}</Link> : inner;

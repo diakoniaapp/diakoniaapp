@@ -121,14 +121,12 @@ export default function GovernancaAssembleia() {
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-4">
       {/* Cabeçalho */}
       <div className="flex items-center gap-2 flex-wrap">
-        <Link to="/governanca">
-          <Button variant="ghost" size="icon"><ArrowLeft className="w-4 h-4" /></Button>
-        </Link>
+        <Button asChild variant="ghost" size="icon"><Link to="/governanca"><ArrowLeft className="w-4 h-4" /></Link></Button>
         <div className="flex-1 min-w-0">
           <h1 className="font-serif text-xl flex items-center gap-2 flex-wrap">
             <Users className="w-5 h-5 text-gold" />
             <span className="truncate">{ass.titulo}</span>
-            <Badge variant="outline" className={`text-[10px] ${REUNIAO_STATUS_COR[ass.status]}`}>
+            <Badge variant="outline" className={`text-xs ${REUNIAO_STATUS_COR[ass.status]}`}>
               {REUNIAO_STATUS_LABEL[ass.status]}
             </Badge>
           </h1>
@@ -146,12 +144,12 @@ export default function GovernancaAssembleia() {
         <CardContent className="py-3">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div>
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Quórum</p>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Quórum</p>
               <p className={`text-2xl font-semibold tabular-nums ${quorum.atingido ? "text-emerald-700" : "text-rose-700"}`}>
                 {presNum} / {aptos}
                 <span className="text-base ml-1">({quorum.pct.toFixed(1)}%)</span>
               </p>
-              <p className="text-[11px] text-muted-foreground">Mínimo: {Number(ass.quorum_minimo_pct)}%</p>
+              <p className="text-xs text-muted-foreground">Mínimo: {Number(ass.quorum_minimo_pct)}%</p>
             </div>
             <div className="text-right">
               {quorum.atingido ? (
@@ -271,11 +269,11 @@ export default function GovernancaAssembleia() {
                   </div>
                   <span className="text-sm font-medium flex-1">{p.pessoa_nome}</span>
                   {p.hora_chegada && p.presente && (
-                    <span className="text-[10px] text-muted-foreground">{p.hora_chegada.slice(0, 5)}</span>
+                    <span className="text-xs text-muted-foreground">{p.hora_chegada.slice(0, 5)}</span>
                   )}
                 </button>
               ))}
-              <p className="text-[10px] text-muted-foreground text-center pt-2">
+              <p className="text-xs text-muted-foreground text-center pt-2">
                 {presentesFiltrados.length} de {presentes.length} mostrados
               </p>
             </div>
@@ -339,7 +337,7 @@ function ConvocacaoDialog({ assembleia, pautas, open, onOpenChange, onMarked }: 
         ) : (
           <>
             {pautas.length > 0 ? (
-              <div className="border rounded-md p-2 bg-purple-50/30 border-purple-200 text-[11px] mb-2">
+              <div className="border rounded-md p-2 bg-purple-50/30 border-purple-200 text-xs mb-2">
                 <p className="font-medium text-purple-900 mb-1">📋 Pauta incluída no convite ({pautas.length}):</p>
                 {pautas.slice(0, 5).map((p, i) => (
                   <p key={p.id} className="truncate">{i + 1}. {p.titulo}</p>
@@ -347,7 +345,7 @@ function ConvocacaoDialog({ assembleia, pautas, open, onOpenChange, onMarked }: 
                 {pautas.length > 5 && <p className="text-muted-foreground">+{pautas.length - 5} item(ns)...</p>}
               </div>
             ) : (
-              <div className="border rounded-md p-2 bg-amber-50/30 border-amber-200 text-[11px] mb-2 text-amber-900">
+              <div className="border rounded-md p-2 bg-amber-50/30 border-amber-200 text-xs mb-2 text-amber-900">
                 ⚠ Sem pautas vinculadas. O convite irá apenas com data e local.
               </div>
             )}
@@ -367,12 +365,12 @@ function ConvocacaoDialog({ assembleia, pautas, open, onOpenChange, onMarked }: 
                   <div key={p.pessoa_id} className={`flex items-center gap-2 border rounded-md px-3 py-1.5 ${semTel ? "opacity-50" : enviado ? "bg-emerald-50 border-emerald-200" : ""}`}>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{p.pessoa_nome}</p>
-                      <p className="text-[10px] text-muted-foreground">{p.telefone_celular ?? "sem telefone"}</p>
+                      <p className="text-xs text-muted-foreground">{p.telefone_celular ?? "sem telefone"}</p>
                     </div>
                     {!semTel && (
                       <Button size="sm" variant={enviado ? "outline" : "default"}
                         onClick={() => enviar(p)}
-                        className={`h-7 text-[11px] gap-1 ${enviado ? "" : "bg-emerald-600 hover:bg-emerald-700 text-white"}`}>
+                        className={`h-7 text-xs gap-1 ${enviado ? "" : "bg-emerald-600 hover:bg-emerald-700 text-white"}`}>
                         {enviado ? <><Check className="w-3 h-3" /> Reenviar</> : <><Send className="w-3 h-3" /> Enviar</>}
                       </Button>
                     )}
@@ -446,15 +444,15 @@ function PautaVotacao({ pauta, aptos, presentes, quorumAtingido, emAndamento, on
           <div className="flex-1 min-w-0">
             <p className="font-medium text-sm">{pauta.titulo}</p>
             {pauta.descricao && (
-              <p className="text-[11px] text-muted-foreground mt-0.5 whitespace-pre-wrap">{pauta.descricao}</p>
+              <p className="text-xs text-muted-foreground mt-0.5 whitespace-pre-wrap">{pauta.descricao}</p>
             )}
             {pauta.vinculo_tipo === "solicitacao_membresia" && pauta.vinculo_id && (
-              <Link to={`/membresia/${pauta.vinculo_id}`} className="text-[10px] text-primary underline">
+              <Link to={`/membresia/${pauta.vinculo_id}`} className="text-xs text-primary underline">
                 → ver solicitação
               </Link>
             )}
           </div>
-          <Badge variant="outline" className={`text-[9px] shrink-0 ${
+          <Badge variant="outline" className={`text-xs shrink-0 ${
             pauta.status === "aprovada_assembleia" ? "bg-emerald-100 text-emerald-700 border-emerald-300" :
             pauta.status === "rejeitada" ? "bg-rose-100 text-rose-700 border-rose-300" :
             pauta.status === "adiada" ? "bg-amber-100 text-amber-700 border-amber-300" :
@@ -466,7 +464,7 @@ function PautaVotacao({ pauta, aptos, presentes, quorumAtingido, emAndamento, on
 
         {/* Já decidida — mostra resultado */}
         {decidida && (
-          <div className="border-t pt-2 mt-2 text-[11px] space-y-0.5">
+          <div className="border-t pt-2 mt-2 text-xs space-y-0.5">
             <p className="font-medium">Resultado: <strong>{pauta.decisao}</strong></p>
             <p className="text-muted-foreground">
               ✓ {pauta.votos_sim} sim · ✗ {pauta.votos_nao} não · ⚬ {pauta.votos_abstencao} abst. · ⊘ {pauta.votos_impedimento} imp.
@@ -498,24 +496,24 @@ function PautaVotacao({ pauta, aptos, presentes, quorumAtingido, emAndamento, on
         {/* Modo edição — votos detalhados */}
         {!decidida && aberto && (
           <div className="border-t pt-2 mt-2 space-y-2">
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               Ajuste os votos (auto-preenchido com {presentes} presentes):
             </p>
             <div className="grid grid-cols-4 gap-1">
               <div>
-                <Label className="text-[10px]">✓ Sim</Label>
+                <Label className="text-xs">✓ Sim</Label>
                 <Input type="number" min={0} value={votosSim} onChange={(e) => setVotosSim(Number(e.target.value) || 0)} className="h-7 text-xs" />
               </div>
               <div>
-                <Label className="text-[10px]">✗ Não</Label>
+                <Label className="text-xs">✗ Não</Label>
                 <Input type="number" min={0} value={votosNao} onChange={(e) => setVotosNao(Number(e.target.value) || 0)} className="h-7 text-xs" />
               </div>
               <div>
-                <Label className="text-[10px]">⚬ Abstenção</Label>
+                <Label className="text-xs">⚬ Abstenção</Label>
                 <Input type="number" min={0} value={votosAbst} onChange={(e) => setVotosAbst(Number(e.target.value) || 0)} className="h-7 text-xs" />
               </div>
               <div>
-                <Label className="text-[10px]">⊘ Impedimento</Label>
+                <Label className="text-xs">⊘ Impedimento</Label>
                 <Input type="number" min={0} value={votosImp} onChange={(e) => setVotosImp(Number(e.target.value) || 0)} className="h-7 text-xs" />
               </div>
             </div>

@@ -269,7 +269,18 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
     let error: any;
 
     if (membro) {
-      ({ error } = await supabase.from("membros").update(payload).eq("id", membro.id));
+      // O .select() nao e enfeite: sem ele, um UPDATE barrado pela politica de
+      // seguranca chega aqui como sucesso com zero linhas alteradas, e o
+      // formulario fecha anunciando que salvou. Foi o que vinha acontecendo com
+      // todo lider que editava uma pessoa — telefone corrigido, nascimento
+      // preenchido, tudo descartado com mensagem de sucesso.
+      const { data: alterados, error: e } = await supabase
+        .from("membros").update(payload).eq("id", membro.id).select("id");
+      error = e;
+      if (!e && (alterados?.length ?? 0) === 0) {
+        setBusy(false);
+        return toast.error("Você não tem permissão para alterar esta pessoa. Nada foi salvo.");
+      }
     } else {
       const { data, error: e } = await supabase.from("membros").insert(payload).select("id").single();
       error = e;
@@ -376,13 +387,56 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
   };
 
   // ── Excluir ────────────────────────────────────────────────────────────
+  //
+  // Excluir uma pessoa nao apaga so a pessoa. Sao 61 tabelas apontando para
+  // `membros`: 40 apenas soltam o vinculo, mas DEZESSEIS apagam em cascata —
+  // entre elas presencas de EBD, presencas de PGM, vinculos familiares,
+  // historico do membro e presenca em assembleias. Anos de chamada somem
+  // junto, e a confirmacao dizia apenas "tem certeza?".
+  //
+  // Este levantamento conta o que sera perdido para mostrar ANTES, na propria
+  // confirmacao. Nao impede nada: informa.
+  const [oQueSePerde, setOQueSePerde] = useState<string[] | null>(null);
+
+  const levantarVinculos = async (pessoaId: string) => {
+    setOQueSePerde(null);
+    const alvos: { tabela: string; coluna: string; rotulo: (n: number) => string }[] = [
+      { tabela: "ebd_presencas",         coluna: "pessoa_id", rotulo: n => `${n} ${n === 1 ? "presença" : "presenças"} na EBD` },
+      { tabela: "ebd_matriculas",        coluna: "pessoa_id", rotulo: n => `${n} ${n === 1 ? "matrícula" : "matrículas"} na EBD` },
+      { tabela: "pgm_presencas",         coluna: "pessoa_id", rotulo: n => `${n} ${n === 1 ? "presença" : "presenças"} em Pequenos Grupos` },
+      { tabela: "vinculos_familiares",   coluna: "pessoa_id", rotulo: n => `${n} ${n === 1 ? "vínculo familiar" : "vínculos familiares"}` },
+      { tabela: "historico_membro",      coluna: "membro_id", rotulo: n => `${n} ${n === 1 ? "registro" : "registros"} de histórico` },
+      { tabela: "escala_voluntarios",    coluna: "membro_id", rotulo: n => `${n} ${n === 1 ? "escala" : "escalas"} de voluntário` },
+    ];
+    const achados: string[] = [];
+    for (const a of alvos) {
+      const { count } = await supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .from(a.tabela as any)
+        .select("*", { count: "exact", head: true })
+        .eq(a.coluna, pessoaId);
+      if ((count ?? 0) > 0) achados.push(a.rotulo(count!));
+    }
+    setOQueSePerde(achados);
+  };
+
   const onDelete = async () => {
     if (!membro) return;
     setBusy(true);
     const { error } = await supabase.from("membros").delete().eq("id", membro.id);
     setBusy(false);
-    if (error) return toast.error("Erro ao excluir: " + error.message);
-    toast.success("Contato excluido");
+    if (error) {
+      // Cinco tabelas do Bazar e Cantina bloqueiam a exclusao (NO ACTION).
+      // A mensagem crua do Postgres — "violates foreign key constraint
+      // arr_vendas_membro_id_fkey" — nao diz nada a quem esta na secretaria.
+      const bloqueio = /foreign key|violates/i.test(error.message);
+      return toast.error(
+        bloqueio
+          ? "Esta pessoa tem movimentações no Bazar e Cantina e não pode ser excluída. Marque como inativa."
+          : "Erro ao excluir: " + error.message,
+      );
+    }
+    toast.success("Contato excluído");
     setConfirmDelete(false);
     onOpenChange(false);
     onSaved();
@@ -438,7 +492,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                     }`}>
                       {step > p.n ? "✓" : p.n}
                     </div>
-                    <span className="text-[9px] font-medium uppercase tracking-wide">{p.label}</span>
+                    <span className="text-xs font-medium uppercase tracking-wide">{p.label}</span>
                   </button>
                   {idx < arr.length - 1 && (
                     <div className={`flex-1 h-0.5 mx-1 mb-4 ${step > p.n ? "bg-emerald-500/40" : "bg-border"}`} />
@@ -516,7 +570,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                 <Label translate="no">Data de nascimento</Label>
                 <Input type="date" value={form.data_nascimento} onChange={(e) => set("data_nascimento", e.target.value)} />
                 {candidatoMembresia && (
-                  <Badge variant="outline" className="mt-1 text-[10px] bg-primary/5">
+                  <Badge variant="outline" className="mt-1 text-xs bg-primary/5">
                     Candidato a membresia ({idadeEstimada} anos)
                   </Badge>
                 )}
@@ -667,7 +721,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                     <div>
                       <Label translate="no">Data de entrada</Label>
                       <Input type="date" value={form.data_entrada} onChange={(e) => set("data_entrada", e.target.value)} />
-                      <p className="text-[10px] text-muted-foreground mt-0.5">Data do batismo/profissão de fé.</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Data do batismo/profissão de fé.</p>
                     </div>
                   )}
 
@@ -735,7 +789,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                   </SelectContent>
                 </Select>
                 {ebdSugestaoId && (
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     ✨ Sugestão pela idade e sexo: {ebdClasses.find(c => c.id === ebdSugestaoId)?.nome ?? "—"}
                   </p>
                 )}
@@ -757,7 +811,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                 <div className="space-y-3 max-h-72 overflow-y-auto rounded-md border p-3">
                   {areasPorMinisterio.map(grupo => (
                     <div key={grupo.ministerio.id} className="space-y-1.5">
-                      <p className="text-[11px] uppercase tracking-wide text-muted-foreground/80 font-semibold">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground/80 font-semibold">
                         {grupo.ministerio.nome}
                       </p>
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
@@ -779,7 +833,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                               <span className="flex items-center gap-1 min-w-0">
                                 <span className="truncate">{a.nome}</span>
                                 {ehLider && (
-                                  <span className="text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 border border-rose-300 shrink-0">
+                                  <span className="text-xs font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 border border-rose-300 shrink-0">
                                     Líder
                                   </span>
                                 )}
@@ -791,7 +845,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                     </div>
                   ))}
                 </div>
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   Função padrão registrada: <strong>Voluntário</strong>. Líderes de área podem (e geralmente devem) 
                   marcar a própria área aqui também — assim aparecem nas escalas. Para ajustes finos (líder, 
                   coordenador, etc), abra Ministérios → o ministério desejado → Voluntários.
@@ -878,7 +932,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                   </>
                 )}
 
-                <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-2 text-center">
+                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-2 text-center">
                   Clique em <strong>Salvar</strong> para confirmar o cadastro.
                 </p>
               </section>
@@ -888,7 +942,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
             <DialogFooter className="flex flex-col sm:flex-row gap-2 pt-2">
               {isAdmin && membro && step === 1 && (
                 <Button type="button" variant="destructive" className="sm:mr-auto gap-2"
-                  onClick={() => setConfirmDelete(true)} disabled={busy}>
+                  onClick={() => { setConfirmDelete(true); levantarVinculos(membro.id); }} disabled={busy}>
                   <Trash2 className="h-4 w-4" /> Excluir
                 </Button>
               )}
@@ -936,9 +990,35 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir contato</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tem certeza que deseja excluir <strong>{membro?.nome_completo}</strong>?
-              Esta acao nao pode ser desfeita.
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>
+                  Tem certeza que deseja excluir <strong>{membro?.nome_completo}</strong>?
+                  Esta ação não pode ser desfeita.
+                </p>
+                {/* O que a cascata leva junto, contado no banco na hora de
+                    abrir. Antes a pergunta era so "tem certeza?", e anos de
+                    chamada de EBD podiam sumir sem que ninguem soubesse. */}
+                {oQueSePerde === null ? (
+                  <p className="text-xs text-muted-foreground">Verificando o que está vinculado…</p>
+                ) : oQueSePerde.length > 0 ? (
+                  <div className="rounded-md border border-destructive/30 bg-destructive/5 p-2.5">
+                    <p className="text-xs font-medium text-destructive">
+                      Isto também será apagado:
+                    </p>
+                    <ul className="mt-1 text-xs text-destructive/90 list-disc list-inside">
+                      {oQueSePerde.map(t => <li key={t}>{t}</li>)}
+                    </ul>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Para preservar o histórico, marque a pessoa como inativa em vez de excluir.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Nenhum histórico de EBD, Pequenos Grupos, família ou escala vinculado.
+                  </p>
+                )}
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -963,7 +1043,7 @@ const tipoPessoaLabelMap: Record<string, string> = {
 function RevisaoLinha({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-start justify-between gap-3 text-sm border-b py-1.5">
-      <span className="text-[11px] uppercase tracking-wide text-muted-foreground shrink-0">{label}</span>
+      <span className="text-xs uppercase tracking-wide text-muted-foreground shrink-0">{label}</span>
       <span className="font-medium text-right break-words min-w-0">{children}</span>
     </div>
   );

@@ -173,7 +173,7 @@ export function EntradaForm({ campanhaId, open, onOpenChange, onSaved, entrada }
                   <Sparkles className={`w-3.5 h-3.5 ${usarSimbolico ? "text-gold" : "text-muted-foreground"}`} />
                   <span className="font-medium">Adicionar R$ 0,10 simbólicos</span>
                 </div>
-                <p className="text-[11px] text-muted-foreground mt-0.5">
+                <p className="text-xs text-muted-foreground mt-0.5">
                   Identifica essa entrada como oferta de campanha (útil ao bater no extrato).
                   {usarSimbolico && valor > 0 && (
                     <> Valor final: <strong>R$ {valorFinal.toFixed(2)}</strong></>
@@ -237,7 +237,7 @@ export function EntradaForm({ campanhaId, open, onOpenChange, onSaved, entrada }
                   />
                   <div className="flex flex-col items-center gap-1 border-2 border-dashed rounded-md p-3 hover:border-gold/40 hover:bg-muted/30 transition-colors text-center">
                     <Camera className="w-5 h-5 text-muted-foreground" />
-                    <span className="text-[11px] font-medium">Tirar foto</span>
+                    <span className="text-xs font-medium">Tirar foto</span>
                   </div>
                 </label>
                 <label className="cursor-pointer">
@@ -249,7 +249,7 @@ export function EntradaForm({ campanhaId, open, onOpenChange, onSaved, entrada }
                   />
                   <div className="flex flex-col items-center gap-1 border-2 border-dashed rounded-md p-3 hover:border-gold/40 hover:bg-muted/30 transition-colors text-center">
                     <FileUp className="w-5 h-5 text-muted-foreground" />
-                    <span className="text-[11px] font-medium">Escolher arquivo</span>
+                    <span className="text-xs font-medium">Escolher arquivo</span>
                   </div>
                 </label>
               </div>
@@ -274,7 +274,7 @@ export function EntradaForm({ campanhaId, open, onOpenChange, onSaved, entrada }
                       ? arquivo.name
                       : "Comprovante atual"}
                   </p>
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     {arquivo
                       ? `${(arquivo.size / 1024).toFixed(0)} KB`
                       : "Substitua escolhendo outro arquivo"}
@@ -296,7 +296,7 @@ export function EntradaForm({ campanhaId, open, onOpenChange, onSaved, entrada }
                 </Button>
               </div>
             )}
-            <p className="text-[10px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               JPG, PNG ou PDF. Máx 5 MB.
             </p>
           </div>

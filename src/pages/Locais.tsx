@@ -375,18 +375,18 @@ export default function Locais() {
                         <Badge variant="secondary">Inativo</Badge>
                       )}
                       {!l.permite_agendamento && (
-                        <Badge variant="outline" className="text-[10px]"><Lock className="w-3 h-3 mr-1"/>Sem agendamento</Badge>
+                        <Badge variant="outline" className="text-xs"><Lock className="w-3 h-3 mr-1"/>Sem agendamento</Badge>
                       )}
                       {l.acessibilidade && (
-                        <Badge variant="outline" className="text-[10px]"><Accessibility className="w-3 h-3 mr-1"/>Acessível</Badge>
+                        <Badge variant="outline" className="text-xs"><Accessibility className="w-3 h-3 mr-1"/>Acessível</Badge>
                       )}
                     </div>
                     <div className="flex flex-wrap gap-1 mt-1.5">
-                      {l.predio && <Badge variant="outline" className="text-[10px]">{labelOf(PREDIOS, l.predio)}</Badge>}
-                      {l.pavimento && <Badge variant="outline" className="text-[10px]">{labelOf(PAVIMENTOS, l.pavimento)}</Badge>}
-                      {l.ambiente && <Badge variant="outline" className="text-[10px]">{labelOf(AMBIENTES, l.ambiente)}</Badge>}
-                      {l.uso_principal && <Badge className="text-[10px]">{labelOf(USOS, l.uso_principal)}</Badge>}
-                      {l.localizacao_interna && <Badge variant="outline" className="text-[10px]">{labelOf(LOC_INTERNAS, l.localizacao_interna)}</Badge>}
+                      {l.predio && <Badge variant="outline" className="text-xs">{labelOf(PREDIOS, l.predio)}</Badge>}
+                      {l.pavimento && <Badge variant="outline" className="text-xs">{labelOf(PAVIMENTOS, l.pavimento)}</Badge>}
+                      {l.ambiente && <Badge variant="outline" className="text-xs">{labelOf(AMBIENTES, l.ambiente)}</Badge>}
+                      {l.uso_principal && <Badge className="text-xs">{labelOf(USOS, l.uso_principal)}</Badge>}
+                      {l.localizacao_interna && <Badge variant="outline" className="text-xs">{labelOf(LOC_INTERNAS, l.localizacao_interna)}</Badge>}
                     </div>
                     <div className="flex flex-wrap gap-3 mt-2 text-xs text-muted-foreground">
                       {l.capacidade != null && (
@@ -450,7 +450,7 @@ export default function Locais() {
                 value={form.nome}
                 onChange={(e) => setForm({ ...form, nome: e.target.value })}
               />
-              <p className="text-[11px] text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Nome completo: <strong>{form.nome || "—"}{form.pavimento ? " - " + labelOf(PAVIMENTOS, form.pavimento) : ""}{form.localizacao_interna ? " - " + labelOf(LOC_INTERNAS, form.localizacao_interna) : ""}</strong>
               </p>
             </div>
@@ -575,7 +575,7 @@ export default function Locais() {
                   </label>
                 ))}
               </div>
-              <p className="text-[11px] text-muted-foreground mt-1">Vazio = aceita qualquer tipo.</p>
+              <p className="text-xs text-muted-foreground mt-1">Vazio = aceita qualquer tipo.</p>
             </div>
 
             <div>

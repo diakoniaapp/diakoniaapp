@@ -2,10 +2,16 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Loader2, AlertCircle, Clock, ArrowRight } from "lucide-react";
 import { buscarMeusAssuntos, type MeusAssuntosResposta, PRIORIDADE_ICONE } from "@/services/assuntosService";
+import { useReportarVazio } from "@/components/hoje/vazio";
 
 export function MeusAssuntos() {
   const [data, setData] = useState<MeusAssuntosResposta | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Faixa do HOJE desaparece quando não há tarefa sob responsabilidade.
+  useReportarVazio(
+    loading || !data || (data.total_abertos + data.total_atrasados) === 0
+  );
 
   useEffect(() => {
     buscarMeusAssuntos()
@@ -67,7 +73,7 @@ export function MeusAssuntos() {
             </span>
             <span className="flex-1 truncate">{a.titulo}</span>
             <span className={
-              "text-[10px] tabular-nums shrink-0 " +
+              "text-xs tabular-nums shrink-0 " +
               (a.situacao === "atrasado" ? "text-rose-600 font-semibold" :
                a.situacao === "vence_breve" ? "text-amber-700" : "text-muted-foreground")
             }>

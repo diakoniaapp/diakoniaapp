@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { useAuth } from "@/hooks/useAuth";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -77,7 +78,10 @@ export default function ExportacaoAdmin() {
   const navigate = useNavigate();
 
   // Filtros de exportação
-  const [filtroTipo, setFiltroTipo] = useState<string>("todos");
+  // Tipado a partir do enum real: `string` deixava passar valores que a
+  // coluna tipo_pessoa rejeita.
+  const [filtroTipo, setFiltroTipo] =
+    useState<Database["public"]["Enums"]["tipo_pessoa"] | "todos">("todos");
   const [filtroMinist, setFiltroMinist] = useState<string>("todos");
   const [camposSel, setCamposSel] = useState<string[]>(["nome_completo","email","telefone","tipo_pessoa","status"]);
   const [ministerios, setMinerios] = useState<Ministerio[]>([]);
@@ -216,7 +220,7 @@ export default function ExportacaoAdmin() {
           <ShieldCheck className="w-4 h-4 text-gold mt-0.5 shrink-0" />
           <div>
             <p className="text-xs font-medium text-gold">Área protegida — LGPD</p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
+            <p className="text-xs text-muted-foreground mt-0.5">
               Toda exportação exige confirmação de senha e é registrada em log auditável.
               Dados sensíveis estão marcados com 🔒.
             </p>
@@ -235,7 +239,10 @@ export default function ExportacaoAdmin() {
             <CardContent className="space-y-4">
               <div>
                 <Label>Tipo de pessoa</Label>
-                <Select value={filtroTipo} onValueChange={setFiltroTipo}>
+                <Select
+                  value={filtroTipo}
+                  onValueChange={(v) => setFiltroTipo(v as typeof filtroTipo)}
+                >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="todos">Todos</SelectItem>
@@ -345,7 +352,7 @@ export default function ExportacaoAdmin() {
                     <div className="flex items-center gap-2 text-xs shrink-0">
                       <Users className="w-3 h-3 text-muted-foreground" />
                       <span>{log.total_registros} registros</span>
-                      <Badge variant="outline" className="text-[10px]">{log.formato}</Badge>
+                      <Badge variant="outline" className="text-xs">{log.formato}</Badge>
                     </div>
                   </div>
                 ))}

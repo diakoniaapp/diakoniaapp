@@ -103,11 +103,9 @@ export default function FinancasRelatorio() {
       {/* Barra de controles */}
       <div className="no-print sticky top-0 z-10 bg-card border-b">
         <div className="max-w-5xl mx-auto px-4 py-2 flex items-center gap-2 flex-wrap">
-          <Link to="/financas">
-            <Button variant="ghost" size="sm" className="gap-1.5">
+          <Button asChild variant="ghost" size="sm" className="gap-1.5"><Link to="/financas">
               <ArrowLeft className="w-3.5 h-3.5" /> Voltar
-            </Button>
-          </Link>
+            </Link></Button>
           <div className="flex items-center gap-1">
             <Button size="sm" variant="outline" onClick={() => navegarMes(-1)}>
               <ChevronLeft className="w-3.5 h-3.5" />
@@ -142,12 +140,12 @@ export default function FinancasRelatorio() {
               }} draggable={false} />
             <div>
               <h2 className="font-serif text-lg leading-tight">Diakonia APP — Sistema de Igrejas</h2>
-              <p className="text-[11px] text-muted-foreground mt-0.5 tracking-[0.12em] uppercase">
+              <p className="text-xs text-muted-foreground mt-0.5 tracking-[0.12em] uppercase">
                 Conectando pessoas, organizando o propósito
               </p>
             </div>
           </div>
-          <div className="text-right text-[11px] text-muted-foreground space-y-0.5">
+          <div className="text-right text-xs text-muted-foreground space-y-0.5">
             <p>Emitido em <strong className="text-foreground">{hojeBr}</strong> às {horaBr}</p>
             <p>Por <strong className="text-foreground">{emitidoPor}</strong></p>
           </div>
@@ -155,25 +153,25 @@ export default function FinancasRelatorio() {
 
         {/* Título */}
         <div className="text-center my-6 avoid-break">
-          <p className="text-[10px] tracking-[0.25em] uppercase text-gold">Movimento contábil — Malote</p>
+          <p className="text-xs tracking-[0.25em] uppercase text-gold">Movimento contábil — Malote</p>
           <h1 className="font-serif text-3xl mt-2">{MESES[mes - 1]} {ano}</h1>
           <p className="text-xs text-muted-foreground mt-1">{resumo.qtdLancamentos} lançamentos · realizados/conciliados</p>
         </div>
 
         {/* DRE Simplificada */}
         <section className="avoid-break mb-6 p-5 rounded-md bg-gradient-verse border border-gold/30">
-          <h3 className="text-[10px] uppercase tracking-wide text-gold mb-2 text-center">Demonstrativo</h3>
+          <h3 className="text-xs uppercase tracking-wide text-gold mb-2 text-center">Demonstrativo</h3>
           <div className="grid grid-cols-3 gap-3 text-center">
             <div>
-              <p className="text-[10px] uppercase text-emerald-700 flex items-center justify-center gap-1"><TrendingUp className="w-3 h-3" /> Entradas</p>
+              <p className="text-xs uppercase text-emerald-700 flex items-center justify-center gap-1"><TrendingUp className="w-3 h-3" /> Entradas</p>
               <p className="text-xl font-semibold text-emerald-700 tabular-nums">{brl(resumo.totalEntradas)}</p>
             </div>
             <div>
-              <p className="text-[10px] uppercase text-rose-700 flex items-center justify-center gap-1"><TrendingDown className="w-3 h-3" /> Saídas</p>
+              <p className="text-xs uppercase text-rose-700 flex items-center justify-center gap-1"><TrendingDown className="w-3 h-3" /> Saídas</p>
               <p className="text-xl font-semibold text-rose-700 tabular-nums">{brl(resumo.totalSaidas)}</p>
             </div>
             <div>
-              <p className="text-[10px] uppercase text-gold flex items-center justify-center gap-1"><DollarSign className="w-3 h-3" /> Resultado</p>
+              <p className="text-xs uppercase text-gold flex items-center justify-center gap-1"><DollarSign className="w-3 h-3" /> Resultado</p>
               <p className={`text-xl font-semibold tabular-nums ${resumo.resultado >= 0 ? "text-emerald-700" : "text-rose-700"}`}>
                 {resumo.resultado >= 0 ? "+" : ""}{brl(resumo.resultado)}
               </p>
@@ -220,7 +218,7 @@ export default function FinancasRelatorio() {
         {resumo.lancamentos.length > 0 && (
           <section className="mb-6">
             <h3 className="font-serif text-base mb-2 text-gold">Lançamentos detalhados</h3>
-            <table className="w-full text-[10px] border-collapse">
+            <table className="w-full text-xs border-collapse">
               <thead>
                 <tr className="border-b-2 border-gold/40 text-left">
                   <th className="py-1 pr-1 w-12">Data</th>
@@ -249,7 +247,7 @@ export default function FinancasRelatorio() {
               </tbody>
               <tfoot>
                 <tr className="border-t-2 border-gold/40 font-semibold">
-                  <td colSpan={6} className="py-2 text-right uppercase text-[10px] tracking-wide pr-2">Movimento líquido</td>
+                  <td colSpan={6} className="py-2 text-right uppercase text-xs tracking-wide pr-2">Movimento líquido</td>
                   <td className={`py-2 text-right tabular-nums ${resumo.resultado >= 0 ? "text-emerald-700" : "text-rose-700"}`}>
                     {resumo.resultado >= 0 ? "+" : ""}{brl(resumo.resultado)}
                   </td>
@@ -265,13 +263,13 @@ export default function FinancasRelatorio() {
             <div>
               <div className="border-t border-foreground/60 pt-1 mx-4">
                 <p className="font-medium">Tesouraria</p>
-                <p className="text-muted-foreground text-[10px]">Responsável pela conta</p>
+                <p className="text-muted-foreground text-xs">Responsável pela conta</p>
               </div>
             </div>
             <div>
               <div className="border-t border-foreground/60 pt-1 mx-4">
                 <p className="font-medium">Conselho Fiscal</p>
-                <p className="text-muted-foreground text-[10px]">Confere e aprova</p>
+                <p className="text-muted-foreground text-xs">Confere e aprova</p>
               </div>
             </div>
           </div>
@@ -282,7 +280,7 @@ export default function FinancasRelatorio() {
           <p className="text-xs italic text-muted-foreground font-serif">
             "Tudo, porém, deve ser feito com decência e ordem."
           </p>
-          <p className="text-[10px] text-gold tracking-wide mt-1">1 Coríntios 14:40</p>
+          <p className="text-xs text-gold tracking-wide mt-1">1 Coríntios 14:40</p>
         </footer>
       </div>
     </div>
@@ -298,7 +296,7 @@ function CategoriasBox({ titulo, itens, cor, total }: {
   const corClass = cor === "emerald" ? "text-emerald-700" : "text-rose-700";
   return (
     <div>
-      <h4 className={`text-[11px] uppercase tracking-wider mb-2 font-medium ${corClass}`}>{titulo}</h4>
+      <h4 className={`text-xs uppercase tracking-wider mb-2 font-medium ${corClass}`}>{titulo}</h4>
       <table className="w-full text-xs">
         <tbody>
           {itens.length === 0 ? (
@@ -315,7 +313,7 @@ function CategoriasBox({ titulo, itens, cor, total }: {
         </tbody>
         <tfoot>
           <tr className="border-t-2 border-gold/40 font-semibold">
-            <td className="pt-1.5 text-[10px] uppercase tracking-wide">Total</td>
+            <td className="pt-1.5 text-xs uppercase tracking-wide">Total</td>
             <td className={`pt-1.5 text-right tabular-nums ${corClass}`}>{brl(total)}</td>
           </tr>
         </tfoot>

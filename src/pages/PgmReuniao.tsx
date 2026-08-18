@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   ArrowLeft, Users, Loader2, Camera, FileImage, X, Check, FileText, Trash2,
-  UserPlus, Trash2, Save, BookOpen, MessageCircle, Calendar,
+  UserPlus, Save, BookOpen, MessageCircle, Calendar,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -194,9 +194,7 @@ export default function PgmReuniaoPage() {
     <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-4 pb-32">
       {/* Cabeçalho */}
       <div className="flex items-center gap-2">
-        <Link to={`/pgm/${grupoId}`}>
-          <Button variant="ghost" size="icon"><ArrowLeft className="w-4 h-4" /></Button>
-        </Link>
+        <Button asChild variant="ghost" size="icon"><Link to={`/pgm/${grupoId}`}><ArrowLeft className="w-4 h-4" /></Link></Button>
         <div className="flex-1 min-w-0">
           <h1 className="font-serif text-xl flex items-center gap-2 truncate">
             <Calendar className="w-5 h-5 text-gold" />
@@ -205,11 +203,9 @@ export default function PgmReuniaoPage() {
           {grupo && <p className="text-xs text-muted-foreground">{grupo.nome}</p>}
         </div>
         <div className="flex items-center gap-1.5 flex-wrap justify-end">
-          <Link to={`/pgm/${grupoId}/reuniao/${reuniaoId}/relatorio`}>
-            <Button variant="outline" size="sm" className="gap-1.5">
+          <Button asChild variant="outline" size="sm" className="gap-1.5"><Link to={`/pgm/${grupoId}/reuniao/${reuniaoId}/relatorio`}>
               <FileText className="w-3.5 h-3.5" /> Relatório
-            </Button>
-          </Link>
+            </Link></Button>
           <Button variant="outline" size="sm" onClick={() => setConfirmDelete(true)}
             className="gap-1.5 text-destructive hover:text-destructive">
             <Trash2 className="w-3.5 h-3.5" /> Excluir
@@ -226,7 +222,7 @@ export default function PgmReuniaoPage() {
           <div>
             <Label className="text-xs">Data do encontro</Label>
             <Input type="date" value={dataEditavel} onChange={(e) => setDataEditavel(e.target.value)} />
-            <p className="text-[10px] text-muted-foreground mt-0.5">
+            <p className="text-xs text-muted-foreground mt-0.5">
               Pode ajustar caso o registro tenha sido feito em outra data.
             </p>
           </div>
@@ -277,7 +273,7 @@ export default function PgmReuniaoPage() {
                   className="hidden" onChange={onFotoChange} disabled={busy} />
                 <div className="flex flex-col items-center gap-1 border-2 border-dashed rounded-md p-3 hover:border-gold/40 hover:bg-muted/30 transition-colors">
                   <Camera className="w-5 h-5 text-muted-foreground" />
-                  <span className="text-[11px] font-medium">Tirar foto</span>
+                  <span className="text-xs font-medium">Tirar foto</span>
                 </div>
               </label>
               <label className="cursor-pointer">
@@ -285,7 +281,7 @@ export default function PgmReuniaoPage() {
                   className="hidden" onChange={onFotoChange} disabled={busy} />
                 <div className="flex flex-col items-center gap-1 border-2 border-dashed rounded-md p-3 hover:border-gold/40 hover:bg-muted/30 transition-colors">
                   <FileImage className="w-5 h-5 text-muted-foreground" />
-                  <span className="text-[11px] font-medium">Galeria</span>
+                  <span className="text-xs font-medium">Galeria</span>
                 </div>
               </label>
             </div>
@@ -328,7 +324,7 @@ export default function PgmReuniaoPage() {
                     </div>
                     <span className="font-medium">{p.nome_completo ?? "—"}</span>
                     {p.papel && p.papel !== "participante" && (
-                      <Badge variant="outline" className="text-[9px]">{PAPEL_LABEL[p.papel]}</Badge>
+                      <Badge variant="outline" className="text-xs">{PAPEL_LABEL[p.papel]}</Badge>
                     )}
                   </span>
                 </button>
@@ -361,7 +357,7 @@ export default function PgmReuniaoPage() {
                 <div key={v.id} className="flex items-center justify-between border rounded-md px-3 py-1.5 text-sm">
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">{v.nome}</p>
-                    <p className="text-[11px] text-muted-foreground truncate">
+                    <p className="text-xs text-muted-foreground truncate">
                       {[v.telefone, v.bairro].filter(Boolean).join(" · ") || "—"}
                     </p>
                   </div>

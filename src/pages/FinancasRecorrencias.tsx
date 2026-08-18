@@ -63,9 +63,7 @@ export default function FinancasRecorrencias() {
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-4">
       <div className="flex items-center gap-2">
-        <Link to="/financas">
-          <Button variant="ghost" size="icon"><ArrowLeft className="w-4 h-4" /></Button>
-        </Link>
+        <Button asChild variant="ghost" size="icon"><Link to="/financas"><ArrowLeft className="w-4 h-4" /></Link></Button>
         <div className="flex-1">
           <h1 className="font-serif text-xl flex items-center gap-2">
             <RotateCw className="w-5 h-5 text-gold" /> Recorrências
@@ -104,10 +102,10 @@ export default function FinancasRecorrencias() {
                 <div className="min-w-0 flex-1">
                   <p className="font-medium text-sm truncate flex items-center gap-1.5">
                     {r.descricao}
-                    {!r.ativo && <Badge variant="outline" className="text-[9px] bg-amber-50 text-amber-700 border-amber-300">Inativa</Badge>}
-                    {r.valor_variavel && <Badge variant="outline" className="text-[9px]">variável</Badge>}
+                    {!r.ativo && <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-300">Inativa</Badge>}
+                    {r.valor_variavel && <Badge variant="outline" className="text-xs">variável</Badge>}
                   </p>
-                  <p className="text-[10px] text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     {FREQUENCIA_LABEL[r.frequencia]} · todo dia {r.dia_vencimento}
                   </p>
                 </div>

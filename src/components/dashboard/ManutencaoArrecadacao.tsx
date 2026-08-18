@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Loader2, AlertCircle, Wrench, ArrowRight, AlertTriangle } from "lucide-react";
 import { carregarResumoManutencao, type ResumoManutencao } from "@/services/arrecadacaoService";
+import { useReportarVazio } from "@/components/hoje/vazio";
 
 const CAT_ICONE: Record<string, string> = {
   eletrico: "🔌", hidraulico: "🚿", eletrodomestico: "🏠",
@@ -12,6 +13,11 @@ const CAT_ICONE: Record<string, string> = {
 export function ManutencaoArrecadacao() {
   const [data, setData] = useState<ResumoManutencao | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Faixa do HOJE desaparece quando não há problema reportado.
+  useReportarVazio(
+    loading || !data || (data.total_aberto + data.total_andamento) === 0
+  );
 
   useEffect(() => {
     carregarResumoManutencao().then(setData)
@@ -57,7 +63,7 @@ export function ManutencaoArrecadacao() {
       {data.por_categoria.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {data.por_categoria.slice(0, 6).map(c => (
-            <span key={c.categoria} className="px-1.5 py-0.5 rounded bg-muted text-[10px]">
+            <span key={c.categoria} className="px-1.5 py-0.5 rounded bg-muted text-xs">
               {CAT_ICONE[c.categoria] ?? "🔧"} {c.categoria} ({c.qtd})
             </span>
           ))}
@@ -67,14 +73,14 @@ export function ManutencaoArrecadacao() {
       {/* Recorrentes */}
       {data.recorrentes.length > 0 && (
         <div className="border-l-2 border-amber-400 pl-2">
-          <div className="text-[10px] uppercase tracking-wide text-muted-foreground flex items-center gap-1">
+          <div className="text-xs uppercase tracking-wide text-muted-foreground flex items-center gap-1">
             <AlertTriangle className="w-3 h-3 text-amber-600" /> Recorrentes (180 dias)
           </div>
           <ul className="text-xs mt-1 space-y-0.5">
             {data.recorrentes.slice(0, 3).map((r, i) => (
               <li key={i} className="flex items-center gap-2">
                 <span className="font-medium flex-1 truncate">{r.titulo}</span>
-                <span className="text-rose-600 text-[10px]">{r.qtd}×</span>
+                <span className="text-rose-600 text-xs">{r.qtd}×</span>
               </li>
             ))}
           </ul>

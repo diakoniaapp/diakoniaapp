@@ -5,7 +5,7 @@
 // ============================================================
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, supabaseRel } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -90,17 +90,13 @@ const NIVEL_COR: Record<string, string> = {
   diacono:    "border-amber-300 bg-amber-50",
 };
 
+// Mesma regra da EstruturaDaIgreja: foto sim, iniciais nao.
 function AvatarPessoa({ nome, foto, size = "sm" }: { nome: string; foto?: string | null; size?: "sm" | "md" }) {
-  const sz = size === "sm" ? "w-7 h-7 text-[10px]" : "w-10 h-10 text-xs";
-  const iniciais = nome.split(" ").slice(0, 2).map(n => n[0]).join("").toUpperCase();
-  if (foto) return (
+  if (!foto) return null;
+  const sz = size === "sm" ? "w-7 h-7 text-xs" : "w-10 h-10 text-xs";
+  return (
     <img src={foto} alt={nome}
       className={`${sz} rounded-full object-cover border border-border shrink-0`} />
-  );
-  return (
-    <div className={`${sz} rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center shrink-0 border border-primary/20`}>
-      {iniciais}
-    </div>
   );
 }
 
@@ -118,7 +114,7 @@ function PessoaPill({ id, nome, foto, funcao, onClick }: {
       <AvatarPessoa nome={nome} foto={foto} size="sm" />
       <span className="font-medium truncate max-w-[80px]">{primeiroNome}</span>
       {funcao && (
-        <Badge variant="outline" className="text-[9px] h-3.5 px-1 hidden sm:flex">
+        <Badge variant="outline" className="text-xs h-3.5 px-1 hidden sm:flex">
           {funcao}
         </Badge>
       )}
@@ -145,16 +141,16 @@ function MinisterioNode({ min, onClick }: { min: Ministerio; onClick: (id: strin
           <span className="font-medium text-sm">{min.nome}</span>
           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
             {min.lider && (
-              <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
                 <Crown className="w-2.5 h-2.5" />
                 {min.lider.nome_completo.split(" ")[0]}
               </span>
             )}
-            <Badge variant="outline" className="text-[10px] h-4 px-1.5">
+            <Badge variant="outline" className="text-xs h-4 px-1.5">
               {min.membros_count} {min.membros_count === 1 ? "pessoa" : "pessoas"}
             </Badge>
             {min.areas.length > 0 && (
-              <Badge variant="outline" className="text-[10px] h-4 px-1.5">
+              <Badge variant="outline" className="text-xs h-4 px-1.5">
                 {min.areas.length} {min.areas.length === 1 ? "área" : "áreas"}
               </Badge>
             )}
@@ -173,7 +169,7 @@ function MinisterioNode({ min, onClick }: { min: Ministerio; onClick: (id: strin
           {/* Liderança */}
           {(min.lider || min.vice_lider) && (
             <div className="space-y-1.5">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Liderança</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Liderança</p>
               <div className="flex flex-wrap gap-2">
                 {min.lider && (
                   <PessoaPill id={min.lider.id} nome={min.lider.nome_completo}
@@ -190,7 +186,7 @@ function MinisterioNode({ min, onClick }: { min: Ministerio; onClick: (id: strin
           {/* Áreas */}
           {min.areas.length > 0 && (
             <div className="space-y-2">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Áreas</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Áreas</p>
               <div className="space-y-2">
                 {min.areas.map(area => (
                   <div key={area.id} className="rounded-lg border bg-background px-3 py-2 space-y-1.5">
@@ -205,7 +201,7 @@ function MinisterioNode({ min, onClick }: { min: Ministerio; onClick: (id: strin
                     {area.setores.length > 0 && (
                       <div className="ml-5 flex flex-wrap gap-1">
                         {area.setores.map(s => (
-                          <Badge key={s.id} variant="outline" className="text-[10px]">
+                          <Badge key={s.id} variant="outline" className="text-xs">
                             {s.nome}
                           </Badge>
                         ))}
@@ -220,7 +216,7 @@ function MinisterioNode({ min, onClick }: { min: Ministerio; onClick: (id: strin
           {/* Membros do ministério */}
           {min.membros.length > 0 && (
             <div className="space-y-1.5">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Pessoas ({min.membros.length})
               </p>
               <div className="flex flex-wrap gap-1.5">
@@ -229,7 +225,7 @@ function MinisterioNode({ min, onClick }: { min: Ministerio; onClick: (id: strin
                     funcao={m.funcao ?? undefined} onClick={onClick} />
                 ))}
                 {min.membros.length > 16 && (
-                  <span className="text-[11px] text-muted-foreground self-center">
+                  <span className="text-xs text-muted-foreground self-center">
                     +{min.membros.length - 16} mais
                   </span>
                 )}
@@ -274,6 +270,7 @@ export default function Organograma() {
       }
 
       // Diretoria estatutária
+      // TABELA AUSENTE EM PRODUCAO — ver migration 20260528_estrutura_organizacional.sql
       const { data: ce } = await supabase
         .from("pessoa_cargo_estatutario")
         .select("id,mandato,pessoa_id,cargos_estatutarios(nome,nivel),membros(nome_completo,foto_url)")
@@ -296,7 +293,7 @@ export default function Organograma() {
       setConselho((cv ?? []) as ConselhoMembro[]);
 
       // Ministérios com líderes
-      const { data: mins } = await supabase
+      const { data: mins } = await supabaseRel
         .from("ministerios")
         .select(`
           id, nome, sigla, cor, tipo,
@@ -308,19 +305,20 @@ export default function Organograma() {
         .order("nome");
 
       // Áreas com líderes
-      const { data: allAreas } = await supabase
+      const { data: allAreas } = await supabaseRel
         .from("areas")
         .select("id,ministerio_id,nome,lider:membros(id,nome_completo,foto_url)")
         .eq("ativo", true);
 
       // Setores
+      // TABELA AUSENTE EM PRODUCAO — ver migration 20260528_estrutura_organizacional.sql
       const { data: allSetores } = await supabase
         .from("setores")
         .select("id,area_id,nome,lider:membros(id,nome_completo,foto_url)")
         .eq("ativo", true);
 
       // Membros por ministério
-      const { data: membMin } = await supabase
+      const { data: membMin } = await supabaseRel
         .from("ministerio_membros")
         .select("ministerio_id,funcao,membros(id,nome_completo)")
         .eq("ativo", true);
@@ -490,7 +488,7 @@ export default function Organograma() {
                                 <div className="flex flex-wrap items-center gap-2 mb-1">
                                   <span className="text-sm font-semibold">{item.nome}</span>
                                   {item.base_institucional && (
-                                    <span className="text-[10px] bg-gold/10 text-gold border border-gold/20 px-1.5 py-0.5 rounded">
+                                    <span className="text-xs bg-gold/10 text-gold border border-gold/20 px-1.5 py-0.5 rounded">
                                       📄 {item.base_institucional}
                                     </span>
                                   )}
@@ -499,7 +497,7 @@ export default function Organograma() {
                                   <p className="text-xs text-muted-foreground">{item.descricao}</p>
                                 )}
                                 {item.responsabilidades && (
-                                  <p className="text-[11px] text-muted-foreground/80 mt-1 line-clamp-2">
+                                  <p className="text-xs text-muted-foreground/80 mt-1 line-clamp-2">
                                     {item.responsabilidades}
                                   </p>
                                 )}
@@ -581,7 +579,7 @@ export default function Organograma() {
                               <p className="font-medium text-sm truncate">{d.pessoa_nome}</p>
                               <p className="text-xs text-purple-700">{d.cargo}</p>
                               {d.mandato && (
-                                <p className="text-[10px] text-muted-foreground">Mandato {d.mandato}</p>
+                                <p className="text-xs text-muted-foreground">Mandato {d.mandato}</p>
                               )}
                             </div>
                           </button>
@@ -624,7 +622,7 @@ export default function Organograma() {
                   };
                   return (
                     <div key={tipo}>
-                      <h3 className={`text-[10px] font-semibold uppercase tracking-wider mb-2 px-1 ${
+                      <h3 className={`text-xs font-semibold uppercase tracking-wider mb-2 px-1 ${
                         tipo === "diretoria" ? "text-purple-600" :
                         tipo === "ministerio" ? "text-blue-600" :
                         tipo === "area" ? "text-green-600" : "text-amber-600"
@@ -641,7 +639,7 @@ export default function Organograma() {
                             <AvatarPessoa nome={c.nome_completo} foto={c.foto_url} size="sm" />
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium truncate">{c.nome_completo}</p>
-                              <p className="text-[11px] text-muted-foreground truncate">
+                              <p className="text-xs text-muted-foreground truncate">
                                 {c.cargo}
                                 {c.ministerio_nome ? ` · ${c.ministerio_nome}` : ""}
                               </p>

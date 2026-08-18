@@ -117,6 +117,7 @@ export default function Convite() {
 
         <form onSubmit={aceitar} className="space-y-4">
           <AuthCampo
+            id="telefone"
             label="Telefone (login)"
             type="text"
             value={dados.telefone ?? ""}
@@ -126,6 +127,7 @@ export default function Convite() {
           />
 
           <AuthCampo
+            id="senha"
             label="Crie sua senha"
             type={verSenha ? "text" : "password"}
             value={senha}
@@ -141,6 +143,7 @@ export default function Convite() {
           />
 
           <AuthCampo
+            id="confirmar-senha"
             label="Confirme a senha"
             type={verSenha ? "text" : "password"}
             value={conf}

@@ -146,11 +146,19 @@ export default function PainelEstrategico() {
   // ── Funil ─────────────────────────────────────────────────────────────────
 
   const funil = useMemo(() => {
-    const max = Math.max(visitantes.length, 1);
+    // A base e o MAIOR dos tres, nao o numero de visitantes.
+    //
+    // O calculo antigo dividia tudo por visitantes.length, supondo um funil de
+    // verdade — cada etapa contida na anterior. Com os dados reais da igreja
+    // isso e falso: ha 2 visitantes e 154 congregados, porque congregado nao
+    // veio necessariamente daqueles 2; a maioria foi cadastrada direto.
+    // Resultado: pct de Congregados dava (154/2)*100 = 7700.
+    const base = Math.max(visitantes.length, congregados.length, membros.length, 1);
+    const proporcao = (n: number) => Math.min(100, Math.max(0, (n / base) * 100));
     return [
-      { label: "Visitantes",  count: visitantes.length,  pct: 100,                                    cor: "bg-primary/80",  corText: "text-primary"  },
-      { label: "Congregados", count: congregados.length, pct: (congregados.length / max) * 100,        cor: "bg-success/70",  corText: "text-success"  },
-      { label: "Membros",     count: membros.length,     pct: (membros.length / max) * 100,            cor: "bg-gold/80",     corText: "text-gold"     },
+      { label: "Visitantes",  count: visitantes.length,  pct: proporcao(visitantes.length),  cor: "bg-primary/80",  corText: "text-primary"  },
+      { label: "Congregados", count: congregados.length, pct: proporcao(congregados.length), cor: "bg-success/70",  corText: "text-success"  },
+      { label: "Membros",     count: membros.length,     pct: proporcao(membros.length),     cor: "bg-gold/80",     corText: "text-gold"     },
     ];
   }, [visitantes, congregados, membros]);
 
@@ -308,9 +316,15 @@ export default function PainelEstrategico() {
                     {i > 0 && (
                       <div className="flex justify-center text-muted-foreground/30 text-xs my-1">▼</div>
                     )}
+                    {/* `width` centralizado, e nao margem negativa dos dois lados.
+                        Margem negativa nao tem teto: com pct = 7700 a barra
+                        virava um bloco de 22.176px dentro de um cartao de 288px,
+                        e o defeito de calculo virava defeito de layout. Largura
+                        em porcentagem e limitada pelo proprio pai — um valor
+                        absurdo no maximo enche a barra, nao estoura a tela. */}
                     <div
-                      className={`rounded-md px-3 py-2 flex items-center justify-between gap-2 ${f.cor}`}
-                      style={{ marginLeft: `${(100 - Math.max(f.pct, 20)) / 2}%`, marginRight: `${(100 - Math.max(f.pct, 20)) / 2}%` }}
+                      className={`rounded-md px-3 py-2 flex items-center justify-between gap-2 mx-auto ${f.cor}`}
+                      style={{ width: `${Math.max(f.pct, 20)}%` }}
                     >
                       <span className="text-xs font-medium text-white/90 truncate" translate="no">{f.label}</span>
                       <span className="text-sm font-bold text-white shrink-0">{f.count}</span>
@@ -318,10 +332,24 @@ export default function PainelEstrategico() {
                   </div>
                 ))
               )}
+              {/* A frase de conversao so faz sentido se os congregados tiverem
+                  vindo daqueles visitantes. Hoje ha 2 visitantes e 154
+                  congregados — a maioria cadastrada direto — e a tela chegava a
+                  exibir "7700% dos visitantes se tornaram congregados" para o
+                  pastor. Numero impossivel nao informa: informa errado. Quando a
+                  razao passa de 100%, mostramos o que de fato se sabe. */}
               {!loading && visitantes.length > 0 && (
-                <p className="text-[10px] text-muted-foreground text-center pt-1" translate="no">
-                  {fmtPct((congregados.length / visitantes.length) * 100)} dos visitantes se tornaram congregados
-                </p>
+                congregados.length <= visitantes.length ? (
+                  <p className="text-xs text-muted-foreground text-center pt-1" translate="no">
+                    {fmtPct((congregados.length / visitantes.length) * 100)} dos visitantes se tornaram congregados
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground text-center pt-1" translate="no">
+                    Barras proporcionais ao maior grupo. A maioria dos congregados
+                    não veio dos visitantes cadastrados, então não há taxa de
+                    conversão a calcular.
+                  </p>
+                )
               )}
             </CardContent>
           </Card>
@@ -432,7 +460,15 @@ function IndicadorCard({ icon, label, sub, valor, cor }: {
       <CardContent className="p-5">
         <div className="flex items-start justify-between">
           <div className="flex-1 min-w-0">
-            <p translate="no" className="text-xs tracking-wider uppercase text-muted-foreground truncate">{label}</p>
+            {/* Sem uppercase, sem tracking-wider, sem truncate.
+                Em dois cartoes por linha no celular sobram ~75px para o
+                rotulo depois do icone, e "NOVOS VISITANTES" em caixa alta
+                com tracking-wider precisa de ~130px — virava "NOVOS VI...",
+                que nao diz nada. Caixa alta e a forma mais larga do mesmo
+                texto e ainda por cima e a mais dificil de ler; deixando
+                quebrar em duas linhas o rotulo cabe inteiro. A grade iguala
+                a altura das linhas, entao os cartoes continuam alinhados. */}
+            <p translate="no" className="text-xs text-muted-foreground leading-tight">{label}</p>
             {valor === null ? (
               <Skeleton className="h-9 w-16 mt-2" />
             ) : (
@@ -440,7 +476,14 @@ function IndicadorCard({ icon, label, sub, valor, cor }: {
             )}
             <p translate="no" className="text-xs text-muted-foreground mt-1">{sub}</p>
           </div>
-          <div className={`w-10 h-10 rounded-md flex items-center justify-center shrink-0 ${bgMap[cor]} ${corMap[cor]}`}>
+          {/* O quadradinho do icone so a partir de sm.
+              No celular sao dois cartoes por linha, 161px cada: o icone
+              levava 40px mais espacamento de uma largura util de 121px, e
+              sobravam 79px para o rotulo. Ele nao acrescenta nada que o
+              rotulo nao diga — um coracao ao lado de "Novos membros" nao
+              informa; so disputa a largura. No desktop, onde sobra espaco,
+              ele fica. */}
+          <div className={`hidden sm:flex w-10 h-10 rounded-md items-center justify-center shrink-0 ${bgMap[cor]} ${corMap[cor]}`}>
             {icon}
           </div>
         </div>
@@ -484,7 +527,7 @@ function PontoGrupo({ label, cor, items }: {
         {items.map((item, i) => (
           <li key={i} className="flex items-start justify-between gap-2 text-xs">
             <span className="font-medium truncate">{item.nome}</span>
-            <Badge variant="outline" className={`text-[10px] h-4 px-1.5 shrink-0 whitespace-nowrap ${corBadge}`}>
+            <Badge variant="outline" className={`text-xs h-4 px-1.5 shrink-0 whitespace-nowrap ${corBadge}`}>
               {item.detalhe}
             </Badge>
           </li>

@@ -49,6 +49,11 @@ function evChipCls(o: EventoOcorrencia) {
   return o.evento.status === "cancelado" ? "opacity-60" : "";
 }
 
+/** Evento com horario marcado — o resto e do dia inteiro e nao precisa dizer. */
+function temHora(o: EventoOcorrencia) {
+  return !!o.evento.hora_inicio;
+}
+
 function timeRange(o: EventoOcorrencia) {
   const hi = o.evento.hora_inicio?.slice(0, 5);
   const hf = o.evento.hora_fim?.slice(0, 5);
@@ -182,7 +187,7 @@ export function MonthView({
                         e.stopPropagation();
                         onEventClick(o);
                       }}
-                      className={cn("w-full text-left truncate text-[11px] px-1.5 py-0.5 rounded", evChipCls(o))}
+                      className={cn("w-full text-left truncate text-xs px-1.5 py-0.5 rounded", evChipCls(o))}
                       style={chipStyles(color, o.evento.status === "cancelado")}
                     >
                       {o.evento.hora_inicio?.slice(0, 5)} {o.evento.titulo}
@@ -190,7 +195,7 @@ export function MonthView({
                   );
                 })}
                 {list.length > 3 && (
-                  <div className="text-[10px] text-muted-foreground px-1.5">+ {list.length - 3} mais</div>
+                  <div className="text-xs text-muted-foreground px-1.5">+ {list.length - 3} mais</div>
                 )}
               </div>
             </div>
@@ -224,7 +229,7 @@ function TimeGrid({ days, ocorrencias, colorBy, ministerios, onEventClick, onSlo
               key={d.toISOString()}
               className={cn("border-l border-b px-2 py-1.5 text-center", today && "bg-primary/5")}
             >
-              <div className="text-[10px] uppercase text-muted-foreground">{format(d, "EEE", { locale: ptBR })}</div>
+              <div className="text-xs uppercase text-muted-foreground">{format(d, "EEE", { locale: ptBR })}</div>
               <div
                 className={cn(
                   "inline-flex items-center justify-center w-7 h-7 rounded-full text-sm font-medium",
@@ -246,7 +251,7 @@ function TimeGrid({ days, ocorrencias, colorBy, ministerios, onEventClick, onSlo
           {HOURS.map((h) => (
             <div
               key={h}
-              className="h-12 border-b border-dashed text-[10px] text-muted-foreground pr-1 text-right pt-0.5"
+              className="h-12 border-b border-dashed text-xs text-muted-foreground pr-1 text-right pt-0.5"
             >
               {String(h).padStart(2, "0")}:00
             </div>
@@ -281,7 +286,7 @@ function TimeGrid({ days, ocorrencias, colorBy, ministerios, onEventClick, onSlo
                       onEventClick(o);
                     }}
                     className={cn(
-                      "absolute rounded-md p-1 text-left text-[11px] overflow-hidden",
+                      "absolute rounded-md p-1 text-left text-xs overflow-hidden",
                       "hover:shadow-md hover:z-20 transition-shadow z-10 border border-background/40",
                       evChipCls(o),
                     )}
@@ -344,8 +349,11 @@ export function ListView({ ocorrencias, colorBy, ministerios, onEventClick }: Co
           <div key={ymd}>
             <div className={cn("flex items-baseline gap-3 mb-2 pb-1.5 border-b", today && "border-primary")}>
               <span className={cn("text-2xl font-serif", today && "text-primary")}>{d.getDate()}</span>
-              <span className="text-sm text-muted-foreground capitalize">
-                {format(d, "EEEE, MMMM yyyy", { locale: ptBR })}
+              {/* first-letter:uppercase em vez de capitalize, pelo mesmo motivo
+                  do cabecalho: `capitalize` produzia "Quarta-Feira, Agosto 2026".
+                  E faltava o "de" — o formato dizia "agosto 2026". */}
+              <span className="text-sm text-muted-foreground first-letter:uppercase">
+                {format(d, "EEEE, MMMM 'de' yyyy", { locale: ptBR })}
               </span>
               {today && (
                 <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30">
@@ -375,21 +383,33 @@ export function ListView({ ocorrencias, colorBy, ministerios, onEventClick }: Co
                         {o.serieId && <RepeatIcon className="w-3 h-3 inline ml-1.5 opacity-60" />}
                       </div>
                       <div className="text-xs text-muted-foreground flex items-center gap-3 flex-wrap">
-                        <span className="inline-flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {timeRange(o)}
-                        </span>
+                        {/* Hora so quando ha hora. "Dia todo" aparecia nos 42
+                            itens da lista — aniversario, feriado e semana de
+                            oracao nao tem horario — e um rotulo presente em
+                            100% dos casos nao distingue nada. Sem hora escrita,
+                            o item ja e do dia inteiro. */}
+                        {temHora(o) && (
+                          <span className="inline-flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {timeRange(o)}
+                          </span>
+                        )}
                         {o.evento.local && (
                           <span className="inline-flex items-center gap-1">
                             <MapPin className="w-3 h-3" />
                             {formatLocal(o.evento.local)}
                           </span>
                         )}
-                        <Badge variant="outline" className="text-[10px] py-0">
-                          {TIPO_LABEL[o.evento.tipo]}
-                        </Badge>
+                        {/* Idem para o tipo: "Outro" e o valor de reserva, e
+                            estava nos mesmos 42 itens. Etiqueta so quando ela
+                            realmente diz de que tipo e o evento. */}
+                        {o.evento.tipo !== "outro" && (
+                          <Badge variant="outline" className="text-xs py-0">
+                            {TIPO_LABEL[o.evento.tipo]}
+                          </Badge>
+                        )}
                         {cancelado && (
-                          <Badge variant="outline" className="text-[10px] py-0 border-destructive text-destructive">
+                          <Badge variant="outline" className="text-xs py-0 border-destructive text-destructive">
                             Cancelado
                           </Badge>
                         )}

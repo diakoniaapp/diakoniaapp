@@ -28,3 +28,10 @@ dist-ssr
 *.sln
 *.sw?
 vite.config.ts.timestamp-*
+
+supabase/.temp/
+
+# Playwright — sessao contem token de acesso valido
+e2e/.sessao.json
+test-results/
+playwright-report/

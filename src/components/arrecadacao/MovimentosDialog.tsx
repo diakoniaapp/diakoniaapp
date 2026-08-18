@@ -112,7 +112,7 @@ export function MovimentosDialog({ open, onOpenChange, caixaId, onChange }: Prop
           </div>
         )}
         {resumo && resumo.saldo_virtual <= 0 && (
-          <p className="text-[10px] text-rose-700 -mt-2">
+          <p className="text-xs text-rose-700 -mt-2">
             ⚠ Saldo zerado. Não é possível registrar custos, reembolsos ou reversões enquanto não houver vendas.
           </p>
         )}
@@ -135,7 +135,7 @@ export function MovimentosDialog({ open, onOpenChange, caixaId, onChange }: Prop
             ) : movs.map(m => (
               <div key={m.id} className="border rounded-md p-2 text-xs">
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <Badge variant="outline" className={`text-[9px] ${TIPO_COR[m.tipo]}`}>
+                  <Badge variant="outline" className={`text-xs ${TIPO_COR[m.tipo]}`}>
                     {TIPO_LABEL[m.tipo]}
                   </Badge>
                   <span className="font-medium flex-1">{m.descricao}</span>
@@ -151,7 +151,7 @@ export function MovimentosDialog({ open, onOpenChange, caixaId, onChange }: Prop
                     <Trash2 className="w-3 h-3" />
                   </button>
                 </div>
-                <div className="text-[10px] text-muted-foreground mt-1 flex gap-2 flex-wrap">
+                <div className="text-xs text-muted-foreground mt-1 flex gap-2 flex-wrap">
                   <span>📅 {new Date(m.data_movimento + "T00:00").toLocaleDateString("pt-BR")}</span>
                   {m.beneficiario && <span>👤 {m.beneficiario.nome_completo}</span>}
                   {m.nf_numero && <span>📄 NF {m.nf_numero}{m.nf_serie ? `/${m.nf_serie}` : ""}</span>}
@@ -209,7 +209,7 @@ function FormCusto({ caixaId, onSaved }: { caixaId: string; onSaved: () => void 
   }
   return (
     <div className="space-y-3 mt-3 text-sm">
-      <p className="text-[10px] text-muted-foreground">
+      <p className="text-xs text-muted-foreground">
         Compra simples (sem NF necessária) que abate do saldo virtual. Use pra despesas miúdas do evento.
       </p>
       <Field label="Descrição *"><Input value={desc} onChange={e => setDesc(e.target.value)} placeholder="Ex: Caixa de água" /></Field>
@@ -259,7 +259,7 @@ function FormReembolso({ caixaId, onSaved }: { caixaId: string; onSaved: () => v
 
   return (
     <div className="space-y-3 mt-3 text-sm">
-      <p className="text-[10px] text-muted-foreground">
+      <p className="text-xs text-muted-foreground">
         A pessoa pagou do bolso. Esta operação <strong>gera fin_lancamentos automaticamente</strong>
         (saída da conta CNPJ) E debita o saldo virtual da área.
       </p>
@@ -323,7 +323,7 @@ function FormAbate({ caixaId, onSaved }: { caixaId: string; onSaved: () => void 
 
   return (
     <div className="space-y-3 mt-3 text-sm">
-      <p className="text-[10px] text-muted-foreground">
+      <p className="text-xs text-muted-foreground">
         Administração já comprou no cartão CNPJ (saída JÁ existe em fin_lancamentos).
         Esta operação <strong>só debita o saldo virtual da área</strong>. Sem nova saída bancária.
       </p>
@@ -341,7 +341,7 @@ function FormAbate({ caixaId, onSaved }: { caixaId: string; onSaved: () => void 
         </Select>
       </Field>
       {selecionado && (
-        <div className="border rounded-md p-2 text-[10px] bg-blue-50/30">
+        <div className="border rounded-md p-2 text-xs bg-blue-50/30">
           Valor do abate: <strong>{fmtBR(selecionado.valor)}</strong>
         </div>
       )}
@@ -377,7 +377,7 @@ function FormReversao({ caixaId, onSaved }: { caixaId: string; onSaved: () => vo
   }
   return (
     <div className="space-y-3 mt-3 text-sm">
-      <p className="text-[10px] text-muted-foreground">
+      <p className="text-xs text-muted-foreground">
         Devolve saldo virtual da área para a Administração. <strong>Não move dinheiro real</strong> —
         o dinheiro já está no CNPJ.
       </p>
@@ -394,7 +394,7 @@ function FormReversao({ caixaId, onSaved }: { caixaId: string; onSaved: () => vo
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1">
-      <Label className="text-[11px] text-muted-foreground">{label}</Label>
+      <Label className="text-xs text-muted-foreground">{label}</Label>
       {children}
     </div>
   );

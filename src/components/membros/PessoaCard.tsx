@@ -4,7 +4,7 @@
 // ============================================================
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, supabaseRel } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, User, Shield, Church, MapPin, Calendar, Star } from "lucide-react";
@@ -82,15 +82,6 @@ function calcularTempo(dataEntrada: string | null): string {
   return `${anos} ano${anos !== 1 ? "s" : ""}`;
 }
 
-function Inicial({ nome }: { nome: string }) {
-  const iniciais = nome.split(" ").slice(0, 2).map(n => n[0]).join("").toUpperCase();
-  return (
-    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-primary/40 flex items-center justify-center text-primary font-bold text-xl border-2 border-primary/20 shrink-0">
-      {iniciais}
-    </div>
-  );
-}
-
 // ── Componente Principal ──────────────────────────────────────
 
 interface PessoaCardProps {
@@ -120,6 +111,7 @@ export default function PessoaCard({ pessoaId, open, onClose }: PessoaCardProps)
       setPessoa(p ?? null);
 
       // Cargos estatutários
+      // TABELA AUSENTE EM PRODUCAO — ver migration 20260528_estrutura_organizacional.sql
       const { data: ce } = await supabase
         .from("pessoa_cargo_estatutario")
         .select("mandato, cargos_estatutarios(nome, nivel)")
@@ -132,11 +124,12 @@ export default function PessoaCard({ pessoaId, open, onClose }: PessoaCardProps)
       })));
 
       // Ministérios (via ministerio_membros legado + pessoa_participacao)
-      const { data: mm } = await supabase
+      const { data: mm } = await supabaseRel
         .from("ministerio_membros")
         .select("funcao, ministerios(nome, cor)")
         .eq("membro_id", pessoaId)
         .eq("ativo", true);
+      // TABELA AUSENTE EM PRODUCAO — ver migration 20260528_estrutura_organizacional.sql
       const { data: pp } = await supabase
         .from("pessoa_participacao")
         .select("funcao, ministerios(nome, cor)")
@@ -163,6 +156,7 @@ export default function PessoaCard({ pessoaId, open, onClose }: PessoaCardProps)
       setMinerios(uniqMin);
 
       // Áreas
+      // TABELA AUSENTE EM PRODUCAO — ver migration 20260528_estrutura_organizacional.sql
       const { data: pa } = await supabase
         .from("pessoa_participacao")
         .select("funcao, areas(nome, ministerios(nome))")
@@ -197,13 +191,14 @@ export default function PessoaCard({ pessoaId, open, onClose }: PessoaCardProps)
         ) : (
           <div className="space-y-5">
 
-            {/* Cabeçalho: foto + nome + status */}
+            {/* Cabeçalho: foto + nome + status.
+                Sem foto nao entra nada no lugar: as iniciais eram um
+                circulo de 64px repetindo a letra que ja esta no nome ao
+                lado. Foto de verdade identifica; duas letras nao. */}
             <div className="flex items-center gap-4">
-              {pessoa.foto_url ? (
+              {pessoa.foto_url && (
                 <img src={pessoa.foto_url} alt={pessoa.nome_completo}
                   className="w-16 h-16 rounded-full object-cover border-2 border-primary/20 shrink-0" />
-              ) : (
-                <Inicial nome={pessoa.nome_completo} />
               )}
               <div className="flex-1 min-w-0">
                 <h2 className="font-serif font-semibold text-base leading-tight truncate">
@@ -213,11 +208,11 @@ export default function PessoaCard({ pessoaId, open, onClose }: PessoaCardProps)
                   <p className="text-xs text-muted-foreground truncate">{pessoa.nome_completo}</p>
                 )}
                 <div className="flex flex-wrap gap-1.5 mt-1.5">
-                  <Badge variant="outline" className={`text-[10px] h-4 px-1.5 ${tipoCfg.cor}`}>
+                  <Badge variant="outline" className={`text-xs h-4 px-1.5 ${tipoCfg.cor}`}>
                     {tipoCfg.label}
                   </Badge>
                   {pessoa.perfil_acesso && (
-                    <Badge variant="outline" className={`text-[10px] h-4 px-1.5 ${perfilCfg.cor}`}>
+                    <Badge variant="outline" className={`text-xs h-4 px-1.5 ${perfilCfg.cor}`}>
                       <Shield className="w-2.5 h-2.5 mr-1" />{perfilCfg.label}
                     </Badge>
                   )}
@@ -228,7 +223,7 @@ export default function PessoaCard({ pessoaId, open, onClose }: PessoaCardProps)
             {/* Cargo estatutário (Diretoria) */}
             {cargos.length > 0 && (
               <div className="rounded-lg border border-purple-200 bg-purple-50/60 px-4 py-3 space-y-1.5">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-purple-700">
+                <p className="text-xs font-semibold uppercase tracking-wider text-purple-700">
                   Diretoria Estatutária
                 </p>
                 {cargos.map((c, i) => (
@@ -236,7 +231,7 @@ export default function PessoaCard({ pessoaId, open, onClose }: PessoaCardProps)
                     <span className="text-sm">{NIVEL_CARGO_EMOJI[c.nivel] ?? "📌"}</span>
                     <span className="text-sm font-medium text-purple-800">{c.cargo}</span>
                     {c.mandato && (
-                      <span className="text-[10px] text-purple-500 ml-auto">
+                      <span className="text-xs text-purple-500 ml-auto">
                         Mandato {c.mandato}
                       </span>
                     )}
@@ -248,7 +243,7 @@ export default function PessoaCard({ pessoaId, open, onClose }: PessoaCardProps)
             {/* Ministérios */}
             {ministerios.length > 0 && (
               <div className="space-y-2">
-                <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   <Church className="w-3 h-3" /> Ministérios
                 </div>
                 <div className="flex flex-wrap gap-1.5">
@@ -257,7 +252,7 @@ export default function PessoaCard({ pessoaId, open, onClose }: PessoaCardProps)
                     return (
                       <div key={i} className="flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs bg-background">
                         <span className="font-medium truncate max-w-[140px]">{m.ministerio_nome}</span>
-                        <Badge variant="outline" className={`text-[9px] h-3.5 px-1 ${fCfg.cor}`}>
+                        <Badge variant="outline" className={`text-xs h-3.5 px-1 ${fCfg.cor}`}>
                           {fCfg.label}
                         </Badge>
                       </div>
@@ -270,7 +265,7 @@ export default function PessoaCard({ pessoaId, open, onClose }: PessoaCardProps)
             {/* Áreas */}
             {areas.length > 0 && (
               <div className="space-y-2">
-                <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   <MapPin className="w-3 h-3" /> Áreas de atuação
                 </div>
                 <div className="space-y-1">
@@ -279,7 +274,7 @@ export default function PessoaCard({ pessoaId, open, onClose }: PessoaCardProps)
                       <span className="text-foreground font-medium">{a.area_nome}</span>
                       <span>em</span>
                       <span>{a.ministerio_nome}</span>
-                      <Badge variant="outline" className="text-[9px] h-3.5 px-1 ml-auto">
+                      <Badge variant="outline" className="text-xs h-3.5 px-1 ml-auto">
                         {FUNCAO_CONFIG[a.funcao]?.label ?? a.funcao}
                       </Badge>
                     </div>

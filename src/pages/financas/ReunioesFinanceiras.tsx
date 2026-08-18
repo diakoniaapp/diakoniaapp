@@ -89,12 +89,12 @@ export default function ReunioesFinanceiras() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
                   <span className="font-medium text-sm">{r.titulo}</span>
-                  <Badge variant="outline" className={`text-[9px] ${STATUS_COR[r.status]}`}>
+                  <Badge variant="outline" className={`text-xs ${STATUS_COR[r.status]}`}>
                     {STATUS_LABEL[r.status]}
                   </Badge>
-                  <Badge variant="outline" className="text-[9px]">{r.periodicidade}</Badge>
+                  <Badge variant="outline" className="text-xs">{r.periodicidade}</Badge>
                 </div>
-                <p className="text-[10px] text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   {new Date(r.data_reuniao).toLocaleString("pt-BR")}
                   {" · "}competência: {new Date(r.competencia_inicio + "T00:00").toLocaleDateString("pt-BR", { month: "short", year: "numeric" })}
                   {" → "}{new Date(r.competencia_fim + "T00:00").toLocaleDateString("pt-BR", { month: "short", year: "numeric" })}
@@ -336,13 +336,13 @@ function DetalheReuniao({ id, voltar }: { id: string; voltar: () => void }) {
               <span className="text-xs text-muted-foreground w-5 text-right">{idx + 1}.</span>
               <div className="flex-1">
                 <p className="text-sm">{d.descricao}</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">
+                <p className="text-xs text-muted-foreground mt-0.5">
                   {d.responsavel_nome && `Resp.: ${d.responsavel_nome}`}
                   {d.prazo && ` · Prazo: ${new Date(d.prazo + "T00:00").toLocaleDateString("pt-BR")}`}
-                  {d.assunto_id && <Badge variant="outline" className="text-[9px] ml-1.5">↗ virou assunto</Badge>}
+                  {d.assunto_id && <Badge variant="outline" className="text-xs ml-1.5">↗ virou assunto</Badge>}
                 </p>
               </div>
-              <Badge variant="outline" className="text-[9px]">{d.status}</Badge>
+              <Badge variant="outline" className="text-xs">{d.status}</Badge>
             </div>
           ))}
 
@@ -431,9 +431,9 @@ function PautaView({ pauta }: { pauta: PautaFinanceira }) {
           <ul className="text-xs divide-y">
             {pauta.alertas_fiscais.map((a, i) => (
               <li key={i} className="py-1 flex items-center gap-2">
-                <Badge variant="outline" className="text-[9px]">{a.codigo}</Badge>
+                <Badge variant="outline" className="text-xs">{a.codigo}</Badge>
                 <span className="flex-1">vencimento {fmtData(a.vencimento)}</span>
-                <Badge variant="outline" className="text-[9px]">{a.status}</Badge>
+                <Badge variant="outline" className="text-xs">{a.status}</Badge>
               </li>
             ))}
           </ul>
@@ -448,7 +448,7 @@ function PautaView({ pauta }: { pauta: PautaFinanceira }) {
               <li key={i} className="py-1 flex items-center gap-2">
                 <span className="flex-1 truncate">{o.centro}</span>
                 <span className="text-muted-foreground tabular-nums">{fmtBR(o.realizado)} / {fmtBR(o.orcado)}</span>
-                <Badge variant="outline" className={"text-[9px] " + (o.percentual >= 100 ? "bg-rose-50 text-rose-700" : "bg-amber-50 text-amber-700")}>
+                <Badge variant="outline" className={"text-xs " + (o.percentual >= 100 ? "bg-rose-50 text-rose-700" : "bg-amber-50 text-amber-700")}>
                   {o.percentual?.toFixed(1)}%
                 </Badge>
               </li>
@@ -457,7 +457,7 @@ function PautaView({ pauta }: { pauta: PautaFinanceira }) {
         </Secao>
       )}
 
-      <p className="text-[10px] text-muted-foreground text-right">
+      <p className="text-xs text-muted-foreground text-right">
         Pauta gerada em {new Date(pauta.gerada_em).toLocaleString("pt-BR")}
       </p>
     </div>
@@ -467,7 +467,7 @@ function PautaView({ pauta }: { pauta: PautaFinanceira }) {
 function Bloco({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
     <div className="border rounded-md p-2">
-      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{titulo}</div>
+      <div className="text-xs uppercase tracking-wide text-muted-foreground">{titulo}</div>
       {children}
     </div>
   );
@@ -483,7 +483,7 @@ function Secao({ titulo, children, icone }: { titulo: string; children: React.Re
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1">
-      <Label className="text-[11px] text-muted-foreground">{label}</Label>
+      <Label className="text-xs text-muted-foreground">{label}</Label>
       {children}
     </div>
   );

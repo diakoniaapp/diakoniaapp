@@ -185,7 +185,7 @@ export default function Ebd() {
               <span className="flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-amber-600" />
                 Alunos fora da faixa etária
-                <Badge variant="outline" className="text-[10px] bg-amber-100 border-amber-300">
+                <Badge variant="outline" className="text-xs bg-amber-100 border-amber-300">
                   {alunosForaFaixa.length}
                 </Badge>
               </span>
@@ -250,7 +250,7 @@ export default function Ebd() {
                       <p className="text-xs text-muted-foreground flex items-center gap-1 flex-wrap">
                         {a.idade_atual} anos em <strong>{a.classe_atual}</strong>
                         {nomeSugerida && (
-                          <Badge variant="outline" className="text-[9px] ml-1 border-emerald-300 text-emerald-700">
+                          <Badge variant="outline" className="text-xs ml-1 border-emerald-300 text-emerald-700">
                             → {nomeSugerida}
                           </Badge>
                         )}
@@ -284,11 +284,11 @@ export default function Ebd() {
                   </span>
                   <span className="flex items-center gap-1">
                     {!c.ativo && (
-                      <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-300">
+                      <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-300">
                         Desativada
                       </Badge>
                     )}
-                    <Badge variant="outline" className="text-[10px]">
+                    <Badge variant="outline" className="text-xs">
                       {generoTexto(c.genero)}
                     </Badge>
                   </span>
@@ -314,16 +314,14 @@ export default function Ebd() {
                     style={{ width: `${Math.min(100, taxa)}%` }}
                   />
                 </div>
-                <p className="text-[10px] text-muted-foreground text-right">
+                <p className="text-xs text-muted-foreground text-right">
                   {taxa}% da faixa etária matriculada
                 </p>
 
                 <div className="flex gap-1.5 mt-1">
-                  <Link to={`/ebd/${c.id}`} className="flex-1">
-                    <Button variant="outline" size="sm" className="w-full gap-1.5">
+                  <Button asChild variant="outline" size="sm" className="w-full gap-1.5"><Link to={`/ebd/${c.id}`} className="flex-1">
                       Abrir <ChevronRight className="w-3.5 h-3.5" />
-                    </Button>
-                  </Link>
+                    </Link></Button>
                   {podeCriar && (
                     <Button
                       type="button" variant="ghost" size="sm"

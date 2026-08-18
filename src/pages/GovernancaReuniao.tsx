@@ -166,15 +166,13 @@ export default function GovernancaReuniao() {
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-4">
       <div className="flex items-center gap-2 flex-wrap">
-        <Link to="/governanca">
-          <Button variant="ghost" size="icon"><ArrowLeft className="w-4 h-4" /></Button>
-        </Link>
+        <Button asChild variant="ghost" size="icon"><Link to="/governanca"><ArrowLeft className="w-4 h-4" /></Link></Button>
         <div className="flex-1 min-w-0">
           <h1 className="font-serif text-xl flex items-center gap-2 flex-wrap">
             <ScrollText className="w-5 h-5 text-gold" />
             <span className="truncate">{reun.titulo}</span>
-            <Badge variant="outline" className="text-[10px]">{REUNIAO_TIPO_LABEL[reun.tipo]}</Badge>
-            <Badge variant="outline" className={`text-[10px] ${REUNIAO_STATUS_COR[reun.status]}`}>
+            <Badge variant="outline" className="text-xs">{REUNIAO_TIPO_LABEL[reun.tipo]}</Badge>
+            <Badge variant="outline" className={`text-xs ${REUNIAO_STATUS_COR[reun.status]}`}>
               {REUNIAO_STATUS_LABEL[reun.status]}
             </Badge>
           </h1>
@@ -200,19 +198,19 @@ export default function GovernancaReuniao() {
       <div className="grid grid-cols-3 gap-2">
         <Card>
           <CardContent className="py-2 px-3">
-            <p className="text-[10px] uppercase text-muted-foreground flex items-center gap-1"><Users className="w-3 h-3" /> Convocados</p>
+            <p className="text-xs uppercase text-muted-foreground flex items-center gap-1"><Users className="w-3 h-3" /> Convocados</p>
             <p className="text-base font-semibold">{parts.length}</p>
           </CardContent>
         </Card>
         <Card className="bg-emerald-50/30 border-emerald-200">
           <CardContent className="py-2 px-3">
-            <p className="text-[10px] uppercase text-emerald-700 flex items-center gap-1"><Check className="w-3 h-3" /> Presentes</p>
+            <p className="text-xs uppercase text-emerald-700 flex items-center gap-1"><Check className="w-3 h-3" /> Presentes</p>
             <p className="text-base font-semibold text-emerald-700">{presentes}</p>
           </CardContent>
         </Card>
         <Card className="bg-amber-50/30 border-amber-200">
           <CardContent className="py-2 px-3">
-            <p className="text-[10px] uppercase text-amber-700 flex items-center gap-1"><FileText className="w-3 h-3" /> Pra assembleia</p>
+            <p className="text-xs uppercase text-amber-700 flex items-center gap-1"><FileText className="w-3 h-3" /> Pra assembleia</p>
             <p className="text-base font-semibold text-amber-700">{deliberativas}</p>
           </CardContent>
         </Card>
@@ -297,7 +295,7 @@ export default function GovernancaReuniao() {
                   </button>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{p.pessoa_nome}</p>
-                    <p className="text-[10px] text-muted-foreground">{p.papel}</p>
+                    <p className="text-xs text-muted-foreground">{p.papel}</p>
                   </div>
                   <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-emerald-600"
                     onClick={() => enviarConvocacao(p)} title="Enviar WhatsApp">
@@ -321,7 +319,7 @@ export default function GovernancaReuniao() {
             hist.map(h => (
               <div key={h.id} className="border-l-2 border-gold/40 pl-2 py-1 text-xs">
                 <p className="font-medium">{h.descricao ?? h.acao}</p>
-                <p className="text-[10px] text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   {new Date(h.created_at).toLocaleString("pt-BR")}
                   {h.user_nome && ` · ${h.user_nome}`}
                 </p>
@@ -397,19 +395,19 @@ function PautaLinha({ pauta, onChange }: { pauta: GovPauta; onChange: () => void
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="font-medium text-sm">{pauta.titulo}</span>
-              <Badge variant="outline" className={`text-[9px] ${
+              <Badge variant="outline" className={`text-xs ${
                 pauta.classificacao === "deliberativa" ? "bg-amber-100 text-amber-700 border-amber-300" :
                 "bg-blue-100 text-blue-700 border-blue-300"
               }`}>
                 {pauta.classificacao === "deliberativa" ? "Deliberativa" : "Informativa"}
               </Badge>
-              <Badge variant="outline" className="text-[9px]">{PAUTA_STATUS_LABEL[pauta.status]}</Badge>
+              <Badge variant="outline" className="text-xs">{PAUTA_STATUS_LABEL[pauta.status]}</Badge>
             </div>
             {pauta.descricao && (
-              <p className="text-[11px] text-muted-foreground mt-0.5 whitespace-pre-wrap">{pauta.descricao}</p>
+              <p className="text-xs text-muted-foreground mt-0.5 whitespace-pre-wrap">{pauta.descricao}</p>
             )}
             {pauta.vinculo_tipo === "solicitacao_membresia" && pauta.vinculo_id && (
-              <Link to={`/membresia/${pauta.vinculo_id}`} className="text-[10px] text-primary underline">
+              <Link to={`/membresia/${pauta.vinculo_id}`} className="text-xs text-primary underline">
                 → ver solicitação
               </Link>
             )}
@@ -430,16 +428,16 @@ function PautaLinha({ pauta, onChange }: { pauta: GovPauta; onChange: () => void
             </div>
           </div>
         ) : (
-          <div className="flex items-center gap-1.5 text-[11px]">
+          <div className="flex items-center gap-1.5 text-xs">
             {pauta.decisao ? (
               <p className="flex-1 italic text-emerald-700">"{pauta.decisao}"</p>
             ) : (
-              <Button size="sm" variant="outline" onClick={() => setEditandoDecisao(true)} className="h-6 text-[10px]">
+              <Button size="sm" variant="outline" onClick={() => setEditandoDecisao(true)} className="h-6 text-xs">
                 Registrar decisão
               </Button>
             )}
             {pauta.classificacao === "deliberativa" && pauta.status === "rascunho" && (
-              <Button size="sm" variant="outline" onClick={marcarParaAssembleia} className="h-6 text-[10px] text-amber-700">
+              <Button size="sm" variant="outline" onClick={marcarParaAssembleia} className="h-6 text-xs text-amber-700">
                 → Assembleia
               </Button>
             )}
@@ -610,7 +608,7 @@ function NovaPautaDialog({ reuniaoId, open, onOpenChange, onSaved }: {
               ⚖ Deliberativa
             </Button>
           </div>
-          <p className="text-[10px] text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             Deliberativa = vai pra assembleia depois
           </p>
           <DialogFooter>

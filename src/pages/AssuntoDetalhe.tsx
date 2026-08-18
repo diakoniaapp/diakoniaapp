@@ -95,17 +95,15 @@ export default function AssuntoDetalhe() {
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-4">
       <div className="flex items-center gap-2 flex-wrap">
-        <Link to="/assuntos">
-          <Button variant="ghost" size="icon"><ArrowLeft className="w-4 h-4" /></Button>
-        </Link>
+        <Button asChild variant="ghost" size="icon"><Link to="/assuntos"><ArrowLeft className="w-4 h-4" /></Link></Button>
         <div className="flex-1 min-w-0">
           <h1 className="font-serif text-xl flex items-center gap-2 flex-wrap">
             <span>{PRIORIDADE_ICONE[assunto.prioridade]}</span>
             <span className="truncate">{assunto.titulo}</span>
-            <Badge variant="outline" className={`text-[10px] ${STATUS_COR[assunto.status]}`}>
+            <Badge variant="outline" className={`text-xs ${STATUS_COR[assunto.status]}`}>
               {STATUS_LABEL[assunto.status]}
             </Badge>
-            <Badge variant="outline" className={`text-[10px] ${PRIORIDADE_COR[assunto.prioridade]}`}>
+            <Badge variant="outline" className={`text-xs ${PRIORIDADE_COR[assunto.prioridade]}`}>
               Prioridade {assunto.prioridade}
             </Badge>
           </h1>
@@ -129,19 +127,19 @@ export default function AssuntoDetalhe() {
           )}
           <div className="grid grid-cols-2 gap-3 text-xs pt-1">
             <div>
-              <p className="text-[10px] uppercase text-muted-foreground">Responsável</p>
+              <p className="text-xs uppercase text-muted-foreground">Responsável</p>
               <p className="font-medium">{assunto.responsavel_nome ?? "—"}</p>
             </div>
             <div>
-              <p className="text-[10px] uppercase text-muted-foreground">Prazo</p>
+              <p className="text-xs uppercase text-muted-foreground">Prazo</p>
               <p className="font-medium">{assunto.prazo ? new Date(assunto.prazo + "T00:00").toLocaleDateString("pt-BR") : "—"}</p>
             </div>
             <div>
-              <p className="text-[10px] uppercase text-muted-foreground">Criado em</p>
+              <p className="text-xs uppercase text-muted-foreground">Criado em</p>
               <p>{new Date(assunto.data_criacao + "T00:00").toLocaleDateString("pt-BR")}</p>
             </div>
             <div>
-              <p className="text-[10px] uppercase text-muted-foreground">Discutido em</p>
+              <p className="text-xs uppercase text-muted-foreground">Discutido em</p>
               <p>{assunto.vezes_discutido}× reunião(ões)</p>
             </div>
           </div>
@@ -189,7 +187,7 @@ export default function AssuntoDetalhe() {
             hist.map(h => (
               <div key={h.id} className="border-l-2 border-gold/40 pl-2 py-0.5 text-xs">
                 <p className="font-medium">{h.descricao ?? h.acao}</p>
-                <p className="text-[10px] text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   {new Date(h.created_at).toLocaleString("pt-BR")}
                   {h.user_nome && ` · ${h.user_nome}`}
                 </p>

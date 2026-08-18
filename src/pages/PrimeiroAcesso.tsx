@@ -104,7 +104,7 @@ export default function PrimeiroAcesso() {
             <div className="w-8 h-8 rounded-full bg-gold/15 dark:bg-gold/20 flex items-center justify-center">
               <ShieldCheck className="w-4 h-4 text-gold" />
             </div>
-            <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-gold/80">
+            <span className="text-xs font-bold uppercase tracking-[0.22em] text-gold/80">
               Primeiro Acesso
             </span>
           </div>
@@ -161,7 +161,7 @@ export default function PrimeiroAcesso() {
         <div className="flex items-center justify-center gap-2 pt-1">
           <div className="w-2 h-2 rounded-full bg-gold" />
           <div className="w-2 h-2 rounded-full bg-muted" />
-          <p className="text-[10px] text-muted-foreground ml-1">Passo 1 de 2</p>
+          <p className="text-xs text-muted-foreground ml-1">Passo 1 de 2</p>
         </div>
       </AuthCard>
     </AuthShell>

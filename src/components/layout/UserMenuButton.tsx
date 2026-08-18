@@ -7,10 +7,8 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  User, LogOut, HeartHandshake, ShieldCheck,
-  KeyRound, ShieldAlert, Church, FileText, Upload, Download, Flame,
-} from "lucide-react";
+import { User, LogOut, ShieldCheck } from "lucide-react";
+import { ADMIN_MENU_ITEMS } from "@/components/layout/adminMenuItems";
 
 export function UserMenuButton() {
   const { user, signOut, hasRole, roles } = useAuth();
@@ -52,7 +50,8 @@ export function UserMenuButton() {
 
   const roleLabel: Record<string, string> = {
     admin: "Administrador", secretaria: "Secretaria",
-    diakonia: "Pastor",     lideranca:  "Lideranca",
+    diakonia: "Pastor",     pastor:     "Pastor",
+    lideranca: "Liderança", voluntario: "Voluntário",
   };
   const principalRole = roles[0] ?? "lideranca";
 
@@ -65,8 +64,11 @@ export function UserMenuButton() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
-          aria-label="Menu do usuario"
-          className="w-9 h-9 rounded-full ring-2 ring-gold/40 hover:ring-gold/80 active:scale-95 transition-all focus:outline-none"
+          aria-label="Menu do usuário"
+          // focus:outline-none removia o contorno tambem no teclado, sem nada
+          // no lugar: quem navega por Tab nao via onde estava. Trocado por
+          // focus-visible + anel, o mesmo padrao dos componentes shadcn.
+          className="w-9 h-9 rounded-full ring-2 ring-gold/40 hover:ring-gold/80 active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar"
         >
           <Avatar className="w-9 h-9">
             <AvatarFallback className="bg-gold/20 text-gold font-bold text-sm">{initials}</AvatarFallback>
@@ -81,13 +83,13 @@ export function UserMenuButton() {
               <AvatarFallback className="bg-gold/20 text-gold font-bold text-xs">{initials}</AvatarFallback>
             </Avatar>
             <div className="min-w-0">
-              <p className="font-semibold text-sm truncate">{nome || "Usuario"}</p>
-              <p className="text-[11px] text-muted-foreground truncate">{user.email}</p>
+              <p className="font-semibold text-sm truncate">{nome || "Usuário"}</p>
+              <p className="text-xs text-muted-foreground truncate">{user.email}</p>
             </div>
           </div>
           <div className="flex items-center gap-1.5 mt-2">
             <ShieldCheck className="w-3 h-3 text-gold" />
-            <span className="text-[11px] text-muted-foreground">{roleLabel[principalRole] ?? principalRole}</span>
+            <span className="text-xs text-muted-foreground">{roleLabel[principalRole] ?? principalRole}</span>
           </div>
         </DropdownMenuLabel>
 
@@ -102,19 +104,13 @@ export function UserMenuButton() {
         {hasRole(["admin", "secretaria"]) && (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-muted-foreground/60 py-1">
-              Administracao
+            <DropdownMenuLabel className="text-xs uppercase tracking-widest text-muted-foreground/60 py-1">
+              Administração
             </DropdownMenuLabel>
-            {[
-              { path: "/ministerios?novo=1",      label: "Criar Ministerio",       Icon: HeartHandshake },
-              { path: "/admin/recuperacao-senha", label: "Recuperacao de Senhas",  Icon: KeyRound },
-              { path: "/admin/lgpd",              label: "Painel LGPD",            Icon: ShieldAlert },
-              { path: "/admin/identidade",        label: "Identidade da Igreja",   Icon: Church },
-              { path: "/admin/documentos",        label: "Documentos",             Icon: FileText },
-              { path: "/admin/importacao",        label: "Importacao de Membros",  Icon: Upload },
-              { path: "/admin/exportacao",        label: "Exportacao de Dados",    Icon: Download },
-              { path: "/admin/campanhas",         label: "Campanhas Espirituais",  Icon: Flame },
-            ].map(({ path, label, Icon }) => (
+            {/* A lista mora em adminMenuItems.ts e e a mesma do menu do
+                desktop (rodape da barra lateral). Eram duas copias, e so esta
+                tinha os itens — no desktop nao havia entrada nenhuma. */}
+            {ADMIN_MENU_ITEMS.map(({ path, label, icon: Icon }) => (
               <DropdownMenuItem key={path} className="gap-2 cursor-pointer py-2.5"
                 onClick={() => navigate(path)}>
                 <Icon className="w-4 h-4 text-muted-foreground" />

@@ -98,7 +98,7 @@ export function SolicitacaoForm({ open, onOpenChange, onSaved }: Props) {
           <div>
             <Label>Pessoa</Label>
             <BuscaPessoa value={pessoaId} onChange={(id) => setPessoaId(id)} placeholder="Buscar pessoa..." />
-            <p className="text-[10px] text-muted-foreground mt-0.5">Ou nome (se não cadastrada):</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Ou nome (se não cadastrada):</p>
             <Input value={pessoaNome} onChange={(e) => setPessoaNome(e.target.value)} placeholder="Nome completo" className="mt-1" />
           </div>
           {tipoEhTransferencia && (

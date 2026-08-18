@@ -281,10 +281,10 @@ function CampanhaCard({ campanha: c, onEditar, onExcluir, onStatus }: {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="font-semibold text-sm">{c.nome}</h3>
-              <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${statusColor[c.status]}`}>
+              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColor[c.status]}`}>
                 {c.status.charAt(0).toUpperCase() + c.status.slice(1)}
               </span>
-              <Badge variant="outline" className="text-[10px] h-4 px-1.5">
+              <Badge variant="outline" className="text-xs h-4 px-1.5">
                 {tipoLabel[c.tipo]}
               </Badge>
               <span className="flex items-center gap-0.5" title={`Prioridade ${c.prioridade}`}>
@@ -301,7 +301,7 @@ function CampanhaCard({ campanha: c, onEditar, onExcluir, onStatus }: {
             {/* Camada 3: base espiritual da campanha */}
             {(c as any).origem_identidade && (
               <div className="flex items-center gap-1 mt-1.5">
-                <span className="text-[10px] bg-gold/10 text-gold border border-gold/25 rounded-full px-2 py-0.5 font-medium">
+                <span className="text-xs bg-gold/10 text-gold border border-gold/25 rounded-full px-2 py-0.5 font-medium">
                   🔥 {
                     (c as any).origem_identidade === "missao" ? "Missão" :
                     (c as any).origem_identidade === "visao"  ? "Visão"  :
@@ -309,7 +309,7 @@ function CampanhaCard({ campanha: c, onEditar, onExcluir, onStatus }: {
                   }
                 </span>
                 {(c as any).contexto_espiritual && (
-                  <span className="text-[10px] text-muted-foreground truncate max-w-[140px]">{(c as any).contexto_espiritual}</span>
+                  <span className="text-xs text-muted-foreground truncate max-w-[140px]">{(c as any).contexto_espiritual}</span>
                 )}
               </div>
             )}
@@ -326,7 +326,7 @@ function CampanhaCard({ campanha: c, onEditar, onExcluir, onStatus }: {
             {/* Barra de progresso (campanhas ativas) */}
             {c.status === "ativa" && diasTotal > 0 && (
               <div className="mt-2">
-                <div className="flex justify-between text-[10px] text-muted-foreground mb-0.5">
+                <div className="flex justify-between text-xs text-muted-foreground mb-0.5">
                   <span>Dia {diasPassados} de {diasTotal}</span>
                   <span>{Math.round((diasPassados / diasTotal) * 100)}%</span>
                 </div>
@@ -824,7 +824,7 @@ function WizardCampanha({ campanha, onClose, onSalvo }: {
                     {tipoIcon(m.tipo_arquivo)}
                     <span className="flex-1 truncate">{m.nome_arquivo}</span>
                     {m.dia_numero && (
-                      <Badge variant="outline" className="text-[10px] shrink-0">Dia {m.dia_numero}</Badge>
+                      <Badge variant="outline" className="text-xs shrink-0">Dia {m.dia_numero}</Badge>
                     )}
                     <button type="button" onClick={() => removerMaterial(idx)}
                       className="shrink-0 hover:text-destructive">
@@ -856,7 +856,7 @@ function WizardCampanha({ campanha, onClose, onSalvo }: {
                       {d.dia}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-[10px] text-muted-foreground">
+                      <p className="text-xs text-muted-foreground">
                         {format(parseISO(d.data), "EEEE, dd/MM", { locale: ptBR })}
                       </p>
                       <Input
@@ -870,7 +870,7 @@ function WizardCampanha({ campanha, onClose, onSalvo }: {
                   {d.materiais.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 pl-9">
                       {d.materiais.map((m, mi) => (
-                        <span key={mi} className="flex items-center gap-1 text-[10px] bg-muted px-2 py-0.5 rounded-full">
+                        <span key={mi} className="flex items-center gap-1 text-xs bg-muted px-2 py-0.5 rounded-full">
                           {tipoIcon(m.tipo_arquivo)}
                           <span className="truncate max-w-[120px]">{m.nome_arquivo}</span>
                         </span>
@@ -878,7 +878,7 @@ function WizardCampanha({ campanha, onClose, onSalvo }: {
                     </div>
                   )}
                   {d.materiais.length === 0 && (
-                    <p className="text-[10px] text-muted-foreground pl-9">Sem materiais para este dia</p>
+                    <p className="text-xs text-muted-foreground pl-9">Sem materiais para este dia</p>
                   )}
                 </div>
               ))}

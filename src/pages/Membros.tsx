@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
@@ -6,7 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Pencil, Link2, Briefcase, Sparkles, BarChart3, ShieldCheck, ShieldOff, Clock } from "lucide-react";
+import { Plus, Search, Pencil, Link2, Briefcase, Sparkles, BarChart3, MoreHorizontal, MessageCircle } from "lucide-react";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
@@ -16,8 +19,9 @@ import { VinculosPessoaDialog } from "@/components/familias/VinculosPessoaDialog
 import AtuacoesDialog from "@/components/membros/AtuacoesDialog";
 import VisitanteDialog from "@/components/membros/VisitanteDialog";
 import { ListSkeleton, EmptyState, ErrorState } from "@/components/ListState";
-import { buscarAcessoPorPessoa, type StatusAcesso } from "@/services/acessoService";
 import { StatusMembroBadge } from "@/components/membros/StatusMembroBadge";
+import ContatoResultadoDialog from "@/components/membros/ContatoResultadoDialog";
+import { logHistorico } from "@/lib/historicoFluxo";
 
 export interface Membro {
     id: string;
@@ -54,6 +58,12 @@ export interface Membro {
       | "professor_ebd"
       | "voluntario"
       | "membro";
+    // Registro do ultimo contato pastoral. As colunas ja existiam no banco e
+    // eram lidas pelo `select("*")`, mas nao estavam declaradas aqui — por isso
+    // a lista nunca soube que possuia essa informacao.
+    ultimo_contato_em?: string | null;
+    ultimo_contato_tipo?: string | null;
+    ultimo_contato_observacao?: string | null;
     status_acolhimento?: string | null;
     responsavel_id?: string | null;
     como_conheceu?: string | null;
@@ -81,30 +91,100 @@ const tipoPessoaColor: Record<string, string> = {
     visitante: "bg-warning/15 text-warning border-warning/30",
 };
 
-// ── Indicador visual de status de acesso ─────────────────────────────────────
-function BadgeAcesso({ pessoaId }: { pessoaId: string }) {
-    const [status, setStatus] = useState<StatusAcesso | null>(null);
+// O indicador de status de acesso saiu da listagem. Alem de ser um icone mudo
+// disputando espaco com o nome, ele disparava uma consulta ao Supabase POR
+// PESSOA — com a lista inteira renderizada, eram 281 requisicoes so para
+// desenhar 281 escudinhos. Essa informacao tem tela propria em /usuarios.
 
-  useEffect(() => {
-        buscarAcessoPorPessoa(pessoaId).then((a) => {
-                setStatus(a?.status ?? "sem_acesso");
-        });
-  }, [pessoaId]);
+// Uma acao visivel — editar — mais um menu para as secundarias. Antes eram ate
+// quatro icones sem rotulo, que ninguem entende sem passar o mouse, e no celular
+// nao ha mouse. Dentro do menu cada acao tem nome em vez de simbolo.
+//
+// Fica em componente proprio porque cartao (celular) e tabela (desktop) usam o
+// mesmo conjunto: duplicar o menu seria garantir que um dia so um dos dois ganhe
+// uma acao nova.
+function AcoesPessoa({ m, onEditar, onVinculos, onAtuacoes, onVisitante, onContato, mostrarEditar = true }: {
+  m: Membro;
+  onEditar:    (m: Membro) => void;
+  onVinculos:  (m: Membro) => void;
+  onAtuacoes:  (m: Membro) => void;
+  onVisitante: (m: Membro) => void;
+  onContato:   (m: Membro) => void;
+  /** Na tabela do desktop o nome ja abre a edicao; o lapis so repetiria. */
+  mostrarEditar?: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-0.5 shrink-0">
+      {mostrarEditar && (
+      <Button
+        variant="ghost" size="icon" className="h-11 w-11"
+        aria-label={`Editar ${m.nome_completo}`}
+        title="Editar"
+        onClick={() => onEditar(m)}
+      >
+        <Pencil className="w-4 h-4" />
+      </Button>
+      )}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost" size="icon" className="h-11 w-11"
+            aria-label={`Mais ações para ${m.nome_completo}`}
+          >
+            <MoreHorizontal className="w-4 h-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          {/* Registrar contato existia so na tela de Visitantes, e so para
+              visitante. As 275 outras pessoas nao tinham como receber um
+              "falei com ela" — os campos ultimo_contato_* ja existiam no banco
+              e estavam com ZERO registros. Mesma acao, mesmo dialogo, mesma
+              tabela de historico; muda so quem alcanca. */}
+          <DropdownMenuItem onClick={() => onContato(m)}>
+            <MessageCircle className="w-4 h-4 mr-2 text-muted-foreground" />
+            Registrar contato
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onVinculos(m)}>
+            <Link2 className="w-4 h-4 mr-2 text-muted-foreground" />
+            Vínculos familiares
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onAtuacoes(m)}>
+            <Briefcase className="w-4 h-4 mr-2 text-muted-foreground" />
+            Atuações voluntárias
+          </DropdownMenuItem>
+          {m.tipo_pessoa === "visitante" && (
+            <DropdownMenuItem onClick={() => onVisitante(m)}>
+              <Sparkles className="w-4 h-4 mr-2 text-warning" />
+              Acompanhar visitante
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
 
-  if (status === null) return null;
-
-  const cfg: Record<StatusAcesso, { icon: typeof ShieldCheck; label: string; className: string }> = {
-        sem_acesso: { icon: ShieldOff, label: "Sem acesso", className: "text-slate-400" },
-        aguardando: { icon: Clock, label: "Aguardando 1° acesso", className: "text-amber-500" },
-        ativo: { icon: ShieldCheck, label: "Acesso ativo", className: "text-emerald-500" },
-  };
-
-  const { icon: Icon, label, className } = cfg[status];
-    return (
-          <span title={label} className={`shrink-0 ${className}`}>
-                  <Icon className="w-4 h-4" />
-          </span>
-        );
+// Quanto tempo faz que alguem falou com esta pessoa.
+//
+// Cor com significado, nao decoracao: cinza ate 30 dias, ambar depois, e a
+// mesma cor de alerta do painel para quem nunca foi contatado. Numa lista de
+// 20 linhas, e o que deixa a resposta aparecer sem precisar ler data por data.
+function UltimoContato({ quando }: { quando?: string | null }) {
+  if (!quando) {
+    return <span className="text-sm text-warning">Nunca</span>;
+  }
+  const dias = Math.floor((Date.now() - new Date(quando).getTime()) / 86_400_000);
+  const texto =
+    dias === 0 ? "Hoje"
+    : dias === 1 ? "Ontem"
+    : dias < 30 ? `${dias} dias`
+    : dias < 60 ? "1 mês"
+    : `${Math.floor(dias / 30)} meses`;
+  return (
+    <span className={`text-sm ${dias >= 30 ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}>
+      {texto}
+    </span>
+  );
 }
 
 export default function Membros() {
@@ -116,14 +196,76 @@ export default function Membros() {
     const [editing, setEditing] = useState<Membro | null>(null);
     const [tipoFiltro, setTipoFiltro] = useState<string>("todos");
     const [perfilFiltro, setPerfilFiltro] = useState<string>("todos");
+    // Filtro de cuidado. Nao e um modulo nem uma tela: e mais uma opcao na
+    // mesma barra de filtros, respondendo a pergunta que o pastor faz e que a
+    // lista nao respondia — "de quem ninguem cuida ha tempo?".
+    const [cuidadoFiltro, setCuidadoFiltro] = useState<string>("todos");
     const [vinculosPessoa, setVinculosPessoa] = useState<Membro | null>(null);
     const [atuacoesPessoa, setAtuacoesPessoa] = useState<Membro | null>(null);
     const [visitantePessoa, setVisitantePessoa] = useState<Membro | null>(null);
+    const [contatoPessoa, setContatoPessoa] = useState<Membro | null>(null);
+    const [salvandoContato, setSalvandoContato] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+  // Registrar contato com qualquer pessoa.
+  //
+  // Grava nos MESMOS campos que a tela de Visitantes ja usava
+  // (ultimo_contato_em / tipo / observacao) e no MESMO historico
+  // (visita_historico, via logHistorico). Nenhuma tabela nova: o que faltava
+  // nao era estrutura, era a acao estar ao alcance de quem cuida.
+  const registrarContato = async (pessoa: Membro, tipo: string, observacao: string) => {
+    setSalvandoContato(true);
+    // Ver o comentario em QuemNinguemProcurou: o update direto nesta tabela
+    // falhava em silencio para o papel "lideranca", que e o de 4 dos 6
+    // usuarios. A funcao do banco confere o papel e devolve se gravou.
+    const { data: gravou, error: err } = await supabase.rpc("registrar_contato", {
+      p_pessoa: pessoa.id,
+      p_tipo: tipo,
+      p_obs: observacao || null,
+    });
+
+    if (err) {
+      toast.error(err.message);
+      setSalvandoContato(false);
+      return;
+    }
+    if (!gravou) {
+      toast.error("Não foi possível registrar o contato desta pessoa.");
+      setSalvandoContato(false);
+      return;
+    }
+
+    // "observacao" e o canal generico do historico. O `tipo` que vem do dialogo
+    // NAO e canal — e o resultado ("Respondeu", "Não respondeu"), e por isso
+    // entra no texto. Em Visitantes o canal era fixo em "whatsapp"; aqui o
+    // contato pode ter sido conversa no culto, ligacao ou recado, e afirmar
+    // WhatsApp seria registrar algo que nao aconteceu.
+    await logHistorico(pessoa.id, "observacao", tipo + (observacao ? ` — ${observacao}` : ""));
+    toast.success(`Contato registrado para ${pessoa.nome_completo.split(" ")[0]}`);
+    setSalvandoContato(false);
+    setContatoPessoa(null);
+    load();
+  };
+
+  // Paginação: 281 cadastros renderizados de uma vez davam 34.553px de
+  // rolagem e 848 botões numa página só. Quem procura alguém usa a busca;
+  // quem varre a lista não deveria percorrer 47 telas.
+  const POR_PAGINA = 20;
+  const [pagina, setPagina] = useState(1);
+  const buscaRef = useRef<HTMLInputElement>(null);
     const [searchParams, setSearchParams] = useSearchParams();
 
   // ── Tratar parâmetros de query ao carregar ──────────────────────────────────
   useEffect(() => {
+        // "Ver todos em Pessoas", vindo do bloco do HOJE, chega com o filtro
+        // ja escolhido. Reaproveita o filtro de cuidado desta tela em vez de
+        // levar a uma listagem propria — a lista completa e esta.
+        const cuidadoUrl = searchParams.get("cuidado");
+        if (cuidadoUrl && ["nunca", "30", "60", "90"].includes(cuidadoUrl)) {
+                setCuidadoFiltro(cuidadoUrl);
+                searchParams.delete("cuidado");
+                setSearchParams(searchParams, { replace: true });
+        }
         if (searchParams.get("novo") === "1" && canEdit) {
                 setEditing(null);
                 setOpen(true);
@@ -249,7 +391,7 @@ export default function Membros() {
         load();
   }, []);
 
-  const filtered = membros.filter((m) => {
+  const filtered = useMemo(() => membros.filter((m) => {
         const q = search.toLowerCase();
         const matchSearch =
                 !q ||
@@ -258,8 +400,46 @@ export default function Membros() {
                 (m.bairro ?? "").toLowerCase().includes(q);
         const matchTipo = tipoFiltro === "todos" || m.tipo_pessoa === tipoFiltro;
         const matchPerfil = perfilFiltro === "todos" || m.perfil_acesso === perfilFiltro;
-        return matchSearch && matchTipo && matchPerfil;
-  });
+
+        // "Nunca" e "ha mais de N dias" sao perguntas diferentes e ambas
+        // importam: nunca contatado e alguem que o sistema nunca alcancou;
+        // contatado ha 90 dias e alguem que se esfriou. Misturar as duas
+        // esconderia o primeiro grupo dentro do segundo.
+        const diasSemContato = m.ultimo_contato_em
+          ? Math.floor((Date.now() - new Date(m.ultimo_contato_em).getTime()) / 86_400_000)
+          : null;
+        const matchCuidado =
+          cuidadoFiltro === "todos" ? true
+          : cuidadoFiltro === "nunca" ? diasSemContato === null
+          : diasSemContato === null || diasSemContato >= Number(cuidadoFiltro);
+
+        return matchSearch && matchTipo && matchPerfil && matchCuidado;
+  }), [membros, search, tipoFiltro, perfilFiltro, cuidadoFiltro]);
+
+  const totalPaginas = Math.max(1, Math.ceil(filtered.length / POR_PAGINA));
+  const paginaAtual = Math.min(pagina, totalPaginas);
+  const inicio = (paginaAtual - 1) * POR_PAGINA;
+  const visiveis = filtered.slice(inicio, inicio + POR_PAGINA);
+
+  // Um unico conjunto de acoes para cartao e tabela. Duplicar o menu nos dois
+  // lugares seria garantir que um dia so um deles ganhe uma acao nova.
+  const acoes = {
+    onEditar:    (m: Membro) => { setEditing(m); setOpen(true); },
+    onVinculos:  setVinculosPessoa,
+    onAtuacoes:  setAtuacoesPessoa,
+    onVisitante: setVisitantePessoa,
+    onContato:   setContatoPessoa,
+  };
+
+  // Voltar à primeira página quando o resultado muda: continuar na página 7
+  // de uma busca que agora tem 3 resultados deixaria a tela vazia.
+  useEffect(() => { setPagina(1); }, [search, tipoFiltro, perfilFiltro, cuidadoFiltro]);
+
+  // Foco na busca ao abrir: quem entra em Pessoas quase sempre vem procurar
+  // alguém. Só no desktop — em celular abriria o teclado por cima da lista.
+  useEffect(() => {
+        if (window.matchMedia("(min-width: 768px)").matches) buscaRef.current?.focus();
+  }, []);
 
   return (
         <div>
@@ -290,6 +470,7 @@ export default function Membros() {
                                       <div className="relative max-w-md flex-1">
                                                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                                                   <Input
+                                                                  ref={buscaRef}
                                                                   className="pl-9"
                                                                   placeholder="Buscar por nome, CPF ou bairro..."
                                                                   value={search}
@@ -305,6 +486,22 @@ export default function Membros() {
                                                                 <SelectItem value="membro">Membro</SelectItem>
                                                                 <SelectItem value="congregado">Congregado</SelectItem>
                                                                 <SelectItem value="visitante">Visitante</SelectItem>
+                                                  </SelectContent>
+                                      </Select>
+                                      {/* Terceiro filtro, mesma barra. A pergunta pastoral entra
+                                          como opcao de uma lista que ja existia, e nao como tela
+                                          separada — quem procura uma pessoa e quem procura os
+                                          esquecidos usam a mesma lista. */}
+                                      <Select value={cuidadoFiltro} onValueChange={setCuidadoFiltro}>
+                                                  <SelectTrigger className="md:w-56">
+                                                                <SelectValue placeholder="Cuidado" />
+                                                  </SelectTrigger>
+                                                  <SelectContent>
+                                                                <SelectItem value="todos">Qualquer contato</SelectItem>
+                                                                <SelectItem value="nunca">Nunca contatadas</SelectItem>
+                                                                <SelectItem value="30">Sem contato há 30 dias</SelectItem>
+                                                                <SelectItem value="60">Sem contato há 60 dias</SelectItem>
+                                                                <SelectItem value="90">Sem contato há 90 dias</SelectItem>
                                                   </SelectContent>
                                       </Select>
                                       <Select value={perfilFiltro} onValueChange={setPerfilFiltro}>
@@ -332,117 +529,180 @@ export default function Membros() {
                                   ) : filtered.length === 0 ? (
                                     <EmptyState message="Nenhuma pessoa encontrada" />
                                   ) : (
-                                    <div className="grid gap-3">
-                                      {filtered.map((m) => (
-                                                    <Card key={m.id} className="shadow-card-soft hover:shadow-elevated transition-shadow">
-                                                                    <CardContent className="p-4 flex items-center gap-4">
-                                                                                      <div className="w-12 h-12 rounded-full bg-primary/10 text-primary font-serif text-lg flex items-center justify-center shrink-0">
-                                                                                        {m.nome_completo
-                                                                                                                .split(" ")
-                                                                                                                .slice(0, 2)
-                                                                                                                .map((n) => n[0])
-                                                                                                                .join("")}
-                                                                                        </div>
+                                    // md:hidden — no desktop entra a tabela logo abaixo.
+                                    <div className="grid gap-3 md:hidden">
+                                      {visiveis.map((m) => (
+                                                    // min-w-0: item de grid nao encolhe abaixo do min-content do
+                                                    // conteudo. Sem isso, nome longo e etiquetas esticavam o cartao
+                                                    // muito alem da tela do celular.
+                                                    <Card key={m.id} className="min-w-0 shadow-card-soft hover:shadow-elevated transition-shadow">
+                                                                    <CardContent className="p-4 flex items-center gap-x-3">
+                                                                                      {/* O circulo de iniciais saiu. Ele nao identificava ninguem:
+                                                                                          numa lista ordenada por nome, "AD" aparecia tres vezes
+                                                                                          seguidas, e a inicial ja esta na primeira letra do nome,
+                                                                                          logo ao lado. Em troca ocupava 48px mais 16px de
+                                                                                          espacamento e um circulo colorido por linha — 20 manchas
+                                                                                          de cor por pagina competindo com o texto que importa.
+                                                                                          Sem ele o cartao volta a caber numa linha so. */}
                                                                                       <div className="flex-1 min-w-0">
-                                                                                                          <div className="flex items-center gap-2 flex-wrap">
-                                                                                                                                <span className="font-medium truncate">{m.nome_completo}</span>
-                                                                                                                                <Badge variant="outline" className={tipoPessoaColor[m.tipo_pessoa]}>
-                                                                                                                                  {tipoPessoaLabel[m.tipo_pessoa]}
-                                                                                                                                  </Badge>
-                                                                                                            {m.tipo_pessoa === "membro" && (
-                                                                              <StatusMembroBadge status={m.status} compact />
-                                                                                                                                )}
+                                                                                                          {/* O nome ocupa a linha inteira e as etiquetas descem para a
+                                                                                                              seguinte. Quando dividiam a mesma linha flex, as etiquetas
+                                                                                                              venciam a disputa por espaco e o nome — a informacao que
+                                                                                                              identifica a pessoa — era truncado ate virar "Adriana ...". */}
+                                                                                                          <p className="font-medium truncate">{m.nome_completo}</p>
+                                                                                                          {/* Etiqueta marca excecao, nao regra. "Membro" aparecia na
+                                                                                                              maioria dos 281 cadastros e "Ativo" em 273 deles — uma marca
+                                                                                                              presente em 97% dos casos nao informa nada. Aqui so aparece
+                                                                                                              quem foge do padrao, e no maximo uma por linha. */}
+                                                                                                          {(m.tipo_pessoa !== "membro" || m.status !== "ativo") && (
+                                                                                                            <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                                                                                                              {m.tipo_pessoa !== "membro" ? (
+                                                                                                                <Badge variant="outline" className={tipoPessoaColor[m.tipo_pessoa]}>
+                                                                                                                  {tipoPessoaLabel[m.tipo_pessoa]}
+                                                                                                                </Badge>
+                                                                                                              ) : (
+                                                                                                                <StatusMembroBadge status={m.status} compact />
+                                                                                                              )}
                                                                                                             </div>
+                                                                                                          )}
                                                                                                           <div className="text-sm text-muted-foreground truncate">
                                                                                                             {[m.telefone_celular, m.email, m.bairro].filter(Boolean).join(" • ") || "—"}
                                                                                                             </div>
-                                                                                                          {(m.classe_ebd 
-                                                                                                              || (m.areas?.length ?? 0) > 0
-                                                                                                              || (m.classes_professor?.length ?? 0) > 0
-                                                                                                              || (m.lider_ministerios?.length ?? 0) > 0
-                                                                                                              || (m.lider_areas?.length ?? 0) > 0
-                                                                                                          ) && (
-                                                                                                            <div className="flex flex-wrap gap-1 mt-1.5">
-                                                                                                              {m.classe_ebd && (
-                                                                                                                <Badge variant="outline" className="text-[10px] bg-gold/10 border-gold/30 text-foreground/80">
-                                                                                                                  EBD: {m.classe_ebd}
-                                                                                                                </Badge>
-                                                                                                              )}
-                                                                                                              {(m.classes_professor ?? []).map((c) => (
-                                                                                                                <Badge key={`prof-${c}`} variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-300 dark:bg-blue-950/30 dark:text-blue-300">
-                                                                                                                  Professor: {c}
-                                                                                                                </Badge>
-                                                                                                              ))}
-                                                                                                              {(m.lider_ministerios ?? []).map((n) => (
-                                                                                                                <Badge key={`lid-min-${n}`} variant="outline" className="text-[10px] bg-rose-50 text-rose-700 border-rose-300 dark:bg-rose-950/30 dark:text-rose-300">
-                                                                                                                  Líder: {n}
-                                                                                                                </Badge>
-                                                                                                              ))}
-                                                                                                              {(m.lider_areas ?? []).map((n) => (
-                                                                                                                <Badge key={`lid-ar-${n}`} variant="outline" className="text-[10px] bg-orange-50 text-orange-700 border-orange-300 dark:bg-orange-950/30 dark:text-orange-300">
-                                                                                                                  Líder de área: {n}
-                                                                                                                </Badge>
-                                                                                                              ))}
-                                                                                                              {(m.areas ?? []).map((a) => (
-                                                                                                                <Badge key={`area-${a}`} variant="outline" className="text-[10px] bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/30 dark:text-purple-300">
-                                                                                                                  {a}
-                                                                                                                </Badge>
-                                                                                                              ))}
-                                                                                                            </div>
-                                                                                                          )}
+                                                                                                          {/* Etiquetas de vinculo — EBD, professor, lider, areas — saem
+                                                                                                              da listagem. Sao contexto de ficha: ninguem procura uma pessoa
+                                                                                                              por classe de EBD nesta tela, e chegavam a seis por linha,
+                                                                                                              competindo com o nome. Continuam na ficha e no filtro de perfil. */}
                                                                                         </div>
-                                                                      {/* Indicador de acesso para congregados e membros */}
-                                                                      {(m.tipo_pessoa === "congregado" || m.tipo_pessoa === "membro") && (
-                                                                          <BadgeAcesso pessoaId={m.id} />
-                                                                        )}
-                                                                      {canEdit && (
-                                                                          <div className="flex gap-0.5 shrink-0">
-                                                                            {m.tipo_pessoa === "visitante" && (
-                                                                                                    <Button
-                                                                                                                                variant="ghost"
-                                                                                                                                size="icon"
-                                                                                                                                className="h-9 w-9"
-                                                                                                                                title="Acompanhar visitante"
-                                                                                                                                onClick={() => setVisitantePessoa(m)}
-                                                                                                                              >
-                                                                                                                              <Sparkles className="w-4 h-4 text-warning" />
-                                                                                                      </Button>
-                                                                                                )}
-                                                                                                <Button
-                                                                                                                          variant="ghost"
-                                                                                                                          size="icon"
-                                                                                                                          className="h-9 w-9"
-                                                                                                                          title="Vínculos familiares"
-                                                                                                                          onClick={() => setVinculosPessoa(m)}
-                                                                                                                        >
-                                                                                                                        <Link2 className="w-4 h-4" />
-                                                                                                  </Button>
-                                                                                                <Button
-                                                                                                                          variant="ghost"
-                                                                                                                          size="icon"
-                                                                                                                          className="h-9 w-9"
-                                                                                                                          title="Atuações voluntárias"
-                                                                                                                          onClick={() => setAtuacoesPessoa(m)}
-                                                                                                                        >
-                                                                                                                        <Briefcase className="w-4 h-4" />
-                                                                                                  </Button>
-                                                                                                <Button
-                                                                                                                          variant="ghost"
-                                                                                                                          size="icon"
-                                                                                                                          className="h-9 w-9"
-                                                                                                                          onClick={() => {
-                                                                                                                                                      setEditing(m);
-                                                                                                                                                      setOpen(true);
-                                                                                                                            }}
-                                                                                                                        >
-                                                                                                                        <Pencil className="w-4 h-4" />
-                                                                                                  </Button>
-                                                                          </div>
-                                                                                      )}
+                                                                      {/* Uma acao visivel — editar — mais um menu para as secundarias.
+                                                                          Antes eram ate quatro icones sem rotulo, que ninguem entende
+                                                                          sem passar o mouse, e no celular nao ha mouse. Dentro do menu
+                                                                          cada acao tem nome em vez de simbolo. O indicador de acesso
+                                                                          tambem saiu da linha: era um quarto icone, mudo. */}
+                                                                      {canEdit && <AcoesPessoa m={m} {...acoes} />}
                                                                     </CardContent>
                                                     </Card>
                                                   ))}
                                     </div>
+                            )}
+
+                            {/* ── Tabela: 768px para cima ──────────────────────────────
+                                Medido em 1416px: o nome recebia 955px de largura e usava
+                                330px — cerca de 600px vazios por linha. So nove pessoas
+                                cabiam sem rolar, e uma pagina de 20 levava 2,1 telas.
+                                A tabela usa esse espaco para colunas de verdade (tipo,
+                                situacao, telefone, bairro) em vez de concatenar tudo com
+                                bolinhas, e dobra quantas pessoas aparecem de uma vez.
+                                No celular a tabela nao entra: os cartoes continuam. */}
+                            {!loading && !error && filtered.length > 0 && (
+                              <div className="hidden md:block rounded-lg border overflow-hidden">
+                                <table className="w-full text-sm">
+                                  <caption className="sr-only">
+                                    Pessoas cadastradas — {filtered.length} no filtro atual,
+                                    mostrando {inicio + 1} a {Math.min(inicio + POR_PAGINA, filtered.length)}
+                                  </caption>
+                                  <thead className="bg-muted/50">
+                                    <tr className="text-left text-xs text-muted-foreground">
+                                      <th scope="col" className="font-medium px-3 py-2">Nome</th>
+                                      <th scope="col" className="font-medium px-3 py-2 w-32">Tipo</th>
+                                      <th scope="col" className="font-medium px-3 py-2 w-40">Telefone</th>
+                                      <th scope="col" className="font-medium px-3 py-2 w-40">Último contato</th>
+                                      <th scope="col" className="font-medium px-3 py-2 w-24">
+                                        <span className="sr-only">Ações</span>
+                                      </th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {visiveis.map((m) => (
+                                      <tr key={m.id} className="border-t hover:bg-muted/40 transition-colors">
+                                        <th scope="row" className="font-normal text-left px-3 py-0 max-w-0">
+                                          {/* Botao de verdade, e nao onClick na <tr>: alcancavel por
+                                              Tab e anunciado como acao. Alvo esticado sobre a linha
+                                              nao serve aqui — <tr> com position: relative nao e
+                                              confiavel entre navegadores. */}
+                                          <button
+                                            type="button"
+                                            // py-3 leva o botao aos 44px de altura da linha. Sem
+                                            // isso ele media 20px — so a altura do texto — e virava
+                                            // um alvo estreito no meio de uma linha alta, alem de
+                                            // ficar abaixo dos 24px minimos da WCAG 2.5.8.
+                                            className="block w-full min-w-0 py-3 text-left truncate font-medium hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+                                            onClick={() => { setEditing(m); setOpen(true); }}
+                                          >
+                                            {m.nome_completo}
+                                          </button>
+                                        </th>
+                                        <td className="px-3 py-0">
+                                          {/* Etiqueta so na excecao, como nos cartoes. */}
+                                          {m.tipo_pessoa !== "membro" ? (
+                                            <Badge variant="outline" className={tipoPessoaColor[m.tipo_pessoa]}>
+                                              {tipoPessoaLabel[m.tipo_pessoa]}
+                                            </Badge>
+                                          ) : m.status !== "ativo" ? (
+                                            <StatusMembroBadge status={m.status} compact />
+                                          ) : null}
+                                          {/* Celula vazia, e nao "—": 274 dos 279 sao membros
+                                              ativos, entao a coluna virava uma fileira de tracos.
+                                              Traco numa tabela le como dado; vazio le como "nada
+                                              a notar", que e o que se quer dizer aqui. Em telefone
+                                              e bairro o traco fica, porque ali a ausencia importa:
+                                              sem telefone ninguem consegue ser contatado. */}
+                                        </td>
+                                        <td className="px-3 py-0 text-muted-foreground tabular-nums">
+                                          {m.telefone_celular || "—"}
+                                        </td>
+                                        {/* O bairro saiu daqui para o "Último contato" entrar.
+                                            Numa tela de cuidado, quando alguem falou com a
+                                            pessoa pela ultima vez pesa mais do que em que
+                                            bairro ela mora — e o bairro continua na busca e
+                                            na ficha. A coluna e o que torna a pergunta
+                                            pastoral visivel sem abrir nada. */}
+                                        <td className="px-3 py-0">
+                                          <UltimoContato quando={m.ultimo_contato_em} />
+                                        </td>
+                                        <td className="px-3 py-0">
+                                          {/* Sem o lapis aqui: nesta tabela o nome ja e o
+                                              botao que abre a edicao. Eram 20 lapis por
+                                              pagina repetindo uma acao que ja existe a
+                                              dois centimetros de distancia — 20 icones a
+                                              menos numa tela que tinha 85. */}
+                                          {canEdit && <AcoesPessoa m={m} {...acoes} mostrarEditar={false} />}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+
+                            {!loading && !error && totalPaginas > 1 && (
+                              <nav
+                                className="flex items-center justify-between gap-3 pt-1"
+                                aria-label="Paginação da lista de pessoas"
+                              >
+                                <Button
+                                  variant="outline"
+                                  className="min-h-[44px]"
+                                  disabled={paginaAtual === 1}
+                                  onClick={() => setPagina(p => Math.max(1, p - 1))}
+                                >
+                                  Anterior
+                                </Button>
+                                <span
+                                  className="text-sm text-muted-foreground tabular-nums"
+                                  aria-live="polite"
+                                >
+                                  {(paginaAtual - 1) * POR_PAGINA + 1}–
+                                  {Math.min(paginaAtual * POR_PAGINA, filtered.length)} de {filtered.length}
+                                </span>
+                                <Button
+                                  variant="outline"
+                                  className="min-h-[44px]"
+                                  disabled={paginaAtual === totalPaginas}
+                                  onClick={() => setPagina(p => Math.min(totalPaginas, p + 1))}
+                                >
+                                  Próxima
+                                </Button>
+                              </nav>
                             )}
                     </div>
               
@@ -466,6 +726,19 @@ export default function Membros() {
                               onOpenChange={(v) => { if (!v) setVisitantePessoa(null); }}
                               pessoa={visitantePessoa}
                               onSaved={load}
+                            />
+
+                    {/* O mesmo dialogo usado na tela de Visitantes. Ele ja
+                        perguntava "como foi o contato?" e aceitava observacao;
+                        so nao estava disponivel fora dali. */}
+                    <ContatoResultadoDialog
+                              open={!!contatoPessoa}
+                              onOpenChange={(v) => { if (!v) setContatoPessoa(null); }}
+                              nomeVisitante={contatoPessoa?.nome_completo ?? ""}
+                              saving={salvandoContato}
+                              onConfirm={async (tipo, obs) => {
+                                if (contatoPessoa) await registrarContato(contatoPessoa, tipo, obs);
+                              }}
                             />
               </div>
           );

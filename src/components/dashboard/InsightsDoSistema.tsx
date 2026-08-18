@@ -223,11 +223,9 @@ function InsightCard({ ins }: { ins: Insight }) {
           </div>
         </div>
         {ins.cta && (
-          <Link to={ins.cta.to}>
-            <Button type="button" size="sm" variant="ghost" className="gap-1 text-xs shrink-0">
+          <Button asChild size="sm" variant="ghost" className="gap-1 text-xs shrink-0"><Link to={ins.cta.to}>
               {ins.cta.label} <ArrowRight className="w-3 h-3" />
-            </Button>
-          </Link>
+            </Link></Button>
         )}
       </CardContent>
     </Card>

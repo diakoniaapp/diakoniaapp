@@ -44,7 +44,7 @@ export interface AlertaExecutivo {
 export async function buscarSaldoConsolidado(): Promise<SaldoConsolidado> {
   const { data, error } = await supabase.rpc("fin_exec_saldo_consolidado");
   if (error) throw error;
-  return data as SaldoConsolidado;
+  return data as unknown as SaldoConsolidado;
 }
 
 export async function buscarFluxo12m(): Promise<FluxoCaixaMes[]> {

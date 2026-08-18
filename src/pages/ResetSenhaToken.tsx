@@ -104,6 +104,7 @@ export default function ResetSenhaToken() {
         </p>
         <form onSubmit={redefinir} className="space-y-4">
           <AuthCampo
+            id="telefone"
             label="Telefone (login)"
             type="text"
             value={telefone}
@@ -112,6 +113,7 @@ export default function ResetSenhaToken() {
             icon={<Lock className="w-4 h-4" />}
           />
           <AuthCampo
+            id="nova-senha"
             label="Nova senha"
             type={verSenha ? "text" : "password"}
             value={senha}
@@ -126,6 +128,7 @@ export default function ResetSenhaToken() {
             }
           />
           <AuthCampo
+            id="confirmar-senha"
             label="Confirme a senha"
             type={verSenha ? "text" : "password"}
             value={conf}

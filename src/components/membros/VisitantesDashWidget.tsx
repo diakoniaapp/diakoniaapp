@@ -153,7 +153,7 @@ export default function VisitantesDashWidget() {
           <CardTitle className="font-serif text-base flex items-center justify-between gap-2">
             <span translate="no">Quem precisa de cuidado hoje</span>
             {stats.precisamContato > 5 && (
-              <Badge variant="outline" className="text-[10px] font-normal">
+              <Badge variant="outline" className="text-xs font-normal">
                 +{stats.precisamContato - 5} no painel completo
               </Badge>
             )}

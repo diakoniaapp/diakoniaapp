@@ -7,10 +7,17 @@ import {
   carregarResumoFiscal, marcarAtrasados, montarAlertaFiscalWhatsApp, carregarConfig,
   type ResumoFiscalDashboard,
 } from "@/services/fiscalService";
+import { useReportarVazio } from "@/components/hoje/vazio";
 
 export function AgendaFiscalUrgente() {
   const [data, setData] = useState<ResumoFiscalDashboard | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Faixa do HOJE desaparece quando não há obrigação vencendo.
+  useReportarVazio(
+    loading || !data ||
+    (data.total_atrasados + data.total_urgentes + data.total_proximos) === 0
+  );
 
   async function carregar() {
     setLoading(true);
@@ -91,7 +98,7 @@ export function AgendaFiscalUrgente() {
             <span className="text-base shrink-0">{a.icone}</span>
             <span className="flex-1 truncate">{a.nome}</span>
             <span className={
-              "text-[10px] tabular-nums shrink-0 " +
+              "text-xs tabular-nums shrink-0 " +
               (a.severidade === "atrasado" ? "text-rose-600 font-semibold" :
                a.severidade === "urgente" ? "text-amber-700 font-medium" : "text-muted-foreground")
             }>
@@ -105,7 +112,7 @@ export function AgendaFiscalUrgente() {
       </ul>
 
       <div className="flex items-center justify-between gap-2 pt-1">
-        <Button size="sm" variant="outline" className="text-[10px] gap-1 h-7"
+        <Button size="sm" variant="outline" className="text-xs gap-1 h-7"
           onClick={avisarWhats}>
           <MessageCircle className="w-3 h-3 text-emerald-600" /> Avisar tesouraria
         </Button>

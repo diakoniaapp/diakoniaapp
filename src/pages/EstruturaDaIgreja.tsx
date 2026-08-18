@@ -7,7 +7,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, supabaseRel } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
@@ -83,20 +83,18 @@ const NIVEL_LABELS: Record<number, string> = {
   4: "Tesouraria",
 };
 
+// Foto de verdade identifica uma pessoa no organograma. Iniciais nao:
+// no lugar da foto ficava um circulo com as duas letras que ja abrem o
+// nome escrito ao lado. Sem foto, nao entra nada — a pilula fica so com
+// o nome, que e a informacao.
 function AvatarPessoa({ nome, foto, size = "sm" }: {
   nome: string; foto?: string | null; size?: "sm" | "md" | "lg";
 }) {
+  if (!foto) return null;
   const sz =
     size === "lg" ? "w-12 h-12 text-sm" :
-    size === "md" ? "w-9 h-9 text-xs" : "w-7 h-7 text-[10px]";
-  const iniciais = nome.split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase();
-  if (foto)
-    return <img src={foto} alt={nome} className={`${sz} rounded-full object-cover border border-border shrink-0`} />;
-  return (
-    <div className={`${sz} rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center shrink-0 border border-primary/20`}>
-      {iniciais}
-    </div>
-  );
+    size === "md" ? "w-9 h-9 text-xs" : "w-7 h-7 text-xs";
+  return <img src={foto} alt={nome} className={`${sz} rounded-full object-cover border border-border shrink-0`} />;
 }
 
 function PessoaPill({ id, nome, foto, funcao, onClick }: {
@@ -112,7 +110,7 @@ function PessoaPill({ id, nome, foto, funcao, onClick }: {
       <AvatarPessoa nome={nome} foto={foto} size="sm" />
       <span className="font-medium truncate max-w-[90px]">{nome.split(" ")[0]}</span>
       {funcao && (
-        <Badge variant="outline" className="text-[9px] h-3.5 px-1 hidden sm:flex">
+        <Badge variant="outline" className="text-xs h-3.5 px-1 hidden sm:flex">
           {funcao}
         </Badge>
       )}
@@ -141,21 +139,21 @@ function MinisterioCard({ min, onPessoa, isAdmin, onEdit }: {
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-medium text-sm">{min.nome}</span>
             {min.sigla && (
-              <Badge variant="outline" className="text-[10px] h-4 px-1">{min.sigla}</Badge>
+              <Badge variant="outline" className="text-xs h-4 px-1">{min.sigla}</Badge>
             )}
           </div>
           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
             {min.lider_nome && (
-              <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
                 <Crown className="w-2.5 h-2.5" />
                 {min.lider_nome.split(" ")[0]}
               </span>
             )}
-            <Badge variant="outline" className="text-[10px] h-4 px-1.5">
+            <Badge variant="outline" className="text-xs h-4 px-1.5">
               {min.membros_count} {min.membros_count === 1 ? "pessoa" : "pessoas"}
             </Badge>
             {min.areas.length > 0 && (
-              <Badge variant="outline" className="text-[10px] h-4 px-1.5">
+              <Badge variant="outline" className="text-xs h-4 px-1.5">
                 {min.areas.length} {min.areas.length === 1 ? "area" : "areas"}
               </Badge>
             )}
@@ -179,7 +177,7 @@ function MinisterioCard({ min, onPessoa, isAdmin, onEdit }: {
         <div className="px-4 pb-4 pt-2 space-y-4 bg-muted/10 border-t">
           {(min.lider_id || min.vice_lider_id) && (
             <div className="space-y-1.5">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Lideranca</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Lideranca</p>
               <div className="flex flex-wrap gap-2">
                 {min.lider_id && min.lider_nome && (
                   <PessoaPill id={min.lider_id} nome={min.lider_nome} foto={min.lider_foto} funcao="Lider" onClick={onPessoa} />
@@ -193,7 +191,7 @@ function MinisterioCard({ min, onPessoa, isAdmin, onEdit }: {
 
           {min.areas.length > 0 && (
             <div className="space-y-2">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Areas</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Areas</p>
               <div className="space-y-1.5">
                 {min.areas.map((area) => (
                   <div key={area.id} className="rounded-lg border bg-background px-3 py-2 space-y-1">
@@ -207,7 +205,7 @@ function MinisterioCard({ min, onPessoa, isAdmin, onEdit }: {
                     {area.setores.length > 0 && (
                       <div className="ml-5 flex flex-wrap gap-1">
                         {area.setores.map((s) => (
-                          <Badge key={s.id} variant="outline" className="text-[10px]">{s.nome}</Badge>
+                          <Badge key={s.id} variant="outline" className="text-xs">{s.nome}</Badge>
                         ))}
                       </div>
                     )}
@@ -219,7 +217,7 @@ function MinisterioCard({ min, onPessoa, isAdmin, onEdit }: {
 
           {min.membros.length > 0 && (
             <div className="space-y-1.5">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Pessoas ({min.membros.length})
               </p>
               <div className="flex flex-wrap gap-1.5">
@@ -228,7 +226,7 @@ function MinisterioCard({ min, onPessoa, isAdmin, onEdit }: {
                     funcao={m.funcao ?? undefined} onClick={onPessoa} />
                 ))}
                 {min.membros.length > 16 && (
-                  <span className="text-[11px] text-muted-foreground self-center">
+                  <span className="text-xs text-muted-foreground self-center">
                     +{min.membros.length - 16} mais
                   </span>
                 )}
@@ -268,6 +266,7 @@ export default function EstruturaDaIgreja() {
       .from("membros").select("id,tipo_pessoa").eq("status", "ativo");
 
     // Diretoria eleita (cargos estatutarios)
+    // TABELA AUSENTE EM PRODUCAO — ver migration 20260528_estrutura_organizacional.sql
     const { data: ce } = await supabase
       .from("pessoa_cargo_estatutario")
       .select("id,mandato,pessoa_id,cargos_estatutarios(nome,nivel),membros(nome_completo,foto_url)")
@@ -485,7 +484,7 @@ export default function EstruturaDaIgreja() {
                               <p className="font-medium text-sm truncate">{d.pessoa_nome}</p>
                               <p className="text-xs text-purple-700">{d.cargo}</p>
                               {d.mandato && (
-                                <p className="text-[10px] text-muted-foreground">Mandato {d.mandato}</p>
+                                <p className="text-xs text-muted-foreground">Mandato {d.mandato}</p>
                               )}
                             </div>
                           </button>
@@ -566,7 +565,7 @@ export default function EstruturaDaIgreja() {
                               <div className="flex flex-wrap items-center gap-2 mb-1">
                                 <span className="text-sm font-semibold">{item.nome}</span>
                                 {item.base_institucional && (
-                                  <Badge variant="outline" className="text-[10px] h-4 px-1.5">
+                                  <Badge variant="outline" className="text-xs h-4 px-1.5">
                                     📄 {item.base_institucional}
                                   </Badge>
                                 )}
@@ -575,7 +574,7 @@ export default function EstruturaDaIgreja() {
                                 <p className="text-xs text-muted-foreground">{item.descricao}</p>
                               )}
                               {item.responsabilidades && (
-                                <p className="text-[11px] text-muted-foreground/80 mt-1 line-clamp-2">
+                                <p className="text-xs text-muted-foreground/80 mt-1 line-clamp-2">
                                   {item.responsabilidades}
                                 </p>
                               )}

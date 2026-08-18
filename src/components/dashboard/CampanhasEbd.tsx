@@ -57,11 +57,9 @@ export function CampanhasEbd() {
       <CardContent className="py-5 flex flex-col items-center gap-2 text-muted-foreground">
         <DollarSign className="w-5 h-5 text-gold/60" />
         <p className="text-sm">Nenhuma campanha ativa.</p>
-        <Link to="/ebd">
-          <Button type="button" variant="ghost" size="sm" className="gap-1.5 text-xs">
+        <Button asChild variant="ghost" size="sm" className="gap-1.5 text-xs"><Link to="/ebd">
             Criar via classe EBD <ArrowRight className="w-3 h-3" />
-          </Button>
-        </Link>
+          </Link></Button>
       </CardContent>
     </Card>;
   }
@@ -79,7 +77,7 @@ export function CampanhasEbd() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <h3 className="font-medium text-sm truncate">{c.nome}</h3>
-                    <p className="text-[11px] text-muted-foreground truncate">{c.classe_nome}</p>
+                    <p className="text-xs text-muted-foreground truncate">{c.classe_nome}</p>
                   </div>
                   {atingiu && <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />}
                 </div>
@@ -87,7 +85,7 @@ export function CampanhasEbd() {
                   <>
                     <div className="flex items-baseline justify-between text-xs">
                       <span className="font-semibold">{brl(r.arrecadado)}</span>
-                      <Badge variant="outline" className="text-[10px]">
+                      <Badge variant="outline" className="text-xs">
                         {pct}% de {brl(r.meta)}
                       </Badge>
                     </div>

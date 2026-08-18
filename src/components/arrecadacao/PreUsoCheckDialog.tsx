@@ -73,7 +73,7 @@ export function PreUsoCheckDialog({ open, onOpenChange, reservaId, onConfirmado 
           <DialogTitle className="flex items-center gap-2">
             <ClipboardList className="w-4 h-4 text-gold" />
             Confirme antes de iniciar
-            <Badge variant="outline" className="text-[10px] ml-2">
+            <Badge variant="outline" className="text-xs ml-2">
               {obrigatoriosOk}/{obrigatorios.length}
             </Badge>
           </DialogTitle>
@@ -97,7 +97,7 @@ export function PreUsoCheckDialog({ open, onOpenChange, reservaId, onConfirmado 
               <span className={"flex-1 " + (item.ok ? "line-through text-muted-foreground" : "")}>
                 {item.item}
                 {item.obrigatorio && (
-                  <Badge variant="outline" className="text-[9px] ml-1.5 bg-amber-50 text-amber-700 border-amber-200">
+                  <Badge variant="outline" className="text-xs ml-1.5 bg-amber-50 text-amber-700 border-amber-200">
                     obrigatório
                   </Badge>
                 )}

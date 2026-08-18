@@ -104,12 +104,16 @@ export function AvisoConflitoOcupacao({
           for (const oc of ocorrencias) {
             // ignora a si mesmo
             if (excluirRefId && (oc.baseId === excluirRefId || oc.serieId === excluirRefId)) continue;
-            const ocIni = combinarData(oc.data, oc.hora_inicio ?? "00:00");
-            const ocFim = combinarData(oc.data, oc.hora_fim ?? "23:59", oc.hora_inicio);
+            // Os campos do evento ficam em oc.evento (EventoRow), não na
+            // ocorrência. Lidos do lugar errado, vinham undefined e o
+            // fallback fazia o recorrente ocupar o dia inteiro na checagem
+            // de conflito — barrando reservas válidas por falso positivo.
+            const ocIni = combinarData(oc.data, oc.evento.hora_inicio ?? "00:00");
+            const ocFim = combinarData(oc.data, oc.evento.hora_fim ?? "23:59", oc.evento.hora_inicio);
             if (sobrepoe(ocIni, ocFim, ini, fim)) {
               achados.push({
                 fonte: "recorrente",
-                titulo: oc.titulo ?? "Evento recorrente",
+                titulo: oc.evento.titulo ?? "Evento recorrente",
                 inicio: ocIni.toISOString(),
                 fim: ocFim.toISOString(),
               });
@@ -128,7 +132,7 @@ export function AvisoConflitoOcupacao({
 
   if (loading) {
     return (
-      <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+      <div className="text-xs text-muted-foreground flex items-center gap-1.5">
         <Loader2 className="w-3 h-3 animate-spin" /> verificando agenda...
       </div>
     );
@@ -136,7 +140,7 @@ export function AvisoConflitoOcupacao({
 
   if (erro) {
     return (
-      <div className="text-[11px] text-rose-700">
+      <div className="text-xs text-rose-700">
         Falha ao verificar agenda: {erro}
       </div>
     );
@@ -160,13 +164,13 @@ export function AvisoConflitoOcupacao({
                 · {fmtBr(c.inicio)} → {fmtBr(c.fim)}
               </span>
               {c.fonte === "recorrente" && (
-                <span className="ml-1 text-[10px] text-amber-700">(recorrente)</span>
+                <span className="ml-1 text-xs text-amber-700">(recorrente)</span>
               )}
             </div>
           </li>
         ))}
       </ul>
-      <p className="text-[10px] text-amber-700 italic">
+      <p className="text-xs text-amber-700 italic">
         Este local permite uso simultâneo — a reserva pode prosseguir, mas confirme
         com o responsável do outro agendamento se houver risco de tumulto.
       </p>

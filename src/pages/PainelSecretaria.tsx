@@ -47,7 +47,7 @@ export default function PainelSecretaria() {
   }
 
   if (loading) return <div className="p-8 flex items-center justify-center text-muted-foreground">
-    <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando painel...
+    <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando pendências...
   </div>;
 
   // Agrupar por prioridade
@@ -60,22 +60,18 @@ export default function PainelSecretaria() {
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-4">
       <div className="flex items-center gap-2">
-        <Link to="/membresia">
-          <Button variant="ghost" size="icon"><ArrowLeft className="w-4 h-4" /></Button>
-        </Link>
+        <Button asChild variant="ghost" size="icon"><Link to="/membresia"><ArrowLeft className="w-4 h-4" /></Link></Button>
         <div className="flex-1">
           <h1 className="font-serif text-xl flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-gold" /> Painel da Secretaria
+            <Sparkles className="w-5 h-5 text-gold" /> Pendências da Secretaria
           </h1>
           <p className="text-xs text-muted-foreground">
             Tudo que precisa da sua atenção em um só lugar.
           </p>
         </div>
-        <Link to="/membresia">
-          <Button variant="outline" size="sm" className="gap-1.5">
+        <Button asChild variant="outline" size="sm" className="gap-1.5"><Link to="/membresia">
             <BarChart3 className="w-3.5 h-3.5" /> Ver todas
-          </Button>
-        </Link>
+          </Link></Button>
       </div>
 
       {/* Stats topo */}
@@ -91,7 +87,7 @@ export default function PainelSecretaria() {
           <CardContent className="py-10 text-center text-sm text-muted-foreground space-y-2">
             <Sparkles className="w-10 h-10 mx-auto opacity-30 text-emerald-500" />
             <p className="font-medium text-emerald-700">Tudo em ordem!</p>
-            <p className="text-[11px]">Nenhum alerta pendente — secretaria em dia 🎉</p>
+            <p className="text-xs">Nenhum alerta pendente — secretaria em dia 🎉</p>
           </CardContent>
         </Card>
       ) : (
@@ -99,7 +95,7 @@ export default function PainelSecretaria() {
           {alertasGov.length > 0 && (
             <div className="space-y-1.5">
               <div className="flex items-center gap-2 px-1">
-                <Badge variant="outline" className="text-[10px] bg-purple-100 text-purple-700 border-purple-300">
+                <Badge variant="outline" className="text-xs bg-purple-100 text-purple-700 border-purple-300">
                   ⚖ Governança
                 </Badge>
                 <span className="text-xs text-muted-foreground">({alertasGov.length})</span>
@@ -114,14 +110,12 @@ export default function PainelSecretaria() {
                     <AlertTriangle className={`w-3.5 h-3.5 shrink-0 ${a.prioridade === "urgente" ? "text-rose-700" : a.prioridade === "atencao" ? "text-amber-700" : "text-blue-700"}`} />
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-medium">{a.titulo}</p>
-                      <p className="text-[11px] text-muted-foreground">{a.descricao}</p>
+                      <p className="text-xs text-muted-foreground">{a.descricao}</p>
                     </div>
                     {a.link && (
-                      <Link to={a.link}>
-                        <Button size="sm" variant="outline" className="h-7 text-[11px] gap-1">
+                      <Button asChild size="sm" variant="outline" className="h-7 text-xs gap-1"><Link to={a.link}>
                           {a.acao_sugerida} <ChevronRight className="w-3 h-3" />
-                        </Button>
-                      </Link>
+                        </Link></Button>
                     )}
                   </CardContent>
                 </Card>
@@ -136,7 +130,7 @@ export default function PainelSecretaria() {
             return (
               <div key={prio} className="space-y-1.5">
                 <div className="flex items-center gap-2 px-1">
-                  <Badge variant="outline" className={`text-[10px] ${info.cor}`}>{info.label}</Badge>
+                  <Badge variant="outline" className={`text-xs ${info.cor}`}>{info.label}</Badge>
                   <span className="text-xs text-muted-foreground">({lista.length})</span>
                 </div>
                 {lista.map((a, i) => (
@@ -146,13 +140,11 @@ export default function PainelSecretaria() {
                         <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium">{a.titulo}</p>
-                          <p className="text-[11px] text-muted-foreground mt-0.5">{a.descricao}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{a.descricao}</p>
                           {a.acao_sugerida && (
-                            <Link to={a.link} className="inline-block mt-1.5">
-                              <Button size="sm" variant="outline" className="h-7 text-[11px] gap-1">
+                            <Button asChild size="sm" variant="outline" className="h-7 text-xs gap-1"><Link to={a.link} className="inline-block mt-1.5">
                                 {a.acao_sugerida} <ChevronRight className="w-3 h-3" />
-                              </Button>
-                            </Link>
+                              </Link></Button>
                           )}
                         </div>
                       </div>
@@ -165,7 +157,7 @@ export default function PainelSecretaria() {
         </>
       )}
 
-      <div className="text-[10px] text-muted-foreground text-center pt-2">
+      <div className="text-xs text-muted-foreground text-center pt-2">
         ✨ Sistema de alertas inteligentes · Atualiza em tempo real
       </div>
     </div>
@@ -180,7 +172,7 @@ function Stat({ label, valor, icon, cor }: { label: string; valor: number; icon:
   return (
     <Card>
       <CardContent className="py-2 px-3">
-        <p className="text-[10px] uppercase tracking-wide text-muted-foreground flex items-center gap-1">{icon} {label}</p>
+        <p className="text-xs uppercase tracking-wide text-muted-foreground flex items-center gap-1">{icon} {label}</p>
         <p className={`text-base font-semibold ${corClass}`}>{valor}</p>
       </CardContent>
     </Card>

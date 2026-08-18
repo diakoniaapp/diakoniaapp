@@ -8,6 +8,7 @@ import {
   UserCheck, Home, GraduationCap, Loader2, ArrowRight, CheckCircle2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useReportarVazio } from "@/components/hoje/vazio";
 
 interface Pessoa { id: string; nome_completo: string; }
 interface Visitante extends Pessoa {
@@ -23,6 +24,11 @@ export function AtencaoEmPessoas() {
   const [visitantes, setVisitantes] = useState<Visitante[]>([]);
   const [semFamilia, setSemFamilia] = useState<Pessoa[]>([]);
   const [semEbd, setSemEbd] = useState<Pessoa[]>([]);
+
+  // Faixa do HOJE desaparece quando ninguém precisa de atenção.
+  useReportarVazio(
+    loading || (visitantes.length + semFamilia.length + semEbd.length) === 0
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -171,13 +177,15 @@ function ColunaPessoas({ cor, icon: Icon, titulo, descricao, lista, total, cta }
         <CardContent className="py-4 text-center">
           <Icon className={`w-4 h-4 mx-auto mb-1 ${cls.icon}`} />
           <p className="text-xs font-medium">{titulo}</p>
-          <p className="text-[10px] text-muted-foreground">Nada pendente ✓</p>
+          <p className="text-xs text-muted-foreground">Nada pendente ✓</p>
         </CardContent>
       </Card>
     );
   }
   return (
-    <Card className={cls.card}>
+    // min-w-0 pelo mesmo motivo de AlertasInteligentes: nome longo não pode
+    // alargar o cartão além da célula do grid.
+    <Card className={`${cls.card} min-w-0`}>
       <CardContent className="py-3 space-y-2">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
@@ -185,28 +193,26 @@ function ColunaPessoas({ cor, icon: Icon, titulo, descricao, lista, total, cta }
               <Icon className={`w-3.5 h-3.5 ${cls.icon}`} />
               {titulo}
             </p>
-            <p className="text-[10px] text-muted-foreground">{descricao}</p>
+            <p className="text-xs text-muted-foreground">{descricao}</p>
           </div>
-          <Badge variant="outline" className={`text-[10px] ${cls.chip}`}>{total}</Badge>
+          <Badge variant="outline" className={`text-xs ${cls.chip}`}>{total}</Badge>
         </div>
         <ul className="text-xs space-y-0.5 ml-1">
           {lista.map(p => (
             <li key={p.id} className="truncate">
               {p.nome}
-              {p.extra && <span className="text-[10px] text-muted-foreground ml-1">· {p.extra}</span>}
+              {p.extra && <span className="text-xs text-muted-foreground ml-1">· {p.extra}</span>}
             </li>
           ))}
           {total > lista.length && (
-            <li className="text-[10px] text-muted-foreground italic">
+            <li className="text-xs text-muted-foreground italic">
               ... e mais {total - lista.length}
             </li>
           )}
         </ul>
-        <Link to={cta.to}>
-          <Button type="button" variant="ghost" size="sm" className="w-full gap-1.5 h-7 text-xs">
+        <Button asChild variant="ghost" size="sm" className="w-full gap-1.5 h-7 text-xs"><Link to={cta.to}>
             {cta.label} <ArrowRight className="w-3 h-3" />
-          </Button>
-        </Link>
+          </Link></Button>
       </CardContent>
     </Card>
   );

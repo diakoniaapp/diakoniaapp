@@ -3,6 +3,11 @@
 // Utilitários para o fluxo de cuidado de visitantes
 // ============================================================
 
+import type { Database } from "@/integrations/supabase/types";
+
+/** Espelha o enum status_acolhimento_enum do banco. */
+export type StatusAcolhimento = Database["public"]["Enums"]["status_acolhimento_enum"];
+
 export type EtapaFluxo =
   | "boas_vindas"
   | "incentivo"
@@ -134,13 +139,22 @@ export function precisaAcao(ultimo_contato_em: string | null | undefined): boole
 // ------------------------------------------------------------
 // Status a registrar conforme etapa ao marcar contato
 // ------------------------------------------------------------
-export function getStatusPorEtapa(etapa: EtapaFluxo): string {
+// O retorno alimenta membros.status_acolhimento, cuja coluna é o enum
+// status_acolhimento_enum. Três valores usados aqui não existiam nesse enum
+// — "contato_inicial", "tentativa_reengajamento" e "integrado" — então o
+// update era rejeitado pelo banco e "marcar contato" falhava nas etapas
+// incentivo, nao_voltou e retornou.
+//
+// Cada um foi trocado pelo valor válido mais próximo em significado. A
+// escolha de "contatar" para nao_voltou (em vez de "contatado") assume que a
+// etapa indica pendência de reengajamento — vale confirmar com a secretaria.
+export function getStatusPorEtapa(etapa: EtapaFluxo): StatusAcolhimento {
   switch (etapa) {
     case "boas_vindas":        return "novo";
-    case "incentivo":          return "contato_inicial";
+    case "incentivo":          return "contatado";
     case "cuidado":            return "em_acompanhamento";
-    case "nao_voltou":         return "tentativa_reengajamento";
-    case "retornou":           return "integrado";
+    case "nao_voltou":         return "contatar";
+    case "retornou":           return "retornou";
     default:                   return "em_acompanhamento";
   }
 }

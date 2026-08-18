@@ -79,7 +79,7 @@ function VersiculoRotativo({ fixo }: { fixo?: { texto: string; ref: string } }) 
       <p className="text-xs italic leading-relaxed text-foreground/50 dark:text-foreground/40 line-clamp-3">
         "{verso.texto}"
       </p>
-      <p className="text-[10px] font-semibold tracking-widest uppercase text-gold/70">
+      <p className="text-xs font-semibold tracking-widest uppercase text-gold/70">
         — {verso.ref}
       </p>
     </button>
@@ -132,10 +132,10 @@ export function AuthShell({ children, versiculoFixo, wide = false, semVersiculo 
               <BrandMark className="text-[4rem]" />
             </div>
             <div className="space-y-0.5">
-              <p className="text-[10px] tracking-[0.22em] uppercase font-semibold text-foreground/50 dark:text-foreground/40 leading-relaxed">
+              <p className="text-xs tracking-[0.22em] uppercase font-semibold text-foreground/50 dark:text-foreground/40 leading-relaxed">
                 Conectando Pessoas,
               </p>
-              <p className="text-[10px] tracking-[0.22em] uppercase font-semibold text-foreground/50 dark:text-foreground/40 leading-relaxed">
+              <p className="text-xs tracking-[0.22em] uppercase font-semibold text-foreground/50 dark:text-foreground/40 leading-relaxed">
                 Organizando o Propósito
               </p>
             </div>
@@ -155,7 +155,7 @@ export function AuthShell({ children, versiculoFixo, wide = false, semVersiculo 
         )}
 
         {/* ── Rodapé ── */}
-        <p className="text-center text-[10px] text-foreground/25 dark:text-foreground/20 mt-5 tracking-wide leading-relaxed animate-fade-in-up delay-400">
+        <p className="text-center text-xs text-foreground/25 dark:text-foreground/20 mt-5 tracking-wide leading-relaxed animate-fade-in-up delay-400">
           DiakoniaApp — Sistema de Gestão Ministerial
           <br />
           CNPJ: 34.926.658/0001-40
@@ -166,7 +166,12 @@ export function AuthShell({ children, versiculoFixo, wide = false, semVersiculo 
 }
 
 // ── Card padrão de autenticação ────────────────────────────
-export function AuthCard({ children, className }: { children: React.ReactNode; className?: string }) {
+export function AuthCard({ children, titulo, className }: {
+  children: React.ReactNode;
+  /** Cabeçalho do card. Segue a mesma tipografia do título em Auth.tsx. */
+  titulo?: string;
+  className?: string;
+}) {
   return (
     <div
       className={cn(
@@ -175,6 +180,11 @@ export function AuthCard({ children, className }: { children: React.ReactNode; c
         className,
       )}
     >
+      {titulo && (
+        <h1 className="font-serif text-2xl font-bold tracking-wide text-foreground">
+          {titulo}
+        </h1>
+      )}
       {children}
     </div>
   );

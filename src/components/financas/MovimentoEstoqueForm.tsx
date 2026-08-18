@@ -119,7 +119,7 @@ export function MovimentoEstoqueForm({ open, onOpenChange, item, onSaved }: Prop
                 onChange={(e) => setValorUnitario(Number(e.target.value) || "")}
                 placeholder="(opcional)" />
               {valorUnitario !== "" && quantidade > 0 && (
-                <p className="text-[10px] text-muted-foreground mt-0.5">
+                <p className="text-xs text-muted-foreground mt-0.5">
                   Total: R$ {(Number(valorUnitario) * quantidade).toFixed(2)}
                 </p>
               )}

@@ -23,9 +23,17 @@ import {
   AlertTriangle,
   Receipt,
   Wrench,
+  ClipboardCheck,
+  HeartHandshake,
 } from "lucide-react";
 
 export type Prioridade = 0 | 1 | 2 | 3;
+
+// As faixas ("trava", "gente", "agenda") e a marca `apenasHoje` sumiram
+// junto com a tela HOJE. Elas existiam para repartir os mesmos widgets entre
+// duas telas — e era justamente essa repartição que produzia duas versões da
+// mesma coisa, por mais bem feito que fosse o corte. Com uma tela só, o
+// registry volta a ter uma regra só: prioridade.
 
 export interface Widget {
   id: string;
@@ -40,6 +48,8 @@ export interface Widget {
 }
 
 const AlertasInteligentes = lazy(() => import("@/components/dashboard/AlertasInteligentes").then(m => ({ default: m.AlertasInteligentes })));
+const CadastrosInconsistentes = lazy(() => import("@/components/dashboard/CadastrosInconsistentes").then(m => ({ default: m.CadastrosInconsistentes })));
+const QuemNinguemProcurou = lazy(() => import("@/components/dashboard/QuemNinguemProcurou").then(m => ({ default: m.QuemNinguemProcurou })));
 const AcoesDoDia          = lazy(() => import("@/components/dashboard/AcoesDoDia").then(m => ({ default: m.AcoesDoDia })));
 const VidaDasFamilias     = lazy(() => import("@/components/dashboard/VidaDasFamilias").then(m => ({ default: m.VidaDasFamilias })));
 const ResumoEbd           = lazy(() => import("@/components/dashboard/ResumoEbd").then(m => ({ default: m.ResumoEbd })));
@@ -53,22 +63,53 @@ const MeusAssuntos        = lazy(() => import("@/components/dashboard/MeusAssunt
 const AssuntosUrgentes    = lazy(() => import("@/components/dashboard/AssuntosUrgentes").then(m => ({ default: m.AssuntosUrgentes })));
 const InsightsDoSistema   = lazy(() => import("@/components/dashboard/InsightsDoSistema").then(m => ({ default: m.InsightsDoSistema })));
 
+// A ordem deste array decide empates de prioridade — é o desempate da tela.
 export const widgetRegistry: Widget[] = [
+  // DESATIVADO por decisão de produto: o painel passou a ser sobre o que
+  // acontece hoje e nos próximos dias — agenda, cultos, reuniões, contas a
+  // vencer —, e não uma fila de trabalho pastoral.
+  //
+  // `ativo: false` e não remoção: o componente, a consulta e o filtro de
+  // cuidado continuam inteiros. Voltar é apagar esta linha.
+  //
+  // A pergunta "quem ninguém procurou?" não some do sistema: a tela de
+  // Pessoas responde a mesma coisa pelo filtro de cuidado
+  // (/membros?cuidado=nunca), que ordena pelos mais esquecidos primeiro.
+  { id: "quem-ninguem-procurou", label: "Quem ninguém procurou?",
+    subtitulo: "Pessoas esperando um contato — as mais esquecidas primeiro",
+    icone: HeartHandshake, component: QuemNinguemProcurou,
+    permissoes: ["ver_pessoas","ver_painel_pastoral","ver_painel_secretaria","ver_painel_admin"],
+    prioridade: 0, ativo: false },
+
+  { id: "agenda-do-dia", label: "Acontecendo hoje",
+    subtitulo: "Cultos, reuniões, ensaios e reservas de hoje",
+    icone: CalendarDays, component: AgendaDoDia,
+    permissoes: ["ver_pessoas","ver_familias","ver_ebd","ver_pgm"], prioridade: 0 },
+
+  // Primeiro widget do painel. Aniversario, bodas e visita de hoje sao a unica
+  // coisa da tela que perde a validade ao fim do dia — um cadastro incompleto
+  // continua incompleto amanha. E, quando o dia nao tem nenhum, o bloco se
+  // apaga e devolve o espaco.
+  { id: "acoes-do-dia", label: "Ações de hoje",
+    subtitulo: "Aniversários, bodas e visitas que acontecem agora",
+    icone: CalendarCheck, component: AcoesDoDia,
+    permissoes: ["ver_pessoas"], prioridade: 0 },
+
   { id: "alertas-inteligentes", label: "Alertas inteligentes",
     subtitulo: "Coisas que precisam da sua decisão",
     icone: Bell, component: AlertasInteligentes,
     permissoes: ["ver_pessoas","ver_painel_pastoral","ver_painel_secretaria","ver_painel_admin"],
     prioridade: 0 },
 
-  { id: "acoes-do-dia", label: "Ações de hoje",
-    subtitulo: "Aniversários, bodas e visitas que acontecem agora",
-    icone: CalendarCheck, component: AcoesDoDia,
-    permissoes: ["ver_pessoas"], prioridade: 1 },
-
-  { id: "agenda-do-dia", label: "Agenda do dia",
-    subtitulo: "Eventos da igreja hoje",
-    icone: CalendarDays, component: AgendaDoDia,
-    permissoes: ["ver_pessoas","ver_familias","ver_ebd","ver_pgm"], prioridade: 1 },
+  // Prioridade 1, nao 0: cadastro contraditorio pede correcao, mas nao e
+  // urgente como um visitante que esta se perdendo. Faixa "trava" porque e
+  // exatamente isso — algo que impede outra coisa de funcionar (as bodas do
+  // mes, o tempo de casa).
+  { id: "cadastros-inconsistentes", label: "Cadastros a corrigir",
+    subtitulo: "Registros que se contradizem",
+    icone: ClipboardCheck, component: CadastrosInconsistentes,
+    permissoes: ["ver_pessoas","ver_painel_secretaria","ver_painel_admin"],
+    prioridade: 1 },
 
   { id: "vida-das-familias", label: "Vida das famílias",
     subtitulo: "Aniversários e bodas da semana",

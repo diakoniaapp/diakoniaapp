@@ -139,7 +139,7 @@ export async function listarAgenda(f: FiltroAgenda = {}): Promise<FiscalAgendaIt
   if (f.codigo_obrigacao) q = q.eq("codigo_obrigacao", f.codigo_obrigacao);
   const { data, error } = await q;
   if (error) throw error;
-  return (data ?? []) as FiscalAgendaItem[];
+  return (data ?? []) as unknown as FiscalAgendaItem[];
 }
 
 export async function darBaixaObrigacao(
@@ -197,7 +197,9 @@ export interface ResumoFiscalDashboard {
 export async function carregarResumoFiscal(): Promise<ResumoFiscalDashboard> {
   const { data, error } = await supabase.rpc("fiscal_resumo_dashboard");
   if (error) throw error;
-  const row = Array.isArray(data) ? data[0] : data;
+  // A RPC devolve jsonb (Json), união que inclui primitivos; o compilador
+  // recusa a conversão direta. A forma é garantida pela função no banco.
+  const row = (Array.isArray(data) ? data[0] : data) as unknown as ResumoFiscalDashboard | null;
   if (!row) {
     return { total_atrasados: 0, total_urgentes: 0, total_proximos: 0, total_pagos_mes: 0, proximos: [] };
   }
@@ -413,7 +415,7 @@ export async function resumoMaloteFiscal(ano: number, mes: number): Promise<Resu
     p_ano: ano, p_mes: mes,
   });
   if (error) throw error;
-  return data as ResumoMaloteFiscal;
+  return data as unknown as ResumoMaloteFiscal;
 }
 
 /**
@@ -618,5 +620,5 @@ export interface InsightsFiscais {
 export async function carregarInsightsFiscais(): Promise<InsightsFiscais> {
   const { data, error } = await supabase.rpc("fiscal_insights");
   if (error) throw error;
-  return data as InsightsFiscais;
+  return data as unknown as InsightsFiscais;
 }

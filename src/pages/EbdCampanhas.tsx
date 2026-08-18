@@ -64,9 +64,7 @@ export default function EbdCampanhas() {
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-4">
       <div className="flex items-center gap-2">
-        <Link to={`/ebd/${classeId}`}>
-          <Button variant="ghost" size="icon"><ArrowLeft className="w-4 h-4" /></Button>
-        </Link>
+        <Button asChild variant="ghost" size="icon"><Link to={`/ebd/${classeId}`}><ArrowLeft className="w-4 h-4" /></Link></Button>
         <div className="flex-1 min-w-0">
           <h1 className="font-serif text-xl flex items-center gap-2 truncate">
             <DollarSign className="w-5 h-5 text-gold" />
@@ -124,7 +122,7 @@ function CampanhaCard({ c, classeId }: { c: CampanhaComResumo; classeId: string 
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
               <h3 className="font-medium truncate">{c.nome}</h3>
-              <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
                 <Calendar className="w-3 h-3" />
                 {new Date(c.data_inicio + "T00:00").toLocaleDateString("pt-BR")} → {new Date(c.data_fim + "T00:00").toLocaleDateString("pt-BR")}
               </p>

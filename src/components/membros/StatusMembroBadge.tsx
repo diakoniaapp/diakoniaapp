@@ -61,7 +61,7 @@ export function StatusMembroBadge({ status, showHelp = true, compact, className 
         <TooltipTrigger asChild>
           <Badge
             variant="outline"
-            className={`${info.cor} ${compact ? "text-[10px] py-0 px-1.5" : ""} cursor-help ${className ?? ""}`}
+            className={`${info.cor} ${compact ? "text-xs py-0 px-1.5" : ""} cursor-help ${className ?? ""}`}
           >
             {info.label}
             {showHelp && <HelpCircle className="w-2.5 h-2.5 ml-0.5 opacity-60" />}

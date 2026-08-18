@@ -105,6 +105,15 @@ const App = () => (
                 {/* Rotas protegidas (dentro do AppLayout) */}
                 <Route element={<AppLayout />}>
                   <Route path="/" element={<Dashboard />} />
+                  {/* A tela HOJE foi fundida no painel.
+                      Ela e o painel liam o mesmo registry, com a mesma
+                      saudação e a mesma linguagem visual, e qualquer divisão
+                      de widgets entre as duas produzia duas versões da mesma
+                      tela. O que ela tinha de próprio — a faixa "Sua tarefa"
+                      — mora agora no painel.
+                      O redirecionamento fica para não quebrar link salvo nem
+                      atalho de quem já usava /hoje. */}
+                  <Route path="/hoje" element={<Navigate to="/" replace />} />
                   <Route path="/membros" element={<Membros />} />
                   <Route path="/familias" element={<Familias />} />
                   <Route path="/ministerios" element={<Ministerios />} />

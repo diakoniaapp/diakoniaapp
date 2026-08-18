@@ -1,175 +1,26 @@
 import { Outlet, NavLink, useNavigate, useLocation } from "react-router-dom";
-import { useAuth, type AppRole } from "@/hooks/useAuth";
-import {
-  LayoutDashboard, Users, HeartHandshake, Home, LogOut,
-  CalendarDays, ChevronLeft, ChevronDown, MapPin, BarChart2, GraduationCap, Sparkles, DollarSign, Layers,
-  Building2, Network, KeyRound, ShieldAlert, Church, FileText, ScrollText, CheckSquare,
-  Upload, Download, Flame, UserCheck, Settings,
-  Cog, Sprout, Gavel, ShoppingBag, type LucideIcon,
-} from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { LogOut, ChevronLeft, ChevronDown, Search } from "lucide-react";
 import { BrandMark } from "@/components/Brand";
 import { useEffect, useState } from "react";
 import { QuickActionsFab } from "@/components/QuickActionsFab";
 import { CommandPalette } from "@/components/CommandPalette";
+import { openCommandPalette } from "@/lib/commandPalette";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
 import { UserMenuButton } from "@/components/layout/UserMenuButton";
+import {
+  NAV_GROUPS, PAINEL, pageTitles, ROUTE_ROLES,
+  type NavGroup, type NavItem,
+} from "@/components/layout/navConfig";
+import { ADMIN_MENU_ITEMS } from "@/components/layout/adminMenuItems";
 import { supabase } from "@/integrations/supabase/client";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-// ─── Roles auxiliares ────────────────────────────────────────────────────────
-const ROLES_LIDERES: AppRole[]   = ["admin", "secretaria", "pastor", "diakonia", "lideranca"];
-const ROLES_PASTORAL: AppRole[]  = ["admin", "secretaria", "pastor", "diakonia"];
-const ROLES_ADMIN: AppRole[]     = ["admin", "secretaria"];
-
-// ─── Estrutura do menu ───────────────────────────────────────────────────────
-interface NavItem {
-  to: string;
-  label: string;
-  icon: LucideIcon;
-  end?: boolean;
-  allowedRoles?: AppRole[];
-}
-
-interface NavGroup {
-  key: string;
-  label: string;
-  icon: LucideIcon;
-  items: NavItem[];
-  allowedRoles?: AppRole[];
-}
-
-// Painel sempre visível no topo, fora dos grupos
-const PAINEL: NavItem = { to: "/", label: "Painel", icon: LayoutDashboard, end: true };
-
-// Refatoração UX (Fase 1):
-//   • "Operacional" → "Administração"
-//   • "Locais" → "Espaços"  (continua /locais)
-//   • "Áreas" → "Equipes"   (continua /areas)
-//   • EBD + PGM saem de "Pessoas" e viram grupo "Discipulado"
-//   • Painel Pastoral entra em Discipulado (acompanhamento)
-//   • Painel Secretaria removido do menu (já é o painel principal pra perfil de secretaria)
-//   • Institucional + Dados + Admin antigo se consolidam em "Configurações"
-//   • Bug dos ícones com vírgula corrigido (FileText, ScrollText, CheckSquare)
-const NAV_GROUPS: NavGroup[] = [
-  {
-    key: "pessoas",
-    label: "Pessoas",
-    icon: Users,
-    items: [
-      { to: "/membros",      label: "Catálogo",    icon: Users,          allowedRoles: ROLES_LIDERES },
-      { to: "/visitantes",   label: "Visitantes",  icon: UserCheck },
-      { to: "/familias",     label: "Famílias",    icon: Home,           allowedRoles: ROLES_LIDERES },
-      { to: "/ministerios",  label: "Ministérios", icon: HeartHandshake, allowedRoles: ROLES_LIDERES },
-      { to: "/areas",        label: "Equipes",     icon: Layers,         allowedRoles: ROLES_LIDERES },
-    ],
-  },
-  {
-    key: "discipulado",
-    label: "Discipulado",
-    icon: GraduationCap,
-    items: [
-      { to: "/ebd",              label: "EBD",                icon: GraduationCap, allowedRoles: ROLES_LIDERES },
-      { to: "/pgm",              label: "Pequenos Grupos",    icon: Sprout,        allowedRoles: ROLES_LIDERES },
-      { to: "/painel-pastoral",  label: "Acompanhamento",     icon: Sparkles,      allowedRoles: ROLES_LIDERES },
-    ],
-  },
-  {
-    key: "administracao",
-    label: "Administração",
-    icon: ScrollText,
-    items: [
-      { to: "/membresia",   label: "Membresia",  icon: FileText,    allowedRoles: ROLES_LIDERES },
-      { to: "/governanca",  label: "Reuniões",   icon: Gavel,       allowedRoles: ROLES_LIDERES },
-      { to: "/assuntos",    label: "Assuntos",   icon: CheckSquare, allowedRoles: ROLES_LIDERES },
-      { to: "/arrecadacao", label: "Bazar e Cantina",     icon: ShoppingBag, allowedRoles: ROLES_LIDERES },
-    ],
-  },
-  {
-    key: "financeiro",
-    label: "Financeiro",
-    icon: DollarSign,
-    allowedRoles: ROLES_LIDERES,
-    items: [
-      { to: "/financas",         label: "Tesouraria",   icon: DollarSign, allowedRoles: ROLES_LIDERES },
-      { to: "/financas/fiscal",   label: "Módulo Fiscal",   icon: DollarSign, allowedRoles: ROLES_LIDERES },
-      { to: "/financas/reunioes",  label: "Reuniões",          icon: DollarSign, allowedRoles: ROLES_LIDERES },
-      { to: "/financas/executivo", label: "Dashboard Executivo", icon: DollarSign, allowedRoles: ROLES_PASTORAL },
-    ],
-  },
-  {
-    key: "agenda",
-    label: "Agenda & Espaços",
-    icon: CalendarDays,
-    items: [
-      { to: "/eventos", label: "Agenda",  icon: CalendarDays },
-      { to: "/locais",  label: "Espaços", icon: MapPin,        allowedRoles: ROLES_LIDERES },
-    ],
-  },
-  {
-    key: "configuracoes",
-    label: "Configurações",
-    icon: Cog,
-    allowedRoles: ROLES_PASTORAL,
-    items: [
-      { to: "/admin/identidade",        label: "Identidade",        icon: Church,      allowedRoles: ROLES_ADMIN },
-      { to: "/admin/documentos",        label: "Documentos",        icon: ScrollText,  allowedRoles: ROLES_ADMIN },
-      { to: "/admin/campanhas",         label: "Campanhas",         icon: Flame,       allowedRoles: ROLES_ADMIN },
-      { to: "/estrutura",               label: "Estrutura",         icon: Network,     allowedRoles: ROLES_PASTORAL },
-      { to: "/organograma",             label: "Organograma",       icon: Building2,   allowedRoles: ROLES_LIDERES },
-      { to: "/painel-estrategico",      label: "Crescimento",       icon: BarChart2,   allowedRoles: ROLES_PASTORAL },
-      { to: "/admin/importacao",        label: "Importação",        icon: Upload,      allowedRoles: ROLES_ADMIN },
-      { to: "/admin/exportacao",        label: "Exportação",        icon: Download,    allowedRoles: ROLES_ADMIN },
-      { to: "/usuarios",                label: "Usuários",          icon: Users,       allowedRoles: ROLES_ADMIN },
-      { to: "/admin/recuperacao-senha", label: "Recuperar Senha",   icon: KeyRound,    allowedRoles: ROLES_ADMIN },
-      { to: "/admin/lgpd",              label: "LGPD",              icon: ShieldAlert, allowedRoles: ROLES_ADMIN },
-    ],
-  },
-];
-
-const pageTitles: Record<string, string> = {
-  "/":                        "Diakonia",
-  "/membros":                 "Pessoas",
-  "/familias":                "Famílias",
-  "/ministerios":             "Ministérios",
-  "/areas":                   "Equipes",
-  "/eventos":                 "Agenda",
-  "/agenda-pastoral":         "Agenda Pastoral",
-  "/painel-pastoral":         "Acompanhamento Pastoral",
-  "/locais":                  "Espaços",
-  "/visitantes":              "Visitantes",
-  "/painel-estrategico":      "Crescimento",
-  "/ebd":                     "EBD",
-  "/pgm":                     "Pequenos Grupos",
-  "/organograma":             "Organograma",
-  "/estrutura":               "Estrutura",
-  "/usuarios":                "Usuários",
-  "/membresia":               "Membresia",
-  "/governanca":              "Reuniões",
-  "/assuntos":                "Assuntos",
-  "/financas":                "Tesouraria",
-  "/admin/recuperacao-senha": "Recuperar Senha",
-  "/admin/lgpd":              "LGPD",
-  "/admin/identidade":        "Identidade",
-  "/admin/documentos":        "Documentos",
-  "/admin/importacao":        "Importação",
-  "/admin/exportacao":        "Exportação",
-  "/admin/campanhas":         "Campanhas",
-};
-
-const ROUTE_ROLES: Record<string, AppRole[]> = {
-  "/membros":            ROLES_LIDERES,
-  "/familias":           ROLES_LIDERES,
-  "/ministerios":        ROLES_LIDERES,
-  "/locais":             ROLES_LIDERES,
-  "/painel-estrategico": ROLES_PASTORAL,
-  "/ebd":                ROLES_LIDERES,
-  "/organograma":        ROLES_LIDERES,
-  "/estrutura":          ROLES_PASTORAL,
-  "/usuarios":           ROLES_ADMIN,
-};
+// A estrutura do menu (grupos, rotulos, roles e titulos de pagina) mora em
+// navConfig.ts — compartilhada com o menu mobile, que antes nao existia.
 
 // ─── Componente ──────────────────────────────────────────────────────────────
 export default function AppLayout() {
@@ -182,13 +33,19 @@ export default function AppLayout() {
     try {
       const raw = localStorage.getItem("nav_expanded_v2");
       if (raw) return JSON.parse(raw);
-    } catch {}
+    } catch {
+      // localStorage indisponível ou JSON corrompido — cai no padrão abaixo
+    }
     // padrão: tudo expandido, menos Configurações (raramente usado)
     return Object.fromEntries(NAV_GROUPS.map(g => [g.key, g.key !== "configuracoes"]));
   });
 
   useEffect(() => {
-    try { localStorage.setItem("nav_expanded_v2", JSON.stringify(expanded)); } catch {}
+    try {
+      localStorage.setItem("nav_expanded_v2", JSON.stringify(expanded));
+    } catch {
+      // sem localStorage (aba privada, cota cheia): o menu só não memoriza
+    }
   }, [expanded]);
 
   // Nome bonito do user (vindo do membro vinculado, se houver)
@@ -287,9 +144,24 @@ export default function AppLayout() {
         {/* Logo */}
         <div className="p-5 border-b border-sidebar-border">
           <BrandMark className="text-2xl text-sidebar-foreground" />
-          <div className="text-[10px] tracking-[0.18em] uppercase text-sidebar-foreground/55 mt-1.5">
+          <div className="text-xs tracking-[0.18em] uppercase text-sidebar-foreground/55 mt-1.5">
             Sistema da Igreja
           </div>
+        </div>
+
+        {/* Busca global — descoberta por clique, não só por Ctrl+K */}
+        <div className="px-3 pt-3">
+          <button
+            type="button"
+            onClick={openCommandPalette}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-md bg-sidebar-accent/40 hover:bg-sidebar-accent/70 text-sm text-sidebar-foreground/60 transition-colors"
+          >
+            <Search className="w-4 h-4 shrink-0" />
+            <span className="flex-1 text-left">Buscar...</span>
+            <kbd className="text-xs px-1.5 py-0.5 rounded bg-sidebar-foreground/10 tracking-wider">
+              Ctrl K
+            </kbd>
+          </button>
         </div>
 
         {/* Painel destacado */}
@@ -303,7 +175,6 @@ export default function AppLayout() {
         {/* Categorias colapsáveis */}
         <nav className="flex-1 px-3 py-3 space-y-1 overflow-y-auto">
           {NAV_GROUPS.filter(groupAllowed).map((group) => {
-            const Icon = group.icon;
             const isExpanded = expanded[group.key] ?? true;
             const visibleItems = group.items.filter(itemAllowed);
             return (
@@ -311,9 +182,13 @@ export default function AppLayout() {
                 <button
                   type="button"
                   onClick={() => toggleGroup(group.key)}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-[10px] uppercase tracking-widest text-sidebar-foreground/40 hover:text-sidebar-foreground/70 transition-colors"
+                  aria-expanded={isExpanded}
+                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs uppercase tracking-widest text-sidebar-foreground/45 hover:text-sidebar-foreground/70 transition-colors"
                 >
-                  <Icon className="w-3 h-3" />
+                  {/* O icone do grupo saiu. Ele nao tinha funcao: o rotulo
+                      nomeia o grupo e a seta ja mostra se esta aberto ou
+                      fechado. Eram seis marcas a mais numa coluna que fica
+                      permanentemente a vista. */}
                   <span className="flex-1 text-left">{group.label}</span>
                   <ChevronDown className={`w-3 h-3 transition-transform ${isExpanded ? "" : "-rotate-90"}`} />
                 </button>
@@ -323,8 +198,17 @@ export default function AppLayout() {
                       const ItemIcon = item.icon;
                       return (
                         <NavLink key={item.to} to={item.to} end={item.end} className={itemClass}>
-                          <ItemIcon className="w-4 h-4" />
-                          <span translate="no">{item.label}</span>
+                          {/* O icone do item fica, mas recuado: numa lista de
+                              18 destinos ele ajuda a mirar sem ler, e a 55% de
+                              opacidade deixa de disputar com o rotulo. No item
+                              ativo volta ao peso normal — ali ele tem funcao,
+                              que e dizer onde voce esta. */}
+                          {({ isActive }) => (
+                            <>
+                              <ItemIcon className={`w-4 h-4 ${isActive ? "" : "opacity-55"}`} />
+                              <span translate="no">{item.label}</span>
+                            </>
+                          )}
                         </NavLink>
                       );
                     })}
@@ -345,7 +229,7 @@ export default function AppLayout() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium truncate">{nomeDisplay ?? "Sem nome"}</div>
-                  <div className="text-[10px] text-sidebar-foreground/60 truncate">{user.email}</div>
+                  <div className="text-xs text-sidebar-foreground/60 truncate">{user.email}</div>
                 </div>
                 <ChevronDown className="w-4 h-4 text-sidebar-foreground/60 shrink-0" />
               </button>
@@ -354,16 +238,30 @@ export default function AppLayout() {
               <DropdownMenuLabel>
                 <div className="flex flex-col">
                   <span className="font-medium">{nomeDisplay ?? "Sem nome"}</span>
-                  <span className="text-[11px] font-normal text-muted-foreground truncate">{user.email}</span>
-                  <span className="text-[10px] text-muted-foreground mt-0.5">
+                  <span className="text-xs font-normal text-muted-foreground truncate">{user.email}</span>
+                  <span className="text-xs text-muted-foreground mt-0.5">
                     {roleLabel[principalRole] ?? principalRole}
                   </span>
                 </div>
               </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigate("/configuracoes")}>
-                <Settings className="w-4 h-4 mr-2" /> Configurações
-              </DropdownMenuItem>
+              {/* As funcoes de administracao do sistema ficam aqui, no menu do
+                  perfil. Este e o menu do DESKTOP; o do celular vive no
+                  UserMenuButton e le a mesma lista — antes so ele tinha os
+                  itens, e no desktop nao havia entrada nenhuma. */}
+              {hasRole(["admin", "secretaria"]) && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel className="text-xs uppercase tracking-widest text-muted-foreground/60 py-1">
+                    Administração
+                  </DropdownMenuLabel>
+                  {ADMIN_MENU_ITEMS.map(({ path, label, icon: Icon }) => (
+                    <DropdownMenuItem key={path} className="cursor-pointer" onClick={() => navigate(path)}>
+                      <Icon className="w-4 h-4 mr-2 text-muted-foreground" />
+                      {label}
+                    </DropdownMenuItem>
+                  ))}
+                </>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={signOut} className="text-destructive focus:text-destructive">
                 <LogOut className="w-4 h-4 mr-2" /> Sair
@@ -373,7 +271,10 @@ export default function AppLayout() {
         </div>
       </aside>
 
-      <div className="flex-1 flex flex-col min-h-0">
+      {/* min-w-0 e essencial: sem ele este item flex nao encolhe abaixo da
+          largura min-content do conteudo, e qualquer texto longo empurra a
+          area util para fora do viewport no celular. */}
+      <div className="flex-1 min-w-0 flex flex-col min-h-0">
         {/* Header mobile */}
         <header className="md:hidden sticky top-0 z-40 flex items-center gap-2 h-14 px-3 bg-sidebar text-sidebar-foreground border-b border-sidebar-border pt-safe">
           {!isHome && (
@@ -393,6 +294,14 @@ export default function AppLayout() {
           )}
           {isHome && <span className="flex-1" />}
           <div className="flex items-center gap-1 shrink-0">
+            {/* Busca global — no celular não existe Ctrl+K */}
+            <button
+              onClick={openCommandPalette}
+              aria-label="Buscar página ou ação"
+              className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-sidebar-accent active:scale-95 transition"
+            >
+              <Search className="w-5 h-5" />
+            </button>
             <UserMenuButton />
           </div>
         </header>

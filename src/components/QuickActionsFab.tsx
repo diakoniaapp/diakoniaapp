@@ -95,7 +95,7 @@ export function QuickActionsFab() {
         style={{ bottom: "calc(4.5rem + env(safe-area-inset-bottom))" }}
       >
         {!open && (
-          <span className="text-[10px] font-semibold tracking-wide text-primary/80 bg-background/80 backdrop-blur-sm px-2 py-0.5 rounded-full shadow-sm border border-border/40 select-none">
+          <span className="text-xs font-semibold tracking-wide text-primary/80 bg-background/80 backdrop-blur-sm px-2 py-0.5 rounded-full shadow-sm border border-border/40 select-none">
             Adicionar
           </span>
         )}
