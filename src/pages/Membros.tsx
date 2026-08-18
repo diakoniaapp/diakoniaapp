@@ -252,6 +252,15 @@ export default function Membros() {
 
   // ── Tratar parâmetros de query ao carregar ──────────────────────────────────
   useEffect(() => {
+        // "Ver todos em Pessoas", vindo do bloco do HOJE, chega com o filtro
+        // ja escolhido. Reaproveita o filtro de cuidado desta tela em vez de
+        // levar a uma listagem propria — a lista completa e esta.
+        const cuidadoUrl = searchParams.get("cuidado");
+        if (cuidadoUrl && ["nunca", "30", "60", "90"].includes(cuidadoUrl)) {
+                setCuidadoFiltro(cuidadoUrl);
+                searchParams.delete("cuidado");
+                setSearchParams(searchParams, { replace: true });
+        }
         if (searchParams.get("novo") === "1" && canEdit) {
                 setEditing(null);
                 setOpen(true);

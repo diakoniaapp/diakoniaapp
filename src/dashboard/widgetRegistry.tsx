@@ -24,6 +24,7 @@ import {
   Receipt,
   Wrench,
   ClipboardCheck,
+  HeartHandshake,
 } from "lucide-react";
 
 export type Prioridade = 0 | 1 | 2 | 3;
@@ -58,6 +59,7 @@ export interface Widget {
 
 const AlertasInteligentes = lazy(() => import("@/components/dashboard/AlertasInteligentes").then(m => ({ default: m.AlertasInteligentes })));
 const CadastrosInconsistentes = lazy(() => import("@/components/dashboard/CadastrosInconsistentes").then(m => ({ default: m.CadastrosInconsistentes })));
+const QuemNinguemProcurou = lazy(() => import("@/components/dashboard/QuemNinguemProcurou").then(m => ({ default: m.QuemNinguemProcurou })));
 const AcoesDoDia          = lazy(() => import("@/components/dashboard/AcoesDoDia").then(m => ({ default: m.AcoesDoDia })));
 const VidaDasFamilias     = lazy(() => import("@/components/dashboard/VidaDasFamilias").then(m => ({ default: m.VidaDasFamilias })));
 const ResumoEbd           = lazy(() => import("@/components/dashboard/ResumoEbd").then(m => ({ default: m.ResumoEbd })));
@@ -77,6 +79,15 @@ export const widgetRegistry: Widget[] = [
     icone: Bell, component: AlertasInteligentes,
     permissoes: ["ver_pessoas","ver_painel_pastoral","ver_painel_secretaria","ver_painel_admin"],
     prioridade: 0, faixa: "trava" },
+
+  // Faixa "gente", prioridade 0: e a pergunta pastoral do dia, e vem antes de
+  // qualquer pendencia de cadastro. Um cadastro incompleto espera; uma pessoa
+  // que ninguem procura ha meses, nao.
+  { id: "quem-ninguem-procurou", label: "Quem ninguém procurou?",
+    subtitulo: "Pessoas esperando um contato — as mais esquecidas primeiro",
+    icone: HeartHandshake, component: QuemNinguemProcurou,
+    permissoes: ["ver_pessoas","ver_painel_pastoral","ver_painel_secretaria","ver_painel_admin"],
+    prioridade: 0, faixa: "gente" },
 
   // Prioridade 1, nao 0: cadastro contraditorio pede correcao, mas nao e
   // urgente como um visitante que esta se perdendo. Faixa "trava" porque e
