@@ -103,14 +103,24 @@ const InsightsDoSistema   = lazy(() => import("@/components/dashboard/InsightsDo
 // tela do cuidado — enquanto no painel, de onde "Quem ninguém procurou" está
 // excluído, quem aparece primeiro é a de baixo.
 export const widgetRegistry: Widget[] = [
-  // Faixa "gente", prioridade 0: e a pergunta pastoral do dia, e vem antes de
-  // qualquer pendencia de cadastro. Um cadastro incompleto espera; uma pessoa
-  // que ninguem procura ha meses, nao.
+  // DESATIVADO por decisão de produto: a tela HOJE passou a ser sobre o que
+  // acontece hoje e nos próximos dias — agenda, cultos, reuniões, contas a
+  // vencer —, e não uma fila de trabalho pastoral.
+  //
+  // `ativo: false` e não remoção: o componente, a consulta e o filtro de
+  // cuidado continuam inteiros. Voltar é apagar esta linha.
+  //
+  // A pergunta "quem ninguém procurou?" não some do sistema: a tela de
+  // Pessoas responde a mesma coisa pelo filtro de cuidado
+  // (/membros?cuidado=nunca), que ordena pelos mais esquecidos primeiro. O que
+  // se perde é ela aparecer sem ser procurada — e vale dizer que, hoje, ela
+  // mostraria as mesmas cinco pessoas todo dia, porque ainda não há um único
+  // contato registrado no sistema.
   { id: "quem-ninguem-procurou", label: "Quem ninguém procurou?",
     subtitulo: "Pessoas esperando um contato — as mais esquecidas primeiro",
     icone: HeartHandshake, component: QuemNinguemProcurou,
     permissoes: ["ver_pessoas","ver_painel_pastoral","ver_painel_secretaria","ver_painel_admin"],
-    prioridade: 0, faixa: "gente", apenasHoje: true },
+    prioridade: 0, faixa: "gente", apenasHoje: true, ativo: false },
 
   // Primeiro widget do painel. Aniversario, bodas e visita de hoje sao a unica
   // coisa da tela que perde a validade ao fim do dia — um cadastro incompleto

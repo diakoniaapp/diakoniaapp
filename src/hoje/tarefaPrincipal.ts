@@ -16,7 +16,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { LucideIcon } from "lucide-react";
 import {
-  GraduationCap, Users, DollarSign, ShoppingCart, FileText,
+  GraduationCap, Users, DollarSign, ShoppingCart, FileText, Receipt,
 } from "lucide-react";
 
 export interface TarefaPrincipal {
@@ -41,6 +41,55 @@ export interface ContextoTarefa {
 }
 
 type Resolvedor = (ctx: ContextoTarefa) => Promise<TarefaPrincipal | null>;
+
+// ─── Contas: o que vence hoje, ou já venceu ───────────────────────────────
+//
+// Primeiro de todos, e por um motivo que os outros não têm: prazo de
+// pagamento não espera. Um caixa aberto continua aberto amanhã e uma chamada
+// atrasada ainda pode ser feita; uma obrigação vencida vira multa.
+//
+// Devolve null quando não há nada vencendo, que é o caso normal — e é o que
+// faz a faixa cair para a próxima tarefa do perfil.
+const contaVencendo: Resolvedor = async (ctx) => {
+  const podeVer =
+    ctx.permissoes.has("ver_fiscal") ||
+    ctx.permissoes.has("ver_financeiro") ||
+    ctx.permissoes.has("ver_painel_tesouraria");
+  if (!podeVer) return null;
+
+  const hoje = new Date().toISOString().slice(0, 10);
+  const { data, error } = await supabase
+    .from("fiscal_agenda")
+    .select("id, codigo_obrigacao, vencimento")
+    .in("status", ["pendente", "atrasado"])
+    .lte("vencimento", hoje)
+    .order("vencimento", { ascending: true });
+
+  if (error || !data || data.length === 0) return null;
+
+  const atrasadas = data.filter(o => o.vencimento < hoje);
+  const primeira  = data[0];
+
+  // Uma só: diz qual é. Várias: diz quantas, porque listar nomes de
+  // obrigação fiscal numa linha só não ajuda ninguém a decidir.
+  const titulo = data.length === 1
+    ? `${primeira.codigo_obrigacao} ${primeira.vencimento < hoje ? "está atrasada" : "vence hoje"}`
+    : `${data.length} obrigações a pagar`;
+
+  const subtitulo = atrasadas.length > 0
+    ? `${atrasadas.length} em atraso${data.length > atrasadas.length ? ` · ${data.length - atrasadas.length} vencendo hoje` : ""}`
+    : "Vence hoje";
+
+  return {
+    id: "conta-vencendo",
+    titulo,
+    subtitulo,
+    acao: "Ver agenda fiscal",
+    abaLabel: "Contas",
+    to: "/financas/fiscal",
+    icon: Receipt,
+  };
+};
 
 // ─── Operação: caixa aberto é o que mais trava alguém ─────────────────────
 const caixaAberto: Resolvedor = async (ctx) => {
@@ -151,11 +200,16 @@ const membresia: Resolvedor = async (ctx) => {
 };
 
 /**
- * Ordem = prioridade. Caixa aberto vem primeiro porque é o único que
- * representa algo em curso: deixar um caixa aberto tem consequência
- * contábil. Os demais seguem a frequência de uso do perfil.
+ * Ordem = prioridade, e a régua é o custo de deixar para depois.
+ *
+ * Conta vencendo vem primeiro: é a única cujo atraso vira multa. Caixa aberto
+ * vem em seguida, por representar algo em curso com consequência contábil. Os
+ * demais seguem a frequência de uso do perfil — e os dois últimos são atalhos
+ * permanentes, não pendências: aparecem sempre que ninguém acima tem algo a
+ * dizer.
  */
 const RESOLVEDORES: Resolvedor[] = [
+  contaVencendo,
   caixaAberto,
   chamadaEbd,
   reuniaoPgm,
