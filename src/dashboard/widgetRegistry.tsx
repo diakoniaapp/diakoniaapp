@@ -58,11 +58,23 @@ export interface Widget {
   /**
    * Aparece só na tela HOJE, nunca no painel inicial.
    *
+   * ── A DIVISÃO ENTRE AS DUAS TELAS ──────────────────────────────────────
+   *
    * O painel lê o registry inteiro, então todo widget com faixa aparecia nos
-   * dois lugares. Para a maioria isso é bom — um aniversário serve nas duas
-   * telas. Para o bloco do cuidado, não: ele é uma fila de pessoas com nome,
-   * e o painel é a tela de visão geral. Repetir a fila ali fazia o painel
-   * abrir com uma lista de trabalho que tem tela própria.
+   * dois lugares. O resultado medido: três dos cinco blocos do HOJE eram os
+   * mesmos três do painel, com o mesmo conteúdo — quem abria uma já tinha
+   * visto a outra, e a tela do cuidado não tinha o que a justificasse.
+   *
+   * A régua que separa as duas não é técnica, é de assunto:
+   *
+   *   HOJE   → pessoas e ações. Quem precisa de atenção, quem merece
+   *            contato, quem está sendo perdido, o que depende de mim hoje.
+   *   PAINEL → o estado da igreja. Qualidade de cadastro, pendências
+   *            institucionais, resumos dos módulos.
+   *
+   * Por isso "Alertas inteligentes" saiu do HOJE: 50 possíveis vínculos
+   * familiares e 4 alunos fora da faixa da EBD são qualidade de dado, não
+   * gente esperando por alguém. São trabalho legítimo — de outra tela.
    */
   apenasHoje?: boolean;
 }
@@ -107,13 +119,13 @@ export const widgetRegistry: Widget[] = [
   { id: "acoes-do-dia", label: "Ações de hoje",
     subtitulo: "Aniversários, bodas e visitas que acontecem agora",
     icone: CalendarCheck, component: AcoesDoDia,
-    permissoes: ["ver_pessoas"], prioridade: 0, faixa: "gente" },
+    permissoes: ["ver_pessoas"], prioridade: 0, faixa: "agenda" },
 
   { id: "alertas-inteligentes", label: "Alertas inteligentes",
     subtitulo: "Coisas que precisam da sua decisão",
     icone: Bell, component: AlertasInteligentes,
     permissoes: ["ver_pessoas","ver_painel_pastoral","ver_painel_secretaria","ver_painel_admin"],
-    prioridade: 0, faixa: "trava" },
+    prioridade: 0 },
 
   // Prioridade 1, nao 0: cadastro contraditorio pede correcao, mas nao e
   // urgente como um visitante que esta se perdendo. Faixa "trava" porque e
@@ -123,17 +135,17 @@ export const widgetRegistry: Widget[] = [
     subtitulo: "Registros que se contradizem",
     icone: ClipboardCheck, component: CadastrosInconsistentes,
     permissoes: ["ver_pessoas","ver_painel_secretaria","ver_painel_admin"],
-    prioridade: 1, faixa: "trava" },
+    prioridade: 1 },
 
   { id: "agenda-do-dia", label: "Agenda do dia",
     subtitulo: "Eventos da igreja hoje",
     icone: CalendarDays, component: AgendaDoDia,
-    permissoes: ["ver_pessoas","ver_familias","ver_ebd","ver_pgm"], prioridade: 1, faixa: "agenda" },
+    permissoes: ["ver_pessoas","ver_familias","ver_ebd","ver_pgm"], prioridade: 1, faixa: "agenda", apenasHoje: true },
 
   { id: "vida-das-familias", label: "Vida das famílias",
     subtitulo: "Aniversários e bodas da semana",
     icone: Heart, component: VidaDasFamilias,
-    permissoes: ["ver_familias","ver_painel_pastoral"], prioridade: 2, faixa: "gente" },
+    permissoes: ["ver_familias","ver_painel_pastoral"], prioridade: 2 },
 
   { id: "resumo-ebd", label: "Resumo da EBD",
     subtitulo: "Presença, crescimento e atenção pastoral",
@@ -148,7 +160,7 @@ export const widgetRegistry: Widget[] = [
   { id: "atencao-pessoas", label: "Atenção em pessoas",
     subtitulo: "Visitantes recentes, sem família, sem classe EBD",
     icone: Users, component: AtencaoEmPessoas,
-    permissoes: ["ver_pessoas"], prioridade: 2, faixa: "gente" },
+    permissoes: ["ver_pessoas"], prioridade: 2, faixa: "gente", apenasHoje: true },
 
   { id: "resumo-pgm", label: "Pequenos Grupos",
     subtitulo: "Onde a vida da igreja acontece durante a semana",
@@ -158,22 +170,22 @@ export const widgetRegistry: Widget[] = [
   { id: "meus-assuntos", label: "Meus assuntos",
     subtitulo: "Tarefas sob sua responsabilidade",
     icone: CheckSquare, component: MeusAssuntos,
-    permissoes: ["ver_assuntos"], prioridade: 1, faixa: "trava" },
+    permissoes: ["ver_assuntos"], prioridade: 1, faixa: "trava", apenasHoje: true },
 
   { id: "agenda-fiscal-urgente", label: "Agenda fiscal",
     subtitulo: "Obrigações vencendo e atrasadas",
     icone: Receipt, component: AgendaFiscalUrgente,
-    permissoes: ["ver_fiscal","ver_financeiro","ver_painel_tesouraria","ver_painel_admin"], prioridade: 0, faixa: "trava" },
+    permissoes: ["ver_fiscal","ver_financeiro","ver_painel_tesouraria","ver_painel_admin"], prioridade: 0 },
 
   { id: "manutencao-arrecadacao", label: "Manutenção Bazar/Cantina",
     subtitulo: "Problemas reportados e recorrências",
     icone: Wrench, component: ManutencaoArrec,
-    permissoes: ["ver_manutencao","ver_arrecadacao_admin"], prioridade: 1, faixa: "trava" },
+    permissoes: ["ver_manutencao","ver_arrecadacao_admin"], prioridade: 1 },
 
   { id: "assuntos-urgentes", label: "Assuntos urgentes da igreja",
     subtitulo: "Atrasados e vencendo essa semana",
     icone: AlertTriangle, component: AssuntosUrgentes,
-    permissoes: ["ver_painel_admin","ver_painel_secretaria","ver_painel_pastoral"], prioridade: 0, faixa: "trava" },
+    permissoes: ["ver_painel_admin","ver_painel_secretaria","ver_painel_pastoral"], prioridade: 0 },
 
   { id: "insights-sistema", label: "Insights do sistema",
     subtitulo: "Sugestões automáticas para a liderança",

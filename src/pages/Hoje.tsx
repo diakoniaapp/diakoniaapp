@@ -104,18 +104,27 @@ export default function Hoje() {
     return () => { cancelado = true; };
   }, [pessoaId, permissoes]);
 
-  // Travas podem ser até 3: num dia saudável todas se escondem, e quando
-  // aparecem são justamente o que a pessoa veio resolver.
+  // A tela responde duas perguntas, nesta ordem: o que acontece hoje, e o
+  // que eu preciso fazer por alguém hoje.
   //
-  // Gente e Agenda ficam em 1. Os widgets herdados do painel foram
-  // desenhados para um dashboard largo — medidos aqui, ocupam de 450 a
-  // 590px cada, contra 109px da faixa "Sua tarefa", que foi feita para esta
-  // tela. Três deles juntos passariam de 1.500px e a tela deixaria de
-  // responder "o que preciso fazer agora".
+  //   acontece → aniversários, bodas e eventos da igreja de hoje
+  //   cuidado  → quem contatar: esquecidos e visitantes recentes
+  //   tarefa   → a ação única sugerida
+  //   decisão  → o que está sob a minha responsabilidade
+  //
+  // Duas por faixa, não uma. Antes era uma só, e o efeito era que os
+  // aniversários do dia nunca apareciam aqui: dividiam faixa com o bloco do
+  // cuidado e perdiam por prioridade. Aniversário é o motivo de contato mais
+  // barato que existe — ficar de fora da tela do cuidado era perder o mais
+  // fácil.
+  //
+  // O limite existe por altura: estes widgets vieram de um dashboard largo e
+  // ocupam de 450 a 590px cada. Duas faixas de dois já somam bastante — e é
+  // por isso que os blocos que nada têm a dizer se apagam sozinhos.
   const ctx = { permissoes };
-  const travas = getWidgetsDaFaixa(ctx, "trava", 3);
-  const gente  = getWidgetsDaFaixa(ctx, "gente", 1);
-  const agenda = getWidgetsDaFaixa(ctx, "agenda", 1);
+  const acontece = getWidgetsDaFaixa(ctx, "agenda", 2);
+  const cuidado  = getWidgetsDaFaixa(ctx, "gente", 2);
+  const decisao  = getWidgetsDaFaixa(ctx, "trava", 2);
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-5 space-y-3">
@@ -124,7 +133,9 @@ export default function Hoje() {
         {saudacao()}{nome && `, ${nome}`}
       </h1>
 
-      <Faixa widgets={travas} titulo="Precisa da sua decisão" tom="trava" icon={AlertTriangle} />
+      <Faixa widgets={acontece} titulo="Acontece hoje" tom="agenda" icon={CalendarDays} />
+
+      <Faixa widgets={cuidado} titulo="Cuidado de hoje" tom="gente" icon={Heart} />
 
       {tarefa && (
         <BlocoHoje tom="tarefa" titulo="Sua tarefa" icon={Star}>
@@ -145,8 +156,7 @@ export default function Hoje() {
         </BlocoHoje>
       )}
 
-      <Faixa widgets={gente}  titulo="Sua gente" tom="gente"  icon={Heart} />
-      <Faixa widgets={agenda} titulo="Hoje"      tom="agenda" icon={CalendarDays} />
+      <Faixa widgets={decisao} titulo="Precisa da sua decisão" tom="trava" icon={AlertTriangle} />
 
       {/* Versículo — recolhido por padrão, no fim, sem disputar atenção */}
       <div className="pt-1">
