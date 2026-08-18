@@ -19,21 +19,9 @@ import { getWidgetsDivididos } from "@/dashboard/widgetRegistry";
 import { getAcoesParaUsuario } from "@/dashboard/quickActionsRegistry";
 
 
-// ─── Frase de servir por perfil ──────────────────────────────────────────
-// Substitui "O que precisa da sua atenção hoje?" por algo alinhado à
-// vocação cristã da pessoa. Cada perfil recebe uma palavra de incentivo
-// específica para o trabalho que faz no Reino.
-const FRASE_SERVIR: Record<string, string> = {
-  admin:      "Servir com fidelidade é adorar ao SENHOR.",
-  secretaria: "Tudo o que fizermos, façamos de coração — como ao SENHOR.",
-  pastor:     "Apascentemos o rebanho de Deus com amor.",
-  diakonia:   "Apascentemos o rebanho de Deus com amor.",
-  lideranca:  "Cada dom recebido é para servir aos irmãos.",
-  voluntario: "Servi uns aos outros pelo amor — assim glorificamos a Cristo.",
-};
-function fraseServir(role: string) {
-  return FRASE_SERVIR[role] ?? "Sirvamos ao SENHOR com alegria.";
-}
+// A frase de incentivo por perfil ("Servir com fidelidade é adorar ao
+// SENHOR" e as demais) saiu junto com o lugar que ela ocupava: o versículo
+// do dia passou a vir logo abaixo da saudação.
 
 // ─── Saudação por horário ────────────────────────────────────────────────
 function getSaudacao(): string {
@@ -95,9 +83,15 @@ export default function Dashboard() {
             <h1 className="font-serif text-2xl md:text-4xl text-foreground">
               {getSaudacao()}, {nome}! 🙏
             </h1>
-            <p className="text-sm md:text-base text-muted-foreground italic">
-              {fraseServir(principalRole)}
+            {/* O versiculo do dia vem logo abaixo da saudacao, no lugar onde
+                antes havia uma frase de incentivo por perfil.
+                Eram duas frases devocionais em sequencia, uma sobre a outra, e
+                a segunda enfraquecia a primeira: a Escritura disputava atencao
+                com um texto escrito para acompanha-la. Ficou a Escritura. */}
+            <p className="font-serif text-sm md:text-base leading-snug text-foreground/95">
+              &ldquo;{verse.texto}&rdquo;
             </p>
+            <div className="text-muted-foreground text-xs">{verse.ref}</div>
           </div>
           <div className="flex gap-2 shrink-0 self-end md:self-auto">
             <Button onClick={() => setOpenVisitanteRapido(true)}
@@ -109,21 +103,10 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ── FAIXA VERSÍCULO DO DIA ─────────────────────────────────────── */}
-      <div className="bg-gradient-verse border-b">
-        <div className="px-4 md:px-8 py-3 md:py-4 max-w-7xl mx-auto">
-          {/* O versiculo fica; a moldura sai. Eram quatro marcas douradas
-              para uma frase: o circulo com anel, o icone de aspas, o rotulo
-              "VERSÍCULO DO DIA" em caixa alta espacada, e a referencia. As
-              aspas tipograficas ja dizem que e citacao, e a referencia
-              biblica logo abaixo ja diz que e versiculo — o rotulo repetia em
-              caixa alta o que o proprio texto informava. */}
-          <div className="min-w-0">
-            <p className="font-serif text-sm md:text-base leading-snug text-foreground/95">&ldquo;{verse.texto}&rdquo;</p>
-            <div className="text-muted-foreground mt-1 text-xs">{verse.ref}</div>
-          </div>
-        </div>
-      </div>
+      {/* A faixa separada do versiculo saiu: ele agora vive dentro do
+          cabecalho, junto da saudacao. Eram duas faixas coladas dizendo a
+          mesma coisa em tons diferentes, e a segunda so existia para
+          emoldurar um texto que ja tinha onde morar. */}
 
       {/* ── CORPO ───────────────────────────────────────────────────────── */}
       {/* Ritmo: 40px ENTRE secoes, 8px entre titulo e conteudo.

@@ -55,6 +55,16 @@ export interface Widget {
   prioridade: Prioridade;
   faixa?: FaixaHoje;
   ativo?: boolean;
+  /**
+   * Aparece só na tela HOJE, nunca no painel inicial.
+   *
+   * O painel lê o registry inteiro, então todo widget com faixa aparecia nos
+   * dois lugares. Para a maioria isso é bom — um aniversário serve nas duas
+   * telas. Para o bloco do cuidado, não: ele é uma fila de pessoas com nome,
+   * e o painel é a tela de visão geral. Repetir a fila ali fazia o painel
+   * abrir com uma lista de trabalho que tem tela própria.
+   */
+  apenasHoje?: boolean;
 }
 
 const AlertasInteligentes = lazy(() => import("@/components/dashboard/AlertasInteligentes").then(m => ({ default: m.AlertasInteligentes })));
@@ -87,7 +97,7 @@ export const widgetRegistry: Widget[] = [
     subtitulo: "Pessoas esperando um contato — as mais esquecidas primeiro",
     icone: HeartHandshake, component: QuemNinguemProcurou,
     permissoes: ["ver_pessoas","ver_painel_pastoral","ver_painel_secretaria","ver_painel_admin"],
-    prioridade: 0, faixa: "gente" },
+    prioridade: 0, faixa: "gente", apenasHoje: true },
 
   // Prioridade 1, nao 0: cadastro contraditorio pede correcao, mas nao e
   // urgente como um visitante que esta se perdendo. Faixa "trava" porque e
@@ -167,10 +177,13 @@ export interface ContextoUsuario {
 
 export function getWidgetsParaUsuario(
   ctx: ContextoUsuario,
-  opts: { limite?: number } = {},
+  opts: { limite?: number; incluirApenasHoje?: boolean } = {},
 ): Widget[] {
   const filtrados = widgetRegistry.filter(w => {
     if (w.ativo === false) return false;
+    // Por padrão exclui os exclusivos do HOJE. Quem chama para montar as
+    // faixas daquela tela pede explicitamente para incluí-los.
+    if (w.apenasHoje && !opts.incluirApenasHoje) return false;
     const temPerm = w.permissoes.some(p => ctx.permissoes.has(p));
     if (!temPerm) return false;
     if (w.areas && w.areas.length > 0) {
@@ -201,7 +214,7 @@ export function getWidgetsDaFaixa(
   faixa: NonNullable<Widget["faixa"]>,
   limite = 3,
 ): Widget[] {
-  return getWidgetsParaUsuario(ctx)
+  return getWidgetsParaUsuario(ctx, { incluirApenasHoje: true })
     .filter(w => w.faixa === faixa)
     .slice(0, limite);
 }
