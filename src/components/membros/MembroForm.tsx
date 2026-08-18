@@ -269,7 +269,18 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
     let error: any;
 
     if (membro) {
-      ({ error } = await supabase.from("membros").update(payload).eq("id", membro.id));
+      // O .select() nao e enfeite: sem ele, um UPDATE barrado pela politica de
+      // seguranca chega aqui como sucesso com zero linhas alteradas, e o
+      // formulario fecha anunciando que salvou. Foi o que vinha acontecendo com
+      // todo lider que editava uma pessoa — telefone corrigido, nascimento
+      // preenchido, tudo descartado com mensagem de sucesso.
+      const { data: alterados, error: e } = await supabase
+        .from("membros").update(payload).eq("id", membro.id).select("id");
+      error = e;
+      if (!e && (alterados?.length ?? 0) === 0) {
+        setBusy(false);
+        return toast.error("Você não tem permissão para alterar esta pessoa. Nada foi salvo.");
+      }
     } else {
       const { data, error: e } = await supabase.from("membros").insert(payload).select("id").single();
       error = e;

@@ -150,7 +150,10 @@ export default function AcoesHoje({ limit }: AcoesHojeProps = {}) {
     observacao: string
   ) => {
     setBusyId(v.id);
-    const { error } = await supabase
+    // Nao usa a funcao registrar_contato porque aqui tambem se grava
+    // status_acolhimento, que ela nao toca. O .select() garante que um UPDATE
+    // barrado pela politica apareca como erro, e nao como falso sucesso.
+    const { data: alterados, error } = await supabase
       .from("membros")
       .update({
         ultimo_contato_em:          new Date().toISOString(),
@@ -158,10 +161,13 @@ export default function AcoesHoje({ limit }: AcoesHojeProps = {}) {
         ultimo_contato_tipo:        tipo,
         ultimo_contato_observacao:  observacao || null,
       } as any)
-      .eq("id", v.id);
+      .eq("id", v.id)
+      .select("id");
 
     if (error) {
       toast.error(error.message);
+    } else if ((alterados?.length ?? 0) === 0) {
+      toast.error("Sem permissão para registrar o contato desta pessoa.");
     } else {
       toast.success(`Contato registrado para ${v.nome_completo.split(" ")[0]}! ✅`);
       await logHistorico(v.id, "whatsapp", tipo + (observacao ? ` — ${observacao}` : ""));

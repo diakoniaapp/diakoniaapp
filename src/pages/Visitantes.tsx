@@ -114,11 +114,14 @@ export default function Visitantes() {
   const marcarContato = async (v: VisitanteMembro) => {
     setBusyId(v.id);
     const etapa = calcularEtapa(v.numero_visitas ?? 1, v.created_at);
-    const { error } = await supabase.from("membros")
+    const { data: alterados, error } = await supabase.from("membros")
       .update({ ultimo_contato_em: new Date().toISOString(), status_acolhimento: getStatusPorEtapa(etapa) })
-      .eq("id", v.id);
+      .eq("id", v.id)
+      .select("id");
     if (error) {
       toast.error(error.message);
+    } else if ((alterados?.length ?? 0) === 0) {
+      toast.error("Sem permissão para registrar o contato desta pessoa.");
     } else {
       toast.success("Contato registrado!");
       await logHistorico(v.id, "observacao", "Contato registrado");

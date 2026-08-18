@@ -107,20 +107,34 @@ export function QuemNinguemProcurou() {
 
   const registrar = async (p: PessoaEsquecida, tipo: string, observacao: string) => {
     setSalvando(true);
-    const { error } = await supabase
-      .from("membros")
-      .update({
-        ultimo_contato_em: new Date().toISOString(),
-        ultimo_contato_tipo: tipo,
-        ultimo_contato_observacao: observacao || null,
-      })
-      .eq("id", p.id);
+    // Chama a funcao do banco em vez de escrever direto na tabela.
+    //
+    // O update direto daqui NUNCA funcionou para quem tem papel "lideranca" —
+    // que e o papel de 4 dos 6 usuarios. Nenhuma politica de UPDATE de
+    // "membros" menciona esse papel, e quando a politica barra, o Postgres
+    // afeta zero linhas e devolve sucesso. O historico, cuja tabela aceita
+    // qualquer usuario logado, gravava mesmo assim — e a tela anunciava
+    // "Contato registrado" sobre coisa nenhuma.
+    const { data: gravou, error } = await supabase.rpc("registrar_contato", {
+      p_pessoa: p.id,
+      p_tipo: tipo,
+      p_obs: observacao || null,
+    });
 
     if (error) {
       toast.error(error.message);
       setSalvando(false);
       return;
     }
+    // A funcao devolve false quando nenhuma linha mudou. Sem esta conferencia
+    // voltariamos exatamente ao defeito que ela existe para corrigir.
+    if (!gravou) {
+      toast.error("Não foi possível registrar o contato desta pessoa.");
+      setSalvando(false);
+      return;
+    }
+    // So depois de confirmado. Antes, o historico era gravado mesmo quando a
+    // ficha nao era — e as duas tabelas passavam a discordar.
     await logHistorico(p.id, "observacao", tipo + (observacao ? ` — ${observacao}` : ""));
     toast.success(`Contato registrado para ${p.nome_completo.split(" ")[0]}`);
     setSalvando(false);

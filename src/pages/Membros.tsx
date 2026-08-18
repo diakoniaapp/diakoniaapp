@@ -215,17 +215,22 @@ export default function Membros() {
   // nao era estrutura, era a acao estar ao alcance de quem cuida.
   const registrarContato = async (pessoa: Membro, tipo: string, observacao: string) => {
     setSalvandoContato(true);
-    const { error: err } = await supabase
-      .from("membros")
-      .update({
-        ultimo_contato_em: new Date().toISOString(),
-        ultimo_contato_tipo: tipo,
-        ultimo_contato_observacao: observacao || null,
-      })
-      .eq("id", pessoa.id);
+    // Ver o comentario em QuemNinguemProcurou: o update direto nesta tabela
+    // falhava em silencio para o papel "lideranca", que e o de 4 dos 6
+    // usuarios. A funcao do banco confere o papel e devolve se gravou.
+    const { data: gravou, error: err } = await supabase.rpc("registrar_contato", {
+      p_pessoa: pessoa.id,
+      p_tipo: tipo,
+      p_obs: observacao || null,
+    });
 
     if (err) {
       toast.error(err.message);
+      setSalvandoContato(false);
+      return;
+    }
+    if (!gravou) {
+      toast.error("Não foi possível registrar o contato desta pessoa.");
       setSalvandoContato(false);
       return;
     }

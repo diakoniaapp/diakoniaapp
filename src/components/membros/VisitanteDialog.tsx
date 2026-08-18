@@ -177,14 +177,16 @@ export default function VisitanteDialog({ open, onOpenChange, pessoa, onSaved }:
   const marcarContato = async () => {
     if (!pessoa) return;
     setBusyAction("contato");
-    const { error } = await supabase
+    const { data: alterados, error } = await supabase
       .from("membros")
       .update({
         ultimo_contato_em: new Date().toISOString(),
         status_acolhimento: "em_acompanhamento",
       })
-      .eq("id", pessoa.id);
+      .eq("id", pessoa.id)
+      .select("id");
     if (error) toast.error(error.message);
+    else if ((alterados?.length ?? 0) === 0) toast.error("Sem permissão para registrar o contato desta pessoa.");
     else { toast.success("Contato registrado!"); onSaved?.(); }
     setBusyAction(null);
   };

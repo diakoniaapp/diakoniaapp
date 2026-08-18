@@ -12276,6 +12276,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      registrar_contato: {
+        Args: { p_obs: string; p_pessoa: string; p_tipo: string }
+        Returns: boolean
+      }
       registrar_exportacao: {
         Args: {
           p_campos?: string[]
