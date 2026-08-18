@@ -6,9 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Pencil, Link2, Briefcase, Sparkles, BarChart3, MoreHorizontal, MessageCircle } from "lucide-react";
+import { Plus, Search, Pencil, Link2, Briefcase, Sparkles, BarChart3, MoreHorizontal, MessageCircle, IdCard } from "lucide-react";
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
@@ -135,6 +135,26 @@ function AcoesPessoa({ m, onEditar, onVinculos, onAtuacoes, onVisitante, onConta
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
+          {/* A ficha da pessoa ja existia e ninguem sabia.
+              A pagina /visitantes/:id carrega com buscarVisitante(id), que e
+              `.from("membros").eq("id", id)` — SEM filtro de tipo. Ela abre
+              qualquer registro da tabela, membro inclusive, e ja distingue:
+              quatro blocos estao fechados atras de !isCongregadoOuMembro.
+              Estava pronta, funcionando para membros, e nenhuma tela levava
+              ate ela. Primeira posicao do menu porque e a resposta para "quem
+              e essa pessoa e o que ja se conversou com ela" — a pergunta que
+              se faz antes de qualquer uma das outras acoes daqui.
+              O nome da rota continua dizendo "visitantes", o que e estranho
+              para um membro de 20 anos. Renomear mexeria em navegacao; fica
+              como divida assumida, e nao como motivo para deixar a ficha
+              inalcancavel mais um dia. */}
+          <DropdownMenuItem asChild>
+            <Link to={`/visitantes/${m.id}`}>
+              <IdCard className="w-4 h-4 mr-2 text-muted-foreground" />
+              Ver ficha
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           {/* Registrar contato existia so na tela de Visitantes, e so para
               visitante. As 275 outras pessoas nao tinham como receber um
               "falei com ela" — os campos ultimo_contato_* ja existiam no banco

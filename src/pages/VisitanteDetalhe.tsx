@@ -309,12 +309,16 @@ export default function VisitanteDetalhe() {
     <div className="p-4 md:p-6 max-w-3xl mx-auto space-y-4">
 
       {/* Navegação */}
+      {/* Volta para onde a pessoa veio. Esta ficha agora e alcancada tambem
+          pela tela de Pessoas, e um membro que clicasse em "voltar" ia parar
+          na lista de Visitantes — uma tela onde ele nao esta. */}
       <Button
         variant="ghost" size="sm"
-        onClick={() => navigate("/visitantes")}
+        onClick={() => navigate(isCongregadoOuMembro ? "/membros" : "/visitantes")}
         className="gap-1 -ml-2 text-muted-foreground"
       >
-        <ArrowLeft className="w-4 h-4" /> Visitantes
+        <ArrowLeft className="w-4 h-4" />
+        {isCongregadoOuMembro ? "Pessoas" : "Visitantes"}
       </Button>
 
       {/* ── Alerta de inatividade ─────────────────────────────────────────────── */}
@@ -399,7 +403,13 @@ export default function VisitanteDetalhe() {
             )}
             {visitante.created_at && (
               <div>
-                <p className="text-xs text-muted-foreground">Primeira visita</p>
+                {/* "Primeira visita" so faz sentido para quem visitou. Num
+                    membro, esta data e a do cadastro no sistema — e chamar de
+                    primeira visita a data em que a secretaria digitou alguem
+                    que congrega ha vinte anos conta uma historia errada. */}
+                <p className="text-xs text-muted-foreground">
+                  {isCongregadoOuMembro ? "Cadastrado em" : "Primeira visita"}
+                </p>
                 <p className="font-medium">
                   {format(new Date(visitante.created_at), "dd/MM/yyyy", { locale: ptBR })}
                 </p>
@@ -443,11 +453,18 @@ export default function VisitanteDetalhe() {
                         />
             )}
       
-      {/* ── Painel de acolhimento (tarefas, próxima ação) ─────────────────────── */}
-      <AcolhimentoPanel
-        pessoa={visitante as any}
-        onUpdated={carregar}
-      />
+      {/* ── Painel de acolhimento — só para visitantes ────────────────────────── */}
+      {/* Os outros quatro blocos desta pagina ja estavam fechados atras desta
+          mesma condicao; este faltava. O efeito era um card "Trilha de
+          Acolhimento Pastoral — nenhuma tarefa ainda" na ficha de quem esta na
+          igreja ha vinte anos: acolhimento e o que se faz com quem acabou de
+          chegar, e oferecer isso a um membro antigo descreve mal a relacao. */}
+      {!isCongregadoOuMembro && (
+        <AcolhimentoPanel
+          pessoa={visitante as any}
+          onUpdated={carregar}
+        />
+      )}
 
       {/* ── Observações pastorais ─────────────────────────────────────────────── */}
       <Card className="rounded-2xl shadow">
