@@ -24,7 +24,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  CalendarDays, MapPin, Clock, Loader2, ChevronRight, Share2,
+  CalendarDays, MapPin, Clock, Loader2, ChevronRight, ChevronDown, Share2,
 } from "lucide-react";
 import { ConvidarParaEvento } from "@/components/dashboard/ConvidarParaEvento";
 import { supabase } from "@/integrations/supabase/client";
@@ -175,6 +175,7 @@ export function AgendaDoDia() {
   const [ocorrencias, setOcorrencias] = useState<EventoOcorrencia[]>([]);
   const [loading, setLoading] = useState(true);
   const [convite, setConvite] = useState<EventoOcorrencia | null>(null);
+  const [verPassado, setVerPassado] = useState(false);
 
   // Relogio: reclassifica os eventos a cada virada de minuto.
   const agoraMin = useAgoraEmMinutos();
@@ -273,6 +274,21 @@ export function AgendaDoDia() {
         return pa - pb;
       });
 
+  // ── O que já passou fica recolhido ───────────────────────────────────────
+  //
+  // Às 20h49 de uma terça o bloco mostrava CINCO linhas, das quais QUATRO já
+  // tinham acontecido. Riscar e esmaecer resolveu a leitura — nenhuma delas
+  // era confundida com o que vem —, mas não resolveu o espaço: o único evento
+  // que importava ocupava um quinto do bloco, e os outros quatro quintos eram
+  // história.
+  //
+  // Agora a história vira uma linha, que se abre se alguém quiser. Continua
+  // acessível porque saber que a reunião das 9h aconteceu é informação — só
+  // não é a informação que se procura ao abrir o painel às nove da noite.
+  const jaPassaram = viraOdia ? [] : ordenadas.filter(o => momentos.get(o.key) === "passou");
+  const visiveis   = viraOdia ? ordenadas : ordenadas.filter(o => momentos.get(o.key) !== "passou");
+  const listadas   = verPassado ? [...visiveis, ...jaPassaram] : visiveis;
+
   if (ocorrencias.length === 0) {
     return (
       <Card className="border-dashed bg-muted/30">
@@ -300,7 +316,7 @@ export function AgendaDoDia() {
       )}
 
       <ul className="divide-y rounded-md border bg-card">
-        {ordenadas.map(o => {
+        {listadas.map(o => {
           const ev    = o.evento;
           const hora  = formatarHora(ev?.hora_inicio);
           const fim   = formatarHora(ev?.hora_fim);
@@ -367,8 +383,10 @@ export function AgendaDoDia() {
               {/* Convidar só para o que é da igreja. Feriado nacional e data
                   do calendário batista não se convida ninguém para ir, e
                   reserva de espaço é de terceiro — o convite seria da pessoa
-                  que reservou, não da igreja. */}
-              {cat === "igreja" && (
+                  que reservou, não da igreja.
+                  E não para o que já terminou: convidar alguém para um ensaio
+                  que acabou às 19h30 é oferecer uma ação impossível. */}
+              {cat === "igreja" && !passou && (
                 <Button
                   type="button" variant="ghost" size="sm"
                   onClick={() => setConvite(o)}
@@ -382,7 +400,24 @@ export function AgendaDoDia() {
           );
         })}
       </ul>
-      <div className="text-right">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        {/* O dia que já foi, em uma linha. Só aparece quando há o que
+            recolher — num dia que ainda nem começou, não há passado a
+            esconder e o controle seria ruído. */}
+        {jaPassaram.length > 0 ? (
+          <Button
+            type="button" variant="ghost" size="sm"
+            onClick={() => setVerPassado(v => !v)}
+            aria-expanded={verPassado}
+            className="gap-1.5 text-xs text-muted-foreground hover:text-foreground min-h-[44px]"
+          >
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${verPassado ? "rotate-180" : ""}`} />
+            {jaPassaram.length === 1
+              ? "1 já aconteceu hoje"
+              : `${jaPassaram.length} já aconteceram hoje`}
+          </Button>
+        ) : <span />}
+
         <Button asChild variant="ghost" size="sm" className="gap-1 text-xs text-muted-foreground">
           <Link to="/eventos">Abrir agenda <ChevronRight className="w-3.5 h-3.5" /></Link>
         </Button>
