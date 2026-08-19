@@ -14,6 +14,7 @@ import { useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Loader2, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { formatarTelefoneSemDDI } from "@/lib/telefone";
 
 export interface PessoaResultado {
   id: string;
@@ -169,7 +170,7 @@ export function BuscaPessoa({
                 {p.tipo_pessoa && (
                   <div className="text-xs text-muted-foreground">
                     {p.tipo_pessoa}
-                    {p.telefone_celular && ` · ${p.telefone_celular}`}
+                    {p.telefone_celular && ` · ${formatarTelefoneSemDDI(p.telefone_celular)}`}
                   </div>
                 )}
               </button>

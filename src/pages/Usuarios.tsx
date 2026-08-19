@@ -22,6 +22,7 @@ import { listarTodosAcessos, reenviarAcessoPessoa, type AcessoPessoa } from "@/s
 import { enviarWhatsApp, montarMensagemWhatsApp } from "@/services/userService";
 import { ROLE_LABEL, ROLE_VARIANT } from "@/types/usuario";
 import { Badge as UiBadge } from "@/components/ui/badge";
+import { formatarTelefoneSemDDI } from "@/lib/telefone";
 
 // ─── Tipos locais ─────────────────────────────────────────────────────────────
 
@@ -267,7 +268,7 @@ export default function Usuarios() {
 
                         {/* Login */}
                         <td className="px-4 py-3 text-muted-foreground font-mono text-xs">
-                          {a.telefone || "—"}
+                          {formatarTelefoneSemDDI(a.telefone) || "—"}
                         </td>
 
                         {/* Perfil */}

@@ -22,6 +22,7 @@ import {
   carregarGrupo, PAPEL_LABEL,
   type PgmReuniao, type PgmPresencaComPessoa, type PgmVisita, type PgmGrupoResumo,
 } from "@/services/pgmService";
+import { formatarTelefoneSemDDI, normalizarTelefone } from "@/lib/telefone";
 
 export default function PgmReuniaoPage() {
   const { grupoId = "", reuniaoId = "" } = useParams();
@@ -358,12 +359,15 @@ export default function PgmReuniaoPage() {
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">{v.nome}</p>
                     <p className="text-xs text-muted-foreground truncate">
-                      {[v.telefone, v.bairro].filter(Boolean).join(" · ") || "—"}
+                      {[formatarTelefoneSemDDI(v.telefone), v.bairro].filter(Boolean).join(" · ") || "—"}
                     </p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
+                    {/* normalizarTelefone e não `replace(/\D/g)`: tirar a pontuação
+                        de um número guardado sem DDI deixa 11 dígitos, e um wa.me
+                        sem código de país abre conversa com ninguém. */}
                     {v.telefone && (
-                      <a href={`https://wa.me/${v.telefone.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer">
+                      <a href={`https://wa.me/${normalizarTelefone(v.telefone)}`} target="_blank" rel="noopener noreferrer">
                         <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-emerald-700">
                           <MessageCircle className="w-3.5 h-3.5" />
                         </Button>

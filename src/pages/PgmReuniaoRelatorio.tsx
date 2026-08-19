@@ -13,6 +13,7 @@ import {
 } from "@/services/pgmService";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { formatarTelefoneSemDDI } from "@/lib/telefone";
 
 function dataBr(s: string) {
   return new Date(s + "T00:00").toLocaleDateString("pt-BR");
@@ -289,7 +290,7 @@ export default function PgmReuniaoRelatorio() {
                   <div className="min-w-0">
                     <p className="font-medium">{v.nome}</p>
                     <p className="text-xs text-muted-foreground">
-                      {[v.telefone, v.bairro].filter(Boolean).join(" · ") || "—"}
+                      {[formatarTelefoneSemDDI(v.telefone), v.bairro].filter(Boolean).join(" · ") || "—"}
                     </p>
                   </div>
                 </div>

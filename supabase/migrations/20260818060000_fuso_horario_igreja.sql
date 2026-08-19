@@ -1,0 +1,62 @@
+-- ─── O banco vivia três horas no futuro ────────────────────────────────────
+--
+-- Reportado assim: "ações de hoje trouxe um aniversário de amanhã".
+--
+-- Reproduzido às 22h09 de 18/08/2026, horário de Brasília:
+--
+--     now()                                    → 2026-08-19 01:09 +00
+--     current_date                             → 2026-08-19   ← o banco
+--     (now() at time zone 'America/Sao_Paulo')  → 2026-08-18   ← a igreja
+--
+--   agenda_pastoral_proximos_dias(7) devolvia:
+--     dias_ate_evento = 0 | 2026-08-19 | Joseana Viegas de Souza
+--
+-- Joseana faz aniversário AMANHÃ. O widget não errou a conta: ele perguntou ao
+-- banco que dia é hoje, e o banco respondeu em UTC.
+--
+-- Todo dia, das 21h à meia-noite, o sistema inteiro vira o calendário cedo
+-- demais. Nessas três horas o aniversariante de amanhã aparece como se fosse
+-- hoje, e o de hoje — que ainda pode não ter recebido mensagem de ninguém —
+-- some da lista antes de o dia acabar. No horário de verão seriam duas horas;
+-- o erro é o mesmo.
+--
+-- ── POR QUE MUDAR O BANCO, E NÃO A FUNÇÃO ─────────────────────────────────
+--
+-- Não é defeito de um widget. São 50 funções do schema public usando
+-- CURRENT_DATE, e todas herdam o mesmo engano:
+--
+--   agenda_pastoral_proximos_dias   assuntos_alertas       fiscal_alertas_proximos
+--   agenda_pastoral_mes             secretaria_alertas     fiscal_inconsistencias
+--   resumo_painel_pastoral          gov_alertas            fin_previsao_caixa
+--   ebd_chamada_view                pgm_alertas_ausencia   fin_alertas_financeiros
+--   … e outras 38
+--
+-- Corrigir uma a uma seria consertar o sintoma cinquenta vezes e ainda deixar
+-- a próxima função nova nascer errada. CURRENT_DATE lê o fuso da sessão; o
+-- ajuste certo é dizer ao banco onde a igreja fica.
+--
+-- ── RISCO MEDIDO ───────────────────────────────────────────────────────────
+--
+-- 227 colunas são `timestamp with time zone`: guardam o instante absoluto e
+-- não mudam de valor — muda só como são escritas em texto.
+--
+-- As 10 colunas `timestamp without time zone` são as que passariam a gravar
+-- hora local. Sete das tabelas estão vazias (bazar_reservas, fin_solicitacoes,
+-- pdv_caixa, pdv_estoque, pdv_fechamento, pdv_vendas); a oitava,
+-- consentimento, tem 25 linhas — que não mudam, porque o passado já está
+-- gravado. Daqui em diante elas registram a hora que a pessoa viu no relógio,
+-- que é a que se quer num termo de consentimento.
+--
+-- ── DEPOIS DE APLICAR ──────────────────────────────────────────────────────
+--
+-- O ajuste vale para conexões novas. As sessões abertas do PostgREST seguem em
+-- UTC até serem recicladas — reiniciar a API do projeto no painel do Supabase
+-- faz valer na hora. Conferir com:
+--
+--     select current_setting('TimeZone'), current_date;
+--
+-- Para desfazer:
+--
+--     alter database postgres set timezone to 'UTC';
+
+alter database postgres set timezone to 'America/Sao_Paulo';

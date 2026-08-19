@@ -20,7 +20,7 @@ import { GraduationCap } from "lucide-react";
 import { BuscaPessoa } from "@/components/ui/BuscaPessoa";
 import { FamiliaBloco } from "@/components/familias/FamiliaBloco";
 import { listarClasses, sugerirClasse, classesDaPessoa, type EbdClasse } from "@/services/ebdService";
-import { normalizarTelefone, validarTelefone } from "@/lib/telefone";
+import { normalizarTelefone, validarTelefone, formatarTelefoneSemDDI } from "@/lib/telefone";
 import { TelefoneInput } from "@/components/ui/TelefoneInput";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -906,7 +906,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
 
                 <RevisaoLinha label="Tipo">{tipoPessoaLabelMap[form.tipo_pessoa] ?? form.tipo_pessoa}</RevisaoLinha>
                 <RevisaoLinha label="Nome">{form.nome_completo || "—"}</RevisaoLinha>
-                <RevisaoLinha label="Telefone">{form.telefone_celular || "—"}</RevisaoLinha>
+                <RevisaoLinha label="Telefone">{formatarTelefoneSemDDI(form.telefone_celular) || "—"}</RevisaoLinha>
                 {(isCongregado || isMembro) && (
                   <>
                     <RevisaoLinha label="E-mail">{form.email || "—"}</RevisaoLinha>

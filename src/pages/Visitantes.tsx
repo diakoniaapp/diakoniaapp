@@ -24,7 +24,7 @@ import {
   ETAPAS_JORNADA,
 } from "@/lib/evolucaoFluxo";
 import { logHistorico } from "@/lib/historicoFluxo";
-import { normalizarTelefone } from "@/lib/telefone";
+import { normalizarTelefone, formatarTelefoneSemDDI } from "@/lib/telefone";
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
 
@@ -443,7 +443,7 @@ function VisitanteCard({ v, busy, busyPromote, variant, onOpen, onRetorno, onCon
 
             {/* Meta */}
             <p className="text-xs text-muted-foreground" translate="no">
-              {[v.telefone_celular, v.bairro].filter(Boolean).join(" - ") || "sem contato"}
+              {[formatarTelefoneSemDDI(v.telefone_celular), v.bairro].filter(Boolean).join(" - ") || "sem contato"}
               {" — "}Dia {dias} · {nv} {nv === 1 ? "visita" : "visitas"}
             </p>
 

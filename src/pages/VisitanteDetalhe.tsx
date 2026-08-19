@@ -42,6 +42,7 @@ import {
   TRILHA_ACOLHIMENTO,
 } from "@/types/visitante";
 import type { Visitante, StatusAcolhimento } from "@/types/visitante";
+import { formatarTelefoneSemDDI } from "@/lib/telefone";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -392,7 +393,7 @@ export default function VisitanteDetalhe() {
             {visitante.telefone_celular && (
               <div>
                 <p className="text-xs text-muted-foreground">Telefone</p>
-                <p className="font-medium">{visitante.telefone_celular}</p>
+                <p className="font-medium">{formatarTelefoneSemDDI(visitante.telefone_celular) || "—"}</p>
               </div>
             )}
             {visitante.bairro && (

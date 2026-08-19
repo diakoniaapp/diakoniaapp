@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { UserPlus, Check, Loader2, Search, X } from "lucide-react";
 import { toast } from "sonner";
-import { normalizarTelefone, validarTelefone } from "@/lib/telefone";
+import { normalizarTelefone, validarTelefone, formatarTelefoneSemDDI } from "@/lib/telefone";
 import { TelefoneInput } from "@/components/ui/TelefoneInput";
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
@@ -322,7 +322,7 @@ export default function VisitanteRapidoDialog({ open, onOpenChange, onSaved }: P
                       >
                         {p.nome_completo}
                         {p.telefone_celular && (
-                          <span className="text-xs text-muted-foreground ml-2">{p.telefone_celular}</span>
+                          <span className="text-xs text-muted-foreground ml-2">{formatarTelefoneSemDDI(p.telefone_celular)}</span>
                         )}
                       </button>
                     ))}
