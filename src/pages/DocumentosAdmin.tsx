@@ -58,17 +58,17 @@ interface Secao {
 
 // Tags conceituais pré-definidas (conectam Documentos → Identidade → Campanhas)
 const TAGS_CONCEITUAIS = [
-  { value: "missao",       label: "Missão",       color: "bg-info-soft text-info-text/40" },
+  { value: "missao",       label: "Missão",       color: "bg-info-soft text-info-text" },
   { value: "visao",        label: "Visão",        color: "bg-violeta-soft text-violeta-text" },
-  { value: "valores",      label: "Valores",      color: "bg-warning-soft text-warning-text/40" },
-  { value: "doutrina",     label: "Doutrina",     color: "bg-success-soft text-success-text/40" },
-  { value: "liderança",    label: "Liderança",    color: "bg-warning-soft text-warning-text/40" },
-  { value: "oração",       label: "Oração",       color: "bg-destructive-soft text-destructive-text/40" },
+  { value: "valores",      label: "Valores",      color: "bg-warning-soft text-warning-text" },
+  { value: "doutrina",     label: "Doutrina",     color: "bg-success-soft text-success-text" },
+  { value: "liderança",    label: "Liderança",    color: "bg-warning-soft text-warning-text" },
+  { value: "oração",       label: "Oração",       color: "bg-destructive-soft text-destructive-text" },
   { value: "discipulado",  label: "Discipulado",  color: "bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300" },
-  { value: "evangelismo",  label: "Evangelismo",  color: "bg-info-soft text-info-text/40" },
+  { value: "evangelismo",  label: "Evangelismo",  color: "bg-info-soft text-info-text" },
   { value: "adoração",     label: "Adoração",     color: "bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-300" },
-  { value: "família",      label: "Família",      color: "bg-success-soft text-success-text/40" },
-  { value: "ministério",   label: "Ministério",   color: "bg-info-soft text-info-text/40" },
+  { value: "família",      label: "Família",      color: "bg-success-soft text-success-text" },
+  { value: "ministério",   label: "Ministério",   color: "bg-info-soft text-info-text" },
   { value: "outro",        label: "Outro",        color: "bg-muted text-muted-foreground" },
 ];
 

@@ -100,9 +100,9 @@ const extrairTema = (nome: string): string => {
 
 const statusColor: Record<string, string> = {
   rascunho:  "bg-muted text-muted-foreground",
-  ativa:     "bg-success-soft text-success-text/30",
+  ativa:     "bg-success-soft text-success-text",
   encerrada: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
-  cancelada: "bg-destructive-soft text-destructive-text/30",
+  cancelada: "bg-destructive-soft text-destructive-text",
 };
 
 const tipoLabel: Record<string,string> = {
