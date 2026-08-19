@@ -6,12 +6,19 @@
 //   membros.funcao_ministerial   a função  — um diácono que nunca abriu o app
 //   user_roles.role              o acesso  — uma secretária sem função nenhuma
 //
-// A lista é a desta igreja, não a de um manual: distingue pastor titular de
-// auxiliar e 1º de 2º tesoureiro, que é como a igreja fala de si mesma.
+// A lista é a desta igreja, não a de um manual: distingue pastor auxiliar de
+// missionário e 1º de 2º tesoureiro, que é como a igreja fala de si mesma.
+//
+// E chama de "Presidente" quem um manual chamaria de pastor titular — porque
+// aqui quem preside a instituição é quem pastoreia a igreja, e é esse o nome
+// que aparece em ata.
 
 export type FuncaoMinisterial =
-  // Pastorado — os quatro recebem lembrete de consagração na agenda pastoral
-  | "pastor_titular"
+  // Pastorado — os quatro recebem lembrete de consagração na agenda pastoral.
+  // "presidente" é o pastor titular: nesta igreja quem preside é quem pastoreia,
+  // e por isso ele é ao mesmo tempo a Presidência do organograma e um dos
+  // quatro que têm data de consagração.
+  | "presidente"
   | "pastor_auxiliar"
   | "pastor_missionario"
   | "pastor"
@@ -84,7 +91,7 @@ const CONSAGRACAO_PASTORAL = {
 };
 
 export const FUNCAO_MINISTERIAL: Record<FuncaoMinisterial, Funcao> = {
-  pastor_titular:     { label: "Pastor Titular",      ...CONSAGRACAO_PASTORAL },
+  presidente:         { label: "Presidente",          ...CONSAGRACAO_PASTORAL, diretoria: 1 },
   pastor_auxiliar:    { label: "Pastor Auxiliar",     ...CONSAGRACAO_PASTORAL },
   pastor_missionario: { label: "Pastor Missionário",  ...CONSAGRACAO_PASTORAL },
   pastor:             { label: "Pastor",              ...CONSAGRACAO_PASTORAL },
@@ -126,7 +133,7 @@ export const FUNCAO_MINISTERIAL: Record<FuncaoMinisterial, Funcao> = {
  * no fim. Não é hierarquia de valor — é a ordem em que a secretaria procura.
  */
 export const FUNCOES_EM_ORDEM: FuncaoMinisterial[] = [
-  "pastor_titular", "pastor_auxiliar", "pastor_missionario", "pastor", "diacono",
+  "presidente", "pastor_auxiliar", "pastor_missionario", "pastor", "diacono",
   "vice_presidente_1", "vice_presidente_2",
   "tesoureiro_1", "tesoureiro_2",
   "secretaria_1", "secretaria_2",
@@ -136,7 +143,7 @@ export const FUNCOES_EM_ORDEM: FuncaoMinisterial[] = [
 
 /** As quatro que recebem lembrete de consagração — espelha o filtro da view. */
 export const FUNCOES_PASTORAIS: FuncaoMinisterial[] = [
-  "pastor_titular", "pastor_auxiliar", "pastor_missionario", "pastor",
+  "presidente", "pastor_auxiliar", "pastor_missionario", "pastor",
 ];
 
 /** "membro" é a ausência de função, não uma função. */

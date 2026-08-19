@@ -12785,7 +12785,7 @@ export type Database = {
         | "presbitero"
         | "coordenador"
         | "obreiro"
-        | "pastor_titular"
+        | "presidente"
         | "pastor_auxiliar"
         | "pastor_missionario"
         | "vice_presidente_1"
@@ -13572,7 +13572,7 @@ export const Constants = {
         "presbitero",
         "coordenador",
         "obreiro",
-        "pastor_titular",
+        "presidente",
         "pastor_auxiliar",
         "pastor_missionario",
         "vice_presidente_1",

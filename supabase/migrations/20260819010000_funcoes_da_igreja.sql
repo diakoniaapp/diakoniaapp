@@ -3,9 +3,13 @@
 -- A lista antiga era genérica de manual de eclesiologia: lider, tesoureiro,
 -- secretario, evangelista, missionario, diacono, presbitero, coordenador,
 -- obreiro. A lista real desta igreja distingue o que aquela não distinguia —
--- pastor titular de auxiliar, 1º de 2º tesoureiro — e não usa metade do resto.
+-- pastor auxiliar de missionário, 1º de 2º tesoureiro — e não usa metade do
+-- resto.
 --
---   Pastor Titular · Pastor Auxiliar · Pastor Missionário · Pastor
+-- (O primeiro da lista nasceu aqui como "Pastor Titular" e virou "Presidente"
+--  na migração seguinte, 20260819020000.)
+--
+--   Presidente · Pastor Auxiliar · Pastor Missionário · Pastor · Diácono
 --   1º e 2º Vice Presidente · 1º e 2º Tesoureiro · 1ª e 2ª Secretária
 --   Ministro(a) · Líder de Área · Professor(a) de EBD · Voluntário · Membro
 --
@@ -33,18 +37,16 @@
 --                São dois, e a lista nova tem 1º e 2º. Chutar quem é o
 --                primeiro seria inventar um fato sobre a diretoria.
 --   secretario   Lourdes Beatriz Rodrigues Ramos — mesma dúvida, 1ª ou 2ª.
---   diacono      Ana Paula Silvino, Erivaldo Chaves, Gilberto Alves.
---                Diácono não está na lista nova. São três pessoas com um
---                cargo registrado; apagar isso não foi pedido, e diácono não
---                é engano — é cargo de igreja batista.
---
--- Os quatro rótulos continuam aparecendo corretamente na tela para essas seis
+-- Os dois rótulos continuam aparecendo corretamente na tela para essas três
 -- pessoas. Só não podem ser escolhidos em cadastro novo, até haver decisão.
+--
+-- (Diácono chegou a ficar de fora e voltou à lista no mesmo dia, com a data de
+--  ordenação diaconal. Ana Paula, Erivaldo e Gilberto seguem como diáconos.)
 --
 -- ── E O LEMBRETE DE ORDENAÇÃO ─────────────────────────────────────────────
 --
 -- A view filtrava `funcao_ministerial = 'pastor'`. Com quatro variantes de
--- pastor, três delas ficariam sem lembrete — inclusive o titular. Passa a
+-- pastor, três delas ficariam sem lembrete — inclusive quem preside. Passa a
 -- valer para as quatro.
 
 -- ── 1. o que dá para migrar sem inventar ─────────────────────────────────
@@ -117,7 +119,7 @@ union all
     -- não pode ficar sem o lembrete da própria consagração.
     and m.funcao_ministerial in (
       'pastor'::funcao_ministerial,
-      'pastor_titular'::funcao_ministerial,
+      'presidente'::funcao_ministerial,
       'pastor_auxiliar'::funcao_ministerial,
       'pastor_missionario'::funcao_ministerial
     );

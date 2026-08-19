@@ -1,0 +1,33 @@
+-- ─── "Pastor Titular" passa a se chamar Presidente ─────────────────────────
+--
+-- É o nome que aparece em ata. Nesta igreja quem preside a instituição é quem
+-- pastoreia a congregação — não são duas pessoas nem dois cargos —, e o
+-- sistema estava usando o nome de manual em vez do nome de casa.
+--
+-- ── O QUE ISSO DESTRAVOU ──────────────────────────────────────────────────
+--
+-- O organograma agrupa a diretoria em quatro níveis: 1 Presidência,
+-- 2 Vice-presidência, 3 Secretaria, 4 Tesouraria. A seção de Presidência
+-- ficava sempre vazia, porque a lista de funções não tinha Presidente —
+-- havia "Pastor Titular", que ninguém liga a presidir nada.
+--
+-- Agora Presidente é, ao mesmo tempo:
+--
+--   · nível 1 da diretoria, e aparece no organograma;
+--   · uma das quatro funções pastorais, e continua recebendo o lembrete de
+--     consagração — Lucio Paulo Paz Barreto, consagrado em 10/10/1996.
+--
+-- As duas coisas na mesma linha porque na igreja elas são a mesma pessoa.
+--
+-- ── POR QUE RENOMEAR O VALOR, E NÃO SÓ O RÓTULO ──────────────────────────
+--
+-- Dava para deixar 'pastor_titular' no banco e escrever "Presidente" na tela.
+-- Seria mentira em duas camadas: quem abrisse o banco leria um cargo que a
+-- igreja não usa, e quem lesse a tela não acharia o valor.
+--
+-- ALTER TYPE ... RENAME VALUE é seguro aqui: a view vw_agenda_pastoral guarda
+-- a referência ao valor do enum, e não o texto, então o filtro acompanhou o
+-- novo nome sozinho. Conferido depois de aplicar — a definição da view passou
+-- a mostrar 'presidente' e Lucio continua na agenda com 10/10.
+
+alter type public.funcao_ministerial rename value 'pastor_titular' to 'presidente';
