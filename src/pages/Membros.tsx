@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Pencil, Link2, Briefcase, Sparkles, BarChart3, MoreHorizontal, MessageCircle, IdCard, Cake, X } from "lucide-react";
+import { Plus, Search, Pencil, Link2, Briefcase, Sparkles, BarChart3, MoreHorizontal, MessageCircle, IdCard, Cake, X, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -185,11 +185,6 @@ function AcoesPessoa({ m, onEditar, onVinculos, onAtuacoes, onVisitante, onConta
   );
 }
 
-// Quanto tempo faz que alguem falou com esta pessoa.
-//
-// Cor com significado, nao decoracao: cinza ate 30 dias, ambar depois, e a
-// mesma cor de alerta do painel para quem nunca foi contatado. Numa lista de
-// 20 linhas, e o que deixa a resposta aparecer sem precisar ler data por data.
 /**
  * Onde a pessoa está ligada na igreja: ministério, liderança, classe de EBD.
  *
@@ -335,33 +330,55 @@ function Telefone({ numero }: { numero?: string | null }) {
   );
 }
 
-function UltimoContato({ quando, alcancavel }: { quando?: string | null; alcancavel: boolean }) {
-  if (!quando) {
-    // Âmbar só para quem a igreja CONSEGUE procurar.
-    //
-    // Antes, "Nunca" saía em âmbar nas 281 linhas — e 189 delas são de gente
-    // sem telefone utilizável. Marcar essas de alerta culpa a pessoa errada:
-    // ninguém deixou de ligar para elas, não há para onde ligar. E âmbar em
-    // tudo é âmbar em nada — as 92 que dá para procurar hoje ficavam
-    // invisíveis no meio das outras.
-    return (
-      <span className={`text-sm ${alcancavel ? "text-warning" : "text-muted-foreground"}`}>
-        Nunca
-        {!alcancavel && <span className="text-xs"> · sem telefone</span>}
-      </span>
-    );
-  }
-  const dias = Math.floor((Date.now() - new Date(quando).getTime()) / 86_400_000);
-  const texto =
-    dias === 0 ? "Hoje"
-    : dias === 1 ? "Ontem"
-    : dias < 30 ? `${dias} dias`
-    : dias < 60 ? "1 mês"
-    : `${Math.floor(dias / 30)} meses`;
+// UltimoContato saiu junto com a coluna. Enquanto os 283 cadastros
+// tiverem zero contatos registrados, ele só sabe escrever "Nunca" — e um
+// componente que devolve a mesma palavra para todo mundo não é um
+// componente, é um texto fixo caro. Está no histórico do git, com a régua
+// de cores (cinza até 30 dias, âmbar depois) pronta para quando a coluna
+// voltar a distinguir uma pessoa da outra.
+
+type CampoOrdem = "nome" | "tipo" | "bairro";
+
+/**
+ * Cabeçalho de coluna que ordena.
+ *
+ * O botão ocupa a célula inteira para que o alvo seja a coluna, e não as
+ * quatro letras de "Tipo". A seta só aparece na coluna ativa; nas outras fica
+ * um ícone neutro que só surge no hover, senão três setas competiriam pela
+ * atenção sem que nenhuma estivesse valendo.
+ *
+ * `aria-sort` no <th> é o que faz um leitor de tela anunciar "ordenado de
+ * forma crescente" — sem ele, quem não vê a seta não tem como saber a ordem.
+ */
+function Cabecalho({ campo, rotulo, ordem, aoOrdenar, largura }: {
+  campo: CampoOrdem;
+  rotulo: string;
+  ordem: { campo: CampoOrdem; desc: boolean };
+  aoOrdenar: (c: CampoOrdem) => void;
+  largura?: string;
+}) {
+  const ativo = ordem.campo === campo;
+  const Icone = !ativo ? ChevronsUpDown : ordem.desc ? ChevronDown : ChevronUp;
+
   return (
-    <span className={`text-sm ${dias >= 30 ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}>
-      {texto}
-    </span>
+    <th
+      scope="col"
+      className={`font-medium p-0 ${largura ?? ""}`}
+      aria-sort={ativo ? (ordem.desc ? "descending" : "ascending") : "none"}
+    >
+      <button
+        type="button"
+        onClick={() => aoOrdenar(campo)}
+        title={`Ordenar por ${rotulo.toLowerCase()}`}
+        className="group w-full flex items-center gap-1 px-3 py-2 text-left hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+      >
+        {rotulo}
+        <Icone
+          className={`w-3.5 h-3.5 shrink-0 ${ativo ? "" : "opacity-0 group-hover:opacity-60"}`}
+          aria-hidden
+        />
+      </button>
+    </th>
   );
 }
 
@@ -432,6 +449,20 @@ export default function Membros() {
   const [pagina, setPagina] = useState(1);
   const buscaRef = useRef<HTMLInputElement>(null);
   const topoRef = useRef<HTMLDivElement>(null);
+
+  /**
+   * Ordenação da tabela. A lista sempre veio ordenada por nome, do banco, e
+   * não havia como pedir outra coisa: com 283 pessoas em 15 páginas,
+   * "quantos congregados temos" ou "quem é do Maracanã" exigia virar página
+   * por página. Cabeçalho de tabela que não ordena é rótulo, não controle.
+   */
+  const [ordem, setOrdem] = useState<{ campo: CampoOrdem; desc: boolean }>({
+    campo: "nome",
+    desc: false,
+  });
+
+  const ordenarPor = (campo: CampoOrdem) =>
+    setOrdem((o) => (o.campo === campo ? { campo, desc: !o.desc } : { campo, desc: false }));
     const [searchParams, setSearchParams] = useSearchParams();
 
   // ── Tratar parâmetros de query ao carregar ──────────────────────────────────
@@ -616,7 +647,29 @@ export default function Membros() {
           : diasSemContato === null || diasSemContato >= Number(cuidadoFiltro);
 
         return matchCuidado;
-  }), [baseFiltrados, cuidadoFiltro]);
+  }).sort((a, b) => {
+        // Quem não tem bairro vai para o fim nas DUAS direções. Inverter a
+        // ordem é pedir "de Z a A", não "mostre primeiro os 200 sem bairro" —
+        // uma tela cheia de vazio não é resposta para nenhuma das duas.
+        if (ordem.campo === "bairro") {
+          const va = !!a.bairro?.trim(), vb = !!b.bairro?.trim();
+          if (va !== vb) return va ? -1 : 1;
+        }
+
+        const chave = (m: Membro) =>
+          ordem.campo === "tipo"     ? ({ membro: "1", congregado: "2", visitante: "3" })[m.tipo_pessoa]
+          : ordem.campo === "bairro" ? comparavel(m.bairro)
+          : comparavel(m.nome_completo);
+
+        const primario = chave(a).localeCompare(chave(b));
+
+        // Empate sempre desfeito pelo nome, em ordem crescente e independente
+        // da direção: sem isso, ordenar por tipo deixaria os 149 congregados na
+        // ordem em que o banco devolveu — que muda entre consultas, e a lista
+        // pareceria embaralhar sozinha a cada clique.
+        return (ordem.desc ? -primario : primario)
+            || comparavel(a.nome_completo).localeCompare(comparavel(b.nome_completo));
+  }), [baseFiltrados, cuidadoFiltro, ordem]);
 
   // Os quatro números que resumem esta lista. Contados aqui, uma vez, e não
   // dentro do JSX — o mesmo `baseFiltrados` alimenta os atalhos e a tabela.
@@ -679,7 +732,11 @@ export default function Membros() {
 
   // Voltar à primeira página quando o resultado muda: continuar na página 7
   // de uma busca que agora tem 3 resultados deixaria a tela vazia.
-  useEffect(() => { setPagina(1); }, [search, tipoFiltro, perfilFiltro, cuidadoFiltro]);
+  //
+  // A ordem entra na lista pelo mesmo motivo: ordenar por bairro estando na
+  // página 7 mostraria a fatia 121–140 de uma lista que acabou de ser
+  // reembaralhada — quem pediu "por bairro" quer ver o começo, não o meio.
+  useEffect(() => { setPagina(1); }, [search, tipoFiltro, perfilFiltro, cuidadoFiltro, ordem]);
 
   // Foco na busca ao abrir: quem entra em Pessoas quase sempre vem procurar
   // alguém. Só no desktop — em celular abriria o teclado por cima da lista.
@@ -712,8 +769,13 @@ export default function Membros() {
                 }
                     />
                     <div className="p-4 md:p-8 space-y-4" ref={topoRef}>
-                            <div className="flex flex-col md:flex-row gap-3 md:items-center">
-                                      <div className="relative max-w-md flex-1">
+                            <div className="flex flex-col md:flex-row md:flex-wrap gap-3 md:items-center">
+                                      {/* min-w-[220px]: os três seletores têm largura fixa de 224px cada, e
+                                                      numa janela estreita — ou com a barra lateral aberta — eles tomavam
+                                                      a linha inteira e espremiam a busca até caber só a lupa. Com o
+                                                      mínimo e o flex-wrap acima, os seletores descem para a segunda
+                                                      linha em vez de engolir o campo mais usado da tela. */}
+                                      <div className="relative flex-1 min-w-[220px] max-w-md">
                                                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                                                   {/* O rótulo dizia "nome, CPF ou bairro". CPF está preenchido em DOIS
                                                       dos 283 cadastros — a busca anunciava um campo que praticamente não
@@ -975,20 +1037,34 @@ export default function Membros() {
                                 situacao, telefone, bairro) em vez de concatenar tudo com
                                 bolinhas, e dobra quantas pessoas aparecem de uma vez.
                                 No celular a tabela nao entra: os cartoes continuam. */}
+                            {/* Sem `overflow-hidden` no invólucro. Ele existia só para aparar os
+                                cantos da tabela dentro da borda arredondada, e um ancestral com
+                                overflow diferente de `visible` vira o contexto de rolagem do
+                                `position: sticky` — o cabeçalho colava numa caixa que nunca rola,
+                                ou seja, não colava em nada. Medido: com ele, o <thead> descia de
+                                y=266 para y=-134 ao rolar 400px. Os cantos voltam pelo
+                                arredondamento das próprias células das pontas. */}
                             {!loading && !error && filtered.length > 0 && (
-                              <div className="hidden md:block rounded-lg border overflow-hidden">
+                              <div className="hidden md:block rounded-lg border">
                                 <table className="w-full text-sm">
                                   <caption className="sr-only">
                                     Pessoas cadastradas — {filtered.length} no filtro atual,
                                     mostrando {inicio + 1} a {Math.min(inicio + POR_PAGINA, filtered.length)}
                                   </caption>
-                                  <thead className="bg-muted/50">
+                                  {/* Cabeçalho grudado no topo: são 20 linhas por página, a tabela
+                                      passa da altura da tela, e ao chegar na décima pessoa não se
+                                      sabia mais qual coluna era qual. */}
+                                  <thead className="bg-muted/50 sticky top-0 z-10 [&>tr>th:first-child]:rounded-tl-lg [&>tr>th:last-child]:rounded-tr-lg">
                                     <tr className="text-left text-xs text-muted-foreground">
-                                      <th scope="col" className="font-medium px-3 py-2">Nome</th>
-                                      <th scope="col" className="font-medium px-3 py-2 w-32">Tipo</th>
+                                      <Cabecalho campo="nome"   rotulo="Nome"   ordem={ordem} aoOrdenar={ordenarPor} />
+                                      <Cabecalho campo="tipo"   rotulo="Tipo"   ordem={ordem} aoOrdenar={ordenarPor} largura="w-28" />
                                       <th scope="col" className="font-medium px-3 py-2 w-40">Telefone</th>
-                                      <th scope="col" className="font-medium px-3 py-2 w-40">Último contato</th>
-                                      <th scope="col" className="font-medium px-3 py-2 w-24">
+                                      {/* Bairro só a partir de 1024px. Entre 768 e 1024 as quatro colunas
+                                          fixas somavam mais largura do que sobrava para o nome, e "Agatha
+                                          Victoria Vieira de Castro" virava "Agatha Victoria V...". Numa
+                                          lista de pessoas, o nome é a última coisa que pode ser cortada. */}
+                                      <Cabecalho campo="bairro" rotulo="Bairro" ordem={ordem} aoOrdenar={ordenarPor} largura="w-40 hidden lg:table-cell" />
+                                      <th scope="col" className="font-medium px-3 py-2 w-16">
                                         <span className="sr-only">Ações</span>
                                       </th>
                                     </tr>
@@ -1029,32 +1105,43 @@ export default function Membros() {
                                           </button>
                                         </th>
                                         <td className="px-3 py-0">
-                                          {/* Etiqueta so na excecao, como nos cartoes. */}
+                                          {/* Aqui a etiqueta NÃO é só da exceção — e o comentário que estava
+                                              nesta célula media a coisa errada: dizia "274 dos 279 são membros
+                                              ativos", confundindo tipo com situação. Contado no banco são 132
+                                              membros, 149 congregados e 2 visitantes. Metade da igreja não é
+                                              exceção. Com a célula em branco para membro, a coluna dizia
+                                              "congregado ou nada", e o branco tinha de ser adivinhado. Agora
+                                              todos têm o seu: membro em texto discreto, por ser o esperado;
+                                              congregado e visitante em etiqueta, por mudarem o que se faz com
+                                              a pessoa. Situação diferente de "ativo" (2 em 283) segue vencendo
+                                              as duas, porque nesse caso é o que há de mais urgente a dizer. */}
                                           {m.tipo_pessoa !== "membro" ? (
                                             <Badge variant="outline" className={tipoPessoaColor[m.tipo_pessoa]}>
                                               {tipoPessoaLabel[m.tipo_pessoa]}
                                             </Badge>
                                           ) : m.status !== "ativo" ? (
                                             <StatusMembroBadge status={m.status} compact />
-                                          ) : null}
-                                          {/* Celula vazia, e nao "—": 274 dos 279 sao membros
-                                              ativos, entao a coluna virava uma fileira de tracos.
-                                              Traco numa tabela le como dado; vazio le como "nada
-                                              a notar", que e o que se quer dizer aqui. Em telefone
-                                              e bairro o traco fica, porque ali a ausencia importa:
-                                              sem telefone ninguem consegue ser contatado. */}
+                                          ) : (
+                                            <span className="text-muted-foreground">Membro</span>
+                                          )}
                                         </td>
-                                        <td className="px-3 py-0 text-muted-foreground tabular-nums">
+                                        <td className="px-3 py-0 text-muted-foreground tabular-nums whitespace-nowrap">
                                           <Telefone numero={m.telefone_celular} />
                                         </td>
-                                        {/* O bairro saiu daqui para o "Último contato" entrar.
-                                            Numa tela de cuidado, quando alguem falou com a
-                                            pessoa pela ultima vez pesa mais do que em que
-                                            bairro ela mora — e o bairro continua na busca e
-                                            na ficha. A coluna e o que torna a pergunta
-                                            pastoral visivel sem abrir nada. */}
-                                        <td className="px-3 py-0">
-                                          <UltimoContato quando={m.ultimo_contato_em} alcancavel={telefoneValido(m.telefone_celular)} />
+                                        {/* "Último contato" saiu e o bairro voltou.
+                                            A coluna de contato lia "Nunca" nas 283 linhas: uma
+                                            coluna em que todas as células dizem a mesma coisa não
+                                            informa nada e ainda ocupa 160px em toda página. A
+                                            pergunta pastoral continua na tela, no atalho "Dá para
+                                            procurar", que é onde ela vira uma lista de gente, e na
+                                            ficha de cada pessoa. Quando houver contatos
+                                            registrados de verdade, a coluna volta a discriminar e
+                                            pode voltar — o componente está no histórico do git.
+                                            O bairro volta por um motivo prático: a busca casa por
+                                            bairro. Procurar "maracana" trazia 17 pessoas sem
+                                            mostrar em lugar nenhum por que aquelas 17. */}
+                                        <td className="px-3 py-0 text-muted-foreground hidden lg:table-cell">
+                                          <span className="block truncate">{m.bairro || "—"}</span>
                                         </td>
                                         <td className="px-3 py-0">
                                           {/* Sem o lapis aqui: nesta tabela o nome ja e o
