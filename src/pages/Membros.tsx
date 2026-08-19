@@ -25,6 +25,7 @@ import { logHistorico } from "@/lib/historicoFluxo";
 import { formatarTelefoneSemDDI, normalizarTelefone, telefoneValido } from "@/lib/telefone";
 import { rotuloFuncao, temFuncao, rotulosDe } from "@/lib/funcaoMinisterial";
 import { TIPO_PESSOA_LABEL, TIPO_PESSOA_COR } from "@/lib/tipoPessoa";
+import PessoaCard from "@/components/membros/PessoaCard";
 
 export interface Membro {
     id: string;
@@ -785,7 +786,19 @@ export default function Membros() {
   const inicio = (paginaAtual - 1) * POR_PAGINA;
   const visiveis = filtered.slice(inicio, inicio + POR_PAGINA);
 
-  // Um unico conjunto de acoes para cartao e tabela. Duplicar o menu nos dois
+  // ── Clicar num nome passa a ABRIR A PESSOA, não editá-la ─────────────
+  //
+  // Antes, o único jeito de chegar a alguém pelo catálogo era abrindo o
+  // formulário de cinco passos. O sistema não tinha como OLHAR uma pessoa —
+  // só como alterá-la. Quem queria saber há quanto tempo ninguém falava com
+  // fulano abria um formulário de edição e saía dele com medo de ter mexido
+  // em alguma coisa.
+  //
+  // Agora o nome abre a ficha (história, vínculos, onde serve) e o lápis
+  // abre a edição. Dois trabalhos, dois botões.
+  const [fichaDe, setFichaDe] = useState<string | null>(null);
+
+  // Um unico conjunto de acoes para cartao e tabela. Duplicar o menu nos dois
   // lugares seria garantir que um dia so um deles ganhe uma acao nova.
   const acoes = {
     onEditar:    (m: Membro) => { setEditing(m); setOpen(true); },
@@ -1159,8 +1172,8 @@ export default function Membros() {
                                             // um alvo estreito no meio de uma linha alta, alem de
                                             // ficar abaixo dos 24px minimos da WCAG 2.5.8.
                                             className="block w-full min-w-0 py-2 text-left font-medium hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
-                                            onClick={() => { setEditing(m); setOpen(true); }}
-                                          >
+                                            onClick={() => setFichaDe(m.id)}
+                                          >
                                             <span className="flex items-center gap-2 min-w-0">
                                               <span className="truncate">{m.nome_completo}</span>
                                               <MarcaAniversario nascimento={m.data_nascimento} />
@@ -1262,7 +1275,10 @@ export default function Membros() {
                                               pagina repetindo uma acao que ja existe a
                                               dois centimetros de distancia — 20 icones a
                                               menos numa tela que tinha 85. */}
-                                          {canEdit && <AcoesPessoa m={m} {...acoes} mostrarEditar={false} />}
+                                          {/* O lápis voltou. Ele estava escondido aqui porque "o nome já abre a
+                                              edição" — e isso deixou de ser verdade: o nome agora abre a
+                                              ficha. Sem ele, editar alguém pela tabela viraria dois cliques. */}
+                                          {canEdit && <AcoesPessoa m={m} {...acoes} />}
                                         </td>
                                       </tr>
                                     ))}
@@ -1310,7 +1326,9 @@ export default function Membros() {
                             )}
                     </div>
               
-                    <MembroForm open={open} onOpenChange={setOpen} membro={editing} onSaved={load} />
+                    <PessoaCard pessoaId={fichaDe} open={!!fichaDe} onClose={() => setFichaDe(null)} />
+
+      <MembroForm open={open} onOpenChange={setOpen} membro={editing} onSaved={load} />
                     <VinculosPessoaDialog
                               open={!!vinculosPessoa}
                               onOpenChange={(v) => {

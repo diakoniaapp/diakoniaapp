@@ -10,6 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, User, Shield, Church, MapPin, Calendar, Star } from "lucide-react";
 import { cargosDaPessoa } from "@/services/diretoriaService";
 import { TIPO_PESSOA_LABEL, TIPO_PESSOA_COR, type TipoPessoa } from "@/lib/tipoPessoa";
+import { Skeleton } from "@/components/ui/skeleton";
+import { LinhaDoTempo } from "@/components/membros/LinhaDoTempo";
+import { historiaDaPessoa, diasDesdeOUltimoContato, type EventoDaHistoria } from "@/services/historiaPessoa";
 
 // ── Tipos ─────────────────────────────────────────────────────
 
@@ -106,6 +109,7 @@ export default function PessoaCard({ pessoaId, open, onClose }: PessoaCardProps)
   const [cargos, setCargos]         = useState<CargoEstatutario[]>([]);
   const [ministerios, setMinerios]  = useState<MinisterioVinculo[]>([]);
   const [areas, setAreas]           = useState<AreaVinculo[]>([]);
+  const [historia, setHistoria]     = useState<EventoDaHistoria[]>([]);
   const [loading, setLoading]       = useState(false);
 
   useEffect(() => {
@@ -124,7 +128,40 @@ export default function PessoaCard({ pessoaId, open, onClose }: PessoaCardProps)
       // Cargo de diretoria — vem da função na ficha. Ver diretoriaService.ts.
       setCargos(await cargosDaPessoa(pessoaId));
 
-      // Ministérios (via ministerio_membros legado + pessoa_participacao)
+      // A história vem junto com o resto: ela é o corpo da ficha agora,
+      // não um extra que se busca depois de a tela já estar montada.
+      setHistoria(await historiaDaPessoa(pessoaId));
+
+      // ── Onde a pessoa serve ────────────────────────────────────────
+      //
+      // Contado em produção: ministerio_membros tem 0 linhas e
+      // pessoa_participacao tem 0 linhas. Os vínculos de verdade — 113 —
+      // estão em area_voluntarios. Esta ficha vinha mostrando "nenhum
+      // ministério" para TODO MUNDO, em silêncio, porque perguntava nas
+      // duas tabelas vazias.
+      //
+      // As duas continuam sendo lidas: se um dia forem povoadas, o que
+      // estiver lá aparece. Mas quem responde hoje é area_voluntarios.
+      // Sem embed: `area_voluntarios` não declara chave estrangeira para
+      // `areas`, e o PostgREST recusa o join. Duas consultas.
+      const { data: avBruto } = await supabase
+        .from("area_voluntarios")
+        .select("area_id, funcao, status")
+        .eq("membro_id", pessoaId)
+        // .eq e nao .in(["ativa","ativo"]): status e o enum atuacao_status, e
+        // "ativo" NAO e um valor dele — so "ativa" e "encerrada". Passar um
+        // valor invalido nao filtra a mais: o Postgres rejeita a consulta
+        // INTEIRA com "invalid input value for enum", e a ficha mostrava
+        // "sem vinculos" para quem serve em duas areas.
+        .eq("status", "ativa");
+
+      const idsDeArea = [...new Set((avBruto ?? []).map((r: any) => r.area_id).filter(Boolean))];
+      const { data: areasDele } = idsDeArea.length
+        ? await supabase.from("areas").select("id, nome, ministerios(nome, cor)").in("id", idsDeArea)
+        : { data: [] as any[] };
+      const porId = new Map((areasDele ?? []).map((a: any) => [a.id, a]));
+      const av = (avBruto ?? []).map((r: any) => ({ ...r, areas: porId.get(r.area_id) ?? null }));
+
       const { data: mm } = await supabaseRel
         .from("ministerio_membros")
         .select("funcao, ministerios(nome, cor)")
@@ -139,6 +176,11 @@ export default function PessoaCard({ pessoaId, open, onClose }: PessoaCardProps)
         .is("area_id", null);
 
       const todosMin = [
+        ...(av ?? []).filter((r: any) => r.areas?.ministerios).map((r: any) => ({
+          ministerio_nome: r.areas.ministerios.nome ?? "–",
+          funcao: r.funcao ?? "voluntario",
+          cor: r.areas.ministerios.cor ?? null,
+        })),
         ...(mm ?? []).map((r: any) => ({
           ministerio_nome: r.ministerios?.nome ?? "–",
           funcao: r.funcao ?? "voluntario",
@@ -164,11 +206,18 @@ export default function PessoaCard({ pessoaId, open, onClose }: PessoaCardProps)
         .eq("pessoa_id", pessoaId)
         .eq("ativo", true)
         .not("area_id", "is", null);
-      setAreas((pa ?? []).filter((r: any) => r.areas).map((r: any) => ({
-        ministerio_nome: (r.areas as any).ministerios?.nome ?? "–",
-        area_nome: (r.areas as any).nome ?? "–",
-        funcao: r.funcao ?? "voluntario",
-      })));
+      setAreas([
+        ...(av ?? []).filter((r: any) => r.areas).map((r: any) => ({
+          ministerio_nome: r.areas.ministerios?.nome ?? "–",
+          area_nome: r.areas.nome ?? "–",
+          funcao: r.funcao ?? "voluntario",
+        })),
+        ...(pa ?? []).filter((r: any) => r.areas).map((r: any) => ({
+          ministerio_nome: (r.areas as any).ministerios?.nome ?? "–",
+          area_nome: (r.areas as any).nome ?? "–",
+          funcao: r.funcao ?? "voluntario",
+        })),
+      ]);
 
       setLoading(false);
     };
@@ -186,8 +235,17 @@ export default function PessoaCard({ pessoaId, open, onClose }: PessoaCardProps)
         </DialogHeader>
 
         {loading || !pessoa ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+          <div className="space-y-4 py-2" aria-busy="true">
+            <span className="sr-only">Carregando a ficha…</span>
+            <div className="flex items-center gap-4">
+              <Skeleton className="w-16 h-16 rounded-full shrink-0" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-4 w-2/3" />
+                <Skeleton className="h-3 w-1/3" />
+              </div>
+            </div>
+            <Skeleton className="h-3 w-24" />
+            {[0, 1, 2].map(i => <Skeleton key={i} className="h-4" style={{ width: `${70 - i * 12}%` }} />)}
           </div>
         ) : (
           <div className="space-y-5">
@@ -219,6 +277,44 @@ export default function PessoaCard({ pessoaId, open, onClose }: PessoaCardProps)
                   )}
                 </div>
               </div>
+            </div>
+
+            {/* ── Há quanto tempo ninguém fala com esta pessoa ──────────
+
+                Uma linha, e é a que muda o que se faz nos próximos cinco
+                minutos. Só aparece a partir de 30 dias: abaixo disso não há
+                nada a dizer, e um aviso que aparece sempre deixa de ser
+                aviso. */}
+            {(() => {
+              const dias = diasDesdeOUltimoContato(historia);
+              if (dias === null || dias < 30) return null;
+              const muito = dias >= 180;
+              return (
+                <div className={`rounded-lg border px-3 py-2 text-sm ${
+                  muito ? "border-warning-line bg-warning-soft text-warning-text"
+                        : "border-border bg-muted/50 text-muted-foreground"}`}>
+                  Último contato há <strong>{dias} dias</strong>
+                  {muito && " — mais de meio ano"}
+                </div>
+              );
+            })()}
+
+            {/* ── A história ────────────────────────────────────────────
+
+                Ela vem antes dos cargos e dos ministérios de propósito.
+                "Onde a pessoa se encaixa" é organograma; "o que aconteceu
+                com ela" é cuidado pastoral, e é a pergunta de quem abre a
+                ficha de alguém.
+
+                Material: 283 registros de contato cobrindo 276 das 282
+                pessoas, 141 mudanças de vínculo, 113 entradas em áreas e as
+                datas de consagração — tudo já gravado, e nada disso
+                aparecia em lugar nenhum do sistema. */}
+            <div className="space-y-2.5">
+              <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <Calendar className="w-3 h-3" /> História
+              </div>
+              <LinhaDoTempo eventos={historia} />
             </div>
 
             {/* Cargo estatutário (Diretoria) */}
