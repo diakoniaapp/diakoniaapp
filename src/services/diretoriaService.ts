@@ -157,3 +157,24 @@ export function ocupantesDoCargo(
     nomesDaFuncao(d.funcao).some(nome => chaveCargo(nome) === alvo),
   );
 }
+
+/**
+ * Os diáconos em exercício, com a data de ordenação.
+ *
+ * Fica aqui e não no quadro do conselho porque a diaconia responde a outra
+ * pergunta. No conselho, o diácono aparece por ter assento; na diaconia,
+ * aparece por ser diácono — com há quanto tempo, que é o que a igreja
+ * costuma querer saber e a view do conselho não carrega.
+ */
+export async function carregarDiaconato(): Promise<{
+  id: string; nome_completo: string; data_ordenacao_diaconal: string | null;
+}[]> {
+  const { data } = await supabase
+    .from("membros")
+    .select("id, nome_completo, data_ordenacao_diaconal")
+    .eq("status", "ativo")
+    .eq("funcao_ministerial", "diacono")
+    .order("nome_completo");
+
+  return data ?? [];
+}

@@ -1,11 +1,11 @@
 // ============================================================
 // EstruturaDaIgreja.tsx
 // Tela unificada da estrutura organizacional da Igreja
-// 3 abas: Institucional (diretoria eleita) | Ministerios | Estrutura Doc.
+// Uma tela, um assunto: o que o estatuto e o regimento preveem.
 // Le: pessoa_cargo_estatutario + ministerios + documento_estrutura
 // ============================================================
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase, supabaseRel } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -17,7 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import PessoaCard from "@/components/membros/PessoaCard";
 import {
   Crown, Church, MapPin, Users, ChevronDown, ChevronRight,
-  Loader2, AlertTriangle, Network, Settings, RefreshCw, FileText, Star, Shield,
+  Loader2, AlertTriangle, Network, Settings, RefreshCw, FileText, Star,
 } from "lucide-react";
 import { carregarDiretoria, ocupantesDoCargo, type CargoDiretoria } from "@/services/diretoriaService";
 import { SELECT_AREA_COM_LIDER } from "@/services/estruturaService";
@@ -233,22 +233,6 @@ function MinisterioCard({ min, onPessoa, isAdmin, onEdit }: {
 
 // -- Componente Principal ------------------------------------
 
-/**
- * Uma linha de `v_conselho_da_igreja`: quem tem assento no conselho por
- * causa do cargo que ocupa. Não há cadastro de conselho — a view deriva a
- * composição de diretoria, liderança de ministério, liderança de área e
- * diaconato.
- */
-interface ConselhoMembro {
-  pessoa_id: string;
-  nome_completo: string;
-  foto_url: string | null;
-  cargo: string;
-  nivel_cargo: number;
-  tipo_participacao: string;
-  ministerio_nome: string | null;
-}
-
 export default function EstruturaDaIgreja() {
   const { hasRole } = useAuth();
   const navigate = useNavigate();
@@ -263,9 +247,25 @@ export default function EstruturaDaIgreja() {
     area: EstruturaItem[];
   }>({ institucional: [], ministerial: [], area: [] });
   const [stats, setStats] = useState({ membros: 0, ministerios: 0, semLider: 0, estTotal: 0 });
-  const [conselho, setConselho] = useState<ConselhoMembro[]>([]);
   const [pessoaId, setPessoaId] = useState<string | null>(null);
   const [ultimaSync, setUltimaSync] = useState<string | null>(null);
+
+  /**
+   * Cargo previsto no documento × cargo com gente na ficha.
+   *
+   * É a única comparação que só esta tela consegue fazer: as outras mostram
+   * quem está lá; aqui dá para ver o que o regimento prevê e ninguém ocupa.
+   * Foi assim que a linha "Auditoria" ficou vazia por meses — prevista no
+   * documento, sem função correspondente em ficha nenhuma.
+   *
+   * Conta só os itens institucionais: ministério e área não são cargo de uma
+   * pessoa, e entrariam sempre como "sem ocupante" sem querer dizer nada.
+   */
+  const cargos = useMemo(() => {
+    const itens = estDoc.institucional;
+    const ocupados = itens.filter(i => ocupantesDoCargo(i.nome, diretoria).length > 0).length;
+    return { ocupados, vagos: itens.length - ocupados };
+  }, [estDoc.institucional, diretoria]);
 
   const carregar = useCallback(async () => {
     setLoading(true);
@@ -276,10 +276,6 @@ export default function EstruturaDaIgreja() {
 
     // Diretoria — lida da função na ficha da pessoa. Ver diretoriaService.ts.
     setDiretoria(await carregarDiretoria());
-
-    // Conselho — a view compõe sozinha a partir de quem ocupa o quê.
-    const { data: cons } = await supabase.from("v_conselho_da_igreja").select("*");
-    setConselho((cons ?? []) as ConselhoMembro[]);
 
     // Ministerios com lideres
     const { data: mins } = await supabase
@@ -376,7 +372,7 @@ export default function EstruturaDaIgreja() {
     <div>
       <PageHeader
         title="Estrutura da Igreja"
-        description="Quem ocupa cada cargo, quem tem assento no conselho e o que o regimento prevê"
+        description="O que o estatuto e o regimento preveem, e quanto disso a ficha das pessoas confirma"
         actions={
           isAdmin ? (
             <div className="flex gap-2 flex-wrap">
@@ -397,10 +393,18 @@ export default function EstruturaDaIgreja() {
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
-            { label: "Membros ativos", value: stats.membros, icon: <Star className="w-4 h-4" />, cor: "text-blue-600" },
-            { label: "Conselho", value: conselho.length, icon: <Shield className="w-4 h-4" />, cor: "text-purple-600" },
+            // Os cartões respondem à pergunta da tela: o que o documento
+            // prevê, e quanto disso a igreja de fato tem ocupado. "Sem
+            // ocupante" é a única lacuna que este lugar consegue enxergar — o
+            // regimento prevê um cargo e a ficha de ninguém o preenche.
             { label: "No regimento", value: stats.estTotal, icon: <Network className="w-4 h-4" />, cor: "text-amber-600" },
-            { label: "Diretoria", value: diretoria.length, icon: <Crown className="w-4 h-4" />, cor: "text-primary" },
+            { label: "Ligados à ficha", value: cargos.ocupados, icon: <Crown className="w-4 h-4" />, cor: "text-primary" },
+            // "Fora da ficha" e não "sem ocupante": Pastoral e Jurídico
+            // Parlamentar TÊM nomes no documento, digitados como texto. O que
+            // falta é a função correspondente no cadastro de alguém — e é isso
+            // que dá para agir, não a ausência de gente.
+            { label: "Fora da ficha", value: cargos.vagos, icon: <AlertTriangle className="w-4 h-4" />, cor: cargos.vagos > 0 ? "text-warning" : "text-muted-foreground" },
+            { label: "Membros ativos", value: stats.membros, icon: <Star className="w-4 h-4" />, cor: "text-blue-600" },
           ].map((s) => (
             <Card key={s.label} className="shadow-card-soft">
               <CardContent className="p-4">
@@ -429,224 +433,96 @@ export default function EstruturaDaIgreja() {
           </p>
         )}
 
-        <Tabs defaultValue="diretoria">
-          {/* ── A fronteira com o Organograma ──────────────────────────────
-              Saiu a aba "Ministerios": quem serve onde é a pergunta do
-              Organograma, e a mesma lista em duas telas já tinha divergido na
-              contagem — uma dizia 35 integrantes onde a outra dizia 0.
+        {/* ── Só o Regimento ─────────────────────────────────────────────
+            Diretoria, Conselho e Diaconia foram para o Organograma, onde a
+            igreja aparece como gente: quem serve onde e quem ocupa o quê.
 
-              Entrou "Conselho", que estava no Organograma. Conselho é órgão de
-              governança: quem tem assento por causa do cargo que ocupa. É
-              institucional, e institucional é o que esta tela responde. */}
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="diretoria">
-              <Crown className="w-4 h-4 mr-1.5" /> Diretoria
-            </TabsTrigger>
-            <TabsTrigger value="conselho">
-              <Shield className="w-4 h-4 mr-1.5" /> Conselho
-            </TabsTrigger>
-            <TabsTrigger value="documentos">
-              <Network className="w-4 h-4 mr-1.5" /> Regimento
-            </TabsTrigger>
-          </TabsList>
+            Aqui fica o documento — o que o estatuto e o regimento preveem,
+            com a base institucional de cada item. O ocupante de cada cargo
+            continua vindo da ficha, mas a pergunta desta tela é outra: não
+            "quem é o tesoureiro" e sim "o que a igreja declarou ter".
 
-          <TabsContent value="diretoria" className="mt-4">
-            {loading ? (
-              <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground">
-                <Loader2 className="w-5 h-5 animate-spin" /><span>Carregando...</span>
-              </div>
-            ) : diretoria.length === 0 ? (
-              <div className="text-center py-16 space-y-3">
-                <Crown className="w-12 h-12 mx-auto text-muted-foreground/40" />
-                <p className="text-muted-foreground text-sm">Nenhuma funcao de diretoria preenchida.</p>
-                {isAdmin && (
-                  <p className="text-xs text-muted-foreground/70">
-                    Preencha em Pessoas, abrir a pessoa, Vinculos, Funcao ministerial.
-                  </p>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-5">
-                {[1, 2, 3, 4].map((nivel) => {
-                  const deste = diretoria.filter((d) => d.nivel === nivel);
-                  if (!deste.length) return null;
-                  return (
-                    <div key={nivel}>
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-base">{NIVEL_EMOJI[nivel]}</span>
-                        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                          {NIVEL_LABELS[nivel]}
-                        </h3>
-                      </div>
-                      <div className="grid sm:grid-cols-2 gap-2">
-                        {deste.map((d) => (
-                          <button
-                            key={d.id}
-                            onClick={() => setPessoaId(d.pessoa_id)}
-                            className="flex items-center gap-3 rounded-xl border border-purple-200 bg-purple-50/50 px-4 py-3 text-left hover:bg-purple-100/50 transition-colors w-full"
-                          >
-                            <AvatarPessoa nome={d.pessoa_nome} foto={d.pessoa_foto} size="md" />
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium text-sm truncate">{d.pessoa_nome}</p>
-                              <p className="text-xs text-purple-700">{d.cargo}</p>
-                              {d.mandato && (
-                                <p className="text-xs text-muted-foreground">Mandato {d.mandato}</p>
+            Sem abas, porque sobrou uma coisa só. */}
+          {loading ? (
+            <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground">
+              <Loader2 className="w-5 h-5 animate-spin" /><span>Carregando...</span>
+            </div>
+          ) : stats.estTotal === 0 ? (
+            <div className="text-center py-16 space-y-3">
+              <Network className="w-12 h-12 mx-auto text-muted-foreground/40" />
+              <p className="text-muted-foreground text-sm">Nenhuma estrutura derivada dos documentos ainda.</p>
+              <p className="text-xs text-muted-foreground/70">
+                Acesse Documentos, Estrutura Derivada, Sincronizar para popular automaticamente.
+              </p>
+              {isAdmin && (
+                <Button variant="outline" size="sm" onClick={() => navigate("/admin/documentos")}>
+                  <FileText className="w-3.5 h-3.5 mr-1.5" /> Ir para Documentos
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {(["institucional", "ministerial", "area"] as const).map((nivel) => {
+                const itens = estDoc[nivel];
+                if (!itens.length) return null;
+                const config = {
+                  institucional: { label: "Diretoria e Conselhos", icon: <Crown className="w-4 h-4 text-purple-600" />, border: "border-purple-200", bg: "bg-purple-50/50" },
+                  ministerial: { label: "Ministerios", icon: <Church className="w-4 h-4 text-blue-600" />, border: "border-blue-200", bg: "bg-blue-50/50" },
+                  area: { label: "Areas e Setores", icon: <MapPin className="w-4 h-4 text-green-600" />, border: "border-green-200", bg: "bg-green-50/50" },
+                } as const;
+                const c = config[nivel];
+                return (
+                  <div key={nivel}>
+                    <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-2">
+                      {c.icon} {c.label} ({itens.length})
+                    </h3>
+                    <div className="space-y-2">
+                      {itens.map((item) => (
+                        <div key={item.id} className={`rounded-xl border px-4 py-3 ${c.border} ${c.bg}`}>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2 mb-1">
+                              <span className="text-sm font-semibold">{item.nome}</span>
+                              {item.base_institucional && (
+                                <Badge variant="outline" className="text-xs h-4 px-1.5">
+                                  📄 {item.base_institucional}
+                                </Badge>
                               )}
                             </div>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </TabsContent>
-
-          {/* ── Conselho: quem tem assento por causa do cargo ────────────
-              A view v_conselho_da_igreja compõe o conselho sozinha, a partir
-              de quem ocupa o quê: diretoria, líderes de ministério, líderes
-              de área e diáconos. Não há cadastro de conselho — há
-              consequência do que está na ficha de cada um.
-
-              Veio do Organograma junto com a fronteira: lá era a única aba
-              que não falava de quem serve onde. */}
-          <TabsContent value="conselho" className="mt-4">
-            {loading ? (
-              <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground">
-                <Loader2 className="w-5 h-5 animate-spin" /><span>Carregando...</span>
-              </div>
-            ) : conselho.length === 0 ? (
-              <div className="text-center py-16 space-y-2">
-                <Shield className="w-12 h-12 mx-auto text-muted-foreground/40" />
-                <p className="text-muted-foreground text-sm">Conselho ainda sem composicao.</p>
-                <p className="text-xs text-muted-foreground/70">
-                  Composto automaticamente por Diretoria, Lideres de Ministerio,
-                  Lideres de Area e Diaconos.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <p className="text-xs text-muted-foreground">
-                  {conselho.length} participantes, compostos automaticamente pelos
-                  cargos que ocupam.
-                </p>
-                {(["diretoria", "ministerio", "area", "diacono"] as const).map((tipo) => {
-                  const grupo = conselho.filter((c) => c.tipo_participacao === tipo);
-                  if (grupo.length === 0) return null;
-                  const rotulo: Record<string, string> = {
-                    diretoria: "Diretoria", ministerio: "Lideres de Ministerio",
-                    area: "Lideres de Area", diacono: "Diaconos",
-                  };
-                  return (
-                    <div key={tipo}>
-                      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-                        {rotulo[tipo]} ({grupo.length})
-                      </h3>
-                      <div className="grid sm:grid-cols-2 gap-2">
-                        {grupo.map((c) => (
-                          <button key={c.pessoa_id + "-" + c.cargo}
-                            onClick={() => setPessoaId(c.pessoa_id)}
-                            className="flex items-center gap-3 rounded-lg border px-3 py-2 text-left hover:bg-muted/40 transition-colors">
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium text-sm truncate">{c.nome_completo}</p>
-                              <p className="text-xs text-muted-foreground truncate">
-                                {c.cargo}{c.ministerio_nome ? " · " + c.ministerio_nome : ""}
+                            {/* Mesma regra da aba Regimento do organograma: o cargo
+                                vem do documento, o ocupante vem da ficha. Ver o
+                                cabeçalho de diretoriaService.ts. */}
+                            {(() => {
+                              const ocupantes = ocupantesDoCargo(item.nome, diretoria);
+                              if (ocupantes.length) {
+                                return (
+                                  <div className="text-xs text-muted-foreground">
+                                    {ocupantes.map(o => (
+                                      <p key={o.id}>
+                                        {o.pessoa_nome}
+                                        {o.mandato && ` · mandato ${o.mandato}`}
+                                      </p>
+                                    ))}
+                                  </div>
+                                  );
+                                }
+                              return item.descricao ? (
+                                <p className="text-xs text-muted-foreground whitespace-pre-line">{item.descricao}</p>
+                              ) : null;
+                            })()}
+                            {item.responsabilidades && (
+                              <p className="text-xs text-muted-foreground/80 mt-1 line-clamp-2">
+                                {item.responsabilidades}
                               </p>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="documentos" className="mt-4">
-            {loading ? (
-              <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground">
-                <Loader2 className="w-5 h-5 animate-spin" /><span>Carregando...</span>
-              </div>
-            ) : stats.estTotal === 0 ? (
-              <div className="text-center py-16 space-y-3">
-                <Network className="w-12 h-12 mx-auto text-muted-foreground/40" />
-                <p className="text-muted-foreground text-sm">Nenhuma estrutura derivada dos documentos ainda.</p>
-                <p className="text-xs text-muted-foreground/70">
-                  Acesse Documentos, Estrutura Derivada, Sincronizar para popular automaticamente.
-                </p>
-                {isAdmin && (
-                  <Button variant="outline" size="sm" onClick={() => navigate("/admin/documentos")}>
-                    <FileText className="w-3.5 h-3.5 mr-1.5" /> Ir para Documentos
-                  </Button>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-6">
-                {(["institucional", "ministerial", "area"] as const).map((nivel) => {
-                  const itens = estDoc[nivel];
-                  if (!itens.length) return null;
-                  const config = {
-                    institucional: { label: "Diretoria e Conselhos", icon: <Crown className="w-4 h-4 text-purple-600" />, border: "border-purple-200", bg: "bg-purple-50/50" },
-                    ministerial: { label: "Ministerios", icon: <Church className="w-4 h-4 text-blue-600" />, border: "border-blue-200", bg: "bg-blue-50/50" },
-                    area: { label: "Areas e Setores", icon: <MapPin className="w-4 h-4 text-green-600" />, border: "border-green-200", bg: "bg-green-50/50" },
-                  } as const;
-                  const c = config[nivel];
-                  return (
-                    <div key={nivel}>
-                      <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-2">
-                        {c.icon} {c.label} ({itens.length})
-                      </h3>
-                      <div className="space-y-2">
-                        {itens.map((item) => (
-                          <div key={item.id} className={`rounded-xl border px-4 py-3 ${c.border} ${c.bg}`}>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex flex-wrap items-center gap-2 mb-1">
-                                <span className="text-sm font-semibold">{item.nome}</span>
-                                {item.base_institucional && (
-                                  <Badge variant="outline" className="text-xs h-4 px-1.5">
-                                    📄 {item.base_institucional}
-                                  </Badge>
-                                )}
-                              </div>
-                              {/* Mesma regra da aba Regimento do organograma: o cargo
-                                  vem do documento, o ocupante vem da ficha. Ver o
-                                  cabeçalho de diretoriaService.ts. */}
-                              {(() => {
-                                const ocupantes = ocupantesDoCargo(item.nome, diretoria);
-                                if (ocupantes.length) {
-                                  return (
-                                    <div className="text-xs text-muted-foreground">
-                                      {ocupantes.map(o => (
-                                        <p key={o.id}>
-                                          {o.pessoa_nome}
-                                          {o.mandato && ` · mandato ${o.mandato}`}
-                                        </p>
-                                      ))}
-                                    </div>
-                                    );
-                                  }
-                                return item.descricao ? (
-                                  <p className="text-xs text-muted-foreground whitespace-pre-line">{item.descricao}</p>
-                                ) : null;
-                              })()}
-                              {item.responsabilidades && (
-                                <p className="text-xs text-muted-foreground/80 mt-1 line-clamp-2">
-                                  {item.responsabilidades}
-                                </p>
-                              )}
-                            </div>
+                            )}
                           </div>
-                        ))}
-                      </div>
+                        </div>
+                      ))}
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
+                  </div>
+                );
+              })}
+            </div>
+          )}
       </div>
 
       <PessoaCard pessoaId={pessoaId} open={!!pessoaId} onClose={() => setPessoaId(null)} />

@@ -12,9 +12,15 @@ import { Badge } from "@/components/ui/badge";
 import PessoaCard from "@/components/membros/PessoaCard";
 import {
   ChevronDown, ChevronRight, Users, Crown, Church, MapPin,
-  Building2, Star, Loader2, AlertTriangle,
+  Building2, Star, Loader2, AlertTriangle, Shield, HandHeart,
 } from "lucide-react";
 import { contarVoluntarios, SELECT_AREA_COM_LIDER } from "@/services/estruturaService";
+import { carregarDiretoria, carregarDiaconato, type CargoDiretoria } from "@/services/diretoriaService";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  DiretoriaQuadro, ConselhoQuadro, DiaconiaQuadro,
+  type ConselhoMembro, type Diacono,
+} from "@/components/estrutura/QuadrosInstitucionais";
 
 // ── Tipos ─────────────────────────────────────────────────────
 
@@ -221,7 +227,10 @@ export default function Organograma() {
   const [ministerios, setMinerios]   = useState<Ministerio[]>([]);
   const [stats, setStats]            = useState({ total: 0, membros: 0, congregados: 0, visitantes: 0 });
   const [loading, setLoading]        = useState(true);
-  const [pessoaId, setPessoaId]      = useState<string | null>(null);
+  const [pessoaId, setPessoaId] = useState<string | null>(null);
+  const [diretoria, setDiretoria] = useState<CargoDiretoria[]>([]);
+  const [conselho, setConselho]   = useState<ConselhoMembro[]>([]);
+  const [diaconos, setDiaconos]   = useState<Diacono[]>([]);
   // Estrutura derivada dos documentos
 
   useEffect(() => {
@@ -242,6 +251,15 @@ export default function Organograma() {
         });
       }
 
+
+      // Os três quadros de governança. Todos saem da mesma fonte que o resto
+      // do sistema — a função na ficha da pessoa —, e por isso mudam junto com
+      // ela: trocar o cargo de alguém muda o organograma na próxima abertura,
+      // sem um segundo cadastro para lembrar de atualizar.
+      setDiretoria(await carregarDiretoria());
+      setDiaconos(await carregarDiaconato());
+      const { data: cons } = await supabase.from("v_conselho_da_igreja").select("*");
+      setConselho((cons ?? []) as ConselhoMembro[]);
 
       // Ministérios com líderes
       const { data: mins } = await supabaseRel
@@ -357,36 +375,64 @@ export default function Organograma() {
           </div>
         )}
 
-        {/* ── Só a árvore ────────────────────────────────────────────────
-            O organograma tinha quatro abas: Estrutura, Regimento, Diretoria e
-            Conselho. As três últimas são institucionais — quem ocupa cargo,
-            o que o documento prevê, quem compõe o conselho — e viviam também
-            na tela de Estrutura, lendo as MESMAS tabelas.
+        {/* ── Quatro quadros, uma fonte ──────────────────────────────────
+            Estrutura responde "quem serve onde"; os outros três respondem
+            "quem ocupa o quê". São perguntas diferentes e por isso abas
+            diferentes, mas todas saem da função na ficha da pessoa — trocar
+            o cargo de alguém muda os quatro na próxima abertura, sem um
+            segundo cadastro para lembrar de atualizar.
 
-            Duas telas fazendo as duas coisas deixavam as duas sem identidade,
-            e a mesma informação em dois lugares já tinha divergido na prática.
+            A tela de Estrutura fica com o Regimento: lá é o documento, aqui
+            são as pessoas. */}
+        <Tabs defaultValue="estrutura">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="estrutura" translate="no">
+              <Building2 className="w-4 h-4 mr-1.5" /> Estrutura
+            </TabsTrigger>
+            <TabsTrigger value="diretoria" translate="no">
+              <Crown className="w-4 h-4 mr-1.5" /> Diretoria
+            </TabsTrigger>
+            <TabsTrigger value="conselho" translate="no">
+              <Shield className="w-4 h-4 mr-1.5" /> Conselho
+            </TabsTrigger>
+            <TabsTrigger value="diaconia" translate="no">
+              <HandHeart className="w-4 h-4 mr-1.5" /> Diaconia
+            </TabsTrigger>
+          </TabsList>
 
-            A fronteira: aqui, quem serve onde — ministério, área, pessoas.
-            Em /estrutura, o que a igreja declarou ser e o quanto confere.
-            Sem abas, porque agora há uma coisa só para mostrar. */}
-            {loading ? (
-              <div className="flex items-center justify-center py-16 text-muted-foreground gap-2">
-                <Loader2 className="w-5 h-5 animate-spin" />
-                <span>Carregando estrutura…</span>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {operacionais.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground text-sm">
-                    Nenhum ministério cadastrado.
-                  </div>
-                ) : (
-                  operacionais.map(m => (
-                    <MinisterioNode key={m.id} min={m} onClick={setPessoaId} />
-                  ))
-                )}
+          <TabsContent value="estrutura" className="mt-4">
+              {loading ? (
+                <div className="flex items-center justify-center py-16 text-muted-foreground gap-2">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Carregando estrutura…</span>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {operacionais.length === 0 ? (
+                    <div className="text-center py-12 text-muted-foreground text-sm">
+                      Nenhum ministério cadastrado.
+                    </div>
+                  ) : (
+                    operacionais.map(m => (
+                      <MinisterioNode key={m.id} min={m} onClick={setPessoaId} />
+                    ))
+                  )}
               </div>
             )}
+          </TabsContent>
+
+          <TabsContent value="diretoria" className="mt-4">
+            <DiretoriaQuadro diretoria={diretoria} loading={loading} onPessoa={setPessoaId} />
+          </TabsContent>
+
+          <TabsContent value="conselho" className="mt-4">
+            <ConselhoQuadro conselho={conselho} loading={loading} onPessoa={setPessoaId} />
+          </TabsContent>
+
+          <TabsContent value="diaconia" className="mt-4">
+            <DiaconiaQuadro diaconos={diaconos} loading={loading} onPessoa={setPessoaId} />
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Card de pessoa (modal) */}
