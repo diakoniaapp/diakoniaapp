@@ -22,6 +22,7 @@ import {
 import { LancamentoForm } from "@/components/financas/LancamentoForm";
 import { TransferenciaForm } from "@/components/financas/TransferenciaForm";
 import { ArrowRightLeft } from "lucide-react";
+import { PaginaSkeleton } from "@/components/ListState";
 
 function dataBr(s: string) {
   return new Date(s + "T00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
@@ -99,9 +100,7 @@ export default function FinancasConta() {
   }
 
   if (loading && !conta) {
-    return <div className="p-8 flex items-center justify-center text-muted-foreground">
-      <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando...
-    </div>;
+    return <PaginaSkeleton />;
   }
   if (!conta) {
     return <div className="p-8 text-center text-muted-foreground">

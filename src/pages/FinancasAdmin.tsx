@@ -21,6 +21,7 @@ import {
 } from "@/services/finService";
 import { ContaForm } from "@/components/financas/ContaForm";
 import { CategoriaForm } from "@/components/financas/CategoriaForm";
+import { PaginaSkeleton } from "@/components/ListState";
 
 const ICONE_CONTA: Record<string, JSX.Element> = {
   caixa:     <Wallet className="w-4 h-4" />,
@@ -100,9 +101,7 @@ export default function FinancasAdmin() {
   const saidas   = categorias.filter(c => c.tipo === "saida");
 
   if (loading) {
-    return <div className="p-8 flex items-center justify-center text-muted-foreground">
-      <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando...
-    </div>;
+    return <PaginaSkeleton />;
   }
 
   return (

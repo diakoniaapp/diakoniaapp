@@ -16,6 +16,7 @@ import { AprovacaoDialog } from "@/components/arrecadacao/AprovacaoDialog";
 import { PreUsoCheckDialog } from "@/components/arrecadacao/PreUsoCheckDialog";
 import { RecusarDialog } from "@/components/arrecadacao/RecusarDialog";
 import { toast } from "sonner";
+import { PaginaSkeleton } from "@/components/ListState";
 import {
   carregarReserva, listarChecklist, marcarChecklist,
   aprovarReserva, recusarReserva, iniciarUsoEAbrirCaixa, arquivarReserva,
@@ -112,7 +113,7 @@ export default function ReservaDetalhe() {
   }
 
   if (loading || !reserva) {
-    return <div className="py-12 text-center"><Loader2 className="w-5 h-5 animate-spin inline" /></div>;
+    return <PaginaSkeleton />;
   }
 
   // V2: só PRE_USO obrigatório libera 'Iniciar uso' (pos_uso vem no fechamento)

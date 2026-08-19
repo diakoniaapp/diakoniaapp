@@ -14,6 +14,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { formatarTelefoneSemDDI } from "@/lib/telefone";
+import { PaginaSkeleton } from "@/components/ListState";
 
 function dataBr(s: string) {
   return new Date(s + "T00:00").toLocaleDateString("pt-BR");
@@ -144,9 +145,7 @@ export default function PgmReuniaoRelatorio() {
   }
 
   if (loading) {
-    return <div className="p-8 flex items-center justify-center text-muted-foreground">
-      <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando relatório...
-    </div>;
+    return <PaginaSkeleton />;
   }
 
   if (!reuniao || !grupo) {

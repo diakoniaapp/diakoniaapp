@@ -16,6 +16,7 @@ import {
   ScrollText, Plus, Loader2, ChevronRight, Calendar, Users,
 } from "lucide-react";
 import { toast } from "sonner";
+import { PaginaSkeleton } from "@/components/ListState";
 import {
   listarReunioes, criarReuniao, sugerirProximasReunioes, listarAssembleias,
   REUNIAO_TIPO_LABEL, REUNIAO_STATUS_LABEL, REUNIAO_STATUS_COR,
@@ -39,9 +40,7 @@ export default function Governanca() {
     } finally { setLoading(false); }
   }
 
-  if (loading) return <div className="p-8 flex items-center justify-center text-muted-foreground">
-    <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando...
-  </div>;
+  if (loading) return <PaginaSkeleton />;
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-4">

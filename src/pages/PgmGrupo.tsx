@@ -27,6 +27,7 @@ import { OracaoBlock } from "@/components/pgm/OracaoBlock";
 import { MultiplicarDialog } from "@/components/pgm/MultiplicarDialog";
 import { Play, BookOpen, ChevronRight as ChevR, Calendar as Cal, Trash2 as TrashEnc } from "lucide-react";
 import { BuscaPessoa } from "@/components/ui/BuscaPessoa";
+import { PaginaSkeleton } from "@/components/ListState";
 
 const PAPEL_ICONE: Record<PgmPapel, JSX.Element> = {
   lider: <Crown className="w-3 h-3 text-gold" />,
@@ -171,9 +172,7 @@ export default function PgmGrupo() {
   }
 
   if (loading) {
-    return <div className="p-8 flex items-center justify-center text-muted-foreground">
-      <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando...
-    </div>;
+    return <PaginaSkeleton />;
   }
   if (!grupo) {
     return <div className="p-8 text-center text-muted-foreground">

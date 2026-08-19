@@ -24,6 +24,7 @@ import {
   type Assunto, type HistoricoAssunto, type AssuntoStatus,
 } from "@/services/assuntosService";
 import { AssuntoForm } from "@/components/assuntos/AssuntoForm";
+import { PaginaSkeleton } from "@/components/ListState";
 
 export default function AssuntoDetalhe() {
   const { id = "" } = useParams();
@@ -83,9 +84,7 @@ export default function AssuntoDetalhe() {
     finally { setBusy(false); }
   }
 
-  if (loading) return <div className="p-8 flex items-center justify-center text-muted-foreground">
-    <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando...
-  </div>;
+  if (loading) return <PaginaSkeleton />;
   if (!assunto) return <div className="p-8 text-center text-muted-foreground">
     Assunto não encontrado. <Link to="/assuntos" className="text-primary underline">Voltar</Link>
   </div>;

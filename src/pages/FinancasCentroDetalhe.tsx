@@ -13,6 +13,7 @@ import {
   type FinLancamentoExtenso,
 } from "@/services/finService";
 import { supabase } from "@/integrations/supabase/client";
+import { PaginaSkeleton } from "@/components/ListState";
 
 interface CentroInfo {
   id: string; nome: string;
@@ -82,9 +83,7 @@ export default function FinancasCentroDetalhe() {
     };
   }, [lancs]);
 
-  if (loading) return <div className="p-8 flex items-center justify-center text-muted-foreground">
-    <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando...
-  </div>;
+  if (loading) return <PaginaSkeleton />;
   if (!centro) return <div className="p-8 text-center text-muted-foreground">
     Centro não encontrado. <Link to="/financas/centros" className="text-primary underline">Voltar</Link>
   </div>;

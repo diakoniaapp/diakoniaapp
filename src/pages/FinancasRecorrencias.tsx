@@ -14,6 +14,7 @@ import {
   type FinRecorrencia,
 } from "@/services/finService";
 import { RecorrenciaForm } from "@/components/financas/RecorrenciaForm";
+import { PaginaSkeleton } from "@/components/ListState";
 
 export default function FinancasRecorrencias() {
   const [recs, setRecs] = useState<FinRecorrencia[]>([]);
@@ -56,9 +57,7 @@ export default function FinancasRecorrencias() {
     } catch (e: any) { toast.error(e?.message ?? "Erro"); }
   }
 
-  if (loading) return <div className="p-8 flex items-center justify-center text-muted-foreground">
-    <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando...
-  </div>;
+  if (loading) return <PaginaSkeleton />;
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-4">

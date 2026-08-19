@@ -12,6 +12,7 @@ import {
   type AlertaSecretaria, type PrioridadeAlerta,
 } from "@/services/membresiaService";
 import { alertasGovernanca, type AlertaGovernanca } from "@/services/governancaService";
+import { PaginaSkeleton } from "@/components/ListState";
 
 const PRIORIDADE_INFO: Record<PrioridadeAlerta, { label: string; cor: string }> = {
   urgente:      { label: "Urgente",      cor: "border-rose-300 bg-rose-50/30 text-rose-700 dark:text-rose-400" },
@@ -46,9 +47,7 @@ export default function PainelSecretaria() {
     } finally { setLoading(false); }
   }
 
-  if (loading) return <div className="p-8 flex items-center justify-center text-muted-foreground">
-    <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando pendências...
-  </div>;
+  if (loading) return <PaginaSkeleton />;
 
   // Agrupar por prioridade
   const porPrioridade: Record<PrioridadeAlerta, AlertaSecretaria[]> = {

@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { ArrowLeft, Settings, Loader2, Save, ShoppingBag, Package } from "lucide-react";
 import { toast } from "sonner";
 import { listarEspacos, atualizarTaxasEspaco, atualizarResponsavelEspaco, type Espaco } from "@/services/arrecadacaoService";
+import { PaginaSkeleton } from "@/components/ListState";
 
 export default function ArrecadacaoEspacos() {
   const [espacos, setEspacos] = useState<Espaco[]>([]);
@@ -32,7 +33,7 @@ export default function ArrecadacaoEspacos() {
     setEspacos(espacos.map(e => e.id === id ? { ...e, ...patch } : e));
   }
 
-  if (loading) return <div className="py-12 text-center"><Loader2 className="w-5 h-5 animate-spin inline" /></div>;
+  if (loading) return <PaginaSkeleton />;
 
   return (
     <div className="p-4 md:p-8 max-w-3xl mx-auto space-y-4">

@@ -4,6 +4,66 @@ import { Button } from "@/components/ui/button";
 import { AlertCircle, Inbox, RefreshCw, SearchX } from "lucide-react";
 import type { ReactNode } from "react";
 
+/**
+ * A tela inteira enquanto os dados não chegaram.
+ *
+ * ── O QUE ISTO SUBSTITUI ────────────────────────────────────────────────
+ *
+ * 31 telas faziam a mesma coisa:
+ *
+ *   if (loading) return <div className="p-8 flex items-center justify-center
+ *     text-muted-foreground"><Loader2 className="animate-spin" /> Carregando...
+ *
+ * O `return` antecipado apaga a página INTEIRA — título, contagem, filtros,
+ * tudo — e põe no lugar uma roda girando no meio do branco. A pessoa clica
+ * em "Finanças", a tela some, e por um segundo ela não está em lugar nenhum.
+ *
+ * Contado: 169 usos de `animate-spin` contra 53 esqueletos. E a espera não
+ * ficou mais curta com isso — só ficou mais vazia. A percepção de lentidão
+ * do sistema vem daqui, não do tempo real das consultas.
+ *
+ * ── POR QUE O ESQUELETO É MELHOR ────────────────────────────────────────
+ *
+ * Ele não é enfeite de carregamento: é uma PROMESSA DE LAYOUT. A pessoa vê
+ * onde o título vai ficar, quantas linhas esperar, que aquilo é uma lista e
+ * não um formulário. Quando o conteúdo chega, ele ocupa o lugar que já
+ * estava desenhado — nada salta.
+ *
+ * É o mesmo tempo de espera parecendo metade, porque o olho já começou a
+ * trabalhar.
+ */
+export function PaginaSkeleton({ linhas = 5, comCabecalho = true }: { linhas?: number; comCabecalho?: boolean }) {
+  return (
+    <div className="p-4 md:p-8 space-y-6" aria-busy="true" aria-live="polite">
+      {/* Leitor de tela não enxerga o esqueleto: para ele, o aviso é este. */}
+      <span className="sr-only">Carregando…</span>
+
+      {comCabecalho && (
+        <div className="space-y-2">
+          <Skeleton className="h-7 w-52" />   {/* onde vai o título */}
+          <Skeleton className="h-4 w-36" />   {/* onde vai a contagem */}
+        </div>
+      )}
+
+      <div className="space-y-2.5">
+        {Array.from({ length: linhas }).map((_, i) => (
+          // Larguras que variam: uma pilha de barras idênticas parece uma
+          // barra de progresso quebrada, não uma lista.
+          <Card key={i} className="shadow-card-soft">
+            <CardContent className="p-4 flex items-center gap-3">
+              <Skeleton className="w-9 h-9 rounded-md shrink-0" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-4" style={{ width: `${58 + ((i * 13) % 30)}%` }} />
+                <Skeleton className="h-3" style={{ width: `${28 + ((i * 17) % 22)}%` }} />
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function ListSkeleton({ count = 6, className }: { count?: number; className?: string }) {
   return (
     <div className={className ?? "grid md:grid-cols-2 lg:grid-cols-3 gap-4"}>

@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { listarClasses, moverParaClasse, type EbdClasse } from "@/services/ebdService";
 import { ClasseForm } from "@/components/ebd/ClasseForm";
 import { useAuth } from "@/hooks/useAuth";
+import { PaginaSkeleton } from "@/components/ListState";
 
 interface ClasseCard extends EbdClasse {
   qtd_matriculados: number;
@@ -147,13 +148,7 @@ export default function Ebd() {
          : "Misto";
   }
 
-  if (loading) {
-    return (
-      <div className="p-8 flex items-center justify-center text-muted-foreground">
-        <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando classes...
-      </div>
-    );
-  }
+  if (loading) return <PaginaSkeleton />;
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">

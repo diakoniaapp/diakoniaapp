@@ -14,6 +14,7 @@ import {
 } from "@/services/finService";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { PaginaSkeleton } from "@/components/ListState";
 
 const MESES = [
   "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
@@ -72,9 +73,7 @@ export default function FinancasRelatorio() {
   const entradas = useMemo(() => resumo?.porCategoria.filter(c => c.tipo === "entrada") ?? [], [resumo]);
   const saidas   = useMemo(() => resumo?.porCategoria.filter(c => c.tipo === "saida") ?? [], [resumo]);
 
-  if (loading) return <div className="p-8 flex items-center justify-center text-muted-foreground">
-    <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando relatório...
-  </div>;
+  if (loading) return <PaginaSkeleton />;
   if (!resumo) return <div className="p-8 text-center text-muted-foreground">Erro ao carregar</div>;
 
   const hojeBr = new Date().toLocaleDateString("pt-BR");

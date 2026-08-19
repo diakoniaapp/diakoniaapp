@@ -15,6 +15,7 @@ import { LancamentoForm } from "@/components/financas/LancamentoForm";
 import { TransferenciaForm } from "@/components/financas/TransferenciaForm";
 import { Settings, ArrowRightLeft, RotateCw, Package, Sparkles, Layers, Target, Briefcase } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { PaginaSkeleton } from "@/components/ListState";
 
 const ICONE_CONTA: Record<string, JSX.Element> = {
   caixa:     <Wallet className="w-4 h-4" />,
@@ -57,9 +58,7 @@ export default function Financas() {
   }
 
   if (loading) {
-    return <div className="p-8 flex items-center justify-center text-muted-foreground">
-      <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando finanças...
-    </div>;
+    return <PaginaSkeleton />;
   }
 
   return (

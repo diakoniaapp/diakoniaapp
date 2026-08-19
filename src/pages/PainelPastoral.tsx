@@ -16,6 +16,7 @@ import {
   Sparkles, AlertCircle, UserPlus, Users, ChevronRight, Calendar, Crown,
 } from "lucide-react";
 import { toast } from "sonner";
+import { PaginaSkeleton } from "@/components/ListState";
 import {
   proximosDias, linkWhatsApp,
   familiasSemResponsavel, pessoasSemFamiliaSugerida, resumoPainel,
@@ -129,9 +130,7 @@ export default function PainelPastoral() {
   }
 
   if (loading) {
-    return <div className="p-8 flex items-center justify-center text-muted-foreground">
-      <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando painel...
-    </div>;
+    return <PaginaSkeleton />;
   }
 
   const eventosHoje    = eventos.filter(e => e.dias_ate_evento === 0);

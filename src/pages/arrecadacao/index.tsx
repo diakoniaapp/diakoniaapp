@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { PaginaSkeleton } from "@/components/ListState";
 import {
   ShoppingBag, Plus, Loader2, ChevronRight, Settings, Calendar,
   Clock, CheckCircle2, AlertCircle, Sparkles, ListChecks,
@@ -50,7 +51,7 @@ export default function ArrecadacaoHome() {
   const solicitadas = reservas.filter(r => r.status === "solicitada");
 
   if (loading) {
-    return <div className="py-12 text-center"><Loader2 className="w-5 h-5 animate-spin inline" /></div>;
+    return <PaginaSkeleton />;
   }
 
   return (

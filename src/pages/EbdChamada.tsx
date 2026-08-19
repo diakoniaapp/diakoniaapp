@@ -23,6 +23,7 @@ import {
   type EbdAula, type EbdClasse, type EbdChamadaRow,
 } from "@/services/ebdService";
 import { TelefoneInput } from "@/components/ui/TelefoneInput";
+import { PaginaSkeleton } from "@/components/ListState";
 
 // Calcula o domingo mais próximo (passado ou hoje)
 function domingoMaisRecente(): string {
@@ -159,9 +160,7 @@ export default function EbdChamada() {
   }, [linhas]);
 
   if (loading || !classe) {
-    return <div className="p-8 flex items-center justify-center text-muted-foreground">
-      <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando...
-    </div>;
+    return <PaginaSkeleton />;
   }
 
   const matriculados = linhas.filter(l => l.tipo === "matriculado");

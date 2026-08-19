@@ -12,6 +12,7 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { PaginaSkeleton } from "@/components/ListState";
 import {
   carregarCaixa,
   reabrirCaixa, listarProdutosVendaveis, registrarVendaPDV,
@@ -147,7 +148,7 @@ export default function CaixaPDV() {
   }
 
   if (loading || !caixa) {
-    return <div className="py-12 text-center"><Loader2 className="w-5 h-5 animate-spin inline" /></div>;
+    return <PaginaSkeleton />;
   }
 
   if (caixa.estado !== "aberto") {

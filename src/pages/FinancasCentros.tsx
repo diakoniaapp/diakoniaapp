@@ -15,6 +15,7 @@ import {
   TrendingUp, ChevronRight, Search, RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
+import { PaginaSkeleton } from "@/components/ListState";
 import {
   listarCentrosComResumo, seedCentrosCusto, alertasCentros,
   brl, type FinCentroResumo, type FinAlertaCentro, type FinCentroVinculo,
@@ -85,9 +86,7 @@ export default function FinancasCentros() {
 
   const totalGasto = centros.reduce((s, c) => s + Number(c.gasto_90d), 0);
 
-  if (loading) return <div className="p-8 flex items-center justify-center text-muted-foreground">
-    <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando...
-  </div>;
+  if (loading) return <PaginaSkeleton />;
 
   return (
     <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-4">

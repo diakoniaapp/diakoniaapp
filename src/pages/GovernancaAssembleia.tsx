@@ -28,6 +28,7 @@ import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
 import { Zap, MessageCircle, Send } from "lucide-react";
+import { PaginaSkeleton } from "@/components/ListState";
 
 export default function GovernancaAssembleia() {
   const { id = "" } = useParams();
@@ -95,9 +96,7 @@ export default function GovernancaAssembleia() {
     } catch (e: any) { toast.error(e?.message ?? "Erro"); }
   }
 
-  if (loading) return <div className="p-8 flex items-center justify-center text-muted-foreground">
-    <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando assembleia...
-  </div>;
+  if (loading) return <PaginaSkeleton />;
   if (!ass) return <div className="p-8 text-center text-muted-foreground">
     Assembleia não encontrada. <Link to="/governanca" className="text-primary underline">Voltar</Link>
   </div>;

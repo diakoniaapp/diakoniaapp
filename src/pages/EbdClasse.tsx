@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
+import { PaginaSkeleton } from "@/components/ListState";
 
 interface MatRow {
   id: string;
@@ -149,9 +150,7 @@ export default function EbdClasse() {
   }
 
   if (loading) {
-    return <div className="p-8 flex items-center justify-center text-muted-foreground">
-      <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando...
-    </div>;
+    return <PaginaSkeleton />;
   }
 
   if (!classe) {

@@ -125,10 +125,47 @@ export default {
         'card-soft': 'var(--shadow-card)',
         'elevated': 'var(--shadow-elevated)',
       },
+      // ── O vocabulário de forma ────────────────────────────────────────
+      //
+      // Contado antes de mexer, o sistema tinha SETE raios convivendo:
+      //
+      //   rounded        4px    99 usos
+      //   rounded-sm     6px    21
+      //   rounded-md     8px   260
+      //   rounded-lg    10px    54
+      //   rounded-xl    12px    13
+      //   rounded-2xl   16px    27
+      //   rounded-full  ∞       95
+      //
+      // Ninguém percebe a diferença entre 8px e 10px olhando — mas o olho
+      // percebe que ALGO não fecha, sem saber dizer o quê. É assim que a
+      // incoerência funciona: ela não é vista, é sentida como "meio
+      // improvisado". Sete raios não dão sete significados; dão ruído.
+      //
+      // Ficam três, e cada um quer dizer uma coisa:
+      //
+      //    6px  — o que fica DENTRO: campo, botão, ficha, ladrilho de ícone
+      //   10px  — a SUPERFÍCIE: cartão, diálogo, painel, popover
+      //    ∞    — o que é REDONDO: retrato, bolinha de status, pílula
+      //
+      // A ordem entre os dois primeiros não é arbitrária: elemento interno
+      // com raio MENOR que o da caixa que o contém é o que faz o encaixe
+      // parecer certo. Botão de 10px dentro de cartão de 10px encosta nos
+      // cantos e briga com eles.
+      //
+      // Como na escala tipográfica, redefinir aqui alcança os 569 usos de
+      // uma vez. Os apelidos maiores continuam existindo para não quebrar
+      // nada — só param de significar tamanhos diferentes.
       borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        none: "0px",
+        sm:      "0.375rem",  //  6px  ─┐
+        DEFAULT: "0.375rem",  //  6px   ├─ dentro
+        md:      "0.375rem",  //  6px  ─┘
+        lg:   "var(--radius)", // 10px  ─┐
+        xl:   "var(--radius)", // 10px   ├─ superfície
+        "2xl":"var(--radius)", // 10px   │
+        "3xl":"var(--radius)", // 10px  ─┘
+        full: "9999px",
       },
       keyframes: {
         "accordion-down": {

@@ -16,6 +16,7 @@ import {
   type SolicitacaoMembresia, type StatusSolicitacao, type TipoSolicitacao,
 } from "@/services/membresiaService";
 import { SolicitacaoForm } from "@/components/membresia/SolicitacaoForm";
+import { PaginaSkeleton } from "@/components/ListState";
 
 export default function Membresia() {
   const [lista, setLista] = useState<SolicitacaoMembresia[]>([]);
@@ -43,9 +44,7 @@ export default function Membresia() {
     s.status !== "concluida" && s.status !== "cancelada" && s.status !== "rejeitada"
   ).length;
 
-  if (loading) return <div className="p-8 flex items-center justify-center text-muted-foreground">
-    <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando...
-  </div>;
+  if (loading) return <PaginaSkeleton />;
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-4">

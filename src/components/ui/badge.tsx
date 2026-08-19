@@ -4,7 +4,10 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const badgeVariants = cva(
-  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+  // whitespace-nowrap: a pilula so le como pilula enquanto for uma linha.
+  // Quebrada em duas, o raio infinito vira um borrao ovalado — foi o que
+  // aconteceu com "Pastor Missionario" na coluna de funcao do catalogo.
+  "inline-flex items-center whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
   {
     variants: {
       variant: {

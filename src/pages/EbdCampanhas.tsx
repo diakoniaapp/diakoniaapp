@@ -12,6 +12,7 @@ import {
   type CampanhaEbd, type ResumoCampanha, type EbdClasse,
 } from "@/services/ebdService";
 import { CampanhaForm } from "@/components/ebd/CampanhaForm";
+import { PaginaSkeleton } from "@/components/ListState";
 
 function brl(v: number) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -53,9 +54,7 @@ export default function EbdCampanhas() {
   }
 
   if (loading) {
-    return <div className="p-8 flex items-center justify-center text-muted-foreground">
-      <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando...
-    </div>;
+    return <PaginaSkeleton />;
   }
 
   const ativas = campanhas.filter(c => c.ativo);

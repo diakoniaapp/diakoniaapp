@@ -15,6 +15,7 @@ import {
 } from "@/services/ebdService";
 import { CampanhaForm } from "@/components/ebd/CampanhaForm";
 import { EntradaForm } from "@/components/ebd/EntradaForm";
+import { PaginaSkeleton } from "@/components/ListState";
 
 const TIPO_LABEL: Record<string, string> = { oferta: "Oferta", evento: "Evento", produto: "Produto" };
 const FORMA_LABEL: Record<string, string> = { pix: "PIX", envelope: "Envelope", outro: "Outro" };
@@ -84,9 +85,7 @@ export default function EbdCampanha() {
   }
 
   if (loading) {
-    return <div className="p-8 flex items-center justify-center text-muted-foreground">
-      <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando...
-    </div>;
+    return <PaginaSkeleton />;
   }
   if (!campanha) {
     return <div className="p-8 text-center text-muted-foreground">

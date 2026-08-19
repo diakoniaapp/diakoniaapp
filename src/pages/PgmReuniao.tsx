@@ -23,6 +23,7 @@ import {
   type PgmReuniao, type PgmPresencaComPessoa, type PgmVisita, type PgmGrupoResumo,
 } from "@/services/pgmService";
 import { formatarTelefoneSemDDI, normalizarTelefone } from "@/lib/telefone";
+import { PaginaSkeleton } from "@/components/ListState";
 
 export default function PgmReuniaoPage() {
   const { grupoId = "", reuniaoId = "" } = useParams();
@@ -178,9 +179,7 @@ export default function PgmReuniaoPage() {
   }
 
   if (loading) {
-    return <div className="p-8 flex items-center justify-center text-muted-foreground">
-      <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando encontro...
-    </div>;
+    return <PaginaSkeleton />;
   }
   if (!reuniao) {
     return <div className="p-8 text-center text-muted-foreground">

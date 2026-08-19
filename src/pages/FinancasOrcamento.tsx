@@ -15,6 +15,7 @@ import {
   ArrowLeft, Target, Plus, Loader2, TrendingUp, Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { PaginaSkeleton } from "@/components/ListState";
 import {
   listarOrcamentoVsReal, listarCentrosComResumo, criarOrcamento, excluirOrcamento,
   brl, type FinOrcamentoVsReal, type FinCentroResumo,
@@ -72,9 +73,7 @@ export default function FinancasOrcamento() {
     } catch (e: any) { toast.error(e?.message ?? "Erro"); }
   }
 
-  if (loading) return <div className="p-8 flex items-center justify-center text-muted-foreground">
-    <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando orçamento...
-  </div>;
+  if (loading) return <PaginaSkeleton />;
 
   const acimaLimite = orc.filter(o => Number(o.percentual_consumido) >= 100).length;
   const proximoLimite = orc.filter(o => Number(o.percentual_consumido) >= 80 && Number(o.percentual_consumido) < 100).length;

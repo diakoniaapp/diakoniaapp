@@ -8,6 +8,7 @@ import {
   TrendingUp, TrendingDown,
 } from "lucide-react";
 import { toast } from "sonner";
+import { PaginaSkeleton } from "@/components/ListState";
 import {
   listarProximosVencimentos, confirmarPagamento, brl,
   type FinVencimento,
@@ -61,9 +62,7 @@ export default function FinancasAgenda() {
   const totalSaidas = vencimentos.filter(v => v.tipo === "saida").reduce((s, v) => s + Number(v.valor), 0);
   const totalEntradas = vencimentos.filter(v => v.tipo === "entrada").reduce((s, v) => s + Number(v.valor), 0);
 
-  if (loading) return <div className="p-8 flex items-center justify-center text-muted-foreground">
-    <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando agenda...
-  </div>;
+  if (loading) return <PaginaSkeleton />;
 
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-4">

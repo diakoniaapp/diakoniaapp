@@ -16,6 +16,7 @@ import {
   TrendingUp, AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
+import { PaginaSkeleton } from "@/components/ListState";
 import {
   listarContratados, brl, VINCULO_LABEL, VINCULO_COR,
   calcularCLT, calcularRPA, calcularMEI, calcularPrebenda,
@@ -31,9 +32,7 @@ export default function FinancasFolha() {
     listarContratados().then(setContratados).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="p-8 flex items-center justify-center text-muted-foreground">
-    <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando folha...
-  </div>;
+  if (loading) return <PaginaSkeleton />;
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-4">

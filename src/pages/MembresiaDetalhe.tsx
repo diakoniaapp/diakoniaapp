@@ -11,6 +11,7 @@ import {
   CheckCircle2, Circle, Calendar, History, Trash2, ThumbsUp, ThumbsDown,
 } from "lucide-react";
 import { toast } from "sonner";
+import { PaginaSkeleton } from "@/components/ListState";
 import {
   carregarSolicitacao, listarDocumentos, listarHistorico,
   anexarDocumento, excluirDocumento, documentoSignedUrl,
@@ -116,9 +117,7 @@ export default function MembresiaDetalhe() {
     finally { setBusy(false); }
   }
 
-  if (loading) return <div className="p-8 flex items-center justify-center text-muted-foreground">
-    <Loader2 className="w-5 h-5 animate-spin mr-2" /> Carregando...
-  </div>;
+  if (loading) return <PaginaSkeleton />;
   if (!sol) return <div className="p-8 text-center text-muted-foreground">
     Solicitação não encontrada. <Link to="/membresia" className="text-primary underline">Voltar</Link>
   </div>;
