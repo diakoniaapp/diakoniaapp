@@ -290,8 +290,36 @@ export default function EstruturaDaIgreja() {
       .from("areas").select(SELECT_AREA_COM_LIDER).eq("ativo", true);
     const { data: allSetores } = await supabase
       .from("setores").select("id,area_id,nome").eq("ativo", true);
-    const { data: membMin } = await supabase
-      .from("ministerio_membros").select("ministerio_id,funcao,membros(id,nome_completo)").eq("ativo", true);
+    // area_voluntarios, e não ministerio_membros: esta tem ZERO linhas em
+    // produção. A tela vinha desenhando todo ministério sem gente, enquanto
+    // o Organograma — que lê a tabela certa — mostrava 15, 35, 10 pessoas.
+    // Duas telas sobre a mesma coisa, discordando.
+    //
+    // Sem embed porque area_voluntarios não declara chave estrangeira: os
+    // nomes vêm numa segunda consulta.
+    const { data: vinculos } = await supabase
+      .from("area_voluntarios")
+      .select("ministerio_id, membro_id, funcao")
+      .eq("status", "ativa");
+
+    const idsDeMembro = [...new Set((vinculos ?? []).map((v: any) => v.membro_id).filter(Boolean))];
+    const { data: nomes } = idsDeMembro.length
+      ? await supabase.from("membros").select("id, nome_completo").in("id", idsDeMembro)
+      : { data: [] as any[] };
+    const nomePorId = new Map((nomes ?? []).map((m: any) => [m.id, m.nome_completo]));
+
+    // Um voluntário pode servir em duas áreas do mesmo ministério; na lista
+    // do ministério ele é uma pessoa só.
+    const vistos = new Set<string>();
+    const membMin = (vinculos ?? []).filter((v: any) => {
+      const chave = v.ministerio_id + "|" + v.membro_id;
+      if (vistos.has(chave) || !nomePorId.has(v.membro_id)) return false;
+      vistos.add(chave); return true;
+    }).map((v: any) => ({
+      ministerio_id: v.ministerio_id,
+      funcao: v.funcao,
+      membros: { id: v.membro_id, nome_completo: nomePorId.get(v.membro_id) },
+    }));
 
     // Montar areas
     const areasMap: Record<string, AreaMin[]> = {};

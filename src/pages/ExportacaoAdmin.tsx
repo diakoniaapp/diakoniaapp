@@ -168,12 +168,20 @@ export default function ExportacaoAdmin() {
 
       // Se filtrando por ministério, busca os IDs dos membros
       if (filtroMinist !== "todos") {
+        // area_voluntarios, e não ministerio_membros: esta última tem ZERO
+        // linhas em produção, e os 113 vínculos reais estão naquela. Com a
+        // tabela vazia, `ids.length === 0` era sempre verdade e a exportação
+        // por ministério respondia "Nenhum membro neste ministério" para
+        // TODOS eles — culpando o cadastro por um defeito da consulta. Quem
+        // tentasse exportar a lista do Ministério de Música acreditaria que
+        // ele está vazio.
         const { data: mids } = await supabase
-          .from("ministerio_membros")
+          .from("area_voluntarios")
           .select("membro_id")
-          .eq("ministerio_id", filtroMinist);
-        const ids = (mids ?? []).map((m: any) => m.membro_id);
-        if (ids.length === 0) { toast.warning("Nenhum membro neste ministério."); return; }
+          .eq("ministerio_id", filtroMinist)
+          .eq("status", "ativa");
+        const ids = [...new Set((mids ?? []).map((m: any) => m.membro_id).filter(Boolean))];
+        if (ids.length === 0) { toast.warning("Nenhum voluntário ativo neste ministério."); return; }
         q = q.in("id", ids);
       }
 
