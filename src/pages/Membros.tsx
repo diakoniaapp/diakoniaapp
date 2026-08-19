@@ -604,7 +604,7 @@ export default function Membros() {
   // Duas etapas de propósito. `baseFiltrados` é "quem está em jogo" — busca,
   // tipo e perfil. É sobre ele que os atalhos contam, para que os números que
   // eles mostram nunca contradigam o que a tela está exibindo: com o tipo em
-  // "Visitante", o atalho não pode prometer 94 pessoas para procurar.
+  // "Visitante", o atalho não pode prometer 217 pessoas para procurar.
   const baseFiltrados = useMemo(() => membros.filter((m) => {
         const q = comparavel(search).trim();
         // Dígitos da busca contra dígitos do telefone. O banco guarda
@@ -635,7 +635,7 @@ export default function Membros() {
           : null;
         // "Dá para procurar" é a única pergunta desta lista que termina em
         // alguém pegando o telefone: nunca contatada E com número que funciona.
-        // São 94 das 283. As outras 189 não estão esquecidas — estão sem
+        // São 217 das 283. As outras 66 não estão esquecidas — estão sem
         // telefone, que é problema de cadastro e não de cuidado, e por isso
         // tem atalho próprio em vez de ficar escondido dentro do mesmo balde.
         const matchCuidado =
@@ -779,7 +779,7 @@ export default function Membros() {
                                                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                                                   {/* O rótulo dizia "nome, CPF ou bairro". CPF está preenchido em DOIS
                                                       dos 283 cadastros — a busca anunciava um campo que praticamente não
-                                                      existe e calava sobre o que existe em 94 deles: o telefone. Continua
+                                                      existe e calava sobre o que existe em 217 deles: o telefone. Continua
                                                       procurando por CPF para os dois que têm; só parou de prometer. */}
                                                   <Input
                                                                   ref={buscaRef}

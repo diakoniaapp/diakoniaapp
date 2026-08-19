@@ -60,3 +60,39 @@
 --     alter database postgres set timezone to 'UTC';
 
 alter database postgres set timezone to 'America/Sao_Paulo';
+
+-- ── E POR QUE UM AJUSTE NO BANCO NÃO BASTOU ───────────────────────────────
+--
+-- Aplicado o `alter database`, uma sessão nova já respondia 2026-08-18. Mas o
+-- PostgREST mantém um pool de conexões abertas, e elas continuaram em UTC: a
+-- API seguiu devolvendo `dias_ate_evento = 0` para o aniversário de amanhã.
+-- Valeria depois de reiniciar a API — ou seja, com a igreja fora do ar por
+-- alguns segundos, para consertar um erro que só aparece à noite.
+--
+-- Fixar o fuso NA FUNÇÃO resolve na chamada seguinte, sem reconectar nada, e
+-- é mais forte: a função passa a responder o dia da igreja independentemente
+-- de quem a chamou e de como aquela sessão está configurada.
+--
+-- Não é lógica duplicada em 45 lugares — é a mesma linha aplicada de uma vez
+-- pelo laço abaixo. Função nova nasce coberta pelo ajuste do banco; se algum
+-- dia o pool voltar a atrapalhar, é rodar isto de novo.
+--
+-- Conferido depois de aplicar, pela API, às 22h22 de 18/08 (01h22 UTC):
+--   antes: dias=0 → 2026-08-19 Joseana | dias=6 → 2026-08-25 Tito
+--   depois: dias=1 → 2026-08-19 Joseana | dias=7 → 2026-08-25 Tito
+
+do $$
+declare r record; n int := 0;
+begin
+  for r in
+    select p.oid::regprocedure as assinatura
+      from pg_proc p join pg_namespace nsp on nsp.oid = p.pronamespace
+     where nsp.nspname = 'public'
+       and p.prokind = 'f'
+       and upper(p.prosrc) like '%CURRENT_DATE%'
+  loop
+    execute format('alter function %s set "TimeZone" to ''America/Sao_Paulo''', r.assinatura);
+    n := n + 1;
+  end loop;
+  raise notice 'funcoes com fuso fixado: %', n;   -- 45 na aplicação
+end $$;
