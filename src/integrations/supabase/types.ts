@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.15"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       acolhimento_tarefas: {
@@ -6920,10 +6945,13 @@ export type Database = {
           data_batismo: string | null
           data_casamento: string | null
           data_congregado: string | null
+          data_consagracao_missionaria: string | null
           data_consagracao_pastoral: string | null
           data_entrada: string | null
           data_membro: string | null
           data_nascimento: string | null
+          data_ordenacao_diaconal: string | null
+          data_ordenacao_presbiteral: string | null
           email: string | null
           endereco: string | null
           endereco_completo: string | null
@@ -6933,6 +6961,8 @@ export type Database = {
           familia_id: string | null
           first_login: boolean
           foto_url: string | null
+          funcao_fim: string | null
+          funcao_inicio: string | null
           funcao_ministerial: Database["public"]["Enums"]["funcao_ministerial"]
           funcao_na_igreja: string | null
           geo_fonte: string | null
@@ -6993,10 +7023,13 @@ export type Database = {
           data_batismo?: string | null
           data_casamento?: string | null
           data_congregado?: string | null
+          data_consagracao_missionaria?: string | null
           data_consagracao_pastoral?: string | null
           data_entrada?: string | null
           data_membro?: string | null
           data_nascimento?: string | null
+          data_ordenacao_diaconal?: string | null
+          data_ordenacao_presbiteral?: string | null
           email?: string | null
           endereco?: string | null
           endereco_completo?: string | null
@@ -7006,6 +7039,8 @@ export type Database = {
           familia_id?: string | null
           first_login?: boolean
           foto_url?: string | null
+          funcao_fim?: string | null
+          funcao_inicio?: string | null
           funcao_ministerial?: Database["public"]["Enums"]["funcao_ministerial"]
           funcao_na_igreja?: string | null
           geo_fonte?: string | null
@@ -7066,10 +7101,13 @@ export type Database = {
           data_batismo?: string | null
           data_casamento?: string | null
           data_congregado?: string | null
+          data_consagracao_missionaria?: string | null
           data_consagracao_pastoral?: string | null
           data_entrada?: string | null
           data_membro?: string | null
           data_nascimento?: string | null
+          data_ordenacao_diaconal?: string | null
+          data_ordenacao_presbiteral?: string | null
           email?: string | null
           endereco?: string | null
           endereco_completo?: string | null
@@ -7079,6 +7117,8 @@ export type Database = {
           familia_id?: string | null
           first_login?: boolean
           foto_url?: string | null
+          funcao_fim?: string | null
+          funcao_inicio?: string | null
           funcao_ministerial?: Database["public"]["Enums"]["funcao_ministerial"]
           funcao_na_igreja?: string | null
           geo_fonte?: string | null
@@ -13203,6 +13243,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       acompanhamento_status: [

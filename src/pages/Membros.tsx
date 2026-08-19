@@ -23,6 +23,7 @@ import { StatusMembroBadge } from "@/components/membros/StatusMembroBadge";
 import ContatoResultadoDialog from "@/components/membros/ContatoResultadoDialog";
 import { logHistorico } from "@/lib/historicoFluxo";
 import { formatarTelefoneSemDDI, normalizarTelefone, telefoneValido } from "@/lib/telefone";
+import { rotuloFuncao, temCargo } from "@/lib/funcaoMinisterial";
 
 export interface Membro {
     id: string;
@@ -50,6 +51,8 @@ export interface Membro {
     cep: string | null;
     sexo: string | null;
     tipo_pessoa: "membro" | "congregado" | "visitante";
+    /** Cargo na igreja — ver lib/funcaoMinisterial.ts. NÃO é acesso ao sistema. */
+    funcao_ministerial?: string | null;
     perfil_acesso:
       | "admin"
       | "pastor"
@@ -382,7 +385,7 @@ function Telefone({ numero }: { numero?: string | null }) {
 // de cores (cinza até 30 dias, âmbar depois) pronta para quando a coluna
 // voltar a distinguir uma pessoa da outra.
 
-type CampoOrdem = "nome" | "tipo" | "bairro";
+type CampoOrdem = "nome" | "tipo" | "funcao" | "bairro";
 
 /**
  * Cabeçalho de coluna que ordena.
@@ -691,8 +694,17 @@ export default function Membros() {
           if (va !== vb) return va ? -1 : 1;
         }
 
+        // Quem não tem cargo vai para o fim nas duas direções, pelo mesmo
+        // motivo do bairro: inverter é pedir "de Z a A", não "mostre primeiro
+        // as 283 pessoas sem cargo nenhum".
+        if (ordem.campo === "funcao") {
+          const ca = temCargo(a.funcao_ministerial), cb = temCargo(b.funcao_ministerial);
+          if (ca !== cb) return ca ? -1 : 1;
+        }
+
         const chave = (m: Membro) =>
           ordem.campo === "tipo"     ? ({ membro: "1", congregado: "2", visitante: "3" })[m.tipo_pessoa]
+          : ordem.campo === "funcao" ? comparavel(rotuloFuncao(m.funcao_ministerial))
           : ordem.campo === "bairro" ? comparavel(m.bairro)
           : comparavel(m.nome_completo);
 
@@ -1077,12 +1089,19 @@ export default function Membros() {
                                     <tr className="text-left text-xs text-muted-foreground">
                                       <Cabecalho campo="nome"   rotulo="Nome"   ordem={ordem} aoOrdenar={ordenarPor} />
                                       <Cabecalho campo="tipo"   rotulo="Tipo"   ordem={ordem} aoOrdenar={ordenarPor} largura="w-28" />
+                                      {/* Hoje as 283 pessoas estão como "membro", que no enum quer dizer
+                                          "sem cargo" — a coluna nasce vazia de propósito. Não repete a
+                                          mesma palavra em toda linha, como fazia o "Nunca" do último
+                                          contato: quem não tem cargo não ganha nada, e cada diácono ou
+                                          presbítero cadastrado aparece sozinho na coluna, que é quando
+                                          ela passa a valer o espaço. */}
+                                      <Cabecalho campo="funcao" rotulo="Função" ordem={ordem} aoOrdenar={ordenarPor} largura="w-36 hidden lg:table-cell" />
                                       <th scope="col" className="font-medium px-3 py-2 w-40">Telefone</th>
                                       {/* Bairro só a partir de 1024px. Entre 768 e 1024 as quatro colunas
                                           fixas somavam mais largura do que sobrava para o nome, e "Agatha
                                           Victoria Vieira de Castro" virava "Agatha Victoria V...". Numa
                                           lista de pessoas, o nome é a última coisa que pode ser cortada. */}
-                                      <Cabecalho campo="bairro" rotulo="Bairro" ordem={ordem} aoOrdenar={ordenarPor} largura="w-40 hidden lg:table-cell" />
+                                      <Cabecalho campo="bairro" rotulo="Bairro" ordem={ordem} aoOrdenar={ordenarPor} largura="w-40 hidden xl:table-cell" />
                                       <th scope="col" className="font-medium px-3 py-2 w-16">
                                         <span className="sr-only">Ações</span>
                                       </th>
@@ -1144,6 +1163,11 @@ export default function Membros() {
                                             <span className="text-muted-foreground">Membro</span>
                                           )}
                                         </td>
+                                        <td className="px-3 py-0 hidden lg:table-cell">
+                                          {temCargo(m.funcao_ministerial) && (
+                                            <span className="text-sm">{rotuloFuncao(m.funcao_ministerial)}</span>
+                                          )}
+                                        </td>
                                         <td className="px-3 py-0 text-muted-foreground tabular-nums whitespace-nowrap">
                                           <Telefone numero={m.telefone_celular} />
                                         </td>
@@ -1159,7 +1183,7 @@ export default function Membros() {
                                             O bairro volta por um motivo prático: a busca casa por
                                             bairro. Procurar "maracana" trazia 17 pessoas sem
                                             mostrar em lugar nenhum por que aquelas 17. */}
-                                        <td className="px-3 py-0 text-muted-foreground hidden lg:table-cell">
+                                        <td className="px-3 py-0 text-muted-foreground hidden xl:table-cell">
                                           <span className="block truncate">{m.bairro || "—"}</span>
                                         </td>
                                         <td className="px-3 py-0">

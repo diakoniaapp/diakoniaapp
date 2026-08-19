@@ -21,6 +21,9 @@ import { BuscaPessoa } from "@/components/ui/BuscaPessoa";
 import { FamiliaBloco } from "@/components/familias/FamiliaBloco";
 import { listarClasses, sugerirClasse, classesDaPessoa, type EbdClasse } from "@/services/ebdService";
 import { normalizarTelefone, validarTelefone, formatarTelefoneSemDDI } from "@/lib/telefone";
+import {
+  FUNCAO_MINISTERIAL, FUNCOES_EM_ORDEM, type FuncaoMinisterial,
+} from "@/lib/funcaoMinisterial";
 import { TelefoneInput } from "@/components/ui/TelefoneInput";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -62,6 +65,15 @@ const empty = {
   data_entrada:             new Date().toISOString().slice(0, 10),
   status:                   "ativo",
   observacoes_pastorais:    "",
+  // Cargo na igreja e as datas de cada um. Ver lib/funcaoMinisterial.ts:
+  // "membro" é o padrão do enum e quer dizer ausência de cargo.
+  funcao_ministerial:           "membro",
+  data_consagracao_pastoral:    "",
+  data_ordenacao_diaconal:      "",
+  data_ordenacao_presbiteral:   "",
+  data_consagracao_missionaria: "",
+  funcao_inicio:                "",
+  funcao_fim:                   "",
   // campos visitante
   como_conheceu:            "",
   quem_convidou_id:         "",
@@ -801,6 +813,72 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
               </div>
             )}
 
+                        </>)}
+
+            {/* ── STEP 3 — CARGO NA IGREJA ── */}
+            {step === 3 && (isCongregado || isMembro) && (<>
+            <div className="space-y-3 pt-1">
+              <div>
+                <Label translate="no">Função ministerial</Label>
+                {/* O enum já existia no banco e estava preenchido nas 283 pessoas
+                    com "membro", lido por ninguém. Fica aqui, em Vínculos, e não
+                    no passo de Acesso: cargo na igreja e permissão de login são
+                    coisas diferentes — há diácono que nunca abriu o sistema e
+                    secretária com acesso e nenhum cargo. */}
+                <Select
+                  value={form.funcao_ministerial || "membro"}
+                  onValueChange={(v) => set("funcao_ministerial", v)}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {FUNCOES_EM_ORDEM.map((f) => (
+                      <SelectItem key={f} value={f}>{FUNCAO_MINISTERIAL[f].label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* A data aparece conforme o cargo, e com o nome certo: consagração
+                  pastoral, ordenação diaconal e comissionamento missionário não
+                  são sinônimos, e um campo genérico "data da função" apagaria a
+                  diferença justamente para quem ela importa. */}
+              {(() => {
+                const cargo = FUNCAO_MINISTERIAL[(form.funcao_ministerial || "membro") as FuncaoMinisterial];
+                if (!cargo || cargo.tipoData === "nenhuma") return null;
+
+                if (cargo.tipoData === "consagracao" && cargo.coluna) {
+                  return (
+                    <div className="md:w-1/2">
+                      <Label translate="no">{cargo.rotuloData}</Label>
+                      <Input
+                        type="date"
+                        value={form[cargo.coluna] ?? ""}
+                        onChange={(e) => set(cargo.coluna!, e.target.value)}
+                      />
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="grid md:grid-cols-2 gap-3">
+                    <div>
+                      <Label translate="no">Assumiu em</Label>
+                      <Input type="date" value={form.funcao_inicio ?? ""}
+                        onChange={(e) => set("funcao_inicio", e.target.value)} />
+                    </div>
+                    <div>
+                      <Label translate="no">Até</Label>
+                      <Input type="date" value={form.funcao_fim ?? ""}
+                        onChange={(e) => set("funcao_fim", e.target.value)} />
+                      {/* Dito na tela para ninguém esperar um aviso que não vem. */}
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Registro histórico — não gera alerta de vencimento.
+                      </p>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
                         </>)}
 
             {step === 3 && (<>
