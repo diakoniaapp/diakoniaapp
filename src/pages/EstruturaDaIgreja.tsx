@@ -19,6 +19,7 @@ import {
   Crown, Church, MapPin, Users, ChevronDown, ChevronRight,
   Loader2, AlertTriangle, Network, Settings, RefreshCw, FileText, Star,
 } from "lucide-react";
+import { carregarDiretoria } from "@/services/diretoriaService";
 
 // -- Tipos ---------------------------------------------------
 
@@ -265,23 +266,8 @@ export default function EstruturaDaIgreja() {
     const { data: membrosData } = await supabase
       .from("membros").select("id,tipo_pessoa").eq("status", "ativo");
 
-    // Diretoria eleita (cargos estatutarios)
-    // TABELA AUSENTE EM PRODUCAO — ver migration 20260528_estrutura_organizacional.sql
-    const { data: ce } = await supabase
-      .from("pessoa_cargo_estatutario")
-      .select("id,mandato,pessoa_id,cargos_estatutarios(nome,nivel),membros(nome_completo,foto_url)")
-      .eq("ativo", true)
-      .order("created_at");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    setDiretoria((ce ?? []).map((r: any) => ({
-      id: r.id,
-      cargo: r.cargos_estatutarios?.nome ?? "–",
-      nivel: r.cargos_estatutarios?.nivel ?? 9,
-      pessoa_id: r.pessoa_id,
-      pessoa_nome: r.membros?.nome_completo ?? "–",
-      pessoa_foto: r.membros?.foto_url ?? null,
-      mandato: r.mandato,
-    })));
+    // Diretoria — lida da função na ficha da pessoa. Ver diretoriaService.ts.
+    setDiretoria(await carregarDiretoria());
 
     // Ministerios com lideres
     const { data: mins } = await supabase
@@ -452,10 +438,10 @@ export default function EstruturaDaIgreja() {
             ) : diretoria.length === 0 ? (
               <div className="text-center py-16 space-y-3">
                 <Crown className="w-12 h-12 mx-auto text-muted-foreground/40" />
-                <p className="text-muted-foreground text-sm">Nenhum cargo estatutario cadastrado.</p>
+                <p className="text-muted-foreground text-sm">Nenhuma funcao de diretoria preenchida.</p>
                 {isAdmin && (
                   <p className="text-xs text-muted-foreground/70">
-                    Atribua cargos em Pessoas, editar, Cargo Estatutario.
+                    Preencha em Pessoas, abrir a pessoa, Vinculos, Funcao ministerial.
                   </p>
                 )}
               </div>

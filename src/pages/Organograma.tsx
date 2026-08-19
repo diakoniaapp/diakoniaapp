@@ -15,6 +15,7 @@ import {
   ChevronDown, ChevronRight, Users, Crown, Church, MapPin,
   Building2, Star, Shield, Loader2, AlertTriangle, BookOpen, Network,
 } from "lucide-react";
+import { carregarDiretoria } from "@/services/diretoriaService";
 
 // ── Tipos ─────────────────────────────────────────────────────
 
@@ -269,22 +270,11 @@ export default function Organograma() {
         });
       }
 
-      // Diretoria estatutária
-      // TABELA AUSENTE EM PRODUCAO — ver migration 20260528_estrutura_organizacional.sql
-      const { data: ce } = await supabase
-        .from("pessoa_cargo_estatutario")
-        .select("id,mandato,pessoa_id,cargos_estatutarios(nome,nivel),membros(nome_completo,foto_url)")
-        .eq("ativo", true)
-        .order("created_at");
-      setDiretoria((ce ?? []).map((r: any) => ({
-        id: r.id,
-        cargo:       r.cargos_estatutarios?.nome ?? "–",
-        nivel:       r.cargos_estatutarios?.nivel ?? 9,
-        pessoa_id:   r.pessoa_id,
-        pessoa_nome: r.membros?.nome_completo ?? "–",
-        pessoa_foto: r.membros?.foto_url ?? null,
-        mandato:     r.mandato,
-      })));
+      // Diretoria — lida da função na ficha da pessoa.
+      // Antes vinha de `pessoa_cargo_estatutario`, que existe e está vazia: era
+      // um segundo cadastro, invisível para quem preenche a ficha. Ver o
+      // cabeçalho de diretoriaService.ts.
+      setDiretoria(await carregarDiretoria());
 
       // Conselho (view)
       const { data: cv } = await supabase
@@ -544,9 +534,12 @@ export default function Organograma() {
             ) : diretoria.length === 0 ? (
               <div className="text-center py-12 space-y-3">
                 <Crown className="w-12 h-12 mx-auto text-muted-foreground/40" />
-                <p className="text-muted-foreground text-sm">Nenhum cargo estatutário cadastrado ainda.</p>
+                <p className="text-muted-foreground text-sm">Nenhuma função de diretoria preenchida ainda.</p>
+                {/* O caminho tem de ser o que existe. A instrução antiga mandava a
+                    pessoa a um "Cargo Estatutário" que a ficha nunca teve — e essa
+                    era metade do motivo de a diretoria estar vazia. */}
                 <p className="text-xs text-muted-foreground/70">
-                  Atribua cargos em Pessoas → editar → Cargo Estatutário.
+                  Preencha em Pessoas → abrir a pessoa → Vínculos → Função ministerial.
                 </p>
               </div>
             ) : (

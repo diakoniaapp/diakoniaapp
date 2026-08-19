@@ -12311,6 +12311,10 @@ export type Database = {
           qtd_membros: number
         }[]
       }
+      proximo_aniversario: {
+        Args: { p_ano?: number; p_data: string }
+        Returns: string
+      }
       redefinir_senha: {
         Args: { p_senha: string; p_token: string }
         Returns: {
@@ -12781,6 +12785,17 @@ export type Database = {
         | "presbitero"
         | "coordenador"
         | "obreiro"
+        | "pastor_titular"
+        | "pastor_auxiliar"
+        | "pastor_missionario"
+        | "vice_presidente_1"
+        | "vice_presidente_2"
+        | "tesoureiro_1"
+        | "tesoureiro_2"
+        | "secretaria_1"
+        | "secretaria_2"
+        | "ministro"
+        | "lider_area"
       gov_pauta_classificacao: "informativa" | "deliberativa"
       gov_pauta_status:
         | "rascunho"
@@ -13557,6 +13572,17 @@ export const Constants = {
         "presbitero",
         "coordenador",
         "obreiro",
+        "pastor_titular",
+        "pastor_auxiliar",
+        "pastor_missionario",
+        "vice_presidente_1",
+        "vice_presidente_2",
+        "tesoureiro_1",
+        "tesoureiro_2",
+        "secretaria_1",
+        "secretaria_2",
+        "ministro",
+        "lider_area",
       ],
       gov_pauta_classificacao: ["informativa", "deliberativa"],
       gov_pauta_status: [

@@ -69,6 +69,12 @@ interface Funcao {
   rotuloData?: string;
   /** Fora da lista de escolha; mantido para ler cadastro antigo. */
   aposentada?: true;
+  /**
+   * Nível na diretoria estatutária, quando a função for de diretoria.
+   * É o que o organograma usa para agrupar: 1 Presidência, 2 Vice-presidência,
+   * 3 Secretaria, 4 Tesouraria.
+   */
+  diretoria?: 1 | 2 | 3 | 4;
 }
 
 const CONSAGRACAO_PASTORAL = {
@@ -88,12 +94,12 @@ export const FUNCAO_MINISTERIAL: Record<FuncaoMinisterial, Funcao> = {
   diacono:            { label: "Diácono",             tipoData: "consagracao",
                         coluna: "data_ordenacao_diaconal", rotuloData: "Ordenação diaconal" },
 
-  vice_presidente_1: { label: "1º Vice Presidente", tipoData: "vigencia" },
-  vice_presidente_2: { label: "2º Vice Presidente", tipoData: "vigencia" },
-  tesoureiro_1:      { label: "1º Tesoureiro",      tipoData: "vigencia" },
-  tesoureiro_2:      { label: "2º Tesoureiro",      tipoData: "vigencia" },
-  secretaria_1:      { label: "1ª Secretária",      tipoData: "vigencia" },
-  secretaria_2:      { label: "2ª Secretária",      tipoData: "vigencia" },
+  vice_presidente_1: { label: "1º Vice Presidente", tipoData: "vigencia", diretoria: 2 },
+  vice_presidente_2: { label: "2º Vice Presidente", tipoData: "vigencia", diretoria: 2 },
+  tesoureiro_1:      { label: "1º Tesoureiro",      tipoData: "vigencia", diretoria: 4 },
+  tesoureiro_2:      { label: "2º Tesoureiro",      tipoData: "vigencia", diretoria: 4 },
+  secretaria_1:      { label: "1ª Secretária",      tipoData: "vigencia", diretoria: 3 },
+  secretaria_2:      { label: "2ª Secretária",      tipoData: "vigencia", diretoria: 3 },
 
   ministro:      { label: "Ministro(a)",         tipoData: "vigencia" },
   lider_area:    { label: "Líder de Área",       tipoData: "vigencia" },
@@ -104,8 +110,10 @@ export const FUNCAO_MINISTERIAL: Record<FuncaoMinisterial, Funcao> = {
 
   // Aposentadas — lidas, nunca oferecidas.
   lider:       { label: "Líder",       tipoData: "vigencia", aposentada: true },
-  tesoureiro:  { label: "Tesoureiro",  tipoData: "vigencia", aposentada: true },
-  secretario:  { label: "Secretário",  tipoData: "vigencia", aposentada: true },
+  // Aposentadas mas AINDA DE DIRETORIA: Breno, Bruno e Lourdes precisam
+  // aparecer no organograma enquanto não se decide quem é 1º e quem é 2º.
+  tesoureiro:  { label: "Tesoureiro",  tipoData: "vigencia", aposentada: true, diretoria: 4 },
+  secretario:  { label: "Secretário",  tipoData: "vigencia", aposentada: true, diretoria: 3 },
   evangelista: { label: "Evangelista", tipoData: "nenhuma",  aposentada: true },
   missionario: { label: "Missionário", tipoData: "nenhuma",  aposentada: true },
   presbitero:  { label: "Presbítero",  tipoData: "nenhuma",  aposentada: true },
@@ -141,3 +149,26 @@ export const rotuloFuncao = (f?: string | null): string =>
 /** Verdadeiro para valor que saiu da lista mas ainda está em cadastro. */
 export const funcaoAposentada = (f?: string | null): boolean =>
   !!f && !!FUNCAO_MINISTERIAL[f as FuncaoMinisterial]?.aposentada;
+
+/** As funções que compõem a diretoria estatutária, para o organograma. */
+export const FUNCOES_DIRETORIA = (Object.keys(FUNCAO_MINISTERIAL) as FuncaoMinisterial[])
+  .filter(f => FUNCAO_MINISTERIAL[f].diretoria !== undefined);
+
+export const nivelDiretoria = (f?: string | null): number =>
+  FUNCAO_MINISTERIAL[f as FuncaoMinisterial]?.diretoria ?? 9;
+
+/**
+ * "2023–2025", "desde 2023" ou "até 2025", conforme o que houver.
+ *
+ * O organograma mostrava um campo de texto livre chamado `mandato`. Agora a
+ * frase sai de duas datas e se adapta ao que existe, em vez de exigir as duas
+ * — quem assumiu e não tem fim previsto é o caso comum.
+ */
+export function mandatoLegivel(inicio?: string | null, fim?: string | null): string | null {
+  const ano = (d?: string | null) => (d ? d.slice(0, 4) : null);
+  const a = ano(inicio), b = ano(fim);
+  if (a && b) return `${a}–${b}`;
+  if (a) return `desde ${a}`;
+  if (b) return `até ${b}`;
+  return null;
+}
