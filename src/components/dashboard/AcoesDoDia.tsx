@@ -34,13 +34,13 @@ const QUANTOS_ADIANTE = 5;
 // casamento? O nome do tipo custa duas palavras e tira a adivinhação.
 const APARENCIA: Record<TipoEfemeride, { Icon: typeof Cake; sufixo: string; semAnos: string; grad: string; cor: string }> = {
   aniversario: { Icon: Cake,   sufixo: "anos de vida",      semAnos: "Aniversário",
-    grad: "bg-gradient-to-br from-pink-100 to-pink-50 border-pink-200",   cor: "text-pink-600" },
+    grad: "bg-gradient-to-br bg-celebracao-soft border-celebracao-line",   cor: "text-celebracao-text" },
   casamento:   { Icon: Heart,  sufixo: "anos de casamento", semAnos: "Aniversário de casamento",
-    grad: "bg-gradient-to-br from-rose-100 to-rose-50 border-rose-200",   cor: "text-rose-700 dark:text-rose-400" },
+    grad: "bg-celebracao-soft border-celebracao-line",   cor: "text-celebracao-text" },
   membresia:   { Icon: Users,  sufixo: "anos de membresia", semAnos: "Aniversário de membresia",
-    grad: "bg-gradient-to-br from-sky-100 to-sky-50 border-sky-200",      cor: "text-sky-700" },
+    grad: "bg-info-soft border-info-line",      cor: "text-info-text" },
   pastorado:   { Icon: Church, sufixo: "anos de pastorado", semAnos: "Aniversário de pastorado",
-    grad: "bg-gradient-to-br from-amber-100 to-amber-50 border-amber-200", cor: "text-amber-700 dark:text-amber-400" },
+    grad: "bg-warning-soft border-warning-line", cor: "text-warning-text" },
 };
 
 function quando(dias: number): string {
@@ -91,7 +91,7 @@ export function AcoesDoDia() {
     return (
       <Card className="border-dashed bg-muted/30">
         <CardContent className="py-5 text-center text-muted-foreground text-sm">
-          <Sun className="w-4 h-4 inline mr-1.5 text-amber-500" />
+          <Sun className="w-4 h-4 inline mr-1.5 text-warning-text" />
           Hoje está leve — nenhuma efeméride no calendário pastoral.
         </CardContent>
       </Card>
@@ -156,7 +156,7 @@ export function AcoesDoDia() {
                     <Button
                       type="button" size="sm"
                       onClick={() => window.open(linkWhatsApp(ev), "_blank", "noopener,noreferrer")}
-                      className="w-full gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                      className="w-full gap-1.5 bg-success hover:bg-success text-white"
                     >
                       <MessageCircle className="w-4 h-4" /> Enviar mensagem
                     </Button>

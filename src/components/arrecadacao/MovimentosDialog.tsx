@@ -37,9 +37,9 @@ const TIPO_LABEL: Record<MovimentoTipo, string> = {
 };
 
 const TIPO_COR: Record<MovimentoTipo, string> = {
-  custo: "bg-rose-50 text-rose-700 dark:text-rose-400 border-rose-200",
-  reembolso_pessoa: "bg-amber-50 text-amber-700 dark:text-amber-400 border-amber-200",
-  abate_compra_cnpj: "bg-blue-50 text-blue-700 border-blue-200",
+  custo: "bg-destructive-soft text-destructive-text border-destructive-line",
+  reembolso_pessoa: "bg-warning-soft text-warning-text border-warning-line",
+  abate_compra_cnpj: "bg-info-soft text-info-text border-info-line",
   reversao_admin: "bg-purple-50 text-purple-700 border-purple-200",
   ajuste: "bg-muted",
 };
@@ -98,11 +98,11 @@ export function MovimentosDialog({ open, onOpenChange, caixaId, onChange }: Prop
         {resumo && (
           <div className={
             "border rounded-md p-2 text-xs flex items-center gap-3 " +
-            (resumo.saldo_virtual <= 0 ? "bg-rose-50 border-rose-200" : "bg-emerald-50/30 border-emerald-200")
+            (resumo.saldo_virtual <= 0 ? "bg-destructive-soft border-destructive-line" : "bg-success-soft/30 border-success-line")
           }>
             <span className="text-muted-foreground">Saldo virtual atual:</span>
             <span className={"font-medium text-base font-serif " +
-              (resumo.saldo_virtual <= 0 ? "text-rose-700 dark:text-rose-400" : "text-emerald-700 dark:text-emerald-400")
+              (resumo.saldo_virtual <= 0 ? "text-destructive-text" : "text-success-text")
             }>
               {fmtBR(resumo.saldo_virtual)}
             </span>
@@ -112,7 +112,7 @@ export function MovimentosDialog({ open, onOpenChange, caixaId, onChange }: Prop
           </div>
         )}
         {resumo && resumo.saldo_virtual <= 0 && (
-          <p className="text-xs text-rose-700 dark:text-rose-400 -mt-2">
+          <p className="text-xs text-destructive-text -mt-2">
             ⚠ Saldo zerado. Não é possível registrar custos, reembolsos ou reversões enquanto não houver vendas.
           </p>
         )}
@@ -142,12 +142,12 @@ export function MovimentosDialog({ open, onOpenChange, caixaId, onChange }: Prop
                   <span className="font-medium tabular-nums">{fmtBR(m.valor)}</span>
                   {m.nf_anexo_path && (
                     <button onClick={() => verAnexo(m.nf_anexo_path!)}
-                      className="text-blue-600 hover:bg-blue-50 p-1 rounded" title="Ver NF">
+                      className="text-info-text hover:bg-info-soft p-1 rounded" title="Ver NF">
                       <ExternalLink className="w-3 h-3" />
                     </button>
                   )}
                   <button onClick={() => excluir(m.id)}
-                    className="text-rose-700 dark:text-rose-400 hover:bg-rose-50 p-1 rounded" title="Arquivar">
+                    className="text-destructive-text hover:bg-destructive-soft p-1 rounded" title="Arquivar">
                     <Trash2 className="w-3 h-3" />
                   </button>
                 </div>
@@ -214,7 +214,7 @@ function FormCusto({ caixaId, onSaved }: { caixaId: string; onSaved: () => void 
       </p>
       <Field label="Descrição *"><Input value={desc} onChange={e => setDesc(e.target.value)} placeholder="Ex: Caixa de água" /></Field>
       <Field label="Valor *"><Input value={valor} onChange={e => setValor(e.target.value)} placeholder="0,00" /></Field>
-      <Button onClick={salvar} disabled={salvando} className="w-full gap-2 bg-rose-600 hover:bg-rose-700">
+      <Button onClick={salvar} disabled={salvando} className="w-full gap-2 bg-destructive hover:bg-destructive">
         {salvando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
         Registrar custo
       </Button>
@@ -282,7 +282,7 @@ function FormReembolso({ caixaId, onSaved }: { caixaId: string; onSaved: () => v
       <Field label="Arquivo da NF (PDF/imagem)">
         <Input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={e => setArquivo(e.target.files?.[0] ?? null)} />
       </Field>
-      <Button onClick={salvar} disabled={salvando} className="w-full gap-2 bg-amber-600 hover:bg-amber-700">
+      <Button onClick={salvar} disabled={salvando} className="w-full gap-2 bg-warning hover:bg-warning">
         {salvando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
         Registrar reembolso
       </Button>
@@ -341,7 +341,7 @@ function FormAbate({ caixaId, onSaved }: { caixaId: string; onSaved: () => void 
         </Select>
       </Field>
       {selecionado && (
-        <div className="border rounded-md p-2 text-xs bg-blue-50/30">
+        <div className="border rounded-md p-2 text-xs bg-info-soft/30">
           Valor do abate: <strong>{fmtBR(selecionado.valor)}</strong>
         </div>
       )}
@@ -353,7 +353,7 @@ function FormAbate({ caixaId, onSaved }: { caixaId: string; onSaved: () => void 
       <Field label="Arquivo da NF (PDF/imagem)">
         <Input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={e => setArquivo(e.target.files?.[0] ?? null)} />
       </Field>
-      <Button onClick={salvar} disabled={salvando} className="w-full gap-2 bg-blue-600 hover:bg-blue-700">
+      <Button onClick={salvar} disabled={salvando} className="w-full gap-2 bg-info hover:bg-info">
         {salvando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
         Registrar abate
       </Button>

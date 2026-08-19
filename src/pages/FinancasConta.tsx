@@ -30,18 +30,18 @@ function dataBr(s: string) {
 
 const STATUS_COR: Record<FinStatus, string> = {
   realizado:  "text-foreground",
-  conciliado: "text-emerald-700 dark:text-emerald-400",
-  previsto:   "text-amber-700 dark:text-amber-400",
+  conciliado: "text-success-text",
+  previsto:   "text-warning-text",
   cancelado:  "text-muted-foreground line-through",
-  aguardando_aprovacao: "text-blue-700",
+  aguardando_aprovacao: "text-info-text",
 };
 
 const STATUS_ICONE: Record<FinStatus, JSX.Element> = {
   realizado:  <CheckCircle2 className="w-3 h-3" />,
-  conciliado: <CheckCircle2 className="w-3 h-3 text-emerald-700 dark:text-emerald-400" />,
-  previsto:   <Clock className="w-3 h-3 text-amber-700 dark:text-amber-400" />,
+  conciliado: <CheckCircle2 className="w-3 h-3 text-success-text" />,
+  previsto:   <Clock className="w-3 h-3 text-warning-text" />,
   cancelado:  <XCircle className="w-3 h-3 text-muted-foreground" />,
-  aguardando_aprovacao: <Clock className="w-3 h-3 text-blue-600" />,
+  aguardando_aprovacao: <Clock className="w-3 h-3 text-info-text" />,
 };
 
 export default function FinancasConta() {
@@ -127,7 +127,7 @@ export default function FinancasConta() {
             Saldo atual: <strong style={{ color: conta.cor ?? undefined }}>{brl(Number(conta.saldo_atual))}</strong>
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => setTransfOpen(true)} className="gap-1.5 text-blue-600 hover:text-blue-700">
+        <Button variant="outline" size="sm" onClick={() => setTransfOpen(true)} className="gap-1.5 text-info-text hover:text-info-text">
           <ArrowRightLeft className="w-3.5 h-3.5" /> Transferir
         </Button>
         <Button onClick={() => { setEditando(null); setNovoOpen(true); }}
@@ -171,16 +171,16 @@ export default function FinancasConta() {
 
       {/* Resumo do período */}
       <div className="grid grid-cols-3 gap-2">
-        <Card className="bg-emerald-50/40 border-emerald-200">
+        <Card className="bg-success-soft/40 border-success-line">
           <CardContent className="py-2 px-3">
-            <p className="text-xs uppercase text-emerald-700 dark:text-emerald-400 flex items-center gap-1"><TrendingUp className="w-3 h-3" /> Entradas</p>
-            <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums">{brl(totalEntradasPeriodo)}</p>
+            <p className="text-xs uppercase text-success-text flex items-center gap-1"><TrendingUp className="w-3 h-3" /> Entradas</p>
+            <p className="text-sm font-semibold text-success-text tabular-nums">{brl(totalEntradasPeriodo)}</p>
           </CardContent>
         </Card>
-        <Card className="bg-rose-50/40 border-rose-200">
+        <Card className="bg-destructive-soft/40 border-destructive-line">
           <CardContent className="py-2 px-3">
-            <p className="text-xs uppercase text-rose-700 dark:text-rose-400 flex items-center gap-1"><TrendingDown className="w-3 h-3" /> Saídas</p>
-            <p className="text-sm font-semibold text-rose-700 dark:text-rose-400 tabular-nums">{brl(totalSaidasPeriodo)}</p>
+            <p className="text-xs uppercase text-destructive-text flex items-center gap-1"><TrendingDown className="w-3 h-3" /> Saídas</p>
+            <p className="text-sm font-semibold text-destructive-text tabular-nums">{brl(totalSaidasPeriodo)}</p>
           </CardContent>
         </Card>
         <Card>
@@ -245,13 +245,13 @@ export default function FinancasConta() {
                     <td className="py-1.5 px-2 text-xs text-muted-foreground truncate">
                       {l.centro_nome ?? "—"}
                     </td>
-                    <td className={`py-1.5 px-2 text-right tabular-nums font-medium ${l.tipo === "entrada" ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"}`}>
+                    <td className={`py-1.5 px-2 text-right tabular-nums font-medium ${l.tipo === "entrada" ? "text-success-text" : "text-destructive-text"}`}>
                       {l.tipo === "entrada" ? "+" : "−"} {brl(Number(l.valor))}
                     </td>
                     <td className="py-1.5 px-1">
                       {l.comprovante_url && (
                         <button type="button" onClick={() => abrirComprovante(l.comprovante_url!)} title="Ver comprovante"
-                          className="text-blue-700 hover:text-blue-900">
+                          className="text-info-text hover:text-info-text">
                           <Paperclip className="w-3.5 h-3.5" />
                         </button>
                       )}

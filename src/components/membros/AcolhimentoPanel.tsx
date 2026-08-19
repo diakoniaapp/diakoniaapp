@@ -24,14 +24,14 @@ interface Props {
 }
 
 const STATUS_OPTIONS: { value: string; label: string; color: string }[] = [
-  { value: "novo",              label: "Novo",              color: "bg-blue-100 text-blue-700 border-blue-300" },
-  { value: "contatar",         label: "A contatar",        color: "bg-orange-100 text-orange-700 dark:text-orange-400 border-orange-300" },
-  { value: "contatado",        label: "Contatado",         color: "bg-yellow-100 text-yellow-700 border-yellow-300" },
-  { value: "retornou",         label: "Retornou",          color: "bg-green-100 text-green-700 dark:text-green-400 border-green-300" },
-  { value: "em_relacionamento",label: "Em relacionamento", color: "bg-emerald-100 text-emerald-700 dark:text-emerald-400 border-emerald-300" },
+  { value: "novo",              label: "Novo",              color: "bg-info-soft text-info-text border-info-line" },
+  { value: "contatar",         label: "A contatar",        color: "bg-warning-soft text-warning-text border-warning-line" },
+  { value: "contatado",        label: "Contatado",         color: "bg-warning-soft text-warning-text border-warning-line" },
+  { value: "retornou",         label: "Retornou",          color: "bg-success-soft text-success-text border-success-line" },
+  { value: "em_relacionamento",label: "Em relacionamento", color: "bg-success-soft text-success-text border-success-line" },
   { value: "em_acompanhamento",label: "Em acompanhamento", color: "bg-teal-100 text-teal-700 border-teal-300" },
   { value: "congregado",       label: "Congregado",        color: "bg-purple-100 text-purple-700 border-purple-300" },
-  { value: "membro",           label: "Membro",            color: "bg-indigo-100 text-indigo-700 border-indigo-300" },
+  { value: "membro",           label: "Membro",            color: "bg-info-soft text-info-text border-info-line" },
 ];
 
 
@@ -124,7 +124,7 @@ export function AcolhimentoPanel({ pessoa, onUpdated }: Props) {
         <div className="space-y-2">
           {checklist.map((item) => (
             <div key={item.label} className="flex items-center gap-2">
-              {item.done ? <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" /> : <Circle className="h-4 w-4 text-muted-foreground/40 flex-shrink-0" />}
+              {item.done ? <CheckCircle2 className="h-4 w-4 text-success-text flex-shrink-0" /> : <Circle className="h-4 w-4 text-muted-foreground/40 flex-shrink-0" />}
               <span className={`text-sm ${item.done ? "text-foreground font-medium" : "text-muted-foreground"}`}>{item.label}</span>
             </div>
           ))}

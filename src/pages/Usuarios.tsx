@@ -30,8 +30,8 @@ type AcessoComNome = AcessoPessoa & { nomeCompleto: string };
 
 const STATUS_STYLE = {
   sem_acesso: { label: "Sem acesso",           cor: "text-slate-500 border-slate-300"  },
-  aguardando: { label: "Aguardando 1º acesso", cor: "text-amber-700 dark:text-amber-400 border-amber-400"  },
-  ativo:      { label: "Ativo",                cor: "text-green-700 dark:text-green-400 border-green-400"  },
+  aguardando: { label: "Aguardando 1º acesso", cor: "text-warning-text border-warning-line"  },
+  ativo:      { label: "Ativo",                cor: "text-success-text border-success-line"  },
 };
 
 // ─── Componente ───────────────────────────────────────────────────────────────
@@ -307,7 +307,7 @@ export default function Usuarios() {
                                 disabled={emAndamento}
                                 onClick={() => handleReenviar(a)}
                                 title="Reenviar acesso via WhatsApp"
-                                className="gap-1 text-xs h-7 px-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                className="gap-1 text-xs h-7 px-2 text-info-text hover:text-info-text hover:bg-info-soft"
                               >
                                 {emAndamento
                                   ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -320,7 +320,7 @@ export default function Usuarios() {
                                 disabled={emAndamento}
                                 onClick={() => handleReenviar(a)}
                                 title="Resetar senha"
-                                className="gap-1 text-xs h-7 px-2 text-orange-700 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 hover:bg-orange-50"
+                                className="gap-1 text-xs h-7 px-2 text-warning-text hover:text-warning-text hover:bg-warning-soft"
                               >
                                 {emAndamento
                                   ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />

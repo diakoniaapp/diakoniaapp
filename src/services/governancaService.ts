@@ -23,11 +23,11 @@ export const REUNIAO_STATUS_LABEL: Record<GovReuniaoStatus, string> = {
 };
 
 export const REUNIAO_STATUS_COR: Record<GovReuniaoStatus, string> = {
-  agendada: "bg-blue-50 text-blue-700 border-blue-300",
-  em_andamento: "bg-amber-50 text-amber-700 border-amber-300",
-  concluida: "bg-emerald-50 text-emerald-700 border-emerald-300",
+  agendada: "bg-info-soft text-info-text border-info-line",
+  em_andamento: "bg-warning-soft text-warning-text border-warning-line",
+  concluida: "bg-success-soft text-success-text border-success-line",
   cancelada: "bg-muted text-muted-foreground border-border line-through",
-  adiada: "bg-rose-50 text-rose-700 border-rose-300",
+  adiada: "bg-destructive-soft text-destructive-text border-destructive-line",
 };
 
 export const PAUTA_STATUS_LABEL: Record<GovPautaStatus, string> = {

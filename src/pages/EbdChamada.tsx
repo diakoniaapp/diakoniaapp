@@ -243,7 +243,7 @@ export default function EbdChamada() {
       <div className="grid grid-cols-3 gap-2">
         <Card><CardContent className="py-2 text-center">
           <p className="text-xs text-muted-foreground uppercase">Presentes</p>
-          <p className="text-xl font-semibold text-emerald-700 dark:text-emerald-400">{stats.totalPresentes}</p>
+          <p className="text-xl font-semibold text-success-text">{stats.totalPresentes}</p>
         </CardContent></Card>
         <Card><CardContent className="py-2 text-center">
           <p className="text-xs text-muted-foreground uppercase">Matriculados</p>
@@ -251,7 +251,7 @@ export default function EbdChamada() {
         </CardContent></Card>
         <Card><CardContent className="py-2 text-center">
           <p className="text-xs text-muted-foreground uppercase">Visitantes</p>
-          <p className="text-xl font-semibold text-amber-700 dark:text-amber-400">{stats.presVis}/{stats.totalVis}</p>
+          <p className="text-xl font-semibold text-warning-text">{stats.presVis}/{stats.totalVis}</p>
         </CardContent></Card>
       </div>
 
@@ -278,7 +278,7 @@ export default function EbdChamada() {
             disabled={salvando === r.pessoa_id}
             className={`w-full flex items-center justify-between border rounded-lg px-3 py-3 transition-all active:scale-[0.99] ${
               r.presente
-                ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-950/30"
+                ? "bg-success-soft border-success-line/30"
                 : "bg-background hover:bg-muted/40"
             }`}
           >
@@ -292,7 +292,7 @@ export default function EbdChamada() {
               {salvando === r.pessoa_id
                 ? <Loader2 className="w-4 h-4 animate-spin" />
                 : r.presente
-                ? <CheckCircle2 className="w-6 h-6 text-emerald-700 dark:text-emerald-400" />
+                ? <CheckCircle2 className="w-6 h-6 text-success-text" />
                 : <div className="w-6 h-6 rounded-full border-2 border-muted-foreground/30" />
               }
             </div>
@@ -314,14 +314,14 @@ export default function EbdChamada() {
               disabled={salvando === r.pessoa_id}
               className={`w-full flex items-center justify-between border rounded-lg px-3 py-3 transition-all active:scale-[0.99] ${
                 r.presente
-                  ? "bg-amber-50 border-amber-200 dark:bg-amber-950/30"
+                  ? "bg-warning-soft border-warning-line/30"
                   : "bg-background hover:bg-muted/40"
               }`}
             >
               <div className="text-left min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="font-medium truncate">{r.nome_completo}</span>
-                  <Badge variant="outline" className="text-xs text-amber-700 dark:text-amber-400 border-amber-300">
+                  <Badge variant="outline" className="text-xs text-warning-text border-warning-line">
                     Visitante
                   </Badge>
                 </div>
@@ -332,7 +332,7 @@ export default function EbdChamada() {
               {salvando === r.pessoa_id
                 ? <Loader2 className="w-4 h-4 animate-spin" />
                 : r.presente
-                ? <CheckCircle2 className="w-6 h-6 text-amber-700 dark:text-amber-400" />
+                ? <CheckCircle2 className="w-6 h-6 text-warning-text" />
                 : <div className="w-6 h-6 rounded-full border-2 border-muted-foreground/30" />
               }
             </button>

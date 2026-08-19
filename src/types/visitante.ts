@@ -19,13 +19,13 @@ export const STATUS_ACOLHIMENTO_CONFIG: {
   corTexto: string;
 }[] = [
   { value: "novo",              label: "Novo",               descricao: "Primeiro contato registrado",         cor: "bg-slate-100",    corTexto: "text-slate-700"   },
-  { value: "contatar",          label: "A contatar",          descricao: "Aguardando primeiro contato",         cor: "bg-orange-100",   corTexto: "text-orange-700"  },
-  { value: "contatado",         label: "Contatado",           descricao: "Já recebeu contato da equipe",        cor: "bg-yellow-100",   corTexto: "text-yellow-700"  },
-  { value: "retornou",          label: "Retornou",            descricao: "Visitou mais de uma vez",             cor: "bg-green-100",    corTexto: "text-green-700"   },
-  { value: "em_relacionamento", label: "Em relacionamento",   descricao: "Participando de grupos ou eventos",   cor: "bg-emerald-100",  corTexto: "text-emerald-700" },
+  { value: "contatar",          label: "A contatar",          descricao: "Aguardando primeiro contato",         cor: "bg-warning-soft",   corTexto: "text-warning-text"  },
+  { value: "contatado",         label: "Contatado",           descricao: "Já recebeu contato da equipe",        cor: "bg-warning-soft",   corTexto: "text-warning-text"  },
+  { value: "retornou",          label: "Retornou",            descricao: "Visitou mais de uma vez",             cor: "bg-success-soft",    corTexto: "text-success-text"   },
+  { value: "em_relacionamento", label: "Em relacionamento",   descricao: "Participando de grupos ou eventos",   cor: "bg-success-soft",  corTexto: "text-success-text" },
   { value: "em_acompanhamento", label: "Em acompanhamento",   descricao: "Sendo cuidado ativamente",            cor: "bg-teal-100",     corTexto: "text-teal-700"    },
   { value: "congregado",        label: "Congregado",          descricao: "Tornou-se congregado",                cor: "bg-purple-100",   corTexto: "text-purple-700"  },
-  { value: "membro",            label: "Membro",              descricao: "Membro formal da igreja",             cor: "bg-indigo-100",   corTexto: "text-indigo-700"  },
+  { value: "membro",            label: "Membro",              descricao: "Membro formal da igreja",             cor: "bg-info-soft",   corTexto: "text-info-text"  },
 ];
 
 // Índice da trilha (sem congregado/membro — esses são transições)

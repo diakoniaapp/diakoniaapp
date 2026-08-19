@@ -165,7 +165,7 @@ export function OracaoBlock({ grupoId, podeEditar }: Props) {
           <div className="space-y-1.5">
             {pedidos.map(p => (
               <div key={p.id} className={`border rounded-md p-2 space-y-1 ${
-                p.status === "respondido" ? "bg-emerald-50/50 border-emerald-200"
+                p.status === "respondido" ? "bg-success-soft/50 border-success-line"
                   : p.status === "arquivado" ? "opacity-60"
                   : ""
               }`}>
@@ -181,7 +181,7 @@ export function OracaoBlock({ grupoId, podeEditar }: Props) {
                         {VISIBILIDADE_LABEL[p.visibilidade]}
                       </Badge>
                       {p.status === "respondido" && (
-                        <Badge variant="outline" className="text-xs bg-emerald-100 text-emerald-700 dark:text-emerald-400 border-emerald-300">
+                        <Badge variant="outline" className="text-xs bg-success-soft text-success-text border-success-line">
                           ✓ Respondido
                         </Badge>
                       )}
@@ -190,7 +190,7 @@ export function OracaoBlock({ grupoId, podeEditar }: Props) {
                       )}
                     </p>
                     {p.resposta && (
-                      <p className="text-xs italic text-emerald-700 dark:text-emerald-400 mt-1 pl-2 border-l-2 border-emerald-300">
+                      <p className="text-xs italic text-success-text mt-1 pl-2 border-l-2 border-success-line">
                         "{p.resposta}"
                       </p>
                     )}
@@ -198,7 +198,7 @@ export function OracaoBlock({ grupoId, podeEditar }: Props) {
                   {podeEditar && p.status === "ativo" && (
                     <div className="flex items-center gap-0.5 shrink-0">
                       <Button type="button" variant="ghost" size="icon"
-                        onClick={() => responder(p)} className="h-7 w-7 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50"
+                        onClick={() => responder(p)} className="h-7 w-7 text-success-text hover:bg-success-soft"
                         title="Marcar como respondido">
                         <CheckCircle2 className="w-3.5 h-3.5" />
                       </Button>

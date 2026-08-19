@@ -56,9 +56,9 @@ export function ResumoPgm() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
         <Stat icon={<Users className="w-4 h-4 text-gold" />} valor={resumo.grupos_ativos} label="Grupos ativos" link="/pgm" />
-        <Stat icon={<Users className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />} valor={resumo.total_membros} label="Participantes" />
-        <Stat icon={<TrendingUp className="w-4 h-4 text-blue-600" />} valor={`${resumo.presenca_media_pct}%`} label="Presença (30d)" />
-        <Stat icon={<HandHeart className="w-4 h-4 text-rose-700 dark:text-rose-400" />} valor={resumo.pedidos_ativos} label="Pedidos ativos" />
+        <Stat icon={<Users className="w-4 h-4 text-success-text" />} valor={resumo.total_membros} label="Participantes" />
+        <Stat icon={<TrendingUp className="w-4 h-4 text-info-text" />} valor={`${resumo.presenca_media_pct}%`} label="Presença (30d)" />
+        <Stat icon={<HandHeart className="w-4 h-4 text-destructive-text" />} valor={resumo.pedidos_ativos} label="Pedidos ativos" />
       </div>
 
       {/* Próximos encontros */}
@@ -85,16 +85,16 @@ export function ResumoPgm() {
 
       {/* Alertas de ausência */}
       {alertas.length > 0 && (
-        <Card className="border-amber-300/40 bg-amber-50/30">
+        <Card className="border-warning-line/40 bg-warning-soft/30">
           <CardContent className="py-3 space-y-1.5">
-            <p className="text-xs font-medium text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+            <p className="text-xs font-medium text-warning-text flex items-center gap-1.5">
               <Sparkles className="w-3 h-3" /> Cuidado pastoral — 3+ faltas seguidas
             </p>
             {alertas.map((a, i) => (
               <Link key={`${a.pessoa_id}-${i}`} to={`/pgm/${a.grupo_id}`}
-                className="flex items-center justify-between text-xs border border-amber-200 rounded-md px-2 py-1.5 bg-white hover:bg-amber-50">
+                className="flex items-center justify-between text-xs border border-warning-line rounded-md px-2 py-1.5 bg-white hover:bg-warning-soft">
                 <span className="font-medium truncate">{a.nome}</span>
-                <span className="text-amber-700 dark:text-amber-400 shrink-0 ml-2">{a.grupo_nome}</span>
+                <span className="text-warning-text shrink-0 ml-2">{a.grupo_nome}</span>
               </Link>
             ))}
           </CardContent>

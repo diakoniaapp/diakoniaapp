@@ -79,7 +79,7 @@ export function CampanhasEbd() {
                     <h3 className="font-medium text-sm truncate">{c.nome}</h3>
                     <p className="text-xs text-muted-foreground truncate">{c.classe_nome}</p>
                   </div>
-                  {atingiu && <CheckCircle2 className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0" />}
+                  {atingiu && <CheckCircle2 className="w-4 h-4 text-success-text shrink-0" />}
                 </div>
                 {r && (
                   <>
@@ -90,7 +90,7 @@ export function CampanhasEbd() {
                       </Badge>
                     </div>
                     <div className="h-1.5 rounded bg-muted overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-gold to-emerald-500 transition-all"
+                      <div className="h-full bg-gradient-to-r from-gold to-success transition-all"
                         style={{ width: `${Math.min(100, pct)}%` }} />
                     </div>
                   </>

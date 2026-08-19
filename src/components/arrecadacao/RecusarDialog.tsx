@@ -35,7 +35,7 @@ export function RecusarDialog({ open, onOpenChange, reservaId, onRecusado }: Pro
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-rose-700 dark:text-rose-400">
+          <DialogTitle className="flex items-center gap-2 text-destructive-text">
             <XCircle className="w-4 h-4" /> Recusar reserva
           </DialogTitle>
         </DialogHeader>
@@ -54,7 +54,7 @@ export function RecusarDialog({ open, onOpenChange, reservaId, onRecusado }: Pro
               <X className="w-3.5 h-3.5" /> Cancelar
             </Button>
             <Button size="sm" onClick={recusar} disabled={salvando || !motivo.trim()}
-              variant="outline" className="gap-1.5 text-rose-700 dark:text-rose-400 border-rose-300 hover:bg-rose-50">
+              variant="outline" className="gap-1.5 text-destructive-text border-destructive-line hover:bg-destructive-soft">
               {salvando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />}
               Confirmar recusa
             </Button>

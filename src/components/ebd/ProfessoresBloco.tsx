@@ -77,9 +77,9 @@ export function ProfessoresBloco({ classeId }: Props) {
     principal: "Principal", auxiliar: "Auxiliar", substituto: "Substituto",
   };
   const tipoCor: Record<EbdProfessor["tipo"], string> = {
-    principal: "border-emerald-300 text-emerald-700 dark:text-emerald-400",
-    auxiliar: "border-blue-300 text-blue-700",
-    substituto: "border-amber-300 text-amber-700 dark:text-amber-400",
+    principal: "border-success-line text-success-text",
+    auxiliar: "border-info-line text-info-text",
+    substituto: "border-warning-line text-warning-text",
   };
 
   return (

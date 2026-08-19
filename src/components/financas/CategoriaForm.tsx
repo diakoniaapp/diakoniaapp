@@ -91,14 +91,14 @@ export function CategoriaForm({ open, onOpenChange, categoria, tipoPadrao = "sai
             <Button type="button" size="sm"
               variant={tipo === "entrada" ? "default" : "outline"}
               onClick={() => setTipo("entrada")}
-              className={tipo === "entrada" ? "bg-emerald-600 text-white hover:bg-emerald-700 gap-1.5" : "gap-1.5"}
+              className={tipo === "entrada" ? "bg-success text-white hover:bg-success gap-1.5" : "gap-1.5"}
               disabled={isEdit && categoria?.sistema}>
               <TrendingUp className="w-3.5 h-3.5" /> Entrada
             </Button>
             <Button type="button" size="sm"
               variant={tipo === "saida" ? "default" : "outline"}
               onClick={() => setTipo("saida")}
-              className={tipo === "saida" ? "bg-rose-600 text-white hover:bg-rose-700 gap-1.5" : "gap-1.5"}
+              className={tipo === "saida" ? "bg-destructive text-white hover:bg-destructive gap-1.5" : "gap-1.5"}
               disabled={isEdit && categoria?.sistema}>
               <TrendingDown className="w-3.5 h-3.5" /> Saída
             </Button>

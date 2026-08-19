@@ -153,13 +153,13 @@ export function RecorrenciaForm({ open, onOpenChange, recorrencia, onSaved }: Pr
               <Button type="button" size="sm"
                 variant={tipo === "entrada" ? "default" : "outline"}
                 onClick={() => setTipo("entrada")}
-                className={tipo === "entrada" ? "bg-emerald-600 text-white gap-1.5" : "gap-1.5"}>
+                className={tipo === "entrada" ? "bg-success text-white gap-1.5" : "gap-1.5"}>
                 <TrendingUp className="w-3.5 h-3.5" /> Entrada
               </Button>
               <Button type="button" size="sm"
                 variant={tipo === "saida" ? "default" : "outline"}
                 onClick={() => setTipo("saida")}
-                className={tipo === "saida" ? "bg-rose-600 text-white gap-1.5" : "gap-1.5"}>
+                className={tipo === "saida" ? "bg-destructive text-white gap-1.5" : "gap-1.5"}>
                 <TrendingDown className="w-3.5 h-3.5" /> Saída
               </Button>
             </div>

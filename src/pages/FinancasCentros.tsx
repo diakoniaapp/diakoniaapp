@@ -32,12 +32,12 @@ const VINCULO_LABEL: Record<FinCentroVinculo, string> = {
 
 const VINCULO_COR: Record<FinCentroVinculo, string> = {
   ministerio: "bg-purple-100 text-purple-700 border-purple-300",
-  area:       "bg-blue-100 text-blue-700 border-blue-300",
-  ebd_classe: "bg-emerald-100 text-emerald-700 dark:text-emerald-400 border-emerald-300",
-  pgm_grupo:  "bg-amber-100 text-amber-700 dark:text-amber-400 border-amber-300",
+  area:       "bg-info-soft text-info-text border-info-line",
+  ebd_classe: "bg-success-soft text-success-text border-success-line",
+  pgm_grupo:  "bg-warning-soft text-warning-text border-warning-line",
   // O enum fin_centro_vinculo não tem "evento" — entradas removidas por serem
   // inalcançáveis.
-  campanha:   "bg-rose-100 text-rose-700 dark:text-rose-400 border-rose-300",
+  campanha:   "bg-destructive-soft text-destructive-text border-destructive-line",
   geral:      "bg-muted text-muted-foreground border-border",
 };
 
@@ -110,12 +110,12 @@ export default function FinancasCentros() {
         <div className="space-y-1.5">
           {alertas.slice(0, 4).map((a, i) => (
             <Card key={i} className={
-              a.severidade === "critico" ? "border-rose-300 bg-rose-50/30" :
-              a.severidade === "atencao" ? "border-amber-300 bg-amber-50/30" :
-              "border-blue-200 bg-blue-50/20"
+              a.severidade === "critico" ? "border-destructive-line bg-destructive-soft/30" :
+              a.severidade === "atencao" ? "border-warning-line bg-warning-soft/30" :
+              "border-info-line bg-info-soft/20"
             }>
               <CardContent className="py-2 px-3 flex items-center gap-2">
-                <AlertTriangle className={`w-3.5 h-3.5 shrink-0 ${a.severidade === "critico" ? "text-rose-700 dark:text-rose-400" : a.severidade === "atencao" ? "text-amber-700 dark:text-amber-400" : "text-blue-700"}`} />
+                <AlertTriangle className={`w-3.5 h-3.5 shrink-0 ${a.severidade === "critico" ? "text-destructive-text" : a.severidade === "atencao" ? "text-warning-text" : "text-info-text"}`} />
                 <div className="flex-1 min-w-0 text-xs">
                   <p className="font-medium">{a.titulo}</p>
                   <p className="text-xs text-muted-foreground">{a.descricao}</p>
@@ -196,7 +196,7 @@ export default function FinancasCentros() {
                         </div>
                       </div>
                       <div className="text-right shrink-0">
-                        <p className="text-sm font-semibold tabular-nums text-rose-700 dark:text-rose-400">{brl(Number(c.gasto_90d))}</p>
+                        <p className="text-sm font-semibold tabular-nums text-destructive-text">{brl(Number(c.gasto_90d))}</p>
                         <p className="text-xs text-muted-foreground">{pct.toFixed(1)}%</p>
                       </div>
                     </div>
@@ -226,13 +226,13 @@ export default function FinancasCentros() {
                       <Badge variant="outline" className={`text-xs ${VINCULO_COR[tipo]}`}>{label}</Badge>
                       <span>{lista.length} centro(s)</span>
                     </h3>
-                    <p className="text-sm font-semibold tabular-nums text-rose-700 dark:text-rose-400">{brl(total)}</p>
+                    <p className="text-sm font-semibold tabular-nums text-destructive-text">{brl(total)}</p>
                   </div>
                   {lista.slice(0, 5).map(c => (
                     <Link key={c.id} to={`/financas/centro/${c.id}`}
                       className="flex items-center justify-between text-xs border-b border-border/40 py-1 hover:bg-muted/30 transition-colors">
                       <span className="truncate">{c.nome}</span>
-                      <span className="tabular-nums text-rose-700 dark:text-rose-400 shrink-0 ml-2">{brl(Number(c.gasto_90d))}</span>
+                      <span className="tabular-nums text-destructive-text shrink-0 ml-2">{brl(Number(c.gasto_90d))}</span>
                     </Link>
                   ))}
                   {lista.length > 5 && (

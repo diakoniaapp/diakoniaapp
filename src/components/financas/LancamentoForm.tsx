@@ -240,8 +240,8 @@ export function LancamentoForm({
         <DialogHeader>
           <DialogTitle className="font-serif text-xl flex items-center gap-2">
             {tipo === "entrada"
-              ? <TrendingUp className="w-5 h-5 text-emerald-700 dark:text-emerald-400" />
-              : <TrendingDown className="w-5 h-5 text-rose-700 dark:text-rose-400" />}
+              ? <TrendingUp className="w-5 h-5 text-success-text" />
+              : <TrendingDown className="w-5 h-5 text-destructive-text" />}
             {isEdit ? "Editar lançamento" : (tipo === "entrada" ? "Nova entrada" : "Nova saída")}
           </DialogTitle>
           <DialogDescription>
@@ -254,13 +254,13 @@ export function LancamentoForm({
             <Button type="button" size="sm"
               variant={tipo === "entrada" ? "default" : "outline"}
               onClick={() => setTipo("entrada")}
-              className={tipo === "entrada" ? "bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5" : "gap-1.5"}>
+              className={tipo === "entrada" ? "bg-success hover:bg-success text-white gap-1.5" : "gap-1.5"}>
               <TrendingUp className="w-3.5 h-3.5" /> Entrada
             </Button>
             <Button type="button" size="sm"
               variant={tipo === "saida" ? "default" : "outline"}
               onClick={() => setTipo("saida")}
-              className={tipo === "saida" ? "bg-rose-600 hover:bg-rose-700 text-white gap-1.5" : "gap-1.5"}>
+              className={tipo === "saida" ? "bg-destructive hover:bg-destructive text-white gap-1.5" : "gap-1.5"}>
               <TrendingDown className="w-3.5 h-3.5" /> Saída
             </Button>
           </div>
@@ -425,15 +425,15 @@ export function LancamentoForm({
 
           {/* Resultado do OCR */}
           {(ocrLoading || ocr) && (
-            <div className="rounded-md p-3 border border-blue-300 bg-blue-50/30 text-xs space-y-2">
+            <div className="rounded-md p-3 border border-info-line bg-info-soft/30 text-xs space-y-2">
               {ocrLoading && (
-                <p className="flex items-center gap-1.5 text-blue-900">
+                <p className="flex items-center gap-1.5 text-info-text">
                   <Loader2 className="w-3.5 h-3.5 animate-spin" /> Lendo comprovante...
                 </p>
               )}
               {ocr && (
                 <>
-                  <p className="flex items-center gap-1.5 text-blue-900 font-medium">
+                  <p className="flex items-center gap-1.5 text-info-text font-medium">
                     <Sparkles className="w-3.5 h-3.5" /> Detectamos:
                   </p>
                   <div className="grid grid-cols-2 gap-x-3 gap-y-1">
@@ -454,13 +454,13 @@ export function LancamentoForm({
                     )}
                   </div>
                   {fornecedorOcrSugerido && (
-                    <p className="text-emerald-700 dark:text-emerald-400 text-xs">
+                    <p className="text-success-text text-xs">
                       ✓ Fornecedor reconhecido: <strong>{fornecedorOcrSugerido.nome}</strong>
                     </p>
                   )}
                   <div className="flex gap-1.5 pt-1">
                     <Button type="button" size="sm" onClick={aplicarSugestoesOcr}
-                      className="h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white gap-1">
+                      className="h-7 text-xs bg-info hover:bg-info text-white gap-1">
                       <Sparkles className="w-3 h-3" /> Aplicar sugestões
                     </Button>
                     {ocr.razaoSocial && ocr.cnpj && !fornecedorOcrSugerido && (
@@ -492,7 +492,7 @@ export function LancamentoForm({
               Cancelar
             </Button>
             <Button type="submit" disabled={busy}
-              className={tipo === "entrada" ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "bg-rose-600 hover:bg-rose-700 text-white"}>
+              className={tipo === "entrada" ? "bg-success hover:bg-success text-white" : "bg-destructive hover:bg-destructive text-white"}>
               {busy ? "..." : (isEdit ? "Salvar" : "Registrar")}
             </Button>
           </DialogFooter>

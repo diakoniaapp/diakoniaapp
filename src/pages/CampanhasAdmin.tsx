@@ -67,10 +67,10 @@ const CORES = [
 ];
 
 const tipoIcon = (tipo: string) => {
-  if (tipo === "pdf")    return <FileText className="w-4 h-4 text-red-500" />;
-  if (tipo === "imagem") return <Image className="w-4 h-4 text-blue-500" />;
+  if (tipo === "pdf")    return <FileText className="w-4 h-4 text-destructive-text" />;
+  if (tipo === "imagem") return <Image className="w-4 h-4 text-info-text" />;
   if (tipo === "video")  return <Video className="w-4 h-4 text-purple-500" />;
-  if (tipo === "audio")  return <Music className="w-4 h-4 text-green-500" />;
+  if (tipo === "audio")  return <Music className="w-4 h-4 text-success-text" />;
   return <File className="w-4 h-4 text-muted-foreground" />;
 };
 
@@ -100,9 +100,9 @@ const extrairTema = (nome: string): string => {
 
 const statusColor: Record<string, string> = {
   rascunho:  "bg-muted text-muted-foreground",
-  ativa:     "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+  ativa:     "bg-success-soft text-success-text/30",
   encerrada: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
-  cancelada: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+  cancelada: "bg-destructive-soft text-destructive-text/30",
 };
 
 const tipoLabel: Record<string,string> = {
@@ -186,7 +186,7 @@ export default function CampanhasAdmin() {
         {ativas.length > 0 && (
           <section>
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
-              <Flame className="w-4 h-4 text-orange-500" /> Ativas ({ativas.length})
+              <Flame className="w-4 h-4 text-warning-text" /> Ativas ({ativas.length})
             </h2>
             <div className="space-y-3">
               {ativas.map((c) => (
@@ -289,7 +289,7 @@ function CampanhaCard({ campanha: c, onEditar, onExcluir, onStatus }: {
               </Badge>
               <span className="flex items-center gap-0.5" title={`Prioridade ${c.prioridade}`}>
                 {Array.from({ length: c.prioridade }).map((_, i) => (
-                  <Star key={i} className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
+                  <Star key={i} className="w-2.5 h-2.5 fill-amber-400 text-warning-text" />
                 ))}
               </span>
             </div>
@@ -346,7 +346,7 @@ function CampanhaCard({ campanha: c, onEditar, onExcluir, onStatus }: {
               <Edit2 className="w-3 h-3" />
             </Button>
             {c.status === "rascunho" && (
-              <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-green-700 dark:text-green-400" onClick={() => onStatus("ativa")}>
+              <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-success-text" onClick={() => onStatus("ativa")}>
                 <Flame className="w-3 h-3" />
               </Button>
             )}
@@ -601,7 +601,7 @@ function WizardCampanha({ campanha, onClose, onSalvo }: {
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-serif flex items-center gap-2">
-            <Flame className="w-5 h-5 text-orange-500" />
+            <Flame className="w-5 h-5 text-warning-text" />
             {campanha ? "Editar Campanha" : "Nova Campanha"}
           </DialogTitle>
         </DialogHeader>
@@ -730,7 +730,7 @@ function WizardCampanha({ campanha, onClose, onSalvo }: {
 
               {/* Mostrar missão ou visão como referência */}
               {form.origem_identidade === "missao" && missaoIgreja && (
-                <div className="rounded bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 px-3 py-2 text-xs text-blue-800 dark:text-blue-300">
+                <div className="rounded bg-info-soft/20 border border-info-line px-3 py-2 text-xs text-info-text">
                   <span className="font-medium">Missão: </span>{missaoIgreja}
                 </div>
               )}
@@ -764,11 +764,11 @@ function WizardCampanha({ campanha, onClose, onSalvo }: {
 
               {/* Sugestões baseadas nos valores */}
               {form.origem_identidade === "valor" && valoresIdentidade.length > 0 && !form.nome.trim() && (
-                <div className="rounded bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-3 py-2 space-y-1.5">
-                  <p className="text-xs font-medium text-amber-800 dark:text-amber-300">💡 Sugestões de campanha baseadas nos valores:</p>
+                <div className="rounded bg-warning-soft/20 border border-warning-line px-3 py-2 space-y-1.5">
+                  <p className="text-xs font-medium text-warning-text">💡 Sugestões de campanha baseadas nos valores:</p>
                   {valoresIdentidade.slice(0, 3).map((v) => (
                     <button key={v.id} type="button"
-                      className="block text-left text-xs text-amber-700 dark:text-amber-400 hover:underline"
+                      className="block text-left text-xs text-warning-text hover:underline"
                       onClick={() => setForm({ ...form, nome: `Campanha: ${v.valor}`, origem_valor_id: v.id })}>
                       → Campanha sobre "{v.valor}"
                     </button>
@@ -841,7 +841,7 @@ function WizardCampanha({ campanha, onClose, onSalvo }: {
         {etapa === 2 && (
           <div className="space-y-3">
             <div className="flex items-start gap-2 rounded-md bg-muted/50 border px-3 py-2.5">
-              <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+              <AlertTriangle className="w-4 h-4 text-warning-text shrink-0 mt-0.5" />
               <p className="text-xs text-muted-foreground leading-relaxed">
                 Revise a estrutura gerada. Edite os temas de cada dia e mova materiais se necessário.
               </p>
@@ -924,23 +924,23 @@ function WizardCampanha({ campanha, onClose, onSalvo }: {
 
             <div className="rounded-md bg-muted/50 p-3 space-y-1.5 text-sm">
               <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-green-500" />
+                <CheckCircle2 className="w-4 h-4 text-success-text" />
                 <span>Campanha criada com status <strong>Rascunho</strong></span>
               </div>
               {materiais.length > 0 && (
                 <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-500" />
+                  <CheckCircle2 className="w-4 h-4 text-success-text" />
                   <span>{materiais.length} arquivo(s) serão enviados para o storage</span>
                 </div>
               )}
               {form.criar_eventos && (
                 <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-500" />
+                  <CheckCircle2 className="w-4 h-4 text-success-text" />
                   <span>{estrutura.filter((d) => d.tema.trim()).length} evento(s) criados na agenda</span>
                 </div>
               )}
               <div className="flex items-center gap-2">
-                <Bell className="w-4 h-4 text-amber-500" />
+                <Bell className="w-4 h-4 text-warning-text" />
                 <span>Notificações geradas ao ativar a campanha</span>
               </div>
             </div>

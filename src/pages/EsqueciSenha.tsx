@@ -72,7 +72,7 @@ export default function EsqueciSenha() {
           </>
         ) : (
           <>
-            <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 mb-3">
+            <div className="flex items-center gap-2 text-success-text mb-3">
               <CheckCircle2 className="w-5 h-5" />
               <p className="font-medium">Solicitação enviada</p>
             </div>
@@ -81,7 +81,7 @@ export default function EsqueciSenha() {
               O link expira em 1 hora.
             </p>
             {link && (
-              <div className="bg-amber-50 border border-amber-200 rounded p-3 mb-4 text-xs">
+              <div className="bg-warning-soft border border-warning-line rounded p-3 mb-4 text-xs">
                 <p className="font-medium mb-1">Link de teste (clique para abrir):</p>
                 <a href={link} className="text-primary break-all underline">{link}</a>
                 <p className="text-muted-foreground mt-2">

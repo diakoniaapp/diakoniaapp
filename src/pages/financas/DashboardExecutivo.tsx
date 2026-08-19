@@ -136,7 +136,7 @@ export default function DashboardExecutivo() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <Heart className="w-4 h-4 text-rose-500" /> Indicadores eclesiásticos
+              <Heart className="w-4 h-4 text-destructive-text" /> Indicadores eclesiásticos
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -155,7 +155,7 @@ export default function DashboardExecutivo() {
                       </div>
                     </div>
                     {i.variacao_pct != null && (
-                      <div className={"flex items-center gap-1 text-xs " + (i.variacao_pct >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400")}>
+                      <div className={"flex items-center gap-1 text-xs " + (i.variacao_pct >= 0 ? "text-success-text" : "text-destructive-text")}>
                         {i.variacao_pct >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
                         {i.variacao_pct.toFixed(1)}%
                       </div>
@@ -194,16 +194,16 @@ export default function DashboardExecutivo() {
                           <div
                             className={
                               "h-full transition-all " +
-                              (c.percentual >= 100 ? "bg-rose-500" :
-                               c.percentual >= 90 ? "bg-amber-500" : "bg-emerald-500")
+                              (c.percentual >= 100 ? "bg-destructive" :
+                               c.percentual >= 90 ? "bg-warning" : "bg-success")
                             }
                             style={{ width: `${Math.min(100, c.percentual)}%` }}
                           />
                         </div>
                         <span className={
                           "text-xs tabular-nums " +
-                          (c.percentual >= 100 ? "text-rose-700 dark:text-rose-400 font-semibold" :
-                           c.percentual >= 90 ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground")
+                          (c.percentual >= 100 ? "text-destructive-text font-semibold" :
+                           c.percentual >= 90 ? "text-warning-text" : "text-muted-foreground")
                         }>
                           {c.percentual.toFixed(0)}% de {fmtBR(c.orcado)}
                         </span>
@@ -226,7 +226,7 @@ export default function DashboardExecutivo() {
         </CardHeader>
         <CardContent>
           {alertas.length === 0 ? (
-            <p className="text-xs text-emerald-700 dark:text-emerald-400 text-center py-2">
+            <p className="text-xs text-success-text text-center py-2">
               ✓ Tudo em ordem — sem alertas críticos
             </p>
           ) : (
@@ -234,12 +234,12 @@ export default function DashboardExecutivo() {
               {alertas.map((a, i) => (
                 <div key={i} className={
                   "flex items-start gap-2 p-2 border rounded-md text-xs " +
-                  (a.severidade === "alta" ? "border-rose-200 bg-rose-50/30" :
-                   a.severidade === "media" ? "border-amber-200 bg-amber-50/30" : "border-blue-200 bg-blue-50/30")
+                  (a.severidade === "alta" ? "border-destructive-line bg-destructive-soft/30" :
+                   a.severidade === "media" ? "border-warning-line bg-warning-soft/30" : "border-info-line bg-info-soft/30")
                 }>
                   {a.severidade === "alta"
-                    ? <AlertCircle className="w-3.5 h-3.5 text-rose-700 dark:text-rose-400 shrink-0 mt-0.5" />
-                    : <AlertTriangle className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400 shrink-0 mt-0.5" />}
+                    ? <AlertCircle className="w-3.5 h-3.5 text-destructive-text shrink-0 mt-0.5" />
+                    : <AlertTriangle className="w-3.5 h-3.5 text-warning-text shrink-0 mt-0.5" />}
                   <div className="flex-1">
                     <div className="font-medium">{a.mensagem}</div>
                     {a.detalhe && <div className="text-muted-foreground text-xs mt-0.5">{a.detalhe}</div>}

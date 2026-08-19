@@ -156,7 +156,7 @@ export default function FinancasAdmin() {
                     <div className="min-w-0 flex-1">
                       <p className="font-medium text-sm truncate flex items-center gap-1.5">
                         {c.nome}
-                        {!c.ativo && <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 dark:text-amber-400 border-amber-300">Desativada</Badge>}
+                        {!c.ativo && <Badge variant="outline" className="text-xs bg-warning-soft text-warning-text border-warning-line">Desativada</Badge>}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {CONTA_TIPO_LABEL[c.tipo]}
@@ -179,7 +179,7 @@ export default function FinancasAdmin() {
                     <Button type="button" variant="ghost" size="icon" className="h-7 w-7"
                       onClick={() => toggleConta(c)}
                       title={c.ativo ? "Desativar" : "Reativar"}>
-                      {c.ativo ? <PowerOff className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400" /> : <RotateCcw className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />}
+                      {c.ativo ? <PowerOff className="w-3.5 h-3.5 text-warning-text" /> : <RotateCcw className="w-3.5 h-3.5 text-success-text" />}
                     </Button>
                     <Button type="button" variant="ghost" size="icon"
                       className="h-7 w-7 text-destructive hover:bg-destructive/10"
@@ -206,7 +206,7 @@ export default function FinancasAdmin() {
             {/* ENTRADAS */}
             <Card>
               <CardContent className="py-3 space-y-1.5">
-                <p className="text-xs font-medium flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
+                <p className="text-xs font-medium flex items-center gap-1.5 text-success-text">
                   <TrendingUp className="w-3.5 h-3.5" /> Entradas ({entradas.length})
                 </p>
                 {entradas.map(k => (
@@ -221,7 +221,7 @@ export default function FinancasAdmin() {
             {/* SAÍDAS */}
             <Card>
               <CardContent className="py-3 space-y-1.5">
-                <p className="text-xs font-medium flex items-center gap-1.5 text-rose-700 dark:text-rose-400">
+                <p className="text-xs font-medium flex items-center gap-1.5 text-destructive-text">
                   <TrendingDown className="w-3.5 h-3.5" /> Saídas ({saidas.length})
                 </p>
                 {saidas.map(k => (
@@ -266,7 +266,7 @@ function CategoriaLinha({ k, onEdit, onToggle, onDelete }: {
       <span className="truncate flex-1">
         {k.nome}
         {k.sistema && <Badge variant="outline" className="text-xs ml-1">sys</Badge>}
-        {!k.ativo && <Badge variant="outline" className="text-xs ml-1 bg-amber-50 text-amber-700 dark:text-amber-400">desat.</Badge>}
+        {!k.ativo && <Badge variant="outline" className="text-xs ml-1 bg-warning-soft text-warning-text">desat.</Badge>}
       </span>
       <div className="flex items-center gap-0 shrink-0">
         <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={onEdit} title="Editar">
@@ -274,7 +274,7 @@ function CategoriaLinha({ k, onEdit, onToggle, onDelete }: {
         </Button>
         <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={onToggle}
           title={k.ativo ? "Desativar" : "Reativar"}>
-          {k.ativo ? <PowerOff className="w-3 h-3 text-amber-700 dark:text-amber-400" /> : <RotateCcw className="w-3 h-3 text-emerald-700 dark:text-emerald-400" />}
+          {k.ativo ? <PowerOff className="w-3 h-3 text-warning-text" /> : <RotateCcw className="w-3 h-3 text-success-text" />}
         </Button>
         {!k.sistema && (
           <Button type="button" variant="ghost" size="icon"

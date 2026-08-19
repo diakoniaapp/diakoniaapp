@@ -140,7 +140,7 @@ export function AvisoConflitoOcupacao({
 
   if (erro) {
     return (
-      <div className="text-xs text-rose-700 dark:text-rose-400">
+      <div className="text-xs text-destructive-text">
         Falha ao verificar agenda: {erro}
       </div>
     );
@@ -149,28 +149,28 @@ export function AvisoConflitoOcupacao({
   if (conflitos.length === 0) return null;
 
   return (
-    <div className="border-2 border-amber-400 bg-amber-50/70 rounded-md p-3 space-y-2">
-      <div className="flex items-center gap-2 text-amber-800 font-medium text-sm">
+    <div className="border-2 border-warning-line bg-warning-soft/70 rounded-md p-3 space-y-2">
+      <div className="flex items-center gap-2 text-warning-text font-medium text-sm">
         <AlertTriangle className="w-4 h-4" />
         Atenção · há {conflitos.length} ocupação{conflitos.length > 1 ? "ões" : ""} no mesmo período
       </div>
       <ul className="space-y-1 text-xs">
         {conflitos.slice(0, 5).map((c, i) => (
           <li key={i} className="flex items-start gap-1.5">
-            <Calendar className="w-3 h-3 text-amber-700 dark:text-amber-400 mt-0.5 shrink-0" />
+            <Calendar className="w-3 h-3 text-warning-text mt-0.5 shrink-0" />
             <div>
               <span className="font-medium">{c.titulo}</span>
               <span className="text-muted-foreground ml-1">
                 · {fmtBr(c.inicio)} → {fmtBr(c.fim)}
               </span>
               {c.fonte === "recorrente" && (
-                <span className="ml-1 text-xs text-amber-700 dark:text-amber-400">(recorrente)</span>
+                <span className="ml-1 text-xs text-warning-text">(recorrente)</span>
               )}
             </div>
           </li>
         ))}
       </ul>
-      <p className="text-xs text-amber-700 dark:text-amber-400 italic">
+      <p className="text-xs text-warning-text italic">
         Este local permite uso simultâneo — a reserva pode prosseguir, mas confirme
         com o responsável do outro agendamento se houver risco de tumulto.
       </p>

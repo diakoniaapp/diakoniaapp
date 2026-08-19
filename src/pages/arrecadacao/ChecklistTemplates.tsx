@@ -152,10 +152,10 @@ export default function ChecklistTemplates() {
       </Card>
 
       {/* Form criar */}
-      <Card className="border-emerald-200 bg-emerald-50/30">
+      <Card className="border-success-line bg-success-soft/30">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm flex items-center gap-2">
-            <Plus className="w-4 h-4 text-emerald-700 dark:text-emerald-400" /> Novo item
+            <Plus className="w-4 h-4 text-success-text" /> Novo item
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
@@ -199,7 +199,7 @@ export default function ChecklistTemplates() {
             </Field>
           </div>
           <Button onClick={criar} disabled={criando}
-            className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700">
+            className="w-full gap-2 bg-success hover:bg-success">
             {criando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             Salvar item
           </Button>
@@ -245,7 +245,7 @@ function SecaoTipo({
   onUpdate: (id: string, patch: Partial<ChecklistTemplate>) => void;
   onArquivar: (id: string) => void;
 }) {
-  const corCard = cor === "emerald" ? "border-emerald-200" : "border-amber-200";
+  const corCard = cor === "emerald" ? "border-success-line" : "border-warning-line";
   return (
     <Card className={corCard}>
       <CardHeader className="pb-2">
@@ -289,7 +289,7 @@ function ItemEditavel({
           <div className="text-xs font-medium truncate">{item.item}</div>
           <div className="flex items-center gap-1 flex-wrap mt-0.5">
             <Badge variant="outline" className="text-xs">{nomeEspaco}</Badge>
-            {item.obrigatorio && <Badge className="text-xs bg-rose-100 text-rose-700 dark:text-rose-400 border-rose-300">obrigatório</Badge>}
+            {item.obrigatorio && <Badge className="text-xs bg-destructive-soft text-destructive-text border-destructive-line">obrigatório</Badge>}
             {!item.ativo && <Badge variant="outline" className="text-xs">arquivado</Badge>}
           </div>
         </div>
@@ -297,7 +297,7 @@ function ItemEditavel({
           className="h-7 text-xs">editar</Button>
         {item.ativo && (
           <Button size="sm" variant="ghost" onClick={() => onArquivar(item.id)}
-            className="h-7 text-rose-700 dark:text-rose-400 hover:bg-rose-50">
+            className="h-7 text-destructive-text hover:bg-destructive-soft">
             <Trash2 className="w-3 h-3" />
           </Button>
         )}
@@ -306,7 +306,7 @@ function ItemEditavel({
   }
 
   return (
-    <div className="border-2 border-emerald-300 rounded p-2 space-y-2 bg-emerald-50/40">
+    <div className="border-2 border-success-line rounded p-2 space-y-2 bg-success-soft/40">
       <Input value={draft.item} onChange={(e) => setDraft({...draft, item: e.target.value})}
         className="text-xs" />
       <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5 text-xs">
@@ -344,7 +344,7 @@ function ItemEditavel({
           });
           setEditando(false);
           toast.success("Salvo");
-        }} className="h-7 gap-1 bg-emerald-600 hover:bg-emerald-700">
+        }} className="h-7 gap-1 bg-success hover:bg-success">
           <Save className="w-3 h-3" /> salvar
         </Button>
         <Button size="sm" variant="ghost" onClick={() => setEditando(false)} className="h-7">

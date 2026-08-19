@@ -153,15 +153,15 @@ function CalcCLT() {
         {res && (
           <div className="space-y-3 pt-2">
             {/* Empregado recebe */}
-            <div className="border rounded-md p-3 bg-emerald-50/30 border-emerald-200">
-              <p className="text-xs uppercase tracking-wide text-emerald-700 dark:text-emerald-400 mb-1">Empregado recebe</p>
+            <div className="border rounded-md p-3 bg-success-soft/30 border-success-line">
+              <p className="text-xs uppercase tracking-wide text-success-text mb-1">Empregado recebe</p>
               {res.passos.map((p, i) => (
                 <div key={i} className="flex items-center justify-between text-xs py-0.5 border-b border-border/30 last:border-0">
                   <span className={i === res.passos.length - 1 ? "font-semibold" : ""}>
                     {p.titulo}
                     {p.descricao && <span className="text-xs text-muted-foreground ml-1">({p.descricao})</span>}
                   </span>
-                  <span className={`tabular-nums ${i === res.passos.length - 1 ? "font-semibold text-emerald-700 dark:text-emerald-400 text-base" : p.valor < 0 ? "text-rose-700 dark:text-rose-400" : ""}`}>
+                  <span className={`tabular-nums ${i === res.passos.length - 1 ? "font-semibold text-success-text text-base" : p.valor < 0 ? "text-destructive-text" : ""}`}>
                     {brl(p.valor)}
                   </span>
                 </div>
@@ -169,8 +169,8 @@ function CalcCLT() {
             </div>
 
             {/* Igreja paga */}
-            <div className="border rounded-md p-3 bg-rose-50/30 border-rose-200">
-              <p className="text-xs uppercase tracking-wide text-rose-700 dark:text-rose-400 mb-1">Igreja paga</p>
+            <div className="border rounded-md p-3 bg-destructive-soft/30 border-destructive-line">
+              <p className="text-xs uppercase tracking-wide text-destructive-text mb-1">Igreja paga</p>
               <div className="space-y-0.5 text-xs">
                 <Linha label="Salário base" valor={res.salario_base} />
                 <Linha label="+ FGTS 8%" valor={res.fgts} />
@@ -181,9 +181,9 @@ function CalcCLT() {
                 <Linha label="+ VT pago" valor={res.vt_total} />
                 <Linha label="+ Provisão 13º (1/12)" valor={res.decimo_provisao} />
                 <Linha label="+ Provisão Férias +1/3" valor={res.ferias_provisao} />
-                <div className="flex items-center justify-between text-sm font-semibold pt-1.5 border-t border-rose-300 mt-1">
+                <div className="flex items-center justify-between text-sm font-semibold pt-1.5 border-t border-destructive-line mt-1">
                   <span>💰 CUSTO TOTAL MENSAL</span>
-                  <span className="tabular-nums text-rose-700 dark:text-rose-400">{brl(res.custo_total)}</span>
+                  <span className="tabular-nums text-destructive-text">{brl(res.custo_total)}</span>
                 </div>
                 <p className="text-xs text-muted-foreground text-right">
                   {Math.round((res.custo_total / res.salario_base) * 100)}% do salário base
@@ -256,29 +256,29 @@ function CalcRPA() {
 
         {res && (
           <div className="space-y-3 pt-2">
-            <div className="border rounded-md p-3 bg-emerald-50/30 border-emerald-200">
-              <p className="text-xs uppercase tracking-wide text-emerald-700 dark:text-emerald-400 mb-1">Autônomo recebe</p>
+            <div className="border rounded-md p-3 bg-success-soft/30 border-success-line">
+              <p className="text-xs uppercase tracking-wide text-success-text mb-1">Autônomo recebe</p>
               {res.passos.map((p, i) => (
                 <div key={i} className="flex items-center justify-between text-xs py-0.5 border-b border-border/30 last:border-0">
                   <span className={i === res.passos.length - 1 ? "font-semibold" : ""}>
                     {p.titulo}{p.descricao && <span className="text-xs text-muted-foreground ml-1">({p.descricao})</span>}
                   </span>
-                  <span className={`tabular-nums ${i === res.passos.length - 1 ? "font-semibold text-emerald-700 dark:text-emerald-400 text-base" : p.valor < 0 ? "text-rose-700 dark:text-rose-400" : ""}`}>
+                  <span className={`tabular-nums ${i === res.passos.length - 1 ? "font-semibold text-success-text text-base" : p.valor < 0 ? "text-destructive-text" : ""}`}>
                     {brl(p.valor)}
                   </span>
                 </div>
               ))}
             </div>
-            <div className="border rounded-md p-3 bg-rose-50/30 border-rose-200">
-              <p className="text-xs uppercase tracking-wide text-rose-700 dark:text-rose-400 mb-1">Igreja paga</p>
+            <div className="border rounded-md p-3 bg-destructive-soft/30 border-destructive-line">
+              <p className="text-xs uppercase tracking-wide text-destructive-text mb-1">Igreja paga</p>
               <Linha label="Valor bruto" valor={res.bruto} />
               <Linha label="+ INSS Patronal 20%" valor={res.inss_patronal} hint={cebas ? "isento" : ""} />
-              <div className="flex items-center justify-between text-sm font-semibold pt-1.5 border-t border-rose-300 mt-1">
+              <div className="flex items-center justify-between text-sm font-semibold pt-1.5 border-t border-destructive-line mt-1">
                 <span>💰 CUSTO TOTAL</span>
-                <span className="tabular-nums text-rose-700 dark:text-rose-400">{brl(res.custo_total)}</span>
+                <span className="tabular-nums text-destructive-text">{brl(res.custo_total)}</span>
               </div>
             </div>
-            <div className="border rounded-md p-2 bg-blue-50/30 border-blue-200 text-xs text-blue-900 space-y-0.5">
+            <div className="border rounded-md p-2 bg-info-soft/30 border-info-line text-xs text-info-text space-y-0.5">
               <p className="font-medium">📋 Obrigações:</p>
               <p>• Emitir RPA · Recolher INSS (GPS) até dia 20 · IRRF (DARF 0588) se aplicável</p>
               <p>• Informar na GFIP / eSocial</p>
@@ -323,8 +323,8 @@ function CalcMEI() {
             <Label className="text-xs">Valor mensal da NF</Label>
             <Input type="number" step="0.01" value={valor} onChange={(e) => setValor(Number(e.target.value))} />
           </div>
-          <div className="border rounded-md p-2 bg-amber-50/30 border-amber-200 space-y-1">
-            <p className="text-xs font-medium text-amber-900">⚠ Check de risco trabalhista:</p>
+          <div className="border rounded-md p-2 bg-warning-soft/30 border-warning-line space-y-1">
+            <p className="text-xs font-medium text-warning-text">⚠ Check de risco trabalhista:</p>
             <label className="flex items-center gap-1.5 text-xs cursor-pointer">
               <input type="checkbox" checked={sub} onChange={(e) => setSub(e.target.checked)} />
               Há subordinação direta (horário fixo, regras)?
@@ -350,20 +350,20 @@ function CalcMEI() {
 
         {res && (
           <div className="space-y-2 pt-2">
-            <div className="border rounded-md p-3 bg-emerald-50/30 border-emerald-200">
-              <p className="text-xs uppercase tracking-wide text-emerald-700 dark:text-emerald-400 mb-1">Resultado</p>
+            <div className="border rounded-md p-3 bg-success-soft/30 border-success-line">
+              <p className="text-xs uppercase tracking-wide text-success-text mb-1">Resultado</p>
               <Linha label="Valor NF" valor={res.valor_nf} />
               <Linha label="💰 Custo total pra igreja" valor={res.custo_total} bold />
               <p className="text-xs text-muted-foreground mt-1">Sem encargos da contratante — MEI emite a própria NF.</p>
             </div>
 
             {res.alertas.length > 0 && (
-              <div className="border rounded-md p-3 bg-rose-50/30 border-rose-200 space-y-1">
-                <p className="text-xs font-medium text-rose-900 flex items-center gap-1.5">
+              <div className="border rounded-md p-3 bg-destructive-soft/30 border-destructive-line space-y-1">
+                <p className="text-xs font-medium text-destructive-text flex items-center gap-1.5">
                   <AlertCircle className="w-3.5 h-3.5" /> Avisos
                 </p>
                 {res.alertas.map((a, i) => (
-                  <p key={i} className="text-xs text-rose-900">• {a}</p>
+                  <p key={i} className="text-xs text-destructive-text">• {a}</p>
                 ))}
               </div>
             )}
@@ -433,25 +433,25 @@ function CalcPrebenda() {
 
         {res && (
           <div className="space-y-3 pt-2">
-            <div className="border rounded-md p-3 bg-emerald-50/30 border-emerald-200">
-              <p className="text-xs uppercase tracking-wide text-emerald-700 dark:text-emerald-400 mb-1">Pastor recebe</p>
+            <div className="border rounded-md p-3 bg-success-soft/30 border-success-line">
+              <p className="text-xs uppercase tracking-wide text-success-text mb-1">Pastor recebe</p>
               {res.passos.map((p, i) => (
                 <div key={i} className="flex items-center justify-between text-xs py-0.5 border-b border-border/30 last:border-0">
                   <span className={i === res.passos.length - 1 ? "font-semibold" : ""}>
                     {p.titulo}{p.descricao && <span className="text-xs text-muted-foreground ml-1">({p.descricao})</span>}
                   </span>
-                  <span className={`tabular-nums ${i === res.passos.length - 1 ? "font-semibold text-emerald-700 dark:text-emerald-400 text-base" : p.valor < 0 ? "text-rose-700 dark:text-rose-400" : ""}`}>
+                  <span className={`tabular-nums ${i === res.passos.length - 1 ? "font-semibold text-success-text text-base" : p.valor < 0 ? "text-destructive-text" : ""}`}>
                     {brl(p.valor)}
                   </span>
                 </div>
               ))}
             </div>
-            <div className="border rounded-md p-3 bg-rose-50/30 border-rose-200">
-              <p className="text-xs uppercase tracking-wide text-rose-700 dark:text-rose-400 mb-1">Igreja paga</p>
+            <div className="border rounded-md p-3 bg-destructive-soft/30 border-destructive-line">
+              <p className="text-xs uppercase tracking-wide text-destructive-text mb-1">Igreja paga</p>
               <Linha label="Bruto total" valor={res.bruto_total} bold />
               <p className="text-xs text-muted-foreground mt-1">Sem INSS Patronal · sem FGTS · sem 13º · sem férias</p>
             </div>
-            <div className="border rounded-md p-2 bg-blue-50/30 border-blue-200 text-xs text-blue-900 space-y-0.5">
+            <div className="border rounded-md p-2 bg-info-soft/30 border-info-line text-xs text-info-text space-y-0.5">
               <p className="font-medium">📋 Obrigações:</p>
               <p>• Reter IRRF (DARF 0561) · Emitir Recibo de Prebenda</p>
               <p>• Pastor declara no IRPF (carnê-leão ou completo)</p>
@@ -471,7 +471,7 @@ function Linha({ label, valor, hint, bold }: { label: string; valor: number; hin
         {label}
         {hint && <span className="text-xs text-muted-foreground ml-1">({hint})</span>}
       </span>
-      <span className={`tabular-nums ${bold ? "font-semibold" : ""} ${valor < 0 ? "text-rose-700 dark:text-rose-400" : ""}`}>
+      <span className={`tabular-nums ${bold ? "font-semibold" : ""} ${valor < 0 ? "text-destructive-text" : ""}`}>
         {brl(valor)}
       </span>
     </div>

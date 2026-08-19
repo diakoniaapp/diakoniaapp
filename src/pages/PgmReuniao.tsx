@@ -210,7 +210,7 @@ export default function PgmReuniaoPage() {
             className="gap-1.5 text-destructive hover:text-destructive">
             <Trash2 className="w-3.5 h-3.5" /> Excluir
           </Button>
-          <Badge variant="outline" className="text-xs whitespace-nowrap bg-emerald-50 text-emerald-700 dark:text-emerald-400 border-emerald-300">
+          <Badge variant="outline" className="text-xs whitespace-nowrap bg-success-soft text-success-text border-success-line">
             <Check className="w-3 h-3 mr-0.5" /> {totalGeral} presença{totalGeral === 1 ? "" : "s"}
           </Badge>
         </div>
@@ -312,13 +312,13 @@ export default function PgmReuniaoPage() {
                   type="button"
                   onClick={() => togglePresenca(p)}
                   className={`w-full flex items-center justify-between px-3 py-2 rounded-md border transition-colors ${
-                    p.presente ? "bg-emerald-50 border-emerald-200 hover:bg-emerald-100"
+                    p.presente ? "bg-success-soft border-success-line hover:bg-success-soft"
                               : "bg-card hover:bg-muted/40"
                   }`}
                 >
                   <span className="flex items-center gap-2 text-sm">
                     <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
-                      p.presente ? "bg-emerald-500 border-emerald-500" : "border-muted-foreground"
+                      p.presente ? "bg-success border-success-line" : "border-muted-foreground"
                     }`}>
                       {p.presente && <Check className="w-3 h-3 text-white" />}
                     </div>
@@ -367,7 +367,7 @@ export default function PgmReuniaoPage() {
                         sem código de país abre conversa com ninguém. */}
                     {v.telefone && (
                       <a href={`https://wa.me/${normalizarTelefone(v.telefone)}`} target="_blank" rel="noopener noreferrer">
-                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-emerald-700 dark:text-emerald-400">
+                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-success-text">
                           <MessageCircle className="w-3.5 h-3.5" />
                         </Button>
                       </a>

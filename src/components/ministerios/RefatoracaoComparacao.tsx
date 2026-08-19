@@ -39,8 +39,8 @@ interface Props {
 function FonteBadge({ fonte }: { fonte: "ia" | "parser" | "combinado" }) {
     const map = {
           ia: { label: "IA + Documento", color: "bg-purple-100 text-purple-700 border-purple-300" },
-          parser: { label: "Parser Manual", color: "bg-blue-100 text-blue-700 border-blue-300" },
-          combinado: { label: "IA + Parser", color: "bg-amber-100 text-amber-700 dark:text-amber-400 border-amber-300" },
+          parser: { label: "Parser Manual", color: "bg-info-soft text-info-text border-info-line" },
+          combinado: { label: "IA + Parser", color: "bg-warning-soft text-warning-text border-warning-line" },
         };
     const m = map[fonte];
     return (
@@ -54,9 +54,9 @@ function FonteBadge({ fonte }: { fonte: "ia" | "parser" | "combinado" }) {
 
 function SimilaridadeBadge({ pct }: { pct: number }) {
     const color =
-      pct >= 90 ? "text-emerald-700 dark:text-emerald-400 bg-emerald-50 border-emerald-200" :
-      pct >= 70 ? "text-amber-700 dark:text-amber-400 bg-amber-50 border-amber-200" :
-      "text-rose-700 dark:text-rose-400 bg-rose-50 border-rose-200";
+      pct >= 90 ? "text-success-text bg-success-soft border-success-line" :
+      pct >= 70 ? "text-warning-text bg-warning-soft border-warning-line" :
+      "text-destructive-text bg-destructive-soft border-destructive-line";
     return (
           <span className={`text-xs font-mono px-1.5 py-0.5 rounded border ${color}`}>
             {pct}% similar
@@ -81,8 +81,8 @@ function ItemCard({
     const temDif = item.diferencas.some(d => d.tipo !== "sem_mudanca");
 
     const borderColor =
-      decisao === "atualizar" ? "border-amber-300 bg-amber-50/30" :
-      decisao === "criar" ? "border-emerald-300 bg-emerald-50/30" :
+      decisao === "atualizar" ? "border-warning-line bg-warning-soft/30" :
+      decisao === "criar" ? "border-success-line bg-success-soft/30" :
       decisao === "manter" ? "border-muted bg-muted/20" :
       decisao === "ignorar" ? "border-muted bg-muted/20 opacity-60" :
       "border-border bg-background";
@@ -93,12 +93,12 @@ function ItemCard({
               <div className="flex-1 min-w-0">
                 <div className="flex flex-wrap items-center gap-1.5 mb-1">
                   {tipo === "atualizar" && (
-                                  <Badge variant="outline" className="text-xs bg-amber-100 text-amber-700 dark:text-amber-400 border-amber-300 gap-1">
+                                  <Badge variant="outline" className="text-xs bg-warning-soft text-warning-text border-warning-line gap-1">
                                     <RefreshCw className="w-2.5 h-2.5" /> Atualizar
                                   </Badge>
                                 )}
                   {tipo === "criar" && (
-                                  <Badge variant="outline" className="text-xs bg-emerald-100 text-emerald-700 dark:text-emerald-400 border-emerald-300 gap-1">
+                                  <Badge variant="outline" className="text-xs bg-success-soft text-success-text border-success-line gap-1">
                                     <Plus className="w-2.5 h-2.5" /> Novo
                                   </Badge>
                                 )}
@@ -142,21 +142,21 @@ function ItemCard({
                                                     <p className="font-medium text-xs uppercase text-muted-foreground mb-1">
                                                       {dif.label}
                                                       {dif.tipo === "novo" && (
-                                                                              <Badge variant="outline" className="ml-2 text-xs bg-emerald-50 text-emerald-700 dark:text-emerald-400 border-emerald-200">Novo campo</Badge>
+                                                                              <Badge variant="outline" className="ml-2 text-xs bg-success-soft text-success-text border-success-line">Novo campo</Badge>
                                                                             )}
                                                       {dif.tipo === "modificado" && (
-                                                                              <Badge variant="outline" className="ml-2 text-xs bg-amber-50 text-amber-700 dark:text-amber-400 border-amber-200">Mais completo</Badge>
+                                                                              <Badge variant="outline" className="ml-2 text-xs bg-warning-soft text-warning-text border-warning-line">Mais completo</Badge>
                                                                             )}
                                                     </p>
                                                     {dif.valorAtual && (
                                                                           <div className="flex items-start gap-1 mb-1">
-                                                                            <Minus className="w-3 h-3 text-rose-400 mt-0.5 shrink-0" />
+                                                                            <Minus className="w-3 h-3 text-destructive-text mt-0.5 shrink-0" />
                                                                             <p className="text-muted-foreground line-clamp-2">{dif.valorAtual}</p>
                                                                           </div>
                                                                         )}
                                                     {dif.valorNovo && dif.tipo !== "sem_mudanca" && (
                                                                           <div className="flex items-start gap-1">
-                                                                            <Plus className="w-3 h-3 text-emerald-500 mt-0.5 shrink-0" />
+                                                                            <Plus className="w-3 h-3 text-success-text mt-0.5 shrink-0" />
                                                                             <p className="text-foreground line-clamp-3">{dif.valorNovo}</p>
                                                                           </div>
                                                                         )}
@@ -174,8 +174,8 @@ function ItemCard({
                                   onClick={() => onDecidir("atualizar")}
                                   className={`px-2.5 py-1 rounded text-xs font-medium transition-all border ${
                                                       decisao === "atualizar"
-                                                        ? "bg-amber-500 text-white border-amber-500"
-                                                        : "bg-background border-border text-muted-foreground hover:border-amber-300"
+                                                        ? "bg-warning text-white border-warning-line"
+                                                        : "bg-background border-border text-muted-foreground hover:border-warning-line"
                                                     }`}
                                 >
                                   Atualizar
@@ -198,8 +198,8 @@ function ItemCard({
                                   onClick={() => onDecidir("criar")}
                                   className={`px-2.5 py-1 rounded text-xs font-medium transition-all border ${
                                                       decisao === "criar"
-                                                        ? "bg-emerald-500 text-white border-emerald-500"
-                                                        : "bg-background border-border text-muted-foreground hover:border-emerald-300"
+                                                        ? "bg-success text-white border-success-line"
+                                                        : "bg-background border-border text-muted-foreground hover:border-success-line"
                                                     }`}
                                 >
                                   Criar
@@ -313,10 +313,10 @@ export default function RefatoracaoComparacao({
                               {/* Resumo */}
                               <div className="grid grid-cols-4 gap-2">
                                 {[
-                                                    { label: "Para atualizar", count: paraAtualizar.length, color: "text-amber-700 dark:text-amber-400 bg-amber-50 border-amber-200" },
-                                                    { label: "Para criar", count: paraCriar.length, color: "text-emerald-700 dark:text-emerald-400 bg-emerald-50 border-emerald-200" },
+                                                    { label: "Para atualizar", count: paraAtualizar.length, color: "text-warning-text bg-warning-soft border-warning-line" },
+                                                    { label: "Para criar", count: paraCriar.length, color: "text-success-text bg-success-soft border-success-line" },
                                                     { label: "Sincronizados", count: paraManter.length, color: "text-muted-foreground bg-muted/30 border-border" },
-                                                    { label: "Nao encontrados", count: orfaos.length, color: "text-blue-600 bg-blue-50 border-blue-200" },
+                                                    { label: "Nao encontrados", count: orfaos.length, color: "text-info-text bg-info-soft border-info-line" },
                                                   ].map(({ label, count, color }) => (
                                                     <div key={label} className={`rounded-lg border px-3 py-2 text-center ${color}`}>
                                                       <p className="text-xl font-bold">{count}</p>
@@ -329,7 +329,7 @@ export default function RefatoracaoComparacao({
                               {paraAtualizar.length > 0 && (
                                                 <section>
                                                   <div className="flex items-center gap-2 mb-2">
-                                                    <RefreshCw className="w-3.5 h-3.5 text-amber-500" />
+                                                    <RefreshCw className="w-3.5 h-3.5 text-warning-text" />
                                                     <h3 className="text-sm font-semibold">Para enriquecer ({paraAtualizar.length})</h3>
                                                     <span className="text-xs text-muted-foreground">dados podem ser melhorados</span>
                                                   </div>
@@ -351,7 +351,7 @@ export default function RefatoracaoComparacao({
                               {paraCriar.length > 0 && (
                                                 <section>
                                                   <div className="flex items-center gap-2 mb-2">
-                                                    <Plus className="w-3.5 h-3.5 text-emerald-500" />
+                                                    <Plus className="w-3.5 h-3.5 text-success-text" />
                                                     <h3 className="text-sm font-semibold">Novos no documento ({paraCriar.length})</h3>
                                                     <span className="text-xs text-muted-foreground">nao encontrados no sistema</span>
                                                   </div>
@@ -396,23 +396,23 @@ export default function RefatoracaoComparacao({
                               {orfaos.length > 0 && (
                                                 <section>
                                                   <div className="flex items-center gap-2 mb-2">
-                                                    <AlertCircle className="w-3.5 h-3.5 text-blue-500" />
+                                                    <AlertCircle className="w-3.5 h-3.5 text-info-text" />
                                                     <h3 className="text-sm font-semibold">Nao encontrados no documento ({orfaos.length})</h3>
                                                   </div>
-                                                  <div className="rounded-md border border-blue-200 bg-blue-50/50 p-3">
-                                                    <p className="text-xs text-blue-700 mb-2">
+                                                  <div className="rounded-md border border-info-line bg-info-soft/50 p-3">
+                                                    <p className="text-xs text-info-text mb-2">
                                                       Estes ministerios existem no sistema mas nao foram identificados no documento.
                                                       Eles serao preservados automaticamente.
                                                     </p>
                                                     <div className="space-y-1">
                                                       {orfaos.map((orfao, i) => (
                                                                                 <div key={i} className="flex items-center gap-2 text-xs">
-                                                                                  <Shield className="w-3 h-3 text-blue-400 shrink-0" />
+                                                                                  <Shield className="w-3 h-3 text-info-text shrink-0" />
                                                                                   <span className="font-medium">{orfao.nome}</span>
                                                                                   {orfao.sigla && (
                                                                                                                 <span className="text-xs text-muted-foreground">({orfao.sigla})</span>
                                                                                                               )}
-                                                                                  <Badge variant="outline" className="text-xs bg-blue-50 text-blue-600 border-blue-200 ml-auto">
+                                                                                  <Badge variant="outline" className="text-xs bg-info-soft text-info-text border-info-line ml-auto">
                                                                                     Preservado
                                                                                   </Badge>
                                                                                 </div>
@@ -438,9 +438,9 @@ export default function RefatoracaoComparacao({
               {!carregando && (
                           <DialogFooter className="px-6 py-3 border-t bg-muted/20">
                             <div className="flex items-center gap-2 flex-1 text-xs text-muted-foreground">
-                              {atualizar > 0 && <span className="text-amber-700 dark:text-amber-400 font-medium">{atualizar} para atualizar</span>}
+                              {atualizar > 0 && <span className="text-warning-text font-medium">{atualizar} para atualizar</span>}
                               {atualizar > 0 && criar > 0 && <span>•</span>}
-                              {criar > 0 && <span className="text-emerald-700 dark:text-emerald-400 font-medium">{criar} para criar</span>}
+                              {criar > 0 && <span className="text-success-text font-medium">{criar} para criar</span>}
                               {semAcoes && <span>Nenhuma alteracao selecionada</span>}
                             </div>
                             <Button variant="outline" onClick={() => onOpenChange(false)} disabled={aplicando}>

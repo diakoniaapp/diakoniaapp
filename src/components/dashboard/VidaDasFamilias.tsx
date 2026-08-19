@@ -88,7 +88,7 @@ interface ColunaProps {
 }
 
 function ColunaEventos({ cor, icon: Icon, titulo, lista, onWhats, sufixo }: ColunaProps) {
-  const corTitulo = cor === "rose" ? "text-rose-700 dark:text-rose-400" : "text-pink-600";
+  const corTitulo = cor === "rose" ? "text-celebracao-text" : "text-celebracao-text";
   return (
     <Card>
       <CardContent className="py-3 space-y-2">
@@ -122,7 +122,7 @@ function ColunaEventos({ cor, icon: Icon, titulo, lista, onWhats, sufixo }: Colu
                   {(ev.telefone || ev.telefone_secundario) && (
                     <Button
                       type="button" size="sm" variant="ghost"
-                      className="h-7 w-7 p-0 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 shrink-0"
+                      className="h-7 w-7 p-0 text-success-text hover:bg-success-soft shrink-0"
                       onClick={() => onWhats(ev)}
                       title="Enviar mensagem via WhatsApp"
                     >

@@ -30,7 +30,7 @@ export const STATUS_INFO: Record<MembroStatus, StatusInfo> = {
   },
   desligado: {
     label: "Desligado",
-    cor: "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-700",
+    cor: "bg-warning-soft text-warning-text border-warning-line/40",
     descricao: "Saiu da membresia por decisão própria ou disciplinar. Mantido no histórico mas não conta como membro.",
   },
   falecido: {

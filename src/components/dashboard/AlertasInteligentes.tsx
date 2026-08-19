@@ -74,8 +74,8 @@ export function AlertasInteligentes() {
 
   if (total === 0) {
     return (
-      <Card className="border-emerald-200 bg-emerald-50/40 dark:bg-emerald-950/10">
-        <CardContent className="py-5 flex items-center gap-2 justify-center text-emerald-700 dark:text-emerald-300">
+      <Card className="border-success-line bg-success-soft/40">
+        <CardContent className="py-5 flex items-center gap-2 justify-center text-success-text">
           <CheckCircle2 className="w-4 h-4" />
           <span className="text-sm">Tudo em ordem — nenhuma pendência pastoral no momento.</span>
         </CardContent>
@@ -167,18 +167,18 @@ interface AlertaCardProps {
 }
 
 const CORES: Record<AlertaCardProps["cor"], { card: string; chip: string; icon: string }> = {
-  rose:    { card: "border-rose-200 bg-rose-50/40 dark:bg-rose-950/10",
-             chip: "bg-rose-100 text-rose-700 dark:text-rose-400 border-rose-300",
-             icon: "text-rose-700 dark:text-rose-400" },
-  blue:    { card: "border-blue-200 bg-blue-50/40 dark:bg-blue-950/10",
-             chip: "bg-blue-100 text-blue-700 border-blue-300",
-             icon: "text-blue-600" },
-  amber:   { card: "border-amber-200 bg-amber-50/40 dark:bg-amber-950/10",
-             chip: "bg-amber-100 text-amber-700 dark:text-amber-400 border-amber-300",
-             icon: "text-amber-700 dark:text-amber-400" },
-  emerald: { card: "border-emerald-200 bg-emerald-50/40",
-             chip: "bg-emerald-100 text-emerald-700 dark:text-emerald-400 border-emerald-300",
-             icon: "text-emerald-700 dark:text-emerald-400" },
+  rose:    { card: "border-destructive-line bg-destructive-soft/40",
+             chip: "bg-destructive-soft text-destructive-text border-destructive-line",
+             icon: "text-destructive-text" },
+  blue:    { card: "border-info-line bg-info-soft/40",
+             chip: "bg-info-soft text-info-text border-info-line",
+             icon: "text-info-text" },
+  amber:   { card: "border-warning-line bg-warning-soft/40",
+             chip: "bg-warning-soft text-warning-text border-warning-line",
+             icon: "text-warning-text" },
+  emerald: { card: "border-success-line bg-success-soft/40",
+             chip: "bg-success-soft text-success-text border-success-line",
+             icon: "text-success-text" },
 };
 
 function AlertaCard({ cor, icon: Icon, titulo, contagem, descricao, cta, children }: AlertaCardProps) {

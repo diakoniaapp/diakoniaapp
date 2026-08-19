@@ -139,12 +139,12 @@ export default function GovernancaAssembleia() {
       </div>
 
       {/* QUÓRUM EM DESTAQUE */}
-      <Card className={quorum.atingido ? "border-emerald-300 bg-emerald-50/30" : "border-rose-300 bg-rose-50/30"}>
+      <Card className={quorum.atingido ? "border-success-line bg-success-soft/30" : "border-destructive-line bg-destructive-soft/30"}>
         <CardContent className="py-3">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div>
               <p className="text-xs uppercase tracking-wide text-muted-foreground">Quórum</p>
-              <p className={`text-2xl font-semibold tabular-nums ${quorum.atingido ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"}`}>
+              <p className={`text-2xl font-semibold tabular-nums ${quorum.atingido ? "text-success-text" : "text-destructive-text"}`}>
                 {presNum} / {aptos}
                 <span className="text-base ml-1">({quorum.pct.toFixed(1)}%)</span>
               </p>
@@ -152,11 +152,11 @@ export default function GovernancaAssembleia() {
             </div>
             <div className="text-right">
               {quorum.atingido ? (
-                <Badge variant="outline" className="text-sm bg-emerald-100 text-emerald-700 dark:text-emerald-400 border-emerald-400 px-3 py-1">
+                <Badge variant="outline" className="text-sm bg-success-soft text-success-text border-success-line px-3 py-1">
                   ✅ Quórum atingido
                 </Badge>
               ) : (
-                <Badge variant="outline" className="text-sm bg-rose-100 text-rose-700 dark:text-rose-400 border-rose-400 px-3 py-1">
+                <Badge variant="outline" className="text-sm bg-destructive-soft text-destructive-text border-destructive-line px-3 py-1">
                   🚨 Quórum não atingido
                 </Badge>
               )}
@@ -164,7 +164,7 @@ export default function GovernancaAssembleia() {
           </div>
           {/* Barra visual */}
           <div className="h-2 mt-2 bg-muted rounded overflow-hidden relative">
-            <div className={`h-full transition-all ${quorum.atingido ? "bg-emerald-500" : "bg-rose-500"}`}
+            <div className={`h-full transition-all ${quorum.atingido ? "bg-success" : "bg-destructive"}`}
               style={{ width: `${Math.min(100, quorum.pct)}%` }} />
             {/* Marca do mínimo */}
             <div className="absolute top-0 bottom-0 w-0.5 bg-foreground/40"
@@ -178,17 +178,17 @@ export default function GovernancaAssembleia() {
       <div className="flex gap-2 flex-wrap">
         {ass.status === "agendada" && (
           <Button size="sm" onClick={() => trocarStatus("em_andamento")}
-            className="bg-amber-600 hover:bg-amber-700 text-white gap-1.5">
+            className="bg-warning hover:bg-warning text-white gap-1.5">
             ▶ Iniciar assembleia
           </Button>
         )}
         {ass.status === "em_andamento" && (
           <Button size="sm" onClick={() => trocarStatus("concluida")}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5">
+            className="bg-success hover:bg-success text-white gap-1.5">
             ✓ Concluir
           </Button>
         )}
-        <Button size="sm" variant="outline" onClick={() => setConvOpen(true)} className="gap-1.5 text-emerald-700 dark:text-emerald-400">
+        <Button size="sm" variant="outline" onClick={() => setConvOpen(true)} className="gap-1.5 text-success-text">
           <MessageCircle className="w-3.5 h-3.5" /> Convocação WhatsApp
         </Button>
         {ass.status === "concluida" && (
@@ -259,10 +259,10 @@ export default function GovernancaAssembleia() {
               {presentesFiltrados.map(p => (
                 <button key={p.id} onClick={() => togglePresenca(p)}
                   className={`w-full flex items-center gap-2 border rounded-md px-3 py-2 transition-colors text-left ${
-                    p.presente ? "bg-emerald-50 border-emerald-300" : "hover:bg-muted/30"
+                    p.presente ? "bg-success-soft border-success-line" : "hover:bg-muted/30"
                   }`}>
                   <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all shrink-0 ${
-                    p.presente ? "bg-emerald-500 border-emerald-500" : "border-muted-foreground"
+                    p.presente ? "bg-success border-success-line" : "border-muted-foreground"
                   }`}>
                     {p.presente && <Check className="w-3 h-3 text-white" />}
                   </div>
@@ -322,7 +322,7 @@ function ConvocacaoDialog({ assembleia, pautas, open, onOpenChange, onMarked }: 
       <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-serif text-xl flex items-center gap-2">
-            <MessageCircle className="w-5 h-5 text-emerald-700 dark:text-emerald-400" />
+            <MessageCircle className="w-5 h-5 text-success-text" />
             Convocação WhatsApp
           </DialogTitle>
           <DialogDescription>
@@ -344,7 +344,7 @@ function ConvocacaoDialog({ assembleia, pautas, open, onOpenChange, onMarked }: 
                 {pautas.length > 5 && <p className="text-muted-foreground">+{pautas.length - 5} item(ns)...</p>}
               </div>
             ) : (
-              <div className="border rounded-md p-2 bg-amber-50/30 border-amber-200 text-xs mb-2 text-amber-900">
+              <div className="border rounded-md p-2 bg-warning-soft/30 border-warning-line text-xs mb-2 text-warning-text">
                 ⚠ Sem pautas vinculadas. O convite irá apenas com data e local.
               </div>
             )}
@@ -361,7 +361,7 @@ function ConvocacaoDialog({ assembleia, pautas, open, onOpenChange, onMarked }: 
                 const enviado = enviados.has(p.pessoa_id);
                 const semTel = !p.telefone_celular;
                 return (
-                  <div key={p.pessoa_id} className={`flex items-center gap-2 border rounded-md px-3 py-1.5 ${semTel ? "opacity-50" : enviado ? "bg-emerald-50 border-emerald-200" : ""}`}>
+                  <div key={p.pessoa_id} className={`flex items-center gap-2 border rounded-md px-3 py-1.5 ${semTel ? "opacity-50" : enviado ? "bg-success-soft border-success-line" : ""}`}>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{p.pessoa_nome}</p>
                       <p className="text-xs text-muted-foreground">{p.telefone_celular ?? "sem telefone"}</p>
@@ -369,7 +369,7 @@ function ConvocacaoDialog({ assembleia, pautas, open, onOpenChange, onMarked }: 
                     {!semTel && (
                       <Button size="sm" variant={enviado ? "outline" : "default"}
                         onClick={() => enviar(p)}
-                        className={`h-7 text-xs gap-1 ${enviado ? "" : "bg-emerald-600 hover:bg-emerald-700 text-white"}`}>
+                        className={`h-7 text-xs gap-1 ${enviado ? "" : "bg-success hover:bg-success text-white"}`}>
                         {enviado ? <><Check className="w-3 h-3" /> Reenviar</> : <><Send className="w-3 h-3" /> Enviar</>}
                       </Button>
                     )}
@@ -431,9 +431,9 @@ function PautaVotacao({ pauta, aptos, presentes, quorumAtingido, emAndamento, on
     }
   }
 
-  const cardCor = pauta.status === "aprovada_assembleia" ? "border-emerald-300 bg-emerald-50/20"
-    : pauta.status === "rejeitada" ? "border-rose-300 bg-rose-50/20"
-    : pauta.status === "adiada" ? "border-amber-300 bg-amber-50/20"
+  const cardCor = pauta.status === "aprovada_assembleia" ? "border-success-line bg-success-soft/20"
+    : pauta.status === "rejeitada" ? "border-destructive-line bg-destructive-soft/20"
+    : pauta.status === "adiada" ? "border-warning-line bg-warning-soft/20"
     : "";
 
   return (
@@ -452,10 +452,10 @@ function PautaVotacao({ pauta, aptos, presentes, quorumAtingido, emAndamento, on
             )}
           </div>
           <Badge variant="outline" className={`text-xs shrink-0 ${
-            pauta.status === "aprovada_assembleia" ? "bg-emerald-100 text-emerald-700 dark:text-emerald-400 border-emerald-300" :
-            pauta.status === "rejeitada" ? "bg-rose-100 text-rose-700 dark:text-rose-400 border-rose-300" :
-            pauta.status === "adiada" ? "bg-amber-100 text-amber-700 dark:text-amber-400 border-amber-300" :
-            "bg-blue-100 text-blue-700 border-blue-300"
+            pauta.status === "aprovada_assembleia" ? "bg-success-soft text-success-text border-success-line" :
+            pauta.status === "rejeitada" ? "bg-destructive-soft text-destructive-text border-destructive-line" :
+            pauta.status === "adiada" ? "bg-warning-soft text-warning-text border-warning-line" :
+            "bg-info-soft text-info-text border-info-line"
           }`}>
             {PAUTA_STATUS_LABEL[pauta.status]}
           </Badge>
@@ -478,15 +478,15 @@ function PautaVotacao({ pauta, aptos, presentes, quorumAtingido, emAndamento, on
         {!decidida && !aberto && (
           <div className="grid grid-cols-3 gap-2 pt-1">
             <Button size="sm" onClick={() => { setAberto(true); autoVotos("aprovada"); }}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5">
+              className="bg-success hover:bg-success text-white gap-1.5">
               <ThumbsUp className="w-3.5 h-3.5" /> Aprovar
             </Button>
             <Button size="sm" onClick={() => { setAberto(true); autoVotos("rejeitada"); }}
-              variant="outline" className="text-rose-700 dark:text-rose-400 border-rose-300 gap-1.5">
+              variant="outline" className="text-destructive-text border-destructive-line gap-1.5">
               <ThumbsDown className="w-3.5 h-3.5" /> Rejeitar
             </Button>
             <Button size="sm" onClick={() => { setAberto(true); autoVotos("adiada"); }}
-              variant="outline" className="text-amber-700 dark:text-amber-400 border-amber-300 gap-1.5">
+              variant="outline" className="text-warning-text border-warning-line gap-1.5">
               <Clock className="w-3.5 h-3.5" /> Adiar
             </Button>
           </div>
@@ -520,11 +520,11 @@ function PautaVotacao({ pauta, aptos, presentes, quorumAtingido, emAndamento, on
               placeholder="Observação (opcional)" className="text-xs" />
             <div className="grid grid-cols-4 gap-1">
               <Button size="sm" onClick={() => decidir("aprovada")} disabled={busy}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs">Aprovar</Button>
+                className="bg-success hover:bg-success text-white text-xs">Aprovar</Button>
               <Button size="sm" onClick={() => decidir("rejeitada")} disabled={busy}
-                className="bg-rose-600 hover:bg-rose-700 text-white text-xs">Rejeitar</Button>
+                className="bg-destructive hover:bg-destructive text-white text-xs">Rejeitar</Button>
               <Button size="sm" onClick={() => decidir("adiada")} disabled={busy}
-                className="bg-amber-600 hover:bg-amber-700 text-white text-xs">Adiar</Button>
+                className="bg-warning hover:bg-warning text-white text-xs">Adiar</Button>
               <Button size="sm" variant="outline" onClick={() => setAberto(false)} disabled={busy} className="text-xs">Cancelar</Button>
             </div>
           </div>

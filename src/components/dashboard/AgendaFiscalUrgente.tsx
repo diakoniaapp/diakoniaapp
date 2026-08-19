@@ -56,8 +56,8 @@ export function AgendaFiscalUrgente() {
   if (!data || (data.total_atrasados + data.total_urgentes + data.total_proximos === 0)) {
     return (
       <div className="py-3 text-center text-xs">
-        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400 inline mr-1" />
-        <span className="text-emerald-700 dark:text-emerald-400">Tudo em ordem — nada fiscal pendente.</span>
+        <CheckCircle2 className="w-3.5 h-3.5 text-success-text inline mr-1" />
+        <span className="text-success-text">Tudo em ordem — nada fiscal pendente.</span>
         {data && data.total_pagos_mes > 0 && (
           <span className="text-muted-foreground"> ({data.total_pagos_mes} obrigação(ões) paga(s) este mês)</span>
         )}
@@ -71,22 +71,22 @@ export function AgendaFiscalUrgente() {
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2 text-xs">
         {data.total_atrasados > 0 && (
-          <span className="px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 dark:text-rose-400 border border-rose-200 font-medium">
+          <span className="px-1.5 py-0.5 rounded bg-destructive-soft text-destructive-text border border-destructive-line font-medium">
             🔴 {data.total_atrasados} atrasado{data.total_atrasados > 1 ? "s" : ""}
           </span>
         )}
         {data.total_urgentes > 0 && (
-          <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:text-amber-400 border border-amber-200">
+          <span className="px-1.5 py-0.5 rounded bg-warning-soft text-warning-text border border-warning-line">
             🟡 {data.total_urgentes} urgente{data.total_urgentes > 1 ? "s" : ""}
           </span>
         )}
         {data.total_proximos > 0 && (
-          <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
+          <span className="px-1.5 py-0.5 rounded bg-info-soft text-info-text border border-info-line">
             📅 {data.total_proximos} próximo{data.total_proximos > 1 ? "s" : ""}
           </span>
         )}
         {data.total_pagos_mes > 0 && (
-          <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 dark:text-emerald-400 border border-emerald-200 ml-auto">
+          <span className="px-1.5 py-0.5 rounded bg-success-soft text-success-text border border-success-line ml-auto">
             ✓ {data.total_pagos_mes} pago{data.total_pagos_mes > 1 ? "s" : ""} no mês
           </span>
         )}
@@ -99,8 +99,8 @@ export function AgendaFiscalUrgente() {
             <span className="flex-1 truncate">{a.nome}</span>
             <span className={
               "text-xs tabular-nums shrink-0 " +
-              (a.severidade === "atrasado" ? "text-rose-700 dark:text-rose-400 font-semibold" :
-               a.severidade === "urgente" ? "text-amber-700 dark:text-amber-400 font-medium" : "text-muted-foreground")
+              (a.severidade === "atrasado" ? "text-destructive-text font-semibold" :
+               a.severidade === "urgente" ? "text-warning-text font-medium" : "text-muted-foreground")
             }>
               {fmtData(a.vencimento)}
               {a.severidade === "atrasado" && ` · ${Math.abs(a.dias_para_vencer)}d atraso`}
@@ -114,7 +114,7 @@ export function AgendaFiscalUrgente() {
       <div className="flex items-center justify-between gap-2 pt-1">
         <Button size="sm" variant="outline" className="text-xs gap-1 h-7"
           onClick={avisarWhats}>
-          <MessageCircle className="w-3 h-3 text-emerald-700 dark:text-emerald-400" /> Avisar tesouraria
+          <MessageCircle className="w-3 h-3 text-success-text" /> Avisar tesouraria
         </Button>
         <Link to="/financas/fiscal" className="text-xs text-gold hover:underline inline-flex items-center gap-1">
           Ver agenda fiscal <ArrowRight className="w-3 h-3" />

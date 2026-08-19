@@ -186,7 +186,7 @@ export function ConvidarParaEvento({ open, onOpenChange, ...evento }: Props) {
           <Button
             type="button"
             onClick={abrirWhats}
-            className="gap-1.5 w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white"
+            className="gap-1.5 w-full sm:w-auto bg-success hover:bg-success text-white"
           >
             <MessageCircle className="w-4 h-4" /> Compartilhar
           </Button>

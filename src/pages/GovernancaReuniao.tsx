@@ -201,16 +201,16 @@ export default function GovernancaReuniao() {
             <p className="text-base font-semibold">{parts.length}</p>
           </CardContent>
         </Card>
-        <Card className="bg-emerald-50/30 border-emerald-200">
+        <Card className="bg-success-soft/30 border-success-line">
           <CardContent className="py-2 px-3">
-            <p className="text-xs uppercase text-emerald-700 dark:text-emerald-400 flex items-center gap-1"><Check className="w-3 h-3" /> Presentes</p>
-            <p className="text-base font-semibold text-emerald-700 dark:text-emerald-400">{presentes}</p>
+            <p className="text-xs uppercase text-success-text flex items-center gap-1"><Check className="w-3 h-3" /> Presentes</p>
+            <p className="text-base font-semibold text-success-text">{presentes}</p>
           </CardContent>
         </Card>
-        <Card className="bg-amber-50/30 border-amber-200">
+        <Card className="bg-warning-soft/30 border-warning-line">
           <CardContent className="py-2 px-3">
-            <p className="text-xs uppercase text-amber-700 dark:text-amber-400 flex items-center gap-1"><FileText className="w-3 h-3" /> Pra assembleia</p>
-            <p className="text-base font-semibold text-amber-700 dark:text-amber-400">{deliberativas}</p>
+            <p className="text-xs uppercase text-warning-text flex items-center gap-1"><FileText className="w-3 h-3" /> Pra assembleia</p>
+            <p className="text-base font-semibold text-warning-text">{deliberativas}</p>
           </CardContent>
         </Card>
       </div>
@@ -219,13 +219,13 @@ export default function GovernancaReuniao() {
       <div className="flex gap-1 flex-wrap">
         {reun.status === "agendada" && (
           <Button size="sm" onClick={() => trocarStatus("em_andamento")}
-            className="bg-amber-600 hover:bg-amber-700 text-white gap-1.5">
+            className="bg-warning hover:bg-warning text-white gap-1.5">
             ▶ Iniciar reunião
           </Button>
         )}
         {reun.status === "em_andamento" && (
           <Button size="sm" onClick={() => trocarStatus("concluida")}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5">
+            className="bg-success hover:bg-success text-white gap-1.5">
             ✓ Concluir
           </Button>
         )}
@@ -289,14 +289,14 @@ export default function GovernancaReuniao() {
                 <div key={p.id} className="border rounded-md px-3 py-1.5 flex items-center gap-2">
                   <button
                     onClick={() => marcarPresenca(p.id, !p.presente).then(carregar)}
-                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${p.presente ? "bg-emerald-500 border-emerald-500" : "border-muted-foreground"}`}>
+                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${p.presente ? "bg-success border-success-line" : "border-muted-foreground"}`}>
                     {p.presente && <Check className="w-3 h-3 text-white" />}
                   </button>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{p.pessoa_nome}</p>
                     <p className="text-xs text-muted-foreground">{p.papel}</p>
                   </div>
-                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-emerald-700 dark:text-emerald-400"
+                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-success-text"
                     onClick={() => enviarConvocacao(p)} title="Enviar WhatsApp">
                     <MessageCircle className="w-3.5 h-3.5" />
                   </Button>
@@ -388,15 +388,15 @@ function PautaLinha({ pauta, onChange }: { pauta: GovPauta; onChange: () => void
   }
 
   return (
-    <Card className={pauta.classificacao === "deliberativa" ? "border-amber-300 bg-amber-50/20" : ""}>
+    <Card className={pauta.classificacao === "deliberativa" ? "border-warning-line bg-warning-soft/20" : ""}>
       <CardContent className="py-2.5 px-3 space-y-1.5">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="font-medium text-sm">{pauta.titulo}</span>
               <Badge variant="outline" className={`text-xs ${
-                pauta.classificacao === "deliberativa" ? "bg-amber-100 text-amber-700 dark:text-amber-400 border-amber-300" :
-                "bg-blue-100 text-blue-700 border-blue-300"
+                pauta.classificacao === "deliberativa" ? "bg-warning-soft text-warning-text border-warning-line" :
+                "bg-info-soft text-info-text border-info-line"
               }`}>
                 {pauta.classificacao === "deliberativa" ? "Deliberativa" : "Informativa"}
               </Badge>
@@ -429,14 +429,14 @@ function PautaLinha({ pauta, onChange }: { pauta: GovPauta; onChange: () => void
         ) : (
           <div className="flex items-center gap-1.5 text-xs">
             {pauta.decisao ? (
-              <p className="flex-1 italic text-emerald-700 dark:text-emerald-400">"{pauta.decisao}"</p>
+              <p className="flex-1 italic text-success-text">"{pauta.decisao}"</p>
             ) : (
               <Button size="sm" variant="outline" onClick={() => setEditandoDecisao(true)} className="h-6 text-xs">
                 Registrar decisão
               </Button>
             )}
             {pauta.classificacao === "deliberativa" && pauta.status === "rascunho" && (
-              <Button size="sm" variant="outline" onClick={marcarParaAssembleia} className="h-6 text-xs text-amber-700 dark:text-amber-400">
+              <Button size="sm" variant="outline" onClick={marcarParaAssembleia} className="h-6 text-xs text-warning-text">
                 → Assembleia
               </Button>
             )}
@@ -603,7 +603,7 @@ function NovaPautaDialog({ reuniaoId, open, onOpenChange, onSaved }: {
             </Button>
             <Button type="button" size="sm" variant={classificacao === "deliberativa" ? "default" : "outline"}
               onClick={() => setClassificacao("deliberativa")}
-              className={classificacao === "deliberativa" ? "bg-amber-600 hover:bg-amber-700 text-white" : ""}>
+              className={classificacao === "deliberativa" ? "bg-warning hover:bg-warning text-white" : ""}>
               ⚖ Deliberativa
             </Button>
           </div>

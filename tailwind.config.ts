@@ -38,9 +38,31 @@ export default {
           DEFAULT: "hsl(var(--teal))",
           foreground: "hsl(var(--teal-foreground))",
         },
+        // Os quatro papéis de cada cor semântica. Ver o comentário longo
+        // em index.css: preenchimento, letra, tinta e linha são quatro
+        // regras de contraste diferentes, não quatro tons da mesma coisa.
         success: {
           DEFAULT: "hsl(var(--success))",
           foreground: "hsl(var(--success-foreground))",
+          text: "hsl(var(--success-text))",
+          soft: "hsl(var(--success-soft))",
+          line: "hsl(var(--success-line))",
+        },
+        // Rosa quer dizer aniversário e bodas — não erro. Ver o
+        // comentário em index.css: foi um engano meu que revelou este.
+        celebracao: {
+          DEFAULT: "hsl(var(--celebracao))",
+          foreground: "hsl(var(--celebracao-foreground))",
+          text: "hsl(var(--celebracao-text))",
+          soft: "hsl(var(--celebracao-soft))",
+          line: "hsl(var(--celebracao-line))",
+        },
+        info: {
+          DEFAULT: "hsl(var(--info))",
+          foreground: "hsl(var(--info-foreground))",
+          text: "hsl(var(--info-text))",
+          soft: "hsl(var(--info-soft))",
+          line: "hsl(var(--info-line))",
         },
         warning: {
           DEFAULT: "hsl(var(--warning))",
@@ -50,10 +72,15 @@ export default {
           // não pode escurecer, porque o que vai escrito EM CIMA dele é
           // escuro. São dois papéis, e agora são dois valores.
           text: "hsl(var(--warning-text))",
+          soft: "hsl(var(--warning-soft))",
+          line: "hsl(var(--warning-line))",
         },
         destructive: {
           DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--destructive-foreground))",
+          text: "hsl(var(--destructive-text))",
+          soft: "hsl(var(--destructive-soft))",
+          line: "hsl(var(--destructive-line))",
         },
         muted: {
           DEFAULT: "hsl(var(--muted))",

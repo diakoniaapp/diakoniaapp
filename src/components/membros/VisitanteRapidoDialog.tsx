@@ -339,7 +339,7 @@ export default function VisitanteRapidoDialog({ open, onOpenChange, onSaved }: P
 
               {/* Indicação selecionada */}
               {indicacaoSelecionada && (
-                <p className="text-xs text-green-700 dark:text-green-400 flex items-center gap-1 mt-1">
+                <p className="text-xs text-success-text flex items-center gap-1 mt-1">
                   <Check className="w-3 h-3" /> {indicacaoSelecionada.nome_completo} selecionado(a)
                 </p>
               )}

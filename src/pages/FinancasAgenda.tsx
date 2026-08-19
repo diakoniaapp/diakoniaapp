@@ -19,10 +19,10 @@ function dataBr(s: string) {
 }
 
 const URGENCIA_INFO: Record<FinVencimento["urgencia"], { cor: string; label: string }> = {
-  vencido:      { cor: "text-rose-700 dark:text-rose-400 bg-rose-50 border-rose-200",        label: "Vencido" },
-  vence_hoje:   { cor: "text-amber-700 dark:text-amber-400 bg-amber-50 border-amber-300",      label: "Vence hoje" },
-  urgente:      { cor: "text-amber-700 dark:text-amber-400 bg-amber-50/60 border-amber-200",   label: "Urgente" },
-  esta_semana:  { cor: "text-blue-700 bg-blue-50 border-blue-200",         label: "Esta semana" },
+  vencido:      { cor: "text-destructive-text bg-destructive-soft border-destructive-line",        label: "Vencido" },
+  vence_hoje:   { cor: "text-warning-text bg-warning-soft border-warning-line",      label: "Vence hoje" },
+  urgente:      { cor: "text-warning-text bg-warning-soft/60 border-warning-line",   label: "Urgente" },
+  esta_semana:  { cor: "text-info-text bg-info-soft border-info-line",         label: "Esta semana" },
   futuro:       { cor: "text-muted-foreground border-border",              label: "Futuro" },
 };
 
@@ -85,8 +85,8 @@ export default function FinancasAgenda() {
             onClick={() => setFiltroTipo(t)}
             className={
               filtroTipo === t
-                ? t === "entrada" ? "bg-emerald-600 hover:bg-emerald-700 text-white" :
-                  t === "saida"   ? "bg-rose-600 hover:bg-rose-700 text-white" : ""
+                ? t === "entrada" ? "bg-success hover:bg-success text-white" :
+                  t === "saida"   ? "bg-destructive hover:bg-destructive text-white" : ""
                 : ""
             }>
             {t === "saida" ? "A pagar" : t === "entrada" ? "A receber" : "Tudo"}
@@ -96,16 +96,16 @@ export default function FinancasAgenda() {
 
       {/* Totais */}
       <div className="grid grid-cols-2 gap-2">
-        <Card className="bg-rose-50/30 border-rose-200">
+        <Card className="bg-destructive-soft/30 border-destructive-line">
           <CardContent className="py-2 px-3">
-            <p className="text-xs uppercase text-rose-700 dark:text-rose-400 flex items-center gap-1"><TrendingDown className="w-3 h-3" /> A pagar (30d)</p>
-            <p className="text-base font-semibold text-rose-700 dark:text-rose-400 tabular-nums">{brl(totalSaidas)}</p>
+            <p className="text-xs uppercase text-destructive-text flex items-center gap-1"><TrendingDown className="w-3 h-3" /> A pagar (30d)</p>
+            <p className="text-base font-semibold text-destructive-text tabular-nums">{brl(totalSaidas)}</p>
           </CardContent>
         </Card>
-        <Card className="bg-emerald-50/30 border-emerald-200">
+        <Card className="bg-success-soft/30 border-success-line">
           <CardContent className="py-2 px-3">
-            <p className="text-xs uppercase text-emerald-700 dark:text-emerald-400 flex items-center gap-1"><TrendingUp className="w-3 h-3" /> A receber (30d)</p>
-            <p className="text-base font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums">{brl(totalEntradas)}</p>
+            <p className="text-xs uppercase text-success-text flex items-center gap-1"><TrendingUp className="w-3 h-3" /> A receber (30d)</p>
+            <p className="text-base font-semibold text-success-text tabular-nums">{brl(totalEntradas)}</p>
           </CardContent>
         </Card>
       </div>
@@ -113,7 +113,7 @@ export default function FinancasAgenda() {
       {vencimentos.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="py-10 text-center text-muted-foreground text-sm space-y-2">
-            <CheckCircle2 className="w-10 h-10 mx-auto opacity-30 text-emerald-500" />
+            <CheckCircle2 className="w-10 h-10 mx-auto opacity-30 text-success-text" />
             <p>Nenhum vencimento previsto nos próximos 30 dias.</p>
             <Link to="/financas/recorrencias" className="text-primary underline text-xs">
               Cadastrar recorrência →
@@ -129,15 +129,15 @@ export default function FinancasAgenda() {
             return (
               <div key={u} className="space-y-1.5">
                 <p className="text-xs uppercase tracking-wide font-medium text-muted-foreground px-1">
-                  {u === "vencido" && <AlertTriangle className="w-3 h-3 inline mr-1 text-rose-700 dark:text-rose-400" />}
+                  {u === "vencido" && <AlertTriangle className="w-3 h-3 inline mr-1 text-destructive-text" />}
                   {info.label} ({lista.length})
                 </p>
                 {lista.map(v => (
                   <div key={v.id} className={`flex items-center justify-between border rounded-md px-3 py-2 ${info.cor}`}>
                     <div className="flex items-center gap-2 min-w-0 flex-1">
                       {v.tipo === "entrada"
-                        ? <TrendingUp className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0" />
-                        : <TrendingDown className="w-4 h-4 text-rose-700 dark:text-rose-400 shrink-0" />}
+                        ? <TrendingUp className="w-4 h-4 text-success-text shrink-0" />
+                        : <TrendingDown className="w-4 h-4 text-destructive-text shrink-0" />}
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium truncate">{v.descricao ?? "—"}</p>
                         <p className="text-xs flex items-center gap-1.5">
@@ -150,11 +150,11 @@ export default function FinancasAgenda() {
                         </p>
                       </div>
                     </div>
-                    <p className={`text-sm font-semibold tabular-nums mr-2 ${v.tipo === "entrada" ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"}`}>
+                    <p className={`text-sm font-semibold tabular-nums mr-2 ${v.tipo === "entrada" ? "text-success-text" : "text-destructive-text"}`}>
                       {brl(Number(v.valor))}
                     </p>
                     <Button size="sm" onClick={() => confirmar(v)}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1 h-7 text-xs">
+                      className="bg-success hover:bg-success text-white gap-1 h-7 text-xs">
                       <CheckCircle2 className="w-3 h-3" /> {v.tipo === "saida" ? "Pagar" : "Receber"}
                     </Button>
                   </div>

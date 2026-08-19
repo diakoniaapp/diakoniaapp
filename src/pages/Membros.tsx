@@ -81,7 +81,7 @@ const statusColor: Record<string, string> = {
     ativo: "bg-success/15 text-success border-success/30",
     inativo: "bg-muted text-muted-foreground border-border",
     transferido: "bg-warning/15 text-warning-text border-warning/30",
-    desligado: "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-700",
+    desligado: "bg-warning-soft text-warning-text border-warning-line/40",
     falecido: "bg-destructive/10 text-destructive border-destructive/30",
 };
 

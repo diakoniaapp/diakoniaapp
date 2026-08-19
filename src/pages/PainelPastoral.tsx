@@ -167,12 +167,12 @@ export default function PainelPastoral() {
       {/* Cards de resumo */}
       {resumo && (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
-          <ResumoCard label="Aniv. hoje" value={resumo.aniversarios_hoje} cor="bg-pink-50 text-pink-700 border-pink-200" />
-          <ResumoCard label="Bodas hoje" value={resumo.bodas_hoje} cor="bg-rose-50 text-rose-700 dark:text-rose-400 border-rose-200" />
-          <ResumoCard label="Aniv. (7d)" value={resumo.aniversarios_semana} cor="bg-pink-50/40 text-pink-700 border-pink-200" />
-          <ResumoCard label="Bodas (7d)" value={resumo.bodas_semana} cor="bg-rose-50/40 text-rose-700 dark:text-rose-400 border-rose-200" />
-          <ResumoCard label="Fam. sem resp." value={resumo.familias_sem_resp} cor="bg-amber-50 text-amber-700 dark:text-amber-400 border-amber-200" />
-          <ResumoCard label="Sugestões família" value={resumo.pessoas_sem_familia_sugerida} cor="bg-blue-50 text-blue-700 border-blue-200" />
+          <ResumoCard label="Aniv. hoje" value={resumo.aniversarios_hoje} cor="bg-celebracao-soft text-celebracao-text border-celebracao-line" />
+          <ResumoCard label="Bodas hoje" value={resumo.bodas_hoje} cor="bg-celebracao-soft text-celebracao-text border-celebracao-line" />
+          <ResumoCard label="Aniv. (7d)" value={resumo.aniversarios_semana} cor="bg-celebracao-soft/50 text-celebracao-text border-celebracao-line" />
+          <ResumoCard label="Bodas (7d)" value={resumo.bodas_semana} cor="bg-celebracao-soft/50 text-celebracao-text border-celebracao-line" />
+          <ResumoCard label="Fam. sem resp." value={resumo.familias_sem_resp} cor="bg-warning-soft text-warning-text border-warning-line" />
+          <ResumoCard label="Sugestões família" value={resumo.pessoas_sem_familia_sugerida} cor="bg-info-soft text-info-text border-info-line" />
         </div>
       )}
 
@@ -214,12 +214,12 @@ export default function PainelPastoral() {
 
       {/* Famílias sem responsável */}
       {familiasSemResp.length > 0 && (
-        <Card className="border-amber-200">
+        <Card className="border-warning-line">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-amber-700 dark:text-amber-400" />
+              <AlertCircle className="w-4 h-4 text-warning-text" />
               Famílias sem responsável
-              <Badge variant="outline" className="text-xs bg-amber-100 border-amber-300">
+              <Badge variant="outline" className="text-xs bg-warning-soft border-warning-line">
                 {familiasSemResp.length}
               </Badge>
             </CardTitle>
@@ -229,7 +229,7 @@ export default function PainelPastoral() {
               Defina quem é o responsável de cada família para receber comunicações pastorais.
             </p>
             {familiasSemResp.map(f => (
-              <div key={f.familia_id} className="flex items-center justify-between border rounded-md px-3 py-2 bg-amber-50/40">
+              <div key={f.familia_id} className="flex items-center justify-between border rounded-md px-3 py-2 bg-warning-soft/40">
                 <div className="min-w-0">
                   <p className="font-medium text-sm">Família {f.nome_familia}</p>
                   <p className="text-xs text-muted-foreground">
@@ -251,13 +251,13 @@ export default function PainelPastoral() {
 
       {/* Pessoas com sobrenome em comum mas sem família */}
       {pessoasSugeridas.length > 0 && (
-        <Card className="border-blue-200">
+        <Card className="border-info-line">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center justify-between gap-2">
               <span className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-blue-600" />
+                <Sparkles className="w-4 h-4 text-info-text" />
                 Possíveis vínculos familiares
-                <Badge variant="outline" className="text-xs bg-blue-100 border-blue-300">
+                <Badge variant="outline" className="text-xs bg-info-soft border-info-line">
                   {pessoasSugeridas.length}
                 </Badge>
               </span>
@@ -278,8 +278,8 @@ export default function PainelPastoral() {
             </p>
 
             {selecionados.size > 0 && (
-              <div className="flex items-center justify-between rounded-md border border-blue-300 bg-blue-50 px-3 py-2">
-                <span className="text-xs font-medium text-blue-800">
+              <div className="flex items-center justify-between rounded-md border border-info-line bg-info-soft px-3 py-2">
+                <span className="text-xs font-medium text-info-text">
                   {selecionados.size} {selecionados.size === 1 ? "pessoa selecionada" : "pessoas selecionadas"}
                 </span>
                 <div className="flex items-center gap-1.5">
@@ -305,7 +305,7 @@ export default function PainelPastoral() {
               const temFamiliaConcreta = !!p.familia_sugerida_id;
               const checked = selecionados.has(p.pessoa_id);
               return (
-                <div key={p.pessoa_id} className="flex items-center justify-between border rounded-md px-3 py-2 bg-blue-50/40 gap-2">
+                <div key={p.pessoa_id} className="flex items-center justify-between border rounded-md px-3 py-2 bg-info-soft/40 gap-2">
                   <div className="flex items-center gap-2 min-w-0">
                     {temFamiliaConcreta && (
                       <Checkbox
@@ -319,7 +319,7 @@ export default function PainelPastoral() {
                       <p className="text-xs text-muted-foreground flex items-center gap-1 flex-wrap">
                         Sobrenome: <strong>{p.sobrenome}</strong>
                         {p.familia_sugerida_nome && (
-                          <Badge variant="outline" className="text-xs ml-1 border-rose-300 text-rose-700 dark:text-rose-400">
+                          <Badge variant="outline" className="text-xs ml-1 border-destructive-line text-destructive-text">
                             → Família {p.familia_sugerida_nome ?? "sugerida"}
                           </Badge>
                         )}
@@ -455,7 +455,7 @@ function ResumoCard({ label, value, cor }: { label: string; value: number; cor: 
 function LinhaEvento({ ev, onWhats }: { ev: EventoPastoral; onWhats: (e: EventoPastoral) => void }) {
   const ehAnis = ev.tipo === "aniversario";
   const Icon = ehAnis ? Cake : Heart;
-  const corIcon = ehAnis ? "text-pink-500" : "text-rose-500";
+  const corIcon = "text-celebracao-text";  // aniversário e bodas: o mesmo papel
 
   let quando = "hoje";
   if (ev.dias_ate_evento === 1) quando = "amanhã";
@@ -480,7 +480,7 @@ function LinhaEvento({ ev, onWhats }: { ev: EventoPastoral; onWhats: (e: EventoP
       {(ev.telefone || ev.telefone_secundario) && (
         <Button
           type="button" size="sm" variant="ghost"
-          className="h-8 px-2 gap-1 text-xs text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 shrink-0"
+          className="h-8 px-2 gap-1 text-xs text-success-text hover:bg-success-soft shrink-0"
           onClick={() => onWhats(ev)}
           title="WhatsApp"
         >

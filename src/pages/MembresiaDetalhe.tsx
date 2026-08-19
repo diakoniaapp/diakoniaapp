@@ -151,13 +151,13 @@ export default function MembresiaDetalhe() {
           {checklist.map((item, i) => (
             <div key={i} className="flex items-center gap-2">
               {item.ok
-                ? <CheckCircle2 className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0" />
+                ? <CheckCircle2 className="w-4 h-4 text-success-text shrink-0" />
                 : <Circle className="w-4 h-4 text-muted-foreground shrink-0" />}
               <span className={`text-sm flex-1 ${item.ok ? "text-foreground" : "text-muted-foreground"}`}>
                 {item.label}
               </span>
               {!item.ok && item.acao && (
-                <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 dark:text-amber-400 border-amber-300">
+                <Badge variant="outline" className="text-xs bg-warning-soft text-warning-text border-warning-line">
                   {item.acao}
                 </Badge>
               )}
@@ -225,13 +225,13 @@ export default function MembresiaDetalhe() {
             <Button size="sm" onClick={salvarDataAssembleia} disabled={busy || !dataAssembleia}>Salvar</Button>
           </div>
           {sol.data_aprovacao && (
-            <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-2">
+            <p className="text-xs text-success-text mt-2">
               ✓ Aprovada em {new Date(sol.data_aprovacao + "T00:00").toLocaleDateString("pt-BR")}
               {sol.observacao_aprovacao && ` — "${sol.observacao_aprovacao}"`}
             </p>
           )}
           {sol.observacao_rejeicao && (
-            <p className="text-xs text-rose-700 dark:text-rose-400 mt-2">
+            <p className="text-xs text-destructive-text mt-2">
               ✗ Rejeitada — "{sol.observacao_rejeicao}"
             </p>
           )}
@@ -241,7 +241,7 @@ export default function MembresiaDetalhe() {
       {/* Ações principais */}
       {sol.status === "pronta_assembleia" && (
         <div className="grid grid-cols-2 gap-2">
-          <Button onClick={aprovar} disabled={busy} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5">
+          <Button onClick={aprovar} disabled={busy} className="bg-success hover:bg-success text-white gap-1.5">
             <ThumbsUp className="w-3.5 h-3.5" /> Aprovar
           </Button>
           <Button onClick={rejeitar} disabled={busy} variant="outline" className="text-destructive gap-1.5">

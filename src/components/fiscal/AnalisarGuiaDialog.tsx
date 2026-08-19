@@ -92,8 +92,8 @@ export function AnalisarGuiaDialog({ open, onOpenChange, agendaId, nomeObrigacao
           </Button>
 
           {analise && (
-            <div className="border rounded-md p-3 space-y-2 bg-emerald-50/40 text-xs">
-              <div className="flex items-center gap-1.5 font-medium text-emerald-700 dark:text-emerald-400">
+            <div className="border rounded-md p-3 space-y-2 bg-success-soft/40 text-xs">
+              <div className="flex items-center gap-1.5 font-medium text-success-text">
                 <CheckCircle2 className="w-3.5 h-3.5" /> Campos extraídos
               </div>
 
@@ -123,7 +123,7 @@ export function AnalisarGuiaDialog({ open, onOpenChange, agendaId, nomeObrigacao
               </div>
 
               <Button onClick={aplicar} disabled={aplicando || !valor}
-                className="w-full mt-2 gap-2 bg-emerald-600 hover:bg-emerald-700">
+                className="w-full mt-2 gap-2 bg-success hover:bg-success">
                 {aplicando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
                 Anexar guia e criar lançamento
               </Button>

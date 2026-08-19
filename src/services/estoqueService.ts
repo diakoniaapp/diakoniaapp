@@ -50,11 +50,11 @@ export const URGENCIA_LABEL: Record<EstoqueUrgencia, string> = {
 };
 
 export const URGENCIA_COR: Record<EstoqueUrgencia, string> = {
-  esgotado: "bg-rose-100 text-rose-700 border-rose-300",
-  critico:  "bg-rose-50 text-rose-700 border-rose-200",
-  comprar:  "bg-amber-50 text-amber-700 border-amber-300",
-  baixo:    "bg-blue-50 text-blue-700 border-blue-200",
-  ok:       "bg-emerald-50 text-emerald-700 border-emerald-200",
+  esgotado: "bg-destructive-soft text-destructive-text border-destructive-line",
+  critico:  "bg-destructive-soft text-destructive-text border-destructive-line",
+  comprar:  "bg-warning-soft text-warning-text border-warning-line",
+  baixo:    "bg-info-soft text-info-text border-info-line",
+  ok:       "bg-success-soft text-success-text border-success-line",
 };
 
 export const UNIDADES = ["un", "kg", "g", "L", "mL", "m", "cx", "pacote", "rolo", "frasco", "saco"];

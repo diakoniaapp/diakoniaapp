@@ -184,8 +184,8 @@ export function InsightsDoSistema() {
 
   if (insights.length === 0) {
     return (
-      <Card className="border-emerald-200 bg-emerald-50/40 dark:bg-emerald-950/10">
-        <CardContent className="py-5 flex items-center gap-2 justify-center text-emerald-700 dark:text-emerald-300">
+      <Card className="border-success-line bg-success-soft/40">
+        <CardContent className="py-5 flex items-center gap-2 justify-center text-success-text">
           <CheckCircle2 className="w-4 h-4" />
           <span className="text-sm">Sistema saudável — nenhum insight crítico no momento.</span>
         </CardContent>
@@ -204,9 +204,9 @@ export function InsightsDoSistema() {
 
 function InsightCard({ ins }: { ins: Insight }) {
   const cores = {
-    info:  { bg: "border-blue-200 bg-blue-50/40", icon: "text-blue-600", label: "Sugestão" },
-    warn:  { bg: "border-amber-200 bg-amber-50/40", icon: "text-amber-700 dark:text-amber-400", label: "Atenção" },
-    good:  { bg: "border-emerald-200 bg-emerald-50/40", icon: "text-emerald-700 dark:text-emerald-400", label: "Bom sinal" },
+    info:  { bg: "border-info-line bg-info-soft/40", icon: "text-info-text", label: "Sugestão" },
+    warn:  { bg: "border-warning-line bg-warning-soft/40", icon: "text-warning-text", label: "Atenção" },
+    good:  { bg: "border-success-line bg-success-soft/40", icon: "text-success-text", label: "Bom sinal" },
   };
   const cls = cores[ins.severidade];
   const Icon = ins.severidade === "good" ? TrendingUp 

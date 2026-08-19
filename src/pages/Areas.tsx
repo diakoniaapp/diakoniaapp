@@ -202,12 +202,12 @@ export default function Areas() {
                   </div>
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <Badge variant="outline" className={a.ativo 
-                      ? "text-xs bg-emerald-50 text-emerald-700 dark:text-emerald-400 border-emerald-300"
+                      ? "text-xs bg-success-soft text-success-text border-success-line"
                       : "text-xs bg-muted text-muted-foreground"}>
                       {a.ativo ? "Ativa" : "Inativa"}
                     </Badge>
                     {!a.ministerio_ativo && (
-                      <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 dark:text-amber-400 border-amber-300">
+                      <Badge variant="outline" className="text-xs bg-warning-soft text-warning-text border-warning-line">
                         Ministério inativo
                       </Badge>
                     )}
@@ -216,7 +216,7 @@ export default function Areas() {
                     </span>
                   </div>
                   {a.lider_nome && (
-                    <p className="text-xs text-rose-700 dark:text-rose-300 truncate">
+                    <p className="text-xs text-destructive-text truncate">
                       👑 {a.lider_nome}
                     </p>
                   )}

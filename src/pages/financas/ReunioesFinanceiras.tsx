@@ -23,9 +23,9 @@ import {
 } from "@/services/reunioesFinanceirasService";
 
 const STATUS_COR: Record<string, string> = {
-  agendada: "bg-blue-50 text-blue-700 border-blue-200",
-  em_andamento: "bg-amber-50 text-amber-700 dark:text-amber-400 border-amber-200",
-  realizada: "bg-emerald-50 text-emerald-700 dark:text-emerald-400 border-emerald-200",
+  agendada: "bg-info-soft text-info-text border-info-line",
+  em_andamento: "bg-warning-soft text-warning-text border-warning-line",
+  realizada: "bg-success-soft text-success-text border-success-line",
   cancelada: "bg-muted text-muted-foreground border-border line-through",
 };
 
@@ -282,11 +282,11 @@ function DetalheReuniao({ id, voltar }: { id: string; voltar: () => void }) {
           <Printer className="w-3.5 h-3.5" /> Imprimir / PDF
         </Button>
         {reuniao.status !== "realizada" && (
-          <Button size="sm" variant="outline" onClick={marcarRealizada} className="gap-1.5 text-emerald-700 dark:text-emerald-400">
+          <Button size="sm" variant="outline" onClick={marcarRealizada} className="gap-1.5 text-success-text">
             <CheckCircle2 className="w-3.5 h-3.5" /> Marcar realizada
           </Button>
         )}
-        <Button size="sm" variant="ghost" onClick={excluir} className="gap-1.5 text-rose-700 dark:text-rose-400">
+        <Button size="sm" variant="ghost" onClick={excluir} className="gap-1.5 text-destructive-text">
           <Trash2 className="w-3.5 h-3.5" />
         </Button>
       </header>
@@ -378,19 +378,19 @@ function PautaView({ pauta }: { pauta: PautaFinanceira }) {
       {/* Resumo */}
       <div className="grid grid-cols-3 gap-2">
         <Bloco titulo="Entradas">
-          <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
+          <div className="flex items-center gap-1.5 text-success-text">
             <TrendingUp className="w-3.5 h-3.5" />
             <span className="font-medium font-serif">{fmtBR(pauta.resumo.entradas)}</span>
           </div>
         </Bloco>
         <Bloco titulo="Saídas">
-          <div className="flex items-center gap-1.5 text-rose-700 dark:text-rose-400">
+          <div className="flex items-center gap-1.5 text-destructive-text">
             <TrendingDown className="w-3.5 h-3.5" />
             <span className="font-medium font-serif">{fmtBR(pauta.resumo.saidas)}</span>
           </div>
         </Bloco>
         <Bloco titulo="Saldo do período">
-          <span className={"font-medium font-serif " + (pauta.resumo.saldo_periodo >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400")}>
+          <span className={"font-medium font-serif " + (pauta.resumo.saldo_periodo >= 0 ? "text-success-text" : "text-destructive-text")}>
             {fmtBR(pauta.resumo.saldo_periodo)}
           </span>
         </Bloco>
@@ -427,7 +427,7 @@ function PautaView({ pauta }: { pauta: PautaFinanceira }) {
 
       {/* Alertas fiscais */}
       {pauta.alertas_fiscais.length > 0 && (
-        <Secao titulo={`Alertas fiscais — ${pauta.alertas_fiscais.length}`} icone={<AlertTriangle className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400" />}>
+        <Secao titulo={`Alertas fiscais — ${pauta.alertas_fiscais.length}`} icone={<AlertTriangle className="w-3.5 h-3.5 text-warning-text" />}>
           <ul className="text-xs divide-y">
             {pauta.alertas_fiscais.map((a, i) => (
               <li key={i} className="py-1 flex items-center gap-2">
@@ -442,13 +442,13 @@ function PautaView({ pauta }: { pauta: PautaFinanceira }) {
 
       {/* Orçamento estourado */}
       {pauta.orcamento_estourado.length > 0 && (
-        <Secao titulo="Orçamento próximo do limite (≥90%)" icone={<AlertTriangle className="w-3.5 h-3.5 text-rose-700 dark:text-rose-400" />}>
+        <Secao titulo="Orçamento próximo do limite (≥90%)" icone={<AlertTriangle className="w-3.5 h-3.5 text-destructive-text" />}>
           <ul className="text-xs divide-y">
             {pauta.orcamento_estourado.map((o, i) => (
               <li key={i} className="py-1 flex items-center gap-2">
                 <span className="flex-1 truncate">{o.centro}</span>
                 <span className="text-muted-foreground tabular-nums">{fmtBR(o.realizado)} / {fmtBR(o.orcado)}</span>
-                <Badge variant="outline" className={"text-xs " + (o.percentual >= 100 ? "bg-rose-50 text-rose-700 dark:text-rose-400" : "bg-amber-50 text-amber-700 dark:text-amber-400")}>
+                <Badge variant="outline" className={"text-xs " + (o.percentual >= 100 ? "bg-destructive-soft text-destructive-text" : "bg-warning-soft text-warning-text")}>
                   {o.percentual?.toFixed(1)}%
                 </Badge>
               </li>

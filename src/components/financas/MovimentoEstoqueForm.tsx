@@ -83,19 +83,19 @@ export function MovimentoEstoqueForm({ open, onOpenChange, item, onSaved }: Prop
             <Button type="button" size="sm"
               variant={tipo === "entrada" ? "default" : "outline"}
               onClick={() => setTipo("entrada")}
-              className={tipo === "entrada" ? "bg-emerald-600 text-white hover:bg-emerald-700 gap-1" : "gap-1"}>
+              className={tipo === "entrada" ? "bg-success text-white hover:bg-success gap-1" : "gap-1"}>
               <ArrowDownToLine className="w-3.5 h-3.5" /> Entrada
             </Button>
             <Button type="button" size="sm"
               variant={tipo === "saida" ? "default" : "outline"}
               onClick={() => setTipo("saida")}
-              className={tipo === "saida" ? "bg-rose-600 text-white hover:bg-rose-700 gap-1" : "gap-1"}>
+              className={tipo === "saida" ? "bg-destructive text-white hover:bg-destructive gap-1" : "gap-1"}>
               <ArrowUpFromLine className="w-3.5 h-3.5" /> Saída
             </Button>
             <Button type="button" size="sm"
               variant={tipo === "ajuste" ? "default" : "outline"}
               onClick={() => setTipo("ajuste")}
-              className={tipo === "ajuste" ? "bg-blue-600 text-white hover:bg-blue-700 gap-1" : "gap-1"}>
+              className={tipo === "ajuste" ? "bg-info text-white hover:bg-info gap-1" : "gap-1"}>
               <Settings2 className="w-3.5 h-3.5" /> Ajuste
             </Button>
           </div>
@@ -138,11 +138,11 @@ export function MovimentoEstoqueForm({ open, onOpenChange, item, onSaved }: Prop
 
           {/* Preview */}
           {quantidade > 0 && (
-            <div className="rounded-md p-2 border border-blue-300 bg-blue-50/30 text-xs">
+            <div className="rounded-md p-2 border border-info-line bg-info-soft/30 text-xs">
               <p>Estoque após: <strong>{novoEstoque.toFixed(3)} {item.unidade}</strong>
-                {novoEstoque < 0 && <span className="text-rose-700 dark:text-rose-400 ml-1">⚠ negativo</span>}
+                {novoEstoque < 0 && <span className="text-destructive-text ml-1">⚠ negativo</span>}
                 {novoEstoque <= Number(item.estoque_minimo) && novoEstoque >= 0 && (
-                  <span className="text-amber-700 dark:text-amber-400 ml-1">⚠ abaixo do mínimo ({Number(item.estoque_minimo)})</span>
+                  <span className="text-warning-text ml-1">⚠ abaixo do mínimo ({Number(item.estoque_minimo)})</span>
                 )}
               </p>
             </div>

@@ -58,17 +58,17 @@ interface Secao {
 
 // Tags conceituais pré-definidas (conectam Documentos → Identidade → Campanhas)
 const TAGS_CONCEITUAIS = [
-  { value: "missao",       label: "Missão",       color: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300" },
+  { value: "missao",       label: "Missão",       color: "bg-info-soft text-info-text/40" },
   { value: "visao",        label: "Visão",        color: "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300" },
-  { value: "valores",      label: "Valores",      color: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300" },
-  { value: "doutrina",     label: "Doutrina",     color: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300" },
-  { value: "liderança",    label: "Liderança",    color: "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300" },
-  { value: "oração",       label: "Oração",       color: "bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300" },
+  { value: "valores",      label: "Valores",      color: "bg-warning-soft text-warning-text/40" },
+  { value: "doutrina",     label: "Doutrina",     color: "bg-success-soft text-success-text/40" },
+  { value: "liderança",    label: "Liderança",    color: "bg-warning-soft text-warning-text/40" },
+  { value: "oração",       label: "Oração",       color: "bg-destructive-soft text-destructive-text/40" },
   { value: "discipulado",  label: "Discipulado",  color: "bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300" },
-  { value: "evangelismo",  label: "Evangelismo",  color: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300" },
+  { value: "evangelismo",  label: "Evangelismo",  color: "bg-info-soft text-info-text/40" },
   { value: "adoração",     label: "Adoração",     color: "bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-300" },
-  { value: "família",      label: "Família",      color: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300" },
-  { value: "ministério",   label: "Ministério",   color: "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-300" },
+  { value: "família",      label: "Família",      color: "bg-success-soft text-success-text/40" },
+  { value: "ministério",   label: "Ministério",   color: "bg-info-soft text-info-text/40" },
   { value: "outro",        label: "Outro",        color: "bg-muted text-muted-foreground" },
 ];
 
@@ -85,10 +85,10 @@ interface HistoricoItem {
 
 const TIPOS: { value: TipoDoc; label: string; color: string }[] = [
   { value: "estatuto",   label: "Estatuto",    color: "bg-purple-500/10 text-purple-700 border-purple-500/30" },
-  { value: "regimento",  label: "Regimento",   color: "bg-blue-500/10 text-blue-700 border-blue-500/30" },
-  { value: "manual",     label: "Manual",      color: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30" },
-  { value: "ata",        label: "Ata",         color: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30" },
-  { value: "circular",   label: "Circular",    color: "bg-sky-500/10 text-sky-700 border-sky-500/30" },
+  { value: "regimento",  label: "Regimento",   color: "bg-info/10 text-info-text border-info-line/30" },
+  { value: "manual",     label: "Manual",      color: "bg-success/10 text-success-text border-success-line/30" },
+  { value: "ata",        label: "Ata",         color: "bg-warning/10 text-warning-text border-warning-line/30" },
+  { value: "circular",   label: "Circular",    color: "bg-info/10 text-info-text border-info-line/30" },
   { value: "outro",      label: "Outro",       color: "bg-muted text-muted-foreground" },
 ];
 
@@ -622,7 +622,7 @@ const [uploadando, setUploadando] = useState(false);
                             <Badge variant="outline" className={`text-xs ${meta.color}`}>{meta.label}</Badge>
                             <span className="text-xs text-muted-foreground border rounded px-1.5 py-0.5">v{d.versao}</span>
                             {d.vigente && (
-                              <Badge variant="outline" className="text-xs bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 gap-1">
+                              <Badge variant="outline" className="text-xs bg-success/10 text-success-text border-success-line/30 gap-1">
                                 <CheckCircle2 className="w-2.5 h-2.5" /> Vigente
                               </Badge>
                             )}

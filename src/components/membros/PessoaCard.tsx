@@ -46,28 +46,28 @@ interface AreaVinculo {
 // ── Helpers visuais ───────────────────────────────────────────
 
 const TIPO_CONFIG: Record<string, { label: string; cor: string }> = {
-  membro:     { label: "Membro",     cor: "bg-blue-100 text-blue-700 border-blue-300" },
-  congregado: { label: "Congregado", cor: "bg-emerald-100 text-emerald-700 dark:text-emerald-400 border-emerald-300" },
-  visitante:  { label: "Visitante",  cor: "bg-yellow-100 text-yellow-700 border-yellow-300" },
+  membro:     { label: "Membro",     cor: "bg-info-soft text-info-text border-info-line" },
+  congregado: { label: "Congregado", cor: "bg-success-soft text-success-text border-success-line" },
+  visitante:  { label: "Visitante",  cor: "bg-warning-soft text-warning-text border-warning-line" },
 };
 
 const FUNCAO_CONFIG: Record<string, { label: string; cor: string }> = {
   lider:       { label: "Líder",       cor: "bg-purple-100 text-purple-700 border-purple-300" },
-  co_lider:    { label: "Co-líder",    cor: "bg-indigo-100 text-indigo-700 border-indigo-300" },
-  secretario:  { label: "Secretário",  cor: "bg-sky-100 text-sky-700 border-sky-300" },
-  tesoureiro:  { label: "Tesoureiro",  cor: "bg-amber-100 text-amber-700 dark:text-amber-400 border-amber-300" },
-  voluntario:  { label: "Voluntário",  cor: "bg-green-100 text-green-700 dark:text-green-400 border-green-300" },
-  diacono:     { label: "Diácono",     cor: "bg-orange-100 text-orange-700 dark:text-orange-400 border-orange-300" },
+  co_lider:    { label: "Co-líder",    cor: "bg-info-soft text-info-text border-info-line" },
+  secretario:  { label: "Secretário",  cor: "bg-info-soft text-info-text border-info-line" },
+  tesoureiro:  { label: "Tesoureiro",  cor: "bg-warning-soft text-warning-text border-warning-line" },
+  voluntario:  { label: "Voluntário",  cor: "bg-success-soft text-success-text border-success-line" },
+  diacono:     { label: "Diácono",     cor: "bg-warning-soft text-warning-text border-warning-line" },
   obreiro:     { label: "Obreiro",     cor: "bg-teal-100 text-teal-700 border-teal-300" },
   colaborador: { label: "Colaborador", cor: "bg-gray-100 text-gray-600 border-gray-300" },
 };
 
 const PERFIL_CONFIG: Record<string, { label: string; cor: string }> = {
   admin:        { label: "Admin",        cor: "bg-purple-100 text-purple-700" },
-  pastor:       { label: "Pastor",       cor: "bg-indigo-100 text-indigo-700" },
-  secretaria:   { label: "Secretaria",   cor: "bg-blue-100 text-blue-700" },
-  tesoureiro:   { label: "Tesoureiro",   cor: "bg-amber-100 text-amber-700 dark:text-amber-400" },
-  lideranca:    { label: "Liderança",    cor: "bg-green-100 text-green-700 dark:text-green-400" },
+  pastor:       { label: "Pastor",       cor: "bg-info-soft text-info-text" },
+  secretaria:   { label: "Secretaria",   cor: "bg-info-soft text-info-text" },
+  tesoureiro:   { label: "Tesoureiro",   cor: "bg-warning-soft text-warning-text" },
+  lideranca:    { label: "Liderança",    cor: "bg-success-soft text-success-text" },
   voluntario:   { label: "Voluntário",   cor: "bg-gray-100 text-gray-600" },
   membro:       { label: "Membro",       cor: "bg-gray-100 text-gray-600" },
 };

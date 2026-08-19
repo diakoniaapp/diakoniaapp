@@ -174,13 +174,13 @@ export default function Ebd() {
       </header>
 
       {alunosForaFaixa.length > 0 && (
-        <Card className="border-amber-200">
+        <Card className="border-warning-line">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center justify-between gap-2">
               <span className="flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-amber-700 dark:text-amber-400" />
+                <AlertCircle className="w-4 h-4 text-warning-text" />
                 Alunos fora da faixa etária
-                <Badge variant="outline" className="text-xs bg-amber-100 border-amber-300">
+                <Badge variant="outline" className="text-xs bg-warning-soft border-warning-line">
                   {alunosForaFaixa.length}
                 </Badge>
               </span>
@@ -201,8 +201,8 @@ export default function Ebd() {
             </p>
 
             {selecionados.size > 0 && (
-              <div className="flex items-center justify-between rounded-md border border-amber-300 bg-amber-50 px-3 py-2">
-                <span className="text-xs font-medium text-amber-800">
+              <div className="flex items-center justify-between rounded-md border border-warning-line bg-warning-soft px-3 py-2">
+                <span className="text-xs font-medium text-warning-text">
                   {selecionados.size} {selecionados.size === 1 ? "aluno selecionado" : "alunos selecionados"}
                 </span>
                 <div className="flex items-center gap-1.5">
@@ -231,7 +231,7 @@ export default function Ebd() {
               const checked = selecionados.has(a.pessoa_id);
               const nomeSugerida = a.classe_sugerida_id ? (nomeClassePorId[a.classe_sugerida_id] ?? "outra classe") : null;
               return (
-                <div key={a.pessoa_id} className="flex items-center justify-between border rounded-md px-3 py-2 bg-amber-50/40 gap-2">
+                <div key={a.pessoa_id} className="flex items-center justify-between border rounded-md px-3 py-2 bg-warning-soft/40 gap-2">
                   <div className="flex items-center gap-2 min-w-0">
                     {temSugestao && (
                       <Checkbox
@@ -245,7 +245,7 @@ export default function Ebd() {
                       <p className="text-xs text-muted-foreground flex items-center gap-1 flex-wrap">
                         {a.idade_atual} anos em <strong>{a.classe_atual}</strong>
                         {nomeSugerida && (
-                          <Badge variant="outline" className="text-xs ml-1 border-emerald-300 text-emerald-700 dark:text-emerald-400">
+                          <Badge variant="outline" className="text-xs ml-1 border-success-line text-success-text">
                             → {nomeSugerida}
                           </Badge>
                         )}
@@ -279,7 +279,7 @@ export default function Ebd() {
                   </span>
                   <span className="flex items-center gap-1">
                     {!c.ativo && (
-                      <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 dark:text-amber-400 border-amber-300">
+                      <Badge variant="outline" className="text-xs bg-warning-soft text-warning-text border-warning-line">
                         Desativada
                       </Badge>
                     )}
@@ -294,7 +294,7 @@ export default function Ebd() {
 
                 <div className="flex items-center gap-3 text-xs">
                   <span className="flex items-center gap-1">
-                    <Users className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
+                    <Users className="w-3.5 h-3.5 text-success-text" />
                     <strong>{c.qtd_matriculados}</strong> matriculados
                   </span>
                   <span className="text-muted-foreground">·</span>

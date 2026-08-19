@@ -18,11 +18,11 @@ const STATUS_LABEL: Record<ReservaStatus, string> = {
   em_uso: "Em uso", encerrada: "Encerrada", cancelada: "Cancelada",
 };
 const STATUS_COR: Record<ReservaStatus, string> = {
-  solicitada: "bg-amber-50 text-amber-700 dark:text-amber-400 border-amber-200",
-  aprovada:   "bg-blue-50 text-blue-700 border-blue-200",
-  em_uso:     "bg-emerald-50 text-emerald-700 dark:text-emerald-400 border-emerald-200",
+  solicitada: "bg-warning-soft text-warning-text border-warning-line",
+  aprovada:   "bg-info-soft text-info-text border-info-line",
+  em_uso:     "bg-success-soft text-success-text border-success-line",
   encerrada:  "bg-muted text-muted-foreground border-border",
-  recusada:   "bg-rose-50 text-rose-700 dark:text-rose-400 border-rose-200",
+  recusada:   "bg-destructive-soft text-destructive-text border-destructive-line",
   cancelada:  "bg-muted text-muted-foreground line-through",
 };
 
@@ -107,7 +107,7 @@ export default function ArrecadacaoHome() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-emerald-700 dark:text-emerald-400" /> Em uso agora ({ativas.length})
+              <Sparkles className="w-4 h-4 text-success-text" /> Em uso agora ({ativas.length})
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-1.5">
@@ -121,7 +121,7 @@ export default function ArrecadacaoHome() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-blue-600" /> Aprovadas — aguardando uso ({aprovadas.length})
+              <CheckCircle2 className="w-4 h-4 text-info-text" /> Aprovadas — aguardando uso ({aprovadas.length})
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-1.5">
@@ -135,7 +135,7 @@ export default function ArrecadacaoHome() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <Clock className="w-4 h-4 text-amber-700 dark:text-amber-400" /> Solicitações pendentes ({solicitadas.length})
+              <Clock className="w-4 h-4 text-warning-text" /> Solicitações pendentes ({solicitadas.length})
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-1.5">

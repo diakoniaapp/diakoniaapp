@@ -135,7 +135,7 @@ export default function VoluntariosDialog({ area, open, onOpenChange }: Props) {
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-medium">{pessoaName(a.membro_id)}</span>
                     {(a.membro_id === area.lider_id || a.membro_id === area.co_lider_id) && (
-                      <Badge variant="outline" className="bg-rose-50 text-rose-700 dark:text-rose-400 border-rose-300">
+                      <Badge variant="outline" className="bg-destructive-soft text-destructive-text border-destructive-line">
                         {a.membro_id === area.lider_id ? "Líder" : "Co-líder"}
                       </Badge>
                     )}
@@ -151,7 +151,7 @@ export default function VoluntariosDialog({ area, open, onOpenChange }: Props) {
                       return <Badge variant="outline" className="bg-muted/50">{a.funcao}</Badge>;
                     })()}
                     {a.status === "ativa"
-                      ? <Badge variant="outline" className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30">Ativa</Badge>
+                      ? <Badge variant="outline" className="bg-success/10 text-success-text border-success-line/30">Ativa</Badge>
                       : <Badge variant="outline" className="bg-muted text-muted-foreground">Encerrada</Badge>}
                   </div>
                   <div className="text-xs text-muted-foreground mt-1">

@@ -84,7 +84,7 @@ export function PosUsoCheckDialog({ open, onOpenChange, reservaId, onConcluido }
               {obrigatoriosOk}/{obrigatorios.length} obrigatórios
             </Badge>
             {totalProblemas > 0 && (
-              <Badge className="text-xs bg-amber-100 text-amber-700 dark:text-amber-400 border-amber-200">
+              <Badge className="text-xs bg-warning-soft text-warning-text border-warning-line">
                 ⚠ {totalProblemas} problema{totalProblemas > 1 ? "s" : ""}
               </Badge>
             )}
@@ -100,7 +100,7 @@ export function PosUsoCheckDialog({ open, onOpenChange, reservaId, onConcluido }
           {itens.map(item => (
             <div key={item.id} className={
               "border rounded-md p-2 text-sm " +
-              (item.problema_reportado ? "border-amber-300 bg-amber-50/40" : "")
+              (item.problema_reportado ? "border-warning-line bg-warning-soft/40" : "")
             }>
               <div className="flex items-start gap-2">
                 <Checkbox checked={item.ok}
@@ -109,19 +109,19 @@ export function PosUsoCheckDialog({ open, onOpenChange, reservaId, onConcluido }
                 <div className="flex-1">
                   <span className={item.ok ? "line-through text-muted-foreground" : ""}>{item.item}</span>
                   {item.obrigatorio && (
-                    <Badge variant="outline" className="text-xs ml-1.5 bg-amber-50 text-amber-700 dark:text-amber-400 border-amber-200">
+                    <Badge variant="outline" className="text-xs ml-1.5 bg-warning-soft text-warning-text border-warning-line">
                       obrigatório
                     </Badge>
                   )}
                 </div>
                 <button onClick={() => setExpandido({...expandido, [item.id]: !expandido[item.id]})}
                   className={"text-xs px-1.5 py-0.5 rounded hover:bg-muted gap-1 flex items-center " +
-                    (item.observacao || expandido[item.id] ? "text-blue-600" : "text-muted-foreground")}>
+                    (item.observacao || expandido[item.id] ? "text-info-text" : "text-muted-foreground")}>
                   <MessageSquare className="w-3 h-3" /> {item.observacao ? "obs" : "📝"}
                 </button>
                 <button onClick={() => atualizarItem(item.id, { problema_reportado: !item.problema_reportado })}
-                  className={"text-xs px-1.5 py-0.5 rounded hover:bg-amber-100 flex items-center gap-1 " +
-                    (item.problema_reportado ? "text-amber-700 dark:text-amber-400 bg-amber-100" : "text-muted-foreground")}>
+                  className={"text-xs px-1.5 py-0.5 rounded hover:bg-warning-soft flex items-center gap-1 " +
+                    (item.problema_reportado ? "text-warning-text bg-warning-soft" : "text-muted-foreground")}>
                   <AlertTriangle className="w-3 h-3" /> {item.problema_reportado ? "problema" : "⚠"}
                 </button>
               </div>
@@ -145,7 +145,7 @@ export function PosUsoCheckDialog({ open, onOpenChange, reservaId, onConcluido }
         </div>
 
         {!podeProsseguir && (
-          <p className="text-xs text-rose-700 dark:text-rose-400">
+          <p className="text-xs text-destructive-text">
             ⚠ Marque os {obrigatorios.length} itens obrigatórios pra continuar.
           </p>
         )}
@@ -155,7 +155,7 @@ export function PosUsoCheckDialog({ open, onOpenChange, reservaId, onConcluido }
             <X className="w-3.5 h-3.5" /> Cancelar
           </Button>
           <Button onClick={prosseguir} disabled={!podeProsseguir}
-            className="gap-1.5 bg-emerald-600 hover:bg-emerald-700">
+            className="gap-1.5 bg-success hover:bg-success">
             <ArrowRight className="w-3.5 h-3.5" /> Continuar pro fechamento
           </Button>
         </div>

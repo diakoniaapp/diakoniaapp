@@ -102,7 +102,7 @@ export function FechamentoDialog({ open, onOpenChange, caixaId, reservaFinalidad
 
           {/* Taxas */}
           {(resumo.taxa_debito_calc + resumo.taxa_credito_calc + resumo.taxa_pix_calc) > 0 && (
-            <div className="border rounded-md p-3 bg-rose-50/30">
+            <div className="border rounded-md p-3 bg-destructive-soft/30">
               <Label className="text-xs flex items-center gap-1">
                 <TrendingDown className="w-3 h-3" /> Taxas descontadas
               </Label>
@@ -194,7 +194,7 @@ export function FechamentoDialog({ open, onOpenChange, caixaId, reservaFinalidad
             <X className="w-3.5 h-3.5" /> Cancelar
           </Button>
           <Button onClick={confirmar} disabled={fechando}
-            className="bg-rose-600 hover:bg-rose-700 gap-1.5">
+            className="bg-destructive hover:bg-destructive gap-1.5">
             {fechando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
             Fechar caixa
           </Button>
@@ -205,9 +205,9 @@ export function FechamentoDialog({ open, onOpenChange, caixaId, reservaFinalidad
 }
 
 function Bloco({ titulo, valor, cor, destaque }: { titulo: string; valor: string; cor?: string; destaque?: boolean }) {
-  const corClasses: Record<string, string> = { emerald: "text-emerald-700 dark:text-emerald-400", rose: "text-rose-700 dark:text-rose-400" };
+  const corClasses: Record<string, string> = { emerald: "text-success-text", rose: "text-destructive-text" };
   return (
-    <div className={"border rounded-md p-2 " + (destaque ? "border-emerald-300 bg-emerald-50/40" : "")}>
+    <div className={"border rounded-md p-2 " + (destaque ? "border-success-line bg-success-soft/40" : "")}>
       <div className="text-xs uppercase tracking-wide text-muted-foreground">{titulo}</div>
       <div className={"text-base font-serif font-medium " + (cor ? corClasses[cor] : "")}>{valor}</div>
     </div>

@@ -184,7 +184,7 @@ export default function AgendaPrint() {
                               {o.categoria === "batista" && <span className="ml-2 text-xs uppercase text-neutral-600">[Institucional Batista]</span>}
                               {o.categoria === "aniversario" && <span className="ml-2 text-xs uppercase text-neutral-600">[Aniversário]</span>}
                               {o.categoria === "casamento" && <span className="ml-2 text-xs uppercase text-neutral-600">[Casamento]</span>}
-                              {o.evento.status === "cancelado" && <span className="ml-2 text-xs uppercase text-red-700">[Cancelado]</span>}
+                              {o.evento.status === "cancelado" && <span className="ml-2 text-xs uppercase text-destructive-text">[Cancelado]</span>}
                             </div>
                             <div className="text-sm text-neutral-700">
                               {local && <>Local: {local}{(principalNome || arNames.length) ? " · " : ""}</>}

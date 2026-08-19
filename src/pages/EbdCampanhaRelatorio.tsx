@@ -246,7 +246,7 @@ export default function EbdCampanhaRelatorio() {
             <div className="space-y-1.5">
               <div className="h-3 rounded-full bg-muted overflow-hidden border border-border print:border-foreground">
                 <div
-                  className="h-full bg-gradient-to-r from-gold via-amber-500 to-emerald-600 print:bg-gold"
+                  className="h-full bg-gradient-to-r from-gold via-warning to-success print:bg-gold"
                   style={{ width: `${Math.min(100, resumo.percentual)}%` }}
                 />
               </div>

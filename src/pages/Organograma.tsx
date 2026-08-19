@@ -168,7 +168,7 @@ function MinisterioNode({ min, onClick }: { min: Ministerio; onClick: (id: strin
                 {min.areas.map(area => (
                   <div key={area.id} className="rounded-lg border bg-background px-3 py-2 space-y-1.5">
                     <div className="flex items-center gap-2">
-                      <MapPin className="w-3.5 h-3.5 text-green-700 dark:text-green-400" />
+                      <MapPin className="w-3.5 h-3.5 text-success-text" />
                       <span className="text-xs font-medium">{area.nome}</span>
                       {area.lider && (
                         <PessoaPill id={area.lider.id} nome={area.lider.nome_completo}
@@ -359,8 +359,8 @@ export default function Organograma() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
             { label: "Total de pessoas", value: stats.total,       icon: <Users className="w-4 h-4" />, cor: "text-primary" },
-            { label: "Membros",          value: stats.membros,      icon: <Star className="w-4 h-4" />,  cor: "text-blue-600" },
-            { label: "Congregados",      value: stats.congregados,  icon: <Church className="w-4 h-4" />,cor: "text-emerald-700 dark:text-emerald-400" },
+            { label: "Membros",          value: stats.membros,      icon: <Star className="w-4 h-4" />,  cor: "text-info-text" },
+            { label: "Congregados",      value: stats.congregados,  icon: <Church className="w-4 h-4" />,cor: "text-success-text" },
             { label: "Ministérios",      value: operacionais.length,icon: <Building2 className="w-4 h-4" />,cor: "text-purple-600" },
           ].map(s => (
             <Card key={s.label} className="shadow-card-soft">

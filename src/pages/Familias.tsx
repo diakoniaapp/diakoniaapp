@@ -295,7 +295,7 @@ export default function Familias() {
                         e um problema que alguem precisa resolver. Familia em ordem
                         nao ganha etiqueta nenhuma. */}
                     {!responsaveis[f.id] && (counts[f.id] ?? 0) > 0 && (
-                      <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 rounded-full px-2 py-0.5 mt-0.5">
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-warning-text bg-warning-soft/40 border border-warning-line rounded-full px-2 py-0.5 mt-0.5">
                         <AlertCircle className="w-3 h-3" /> Sem responsável
                       </span>
                     )}
@@ -356,7 +356,7 @@ export default function Familias() {
 
             <div>
               <Label className="flex items-center gap-1.5">
-                <CalendarHeart className="w-3.5 h-3.5 text-rose-500" /> Data de casamento (opcional)
+                <CalendarHeart className="w-3.5 h-3.5 text-celebracao-text" /> Data de casamento (opcional)
               </Label>
               <Input
                 type="date"
@@ -416,7 +416,7 @@ export default function Familias() {
               <strong>Família {familiaParaExcluir?.nome_familia}</strong>?
             </DialogDescription>
           </DialogHeader>
-          <div className="rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-3 text-sm text-amber-800 dark:text-amber-200 mt-1">
+          <div className="rounded-md bg-warning-soft/30 border border-warning-line p-3 text-sm text-warning-text mt-1">
             ⚠️ Os membros vinculados <strong>não serão excluídos</strong> — apenas o vínculo familiar será removido.
             Você poderá reconstruir o núcleo a qualquer momento.
           </div>

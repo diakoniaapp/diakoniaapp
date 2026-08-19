@@ -145,7 +145,7 @@ function CampanhaCard({ c, classeId }: { c: CampanhaComResumo; classeId: string 
               </div>
               <div className="h-2 rounded bg-muted overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-gold to-emerald-500 transition-all"
+                  className="h-full bg-gradient-to-r from-gold to-success transition-all"
                   style={{ width: `${Math.min(100, r.percentual)}%` }}
                 />
               </div>

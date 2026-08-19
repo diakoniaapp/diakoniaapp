@@ -163,10 +163,10 @@ export function DocumentosFiscaisDialog({ open, onOpenChange, agendaId, nomeObri
                 </div>
               </div>
               <button onClick={() => ver(d)} title="Abrir" className="p-1 hover:bg-muted rounded">
-                <ExternalLink className="w-3.5 h-3.5 text-blue-600" />
+                <ExternalLink className="w-3.5 h-3.5 text-info-text" />
               </button>
-              <button onClick={() => excluir(d)} title="Excluir" className="p-1 hover:bg-rose-50 rounded">
-                <Trash2 className="w-3.5 h-3.5 text-rose-700 dark:text-rose-400" />
+              <button onClick={() => excluir(d)} title="Excluir" className="p-1 hover:bg-destructive-soft rounded">
+                <Trash2 className="w-3.5 h-3.5 text-destructive-text" />
               </button>
             </div>
           ))}

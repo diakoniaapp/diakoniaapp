@@ -66,15 +66,15 @@ function AlertaInatividade({ visitante }: { visitante: Visitante }) {
   return (
     <div className={`rounded-2xl border px-4 py-3 flex items-start gap-3 ${
       critico
-        ? "bg-red-50 border-red-200 dark:bg-red-900/10 dark:border-red-800/40"
-        : "bg-amber-50 border-amber-200 dark:bg-amber-900/10 dark:border-amber-800/40"
+        ? "bg-destructive-soft border-destructive-line/10"
+        : "bg-warning-soft border-warning-line/10"
     }`}>
-      <TriangleAlert className={`w-5 h-5 shrink-0 mt-0.5 ${critico ? "text-red-500" : "text-amber-500"}`} />
+      <TriangleAlert className={`w-5 h-5 shrink-0 mt-0.5 ${critico ? "text-destructive-text" : "text-warning-text"}`} />
       <div className="text-sm">
-        <p className={`font-semibold ${critico ? "text-red-700 dark:text-red-400" : "text-amber-700 dark:text-amber-400"}`}>
+        <p className={`font-semibold ${critico ? "text-destructive-text" : "text-warning-text"}`}>
           {critico ? "Atenção urgente necessária" : "Contato pendente"}
         </p>
-        <p className={`mt-0.5 ${critico ? "text-red-700 dark:text-red-400" : "text-amber-700 dark:text-amber-400"}`}>
+        <p className={`mt-0.5 ${critico ? "text-destructive-text" : "text-warning-text"}`}>
           {visitante.ultimo_contato_em
             ? `Sem contato há ${dias} ${dias === 1 ? "dia" : "dias"} (último: ${format(new Date(visitante.ultimo_contato_em), "dd/MM/yyyy", { locale: ptBR })})`
             : `Nunca foi contatado — cadastrado há ${diasCad} ${diasCad === 1 ? "dia" : "dias"}`
@@ -101,7 +101,7 @@ function TrilhaAcolhimento({
     <Card className="rounded-2xl shadow">
       <CardHeader className="pb-3">
         <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-          <Heart className="w-4 h-4 text-rose-400" />
+          <Heart className="w-4 h-4 text-destructive-text" />
           Trilha de Acolhimento
           <span className="ml-auto text-xs font-normal">
             Etapa {Math.max(idx + 1, 1)} de {TRILHA_ACOLHIMENTO.length}
@@ -120,7 +120,7 @@ function TrilhaAcolhimento({
                 <div
                   key={s}
                   className={`flex-1 h-2 rounded-full transition-all duration-300 ${
-                    feito ? "bg-emerald-400" : ativo ? "bg-primary" : "bg-muted"
+                    feito ? "bg-success" : ativo ? "bg-primary" : "bg-muted"
                   }`}
                   title={STATUS_ACOLHIMENTO_CONFIG.find(c => c.value === s)?.label}
                 />
@@ -355,7 +355,7 @@ export default function VisitanteDetalhe() {
                   </span>
                 )}
                 {diasUltimoContato < 9999 && (
-                  <span className={`text-xs ${diasUltimoContato > 7 ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground"}`}>
+                  <span className={`text-xs ${diasUltimoContato > 7 ? "text-warning-text" : "text-muted-foreground"}`}>
                     · Contato {diasUltimoContato === 0 ? "hoje" : `há ${diasUltimoContato}d`}
                   </span>
                 )}
@@ -386,7 +386,7 @@ export default function VisitanteDetalhe() {
                   <Button
                     size="sm"
                     onClick={() => enviarMensagemPastoral(visitante)}
-                    className="gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                    className="gap-1 bg-success hover:bg-success text-white"
                   >
                     <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
                   </Button>
@@ -524,17 +524,17 @@ export default function VisitanteDetalhe() {
 
       {/* ── Ação: Tornar Congregado ────────────────────────────────────────────── */}
       {visitante.tipo_pessoa === "visitante" && (
-        <Card className="rounded-2xl shadow border-emerald-200 bg-emerald-50/50 dark:bg-emerald-900/10 dark:border-emerald-800/40">
+        <Card className="rounded-2xl shadow border-success-line bg-success-soft/50">
           <CardContent className="py-5">
             <div className="flex items-start gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center shrink-0">
-                <Sparkles className="w-5 h-5 text-emerald-700 dark:text-emerald-400" />
+              <div className="w-10 h-10 rounded-full bg-success-soft/40 flex items-center justify-center shrink-0">
+                <Sparkles className="w-5 h-5 text-success-text" />
               </div>
               <div>
-                <p className="font-semibold text-sm text-emerald-800 dark:text-emerald-300">
+                <p className="font-semibold text-sm text-success-text">
                   Pronto para o próximo passo?
                 </p>
-                <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-0.5 leading-relaxed">
+                <p className="text-xs text-success-text mt-0.5 leading-relaxed">
                   Ao confirmar, <strong>{visitante.nome_completo.split(" ")[0]}</strong> passa
                   para o grupo de <strong>Congregados</strong>. Todo o histórico é preservado
                   e você será direcionado para a ficha onde poderá criar o acesso ao sistema.
@@ -545,7 +545,7 @@ export default function VisitanteDetalhe() {
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button
-                  className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+                  className="w-full gap-2 bg-success hover:bg-success text-white"
                   disabled={tornandoCong}
                 >
                   {tornandoCong
@@ -558,7 +558,7 @@ export default function VisitanteDetalhe() {
               <AlertDialogContent className="rounded-2xl">
                 <AlertDialogHeader>
                   <AlertDialogTitle className="flex items-center gap-2">
-                    <Star className="w-5 h-5 text-emerald-500" />
+                    <Star className="w-5 h-5 text-success-text" />
                     Confirmar: Tornar Congregado
                   </AlertDialogTitle>
                   <AlertDialogDescription className="text-sm leading-relaxed space-y-2">
@@ -577,7 +577,7 @@ export default function VisitanteDetalhe() {
                   <AlertDialogCancel>Cancelar</AlertDialogCancel>
                   <AlertDialogAction
                     onClick={handleTornarCongregado}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
+                    className="bg-success hover:bg-success text-white gap-2"
                   >
                     <CheckCircle2 className="w-4 h-4" /> Confirmar
                   </AlertDialogAction>

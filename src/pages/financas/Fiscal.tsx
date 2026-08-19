@@ -26,10 +26,10 @@ import {
 } from "@/services/fiscalService";
 
 const COR_CHIP: Record<string, string> = {
-  blue:    "bg-blue-50 text-blue-700 border-blue-200",
-  rose:    "bg-rose-50 text-rose-700 dark:text-rose-400 border-rose-200",
-  amber:   "bg-amber-50 text-amber-700 dark:text-amber-400 border-amber-200",
-  emerald: "bg-emerald-50 text-emerald-700 dark:text-emerald-400 border-emerald-200",
+  blue:    "bg-info-soft text-info-text border-info-line",
+  rose:    "bg-destructive-soft text-destructive-text border-destructive-line",
+  amber:   "bg-warning-soft text-warning-text border-warning-line",
+  emerald: "bg-success-soft text-success-text border-success-line",
   purple:  "bg-purple-50 text-purple-700 border-purple-200",
 };
 
@@ -343,8 +343,8 @@ function AbaAgenda() {
           return (
             <div key={it.id} className={
               "flex items-center gap-2 p-2 border rounded-md text-xs " +
-              (atrasado ? "border-rose-200 bg-rose-50/30" :
-               it.status === "pago" ? "border-emerald-200 bg-emerald-50/20 opacity-70" : "")
+              (atrasado ? "border-destructive-line bg-destructive-soft/30" :
+               it.status === "pago" ? "border-success-line bg-success-soft/20 opacity-70" : "")
             }>
               <span className="text-base shrink-0">{it.tipo?.icone}</span>
               <div className="flex-1 min-w-0">
@@ -353,8 +353,8 @@ function AbaAgenda() {
                   <Badge variant="outline" className="text-xs">
                     {new Date(it.competencia + "T00:00").toLocaleDateString("pt-BR", { month: "short", year: "numeric" })}
                   </Badge>
-                  {it.status === "pago" && <Badge className="text-xs bg-emerald-100 text-emerald-700 dark:text-emerald-400">Pago</Badge>}
-                  {atrasado && <Badge className="text-xs bg-rose-100 text-rose-700 dark:text-rose-400">Atrasado</Badge>}
+                  {it.status === "pago" && <Badge className="text-xs bg-success-soft text-success-text">Pago</Badge>}
+                  {atrasado && <Badge className="text-xs bg-destructive-soft text-destructive-text">Atrasado</Badge>}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Vence em {fmtData(it.vencimento)}
@@ -373,7 +373,7 @@ function AbaAgenda() {
                 className="text-xs gap-1 h-7 px-2"
                 onClick={() => setDocDialog({ id: it.id, nome: it.tipo?.nome ?? "Obrigação" })}
                 title="Documentos anexados">
-                <Paperclip className="w-3 h-3 text-blue-600" />
+                <Paperclip className="w-3 h-3 text-info-text" />
               </Button>
               {it.status === "pendente" && !it.lancamento_id && (
                 <Button size="sm" variant="outline" className="text-xs gap-1" onClick={() => gerarLancamentoPagar(it)}>
@@ -386,7 +386,7 @@ function AbaAgenda() {
                 </Button>
               )}
               {it.lancamento_id && it.status === "pendente" && (
-                <span className="text-xs text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                <span className="text-xs text-info-text bg-info-soft px-1.5 py-0.5 rounded border border-info-line">
                   Em contas a pagar
                 </span>
               )}
@@ -456,14 +456,14 @@ function AbaInsights() {
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
           {inc.length === 0 ? (
-            <p className="text-xs text-emerald-700 dark:text-emerald-400 text-center py-3">
+            <p className="text-xs text-success-text text-center py-3">
               ✓ Nenhuma inconsistência detectada
             </p>
           ) : inc.map((x, idx) => (
             <div key={idx} className={
               "border rounded-md p-2 text-xs " +
-              (x.severidade === "alta" ? "border-rose-200 bg-rose-50/30" :
-               x.severidade === "media" ? "border-amber-200 bg-amber-50/30" : "border-blue-200 bg-blue-50/30")
+              (x.severidade === "alta" ? "border-destructive-line bg-destructive-soft/30" :
+               x.severidade === "media" ? "border-warning-line bg-warning-soft/30" : "border-info-line bg-info-soft/30")
             }>
               <div className="flex items-center gap-1.5 mb-1">
                 <Badge variant="outline" className="text-xs">
@@ -490,7 +490,7 @@ function Metrica({ titulo, valor, variacao }: { titulo: string; valor: string; v
         <div className="text-xs uppercase tracking-wide text-muted-foreground">{titulo}</div>
         <div className="text-base font-medium font-serif">{valor}</div>
         {variacao != null && (
-          <div className={"flex items-center gap-1 text-xs " + (variacao >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400")}>
+          <div className={"flex items-center gap-1 text-xs " + (variacao >= 0 ? "text-success-text" : "text-destructive-text")}>
             {variacao >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
             {variacao.toFixed(1)}% vs mês anterior
           </div>

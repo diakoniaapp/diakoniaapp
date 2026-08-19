@@ -260,8 +260,8 @@ export function EntradaForm({ campanhaId, open, onOpenChange, onSaved, entrada }
                 {previewUrl ? (
                   <img src={previewUrl} alt="preview" className="w-14 h-14 object-cover rounded" />
                 ) : arquivoEhPdf ? (
-                  <div className="w-14 h-14 flex items-center justify-center bg-rose-50 rounded">
-                    <FileText className="w-6 h-6 text-rose-500" />
+                  <div className="w-14 h-14 flex items-center justify-center bg-destructive-soft rounded">
+                    <FileText className="w-6 h-6 text-destructive-text" />
                   </div>
                 ) : (
                   <div className="w-14 h-14 flex items-center justify-center bg-muted rounded">

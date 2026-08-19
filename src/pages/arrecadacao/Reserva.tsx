@@ -32,11 +32,11 @@ const STATUS_LABEL: Record<ReservaStatus, string> = {
 } as any;
 
 const STATUS_COR: Record<ReservaStatus, string> = {
-  solicitada: "bg-amber-50 text-amber-700 dark:text-amber-400 border-amber-200",
-  aprovada:   "bg-emerald-50 text-emerald-800 border-emerald-300",
-  em_uso:     "bg-emerald-100 text-emerald-700 dark:text-emerald-400 border-emerald-300",
+  solicitada: "bg-warning-soft text-warning-text border-warning-line",
+  aprovada:   "bg-success-soft text-success-text border-success-line",
+  em_uso:     "bg-success-soft text-success-text border-success-line",
   encerrada:  "bg-muted text-muted-foreground border-border",
-  recusada:   "bg-rose-50 text-rose-700 dark:text-rose-400 border-rose-200",
+  recusada:   "bg-destructive-soft text-destructive-text border-destructive-line",
   cancelada:  "bg-muted text-muted-foreground line-through",
 } as any;
 
@@ -142,11 +142,11 @@ export default function ReservaDetalhe() {
         </div>
         {reserva.status === "solicitada" && (
           <>
-            <Button size="sm" onClick={() => setAprovacaoOpen(true)} className="gap-1.5 bg-emerald-600 hover:bg-emerald-700">
+            <Button size="sm" onClick={() => setAprovacaoOpen(true)} className="gap-1.5 bg-success hover:bg-success">
               <CheckCircle2 className="w-3.5 h-3.5" /> Aprovar
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setRecusarOpen(true)}
-              className="gap-1.5 text-rose-700 dark:text-rose-400 hover:bg-rose-50">
+              className="gap-1.5 text-destructive-text hover:bg-destructive-soft">
               <XCircle className="w-3.5 h-3.5" /> Recusar
             </Button>
           </>
@@ -158,12 +158,12 @@ export default function ReservaDetalhe() {
               <MessageCircle className="w-3.5 h-3.5" /> Enviar termo
             </Button>
             <Button size="sm" onClick={() => setPreUsoOpen(true)}
-              className="gap-1.5 bg-emerald-600 hover:bg-emerald-700">
+              className="gap-1.5 bg-success hover:bg-success">
               <PlayCircle className="w-3.5 h-3.5" /> Iniciar uso
             </Button>
           </>
         )}
-        <Button size="sm" variant="ghost" onClick={() => acao("arquivar")} className="text-rose-700 dark:text-rose-400">
+        <Button size="sm" variant="ghost" onClick={() => acao("arquivar")} className="text-destructive-text">
           <Trash2 className="w-3.5 h-3.5" />
         </Button>
       </header>
@@ -189,8 +189,8 @@ export default function ReservaDetalhe() {
             </Linha>
           )}
           {reserva.motivo_recusa && (
-            <Linha icon={<XCircle className="w-3.5 h-3.5 text-rose-700 dark:text-rose-400" />} label="Motivo da recusa">
-              <span className="text-rose-700 dark:text-rose-400">{reserva.motivo_recusa}</span>
+            <Linha icon={<XCircle className="w-3.5 h-3.5 text-destructive-text" />} label="Motivo da recusa">
+              <span className="text-destructive-text">{reserva.motivo_recusa}</span>
             </Linha>
           )}
         </CardContent>
@@ -201,22 +201,22 @@ export default function ReservaDetalhe() {
       {(reserva.status === "em_uso" || reserva.status === "encerrada") && caixa && (
         <Card className={
           "border-2 shadow-md " +
-          (caixa.estado === "aberto"      ? "border-emerald-400 bg-emerald-50/40" :
-           caixa.estado === "conciliando" ? "border-amber-400 bg-amber-50/30" :
+          (caixa.estado === "aberto"      ? "border-success-line bg-success-soft/40" :
+           caixa.estado === "conciliando" ? "border-warning-line bg-warning-soft/30" :
                                             "border-muted bg-muted/20")
         }>
           <CardHeader className="pb-2">
             <CardTitle className="text-base md:text-lg flex items-center gap-2">
               <ShoppingCart className={
                 "w-5 h-5 " +
-                (caixa.estado === "aberto"      ? "text-emerald-700 dark:text-emerald-400" :
-                 caixa.estado === "conciliando" ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground")
+                (caixa.estado === "aberto"      ? "text-success-text" :
+                 caixa.estado === "conciliando" ? "text-warning-text" : "text-muted-foreground")
               } />
               Caixa do PDV
               <Badge className={
                 "ml-2 text-xs " +
-                (caixa.estado === "aberto"      ? "bg-emerald-100 text-emerald-700 dark:text-emerald-400 border-emerald-200" :
-                 caixa.estado === "conciliando" ? "bg-amber-100 text-amber-700 dark:text-amber-400 border-amber-200" :
+                (caixa.estado === "aberto"      ? "bg-success-soft text-success-text border-success-line" :
+                 caixa.estado === "conciliando" ? "bg-warning-soft text-warning-text border-warning-line" :
                                                    "bg-muted text-muted-foreground")
               }>
                 {caixa.estado.toUpperCase()}
@@ -239,7 +239,7 @@ export default function ReservaDetalhe() {
             <div className="flex flex-wrap gap-2">
               {caixa.estado === "aberto" && (
                 <Button asChild size="lg"
-                  className="gap-2 bg-emerald-600 hover:bg-emerald-700 flex-1 md:flex-none h-12 text-base font-semibold shadow">
+                  className="gap-2 bg-success hover:bg-success flex-1 md:flex-none h-12 text-base font-semibold shadow">
                   <Link to={`/arrecadacao/caixa/${caixa.id}`}>
                     <ShoppingCart className="w-5 h-5" /> Abrir PDV
                   </Link>
@@ -269,7 +269,7 @@ export default function ReservaDetalhe() {
                       carregar();
                     } catch (err: any) { toast.error(err?.message ?? "Erro"); }
                   }}
-                  className="gap-2 h-12 px-4 border-amber-300 text-amber-800 hover:bg-amber-50">
+                  className="gap-2 h-12 px-4 border-warning-line text-warning-text hover:bg-warning-soft">
                   <RotateCcw className="w-4 h-4" /> Reabrir caixa
                 </Button>
               )}
@@ -283,13 +283,13 @@ export default function ReservaDetalhe() {
                       carregar();
                     } catch (err: any) { toast.error(err?.message ?? "Erro"); }
                   }}
-                  className="gap-2 h-12 px-4 border-rose-300 text-rose-700 dark:text-rose-400 hover:bg-rose-50">
+                  className="gap-2 h-12 px-4 border-destructive-line text-destructive-text hover:bg-destructive-soft">
                   <CheckCircle2 className="w-4 h-4" /> Encerrar reserva
                 </Button>
               )}
             </div>
             {caixa.estado === "fechado" && reserva.status === "em_uso" && (
-              <div className="border-2 border-rose-300 bg-rose-50/60 rounded p-2 text-xs text-rose-800 flex gap-2 items-start">
+              <div className="border-2 border-destructive-line bg-destructive-soft/60 rounded p-2 text-xs text-destructive-text flex gap-2 items-start">
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                 <div>
                   <strong>Estado inconsistente:</strong> o caixa já foi fechado mas a
@@ -374,13 +374,13 @@ export default function ReservaDetalhe() {
 
 function BlocoGrande({ titulo, valor, cor, destaque }: { titulo: string; valor: string; cor?: string; destaque?: boolean }) {
   const corClasses: Record<string, string> = {
-    emerald: "text-emerald-700 dark:text-emerald-400",
-    rose:    "text-rose-700 dark:text-rose-400",
+    emerald: "text-success-text",
+    rose:    "text-destructive-text",
   };
   return (
     <div className={
       "border-2 rounded-lg p-2.5 md:p-3 text-center " +
-      (destaque ? "border-emerald-400 bg-white shadow-sm" : "border-border bg-white/70")
+      (destaque ? "border-success-line bg-white shadow-sm" : "border-border bg-white/70")
     }>
       <div className="text-xs md:text-xs uppercase tracking-wider text-muted-foreground">{titulo}</div>
       <div className={
@@ -392,9 +392,9 @@ function BlocoGrande({ titulo, valor, cor, destaque }: { titulo: string; valor: 
 }
 
 function Bloco({ titulo, valor, cor, destaque }: { titulo: string; valor: string; cor?: string; destaque?: boolean }) {
-  const corClasses: Record<string, string> = { emerald: "text-emerald-700 dark:text-emerald-400", rose: "text-rose-700 dark:text-rose-400" };
+  const corClasses: Record<string, string> = { emerald: "text-success-text", rose: "text-destructive-text" };
   return (
-    <div className={"border rounded-md p-2 " + (destaque ? "border-emerald-300 bg-emerald-50/40" : "")}>
+    <div className={"border rounded-md p-2 " + (destaque ? "border-success-line bg-success-soft/40" : "")}>
       <div className="text-xs uppercase tracking-wide text-muted-foreground">{titulo}</div>
       <div className={"text-sm font-serif font-medium " + (cor ? corClasses[cor] : "")}>{valor}</div>
     </div>

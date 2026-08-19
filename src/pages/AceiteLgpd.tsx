@@ -227,7 +227,7 @@ export default function AceiteLgpd() {
             </div>
             {renderPolitica()}
             <div className="flex items-center gap-2 pt-3 border-t border-border/40 dark:border-border/30 mt-2">
-              <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+              <CheckCircle2 className="w-4 h-4 text-success-text shrink-0" />
               <span className="text-xs text-muted-foreground">Fim — Versão {versao}</span>
             </div>
           </div>
@@ -262,7 +262,7 @@ export default function AceiteLgpd() {
         {erroMsg && (
           <div className="flex items-start gap-2 bg-destructive/8 dark:bg-destructive/15 border border-destructive/25 rounded-lg px-3 py-2.5">
             <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
-            <p className="text-sm text-destructive dark:text-red-400">{erroMsg}</p>
+            <p className="text-sm text-destructive">{erroMsg}</p>
           </div>
         )}
 

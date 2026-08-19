@@ -61,7 +61,7 @@ export default function AtuacoesDialog({ pessoa, open, onOpenChange }: Props) {
                     <span>{r.area_nome ?? "—"}</span>
                     <Badge variant="outline" className="bg-muted/50">{r.funcao}</Badge>
                     {r.status === "ativa"
-                      ? <Badge variant="outline" className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30">Ativa</Badge>
+                      ? <Badge variant="outline" className="bg-success/10 text-success-text border-success-line/30">Ativa</Badge>
                       : <Badge variant="outline" className="bg-muted text-muted-foreground">Encerrada</Badge>}
                   </div>
                   <div className="text-xs text-muted-foreground mt-1">

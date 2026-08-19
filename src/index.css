@@ -82,6 +82,76 @@
     --destructive:        0 68% 45%;
     --destructive-foreground: 0 0% 100%;
 
+    /* ── Os quatro papéis, completos ──────────────────────────────
+
+       Contado no código antes de escrever isto: 2.167 utilitários de cor
+       crua do Tailwind espalhados pelas telas. Não era decoração — era
+       semântica, e bem consistente:
+
+         emerald + green ......... 720   deu certo, está em dia
+         amber + orange + yellow . 603   atenção, pendente
+         rose + red .............. 470   erro, crítico
+         blue + sky + indigo ..... 230   informação
+
+       Quatro papéis cobrindo 2.023 dos 2.167. O problema nunca foi a
+       escolha das cores; foi cada tela ter escrito a sua à mão, com tom
+       diferente e sem par para o tema escuro.
+
+       Cada papel ganha QUATRO valores, porque uma cor faz quatro
+       trabalhos diferentes e cada um tem uma regra de contraste própria:
+
+         --X              o preenchimento. Contrasta com o que se escreve
+                          EM CIMA dele (--X-foreground).
+         --X-text         a cor como LETRA, sobre a superfície da página.
+                          Contrasta com o fundo. Quase nunca é o mesmo
+                          valor do preenchimento — foi essa confusão que
+                          deixou o âmbar em 2,15:1, ilegível.
+         --X-soft         a tinta de fundo (os -50/-100 do Tailwind).
+         --X-line         a linha em volta da tinta (os -200/-300).
+
+       O verde é o único que serve nos dois papéis: 142 52% 32% dá 5,9:1
+       tanto contra branco por cima quanto como letra sobre branco. */
+
+    --success-text:       142 55% 28%;
+    --success-soft:       142 45% 95%;
+    --success-line:       142 32% 78%;
+
+    --warning-soft:       38 92% 94%;
+    --warning-line:       38 65% 76%;
+
+    --destructive-text:   0 65% 40%;
+    --destructive-soft:   0 80% 96%;
+    --destructive-line:   0 52% 84%;
+
+    /* Azul de informação, dessaturado de propósito. A identidade do
+       Diakonia é quente — algodão, cobre, terracota, bronze. Um azul de
+       saturação cheia (o blue-600 cru que estava em 25 lugares) briga
+       com ela e parece cola de outro sistema. A 45% de saturação ele
+       ainda lê como "azul, é um aviso neutro" sem furar a paleta. */
+    /* ── Celebração ───────────────────────────────────────────────
+
+       Este papel eu descobri errando. Mapeei `rose` para "erro" junto
+       com `red`, e pintei de vermelho de alerta o cartão de BODAS DE
+       CASAMENTO no painel pastoral, a linha de aniversário de casamento
+       em "Ações de hoje" e o campo "Data de casamento" nas Famílias.
+
+       Numa igreja, rosa não quer dizer erro: quer dizer aniversário e
+       bodas. É um significado de verdade, com lugar próprio nas telas —
+       e portanto merece nome, pela mesma regra que fez os outros quatro
+       existirem. Um sistema que trata a data de casamento de alguém
+       como um alerta está dizendo a coisa errada em silêncio. */
+    --celebracao:         340 55% 45%;
+    --celebracao-foreground: 0 0% 100%;
+    --celebracao-text:    340 55% 40%;
+    --celebracao-soft:    340 70% 96%;
+    --celebracao-line:    340 45% 85%;
+
+    --info:               212 48% 40%;
+    --info-foreground:    0 0% 100%;
+    --info-text:          212 52% 35%;
+    --info-soft:          212 55% 95%;
+    --info-line:          212 35% 80%;
+
     /* ── Estrutura ───────────────────────────────────────────── */
     /* 84% → 72%. O comentário das sombras abaixo diz que "o cartão separa-se
        do fundo pela BORDA, não pela sombra" — e a borda estava em 1.28:1
@@ -185,6 +255,35 @@
 
     /* 52% → 59%: 3.68:1 sobre o fundo escuro, abaixo do mínimo. */
     --destructive:        0 60% 59%;
+
+    /* Os mesmos quatro papéis, virados para o escuro. A tinta de fundo
+       não clareia: ela ESCURECE e satura pouco, senão vira um bloco
+       leitoso brilhando no meio de uma tela escura. E a cor-letra sobe
+       de luminosidade, porque agora ela precisa contrastar com preto e
+       não com branco — é a inversão que faltava nas 1.190 classes de
+       texto escritas à mão. */
+    --success-text:       142 50% 62%;
+    --success-soft:       142 28% 15%;
+    --success-line:       142 22% 28%;
+
+    --warning-soft:       38 40% 14%;
+    --warning-line:       38 32% 28%;
+
+    --destructive-text:   0 62% 68%;
+    --destructive-soft:   0 34% 15%;
+    --destructive-line:   0 28% 30%;
+
+    --celebracao:         340 50% 58%;
+    --celebracao-foreground: 0 0% 100%;
+    --celebracao-text:    340 58% 70%;
+    --celebracao-soft:    340 30% 16%;
+    --celebracao-line:    340 24% 32%;
+
+    --info:               212 52% 56%;
+    --info-foreground:    0 0% 100%;
+    --info-text:          212 58% 68%;
+    --info-soft:          212 34% 15%;
+    --info-line:          212 26% 30%;
     --destructive-foreground: 0 0% 100%;
 
     /* ── Estrutura ───────────────────────────────────────────── */

@@ -461,7 +461,7 @@ export function MapaFamilias() {
                     </p>
 
                     {aproximado && (
-                      <p className="text-xs mt-1.5 text-amber-700 dark:text-amber-400">
+                      <p className="text-xs mt-1.5 text-warning-text">
                         Ponto aproximado — o número da rua não foi localizado.
                       </p>
                     )}
@@ -475,7 +475,7 @@ export function MapaFamilias() {
                         if (!comTel) return null;
                         return (
                           <Button asChild size="sm"
-                            className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white">
+                            className="h-8 text-xs bg-success hover:bg-success text-white">
                             <a href={linkWhats(comTel.telefone)!} target="_blank" rel="noopener noreferrer">
                               <MessageCircle className="w-3 h-3 mr-1" /> WhatsApp
                             </a>

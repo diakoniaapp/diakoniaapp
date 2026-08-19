@@ -143,7 +143,7 @@ export default function AssuntoDetalhe() {
             </div>
           </div>
           {assunto.observacao_conclusao && (
-            <div className="mt-2 border-l-2 border-emerald-400 pl-2 italic text-emerald-700 dark:text-emerald-400 text-xs">
+            <div className="mt-2 border-l-2 border-success-line pl-2 italic text-success-text text-xs">
               "{assunto.observacao_conclusao}"
             </div>
           )}
@@ -154,7 +154,7 @@ export default function AssuntoDetalhe() {
       {!concluido && (
         <div className="flex gap-2 flex-wrap">
           <Button size="sm" onClick={concluir} disabled={busy}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5">
+            className="bg-success hover:bg-success text-white gap-1.5">
             <Check className="w-3.5 h-3.5" /> Concluir
           </Button>
           {assunto.status === "aberto" && (
@@ -168,7 +168,7 @@ export default function AssuntoDetalhe() {
             </Button>
           )}
           <Button size="sm" variant="outline" onClick={() => trocarStatus("cancelado")} disabled={busy}
-            className="text-rose-700 dark:text-rose-400">
+            className="text-destructive-text">
             <X className="w-3.5 h-3.5 mr-1" /> Cancelar
           </Button>
         </div>

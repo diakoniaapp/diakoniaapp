@@ -18,27 +18,27 @@ const SUGESTAO: Record<string, { acao: string; descricao: string; cor: string }>
     novo: {
           acao: "Enviar mensagem de boas-vindas",
           descricao: "Primeiro contato — presente na memória enquanto a visita é recente.",
-          cor: "border-blue-200 bg-blue-50 dark:bg-blue-900/10 dark:border-blue-800/40",
+          cor: "border-info-line bg-info-soft/10",
     },
     contatar: {
           acao: "Entrar em contato agora",
           descricao: "Este visitante ainda aguarda o primeiro contato da equipe.",
-          cor: "border-orange-200 bg-orange-50 dark:bg-orange-900/10 dark:border-orange-800/40",
+          cor: "border-warning-line bg-warning-soft/10",
     },
     contatado: {
           acao: "Realizar visita presencial",
           descricao: "Contato feito — próximo passo é uma visita ou convite para evento.",
-          cor: "border-yellow-200 bg-yellow-50 dark:bg-yellow-900/10 dark:border-yellow-800/40",
+          cor: "border-warning-line bg-warning-soft/10",
     },
     retornou: {
           acao: "Iniciar acompanhamento semanal",
           descricao: "Visitante retornou — hora de estabelecer um relacionamento contínuo.",
-          cor: "border-green-200 bg-green-50 dark:bg-green-900/10 dark:border-green-800/40",
+          cor: "border-success-line bg-success-soft/10",
     },
     em_relacionamento: {
           acao: "Convidar para grupo de integração",
           descricao: "Momento de conectar com a comunidade de forma mais profunda.",
-          cor: "border-emerald-200 bg-emerald-50 dark:bg-emerald-900/10 dark:border-emerald-800/40",
+          cor: "border-success-line bg-success-soft/10",
     },
     em_acompanhamento: {
           acao: "Verificar necessidades e evolução",
@@ -53,7 +53,7 @@ const SUGESTAO: Record<string, { acao: string; descricao: string; cor: string }>
     membro: {
           acao: "Integrar em ministério ou serviço",
           descricao: "Membro — hora de descobrir e ativar seus dons na comunidade.",
-          cor: "border-indigo-200 bg-indigo-50 dark:bg-indigo-900/10 dark:border-indigo-800/40",
+          cor: "border-info-line bg-info-soft/10",
     },
 };
 
@@ -117,7 +117,7 @@ export function ProximaAcaoCard({ pessoaId, nomeCompleto, statusAtual, onRegistr
                 <CardContent className="py-4 px-4">
                         <div className="flex items-start gap-3">
                                   <div className="w-8 h-8 rounded-full bg-white/70 dark:bg-white/10 flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
-                                              <Zap className="w-4 h-4 text-amber-500" />
+                                              <Zap className="w-4 h-4 text-warning-text" />
                                   </div>
                                   <div className="flex-1 min-w-0">
                                               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
@@ -136,7 +136,7 @@ export function ProximaAcaoCard({ pessoaId, nomeCompleto, statusAtual, onRegistr
                                                 className="shrink-0 gap-1.5 text-xs bg-white/80 dark:bg-white/10 hover:bg-white dark:hover:bg-white/20"
                                                 onClick={() => setExpandido(!expandido)}
                                               >
-                                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                                              <CheckCircle2 className="w-3.5 h-3.5 text-success-text" />
                                               Registrar
                                   </Button>
                         </div>
@@ -156,7 +156,7 @@ export function ProximaAcaoCard({ pessoaId, nomeCompleto, statusAtual, onRegistr
                                                 size="sm"
                                                 onClick={handleRegistrar}
                                                 disabled={salvando}
-                                                className="h-8 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white shrink-0"
+                                                className="h-8 px-3 text-xs bg-success hover:bg-success text-white shrink-0"
                                               >
                                   {salvando ? "..." : "Salvar"}
                                 </Button>

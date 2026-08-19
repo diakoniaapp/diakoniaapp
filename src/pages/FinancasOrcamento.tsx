@@ -104,16 +104,16 @@ export default function FinancasOrcamento() {
               <p className="text-base font-semibold">{orc.length}</p>
             </CardContent>
           </Card>
-          <Card className="bg-rose-50/30 border-rose-200">
+          <Card className="bg-destructive-soft/30 border-destructive-line">
             <CardContent className="py-2 px-3">
-              <p className="text-xs uppercase text-rose-700 dark:text-rose-400">Acima do limite</p>
-              <p className="text-base font-semibold text-rose-700 dark:text-rose-400">{acimaLimite}</p>
+              <p className="text-xs uppercase text-destructive-text">Acima do limite</p>
+              <p className="text-base font-semibold text-destructive-text">{acimaLimite}</p>
             </CardContent>
           </Card>
-          <Card className="bg-amber-50/30 border-amber-200">
+          <Card className="bg-warning-soft/30 border-warning-line">
             <CardContent className="py-2 px-3">
-              <p className="text-xs uppercase text-amber-700 dark:text-amber-400">≥ 80%</p>
-              <p className="text-base font-semibold text-amber-700 dark:text-amber-400">{proximoLimite}</p>
+              <p className="text-xs uppercase text-warning-text">≥ 80%</p>
+              <p className="text-base font-semibold text-warning-text">{proximoLimite}</p>
             </CardContent>
           </Card>
         </div>
@@ -134,7 +134,7 @@ export default function FinancasOrcamento() {
         <div className="space-y-2">
           {orc.map(o => {
             const pct = Number(o.percentual_consumido);
-            const corBarra = pct >= 100 ? "bg-rose-600" : pct >= 80 ? "bg-amber-500" : "bg-emerald-500";
+            const corBarra = pct >= 100 ? "bg-destructive" : pct >= 80 ? "bg-warning" : "bg-success";
             return (
               <Card key={o.id}>
                 <CardContent className="py-2.5 px-3 space-y-1.5">
@@ -143,8 +143,8 @@ export default function FinancasOrcamento() {
                       <Link to={`/financas/centro/${o.centro_custo_id}`}
                         className="font-medium text-sm truncate flex items-center gap-1.5 hover:underline">
                         {o.centro_nome}
-                        {pct >= 100 && <Badge variant="outline" className="text-xs bg-rose-100 text-rose-700 dark:text-rose-400 border-rose-300">Estourou</Badge>}
-                        {pct >= 80 && pct < 100 && <Badge variant="outline" className="text-xs bg-amber-100 text-amber-700 dark:text-amber-400 border-amber-300">Alerta</Badge>}
+                        {pct >= 100 && <Badge variant="outline" className="text-xs bg-destructive-soft text-destructive-text border-destructive-line">Estourou</Badge>}
+                        {pct >= 80 && pct < 100 && <Badge variant="outline" className="text-xs bg-warning-soft text-warning-text border-warning-line">Alerta</Badge>}
                       </Link>
                       <p className="text-xs text-muted-foreground">
                         {o.mes ? `Mês ${String(o.mes).padStart(2, "0")}/${o.ano}` : `Ano ${o.ano}`}
@@ -154,7 +154,7 @@ export default function FinancasOrcamento() {
                       <p className="text-sm font-semibold tabular-nums">
                         {brl(Number(o.valor_real))} / <span className="text-muted-foreground">{brl(Number(o.valor_planejado))}</span>
                       </p>
-                      <p className={`text-xs font-medium ${pct >= 100 ? "text-rose-700 dark:text-rose-400" : pct >= 80 ? "text-amber-700 dark:text-amber-400" : "text-emerald-700 dark:text-emerald-400"}`}>
+                      <p className={`text-xs font-medium ${pct >= 100 ? "text-destructive-text" : pct >= 80 ? "text-warning-text" : "text-success-text"}`}>
                         {pct.toFixed(1)}% consumido
                       </p>
                     </div>

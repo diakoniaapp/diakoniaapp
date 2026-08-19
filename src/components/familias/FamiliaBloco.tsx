@@ -264,12 +264,12 @@ export function FamiliaBloco({ pessoaId, nomeCompleto, endereco, onChange }: Pro
 
       {/* Família atual */}
       {atual && (
-        <Card className="border-rose-200 bg-rose-50/40 dark:bg-rose-950/10">
+        <Card className="border-destructive-line bg-destructive-soft/40">
           <CardContent className="py-3 space-y-2">
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
                 <p className="font-medium truncate flex items-center gap-1.5">
-                  {atual.responsavel && <Crown className="w-3.5 h-3.5 text-rose-500" />}
+                  {atual.responsavel && <Crown className="w-3.5 h-3.5 text-destructive-text" />}
                   {atual.familia.nome_familia}
                 </p>
                 <p className="text-xs text-muted-foreground">
@@ -292,9 +292,9 @@ export function FamiliaBloco({ pessoaId, nomeCompleto, endereco, onChange }: Pro
 
       {/* Sugestões automáticas (somente se ainda não tem família) */}
       {!atual && !ignorado && sugestoes.length > 0 && (
-        <Card className="border-amber-200 bg-amber-50/40 dark:bg-amber-950/10">
+        <Card className="border-warning-line bg-warning-soft/40">
           <CardContent className="py-3 space-y-2">
-            <p className="text-xs font-medium flex items-center gap-1.5 text-amber-800 dark:text-amber-200">
+            <p className="text-xs font-medium flex items-center gap-1.5 text-warning-text">
               <Sparkles className="w-3.5 h-3.5" />
               Possíveis familiares encontrados ({sugestoes.length}):
             </p>
@@ -302,7 +302,7 @@ export function FamiliaBloco({ pessoaId, nomeCompleto, endereco, onChange }: Pro
               {sugestoes.map(s => {
                 const checked = selecionados.has(s.pessoa_id);
                 return (
-                  <label key={s.pessoa_id} className="flex items-center justify-between gap-2 text-sm border-b border-amber-200/40 pb-1.5 last:border-0 cursor-pointer hover:bg-amber-100/50 rounded px-1 py-1">
+                  <label key={s.pessoa_id} className="flex items-center justify-between gap-2 text-sm border-b border-warning-line/40 pb-1.5 last:border-0 cursor-pointer hover:bg-warning-soft/50 rounded px-1 py-1">
                     <div className="flex items-center gap-2 min-w-0">
                       <Checkbox
                         checked={checked}
@@ -316,7 +316,7 @@ export function FamiliaBloco({ pessoaId, nomeCompleto, endereco, onChange }: Pro
                       />
                       <span className="font-medium truncate">{s.nome_completo}</span>
                       {s.familia_nome && (
-                        <Badge variant="outline" className="text-xs border-rose-300 text-rose-700 dark:text-rose-400">
+                        <Badge variant="outline" className="text-xs border-destructive-line text-destructive-text">
                           {s.familia_nome}
                         </Badge>
                       )}
@@ -458,7 +458,7 @@ export function FamiliaBloco({ pessoaId, nomeCompleto, endereco, onChange }: Pro
             )}
 
             {/* Linha da pessoa atual */}
-            <div className="rounded-md border p-2 bg-rose-50/50 dark:bg-rose-950/10">
+            <div className="rounded-md border p-2 bg-destructive-soft/50">
               <p className="text-xs font-semibold mb-1">{nomeCompleto} (esta pessoa)</p>
               <div className="grid grid-cols-2 gap-2 items-end">
                 <div>
@@ -477,7 +477,7 @@ export function FamiliaBloco({ pessoaId, nomeCompleto, endereco, onChange }: Pro
                     checked={loteResponsavelId === "__self__"}
                     onCheckedChange={(v) => v && setLoteResponsavelId("__self__")}
                   />
-                  <Crown className="w-3 h-3 text-rose-500" />
+                  <Crown className="w-3 h-3 text-destructive-text" />
                   <span>Responsável</span>
                 </label>
               </div>
@@ -510,7 +510,7 @@ export function FamiliaBloco({ pessoaId, nomeCompleto, endereco, onChange }: Pro
                         checked={loteResponsavelId === id}
                         onCheckedChange={(v) => v && setLoteResponsavelId(id)}
                       />
-                      <Crown className="w-3 h-3 text-rose-500" />
+                      <Crown className="w-3 h-3 text-destructive-text" />
                       <span>Responsável</span>
                     </label>
                   </div>

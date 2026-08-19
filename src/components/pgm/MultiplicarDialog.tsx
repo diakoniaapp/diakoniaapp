@@ -69,7 +69,7 @@ export function MultiplicarDialog({ open, onOpenChange, grupoPaiId, grupoPaiNome
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-serif text-xl flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-emerald-700 dark:text-emerald-400" /> Multiplicar grupo
+            <Sparkles className="w-5 h-5 text-success-text" /> Multiplicar grupo
           </DialogTitle>
           <DialogDescription>
             Você está prestes a gerar um <strong>grupo filho</strong> a partir de <em>{grupoPaiNome}</em>.
@@ -100,7 +100,7 @@ export function MultiplicarDialog({ open, onOpenChange, grupoPaiId, grupoPaiNome
               ) : membros.map(m => (
                 <label key={m.id}
                   className={`flex items-center gap-2 px-2 py-1.5 border-b last:border-0 cursor-pointer text-sm hover:bg-muted/40 ${
-                    selecionados.has(m.pessoa_id) ? "bg-emerald-50" : ""
+                    selecionados.has(m.pessoa_id) ? "bg-success-soft" : ""
                   }`}>
                   <input type="checkbox" checked={selecionados.has(m.pessoa_id)}
                     onChange={() => toggle(m.pessoa_id)} />
@@ -115,7 +115,7 @@ export function MultiplicarDialog({ open, onOpenChange, grupoPaiId, grupoPaiNome
               onClick={() => onOpenChange(false)} disabled={busy}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={busy} className="bg-emerald-700 hover:bg-emerald-700/90 text-white gap-1.5">
+            <Button type="submit" disabled={busy} className="bg-success hover:bg-success/90 text-white gap-1.5">
               <Sparkles className="w-3.5 h-3.5" /> {busy ? "..." : "Multiplicar"}
             </Button>
           </DialogFooter>

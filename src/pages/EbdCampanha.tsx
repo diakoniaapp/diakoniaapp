@@ -20,11 +20,11 @@ import { PaginaSkeleton } from "@/components/ListState";
 const TIPO_LABEL: Record<string, string> = { oferta: "Oferta", evento: "Evento", produto: "Produto" };
 const FORMA_LABEL: Record<string, string> = { pix: "PIX", envelope: "Envelope", outro: "Outro" };
 const STATUS_LABEL: Record<string, { texto: string; cor: string }> = {
-  meta_atingida: { texto: "🎉 Meta atingida!", cor: "text-emerald-700 dark:text-emerald-400" },
-  acima_esperado: { texto: "👏 Acima do esperado", cor: "text-emerald-700 dark:text-emerald-400" },
-  no_ritmo: { texto: "✓ No ritmo", cor: "text-blue-700" },
-  abaixo_esperado: { texto: "⚠ Abaixo do esperado", cor: "text-amber-700 dark:text-amber-400" },
-  muito_abaixo: { texto: "❗ Muito abaixo", cor: "text-rose-700 dark:text-rose-400" },
+  meta_atingida: { texto: "🎉 Meta atingida!", cor: "text-success-text" },
+  acima_esperado: { texto: "👏 Acima do esperado", cor: "text-success-text" },
+  no_ritmo: { texto: "✓ No ritmo", cor: "text-info-text" },
+  abaixo_esperado: { texto: "⚠ Abaixo do esperado", cor: "text-warning-text" },
+  muito_abaixo: { texto: "❗ Muito abaixo", cor: "text-destructive-text" },
 };
 
 function brl(v: number) {
@@ -143,7 +143,7 @@ export default function EbdCampanha() {
             <div className="space-y-1">
               <div className="h-4 rounded-full bg-muted overflow-hidden relative">
                 <div
-                  className="h-full bg-gradient-to-r from-gold via-amber-500 to-emerald-500 transition-all"
+                  className="h-full bg-gradient-to-r from-gold via-warning to-success transition-all"
                   style={{ width: `${Math.min(100, resumo.percentual)}%` }}
                 />
                 {/* Marca do esperado_ate_hoje */}
@@ -220,7 +220,7 @@ export default function EbdCampanha() {
                       <button
                         type="button"
                         onClick={() => abrirComprovante(e.comprovante_url!)}
-                        className="inline-flex items-center gap-0.5 text-xs text-blue-700 hover:underline"
+                        className="inline-flex items-center gap-0.5 text-xs text-info-text hover:underline"
                         title="Ver comprovante"
                       >
                         <Paperclip className="w-3 h-3" /> ver

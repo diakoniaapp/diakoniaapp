@@ -94,8 +94,8 @@ export default function FinancasEstoque() {
 
       {/* Alerta de itens em risco */}
       {stats.criticos + stats.comprar > 0 && (
-        <Card className="border-amber-300/40 bg-amber-50/30">
-          <CardContent className="py-2.5 px-3 text-xs text-amber-700 dark:text-amber-400 flex items-center gap-2">
+        <Card className="border-warning-line/40 bg-warning-soft/30">
+          <CardContent className="py-2.5 px-3 text-xs text-warning-text flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 shrink-0" />
             <span>
               <strong>{stats.criticos + stats.comprar} item(s)</strong> precisam de atenção. Filtre por "urgência" abaixo pra ver só esses.
@@ -174,7 +174,7 @@ export default function FinancasEstoque() {
                       <span>Consumo: {a.consumo_medio_mes.toFixed(1)}/mês</span>
                     )}
                     {a.dias_restantes_estimados != null && (
-                      <span className={a.dias_restantes_estimados <= 15 ? "text-amber-700 dark:text-amber-400 font-medium" : ""}>
+                      <span className={a.dias_restantes_estimados <= 15 ? "text-warning-text font-medium" : ""}>
                         Acaba em {a.dias_restantes_estimados}d
                       </span>
                     )}
@@ -218,8 +218,8 @@ export default function FinancasEstoque() {
 }
 
 function Stat({ label, valor, cor }: { label: string; valor: number | string; cor?: "rose" | "amber" }) {
-  const corClass = cor === "rose" ? "text-rose-700 dark:text-rose-400"
-                : cor === "amber" ? "text-amber-700 dark:text-amber-400"
+  const corClass = cor === "rose" ? "text-destructive-text"
+                : cor === "amber" ? "text-warning-text"
                 : "";
   return (
     <Card>

@@ -246,7 +246,7 @@ export function AuthCampo({
 export function AuthErro({ mensagem }: { mensagem: string | null }) {
   if (!mensagem) return null;
   return (
-    <div className="bg-destructive/8 dark:bg-destructive/15 border border-destructive/25 dark:border-destructive/30 rounded-lg px-3 py-2.5 text-sm text-destructive dark:text-red-400 animate-fade-in">
+    <div className="bg-destructive/8 dark:bg-destructive/15 border border-destructive/25 dark:border-destructive/30 rounded-lg px-3 py-2.5 text-sm text-destructive animate-fade-in">
       {mensagem}
     </div>
   );

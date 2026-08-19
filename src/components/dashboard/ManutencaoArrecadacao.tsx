@@ -35,7 +35,7 @@ export function ManutencaoArrecadacao() {
 
   if (!data || (data.total_aberto + data.total_andamento === 0)) {
     return (
-      <div className="py-3 text-center text-xs text-emerald-700 dark:text-emerald-400">
+      <div className="py-3 text-center text-xs text-success-text">
         ✓ Bazar e Cantina sem problemas de manutenção pendentes
       </div>
     );
@@ -45,15 +45,15 @@ export function ManutencaoArrecadacao() {
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2 text-xs">
         {data.total_alta_prioridade > 0 && (
-          <span className="px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 dark:text-rose-400 border border-rose-200 font-medium">
+          <span className="px-1.5 py-0.5 rounded bg-destructive-soft text-destructive-text border border-destructive-line font-medium">
             🚨 {data.total_alta_prioridade} alta prioridade
           </span>
         )}
-        <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 dark:text-amber-400 border border-amber-200">
+        <span className="px-1.5 py-0.5 rounded bg-warning-soft text-warning-text border border-warning-line">
           {data.total_aberto} aberto{data.total_aberto > 1 ? "s" : ""}
         </span>
         {data.total_andamento > 0 && (
-          <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
+          <span className="px-1.5 py-0.5 rounded bg-info-soft text-info-text border border-info-line">
             {data.total_andamento} em andamento
           </span>
         )}
@@ -72,15 +72,15 @@ export function ManutencaoArrecadacao() {
 
       {/* Recorrentes */}
       {data.recorrentes.length > 0 && (
-        <div className="border-l-2 border-amber-400 pl-2">
+        <div className="border-l-2 border-warning-line pl-2">
           <div className="text-xs uppercase tracking-wide text-muted-foreground flex items-center gap-1">
-            <AlertTriangle className="w-3 h-3 text-amber-700 dark:text-amber-400" /> Recorrentes (180 dias)
+            <AlertTriangle className="w-3 h-3 text-warning-text" /> Recorrentes (180 dias)
           </div>
           <ul className="text-xs mt-1 space-y-0.5">
             {data.recorrentes.slice(0, 3).map((r, i) => (
               <li key={i} className="flex items-center gap-2">
                 <span className="font-medium flex-1 truncate">{r.titulo}</span>
-                <span className="text-rose-700 dark:text-rose-400 text-xs">{r.qtd}×</span>
+                <span className="text-destructive-text text-xs">{r.qtd}×</span>
               </li>
             ))}
           </ul>

@@ -85,7 +85,7 @@ export function ResumoEbd() {
   const teveAula = resumo.classes_com_aula_ult > 0;
 
   const variacao = resumo.variacao_presenca;
-  const corVariacao = variacao > 0 ? "text-emerald-700 dark:text-emerald-400" : variacao < 0 ? "text-rose-700 dark:text-rose-400" : "text-muted-foreground";
+  const corVariacao = variacao > 0 ? "text-success-text" : variacao < 0 ? "text-destructive-text" : "text-muted-foreground";
   const IconVariacao = variacao >= 0 ? TrendingUp : TrendingDown;
 
   return (
@@ -108,9 +108,9 @@ export function ResumoEbd() {
           </CardContent>
         </Card>
 
-        <Card className={teveAula ? "bg-emerald-50/40 border-emerald-200" : "border-dashed"}>
+        <Card className={teveAula ? "bg-success-soft/40 border-success-line" : "border-dashed"}>
           <CardContent className="py-3 text-center">
-            <Calendar className="w-4 h-4 mx-auto text-emerald-700 dark:text-emerald-400 mb-1" />
+            <Calendar className="w-4 h-4 mx-auto text-success-text mb-1" />
             {teveAula ? (
               <>
                 <p className="text-2xl font-semibold leading-none">
@@ -141,14 +141,14 @@ export function ResumoEbd() {
 
       {/* Classes em alerta */}
       {classesBaixas.length > 0 && (
-        <Card className="border-amber-200 bg-amber-50/40 dark:bg-amber-950/10">
+        <Card className="border-warning-line bg-warning-soft/40">
           <CardContent className="py-3 space-y-2">
             <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold flex items-center gap-1.5 text-amber-700 dark:text-amber-300">
+              <p className="text-xs font-semibold flex items-center gap-1.5 text-warning-text">
                 <AlertCircle className="w-3.5 h-3.5" /> 
                 Classes com baixa presença
               </p>
-              <Badge variant="outline" className="text-xs bg-amber-100 text-amber-700 dark:text-amber-400 border-amber-300">
+              <Badge variant="outline" className="text-xs bg-warning-soft text-warning-text border-warning-line">
                 {classesBaixas.length}
               </Badge>
             </div>

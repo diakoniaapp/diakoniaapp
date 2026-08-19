@@ -94,7 +94,7 @@ export function TransferenciaForm({ open, onOpenChange, contaOrigemPadrao, onSav
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-serif text-xl flex items-center gap-2">
-            <ArrowRightLeft className="w-5 h-5 text-blue-600" />
+            <ArrowRightLeft className="w-5 h-5 text-info-text" />
             Transferir entre contas
           </DialogTitle>
           <DialogDescription>
@@ -147,11 +147,11 @@ export function TransferenciaForm({ open, onOpenChange, contaOrigemPadrao, onSav
 
           {/* Preview do impacto */}
           {origem && destino && valor > 0 && (
-            <div className="rounded-md p-2 border border-blue-300 bg-blue-50/30 text-xs space-y-0.5">
-              <p className="font-medium text-blue-900">Resumo:</p>
+            <div className="rounded-md p-2 border border-info-line bg-info-soft/30 text-xs space-y-0.5">
+              <p className="font-medium text-info-text">Resumo:</p>
               <p>
-                <strong>{origem.nome}</strong>: {brl(Number(origem.saldo_atual))} → <span className={saldoOrigemDepois < 0 ? "text-rose-700 dark:text-rose-400 font-semibold" : ""}>{brl(saldoOrigemDepois)}</span>
-                {saldoOrigemDepois < 0 && <span className="text-rose-700 dark:text-rose-400 ml-1">⚠ saldo negativo</span>}
+                <strong>{origem.nome}</strong>: {brl(Number(origem.saldo_atual))} → <span className={saldoOrigemDepois < 0 ? "text-destructive-text font-semibold" : ""}>{brl(saldoOrigemDepois)}</span>
+                {saldoOrigemDepois < 0 && <span className="text-destructive-text ml-1">⚠ saldo negativo</span>}
               </p>
               <p>
                 <strong>{destino.nome}</strong>: {brl(Number(destino.saldo_atual))} → {brl(Number(destino.saldo_atual) + valor)}
@@ -207,7 +207,7 @@ export function TransferenciaForm({ open, onOpenChange, contaOrigemPadrao, onSav
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={busy} className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5">
+            <Button type="submit" disabled={busy} className="bg-info hover:bg-info text-white gap-1.5">
               <ArrowRightLeft className="w-3.5 h-3.5" /> {busy ? "..." : "Transferir"}
             </Button>
           </DialogFooter>

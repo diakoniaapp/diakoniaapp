@@ -140,7 +140,7 @@ export function CamposEndereco({
   const iconeCep = {
     idle:     <MapPin      className="w-4 h-4 text-muted-foreground" />,
     buscando: <Loader2     className="w-4 h-4 text-muted-foreground animate-spin" />,
-    ok:       <CheckCircle2 className="w-4 h-4 text-green-500" />,
+    ok:       <CheckCircle2 className="w-4 h-4 text-success-text" />,
     erro:     <AlertCircle  className="w-4 h-4 text-destructive" />,
   }[status];
 
@@ -160,7 +160,7 @@ export function CamposEndereco({
             maxLength={9}
             disabled={disabled}
             inputMode="numeric"
-            className={`pr-9 ${status === "erro" ? "border-destructive" : status === "ok" ? "border-green-400" : ""}`}
+            className={`pr-9 ${status === "erro" ? "border-destructive" : status === "ok" ? "border-success-line" : ""}`}
           />
           <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
             {iconeCep}
@@ -170,7 +170,7 @@ export function CamposEndereco({
           <p className="text-xs text-destructive">{msgErro}</p>
         )}
         {status === "ok" && (
-          <p className="text-xs text-green-700 dark:text-green-400">Endereço preenchido automaticamente ✓</p>
+          <p className="text-xs text-success-text">Endereço preenchido automaticamente ✓</p>
         )}
       </div>
 

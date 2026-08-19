@@ -97,7 +97,7 @@ export function PreUsoCheckDialog({ open, onOpenChange, reservaId, onConfirmado 
               <span className={"flex-1 " + (item.ok ? "line-through text-muted-foreground" : "")}>
                 {item.item}
                 {item.obrigatorio && (
-                  <Badge variant="outline" className="text-xs ml-1.5 bg-amber-50 text-amber-700 dark:text-amber-400 border-amber-200">
+                  <Badge variant="outline" className="text-xs ml-1.5 bg-warning-soft text-warning-text border-warning-line">
                     obrigatório
                   </Badge>
                 )}
@@ -111,7 +111,7 @@ export function PreUsoCheckDialog({ open, onOpenChange, reservaId, onConfirmado 
             <X className="w-3.5 h-3.5" /> Cancelar
           </Button>
           <Button onClick={confirmar} disabled={!podeIniciar || salvando}
-            className="gap-1.5 bg-emerald-600 hover:bg-emerald-700">
+            className="gap-1.5 bg-success hover:bg-success">
             {salvando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <PlayCircle className="w-3.5 h-3.5" />}
             Confirmar e iniciar uso
           </Button>

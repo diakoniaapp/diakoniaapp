@@ -96,12 +96,12 @@ export default function FinancasRecorrencias() {
             <div key={r.id} className={`flex items-center justify-between border rounded-md px-3 py-2 hover:bg-muted/30 ${!r.ativo ? "opacity-60 border-dashed" : ""}`}>
               <div className="flex items-center gap-2 min-w-0 flex-1">
                 {r.tipo === "entrada"
-                  ? <TrendingUp className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
-                  : <TrendingDown className="w-4 h-4 text-rose-700 dark:text-rose-400" />}
+                  ? <TrendingUp className="w-4 h-4 text-success-text" />
+                  : <TrendingDown className="w-4 h-4 text-destructive-text" />}
                 <div className="min-w-0 flex-1">
                   <p className="font-medium text-sm truncate flex items-center gap-1.5">
                     {r.descricao}
-                    {!r.ativo && <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 dark:text-amber-400 border-amber-300">Inativa</Badge>}
+                    {!r.ativo && <Badge variant="outline" className="text-xs bg-warning-soft text-warning-text border-warning-line">Inativa</Badge>}
                     {r.valor_variavel && <Badge variant="outline" className="text-xs">variável</Badge>}
                   </p>
                   <p className="text-xs text-muted-foreground">
@@ -109,7 +109,7 @@ export default function FinancasRecorrencias() {
                   </p>
                 </div>
               </div>
-              <p className={`text-sm font-semibold tabular-nums mr-2 ${r.tipo === "entrada" ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"}`}>
+              <p className={`text-sm font-semibold tabular-nums mr-2 ${r.tipo === "entrada" ? "text-success-text" : "text-destructive-text"}`}>
                 {r.tipo === "entrada" ? "+" : "−"} {brl(Number(r.valor))}
               </p>
               <div className="flex items-center gap-0.5">
@@ -119,7 +119,7 @@ export default function FinancasRecorrencias() {
                 </Button>
                 <Button type="button" variant="ghost" size="icon" className="h-7 w-7"
                   onClick={() => toggle(r)} title={r.ativo ? "Desativar" : "Reativar"}>
-                  {r.ativo ? <PowerOff className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400" /> : <RotateCcw className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />}
+                  {r.ativo ? <PowerOff className="w-3.5 h-3.5 text-warning-text" /> : <RotateCcw className="w-3.5 h-3.5 text-success-text" />}
                 </Button>
                 <Button type="button" variant="ghost" size="icon"
                   className="h-7 w-7 text-destructive" onClick={() => excluir(r)} title="Excluir">

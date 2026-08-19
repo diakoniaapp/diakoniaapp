@@ -530,7 +530,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                   >
                     <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold border-2 transition-colors ${
                       step === p.n ? "bg-gold text-white border-gold"
-                        : step > p.n ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/40"
+                        : step > p.n ? "bg-success/15 text-success-text border-success-line/40"
                         : "bg-muted border-border"
                     }`}>
                       {step > p.n ? "✓" : p.n}
@@ -538,7 +538,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                     <span className="text-xs font-medium uppercase tracking-wide">{p.label}</span>
                   </button>
                   {idx < arr.length - 1 && (
-                    <div className={`flex-1 h-0.5 mx-1 mb-4 ${step > p.n ? "bg-emerald-500/40" : "bg-border"}`} />
+                    <div className={`flex-1 h-0.5 mx-1 mb-4 ${step > p.n ? "bg-success/40" : "bg-border"}`} />
                   )}
                 </div>
               ))}
@@ -980,7 +980,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                               <span className="flex items-center gap-1 min-w-0">
                                 <span className="truncate">{a.nome}</span>
                                 {ehLider && (
-                                  <span className="text-xs font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 dark:text-rose-400 border border-rose-300 shrink-0">
+                                  <span className="text-xs font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-destructive-soft text-destructive-text border border-destructive-line shrink-0">
                                     Líder
                                   </span>
                                 )}
@@ -1050,7 +1050,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                   passo em branco no cadastro novo, o passo explica a ordem: salvar
                   primeiro, convidar depois. */}
               {(isCongregado || isMembro) && !membro && (
-                <p className="text-xs text-amber-700 dark:text-amber-400 px-2 py-1.5 bg-amber-50 rounded border border-amber-200">
+                <p className="text-xs text-warning-text px-2 py-1.5 bg-warning-soft rounded border border-warning-line">
                   O convite de acesso é criado depois de salvar o cadastro. Termine
                   o cadastro e abra a pessoa de novo para conceder acesso.
                 </p>
@@ -1103,7 +1103,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                   </>
                 )}
 
-                <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 border border-amber-200 rounded-md p-2 text-center">
+                <p className="text-xs text-warning-text bg-warning-soft border border-warning-line rounded-md p-2 text-center">
                   Clique em <strong>Salvar</strong> para confirmar o cadastro.
                 </p>
               </section>

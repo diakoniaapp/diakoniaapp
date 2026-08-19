@@ -173,7 +173,7 @@ export default function CaixaPDV() {
                   if (c) setCaixa(c);
                 } catch (err: any) { toast.error(err?.message ?? "Erro"); }
               }}
-              className="bg-amber-600 hover:bg-amber-700">
+              className="bg-warning hover:bg-warning">
               Reabrir caixa
             </Button>
           )}
@@ -226,19 +226,19 @@ export default function CaixaPDV() {
                           (semEstoque
                             ? "opacity-40 cursor-not-allowed bg-muted"
                             : p.is_acervo
-                              ? "border-blue-200 hover:bg-blue-50 hover:border-blue-500 hover:shadow-md"
+                              ? "border-info-line hover:bg-info-soft hover:border-info-line hover:shadow-md"
                               : "border-purple-200 hover:bg-purple-50 hover:border-purple-500 hover:shadow-md")
                         }>
                         <div className="flex items-start justify-between gap-1">
                           <div className="text-sm font-medium leading-tight flex-1">{p.nome}</div>
                           <Badge variant="outline"
                             className={"text-xs shrink-0 " + (p.is_acervo
-                              ? "bg-blue-50 text-blue-700 border-blue-200"
+                              ? "bg-info-soft text-info-text border-info-line"
                               : "bg-purple-50 text-purple-700 border-purple-200")}>
                             {p.is_acervo ? "acervo" : "campanha"}
                           </Badge>
                         </div>
-                        <div className="text-lg md:text-xl font-serif text-emerald-700 dark:text-emerald-400 font-semibold mt-1">
+                        <div className="text-lg md:text-xl font-serif text-success-text font-semibold mt-1">
                           {fmtBR(p.preco_sugerido)}
                         </div>
                         <div className="flex items-center gap-1 mt-1 flex-wrap">
@@ -249,9 +249,9 @@ export default function CaixaPDV() {
                             <Badge variant="outline" className="text-xs">{p.subcategoria}</Badge>
                           )}
                           {semEstoque ? (
-                            <Badge className="text-xs bg-rose-100 text-rose-700 dark:text-rose-400 border-rose-200">esgotado</Badge>
+                            <Badge className="text-xs bg-destructive-soft text-destructive-text border-destructive-line">esgotado</Badge>
                           ) : baixo ? (
-                            <Badge className="text-xs bg-amber-100 text-amber-700 dark:text-amber-400 border-amber-200">
+                            <Badge className="text-xs bg-warning-soft text-warning-text border-warning-line">
                               restam {p.estoque_atual}
                             </Badge>
                           ) : null}
@@ -313,7 +313,7 @@ export default function CaixaPDV() {
                       <Plus className="w-3 h-3" />
                     </button>
                     <span className="w-16 text-right font-medium tabular-nums">{fmtBR(it.subtotal)}</span>
-                    <button onClick={() => remover(idx)} className="p-0.5 hover:bg-rose-50 rounded text-rose-700 dark:text-rose-400">
+                    <button onClick={() => remover(idx)} className="p-0.5 hover:bg-destructive-soft rounded text-destructive-text">
                       <Trash2 className="w-3 h-3" />
                     </button>
                   </li>
@@ -336,7 +336,7 @@ export default function CaixaPDV() {
                       className={
                         "border-2 rounded-lg p-2 text-xs flex flex-col items-center gap-1 transition active:scale-95 " +
                         (pagamento === f
-                          ? "bg-emerald-50 border-emerald-500 text-emerald-700 dark:text-emerald-400 font-semibold shadow"
+                          ? "bg-success-soft border-success-line text-success-text font-semibold shadow"
                           : "hover:bg-muted/30")
                       }>
                       <Icon className="w-4 h-4" />
@@ -355,7 +355,7 @@ export default function CaixaPDV() {
             <Button onClick={finalizar}
               disabled={finalizando || carrinho.length === 0}
               size="lg"
-              className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700 text-base h-12 font-semibold">
+              className="w-full gap-2 bg-success hover:bg-success text-base h-12 font-semibold">
               {finalizando ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
               Finalizar venda
             </Button>

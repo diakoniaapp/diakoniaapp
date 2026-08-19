@@ -174,14 +174,14 @@ export function AprovacaoDialog({ open, onOpenChange, reserva, onAprovado }: Pro
               envio pelo WhatsApp.
             </p>
             <Button onClick={aprovar} disabled={salvando}
-              className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700">
+              className="w-full gap-2 bg-success hover:bg-success">
               {salvando ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
               Aprovar e listar destinatários
             </Button>
           </div>
         ) : (
           <div className="space-y-3 text-sm">
-            <div className="border-2 border-emerald-300 bg-emerald-50/40 rounded-md p-2 flex items-center gap-2 text-emerald-700 dark:text-emerald-400 text-xs">
+            <div className="border-2 border-success-line bg-success-soft/40 rounded-md p-2 flex items-center gap-2 text-success-text text-xs">
               <CheckCircle2 className="w-4 h-4" /> {jaAprovada ? "Envie" : "Reserva aprovada · envie"} o termo pelos contatos abaixo
             </div>
 
@@ -192,13 +192,13 @@ export function AprovacaoDialog({ open, onOpenChange, reserva, onAprovado }: Pro
             )}
 
             {!carregandoDest && destinatarios.length === 0 && (
-              <div className="border border-amber-300 bg-amber-50/50 rounded p-2 text-xs text-amber-800 flex gap-2">
+              <div className="border border-warning-line bg-warning-soft/50 rounded p-2 text-xs text-warning-text flex gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 Nenhum contato encontrado (responsável, líder ou solicitante). Use 'copiar' e envie manualmente.
               </div>
             )}
             {!carregandoDest && !acordoTexto && (
-              <div className="border border-rose-300 bg-rose-50/50 rounded p-2 text-xs text-rose-800 flex gap-2">
+              <div className="border border-destructive-line bg-destructive-soft/50 rounded p-2 text-xs text-destructive-text flex gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 O termo de uso está sem texto. Peça ao responsável técnico para
                 redigir o modelo — sem ele, o solicitante recebe um termo em branco.
@@ -208,7 +208,7 @@ export function AprovacaoDialog({ open, onOpenChange, reserva, onAprovado }: Pro
             <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
               {destinatarios.map((d, i) => (
                 <div key={d.membro_id}
-                  className={`border rounded-md p-2 space-y-1.5 ${d.selecionado ? "border-emerald-300 bg-emerald-50/30" : "border-border"}`}>
+                  className={`border rounded-md p-2 space-y-1.5 ${d.selecionado ? "border-success-line bg-success-soft/30" : "border-border"}`}>
                   <div className="flex items-start gap-2">
                     <Checkbox checked={d.selecionado} onCheckedChange={() => toggleSelecionado(i)} className="mt-0.5" />
                     <div className="flex-1 min-w-0">
@@ -216,7 +216,7 @@ export function AprovacaoDialog({ open, onOpenChange, reserva, onAprovado }: Pro
                         <span className="font-medium text-xs truncate">{d.nome}</span>
                         <Badge variant="outline" className="text-xs">{d.papel_label}</Badge>
                         {d.enviado && (
-                          <Badge className="text-xs bg-emerald-100 text-emerald-700 dark:text-emerald-400 border-emerald-300">enviado</Badge>
+                          <Badge className="text-xs bg-success-soft text-success-text border-success-line">enviado</Badge>
                         )}
                       </div>
                       <div className="flex items-center gap-1 mt-1">
@@ -225,7 +225,7 @@ export function AprovacaoDialog({ open, onOpenChange, reserva, onAprovado }: Pro
                           value={d.telefone_editado}
                           onChange={(e) => atualizarTel(i, e.target.value)}
                           placeholder="ex: 21 9 1234-5678"
-                          className={`h-7 text-xs ${!d.telefone_editado ? "border-amber-300" : ""}`}
+                          className={`h-7 text-xs ${!d.telefone_editado ? "border-warning-line" : ""}`}
                         />
                       </div>
                     </div>
@@ -233,7 +233,7 @@ export function AprovacaoDialog({ open, onOpenChange, reserva, onAprovado }: Pro
                   {d.selecionado && (
                     <div className="flex gap-1.5 pl-6">
                       <Button size="sm" onClick={() => abrirWhatsApp(i)}
-                        className="h-7 gap-1 bg-emerald-600 hover:bg-emerald-700 text-xs flex-1">
+                        className="h-7 gap-1 bg-success hover:bg-success text-xs flex-1">
                         <MessageCircle className="w-3 h-3" /> Abrir WhatsApp
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => copiarMensagem(i)}

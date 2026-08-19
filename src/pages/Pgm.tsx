@@ -92,12 +92,12 @@ export default function Pgm() {
                   </span>
                   <span className="flex items-center gap-1 shrink-0">
                     {g.qtd_filhos > 0 && (
-                      <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700 dark:text-emerald-400 border-emerald-300" title={`Multiplicou em ${g.qtd_filhos} grupo(s)`}>
+                      <Badge variant="outline" className="text-xs bg-success-soft text-success-text border-success-line" title={`Multiplicou em ${g.qtd_filhos} grupo(s)`}>
                         <Sparkles className="w-2.5 h-2.5 mr-0.5" /> Multiplicador
                       </Badge>
                     )}
                     {!g.ativo && (
-                      <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 dark:text-amber-400 border-amber-300">
+                      <Badge variant="outline" className="text-xs bg-warning-soft text-warning-text border-warning-line">
                         Desativado
                       </Badge>
                     )}
@@ -126,7 +126,7 @@ export default function Pgm() {
                 )}
 
                 <div className="flex items-center gap-2 pt-1">
-                  <Users className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
+                  <Users className="w-3.5 h-3.5 text-success-text" />
                   <strong>{g.qtd_membros}</strong>
                   <span className="text-muted-foreground">participantes</span>
                 </div>
@@ -145,7 +145,7 @@ export default function Pgm() {
                     <a href={g.whatsapp_link} target="_blank" rel="noopener noreferrer"
                       title="Abrir grupo do WhatsApp">
                       <Button type="button" variant="outline" size="sm"
-                        className="text-emerald-700 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 hover:bg-emerald-50">
+                        className="text-success-text hover:text-success-text hover:bg-success-soft">
                         <MessageCircle className="w-3.5 h-3.5" />
                       </Button>
                     </a>

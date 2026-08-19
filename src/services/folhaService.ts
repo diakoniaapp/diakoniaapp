@@ -12,12 +12,12 @@ export const VINCULO_LABEL: Record<FinVinculoTipo, string> = {
 };
 
 export const VINCULO_COR: Record<FinVinculoTipo, string> = {
-  clt: "bg-blue-100 text-blue-700 border-blue-300",
-  mei: "bg-emerald-100 text-emerald-700 border-emerald-300",
-  rpa: "bg-amber-100 text-amber-700 border-amber-300",
+  clt: "bg-info-soft text-info-text border-info-line",
+  mei: "bg-success-soft text-success-text border-success-line",
+  rpa: "bg-warning-soft text-warning-text border-warning-line",
   prebenda: "bg-purple-100 text-purple-700 border-purple-300",
-  estagio: "bg-cyan-100 text-cyan-700 border-cyan-300",
-  voluntario_remunerado: "bg-rose-100 text-rose-700 border-rose-300",
+  estagio: "bg-info-soft text-info-text border-info-line",
+  voluntario_remunerado: "bg-destructive-soft text-destructive-text border-destructive-line",
 };
 
 export interface FinContratado {

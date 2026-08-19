@@ -143,11 +143,11 @@ export default function RecuperacaoSenhaAdmin() {
 
       {/* ── Resumo ── */}
       <div className="grid grid-cols-2 gap-3">
-        <Card className={`border ${pendentes.length > 0 ? "border-amber-300 bg-amber-50 dark:bg-amber-950/20" : "border-border"}`}>
+        <Card className={`border ${pendentes.length > 0 ? "border-warning-line bg-warning-soft/20" : "border-border"}`}>
           <CardContent className="p-4 flex items-center gap-3">
             <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0
-              ${pendentes.length > 0 ? "bg-amber-100 dark:bg-amber-900/40" : "bg-muted"}`}>
-              <AlertTriangle className={`w-5 h-5 ${pendentes.length > 0 ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground"}`} />
+              ${pendentes.length > 0 ? "bg-warning-soft/40" : "bg-muted"}`}>
+              <AlertTriangle className={`w-5 h-5 ${pendentes.length > 0 ? "text-warning-text" : "text-muted-foreground"}`} />
             </div>
             <div>
               <div className="text-2xl font-bold leading-none">{pendentes.length}</div>
@@ -158,8 +158,8 @@ export default function RecuperacaoSenhaAdmin() {
 
         <Card className="border-border">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center shrink-0">
-              <CheckCircle2 className="w-5 h-5 text-green-700 dark:text-green-400" />
+            <div className="w-9 h-9 rounded-full bg-success-soft/30 flex items-center justify-center shrink-0">
+              <CheckCircle2 className="w-5 h-5 text-success-text" />
             </div>
             <div>
               <div className="text-2xl font-bold leading-none">{resolvidos.length}</div>
@@ -187,20 +187,20 @@ export default function RecuperacaoSenhaAdmin() {
       {pendentes.length > 0 && (
         <section className="space-y-3">
           <div className="flex items-center gap-2">
-            <ShieldAlert className="w-4 h-4 text-amber-500" />
-            <h2 className="text-sm font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wide">
+            <ShieldAlert className="w-4 h-4 text-warning-text" />
+            <h2 className="text-sm font-semibold text-warning-text uppercase tracking-wide">
               Aguardando resolução
             </h2>
           </div>
 
           {pendentes.map(item => (
-            <Card key={item.id} className="border-amber-200 dark:border-amber-800/50 bg-amber-50/50 dark:bg-amber-950/10">
+            <Card key={item.id} className="border-warning-line/50 bg-warning-soft/50">
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-3">
                   {/* Info */}
                   <div className="flex items-start gap-3 min-w-0">
-                    <div className="w-9 h-9 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center shrink-0 mt-0.5">
-                      <User className="w-4 h-4 text-amber-700 dark:text-amber-400" />
+                    <div className="w-9 h-9 rounded-full bg-warning-soft/40 flex items-center justify-center shrink-0 mt-0.5">
+                      <User className="w-4 h-4 text-warning-text" />
                     </div>
                     <div className="min-w-0">
                       {item.nome && (
@@ -218,13 +218,13 @@ export default function RecuperacaoSenhaAdmin() {
                   </div>
 
                   {/* Badge */}
-                  <Badge variant="outline" className="border-amber-300 text-amber-700 dark:text-amber-400 bg-amber-50 shrink-0 text-xs">
+                  <Badge variant="outline" className="border-warning-line text-warning-text bg-warning-soft shrink-0 text-xs">
                     Pendente
                   </Badge>
                 </div>
 
                 {/* Ações */}
-                <div className="flex gap-2 mt-3 pt-3 border-t border-amber-200/60 dark:border-amber-800/30">
+                <div className="flex gap-2 mt-3 pt-3 border-t border-warning-line/60">
                   <Button
                     size="sm"
                     variant="outline"
@@ -241,7 +241,7 @@ export default function RecuperacaoSenhaAdmin() {
 
                   <Button
                     size="sm"
-                    className="flex-1 text-xs gap-1.5 bg-green-600 hover:bg-green-700"
+                    className="flex-1 text-xs gap-1.5 bg-success hover:bg-success"
                     onClick={() => resolver(item)}
                     disabled={resolvendo === item.id || reenviando === item.id}
                   >
@@ -262,8 +262,8 @@ export default function RecuperacaoSenhaAdmin() {
       {resolvidos.length > 0 && (
         <section className="space-y-3">
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-green-500" />
-            <h2 className="text-sm font-semibold text-green-700 dark:text-green-400 uppercase tracking-wide">
+            <CheckCircle2 className="w-4 h-4 text-success-text" />
+            <h2 className="text-sm font-semibold text-success-text uppercase tracking-wide">
               Resolvidos
             </h2>
           </div>
@@ -273,8 +273,8 @@ export default function RecuperacaoSenhaAdmin() {
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-3 min-w-0">
-                    <div className="w-9 h-9 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center shrink-0 mt-0.5">
-                      <CheckCircle2 className="w-4 h-4 text-green-500" />
+                    <div className="w-9 h-9 rounded-full bg-success-soft/30 flex items-center justify-center shrink-0 mt-0.5">
+                      <CheckCircle2 className="w-4 h-4 text-success-text" />
                     </div>
                     <div className="min-w-0">
                       {item.nome && (
@@ -289,13 +289,13 @@ export default function RecuperacaoSenhaAdmin() {
                         <span>Solicitado {diasDesde(item.solicitado_em)}</span>
                       </p>
                       {item.resolvido_por && (
-                        <p className="text-xs text-green-700 dark:text-green-400 mt-0.5">
+                        <p className="text-xs text-success-text mt-0.5">
                           ✓ Resolvido por {item.resolvido_por}
                         </p>
                       )}
                     </div>
                   </div>
-                  <Badge variant="outline" className="border-green-300 text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950/20 shrink-0 text-xs">
+                  <Badge variant="outline" className="border-success-line text-success-text bg-success-soft/20 shrink-0 text-xs">
                     Resolvido
                   </Badge>
                 </div>

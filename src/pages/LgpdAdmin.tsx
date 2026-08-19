@@ -323,11 +323,11 @@ export default function LgpdAdmin() {
                               <Clock className="w-3 h-3" /> {fmtData(s.solicitado_em)}
                             </span>
                             {!s.prazo_vencido && s.status !== "concluido" && (
-                              <span className="text-amber-700 dark:text-amber-400 font-medium">{diasPrazo(s.prazo_legal)}</span>
+                              <span className="text-warning-text font-medium">{diasPrazo(s.prazo_legal)}</span>
                             )}
                             {s.atendido_por && (
                               <span className="flex items-center gap-1">
-                                <CheckCircle2 className="w-3 h-3 text-green-500" /> {s.atendido_por}
+                                <CheckCircle2 className="w-3 h-3 text-success-text" /> {s.atendido_por}
                               </span>
                             )}
                           </div>
@@ -354,7 +354,7 @@ export default function LgpdAdmin() {
                             )}
                             <Button
                               size="sm"
-                              className="gap-1.5 text-xs h-8 bg-green-600 hover:bg-green-700"
+                              className="gap-1.5 text-xs h-8 bg-success hover:bg-success"
                               disabled={atualizandoId === s.id}
                               onClick={() => atualizarStatus(s.id, "concluido", "Solicitação atendida.")}
                             >
@@ -511,7 +511,7 @@ export default function LgpdAdmin() {
                         <div className="flex items-center gap-2">
                           <Badge variant="outline" className="text-xs">v{p.versao}</Badge>
                           {p.vigente && (
-                            <Badge className="text-xs bg-green-600">Vigente</Badge>
+                            <Badge className="text-xs bg-success">Vigente</Badge>
                           )}
                         </div>
                       </div>

@@ -47,14 +47,14 @@ export const HISTORICO_CONFIG: Record<
   TipoHistorico,
   { label: string; cor: string; emoji: string }
 > = {
-  cadastro:            { label: "Primeiro culto",      emoji: "🏠", cor: "text-blue-600 bg-blue-50 border-blue-200" },
-  whatsapp:            { label: "WhatsApp",             emoji: "💬", cor: "text-green-600 bg-green-50 border-green-200" },
-  ligacao:             { label: "Ligação",              emoji: "📞", cor: "text-indigo-600 bg-indigo-50 border-indigo-200" },
-  visita_presencial:   { label: "Visita presencial",    emoji: "🚪", cor: "text-amber-600 bg-amber-50 border-amber-200" },
-  retorno_culto:       { label: "Retornou ao culto",    emoji: "✅", cor: "text-yellow-600 bg-yellow-50 border-yellow-200" },
+  cadastro:            { label: "Primeiro culto",      emoji: "🏠", cor: "text-info-text bg-info-soft border-info-line" },
+  whatsapp:            { label: "WhatsApp",             emoji: "💬", cor: "text-success-text bg-success-soft border-success-line" },
+  ligacao:             { label: "Ligação",              emoji: "📞", cor: "text-info-text bg-info-soft border-info-line" },
+  visita_presencial:   { label: "Visita presencial",    emoji: "🚪", cor: "text-warning-text bg-warning-soft border-warning-line" },
+  retorno_culto:       { label: "Retornou ao culto",    emoji: "✅", cor: "text-warning-text bg-warning-soft border-warning-line" },
   evento:              { label: "Evento especial",      emoji: "📅", cor: "text-purple-600 bg-purple-50 border-purple-200" },
   observacao:          { label: "Contato registrado",   emoji: "📝", cor: "text-muted-foreground bg-muted border-border" },
-  promocao_congregado: { label: "Tornou-se Congregado", emoji: "✨", cor: "text-emerald-600 bg-emerald-50 border-emerald-200" },
-  promocao_membro:     { label: "Tornou-se Membro",     emoji: "🌟", cor: "text-gold bg-amber-50 border-amber-300" },
-  email:               { label: "E-mail",               emoji: "✉️", cor: "text-sky-600 bg-sky-50 border-sky-200" },
+  promocao_congregado: { label: "Tornou-se Congregado", emoji: "✨", cor: "text-success-text bg-success-soft border-success-line" },
+  promocao_membro:     { label: "Tornou-se Membro",     emoji: "🌟", cor: "text-gold bg-warning-soft border-warning-line" },
+  email:               { label: "E-mail",               emoji: "✉️", cor: "text-info-text bg-info-soft border-info-line" },
 };

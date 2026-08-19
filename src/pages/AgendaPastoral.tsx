@@ -116,7 +116,7 @@ export default function AgendaPastoral() {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2">
-                <Cake className="w-4 h-4 text-pink-500" /> Aniversários ({aniversarios.length})
+                <Cake className="w-4 h-4 text-celebracao-text" /> Aniversários ({aniversarios.length})
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
@@ -133,7 +133,7 @@ export default function AgendaPastoral() {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2">
-                <Heart className="w-4 h-4 text-rose-500" /> Bodas de casamento ({casamentos.length})
+                <Heart className="w-4 h-4 text-celebracao-text" /> Bodas de casamento ({casamentos.length})
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
@@ -162,7 +162,7 @@ interface EventoCardProps {
 function EventoCard({ evento, ehHoje, dia, onWhats }: EventoCardProps) {
   const ehAnis = evento.tipo === "aniversario";
   const cor = ehHoje ? "ring-2 ring-gold border-gold" : "";
-  const fundo = ehAnis ? "bg-pink-50/40 dark:bg-pink-950/10" : "bg-rose-50/40 dark:bg-rose-950/10";
+  const fundo = ehAnis ? "bg-celebracao-soft/50" : "bg-celebracao-soft/30";
 
   return (
     <div className={`border rounded-lg px-3 py-2 ${fundo} ${cor}`}>
@@ -189,7 +189,7 @@ function EventoCard({ evento, ehHoje, dia, onWhats }: EventoCardProps) {
           {evento.telefone && (
             <Button
               type="button" size="sm" variant="ghost"
-              className="h-7 px-2 gap-1 text-xs text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50"
+              className="h-7 px-2 gap-1 text-xs text-success-text hover:bg-success-soft"
               onClick={() => onWhats(evento, evento.telefone!)}
               title="Enviar mensagem por WhatsApp"
             >
@@ -200,7 +200,7 @@ function EventoCard({ evento, ehHoje, dia, onWhats }: EventoCardProps) {
           {evento.telefone_secundario && (
             <Button
               type="button" size="sm" variant="ghost"
-              className="h-7 px-2 gap-1 text-xs text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50"
+              className="h-7 px-2 gap-1 text-xs text-success-text hover:bg-success-soft"
               onClick={() => onWhats(evento, evento.telefone_secundario!)}
               title="Enviar para o cônjuge"
             >

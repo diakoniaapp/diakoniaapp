@@ -112,16 +112,16 @@ export default function FinancasCentroDetalhe() {
             <p className="text-base font-semibold">{stats.total}</p>
           </CardContent>
         </Card>
-        <Card className="bg-rose-50/30 border-rose-200">
+        <Card className="bg-destructive-soft/30 border-destructive-line">
           <CardContent className="py-2 px-3">
-            <p className="text-xs uppercase text-rose-700 dark:text-rose-400">Total gasto</p>
-            <p className="text-base font-semibold text-rose-700 dark:text-rose-400 tabular-nums">{brl(stats.gastoTotal)}</p>
+            <p className="text-xs uppercase text-destructive-text">Total gasto</p>
+            <p className="text-base font-semibold text-destructive-text tabular-nums">{brl(stats.gastoTotal)}</p>
           </CardContent>
         </Card>
-        <Card className="bg-emerald-50/30 border-emerald-200">
+        <Card className="bg-success-soft/30 border-success-line">
           <CardContent className="py-2 px-3">
-            <p className="text-xs uppercase text-emerald-700 dark:text-emerald-400">Total recebido</p>
-            <p className="text-base font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums">{brl(stats.recebidoTotal)}</p>
+            <p className="text-xs uppercase text-success-text">Total recebido</p>
+            <p className="text-base font-semibold text-success-text tabular-nums">{brl(stats.recebidoTotal)}</p>
           </CardContent>
         </Card>
       </div>
@@ -142,19 +142,19 @@ export default function FinancasCentroDetalhe() {
                   </div>
                   <div className="flex gap-1 h-2">
                     {v.recebido > 0 && (
-                      <div className="bg-emerald-500/60 rounded-l"
+                      <div className="bg-success/60 rounded-l"
                         style={{ flex: v.recebido / maxMes }}
                         title={`Recebido: ${brl(v.recebido)}`} />
                     )}
                     {v.gasto > 0 && (
-                      <div className={`bg-rose-500/60 ${v.recebido > 0 ? "rounded-r" : "rounded"}`}
+                      <div className={`bg-destructive/60 ${v.recebido > 0 ? "rounded-r" : "rounded"}`}
                         style={{ flex: v.gasto / maxMes }}
                         title={`Gasto: ${brl(v.gasto)}`} />
                     )}
                   </div>
                   <div className="flex justify-between text-xs text-muted-foreground">
-                    {v.recebido > 0 && <span className="text-emerald-700 dark:text-emerald-400">+{brl(v.recebido)}</span>}
-                    {v.gasto > 0 && <span className="text-rose-700 dark:text-rose-400 ml-auto">−{brl(v.gasto)}</span>}
+                    {v.recebido > 0 && <span className="text-success-text">+{brl(v.recebido)}</span>}
+                    {v.gasto > 0 && <span className="text-destructive-text ml-auto">−{brl(v.gasto)}</span>}
                   </div>
                 </div>
               ))}
@@ -179,8 +179,8 @@ export default function FinancasCentroDetalhe() {
             <div key={l.id} className="flex items-center justify-between border rounded-md px-3 py-2 hover:bg-muted/30">
               <div className="flex items-center gap-2 min-w-0 flex-1">
                 {l.tipo === "entrada"
-                  ? <TrendingUp className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400 shrink-0" />
-                  : <TrendingDown className="w-3.5 h-3.5 text-rose-700 dark:text-rose-400 shrink-0" />}
+                  ? <TrendingUp className="w-3.5 h-3.5 text-success-text shrink-0" />
+                  : <TrendingDown className="w-3.5 h-3.5 text-destructive-text shrink-0" />}
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium truncate">{l.descricao ?? "—"}</p>
                   <p className="text-xs text-muted-foreground">
@@ -193,11 +193,11 @@ export default function FinancasCentroDetalhe() {
               </div>
               {l.comprovante_url && (
                 <button onClick={() => abrirComprovante(l.comprovante_url!)}
-                  className="text-blue-700 hover:text-blue-900 mr-2" title="Ver comprovante">
+                  className="text-info-text hover:text-info-text mr-2" title="Ver comprovante">
                   <Paperclip className="w-3.5 h-3.5" />
                 </button>
               )}
-              <p className={`text-sm font-semibold tabular-nums shrink-0 ${l.tipo === "entrada" ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"}`}>
+              <p className={`text-sm font-semibold tabular-nums shrink-0 ${l.tipo === "entrada" ? "text-success-text" : "text-destructive-text"}`}>
                 {l.tipo === "entrada" ? "+" : "−"} {brl(Number(l.valor))}
               </p>
             </div>

@@ -8,9 +8,9 @@ export const PRIORIDADE_LABEL: Record<AssuntoPrioridade, string> = {
   alta: "Alta", media: "Média", baixa: "Baixa",
 };
 export const PRIORIDADE_COR: Record<AssuntoPrioridade, string> = {
-  alta: "bg-rose-100 text-rose-700 border-rose-300",
-  media: "bg-amber-100 text-amber-700 border-amber-300",
-  baixa: "bg-blue-100 text-blue-700 border-blue-300",
+  alta: "bg-destructive-soft text-destructive-text border-destructive-line",
+  media: "bg-warning-soft text-warning-text border-warning-line",
+  baixa: "bg-info-soft text-info-text border-info-line",
 };
 export const PRIORIDADE_ICONE: Record<AssuntoPrioridade, string> = {
   alta: "🔴", media: "🟡", baixa: "🟢",
@@ -24,18 +24,18 @@ export const STATUS_LABEL: Record<AssuntoStatus, string> = {
   aguardando_terceiro: "Aguardando terceiros",
 };
 export const STATUS_COR: Record<AssuntoStatus, string> = {
-  aberto: "bg-blue-50 text-blue-700 border-blue-300",
-  em_andamento: "bg-amber-50 text-amber-700 border-amber-300",
-  concluido: "bg-emerald-50 text-emerald-700 border-emerald-300",
+  aberto: "bg-info-soft text-info-text border-info-line",
+  em_andamento: "bg-warning-soft text-warning-text border-warning-line",
+  concluido: "bg-success-soft text-success-text border-success-line",
   cancelado: "bg-muted text-muted-foreground border-border line-through",
   aguardando_terceiro: "bg-purple-50 text-purple-700 border-purple-300",
 };
 
 export const SITUACAO_COR: Record<AssuntoSituacao, string> = {
-  atrasado: "border-rose-300 bg-rose-50/30",
-  vence_em_breve: "border-amber-300 bg-amber-50/30",
+  atrasado: "border-destructive-line bg-destructive-soft/30",
+  vence_em_breve: "border-warning-line bg-warning-soft/30",
   parado: "border-purple-200 bg-purple-50/20",
-  concluido: "border-emerald-200 bg-emerald-50/10",
+  concluido: "border-success-line bg-success-soft/10",
   normal: "",
 };
 
