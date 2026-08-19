@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Pencil, Link2, Briefcase, Sparkles, BarChart3, MoreHorizontal, MessageCircle, IdCard, Cake } from "lucide-react";
+import { Plus, Search, Pencil, Link2, Briefcase, Sparkles, BarChart3, MoreHorizontal, MessageCircle, IdCard, Cake, X } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -232,6 +232,24 @@ function vinculos(m: Membro): string[] {
  * fevereiro viraria 1º de março em ano comum, e a pessoa sumiria da
  * semana em que faz aniversário.
  */
+/**
+ * Texto comparável: minúsculas e sem acento.
+ *
+ * A busca comparava o texto cru, e com isso falhava calada justo onde mais
+ * se busca. Dos 83 cadastros que têm bairro, 57 moram em bairro com acento
+ * — Praça da Bandeira (37), Maracanã (17), São Cristóvão, Inhaúma. Quem
+ * digita "praca" ou "maracana", que é o que se digita com pressa e sem
+ * pensar no acento, recebia "Nenhuma pessoa encontrada" e concluía que a
+ * igreja não tem ninguém lá.
+ *
+ * NFD separa a letra do acento; o intervalo removido é o dos diacríticos
+ * combinantes. "João" e "Joao" viram a mesma coisa dos dois lados da
+ * comparação — no que a pessoa digita e no que está no cadastro.
+ */
+function comparavel(s: string | null | undefined): string {
+  return (s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
 function diasAteAniversario(nascimento?: string | null): number | null {
   if (!nascimento) return null;
   const [, mes, dia] = nascimento.split("-").map(Number);
@@ -413,6 +431,7 @@ export default function Membros() {
   const POR_PAGINA = 20;
   const [pagina, setPagina] = useState(1);
   const buscaRef = useRef<HTMLInputElement>(null);
+  const topoRef = useRef<HTMLDivElement>(null);
     const [searchParams, setSearchParams] = useSearchParams();
 
   // ── Tratar parâmetros de query ao carregar ──────────────────────────────────
@@ -556,12 +575,18 @@ export default function Membros() {
   // eles mostram nunca contradigam o que a tela está exibindo: com o tipo em
   // "Visitante", o atalho não pode prometer 94 pessoas para procurar.
   const baseFiltrados = useMemo(() => membros.filter((m) => {
-        const q = search.toLowerCase();
+        const q = comparavel(search).trim();
+        // Dígitos da busca contra dígitos do telefone. O banco guarda
+        // "5521998623415" e a tela mostra "(21) 99862-3415"; sem isto, buscar
+        // pelo número que apareceu na tela do celular não encontrava ninguém —
+        // e essa é a busca de quem foi ligado de volta e quer saber quem é.
+        const qDigitos = search.replace(/\D/g, "");
         const matchSearch =
                 !q ||
-                m.nome_completo.toLowerCase().includes(q) ||
+                comparavel(m.nome_completo).includes(q) ||
+                comparavel(m.bairro).includes(q) ||
                 (m.cpf ?? "").includes(q) ||
-                (m.bairro ?? "").toLowerCase().includes(q);
+                (qDigitos.length >= 3 && (m.telefone_celular ?? "").replace(/\D/g, "").includes(qDigitos));
         const matchTipo = tipoFiltro === "todos" || m.tipo_pessoa === tipoFiltro;
         const matchPerfil = perfilFiltro === "todos" || m.perfil_acesso === perfilFiltro;
 
@@ -595,11 +620,20 @@ export default function Membros() {
 
   // Os quatro números que resumem esta lista. Contados aqui, uma vez, e não
   // dentro do JSX — o mesmo `baseFiltrados` alimenta os atalhos e a tabela.
+  //
+  // Cada atalho carrega a regra que usa. Um rótulo de duas palavras cabe no
+  // chip mas não explica o critério, e um filtro cujo critério não se sabe é
+  // um número em que não se confia: "Dá para procurar" foi lido como pergunta
+  // — dá para procurar por quê? A `dica` responde no title, sem esticar o chip.
   const atalhos = useMemo(() => [
-    { id: "todos",           rotulo: "Todas",                 n: baseFiltrados.length },
-    { id: "alcancavel",      rotulo: "Dá para procurar",      n: baseFiltrados.filter(m => !m.ultimo_contato_em && telefoneValido(m.telefone_celular)).length },
-    { id: "aniversario_mes", rotulo: "Aniversário este mês",  n: baseFiltrados.filter(m => aniversarioNesteMes(m.data_nascimento)).length },
-    { id: "sem_telefone",    rotulo: "Sem telefone",          n: baseFiltrados.filter(m => !telefoneValido(m.telefone_celular)).length },
+    { id: "todos",           rotulo: "Todas",                n: baseFiltrados.length,
+      dica: "Todas as pessoas que passam pelos filtros atuais" },
+    { id: "alcancavel",      rotulo: "Dá para procurar",     n: baseFiltrados.filter(m => !m.ultimo_contato_em && telefoneValido(m.telefone_celular)).length,
+      dica: "Nunca receberam um contato registrado E têm telefone válido no cadastro — as que alguém consegue procurar hoje" },
+    { id: "aniversario_mes", rotulo: "Aniversário este mês", n: baseFiltrados.filter(m => aniversarioNesteMes(m.data_nascimento)).length,
+      dica: "Fazem aniversário dentro do mês corrente" },
+    { id: "sem_telefone",    rotulo: "Sem telefone",         n: baseFiltrados.filter(m => !telefoneValido(m.telefone_celular)).length,
+      dica: "Sem telefone no cadastro, ou com número incompleto — não há por onde procurar até alguém preencher" },
   ], [baseFiltrados]);
 
   const totalPaginas = Math.max(1, Math.ceil(filtered.length / POR_PAGINA));
@@ -615,6 +649,32 @@ export default function Membros() {
     onAtuacoes:  setAtuacoesPessoa,
     onVisitante: setVisitantePessoa,
     onContato:   setContatoPessoa,
+  };
+
+  const filtrando =
+    search.trim() !== "" || tipoFiltro !== "todos" || perfilFiltro !== "todos" || cuidadoFiltro !== "todos";
+
+  const limparFiltros = () => {
+    setSearch("");
+    setTipoFiltro("todos");
+    setPerfilFiltro("todos");
+    setCuidadoFiltro("todos");
+    buscaRef.current?.focus();
+  };
+
+  /**
+   * Trocar de página levava para o mesmo lugar onde o dedo estava: o rodapé.
+   * Chegava-se ao topo da página 2 rolando de volta a tela inteira, e a
+   * primeira pessoa da nova página — que é o motivo de ter virado a página —
+   * ficava acima do campo de visão.
+   *
+   * `window.scrollTo` não serviria: quem rola nesta aplicação é o <main>, e
+   * não a janela (window.scrollY é sempre 0). Rolar a sentinela para a vista
+   * funciona sem que esta tela precise saber qual ancestral tem a barra.
+   */
+  const irParaPagina = (p: number) => {
+    setPagina(p);
+    topoRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   // Voltar à primeira página quando o resultado muda: continuar na página 7
@@ -651,17 +711,36 @@ export default function Membros() {
                         )
                 }
                     />
-                    <div className="p-4 md:p-8 space-y-4">
+                    <div className="p-4 md:p-8 space-y-4" ref={topoRef}>
                             <div className="flex flex-col md:flex-row gap-3 md:items-center">
                                       <div className="relative max-w-md flex-1">
                                                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                                  {/* O rótulo dizia "nome, CPF ou bairro". CPF está preenchido em DOIS
+                                                      dos 283 cadastros — a busca anunciava um campo que praticamente não
+                                                      existe e calava sobre o que existe em 94 deles: o telefone. Continua
+                                                      procurando por CPF para os dois que têm; só parou de prometer. */}
                                                   <Input
                                                                   ref={buscaRef}
-                                                                  className="pl-9"
-                                                                  placeholder="Buscar por nome, CPF ou bairro..."
+                                                                  className="pl-9 pr-10"
+                                                                  placeholder="Buscar por nome, telefone ou bairro..."
                                                                   value={search}
                                                                   onChange={(e) => setSearch(e.target.value)}
+                                                                  // Esc limpa — hábito de qualquer campo de busca, e assim o foco já
+                                                                  // fica no lugar certo para a próxima tentativa.
+                                                                  onKeyDown={(e) => { if (e.key === "Escape") setSearch(""); }}
                                                                 />
+                                                  {/* No celular não há Esc: apagar letra por letra era a única saída
+                                                      de uma busca que não achou nada. */}
+                                                  {search && (
+                                                    <button
+                                                      type="button"
+                                                      aria-label="Limpar busca"
+                                                      onClick={() => { setSearch(""); buscaRef.current?.focus(); }}
+                                                      className="absolute right-1 top-1/2 -translate-y-1/2 h-9 w-9 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                                    >
+                                                      <X className="w-4 h-4" />
+                                                    </button>
+                                                  )}
                                       </div>
                                       <Select value={tipoFiltro} onValueChange={setTipoFiltro}>
                                                   <SelectTrigger className="md:w-56">
@@ -734,6 +813,8 @@ export default function Membros() {
                                       key={a.id}
                                       type="button"
                                       aria-pressed={ativo}
+                                      title={a.dica}
+                                      aria-label={`${a.rotulo}: ${a.n}. ${a.dica}`}
                                       onClick={() => setCuidadoFiltro(ativo ? "todos" : a.id)}
                                       className={`min-h-[44px] px-3 rounded-full border text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                                         ativo
@@ -749,12 +830,39 @@ export default function Membros() {
                               </div>
                             )}
 
+                      {/* Quantas sobraram, e a saída. A paginação dizia "1–20 de 94", mas só
+                          aparece quando há mais de uma página: uma busca com 12 resultados não
+                          trazia número nenhum. E com três seletores e um atalho ligados ao mesmo
+                          tempo, desfazer significava lembrar de tudo que se tinha tocado. */}
+                      {!loading && !error && filtrando && filtered.length > 0 && (
+                        <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                          <span aria-live="polite">
+                            <span className="font-medium text-foreground tabular-nums">{filtered.length}</span>{" "}
+                            {filtered.length === 1 ? "pessoa" : "pessoas"} de {membros.length}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={limparFiltros}
+                            className="underline underline-offset-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+                          >
+                            Limpar filtros
+                          </button>
+                        </div>
+                      )}
+
                       {loading ? (
                                     <ListSkeleton className="grid gap-3" count={5} />
                                   ) : error ? (
                                     <ErrorState onRetry={load} />
                                   ) : filtered.length === 0 ? (
-                                    <EmptyState message="Nenhuma pessoa encontrada" />
+                                    // Beco sem saída vira porta: dizer "nada encontrado" e parar aí obriga
+                                    // a desfazer no braço filtro por filtro para voltar a ver a lista.
+                                    <EmptyState
+                                      message={filtrando ? "Nenhuma pessoa com esses filtros" : "Nenhuma pessoa cadastrada"}
+                                      action={filtrando ? (
+                                        <Button variant="outline" onClick={limparFiltros}>Limpar filtros</Button>
+                                      ) : undefined}
+                                    />
                                   ) : (
                                     // md:hidden — no desktop entra a tabela logo abaixo.
                                     <div className="grid gap-3 md:hidden">
@@ -776,9 +884,22 @@ export default function Membros() {
                                                                                                               seguinte. Quando dividiam a mesma linha flex, as etiquetas
                                                                                                               venciam a disputa por espaco e o nome — a informacao que
                                                                                                               identifica a pessoa — era truncado ate virar "Adriana ...". */}
-                                                                                                          <p className="font-medium flex items-center gap-2 min-w-0">
-                                                                                                            <span className="truncate">{m.nome_completo}</span>
-                                                                                                            <MarcaAniversario nascimento={m.data_nascimento} />
+                                                                                                          {/* No desktop o nome é o botão que abre o cadastro; no celular era
+                                                                                                              texto morto. Tocar no nome é o gesto óbvio, e o lápis de 44px ao
+                                                                                                              lado era o único caminho — a mesma lista respondia a coisas
+                                                                                                              diferentes conforme o aparelho.
+                                                                                                              O nome é <button> dentro do <p>, e não o cartão inteiro clicável:
+                                                                                                              o cartão contém o link do WhatsApp e o menu de ações, e um alvo
+                                                                                                              grande por cima deles roubaria o toque de ambos. */}
+                                                                                                          <p className="font-medium min-w-0">
+                                                                                                            <button
+                                                                                                              type="button"
+                                                                                                              onClick={() => { setEditing(m); setOpen(true); }}
+                                                                                                              className="flex items-center gap-2 min-w-0 max-w-full text-left hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+                                                                                                            >
+                                                                                                              <span className="truncate">{m.nome_completo}</span>
+                                                                                                              <MarcaAniversario nascimento={m.data_nascimento} />
+                                                                                                            </button>
                                                                                                           </p>
                                                                                                           {/* Etiqueta marca excecao, nao regra. "Membro" aparecia na
                                                                                                               maioria dos 281 cadastros e "Ativo" em 273 deles — uma marca
@@ -952,14 +1073,21 @@ export default function Membros() {
 
                             {!loading && !error && totalPaginas > 1 && (
                               <nav
-                                className="flex items-center justify-between gap-3 pt-1"
+                                // pb-16 só no celular: o botão flutuante de "Nova pessoa"
+                                // fica fixo no canto inferior direito e cobria a maior
+                                // parte de "Próxima" — medido, sobravam 15% da largura
+                                // clicáveis, o resto do toque ia para o botão de cima.
+                                // Com 283 pessoas em 15 páginas, o caminho para a frente
+                                // estava embaixo de outro botão. O espaço extra empurra a
+                                // paginação para cima do flutuante no fim da rolagem.
+                                className="flex items-center justify-between gap-3 pt-1 pb-16 md:pb-0"
                                 aria-label="Paginação da lista de pessoas"
                               >
                                 <Button
                                   variant="outline"
                                   className="min-h-[44px]"
                                   disabled={paginaAtual === 1}
-                                  onClick={() => setPagina(p => Math.max(1, p - 1))}
+                                  onClick={() => irParaPagina(Math.max(1, paginaAtual - 1))}
                                 >
                                   Anterior
                                 </Button>
@@ -974,7 +1102,7 @@ export default function Membros() {
                                   variant="outline"
                                   className="min-h-[44px]"
                                   disabled={paginaAtual === totalPaginas}
-                                  onClick={() => setPagina(p => Math.min(totalPaginas, p + 1))}
+                                  onClick={() => irParaPagina(Math.min(totalPaginas, paginaAtual + 1))}
                                 >
                                   Próxima
                                 </Button>
