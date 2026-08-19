@@ -23,7 +23,7 @@ import { StatusMembroBadge } from "@/components/membros/StatusMembroBadge";
 import ContatoResultadoDialog from "@/components/membros/ContatoResultadoDialog";
 import { logHistorico } from "@/lib/historicoFluxo";
 import { formatarTelefoneSemDDI, normalizarTelefone, telefoneValido } from "@/lib/telefone";
-import { rotuloFuncao, temCargo } from "@/lib/funcaoMinisterial";
+import { rotuloFuncao, temFuncao } from "@/lib/funcaoMinisterial";
 
 export interface Membro {
     id: string;
@@ -51,7 +51,7 @@ export interface Membro {
     cep: string | null;
     sexo: string | null;
     tipo_pessoa: "membro" | "congregado" | "visitante";
-    /** Cargo na igreja — ver lib/funcaoMinisterial.ts. NÃO é acesso ao sistema. */
+    /** Função na igreja — ver lib/funcaoMinisterial.ts. NÃO é acesso ao sistema. */
     funcao_ministerial?: string | null;
     perfil_acesso:
       | "admin"
@@ -212,6 +212,36 @@ function AcoesPessoa({ m, onEditar, onVinculos, onAtuacoes, onVisitante, onConta
  * Louvor não é "mais um do Louvor". Depois o ministério, depois a EBD — da
  * responsabilidade para a participação.
  */
+/**
+ * O que a coluna "Tipo/Função" diz sobre uma pessoa, em uma palavra.
+ *
+ * Uma coluna só, com precedência, em vez de duas lado a lado. Função e tipo
+ * respondem à mesma pergunta — "quem é esta pessoa aqui dentro" — e duas
+ * colunas para isso deixavam uma delas vazia em quase toda linha: as 283
+ * pessoas estão sem função, então a coluna Função nascia em branco e ficava
+ * ocupando espaço à espera de um dado que chega aos poucos.
+ *
+ * A ordem de precedência:
+ *
+ *   1. FUNÇÃO     — diácono, presbítero, tesoureiro. Sobrepõe o tipo porque
+ *                   é o que mais diz: um membro é um entre 132; o diácono é
+ *                   aquele diácono. Quem tem função é membro de qualquer
+ *                   jeito, e a informação nova é a função.
+ *   2. SITUAÇÃO   — inativo, transferido, falecido. São 2 em 283, e quando
+ *                   acontece é o mais urgente a dizer sobre a pessoa.
+ *   3. TIPO       — membro, congregado, visitante. O padrão.
+ *
+ * Nunca fica vazia: sem função e sem situação, sai "Membro" (ou o tipo que
+ * for). Célula em branco obriga a adivinhar o que o branco quer dizer.
+ */
+function tipoOuFuncao(m: Membro): { texto: string; nivel: "funcao" | "situacao" | "tipo" } {
+  if (temFuncao(m.funcao_ministerial)) {
+    return { texto: rotuloFuncao(m.funcao_ministerial), nivel: "funcao" };
+  }
+  if (m.status !== "ativo") return { texto: "", nivel: "situacao" };
+  return { texto: tipoPessoaLabel[m.tipo_pessoa], nivel: "tipo" };
+}
+
 function vinculos(m: Membro): string[] {
   const fora: string[] = [];
 
@@ -385,7 +415,7 @@ function Telefone({ numero }: { numero?: string | null }) {
 // de cores (cinza até 30 dias, âmbar depois) pronta para quando a coluna
 // voltar a distinguir uma pessoa da outra.
 
-type CampoOrdem = "nome" | "tipo" | "funcao" | "bairro";
+type CampoOrdem = "nome" | "tipo" | "bairro";
 
 /**
  * Cabeçalho de coluna que ordena.
@@ -694,17 +724,19 @@ export default function Membros() {
           if (va !== vb) return va ? -1 : 1;
         }
 
-        // Quem não tem cargo vai para o fim nas duas direções, pelo mesmo
-        // motivo do bairro: inverter é pedir "de Z a A", não "mostre primeiro
-        // as 283 pessoas sem cargo nenhum".
-        if (ordem.campo === "funcao") {
-          const ca = temCargo(a.funcao_ministerial), cb = temCargo(b.funcao_ministerial);
-          if (ca !== cb) return ca ? -1 : 1;
+        // Quem tem função vem primeiro nas duas direções. Inverter a coluna é
+        // pedir "de Z a A" dentro do que ela mostra, e não "traga primeiro as
+        // 283 pessoas sem função nenhuma" — que é uma tela inteira de nada.
+        if (ordem.campo === "tipo") {
+          const fa = temFuncao(a.funcao_ministerial), fb = temFuncao(b.funcao_ministerial);
+          if (fa !== fb) return fa ? -1 : 1;
         }
 
+        // A coluna ordena pelo texto que ela EXIBE. Ordenar por tipo_pessoa
+        // enquanto a célula mostra "Diácono" faria a lista parecer embaralhada
+        // para quem está lendo a coluna.
         const chave = (m: Membro) =>
-          ordem.campo === "tipo"     ? ({ membro: "1", congregado: "2", visitante: "3" })[m.tipo_pessoa]
-          : ordem.campo === "funcao" ? comparavel(rotuloFuncao(m.funcao_ministerial))
+          ordem.campo === "tipo"     ? comparavel(tipoOuFuncao(m).texto)
           : ordem.campo === "bairro" ? comparavel(m.bairro)
           : comparavel(m.nome_completo);
 
@@ -1088,20 +1120,13 @@ export default function Membros() {
                                   <thead className="bg-muted/50 sticky top-0 z-10 [&>tr>th:first-child]:rounded-tl-lg [&>tr>th:last-child]:rounded-tr-lg">
                                     <tr className="text-left text-xs text-muted-foreground">
                                       <Cabecalho campo="nome"   rotulo="Nome"   ordem={ordem} aoOrdenar={ordenarPor} />
-                                      <Cabecalho campo="tipo"   rotulo="Tipo"   ordem={ordem} aoOrdenar={ordenarPor} largura="w-28" />
-                                      {/* Hoje as 283 pessoas estão como "membro", que no enum quer dizer
-                                          "sem cargo" — a coluna nasce vazia de propósito. Não repete a
-                                          mesma palavra em toda linha, como fazia o "Nunca" do último
-                                          contato: quem não tem cargo não ganha nada, e cada diácono ou
-                                          presbítero cadastrado aparece sozinho na coluna, que é quando
-                                          ela passa a valer o espaço. */}
-                                      <Cabecalho campo="funcao" rotulo="Função" ordem={ordem} aoOrdenar={ordenarPor} largura="w-36 hidden lg:table-cell" />
+                                      <Cabecalho campo="tipo"   rotulo="Tipo/Função" ordem={ordem} aoOrdenar={ordenarPor} largura="w-40" />
                                       <th scope="col" className="font-medium px-3 py-2 w-40">Telefone</th>
                                       {/* Bairro só a partir de 1024px. Entre 768 e 1024 as quatro colunas
                                           fixas somavam mais largura do que sobrava para o nome, e "Agatha
                                           Victoria Vieira de Castro" virava "Agatha Victoria V...". Numa
                                           lista de pessoas, o nome é a última coisa que pode ser cortada. */}
-                                      <Cabecalho campo="bairro" rotulo="Bairro" ordem={ordem} aoOrdenar={ordenarPor} largura="w-40 hidden xl:table-cell" />
+                                      <Cabecalho campo="bairro" rotulo="Bairro" ordem={ordem} aoOrdenar={ordenarPor} largura="w-40 hidden lg:table-cell" />
                                       <th scope="col" className="font-medium px-3 py-2 w-16">
                                         <span className="sr-only">Ações</span>
                                       </th>
@@ -1153,20 +1178,31 @@ export default function Membros() {
                                               congregado e visitante em etiqueta, por mudarem o que se faz com
                                               a pessoa. Situação diferente de "ativo" (2 em 283) segue vencendo
                                               as duas, porque nesse caso é o que há de mais urgente a dizer. */}
-                                          {m.tipo_pessoa !== "membro" ? (
-                                            <Badge variant="outline" className={tipoPessoaColor[m.tipo_pessoa]}>
-                                              {tipoPessoaLabel[m.tipo_pessoa]}
-                                            </Badge>
-                                          ) : m.status !== "ativo" ? (
-                                            <StatusMembroBadge status={m.status} compact />
-                                          ) : (
-                                            <span className="text-muted-foreground">Membro</span>
-                                          )}
-                                        </td>
-                                        <td className="px-3 py-0 hidden lg:table-cell">
-                                          {temCargo(m.funcao_ministerial) && (
-                                            <span className="text-sm">{rotuloFuncao(m.funcao_ministerial)}</span>
-                                          )}
+                                          {(() => {
+                                            const { texto, nivel } = tipoOuFuncao(m);
+
+                                            if (nivel === "situacao") return <StatusMembroBadge status={m.status} compact />;
+
+                                            // Função em etiqueta, e a mais forte da coluna: é o que distingue uma
+                                            // linha das outras 282. Congregado e visitante seguem em etiqueta
+                                            // discreta, porque mudam o que se faz com a pessoa. Membro em texto
+                                            // apagado, por ser o esperado — etiqueta em 132 linhas viraria ruído.
+                                            if (nivel === "funcao") {
+                                              return (
+                                                <Badge variant="outline" className="bg-gold/15 text-gold border-gold/40 font-medium">
+                                                  {texto}
+                                                </Badge>
+                                              );
+                                            }
+
+                                            if (m.tipo_pessoa !== "membro") {
+                                              return (
+                                                <Badge variant="outline" className={tipoPessoaColor[m.tipo_pessoa]}>{texto}</Badge>
+                                              );
+                                            }
+
+                                            return <span className="text-muted-foreground">{texto}</span>;
+                                          })()}
                                         </td>
                                         <td className="px-3 py-0 text-muted-foreground tabular-nums whitespace-nowrap">
                                           <Telefone numero={m.telefone_celular} />
@@ -1183,7 +1219,7 @@ export default function Membros() {
                                             O bairro volta por um motivo prático: a busca casa por
                                             bairro. Procurar "maracana" trazia 17 pessoas sem
                                             mostrar em lugar nenhum por que aquelas 17. */}
-                                        <td className="px-3 py-0 text-muted-foreground hidden xl:table-cell">
+                                        <td className="px-3 py-0 text-muted-foreground hidden lg:table-cell">
                                           <span className="block truncate">{m.bairro || "—"}</span>
                                         </td>
                                         <td className="px-3 py-0">

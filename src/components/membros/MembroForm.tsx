@@ -65,8 +65,8 @@ const empty = {
   data_entrada:             new Date().toISOString().slice(0, 10),
   status:                   "ativo",
   observacoes_pastorais:    "",
-  // Cargo na igreja e as datas de cada um. Ver lib/funcaoMinisterial.ts:
-  // "membro" é o padrão do enum e quer dizer ausência de cargo.
+  // Função na igreja e as datas de cada uma. Ver lib/funcaoMinisterial.ts:
+  // "membro" é o padrão do enum e quer dizer ausência de função.
   funcao_ministerial:           "membro",
   data_consagracao_pastoral:    "",
   data_ordenacao_diaconal:      "",
@@ -815,16 +815,16 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
 
                         </>)}
 
-            {/* ── STEP 3 — CARGO NA IGREJA ── */}
+            {/* ── STEP 3 — FUNÇÃO NA IGREJA ── */}
             {step === 3 && (isCongregado || isMembro) && (<>
             <div className="space-y-3 pt-1">
               <div>
                 <Label translate="no">Função ministerial</Label>
                 {/* O enum já existia no banco e estava preenchido nas 283 pessoas
                     com "membro", lido por ninguém. Fica aqui, em Vínculos, e não
-                    no passo de Acesso: cargo na igreja e permissão de login são
+                    no passo de Acesso: função na igreja e permissão de login são
                     coisas diferentes — há diácono que nunca abriu o sistema e
-                    secretária com acesso e nenhum cargo. */}
+                    secretária com acesso e nenhuma função. */}
                 <Select
                   value={form.funcao_ministerial || "membro"}
                   onValueChange={(v) => set("funcao_ministerial", v)}
@@ -838,22 +838,22 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                 </Select>
               </div>
 
-              {/* A data aparece conforme o cargo, e com o nome certo: consagração
+              {/* A data aparece conforme a função, e com o nome certo: consagração
                   pastoral, ordenação diaconal e comissionamento missionário não
                   são sinônimos, e um campo genérico "data da função" apagaria a
                   diferença justamente para quem ela importa. */}
               {(() => {
-                const cargo = FUNCAO_MINISTERIAL[(form.funcao_ministerial || "membro") as FuncaoMinisterial];
-                if (!cargo || cargo.tipoData === "nenhuma") return null;
+                const funcao = FUNCAO_MINISTERIAL[(form.funcao_ministerial || "membro") as FuncaoMinisterial];
+                if (!funcao || funcao.tipoData === "nenhuma") return null;
 
-                if (cargo.tipoData === "consagracao" && cargo.coluna) {
+                if (funcao.tipoData === "consagracao" && funcao.coluna) {
                   return (
                     <div className="md:w-1/2">
-                      <Label translate="no">{cargo.rotuloData}</Label>
+                      <Label translate="no">{funcao.rotuloData}</Label>
                       <Input
                         type="date"
-                        value={form[cargo.coluna] ?? ""}
-                        onChange={(e) => set(cargo.coluna!, e.target.value)}
+                        value={form[funcao.coluna] ?? ""}
+                        onChange={(e) => set(funcao.coluna!, e.target.value)}
                       />
                     </div>
                   );

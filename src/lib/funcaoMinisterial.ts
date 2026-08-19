@@ -1,10 +1,10 @@
-// ─── funcaoMinisterial.ts — o cargo da pessoa na igreja ─────────────────────
+// ─── funcaoMinisterial.ts — a função da pessoa na igreja ───────────────────
 //
 // NÃO confundir com acesso ao sistema. São duas coisas que a conversa do dia a
 // dia chama de "perfil" e que vivem em tabelas diferentes:
 //
-//   membros.funcao_ministerial   o cargo   — um diácono que nunca abriu o app
-//   user_roles.role              o acesso  — uma secretária sem cargo nenhum
+//   membros.funcao_ministerial   a função  — um diácono que nunca abriu o app
+//   user_roles.role              o acesso  — uma secretária sem função nenhuma
 //
 // O enum já existia no banco, com os treze valores abaixo, preenchido nas 283
 // pessoas com "membro" e lido por ninguém. Este arquivo é o que faltava para
@@ -26,23 +26,23 @@ export type FuncaoMinisterial =
   | "obreiro";
 
 /**
- * Qual data acompanha cada cargo.
+ * Qual data acompanha cada função.
  *
  * `consagracao` — ato único, que acontece uma vez e não expira. A coluna é
- *   própria de cada cargo, e não uma data genérica: `funcao_desde` teria de
+ *   própria de cada função, e não uma data genérica: `funcao_desde` teria de
  *   significar consagração pastoral numa linha e posse de tesoureiro na outra,
  *   e ninguém saberia, olhando o banco, o que aquela data celebra.
  *
- * `vigencia`   — cargo exercido por período, com início e fim. O fim é
+ * `vigencia`   — função exercida por período, com início e fim. O fim é
  *   histórico por decisão: registra que a pessoa foi tesoureira de 2023 a 2025
  *   e não gera alerta, pendência nem fila.
  *
- * `nenhuma`    — "membro" é o padrão do enum: quer dizer que não há cargo.
+ * `nenhuma`    — "membro" é o padrão do enum: quer dizer que não há função.
  *   Voluntário também não tem investidura formal aqui.
  */
 export type TipoData = "consagracao" | "vigencia" | "nenhuma";
 
-interface Cargo {
+interface Funcao {
   label: string;
   tipoData: TipoData;
   /** Coluna da data de consagração, quando houver. */
@@ -54,7 +54,7 @@ interface Cargo {
   rotuloData?: string;
 }
 
-export const FUNCAO_MINISTERIAL: Record<FuncaoMinisterial, Cargo> = {
+export const FUNCAO_MINISTERIAL: Record<FuncaoMinisterial, Funcao> = {
   membro:        { label: "Membro",            tipoData: "nenhuma" },
   voluntario:    { label: "Voluntário",        tipoData: "nenhuma" },
 
@@ -78,8 +78,8 @@ export const FUNCAO_MINISTERIAL: Record<FuncaoMinisterial, Cargo> = {
 };
 
 /**
- * Ordem de exibição: do ministério ordenado para o cargo de mandato, e o
- * "sem cargo" por último. Não é hierarquia de valor — é a ordem em que a
+ * Ordem de exibição: do ministério ordenado para a função de mandato, e o
+ * "sem função" por último. Não é hierarquia de valor — é a ordem em que a
  * secretaria procura, que começa por quem tem consagração registrada.
  */
 export const FUNCOES_EM_ORDEM: FuncaoMinisterial[] = [
@@ -88,8 +88,8 @@ export const FUNCOES_EM_ORDEM: FuncaoMinisterial[] = [
   "voluntario", "membro",
 ];
 
-/** "membro" é a ausência de cargo, não um cargo. */
-export const temCargo = (f?: string | null): boolean =>
+/** "membro" é a ausência de função, não uma função. */
+export const temFuncao = (f?: string | null): boolean =>
   !!f && f !== "membro" && f in FUNCAO_MINISTERIAL;
 
 export const rotuloFuncao = (f?: string | null): string =>
