@@ -211,7 +211,7 @@ export default function PgmReuniaoPage() {
             className="gap-1.5 text-destructive hover:text-destructive">
             <Trash2 className="w-3.5 h-3.5" /> Excluir
           </Button>
-          <Badge variant="outline" className="text-xs whitespace-nowrap bg-emerald-50 text-emerald-700 border-emerald-300">
+          <Badge variant="outline" className="text-xs whitespace-nowrap bg-emerald-50 text-emerald-700 dark:text-emerald-400 border-emerald-300">
             <Check className="w-3 h-3 mr-0.5" /> {totalGeral} presença{totalGeral === 1 ? "" : "s"}
           </Badge>
         </div>
@@ -368,7 +368,7 @@ export default function PgmReuniaoPage() {
                         sem código de país abre conversa com ninguém. */}
                     {v.telefone && (
                       <a href={`https://wa.me/${normalizarTelefone(v.telefone)}`} target="_blank" rel="noopener noreferrer">
-                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-emerald-700">
+                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-emerald-700 dark:text-emerald-400">
                           <MessageCircle className="w-3.5 h-3.5" />
                         </Button>
                       </a>

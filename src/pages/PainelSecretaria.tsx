@@ -14,8 +14,8 @@ import {
 import { alertasGovernanca, type AlertaGovernanca } from "@/services/governancaService";
 
 const PRIORIDADE_INFO: Record<PrioridadeAlerta, { label: string; cor: string }> = {
-  urgente:      { label: "Urgente",      cor: "border-rose-300 bg-rose-50/30 text-rose-700" },
-  atencao:      { label: "Atenção",      cor: "border-amber-300 bg-amber-50/30 text-amber-700" },
+  urgente:      { label: "Urgente",      cor: "border-rose-300 bg-rose-50/30 text-rose-700 dark:text-rose-400" },
+  atencao:      { label: "Atenção",      cor: "border-amber-300 bg-amber-50/30 text-amber-700 dark:text-amber-400" },
   informativo:  { label: "Informativo",  cor: "border-blue-200 bg-blue-50/20 text-blue-700" },
 };
 
@@ -86,7 +86,7 @@ export default function PainelSecretaria() {
         <Card className="border-dashed">
           <CardContent className="py-10 text-center text-sm text-muted-foreground space-y-2">
             <Sparkles className="w-10 h-10 mx-auto opacity-30 text-emerald-500" />
-            <p className="font-medium text-emerald-700">Tudo em ordem!</p>
+            <p className="font-medium text-emerald-700 dark:text-emerald-400">Tudo em ordem!</p>
             <p className="text-xs">Nenhum alerta pendente — secretaria em dia 🎉</p>
           </CardContent>
         </Card>
@@ -107,7 +107,7 @@ export default function PainelSecretaria() {
                   "border-blue-200 bg-blue-50/20"
                 }>
                   <CardContent className="py-2.5 px-3 flex items-center gap-2">
-                    <AlertTriangle className={`w-3.5 h-3.5 shrink-0 ${a.prioridade === "urgente" ? "text-rose-700" : a.prioridade === "atencao" ? "text-amber-700" : "text-blue-700"}`} />
+                    <AlertTriangle className={`w-3.5 h-3.5 shrink-0 ${a.prioridade === "urgente" ? "text-rose-700 dark:text-rose-400" : a.prioridade === "atencao" ? "text-amber-700 dark:text-amber-400" : "text-blue-700"}`} />
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-medium">{a.titulo}</p>
                       <p className="text-xs text-muted-foreground">{a.descricao}</p>
@@ -165,9 +165,9 @@ export default function PainelSecretaria() {
 }
 
 function Stat({ label, valor, icon, cor }: { label: string; valor: number; icon: React.ReactNode; cor?: "amber" | "blue" | "emerald" }) {
-  const corClass = cor === "amber" ? "text-amber-700"
+  const corClass = cor === "amber" ? "text-amber-700 dark:text-amber-400"
                  : cor === "blue"  ? "text-blue-700"
-                 : cor === "emerald" ? "text-emerald-700"
+                 : cor === "emerald" ? "text-emerald-700 dark:text-emerald-400"
                  : "";
   return (
     <Card>

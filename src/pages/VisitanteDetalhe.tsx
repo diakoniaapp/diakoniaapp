@@ -74,7 +74,7 @@ function AlertaInatividade({ visitante }: { visitante: Visitante }) {
         <p className={`font-semibold ${critico ? "text-red-700 dark:text-red-400" : "text-amber-700 dark:text-amber-400"}`}>
           {critico ? "Atenção urgente necessária" : "Contato pendente"}
         </p>
-        <p className={`mt-0.5 ${critico ? "text-red-600 dark:text-red-500" : "text-amber-600 dark:text-amber-500"}`}>
+        <p className={`mt-0.5 ${critico ? "text-red-700 dark:text-red-400" : "text-amber-700 dark:text-amber-400"}`}>
           {visitante.ultimo_contato_em
             ? `Sem contato há ${dias} ${dias === 1 ? "dia" : "dias"} (último: ${format(new Date(visitante.ultimo_contato_em), "dd/MM/yyyy", { locale: ptBR })})`
             : `Nunca foi contatado — cadastrado há ${diasCad} ${diasCad === 1 ? "dia" : "dias"}`
@@ -355,7 +355,7 @@ export default function VisitanteDetalhe() {
                   </span>
                 )}
                 {diasUltimoContato < 9999 && (
-                  <span className={`text-xs ${diasUltimoContato > 7 ? "text-amber-600" : "text-muted-foreground"}`}>
+                  <span className={`text-xs ${diasUltimoContato > 7 ? "text-amber-700 dark:text-amber-400 dark:text-amber-400" : "text-muted-foreground"}`}>
                     · Contato {diasUltimoContato === 0 ? "hoje" : `há ${diasUltimoContato}d`}
                   </span>
                 )}
@@ -528,7 +528,7 @@ export default function VisitanteDetalhe() {
           <CardContent className="py-5">
             <div className="flex items-start gap-3 mb-4">
               <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center shrink-0">
-                <Sparkles className="w-5 h-5 text-emerald-600" />
+                <Sparkles className="w-5 h-5 text-emerald-700 dark:text-emerald-400 dark:text-emerald-400" />
               </div>
               <div>
                 <p className="font-semibold text-sm text-emerald-800 dark:text-emerald-300">

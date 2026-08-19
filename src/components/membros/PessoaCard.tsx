@@ -47,7 +47,7 @@ interface AreaVinculo {
 
 const TIPO_CONFIG: Record<string, { label: string; cor: string }> = {
   membro:     { label: "Membro",     cor: "bg-blue-100 text-blue-700 border-blue-300" },
-  congregado: { label: "Congregado", cor: "bg-emerald-100 text-emerald-700 border-emerald-300" },
+  congregado: { label: "Congregado", cor: "bg-emerald-100 text-emerald-700 dark:text-emerald-400 border-emerald-300" },
   visitante:  { label: "Visitante",  cor: "bg-yellow-100 text-yellow-700 border-yellow-300" },
 };
 
@@ -55,9 +55,9 @@ const FUNCAO_CONFIG: Record<string, { label: string; cor: string }> = {
   lider:       { label: "Líder",       cor: "bg-purple-100 text-purple-700 border-purple-300" },
   co_lider:    { label: "Co-líder",    cor: "bg-indigo-100 text-indigo-700 border-indigo-300" },
   secretario:  { label: "Secretário",  cor: "bg-sky-100 text-sky-700 border-sky-300" },
-  tesoureiro:  { label: "Tesoureiro",  cor: "bg-amber-100 text-amber-700 border-amber-300" },
-  voluntario:  { label: "Voluntário",  cor: "bg-green-100 text-green-700 border-green-300" },
-  diacono:     { label: "Diácono",     cor: "bg-orange-100 text-orange-700 border-orange-300" },
+  tesoureiro:  { label: "Tesoureiro",  cor: "bg-amber-100 text-amber-700 dark:text-amber-400 border-amber-300" },
+  voluntario:  { label: "Voluntário",  cor: "bg-green-100 text-green-700 dark:text-green-400 border-green-300" },
+  diacono:     { label: "Diácono",     cor: "bg-orange-100 text-orange-700 dark:text-orange-400 border-orange-300" },
   obreiro:     { label: "Obreiro",     cor: "bg-teal-100 text-teal-700 border-teal-300" },
   colaborador: { label: "Colaborador", cor: "bg-gray-100 text-gray-600 border-gray-300" },
 };
@@ -66,8 +66,8 @@ const PERFIL_CONFIG: Record<string, { label: string; cor: string }> = {
   admin:        { label: "Admin",        cor: "bg-purple-100 text-purple-700" },
   pastor:       { label: "Pastor",       cor: "bg-indigo-100 text-indigo-700" },
   secretaria:   { label: "Secretaria",   cor: "bg-blue-100 text-blue-700" },
-  tesoureiro:   { label: "Tesoureiro",   cor: "bg-amber-100 text-amber-700" },
-  lideranca:    { label: "Liderança",    cor: "bg-green-100 text-green-700" },
+  tesoureiro:   { label: "Tesoureiro",   cor: "bg-amber-100 text-amber-700 dark:text-amber-400" },
+  lideranca:    { label: "Liderança",    cor: "bg-green-100 text-green-700 dark:text-green-400" },
   voluntario:   { label: "Voluntário",   cor: "bg-gray-100 text-gray-600" },
   membro:       { label: "Membro",       cor: "bg-gray-100 text-gray-600" },
 };
@@ -281,7 +281,7 @@ export default function PessoaCard({ pessoaId, open, onClose }: PessoaCardProps)
                 <span>Na igreja há {calcularTempo(pessoa.data_entrada)}</span>
               </div>
               {ministerios.length === 0 && areas.length === 0 && cargos.length === 0 && (
-                <span className="flex items-center gap-1 text-warning">
+                <span className="flex items-center gap-1 text-warning-text">
                   <Star className="w-3.5 h-3.5" />
                   Sem vínculos cadastrados
                 </span>

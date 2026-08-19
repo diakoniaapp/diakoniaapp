@@ -80,7 +80,7 @@ export interface Membro {
 const statusColor: Record<string, string> = {
     ativo: "bg-success/15 text-success border-success/30",
     inativo: "bg-muted text-muted-foreground border-border",
-    transferido: "bg-warning/15 text-warning border-warning/30",
+    transferido: "bg-warning/15 text-warning-text border-warning/30",
     desligado: "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-700",
     falecido: "bg-destructive/10 text-destructive border-destructive/30",
 };
@@ -91,10 +91,17 @@ const tipoPessoaLabel: Record<string, string> = {
     visitante: "Visitante",
 };
 
+// Etiqueta com TINTA de fundo pede cor de texto ESCURA — não a cor que
+// acompanha o preenchimento sólido.
+//
+// "Congregado" era `bg-accent/15 text-accent-foreground`: o
+// `accent-foreground` é branco, feito para ir POR CIMA do accent cheio. Sobre
+// uma tinta de 15% ele media 1,26:1 — branco sobre quase branco, a pior
+// medição da tela inteira. Estava assim desde que a etiqueta existe.
 const tipoPessoaColor: Record<string, string> = {
-    membro: "bg-primary/10 text-primary border-primary/30",
-    congregado: "bg-accent/15 text-accent-foreground border-accent/30",
-    visitante: "bg-warning/15 text-warning border-warning/30",
+    membro:     "bg-primary/10 text-primary border-primary/30",
+    congregado: "bg-gold/15 text-gold-text border-gold/30",
+    visitante:  "bg-warning/15 text-warning-text border-warning/30",
 };
 
 // O indicador de status de acesso saiu da listagem. Alem de ser um icone mudo
@@ -188,7 +195,7 @@ function AcoesPessoa({ m, onEditar, onVinculos, onAtuacoes, onVisitante, onConta
           </DropdownMenuItem>
           {m.tipo_pessoa === "visitante" && (
             <DropdownMenuItem onClick={() => onVisitante(m)}>
-              <Sparkles className="w-4 h-4 mr-2 text-warning" />
+              <Sparkles className="w-4 h-4 mr-2 text-warning-text" />
               Acompanhar visitante
             </DropdownMenuItem>
           )}
@@ -361,7 +368,7 @@ function MarcaAniversario({ nascimento }: { nascimento?: string | null }) {
       title={texto}
       aria-label={texto}
       className={`inline-flex items-center gap-1 shrink-0 text-xs font-normal ${
-        dias === 0 ? "text-warning" : "text-muted-foreground"
+        dias === 0 ? "text-warning-text" : "text-muted-foreground"
       }`}
     >
       <Cake className="w-3.5 h-3.5" aria-hidden />
@@ -1198,7 +1205,7 @@ export default function Membros() {
                                               return (
                                                 <Badge
                                                   variant="outline"
-                                                  className="bg-gold/15 text-gold border-gold/40 font-medium"
+                                                  className="bg-gold/15 text-gold-text border-gold/40 font-medium"
                                                   title={todas.length > 1 ? todas.join(" · ") : undefined}
                                                 >
                                                   {texto}

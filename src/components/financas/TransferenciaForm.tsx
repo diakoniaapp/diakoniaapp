@@ -150,8 +150,8 @@ export function TransferenciaForm({ open, onOpenChange, contaOrigemPadrao, onSav
             <div className="rounded-md p-2 border border-blue-300 bg-blue-50/30 text-xs space-y-0.5">
               <p className="font-medium text-blue-900">Resumo:</p>
               <p>
-                <strong>{origem.nome}</strong>: {brl(Number(origem.saldo_atual))} → <span className={saldoOrigemDepois < 0 ? "text-rose-700 font-semibold" : ""}>{brl(saldoOrigemDepois)}</span>
-                {saldoOrigemDepois < 0 && <span className="text-rose-700 ml-1">⚠ saldo negativo</span>}
+                <strong>{origem.nome}</strong>: {brl(Number(origem.saldo_atual))} → <span className={saldoOrigemDepois < 0 ? "text-rose-700 dark:text-rose-400 font-semibold" : ""}>{brl(saldoOrigemDepois)}</span>
+                {saldoOrigemDepois < 0 && <span className="text-rose-700 dark:text-rose-400 ml-1">⚠ saldo negativo</span>}
               </p>
               <p>
                 <strong>{destino.nome}</strong>: {brl(Number(destino.saldo_atual))} → {brl(Number(destino.saldo_atual) + valor)}

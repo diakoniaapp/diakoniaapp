@@ -40,8 +40,8 @@ import { supabase } from "@/integrations/supabase/client";
 
 const STATUS_CONFIG: Record<StatusAcesso, { label: string; cor: string; icone: typeof ShieldCheck }> = {
   sem_acesso: { label: "Sem acesso",              cor: "text-slate-500 border-slate-300",  icone: ShieldOff  },
-  aguardando: { label: "Aguardando 1º acesso",    cor: "text-amber-600 border-amber-400",  icone: RefreshCw  },
-  ativo:      { label: "Ativo",                   cor: "text-green-600 border-green-400",  icone: ShieldCheck },
+  aguardando: { label: "Aguardando 1º acesso",    cor: "text-amber-700 dark:text-amber-400 dark:text-amber-400 border-amber-400",  icone: RefreshCw  },
+  ativo:      { label: "Ativo",                   cor: "text-green-700 dark:text-green-400 dark:text-green-400 border-green-400",  icone: ShieldCheck },
 };
 
 // Roles disponíveis para convite, em ordem de menor → maior privilégio
@@ -186,7 +186,7 @@ export function AcessoCard({ pessoaId, nomeCompleto, telefone }: AcessoCardProps
         {status === "sem_acesso" && (
           <div className="space-y-2">
             {!telefone && (
-              <p className="text-xs text-amber-600">
+              <p className="text-xs text-amber-700 dark:text-amber-400 dark:text-amber-400">
                 ⚠️ Cadastre um telefone antes de convidar.
               </p>
             )}
@@ -243,7 +243,7 @@ export function AcessoCard({ pessoaId, nomeCompleto, telefone }: AcessoCardProps
                 <DropdownMenuItem onClick={() => setConfirmando({ role: (roleAtual ?? "voluntario") as RoleOption, motivo: "reenvio" })}>
                   <Send className="w-3.5 h-3.5 mr-2" /> Reenviar link
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setConfirmReset(true)} className="text-orange-600 focus:text-orange-700">
+                <DropdownMenuItem onClick={() => setConfirmReset(true)} className="text-orange-700 dark:text-orange-400 dark:text-orange-400 focus:text-orange-700 dark:text-orange-400">
                   <KeyRound className="w-3.5 h-3.5 mr-2" /> Resetar senha
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
@@ -265,7 +265,7 @@ export function AcessoCard({ pessoaId, nomeCompleto, telefone }: AcessoCardProps
                   const tel = (acesso.telefone || telefone!).replace(/\D/g, "");
                   window.open(`https://wa.me/${normalizarTelefone(tel)}`, "_blank", "noopener,noreferrer");
                 }}
-                className="gap-1.5 text-xs text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                className="gap-1.5 text-xs text-emerald-700 dark:text-emerald-400 dark:text-emerald-400 hover:text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50"
                 title="Abrir WhatsApp"
               >
                 <MessageCircle className="w-3.5 h-3.5" />
@@ -323,7 +323,7 @@ export function AcessoCard({ pessoaId, nomeCompleto, telefone }: AcessoCardProps
                     hora, e não num manual, é o que separa o clique certo do
                     clique de um milímetro para o lado. */}
                 {confirmando?.role === "admin" && (
-                  <p className="text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5 text-xs">
+                  <p className="text-amber-700 dark:text-amber-400 bg-amber-50 border border-amber-200 rounded px-2 py-1.5 text-xs">
                     Administrador enxerga o sistema inteiro e pode conceder acesso a
                     outras pessoas.
                   </p>

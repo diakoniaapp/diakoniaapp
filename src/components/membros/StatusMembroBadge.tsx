@@ -25,7 +25,7 @@ export const STATUS_INFO: Record<MembroStatus, StatusInfo> = {
   },
   transferido: {
     label: "Transferido",
-    cor: "bg-warning/15 text-warning border-warning/30",
+    cor: "bg-warning/15 text-warning-text border-warning/30",
     descricao: "Mudou de igreja com carta de transferência. Não é mais membro daqui.",
   },
   desligado: {

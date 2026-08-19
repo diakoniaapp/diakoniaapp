@@ -28,7 +28,7 @@ export function AssuntosUrgentes() {
 
   if (!data || data.lista.length === 0) {
     return (
-      <div className="py-3 text-center text-xs text-emerald-700">
+      <div className="py-3 text-center text-xs text-emerald-700 dark:text-emerald-400">
         ✓ Nenhum assunto urgente na igreja
       </div>
     );
@@ -43,12 +43,12 @@ export function AssuntosUrgentes() {
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2 text-xs">
         {data.total_atrasados > 0 && (
-          <span className="px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 border border-rose-200">
+          <span className="px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 dark:text-rose-400 border border-rose-200">
             🔴 {data.total_atrasados} atrasado{data.total_atrasados > 1 ? "s" : ""}
           </span>
         )}
         {data.total_vence_semana > 0 && (
-          <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-200">
+          <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:text-amber-400 border border-amber-200">
             🟡 {data.total_vence_semana} vence essa semana
           </span>
         )}
@@ -59,8 +59,8 @@ export function AssuntosUrgentes() {
           <li key={a.id} className="py-1.5 flex items-center gap-2 text-xs">
             <span className="shrink-0">
               {a.situacao === "atrasado"
-                ? <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
-                : <Clock className="w-3.5 h-3.5 text-amber-600" />}
+                ? <AlertCircle className="w-3.5 h-3.5 text-rose-700 dark:text-rose-400 dark:text-rose-400" />
+                : <Clock className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400 dark:text-amber-400" />}
             </span>
             <span className="text-muted-foreground shrink-0 max-w-[8rem] truncate" title={a.responsavel_nome ?? ""}>
               {a.responsavel_nome ?? "Sem responsável"}
@@ -69,7 +69,7 @@ export function AssuntosUrgentes() {
             <span className="flex-1 truncate">{a.titulo}</span>
             <span className={
               "text-xs tabular-nums shrink-0 " +
-              (a.situacao === "atrasado" ? "text-rose-600 font-semibold" : "text-amber-700")
+              (a.situacao === "atrasado" ? "text-rose-700 dark:text-rose-400 dark:text-rose-400 font-semibold" : "text-amber-700 dark:text-amber-400")
             }>
               {fmtPrazo(a.prazo)}
             </span>

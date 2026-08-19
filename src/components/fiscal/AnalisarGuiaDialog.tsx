@@ -93,7 +93,7 @@ export function AnalisarGuiaDialog({ open, onOpenChange, agendaId, nomeObrigacao
 
           {analise && (
             <div className="border rounded-md p-3 space-y-2 bg-emerald-50/40 text-xs">
-              <div className="flex items-center gap-1.5 font-medium text-emerald-700">
+              <div className="flex items-center gap-1.5 font-medium text-emerald-700 dark:text-emerald-400">
                 <CheckCircle2 className="w-3.5 h-3.5" /> Campos extraídos
               </div>
 

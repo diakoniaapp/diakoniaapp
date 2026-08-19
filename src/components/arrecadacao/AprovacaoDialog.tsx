@@ -177,7 +177,7 @@ export function AprovacaoDialog({ open, onOpenChange, reserva, onAprovado }: Pro
           </div>
         ) : (
           <div className="space-y-3 text-sm">
-            <div className="border-2 border-emerald-300 bg-emerald-50/40 rounded-md p-2 flex items-center gap-2 text-emerald-700 text-xs">
+            <div className="border-2 border-emerald-300 bg-emerald-50/40 rounded-md p-2 flex items-center gap-2 text-emerald-700 dark:text-emerald-400 text-xs">
               <CheckCircle2 className="w-4 h-4" /> {jaAprovada ? "Envie" : "Reserva aprovada · envie"} o termo pelos contatos abaixo
             </div>
 
@@ -212,7 +212,7 @@ export function AprovacaoDialog({ open, onOpenChange, reserva, onAprovado }: Pro
                         <span className="font-medium text-xs truncate">{d.nome}</span>
                         <Badge variant="outline" className="text-xs">{d.papel_label}</Badge>
                         {d.enviado && (
-                          <Badge className="text-xs bg-emerald-100 text-emerald-700 border-emerald-300">enviado</Badge>
+                          <Badge className="text-xs bg-emerald-100 text-emerald-700 dark:text-emerald-400 border-emerald-300">enviado</Badge>
                         )}
                       </div>
                       <div className="flex items-center gap-1 mt-1">

@@ -107,14 +107,14 @@ export default function FinancasOrcamento() {
           </Card>
           <Card className="bg-rose-50/30 border-rose-200">
             <CardContent className="py-2 px-3">
-              <p className="text-xs uppercase text-rose-700">Acima do limite</p>
-              <p className="text-base font-semibold text-rose-700">{acimaLimite}</p>
+              <p className="text-xs uppercase text-rose-700 dark:text-rose-400">Acima do limite</p>
+              <p className="text-base font-semibold text-rose-700 dark:text-rose-400">{acimaLimite}</p>
             </CardContent>
           </Card>
           <Card className="bg-amber-50/30 border-amber-200">
             <CardContent className="py-2 px-3">
-              <p className="text-xs uppercase text-amber-700">≥ 80%</p>
-              <p className="text-base font-semibold text-amber-700">{proximoLimite}</p>
+              <p className="text-xs uppercase text-amber-700 dark:text-amber-400">≥ 80%</p>
+              <p className="text-base font-semibold text-amber-700 dark:text-amber-400">{proximoLimite}</p>
             </CardContent>
           </Card>
         </div>
@@ -144,8 +144,8 @@ export default function FinancasOrcamento() {
                       <Link to={`/financas/centro/${o.centro_custo_id}`}
                         className="font-medium text-sm truncate flex items-center gap-1.5 hover:underline">
                         {o.centro_nome}
-                        {pct >= 100 && <Badge variant="outline" className="text-xs bg-rose-100 text-rose-700 border-rose-300">Estourou</Badge>}
-                        {pct >= 80 && pct < 100 && <Badge variant="outline" className="text-xs bg-amber-100 text-amber-700 border-amber-300">Alerta</Badge>}
+                        {pct >= 100 && <Badge variant="outline" className="text-xs bg-rose-100 text-rose-700 dark:text-rose-400 border-rose-300">Estourou</Badge>}
+                        {pct >= 80 && pct < 100 && <Badge variant="outline" className="text-xs bg-amber-100 text-amber-700 dark:text-amber-400 border-amber-300">Alerta</Badge>}
                       </Link>
                       <p className="text-xs text-muted-foreground">
                         {o.mes ? `Mês ${String(o.mes).padStart(2, "0")}/${o.ano}` : `Ano ${o.ano}`}
@@ -155,7 +155,7 @@ export default function FinancasOrcamento() {
                       <p className="text-sm font-semibold tabular-nums">
                         {brl(Number(o.valor_real))} / <span className="text-muted-foreground">{brl(Number(o.valor_planejado))}</span>
                       </p>
-                      <p className={`text-xs font-medium ${pct >= 100 ? "text-rose-700" : pct >= 80 ? "text-amber-700" : "text-emerald-700"}`}>
+                      <p className={`text-xs font-medium ${pct >= 100 ? "text-rose-700 dark:text-rose-400" : pct >= 80 ? "text-amber-700 dark:text-amber-400" : "text-emerald-700 dark:text-emerald-400"}`}>
                         {pct.toFixed(1)}% consumido
                       </p>
                     </div>

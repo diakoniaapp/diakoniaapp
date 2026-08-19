@@ -46,12 +46,12 @@ export function MeusAssuntos() {
       <div className="flex flex-wrap items-center gap-2 text-xs">
         <span className="font-medium text-foreground">{data.total_abertos} aberto{data.total_abertos > 1 ? "s" : ""}</span>
         {data.total_atrasados > 0 && (
-          <span className="px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 border border-rose-200">
+          <span className="px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 dark:text-rose-400 border border-rose-200">
             🔴 {data.total_atrasados} atrasado{data.total_atrasados > 1 ? "s" : ""}
           </span>
         )}
         {data.total_vence_breve > 0 && (
-          <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-200">
+          <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:text-amber-400 border border-amber-200">
             🟡 {data.total_vence_breve} vence em breve
           </span>
         )}
@@ -66,16 +66,16 @@ export function MeusAssuntos() {
         {data.proximos.map(a => (
           <li key={a.id} className="py-1.5 flex items-center gap-2 text-xs">
             <span className="shrink-0">
-              {a.situacao === "atrasado" && <AlertCircle className="w-3.5 h-3.5 text-rose-600" />}
-              {a.situacao === "vence_breve" && <Clock className="w-3.5 h-3.5 text-amber-600" />}
+              {a.situacao === "atrasado" && <AlertCircle className="w-3.5 h-3.5 text-rose-700 dark:text-rose-400 dark:text-rose-400" />}
+              {a.situacao === "vence_breve" && <Clock className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400 dark:text-amber-400" />}
               {a.situacao === "parado" && <Clock className="w-3.5 h-3.5 text-purple-600" />}
               {a.situacao === "normal" && <span className="text-sm">{PRIORIDADE_ICONE[a.prioridade]}</span>}
             </span>
             <span className="flex-1 truncate">{a.titulo}</span>
             <span className={
               "text-xs tabular-nums shrink-0 " +
-              (a.situacao === "atrasado" ? "text-rose-600 font-semibold" :
-               a.situacao === "vence_breve" ? "text-amber-700" : "text-muted-foreground")
+              (a.situacao === "atrasado" ? "text-rose-700 dark:text-rose-400 dark:text-rose-400 font-semibold" :
+               a.situacao === "vence_breve" ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground")
             }>
               {fmtPrazo(a.prazo)}
             </span>

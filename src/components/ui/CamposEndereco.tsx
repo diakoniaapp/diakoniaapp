@@ -170,7 +170,7 @@ export function CamposEndereco({
           <p className="text-xs text-destructive">{msgErro}</p>
         )}
         {status === "ok" && (
-          <p className="text-xs text-green-600">Endereço preenchido automaticamente ✓</p>
+          <p className="text-xs text-green-700 dark:text-green-400 dark:text-green-400">Endereço preenchido automaticamente ✓</p>
         )}
       </div>
 

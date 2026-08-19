@@ -11,6 +11,10 @@
 // costumam precisar dos mesmos números para os cartões do topo, e buscar duas
 // vezes seria pagar a consulta em dobro para mostrar o mesmo.
 
+// Sem roxo cru do Tailwind: a diretoria usava purple-700 e purple-50, cores
+// que não existem na paleta da igreja. Numa tela ao lado dos ministérios em
+// dourado, o roxo dizia "isto aqui é outro produto". A cor da casa marca o
+// mesmo destaque sem abrir uma segunda família de cor.
 import { Loader2, Crown, Shield, HandHeart } from "lucide-react";
 import type { CargoDiretoria } from "@/services/diretoriaService";
 
@@ -50,11 +54,11 @@ function Cartao({ nome, papel, detalhe, onClick }: {
     <button
       type="button"
       onClick={onClick}
-      className="flex items-center gap-3 rounded-lg border bg-purple-50/40 border-purple-200 px-3 py-2 text-left hover:bg-purple-50 transition-colors min-h-[44px]"
+      className="flex items-center gap-3 rounded-lg border bg-gold/[0.06] border-gold/25 px-3 py-2 text-left hover:bg-gold/10 transition-colors min-h-[44px]"
     >
       <div className="flex-1 min-w-0">
         <p className="font-medium text-sm truncate">{nome}</p>
-        <p className="text-xs text-purple-700">{papel}</p>
+        <p className="text-xs text-gold-text">{papel}</p>
         {detalhe && <p className="text-xs text-muted-foreground">{detalhe}</p>}
       </div>
     </button>

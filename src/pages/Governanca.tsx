@@ -74,7 +74,7 @@ export default function Governanca() {
                     <Badge variant="outline" className={`text-xs ${REUNIAO_STATUS_COR[a.status]}`}>
                       {REUNIAO_STATUS_LABEL[a.status]}
                     </Badge>
-                    {a.quorum_atingido && <Badge variant="outline" className="text-xs bg-emerald-100 text-emerald-700 border-emerald-300">Quórum OK</Badge>}
+                    {a.quorum_atingido && <Badge variant="outline" className="text-xs bg-emerald-100 text-emerald-700 dark:text-emerald-400 border-emerald-300">Quórum OK</Badge>}
                   </div>
                   <p className="text-xs text-muted-foreground flex items-center gap-2">
                     <Calendar className="w-2.5 h-2.5" />

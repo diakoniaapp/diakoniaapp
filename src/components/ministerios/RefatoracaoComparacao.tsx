@@ -40,7 +40,7 @@ function FonteBadge({ fonte }: { fonte: "ia" | "parser" | "combinado" }) {
     const map = {
           ia: { label: "IA + Documento", color: "bg-purple-100 text-purple-700 border-purple-300" },
           parser: { label: "Parser Manual", color: "bg-blue-100 text-blue-700 border-blue-300" },
-          combinado: { label: "IA + Parser", color: "bg-amber-100 text-amber-700 border-amber-300" },
+          combinado: { label: "IA + Parser", color: "bg-amber-100 text-amber-700 dark:text-amber-400 border-amber-300" },
         };
     const m = map[fonte];
     return (
@@ -54,9 +54,9 @@ function FonteBadge({ fonte }: { fonte: "ia" | "parser" | "combinado" }) {
 
 function SimilaridadeBadge({ pct }: { pct: number }) {
     const color =
-      pct >= 90 ? "text-emerald-700 bg-emerald-50 border-emerald-200" :
-      pct >= 70 ? "text-amber-700 bg-amber-50 border-amber-200" :
-      "text-rose-700 bg-rose-50 border-rose-200";
+      pct >= 90 ? "text-emerald-700 dark:text-emerald-400 bg-emerald-50 border-emerald-200" :
+      pct >= 70 ? "text-amber-700 dark:text-amber-400 bg-amber-50 border-amber-200" :
+      "text-rose-700 dark:text-rose-400 bg-rose-50 border-rose-200";
     return (
           <span className={`text-xs font-mono px-1.5 py-0.5 rounded border ${color}`}>
             {pct}% similar
@@ -93,12 +93,12 @@ function ItemCard({
               <div className="flex-1 min-w-0">
                 <div className="flex flex-wrap items-center gap-1.5 mb-1">
                   {tipo === "atualizar" && (
-                                  <Badge variant="outline" className="text-xs bg-amber-100 text-amber-700 border-amber-300 gap-1">
+                                  <Badge variant="outline" className="text-xs bg-amber-100 text-amber-700 dark:text-amber-400 border-amber-300 gap-1">
                                     <RefreshCw className="w-2.5 h-2.5" /> Atualizar
                                   </Badge>
                                 )}
                   {tipo === "criar" && (
-                                  <Badge variant="outline" className="text-xs bg-emerald-100 text-emerald-700 border-emerald-300 gap-1">
+                                  <Badge variant="outline" className="text-xs bg-emerald-100 text-emerald-700 dark:text-emerald-400 border-emerald-300 gap-1">
                                     <Plus className="w-2.5 h-2.5" /> Novo
                                   </Badge>
                                 )}
@@ -142,10 +142,10 @@ function ItemCard({
                                                     <p className="font-medium text-xs uppercase text-muted-foreground mb-1">
                                                       {dif.label}
                                                       {dif.tipo === "novo" && (
-                                                                              <Badge variant="outline" className="ml-2 text-xs bg-emerald-50 text-emerald-700 border-emerald-200">Novo campo</Badge>
+                                                                              <Badge variant="outline" className="ml-2 text-xs bg-emerald-50 text-emerald-700 dark:text-emerald-400 border-emerald-200">Novo campo</Badge>
                                                                             )}
                                                       {dif.tipo === "modificado" && (
-                                                                              <Badge variant="outline" className="ml-2 text-xs bg-amber-50 text-amber-700 border-amber-200">Mais completo</Badge>
+                                                                              <Badge variant="outline" className="ml-2 text-xs bg-amber-50 text-amber-700 dark:text-amber-400 border-amber-200">Mais completo</Badge>
                                                                             )}
                                                     </p>
                                                     {dif.valorAtual && (
@@ -313,8 +313,8 @@ export default function RefatoracaoComparacao({
                               {/* Resumo */}
                               <div className="grid grid-cols-4 gap-2">
                                 {[
-                                                    { label: "Para atualizar", count: paraAtualizar.length, color: "text-amber-600 bg-amber-50 border-amber-200" },
-                                                    { label: "Para criar", count: paraCriar.length, color: "text-emerald-600 bg-emerald-50 border-emerald-200" },
+                                                    { label: "Para atualizar", count: paraAtualizar.length, color: "text-amber-700 dark:text-amber-400 dark:text-amber-400 bg-amber-50 border-amber-200" },
+                                                    { label: "Para criar", count: paraCriar.length, color: "text-emerald-700 dark:text-emerald-400 dark:text-emerald-400 bg-emerald-50 border-emerald-200" },
                                                     { label: "Sincronizados", count: paraManter.length, color: "text-muted-foreground bg-muted/30 border-border" },
                                                     { label: "Nao encontrados", count: orfaos.length, color: "text-blue-600 bg-blue-50 border-blue-200" },
                                                   ].map(({ label, count, color }) => (
@@ -438,9 +438,9 @@ export default function RefatoracaoComparacao({
               {!carregando && (
                           <DialogFooter className="px-6 py-3 border-t bg-muted/20">
                             <div className="flex items-center gap-2 flex-1 text-xs text-muted-foreground">
-                              {atualizar > 0 && <span className="text-amber-600 font-medium">{atualizar} para atualizar</span>}
+                              {atualizar > 0 && <span className="text-amber-700 dark:text-amber-400 dark:text-amber-400 font-medium">{atualizar} para atualizar</span>}
                               {atualizar > 0 && criar > 0 && <span>•</span>}
-                              {criar > 0 && <span className="text-emerald-600 font-medium">{criar} para criar</span>}
+                              {criar > 0 && <span className="text-emerald-700 dark:text-emerald-400 dark:text-emerald-400 font-medium">{criar} para criar</span>}
                               {semAcoes && <span>Nenhuma alteracao selecionada</span>}
                             </div>
                             <Button variant="outline" onClick={() => onOpenChange(false)} disabled={aplicando}>

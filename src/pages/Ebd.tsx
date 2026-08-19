@@ -183,7 +183,7 @@ export default function Ebd() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center justify-between gap-2">
               <span className="flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-amber-600" />
+                <AlertCircle className="w-4 h-4 text-amber-700 dark:text-amber-400 dark:text-amber-400" />
                 Alunos fora da faixa etária
                 <Badge variant="outline" className="text-xs bg-amber-100 border-amber-300">
                   {alunosForaFaixa.length}
@@ -250,7 +250,7 @@ export default function Ebd() {
                       <p className="text-xs text-muted-foreground flex items-center gap-1 flex-wrap">
                         {a.idade_atual} anos em <strong>{a.classe_atual}</strong>
                         {nomeSugerida && (
-                          <Badge variant="outline" className="text-xs ml-1 border-emerald-300 text-emerald-700">
+                          <Badge variant="outline" className="text-xs ml-1 border-emerald-300 text-emerald-700 dark:text-emerald-400">
                             → {nomeSugerida}
                           </Badge>
                         )}
@@ -284,7 +284,7 @@ export default function Ebd() {
                   </span>
                   <span className="flex items-center gap-1">
                     {!c.ativo && (
-                      <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-300">
+                      <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 dark:text-amber-400 border-amber-300">
                         Desativada
                       </Badge>
                     )}
@@ -299,7 +299,7 @@ export default function Ebd() {
 
                 <div className="flex items-center gap-3 text-xs">
                   <span className="flex items-center gap-1">
-                    <Users className="w-3.5 h-3.5 text-emerald-600" />
+                    <Users className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400 dark:text-emerald-400" />
                     <strong>{c.qtd_matriculados}</strong> matriculados
                   </span>
                   <span className="text-muted-foreground">·</span>

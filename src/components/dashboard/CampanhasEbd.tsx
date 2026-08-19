@@ -79,7 +79,7 @@ export function CampanhasEbd() {
                     <h3 className="font-medium text-sm truncate">{c.nome}</h3>
                     <p className="text-xs text-muted-foreground truncate">{c.classe_nome}</p>
                   </div>
-                  {atingiu && <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />}
+                  {atingiu && <CheckCircle2 className="w-4 h-4 text-emerald-700 dark:text-emerald-400 dark:text-emerald-400 shrink-0" />}
                 </div>
                 {r && (
                   <>

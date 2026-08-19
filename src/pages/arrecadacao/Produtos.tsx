@@ -99,12 +99,12 @@ export default function ArrecadacaoProdutos() {
       {baixoEstoque.length > 0 && (
         <Card className="border-rose-300 bg-rose-50/60">
           <CardContent className="p-3 flex items-start gap-2 text-xs">
-            <AlertTriangle className="w-4 h-4 text-rose-700 mt-0.5 shrink-0" />
+            <AlertTriangle className="w-4 h-4 text-rose-700 dark:text-rose-400 mt-0.5 shrink-0" />
             <div>
               <span className="font-medium text-rose-800">
                 {baixoEstoque.length} {baixoEstoque.length === 1 ? "produto" : "produtos"} com estoque baixo:
               </span>{" "}
-              <span className="text-rose-700">
+              <span className="text-rose-700 dark:text-rose-400">
                 {baixoEstoque.slice(0, 5).map(p => p.nome).join(" · ")}
                 {baixoEstoque.length > 5 && ` … e mais ${baixoEstoque.length - 5}`}
               </span>
@@ -218,18 +218,18 @@ function ProdutoCard({
             </div>
             <div className="text-xs text-muted-foreground">{CATEGORIA_LABEL[produto.categoria]}{produto.subcategoria ? ` · ${produto.subcategoria}` : ""}</div>
           </div>
-          <span className="text-sm font-semibold text-emerald-700">{fmtBR(produto.preco_sugerido)}</span>
+          <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">{fmtBR(produto.preco_sugerido)}</span>
         </div>
         <div className="flex items-center justify-between text-xs">
           <div>
             Estoque:{" "}
-            <span className={estBaixo ? "text-rose-700 font-medium" : "font-medium"}>
+            <span className={estBaixo ? "text-rose-700 dark:text-rose-400 font-medium" : "font-medium"}>
               {produto.estoque_atual ?? "—"}
             </span>
             {produto.estoque_minimo !== null && (
               <span className="text-muted-foreground"> / mín {produto.estoque_minimo}</span>
             )}
-            {estBaixo && <Badge className="ml-1.5 text-xs bg-rose-100 text-rose-700 border-rose-300">BAIXO</Badge>}
+            {estBaixo && <Badge className="ml-1.5 text-xs bg-rose-100 text-rose-700 dark:text-rose-400 border-rose-300">BAIXO</Badge>}
           </div>
           <div className="flex gap-1">
             <Button size="sm" variant="ghost" className="h-6 text-xs gap-0.5" onClick={onEstoque}>
@@ -421,7 +421,7 @@ function ProdutoDialog({
               Salvar
             </Button>
             {editando && (
-              <Button variant="ghost" onClick={arquivar} className="text-rose-600 hover:bg-rose-50 gap-1.5">
+              <Button variant="ghost" onClick={arquivar} className="text-rose-700 dark:text-rose-400 dark:text-rose-400 hover:bg-rose-50 gap-1.5">
                 <Trash2 className="w-3.5 h-3.5" /> Arquivar
               </Button>
             )}
@@ -527,10 +527,10 @@ function EstoqueDialog({
                   <div key={m.id} className="flex justify-between gap-1 py-0.5 border-b border-dashed">
                     <span className="flex gap-1 items-center min-w-0">
                       <Badge variant="outline" className={`text-xs ${
-                        m.tipo === "reabastecimento" ? "bg-emerald-50 text-emerald-700" :
-                        m.tipo === "perda" ? "bg-rose-50 text-rose-700" :
+                        m.tipo === "reabastecimento" ? "bg-emerald-50 text-emerald-700 dark:text-emerald-400" :
+                        m.tipo === "perda" ? "bg-rose-50 text-rose-700 dark:text-rose-400" :
                         m.tipo === "venda" ? "bg-blue-50 text-blue-700" :
-                        "bg-amber-50 text-amber-700"
+                        "bg-amber-50 text-amber-700 dark:text-amber-400"
                       }`}>{m.tipo}</Badge>
                       <span className="font-medium">{m.qtd}</span>
                       {m.motivo && <span className="text-muted-foreground truncate">· {m.motivo}</span>}

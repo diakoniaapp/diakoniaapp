@@ -446,7 +446,7 @@ function IndicadorCard({ icon, label, sub, valor, cor }: {
   const corMap = {
     primary:     "text-primary",
     success:     "text-success",
-    warning:     "text-warning",
+    warning:     "text-warning-text",
     gold:        "text-gold",
   };
   const bgMap = {
@@ -499,7 +499,7 @@ function AlertaBanner({ tipo, texto }: { tipo: "warning" | "destructive"; texto:
   return (
     <div className={`flex items-center gap-3 rounded-lg border px-4 py-2.5 ${
       isWarn
-        ? "border-warning/30 bg-warning/5 text-warning"
+        ? "border-warning/30 bg-warning/5 text-warning-text"
         : "border-destructive/30 bg-destructive/5 text-destructive"
     }`}>
       <AlertTriangle className="w-4 h-4 shrink-0" />
@@ -517,7 +517,7 @@ function PontoGrupo({ label, cor, items }: {
 }) {
   const corBadge = {
     success:     "bg-success/10 text-success border-success/30",
-    warning:     "bg-warning/10 text-warning border-warning/30",
+    warning:     "bg-warning/10 text-warning-text border-warning/30",
     destructive: "bg-destructive/10 text-destructive border-destructive/30",
   }[cor];
   return (

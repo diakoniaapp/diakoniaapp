@@ -101,10 +101,10 @@ export default function SyncEstruturaModal({ open, onOpenChange, onConcluido }: 
           <div className="flex flex-col gap-1 shrink-0">
             {tipo === "novo" ? (
               <>
-                <button onClick={()=>setAcao(item.secao_id,"criar")} title="Criar" className={"p-1.5 rounded-md transition-colors "+(acao==="criar"?"bg-emerald-100 text-emerald-700":"hover:bg-muted text-muted-foreground")}>
+                <button onClick={()=>setAcao(item.secao_id,"criar")} title="Criar" className={"p-1.5 rounded-md transition-colors "+(acao==="criar"?"bg-emerald-100 text-emerald-700 dark:text-emerald-400":"hover:bg-muted text-muted-foreground")}>
                   <PlusCircle className="w-4 h-4" />
                 </button>
-                <button onClick={()=>setAcao(item.secao_id,"ignorar")} title="Ignorar" className={"p-1.5 rounded-md transition-colors "+(acao==="ignorar"?"bg-amber-100 text-amber-700":"hover:bg-muted text-muted-foreground")}>
+                <button onClick={()=>setAcao(item.secao_id,"ignorar")} title="Ignorar" className={"p-1.5 rounded-md transition-colors "+(acao==="ignorar"?"bg-amber-100 text-amber-700 dark:text-amber-400":"hover:bg-muted text-muted-foreground")}>
                   <SkipForward className="w-4 h-4" />
                 </button>
               </>
@@ -113,7 +113,7 @@ export default function SyncEstruturaModal({ open, onOpenChange, onConcluido }: 
                 <button onClick={()=>setAcao(item.secao_id,"atualizar")} title="Atualizar" className={"p-1.5 rounded-md transition-colors "+(acao==="atualizar"?"bg-blue-100 text-blue-700":"hover:bg-muted text-muted-foreground")}>
                   <Pencil className="w-4 h-4" />
                 </button>
-                <button onClick={()=>setAcao(item.secao_id,"ignorar")} title="Ignorar" className={"p-1.5 rounded-md transition-colors "+(acao==="ignorar"?"bg-amber-100 text-amber-700":"hover:bg-muted text-muted-foreground")}>
+                <button onClick={()=>setAcao(item.secao_id,"ignorar")} title="Ignorar" className={"p-1.5 rounded-md transition-colors "+(acao==="ignorar"?"bg-amber-100 text-amber-700 dark:text-amber-400":"hover:bg-muted text-muted-foreground")}>
                   <SkipForward className="w-4 h-4" />
                 </button>
               </>
@@ -172,16 +172,16 @@ export default function SyncEstruturaModal({ open, onOpenChange, onConcluido }: 
               {/* Resumo */}
               <div className="grid grid-cols-3 gap-2 shrink-0">
                 <div className="rounded-lg border bg-emerald-50 border-emerald-200 p-3 text-center">
-                  <p className="text-xl font-bold text-emerald-700">{totalCriar}</p>
-                  <p className="text-xs text-emerald-600">para criar</p>
+                  <p className="text-xl font-bold text-emerald-700 dark:text-emerald-400">{totalCriar}</p>
+                  <p className="text-xs text-emerald-700 dark:text-emerald-400 dark:text-emerald-400">para criar</p>
                 </div>
                 <div className="rounded-lg border bg-blue-50 border-blue-200 p-3 text-center">
                   <p className="text-xl font-bold text-blue-700">{totalAtualizar}</p>
                   <p className="text-xs text-blue-600">para atualizar</p>
                 </div>
                 <div className="rounded-lg border bg-amber-50 border-amber-200 p-3 text-center">
-                  <p className="text-xl font-bold text-amber-700">{totalIgnorar}</p>
-                  <p className="text-xs text-amber-600">ignorados</p>
+                  <p className="text-xl font-bold text-amber-700 dark:text-amber-400">{totalIgnorar}</p>
+                  <p className="text-xs text-amber-700 dark:text-amber-400 dark:text-amber-400">ignorados</p>
                 </div>
               </div>
 
@@ -190,7 +190,7 @@ export default function SyncEstruturaModal({ open, onOpenChange, onConcluido }: 
 
                   {resultado.novos.length > 0 && (
                     <div className="space-y-2">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-emerald-600 flex items-center gap-1.5">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 dark:text-emerald-400 flex items-center gap-1.5">
                         <PlusCircle className="w-3.5 h-3.5" /> Novos ({resultado.novos.length})
                       </p>
                       {resultado.novos.map(i => <ItemCard key={i.secao_id} item={i} tipo="novo" />)}
@@ -231,7 +231,7 @@ export default function SyncEstruturaModal({ open, onOpenChange, onConcluido }: 
           {fase === "concluido" && resumo && (
             <div className="py-10 flex flex-col items-center gap-4 text-center">
               <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center">
-                <CheckCircle2 className="w-8 h-8 text-emerald-600" />
+                <CheckCircle2 className="w-8 h-8 text-emerald-700 dark:text-emerald-400 dark:text-emerald-400" />
               </div>
               <div>
                 <p className="font-medium text-lg">Sincronizacao concluida!</p>

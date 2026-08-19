@@ -141,7 +141,7 @@ export function CadastrosInconsistentes() {
               {/* A linha de alcance leva a cor de alerta: das tres, e a unica
                   que impede QUALQUER cuidado de chegar. As outras impedem um
                   recurso especifico. */}
-              <span className={p.destaque ? "font-medium text-warning" : "font-medium"}>
+              <span className={p.destaque ? "font-medium text-warning-text" : "font-medium"}>
                 {p.texto(p.quantidade)}
               </span>
               <span className="text-muted-foreground"> — {p.consequencia}</span>

@@ -237,7 +237,7 @@ export default function CaixaPDV() {
                             {p.is_acervo ? "acervo" : "campanha"}
                           </Badge>
                         </div>
-                        <div className="text-lg md:text-xl font-serif text-emerald-700 font-semibold mt-1">
+                        <div className="text-lg md:text-xl font-serif text-emerald-700 dark:text-emerald-400 font-semibold mt-1">
                           {fmtBR(p.preco_sugerido)}
                         </div>
                         <div className="flex items-center gap-1 mt-1 flex-wrap">
@@ -248,9 +248,9 @@ export default function CaixaPDV() {
                             <Badge variant="outline" className="text-xs">{p.subcategoria}</Badge>
                           )}
                           {semEstoque ? (
-                            <Badge className="text-xs bg-rose-100 text-rose-700 border-rose-200">esgotado</Badge>
+                            <Badge className="text-xs bg-rose-100 text-rose-700 dark:text-rose-400 border-rose-200">esgotado</Badge>
                           ) : baixo ? (
-                            <Badge className="text-xs bg-amber-100 text-amber-700 border-amber-200">
+                            <Badge className="text-xs bg-amber-100 text-amber-700 dark:text-amber-400 border-amber-200">
                               restam {p.estoque_atual}
                             </Badge>
                           ) : null}
@@ -312,7 +312,7 @@ export default function CaixaPDV() {
                       <Plus className="w-3 h-3" />
                     </button>
                     <span className="w-16 text-right font-medium tabular-nums">{fmtBR(it.subtotal)}</span>
-                    <button onClick={() => remover(idx)} className="p-0.5 hover:bg-rose-50 rounded text-rose-600">
+                    <button onClick={() => remover(idx)} className="p-0.5 hover:bg-rose-50 rounded text-rose-700 dark:text-rose-400 dark:text-rose-400">
                       <Trash2 className="w-3 h-3" />
                     </button>
                   </li>
@@ -335,7 +335,7 @@ export default function CaixaPDV() {
                       className={
                         "border-2 rounded-lg p-2 text-xs flex flex-col items-center gap-1 transition active:scale-95 " +
                         (pagamento === f
-                          ? "bg-emerald-50 border-emerald-500 text-emerald-700 font-semibold shadow"
+                          ? "bg-emerald-50 border-emerald-500 text-emerald-700 dark:text-emerald-400 font-semibold shadow"
                           : "hover:bg-muted/30")
                       }>
                       <Icon className="w-4 h-4" />

@@ -101,7 +101,7 @@ export default function AreasDialog({ ministerio, membros, open, onOpenChange }:
                     <h4 className="font-medium">{a.nome}</h4>
                     {a.sigla && <span className="text-xs px-2 py-0.5 rounded bg-muted">{a.sigla}</span>}
                     {a.ativo
-                      ? <Badge variant="outline" className="bg-emerald-500/10 text-emerald-700 border-emerald-500/30">Ativa</Badge>
+                      ? <Badge variant="outline" className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30">Ativa</Badge>
                       : <Badge variant="outline" className="bg-muted text-muted-foreground">Inativa</Badge>}
                   </div>
                   {a.descricao && <p className="text-xs text-muted-foreground mt-1">{a.descricao}</p>}

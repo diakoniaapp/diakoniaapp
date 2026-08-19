@@ -46,7 +46,7 @@ export default function AcessosDashWidget() {
           color="success"
         />
         <AcessoCard
-          icon={<Clock className="w-4 h-4 text-warning" />}
+          icon={<Clock className="w-4 h-4 text-warning-text" />}
           label="Aguardando"
           sub="primeiro acesso"
           value={resumo?.aguardando ?? 0}
@@ -73,8 +73,8 @@ export default function AcessosDashWidget() {
       {!loading && resumo && resumo.aguardando > 0 && (
         <div className="flex items-center justify-between gap-3 rounded-lg border border-warning/30 bg-warning/5 px-4 py-3">
           <div className="flex items-center gap-2">
-            <Clock className="w-4 h-4 text-warning shrink-0" />
-            <p className="text-sm font-medium text-warning" translate="no">
+            <Clock className="w-4 h-4 text-warning-text shrink-0" />
+            <p className="text-sm font-medium text-warning-text" translate="no">
               <span className="font-bold">{resumo.aguardando}</span>{" "}
               {resumo.aguardando === 1
                 ? "pessoa ainda não fez o primeiro acesso"
@@ -85,7 +85,7 @@ export default function AcessosDashWidget() {
             asChild
             size="sm"
             variant="outline"
-            className="shrink-0 text-xs h-7 gap-1.5 border-warning/40 text-warning hover:bg-warning/10"
+            className="shrink-0 text-xs h-7 gap-1.5 border-warning/40 text-warning-text hover:bg-warning/10"
           >
             <Link to="/usuarios">Ver acessos</Link>
           </Button>
@@ -114,7 +114,7 @@ function AcessoCard({
     color === "success"
       ? "text-success"
       : color === "warning"
-      ? "text-warning"
+      ? "text-warning-text"
       : color === "primary"
       ? "text-primary"
       : "text-muted-foreground";

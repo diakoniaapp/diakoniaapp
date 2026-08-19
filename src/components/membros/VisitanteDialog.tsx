@@ -58,7 +58,7 @@ const statusLabel: Record<string, string> = {
 };
 
 const statusColor: Record<string, string> = {
-  pendente: "bg-warning/15 text-warning border-warning/30",
+  pendente: "bg-warning/15 text-warning-text border-warning/30",
   em_andamento: "bg-primary/10 text-primary border-primary/30",
   concluido: "bg-success/15 text-success border-success/30",
   sem_retorno: "bg-muted text-muted-foreground border-border",

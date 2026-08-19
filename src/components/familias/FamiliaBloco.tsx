@@ -316,7 +316,7 @@ export function FamiliaBloco({ pessoaId, nomeCompleto, endereco, onChange }: Pro
                       />
                       <span className="font-medium truncate">{s.nome_completo}</span>
                       {s.familia_nome && (
-                        <Badge variant="outline" className="text-xs border-rose-300 text-rose-700">
+                        <Badge variant="outline" className="text-xs border-rose-300 text-rose-700 dark:text-rose-400">
                           {s.familia_nome}
                         </Badge>
                       )}

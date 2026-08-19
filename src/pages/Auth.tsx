@@ -298,7 +298,7 @@ export default function Auth() {
         <AuthCard>
           <div className="flex flex-col items-center text-center space-y-4">
             <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center animate-pulse-gold">
-              <CheckCircle2 className="w-8 h-8 text-green-600 dark:text-green-400" />
+              <CheckCircle2 className="w-8 h-8 text-green-700 dark:text-green-400" />
             </div>
             <div className="space-y-2">
               <h1 className="font-serif text-xl font-semibold">Solicitação enviada!</h1>

@@ -27,9 +27,9 @@ import {
 
 const COR_CHIP: Record<string, string> = {
   blue:    "bg-blue-50 text-blue-700 border-blue-200",
-  rose:    "bg-rose-50 text-rose-700 border-rose-200",
-  amber:   "bg-amber-50 text-amber-700 border-amber-200",
-  emerald: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  rose:    "bg-rose-50 text-rose-700 dark:text-rose-400 border-rose-200",
+  amber:   "bg-amber-50 text-amber-700 dark:text-amber-400 border-amber-200",
+  emerald: "bg-emerald-50 text-emerald-700 dark:text-emerald-400 border-emerald-200",
   purple:  "bg-purple-50 text-purple-700 border-purple-200",
 };
 
@@ -353,8 +353,8 @@ function AbaAgenda() {
                   <Badge variant="outline" className="text-xs">
                     {new Date(it.competencia + "T00:00").toLocaleDateString("pt-BR", { month: "short", year: "numeric" })}
                   </Badge>
-                  {it.status === "pago" && <Badge className="text-xs bg-emerald-100 text-emerald-700">Pago</Badge>}
-                  {atrasado && <Badge className="text-xs bg-rose-100 text-rose-700">Atrasado</Badge>}
+                  {it.status === "pago" && <Badge className="text-xs bg-emerald-100 text-emerald-700 dark:text-emerald-400">Pago</Badge>}
+                  {atrasado && <Badge className="text-xs bg-rose-100 text-rose-700 dark:text-rose-400">Atrasado</Badge>}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Vence em {fmtData(it.vencimento)}
@@ -456,7 +456,7 @@ function AbaInsights() {
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
           {inc.length === 0 ? (
-            <p className="text-xs text-emerald-700 text-center py-3">
+            <p className="text-xs text-emerald-700 dark:text-emerald-400 text-center py-3">
               ✓ Nenhuma inconsistência detectada
             </p>
           ) : inc.map((x, idx) => (
@@ -490,7 +490,7 @@ function Metrica({ titulo, valor, variacao }: { titulo: string; valor: string; v
         <div className="text-xs uppercase tracking-wide text-muted-foreground">{titulo}</div>
         <div className="text-base font-medium font-serif">{valor}</div>
         {variacao != null && (
-          <div className={"flex items-center gap-1 text-xs " + (variacao >= 0 ? "text-emerald-700" : "text-rose-700")}>
+          <div className={"flex items-center gap-1 text-xs " + (variacao >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400")}>
             {variacao >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
             {variacao.toFixed(1)}% vs mês anterior
           </div>

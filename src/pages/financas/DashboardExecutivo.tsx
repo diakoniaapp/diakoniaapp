@@ -155,7 +155,7 @@ export default function DashboardExecutivo() {
                       </div>
                     </div>
                     {i.variacao_pct != null && (
-                      <div className={"flex items-center gap-1 text-xs " + (i.variacao_pct >= 0 ? "text-emerald-700" : "text-rose-700")}>
+                      <div className={"flex items-center gap-1 text-xs " + (i.variacao_pct >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400")}>
                         {i.variacao_pct >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
                         {i.variacao_pct.toFixed(1)}%
                       </div>
@@ -202,8 +202,8 @@ export default function DashboardExecutivo() {
                         </div>
                         <span className={
                           "text-xs tabular-nums " +
-                          (c.percentual >= 100 ? "text-rose-700 font-semibold" :
-                           c.percentual >= 90 ? "text-amber-700" : "text-muted-foreground")
+                          (c.percentual >= 100 ? "text-rose-700 dark:text-rose-400 font-semibold" :
+                           c.percentual >= 90 ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground")
                         }>
                           {c.percentual.toFixed(0)}% de {fmtBR(c.orcado)}
                         </span>
@@ -226,7 +226,7 @@ export default function DashboardExecutivo() {
         </CardHeader>
         <CardContent>
           {alertas.length === 0 ? (
-            <p className="text-xs text-emerald-700 text-center py-2">
+            <p className="text-xs text-emerald-700 dark:text-emerald-400 text-center py-2">
               ✓ Tudo em ordem — sem alertas críticos
             </p>
           ) : (
@@ -238,8 +238,8 @@ export default function DashboardExecutivo() {
                    a.severidade === "media" ? "border-amber-200 bg-amber-50/30" : "border-blue-200 bg-blue-50/30")
                 }>
                   {a.severidade === "alta"
-                    ? <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0 mt-0.5" />
-                    : <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />}
+                    ? <AlertCircle className="w-3.5 h-3.5 text-rose-700 dark:text-rose-400 dark:text-rose-400 shrink-0 mt-0.5" />
+                    : <AlertTriangle className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400 dark:text-amber-400 shrink-0 mt-0.5" />}
                   <div className="flex-1">
                     <div className="font-medium">{a.mensagem}</div>
                     {a.detalhe && <div className="text-muted-foreground text-xs mt-0.5">{a.detalhe}</div>}

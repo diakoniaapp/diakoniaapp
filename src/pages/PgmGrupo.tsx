@@ -30,7 +30,7 @@ import { BuscaPessoa } from "@/components/ui/BuscaPessoa";
 
 const PAPEL_ICONE: Record<PgmPapel, JSX.Element> = {
   lider: <Crown className="w-3 h-3 text-gold" />,
-  colider: <Star className="w-3 h-3 text-amber-600" />,
+  colider: <Star className="w-3 h-3 text-amber-700 dark:text-amber-400 dark:text-amber-400" />,
   anfitriao: <HomeIcon className="w-3 h-3 text-blue-600" />,
   participante: <UsersRound className="w-3 h-3 text-muted-foreground" />,
 };
@@ -191,7 +191,7 @@ export default function PgmGrupo() {
             <Users className="w-5 h-5 text-gold" />
             <span className="truncate">{grupo.nome}</span>
             {grupo.qtd_filhos > 0 && (
-              <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700 border-emerald-300">
+              <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700 dark:text-emerald-400 border-emerald-300">
                 <Sparkles className="w-2.5 h-2.5 mr-0.5" /> Multiplicador ({grupo.qtd_filhos})
               </Badge>
             )}
@@ -213,13 +213,13 @@ export default function PgmGrupo() {
         <div className="flex gap-1 flex-wrap">
           {grupo.whatsapp_link && (
             <a href={grupo.whatsapp_link} target="_blank" rel="noopener noreferrer">
-              <Button variant="outline" size="sm" className="gap-1.5 text-emerald-700 hover:text-emerald-700">
+              <Button variant="outline" size="sm" className="gap-1.5 text-emerald-700 dark:text-emerald-400 hover:text-emerald-700 dark:text-emerald-400">
                 <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
               </Button>
             </a>
           )}
           {podeEditar && grupo.ativo && (
-            <Button variant="outline" size="sm" onClick={() => setMultiplicarOpen(true)} className="gap-1.5 text-emerald-700 hover:text-emerald-700 hover:bg-emerald-50">
+            <Button variant="outline" size="sm" onClick={() => setMultiplicarOpen(true)} className="gap-1.5 text-emerald-700 dark:text-emerald-400 hover:text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50">
               <Sparkles className="w-3.5 h-3.5" /> Multiplicar
             </Button>
           )}
@@ -229,11 +229,11 @@ export default function PgmGrupo() {
                 <Pencil className="w-3.5 h-3.5" /> Editar
               </Button>
               {grupo.ativo ? (
-                <Button variant="outline" size="sm" onClick={() => setConfirmDeactivate(true)} className="gap-1.5 text-amber-700">
+                <Button variant="outline" size="sm" onClick={() => setConfirmDeactivate(true)} className="gap-1.5 text-amber-700 dark:text-amber-400">
                   <PowerOff className="w-3.5 h-3.5" /> Desativar
                 </Button>
               ) : (
-                <Button variant="outline" size="sm" onClick={onReativar} disabled={busy} className="gap-1.5 text-emerald-700">
+                <Button variant="outline" size="sm" onClick={onReativar} disabled={busy} className="gap-1.5 text-emerald-700 dark:text-emerald-400">
                   <RotateCcw className="w-3.5 h-3.5" /> Reativar
                 </Button>
               )}
@@ -253,7 +253,7 @@ export default function PgmGrupo() {
       <Card>
         <CardContent className="py-3 grid grid-cols-3 gap-3 text-xs">
           <Lideranca icon={<Crown className="w-3.5 h-3.5 text-gold" />} label="Líder" nome={grupo.lider_nome} />
-          <Lideranca icon={<Star className="w-3.5 h-3.5 text-amber-600" />} label="Co-líder" nome={grupo.co_lider_nome} />
+          <Lideranca icon={<Star className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400 dark:text-amber-400" />} label="Co-líder" nome={grupo.co_lider_nome} />
           <Lideranca icon={<HomeIcon className="w-3.5 h-3.5 text-blue-600" />} label="Anfitrião" nome={grupo.anfitriao_nome} />
         </CardContent>
       </Card>

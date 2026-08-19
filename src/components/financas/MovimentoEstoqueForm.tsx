@@ -140,9 +140,9 @@ export function MovimentoEstoqueForm({ open, onOpenChange, item, onSaved }: Prop
           {quantidade > 0 && (
             <div className="rounded-md p-2 border border-blue-300 bg-blue-50/30 text-xs">
               <p>Estoque após: <strong>{novoEstoque.toFixed(3)} {item.unidade}</strong>
-                {novoEstoque < 0 && <span className="text-rose-700 ml-1">⚠ negativo</span>}
+                {novoEstoque < 0 && <span className="text-rose-700 dark:text-rose-400 ml-1">⚠ negativo</span>}
                 {novoEstoque <= Number(item.estoque_minimo) && novoEstoque >= 0 && (
-                  <span className="text-amber-700 ml-1">⚠ abaixo do mínimo ({Number(item.estoque_minimo)})</span>
+                  <span className="text-amber-700 dark:text-amber-400 ml-1">⚠ abaixo do mínimo ({Number(item.estoque_minimo)})</span>
                 )}
               </p>
             </div>

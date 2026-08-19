@@ -86,8 +86,8 @@ interface HistoricoItem {
 const TIPOS: { value: TipoDoc; label: string; color: string }[] = [
   { value: "estatuto",   label: "Estatuto",    color: "bg-purple-500/10 text-purple-700 border-purple-500/30" },
   { value: "regimento",  label: "Regimento",   color: "bg-blue-500/10 text-blue-700 border-blue-500/30" },
-  { value: "manual",     label: "Manual",      color: "bg-emerald-500/10 text-emerald-700 border-emerald-500/30" },
-  { value: "ata",        label: "Ata",         color: "bg-amber-500/10 text-amber-700 border-amber-500/30" },
+  { value: "manual",     label: "Manual",      color: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30" },
+  { value: "ata",        label: "Ata",         color: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30" },
   { value: "circular",   label: "Circular",    color: "bg-sky-500/10 text-sky-700 border-sky-500/30" },
   { value: "outro",      label: "Outro",       color: "bg-muted text-muted-foreground" },
 ];
@@ -622,7 +622,7 @@ const [uploadando, setUploadando] = useState(false);
                             <Badge variant="outline" className={`text-xs ${meta.color}`}>{meta.label}</Badge>
                             <span className="text-xs text-muted-foreground border rounded px-1.5 py-0.5">v{d.versao}</span>
                             {d.vigente && (
-                              <Badge variant="outline" className="text-xs bg-emerald-500/10 text-emerald-700 border-emerald-500/30 gap-1">
+                              <Badge variant="outline" className="text-xs bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 gap-1">
                                 <CheckCircle2 className="w-2.5 h-2.5" /> Vigente
                               </Badge>
                             )}

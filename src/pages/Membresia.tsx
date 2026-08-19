@@ -60,8 +60,8 @@ export default function Membresia() {
         </div>
         <div className="flex gap-2">
           <Button asChild variant="outline" size="sm" className="gap-1.5"><Link to="/painel-secretaria">
-              <AlertTriangle className="w-3.5 h-3.5 text-amber-600" /> Painel
-              {pendentes > 0 && <Badge variant="outline" className="text-xs bg-amber-100 text-amber-700 border-amber-300">{pendentes}</Badge>}
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400 dark:text-amber-400" /> Painel
+              {pendentes > 0 && <Badge variant="outline" className="text-xs bg-amber-100 text-amber-700 dark:text-amber-400 border-amber-300">{pendentes}</Badge>}
             </Link></Button>
           <Button onClick={() => setNovoOpen(true)} className="gap-1.5 bg-gold hover:bg-gold/90 text-white">
             <Plus className="w-4 h-4" /> Nova solicitação

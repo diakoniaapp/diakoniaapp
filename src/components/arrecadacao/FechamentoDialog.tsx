@@ -205,7 +205,7 @@ export function FechamentoDialog({ open, onOpenChange, caixaId, reservaFinalidad
 }
 
 function Bloco({ titulo, valor, cor, destaque }: { titulo: string; valor: string; cor?: string; destaque?: boolean }) {
-  const corClasses: Record<string, string> = { emerald: "text-emerald-700", rose: "text-rose-700" };
+  const corClasses: Record<string, string> = { emerald: "text-emerald-700 dark:text-emerald-400", rose: "text-rose-700 dark:text-rose-400" };
   return (
     <div className={"border rounded-md p-2 " + (destaque ? "border-emerald-300 bg-emerald-50/40" : "")}>
       <div className="text-xs uppercase tracking-wide text-muted-foreground">{titulo}</div>

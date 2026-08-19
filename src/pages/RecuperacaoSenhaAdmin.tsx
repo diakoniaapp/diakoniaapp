@@ -147,7 +147,7 @@ export default function RecuperacaoSenhaAdmin() {
           <CardContent className="p-4 flex items-center gap-3">
             <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0
               ${pendentes.length > 0 ? "bg-amber-100 dark:bg-amber-900/40" : "bg-muted"}`}>
-              <AlertTriangle className={`w-5 h-5 ${pendentes.length > 0 ? "text-amber-600" : "text-muted-foreground"}`} />
+              <AlertTriangle className={`w-5 h-5 ${pendentes.length > 0 ? "text-amber-700 dark:text-amber-400 dark:text-amber-400" : "text-muted-foreground"}`} />
             </div>
             <div>
               <div className="text-2xl font-bold leading-none">{pendentes.length}</div>
@@ -159,7 +159,7 @@ export default function RecuperacaoSenhaAdmin() {
         <Card className="border-border">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="w-9 h-9 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center shrink-0">
-              <CheckCircle2 className="w-5 h-5 text-green-600" />
+              <CheckCircle2 className="w-5 h-5 text-green-700 dark:text-green-400 dark:text-green-400" />
             </div>
             <div>
               <div className="text-2xl font-bold leading-none">{resolvidos.length}</div>
@@ -200,7 +200,7 @@ export default function RecuperacaoSenhaAdmin() {
                   {/* Info */}
                   <div className="flex items-start gap-3 min-w-0">
                     <div className="w-9 h-9 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center shrink-0 mt-0.5">
-                      <User className="w-4 h-4 text-amber-600" />
+                      <User className="w-4 h-4 text-amber-700 dark:text-amber-400 dark:text-amber-400" />
                     </div>
                     <div className="min-w-0">
                       {item.nome && (
@@ -218,7 +218,7 @@ export default function RecuperacaoSenhaAdmin() {
                   </div>
 
                   {/* Badge */}
-                  <Badge variant="outline" className="border-amber-300 text-amber-700 bg-amber-50 shrink-0 text-xs">
+                  <Badge variant="outline" className="border-amber-300 text-amber-700 dark:text-amber-400 bg-amber-50 shrink-0 text-xs">
                     Pendente
                   </Badge>
                 </div>
@@ -289,13 +289,13 @@ export default function RecuperacaoSenhaAdmin() {
                         <span>Solicitado {diasDesde(item.solicitado_em)}</span>
                       </p>
                       {item.resolvido_por && (
-                        <p className="text-xs text-green-600 dark:text-green-400 mt-0.5">
+                        <p className="text-xs text-green-700 dark:text-green-400 mt-0.5">
                           ✓ Resolvido por {item.resolvido_por}
                         </p>
                       )}
                     </div>
                   </div>
-                  <Badge variant="outline" className="border-green-300 text-green-700 bg-green-50 dark:bg-green-950/20 shrink-0 text-xs">
+                  <Badge variant="outline" className="border-green-300 text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950/20 shrink-0 text-xs">
                     Resolvido
                   </Badge>
                 </div>

@@ -80,9 +80,9 @@ export default function FinancasInsights() {
               ""
             }>
               <CardContent className="py-2.5 px-3 flex items-center gap-2">
-                <AlertTriangle className={`w-4 h-4 shrink-0 ${al.severidade === "critico" ? "text-rose-700" : "text-amber-700"}`} />
+                <AlertTriangle className={`w-4 h-4 shrink-0 ${al.severidade === "critico" ? "text-rose-700 dark:text-rose-400" : "text-amber-700 dark:text-amber-400"}`} />
                 <div className="flex-1 min-w-0">
-                  <p className={`text-xs font-medium ${al.severidade === "critico" ? "text-rose-700" : "text-amber-700"}`}>
+                  <p className={`text-xs font-medium ${al.severidade === "critico" ? "text-rose-700 dark:text-rose-400" : "text-amber-700 dark:text-amber-400"}`}>
                     {al.titulo}
                   </p>
                   <p className="text-xs text-muted-foreground">{al.descricao}</p>
@@ -133,7 +133,7 @@ export default function FinancasInsights() {
                 <div key={`${m.ano}-${m.mes}`} className="space-y-0.5">
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-medium capitalize">{m.rotulo}</span>
-                    <span className={`tabular-nums font-medium ${Number(m.resultado) >= 0 ? "text-emerald-700" : "text-rose-700"}`}>
+                    <span className={`tabular-nums font-medium ${Number(m.resultado) >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"}`}>
                       {Number(m.resultado) >= 0 ? "+" : ""}{brl(Number(m.resultado))}
                     </span>
                   </div>
@@ -206,7 +206,7 @@ export default function FinancasInsights() {
         <Card>
           <CardContent className="py-3 space-y-2">
             <h3 className="font-serif text-base flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-600" /> Anomalias do mês
+              <AlertTriangle className="w-4 h-4 text-amber-700 dark:text-amber-400 dark:text-amber-400" /> Anomalias do mês
             </h3>
             {anomaliasRelevantes.length === 0 ? (
               <p className="text-xs text-muted-foreground italic text-center py-3">
@@ -225,7 +225,7 @@ export default function FinancasInsights() {
                       <span className="font-medium truncate">{a.categoria_nome}</span>
                       {a.variacao_pct != null && (
                         <Badge variant="outline" className={`text-xs ${
-                          Number(a.variacao_pct) > 0 ? "text-rose-700 border-rose-300" : "text-emerald-700 border-emerald-300"
+                          Number(a.variacao_pct) > 0 ? "text-rose-700 dark:text-rose-400 border-rose-300" : "text-emerald-700 dark:text-emerald-400 border-emerald-300"
                         }`}>
                           {Number(a.variacao_pct) > 0 ? "+" : ""}{Number(a.variacao_pct).toFixed(0)}%
                         </Badge>
@@ -261,7 +261,7 @@ export default function FinancasInsights() {
                       <span className="text-muted-foreground w-4">{i + 1}.</span>
                       <span className="font-medium truncate">{f.fornecedor_nome}</span>
                     </span>
-                    <span className="tabular-nums font-medium text-rose-700 shrink-0 ml-2">
+                    <span className="tabular-nums font-medium text-rose-700 dark:text-rose-400 shrink-0 ml-2">
                       {brl(Number(f.total))}
                     </span>
                   </div>
@@ -292,7 +292,7 @@ function PrevisaoBox({ label, valor, entrada, saida, destaque }: {
       <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className={`font-semibold tabular-nums ${
         destaque ? "text-lg text-gold"
-        : valorNum < 0 ? "text-base text-rose-700"
+        : valorNum < 0 ? "text-base text-rose-700 dark:text-rose-400"
         : "text-base"
       }`}>
         {brl(valorNum)}
@@ -300,10 +300,10 @@ function PrevisaoBox({ label, valor, entrada, saida, destaque }: {
       {(entrada != null || saida != null) && (
         <div className="text-xs mt-0.5 space-y-0">
           {entrada != null && Number(entrada) > 0 && (
-            <p className="text-emerald-700">+{brl(Number(entrada))}</p>
+            <p className="text-emerald-700 dark:text-emerald-400">+{brl(Number(entrada))}</p>
           )}
           {saida != null && Number(saida) > 0 && (
-            <p className="text-rose-700">−{brl(Number(saida))}</p>
+            <p className="text-rose-700 dark:text-rose-400">−{brl(Number(saida))}</p>
           )}
         </div>
       )}

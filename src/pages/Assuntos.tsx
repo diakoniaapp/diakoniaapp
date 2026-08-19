@@ -150,20 +150,20 @@ export default function Assuntos() {
         </Card>
         <Card className="bg-rose-50/30 border-rose-200">
           <CardContent className="py-2 px-3">
-            <p className="text-xs uppercase text-rose-700">Atrasados</p>
-            <p className="text-base font-semibold text-rose-700">{stats.atrasados}</p>
+            <p className="text-xs uppercase text-rose-700 dark:text-rose-400">Atrasados</p>
+            <p className="text-base font-semibold text-rose-700 dark:text-rose-400">{stats.atrasados}</p>
           </CardContent>
         </Card>
         <Card className="bg-amber-50/30 border-amber-200">
           <CardContent className="py-2 px-3">
-            <p className="text-xs uppercase text-amber-700">Vencem em breve</p>
-            <p className="text-base font-semibold text-amber-700">{stats.proximos}</p>
+            <p className="text-xs uppercase text-amber-700 dark:text-amber-400">Vencem em breve</p>
+            <p className="text-base font-semibold text-amber-700 dark:text-amber-400">{stats.proximos}</p>
           </CardContent>
         </Card>
         <Card className="bg-emerald-50/30 border-emerald-200">
           <CardContent className="py-2 px-3">
-            <p className="text-xs uppercase text-emerald-700">Concluídos</p>
-            <p className="text-base font-semibold text-emerald-700">{stats.concluidos}</p>
+            <p className="text-xs uppercase text-emerald-700 dark:text-emerald-400">Concluídos</p>
+            <p className="text-base font-semibold text-emerald-700 dark:text-emerald-400">{stats.concluidos}</p>
           </CardContent>
         </Card>
       </div>
@@ -230,7 +230,7 @@ export default function Assuntos() {
                   <p className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap mt-0.5">
                     {a.responsavel_nome && <>👤 {a.responsavel_nome}</>}
                     {a.prazo && (
-                      <span className={a.situacao === "atrasado" ? "text-rose-700 font-medium" : ""}>
+                      <span className={a.situacao === "atrasado" ? "text-rose-700 dark:text-rose-400 font-medium" : ""}>
                         <Calendar className="w-2.5 h-2.5 inline mr-0.5" />
                         {a.situacao === "atrasado" ? "Atrasado · " : ""}
                         {a.dias_para_prazo != null && a.dias_para_prazo >= 0
@@ -251,7 +251,7 @@ export default function Assuntos() {
                       type="button"
                       onClick={(e) => enviarLembreteWhats(a.id, e)}
                       title="Lembrar via WhatsApp"
-                      className="w-6 h-6 rounded-md flex items-center justify-center hover:bg-emerald-50 text-emerald-600 transition-colors"
+                      className="w-6 h-6 rounded-md flex items-center justify-center hover:bg-emerald-50 text-emerald-700 dark:text-emerald-400 dark:text-emerald-400 transition-colors"
                     >
                       <MessageCircle className="w-3.5 h-3.5" />
                     </button>

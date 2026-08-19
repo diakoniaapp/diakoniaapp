@@ -168,17 +168,17 @@ interface AlertaCardProps {
 
 const CORES: Record<AlertaCardProps["cor"], { card: string; chip: string; icon: string }> = {
   rose:    { card: "border-rose-200 bg-rose-50/40 dark:bg-rose-950/10",
-             chip: "bg-rose-100 text-rose-700 border-rose-300",
-             icon: "text-rose-600" },
+             chip: "bg-rose-100 text-rose-700 dark:text-rose-400 border-rose-300",
+             icon: "text-rose-700 dark:text-rose-400 dark:text-rose-400" },
   blue:    { card: "border-blue-200 bg-blue-50/40 dark:bg-blue-950/10",
              chip: "bg-blue-100 text-blue-700 border-blue-300",
              icon: "text-blue-600" },
   amber:   { card: "border-amber-200 bg-amber-50/40 dark:bg-amber-950/10",
-             chip: "bg-amber-100 text-amber-700 border-amber-300",
-             icon: "text-amber-600" },
+             chip: "bg-amber-100 text-amber-700 dark:text-amber-400 border-amber-300",
+             icon: "text-amber-700 dark:text-amber-400 dark:text-amber-400" },
   emerald: { card: "border-emerald-200 bg-emerald-50/40",
-             chip: "bg-emerald-100 text-emerald-700 border-emerald-300",
-             icon: "text-emerald-600" },
+             chip: "bg-emerald-100 text-emerald-700 dark:text-emerald-400 border-emerald-300",
+             icon: "text-emerald-700 dark:text-emerald-400 dark:text-emerald-400" },
 };
 
 function AlertaCard({ cor, icon: Icon, titulo, contagem, descricao, cta, children }: AlertaCardProps) {

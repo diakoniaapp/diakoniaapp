@@ -110,7 +110,7 @@ export default function VisitantesDashWidget() {
           color="success"
         />
         <MiniCard
-          icon={<AlertTriangle className="w-4 h-4 text-warning" />}
+          icon={<AlertTriangle className="w-4 h-4 text-warning-text" />}
           label="Não voltaram"
           sub="+ 15 dias"
           value={stats.naoVoltaram}
@@ -187,7 +187,7 @@ function MiniCard({
     color === "success"
       ? "text-success"
       : color === "warning"
-      ? "text-warning"
+      ? "text-warning-text"
       : "text-primary";
 
   return (

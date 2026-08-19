@@ -204,14 +204,14 @@ export default function GovernancaReuniao() {
         </Card>
         <Card className="bg-emerald-50/30 border-emerald-200">
           <CardContent className="py-2 px-3">
-            <p className="text-xs uppercase text-emerald-700 flex items-center gap-1"><Check className="w-3 h-3" /> Presentes</p>
-            <p className="text-base font-semibold text-emerald-700">{presentes}</p>
+            <p className="text-xs uppercase text-emerald-700 dark:text-emerald-400 flex items-center gap-1"><Check className="w-3 h-3" /> Presentes</p>
+            <p className="text-base font-semibold text-emerald-700 dark:text-emerald-400">{presentes}</p>
           </CardContent>
         </Card>
         <Card className="bg-amber-50/30 border-amber-200">
           <CardContent className="py-2 px-3">
-            <p className="text-xs uppercase text-amber-700 flex items-center gap-1"><FileText className="w-3 h-3" /> Pra assembleia</p>
-            <p className="text-base font-semibold text-amber-700">{deliberativas}</p>
+            <p className="text-xs uppercase text-amber-700 dark:text-amber-400 flex items-center gap-1"><FileText className="w-3 h-3" /> Pra assembleia</p>
+            <p className="text-base font-semibold text-amber-700 dark:text-amber-400">{deliberativas}</p>
           </CardContent>
         </Card>
       </div>
@@ -297,7 +297,7 @@ export default function GovernancaReuniao() {
                     <p className="text-sm font-medium truncate">{p.pessoa_nome}</p>
                     <p className="text-xs text-muted-foreground">{p.papel}</p>
                   </div>
-                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-emerald-600"
+                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-emerald-700 dark:text-emerald-400 dark:text-emerald-400"
                     onClick={() => enviarConvocacao(p)} title="Enviar WhatsApp">
                     <MessageCircle className="w-3.5 h-3.5" />
                   </Button>
@@ -396,7 +396,7 @@ function PautaLinha({ pauta, onChange }: { pauta: GovPauta; onChange: () => void
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="font-medium text-sm">{pauta.titulo}</span>
               <Badge variant="outline" className={`text-xs ${
-                pauta.classificacao === "deliberativa" ? "bg-amber-100 text-amber-700 border-amber-300" :
+                pauta.classificacao === "deliberativa" ? "bg-amber-100 text-amber-700 dark:text-amber-400 border-amber-300" :
                 "bg-blue-100 text-blue-700 border-blue-300"
               }`}>
                 {pauta.classificacao === "deliberativa" ? "Deliberativa" : "Informativa"}
@@ -430,14 +430,14 @@ function PautaLinha({ pauta, onChange }: { pauta: GovPauta; onChange: () => void
         ) : (
           <div className="flex items-center gap-1.5 text-xs">
             {pauta.decisao ? (
-              <p className="flex-1 italic text-emerald-700">"{pauta.decisao}"</p>
+              <p className="flex-1 italic text-emerald-700 dark:text-emerald-400">"{pauta.decisao}"</p>
             ) : (
               <Button size="sm" variant="outline" onClick={() => setEditandoDecisao(true)} className="h-6 text-xs">
                 Registrar decisão
               </Button>
             )}
             {pauta.classificacao === "deliberativa" && pauta.status === "rascunho" && (
-              <Button size="sm" variant="outline" onClick={marcarParaAssembleia} className="h-6 text-xs text-amber-700">
+              <Button size="sm" variant="outline" onClick={marcarParaAssembleia} className="h-6 text-xs text-amber-700 dark:text-amber-400">
                 → Assembleia
               </Button>
             )}

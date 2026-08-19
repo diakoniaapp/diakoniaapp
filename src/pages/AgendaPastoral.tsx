@@ -189,7 +189,7 @@ function EventoCard({ evento, ehHoje, dia, onWhats }: EventoCardProps) {
           {evento.telefone && (
             <Button
               type="button" size="sm" variant="ghost"
-              className="h-7 px-2 gap-1 text-xs text-emerald-700 hover:bg-emerald-50"
+              className="h-7 px-2 gap-1 text-xs text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50"
               onClick={() => onWhats(evento, evento.telefone!)}
               title="Enviar mensagem por WhatsApp"
             >
@@ -200,7 +200,7 @@ function EventoCard({ evento, ehHoje, dia, onWhats }: EventoCardProps) {
           {evento.telefone_secundario && (
             <Button
               type="button" size="sm" variant="ghost"
-              className="h-7 px-2 gap-1 text-xs text-emerald-700 hover:bg-emerald-50"
+              className="h-7 px-2 gap-1 text-xs text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50"
               onClick={() => onWhats(evento, evento.telefone_secundario!)}
               title="Enviar para o cônjuge"
             >

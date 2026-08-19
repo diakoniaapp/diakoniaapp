@@ -18,9 +18,9 @@ function dataBr(s: string) {
 }
 
 const URGENCIA_INFO: Record<FinVencimento["urgencia"], { cor: string; label: string }> = {
-  vencido:      { cor: "text-rose-700 bg-rose-50 border-rose-200",        label: "Vencido" },
-  vence_hoje:   { cor: "text-amber-700 bg-amber-50 border-amber-300",      label: "Vence hoje" },
-  urgente:      { cor: "text-amber-700 bg-amber-50/60 border-amber-200",   label: "Urgente" },
+  vencido:      { cor: "text-rose-700 dark:text-rose-400 bg-rose-50 border-rose-200",        label: "Vencido" },
+  vence_hoje:   { cor: "text-amber-700 dark:text-amber-400 bg-amber-50 border-amber-300",      label: "Vence hoje" },
+  urgente:      { cor: "text-amber-700 dark:text-amber-400 bg-amber-50/60 border-amber-200",   label: "Urgente" },
   esta_semana:  { cor: "text-blue-700 bg-blue-50 border-blue-200",         label: "Esta semana" },
   futuro:       { cor: "text-muted-foreground border-border",              label: "Futuro" },
 };
@@ -99,14 +99,14 @@ export default function FinancasAgenda() {
       <div className="grid grid-cols-2 gap-2">
         <Card className="bg-rose-50/30 border-rose-200">
           <CardContent className="py-2 px-3">
-            <p className="text-xs uppercase text-rose-700 flex items-center gap-1"><TrendingDown className="w-3 h-3" /> A pagar (30d)</p>
-            <p className="text-base font-semibold text-rose-700 tabular-nums">{brl(totalSaidas)}</p>
+            <p className="text-xs uppercase text-rose-700 dark:text-rose-400 flex items-center gap-1"><TrendingDown className="w-3 h-3" /> A pagar (30d)</p>
+            <p className="text-base font-semibold text-rose-700 dark:text-rose-400 tabular-nums">{brl(totalSaidas)}</p>
           </CardContent>
         </Card>
         <Card className="bg-emerald-50/30 border-emerald-200">
           <CardContent className="py-2 px-3">
-            <p className="text-xs uppercase text-emerald-700 flex items-center gap-1"><TrendingUp className="w-3 h-3" /> A receber (30d)</p>
-            <p className="text-base font-semibold text-emerald-700 tabular-nums">{brl(totalEntradas)}</p>
+            <p className="text-xs uppercase text-emerald-700 dark:text-emerald-400 flex items-center gap-1"><TrendingUp className="w-3 h-3" /> A receber (30d)</p>
+            <p className="text-base font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums">{brl(totalEntradas)}</p>
           </CardContent>
         </Card>
       </div>
@@ -130,15 +130,15 @@ export default function FinancasAgenda() {
             return (
               <div key={u} className="space-y-1.5">
                 <p className="text-xs uppercase tracking-wide font-medium text-muted-foreground px-1">
-                  {u === "vencido" && <AlertTriangle className="w-3 h-3 inline mr-1 text-rose-600" />}
+                  {u === "vencido" && <AlertTriangle className="w-3 h-3 inline mr-1 text-rose-700 dark:text-rose-400 dark:text-rose-400" />}
                   {info.label} ({lista.length})
                 </p>
                 {lista.map(v => (
                   <div key={v.id} className={`flex items-center justify-between border rounded-md px-3 py-2 ${info.cor}`}>
                     <div className="flex items-center gap-2 min-w-0 flex-1">
                       {v.tipo === "entrada"
-                        ? <TrendingUp className="w-4 h-4 text-emerald-600 shrink-0" />
-                        : <TrendingDown className="w-4 h-4 text-rose-600 shrink-0" />}
+                        ? <TrendingUp className="w-4 h-4 text-emerald-700 dark:text-emerald-400 dark:text-emerald-400 shrink-0" />
+                        : <TrendingDown className="w-4 h-4 text-rose-700 dark:text-rose-400 dark:text-rose-400 shrink-0" />}
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium truncate">{v.descricao ?? "—"}</p>
                         <p className="text-xs flex items-center gap-1.5">
@@ -151,7 +151,7 @@ export default function FinancasAgenda() {
                         </p>
                       </div>
                     </div>
-                    <p className={`text-sm font-semibold tabular-nums mr-2 ${v.tipo === "entrada" ? "text-emerald-700" : "text-rose-700"}`}>
+                    <p className={`text-sm font-semibold tabular-nums mr-2 ${v.tipo === "entrada" ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"}`}>
                       {brl(Number(v.valor))}
                     </p>
                     <Button size="sm" onClick={() => confirmar(v)}

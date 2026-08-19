@@ -155,7 +155,7 @@ export default function ChecklistTemplates() {
       <Card className="border-emerald-200 bg-emerald-50/30">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm flex items-center gap-2">
-            <Plus className="w-4 h-4 text-emerald-700" /> Novo item
+            <Plus className="w-4 h-4 text-emerald-700 dark:text-emerald-400" /> Novo item
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
@@ -289,7 +289,7 @@ function ItemEditavel({
           <div className="text-xs font-medium truncate">{item.item}</div>
           <div className="flex items-center gap-1 flex-wrap mt-0.5">
             <Badge variant="outline" className="text-xs">{nomeEspaco}</Badge>
-            {item.obrigatorio && <Badge className="text-xs bg-rose-100 text-rose-700 border-rose-300">obrigatório</Badge>}
+            {item.obrigatorio && <Badge className="text-xs bg-rose-100 text-rose-700 dark:text-rose-400 border-rose-300">obrigatório</Badge>}
             {!item.ativo && <Badge variant="outline" className="text-xs">arquivado</Badge>}
           </div>
         </div>
@@ -297,7 +297,7 @@ function ItemEditavel({
           className="h-7 text-xs">editar</Button>
         {item.ativo && (
           <Button size="sm" variant="ghost" onClick={() => onArquivar(item.id)}
-            className="h-7 text-rose-600 hover:bg-rose-50">
+            className="h-7 text-rose-700 dark:text-rose-400 dark:text-rose-400 hover:bg-rose-50">
             <Trash2 className="w-3 h-3" />
           </Button>
         )}

@@ -406,14 +406,14 @@ export default function ImportacaoMembros() {
                         </p>
                       </div>
                       <div className="flex items-center gap-2 text-xs shrink-0">
-                        <span className="text-emerald-600">✓ {h.importados}</span>
+                        <span className="text-emerald-700 dark:text-emerald-400 dark:text-emerald-400">✓ {h.importados}</span>
                         {h.ignorados > 0 && <span className="text-muted-foreground">⊘ {h.ignorados}</span>}
                         {h.erros > 0 && <span className="text-destructive">✗ {h.erros}</span>}
                       </div>
                       <Badge variant="outline" className={
-                        h.status === "concluido" ? "text-emerald-600 border-emerald-300" :
+                        h.status === "concluido" ? "text-emerald-700 dark:text-emerald-400 dark:text-emerald-400 border-emerald-300" :
                         h.status === "cancelado" ? "text-destructive border-destructive/30" :
-                        "text-amber-600"
+                        "text-amber-700 dark:text-amber-400 dark:text-amber-400"
                       }>{h.status}</Badge>
                       {hasRole(["admin"]) && h.status !== "cancelado" && (
                         <button
@@ -540,8 +540,8 @@ export default function ImportacaoMembros() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {[
                 { label: "Total", value: total, icon: <Users className="w-4 h-4"/>, cor: "text-primary" },
-                { label: "Prontos", value: validos, icon: <CheckCircle2 className="w-4 h-4"/>, cor: "text-emerald-600" },
-                { label: "Duplicados", value: duplicados, icon: <AlertTriangle className="w-4 h-4"/>, cor: "text-amber-600" },
+                { label: "Prontos", value: validos, icon: <CheckCircle2 className="w-4 h-4"/>, cor: "text-emerald-700 dark:text-emerald-400 dark:text-emerald-400" },
+                { label: "Duplicados", value: duplicados, icon: <AlertTriangle className="w-4 h-4"/>, cor: "text-amber-700 dark:text-amber-400 dark:text-amber-400" },
                 { label: "Erros", value: comErro, icon: <XCircle className="w-4 h-4"/>, cor: "text-destructive" },
               ].map(s => (
                 <Card key={s.label} className="shadow-card-soft">
@@ -631,9 +631,9 @@ export default function ImportacaoMembros() {
                                 {l._erros[0]}
                               </Badge>
                             ) : l._duplicado ? (
-                              <Badge variant="outline" className="text-xs text-amber-600 border-amber-300">duplicado</Badge>
+                              <Badge variant="outline" className="text-xs text-amber-700 dark:text-amber-400 dark:text-amber-400 border-amber-300">duplicado</Badge>
                             ) : (
-                              <Badge variant="outline" className="text-xs text-emerald-600 border-emerald-300">
+                              <Badge variant="outline" className="text-xs text-emerald-700 dark:text-emerald-400 dark:text-emerald-400 border-emerald-300">
                                 <Check className="w-2.5 h-2.5 mr-1" /> ok
                               </Badge>
                             )}
@@ -740,7 +740,7 @@ export default function ImportacaoMembros() {
               {/* Alerta para volume alto */}
               {(excluirAlvo?.importados ?? 0) > 100 && (
                 <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 px-3 py-2.5 flex items-start gap-2">
-                  <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                  <AlertCircle className="w-4 h-4 text-amber-700 dark:text-amber-400 dark:text-amber-400 mt-0.5 shrink-0" />
                   <p className="text-xs text-amber-800 dark:text-amber-300 font-medium">
                     Atenção: você está excluindo um <strong>grande volume de dados</strong> ({excluirAlvo?.importados} registros).
                   </p>

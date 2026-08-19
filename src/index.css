@@ -28,7 +28,11 @@
     --popover-foreground: 0 0% 15%;
 
     /* ── Primário: Dourado Cobre ──────────────────────────────── */
-    --primary:            30 62% 42%;    /* ≈ #A87230                   */
+    /* 42% → 39%: medido, 42% dava 4.09:1 como TEXTO sobre o cartão, abaixo
+       do mínimo de 4.5:1 para texto pequeno. E também melhorou como
+       preenchimento — branco sobre o primário era 4.01:1 e passou a 4.54:1.
+       Escurecer serviu aos dois usos porque o texto por cima é claro. */
+    --primary:            30 62% 38%;
     --primary-foreground: 36 20% 97%;
     --primary-glow:       30 65% 52%;
 
@@ -41,25 +45,54 @@
     --muted-foreground:   0 0% 36%;
 
     /* ── Gold / Rosa Queimado (terracota) ─────────────────────── */
-    --accent:             12 42% 56%;    /* ≈ #BE7060                   */
+    /* 56% → 48%. O dourado é a cor da casa e estava falhando nos DOIS
+       usos: 3.48:1 como texto sobre o cartão e 3.63:1 com branco por cima,
+       nas etiquetas. Agora 4.58:1 e 4.77:1 — mesma cor, mesma matiz e
+       saturação, só legível. */
+    --accent:             12 42% 48%;
     --accent-foreground:  0 0% 100%;
-    --gold:               12 42% 56%;
+    --gold:               12 42% 48%;
     --gold-foreground:    0 0% 100%;
+
+    /* O dourado como TEXTO SOBRE TINTA DE DOURADO. A etiqueta de função é
+       `bg-gold/15 text-gold`: a tinta clareia o fundo em direção ao próprio
+       dourado, e a cor some dentro dela. Medido na tela: 3,56:1 a 12px, o
+       pior item do catálogo — e era a etiqueta que eu mesmo tinha criado.
+       Mais escuro e um pouco mais saturado para não virar marrom apagado. */
+    --gold-text:          12 50% 40%;
 
     /* ── Teal / Âmbar complementar ───────────────────────────── */
     --teal:               38 45% 40%;
     --teal-foreground:    0 0% 100%;
 
     /* ── Feedback ────────────────────────────────────────────── */
-    --success:            142 52% 36%;
+    --success:            142 52% 32%;
     --success-foreground: 0 0% 100%;
+
+    /* O âmbar é o único que NÃO pode escurecer: o texto que vai por cima
+       dele é escuro (0 0% 15%), e escurecer o fundo derrubaria esse par de
+       6.33:1 para 3.19:1. Então o âmbar de PREENCHIMENTO fica como está, e
+       ganha um par para quando ele mesmo é o texto — que era o caso pior de
+       todo o tema: 2.15:1, praticamente ilegível, usado em "Nunca", nos
+       alertas e no "sem ocupante". */
     --warning:            38 88% 48%;
     --warning-foreground: 0 0% 15%;
-    --destructive:        0 68% 50%;
+    --warning-text:       38 88% 31%;
+
+    --destructive:        0 68% 45%;
     --destructive-foreground: 0 0% 100%;
 
     /* ── Estrutura ───────────────────────────────────────────── */
-    --border:             36 18% 84%;
+    /* 84% → 72%. O comentário das sombras abaixo diz que "o cartão separa-se
+       do fundo pela BORDA, não pela sombra" — e a borda estava em 1.28:1
+       contra o fundo, ou seja, invisível. O cartão não se separava de nada:
+       a decisão de tirar a sombra ficou de pé sobre uma borda que ninguém via.
+
+       72% dá 1.72:1. Não são os 3:1 da WCAG de propósito — aquele mínimo vale
+       para limites que carregam informação, como a borda de um campo. Esta
+       aqui separa superfícies, e a 3:1 (52% de luminosidade) desenharia uma
+       grade cinza por cima da tela inteira. */
+    --border:             36 18% 72%;
     --input:              36 15% 92%;
     --ring:               30 62% 42%;
     --radius:             0.625rem;
@@ -126,13 +159,16 @@
 
     /* ── Muted ───────────────────────────────────────────────── */
     --muted:              224 15% 18%;
-    --muted-foreground:   36 10% 55%;
+    /* 55% → 57%: sobre a faixa cinza (--muted) dava 4.43:1, logo abaixo do
+       mínimo. Sobre o fundo já passava — é o caso da faixa que decide. */
+    --muted-foreground:   36 10% 57%;
 
     /* ── Gold / terracota mais suave no escuro ────────────────── */
     --accent:             12 48% 60%;
     --accent-foreground:  0 0% 100%;
     --gold:               12 48% 60%;
     --gold-foreground:    0 0% 100%;
+    --gold-text:          12 55% 68%;
 
     /* ── Teal ────────────────────────────────────────────────── */
     --teal:               38 40% 48%;
@@ -143,11 +179,17 @@
     --success-foreground: 0 0% 100%;
     --warning:            38 80% 52%;
     --warning-foreground: 0 0% 10%;
-    --destructive:        0 60% 52%;
+    /* No escuro o âmbar já é legível como texto (7.96:1); o par existe para
+       que o mesmo `text-warning-text` funcione nos dois temas. */
+    --warning-text:       38 80% 52%;
+
+    /* 52% → 59%: 3.68:1 sobre o fundo escuro, abaixo do mínimo. */
+    --destructive:        0 60% 59%;
     --destructive-foreground: 0 0% 100%;
 
     /* ── Estrutura ───────────────────────────────────────────── */
-    --border:             224 15% 22%;
+    /* Mesmo motivo do tema claro: 1.44:1 é borda que não se vê. */
+    --border:             224 15% 26%;
     --input:              224 15% 18%;
     --ring:               12 48% 60%;
 

@@ -858,7 +858,7 @@ export default function IdentidadeAdmin() {
             {/* Pastor já vinculado */}
             {pastorId && (
               <div className="flex items-center gap-3 rounded-md bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 px-3 py-2.5">
-                <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
+                <CheckCircle2 className="w-4 h-4 text-green-700 dark:text-green-400 dark:text-green-400 shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{pastorNome}</p>
                   <p className="text-xs text-muted-foreground">Vinculado ao cadastro de membros</p>

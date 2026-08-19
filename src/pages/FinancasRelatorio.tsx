@@ -163,16 +163,16 @@ export default function FinancasRelatorio() {
           <h3 className="text-xs uppercase tracking-wide text-gold mb-2 text-center">Demonstrativo</h3>
           <div className="grid grid-cols-3 gap-3 text-center">
             <div>
-              <p className="text-xs uppercase text-emerald-700 flex items-center justify-center gap-1"><TrendingUp className="w-3 h-3" /> Entradas</p>
-              <p className="text-xl font-semibold text-emerald-700 tabular-nums">{brl(resumo.totalEntradas)}</p>
+              <p className="text-xs uppercase text-emerald-700 dark:text-emerald-400 flex items-center justify-center gap-1"><TrendingUp className="w-3 h-3" /> Entradas</p>
+              <p className="text-xl font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums">{brl(resumo.totalEntradas)}</p>
             </div>
             <div>
-              <p className="text-xs uppercase text-rose-700 flex items-center justify-center gap-1"><TrendingDown className="w-3 h-3" /> Saídas</p>
-              <p className="text-xl font-semibold text-rose-700 tabular-nums">{brl(resumo.totalSaidas)}</p>
+              <p className="text-xs uppercase text-rose-700 dark:text-rose-400 flex items-center justify-center gap-1"><TrendingDown className="w-3 h-3" /> Saídas</p>
+              <p className="text-xl font-semibold text-rose-700 dark:text-rose-400 tabular-nums">{brl(resumo.totalSaidas)}</p>
             </div>
             <div>
               <p className="text-xs uppercase text-gold flex items-center justify-center gap-1"><DollarSign className="w-3 h-3" /> Resultado</p>
-              <p className={`text-xl font-semibold tabular-nums ${resumo.resultado >= 0 ? "text-emerald-700" : "text-rose-700"}`}>
+              <p className={`text-xl font-semibold tabular-nums ${resumo.resultado >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"}`}>
                 {resumo.resultado >= 0 ? "+" : ""}{brl(resumo.resultado)}
               </p>
             </div>
@@ -196,9 +196,9 @@ export default function FinancasRelatorio() {
                 {resumo.porConta.map(c => (
                   <tr key={c.id} className="border-b border-border/40">
                     <td className="py-1.5 font-medium">{c.nome}</td>
-                    <td className="py-1.5 text-right tabular-nums text-emerald-700">{brl(c.entradas)}</td>
-                    <td className="py-1.5 text-right tabular-nums text-rose-700">{brl(c.saidas)}</td>
-                    <td className={`py-1.5 text-right tabular-nums font-semibold ${c.saldo >= 0 ? "text-emerald-700" : "text-rose-700"}`}>
+                    <td className="py-1.5 text-right tabular-nums text-emerald-700 dark:text-emerald-400">{brl(c.entradas)}</td>
+                    <td className="py-1.5 text-right tabular-nums text-rose-700 dark:text-rose-400">{brl(c.saidas)}</td>
+                    <td className={`py-1.5 text-right tabular-nums font-semibold ${c.saldo >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"}`}>
                       {c.saldo >= 0 ? "+" : ""}{brl(c.saldo)}
                     </td>
                   </tr>
@@ -239,7 +239,7 @@ export default function FinancasRelatorio() {
                     <td className="py-1 pr-1 text-muted-foreground truncate">{l.categoria_nome ?? "—"}</td>
                     <td className="py-1 pr-1 text-muted-foreground truncate">{l.conta_nome ?? "—"}</td>
                     <td className="py-1 pr-1 text-muted-foreground truncate">{l.documento_numero ?? ""}</td>
-                    <td className={`py-1 text-right tabular-nums font-medium ${l.tipo === "entrada" ? "text-emerald-700" : "text-rose-700"}`}>
+                    <td className={`py-1 text-right tabular-nums font-medium ${l.tipo === "entrada" ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"}`}>
                       {l.tipo === "entrada" ? "+" : "−"} {brl(Number(l.valor))}
                     </td>
                   </tr>
@@ -248,7 +248,7 @@ export default function FinancasRelatorio() {
               <tfoot>
                 <tr className="border-t-2 border-gold/40 font-semibold">
                   <td colSpan={6} className="py-2 text-right uppercase text-xs tracking-wide pr-2">Movimento líquido</td>
-                  <td className={`py-2 text-right tabular-nums ${resumo.resultado >= 0 ? "text-emerald-700" : "text-rose-700"}`}>
+                  <td className={`py-2 text-right tabular-nums ${resumo.resultado >= 0 ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"}`}>
                     {resumo.resultado >= 0 ? "+" : ""}{brl(resumo.resultado)}
                   </td>
                 </tr>
@@ -293,7 +293,7 @@ function CategoriasBox({ titulo, itens, cor, total }: {
   cor: "emerald" | "rose";
   total: number;
 }) {
-  const corClass = cor === "emerald" ? "text-emerald-700" : "text-rose-700";
+  const corClass = cor === "emerald" ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400";
   return (
     <div>
       <h4 className={`text-xs uppercase tracking-wider mb-2 font-medium ${corClass}`}>{titulo}</h4>

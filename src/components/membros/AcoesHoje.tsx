@@ -355,7 +355,7 @@ export default function AcoesHoje({ limit }: AcoesHojeProps = {}) {
                               Editar
                             </Button>
                             {editada && (
-                              <span className="text-xs text-warning">✏️ editada</span>
+                              <span className="text-xs text-warning-text">✏️ editada</span>
                             )}
                           </div>
                         </div>

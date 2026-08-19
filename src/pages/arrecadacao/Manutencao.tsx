@@ -19,14 +19,14 @@ import {
 } from "@/services/arrecadacaoService";
 
 const STATUS_COR: Record<ProblemaStatus, string> = {
-  aberto:        "bg-rose-50 text-rose-700 border-rose-200",
-  em_andamento:  "bg-amber-50 text-amber-700 border-amber-200",
-  resolvido:     "bg-emerald-50 text-emerald-700 border-emerald-200",
+  aberto:        "bg-rose-50 text-rose-700 dark:text-rose-400 border-rose-200",
+  em_andamento:  "bg-amber-50 text-amber-700 dark:text-amber-400 border-amber-200",
+  resolvido:     "bg-emerald-50 text-emerald-700 dark:text-emerald-400 border-emerald-200",
   descartado:    "bg-muted text-muted-foreground line-through",
 };
 const PRIO_COR: Record<string, string> = {
-  alta:  "bg-rose-100 text-rose-700",
-  media: "bg-amber-100 text-amber-700",
+  alta:  "bg-rose-100 text-rose-700 dark:text-rose-400",
+  media: "bg-amber-100 text-amber-700 dark:text-amber-400",
   baixa: "bg-blue-50 text-blue-700",
 };
 
@@ -83,7 +83,7 @@ export default function ManutencaoLista() {
             <Button key={esp.id} size="sm" variant="outline"
               onClick={() => abrirWhatsAppPorEspaco(esp.id, esp.nome)}
               className="gap-1.5 text-xs h-8">
-              <MessageCircle className="w-3 h-3 text-emerald-600" />
+              <MessageCircle className="w-3 h-3 text-emerald-700 dark:text-emerald-400 dark:text-emerald-400" />
               Avisar {esp.codigo}
             </Button>
           ))}
@@ -116,7 +116,7 @@ export default function ManutencaoLista() {
             <Card key={p.id} className={p.status === "resolvido" ? "opacity-60" : ""}>
               <CardContent className="p-3 space-y-1.5">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <AlertTriangle className="w-4 h-4 text-amber-600" />
+                  <AlertTriangle className="w-4 h-4 text-amber-700 dark:text-amber-400 dark:text-amber-400" />
                   <span className="font-medium text-sm">{p.titulo}</span>
                   <Badge variant="outline" className={`text-xs ${STATUS_COR[p.status]}`}>
                     {p.status.replace("_", " ")}
@@ -134,13 +134,13 @@ export default function ManutencaoLista() {
                 <div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
                   <span>📅 {new Date(p.reportado_em).toLocaleString("pt-BR")}</span>
                   {p.resolvido_em && (
-                    <span className="text-emerald-700">
+                    <span className="text-emerald-700 dark:text-emerald-400">
                       ✓ Resolvido em {new Date(p.resolvido_em).toLocaleString("pt-BR")}
                     </span>
                   )}
                 </div>
                 {p.resolucao_descricao && (
-                  <p className="text-xs text-emerald-700 bg-emerald-50/30 p-1.5 rounded mt-1">
+                  <p className="text-xs text-emerald-700 dark:text-emerald-400 bg-emerald-50/30 p-1.5 rounded mt-1">
                     {p.resolucao_descricao}
                   </p>
                 )}
@@ -204,7 +204,7 @@ function ResolverDialog({ problema, onCancel, onResolved }: {
       <Card className="max-w-md w-full">
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Resolver problema
+            <CheckCircle2 className="w-4 h-4 text-emerald-700 dark:text-emerald-400 dark:text-emerald-400" /> Resolver problema
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">

@@ -394,7 +394,7 @@ export function MapaFamilias() {
         <Card className="border-l-4 border-l-warning">
           <CardContent className="py-4 space-y-2">
             <p className="text-sm font-medium flex items-center gap-2">
-              <Compass className="w-4 h-4 text-warning shrink-0" />
+              <Compass className="w-4 h-4 text-warning-text shrink-0" />
               Longe de todo mundo
             </p>
             <ul className="space-y-1.5">
@@ -461,7 +461,7 @@ export function MapaFamilias() {
                     </p>
 
                     {aproximado && (
-                      <p className="text-xs mt-1.5 text-amber-700">
+                      <p className="text-xs mt-1.5 text-amber-700 dark:text-amber-400">
                         Ponto aproximado — o número da rua não foi localizado.
                       </p>
                     )}
@@ -507,7 +507,7 @@ export function MapaFamilias() {
         <Card className="border-l-4 border-l-warning">
           <CardContent className="py-4">
             <p className="text-sm flex items-start gap-2">
-              <TriangleAlert className="w-4 h-4 text-warning shrink-0 mt-0.5" />
+              <TriangleAlert className="w-4 h-4 text-warning-text shrink-0 mt-0.5" />
               <span>
                 <b>{semCoordenada} famílias estão fora do mapa</b> por não terem
                 endereço cadastrado. O mapa mostra onde a igreja registrou

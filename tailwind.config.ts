@@ -31,6 +31,8 @@ export default {
         gold: {
           DEFAULT: "hsl(var(--gold))",
           foreground: "hsl(var(--gold-foreground))",
+          // `text-gold-text`: para quando o dourado é a letra, e não o fundo.
+          text: "hsl(var(--gold-text))",
         },
         teal: {
           DEFAULT: "hsl(var(--teal))",
@@ -43,6 +45,11 @@ export default {
         warning: {
           DEFAULT: "hsl(var(--warning))",
           foreground: "hsl(var(--warning-foreground))",
+          // `text-warning-text`: o âmbar escuro, para quando a cor é o texto.
+          // O âmbar de preenchimento não serve como texto — mede 2.15:1 — e
+          // não pode escurecer, porque o que vai escrito EM CIMA dele é
+          // escuro. São dois papéis, e agora são dois valores.
+          text: "hsl(var(--warning-text))",
         },
         destructive: {
           DEFAULT: "hsl(var(--destructive))",

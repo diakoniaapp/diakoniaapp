@@ -376,7 +376,7 @@ export default function ExportacaoAdmin() {
               <p>Você está prestes a exportar:</p>
               <p>• <strong>{previewCount}</strong> registros</p>
               <p>• Campos: {camposSel.map(c => CAMPOS_DISPONIVEIS.find(f => f.value === c)?.label).join(", ")}</p>
-              <p className="text-amber-600">• Esta ação será registrada no log LGPD</p>
+              <p className="text-amber-700 dark:text-amber-400 dark:text-amber-400">• Esta ação será registrada no log LGPD</p>
             </div>
             <div className="space-y-1">
               <Label>Sua senha para confirmar</Label>

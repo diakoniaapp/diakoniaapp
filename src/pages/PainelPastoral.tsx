@@ -169,10 +169,10 @@ export default function PainelPastoral() {
       {resumo && (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
           <ResumoCard label="Aniv. hoje" value={resumo.aniversarios_hoje} cor="bg-pink-50 text-pink-700 border-pink-200" />
-          <ResumoCard label="Bodas hoje" value={resumo.bodas_hoje} cor="bg-rose-50 text-rose-700 border-rose-200" />
+          <ResumoCard label="Bodas hoje" value={resumo.bodas_hoje} cor="bg-rose-50 text-rose-700 dark:text-rose-400 border-rose-200" />
           <ResumoCard label="Aniv. (7d)" value={resumo.aniversarios_semana} cor="bg-pink-50/40 text-pink-700 border-pink-200" />
-          <ResumoCard label="Bodas (7d)" value={resumo.bodas_semana} cor="bg-rose-50/40 text-rose-700 border-rose-200" />
-          <ResumoCard label="Fam. sem resp." value={resumo.familias_sem_resp} cor="bg-amber-50 text-amber-700 border-amber-200" />
+          <ResumoCard label="Bodas (7d)" value={resumo.bodas_semana} cor="bg-rose-50/40 text-rose-700 dark:text-rose-400 border-rose-200" />
+          <ResumoCard label="Fam. sem resp." value={resumo.familias_sem_resp} cor="bg-amber-50 text-amber-700 dark:text-amber-400 border-amber-200" />
           <ResumoCard label="Sugestões família" value={resumo.pessoas_sem_familia_sugerida} cor="bg-blue-50 text-blue-700 border-blue-200" />
         </div>
       )}
@@ -218,7 +218,7 @@ export default function PainelPastoral() {
         <Card className="border-amber-200">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-amber-600" />
+              <AlertCircle className="w-4 h-4 text-amber-700 dark:text-amber-400 dark:text-amber-400" />
               Famílias sem responsável
               <Badge variant="outline" className="text-xs bg-amber-100 border-amber-300">
                 {familiasSemResp.length}
@@ -320,7 +320,7 @@ export default function PainelPastoral() {
                       <p className="text-xs text-muted-foreground flex items-center gap-1 flex-wrap">
                         Sobrenome: <strong>{p.sobrenome}</strong>
                         {p.familia_sugerida_nome && (
-                          <Badge variant="outline" className="text-xs ml-1 border-rose-300 text-rose-700">
+                          <Badge variant="outline" className="text-xs ml-1 border-rose-300 text-rose-700 dark:text-rose-400">
                             → Família {p.familia_sugerida_nome ?? "sugerida"}
                           </Badge>
                         )}
@@ -481,7 +481,7 @@ function LinhaEvento({ ev, onWhats }: { ev: EventoPastoral; onWhats: (e: EventoP
       {(ev.telefone || ev.telefone_secundario) && (
         <Button
           type="button" size="sm" variant="ghost"
-          className="h-8 px-2 gap-1 text-xs text-emerald-700 hover:bg-emerald-50 shrink-0"
+          className="h-8 px-2 gap-1 text-xs text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 shrink-0"
           onClick={() => onWhats(ev)}
           title="WhatsApp"
         >

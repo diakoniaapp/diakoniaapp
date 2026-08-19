@@ -113,7 +113,7 @@ export default function ResetSenha() {
       <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-hero p-4">
         <div className="w-full max-w-sm bg-card rounded-2xl shadow-elevated border border-border/50 p-8 text-center space-y-5">
           <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mx-auto">
-            <CheckCircle2 className="w-8 h-8 text-green-600" />
+            <CheckCircle2 className="w-8 h-8 text-green-700 dark:text-green-400 dark:text-green-400" />
           </div>
           <div className="space-y-2">
             <h1 className="font-serif text-xl font-semibold">Senha redefinida!</h1>

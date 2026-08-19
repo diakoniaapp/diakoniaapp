@@ -96,11 +96,11 @@ export default function Financas() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
           <Stat icon={<Wallet className="w-4 h-4 text-gold" />}
             label="Saldo total" valor={brl(resumo.saldo_total)} destaque />
-          <Stat icon={<TrendingUp className="w-4 h-4 text-emerald-600" />}
+          <Stat icon={<TrendingUp className="w-4 h-4 text-emerald-700 dark:text-emerald-400 dark:text-emerald-400" />}
             label="Entradas do mês" valor={brl(resumo.entradas_mes)} />
-          <Stat icon={<TrendingDown className="w-4 h-4 text-rose-600" />}
+          <Stat icon={<TrendingDown className="w-4 h-4 text-rose-700 dark:text-rose-400 dark:text-rose-400" />}
             label="Saídas do mês" valor={brl(resumo.saidas_mes)} />
-          <Stat icon={<AlertTriangle className="w-4 h-4 text-amber-600" />}
+          <Stat icon={<AlertTriangle className="w-4 h-4 text-amber-700 dark:text-amber-400 dark:text-amber-400" />}
             label="Previstas (mês)" valor={brl(resumo.previstas_mes)} />
         </div>
       )}
@@ -149,13 +149,13 @@ export default function Financas() {
 
       {/* Atalhos */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pt-2">
-        <Atalho to="/financas/agenda?tipo=saida" icon={<TrendingDown className="w-4 h-4 text-rose-600" />} label="Contas a pagar" />
-        <Atalho to="/financas/agenda?tipo=entrada" icon={<TrendingUp className="w-4 h-4 text-emerald-600" />} label="Contas a receber" />
+        <Atalho to="/financas/agenda?tipo=saida" icon={<TrendingDown className="w-4 h-4 text-rose-700 dark:text-rose-400 dark:text-rose-400" />} label="Contas a pagar" />
+        <Atalho to="/financas/agenda?tipo=entrada" icon={<TrendingUp className="w-4 h-4 text-emerald-700 dark:text-emerald-400 dark:text-emerald-400" />} label="Contas a receber" />
         <Atalho to="/financas/recorrencias" icon={<RotateCw className="w-4 h-4 text-gold" />} label="Recorrências" />
         <Atalho to="/financas/estoque" icon={<Package className="w-4 h-4 text-blue-600" />} label="Estoque" />
-        <Atalho to="/financas/relatorio" icon={<AlertTriangle className="w-4 h-4 text-amber-600" />} label="Malote contábil" />
+        <Atalho to="/financas/relatorio" icon={<AlertTriangle className="w-4 h-4 text-amber-700 dark:text-amber-400 dark:text-amber-400" />} label="Malote contábil" />
         <Atalho to="/financas/centros" icon={<Layers className="w-4 h-4 text-purple-600" />} label="Centros" />
-        <Atalho to="/financas/orcamento" icon={<Target className="w-4 h-4 text-emerald-600" />} label="Orçamento" />
+        <Atalho to="/financas/orcamento" icon={<Target className="w-4 h-4 text-emerald-700 dark:text-emerald-400 dark:text-emerald-400" />} label="Orçamento" />
         <Atalho to="/financas/insights" icon={<Sparkles className="w-4 h-4 text-gold" />} label="Insights" />
         <Atalho to="/financas/folha" icon={<Briefcase className="w-4 h-4 text-purple-600" />} label="Folha" />
       </div>

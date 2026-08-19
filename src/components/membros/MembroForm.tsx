@@ -530,7 +530,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                   >
                     <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold border-2 transition-colors ${
                       step === p.n ? "bg-gold text-white border-gold"
-                        : step > p.n ? "bg-emerald-500/15 text-emerald-700 border-emerald-500/40"
+                        : step > p.n ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/40"
                         : "bg-muted border-border"
                     }`}>
                       {step > p.n ? "✓" : p.n}
@@ -867,7 +867,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                       2º. Escondê-las desmarcaria o cargo de alguém por causa de
                       um detalhe de implementação. */}
                   {funcoesSelecionadas.filter(funcaoAposentada).map((f) => (
-                    <label key={f} className="flex items-center gap-2 text-sm min-h-[32px] text-warning">
+                    <label key={f} className="flex items-center gap-2 text-sm min-h-[32px] text-warning-text">
                       <Checkbox checked onCheckedChange={() => alternarFuncao(f)} />
                       {rotuloFuncao(f)} <span className="text-xs">(a revisar)</span>
                     </label>
@@ -980,7 +980,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                               <span className="flex items-center gap-1 min-w-0">
                                 <span className="truncate">{a.nome}</span>
                                 {ehLider && (
-                                  <span className="text-xs font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 border border-rose-300 shrink-0">
+                                  <span className="text-xs font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 dark:text-rose-400 border border-rose-300 shrink-0">
                                     Líder
                                   </span>
                                 )}
@@ -1050,7 +1050,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                   passo em branco no cadastro novo, o passo explica a ordem: salvar
                   primeiro, convidar depois. */}
               {(isCongregado || isMembro) && !membro && (
-                <p className="text-xs text-amber-600 px-2 py-1.5 bg-amber-50 rounded border border-amber-200">
+                <p className="text-xs text-amber-700 dark:text-amber-400 dark:text-amber-400 px-2 py-1.5 bg-amber-50 rounded border border-amber-200">
                   O convite de acesso é criado depois de salvar o cadastro. Termine
                   o cadastro e abra a pessoa de novo para conceder acesso.
                 </p>
@@ -1103,7 +1103,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                   </>
                 )}
 
-                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-2 text-center">
+                <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 border border-amber-200 rounded-md p-2 text-center">
                   Clique em <strong>Salvar</strong> para confirmar o cadastro.
                 </p>
               </section>

@@ -115,14 +115,14 @@ export default function FinancasCentroDetalhe() {
         </Card>
         <Card className="bg-rose-50/30 border-rose-200">
           <CardContent className="py-2 px-3">
-            <p className="text-xs uppercase text-rose-700">Total gasto</p>
-            <p className="text-base font-semibold text-rose-700 tabular-nums">{brl(stats.gastoTotal)}</p>
+            <p className="text-xs uppercase text-rose-700 dark:text-rose-400">Total gasto</p>
+            <p className="text-base font-semibold text-rose-700 dark:text-rose-400 tabular-nums">{brl(stats.gastoTotal)}</p>
           </CardContent>
         </Card>
         <Card className="bg-emerald-50/30 border-emerald-200">
           <CardContent className="py-2 px-3">
-            <p className="text-xs uppercase text-emerald-700">Total recebido</p>
-            <p className="text-base font-semibold text-emerald-700 tabular-nums">{brl(stats.recebidoTotal)}</p>
+            <p className="text-xs uppercase text-emerald-700 dark:text-emerald-400">Total recebido</p>
+            <p className="text-base font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums">{brl(stats.recebidoTotal)}</p>
           </CardContent>
         </Card>
       </div>
@@ -154,8 +154,8 @@ export default function FinancasCentroDetalhe() {
                     )}
                   </div>
                   <div className="flex justify-between text-xs text-muted-foreground">
-                    {v.recebido > 0 && <span className="text-emerald-700">+{brl(v.recebido)}</span>}
-                    {v.gasto > 0 && <span className="text-rose-700 ml-auto">−{brl(v.gasto)}</span>}
+                    {v.recebido > 0 && <span className="text-emerald-700 dark:text-emerald-400">+{brl(v.recebido)}</span>}
+                    {v.gasto > 0 && <span className="text-rose-700 dark:text-rose-400 ml-auto">−{brl(v.gasto)}</span>}
                   </div>
                 </div>
               ))}
@@ -180,8 +180,8 @@ export default function FinancasCentroDetalhe() {
             <div key={l.id} className="flex items-center justify-between border rounded-md px-3 py-2 hover:bg-muted/30">
               <div className="flex items-center gap-2 min-w-0 flex-1">
                 {l.tipo === "entrada"
-                  ? <TrendingUp className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                  : <TrendingDown className="w-3.5 h-3.5 text-rose-600 shrink-0" />}
+                  ? <TrendingUp className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400 dark:text-emerald-400 shrink-0" />
+                  : <TrendingDown className="w-3.5 h-3.5 text-rose-700 dark:text-rose-400 dark:text-rose-400 shrink-0" />}
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium truncate">{l.descricao ?? "—"}</p>
                   <p className="text-xs text-muted-foreground">
@@ -198,7 +198,7 @@ export default function FinancasCentroDetalhe() {
                   <Paperclip className="w-3.5 h-3.5" />
                 </button>
               )}
-              <p className={`text-sm font-semibold tabular-nums shrink-0 ${l.tipo === "entrada" ? "text-emerald-700" : "text-rose-700"}`}>
+              <p className={`text-sm font-semibold tabular-nums shrink-0 ${l.tipo === "entrada" ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"}`}>
                 {l.tipo === "entrada" ? "+" : "−"} {brl(Number(l.valor))}
               </p>
             </div>

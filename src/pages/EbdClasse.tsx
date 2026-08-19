@@ -188,11 +188,11 @@ export default function EbdClasse() {
                 <Pencil className="w-3.5 h-3.5" /> Editar
               </Button>
               {classe.ativo ? (
-                <Button variant="outline" size="sm" onClick={() => setConfirmDeactivate(true)} className="gap-1.5 text-amber-700 hover:text-amber-700" title="Mantém no histórico, oculta da lista padrão">
+                <Button variant="outline" size="sm" onClick={() => setConfirmDeactivate(true)} className="gap-1.5 text-amber-700 dark:text-amber-400 hover:text-amber-700 dark:text-amber-400" title="Mantém no histórico, oculta da lista padrão">
                   <PowerOff className="w-3.5 h-3.5" /> Desativar
                 </Button>
               ) : (
-                <Button variant="outline" size="sm" onClick={handleReativarClasse} disabled={busy} className="gap-1.5 text-emerald-700 hover:text-emerald-700" title="Volta a aparecer na lista de classes ativas">
+                <Button variant="outline" size="sm" onClick={handleReativarClasse} disabled={busy} className="gap-1.5 text-emerald-700 dark:text-emerald-400 hover:text-emerald-700 dark:text-emerald-400" title="Volta a aparecer na lista de classes ativas">
                   <RotateCcw className="w-3.5 h-3.5" /> Reativar
                 </Button>
               )}
@@ -214,7 +214,7 @@ export default function EbdClasse() {
       <div className="grid grid-cols-3 gap-3">
         <Card><CardContent className="py-3 text-center">
           <p className="text-xs text-muted-foreground">Matriculados</p>
-          <p className="text-2xl font-semibold text-emerald-600">{matriculados.length}</p>
+          <p className="text-2xl font-semibold text-emerald-700 dark:text-emerald-400 dark:text-emerald-400">{matriculados.length}</p>
         </CardContent></Card>
         <Card><CardContent className="py-3 text-center">
           <p className="text-xs text-muted-foreground">Esperados</p>
@@ -222,7 +222,7 @@ export default function EbdClasse() {
         </CardContent></Card>
         <Card><CardContent className="py-3 text-center">
           <p className="text-xs text-muted-foreground">Não matriculados</p>
-          <p className="text-2xl font-semibold text-amber-600">{naoMatriculados.length}</p>
+          <p className="text-2xl font-semibold text-amber-700 dark:text-amber-400 dark:text-amber-400">{naoMatriculados.length}</p>
         </CardContent></Card>
       </div>
 
@@ -293,7 +293,7 @@ export default function EbdClasse() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-medium truncate">{e.nome_completo}</p>
                     {e.ja_matriculado && (
-                      <Badge variant="outline" className="text-xs text-emerald-600 border-emerald-300">
+                      <Badge variant="outline" className="text-xs text-emerald-700 dark:text-emerald-400 dark:text-emerald-400 border-emerald-300">
                         Matriculado
                       </Badge>
                     )}

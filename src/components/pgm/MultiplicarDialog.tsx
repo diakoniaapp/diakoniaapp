@@ -69,7 +69,7 @@ export function MultiplicarDialog({ open, onOpenChange, grupoPaiId, grupoPaiNome
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-serif text-xl flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-emerald-600" /> Multiplicar grupo
+            <Sparkles className="w-5 h-5 text-emerald-700 dark:text-emerald-400 dark:text-emerald-400" /> Multiplicar grupo
           </DialogTitle>
           <DialogDescription>
             Você está prestes a gerar um <strong>grupo filho</strong> a partir de <em>{grupoPaiNome}</em>.

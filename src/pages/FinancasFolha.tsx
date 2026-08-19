@@ -155,14 +155,14 @@ function CalcCLT() {
           <div className="space-y-3 pt-2">
             {/* Empregado recebe */}
             <div className="border rounded-md p-3 bg-emerald-50/30 border-emerald-200">
-              <p className="text-xs uppercase tracking-wide text-emerald-700 mb-1">Empregado recebe</p>
+              <p className="text-xs uppercase tracking-wide text-emerald-700 dark:text-emerald-400 mb-1">Empregado recebe</p>
               {res.passos.map((p, i) => (
                 <div key={i} className="flex items-center justify-between text-xs py-0.5 border-b border-border/30 last:border-0">
                   <span className={i === res.passos.length - 1 ? "font-semibold" : ""}>
                     {p.titulo}
                     {p.descricao && <span className="text-xs text-muted-foreground ml-1">({p.descricao})</span>}
                   </span>
-                  <span className={`tabular-nums ${i === res.passos.length - 1 ? "font-semibold text-emerald-700 text-base" : p.valor < 0 ? "text-rose-700" : ""}`}>
+                  <span className={`tabular-nums ${i === res.passos.length - 1 ? "font-semibold text-emerald-700 dark:text-emerald-400 text-base" : p.valor < 0 ? "text-rose-700 dark:text-rose-400" : ""}`}>
                     {brl(p.valor)}
                   </span>
                 </div>
@@ -171,7 +171,7 @@ function CalcCLT() {
 
             {/* Igreja paga */}
             <div className="border rounded-md p-3 bg-rose-50/30 border-rose-200">
-              <p className="text-xs uppercase tracking-wide text-rose-700 mb-1">Igreja paga</p>
+              <p className="text-xs uppercase tracking-wide text-rose-700 dark:text-rose-400 mb-1">Igreja paga</p>
               <div className="space-y-0.5 text-xs">
                 <Linha label="Salário base" valor={res.salario_base} />
                 <Linha label="+ FGTS 8%" valor={res.fgts} />
@@ -184,7 +184,7 @@ function CalcCLT() {
                 <Linha label="+ Provisão Férias +1/3" valor={res.ferias_provisao} />
                 <div className="flex items-center justify-between text-sm font-semibold pt-1.5 border-t border-rose-300 mt-1">
                   <span>💰 CUSTO TOTAL MENSAL</span>
-                  <span className="tabular-nums text-rose-700">{brl(res.custo_total)}</span>
+                  <span className="tabular-nums text-rose-700 dark:text-rose-400">{brl(res.custo_total)}</span>
                 </div>
                 <p className="text-xs text-muted-foreground text-right">
                   {Math.round((res.custo_total / res.salario_base) * 100)}% do salário base
@@ -258,25 +258,25 @@ function CalcRPA() {
         {res && (
           <div className="space-y-3 pt-2">
             <div className="border rounded-md p-3 bg-emerald-50/30 border-emerald-200">
-              <p className="text-xs uppercase tracking-wide text-emerald-700 mb-1">Autônomo recebe</p>
+              <p className="text-xs uppercase tracking-wide text-emerald-700 dark:text-emerald-400 mb-1">Autônomo recebe</p>
               {res.passos.map((p, i) => (
                 <div key={i} className="flex items-center justify-between text-xs py-0.5 border-b border-border/30 last:border-0">
                   <span className={i === res.passos.length - 1 ? "font-semibold" : ""}>
                     {p.titulo}{p.descricao && <span className="text-xs text-muted-foreground ml-1">({p.descricao})</span>}
                   </span>
-                  <span className={`tabular-nums ${i === res.passos.length - 1 ? "font-semibold text-emerald-700 text-base" : p.valor < 0 ? "text-rose-700" : ""}`}>
+                  <span className={`tabular-nums ${i === res.passos.length - 1 ? "font-semibold text-emerald-700 dark:text-emerald-400 text-base" : p.valor < 0 ? "text-rose-700 dark:text-rose-400" : ""}`}>
                     {brl(p.valor)}
                   </span>
                 </div>
               ))}
             </div>
             <div className="border rounded-md p-3 bg-rose-50/30 border-rose-200">
-              <p className="text-xs uppercase tracking-wide text-rose-700 mb-1">Igreja paga</p>
+              <p className="text-xs uppercase tracking-wide text-rose-700 dark:text-rose-400 mb-1">Igreja paga</p>
               <Linha label="Valor bruto" valor={res.bruto} />
               <Linha label="+ INSS Patronal 20%" valor={res.inss_patronal} hint={cebas ? "isento" : ""} />
               <div className="flex items-center justify-between text-sm font-semibold pt-1.5 border-t border-rose-300 mt-1">
                 <span>💰 CUSTO TOTAL</span>
-                <span className="tabular-nums text-rose-700">{brl(res.custo_total)}</span>
+                <span className="tabular-nums text-rose-700 dark:text-rose-400">{brl(res.custo_total)}</span>
               </div>
             </div>
             <div className="border rounded-md p-2 bg-blue-50/30 border-blue-200 text-xs text-blue-900 space-y-0.5">
@@ -352,7 +352,7 @@ function CalcMEI() {
         {res && (
           <div className="space-y-2 pt-2">
             <div className="border rounded-md p-3 bg-emerald-50/30 border-emerald-200">
-              <p className="text-xs uppercase tracking-wide text-emerald-700 mb-1">Resultado</p>
+              <p className="text-xs uppercase tracking-wide text-emerald-700 dark:text-emerald-400 mb-1">Resultado</p>
               <Linha label="Valor NF" valor={res.valor_nf} />
               <Linha label="💰 Custo total pra igreja" valor={res.custo_total} bold />
               <p className="text-xs text-muted-foreground mt-1">Sem encargos da contratante — MEI emite a própria NF.</p>
@@ -435,20 +435,20 @@ function CalcPrebenda() {
         {res && (
           <div className="space-y-3 pt-2">
             <div className="border rounded-md p-3 bg-emerald-50/30 border-emerald-200">
-              <p className="text-xs uppercase tracking-wide text-emerald-700 mb-1">Pastor recebe</p>
+              <p className="text-xs uppercase tracking-wide text-emerald-700 dark:text-emerald-400 mb-1">Pastor recebe</p>
               {res.passos.map((p, i) => (
                 <div key={i} className="flex items-center justify-between text-xs py-0.5 border-b border-border/30 last:border-0">
                   <span className={i === res.passos.length - 1 ? "font-semibold" : ""}>
                     {p.titulo}{p.descricao && <span className="text-xs text-muted-foreground ml-1">({p.descricao})</span>}
                   </span>
-                  <span className={`tabular-nums ${i === res.passos.length - 1 ? "font-semibold text-emerald-700 text-base" : p.valor < 0 ? "text-rose-700" : ""}`}>
+                  <span className={`tabular-nums ${i === res.passos.length - 1 ? "font-semibold text-emerald-700 dark:text-emerald-400 text-base" : p.valor < 0 ? "text-rose-700 dark:text-rose-400" : ""}`}>
                     {brl(p.valor)}
                   </span>
                 </div>
               ))}
             </div>
             <div className="border rounded-md p-3 bg-rose-50/30 border-rose-200">
-              <p className="text-xs uppercase tracking-wide text-rose-700 mb-1">Igreja paga</p>
+              <p className="text-xs uppercase tracking-wide text-rose-700 dark:text-rose-400 mb-1">Igreja paga</p>
               <Linha label="Bruto total" valor={res.bruto_total} bold />
               <p className="text-xs text-muted-foreground mt-1">Sem INSS Patronal · sem FGTS · sem 13º · sem férias</p>
             </div>
@@ -472,7 +472,7 @@ function Linha({ label, valor, hint, bold }: { label: string; valor: number; hin
         {label}
         {hint && <span className="text-xs text-muted-foreground ml-1">({hint})</span>}
       </span>
-      <span className={`tabular-nums ${bold ? "font-semibold" : ""} ${valor < 0 ? "text-rose-700" : ""}`}>
+      <span className={`tabular-nums ${bold ? "font-semibold" : ""} ${valor < 0 ? "text-rose-700 dark:text-rose-400" : ""}`}>
         {brl(valor)}
       </span>
     </div>

@@ -37,8 +37,8 @@ const TIPO_LABEL: Record<MovimentoTipo, string> = {
 };
 
 const TIPO_COR: Record<MovimentoTipo, string> = {
-  custo: "bg-rose-50 text-rose-700 border-rose-200",
-  reembolso_pessoa: "bg-amber-50 text-amber-700 border-amber-200",
+  custo: "bg-rose-50 text-rose-700 dark:text-rose-400 border-rose-200",
+  reembolso_pessoa: "bg-amber-50 text-amber-700 dark:text-amber-400 border-amber-200",
   abate_compra_cnpj: "bg-blue-50 text-blue-700 border-blue-200",
   reversao_admin: "bg-purple-50 text-purple-700 border-purple-200",
   ajuste: "bg-muted",
@@ -102,7 +102,7 @@ export function MovimentosDialog({ open, onOpenChange, caixaId, onChange }: Prop
           }>
             <span className="text-muted-foreground">Saldo virtual atual:</span>
             <span className={"font-medium text-base font-serif " +
-              (resumo.saldo_virtual <= 0 ? "text-rose-700" : "text-emerald-700")
+              (resumo.saldo_virtual <= 0 ? "text-rose-700 dark:text-rose-400" : "text-emerald-700 dark:text-emerald-400")
             }>
               {fmtBR(resumo.saldo_virtual)}
             </span>
@@ -112,7 +112,7 @@ export function MovimentosDialog({ open, onOpenChange, caixaId, onChange }: Prop
           </div>
         )}
         {resumo && resumo.saldo_virtual <= 0 && (
-          <p className="text-xs text-rose-700 -mt-2">
+          <p className="text-xs text-rose-700 dark:text-rose-400 -mt-2">
             ⚠ Saldo zerado. Não é possível registrar custos, reembolsos ou reversões enquanto não houver vendas.
           </p>
         )}
@@ -147,7 +147,7 @@ export function MovimentosDialog({ open, onOpenChange, caixaId, onChange }: Prop
                     </button>
                   )}
                   <button onClick={() => excluir(m.id)}
-                    className="text-rose-600 hover:bg-rose-50 p-1 rounded" title="Arquivar">
+                    className="text-rose-700 dark:text-rose-400 dark:text-rose-400 hover:bg-rose-50 p-1 rounded" title="Arquivar">
                     <Trash2 className="w-3 h-3" />
                   </button>
                 </div>

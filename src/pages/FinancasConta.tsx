@@ -29,16 +29,16 @@ function dataBr(s: string) {
 
 const STATUS_COR: Record<FinStatus, string> = {
   realizado:  "text-foreground",
-  conciliado: "text-emerald-700",
-  previsto:   "text-amber-700",
+  conciliado: "text-emerald-700 dark:text-emerald-400",
+  previsto:   "text-amber-700 dark:text-amber-400",
   cancelado:  "text-muted-foreground line-through",
   aguardando_aprovacao: "text-blue-700",
 };
 
 const STATUS_ICONE: Record<FinStatus, JSX.Element> = {
   realizado:  <CheckCircle2 className="w-3 h-3" />,
-  conciliado: <CheckCircle2 className="w-3 h-3 text-emerald-600" />,
-  previsto:   <Clock className="w-3 h-3 text-amber-600" />,
+  conciliado: <CheckCircle2 className="w-3 h-3 text-emerald-700 dark:text-emerald-400 dark:text-emerald-400" />,
+  previsto:   <Clock className="w-3 h-3 text-amber-700 dark:text-amber-400 dark:text-amber-400" />,
   cancelado:  <XCircle className="w-3 h-3 text-muted-foreground" />,
   aguardando_aprovacao: <Clock className="w-3 h-3 text-blue-600" />,
 };
@@ -174,14 +174,14 @@ export default function FinancasConta() {
       <div className="grid grid-cols-3 gap-2">
         <Card className="bg-emerald-50/40 border-emerald-200">
           <CardContent className="py-2 px-3">
-            <p className="text-xs uppercase text-emerald-700 flex items-center gap-1"><TrendingUp className="w-3 h-3" /> Entradas</p>
-            <p className="text-sm font-semibold text-emerald-700 tabular-nums">{brl(totalEntradasPeriodo)}</p>
+            <p className="text-xs uppercase text-emerald-700 dark:text-emerald-400 flex items-center gap-1"><TrendingUp className="w-3 h-3" /> Entradas</p>
+            <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums">{brl(totalEntradasPeriodo)}</p>
           </CardContent>
         </Card>
         <Card className="bg-rose-50/40 border-rose-200">
           <CardContent className="py-2 px-3">
-            <p className="text-xs uppercase text-rose-700 flex items-center gap-1"><TrendingDown className="w-3 h-3" /> Saídas</p>
-            <p className="text-sm font-semibold text-rose-700 tabular-nums">{brl(totalSaidasPeriodo)}</p>
+            <p className="text-xs uppercase text-rose-700 dark:text-rose-400 flex items-center gap-1"><TrendingDown className="w-3 h-3" /> Saídas</p>
+            <p className="text-sm font-semibold text-rose-700 dark:text-rose-400 tabular-nums">{brl(totalSaidasPeriodo)}</p>
           </CardContent>
         </Card>
         <Card>
@@ -246,7 +246,7 @@ export default function FinancasConta() {
                     <td className="py-1.5 px-2 text-xs text-muted-foreground truncate">
                       {l.centro_nome ?? "—"}
                     </td>
-                    <td className={`py-1.5 px-2 text-right tabular-nums font-medium ${l.tipo === "entrada" ? "text-emerald-700" : "text-rose-700"}`}>
+                    <td className={`py-1.5 px-2 text-right tabular-nums font-medium ${l.tipo === "entrada" ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"}`}>
                       {l.tipo === "entrada" ? "+" : "−"} {brl(Number(l.valor))}
                     </td>
                     <td className="py-1.5 px-1">

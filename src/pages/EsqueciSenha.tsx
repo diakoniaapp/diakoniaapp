@@ -72,7 +72,7 @@ export default function EsqueciSenha() {
           </>
         ) : (
           <>
-            <div className="flex items-center gap-2 text-emerald-600 mb-3">
+            <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 dark:text-emerald-400 mb-3">
               <CheckCircle2 className="w-5 h-5" />
               <p className="font-medium">Solicitação enviada</p>
             </div>

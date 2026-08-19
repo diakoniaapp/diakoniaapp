@@ -30,8 +30,8 @@ type AcessoComNome = AcessoPessoa & { nomeCompleto: string };
 
 const STATUS_STYLE = {
   sem_acesso: { label: "Sem acesso",           cor: "text-slate-500 border-slate-300"  },
-  aguardando: { label: "Aguardando 1º acesso", cor: "text-amber-600 border-amber-400"  },
-  ativo:      { label: "Ativo",                cor: "text-green-600 border-green-400"  },
+  aguardando: { label: "Aguardando 1º acesso", cor: "text-amber-700 dark:text-amber-400 dark:text-amber-400 border-amber-400"  },
+  ativo:      { label: "Ativo",                cor: "text-green-700 dark:text-green-400 dark:text-green-400 border-green-400"  },
 };
 
 // ─── Componente ───────────────────────────────────────────────────────────────
@@ -310,7 +310,7 @@ export default function Usuarios() {
                                 disabled={emAndamento}
                                 onClick={() => handleReenviar(a)}
                                 title="Resetar senha"
-                                className="gap-1 text-xs h-7 px-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                                className="gap-1 text-xs h-7 px-2 text-orange-700 dark:text-orange-400 dark:text-orange-400 hover:text-orange-700 dark:text-orange-400 hover:bg-orange-50"
                               >
                                 {emAndamento
                                   ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />

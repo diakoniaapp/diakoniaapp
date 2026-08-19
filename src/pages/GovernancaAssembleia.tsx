@@ -145,7 +145,7 @@ export default function GovernancaAssembleia() {
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div>
               <p className="text-xs uppercase tracking-wide text-muted-foreground">Quórum</p>
-              <p className={`text-2xl font-semibold tabular-nums ${quorum.atingido ? "text-emerald-700" : "text-rose-700"}`}>
+              <p className={`text-2xl font-semibold tabular-nums ${quorum.atingido ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"}`}>
                 {presNum} / {aptos}
                 <span className="text-base ml-1">({quorum.pct.toFixed(1)}%)</span>
               </p>
@@ -153,11 +153,11 @@ export default function GovernancaAssembleia() {
             </div>
             <div className="text-right">
               {quorum.atingido ? (
-                <Badge variant="outline" className="text-sm bg-emerald-100 text-emerald-700 border-emerald-400 px-3 py-1">
+                <Badge variant="outline" className="text-sm bg-emerald-100 text-emerald-700 dark:text-emerald-400 border-emerald-400 px-3 py-1">
                   ✅ Quórum atingido
                 </Badge>
               ) : (
-                <Badge variant="outline" className="text-sm bg-rose-100 text-rose-700 border-rose-400 px-3 py-1">
+                <Badge variant="outline" className="text-sm bg-rose-100 text-rose-700 dark:text-rose-400 border-rose-400 px-3 py-1">
                   🚨 Quórum não atingido
                 </Badge>
               )}
@@ -189,7 +189,7 @@ export default function GovernancaAssembleia() {
             ✓ Concluir
           </Button>
         )}
-        <Button size="sm" variant="outline" onClick={() => setConvOpen(true)} className="gap-1.5 text-emerald-700">
+        <Button size="sm" variant="outline" onClick={() => setConvOpen(true)} className="gap-1.5 text-emerald-700 dark:text-emerald-400">
           <MessageCircle className="w-3.5 h-3.5" /> Convocação WhatsApp
         </Button>
         {ass.status === "concluida" && (
@@ -323,7 +323,7 @@ function ConvocacaoDialog({ assembleia, pautas, open, onOpenChange, onMarked }: 
       <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-serif text-xl flex items-center gap-2">
-            <MessageCircle className="w-5 h-5 text-emerald-600" />
+            <MessageCircle className="w-5 h-5 text-emerald-700 dark:text-emerald-400 dark:text-emerald-400" />
             Convocação WhatsApp
           </DialogTitle>
           <DialogDescription>
@@ -453,9 +453,9 @@ function PautaVotacao({ pauta, aptos, presentes, quorumAtingido, emAndamento, on
             )}
           </div>
           <Badge variant="outline" className={`text-xs shrink-0 ${
-            pauta.status === "aprovada_assembleia" ? "bg-emerald-100 text-emerald-700 border-emerald-300" :
-            pauta.status === "rejeitada" ? "bg-rose-100 text-rose-700 border-rose-300" :
-            pauta.status === "adiada" ? "bg-amber-100 text-amber-700 border-amber-300" :
+            pauta.status === "aprovada_assembleia" ? "bg-emerald-100 text-emerald-700 dark:text-emerald-400 border-emerald-300" :
+            pauta.status === "rejeitada" ? "bg-rose-100 text-rose-700 dark:text-rose-400 border-rose-300" :
+            pauta.status === "adiada" ? "bg-amber-100 text-amber-700 dark:text-amber-400 border-amber-300" :
             "bg-blue-100 text-blue-700 border-blue-300"
           }`}>
             {PAUTA_STATUS_LABEL[pauta.status]}
@@ -483,11 +483,11 @@ function PautaVotacao({ pauta, aptos, presentes, quorumAtingido, emAndamento, on
               <ThumbsUp className="w-3.5 h-3.5" /> Aprovar
             </Button>
             <Button size="sm" onClick={() => { setAberto(true); autoVotos("rejeitada"); }}
-              variant="outline" className="text-rose-700 border-rose-300 gap-1.5">
+              variant="outline" className="text-rose-700 dark:text-rose-400 border-rose-300 gap-1.5">
               <ThumbsDown className="w-3.5 h-3.5" /> Rejeitar
             </Button>
             <Button size="sm" onClick={() => { setAberto(true); autoVotos("adiada"); }}
-              variant="outline" className="text-amber-700 border-amber-300 gap-1.5">
+              variant="outline" className="text-amber-700 dark:text-amber-400 border-amber-300 gap-1.5">
               <Clock className="w-3.5 h-3.5" /> Adiar
             </Button>
           </div>

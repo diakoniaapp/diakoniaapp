@@ -152,13 +152,13 @@ export default function MembresiaDetalhe() {
           {checklist.map((item, i) => (
             <div key={i} className="flex items-center gap-2">
               {item.ok
-                ? <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                ? <CheckCircle2 className="w-4 h-4 text-emerald-700 dark:text-emerald-400 dark:text-emerald-400 shrink-0" />
                 : <Circle className="w-4 h-4 text-muted-foreground shrink-0" />}
               <span className={`text-sm flex-1 ${item.ok ? "text-foreground" : "text-muted-foreground"}`}>
                 {item.label}
               </span>
               {!item.ok && item.acao && (
-                <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-300">
+                <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 dark:text-amber-400 border-amber-300">
                   {item.acao}
                 </Badge>
               )}
@@ -226,13 +226,13 @@ export default function MembresiaDetalhe() {
             <Button size="sm" onClick={salvarDataAssembleia} disabled={busy || !dataAssembleia}>Salvar</Button>
           </div>
           {sol.data_aprovacao && (
-            <p className="text-xs text-emerald-700 mt-2">
+            <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-2">
               ✓ Aprovada em {new Date(sol.data_aprovacao + "T00:00").toLocaleDateString("pt-BR")}
               {sol.observacao_aprovacao && ` — "${sol.observacao_aprovacao}"`}
             </p>
           )}
           {sol.observacao_rejeicao && (
-            <p className="text-xs text-rose-700 mt-2">
+            <p className="text-xs text-rose-700 dark:text-rose-400 mt-2">
               ✗ Rejeitada — "{sol.observacao_rejeicao}"
             </p>
           )}

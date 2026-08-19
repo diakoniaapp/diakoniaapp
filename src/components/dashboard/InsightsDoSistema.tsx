@@ -205,8 +205,8 @@ export function InsightsDoSistema() {
 function InsightCard({ ins }: { ins: Insight }) {
   const cores = {
     info:  { bg: "border-blue-200 bg-blue-50/40", icon: "text-blue-600", label: "Sugestão" },
-    warn:  { bg: "border-amber-200 bg-amber-50/40", icon: "text-amber-600", label: "Atenção" },
-    good:  { bg: "border-emerald-200 bg-emerald-50/40", icon: "text-emerald-600", label: "Bom sinal" },
+    warn:  { bg: "border-amber-200 bg-amber-50/40", icon: "text-amber-700 dark:text-amber-400 dark:text-amber-400", label: "Atenção" },
+    good:  { bg: "border-emerald-200 bg-emerald-50/40", icon: "text-emerald-700 dark:text-emerald-400 dark:text-emerald-400", label: "Bom sinal" },
   };
   const cls = cores[ins.severidade];
   const Icon = ins.severidade === "good" ? TrendingUp 

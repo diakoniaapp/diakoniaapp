@@ -184,7 +184,7 @@ export function PorBairro() {
         <Card className="border-l-4 border-l-warning">
           <CardContent className="py-4">
             <p className="text-sm flex items-start gap-2">
-              <TriangleAlert className="w-4 h-4 text-warning shrink-0 mt-0.5" />
+              <TriangleAlert className="w-4 h-4 text-warning-text shrink-0 mt-0.5" />
               <span>
                 <b>{semBairro} pessoas não têm bairro cadastrado</b>, contra{" "}
                 {totalComBairro} que têm. A concentração acima descreve onde alguém

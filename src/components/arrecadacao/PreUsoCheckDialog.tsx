@@ -97,7 +97,7 @@ export function PreUsoCheckDialog({ open, onOpenChange, reservaId, onConfirmado 
               <span className={"flex-1 " + (item.ok ? "line-through text-muted-foreground" : "")}>
                 {item.item}
                 {item.obrigatorio && (
-                  <Badge variant="outline" className="text-xs ml-1.5 bg-amber-50 text-amber-700 border-amber-200">
+                  <Badge variant="outline" className="text-xs ml-1.5 bg-amber-50 text-amber-700 dark:text-amber-400 border-amber-200">
                     obrigatório
                   </Badge>
                 )}

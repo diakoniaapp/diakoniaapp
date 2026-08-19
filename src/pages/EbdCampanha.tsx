@@ -19,11 +19,11 @@ import { EntradaForm } from "@/components/ebd/EntradaForm";
 const TIPO_LABEL: Record<string, string> = { oferta: "Oferta", evento: "Evento", produto: "Produto" };
 const FORMA_LABEL: Record<string, string> = { pix: "PIX", envelope: "Envelope", outro: "Outro" };
 const STATUS_LABEL: Record<string, { texto: string; cor: string }> = {
-  meta_atingida: { texto: "🎉 Meta atingida!", cor: "text-emerald-700" },
-  acima_esperado: { texto: "👏 Acima do esperado", cor: "text-emerald-700" },
+  meta_atingida: { texto: "🎉 Meta atingida!", cor: "text-emerald-700 dark:text-emerald-400" },
+  acima_esperado: { texto: "👏 Acima do esperado", cor: "text-emerald-700 dark:text-emerald-400" },
   no_ritmo: { texto: "✓ No ritmo", cor: "text-blue-700" },
-  abaixo_esperado: { texto: "⚠ Abaixo do esperado", cor: "text-amber-700" },
-  muito_abaixo: { texto: "❗ Muito abaixo", cor: "text-rose-700" },
+  abaixo_esperado: { texto: "⚠ Abaixo do esperado", cor: "text-amber-700 dark:text-amber-400" },
+  muito_abaixo: { texto: "❗ Muito abaixo", cor: "text-rose-700 dark:text-rose-400" },
 };
 
 function brl(v: number) {

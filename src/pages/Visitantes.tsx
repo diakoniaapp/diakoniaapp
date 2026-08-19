@@ -215,8 +215,8 @@ export default function Visitantes() {
         {/* M3.4 — Visitantes em risco */}
         {stats.emRisco > 0 && (
           <div className="flex items-center gap-3 rounded-lg border border-warning/30 bg-warning/5 px-4 py-3">
-            <AlertTriangle className="w-4 h-4 text-warning shrink-0" />
-            <p className="text-sm font-medium text-warning" translate="no">
+            <AlertTriangle className="w-4 h-4 text-warning-text shrink-0" />
+            <p className="text-sm font-medium text-warning-text" translate="no">
               <span className="font-bold">{stats.emRisco}</span>{" "}
               {stats.emRisco === 1
                 ? "visitante pode estar se perdendo"
@@ -394,7 +394,7 @@ function VisitanteCard({ v, busy, busyPromote, variant, onOpen, onRetorno, onCon
   const prio      = calcularPrioridade(nv, v.created_at);
   const prioStyle = PRIORIDADE_STYLE[prio];
   const dias      = Math.floor((Date.now() - new Date(v.created_at).getTime()) / 86_400_000);
-  const iconBg    = variant === "success" ? "bg-success/15 text-success" : "bg-warning/15 text-warning";
+  const iconBg    = variant === "success" ? "bg-success/15 text-success" : "bg-warning/15 text-warning-text";
   const nome      = v.nome_completo.split(" ")[0];
 
   const evolucao = avaliarEvolucao({

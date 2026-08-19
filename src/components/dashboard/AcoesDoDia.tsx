@@ -36,11 +36,11 @@ const APARENCIA: Record<TipoEfemeride, { Icon: typeof Cake; sufixo: string; semA
   aniversario: { Icon: Cake,   sufixo: "anos de vida",      semAnos: "Aniversário",
     grad: "bg-gradient-to-br from-pink-100 to-pink-50 border-pink-200",   cor: "text-pink-600" },
   casamento:   { Icon: Heart,  sufixo: "anos de casamento", semAnos: "Aniversário de casamento",
-    grad: "bg-gradient-to-br from-rose-100 to-rose-50 border-rose-200",   cor: "text-rose-600" },
+    grad: "bg-gradient-to-br from-rose-100 to-rose-50 border-rose-200",   cor: "text-rose-700 dark:text-rose-400 dark:text-rose-400" },
   membresia:   { Icon: Users,  sufixo: "anos de membresia", semAnos: "Aniversário de membresia",
     grad: "bg-gradient-to-br from-sky-100 to-sky-50 border-sky-200",      cor: "text-sky-700" },
   pastorado:   { Icon: Church, sufixo: "anos de pastorado", semAnos: "Aniversário de pastorado",
-    grad: "bg-gradient-to-br from-amber-100 to-amber-50 border-amber-200", cor: "text-amber-700" },
+    grad: "bg-gradient-to-br from-amber-100 to-amber-50 border-amber-200", cor: "text-amber-700 dark:text-amber-400" },
 };
 
 function quando(dias: number): string {

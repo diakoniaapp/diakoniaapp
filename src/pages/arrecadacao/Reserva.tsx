@@ -31,11 +31,11 @@ const STATUS_LABEL: Record<ReservaStatus, string> = {
 } as any;
 
 const STATUS_COR: Record<ReservaStatus, string> = {
-  solicitada: "bg-amber-50 text-amber-700 border-amber-200",
+  solicitada: "bg-amber-50 text-amber-700 dark:text-amber-400 border-amber-200",
   aprovada:   "bg-emerald-50 text-emerald-800 border-emerald-300",
-  em_uso:     "bg-emerald-100 text-emerald-700 border-emerald-300",
+  em_uso:     "bg-emerald-100 text-emerald-700 dark:text-emerald-400 border-emerald-300",
   encerrada:  "bg-muted text-muted-foreground border-border",
-  recusada:   "bg-rose-50 text-rose-700 border-rose-200",
+  recusada:   "bg-rose-50 text-rose-700 dark:text-rose-400 border-rose-200",
   cancelada:  "bg-muted text-muted-foreground line-through",
 } as any;
 
@@ -145,7 +145,7 @@ export default function ReservaDetalhe() {
               <CheckCircle2 className="w-3.5 h-3.5" /> Aprovar
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setRecusarOpen(true)}
-              className="gap-1.5 text-rose-600 hover:bg-rose-50">
+              className="gap-1.5 text-rose-700 dark:text-rose-400 dark:text-rose-400 hover:bg-rose-50">
               <XCircle className="w-3.5 h-3.5" /> Recusar
             </Button>
           </>
@@ -162,7 +162,7 @@ export default function ReservaDetalhe() {
             </Button>
           </>
         )}
-        <Button size="sm" variant="ghost" onClick={() => acao("arquivar")} className="text-rose-600">
+        <Button size="sm" variant="ghost" onClick={() => acao("arquivar")} className="text-rose-700 dark:text-rose-400 dark:text-rose-400">
           <Trash2 className="w-3.5 h-3.5" />
         </Button>
       </header>
@@ -188,8 +188,8 @@ export default function ReservaDetalhe() {
             </Linha>
           )}
           {reserva.motivo_recusa && (
-            <Linha icon={<XCircle className="w-3.5 h-3.5 text-rose-600" />} label="Motivo da recusa">
-              <span className="text-rose-700">{reserva.motivo_recusa}</span>
+            <Linha icon={<XCircle className="w-3.5 h-3.5 text-rose-700 dark:text-rose-400 dark:text-rose-400" />} label="Motivo da recusa">
+              <span className="text-rose-700 dark:text-rose-400">{reserva.motivo_recusa}</span>
             </Linha>
           )}
         </CardContent>
@@ -208,14 +208,14 @@ export default function ReservaDetalhe() {
             <CardTitle className="text-base md:text-lg flex items-center gap-2">
               <ShoppingCart className={
                 "w-5 h-5 " +
-                (caixa.estado === "aberto"      ? "text-emerald-700" :
-                 caixa.estado === "conciliando" ? "text-amber-700" : "text-muted-foreground")
+                (caixa.estado === "aberto"      ? "text-emerald-700 dark:text-emerald-400" :
+                 caixa.estado === "conciliando" ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground")
               } />
               Caixa do PDV
               <Badge className={
                 "ml-2 text-xs " +
-                (caixa.estado === "aberto"      ? "bg-emerald-100 text-emerald-700 border-emerald-200" :
-                 caixa.estado === "conciliando" ? "bg-amber-100 text-amber-700 border-amber-200" :
+                (caixa.estado === "aberto"      ? "bg-emerald-100 text-emerald-700 dark:text-emerald-400 border-emerald-200" :
+                 caixa.estado === "conciliando" ? "bg-amber-100 text-amber-700 dark:text-amber-400 border-amber-200" :
                                                    "bg-muted text-muted-foreground")
               }>
                 {caixa.estado.toUpperCase()}
@@ -282,7 +282,7 @@ export default function ReservaDetalhe() {
                       carregar();
                     } catch (err: any) { toast.error(err?.message ?? "Erro"); }
                   }}
-                  className="gap-2 h-12 px-4 border-rose-300 text-rose-700 hover:bg-rose-50">
+                  className="gap-2 h-12 px-4 border-rose-300 text-rose-700 dark:text-rose-400 hover:bg-rose-50">
                   <CheckCircle2 className="w-4 h-4" /> Encerrar reserva
                 </Button>
               )}
@@ -373,8 +373,8 @@ export default function ReservaDetalhe() {
 
 function BlocoGrande({ titulo, valor, cor, destaque }: { titulo: string; valor: string; cor?: string; destaque?: boolean }) {
   const corClasses: Record<string, string> = {
-    emerald: "text-emerald-700",
-    rose:    "text-rose-700",
+    emerald: "text-emerald-700 dark:text-emerald-400",
+    rose:    "text-rose-700 dark:text-rose-400",
   };
   return (
     <div className={
@@ -391,7 +391,7 @@ function BlocoGrande({ titulo, valor, cor, destaque }: { titulo: string; valor: 
 }
 
 function Bloco({ titulo, valor, cor, destaque }: { titulo: string; valor: string; cor?: string; destaque?: boolean }) {
-  const corClasses: Record<string, string> = { emerald: "text-emerald-700", rose: "text-rose-700" };
+  const corClasses: Record<string, string> = { emerald: "text-emerald-700 dark:text-emerald-400", rose: "text-rose-700 dark:text-rose-400" };
   return (
     <div className={"border rounded-md p-2 " + (destaque ? "border-emerald-300 bg-emerald-50/40" : "")}>
       <div className="text-xs uppercase tracking-wide text-muted-foreground">{titulo}</div>
