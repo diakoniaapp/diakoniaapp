@@ -270,7 +270,10 @@ export default function Visitantes() {
             ) : error ? (
               <ErrorState onRetry={load} />
             ) : listaNaoVoltou.length === 0 ? (
-              <EmptyState message="Nenhum visitante pendente de retorno." />
+              <EmptyState
+                message="Ninguém esperando retorno"
+                descricao="Todos os visitantes registrados já receberam contato. Quando alguém novo chegar, o nome aparece aqui."
+              />
             ) : (
               <div className="grid gap-3">
                 {listaNaoVoltou.map(v => (
@@ -290,7 +293,10 @@ export default function Visitantes() {
             ) : error ? (
               <ErrorState onRetry={load} />
             ) : visitantes.length === 0 ? (
-              <EmptyState message="Nenhum visitante cadastrado ainda." />
+              <EmptyState
+                message="Nenhum visitante cadastrado"
+                descricao="Quem chegou pela primeira vez entra aqui. É a única lista do sistema com régua de acompanhamento: o Diakonia lembra quem ainda não foi procurado e há quantos dias."
+              />
             ) : (
               <>
                 {listaRetorno.length > 0 && (

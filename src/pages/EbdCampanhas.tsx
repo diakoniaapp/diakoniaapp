@@ -78,8 +78,16 @@ export default function EbdCampanhas() {
 
       {campanhas.length === 0 && (
         <Card className="border-dashed">
-          <CardContent className="py-8 text-center text-muted-foreground">
-            Nenhuma campanha ainda. Crie a primeira clicando em "Nova".
+          <CardContent className="px-6 py-12 text-center">
+            <p className="text-base font-medium text-foreground">Nenhuma campanha ainda</p>
+            <p className="text-sm text-muted-foreground mt-1.5 max-w-sm mx-auto leading-relaxed">
+              Uma campanha é uma meta de arrecadação com prazo. Lançada aqui, a
+              classe passa a ver quanto já entrou, quanto falta e se está no
+              ritmo para chegar na data combinada.
+            </p>
+            <Button onClick={() => setNovaOpen(true)} className="gap-2 mt-5">
+              <Plus className="w-4 h-4" /> Criar a primeira campanha
+            </Button>
           </CardContent>
         </Card>
       )}

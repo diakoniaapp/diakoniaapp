@@ -92,7 +92,11 @@ export function AprovacaoDialog({ open, onOpenChange, reserva, onAprovado }: Pro
           { duration: 9000 },
         );
       } else if (msg.includes("Nenhum template")) {
-        toast.error("Nenhum template de acordo. Cadastre em arr_acordo_template.");
+        toast.error(
+          "O termo de uso ainda não foi redigido. Peça ao responsável técnico " +
+          "para cadastrar o modelo do termo antes de aprovar reservas.",
+          { duration: 9000 },
+        );
       } else {
         toast.error(msg || "Erro ao aprovar");
       }
@@ -196,8 +200,8 @@ export function AprovacaoDialog({ open, onOpenChange, reserva, onAprovado }: Pro
             {!carregandoDest && !acordoTexto && (
               <div className="border border-rose-300 bg-rose-50/50 rounded p-2 text-xs text-rose-800 flex gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0" />
-                Texto do termo de uso está vazio. Cadastre/edite o template ativo em
-                arr_acordo_template antes de enviar.
+                O termo de uso está sem texto. Peça ao responsável técnico para
+                redigir o modelo — sem ele, o solicitante recebe um termo em branco.
               </div>
             )}
 

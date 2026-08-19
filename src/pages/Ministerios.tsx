@@ -213,7 +213,10 @@ export default function Ministerios() {
                         />
                         <div className="p-4 md:p-8">
                               {loading ? <ListSkeleton /> : error ? <ErrorState onRetry={load} /> : list.length === 0 ? (
-                                                <EmptyState message="Nenhum ministério cadastrado" />
+                                                <EmptyState
+                                                  message="Nenhum ministério cadastrado"
+                                                  descricao="Ministérios e suas áreas são onde as pessoas servem. Com eles no sistema, o organograma se desenha sozinho e cada voluntário passa a aparecer ligado a algum lugar."
+                                                />
                                               ) : (
                                                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                                                       {list.map((m) => (

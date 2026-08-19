@@ -72,7 +72,12 @@ export default function Pgm() {
         <Card className="border-dashed">
           <CardContent className="py-10 text-center text-sm text-muted-foreground space-y-2">
             <Users className="w-10 h-10 mx-auto opacity-30" />
-            <p>Ainda não há PGMs cadastrados.</p>
+            <p className="text-base font-medium text-foreground">Nenhum PGM cadastrado</p>
+            <p className="max-w-sm mx-auto leading-relaxed">
+              Os Pequenos Grupos são a igreja reunida na semana. Cada grupo tem
+              anfitrião, endereço e dia fixo — e é por eles que os encontros e as
+              presenças passam a ser registrados.
+            </p>
             {podeCriar && (
               <Button onClick={() => setFormOpen(true)} variant="outline" className="gap-1.5 mt-2">
                 <Plus className="w-4 h-4" /> Criar o primeiro PGM

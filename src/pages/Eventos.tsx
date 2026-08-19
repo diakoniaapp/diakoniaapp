@@ -647,7 +647,11 @@ export default function Eventos() {
           ) : error ? (
             <ErrorState onRetry={load} />
           ) : ocorrencias.length === 0 ? (
-            <EmptyState message="Nenhum evento neste período" />
+            <EmptyState
+              variante="busca"
+              message="Nenhum evento neste período"
+              descricao="Experimente outro mês, ou tire algum filtro de categoria."
+            />
           ) : (
             <>
               {effectiveView === "mes" && (

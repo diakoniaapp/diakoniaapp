@@ -529,8 +529,9 @@ export default function LgpdAdmin() {
                   <CardContent className="py-6 text-center">
                     <FileText className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
                     <p className="text-sm text-muted-foreground">
-                      Para publicar uma nova versão da política, acesse o Supabase e insira na tabela{" "}
-                      <code className="text-xs bg-muted px-1 py-0.5 rounded">politica_privacidade</code>.
+                      Publicar uma nova versão da política ainda é um passo técnico:
+                      peça ao responsável técnico do sistema. Aqui você acompanha qual
+                      versão está no ar e quem já deu o aceite.
                     </p>
                   </CardContent>
                 </Card>

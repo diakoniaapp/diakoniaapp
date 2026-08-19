@@ -86,6 +86,36 @@ export default {
         sans: ['"Inter"', 'system-ui', 'sans-serif'],
         serif: ['"Cormorant Garamond"', 'Georgia', 'serif'],
       },
+
+      // ── A escala ──────────────────────────────────────────────────────
+      //
+      // Medido antes de mexer: 1.473 usos de `text-xs` contra 503 de
+      // `text-sm`. Dois terços de todo o texto do sistema estava em 12px, e
+      // no Painel eram 59 dos 78 blocos. Não havia hierarquia — havia um
+      // sussurro contínuo, e para achar qualquer coisa era preciso ler tudo.
+      // É isso que cansa em oito horas de uso.
+      //
+      // Redefinir a escala aqui muda os 1.473 usos de uma vez, sem tocar em
+      // 174 arquivos. Duas mudanças pequenas e uma consequência grande:
+      //
+      //   xs   12px → 13px, entrelinha 16 → 18
+      //   sm   entrelinha 20 → 21 (de 1,43 para 1,5)
+      //
+      // 13px e não 14px porque `text-xs` também veste etiqueta e rótulo de
+      // coluna, onde 14 ficaria pesado. O texto que é CORPO sobe para `sm`
+      // caso a caso, onde dá para saber que é corpo.
+      //
+      // 1,5 de entrelinha é o que a leitura contínua pede; 1,43 é aperto de
+      // tabela aplicado ao sistema inteiro.
+      fontSize: {
+        xs:   ['0.8125rem', { lineHeight: '1.125rem' }],  // 13 / 18
+        sm:   ['0.875rem',  { lineHeight: '1.3125rem' }], // 14 / 21
+        base: ['1rem',      { lineHeight: '1.5rem' }],    // 16 / 24
+        lg:   ['1.125rem',  { lineHeight: '1.625rem' }],  // 18 / 26
+        xl:   ['1.25rem',   { lineHeight: '1.75rem' }],   // 20 / 28
+        '2xl':['1.5rem',    { lineHeight: '2rem' }],      // 24 / 32
+        '3xl':['1.875rem',  { lineHeight: '2.25rem' }],   // 30 / 36
+      },
       backgroundImage: {
         'gradient-hero': 'var(--gradient-hero)',
         'gradient-gold': 'var(--gradient-gold)',

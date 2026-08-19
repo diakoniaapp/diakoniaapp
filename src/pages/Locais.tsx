@@ -358,7 +358,10 @@ export default function Locais() {
         ) : error ? (
           <ErrorState onRetry={load} />
         ) : lista.length === 0 ? (
-          <EmptyState message="Nenhum local cadastrado" />
+          <EmptyState
+            message="Nenhum espaço cadastrado"
+            descricao="Templo, salas de EBD, área externa. Cada espaço cadastrado aqui passa a poder ser reservado — e a reserva avisa quando outra já ocupa o mesmo lugar no mesmo horário."
+          />
         ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
           {lista.map((l) => (

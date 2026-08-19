@@ -273,7 +273,8 @@ export default function PgmGrupo() {
           </div>
           {reunioes.length === 0 ? (
             <p className="text-sm text-muted-foreground italic text-center py-3">
-              Nenhum encontro registrado ainda.
+              Nenhum encontro registrado ainda. Use "Iniciar encontro de hoje" no
+              dia da reunião — a presença de quem veio fica registrada aí.
             </p>
           ) : (
             <div className="space-y-1">

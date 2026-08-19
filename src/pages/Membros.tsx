@@ -992,7 +992,11 @@ export default function Membros() {
                                     // Beco sem saída vira porta: dizer "nada encontrado" e parar aí obriga
                                     // a desfazer no braço filtro por filtro para voltar a ver a lista.
                                     <EmptyState
+                                      variante={filtrando ? "busca" : "vazio"}
                                       message={filtrando ? "Nenhuma pessoa com esses filtros" : "Nenhuma pessoa cadastrada"}
+                                      descricao={filtrando
+                                        ? "A busca lê nome, bairro, CPF e telefone. Se a pessoa existe, talvez ela esteja fora do filtro de tipo ou de sexo."
+                                        : "O catálogo de pessoas é a base de todo o resto: famílias, ministérios, EBD e escalas leem daqui."}
                                       action={filtrando ? (
                                         <Button variant="outline" onClick={limparFiltros}>Limpar filtros</Button>
                                       ) : undefined}

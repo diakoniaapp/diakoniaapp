@@ -201,7 +201,15 @@ export default function Familias() {
         ) : error ? (
           <ErrorState onRetry={load} />
         ) : familias.length === 0 ? (
-          <EmptyState message="Nenhuma família cadastrada" />
+          <EmptyState
+            message="Nenhuma família cadastrada"
+            descricao="A família liga as pessoas umas às outras: quem mora com quem, quem responde por quem. É ela que faz o aniversário de casamento aparecer na agenda e o mapa saber onde a igreja mora."
+            action={canEdit && (
+              <Button onClick={() => setOpen(true)} className="gap-2">
+                <Plus className="w-4 h-4" /> Cadastrar a primeira família
+              </Button>
+            )}
+          />
         ) : (
           <>
             {/* Lista continua sendo o padrao. "Por bairro" e uma pergunta
