@@ -66,6 +66,33 @@ export default function Familias() {
     }
   }, [searchParams, canEdit, setSearchParams]);
 
+  // Abrir uma família por link: /familias?familia=<id>
+  //
+  // O botão "Abrir" do cartão do mapa apontava para cá e NÃO ACONTECIA NADA —
+  // eu tinha escrito o link sem escrever quem o lê. Como o mapa já vive dentro
+  // de /familias, o clique trocava a URL e a tela ficava igual: o pior tipo de
+  // botão, o que parece funcionar.
+  //
+  // Abre o diálogo por cima, sem trocar de aba. Quem clicou num pino quer ver
+  // aquela família, não ser jogado numa lista de quarenta.
+  //
+  // Espera a lista carregar: sem `familias.length`, o efeito roda antes dos
+  // dados chegarem, não encontra o id e o parâmetro se perde em silêncio.
+  useEffect(() => {
+    const id = searchParams.get("familia");
+    if (!id || familias.length === 0) return;
+
+    const f = familias.find(x => x.id === id);
+    if (f) {
+      setFamiliaSelecionada(f);
+      setVinculosOpen(true);
+    } else {
+      toast.error("Família não encontrada.");
+    }
+    searchParams.delete("familia");
+    setSearchParams(searchParams, { replace: true });
+  }, [searchParams, familias, setSearchParams]);
+
   const load = async () => {
     setLoading(true);
     setLoadingCounts(true);
