@@ -59,6 +59,26 @@ export function AcessoCard({ pessoaId, nomeCompleto, telefone }: AcessoCardProps
   const [agindo,     setAgindo]     = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
 
+  /**
+   * Papel escolhido no menu, ainda NÃO confirmado.
+   *
+   * Antes, clicar em "Liderança" no menu já criava o convite no banco e abria
+   * o WhatsApp na mesma batida — sem tela nenhuma no meio. Quem quisesse
+   * conferir a ficha antes de conceder acesso não tinha onde parar, e escolher
+   * o papel errado por um milímetro de mouse virava convite enviado.
+   */
+  const [confirmando, setConfirmando] = useState<{ role: RoleOption; motivo: "novo" | "reenvio" } | null>(null);
+
+  /**
+   * Convite criado, esperando ser enviado.
+   *
+   * Gerar e enviar viraram dois momentos. O link fica aqui, com botão para
+   * abrir o WhatsApp e botão para copiar — porque nem todo convite sai por
+   * WhatsApp, e abrir uma aba sozinho tira da pessoa a decisão de quando
+   * mandar.
+   */
+  const [convitePronto, setConvitePronto] = useState<{ url: string; expira: string; mensagem: string; role: RoleOption } | null>(null);
+
   async function carregar() {
     setCarregando(true);
     const dados = await buscarAcessoPorPessoa(pessoaId);
@@ -112,18 +132,11 @@ export function AcessoCard({ pessoaId, nomeCompleto, telefone }: AcessoCardProps
 
     try { await navigator.clipboard.writeText(url); } catch {}
 
-    const waUrl = telefone
-      ? `https://wa.me/${(telefone ?? "").replace(/\D/g, "")}?text=${encodeURIComponent(mensagem)}`
-      : `https://wa.me/?text=${encodeURIComponent(mensagem)}`;
-    window.open(waUrl, "_blank", "noopener,noreferrer");
+    // A aba do WhatsApp NÃO abre aqui. O convite existe; enviar é o passo
+    // seguinte, e quem decide é quem está na tela.
+    setConvitePronto({ url, expira, mensagem, role });
 
-    toast.success(
-      `Convite ${motivo === "novo" ? "criado" : "reenviado"} para ${primeiroNome} como ${ROLE_LABEL[role]}. Link copiado.`,
-      {
-        duration: 12000,
-        action: { label: "Copiar link", onClick: () => { try { navigator.clipboard.writeText(url); toast.info("Link copiado!"); } catch {} } },
-      }
-    );
+    toast.success(`Convite criado para ${primeiroNome} como ${ROLE_LABEL[role]}. Link copiado.`);
 
     await carregar();
   }
@@ -194,8 +207,9 @@ export function AcessoCard({ pessoaId, nomeCompleto, telefone }: AcessoCardProps
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel>Perfil de acesso</DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                {/* Escolher no menu não cria nada: abre a confirmação. */}
                 {ROLES_CONVITE.map((r) => (
-                  <DropdownMenuItem key={r} onClick={() => gerarConvite(r, "novo")}>
+                  <DropdownMenuItem key={r} onClick={() => setConfirmando({ role: r, motivo: "novo" })}>
                     {ROLE_LABEL[r]}
                   </DropdownMenuItem>
                 ))}
@@ -226,7 +240,7 @@ export function AcessoCard({ pessoaId, nomeCompleto, telefone }: AcessoCardProps
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel>Convite</DropdownMenuLabel>
-                <DropdownMenuItem onClick={() => gerarConvite((roleAtual ?? "voluntario") as RoleOption, "reenvio")}>
+                <DropdownMenuItem onClick={() => setConfirmando({ role: (roleAtual ?? "voluntario") as RoleOption, motivo: "reenvio" })}>
                   <Send className="w-3.5 h-3.5 mr-2" /> Reenviar link
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setConfirmReset(true)} className="text-orange-600 focus:text-orange-700">
@@ -235,7 +249,7 @@ export function AcessoCard({ pessoaId, nomeCompleto, telefone }: AcessoCardProps
                 <DropdownMenuSeparator />
                 <DropdownMenuLabel>Mudar perfil</DropdownMenuLabel>
                 {ROLES_CONVITE.filter(r => r !== roleAtual).map((r) => (
-                  <DropdownMenuItem key={r} onClick={() => gerarConvite(r, "reenvio")}>
+                  <DropdownMenuItem key={r} onClick={() => setConfirmando({ role: r, motivo: "reenvio" })}>
                     Promover/mover para {ROLE_LABEL[r]}
                   </DropdownMenuItem>
                 ))}
@@ -268,17 +282,123 @@ export function AcessoCard({ pessoaId, nomeCompleto, telefone }: AcessoCardProps
             <AlertDialogTitle>Resetar senha?</AlertDialogTitle>
             <AlertDialogDescription>
               Será gerado um novo link de convite mantendo o perfil atual.
-              O link será copiado e o WhatsApp aberto.
+              O link antigo deixa de valer.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => gerarConvite((roleAtual ?? "voluntario") as RoleOption, "reenvio")}
+              onClick={() => setConfirmando({ role: (roleAtual ?? "voluntario") as RoleOption, motivo: "reenvio" })}
               className="gap-2 bg-orange-600 hover:bg-orange-700 text-white"
             >
               <KeyRound className="w-4 h-4" /> Confirmar
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── 1. Confirmar ANTES de criar ──────────────────────────────────
+          O menu escolhe; esta tela concede. Entre uma coisa e outra cabe
+          conferir de quem se trata e que permissão está sendo dada — que era
+          exatamente o que não existia quando o clique no menu já criava o
+          convite e abria o WhatsApp. */}
+      <AlertDialog open={!!confirmando} onOpenChange={(o) => !o && setConfirmando(null)}>
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmando?.motivo === "reenvio" ? "Gerar novo convite?" : "Conceder acesso ao sistema?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm">
+                <p>
+                  <strong>{nomeCompleto}</strong> vai poder entrar no sistema como{" "}
+                  <strong>{confirmando ? ROLE_LABEL[confirmando.role] : ""}</strong>.
+                </p>
+                {telefone && (
+                  <p className="text-muted-foreground">
+                    O convite será preparado para {formatarTelefone(telefone)}.
+                  </p>
+                )}
+                {/* Admin é o único que administra outros acessos. Dizer isso na
+                    hora, e não num manual, é o que separa o clique certo do
+                    clique de um milímetro para o lado. */}
+                {confirmando?.role === "admin" && (
+                  <p className="text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5 text-xs">
+                    Administrador enxerga o sistema inteiro e pode conceder acesso a
+                    outras pessoas.
+                  </p>
+                )}
+                <p className="text-muted-foreground text-xs">
+                  Nada é enviado agora: o link aparece na tela seguinte, para você
+                  mandar quando quiser.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="gap-2"
+              onClick={() => {
+                const escolha = confirmando;
+                setConfirmando(null);
+                if (escolha) gerarConvite(escolha.role, escolha.motivo);
+              }}
+            >
+              <UserPlus className="w-4 h-4" /> Gerar convite
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── 2. Convite criado: enviar é escolha, não consequência ──────── */}
+      <AlertDialog open={!!convitePronto} onOpenChange={(o) => !o && setConvitePronto(null)}>
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Convite criado</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm">
+                <p>
+                  {nomeCompleto.split(" ")[0]} como{" "}
+                  <strong>{convitePronto ? ROLE_LABEL[convitePronto.role] : ""}</strong>.
+                  {" "}Válido até {convitePronto?.expira}.
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  O link já está na área de transferência.
+                </p>
+                {/* A mensagem inteira à vista antes de sair. Ela leva o nome da
+                    pessoa e um link que dá acesso ao sistema da igreja: é o tipo
+                    de texto que se lê antes de mandar, não depois. */}
+                <pre className="text-xs bg-muted rounded p-2 whitespace-pre-wrap max-h-40 overflow-y-auto font-sans">
+                  {convitePronto?.mensagem}
+                </pre>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel className="sm:mr-auto">Fechar</AlertDialogCancel>
+            <Button
+              type="button" variant="outline" className="gap-2"
+              onClick={() => {
+                if (!convitePronto) return;
+                try { navigator.clipboard.writeText(convitePronto.url); toast.info("Link copiado!"); } catch {}
+              }}
+            >
+              <KeyRound className="w-4 h-4" /> Copiar link
+            </Button>
+            <Button
+              type="button" className="gap-2"
+              onClick={() => {
+                if (!convitePronto) return;
+                const wa = telefone
+                  ? `https://wa.me/${normalizarTelefone(telefone)}?text=${encodeURIComponent(convitePronto.mensagem)}`
+                  : `https://wa.me/?text=${encodeURIComponent(convitePronto.mensagem)}`;
+                window.open(wa, "_blank", "noopener,noreferrer");
+                setConvitePronto(null);
+              }}
+            >
+              <MessageCircle className="w-4 h-4" /> Abrir WhatsApp
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
