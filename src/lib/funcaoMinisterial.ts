@@ -30,6 +30,7 @@ export type FuncaoMinisterial =
   | "tesoureiro_2"
   | "secretaria_1"
   | "secretaria_2"
+  | "auditor"
   // Serviço
   | "ministro"
   | "lider_area"
@@ -77,6 +78,12 @@ interface Funcao {
   /** Fora da lista de escolha; mantido para ler cadastro antigo. */
   aposentada?: true;
   /**
+   * Outros nomes pelos quais o regimento chama esta função. O documento fala
+   * em "Auditoria"; a lista de funções fala em "Auditor(a)". É a mesma coisa,
+   * e sem isto a linha do regimento ficaria eternamente vazia.
+   */
+  apelidos?: string[];
+  /**
    * Nível na diretoria estatutária, quando a função for de diretoria.
    * É o que o organograma usa para agrupar: 1 Presidência, 2 Vice-presidência,
    * 3 Secretaria, 4 Tesouraria.
@@ -108,6 +115,10 @@ export const FUNCAO_MINISTERIAL: Record<FuncaoMinisterial, Funcao> = {
   secretaria_1:      { label: "1ª Secretária",      tipoData: "vigencia", diretoria: 3 },
   secretaria_2:      { label: "2ª Secretária",      tipoData: "vigencia", diretoria: 3 },
 
+  // Sem nível de diretoria de propósito: a auditoria fiscaliza a diretoria, e
+  // colocá-la dentro do quadro que audita inverteria o que o organograma diz.
+  auditor:           { label: "Auditor(a)", tipoData: "vigencia", apelidos: ["Auditoria"] },
+
   ministro:      { label: "Ministro(a)",         tipoData: "vigencia" },
   lider_area:    { label: "Líder de Área",       tipoData: "vigencia" },
   professor_ebd: { label: "Professor(a) de EBD", tipoData: "vigencia" },
@@ -136,7 +147,7 @@ export const FUNCOES_EM_ORDEM: FuncaoMinisterial[] = [
   "presidente", "pastor_auxiliar", "pastor_missionario", "pastor", "diacono",
   "vice_presidente_1", "vice_presidente_2",
   "tesoureiro_1", "tesoureiro_2",
-  "secretaria_1", "secretaria_2",
+  "secretaria_1", "secretaria_2", "auditor",
   "ministro", "lider_area", "professor_ebd",
   "voluntario", "membro",
 ];
@@ -160,6 +171,20 @@ export const funcaoAposentada = (f?: string | null): boolean =>
 /** As funções que compõem a diretoria estatutária, para o organograma. */
 export const FUNCOES_DIRETORIA = (Object.keys(FUNCAO_MINISTERIAL) as FuncaoMinisterial[])
   .filter(f => FUNCAO_MINISTERIAL[f].diretoria !== undefined);
+
+/**
+ * Funções que o regimento cita — diretoria mais as que têm apelido no
+ * documento. Auditor(a) entra aqui e NÃO em FUNCOES_DIRETORIA: aparece na
+ * linha "Auditoria" do regimento, e não no quadro da diretoria que ela audita.
+ */
+export const FUNCOES_NO_REGIMENTO = (Object.keys(FUNCAO_MINISTERIAL) as FuncaoMinisterial[])
+  .filter(f => FUNCAO_MINISTERIAL[f].diretoria !== undefined || FUNCAO_MINISTERIAL[f].apelidos?.length);
+
+/** Todos os nomes por que uma função atende: o rótulo e os apelidos. */
+export const nomesDaFuncao = (f?: string | null): string[] => {
+  const cfg = FUNCAO_MINISTERIAL[f as FuncaoMinisterial];
+  return cfg ? [cfg.label, ...(cfg.apelidos ?? [])] : [];
+};
 
 export const nivelDiretoria = (f?: string | null): number =>
   FUNCAO_MINISTERIAL[f as FuncaoMinisterial]?.diretoria ?? 9;

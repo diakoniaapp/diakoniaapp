@@ -40,11 +40,14 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import {
-  FUNCOES_DIRETORIA, nivelDiretoria, rotuloFuncao, mandatoLegivel,
+  FUNCOES_DIRETORIA, FUNCOES_NO_REGIMENTO, nomesDaFuncao,
+  nivelDiretoria, rotuloFuncao, mandatoLegivel,
 } from "@/lib/funcaoMinisterial";
 
 export interface CargoDiretoria {
   id: string;
+  /** O valor do enum, para casar o cargo pelos apelidos do regimento. */
+  funcao: string;
   cargo: string;
   nivel: number;
   pessoa_id: string;
@@ -64,7 +67,7 @@ export async function carregarDiretoria(): Promise<CargoDiretoria[]> {
     .from("membros")
     .select("id, nome_completo, foto_url, funcao_ministerial, funcao_inicio, funcao_fim")
     .eq("status", "ativo")
-    .in("funcao_ministerial", FUNCOES_DIRETORIA)
+    .in("funcao_ministerial", FUNCOES_NO_REGIMENTO)
     .order("nome_completo");
 
   if (error || !data) return [];
@@ -75,6 +78,7 @@ export async function carregarDiretoria(): Promise<CargoDiretoria[]> {
       // telas usavam esse campo só como chave de React e para navegar até a
       // pessoa — os dois seguem funcionando.
       id: m.id,
+      funcao: m.funcao_ministerial as string,
       cargo: rotuloFuncao(m.funcao_ministerial),
       nivel: nivelDiretoria(m.funcao_ministerial),
       pessoa_id: m.id,
@@ -102,4 +106,54 @@ export async function cargosDaPessoa(pessoaId: string): Promise<
     nivel: nivelDiretoria(data.funcao_ministerial),
     mandato: mandatoLegivel(data.funcao_inicio, data.funcao_fim),
   }];
+}
+
+// ─── Ligar o Regimento à ficha ─────────────────────────────────────────────
+//
+// `documento_estrutura` é o regimento: quais cargos a igreja tem, com a base
+// institucional de cada um ("Eleição 2026"). Isso é documento, e continua
+// sendo documento.
+//
+// O que NÃO devia estar ali é o nome da pessoa, digitado à mão no campo
+// `descricao`. Estava, e já tinha divergido do cadastro: o regimento dizia
+// "Elizabeth Aganetti Monteiro" e a ficha, "Elizabeth Aganetti Monteiro
+// Goncalves". Duas telas da mesma página, dois nomes para a mesma pessoa.
+//
+// Agora o cargo continua vindo do regimento e o OCUPANTE vem da ficha. Quando
+// o nome do cargo não corresponde a nenhuma função — "Pastoral", "Jurídico
+// Parlamentar", "Auditoria" —, o texto do documento fica como está: são
+// entradas que descrevem colegiado e histórico, não um posto de uma pessoa só.
+
+/**
+ * Compara nome de cargo com rótulo de função ignorando o que não distingue:
+ * caixa, acento e o adjetivo "estatutária", que o regimento usa e a lista não.
+ *
+ *   "1ª Secretária Estatutária"  →  "1a secretaria"
+ *   "1ª Secretária"              →  "1a secretaria"
+ */
+const chaveCargo = (s: string): string =>
+  s.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+   .toLowerCase()
+   .replace(/\bestatutari[ao]\b/g, "")
+   .replace(/[^a-z0-9]+/g, " ")
+   .trim();
+
+/**
+ * Quem ocupa hoje o cargo com este nome, segundo a ficha das pessoas.
+ *
+ * Devolve LISTA, e não uma pessoa: "1º Tesoureiro" é posto de um, mas
+ * "Auditoria" é colegiado e pode ter três. Uma função só encolheria o
+ * colegiado ao primeiro nome em ordem alfabética, sem avisar.
+ *
+ * Vazia quando o cargo não corresponde a nenhuma função — e aí quem manda
+ * continua sendo o texto do documento.
+ */
+export function ocupantesDoCargo(
+  nomeCargo: string,
+  diretoria: CargoDiretoria[],
+): CargoDiretoria[] {
+  const alvo = chaveCargo(nomeCargo);
+  return diretoria.filter(d =>
+    nomesDaFuncao(d.funcao).some(nome => chaveCargo(nome) === alvo),
+  );
 }

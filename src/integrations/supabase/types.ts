@@ -12796,6 +12796,7 @@ export type Database = {
         | "secretaria_2"
         | "ministro"
         | "lider_area"
+        | "auditor"
       gov_pauta_classificacao: "informativa" | "deliberativa"
       gov_pauta_status:
         | "rascunho"
@@ -13583,6 +13584,7 @@ export const Constants = {
         "secretaria_2",
         "ministro",
         "lider_area",
+        "auditor",
       ],
       gov_pauta_classificacao: ["informativa", "deliberativa"],
       gov_pauta_status: [

@@ -1,0 +1,11 @@
+-- ─── Auditor(a) ────────────────────────────────────────────────────────────
+--
+-- Entra na lista de funções por pedido. Fecha uma lacuna visível: o regimento
+-- da igreja já tinha a entrada "Auditoria" em `documento_estrutura`, sem
+-- ninguém — porque não havia função com que preenchê-la.
+--
+-- NÃO recebe nível de diretoria. Auditoria fiscaliza a diretoria; colocá-la
+-- dentro do quadro que ela audita inverteria o que o organograma mostra.
+--
+-- Vigência, e não consagração: é mandato, como os demais cargos eletivos.
+alter type public.funcao_ministerial add value if not exists 'auditor';

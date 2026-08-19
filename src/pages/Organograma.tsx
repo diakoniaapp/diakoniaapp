@@ -15,7 +15,7 @@ import {
   ChevronDown, ChevronRight, Users, Crown, Church, MapPin,
   Building2, Star, Shield, Loader2, AlertTriangle, BookOpen, Network,
 } from "lucide-react";
-import { carregarDiretoria } from "@/services/diretoriaService";
+import { carregarDiretoria, ocupantesDoCargo, type CargoDiretoria } from "@/services/diretoriaService";
 
 // ── Tipos ─────────────────────────────────────────────────────
 
@@ -56,16 +56,6 @@ interface Ministerio {
   areas: Area[];
   membros: MembroMinisterio[];
   membros_count: number;
-}
-
-interface CargoEstatutario {
-  id: string;
-  cargo: string;
-  nivel: number;
-  pessoa_id: string;
-  pessoa_nome: string;
-  pessoa_foto: string | null;
-  mandato: string | null;
 }
 
 interface ConselhoMembro {
@@ -243,7 +233,7 @@ function MinisterioNode({ min, onClick }: { min: Ministerio; onClick: (id: strin
 
 export default function Organograma() {
   const [ministerios, setMinerios]   = useState<Ministerio[]>([]);
-  const [diretoria, setDiretoria]    = useState<CargoEstatutario[]>([]);
+  const [diretoria, setDiretoria]    = useState<CargoDiretoria[]>([]);
   const [conselho, setConselho]      = useState<ConselhoMembro[]>([]);
   const [stats, setStats]            = useState({ total: 0, membros: 0, congregados: 0, visitantes: 0 });
   const [loading, setLoading]        = useState(true);
@@ -483,9 +473,35 @@ export default function Organograma() {
                                     </span>
                                   )}
                                 </div>
-                                {item.descricao && (
-                                  <p className="text-xs text-muted-foreground">{item.descricao}</p>
-                                )}
+                                {/* O cargo vem do regimento; o OCUPANTE vem da ficha.
+                                    O nome estava digitado à mão em `descricao` e já
+                                    tinha divergido: aqui lia-se "Elizabeth Aganetti
+                                    Monteiro" e na aba ao lado, "Elizabeth Aganetti
+                                    Monteiro Goncalves" — duas telas da mesma página,
+                                    dois nomes para a mesma pessoa.
+
+                                    Cargo que não corresponde a nenhuma função —
+                                    "Pastoral", "Jurídico Parlamentar", "Auditoria" —
+                                    mantém o texto do documento: são colegiados e
+                                    histórico, não um posto de uma pessoa só. */}
+                                {(() => {
+                                  const ocupantes = ocupantesDoCargo(item.nome, diretoria);
+                                  if (ocupantes.length) {
+                                    return (
+                                      <div className="text-xs text-muted-foreground">
+                                        {ocupantes.map(o => (
+                                          <p key={o.id}>
+                                            {o.pessoa_nome}
+                                            {o.mandato && ` · mandato ${o.mandato}`}
+                                          </p>
+                                        ))}
+                                      </div>
+                                      );
+                                    }
+                                  return item.descricao ? (
+                                    <p className="text-xs text-muted-foreground whitespace-pre-line">{item.descricao}</p>
+                                  ) : null;
+                                })()}
                                 {item.responsabilidades && (
                                   <p className="text-xs text-muted-foreground/80 mt-1 line-clamp-2">
                                     {item.responsabilidades}

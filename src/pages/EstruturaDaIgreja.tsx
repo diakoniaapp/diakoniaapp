@@ -19,19 +19,9 @@ import {
   Crown, Church, MapPin, Users, ChevronDown, ChevronRight,
   Loader2, AlertTriangle, Network, Settings, RefreshCw, FileText, Star,
 } from "lucide-react";
-import { carregarDiretoria } from "@/services/diretoriaService";
+import { carregarDiretoria, ocupantesDoCargo, type CargoDiretoria } from "@/services/diretoriaService";
 
 // -- Tipos ---------------------------------------------------
-
-interface CargoEstatutario {
-  id: string;
-  cargo: string;
-  nivel: number;
-  pessoa_id: string;
-  pessoa_nome: string;
-  pessoa_foto: string | null;
-  mandato: string | null;
-}
 
 interface AreaMin {
   id: string;
@@ -249,7 +239,7 @@ export default function EstruturaDaIgreja() {
 
   const [loading, setLoading] = useState(true);
   const [ministerios, setMinerios] = useState<Ministerio[]>([]);
-  const [diretoria, setDiretoria] = useState<CargoEstatutario[]>([]);
+  const [diretoria, setDiretoria] = useState<CargoDiretoria[]>([]);
   const [estDoc, setEstDoc] = useState<{
     institucional: EstruturaItem[];
     ministerial: EstruturaItem[];
@@ -556,9 +546,27 @@ export default function EstruturaDaIgreja() {
                                   </Badge>
                                 )}
                               </div>
-                              {item.descricao && (
-                                <p className="text-xs text-muted-foreground">{item.descricao}</p>
-                              )}
+                              {/* Mesma regra da aba Regimento do organograma: o cargo
+                                  vem do documento, o ocupante vem da ficha. Ver o
+                                  cabeçalho de diretoriaService.ts. */}
+                              {(() => {
+                                const ocupantes = ocupantesDoCargo(item.nome, diretoria);
+                                if (ocupantes.length) {
+                                  return (
+                                    <div className="text-xs text-muted-foreground">
+                                      {ocupantes.map(o => (
+                                        <p key={o.id}>
+                                          {o.pessoa_nome}
+                                          {o.mandato && ` · mandato ${o.mandato}`}
+                                        </p>
+                                      ))}
+                                    </div>
+                                    );
+                                  }
+                                return item.descricao ? (
+                                  <p className="text-xs text-muted-foreground whitespace-pre-line">{item.descricao}</p>
+                                ) : null;
+                              })()}
                               {item.responsabilidades && (
                                 <p className="text-xs text-muted-foreground/80 mt-1 line-clamp-2">
                                   {item.responsabilidades}
