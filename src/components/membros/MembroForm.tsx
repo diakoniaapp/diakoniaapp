@@ -22,7 +22,8 @@ import { FamiliaBloco } from "@/components/familias/FamiliaBloco";
 import { listarClasses, sugerirClasse, classesDaPessoa, type EbdClasse } from "@/services/ebdService";
 import { normalizarTelefone, validarTelefone, formatarTelefoneSemDDI } from "@/lib/telefone";
 import {
-  FUNCAO_MINISTERIAL, FUNCOES_EM_ORDEM, type FuncaoMinisterial,
+  FUNCAO_MINISTERIAL, FUNCOES_EM_ORDEM, funcaoAposentada, rotuloFuncao,
+  type FuncaoMinisterial,
 } from "@/lib/funcaoMinisterial";
 import { TelefoneInput } from "@/components/ui/TelefoneInput";
 import { supabase } from "@/integrations/supabase/client";
@@ -831,6 +832,18 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                 >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
+                    {/* A função que a pessoa JÁ TEM entra na lista mesmo tendo
+                        saído dela. Seis pessoas estão em rótulos aposentados —
+                        dois tesoureiros e uma secretária sem numeração, que
+                        ninguém sabe se são 1º ou 2º. Sem este item o seletor
+                        abriria em branco na ficha delas, e um seletor em branco
+                        convida a escolher outra coisa: seria trocar o cargo de
+                        alguém por causa de um detalhe de implementação. */}
+                    {funcaoAposentada(form.funcao_ministerial) && (
+                      <SelectItem value={form.funcao_ministerial}>
+                        {rotuloFuncao(form.funcao_ministerial)} (a revisar)
+                      </SelectItem>
+                    )}
                     {FUNCOES_EM_ORDEM.map((f) => (
                       <SelectItem key={f} value={f}>{FUNCAO_MINISTERIAL[f].label}</SelectItem>
                     ))}
