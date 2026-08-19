@@ -115,7 +115,11 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
   const [form, setForm] = useState<any>(empty);
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  // Cinco passos desde que "Acesso ao sistema" saiu de dentro de Vínculos.
+  // Estava junto de áreas de atuação e família, e ninguém procura permissão
+  // de login nesse meio — a pergunta "onde eu escolho o perfil da pessoa?"
+  // tinha resposta e mesmo assim não se achava.
+  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
 
   // Reset wizard step quando abrir
   useEffect(() => {
@@ -229,7 +233,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     // ⚠️ Guard: só salva no STEP FINAL (Revisão). Avancos intermediarios sao no botao "Proximo".
-    if (step !== 4) return;
+    if (step !== 5) return;
 
     if (!form.nome_completo.trim()) return toast.error("Informe o nome");
 
@@ -477,7 +481,8 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                 { n: 1 as const, label: "Identificação" },
                 { n: 2 as const, label: "Contato" },
                 { n: 3 as const, label: "Vínculos" },
-                { n: 4 as const, label: "Revisão" },
+                { n: 4 as const, label: "Acesso" },
+                { n: 5 as const, label: "Revisão" },
               ]).map((p, idx, arr) => (
                 <div key={p.n} className="flex items-center flex-1">
                   <button
@@ -874,28 +879,52 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
 
                         </>)}
 
-            {step === 3 && (<>
-            {/* ── ACESSO AO SISTEMA (A4: botão único Convidar como…) ── */}
-            {(isCongregado || isMembro) && membro && (
-              <div className="pt-2 space-y-2">
+            {/* ── STEP 4 — ACESSO AO SISTEMA ── */}
+            {step === 4 && (<>
+            <div className="space-y-3">
+              <div>
+                <p className="text-sm font-medium">Acesso ao sistema</p>
+                {/* Dizer o que este passo NÃO é. Perfil de acesso é permissão de
+                    login; liderar um ministério ou ensinar na EBD são vínculos, e
+                    ficam no passo anterior. As duas coisas se chamam "perfil" na
+                    conversa do dia a dia e vivem em tabelas diferentes — quem
+                    procurar aqui para marcar alguém como líder do Louvor precisa
+                    saber, na hora, que não é aqui. */}
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Permissão para entrar no sistema. Liderança de ministério e
+                  professor de EBD são vínculos, e ficam no passo anterior.
+                </p>
+              </div>
+
+              {(isCongregado || isMembro) && membro && (
                 <AcessoCard
                   pessoaId={membro.id}
                   nomeCompleto={form.nome_completo || membro.nome_completo}
                   telefone={form.telefone_celular || membro.telefone_celular}
                 />
-              </div>
-            )}
+              )}
 
-            {(isCongregado || isMembro) && !membro && (
-              <p className="text-xs text-amber-600 px-2 py-1.5 bg-amber-50 rounded border border-amber-200">
-                Salve a pessoa primeiro para criar o acesso ao sistema.
-              </p>
-            )}
+              {/* Convite precisa de um id de pessoa para vincular. Em vez de um
+                  passo em branco no cadastro novo, o passo explica a ordem: salvar
+                  primeiro, convidar depois. */}
+              {(isCongregado || isMembro) && !membro && (
+                <p className="text-xs text-amber-600 px-2 py-1.5 bg-amber-50 rounded border border-amber-200">
+                  O convite de acesso é criado depois de salvar o cadastro. Termine
+                  o cadastro e abra a pessoa de novo para conceder acesso.
+                </p>
+              )}
 
+              {isVisitante && (
+                <p className="text-xs text-muted-foreground px-2 py-1.5 bg-muted rounded border">
+                  Acesso ao sistema é para membros e congregados. Visitante recebe
+                  acesso quando passa a congregar.
+                </p>
+              )}
+            </div>
                         </>)}
 
-            {/* ── STEP 4 — REVISÃO ── */}
-            {step === 4 && (
+            {/* ── STEP 5 — REVISÃO ── */}
+            {step === 5 && (
               <section className="space-y-3">
                 <div className="rounded-md border bg-gradient-verse p-4 text-center">
                   <h3 className="font-serif text-lg">Quase lá! Confira os dados</h3>
@@ -948,7 +977,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
               )}
               {step > 1 ? (
                 <Button type="button" variant="outline"
-                  onClick={() => setStep(((step as number) - 1) as 1 | 2 | 3 | 4)}
+                  onClick={() => setStep(((step as number) - 1) as 1 | 2 | 3 | 4 | 5)}
                   disabled={busy}>
                   ← Anterior
                 </Button>
@@ -958,7 +987,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                 </Button>
               )}
 
-              {step < 4 ? (
+              {step < 5 ? (
                 <Button type="button"
                   onClick={() => {
                     // Valida campos obrigatórios do passo atual
@@ -970,7 +999,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                       toast.error("Telefone é obrigatório para visitante");
                       return;
                     }
-                    setStep(((step as number) + 1) as 1 | 2 | 3 | 4);
+                    setStep(((step as number) + 1) as 1 | 2 | 3 | 4 | 5);
                   }}
                   disabled={busy}>
                   Próximo →

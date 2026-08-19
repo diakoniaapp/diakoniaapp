@@ -435,15 +435,9 @@ export default function Membros() {
     const [open, setOpen] = useState(false);
     const [editing, setEditing] = useState<Membro | null>(null);
     const [tipoFiltro, setTipoFiltro] = useState<string>("todos");
-    const [perfilFiltro, setPerfilFiltro] = useState<string>("todos");
     // Filtro de cuidado. Nao e um modulo nem uma tela: e mais uma opcao na
     // mesma barra de filtros, respondendo a pergunta que o pastor faz e que a
     // lista nao respondia — "de quem ninguem cuida ha tempo?".
-    // O terceiro seletor deixou de ser sobre cuidado. Acompanhamento de
-    // contato agora é só de visitante, e o que restou aqui — aniversário do
-    // mês, cadastro sem telefone — é situação de cadastro.
-    const [situacaoFiltro, setSituacaoFiltro] = useState<string>("todos");
-
     /** Recorte de quem se está olhando: todas, elas, eles, as crianças. */
     const [grupoFiltro, setGrupoFiltro] = useState<string>("todos");
     const [vinculosPessoa, setVinculosPessoa] = useState<Membro | null>(null);
@@ -669,32 +663,25 @@ export default function Membros() {
                 (m.cpf ?? "").includes(q) ||
                 (qDigitos.length >= 3 && (m.telefone_celular ?? "").replace(/\D/g, "").includes(qDigitos));
         const matchTipo = tipoFiltro === "todos" || m.tipo_pessoa === tipoFiltro;
-        const matchPerfil = perfilFiltro === "todos" || m.perfil_acesso === perfilFiltro;
 
-        return matchSearch && matchTipo && matchPerfil;
-  }), [membros, search, tipoFiltro, perfilFiltro]);
+        // O filtro de perfil de acesso saiu. Ele lia `membros.perfil_acesso`,
+        // que é coluna legada: o formulário grava null nela de propósito desde
+        // que o acesso passou a viver em `user_roles`. O que sobrou ali é
+        // resíduo da importação de junho — 140 "membro", 2 "pastor", 1
+        // "lideranca" —, enquanto as pessoas com acesso de verdade são 6.
+        // O filtro oferecia Tesoureiro e Professor EBD, que não existem como
+        // papel em lugar nenhum do sistema, e não encontrava o admin real.
+        return matchSearch && matchTipo;
+  }), [membros, search, tipoFiltro]);
 
   const filtered = useMemo(() => baseFiltrados.filter((m) => {
-
-        // Os filtros de contato saíram daqui. Acompanhamento de contato passou
-        // a ser coisa de visitante, e perguntar "quem está sem contato há 90
-        // dias" sobre 281 pessoas que ninguém acompanha por contato devolvia
-        // sempre a lista inteira — filtro que não filtra.
-        const matchSituacao =
-          situacaoFiltro === "todos" ? true
-          : situacaoFiltro === "sem_telefone" ? !telefoneValido(m.telefone_celular)
-          : situacaoFiltro === "aniversario_mes" ? aniversarioNesteMes(m.data_nascimento)
-          : true;
 
         // Sexo e criança não se excluem: uma menina entra em "Feminino" e em
         // "Crianças". São recortes de quem se quer olhar, não uma divisão da
         // igreja em três caixas.
-        const matchGrupo =
-          grupoFiltro === "todos" ? true
-          : grupoFiltro === "criancas" ? ehCrianca(m)
-          : m.sexo === grupoFiltro;
-
-        return matchSituacao && matchGrupo;
+        return grupoFiltro === "todos" ? true
+             : grupoFiltro === "criancas" ? ehCrianca(m)
+             : m.sexo === grupoFiltro;
   }).sort((a, b) => {
         // Quem não tem bairro vai para o fim nas DUAS direções. Inverter a
         // ordem é pedir "de Z a A", não "mostre primeiro os 200 sem bairro" —
@@ -717,7 +704,7 @@ export default function Membros() {
         // pareceria embaralhar sozinha a cada clique.
         return (ordem.desc ? -primario : primario)
             || comparavel(a.nome_completo).localeCompare(comparavel(b.nome_completo));
-  }), [baseFiltrados, situacaoFiltro, grupoFiltro, ordem]);
+  }), [baseFiltrados, grupoFiltro, ordem]);
 
   // Os quatro atalhos, contados aqui uma vez e não dentro do JSX — o mesmo
   // `baseFiltrados` alimenta os números e a tabela.
@@ -757,14 +744,11 @@ export default function Membros() {
   };
 
   const filtrando =
-    search.trim() !== "" || tipoFiltro !== "todos" || perfilFiltro !== "todos"
-    || situacaoFiltro !== "todos" || grupoFiltro !== "todos";
+    search.trim() !== "" || tipoFiltro !== "todos" || grupoFiltro !== "todos";
 
   const limparFiltros = () => {
     setSearch("");
     setTipoFiltro("todos");
-    setPerfilFiltro("todos");
-    setSituacaoFiltro("todos");
     setGrupoFiltro("todos");
     buscaRef.current?.focus();
   };
@@ -790,7 +774,7 @@ export default function Membros() {
   // A ordem entra na lista pelo mesmo motivo: ordenar por bairro estando na
   // página 7 mostraria a fatia 121–140 de uma lista que acabou de ser
   // reembaralhada — quem pediu "por bairro" quer ver o começo, não o meio.
-  useEffect(() => { setPagina(1); }, [search, tipoFiltro, perfilFiltro, situacaoFiltro, grupoFiltro, ordem]);
+  useEffect(() => { setPagina(1); }, [search, tipoFiltro, grupoFiltro, ordem]);
 
   // Foco na busca ao abrir: quem entra em Pessoas quase sempre vem procurar
   // alguém. Só no desktop — em celular abriria o teclado por cima da lista.
@@ -869,36 +853,22 @@ export default function Membros() {
                                                                 <SelectItem value="visitante">Visitante</SelectItem>
                                                   </SelectContent>
                                       </Select>
-                                      {/* Terceiro filtro, mesma barra. A pergunta pastoral entra
-                                          como opcao de uma lista que ja existia, e nao como tela
-                                          separada — quem procura uma pessoa e quem procura os
-                                          esquecidos usam a mesma lista. */}
-                                      <Select value={situacaoFiltro} onValueChange={setSituacaoFiltro}>
-                                                  <SelectTrigger className="md:w-56">
-                                                                <SelectValue placeholder="Situação do cadastro" />
-                                                  </SelectTrigger>
-                                                  <SelectContent>
-                                                                <SelectItem value="todos">Qualquer situação</SelectItem>
-                                                                <SelectItem value="aniversario_mes">Aniversário este mês</SelectItem>
-                                                                <SelectItem value="sem_telefone">Sem telefone cadastrado</SelectItem>
-                                                  </SelectContent>
-                                      </Select>
-                                      <Select value={perfilFiltro} onValueChange={setPerfilFiltro}>
-                                                  <SelectTrigger className="md:w-56">
-                                                                <SelectValue placeholder="Perfil de Acesso" />
-                                                  </SelectTrigger>
-                                                  <SelectContent>
-                                                                <SelectItem value="todos">Todos os perfis</SelectItem>
-                                                                <SelectItem value="admin">Admin</SelectItem>
-                                                                <SelectItem value="pastor">Pastor</SelectItem>
-                                                                <SelectItem value="secretaria">Secretaria</SelectItem>
-                                                                <SelectItem value="tesoureiro">Tesoureiro</SelectItem>
-                                                                <SelectItem value="lideranca">Liderança</SelectItem>
-                                                                <SelectItem value="professor_ebd">Professor EBD</SelectItem>
-                                                                <SelectItem value="voluntario">Voluntário</SelectItem>
-                                                                <SelectItem value="membro">Membro</SelectItem>
-                                                  </SelectContent>
-                                      </Select>
+                                      {/* Sobraram a busca e o tipo de pessoa. Saíram dois seletores:
+                                      
+                                          "Situação do cadastro" — aniversário do mês e sem telefone. Eram
+                                          perguntas de manutenção de cadastro no meio de uma tela de
+                                          consulta, e a segunda já tem lugar próprio no painel de cadastros
+                                          incompletos.
+                                      
+                                          "Perfil de Acesso" — lia membros.perfil_acesso, coluna legada
+                                          em que o formulário grava null de propósito desde que o acesso
+                                          passou a viver em user_roles. O que restava ali era resíduo da
+                                          importação de junho: 140 "membro", 2 "pastor", 1 "lideranca",
+                                          enquanto as pessoas com acesso de verdade são 6 e nenhuma delas
+                                          aparecia. Oferecia ainda Tesoureiro e Professor EBD, que não
+                                          existem como papel em lugar nenhum do sistema. Um filtro que
+                                          responde errado é pior do que filtro nenhum: quem administra
+                                          acesso vai a /usuarios, onde o dado é o certo. */}
                             </div>
                     
                             {/* ── Atalhos com número ─────────────────────────────────
