@@ -89,5 +89,9 @@ export async function contarVoluntarios(): Promise<ContagemEstrutura> {
 // Antes de existirem as chaves ele respondia 400 dizendo que não havia
 // nenhuma. Trocar um erro pelo outro seria consertar pela metade: o nome da
 // restrição no select é o que faz a consulta passar.
+// O co-líder vem pela chave dele. E a cadeia é UM literal, sem concatenar:
+// os tipos gerados do Supabase leem esta string em tempo de compilação para
+// inferir o formato do retorno, e uma soma de pedaços vira `GenericStringError`
+// — o código roda e o TypeScript perde a forma do dado.
 export const SELECT_AREA_COM_LIDER =
-  "id, ministerio_id, nome, lider:membros!areas_lider_id_fkey(id, nome_completo, foto_url)";
+  "id, ministerio_id, nome, lider:membros!areas_lider_id_fkey(id, nome_completo, foto_url), co_lider:membros!areas_co_lider_id_fkey(id, nome_completo, foto_url)";

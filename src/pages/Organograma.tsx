@@ -40,6 +40,8 @@ interface Area {
   id: string;
   nome: string;
   lider: Lider | null;
+  /** Cinco áreas têm co-líder, e ele não aparecia em lugar nenhum. */
+  co_lider: Lider | null;
   setores: Setor[];
   membros_count: number;
 }
@@ -171,6 +173,12 @@ function MinisterioNode({ min, onClick }: { min: Ministerio; onClick: (id: strin
                       {area.lider && (
                         <PessoaPill id={area.lider.id} nome={area.lider.nome_completo}
                           foto={area.lider.foto_url} funcao="Líder de Área" onClick={onClick} />
+                      )}
+                      {/* Quem co-lidera, lidera. A coluna existia no cadastro e a
+                          pessoa não aparecia em lugar nenhum do organograma. */}
+                      {area.co_lider && (
+                        <PessoaPill id={area.co_lider.id} nome={area.co_lider.nome_completo}
+                          foto={area.co_lider.foto_url} funcao="Co-líder" onClick={onClick} />
                       )}
                       {/* Quantos servem NESTA área. O ministério mostra o total de
                           pessoas distintas; a área mostra a sua parte, que é onde o
@@ -310,6 +318,7 @@ export default function Organograma() {
         areasMap[aid].push({
           id: a.id, nome: a.nome,
           lider: (a as any).lider as unknown as Lider | null,
+          co_lider: (a as any).co_lider as unknown as Lider | null,
           setores,
           membros_count: contagem.porArea[a.id] ?? 0,
         });

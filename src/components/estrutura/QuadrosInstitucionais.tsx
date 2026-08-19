@@ -117,7 +117,11 @@ export interface ConselhoMembro {
   cargo: string;
   nivel_cargo: number;
   tipo_participacao: string;
-  ministerio_nome: string | null;
+  /** O que dá contexto ao cargo: o ministério para quem lidera ministério, a
+   *  ÁREA para quem lidera área. Telma lidera Bazar e Apoio Adm, ambas do
+   *  ministério de Administração — com o nome do ministério as duas linhas
+   *  ficavam idênticas e pareciam registro duplicado. */
+  contexto: string | null;
 }
 
 const GRUPO_CONSELHO = {
@@ -162,9 +166,9 @@ export function ConselhoQuadro({ conselho, loading, onPessoa }: {
             <div className="grid sm:grid-cols-2 gap-2">
               {grupo.map(c => (
                 <Cartao
-                  key={`${c.pessoa_id}-${c.cargo}`}
+                  key={`${c.pessoa_id}-${c.cargo}-${c.contexto ?? ""}`}
                   nome={c.nome_completo}
-                  papel={c.cargo + (c.ministerio_nome ? ` · ${c.ministerio_nome}` : "")}
+                  papel={c.cargo + (c.contexto ? ` · ${c.contexto}` : "")}
                   onClick={() => onPessoa(c.pessoa_id)}
                 />
               ))}

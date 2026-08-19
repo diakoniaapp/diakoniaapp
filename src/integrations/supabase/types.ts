@@ -10596,8 +10596,8 @@ export type Database = {
       v_conselho_da_igreja: {
         Row: {
           cargo: string | null
+          contexto: string | null
           foto_url: string | null
-          ministerio_nome: string | null
           nivel_cargo: number | null
           nome_completo: string | null
           pessoa_id: string | null
