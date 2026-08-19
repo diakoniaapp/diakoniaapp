@@ -1050,7 +1050,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                   passo em branco no cadastro novo, o passo explica a ordem: salvar
                   primeiro, convidar depois. */}
               {(isCongregado || isMembro) && !membro && (
-                <p className="text-xs text-amber-700 dark:text-amber-400 dark:text-amber-400 px-2 py-1.5 bg-amber-50 rounded border border-amber-200">
+                <p className="text-xs text-amber-700 dark:text-amber-400 px-2 py-1.5 bg-amber-50 rounded border border-amber-200">
                   O convite de acesso é criado depois de salvar o cadastro. Termine
                   o cadastro e abra a pessoa de novo para conceder acesso.
                 </p>

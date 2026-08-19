@@ -296,7 +296,7 @@ export default function GovernancaReuniao() {
                     <p className="text-sm font-medium truncate">{p.pessoa_nome}</p>
                     <p className="text-xs text-muted-foreground">{p.papel}</p>
                   </div>
-                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-emerald-700 dark:text-emerald-400 dark:text-emerald-400"
+                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-emerald-700 dark:text-emerald-400"
                     onClick={() => enviarConvocacao(p)} title="Enviar WhatsApp">
                     <MessageCircle className="w-3.5 h-3.5" />
                   </Button>

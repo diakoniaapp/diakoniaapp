@@ -199,7 +199,7 @@ export function GrupoForm({ open, onOpenChange, grupo, onSaved }: Props) {
 
           <div>
             <Label className="flex items-center gap-1.5">
-              <MessageCircle className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400 dark:text-emerald-400" /> Grupo do WhatsApp
+              <MessageCircle className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" /> Grupo do WhatsApp
             </Label>
             <Input value={whatsappLink} onChange={(e) => setWhatsappLink(e.target.value)}
               placeholder="https://chat.whatsapp.com/..." />

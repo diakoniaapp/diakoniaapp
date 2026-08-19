@@ -217,7 +217,7 @@ export default function PainelPastoral() {
         <Card className="border-amber-200">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-amber-700 dark:text-amber-400 dark:text-amber-400" />
+              <AlertCircle className="w-4 h-4 text-amber-700 dark:text-amber-400" />
               Famílias sem responsável
               <Badge variant="outline" className="text-xs bg-amber-100 border-amber-300">
                 {familiasSemResp.length}

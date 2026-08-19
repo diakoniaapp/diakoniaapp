@@ -126,7 +126,7 @@ export default function Pgm() {
                 )}
 
                 <div className="flex items-center gap-2 pt-1">
-                  <Users className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400 dark:text-emerald-400" />
+                  <Users className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
                   <strong>{g.qtd_membros}</strong>
                   <span className="text-muted-foreground">participantes</span>
                 </div>
@@ -145,7 +145,7 @@ export default function Pgm() {
                     <a href={g.whatsapp_link} target="_blank" rel="noopener noreferrer"
                       title="Abrir grupo do WhatsApp">
                       <Button type="button" variant="outline" size="sm"
-                        className="text-emerald-700 dark:text-emerald-400 hover:text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50">
+                        className="text-emerald-700 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 hover:bg-emerald-50">
                         <MessageCircle className="w-3.5 h-3.5" />
                       </Button>
                     </a>

@@ -74,13 +74,13 @@ export function ManutencaoArrecadacao() {
       {data.recorrentes.length > 0 && (
         <div className="border-l-2 border-amber-400 pl-2">
           <div className="text-xs uppercase tracking-wide text-muted-foreground flex items-center gap-1">
-            <AlertTriangle className="w-3 h-3 text-amber-700 dark:text-amber-400 dark:text-amber-400" /> Recorrentes (180 dias)
+            <AlertTriangle className="w-3 h-3 text-amber-700 dark:text-amber-400" /> Recorrentes (180 dias)
           </div>
           <ul className="text-xs mt-1 space-y-0.5">
             {data.recorrentes.slice(0, 3).map((r, i) => (
               <li key={i} className="flex items-center gap-2">
                 <span className="font-medium flex-1 truncate">{r.titulo}</span>
-                <span className="text-rose-700 dark:text-rose-400 dark:text-rose-400 text-xs">{r.qtd}×</span>
+                <span className="text-rose-700 dark:text-rose-400 text-xs">{r.qtd}×</span>
               </li>
             ))}
           </ul>

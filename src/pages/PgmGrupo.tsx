@@ -31,7 +31,7 @@ import { PaginaSkeleton } from "@/components/ListState";
 
 const PAPEL_ICONE: Record<PgmPapel, JSX.Element> = {
   lider: <Crown className="w-3 h-3 text-gold" />,
-  colider: <Star className="w-3 h-3 text-amber-700 dark:text-amber-400 dark:text-amber-400" />,
+  colider: <Star className="w-3 h-3 text-amber-700 dark:text-amber-400" />,
   anfitriao: <HomeIcon className="w-3 h-3 text-blue-600" />,
   participante: <UsersRound className="w-3 h-3 text-muted-foreground" />,
 };
@@ -212,13 +212,13 @@ export default function PgmGrupo() {
         <div className="flex gap-1 flex-wrap">
           {grupo.whatsapp_link && (
             <a href={grupo.whatsapp_link} target="_blank" rel="noopener noreferrer">
-              <Button variant="outline" size="sm" className="gap-1.5 text-emerald-700 dark:text-emerald-400 hover:text-emerald-700 dark:text-emerald-400">
+              <Button variant="outline" size="sm" className="gap-1.5 text-emerald-700 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300">
                 <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
               </Button>
             </a>
           )}
           {podeEditar && grupo.ativo && (
-            <Button variant="outline" size="sm" onClick={() => setMultiplicarOpen(true)} className="gap-1.5 text-emerald-700 dark:text-emerald-400 hover:text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50">
+            <Button variant="outline" size="sm" onClick={() => setMultiplicarOpen(true)} className="gap-1.5 text-emerald-700 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 hover:bg-emerald-50">
               <Sparkles className="w-3.5 h-3.5" /> Multiplicar
             </Button>
           )}
@@ -252,7 +252,7 @@ export default function PgmGrupo() {
       <Card>
         <CardContent className="py-3 grid grid-cols-3 gap-3 text-xs">
           <Lideranca icon={<Crown className="w-3.5 h-3.5 text-gold" />} label="Líder" nome={grupo.lider_nome} />
-          <Lideranca icon={<Star className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400 dark:text-amber-400" />} label="Co-líder" nome={grupo.co_lider_nome} />
+          <Lideranca icon={<Star className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400" />} label="Co-líder" nome={grupo.co_lider_nome} />
           <Lideranca icon={<HomeIcon className="w-3.5 h-3.5 text-blue-600" />} label="Anfitrião" nome={grupo.anfitriao_nome} />
         </CardContent>
       </Card>

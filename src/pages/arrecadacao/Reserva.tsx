@@ -146,7 +146,7 @@ export default function ReservaDetalhe() {
               <CheckCircle2 className="w-3.5 h-3.5" /> Aprovar
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setRecusarOpen(true)}
-              className="gap-1.5 text-rose-700 dark:text-rose-400 dark:text-rose-400 hover:bg-rose-50">
+              className="gap-1.5 text-rose-700 dark:text-rose-400 hover:bg-rose-50">
               <XCircle className="w-3.5 h-3.5" /> Recusar
             </Button>
           </>
@@ -163,7 +163,7 @@ export default function ReservaDetalhe() {
             </Button>
           </>
         )}
-        <Button size="sm" variant="ghost" onClick={() => acao("arquivar")} className="text-rose-700 dark:text-rose-400 dark:text-rose-400">
+        <Button size="sm" variant="ghost" onClick={() => acao("arquivar")} className="text-rose-700 dark:text-rose-400">
           <Trash2 className="w-3.5 h-3.5" />
         </Button>
       </header>
@@ -189,7 +189,7 @@ export default function ReservaDetalhe() {
             </Linha>
           )}
           {reserva.motivo_recusa && (
-            <Linha icon={<XCircle className="w-3.5 h-3.5 text-rose-700 dark:text-rose-400 dark:text-rose-400" />} label="Motivo da recusa">
+            <Linha icon={<XCircle className="w-3.5 h-3.5 text-rose-700 dark:text-rose-400" />} label="Motivo da recusa">
               <span className="text-rose-700 dark:text-rose-400">{reserva.motivo_recusa}</span>
             </Linha>
           )}

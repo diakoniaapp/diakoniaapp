@@ -313,8 +313,8 @@ export default function RefatoracaoComparacao({
                               {/* Resumo */}
                               <div className="grid grid-cols-4 gap-2">
                                 {[
-                                                    { label: "Para atualizar", count: paraAtualizar.length, color: "text-amber-700 dark:text-amber-400 dark:text-amber-400 bg-amber-50 border-amber-200" },
-                                                    { label: "Para criar", count: paraCriar.length, color: "text-emerald-700 dark:text-emerald-400 dark:text-emerald-400 bg-emerald-50 border-emerald-200" },
+                                                    { label: "Para atualizar", count: paraAtualizar.length, color: "text-amber-700 dark:text-amber-400 bg-amber-50 border-amber-200" },
+                                                    { label: "Para criar", count: paraCriar.length, color: "text-emerald-700 dark:text-emerald-400 bg-emerald-50 border-emerald-200" },
                                                     { label: "Sincronizados", count: paraManter.length, color: "text-muted-foreground bg-muted/30 border-border" },
                                                     { label: "Nao encontrados", count: orfaos.length, color: "text-blue-600 bg-blue-50 border-blue-200" },
                                                   ].map(({ label, count, color }) => (
@@ -438,9 +438,9 @@ export default function RefatoracaoComparacao({
               {!carregando && (
                           <DialogFooter className="px-6 py-3 border-t bg-muted/20">
                             <div className="flex items-center gap-2 flex-1 text-xs text-muted-foreground">
-                              {atualizar > 0 && <span className="text-amber-700 dark:text-amber-400 dark:text-amber-400 font-medium">{atualizar} para atualizar</span>}
+                              {atualizar > 0 && <span className="text-amber-700 dark:text-amber-400 font-medium">{atualizar} para atualizar</span>}
                               {atualizar > 0 && criar > 0 && <span>•</span>}
-                              {criar > 0 && <span className="text-emerald-700 dark:text-emerald-400 dark:text-emerald-400 font-medium">{criar} para criar</span>}
+                              {criar > 0 && <span className="text-emerald-700 dark:text-emerald-400 font-medium">{criar} para criar</span>}
                               {semAcoes && <span>Nenhuma alteracao selecionada</span>}
                             </div>
                             <Button variant="outline" onClick={() => onOpenChange(false)} disabled={aplicando}>

@@ -147,7 +147,7 @@ export function MovimentosDialog({ open, onOpenChange, caixaId, onChange }: Prop
                     </button>
                   )}
                   <button onClick={() => excluir(m.id)}
-                    className="text-rose-700 dark:text-rose-400 dark:text-rose-400 hover:bg-rose-50 p-1 rounded" title="Arquivar">
+                    className="text-rose-700 dark:text-rose-400 hover:bg-rose-50 p-1 rounded" title="Arquivar">
                     <Trash2 className="w-3 h-3" />
                   </button>
                 </div>

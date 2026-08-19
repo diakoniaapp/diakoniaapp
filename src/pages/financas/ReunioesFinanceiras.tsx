@@ -286,7 +286,7 @@ function DetalheReuniao({ id, voltar }: { id: string; voltar: () => void }) {
             <CheckCircle2 className="w-3.5 h-3.5" /> Marcar realizada
           </Button>
         )}
-        <Button size="sm" variant="ghost" onClick={excluir} className="gap-1.5 text-rose-700 dark:text-rose-400 dark:text-rose-400">
+        <Button size="sm" variant="ghost" onClick={excluir} className="gap-1.5 text-rose-700 dark:text-rose-400">
           <Trash2 className="w-3.5 h-3.5" />
         </Button>
       </header>
@@ -427,7 +427,7 @@ function PautaView({ pauta }: { pauta: PautaFinanceira }) {
 
       {/* Alertas fiscais */}
       {pauta.alertas_fiscais.length > 0 && (
-        <Secao titulo={`Alertas fiscais — ${pauta.alertas_fiscais.length}`} icone={<AlertTriangle className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400 dark:text-amber-400" />}>
+        <Secao titulo={`Alertas fiscais — ${pauta.alertas_fiscais.length}`} icone={<AlertTriangle className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400" />}>
           <ul className="text-xs divide-y">
             {pauta.alertas_fiscais.map((a, i) => (
               <li key={i} className="py-1 flex items-center gap-2">
@@ -442,7 +442,7 @@ function PautaView({ pauta }: { pauta: PautaFinanceira }) {
 
       {/* Orçamento estourado */}
       {pauta.orcamento_estourado.length > 0 && (
-        <Secao titulo="Orçamento próximo do limite (≥90%)" icone={<AlertTriangle className="w-3.5 h-3.5 text-rose-700 dark:text-rose-400 dark:text-rose-400" />}>
+        <Secao titulo="Orçamento próximo do limite (≥90%)" icone={<AlertTriangle className="w-3.5 h-3.5 text-rose-700 dark:text-rose-400" />}>
           <ul className="text-xs divide-y">
             {pauta.orcamento_estourado.map((o, i) => (
               <li key={i} className="py-1 flex items-center gap-2">

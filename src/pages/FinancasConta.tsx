@@ -38,8 +38,8 @@ const STATUS_COR: Record<FinStatus, string> = {
 
 const STATUS_ICONE: Record<FinStatus, JSX.Element> = {
   realizado:  <CheckCircle2 className="w-3 h-3" />,
-  conciliado: <CheckCircle2 className="w-3 h-3 text-emerald-700 dark:text-emerald-400 dark:text-emerald-400" />,
-  previsto:   <Clock className="w-3 h-3 text-amber-700 dark:text-amber-400 dark:text-amber-400" />,
+  conciliado: <CheckCircle2 className="w-3 h-3 text-emerald-700 dark:text-emerald-400" />,
+  previsto:   <Clock className="w-3 h-3 text-amber-700 dark:text-amber-400" />,
   cancelado:  <XCircle className="w-3 h-3 text-muted-foreground" />,
   aguardando_aprovacao: <Clock className="w-3 h-3 text-blue-600" />,
 };

@@ -205,7 +205,7 @@ export default function FinancasInsights() {
         <Card>
           <CardContent className="py-3 space-y-2">
             <h3 className="font-serif text-base flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-700 dark:text-amber-400 dark:text-amber-400" /> Anomalias do mês
+              <AlertTriangle className="w-4 h-4 text-amber-700 dark:text-amber-400" /> Anomalias do mês
             </h3>
             {anomaliasRelevantes.length === 0 ? (
               <p className="text-xs text-muted-foreground italic text-center py-3">

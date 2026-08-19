@@ -85,7 +85,7 @@ export function ResumoEbd() {
   const teveAula = resumo.classes_com_aula_ult > 0;
 
   const variacao = resumo.variacao_presenca;
-  const corVariacao = variacao > 0 ? "text-emerald-700 dark:text-emerald-400 dark:text-emerald-400" : variacao < 0 ? "text-rose-700 dark:text-rose-400 dark:text-rose-400" : "text-muted-foreground";
+  const corVariacao = variacao > 0 ? "text-emerald-700 dark:text-emerald-400" : variacao < 0 ? "text-rose-700 dark:text-rose-400" : "text-muted-foreground";
   const IconVariacao = variacao >= 0 ? TrendingUp : TrendingDown;
 
   return (
@@ -110,7 +110,7 @@ export function ResumoEbd() {
 
         <Card className={teveAula ? "bg-emerald-50/40 border-emerald-200" : "border-dashed"}>
           <CardContent className="py-3 text-center">
-            <Calendar className="w-4 h-4 mx-auto text-emerald-700 dark:text-emerald-400 dark:text-emerald-400 mb-1" />
+            <Calendar className="w-4 h-4 mx-auto text-emerald-700 dark:text-emerald-400 mb-1" />
             {teveAula ? (
               <>
                 <p className="text-2xl font-semibold leading-none">

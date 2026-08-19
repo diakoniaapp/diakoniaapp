@@ -56,9 +56,9 @@ export function ResumoPgm() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
         <Stat icon={<Users className="w-4 h-4 text-gold" />} valor={resumo.grupos_ativos} label="Grupos ativos" link="/pgm" />
-        <Stat icon={<Users className="w-4 h-4 text-emerald-700 dark:text-emerald-400 dark:text-emerald-400" />} valor={resumo.total_membros} label="Participantes" />
+        <Stat icon={<Users className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />} valor={resumo.total_membros} label="Participantes" />
         <Stat icon={<TrendingUp className="w-4 h-4 text-blue-600" />} valor={`${resumo.presenca_media_pct}%`} label="Presença (30d)" />
-        <Stat icon={<HandHeart className="w-4 h-4 text-rose-700 dark:text-rose-400 dark:text-rose-400" />} valor={resumo.pedidos_ativos} label="Pedidos ativos" />
+        <Stat icon={<HandHeart className="w-4 h-4 text-rose-700 dark:text-rose-400" />} valor={resumo.pedidos_ativos} label="Pedidos ativos" />
       </div>
 
       {/* Próximos encontros */}

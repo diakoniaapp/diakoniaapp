@@ -313,7 +313,7 @@ export default function CaixaPDV() {
                       <Plus className="w-3 h-3" />
                     </button>
                     <span className="w-16 text-right font-medium tabular-nums">{fmtBR(it.subtotal)}</span>
-                    <button onClick={() => remover(idx)} className="p-0.5 hover:bg-rose-50 rounded text-rose-700 dark:text-rose-400 dark:text-rose-400">
+                    <button onClick={() => remover(idx)} className="p-0.5 hover:bg-rose-50 rounded text-rose-700 dark:text-rose-400">
                       <Trash2 className="w-3 h-3" />
                     </button>
                   </li>

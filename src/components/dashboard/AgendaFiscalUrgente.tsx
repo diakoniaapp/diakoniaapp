@@ -56,7 +56,7 @@ export function AgendaFiscalUrgente() {
   if (!data || (data.total_atrasados + data.total_urgentes + data.total_proximos === 0)) {
     return (
       <div className="py-3 text-center text-xs">
-        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400 dark:text-emerald-400 inline mr-1" />
+        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400 inline mr-1" />
         <span className="text-emerald-700 dark:text-emerald-400">Tudo em ordem — nada fiscal pendente.</span>
         {data && data.total_pagos_mes > 0 && (
           <span className="text-muted-foreground"> ({data.total_pagos_mes} obrigação(ões) paga(s) este mês)</span>
@@ -99,7 +99,7 @@ export function AgendaFiscalUrgente() {
             <span className="flex-1 truncate">{a.nome}</span>
             <span className={
               "text-xs tabular-nums shrink-0 " +
-              (a.severidade === "atrasado" ? "text-rose-700 dark:text-rose-400 dark:text-rose-400 font-semibold" :
+              (a.severidade === "atrasado" ? "text-rose-700 dark:text-rose-400 font-semibold" :
                a.severidade === "urgente" ? "text-amber-700 dark:text-amber-400 font-medium" : "text-muted-foreground")
             }>
               {fmtData(a.vencimento)}
@@ -114,7 +114,7 @@ export function AgendaFiscalUrgente() {
       <div className="flex items-center justify-between gap-2 pt-1">
         <Button size="sm" variant="outline" className="text-xs gap-1 h-7"
           onClick={avisarWhats}>
-          <MessageCircle className="w-3 h-3 text-emerald-700 dark:text-emerald-400 dark:text-emerald-400" /> Avisar tesouraria
+          <MessageCircle className="w-3 h-3 text-emerald-700 dark:text-emerald-400" /> Avisar tesouraria
         </Button>
         <Link to="/financas/fiscal" className="text-xs text-gold hover:underline inline-flex items-center gap-1">
           Ver agenda fiscal <ArrowRight className="w-3 h-3" />

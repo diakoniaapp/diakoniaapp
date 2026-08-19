@@ -297,7 +297,7 @@ function ItemEditavel({
           className="h-7 text-xs">editar</Button>
         {item.ativo && (
           <Button size="sm" variant="ghost" onClick={() => onArquivar(item.id)}
-            className="h-7 text-rose-700 dark:text-rose-400 dark:text-rose-400 hover:bg-rose-50">
+            className="h-7 text-rose-700 dark:text-rose-400 hover:bg-rose-50">
             <Trash2 className="w-3 h-3" />
           </Button>
         )}

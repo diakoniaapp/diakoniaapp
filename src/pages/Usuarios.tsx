@@ -30,8 +30,8 @@ type AcessoComNome = AcessoPessoa & { nomeCompleto: string };
 
 const STATUS_STYLE = {
   sem_acesso: { label: "Sem acesso",           cor: "text-slate-500 border-slate-300"  },
-  aguardando: { label: "Aguardando 1º acesso", cor: "text-amber-700 dark:text-amber-400 dark:text-amber-400 border-amber-400"  },
-  ativo:      { label: "Ativo",                cor: "text-green-700 dark:text-green-400 dark:text-green-400 border-green-400"  },
+  aguardando: { label: "Aguardando 1º acesso", cor: "text-amber-700 dark:text-amber-400 border-amber-400"  },
+  ativo:      { label: "Ativo",                cor: "text-green-700 dark:text-green-400 border-green-400"  },
 };
 
 // ─── Componente ───────────────────────────────────────────────────────────────
@@ -250,24 +250,34 @@ export default function Usuarios() {
                       >
                         {/* Pessoa */}
                         <td className="px-4 py-3">
+                          {/* min-w-0 + truncate: nome comprido encurta em vez de quebrar em
+                              três linhas, que era o que acontecia com "Isabela Rodrigues de
+                              Oliveira Ramos" quando a coluna ficava com 116px. */}
                           {a.pessoaId ? (
                             <Link
                               to="/membros"
-                              className="font-medium hover:underline flex items-center gap-1"
+                              className="font-medium hover:underline flex items-center gap-1 min-w-0"
                             >
-                              {a.nomeCompleto}
-                              <ExternalLink className="w-3 h-3 opacity-40" />
+                              <span className="truncate">{a.nomeCompleto}</span>
+                              <ExternalLink className="w-3 h-3 opacity-40 shrink-0" />
                             </Link>
                           ) : (
-                            <span className="font-medium">{a.nomeCompleto}</span>
+                            <span className="font-medium block truncate">{a.nomeCompleto}</span>
                           )}
-                          {!a.pessoaId && (
-                            <span className="block text-xs text-muted-foreground italic">sem vínculo com pessoa</span>
-                          )}
+                          {/* A segunda linha existe sempre — vazia quando há vínculo. Sem isso
+                              as 6 linhas mediam 61, 64 e 67px, com 4 mudanças de altura em 5
+                              transições: numa tabela de seis linhas, o olho tropeça o tempo
+                              todo. Mesmo remédio do catálogo de Pessoas. */}
+                          <span className="block h-[18px] text-xs text-muted-foreground italic truncate">
+                            {!a.pessoaId && "sem vínculo com pessoa"}
+                          </span>
                         </td>
 
                         {/* Login */}
-                        <td className="px-4 py-3 text-muted-foreground font-mono text-xs">
+                        {/* whitespace-nowrap: "(21) 97930-3125" estava quebrando em três
+    linhas quando a coluna apertava. Número de telefone não tem
+    onde quebrar que faça sentido. */}
+                        <td className="px-4 py-3 text-muted-foreground font-mono text-xs whitespace-nowrap">
                           {formatarTelefoneSemDDI(a.telefone) || "—"}
                         </td>
 
@@ -310,7 +320,7 @@ export default function Usuarios() {
                                 disabled={emAndamento}
                                 onClick={() => handleReenviar(a)}
                                 title="Resetar senha"
-                                className="gap-1 text-xs h-7 px-2 text-orange-700 dark:text-orange-400 dark:text-orange-400 hover:text-orange-700 dark:text-orange-400 hover:bg-orange-50"
+                                className="gap-1 text-xs h-7 px-2 text-orange-700 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 hover:bg-orange-50"
                               >
                                 {emAndamento
                                   ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />

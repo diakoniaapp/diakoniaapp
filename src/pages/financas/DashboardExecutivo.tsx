@@ -238,8 +238,8 @@ export default function DashboardExecutivo() {
                    a.severidade === "media" ? "border-amber-200 bg-amber-50/30" : "border-blue-200 bg-blue-50/30")
                 }>
                   {a.severidade === "alta"
-                    ? <AlertCircle className="w-3.5 h-3.5 text-rose-700 dark:text-rose-400 dark:text-rose-400 shrink-0 mt-0.5" />
-                    : <AlertTriangle className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400 dark:text-amber-400 shrink-0 mt-0.5" />}
+                    ? <AlertCircle className="w-3.5 h-3.5 text-rose-700 dark:text-rose-400 shrink-0 mt-0.5" />
+                    : <AlertTriangle className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400 shrink-0 mt-0.5" />}
                   <div className="flex-1">
                     <div className="font-medium">{a.mensagem}</div>
                     {a.detalhe && <div className="text-muted-foreground text-xs mt-0.5">{a.detalhe}</div>}

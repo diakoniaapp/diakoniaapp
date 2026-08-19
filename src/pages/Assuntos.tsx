@@ -250,7 +250,7 @@ export default function Assuntos() {
                       type="button"
                       onClick={(e) => enviarLembreteWhats(a.id, e)}
                       title="Lembrar via WhatsApp"
-                      className="w-6 h-6 rounded-md flex items-center justify-center hover:bg-emerald-50 text-emerald-700 dark:text-emerald-400 dark:text-emerald-400 transition-colors"
+                      className="w-6 h-6 rounded-md flex items-center justify-center hover:bg-emerald-50 text-emerald-700 dark:text-emerald-400 transition-colors"
                     >
                       <MessageCircle className="w-3.5 h-3.5" />
                     </button>

@@ -1166,18 +1166,28 @@ export default function Membros() {
                                               <span className="truncate">{m.nome_completo}</span>
                                               <MarcaAniversario nascimento={m.data_nascimento} />
                                             </span>
-                                            {/* Segunda linha só quando há o que dizer. Quem não
-                                                serve, não lidera e não estuda não ganha um "—":
-                                                a ausência da linha já é a informação, e um traço
-                                                em 200 linhas seria só ruído. */}
-                                            {(() => {
-                                              const v = vinculos(m);
-                                              return v.length > 0 ? (
-                                                <span className="block truncate text-xs font-normal text-muted-foreground mt-0.5">
-                                                  {v.join(" · ")}
-                                                </span>
-                                              ) : null;
-                                            })()}
+                                            {/* A segunda linha existe SEMPRE — com texto quando há vínculo,
+                                                vazia quando não há.
+                                            
+                                                Duas decisões que eu tinha juntado numa só, e que são
+                                                separadas:
+                                            
+                                                O CONTEÚDO continua como estava: quem não serve, não lidera
+                                                e não estuda não ganha um "—". A ausência já é a informação,
+                                                e um traço em 200 linhas seria só ruído.
+                                            
+                                                O ESPAÇO, não. Medido nesta tela: 20 linhas em duas alturas
+                                                (45px e 58px) e 13 mudanças de altura em 19 transições — o
+                                                olho tropeçava em quase toda linha, e varrer a coluna do
+                                                telefone virava trabalho. Ritmo constante cansa menos que
+                                                ritmo apertado.
+                                            
+                                                h-[18px] é exatamente a entrelinha de `text-xs` na escala
+                                                nova. Vazio, o span não escreve nada e o leitor de tela não
+                                                anuncia nada: é espaço reservado, não um traço disfarçado. */}
+                                            <span className="block h-[18px] truncate text-xs font-normal text-muted-foreground mt-0.5">
+                                              {vinculos(m).join(" · ")}
+                                            </span>
                                           </button>
                                         </th>
                                         <td className="px-3 py-0">

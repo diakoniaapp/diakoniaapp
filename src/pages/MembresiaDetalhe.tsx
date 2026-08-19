@@ -151,7 +151,7 @@ export default function MembresiaDetalhe() {
           {checklist.map((item, i) => (
             <div key={i} className="flex items-center gap-2">
               {item.ok
-                ? <CheckCircle2 className="w-4 h-4 text-emerald-700 dark:text-emerald-400 dark:text-emerald-400 shrink-0" />
+                ? <CheckCircle2 className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0" />
                 : <Circle className="w-4 h-4 text-muted-foreground shrink-0" />}
               <span className={`text-sm flex-1 ${item.ok ? "text-foreground" : "text-muted-foreground"}`}>
                 {item.label}

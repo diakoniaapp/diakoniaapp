@@ -179,7 +179,7 @@ export default function FinancasAdmin() {
                     <Button type="button" variant="ghost" size="icon" className="h-7 w-7"
                       onClick={() => toggleConta(c)}
                       title={c.ativo ? "Desativar" : "Reativar"}>
-                      {c.ativo ? <PowerOff className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400 dark:text-amber-400" /> : <RotateCcw className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400 dark:text-emerald-400" />}
+                      {c.ativo ? <PowerOff className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400" /> : <RotateCcw className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />}
                     </Button>
                     <Button type="button" variant="ghost" size="icon"
                       className="h-7 w-7 text-destructive hover:bg-destructive/10"
@@ -274,7 +274,7 @@ function CategoriaLinha({ k, onEdit, onToggle, onDelete }: {
         </Button>
         <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={onToggle}
           title={k.ativo ? "Desativar" : "Reativar"}>
-          {k.ativo ? <PowerOff className="w-3 h-3 text-amber-700 dark:text-amber-400 dark:text-amber-400" /> : <RotateCcw className="w-3 h-3 text-emerald-700 dark:text-emerald-400 dark:text-emerald-400" />}
+          {k.ativo ? <PowerOff className="w-3 h-3 text-amber-700 dark:text-amber-400" /> : <RotateCcw className="w-3 h-3 text-emerald-700 dark:text-emerald-400" />}
         </Button>
         {!k.sistema && (
           <Button type="button" variant="ghost" size="icon"

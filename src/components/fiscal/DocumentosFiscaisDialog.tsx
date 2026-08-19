@@ -166,7 +166,7 @@ export function DocumentosFiscaisDialog({ open, onOpenChange, agendaId, nomeObri
                 <ExternalLink className="w-3.5 h-3.5 text-blue-600" />
               </button>
               <button onClick={() => excluir(d)} title="Excluir" className="p-1 hover:bg-rose-50 rounded">
-                <Trash2 className="w-3.5 h-3.5 text-rose-700 dark:text-rose-400 dark:text-rose-400" />
+                <Trash2 className="w-3.5 h-3.5 text-rose-700 dark:text-rose-400" />
               </button>
             </div>
           ))}

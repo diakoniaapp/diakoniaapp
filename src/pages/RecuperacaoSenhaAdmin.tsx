@@ -147,7 +147,7 @@ export default function RecuperacaoSenhaAdmin() {
           <CardContent className="p-4 flex items-center gap-3">
             <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0
               ${pendentes.length > 0 ? "bg-amber-100 dark:bg-amber-900/40" : "bg-muted"}`}>
-              <AlertTriangle className={`w-5 h-5 ${pendentes.length > 0 ? "text-amber-700 dark:text-amber-400 dark:text-amber-400" : "text-muted-foreground"}`} />
+              <AlertTriangle className={`w-5 h-5 ${pendentes.length > 0 ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground"}`} />
             </div>
             <div>
               <div className="text-2xl font-bold leading-none">{pendentes.length}</div>
@@ -159,7 +159,7 @@ export default function RecuperacaoSenhaAdmin() {
         <Card className="border-border">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="w-9 h-9 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center shrink-0">
-              <CheckCircle2 className="w-5 h-5 text-green-700 dark:text-green-400 dark:text-green-400" />
+              <CheckCircle2 className="w-5 h-5 text-green-700 dark:text-green-400" />
             </div>
             <div>
               <div className="text-2xl font-bold leading-none">{resolvidos.length}</div>
@@ -200,7 +200,7 @@ export default function RecuperacaoSenhaAdmin() {
                   {/* Info */}
                   <div className="flex items-start gap-3 min-w-0">
                     <div className="w-9 h-9 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center shrink-0 mt-0.5">
-                      <User className="w-4 h-4 text-amber-700 dark:text-amber-400 dark:text-amber-400" />
+                      <User className="w-4 h-4 text-amber-700 dark:text-amber-400" />
                     </div>
                     <div className="min-w-0">
                       {item.nome && (

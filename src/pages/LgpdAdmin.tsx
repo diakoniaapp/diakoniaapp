@@ -323,7 +323,7 @@ export default function LgpdAdmin() {
                               <Clock className="w-3 h-3" /> {fmtData(s.solicitado_em)}
                             </span>
                             {!s.prazo_vencido && s.status !== "concluido" && (
-                              <span className="text-amber-700 dark:text-amber-400 dark:text-amber-400 font-medium">{diasPrazo(s.prazo_legal)}</span>
+                              <span className="text-amber-700 dark:text-amber-400 font-medium">{diasPrazo(s.prazo_legal)}</span>
                             )}
                             {s.atendido_por && (
                               <span className="flex items-center gap-1">

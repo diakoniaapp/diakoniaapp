@@ -346,7 +346,7 @@ function CampanhaCard({ campanha: c, onEditar, onExcluir, onStatus }: {
               <Edit2 className="w-3 h-3" />
             </Button>
             {c.status === "rascunho" && (
-              <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-green-700 dark:text-green-400 dark:text-green-400" onClick={() => onStatus("ativa")}>
+              <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-green-700 dark:text-green-400" onClick={() => onStatus("ativa")}>
                 <Flame className="w-3 h-3" />
               </Button>
             )}

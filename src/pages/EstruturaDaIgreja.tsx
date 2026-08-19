@@ -188,7 +188,7 @@ function MinisterioCard({ min, onPessoa, isAdmin, onEdit }: {
                 {min.areas.map((area) => (
                   <div key={area.id} className="rounded-lg border bg-background px-3 py-2 space-y-1">
                     <div className="flex items-center gap-2">
-                      <MapPin className="w-3 h-3 text-green-700 dark:text-green-400 dark:text-green-400" />
+                      <MapPin className="w-3 h-3 text-green-700 dark:text-green-400" />
                       <span className="text-xs font-medium">{area.nome}</span>
                       {area.lider_id && area.lider_nome && (
                         <PessoaPill id={area.lider_id} nome={area.lider_nome} funcao="Lider de Area" onClick={onPessoa} />
@@ -397,7 +397,7 @@ export default function EstruturaDaIgreja() {
             // prevê, e quanto disso a igreja de fato tem ocupado. "Sem
             // ocupante" é a única lacuna que este lugar consegue enxergar — o
             // regimento prevê um cargo e a ficha de ninguém o preenche.
-            { label: "No regimento", value: stats.estTotal, icon: <Network className="w-4 h-4" />, cor: "text-amber-700 dark:text-amber-400 dark:text-amber-400" },
+            { label: "No regimento", value: stats.estTotal, icon: <Network className="w-4 h-4" />, cor: "text-amber-700 dark:text-amber-400" },
             { label: "Ligados à ficha", value: cargos.ocupados, icon: <Crown className="w-4 h-4" />, cor: "text-primary" },
             // "Fora da ficha" e não "sem ocupante": Pastoral e Jurídico
             // Parlamentar TÊM nomes no documento, digitados como texto. O que
@@ -468,7 +468,7 @@ export default function EstruturaDaIgreja() {
                 const config = {
                   institucional: { label: "Diretoria e Conselhos", icon: <Crown className="w-4 h-4 text-purple-600" />, border: "border-purple-200", bg: "bg-purple-50/50" },
                   ministerial: { label: "Ministerios", icon: <Church className="w-4 h-4 text-blue-600" />, border: "border-blue-200", bg: "bg-blue-50/50" },
-                  area: { label: "Areas e Setores", icon: <MapPin className="w-4 h-4 text-green-700 dark:text-green-400 dark:text-green-400" />, border: "border-green-200", bg: "bg-green-50/50" },
+                  area: { label: "Areas e Setores", icon: <MapPin className="w-4 h-4 text-green-700 dark:text-green-400" />, border: "border-green-200", bg: "bg-green-50/50" },
                 } as const;
                 const c = config[nivel];
                 return (

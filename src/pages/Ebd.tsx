@@ -178,7 +178,7 @@ export default function Ebd() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center justify-between gap-2">
               <span className="flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-amber-700 dark:text-amber-400 dark:text-amber-400" />
+                <AlertCircle className="w-4 h-4 text-amber-700 dark:text-amber-400" />
                 Alunos fora da faixa etária
                 <Badge variant="outline" className="text-xs bg-amber-100 border-amber-300">
                   {alunosForaFaixa.length}
@@ -294,7 +294,7 @@ export default function Ebd() {
 
                 <div className="flex items-center gap-3 text-xs">
                   <span className="flex items-center gap-1">
-                    <Users className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400 dark:text-emerald-400" />
+                    <Users className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
                     <strong>{c.qtd_matriculados}</strong> matriculados
                   </span>
                   <span className="text-muted-foreground">·</span>

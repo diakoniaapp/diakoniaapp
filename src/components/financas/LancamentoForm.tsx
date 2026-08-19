@@ -240,8 +240,8 @@ export function LancamentoForm({
         <DialogHeader>
           <DialogTitle className="font-serif text-xl flex items-center gap-2">
             {tipo === "entrada"
-              ? <TrendingUp className="w-5 h-5 text-emerald-700 dark:text-emerald-400 dark:text-emerald-400" />
-              : <TrendingDown className="w-5 h-5 text-rose-700 dark:text-rose-400 dark:text-rose-400" />}
+              ? <TrendingUp className="w-5 h-5 text-emerald-700 dark:text-emerald-400" />
+              : <TrendingDown className="w-5 h-5 text-rose-700 dark:text-rose-400" />}
             {isEdit ? "Editar lançamento" : (tipo === "entrada" ? "Nova entrada" : "Nova saída")}
           </DialogTitle>
           <DialogDescription>

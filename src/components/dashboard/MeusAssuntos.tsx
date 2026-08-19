@@ -66,15 +66,15 @@ export function MeusAssuntos() {
         {data.proximos.map(a => (
           <li key={a.id} className="py-1.5 flex items-center gap-2 text-xs">
             <span className="shrink-0">
-              {a.situacao === "atrasado" && <AlertCircle className="w-3.5 h-3.5 text-rose-700 dark:text-rose-400 dark:text-rose-400" />}
-              {a.situacao === "vence_breve" && <Clock className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400 dark:text-amber-400" />}
+              {a.situacao === "atrasado" && <AlertCircle className="w-3.5 h-3.5 text-rose-700 dark:text-rose-400" />}
+              {a.situacao === "vence_breve" && <Clock className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400" />}
               {a.situacao === "parado" && <Clock className="w-3.5 h-3.5 text-purple-600" />}
               {a.situacao === "normal" && <span className="text-sm">{PRIORIDADE_ICONE[a.prioridade]}</span>}
             </span>
             <span className="flex-1 truncate">{a.titulo}</span>
             <span className={
               "text-xs tabular-nums shrink-0 " +
-              (a.situacao === "atrasado" ? "text-rose-700 dark:text-rose-400 dark:text-rose-400 font-semibold" :
+              (a.situacao === "atrasado" ? "text-rose-700 dark:text-rose-400 font-semibold" :
                a.situacao === "vence_breve" ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground")
             }>
               {fmtPrazo(a.prazo)}

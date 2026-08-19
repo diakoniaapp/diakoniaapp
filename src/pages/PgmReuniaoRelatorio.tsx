@@ -267,7 +267,7 @@ export default function PgmReuniaoRelatorio() {
             <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
               {presentes.map(p => (
                 <div key={p.id} className="flex items-center gap-1.5 border-b border-border/40 py-1">
-                  <Check className="w-3 h-3 text-emerald-700 dark:text-emerald-400 dark:text-emerald-400 shrink-0" />
+                  <Check className="w-3 h-3 text-emerald-700 dark:text-emerald-400 shrink-0" />
                   <span className="truncate">{p.nome_completo ?? "—"}</span>
                   {p.papel && p.papel !== "participante" && (
                     <span className="text-xs text-gold ml-auto shrink-0">{PAPEL_LABEL[p.papel]}</span>
@@ -285,7 +285,7 @@ export default function PgmReuniaoRelatorio() {
             <div className="space-y-1 text-sm">
               {visitas.map(v => (
                 <div key={v.id} className="border-b border-border/40 py-1 flex items-start gap-1.5">
-                  <span className="text-amber-700 dark:text-amber-400 dark:text-amber-400 shrink-0">🌱</span>
+                  <span className="text-amber-700 dark:text-amber-400 shrink-0">🌱</span>
                   <div className="min-w-0">
                     <p className="font-medium">{v.nome}</p>
                     <p className="text-xs text-muted-foreground">

@@ -421,7 +421,7 @@ function ProdutoDialog({
               Salvar
             </Button>
             {editando && (
-              <Button variant="ghost" onClick={arquivar} className="text-rose-700 dark:text-rose-400 dark:text-rose-400 hover:bg-rose-50 gap-1.5">
+              <Button variant="ghost" onClick={arquivar} className="text-rose-700 dark:text-rose-400 hover:bg-rose-50 gap-1.5">
                 <Trash2 className="w-3.5 h-3.5" /> Arquivar
               </Button>
             )}

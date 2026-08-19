@@ -88,7 +88,7 @@ interface ColunaProps {
 }
 
 function ColunaEventos({ cor, icon: Icon, titulo, lista, onWhats, sufixo }: ColunaProps) {
-  const corTitulo = cor === "rose" ? "text-rose-700 dark:text-rose-400 dark:text-rose-400" : "text-pink-600";
+  const corTitulo = cor === "rose" ? "text-rose-700 dark:text-rose-400" : "text-pink-600";
   return (
     <Card>
       <CardContent className="py-3 space-y-2">

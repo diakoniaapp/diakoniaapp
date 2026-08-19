@@ -129,15 +129,15 @@ export default function FinancasAgenda() {
             return (
               <div key={u} className="space-y-1.5">
                 <p className="text-xs uppercase tracking-wide font-medium text-muted-foreground px-1">
-                  {u === "vencido" && <AlertTriangle className="w-3 h-3 inline mr-1 text-rose-700 dark:text-rose-400 dark:text-rose-400" />}
+                  {u === "vencido" && <AlertTriangle className="w-3 h-3 inline mr-1 text-rose-700 dark:text-rose-400" />}
                   {info.label} ({lista.length})
                 </p>
                 {lista.map(v => (
                   <div key={v.id} className={`flex items-center justify-between border rounded-md px-3 py-2 ${info.cor}`}>
                     <div className="flex items-center gap-2 min-w-0 flex-1">
                       {v.tipo === "entrada"
-                        ? <TrendingUp className="w-4 h-4 text-emerald-700 dark:text-emerald-400 dark:text-emerald-400 shrink-0" />
-                        : <TrendingDown className="w-4 h-4 text-rose-700 dark:text-rose-400 dark:text-rose-400 shrink-0" />}
+                        ? <TrendingUp className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0" />
+                        : <TrendingDown className="w-4 h-4 text-rose-700 dark:text-rose-400 shrink-0" />}
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium truncate">{v.descricao ?? "—"}</p>
                         <p className="text-xs flex items-center gap-1.5">

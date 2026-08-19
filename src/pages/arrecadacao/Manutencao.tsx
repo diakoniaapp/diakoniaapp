@@ -83,7 +83,7 @@ export default function ManutencaoLista() {
             <Button key={esp.id} size="sm" variant="outline"
               onClick={() => abrirWhatsAppPorEspaco(esp.id, esp.nome)}
               className="gap-1.5 text-xs h-8">
-              <MessageCircle className="w-3 h-3 text-emerald-700 dark:text-emerald-400 dark:text-emerald-400" />
+              <MessageCircle className="w-3 h-3 text-emerald-700 dark:text-emerald-400" />
               Avisar {esp.codigo}
             </Button>
           ))}
@@ -116,7 +116,7 @@ export default function ManutencaoLista() {
             <Card key={p.id} className={p.status === "resolvido" ? "opacity-60" : ""}>
               <CardContent className="p-3 space-y-1.5">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <AlertTriangle className="w-4 h-4 text-amber-700 dark:text-amber-400 dark:text-amber-400" />
+                  <AlertTriangle className="w-4 h-4 text-amber-700 dark:text-amber-400" />
                   <span className="font-medium text-sm">{p.titulo}</span>
                   <Badge variant="outline" className={`text-xs ${STATUS_COR[p.status]}`}>
                     {p.status.replace("_", " ")}
@@ -204,7 +204,7 @@ function ResolverDialog({ problema, onCancel, onResolved }: {
       <Card className="max-w-md w-full">
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-700 dark:text-emerald-400 dark:text-emerald-400" /> Resolver problema
+            <CheckCircle2 className="w-4 h-4 text-emerald-700 dark:text-emerald-400" /> Resolver problema
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">

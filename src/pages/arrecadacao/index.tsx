@@ -107,7 +107,7 @@ export default function ArrecadacaoHome() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-emerald-700 dark:text-emerald-400 dark:text-emerald-400" /> Em uso agora ({ativas.length})
+              <Sparkles className="w-4 h-4 text-emerald-700 dark:text-emerald-400" /> Em uso agora ({ativas.length})
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-1.5">
@@ -135,7 +135,7 @@ export default function ArrecadacaoHome() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <Clock className="w-4 h-4 text-amber-700 dark:text-amber-400 dark:text-amber-400" /> Solicitações pendentes ({solicitadas.length})
+              <Clock className="w-4 h-4 text-amber-700 dark:text-amber-400" /> Solicitações pendentes ({solicitadas.length})
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-1.5">

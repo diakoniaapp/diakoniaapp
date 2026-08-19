@@ -243,7 +243,7 @@ export default function EbdChamada() {
       <div className="grid grid-cols-3 gap-2">
         <Card><CardContent className="py-2 text-center">
           <p className="text-xs text-muted-foreground uppercase">Presentes</p>
-          <p className="text-xl font-semibold text-emerald-700 dark:text-emerald-400 dark:text-emerald-400">{stats.totalPresentes}</p>
+          <p className="text-xl font-semibold text-emerald-700 dark:text-emerald-400">{stats.totalPresentes}</p>
         </CardContent></Card>
         <Card><CardContent className="py-2 text-center">
           <p className="text-xs text-muted-foreground uppercase">Matriculados</p>
@@ -251,7 +251,7 @@ export default function EbdChamada() {
         </CardContent></Card>
         <Card><CardContent className="py-2 text-center">
           <p className="text-xs text-muted-foreground uppercase">Visitantes</p>
-          <p className="text-xl font-semibold text-amber-700 dark:text-amber-400 dark:text-amber-400">{stats.presVis}/{stats.totalVis}</p>
+          <p className="text-xl font-semibold text-amber-700 dark:text-amber-400">{stats.presVis}/{stats.totalVis}</p>
         </CardContent></Card>
       </div>
 
@@ -292,7 +292,7 @@ export default function EbdChamada() {
               {salvando === r.pessoa_id
                 ? <Loader2 className="w-4 h-4 animate-spin" />
                 : r.presente
-                ? <CheckCircle2 className="w-6 h-6 text-emerald-700 dark:text-emerald-400 dark:text-emerald-400" />
+                ? <CheckCircle2 className="w-6 h-6 text-emerald-700 dark:text-emerald-400" />
                 : <div className="w-6 h-6 rounded-full border-2 border-muted-foreground/30" />
               }
             </div>
@@ -332,7 +332,7 @@ export default function EbdChamada() {
               {salvando === r.pessoa_id
                 ? <Loader2 className="w-4 h-4 animate-spin" />
                 : r.presente
-                ? <CheckCircle2 className="w-6 h-6 text-amber-700 dark:text-amber-400 dark:text-amber-400" />
+                ? <CheckCircle2 className="w-6 h-6 text-amber-700 dark:text-amber-400" />
                 : <div className="w-6 h-6 rounded-full border-2 border-muted-foreground/30" />
               }
             </button>

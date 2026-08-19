@@ -322,7 +322,7 @@ function ConvocacaoDialog({ assembleia, pautas, open, onOpenChange, onMarked }: 
       <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-serif text-xl flex items-center gap-2">
-            <MessageCircle className="w-5 h-5 text-emerald-700 dark:text-emerald-400 dark:text-emerald-400" />
+            <MessageCircle className="w-5 h-5 text-emerald-700 dark:text-emerald-400" />
             Convocação WhatsApp
           </DialogTitle>
           <DialogDescription>
