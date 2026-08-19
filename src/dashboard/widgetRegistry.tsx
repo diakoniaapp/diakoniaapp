@@ -69,12 +69,18 @@ export const widgetRegistry: Widget[] = [
   // acontece hoje e nos próximos dias — agenda, cultos, reuniões, contas a
   // vencer —, e não uma fila de trabalho pastoral.
   //
-  // `ativo: false` e não remoção: o componente, a consulta e o filtro de
-  // cuidado continuam inteiros. Voltar é apagar esta linha.
+  // `ativo: false` e não remoção: o componente e a consulta continuam
+  // inteiros. Voltar é apagar esta linha.
   //
-  // A pergunta "quem ninguém procurou?" não some do sistema: a tela de
-  // Pessoas responde a mesma coisa pelo filtro de cuidado
-  // (/membros?cuidado=nunca), que ordena pelos mais esquecidos primeiro.
+  // Desde então uma segunda decisão passou por cima desta: acompanhamento por
+  // contato virou coisa só de visitante, e este widget consulta `membros` sem
+  // filtro de tipo — ou seja, ele pergunta "quem ninguém procurou?" sobre 281
+  // pessoas que a igreja não acompanha por contato. Reativar hoje traria de
+  // volta a fila que se decidiu não ter.
+  //
+  // O link que ele oferece (/membros?cuidado=nunca) também não existe mais: o
+  // filtro de cuidado saiu da tela de Pessoas junto com o resto. Quem reativar
+  // precisa refazer as duas pontas, não só apagar a linha do `ativo`.
   { id: "quem-ninguem-procurou", label: "Quem ninguém procurou?",
     subtitulo: "Pessoas esperando um contato — as mais esquecidas primeiro",
     icone: HeartHandshake, component: QuemNinguemProcurou,

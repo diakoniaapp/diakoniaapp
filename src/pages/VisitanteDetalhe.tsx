@@ -336,9 +336,16 @@ export default function VisitanteDetalhe() {
 
               {/* Badges de estado */}
               <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                <Badge className={`${statusCfg.cor} ${statusCfg.corTexto} border-0 text-xs`}>
-                  {statusCfg.label}
-                </Badge>
+                {/* "Novo", "Em acompanhamento", "Acolhido" são etapas da trilha
+                    de acolhimento, e a trilha já estava fechada para membro e
+                    congregado logo abaixo. A etiqueta escapava: a ficha de quem
+                    está na igreja há vinte anos abria com um selo "Novo" ao lado
+                    do nome, porque `status_acolhimento` nunca saiu do padrão. */}
+                {!isCongregadoOuMembro && (
+                  <Badge className={`${statusCfg.cor} ${statusCfg.corTexto} border-0 text-xs`}>
+                    {statusCfg.label}
+                  </Badge>
+                )}
                 <span className="text-xs text-muted-foreground">
                   {diasCadastro === 0 ? "Cadastrado hoje" : `Há ${diasCadastro} ${diasCadastro === 1 ? "dia" : "dias"}`}
                 </span>
@@ -422,7 +429,11 @@ export default function VisitanteDetalhe() {
                 <p className="font-medium capitalize">{visitante.como_conheceu.replace(/_/g, " ")}</p>
               </div>
             )}
-            {visitante.ultimo_contato_em && (
+            {/* Acompanhamento por contato é de visitante. Numa ficha de membro,
+                "último contato há 3 meses" lê como cobrança sobre uma relação que
+                não se mede assim — e o número viria de uma régua que a igreja
+                nunca decidiu aplicar a quem já é da casa. */}
+            {!isCongregadoOuMembro && visitante.ultimo_contato_em && (
               <div>
                 <p className="text-xs text-muted-foreground">Último contato</p>
                 <p className="font-medium">
@@ -500,11 +511,15 @@ export default function VisitanteDetalhe() {
       {/* ── Histórico ─────────────────────────────────────────────────────────── */}
       {/* dataCadastro é obrigatório: sem ele o marco "primeiro culto" recebia
           created_at undefined e virava Invalid Date na ordenação. */}
+      {/* Para membro e congregado sobram os marcos — primeiro culto, tornou-se
+          congregado, tornou-se membro. É a caminhada da pessoa com a igreja, e
+          não o acompanhamento de acolhimento, que saiu. */}
       <VisitanteTimeline
         pessoaId={visitante.id}
         dataCadastro={visitante.created_at}
         dataCongregado={visitante.data_congregado}
         dataMembro={visitante.data_membro}
+        somenteMarcos={isCongregadoOuMembro}
       />
 
       {/* ── Ação: Tornar Congregado ────────────────────────────────────────────── */}

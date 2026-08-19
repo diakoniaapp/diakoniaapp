@@ -156,15 +156,23 @@ function AcoesPessoa({ m, onEditar, onVinculos, onAtuacoes, onVisitante, onConta
             </Link>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          {/* Registrar contato existia so na tela de Visitantes, e so para
-              visitante. As 275 outras pessoas nao tinham como receber um
-              "falei com ela" — os campos ultimo_contato_* ja existiam no banco
-              e estavam com ZERO registros. Mesma acao, mesmo dialogo, mesma
-              tabela de historico; muda so quem alcanca. */}
-          <DropdownMenuItem onClick={() => onContato(m)}>
-            <MessageCircle className="w-4 h-4 mr-2 text-muted-foreground" />
-            Registrar contato
-          </DropdownMenuItem>
+          {/* Registrar contato voltou a ser só de visitante.
+              Eu tinha estendido a ação a todo mundo por achar que os campos
+              ultimo_contato_* zerados eram uma oportunidade desperdiçada. Não
+              eram: acompanhamento por contato é a régua do acolhimento — quem
+              chegou, quem foi procurado, quem sumiu —, e ela não se aplica a
+              quem já é da casa. Aberta para as 281, a ação virava um "sem
+              contato" permanente ao lado de gente que a igreja vê toda semana,
+              e transformava presença em dívida.
+              O dado continua existindo, a ação continua inteira; muda só quem
+              a recebe: os visitantes, que são para quem a pergunta "alguém já
+              falou com essa pessoa?" tem resposta útil. */}
+          {m.tipo_pessoa === "visitante" && (
+            <DropdownMenuItem onClick={() => onContato(m)}>
+              <MessageCircle className="w-4 h-4 mr-2 text-muted-foreground" />
+              Registrar contato
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem onClick={() => onVinculos(m)}>
             <Link2 className="w-4 h-4 mr-2 text-muted-foreground" />
             Vínculos familiares
@@ -256,6 +264,43 @@ function diasAteAniversario(nascimento?: string | null): number | null {
     if (d.getMonth() + 1 === mes && d.getDate() === dia) return i;
   }
   return null;
+}
+
+/**
+ * Classes de EBD que atendem criança. Serve de segunda via para quem está
+ * matriculado e não tem data de nascimento no cadastro.
+ *
+ * Hoje isso alcança zero pessoas a mais, e vale a pena registrar por quê: o
+ * único caso — Benicio Oliveira, sem data de nascimento, classe Crianças —
+ * tem a matrícula com `ativo = false`, e a consulta desta tela só traz
+ * matrícula ativa. Quer dizer que a segunda via está certa e não tem o que
+ * pegar; no dia em que entrar uma criança sem data e com matrícula ativa,
+ * ela conta.
+ */
+const CLASSES_INFANTIS = ["Berçário", "Crianças", "Juniores"];
+
+/**
+ * Criança: menos de 12 anos, ou matriculada em classe infantil da EBD.
+ *
+ * Duas fontes porque nenhuma das duas cobre sozinha. Data de nascimento
+ * existe em 106 dos 283 cadastros; matrícula infantil ativa, em 11. Juntas
+ * dão 15 — as matrículas infantis são de crianças que também têm data.
+ * Doze anos é onde a EBD daqui separa Juniores de Adolescentes — o corte é o
+ * da igreja, não uma definição genérica de infância.
+ */
+function ehCrianca(m: Membro): boolean {
+  if (m.classe_ebd && CLASSES_INFANTIS.includes(m.classe_ebd)) return true;
+  if (!m.data_nascimento) return false;
+
+  const nasc = new Date(m.data_nascimento + "T00:00:00");
+  const hoje = new Date();
+  let anos = hoje.getFullYear() - nasc.getFullYear();
+  const antesDoAniversario =
+    hoje.getMonth() < nasc.getMonth() ||
+    (hoje.getMonth() === nasc.getMonth() && hoje.getDate() < nasc.getDate());
+  if (antesDoAniversario) anos--;
+
+  return anos < 12;
 }
 
 /** Faz aniversário dentro do mês corrente — a pergunta que a secretaria faz. */
@@ -394,7 +439,13 @@ export default function Membros() {
     // Filtro de cuidado. Nao e um modulo nem uma tela: e mais uma opcao na
     // mesma barra de filtros, respondendo a pergunta que o pastor faz e que a
     // lista nao respondia — "de quem ninguem cuida ha tempo?".
-    const [cuidadoFiltro, setCuidadoFiltro] = useState<string>("todos");
+    // O terceiro seletor deixou de ser sobre cuidado. Acompanhamento de
+    // contato agora é só de visitante, e o que restou aqui — aniversário do
+    // mês, cadastro sem telefone — é situação de cadastro.
+    const [situacaoFiltro, setSituacaoFiltro] = useState<string>("todos");
+
+    /** Recorte de quem se está olhando: todas, elas, eles, as crianças. */
+    const [grupoFiltro, setGrupoFiltro] = useState<string>("todos");
     const [vinculosPessoa, setVinculosPessoa] = useState<Membro | null>(null);
     const [atuacoesPessoa, setAtuacoesPessoa] = useState<Membro | null>(null);
     const [visitantePessoa, setVisitantePessoa] = useState<Membro | null>(null);
@@ -467,12 +518,11 @@ export default function Membros() {
 
   // ── Tratar parâmetros de query ao carregar ──────────────────────────────────
   useEffect(() => {
-        // "Ver todos em Pessoas", vindo do bloco do HOJE, chega com o filtro
-        // ja escolhido. Reaproveita o filtro de cuidado desta tela em vez de
-        // levar a uma listagem propria — a lista completa e esta.
-        const cuidadoUrl = searchParams.get("cuidado");
-        if (cuidadoUrl && ["nunca", "30", "60", "90"].includes(cuidadoUrl)) {
-                setCuidadoFiltro(cuidadoUrl);
+        // `?cuidado=` foi embora com o filtro de contato. Links antigos que
+        // ainda tragam o parâmetro caem na lista inteira em vez de num filtro
+        // que não existe mais — e o parâmetro é limpo da barra de endereço,
+        // para ninguém guardar um favorito que promete algo que a tela não faz.
+        if (searchParams.get("cuidado")) {
                 searchParams.delete("cuidado");
                 setSearchParams(searchParams, { replace: true });
         }
@@ -626,27 +676,25 @@ export default function Membros() {
 
   const filtered = useMemo(() => baseFiltrados.filter((m) => {
 
-        // "Nunca" e "ha mais de N dias" sao perguntas diferentes e ambas
-        // importam: nunca contatado e alguem que o sistema nunca alcancou;
-        // contatado ha 90 dias e alguem que se esfriou. Misturar as duas
-        // esconderia o primeiro grupo dentro do segundo.
-        const diasSemContato = m.ultimo_contato_em
-          ? Math.floor((Date.now() - new Date(m.ultimo_contato_em).getTime()) / 86_400_000)
-          : null;
-        // "Dá para procurar" é a única pergunta desta lista que termina em
-        // alguém pegando o telefone: nunca contatada E com número que funciona.
-        // São 217 das 283. As outras 66 não estão esquecidas — estão sem
-        // telefone, que é problema de cadastro e não de cuidado, e por isso
-        // tem atalho próprio em vez de ficar escondido dentro do mesmo balde.
-        const matchCuidado =
-          cuidadoFiltro === "todos" ? true
-          : cuidadoFiltro === "nunca" ? diasSemContato === null
-          : cuidadoFiltro === "alcancavel" ? diasSemContato === null && telefoneValido(m.telefone_celular)
-          : cuidadoFiltro === "sem_telefone" ? !telefoneValido(m.telefone_celular)
-          : cuidadoFiltro === "aniversario_mes" ? aniversarioNesteMes(m.data_nascimento)
-          : diasSemContato === null || diasSemContato >= Number(cuidadoFiltro);
+        // Os filtros de contato saíram daqui. Acompanhamento de contato passou
+        // a ser coisa de visitante, e perguntar "quem está sem contato há 90
+        // dias" sobre 281 pessoas que ninguém acompanha por contato devolvia
+        // sempre a lista inteira — filtro que não filtra.
+        const matchSituacao =
+          situacaoFiltro === "todos" ? true
+          : situacaoFiltro === "sem_telefone" ? !telefoneValido(m.telefone_celular)
+          : situacaoFiltro === "aniversario_mes" ? aniversarioNesteMes(m.data_nascimento)
+          : true;
 
-        return matchCuidado;
+        // Sexo e criança não se excluem: uma menina entra em "Feminino" e em
+        // "Crianças". São recortes de quem se quer olhar, não uma divisão da
+        // igreja em três caixas.
+        const matchGrupo =
+          grupoFiltro === "todos" ? true
+          : grupoFiltro === "criancas" ? ehCrianca(m)
+          : m.sexo === grupoFiltro;
+
+        return matchSituacao && matchGrupo;
   }).sort((a, b) => {
         // Quem não tem bairro vai para o fim nas DUAS direções. Inverter a
         // ordem é pedir "de Z a A", não "mostre primeiro os 200 sem bairro" —
@@ -669,24 +717,28 @@ export default function Membros() {
         // pareceria embaralhar sozinha a cada clique.
         return (ordem.desc ? -primario : primario)
             || comparavel(a.nome_completo).localeCompare(comparavel(b.nome_completo));
-  }), [baseFiltrados, cuidadoFiltro, ordem]);
+  }), [baseFiltrados, situacaoFiltro, grupoFiltro, ordem]);
 
-  // Os quatro números que resumem esta lista. Contados aqui, uma vez, e não
-  // dentro do JSX — o mesmo `baseFiltrados` alimenta os atalhos e a tabela.
+  // Os quatro atalhos, contados aqui uma vez e não dentro do JSX — o mesmo
+  // `baseFiltrados` alimenta os números e a tabela.
   //
-  // Cada atalho carrega a regra que usa. Um rótulo de duas palavras cabe no
-  // chip mas não explica o critério, e um filtro cujo critério não se sabe é
-  // um número em que não se confia: "Dá para procurar" foi lido como pergunta
-  // — dá para procurar por quê? A `dica` responde no title, sem esticar o chip.
+  // Cada um carrega no title a regra que usa: rótulo de uma palavra cabe no
+  // chip mas não diz o critério, e filtro cujo critério não se sabe é número
+  // em que não se confia.
+  //
+  // ATENÇÃO AO QUE ESTES NÚMEROS NÃO DIZEM: `sexo` está preenchido em 132 dos
+  // 283 cadastros. As outras 151 pessoas não aparecem em "Feminino" nem em
+  // "Masculino" — não porque falte gente, mas porque falta campo. Feminino e
+  // Masculino não somam 283, e não deveriam parecer que somam.
   const atalhos = useMemo(() => [
-    { id: "todos",           rotulo: "Todas",                n: baseFiltrados.length,
+    { id: "todos",     rotulo: "Todas",     n: baseFiltrados.length,
       dica: "Todas as pessoas que passam pelos filtros atuais" },
-    { id: "alcancavel",      rotulo: "Dá para procurar",     n: baseFiltrados.filter(m => !m.ultimo_contato_em && telefoneValido(m.telefone_celular)).length,
-      dica: "Nunca receberam um contato registrado E têm telefone válido no cadastro — as que alguém consegue procurar hoje" },
-    { id: "aniversario_mes", rotulo: "Aniversário este mês", n: baseFiltrados.filter(m => aniversarioNesteMes(m.data_nascimento)).length,
-      dica: "Fazem aniversário dentro do mês corrente" },
-    { id: "sem_telefone",    rotulo: "Sem telefone",         n: baseFiltrados.filter(m => !telefoneValido(m.telefone_celular)).length,
-      dica: "Sem telefone no cadastro, ou com número incompleto — não há por onde procurar até alguém preencher" },
+    { id: "feminino",  rotulo: "Feminino",  n: baseFiltrados.filter(m => m.sexo === "feminino").length,
+      dica: "Sexo feminino no cadastro. Quem está com o campo em branco não entra aqui" },
+    { id: "masculino", rotulo: "Masculino", n: baseFiltrados.filter(m => m.sexo === "masculino").length,
+      dica: "Sexo masculino no cadastro. Quem está com o campo em branco não entra aqui" },
+    { id: "criancas",  rotulo: "Crianças",  n: baseFiltrados.filter(ehCrianca).length,
+      dica: "Menos de 12 anos pela data de nascimento, ou matriculada em Berçário, Crianças ou Juniores" },
   ], [baseFiltrados]);
 
   const totalPaginas = Math.max(1, Math.ceil(filtered.length / POR_PAGINA));
@@ -705,13 +757,15 @@ export default function Membros() {
   };
 
   const filtrando =
-    search.trim() !== "" || tipoFiltro !== "todos" || perfilFiltro !== "todos" || cuidadoFiltro !== "todos";
+    search.trim() !== "" || tipoFiltro !== "todos" || perfilFiltro !== "todos"
+    || situacaoFiltro !== "todos" || grupoFiltro !== "todos";
 
   const limparFiltros = () => {
     setSearch("");
     setTipoFiltro("todos");
     setPerfilFiltro("todos");
-    setCuidadoFiltro("todos");
+    setSituacaoFiltro("todos");
+    setGrupoFiltro("todos");
     buscaRef.current?.focus();
   };
 
@@ -736,7 +790,7 @@ export default function Membros() {
   // A ordem entra na lista pelo mesmo motivo: ordenar por bairro estando na
   // página 7 mostraria a fatia 121–140 de uma lista que acabou de ser
   // reembaralhada — quem pediu "por bairro" quer ver o começo, não o meio.
-  useEffect(() => { setPagina(1); }, [search, tipoFiltro, perfilFiltro, cuidadoFiltro, ordem]);
+  useEffect(() => { setPagina(1); }, [search, tipoFiltro, perfilFiltro, situacaoFiltro, grupoFiltro, ordem]);
 
   // Foco na busca ao abrir: quem entra em Pessoas quase sempre vem procurar
   // alguém. Só no desktop — em celular abriria o teclado por cima da lista.
@@ -819,17 +873,12 @@ export default function Membros() {
                                           como opcao de uma lista que ja existia, e nao como tela
                                           separada — quem procura uma pessoa e quem procura os
                                           esquecidos usam a mesma lista. */}
-                                      <Select value={cuidadoFiltro} onValueChange={setCuidadoFiltro}>
+                                      <Select value={situacaoFiltro} onValueChange={setSituacaoFiltro}>
                                                   <SelectTrigger className="md:w-56">
-                                                                <SelectValue placeholder="Cuidado" />
+                                                                <SelectValue placeholder="Situação do cadastro" />
                                                   </SelectTrigger>
                                                   <SelectContent>
-                                                                <SelectItem value="todos">Qualquer contato</SelectItem>
-                                                                <SelectItem value="alcancavel">Nunca contatadas · com telefone</SelectItem>
-                                                                <SelectItem value="nunca">Nunca contatadas</SelectItem>
-                                                                <SelectItem value="30">Sem contato há 30 dias</SelectItem>
-                                                                <SelectItem value="60">Sem contato há 60 dias</SelectItem>
-                                                                <SelectItem value="90">Sem contato há 90 dias</SelectItem>
+                                                                <SelectItem value="todos">Qualquer situação</SelectItem>
                                                                 <SelectItem value="aniversario_mes">Aniversário este mês</SelectItem>
                                                                 <SelectItem value="sem_telefone">Sem telefone cadastrado</SelectItem>
                                                   </SelectContent>
@@ -869,7 +918,7 @@ export default function Membros() {
                             {!loading && !error && membros.length > 0 && (
                               <div className="flex flex-wrap gap-2" role="group" aria-label="Atalhos de filtro">
                                 {atalhos.map((a) => {
-                                  const ativo = cuidadoFiltro === a.id;
+                                  const ativo = grupoFiltro === a.id;
                                   return (
                                     <button
                                       key={a.id}
@@ -877,7 +926,7 @@ export default function Membros() {
                                       aria-pressed={ativo}
                                       title={a.dica}
                                       aria-label={`${a.rotulo}: ${a.n}. ${a.dica}`}
-                                      onClick={() => setCuidadoFiltro(ativo ? "todos" : a.id)}
+                                      onClick={() => setGrupoFiltro(ativo ? "todos" : a.id)}
                                       className={`min-h-[44px] px-3 rounded-full border text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                                         ativo
                                           ? "bg-primary text-primary-foreground border-primary"
