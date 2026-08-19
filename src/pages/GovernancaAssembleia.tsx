@@ -336,8 +336,8 @@ function ConvocacaoDialog({ assembleia, pautas, open, onOpenChange, onMarked }: 
         ) : (
           <>
             {pautas.length > 0 ? (
-              <div className="border rounded-md p-2 bg-purple-50/30 border-purple-200 text-xs mb-2">
-                <p className="font-medium text-purple-900 mb-1">📋 Pauta incluída no convite ({pautas.length}):</p>
+              <div className="border rounded-md p-2 bg-violeta-soft/30 border-violeta-line text-xs mb-2">
+                <p className="font-medium text-violeta-text mb-1">📋 Pauta incluída no convite ({pautas.length}):</p>
                 {pautas.slice(0, 5).map((p, i) => (
                   <p key={p.id} className="truncate">{i + 1}. {p.titulo}</p>
                 ))}

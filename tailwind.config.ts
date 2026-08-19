@@ -57,6 +57,15 @@ export default {
           soft: "hsl(var(--celebracao-soft))",
           line: "hsl(var(--celebracao-line))",
         },
+        // O sexto lugar das paletas categóricas. Não é papel semântico —
+        // ver o comentário em index.css.
+        violeta: {
+          DEFAULT: "hsl(var(--violeta))",
+          foreground: "hsl(var(--violeta-foreground))",
+          text: "hsl(var(--violeta-text))",
+          soft: "hsl(var(--violeta-soft))",
+          line: "hsl(var(--violeta-line))",
+        },
         info: {
           DEFAULT: "hsl(var(--info))",
           foreground: "hsl(var(--info-foreground))",

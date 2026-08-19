@@ -69,7 +69,7 @@ const CORES = [
 const tipoIcon = (tipo: string) => {
   if (tipo === "pdf")    return <FileText className="w-4 h-4 text-destructive-text" />;
   if (tipo === "imagem") return <Image className="w-4 h-4 text-info-text" />;
-  if (tipo === "video")  return <Video className="w-4 h-4 text-purple-500" />;
+  if (tipo === "video")  return <Video className="w-4 h-4 text-violeta-text" />;
   if (tipo === "audio")  return <Music className="w-4 h-4 text-success-text" />;
   return <File className="w-4 h-4 text-muted-foreground" />;
 };
@@ -735,7 +735,7 @@ function WizardCampanha({ campanha, onClose, onSalvo }: {
                 </div>
               )}
               {form.origem_identidade === "visao" && visaoIgreja && (
-                <div className="rounded bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 px-3 py-2 text-xs text-purple-800 dark:text-purple-300">
+                <div className="rounded bg-violeta-soft border border-violeta-line px-3 py-2 text-xs text-violeta-text">
                   <span className="font-medium">Visão: </span>{visaoIgreja}
                 </div>
               )}

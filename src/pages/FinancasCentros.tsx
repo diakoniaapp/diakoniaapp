@@ -31,7 +31,7 @@ const VINCULO_LABEL: Record<FinCentroVinculo, string> = {
 };
 
 const VINCULO_COR: Record<FinCentroVinculo, string> = {
-  ministerio: "bg-purple-100 text-purple-700 border-purple-300",
+  ministerio: "bg-violeta-soft text-violeta-text border-violeta-line",
   area:       "bg-info-soft text-info-text border-info-line",
   ebd_classe: "bg-success-soft text-success-text border-success-line",
   pgm_grupo:  "bg-warning-soft text-warning-text border-warning-line",

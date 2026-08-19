@@ -30,7 +30,7 @@ const COR_CHIP: Record<string, string> = {
   rose:    "bg-destructive-soft text-destructive-text border-destructive-line",
   amber:   "bg-warning-soft text-warning-text border-warning-line",
   emerald: "bg-success-soft text-success-text border-success-line",
-  purple:  "bg-purple-50 text-purple-700 border-purple-200",
+  purple:  "bg-violeta-soft text-violeta-text border-violeta-line",
 };
 
 export default function Fiscal() {

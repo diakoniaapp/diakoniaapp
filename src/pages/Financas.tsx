@@ -153,10 +153,10 @@ export default function Financas() {
         <Atalho to="/financas/recorrencias" icon={<RotateCw className="w-4 h-4 text-gold" />} label="Recorrências" />
         <Atalho to="/financas/estoque" icon={<Package className="w-4 h-4 text-info-text" />} label="Estoque" />
         <Atalho to="/financas/relatorio" icon={<AlertTriangle className="w-4 h-4 text-warning-text" />} label="Malote contábil" />
-        <Atalho to="/financas/centros" icon={<Layers className="w-4 h-4 text-purple-600" />} label="Centros" />
+        <Atalho to="/financas/centros" icon={<Layers className="w-4 h-4 text-violeta-text" />} label="Centros" />
         <Atalho to="/financas/orcamento" icon={<Target className="w-4 h-4 text-success-text" />} label="Orçamento" />
         <Atalho to="/financas/insights" icon={<Sparkles className="w-4 h-4 text-gold" />} label="Insights" />
-        <Atalho to="/financas/folha" icon={<Briefcase className="w-4 h-4 text-purple-600" />} label="Folha" />
+        <Atalho to="/financas/folha" icon={<Briefcase className="w-4 h-4 text-violeta-text" />} label="Folha" />
       </div>
       <p className="text-xs text-muted-foreground text-center pt-2">
         ✨ Sistema financeiro completo · 6 fases entregues · OCR · Recorrências · Estoque · Malote · Insights

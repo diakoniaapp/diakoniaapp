@@ -52,7 +52,7 @@ export const HISTORICO_CONFIG: Record<
   ligacao:             { label: "Ligação",              emoji: "📞", cor: "text-info-text bg-info-soft border-info-line" },
   visita_presencial:   { label: "Visita presencial",    emoji: "🚪", cor: "text-warning-text bg-warning-soft border-warning-line" },
   retorno_culto:       { label: "Retornou ao culto",    emoji: "✅", cor: "text-warning-text bg-warning-soft border-warning-line" },
-  evento:              { label: "Evento especial",      emoji: "📅", cor: "text-purple-600 bg-purple-50 border-purple-200" },
+  evento:              { label: "Evento especial",      emoji: "📅", cor: "text-violeta-text bg-violeta-soft border-violeta-line" },
   observacao:          { label: "Contato registrado",   emoji: "📝", cor: "text-muted-foreground bg-muted border-border" },
   promocao_congregado: { label: "Tornou-se Congregado", emoji: "✨", cor: "text-success-text bg-success-soft border-success-line" },
   promocao_membro:     { label: "Tornou-se Membro",     emoji: "🌟", cor: "text-gold bg-warning-soft border-warning-line" },

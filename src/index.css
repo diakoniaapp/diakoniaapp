@@ -146,6 +146,39 @@
     --celebracao-soft:    340 70% 96%;
     --celebracao-line:    340 45% 85%;
 
+    /* ── Violeta: o sexto lugar ───────────────────────────────────
+
+       Este não é um papel semântico, e o comentário existe para não
+       fingir que é.
+
+       As paletas CATEGÓRICAS do sistema — tipo de centro de custo, tipo
+       de contrato na folha, tipo de documento, chip do módulo fiscal —
+       precisam de cinco ou seis cores que se distingam entre si. Elas já
+       tomavam emprestados os cinco papéis semânticos (info, success,
+       warning, destructive, muted), e para o sexto não havia nada: por
+       isso cada uma escreveu `bg-purple-100` à mão.
+
+       E o roxo estava CERTO ali. É a única região da roda de cores que
+       não colide com azul, verde, âmbar, vermelho e cinza. O erro nunca
+       foi a escolha da cor — foi ela não ter nome nem par para o tema
+       escuro.
+
+       Medido antes disto existir, na tela de Centros de Custo em tema
+       escuro: a etiqueta "Ministério" brilhava a 15,18:1 contra a página.
+       Uma etiqueta equivalente feita com token mede 1,16:1. Tinta de
+       fundo deve sussurrar contra a superfície — aquela gritava mais alto
+       que o texto, treze vezes acima do que devia, para dizer apenas a
+       que categoria a linha pertence.
+
+       Dessaturado (40%, não os 65% do purple-600 cru) pelo mesmo motivo
+       do azul de info: a identidade da casa é quente, e cor de saturação
+       cheia parece emprestada de outro produto. */
+    --violeta:            275 38% 45%;
+    --violeta-foreground: 0 0% 100%;
+    --violeta-text:       275 42% 40%;
+    --violeta-soft:       275 45% 96%;
+    --violeta-line:       275 28% 84%;
+
     --info:               212 48% 40%;
     --info-foreground:    0 0% 100%;
     --info-text:          212 52% 35%;
@@ -278,6 +311,12 @@
     --celebracao-text:    340 58% 70%;
     --celebracao-soft:    340 30% 16%;
     --celebracao-line:    340 24% 32%;
+
+    --violeta:            275 42% 60%;
+    --violeta-foreground: 0 0% 100%;
+    --violeta-text:       275 48% 72%;
+    --violeta-soft:       275 26% 17%;
+    --violeta-line:       275 20% 32%;
 
     --info:               212 52% 56%;
     --info-foreground:    0 0% 100%;

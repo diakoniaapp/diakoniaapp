@@ -361,7 +361,7 @@ export default function Organograma() {
             { label: "Total de pessoas", value: stats.total,       icon: <Users className="w-4 h-4" />, cor: "text-primary" },
             { label: "Membros",          value: stats.membros,      icon: <Star className="w-4 h-4" />,  cor: "text-info-text" },
             { label: "Congregados",      value: stats.congregados,  icon: <Church className="w-4 h-4" />,cor: "text-success-text" },
-            { label: "Ministérios",      value: operacionais.length,icon: <Building2 className="w-4 h-4" />,cor: "text-purple-600" },
+            { label: "Ministérios",      value: operacionais.length,icon: <Building2 className="w-4 h-4" />,cor: "text-violeta-text" },
           ].map(s => (
             <Card key={s.label} className="shadow-card-soft">
               <CardContent className="p-4">

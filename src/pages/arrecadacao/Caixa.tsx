@@ -227,14 +227,14 @@ export default function CaixaPDV() {
                             ? "opacity-40 cursor-not-allowed bg-muted"
                             : p.is_acervo
                               ? "border-info-line hover:bg-info-soft hover:border-info-line hover:shadow-md"
-                              : "border-purple-200 hover:bg-purple-50 hover:border-purple-500 hover:shadow-md")
+                              : "border-violeta-line hover:bg-violeta-soft hover:border-violeta-line hover:shadow-md")
                         }>
                         <div className="flex items-start justify-between gap-1">
                           <div className="text-sm font-medium leading-tight flex-1">{p.nome}</div>
                           <Badge variant="outline"
                             className={"text-xs shrink-0 " + (p.is_acervo
                               ? "bg-info-soft text-info-text border-info-line"
-                              : "bg-purple-50 text-purple-700 border-purple-200")}>
+                              : "bg-violeta-soft text-violeta-text border-violeta-line")}>
                             {p.is_acervo ? "acervo" : "campanha"}
                           </Badge>
                         </div>

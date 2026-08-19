@@ -59,7 +59,7 @@ interface Secao {
 // Tags conceituais pré-definidas (conectam Documentos → Identidade → Campanhas)
 const TAGS_CONCEITUAIS = [
   { value: "missao",       label: "Missão",       color: "bg-info-soft text-info-text/40" },
-  { value: "visao",        label: "Visão",        color: "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300" },
+  { value: "visao",        label: "Visão",        color: "bg-violeta-soft text-violeta-text" },
   { value: "valores",      label: "Valores",      color: "bg-warning-soft text-warning-text/40" },
   { value: "doutrina",     label: "Doutrina",     color: "bg-success-soft text-success-text/40" },
   { value: "liderança",    label: "Liderança",    color: "bg-warning-soft text-warning-text/40" },
@@ -84,7 +84,7 @@ interface HistoricoItem {
 }
 
 const TIPOS: { value: TipoDoc; label: string; color: string }[] = [
-  { value: "estatuto",   label: "Estatuto",    color: "bg-purple-500/10 text-purple-700 border-purple-500/30" },
+  { value: "estatuto",   label: "Estatuto",    color: "bg-violeta/10 text-violeta-text border-violeta-line/30" },
   { value: "regimento",  label: "Regimento",   color: "bg-info/10 text-info-text border-info-line/30" },
   { value: "manual",     label: "Manual",      color: "bg-success/10 text-success-text border-success-line/30" },
   { value: "ata",        label: "Ata",         color: "bg-warning/10 text-warning-text border-warning-line/30" },

@@ -66,7 +66,7 @@ export default function Governanca() {
           </h2>
           {assembleias.map(a => (
             <Link key={a.id} to={`/governanca/assembleia/${a.id}`} className="block">
-              <div className="border rounded-md px-3 py-2 hover:bg-muted/30 transition-colors flex items-center gap-2 border-purple-200 bg-purple-50/20">
+              <div className="border rounded-md px-3 py-2 hover:bg-muted/30 transition-colors flex items-center gap-2 border-violeta-line bg-violeta-soft/20">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-medium text-sm">{a.titulo}</span>

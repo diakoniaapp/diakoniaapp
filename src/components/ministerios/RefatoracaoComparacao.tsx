@@ -38,7 +38,7 @@ interface Props {
 
 function FonteBadge({ fonte }: { fonte: "ia" | "parser" | "combinado" }) {
     const map = {
-          ia: { label: "IA + Documento", color: "bg-purple-100 text-purple-700 border-purple-300" },
+          ia: { label: "IA + Documento", color: "bg-violeta-soft text-violeta-text border-violeta-line" },
           parser: { label: "Parser Manual", color: "bg-info-soft text-info-text border-info-line" },
           combinado: { label: "IA + Parser", color: "bg-warning-soft text-warning-text border-warning-line" },
         };

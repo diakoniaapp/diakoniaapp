@@ -15,7 +15,7 @@ export const VINCULO_COR: Record<FinVinculoTipo, string> = {
   clt: "bg-info-soft text-info-text border-info-line",
   mei: "bg-success-soft text-success-text border-success-line",
   rpa: "bg-warning-soft text-warning-text border-warning-line",
-  prebenda: "bg-purple-100 text-purple-700 border-purple-300",
+  prebenda: "bg-violeta-soft text-violeta-text border-violeta-line",
   estagio: "bg-info-soft text-info-text border-info-line",
   voluntario_remunerado: "bg-destructive-soft text-destructive-text border-destructive-line",
 };

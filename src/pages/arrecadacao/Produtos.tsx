@@ -211,7 +211,7 @@ function ProdutoCard({
               {produto.codigo && <Badge variant="outline" className="text-xs">#{produto.codigo}</Badge>}
               {isAcervo
                 ? <Badge variant="outline" className="text-xs bg-info-soft text-info-text border-info-line">acervo</Badge>
-                : <Badge className="text-xs bg-purple-100 text-purple-700 border-purple-300">
+                : <Badge className="text-xs bg-violeta-soft text-violeta-text border-violeta-line">
                     <Sparkles className="w-2.5 h-2.5 mr-0.5" />{campanhaNome}
                   </Badge>}
               {!produto.ativo && <Badge variant="outline" className="text-xs">inativo</Badge>}

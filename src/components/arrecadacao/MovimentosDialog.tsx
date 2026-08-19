@@ -40,7 +40,7 @@ const TIPO_COR: Record<MovimentoTipo, string> = {
   custo: "bg-destructive-soft text-destructive-text border-destructive-line",
   reembolso_pessoa: "bg-warning-soft text-warning-text border-warning-line",
   abate_compra_cnpj: "bg-info-soft text-info-text border-info-line",
-  reversao_admin: "bg-purple-50 text-purple-700 border-purple-200",
+  reversao_admin: "bg-violeta-soft text-violeta-text border-violeta-line",
   ajuste: "bg-muted",
 };
 
@@ -383,7 +383,7 @@ function FormReversao({ caixaId, onSaved }: { caixaId: string; onSaved: () => vo
       </p>
       <Field label="Valor a reverter *"><Input value={valor} onChange={e => setValor(e.target.value)} /></Field>
       <Field label="Descrição *"><Textarea value={desc} onChange={e => setDesc(e.target.value)} placeholder="Ex: Saldo remanescente devolvido para uso da Admin" /></Field>
-      <Button onClick={salvar} disabled={salvando} className="w-full gap-2 bg-purple-600 hover:bg-purple-700">
+      <Button onClick={salvar} disabled={salvando} className="w-full gap-2 bg-violeta hover:bg-violeta">
         {salvando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
         Registrar reversão
       </Button>

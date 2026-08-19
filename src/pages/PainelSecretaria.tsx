@@ -94,7 +94,7 @@ export default function PainelSecretaria() {
           {alertasGov.length > 0 && (
             <div className="space-y-1.5">
               <div className="flex items-center gap-2 px-1">
-                <Badge variant="outline" className="text-xs bg-purple-100 text-purple-700 border-purple-300">
+                <Badge variant="outline" className="text-xs bg-violeta-soft text-violeta-text border-violeta-line">
                   ⚖ Governança
                 </Badge>
                 <span className="text-xs text-muted-foreground">({alertasGov.length})</span>
