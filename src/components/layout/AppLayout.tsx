@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { QuickActionsFab } from "@/components/QuickActionsFab";
 import { CommandPalette } from "@/components/CommandPalette";
 import { openCommandPalette } from "@/lib/commandPalette";
+import { registrarVisita, atalhos, grupoMereceAbrir, temHistoricoBastante } from "@/lib/navUso";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
 import { UserMenuButton } from "@/components/layout/UserMenuButton";
 import {
@@ -28,25 +29,63 @@ export default function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Estado de expand/collapse por grupo, persistido em localStorage
-  const [expanded, setExpanded] = useState<Record<string, boolean>>(() => {
+  // ── O menu aprende ────────────────────────────────────────────────────
+  //
+  // 21 itens em 5 grupos, para 76 rotas. A estrutura está certa; o problema
+  // é que ela mostra tudo para todos. Um professor de EBD vê Tesouraria,
+  // Módulo Fiscal e Visão Executiva todo dia, o dia inteiro, e nunca abre
+  // nenhum dos três.
+  //
+  // A escolha explícita da pessoa continua mandando: `nav_expanded_v2` só
+  // guarda os grupos que ela mesma abriu ou fechou. O uso decide apenas o
+  // PADRÃO dos que ela nunca tocou — e só depois de duas semanas de
+  // histórico, para ninguém receber um menu quase todo fechado no primeiro
+  // dia de uso.
+  // Só o que a pessoa DECIDIU. A chave é nova de propósito: a antiga
+  // (nav_expanded_v2) guardava os cinco grupos de uma vez, para todo mundo
+  // que já usa o sistema — lida como "escolha", ela travaria o aprendizado
+  // antes do primeiro dia.
+  const [escolhas, setEscolhas] = useState<Record<string, boolean>>(() => {
     try {
-      const raw = localStorage.getItem("nav_expanded_v2");
+      const raw = localStorage.getItem("nav_grupos_v3");
       if (raw) return JSON.parse(raw);
     } catch {
-      // localStorage indisponível ou JSON corrompido — cai no padrão abaixo
+      // localStorage indisponível ou JSON corrompido — vale só o padrão
     }
-    // padrão: tudo expandido, menos Configurações (raramente usado)
-    return Object.fromEntries(NAV_GROUPS.map(g => [g.key, g.key !== "configuracoes"]));
+    return {};
   });
+
+  // O padrão de cada grupo, calculado uma vez por carga. "Configurações"
+  // continua fechado por decisão, não por medida: é o grupo que se abre
+  // uma vez por semestre.
+  const [padraoDoUso] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(NAV_GROUPS.map(g => [
+      g.key,
+      g.key === "configuracoes"
+        ? false
+        : grupoMereceAbrir(g.items.map(i => "/" + i.to.split("/")[1])),
+    ])),
+  );
+
+  const expanded = { ...padraoDoUso, ...escolhas };
+
+  // Registra onde a pessoa esteve. É o que alimenta tudo acima.
+  useEffect(() => { registrarVisita(location.pathname); }, [location.pathname]);
+
+  // Calculado UMA vez por carga de página, e nunca a cada navegação: um
+  // bloco de atalhos que se reordena enquanto se olha para ele é pior que
+  // inútil. Vazio até haver sinal de verdade — ver navUso.ts.
+  const [rotasAtalho] = useState<string[]>(() =>
+    atalhos(new Set(NAV_GROUPS.flatMap(g => g.items.map(i => "/" + i.to.split("/")[1])))),
+  );
 
   useEffect(() => {
     try {
-      localStorage.setItem("nav_expanded_v2", JSON.stringify(expanded));
+      localStorage.setItem("nav_grupos_v3", JSON.stringify(escolhas));
     } catch {
       // sem localStorage (aba privada, cota cheia): o menu só não memoriza
     }
-  }, [expanded]);
+  }, [escolhas]);
 
   // Nome bonito do user (vindo do membro vinculado, se houver)
   const [nomeDisplay, setNomeDisplay] = useState<string | null>(null);
@@ -134,8 +173,10 @@ export default function AppLayout() {
         : "hover:bg-sidebar-accent/60 text-sidebar-foreground/80"
     }`;
 
+  // Grava a decisão, não o estado inteiro: mexer num grupo não pode
+  // congelar os outros quatro.
   const toggleGroup = (key: string) =>
-    setExpanded(prev => ({ ...prev, [key]: !prev[key] }));
+    setEscolhas(prev => ({ ...prev, [key]: !(prev[key] ?? padraoDoUso[key] ?? true) }));
 
   return (
     <div className="h-screen overflow-hidden flex w-full bg-background">
@@ -171,6 +212,41 @@ export default function AppLayout() {
             <span translate="no">{PAINEL.label}</span>
           </NavLink>
         </nav>
+
+        {/* ── Atalhos ─────────────────────────────────────────────────────
+
+            Aditivo, nunca substitutivo: os grupos abaixo continuam
+            exatamente onde sempre estiveram. A razão de um menu ser rápido
+            é memória muscular — a pessoa alcança "Famílias" sem ler, porque
+            Famílias está sempre no mesmo lugar. Um menu que se reorganiza
+            sozinho destrói justamente isso, e fica mais lento por parecer
+            mais esperto.
+
+            Some inteiro quando não há sinal, em vez de aparecer vazio ou
+            com dois cliques de acaso dentro. */}
+        {rotasAtalho.length > 0 && (
+          <nav className="px-3 pt-3">
+            <p className="px-3 pb-1 text-xs uppercase tracking-widest text-sidebar-foreground/45">
+              Atalhos
+            </p>
+            {rotasAtalho.map(rota => {
+              const item = NAV_GROUPS.flatMap(g => g.items)
+                .find(i => "/" + i.to.split("/")[1] === rota);
+              if (!item || !itemAllowed(item)) return null;
+              const Icone = item.icon;
+              return (
+                <NavLink key={rota} to={item.to} end={item.end} className={itemClass}>
+                  {({ isActive }) => (
+                    <>
+                      <Icone className={`w-4 h-4 ${isActive ? "" : "opacity-55"}`} />
+                      <span translate="no">{item.label}</span>
+                    </>
+                  )}
+                </NavLink>
+              );
+            })}
+          </nav>
+        )}
 
         {/* Categorias colapsáveis */}
         <nav className="flex-1 px-3 py-3 space-y-1 overflow-y-auto">

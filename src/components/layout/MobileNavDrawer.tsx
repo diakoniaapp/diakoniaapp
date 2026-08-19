@@ -8,6 +8,7 @@ import { BrandMark } from "@/components/Brand";
 import { useAuth } from "@/hooks/useAuth";
 import { openCommandPalette } from "@/lib/commandPalette";
 import { NAV_GROUPS, PAINEL, type NavGroup, type NavItem } from "@/components/layout/navConfig";
+import { atalhos } from "@/lib/navUso";
 
 /**
  * Menu completo para celular.
@@ -20,6 +21,12 @@ import { NAV_GROUPS, PAINEL, type NavGroup, type NavItem } from "@/components/la
  */
 export function MobileNavDrawer({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
+
+  // Calculado uma vez, na montagem: a lista não pode mudar enquanto a
+  // gaveta está aberta na frente da pessoa.
+  const [rotasAtalho] = useState<string[]>(() =>
+    atalhos(new Set(NAV_GROUPS.flatMap(g => g.items.map(i => "/" + i.to.split("/")[1])))),
+  );
   const { hasRole, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -80,6 +87,30 @@ export function MobileNavDrawer({ children }: { children: React.ReactNode }) {
             <span translate="no">{PAINEL.label}</span>
           </NavLink>
         </nav>
+
+        {/* Os mesmos atalhos da sidebar. Aqui valem ainda mais: a gaveta do
+            celular lista os 21 destinos sem colapso nenhum, e chegar ao
+            grupo Financeiro exige rolar a tela inteira. Some quando não há
+            sinal — ver navUso.ts. */}
+        {rotasAtalho.length > 0 && (
+          <nav className="px-3 pt-3">
+            <p className="px-3 pb-1 text-xs uppercase tracking-widest text-sidebar-foreground/45">
+              Atalhos
+            </p>
+            {rotasAtalho.map(rota => {
+              const item = NAV_GROUPS.flatMap(g => g.items)
+                .find(i => "/" + i.to.split("/")[1] === rota);
+              if (!item || !itemAllowed(item)) return null;
+              const Icone = item.icon;
+              return (
+                <NavLink key={rota} to={item.to} end={item.end} onClick={fechar} className={itemClass}>
+                  <Icone className="w-4 h-4 shrink-0" />
+                  <span translate="no">{item.label}</span>
+                </NavLink>
+              );
+            })}
+          </nav>
+        )}
 
         <nav className="flex-1 px-3 py-3 space-y-3 overflow-y-auto">
           {NAV_GROUPS.filter(groupAllowed).map((group) => {
