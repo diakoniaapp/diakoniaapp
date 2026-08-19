@@ -23,7 +23,7 @@ import { listarClasses, sugerirClasse, classesDaPessoa, type EbdClasse } from "@
 import { normalizarTelefone, validarTelefone, formatarTelefoneSemDDI } from "@/lib/telefone";
 import {
   FUNCAO_MINISTERIAL, FUNCOES_EM_ORDEM, funcaoAposentada, rotuloFuncao,
-  type FuncaoMinisterial,
+  funcoesDe, ordenarFuncoes, type FuncaoMinisterial,
 } from "@/lib/funcaoMinisterial";
 import { TelefoneInput } from "@/components/ui/TelefoneInput";
 import { supabase } from "@/integrations/supabase/client";
@@ -66,9 +66,12 @@ const empty = {
   data_entrada:             new Date().toISOString().slice(0, 10),
   status:                   "ativo",
   observacoes_pastorais:    "",
-  // Função na igreja e as datas de cada uma. Ver lib/funcaoMinisterial.ts:
-  // "membro" é o padrão do enum e quer dizer ausência de função.
-  funcao_ministerial:           "membro",
+  // Funções na igreja e as datas de cada uma. Ver lib/funcaoMinisterial.ts.
+  //
+  // `funcao_ministerial` (singular) NÃO entra aqui de propósito: virou coluna
+  // derivada, escrita pelo gatilho do banco como o primeiro item da lista.
+  // Mandá-la junto seria disputar com o gatilho por quem manda.
+  funcoes_ministeriais:         [] as string[],
   data_consagracao_pastoral:    "",
   data_ordenacao_diaconal:      "",
   data_ordenacao_presbiteral:   "",
@@ -151,11 +154,33 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
   }[]>([]);
   const [areasSelecionadas, setAreasSelecionadas] = useState<Set<string>>(new Set());
 
+  /**
+   * As funções marcadas, sempre na ordem da hierarquia.
+   *
+   * Sai do próprio `form` em vez de virar um segundo estado: dois lugares
+   * guardando a mesma escolha é como o telefone acabou em duas colunas — um
+   * dia divergem, e ninguém sabe qual vale.
+   */
+  const funcoesSelecionadas = ordenarFuncoes(form.funcoes_ministeriais ?? []);
+
+  const alternarFuncao = (f: FuncaoMinisterial) => {
+    const atual = new Set<string>(form.funcoes_ministeriais ?? []);
+    if (atual.has(f)) atual.delete(f); else atual.add(f);
+    // Grava JÁ ORDENADA: o gatilho do banco pega o primeiro item como função
+    // principal, e é o que aparece na coluna Tipo/Função do catálogo. Fora de
+    // ordem, o catálogo chamaria de "Professor de EBD" quem também é Presidente.
+    set("funcoes_ministeriais", ordenarFuncoes([...atual]));
+  };
+
   // Preencher ao editar
   useEffect(() => {
     if (membro) {
       const f: any = { ...empty };
       Object.keys(empty).forEach((k) => { f[k] = (membro as any)[k] ?? ""; });
+      // A lista vem do registro; se ele for antigo e só tiver a coluna única,
+      // `funcoesDe` converte. Sem isso, abrir a ficha de quem já tinha função
+      // mostraria tudo desmarcado — e salvar apagaria o cargo da pessoa.
+      f.funcoes_ministeriais = funcoesDe(membro as any);
       setForm(f);
     } else {
       setForm(empty);
@@ -816,81 +841,107 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
 
                         </>)}
 
-            {/* ── STEP 3 — FUNÇÃO NA IGREJA ── */}
+            {/* ── STEP 3 — FUNÇÕES NA IGREJA ── */}
             {step === 3 && (isCongregado || isMembro) && (<>
             <div className="space-y-3 pt-1">
               <div>
-                <Label translate="no">Função ministerial</Label>
-                {/* O enum já existia no banco e estava preenchido nas 283 pessoas
-                    com "membro", lido por ninguém. Fica aqui, em Vínculos, e não
-                    no passo de Acesso: função na igreja e permissão de login são
-                    coisas diferentes — há diácono que nunca abriu o sistema e
-                    secretária com acesso e nenhuma função. */}
-                <Select
-                  value={form.funcao_ministerial || "membro"}
-                  onValueChange={(v) => set("funcao_ministerial", v)}
-                >
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {/* A função que a pessoa JÁ TEM entra na lista mesmo tendo
-                        saído dela. Seis pessoas estão em rótulos aposentados —
-                        dois tesoureiros e uma secretária sem numeração, que
-                        ninguém sabe se são 1º ou 2º. Sem este item o seletor
-                        abriria em branco na ficha delas, e um seletor em branco
-                        convida a escolher outra coisa: seria trocar o cargo de
-                        alguém por causa de um detalhe de implementação. */}
-                    {funcaoAposentada(form.funcao_ministerial) && (
-                      <SelectItem value={form.funcao_ministerial}>
-                        {rotuloFuncao(form.funcao_ministerial)} (a revisar)
-                      </SelectItem>
-                    )}
-                    {FUNCOES_EM_ORDEM.map((f) => (
-                      <SelectItem key={f} value={f}>{FUNCAO_MINISTERIAL[f].label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label translate="no">Funções ministeriais</Label>
+                {/* Caixas, e não seletor: há quem acumule — diácono que também
+                    é tesoureiro, pastor auxiliar que também é ministro. Com um
+                    seletor, escolher a segunda função apagava a primeira em
+                    silêncio.
+
+                    Fica aqui, em Vínculos, e não no passo de Acesso: função na
+                    igreja e permissão de login são coisas diferentes — há
+                    diácono que nunca abriu o sistema e secretária com acesso e
+                    nenhuma função. */}
+                <p className="text-xs text-muted-foreground mt-0.5 mb-2">
+                  Marque quantas a pessoa exercer. A primeira da ordem abaixo é a
+                  principal e aparece no catálogo.
+                </p>
+
+                <div className="grid sm:grid-cols-2 gap-x-4 gap-y-1.5 rounded-md border p-3">
+                  {/* A função aposentada que a pessoa JÁ TEM aparece marcada, com
+                      aviso. Três pessoas estão em rótulos sem numeração — dois
+                      tesoureiros e uma secretária que ninguém sabe se são 1º ou
+                      2º. Escondê-las desmarcaria o cargo de alguém por causa de
+                      um detalhe de implementação. */}
+                  {funcoesSelecionadas.filter(funcaoAposentada).map((f) => (
+                    <label key={f} className="flex items-center gap-2 text-sm min-h-[32px] text-warning">
+                      <Checkbox checked onCheckedChange={() => alternarFuncao(f)} />
+                      {rotuloFuncao(f)} <span className="text-xs">(a revisar)</span>
+                    </label>
+                  ))}
+
+                  {FUNCOES_EM_ORDEM.filter((f) => f !== "membro").map((f) => (
+                    <label key={f} className="flex items-center gap-2 text-sm min-h-[32px] cursor-pointer">
+                      <Checkbox
+                        checked={funcoesSelecionadas.includes(f)}
+                        onCheckedChange={() => alternarFuncao(f)}
+                      />
+                      {FUNCAO_MINISTERIAL[f].label}
+                    </label>
+                  ))}
+                </div>
+
+                {/* Sem nenhuma marcada, "membro" — que no enum quer dizer
+                    ausência de função, e não um cargo. */}
+                {funcoesSelecionadas.length === 0 && (
+                  <p className="text-xs text-muted-foreground mt-1.5">
+                    Nenhuma função marcada: a pessoa fica como Membro.
+                  </p>
+                )}
               </div>
 
-              {/* A data aparece conforme a função, e com o nome certo: consagração
+              {/* Uma data por ato, e só a das funções marcadas. Consagração
                   pastoral, ordenação diaconal e comissionamento missionário não
-                  são sinônimos, e um campo genérico "data da função" apagaria a
+                  são sinônimos: um campo genérico "data da função" apagaria a
                   diferença justamente para quem ela importa. */}
-              {(() => {
-                const funcao = FUNCAO_MINISTERIAL[(form.funcao_ministerial || "membro") as FuncaoMinisterial];
-                if (!funcao || funcao.tipoData === "nenhuma") return null;
-
-                if (funcao.tipoData === "consagracao" && funcao.coluna) {
+              {funcoesSelecionadas
+                .filter((f) => FUNCAO_MINISTERIAL[f].tipoData === "consagracao")
+                // Duas funções podem apontar para a MESMA coluna (os quatro
+                // pastores usam a consagração pastoral). Sem isto, marcar duas
+                // desenharia dois campos que gravam no mesmo lugar.
+                .filter((f, i, todas) =>
+                  todas.findIndex((o) => FUNCAO_MINISTERIAL[o].coluna === FUNCAO_MINISTERIAL[f].coluna) === i)
+                .map((f) => {
+                  const cfg = FUNCAO_MINISTERIAL[f];
+                  if (!cfg.coluna) return null;
                   return (
-                    <div className="md:w-1/2">
-                      <Label translate="no">{funcao.rotuloData}</Label>
+                    <div key={f} className="md:w-1/2">
+                      <Label translate="no">{cfg.rotuloData}</Label>
                       <Input
                         type="date"
-                        value={form[funcao.coluna] ?? ""}
-                        onChange={(e) => set(funcao.coluna!, e.target.value)}
+                        value={form[cfg.coluna] ?? ""}
+                        onChange={(e) => set(cfg.coluna!, e.target.value)}
                       />
                     </div>
                   );
-                }
+                })}
 
-                return (
-                  <div className="grid md:grid-cols-2 gap-3">
-                    <div>
-                      <Label translate="no">Assumiu em</Label>
-                      <Input type="date" value={form.funcao_inicio ?? ""}
-                        onChange={(e) => set("funcao_inicio", e.target.value)} />
-                    </div>
-                    <div>
-                      <Label translate="no">Até</Label>
-                      <Input type="date" value={form.funcao_fim ?? ""}
-                        onChange={(e) => set("funcao_fim", e.target.value)} />
-                      {/* Dito na tela para ninguém esperar um aviso que não vem. */}
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Registro histórico — não gera alerta de vencimento.
-                      </p>
-                    </div>
+              {/* Vigência: um par de datas, e vale para a função PRINCIPAL.
+                  Foi decisão consciente — quem acumular dois cargos de mandato
+                  vai ter as duas datas descrevendo só o primeiro. Hoje ninguém
+                  acumula; no dia em que acumular, isto vira tabela própria. */}
+              {funcoesSelecionadas.some((f) => FUNCAO_MINISTERIAL[f].tipoData === "vigencia") && (
+                <div className="grid md:grid-cols-2 gap-3">
+                  <div>
+                    <Label translate="no">Assumiu em</Label>
+                    <Input type="date" value={form.funcao_inicio ?? ""}
+                      onChange={(e) => set("funcao_inicio", e.target.value)} />
                   </div>
-                );
-              })()}
+                  <div>
+                    <Label translate="no">Até</Label>
+                    <Input type="date" value={form.funcao_fim ?? ""}
+                      onChange={(e) => set("funcao_fim", e.target.value)} />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Registro histórico — não gera alerta de vencimento.
+                      {funcoesSelecionadas.filter((f) => FUNCAO_MINISTERIAL[f].tipoData === "vigencia").length > 1
+                        && " Vale para a função principal."}
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
                         </>)}
 

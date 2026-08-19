@@ -276,6 +276,41 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "areas_co_lider_id_fkey"
+            columns: ["co_lider_id"]
+            isOneToOne: false
+            referencedRelation: "membros"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areas_co_lider_id_fkey"
+            columns: ["co_lider_id"]
+            isOneToOne: false
+            referencedRelation: "v_membros_mapa"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areas_co_lider_id_fkey"
+            columns: ["co_lider_id"]
+            isOneToOne: false
+            referencedRelation: "v_membros_perfil"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areas_co_lider_id_fkey"
+            columns: ["co_lider_id"]
+            isOneToOne: false
+            referencedRelation: "v_ranking_convidadores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areas_co_lider_id_fkey"
+            columns: ["co_lider_id"]
+            isOneToOne: false
+            referencedRelation: "v_visitantes_alerta"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "areas_igreja_id_fkey"
             columns: ["igreja_id"]
             isOneToOne: false
@@ -287,6 +322,41 @@ export type Database = {
             columns: ["igreja_id"]
             isOneToOne: false
             referencedRelation: "v_igrejas_ativas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areas_lider_id_fkey"
+            columns: ["lider_id"]
+            isOneToOne: false
+            referencedRelation: "membros"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areas_lider_id_fkey"
+            columns: ["lider_id"]
+            isOneToOne: false
+            referencedRelation: "v_membros_mapa"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areas_lider_id_fkey"
+            columns: ["lider_id"]
+            isOneToOne: false
+            referencedRelation: "v_membros_perfil"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areas_lider_id_fkey"
+            columns: ["lider_id"]
+            isOneToOne: false
+            referencedRelation: "v_ranking_convidadores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areas_lider_id_fkey"
+            columns: ["lider_id"]
+            isOneToOne: false
+            referencedRelation: "v_visitantes_alerta"
             referencedColumns: ["id"]
           },
           {
@@ -6965,6 +7035,7 @@ export type Database = {
           funcao_inicio: string | null
           funcao_ministerial: Database["public"]["Enums"]["funcao_ministerial"]
           funcao_na_igreja: string | null
+          funcoes_ministeriais: Database["public"]["Enums"]["funcao_ministerial"][]
           geo_fonte: string | null
           geo_place_id: string | null
           id: string
@@ -7043,6 +7114,7 @@ export type Database = {
           funcao_inicio?: string | null
           funcao_ministerial?: Database["public"]["Enums"]["funcao_ministerial"]
           funcao_na_igreja?: string | null
+          funcoes_ministeriais?: Database["public"]["Enums"]["funcao_ministerial"][]
           geo_fonte?: string | null
           geo_place_id?: string | null
           id?: string
@@ -7121,6 +7193,7 @@ export type Database = {
           funcao_inicio?: string | null
           funcao_ministerial?: Database["public"]["Enums"]["funcao_ministerial"]
           funcao_na_igreja?: string | null
+          funcoes_ministeriais?: Database["public"]["Enums"]["funcao_ministerial"][]
           geo_fonte?: string | null
           geo_place_id?: string | null
           id?: string

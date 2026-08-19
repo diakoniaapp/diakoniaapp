@@ -204,3 +204,45 @@ export function mandatoLegivel(inicio?: string | null, fim?: string | null): str
   if (b) return `até ${b}`;
   return null;
 }
+
+/**
+ * Ordena uma lista de funções pela hierarquia da casa e tira repetição.
+ *
+ * A ORDEM CARREGA SIGNIFICADO: a primeira da lista é a função principal, é ela
+ * que vai para `membros.funcao_ministerial` pelo gatilho do banco, e é ela que
+ * aparece na coluna Tipo/Função do catálogo. Gravar fora de ordem faria o
+ * catálogo chamar de "Professor de EBD" alguém que também é Presidente.
+ *
+ * O gatilho no banco não conhece esta hierarquia de propósito — ele só pega o
+ * primeiro item. Assim a ordem mora num lugar só, aqui, e não em duas listas
+ * que alguém teria de lembrar de sincronizar.
+ */
+export function ordenarFuncoes(fs: string[]): FuncaoMinisterial[] {
+  const posicao = (f: string) => {
+    const i = FUNCOES_EM_ORDEM.indexOf(f as FuncaoMinisterial);
+    // Função aposentada não está em FUNCOES_EM_ORDEM. Vai para o fim em vez de
+    // para o começo, que é onde um -1 a colocaria — e ela viraria a principal.
+    return i === -1 ? FUNCOES_EM_ORDEM.length : i;
+  };
+  return [...new Set(fs)]
+    .filter(f => f in FUNCAO_MINISTERIAL)
+    .sort((a, b) => posicao(a) - posicao(b)) as FuncaoMinisterial[];
+}
+
+/**
+ * As funções de uma pessoa, sempre como lista.
+ *
+ * Aceita o registro com a lista nova ou só com a coluna antiga: durante a
+ * troca as duas convivem, e uma tela que só soubesse ler uma delas mostraria
+ * pessoas sem função nenhuma.
+ */
+export function funcoesDe(m: { funcoes_ministeriais?: string[] | null; funcao_ministerial?: string | null }): FuncaoMinisterial[] {
+  const lista = m.funcoes_ministeriais?.length
+    ? m.funcoes_ministeriais
+    : (m.funcao_ministerial ? [m.funcao_ministerial] : []);
+  return ordenarFuncoes(lista);
+}
+
+/** Rótulos legíveis de todas as funções de alguém, na ordem da hierarquia. */
+export const rotulosDe = (m: { funcoes_ministeriais?: string[] | null; funcao_ministerial?: string | null }): string[] =>
+  funcoesDe(m).filter(f => f !== "membro").map(f => FUNCAO_MINISTERIAL[f].label);

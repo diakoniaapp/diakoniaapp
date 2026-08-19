@@ -23,7 +23,7 @@ import { StatusMembroBadge } from "@/components/membros/StatusMembroBadge";
 import ContatoResultadoDialog from "@/components/membros/ContatoResultadoDialog";
 import { logHistorico } from "@/lib/historicoFluxo";
 import { formatarTelefoneSemDDI, normalizarTelefone, telefoneValido } from "@/lib/telefone";
-import { rotuloFuncao, temFuncao } from "@/lib/funcaoMinisterial";
+import { rotuloFuncao, temFuncao, rotulosDe } from "@/lib/funcaoMinisterial";
 
 export interface Membro {
     id: string;
@@ -51,7 +51,9 @@ export interface Membro {
     cep: string | null;
     sexo: string | null;
     tipo_pessoa: "membro" | "congregado" | "visitante";
-    /** Função na igreja — ver lib/funcaoMinisterial.ts. NÃO é acesso ao sistema. */
+    /** Funções na igreja — ver lib/funcaoMinisterial.ts. NÃO é acesso ao sistema. */
+    funcoes_ministeriais?: string[] | null;
+    /** A primeira da lista, derivada pelo gatilho do banco. */
     funcao_ministerial?: string | null;
     perfil_acesso:
       | "admin"
@@ -1188,9 +1190,21 @@ export default function Membros() {
                                             // discreta, porque mudam o que se faz com a pessoa. Membro em texto
                                             // apagado, por ser o esperado — etiqueta em 132 linhas viraria ruído.
                                             if (nivel === "funcao") {
+                                              // Quem acumula mostra a principal e um "+N".
+                                              // O nome inteiro das outras vai no title: a coluna
+                                              // tem 160px e "Presidente · Pastor Auxiliar · Líder
+                                              // de Área" truncaria as três em vez de dizer uma.
+                                              const todas = rotulosDe(m);
                                               return (
-                                                <Badge variant="outline" className="bg-gold/15 text-gold border-gold/40 font-medium">
+                                                <Badge
+                                                  variant="outline"
+                                                  className="bg-gold/15 text-gold border-gold/40 font-medium"
+                                                  title={todas.length > 1 ? todas.join(" · ") : undefined}
+                                                >
                                                   {texto}
+                                                  {todas.length > 1 && (
+                                                    <span className="ml-1 opacity-70">+{todas.length - 1}</span>
+                                                  )}
                                                 </Badge>
                                               );
                                             }

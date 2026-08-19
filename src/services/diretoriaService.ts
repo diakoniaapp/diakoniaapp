@@ -65,47 +65,62 @@ export interface CargoDiretoria {
 export async function carregarDiretoria(): Promise<CargoDiretoria[]> {
   const { data, error } = await supabase
     .from("membros")
-    .select("id, nome_completo, foto_url, funcao_ministerial, funcao_inicio, funcao_fim")
+    .select("id, nome_completo, foto_url, funcoes_ministeriais, funcao_inicio, funcao_fim")
     .eq("status", "ativo")
-    .in("funcao_ministerial", FUNCOES_NO_REGIMENTO)
+    // `overlaps`: quem tem QUALQUER função de regimento na lista. Filtrar pela
+    // principal deixaria de fora o diácono que também é tesoureiro — ele
+    // aparece no catálogo como Diácono e sumiria da Tesouraria.
+    .overlaps("funcoes_ministeriais", FUNCOES_NO_REGIMENTO)
     .order("nome_completo");
 
   if (error || !data) return [];
 
+  // UMA LINHA POR CARGO, e não por pessoa. Quem for 1º Tesoureiro e também
+  // Auditor(a) aparece nos dois lugares do quadro — é o que uma lista de
+  // diretoria precisa mostrar, e o motivo de a lista de funções existir.
   return data
-    .map((m) => ({
-      // O id é o da pessoa: sem tabela de vínculo, não há id de vínculo. As
-      // telas usavam esse campo só como chave de React e para navegar até a
-      // pessoa — os dois seguem funcionando.
-      id: m.id,
-      funcao: m.funcao_ministerial as string,
-      cargo: rotuloFuncao(m.funcao_ministerial),
-      nivel: nivelDiretoria(m.funcao_ministerial),
-      pessoa_id: m.id,
-      pessoa_nome: m.nome_completo,
-      pessoa_foto: m.foto_url ?? null,
-      mandato: mandatoLegivel(m.funcao_inicio, m.funcao_fim),
-    }))
+    .flatMap((m) =>
+      ((m.funcoes_ministeriais ?? []) as string[])
+        .filter((f) => (FUNCOES_NO_REGIMENTO as string[]).includes(f))
+        .map((f) => ({
+          // Chave por pessoa + função: o id da pessoa sozinho repetiria para
+          // quem acumula, e o React reclamaria de chave duplicada.
+          id: `${m.id}-${f}`,
+          funcao: f,
+          cargo: rotuloFuncao(f),
+          nivel: nivelDiretoria(f),
+          pessoa_id: m.id,
+          pessoa_nome: m.nome_completo,
+          pessoa_foto: m.foto_url ?? null,
+          // A vigência é uma só, por decisão: vale para a função principal.
+          // Quando a pessoa acumula dois cargos de mandato, os dois mostram a
+          // mesma data — e é por isso que a decisão foi registrada.
+          mandato: mandatoLegivel(m.funcao_inicio, m.funcao_fim),
+        })),
+    )
     .sort((a, b) => a.nivel - b.nivel || a.cargo.localeCompare(b.cargo));
 }
 
-/** Os cargos de diretoria de UMA pessoa — hoje, no máximo um. */
+/** Os cargos de diretoria de UMA pessoa — pode ser mais de um. */
 export async function cargosDaPessoa(pessoaId: string): Promise<
   { cargo: string; nivel: number; mandato: string | null }[]
 > {
   const { data } = await supabase
     .from("membros")
-    .select("funcao_ministerial, funcao_inicio, funcao_fim")
+    .select("funcoes_ministeriais, funcao_inicio, funcao_fim")
     .eq("id", pessoaId)
     .maybeSingle();
 
-  if (!data || !FUNCOES_DIRETORIA.includes(data.funcao_ministerial as never)) return [];
+  if (!data) return [];
 
-  return [{
-    cargo: rotuloFuncao(data.funcao_ministerial),
-    nivel: nivelDiretoria(data.funcao_ministerial),
-    mandato: mandatoLegivel(data.funcao_inicio, data.funcao_fim),
-  }];
+  return ((data.funcoes_ministeriais ?? []) as string[])
+    .filter((f) => (FUNCOES_DIRETORIA as string[]).includes(f))
+    .map((f) => ({
+      cargo: rotuloFuncao(f),
+      nivel: nivelDiretoria(f),
+      mandato: mandatoLegivel(data.funcao_inicio, data.funcao_fim),
+    }))
+    .sort((a, b) => a.nivel - b.nivel);
 }
 
 // ─── Ligar o Regimento à ficha ─────────────────────────────────────────────
@@ -173,7 +188,7 @@ export async function carregarDiaconato(): Promise<{
     .from("membros")
     .select("id, nome_completo, data_ordenacao_diaconal")
     .eq("status", "ativo")
-    .eq("funcao_ministerial", "diacono")
+    .contains("funcoes_ministeriais", ["diacono"])
     .order("nome_completo");
 
   return data ?? [];
