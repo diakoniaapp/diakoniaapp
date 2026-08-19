@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Users, X, Search } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { formatarTelefoneSemDDI } from "@/lib/telefone";
 
 interface Pessoa { id: string; nome_completo: string; cpf: string|null; telefone_celular: string|null; tipo_pessoa: string; status: string; }
 interface Atuacao {
@@ -182,7 +183,7 @@ export default function VoluntariosDialog({ area, open, onOpenChange }: Props) {
                     <div className="text-sm">
                       <div className="font-medium">{selected.nome_completo}</div>
                       <div className="text-xs text-muted-foreground">
-                        {selected.tipo_pessoa} {selected.cpf ? `• ${selected.cpf}` : ""} {selected.telefone_celular ? `• ${selected.telefone_celular}` : ""}
+                        {selected.tipo_pessoa} {selected.cpf ? `• ${selected.cpf}` : ""} {selected.telefone_celular ? `• ${formatarTelefoneSemDDI(selected.telefone_celular)}` : ""}
                       </div>
                     </div>
                     <Button type="button" variant="ghost" size="sm" onClick={()=>setSelected(null)}>Trocar</Button>

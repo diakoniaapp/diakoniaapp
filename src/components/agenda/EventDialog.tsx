@@ -106,11 +106,39 @@ export function EventDialog({
   const isSeriesMaster = !!ev?.recorrencia_regra;
   const partOfSeries = !!ocorrencia?.serieId;
 
+  // Ministérios ainda não escolhidos. Vira o limite natural: não há teto
+  // arbitrário, há a lista da igreja — um evento grande pode envolver
+  // Louvor, Recepção, Diaconia e Comunicação de uma vez, e o antigo teto de
+  // dois obrigava a mentir sobre quem estava responsável.
+  const ministeriosLivres = ministerios.filter(
+    m => m.ativo && !mins.find(x => x.ministerio_id === m.id),
+  );
+
   const addMin = () => {
-    if (mins.length >= 2) return;
-    const left = ministerios.filter(m => m.ativo && !mins.find(x => x.ministerio_id === m.id));
-    if (!left.length) return;
-    setMins([...mins, { ministerio_id: left[0].id, responsabilidade: mins.length === 0 ? "principal" : "apoio" }]);
+    if (!ministeriosLivres.length) return;
+    setMins([
+      ...mins,
+      {
+        ministerio_id: ministeriosLivres[0].id,
+        responsabilidade: mins.length === 0 ? "principal" : "apoio",
+      },
+    ]);
+  };
+
+  /**
+   * Trocar a responsabilidade de uma linha.
+   *
+   * Marcar "Principal" rebaixa as outras para apoio. O evento guarda UM
+   * `ministerio_principal_id`, e com dois marcados o segundo era descartado em
+   * silêncio na hora de salvar — com dois ministérios isso já acontecia, e com
+   * onze passaria a ser fácil de fazer sem perceber.
+   */
+  const setResp = (idx: number, resp: Resp) => {
+    setMins(mins.map((m, i) =>
+      i === idx ? { ...m, responsabilidade: resp }
+      : resp === "principal" ? { ...m, responsabilidade: "apoio" as Resp }
+      : m,
+    ));
   };
   const removeMin = (i: number) => {
     const next = mins.filter((_, idx) => idx !== i);
@@ -248,8 +276,13 @@ export function EventDialog({
 
           <div className="space-y-2 rounded-md border p-3">
             <div className="flex items-center justify-between">
-              <Label className="text-sm">Ministérios responsáveis (1 a 2)</Label>
-              <Button type="button" size="sm" variant="outline" onClick={addMin} disabled={mins.length >= 2}>
+              <Label className="text-sm">
+                Ministérios responsáveis
+                {mins.length > 0 && <span className="text-muted-foreground font-normal"> · {mins.length}</span>}
+              </Label>
+              <Button type="button" size="sm" variant="outline" onClick={addMin}
+                disabled={ministeriosLivres.length === 0}
+                title={ministeriosLivres.length === 0 ? "Todos os ministérios já estão no evento" : undefined}>
                 <Plus className="w-3.5 h-3.5 mr-1" />Adicionar
               </Button>
             </div>
@@ -268,9 +301,7 @@ export function EventDialog({
                     ))}
                   </SelectContent>
                 </Select>
-                <Select value={mr.responsabilidade} onValueChange={(v: Resp) => {
-                  const list = [...mins]; list[idx] = { ...list[idx], responsabilidade: v }; setMins(list);
-                }}>
+                <Select value={mr.responsabilidade} onValueChange={(v: Resp) => setResp(idx, v)}>
                   <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="principal">Principal</SelectItem>

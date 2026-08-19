@@ -1,11 +1,11 @@
 // ============================================================
 // EstruturaDaIgreja.tsx
 // Tela unificada da estrutura organizacional da Igreja
-// 3 abas: Institucional (diretoria eleita) | Ministerios | Estrutura Doc.
+// Uma tela, um assunto: o que o estatuto e o regimento preveem.
 // Le: pessoa_cargo_estatutario + ministerios + documento_estrutura
 // ============================================================
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase, supabaseRel } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -19,18 +19,10 @@ import {
   Crown, Church, MapPin, Users, ChevronDown, ChevronRight,
   Loader2, AlertTriangle, Network, Settings, RefreshCw, FileText, Star,
 } from "lucide-react";
+import { carregarDiretoria, ocupantesDoCargo, type CargoDiretoria } from "@/services/diretoriaService";
+import { SELECT_AREA_COM_LIDER } from "@/services/estruturaService";
 
 // -- Tipos ---------------------------------------------------
-
-interface CargoEstatutario {
-  id: string;
-  cargo: string;
-  nivel: number;
-  pessoa_id: string;
-  pessoa_nome: string;
-  pessoa_foto: string | null;
-  mandato: string | null;
-}
 
 interface AreaMin {
   id: string;
@@ -248,7 +240,7 @@ export default function EstruturaDaIgreja() {
 
   const [loading, setLoading] = useState(true);
   const [ministerios, setMinerios] = useState<Ministerio[]>([]);
-  const [diretoria, setDiretoria] = useState<CargoEstatutario[]>([]);
+  const [diretoria, setDiretoria] = useState<CargoDiretoria[]>([]);
   const [estDoc, setEstDoc] = useState<{
     institucional: EstruturaItem[];
     ministerial: EstruturaItem[];
@@ -258,6 +250,23 @@ export default function EstruturaDaIgreja() {
   const [pessoaId, setPessoaId] = useState<string | null>(null);
   const [ultimaSync, setUltimaSync] = useState<string | null>(null);
 
+  /**
+   * Cargo previsto no documento × cargo com gente na ficha.
+   *
+   * É a única comparação que só esta tela consegue fazer: as outras mostram
+   * quem está lá; aqui dá para ver o que o regimento prevê e ninguém ocupa.
+   * Foi assim que a linha "Auditoria" ficou vazia por meses — prevista no
+   * documento, sem função correspondente em ficha nenhuma.
+   *
+   * Conta só os itens institucionais: ministério e área não são cargo de uma
+   * pessoa, e entrariam sempre como "sem ocupante" sem querer dizer nada.
+   */
+  const cargos = useMemo(() => {
+    const itens = estDoc.institucional;
+    const ocupados = itens.filter(i => ocupantesDoCargo(i.nome, diretoria).length > 0).length;
+    return { ocupados, vagos: itens.length - ocupados };
+  }, [estDoc.institucional, diretoria]);
+
   const carregar = useCallback(async () => {
     setLoading(true);
 
@@ -265,23 +274,8 @@ export default function EstruturaDaIgreja() {
     const { data: membrosData } = await supabase
       .from("membros").select("id,tipo_pessoa").eq("status", "ativo");
 
-    // Diretoria eleita (cargos estatutarios)
-    // TABELA AUSENTE EM PRODUCAO — ver migration 20260528_estrutura_organizacional.sql
-    const { data: ce } = await supabase
-      .from("pessoa_cargo_estatutario")
-      .select("id,mandato,pessoa_id,cargos_estatutarios(nome,nivel),membros(nome_completo,foto_url)")
-      .eq("ativo", true)
-      .order("created_at");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    setDiretoria((ce ?? []).map((r: any) => ({
-      id: r.id,
-      cargo: r.cargos_estatutarios?.nome ?? "–",
-      nivel: r.cargos_estatutarios?.nivel ?? 9,
-      pessoa_id: r.pessoa_id,
-      pessoa_nome: r.membros?.nome_completo ?? "–",
-      pessoa_foto: r.membros?.foto_url ?? null,
-      mandato: r.mandato,
-    })));
+    // Diretoria — lida da função na ficha da pessoa. Ver diretoriaService.ts.
+    setDiretoria(await carregarDiretoria());
 
     // Ministerios com lideres
     const { data: mins } = await supabase
@@ -293,7 +287,7 @@ export default function EstruturaDaIgreja() {
       .order("nome");
 
     const { data: allAreas } = await supabase
-      .from("areas").select("id,ministerio_id,nome,lider:membros(id,nome_completo)").eq("ativo", true);
+      .from("areas").select(SELECT_AREA_COM_LIDER).eq("ativo", true);
     const { data: allSetores } = await supabase
       .from("setores").select("id,area_id,nome").eq("ativo", true);
     const { data: membMin } = await supabase
@@ -378,7 +372,7 @@ export default function EstruturaDaIgreja() {
     <div>
       <PageHeader
         title="Estrutura da Igreja"
-        description="Diretoria eleita, ministerios e estrutura derivada dos documentos"
+        description="O que o estatuto e o regimento preveem, e quanto disso a ficha das pessoas confirma"
         actions={
           isAdmin ? (
             <div className="flex gap-2 flex-wrap">
@@ -399,10 +393,18 @@ export default function EstruturaDaIgreja() {
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
+            // Os cartões respondem à pergunta da tela: o que o documento
+            // prevê, e quanto disso a igreja de fato tem ocupado. "Sem
+            // ocupante" é a única lacuna que este lugar consegue enxergar — o
+            // regimento prevê um cargo e a ficha de ninguém o preenche.
+            { label: "No regimento", value: stats.estTotal, icon: <Network className="w-4 h-4" />, cor: "text-amber-600" },
+            { label: "Ligados à ficha", value: cargos.ocupados, icon: <Crown className="w-4 h-4" />, cor: "text-primary" },
+            // "Fora da ficha" e não "sem ocupante": Pastoral e Jurídico
+            // Parlamentar TÊM nomes no documento, digitados como texto. O que
+            // falta é a função correspondente no cadastro de alguém — e é isso
+            // que dá para agir, não a ausência de gente.
+            { label: "Fora da ficha", value: cargos.vagos, icon: <AlertTriangle className="w-4 h-4" />, cor: cargos.vagos > 0 ? "text-warning" : "text-muted-foreground" },
             { label: "Membros ativos", value: stats.membros, icon: <Star className="w-4 h-4" />, cor: "text-blue-600" },
-            { label: "Ministerios", value: stats.ministerios, icon: <Church className="w-4 h-4" />, cor: "text-purple-600" },
-            { label: "Estrutura doc.", value: stats.estTotal, icon: <Network className="w-4 h-4" />, cor: "text-amber-600" },
-            { label: "Diretoria", value: diretoria.length, icon: <Crown className="w-4 h-4" />, cor: "text-primary" },
           ].map((s) => (
             <Card key={s.label} className="shadow-card-soft">
               <CardContent className="p-4">
@@ -431,164 +433,96 @@ export default function EstruturaDaIgreja() {
           </p>
         )}
 
-        <Tabs defaultValue="diretoria">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="diretoria">
-              <Crown className="w-4 h-4 mr-1.5" /> Institucional
-            </TabsTrigger>
-            <TabsTrigger value="ministerios">
-              <Church className="w-4 h-4 mr-1.5" /> Ministerios
-            </TabsTrigger>
-            <TabsTrigger value="documentos">
-              <Network className="w-4 h-4 mr-1.5" /> Estrutura Doc.
-            </TabsTrigger>
-          </TabsList>
+        {/* ── Só o Regimento ─────────────────────────────────────────────
+            Diretoria, Conselho e Diaconia foram para o Organograma, onde a
+            igreja aparece como gente: quem serve onde e quem ocupa o quê.
 
-          <TabsContent value="diretoria" className="mt-4">
-            {loading ? (
-              <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground">
-                <Loader2 className="w-5 h-5 animate-spin" /><span>Carregando...</span>
-              </div>
-            ) : diretoria.length === 0 ? (
-              <div className="text-center py-16 space-y-3">
-                <Crown className="w-12 h-12 mx-auto text-muted-foreground/40" />
-                <p className="text-muted-foreground text-sm">Nenhum cargo estatutario cadastrado.</p>
-                {isAdmin && (
-                  <p className="text-xs text-muted-foreground/70">
-                    Atribua cargos em Pessoas, editar, Cargo Estatutario.
-                  </p>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-5">
-                {[1, 2, 3, 4].map((nivel) => {
-                  const deste = diretoria.filter((d) => d.nivel === nivel);
-                  if (!deste.length) return null;
-                  return (
-                    <div key={nivel}>
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-base">{NIVEL_EMOJI[nivel]}</span>
-                        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                          {NIVEL_LABELS[nivel]}
-                        </h3>
-                      </div>
-                      <div className="grid sm:grid-cols-2 gap-2">
-                        {deste.map((d) => (
-                          <button
-                            key={d.id}
-                            onClick={() => setPessoaId(d.pessoa_id)}
-                            className="flex items-center gap-3 rounded-xl border border-purple-200 bg-purple-50/50 px-4 py-3 text-left hover:bg-purple-100/50 transition-colors w-full"
-                          >
-                            <AvatarPessoa nome={d.pessoa_nome} foto={d.pessoa_foto} size="md" />
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium text-sm truncate">{d.pessoa_nome}</p>
-                              <p className="text-xs text-purple-700">{d.cargo}</p>
-                              {d.mandato && (
-                                <p className="text-xs text-muted-foreground">Mandato {d.mandato}</p>
+            Aqui fica o documento — o que o estatuto e o regimento preveem,
+            com a base institucional de cada item. O ocupante de cada cargo
+            continua vindo da ficha, mas a pergunta desta tela é outra: não
+            "quem é o tesoureiro" e sim "o que a igreja declarou ter".
+
+            Sem abas, porque sobrou uma coisa só. */}
+          {loading ? (
+            <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground">
+              <Loader2 className="w-5 h-5 animate-spin" /><span>Carregando...</span>
+            </div>
+          ) : stats.estTotal === 0 ? (
+            <div className="text-center py-16 space-y-3">
+              <Network className="w-12 h-12 mx-auto text-muted-foreground/40" />
+              <p className="text-muted-foreground text-sm">Nenhuma estrutura derivada dos documentos ainda.</p>
+              <p className="text-xs text-muted-foreground/70">
+                Acesse Documentos, Estrutura Derivada, Sincronizar para popular automaticamente.
+              </p>
+              {isAdmin && (
+                <Button variant="outline" size="sm" onClick={() => navigate("/admin/documentos")}>
+                  <FileText className="w-3.5 h-3.5 mr-1.5" /> Ir para Documentos
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {(["institucional", "ministerial", "area"] as const).map((nivel) => {
+                const itens = estDoc[nivel];
+                if (!itens.length) return null;
+                const config = {
+                  institucional: { label: "Diretoria e Conselhos", icon: <Crown className="w-4 h-4 text-purple-600" />, border: "border-purple-200", bg: "bg-purple-50/50" },
+                  ministerial: { label: "Ministerios", icon: <Church className="w-4 h-4 text-blue-600" />, border: "border-blue-200", bg: "bg-blue-50/50" },
+                  area: { label: "Areas e Setores", icon: <MapPin className="w-4 h-4 text-green-600" />, border: "border-green-200", bg: "bg-green-50/50" },
+                } as const;
+                const c = config[nivel];
+                return (
+                  <div key={nivel}>
+                    <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-2">
+                      {c.icon} {c.label} ({itens.length})
+                    </h3>
+                    <div className="space-y-2">
+                      {itens.map((item) => (
+                        <div key={item.id} className={`rounded-xl border px-4 py-3 ${c.border} ${c.bg}`}>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2 mb-1">
+                              <span className="text-sm font-semibold">{item.nome}</span>
+                              {item.base_institucional && (
+                                <Badge variant="outline" className="text-xs h-4 px-1.5">
+                                  📄 {item.base_institucional}
+                                </Badge>
                               )}
                             </div>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="ministerios" className="mt-4">
-            {loading ? (
-              <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground">
-                <Loader2 className="w-5 h-5 animate-spin" /><span>Carregando...</span>
-              </div>
-            ) : operacionais.length === 0 ? (
-              <div className="text-center py-16 space-y-3">
-                <Church className="w-12 h-12 mx-auto text-muted-foreground/40" />
-                <p className="text-muted-foreground text-sm">Nenhum ministerio cadastrado.</p>
-                {isAdmin && (
-                  <Button variant="outline" size="sm" onClick={() => navigate("/ministerios")}>
-                    <Settings className="w-3.5 h-3.5 mr-1.5" /> Gerenciar ministerios
-                  </Button>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {operacionais.map((m) => (
-                  <MinisterioCard
-                    key={m.id} min={m} onPessoa={setPessoaId}
-                    isAdmin={isAdmin} onEdit={() => navigate("/ministerios")}
-                  />
-                ))}
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="documentos" className="mt-4">
-            {loading ? (
-              <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground">
-                <Loader2 className="w-5 h-5 animate-spin" /><span>Carregando...</span>
-              </div>
-            ) : stats.estTotal === 0 ? (
-              <div className="text-center py-16 space-y-3">
-                <Network className="w-12 h-12 mx-auto text-muted-foreground/40" />
-                <p className="text-muted-foreground text-sm">Nenhuma estrutura derivada dos documentos ainda.</p>
-                <p className="text-xs text-muted-foreground/70">
-                  Acesse Documentos, Estrutura Derivada, Sincronizar para popular automaticamente.
-                </p>
-                {isAdmin && (
-                  <Button variant="outline" size="sm" onClick={() => navigate("/admin/documentos")}>
-                    <FileText className="w-3.5 h-3.5 mr-1.5" /> Ir para Documentos
-                  </Button>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-6">
-                {(["institucional", "ministerial", "area"] as const).map((nivel) => {
-                  const itens = estDoc[nivel];
-                  if (!itens.length) return null;
-                  const config = {
-                    institucional: { label: "Diretoria e Conselhos", icon: <Crown className="w-4 h-4 text-purple-600" />, border: "border-purple-200", bg: "bg-purple-50/50" },
-                    ministerial: { label: "Ministerios", icon: <Church className="w-4 h-4 text-blue-600" />, border: "border-blue-200", bg: "bg-blue-50/50" },
-                    area: { label: "Areas e Setores", icon: <MapPin className="w-4 h-4 text-green-600" />, border: "border-green-200", bg: "bg-green-50/50" },
-                  } as const;
-                  const c = config[nivel];
-                  return (
-                    <div key={nivel}>
-                      <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-2">
-                        {c.icon} {c.label} ({itens.length})
-                      </h3>
-                      <div className="space-y-2">
-                        {itens.map((item) => (
-                          <div key={item.id} className={`rounded-xl border px-4 py-3 ${c.border} ${c.bg}`}>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex flex-wrap items-center gap-2 mb-1">
-                                <span className="text-sm font-semibold">{item.nome}</span>
-                                {item.base_institucional && (
-                                  <Badge variant="outline" className="text-xs h-4 px-1.5">
-                                    📄 {item.base_institucional}
-                                  </Badge>
-                                )}
-                              </div>
-                              {item.descricao && (
-                                <p className="text-xs text-muted-foreground">{item.descricao}</p>
-                              )}
-                              {item.responsabilidades && (
-                                <p className="text-xs text-muted-foreground/80 mt-1 line-clamp-2">
-                                  {item.responsabilidades}
-                                </p>
-                              )}
-                            </div>
+                            {/* Mesma regra da aba Regimento do organograma: o cargo
+                                vem do documento, o ocupante vem da ficha. Ver o
+                                cabeçalho de diretoriaService.ts. */}
+                            {(() => {
+                              const ocupantes = ocupantesDoCargo(item.nome, diretoria);
+                              if (ocupantes.length) {
+                                return (
+                                  <div className="text-xs text-muted-foreground">
+                                    {ocupantes.map(o => (
+                                      <p key={o.id}>
+                                        {o.pessoa_nome}
+                                        {o.mandato && ` · mandato ${o.mandato}`}
+                                      </p>
+                                    ))}
+                                  </div>
+                                  );
+                                }
+                              return item.descricao ? (
+                                <p className="text-xs text-muted-foreground whitespace-pre-line">{item.descricao}</p>
+                              ) : null;
+                            })()}
+                            {item.responsabilidades && (
+                              <p className="text-xs text-muted-foreground/80 mt-1 line-clamp-2">
+                                {item.responsabilidades}
+                              </p>
+                            )}
                           </div>
-                        ))}
-                      </div>
+                        </div>
+                      ))}
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
+                  </div>
+                );
+              })}
+            </div>
+          )}
       </div>
 
       <PessoaCard pessoaId={pessoaId} open={!!pessoaId} onClose={() => setPessoaId(null)} />

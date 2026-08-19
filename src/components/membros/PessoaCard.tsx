@@ -8,6 +8,7 @@ import { supabase, supabaseRel } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, User, Shield, Church, MapPin, Calendar, Star } from "lucide-react";
+import { cargosDaPessoa } from "@/services/diretoriaService";
 
 // ── Tipos ─────────────────────────────────────────────────────
 
@@ -110,18 +111,8 @@ export default function PessoaCard({ pessoaId, open, onClose }: PessoaCardProps)
         .single();
       setPessoa(p ?? null);
 
-      // Cargos estatutários
-      // TABELA AUSENTE EM PRODUCAO — ver migration 20260528_estrutura_organizacional.sql
-      const { data: ce } = await supabase
-        .from("pessoa_cargo_estatutario")
-        .select("mandato, cargos_estatutarios(nome, nivel)")
-        .eq("pessoa_id", pessoaId)
-        .eq("ativo", true);
-      setCargos((ce ?? []).map((r: any) => ({
-        cargo: r.cargos_estatutarios?.nome ?? "–",
-        nivel: r.cargos_estatutarios?.nivel ?? 9,
-        mandato: r.mandato,
-      })));
+      // Cargo de diretoria — vem da função na ficha. Ver diretoriaService.ts.
+      setCargos(await cargosDaPessoa(pessoaId));
 
       // Ministérios (via ministerio_membros legado + pessoa_participacao)
       const { data: mm } = await supabaseRel

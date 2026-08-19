@@ -11,6 +11,7 @@ import {
   type EventoPastoral, type TipoEfemeride,
 } from "@/services/agendaPastoralService";
 import { useReportarVazio } from "@/components/hoje/vazio";
+import { formatarTelefoneSemDDI } from "@/lib/telefone";
 
 function ehDomingo(): boolean {
   return new Date().getDay() === 0;
@@ -147,7 +148,7 @@ export function AcoesDoDia() {
                           : ap.semAnos}
                       </p>
                       {ev.telefone && (
-                        <p className="text-xs text-muted-foreground mt-0.5">📞 {ev.telefone}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">📞 {formatarTelefoneSemDDI(ev.telefone)}</p>
                       )}
                     </div>
                   </div>

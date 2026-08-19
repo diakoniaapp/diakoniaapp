@@ -26,6 +26,18 @@ interface Props {
   /** Datas estáticas de promoção (opcional — já podem estar no log) */
   dataCongregado?: string | null;
   dataMembro?: string | null;
+  /**
+   * Esconde os registros de contato e deixa só os marcos de caminhada.
+   *
+   * Esta mesma linha do tempo serve a ficha de visitante e a de membro, e as
+   * duas guardam coisas diferentes. Para um visitante, "ligaram", "mandaram
+   * WhatsApp", "voltou ao culto" é a história inteira do acolhimento. Para
+   * quem já é da casa, acompanhamento por contato deixou de existir — mas
+   * "primeiro culto", "tornou-se congregado" e "tornou-se membro" continuam
+   * sendo a história da pessoa com a igreja, e apagar isso junto jogaria
+   * fora justamente a parte que importa numa ficha de membro.
+   */
+  somenteMarcos?: boolean;
 }
 
 // ── Helpers ───────────────────────────────────────────────────
@@ -47,7 +59,12 @@ function formatarHora(iso: string): string {
 
 // ── Componente ────────────────────────────────────────────────
 
-export default function VisitanteTimeline({ pessoaId, dataCadastro, dataCongregado, dataMembro }: Props) {
+/** Os três que contam a caminhada, e não o acompanhamento. */
+const MARCOS: TipoHistorico[] = ["cadastro", "promocao_congregado", "promocao_membro"];
+
+export default function VisitanteTimeline({
+  pessoaId, dataCadastro, dataCongregado, dataMembro, somenteMarcos = false,
+}: Props) {
   const [itens, setItens]     = useState<HistoricoItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -93,9 +110,9 @@ export default function VisitanteTimeline({ pessoaId, dataCadastro, dataCongrega
     });
   }
 
-  const todos = [...itens, ...marcosExtras].sort(
-    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-  );
+  const todos = [...itens, ...marcosExtras]
+    .filter(i => !somenteMarcos || MARCOS.includes(i.tipo))
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   // ── Render ───────────────────────────────────────────────────
 
@@ -111,7 +128,7 @@ export default function VisitanteTimeline({ pessoaId, dataCadastro, dataCongrega
   if (todos.length === 0) {
     return (
       <div className="py-6 text-center text-xs text-muted-foreground italic">
-        Nenhum registro de contato ainda.
+        {somenteMarcos ? "Sem marcos registrados ainda." : "Nenhum registro de contato ainda."}
       </div>
     );
   }
@@ -121,7 +138,7 @@ export default function VisitanteTimeline({ pessoaId, dataCadastro, dataCongrega
       {/* Cabeçalho */}
       <div className="flex items-center justify-between mb-3">
         <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground" translate="no">
-          Histórico de contatos
+          {somenteMarcos ? "Linha do tempo" : "Histórico de contatos"}
         </p>
         <Button
           variant="ghost"

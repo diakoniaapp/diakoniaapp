@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.15"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       acolhimento_tarefas: {
@@ -251,6 +276,41 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "areas_co_lider_id_fkey"
+            columns: ["co_lider_id"]
+            isOneToOne: false
+            referencedRelation: "membros"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areas_co_lider_id_fkey"
+            columns: ["co_lider_id"]
+            isOneToOne: false
+            referencedRelation: "v_membros_mapa"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areas_co_lider_id_fkey"
+            columns: ["co_lider_id"]
+            isOneToOne: false
+            referencedRelation: "v_membros_perfil"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areas_co_lider_id_fkey"
+            columns: ["co_lider_id"]
+            isOneToOne: false
+            referencedRelation: "v_ranking_convidadores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areas_co_lider_id_fkey"
+            columns: ["co_lider_id"]
+            isOneToOne: false
+            referencedRelation: "v_visitantes_alerta"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "areas_igreja_id_fkey"
             columns: ["igreja_id"]
             isOneToOne: false
@@ -262,6 +322,41 @@ export type Database = {
             columns: ["igreja_id"]
             isOneToOne: false
             referencedRelation: "v_igrejas_ativas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areas_lider_id_fkey"
+            columns: ["lider_id"]
+            isOneToOne: false
+            referencedRelation: "membros"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areas_lider_id_fkey"
+            columns: ["lider_id"]
+            isOneToOne: false
+            referencedRelation: "v_membros_mapa"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areas_lider_id_fkey"
+            columns: ["lider_id"]
+            isOneToOne: false
+            referencedRelation: "v_membros_perfil"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areas_lider_id_fkey"
+            columns: ["lider_id"]
+            isOneToOne: false
+            referencedRelation: "v_ranking_convidadores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "areas_lider_id_fkey"
+            columns: ["lider_id"]
+            isOneToOne: false
+            referencedRelation: "v_visitantes_alerta"
             referencedColumns: ["id"]
           },
           {
@@ -6920,10 +7015,13 @@ export type Database = {
           data_batismo: string | null
           data_casamento: string | null
           data_congregado: string | null
+          data_consagracao_missionaria: string | null
           data_consagracao_pastoral: string | null
           data_entrada: string | null
           data_membro: string | null
           data_nascimento: string | null
+          data_ordenacao_diaconal: string | null
+          data_ordenacao_presbiteral: string | null
           email: string | null
           endereco: string | null
           endereco_completo: string | null
@@ -6933,8 +7031,11 @@ export type Database = {
           familia_id: string | null
           first_login: boolean
           foto_url: string | null
+          funcao_fim: string | null
+          funcao_inicio: string | null
           funcao_ministerial: Database["public"]["Enums"]["funcao_ministerial"]
           funcao_na_igreja: string | null
+          funcoes_ministeriais: Database["public"]["Enums"]["funcao_ministerial"][]
           geo_fonte: string | null
           geo_place_id: string | null
           id: string
@@ -6993,10 +7094,13 @@ export type Database = {
           data_batismo?: string | null
           data_casamento?: string | null
           data_congregado?: string | null
+          data_consagracao_missionaria?: string | null
           data_consagracao_pastoral?: string | null
           data_entrada?: string | null
           data_membro?: string | null
           data_nascimento?: string | null
+          data_ordenacao_diaconal?: string | null
+          data_ordenacao_presbiteral?: string | null
           email?: string | null
           endereco?: string | null
           endereco_completo?: string | null
@@ -7006,8 +7110,11 @@ export type Database = {
           familia_id?: string | null
           first_login?: boolean
           foto_url?: string | null
+          funcao_fim?: string | null
+          funcao_inicio?: string | null
           funcao_ministerial?: Database["public"]["Enums"]["funcao_ministerial"]
           funcao_na_igreja?: string | null
+          funcoes_ministeriais?: Database["public"]["Enums"]["funcao_ministerial"][]
           geo_fonte?: string | null
           geo_place_id?: string | null
           id?: string
@@ -7066,10 +7173,13 @@ export type Database = {
           data_batismo?: string | null
           data_casamento?: string | null
           data_congregado?: string | null
+          data_consagracao_missionaria?: string | null
           data_consagracao_pastoral?: string | null
           data_entrada?: string | null
           data_membro?: string | null
           data_nascimento?: string | null
+          data_ordenacao_diaconal?: string | null
+          data_ordenacao_presbiteral?: string | null
           email?: string | null
           endereco?: string | null
           endereco_completo?: string | null
@@ -7079,8 +7189,11 @@ export type Database = {
           familia_id?: string | null
           first_login?: boolean
           foto_url?: string | null
+          funcao_fim?: string | null
+          funcao_inicio?: string | null
           funcao_ministerial?: Database["public"]["Enums"]["funcao_ministerial"]
           funcao_na_igreja?: string | null
+          funcoes_ministeriais?: Database["public"]["Enums"]["funcao_ministerial"][]
           geo_fonte?: string | null
           geo_place_id?: string | null
           id?: string
@@ -10483,8 +10596,8 @@ export type Database = {
       v_conselho_da_igreja: {
         Row: {
           cargo: string | null
+          contexto: string | null
           foto_url: string | null
-          ministerio_nome: string | null
           nivel_cargo: number | null
           nome_completo: string | null
           pessoa_id: string | null
@@ -12271,6 +12384,10 @@ export type Database = {
           qtd_membros: number
         }[]
       }
+      proximo_aniversario: {
+        Args: { p_ano?: number; p_data: string }
+        Returns: string
+      }
       redefinir_senha: {
         Args: { p_senha: string; p_token: string }
         Returns: {
@@ -12741,6 +12858,18 @@ export type Database = {
         | "presbitero"
         | "coordenador"
         | "obreiro"
+        | "presidente"
+        | "pastor_auxiliar"
+        | "pastor_missionario"
+        | "vice_presidente_1"
+        | "vice_presidente_2"
+        | "tesoureiro_1"
+        | "tesoureiro_2"
+        | "secretaria_1"
+        | "secretaria_2"
+        | "ministro"
+        | "lider_area"
+        | "auditor"
       gov_pauta_classificacao: "informativa" | "deliberativa"
       gov_pauta_status:
         | "rascunho"
@@ -13203,6 +13332,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       acompanhamento_status: [
@@ -13514,6 +13646,18 @@ export const Constants = {
         "presbitero",
         "coordenador",
         "obreiro",
+        "presidente",
+        "pastor_auxiliar",
+        "pastor_missionario",
+        "vice_presidente_1",
+        "vice_presidente_2",
+        "tesoureiro_1",
+        "tesoureiro_2",
+        "secretaria_1",
+        "secretaria_2",
+        "ministro",
+        "lider_area",
+        "auditor",
       ],
       gov_pauta_classificacao: ["informativa", "deliberativa"],
       gov_pauta_status: [

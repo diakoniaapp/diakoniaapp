@@ -12,6 +12,7 @@ import {
   agendaDoMes, linkWhatsApp, mensagemPastoral,
   type EventoPastoral,
 } from "@/services/agendaPastoralService";
+import { formatarTelefoneSemDDI } from "@/lib/telefone";
 
 const NOMES_MES = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
 
@@ -180,7 +181,7 @@ function EventoCard({ evento, ehHoje, dia, onWhats }: EventoCardProps) {
           </div>
           {evento.telefone && (
             <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
-              <Phone className="w-2.5 h-2.5" /> {evento.telefone}
+              <Phone className="w-2.5 h-2.5" /> {formatarTelefoneSemDDI(evento.telefone)}
             </p>
           )}
         </div>

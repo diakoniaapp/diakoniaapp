@@ -27,6 +27,7 @@ import {
 import { avaliarEvolucao } from "@/lib/evolucaoFluxo";
 import { logHistorico } from "@/lib/historicoFluxo";
 import type { Membro } from "@/pages/Membros";
+import { formatarTelefoneSemDDI } from "@/lib/telefone";
 
 // ── Interfaces ───────────────────────────────────────────────────────────────
 
@@ -280,7 +281,7 @@ export default function AcoesHoje({ limit }: AcoesHojeProps = {}) {
                       <p className="text-xs text-muted-foreground" translate="no">
                         Dia {v.dias_desde_cadastro} · {v.numero_visitas}{" "}
                         {v.numero_visitas === 1 ? "visita" : "visitas"}
-                        {v.telefone ? ` · ${v.telefone}` : " · Sem telefone"}
+                        {v.telefone ? ` · ${formatarTelefoneSemDDI(v.telefone)}` : " · Sem telefone"}
                       </p>
 
                       {/* Último contato */}

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Pencil, Link2, Briefcase, Sparkles, BarChart3, MoreHorizontal, MessageCircle, IdCard } from "lucide-react";
+import { Plus, Search, Pencil, Link2, Briefcase, Sparkles, BarChart3, MoreHorizontal, MessageCircle, IdCard, Cake, X, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -22,6 +22,8 @@ import { ListSkeleton, EmptyState, ErrorState } from "@/components/ListState";
 import { StatusMembroBadge } from "@/components/membros/StatusMembroBadge";
 import ContatoResultadoDialog from "@/components/membros/ContatoResultadoDialog";
 import { logHistorico } from "@/lib/historicoFluxo";
+import { formatarTelefoneSemDDI, normalizarTelefone, telefoneValido } from "@/lib/telefone";
+import { rotuloFuncao, temFuncao, rotulosDe } from "@/lib/funcaoMinisterial";
 
 export interface Membro {
     id: string;
@@ -49,6 +51,10 @@ export interface Membro {
     cep: string | null;
     sexo: string | null;
     tipo_pessoa: "membro" | "congregado" | "visitante";
+    /** Funções na igreja — ver lib/funcaoMinisterial.ts. NÃO é acesso ao sistema. */
+    funcoes_ministeriais?: string[] | null;
+    /** A primeira da lista, derivada pelo gatilho do banco. */
+    funcao_ministerial?: string | null;
     perfil_acesso:
       | "admin"
       | "pastor"
@@ -155,15 +161,23 @@ function AcoesPessoa({ m, onEditar, onVinculos, onAtuacoes, onVisitante, onConta
             </Link>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          {/* Registrar contato existia so na tela de Visitantes, e so para
-              visitante. As 275 outras pessoas nao tinham como receber um
-              "falei com ela" — os campos ultimo_contato_* ja existiam no banco
-              e estavam com ZERO registros. Mesma acao, mesmo dialogo, mesma
-              tabela de historico; muda so quem alcanca. */}
-          <DropdownMenuItem onClick={() => onContato(m)}>
-            <MessageCircle className="w-4 h-4 mr-2 text-muted-foreground" />
-            Registrar contato
-          </DropdownMenuItem>
+          {/* Registrar contato voltou a ser só de visitante.
+              Eu tinha estendido a ação a todo mundo por achar que os campos
+              ultimo_contato_* zerados eram uma oportunidade desperdiçada. Não
+              eram: acompanhamento por contato é a régua do acolhimento — quem
+              chegou, quem foi procurado, quem sumiu —, e ela não se aplica a
+              quem já é da casa. Aberta para as 281, a ação virava um "sem
+              contato" permanente ao lado de gente que a igreja vê toda semana,
+              e transformava presença em dívida.
+              O dado continua existindo, a ação continua inteira; muda só quem
+              a recebe: os visitantes, que são para quem a pergunta "alguém já
+              falou com essa pessoa?" tem resposta útil. */}
+          {m.tipo_pessoa === "visitante" && (
+            <DropdownMenuItem onClick={() => onContato(m)}>
+              <MessageCircle className="w-4 h-4 mr-2 text-muted-foreground" />
+              Registrar contato
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem onClick={() => onVinculos(m)}>
             <Link2 className="w-4 h-4 mr-2 text-muted-foreground" />
             Vínculos familiares
@@ -184,26 +198,267 @@ function AcoesPessoa({ m, onEditar, onVinculos, onAtuacoes, onVisitante, onConta
   );
 }
 
-// Quanto tempo faz que alguem falou com esta pessoa.
-//
-// Cor com significado, nao decoracao: cinza ate 30 dias, ambar depois, e a
-// mesma cor de alerta do painel para quem nunca foi contatado. Numa lista de
-// 20 linhas, e o que deixa a resposta aparecer sem precisar ler data por data.
-function UltimoContato({ quando }: { quando?: string | null }) {
-  if (!quando) {
-    return <span className="text-sm text-warning">Nunca</span>;
+/**
+ * Onde a pessoa está ligada na igreja: ministério, liderança, classe de EBD.
+ *
+ * Estes cinco campos — areas, lider_ministerios, lider_areas, classe_ebd e
+ * classes_professor — JÁ eram carregados em toda abertura da tela, por cinco
+ * consultas que rodavam a cada visita, e nenhum aparecia. A lista mostrava
+ * nome, tipo, telefone e último contato de 281 pessoas exatamente iguais entre
+ * si.
+ *
+ * Com isto, uma varredura da lista responde a pergunta que a lista não
+ * respondia: quem está ligado a alguma coisa, e quem não está a nada.
+ *
+ * Liderança vem primeiro porque muda o que a linha significa: quem lidera o
+ * Louvor não é "mais um do Louvor". Depois o ministério, depois a EBD — da
+ * responsabilidade para a participação.
+ */
+/**
+ * O que a coluna "Tipo/Função" diz sobre uma pessoa, em uma palavra.
+ *
+ * Uma coluna só, com precedência, em vez de duas lado a lado. Função e tipo
+ * respondem à mesma pergunta — "quem é esta pessoa aqui dentro" — e duas
+ * colunas para isso deixavam uma delas vazia em quase toda linha: as 283
+ * pessoas estão sem função, então a coluna Função nascia em branco e ficava
+ * ocupando espaço à espera de um dado que chega aos poucos.
+ *
+ * A ordem de precedência:
+ *
+ *   1. FUNÇÃO     — diácono, presbítero, tesoureiro. Sobrepõe o tipo porque
+ *                   é o que mais diz: um membro é um entre 132; o diácono é
+ *                   aquele diácono. Quem tem função é membro de qualquer
+ *                   jeito, e a informação nova é a função.
+ *   2. SITUAÇÃO   — inativo, transferido, falecido. São 2 em 283, e quando
+ *                   acontece é o mais urgente a dizer sobre a pessoa.
+ *   3. TIPO       — membro, congregado, visitante. O padrão.
+ *
+ * Nunca fica vazia: sem função e sem situação, sai "Membro" (ou o tipo que
+ * for). Célula em branco obriga a adivinhar o que o branco quer dizer.
+ */
+function tipoOuFuncao(m: Membro): { texto: string; nivel: "funcao" | "situacao" | "tipo" } {
+  if (temFuncao(m.funcao_ministerial)) {
+    return { texto: rotuloFuncao(m.funcao_ministerial), nivel: "funcao" };
   }
-  const dias = Math.floor((Date.now() - new Date(quando).getTime()) / 86_400_000);
-  const texto =
-    dias === 0 ? "Hoje"
-    : dias === 1 ? "Ontem"
-    : dias < 30 ? `${dias} dias`
-    : dias < 60 ? "1 mês"
-    : `${Math.floor(dias / 30)} meses`;
+  if (m.status !== "ativo") return { texto: "", nivel: "situacao" };
+  return { texto: tipoPessoaLabel[m.tipo_pessoa], nivel: "tipo" };
+}
+
+function vinculos(m: Membro): string[] {
+  const fora: string[] = [];
+
+  const lidera = [...(m.lider_ministerios ?? []), ...(m.lider_areas ?? [])];
+  if (lidera.length) fora.push(`Lidera ${lidera[0]}`);
+  else if (m.areas?.length) fora.push(m.areas[0]);
+
+  if (m.classes_professor?.length) fora.push(`Ensina ${m.classes_professor[0]}`);
+  else if (m.classe_ebd) fora.push(m.classe_ebd);
+
+  return fora;
+}
+
+/**
+ * Quantos dias faltam para o próximo aniversário. Hoje = 0.
+ *
+ * `data_nascimento` já vinha no `select("*")` e não aparecia em lugar
+ * nenhum desta tela. Só 106 das 283 pessoas têm a data preenchida, e
+ * apenas duas fazem aniversário nos próximos sete dias — é justamente por
+ * ser raro que a marca vale: duas linhas marcadas numa página saltam aos
+ * olhos, enquanto uma marca em toda linha não diria nada.
+ *
+ * Comparação por dia e mês, sem construir data com o ano corrente: 29 de
+ * fevereiro viraria 1º de março em ano comum, e a pessoa sumiria da
+ * semana em que faz aniversário.
+ */
+/**
+ * Texto comparável: minúsculas e sem acento.
+ *
+ * A busca comparava o texto cru, e com isso falhava calada justo onde mais
+ * se busca. Dos 83 cadastros que têm bairro, 57 moram em bairro com acento
+ * — Praça da Bandeira (37), Maracanã (17), São Cristóvão, Inhaúma. Quem
+ * digita "praca" ou "maracana", que é o que se digita com pressa e sem
+ * pensar no acento, recebia "Nenhuma pessoa encontrada" e concluía que a
+ * igreja não tem ninguém lá.
+ *
+ * NFD separa a letra do acento; o intervalo removido é o dos diacríticos
+ * combinantes. "João" e "Joao" viram a mesma coisa dos dois lados da
+ * comparação — no que a pessoa digita e no que está no cadastro.
+ */
+function comparavel(s: string | null | undefined): string {
+  return (s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+function diasAteAniversario(nascimento?: string | null): number | null {
+  if (!nascimento) return null;
+  const [, mes, dia] = nascimento.split("-").map(Number);
+  if (!mes || !dia) return null;
+
+  const hoje = new Date();
+  for (let i = 0; i <= 366; i++) {
+    const d = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() + i);
+    if (d.getMonth() + 1 === mes && d.getDate() === dia) return i;
+  }
+  return null;
+}
+
+/**
+ * Classes de EBD que atendem criança. Serve de segunda via para quem está
+ * matriculado e não tem data de nascimento no cadastro.
+ *
+ * Hoje isso alcança zero pessoas a mais, e vale a pena registrar por quê: o
+ * único caso — Benicio Oliveira, sem data de nascimento, classe Crianças —
+ * tem a matrícula com `ativo = false`, e a consulta desta tela só traz
+ * matrícula ativa. Quer dizer que a segunda via está certa e não tem o que
+ * pegar; no dia em que entrar uma criança sem data e com matrícula ativa,
+ * ela conta.
+ */
+const CLASSES_INFANTIS = ["Berçário", "Crianças", "Juniores"];
+
+/**
+ * Criança: menos de 12 anos, ou matriculada em classe infantil da EBD.
+ *
+ * Duas fontes porque nenhuma das duas cobre sozinha. Data de nascimento
+ * existe em 106 dos 283 cadastros; matrícula infantil ativa, em 11. Juntas
+ * dão 15 — as matrículas infantis são de crianças que também têm data.
+ * Doze anos é onde a EBD daqui separa Juniores de Adolescentes — o corte é o
+ * da igreja, não uma definição genérica de infância.
+ */
+function ehCrianca(m: Membro): boolean {
+  if (m.classe_ebd && CLASSES_INFANTIS.includes(m.classe_ebd)) return true;
+  if (!m.data_nascimento) return false;
+
+  const nasc = new Date(m.data_nascimento + "T00:00:00");
+  const hoje = new Date();
+  let anos = hoje.getFullYear() - nasc.getFullYear();
+  const antesDoAniversario =
+    hoje.getMonth() < nasc.getMonth() ||
+    (hoje.getMonth() === nasc.getMonth() && hoje.getDate() < nasc.getDate());
+  if (antesDoAniversario) anos--;
+
+  return anos < 12;
+}
+
+/** Faz aniversário dentro do mês corrente — a pergunta que a secretaria faz. */
+function aniversarioNesteMes(nascimento?: string | null): boolean {
+  if (!nascimento) return false;
+  return Number(nascimento.split("-")[1]) === new Date().getMonth() + 1;
+}
+
+/**
+ * O bolinho ao lado do nome. Aparece só na semana do aniversário, porque é
+ * quando ele muda o que alguém faria: ligar hoje, e não "algum dia".
+ */
+function MarcaAniversario({ nascimento }: { nascimento?: string | null }) {
+  const dias = diasAteAniversario(nascimento);
+  if (dias === null || dias > 7) return null;
+
+  const texto = dias === 0 ? "Faz aniversário hoje"
+              : dias === 1 ? "Faz aniversário amanhã"
+              : `Faz aniversário em ${dias} dias`;
+
   return (
-    <span className={`text-sm ${dias >= 30 ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}>
-      {texto}
+    <span
+      title={texto}
+      aria-label={texto}
+      className={`inline-flex items-center gap-1 shrink-0 text-xs font-normal ${
+        dias === 0 ? "text-warning" : "text-muted-foreground"
+      }`}
+    >
+      <Cake className="w-3.5 h-3.5" aria-hidden />
+      {dias === 0 ? "hoje" : `${dias}d`}
     </span>
+  );
+}
+
+/**
+ * Telefone legível e acionável.
+ *
+ * Duas coisas mudaram. A tabela mostrava "5521975224438" — ninguém lê isso
+ * como telefone nem consegue ditar em voz alta —, e `formatarTelefone` já
+ * existia em lib/telefone.ts sem nenhum uso aqui. O "+55" foi embora: é
+ * igual nas 283 linhas, e o que distingue uma da outra é o DDD.
+ *
+ * E o número virou link de WhatsApp. Esta é uma tela de cuidado: entre ver
+ * o telefone e falar com a pessoa havia copiar, trocar de aplicativo e
+ * colar. O link não envia nada — abre a conversa e quem escreve é a pessoa.
+ */
+function Telefone({ numero }: { numero?: string | null }) {
+  if (!numero) return <span className="text-muted-foreground">—</span>;
+
+  const legivel = formatarTelefoneSemDDI(numero);
+  if (!telefoneValido(numero)) {
+    // Número quebrado no cadastro: mostra o que há, mas não oferece uma
+    // conversa que abriria vazia do outro lado.
+    return (
+      <span className="text-muted-foreground" title="Número incompleto no cadastro">
+        {legivel || numero}
+      </span>
+    );
+  }
+
+  return (
+    <a
+      href={`https://wa.me/${normalizarTelefone(numero)}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={(e) => e.stopPropagation()}
+      className="text-muted-foreground hover:text-success hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+      title={`Abrir conversa no WhatsApp com ${legivel}`}
+    >
+      {legivel}
+    </a>
+  );
+}
+
+// UltimoContato saiu junto com a coluna. Enquanto os 283 cadastros
+// tiverem zero contatos registrados, ele só sabe escrever "Nunca" — e um
+// componente que devolve a mesma palavra para todo mundo não é um
+// componente, é um texto fixo caro. Está no histórico do git, com a régua
+// de cores (cinza até 30 dias, âmbar depois) pronta para quando a coluna
+// voltar a distinguir uma pessoa da outra.
+
+type CampoOrdem = "nome" | "tipo" | "bairro";
+
+/**
+ * Cabeçalho de coluna que ordena.
+ *
+ * O botão ocupa a célula inteira para que o alvo seja a coluna, e não as
+ * quatro letras de "Tipo". A seta só aparece na coluna ativa; nas outras fica
+ * um ícone neutro que só surge no hover, senão três setas competiriam pela
+ * atenção sem que nenhuma estivesse valendo.
+ *
+ * `aria-sort` no <th> é o que faz um leitor de tela anunciar "ordenado de
+ * forma crescente" — sem ele, quem não vê a seta não tem como saber a ordem.
+ */
+function Cabecalho({ campo, rotulo, ordem, aoOrdenar, largura }: {
+  campo: CampoOrdem;
+  rotulo: string;
+  ordem: { campo: CampoOrdem; desc: boolean };
+  aoOrdenar: (c: CampoOrdem) => void;
+  largura?: string;
+}) {
+  const ativo = ordem.campo === campo;
+  const Icone = !ativo ? ChevronsUpDown : ordem.desc ? ChevronDown : ChevronUp;
+
+  return (
+    <th
+      scope="col"
+      className={`font-medium p-0 ${largura ?? ""}`}
+      aria-sort={ativo ? (ordem.desc ? "descending" : "ascending") : "none"}
+    >
+      <button
+        type="button"
+        onClick={() => aoOrdenar(campo)}
+        title={`Ordenar por ${rotulo.toLowerCase()}`}
+        className="group w-full flex items-center gap-1 px-3 py-2 text-left hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+      >
+        {rotulo}
+        <Icone
+          className={`w-3.5 h-3.5 shrink-0 ${ativo ? "" : "opacity-0 group-hover:opacity-60"}`}
+          aria-hidden
+        />
+      </button>
+    </th>
   );
 }
 
@@ -215,11 +470,11 @@ export default function Membros() {
     const [open, setOpen] = useState(false);
     const [editing, setEditing] = useState<Membro | null>(null);
     const [tipoFiltro, setTipoFiltro] = useState<string>("todos");
-    const [perfilFiltro, setPerfilFiltro] = useState<string>("todos");
     // Filtro de cuidado. Nao e um modulo nem uma tela: e mais uma opcao na
     // mesma barra de filtros, respondendo a pergunta que o pastor faz e que a
     // lista nao respondia — "de quem ninguem cuida ha tempo?".
-    const [cuidadoFiltro, setCuidadoFiltro] = useState<string>("todos");
+    /** Recorte de quem se está olhando: todas, elas, eles, as crianças. */
+    const [grupoFiltro, setGrupoFiltro] = useState<string>("todos");
     const [vinculosPessoa, setVinculosPessoa] = useState<Membro | null>(null);
     const [atuacoesPessoa, setAtuacoesPessoa] = useState<Membro | null>(null);
     const [visitantePessoa, setVisitantePessoa] = useState<Membro | null>(null);
@@ -273,16 +528,30 @@ export default function Membros() {
   const POR_PAGINA = 20;
   const [pagina, setPagina] = useState(1);
   const buscaRef = useRef<HTMLInputElement>(null);
+  const topoRef = useRef<HTMLDivElement>(null);
+
+  /**
+   * Ordenação da tabela. A lista sempre veio ordenada por nome, do banco, e
+   * não havia como pedir outra coisa: com 283 pessoas em 15 páginas,
+   * "quantos congregados temos" ou "quem é do Maracanã" exigia virar página
+   * por página. Cabeçalho de tabela que não ordena é rótulo, não controle.
+   */
+  const [ordem, setOrdem] = useState<{ campo: CampoOrdem; desc: boolean }>({
+    campo: "nome",
+    desc: false,
+  });
+
+  const ordenarPor = (campo: CampoOrdem) =>
+    setOrdem((o) => (o.campo === campo ? { campo, desc: !o.desc } : { campo, desc: false }));
     const [searchParams, setSearchParams] = useSearchParams();
 
   // ── Tratar parâmetros de query ao carregar ──────────────────────────────────
   useEffect(() => {
-        // "Ver todos em Pessoas", vindo do bloco do HOJE, chega com o filtro
-        // ja escolhido. Reaproveita o filtro de cuidado desta tela em vez de
-        // levar a uma listagem propria — a lista completa e esta.
-        const cuidadoUrl = searchParams.get("cuidado");
-        if (cuidadoUrl && ["nunca", "30", "60", "90"].includes(cuidadoUrl)) {
-                setCuidadoFiltro(cuidadoUrl);
+        // `?cuidado=` foi embora com o filtro de contato. Links antigos que
+        // ainda tragam o parâmetro caem na lista inteira em vez de num filtro
+        // que não existe mais — e o parâmetro é limpo da barra de endereço,
+        // para ninguém guardar um favorito que promete algo que a tela não faz.
+        if (searchParams.get("cuidado")) {
                 searchParams.delete("cuidado");
                 setSearchParams(searchParams, { replace: true });
         }
@@ -411,30 +680,99 @@ export default function Membros() {
         load();
   }, []);
 
-  const filtered = useMemo(() => membros.filter((m) => {
-        const q = search.toLowerCase();
+  // Duas etapas de propósito. `baseFiltrados` é "quem está em jogo" — busca,
+  // tipo e perfil. É sobre ele que os atalhos contam, para que os números que
+  // eles mostram nunca contradigam o que a tela está exibindo: com o tipo em
+  // "Visitante", o atalho não pode prometer 217 pessoas para procurar.
+  const baseFiltrados = useMemo(() => membros.filter((m) => {
+        const q = comparavel(search).trim();
+        // Dígitos da busca contra dígitos do telefone. O banco guarda
+        // "5521998623415" e a tela mostra "(21) 99862-3415"; sem isto, buscar
+        // pelo número que apareceu na tela do celular não encontrava ninguém —
+        // e essa é a busca de quem foi ligado de volta e quer saber quem é.
+        const qDigitos = search.replace(/\D/g, "");
         const matchSearch =
                 !q ||
-                m.nome_completo.toLowerCase().includes(q) ||
+                comparavel(m.nome_completo).includes(q) ||
+                comparavel(m.bairro).includes(q) ||
                 (m.cpf ?? "").includes(q) ||
-                (m.bairro ?? "").toLowerCase().includes(q);
+                (qDigitos.length >= 3 && (m.telefone_celular ?? "").replace(/\D/g, "").includes(qDigitos));
         const matchTipo = tipoFiltro === "todos" || m.tipo_pessoa === tipoFiltro;
-        const matchPerfil = perfilFiltro === "todos" || m.perfil_acesso === perfilFiltro;
 
-        // "Nunca" e "ha mais de N dias" sao perguntas diferentes e ambas
-        // importam: nunca contatado e alguem que o sistema nunca alcancou;
-        // contatado ha 90 dias e alguem que se esfriou. Misturar as duas
-        // esconderia o primeiro grupo dentro do segundo.
-        const diasSemContato = m.ultimo_contato_em
-          ? Math.floor((Date.now() - new Date(m.ultimo_contato_em).getTime()) / 86_400_000)
-          : null;
-        const matchCuidado =
-          cuidadoFiltro === "todos" ? true
-          : cuidadoFiltro === "nunca" ? diasSemContato === null
-          : diasSemContato === null || diasSemContato >= Number(cuidadoFiltro);
+        // O filtro de perfil de acesso saiu. Ele lia `membros.perfil_acesso`,
+        // que é coluna legada: o formulário grava null nela de propósito desde
+        // que o acesso passou a viver em `user_roles`. O que sobrou ali é
+        // resíduo da importação de junho — 140 "membro", 2 "pastor", 1
+        // "lideranca" —, enquanto as pessoas com acesso de verdade são 6.
+        // O filtro oferecia Tesoureiro e Professor EBD, que não existem como
+        // papel em lugar nenhum do sistema, e não encontrava o admin real.
+        return matchSearch && matchTipo;
+  }), [membros, search, tipoFiltro]);
 
-        return matchSearch && matchTipo && matchPerfil && matchCuidado;
-  }), [membros, search, tipoFiltro, perfilFiltro, cuidadoFiltro]);
+  const filtered = useMemo(() => baseFiltrados.filter((m) => {
+
+        // Sexo e criança não se excluem: uma menina entra em "Feminino" e em
+        // "Crianças". São recortes de quem se quer olhar, não uma divisão da
+        // igreja em três caixas.
+        return grupoFiltro === "todos" ? true
+             : grupoFiltro === "criancas" ? ehCrianca(m)
+             : m.sexo === grupoFiltro;
+  }).sort((a, b) => {
+        // Quem não tem bairro vai para o fim nas DUAS direções. Inverter a
+        // ordem é pedir "de Z a A", não "mostre primeiro os 200 sem bairro" —
+        // uma tela cheia de vazio não é resposta para nenhuma das duas.
+        if (ordem.campo === "bairro") {
+          const va = !!a.bairro?.trim(), vb = !!b.bairro?.trim();
+          if (va !== vb) return va ? -1 : 1;
+        }
+
+        // Quem tem função vem primeiro nas duas direções. Inverter a coluna é
+        // pedir "de Z a A" dentro do que ela mostra, e não "traga primeiro as
+        // 283 pessoas sem função nenhuma" — que é uma tela inteira de nada.
+        if (ordem.campo === "tipo") {
+          const fa = temFuncao(a.funcao_ministerial), fb = temFuncao(b.funcao_ministerial);
+          if (fa !== fb) return fa ? -1 : 1;
+        }
+
+        // A coluna ordena pelo texto que ela EXIBE. Ordenar por tipo_pessoa
+        // enquanto a célula mostra "Diácono" faria a lista parecer embaralhada
+        // para quem está lendo a coluna.
+        const chave = (m: Membro) =>
+          ordem.campo === "tipo"     ? comparavel(tipoOuFuncao(m).texto)
+          : ordem.campo === "bairro" ? comparavel(m.bairro)
+          : comparavel(m.nome_completo);
+
+        const primario = chave(a).localeCompare(chave(b));
+
+        // Empate sempre desfeito pelo nome, em ordem crescente e independente
+        // da direção: sem isso, ordenar por tipo deixaria os 149 congregados na
+        // ordem em que o banco devolveu — que muda entre consultas, e a lista
+        // pareceria embaralhar sozinha a cada clique.
+        return (ordem.desc ? -primario : primario)
+            || comparavel(a.nome_completo).localeCompare(comparavel(b.nome_completo));
+  }), [baseFiltrados, grupoFiltro, ordem]);
+
+  // Os quatro atalhos, contados aqui uma vez e não dentro do JSX — o mesmo
+  // `baseFiltrados` alimenta os números e a tabela.
+  //
+  // Cada um carrega no title a regra que usa: rótulo de uma palavra cabe no
+  // chip mas não diz o critério, e filtro cujo critério não se sabe é número
+  // em que não se confia.
+  //
+  // ATENÇÃO AO QUE ESTES NÚMEROS NÃO DIZEM: `sexo` está preenchido em 132 dos
+  // 283 cadastros. As outras 151 pessoas não aparecem em "Feminino" nem em
+  // "Masculino" — não porque falte gente, mas porque falta campo. Feminino e
+  // Masculino não somam 283, e não deveriam parecer que somam.
+  const atalhos = useMemo(() => [
+    { id: "todos",     rotulo: "Todas",     n: baseFiltrados.length,
+      dica: "Todas as pessoas que passam pelos filtros atuais" },
+    { id: "feminino",  rotulo: "Feminino",  n: baseFiltrados.filter(m => m.sexo === "feminino").length,
+      dica: "Sexo feminino no cadastro. Quem está com o campo em branco não entra aqui" },
+    { id: "masculino", rotulo: "Masculino", n: baseFiltrados.filter(m => m.sexo === "masculino").length,
+      dica: "Sexo masculino no cadastro. Quem está com o campo em branco não entra aqui" },
+    { id: "criancas",  rotulo: "Crianças",  n: baseFiltrados.filter(ehCrianca).length,
+      dica: "Menos de 12 anos pela data de nascimento, ou matriculada em Berçário, Crianças ou Juniores" },
+  ], [baseFiltrados]);
 
   const totalPaginas = Math.max(1, Math.ceil(filtered.length / POR_PAGINA));
   const paginaAtual = Math.min(pagina, totalPaginas);
@@ -451,9 +789,38 @@ export default function Membros() {
     onContato:   setContatoPessoa,
   };
 
+  const filtrando =
+    search.trim() !== "" || tipoFiltro !== "todos" || grupoFiltro !== "todos";
+
+  const limparFiltros = () => {
+    setSearch("");
+    setTipoFiltro("todos");
+    setGrupoFiltro("todos");
+    buscaRef.current?.focus();
+  };
+
+  /**
+   * Trocar de página levava para o mesmo lugar onde o dedo estava: o rodapé.
+   * Chegava-se ao topo da página 2 rolando de volta a tela inteira, e a
+   * primeira pessoa da nova página — que é o motivo de ter virado a página —
+   * ficava acima do campo de visão.
+   *
+   * `window.scrollTo` não serviria: quem rola nesta aplicação é o <main>, e
+   * não a janela (window.scrollY é sempre 0). Rolar a sentinela para a vista
+   * funciona sem que esta tela precise saber qual ancestral tem a barra.
+   */
+  const irParaPagina = (p: number) => {
+    setPagina(p);
+    topoRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   // Voltar à primeira página quando o resultado muda: continuar na página 7
   // de uma busca que agora tem 3 resultados deixaria a tela vazia.
-  useEffect(() => { setPagina(1); }, [search, tipoFiltro, perfilFiltro, cuidadoFiltro]);
+  //
+  // A ordem entra na lista pelo mesmo motivo: ordenar por bairro estando na
+  // página 7 mostraria a fatia 121–140 de uma lista que acabou de ser
+  // reembaralhada — quem pediu "por bairro" quer ver o começo, não o meio.
+  useEffect(() => { setPagina(1); }, [search, tipoFiltro, grupoFiltro, ordem]);
 
   // Foco na busca ao abrir: quem entra em Pessoas quase sempre vem procurar
   // alguém. Só no desktop — em celular abriria o teclado por cima da lista.
@@ -485,17 +852,41 @@ export default function Membros() {
                         )
                 }
                     />
-                    <div className="p-4 md:p-8 space-y-4">
-                            <div className="flex flex-col md:flex-row gap-3 md:items-center">
-                                      <div className="relative max-w-md flex-1">
+                    <div className="p-4 md:p-8 space-y-4" ref={topoRef}>
+                            <div className="flex flex-col md:flex-row md:flex-wrap gap-3 md:items-center">
+                                      {/* min-w-[220px]: os três seletores têm largura fixa de 224px cada, e
+                                                      numa janela estreita — ou com a barra lateral aberta — eles tomavam
+                                                      a linha inteira e espremiam a busca até caber só a lupa. Com o
+                                                      mínimo e o flex-wrap acima, os seletores descem para a segunda
+                                                      linha em vez de engolir o campo mais usado da tela. */}
+                                      <div className="relative flex-1 min-w-[220px] max-w-md">
                                                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                                  {/* O rótulo dizia "nome, CPF ou bairro". CPF está preenchido em DOIS
+                                                      dos 283 cadastros — a busca anunciava um campo que praticamente não
+                                                      existe e calava sobre o que existe em 217 deles: o telefone. Continua
+                                                      procurando por CPF para os dois que têm; só parou de prometer. */}
                                                   <Input
                                                                   ref={buscaRef}
-                                                                  className="pl-9"
-                                                                  placeholder="Buscar por nome, CPF ou bairro..."
+                                                                  className="pl-9 pr-10"
+                                                                  placeholder="Buscar por nome, telefone ou bairro..."
                                                                   value={search}
                                                                   onChange={(e) => setSearch(e.target.value)}
+                                                                  // Esc limpa — hábito de qualquer campo de busca, e assim o foco já
+                                                                  // fica no lugar certo para a próxima tentativa.
+                                                                  onKeyDown={(e) => { if (e.key === "Escape") setSearch(""); }}
                                                                 />
+                                                  {/* No celular não há Esc: apagar letra por letra era a única saída
+                                                      de uma busca que não achou nada. */}
+                                                  {search && (
+                                                    <button
+                                                      type="button"
+                                                      aria-label="Limpar busca"
+                                                      onClick={() => { setSearch(""); buscaRef.current?.focus(); }}
+                                                      className="absolute right-1 top-1/2 -translate-y-1/2 h-9 w-9 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                                    >
+                                                      <X className="w-4 h-4" />
+                                                    </button>
+                                                  )}
                                       </div>
                                       <Select value={tipoFiltro} onValueChange={setTipoFiltro}>
                                                   <SelectTrigger className="md:w-56">
@@ -508,46 +899,97 @@ export default function Membros() {
                                                                 <SelectItem value="visitante">Visitante</SelectItem>
                                                   </SelectContent>
                                       </Select>
-                                      {/* Terceiro filtro, mesma barra. A pergunta pastoral entra
-                                          como opcao de uma lista que ja existia, e nao como tela
-                                          separada — quem procura uma pessoa e quem procura os
-                                          esquecidos usam a mesma lista. */}
-                                      <Select value={cuidadoFiltro} onValueChange={setCuidadoFiltro}>
-                                                  <SelectTrigger className="md:w-56">
-                                                                <SelectValue placeholder="Cuidado" />
-                                                  </SelectTrigger>
-                                                  <SelectContent>
-                                                                <SelectItem value="todos">Qualquer contato</SelectItem>
-                                                                <SelectItem value="nunca">Nunca contatadas</SelectItem>
-                                                                <SelectItem value="30">Sem contato há 30 dias</SelectItem>
-                                                                <SelectItem value="60">Sem contato há 60 dias</SelectItem>
-                                                                <SelectItem value="90">Sem contato há 90 dias</SelectItem>
-                                                  </SelectContent>
-                                      </Select>
-                                      <Select value={perfilFiltro} onValueChange={setPerfilFiltro}>
-                                                  <SelectTrigger className="md:w-56">
-                                                                <SelectValue placeholder="Perfil de Acesso" />
-                                                  </SelectTrigger>
-                                                  <SelectContent>
-                                                                <SelectItem value="todos">Todos os perfis</SelectItem>
-                                                                <SelectItem value="admin">Admin</SelectItem>
-                                                                <SelectItem value="pastor">Pastor</SelectItem>
-                                                                <SelectItem value="secretaria">Secretaria</SelectItem>
-                                                                <SelectItem value="tesoureiro">Tesoureiro</SelectItem>
-                                                                <SelectItem value="lideranca">Liderança</SelectItem>
-                                                                <SelectItem value="professor_ebd">Professor EBD</SelectItem>
-                                                                <SelectItem value="voluntario">Voluntário</SelectItem>
-                                                                <SelectItem value="membro">Membro</SelectItem>
-                                                  </SelectContent>
-                                      </Select>
+                                      {/* Sobraram a busca e o tipo de pessoa. Saíram dois seletores:
+                                      
+                                          "Situação do cadastro" — aniversário do mês e sem telefone. Eram
+                                          perguntas de manutenção de cadastro no meio de uma tela de
+                                          consulta, e a segunda já tem lugar próprio no painel de cadastros
+                                          incompletos.
+                                      
+                                          "Perfil de Acesso" — lia membros.perfil_acesso, coluna legada
+                                          em que o formulário grava null de propósito desde que o acesso
+                                          passou a viver em user_roles. O que restava ali era resíduo da
+                                          importação de junho: 140 "membro", 2 "pastor", 1 "lideranca",
+                                          enquanto as pessoas com acesso de verdade são 6 e nenhuma delas
+                                          aparecia. Oferecia ainda Tesoureiro e Professor EBD, que não
+                                          existem como papel em lugar nenhum do sistema. Um filtro que
+                                          responde errado é pior do que filtro nenhum: quem administra
+                                          acesso vai a /usuarios, onde o dado é o certo. */}
                             </div>
                     
+                            {/* ── Atalhos com número ─────────────────────────────────
+                                Três seletores lado a lado dizem o que É POSSÍVEL
+                                perguntar, e nenhum diz o que a lista tem para
+                                responder. Era preciso abrir "Cuidado", escolher uma
+                                opção e contar linha por linha para descobrir que 94
+                                pessoas dão para procurar hoje — número que já estava
+                                ali, recalculado a cada carregamento e mostrado em
+                                lugar nenhum.
+
+                                Os atalhos são o MESMO estado do seletor de Cuidado, e
+                                não um filtro paralelo: clicar no atalho muda o
+                                seletor, e mudar o seletor acende o atalho. Dois
+                                controles capazes de se contradizer seriam piores que
+                                nenhum. Clicar no que já está aceso volta para "Todas". */}
+                            {!loading && !error && membros.length > 0 && (
+                              <div className="flex flex-wrap gap-2" role="group" aria-label="Atalhos de filtro">
+                                {atalhos.map((a) => {
+                                  const ativo = grupoFiltro === a.id;
+                                  return (
+                                    <button
+                                      key={a.id}
+                                      type="button"
+                                      aria-pressed={ativo}
+                                      title={a.dica}
+                                      aria-label={`${a.rotulo}: ${a.n}. ${a.dica}`}
+                                      onClick={() => setGrupoFiltro(ativo ? "todos" : a.id)}
+                                      className={`min-h-[44px] px-3 rounded-full border text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                                        ativo
+                                          ? "bg-primary text-primary-foreground border-primary"
+                                          : "bg-background hover:bg-muted border-border"
+                                      }`}
+                                    >
+                                      <span className="font-semibold tabular-nums">{a.n}</span>{" "}
+                                      <span className={ativo ? "" : "text-muted-foreground"}>{a.rotulo}</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                      {/* Quantas sobraram, e a saída. A paginação dizia "1–20 de 94", mas só
+                          aparece quando há mais de uma página: uma busca com 12 resultados não
+                          trazia número nenhum. E com três seletores e um atalho ligados ao mesmo
+                          tempo, desfazer significava lembrar de tudo que se tinha tocado. */}
+                      {!loading && !error && filtrando && filtered.length > 0 && (
+                        <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                          <span aria-live="polite">
+                            <span className="font-medium text-foreground tabular-nums">{filtered.length}</span>{" "}
+                            {filtered.length === 1 ? "pessoa" : "pessoas"} de {membros.length}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={limparFiltros}
+                            className="underline underline-offset-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+                          >
+                            Limpar filtros
+                          </button>
+                        </div>
+                      )}
+
                       {loading ? (
                                     <ListSkeleton className="grid gap-3" count={5} />
                                   ) : error ? (
                                     <ErrorState onRetry={load} />
                                   ) : filtered.length === 0 ? (
-                                    <EmptyState message="Nenhuma pessoa encontrada" />
+                                    // Beco sem saída vira porta: dizer "nada encontrado" e parar aí obriga
+                                    // a desfazer no braço filtro por filtro para voltar a ver a lista.
+                                    <EmptyState
+                                      message={filtrando ? "Nenhuma pessoa com esses filtros" : "Nenhuma pessoa cadastrada"}
+                                      action={filtrando ? (
+                                        <Button variant="outline" onClick={limparFiltros}>Limpar filtros</Button>
+                                      ) : undefined}
+                                    />
                                   ) : (
                                     // md:hidden — no desktop entra a tabela logo abaixo.
                                     <div className="grid gap-3 md:hidden">
@@ -569,7 +1011,23 @@ export default function Membros() {
                                                                                                               seguinte. Quando dividiam a mesma linha flex, as etiquetas
                                                                                                               venciam a disputa por espaco e o nome — a informacao que
                                                                                                               identifica a pessoa — era truncado ate virar "Adriana ...". */}
-                                                                                                          <p className="font-medium truncate">{m.nome_completo}</p>
+                                                                                                          {/* No desktop o nome é o botão que abre o cadastro; no celular era
+                                                                                                              texto morto. Tocar no nome é o gesto óbvio, e o lápis de 44px ao
+                                                                                                              lado era o único caminho — a mesma lista respondia a coisas
+                                                                                                              diferentes conforme o aparelho.
+                                                                                                              O nome é <button> dentro do <p>, e não o cartão inteiro clicável:
+                                                                                                              o cartão contém o link do WhatsApp e o menu de ações, e um alvo
+                                                                                                              grande por cima deles roubaria o toque de ambos. */}
+                                                                                                          <p className="font-medium min-w-0">
+                                                                                                            <button
+                                                                                                              type="button"
+                                                                                                              onClick={() => { setEditing(m); setOpen(true); }}
+                                                                                                              className="flex items-center gap-2 min-w-0 max-w-full text-left hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+                                                                                                            >
+                                                                                                              <span className="truncate">{m.nome_completo}</span>
+                                                                                                              <MarcaAniversario nascimento={m.data_nascimento} />
+                                                                                                            </button>
+                                                                                                          </p>
                                                                                                           {/* Etiqueta marca excecao, nao regra. "Membro" aparecia na
                                                                                                               maioria dos 281 cadastros e "Ativo" em 273 deles — uma marca
                                                                                                               presente em 97% dos casos nao informa nada. Aqui so aparece
@@ -585,9 +1043,40 @@ export default function Membros() {
                                                                                                               )}
                                                                                                             </div>
                                                                                                           )}
-                                                                                                          <div className="text-sm text-muted-foreground truncate">
-                                                                                                            {[m.telefone_celular, m.email, m.bairro].filter(Boolean).join(" • ") || "—"}
-                                                                                                            </div>
+                                                                                                          {/* O telefone saiu do amontoado "telefone • email • bairro", que era
+                                                                                                              montado com join e virava um bloco de texto cru. No celular, que é
+                                                                                                              onde este cartão aparece, o número é a única coisa desta linha que
+                                                                                                              leva a algum lugar: um toque abre a conversa. Email e bairro seguem
+                                                                                                              depois, em cinza, como o contexto que são. */}
+                                                                                                          {(() => {
+                                                                                                            // Sem telefone, o traço do componente colava no bairro ("—Praça da
+                                                                                                            // Bandeira"). Aqui o traço só aparece quando NÃO HÁ nada nesta linha —
+                                                                                                            // que é quando ele quer dizer alguma coisa.
+                                                                                                            const resto = [m.email, m.bairro].filter(Boolean);
+                                                                                                            return (
+                                                                                                              <div className="text-sm truncate">
+                                                                                                                {m.telefone_celular && <Telefone numero={m.telefone_celular} />}
+                                                                                                                {resto.length > 0 && (
+                                                                                                                  <span className="text-muted-foreground">
+                                                                                                                    {m.telefone_celular ? " · " : ""}{resto.join(" · ")}
+                                                                                                                  </span>
+                                                                                                                )}
+                                                                                                                {!m.telefone_celular && resto.length === 0 && (
+                                                                                                                  <span className="text-muted-foreground">—</span>
+                                                                                                                )}
+                                                                                                              </div>
+                                                                                                            );
+                                                                                                          })()}
+                                                                                                          {/* Os vínculos também entram no cartão. A tabela do desktop passou a
+                                                                                                              mostrar ministério, liderança e EBD; deixar o celular sem eles faria
+                                                                                                              a mesma lista responder coisas diferentes conforme o aparelho — e o
+                                                                                                              celular é onde a liderança abre isto, em pé, durante o culto. */}
+                                                                                                          {(() => {
+                                                                                                            const v = vinculos(m);
+                                                                                                            return v.length > 0 ? (
+                                                                                                              <div className="text-xs text-muted-foreground truncate mt-0.5">{v.join(" · ")}</div>
+                                                                                                            ) : null;
+                                                                                                          })()}
                                                                                                           {/* Etiquetas de vinculo — EBD, professor, lider, areas — saem
                                                                                                               da listagem. Sao contexto de ficha: ninguem procura uma pessoa
                                                                                                               por classe de EBD nesta tela, e chegavam a seis por linha,
@@ -613,20 +1102,34 @@ export default function Membros() {
                                 situacao, telefone, bairro) em vez de concatenar tudo com
                                 bolinhas, e dobra quantas pessoas aparecem de uma vez.
                                 No celular a tabela nao entra: os cartoes continuam. */}
+                            {/* Sem `overflow-hidden` no invólucro. Ele existia só para aparar os
+                                cantos da tabela dentro da borda arredondada, e um ancestral com
+                                overflow diferente de `visible` vira o contexto de rolagem do
+                                `position: sticky` — o cabeçalho colava numa caixa que nunca rola,
+                                ou seja, não colava em nada. Medido: com ele, o <thead> descia de
+                                y=266 para y=-134 ao rolar 400px. Os cantos voltam pelo
+                                arredondamento das próprias células das pontas. */}
                             {!loading && !error && filtered.length > 0 && (
-                              <div className="hidden md:block rounded-lg border overflow-hidden">
+                              <div className="hidden md:block rounded-lg border">
                                 <table className="w-full text-sm">
                                   <caption className="sr-only">
                                     Pessoas cadastradas — {filtered.length} no filtro atual,
                                     mostrando {inicio + 1} a {Math.min(inicio + POR_PAGINA, filtered.length)}
                                   </caption>
-                                  <thead className="bg-muted/50">
+                                  {/* Cabeçalho grudado no topo: são 20 linhas por página, a tabela
+                                      passa da altura da tela, e ao chegar na décima pessoa não se
+                                      sabia mais qual coluna era qual. */}
+                                  <thead className="bg-muted/50 sticky top-0 z-10 [&>tr>th:first-child]:rounded-tl-lg [&>tr>th:last-child]:rounded-tr-lg">
                                     <tr className="text-left text-xs text-muted-foreground">
-                                      <th scope="col" className="font-medium px-3 py-2">Nome</th>
-                                      <th scope="col" className="font-medium px-3 py-2 w-32">Tipo</th>
+                                      <Cabecalho campo="nome"   rotulo="Nome"   ordem={ordem} aoOrdenar={ordenarPor} />
+                                      <Cabecalho campo="tipo"   rotulo="Tipo/Função" ordem={ordem} aoOrdenar={ordenarPor} largura="w-40" />
                                       <th scope="col" className="font-medium px-3 py-2 w-40">Telefone</th>
-                                      <th scope="col" className="font-medium px-3 py-2 w-40">Último contato</th>
-                                      <th scope="col" className="font-medium px-3 py-2 w-24">
+                                      {/* Bairro só a partir de 1024px. Entre 768 e 1024 as quatro colunas
+                                          fixas somavam mais largura do que sobrava para o nome, e "Agatha
+                                          Victoria Vieira de Castro" virava "Agatha Victoria V...". Numa
+                                          lista de pessoas, o nome é a última coisa que pode ser cortada. */}
+                                      <Cabecalho campo="bairro" rotulo="Bairro" ordem={ordem} aoOrdenar={ordenarPor} largura="w-40 hidden lg:table-cell" />
+                                      <th scope="col" className="font-medium px-3 py-2 w-16">
                                         <span className="sr-only">Ações</span>
                                       </th>
                                     </tr>
@@ -645,39 +1148,93 @@ export default function Membros() {
                                             // isso ele media 20px — so a altura do texto — e virava
                                             // um alvo estreito no meio de uma linha alta, alem de
                                             // ficar abaixo dos 24px minimos da WCAG 2.5.8.
-                                            className="block w-full min-w-0 py-3 text-left truncate font-medium hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+                                            className="block w-full min-w-0 py-2 text-left font-medium hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
                                             onClick={() => { setEditing(m); setOpen(true); }}
                                           >
-                                            {m.nome_completo}
+                                            <span className="flex items-center gap-2 min-w-0">
+                                              <span className="truncate">{m.nome_completo}</span>
+                                              <MarcaAniversario nascimento={m.data_nascimento} />
+                                            </span>
+                                            {/* Segunda linha só quando há o que dizer. Quem não
+                                                serve, não lidera e não estuda não ganha um "—":
+                                                a ausência da linha já é a informação, e um traço
+                                                em 200 linhas seria só ruído. */}
+                                            {(() => {
+                                              const v = vinculos(m);
+                                              return v.length > 0 ? (
+                                                <span className="block truncate text-xs font-normal text-muted-foreground mt-0.5">
+                                                  {v.join(" · ")}
+                                                </span>
+                                              ) : null;
+                                            })()}
                                           </button>
                                         </th>
                                         <td className="px-3 py-0">
-                                          {/* Etiqueta so na excecao, como nos cartoes. */}
-                                          {m.tipo_pessoa !== "membro" ? (
-                                            <Badge variant="outline" className={tipoPessoaColor[m.tipo_pessoa]}>
-                                              {tipoPessoaLabel[m.tipo_pessoa]}
-                                            </Badge>
-                                          ) : m.status !== "ativo" ? (
-                                            <StatusMembroBadge status={m.status} compact />
-                                          ) : null}
-                                          {/* Celula vazia, e nao "—": 274 dos 279 sao membros
-                                              ativos, entao a coluna virava uma fileira de tracos.
-                                              Traco numa tabela le como dado; vazio le como "nada
-                                              a notar", que e o que se quer dizer aqui. Em telefone
-                                              e bairro o traco fica, porque ali a ausencia importa:
-                                              sem telefone ninguem consegue ser contatado. */}
+                                          {/* Aqui a etiqueta NÃO é só da exceção — e o comentário que estava
+                                              nesta célula media a coisa errada: dizia "274 dos 279 são membros
+                                              ativos", confundindo tipo com situação. Contado no banco são 132
+                                              membros, 149 congregados e 2 visitantes. Metade da igreja não é
+                                              exceção. Com a célula em branco para membro, a coluna dizia
+                                              "congregado ou nada", e o branco tinha de ser adivinhado. Agora
+                                              todos têm o seu: membro em texto discreto, por ser o esperado;
+                                              congregado e visitante em etiqueta, por mudarem o que se faz com
+                                              a pessoa. Situação diferente de "ativo" (2 em 283) segue vencendo
+                                              as duas, porque nesse caso é o que há de mais urgente a dizer. */}
+                                          {(() => {
+                                            const { texto, nivel } = tipoOuFuncao(m);
+
+                                            if (nivel === "situacao") return <StatusMembroBadge status={m.status} compact />;
+
+                                            // Função em etiqueta, e a mais forte da coluna: é o que distingue uma
+                                            // linha das outras 282. Congregado e visitante seguem em etiqueta
+                                            // discreta, porque mudam o que se faz com a pessoa. Membro em texto
+                                            // apagado, por ser o esperado — etiqueta em 132 linhas viraria ruído.
+                                            if (nivel === "funcao") {
+                                              // Quem acumula mostra a principal e um "+N".
+                                              // O nome inteiro das outras vai no title: a coluna
+                                              // tem 160px e "Presidente · Pastor Auxiliar · Líder
+                                              // de Área" truncaria as três em vez de dizer uma.
+                                              const todas = rotulosDe(m);
+                                              return (
+                                                <Badge
+                                                  variant="outline"
+                                                  className="bg-gold/15 text-gold border-gold/40 font-medium"
+                                                  title={todas.length > 1 ? todas.join(" · ") : undefined}
+                                                >
+                                                  {texto}
+                                                  {todas.length > 1 && (
+                                                    <span className="ml-1 opacity-70">+{todas.length - 1}</span>
+                                                  )}
+                                                </Badge>
+                                              );
+                                            }
+
+                                            if (m.tipo_pessoa !== "membro") {
+                                              return (
+                                                <Badge variant="outline" className={tipoPessoaColor[m.tipo_pessoa]}>{texto}</Badge>
+                                              );
+                                            }
+
+                                            return <span className="text-muted-foreground">{texto}</span>;
+                                          })()}
                                         </td>
-                                        <td className="px-3 py-0 text-muted-foreground tabular-nums">
-                                          {m.telefone_celular || "—"}
+                                        <td className="px-3 py-0 text-muted-foreground tabular-nums whitespace-nowrap">
+                                          <Telefone numero={m.telefone_celular} />
                                         </td>
-                                        {/* O bairro saiu daqui para o "Último contato" entrar.
-                                            Numa tela de cuidado, quando alguem falou com a
-                                            pessoa pela ultima vez pesa mais do que em que
-                                            bairro ela mora — e o bairro continua na busca e
-                                            na ficha. A coluna e o que torna a pergunta
-                                            pastoral visivel sem abrir nada. */}
-                                        <td className="px-3 py-0">
-                                          <UltimoContato quando={m.ultimo_contato_em} />
+                                        {/* "Último contato" saiu e o bairro voltou.
+                                            A coluna de contato lia "Nunca" nas 283 linhas: uma
+                                            coluna em que todas as células dizem a mesma coisa não
+                                            informa nada e ainda ocupa 160px em toda página. A
+                                            pergunta pastoral continua na tela, no atalho "Dá para
+                                            procurar", que é onde ela vira uma lista de gente, e na
+                                            ficha de cada pessoa. Quando houver contatos
+                                            registrados de verdade, a coluna volta a discriminar e
+                                            pode voltar — o componente está no histórico do git.
+                                            O bairro volta por um motivo prático: a busca casa por
+                                            bairro. Procurar "maracana" trazia 17 pessoas sem
+                                            mostrar em lugar nenhum por que aquelas 17. */}
+                                        <td className="px-3 py-0 text-muted-foreground hidden lg:table-cell">
+                                          <span className="block truncate">{m.bairro || "—"}</span>
                                         </td>
                                         <td className="px-3 py-0">
                                           {/* Sem o lapis aqui: nesta tabela o nome ja e o
@@ -696,14 +1253,21 @@ export default function Membros() {
 
                             {!loading && !error && totalPaginas > 1 && (
                               <nav
-                                className="flex items-center justify-between gap-3 pt-1"
+                                // pb-16 só no celular: o botão flutuante de "Nova pessoa"
+                                // fica fixo no canto inferior direito e cobria a maior
+                                // parte de "Próxima" — medido, sobravam 15% da largura
+                                // clicáveis, o resto do toque ia para o botão de cima.
+                                // Com 283 pessoas em 15 páginas, o caminho para a frente
+                                // estava embaixo de outro botão. O espaço extra empurra a
+                                // paginação para cima do flutuante no fim da rolagem.
+                                className="flex items-center justify-between gap-3 pt-1 pb-16 md:pb-0"
                                 aria-label="Paginação da lista de pessoas"
                               >
                                 <Button
                                   variant="outline"
                                   className="min-h-[44px]"
                                   disabled={paginaAtual === 1}
-                                  onClick={() => setPagina(p => Math.max(1, p - 1))}
+                                  onClick={() => irParaPagina(Math.max(1, paginaAtual - 1))}
                                 >
                                   Anterior
                                 </Button>
@@ -718,7 +1282,7 @@ export default function Membros() {
                                   variant="outline"
                                   className="min-h-[44px]"
                                   disabled={paginaAtual === totalPaginas}
-                                  onClick={() => setPagina(p => Math.min(totalPaginas, p + 1))}
+                                  onClick={() => irParaPagina(Math.min(totalPaginas, paginaAtual + 1))}
                                 >
                                   Próxima
                                 </Button>

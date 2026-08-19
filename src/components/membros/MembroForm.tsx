@@ -20,7 +20,11 @@ import { GraduationCap } from "lucide-react";
 import { BuscaPessoa } from "@/components/ui/BuscaPessoa";
 import { FamiliaBloco } from "@/components/familias/FamiliaBloco";
 import { listarClasses, sugerirClasse, classesDaPessoa, type EbdClasse } from "@/services/ebdService";
-import { normalizarTelefone, validarTelefone } from "@/lib/telefone";
+import { normalizarTelefone, validarTelefone, formatarTelefoneSemDDI } from "@/lib/telefone";
+import {
+  FUNCAO_MINISTERIAL, FUNCOES_EM_ORDEM, funcaoAposentada, rotuloFuncao,
+  funcoesDe, ordenarFuncoes, type FuncaoMinisterial,
+} from "@/lib/funcaoMinisterial";
 import { TelefoneInput } from "@/components/ui/TelefoneInput";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -62,6 +66,18 @@ const empty = {
   data_entrada:             new Date().toISOString().slice(0, 10),
   status:                   "ativo",
   observacoes_pastorais:    "",
+  // Funções na igreja e as datas de cada uma. Ver lib/funcaoMinisterial.ts.
+  //
+  // `funcao_ministerial` (singular) NÃO entra aqui de propósito: virou coluna
+  // derivada, escrita pelo gatilho do banco como o primeiro item da lista.
+  // Mandá-la junto seria disputar com o gatilho por quem manda.
+  funcoes_ministeriais:         [] as string[],
+  data_consagracao_pastoral:    "",
+  data_ordenacao_diaconal:      "",
+  data_ordenacao_presbiteral:   "",
+  data_consagracao_missionaria: "",
+  funcao_inicio:                "",
+  funcao_fim:                   "",
   // campos visitante
   como_conheceu:            "",
   quem_convidou_id:         "",
@@ -115,7 +131,11 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
   const [form, setForm] = useState<any>(empty);
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  // Cinco passos desde que "Acesso ao sistema" saiu de dentro de Vínculos.
+  // Estava junto de áreas de atuação e família, e ninguém procura permissão
+  // de login nesse meio — a pergunta "onde eu escolho o perfil da pessoa?"
+  // tinha resposta e mesmo assim não se achava.
+  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
 
   // Reset wizard step quando abrir
   useEffect(() => {
@@ -134,11 +154,33 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
   }[]>([]);
   const [areasSelecionadas, setAreasSelecionadas] = useState<Set<string>>(new Set());
 
+  /**
+   * As funções marcadas, sempre na ordem da hierarquia.
+   *
+   * Sai do próprio `form` em vez de virar um segundo estado: dois lugares
+   * guardando a mesma escolha é como o telefone acabou em duas colunas — um
+   * dia divergem, e ninguém sabe qual vale.
+   */
+  const funcoesSelecionadas = ordenarFuncoes(form.funcoes_ministeriais ?? []);
+
+  const alternarFuncao = (f: FuncaoMinisterial) => {
+    const atual = new Set<string>(form.funcoes_ministeriais ?? []);
+    if (atual.has(f)) atual.delete(f); else atual.add(f);
+    // Grava JÁ ORDENADA: o gatilho do banco pega o primeiro item como função
+    // principal, e é o que aparece na coluna Tipo/Função do catálogo. Fora de
+    // ordem, o catálogo chamaria de "Professor de EBD" quem também é Presidente.
+    set("funcoes_ministeriais", ordenarFuncoes([...atual]));
+  };
+
   // Preencher ao editar
   useEffect(() => {
     if (membro) {
       const f: any = { ...empty };
       Object.keys(empty).forEach((k) => { f[k] = (membro as any)[k] ?? ""; });
+      // A lista vem do registro; se ele for antigo e só tiver a coluna única,
+      // `funcoesDe` converte. Sem isso, abrir a ficha de quem já tinha função
+      // mostraria tudo desmarcado — e salvar apagaria o cargo da pessoa.
+      f.funcoes_ministeriais = funcoesDe(membro as any);
       setForm(f);
     } else {
       setForm(empty);
@@ -229,7 +271,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     // ⚠️ Guard: só salva no STEP FINAL (Revisão). Avancos intermediarios sao no botao "Proximo".
-    if (step !== 4) return;
+    if (step !== 5) return;
 
     if (!form.nome_completo.trim()) return toast.error("Informe o nome");
 
@@ -477,7 +519,8 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                 { n: 1 as const, label: "Identificação" },
                 { n: 2 as const, label: "Contato" },
                 { n: 3 as const, label: "Vínculos" },
-                { n: 4 as const, label: "Revisão" },
+                { n: 4 as const, label: "Acesso" },
+                { n: 5 as const, label: "Revisão" },
               ]).map((p, idx, arr) => (
                 <div key={p.n} className="flex items-center flex-1">
                   <button
@@ -798,6 +841,110 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
 
                         </>)}
 
+            {/* ── STEP 3 — FUNÇÕES NA IGREJA ── */}
+            {step === 3 && (isCongregado || isMembro) && (<>
+            <div className="space-y-3 pt-1">
+              <div>
+                <Label translate="no">Funções ministeriais</Label>
+                {/* Caixas, e não seletor: há quem acumule — diácono que também
+                    é tesoureiro, pastor auxiliar que também é ministro. Com um
+                    seletor, escolher a segunda função apagava a primeira em
+                    silêncio.
+
+                    Fica aqui, em Vínculos, e não no passo de Acesso: função na
+                    igreja e permissão de login são coisas diferentes — há
+                    diácono que nunca abriu o sistema e secretária com acesso e
+                    nenhuma função. */}
+                <p className="text-xs text-muted-foreground mt-0.5 mb-2">
+                  Marque quantas a pessoa exercer. A primeira da ordem abaixo é a
+                  principal e aparece no catálogo.
+                </p>
+
+                <div className="grid sm:grid-cols-2 gap-x-4 gap-y-1.5 rounded-md border p-3">
+                  {/* A função aposentada que a pessoa JÁ TEM aparece marcada, com
+                      aviso. Três pessoas estão em rótulos sem numeração — dois
+                      tesoureiros e uma secretária que ninguém sabe se são 1º ou
+                      2º. Escondê-las desmarcaria o cargo de alguém por causa de
+                      um detalhe de implementação. */}
+                  {funcoesSelecionadas.filter(funcaoAposentada).map((f) => (
+                    <label key={f} className="flex items-center gap-2 text-sm min-h-[32px] text-warning">
+                      <Checkbox checked onCheckedChange={() => alternarFuncao(f)} />
+                      {rotuloFuncao(f)} <span className="text-xs">(a revisar)</span>
+                    </label>
+                  ))}
+
+                  {FUNCOES_EM_ORDEM.filter((f) => f !== "membro").map((f) => (
+                    <label key={f} className="flex items-center gap-2 text-sm min-h-[32px] cursor-pointer">
+                      <Checkbox
+                        checked={funcoesSelecionadas.includes(f)}
+                        onCheckedChange={() => alternarFuncao(f)}
+                      />
+                      {FUNCAO_MINISTERIAL[f].label}
+                    </label>
+                  ))}
+                </div>
+
+                {/* Sem nenhuma marcada, "membro" — que no enum quer dizer
+                    ausência de função, e não um cargo. */}
+                {funcoesSelecionadas.length === 0 && (
+                  <p className="text-xs text-muted-foreground mt-1.5">
+                    Nenhuma função marcada: a pessoa fica como Membro.
+                  </p>
+                )}
+              </div>
+
+              {/* Uma data por ato, e só a das funções marcadas. Consagração
+                  pastoral, ordenação diaconal e comissionamento missionário não
+                  são sinônimos: um campo genérico "data da função" apagaria a
+                  diferença justamente para quem ela importa. */}
+              {funcoesSelecionadas
+                .filter((f) => FUNCAO_MINISTERIAL[f].tipoData === "consagracao")
+                // Duas funções podem apontar para a MESMA coluna (os quatro
+                // pastores usam a consagração pastoral). Sem isto, marcar duas
+                // desenharia dois campos que gravam no mesmo lugar.
+                .filter((f, i, todas) =>
+                  todas.findIndex((o) => FUNCAO_MINISTERIAL[o].coluna === FUNCAO_MINISTERIAL[f].coluna) === i)
+                .map((f) => {
+                  const cfg = FUNCAO_MINISTERIAL[f];
+                  if (!cfg.coluna) return null;
+                  return (
+                    <div key={f} className="md:w-1/2">
+                      <Label translate="no">{cfg.rotuloData}</Label>
+                      <Input
+                        type="date"
+                        value={form[cfg.coluna] ?? ""}
+                        onChange={(e) => set(cfg.coluna!, e.target.value)}
+                      />
+                    </div>
+                  );
+                })}
+
+              {/* Vigência: um par de datas, e vale para a função PRINCIPAL.
+                  Foi decisão consciente — quem acumular dois cargos de mandato
+                  vai ter as duas datas descrevendo só o primeiro. Hoje ninguém
+                  acumula; no dia em que acumular, isto vira tabela própria. */}
+              {funcoesSelecionadas.some((f) => FUNCAO_MINISTERIAL[f].tipoData === "vigencia") && (
+                <div className="grid md:grid-cols-2 gap-3">
+                  <div>
+                    <Label translate="no">Assumiu em</Label>
+                    <Input type="date" value={form.funcao_inicio ?? ""}
+                      onChange={(e) => set("funcao_inicio", e.target.value)} />
+                  </div>
+                  <div>
+                    <Label translate="no">Até</Label>
+                    <Input type="date" value={form.funcao_fim ?? ""}
+                      onChange={(e) => set("funcao_fim", e.target.value)} />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Registro histórico — não gera alerta de vencimento.
+                      {funcoesSelecionadas.filter((f) => FUNCAO_MINISTERIAL[f].tipoData === "vigencia").length > 1
+                        && " Vale para a função principal."}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+                        </>)}
+
             {step === 3 && (<>
             {/* ── ÁREAS DE ATUAÇÃO (agrupadas por ministério) ── */}
             {(isCongregado || isMembro) && areasPorMinisterio.length > 0 && (
@@ -874,28 +1021,52 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
 
                         </>)}
 
-            {step === 3 && (<>
-            {/* ── ACESSO AO SISTEMA (A4: botão único Convidar como…) ── */}
-            {(isCongregado || isMembro) && membro && (
-              <div className="pt-2 space-y-2">
+            {/* ── STEP 4 — ACESSO AO SISTEMA ── */}
+            {step === 4 && (<>
+            <div className="space-y-3">
+              <div>
+                <p className="text-sm font-medium">Acesso ao sistema</p>
+                {/* Dizer o que este passo NÃO é. Perfil de acesso é permissão de
+                    login; liderar um ministério ou ensinar na EBD são vínculos, e
+                    ficam no passo anterior. As duas coisas se chamam "perfil" na
+                    conversa do dia a dia e vivem em tabelas diferentes — quem
+                    procurar aqui para marcar alguém como líder do Louvor precisa
+                    saber, na hora, que não é aqui. */}
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Permissão para entrar no sistema. Liderança de ministério e
+                  professor de EBD são vínculos, e ficam no passo anterior.
+                </p>
+              </div>
+
+              {(isCongregado || isMembro) && membro && (
                 <AcessoCard
                   pessoaId={membro.id}
                   nomeCompleto={form.nome_completo || membro.nome_completo}
                   telefone={form.telefone_celular || membro.telefone_celular}
                 />
-              </div>
-            )}
+              )}
 
-            {(isCongregado || isMembro) && !membro && (
-              <p className="text-xs text-amber-600 px-2 py-1.5 bg-amber-50 rounded border border-amber-200">
-                Salve a pessoa primeiro para criar o acesso ao sistema.
-              </p>
-            )}
+              {/* Convite precisa de um id de pessoa para vincular. Em vez de um
+                  passo em branco no cadastro novo, o passo explica a ordem: salvar
+                  primeiro, convidar depois. */}
+              {(isCongregado || isMembro) && !membro && (
+                <p className="text-xs text-amber-600 px-2 py-1.5 bg-amber-50 rounded border border-amber-200">
+                  O convite de acesso é criado depois de salvar o cadastro. Termine
+                  o cadastro e abra a pessoa de novo para conceder acesso.
+                </p>
+              )}
 
+              {isVisitante && (
+                <p className="text-xs text-muted-foreground px-2 py-1.5 bg-muted rounded border">
+                  Acesso ao sistema é para membros e congregados. Visitante recebe
+                  acesso quando passa a congregar.
+                </p>
+              )}
+            </div>
                         </>)}
 
-            {/* ── STEP 4 — REVISÃO ── */}
-            {step === 4 && (
+            {/* ── STEP 5 — REVISÃO ── */}
+            {step === 5 && (
               <section className="space-y-3">
                 <div className="rounded-md border bg-gradient-verse p-4 text-center">
                   <h3 className="font-serif text-lg">Quase lá! Confira os dados</h3>
@@ -906,7 +1077,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
 
                 <RevisaoLinha label="Tipo">{tipoPessoaLabelMap[form.tipo_pessoa] ?? form.tipo_pessoa}</RevisaoLinha>
                 <RevisaoLinha label="Nome">{form.nome_completo || "—"}</RevisaoLinha>
-                <RevisaoLinha label="Telefone">{form.telefone_celular || "—"}</RevisaoLinha>
+                <RevisaoLinha label="Telefone">{formatarTelefoneSemDDI(form.telefone_celular) || "—"}</RevisaoLinha>
                 {(isCongregado || isMembro) && (
                   <>
                     <RevisaoLinha label="E-mail">{form.email || "—"}</RevisaoLinha>
@@ -948,7 +1119,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
               )}
               {step > 1 ? (
                 <Button type="button" variant="outline"
-                  onClick={() => setStep(((step as number) - 1) as 1 | 2 | 3 | 4)}
+                  onClick={() => setStep(((step as number) - 1) as 1 | 2 | 3 | 4 | 5)}
                   disabled={busy}>
                   ← Anterior
                 </Button>
@@ -958,8 +1129,28 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                 </Button>
               )}
 
-              {step < 4 ? (
-                <Button type="button"
+              {/* ── As duas `key` são o conserto de um bug de verdade ──────────
+                  Sintoma: clicar em "Próximo" no penúltimo passo salvava o
+                  cadastro e fechava o diálogo, sem nunca mostrar a Revisão.
+
+                  Causa: os dois botões ocupam a mesma posição na árvore e são o
+                  mesmo componente. Sem `key`, o React não troca o elemento — ele
+                  só remenda o atributo `type` de "button" para "submit" no mesmo
+                  nó do DOM. E o navegador decide a ação padrão do clique DEPOIS
+                  de rodar os handlers: quando ele foi olhar, o botão que acabara
+                  de ser clicado já dizia "submit", e o formulário foi enviado.
+
+                  Medido com um ouvinte de eventos: click em "Próximo →
+                  [type=button]" seguido de submit no FORM, sem ninguém pedir.
+
+                  A guarda `if (step !== 5) return` no onSubmit não protege: o
+                  setStep já rodou, então o submit chega com step = 5 e passa.
+
+                  Com `key` diferente, o React desmonta um e monta o outro. O nó
+                  clicado sai do documento antes da ação padrão, e não há submit.
+                  ────────────────────────────────────────────────────────────── */}
+              {step < 5 ? (
+                <Button key="proximo" type="button"
                   onClick={() => {
                     // Valida campos obrigatórios do passo atual
                     if (step === 1 && !form.nome_completo.trim()) {
@@ -970,13 +1161,13 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                       toast.error("Telefone é obrigatório para visitante");
                       return;
                     }
-                    setStep(((step as number) + 1) as 1 | 2 | 3 | 4);
+                    setStep(((step as number) + 1) as 1 | 2 | 3 | 4 | 5);
                   }}
                   disabled={busy}>
                   Próximo →
                 </Button>
               ) : (
-                <Button type="submit" disabled={busy}>
+                <Button key="salvar" type="submit" disabled={busy}>
                   {busy ? "Salvando..." : membro ? "Salvar alterações" : `Cadastrar ${tipo}`}
                 </Button>
               )}
