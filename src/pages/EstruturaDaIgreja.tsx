@@ -17,9 +17,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import PessoaCard from "@/components/membros/PessoaCard";
 import {
   Crown, Church, MapPin, Users, ChevronDown, ChevronRight,
-  Loader2, AlertTriangle, Network, Settings, RefreshCw, FileText, Star,
+  Loader2, AlertTriangle, Network, Settings, RefreshCw, FileText, Star, Shield,
 } from "lucide-react";
 import { carregarDiretoria, ocupantesDoCargo, type CargoDiretoria } from "@/services/diretoriaService";
+import { SELECT_AREA_COM_LIDER } from "@/services/estruturaService";
 
 // -- Tipos ---------------------------------------------------
 
@@ -232,6 +233,22 @@ function MinisterioCard({ min, onPessoa, isAdmin, onEdit }: {
 
 // -- Componente Principal ------------------------------------
 
+/**
+ * Uma linha de `v_conselho_da_igreja`: quem tem assento no conselho por
+ * causa do cargo que ocupa. Não há cadastro de conselho — a view deriva a
+ * composição de diretoria, liderança de ministério, liderança de área e
+ * diaconato.
+ */
+interface ConselhoMembro {
+  pessoa_id: string;
+  nome_completo: string;
+  foto_url: string | null;
+  cargo: string;
+  nivel_cargo: number;
+  tipo_participacao: string;
+  ministerio_nome: string | null;
+}
+
 export default function EstruturaDaIgreja() {
   const { hasRole } = useAuth();
   const navigate = useNavigate();
@@ -246,6 +263,7 @@ export default function EstruturaDaIgreja() {
     area: EstruturaItem[];
   }>({ institucional: [], ministerial: [], area: [] });
   const [stats, setStats] = useState({ membros: 0, ministerios: 0, semLider: 0, estTotal: 0 });
+  const [conselho, setConselho] = useState<ConselhoMembro[]>([]);
   const [pessoaId, setPessoaId] = useState<string | null>(null);
   const [ultimaSync, setUltimaSync] = useState<string | null>(null);
 
@@ -259,6 +277,10 @@ export default function EstruturaDaIgreja() {
     // Diretoria — lida da função na ficha da pessoa. Ver diretoriaService.ts.
     setDiretoria(await carregarDiretoria());
 
+    // Conselho — a view compõe sozinha a partir de quem ocupa o quê.
+    const { data: cons } = await supabase.from("v_conselho_da_igreja").select("*");
+    setConselho((cons ?? []) as ConselhoMembro[]);
+
     // Ministerios com lideres
     const { data: mins } = await supabase
       .from("ministerios")
@@ -269,7 +291,7 @@ export default function EstruturaDaIgreja() {
       .order("nome");
 
     const { data: allAreas } = await supabase
-      .from("areas").select("id,ministerio_id,nome,lider:membros(id,nome_completo)").eq("ativo", true);
+      .from("areas").select(SELECT_AREA_COM_LIDER).eq("ativo", true);
     const { data: allSetores } = await supabase
       .from("setores").select("id,area_id,nome").eq("ativo", true);
     const { data: membMin } = await supabase
@@ -354,7 +376,7 @@ export default function EstruturaDaIgreja() {
     <div>
       <PageHeader
         title="Estrutura da Igreja"
-        description="Diretoria eleita, ministerios e estrutura derivada dos documentos"
+        description="Quem ocupa cada cargo, quem tem assento no conselho e o que o regimento prevê"
         actions={
           isAdmin ? (
             <div className="flex gap-2 flex-wrap">
@@ -376,8 +398,8 @@ export default function EstruturaDaIgreja() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
             { label: "Membros ativos", value: stats.membros, icon: <Star className="w-4 h-4" />, cor: "text-blue-600" },
-            { label: "Ministerios", value: stats.ministerios, icon: <Church className="w-4 h-4" />, cor: "text-purple-600" },
-            { label: "Estrutura doc.", value: stats.estTotal, icon: <Network className="w-4 h-4" />, cor: "text-amber-600" },
+            { label: "Conselho", value: conselho.length, icon: <Shield className="w-4 h-4" />, cor: "text-purple-600" },
+            { label: "No regimento", value: stats.estTotal, icon: <Network className="w-4 h-4" />, cor: "text-amber-600" },
             { label: "Diretoria", value: diretoria.length, icon: <Crown className="w-4 h-4" />, cor: "text-primary" },
           ].map((s) => (
             <Card key={s.label} className="shadow-card-soft">
@@ -408,15 +430,23 @@ export default function EstruturaDaIgreja() {
         )}
 
         <Tabs defaultValue="diretoria">
+          {/* ── A fronteira com o Organograma ──────────────────────────────
+              Saiu a aba "Ministerios": quem serve onde é a pergunta do
+              Organograma, e a mesma lista em duas telas já tinha divergido na
+              contagem — uma dizia 35 integrantes onde a outra dizia 0.
+
+              Entrou "Conselho", que estava no Organograma. Conselho é órgão de
+              governança: quem tem assento por causa do cargo que ocupa. É
+              institucional, e institucional é o que esta tela responde. */}
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="diretoria">
-              <Crown className="w-4 h-4 mr-1.5" /> Institucional
+              <Crown className="w-4 h-4 mr-1.5" /> Diretoria
             </TabsTrigger>
-            <TabsTrigger value="ministerios">
-              <Church className="w-4 h-4 mr-1.5" /> Ministerios
+            <TabsTrigger value="conselho">
+              <Shield className="w-4 h-4 mr-1.5" /> Conselho
             </TabsTrigger>
             <TabsTrigger value="documentos">
-              <Network className="w-4 h-4 mr-1.5" /> Estrutura Doc.
+              <Network className="w-4 h-4 mr-1.5" /> Regimento
             </TabsTrigger>
           </TabsList>
 
@@ -473,29 +503,63 @@ export default function EstruturaDaIgreja() {
             )}
           </TabsContent>
 
-          <TabsContent value="ministerios" className="mt-4">
+          {/* ── Conselho: quem tem assento por causa do cargo ────────────
+              A view v_conselho_da_igreja compõe o conselho sozinha, a partir
+              de quem ocupa o quê: diretoria, líderes de ministério, líderes
+              de área e diáconos. Não há cadastro de conselho — há
+              consequência do que está na ficha de cada um.
+
+              Veio do Organograma junto com a fronteira: lá era a única aba
+              que não falava de quem serve onde. */}
+          <TabsContent value="conselho" className="mt-4">
             {loading ? (
               <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground">
                 <Loader2 className="w-5 h-5 animate-spin" /><span>Carregando...</span>
               </div>
-            ) : operacionais.length === 0 ? (
-              <div className="text-center py-16 space-y-3">
-                <Church className="w-12 h-12 mx-auto text-muted-foreground/40" />
-                <p className="text-muted-foreground text-sm">Nenhum ministerio cadastrado.</p>
-                {isAdmin && (
-                  <Button variant="outline" size="sm" onClick={() => navigate("/ministerios")}>
-                    <Settings className="w-3.5 h-3.5 mr-1.5" /> Gerenciar ministerios
-                  </Button>
-                )}
+            ) : conselho.length === 0 ? (
+              <div className="text-center py-16 space-y-2">
+                <Shield className="w-12 h-12 mx-auto text-muted-foreground/40" />
+                <p className="text-muted-foreground text-sm">Conselho ainda sem composicao.</p>
+                <p className="text-xs text-muted-foreground/70">
+                  Composto automaticamente por Diretoria, Lideres de Ministerio,
+                  Lideres de Area e Diaconos.
+                </p>
               </div>
             ) : (
-              <div className="space-y-3">
-                {operacionais.map((m) => (
-                  <MinisterioCard
-                    key={m.id} min={m} onPessoa={setPessoaId}
-                    isAdmin={isAdmin} onEdit={() => navigate("/ministerios")}
-                  />
-                ))}
+              <div className="space-y-4">
+                <p className="text-xs text-muted-foreground">
+                  {conselho.length} participantes, compostos automaticamente pelos
+                  cargos que ocupam.
+                </p>
+                {(["diretoria", "ministerio", "area", "diacono"] as const).map((tipo) => {
+                  const grupo = conselho.filter((c) => c.tipo_participacao === tipo);
+                  if (grupo.length === 0) return null;
+                  const rotulo: Record<string, string> = {
+                    diretoria: "Diretoria", ministerio: "Lideres de Ministerio",
+                    area: "Lideres de Area", diacono: "Diaconos",
+                  };
+                  return (
+                    <div key={tipo}>
+                      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                        {rotulo[tipo]} ({grupo.length})
+                      </h3>
+                      <div className="grid sm:grid-cols-2 gap-2">
+                        {grupo.map((c) => (
+                          <button key={c.pessoa_id + "-" + c.cargo}
+                            onClick={() => setPessoaId(c.pessoa_id)}
+                            className="flex items-center gap-3 rounded-lg border px-3 py-2 text-left hover:bg-muted/40 transition-colors">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-sm truncate">{c.nome_completo}</p>
+                              <p className="text-xs text-muted-foreground truncate">
+                                {c.cargo}{c.ministerio_nome ? " · " + c.ministerio_nome : ""}
+                              </p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </TabsContent>
