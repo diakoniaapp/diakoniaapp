@@ -193,7 +193,7 @@ export default function GovernancaAssembleia() {
         </Button>
         {ass.status === "concluida" && (
           <Button size="sm" onClick={executarPendentes} disabled={busy}
-            className="bg-purple-600 hover:bg-purple-700 text-white gap-1.5">
+            className="gap-1.5">
             <Zap className="w-3.5 h-3.5" /> Executar decisões
           </Button>
         )}

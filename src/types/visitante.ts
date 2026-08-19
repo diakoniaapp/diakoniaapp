@@ -1,3 +1,4 @@
+import { TIPO_PESSOA_FUNDO, TIPO_PESSOA_TEXTO } from "@/lib/tipoPessoa";
 // ─── types/visitante.ts — Tipos do módulo de acolhimento pastoral ─────────────
 
 // Status da trilha de acolhimento (enum espelhado do banco)
@@ -23,9 +24,9 @@ export const STATUS_ACOLHIMENTO_CONFIG: {
   { value: "contatado",         label: "Contatado",           descricao: "Já recebeu contato da equipe",        cor: "bg-warning-soft",   corTexto: "text-warning-text"  },
   { value: "retornou",          label: "Retornou",            descricao: "Visitou mais de uma vez",             cor: "bg-success-soft",    corTexto: "text-success-text"   },
   { value: "em_relacionamento", label: "Em relacionamento",   descricao: "Participando de grupos ou eventos",   cor: "bg-success-soft",  corTexto: "text-success-text" },
-  { value: "em_acompanhamento", label: "Em acompanhamento",   descricao: "Sendo cuidado ativamente",            cor: "bg-teal-100",     corTexto: "text-teal-700"    },
-  { value: "congregado",        label: "Congregado",          descricao: "Tornou-se congregado",                cor: "bg-purple-100",   corTexto: "text-purple-700"  },
-  { value: "membro",            label: "Membro",              descricao: "Membro formal da igreja",             cor: "bg-info-soft",   corTexto: "text-info-text"  },
+  { value: "em_acompanhamento", label: "Em acompanhamento",   descricao: "Sendo cuidado ativamente",            cor: "bg-teal/15",      corTexto: "text-teal"        },
+  { value: "congregado",        label: "Congregado",          descricao: "Tornou-se congregado",                cor: TIPO_PESSOA_FUNDO.congregado, corTexto: TIPO_PESSOA_TEXTO.congregado },
+  { value: "membro",            label: "Membro",              descricao: "Membro formal da igreja",             cor: TIPO_PESSOA_FUNDO.membro, corTexto: TIPO_PESSOA_TEXTO.membro },
 ];
 
 // Índice da trilha (sem congregado/membro — esses são transições)

@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Badge } from "@/components/ui/badge";
 import { Loader2, User, Shield, Church, MapPin, Calendar, Star } from "lucide-react";
 import { cargosDaPessoa } from "@/services/diretoriaService";
+import { TIPO_PESSOA_LABEL, TIPO_PESSOA_COR, type TipoPessoa } from "@/lib/tipoPessoa";
 
 // ── Tipos ─────────────────────────────────────────────────────
 
@@ -45,25 +46,34 @@ interface AreaVinculo {
 
 // ── Helpers visuais ───────────────────────────────────────────
 
-const TIPO_CONFIG: Record<string, { label: string; cor: string }> = {
-  membro:     { label: "Membro",     cor: "bg-info-soft text-info-text border-info-line" },
-  congregado: { label: "Congregado", cor: "bg-success-soft text-success-text border-success-line" },
-  visitante:  { label: "Visitante",  cor: "bg-warning-soft text-warning-text border-warning-line" },
-};
+// Antes daqui saía congregado em VERDE e membro em AZUL, enquanto o
+// catálogo mostrava dourado e cobre para as mesmas pessoas. Agora as duas
+// telas leem do mesmo lugar — ver o comentário em lib/tipoPessoa.ts.
+const TIPO_CONFIG: Record<string, { label: string; cor: string }> =
+  Object.fromEntries(
+    (Object.keys(TIPO_PESSOA_LABEL) as TipoPessoa[]).map(t => [
+      t, { label: TIPO_PESSOA_LABEL[t], cor: TIPO_PESSOA_COR[t] },
+    ]),
+  );
 
 const FUNCAO_CONFIG: Record<string, { label: string; cor: string }> = {
-  lider:       { label: "Líder",       cor: "bg-purple-100 text-purple-700 border-purple-300" },
+  // O roxo saiu. Ele não existe na paleta da igreja, e numa lista de
+  // etiquetas ao lado de co-líder, tesoureiro e diácono ele dizia "isto
+  // aqui é de outro sistema". Liderar é a função de maior peso da lista:
+  // fica com a cor da casa. Mesmo caminho que QuadrosInstitucionais.tsx já
+  // tinha tomado para a diretoria.
+  lider:       { label: "Líder",       cor: "bg-primary/10 text-primary border-primary/30" },
   co_lider:    { label: "Co-líder",    cor: "bg-info-soft text-info-text border-info-line" },
   secretario:  { label: "Secretário",  cor: "bg-info-soft text-info-text border-info-line" },
   tesoureiro:  { label: "Tesoureiro",  cor: "bg-warning-soft text-warning-text border-warning-line" },
   voluntario:  { label: "Voluntário",  cor: "bg-success-soft text-success-text border-success-line" },
   diacono:     { label: "Diácono",     cor: "bg-warning-soft text-warning-text border-warning-line" },
-  obreiro:     { label: "Obreiro",     cor: "bg-teal-100 text-teal-700 border-teal-300" },
+  obreiro:     { label: "Obreiro",     cor: "bg-teal/15 text-teal border-teal/30" },
   colaborador: { label: "Colaborador", cor: "bg-gray-100 text-gray-600 border-gray-300" },
 };
 
 const PERFIL_CONFIG: Record<string, { label: string; cor: string }> = {
-  admin:        { label: "Admin",        cor: "bg-purple-100 text-purple-700" },
+  admin:        { label: "Admin",        cor: "bg-primary/10 text-primary" },
   pastor:       { label: "Pastor",       cor: "bg-info-soft text-info-text" },
   secretaria:   { label: "Secretaria",   cor: "bg-info-soft text-info-text" },
   tesoureiro:   { label: "Tesoureiro",   cor: "bg-warning-soft text-warning-text" },
@@ -213,16 +223,16 @@ export default function PessoaCard({ pessoaId, open, onClose }: PessoaCardProps)
 
             {/* Cargo estatutário (Diretoria) */}
             {cargos.length > 0 && (
-              <div className="rounded-lg border border-purple-200 bg-purple-50/60 px-4 py-3 space-y-1.5">
-                <p className="text-xs font-semibold uppercase tracking-wider text-purple-700">
+              <div className="rounded-lg border border-primary/30 bg-primary/[0.07] px-4 py-3 space-y-1.5">
+                <p className="text-xs font-semibold uppercase tracking-wider text-primary">
                   Diretoria Estatutária
                 </p>
                 {cargos.map((c, i) => (
                   <div key={i} className="flex items-center gap-2">
                     <span className="text-sm">{NIVEL_CARGO_EMOJI[c.nivel] ?? "📌"}</span>
-                    <span className="text-sm font-medium text-purple-800">{c.cargo}</span>
+                    <span className="text-sm font-medium text-primary">{c.cargo}</span>
                     {c.mandato && (
-                      <span className="text-xs text-purple-500 ml-auto">
+                      <span className="text-xs text-primary/70 ml-auto">
                         Mandato {c.mandato}
                       </span>
                     )}

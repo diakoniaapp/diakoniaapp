@@ -221,7 +221,7 @@ export default function Assuntos() {
                       {STATUS_LABEL[a.status]}
                     </Badge>
                     {a.vezes_discutido >= 3 && (
-                      <Badge variant="outline" className="text-xs bg-purple-100 text-purple-700 border-purple-300">
+                      <Badge variant="outline" className="text-xs bg-info-soft text-info-text border-info-line">
                         {a.vezes_discutido}× discutido
                       </Badge>
                     )}
@@ -238,7 +238,7 @@ export default function Assuntos() {
                       </span>
                     )}
                     {a.situacao === "parado" && (
-                      <span className="text-purple-700">
+                      <span className="text-info-text">
                         <Clock className="w-2.5 h-2.5 inline mr-0.5" /> Parado
                       </span>
                     )}

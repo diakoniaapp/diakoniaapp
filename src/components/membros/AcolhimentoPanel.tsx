@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { CheckCircle2, Circle, Plus, MessageCircle } from "lucide-react";
 import type { Membro } from "@/pages/Membros";
 import { calcularEtapa, getMensagem, buildWhatsAppLink } from "@/lib/visitantesFluxo";
+import { TIPO_PESSOA_COR } from "@/lib/tipoPessoa";
 
 interface Tarefa {
   id: string;
@@ -30,8 +31,10 @@ const STATUS_OPTIONS: { value: string; label: string; color: string }[] = [
   { value: "retornou",         label: "Retornou",          color: "bg-success-soft text-success-text border-success-line" },
   { value: "em_relacionamento",label: "Em relacionamento", color: "bg-success-soft text-success-text border-success-line" },
   { value: "em_acompanhamento",label: "Em acompanhamento", color: "bg-teal-100 text-teal-700 border-teal-300" },
-  { value: "congregado",       label: "Congregado",        color: "bg-purple-100 text-purple-700 border-purple-300" },
-  { value: "membro",           label: "Membro",            color: "bg-info-soft text-info-text border-info-line" },
+  // era roxo aqui, verde no PessoaCard e dourado no catálogo — três telas,
+  // três cores, a mesma pessoa
+  { value: "congregado",       label: "Congregado",        color: TIPO_PESSOA_COR.congregado },
+  { value: "membro",           label: "Membro",            color: TIPO_PESSOA_COR.membro },
 ];
 
 

@@ -17,7 +17,9 @@ import {
 interface Props { open: boolean; onOpenChange: (v: boolean) => void; onConcluido: () => void; }
 
 const TIPO_COR: Record<string, string> = {
-  diretoria:  "bg-purple-100 text-purple-800 border-purple-200",
+  // Diretoria é institucional, e institucional usa a cor da casa — mesma
+  // decisão de QuadrosInstitucionais.tsx.
+  diretoria:  "bg-primary/10 text-primary border-primary/30",
   conselho:   "bg-info-soft text-info-text border-info-line",
   ministerio: "bg-info-soft text-info-text border-info-line",
   area:       "bg-success-soft text-success-text border-success-line",

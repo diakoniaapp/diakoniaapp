@@ -28,13 +28,16 @@ export const STATUS_COR: Record<AssuntoStatus, string> = {
   em_andamento: "bg-warning-soft text-warning-text border-warning-line",
   concluido: "bg-success-soft text-success-text border-success-line",
   cancelado: "bg-muted text-muted-foreground border-border line-through",
-  aguardando_terceiro: "bg-purple-50 text-purple-700 border-purple-300",
+  // Nem aberto nem concluído: está parado na mão de outra pessoa. O tom
+  // apagado diz "estacionado" — e cancelado, que usa o mesmo tom, continua
+  // se distinguindo pelo risco no texto.
+  aguardando_terceiro: "bg-muted text-muted-foreground border-border",
 };
 
 export const SITUACAO_COR: Record<AssuntoSituacao, string> = {
   atrasado: "border-destructive-line bg-destructive-soft/30",
   vence_em_breve: "border-warning-line bg-warning-soft/30",
-  parado: "border-purple-200 bg-purple-50/20",
+  parado: "border-info-line bg-info-soft/20",
   concluido: "border-success-line bg-success-soft/10",
   normal: "",
 };

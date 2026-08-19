@@ -24,6 +24,7 @@ import ContatoResultadoDialog from "@/components/membros/ContatoResultadoDialog"
 import { logHistorico } from "@/lib/historicoFluxo";
 import { formatarTelefoneSemDDI, normalizarTelefone, telefoneValido } from "@/lib/telefone";
 import { rotuloFuncao, temFuncao, rotulosDe } from "@/lib/funcaoMinisterial";
+import { TIPO_PESSOA_LABEL, TIPO_PESSOA_COR } from "@/lib/tipoPessoa";
 
 export interface Membro {
     id: string;
@@ -85,11 +86,10 @@ const statusColor: Record<string, string> = {
     falecido: "bg-destructive/10 text-destructive border-destructive/30",
 };
 
-const tipoPessoaLabel: Record<string, string> = {
-    membro: "Membro",
-    congregado: "Congregado",
-    visitante: "Visitante",
-};
+// Mudou de casa para src/lib/tipoPessoa.ts. Estes valores eram a versão
+// certa — e eram só a versão DESTE arquivo: PessoaCard, AcolhimentoPanel e
+// types/visitante pintavam congregado de verde, roxo e roxo.
+const tipoPessoaLabel = TIPO_PESSOA_LABEL as Record<string, string>;
 
 // Etiqueta com TINTA de fundo pede cor de texto ESCURA — não a cor que
 // acompanha o preenchimento sólido.
@@ -98,11 +98,10 @@ const tipoPessoaLabel: Record<string, string> = {
 // `accent-foreground` é branco, feito para ir POR CIMA do accent cheio. Sobre
 // uma tinta de 15% ele media 1,26:1 — branco sobre quase branco, a pior
 // medição da tela inteira. Estava assim desde que a etiqueta existe.
-const tipoPessoaColor: Record<string, string> = {
-    membro:     "bg-primary/10 text-primary border-primary/30",
-    congregado: "bg-gold/15 text-gold-text border-gold/30",
-    visitante:  "bg-warning/15 text-warning-text border-warning/30",
-};
+// Estes tres tons eram a versao certa e ficaram como estao — so mudaram
+// de casa, para lib/tipoPessoa.ts, onde as outras tres telas que pintavam
+// a mesma coisa de outro jeito passam a ler.
+const tipoPessoaColor = TIPO_PESSOA_COR as Record<string, string>;
 
 // O indicador de status de acesso saiu da listagem. Alem de ser um icone mudo
 // disputando espaco com o nome, ele disparava uma consulta ao Supabase POR

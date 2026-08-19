@@ -466,7 +466,7 @@ export default function EstruturaDaIgreja() {
                 const itens = estDoc[nivel];
                 if (!itens.length) return null;
                 const config = {
-                  institucional: { label: "Diretoria e Conselhos", icon: <Crown className="w-4 h-4 text-purple-600" />, border: "border-purple-200", bg: "bg-purple-50/50" },
+                  institucional: { label: "Diretoria e Conselhos", icon: <Crown className="w-4 h-4 text-primary" />, border: "border-primary/30", bg: "bg-primary/10/50" },
                   ministerial: { label: "Ministerios", icon: <Church className="w-4 h-4 text-info-text" />, border: "border-info-line", bg: "bg-info-soft/50" },
                   area: { label: "Areas e Setores", icon: <MapPin className="w-4 h-4 text-success-text" />, border: "border-success-line", bg: "bg-success-soft/50" },
                 } as const;

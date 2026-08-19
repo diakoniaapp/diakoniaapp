@@ -56,7 +56,7 @@ export function MeusAssuntos() {
           </span>
         )}
         {data.total_parados > 0 && (
-          <span className="px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 border border-purple-200">
+          <span className="px-1.5 py-0.5 rounded bg-info-soft text-info-text border border-info-line">
             ⏸ {data.total_parados} parado{data.total_parados > 1 ? "s" : ""}
           </span>
         )}
@@ -68,7 +68,9 @@ export function MeusAssuntos() {
             <span className="shrink-0">
               {a.situacao === "atrasado" && <AlertCircle className="w-3.5 h-3.5 text-destructive-text" />}
               {a.situacao === "vence_breve" && <Clock className="w-3.5 h-3.5 text-warning-text" />}
-              {a.situacao === "parado" && <Clock className="w-3.5 h-3.5 text-purple-600" />}
+              {/* info, e não uma terceira cor de alerta: parado não é mais urgente
+                  que atrasado — é dormente. */}
+              {a.situacao === "parado" && <Clock className="w-3.5 h-3.5 text-info-text" />}
               {a.situacao === "normal" && <span className="text-sm">{PRIORIDADE_ICONE[a.prioridade]}</span>}
             </span>
             <span className="flex-1 truncate">{a.titulo}</span>

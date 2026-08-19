@@ -249,7 +249,7 @@ export default function GovernancaReuniao() {
             </Button>
             {deliberativas > 0 && (
               <Button size="sm" onClick={criarAssembleia} disabled={busy}
-                className="bg-purple-600 hover:bg-purple-700 text-white ml-auto">
+                className="ml-auto">
                 ⚖ Gerar assembleia ({deliberativas})
               </Button>
             )}

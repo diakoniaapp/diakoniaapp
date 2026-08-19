@@ -48,7 +48,10 @@ const SUGESTAO: Record<string, { acao: string; descricao: string; cor: string }>
     congregado: {
           acao: "Apresentar ao grupo de membros",
           descricao: "Congregado — próximo passo é a jornada rumo à membresia.",
-          cor: "border-purple-200 bg-purple-50 dark:bg-purple-900/10 dark:border-purple-800/40",
+          // Congregado tem cor definida em lib/tipoPessoa.ts, e é dourado
+          // desde o catálogo. Aqui estava roxo — a quinta cor para a mesma
+          // palavra.
+          cor: "border-gold/30 bg-gold/10",
     },
     membro: {
           acao: "Integrar em ministério ou serviço",
