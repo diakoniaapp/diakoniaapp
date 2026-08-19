@@ -987,8 +987,28 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                 </Button>
               )}
 
+              {/* ── As duas `key` são o conserto de um bug de verdade ──────────
+                  Sintoma: clicar em "Próximo" no penúltimo passo salvava o
+                  cadastro e fechava o diálogo, sem nunca mostrar a Revisão.
+
+                  Causa: os dois botões ocupam a mesma posição na árvore e são o
+                  mesmo componente. Sem `key`, o React não troca o elemento — ele
+                  só remenda o atributo `type` de "button" para "submit" no mesmo
+                  nó do DOM. E o navegador decide a ação padrão do clique DEPOIS
+                  de rodar os handlers: quando ele foi olhar, o botão que acabara
+                  de ser clicado já dizia "submit", e o formulário foi enviado.
+
+                  Medido com um ouvinte de eventos: click em "Próximo →
+                  [type=button]" seguido de submit no FORM, sem ninguém pedir.
+
+                  A guarda `if (step !== 5) return` no onSubmit não protege: o
+                  setStep já rodou, então o submit chega com step = 5 e passa.
+
+                  Com `key` diferente, o React desmonta um e monta o outro. O nó
+                  clicado sai do documento antes da ação padrão, e não há submit.
+                  ────────────────────────────────────────────────────────────── */}
               {step < 5 ? (
-                <Button type="button"
+                <Button key="proximo" type="button"
                   onClick={() => {
                     // Valida campos obrigatórios do passo atual
                     if (step === 1 && !form.nome_completo.trim()) {
@@ -1005,7 +1025,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                   Próximo →
                 </Button>
               ) : (
-                <Button type="submit" disabled={busy}>
+                <Button key="salvar" type="submit" disabled={busy}>
                   {busy ? "Salvando..." : membro ? "Salvar alterações" : `Cadastrar ${tipo}`}
                 </Button>
               )}
