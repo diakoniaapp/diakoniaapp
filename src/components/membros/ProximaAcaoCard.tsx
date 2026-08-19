@@ -96,6 +96,11 @@ export function ProximaAcaoCard({ pessoaId, nomeCompleto, statusAtual, onRegistr
           if (error) throw error;
 
           // Atualiza updated_at do membro (sinalizando atividade recente)
+          // Sem conferência aqui de propósito: este update só carimba
+          // `updated_at` para sinalizar atividade recente. Se a política
+          // barrar, nada de substantivo se perde — e falhar a ação inteira
+          // por causa de um carimbo seria pior que não carimbar.
+          // O que importa (o histórico, logo abaixo) tem política própria.
           await supabase
                   .from("membros")
                   .update({ updated_at: new Date().toISOString() })

@@ -14,6 +14,7 @@ import { Plus, Trash2, CalendarCheck, Phone, Home as HomeIcon, ArrowRight, Rotat
 import { AcolhimentoPanel } from "./AcolhimentoPanel";
 import VisitanteTimeline from "./VisitanteTimeline";
 import type { Membro } from "@/pages/Membros";
+import { conferir } from "@/lib/escritaConferida";
 
 interface VisitanteMembro extends Membro {
   numero_visitas?:   number | null;
@@ -162,14 +163,18 @@ export default function VisitanteDialog({ open, onOpenChange, pessoa, onSaved }:
     setBusyAction("retorno");
     const p = pessoa as VisitanteMembro;
     const novaContagem = (p.numero_visitas ?? 1) + 1;
-    const { error } = await supabase
-      .from("membros")
-      .update({
-        numero_visitas: novaContagem,
-        ...(novaContagem >= 2 ? { status_acolhimento: "retornou" } : {}),
-      })
-      .eq("id", pessoa.id);
-    if (error) toast.error(error.message);
+    const r = conferir(
+      await supabase
+        .from("membros")
+        .update({
+          numero_visitas: novaContagem,
+          ...(novaContagem >= 2 ? { status_acolhimento: "retornou" } : {}),
+        })
+        .eq("id", pessoa.id)
+        .select("id"),
+      "O retorno",
+    );
+    if (!r.ok) toast.error(r.erro);
     else { toast.success("Retorno registrado!"); onSaved?.(); }
     setBusyAction(null);
   };
@@ -201,11 +206,17 @@ export default function VisitanteDialog({ open, onOpenChange, pessoa, onSaved }:
     const dataField = novoTipo === "congregado"
       ? { data_congregado: agora }
       : { data_membro: agora };
-    const { error } = await supabase
-      .from("membros")
-      .update({ tipo_pessoa: novoTipo, ...dataField } as any)
-      .eq("id", pessoa.id);
-    if (error) return toast.error(error.message);
+    // Promoção: se a política barrar, a pessoa NÃO muda de tipo — e a tela
+    // não pode anunciar "deu o próximo passo" sobre coisa nenhuma.
+    const r = conferir(
+      await supabase
+        .from("membros")
+        .update({ tipo_pessoa: novoTipo, ...dataField } as any)
+        .eq("id", pessoa.id)
+        .select("id"),
+      "A mudança de vínculo",
+    );
+    if (!r.ok) return toast.error(r.erro);
     toast.success(`${pessoa.nome_completo.split(" ")[0]} deu o próximo passo — agora é ${novoTipo === "membro" ? "Membro" : "Congregado"}! 🎉`);
     onSaved?.();
     onOpenChange(false);

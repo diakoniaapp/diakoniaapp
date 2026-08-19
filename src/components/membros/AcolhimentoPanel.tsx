@@ -11,6 +11,7 @@ import { CheckCircle2, Circle, Plus, MessageCircle } from "lucide-react";
 import type { Membro } from "@/pages/Membros";
 import { calcularEtapa, getMensagem, buildWhatsAppLink } from "@/lib/visitantesFluxo";
 import { TIPO_PESSOA_COR } from "@/lib/tipoPessoa";
+import { conferir } from "@/lib/escritaConferida";
 
 interface Tarefa {
   id: string;
@@ -69,11 +70,15 @@ export function AcolhimentoPanel({ pessoa, onUpdated }: Props) {
   };
 
   const updateStatus = async (novoStatus: string) => {
-    const { error } = await supabase
-      .from("membros")
-      .update({ status_acolhimento: novoStatus as any })
-      .eq("id", pessoa.id);
-    if (error) return toast.error(error.message);
+    const r = conferir(
+      await supabase
+        .from("membros")
+        .update({ status_acolhimento: novoStatus as any })
+        .eq("id", pessoa.id)
+        .select("id"),
+      "O status de acolhimento",
+    );
+    if (!r.ok) return toast.error(r.erro);
     toast.success("Status atualizado");
     onUpdated?.();
   };

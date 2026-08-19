@@ -174,7 +174,38 @@ export default function Familias() {
     setExcluindo(true);
     try {
       // 1. Desvincular membros (nullifica familia_id)
-      await supabase.from("membros").update({ familia_id: null }).eq("familia_id", familiaParaExcluir.id);
+      //
+      // Se a política de RLS barrar esta linha em silêncio, a família é
+      // apagada logo abaixo e os membros ficam com `familia_id` apontando
+      // para o nada. É o mesmo tipo de órfão que existe hoje em
+      // `area_voluntarios` (36 de 88 apontando para gente que não existe), e
+      // é assim que ele nasce.
+      //
+      // Aqui o truque de "zero linhas = barrado" NÃO serve: uma família sem
+      // membros também devolve zero. Por isso contamos antes e comparamos —
+      // é a única forma de distinguir "não havia ninguém para desvincular"
+      // de "não me deixaram desvincular".
+      const { count: aDesvincular } = await supabase
+        .from("membros")
+        .select("*", { count: "exact", head: true })
+        .eq("familia_id", familiaParaExcluir.id);
+
+      const desvinculo = await supabase.from("membros")
+        .update({ familia_id: null })
+        .eq("familia_id", familiaParaExcluir.id)
+        .select("id");
+
+      if (desvinculo.error) {
+        toast.error("Erro ao desvincular os membros: " + desvinculo.error.message);
+        return;
+      }
+      if ((desvinculo.data?.length ?? 0) < (aDesvincular ?? 0)) {
+        toast.error(
+          "A família não foi excluída: seu perfil não tem permissão para " +
+          "desvincular as pessoas dela. Peça à secretaria.",
+        );
+        return;
+      }
       // 2. Remover vínculos familiares
       await supabase.from("vinculos_familiares").delete().eq("familia_id", familiaParaExcluir.id);
       // 3. Excluir a família

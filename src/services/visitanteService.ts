@@ -3,6 +3,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { logHistorico } from "@/lib/historicoFluxo";
+import { conferir } from "@/lib/escritaConferida";
 import { calcularEtapa, getMensagem, buildWhatsAppLink } from "@/lib/visitantesFluxo";
 import type { Visitante, StatusAcolhimento, AcompanhamentoItem } from "@/types/visitante";
 
@@ -77,12 +78,18 @@ export async function atualizarStatusAcolhimento(
   novoStatus:  StatusAcolhimento,
   statusAnterior: StatusAcolhimento | null
 ): Promise<{ ok: boolean; erro?: string }> {
-  const { error } = await supabase
-    .from("membros")
-    .update({ status_acolhimento: novoStatus, updated_at: new Date().toISOString() })
-    .eq("id", visitanteId);
-
-  if (error) return { ok: false, erro: error.message };
+  // `.select("id")` + conferir: sem isso, quando a política de RLS barra a
+  // linha o Postgres afeta ZERO linhas e devolve sucesso — e o histórico,
+  // logo abaixo, gravava assim mesmo. Ver lib/escritaConferida.ts.
+  const r = conferir(
+    await supabase
+      .from("membros")
+      .update({ status_acolhimento: novoStatus, updated_at: new Date().toISOString() })
+      .eq("id", visitanteId)
+      .select("id"),
+    "O status de acolhimento",
+  );
+  if (!r.ok) return r;
 
   await logHistorico(
     visitanteId,
@@ -98,13 +105,14 @@ export async function salvarObservacoes(
   visitanteId: string,
   observacoes: string
 ): Promise<{ ok: boolean; erro?: string }> {
-  const { error } = await supabase
-    .from("membros")
-    .update({ observacoes_pastorais: observacoes.trim() || null, updated_at: new Date().toISOString() })
-    .eq("id", visitanteId);
-
-  if (error) return { ok: false, erro: error.message };
-  return { ok: true };
+  return conferir(
+    await supabase
+      .from("membros")
+      .update({ observacoes_pastorais: observacoes.trim() || null, updated_at: new Date().toISOString() })
+      .eq("id", visitanteId)
+      .select("id"),
+    "A observação pastoral",
+  );
 }
 
 /** Registra um novo acompanhamento (contato, visita, próximo passo). */
@@ -156,17 +164,24 @@ export async function tornarCongregado(
 ): Promise<{ ok: boolean; erro?: string }> {
   const hoje = new Date().toISOString().split("T")[0];
 
-  const { error } = await supabase
-    .from("membros")
-    .update({
-      tipo_pessoa:        "congregado",
-      status_acolhimento: "congregado",
-      data_congregado:    hoje,
-      updated_at:         new Date().toISOString(),
-    })
-    .eq("id", visitanteId);
-
-  if (error) return { ok: false, erro: error.message };
+  // Este era o pior dos cinco: quando a política barrava, a promoção não
+  // acontecia E o histórico logo abaixo gravava "foi recebido como
+  // congregado". Ficava um marco falso na vida da pessoa, com a ficha
+  // dizendo o contrário.
+  const r = conferir(
+    await supabase
+      .from("membros")
+      .update({
+        tipo_pessoa:        "congregado",
+        status_acolhimento: "congregado",
+        data_congregado:    hoje,
+        updated_at:         new Date().toISOString(),
+      })
+      .eq("id", visitanteId)
+      .select("id"),
+    "A recepção como congregado",
+  );
+  if (!r.ok) return r;
 
   // Registra o marco pastoral no histórico
   await logHistorico(
@@ -190,17 +205,20 @@ export async function tornarMembro(
 ): Promise<{ ok: boolean; erro?: string }> {
   const hoje = new Date().toISOString().split("T")[0];
 
-  const { error } = await supabase
-    .from("membros")
-    .update({
-      tipo_pessoa:        "membro",
-      status_acolhimento: "membro",
-      data_membro:        hoje,
-      updated_at:         new Date().toISOString(),
-    })
-    .eq("id", pessoaId);
-
-  if (error) return { ok: false, erro: error.message };
+  const r = conferir(
+    await supabase
+      .from("membros")
+      .update({
+        tipo_pessoa:        "membro",
+        status_acolhimento: "membro",
+        data_membro:        hoje,
+        updated_at:         new Date().toISOString(),
+      })
+      .eq("id", pessoaId)
+      .select("id"),
+    "A recepção como membro",
+  );
+  if (!r.ok) return r;
 
   await logHistorico(
     pessoaId,
@@ -273,17 +291,20 @@ export async function tornarCongregadoIntegrado(
 
   // Promover na tabela
   const hoje = new Date().toISOString().split("T")[0];
-  const { error } = await supabase
-    .from("membros")
-    .update({
-      tipo_pessoa:        "congregado",
-      status_acolhimento: "congregado",
-      data_congregado:    hoje,
-      updated_at:         new Date().toISOString(),
-    })
-    .eq("id", visitante.id);
-
-  if (error) return { ok: false, erro: error.message };
+  const r = conferir(
+    await supabase
+      .from("membros")
+      .update({
+        tipo_pessoa:        "congregado",
+        status_acolhimento: "congregado",
+        data_congregado:    hoje,
+        updated_at:         new Date().toISOString(),
+      })
+      .eq("id", visitante.id)
+      .select("id"),
+    "A promoção a congregado",
+  );
+  if (!r.ok) return r;
 
   await logHistorico(
     visitante.id,

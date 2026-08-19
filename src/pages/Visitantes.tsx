@@ -25,6 +25,7 @@ import {
 } from "@/lib/evolucaoFluxo";
 import { logHistorico } from "@/lib/historicoFluxo";
 import { normalizarTelefone, formatarTelefoneSemDDI } from "@/lib/telefone";
+import { conferir } from "@/lib/escritaConferida";
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
 
@@ -103,10 +104,14 @@ export default function Visitantes() {
   const registrarRetorno = async (v: VisitanteMembro) => {
     setBusyId(v.id);
     const novaContagem = (v.numero_visitas ?? 1) + 1;
-    const { error } = await supabase.from("membros")
-      .update({ numero_visitas: novaContagem, ...(novaContagem >= 2 ? { status_acolhimento: "retornou" } : {}) })
-      .eq("id", v.id);
-    if (error) toast.error(error.message);
+    const r = conferir(
+      await supabase.from("membros")
+        .update({ numero_visitas: novaContagem, ...(novaContagem >= 2 ? { status_acolhimento: "retornou" } : {}) })
+        .eq("id", v.id)
+        .select("id"),
+      "O retorno",
+    );
+    if (!r.ok) toast.error(r.erro);
     else { toast.success("Retorno registrado!"); load(); }
     setBusyId(null);
   };
@@ -144,12 +149,19 @@ export default function Visitantes() {
     const dataField = para === "congregado"
       ? { data_congregado: agora }
       : { data_membro: agora };
-    const { error } = await supabase
-      .from("membros")
-      .update({ tipo_pessoa: para, ...dataField } as any)
-      .eq("id", v.id);
-    if (error) {
-      toast.error(error.message);
+    // Se a politica barrar, a pessoa NAO muda de tipo. Sem esta conferencia,
+    // a tela comemorava "deu o proximo passo" e o historico gravava a
+    // promocao — enquanto a ficha continuava dizendo visitante.
+    const r = conferir(
+      await supabase
+        .from("membros")
+        .update({ tipo_pessoa: para, ...dataField } as any)
+        .eq("id", v.id)
+        .select("id"),
+      "A mudanca de vinculo",
+    );
+    if (!r.ok) {
+      toast.error(r.erro);
     } else {
       const label = para === "congregado" ? "Congregado" : "Membro";
       toast.success(`${v.nome_completo.split(" ")[0]} deu o próximo passo — agora é ${label}! 🎉`);
