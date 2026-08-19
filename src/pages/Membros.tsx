@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Pencil, Link2, Briefcase, Sparkles, BarChart3, MoreHorizontal, MessageCircle, IdCard } from "lucide-react";
+import { Plus, Search, Pencil, Link2, Briefcase, Sparkles, BarChart3, MoreHorizontal, MessageCircle, IdCard, Cake } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -22,6 +22,7 @@ import { ListSkeleton, EmptyState, ErrorState } from "@/components/ListState";
 import { StatusMembroBadge } from "@/components/membros/StatusMembroBadge";
 import ContatoResultadoDialog from "@/components/membros/ContatoResultadoDialog";
 import { logHistorico } from "@/lib/historicoFluxo";
+import { formatarTelefoneSemDDI, normalizarTelefone, telefoneValido } from "@/lib/telefone";
 
 export interface Membro {
     id: string;
@@ -189,9 +190,148 @@ function AcoesPessoa({ m, onEditar, onVinculos, onAtuacoes, onVisitante, onConta
 // Cor com significado, nao decoracao: cinza ate 30 dias, ambar depois, e a
 // mesma cor de alerta do painel para quem nunca foi contatado. Numa lista de
 // 20 linhas, e o que deixa a resposta aparecer sem precisar ler data por data.
-function UltimoContato({ quando }: { quando?: string | null }) {
+/**
+ * Onde a pessoa está ligada na igreja: ministério, liderança, classe de EBD.
+ *
+ * Estes cinco campos — areas, lider_ministerios, lider_areas, classe_ebd e
+ * classes_professor — JÁ eram carregados em toda abertura da tela, por cinco
+ * consultas que rodavam a cada visita, e nenhum aparecia. A lista mostrava
+ * nome, tipo, telefone e último contato de 281 pessoas exatamente iguais entre
+ * si.
+ *
+ * Com isto, uma varredura da lista responde a pergunta que a lista não
+ * respondia: quem está ligado a alguma coisa, e quem não está a nada.
+ *
+ * Liderança vem primeiro porque muda o que a linha significa: quem lidera o
+ * Louvor não é "mais um do Louvor". Depois o ministério, depois a EBD — da
+ * responsabilidade para a participação.
+ */
+function vinculos(m: Membro): string[] {
+  const fora: string[] = [];
+
+  const lidera = [...(m.lider_ministerios ?? []), ...(m.lider_areas ?? [])];
+  if (lidera.length) fora.push(`Lidera ${lidera[0]}`);
+  else if (m.areas?.length) fora.push(m.areas[0]);
+
+  if (m.classes_professor?.length) fora.push(`Ensina ${m.classes_professor[0]}`);
+  else if (m.classe_ebd) fora.push(m.classe_ebd);
+
+  return fora;
+}
+
+/**
+ * Quantos dias faltam para o próximo aniversário. Hoje = 0.
+ *
+ * `data_nascimento` já vinha no `select("*")` e não aparecia em lugar
+ * nenhum desta tela. Só 106 das 283 pessoas têm a data preenchida, e
+ * apenas duas fazem aniversário nos próximos sete dias — é justamente por
+ * ser raro que a marca vale: duas linhas marcadas numa página saltam aos
+ * olhos, enquanto uma marca em toda linha não diria nada.
+ *
+ * Comparação por dia e mês, sem construir data com o ano corrente: 29 de
+ * fevereiro viraria 1º de março em ano comum, e a pessoa sumiria da
+ * semana em que faz aniversário.
+ */
+function diasAteAniversario(nascimento?: string | null): number | null {
+  if (!nascimento) return null;
+  const [, mes, dia] = nascimento.split("-").map(Number);
+  if (!mes || !dia) return null;
+
+  const hoje = new Date();
+  for (let i = 0; i <= 366; i++) {
+    const d = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() + i);
+    if (d.getMonth() + 1 === mes && d.getDate() === dia) return i;
+  }
+  return null;
+}
+
+/** Faz aniversário dentro do mês corrente — a pergunta que a secretaria faz. */
+function aniversarioNesteMes(nascimento?: string | null): boolean {
+  if (!nascimento) return false;
+  return Number(nascimento.split("-")[1]) === new Date().getMonth() + 1;
+}
+
+/**
+ * O bolinho ao lado do nome. Aparece só na semana do aniversário, porque é
+ * quando ele muda o que alguém faria: ligar hoje, e não "algum dia".
+ */
+function MarcaAniversario({ nascimento }: { nascimento?: string | null }) {
+  const dias = diasAteAniversario(nascimento);
+  if (dias === null || dias > 7) return null;
+
+  const texto = dias === 0 ? "Faz aniversário hoje"
+              : dias === 1 ? "Faz aniversário amanhã"
+              : `Faz aniversário em ${dias} dias`;
+
+  return (
+    <span
+      title={texto}
+      aria-label={texto}
+      className={`inline-flex items-center gap-1 shrink-0 text-xs font-normal ${
+        dias === 0 ? "text-warning" : "text-muted-foreground"
+      }`}
+    >
+      <Cake className="w-3.5 h-3.5" aria-hidden />
+      {dias === 0 ? "hoje" : `${dias}d`}
+    </span>
+  );
+}
+
+/**
+ * Telefone legível e acionável.
+ *
+ * Duas coisas mudaram. A tabela mostrava "5521975224438" — ninguém lê isso
+ * como telefone nem consegue ditar em voz alta —, e `formatarTelefone` já
+ * existia em lib/telefone.ts sem nenhum uso aqui. O "+55" foi embora: é
+ * igual nas 283 linhas, e o que distingue uma da outra é o DDD.
+ *
+ * E o número virou link de WhatsApp. Esta é uma tela de cuidado: entre ver
+ * o telefone e falar com a pessoa havia copiar, trocar de aplicativo e
+ * colar. O link não envia nada — abre a conversa e quem escreve é a pessoa.
+ */
+function Telefone({ numero }: { numero?: string | null }) {
+  if (!numero) return <span className="text-muted-foreground">—</span>;
+
+  const legivel = formatarTelefoneSemDDI(numero);
+  if (!telefoneValido(numero)) {
+    // Número quebrado no cadastro: mostra o que há, mas não oferece uma
+    // conversa que abriria vazia do outro lado.
+    return (
+      <span className="text-muted-foreground" title="Número incompleto no cadastro">
+        {legivel || numero}
+      </span>
+    );
+  }
+
+  return (
+    <a
+      href={`https://wa.me/${normalizarTelefone(numero)}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={(e) => e.stopPropagation()}
+      className="text-muted-foreground hover:text-success hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+      title={`Abrir conversa no WhatsApp com ${legivel}`}
+    >
+      {legivel}
+    </a>
+  );
+}
+
+function UltimoContato({ quando, alcancavel }: { quando?: string | null; alcancavel: boolean }) {
   if (!quando) {
-    return <span className="text-sm text-warning">Nunca</span>;
+    // Âmbar só para quem a igreja CONSEGUE procurar.
+    //
+    // Antes, "Nunca" saía em âmbar nas 281 linhas — e 189 delas são de gente
+    // sem telefone utilizável. Marcar essas de alerta culpa a pessoa errada:
+    // ninguém deixou de ligar para elas, não há para onde ligar. E âmbar em
+    // tudo é âmbar em nada — as 92 que dá para procurar hoje ficavam
+    // invisíveis no meio das outras.
+    return (
+      <span className={`text-sm ${alcancavel ? "text-warning" : "text-muted-foreground"}`}>
+        Nunca
+        {!alcancavel && <span className="text-xs"> · sem telefone</span>}
+      </span>
+    );
   }
   const dias = Math.floor((Date.now() - new Date(quando).getTime()) / 86_400_000);
   const texto =
@@ -411,7 +551,11 @@ export default function Membros() {
         load();
   }, []);
 
-  const filtered = useMemo(() => membros.filter((m) => {
+  // Duas etapas de propósito. `baseFiltrados` é "quem está em jogo" — busca,
+  // tipo e perfil. É sobre ele que os atalhos contam, para que os números que
+  // eles mostram nunca contradigam o que a tela está exibindo: com o tipo em
+  // "Visitante", o atalho não pode prometer 94 pessoas para procurar.
+  const baseFiltrados = useMemo(() => membros.filter((m) => {
         const q = search.toLowerCase();
         const matchSearch =
                 !q ||
@@ -421,6 +565,11 @@ export default function Membros() {
         const matchTipo = tipoFiltro === "todos" || m.tipo_pessoa === tipoFiltro;
         const matchPerfil = perfilFiltro === "todos" || m.perfil_acesso === perfilFiltro;
 
+        return matchSearch && matchTipo && matchPerfil;
+  }), [membros, search, tipoFiltro, perfilFiltro]);
+
+  const filtered = useMemo(() => baseFiltrados.filter((m) => {
+
         // "Nunca" e "ha mais de N dias" sao perguntas diferentes e ambas
         // importam: nunca contatado e alguem que o sistema nunca alcancou;
         // contatado ha 90 dias e alguem que se esfriou. Misturar as duas
@@ -428,13 +577,30 @@ export default function Membros() {
         const diasSemContato = m.ultimo_contato_em
           ? Math.floor((Date.now() - new Date(m.ultimo_contato_em).getTime()) / 86_400_000)
           : null;
+        // "Dá para procurar" é a única pergunta desta lista que termina em
+        // alguém pegando o telefone: nunca contatada E com número que funciona.
+        // São 94 das 283. As outras 189 não estão esquecidas — estão sem
+        // telefone, que é problema de cadastro e não de cuidado, e por isso
+        // tem atalho próprio em vez de ficar escondido dentro do mesmo balde.
         const matchCuidado =
           cuidadoFiltro === "todos" ? true
           : cuidadoFiltro === "nunca" ? diasSemContato === null
+          : cuidadoFiltro === "alcancavel" ? diasSemContato === null && telefoneValido(m.telefone_celular)
+          : cuidadoFiltro === "sem_telefone" ? !telefoneValido(m.telefone_celular)
+          : cuidadoFiltro === "aniversario_mes" ? aniversarioNesteMes(m.data_nascimento)
           : diasSemContato === null || diasSemContato >= Number(cuidadoFiltro);
 
-        return matchSearch && matchTipo && matchPerfil && matchCuidado;
-  }), [membros, search, tipoFiltro, perfilFiltro, cuidadoFiltro]);
+        return matchCuidado;
+  }), [baseFiltrados, cuidadoFiltro]);
+
+  // Os quatro números que resumem esta lista. Contados aqui, uma vez, e não
+  // dentro do JSX — o mesmo `baseFiltrados` alimenta os atalhos e a tabela.
+  const atalhos = useMemo(() => [
+    { id: "todos",           rotulo: "Todas",                 n: baseFiltrados.length },
+    { id: "alcancavel",      rotulo: "Dá para procurar",      n: baseFiltrados.filter(m => !m.ultimo_contato_em && telefoneValido(m.telefone_celular)).length },
+    { id: "aniversario_mes", rotulo: "Aniversário este mês",  n: baseFiltrados.filter(m => aniversarioNesteMes(m.data_nascimento)).length },
+    { id: "sem_telefone",    rotulo: "Sem telefone",          n: baseFiltrados.filter(m => !telefoneValido(m.telefone_celular)).length },
+  ], [baseFiltrados]);
 
   const totalPaginas = Math.max(1, Math.ceil(filtered.length / POR_PAGINA));
   const paginaAtual = Math.min(pagina, totalPaginas);
@@ -518,10 +684,13 @@ export default function Membros() {
                                                   </SelectTrigger>
                                                   <SelectContent>
                                                                 <SelectItem value="todos">Qualquer contato</SelectItem>
+                                                                <SelectItem value="alcancavel">Nunca contatadas · com telefone</SelectItem>
                                                                 <SelectItem value="nunca">Nunca contatadas</SelectItem>
                                                                 <SelectItem value="30">Sem contato há 30 dias</SelectItem>
                                                                 <SelectItem value="60">Sem contato há 60 dias</SelectItem>
                                                                 <SelectItem value="90">Sem contato há 90 dias</SelectItem>
+                                                                <SelectItem value="aniversario_mes">Aniversário este mês</SelectItem>
+                                                                <SelectItem value="sem_telefone">Sem telefone cadastrado</SelectItem>
                                                   </SelectContent>
                                       </Select>
                                       <Select value={perfilFiltro} onValueChange={setPerfilFiltro}>
@@ -542,6 +711,44 @@ export default function Membros() {
                                       </Select>
                             </div>
                     
+                            {/* ── Atalhos com número ─────────────────────────────────
+                                Três seletores lado a lado dizem o que É POSSÍVEL
+                                perguntar, e nenhum diz o que a lista tem para
+                                responder. Era preciso abrir "Cuidado", escolher uma
+                                opção e contar linha por linha para descobrir que 94
+                                pessoas dão para procurar hoje — número que já estava
+                                ali, recalculado a cada carregamento e mostrado em
+                                lugar nenhum.
+
+                                Os atalhos são o MESMO estado do seletor de Cuidado, e
+                                não um filtro paralelo: clicar no atalho muda o
+                                seletor, e mudar o seletor acende o atalho. Dois
+                                controles capazes de se contradizer seriam piores que
+                                nenhum. Clicar no que já está aceso volta para "Todas". */}
+                            {!loading && !error && membros.length > 0 && (
+                              <div className="flex flex-wrap gap-2" role="group" aria-label="Atalhos de filtro">
+                                {atalhos.map((a) => {
+                                  const ativo = cuidadoFiltro === a.id;
+                                  return (
+                                    <button
+                                      key={a.id}
+                                      type="button"
+                                      aria-pressed={ativo}
+                                      onClick={() => setCuidadoFiltro(ativo ? "todos" : a.id)}
+                                      className={`min-h-[44px] px-3 rounded-full border text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                                        ativo
+                                          ? "bg-primary text-primary-foreground border-primary"
+                                          : "bg-background hover:bg-muted border-border"
+                                      }`}
+                                    >
+                                      <span className="font-semibold tabular-nums">{a.n}</span>{" "}
+                                      <span className={ativo ? "" : "text-muted-foreground"}>{a.rotulo}</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+
                       {loading ? (
                                     <ListSkeleton className="grid gap-3" count={5} />
                                   ) : error ? (
@@ -569,7 +776,10 @@ export default function Membros() {
                                                                                                               seguinte. Quando dividiam a mesma linha flex, as etiquetas
                                                                                                               venciam a disputa por espaco e o nome — a informacao que
                                                                                                               identifica a pessoa — era truncado ate virar "Adriana ...". */}
-                                                                                                          <p className="font-medium truncate">{m.nome_completo}</p>
+                                                                                                          <p className="font-medium flex items-center gap-2 min-w-0">
+                                                                                                            <span className="truncate">{m.nome_completo}</span>
+                                                                                                            <MarcaAniversario nascimento={m.data_nascimento} />
+                                                                                                          </p>
                                                                                                           {/* Etiqueta marca excecao, nao regra. "Membro" aparecia na
                                                                                                               maioria dos 281 cadastros e "Ativo" em 273 deles — uma marca
                                                                                                               presente em 97% dos casos nao informa nada. Aqui so aparece
@@ -585,9 +795,40 @@ export default function Membros() {
                                                                                                               )}
                                                                                                             </div>
                                                                                                           )}
-                                                                                                          <div className="text-sm text-muted-foreground truncate">
-                                                                                                            {[m.telefone_celular, m.email, m.bairro].filter(Boolean).join(" • ") || "—"}
-                                                                                                            </div>
+                                                                                                          {/* O telefone saiu do amontoado "telefone • email • bairro", que era
+                                                                                                              montado com join e virava um bloco de texto cru. No celular, que é
+                                                                                                              onde este cartão aparece, o número é a única coisa desta linha que
+                                                                                                              leva a algum lugar: um toque abre a conversa. Email e bairro seguem
+                                                                                                              depois, em cinza, como o contexto que são. */}
+                                                                                                          {(() => {
+                                                                                                            // Sem telefone, o traço do componente colava no bairro ("—Praça da
+                                                                                                            // Bandeira"). Aqui o traço só aparece quando NÃO HÁ nada nesta linha —
+                                                                                                            // que é quando ele quer dizer alguma coisa.
+                                                                                                            const resto = [m.email, m.bairro].filter(Boolean);
+                                                                                                            return (
+                                                                                                              <div className="text-sm truncate">
+                                                                                                                {m.telefone_celular && <Telefone numero={m.telefone_celular} />}
+                                                                                                                {resto.length > 0 && (
+                                                                                                                  <span className="text-muted-foreground">
+                                                                                                                    {m.telefone_celular ? " · " : ""}{resto.join(" · ")}
+                                                                                                                  </span>
+                                                                                                                )}
+                                                                                                                {!m.telefone_celular && resto.length === 0 && (
+                                                                                                                  <span className="text-muted-foreground">—</span>
+                                                                                                                )}
+                                                                                                              </div>
+                                                                                                            );
+                                                                                                          })()}
+                                                                                                          {/* Os vínculos também entram no cartão. A tabela do desktop passou a
+                                                                                                              mostrar ministério, liderança e EBD; deixar o celular sem eles faria
+                                                                                                              a mesma lista responder coisas diferentes conforme o aparelho — e o
+                                                                                                              celular é onde a liderança abre isto, em pé, durante o culto. */}
+                                                                                                          {(() => {
+                                                                                                            const v = vinculos(m);
+                                                                                                            return v.length > 0 ? (
+                                                                                                              <div className="text-xs text-muted-foreground truncate mt-0.5">{v.join(" · ")}</div>
+                                                                                                            ) : null;
+                                                                                                          })()}
                                                                                                           {/* Etiquetas de vinculo — EBD, professor, lider, areas — saem
                                                                                                               da listagem. Sao contexto de ficha: ninguem procura uma pessoa
                                                                                                               por classe de EBD nesta tela, e chegavam a seis por linha,
@@ -645,10 +886,25 @@ export default function Membros() {
                                             // isso ele media 20px — so a altura do texto — e virava
                                             // um alvo estreito no meio de uma linha alta, alem de
                                             // ficar abaixo dos 24px minimos da WCAG 2.5.8.
-                                            className="block w-full min-w-0 py-3 text-left truncate font-medium hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+                                            className="block w-full min-w-0 py-2 text-left font-medium hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
                                             onClick={() => { setEditing(m); setOpen(true); }}
                                           >
-                                            {m.nome_completo}
+                                            <span className="flex items-center gap-2 min-w-0">
+                                              <span className="truncate">{m.nome_completo}</span>
+                                              <MarcaAniversario nascimento={m.data_nascimento} />
+                                            </span>
+                                            {/* Segunda linha só quando há o que dizer. Quem não
+                                                serve, não lidera e não estuda não ganha um "—":
+                                                a ausência da linha já é a informação, e um traço
+                                                em 200 linhas seria só ruído. */}
+                                            {(() => {
+                                              const v = vinculos(m);
+                                              return v.length > 0 ? (
+                                                <span className="block truncate text-xs font-normal text-muted-foreground mt-0.5">
+                                                  {v.join(" · ")}
+                                                </span>
+                                              ) : null;
+                                            })()}
                                           </button>
                                         </th>
                                         <td className="px-3 py-0">
@@ -668,7 +924,7 @@ export default function Membros() {
                                               sem telefone ninguem consegue ser contatado. */}
                                         </td>
                                         <td className="px-3 py-0 text-muted-foreground tabular-nums">
-                                          {m.telefone_celular || "—"}
+                                          <Telefone numero={m.telefone_celular} />
                                         </td>
                                         {/* O bairro saiu daqui para o "Último contato" entrar.
                                             Numa tela de cuidado, quando alguem falou com a
@@ -677,7 +933,7 @@ export default function Membros() {
                                             na ficha. A coluna e o que torna a pergunta
                                             pastoral visivel sem abrir nada. */}
                                         <td className="px-3 py-0">
-                                          <UltimoContato quando={m.ultimo_contato_em} />
+                                          <UltimoContato quando={m.ultimo_contato_em} alcancavel={telefoneValido(m.telefone_celular)} />
                                         </td>
                                         <td className="px-3 py-0">
                                           {/* Sem o lapis aqui: nesta tabela o nome ja e o
