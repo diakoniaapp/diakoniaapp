@@ -343,9 +343,10 @@ export function AgendaDoDia() {
                 momento === "agora" ? "text-gold font-medium" : "text-muted-foreground"
               }`}>
                 {hora ? (
-                  <span className="inline-flex items-center gap-1">
-                    <Clock className="w-3 h-3" />{hora}
-                  </span>
+                  // Sem relogio: esta e a COLUNA do horario, e ela alterna
+                  // com "dia todo" no mesmo lugar. O icone se repetia uma vez
+                  // por evento para dizer o que "19:00" ja diz sozinho.
+                  <span className="tabular-nums">{hora}</span>
                 ) : (
                   <span className="italic">dia todo</span>
                 )}

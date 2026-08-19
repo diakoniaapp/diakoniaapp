@@ -112,9 +112,10 @@ export default function Pgm() {
 
                 {(g.dia_semana != null || g.horario) && (
                   <p className="flex items-center gap-1.5 text-muted-foreground">
-                    <Calendar className="w-3 h-3" />
+                    {/* Dois icones para separar duas palavras era tinta demais.
+                        Um ponto medio separa igual e nao disputa atencao. */}
                     {diaSemanaTexto(g.dia_semana)}
-                    {g.horario && <><Clock className="w-3 h-3 ml-1" /> {horarioTexto(g.horario)}</>}
+                    {g.horario && <> · {horarioTexto(g.horario)}</>}
                   </p>
                 )}
 

@@ -199,7 +199,10 @@ export default function PgmGrupo() {
             {(grupo.dia_semana != null || grupo.horario) && (
               <span className="flex items-center gap-1">
                 <Calendar className="w-3 h-3" /> {diaSemanaTexto(grupo.dia_semana)}
-                {grupo.horario && <> <Clock className="w-3 h-3 ml-0.5" /> {horarioTexto(grupo.horario)}</>}
+                {/* O Calendar acima marca o TIPO deste bloco (dia/hora), distinguindo-o
+                    do bairro ao lado. Ja o relogio entre "Quinta" e "19:30" nao
+                    distinguia nada: um ponto medio separa igual, com menos tinta. */}
+                {grupo.horario && <> · {horarioTexto(grupo.horario)}</>}
               </span>
             )}
             {grupo.bairro && (
