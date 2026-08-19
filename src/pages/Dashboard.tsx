@@ -18,6 +18,7 @@ import { VazioCtx, type ReportarVazio } from "@/components/hoje/vazio";
 import { Suspense } from "react";
 import { getWidgetsDivididos } from "@/dashboard/widgetRegistry";
 import { getAcoesParaUsuario } from "@/dashboard/quickActionsRegistry";
+import { ListSkeleton } from "@/components/ListState";
 
 
 // A frase de incentivo por perfil ("Servir com fidelidade é adorar ao
@@ -118,7 +119,24 @@ export default function Dashboard() {
       <div className="p-4 md:p-8 space-y-10 max-w-7xl mx-auto">
 
 
-        {/* ── ZONA 2 — AÇÃO: atalhos rápidos do perfil (registry) ───── */}
+        {/* ── O DIA, e depois as ferramentas ──────────────────────────────
+
+            Esta tela abria com "Ações rápidas": seis atalhos genéricos —
+            Cadastrar pessoa, Lançamento, Solicitar membresia — que são os
+            mesmos todo santo dia, tenha ou não algo a fazer. Abaixo deles
+            vinha a agenda, e só em terceiro lugar o aniversário de alguém.
+
+            Um bloco que diz a mesma coisa todo dia não informa nada; ele só
+            ocupa o lugar mais valioso da tela. E o lugar mais valioso é o
+            primeiro, porque é o único que todo mundo vê.
+
+            Invertido: primeiro o que HOJE pede (prioridade 0 do registry),
+            depois as ferramentas. Os atalhos não sumiram nem ficaram longe
+            — continuam acima da dobra na maioria das telas, e agora
+            convivem com a barra lateral, que desde o menu que aprende leva
+            aos destinos mais usados da própria pessoa. */}
+        <WidgetsDinamicos permissoes={permissoes} apenas="hoje" />
+
         <BlocoSecao titulo="Ações rápidas" icon={Sparkles} subtitulo="Atalhos relevantes para você">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
             {getAcoesParaUsuario({ permissoes }, { limite: 6 }).map(a => (
@@ -149,8 +167,8 @@ export default function Dashboard() {
             barra inferior do celular, onde ele resolve um problema real — o de
             caber um atalho de contexto num espaço de cinco alvos. */}
 
-        {/* ── ZONA 3 — CONTEXTO: widgets essenciais (P0-P2 até limite) ─ */}
-        <WidgetsDinamicos permissoes={permissoes} />
+        {/* ── O resto: contexto, não convocação ─────────────────────── */}
+        <WidgetsDinamicos permissoes={permissoes} apenas="resto" />
 
       </div>
 
@@ -229,10 +247,23 @@ function AcaoRapida({ to, icon: Icon, label }: AcaoRapidaProps) {
 }
 
 // ─── Sub-componente: lista de widgets com "Ver mais" ────────────────────
-function WidgetsDinamicos({ permissoes }: { permissoes: Set<string> }) {
+/**
+ * `apenas="hoje"`  — só o que exige alguém hoje (prioridade 0).
+ * `apenas="resto"` — o contexto, que se lê quando sobra tempo.
+ *
+ * A divisão é a mesma do registry; o que mudou foi a tela deixar de tratar
+ * as duas metades como uma lista contínua. "Ações de hoje" e "Resumo da
+ * EBD" não são o mesmo tipo de coisa e não podiam ficar empilhados com o
+ * mesmo peso.
+ */
+function WidgetsDinamicos({ permissoes, apenas }: { permissoes: Set<string>; apenas: "hoje" | "resto" }) {
   const [verTodos, setVerTodos] = useState(false);
   const { essenciais, secundarios } = getWidgetsDivididos({ permissoes }, { limiteEssencial: 5 });
-  const lista = verTodos ? [...essenciais, ...secundarios] : essenciais;
+  const doDia = essenciais.filter(w => w.prioridade === 0);
+  const demais = essenciais.filter(w => w.prioridade !== 0);
+  const lista = apenas === "hoje"
+    ? doDia
+    : (verTodos ? [...demais, ...secundarios] : demais);
 
   return (
     <>
@@ -241,17 +272,15 @@ function WidgetsDinamicos({ permissoes }: { permissoes: Set<string> }) {
         const Comp = w.component;
         return (
           <BlocoSecao key={w.id} titulo={w.label} icon={Icon} subtitulo={w.subtitulo}>
-            <Suspense fallback={
-              <div className="py-4 text-center text-xs text-muted-foreground">
-                <Loader2 className="w-3 h-3 animate-spin inline mr-1.5" /> Carregando...
-              </div>
-            }>
+            {/* Esqueleto, e não roda: o bloco já tem título e altura
+                conhecida, então dá para desenhar a forma do que vem. */}
+            <Suspense fallback={<ListSkeleton count={2} className="grid gap-2" />}>
               <Comp />
             </Suspense>
           </BlocoSecao>
         );
       })}
-      {!verTodos && secundarios.length > 0 && (
+      {apenas === "resto" && !verTodos && secundarios.length > 0 && (
         <div className="text-center pt-2">
           <Button variant="ghost" size="sm" className="text-xs text-muted-foreground"
             onClick={() => setVerTodos(true)}>

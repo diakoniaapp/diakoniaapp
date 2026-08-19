@@ -87,19 +87,35 @@ export const widgetRegistry: Widget[] = [
     permissoes: ["ver_pessoas","ver_painel_pastoral","ver_painel_secretaria","ver_painel_admin"],
     prioridade: 0, ativo: false },
 
-  { id: "agenda-do-dia", label: "Acontecendo hoje",
-    subtitulo: "Cultos, reuniões, ensaios e reservas de hoje",
-    icone: CalendarDays, component: AgendaDoDia,
-    permissoes: ["ver_pessoas","ver_familias","ver_ebd","ver_pgm"], prioridade: 0 },
-
-  // Primeiro widget do painel. Aniversario, bodas e visita de hoje sao a unica
-  // coisa da tela que perde a validade ao fim do dia — um cadastro incompleto
-  // continua incompleto amanha. E, quando o dia nao tem nenhum, o bloco se
-  // apaga e devolve o espaco.
+  // "Ações de hoje" passou à frente de "Acontecendo hoje". Os dois são
+  // prioridade 0, e a ordem do array é o desempate — então ela é uma
+  // decisão, não um acaso de digitação.
+  //
+  // "Acontecendo hoje" LISTA a agenda: culto às 19h, ensaio às 20h. É
+  // informação, e não pede nada de ninguém — o culto acontece com ou sem
+  // esta tela.
+  //
+  // "Ações de hoje" NOMEIA UMA PESSOA e oferece o botão de falar com ela:
+  // "Joseana Viegas de Souza, 23 anos hoje" · [Enviar mensagem]. É a única
+  // coisa na tela que não acontece sozinha, e a única que deixa de
+  // acontecer se ninguém abrir o sistema.
+  //
+  // Quem cuida abre o Diakonia perguntando "o que precisa de mim agora?".
+  // A resposta tem que ser a primeira coisa.
+  // Aniversário, bodas e visita de hoje são a única coisa da tela que perde
+  // a validade ao fim do dia — um cadastro incompleto continua incompleto
+  // amanhã. E, quando o dia não tem nenhum, o bloco se apaga e devolve o
+  // espaço. O comentário aqui já dizia "primeiro widget do painel"; agora
+  // ele também é verdade.
   { id: "acoes-do-dia", label: "Ações de hoje",
     subtitulo: "Aniversários, bodas e visitas que acontecem agora",
     icone: CalendarCheck, component: AcoesDoDia,
     permissoes: ["ver_pessoas"], prioridade: 0 },
+
+  { id: "agenda-do-dia", label: "Acontecendo hoje",
+    subtitulo: "Cultos, reuniões, ensaios e reservas de hoje",
+    icone: CalendarDays, component: AgendaDoDia,
+    permissoes: ["ver_pessoas","ver_familias","ver_ebd","ver_pgm"], prioridade: 0 },
 
   { id: "alertas-inteligentes", label: "Alertas inteligentes",
     subtitulo: "Coisas que precisam da sua decisão",
