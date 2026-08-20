@@ -20,6 +20,8 @@ import { GraduationCap } from "lucide-react";
 import { BuscaPessoa } from "@/components/ui/BuscaPessoa";
 import { FamiliaBloco } from "@/components/familias/FamiliaBloco";
 import { listarClasses, sugerirClasse, classesDaPessoa, type EbdClasse } from "@/services/ebdService";
+import { PassoDisponibilidade } from "@/components/membros/PassoDisponibilidade";
+import { carregarPerfil, salvarPerfil, PERFIL_VAZIO, type PerfilServico } from "@/services/perfilServico";
 import { normalizarTelefone, validarTelefone, formatarTelefoneSemDDI } from "@/lib/telefone";
 import {
   FUNCAO_MINISTERIAL, FUNCOES_EM_ORDEM, funcaoAposentada, rotuloFuncao,
@@ -135,11 +137,32 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
   // Estava junto de áreas de atuação e família, e ninguém procura permissão
   // de login nesse meio — a pergunta "onde eu escolho o perfil da pessoa?"
   // tinha resposta e mesmo assim não se achava.
-  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
+  // Seis passos desde 19/08/2026: "Disponibilidade" entrou antes da Revisão.
+  // Ela é a única peça do ecossistema de escalas que não existia — o resto do
+  // banco já tinha tudo. Ver services/perfilServico.ts.
+  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5 | 6>(1);
+
+  // O perfil de serviço mora em outra tabela (perfil_servico), com política
+  // de escrita PRÓPRIA — e mais generosa que a de `membros`: `lideranca`
+  // pode gravar aqui, e não pode lá. Por isso é uma gravação lateral, como
+  // as áreas e a matrícula de EBD, e não parte do payload.
+  const [perfil, setPerfil] = useState<PerfilServico>(PERFIL_VAZIO);
+
+  // Sem isto, salvar QUALQUER pessoa criaria uma linha de perfil vazia — e
+  // "ninguém perguntou" viraria indistinguível de "perguntaram e ela não
+  // pode nenhum dia". São 282 pessoas: a tabela nasceria poluída, e o
+  // painel não teria como dizer a verdade sobre nenhuma delas.
+  const [perfilTocado, setPerfilTocado] = useState(false);
 
   // Reset wizard step quando abrir
   useEffect(() => {
     if (open) setStep(1);
+    // Perfil vem junto com a abertura. Pessoa sem perfil devolve null, e o
+    // formulário começa no PERFIL_VAZIO — que não é "indisponível", é
+    // "ninguém perguntou ainda".
+    if (open && membro?.id) carregarPerfil(membro.id).then(p => setPerfil(p ?? PERFIL_VAZIO));
+    if (open && !membro) setPerfil(PERFIL_VAZIO);
+    if (open) setPerfilTocado(false);
   }, [open]);
 
   // EBD: classes disponíveis e seleção atual
@@ -271,7 +294,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     // ⚠️ Guard: só salva no STEP FINAL (Revisão). Avancos intermediarios sao no botao "Proximo".
-    if (step !== 5) return;
+    if (step !== 6) return;
 
     if (!form.nome_completo.trim()) return toast.error("Informe o nome");
 
@@ -381,6 +404,18 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
       } catch (e: any) {
         console.warn("Sync de áreas falhou:", e?.message);
       }
+    }
+
+    // Perfil de serviço — gravação lateral, como as áreas logo acima.
+    //
+    // Silencia a falha de propósito, no mesmo espírito do sync de áreas: o
+    // cadastro da pessoa JÁ foi salvo neste ponto, e derrubar o formulário
+    // inteiro porque a disponibilidade não gravou faria a secretária refazer
+    // tudo. Mas AVISA — porque, ao contrário do que acontecia antes nesta
+    // base, um "salvo" que esconde uma gravação perdida é pior que o erro.
+    if (pessoaId && perfilTocado) {
+      const r = await salvarPerfil(pessoaId, perfil);
+      if (!r.ok) toast.warning("Cadastro salvo, mas a disponibilidade não: " + r.erro);
     }
 
     // EBD: sincronizar matrícula
@@ -532,7 +567,8 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                 { n: 2 as const, label: "Contato" },
                 { n: 3 as const, label: "Vínculos" },
                 { n: 4 as const, label: "Acesso" },
-                { n: 5 as const, label: "Revisão" },
+                { n: 5 as const, label: "Quando serve" },
+                { n: 6 as const, label: "Revisão" },
               ]).map((p, idx, arr) => (
                 <div key={p.n} className="flex items-center flex-1">
                   <button
@@ -1077,8 +1113,17 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
             </div>
                         </>)}
 
-            {/* ── STEP 5 — REVISÃO ── */}
+            {/* ── STEP 5 — QUANDO SERVE ── */}
             {step === 5 && (
+              <PassoDisponibilidade
+                valor={perfil}
+                onChange={p => { setPerfil(p); setPerfilTocado(true); }}
+                novaPessoa={!membro}
+              />
+            )}
+
+            {/* ── STEP 6 — REVISÃO ── */}
+            {step === 6 && (
               <section className="space-y-3">
                 <div className="rounded-md border bg-gradient-verse p-4 text-center">
                   <h3 className="font-serif text-lg">Quase lá! Confira os dados</h3>
@@ -1131,7 +1176,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
               )}
               {step > 1 ? (
                 <Button type="button" variant="outline"
-                  onClick={() => setStep(((step as number) - 1) as 1 | 2 | 3 | 4 | 5)}
+                  onClick={() => setStep(((step as number) - 1) as 1 | 2 | 3 | 4 | 5 | 6)}
                   disabled={busy}>
                   ← Anterior
                 </Button>
@@ -1173,7 +1218,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                       toast.error("Telefone é obrigatório para visitante");
                       return;
                     }
-                    setStep(((step as number) + 1) as 1 | 2 | 3 | 4 | 5);
+                    setStep(((step as number) + 1) as 1 | 2 | 3 | 4 | 5 | 6);
                   }}
                   disabled={busy}>
                   Próximo →
