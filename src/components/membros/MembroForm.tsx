@@ -21,7 +21,7 @@ import { BuscaPessoa } from "@/components/ui/BuscaPessoa";
 import { FamiliaBloco } from "@/components/familias/FamiliaBloco";
 import { listarClasses, sugerirClasse, classesDaPessoa, type EbdClasse } from "@/services/ebdService";
 import { PassoDisponibilidade } from "@/components/membros/PassoDisponibilidade";
-import { carregarPerfil, salvarPerfil, PERFIL_VAZIO, type PerfilServico } from "@/services/perfilServico";
+import { carregarPerfil, salvarPerfil, resumoLegivel, PERFIL_VAZIO, type PerfilServico } from "@/services/perfilServico";
 import { normalizarTelefone, validarTelefone, formatarTelefoneSemDDI } from "@/lib/telefone";
 import {
   FUNCAO_MINISTERIAL, FUNCOES_EM_ORDEM, funcaoAposentada, rotuloFuncao,
@@ -566,8 +566,8 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                 { n: 1 as const, label: "Identificação" },
                 { n: 2 as const, label: "Contato" },
                 { n: 3 as const, label: "Vínculos" },
-                { n: 4 as const, label: "Acesso" },
-                { n: 5 as const, label: "Quando serve" },
+                { n: 4 as const, label: "Quando serve" },
+                { n: 5 as const, label: "Acesso" },
                 { n: 6 as const, label: "Revisão" },
               ]).map((p, idx, arr) => (
                 <div key={p.n} className="flex items-center flex-1">
@@ -1070,7 +1070,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                         </>)}
 
             {/* ── STEP 4 — ACESSO AO SISTEMA ── */}
-            {step === 4 && (<>
+            {step === 5 && (<>
             <div className="space-y-3">
               <div>
                 <p className="text-sm font-medium">Acesso ao sistema</p>
@@ -1113,8 +1113,13 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
             </div>
                         </>)}
 
-            {/* ── STEP 5 — QUANDO SERVE ── */}
-            {step === 5 && (
+            {/* ── STEP 4 — QUANDO SERVE ──
+
+                Antes de "Acesso", por pedido da Telma. E faz sentido: quem
+                serve é assunto do voluntariado, que vem logo depois de
+                Vínculos; dar acesso ao sistema é decisão administrativa, e
+                fecha o cadastro junto com a revisão. */}
+            {step === 4 && (
               <PassoDisponibilidade
                 valor={perfil}
                 onChange={p => { setPerfil(p); setPerfilTocado(true); }}
@@ -1156,6 +1161,12 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                     </RevisaoLinha>
                     <RevisaoLinha label="Áreas de atuação">
                       {areasSelecionadas.size === 0 ? "Nenhuma" : `${areasSelecionadas.size} selecionada(s)`}
+                    </RevisaoLinha>
+                    {/* A revisão precisa revisar TODOS os passos. Sem esta linha,
+                        o passo 4 seria o único que a pessoa preenche e não vê
+                        confirmado antes de salvar. */}
+                    <RevisaoLinha label="Quando serve">
+                      {resumoLegivel(perfilTocado || membro ? perfil : null)}
                     </RevisaoLinha>
                   </>
                 )}
@@ -1200,13 +1211,17 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                   Medido com um ouvinte de eventos: click em "Próximo →
                   [type=button]" seguido de submit no FORM, sem ninguém pedir.
 
-                  A guarda `if (step !== 5) return` no onSubmit não protege: o
-                  setStep já rodou, então o submit chega com step = 5 e passa.
+                  A guarda `if (step !== 6) return` no onSubmit não protege: o
+                  setStep já rodou, então o submit chega com step = 6 e passa.
 
                   Com `key` diferente, o React desmonta um e monta o outro. O nó
                   clicado sai do documento antes da ação padrão, e não há submit.
                   ────────────────────────────────────────────────────────────── */}
-              {step < 5 ? (
+              {/* `step < 6`, e não `< 5`. Ficou para trás quando o formulário
+                  passou de cinco passos para seis: no penúltimo passo o botão
+                  virava "Salvar", o onSubmit barrava com `step !== 6`, e o
+                  clique não fazia NADA. A tela travava ali, sem erro nenhum. */}
+              {step < 6 ? (
                 <Button key="proximo" type="button"
                   onClick={() => {
                     // Valida campos obrigatórios do passo atual
