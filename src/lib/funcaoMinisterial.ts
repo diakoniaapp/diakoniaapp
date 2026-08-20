@@ -31,6 +31,7 @@ export type FuncaoMinisterial =
   | "secretaria_1"
   | "secretaria_2"
   | "auditor"
+  | "juridico_parlamentar"
   // Serviço
   | "ministro"
   | "lider_area"
@@ -119,6 +120,19 @@ export const FUNCAO_MINISTERIAL: Record<FuncaoMinisterial, Funcao> = {
   // colocá-la dentro do quadro que audita inverteria o que o organograma diz.
   auditor:           { label: "Auditor(a)", tipoData: "vigencia", apelidos: ["Auditoria"] },
 
+  // Mesma razão da auditoria, e por isso vem logo depois: o Jurídico
+  // assessora e fiscaliza, não executa. O cargo já existia na igreja e já
+  // aparecia na tela de Estrutura, vindo do regimento, com três nomes — só
+  // não havia onde registrá-lo na ficha da pessoa, e quem o ocupa aparecia
+  // como "Membro" no catálogo.
+  //
+  // Os apelidos cobrem como o regimento e as atas escrevem o cargo: às vezes
+  // com barra, às vezes só uma das duas palavras.
+  juridico_parlamentar: {
+    label: "Jurídico/Parlamentar", tipoData: "vigencia",
+    apelidos: ["Jurídico Parlamentar", "Jurídico", "Parlamentar"],
+  },
+
   ministro:      { label: "Ministro(a)",         tipoData: "vigencia" },
   lider_area:    { label: "Líder de Área",       tipoData: "vigencia" },
   professor_ebd: { label: "Professor(a) de EBD", tipoData: "vigencia" },
@@ -147,7 +161,7 @@ export const FUNCOES_EM_ORDEM: FuncaoMinisterial[] = [
   "presidente", "pastor_auxiliar", "pastor_missionario", "pastor", "diacono",
   "vice_presidente_1", "vice_presidente_2",
   "tesoureiro_1", "tesoureiro_2",
-  "secretaria_1", "secretaria_2", "auditor",
+  "secretaria_1", "secretaria_2", "auditor", "juridico_parlamentar",
   "ministro", "lider_area", "professor_ebd",
   "voluntario", "membro",
 ];
