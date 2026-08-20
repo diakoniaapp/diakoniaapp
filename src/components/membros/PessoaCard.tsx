@@ -7,7 +7,10 @@ import { useEffect, useState } from "react";
 import { supabase, supabaseRel } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, User, Shield, Church, MapPin, Calendar, Star } from "lucide-react";
+import { Loader2, User, Shield, Church, MapPin, Calendar, Star, Pencil } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { usePermissoes } from "@/hooks/usePermissoes";
+import { useAuth } from "@/hooks/useAuth";
 import { cargosDaPessoa } from "@/services/diretoriaService";
 import { TIPO_PESSOA_LABEL, TIPO_PESSOA_COR, type TipoPessoa } from "@/lib/tipoPessoa";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -105,6 +108,24 @@ interface PessoaCardProps {
 }
 
 export default function PessoaCard({ pessoaId, open, onClose }: PessoaCardProps) {
+  const navigate = useNavigate();
+  const { podeEditarPessoas } = useAuth();
+  const { podeFazer, permissoes: permsCarregadas, loading: permsCarregando } = usePermissoes();
+  // Mesmo piso usado no catalogo: conjunto vazio quer dizer consulta falhada,
+  // nao usuario sem direito.
+  const semResposta = permsCarregando || permsCarregadas.size === 0;
+  const podeEditar  = semResposta ? podeEditarPessoas : podeFazer("editar_pessoa");
+
+  // Fecha a ficha e abre o formulário na tela de Pessoas.
+  //
+  // O parâmetro `?abrir=<id>` já existia e já fazia exatamente isso — não
+  // precisou de rota nem de estado novo. Renderizar o MembroForm aqui dentro
+  // seria um diálogo sobre outro, e o formulário tem seis passos: não cabe.
+  function irParaEdicao() {
+    if (!pessoaId) return;
+    onClose();
+    navigate(`/membros?abrir=${pessoaId}`);
+  }
   const [pessoa, setPessoa]         = useState<PessoaCompleta | null>(null);
   const [cargos, setCargos]         = useState<CargoEstatutario[]>([]);
   const [ministerios, setMinerios]  = useState<MinisterioVinculo[]>([]);
@@ -255,9 +276,33 @@ export default function PessoaCard({ pessoaId, open, onClose }: PessoaCardProps)
                   className="w-16 h-16 rounded-full object-cover border-2 border-primary/20 shrink-0" />
               )}
               <div className="flex-1 min-w-0">
-                <h2 className="font-serif font-semibold text-base leading-tight truncate">
-                  {pessoa.nome_social ?? pessoa.nome_completo}
-                </h2>
+                {/* O lápis ao lado do nome, e não num rodapé.
+
+                    A ficha abre a partir de um nome clicado em qualquer tela —
+                    na chamada da EBD, na escala, no acolhimento. Quem chega
+                    aqui muitas vezes chega porque viu algo errado no cadastro,
+                    e sem esta saída teria de fechar, ir a Pessoas, buscar de
+                    novo e só então editar.
+
+                    Só aparece para quem pode editar: a tela de Pessoas barra
+                    quem não tem `editar_pessoa`, e um lápis que leva a uma
+                    tela que não deixa fazer nada é pior que lápis nenhum. */}
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <h2 className="font-serif font-semibold text-base leading-tight truncate">
+                    {pessoa.nome_social ?? pessoa.nome_completo}
+                  </h2>
+                  {podeEditar && (
+                    <button
+                      type="button"
+                      onClick={irParaEdicao}
+                      title={`Editar a ficha de ${pessoa.nome_social ?? pessoa.nome_completo}`}
+                      aria-label={`Editar a ficha de ${pessoa.nome_social ?? pessoa.nome_completo}`}
+                      className="shrink-0 text-muted-foreground hover:text-primary p-1 -m-1"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
                 {pessoa.nome_social && (
                   <p className="text-xs text-muted-foreground truncate">{pessoa.nome_completo}</p>
                 )}

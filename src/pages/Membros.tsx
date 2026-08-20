@@ -693,9 +693,19 @@ export default function Membros() {
                 if (pessoa) {
                           setEditing(pessoa);
                           setOpen(true);
-                          toast.success(`Ficha de ${pessoa.nome_completo.split(" ")[0]} aberta — crie o acesso abaixo!`, { duration: 5000 });
+                          // O aviso "crie o acesso abaixo" foi escrito para UM fluxo:
+                          // a conversão de visitante em membro, que termina aqui
+                          // justamente para criar o login. Os outros chamadores —
+                          // o lápis da ficha, o nome numa lista de PG — só querem
+                          // editar, e a frase mandava fazer coisa nenhuma.
+                          //
+                          // Quem quer o recado agora pede: `?motivo=acesso`.
+                          if (searchParams.get("motivo") === "acesso") {
+        toast.success(`Ficha de ${pessoa.nome_completo.split(" ")[0]} aberta — crie o acesso abaixo!`, { duration: 5000 });
+                          }
                 }
                 searchParams.delete("abrir");
+                searchParams.delete("motivo");
                 setSearchParams(searchParams, { replace: true });
         }
   };

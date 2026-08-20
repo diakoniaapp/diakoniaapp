@@ -272,7 +272,9 @@ export default function VisitanteDetalhe() {
 
     toast.success(`🎉 ${visitante.nome_completo} agora é congregado! Abrindo ficha...`);
     // Navega para Membros e abre a ficha da pessoa via query param
-    setTimeout(() => navigate(`/membros?abrir=${res.pessoaId}`), 1200);
+    // `motivo=acesso` porque este fluxo termina em Pessoas para CRIAR O
+    // LOGIN da pessoa recém-convertida — e é o único que precisa dizer isso.
+    setTimeout(() => navigate(`/membros?abrir=${res.pessoaId}&motivo=acesso`), 1200);
   }
 
   // ── Loading ──────────────────────────────────────────────────────────────────
