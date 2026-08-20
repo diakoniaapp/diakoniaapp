@@ -686,33 +686,51 @@ export default function Membros() {
         setMembros(lista);
         setLoading(false);
 
-        // ── Tratar param "abrir": abre automaticamente a ficha da pessoa ──────────
-        const abrirId = searchParams.get("abrir");
-        if (abrirId && canEdit) {
-                const pessoa = lista.find((m) => m.id === abrirId);
-                if (pessoa) {
-                          setEditing(pessoa);
-                          setOpen(true);
-                          // O aviso "crie o acesso abaixo" foi escrito para UM fluxo:
-                          // a conversão de visitante em membro, que termina aqui
-                          // justamente para criar o login. Os outros chamadores —
-                          // o lápis da ficha, o nome numa lista de PG — só querem
-                          // editar, e a frase mandava fazer coisa nenhuma.
-                          //
-                          // Quem quer o recado agora pede: `?motivo=acesso`.
-                          if (searchParams.get("motivo") === "acesso") {
-        toast.success(`Ficha de ${pessoa.nome_completo.split(" ")[0]} aberta — crie o acesso abaixo!`, { duration: 5000 });
-                          }
-                }
-                searchParams.delete("abrir");
-                searchParams.delete("motivo");
-                setSearchParams(searchParams, { replace: true });
-        }
   };
 
   useEffect(() => {
         load();
   }, []);
+
+  // ── Param "abrir": abre o formulário da pessoa indicada na URL ──────────
+  //
+  // Efeito próprio, e não um trecho no fim do `carregar()`, porque ali só
+  // rodava na PRIMEIRA carga da tela.
+  //
+  // O defeito aparecia no caminho mais natural: abrir a ficha de alguém a
+  // partir do próprio catálogo e clicar no lápis. O lápis fecha a ficha e
+  // navega para `/membros?abrir=<id>` — só que a tela JÁ ERA /membros. Muda
+  // a query, o componente não remonta, `carregar()` não roda de novo, e o
+  // formulário nunca abre. Da perspectiva de quem clicou, o botão de editar
+  // simplesmente fechava a ficha.
+  //
+  // Observando `searchParams` e a lista, funciona nos dois casos: chegando
+  // de outra tela ou já estando nesta.
+  useEffect(() => {
+    const abrirId = searchParams.get("abrir");
+    if (!abrirId || !canEdit || membros.length === 0) return;
+
+    const pessoa = membros.find((m) => m.id === abrirId);
+    if (pessoa) {
+      setEditing(pessoa);
+      setOpen(true);
+      // O aviso "crie o acesso abaixo" foi escrito para UM fluxo: a conversão
+      // de visitante em membro, que termina aqui justamente para criar o
+      // login. Os outros chamadores — o lápis da ficha, o nome numa lista de
+      // PG — só querem editar, e a frase mandava fazer coisa nenhuma.
+      if (searchParams.get("motivo") === "acesso") {
+        toast.success(`Ficha de ${pessoa.nome_completo.split(" ")[0]} aberta — crie o acesso abaixo!`);
+      }
+    }
+
+    // Limpa a URL de todo jeito, mesmo se a pessoa não estiver na lista:
+    // deixar `?abrir=` pendurado faria o formulário reabrir sozinho na
+    // próxima vez que a lista mudasse.
+    const limpo = new URLSearchParams(searchParams);
+    limpo.delete("abrir");
+    limpo.delete("motivo");
+    setSearchParams(limpo, { replace: true });
+  }, [searchParams, membros, canEdit, setSearchParams]);
 
   // Duas etapas de propósito. `baseFiltrados` é "quem está em jogo" — busca,
   // tipo e perfil. É sobre ele que os atalhos contam, para que os números que
