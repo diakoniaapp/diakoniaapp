@@ -7,11 +7,14 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { User, LogOut, ShieldCheck } from "lucide-react";
+import { User, LogOut, ShieldCheck, Moon, Sun } from "lucide-react";
+import { useTheme } from "@/hooks/useTheme";
 import { ADMIN_MENU_ITEMS } from "@/components/layout/adminMenuItems";
 
 export function UserMenuButton() {
   const { user, signOut, hasRole, roles } = useAuth();
+
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const [nome, setNome] = useState<string>("");
 
@@ -119,6 +122,25 @@ export function UserMenuButton() {
             ))}
           </>
         )}
+
+        <DropdownMenuSeparator />
+        {/* ── O tema escuro deixa de ser código morto ──────────────────────
+
+            `useTheme` já existia, com `toggleTheme` pronto e uma paleta
+            escura inteira no index.css. Nenhum componente do sistema chamava
+            esse alternador — eram 120 linhas de CSS que nunca chegavam à
+            tela.
+
+            O padrão continua claro, como manda a nota "padrão institucional"
+            no próprio hook. O que muda é que quem faz chamada num templo
+            escuro, ou abre o sistema de madrugada, passa a poder escolher.
+
+            Aqui no menu do usuário, e não na barra de cima: é preferência de
+            quem está usando, não ação da igreja. */}
+        <DropdownMenuItem className="gap-2 cursor-pointer py-2.5" onClick={toggleTheme}>
+          {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          <span>{theme === "dark" ? "Tema claro" : "Tema escuro"}</span>
+        </DropdownMenuItem>
 
         <DropdownMenuSeparator />
         <DropdownMenuItem

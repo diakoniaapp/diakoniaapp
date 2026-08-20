@@ -73,18 +73,44 @@ export default function Dashboard() {
     <div>
       {/* ── HEADER: Saudação ─────────────────────────────────────────────── */}
       <div className="border-b bg-card">
-        <div className="px-4 md:px-8 py-4 md:py-6 flex flex-col md:flex-row md:items-end md:justify-between gap-3 md:gap-4">
-          <div className="min-w-0 space-y-1">
+        {/* ── No celular este cabeçalho comia meia tela ───────────────────
+
+            Medido: 398px dos 812 de um telefone antes do primeiro conteúdo.
+            Metade da primeira tela para dizer bom dia.
+
+            O que saiu no celular, e por quê:
+
+            · O rótulo do perfil. O comentário abaixo já dizia que "quem usa o
+              sistema todo dia sabe que é administrador" — e o que é
+              dispensável no desktop é caro no telefone. Volta no md.
+            · O botão deixou de ter linha própria: subiu para a mesma altura
+              da saudação, onde havia espaço vazio à direita.
+            · A referência do salmo entrou na mesma linha do versículo.
+
+            O versículo FICOU, e em tamanho legível. Ele é o motivo de o
+            cabeçalho existir; encolher tudo e sacrificar justamente a
+            Escritura seria resolver o número errado. */}
+        <div className="px-4 md:px-8 py-3 md:py-6 flex flex-col md:flex-row md:items-end md:justify-between gap-2 md:gap-4">
+          <div className="min-w-0 space-y-0.5 md:space-y-1">
             {/* Rotulo de perfil sem escudo e sem dourado. Quem usa o sistema
                 todo dia sabe que e administrador; a informacao serve no maximo
                 como referencia, nao como destaque no alto da tela. Cinza
                 resolve, e devolve o dourado ao que de fato pede acao. */}
-            <span className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
+            <span className="hidden md:block text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
               {ROLE_LABEL[principalRole] ?? principalRole}
             </span>
-            <h1 className="font-serif text-2xl md:text-4xl text-foreground">
-              {getSaudacao()}, {nome}! 🙏
-            </h1>
+            <div className="flex items-start justify-between gap-3">
+              <h1 className="font-serif text-xl md:text-4xl text-foreground min-w-0">
+                {getSaudacao()}, {nome}! 🙏
+              </h1>
+              {/* O mesmo botão do bloco de baixo, aqui só no celular: lá ele
+                  ocupava uma linha inteira só para si. */}
+              <Button size="sm" onClick={() => setOpenVisitanteRapido(true)}
+                className="md:hidden gap-1.5 shrink-0 bg-gold hover:bg-gold/90 text-white border-0 shadow-sm">
+                <UserPlus className="w-4 h-4" />
+                <span translate="no">Visitante</span>
+              </Button>
+            </div>
             {/* O versiculo do dia vem logo abaixo da saudacao, no lugar onde
                 antes havia uma frase de incentivo por perfil.
                 Eram duas frases devocionais em sequencia, uma sobre a outra, e
@@ -92,10 +118,14 @@ export default function Dashboard() {
                 com um texto escrito para acompanha-la. Ficou a Escritura. */}
             <p className="font-serif text-sm md:text-base leading-snug text-foreground/95">
               &ldquo;{verse.texto}&rdquo;
+              {/* A referência entra na mesma linha no celular: sozinha numa
+                  linha própria custava 18px para dizer três palavras. */}
+              <span className="text-muted-foreground text-xs font-sans whitespace-nowrap">
+                {" "}— {verse.ref}
+              </span>
             </p>
-            <div className="text-muted-foreground text-xs">{verse.ref}</div>
           </div>
-          <div className="flex gap-2 shrink-0 self-end md:self-auto">
+          <div className="hidden md:flex gap-2 shrink-0 self-end md:self-auto">
             <Button onClick={() => setOpenVisitanteRapido(true)}
               className="gap-2 bg-gold hover:bg-gold/90 text-white border-0 shadow-sm">
               <UserPlus className="w-4 h-4" />

@@ -1,10 +1,11 @@
 import { Outlet, NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { LogOut, ChevronLeft, ChevronDown, Search } from "lucide-react";
+import { LogOut, ChevronLeft, ChevronDown, Search, Moon, Sun } from "lucide-react";
 import { BrandMark } from "@/components/Brand";
 import { useEffect, useState } from "react";
 import { QuickActionsFab } from "@/components/QuickActionsFab";
 import { FichaProvider } from "@/components/membros/ficha";
+import { useTheme } from "@/hooks/useTheme";
 import { CommandPalette } from "@/components/CommandPalette";
 import { openCommandPalette } from "@/lib/commandPalette";
 import { registrarVisita, atalhos, grupoMereceAbrir, temHistoricoBastante } from "@/lib/navUso";
@@ -27,6 +28,8 @@ import {
 // ─── Componente ──────────────────────────────────────────────────────────────
 export default function AppLayout() {
   const { user, loading, signOut, roles, hasRole } = useAuth();
+
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -343,6 +346,15 @@ export default function AppLayout() {
                   ))}
                 </>
               )}
+              <DropdownMenuSeparator />
+              {/* O tema escuro existia inteiro no CSS e não tinha por onde ser
+                  ligado — 120 linhas que nunca chegavam à tela. O padrão segue
+                  claro; isto é escolha de quem usa, não da igreja. */}
+              <DropdownMenuItem onClick={toggleTheme} className="cursor-pointer">
+                {theme === "dark"
+                  ? <><Sun className="w-4 h-4 mr-2" /> Tema claro</>
+                  : <><Moon className="w-4 h-4 mr-2" /> Tema escuro</>}
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={signOut} className="text-destructive focus:text-destructive">
                 <LogOut className="w-4 h-4 mr-2" /> Sair

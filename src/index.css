@@ -239,16 +239,29 @@
   /* ════════════════════════════════════════════════════════════
      TEMA ESCURO — classe .dark no <html>
      ════════════════════════════════════════════════════════════ */
+  /* ── Tema escuro QUENTE ────────────────────────────────────────────────
+
+     Era ardósia azul (matiz 224) sob acentos cobre e terracota (matiz 30 e
+     12). Os acentos já estavam certos; o chão é que vinha de outra marca, e
+     o conjunto lia como dois sistemas colados.
+
+     As superfícies passaram para matiz 25-26, herdado da barra lateral do
+     tema claro, que já é o marrom da casa. A CLARIDADE de cada variável não
+     mudou — só matiz e saturação — então as relações de contraste que já
+     tinham sido verificadas continuam de pé.
+
+     A família `info` continua azul (matiz 212) de propósito: ali o azul é
+     semântico, é a cor de "informação" no sistema inteiro. */
   .dark {
 
     /* ── Superfícies ──────────────────────────────────────────── */
-    --background:         224 20% 10%;   /* ardósia profunda            */
+    --background:         26 16% 9%;     /* espresso — mesmo matiz da barra lateral clara */
     --foreground:         36 20% 92%;    /* algodão tênue               */
 
-    --card:               224 18% 14%;   /* card ligeiramente mais claro */
+    --card:               26 14% 13%;    /* card ligeiramente mais claro */
     --card-foreground:    36 18% 92%;
 
-    --popover:            224 18% 12%;
+    --popover:            26 14% 12%;
     --popover-foreground: 36 18% 92%;
 
     /* ── Primário: cobre mais vivo no escuro ──────────────────── */
@@ -257,11 +270,11 @@
     --primary-glow:       30 60% 60%;
 
     /* ── Secundário ───────────────────────────────────────────── */
-    --secondary:          224 15% 20%;
+    --secondary:          26 12% 20%;
     --secondary-foreground: 36 20% 85%;
 
     /* ── Muted ───────────────────────────────────────────────── */
-    --muted:              224 15% 18%;
+    --muted:              26 12% 18%;
     /* 55% → 57%: sobre a faixa cinza (--muted) dava 4.43:1, logo abaixo do
        mínimo. Sobre o fundo já passava — é o caso da faixa que decide. */
     --muted-foreground:   36 10% 57%;
@@ -327,21 +340,21 @@
 
     /* ── Estrutura ───────────────────────────────────────────── */
     /* Mesmo motivo do tema claro: 1.44:1 é borda que não se vê. */
-    --border:             224 15% 26%;
-    --input:              224 15% 18%;
+    --border:             26 12% 26%;
+    --input:              26 12% 18%;
     --ring:               12 48% 60%;
 
     /* ── Gradientes escuros ───────────────────────────────────── */
     --gradient-hero:  linear-gradient(145deg,
-                        hsl(224 20% 12%) 0%,
-                        hsl(224 18% 10%) 50%,
-                        hsl(220 22% 8%)  100%);
+                        hsl(26 16% 12%) 0%,
+                        hsl(26 14% 10%) 50%,
+                        hsl(25 18% 8%)  100%);
     --gradient-gold:  linear-gradient(135deg, hsl(12 52% 56%), hsl(12 40% 42%));
-    --gradient-verse: linear-gradient(135deg, hsl(224 18% 16%), hsl(224 15% 13%));
+    --gradient-verse: linear-gradient(135deg, hsl(26 14% 16%), hsl(26 12% 13%));
     --gradient-auth:  linear-gradient(160deg,
-                        hsl(224 22% 14%) 0%,
-                        hsl(224 20% 11%) 45%,
-                        hsl(220 24% 8%)  100%);
+                        hsl(26 16% 14%) 0%,
+                        hsl(26 14% 11%) 45%,
+                        hsl(25 20% 8%)  100%);
 
     /* ── Sombras escuras ─────────────────────────────────────── */
     --shadow-card:     none;
@@ -350,13 +363,13 @@
     --shadow-auth:     0 20px 60px -15px hsl(0 0% 0% / 0.50);
 
     /* ── Sidebar escura: ardósia mais profunda ────────────────── */
-    --sidebar-background:        224 28% 8%;
+    --sidebar-background:        25 26% 8%;
     --sidebar-foreground:        36 16% 88%;
     --sidebar-primary:           12 48% 60%;
     --sidebar-primary-foreground:0 0% 100%;
-    --sidebar-accent:            224 22% 14%;
+    --sidebar-accent:            25 20% 14%;
     --sidebar-accent-foreground: 36 16% 92%;
-    --sidebar-border:            224 20% 14%;
+    --sidebar-border:            25 18% 14%;
     --sidebar-ring:              12 48% 60%;
   }
 }
