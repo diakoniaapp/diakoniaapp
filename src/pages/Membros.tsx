@@ -13,6 +13,7 @@ import {
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { usePermissoes } from "@/hooks/usePermissoes";
 import { MembroForm } from "@/components/membros/MembroForm";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { VinculosPessoaDialog } from "@/components/familias/VinculosPessoaDialog";
@@ -470,10 +471,23 @@ function Cabecalho({ campo, rotulo, ordem, aoOrdenar, largura }: {
 }
 
 export default function Membros() {
-    // `podeEditarPessoas` e nao `canEdit`: esta e a tela de pessoas, e a
-    // liderança passou a poder editá-las em 20/08/2026. `canEdit` continua
-    // existindo para o que nao e pessoa.
-    const { podeEditarPessoas: canEdit, hasRole } = useAuth();
+    // Quem edita pessoa aqui: a PERMISSÃO configurada, não o papel fixo.
+    //
+    // Até 20/08/2026 isto era `canEdit` (admin+secretaria). Virou
+    // `podeEditarPessoas` no mesmo dia, e agora consulta `editar_pessoa` —
+    // que é o que a tela de Usuários marca e desmarca. Sem este último
+    // passo, a caixa de seleção seria enfeite: a Telma marcaria "liderança
+    // pode editar pessoa" e o catálogo continuaria decidindo por conta.
+    //
+    // O portão do papel fica como piso para o caso de o conjunto de
+    // permissões vir VAZIO. Todo perfil tem ao menos `ver_pessoas`, então
+    // um conjunto vazio num usuário logado quer dizer que a consulta
+    // falhou — e falha de rede não pode esconder os botões de quem tem
+    // direito a eles.
+    const { podeEditarPessoas, hasRole } = useAuth();
+    const { podeFazer, permissoes: permsCarregadas, loading: permsCarregando } = usePermissoes();
+    const naoSabemos = permsCarregando || permsCarregadas.size === 0;
+    const canEdit = naoSabemos ? podeEditarPessoas : podeFazer("editar_pessoa");
     const [membros, setMembros] = useState<Membro[]>([]);
     const [search, setSearch] = useState("");
     const [loading, setLoading] = useState(true);

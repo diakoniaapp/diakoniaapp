@@ -23,6 +23,7 @@ import { enviarWhatsApp, montarMensagemWhatsApp } from "@/services/userService";
 import { ROLE_LABEL, ROLE_VARIANT } from "@/types/usuario";
 import { Badge as UiBadge } from "@/components/ui/badge";
 import { formatarTelefoneSemDDI } from "@/lib/telefone";
+import { PermissoesDosPerfis } from "@/components/usuarios/PermissoesDosPerfis";
 
 // ─── Tipos locais ─────────────────────────────────────────────────────────────
 
@@ -350,6 +351,15 @@ export default function Usuarios() {
           </CardContent>
         </Card>
       )}
+
+      {/* ── Permissões dos perfis ────────────────────────────────────────
+
+          Depois da lista de acessos, e não antes: quem abre esta tela vem
+          quase sempre reenviar um convite ou resetar uma senha. Configurar
+          o que um perfil pode fazer é raro e vale para todos de uma vez —
+          pôr isso no topo faria a tarefa do dia descer para baixo da dobra
+          por causa de uma tarefa que acontece uma vez por semestre. */}
+      <PermissoesDosPerfis podeGerenciar={hasRole(["admin"])} />
 
     </div>
   );
