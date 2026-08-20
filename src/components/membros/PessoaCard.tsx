@@ -142,11 +142,13 @@ export default function PessoaCard({ pessoaId, open, onClose }: PessoaCardProps)
       //
       // As duas continuam sendo lidas: se um dia forem povoadas, o que
       // estiver lá aparece. Mas quem responde hoje é area_voluntarios.
-      // Sem embed: `area_voluntarios` não declara chave estrangeira para
-      // `areas`, e o PostgREST recusa o join. Duas consultas.
-      const { data: avBruto } = await supabase
+      //
+      // Com embed: a chave estrangeira para `areas` existe desde 19/08/2026
+      // (migration 20260819110000), e o PostgREST voltou a aceitar o join.
+      // As duas consultas que moravam aqui viraram uma.
+      const { data: av } = await supabase
         .from("area_voluntarios")
-        .select("area_id, funcao, status")
+        .select("area_id, funcao, status, areas(id, nome, ministerios(nome, cor))")
         .eq("membro_id", pessoaId)
         // .eq e nao .in(["ativa","ativo"]): status e o enum atuacao_status, e
         // "ativo" NAO e um valor dele — so "ativa" e "encerrada". Passar um
@@ -154,13 +156,6 @@ export default function PessoaCard({ pessoaId, open, onClose }: PessoaCardProps)
         // INTEIRA com "invalid input value for enum", e a ficha mostrava
         // "sem vinculos" para quem serve em duas areas.
         .eq("status", "ativa");
-
-      const idsDeArea = [...new Set((avBruto ?? []).map((r: any) => r.area_id).filter(Boolean))];
-      const { data: areasDele } = idsDeArea.length
-        ? await supabase.from("areas").select("id, nome, ministerios(nome, cor)").in("id", idsDeArea)
-        : { data: [] as any[] };
-      const porId = new Map((areasDele ?? []).map((a: any) => [a.id, a]));
-      const av = (avBruto ?? []).map((r: any) => ({ ...r, areas: porId.get(r.area_id) ?? null }));
 
       const { data: mm } = await supabaseRel
         .from("ministerio_membros")

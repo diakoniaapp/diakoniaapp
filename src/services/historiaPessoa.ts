@@ -30,18 +30,22 @@
 // que registra cada salvamento de formulário vira um log de auditoria, e log
 // de auditoria não conta história — esconde.
 //
-// ── DOIS PROBLEMAS DE BANCO QUE APARECERAM AO ESCREVER ISTO ─────────────────
+// ── DOIS PROBLEMAS DE BANCO QUE APARECERAM AO ESCREVER ISTO — RESOLVIDOS ────
 //
-// 1. `area_voluntarios` NAO declara chave estrangeira para `areas`. Sem ela o
-//    PostgREST recusa o join: "Could not find a relationship between
-//    area_voluntarios and areas in the schema cache". Por isso o nome da area
-//    vem numa segunda consulta em vez de vir embutido.
+// Ficam registrados porque explicam a forma que este arquivo teve por um
+// tempo, e porque a mesma armadilha pode voltar em outra tabela.
 //
-// 2. E, pela mesma ausencia de chave, ha vinculo orfao: dos 88 membro_id
-//    distintos em `area_voluntarios`, 36 nao existem em `membros`. Sao 41%
-//    apontando para pessoas que nao estao la. Uma chave estrangeira teria
-//    impedido; declarar uma agora exige limpar os orfaos antes, e o que fazer
-//    com eles e decisao da igreja, nao deste arquivo.
+// 1. `area_voluntarios` nao declarava chave estrangeira para `areas`, e o
+//    PostgREST recusava o join: "Could not find a relationship between
+//    area_voluntarios and areas in the schema cache". O nome da area vinha
+//    numa segunda consulta. **Resolvido em 19/08/2026** (migration
+//    20260819110000): tres chaves criadas, e o embed voltou a funcionar.
+//
+// 2. Pela mesma ausencia de chave havia vinculo orfao: dos 88 membro_id
+//    distintos, 36 nao existiam em `membros` — 41% apontando para gente que
+//    nao estava la. **Os 36 foram gravados em `log_exclusoes` e removidos**
+//    na mesma migration. Sobraram 77 vinculos e zero orfaos, e agora a
+//    chave impede que voltem.
 
 import { supabase } from "@/integrations/supabase/client";
 
@@ -117,11 +121,11 @@ export async function historiaDaPessoa(pessoaId: string): Promise<EventoDaHistor
     // area_voluntarios, e não ministerio_membros nem pessoa_participacao:
     // essas duas estão vazias em produção. Ver o comentário no topo.
     //
-    // Sem embed: `area_voluntarios` não declara chave estrangeira para
-    // `areas`, então o PostgREST recusa o join com "Could not find a
-    // relationship". O nome da área vem numa segunda consulta, logo abaixo.
+    // O nome da área e o do ministério vêm embutidos: desde que a chave
+    // estrangeira existe, o PostgREST aceita o join e a segunda consulta
+    // que morava aqui embaixo deixou de ser necessária.
     supabase.from("area_voluntarios")
-      .select("area_id, data_inicio, funcao, status")
+      .select("area_id, data_inicio, funcao, status, areas(nome, ministerios(nome))")
       .eq("membro_id", pessoaId),
   ]);
 
@@ -151,34 +155,22 @@ export async function historiaDaPessoa(pessoaId: string): Promise<EventoDaHistor
     });
   }
 
-  // Segunda consulta, só para os nomes das áreas em que esta pessoa serve.
-  // Uma ida a mais ao banco por ficha aberta; a alternativa seria declarar a
-  // chave estrangeira que falta, e isso não se resolve daqui — ver a nota
-  // sobre os vínculos órfãos no topo deste arquivo.
+  // Uma ida ao banco a menos por ficha aberta: os nomes já vieram juntos.
   const linhas = (servicos.data ?? []) as any[];
-  const areaIds = [...new Set(linhas.map(s => s.area_id).filter(Boolean))];
-  const nomeDaArea = new Map<string, { area: string; ministerio: string | null }>();
-
-  if (areaIds.length > 0) {
-    const { data: areas } = await supabase
-      .from("areas")
-      .select("id, nome, ministerios(nome)")
-      .in("id", areaIds);
-    for (const a of (areas ?? []) as any[]) {
-      nomeDaArea.set(a.id, { area: a.nome, ministerio: a.ministerios?.nome ?? null });
-    }
-  }
 
   for (const s of linhas) {
     if (!s.data_inicio) continue;
-    const nomes = nomeDaArea.get(s.area_id);
-    if (!nomes) continue;
+    // Sem nome de área não há frase que faça sentido ("Começou a servir
+    // em —"), então a linha fica de fora. Com a chave estrangeira isso
+    // não deve acontecer; se acontecer, é dado que não devia existir.
+    if (!s.areas?.nome) continue;
     const encerrado = s.status !== "ativa" && s.status !== "ativo";
     eventos.push({
       data: s.data_inicio,
       tipo: "servico",
-      titulo: `Começou a servir em ${nomes.area}`,
-      detalhe: [nomes.ministerio, encerrado ? "encerrado" : null].filter(Boolean).join(" · ") || null,
+      titulo: `Começou a servir em ${s.areas.nome}`,
+      detalhe: [s.areas.ministerios?.nome ?? null, encerrado ? "encerrado" : null]
+        .filter(Boolean).join(" · ") || null,
     });
   }
 

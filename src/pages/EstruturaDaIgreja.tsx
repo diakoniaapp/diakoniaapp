@@ -295,30 +295,29 @@ export default function EstruturaDaIgreja() {
     // o Organograma — que lê a tabela certa — mostrava 15, 35, 10 pessoas.
     // Duas telas sobre a mesma coisa, discordando.
     //
-    // Sem embed porque area_voluntarios não declara chave estrangeira: os
-    // nomes vêm numa segunda consulta.
+    // Com embed: `area_voluntarios` ganhou chave estrangeira para `membros`
+    // em 19/08/2026 (migration 20260819110000), e o nome vem junto. A
+    // segunda consulta que buscava os nomes deixou de existir.
     const { data: vinculos } = await supabase
       .from("area_voluntarios")
-      .select("ministerio_id, membro_id, funcao")
+      .select("ministerio_id, membro_id, funcao, membros(nome_completo)")
       .eq("status", "ativa");
-
-    const idsDeMembro = [...new Set((vinculos ?? []).map((v: any) => v.membro_id).filter(Boolean))];
-    const { data: nomes } = idsDeMembro.length
-      ? await supabase.from("membros").select("id, nome_completo").in("id", idsDeMembro)
-      : { data: [] as any[] };
-    const nomePorId = new Map((nomes ?? []).map((m: any) => [m.id, m.nome_completo]));
 
     // Um voluntário pode servir em duas áreas do mesmo ministério; na lista
     // do ministério ele é uma pessoa só.
+    // O teste de nome continua, agora sobre o embed. Com a chave estrangeira
+    // `membro_id` (ON DELETE CASCADE) um vínculo sem pessoa não existe mais —
+    // mas o dado chega do servidor, e uma linha sem nome no organograma seria
+    // pior que uma linha a menos.
     const vistos = new Set<string>();
     const membMin = (vinculos ?? []).filter((v: any) => {
       const chave = v.ministerio_id + "|" + v.membro_id;
-      if (vistos.has(chave) || !nomePorId.has(v.membro_id)) return false;
+      if (vistos.has(chave) || !v.membros?.nome_completo) return false;
       vistos.add(chave); return true;
     }).map((v: any) => ({
       ministerio_id: v.ministerio_id,
       funcao: v.funcao,
-      membros: { id: v.membro_id, nome_completo: nomePorId.get(v.membro_id) },
+      membros: { id: v.membro_id, nome_completo: v.membros.nome_completo },
     }));
 
     // Montar areas
