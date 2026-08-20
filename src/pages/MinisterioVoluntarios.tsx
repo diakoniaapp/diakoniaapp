@@ -29,6 +29,9 @@ import { PaginaSkeleton, EmptyState } from "@/components/ListState";
 import { ArrowLeft, Search, MessageCircle, Users } from "lucide-react";
 import { formatarTelefoneSemDDI } from "@/lib/telefone";
 import { buildWhatsAppLink } from "@/lib/visitantesFluxo";
+import { useAuth } from "@/hooks/useAuth";
+import { DisponibilidadeDialog } from "@/components/membros/DisponibilidadeDialog";
+import { CalendarClock } from "lucide-react";
 import {
   voluntariosDoMinisterio, estadoDe, ROTULO_ESTADO, quandoServe,
   type VoluntarioDoPainel, type EstadoVoluntario,
@@ -50,9 +53,10 @@ const COR_ESTADO: Record<EstadoVoluntario, string> = {
  * pessoa nunca escolheu — e a barra viraria uma medida inventada.
  */
 function BarraDeCarga({ v }: { v: VoluntarioDoPainel }) {
-  if (!v.temPerfil) {
-    return <span className="text-xs text-muted-foreground tabular-nums">—</span>;
-  }
+  // Sem perfil, a barra simplesmente NÃO aparece. Um travessão solto numa
+  // pilha de quatro itens parece dado faltando, e não pergunta não feita —
+  // e a linha "Ninguém perguntou ainda" já diz isso, com palavras.
+  if (!v.temPerfil) return null;
   const pct = Math.min(100, Math.round((v.cargaMes / Math.max(v.maxMes, 1)) * 100));
   const tom = pct >= 100 ? "bg-destructive" : pct >= 60 ? "bg-warning" : "bg-success";
   return (
@@ -100,8 +104,19 @@ export default function MinisterioVoluntarios() {
   const [nomeMinisterio, setNome] = useState<string>("");
   const [lista, setLista] = useState<VoluntarioDoPainel[]>([]);
   const [loading, setLoading] = useState(true);
+  const [versao, setVersao] = useState(0);
   const [busca, setBusca] = useState("");
   const [filtro, setFiltro] = useState<EstadoVoluntario | "todos">("todos");
+  const [editando, setEditando] = useState<VoluntarioDoPainel | null>(null);
+
+  // O portão é o da POLÍTICA, não o `canEdit` do app.
+  //
+  // `canEdit` é admin+secretaria. A política de escrita de `perfil_servico`
+  // (ps_admin) cobre admin, secretaria E liderança. Usar `canEdit` aqui
+  // esconderia o botão justamente do papel que mais precisa dele — o líder
+  // que está olhando o painel do próprio ministério.
+  const { hasRole } = useAuth();
+  const podeEditar = hasRole(["admin", "secretaria", "lideranca"]);
 
   useEffect(() => {
     if (!ministerioId) return;
@@ -115,7 +130,12 @@ export default function MinisterioVoluntarios() {
       setLista(vols);
       setLoading(false);
     })();
-  }, [ministerioId]);
+  }, [ministerioId, versao]);
+
+  // Recarrega a lista depois de salvar uma disponibilidade, para o chip e a
+  // barra mudarem na hora — sem isso a pessoa salva e a linha continua
+  // dizendo "ninguém perguntou ainda".
+  const recarregar = () => setVersao(v => v + 1);
 
   const comEstado = useMemo(
     () => lista.map(v => ({ v, estado: estadoDe(v) })),
@@ -237,6 +257,19 @@ export default function MinisterioVoluntarios() {
                         {ROTULO_ESTADO[estado]}
                       </Badge>
                       <BarraDeCarga v={v} />
+                      <div className="flex items-center gap-1">
+                      {podeEditar && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setEditando(v)}
+                          className="h-7 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground"
+                        >
+                          <CalendarClock className="w-3 h-3" />
+                          {v.temPerfil ? "Editar" : "Informar"}
+                        </Button>
+                      )}
                       {zap && (
                         <a
                           href={zap}
@@ -249,6 +282,7 @@ export default function MinisterioVoluntarios() {
                           {formatarTelefoneSemDDI(v.telefone)}
                         </a>
                       )}
+                      </div>
                     </div>
 
                   </CardContent>
@@ -274,6 +308,14 @@ export default function MinisterioVoluntarios() {
         )}
 
       </div>
+
+      <DisponibilidadeDialog
+        pessoaId={editando?.pessoa_id ?? null}
+        nome={editando?.nome_completo ?? ""}
+        open={!!editando}
+        onOpenChange={v => { if (!v) setEditando(null); }}
+        onSalvo={recarregar}
+      />
     </div>
   );
 }
