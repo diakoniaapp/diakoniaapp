@@ -26,6 +26,15 @@ export interface EventoPastoral {
   telefone?: string | null;
   telefone_secundario?: string | null;
   passou?: boolean;
+  /**
+   * membro, congregado ou visitante — nulo no ramo de casamento, que
+   * pertence a uma família e não a uma pessoa.
+   *
+   * Veio da migration 20260820150000. Sem ele não havia como conferir,
+   * olhando a tela, que os três tipos aparecem: a lista mostrava nome e
+   * idade, e um congregado era indistinguível de um membro.
+   */
+  tipo_pessoa?: "membro" | "congregado" | "visitante" | null;
 }
 
 // ── Buscar eventos do mês (default: mês atual) ─────────────────────────────

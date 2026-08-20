@@ -17,6 +17,7 @@ import {
   felicitacoesDeHoje, marcarFelicitada, chaveDaEfemeride,
 } from "@/services/efemerideFeita";
 import { formatarTelefoneSemDDI } from "@/lib/telefone";
+import { corDoTipo, rotuloDoTipo } from "@/lib/tipoPessoa";
 
 function ehDomingo(): boolean {
   return new Date().getDay() === 0;
@@ -29,7 +30,17 @@ function ehDomingo(): boolean {
 // pastorado, que acontece uma vez por ano, passaria batida se ninguém abrisse
 // a tela naquele dia exato.
 const DIAS_ADIANTE = 30;
-const QUANTOS_ADIANTE = 5;
+
+// Oito, e não cinco.
+//
+// Com cinco, os aniversários do próximo mês inteiro eram representados pelos
+// cinco mais próximos — e nesta igreja os cinco mais próximos costumam ser
+// todos membros, porque 60% dos membros têm data de nascimento cadastrada
+// contra 9% dos congregados. O painel parecia não incluir congregados;
+// incluía, e eles caíam nas posições 6 e 9.
+//
+// Cada item é uma linha só, então oito ainda cabem sem empurrar a tela.
+const QUANTOS_ADIANTE = 8;
 
 // Os quatro sufixos dizem de que tipo de ano se trata, sempre — inclusive o
 // aniversário, que antes era só "anos".
@@ -231,7 +242,14 @@ export function AcoesDoDia() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium truncate">{ev.titulo}</p>
-                      <p className="text-xs text-muted-foreground">{resumo}</p>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="text-xs text-muted-foreground">{resumo}</p>
+                        {ev.tipo_pessoa && (
+                          <span className={`text-[11px] leading-none px-1.5 py-0.5 rounded border ${corDoTipo(ev.tipo_pessoa)}`}>
+                            {rotuloDoTipo(ev.tipo_pessoa)}
+                          </span>
+                        )}
+                      </div>
                       {ev.telefone && (
                         <p className="text-xs text-muted-foreground mt-0.5">📞 {formatarTelefoneSemDDI(ev.telefone)}</p>
                       )}
@@ -290,6 +308,14 @@ export function AcoesDoDia() {
                 <li key={`${ev.tipo}-${ev.ref_id}`} className="flex items-center gap-2.5 px-3 py-2 min-w-0">
                   <ap.Icon className={`w-3.5 h-3.5 shrink-0 ${ap.cor}`} />
                   <span className="text-sm truncate flex-1 min-w-0">{ev.titulo}</span>
+                  {/* O tipo antes dos anos: é ele que responde "de quem é
+                      esta data", e some no celular, onde a linha aperta e
+                      o nome é o que importa. */}
+                  {ev.tipo_pessoa && (
+                    <span className={`hidden sm:inline text-[11px] leading-none px-1.5 py-0.5 rounded border shrink-0 ${corDoTipo(ev.tipo_pessoa)}`}>
+                      {rotuloDoTipo(ev.tipo_pessoa)}
+                    </span>
+                  )}
                   <span className="text-xs text-muted-foreground shrink-0">
                     {anos > 0 ? `${anos} ${ap.sufixo}` : ap.semAnos}
                   </span>
