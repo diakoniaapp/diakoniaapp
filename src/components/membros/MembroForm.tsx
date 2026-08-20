@@ -261,7 +261,15 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
         .order("nome");
       if (cancelled) return;
       // Agrupar por ministério (apenas ativos)
-      const mapaMin: Map<string, { ministerio: { id: string; nome: string }; areas: { id: string; nome: string }[] }> = new Map();
+      //
+      // O tipo tem que bater com o do estado `areasPorMinisterio`: as areas
+      // carregam lider_id e co_lider_id, que o JSX usa para marcar quem
+      // lidera. O Map estava declarado sem esses dois campos, embora o push
+      // logo abaixo sempre os tenha enviado.
+      const mapaMin: Map<string, {
+        ministerio: { id: string; nome: string };
+        areas: { id: string; nome: string; lider_id: string | null; co_lider_id: string | null }[];
+      }> = new Map();
       (rawAreas ?? []).forEach((a: any) => {
         const m = a.ministerios;
         if (!m || m.ativo === false) return;

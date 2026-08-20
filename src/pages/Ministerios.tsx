@@ -31,8 +31,22 @@ export interface Ministerio {
         lider_id: string | null; co_lider_id: string | null; vice_lider_id: string | null; ativo: boolean;
 }
 interface MembroOpt { id: string; nome_completo: string; }
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyForm = Record<string, any>;
+
+// Era `Record<string, any>`. O nome do tipo ja avisava: com index signature
+// aberta, qualquer chave passava — inclusive uma coluna que nao existe, e o
+// erro so apareceria no banco, em producao. As seis chaves abaixo foram
+// conferidas contra `information_schema`: todas existem em `ministerios`.
+//
+// `string | null` e nao `string` porque o formulario guarda "" enquanto a
+// pessoa digita e converte para null na hora de gravar.
+interface FormMinisterio {
+  nome: string;
+  sigla: string | null;
+  descricao: string | null;
+  lider_id: string | null;
+  co_lider_id: string | null;
+  ativo: boolean;
+}
 
 export default function Ministerios() {
         const { canEdit, user } = useAuth();
@@ -46,8 +60,8 @@ export default function Ministerios() {
         const [areasOpenFor, setAreasOpenFor] = useState<Ministerio | null>(null);
         const [open, setOpen] = useState(false);
         const [editingId, setEditingId] = useState<string | null>(null);
-        const emptyForm: AnyForm = { nome: "", sigla: "", descricao: "", lider_id: "", co_lider_id: "", ativo: true };
-        const [form, setForm] = useState<AnyForm>(emptyForm);
+        const emptyForm: FormMinisterio = { nome: "", sigla: "", descricao: "", lider_id: "", co_lider_id: "", ativo: true };
+        const [form, setForm] = useState<FormMinisterio>(emptyForm);
         const [sugestao, setSugestao] = useState<{
                   nome: string; descricao: string; responsabilidades: string;
                   origem: "documento" | "modelo"; base_institucional?: string;
@@ -157,8 +171,19 @@ export default function Ministerios() {
 
   const onSubmit = async (e: React.FormEvent) => {
             e.preventDefault();
-            const payload: AnyForm = { ...form };
-            Object.keys(payload).forEach(k => { if (payload[k] === "") payload[k] = null; });
+            // Campo por campo, e nao um laco sobre Object.keys: o laco
+            // aceitava qualquer chave que estivesse no estado, entao um
+            // campo novo no formulario iria para o banco sem ninguem
+            // conferir se a coluna existe.
+            const semVazio = (v: string | null) => (v && v.trim() !== "" ? v : null);
+            const payload = {
+              nome:        form.nome,
+              sigla:       semVazio(form.sigla),
+              descricao:   semVazio(form.descricao),
+              lider_id:    semVazio(form.lider_id),
+              co_lider_id: semVazio(form.co_lider_id),
+              ativo:       form.ativo,
+            };
             let err;
             if (editingId) { ({ error: err } = await supabase.from("ministerios").update(payload).eq("id", editingId)); }
             else { ({ error: err } = await supabase.from("ministerios").insert(payload)); }
@@ -184,7 +209,7 @@ export default function Ministerios() {
             if (sugestao.descricao) partes.push(sugestao.descricao);
             if (sugestao.responsabilidades) partes.push("Responsabilidades:\n" + sugestao.responsabilidades);
             if (sugestao.base_institucional) partes.push("Base: " + sugestao.base_institucional);
-            setForm((f: AnyForm) => ({ ...f, descricao: partes.join("\n\n") }));
+            setForm((f: FormMinisterio) => ({ ...f, descricao: partes.join("\n\n") }));
             setSugestao(null);
             toast.success(sugestao.origem === "documento" ? "Preenchido com base nos documentos" : "Modelo padrão aplicado");
   };

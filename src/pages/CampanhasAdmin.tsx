@@ -567,23 +567,49 @@ function WizardCampanha({ campanha, onClose, onSalvo }: {
       }
 
       // 4. Criar eventos na agenda
+      //
+      // Esta parte nunca funcionou. O payload mandava `data_inicio` e
+      // `data_fim`, colunas que a tabela `eventos` NAO tem — ela tem `data`
+      // (date, obrigatoria), `hora_inicio` e `hora_fim`. O insert era
+      // recusado pelo banco, o erro nao era conferido, e a tela anunciava
+      // "Campanha criada com sucesso!" como se os dias tivessem entrado na
+      // agenda. Havia zero eventos com `campanha_id` em producao.
+      //
+      // As 8h-9h vieram do codigo original (era o que o "T08:00:00" queria
+      // dizer) e ficam preservadas: toda campanha que alguem criar agora
+      // marca 8h da manha. Se a igreja quiser outro horario, ou nenhum, e
+      // aqui que se muda — os 28 eventos do banco todos tem hora, entao um
+      // evento sem horario seria o primeiro.
+      let avisoDaAgenda: string | null = null;
       if (form.criar_eventos && estrutura.length > 0) {
         const eventosPayload = estrutura
           .filter((d) => d.tema.trim())
           .map((d) => ({
             titulo:      `${form.nome} — Dia ${d.dia}: ${d.tema}`,
             descricao:   `Campanha: ${form.nome}`,
-            data_inicio: `${d.data}T08:00:00`,
-            data_fim:    `${d.data}T09:00:00`,
+            data:        d.data,
+            hora_inicio: "08:00:00",
+            hora_fim:    "09:00:00",
             campanha_id: campanhaId,
           }));
 
         if (eventosPayload.length > 0) {
-          await supabase.from("eventos").insert(eventosPayload);
+          const { error: errEventos } = await supabase.from("eventos").insert(eventosPayload);
+          if (errEventos) avisoDaAgenda = errEventos.message;
         }
       }
 
-      toast.success(campanha ? "Campanha atualizada!" : "Campanha criada com sucesso!");
+      // A campanha foi salva de verdade — nao e caso de erro. Mas dizer
+      // "sucesso" escondendo que a agenda ficou vazia foi exatamente o que
+      // deixou este defeito invisivel por meses.
+      if (avisoDaAgenda) {
+        toast.warning(
+          (campanha ? "Campanha atualizada" : "Campanha criada") +
+          ", mas os dias nao entraram na agenda: " + avisoDaAgenda,
+        );
+      } else {
+        toast.success(campanha ? "Campanha atualizada!" : "Campanha criada com sucesso!");
+      }
       onSalvo();
     } catch (err: any) {
       toast.error(err.message ?? "Erro ao salvar campanha.");

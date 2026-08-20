@@ -9,7 +9,12 @@ import { supabase } from "@/integrations/supabase/client";
 // ── Utilitários ───────────────────────────────────────────────
 
 /** Promise com timeout — evita "Salvando..." infinito (Fase E). */
-function comTimeout<T>(p: Promise<T>, ms: number, msg: string): Promise<T> {
+// `PromiseLike` e nao `Promise`: o construtor de consulta do Supabase tem
+// `.then()` mas nao e um Promise de verdade. Declarado como Promise, o
+// TypeScript nao conseguia inferir o que vinha dentro, caia para `{}`, e
+// `const { error } = await comTimeout(...)` deixava de ser conferido — logo
+// abaixo, na gravacao dos metadados do documento.
+function comTimeout<T>(p: PromiseLike<T>, ms: number, msg: string): Promise<T> {
   return Promise.race<T>([
     p,
     new Promise<T>((_, rej) =>

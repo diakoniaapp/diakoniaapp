@@ -13,7 +13,11 @@ export interface ItemEstruturaPreview {
   descricao: string | null; responsabilidades: string | null;
   base_institucional: string; referencia_documento: string;
   ordem: number; secao_id: string; secao_titulo: string;
-  documento_titulo: string; jaExiste: boolean; idExistente: string | null;
+  // `documento_id` alem do titulo: e ele que o historico exige, e o titulo
+  // nao serve — dois documentos podem ter o mesmo nome, e o titulo muda
+  // quando alguem renomeia.
+  documento_id: string; documento_titulo: string;
+  jaExiste: boolean; idExistente: string | null;
 }
 
 export interface ResultadoSync {
@@ -85,7 +89,7 @@ export async function analisarSyncEstrutura(): Promise<ResultadoSync> {
       referencia_documento:(doc?.titulo??"")+" — "+s.titulo,
       ordem:s.nivel_hierarquico??s.ordem,
       secao_id:s.id, secao_titulo:s.titulo,
-      documento_titulo:doc?.titulo??"",
+      documento_id:s.documento_id, documento_titulo:doc?.titulo??"",
       jaExiste:idExistente!==null, idExistente,
     };
     if (idExistente) jaExistentes.push(item); else novos.push(item);
@@ -125,11 +129,30 @@ export async function aplicarSync(
       erros++;
     }
   }
+  // Uma linha por documento de origem, e nao uma linha solta.
+  //
+  // A tabela se chama `documentos_historico` e exige `documento_id`: e o
+  // historico DE um documento. O insert antigo omitia a coluna, era
+  // recusado pelo banco, e o erro morria num console.warn que ninguem le —
+  // a tabela tem zero linhas ate hoje. Uma sincronizacao que puxa secoes de
+  // tres documentos mexeu na estrutura vinda dos tres, entao sao tres
+  // linhas, e cada documento passa a mostrar isso no proprio historico.
   if (criados+atualizados>0) {
-    await supabase.from("documentos_historico").insert({
-      acao:"sincronizacao_estrutura", usuario_email:emailUsuario,
-      observacao:"Sync: "+criados+" criado(s), "+atualizados+" atualizado(s)",
-    }).then(()=>{}, (e)=>console.warn("[estruturaSync] Falha ao registrar histórico:", e));
+    const docsDeOrigem = [...new Set(
+      opcoes.filter(o => o.acao !== "ignorar")
+            .map(o => o.item.documento_id)
+            .filter((id): id is string => !!id),
+    )];
+    if (docsDeOrigem.length > 0) {
+      const { error: errHistorico } = await supabase.from("documentos_historico").insert(
+        docsDeOrigem.map(documento_id => ({
+          documento_id,
+          acao:"sincronizacao_estrutura", usuario_email:emailUsuario,
+          observacao:"Sync: "+criados+" criado(s), "+atualizados+" atualizado(s)",
+        })),
+      );
+      if (errHistorico) console.warn("[estruturaSync] Falha ao registrar histórico:", errHistorico);
+    }
   }
   return { criados, atualizados, erros };
 }

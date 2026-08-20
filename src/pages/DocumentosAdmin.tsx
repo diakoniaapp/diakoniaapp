@@ -40,6 +40,13 @@ interface Documento {
   aprovado_em: string | null;
   aprovado_por: string | null;
   arquivo_url: string | null;
+  // As tres abaixo faltavam, e o codigo ja as lia (o SELECT e "*", entao
+  // elas sempre chegaram — so o TypeScript nao sabia). Sem elas, a parte
+  // que mostra o arquivo anexado ficava fora de qualquer conferencia de
+  // tipo: renomear uma coluna no banco nao acusaria nada aqui.
+  arquivo_storage_path: string | null;
+  arquivo_nome: string | null;
+  arquivo_tamanho_bytes: number | null;
   created_at: string;
 }
 
