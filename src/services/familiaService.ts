@@ -2,7 +2,7 @@
 import { supabase } from "@/integrations/supabase/client";
 
 export type ParentescoTipo =
-  | "pai_mae" | "conjuge" | "filho" | "avo"
+  | "pai_mae" | "conjuge" | "filho" | "avo" | "neto"
   | "enteado" | "tutelado" | "irmao" | "outro";
 
 export const PARENTESCO_LABEL: Record<ParentescoTipo, string> = {
@@ -10,6 +10,9 @@ export const PARENTESCO_LABEL: Record<ParentescoTipo, string> = {
   conjuge:  "Cônjuge",
   filho:    "Filho(a)",
   avo:      "Avô/Avó",
+  // Logo depois de avô, que é a outra ponta da mesma relação. A ordem
+  // deste objeto é a ordem do seletor no formulário.
+  neto:     "Neto(a)",
   enteado:  "Enteado(a)",
   tutelado: "Tutelado(a)",
   irmao:    "Irmão(ã)",

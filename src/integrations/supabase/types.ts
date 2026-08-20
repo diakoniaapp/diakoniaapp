@@ -13080,6 +13080,7 @@ export type Database = {
         | "conjuge"
         | "filho"
         | "avo"
+        | "neto"
         | "enteado"
         | "tutelado"
         | "irmao"
@@ -13893,6 +13894,7 @@ export const Constants = {
         "conjuge",
         "filho",
         "avo",
+        "neto",
         "enteado",
         "tutelado",
         "irmao",
