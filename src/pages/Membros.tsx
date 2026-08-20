@@ -470,7 +470,10 @@ function Cabecalho({ campo, rotulo, ordem, aoOrdenar, largura }: {
 }
 
 export default function Membros() {
-    const { canEdit, hasRole } = useAuth();
+    // `podeEditarPessoas` e nao `canEdit`: esta e a tela de pessoas, e a
+    // liderança passou a poder editá-las em 20/08/2026. `canEdit` continua
+    // existindo para o que nao e pessoa.
+    const { podeEditarPessoas: canEdit, hasRole } = useAuth();
     const [membros, setMembros] = useState<Membro[]>([]);
     const [search, setSearch] = useState("");
     const [loading, setLoading] = useState(true);

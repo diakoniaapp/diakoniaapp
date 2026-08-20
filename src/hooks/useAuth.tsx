@@ -20,6 +20,8 @@ interface AuthContextValue {
   signOut: () => Promise<void>;
   hasRole: (r: AppRole | AppRole[]) => boolean;
   canEdit: boolean;
+  /** Ficha de pessoa e contatos. Ver a nota em `podeEditarPessoas`. */
+  podeEditarPessoas: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -65,8 +67,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const canEdit = hasRole(["admin", "secretaria"]);
 
+  /**
+   * Quem mexe na ficha de uma pessoa: nome, telefone, tipo de vínculo,
+   * cadastro de quem chegou.
+   *
+   * Separado de `canEdit` de propósito. `canEdit` é o portão geral — agenda,
+   * locais, ministérios, áreas, famílias — e continua sendo admin+secretaria.
+   * Pessoas e contatos foram abertos à liderança em 20/08/2026 (migration
+   * 20260820140000), e usar o portão geral para isso abriria junto meia
+   * dúzia de telas que ninguém pediu.
+   *
+   * Os papéis aqui espelham a política `staff_update_membros` do banco. Se
+   * um dia divergirem, é a política que manda: a tela ofereceria um botão
+   * que o banco recusa, e era exatamente esse o defeito que isto conserta.
+   * Apagar pessoa NÃO entra — continua só de admin, no banco e aqui.
+   */
+  const podeEditarPessoas = hasRole(["admin", "secretaria", "lideranca"]);
+
   return (
-    <AuthContext.Provider value={{ user, session, roles, loading, signOut, hasRole, canEdit }}>
+    <AuthContext.Provider value={{ user, session, roles, loading, signOut, hasRole, canEdit, podeEditarPessoas }}>
       {children}
     </AuthContext.Provider>
   );

@@ -7,15 +7,21 @@ import { useAuth } from "@/hooks/useAuth";
 /**
  * Floating Action Button (FAB) com ações rápidas.
  * Visível apenas em mobile (md:hidden) e somente para usuários com permissão de edição.
- * Ações: Adicionar pessoa, Novo evento, Nova família, Criar ministério (admin/secretaria).
+ * Ações: Adicionar pessoa, Novo evento, Nova família, Criar ministério.
+ *
+ * Cada atalho carrega o próprio portão. Antes o menu inteiro sumia com um
+ * único `canEdit`, e desde 20/08/2026 isso deixou de ser verdade: a
+ * liderança pode cadastrar pessoa mas não criar ministério. Um menu que
+ * some inteiro esconderia a ação que ela pode fazer por causa das que não.
  */
 export function QuickActionsFab() {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { canEdit } = useAuth();
+  const { canEdit, podeEditarPessoas } = useAuth();
 
-  if (!canEdit) return null;
+  // Some só para quem não pode fazer nada daqui.
+  if (!canEdit && !podeEditarPessoas) return null;
 
   const go = (path: string, query?: string) => {
     setOpen(false);
@@ -31,26 +37,27 @@ export function QuickActionsFab() {
       label: "Adicionar pessoa",
       icon: UserPlus,
       onClick: () => go("/membros", "novo"),
-      visible: true,
+      visible: podeEditarPessoas,
     },
     {
       label: "Novo evento",
       icon: CalendarPlus,
       onClick: () => go("/eventos", "novo"),
-      visible: true,
+      visible: canEdit,
     },
     {
       label: "Nova família",
       icon: HomeIcon,
       onClick: () => go("/familias", "novo"),
-      visible: true,
+      // `vinculos_familiares` aceita admin, secretaria e diakonia — não
+      // liderança. Mostrar aqui daria um botão que o banco recusa.
+      visible: canEdit,
     },
     {
       label: "Criar ministério",
       icon: HeartHandshake,
       onClick: () => go("/ministerios", "novo"),
-      // ministério visível para todos com canEdit, mas destaque para admin/secretaria
-      visible: true,
+      visible: canEdit,
     },
   ].filter((a) => a.visible);
 
