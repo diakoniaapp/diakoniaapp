@@ -23,8 +23,13 @@ import {
 } from "@/components/ui/alert-dialog";
 
 import {
-  listarTodosAcessos, reenviarAcessoPessoa, revogarAcesso, type AcessoPessoa,
+  listarTodosAcessos, reenviarAcessoPessoa, revogarAcesso, definirPerfil,
+  type AcessoPessoa,
 } from "@/services/acessoService";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import type { AppRole } from "@/hooks/useAuth";
 import { enviarWhatsApp, montarMensagemWhatsApp } from "@/services/userService";
 import { ROLE_LABEL, ROLE_VARIANT } from "@/types/usuario";
 import { Badge as UiBadge } from "@/components/ui/badge";
@@ -69,6 +74,7 @@ export default function Usuarios() {
   const [busca,     setBusca]     = useState("");
   const [agindo,    setAgindo]    = useState<string | null>(null);
   const [aRemover,  setARemover]  = useState<AcessoComNome | null>(null);
+  const [trocando,  setTrocando]  = useState<string | null>(null);
   const [removendo, setRemovendo] = useState(false);
 
   const podeGerenciar = hasRole(["admin", "secretaria"]);
@@ -102,6 +108,24 @@ export default function Usuarios() {
   });
 
   // ── Ação: resetar/reenviar ──────────────────────────────────────────────────
+
+  /**
+   * Os cinco perfis oferecidos. `diakonia` fica fora: o próprio tipo o marca
+   * como legado, já migrado para `pastor`.
+   */
+  const PERFIS: AppRole[] = ["admin", "secretaria", "pastor", "lideranca", "voluntario"];
+
+  async function handleTrocarPerfil(a: AcessoComNome, papel: AppRole) {
+    setTrocando(a.userId);
+    const r = await definirPerfil(a.userId, papel);
+    setTrocando(null);
+    if (!r.ok) return toast.error(r.mensagem);
+    // A frase vem do banco e diz o antes e o depois ("agora é Secretaria
+    // (era lideranca)"). Numa troca de permissão, saber de onde a pessoa
+    // veio importa tanto quanto para onde foi.
+    toast.success(r.mensagem);
+    carregar();
+  }
 
   async function handleRemover() {
     if (!aRemover) return;
@@ -331,18 +355,42 @@ export default function Usuarios() {
                             como lá cabe mais de um papel por pessoa, todos
                             aparecem. */}
                         <td className="px-4 py-3">
-                          <div className="flex flex-wrap gap-1">
-                            {(a.papeis?.length ? a.papeis : []).map(p => (
-                              <Badge key={p} variant={ROLE_VARIANT[p] ?? "outline"} className="text-xs font-medium">
-                                {ROLE_LABEL[p] ?? p}
-                              </Badge>
-                            ))}
-                            {!a.papeis?.length && (
-                              <Badge variant="outline" className="text-xs text-muted-foreground">
-                                Sem perfil
-                              </Badge>
-                            )}
-                          </div>
+                          {/* Editável para o admin, e nunca na própria linha:
+                              rebaixar a si mesma trancaria quem está
+                              configurando do lado de fora desta tela. A função
+                              do banco recusa de todo jeito; esconder o seletor
+                              evita oferecer o que vai dar erro. */}
+                          {hasRole(["admin"]) && a.userId !== user?.id ? (
+                            <Select
+                              value={a.papeis?.[0] ?? ""}
+                              disabled={trocando === a.userId}
+                              onValueChange={(v) => handleTrocarPerfil(a, v as AppRole)}
+                            >
+                              <SelectTrigger className="h-8 w-[150px] text-xs">
+                                <SelectValue placeholder="Sem perfil" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {PERFIS.map(p => (
+                                  <SelectItem key={p} value={p} className="text-xs">
+                                    {ROLE_LABEL[p] ?? p}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <div className="flex flex-wrap gap-1">
+                              {(a.papeis?.length ? a.papeis : []).map(p => (
+                                <Badge key={p} variant={ROLE_VARIANT[p] ?? "outline"} className="text-xs font-medium">
+                                  {ROLE_LABEL[p] ?? p}
+                                </Badge>
+                              ))}
+                              {!a.papeis?.length && (
+                                <Badge variant="outline" className="text-xs text-muted-foreground">
+                                  Sem perfil
+                                </Badge>
+                              )}
+                            </div>
+                          )}
                         </td>
 
                         {/* Status — de `auth.users.last_sign_in_at`.

@@ -8,6 +8,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, ChevronLeft, ChevronRight, CalendarDays, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { usePermissoes } from "@/hooks/usePermissoes";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
   format,
@@ -64,7 +65,25 @@ interface EvArea {
 }
 
 export default function Eventos() {
-  const { canEdit } = useAuth();
+  // Quem mexe na agenda: a PERMISSÃO configurada, não o papel fixo.
+  //
+  // `canEdit` é admin+secretaria e vale para meia dúzia de telas ao mesmo
+  // tempo. Desde 20/08/2026 a agenda tem os próprios códigos, marcáveis em
+  // Usuários — e sem esta linha eles seriam enfeite.
+  //
+  // Piso pelo papel quando o conjunto vem VAZIO: isso quer dizer consulta
+  // falhada, não usuário sem direito, e falha de rede não pode esconder os
+  // botões de quem tem direito a eles.
+  const { canEdit: papelEdita } = useAuth();
+  const { podeFazer, permissoes: permsCarregadas, loading: permsCarregando } = usePermissoes();
+  const semResposta = permsCarregando || permsCarregadas.size === 0;
+  const canEdit  = semResposta ? papelEdita : podeFazer("gerenciar_agenda");
+  // Excluir tem código próprio, como em `pessoas`: editar errado se
+  // conserta, apagar não. A política de DELETE de `eventos` é só de admin,
+  // então marcar isto para outro perfil daria um botão que o banco recusa
+  // — e o recado de escritaConferida apareceria em vez de um "excluído"
+  // que mentia.
+  const podeExcluir = semResposta ? papelEdita : podeFazer("excluir_evento");
   const isMobile = useIsMobile();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -832,7 +851,7 @@ export default function Eventos() {
         // Sem permissao de edicao, sem exclusao: o botao nem e montado.
         // Aniversario e feriado tambem ficam de fora — sao gerados, nao estao
         // na tabela `eventos`, e chegam marcados com externalReadOnly.
-        onDelete={canEdit && !editing?.externalReadOnly ? excluirEvento : undefined}
+        onDelete={podeExcluir && !editing?.externalReadOnly ? excluirEvento : undefined}
       />
 
       {/* Hide unused-import warning */}

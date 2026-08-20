@@ -19,6 +19,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, MapPin, Pencil, Users, Filter, Upload, Accessibility, Lock, Calendar, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { usePermissoes } from "@/hooks/usePermissoes";
 import { ListSkeleton, EmptyState, ErrorState } from "@/components/ListState";
 
 type LocalStatus = "ativo" | "inativo";
@@ -127,7 +128,14 @@ const emptyForm = {
 };
 
 export default function Locais() {
-  const { canEdit } = useAuth();
+  // `gerenciar_locais` e não `gerenciar_agenda`: são coisas diferentes.
+  // A RLS de `locais` aceita admin e secretaria; a de `eventos` aceita
+  // também liderança. Um líder que organiza um ensaio não precisa poder
+  // renomear o Templo Principal.
+  const { canEdit: papelEdita } = useAuth();
+  const { podeFazer, permissoes: permsCarregadas, loading: permsCarregando } = usePermissoes();
+  const semResposta = permsCarregando || permsCarregadas.size === 0;
+  const canEdit = semResposta ? papelEdita : podeFazer("gerenciar_locais");
   const [locais, setLocais] = useState<Local[]>([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Local | null>(null);

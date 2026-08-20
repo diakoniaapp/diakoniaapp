@@ -53,6 +53,7 @@ export interface ModuloDePermissoes {
  * decidir: "pgm" não diz a ninguém que se trata de Pequenos Grupos.
  */
 const ROTULO_MODULO: Record<string, string> = {
+  agenda:      "Agenda e espaços",
   areas:       "Áreas e ministérios",
   arrecadacao: "Bazar, cantina e manutenção",
   assuntos:    "Assuntos administrativos",
@@ -79,7 +80,10 @@ export function rotuloDoModulo(modulo: string): string {
  * mais perigoso de marcar sem querer.
  */
 const ORDEM_MODULO = [
-  "pessoas", "familias", "membresia", "areas", "ebd", "pgm",
+  // Agenda logo depois de Pessoas: é o segundo assunto que a igreja mexe
+  // toda semana, e quem vem configurar perfil quase sempre vem por causa
+  // de um dos dois.
+  "pessoas", "agenda", "familias", "membresia", "areas", "ebd", "pgm",
   "assuntos", "governanca", "painel", "financeiro", "arrecadacao", "sistema",
 ];
 

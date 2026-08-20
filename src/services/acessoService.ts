@@ -12,6 +12,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { gerarSenha, enviarWhatsApp } from "@/services/userService";
+import type { AppRole } from "@/hooks/useAuth";
 
 // ─── Cliente isolado para signUp (não afeta sessão do admin) ─────────────────
 
@@ -152,6 +153,29 @@ export async function listarTodosAcessos(): Promise<
  * so apaga a conta quando nada a segura. A frase que volta diz qual dos dois
  * aconteceu — sao coisas diferentes e quem clicou merece saber qual foi.
  */
+/**
+ * Troca o perfil de quem já usa o sistema.
+ *
+ * Numa chamada só, e não "apaga o antigo, insere o novo" pela tela: entre os
+ * dois comandos a pessoa ficaria sem papel nenhum, e se o segundo falhasse
+ * ela ficava sem acesso sem ninguém perceber. A função do banco faz os dois
+ * de uma vez — ou troca, ou não mexe.
+ *
+ * Recusa alterar a própria conta e rebaixar o último administrador. As duas
+ * trancariam quem está configurando do lado de fora da tela que resolveria.
+ */
+export async function definirPerfil(
+  userId: string,
+  papel: AppRole,
+): Promise<{ ok: boolean; mensagem: string }> {
+  const { data, error } = await supabase.rpc("definir_perfil", {
+    p_user_id: userId,
+    p_role: papel,
+  });
+  if (error) return { ok: false, mensagem: error.message };
+  return { ok: true, mensagem: (data as string) ?? "Perfil alterado." };
+}
+
 export async function revogarAcesso(userId: string): Promise<{ ok: boolean; mensagem: string }> {
   const { data, error } = await supabase.rpc("revogar_acesso", { p_user_id: userId });
   if (error) return { ok: false, mensagem: error.message };

@@ -11764,6 +11764,10 @@ export type Database = {
       //
       // Na próxima regeração do arquivo elas voltam sozinhas, com o mesmo
       // formato, e este comentário sai junto.
+      definir_perfil: {
+        Args: { p_user_id: string; p_role: Database["public"]["Enums"]["app_role"] }
+        Returns: string
+      }
       painel_de_acessos: {
         Args: Record<PropertyKey, never>
         Returns: {
