@@ -163,6 +163,11 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
     if (open && membro?.id) carregarPerfil(membro.id).then(p => setPerfil(p ?? PERFIL_VAZIO));
     if (open && !membro) setPerfil(PERFIL_VAZIO);
     if (open) setPerfilTocado(false);
+    // As duas listas longas voltam a nascer fechadas a cada abertura. O
+    // formulário não desmonta quando o diálogo fecha, então sem esta linha o
+    // estado vazava: abrir a ficha de alguém, expandir as áreas, fechar e
+    // abrir a ficha de OUTRA pessoa trazia tudo aberto de novo.
+    if (open) { setAbrirFuncoes(false); setAbrirAreas(false); }
   }, [open]);
 
   // EBD: classes disponíveis e seleção atual
@@ -176,6 +181,21 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
     areas: { id: string; nome: string; lider_id: string | null; co_lider_id: string | null }[];
   }[]>([]);
   const [areasSelecionadas, setAreasSelecionadas] = useState<Set<string>>(new Set());
+
+  // ── As duas listas longas nascem fechadas ──────────────────────────────
+  //
+  // Medido no banco: a tela oferece 25 funções ministeriais e 11 áreas — 36
+  // caixas — e a média é de 1,1 função por pessoa. Das 282 pessoas, 52
+  // servem em alguma área. Ou seja, quase toda visita a esta aba é para
+  // conferir uma escolha, não para mexer nela, e as duas caixas empurravam
+  // Família para fora da tela.
+  //
+  // Fechado NÃO quer dizer escondido: o resumo acima mostra o que está
+  // marcado. Um acordeão que só diz "Funções ministeriais ▸" trocaria
+  // espaço por um clique a cada visita — quem abre a ficha de alguém quer
+  // saber o que a pessoa faz, e teria de abrir para descobrir.
+  const [abrirFuncoes, setAbrirFuncoes] = useState(false);
+  const [abrirAreas,   setAbrirAreas]   = useState(false);
 
   /**
    * As funções marcadas, sempre na ordem da hierarquia.
@@ -915,12 +935,39 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                     igreja e permissão de login são coisas diferentes — há
                     diácono que nunca abriu o sistema e secretária com acesso e
                     nenhuma função. */}
-                <p className="text-xs text-muted-foreground mt-0.5 mb-2">
-                  Marque quantas a pessoa exercer. A primeira da ordem abaixo é a
-                  principal e aparece no catálogo.
-                </p>
+                {abrirFuncoes && (
+                  <p className="text-xs text-muted-foreground mt-0.5 mb-2">
+                    Marque quantas a pessoa exercer. A primeira da ordem abaixo é a
+                    principal e aparece no catálogo.
+                  </p>
+                )}
 
-                <div className="grid sm:grid-cols-2 gap-x-4 gap-y-1.5 rounded-md border p-3">
+                {/* Fechado, o resumo responde "o que esta pessoa faz". As
+                    etiquetas saem na mesma ordem do catálogo, então a
+                    primeira é a principal — a mesma regra do texto acima,
+                    sem precisar repetir a frase. */}
+                {!abrirFuncoes && (
+                  <div className="flex flex-wrap items-center gap-1.5 mt-1 mb-2">
+                    {funcoesSelecionadas.length > 0 ? (
+                      funcoesSelecionadas.map(f => (
+                        <Badge key={f} variant="secondary" className="text-xs font-medium">
+                          {rotuloFuncao(f)}
+                        </Badge>
+                      ))
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Nenhuma função marcada</span>
+                    )}
+                    <Button
+                      type="button" size="sm" variant="ghost"
+                      onClick={() => setAbrirFuncoes(true)}
+                      className="h-7 px-2 text-xs text-primary"
+                    >
+                      Alterar
+                    </Button>
+                  </div>
+                )}
+
+                <div className={`grid sm:grid-cols-2 gap-x-4 gap-y-1.5 rounded-md border p-3 ${abrirFuncoes ? "" : "hidden"}`}>
                   {/* A função aposentada que a pessoa JÁ TEM aparece marcada, com
                       aviso. Três pessoas estão em rótulos sem numeração — dois
                       tesoureiros e uma secretária que ninguém sabe se são 1º ou
@@ -1012,10 +1059,42 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                 <h3 className="font-semibold text-sm text-muted-foreground flex items-center gap-1.5" translate="no">
                   <Heart className="w-3.5 h-3.5" /> Áreas de atuação
                 </h3>
-                <p className="text-xs text-muted-foreground">
-                  Em quais áreas esta pessoa serve? (Pode marcar mais de uma; agrupadas pelo ministério.)
-                </p>
-                <div className="space-y-3 max-h-72 overflow-y-auto rounded-md border p-3">
+                {abrirAreas && (
+                  <p className="text-xs text-muted-foreground">
+                    Em quais áreas esta pessoa serve? (Pode marcar mais de uma; agrupadas pelo ministério.)
+                  </p>
+                )}
+
+                {/* O nome da área sozinho não basta: há "Recepção" em mais de
+                    um ministério, e fechado não existe o cabeçalho do grupo
+                    para desempatar. Por isso o ministério vem junto. */}
+                {!abrirAreas && (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {areasSelecionadas.size > 0 ? (
+                      areasPorMinisterio.flatMap(g =>
+                        g.areas
+                          .filter(a => areasSelecionadas.has(a.id))
+                          .map(a => (
+                            <Badge key={a.id} variant="secondary" className="text-xs font-medium">
+                              {a.nome}
+                              <span className="opacity-60 font-normal"> · {g.ministerio.nome}</span>
+                            </Badge>
+                          )),
+                      )
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Não serve em nenhuma área</span>
+                    )}
+                    <Button
+                      type="button" size="sm" variant="ghost"
+                      onClick={() => setAbrirAreas(true)}
+                      className="h-7 px-2 text-xs text-primary"
+                    >
+                      Alterar
+                    </Button>
+                  </div>
+                )}
+
+                <div className={`space-y-3 max-h-72 overflow-y-auto rounded-md border p-3 ${abrirAreas ? "" : "hidden"}`}>
                   {areasPorMinisterio.map(grupo => (
                     <div key={grupo.ministerio.id} className="space-y-1.5">
                       <p className="text-xs uppercase tracking-wide text-muted-foreground/80 font-semibold">
@@ -1052,11 +1131,16 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                     </div>
                   ))}
                 </div>
+                {/* Quatro linhas de instrução sobre COMO marcar área. Fechado,
+                    não há o que marcar, e elas custariam mais altura que a
+                    própria lista que se quis recolher. */}
+                {abrirAreas && (
                 <p className="text-xs text-muted-foreground">
                   Função padrão registrada: <strong>Voluntário</strong>. Líderes de área podem (e geralmente devem) 
                   marcar a própria área aqui também — assim aparecem nas escalas. Para ajustes finos (líder, 
                   coordenador, etc), abra Ministérios → o ministério desejado → Voluntários.
                 </p>
+                )}
               </div>
             )}
 
