@@ -109,7 +109,11 @@ export const widgetRegistry: Widget[] = [
   // espaço. O comentário aqui já dizia "primeiro widget do painel"; agora
   // ele também é verdade.
   { id: "acoes-do-dia", label: "Ações de hoje",
-    subtitulo: "Aniversários, bodas e visitas que acontecem agora",
+    // Nao "que acontecem agora": o bloco tambem mostra o que vem pela
+    // frente, e num dia sem efemeride ele mostrava SO isso — sob um titulo
+    // dizendo "agora". Quem olhava concluia que o aniversario de daqui a
+    // oito dias era hoje.
+    subtitulo: "Aniversários, bodas e visitas — hoje e nos próximos dias",
     icone: CalendarCheck, component: AcoesDoDia,
     permissoes: ["ver_pessoas"], prioridade: 0 },
 

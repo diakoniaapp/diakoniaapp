@@ -120,6 +120,23 @@ export function AcoesDoDia() {
         </Card>
       )}
 
+      {/* ── Quando hoje nao tem nada ────────────────────────────────────
+
+          Sem esta linha, um dia vazio mostrava direto a lista do que vem
+          pela frente — e quem lia entendia que o aniversario de daqui a
+          cinco dias era hoje. O bloco se chama "Ações de hoje": se hoje nao
+          tem nada, ele precisa DIZER isso, e nao deixar a proxima lista
+          ocupar o lugar da resposta.
+
+          Nao usa o cartao "Hoje esta leve" de cima porque aquele encerra o
+          assunto — e aqui o assunto continua, logo abaixo. */}
+      {semEventos && adiante.length > 0 && (
+        <p className="text-sm text-muted-foreground px-1">
+          <Sun className="w-3.5 h-3.5 inline mr-1.5 text-warning-text" />
+          Nenhuma efeméride hoje.
+        </p>
+      )}
+
       {/* Eventos pastorais de hoje */}
       {!semEventos && (
         <div className="grid md:grid-cols-2 gap-3">
@@ -180,7 +197,15 @@ export function AcoesDoDia() {
           viraria um calendário e deixaria de responder "o que faço hoje". */}
       {adiante.length > 0 && (
         <div className="pt-1">
-          <p className="text-xs text-muted-foreground px-1 mb-1.5">Nas próximas semanas</p>
+          {/* O rótulo segue a distância real do que está na lista: dizer
+              "próximas semanas" para uma lista que vai de 5 a 8 dias faz o
+              leitor descartar como distante o que é desta semana e da que vem.
+              O corte é 14 dias — daí em diante "semanas" passa a ser verdade. */}
+          <p className="text-xs text-muted-foreground px-1 mb-1.5">
+            {(adiante[adiante.length - 1]?.dias_ate_evento ?? 0) <= 14
+              ? "Nos próximos dias"
+              : "Nas próximas semanas"}
+          </p>
           <ul className="divide-y rounded-md border bg-card/50">
             {adiante.map(ev => {
               const ap = APARENCIA[ev.tipo] ?? APARENCIA.aniversario;
