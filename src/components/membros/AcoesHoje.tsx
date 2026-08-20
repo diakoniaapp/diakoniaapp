@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { EmptyState, ListSkeleton } from "@/components/ListState";
+import { useReportarVazio } from "@/components/hoje/vazio";
 import ContatoResultadoDialog from "@/components/membros/ContatoResultadoDialog";
 import {
   MessageCircle,
@@ -121,6 +122,20 @@ export default function AcoesHoje({ limit }: AcoesHojeProps = {}) {
       .slice(0, limit ?? undefined);
   }, [membros, limit]);
 
+  // Avisa a seção do painel quando não há ninguém esperando contato — e a
+  // seção inteira some, título e tudo.
+  //
+  // Sem isto, o bloco de Acolhimento ficaria todo dia no alto da tela dizendo
+  // "Nenhuma ação pendente hoje! 🎉". Boa notícia é boa uma vez; repetida
+  // todo dia no lugar mais valioso da tela, vira ruído — e ensina a pessoa a
+  // não olhar para ali, justamente onde um visitante esquecido vai aparecer.
+  //
+  // `loading` conta como vazio para a seção nascer escondida em vez de piscar.
+  // Fora do painel — em /visitantes — não há provider, e o hook é inerte: lá
+  // a mensagem de "todos contactados" continua aparecendo, que é o certo,
+  // porque a pessoa foi até a tela procurar por isso.
+  useReportarVazio(loading || visitantes.length === 0);
+
   // ── Helpers de edição ─────────────────────────────────────────────────────
 
   const getMsgFinal = (v: VisitanteFluxoExt) =>
@@ -192,9 +207,17 @@ export default function AcoesHoje({ limit }: AcoesHojeProps = {}) {
       {/* Cabeçalho */}
       <div className="flex items-start justify-between gap-2">
         <div>
-          <h2 className="text-lg font-semibold font-serif" translate="no">
-            Quem precisa de cuidado hoje
-          </h2>
+          {/* No painel HOJE a secao ja se anuncia como "Acolhimento", e este
+              titulo aparecia logo abaixo dizendo outra coisa — dois cabecalhos
+              para uma lista so. Fora do painel (a tela /visitantes) nao ha
+              secao nenhuma, e o titulo continua sendo a unica identificacao.
+              A contagem fica nos dois casos: e o numero, nao o titulo, que
+              responde "quantos ainda esperam". */}
+          {limit === undefined && (
+            <h2 className="text-lg font-semibold font-serif" translate="no">
+              Quem precisa de cuidado hoje
+            </h2>
+          )}
           <p className="text-xs text-muted-foreground mt-0.5" translate="no">
             {loading
               ? "Carregando..."

@@ -25,6 +25,7 @@ import {
   Wrench,
   ClipboardCheck,
   HeartHandshake,
+  HandHeart,
 } from "lucide-react";
 
 export type Prioridade = 0 | 1 | 2 | 3;
@@ -62,6 +63,12 @@ const ManutencaoArrec     = lazy(() => import("@/components/dashboard/Manutencao
 const MeusAssuntos        = lazy(() => import("@/components/dashboard/MeusAssuntos").then(m => ({ default: m.MeusAssuntos })));
 const AssuntosUrgentes    = lazy(() => import("@/components/dashboard/AssuntosUrgentes").then(m => ({ default: m.AssuntosUrgentes })));
 const SinaisDeVoluntariado = lazy(() => import("@/components/dashboard/SinaisDeVoluntariado").then(m => ({ default: m.SinaisDeVoluntariado })));
+// `limit` de 4 para o painel: a fila inteira mora em /visitantes, e um bloco
+// que cresce sem teto empurraria o resto da tela para baixo num domingo de
+// muitas visitas. O mesmo componente, sem limite, continua servindo la.
+const AcolhimentoVisitantes = lazy(() => import("@/components/membros/AcoesHoje").then(m => ({
+  default: () => <m.default limit={4} />,
+})));
 const InsightsDoSistema   = lazy(() => import("@/components/dashboard/InsightsDoSistema").then(m => ({ default: m.InsightsDoSistema })));
 
 // A ordem deste array decide empates de prioridade — é o desempate da tela.
@@ -121,6 +128,21 @@ export const widgetRegistry: Widget[] = [
     subtitulo: "Cultos, reuniões, ensaios e reservas de hoje",
     icone: CalendarDays, component: AgendaDoDia,
     permissoes: ["ver_pessoas","ver_familias","ver_ebd","ver_pgm"], prioridade: 0 },
+
+  // Prioridade 0, junto do que e de hoje.
+  //
+  // Um visitante que veio a igreja e ainda nao recebeu contato e mais
+  // urgente que um aniversario: o aniversario acontece de novo no ano que
+  // vem, e a pessoa que visitou uma vez e nao foi procurada, nao.
+  //
+  // `precisaAcao` corta em 2 dias sem contato, e o bloco some sozinho
+  // quando a fila esvazia — nao fica um "todos contactados 🎉" permanente
+  // ocupando o topo da tela todo dia.
+  { id: "acolhimento-visitantes", label: "Acolhimento",
+    subtitulo: "Quem chegou e ainda espera um contato",
+    icone: HandHeart, component: AcolhimentoVisitantes,
+    permissoes: ["ver_pessoas","ver_painel_pastoral","ver_painel_secretaria","ver_painel_admin"],
+    prioridade: 0 },
 
   // Prioridade 1, nao 0: um voluntario sobrecarregado pede conversa esta
   // semana, nao neste minuto. O que e de hoje — aniversario, agenda — vem
