@@ -300,7 +300,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
 
     // Telefone obrigatorio para visitante
     if (form.tipo_pessoa === "visitante" && !form.telefone_celular.trim()) {
-      return toast.error("Telefone e obrigatorio para visitantes");
+      return toast.error("Telefone é obrigatório para visitantes");
     }
 
     setBusy(true);

@@ -316,7 +316,7 @@ export default function RefatoracaoComparacao({
                                                     { label: "Para atualizar", count: paraAtualizar.length, color: "text-warning-text bg-warning-soft border-warning-line" },
                                                     { label: "Para criar", count: paraCriar.length, color: "text-success-text bg-success-soft border-success-line" },
                                                     { label: "Sincronizados", count: paraManter.length, color: "text-muted-foreground bg-muted/30 border-border" },
-                                                    { label: "Nao encontrados", count: orfaos.length, color: "text-info-text bg-info-soft border-info-line" },
+                                                    { label: "Não encontrados", count: orfaos.length, color: "text-info-text bg-info-soft border-info-line" },
                                                   ].map(({ label, count, color }) => (
                                                     <div key={label} className={`rounded-lg border px-3 py-2 text-center ${color}`}>
                                                       <p className="text-xl font-bold">{count}</p>

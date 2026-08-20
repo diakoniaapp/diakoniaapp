@@ -5,12 +5,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Info } from "lucide-react";
+import { Plus, Trash2, Info, CalendarClock } from "lucide-react";
 import {
   AreaOpt, EventoOcorrencia, EventoStatus, EventoTipo, LocalOpt, MinisterioOpt,
   RecorrenciaFreq, RecorrenciaRegra, Resp, STATUS_LABEL, TIPO_LABEL,
 } from "@/lib/agenda/types";
 import { cn } from "@/lib/utils";
+import { EscalaDialog } from "@/components/agenda/EscalaDialog";
 import { toast } from "sonner";
 import { RecurrenceEditor } from "./RecurrenceEditor";
 
@@ -62,6 +63,7 @@ export function EventDialog({
   const [cor, setCor] = useState<string>("");
   const [mins, setMins] = useState<{ ministerio_id: string; responsabilidade: Resp }[]>([]);
   const [ars, setArs] = useState<string[]>([]);
+  const [escalaAberta, setEscalaAberta] = useState(false);
   const [recFreq, setRecFreq] = useState<RecorrenciaFreq>("nao");
   const [recRegra, setRecRegra] = useState<RecorrenciaRegra | null>(null);
   const [saving, setSaving] = useState(false);
@@ -335,7 +337,30 @@ export function EventDialog({
                 })}
               </div>
             )}
-            <p className="text-xs text-muted-foreground italic">Escalas de voluntários poderão ser vinculadas posteriormente.</p>
+            {/* A frase que estava aqui — "Escalas de voluntários poderão ser
+                vinculadas posteriormente" — era uma promessa que o sistema
+                fazia desde que a agenda foi escrita, e nunca cumpria. As
+                tabelas `escalas` e `escala_voluntarios` existiam, vazias.
+
+                Só aparece em evento JÁ SALVO: a escala aponta para
+                `escalas.evento_id`, e um evento que ainda não existe não tem
+                id para apontar. */}
+            {ocorrencia?.evento?.id ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-1.5 w-full"
+                onClick={() => setEscalaAberta(true)}
+              >
+                <CalendarClock className="w-3.5 h-3.5" />
+                {ars.length > 0 ? "Montar escala de voluntários" : "Ver escalas deste evento"}
+              </Button>
+            ) : (
+              <p className="text-xs text-muted-foreground italic">
+                Salve o evento para montar a escala de voluntários.
+              </p>
+            )}
           </div>
 
           {/* Excluir fica separado das outras acoes — a esquerda, com o
@@ -381,6 +406,21 @@ export function EventDialog({
           </DialogFooter>
         </form>
       </DialogContent>
+      {/* Fora do <form>: um Dialog dentro de outro form dispara submit ao
+          clicar em qualquer botao sem type="button" la dentro. */}
+      <EscalaDialog
+        open={escalaAberta}
+        onOpenChange={setEscalaAberta}
+        evento={ocorrencia?.evento ? {
+          id:          ocorrencia.evento.id,
+          titulo:      ocorrencia.evento.titulo,
+          data:        ocorrencia.data ?? ocorrencia.evento.data,
+          hora_inicio: ocorrencia.evento.hora_inicio || null,
+          hora_fim:    ocorrencia.evento.hora_fim || null,
+          local:       locais.find(l => l.id === ocorrencia.evento.local_id)?.nome ?? null,
+        } : null}
+        areasDoEvento={areas.filter(a => ars.includes(a.id))}
+      />
     </Dialog>
   );
 }

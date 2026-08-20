@@ -163,7 +163,7 @@ export default function Ministerios() {
             if (editingId) { ({ error: err } = await supabase.from("ministerios").update(payload).eq("id", editingId)); }
             else { ({ error: err } = await supabase.from("ministerios").insert(payload)); }
             if (err) return toast.error(err.message);
-            toast.success(editingId ? "Ministerio atualizado" : "Ministerio cadastrado");
+            toast.success(editingId ? "Ministério atualizado" : "Ministério cadastrado");
             setForm(emptyForm); setEditingId(null); setOpen(false); load();
   };
 
@@ -186,7 +186,7 @@ export default function Ministerios() {
             if (sugestao.base_institucional) partes.push("Base: " + sugestao.base_institucional);
             setForm((f: AnyForm) => ({ ...f, descricao: partes.join("\n\n") }));
             setSugestao(null);
-            toast.success(sugestao.origem === "documento" ? "Preenchido com base nos documentos" : "Modelo padrao aplicado");
+            toast.success(sugestao.origem === "documento" ? "Preenchido com base nos documentos" : "Modelo padrão aplicado");
   };
 
   const btnLabel = refCarregando ? "Analisando..." : "Atualizar com base no documento";
@@ -300,7 +300,7 @@ export default function Ministerios() {
                                                                     <Sparkles className={"w-4 h-4 mt-0.5 shrink-0 " + (sugestao.origem === "documento" ? "text-gold" : "text-muted-foreground")} />
                                                                     <div className="flex-1 min-w-0">
                                                                                       <p className={"text-xs font-medium " + (sugestao.origem === "documento" ? "text-gold" : "text-foreground")}>
-                                                                                            {sugestao.origem === "documento" ? "Sugerido pelo regimento: " : "Modelo padrao: "}{sugestao.nome}
+                                                                                            {sugestao.origem === "documento" ? "Sugerido pelo regimento: " : "Modelo padrão: "}{sugestao.nome}
                                                                                             </p>
                                                                           {sugestao.base_institucional && <p className="text-xs text-gold/70 mt-0.5">{sugestao.base_institucional}</p>}
                                                                                       <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{sugestao.descricao}</p>

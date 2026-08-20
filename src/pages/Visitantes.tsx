@@ -138,7 +138,7 @@ export default function Visitantes() {
   const abrirWhatsApp = (v: VisitanteMembro) => {
     const etapa = calcularEtapa(v.numero_visitas ?? 1, v.created_at);
     const link  = buildWhatsAppLink(v.telefone_celular, getMensagem(etapa, v.nome_completo));
-    if (!link) return toast.error("Telefone nao cadastrado");
+    if (!link) return toast.error("Telefone não cadastrado");
     window.open(link, "_blank", "noopener,noreferrer");
   };
 
@@ -158,7 +158,7 @@ export default function Visitantes() {
         .update({ tipo_pessoa: para, ...dataField } as any)
         .eq("id", v.id)
         .select("id"),
-      "A mudanca de vinculo",
+      "A mudança de vínculo",
     );
     if (!r.ok) {
       toast.error(r.erro);
@@ -425,7 +425,7 @@ function VisitanteCard({ v, busy, busyPromote, variant, onOpen, onRetorno, onCon
   // M3.2 — abre WhatsApp com mensagem de sugestão pastoral
   const abrirWhatsAppSugestao = (msg: string) => {
     const cel = v.telefone_celular?.replace(/\D/g, "");
-    if (!cel) return toast.error("Telefone nao cadastrado");
+    if (!cel) return toast.error("Telefone não cadastrado");
     window.open(`https://wa.me/${normalizarTelefone(cel)}?text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
   };
 

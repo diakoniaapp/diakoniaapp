@@ -49,7 +49,7 @@ export default function SyncEstruturaModal({ open, onOpenChange, onConcluido }: 
       r.novos.forEach(i => m.set(i.secao_id, "criar"));
       r.jaExistentes.forEach(i => m.set(i.secao_id, "atualizar"));
       setOpcoes(m);
-      if (r.total === 0) { toast.info("Nenhuma secao elegivel encontrada. Adicione secoes do tipo Diretoria, Ministerio ou Conselho nos documentos."); setFase("idle"); }
+      if (r.total === 0) { toast.info("Nenhuma seção elegível encontrada. Adicione seções do tipo Diretoria, Ministério ou Conselho nos documentos."); setFase("idle"); }
       else setFase("preview");
     } catch(e) { toast.error("Erro: "+(e as Error).message); setFase("idle"); }
   };

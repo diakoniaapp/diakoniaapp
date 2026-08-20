@@ -91,7 +91,7 @@ export default function PgmGrupo() {
       const rid = await iniciarReuniao(grupoId, hoje);
       navigate(`/pgm/${grupoId}/reuniao/${rid}`);
     } catch (e: any) {
-      toast.error(e?.message ?? "Erro ao iniciar reuniao");
+      toast.error(e?.message ?? "Erro ao iniciar reunião");
     } finally { setIniciandoReuniao(false); }
   }
 

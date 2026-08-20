@@ -133,7 +133,7 @@ export function ProfessoresBloco({ classeId }: Props) {
                 tipos={["membro", "congregado"]}
                 ignorarIds={Array.from(new Set([...idsProfessoresGlobais, ...professores.map(p => p.pessoa_id)]))}
                 autoFocus
-                placeholder="Buscar pessoa (so quem ainda nao for professor)..."
+                placeholder="Buscar pessoa (só quem ainda não for professor)…"
               />
               <p className="text-xs text-muted-foreground -mt-1">
                 Pessoas que ja sao professor em outra classe nao aparecem na lista.

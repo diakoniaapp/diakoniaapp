@@ -154,7 +154,7 @@ function MinisterioCard({ min, onPessoa, isAdmin, onEdit }: {
         {isAdmin && (
           <button
             onClick={(e) => { e.stopPropagation(); onEdit(); }}
-            title="Gerenciar ministerio"
+            title="Gerenciar ministério"
             className="p-1 rounded hover:bg-muted text-muted-foreground shrink-0"
           >
             <Settings className="w-3.5 h-3.5" />
@@ -191,7 +191,7 @@ function MinisterioCard({ min, onPessoa, isAdmin, onEdit }: {
                       <MapPin className="w-3 h-3 text-success-text" />
                       <span className="text-xs font-medium">{area.nome}</span>
                       {area.lider_id && area.lider_nome && (
-                        <PessoaPill id={area.lider_id} nome={area.lider_nome} funcao="Lider de Area" onClick={onPessoa} />
+                        <PessoaPill id={area.lider_id} nome={area.lider_nome} funcao="Líder de Área" onClick={onPessoa} />
                       )}
                     </div>
                     {area.setores.length > 0 && (
@@ -496,7 +496,7 @@ export default function EstruturaDaIgreja() {
                 const config = {
                   institucional: { label: "Diretoria e Conselhos", icon: <Crown className="w-4 h-4 text-primary" />, border: "border-primary/30", bg: "bg-primary/10/50" },
                   ministerial: { label: "Ministerios", icon: <Church className="w-4 h-4 text-info-text" />, border: "border-info-line", bg: "bg-info-soft/50" },
-                  area: { label: "Areas e Setores", icon: <MapPin className="w-4 h-4 text-success-text" />, border: "border-success-line", bg: "bg-success-soft/50" },
+                  area: { label: "Áreas e Setores", icon: <MapPin className="w-4 h-4 text-success-text" />, border: "border-success-line", bg: "bg-success-soft/50" },
                 } as const;
                 const c = config[nivel];
                 return (
