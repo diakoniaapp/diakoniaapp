@@ -12,6 +12,8 @@ import {
 } from "@/lib/agenda/types";
 import { cn } from "@/lib/utils";
 import { EscalaDialog } from "@/components/agenda/EscalaDialog";
+import { escalasDoEvento, type EscalaDaArea } from "@/services/escalaService";
+import { Users } from "lucide-react";
 import { toast } from "sonner";
 import { RecurrenceEditor } from "./RecurrenceEditor";
 
@@ -64,6 +66,23 @@ export function EventDialog({
   const [mins, setMins] = useState<{ ministerio_id: string; responsabilidade: Resp }[]>([]);
   const [ars, setArs] = useState<string[]>([]);
   const [escalaAberta, setEscalaAberta] = useState(false);
+
+  // As escalas deste evento, para mostrar AQUI — sem obrigar a abrir o
+  // diálogo só para descobrir se já tem gente escalada. Quem abre um evento
+  // no domingo de manhã quer saber se a Recepção está coberta, não navegar.
+  const [resumo, setResumo] = useState<EscalaDaArea[]>([]);
+  const idDoEvento = ocorrencia?.evento?.id ?? null;
+
+  // A data da OCORRÊNCIA, não a do evento-base: numa série recorrente as duas
+  // divergem, e é a da ocorrência que identifica esta escala. Sem isso, a
+  // escala do culto de 23/08 apareceria em todo domingo da série.
+  const dataDaOcorrencia = ocorrencia?.data ?? ocorrencia?.evento?.data ?? null;
+
+  const carregarResumo = () => {
+    if (!idDoEvento) { setResumo([]); return; }
+    escalasDoEvento(idDoEvento, dataDaOcorrencia ?? undefined).then(setResumo);
+  };
+  useEffect(() => { if (open) carregarResumo(); }, [open, idDoEvento, dataDaOcorrencia]);
   const [recFreq, setRecFreq] = useState<RecorrenciaFreq>("nao");
   const [recRegra, setRecRegra] = useState<RecorrenciaRegra | null>(null);
   const [saving, setSaving] = useState(false);
@@ -345,6 +364,43 @@ export function EventDialog({
                 Só aparece em evento JÁ SALVO: a escala aponta para
                 `escalas.evento_id`, e um evento que ainda não existe não tem
                 id para apontar. */}
+            {/* ── As escalas deste evento ───────────────────────────────
+
+                Uma linha por área, com quantos confirmaram de quantos foram
+                chamados. É a pergunta que se faz olhando a agenda — "a
+                Recepção está coberta no domingo?" — e ela não deveria exigir
+                abrir outra tela para ser respondida.
+
+                A cor da contagem diz o estado sem precisar de rótulo: verde
+                quando todos confirmaram, âmbar quando falta alguém, apagado
+                quando ninguém foi chamado ainda. */}
+            {resumo.length > 0 && (
+              <ul className="space-y-1 mb-2">
+                {resumo.map(e => {
+                  const total = e.escalados.length;
+                  const ok = e.escalados.filter(x => x.status === "confirmado" || x.status === "presente").length;
+                  const recusou = e.escalados.filter(x => x.status === "recusado").length;
+                  const tom = total === 0 ? "text-muted-foreground"
+                    : ok === total ? "text-success-text"
+                    : "text-warning-text";
+                  return (
+                    <li key={e.id} className="flex items-center gap-2 text-xs">
+                      <Users className="w-3 h-3 text-muted-foreground shrink-0" />
+                      <span className="flex-1 min-w-0 truncate">{e.area_nome}</span>
+                      {recusou > 0 && (
+                        <span className="text-destructive-text whitespace-nowrap">
+                          {recusou} recusou{recusou > 1 ? "ram" : ""}
+                        </span>
+                      )}
+                      <span className={`tabular-nums whitespace-nowrap ${tom}`}>
+                        {total === 0 ? "ninguém escalado" : `${ok} de ${total} confirmou`}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+
             {ocorrencia?.evento?.id ? (
               <Button
                 type="button"
@@ -354,7 +410,9 @@ export function EventDialog({
                 onClick={() => setEscalaAberta(true)}
               >
                 <CalendarClock className="w-3.5 h-3.5" />
-                {ars.length > 0 ? "Montar escala de voluntários" : "Ver escalas deste evento"}
+                {resumo.length > 0 ? "Ver e ajustar as escalas"
+                  : ars.length > 0 ? "Montar escala de voluntários"
+                  : "Ver escalas deste evento"}
               </Button>
             ) : (
               <p className="text-xs text-muted-foreground italic">
@@ -410,7 +468,7 @@ export function EventDialog({
           clicar em qualquer botao sem type="button" la dentro. */}
       <EscalaDialog
         open={escalaAberta}
-        onOpenChange={setEscalaAberta}
+        onOpenChange={v => { setEscalaAberta(v); if (!v) carregarResumo(); }}
         evento={ocorrencia?.evento ? {
           id:          ocorrencia.evento.id,
           titulo:      ocorrencia.evento.titulo,

@@ -75,7 +75,7 @@ export function EscalaDialog({ open, onOpenChange, evento, areasDoEvento }: Prop
   const recarregar = async () => {
     if (!evento) return;
     setCarregando(true);
-    setEscalas(await escalasDoEvento(evento.id));
+    setEscalas(await escalasDoEvento(evento.id, evento.data));
     setCarregando(false);
   };
 

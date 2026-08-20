@@ -90,13 +90,27 @@ export function turnoDe(hora: string | null): string | null {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** As escalas já montadas para um evento, com quem está em cada uma. */
-export async function escalasDoEvento(eventoId: string): Promise<EscalaDaArea[]> {
-  const { data: escalas } = await supabase
+/**
+ * As escalas já montadas para uma OCORRÊNCIA, com quem está em cada uma.
+ *
+ * A data não é enfeite. Evento recorrente tem duas formas no banco: a série,
+ * com `recorrencia_regra` preenchida, e as ocorrências materializadas, criadas
+ * quando alguém edita uma data específica. Numa ocorrência NÃO materializada,
+ * o `evento_id` é o da série — e todas as datas compartilham o mesmo.
+ *
+ * Sem filtrar por data, a escala do culto de 23/08 apareceria também no de
+ * 30/08, no de 06/09, e em todo domingo até o fim da série. Uma equipe
+ * escalada uma vez pareceria escalada para sempre.
+ *
+ * A escala pertence a (série, data), e `escalas.data_evento` já guardava isso.
+ */
+export async function escalasDoEvento(eventoId: string, dataOcorrencia?: string): Promise<EscalaDaArea[]> {
+  let q = supabase
     .from("escalas")
     .select("id, titulo, area_id, status")
-    .eq("evento_id", eventoId)
-    .order("created_at");
+    .eq("evento_id", eventoId);
+  if (dataOcorrencia) q = q.eq("data_evento", dataOcorrencia);
+  const { data: escalas } = await q.order("created_at");
 
   if (!escalas || escalas.length === 0) return [];
 
