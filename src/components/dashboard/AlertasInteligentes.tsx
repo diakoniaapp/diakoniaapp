@@ -132,9 +132,9 @@ export function AlertasInteligentes() {
       <AlertaCard
         cor="amber"
         icon={GraduationCap}
-        titulo="Alunos fora da faixa EBD"
+        titulo="Alunos prontos para mudar de classe"
         contagem={alunosForaFaixa.length}
-        descricao="Considere mover de classe"
+        descricao="Passaram da idade maxima da classe onde estao"
         cta={{ to: "/ebd", label: "Abrir EBD" }}
       >
         {alunosForaFaixa.slice(0, 3).map(a => (

@@ -1,5 +1,6 @@
 // ─── ebdService.ts — Operações do módulo EBD ──────────────────────────────
 import { supabase } from "@/integrations/supabase/client";
+import { conferir, type ResultadoEscrita } from "@/lib/escritaConferida";
 
 export interface EbdClasse {
   id: string;
@@ -459,4 +460,29 @@ export async function resumoCampanha(campanhaId: string): Promise<ResumoCampanha
   if (error) throw error;
   const linhas = (data ?? []) as ResumoCampanha[];
   return linhas[0] ?? null;
+}
+
+/**
+ * "Este aluno fica onde está" — dispensa a progressão desta matrícula.
+ *
+ * A idade é regra, não sentença: há o adolescente que ficou mais um ano com a
+ * turma onde tem amigos, o aluno que acompanha melhor a classe mais nova. Sem
+ * uma forma de dizer isso, o alerta reaparece para sempre — e alerta que não
+ * some vira paisagem, até o dia em que aparece alguém que precisa mudar e
+ * ninguém repara.
+ *
+ * A marca vive na matrícula. Se o aluno for movido depois, a matrícula nova
+ * nasce sem ela e volta a ser avaliado pela regra — a decisão anterior era
+ * sobre a classe anterior.
+ */
+export async function manterNaClasse(pessoaId: string): Promise<ResultadoEscrita> {
+  return conferir(
+    await supabase
+      .from("ebd_matriculas")
+      .update({ progressao_dispensada_em: new Date().toISOString() })
+      .eq("pessoa_id", pessoaId)
+      .eq("ativo", true)
+      .select("id"),
+    "A decisão de manter o aluno na classe",
+  );
 }

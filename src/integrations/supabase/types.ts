@@ -2786,6 +2786,7 @@ export type Database = {
           classe_id: string
           created_at: string | null
           data_matricula: string
+          progressao_dispensada_em: string | null
           id: string
           pessoa_id: string
           updated_at: string | null
@@ -2795,6 +2796,7 @@ export type Database = {
           classe_id: string
           created_at?: string | null
           data_matricula?: string
+          progressao_dispensada_em?: string | null
           id?: string
           pessoa_id: string
           updated_at?: string | null
@@ -2804,6 +2806,7 @@ export type Database = {
           classe_id?: string
           created_at?: string | null
           data_matricula?: string
+          progressao_dispensada_em?: string | null
           id?: string
           pessoa_id?: string
           updated_at?: string | null
@@ -11250,6 +11253,10 @@ export type Database = {
           classe_sugerida_id: string | null
           data_nascimento: string | null
           idade_atual: number | null
+          // Acrescentadas a mao: a geracao deste arquivo e anterior a
+          // migration 20260820220000.
+          idade_max: number | null
+          passou_da_faixa_em: string | null
           nome_completo: string | null
           pessoa_id: string | null
           sexo: string | null
