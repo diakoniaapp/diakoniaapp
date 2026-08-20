@@ -448,6 +448,12 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
       { tabela: "pgm_presencas",         coluna: "pessoa_id", rotulo: n => `${n} ${n === 1 ? "presença" : "presenças"} em Pequenos Grupos` },
       { tabela: "vinculos_familiares",   coluna: "pessoa_id", rotulo: n => `${n} ${n === 1 ? "vínculo familiar" : "vínculos familiares"}` },
       { tabela: "historico_membro",      coluna: "membro_id", rotulo: n => `${n} ${n === 1 ? "registro" : "registros"} de histórico` },
+      // area_voluntarios entrou aqui em 19/08/2026, junto com a chave
+      // estrangeira ON DELETE CASCADE. Antes, apagar uma pessoa deixava o
+      // vinculo de voluntario para tras, orfao e invisivel — foi assim que
+      // 36 deles se acumularam. Agora o vinculo some junto, e por isso
+      // precisa aparecer no aviso: o que some tem de ser dito antes.
+      { tabela: "area_voluntarios",      coluna: "membro_id", rotulo: n => `${n} ${n === 1 ? "área em que serve" : "áreas em que serve"}` },
       { tabela: "escala_voluntarios",    coluna: "membro_id", rotulo: n => `${n} ${n === 1 ? "escala" : "escalas"} de voluntário` },
     ];
     const achados: string[] = [];
@@ -468,13 +474,19 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
     const { error } = await supabase.from("membros").delete().eq("id", membro.id);
     setBusy(false);
     if (error) {
-      // Cinco tabelas do Bazar e Cantina bloqueiam a exclusao (NO ACTION).
       // A mensagem crua do Postgres — "violates foreign key constraint
       // arr_vendas_membro_id_fkey" — nao diz nada a quem esta na secretaria.
+      // Mas dizer "Bazar e Cantina" para QUALQUER violacao de chave era
+      // pior: desde 19/08 ha chaves novas em area_voluntarios, e um erro
+      // vindo delas mandaria a secretaria procurar uma venda que nao existe.
+      // Agora a mensagem le o nome da constraint e diz o lugar certo.
       const bloqueio = /foreign key|violates/i.test(error.message);
+      const doBazar  = /\barr_/.test(error.message);
       return toast.error(
         bloqueio
-          ? "Esta pessoa tem movimentações no Bazar e Cantina e não pode ser excluída. Marque como inativa."
+          ? (doBazar
+              ? "Esta pessoa tem movimentações no Bazar e Cantina e não pode ser excluída. Marque como inativa."
+              : "Esta pessoa tem registros que impedem a exclusão. Marque como inativa — o histórico continua, e ela sai das listas.")
           : "Erro ao excluir: " + error.message,
       );
     }
