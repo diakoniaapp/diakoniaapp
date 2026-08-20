@@ -5,12 +5,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Cake, Heart, MessageCircle, Sun, Loader2, GraduationCap, ChevronRight, Users, Church,
+  Check,
 } from "lucide-react";
 import {
   proximosDias, linkWhatsApp,
   type EventoPastoral, type TipoEfemeride,
 } from "@/services/agendaPastoralService";
 import { useReportarVazio } from "@/components/hoje/vazio";
+import { toast } from "sonner";
+import {
+  felicitacoesDeHoje, marcarFelicitada, chaveDaEfemeride,
+} from "@/services/efemerideFeita";
 import { formatarTelefoneSemDDI } from "@/lib/telefone";
 
 function ehDomingo(): boolean {
@@ -53,9 +58,18 @@ export function AcoesDoDia() {
   const [eventos, setEventos] = useState<EventoPastoral[]>([]);
   const [adiante, setAdiante] = useState<EventoPastoral[]>([]);
   const [loading, setLoading] = useState(true);
+  const [feitas,  setFeitas]  = useState<Set<string>>(new Set());
+  const [salvando, setSalvando] = useState<string | null>(null);
 
-  // Some quando não há nada hoje nem à frente.
-  useReportarVazio(loading || (eventos.length === 0 && adiante.length === 0));
+  // O que ainda espera alguém. Cumprimentar tira da lista — o bloco é
+  // uma fila de tarefas do dia, não um relatório do que o calendário diz.
+  const pendentes = eventos.filter(ev => !feitas.has(chaveDaEfemeride(ev)));
+  const tudoFeitoHoje = eventos.length > 0 && pendentes.length === 0;
+
+  // Some quando não sobrou tarefa para hoje nem aviso para os próximos
+  // dias. O que já foi cumprimentado não conta: o dia foi resolvido, e o
+  // espaço volta para quem ainda precisa dele.
+  useReportarVazio(loading || (pendentes.length === 0 && adiante.length === 0));
 
   useEffect(() => {
     let cancelled = false;
@@ -63,16 +77,53 @@ export function AcoesDoDia() {
     // que vem pela frente já vinha pelo fio e era jogado fora — e cuidado
     // pastoral quase sempre precisa de aviso prévio: descobrir um aniversário
     // na manhã do dia já é quase tarde.
-    proximosDias(DIAS_ADIANTE)
-      .then(e => {
+    // As duas consultas juntas: a lista do dia não pode aparecer antes de
+    // saber o que já foi feito, ou os cartões piscariam na tela e sumiriam
+    // — e alguém mandaria a mensagem duas vezes nesse intervalo.
+    Promise.all([proximosDias(DIAS_ADIANTE), felicitacoesDeHoje()])
+      .then(([e, jaFeitas]) => {
         if (cancelled) return;
         setEventos(e.filter(ev => ev.dias_ate_evento === 0));
         setAdiante(e.filter(ev => (ev.dias_ate_evento ?? 0) > 0).slice(0, QUANTOS_ADIANTE));
+        setFeitas(jaFeitas);
       })
       .catch(() => { if (!cancelled) { setEventos([]); setAdiante([]); } })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, []);
+
+  // Cumprimentar e marcar sao o MESMO gesto, de proposito.
+  //
+  // Um botao separado de "marcar como feito" parece mais seguro, mas na
+  // pratica ninguem aperta o segundo botao — e uma lista de tarefas que
+  // nunca esvazia deixa de ser lista de tarefas. Quem clica em "Enviar
+  // mensagem" esta cumprimentando; e disso que o registro fala.
+  //
+  // `visita_historico` nao tem politica de DELETE: nao ha como desfazer.
+  // Por isso a marca so nasce de um clique deliberado num botao grande e
+  // nomeado, nunca de passar o mouse ou de rolar a tela.
+  async function cumprimentar(ev: EventoPastoral, resumo: string, abrirWhatsApp: boolean) {
+    // A janela abre ANTES de qualquer await: o navegador so permite
+    // window.open dentro do gesto do usuario, e um await no meio faz o
+    // bloqueador de pop-up engolir o WhatsApp em silencio.
+    if (abrirWhatsApp) window.open(linkWhatsApp(ev), "_blank", "noopener,noreferrer");
+
+    const chave = chaveDaEfemeride(ev);
+    setSalvando(chave);
+    // Otimista: o cartao sai na hora. Esperar o banco para so entao
+    // remover deixaria o cartao piscando enquanto a pessoa ja esta no
+    // WhatsApp, e ela voltaria sem saber se contou ou nao.
+    setFeitas(prev => new Set(prev).add(chave));
+
+    const r = await marcarFelicitada(ev, resumo);
+    setSalvando(null);
+    if (!r.ok) {
+      // Devolve o cartao para a lista. Sumir por engano e o pior desfecho
+      // possivel aqui: a pessoa fica sem ser cumprimentada e ninguem sabe.
+      setFeitas(prev => { const n = new Set(prev); n.delete(chave); return n; });
+      toast.error(r.erro ?? "Não foi possível registrar o cumprimento.");
+    }
+  }
 
   if (loading) {
     return (
@@ -85,7 +136,9 @@ export function AcoesDoDia() {
   }
 
   const domingoHoje = ehDomingo();
-  const semEventos = eventos.length === 0;
+  // "Sem evento" aqui quer dizer "sem nada a fazer", e nao "o calendario
+  // esta vazio": um aniversario ja cumprimentado nao e tarefa nenhuma.
+  const semEventos = pendentes.length === 0;
 
   if (semEventos && !domingoHoje && adiante.length === 0) {
     return (
@@ -132,19 +185,38 @@ export function AcoesDoDia() {
           assunto — e aqui o assunto continua, logo abaixo. */}
       {semEventos && adiante.length > 0 && (
         <p className="text-sm text-muted-foreground px-1">
-          <Sun className="w-3.5 h-3.5 inline mr-1.5 text-warning-text" />
-          Nenhuma efeméride hoje.
+          {/* Uma linha, nao um cartao: o dia foi resolvido, e o espaco
+              volta para quem ainda precisa dele. Mas dizer que foi
+              resolvido importa — sem isso, quem cumprimentou tres pessoas
+              ve o bloco vazio e fica na duvida se a tela carregou. */}
+          {tudoFeitoHoje ? (
+            <>
+              <Check className="w-3.5 h-3.5 inline mr-1.5 text-success" />
+              Tudo cumprimentado hoje.
+            </>
+          ) : (
+            <>
+              <Sun className="w-3.5 h-3.5 inline mr-1.5 text-warning-text" />
+              Nenhuma efeméride hoje.
+            </>
+          )}
         </p>
       )}
 
       {/* Eventos pastorais de hoje */}
       {!semEventos && (
         <div className="grid md:grid-cols-2 gap-3">
-          {eventos.map(ev => {
+          {pendentes.map(ev => {
             const ap = APARENCIA[ev.tipo] ?? APARENCIA.aniversario;
             const { Icon, sufixo, grad } = ap;
             const iconCor = ap.cor;
             const hasTel = !!ev.telefone || !!ev.telefone_secundario;
+            // A mesma frase que a pessoa le no cartao e a que fica
+            // guardada na ficha dela. Escrita uma vez, para nao divergirem.
+            const resumo = (ev.anos_vai_completar ?? 0) > 0
+              ? `${ev.anos_vai_completar} ${sufixo}`
+              : ap.semAnos;
+            const ocupado = salvando === chaveDaEfemeride(ev);
             return (
               // min-w-0: sem isso um nome longo alarga o cartão além da
               // célula do grid e a tela rola de lado no celular.
@@ -159,11 +231,7 @@ export function AcoesDoDia() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium truncate">{ev.titulo}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {(ev.anos_vai_completar ?? 0) > 0
-                          ? `${ev.anos_vai_completar} ${sufixo}`
-                          : ap.semAnos}
-                      </p>
+                      <p className="text-xs text-muted-foreground">{resumo}</p>
                       {ev.telefone && (
                         <p className="text-xs text-muted-foreground mt-0.5">📞 {formatarTelefoneSemDDI(ev.telefone)}</p>
                       )}
@@ -171,17 +239,25 @@ export function AcoesDoDia() {
                   </div>
                   {hasTel && (
                     <Button
-                      type="button" size="sm"
-                      onClick={() => window.open(linkWhatsApp(ev), "_blank", "noopener,noreferrer")}
+                      type="button" size="sm" disabled={ocupado}
+                      onClick={() => cumprimentar(ev, resumo, true)}
                       className="w-full gap-1.5 bg-success hover:bg-success text-white"
                     >
                       <MessageCircle className="w-4 h-4" /> Enviar mensagem
                     </Button>
                   )}
+                  {/* Sem telefone o cartao ficava sem saida nenhuma: a
+                      pessoa era cumprimentada no culto, no corredor, por
+                      um filho — e o cartao continuava ali dizendo
+                      "sem telefone cadastrado" ate o dia acabar. */}
                   {!hasTel && (
-                    <p className="text-xs text-muted-foreground text-center italic">
-                      Sem telefone cadastrado
-                    </p>
+                    <Button
+                      type="button" size="sm" variant="outline" disabled={ocupado}
+                      onClick={() => cumprimentar(ev, resumo, false)}
+                      className="w-full gap-1.5"
+                    >
+                      <Check className="w-4 h-4" /> Já cumprimentei
+                    </Button>
                   )}
                 </CardContent>
               </Card>

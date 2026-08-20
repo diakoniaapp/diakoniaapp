@@ -115,6 +115,24 @@ export const widgetRegistry: Widget[] = [
   // amanhã. E, quando o dia não tem nenhum, o bloco se apaga e devolve o
   // espaço. O comentário aqui já dizia "primeiro widget do painel"; agora
   // ele também é verdade.
+  // ── A ordem dos tres primeiros e deliberada ─────────────────────────
+  //
+  // Acolhimento, depois efemerides, depois agenda. Nao e ordem de
+  // importancia no abstrato: e ordem de quanto se perde ao deixar passar.
+  //
+  // Um visitante que veio uma vez e nao foi procurado nao volta, e nao ha
+  // segunda chance marcada no calendario. Um aniversario esquecido dói,
+  // mas acontece de novo no ano que vem. Um culto acontece com ou sem o
+  // painel — ele esta ali para consulta, nao para cobranca.
+  //
+  // Os tres sao prioridade 0 e os tres somem quando nao ha o que fazer,
+  // entao esta ordem so decide quem fica no topo entre os que sobraram.
+  { id: "acolhimento-visitantes", label: "Acolhimento",
+    subtitulo: "Quem chegou e ainda espera um contato",
+    icone: HandHeart, component: AcolhimentoVisitantes,
+    permissoes: ["ver_pessoas","ver_painel_pastoral","ver_painel_secretaria","ver_painel_admin"],
+    prioridade: 0 },
+
   { id: "acoes-do-dia", label: "Ações de hoje",
     // Nao "que acontecem agora": o bloco tambem mostra o que vem pela
     // frente, e num dia sem efemeride ele mostrava SO isso — sob um titulo
@@ -128,21 +146,6 @@ export const widgetRegistry: Widget[] = [
     subtitulo: "Cultos, reuniões, ensaios e reservas de hoje",
     icone: CalendarDays, component: AgendaDoDia,
     permissoes: ["ver_pessoas","ver_familias","ver_ebd","ver_pgm"], prioridade: 0 },
-
-  // Prioridade 0, junto do que e de hoje.
-  //
-  // Um visitante que veio a igreja e ainda nao recebeu contato e mais
-  // urgente que um aniversario: o aniversario acontece de novo no ano que
-  // vem, e a pessoa que visitou uma vez e nao foi procurada, nao.
-  //
-  // `precisaAcao` corta em 2 dias sem contato, e o bloco some sozinho
-  // quando a fila esvazia — nao fica um "todos contactados 🎉" permanente
-  // ocupando o topo da tela todo dia.
-  { id: "acolhimento-visitantes", label: "Acolhimento",
-    subtitulo: "Quem chegou e ainda espera um contato",
-    icone: HandHeart, component: AcolhimentoVisitantes,
-    permissoes: ["ver_pessoas","ver_painel_pastoral","ver_painel_secretaria","ver_painel_admin"],
-    prioridade: 0 },
 
   // Prioridade 1, nao 0: um voluntario sobrecarregado pede conversa esta
   // semana, nao neste minuto. O que e de hoje — aniversario, agenda — vem

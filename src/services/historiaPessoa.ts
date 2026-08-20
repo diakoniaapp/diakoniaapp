@@ -76,6 +76,13 @@ const ROTULO_CONTATO: Record<string, string> = {
   retorno_culto:     "Voltou ao culto",
   evento:            "Participou de um evento",
   observacao:        "Anotação pastoral",
+  // Gravados pelo painel HOJE quando alguem cumprimenta a data. Um rotulo
+  // por tipo, e nao um "Felicitação" generico: na vida de quem le a ficha,
+  // completar 40 anos e completar 20 anos de igreja sao coisas distintas.
+  felicitacao_aniversario: "Parabéns de aniversário",
+  felicitacao_casamento:   "Parabéns de bodas",
+  felicitacao_membresia:   "Parabéns pelos anos de igreja",
+  felicitacao_pastorado:   "Parabéns pelos anos de pastorado",
 };
 
 /**
