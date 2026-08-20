@@ -364,10 +364,22 @@ export default function Eventos() {
         return;
       }
       // Os vinculos primeiro: sem isso a exclusao esbarra na chave estrangeira.
+      //
+      // Aqui os dois deletes nao precisam de conferencia propria: quem nao
+      // pode apagar vinculo tambem nao pode apagar evento (as tres politicas
+      // de DELETE sao `is_admin()`), entao a linha seguinte ja barra. O que
+      // NAO pode acontecer e o evento sumir e os vinculos ficarem — e essa
+      // ordem, vinculos antes, e o que garante isso.
       await supabase.from("evento_ministerios").delete().eq("evento_id", eventoId);
       await supabase.from("evento_areas").delete().eq("evento_id", eventoId);
-      const { error } = await supabase.from("eventos").delete().eq("id", eventoId);
+      const { data, error } = await supabase
+        .from("eventos").delete().eq("id", eventoId).select("id");
       if (error) throw error;
+      // Zero linhas com zero erros: a politica barrou em silencio. Sem isto
+      // a tela anunciava "Evento excluido" e o evento continuava na agenda.
+      if (!data?.length) {
+        throw new Error("O evento nao foi excluido — seu perfil nao tem permissao. Peca a alguem da administracao.");
+      }
       toast.success("Evento excluído");
       setDialogOpen(false);
       setEditing(null);
@@ -378,23 +390,102 @@ export default function Eventos() {
   };
 
   // ───── Save flow ─────
+
+  // Quem so pode acrescentar nao consegue "apagar tudo e reescrever".
+  //
+  // Esta funcao apagava TODOS os vinculos do evento e reinseria a lista
+  // inteira. O padrao e comum e funciona — desde que quem salva possa
+  // apagar. A politica de DELETE de `evento_ministerios` e `evento_areas`
+  // e `is_admin()`, enquanto INSERT e UPDATE aceitam `lideranca`. E 4 dos
+  // 6 usuarios desta igreja sao `lideranca`.
+  //
+  // No Postgres com RLS, um DELETE barrado afeta zero linhas e devolve
+  // SUCESSO. Os dois deletes acima nem olhavam o retorno. O resultado, para
+  // um lider:
+  //
+  //   - tirar um ministerio do evento nao fazia nada, e a tela dizia
+  //     "Evento atualizado";
+  //   - re-salvar sem mudar nada estourava "duplicate key value violates
+  //     unique constraint" — a linha antiga nunca saiu, e o insert tentava
+  //     recria-la. Erro de banco cru, na cara de quem so queria salvar.
+  //
+  // Calculando a diferenca, tres coisas mudam. Quem nao mexeu nos vinculos
+  // nao gera operacao nenhuma. Trocar a responsabilidade de um ministerio
+  // que ja estava la vira UPDATE, que `lideranca` pode fazer. E o unico
+  // caso que ainda exige DELETE — remover de fato — passa a ser conferido
+  // e dito em voz alta, em vez de sumir.
   const insertLinks = async (
     eventoId: string,
     mins: { ministerio_id: string; responsabilidade: Resp }[],
     ars: string[],
   ) => {
-    await supabase.from("evento_ministerios").delete().eq("evento_id", eventoId);
-    await supabase.from("evento_areas").delete().eq("evento_id", eventoId);
-    if (mins.length) {
+    const [{ data: minsAtuais }, { data: arsAtuais }] = await Promise.all([
+      supabase.from("evento_ministerios")
+        .select("ministerio_id, responsabilidade").eq("evento_id", eventoId),
+      supabase.from("evento_areas")
+        .select("area_id").eq("evento_id", eventoId),
+    ]);
+
+    const antesMin = new Map(
+      (minsAtuais ?? []).map((m) => [m.ministerio_id as string, m.responsabilidade as Resp]),
+    );
+    const agoraMin = new Set(mins.map((m) => m.ministerio_id));
+
+    const minsRemovidos = [...antesMin.keys()].filter((id) => !agoraMin.has(id));
+    const minsNovos     = mins.filter((m) => !antesMin.has(m.ministerio_id));
+    const minsMudados   = mins.filter(
+      (m) => antesMin.has(m.ministerio_id) && antesMin.get(m.ministerio_id) !== m.responsabilidade,
+    );
+
+    const antesAr = new Set((arsAtuais ?? []).map((a) => a.area_id as string));
+    const arsRemovidas = [...antesAr].filter((id) => !ars.includes(id));
+    const arsNovas     = ars.filter((id) => !antesAr.has(id));
+
+    // `.select()` no delete e o que distingue "apagou" de "foi barrado":
+    // sem ele o PostgREST nao devolve as linhas afetadas.
+    const RECADO_APAGAR =
+      "Seu perfil pode acrescentar ministerios e areas ao evento, mas nao " +
+      "remover. Peca a alguem da administracao.";
+
+    if (minsRemovidos.length) {
+      const { data, error } = await supabase
+        .from("evento_ministerios").delete()
+        .eq("evento_id", eventoId).in("ministerio_id", minsRemovidos)
+        .select("ministerio_id");
+      if (error) throw error;
+      if ((data?.length ?? 0) < minsRemovidos.length) throw new Error(RECADO_APAGAR);
+    }
+    if (arsRemovidas.length) {
+      const { data, error } = await supabase
+        .from("evento_areas").delete()
+        .eq("evento_id", eventoId).in("area_id", arsRemovidas)
+        .select("area_id");
+      if (error) throw error;
+      if ((data?.length ?? 0) < arsRemovidas.length) throw new Error(RECADO_APAGAR);
+    }
+
+    // Um UPDATE por ministerio: sao um ou dois numa edicao tipica, e a
+    // alternativa (upsert da lista toda) volta a depender de poder apagar.
+    for (const m of minsMudados) {
+      const { data, error } = await supabase
+        .from("evento_ministerios")
+        .update({ responsabilidade: m.responsabilidade })
+        .eq("evento_id", eventoId).eq("ministerio_id", m.ministerio_id)
+        .select("ministerio_id");
+      if (error) throw error;
+      if (!data?.length) throw new Error("A responsabilidade do ministerio nao foi alterada — sem permissao.");
+    }
+
+    if (minsNovos.length) {
       const { error } = await supabase
         .from("evento_ministerios")
-        .insert(mins.map((x) => ({ ...x, evento_id: eventoId })));
+        .insert(minsNovos.map((x) => ({ ...x, evento_id: eventoId })));
       if (error) throw error;
     }
-    if (ars.length) {
+    if (arsNovas.length) {
       const { error } = await supabase
         .from("evento_areas")
-        .insert(ars.map((area_id) => ({ area_id, evento_id: eventoId })));
+        .insert(arsNovas.map((area_id) => ({ area_id, evento_id: eventoId })));
       if (error) throw error;
     }
   };
