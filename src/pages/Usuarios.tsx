@@ -15,10 +15,16 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
   AlertCircle, RefreshCw, ShieldCheck, UserX,
-  Users, KeyRound, Send, Search, ExternalLink,
+  Users, KeyRound, Send, Search, ExternalLink, Trash2,
 } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
-import { listarTodosAcessos, reenviarAcessoPessoa, type AcessoPessoa } from "@/services/acessoService";
+import {
+  listarTodosAcessos, reenviarAcessoPessoa, revogarAcesso, type AcessoPessoa,
+} from "@/services/acessoService";
 import { enviarWhatsApp, montarMensagemWhatsApp } from "@/services/userService";
 import { ROLE_LABEL, ROLE_VARIANT } from "@/types/usuario";
 import { Badge as UiBadge } from "@/components/ui/badge";
@@ -29,22 +35,41 @@ import { PermissoesDosPerfis } from "@/components/usuarios/PermissoesDosPerfis";
 
 type AcessoComNome = AcessoPessoa & { nomeCompleto: string };
 
+// "Sem acesso" virou "Bloqueado": nesta lista só entra quem TEM conta, então
+// a antiga etiqueta nunca descrevia ninguém. Depois que `revogar_acesso`
+// passou a bloquear o login em vez de sempre apagar a conta, o estado
+// existe de verdade e precisava de nome.
 const STATUS_STYLE = {
-  sem_acesso: { label: "Sem acesso",           cor: "text-slate-500 border-slate-300"  },
+  sem_acesso: { label: "Bloqueado",            cor: "text-destructive-text border-destructive-line" },
   aguardando: { label: "Aguardando 1º acesso", cor: "text-warning-text border-warning-line"  },
   ativo:      { label: "Ativo",                cor: "text-success-text border-success-line"  },
 };
 
+/** "hoje às 16:09", "ontem às 20:14", "04/06 às 01:02". */
+function quandoEntrou(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  const dia = new Date(d);  dia.setHours(0, 0, 0, 0);
+  const diff = Math.round((hoje.getTime() - dia.getTime()) / 86_400_000);
+  const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  if (diff === 0) return "hoje às " + hora;
+  if (diff === 1) return "ontem às " + hora;
+  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) + " às " + hora;
+}
+
 // ─── Componente ───────────────────────────────────────────────────────────────
 
 export default function Usuarios() {
-  const { hasRole } = useAuth();
+  const { hasRole, user } = useAuth();
 
   const [acessos,   setAcessos]   = useState<AcessoComNome[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro,      setErro]      = useState<string | null>(null);
   const [busca,     setBusca]     = useState("");
   const [agindo,    setAgindo]    = useState<string | null>(null);
+  const [aRemover,  setARemover]  = useState<AcessoComNome | null>(null);
+  const [removendo, setRemovendo] = useState(false);
 
   const podeGerenciar = hasRole(["admin", "secretaria"]);
 
@@ -77,6 +102,20 @@ export default function Usuarios() {
   });
 
   // ── Ação: resetar/reenviar ──────────────────────────────────────────────────
+
+  async function handleRemover() {
+    if (!aRemover) return;
+    setRemovendo(true);
+    const r = await revogarAcesso(aRemover.userId);
+    setRemovendo(false);
+    setARemover(null);
+    if (!r.ok) return toast.error(r.mensagem);
+    // A frase vem do banco de propósito: remover de vez e bloquear
+    // mantendo o histórico são desfechos diferentes, e quem clicou precisa
+    // saber qual dos dois aconteceu.
+    toast.success(r.mensagem);
+    carregar();
+  }
 
   async function handleReenviar(a: AcessoComNome) {
     const waWindow = window.open("about:blank", "_blank", "noopener,noreferrer");
@@ -282,21 +321,44 @@ export default function Usuarios() {
                           {formatarTelefoneSemDDI(a.telefone) || "—"}
                         </td>
 
-                        {/* Perfil */}
+                        {/* Perfil — TODOS os papéis.
+
+                            Antes mostrava um só, vindo de `profiles.role`, que
+                            estava nulo em 3 dos 6 e virava "Voluntário" pelo
+                            valor padrão. Três pessoas com papel de liderança
+                            apareciam aqui como voluntárias. Agora vem de
+                            `user_roles`, que é o que o sistema obedece — e
+                            como lá cabe mais de um papel por pessoa, todos
+                            aparecem. */}
                         <td className="px-4 py-3">
-                          <Badge
-                            variant={ROLE_VARIANT[a.role] ?? "outline"}
-                            className="text-xs font-medium"
-                          >
-                            {ROLE_LABEL[a.role] ?? a.role}
-                          </Badge>
+                          <div className="flex flex-wrap gap-1">
+                            {(a.papeis?.length ? a.papeis : []).map(p => (
+                              <Badge key={p} variant={ROLE_VARIANT[p] ?? "outline"} className="text-xs font-medium">
+                                {ROLE_LABEL[p] ?? p}
+                              </Badge>
+                            ))}
+                            {!a.papeis?.length && (
+                              <Badge variant="outline" className="text-xs text-muted-foreground">
+                                Sem perfil
+                              </Badge>
+                            )}
+                          </div>
                         </td>
 
-                        {/* Status */}
+                        {/* Status — de `auth.users.last_sign_in_at`.
+
+                            A tela lia `profiles.primeiro_acesso`, uma marca que
+                            ninguém limpa: estava `true` para os seis, e o painel
+                            dizia "Aguardando 1º acesso" para todo mundo e
+                            "0 Ativo" — com os seis já tendo entrado. Quem
+                            entrou é fato do `auth`, não lembrança de alguém. */}
                         <td className="px-4 py-3">
                           <Badge variant="outline" className={`text-xs ${statusCfg.cor}`}>
                             {statusCfg.label}
                           </Badge>
+                          <span className="block h-[18px] text-xs text-muted-foreground truncate">
+                            {a.ultimoAcesso ? quandoEntrou(a.ultimoAcesso) : ""}
+                          </span>
                         </td>
 
                         {/* Ações */}
@@ -329,6 +391,21 @@ export default function Usuarios() {
                                 }
                                 <span className="hidden sm:inline">Resetar</span>
                               </Button>
+                              {/* Só admin, e nunca em si mesmo — a função do
+                                  banco recusa os dois casos, e esconder o botão
+                                  evita oferecer o que vai dar erro. */}
+                              {hasRole(["admin"]) && a.userId !== user?.id && (
+                                <Button
+                                  variant="ghost" size="sm"
+                                  disabled={emAndamento}
+                                  onClick={() => setARemover(a)}
+                                  title="Remover acesso"
+                                  className="gap-1 text-xs h-7 px-2 text-destructive-text hover:text-destructive-text"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <span className="hidden sm:inline">Excluir</span>
+                                </Button>
+                              )}
                             </div>
                           </td>
                         )}
@@ -360,6 +437,47 @@ export default function Usuarios() {
           pôr isso no topo faria a tarefa do dia descer para baixo da dobra
           por causa de uma tarefa que acontece uma vez por semestre. */}
       <PermissoesDosPerfis podeGerenciar={hasRole(["admin"])} />
+
+      {/* ── Confirmação de remoção ───────────────────────────────────────
+
+          O diálogo diz o que vai acontecer com o HISTÓRICO, e não só com a
+          conta. É a parte que quem clica não tem como adivinhar: em muitos
+          sistemas "excluir usuário" apaga junto tudo o que a pessoa
+          registrou, e aqui não apaga — nem poderia, porque 36 tabelas
+          apontam para a conta e boa parte segura a exclusão. */}
+      <AlertDialog open={!!aRemover} onOpenChange={(o) => { if (!o) setARemover(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover o acesso de {aRemover?.nomeCompleto}?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm">
+                <p>
+                  A pessoa deixa de entrar no sistema e perde todos os perfis na hora.
+                </p>
+                <p>
+                  O que ela registrou <strong>continua no lugar</strong> — contatos,
+                  cadastros, lançamentos. Se houver registros feitos por ela, a conta
+                  fica bloqueada em vez de ser apagada, para o histórico não ficar
+                  sem autor.
+                </p>
+                <p className="text-muted-foreground">
+                  A ficha da pessoa em Pessoas não é afetada.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={removendo}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleRemover(); }}
+              disabled={removendo}
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+            >
+              {removendo ? "Removendo..." : "Remover acesso"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
     </div>
   );

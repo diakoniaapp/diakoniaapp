@@ -32,6 +32,12 @@ export interface AcessoPessoa {
   role:          string;
   primeiroAcesso: boolean;
   status:        StatusAcesso;
+  /** Todos os papéis, de `user_roles`. `role` guarda o primeiro. */
+  papeis?:       string[];
+  /** `auth.users.last_sign_in_at`. Nulo = nunca entrou. */
+  ultimoAcesso?: string | null;
+  login?:        string;
+  bloqueado?:    boolean;
 }
 
 export interface ResultadoAcesso {
@@ -84,26 +90,72 @@ export async function telefoneJaPossuiAcesso(telefone: string): Promise<boolean>
 /**
  * Lista todos os acessos com vínculo à pessoa — para o painel admin.
  */
+/**
+ * A lista de acessos, pela RPC `painel_de_acessos` (migration 20260820170000).
+ *
+ * ── POR QUE NAO LE MAIS `profiles` DIRETO ────────────────────────────────
+ *
+ * Lia, e mentia em tres frentes ao mesmo tempo:
+ *
+ *   O PERFIL vinha de `profiles.role`, enquanto o sistema inteiro decide por
+ *   `user_roles`. As duas discordavam: `profiles.role` estava NULO em 3 dos
+ *   6 usuarios, e o `?? "voluntario"` transformava esses nulos em
+ *   "Voluntario". Tres pessoas com papel de lideranca — a 2a Secretaria
+ *   Estatutaria entre elas — apareciam como voluntarias.
+ *
+ *   O STATUS vinha de `profiles.primeiro_acesso`, marca que ninguem nunca
+ *   limpa. Estava `true` para os 6, entao a tela dizia "Aguardando 1o
+ *   acesso" para todo mundo e "0 Ativo" — com os 6 ja tendo entrado.
+ *   Agora quem responde e `auth.users.last_sign_in_at`, que e fato do
+ *   `auth` e nao depende de alguem lembrar de apagar nada.
+ *
+ *   O NOME saia como "—" quando faltava o vinculo com a ficha, embora
+ *   `profiles.nome` tivesse o nome. Faltar vinculo e pendencia a resolver;
+ *   nao e motivo para a tela nao saber de quem fala.
+ *
+ * `auth.users` nao e legivel pelo PostgREST, dai a RPC com SECURITY DEFINER
+ * e guarda de admin na primeira linha do corpo.
+ */
 export async function listarTodosAcessos(): Promise<
   (AcessoPessoa & { nomeCompleto: string })[]
 > {
-  const { data } = await supabase
-    .from("profiles")
-    .select(`
-      id, pessoa_id, telefone, role, primeiro_acesso,
-      membros:pessoa_id ( nome_completo )
-    `)
-    .order("id");
+  const { data, error } = await supabase.rpc("painel_de_acessos");
+  if (error) throw error;
 
-  return (data ?? []).map((p: any) => ({
-    userId:        p.id,
-    pessoaId:      p.pessoa_id ?? "",
-    telefone:      p.telefone ?? "",
-    role:          p.role ?? "voluntario",
-    primeiroAcesso: p.primeiro_acesso ?? true,
-    status:        (p.primeiro_acesso ? "aguardando" : "ativo") as StatusAcesso,
-    nomeCompleto:  p.membros?.nome_completo ?? "—",
-  }));
+  return (data ?? []).map((a: any) => {
+    const papeis: string[] = a.papeis ?? [];
+    return {
+      userId:        a.user_id,
+      pessoaId:      a.pessoa_id ?? "",
+      telefone:      a.telefone ?? "",
+      // `role` continua existindo para quem ja consumia o tipo; quando ha
+      // mais de um papel, a tela mostra todos por `papeis`.
+      role:          papeis[0] ?? "",
+      papeis,
+      login:         a.login ?? "",
+      ultimoAcesso:  a.ultimo_acesso ?? null,
+      bloqueado:     a.bloqueado ?? false,
+      primeiroAcesso: !a.ultimo_acesso,
+      status:        (a.bloqueado ? "sem_acesso"
+                      : a.ultimo_acesso ? "ativo" : "aguardando") as StatusAcesso,
+      nomeCompleto:  a.nome ?? "Sem nome",
+    };
+  });
+}
+
+/**
+ * Remove o acesso de alguem. Ver a nota longa na RPC `revogar_acesso`.
+ *
+ * Nao apaga o que a pessoa fez: 36 tabelas apontam para `auth.users` e boa
+ * parte sem `ON DELETE`, entao apagar a conta de quem ja registrou algo seria
+ * recusado pelo banco. A funcao sempre tira os papeis e bloqueia o login, e
+ * so apaga a conta quando nada a segura. A frase que volta diz qual dos dois
+ * aconteceu — sao coisas diferentes e quem clicou merece saber qual foi.
+ */
+export async function revogarAcesso(userId: string): Promise<{ ok: boolean; mensagem: string }> {
+  const { data, error } = await supabase.rpc("revogar_acesso", { p_user_id: userId });
+  if (error) return { ok: false, mensagem: error.message };
+  return { ok: true, mensagem: (data as string) ?? "Acesso removido." };
 }
 
 // ─── Dashboard: resumo de acessos ────────────────────────────────────────────

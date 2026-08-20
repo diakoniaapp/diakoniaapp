@@ -11754,6 +11754,34 @@ export type Database = {
           titulo: string
         }[]
       }
+      // ── Acrescentadas à mão em 20/08/2026 ───────────────────────────
+      //
+      // Este arquivo é gerado a partir do banco, e a geração é anterior às
+      // migrations 20260820150000 e 20260820170000. Sem estas entradas o
+      // `supabase.rpc("painel_de_acessos")` não compila — e a alternativa,
+      // um cast no ponto de chamada, apagaria a conferência de tipo do
+      // retorno inteiro, que é justamente onde os erros aparecem.
+      //
+      // Na próxima regeração do arquivo elas voltam sozinhas, com o mesmo
+      // formato, e este comentário sai junto.
+      painel_de_acessos: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          user_id: string
+          nome: string
+          login: string
+          telefone: string
+          pessoa_id: string | null
+          papeis: string[]
+          ultimo_acesso: string | null
+          criado_em: string | null
+          bloqueado: boolean
+        }[]
+      }
+      revogar_acesso: {
+        Args: { p_user_id: string }
+        Returns: string
+      }
       agenda_pastoral_proximos_dias: {
         Args: { p_dias?: number }
         Returns: {
