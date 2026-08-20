@@ -14,6 +14,7 @@
 //
 
 import { useEffect, useState } from "react";
+import { NomePessoa } from "@/components/membros/ficha";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -406,7 +407,7 @@ export function FamiliaBloco({ pessoaId, nomeCompleto, endereco, onChange }: Pro
                           });
                         }}
                       />
-                      <span className="font-medium truncate">{s.nome_completo}</span>
+                      <NomePessoa id={s.pessoa_id} nome={s.nome_completo} className="font-medium truncate" />
                       {s.familia_nome && (
                         <Badge variant="outline" className="text-xs border-destructive-line text-destructive-text">
                           {s.familia_nome}

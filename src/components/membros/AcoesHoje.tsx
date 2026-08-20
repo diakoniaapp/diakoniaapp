@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { NomePessoa } from "@/components/membros/ficha";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -282,7 +283,7 @@ export default function AcoesHoje({ limit }: AcoesHojeProps = {}) {
 
                       {/* Nome + badges */}
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="font-medium leading-tight">{v.nome_completo}</span>
+                        <NomePessoa id={v.id} nome={v.nome_completo} className="font-medium leading-tight" />
                         {/* Etiquetas sem icone dentro. "Baixa" ja diz baixa, e
                             a prioridade tambem esta na barra colorida da borda
                             esquerda do cartao — o simbolo era o terceiro sinal

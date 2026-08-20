@@ -1,5 +1,6 @@
 // ─── EbdClasse.tsx — Detalhe de uma classe ─────────────────────────────────
 import { useEffect, useState } from "react";
+import { NomePessoa } from "@/components/membros/ficha";
 import { useParams, Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -300,7 +301,11 @@ export default function EbdClasse() {
             <Card key={m.id}>
               <CardContent className="flex items-center justify-between py-3">
                 <div>
-                  <p className="font-medium">{m.membros?.nome_completo}</p>
+                  <NomePessoa
+                    id={m.pessoa_id}
+                    nome={m.membros?.nome_completo}
+                    className="font-medium block"
+                  />
                   <p className="text-xs text-muted-foreground">
                     {calcIdade(m.membros?.data_nascimento ?? null) ?? "?"} anos
                     {m.membros?.sexo && ` · ${m.membros.sexo}`}
@@ -358,7 +363,7 @@ export default function EbdClasse() {
             <Card key={e.pessoa_id}>
               <CardContent className="flex items-center justify-between py-3 gap-3">
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium truncate">{e.nome_completo}</p>
+                  <NomePessoa id={e.pessoa_id} nome={e.nome_completo} className="font-medium truncate block" />
                   <p className="text-xs text-muted-foreground">
                     {e.idade ?? "?"} anos
                     {e.sexo && ` · ${e.sexo}`}

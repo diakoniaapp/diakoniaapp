@@ -22,6 +22,7 @@
 //    se faz numa manhã. Lista que não acaba não é lista de trabalho.
 
 import { useEffect, useState } from "react";
+import { NomePessoa } from "@/components/membros/ficha";
 import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -167,7 +168,7 @@ export function QuemNinguemProcurou() {
                 <li key={p.id} className="py-2 flex items-center gap-3 flex-wrap">
                   <span className="text-base leading-none shrink-0" aria-hidden="true">{s.icone}</span>
                   <div className="flex-1 min-w-[10rem]">
-                    <p className="font-medium truncate leading-tight">{p.nome_completo}</p>
+                    <NomePessoa id={p.id} nome={p.nome_completo} className="font-medium truncate leading-tight block" />
                     <p className="text-xs text-muted-foreground">{s.texto}</p>
                   </div>
                   {/* Duas ações de um toque, com rótulo. O ícone sozinho obriga

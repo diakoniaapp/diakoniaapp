@@ -20,6 +20,7 @@
 // domingo em que falte gente.
 
 import { useEffect, useState } from "react";
+import { NomePessoa } from "@/components/membros/ficha";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
@@ -223,7 +224,7 @@ export function EscalaDialog({ open, onOpenChange, evento, areasDoEvento }: Prop
                     {esc.escalados.map(e => (
                       <li key={e.id} className="flex items-center gap-2 px-3 py-2">
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm truncate">{e.nome_completo}</p>
+                          <NomePessoa id={e.pessoa_id} nome={e.nome_completo} className="text-sm truncate block" />
                           {e.motivo_recusa && (
                             <p className="text-xs text-destructive-text truncate">“{e.motivo_recusa}”</p>
                           )}
@@ -288,7 +289,7 @@ export function EscalaDialog({ open, onOpenChange, evento, areasDoEvento }: Prop
                         <div key={s.pessoa_id} className="flex items-center gap-2">
                           <div className="flex-1 min-w-0">
                             <p className="text-sm truncate">
-                              {s.nome_completo}
+                              <NomePessoa id={s.pessoa_id} nome={s.nome_completo} />
                               <span className="text-xs text-muted-foreground tabular-nums"> · {Math.round(s.score)}</span>
                             </p>
                             {/* O motivo é o que separa uma sugestão útil de um

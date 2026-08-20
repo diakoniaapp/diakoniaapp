@@ -4,6 +4,7 @@ import { LogOut, ChevronLeft, ChevronDown, Search } from "lucide-react";
 import { BrandMark } from "@/components/Brand";
 import { useEffect, useState } from "react";
 import { QuickActionsFab } from "@/components/QuickActionsFab";
+import { FichaProvider } from "@/components/membros/ficha";
 import { CommandPalette } from "@/components/CommandPalette";
 import { openCommandPalette } from "@/lib/commandPalette";
 import { registrarVisita, atalhos, grupoMereceAbrir, temHistoricoBastante } from "@/lib/navUso";
@@ -178,7 +179,11 @@ export default function AppLayout() {
   const toggleGroup = (key: string) =>
     setEscolhas(prev => ({ ...prev, [key]: !(prev[key] ?? padraoDoUso[key] ?? true) }));
 
+  // A ficha de qualquer pessoa passa a poder ser aberta de qualquer tela.
+  // O diálogo mora aqui, uma vez, em vez de cada tela declarar o próprio
+  // estado — era por isso que só três telas tinham ficha clicável.
   return (
+    <FichaProvider>
     <div className="h-screen overflow-hidden flex w-full bg-background">
       {/* Sidebar desktop */}
       <aside className="hidden md:flex w-64 flex-col bg-sidebar text-sidebar-foreground">
@@ -394,5 +399,6 @@ export default function AppLayout() {
         <MobileBottomNav />
       </div>
     </div>
+    </FichaProvider>
   );
 }

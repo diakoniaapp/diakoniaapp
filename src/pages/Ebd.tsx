@@ -1,5 +1,6 @@
 // ─── Ebd.tsx — Listagem de classes ─────────────────────────────────────────
 import { useEffect, useMemo, useState } from "react";
+import { NomePessoa } from "@/components/membros/ficha";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -274,7 +275,7 @@ export default function Ebd() {
                       />
                     )}
                     <div className="min-w-0">
-                      <p className="font-medium text-sm truncate">{a.nome_completo}</p>
+                      <NomePessoa id={a.pessoa_id} nome={a.nome_completo} className="font-medium text-sm truncate block" />
                       <p className="text-xs text-muted-foreground flex items-center gap-1 flex-wrap">
                         {a.idade_atual} anos em <strong>{a.classe_atual}</strong>
                         {a.passou_da_faixa_em && (

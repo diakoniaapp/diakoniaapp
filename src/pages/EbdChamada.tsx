@@ -1,5 +1,6 @@
 // ─── EbdChamada.tsx — Chamada de uma aula ─────────────────────────────────
 import { useEffect, useMemo, useState } from "react";
+import { NomePessoa } from "@/components/membros/ficha";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -283,7 +284,7 @@ export default function EbdChamada() {
             }`}
           >
             <div className="text-left min-w-0">
-              <div className="font-medium truncate">{r.nome_completo}</div>
+              <NomePessoa id={r.pessoa_id} nome={r.nome_completo} className="font-medium truncate block" />
               <div className="text-xs text-muted-foreground">
                 {r.idade != null ? `${r.idade} anos` : "Sem idade"}
               </div>
@@ -320,7 +321,7 @@ export default function EbdChamada() {
             >
               <div className="text-left min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="font-medium truncate">{r.nome_completo}</span>
+                  <NomePessoa id={r.pessoa_id} nome={r.nome_completo} className="font-medium truncate" />
                   <Badge variant="outline" className="text-xs text-warning-text border-warning-line">
                     Visitante
                   </Badge>
