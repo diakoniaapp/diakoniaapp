@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Link } from "react-router-dom";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
@@ -172,7 +173,15 @@ export default function AreasDialog({ ministerio, membros, open, onOpenChange }:
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="sm:justify-between gap-2">
+          {/* A porta para o painel de voluntários. Fica aqui porque é onde o
+              líder já está quando pensa "quem serve neste ministério?" — e
+              não numa entrada nova no menu, que faria parecer módulo à parte. */}
+          <Button asChild variant="ghost" className="gap-2 sm:mr-auto">
+            <Link to={`/ministerios/${ministerio.id}/voluntarios`} onClick={()=>onOpenChange(false)}>
+              <Users className="w-4 h-4" /> Ver voluntários
+            </Link>
+          </Button>
           <Button variant="outline" onClick={()=>onOpenChange(false)}>Fechar</Button>
         </DialogFooter>
       </DialogContent>

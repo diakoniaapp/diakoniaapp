@@ -413,7 +413,10 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
     // inteiro porque a disponibilidade não gravou faria a secretária refazer
     // tudo. Mas AVISA — porque, ao contrário do que acontecia antes nesta
     // base, um "salvo" que esconde uma gravação perdida é pior que o erro.
-    if (pessoaId && perfilTocado) {
+    // `areasSelecionadas.size > 0` também: se a pessoa deixou de servir em
+    // toda área, gravar disponibilidade seria guardar resposta de uma
+    // pergunta que a tela deixou de fazer.
+    if (pessoaId && perfilTocado && areasSelecionadas.size > 0) {
       const r = await salvarPerfil(pessoaId, perfil);
       if (!r.ok) toast.warning("Cadastro salvo, mas a disponibilidade não: " + r.erro);
     }
@@ -566,7 +569,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                 { n: 1 as const, label: "Identificação" },
                 { n: 2 as const, label: "Contato" },
                 { n: 3 as const, label: "Vínculos" },
-                { n: 4 as const, label: "Quando serve" },
+                { n: 4 as const, label: "Quando serve", inativo: areasSelecionadas.size === 0 },
                 { n: 5 as const, label: "Acesso" },
                 { n: 6 as const, label: "Revisão" },
               ]).map((p, idx, arr) => (
@@ -577,7 +580,8 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                     className={`flex flex-col items-center gap-1 ${step === p.n ? "text-foreground" : "text-muted-foreground hover:text-foreground"}`}
                   >
                     <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold border-2 transition-colors ${
-                      step === p.n ? "bg-gold text-white border-gold"
+                      (p as any).inativo && step !== p.n ? "bg-muted border-dashed border-border text-muted-foreground/60"
+                        : step === p.n ? "bg-gold text-white border-gold"
                         : step > p.n ? "bg-success/15 text-success-text border-success-line/40"
                         : "bg-muted border-border"
                     }`}>
@@ -1119,12 +1123,43 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                 serve é assunto do voluntariado, que vem logo depois de
                 Vínculos; dar acesso ao sistema é decisão administrativa, e
                 fecha o cadastro junto com a revisão. */}
+            {/* "Quando serve" só se aplica a quem serve em alguma área.
+
+                A regra é da Telma e está certa: disponibilidade é informação
+                de escala, e escala nasce de uma área. Perguntar a um
+                visitante recém-cadastrado em que turnos ele pode servir é
+                quatro cliques sobre nada — e das 282 pessoas, 74 servem.
+
+                Mas o passo NÃO some da lista. Sumir mudaria a contagem de
+                passos conforme o que se marca duas telas atrás, e o
+                indicador passaria de 6 para 5 no meio do preenchimento. Foi
+                exatamente uma numeração de passo fora de sincronia que
+                travou este formulário ontem; não vou reintroduzir o problema
+                em forma dinâmica.
+
+                Então o passo continua lá, e explica por que está vazio — com
+                o caminho de volta a um clique. Quem quiser registrar
+                disponibilidade só precisa marcar a área primeiro. */}
             {step === 4 && (
-              <PassoDisponibilidade
-                valor={perfil}
-                onChange={p => { setPerfil(p); setPerfilTocado(true); }}
-                novaPessoa={!membro}
-              />
+              areasSelecionadas.size === 0 ? (
+                <div className="rounded-md border border-border bg-muted/40 px-4 py-6 text-center space-y-3">
+                  <p className="text-base font-medium">Esta pessoa ainda não serve em nenhuma área</p>
+                  <p className="text-sm text-muted-foreground max-w-sm mx-auto leading-relaxed">
+                    A disponibilidade existe para montar escalas, e escala nasce de uma
+                    área. Escolha ao menos uma no passo <strong>Vínculos</strong> e este
+                    passo se abre.
+                  </p>
+                  <Button type="button" variant="outline" onClick={() => setStep(3)}>
+                    ← Escolher uma área
+                  </Button>
+                </div>
+              ) : (
+                <PassoDisponibilidade
+                  valor={perfil}
+                  onChange={p => { setPerfil(p); setPerfilTocado(true); }}
+                  novaPessoa={!membro}
+                />
+              )
             )}
 
             {/* ── STEP 6 — REVISÃO ── */}
@@ -1166,7 +1201,9 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                         o passo 4 seria o único que a pessoa preenche e não vê
                         confirmado antes de salvar. */}
                     <RevisaoLinha label="Quando serve">
-                      {resumoLegivel(perfilTocado || membro ? perfil : null)}
+                      {areasSelecionadas.size === 0
+                        ? "Não se aplica — não serve em nenhuma área"
+                        : resumoLegivel(perfilTocado || membro ? perfil : null)}
                     </RevisaoLinha>
                   </>
                 )}

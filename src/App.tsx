@@ -10,6 +10,7 @@ import Dashboard from "./pages/Dashboard.tsx";
 import Membros from "./pages/Membros.tsx";
 import Familias from "./pages/Familias.tsx";
 import Ministerios from "./pages/Ministerios.tsx";
+import MinisterioVoluntarios from "./pages/MinisterioVoluntarios.tsx";
 import Eventos from "./pages/Eventos.tsx";
 import Locais from "./pages/Locais.tsx";
 import Visitantes       from "./pages/Visitantes.tsx";
@@ -117,6 +118,7 @@ const App = () => (
                   <Route path="/membros" element={<Membros />} />
                   <Route path="/familias" element={<Familias />} />
                   <Route path="/ministerios" element={<Ministerios />} />
+                  <Route path="/ministerios/:ministerioId/voluntarios" element={<MinisterioVoluntarios />} />
                   <Route path="/eventos" element={<Eventos />} />
                   <Route path="/agenda" element={<Navigate to="/eventos" replace />} />
                   <Route path="/locais" element={<Locais />} />
