@@ -46,7 +46,7 @@ export default function EbdClasse() {
   const [classe, setClasse] = useState<EbdClasse | null>(null);
   const [esperados, setEsperados] = useState<EbdEsperado[]>([]);
   const [matriculados, setMatriculados] = useState<MatRow[]>([]);
-  const [naoMatriculados, setNaoMatriculados] = useState<{ id: string; nome_completo: string; data_nascimento: string | null }[]>([]);
+
   const [filtro, setFiltro] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -72,17 +72,15 @@ export default function EbdClasse() {
       setEsperados(esp);
       setMatriculados(mat);
 
-      // Não matriculados: pessoas fora da faixa que não estão matriculadas em NENHUMA classe
-      const { data: outras } = await supabase
-        .from("membros")
-        .select("id, nome_completo, data_nascimento")
-        .in("tipo_pessoa", ["membro", "congregado"])
-        .eq("status", "ativo")
-        .order("nome_completo");
-      const matIds = new Set(mat.map(m => m.pessoa_id));
-      const espIds = new Set(esp.map(e => e.pessoa_id));
-      const nao = (outras ?? []).filter(o => !matIds.has(o.id) && !espIds.has(o.id));
-      setNaoMatriculados(nao);
+      // A lista de "sem classe" saiu daqui em 20/08/2026.
+      //
+      // Ela trazia TODA pessoa ativa que não estava nesta classe nem na faixa
+      // dela — 277 nomes na tela do Berçário, entre eles adultos e idosos.
+      // Nenhum deles tem qualquer relação com uma classe de 0 a 3 anos.
+      //
+      // Quem abre a ficha de uma classe pergunta "quem é desta classe?".
+      // Uma lista de 277 pessoas que NÃO são responde outra pergunta, e
+      // ainda custava uma consulta a todos os membros a cada abertura.
     } catch (e: any) {
       toast.error(e?.message ?? "Erro ao carregar classe");
     } finally {
@@ -160,9 +158,47 @@ export default function EbdClasse() {
   }
 
   const filtroLower = filtro.trim().toLowerCase();
-  const espFiltrados = esperados.filter(e => e.nome_completo.toLowerCase().includes(filtroLower));
+  // "Esperados" passa a ser só quem AINDA NÃO está matriculado aqui.
+  //
+  // Antes a lista trazia os dois, e quem já estava dentro vinha com etiqueta
+  // "Matriculado" e sem botão — ocupando espaço para repetir o que a aba ao
+  // lado já diz. No Berçário, "Esperados (1)" e "Matriculados (1)" eram a
+  // mesma Laura, e a aba sugeria trabalho onde não havia nenhum.
+  //
+  // Agora a aba responde uma pergunta só: quem falta chamar.
+  const espFiltrados = esperados
+    .filter(e => !e.ja_matriculado)
+    .filter(e => e.nome_completo.toLowerCase().includes(filtroLower));
+
+  // Todos que cabem no perfil, dentro e fora. É o denominador que dá sentido
+  // aos outros dois números.
+  const noPerfil = esperados.length;
+
+  /**
+   * Por que alguém matriculado pode estar fora do perfil da classe.
+   *
+   * "Matriculados + Esperados" nem sempre fecha com "No perfil", e a razão é
+   * real: existe gente matriculada que não caberia hoje. Na Classe Isac
+   * Rodrigues (40–99 anos, homens) há um aluno de 36 — entrou pelo botão
+   * "Matricular mesmo assim" da antiga aba "Sem classe", que saiu daqui.
+   *
+   * Isso não é erro a esconder nem linha a remover: pode ser decisão da
+   * igreja. Mas precisa aparecer, senão a aritmética da tela fica sem
+   * explicação e ninguém percebe que alguém está na classe errada. O painel
+   * já sinaliza o mesmo caso em "Alunos fora da faixa EBD".
+   */
+  function foraDoPerfil(nasc: string | null | undefined, sexo: string | null | undefined): string | null {
+    if (!classe) return null;
+    if (!nasc) return "sem data de nascimento";
+    const idade = calcIdade(nasc);
+    if (idade === null) return "sem data de nascimento";
+    if (classe.idade_min !== null && idade < classe.idade_min) return idade + " anos";
+    if (classe.idade_max !== null && idade > classe.idade_max) return idade + " anos";
+    if (classe.genero !== "misto" && sexo && sexo !== classe.genero) return String(sexo);
+    return null;
+  }
   const matFiltrados = matriculados.filter(m => m.membros?.nome_completo.toLowerCase().includes(filtroLower));
-  const naoFiltrados = naoMatriculados.filter(n => n.nome_completo.toLowerCase().includes(filtroLower));
+
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-5">
@@ -215,13 +251,20 @@ export default function EbdClasse() {
           <p className="text-xs text-muted-foreground">Matriculados</p>
           <p className="text-2xl font-semibold text-success-text">{matriculados.length}</p>
         </CardContent></Card>
+        {/* Esperados = quem falta. Zero aqui quer dizer classe completa, e
+            não classe vazia — por isso o número apaga em vez de alarmar. */}
         <Card><CardContent className="py-3 text-center">
           <p className="text-xs text-muted-foreground">Esperados</p>
-          <p className="text-2xl font-semibold">{esperados.length}</p>
+          <p className={`text-2xl font-semibold ${espFiltrados.length > 0 ? "text-warning-text" : "text-muted-foreground"}`}>
+            {esperados.filter(e => !e.ja_matriculado).length}
+          </p>
         </CardContent></Card>
+        {/* "Não matriculados" contava 277 no Berçário: todo mundo da igreja
+            que não é bebê. Trocado pelo total que CABE nesta classe, que é
+            o denominador dos outros dois. */}
         <Card><CardContent className="py-3 text-center">
-          <p className="text-xs text-muted-foreground">Não matriculados</p>
-          <p className="text-2xl font-semibold text-warning-text">{naoMatriculados.length}</p>
+          <p className="text-xs text-muted-foreground">No perfil da classe</p>
+          <p className="text-2xl font-semibold">{noPerfil}</p>
         </CardContent></Card>
       </div>
 
@@ -244,7 +287,6 @@ export default function EbdClasse() {
         <TabsList>
           <TabsTrigger value="matriculados">Matriculados ({matFiltrados.length})</TabsTrigger>
           <TabsTrigger value="esperados">Esperados ({espFiltrados.length})</TabsTrigger>
-          <TabsTrigger value="nao_mat">Sem classe ({naoFiltrados.length})</TabsTrigger>
         </TabsList>
 
         {/* Matriculados */}
@@ -264,6 +306,14 @@ export default function EbdClasse() {
                     {m.membros?.sexo && ` · ${m.membros.sexo}`}
                     {" · matriculado em "}{new Date(m.data_matricula).toLocaleDateString("pt-BR")}
                   </p>
+                  {(() => {
+                    const motivo = foraDoPerfil(m.membros?.data_nascimento, m.membros?.sexo);
+                    return motivo ? (
+                      <Badge variant="outline" className="mt-1 text-xs text-warning-text border-warning-line">
+                        Fora do perfil da classe · {motivo}
+                      </Badge>
+                    ) : null;
+                  })()}
                 </div>
                 <Button
                   variant="ghost" size="sm"
@@ -280,69 +330,51 @@ export default function EbdClasse() {
 
         {/* Esperados (faixa etária) */}
         <TabsContent value="esperados" className="space-y-2">
+          {/* Dois vazios diferentes, e confundi-los seria ruim: uma classe
+              completa e uma classe sem candidato pedem coisas opostas de
+              quem lê. */}
           {espFiltrados.length === 0 && (
-            <p className="text-sm text-muted-foreground text-center py-8">
-              Ninguém na faixa etária ainda.
-            </p>
+            <div className="text-sm text-muted-foreground text-center py-8 space-y-1">
+              {noPerfil > 0 ? (
+                <p>Todos que cabem nesta classe já estão matriculados.</p>
+              ) : (
+                <>
+                  <p>Ninguém no perfil desta classe ainda.</p>
+                  {/* O perfil precisa ser dito: "faixa etária" fazia pensar
+                      só em idade, e a classe também filtra por sexo — numa
+                      classe de senhoras os homens da faixa não aparecem, e
+                      sem esta frase isso parece defeito. */}
+                  <p className="text-xs">
+                    {classe.idade_min ?? 0}–{classe.idade_max ?? "+"} anos ·{" "}
+                    {classe.genero === "misto" ? "ambos os sexos" : classe.genero}.
+                    Só entram pessoas ativas com data de nascimento preenchida,
+                    que não sejam professores e que ainda não estejam em outra classe.
+                  </p>
+                </>
+              )}
+            </div>
           )}
           {espFiltrados.map((e) => (
             <Card key={e.pessoa_id}>
               <CardContent className="flex items-center justify-between py-3 gap-3">
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-medium truncate">{e.nome_completo}</p>
-                    {e.ja_matriculado && (
-                      <Badge variant="outline" className="text-xs text-success-text border-success-line">
-                        Matriculado
-                      </Badge>
-                    )}
-                  </div>
+                  <p className="font-medium truncate">{e.nome_completo}</p>
                   <p className="text-xs text-muted-foreground">
                     {e.idade ?? "?"} anos
                     {e.sexo && ` · ${e.sexo}`}
                   </p>
                 </div>
-                {!e.ja_matriculado && (
-                  <Button
-                    size="sm" onClick={() => handleMatricular(e.pessoa_id)}
-                    disabled={busy} className="gap-1.5"
-                  >
-                    <UserPlus className="w-4 h-4" /> Matricular
-                  </Button>
-                )}
+                <Button
+                  size="sm" onClick={() => handleMatricular(e.pessoa_id)}
+                  disabled={busy} className="gap-1.5"
+                >
+                  <UserPlus className="w-4 h-4" /> Matricular
+                </Button>
               </CardContent>
             </Card>
           ))}
         </TabsContent>
 
-        {/* Não matriculados (outras pessoas) */}
-        <TabsContent value="nao_mat" className="space-y-2">
-          <p className="text-xs text-muted-foreground">
-            Pessoas fora da faixa etária desta classe e que não estão em outra. Útil para matricular adultos em classes específicas (ex: Mulheres).
-          </p>
-          {naoFiltrados.slice(0, 50).map((p) => (
-            <Card key={p.id}>
-              <CardContent className="flex items-center justify-between py-3">
-                <div>
-                  <p className="font-medium">{p.nome_completo}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {calcIdade(p.data_nascimento) ?? "?"} anos
-                  </p>
-                </div>
-                <Button size="sm" variant="outline"
-                  onClick={() => handleMatricular(p.id)}
-                  disabled={busy} className="gap-1.5">
-                  <UserPlus className="w-4 h-4" /> Matricular mesmo assim
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
-          {naoFiltrados.length > 50 && (
-            <p className="text-xs text-muted-foreground text-center">
-              ... e mais {naoFiltrados.length - 50} pessoas (afine o filtro).
-            </p>
-          )}
-        </TabsContent>
       </Tabs>
 
       {/* Dialog editar */}

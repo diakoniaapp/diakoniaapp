@@ -299,7 +299,12 @@ export default function Ebd() {
                   </span>
                   <span className="text-muted-foreground">·</span>
                   <span className="text-muted-foreground">
-                    <strong>{c.qtd_esperados}</strong> esperados
+                    {/* "no perfil", e não "esperados": na ficha da classe
+                        "Esperados" passou a ser quem AINDA FALTA matricular,
+                        e este número é o total que cabe — dentro e fora.
+                        A mesma palavra com dois sentidos em duas telas é o
+                        tipo de coisa que faz alguém desconfiar do sistema */}
+                    <strong>{c.qtd_esperados}</strong> no perfil
                   </span>
                 </div>
 
@@ -310,7 +315,7 @@ export default function Ebd() {
                   />
                 </div>
                 <p className="text-xs text-muted-foreground text-right">
-                  {taxa}% da faixa etária matriculada
+                  {taxa}% do perfil da classe matriculado
                 </p>
 
                 <div className="flex gap-1.5 mt-1">
