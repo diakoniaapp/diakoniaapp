@@ -193,9 +193,17 @@ export async function criarEscala(params: {
   return { ok: true, id: data.id };
 }
 
-/** Quem o motor sugere para esta área, neste dia e turno. */
+/**
+ * Quem o motor sugere para esta área, neste dia e turno.
+ *
+ * As horas vão junto desde a Sprint 5: com elas a função enxerga quem já
+ * está escalado em OUTRA área com horário sobreposto. Sem elas ela cai para
+ * "mesmo dia", que é agressivo demais — servir de manhã na EBD e de noite no
+ * culto é normal numa igreja, e não é conflito nenhum.
+ */
 export async function sugestoesPara(
   areaId: string, dataEvento: string, hora: string | null, limite = 12,
+  horaFim: string | null = null,
 ): Promise<{ sugestoes: Sugestao[]; erro?: string }> {
   const { data, error } = await supabase.rpc("sugerir_voluntarios_escala", {
     p_area_id:     areaId,
@@ -203,6 +211,8 @@ export async function sugestoesPara(
     p_dia_semana:  diaSemanaDe(dataEvento),
     p_turno:       turnoDe(hora),
     p_limite:      limite,
+    p_hora_inicio: hora,
+    p_hora_fim:    horaFim,
   });
   if (error) return { sugestoes: [], erro: error.message };
   return { sugestoes: (data ?? []) as Sugestao[] };

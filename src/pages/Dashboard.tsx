@@ -16,7 +16,7 @@ import VisitanteRapidoDialog from "@/components/membros/VisitanteRapidoDialog";
 import { openCommandPalette } from "@/lib/commandPalette";
 import { VazioCtx, type ReportarVazio } from "@/components/hoje/vazio";
 import { Suspense } from "react";
-import { getWidgetsDivididos } from "@/dashboard/widgetRegistry";
+import { getWidgetsParaUsuario } from "@/dashboard/widgetRegistry";
 import { getAcoesParaUsuario } from "@/dashboard/quickActionsRegistry";
 import { ListSkeleton } from "@/components/ListState";
 
@@ -258,12 +258,28 @@ function AcaoRapida({ to, icon: Icon, label }: AcaoRapidaProps) {
  */
 function WidgetsDinamicos({ permissoes, apenas }: { permissoes: Set<string>; apenas: "hoje" | "resto" }) {
   const [verTodos, setVerTodos] = useState(false);
-  const { essenciais, secundarios } = getWidgetsDivididos({ permissoes }, { limiteEssencial: 5 });
-  const doDia = essenciais.filter(w => w.prioridade === 0);
-  const demais = essenciais.filter(w => w.prioridade !== 0);
+
+  // ── O corte vem DEPOIS da separação, e não antes ────────────────────
+  //
+  // `getWidgetsDivididos` cortava os 5 primeiros da lista inteira. Como os 5
+  // primeiros são todos prioridade 0, a metade de baixo nascia VAZIA: dez
+  // widgets iam para trás de "Ver mais", inclusive os que pedem decisão.
+  //
+  // Percebido ao testar os sinais de voluntariado da Sprint 5, que nasceram
+  // invisíveis. Um sinal pastoral escondido atrás de um botão não é muito
+  // melhor que um sinal inexistente.
+  //
+  // Agora cada metade tem seu próprio limite: tudo o que é de HOJE aparece
+  // (é pouco, e é o assunto da tela), e o resto mostra quatro, com o botão
+  // para o que sobrar.
+  const todos = getWidgetsParaUsuario({ permissoes });
+  const doDia = todos.filter(w => w.prioridade === 0);
+  const resto = todos.filter(w => w.prioridade !== 0);
+  const RESTO_VISIVEL = 4;
+  const secundarios = resto.slice(RESTO_VISIVEL);
   const lista = apenas === "hoje"
     ? doDia
-    : (verTodos ? [...demais, ...secundarios] : demais);
+    : (verTodos ? resto : resto.slice(0, RESTO_VISIVEL));
 
   return (
     <>

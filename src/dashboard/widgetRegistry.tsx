@@ -61,6 +61,7 @@ const AgendaFiscalUrgente = lazy(() => import("@/components/dashboard/AgendaFisc
 const ManutencaoArrec     = lazy(() => import("@/components/dashboard/ManutencaoArrecadacao").then(m => ({ default: m.ManutencaoArrecadacao })));
 const MeusAssuntos        = lazy(() => import("@/components/dashboard/MeusAssuntos").then(m => ({ default: m.MeusAssuntos })));
 const AssuntosUrgentes    = lazy(() => import("@/components/dashboard/AssuntosUrgentes").then(m => ({ default: m.AssuntosUrgentes })));
+const SinaisDeVoluntariado = lazy(() => import("@/components/dashboard/SinaisDeVoluntariado").then(m => ({ default: m.SinaisDeVoluntariado })));
 const InsightsDoSistema   = lazy(() => import("@/components/dashboard/InsightsDoSistema").then(m => ({ default: m.InsightsDoSistema })));
 
 // A ordem deste array decide empates de prioridade — é o desempate da tela.
@@ -116,6 +117,18 @@ export const widgetRegistry: Widget[] = [
     subtitulo: "Cultos, reuniões, ensaios e reservas de hoje",
     icone: CalendarDays, component: AgendaDoDia,
     permissoes: ["ver_pessoas","ver_familias","ver_ebd","ver_pgm"], prioridade: 0 },
+
+  // Prioridade 1, nao 0: um voluntario sobrecarregado pede conversa esta
+  // semana, nao neste minuto. O que e de hoje — aniversario, agenda — vem
+  // antes; isto vem logo depois, junto do resto que pede decisao.
+  //
+  // O componente se apaga sozinho quando nao ha sinal, e o BlocoSecao vazio
+  // some junto: nenhum espaco gasto para dizer "esta tudo bem".
+  { id: "sinais-voluntariado", label: "Quem serve",
+    subtitulo: "Sinais de quem está servindo demais, ou parou de servir",
+    icone: HeartHandshake, component: SinaisDeVoluntariado,
+    permissoes: ["ver_pessoas","ver_painel_pastoral","ver_painel_secretaria","ver_painel_admin"],
+    prioridade: 1 },
 
   { id: "alertas-inteligentes", label: "Alertas inteligentes",
     subtitulo: "Coisas que precisam da sua decisão",

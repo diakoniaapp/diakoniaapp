@@ -111,7 +111,8 @@ export function EscalaDialog({ open, onOpenChange, evento, areasDoEvento }: Prop
   const verSugestoes = async (escalaId: string, areaId: string) => {
     setSugestoesDe(escalaId);
     setBuscando(true);
-    const { sugestoes: s, erro } = await sugestoesPara(areaId, evento.data, evento.hora_inicio);
+    const { sugestoes: s, erro } = await sugestoesPara(
+      areaId, evento.data, evento.hora_inicio, 12, evento.hora_fim);
     setBuscando(false);
     if (erro) return toast.error("Não deu para sugerir: " + erro);
     setSugestoes(s);
