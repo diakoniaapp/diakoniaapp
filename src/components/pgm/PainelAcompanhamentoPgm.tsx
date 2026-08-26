@@ -12,19 +12,16 @@
 // da EBD: não fazer os blocos pastorais esperarem por agregações.
 
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
-  Sprout, Users, AlertCircle, CalendarX, Loader2, HeartHandshake, MapPin,
+  AlertCircle, CalendarX, Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { NomePessoa } from "@/components/membros/ficha";
 // O cartao de numero vivia aqui, duplicado do PainelPastoral e do PGM.
 import { Indicador, FaixaDeIndicadores } from "@/components/painel/blocos";
 import {
-  carregarPainelPgm, quandoSeReune,
+  carregarPainelPgm,
   type PgmPainel,
 } from "@/services/pgmPainelService";
 
@@ -72,7 +69,7 @@ export function PainelAcompanhamentoPgm() {
     );
   }
 
-  const { resumo, grupos, alertas, reunioesUltimos30d } = dados;
+  const { resumo, reunioesUltimos30d } = dados;
   // Sem reunião na janela, `presenca_media_pct` é o `coalesce(...,0)` da
   // função, não uma frequência. Ver o cabeçalho do serviço.
   const temFrequencia = reunioesUltimos30d > 0;
@@ -103,100 +100,20 @@ export function PainelAcompanhamentoPgm() {
         <Indicador rotulo="Pedidos de oração" valor={resumo.pedidos_ativos} tom="violeta" />
       </FaixaDeIndicadores>
 
-      {/* Quem está faltando seguido — a razão pastoral do bloco existir */}
-      {alertas.length > 0 && (
-        <Card className="border-warning-line">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-warning-text" />
-              Faltando seguido
-              <Badge variant="outline" className="text-xs bg-warning-soft border-warning-line">
-                {alertas.length}
-              </Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {alertas.map(a => (
-              <div key={`${a.grupo_id}-${a.pessoa_id}`} className="flex items-center justify-between border rounded-md px-3 py-2 bg-warning-soft/30 gap-2">
-                <div className="min-w-0">
-                  {/* O nome abre a ficha em modo consulta — ver a nota igual
-                      no bloco da EBD. */}
-                  <p className="font-medium text-sm truncate leading-tight">
-                    <NomePessoa id={a.pessoa_id} nome={a.nome} somenteLeitura className="leading-tight" />
-                  </p>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {a.grupo_nome}
-                    {a.ultima_presenca && ` · última presença ${formatarData(a.ultima_presenca)}`}
-                  </p>
-                </div>
-                <span className="text-xs text-warning-text tabular-nums shrink-0">
-                  {a.faltas_seguidas} falta{a.faltas_seguidas > 1 ? "s" : ""}
-                </span>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
+      {/*
+        "Faltando seguido" e "Grupos" foram desativados em 26/08/2026, pelo
+        mesmo critério aplicado à EBD: o Painel Pastoral serve para ver o
+        contexto geral — quantos grupos estão de pé, quantas pessoas, se
+        houve reunião. A lista dos quatro grupos com líder, bairro e horário,
+        e a de quem está faltando seguido, são o detalhe.
 
-      {/* Os grupos */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Sprout className="w-4 h-4 text-muted-foreground" />
-            Grupos
-            <Badge variant="outline" className="text-xs">{grupos.length}</Badge>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {grupos.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-2">Nenhum pequeno grupo cadastrado.</p>
-          ) : (
-            grupos.map(g => {
-              const quando = quandoSeReune(g);
-              return (
-                <div key={g.id} className="flex items-center justify-between border rounded-md px-3 py-2 gap-2">
-                  <div className="min-w-0">
-                    <p className="font-medium text-sm truncate flex items-center gap-1.5">
-                      {g.nome}
-                      {!g.ativo && (
-                        <Badge variant="outline" className="text-xs font-normal shrink-0">inativo</Badge>
-                      )}
-                    </p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {g.lider_nome ?? "sem líder"}
-                      {g.co_lider_nome && ` e ${g.co_lider_nome}`}
-                      {quando && ` · ${quando}`}
-                    </p>
-                    {g.bairro && (
-                      <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
-                        <MapPin className="w-3 h-3 shrink-0" /> {g.bairro}
-                      </p>
-                    )}
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-lg font-semibold tabular-nums leading-none">{g.qtd_membros}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {g.qtd_membros === 1 ? "pessoa" : "pessoas"}
-                    </p>
-                  </div>
-                </div>
-              );
-            })
-          )}
-          <div className="pt-1">
-            <Button asChild variant="ghost" size="sm" className="gap-1.5 text-xs h-7">
-              <Link to="/pgm"><HeartHandshake className="w-3.5 h-3.5" /> Abrir Pequenos Grupos</Link>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+        Nada foi apagado no banco: `pgm_alertas_ausencia` e
+        `vw_pgm_grupos_resumo` continuam lá, entre os objetos que já existiam
+        antes deste painel. O que saiu foram as duas buscas em
+        `carregarPainelPgm()`, junto dos blocos — buscar o que ninguém vê é
+        ida ao banco por nada. O serviço diz como restaurar.
+      */}
     </div>
   );
-}
-
-// ─── Helpers de UI ─────────────────────────────────────────────────────────
-
-function formatarData(iso: string): string {
-  return new Date(iso + "T00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
 }
 

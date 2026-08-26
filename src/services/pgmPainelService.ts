@@ -67,8 +67,6 @@ export interface PgmAlerta {
 
 export interface PgmPainel {
   resumo: PgmResumo | null;
-  grupos: PgmGrupo[];
-  alertas: PgmAlerta[];
   /**
    * Reuniões registradas nos últimos 30 dias — a mesma janela que
    * `pgm_resumo_geral` usa para a média.
@@ -94,14 +92,25 @@ export async function carregarPainelPgm(): Promise<PgmPainel> {
   trintaDiasAtras.setDate(trintaDiasAtras.getDate() - 30);
   const desde = trintaDiasAtras.toISOString().slice(0, 10);
 
-  const [resumoRes, gruposRes, alertasRes, reunioesRes] = await Promise.all([
+  // ── As duas buscas que saíram, e como trazê-las de volta ────────────────
+  //
+  // Em 26/08/2026 os blocos "Faltando seguido" e "Grupos" foram desativados
+  // no painel: ele serve para o contexto geral, e as duas listas eram o
+  // detalhe. As buscas saíram junto — eram duas requisições paralelas cujo
+  // resultado ninguém desenhava.
+  //
+  // Para restaurar, acrescentar ao `Promise.all`:
+  //
+  //   supabase.from("vw_pgm_grupos_resumo" as any)
+  //     .select("id, nome, ativo, lider_nome, co_lider_nome, bairro, " +
+  //             "dia_semana, horario, qtd_membros")
+  //     .order("ativo", { ascending: false }).order("nome"),
+  //   supabase.rpc("pgm_alertas_ausencia" as any),
+  //
+  // e devolver `grupos` e `alertas` outra vez. `PgmGrupo`, `PgmAlerta` e
+  // `quandoSeReune()` continuam aqui, prontos.
+  const [resumoRes, reunioesRes] = await Promise.all([
     supabase.rpc("pgm_resumo_geral" as any),
-    supabase
-      .from("vw_pgm_grupos_resumo" as any)
-      .select("id, nome, ativo, lider_nome, co_lider_nome, bairro, dia_semana, horario, qtd_membros")
-      .order("ativo", { ascending: false })
-      .order("nome"),
-    supabase.rpc("pgm_alertas_ausencia" as any),
     supabase
       .from("pgm_reunioes")
       .select("id", { count: "exact", head: true })
@@ -109,13 +118,9 @@ export async function carregarPainelPgm(): Promise<PgmPainel> {
   ]);
 
   if (resumoRes.error) throw resumoRes.error;
-  if (gruposRes.error) throw gruposRes.error;
-  if (alertasRes.error) throw alertasRes.error;
 
   return {
     resumo: ((resumoRes.data as any[]) ?? [])[0] ?? null,
-    grupos: ((gruposRes.data as any[]) ?? []) as PgmGrupo[],
-    alertas: ((alertasRes.data as any[]) ?? []) as PgmAlerta[],
     reunioesUltimos30d: reunioesRes.count ?? 0,
   };
 }
