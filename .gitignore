@@ -30,8 +30,10 @@ dist-ssr
 vite.config.ts.timestamp-*
 
 supabase/.temp/
+supabase/.branches/
+supabase/config.toml.bak
 
-# Playwright — sessao contem token de acesso valido
+# Playwright ï¿½ sessao contem token de acesso valido
 e2e/.sessao.json
 test-results/
 playwright-report/

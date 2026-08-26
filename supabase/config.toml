@@ -1,1 +1,34 @@
 project_id = "prjoftmlkusbjoeptabp"
+
+# ─── Portas do ambiente local ────────────────────────────────────────────────
+#
+# As portas padrão do Supabase (54321-54327) caem dentro de uma faixa que o
+# Windows reserva para o Hyper-V nesta máquina:
+#
+#   netsh interface ipv4 show excludedportrange protocol=tcp
+#   → 53935-54334 excluída
+#
+# O sintoma é enganoso: "bind: An attempt was made to access a socket in a way
+# forbidden by its access permissions" — parece falta de permissão, mas é
+# reserva de porta. Nada está escutando ali.
+#
+# Por isso o intervalo 55321+, fora de todas as faixas excluídas.
+# Só afeta o ambiente local; não tem relação com produção.
+
+[api]
+port = 55321
+
+[db]
+port = 55322
+
+[db.pooler]
+port = 55329
+
+[studio]
+port = 55323
+
+[inbucket]
+port = 55324
+
+[analytics]
+port = 55327
