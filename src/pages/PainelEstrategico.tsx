@@ -40,7 +40,19 @@ const fmtData   = (iso: string) =>
 
 // ── Componente principal ──────────────────────────────────────────────────────
 
-export default function PainelEstrategico() {
+/**
+ * `embutido` — a mesma tela, sem a moldura de página.
+ *
+ * O Crescimento passou a viver dentro do Painel Pastoral, como aba da seção
+ * "Discipulado" (26/08/2026): ele mede a jornada visitante → congregado →
+ * membro, que é a mesma pergunta das outras abas por outro caminho.
+ *
+ * Mesmo recurso já usado por `CampanhasAdmin`: sem `PageHeader` e sem o
+ * respiro da página, porque quem embute já tem os dois. A rota
+ * `/painel-estrategico` continua servindo a versão de página inteira — só
+ * saiu do menu, onde disputava atenção com a aba.
+ */
+export default function PainelEstrategico({ embutido = false }: { embutido?: boolean } = {}) {
   const [pessoas, setPessoas] = useState<PessoaDB[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -166,20 +178,22 @@ export default function PainelEstrategico() {
 
   return (
     <div>
-      <PageHeader
-        title="Painel Estratégico"
-        description="Crescimento real da igreja através dos visitantes"
-        actions={
-          <Button asChild variant="outline" className="gap-2">
-            <Link to="/visitantes">
-              <ArrowRight className="w-4 h-4" />
-              <span translate="no">Ver visitantes</span>
-            </Link>
-          </Button>
-        }
-      />
+      {!embutido && (
+        <PageHeader
+          title="Painel Estratégico"
+          description="Crescimento real da igreja através dos visitantes"
+          actions={
+            <Button asChild variant="outline" className="gap-2">
+              <Link to="/visitantes">
+                <ArrowRight className="w-4 h-4" />
+                <span translate="no">Ver visitantes</span>
+              </Link>
+            </Button>
+          }
+        />
+      )}
 
-      <div className="p-4 md:p-8 space-y-6">
+      <div className={embutido ? "space-y-6" : "p-4 md:p-8 space-y-6"}>
 
         {/* ── CARDS DE INDICADORES ─────────────────────────────────────── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

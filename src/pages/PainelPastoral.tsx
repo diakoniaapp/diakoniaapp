@@ -42,16 +42,21 @@
 // 4. **Dois blocos novos**: candidatos à membresia e acompanhamento de
 //    visitantes.
 //
-// 5. **A seção "Discipulado" reúne EBD, Pequenos Grupos e Campanhas
-//    Espirituais, em abas.** As três respondem à mesma pergunta por caminhos
-//    diferentes — onde a pessoa está sendo cuidada durante a semana — e por
-//    isso moram aqui dentro, e não em telas separadas do menu.
+// 5. **A seção "Discipulado" reúne EBD, Pequenos Grupos, Campanhas
+//    Espirituais e Crescimento, em abas.** As quatro respondem à mesma
+//    pergunta por caminhos diferentes — como está a vida espiritual de quem
+//    a igreja acompanha — e por isso moram aqui dentro, e não em telas
+//    separadas do menu.
 //
 //    `/ebd/acompanhamento` existiu por algumas horas como tela própria e
-//    virou redirecionamento para cá. `/admin/campanhas` continua servindo a
-//    versão de página inteira (link salvo não quebra), mas saiu do menu:
-//    `CampanhasAdmin` ganhou um modo `embutido` e é a MESMA tela renderizada
-//    na aba, com o assistente de criação e tudo.
+//    virou redirecionamento para cá. `/admin/campanhas` e
+//    `/painel-estrategico` continuam servindo a versão de página inteira
+//    (link salvo não quebra), mas saíram do menu: `CampanhasAdmin` e
+//    `PainelEstrategico` ganharam um modo `embutido` e são as MESMAS telas
+//    renderizadas nas abas, com assistente de criação e gráficos e tudo.
+//
+//    O próprio Painel Pastoral subiu para o topo do menu, fora dos grupos,
+//    ao lado de "Home" — ver `ATALHOS_TOPO` em navConfig.ts.
 //
 //    Em abas porque o painel já tem várias seções acima; as três empilhadas
 //    somariam mais de uma tela de rolagem cada. E cada uma busca os próprios
@@ -71,7 +76,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Cake, Heart, MessageCircle, CalendarCheck, Award, Flag, BookMarked,
   Sparkles, AlertCircle, Users, ChevronRight, Crown, Flame, Droplets,
-  GraduationCap, UserCheck, CalendarClock, Sprout,
+  GraduationCap, UserCheck, CalendarClock, Sprout, BarChart2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PaginaSkeleton } from "@/components/ListState";
@@ -103,6 +108,8 @@ import { PainelAcompanhamentoPgm } from "@/components/pgm/PainelAcompanhamentoPg
 // A tela de campanhas inteira, em modo embutido — inclusive o assistente de
 // criação. A rota /admin/campanhas continua servindo a versão de página.
 import CampanhasAdmin from "@/pages/CampanhasAdmin";
+// "Crescimento" — a jornada visitante → congregado → membro, embutida.
+import PainelEstrategico from "@/pages/PainelEstrategico";
 // Indicador, faixa e titulo de secao — as pecas visuais compartilhadas.
 // O cartao de numero estava escrito tres vezes, em tres arquivos.
 import {
@@ -502,6 +509,9 @@ export default function PainelPastoral() {
             <TabsTrigger value="campanhas" className="gap-1.5 text-xs">
               <Flame className="w-3.5 h-3.5" /> Campanhas
             </TabsTrigger>
+            <TabsTrigger value="crescimento" className="gap-1.5 text-xs">
+              <BarChart2 className="w-3.5 h-3.5" /> Crescimento
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="ebd" className="mt-0">
             <PainelAcompanhamentoEbd />
@@ -513,6 +523,11 @@ export default function PainelPastoral() {
             {/* A tela inteira de campanhas, em modo embutido — inclusive o
                 assistente de criação. Ver o cabeçalho de CampanhasAdmin. */}
             <CampanhasAdmin embutido />
+          </TabsContent>
+          <TabsContent value="crescimento" className="mt-0">
+            {/* A jornada visitante → congregado → membro. Mesma tela de
+                `/painel-estrategico`, em modo embutido. */}
+            <PainelEstrategico embutido />
           </TabsContent>
         </Tabs>
       </section>

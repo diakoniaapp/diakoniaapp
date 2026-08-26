@@ -7,7 +7,7 @@ import {
 import { BrandMark } from "@/components/Brand";
 import { useAuth } from "@/hooks/useAuth";
 import { openCommandPalette } from "@/lib/commandPalette";
-import { NAV_GROUPS, PAINEL, type NavGroup, type NavItem } from "@/components/layout/navConfig";
+import { NAV_GROUPS, PAINEL, ATALHOS_TOPO, type NavGroup, type NavItem } from "@/components/layout/navConfig";
 import { atalhos } from "@/lib/navUso";
 
 /**
@@ -81,11 +81,14 @@ export function MobileNavDrawer({ children }: { children: React.ReactNode }) {
           </button>
         </div>
 
+        {/* Home e Painel Pastoral, fora dos grupos — ver ATALHOS_TOPO */}
         <nav className="px-3 pt-3">
-          <NavLink to={PAINEL.to} end={PAINEL.end} onClick={fechar} className={itemClass}>
-            <PAINEL.icon className="w-4 h-4 shrink-0" />
-            <span translate="no">{PAINEL.label}</span>
-          </NavLink>
+          {ATALHOS_TOPO.filter(itemAllowed).map(item => (
+            <NavLink key={item.to} to={item.to} end={item.end} onClick={fechar} className={itemClass}>
+              <item.icon className="w-4 h-4 shrink-0" />
+              <span translate="no">{item.label}</span>
+            </NavLink>
+          ))}
         </nav>
 
         {/* Os mesmos atalhos da sidebar. Aqui valem ainda mais: a gaveta do

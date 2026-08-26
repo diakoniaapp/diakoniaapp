@@ -12,7 +12,7 @@ import { registrarVisita, atalhos, grupoMereceAbrir, temHistoricoBastante } from
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
 import { UserMenuButton } from "@/components/layout/UserMenuButton";
 import {
-  NAV_GROUPS, PAINEL, pageTitles, ROUTE_ROLES,
+  NAV_GROUPS, PAINEL, ATALHOS_TOPO, pageTitles, ROUTE_ROLES,
   type NavGroup, type NavItem,
 } from "@/components/layout/navConfig";
 import { ADMIN_MENU_ITEMS } from "@/components/layout/adminMenuItems";
@@ -215,12 +215,14 @@ export default function AppLayout() {
           </button>
         </div>
 
-        {/* Painel destacado */}
+        {/* Home e Painel Pastoral, fora dos grupos — ver ATALHOS_TOPO */}
         <nav className="px-3 pt-3">
-          <NavLink to={PAINEL.to} end={PAINEL.end} className={itemClass}>
-            <PAINEL.icon className="w-4 h-4" />
-            <span translate="no">{PAINEL.label}</span>
-          </NavLink>
+          {ATALHOS_TOPO.filter(itemAllowed).map(item => (
+            <NavLink key={item.to} to={item.to} end={item.end} className={itemClass}>
+              <item.icon className="w-4 h-4 shrink-0" />
+              <span translate="no">{item.label}</span>
+            </NavLink>
+          ))}
         </nav>
 
         {/* ── Atalhos ─────────────────────────────────────────────────────

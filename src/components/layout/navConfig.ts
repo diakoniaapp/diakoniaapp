@@ -36,8 +36,28 @@ export interface NavGroup {
   allowedRoles?: AppRole[];
 }
 
-// Painel sempre visível no topo, fora dos grupos
-export const PAINEL: NavItem = { to: "/", label: "Painel", icon: LayoutDashboard, end: true };
+// Painel sempre visível no topo, fora dos grupos.
+//
+// Passou a se chamar "Home" em 26/08/2026: com o Painel Pastoral logo abaixo,
+// dois itens chamados "Painel" e "Painel Pastoral" no mesmo bloco obrigavam a
+// ler os dois para escolher. "Home" diz o que é sem disputar o nome.
+export const PAINEL: NavItem = { to: "/", label: "Home", icon: LayoutDashboard, end: true };
+
+/**
+ * Os itens fixos do topo, fora dos grupos.
+ *
+ * O Painel Pastoral subiu para cá vindo de "Discipulado". Ele deixou de ser
+ * uma tela do módulo de discipulado e virou a tela de trabalho da liderança —
+ * reúne o dia, a semana, os candidatos, os visitantes e o discipulado inteiro.
+ * Uma tela que se abre todo dia não deve exigir abrir um grupo antes.
+ *
+ * Cada item ainda passa por `allowedRoles`: "Home" é de todos, o Painel
+ * Pastoral é da liderança.
+ */
+export const ATALHOS_TOPO: NavItem[] = [
+  PAINEL,
+  { to: "/painel-pastoral", label: "Painel Pastoral", icon: Sparkles, allowedRoles: ROLES_LIDERES },
+];
 
 export const NAV_GROUPS: NavGroup[] = [
   {
@@ -67,15 +87,14 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: "/ebd",              label: "EBD",             icon: GraduationCap, allowedRoles: ROLES_LIDERES },
       { to: "/pgm",              label: "Pequenos Grupos", icon: Sprout,        allowedRoles: ROLES_LIDERES },
-      { to: "/painel-pastoral",  label: "Painel Pastoral", icon: Sparkles,      allowedRoles: ROLES_LIDERES },
-      // "Campanhas Espirituais" saiu do menu: virou aba da secao "Discipulado"
-      // dentro do proprio Painel Pastoral, junto de EBD e Pequenos Grupos.
-      // A rota /admin/campanhas continua servindo a versao de pagina inteira,
-      // para nao quebrar link salvo.
-      // "Crescimento" tambem estava em "Configurações", e tambem nao configura
-      // nada: mede a jornada visitante -> congregado -> membro. E o painel do
-      // discipulado, nao um ajuste de sistema.
-      { to: "/painel-estrategico", label: "Crescimento",   icon: BarChart2,     allowedRoles: ROLES_PASTORAL },
+      // Tres itens sairam deste grupo, e todos pelo mesmo motivo: viraram
+      // conteudo do Painel Pastoral, e ter os dois caminhos disputava
+      // atencao. As tres rotas continuam existindo, para nao quebrar link
+      // salvo.
+      //
+      //   "Painel Pastoral"        subiu para o topo, fora dos grupos
+      //   "Campanhas Espirituais"  virou aba da secao Discipulado do painel
+      //   "Crescimento"            idem — /painel-estrategico embutido
     ],
   },
   {
