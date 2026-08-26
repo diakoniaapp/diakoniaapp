@@ -33,14 +33,18 @@ function getSaudacao(): string {
   return "Boa noite";
 }
 
+// QUARTA copia deste mapa no repositorio — as outras estao em types/usuario.ts,
+// AppLayout.tsx e UserMenuButton.tsx. Ao trocar um rotulo, trocar nos quatro:
+// em 26/08/2026 "Pastor titular" foi alterado em tres e a tela do painel
+// continuou dizendo "Pastor", porque esta aqui ficou para tras.
 const ROLE_LABEL: Record<string, string> = {
   admin: "Administrador", secretaria: "Secretaria",
-  diakonia: "Pastor", pastor: "Pastor",
+  diakonia: "Pastor titular", pastor: "Pastor",
   lideranca: "Liderança", voluntario: "Voluntário",
 };
 
 const ROLE_VALORES = [
-  "Administrador","Secretaria","Pastor","Lideranca","Liderança",
+  "Administrador","Secretaria","Pastor","Pastor titular","Lideranca","Liderança",
   "admin","secretaria","diakonia","lideranca","pastor","voluntario",
 ];
 

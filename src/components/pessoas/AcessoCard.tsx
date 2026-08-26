@@ -45,7 +45,12 @@ const STATUS_CONFIG: Record<StatusAcesso, { label: string; cor: string; icone: t
 };
 
 // Roles disponíveis para convite, em ordem de menor → maior privilégio
-const ROLES_CONVITE: RoleOption[] = ["voluntario", "lideranca", "secretaria", "pastor", "admin"];
+//
+// `diakonia` ("Pastor titular") vem depois de `pastor` porque alcança mais:
+// medido em 26/08/2026, `pastor` sozinho não enxerga famílias, vínculos,
+// visitas, histórico de membresia nem acompanhamento de visitante — e
+// `diakonia` enxerga. Ver o comentário em `types/usuario.ts`.
+const ROLES_CONVITE: RoleOption[] = ["voluntario", "lideranca", "secretaria", "pastor", "diakonia", "admin"];
 
 interface AcessoCardProps {
   pessoaId:     string;

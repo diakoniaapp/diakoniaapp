@@ -52,9 +52,9 @@ export function UserMenuButton() {
     : (user.email ?? "??").slice(0, 2).toUpperCase();
 
   const roleLabel: Record<string, string> = {
-    admin: "Administrador", secretaria: "Secretaria",
-    diakonia: "Pastor",     pastor:     "Pastor",
-    lideranca: "Liderança", voluntario: "Voluntário",
+    admin: "Administrador",     secretaria: "Secretaria",
+    diakonia: "Pastor titular", pastor:     "Pastor",
+    lideranca: "Liderança",     voluntario: "Voluntário",
   };
   const principalRole = roles[0] ?? "lideranca";
 

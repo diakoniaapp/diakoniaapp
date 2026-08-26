@@ -27,11 +27,22 @@ import {
 } from "@/services/permissoesPerfilService";
 
 /**
- * `diakonia` fica de fora da lista: o próprio `AppRole` marca o papel como
- * legado, já migrado para `pastor`. Oferecer a alguém a chance de configurar
- * um perfil que não se usa mais é convidar ao trabalho perdido.
+ * `diakonia` — "Pastor titular" — entra na lista. Corrigido em 26/08/2026.
+ *
+ * O comentário anterior dizia que ele estava "já migrado para `pastor`" e por
+ * isso ficava de fora. **A migração nunca aconteceu.** O arquivo que o
+ * comentário citava, `sql/migrations/diakonia_para_pastor.sql`, não existe; e
+ * `diakonia` está no enum desde a primeira migration, enquanto `pastor` veio
+ * depois.
+ *
+ * Medido no banco: `pastor` sozinho não enxerga famílias, vínculos familiares,
+ * visitas, histórico de membresia nem acompanhamento de visitante. `diakonia`
+ * enxerga. São 62 combinações tabela+operação contra 34.
+ *
+ * Deixá-lo de fora escondia da administração o único perfil que dá ao pastor
+ * o que ele precisa para o cuidado pastoral.
  */
-const PERFIS: AppRole[] = ["admin", "secretaria", "pastor", "lideranca", "voluntario"];
+const PERFIS: AppRole[] = ["admin", "secretaria", "diakonia", "pastor", "lideranca", "voluntario"];
 
 export function PermissoesDosPerfis({ podeGerenciar }: { podeGerenciar: boolean }) {
   const [perfil, setPerfil]     = useState<AppRole>("lideranca");
