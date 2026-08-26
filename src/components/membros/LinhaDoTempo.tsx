@@ -11,6 +11,7 @@
 
 import {
   DoorOpen, Sparkles, Crown, HandHeart, MessageCircle, type LucideIcon,
+  FileText,
 } from "lucide-react";
 import type { EventoDaHistoria, TipoEvento } from "@/services/historiaPessoa";
 
@@ -20,6 +21,9 @@ const APARENCIA: Record<TipoEvento, { Icone: LucideIcon; cor: string; ponto: str
   consagracao: { Icone: Crown,         cor: "text-primary",         ponto: "bg-primary" },
   servico:     { Icone: HandHeart,     cor: "text-gold-text",       ponto: "bg-gold" },
   contato:     { Icone: MessageCircle, cor: "text-muted-foreground", ponto: "bg-muted-foreground/50" },
+  // Ícone de arquivo, e não de conversa: ninguém falou com ninguém aqui — a
+  // linha só entrou no sistema. Ver a nota em `TipoEvento`.
+  cadastro:    { Icone: FileText,      cor: "text-muted-foreground", ponto: "bg-muted-foreground/30" },
 };
 
 function quando(iso: string): string {

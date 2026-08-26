@@ -121,11 +121,18 @@ const NIVEL_CARGO_EMOJI: Record<number, string> = {
  * quem foi cadastrado aqui e chegou no mesmo dia tem as duas iguais, e isso é
  * verdade, não carimbo.
  */
-function calcularTempo(p: { data_entrada: string | null; created_at: string | null; origem_cadastro: string | null }): string {
+function calcularTempo(p: {
+  data_entrada: string | null; created_at: string | null;
+  origem_cadastro: string | null; tipo_pessoa: string;
+}): string {
   if (!p.data_entrada) return "Tempo de casa não registrado";
 
+  // Membro sempre tem a data, porque ninguém entra no rol sem assembleia — e
+  // assembleia tem data. Para ele o carimbo da importação não silencia nada.
+  const ehMembro = p.tipo_pessoa === "membro";
+
   const carimbo =
-    p.origem_cadastro === "importacao" && !!p.created_at &&
+    !ehMembro && p.origem_cadastro === "importacao" && !!p.created_at &&
     Math.abs(
       (new Date(p.data_entrada + "T00:00").getTime() - new Date(p.created_at).getTime())
       / 86_400_000,
@@ -133,8 +140,13 @@ function calcularTempo(p: { data_entrada: string | null; created_at: string | nu
   if (carimbo) return "Tempo de casa não registrado";
 
   const anos = Math.floor((Date.now() - new Date(p.data_entrada).getTime()) / (365.25 * 86_400_000));
-  if (anos === 0) return "Na igreja há menos de 1 ano";
-  return `Na igreja há ${anos} ano${anos !== 1 ? "s" : ""}`;
+
+  // "Na igreja há 8 anos" seria impreciso para membro: a data conta desde a
+  // ENTRADA NO ROL, e quem congregou dez anos antes de ser aclamado está na
+  // igreja há muito mais tempo do que a frase diria.
+  const oQue = ehMembro ? "No rol de membros há" : "Na igreja há";
+  if (anos === 0) return `${oQue} menos de 1 ano`;
+  return `${oQue} ${anos} ano${anos !== 1 ? "s" : ""}`;
 }
 
 // ── Componente Principal ──────────────────────────────────────
@@ -237,6 +249,24 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
 
   useEffect(() => {
     if (!pessoaId || !open) return;
+
+    /**
+     * Abrir uma ficha e logo outra misturava as duas.
+     *
+     * Esta carga faz SETE consultas em sequência e escrevia o resultado de
+     * cada uma sem perguntar se ainda era a ficha aberta. Trocando de pessoa
+     * no meio, as respostas da anterior chegavam depois e sobrescreviam:
+     * `setPessoa` é a PRIMEIRA, então o nome no topo já era o novo enquanto
+     * família, história e ministérios ainda eram do anterior.
+     *
+     * Foi assim que a ficha de Julia Akemi Silva Hosoume apareceu com
+     * "Família Cavalcante Dias" — ela tem um vínculo só, e é Hosoume.
+     *
+     * Numa ficha que mostra observação pastoral, atribuir o registro de uma
+     * pessoa a outra não é detalhe de renderização.
+     */
+    let cancelado = false;
+
     const carregar = async () => {
       setLoading(true);
 
@@ -246,19 +276,25 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
         .select("id,nome_completo,nome_social,foto_url,tipo_pessoa,status,data_entrada,email,telefone_celular,perfil_acesso,observacoes_pastorais,created_at,origem_cadastro")
         .eq("id", pessoaId)
         .single();
+      if (cancelado) return;
       setPessoa(p ?? null);
 
       // Cargo de diretoria — vem da função na ficha. Ver diretoriaService.ts.
-      setCargos(await cargosDaPessoa(pessoaId));
+      const cargosDela = await cargosDaPessoa(pessoaId);
+      if (cancelado) return;
+      setCargos(cargosDela);
 
       // A história vem junto com o resto: ela é o corpo da ficha agora,
       // não um extra que se busca depois de a tela já estar montada.
-      setHistoria(await historiaDaPessoa(pessoaId));
+      const historiaDela = await historiaDaPessoa(pessoaId);
+      if (cancelado) return;
+      setHistoria(historiaDela);
 
       // A familia vem do mesmo servico que o formulario usa. Consultar
       // `vinculos_familiares` aqui de novo daria duas leituras da mesma
       // coisa, e a chance de discordarem no dia em que uma mudasse.
       const fam = await familiaDaPessoa(pessoaId);
+      if (cancelado) return;
       setFamilia(fam ? {
         nome: fam.familia.nome_familia,
         parentesco: (PARENTESCO_LABEL[fam.vinculo.parentesco] ?? fam.vinculo.parentesco).toLowerCase(),
@@ -324,6 +360,7 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
       const uniqMin = todosMin.filter(
         (m, i, arr) => arr.findIndex(x => x.ministerio_nome === m.ministerio_nome) === i
       );
+      if (cancelado) return;
       setMinerios(uniqMin);
 
       // Áreas
@@ -334,6 +371,7 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
         .eq("pessoa_id", pessoaId)
         .eq("ativo", true)
         .not("area_id", "is", null);
+      if (cancelado) return;
       setAreas([
         ...(av ?? []).filter((r: any) => r.areas).map((r: any) => ({
           ministerio_nome: r.areas.ministerios?.nome ?? "–",
@@ -350,6 +388,7 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
       setLoading(false);
     };
     carregar();
+    return () => { cancelado = true; };
   }, [pessoaId, open]);
 
   const tipoCfg  = TIPO_CONFIG[(pessoa?.tipo_pessoa as string) ?? ""] ?? TIPO_CONFIG.visitante;

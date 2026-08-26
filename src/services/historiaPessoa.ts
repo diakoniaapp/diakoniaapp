@@ -54,7 +54,22 @@ export type TipoEvento =
   | "promocao"       // mudou de vínculo (visitante → congregado → membro)
   | "consagracao"    // consagração ou ordenação
   | "servico"        // começou a servir numa área
-  | "contato";       // conversa, visita, mensagem
+  | "contato"        // conversa, visita, mensagem — alguém falou com a pessoa
+  /**
+   * A linha nasceu com o cadastro, e ninguém falou com ninguém.
+   *
+   * Separado de `contato` porque `diasDesdeOUltimoContato` conta contatos, e
+   * contar isto dava "último contato há 85 dias" quando o que passaram foram
+   * 85 dias desde a IMPORTAÇÃO. Medido em 26/08/2026: das 289 linhas de
+   * `visita_historico`, 274 são este carimbo e só 15 são contato de verdade —
+   * e 267 pessoas não têm nenhum outro registro.
+   *
+   * E só aparece na linha do tempo quando ela ficaria VAZIA sem ele. Como a
+   * linha ordena do mais recente para o mais antigo e a importação é de
+   * junho/2026, ele encabeçava a história de quem entrou no rol em 2018 —
+   * artefato técnico no lugar do primeiro fato da vida da pessoa na igreja.
+   */
+  | "cadastro";
 
 export interface EventoDaHistoria {
   data: string;              // ISO, para ordenar
@@ -116,7 +131,7 @@ export async function historiaDaPessoa(pessoaId: string): Promise<EventoDaHistor
 
   const [pessoa, mudancas, contatos, servicos] = await Promise.all([
     supabase.from("membros")
-      .select("data_entrada, created_at, origem_cadastro, data_consagracao_pastoral, data_ordenacao_presbiteral, data_ordenacao_diaconal, data_consagracao_missionaria")
+      .select("data_entrada, created_at, origem_cadastro, tipo_pessoa, data_consagracao_pastoral, data_ordenacao_presbiteral, data_ordenacao_diaconal, data_consagracao_missionaria")
       .eq("id", pessoaId).maybeSingle(),
     supabase.from("historico_membro")
       .select("tipo, descricao, data")
@@ -136,6 +151,14 @@ export async function historiaDaPessoa(pessoaId: string): Promise<EventoDaHistor
   ]);
 
   const p = pessoa.data as Record<string, string | null> | null;
+
+  /**
+   * O carimbo da importação, à espera de saber se há mais alguma coisa.
+   *
+   * Só entra na linha do tempo se ela ficaria vazia sem ele — ver a nota no
+   * laço dos contatos.
+   */
+  let carimboAdiado: EventoDaHistoria | null = null;
 
   /**
    * "Chegou à igreja" só quando a data significa isso.
@@ -166,8 +189,30 @@ export async function historiaDaPessoa(pessoaId: string): Promise<EventoDaHistor
       / 86_400_000,
     ) <= 7;
 
-  if (p?.data_entrada && !carimboDaImportacao) {
-    eventos.push({ data: p.data_entrada, tipo: "entrada", titulo: "Chegou à igreja" });
+  /**
+   * Para MEMBRO, `data_entrada` não é "chegou à igreja" — é a entrada no ROL.
+   *
+   * Ninguém vira membro sem passar por assembleia, e a assembleia tem data.
+   * Por isso todo membro tem a coluna preenchida, e por isso ela é fato
+   * registrado, não estimativa: o rótulo passa a dizer o que a data significa.
+   *
+   * A distinção importa na leitura pastoral. "Chegou à igreja em 2018" e
+   * "entrou no rol de membros em 2018" descrevem coisas diferentes — quem
+   * congrega há dez anos e foi aclamado ano passado tem as duas datas
+   * distantes, e a ficha dizia a segunda com o nome da primeira.
+   *
+   * Para congregado e visitante a coluna não tem esse respaldo: não há
+   * assembleia por trás, e na importação ela recebeu o dia do próprio
+   * cadastro. Medido em 26/08/2026: dos 65 congregados ativos, NENHUM tem
+   * data anterior ao cadastro.
+   */
+  const ehMembro = p?.tipo_pessoa === "membro";
+  const rotuloEntrada = ehMembro ? "Entrou no rol de membros" : "Chegou à igreja";
+
+  // O carimbo só cala a linha de quem NÃO é membro. Para membro a data veio
+  // da assembleia, e coincidir com a semana da importação não a torna falsa.
+  if (p?.data_entrada && (ehMembro || !carimboDaImportacao)) {
+    eventos.push({ data: p.data_entrada, tipo: "entrada", titulo: rotuloEntrada });
   }
 
   for (const [coluna, rotulo] of ATOS) {
@@ -177,11 +222,74 @@ export async function historiaDaPessoa(pessoaId: string): Promise<EventoDaHistor
 
   for (const m of mudancas.data ?? []) {
     if (!m.data) continue;
+
+    /**
+     * A promoção carimbada pela importação também sai.
+     *
+     * Mesmo sintoma do carimbo de cadastro, vindo de outra tabela: a ficha de
+     * Alberto Pereira Olimpio mostrava "Tornou-se membro · 02 de jun. de
+     * 2026" ACIMA de "Entrou no rol de membros · 25 de fev. de 2018". Ele é
+     * membro desde 2018; junho de 2026 é o dia em que a linha foi importada.
+     *
+     * Medido em 26/08/2026: `historico_membro` tem 113 linhas datadas em
+     * junho, espalhadas pelos 10 dias em que a importação rodou, e 101 em
+     * agosto — estas últimas são promoções feitas aqui, por gente, e ficam.
+     *
+     * Não se perde informação: para membro, "Entrou no rol de membros" conta
+     * a mesma coisa com a data certa. A data verdadeira da promoção dos
+     * importados não existe em lugar nenhum, e inventá-la era o defeito.
+     */
+    const promocaoCarimbada =
+      p?.origem_cadastro === "importacao" && m.data < "2026-07-01";
+    if (promocaoCarimbada) continue;
+
     eventos.push({ data: m.data, tipo: "promocao", titulo: fraseDaPromocao(m.descricao) });
   }
 
   for (const c of contatos.data ?? []) {
     if (!c.created_at) continue;
+    /**
+     * O carimbo de cadastro não é contato — mas só quando é carimbo.
+     *
+     * Para quem foi cadastrado AQUI a linha `cadastro` marca a chegada de um
+     * visitante ao culto, e isso é encontro de verdade: é o começo do
+     * acolhimento e conta como contato. Para quem veio da importação ela
+     * marca a criação da linha no banco, e nada mais.
+     *
+     * Sem esta distinção a ficha de Alberto Pereira Olimpio dizia "último
+     * contato há 85 dias" — que são exatamente os dias entre a importação,
+     * em 02/06, e hoje.
+     */
+    const carimbo = c.tipo === "cadastro" && p?.origem_cadastro === "importacao";
+
+    /**
+     * O carimbo da importação fica de fora QUANDO HÁ HISTÓRIA DE VERDADE.
+     *
+     * Ele não era só irrelevante — ele liderava. A linha ordena do mais
+     * recente para o mais antigo, e a importação é de junho de 2026: o
+     * artefato técnico aparecia ACIMA de "entrou no rol de membros em 2018",
+     * encabeçando a narrativa pastoral de quem está na igreja há oito anos.
+     *
+     * A regra pedida foi "para membros", e esta é a mesma coisa dita pela
+     * causa em vez de pelo grupo: só desordena quem tem o que desordenar.
+     * Membro sempre cai aqui, porque ninguém entra no rol sem assembleia e a
+     * assembleia deixa data. Congregado como a Julia, cujo único registro é o
+     * carimbo, fica com ele — tirá-lo daria uma ficha que diz "nada
+     * registrado" sobre alguém que a igreja acabou de cadastrar.
+     *
+     * Guardado em `carimboAdiado` e decidido no fim, porque neste ponto do
+     * laço ainda não se sabe o que mais existe.
+     */
+    if (carimbo) {
+      carimboAdiado = {
+        data: c.created_at,
+        tipo: "cadastro",
+        titulo: ROTULO_CONTATO[c.tipo ?? ""] ?? "Contato",
+        detalhe: c.observacao,
+      };
+      continue;
+    }
+
     eventos.push({
       data: c.created_at,
       tipo: "contato",
@@ -208,6 +316,10 @@ export async function historiaDaPessoa(pessoaId: string): Promise<EventoDaHistor
         .filter(Boolean).join(" · ") || null,
     });
   }
+
+  // Sozinho, o carimbo é melhor que o silêncio: para quem só foi cadastrado
+  // ainda não há história, e uma ficha em branco não diz nem isso.
+  if (eventos.length === 0 && carimboAdiado) eventos.push(carimboAdiado);
 
   // Mais recente primeiro: quem abre a ficha quer saber o que aconteceu por
   // último, não como tudo começou. A origem continua ali, no fim.
