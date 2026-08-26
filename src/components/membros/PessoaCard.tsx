@@ -11,11 +11,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, User, Shield, Church, MapPin, Calendar, Star, Pencil, MessageCircle, NotebookPen } from "lucide-react";
+import { Loader2, User, Shield, Church, MapPin, Calendar, Star, Pencil, MessageCircle, NotebookPen, Home as IconeCasa } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { usePermissoes } from "@/hooks/usePermissoes";
 import { useAuth } from "@/hooks/useAuth";
 import { cargosDaPessoa } from "@/services/diretoriaService";
+import { familiaDaPessoa, PARENTESCO_LABEL } from "@/services/familiaService";
 import { TIPO_PESSOA_LABEL, TIPO_PESSOA_COR, type TipoPessoa } from "@/lib/tipoPessoa";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LinhaDoTempo } from "@/components/membros/LinhaDoTempo";
@@ -172,6 +173,7 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
   const [ministerios, setMinerios]  = useState<MinisterioVinculo[]>([]);
   const [areas, setAreas]           = useState<AreaVinculo[]>([]);
   const [historia, setHistoria]     = useState<EventoDaHistoria[]>([]);
+  const [familia, setFamilia]       = useState<{ nome: string; parentesco: string; responsavel: boolean } | null>(null);
   const [loading, setLoading]       = useState(false);
   const [anotando, setAnotando]     = useState(false);
   const [rascunho, setRascunho]     = useState("");
@@ -228,6 +230,16 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
       // A história vem junto com o resto: ela é o corpo da ficha agora,
       // não um extra que se busca depois de a tela já estar montada.
       setHistoria(await historiaDaPessoa(pessoaId));
+
+      // A familia vem do mesmo servico que o formulario usa. Consultar
+      // `vinculos_familiares` aqui de novo daria duas leituras da mesma
+      // coisa, e a chance de discordarem no dia em que uma mudasse.
+      const fam = await familiaDaPessoa(pessoaId);
+      setFamilia(fam ? {
+        nome: fam.familia.nome_familia,
+        parentesco: (PARENTESCO_LABEL[fam.vinculo.parentesco] ?? fam.vinculo.parentesco).toLowerCase(),
+        responsavel: fam.vinculo.responsavel_familia,
+      } : null);
 
       // ── Onde a pessoa serve ────────────────────────────────────────
       //
@@ -443,6 +455,38 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
               </a>
             )}
 
+            {/* ── A família ─────────────────────────────────────────────
+                A ficha não mostrava família nenhuma. Era a ausência que
+                deixava a contradição invisível: o rodapé dizia "sem
+                vínculos" e não havia nada na tela para desmentir.
+
+                E é informação que quem abre uma ficha procura — "de quem
+                essa pessoa é filha?" é a primeira pergunta sobre uma
+                criança, e a Julia Hosoume é o caso que expôs isto.
+
+                Quando não há família, o bloco aparece assim mesmo, em vez
+                de sumir: 97 pessoas ativas estão sem vínculo familiar hoje,
+                e some-lo esconderia justamente a pendência que o Painel da
+                Secretaria existe para mostrar. */}
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <IconeCasa className="w-3 h-3" /> Família
+              </div>
+              {familia ? (
+                <div className="rounded-lg border bg-muted/40 px-3 py-2 text-sm">
+                  <span className="font-medium">{familia.nome}</span>
+                  <span className="text-muted-foreground">
+                    {" "}· esta pessoa é {familia.parentesco}
+                    {familia.responsavel && " · responsável"}
+                  </span>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground rounded-lg border border-dashed px-3 py-2">
+                  Sem família cadastrada.
+                </p>
+              )}
+            </div>
+
             {/* ── Observações pastorais ─────────────────────────────────
 
                 Já estavam gravadas e só eram legíveis abrindo o formulário
@@ -589,10 +633,21 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
                 <Calendar className="w-3.5 h-3.5" />
                 <span>Na igreja há {calcularTempo(pessoa.data_entrada)}</span>
               </div>
+              {/* "Sem vínculos cadastrados" era o texto daqui, e mentia.
+                  Isto conta ministério, área e cargo — nada de família. Só que
+                  "vínculo" é a palavra que ESTE sistema usa para laço
+                  familiar: a tabela é `vinculos_familiares`, o passo 3 do
+                  formulário de pessoa se chama VÍNCULOS e o diálogo é o
+                  `VinculosDialog`.
+
+                  Resultado: a ficha da Julia Hosoume dizia "sem vínculos"
+                  enquanto o formulário mostrava, na mesma pessoa, "Família
+                  Hosoume · Filho(a)". Os dois estavam certos e um deles
+                  usava a palavra do outro. */}
               {ministerios.length === 0 && areas.length === 0 && cargos.length === 0 && (
                 <span className="flex items-center gap-1 text-warning-text">
                   <Star className="w-3.5 h-3.5" />
-                  Sem vínculos cadastrados
+                  Não serve em nenhum ministério
                 </span>
               )}
             </div>
