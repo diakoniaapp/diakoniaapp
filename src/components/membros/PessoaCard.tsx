@@ -209,7 +209,24 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
    * qual das duas estava anotando.
    */
   const [nomeDeQuemAnota, setNomeDeQuemAnota] = useState("Sem nome");
-  const funcaoDeQuemAnota = roles.map(r => ROLE_LABEL[r] ?? r).join(" · ") || "Sem função";
+  /**
+   * A função, curta, para assinar a anotação.
+   *
+   * Separada de `ROLE_LABEL` de propósito: lá "admin" é "Administrador",
+   * palavra que ocupa metade da assinatura numa linha de 11px. Aqui a
+   * assinatura é rodapé de um texto, não etiqueta de perfil — e "Admin" diz
+   * a mesma coisa em cinco letras.
+   *
+   * `diakonia` mantém "Pastor titular" inteiro: encurtar para "Pastor"
+   * apagaria a diferença entre os dois papéis, que no banco têm alcances
+   * distintos (62 combinações contra 34).
+   */
+  const FUNCAO_CURTA: Record<string, string> = {
+    admin: "Admin", secretaria: "Secretaria", diakonia: "Pastor titular",
+    pastor: "Pastor", lideranca: "Liderança", voluntario: "Voluntário",
+  };
+  const funcaoDeQuemAnota =
+    roles.map(r => FUNCAO_CURTA[r] ?? ROLE_LABEL[r] ?? r).join(" · ") || "Sem função";
 
   useEffect(() => {
     if (!user?.id) return;
@@ -264,13 +281,26 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
    */
   const anotacoes = historia
     .filter(e => e.tipo === "anotacao")
-    .map(e => ({
-      detalhe: e.detalhe,
-      autor: e.autor ?? "Autor não registrado",
-      quando: new Date(e.data).toLocaleDateString("pt-BR", {
-        day: "2-digit", month: "short", year: "numeric",
-      }),
-    }));
+    .map(e => {
+      const d = new Date(e.data);
+      const dois = (n: number) => String(n).padStart(2, "0");
+      /**
+       * "Admin - 26.08.2026 | 20h46".
+       *
+       * A FUNÇÃO, e não o nome. Quem lê uma ficha quer saber em que
+       * capacidade aquilo foi escrito — o cuidado pastoral não muda de peso
+       * conforme quem estava de plantão. O nome continua GRAVADO na linha,
+       * para quando for preciso responder "quem escreveu isto"; só não ocupa
+       * espaço na leitura do dia a dia.
+       */
+      const funcao = (e.autor ?? "").split(" · ").pop() || "Sem função";
+      return {
+        detalhe: e.detalhe,
+        assinatura:
+          `${funcao} - ${dois(d.getDate())}.${dois(d.getMonth() + 1)}.${d.getFullYear()}` +
+          ` | ${dois(d.getHours())}h${dois(d.getMinutes())}`,
+      };
+    });
   const [familia, setFamilia]       = useState<{ nome: string; parentesco: string; responsavel: boolean } | null>(null);
   const [loading, setLoading]       = useState(false);
   const [anotando, setAnotando]     = useState(false);
@@ -686,8 +716,11 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
                 {anotacoes.map((a, i) => (
                   <div key={i} className="rounded-lg border bg-muted/40 px-3 py-2">
                     <p className="text-sm whitespace-pre-line">{a.detalhe}</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {a.autor} · {a.quando}
+                    {/* Miúda, itálica e esmaecida: a assinatura situa a
+                        anotação sem disputar leitura com ela. O que importa
+                        na tela é o que foi escrito. */}
+                    <p className="text-[11px] italic text-muted-foreground/70 mt-1 tabular-nums">
+                      {a.assinatura}
                     </p>
                   </div>
                 ))}
