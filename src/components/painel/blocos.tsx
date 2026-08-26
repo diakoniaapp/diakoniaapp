@@ -23,6 +23,7 @@
 // 3 + 2, com dois blocos largos e órfãos na segunda linha. O grid agora conta
 // quantos são e usa esse número de colunas a partir de `sm`.
 
+import { Children } from "react";
 import type { LucideIcon } from "lucide-react";
 
 /**
@@ -69,23 +70,39 @@ export function Indicador({
   const vazio = valor === 0 || valor === "—" || valor === "0";
   const corNumero = vazio ? "text-muted-foreground" : TOM_NUMERO[tom];
 
+  // O layout vira com a tela, porque a restrição é oposta nas duas.
+  //
+  // **No celular falta altura.** A faixa quebra em duas colunas, cada uma
+  // com folga horizontal; empilhado — rótulo em cima, número embaixo — cada
+  // indicador pedia ~70px, e os cinco comiam metade da primeira tela antes
+  // de qualquer conteúdo aparecer. Em linha cabem em ~32px.
+  //
+  // **No desktop falta largura.** Cinco colunas num painel de 1024px dão
+  // ~100px cada — não cabe número e rótulo lado a lado, e TODOS truncavam
+  // ("ANIV. H...", "EM ACO..."). Ali o empilhado é que resolve.
+  //
+  // Daí `order`: os mesmos dois elementos, invertidos por breakpoint. No
+  // celular o número vem primeiro, porque é ele que se procura — "3" salta e
+  // "aniv. hoje" só explica.
   const conteudo = (
     <>
-      <div className="flex items-center justify-center gap-1 min-w-0">
+      <span className="flex items-center gap-1 min-w-0 order-2 sm:order-1">
         {Icone && (
-          <Icone className={`w-3 h-3 shrink-0 ${vazio ? "text-muted-foreground" : TOM_NUMERO[tom]}`} />
+          <Icone className={`w-3.5 h-3.5 shrink-0 ${vazio ? "text-muted-foreground" : TOM_NUMERO[tom]}`} />
         )}
-        <p className="text-[10px] uppercase tracking-wide text-muted-foreground truncate leading-none">
+        <span className="text-[11px] uppercase tracking-wide text-muted-foreground truncate min-w-0">
           {rotulo}
-        </p>
-      </div>
-      <p className={`text-2xl font-semibold leading-none tabular-nums mt-1.5 ${corNumero}`}>
+        </span>
+      </span>
+      <span className={`text-lg sm:text-2xl font-semibold leading-none tabular-nums shrink-0 order-1 sm:order-2 ${corNumero}`}>
         {valor}
-      </p>
+      </span>
     </>
   );
 
-  const base = "rounded-lg border bg-card px-2 py-2.5 text-center min-w-0";
+  const base =
+    "flex items-center gap-1.5 rounded-lg border bg-card px-2.5 py-1.5 min-w-0 " +
+    "sm:flex-col sm:items-center sm:gap-1.5 sm:px-2 sm:py-2.5 sm:text-center";
 
   if (!onClick) return <div className={base}>{conteudo}</div>;
 
@@ -116,8 +133,19 @@ export function FaixaDeIndicadores({
     3: "sm:grid-cols-3", 4: "sm:grid-cols-4",
     5: "sm:grid-cols-5", 6: "sm:grid-cols-6",
   };
+
+  // No celular são duas colunas, e um número ímpar de indicadores deixa o
+  // último sozinho na linha — meia largura desperdiçada, e justamente onde
+  // o rótulo mais comprido costuma cair ("Em acompanhamento" truncava ali).
+  // Ele passa a ocupar a linha inteira: some o órfão e some o truncamento.
+  const impar = Children.count(children) % 2 === 1;
+
   return (
-    <div className={`grid grid-cols-2 gap-1.5 ${cols[colunas] ?? "sm:grid-cols-4"}`}>
+    <div
+      className={`grid grid-cols-2 gap-1.5 ${cols[colunas] ?? "sm:grid-cols-4"} ${
+        impar ? "[&>*:last-child]:col-span-2 sm:[&>*:last-child]:col-span-1" : ""
+      }`}
+    >
       {children}
     </div>
   );

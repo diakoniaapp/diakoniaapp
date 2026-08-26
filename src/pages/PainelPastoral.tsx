@@ -281,36 +281,54 @@ export default function PainelPastoral() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
-      {/* ── Cabeçalho ───────────────────────────────────────────────────
+      {/* ── Cabeçalho fixo ──────────────────────────────────────────────
+          Título, data, a frase do dia e a faixa de indicadores acompanham a
+          rolagem. O painel é longo — sete seções —, e a faixa é também o
+          índice dele: um índice que só funciona no topo obriga a subir para
+          voltar a usá-lo.
+
+          `sticky` e não `fixed`: quem rola é o `<main>` do AppLayout, não a
+          janela. `fixed` sairia do fluxo e se ancoraria na viewport, passando
+          por cima da barra lateral.
+
+          `-mx-6 px-6` porque o container tem `p-6`: sem estender, o conteúdo
+          rolaria visível pelas laterais do bloco fixo.
+
           A data por extenso entrou no lugar da frase que descrevia a tela.
           Um painel cujo assunto é "hoje" — e que se recarrega quando o dia
-          vira — precisa dizer que dia é hoje; explicar o que ele contém era
-          útil na primeira visita e ruído em todas as outras. */}
-      <div>
-        <h1 className="font-serif text-2xl flex items-center gap-2">
-          <Sparkles className="w-6 h-6 text-gold shrink-0" />
-          Painel Pastoral
-        </h1>
-        <p className="text-sm text-muted-foreground first-letter:uppercase">
-          {new Date(hoje + "T00:00").toLocaleDateString("pt-BR", {
-            weekday: "long", day: "numeric", month: "long", year: "numeric",
-          })}
-        </p>
-      </div>
-
-      {/* Resumo em linguagem natural */}
-      {resumo && (
-        <div className="text-sm text-muted-foreground bg-muted/40 border rounded-md px-3 py-2 flex items-center justify-between gap-2 flex-wrap">
-          <span className="flex items-center gap-1.5 min-w-0">
-            <Sparkles className="w-3.5 h-3.5 text-gold shrink-0" />
-            {resumoNatural(resumo, candidatos, visitantes)}
-          </span>
-          {atualizadoEm && (
-            <span className="text-[10px] text-muted-foreground/70 shrink-0">
-              Atualizado {formatarAtualizadoHa(atualizadoEm)}
-            </span>
-          )}
+          vira — precisa dizer que dia é hoje. */}
+      <div className="sticky top-0 z-20 bg-background -mx-6 px-6 -mt-6 pt-6 pb-3 space-y-3 border-b">
+        <div>
+          <h1 className="font-serif text-2xl flex items-center gap-2">
+            <Sparkles className="w-6 h-6 text-gold shrink-0" />
+            Painel Pastoral
+          </h1>
+          <p className="text-sm text-muted-foreground first-letter:uppercase">
+            {new Date(hoje + "T00:00").toLocaleDateString("pt-BR", {
+              weekday: "long", day: "numeric", month: "long", year: "numeric",
+            })}
+          </p>
         </div>
+
+      {/* ── Resumo em linguagem natural ──────────────────────────────────
+          Sem caixa e sem fundo. A moldura custava duas linhas de respiro no
+          celular para cercar uma frase que já se distingue por ser a única
+          em prosa na tela.
+
+          "Atualizado há X" desceu para a mesma linha, em corpo menor: é
+          rodapé da frase, não um segundo dado. */}
+      {resumo && (
+        <p className="text-sm text-muted-foreground flex items-start gap-1.5">
+          <Sparkles className="w-3.5 h-3.5 text-gold shrink-0 mt-0.5" />
+          <span className="min-w-0">
+            {resumoNatural(resumo, candidatos, visitantes)}
+            {atualizadoEm && (
+              <span className="text-[10px] text-muted-foreground/60 ml-1.5 whitespace-nowrap">
+                · {formatarAtualizadoHa(atualizadoEm)}
+              </span>
+            )}
+          </span>
+        </p>
       )}
 
       {/* ── A faixa de indicadores ──────────────────────────────────────
@@ -335,12 +353,21 @@ export default function PainelPastoral() {
             rotulo="Cand. batismo" valor={candidatos?.elegiveis.length ?? 0} tom="info" icone={Droplets}
             onClick={() => irParaSecao("candidatos")} descricao="Ir para Candidatos à membresia"
           />
+          {/* Era "Visit. sem contato", com o número de quem está há mais de
+              7 dias sem registro. Trocado a pedido por quem ESTÁ sendo
+              acompanhado — contatado, retornou, em relacionamento ou em
+              acompanhamento.
+
+              Muda o tom junto: a ausência de contato é alerta, o
+              acompanhamento em curso é celebração. O número de quem está sem
+              contato continua na seção de visitantes, onde tem contexto. */}
           <Indicador
-            rotulo="Visit. sem contato" valor={visitantes?.semContato ?? 0} tom="warning" icone={Users}
+            rotulo="Em acompanhamento" valor={visitantes?.emAcompanhamento ?? 0} tom="celebracao" icone={Users}
             onClick={() => irParaSecao("visitantes")} descricao="Ir para Acompanhamento de visitantes"
           />
         </FaixaDeIndicadores>
       )}
+      </div>{/* fim do cabeçalho fixo */}
 
       {/* ── Acontecendo hoje ────────────────────────────────────────────
           A agenda do dia com hora e lugar: cultos, ensaios, reuniões e
@@ -355,7 +382,7 @@ export default function PainelPastoral() {
           Agora a tira comanda as duas: o compromisso com hora e a celebração
           são o mesmo dia. `AgendaDoDia` recebe `dia`; sem a prop, no painel
           inicial, ele segue exatamente como era. */}
-      <section id="datas" className="scroll-mt-4">
+      <section id="datas" className="scroll-mt-[280px] sm:scroll-mt-[230px]">
         <TituloDaSecao icone={CalendarCheck} contagem={totalDatas}>
           A semana
         </TituloDaSecao>
@@ -380,16 +407,21 @@ export default function PainelPastoral() {
                 aberto={diaAberto}
                 onAbrir={setDiaAberto}
               />
-              {/* Os compromissos com hora do dia escolhido — cultos, ensaios,
-                  reuniões e reservas de espaço, com recorrências expandidas.
-                  Vêm antes das celebrações porque têm hora marcada. */}
-              <AgendaDoDia dia={diaAberto} />
+              {/* As celebrações vêm primeiro — aniversários, bodas, anos de
+                  membresia e de pastorado.
+
+                  A agenda tem hora marcada e por isso parecia dever vir
+                  antes; mas quem abre este painel de manhã abre para saber
+                  de quem precisa lembrar, e felicitar é o que se faz assim
+                  que se lê. O culto das 19h a liderança já sabe de cor. */}
               <BlocoDoDia
                 data={diaAberto}
                 itens={dias.find(d => d.data === diaAberto)?.itens ?? []}
                 hojeIso={hoje}
-
               />
+              {/* Os compromissos com hora do dia escolhido — cultos, ensaios,
+                  reuniões e reservas de espaço, com recorrências expandidas. */}
+              <AgendaDoDia dia={diaAberto} />
             </>
           )}
         </div>
@@ -397,7 +429,7 @@ export default function PainelPastoral() {
 
       {/* ── Candidatos à membresia ──────────────────────────────────────── */}
       {candidatos && candidatos.elegiveis.length > 0 && (
-        <section id="candidatos" className="scroll-mt-4">
+        <section id="candidatos" className="scroll-mt-[280px] sm:scroll-mt-[230px]">
           <TituloDaSecao icone={Droplets} tom="info" contagem={candidatos.elegiveis.length}>
             Candidatos à membresia
           </TituloDaSecao>
@@ -459,7 +491,7 @@ export default function PainelPastoral() {
 
       {/* ── Acompanhamento de visitantes ────────────────────────────────── */}
       {visitantes && visitantes.total > 0 && (
-        <section id="visitantes" className="scroll-mt-4">
+        <section id="visitantes" className="scroll-mt-[280px] sm:scroll-mt-[230px]">
           <TituloDaSecao
             icone={Users}
             tom="neutro"
@@ -503,7 +535,7 @@ export default function PainelPastoral() {
           Em abas, e não empilhados, porque o painel já tem seis seções
           acima; os dois inteiros somariam mais de uma tela de rolagem cada.
           Cada aba carrega os próprios dados, com estado próprio. */}
-      <section id="discipulado" className="scroll-mt-4">
+      <section id="discipulado" className="scroll-mt-[280px] sm:scroll-mt-[230px]">
         <TituloDaSecao icone={Sprout}>Acompanhamento do discipulado</TituloDaSecao>
         <Tabs defaultValue="ebd">
           <TabsList className="mb-3">
