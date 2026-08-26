@@ -186,6 +186,13 @@ export default function PainelPastoral() {
   const [resumo, setResumo] = useState<ResumoPastoral | null>(null);
   const [candidatos, setCandidatos] = useState<CandidatosMembresia | null>(null);
   const [visitantes, setVisitantes] = useState<ResumoVisitantes | null>(null);
+  /**
+   * Quantos compromissos a agenda tem de hoje ate hoje+6.
+   *
+   * Quem conta e o proprio AgendaDoDia, por callback — ver a nota em
+   * `onTotalDaJanela`. Contar por fora divergia da lista.
+   */
+  const [compromissos, setCompromissos] = useState(0);
   const [loading, setLoading] = useState(true);
   const [atualizadoEm, setAtualizadoEm] = useState<Date | null>(null);
 
@@ -345,9 +352,17 @@ export default function PainelPastoral() {
             rotulo="Bodas hoje" valor={resumo.bodas_hoje} tom="celebracao" icone={Heart}
             onClick={() => irParaSecao("datas")} descricao="Ir para Datas importantes"
           />
+          {/* Era "Datas (7d)", e contava as CELEBRAÇÕES da semana — a soma
+              exata da tira de sete dias. Media 11 sem que nenhum dos onze
+              fosse um compromisso da igreja: cinco cultos marcados para hoje
+              não entravam na conta.
+
+              Agora conta a agenda: cultos, ensaios, reuniões, o que estiver
+              marcado de hoje até hoje + 6. Aniversários e bodas ficam de
+              fora — já têm indicador próprio e a lista logo abaixo. */}
           <Indicador
-            rotulo="Datas (7d)" valor={totalDatas} tom="gold" icone={CalendarCheck}
-            onClick={() => irParaSecao("datas")} descricao="Ir para Datas importantes"
+            rotulo="Agenda (7d)" valor={compromissos} tom="gold" icone={CalendarCheck}
+            onClick={() => irParaSecao("datas")} descricao="Ir para A semana"
           />
           <Indicador
             rotulo="Cand. batismo" valor={candidatos?.elegiveis.length ?? 0} tom="info" icone={Droplets}
@@ -429,7 +444,7 @@ export default function PainelPastoral() {
               />
               {/* Os compromissos com hora do dia escolhido — cultos, ensaios,
                   reuniões e reservas de espaço, com recorrências expandidas. */}
-              <AgendaDoDia dia={diaAberto} />
+              <AgendaDoDia dia={diaAberto} onTotalDaJanela={setCompromissos} />
             </>
           )}
         </div>

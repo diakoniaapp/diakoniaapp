@@ -188,7 +188,29 @@ function useAgoraEmMinutos(): number {
  * uma sexta-feira que ainda vai chegar — e aplicá-los ali produziria coisas
  * como riscar um culto que ainda não aconteceu.
  */
-export function AgendaDoDia({ dia }: { dia?: string } = {}) {
+export function AgendaDoDia({
+  dia, onTotalDaJanela,
+}: {
+  dia?: string;
+  /**
+   * Quantas ocorrências existem na janela carregada (hoje até hoje + 7).
+   *
+   * Existe para o indicador "Agenda (7d)" do Painel Pastoral. A primeira
+   * versão dele buscava e expandia os eventos por conta própria, num serviço
+   * separado — e **divergiu na primeira conferência**: marcava 21 enquanto a
+   * soma dos sete dias na tela dava 22.
+   *
+   * A causa é estrutural, não um descuido de filtro: esta lista tem TRÊS
+   * fontes — eventos da igreja com recorrências expandidas, o calendário
+   * externo (feriados e CBB) e as reservas de espaço do Bazar/Cantina. Quem
+   * conta por fora replica uma e esquece as outras, e volta a divergir a
+   * cada fonte nova.
+   *
+   * Um número que resume uma lista precisa bater com ela. Então quem conta é
+   * quem monta.
+   */
+  onTotalDaJanela?: (n: number) => void;
+} = {}) {
   const [ocorrencias, setOcorrencias] = useState<EventoOcorrencia[]>([]);
   const [loading, setLoading] = useState(true);
   const [convite, setConvite] = useState<EventoOcorrencia | null>(null);
@@ -247,6 +269,24 @@ export function AgendaDoDia({ dia }: { dia?: string } = {}) {
             (a.evento?.hora_inicio ?? "99").localeCompare(b.evento?.hora_inicio ?? "99"));
 
         setOcorrencias(tudo);
+
+        // Conta só até hoje + 6, e não até o fim da janela buscada.
+        //
+        // A busca vai a hoje + 7 por folga; a tira de dias do Painel
+        // Pastoral mostra sete dias contando o próprio hoje, ou seja
+        // hoje + 6. Contar a janela inteira daria um número que não bate
+        // com nenhum dia visível — o defeito que este callback existe para
+        // evitar, repetido do outro lado.
+        const limite = new Date(hoje);
+        limite.setDate(limite.getDate() + 6);
+        const limiteISO = dataLocal(limite);
+        const inicioISO = dataLocal(hoje);
+        onTotalDaJanela?.(
+          tudo.filter(o => {
+            const d = o.data ?? inicioISO;
+            return d >= inicioISO && d <= limiteISO;
+          }).length,
+        );
       } catch {
         if (!cancelado) setOcorrencias([]);
       } finally {
