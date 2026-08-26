@@ -55,7 +55,7 @@ export default function Familias() {
   const [counts, setCounts]               = useState<Record<string, number>>({});
   const [loadingCounts, setLoadingCounts] = useState(true);
   const [open, setOpen]                   = useState(false);
-  const [form, setForm]                   = useState({ nome_familia: "", endereco: "", numero: "", complemento: "", bairro: "", cidade: "", cep: "", data_casamento: "", observacoes: "" });
+  const [form, setForm]                   = useState({ nome_familia: "", endereco: "", numero: "", complemento: "", bairro: "", cidade: "", cep: "", observacoes: "" });
   const [editingId, setEditingId]         = useState<string | null>(null);
   const [responsaveis, setResponsaveis]   = useState<Record<string, string>>({});
   const [casamentoHerdado, setCasamentoHerdado] = useState<Record<string, CasamentoHerdado>>({});
@@ -70,11 +70,25 @@ export default function Familias() {
   const [error, setError]                 = useState<string | null>(null);
   const [searchParams, setSearchParams]   = useSearchParams();
 
-  // A data herdada da família em edição, se houver. Só é usada para EXPLICAR
-  // o campo — de propósito não preenche o `form`: preencher gravaria a data
-  // em `familias` no primeiro save, e voltaria a existir o dado duplicado que
-  // esta mudança serve para evitar.
-  const herdado = editingId ? casamentoHerdado[editingId] : undefined;
+  /**
+   * A boda da família em edição, e de onde ela vem.
+   *
+   * A ordem espelha a de `vw_agenda_pastoral`, senão o diálogo anunciaria uma
+   * data e a agenda mostraria outra: onde `familias.data_casamento` está
+   * preenchida ela ainda vence — são 5 famílias —, e todo o resto sai do
+   * cadastro do responsável, com o cônjuge como rede.
+   */
+  const bodasDaFamilia = (() => {
+    if (!editingId) return undefined;
+    const propria = familias.find(f => f.id === editingId)?.data_casamento;
+    if (propria) return { data: propria, origem: "cadastrada na própria família" };
+    const h = casamentoHerdado[editingId];
+    if (!h) return undefined;
+    return {
+      data: h.data,
+      origem: `do cadastro de ${h.de} (${h.doResponsavel ? "responsável" : "cônjuge"})`,
+    };
+  })();
 
   // ── Exclusão ─────────────────────────────────────────────────────────────
   const [familiaParaExcluir, setFamiliaParaExcluir] = useState<Familia | null>(null);
@@ -198,7 +212,7 @@ export default function Familias() {
       if (error) return toast.error(error.message);
     }
     toast.success(editingId ? "Família atualizada" : "Família cadastrada");
-    setForm({ nome_familia: "", endereco: "", numero: "", complemento: "", bairro: "", cidade: "", cep: "", data_casamento: "", observacoes: "" });
+    setForm({ nome_familia: "", endereco: "", numero: "", complemento: "", bairro: "", cidade: "", cep: "", observacoes: "" });
     setEditingId(null);
     setOpen(false);
     load();
@@ -214,7 +228,14 @@ export default function Familias() {
       bairro: f.bairro ?? "",
       cidade: f.cidade ?? "",
       cep: f.cep ?? "",
-      data_casamento: f.data_casamento ?? "",
+      // `data_casamento` NÃO entra aqui, e não é esquecimento.
+      //
+      // O formulário virou o conjunto exato do que esta tela grava, e ela não
+      // grava mais a data — quem a tem é a pessoa. Deixá-la no `form` sem
+      // campo na tela seria pior que inútil: `onSubmit` faz
+      // `payload = {...form}` e troca "" por null, então o primeiro save de
+      // qualquer outro campo apagaria a data das 5 famílias que ainda a têm
+      // gravada. Um campo invisível que zera dado ao salvar endereço.
       observacoes: f.observacoes ?? "",
     });
     setOpen(true);
@@ -433,7 +454,7 @@ export default function Familias() {
       </div>
 
       {/* ── Dialog: Nova/Editar família ── */}
-      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditingId(null); setForm({ nome_familia: "", endereco: "", numero: "", complemento: "", bairro: "", cidade: "", cep: "", data_casamento: "", observacoes: "" }); } }}>
+      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditingId(null); setForm({ nome_familia: "", endereco: "", numero: "", complemento: "", bairro: "", cidade: "", cep: "", observacoes: "" }); } }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-serif text-2xl">
@@ -451,29 +472,32 @@ export default function Familias() {
               <p className="text-xs text-muted-foreground mt-1">Não inclua o prefixo "Família" — ele é exibido automaticamente.</p>
             </div>
 
-            <div>
-              <Label className="flex items-center gap-1.5">
-                <CalendarHeart className="w-3.5 h-3.5 text-celebracao-text" /> Data de casamento (opcional)
-              </Label>
-              <Input
-                type="date"
-                value={form.data_casamento ?? ""}
-                onChange={(e) => setForm({ ...form, data_casamento: e.target.value })}
-              />
-              {herdado && !form.data_casamento ? (
-                <p className="text-xs mt-1 flex items-start gap-1.5 text-celebracao-text">
-                  <CalendarHeart className="w-3.5 h-3.5 shrink-0 mt-px" />
-                  <span>
-                    Já vem do cadastro de <strong>{herdado.de}</strong>
-                    {herdado.doResponsavel ? " (responsável)" : " (cônjuge)"}:{" "}
-                    {herdado.data.split("-").reverse().join("/")}. As bodas já aparecem
-                    na agenda — <strong>não precisa preencher aqui</strong>.
-                  </span>
+            {/* ── Bodas: informação, não campo ──────────────────────────
+                O campo de data saiu daqui. Ele era obrigatório de fato e
+                invisível de direito — nada na lista o mostrava, e sem ele a
+                família não tinha bodas em canto nenhum. Medido: 5 famílias
+                com a data preenchida contra 57 pessoas com data no próprio
+                cadastro.
+
+                A data mora na PESSOA. Pedir que alguém a digitasse de novo
+                aqui era pedir para as duas divergirem — e elas divergiam.
+                O que sobra é dizer de onde a data vem, para quem abrir a
+                família saber onde corrigir. */}
+            <div className="rounded-md border px-3 py-2">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                <CalendarHeart className="w-3.5 h-3.5 text-celebracao-text" /> Bodas
+              </p>
+              {bodasDaFamilia ? (
+                <p className="text-sm mt-1 leading-snug">
+                  <strong className="text-celebracao-text">
+                    {bodasDaFamilia.data.split("-").reverse().join("/")}
+                  </strong>
+                  <span className="text-muted-foreground"> · {bodasDaFamilia.origem}</span>
                 </p>
               ) : (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Em branco, vale a data do cadastro do responsável pela família.
-                  Preencha só para corrigir ou quando ninguém da família a tiver.
+                <p className="text-sm mt-1 leading-snug text-muted-foreground">
+                  Sem data de casamento. Ela é lida do cadastro do responsável
+                  pela família — preencha lá para as bodas entrarem na agenda.
                 </p>
               )}
             </div>
