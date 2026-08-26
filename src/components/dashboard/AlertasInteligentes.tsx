@@ -91,7 +91,7 @@ export function AlertasInteligentes() {
         titulo="Famílias sem responsável"
         contagem={familiasSemResp.length}
         descricao="Defina quem responde pela família"
-        cta={{ to: "/painel-pastoral", label: "Resolver" }}
+        cta={{ to: "/familias", label: "Resolver" }}
       >
         {familiasSemResp.slice(0, 3).map(f => (
           <li key={f.familia_id} className="truncate">
@@ -112,7 +112,7 @@ export function AlertasInteligentes() {
         titulo="Possíveis vínculos familiares"
         contagem={pessoasSugeridas.length}
         descricao="Sobrenomes em comum não vinculados"
-        cta={{ to: "/painel-pastoral", label: "Vincular" }}
+        cta={{ to: "/familias", label: "Vincular" }}
       >
         {pessoasSugeridas.slice(0, 3).map(p => (
           <li key={p.pessoa_id} className="truncate">

@@ -1,70 +1,187 @@
-// ─── PainelPastoral.tsx — Painel "Ações do dia" + Inteligência ─────────────
-import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+// ─── PainelPastoral.tsx — O dia pastoral em uma tela ───────────────────────
+//
+// Reorganizado em 26/08/2026. O que mudou, e por quê:
+//
+// 1. **Os dois blocos de família saíram daqui.**
+//
+//    "Possíveis vínculos familiares" sugeria família por sobrenome em comum e
+//    abria uma ação em lote. "Famílias sem responsável" pedia que se
+//    definisse o responsável de cada núcleo.
+//
+//    Os dois são **cadastro, não cuidado pastoral** — e cadastro de família é
+//    responsabilidade da secretaria. Ambos continuam existindo em
+//    `/familias`, que é onde se administra família. Os três atalhos do painel
+//    inicial que apontavam para cá foram redirecionados para lá.
+//
+//    `resumo_painel_pastoral` ainda devolve `familias_sem_resp` e
+//    `pessoas_sem_familia_sugerida`; esta tela simplesmente não os lê mais. A
+//    função não foi alterada — outras telas a consomem.
+//
+// 2. **"Datas importantes" passou a ser um bloco só, de hoje + 6 dias**, e
+//    junta duas fontes que já existiam e nunca tinham se encontrado:
+//    as efemérides das pessoas (`agenda_pastoral_proximos_dias` → aniversário,
+//    bodas, anos de membresia e anos de pastorado) e o calendário externo
+//    (`lib/agenda/externalEvents` → feriados nacionais e datas da Convenção
+//    Batista, incluindo as semanas de oração da JMM e da JMN).
+//
+//    Nada de novo foi criado para isso: as duas fontes estavam prontas, e a
+//    segunda só era lida pela tela da Agenda.
+//
+// 3. **A tela vira o dia sozinha.** Um relógio de um minuto compara a data
+//    local; quando ela muda, recarrega. Sem isso, uma aba deixada aberta na
+//    secretaria mostraria "hoje" de ontem indefinidamente.
+//
+// 4. **Dois blocos novos**: candidatos à membresia e acompanhamento de
+//    visitantes.
+//
+// 5. **A seção "Discipulado" reúne EBD, Pequenos Grupos e Campanhas
+//    Espirituais, em abas.** As três respondem à mesma pergunta por caminhos
+//    diferentes — onde a pessoa está sendo cuidada durante a semana — e por
+//    isso moram aqui dentro, e não em telas separadas do menu.
+//
+//    `/ebd/acompanhamento` existiu por algumas horas como tela própria e
+//    virou redirecionamento para cá. `/admin/campanhas` continua servindo a
+//    versão de página inteira (link salvo não quebra), mas saiu do menu:
+//    `CampanhasAdmin` ganhou um modo `embutido` e é a MESMA tela renderizada
+//    na aba, com o assistente de criação e tudo.
+//
+//    Em abas porque o painel já tem várias seções acima; as três empilhadas
+//    somariam mais de uma tela de rolagem cada. E cada uma busca os próprios
+//    dados, com estado próprio: pendurá-las no `Promise.all` abaixo faria os
+//    blocos pastorais esperarem por agregações que ninguém pediu para ver
+//    primeiro.
+//
+//    Nada foi criado no banco para o PGM: `pgm_resumo_geral`,
+//    `pgm_alertas_ausencia` e `vw_pgm_grupos_resumo` já existiam, entre os
+//    objetos que nunca eram consultados.
+
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import {
-  Cake, Heart, MessageCircle, CalendarCheck, Loader2,
-  Sparkles, AlertCircle, UserPlus, Users, ChevronRight, Calendar, Crown,
+  Cake, Heart, MessageCircle, CalendarCheck, Award, Flag, BookMarked,
+  Sparkles, AlertCircle, Users, ChevronRight, Crown, Flame, Droplets,
+  GraduationCap, UserCheck, CalendarClock, Sprout,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PaginaSkeleton } from "@/components/ListState";
 import {
   proximosDias, linkWhatsApp,
-  familiasSemResponsavel, pessoasSemFamiliaSugerida, resumoPainel,
-  type EventoPastoral, type FamiliaSemResponsavel, type PessoaSemFamilia,
-  type ResumoPastoral,
+  resumoPainel,
+  type EventoPastoral, type ResumoPastoral,
 } from "@/services/agendaPastoralService";
 import {
-  vincularPessoa, PARENTESCO_LABEL, type ParentescoTipo,
-} from "@/services/familiaService";
+  candidatosMembresia,
+  IDADE_MINIMA_BATISMO,
+  type CandidatosMembresia,
+} from "@/services/painelPastoralService";
+import { getResumoVisitantes, type ResumoVisitantes } from "@/services/visitanteService";
+import { eventosExternos } from "@/lib/agenda/externalEvents";
+// "Acontecendo hoje" — o mesmo bloco do painel inicial, reaproveitado inteiro.
+// Ele expande as recorrências e soma as reservas de espaço, que é o que faz o
+// culto de domingo e o ensaio de sábado realmente aparecerem. O hook
+// `useReportarVazio` que ele usa é inerte fora do HOJE (ver components/hoje/
+// vazio.ts), então embutir aqui não exige provider nenhum.
+import { AgendaDoDia } from "@/components/dashboard/AgendaDoDia";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+// Os dois blocos de discipulado. Cada um busca os próprios dados — ver o
+// cabeçalho de cada arquivo.
+import { PainelAcompanhamentoEbd } from "@/components/ebd/PainelAcompanhamentoEbd";
+import { PainelAcompanhamentoPgm } from "@/components/pgm/PainelAcompanhamentoPgm";
+// A tela de campanhas inteira, em modo embutido — inclusive o assistente de
+// criação. A rota /admin/campanhas continua servindo a versão de página.
+import CampanhasAdmin from "@/pages/CampanhasAdmin";
+
+/** Hoje + 6 = uma semana contando o próprio dia. */
+const DIAS_A_FRENTE = 6;
+
+/** Data local em ISO. `toISOString()` daria UTC e viraria o dia cedo demais. */
+function isoLocal(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+// ─── O item unificado de "datas importantes" ───────────────────────────────
+//
+// As duas fontes têm formatos diferentes (uma vem do banco, outra é calculada
+// no navegador). Ambas são normalizadas para esta forma antes de a tela
+// desenhar qualquer coisa — assim a ordenação por dia é uma só.
+
+type Categoria =
+  | "aniversario" | "casamento" | "membresia" | "pastorado"
+  | "feriado" | "batista";
+
+interface ItemData {
+  chave: string;
+  data: string;
+  categoria: Categoria;
+  titulo: string;
+  detalhe: string;
+  /** Só as efemérides de pessoa têm — é o que permite o botão do WhatsApp. */
+  evento?: EventoPastoral;
+}
+
+const CATEGORIA_UI: Record<Categoria, { icone: any; cor: string; rotulo: string }> = {
+  aniversario: { icone: Cake,       cor: "text-celebracao-text",  rotulo: "Aniversário" },
+  casamento:   { icone: Heart,      cor: "text-celebracao-text",  rotulo: "Bodas" },
+  membresia:   { icone: Award,      cor: "text-gold-text",        rotulo: "Anos de membresia" },
+  pastorado:   { icone: Crown,      cor: "text-gold-text",        rotulo: "Anos de pastorado" },
+  feriado:     { icone: Flag,       cor: "text-warning-text",     rotulo: "Feriado nacional" },
+  batista:     { icone: BookMarked, cor: "text-info-text",        rotulo: "Calendário batista" },
+};
+
+function detalheEfemeride(ev: EventoPastoral): string {
+  const anos = ev.anos_vai_completar ?? 0;
+  if (anos <= 0) return CATEGORIA_UI[ev.tipo as Categoria]?.rotulo ?? "";
+  switch (ev.tipo) {
+    case "aniversario": return `${anos} anos`;
+    case "casamento":   return `${anos} anos de casados`;
+    case "membresia":   return `${anos} anos de membresia`;
+    case "pastorado":   return `${anos} anos de pastorado`;
+    default:            return `${anos} anos`;
+  }
+}
 
 export default function PainelPastoral() {
-  const navigate = useNavigate();
+  // A data local vira estado: quando ela muda, o efeito abaixo recarrega tudo.
+  const [hoje, setHoje] = useState(() => isoLocal(new Date()));
+
   const [eventos, setEventos] = useState<EventoPastoral[]>([]);
   const [resumo, setResumo] = useState<ResumoPastoral | null>(null);
-  const [familiasSemResp, setFamiliasSemResp] = useState<FamiliaSemResponsavel[]>([]);
-  const [pessoasSugeridas, setPessoasSugeridas] = useState<PessoaSemFamilia[]>([]);
+  const [candidatos, setCandidatos] = useState<CandidatosMembresia | null>(null);
+  const [visitantes, setVisitantes] = useState<ResumoVisitantes | null>(null);
   const [loading, setLoading] = useState(true);
   const [atualizadoEm, setAtualizadoEm] = useState<Date | null>(null);
 
-  // ── Seleção múltipla / ação em lote (só pessoas com família sugerida concreta) ──
-  const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
-  const [loteOpen, setLoteOpen] = useState(false);
-  const [loteParentesco, setLoteParentesco] = useState<ParentescoTipo>("outro");
-  const [loteBusy, setLoteBusy] = useState(false);
-
-  useEffect(() => { carregar(); }, []);
-
-  // Força um re-render a cada minuto só para o texto "Atualizado há X" continuar fresco
-  const [, forcarAtualizacaoRelogio] = useState(0);
+  // Um relógio só, de um minuto, com dois papéis: manter fresco o texto
+  // "Atualizado há X" e detectar a virada do dia.
+  const [, tique] = useState(0);
   useEffect(() => {
-    const id = setInterval(() => forcarAtualizacaoRelogio(t => t + 1), 60000);
+    const id = setInterval(() => {
+      tique(t => t + 1);
+      const agora = isoLocal(new Date());
+      setHoje(anterior => (anterior === agora ? anterior : agora));
+    }, 60_000);
     return () => clearInterval(id);
   }, []);
+
+  // Recarrega na montagem e a cada virada de dia.
+  useEffect(() => { carregar(); /* eslint-disable-next-line */ }, [hoje]);
 
   async function carregar() {
     setLoading(true);
     try {
-      const [ev, r, fs, ps] = await Promise.all([
-        proximosDias(7),
+      const [ev, r, cm, vs] = await Promise.all([
+        proximosDias(DIAS_A_FRENTE),
         resumoPainel(),
-        familiasSemResponsavel(),
-        pessoasSemFamiliaSugerida(),
+        candidatosMembresia(),
+        getResumoVisitantes(),
       ]);
       setEventos(ev);
       setResumo(r);
-      setFamiliasSemResp(fs);
-      setPessoasSugeridas(ps);
-      setSelecionados(new Set());
+      setCandidatos(cm);
+      setVisitantes(vs);
       setAtualizadoEm(new Date());
     } catch (e: any) {
       toast.error(e?.message ?? "Erro ao carregar painel");
@@ -73,68 +190,63 @@ export default function PainelPastoral() {
     }
   }
 
+  // ── Une as duas fontes de data e agrupa por dia ──────────────────────────
+  const dias = useMemo(() => {
+    const inicio = new Date(hoje + "T00:00");
+    const fim = new Date(inicio);
+    fim.setDate(fim.getDate() + DIAS_A_FRENTE);
+
+    const itens: ItemData[] = [];
+
+    for (const ev of eventos) {
+      const data = ev.data_evento ?? ev.proxima_data;
+      if (!data) continue;
+      itens.push({
+        chave: `${ev.tipo}-${ev.ref_id}-${data}`,
+        data,
+        categoria: ev.tipo as Categoria,
+        titulo: ev.titulo,
+        detalhe: detalheEfemeride(ev),
+        evento: ev,
+      });
+    }
+
+    // Feriados nacionais e datas da Convenção Batista — já existiam em
+    // `lib/agenda/externalEvents`, e só a tela da Agenda os lia.
+    for (const o of eventosExternos(inicio, fim)) {
+      itens.push({
+        chave: o.key,
+        data: o.data,
+        categoria: o.categoria as Categoria,
+        titulo: o.evento.titulo,
+        detalhe: o.evento.descricao ?? CATEGORIA_UI[o.categoria as Categoria].rotulo,
+      });
+    }
+
+    // Um balde por dia, inclusive os dias vazios: a semana aparece inteira,
+    // e um domingo sem nada é informação, não ausência de informação.
+    const baldes: { data: string; itens: ItemData[] }[] = [];
+    for (let i = 0; i <= DIAS_A_FRENTE; i++) {
+      const d = new Date(inicio);
+      d.setDate(d.getDate() + i);
+      const iso = isoLocal(d);
+      baldes.push({
+        data: iso,
+        itens: itens
+          .filter(x => x.data === iso)
+          .sort((a, b) => a.categoria.localeCompare(b.categoria) || a.titulo.localeCompare(b.titulo)),
+      });
+    }
+    return baldes;
+  }, [eventos, hoje]);
+
+  const totalDatas = dias.reduce((s, d) => s + d.itens.length, 0);
+
   function abrirWhats(ev: EventoPastoral) {
     window.open(linkWhatsApp(ev), "_blank", "noopener,noreferrer");
   }
 
-  // Só pessoas com uma família sugerida concreta podem entrar na seleção em lote
-  // (as demais só têm "sobrenome em comum" sem família existente pra vincular).
-  const elegiveisLote = pessoasSugeridas.filter(p => !!p.familia_sugerida_id);
-  const todosElegiveisSelecionados =
-    elegiveisLote.length > 0 && elegiveisLote.every(p => selecionados.has(p.pessoa_id));
-
-  function alternarSelecao(pessoaId: string, marcado: boolean) {
-    setSelecionados(prev => {
-      const next = new Set(prev);
-      if (marcado) next.add(pessoaId); else next.delete(pessoaId);
-      return next;
-    });
-  }
-
-  function alternarSelecionarTodos(marcado: boolean) {
-    if (marcado) {
-      setSelecionados(new Set(elegiveisLote.map(p => p.pessoa_id)));
-    } else {
-      setSelecionados(new Set());
-    }
-  }
-
-  async function confirmarVinculoLote() {
-    const alvos = pessoasSugeridas.filter(
-      p => selecionados.has(p.pessoa_id) && p.familia_sugerida_id
-    );
-    if (alvos.length === 0) return;
-    setLoteBusy(true);
-    let sucesso = 0;
-    let falhas = 0;
-    for (const p of alvos) {
-      try {
-        await vincularPessoa(p.familia_sugerida_id as string, p.pessoa_id, loteParentesco, false, false);
-        sucesso++;
-      } catch {
-        falhas++;
-      }
-    }
-    setLoteBusy(false);
-    setLoteOpen(false);
-    if (sucesso > 0) {
-      toast.success(
-        falhas === 0
-          ? `${sucesso} ${sucesso === 1 ? "pessoa vinculada" : "pessoas vinculadas"} à família sugerida!`
-          : `${sucesso} vinculadas, ${falhas} falharam.`
-      );
-    } else {
-      toast.error("Não foi possível vincular as pessoas selecionadas.");
-    }
-    await carregar();
-  }
-
-  if (loading) {
-    return <PaginaSkeleton />;
-  }
-
-  const eventosHoje    = eventos.filter(e => e.dias_ate_evento === 0);
-  const eventosSemana  = eventos.filter(e => (e.dias_ate_evento ?? 0) > 0 && (e.dias_ate_evento ?? 0) <= 7);
+  if (loading) return <PaginaSkeleton />;
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
@@ -145,16 +257,16 @@ export default function PainelPastoral() {
           Painel Pastoral
         </h1>
         <p className="text-sm text-muted-foreground">
-          Ações do dia e alertas para a liderança pastoral
+          O cuidado da semana em uma tela: datas, candidatos, campanhas e visitantes
         </p>
       </div>
 
-      {/* Resumo em linguagem natural, inspirado no card "Visão geral" do Omie */}
+      {/* Resumo em linguagem natural */}
       {resumo && (
         <div className="text-sm text-muted-foreground bg-muted/40 border rounded-md px-3 py-2 flex items-center justify-between gap-2 flex-wrap">
-          <span className="flex items-center gap-1.5">
+          <span className="flex items-center gap-1.5 min-w-0">
             <Sparkles className="w-3.5 h-3.5 text-gold shrink-0" />
-            {resumoNatural(resumo)}
+            {resumoNatural(resumo, candidatos, visitantes)}
           </span>
           {atualizadoEm && (
             <span className="text-[10px] text-muted-foreground/70 shrink-0">
@@ -169,272 +281,331 @@ export default function PainelPastoral() {
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
           <ResumoCard label="Aniv. hoje" value={resumo.aniversarios_hoje} cor="bg-celebracao-soft text-celebracao-text border-celebracao-line" />
           <ResumoCard label="Bodas hoje" value={resumo.bodas_hoje} cor="bg-celebracao-soft text-celebracao-text border-celebracao-line" />
-          <ResumoCard label="Aniv. (7d)" value={resumo.aniversarios_semana} cor="bg-celebracao-soft/50 text-celebracao-text border-celebracao-line" />
-          <ResumoCard label="Bodas (7d)" value={resumo.bodas_semana} cor="bg-celebracao-soft/50 text-celebracao-text border-celebracao-line" />
-          <ResumoCard label="Fam. sem resp." value={resumo.familias_sem_resp} cor="bg-warning-soft text-warning-text border-warning-line" />
-          <ResumoCard label="Sugestões família" value={resumo.pessoas_sem_familia_sugerida} cor="bg-info-soft text-info-text border-info-line" />
+          <ResumoCard label="Datas (7d)" value={totalDatas} cor="bg-celebracao-soft/50 text-celebracao-text border-celebracao-line" />
+          <ResumoCard label="Cand. batismo" value={candidatos?.elegiveis.length ?? 0} cor="bg-info-soft text-info-text border-info-line" />
+          <ResumoCard label="Visit. s/ contato" value={visitantes?.semContato ?? 0} cor="bg-warning-soft text-warning-text border-warning-line" />
         </div>
       )}
 
-      {/* HOJE */}
+      {/* ── Acontecendo hoje ────────────────────────────────────────────
+          A agenda do dia com hora e lugar: cultos, ensaios, reuniões e
+          reservas de espaço. Fica antes de "Datas importantes" porque é o
+          que tem hora marcada — o resto da semana pode esperar a rolagem. */}
+      <div>
+        <h2 className="text-sm font-medium flex items-center gap-2 mb-2">
+          <CalendarClock className="w-4 h-4 text-gold" />
+          Acontecendo hoje
+        </h2>
+        <AgendaDoDia />
+      </div>
+
+      {/* ── Datas importantes: hoje + 6 dias ────────────────────────────── */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm flex items-center gap-2">
+          <CardTitle className="text-sm flex items-center gap-2 flex-wrap">
             <CalendarCheck className="w-4 h-4 text-gold" />
-            Ações de hoje
-            <Badge variant="outline" className="text-xs">{eventosHoje.length}</Badge>
+            Datas importantes
+            <Badge variant="outline" className="text-xs">{totalDatas}</Badge>
+            <span className="font-normal text-xs text-muted-foreground">
+              hoje e os 6 dias seguintes
+            </span>
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2">
-          {eventosHoje.length === 0 ? (
+        <CardContent className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            Aniversários, bodas, anos de membresia e de pastorado, feriados nacionais
+            e o calendário da Convenção Batista — incluindo as semanas de oração da
+            JMM e da JMN.
+          </p>
+
+          {totalDatas === 0 ? (
             <p className="text-sm text-muted-foreground py-4 text-center">
-              Nenhum aniversário ou casamento hoje. Bom dia tranquilo 🙏
+              Nenhuma data nos próximos 7 dias. Semana tranquila 🙏
             </p>
           ) : (
-            eventosHoje.map(ev => <LinhaEvento key={ev.ref_id} ev={ev} onWhats={abrirWhats} />)
+            dias.map(d => <BlocoDoDia key={d.data} data={d.data} itens={d.itens} onWhats={abrirWhats} />)
           )}
         </CardContent>
       </Card>
 
-      {/* Próximos 7 dias */}
-      {eventosSemana.length > 0 && (
-        <Card>
+      {/* ── Candidatos à membresia ──────────────────────────────────────── */}
+      {candidatos && (candidatos.elegiveis.length > 0 || candidatos.semDataNascimento.length > 0) && (
+        <Card className="border-info-line">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-muted-foreground" />
-              Próximos 7 dias
-              <Badge variant="outline" className="text-xs">{eventosSemana.length}</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {eventosSemana.map(ev => <LinhaEvento key={ev.ref_id} ev={ev} onWhats={abrirWhats} />)}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Famílias sem responsável */}
-      {familiasSemResp.length > 0 && (
-        <Card className="border-warning-line">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-warning-text" />
-              Famílias sem responsável
-              <Badge variant="outline" className="text-xs bg-warning-soft border-warning-line">
-                {familiasSemResp.length}
+            <CardTitle className="text-sm flex items-center gap-2 flex-wrap">
+              <Droplets className="w-4 h-4 text-info-text" />
+              Candidatos à membresia
+              <Badge variant="outline" className="text-xs bg-info-soft border-info-line">
+                {candidatos.elegiveis.length}
               </Badge>
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
-            <p className="text-xs text-muted-foreground mb-1">
-              Defina quem é o responsável de cada família para receber comunicações pastorais.
+          <CardContent className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              Congregados com {IDADE_MINIMA_BATISMO} anos ou mais — candidatos ao batismo
+              e à entrada no rol de membros.
             </p>
-            {familiasSemResp.map(f => (
-              <div key={f.familia_id} className="flex items-center justify-between border rounded-md px-3 py-2 bg-warning-soft/40">
-                <div className="min-w-0">
-                  <p className="font-medium text-sm">Família {f.nome_familia}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {f.qtd_membros} membro{f.qtd_membros > 1 ? "s" : ""} · Mais antigo: {f.primeiro_membro_nome}
-                  </p>
-                </div>
-                <Button
-                  type="button" size="sm" variant="outline"
-                  onClick={() => navigate("/familias")}
-                  className="gap-1.5 text-xs shrink-0"
-                >
-                  <Crown className="w-3.5 h-3.5" /> Definir
-                </Button>
+
+            {candidatos.elegiveis.length > 0 ? (
+              <div className="space-y-2">
+                {candidatos.elegiveis.map(p => (
+                  <div key={p.id} className="flex items-center justify-between border rounded-md px-3 py-2 bg-info-soft/40 gap-2">
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm truncate">{p.nome_completo}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {p.idade} anos
+                        {p.data_congregado && ` · congregado desde ${formatarData(p.data_congregado)}`}
+                      </p>
+                    </div>
+                    <Button asChild size="sm" variant="outline" className="gap-1.5 text-xs shrink-0">
+                      <Link to={`/membros?abrir=${p.id}`}>
+                        <UserCheck className="w-3.5 h-3.5" /> Abrir ficha
+                      </Link>
+                    </Button>
+                  </div>
+                ))}
               </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
+            ) : (
+              <p className="text-sm text-muted-foreground py-2">
+                Nenhum congregado com data de nascimento atinge a idade mínima.
+              </p>
+            )}
 
-      {/* Pessoas com sobrenome em comum mas sem família */}
-      {pessoasSugeridas.length > 0 && (
-        <Card className="border-info-line">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center justify-between gap-2">
-              <span className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-info-text" />
-                Possíveis vínculos familiares
-                <Badge variant="outline" className="text-xs bg-info-soft border-info-line">
-                  {pessoasSugeridas.length}
-                </Badge>
-              </span>
-              {elegiveisLote.length > 0 && (
-                <label className="flex items-center gap-1.5 text-xs font-normal text-muted-foreground cursor-pointer">
-                  <Checkbox
-                    checked={todosElegiveisSelecionados}
-                    onCheckedChange={(v) => alternarSelecionarTodos(!!v)}
-                  />
-                  Selecionar todos com família sugerida
-                </label>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <p className="text-xs text-muted-foreground mb-1">
-              Pessoas com sobrenome em comum com alguém já cadastrado. Considere vincular à mesma família.
-            </p>
+            {/*
+              O grupo que a regra não consegue decidir.
 
-            {selecionados.size > 0 && (
-              <div className="flex items-center justify-between rounded-md border border-info-line bg-info-soft px-3 py-2">
-                <span className="text-xs font-medium text-info-text">
-                  {selecionados.size} {selecionados.size === 1 ? "pessoa selecionada" : "pessoas selecionadas"}
-                </span>
-                <div className="flex items-center gap-1.5">
-                  <Button
-                    type="button" size="sm" variant="ghost"
-                    className="text-xs h-7"
-                    onClick={() => setSelecionados(new Set())}
-                  >
-                    Limpar
-                  </Button>
-                  <Button
-                    type="button" size="sm"
-                    className="gap-1.5 text-xs h-7"
-                    onClick={() => setLoteOpen(true)}
-                  >
-                    <UserPlus className="w-3.5 h-3.5" /> Vincular selecionados
-                  </Button>
+              Não é "não elegível" — é "indecidível". Mostrá-lo é o ponto: sem
+              a data de nascimento, essas pessoas nunca apareceriam na lista
+              acima, e é justamente esta tela que deveria encontrá-las.
+            */}
+            {candidatos.semDataNascimento.length > 0 && (
+              <div className="rounded-md border border-warning-line bg-warning-soft/40 px-3 py-2 space-y-2">
+                <p className="text-xs text-warning-text flex items-start gap-1.5">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  <span>
+                    <strong>{candidatos.semDataNascimento.length} congregados sem data de nascimento.</strong>{" "}
+                    A idade decide quem é candidato, então eles não entram na lista acima
+                    nem em nenhuma outra — preencher a data os traz de volta.
+                  </span>
+                </p>
+                <div className="flex flex-wrap gap-1">
+                  {candidatos.semDataNascimento.slice(0, 12).map(p => (
+                    <Button key={p.id} asChild size="sm" variant="outline"
+                            className="h-7 text-xs font-normal">
+                      <Link to={`/membros?abrir=${p.id}`}>{p.nome_completo}</Link>
+                    </Button>
+                  ))}
+                  {candidatos.semDataNascimento.length > 12 && (
+                    <span className="text-xs text-muted-foreground self-center px-1">
+                      … e mais {candidatos.semDataNascimento.length - 12}
+                    </span>
+                  )}
                 </div>
               </div>
             )}
 
-            {pessoasSugeridas.slice(0, 15).map(p => {
-              const temFamiliaConcreta = !!p.familia_sugerida_id;
-              const checked = selecionados.has(p.pessoa_id);
-              return (
-                <div key={p.pessoa_id} className="flex items-center justify-between border rounded-md px-3 py-2 bg-info-soft/40 gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    {temFamiliaConcreta && (
-                      <Checkbox
-                        checked={checked}
-                        onCheckedChange={(v) => alternarSelecao(p.pessoa_id, !!v)}
-                        aria-label={`Selecionar ${p.nome_completo}`}
-                      />
-                    )}
-                    <div className="min-w-0">
-                      <p className="font-medium text-sm truncate">{p.nome_completo}</p>
-                      <p className="text-xs text-muted-foreground flex items-center gap-1 flex-wrap">
-                        Sobrenome: <strong>{p.sobrenome}</strong>
-                        {p.familia_sugerida_nome && (
-                          <Badge variant="outline" className="text-xs ml-1 border-destructive-line text-destructive-text">
-                            → Família {p.familia_sugerida_nome ?? "sugerida"}
-                          </Badge>
-                        )}
-                        {!p.familia_sugerida_nome && p.qtd_pessoas_mesmo_sobrenome > 1 && (
-                          <span>· {p.qtd_pessoas_mesmo_sobrenome - 1} outras com mesmo sobrenome</span>
-                        )}
-                      </p>
-                    </div>
-                  </div>
-                  <Button asChild size="sm" variant="outline" className="gap-1.5 text-xs shrink-0"><Link to={`/membros?abrir=${p.pessoa_id}`}>
-                      <UserPlus className="w-3.5 h-3.5" /> Vincular
-                    </Link></Button>
-                </div>
-              );
-            })}
-            {pessoasSugeridas.length > 15 && (
-              <p className="text-xs text-muted-foreground text-center pt-1">
-                ... e mais {pessoasSugeridas.length - 15} pessoas
+            {candidatos.abaixoDaIdade > 0 && (
+              <p className="text-xs text-muted-foreground">
+                {candidatos.abaixoDaIdade} congregado{candidatos.abaixoDaIdade > 1 ? "s" : ""} abaixo
+                de {IDADE_MINIMA_BATISMO} anos — fora da lista por idade.
               </p>
             )}
           </CardContent>
         </Card>
       )}
 
-      <div className="text-center pt-2">
-        <Button asChild variant="outline" size="sm" className="gap-1.5"><Link to="/agenda-pastoral">
-            Ver agenda do mês completa <ChevronRight className="w-3 h-3" />
-          </Link></Button>
+
+      {/* ── Acompanhamento de visitantes ────────────────────────────────── */}
+      {visitantes && visitantes.total > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Users className="w-4 h-4 text-muted-foreground" />
+              Acompanhamento de visitantes
+              <Badge variant="outline" className="text-xs">{visitantes.total}</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+              <ResumoCard label="Novos (7d)"   value={visitantes.novos}            cor="bg-info-soft text-info-text border-info-line" />
+              <ResumoCard label="Em acomp."    value={visitantes.emAcompanhamento} cor="bg-celebracao-soft text-celebracao-text border-celebracao-line" />
+              <ResumoCard label="Sem contato"  value={visitantes.semContato}       cor="bg-warning-soft text-warning-text border-warning-line" />
+              <ResumoCard label="Prontos"      value={visitantes.prontosCrescer}   cor="bg-success-soft text-success-text border-success-line" />
+              <ResumoCard label="Congregaram"  value={visitantes.convertidos}      cor="bg-muted text-muted-foreground border-border" />
+            </div>
+            {visitantes.semContato > 0 && (
+              <p className="text-xs text-warning-text flex items-start gap-1.5">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                <span>
+                  <strong>{visitantes.semContato}</strong> {visitantes.semContato === 1 ? "visitante está" : "visitantes estão"} há
+                  mais de 7 dias sem contato registrado.
+                </span>
+              </p>
+            )}
+            <Button asChild variant="outline" size="sm" className="gap-1.5 text-xs">
+              <Link to="/visitantes">Abrir acolhimento <ChevronRight className="w-3 h-3" /></Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+
+      {/* ── Discipulado ─────────────────────────────────────────────────
+          EBD e Pequenos Grupos medem a mesma coisa por caminhos diferentes:
+          onde a pessoa está sendo cuidada durante a semana. Por isso moram
+          juntos, e dentro do painel — mandar a liderança para outra tela
+          contrariava a ideia de ter a semana num lugar só.
+
+          Em abas, e não empilhados, porque o painel já tem seis seções
+          acima; os dois inteiros somariam mais de uma tela de rolagem cada.
+          Cada aba carrega os próprios dados, com estado próprio. */}
+      <div>
+        <h2 className="text-sm font-medium flex items-center gap-2 mb-2">
+          <Sprout className="w-4 h-4 text-gold" />
+          Acompanhamento do discipulado
+        </h2>
+        <Tabs defaultValue="ebd">
+          <TabsList className="mb-3">
+            <TabsTrigger value="ebd" className="gap-1.5 text-xs">
+              <GraduationCap className="w-3.5 h-3.5" /> EBD
+            </TabsTrigger>
+            <TabsTrigger value="pgm" className="gap-1.5 text-xs">
+              <Sprout className="w-3.5 h-3.5" /> Pequenos Grupos
+            </TabsTrigger>
+            <TabsTrigger value="campanhas" className="gap-1.5 text-xs">
+              <Flame className="w-3.5 h-3.5" /> Campanhas
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="ebd" className="mt-0">
+            <PainelAcompanhamentoEbd />
+          </TabsContent>
+          <TabsContent value="pgm" className="mt-0">
+            <PainelAcompanhamentoPgm />
+          </TabsContent>
+          <TabsContent value="campanhas" className="mt-0">
+            {/* A tela inteira de campanhas, em modo embutido — inclusive o
+                assistente de criação. Ver o cabeçalho de CampanhasAdmin. */}
+            <CampanhasAdmin embutido />
+          </TabsContent>
+        </Tabs>
       </div>
 
-      {/* Dialog: vínculo em lote */}
-      <Dialog open={loteOpen} onOpenChange={setLoteOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              Vincular {selecionados.size} {selecionados.size === 1 ? "pessoa" : "pessoas"} à família sugerida
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Cada pessoa selecionada será vinculada à família já sugerida ao lado do nome dela
-              (sobrenome em comum). O parentesco abaixo será aplicado a todas — ajuste depois,
-              individualmente, se algum caso precisar de um parentesco diferente.
-            </p>
-            <div>
-              <Select value={loteParentesco} onValueChange={(v) => setLoteParentesco(v as ParentescoTipo)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {(Object.keys(PARENTESCO_LABEL) as ParentescoTipo[]).map(k => (
-                    <SelectItem key={k} value={k}>{PARENTESCO_LABEL[k]}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <ul className="text-xs text-muted-foreground max-h-32 overflow-y-auto space-y-0.5 border rounded-md p-2">
-              {pessoasSugeridas
-                .filter(p => selecionados.has(p.pessoa_id))
-                .map(p => (
-                  <li key={p.pessoa_id} className="truncate">
-                    {p.nome_completo} → Família {p.familia_sugerida_nome ?? "sugerida"}
-                  </li>
-                ))}
-            </ul>
-          </div>
-
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setLoteOpen(false)} disabled={loteBusy}>
-              Cancelar
-            </Button>
-            <Button type="button" onClick={confirmarVinculoLote} disabled={loteBusy}>
-              {loteBusy ? "Vinculando..." : `Vincular ${selecionados.size}`}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Saída para a agenda completa */}
+      <div className="flex items-center justify-center gap-2 pt-2 flex-wrap">
+        <Button asChild variant="outline" size="sm" className="gap-1.5">
+          <Link to="/agenda-pastoral">Agenda do mês <ChevronRight className="w-3 h-3" /></Link>
+        </Button>
+      </div>
     </div>
   );
 }
 
 // ─── Helpers de UI ─────────────────────────────────────────────────────────
 
-// Resumo em linguagem natural do estado do dia, inspirado no card
-// "Visão geral" do painel inicial do Omie.
-function resumoNatural(r: ResumoPastoral): string {
+function formatarData(iso: string): string {
+  return new Date(iso + "T00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
+}
+
+/** "Hoje", "Amanhã" ou "Qui, 28 de ago" — o rótulo do balde de um dia. */
+function rotuloDoDia(iso: string, hojeIso: string): string {
+  if (iso === hojeIso) return "Hoje";
+  const d = new Date(iso + "T00:00");
+  const h = new Date(hojeIso + "T00:00");
+  const dif = Math.round((d.getTime() - h.getTime()) / 86_400_000);
+  if (dif === 1) return "Amanhã";
+  return d.toLocaleDateString("pt-BR", { weekday: "short", day: "numeric", month: "short" });
+}
+
+function BlocoDoDia({
+  data, itens, onWhats,
+}: { data: string; itens: ItemData[]; onWhats: (e: EventoPastoral) => void }) {
+  const hojeIso = isoLocal(new Date());
+  const ehHoje = data === hojeIso;
+
+  // Dia sem nada só aparece se for hoje: a ausência de hoje é informação
+  // ("bom dia tranquilo"), a de quinta-feira que vem é ruído.
+  if (itens.length === 0 && !ehHoje) return null;
+
+  return (
+    <div className="space-y-1.5">
+      <p className={`text-xs font-medium uppercase tracking-wide ${ehHoje ? "text-gold-text" : "text-muted-foreground"}`}>
+        {rotuloDoDia(data, hojeIso)}
+      </p>
+      {itens.length === 0 ? (
+        <p className="text-sm text-muted-foreground py-2 px-3 border rounded-md">
+          Nada marcado para hoje. Bom dia tranquilo 🙏
+        </p>
+      ) : (
+        itens.map(item => <LinhaData key={item.chave} item={item} onWhats={onWhats} />)
+      )}
+    </div>
+  );
+}
+
+function LinhaData({ item, onWhats }: { item: ItemData; onWhats: (e: EventoPastoral) => void }) {
+  const ui = CATEGORIA_UI[item.categoria] ?? CATEGORIA_UI.aniversario;
+  const Icone = ui.icone;
+  const temTelefone = !!(item.evento?.telefone || item.evento?.telefone_secundario);
+
+  return (
+    <div className="flex items-center justify-between border rounded-md px-3 py-2 gap-2">
+      <div className="flex items-center gap-2 min-w-0">
+        <Icone className={`w-4 h-4 shrink-0 ${ui.cor}`} />
+        <div className="min-w-0">
+          <p className="font-medium truncate text-sm">{item.titulo}</p>
+          <p className="text-xs text-muted-foreground truncate">{item.detalhe}</p>
+        </div>
+      </div>
+      {temTelefone && item.evento && (
+        <Button
+          type="button" size="sm" variant="ghost"
+          className="h-8 px-2 gap-1 text-xs text-success-text hover:bg-success-soft shrink-0"
+          onClick={() => onWhats(item.evento as EventoPastoral)}
+          title="WhatsApp"
+        >
+          <MessageCircle className="w-4 h-4" />
+        </Button>
+      )}
+    </div>
+  );
+}
+
+/** Resumo do dia em uma frase. */
+function resumoNatural(
+  r: ResumoPastoral,
+  c: CandidatosMembresia | null,
+  v: ResumoVisitantes | null,
+): string {
   const celebra: string[] = [];
   if (r.aniversarios_hoje > 0) {
-    celebra.push(`${r.aniversarios_hoje} ${r.aniversarios_hoje === 1 ? "aniversariante" : "aniversariantes"} hoje`);
+    celebra.push(`${r.aniversarios_hoje} ${r.aniversarios_hoje === 1 ? "aniversariante" : "aniversariantes"}`);
   }
   if (r.bodas_hoje > 0) {
-    celebra.push(`${r.bodas_hoje} ${r.bodas_hoje === 1 ? "casal em bodas" : "casais em bodas"} hoje`);
+    celebra.push(`${r.bodas_hoje} ${r.bodas_hoje === 1 ? "casal em bodas" : "casais em bodas"}`);
   }
 
   const pendencias: string[] = [];
-  if (r.familias_sem_resp > 0) {
-    pendencias.push(`${r.familias_sem_resp} ${r.familias_sem_resp === 1 ? "família sem responsável" : "famílias sem responsável"}`);
+  if (v && v.semContato > 0) {
+    pendencias.push(`${v.semContato} ${v.semContato === 1 ? "visitante" : "visitantes"} sem contato`);
   }
-  if (r.pessoas_sem_familia_sugerida > 0) {
-    pendencias.push(`${r.pessoas_sem_familia_sugerida} ${r.pessoas_sem_familia_sugerida === 1 ? "vínculo familiar" : "vínculos familiares"} para revisar`);
+  if (c && c.elegiveis.length > 0) {
+    pendencias.push(`${c.elegiveis.length} ${c.elegiveis.length === 1 ? "candidato" : "candidatos"} ao batismo`);
   }
+  // `r.familias_sem_resp` continua vindo de `resumo_painel_pastoral` e é
+  // deliberadamente ignorado aqui: definir responsável de família é cadastro,
+  // trabalho da secretaria, e mora em /familias.
 
   const partes: string[] = [];
   if (celebra.length > 0) partes.push(`Hoje: ${celebra.join(" e ")}.`);
-  if (pendencias.length > 0) partes.push(`Pendências: ${pendencias.join(" e ")}.`);
+  if (pendencias.length > 0) partes.push(`Atenção: ${pendencias.join(", ")}.`);
 
   if (partes.length === 0) return "Nenhuma celebração hoje e nenhuma pendência no momento — tudo em dia! 🙏";
   return partes.join(" ");
 }
 
-// "Atualizado há X", no mesmo espírito do timestamp que o Omie mostra
-// perto de números importantes.
 function formatarAtualizadoHa(data: Date | null): string {
   if (!data) return "";
-  const diffMs = Date.now() - data.getTime();
-  const diffMin = Math.floor(diffMs / 60000);
+  const diffMin = Math.floor((Date.now() - data.getTime()) / 60000);
   if (diffMin < 1) return "agora mesmo";
   if (diffMin === 1) return "há 1 minuto";
   if (diffMin < 60) return `há ${diffMin} minutos`;
@@ -445,48 +616,9 @@ function formatarAtualizadoHa(data: Date | null): string {
 
 function ResumoCard({ label, value, cor }: { label: string; value: number; cor: string }) {
   return (
-    <div className={`rounded-md border p-2 text-center ${cor}`}>
-      <p className="text-2xl font-semibold leading-none">{value}</p>
+    <div className={`rounded-md border p-2 text-center min-w-0 ${cor}`}>
+      <p className="text-2xl font-semibold leading-none tabular-nums">{value}</p>
       <p className="text-xs uppercase tracking-wide mt-1 leading-tight">{label}</p>
-    </div>
-  );
-}
-
-function LinhaEvento({ ev, onWhats }: { ev: EventoPastoral; onWhats: (e: EventoPastoral) => void }) {
-  const ehAnis = ev.tipo === "aniversario";
-  const Icon = ehAnis ? Cake : Heart;
-  const corIcon = "text-celebracao-text";  // aniversário e bodas: o mesmo papel
-
-  let quando = "hoje";
-  if (ev.dias_ate_evento === 1) quando = "amanhã";
-  else if ((ev.dias_ate_evento ?? 0) > 1) {
-    const d = new Date(ev.data_evento + "T00:00");
-    quando = d.toLocaleDateString("pt-BR", { weekday: "short", day: "numeric", month: "short" });
-  }
-
-  return (
-    <div className="flex items-center justify-between border rounded-md px-3 py-2">
-      <div className="flex items-center gap-2 min-w-0">
-        <Icon className={`w-4 h-4 shrink-0 ${corIcon}`} />
-        <div className="min-w-0">
-          <p className="font-medium truncate text-sm">{ev.titulo}</p>
-          <p className="text-xs text-muted-foreground">
-            {quando} · {(ev.anos_vai_completar ?? 0) > 0
-              ? `${ev.anos_vai_completar} ${ehAnis ? "anos" : "anos de casados"}`
-              : "—"}
-          </p>
-        </div>
-      </div>
-      {(ev.telefone || ev.telefone_secundario) && (
-        <Button
-          type="button" size="sm" variant="ghost"
-          className="h-8 px-2 gap-1 text-xs text-success-text hover:bg-success-soft shrink-0"
-          onClick={() => onWhats(ev)}
-          title="WhatsApp"
-        >
-          <MessageCircle className="w-4 h-4" />
-        </Button>
-      )}
     </div>
   );
 }

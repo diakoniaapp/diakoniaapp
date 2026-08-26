@@ -67,7 +67,11 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: "/ebd",              label: "EBD",             icon: GraduationCap, allowedRoles: ROLES_LIDERES },
       { to: "/pgm",              label: "Pequenos Grupos", icon: Sprout,        allowedRoles: ROLES_LIDERES },
-      { to: "/painel-pastoral",  label: "Acompanhamento",  icon: Sparkles,      allowedRoles: ROLES_LIDERES },
+      { to: "/painel-pastoral",  label: "Painel Pastoral", icon: Sparkles,      allowedRoles: ROLES_LIDERES },
+      // "Campanhas Espirituais" saiu do menu: virou aba da secao "Discipulado"
+      // dentro do proprio Painel Pastoral, junto de EBD e Pequenos Grupos.
+      // A rota /admin/campanhas continua servindo a versao de pagina inteira,
+      // para nao quebrar link salvo.
       // "Crescimento" tambem estava em "Configurações", e tambem nao configura
       // nada: mede a jornada visitante -> congregado -> membro. E o painel do
       // discipulado, nao um ajuste de sistema.
@@ -139,11 +143,12 @@ export const pageTitles: Record<string, string> = {
   "/areas":                   "Equipes",
   "/eventos":                 "Agenda",
   "/agenda-pastoral":         "Agenda Pastoral",
-  "/painel-pastoral":         "Acompanhamento Pastoral",
+  "/painel-pastoral":         "Painel Pastoral",
   "/locais":                  "Espaços",
   "/visitantes":              "Visitantes",
   "/painel-estrategico":      "Crescimento",
   "/ebd":                     "EBD",
+  // /ebd/acompanhamento virou redirecionamento para /painel-pastoral.
   "/pgm":                     "Pequenos Grupos",
   "/organograma":             "Organograma",
   "/estrutura":               "Estrutura",
@@ -161,7 +166,7 @@ export const pageTitles: Record<string, string> = {
   "/admin/documentos":        "Documentos",
   "/admin/importacao":        "Importação",
   "/admin/exportacao":        "Exportação",
-  "/admin/campanhas":         "Campanhas",
+  "/admin/campanhas":         "Campanhas Espirituais",
 };
 
 export const ROUTE_ROLES: Record<string, AppRole[]> = {
@@ -171,6 +176,7 @@ export const ROUTE_ROLES: Record<string, AppRole[]> = {
   "/locais":             ROLES_LIDERES,
   "/painel-estrategico": ROLES_PASTORAL,
   "/ebd":                ROLES_LIDERES,
+  "/admin/campanhas":    ROLES_LIDERES,
   "/organograma":        ROLES_LIDERES,
   "/estrutura":          ROLES_PASTORAL,
   "/usuarios":           ROLES_ADMIN,

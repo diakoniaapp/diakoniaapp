@@ -46,7 +46,7 @@ const ROUTES: CommandRoute[] = [
   // ── Discipulado ───────────────────────────────────────────────────
   { to: "/ebd",             label: "EBD",                  icon: GraduationCap, group: "Discipulado", keywords: ["escola","classe","dominical"] },
   { to: "/pgm",             label: "Pequenos Grupos",      icon: Sprout,        group: "Discipulado", keywords: ["pgm","celula","pg"] },
-  { to: "/painel-pastoral", label: "Acompanhamento Pastoral", icon: Sparkles,   group: "Discipulado", keywords: ["pastoral","cuidado"] },
+  { to: "/painel-pastoral", label: "Painel Pastoral", icon: Sparkles,   group: "Discipulado", keywords: ["pastoral","cuidado","acompanhamento"] },
 
   // ── Administração ─────────────────────────────────────────────────
   { to: "/membresia",  label: "Membresia",  icon: FileText,    group: "Administração", keywords: ["solicitacao","batismo"] },

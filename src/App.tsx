@@ -129,6 +129,12 @@ const App = () => (
               <Route path="/estrutura" element={<EstruturaDaIgreja />} />
                   <Route path="/usuarios" element={<Usuarios />} />
                   <Route path="/ebd" element={<Ebd />} />
+                  {/* O acompanhamento da EBD virou uma aba da secao "Discipulado"
+                      dentro do Painel Pastoral, junto dos Pequenos Grupos. A rota
+                      antiga vira redirecionamento para nao quebrar link salvo.
+                      Estatico antes do dinamico: `/ebd/acompanhamento` nao pode
+                      cair em `/ebd/:classeId` e ser lido como id de classe. */}
+                  <Route path="/ebd/acompanhamento" element={<Navigate to="/painel-pastoral" replace />} />
                   <Route path="/ebd/:classeId" element={<EbdClasse />} />
                   <Route path="/areas" element={<Areas />} />
                   <Route path="/ebd/:classeId/chamada" element={<EbdChamada />} />

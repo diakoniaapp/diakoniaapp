@@ -111,7 +111,18 @@ const tipoLabel: Record<string,string> = {
 
 // ─── Componente ───────────────────────────────────────────────────────────────
 
-export default function CampanhasAdmin() {
+/**
+ * `embutido` — a mesma tela, sem a moldura de página.
+ *
+ * As campanhas espirituais passaram a viver dentro do Painel Pastoral, como
+ * aba da seção "Discipulado" (26/08/2026). Em vez de duplicar mil linhas com
+ * um assistente de criação dentro, a tela ganhou um modo embutido: sem
+ * `PageHeader` e sem o respiro da página, porque quem embute já tem os dois.
+ *
+ * A rota `/admin/campanhas` continua funcionando e renderiza a versão de
+ * página inteira — só saiu do menu, onde disputava atenção com a aba.
+ */
+export default function CampanhasAdmin({ embutido = false }: { embutido?: boolean } = {}) {
   const { hasRole } = useAuth();
   const navigate    = useNavigate();
 
@@ -168,19 +179,31 @@ export default function CampanhasAdmin() {
 
   return (
     <div>
-      <PageHeader
-        title="Campanhas Espirituais"
-        description="Organize campanhas, devocionais e séries temáticas"
-        actions={
-          hasRole(["admin","secretaria"]) && (
-            <Button onClick={() => { setEditando(null); setShowWizard(true); }} className="gap-2">
+      {embutido ? (
+        // Embutido: sem cabeçalho de página. Só a ação, que continua sendo o
+        // único jeito de criar campanha.
+        hasRole(["admin","secretaria"]) && (
+          <div className="flex justify-end mb-3">
+            <Button size="sm" onClick={() => { setEditando(null); setShowWizard(true); }} className="gap-2">
               <Plus className="w-4 h-4" /> Nova Campanha
             </Button>
-          )
-        }
-      />
+          </div>
+        )
+      ) : (
+        <PageHeader
+          title="Campanhas Espirituais"
+          description="Organize campanhas, devocionais e séries temáticas"
+          actions={
+            hasRole(["admin","secretaria"]) && (
+              <Button onClick={() => { setEditando(null); setShowWizard(true); }} className="gap-2">
+                <Plus className="w-4 h-4" /> Nova Campanha
+              </Button>
+            )
+          }
+        />
+      )}
 
-      <div className="p-4 md:p-8 space-y-6 max-w-4xl">
+      <div className={embutido ? "space-y-6" : "p-4 md:p-8 space-y-6 max-w-4xl"}>
 
         {/* Campanhas ativas */}
         {ativas.length > 0 && (

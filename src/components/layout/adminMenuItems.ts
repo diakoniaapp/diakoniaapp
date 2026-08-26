@@ -20,7 +20,7 @@
 
 import {
   Users, HeartHandshake, KeyRound, ShieldAlert, Church,
-  FileText, Upload, Download, Flame, type LucideIcon,
+  FileText, Upload, Download, type LucideIcon,
 } from "lucide-react";
 
 export interface AdminMenuItem {
@@ -40,5 +40,4 @@ export const ADMIN_MENU_ITEMS: AdminMenuItem[] = [
   { path: "/admin/documentos",        label: "Documentos",            icon: FileText },
   { path: "/admin/importacao",        label: "Importação de Membros", icon: Upload },
   { path: "/admin/exportacao",        label: "Exportação de Dados",   icon: Download },
-  { path: "/admin/campanhas",         label: "Campanhas Espirituais", icon: Flame },
 ];

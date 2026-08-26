@@ -131,7 +131,7 @@ export function AtencaoEmPessoas() {
         descricao="Defina o núcleo familiar"
         lista={semFamilia.slice(0, 4).map(p => ({ id: p.id, nome: p.nome_completo }))}
         total={semFamilia.length}
-        cta={{ to: "/painel-pastoral", label: "Ver sugestões" }}
+        cta={{ to: "/familias", label: "Ver sugestões" }}
       />
 
       <ColunaPessoas
