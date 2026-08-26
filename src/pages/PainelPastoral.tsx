@@ -76,7 +76,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Cake, Heart, MessageCircle, CalendarCheck, Award, Flag, BookMarked,
   Sparkles, AlertCircle, Users, ChevronRight, Crown, Flame, Droplets,
-  GraduationCap, UserCheck, CalendarClock, Sprout, BarChart2,
+  GraduationCap, UserCheck, CalendarClock, Sprout, BarChart2, PartyPopper,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PaginaSkeleton } from "@/components/ListState";
@@ -343,14 +343,27 @@ export default function PainelPastoral() {
           resumo e virou o índice da tela. Ver `Indicador` em
           components/painel/blocos.tsx para o porquê do desenho. */}
       {resumo && (
-        <FaixaDeIndicadores colunas={6}>
+        <FaixaDeIndicadores colunas={5}>
+          {/* Aniversário e bodas eram dois indicadores, e são a mesma ideia:
+              alguém a quem a igreja tem o que dizer hoje. Separados, tinham
+              o mesmo tom, levavam ao mesmo lugar, e um deles quase sempre
+              marcava zero — a igreja tem 294 pessoas e 75 famílias, então
+              "Bodas hoje" passa a maior parte do ano em branco, ocupando um
+              sexto da faixa para dizer que não há nada.
+
+              Juntos são uma linha só, e o número deixa de ser quase sempre
+              zero. A separação continua onde importa: na lista abaixo, cada
+              um com o seu ícone e a sua mensagem de felicitação. */}
           <Indicador
-            rotulo="Aniv. hoje" valor={resumo.aniversarios_hoje} tom="celebracao" icone={Cake}
-            onClick={() => irParaSecao("datas")} descricao="Ir para Datas importantes"
-          />
-          <Indicador
-            rotulo="Bodas hoje" valor={resumo.bodas_hoje} tom="celebracao" icone={Heart}
-            onClick={() => irParaSecao("datas")} descricao="Ir para Datas importantes"
+            rotulo="Celebrações hoje"
+            valor={resumo.aniversarios_hoje + resumo.bodas_hoje}
+            tom="celebracao" icone={PartyPopper}
+            onClick={() => irParaSecao("datas")}
+            descricao={
+              // "bodas" não tem singular: uma bodas, duas bodas.
+              `${resumo.aniversarios_hoje} ${resumo.aniversarios_hoje === 1 ? "aniversário" : "aniversários"}` +
+              ` e ${resumo.bodas_hoje} bodas hoje — ir para A semana`
+            }
           />
           {/* Era "Datas (7d)", e contava as CELEBRAÇÕES da semana — a soma
               exata da tira de sete dias. Media 11 sem que nenhum dos onze
@@ -406,7 +419,13 @@ export default function PainelPastoral() {
           são o mesmo dia. `AgendaDoDia` recebe `dia`; sem a prop, no painel
           inicial, ele segue exatamente como era. */}
       <section id="datas" className="scroll-mt-[280px] sm:scroll-mt-[230px]">
-        <TituloDaSecao icone={CalendarCheck} contagem={totalDatas}>
+        {/* Sem contagem no título, de propósito.
+            Ela mostrava `totalDatas` — 11, só as celebrações —, enquanto a
+            seção também guarda os 22 compromissos da agenda. Dois números
+            para a mesma seção, e o menor deles em destaque.
+            Cada parte já traz o seu: a tira conta as celebrações por dia, o
+            divisor do dia repete o número, e a agenda mostra a lista. */}
+        <TituloDaSecao icone={CalendarCheck}>
           A semana
         </TituloDaSecao>
         <div className="space-y-3">
@@ -443,8 +462,26 @@ export default function PainelPastoral() {
                 hojeIso={hoje}
               />
               {/* Os compromissos com hora do dia escolhido — cultos, ensaios,
-                  reuniões e reservas de espaço, com recorrências expandidas. */}
-              <AgendaDoDia dia={diaAberto} onTotalDaJanela={setCompromissos} />
+                  reuniões e reservas de espaço, com recorrências expandidas.
+
+                  O divisor repete a forma do das celebrações, logo acima. Sem
+                  ele a agenda aparecia solta embaixo da lista de
+                  aniversariantes, sem dizer o que era — e no dia em que não
+                  há celebração alguma, ela nascia sem nenhum cabeçalho.
+
+                  Diz "Acontecendo hoje" só quando o dia aberto é hoje. Para
+                  a sexta-feira nada está acontecendo: está marcado. */}
+              <div className="pt-1">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <p className={`text-xs font-medium uppercase tracking-wide shrink-0 ${
+                    diaAberto === hoje ? "text-gold-text" : "text-muted-foreground"
+                  }`}>
+                    {diaAberto === hoje ? "Acontecendo hoje" : "Agenda do dia"}
+                  </p>
+                  <div className="h-px flex-1 bg-border" />
+                </div>
+                <AgendaDoDia dia={diaAberto} onTotalDaJanela={setCompromissos} />
+              </div>
             </>
           )}
         </div>
