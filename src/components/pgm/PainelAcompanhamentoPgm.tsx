@@ -21,6 +21,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { NomePessoa } from "@/components/membros/ficha";
+// O cartao de numero vivia aqui, duplicado do PainelPastoral e do PGM.
+import { Indicador, FaixaDeIndicadores } from "@/components/painel/blocos";
 import {
   carregarPainelPgm, quandoSeReune,
   type PgmPainel,
@@ -90,17 +92,16 @@ export function PainelAcompanhamentoPgm() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
-        <Numero label="Grupos ativos" valor={resumo.grupos_ativos} cor="bg-success-soft text-success-text border-success-line" />
-        <Numero label="Pessoas" valor={resumo.total_membros} cor="bg-info-soft text-info-text border-info-line" />
-        <Numero label="Reuniões (semana)" valor={resumo.reunioes_semana} cor="bg-celebracao-soft text-celebracao-text border-celebracao-line" />
-        <Numero
-          label="Presença (30d)"
+      <FaixaDeIndicadores colunas={5}>
+        <Indicador rotulo="Grupos ativos" valor={resumo.grupos_ativos} tom="success" />
+        <Indicador rotulo="Pessoas" valor={resumo.total_membros} tom="info" />
+        <Indicador rotulo="Reuniões (7d)" valor={resumo.reunioes_semana} tom="celebracao" />
+        <Indicador rotulo="Presença (30d)"
           valor={temFrequencia ? `${resumo.presenca_media_pct}%` : "—"}
-          cor="bg-muted text-muted-foreground border-border"
+          tom="success"
         />
-        <Numero label="Pedidos de oração" valor={resumo.pedidos_ativos} cor="bg-violeta-soft text-violeta-text border-violeta-line" />
-      </div>
+        <Indicador rotulo="Pedidos de oração" valor={resumo.pedidos_ativos} tom="violeta" />
+      </FaixaDeIndicadores>
 
       {/* Quem está faltando seguido — a razão pastoral do bloco existir */}
       {alertas.length > 0 && (
@@ -199,11 +200,3 @@ function formatarData(iso: string): string {
   return new Date(iso + "T00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
 }
 
-function Numero({ label, valor, cor }: { label: string; valor: number | string; cor: string }) {
-  return (
-    <div className={`rounded-md border p-2 text-center min-w-0 ${cor}`}>
-      <p className="text-2xl font-semibold leading-none tabular-nums">{valor}</p>
-      <p className="text-xs uppercase tracking-wide mt-1 leading-tight">{label}</p>
-    </div>
-  );
-}

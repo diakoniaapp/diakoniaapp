@@ -103,6 +103,11 @@ import { PainelAcompanhamentoPgm } from "@/components/pgm/PainelAcompanhamentoPg
 // A tela de campanhas inteira, em modo embutido — inclusive o assistente de
 // criação. A rota /admin/campanhas continua servindo a versão de página.
 import CampanhasAdmin from "@/pages/CampanhasAdmin";
+// Indicador, faixa e titulo de secao — as pecas visuais compartilhadas.
+// O cartao de numero estava escrito tres vezes, em tres arquivos.
+import {
+  Indicador, FaixaDeIndicadores, TituloDaSecao, irParaSecao,
+} from "@/components/painel/blocos";
 
 /** Hoje + 6 = uma semana contando o próprio dia. */
 const DIAS_A_FRENTE = 6;
@@ -269,14 +274,20 @@ export default function PainelPastoral() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
-      {/* Cabeçalho */}
+      {/* ── Cabeçalho ───────────────────────────────────────────────────
+          A data por extenso entrou no lugar da frase que descrevia a tela.
+          Um painel cujo assunto é "hoje" — e que se recarrega quando o dia
+          vira — precisa dizer que dia é hoje; explicar o que ele contém era
+          útil na primeira visita e ruído em todas as outras. */}
       <div>
         <h1 className="font-serif text-2xl flex items-center gap-2">
-          <Sparkles className="w-6 h-6 text-gold" />
+          <Sparkles className="w-6 h-6 text-gold shrink-0" />
           Painel Pastoral
         </h1>
-        <p className="text-sm text-muted-foreground">
-          O cuidado da semana em uma tela: datas, candidatos, campanhas e visitantes
+        <p className="text-sm text-muted-foreground first-letter:uppercase">
+          {new Date(hoje + "T00:00").toLocaleDateString("pt-BR", {
+            weekday: "long", day: "numeric", month: "long", year: "numeric",
+          })}
         </p>
       </div>
 
@@ -295,42 +306,50 @@ export default function PainelPastoral() {
         </div>
       )}
 
-      {/* Cards de resumo */}
+      {/* ── A faixa de indicadores ──────────────────────────────────────
+          Cada um leva à seção correspondente: a faixa deixou de ser só um
+          resumo e virou o índice da tela. Ver `Indicador` em
+          components/painel/blocos.tsx para o porquê do desenho. */}
       {resumo && (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
-          <ResumoCard label="Aniv. hoje" value={resumo.aniversarios_hoje} cor="bg-celebracao-soft text-celebracao-text border-celebracao-line" />
-          <ResumoCard label="Bodas hoje" value={resumo.bodas_hoje} cor="bg-celebracao-soft text-celebracao-text border-celebracao-line" />
-          <ResumoCard label="Datas (7d)" value={totalDatas} cor="bg-celebracao-soft/50 text-celebracao-text border-celebracao-line" />
-          <ResumoCard label="Cand. batismo" value={candidatos?.elegiveis.length ?? 0} cor="bg-info-soft text-info-text border-info-line" />
-          <ResumoCard label="Visit. s/ contato" value={visitantes?.semContato ?? 0} cor="bg-warning-soft text-warning-text border-warning-line" />
-        </div>
+        <FaixaDeIndicadores colunas={5}>
+          <Indicador
+            rotulo="Aniv. hoje" valor={resumo.aniversarios_hoje} tom="celebracao" icone={Cake}
+            onClick={() => irParaSecao("datas")} descricao="Ir para Datas importantes"
+          />
+          <Indicador
+            rotulo="Bodas hoje" valor={resumo.bodas_hoje} tom="celebracao" icone={Heart}
+            onClick={() => irParaSecao("datas")} descricao="Ir para Datas importantes"
+          />
+          <Indicador
+            rotulo="Datas (7d)" valor={totalDatas} tom="gold" icone={CalendarCheck}
+            onClick={() => irParaSecao("datas")} descricao="Ir para Datas importantes"
+          />
+          <Indicador
+            rotulo="Cand. batismo" valor={candidatos?.elegiveis.length ?? 0} tom="info" icone={Droplets}
+            onClick={() => irParaSecao("candidatos")} descricao="Ir para Candidatos à membresia"
+          />
+          <Indicador
+            rotulo="Visit. sem contato" valor={visitantes?.semContato ?? 0} tom="warning" icone={Users}
+            onClick={() => irParaSecao("visitantes")} descricao="Ir para Acompanhamento de visitantes"
+          />
+        </FaixaDeIndicadores>
       )}
 
       {/* ── Acontecendo hoje ────────────────────────────────────────────
           A agenda do dia com hora e lugar: cultos, ensaios, reuniões e
           reservas de espaço. Fica antes de "Datas importantes" porque é o
           que tem hora marcada — o resto da semana pode esperar a rolagem. */}
-      <div>
-        <h2 className="text-sm font-medium flex items-center gap-2 mb-2">
-          <CalendarClock className="w-4 h-4 text-gold" />
-          Acontecendo hoje
-        </h2>
+      <section id="hoje">
+        <TituloDaSecao icone={CalendarClock}>Acontecendo hoje</TituloDaSecao>
         <AgendaDoDia />
-      </div>
+      </section>
 
       {/* ── Datas importantes: hoje + 6 dias ────────────────────────────── */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm flex items-center gap-2 flex-wrap">
-            <CalendarCheck className="w-4 h-4 text-gold" />
-            Datas importantes
-            <Badge variant="outline" className="text-xs">{totalDatas}</Badge>
-            <span className="font-normal text-xs text-muted-foreground">
-              hoje e os 6 dias seguintes
-            </span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
+      <section id="datas" className="scroll-mt-4">
+        <TituloDaSecao icone={CalendarCheck} contagem={totalDatas}>
+          Datas importantes
+        </TituloDaSecao>
+        <div className="space-y-3">
           {/*
             O parágrafo que listava as fontes — aniversários, bodas, membresia,
             pastorado, feriados e calendário da CBB — saiu daqui. Ele custava
@@ -359,22 +378,16 @@ export default function PainelPastoral() {
               />
             </>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
       {/* ── Candidatos à membresia ──────────────────────────────────────── */}
       {candidatos && candidatos.elegiveis.length > 0 && (
-        <Card className="border-info-line">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2 flex-wrap">
-              <Droplets className="w-4 h-4 text-info-text" />
-              Candidatos à membresia
-              <Badge variant="outline" className="text-xs bg-info-soft border-info-line">
-                {candidatos.elegiveis.length}
-              </Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
+        <section id="candidatos" className="scroll-mt-4">
+          <TituloDaSecao icone={Droplets} tom="info" contagem={candidatos.elegiveis.length}>
+            Candidatos à membresia
+          </TituloDaSecao>
+          <div className="space-y-3">
             <p className="text-xs text-muted-foreground">
               Congregados com {IDADE_MINIMA_BATISMO} anos ou mais — candidatos ao batismo
               e à entrada no rol de membros.
@@ -425,29 +438,34 @@ export default function PainelPastoral() {
                 de {IDADE_MINIMA_BATISMO} anos — fora da lista por idade.
               </p>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </section>
       )}
 
 
       {/* ── Acompanhamento de visitantes ────────────────────────────────── */}
       {visitantes && visitantes.total > 0 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Users className="w-4 h-4 text-muted-foreground" />
-              Acompanhamento de visitantes
-              <Badge variant="outline" className="text-xs">{visitantes.total}</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-              <ResumoCard label="Novos (7d)"   value={visitantes.novos}            cor="bg-info-soft text-info-text border-info-line" />
-              <ResumoCard label="Em acomp."    value={visitantes.emAcompanhamento} cor="bg-celebracao-soft text-celebracao-text border-celebracao-line" />
-              <ResumoCard label="Sem contato"  value={visitantes.semContato}       cor="bg-warning-soft text-warning-text border-warning-line" />
-              <ResumoCard label="Prontos"      value={visitantes.prontosCrescer}   cor="bg-success-soft text-success-text border-success-line" />
-              <ResumoCard label="Congregaram"  value={visitantes.convertidos}      cor="bg-muted text-muted-foreground border-border" />
-            </div>
+        <section id="visitantes" className="scroll-mt-4">
+          <TituloDaSecao
+            icone={Users}
+            tom="neutro"
+            contagem={visitantes.total}
+            acao={
+              <Button asChild variant="ghost" size="sm" className="gap-1 text-xs h-7">
+                <Link to="/visitantes">Acolhimento <ChevronRight className="w-3 h-3" /></Link>
+              </Button>
+            }
+          >
+            Acompanhamento de visitantes
+          </TituloDaSecao>
+          <div className="space-y-3">
+            <FaixaDeIndicadores colunas={5}>
+              <Indicador rotulo="Novos (7d)"  valor={visitantes.novos}            tom="info" />
+              <Indicador rotulo="Em acomp."   valor={visitantes.emAcompanhamento} tom="celebracao" />
+              <Indicador rotulo="Sem contato" valor={visitantes.semContato}       tom="warning" />
+              <Indicador rotulo="Prontos"     valor={visitantes.prontosCrescer}   tom="success" />
+              <Indicador rotulo="Congregaram" valor={visitantes.convertidos}      tom="neutro" />
+            </FaixaDeIndicadores>
             {visitantes.semContato > 0 && (
               <p className="text-xs text-warning-text flex items-start gap-1.5">
                 <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
@@ -457,11 +475,8 @@ export default function PainelPastoral() {
                 </span>
               </p>
             )}
-            <Button asChild variant="outline" size="sm" className="gap-1.5 text-xs">
-              <Link to="/visitantes">Abrir acolhimento <ChevronRight className="w-3 h-3" /></Link>
-            </Button>
-          </CardContent>
-        </Card>
+          </div>
+        </section>
       )}
 
 
@@ -474,11 +489,8 @@ export default function PainelPastoral() {
           Em abas, e não empilhados, porque o painel já tem seis seções
           acima; os dois inteiros somariam mais de uma tela de rolagem cada.
           Cada aba carrega os próprios dados, com estado próprio. */}
-      <div>
-        <h2 className="text-sm font-medium flex items-center gap-2 mb-2">
-          <Sprout className="w-4 h-4 text-gold" />
-          Acompanhamento do discipulado
-        </h2>
+      <section id="discipulado" className="scroll-mt-4">
+        <TituloDaSecao icone={Sprout}>Acompanhamento do discipulado</TituloDaSecao>
         <Tabs defaultValue="ebd">
           <TabsList className="mb-3">
             <TabsTrigger value="ebd" className="gap-1.5 text-xs">
@@ -503,7 +515,7 @@ export default function PainelPastoral() {
             <CampanhasAdmin embutido />
           </TabsContent>
         </Tabs>
-      </div>
+      </section>
 
       {/* Saída para a agenda completa */}
       <div className="flex items-center justify-center gap-2 pt-2 flex-wrap">
@@ -778,11 +790,3 @@ function formatarAtualizadoHa(data: Date | null): string {
   return `há ${diffH} horas`;
 }
 
-function ResumoCard({ label, value, cor }: { label: string; value: number; cor: string }) {
-  return (
-    <div className={`rounded-md border p-2 text-center min-w-0 ${cor}`}>
-      <p className="text-2xl font-semibold leading-none tabular-nums">{value}</p>
-      <p className="text-xs uppercase tracking-wide mt-1 leading-tight">{label}</p>
-    </div>
-  );
-}

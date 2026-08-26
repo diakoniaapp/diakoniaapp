@@ -38,6 +38,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { NomePessoa } from "@/components/membros/ficha";
+// O cartao de numero vivia aqui, duplicado do PainelPastoral e do PGM.
+import { Indicador, FaixaDeIndicadores } from "@/components/painel/blocos";
 import {
   ebdResumo, ebdPorFaixa, ebdPorClasse, ebdAlunosAusentes, faixasExtremas,
   type EbdResumo, type EbdFaixa, type EbdClasseLinha, type EbdAlunoAusente,
@@ -120,13 +122,13 @@ export function PainelAcompanhamentoEbd() {
       )}
 
       {/* Números do topo */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
-        <Numero label="Alunos" valor={resumo.alunos_matriculados} cor="bg-info-soft text-info-text border-info-line" />
-        <Numero label="Classes ativas" valor={resumo.classes_ativas} cor="bg-info-soft/50 text-info-text border-info-line" />
-        <Numero label="Aulas c/ chamada" valor={resumo.aulas_com_chamada} cor="bg-celebracao-soft text-celebracao-text border-celebracao-line" />
-        <Numero label="Frequência" valor={semTaxa ? "—" : `${resumo.taxa_presenca}%`} cor="bg-success-soft text-success-text border-success-line" />
-        <Numero label="Visitantes" valor={resumo.visitantes} cor="bg-muted text-muted-foreground border-border" />
-      </div>
+      <FaixaDeIndicadores colunas={5}>
+        <Indicador rotulo="Alunos" valor={resumo.alunos_matriculados} tom="info" />
+        <Indicador rotulo="Classes ativas" valor={resumo.classes_ativas} tom="info" />
+        <Indicador rotulo="Com chamada" valor={resumo.aulas_com_chamada} tom="celebracao" />
+        <Indicador rotulo="Frequência" valor={semTaxa ? "—" : `${resumo.taxa_presenca}%`} tom="success" />
+        <Indicador rotulo="Visitantes" valor={resumo.visitantes} tom="neutro" />
+      </FaixaDeIndicadores>
 
       {/* Homens x mulheres */}
       <Card>
@@ -303,14 +305,6 @@ function formatarData(iso: string): string {
   return new Date(iso + "T00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
 }
 
-function Numero({ label, valor, cor }: { label: string; valor: number | string; cor: string }) {
-  return (
-    <div className={`rounded-md border p-2 text-center min-w-0 ${cor}`}>
-      <p className="text-2xl font-semibold leading-none tabular-nums">{valor}</p>
-      <p className="text-xs uppercase tracking-wide mt-1 leading-tight">{label}</p>
-    </div>
-  );
-}
 
 /**
  * Barra de proporção entre dois grupos.
