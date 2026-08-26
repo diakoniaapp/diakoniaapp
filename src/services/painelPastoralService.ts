@@ -22,17 +22,22 @@ export interface CandidatosMembresia {
   /** Congregados com 9 anos ou mais — os candidatos ao batismo pela regra. */
   elegiveis: CandidatoMembresia[];
   /**
-   * Congregados sem data de nascimento.
+   * Quantos congregados não têm data de nascimento — só a contagem.
    *
-   * **Não são "não elegíveis" — são indecidíveis.** Medido em produção em
-   * 26/08/2026: dos 68 congregados ativos, **49 não têm data de nascimento**.
-   * Aplicar a regra "9 anos ou mais" e mostrar só quem passa esconderia 49
-   * pessoas justamente da tela que existe para encontrá-las.
+   * **Eles não são "não elegíveis": são indecidíveis.** Sem a data, a regra
+   * dos 9 anos não consegue julgar. Medido em produção em 26/08/2026: dos 68
+   * congregados ativos, **48 não têm data de nascimento**.
    *
-   * Por isso eles aparecem num grupo próprio, com o que falta dito em voz
-   * alta: preencher a data de nascimento decide de que lado eles caem.
+   * O Painel Pastoral chegou a listá-los, com botão para abrir cada ficha, e
+   * o bloco foi retirado a pedido: **preencher cadastro é trabalho da
+   * secretaria, não da liderança pastoral** — o mesmo critério que tirou dali
+   * os dois blocos de família.
+   *
+   * A contagem fica aqui porque o número continua sendo verdadeiro e barato,
+   * e porque o dia em que houver uma tela de qualidade de cadastro — o lugar
+   * certo para isso — ela vai precisar dele.
    */
-  semDataNascimento: CandidatoMembresia[];
+  semDataNascimento: number;
   /** Congregados abaixo da idade mínima. Só o número — não há ação pastoral. */
   abaixoDaIdade: number;
 }
@@ -68,14 +73,13 @@ export async function candidatosMembresia(): Promise<CandidatosMembresia> {
   if (error) throw error;
 
   const elegiveis: CandidatoMembresia[] = [];
-  const semDataNascimento: CandidatoMembresia[] = [];
+  let semDataNascimento = 0;
   let abaixoDaIdade = 0;
 
   for (const p of data ?? []) {
     const idade = idadeEm(p.data_nascimento);
-    const item: CandidatoMembresia = { ...(p as any), idade };
-    if (idade === null) semDataNascimento.push(item);
-    else if (idade >= IDADE_MINIMA_BATISMO) elegiveis.push(item);
+    if (idade === null) semDataNascimento++;
+    else if (idade >= IDADE_MINIMA_BATISMO) elegiveis.push({ ...(p as any), idade });
     else abaixoDaIdade++;
   }
 

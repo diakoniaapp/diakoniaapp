@@ -2,20 +2,28 @@
 //
 // Reorganizado em 26/08/2026. O que mudou, e por quê:
 //
-// 1. **Os dois blocos de família saíram daqui.**
+// 1. **Tudo que é cadastro saiu daqui.**
 //
-//    "Possíveis vínculos familiares" sugeria família por sobrenome em comum e
-//    abria uma ação em lote. "Famílias sem responsável" pedia que se
-//    definisse o responsável de cada núcleo.
+//    "Possíveis vínculos familiares" sugeria família por sobrenome em comum.
+//    "Famílias sem responsável" pedia que se definisse o responsável de cada
+//    núcleo. E dentro de "Candidatos à membresia" havia a lista dos
+//    congregados sem data de nascimento, com botão para abrir cada ficha.
 //
-//    Os dois são **cadastro, não cuidado pastoral** — e cadastro de família é
-//    responsabilidade da secretaria. Ambos continuam existindo em
-//    `/familias`, que é onde se administra família. Os três atalhos do painel
+//    Os três são **preenchimento de cadastro, e isso é trabalho da
+//    secretaria** — não da liderança pastoral, que é quem esta tela serve.
+//    Os dois primeiros continuam em `/familias`. Os três atalhos do painel
 //    inicial que apontavam para cá foram redirecionados para lá.
 //
 //    `resumo_painel_pastoral` ainda devolve `familias_sem_resp` e
 //    `pessoas_sem_familia_sugerida`; esta tela simplesmente não os lê mais. A
 //    função não foi alterada — outras telas a consomem.
+//
+//    **Consequência a registrar:** os 48 congregados sem data de nascimento
+//    deixaram de ter superfície em qualquer tela. Eles não entram em
+//    "Candidatos à membresia" porque a regra dos 9 anos não consegue julgá-los
+//    sem a data. O lugar certo para isso é uma tela de qualidade de cadastro,
+//    que ainda não existe; `candidatosMembresia()` mantém a contagem pronta
+//    para quando existir.
 //
 // 2. **"Datas importantes" passou a ser um bloco só, de hoje + 6 dias**, e
 //    junta duas fontes que já existiam e nunca tinham se encontrado:
@@ -329,7 +337,7 @@ export default function PainelPastoral() {
       </Card>
 
       {/* ── Candidatos à membresia ──────────────────────────────────────── */}
-      {candidatos && (candidatos.elegiveis.length > 0 || candidatos.semDataNascimento.length > 0) && (
+      {candidatos && candidatos.elegiveis.length > 0 && (
         <Card className="border-info-line">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2 flex-wrap">
@@ -346,63 +354,27 @@ export default function PainelPastoral() {
               e à entrada no rol de membros.
             </p>
 
-            {candidatos.elegiveis.length > 0 ? (
-              <div className="space-y-2">
-                {candidatos.elegiveis.map(p => (
-                  <div key={p.id} className="flex items-center justify-between border rounded-md px-3 py-2 bg-info-soft/40 gap-2">
-                    <div className="min-w-0">
-                      <p className="font-medium text-sm truncate">{p.nome_completo}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {p.idade} anos
-                        {p.data_congregado && ` · congregado desde ${formatarData(p.data_congregado)}`}
-                      </p>
-                    </div>
-                    <Button asChild size="sm" variant="outline" className="gap-1.5 text-xs shrink-0">
-                      <Link to={`/membros?abrir=${p.id}`}>
-                        <UserCheck className="w-3.5 h-3.5" /> Abrir ficha
-                      </Link>
-                    </Button>
+            {/* O cartão inteiro só monta quando há elegíveis, então aqui não
+                há caso vazio a tratar: sem candidato, o bloco some. */}
+            <div className="space-y-2">
+              {candidatos.elegiveis.map(p => (
+                <div key={p.id} className="flex items-center justify-between border rounded-md px-3 py-2 bg-info-soft/40 gap-2">
+                  <div className="min-w-0">
+                    <p className="font-medium text-sm truncate">{p.nome_completo}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {p.idade} anos
+                      {p.data_congregado && ` · congregado desde ${formatarData(p.data_congregado)}`}
+                    </p>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground py-2">
-                Nenhum congregado com data de nascimento atinge a idade mínima.
-              </p>
-            )}
-
-            {/*
-              O grupo que a regra não consegue decidir.
-
-              Não é "não elegível" — é "indecidível". Mostrá-lo é o ponto: sem
-              a data de nascimento, essas pessoas nunca apareceriam na lista
-              acima, e é justamente esta tela que deveria encontrá-las.
-            */}
-            {candidatos.semDataNascimento.length > 0 && (
-              <div className="rounded-md border border-warning-line bg-warning-soft/40 px-3 py-2 space-y-2">
-                <p className="text-xs text-warning-text flex items-start gap-1.5">
-                  <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                  <span>
-                    <strong>{candidatos.semDataNascimento.length} congregados sem data de nascimento.</strong>{" "}
-                    A idade decide quem é candidato, então eles não entram na lista acima
-                    nem em nenhuma outra — preencher a data os traz de volta.
-                  </span>
-                </p>
-                <div className="flex flex-wrap gap-1">
-                  {candidatos.semDataNascimento.slice(0, 12).map(p => (
-                    <Button key={p.id} asChild size="sm" variant="outline"
-                            className="h-7 text-xs font-normal">
-                      <Link to={`/membros?abrir=${p.id}`}>{p.nome_completo}</Link>
-                    </Button>
-                  ))}
-                  {candidatos.semDataNascimento.length > 12 && (
-                    <span className="text-xs text-muted-foreground self-center px-1">
-                      … e mais {candidatos.semDataNascimento.length - 12}
-                    </span>
-                  )}
+                  <Button asChild size="sm" variant="outline" className="gap-1.5 text-xs shrink-0">
+                    <Link to={`/membros?abrir=${p.id}`}>
+                      <UserCheck className="w-3.5 h-3.5" /> Abrir ficha
+                    </Link>
+                  </Button>
                 </div>
-              </div>
-            )}
+              ))}
+            </div>
+
 
             {candidatos.abaixoDaIdade > 0 && (
               <p className="text-xs text-muted-foreground">
