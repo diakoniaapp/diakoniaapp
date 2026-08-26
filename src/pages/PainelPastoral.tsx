@@ -517,12 +517,17 @@ export default function PainelPastoral() {
         </Tabs>
       </section>
 
-      {/* Saída para a agenda completa */}
-      <div className="flex items-center justify-center gap-2 pt-2 flex-wrap">
-        <Button asChild variant="outline" size="sm" className="gap-1.5">
-          <Link to="/agenda-pastoral">Agenda do mês <ChevronRight className="w-3 h-3" /></Link>
-        </Button>
-      </div>
+      {/*
+        O botão "Agenda do mês" saiu daqui.
+
+        Ele levava a `/agenda-pastoral`, que lista os aniversários e bodas do
+        mês inteiro — a mesma matéria de "Datas importantes", só que num
+        recorte maior e numa outra tela. Tendo a semana aqui, com o seletor de
+        dia e o envio da felicitação em um clique, o link oferecia um segundo
+        caminho para o que este painel já resolve.
+
+        A rota continua existindo e atendendo quem tem link salvo.
+      */}
     </div>
   );
 }
