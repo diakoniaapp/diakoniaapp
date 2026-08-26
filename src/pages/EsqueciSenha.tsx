@@ -29,7 +29,22 @@ export default function EsqueciSenha() {
     });
     setEnviando(false);
 
-    // Por segurança a RPC sempre retorna ok=true (não revela se telefone existe)
+    // `error` era desestruturado e nunca lido.
+    //
+    // Enquanto isso a RPC levantava 42702 para TODO telefone cadastrado (ver
+    // migration 20260826170000): a tela seguia direto para "Solicitação
+    // enviada — você receberá um link no WhatsApp", e a pessoa esperava um
+    // link que nunca tinha sido gerado.
+    //
+    // Um erro do banco não pode virar tela de sucesso. O silêncio da RPC
+    // sobre telefone inexistente continua valendo — isso é decisão de
+    // segurança, e vem como `ok = true` sem token, não como erro.
+    if (error) {
+      setErro("Não foi possível solicitar a recuperação agora. Tente de novo ou fale com a secretaria.");
+      toast.error(error.message);
+      return;
+    }
+
     setEnviado(true);
     if (data && data[0]?.token) {
       // Em produção, o link seria enviado por WhatsApp para o telefone.
