@@ -7,6 +7,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { conferir } from "@/lib/escritaConferida";
 import { useAuth } from "@/hooks/useAuth";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -167,7 +168,10 @@ export default function LgpdAdmin() {
     resposta?: string,
   ) => {
     setAtualizandoId(id);
-    const { error } = await supabase
+    // A politica de UPDATE em `solicitacoes_lgpd` e admin+secretaria. Barrada,
+    // devolve zero linhas e sucesso — e a igreja passaria a acreditar que
+    // respondeu ao titular dentro do prazo legal sem ter respondido.
+    const resultado = await supabase
       .from("solicitacoes_lgpd")
       .update({
         status,
@@ -175,10 +179,15 @@ export default function LgpdAdmin() {
         concluido_em: ["concluido", "negado"].includes(status) ? new Date().toISOString() : null,
         atendido_por: user?.email ?? null,
       })
-      .eq("id", id);
+      .eq("id", id)
+      .select("id");
     setAtualizandoId(null);
+    const { error } = resultado;
+    const r = conferir(resultado, "A solicitação");
     if (error) {
       toast.error("Erro ao atualizar solicitação");
+    } else if (!r.ok) {
+      toast.error(r.erro);
     } else {
       toast.success("Solicitação atualizada");
       carregar();

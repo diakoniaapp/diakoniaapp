@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { CamposEndereco } from "@/components/ui/CamposEndereco";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { conferir } from "@/lib/escritaConferida";
 import { PageHeader } from "@/components/PageHeader";
 import { PorBairro } from "@/components/familias/PorBairro";
 import { MapaFamilias } from "@/components/familias/MapaFamilias";
@@ -138,13 +139,20 @@ export default function Familias() {
     payload.nome_familia = (payload.nome_familia ?? "").replace(/^\s*fam[ií]lia\s+/i, "").trim();
     if (!payload.nome_familia) return toast.error("Informe o sobrenome da família (sem o prefixo 'Família').");
     Object.keys(payload).forEach(k => { if (payload[k] === "") payload[k] = null; });
-    let error;
     if (editingId) {
-      ({ error } = await supabase.from("familias").update(payload).eq("id", editingId));
+      // A politica de UPDATE em `familias` e admin+secretaria+diakonia. Barrada,
+      // ela devolve zero linhas e sucesso — por isso o `.select()` e o conferir.
+      const r = conferir(
+        await supabase.from("familias").update(payload).eq("id", editingId).select("id"),
+        "A família",
+      );
+      if (!r.ok) return toast.error(r.erro);
     } else {
-      ({ error } = await supabase.from("familias").insert(payload));
+      // INSERT nao precisa de conferir: quando a RLS barra uma insercao o
+      // Postgres levanta erro 42501, e o `if (error)` abaixo o pega.
+      const { error } = await supabase.from("familias").insert(payload);
+      if (error) return toast.error(error.message);
     }
-    if (error) return toast.error(error.message);
     toast.success(editingId ? "Família atualizada" : "Família cadastrada");
     setForm({ nome_familia: "", endereco: "", numero: "", complemento: "", bairro: "", cidade: "", cep: "", data_casamento: "", observacoes: "" });
     setEditingId(null);
@@ -207,10 +215,24 @@ export default function Familias() {
         return;
       }
       // 2. Remover vínculos familiares
+      //
+      // Sem conferir de proposito, por dois motivos. Uma familia sem vinculos
+      // devolve zero linhas legitimamente, entao o truque de "zero = barrado"
+      // nao serve aqui — o mesmo raciocinio do comentario acima. E a chave
+      // `vinculos_familiares_familia_id_fkey` e ON DELETE CASCADE: o passo 3
+      // remove estes vinculos de qualquer forma, no banco. Esta linha e
+      // redundante, e falhar nela em silencio nao deixa orfao nenhum.
       await supabase.from("vinculos_familiares").delete().eq("familia_id", familiaParaExcluir.id);
       // 3. Excluir a família
-      const { error } = await supabase.from("familias").delete().eq("id", familiaParaExcluir.id);
-      if (error) { toast.error("Erro ao excluir: " + error.message); return; }
+      //
+      // Aqui conferir e obrigatorio: a politica de DELETE em `familias` e
+      // `admin`+`secretaria`, e o CASCADE acima significa que nao ha chave
+      // estrangeira que levante erro se a exclusao for barrada. Sem o
+      // `.select()`, barrado e excluido devolvem exatamente a mesma coisa.
+      const exclusao = await supabase.from("familias").delete().eq("id", familiaParaExcluir.id).select("id");
+      if (exclusao.error) { toast.error("Erro ao excluir: " + exclusao.error.message); return; }
+      const r = conferir(exclusao, "A família");
+      if (!r.ok) { toast.error(r.erro); return; }
       toast.success(`Família ${familiaParaExcluir.nome_familia} excluída`);
       setFamiliaParaExcluir(null);
       load();

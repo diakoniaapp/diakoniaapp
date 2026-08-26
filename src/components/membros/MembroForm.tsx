@@ -29,6 +29,7 @@ import {
 } from "@/lib/funcaoMinisterial";
 import { TelefoneInput } from "@/components/ui/TelefoneInput";
 import { supabase } from "@/integrations/supabase/client";
+import { conferir } from "@/lib/escritaConferida";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import type { Membro } from "@/pages/Membros";
@@ -537,8 +538,9 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
   const onDelete = async () => {
     if (!membro) return;
     setBusy(true);
-    const { error } = await supabase.from("membros").delete().eq("id", membro.id);
+    const resultado = await supabase.from("membros").delete().eq("id", membro.id).select("id");
     setBusy(false);
+    const { error } = resultado;
     if (error) {
       // A mensagem crua do Postgres — "violates foreign key constraint
       // arr_vendas_membro_id_fkey" — nao diz nada a quem esta na secretaria.
@@ -556,6 +558,12 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
           : "Erro ao excluir: " + error.message,
       );
     }
+    // O bloco acima cobre o erro que o Postgres levanta. Falta o outro caso: a
+    // politica de DELETE em `membros` e `admin`+`secretaria`, e quando ela barra
+    // nao ha erro nenhum — zero linhas e sucesso. Sem esta conferencia a ficha
+    // sumia da tela e voltava no proximo carregamento.
+    const r = conferir(resultado, "O contato");
+    if (!r.ok) return toast.error(r.erro);
     toast.success("Contato excluído");
     setConfirmDelete(false);
     onOpenChange(false);

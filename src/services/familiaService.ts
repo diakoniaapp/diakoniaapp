@@ -1,5 +1,6 @@
 // ─── familiaService.ts — Famílias Fase A ────────────────────────────────────
 import { supabase } from "@/integrations/supabase/client";
+import { conferir } from "@/lib/escritaConferida";
 
 export type ParentescoTipo =
   | "pai_mae" | "conjuge" | "filho" | "avo" | "neto"
@@ -127,20 +128,31 @@ export async function vincularPessoa(
 
 // ── Desvincular (deleta vínculo, família permanece) ────────────────────────
 export async function desvincularPessoa(vinculoId: string): Promise<void> {
-  const { error } = await supabase
-    .from("vinculos_familiares")
-    .delete()
-    .eq("id", vinculoId);
-  if (error) throw error;
+  // A politica de DELETE em `vinculos_familiares` e admin+secretaria. Barrada,
+  // devolve zero linhas e sucesso — o `throw error` sozinho nunca dispararia.
+  // Mantem-se a convencao deste arquivo de lancar, para nao mudar a assinatura.
+  const r = conferir(
+    await supabase
+      .from("vinculos_familiares")
+      .delete()
+      .eq("id", vinculoId)
+      .select("id"),
+    "O vínculo",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 // ── Atualizar família ──────────────────────────────────────────────────────
 export async function atualizarFamilia(familiaId: string, patch: Partial<Familia>): Promise<void> {
-  const { error } = await supabase
-    .from("familias")
-    .update({ ...patch, updated_at: new Date().toISOString() })
-    .eq("id", familiaId);
-  if (error) throw error;
+  const r = conferir(
+    await supabase
+      .from("familias")
+      .update({ ...patch, updated_at: new Date().toISOString() })
+      .eq("id", familiaId)
+      .select("id"),
+    "A família",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 // ── Helper: sugere nome de família a partir do sobrenome ───────────────────

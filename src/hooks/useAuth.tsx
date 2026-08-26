@@ -3,12 +3,16 @@ import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
 // AppRole reflete o enum app_role do Supabase.
-// FASE C: migration adiciona "voluntario" e "pastor"; "diakonia" mantido para compat.
+// FASE C: migration adiciona "voluntario" e "pastor".
 export type AppRole =
   | "admin"
   | "secretaria"
   | "pastor"
-  | "diakonia"  // legado — migrado para "pastor" pela migration; mantido para compat de bundle
+  // "diakonia" NAO e legado. Corrigido em 26/08/2026: a migracao para "pastor"
+  // nunca aconteceu, e ele e o papel mais antigo E mais completo dos dois —
+  // 62 combinacoes tabela+operacao contra 34. A UI o chama de "Pastor titular".
+  // Ver o comentario longo em types/usuario.ts.
+  | "diakonia"
   | "lideranca"
   | "voluntario";
 

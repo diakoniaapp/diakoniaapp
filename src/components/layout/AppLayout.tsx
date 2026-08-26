@@ -153,7 +153,9 @@ export default function AppLayout() {
   const principalRole = (roles[0] ?? "lideranca") as string;
   const roleLabel: Record<string, string> = {
     admin: "Administrador", secretaria: "Secretaria",
-    diakonia: "Pastor", pastor: "Pastor",
+    // `diakonia` e `pastor` sao papeis com alcances diferentes — ver
+    // types/usuario.ts. Rotular os dois de "Pastor" escondia a diferenca.
+    diakonia: "Pastor titular", pastor: "Pastor",
     lideranca: "Liderança", voluntario: "Voluntário",
   };
 
