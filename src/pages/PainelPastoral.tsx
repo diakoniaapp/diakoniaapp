@@ -91,7 +91,6 @@ import {
   type CandidatosMembresia,
 } from "@/services/painelPastoralService";
 import { getResumoVisitantes, type ResumoVisitantes } from "@/services/visitanteService";
-import { eventosExternos } from "@/lib/agenda/externalEvents";
 // "Acontecendo hoje" — o mesmo bloco do painel inicial, reaproveitado inteiro.
 // Ele expande as recorrências e soma as reservas de espaço, que é o que faz o
 // culto de domingo e o ensaio de sábado realmente aparecerem. O hook
@@ -193,6 +192,8 @@ export default function PainelPastoral() {
    * `onTotalDaJanela`. Contar por fora divergia da lista.
    */
   const [compromissos, setCompromissos] = useState(0);
+  /** Compromissos por dia, para a tira. Vem do proprio AgendaDoDia. */
+  const [agendaPorDia, setAgendaPorDia] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [atualizadoEm, setAtualizadoEm] = useState<Date | null>(null);
 
@@ -233,56 +234,42 @@ export default function PainelPastoral() {
   }
 
   // ── Une as duas fontes de data e agrupa por dia ──────────────────────────
-  const dias = useMemo(() => {
-    const inicio = new Date(hoje + "T00:00");
-    const fim = new Date(inicio);
-    fim.setDate(fim.getDate() + DIAS_A_FRENTE);
-
-    const itens: ItemData[] = [];
-
-    for (const ev of eventos) {
-      const data = ev.data_evento ?? ev.proxima_data;
-      if (!data) continue;
-      itens.push({
-        chave: `${ev.tipo}-${ev.ref_id}-${data}`,
-        data,
+  /**
+   * As celebrações de HOJE — e só de hoje.
+   *
+   * Aniversário, bodas, anos de membresia e anos de pastorado: quatro jeitos
+   * de a igreja ter algo a dizer a alguém neste dia. Felicitar é coisa do
+   * dia; uma lista de sete dias transformava isso numa agenda de lembretes.
+   *
+   * **Feriados e calendário da CBB saíram daqui.** Eles não são celebração
+   * de ninguém — são contexto do calendário — e já apareciam na Agenda, que
+   * lê `eventosExternos` por dentro. Ficavam nas duas listas ao mesmo tempo:
+   * a Semana de Oração da JMN em 1º de setembro era contada aqui E lá.
+   */
+  const celebracoesDeHoje = useMemo(() => {
+    return eventos
+      .filter(ev => (ev.data_evento ?? ev.proxima_data) === hoje)
+      .map(ev => ({
+        chave: `${ev.tipo}-${ev.ref_id}-${hoje}`,
+        data: hoje,
         categoria: ev.tipo as Categoria,
         titulo: ev.titulo,
         detalhe: detalheEfemeride(ev),
         evento: ev,
-      });
-    }
-
-    // Feriados nacionais e datas da Convenção Batista — já existiam em
-    // `lib/agenda/externalEvents`, e só a tela da Agenda os lia.
-    for (const o of eventosExternos(inicio, fim)) {
-      itens.push({
-        chave: o.key,
-        data: o.data,
-        categoria: o.categoria as Categoria,
-        titulo: o.evento.titulo,
-        detalhe: o.evento.descricao ?? CATEGORIA_UI[o.categoria as Categoria].rotulo,
-      });
-    }
-
-    // Um balde por dia, inclusive os dias vazios: a semana aparece inteira,
-    // e um domingo sem nada é informação, não ausência de informação.
-    const baldes: { data: string; itens: ItemData[] }[] = [];
-    for (let i = 0; i <= DIAS_A_FRENTE; i++) {
-      const d = new Date(inicio);
-      d.setDate(d.getDate() + i);
-      const iso = isoLocal(d);
-      baldes.push({
-        data: iso,
-        itens: itens
-          .filter(x => x.data === iso)
-          .sort((a, b) => a.categoria.localeCompare(b.categoria) || a.titulo.localeCompare(b.titulo)),
-      });
-    }
-    return baldes;
+      }) as ItemData)
+      .sort((a, b) => a.categoria.localeCompare(b.categoria) || a.titulo.localeCompare(b.titulo));
   }, [eventos, hoje]);
 
-  const totalDatas = dias.reduce((s, d) => s + d.itens.length, 0);
+  /** Os sete dias da tira, com quantos compromissos cada um tem. */
+  const dias = useMemo(
+    () => Array.from({ length: DIAS_A_FRENTE + 1 }, (_, i) => {
+      const d = new Date(hoje + "T00:00");
+      d.setDate(d.getDate() + i);
+      const iso = isoLocal(d);
+      return { data: iso, total: agendaPorDia[iso] ?? 0 };
+    }),
+    [hoje, agendaPorDia],
+  );
 
   if (loading) return <PaginaSkeleton />;
 
@@ -358,7 +345,7 @@ export default function PainelPastoral() {
             rotulo="Celebrações hoje"
             valor={resumo.aniversarios_hoje + resumo.bodas_hoje}
             tom="celebracao" icone={PartyPopper}
-            onClick={() => irParaSecao("datas")}
+            onClick={() => irParaSecao("celebracoes")}
             descricao={
               // "bodas" não tem singular: uma bodas, duas bodas.
               `${resumo.aniversarios_hoje} ${resumo.aniversarios_hoje === 1 ? "aniversário" : "aniversários"}` +
@@ -375,7 +362,7 @@ export default function PainelPastoral() {
               fora — já têm indicador próprio e a lista logo abaixo. */}
           <Indicador
             rotulo="Agenda (7d)" valor={compromissos} tom="gold" icone={CalendarCheck}
-            onClick={() => irParaSecao("datas")} descricao="Ir para A semana"
+            onClick={() => irParaSecao("agenda")} descricao="Ir para a Agenda"
           />
           <Indicador
             rotulo="Cand. batismo" valor={candidatos?.elegiveis.length ?? 0} tom="info" icone={Droplets}
@@ -409,81 +396,72 @@ export default function PainelPastoral() {
           A agenda do dia com hora e lugar: cultos, ensaios, reuniões e
           reservas de espaço. Fica antes de "Datas importantes" porque é o
           que tem hora marcada — o resto da semana pode esperar a rolagem. */}
-      {/* ── A semana: a tira escolhe o dia, e os dois blocos obedecem ────
-          Antes eram duas seções independentes. "Acontecendo hoje" mostrava
-          sempre hoje, enquanto logo abaixo a tira de sete dias deixava
-          escolher a sexta — e a agenda continuava na quarta. Duas leituras
-          de dia diferentes, uma ao lado da outra.
+      {/* ── Celebrações de hoje ─────────────────────────────────────────
+          Aniversário, bodas, anos de membresia e anos de pastorado: quatro
+          jeitos de a igreja ter algo a dizer a alguém HOJE.
 
-          Agora a tira comanda as duas: o compromisso com hora e a celebração
-          são o mesmo dia. `AgendaDoDia` recebe `dia`; sem a prop, no painel
-          inicial, ele segue exatamente como era. */}
-      <section id="datas" className="scroll-mt-[280px] sm:scroll-mt-[230px]">
-        {/* Sem contagem no título, de propósito.
-            Ela mostrava `totalDatas` — 11, só as celebrações —, enquanto a
-            seção também guarda os 22 compromissos da agenda. Dois números
-            para a mesma seção, e o menor deles em destaque.
-            Cada parte já traz o seu: a tira conta as celebrações por dia, o
-            divisor do dia repete o número, e a agenda mostra a lista. */}
-        <TituloDaSecao icone={CalendarCheck}>
-          A semana
+          Só hoje, a pedido. Felicitar é coisa do dia — uma lista de sete
+          dias transformava isso numa agenda de lembretes, e a pessoa que
+          faz aniversário na sexta não precisa aparecer na quarta.
+
+          Feriados e calendário da CBB não entram: não são celebração de
+          ninguém, e já aparecem na Agenda logo abaixo. Ficavam nas duas
+          listas ao mesmo tempo. */}
+      <section id="celebracoes" className="scroll-mt-[280px] sm:scroll-mt-[230px]">
+        <TituloDaSecao icone={PartyPopper} tom="celebracao" contagem={celebracoesDeHoje.length}>
+          Celebrações de hoje
         </TituloDaSecao>
-        <div className="space-y-3">
-          {/*
-            O parágrafo que listava as fontes — aniversários, bodas, membresia,
-            pastorado, feriados e calendário da CBB — saiu daqui. Ele custava
-            duas linhas em toda visita para explicar uma vez o que os próprios
-            ícones e o texto de cada item já dizem: "91 anos" ao lado de um
-            bolo não precisa de legenda.
-          */}
+        {celebracoesDeHoje.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-2 px-3 border rounded-md">
+            Ninguém faz aniversário nem completa tempo de casa hoje.
+          </p>
+        ) : (
+          <div className="grid sm:grid-cols-2 gap-1.5">
+            {celebracoesDeHoje.map(item => <LinhaData key={item.chave} item={item} />)}
+          </div>
+        )}
+      </section>
 
-          {totalDatas === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">
-              Nenhuma data nos próximos 7 dias. Semana tranquila 🙏
-            </p>
-          ) : (
-            <>
-              <TiraDaSemana
-                dias={dias}
-                hojeIso={hoje}
-                aberto={diaAberto}
-                onAbrir={setDiaAberto}
-              />
-              {/* As celebrações vêm primeiro — aniversários, bodas, anos de
-                  membresia e de pastorado.
+      {/* ── Agenda ──────────────────────────────────────────────────────
+          Os compromissos: cultos, ensaios, reuniões, reservas de espaço,
+          feriados e o calendário da Convenção Batista.
 
-                  A agenda tem hora marcada e por isso parecia dever vir
-                  antes; mas quem abre este painel de manhã abre para saber
-                  de quem precisa lembrar, e felicitar é o que se faz assim
-                  que se lê. O culto das 19h a liderança já sabe de cor. */}
-              <BlocoDoDia
-                data={diaAberto}
-                itens={dias.find(d => d.data === diaAberto)?.itens ?? []}
-                hojeIso={hoje}
-              />
-              {/* Os compromissos com hora do dia escolhido — cultos, ensaios,
-                  reuniões e reservas de espaço, com recorrências expandidas.
+          A tira de sete dias fica ABAIXO da lista, e não acima: ela é o
+          controle da agenda, e um controle abaixo do que controla mantém o
+          conteúdo no topo da seção — quem abre o painel quer ver o dia,
+          não escolher qual dia ver.
 
-                  O divisor repete a forma do das celebrações, logo acima. Sem
-                  ele a agenda aparecia solta embaixo da lista de
-                  aniversariantes, sem dizer o que era — e no dia em que não
-                  há celebração alguma, ela nascia sem nenhum cabeçalho.
+          Ela conta COMPROMISSOS, não celebrações. Antes contava as
+          efemérides, e os números da tira não tinham relação com a lista
+          logo abaixo dela. Quem conta agora é o próprio `AgendaDoDia`, que
+          reporta por `onJanela` o mesmo conjunto que desenha — ver a nota
+          lá sobre as três fontes desta lista. */}
+      <section id="agenda" className="scroll-mt-[280px] sm:scroll-mt-[230px]">
+        <TituloDaSecao icone={CalendarClock}>
+          {diaAberto === hoje
+            ? "Acontecendo hoje"
+            : `Agenda · ${rotuloDoDia(diaAberto, hoje)}`}
+        </TituloDaSecao>
 
-                  Diz "Acontecendo hoje" só quando o dia aberto é hoje. Para
-                  a sexta-feira nada está acontecendo: está marcado. */}
-              <div className="pt-1">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <p className={`text-xs font-medium uppercase tracking-wide shrink-0 ${
-                    diaAberto === hoje ? "text-gold-text" : "text-muted-foreground"
-                  }`}>
-                    {diaAberto === hoje ? "Acontecendo hoje" : "Agenda do dia"}
-                  </p>
-                  <div className="h-px flex-1 bg-border" />
-                </div>
-                <AgendaDoDia dia={diaAberto} onTotalDaJanela={setCompromissos} />
-              </div>
-            </>
-          )}
+        {/* A tira vem antes da lista: é o filtro, e o que ele pede abre
+            logo abaixo. Chegou a ficar embaixo por uma versão, na ideia de
+            manter o conteúdo colado ao título — mas um controle depois do
+            resultado obriga a rolar de volta para trocar de dia. */}
+        <TiraDaSemana
+          dias={dias}
+          hojeIso={hoje}
+          aberto={diaAberto}
+          onAbrir={setDiaAberto}
+        />
+
+        <div className="mt-3">
+          <AgendaDoDia
+            dia={diaAberto}
+            onJanela={({ total, porDia }) => {
+              setCompromissos(total);
+              setAgendaPorDia(porDia);
+            }}
+          />
         </div>
       </section>
 
@@ -685,7 +663,7 @@ function rotuloCurto(iso: string, hojeIso: string): string {
 function TiraDaSemana({
   dias, hojeIso, aberto, onAbrir,
 }: {
-  dias: { data: string; itens: ItemData[] }[];
+  dias: { data: string; total: number }[];
   hojeIso: string;
   aberto: string;
   onAbrir: (iso: string) => void;
@@ -695,7 +673,7 @@ function TiraDaSemana({
       {dias.map(d => {
         const ehHoje = d.data === hojeIso;
         const ehAberto = d.data === aberto;
-        const n = d.itens.length;
+        const n = d.total;
         const dia = new Date(d.data + "T00:00").getDate();
         return (
           <button
@@ -704,7 +682,7 @@ function TiraDaSemana({
             role="tab"
             aria-selected={ehAberto}
             onClick={() => onAbrir(d.data)}
-            title={`${rotuloDoDia(d.data, hojeIso)} — ${n === 0 ? "nada marcado" : n === 1 ? "1 data" : `${n} datas`}`}
+            title={`${rotuloDoDia(d.data, hojeIso)} — ${n === 0 ? "nada marcado" : n === 1 ? "1 compromisso" : `${n} compromissos`}`}
             className={`rounded-md border px-1 py-1.5 text-center min-w-0 transition-colors
               hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring
               ${ehAberto ? "border-gold bg-muted ring-1 ring-gold/40" : n === 0 ? "border-dashed opacity-60" : ""}`}
@@ -719,56 +697,6 @@ function TiraDaSemana({
           </button>
         );
       })}
-    </div>
-  );
-}
-
-/**
- * O dia aberto na tira — um por vez.
- *
- * Antes esta função desenhava os sete dias empilhados e escondia os vazios.
- * Agora só existe o dia que a pessoa clicou, e por isso o vazio **sempre
- * aparece**: quem escolheu a sexta-feira quer a resposta sobre a sexta, e
- * uma tela em branco não é resposta.
- */
-function BlocoDoDia({
-  data, itens, hojeIso,
-}: {
-  data: string;
-  itens: ItemData[];
-  hojeIso: string;
-
-}) {
-  const ehHoje = data === hojeIso;
-
-  return (
-    <div>
-      {/* Cabeçalho do dia numa linha só, com fio até a borda: ocupa ~20px em
-          vez de um paragrafo proprio, e separa sem pesar. */}
-      <div className="flex items-center gap-2 mb-1.5">
-        <p className={`text-xs font-medium uppercase tracking-wide shrink-0 ${ehHoje ? "text-gold-text" : "text-muted-foreground"}`}>
-          {rotuloDoDia(data, hojeIso)}
-        </p>
-        <div className="h-px flex-1 bg-border" />
-        {itens.length > 0 && (
-          <span className="text-xs text-muted-foreground tabular-nums shrink-0">{itens.length}</span>
-        )}
-      </div>
-
-      {itens.length === 0 ? (
-        <p className="text-sm text-muted-foreground py-2 px-3 border rounded-md">
-          {ehHoje
-            ? "Nada marcado para hoje. Bom dia tranquilo 🙏"
-            : "Nada marcado para este dia."}
-        </p>
-      ) : (
-        // Duas colunas a partir de `sm`. Cada item e um nome curto e uma
-        // idade — esticar isso por 900px era o que fazia as datas virarem
-        // uma tela e meia de rolagem.
-        <div className="grid sm:grid-cols-2 gap-1.5">
-          {itens.map(item => <LinhaData key={item.chave} item={item} />)}
-        </div>
-      )}
     </div>
   );
 }

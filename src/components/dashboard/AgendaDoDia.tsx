@@ -189,16 +189,17 @@ function useAgoraEmMinutos(): number {
  * como riscar um culto que ainda não aconteceu.
  */
 export function AgendaDoDia({
-  dia, onTotalDaJanela,
+  dia, onJanela,
 }: {
   dia?: string;
   /**
-   * Quantas ocorrências existem na janela carregada (hoje até hoje + 7).
+   * Quantos compromissos há em cada dia da semana, e no total.
    *
-   * Existe para o indicador "Agenda (7d)" do Painel Pastoral. A primeira
-   * versão dele buscava e expandia os eventos por conta própria, num serviço
-   * separado — e **divergiu na primeira conferência**: marcava 21 enquanto a
-   * soma dos sete dias na tela dava 22.
+   * Existe para o Painel Pastoral: a tira de sete dias conta a agenda, e o
+   * indicador "Agenda (7d)" soma. A primeira versão buscava e expandia os
+   * eventos por conta própria, num serviço separado — e **divergiu na
+   * primeira conferência**: marcava 21 enquanto a soma dos sete dias na tela
+   * dava 22.
    *
    * A causa é estrutural, não um descuido de filtro: esta lista tem TRÊS
    * fontes — eventos da igreja com recorrências expandidas, o calendário
@@ -208,8 +209,11 @@ export function AgendaDoDia({
    *
    * Um número que resume uma lista precisa bater com ela. Então quem conta é
    * quem monta.
+   *
+   * `porDia` é indexado pela data local em ISO, e só traz os sete dias que a
+   * tira mostra (hoje até hoje + 6) — a busca vai a hoje + 7 por folga.
    */
-  onTotalDaJanela?: (n: number) => void;
+  onJanela?: (info: { total: number; porDia: Record<string, number> }) => void;
 } = {}) {
   const [ocorrencias, setOcorrencias] = useState<EventoOcorrencia[]>([]);
   const [loading, setLoading] = useState(true);
@@ -277,16 +281,19 @@ export function AgendaDoDia({
         // hoje + 6. Contar a janela inteira daria um número que não bate
         // com nenhum dia visível — o defeito que este callback existe para
         // evitar, repetido do outro lado.
-        const limite = new Date(hoje);
-        limite.setDate(limite.getDate() + 6);
-        const limiteISO = dataLocal(limite);
         const inicioISO = dataLocal(hoje);
-        onTotalDaJanela?.(
-          tudo.filter(o => {
-            const d = o.data ?? inicioISO;
-            return d >= inicioISO && d <= limiteISO;
-          }).length,
-        );
+        const porDia: Record<string, number> = {};
+        for (let i = 0; i <= 6; i++) {
+          const d = new Date(hoje);
+          d.setDate(d.getDate() + i);
+          porDia[dataLocal(d)] = 0;   // dia sem nada precisa existir como 0
+        }
+        let total = 0;
+        for (const o of tudo) {
+          const d = o.data ?? inicioISO;
+          if (d in porDia) { porDia[d]++; total++; }
+        }
+        onJanela?.({ total, porDia });
       } catch {
         if (!cancelado) setOcorrencias([]);
       } finally {
