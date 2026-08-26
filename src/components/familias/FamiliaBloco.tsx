@@ -2,8 +2,8 @@
 //
 // Mostra:
 //  1. Família atual (se a pessoa já tem vínculo) com botão "Trocar"
-//  2. Sugestões automáticas por sobrenome (se houver outras pessoas)
-//  3. Busca por uma família que já existe, pelo nome dela OU de quem está nela
+//  2. Um campo que procura PESSOAS já cadastradas, pelo nome
+//  3. A lista de pessoas — sugestões por sobrenome, ou o que a busca achou
 //  4. Opção "Criar nova família" com nome auto-sugerido
 //  5. Opção "Ignorar por agora"
 //
@@ -33,7 +33,7 @@ import {
   sugerirVinculos, familiaDaPessoa, criarFamilia, vincularPessoa,
   desvincularPessoa, nomeFamiliaSugerido,
   PARENTESCO_LABEL, type ParentescoTipo, type SugestaoVinculo,
-  type Familia, buscarFamilias, type FamiliaEncontrada,
+  type Familia, buscarPessoasParaVinculo,
 } from "@/services/familiaService";
 
 interface Props {
@@ -69,10 +69,13 @@ export function FamiliaBloco({ pessoaId, nomeCompleto, endereco, onChange }: Pro
   const [vincBusy, setVincBusy] = useState(false);
   const [vincModo, setVincModo] = useState<"existente" | "nova">("existente");
 
-  // Busca por família existente
-  const [buscaOpen, setBuscaOpen]   = useState(false);
+  // Busca por PESSOA para vincular.
+  //
+  // Devolve `SugestaoVinculo`, o mesmo tipo das sugestões automáticas por
+  // sobrenome, para os dois resultados caírem na MESMA lista, com a mesma
+  // caixa de seleção e o mesmo diálogo de parentesco.
   const [buscaTermo, setBuscaTermo] = useState("");
-  const [buscaAchados, setBuscaAchados] = useState<FamiliaEncontrada[]>([]);
+  const [buscaAchados, setBuscaAchados] = useState<SugestaoVinculo[]>([]);
   const [buscando, setBuscando]     = useState(false);
 
   // Vínculo em lote
@@ -139,7 +142,7 @@ export function FamiliaBloco({ pessoaId, nomeCompleto, endereco, onChange }: Pro
     if (ids.length === 0) { toast.error("Selecione ao menos uma pessoa."); return; }
     
     // Identifica família âncora: primeira sugestão selecionada que já está em alguma família
-    const ancora = sugestoes.find(s => ids.includes(s.pessoa_id) && s.familia_id);
+    const ancora = pessoasListadas.find(s => ids.includes(s.pessoa_id) && s.familia_id);
     setLoteFamiliaId(ancora?.familia_id ?? null);
     setLoteFamiliaNome(ancora?.familia_nome ?? nomeFamiliaSugerido(nomeCompleto));
     
@@ -164,46 +167,47 @@ export function FamiliaBloco({ pessoaId, nomeCompleto, endereco, onChange }: Pro
     setVincOpen(true);
   }
 
-  // ── Buscar uma família que já existe ──────────────────────────────────
-  //
-  // Abre já com o sobrenome da pessoa digitado e a busca feita: em quase
-  // todo caso é o termo certo, e quem abre com o campo vazio precisa
-  // adivinhar o que digitar antes de ver qualquer coisa.
-  function abrirBusca() {
-    if (!pessoaId) { toast.error("Salve a pessoa antes de vincular."); return; }
-    const sobrenome = nomeCompleto.trim().split(/\s+/).filter(p => p.length > 2).pop() ?? "";
-    setBuscaTermo(sobrenome);
-    setBuscaAchados([]);
-    setBuscaOpen(true);
-    if (sobrenome.length >= 2) rodarBusca(sobrenome);
-  }
-
-  async function rodarBusca(termo: string) {
+  /**
+   * A busca roda enquanto se digita, com 300ms de espera.
+   *
+   * Sem a espera, "Rodrigues" dispararia nove consultas e as respostas
+   * poderiam chegar fora de ordem — a de "Rod" depois da de "Rodrigues",
+   * sobrescrevendo o resultado certo pelo errado. O `cancelado` cobre o
+   * mesmo risco pelo outro lado: a resposta de um termo já abandonado não
+   * escreve no estado.
+   *
+   * Não há botão "Buscar". Ele existia porque o campo morava num diálogo que
+   * já custava um clique para abrir; num campo sempre visível, exigir um
+   * segundo clique para ver resultado é exigir sem motivo.
+   */
+  useEffect(() => {
+    const t = buscaTermo.trim();
+    if (t.length < 2) { setBuscaAchados([]); setBuscando(false); return; }
+    let cancelado = false;
     setBuscando(true);
-    try {
-      setBuscaAchados(await buscarFamilias(termo));
-    } catch (e: any) {
-      toast.error(e?.message ?? "Erro ao buscar famílias");
-      setBuscaAchados([]);
-    } finally {
-      setBuscando(false);
-    }
-  }
+    const id = setTimeout(async () => {
+      try {
+        const achados = await buscarPessoasParaVinculo(t, pessoaId);
+        if (!cancelado) setBuscaAchados(achados);
+      } catch (e: any) {
+        if (!cancelado) { toast.error(e?.message ?? "Erro ao buscar pessoas"); setBuscaAchados([]); }
+      } finally {
+        if (!cancelado) setBuscando(false);
+      }
+    }, 300);
+    return () => { cancelado = true; clearTimeout(id); };
+  }, [buscaTermo, pessoaId]);
 
-  // Escolher uma família cai no MESMO diálogo das sugestões: parentesco,
-  // responsável e copiar endereço são as mesmas três perguntas, e ter duas
-  // telas para elas seria duas telas para manter iguais.
-  function escolherFamilia(f: FamiliaEncontrada) {
-    setBuscaOpen(false);
-    setVincSugestao(null);
-    setVincModo("existente");
-    setVincFamiliaId(f.id);
-    setVincFamiliaNovoNome(f.nome_familia);
-    setVincParentesco("conjuge");
-    setVincResponsavel(false);
-    setVincCopiarEnd(false);
-    setVincOpen(true);
-  }
+  /**
+   * A lista de pessoas que a tela mostra: os achados da busca quando há
+   * termo, as sugestões automáticas quando não há.
+   *
+   * Uma só, e não duas empilhadas. O lote (`abrirVincLote`) escolhe a família
+   * âncora daqui: se a lista renderizada e a lista consultada fossem
+   * diferentes, marcar alguém achado na busca e clicar em "Vincular" pegaria
+   * âncora nula e criaria família nova em vez de entrar na existente.
+   */
+  const pessoasListadas = buscaTermo.trim().length >= 2 ? buscaAchados : sugestoes;
 
   async function confirmarVinculo() {
     if (!pessoaId) { toast.error("Salve a pessoa antes de vincular."); return; }
@@ -351,48 +355,96 @@ export function FamiliaBloco({ pessoaId, nomeCompleto, endereco, onChange }: Pro
           o desfecho mais comum e o mais barato de desfazer; criar família
           nova por engano espalha duplicata pelo cadastro. */}
       {!atual && !ignorado && (
-        <div className="flex flex-wrap items-center gap-1.5">
-          <Button
-            type="button" size="sm" variant="outline"
-            onClick={(e) => { e.preventDefault(); abrirBusca(); }}
-            className="gap-1.5 text-xs"
-          >
-            <Search className="w-3 h-3" /> Buscar família existente
-          </Button>
+        <div className="space-y-2">
+          {/* ── O campo de procura, aberto ──────────────────────────────
+              Antes isto era um botão que abria um diálogo com o campo
+              dentro. Dois cliques e uma tela inteira para o que é a saída
+              mais comum do passo — e, pior, um campo que ninguém via: quem
+              não reconhecia nenhum dos "possíveis familiares" não tinha por
+              onde procurar sem antes descobrir o botão.
+
+              E o que ele procurava eram FAMÍLIAS. Quem cadastra procura o
+              parente — "é a mulher do Roger" —, digitava "Roger" e recebia
+              "Família Paixão · por causa de Roger Ferreira Cury Paixao":
+              duas traduções para chegar à mesma pessoa. Pior, quem ainda não
+              tem família nenhuma não aparecia, por não haver família que o
+              representasse — e são 294 pessoas para 75 famílias.
+
+              O campo nasce vazio de propósito. O sobrenome já é o que as
+              sugestões automáticas abaixo usam; repetir a mesma consulta aqui
+              encheria o campo com um termo que a lista de baixo já respondeu. */}
+          <div>
+            <p className="text-xs font-medium flex items-center gap-1.5 mb-1.5">
+              <Search className="w-3.5 h-3.5 text-gold-text" />
+              Buscar familiares existentes
+            </p>
+            <Input
+              value={buscaTermo}
+              onChange={(e) => setBuscaTermo(e.target.value)}
+              // Enter aqui submeteria o formulário de 6 passos inteiro.
+              onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }}
+              placeholder="Nome de quem já está cadastrado"
+              className="h-9 text-sm"
+            />
+            {/* O resultado NÃO sai aqui: ele cai no cartão logo abaixo, o
+                mesmo das sugestões automáticas. Uma lista de pessoas só, com
+                uma aparência só. */}
+            {buscando && (
+              <p className="text-xs text-muted-foreground mt-1.5 flex items-center gap-1.5">
+                <Loader2 className="w-3 h-3 animate-spin" /> Procurando...
+              </p>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5">
           {/* Estes dois moram dentro do cartão de sugestões quando ele
               existe. Sem sugestões o cartão não é renderizado, e sem esta
               linha a pessoa ficava sem nenhuma das três saídas. */}
-          {sugestoes.length === 0 && pessoaId && (
-            <Button
-              type="button" size="sm" variant="outline"
-              onClick={(e) => { e.preventDefault(); abrirVincCriarNova(); }}
-              className="gap-1.5 text-xs"
-            >
-              <Users className="w-3 h-3" /> Criar nova família (só eu)
-            </Button>
-          )}
-          {sugestoes.length === 0 && (
-            <Button
-              type="button" size="sm" variant="ghost"
-              onClick={(e) => { e.preventDefault(); setIgnorado(true); }}
-              className="text-xs text-muted-foreground"
-            >
-              Ignorar por agora
-            </Button>
-          )}
+            {pessoasListadas.length === 0 && pessoaId && (
+              <Button
+                type="button" size="sm" variant="outline"
+                onClick={(e) => { e.preventDefault(); abrirVincCriarNova(); }}
+                className="gap-1.5 text-xs"
+              >
+                <Users className="w-3 h-3" /> Criar nova família (só eu)
+              </Button>
+            )}
+            {pessoasListadas.length === 0 && (
+              <Button
+                type="button" size="sm" variant="ghost"
+                onClick={(e) => { e.preventDefault(); setIgnorado(true); }}
+                className="text-xs text-muted-foreground"
+              >
+                Ignorar por agora
+              </Button>
+            )}
+          </div>
         </div>
       )}
 
-      {/* Sugestões automáticas (somente se ainda não tem família) */}
-      {!atual && !ignorado && sugestoes.length > 0 && (
+      {/* ── A lista de pessoas ────────────────────────────────────────────
+          Um cartão só para as duas origens: as sugestões automáticas por
+          sobrenome, e o que a busca acima devolve. São a mesma coisa — uma
+          pessoa que talvez seja parente — e o que se faz com elas é
+          idêntico, então empilhar duas listas com aparências diferentes
+          seria pedir para quem cadastra descobrir que a de baixo funciona
+          igual à de cima.
+
+          Some quando não há nem sugestão nem achado; o campo de busca fica,
+          porque é justamente aí que ele serve. */}
+      {!atual && !ignorado && pessoasListadas.length > 0 && (
         <Card className="border-warning-line bg-warning-soft/40">
           <CardContent className="py-3 space-y-2">
             <p className="text-xs font-medium flex items-center gap-1.5 text-warning-text">
               <Sparkles className="w-3.5 h-3.5" />
-              Possíveis familiares encontrados ({sugestoes.length}):
+              {buscando
+                ? "Procurando..."
+                : buscaTermo.trim().length >= 2
+                  ? `Pessoas encontradas (${pessoasListadas.length}):`
+                  : `Possíveis familiares encontrados (${pessoasListadas.length}):`}
             </p>
             <div className="space-y-1.5 max-h-40 overflow-y-auto">
-              {sugestoes.map(s => {
+              {pessoasListadas.map(s => {
                 const checked = selecionados.has(s.pessoa_id);
                 return (
                   <label key={s.pessoa_id} className="flex items-center justify-between gap-2 text-sm border-b border-warning-line/40 pb-1.5 last:border-0 cursor-pointer hover:bg-warning-soft/50 rounded px-1 py-1">
@@ -408,9 +460,17 @@ export function FamiliaBloco({ pessoaId, nomeCompleto, endereco, onChange }: Pro
                         }}
                       />
                       <NomePessoa id={s.pessoa_id} nome={s.nome_completo} className="font-medium truncate" />
-                      {s.familia_nome && (
+                      {s.familia_nome ? (
                         <Badge variant="outline" className="text-xs border-destructive-line text-destructive-text">
                           {s.familia_nome}
+                        </Badge>
+                      ) : (
+                        // Sem esta etiqueta, escolher alguém sem família e cair
+                        // num diálogo pedindo NOME DE FAMÍLIA NOVA parece erro.
+                        // A busca por pessoa traz muita gente assim: 294
+                        // cadastradas para 75 famílias.
+                        <Badge variant="outline" className="text-xs text-muted-foreground shrink-0">
+                          sem família
                         </Badge>
                       )}
                     </div>
@@ -630,84 +690,6 @@ export function FamiliaBloco({ pessoaId, nomeCompleto, endereco, onChange }: Pro
         </DialogContent>
       </Dialog>
 
-      {/* ── Diálogo: buscar família existente ─────────────────────────── */}
-      <Dialog open={buscaOpen} onOpenChange={setBuscaOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Buscar família existente</DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-3">
-            {/* Busca no nome da família E no de quem está nela: quem cadastra
-                quase nunca sabe como a família foi batizada no sistema — sabe
-                o parente. "É a família do Lucas." */}
-            <div className="flex gap-2">
-              <Input
-                autoFocus
-                value={buscaTermo}
-                onChange={(e) => setBuscaTermo(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); rodarBusca(buscaTermo); } }}
-                placeholder="Nome da família ou de alguém dela"
-              />
-              <Button
-                type="button"
-                onClick={() => rodarBusca(buscaTermo)}
-                disabled={buscando || buscaTermo.trim().length < 2}
-                className="gap-1.5 shrink-0"
-              >
-                {buscando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                Buscar
-              </Button>
-            </div>
-
-            <div className="max-h-72 overflow-y-auto space-y-1">
-              {buscaAchados.map(f => (
-                <button
-                  key={f.id}
-                  type="button"
-                  onClick={() => escolherFamilia(f)}
-                  className="w-full text-left px-3 py-2 rounded-md border hover:bg-muted/60 transition-colors"
-                >
-                  <span className="flex items-center justify-between gap-2">
-                    <span className="font-medium truncate">{f.nome_familia}</span>
-                    <Badge variant="outline" className="text-xs shrink-0">
-                      {f.integrantes} {f.integrantes === 1 ? "integrante" : "integrantes"}
-                    </Badge>
-                  </span>
-                  {/* Dizer POR QUE a família apareceu. Sem isto, procurar por
-                      "Souza" traz uma família "Dias" e quem lê acha que a busca
-                      errou — quando o certo é que o Lucas Souza mora nela. */}
-                  {f.porCausaDe && (
-                    <span className="block text-xs text-muted-foreground truncate">
-                      por causa de {f.porCausaDe}
-                    </span>
-                  )}
-                  {(f.bairro || f.cidade) && (
-                    <span className="block text-xs text-muted-foreground truncate">
-                      {[f.bairro, f.cidade].filter(Boolean).join(" · ")}
-                    </span>
-                  )}
-                </button>
-              ))}
-
-              {!buscando && buscaTermo.trim().length >= 2 && buscaAchados.length === 0 && (
-                <p className="text-sm text-muted-foreground py-6 text-center">
-                  Nenhuma família encontrada com "{buscaTermo}".
-                  <span className="block text-xs mt-1">
-                    Tente o nome de um parente, ou crie uma família nova.
-                  </span>
-                </p>
-              )}
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setBuscaOpen(false)}>
-              Cancelar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

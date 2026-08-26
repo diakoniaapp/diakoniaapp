@@ -1,5 +1,5 @@
 // ─── familiaService.ts — Famílias Fase A ────────────────────────────────────
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, supabaseRel } from "@/integrations/supabase/client";
 import { conferir } from "@/lib/escritaConferida";
 
 export type ParentescoTipo =
@@ -49,6 +49,65 @@ export interface SugestaoVinculo {
   familia_nome: string | null;
   parentesco: ParentescoTipo | null;
   responsavel: boolean;
+}
+
+/**
+ * Procura PESSOAS para vincular, não famílias.
+ *
+ * A busca antiga (`buscarFamilias`) casava pelo nome de quem estava na
+ * família mas devolvia a FAMÍLIA. Quem cadastra procura o parente — "é a
+ * mulher do Roger" —, e recebia de volta uma linha "Família Paixão · por
+ * causa de Roger Ferreira Cury Paixao". Duas traduções para chegar à mesma
+ * pessoa, e nenhuma delas para quem ainda não tem família nenhuma: pessoa
+ * sem vínculo simplesmente não aparecia no resultado, porque não havia
+ * família para representá-la.
+ *
+ * O retorno é `SugestaoVinculo`, o mesmo tipo das sugestões automáticas por
+ * sobrenome. Não é conveniência: é o que permite os dois resultados caírem
+ * na mesma lista, com a mesma caixa de seleção e o mesmo diálogo de
+ * parentesco. Duas listas de pessoas com aparências diferentes na mesma tela
+ * seriam duas coisas para manter iguais.
+ *
+ * `familia_id` nulo é resultado legítimo e frequente: 294 pessoas no cadastro
+ * para 75 famílias. Quem escolher uma dessas cai no fluxo de criar família
+ * nova com as duas — que `abrirVincSugestao` já trata.
+ */
+export async function buscarPessoasParaVinculo(
+  termo: string,
+  excluirPessoaId?: string | null,
+): Promise<SugestaoVinculo[]> {
+  const t = termo.trim();
+  if (t.length < 2) return [];
+
+  // `supabaseRel` por causa do embed aninhado (membros → vínculo → família):
+  // com o cliente tipado, percorrer o grafo de relacionamentos estoura o
+  // limite de profundidade do TypeScript e contamina a consulta inteira.
+  // Ver AD-4 no CLAUDE.md.
+  const { data, error } = await supabaseRel
+    .from("membros")
+    .select("id, nome_completo, vinculos_familiares(familia_id, parentesco, responsavel_familia, familias(nome_familia))")
+    .ilike("nome_completo", `%${t}%`)
+    .eq("status", "ativo")
+    .order("nome_completo")
+    .limit(20);
+  if (error) throw error;
+
+  const achados: SugestaoVinculo[] = [];
+  for (const m of (data ?? []) as any[]) {
+    if (excluirPessoaId && m.id === excluirPessoaId) continue;   // ninguém é parente de si
+    const v = m.vinculos_familiares?.[0];
+    const partes = (m.nome_completo ?? "").trim().split(/\s+/);
+    achados.push({
+      pessoa_id: m.id,
+      nome_completo: m.nome_completo,
+      sobrenome: partes.length > 1 ? partes[partes.length - 1] : "",
+      familia_id: v?.familia_id ?? null,
+      familia_nome: v?.familias?.nome_familia ?? null,
+      parentesco: (v?.parentesco ?? null) as ParentescoTipo | null,
+      responsavel: v?.responsavel_familia ?? false,
+    });
+  }
+  return achados;
 }
 
 // ── Sugestões automáticas por sobrenome ────────────────────────────────────
@@ -188,86 +247,3 @@ export function nomeFamiliaSugerido(nomeCompleto: string): string {
 //     bloco inteiro não aparecia: o formulário simplesmente não oferecia
 //     família nenhuma.
 //
-// ── BUSCA PELO NOME DA FAMÍLIA *E* PELO DE QUEM ESTÁ NELA ──────────────────
-//
-// Quem cadastra quase nunca sabe como a família foi batizada no sistema. Sabe
-// o parente: "é a família do Lucas". Procurar só por `nome_familia` obrigaria
-// a pessoa a adivinhar a resposta antes de fazer a pergunta.
-//
-// São duas consultas e não um `or` embutido porque o filtro do lado do
-// integrante mora em outra tabela: o PostgREST faria disso um join com
-// filtro, e o resultado sairia sem as famílias que casam só pelo nome.
-
-export interface FamiliaEncontrada {
-  id: string;
-  nome_familia: string;
-  bairro: string | null;
-  cidade: string | null;
-  integrantes: number;
-  /** Preenchido quando a família apareceu por causa de um integrante. */
-  porCausaDe?: string;
-}
-
-export async function buscarFamilias(termo: string): Promise<FamiliaEncontrada[]> {
-  const t = termo.trim();
-  if (t.length < 2) return [];
-
-  const [porNome, porIntegrante] = await Promise.all([
-    supabase
-      .from("familias")
-      .select("id, nome_familia, bairro, cidade, vinculos_familiares(count)")
-      .ilike("nome_familia", `%${t}%`)
-      .order("nome_familia")
-      .limit(20),
-    supabase
-      .from("vinculos_familiares")
-      .select("familia_id, membros!inner(nome_completo), familias!inner(id, nome_familia, bairro, cidade)")
-      .ilike("membros.nome_completo", `%${t}%`)
-      .limit(20),
-  ]);
-
-  const achadas = new Map<string, FamiliaEncontrada>();
-
-  for (const f of (porNome.data ?? []) as any[]) {
-    achadas.set(f.id, {
-      id: f.id,
-      nome_familia: f.nome_familia,
-      bairro: f.bairro,
-      cidade: f.cidade,
-      integrantes: f.vinculos_familiares?.[0]?.count ?? 0,
-    });
-  }
-
-  for (const v of (porIntegrante.data ?? []) as any[]) {
-    const f = v.familias;
-    if (!f) continue;
-    // Quem já entrou pelo nome fica como está: dizer "por causa de Lucas" numa
-    // família chamada "Souza" quando a pessoa digitou "Souza" é ruído.
-    if (achadas.has(f.id)) continue;
-    achadas.set(f.id, {
-      id: f.id,
-      nome_familia: f.nome_familia,
-      bairro: f.bairro,
-      cidade: f.cidade,
-      integrantes: 0,
-      porCausaDe: v.membros?.nome_completo,
-    });
-  }
-
-  // Segunda passada só para contar os integrantes das que vieram pelo nome de
-  // alguém — a primeira consulta não trouxe a contagem delas.
-  const semContagem = [...achadas.values()].filter(f => f.integrantes === 0 && f.porCausaDe);
-  if (semContagem.length > 0) {
-    const { data } = await supabase
-      .from("vinculos_familiares")
-      .select("familia_id")
-      .in("familia_id", semContagem.map(f => f.id));
-    const contagem = new Map<string, number>();
-    for (const v of (data ?? []) as { familia_id: string }[]) {
-      contagem.set(v.familia_id, (contagem.get(v.familia_id) ?? 0) + 1);
-    }
-    for (const f of semContagem) f.integrantes = contagem.get(f.id) ?? 0;
-  }
-
-  return [...achadas.values()].sort((a, b) => a.nome_familia.localeCompare(b.nome_familia));
-}
