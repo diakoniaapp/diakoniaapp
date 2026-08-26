@@ -123,8 +123,15 @@ export function Indicador({
     </>
   );
 
+  // Sem borda nem fundo próprios: quem desenha a moldura é a faixa, uma vez
+  // só. Cada indicador contribui com um fio à direita e outro embaixo, e a
+  // faixa esconde os das pontas — ver `FaixaDeIndicadores`.
+  //
+  // Antes eram cinco caixas soltas, cada uma com sua borda arredondada e seu
+  // vão. Cinco molduras para cinco números que se leem juntos: a tela ganhava
+  // dez linhas de contorno e uma leitura picotada.
   const base =
-    "flex items-center gap-1.5 rounded-lg border bg-card px-2.5 py-1.5 min-w-0 " +
+    "flex items-center gap-1.5 border-r border-b px-2.5 py-2 min-w-0 " +
     "lg:flex-col lg:items-center lg:gap-1.5 lg:px-2 lg:py-2.5 lg:text-center";
 
   if (!onClick) return <div className={base}>{conteudo}</div>;
@@ -134,8 +141,10 @@ export function Indicador({
       type="button"
       onClick={onClick}
       title={descricao ?? `Ir para ${rotulo}`}
-      className={`${base} w-full transition-colors hover:bg-muted hover:border-foreground/20
-                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}
+      // `hover:border-…` saiu junto com a borda própria: o realce agora é só
+      // o fundo, senão o hover engrossaria a divisória entre dois vizinhos.
+      className={`${base} w-full transition-colors hover:bg-muted
+                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring`}
     >
       {conteudo}
     </button>
@@ -164,12 +173,24 @@ export function FaixaDeIndicadores({
   const impar = Children.count(children) % 2 === 1;
 
   return (
-    <div
-      className={`grid grid-cols-2 gap-1.5 ${cols[colunas] ?? "lg:grid-cols-4"} ${
-impar ? "[&>*:last-child]:col-span-2 lg:[&>*:last-child]:col-span-1" : ""
-      }`}
-    >
-      {children}
+    // Uma moldura só, e os indicadores dentro dela.
+    //
+    // Cada indicador traz `border-r border-b`; o `-mr-px -mb-px` do grid
+    // puxa o conteúdo um pixel para fora, e o `overflow-hidden` da moldura
+    // corta justamente os fios da última coluna e da última linha. Assim as
+    // divisórias aparecem só ENTRE as células, sem fio dobrado na borda.
+    //
+    // `divide-x`/`divide-y` do Tailwind não serviriam: eles seguem a ordem
+    // do DOM, e num grid o primeiro item de cada linha ganharia um fio à
+    // esquerda no meio da faixa.
+    <div className="rounded-lg border bg-card overflow-hidden">
+      <div
+        className={`grid grid-cols-2 -mr-px -mb-px ${cols[colunas] ?? "lg:grid-cols-4"} ${
+          impar ? "[&>*:last-child]:col-span-2 lg:[&>*:last-child]:col-span-1" : ""
+        }`}
+      >
+        {children}
+      </div>
     </div>
   );
 }

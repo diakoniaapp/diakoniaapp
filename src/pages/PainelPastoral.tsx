@@ -344,28 +344,16 @@ export default function PainelPastoral() {
           resumo e virou o índice da tela. Ver `Indicador` em
           components/painel/blocos.tsx para o porquê do desenho. */}
       {resumo && (
-        <FaixaDeIndicadores colunas={5}>
-          {/* Aniversário e bodas eram dois indicadores, e são a mesma ideia:
-              alguém a quem a igreja tem o que dizer hoje. Separados, tinham
-              o mesmo tom, levavam ao mesmo lugar, e um deles quase sempre
-              marcava zero — a igreja tem 294 pessoas e 75 famílias, então
-              "Bodas hoje" passa a maior parte do ano em branco, ocupando um
-              sexto da faixa para dizer que não há nada.
+        <FaixaDeIndicadores colunas={4}>
+          {/*
+            "Celebrações hoje" era um indicador aqui. Saiu: ele levava ao
+            MESMO lugar que "Agenda" — a seção passou a ser uma só —, e a
+            frase logo acima já abre com "Hoje: 3 aniversariantes".
 
-              Juntos são uma linha só, e o número deixa de ser quase sempre
-              zero. A separação continua onde importa: na lista abaixo, cada
-              um com o seu ícone e a sua mensagem de felicitação. */}
-          <Indicador
-            rotulo="Celebrações hoje"
-            valor={resumo.aniversarios_hoje + resumo.bodas_hoje}
-            tom="celebracao" icone={PartyPopper}
-            onClick={() => irParaSecao("agenda")}
-            descricao={
-              // "bodas" não tem singular: uma bodas, duas bodas.
-              `${resumo.aniversarios_hoje} ${resumo.aniversarios_hoje === 1 ? "aniversário" : "aniversários"}` +
-              ` e ${resumo.bodas_hoje} bodas hoje — ir para A semana`
-            }
-          />
+            Dois cartões para um destino, com o dado repetido na linha de
+            cima. O que ele mostrava não se perdeu: está na frase, e está na
+            lista do dia, onde cada nome é o link da felicitação.
+          */}
           {/* Conta TUDO que a semana tem: compromissos da igreja, feriados,
               calendário da CBB, reservas de espaço e as celebrações das
               pessoas — a mesma soma da tira de sete dias.
