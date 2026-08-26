@@ -93,6 +93,9 @@ import { eventosExternos } from "@/lib/agenda/externalEvents";
 // `useReportarVazio` que ele usa é inerte fora do HOJE (ver components/hoje/
 // vazio.ts), então embutir aqui não exige provider nenhum.
 import { AgendaDoDia } from "@/components/dashboard/AgendaDoDia";
+// Torna o nome clicavel: abre a ficha da pessoa em dialogo, sem navegar.
+// O FichaProvider e montado uma vez no AppLayout (ver CLAUDE.md 6.4).
+import { NomePessoa } from "@/components/membros/ficha";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 // Os dois blocos de discipulado. Cada um busca os próprios dados — ver o
 // cabeçalho de cada arquivo.
@@ -331,7 +334,10 @@ export default function PainelPastoral() {
               Nenhuma data nos próximos 7 dias. Semana tranquila 🙏
             </p>
           ) : (
-            dias.map(d => <BlocoDoDia key={d.data} data={d.data} itens={d.itens} onWhats={abrirWhats} />)
+            <>
+              <TiraDaSemana dias={dias} hojeIso={hoje} />
+              {dias.map(d => <BlocoDoDia key={d.data} data={d.data} itens={d.itens} onWhats={abrirWhats} />)}
+            </>
           )}
         </CardContent>
       </Card>
@@ -488,6 +494,53 @@ function rotuloDoDia(iso: string, hojeIso: string): string {
   return d.toLocaleDateString("pt-BR", { weekday: "short", day: "numeric", month: "short" });
 }
 
+/** Só o dia e o mês — "28/ago". Usado na tira da semana. */
+function rotuloCurto(iso: string, hojeIso: string): string {
+  if (iso === hojeIso) return "Hoje";
+  const d = new Date(iso + "T00:00");
+  const h = new Date(hojeIso + "T00:00");
+  if (Math.round((d.getTime() - h.getTime()) / 86_400_000) === 1) return "Amanhã";
+  return d.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", "");
+}
+
+/**
+ * A semana inteira em uma faixa, antes da lista.
+ *
+ * Existe para responder "como está a minha semana?" **sem rolar a tela** —
+ * que era a queixa da lista longa. A lista continua logo abaixo, para quem
+ * precisa do nome e do botão; a faixa dá a forma antes do detalhe.
+ */
+function TiraDaSemana({
+  dias, hojeIso,
+}: { dias: { data: string; itens: ItemData[] }[]; hojeIso: string }) {
+  return (
+    <div className="grid grid-cols-7 gap-1">
+      {dias.map(d => {
+        const ehHoje = d.data === hojeIso;
+        const n = d.itens.length;
+        const dia = new Date(d.data + "T00:00").getDate();
+        return (
+          <div
+            key={d.data}
+            title={`${rotuloDoDia(d.data, hojeIso)} — ${n === 0 ? "nada" : n === 1 ? "1 data" : `${n} datas`}`}
+            className={`rounded-md border px-1 py-1.5 text-center min-w-0 ${
+              ehHoje ? "border-gold bg-muted/60" : n === 0 ? "border-dashed opacity-60" : ""
+            }`}
+          >
+            <p className={`text-[10px] uppercase tracking-wide truncate ${ehHoje ? "text-gold-text" : "text-muted-foreground"}`}>
+              {rotuloCurto(d.data, hojeIso)}
+            </p>
+            <p className="text-base font-semibold leading-none tabular-nums mt-0.5">
+              {n === 0 ? <span className="text-muted-foreground/50">–</span> : n}
+            </p>
+            <p className="text-[10px] text-muted-foreground/70 tabular-nums">{dia}</p>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function BlocoDoDia({
   data, itens, onWhats,
 }: { data: string; itens: ItemData[]; onWhats: (e: EventoPastoral) => void }) {
@@ -499,16 +552,30 @@ function BlocoDoDia({
   if (itens.length === 0 && !ehHoje) return null;
 
   return (
-    <div className="space-y-1.5">
-      <p className={`text-xs font-medium uppercase tracking-wide ${ehHoje ? "text-gold-text" : "text-muted-foreground"}`}>
-        {rotuloDoDia(data, hojeIso)}
-      </p>
+    <div>
+      {/* Cabeçalho do dia numa linha só, com fio até a borda: ocupa ~20px em
+          vez de um paragrafo proprio, e separa sem pesar. */}
+      <div className="flex items-center gap-2 mb-1.5">
+        <p className={`text-xs font-medium uppercase tracking-wide shrink-0 ${ehHoje ? "text-gold-text" : "text-muted-foreground"}`}>
+          {rotuloDoDia(data, hojeIso)}
+        </p>
+        <div className="h-px flex-1 bg-border" />
+        {itens.length > 0 && (
+          <span className="text-xs text-muted-foreground tabular-nums shrink-0">{itens.length}</span>
+        )}
+      </div>
+
       {itens.length === 0 ? (
         <p className="text-sm text-muted-foreground py-2 px-3 border rounded-md">
           Nada marcado para hoje. Bom dia tranquilo 🙏
         </p>
       ) : (
-        itens.map(item => <LinhaData key={item.chave} item={item} onWhats={onWhats} />)
+        // Duas colunas a partir de `sm`. Cada item e um nome curto e uma
+        // idade — esticar isso por 900px era o que fazia 11 datas virarem
+        // uma tela e meia de rolagem.
+        <div className="grid sm:grid-cols-2 gap-1.5">
+          {itens.map(item => <LinhaData key={item.chave} item={item} onWhats={onWhats} />)}
+        </div>
       )}
     </div>
   );
@@ -520,22 +587,48 @@ function LinhaData({ item, onWhats }: { item: ItemData; onWhats: (e: EventoPasto
   const temTelefone = !!(item.evento?.telefone || item.evento?.telefone_secundario);
 
   return (
-    <div className="flex items-center justify-between border rounded-md px-3 py-2 gap-2">
-      <div className="flex items-center gap-2 min-w-0">
-        <Icone className={`w-4 h-4 shrink-0 ${ui.cor}`} />
-        <div className="min-w-0">
-          <p className="font-medium truncate text-sm">{item.titulo}</p>
-          <p className="text-xs text-muted-foreground truncate">{item.detalhe}</p>
-        </div>
-      </div>
+    // Uma linha por pessoa: nome e detalhe no mesmo texto, separados por
+    // ponto. Antes eram duas linhas empilhadas, e cada item ocupava o dobro.
+    <div className="flex items-center gap-1.5 border rounded-md pl-2.5 pr-0.5 py-0.5 min-w-0">
+      <Icone className={`w-3.5 h-3.5 shrink-0 ${ui.cor}`} />
+      {/*
+        O nome abre a ficha da pessoa, sem sair do painel.
+
+        `NomePessoa` e o padrao do projeto (components/membros/ficha.tsx) e
+        degrada sozinho: sem `id` — bodas, que pertencem a uma familia, e as
+        datas do calendario batista, que nao pertencem a ninguem — ele vira
+        texto simples. Por isso da para aplicar na linha inteira sem
+        distinguir a categoria aqui.
+      */}
+      {/* `leading-tight` e `align-middle` porque o <button> do NomePessoa
+          entra no fluxo de texto e, sem isso, estica a caixa de linha em
+          ~12px por item — o suficiente para desfazer o ganho de densidade. */}
+      <p className="text-sm leading-tight truncate min-w-0 flex-1" title={`${item.titulo} · ${item.detalhe}`}>
+        <NomePessoa
+          id={item.evento?.pessoa_id ?? undefined}
+          nome={item.titulo}
+          className="font-medium align-middle leading-tight"
+        />
+        <span className="text-muted-foreground align-middle"> · {item.detalhe}</span>
+      </p>
+      {/*
+        O `size="sm"` do Button traz `min-h-9` — 36px, que e alvo de toque,
+        nao decoracao: a igreja usa o sistema no celular. Encolher para todos
+        ganharia densidade numa tela e atrapalharia na outra.
+
+        Por isso o minimo cai so a partir de `md`, onde ha mouse e onde a
+        rolagem longa incomodava. `min-h-0` e necessario porque o
+        tailwind-merge nao trata `h-7` e `min-h-9` como conflito — sao
+        propriedades diferentes, e o minimo continuaria valendo.
+      */}
       {temTelefone && item.evento && (
         <Button
           type="button" size="sm" variant="ghost"
-          className="h-8 px-2 gap-1 text-xs text-success-text hover:bg-success-soft shrink-0"
+          className="w-9 md:w-7 md:h-7 md:min-h-0 p-0 text-success-text hover:bg-success-soft shrink-0"
           onClick={() => onWhats(item.evento as EventoPastoral)}
-          title="WhatsApp"
+          title="Enviar mensagem no WhatsApp"
         >
-          <MessageCircle className="w-4 h-4" />
+          <MessageCircle className="w-3.5 h-3.5" />
         </Button>
       )}
     </div>
