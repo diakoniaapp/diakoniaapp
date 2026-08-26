@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import { supabase, supabaseRel } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, User, Shield, Church, MapPin, Calendar, Star, Pencil } from "lucide-react";
+import { Loader2, User, Shield, Church, MapPin, Calendar, Star, Pencil, MessageCircle, NotebookPen } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { usePermissoes } from "@/hooks/usePermissoes";
 import { useAuth } from "@/hooks/useAuth";
@@ -16,6 +16,7 @@ import { TIPO_PESSOA_LABEL, TIPO_PESSOA_COR, type TipoPessoa } from "@/lib/tipoP
 import { Skeleton } from "@/components/ui/skeleton";
 import { LinhaDoTempo } from "@/components/membros/LinhaDoTempo";
 import { historiaDaPessoa, diasDesdeOUltimoContato, type EventoDaHistoria } from "@/services/historiaPessoa";
+import { normalizarTelefone, formatarTelefoneSemDDI } from "@/lib/telefone";
 
 // ── Tipos ─────────────────────────────────────────────────────
 
@@ -30,6 +31,14 @@ interface PessoaCompleta {
   email: string | null;
   telefone_celular: string | null;
   perfil_acesso: string | null;
+  /**
+   * O que a liderança anotou sobre o cuidado desta pessoa.
+   *
+   * Já existia na tabela e não aparecia em ficha nenhuma — era preciso abrir
+   * o formulário de edição para ler. É justamente o que quem abre a ficha de
+   * alguém quer saber, e por isso passou a ser mostrado aqui.
+   */
+  observacoes_pastorais: string | null;
 }
 
 interface CargoEstatutario {
@@ -151,7 +160,7 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
       // Pessoa
       const { data: p } = await supabase
         .from("membros")
-        .select("id,nome_completo,nome_social,foto_url,tipo_pessoa,status,data_entrada,email,telefone_celular,perfil_acesso")
+        .select("id,nome_completo,nome_social,foto_url,tipo_pessoa,status,data_entrada,email,telefone_celular,perfil_acesso,observacoes_pastorais")
         .eq("id", pessoaId)
         .single();
       setPessoa(p ?? null);
@@ -348,6 +357,53 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
                 </div>
               );
             })()}
+
+            {/* ── Falar com a pessoa ────────────────────────────────────
+
+                A ficha mostrava há quanto tempo ninguém falava com alguém e
+                não oferecia como falar. O telefone já vinha na consulta e
+                não aparecia em lugar nenhum.
+
+                `<a>` e não `window.open`: navegadores e o WebView do celular
+                tratam `window.open` como pop-up e bloqueiam em silêncio —
+                foi o que deixou mudo o botão de felicitação do Painel
+                Pastoral até 26/08/2026. */}
+            {pessoa.telefone_celular && (
+              <a
+                href={`https://wa.me/${normalizarTelefone(pessoa.telefone_celular)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={`Enviar mensagem para ${pessoa.nome_social ?? pessoa.nome_completo} no WhatsApp`}
+                className="flex items-center gap-2 rounded-lg border border-success-line bg-success-soft/50
+                           px-3 py-2 text-sm text-success-text transition-colors hover:bg-success-soft
+                           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <MessageCircle className="w-4 h-4 shrink-0" />
+                <span className="font-medium">Falar no WhatsApp</span>
+                <span className="text-xs text-muted-foreground ml-auto tabular-nums">
+                  {formatarTelefoneSemDDI(pessoa.telefone_celular)}
+                </span>
+              </a>
+            )}
+
+            {/* ── Observações pastorais ─────────────────────────────────
+
+                Já estavam gravadas e só eram legíveis abrindo o formulário
+                de edição — ou seja, invisíveis para quem só quer entender
+                quem é a pessoa antes de procurá-la.
+
+                `whitespace-pre-line` porque são texto escrito à mão, com
+                quebras que o autor pôs de propósito. */}
+            {pessoa.observacoes_pastorais?.trim() && (
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  <NotebookPen className="w-3 h-3" /> Observações pastorais
+                </div>
+                <p className="text-sm whitespace-pre-line rounded-lg border bg-muted/40 px-3 py-2">
+                  {pessoa.observacoes_pastorais.trim()}
+                </p>
+              </div>
+            )}
 
             {/* ── A história ────────────────────────────────────────────
 
