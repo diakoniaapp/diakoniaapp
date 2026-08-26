@@ -84,8 +84,16 @@ export interface EventoDaHistoria {
   tipo: TipoEvento;
   titulo: string;
   detalhe?: string | null;
-  /** "Telma Souza · Administrador" — só nas anotações pastorais. */
-  autor?: string | null;
+  /**
+   * Quem escreveu — só nas anotações pastorais.
+   *
+   * Dois campos, e não um texto emendado. Emendar "nome · função" obrigava a
+   * ficha a repartir de volta, e sem nome gravado a função caía na posição do
+   * nome: a assinatura diria "Admin | Sem função".
+   */
+  autorNome?: string | null;
+  /** A função no dia em que escreveu — congelada, ver o COMMENT no banco. */
+  autorFuncao?: string | null;
 }
 
 /** Colunas de data em `membros` que marcam um ato da vida ministerial. */
@@ -311,9 +319,8 @@ export async function historiaDaPessoa(pessoaId: string): Promise<EventoDaHistor
       tipo: ehAnotacao ? "anotacao" : "contato",
       titulo: ROTULO_CONTATO[c.tipo ?? ""] ?? "Contato",
       detalhe: c.observacao,
-      autor: ehAnotacao
-        ? [c.registrado_por_nome, c.registrado_por_funcao].filter(Boolean).join(" · ") || null
-        : null,
+      autorNome:   ehAnotacao ? c.registrado_por_nome   : null,
+      autorFuncao: ehAnotacao ? c.registrado_por_funcao : null,
     });
   }
 

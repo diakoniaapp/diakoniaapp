@@ -285,20 +285,28 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
       const d = new Date(e.data);
       const dois = (n: number) => String(n).padStart(2, "0");
       /**
-       * "Admin - 26.08.2026 | 20h46".
+       * "Telma | Admin - 26.08.2026 às 20h48".
        *
-       * A FUNÇÃO, e não o nome. Quem lê uma ficha quer saber em que
-       * capacidade aquilo foi escrito — o cuidado pastoral não muda de peso
-       * conforme quem estava de plantão. O nome continua GRAVADO na linha,
-       * para quando for preciso responder "quem escreveu isto"; só não ocupa
-       * espaço na leitura do dia a dia.
+       * PRIMEIRO nome, e não o nome inteiro. Numa igreja de 295 pessoas quem
+       * lê a ficha sabe de quem se trata pelo primeiro nome somado à função,
+       * e "Telma Rodrigues de Souza · Administrador" gastaria a linha toda
+       * numa assinatura que é rodapé de um texto, não o texto.
+       *
+       * O nome COMPLETO continua gravado na linha, para quando for preciso
+       * responder "quem escreveu isto" sem ambiguidade.
        */
-      const funcao = (e.autor ?? "").split(" · ").pop() || "Sem função";
+      const primeiroNome = (e.autorNome ?? "").trim().split(/\s+/)[0] || "";
+      const funcao = (e.autorFuncao ?? "").trim() || "Sem função";
+      const dataHora =
+        `${dois(d.getDate())}.${dois(d.getMonth() + 1)}.${d.getFullYear()}` +
+        ` às ${dois(d.getHours())}h${dois(d.getMinutes())}`;
       return {
         detalhe: e.detalhe,
-        assinatura:
-          `${funcao} - ${dois(d.getDate())}.${dois(d.getMonth() + 1)}.${d.getFullYear()}` +
-          ` | ${dois(d.getHours())}h${dois(d.getMinutes())}`,
+        // Sem nome gravado — anotação antiga ou escrita por caminho que não o
+        // informou — a assinatura não inventa um: fica só função e data.
+        assinatura: primeiroNome
+          ? `${primeiroNome} | ${funcao} - ${dataHora}`
+          : `${funcao} - ${dataHora}`,
       };
     });
   const [familia, setFamilia]       = useState<{ nome: string; parentesco: string; responsavel: boolean } | null>(null);
