@@ -34,6 +34,21 @@ interface Familia {
   observacoes: string | null;
 }
 
+/**
+ * A data de casamento lida do cadastro de uma PESSOA da família.
+ *
+ * Existe porque `familias.data_casamento` era um campo obrigatório de fato e
+ * invisível de direito: nada na lista o mostrava, e sem ele a família não
+ * tinha bodas em lugar nenhum. Medido em produção: 5 famílias com a data
+ * preenchida, contra 57 pessoas com data no próprio cadastro.
+ */
+interface CasamentoHerdado {
+  data: string;
+  /** Nome de quem tem a data no cadastro — a tela diz de onde veio. */
+  de: string;
+  doResponsavel: boolean;
+}
+
 export default function Familias() {
   const { canEdit } = useAuth();
   const [familias, setFamilias]           = useState<Familia[]>([]);
@@ -43,6 +58,7 @@ export default function Familias() {
   const [form, setForm]                   = useState({ nome_familia: "", endereco: "", numero: "", complemento: "", bairro: "", cidade: "", cep: "", data_casamento: "", observacoes: "" });
   const [editingId, setEditingId]         = useState<string | null>(null);
   const [responsaveis, setResponsaveis]   = useState<Record<string, string>>({});
+  const [casamentoHerdado, setCasamentoHerdado] = useState<Record<string, CasamentoHerdado>>({});
   // F1: busca por nome
   const [busca, setBusca] = useState("");
   const [vista, setVista] = useState<"lista" | "bairro" | "mapa">("lista");
@@ -53,6 +69,12 @@ export default function Familias() {
   const [loading, setLoading]             = useState(true);
   const [error, setError]                 = useState<string | null>(null);
   const [searchParams, setSearchParams]   = useSearchParams();
+
+  // A data herdada da família em edição, se houver. Só é usada para EXPLICAR
+  // o campo — de propósito não preenche o `form`: preencher gravaria a data
+  // em `familias` no primeiro save, e voltaria a existir o dado duplicado que
+  // esta mudança serve para evitar.
+  const herdado = editingId ? casamentoHerdado[editingId] : undefined;
 
   // ── Exclusão ─────────────────────────────────────────────────────────────
   const [familiaParaExcluir, setFamiliaParaExcluir] = useState<Familia | null>(null);
@@ -115,19 +137,41 @@ export default function Familias() {
     if (rows.length > 0) {
       const { data: vincs } = await supabase
         .from("vinculos_familiares")
-        .select("familia_id, membro_id, responsavel_familia, membros(id, nome_completo)")
+        .select("familia_id, membro_id, responsavel_familia, parentesco, membros(id, nome_completo, data_casamento)")
         .in("familia_id", rows.map((r: any) => r.id));
       const respMap: Record<string, string> = {};
       const memMap: Record<string, { id: string; nome: string }[]> = {};
+      const casMap: Record<string, CasamentoHerdado> = {};
       (vincs ?? []).forEach((v: any) => {
         if (!v.membros) return;
         const nome = v.membros.nome_completo;
         if (v.responsavel_familia && v.familia_id) respMap[v.familia_id] = nome;
         if (!memMap[v.familia_id]) memMap[v.familia_id] = [];
         memMap[v.familia_id].push({ id: v.membros.id, nome });
+
+        // A data de casamento que mora na PESSOA vira a data da família.
+        //
+        // O responsável manda. Foi a regra pedida, e ela resolve sozinha o
+        // caso em que marido e mulher discordam: medido em produção, duas
+        // famílias têm os cônjuges com datas diferentes — Vitorino (março
+        // contra maio) e Bittencourt (2018 contra 2020), os dois com cara de
+        // erro de digitação. Escolher "a maior" ou "a primeira" seria decidir
+        // no escuro; escolher a do responsável ao menos é uma regra que a
+        // secretaria consegue prever e corrigir.
+        //
+        // O cônjuge entra só como rede: em 3 famílias o responsável não tem a
+        // data e o cônjuge tem. Sem essa queda, essas 3 continuariam sem bodas.
+        const dc: string | null = v.membros.data_casamento ?? null;
+        if (!dc || !v.familia_id) return;
+        const ehConjuge = v.parentesco === "conjuge" || v.parentesco === "pai_mae";
+        if (!v.responsavel_familia && !ehConjuge) return;   // filho casado não dita a data dos pais
+        const atual = casMap[v.familia_id];
+        if (atual && atual.doResponsavel) return;           // nada supera o responsável
+        casMap[v.familia_id] = { data: dc, de: nome, doResponsavel: !!v.responsavel_familia };
       });
       setResponsaveis(respMap);
       setMembrosPorFamilia(memMap);
+      setCasamentoHerdado(casMap);
     }
   };
 
@@ -416,7 +460,22 @@ export default function Familias() {
                 value={form.data_casamento ?? ""}
                 onChange={(e) => setForm({ ...form, data_casamento: e.target.value })}
               />
-              <p className="text-xs text-muted-foreground mt-1">Usado pra calcular bodas e mostrar evento na agenda.</p>
+              {herdado && !form.data_casamento ? (
+                <p className="text-xs mt-1 flex items-start gap-1.5 text-celebracao-text">
+                  <CalendarHeart className="w-3.5 h-3.5 shrink-0 mt-px" />
+                  <span>
+                    Já vem do cadastro de <strong>{herdado.de}</strong>
+                    {herdado.doResponsavel ? " (responsável)" : " (cônjuge)"}:{" "}
+                    {herdado.data.split("-").reverse().join("/")}. As bodas já aparecem
+                    na agenda — <strong>não precisa preencher aqui</strong>.
+                  </span>
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Em branco, vale a data do cadastro do responsável pela família.
+                  Preencha só para corrigir ou quando ninguém da família a tiver.
+                </p>
+              )}
             </div>
 
             <h4 className="text-sm font-semibold text-muted-foreground pt-1">Endereço da família</h4>
