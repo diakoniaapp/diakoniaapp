@@ -8,6 +8,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { rotaInicialPorPapel } from "@/components/layout/navConfig";
 import { Button } from "@/components/ui/button";
 import { AuthShell, AuthCard } from "@/components/AuthShell";
 import { toast } from "sonner";
@@ -33,7 +34,28 @@ Dúvidas sobre privacidade: secretaria@qibrj.org.br`;
 
 export default function AceiteLgpd() {
   const navigate          = useNavigate();
-  const { user, loading } = useAuth();
+  const { user, loading, roles, rolesCarregados } = useAuth();
+
+  /**
+   * O aceite terminou; falta saber para onde ir.
+   *
+   * As duas saídas desta tela — "já tinha aceitado" e "acabou de aceitar" —
+   * eram dois `navigate("/")` em lugares distantes, um deles dentro de um
+   * efeito assíncrono. Mandar as duas para a rota do papel exigiria ler
+   * `roles` de dentro do efeito, onde o valor é o do momento em que ele
+   * começou — e ele começa antes de a consulta de papéis responder.
+   *
+   * Separar "posso entrar" de "para onde" resolve: as saídas só levantam a
+   * bandeira, e a navegação acontece num efeito que roda de novo quando os
+   * papéis chegam.
+   */
+  const [liberado, setLiberado] = useState(false);
+
+  useEffect(() => {
+    if (liberado && rolesCarregados) {
+      navigate(rotaInicialPorPapel(roles), { replace: true });
+    }
+  }, [liberado, rolesCarregados, roles, navigate]);
 
   const [politica, setPolitica]       = useState(POLITICA_PADRAO);
   const [versao, setVersao]           = useState("1.0");
@@ -79,7 +101,7 @@ export default function AceiteLgpd() {
 
         if (aceite) {
           sessionStorage.setItem("lgpd_ok_" + user.id, "1");
-          navigate("/", { replace: true });
+          setLiberado(true);
           return;
         }
 
@@ -160,7 +182,7 @@ export default function AceiteLgpd() {
     sessionStorage.setItem("lgpd_ok_" + user.id, "1");
     setBusy(false);
     toast.success("Obrigado! Seu aceite foi registrado com segurança 🙏");
-    navigate("/", { replace: true });
+    setLiberado(true);
   };
 
   if (loading || verificando) {

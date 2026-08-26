@@ -210,3 +210,34 @@ export const ROUTE_ROLES: Record<string, AppRole[]> = {
   // corrigir.
   "/painel-secretaria":  ROLES_ADMIN,
 };
+
+/**
+ * Para onde a pessoa vai ao ENTRAR no sistema.
+ *
+ * Quem tem uma bancada de trabalho cai nela; quem não tem cai na Home.
+ * O pastor titular abre o Painel Pastoral, a secretária o da Secretaria —
+ * ninguém precisa atravessar uma tela que não é sua para chegar à sua.
+ *
+ * ── SÓ NA ENTRADA ─────────────────────────────────────────────────────────
+ *
+ * A Home continua existindo e continua no menu. Isto decide o ponto de
+ * partida, não fecha porta: a secretária que quiser ver o acolhimento clica
+ * em "Home" e vê. Trocar o `/` pelo painel seria o passo seguinte, e tiraria
+ * dela os doze blocos que ela hoje acompanha sem executar.
+ *
+ * ── A ORDEM É DELIBERADA ──────────────────────────────────────────────────
+ *
+ * `secretaria` é testada antes de `admin` porque quem acumula os dois está
+ * fazendo trabalho de secretaria — admin é o que a pessoa PODE, não o que ela
+ * FAZ. E `admin` sozinho cai na Home: administrar o sistema não é uma
+ * bancada, é uma capacidade.
+ *
+ * Papel desconhecido, ou nenhum, cai na Home. Nunca devolve rota que a guarda
+ * de `ROUTE_ROLES` recusaria — mandar alguém para uma tela que o portão
+ * rejeita produziria um vaivém logo depois do login.
+ */
+export function rotaInicialPorPapel(roles: AppRole[]): string {
+  if (roles.includes("secretaria")) return "/painel-secretaria";
+  if (roles.includes("diakonia") || roles.includes("pastor")) return "/painel-pastoral";
+  return "/";
+}

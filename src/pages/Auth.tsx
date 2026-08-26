@@ -10,6 +10,7 @@ import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { rotaInicialPorPapel } from "@/components/layout/navConfig";
 import { toast } from "sonner";
 import {
   AuthShell, AuthCard, AuthCampo, AuthErro,
@@ -65,7 +66,7 @@ function traduzirErro(msg: string): string {
 // ── Componente Principal ───────────────────────────────────
 export default function Auth() {
   const navigate       = useNavigate();
-  const { user, loading } = useAuth();
+  const { user, loading, roles, rolesCarregados } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [tela, setTela]         = useState<Tela>("login");
@@ -102,17 +103,29 @@ export default function Auth() {
   }, []);
 
   // Redireciona se já logado — respeitando fluxo obrigatório
+  //
+  // `rolesCarregados` no lugar de olhar `roles.length`: vazio quer dizer tanto
+  // "ainda não respondeu" quanto "não tem papel", e num login novo o comum é
+  // navegar antes da consulta voltar. Sem esta espera, a secretária cairia na
+  // Home quase sempre e no painel dela de vez em quando — pior que não ter a
+  // funcionalidade, porque ninguém confia no que funciona às vezes.
+  //
+  // A espera é curta e invisível: acontece com o botão de entrar já em
+  // "Entrando…". Quem troca de senha ou não aceitou a LGPD nem passa por
+  // aqui — esses dois fluxos vêm antes e não dependem de papel.
   useEffect(() => {
     if (!loading && user) {
       const meta = user.user_metadata as Record<string, unknown>;
       if (meta?.must_change_password) {
         navigate("/primeiro-acesso", { replace: true });
-      } else {
-        const lgpdOk = sessionStorage.getItem(`lgpd_ok_${user.id}`);
-        navigate(lgpdOk ? "/" : "/aceite-lgpd", { replace: true });
+        return;
       }
+      const lgpdOk = sessionStorage.getItem(`lgpd_ok_${user.id}`);
+      if (!lgpdOk) { navigate("/aceite-lgpd", { replace: true }); return; }
+      if (!rolesCarregados) return;
+      navigate(rotaInicialPorPapel(roles), { replace: true });
     }
-  }, [user, loading, navigate]);
+  }, [user, loading, roles, rolesCarregados, navigate]);
 
   useEffect(() => { setErroMsg(null); }, [telefone, senha]);
 
