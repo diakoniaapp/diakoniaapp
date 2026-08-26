@@ -33,6 +33,8 @@ interface PessoaCompleta {
   tipo_pessoa: string;
   status: string;
   data_entrada: string | null;
+  created_at: string | null;
+  origem_cadastro: string | null;
   email: string | null;
   telefone_celular: string | null;
   perfil_acesso: string | null;
@@ -106,11 +108,33 @@ const NIVEL_CARGO_EMOJI: Record<number, string> = {
   1: "👑", 2: "⭐", 3: "📋", 4: "💰",
 };
 
-function calcularTempo(dataEntrada: string | null): string {
-  if (!dataEntrada) return "–";
-  const anos = Math.floor((Date.now() - new Date(dataEntrada).getTime()) / (365.25 * 86_400_000));
-  if (anos === 0) return "menos de 1 ano";
-  return `${anos} ano${anos !== 1 ? "s" : ""}`;
+/**
+ * Há quanto tempo a pessoa está na igreja — ou o silêncio, quando não se sabe.
+ *
+ * `data_entrada` carimbada pela importação de junho/2026 dizia, sobre gente
+ * que a igreja conhece há anos, "na igreja há menos de 1 ano". A linha
+ * "Chegou à igreja" da história já parou de aparecer nesses casos; este
+ * rodapé repetia a mesma invenção com outras palavras, e por isso precisa da
+ * mesma regra.
+ *
+ * O teste começa pela ORIGEM do cadastro, não pela distância entre as datas:
+ * quem foi cadastrado aqui e chegou no mesmo dia tem as duas iguais, e isso é
+ * verdade, não carimbo.
+ */
+function calcularTempo(p: { data_entrada: string | null; created_at: string | null; origem_cadastro: string | null }): string {
+  if (!p.data_entrada) return "Tempo de casa não registrado";
+
+  const carimbo =
+    p.origem_cadastro === "importacao" && !!p.created_at &&
+    Math.abs(
+      (new Date(p.data_entrada + "T00:00").getTime() - new Date(p.created_at).getTime())
+      / 86_400_000,
+    ) <= 7;
+  if (carimbo) return "Tempo de casa não registrado";
+
+  const anos = Math.floor((Date.now() - new Date(p.data_entrada).getTime()) / (365.25 * 86_400_000));
+  if (anos === 0) return "Na igreja há menos de 1 ano";
+  return `Na igreja há ${anos} ano${anos !== 1 ? "s" : ""}`;
 }
 
 // ── Componente Principal ──────────────────────────────────────
@@ -219,7 +243,7 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
       // Pessoa
       const { data: p } = await supabase
         .from("membros")
-        .select("id,nome_completo,nome_social,foto_url,tipo_pessoa,status,data_entrada,email,telefone_celular,perfil_acesso,observacoes_pastorais")
+        .select("id,nome_completo,nome_social,foto_url,tipo_pessoa,status,data_entrada,email,telefone_celular,perfil_acesso,observacoes_pastorais,created_at,origem_cadastro")
         .eq("id", pessoaId)
         .single();
       setPessoa(p ?? null);
@@ -631,7 +655,7 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
             <div className="pt-2 border-t flex items-center justify-between text-xs text-muted-foreground">
               <div className="flex items-center gap-1.5">
                 <Calendar className="w-3.5 h-3.5" />
-                <span>Na igreja há {calcularTempo(pessoa.data_entrada)}</span>
+                <span>{calcularTempo(pessoa)}</span>
               </div>
               {/* "Sem vínculos cadastrados" era o texto daqui, e mentia.
                   Isto conta ministério, área e cargo — nada de família. Só que

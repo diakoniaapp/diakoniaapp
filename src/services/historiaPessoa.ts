@@ -72,7 +72,13 @@ const ATOS: Array<[string, string]> = [
 ];
 
 const ROTULO_CONTATO: Record<string, string> = {
-  cadastro:          "Primeiro culto",
+  // "Primeiro culto" era o rótulo daqui, e afirmava um fato que ninguém
+  // presenciou. Medido em 26/08/2026: 274 pessoas têm este registro, e nas
+  // 274 a data do contato é a data em que a LINHA foi criada — não houve
+  // culto nenhum, houve cadastro. A observação de todas dizia, literalmente,
+  // "Primeiro culto - cadastro inicial": a metade verdadeira estava lá o
+  // tempo todo, e o título escolheu a outra.
+  cadastro:          "Cadastro criado",
   whatsapp:          "Mensagem no WhatsApp",
   ligacao:           "Ligação",
   visita_presencial: "Visita presencial",
@@ -110,7 +116,7 @@ export async function historiaDaPessoa(pessoaId: string): Promise<EventoDaHistor
 
   const [pessoa, mudancas, contatos, servicos] = await Promise.all([
     supabase.from("membros")
-      .select("data_entrada, data_consagracao_pastoral, data_ordenacao_presbiteral, data_ordenacao_diaconal, data_consagracao_missionaria")
+      .select("data_entrada, created_at, origem_cadastro, data_consagracao_pastoral, data_ordenacao_presbiteral, data_ordenacao_diaconal, data_consagracao_missionaria")
       .eq("id", pessoaId).maybeSingle(),
     supabase.from("historico_membro")
       .select("tipo, descricao, data")
@@ -131,7 +137,36 @@ export async function historiaDaPessoa(pessoaId: string): Promise<EventoDaHistor
 
   const p = pessoa.data as Record<string, string | null> | null;
 
-  if (p?.data_entrada) {
+  /**
+   * "Chegou à igreja" só quando a data significa isso.
+   *
+   * Na importação de junho/2026 muita `data_entrada` recebeu o dia da própria
+   * importação. A ficha então anunciava, sobre uma criança de 11 anos que a
+   * igreja conhece há anos, que ela chegou há dois meses — e a liderança
+   * poderia agir pastoralmente sobre isso.
+   *
+   * Medido em 26/08/2026: dos 65 congregados ativos, NENHUM tem
+   * `data_entrada` anterior ao cadastro; 25 têm o carimbo e 40 não têm data.
+   *
+   * A dúvida só existe para linha importada. Quem foi cadastrado aqui tem
+   * `data_entrada` posta por alguém, e coincidir com o dia do cadastro é o
+   * caso NORMAL — a secretaria cadastra hoje quem chegou hoje. Por isso o
+   * teste começa por `origem_cadastro`, e não pela distância entre as datas:
+   * a heurística sozinha apagaria justamente a chegada verdadeira.
+   *
+   * As 158 pessoas cuja data é bem anterior ao cadastro continuam com a
+   * linha: aquela data a importação trouxe de verdade, e escondê-la seria
+   * trocar uma invenção por outra.
+   */
+  const carimboDaImportacao =
+    p?.origem_cadastro === "importacao" &&
+    !!p?.data_entrada && !!p?.created_at &&
+    Math.abs(
+      (new Date(p.data_entrada + "T00:00").getTime() - new Date(p.created_at).getTime())
+      / 86_400_000,
+    ) <= 7;
+
+  if (p?.data_entrada && !carimboDaImportacao) {
     eventos.push({ data: p.data_entrada, tipo: "entrada", titulo: "Chegou à igreja" });
   }
 
