@@ -7070,6 +7070,7 @@ export type Database = {
             | Database["public"]["Enums"]["status_acolhimento_enum"]
             | null
           telefone_celular: string | null
+          telefone_dispensado: boolean
           telefone_e164: string | null
           telefone_fixo: string | null
           tem_acesso_sistema: boolean
@@ -7149,6 +7150,7 @@ export type Database = {
             | Database["public"]["Enums"]["status_acolhimento_enum"]
             | null
           telefone_celular?: string | null
+          telefone_dispensado?: boolean
           telefone_e164?: string | null
           telefone_fixo?: string | null
           tem_acesso_sistema?: boolean
@@ -7228,6 +7230,7 @@ export type Database = {
             | Database["public"]["Enums"]["status_acolhimento_enum"]
             | null
           telefone_celular?: string | null
+          telefone_dispensado?: boolean
           telefone_e164?: string | null
           telefone_fixo?: string | null
           tem_acesso_sistema?: boolean

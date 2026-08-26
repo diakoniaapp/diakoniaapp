@@ -35,6 +35,7 @@ export interface Membro {
     cpf: string | null;
     data_nascimento: string | null;
     telefone_celular: string | null;
+    telefone_dispensado: boolean | null;
     email: string | null;
     bairro: string | null;
     status: "ativo" | "inativo" | "transferido" | "falecido" | "desligado";

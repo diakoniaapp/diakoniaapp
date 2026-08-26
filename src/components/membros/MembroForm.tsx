@@ -59,6 +59,7 @@ const empty = {
   estado_civil:             "",
   data_casamento:           "",
   telefone_celular:         "",
+  telefone_dispensado:      false,
   email:                    "",
   endereco:                 "",
   numero:                   "",
@@ -225,6 +226,11 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
       // `funcoesDe` converte. Sem isso, abrir a ficha de quem já tinha função
       // mostraria tudo desmarcado — e salvar apagaria o cargo da pessoa.
       f.funcoes_ministeriais = funcoesDe(membro as any);
+      // O laço acima faz `?? ""`, que serve para texto e estraga booleano: um
+      // registro carregado sem esta coluna viraria `""`, a caixa apareceria
+      // desmarcada para quem está dispensado, e salvar mandaria string vazia
+      // para uma coluna `boolean not null`.
+      f.telefone_dispensado = !!(membro as any).telefone_dispensado;
       setForm(f);
     } else {
       setForm(empty);
@@ -343,6 +349,14 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
       if (!valid.ok) { setBusy(false); return toast.error(valid.erro!); }
       payload.telefone_celular = normalizarTelefone(payload.telefone_celular);
     }
+
+    // "Dispensado" só quer dizer algo sem telefone. Com telefone preenchido a
+    // caixa some da tela, mas o valor continuaria no formulário — e ficaria
+    // gravado dizendo que uma pessoa com celular não tem telefone próprio.
+    //
+    // O `!!` também protege da linha abaixo: `"" → null` numa coluna
+    // `boolean not null` seria erro de gravação, e o cadastro não salvaria.
+    payload.telefone_dispensado = !payload.telefone_celular && !!payload.telefone_dispensado;
 
     // Strings vazias → null
     Object.keys(payload).forEach((k) => { if (payload[k] === "") payload[k] = null; });
@@ -677,6 +691,33 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                   value={form.telefone_celular}
                   onChange={(v) => set("telefone_celular", v)}
                 />
+                {/* ── Dispensar o telefone ────────────────────────────────
+                    Só com o campo vazio. Com telefone preenchido a caixa não
+                    quereria dizer nada, e uma caixa que não muda nada é uma
+                    pergunta a mais em cada cadastro.
+
+                    Fora para visitante: ali o telefone é obrigatório de
+                    verdade — sem ele não há acolhimento, que é a razão de o
+                    visitante estar no sistema.
+
+                    O texto não diz "criança" porque a regra não é essa: é
+                    "não tem telefone próprio". Vale para o idoso que usa o
+                    telefone do filho e para quem é contatado pela família.
+                    Criança é o caso mais comum, não o único. */}
+                {!isVisitante && !form.telefone_celular?.trim() && (
+                  <label className="flex items-start gap-2 mt-2 cursor-pointer">
+                    <Checkbox
+                      checked={!!form.telefone_dispensado}
+                      onCheckedChange={(v) => set("telefone_dispensado", !!v)}
+                      className="mt-0.5"
+                    />
+                    <span className="text-xs text-muted-foreground leading-snug">
+                      <span className="font-medium text-foreground">Não tem telefone próprio</span>
+                      {" "}— criança, ou quem é contatado pelo telefone de um
+                      familiar. Sai da lista de cadastros a corrigir.
+                    </span>
+                  </label>
+                )}
               </div>
 
               {(isCongregado || isMembro) && (

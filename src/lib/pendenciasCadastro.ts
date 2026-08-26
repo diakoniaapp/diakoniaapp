@@ -41,6 +41,8 @@
 export interface PessoaParaPendencia {
   status?: string | null;
   telefone_celular?: string | null;
+  /** Marcada quando a pessoa não tem telefone próprio e isso está correto. */
+  telefone_dispensado?: boolean | null;
   estado_civil?: string | null;
   data_casamento?: string | null;
   tipo_pessoa?: string | null;
@@ -80,9 +82,14 @@ export const PENDENCIAS_CADASTRO: PendenciaCadastro[] = [
     // Quem não tem telefone não recebe aniversário, não recebe convite, não
     // entra em nenhuma jornada de cuidado. Não é um campo em branco: é uma
     // pessoa fora de alcance.
+    //
+    // Salvo quem tem `telefone_dispensado`. Uma criança de um mês não tem
+    // celular e nunca vai ter tão cedo — mas a igreja fala com ela pelo
+    // telefone da mãe. Ela não está fora de alcance, está na lista errada.
+    // Eram 23 crianças em 63 nomes, e 20 delas com parente com telefone.
     consequencia: "a igreja não tem como falar com elas",
-    filtrarConsulta: q => q.eq("status", "ativo").is("telefone_celular", null),
-    combina:         m => m.status === "ativo" && !m.telefone_celular,
+    filtrarConsulta: q => q.eq("status", "ativo").is("telefone_celular", null).eq("telefone_dispensado", false),
+    combina:         m => m.status === "ativo" && !m.telefone_celular && !m.telefone_dispensado,
   },
   {
     chave: "casado-sem-data",
