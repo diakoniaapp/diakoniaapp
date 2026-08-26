@@ -50,9 +50,12 @@ const ROUTES: CommandRoute[] = [
 
   // ── Administração ─────────────────────────────────────────────────
   { to: "/membresia",  label: "Membresia",  icon: FileText,    group: "Administração", keywords: ["solicitacao","batismo"] },
-  // Estava fora do menu e da busca: so era alcancavel por um botao dentro de Membresia.
-  { to: "/painel-secretaria", label: "Pendências da Secretaria", icon: CheckSquare, group: "Administração",
-    keywords: ["alertas","pendencia","secretaria","governanca","painel"], permissoes: ["ver_painel_secretaria","ver_membresia"] },
+  // Esta entrada existia antes da tela. Apontava para `/painel-secretaria`, e
+  // a rota não existia: o `path="*"` respondia com NotFound. O mesmo valia
+  // para o botão "Painel" dentro de Membresia. A página foi escrita em
+  // 26/08/2026 e os dois links passaram a levar a algum lugar.
+  { to: "/painel-secretaria", label: "Painel da Secretaria", icon: CheckSquare, group: "Administração",
+    keywords: ["alertas","pendencia","secretaria","governanca","painel","cadastro","ata"], permissoes: ["ver_painel_secretaria","ver_membresia"] },
   { to: "/governanca", label: "Reuniões e Assembleias", icon: Gavel, group: "Administração", keywords: ["assembleia","ata","pauta","decisao"] },
   { to: "/assuntos",   label: "Assuntos",   icon: CheckSquare, group: "Administração", keywords: ["pendencia","tarefa"] },
   { to: "/arrecadacao", label: "🛒 PDV — Bazar/Cantina", icon: ShoppingBag, group: "Ações", keywords: ["pdv","caixa","arrecada","vender","venda","cantina","bazar"], permissoes: ["operar_caixa","ver_arrecadacao","ver_financeiro"] },

@@ -12,6 +12,7 @@ import {
   Network, FileText, ScrollText,
   CheckSquare, UserCheck, Sprout, Gavel,
   ShoppingBag, type LucideIcon,
+  ClipboardCheck,
 } from "lucide-react";
 import type { AppRole } from "@/hooks/useAuth";
 
@@ -57,6 +58,9 @@ export const PAINEL: NavItem = { to: "/", label: "Home", icon: LayoutDashboard, 
 export const ATALHOS_TOPO: NavItem[] = [
   PAINEL,
   { to: "/painel-pastoral", label: "Painel Pastoral", icon: Sparkles, allowedRoles: ROLES_LIDERES },
+  // Só admin e secretaria. Aparecer para a liderança faria o atalho prometer
+  // uma tela que a guarda de rota recusa — pior que não aparecer.
+  { to: "/painel-secretaria", label: "Painel da Secretaria", icon: ClipboardCheck, allowedRoles: ROLES_ADMIN },
 ];
 
 export const NAV_GROUPS: NavGroup[] = [
@@ -163,6 +167,7 @@ export const pageTitles: Record<string, string> = {
   "/eventos":                 "Agenda",
   "/agenda-pastoral":         "Agenda Pastoral",
   "/painel-pastoral":         "Painel Pastoral",
+  "/painel-secretaria":       "Painel da Secretaria",
   "/locais":                  "Espaços",
   "/visitantes":              "Visitantes",
   "/painel-estrategico":      "Crescimento",
@@ -177,7 +182,6 @@ export const pageTitles: Record<string, string> = {
   "/assuntos":                "Assuntos",
   "/financas":                "Tesouraria",
   "/financas/executivo":      "Visão Executiva",
-  "/painel-secretaria":       "Pendências da Secretaria",
   "/arrecadacao":             "Bazar e Cantina",
   "/admin/recuperacao-senha": "Recuperar Senha",
   "/admin/lgpd":              "LGPD",
@@ -199,4 +203,10 @@ export const ROUTE_ROLES: Record<string, AppRole[]> = {
   "/organograma":        ROLES_LIDERES,
   "/estrutura":          ROLES_PASTORAL,
   "/usuarios":           ROLES_ADMIN,
+  // `ROLES_ADMIN` é ["admin", "secretaria"] — o nome engana, mas é exatamente
+  // o par que deve entrar aqui. Pastor e liderança ficam de fora de propósito:
+  // esta tela não informa sobre a igreja, ela distribui trabalho a quem o
+  // executa, e trabalho endereçado a quem não o faz é o defeito que ela veio
+  // corrigir.
+  "/painel-secretaria":  ROLES_ADMIN,
 };

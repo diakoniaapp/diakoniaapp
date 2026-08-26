@@ -63,7 +63,6 @@ import ArrecadacaoManutencao from "./pages/arrecadacao/Manutencao.tsx";
 import ArrecadacaoChecklistTemplates from "./pages/arrecadacao/ChecklistTemplates.tsx";
 import Membresia from "./pages/Membresia.tsx";
 import MembresiaDetalhe from "./pages/MembresiaDetalhe.tsx";
-import PainelSecretaria from "./pages/PainelSecretaria.tsx";
 import Governanca from "./pages/Governanca.tsx";
 import GovernancaReuniao from "./pages/GovernancaReuniao.tsx";
 import GovernancaAssembleia from "./pages/GovernancaAssembleia.tsx";
@@ -71,6 +70,7 @@ import Assuntos from "./pages/Assuntos.tsx";
 import AssuntoDetalhe from "./pages/AssuntoDetalhe.tsx";
 import AgendaPastoral from "./pages/AgendaPastoral.tsx";
 import PainelPastoral from "./pages/PainelPastoral.tsx";
+import PainelSecretaria from "./pages/PainelSecretaria.tsx";
 import ResetSenhaToken from "@/pages/ResetSenhaToken";
 import EsqueciSenha from "@/pages/EsqueciSenha";
 import ResetSenha from "./pages/ResetSenha.tsx";
@@ -171,7 +171,6 @@ const App = () => (
                   <Route path="/arrecadacao/checklist-templates" element={<ArrecadacaoChecklistTemplates />} />
                   <Route path="/membresia" element={<Membresia />} />
                   <Route path="/membresia/:id" element={<MembresiaDetalhe />} />
-                  <Route path="/painel-secretaria" element={<PainelSecretaria />} />
                   <Route path="/governanca" element={<Governanca />} />
                   <Route path="/governanca/reuniao/:id" element={<GovernancaReuniao />} />
                   <Route path="/governanca/assembleia/:id" element={<GovernancaAssembleia />} />
@@ -179,6 +178,7 @@ const App = () => (
                   <Route path="/assunto/:id" element={<AssuntoDetalhe />} />
                   <Route path="/agenda-pastoral" element={<AgendaPastoral />} />
                   <Route path="/painel-pastoral" element={<PainelPastoral />} />
+                  <Route path="/painel-secretaria" element={<PainelSecretaria />} />
                   <Route path="/admin/recuperacao-senha" element={<RecuperacaoSenhaAdmin />} />
                   <Route path="/admin/lgpd" element={<LgpdAdmin />} />
                   <Route path="/admin/identidade" element={<IdentidadeAdmin />} />
