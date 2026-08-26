@@ -106,16 +106,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    *
    * Separado de `canEdit` de propósito. `canEdit` é o portão geral — agenda,
    * locais, ministérios, áreas, famílias — e continua sendo admin+secretaria.
-   * Pessoas e contatos foram abertos à liderança em 20/08/2026 (migration
-   * 20260820140000), e usar o portão geral para isso abriria junto meia
-   * dúzia de telas que ninguém pediu.
+   * O pastor titular entra aqui e não lá: ele cuida de pessoas, não administra
+   * espaço nem escala.
    *
-   * Os papéis aqui espelham a política `staff_update_membros` do banco. Se
-   * um dia divergirem, é a política que manda: a tela ofereceria um botão
-   * que o banco recusa, e era exatamente esse o defeito que isto conserta.
-   * Apagar pessoa NÃO entra — continua só de admin, no banco e aqui.
+   * ── A LIDERANÇA SAIU EM 26/08/2026 ──────────────────────────────────────
+   *
+   * Ela havia entrado seis dias antes, e o motivo estava escrito na migration
+   * `20260820140000`: quatro dos SEIS usuários de então eram `lideranca` e não
+   * conseguiam corrigir um telefone. Hoje são três usuários e só um é
+   * liderança — a premissa acabou, e a decisão que ela sustentava também.
+   *
+   * ── OS TRÊS LUGARES PRECISAM MUDAR JUNTOS ───────────────────────────────
+   *
+   * "Quem edita pessoa" morava em três sítios com três respostas: a política
+   * `staff_update_membros` (5 papéis), a permissão `editar_pessoa` (2) e esta
+   * linha (3). Quem lê a tela de permissões via a mais restritiva das três e
+   * concluía que liderança não editava — enquanto o banco deixava.
+   *
+   * Agora os três dizem admin, secretaria, diakonia e pastor. Mexer em um sem
+   * os outros recria o defeito, e o `COMMENT` da política no banco repete
+   * este aviso para quem chegar por lá.
    */
-  const podeEditarPessoas = hasRole(["admin", "secretaria", "lideranca"]);
+  const podeEditarPessoas = hasRole(["admin", "secretaria", "diakonia", "pastor"]);
 
   return (
     <AuthContext.Provider value={{ user, session, roles, rolesCarregados, loading, signOut, hasRole, canEdit, podeEditarPessoas }}>
