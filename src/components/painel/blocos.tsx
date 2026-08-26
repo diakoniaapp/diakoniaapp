@@ -87,16 +87,22 @@ export function Indicador({
   // indicador pedia ~70px, e os cinco comiam metade da primeira tela antes
   // de qualquer conteúdo aparecer. Em linha cabem em ~32px.
   //
-  // **No desktop falta largura.** Cinco colunas num painel de 1024px dão
-  // ~100px cada — não cabe número e rótulo lado a lado, e TODOS truncavam
-  // ("ANIV. H...", "EM ACO..."). Ali o empilhado é que resolve.
+  // **No desktop LARGO falta largura por coluna.** Cinco colunas dão ~190px
+  // cada — não cabe número e rótulo lado a lado, e todos truncavam. Ali o
+  // empilhado é que resolve.
+  //
+  // O corte é `lg` (1024px), e não `sm` (640px). Com `sm` o grid virava cinco
+  // colunas cedo demais: numa janela de 700px cada indicador ficava com
+  // ~130px — estreito para o empilhado e estreito para o texto. "EM
+  // ACOMPANHAMENTO" cortava e os rótulos pareciam se sobrepor. Entre 640 e
+  // 1024 ficam duas colunas largas, com o layout em linha.
   //
   // Daí `order`: os mesmos dois elementos, invertidos por breakpoint. No
   // celular o número vem primeiro, porque é ele que se procura — "3" salta e
   // "aniv. hoje" só explica.
   const conteudo = (
     <>
-      <span className="flex items-center gap-1 min-w-0 order-2 sm:order-1">
+      <span className="flex items-center gap-1 min-w-0 order-2 lg:order-1">
         {Icone && (
           <Icone className={`w-3.5 h-3.5 shrink-0 ${vazio ? "text-muted-foreground" : TOM_NUMERO[tom]}`} />
         )}
@@ -105,21 +111,21 @@ export function Indicador({
         </span>
       </span>
       {!semNumero && (
-        <span className={`text-lg sm:text-2xl font-semibold leading-none tabular-nums shrink-0 order-1 sm:order-2 ${corNumero}`}>
+        <span className={`text-lg lg:text-2xl font-semibold leading-none tabular-nums shrink-0 order-1 lg:order-2 ${corNumero}`}>
           {valor}
         </span>
       )}
       {/* Sem número, uma seta ocupa o lugar dele: o bloco continua alinhado
           com os vizinhos na faixa, e diz que leva a algum lugar. */}
       {semNumero && (
-        <ChevronRight className={`w-4 h-4 shrink-0 order-1 sm:order-2 ${TOM_NUMERO[tom]}`} />
+        <ChevronRight className={`w-4 h-4 shrink-0 order-1 lg:order-2 ${TOM_NUMERO[tom]}`} />
       )}
     </>
   );
 
   const base =
     "flex items-center gap-1.5 rounded-lg border bg-card px-2.5 py-1.5 min-w-0 " +
-    "sm:flex-col sm:items-center sm:gap-1.5 sm:px-2 sm:py-2.5 sm:text-center";
+    "lg:flex-col lg:items-center lg:gap-1.5 lg:px-2 lg:py-2.5 lg:text-center";
 
   if (!onClick) return <div className={base}>{conteudo}</div>;
 
@@ -147,8 +153,8 @@ export function FaixaDeIndicadores({
   children, colunas,
 }: { children: React.ReactNode; colunas: number }) {
   const cols: Record<number, string> = {
-    3: "sm:grid-cols-3", 4: "sm:grid-cols-4",
-    5: "sm:grid-cols-5", 6: "sm:grid-cols-6",
+    3: "lg:grid-cols-3", 4: "lg:grid-cols-4",
+    5: "lg:grid-cols-5", 6: "lg:grid-cols-6",
   };
 
   // No celular são duas colunas, e um número ímpar de indicadores deixa o
@@ -159,8 +165,8 @@ export function FaixaDeIndicadores({
 
   return (
     <div
-      className={`grid grid-cols-2 gap-1.5 ${cols[colunas] ?? "sm:grid-cols-4"} ${
-        impar ? "[&>*:last-child]:col-span-2 sm:[&>*:last-child]:col-span-1" : ""
+      className={`grid grid-cols-2 gap-1.5 ${cols[colunas] ?? "lg:grid-cols-4"} ${
+impar ? "[&>*:last-child]:col-span-2 lg:[&>*:last-child]:col-span-1" : ""
       }`}
     >
       {children}
