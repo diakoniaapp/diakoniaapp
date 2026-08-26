@@ -27,7 +27,11 @@ port = 55329
 [studio]
 port = 55323
 
-[inbucket]
+# Era `[inbucket]` — o CLI renomeou a secao e passou a avisar a cada comando:
+# "config section [inbucket] is deprecated. Please use [local_smtp] instead."
+# E o servidor de e-mail de teste do ambiente local; nao tem relacao com
+# producao, onde nao ha e-mail proprio (o login e por telefone).
+[local_smtp]
 port = 55324
 
 [analytics]
