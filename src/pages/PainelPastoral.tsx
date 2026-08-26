@@ -263,10 +263,6 @@ export default function PainelPastoral() {
 
   const totalDatas = dias.reduce((s, d) => s + d.itens.length, 0);
 
-  function abrirWhats(ev: EventoPastoral) {
-    window.open(linkWhatsApp(ev), "_blank", "noopener,noreferrer");
-  }
-
   if (loading) return <PaginaSkeleton />;
 
   return (
@@ -357,7 +353,7 @@ export default function PainelPastoral() {
                 data={diaAberto}
                 itens={dias.find(d => d.data === diaAberto)?.itens ?? []}
                 hojeIso={hoje}
-                onWhats={abrirWhats}
+
               />
             </>
           )}
@@ -586,12 +582,12 @@ function TiraDaSemana({
  * uma tela em branco não é resposta.
  */
 function BlocoDoDia({
-  data, itens, hojeIso, onWhats,
+  data, itens, hojeIso,
 }: {
   data: string;
   itens: ItemData[];
   hojeIso: string;
-  onWhats: (e: EventoPastoral) => void;
+
 }) {
   const ehHoje = data === hojeIso;
 
@@ -620,7 +616,7 @@ function BlocoDoDia({
         // idade — esticar isso por 900px era o que fazia as datas virarem
         // uma tela e meia de rolagem.
         <div className="grid sm:grid-cols-2 gap-1.5">
-          {itens.map(item => <LinhaData key={item.chave} item={item} onWhats={onWhats} />)}
+          {itens.map(item => <LinhaData key={item.chave} item={item} />)}
         </div>
       )}
     </div>
@@ -646,7 +642,7 @@ function BlocoDoDia({
  * silenciosamente inerte. É informação pastoral: essa pessoa faz aniversário
  * hoje e vai precisar de outro caminho para ser alcançada.
  */
-function LinhaData({ item, onWhats }: { item: ItemData; onWhats: (e: EventoPastoral) => void }) {
+function LinhaData({ item }: { item: ItemData }) {
   const ui = CATEGORIA_UI[item.categoria] ?? CATEGORIA_UI.aniversario;
   const Icone = ui.icone;
   const temTelefone = !!(item.evento?.telefone || item.evento?.telefone_secundario);
@@ -689,10 +685,25 @@ function LinhaData({ item, onWhats }: { item: ItemData; onWhats: (e: EventoPasto
     );
   }
 
+  /*
+    Âncora de verdade, e não um botão com `window.open`.
+
+    O botão chamava `window.open(url, "_blank")`. O clique disparava e a URL
+    saía correta — conferido interceptando a chamada —, mas **nada abria**:
+    `window.open` é tratado como pop-up e fica bloqueado por padrão em vários
+    navegadores, e no WebView do celular, que é onde a igreja mais usa o
+    sistema. É a mesma família do Risco 3 do CLAUDE.md: a chamada "funciona",
+    não devolve erro, e não acontece nada.
+
+    Um `<a target="_blank">` é navegação comum, nunca tratada como pop-up. De
+    quebra devolve o que um botão não dá: abrir em nova aba pelo meio do
+    mouse, copiar o endereço, e o link visível na barra de status.
+  */
   return (
-    <button
-      type="button"
-      onClick={() => onWhats(item.evento as EventoPastoral)}
+    <a
+      href={linkWhatsApp(item.evento)}
+      target="_blank"
+      rel="noopener noreferrer"
       title={`Enviar felicitações para ${item.titulo} no WhatsApp`}
       className="flex items-center gap-1.5 border rounded-md pl-2.5 pr-2 py-1.5 min-w-0 w-full
                  transition-colors hover:bg-success-soft hover:border-success-line
@@ -700,7 +711,7 @@ function LinhaData({ item, onWhats }: { item: ItemData; onWhats: (e: EventoPasto
     >
       {conteudo}
       <MessageCircle className="w-4 h-4 shrink-0 text-success-text" />
-    </button>
+    </a>
   );
 }
 
