@@ -94,10 +94,28 @@ export const STATUS_LABEL: Record<EventoStatus, string> = {
   cancelado: "Cancelado",
 };
 
+/**
+ * Todos os tipos de evento, na ordem em que aparecem no filtro.
+ *
+ * Sai de `TIPO_LABEL` em vez de ser uma lista à parte: acrescentar `live` ao
+ * enum e esquecer de somar aqui daria um tipo que nasce desmarcado enquanto
+ * todos os outros vêm marcados — e ninguém repara num item a menos numa lista
+ * de nove.
+ */
+export const TODOS_OS_TIPOS = Object.keys(TIPO_LABEL) as EventoTipo[];
+
 export const DEFAULT_FILTROS: AgendaFiltros = {
   ministerios: [],
   areas: [],
-  tipos: [],
+  // Todos marcados, como `status` e `categorias` logo abaixo.
+  //
+  // `tipos` era o único enum pequeno que nascia vazio, e o painel ficava
+  // dizendo duas coisas ao mesmo tempo: nenhum tipo marcado, e a agenda cheia
+  // de eventos de todos os tipos. Por dentro estava certo — `filtros.tipos`
+  // vazio significa "sem restrição" — mas quem abre o filtro lê os
+  // quadradinhos, não o `if`. Nove caixas vazias sobre uma lista completa
+  // parecem um filtro quebrado.
+  tipos: TODOS_OS_TIPOS,
   locais: [],
   status: ["agendado", "realizado", "cancelado"],
   colorBy: "tipo",

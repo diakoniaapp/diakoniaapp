@@ -28,7 +28,7 @@ import {
   AgendaFiltros,
   AgendaView,
   AreaOpt,
-  DEFAULT_FILTROS,
+  DEFAULT_FILTROS, TODOS_OS_TIPOS,
   EventoOcorrencia,
   EventoRow,
   LocalOpt,
@@ -115,6 +115,18 @@ export default function Eventos() {
         // adiciona automaticamente pra essa camada nova aparecer
         if (Array.isArray(parsed.categorias) && !parsed.categorias.includes("arrecadacao")) {
           parsed.categorias = [...parsed.categorias, "arrecadacao"];
+        }
+        // Migração — quem já usou a agenda tem `tipos: []` gravado, e o spread
+        // abaixo faria esse vazio vencer o novo default de "todos marcados".
+        // O filtro continuaria mostrando tudo com as nove caixas em branco,
+        // que é justamente o que se veio consertar.
+        //
+        // Vazio aqui nunca significou "esconder tudo": o `if` que filtra é
+        // `filtros.tipos.length && ...`, então quem gravou vazio estava vendo
+        // todos os tipos. Marcar todos não muda o que essa pessoa vê — só faz
+        // a tela dizer a verdade sobre isso.
+        if (!Array.isArray(parsed.tipos) || parsed.tipos.length === 0) {
+          parsed.tipos = TODOS_OS_TIPOS;
         }
         return { ...DEFAULT_FILTROS, ...parsed };
       }

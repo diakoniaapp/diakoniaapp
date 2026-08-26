@@ -7,7 +7,7 @@ import { Filter, Palette } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   AgendaFiltros, AreaOpt, CategoriaEvento, EventoStatus, EventoTipo, LocalOpt, MinisterioOpt,
-  STATUS_LABEL, TIPO_LABEL,
+  STATUS_LABEL, TIPO_LABEL, TODOS_OS_TIPOS,
 } from "@/lib/agenda/types";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -113,8 +113,14 @@ export function AgendaFilters({ filtros, onChange, ministerios, areas, locais }:
         selected={filtros.ministerios} onToggle={(v) => toggle("ministerios", v)} onClear={() => clear("ministerios")} />
       <MultiPopover label="Área" items={areas.map(a => ({ id: a.id, nome: a.nome }))}
         selected={filtros.areas} onToggle={(v) => toggle("areas", v)} onClear={() => clear("areas")} />
+      {/* "Limpar" aqui MARCA todos, não desmarca — igual ao de Categoria.
+          Desmarcar as nove devolveria a tela ao estado que se veio consertar:
+          nada marcado e a agenda cheia, porque vazio significa "sem
+          restrição" no `if` que filtra. Limpar o filtro é voltar a ver tudo,
+          e ver tudo agora se escreve com as nove caixas marcadas. */}
       <MultiPopover label="Tipo" items={tiposItems}
-        selected={filtros.tipos} onToggle={(v) => toggle("tipos", v)} onClear={() => clear("tipos")} />
+        selected={filtros.tipos} onToggle={(v) => toggle("tipos", v)}
+        onClear={() => onChange({ ...filtros, tipos: TODOS_OS_TIPOS })} />
       <MultiPopover label="Local" items={locais.map(l => ({ id: l.id, nome: l.nome_completo || l.nome }))}
         selected={filtros.locais} onToggle={(v) => toggle("locais", v)} onClear={() => clear("locais")} />
       <MultiPopover label="Status" items={statusItems}
