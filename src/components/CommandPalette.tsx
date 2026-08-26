@@ -12,6 +12,8 @@ import {
   ShieldAlert, UserPlus, type LucideIcon,
 } from "lucide-react";
 import { usePermissoes } from "@/hooks/usePermissoes";
+import { ROLES_PAINEL_PASTORAL } from "@/components/layout/navConfig";
+import { useAuth, type AppRole } from "@/hooks/useAuth";
 import { EVENTO_ABRIR_BUSCA } from "@/lib/commandPalette";
 
 interface CommandRoute {
@@ -21,6 +23,19 @@ interface CommandRoute {
   group: "Navegação" | "Discipulado" | "Administração" | "Financeiro" | "Configurações" | "Ações";
   keywords?: string[];      // sinônimos pra busca
   permissoes?: string[];    // OR
+  /**
+   * Papéis que podem ver o item. Ausente = todos.
+   *
+   * Existe porque nem toda regra de navegação se escreve como permissão. "A
+   * secretária não vê o Painel Pastoral" é subtração de UM papel, e não há
+   * código de permissão que descreva isso — `ver_painel_pastoral` é mais
+   * estreito e tiraria a liderança junto.
+   *
+   * Some com `permissoes`: um item some se QUALQUER um dos dois recusar. A
+   * paleta é a busca do sistema inteiro, e oferecer um caminho que a guarda
+   * de rota devolve é pior que não oferecer.
+   */
+  allowedRoles?: AppRole[];
 }
 
 const ROUTES: CommandRoute[] = [
@@ -46,7 +61,7 @@ const ROUTES: CommandRoute[] = [
   // ── Discipulado ───────────────────────────────────────────────────
   { to: "/ebd",             label: "EBD",                  icon: GraduationCap, group: "Discipulado", keywords: ["escola","classe","dominical"] },
   { to: "/pgm",             label: "Pequenos Grupos",      icon: Sprout,        group: "Discipulado", keywords: ["pgm","celula","pg"] },
-  { to: "/painel-pastoral", label: "Painel Pastoral", icon: Sparkles,   group: "Discipulado", keywords: ["pastoral","cuidado","acompanhamento"] },
+  { to: "/painel-pastoral", label: "Painel Pastoral", icon: Sparkles,   group: "Discipulado", keywords: ["pastoral","cuidado","acompanhamento"], allowedRoles: ROLES_PAINEL_PASTORAL },
 
   // ── Administração ─────────────────────────────────────────────────
   { to: "/membresia",  label: "Membresia",  icon: FileText,    group: "Administração", keywords: ["solicitacao","batismo"] },
@@ -94,6 +109,7 @@ export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   const { permissoes } = usePermissoes();
+  const { roles } = useAuth();
 
   // Atalho de teclado: Cmd+K (Mac) ou Ctrl+K (Windows/Linux)
   useEffect(() => {
@@ -117,9 +133,10 @@ export function CommandPalette() {
   // Filtra rotas por permissão e agrupa
   const rotasFiltradas = useMemo(() => {
     const visiveis = ROUTES.filter(r =>
-      !r.permissoes ||
-      r.permissoes.length === 0 ||
-      r.permissoes.some(p => permissoes.has(p))
+      (!r.permissoes ||
+       r.permissoes.length === 0 ||
+       r.permissoes.some(p => permissoes.has(p)))
+      && (!r.allowedRoles || r.allowedRoles.some(p => roles.includes(p)))
     );
     const porGrupo: Record<string, CommandRoute[]> = {};
     visiveis.forEach(r => {
@@ -127,7 +144,7 @@ export function CommandPalette() {
       porGrupo[r.group].push(r);
     });
     return porGrupo;
-  }, [permissoes]);
+  }, [permissoes, roles]);
 
   const ir = (to: string) => {
     setOpen(false);

@@ -21,6 +21,25 @@ export const ROLES_LIDERES: AppRole[]  = ["admin", "secretaria", "pastor", "diak
 export const ROLES_PASTORAL: AppRole[] = ["admin", "secretaria", "pastor", "diakonia"];
 export const ROLES_ADMIN: AppRole[]    = ["admin", "secretaria"];
 
+/**
+ * Quem enxerga o Painel Pastoral.
+ *
+ * É `ROLES_LIDERES` menos `secretaria`. Ela tem a bancada dela desde
+ * 26/08/2026, e o painel pastoral trata de cuidado — acolhimento, candidatos
+ * ao batismo, discipulado —, que ela não executa. Ver uma tela de trabalho
+ * alheia todo dia é o mesmo ruído que a Home tinha para ela.
+ *
+ * A liderança fica. Ela acompanha o cuidado, e tirá-la não foi pedido.
+ *
+ * Vale notar que a permissão `ver_painel_pastoral` do banco é mais estreita
+ * ainda — admin, pastor e diakonia, sem liderança. As duas listas discordam
+ * desde antes disto, e quem manda em cada lugar é diferente: esta governa
+ * menu e rota, aquela governa os blocos do painel de Home e as ações rápidas.
+ * Unificar as duas é decisão de produto, não ajuste — e mudaria o que o Bruno
+ * vê hoje.
+ */
+export const ROLES_PAINEL_PASTORAL: AppRole[] = ["admin", "pastor", "diakonia", "lideranca"];
+
 export interface NavItem {
   to: string;
   label: string;
@@ -57,7 +76,7 @@ export const PAINEL: NavItem = { to: "/", label: "Home", icon: LayoutDashboard, 
  */
 export const ATALHOS_TOPO: NavItem[] = [
   PAINEL,
-  { to: "/painel-pastoral", label: "Painel Pastoral", icon: Sparkles, allowedRoles: ROLES_LIDERES },
+  { to: "/painel-pastoral", label: "Painel Pastoral", icon: Sparkles, allowedRoles: ROLES_PAINEL_PASTORAL },
   // Só admin e secretaria. Aparecer para a liderança faria o atalho prometer
   // uma tela que a guarda de rota recusa — pior que não aparecer.
   { to: "/painel-secretaria", label: "Painel da Secretaria", icon: ClipboardCheck, allowedRoles: ROLES_ADMIN },
@@ -209,6 +228,10 @@ export const ROUTE_ROLES: Record<string, AppRole[]> = {
   // executa, e trabalho endereçado a quem não o faz é o defeito que ela veio
   // corrigir.
   "/painel-secretaria":  ROLES_ADMIN,
+  // Sem guarda, a secretaria continuaria chegando pela URL, pelo atalho
+  // /ebd/acompanhamento e pela paleta — esconder o item do menu esconderia
+  // so um dos quatro caminhos.
+  "/painel-pastoral":    ROLES_PAINEL_PASTORAL,
 };
 
 /**

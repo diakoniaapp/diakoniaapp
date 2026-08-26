@@ -10,8 +10,33 @@
 // mesmo arquivo e ninguém pensa nas duas ao mesmo tempo.
 
 import { describe, it, expect } from "vitest";
-import { rotaInicialPorPapel, ROUTE_ROLES } from "./navConfig";
+import { rotaInicialPorPapel, ROUTE_ROLES, ATALHOS_TOPO, ROLES_PAINEL_PASTORAL } from "./navConfig";
 import type { AppRole } from "@/hooks/useAuth";
+
+describe("a secretaria não vê o Painel Pastoral", () => {
+  // A regra vive em TRÊS lugares — o atalho do topo, a guarda de rota e a
+  // paleta Ctrl+K. Esconder só o item do menu esconderia um dos caminhos e
+  // deixaria os outros abertos: a URL direta, o redirecionamento de
+  // /ebd/acompanhamento e a busca.
+  it("some do atalho do topo", () => {
+    const atalho = ATALHOS_TOPO.find(a => a.to === "/painel-pastoral");
+    expect(atalho?.allowedRoles).toBeDefined();
+    expect(atalho!.allowedRoles).not.toContain("secretaria");
+  });
+
+  it("a guarda de rota também recusa", () => {
+    expect(ROUTE_ROLES["/painel-pastoral"]).toBeDefined();
+    expect(ROUTE_ROLES["/painel-pastoral"]).not.toContain("secretaria");
+  });
+
+  it("mas continua aberto a quem cuida", () => {
+    // Tirar a secretária não pode tirar quem trabalha ali — e o pastor
+    // titular é `diakonia`, não `pastor`, que é o erro fácil de cometer.
+    for (const papel of ["admin", "pastor", "diakonia", "lideranca"] as AppRole[]) {
+      expect(ROLES_PAINEL_PASTORAL).toContain(papel);
+    }
+  });
+});
 
 describe("rotaInicialPorPapel", () => {
   it("secretária entra no painel dela", () => {
