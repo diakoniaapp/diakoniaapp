@@ -28,28 +28,24 @@
 // 20260826140000_painel_de_acompanhamento_da_ebd.sql.
 
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  GraduationCap, Users, AlertCircle, TrendingUp, TrendingDown,
+  Users, AlertCircle, TrendingUp, TrendingDown,
   ClipboardList, Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { NomePessoa } from "@/components/membros/ficha";
 // O cartao de numero vivia aqui, duplicado do PainelPastoral e do PGM.
 import { Indicador, FaixaDeIndicadores } from "@/components/painel/blocos";
 import {
-  ebdResumo, ebdPorFaixa, ebdPorClasse, ebdAlunosAusentes, faixasExtremas,
-  type EbdResumo, type EbdFaixa, type EbdClasseLinha, type EbdAlunoAusente,
+  ebdResumo, ebdPorFaixa, faixasExtremas,
+  type EbdResumo, type EbdFaixa,
 } from "@/services/ebdPainelService";
 
 export function PainelAcompanhamentoEbd() {
   const [resumo, setResumo] = useState<EbdResumo | null>(null);
   const [faixas, setFaixas] = useState<EbdFaixa[]>([]);
-  const [classes, setClasses] = useState<EbdClasseLinha[]>([]);
-  const [ausentes, setAusentes] = useState<EbdAlunoAusente[]>([]);
   const [loading, setLoading] = useState(true);
   const [falhou, setFalhou] = useState(false);
 
@@ -58,10 +54,11 @@ export function PainelAcompanhamentoEbd() {
   async function carregar() {
     setLoading(true);
     try {
-      const [r, f, c, a] = await Promise.all([
-        ebdResumo(), ebdPorFaixa(), ebdPorClasse(), ebdAlunosAusentes(8),
-      ]);
-      setResumo(r); setFaixas(f); setClasses(c); setAusentes(a);
+      // Só as duas agregações que a tela desenha. `ebdPorClasse` e
+      // `ebdAlunosAusentes` saíram junto com os blocos que alimentavam —
+      // buscar o que ninguém vê é duas idas ao banco por nada.
+      const [r, f] = await Promise.all([ebdResumo(), ebdPorFaixa()]);
+      setResumo(r); setFaixas(f);
       setFalhou(false);
     } catch (e: any) {
       // Um bloco que falha não pode derrubar o painel inteiro nem sumir em
@@ -224,86 +221,26 @@ export function PainelAcompanhamentoEbd() {
         </CardContent>
       </Card>
 
-      {/* Por classe */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <GraduationCap className="w-4 h-4 text-muted-foreground" />
-            Por classe
-            <Badge variant="outline" className="text-xs">{classes.length}</Badge>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {classes.map(c => (
-            <div key={c.classe_id} className="border rounded-md px-3 py-2 flex items-center justify-between gap-2">
-              <div className="min-w-0">
-                <p className="font-medium text-sm truncate">{c.classe}</p>
-                <p className="text-xs text-muted-foreground truncate">
-                  {c.matriculados} aluno{c.matriculados === 1 ? "" : "s"} · {c.homens}H / {c.mulheres}M
-                  {c.aulas_sem_chamada > 0 && (
-                    <span className="text-warning-text"> · {c.aulas_sem_chamada} aula{c.aulas_sem_chamada > 1 ? "s" : ""} sem chamada</span>
-                  )}
-                  {c.ultima_aula && <> · última aula {formatarData(c.ultima_aula)}</>}
-                </p>
-              </div>
-              <div className="text-right shrink-0">
-                {c.taxa === null
-                  ? <span className="text-xs text-muted-foreground">sem chamada</span>
-                  : <span className="text-lg font-semibold tabular-nums">{c.taxa}%</span>}
-              </div>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
+      {/*
+        "Por classe" e "Alunos que mais faltaram" foram desativados em
+        26/08/2026, a pedido.
 
-      {/* Alunos que mais faltam */}
-      {ausentes.length > 0 && (
-        <Card className="border-warning-line">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <TrendingDown className="w-4 h-4 text-warning-text" />
-              Alunos que mais faltaram
-              <Badge variant="outline" className="text-xs bg-warning-soft border-warning-line">
-                {ausentes.length}
-              </Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <p className="text-xs text-muted-foreground">
-              Contado só sobre as aulas em que houve chamada na classe da pessoa.
-              Quem nunca teve chamada feita não aparece aqui — não faltou, não foi registrado.
-            </p>
-            {ausentes.map(a => (
-              <div key={a.pessoa_id} className="flex items-center justify-between border rounded-md px-3 py-2 bg-warning-soft/30 gap-2">
-                <div className="min-w-0">
-                  {/* O nome abre a ficha em modo consulta. Antes havia um botão
-                      "Ficha" que navegava para /membros?abrir= — tirava a
-                      pessoa do painel e caía numa tela onde se edita. Este
-                      painel é da liderança pastoral; cadastro é da secretaria. */}
-                  <p className="font-medium text-sm truncate leading-tight">
-                    <NomePessoa id={a.pessoa_id} nome={a.nome} somenteLeitura className="leading-tight" />
-                  </p>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {a.classe}{a.idade !== null && ` · ${a.idade} anos`}
-                  </p>
-                </div>
-                <span className="text-xs text-muted-foreground tabular-nums shrink-0">
-                  {a.ausencias} de {a.oportunidades}
-                </span>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
+        O Painel Pastoral serve para ver o contexto geral: quantos alunos,
+        como está a frequência, qual faixa etária está se afastando. A lista
+        das oito classes e a dos alunos que mais faltaram são o detalhe — e
+        detalhe, aqui, compete com o resto da tela.
+
+        Nada foi apagado. As RPCs `ebd_painel_por_classe` e
+        `ebd_painel_alunos_ausentes` continuam no banco, e `ebdPorClasse` /
+        `ebdAlunosAusentes` continuam no serviço. Para trazer os blocos de
+        volta: reincluir as duas buscas no `Promise.all` de `carregar()` e
+        desenhar as listas.
+      */}
     </div>
   );
 }
 
 // ─── Helpers de UI ─────────────────────────────────────────────────────────
-
-function formatarData(iso: string): string {
-  return new Date(iso + "T00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
-}
 
 
 /**
