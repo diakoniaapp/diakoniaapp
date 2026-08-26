@@ -37,6 +37,7 @@ import {
   ClipboardList, Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { NomePessoa } from "@/components/membros/ficha";
 import {
   ebdResumo, ebdPorFaixa, ebdPorClasse, ebdAlunosAusentes, faixasExtremas,
   type EbdResumo, type EbdFaixa, type EbdClasseLinha, type EbdAlunoAusente,
@@ -273,19 +274,20 @@ export function PainelAcompanhamentoEbd() {
             {ausentes.map(a => (
               <div key={a.pessoa_id} className="flex items-center justify-between border rounded-md px-3 py-2 bg-warning-soft/30 gap-2">
                 <div className="min-w-0">
-                  <p className="font-medium text-sm truncate">{a.nome}</p>
+                  {/* O nome abre a ficha em modo consulta. Antes havia um botão
+                      "Ficha" que navegava para /membros?abrir= — tirava a
+                      pessoa do painel e caía numa tela onde se edita. Este
+                      painel é da liderança pastoral; cadastro é da secretaria. */}
+                  <p className="font-medium text-sm truncate leading-tight">
+                    <NomePessoa id={a.pessoa_id} nome={a.nome} somenteLeitura className="leading-tight" />
+                  </p>
                   <p className="text-xs text-muted-foreground truncate">
                     {a.classe}{a.idade !== null && ` · ${a.idade} anos`}
                   </p>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-xs text-muted-foreground tabular-nums">
-                    {a.ausencias} de {a.oportunidades}
-                  </span>
-                  <Button asChild size="sm" variant="outline" className="gap-1.5 text-xs">
-                    <Link to={`/membros?abrir=${a.pessoa_id}`}>Ficha</Link>
-                  </Button>
-                </div>
+                <span className="text-xs text-muted-foreground tabular-nums shrink-0">
+                  {a.ausencias} de {a.oportunidades}
+                </span>
               </div>
             ))}
           </CardContent>

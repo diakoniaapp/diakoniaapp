@@ -105,16 +105,26 @@ interface PessoaCardProps {
   pessoaId: string | null;
   open: boolean;
   onClose: () => void;
+  /**
+   * Quem abriu quer so consultar: esconde o lapis de edicao.
+   *
+   * Nao concede nada — a checagem de papel abaixo continua valendo por
+   * cima. Serve ao Painel Pastoral, que mostra a ficha para a lideranca
+   * pastoral sem oferecer o que e trabalho da secretaria.
+   */
+  somenteLeitura?: boolean;
 }
 
-export default function PessoaCard({ pessoaId, open, onClose }: PessoaCardProps) {
+export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = false }: PessoaCardProps) {
   const navigate = useNavigate();
   const { podeEditarPessoas } = useAuth();
   const { podeFazer, permissoes: permsCarregadas, loading: permsCarregando } = usePermissoes();
   // Mesmo piso usado no catalogo: conjunto vazio quer dizer consulta falhada,
   // nao usuario sem direito.
   const semResposta = permsCarregando || permsCarregadas.size === 0;
-  const podeEditar  = semResposta ? podeEditarPessoas : podeFazer("editar_pessoa");
+  const temDireito  = semResposta ? podeEditarPessoas : podeFazer("editar_pessoa");
+  // O pedido de quem abriu so RESTRINGE; nunca amplia o direito.
+  const podeEditar  = !somenteLeitura && temDireito;
 
   // Fecha a ficha e abre o formulário na tela de Pessoas.
   //

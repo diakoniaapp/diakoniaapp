@@ -31,14 +31,30 @@ import {
 import PessoaCard from "@/components/membros/PessoaCard";
 
 interface FichaCtx {
-  abrirFicha: (pessoaId: string) => void;
+  /** `apenasVer` pede a ficha sem oferecer edicao. Ver o FichaProvider. */
+  abrirFicha: (pessoaId: string, apenasVer?: boolean) => void;
 }
 
 const Ctx = createContext<FichaCtx | null>(null);
 
 export function FichaProvider({ children }: { children: ReactNode }) {
   const [pessoaId, setPessoaId] = useState<string | null>(null);
-  const abrirFicha = useCallback((id: string) => setPessoaId(id), []);
+  /**
+   * Quem abriu pediu a ficha só para consultar.
+   *
+   * Existe porque o Painel Pastoral precisa mostrar a ficha **sem oferecer
+   * edição**, mesmo a quem tem direito de editar em outras telas: aquele
+   * painel serve à liderança pastoral, e cadastro é trabalho da secretaria.
+   *
+   * É um pedido de quem chama, não uma permissão: `false` aqui não concede
+   * nada — a checagem de papel em `PessoaCard` continua valendo por cima.
+   */
+  const [somenteLeitura, setSomenteLeitura] = useState(false);
+
+  const abrirFicha = useCallback((id: string, apenasVer = false) => {
+    setSomenteLeitura(apenasVer);
+    setPessoaId(id);
+  }, []);
 
   return (
     <Ctx.Provider value={{ abrirFicha }}>
@@ -46,6 +62,7 @@ export function FichaProvider({ children }: { children: ReactNode }) {
       <PessoaCard
         pessoaId={pessoaId}
         open={!!pessoaId}
+        somenteLeitura={somenteLeitura}
         onClose={() => setPessoaId(null)}
       />
     </Ctx.Provider>
@@ -69,6 +86,14 @@ interface NomePessoaProps {
   className?: string;
   /** Texto mostrado quando não há nome. Padrão: um travessão. */
   vazio?: string;
+  /**
+   * Abre a ficha sem oferecer edição.
+   *
+   * Usado pelo Painel Pastoral: lá a ficha serve para consultar quem é a
+   * pessoa, e alterar cadastro é trabalho da secretaria. Só restringe —
+   * ver a nota no `FichaProvider`.
+   */
+  somenteLeitura?: boolean;
 }
 
 /**
@@ -82,7 +107,9 @@ interface NomePessoaProps {
  * também é clicável (abre a escala, o evento, a classe). Sem isso, clicar no
  * nome dispararia as duas coisas.
  */
-export function NomePessoa({ id, nome, className = "", vazio = "—" }: NomePessoaProps) {
+export function NomePessoa({
+  id, nome, className = "", vazio = "—", somenteLeitura = false,
+}: NomePessoaProps) {
   const ficha = useFicha();
   const texto = nome?.trim() || vazio;
 
@@ -93,8 +120,8 @@ export function NomePessoa({ id, nome, className = "", vazio = "—" }: NomePess
   return (
     <button
       type="button"
-      onClick={(e) => { e.preventDefault(); e.stopPropagation(); ficha.abrirFicha(id); }}
-      title={`Ver a ficha de ${texto}`}
+      onClick={(e) => { e.preventDefault(); e.stopPropagation(); ficha.abrirFicha(id, somenteLeitura); }}
+      title={somenteLeitura ? `Visualizar ficha de ${texto}` : `Ver a ficha de ${texto}`}
       className={`text-left hover:underline underline-offset-2 decoration-dotted ${className}`}
     >
       {texto}

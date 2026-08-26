@@ -93,6 +93,8 @@ import { eventosExternos } from "@/lib/agenda/externalEvents";
 // `useReportarVazio` que ele usa é inerte fora do HOJE (ver components/hoje/
 // vazio.ts), então embutir aqui não exige provider nenhum.
 import { AgendaDoDia } from "@/components/dashboard/AgendaDoDia";
+// O nome do candidato abre a ficha em modo consulta — sem lapis de edicao.
+import { NomePessoa } from "@/components/membros/ficha";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 // Os dois blocos de discipulado. Cada um busca os próprios dados — ver o
 // cabeçalho de cada arquivo.
@@ -378,23 +380,40 @@ export default function PainelPastoral() {
               e à entrada no rol de membros.
             </p>
 
-            {/* O cartão inteiro só monta quando há elegíveis, então aqui não
-                há caso vazio a tratar: sem candidato, o bloco some. */}
-            <div className="space-y-2">
+            {/*
+              Duas colunas e uma linha por pessoa, como em "Datas importantes":
+              um nome e uma idade nao precisam da largura inteira do cartao.
+
+              A linha toda abre a ficha — **em modo consulta**. Antes ela
+              navegava para `/membros?abrir=`, que tira a pessoa do painel e
+              cai numa tela onde se edita. Aqui a ficha e um dialogo por cima,
+              sem lapis de edicao: este painel serve a lideranca pastoral, e
+              alterar cadastro e trabalho da secretaria.
+
+              O cartao inteiro so monta quando ha elegiveis, entao nao ha caso
+              vazio a tratar.
+            */}
+            <div className="grid sm:grid-cols-2 gap-1.5">
               {candidatos.elegiveis.map(p => (
-                <div key={p.id} className="flex items-center justify-between border rounded-md px-3 py-2 bg-info-soft/40 gap-2">
-                  <div className="min-w-0">
-                    <p className="font-medium text-sm truncate">{p.nome_completo}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {p.idade} anos
-                      {p.data_congregado && ` · congregado desde ${formatarData(p.data_congregado)}`}
-                    </p>
-                  </div>
-                  <Button asChild size="sm" variant="outline" className="gap-1.5 text-xs shrink-0">
-                    <Link to={`/membros?abrir=${p.id}`}>
-                      <UserCheck className="w-3.5 h-3.5" /> Abrir ficha
-                    </Link>
-                  </Button>
+                <div
+                  key={p.id}
+                  className="flex items-center gap-1.5 border rounded-md px-2.5 py-1.5 min-w-0 bg-info-soft/40"
+                >
+                  <Droplets className="w-3.5 h-3.5 shrink-0 text-info-text" />
+                  {/* `leading-tight` porque o <button> do NomePessoa entra no
+                      fluxo de texto e, sem isso, estica a caixa de linha. */}
+                  <p className="text-sm leading-tight truncate min-w-0 flex-1">
+                    <NomePessoa
+                      id={p.id}
+                      nome={p.nome_completo}
+                      somenteLeitura
+                      className="font-medium align-middle leading-tight"
+                    />
+                    <span className="text-muted-foreground align-middle">
+                      {" · "}{p.idade} anos
+                      {p.data_congregado && ` · desde ${formatarData(p.data_congregado)}`}
+                    </span>
+                  </p>
                 </div>
               ))}
             </div>

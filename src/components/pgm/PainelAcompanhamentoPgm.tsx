@@ -20,6 +20,7 @@ import {
   Sprout, Users, AlertCircle, CalendarX, Loader2, HeartHandshake, MapPin,
 } from "lucide-react";
 import { toast } from "sonner";
+import { NomePessoa } from "@/components/membros/ficha";
 import {
   carregarPainelPgm, quandoSeReune,
   type PgmPainel,
@@ -117,20 +118,19 @@ export function PainelAcompanhamentoPgm() {
             {alertas.map(a => (
               <div key={`${a.grupo_id}-${a.pessoa_id}`} className="flex items-center justify-between border rounded-md px-3 py-2 bg-warning-soft/30 gap-2">
                 <div className="min-w-0">
-                  <p className="font-medium text-sm truncate">{a.nome}</p>
+                  {/* O nome abre a ficha em modo consulta — ver a nota igual
+                      no bloco da EBD. */}
+                  <p className="font-medium text-sm truncate leading-tight">
+                    <NomePessoa id={a.pessoa_id} nome={a.nome} somenteLeitura className="leading-tight" />
+                  </p>
                   <p className="text-xs text-muted-foreground truncate">
                     {a.grupo_nome}
                     {a.ultima_presenca && ` · última presença ${formatarData(a.ultima_presenca)}`}
                   </p>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-xs text-warning-text tabular-nums">
-                    {a.faltas_seguidas} falta{a.faltas_seguidas > 1 ? "s" : ""}
-                  </span>
-                  <Button asChild size="sm" variant="outline" className="gap-1.5 text-xs">
-                    <Link to={`/membros?abrir=${a.pessoa_id}`}>Ficha</Link>
-                  </Button>
-                </div>
+                <span className="text-xs text-warning-text tabular-nums shrink-0">
+                  {a.faltas_seguidas} falta{a.faltas_seguidas > 1 ? "s" : ""}
+                </span>
               </div>
             ))}
           </CardContent>
