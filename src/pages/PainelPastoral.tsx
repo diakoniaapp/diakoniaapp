@@ -93,9 +93,6 @@ import { eventosExternos } from "@/lib/agenda/externalEvents";
 // `useReportarVazio` que ele usa é inerte fora do HOJE (ver components/hoje/
 // vazio.ts), então embutir aqui não exige provider nenhum.
 import { AgendaDoDia } from "@/components/dashboard/AgendaDoDia";
-// Torna o nome clicavel: abre a ficha da pessoa em dialogo, sem navegar.
-// O FichaProvider e montado uma vez no AppLayout (ver CLAUDE.md 6.4).
-import { NomePessoa } from "@/components/membros/ficha";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 // Os dois blocos de discipulado. Cada um busca os próprios dados — ver o
 // cabeçalho de cada arquivo.
@@ -630,57 +627,80 @@ function BlocoDoDia({
   );
 }
 
+/**
+ * Uma data, uma linha — e, quando há telefone, **a linha inteira é o botão
+ * de felicitar**.
+ *
+ * O nome já chegou a abrir a ficha da pessoa, usando o `NomePessoa` do
+ * projeto. Foi retirado: neste painel o que se quer da lista de
+ * aniversariantes não é consultar cadastro, é mandar a mensagem. Abrir uma
+ * ficha por cima da lista interrompia justamente o gesto que a tela existe
+ * para facilitar.
+ *
+ * A área clicável passou a ser a linha toda, e não o ícone de 28px que
+ * havia antes: o mesmo gesto fica muito mais fácil de acertar, sobretudo no
+ * celular — e desaparece o problema do `min-h-9`, porque não há mais um
+ * botão pequeno disputando altura com o texto.
+ *
+ * Sem telefone não há o que clicar, e a linha diz isso em vez de ficar
+ * silenciosamente inerte. É informação pastoral: essa pessoa faz aniversário
+ * hoje e vai precisar de outro caminho para ser alcançada.
+ */
 function LinhaData({ item, onWhats }: { item: ItemData; onWhats: (e: EventoPastoral) => void }) {
   const ui = CATEGORIA_UI[item.categoria] ?? CATEGORIA_UI.aniversario;
   const Icone = ui.icone;
   const temTelefone = !!(item.evento?.telefone || item.evento?.telefone_secundario);
 
-  return (
-    // Uma linha por pessoa: nome e detalhe no mesmo texto, separados por
-    // ponto. Antes eram duas linhas empilhadas, e cada item ocupava o dobro.
-    <div className="flex items-center gap-1.5 border rounded-md pl-2.5 pr-0.5 py-0.5 min-w-0">
+  // Nome e detalhe no mesmo texto, separados por ponto. Antes eram duas
+  // linhas empilhadas, e cada item ocupava o dobro da altura.
+  const conteudo = (
+    <>
       <Icone className={`w-3.5 h-3.5 shrink-0 ${ui.cor}`} />
-      {/*
-        O nome abre a ficha da pessoa, sem sair do painel.
-
-        `NomePessoa` e o padrao do projeto (components/membros/ficha.tsx) e
-        degrada sozinho: sem `id` — bodas, que pertencem a uma familia, e as
-        datas do calendario batista, que nao pertencem a ninguem — ele vira
-        texto simples. Por isso da para aplicar na linha inteira sem
-        distinguir a categoria aqui.
-      */}
-      {/* `leading-tight` e `align-middle` porque o <button> do NomePessoa
-          entra no fluxo de texto e, sem isso, estica a caixa de linha em
-          ~12px por item — o suficiente para desfazer o ganho de densidade. */}
-      <p className="text-sm leading-tight truncate min-w-0 flex-1" title={`${item.titulo} · ${item.detalhe}`}>
-        <NomePessoa
-          id={item.evento?.pessoa_id ?? undefined}
-          nome={item.titulo}
-          className="font-medium align-middle leading-tight"
-        />
-        <span className="text-muted-foreground align-middle"> · {item.detalhe}</span>
+      <p className="text-sm leading-tight truncate min-w-0 flex-1 text-left">
+        <span className="font-medium">{item.titulo}</span>
+        <span className="text-muted-foreground"> · {item.detalhe}</span>
       </p>
-      {/*
-        O `size="sm"` do Button traz `min-h-9` — 36px, que e alvo de toque,
-        nao decoracao: a igreja usa o sistema no celular. Encolher para todos
-        ganharia densidade numa tela e atrapalharia na outra.
+    </>
+  );
 
-        Por isso o minimo cai so a partir de `md`, onde ha mouse e onde a
-        rolagem longa incomodava. `min-h-0` e necessario porque o
-        tailwind-merge nao trata `h-7` e `min-h-9` como conflito — sao
-        propriedades diferentes, e o minimo continuaria valendo.
-      */}
-      {temTelefone && item.evento && (
-        <Button
-          type="button" size="sm" variant="ghost"
-          className="w-9 md:w-7 md:h-7 md:min-h-0 p-0 text-success-text hover:bg-success-soft shrink-0"
-          onClick={() => onWhats(item.evento as EventoPastoral)}
-          title="Enviar mensagem no WhatsApp"
-        >
-          <MessageCircle className="w-3.5 h-3.5" />
-        </Button>
-      )}
-    </div>
+  // Feriados e datas da CBB não pertencem a ninguém: não há quem felicitar.
+  if (!item.evento) {
+    return (
+      <div
+        className="flex items-center gap-1.5 border rounded-md px-2.5 py-1.5 min-w-0"
+        title={`${item.titulo} · ${item.detalhe}`}
+      >
+        {conteudo}
+      </div>
+    );
+  }
+
+  if (!temTelefone) {
+    return (
+      <div
+        className="flex items-center gap-1.5 border rounded-md pl-2.5 pr-2 py-1.5 min-w-0"
+        title={`${item.titulo} · ${item.detalhe} — sem telefone cadastrado`}
+      >
+        {conteudo}
+        <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70 shrink-0">
+          sem telefone
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => onWhats(item.evento as EventoPastoral)}
+      title={`Enviar felicitações para ${item.titulo} no WhatsApp`}
+      className="flex items-center gap-1.5 border rounded-md pl-2.5 pr-2 py-1.5 min-w-0 w-full
+                 transition-colors hover:bg-success-soft hover:border-success-line
+                 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      {conteudo}
+      <MessageCircle className="w-4 h-4 shrink-0 text-success-text" />
+    </button>
   );
 }
 
