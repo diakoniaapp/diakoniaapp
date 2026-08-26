@@ -129,8 +129,11 @@ export default function VisitanteDialog({ open, onOpenChange, pessoa, onSaved }:
   };
 
   const removeVisita = async (id: string) => {
-    const { error } = await supabase.from("visitas").delete().eq("id", id);
-    if (error) return toast.error(error.message);
+    const r = conferir(
+      await supabase.from("visitas").delete().eq("id", id).select("id"),
+      "A visita",
+    );
+    if (!r.ok) return toast.error(r.erro);
     load();
   };
 

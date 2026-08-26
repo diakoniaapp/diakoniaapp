@@ -11,6 +11,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { conferir } from "@/lib/escritaConferida";
 import { gerarSenha, enviarWhatsApp } from "@/services/userService";
 import type { AppRole } from "@/hooks/useAuth";
 
@@ -260,7 +261,12 @@ export async function criarAcessoPessoa(params: {
     if (!uid) return { ok: false, erro: "Falha ao obter ID do usuário. Tente novamente." };
 
     // 2. Salvar profile vinculado à pessoa
-    const { error: profileError } = await supabaseSignup
+    //
+    // O `.select()` cobre o ramo de UPDATE do upsert (perfil ja existia): ali a
+    // politica de `profiles` — admin, ou o proprio dono — pode barrar sem erro
+    // nenhum, so zero linhas. Sem conferir, o acesso sairia como criado e a
+    // pessoa ficaria sem vinculo com a ficha.
+    const perfil = await supabaseSignup
       .from("profiles")
       .upsert(
         {
@@ -272,7 +278,9 @@ export async function criarAcessoPessoa(params: {
           primeiro_acesso: true,
         },
         { onConflict: "id" }
-      );
+      )
+      .select("id");
+    const { error: profileError } = perfil;
 
     if (profileError) {
       return {
@@ -281,6 +289,12 @@ export async function criarAcessoPessoa(params: {
         senha,
         tel,
       };
+    }
+
+    const rPerfil = conferir(perfil, "O perfil");
+    if (!rPerfil.ok) {
+      // A senha ja existe: volta junto com o aviso, para nao se perder.
+      return { ok: false, erro: `Acesso criado no Auth, mas ${rPerfil.erro}`, senha, tel };
     }
 
     // 3. Registrar log

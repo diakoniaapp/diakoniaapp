@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { conferir } from "@/lib/escritaConferida";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -77,8 +78,11 @@ export function VinculosPessoaDialog({ open, onOpenChange, pessoa }: Props) {
   };
 
   const remover = async (id: string) => {
-    const { error } = await supabase.from("vinculos_familiares" as any).delete().eq("id", id);
-    if (error) return toast.error(error.message);
+    const r = conferir(
+      await supabase.from("vinculos_familiares" as any).delete().eq("id", id).select("id"),
+      "O vínculo",
+    );
+    if (!r.ok) return toast.error(r.erro);
     toast.success("Vínculo removido");
     load();
   };

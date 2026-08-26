@@ -3,6 +3,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { conferir } from "@/lib/escritaConferida";
 import type { Usuario, NovoUsuarioDados, UserServiceResult } from "@/types/usuario";
 
 // ─── Cliente isolado para signUp ──────────────────────────────────────────────
@@ -216,12 +217,19 @@ export async function criarUsuario(
     if (!uid) return { ok: false, erro: "Falha ao obter ID do usuário. Tente novamente." };
 
     // 2. Salvar profile com sessão do novo usuário (supabaseSignup tem a sessão)
-    const { error: profileError } = await supabaseSignup
+    //
+    // O `.select()` cobre o caso em que o upsert cai no ramo de UPDATE (perfil
+    // ja existia) e a politica de `profiles` — admin, ou o proprio dono —
+    // barra a linha: ali nao ha erro, so zero linhas. Sem conferir, o acesso
+    // seria dado como criado com um perfil que nao existe.
+    const perfil = await supabaseSignup
       .from("profiles")
       .upsert(
         { id: uid, nome: dados.nome, telefone: tel, role: dados.role, primeiro_acesso: true },
         { onConflict: "id" }
-      );
+      )
+      .select("id");
+    const { error: profileError } = perfil;
 
     if (profileError) {
       // Auth criado mas profile falhou — retorna senha para não perder
@@ -231,6 +239,13 @@ export async function criarUsuario(
         senha,
         tel,
       };
+    }
+
+    const rPerfil = conferir(perfil, "O perfil");
+    if (!rPerfil.ok) {
+      // Mesma razao do bloco acima: a senha ja existe, entao ela volta junto
+      // com o aviso para nao se perder.
+      return { ok: false, erro: `Acesso criado, mas ${rPerfil.erro}`, senha, tel };
     }
 
     return { ok: true, senha, tel };

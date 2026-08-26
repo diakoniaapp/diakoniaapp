@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { conferir } from "@/lib/escritaConferida";
 import { BuscaPessoa } from "@/components/ui/BuscaPessoa";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -98,30 +99,44 @@ export function VinculosDialog({ open, onOpenChange, familiaId, familiaNome }: P
   };
 
   const remover = async (id: string) => {
-    const { error } = await supabase.from("vinculos_familiares" as any).delete().eq("id", id);
-    if (error) return toast.error(error.message);
+    const r = conferir(
+      await supabase.from("vinculos_familiares" as any).delete().eq("id", id).select("id"),
+      "O vínculo",
+    );
+    if (!r.ok) return toast.error(r.erro);
     toast.success("Vínculo removido");
     load();
   };
 
   const atualizarParentesco = async (id: string, parentesco: string) => {
-    const { error } = await supabase.from("vinculos_familiares" as any).update({ parentesco }).eq("id", id);
-    if (error) return toast.error(error.message);
+    const r = conferir(
+      await supabase.from("vinculos_familiares" as any).update({ parentesco }).eq("id", id).select("id"),
+      "O parentesco",
+    );
+    if (!r.ok) return toast.error(r.erro);
     load();
   };
 
   const definirResponsavel = async (id: string) => {
     if (!familiaId) return;
+    // Sem conferir de proposito: esta limpeza afeta zero linhas quando ninguem
+    // era responsavel ainda, que e um caso legitimo. `conferir()` leria esse
+    // zero como bloqueio da RLS e acusaria erro falso. Quem guarda a operacao e
+    // o update seguinte, que precisa afetar exatamente uma linha.
     const { error: e1 } = await supabase
       .from("vinculos_familiares" as any)
       .update({ responsavel_familia: false })
       .eq("familia_id", familiaId);
     if (e1) return toast.error(e1.message);
-    const { error: e2 } = await supabase
-      .from("vinculos_familiares" as any)
-      .update({ responsavel_familia: true })
-      .eq("id", id);
-    if (e2) return toast.error(e2.message);
+    const r = conferir(
+      await supabase
+        .from("vinculos_familiares" as any)
+        .update({ responsavel_familia: true })
+        .eq("id", id)
+        .select("id"),
+      "O responsável",
+    );
+    if (!r.ok) return toast.error(r.erro);
     toast.success("Responsável definido");
     load();
   };
