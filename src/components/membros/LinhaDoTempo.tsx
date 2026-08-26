@@ -11,7 +11,7 @@
 
 import {
   DoorOpen, Sparkles, Crown, HandHeart, MessageCircle, type LucideIcon,
-  FileText,
+  FileText, NotebookPen,
 } from "lucide-react";
 import type { EventoDaHistoria, TipoEvento } from "@/services/historiaPessoa";
 
@@ -24,6 +24,9 @@ const APARENCIA: Record<TipoEvento, { Icone: LucideIcon; cor: string; ponto: str
   // Ícone de arquivo, e não de conversa: ninguém falou com ninguém aqui — a
   // linha só entrou no sistema. Ver a nota em `TipoEvento`.
   cadastro:    { Icone: FileText,      cor: "text-muted-foreground", ponto: "bg-muted-foreground/30" },
+  // A anotação pastoral tem bloco próprio na ficha e não entra aqui; a
+  // entrada existe para o tipo ficar completo, não porque seja desenhada.
+  anotacao:    { Icone: NotebookPen,   cor: "text-muted-foreground", ponto: "bg-muted-foreground/30" },
 };
 
 function quando(iso: string): string {

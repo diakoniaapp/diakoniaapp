@@ -21,6 +21,7 @@ import { TIPO_PESSOA_LABEL, TIPO_PESSOA_COR, type TipoPessoa } from "@/lib/tipoP
 import { Skeleton } from "@/components/ui/skeleton";
 import { LinhaDoTempo } from "@/components/membros/LinhaDoTempo";
 import { historiaDaPessoa, diasDesdeOUltimoContato, type EventoDaHistoria } from "@/services/historiaPessoa";
+import { ROLE_LABEL } from "@/types/usuario";
 import { normalizarTelefone, formatarTelefoneSemDDI } from "@/lib/telefone";
 
 // ── Tipos ─────────────────────────────────────────────────────
@@ -167,7 +168,7 @@ interface PessoaCardProps {
 
 export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = false }: PessoaCardProps) {
   const navigate = useNavigate();
-  const { podeEditarPessoas } = useAuth();
+  const { podeEditarPessoas, user, roles } = useAuth();
   const { podeFazer, permissoes: permsCarregadas, loading: permsCarregando } = usePermissoes();
   // Mesmo piso usado no catalogo: conjunto vazio quer dizer consulta falhada,
   // nao usuario sem direito.
@@ -194,6 +195,49 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
    */
   const podeAnotar = semResposta ? podeEditarPessoas : podeFazer("editar_obs_pastorais");
 
+  /**
+   * Quem está anotando, para ficar gravado na linha.
+   *
+   * O nome sai do metadado da conta e cai no telefone quando não há — o login
+   * aqui é por telefone, e `auth.users.email` é sintético
+   * (`{dígitos}@app.diakonia`), então mostrá-lo seria pior que mostrar nada.
+   *
+   * A função é o PAPEL DE ACESSO, e não a função ministerial: o que a
+   * anotação precisa registrar é em que capacidade a pessoa escreveu — quem
+   * responde pela secretaria, quem responde pelo pastorado. Uma pessoa pode
+   * ser diaconisa e secretária ao mesmo tempo, e quem lê a ficha quer saber
+   * qual das duas estava anotando.
+   */
+  const [nomeDeQuemAnota, setNomeDeQuemAnota] = useState("Sem nome");
+  const funcaoDeQuemAnota = roles.map(r => ROLE_LABEL[r] ?? r).join(" · ") || "Sem função";
+
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelado = false;
+    (async () => {
+      // O nome vem do CADASTRO, e não do metadado da conta.
+      //
+      // Testado com dado real e o autor saiu como "5521983991229": o login é
+      // por telefone, `auth.users.email` é sintético (`{dígitos}@app.diakonia`)
+      // e `user_metadata.nome` está vazio para quem entrou por convite. Uma
+      // anotação assinada por um número não diz quem escreveu.
+      //
+      // `profiles.pessoa_id` liga a conta à ficha, e é de lá que sai o nome
+      // que a igreja usa — o mesmo caminho que a RPC do Painel de Acessos faz.
+      const { data } = await supabase
+        .from("profiles")
+        .select("nome, membros:pessoa_id(nome_completo)")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (cancelado) return;
+      const doCadastro = (data as any)?.membros?.nome_completo as string | undefined;
+      setNomeDeQuemAnota(
+        doCadastro?.trim() || (data as any)?.nome?.trim() || "Sem nome",
+      );
+    })();
+    return () => { cancelado = true; };
+  }, [user?.id]);
+
   // Fecha a ficha e abre o formulário na tela de Pessoas.
   //
   // O parâmetro `?abrir=<id>` já existia e já fazia exatamente isso — não
@@ -209,6 +253,24 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
   const [ministerios, setMinerios]  = useState<MinisterioVinculo[]>([]);
   const [areas, setAreas]           = useState<AreaVinculo[]>([]);
   const [historia, setHistoria]     = useState<EventoDaHistoria[]>([]);
+
+  /**
+   * As anotações pastorais, da mais nova para a mais antiga.
+   *
+   * Saem da MESMA consulta que a linha do tempo — `historiaDaPessoa` já traz
+   * tudo o que está gravado sobre a pessoa. Uma segunda consulta só para
+   * estas seria mais uma ida ao banco por ficha aberta e mais um lugar onde
+   * as duas listas poderiam discordar.
+   */
+  const anotacoes = historia
+    .filter(e => e.tipo === "anotacao")
+    .map(e => ({
+      detalhe: e.detalhe,
+      autor: e.autor ?? "Autor não registrado",
+      quando: new Date(e.data).toLocaleDateString("pt-BR", {
+        day: "2-digit", month: "short", year: "numeric",
+      }),
+    }));
   const [familia, setFamilia]       = useState<{ nome: string; parentesco: string; responsavel: boolean } | null>(null);
   const [loading, setLoading]       = useState(false);
   const [anotando, setAnotando]     = useState(false);
@@ -230,21 +292,37 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
    */
   async function salvarObservacoes() {
     if (!pessoa) return;
-    setSalvandoObs(true);
     const texto = rascunho.trim();
+    if (!texto) { setAnotando(false); return; }
+
+    setSalvandoObs(true);
     const r = conferir(
       await supabase
-        .from("membros")
-        .update({ observacoes_pastorais: texto || null })
-        .eq("id", pessoa.id)
+        .from("visita_historico")
+        .insert({
+          visitante_id: pessoa.id,
+          tipo: "anotacao_pastoral",
+          observacao: texto,
+          registrado_por: user?.id ?? null,
+          // Nome e função gravados como TEXTO, no momento da escrita. Papel
+          // muda: quem anota hoje como Secretária pode ser Pastora em dois
+          // anos, e a anotação não pode mudar de autor junto. Ver o COMMENT
+          // da coluna no banco.
+          registrado_por_nome:   nomeDeQuemAnota,
+          registrado_por_funcao: funcaoDeQuemAnota,
+        })
         .select("id"),
-      "A observação pastoral",
+      "A anotação pastoral",
     );
     setSalvandoObs(false);
     if (!r.ok) return toast.error(r.erro);
-    setPessoa({ ...pessoa, observacoes_pastorais: texto || null });
+
+    // A linha do tempo é a fonte: recarregá-la é o que faz a anotação
+    // aparecer, e evita manter uma cópia em estado que possa divergir.
+    setHistoria(await historiaDaPessoa(pessoa.id));
+    setRascunho("");
     setAnotando(false);
-    toast.success("Observação pastoral salva.");
+    toast.success("Anotação registrada.");
   }
 
   useEffect(() => {
@@ -558,17 +636,23 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
 
                 `whitespace-pre-line` porque são texto escrito à mão, com
                 quebras que o autor pôs de propósito. */}
-            {(pessoa.observacoes_pastorais?.trim() || podeAnotar) && (
+            {(pessoa.observacoes_pastorais?.trim() || anotacoes.length > 0 || podeAnotar) && (
               <div className="space-y-1.5">
                 <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  <NotebookPen className="w-3 h-3" /> Observações pastorais
+                  <NotebookPen className="w-3 h-3" /> Anotações pastorais
+                  {anotacoes.length > 0 && (
+                    <span className="normal-case tracking-normal tabular-nums">{anotacoes.length}</span>
+                  )}
                   {podeAnotar && !anotando && (
                     <button
                       type="button"
-                      onClick={() => { setRascunho(pessoa.observacoes_pastorais ?? ""); setAnotando(true); }}
+                      // Sempre em branco: cada anotação é NOVA. Prefixar com a
+                      // anterior convidaria a apagá-la, que é justamente o que
+                      // o campo único fazia.
+                      onClick={() => { setRascunho(""); setAnotando(true); }}
                       className="ml-auto normal-case tracking-normal text-primary hover:underline"
                     >
-                      {pessoa.observacoes_pastorais?.trim() ? "Editar" : "Anotar"}
+                      Anotar
                     </button>
                   )}
                 </div>
@@ -595,13 +679,36 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
                       </Button>
                     </div>
                   </div>
-                ) : pessoa.observacoes_pastorais?.trim() ? (
-                  <p className="text-sm whitespace-pre-line rounded-lg border bg-muted/40 px-3 py-2">
-                    {pessoa.observacoes_pastorais.trim()}
-                  </p>
-                ) : (
-                  // Só aparece para quem pode anotar: para os demais o bloco
-                  // inteiro continua sumindo quando não há o que ler.
+                ) : null}
+
+                {/* Da mais recente para a mais antiga: quem abre a ficha
+                    quer saber o que se sabe HOJE sobre a pessoa. */}
+                {anotacoes.map((a, i) => (
+                  <div key={i} className="rounded-lg border bg-muted/40 px-3 py-2">
+                    <p className="text-sm whitespace-pre-line">{a.detalhe}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {a.autor} · {a.quando}
+                    </p>
+                  </div>
+                ))}
+
+                {/* ── O texto que existia antes do histórico ─────────────
+                    9 pessoas tinham anotação no campo único, sem data e sem
+                    autor. Não foi migrada para o histórico: inventar quem
+                    escreveu e quando seria repetir o defeito que a própria
+                    mudança conserta. Fica aqui, dita pelo que é. */}
+                {pessoa.observacoes_pastorais?.trim() && (
+                  <div className="rounded-lg border border-dashed px-3 py-2">
+                    <p className="text-sm whitespace-pre-line">
+                      {pessoa.observacoes_pastorais.trim()}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Anotação anterior ao histórico — sem data nem autor registrados
+                    </p>
+                  </div>
+                )}
+
+                {!anotando && anotacoes.length === 0 && !pessoa.observacoes_pastorais?.trim() && (
                   <p className="text-sm text-muted-foreground rounded-lg border border-dashed px-3 py-2">
                     Nada anotado ainda.
                   </p>
@@ -624,7 +731,7 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
               <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 <Calendar className="w-3 h-3" /> História
               </div>
-              <LinhaDoTempo eventos={historia} />
+              <LinhaDoTempo eventos={historia.filter(e => e.tipo !== "anotacao")} />
             </div>
 
             {/* Cargo estatutário (Diretoria) */}

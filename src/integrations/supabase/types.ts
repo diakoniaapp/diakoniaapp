@@ -10453,6 +10453,8 @@ export type Database = {
           id: string
           observacao: string | null
           registrado_por: string | null
+          registrado_por_funcao: string | null
+          registrado_por_nome: string | null
           tipo: string
           visitante_id: string
         }
@@ -10461,6 +10463,8 @@ export type Database = {
           id?: string
           observacao?: string | null
           registrado_por?: string | null
+          registrado_por_funcao?: string | null
+          registrado_por_nome?: string | null
           tipo: string
           visitante_id: string
         }
@@ -10469,6 +10473,8 @@ export type Database = {
           id?: string
           observacao?: string | null
           registrado_por?: string | null
+          registrado_por_funcao?: string | null
+          registrado_por_nome?: string | null
           tipo?: string
           visitante_id?: string
         }

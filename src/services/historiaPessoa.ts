@@ -69,13 +69,23 @@ export type TipoEvento =
    * junho/2026, ele encabeçava a história de quem entrou no rol em 2018 —
    * artefato técnico no lugar do primeiro fato da vida da pessoa na igreja.
    */
-  | "cadastro";
+  | "cadastro"
+  /**
+   * Anotação pastoral escrita por uma pessoa sobre outra.
+   *
+   * Tipo próprio porque ela não vive na linha do tempo: tem bloco dedicado na
+   * ficha, com autor e função de quem escreveu. Misturá-la aos eventos faria
+   * a mesma anotação aparecer duas vezes na mesma tela.
+   */
+  | "anotacao";
 
 export interface EventoDaHistoria {
   data: string;              // ISO, para ordenar
   tipo: TipoEvento;
   titulo: string;
   detalhe?: string | null;
+  /** "Telma Souza · Administrador" — só nas anotações pastorais. */
+  autor?: string | null;
 }
 
 /** Colunas de data em `membros` que marcam um ato da vida ministerial. */
@@ -101,6 +111,7 @@ const ROTULO_CONTATO: Record<string, string> = {
   retorno_culto:     "Voltou ao culto",
   evento:            "Participou de um evento",
   observacao:        "Anotação pastoral",
+  anotacao_pastoral: "Anotação pastoral",
   // Gravados pelo painel HOJE quando alguem cumprimenta a data. Um rotulo
   // por tipo, e nao um "Felicitação" generico: na vida de quem le a ficha,
   // completar 40 anos e completar 20 anos de igreja sao coisas distintas.
@@ -137,7 +148,7 @@ export async function historiaDaPessoa(pessoaId: string): Promise<EventoDaHistor
       .select("tipo, descricao, data")
       .eq("membro_id", pessoaId),
     supabase.from("visita_historico")
-      .select("tipo, observacao, created_at")
+      .select("tipo, observacao, created_at, registrado_por_nome, registrado_por_funcao")
       .eq("visitante_id", pessoaId),
     // area_voluntarios, e não ministerio_membros nem pessoa_participacao:
     // essas duas estão vazias em produção. Ver o comentário no topo.
@@ -290,11 +301,19 @@ export async function historiaDaPessoa(pessoaId: string): Promise<EventoDaHistor
       continue;
     }
 
+    // A anotação pastoral tem bloco próprio na ficha, com autor e função.
+    // Marcada aqui para o PessoaCard poder separá-la dos demais eventos —
+    // ela não entra na linha do tempo, senão apareceria duas vezes na tela.
+    const ehAnotacao = c.tipo === "anotacao_pastoral";
+
     eventos.push({
       data: c.created_at,
-      tipo: "contato",
+      tipo: ehAnotacao ? "anotacao" : "contato",
       titulo: ROTULO_CONTATO[c.tipo ?? ""] ?? "Contato",
       detalhe: c.observacao,
+      autor: ehAnotacao
+        ? [c.registrado_por_nome, c.registrado_por_funcao].filter(Boolean).join(" · ") || null
+        : null,
     });
   }
 
@@ -319,7 +338,13 @@ export async function historiaDaPessoa(pessoaId: string): Promise<EventoDaHistor
 
   // Sozinho, o carimbo é melhor que o silêncio: para quem só foi cadastrado
   // ainda não há história, e uma ficha em branco não diz nem isso.
-  if (eventos.length === 0 && carimboAdiado) eventos.push(carimboAdiado);
+  //
+  // As anotações NÃO contam para esta decisão: elas têm bloco próprio na
+  // ficha e são filtradas da linha do tempo. Contá-las fazia a linha ficar
+  // vazia — "ainda não há nada registrado" logo abaixo de duas anotações
+  // recém-escritas, porque o carimbo tinha sido suprimido por causa delas.
+  const naLinhaDoTempo = eventos.filter(e => e.tipo !== "anotacao").length;
+  if (naLinhaDoTempo === 0 && carimboAdiado) eventos.push(carimboAdiado);
 
   // Mais recente primeiro: quem abre a ficha quer saber o que aconteceu por
   // último, não como tudo começou. A origem continua ali, no fim.
