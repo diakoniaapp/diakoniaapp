@@ -158,6 +158,19 @@ export default function PainelPastoral() {
   // A data local vira estado: quando ela muda, o efeito abaixo recarrega tudo.
   const [hoje, setHoje] = useState(() => isoLocal(new Date()));
 
+  /**
+   * Qual dia da semana está aberto em "Datas importantes".
+   *
+   * A tira de sete dias não é só um resumo: é o seletor. Empilhar os sete
+   * dias de uma vez era o que obrigava a rolar a tela para ler tudo — agora
+   * só o dia escolhido aparece, e trocar de dia é um clique.
+   *
+   * Começa em hoje, e volta para hoje quando o dia vira (ver o efeito de
+   * `hoje` abaixo): uma aba deixada aberta na secretaria não pode amanhecer
+   * mostrando o dia de ontem como se fosse o de hoje.
+   */
+  const [diaAberto, setDiaAberto] = useState(hoje);
+
   const [eventos, setEventos] = useState<EventoPastoral[]>([]);
   const [resumo, setResumo] = useState<ResumoPastoral | null>(null);
   const [candidatos, setCandidatos] = useState<CandidatosMembresia | null>(null);
@@ -177,8 +190,8 @@ export default function PainelPastoral() {
     return () => clearInterval(id);
   }, []);
 
-  // Recarrega na montagem e a cada virada de dia.
-  useEffect(() => { carregar(); /* eslint-disable-next-line */ }, [hoje]);
+  // Recarrega na montagem e a cada virada de dia — e devolve o foco para hoje.
+  useEffect(() => { setDiaAberto(hoje); carregar(); /* eslint-disable-next-line */ }, [hoje]);
 
   async function carregar() {
     setLoading(true);
@@ -323,11 +336,13 @@ export default function PainelPastoral() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <p className="text-xs text-muted-foreground">
-            Aniversários, bodas, anos de membresia e de pastorado, feriados nacionais
-            e o calendário da Convenção Batista — incluindo as semanas de oração da
-            JMM e da JMN.
-          </p>
+          {/*
+            O parágrafo que listava as fontes — aniversários, bodas, membresia,
+            pastorado, feriados e calendário da CBB — saiu daqui. Ele custava
+            duas linhas em toda visita para explicar uma vez o que os próprios
+            ícones e o texto de cada item já dizem: "91 anos" ao lado de um
+            bolo não precisa de legenda.
+          */}
 
           {totalDatas === 0 ? (
             <p className="text-sm text-muted-foreground py-4 text-center">
@@ -335,8 +350,18 @@ export default function PainelPastoral() {
             </p>
           ) : (
             <>
-              <TiraDaSemana dias={dias} hojeIso={hoje} />
-              {dias.map(d => <BlocoDoDia key={d.data} data={d.data} itens={d.itens} onWhats={abrirWhats} />)}
+              <TiraDaSemana
+                dias={dias}
+                hojeIso={hoje}
+                aberto={diaAberto}
+                onAbrir={setDiaAberto}
+              />
+              <BlocoDoDia
+                data={diaAberto}
+                itens={dias.find(d => d.data === diaAberto)?.itens ?? []}
+                hojeIso={hoje}
+                onWhats={abrirWhats}
+              />
             </>
           )}
         </CardContent>
@@ -504,28 +529,42 @@ function rotuloCurto(iso: string, hojeIso: string): string {
 }
 
 /**
- * A semana inteira em uma faixa, antes da lista.
+ * A semana inteira em uma faixa — e o seletor do dia.
  *
- * Existe para responder "como está a minha semana?" **sem rolar a tela** —
- * que era a queixa da lista longa. A lista continua logo abaixo, para quem
- * precisa do nome e do botão; a faixa dá a forma antes do detalhe.
+ * **Não é só um resumo: é o controle.** Empilhar os sete dias de uma vez era
+ * o que obrigava a rolar a tela para ler tudo. Agora a faixa mostra a forma
+ * da semana (quantas datas em cada dia) sem rolagem nenhuma, e o dia clicado
+ * é o único que se abre embaixo.
+ *
+ * Dia vazio continua clicável de propósito: "não há nada nesta sexta" é uma
+ * resposta, e desabilitar o botão obrigaria a pessoa a deduzi-la do traço.
  */
 function TiraDaSemana({
-  dias, hojeIso,
-}: { dias: { data: string; itens: ItemData[] }[]; hojeIso: string }) {
+  dias, hojeIso, aberto, onAbrir,
+}: {
+  dias: { data: string; itens: ItemData[] }[];
+  hojeIso: string;
+  aberto: string;
+  onAbrir: (iso: string) => void;
+}) {
   return (
-    <div className="grid grid-cols-7 gap-1">
+    <div className="grid grid-cols-7 gap-1" role="tablist" aria-label="Dias da semana">
       {dias.map(d => {
         const ehHoje = d.data === hojeIso;
+        const ehAberto = d.data === aberto;
         const n = d.itens.length;
         const dia = new Date(d.data + "T00:00").getDate();
         return (
-          <div
+          <button
             key={d.data}
-            title={`${rotuloDoDia(d.data, hojeIso)} — ${n === 0 ? "nada" : n === 1 ? "1 data" : `${n} datas`}`}
-            className={`rounded-md border px-1 py-1.5 text-center min-w-0 ${
-              ehHoje ? "border-gold bg-muted/60" : n === 0 ? "border-dashed opacity-60" : ""
-            }`}
+            type="button"
+            role="tab"
+            aria-selected={ehAberto}
+            onClick={() => onAbrir(d.data)}
+            title={`${rotuloDoDia(d.data, hojeIso)} — ${n === 0 ? "nada marcado" : n === 1 ? "1 data" : `${n} datas`}`}
+            className={`rounded-md border px-1 py-1.5 text-center min-w-0 transition-colors
+              hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring
+              ${ehAberto ? "border-gold bg-muted ring-1 ring-gold/40" : n === 0 ? "border-dashed opacity-60" : ""}`}
           >
             <p className={`text-[10px] uppercase tracking-wide truncate ${ehHoje ? "text-gold-text" : "text-muted-foreground"}`}>
               {rotuloCurto(d.data, hojeIso)}
@@ -534,22 +573,30 @@ function TiraDaSemana({
               {n === 0 ? <span className="text-muted-foreground/50">–</span> : n}
             </p>
             <p className="text-[10px] text-muted-foreground/70 tabular-nums">{dia}</p>
-          </div>
+          </button>
         );
       })}
     </div>
   );
 }
 
+/**
+ * O dia aberto na tira — um por vez.
+ *
+ * Antes esta função desenhava os sete dias empilhados e escondia os vazios.
+ * Agora só existe o dia que a pessoa clicou, e por isso o vazio **sempre
+ * aparece**: quem escolheu a sexta-feira quer a resposta sobre a sexta, e
+ * uma tela em branco não é resposta.
+ */
 function BlocoDoDia({
-  data, itens, onWhats,
-}: { data: string; itens: ItemData[]; onWhats: (e: EventoPastoral) => void }) {
-  const hojeIso = isoLocal(new Date());
+  data, itens, hojeIso, onWhats,
+}: {
+  data: string;
+  itens: ItemData[];
+  hojeIso: string;
+  onWhats: (e: EventoPastoral) => void;
+}) {
   const ehHoje = data === hojeIso;
-
-  // Dia sem nada só aparece se for hoje: a ausência de hoje é informação
-  // ("bom dia tranquilo"), a de quinta-feira que vem é ruído.
-  if (itens.length === 0 && !ehHoje) return null;
 
   return (
     <div>
@@ -567,11 +614,13 @@ function BlocoDoDia({
 
       {itens.length === 0 ? (
         <p className="text-sm text-muted-foreground py-2 px-3 border rounded-md">
-          Nada marcado para hoje. Bom dia tranquilo 🙏
+          {ehHoje
+            ? "Nada marcado para hoje. Bom dia tranquilo 🙏"
+            : "Nada marcado para este dia."}
         </p>
       ) : (
         // Duas colunas a partir de `sm`. Cada item e um nome curto e uma
-        // idade — esticar isso por 900px era o que fazia 11 datas virarem
+        // idade — esticar isso por 900px era o que fazia as datas virarem
         // uma tela e meia de rolagem.
         <div className="grid sm:grid-cols-2 gap-1.5">
           {itens.map(item => <LinhaData key={item.chave} item={item} onWhats={onWhats} />)}
