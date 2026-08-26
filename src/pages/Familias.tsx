@@ -30,7 +30,6 @@ interface Familia {
   numero: string | null;
   complemento: string | null;
   cep: string | null;
-  data_casamento: string | null;
   observacoes: string | null;
 }
 
@@ -71,18 +70,17 @@ export default function Familias() {
   const [searchParams, setSearchParams]   = useSearchParams();
 
   /**
-   * A boda da família em edição, e de onde ela vem.
+   * A boda da família em edição, e de quem ela vem.
    *
-   * A ordem espelha a de `vw_agenda_pastoral`, senão o diálogo anunciaria uma
-   * data e a agenda mostraria outra: onde `familias.data_casamento` está
-   * preenchida ela ainda vence — são 5 famílias —, e todo o resto sai do
-   * cadastro do responsável, com o cônjuge como rede.
+   * Uma fonte só: o cadastro da pessoa. `familias.data_casamento` foi
+   * esvaziada e marcada como obsoleta em 27/08/2026 — as 5 famílias que ainda
+   * a usavam tiveram a data copiada para o responsável e o cônjuge. Esta
+   * função chegou a consultá-la primeiro, espelhando a precedência que a
+   * `vw_agenda_pastoral` tinha; a precedência acabou junto com a coluna, e um
+   * ramo que nunca dispara só faria a tela mentir sobre de onde a data vem.
    */
   const bodasDaFamilia = (() => {
-    if (!editingId) return undefined;
-    const propria = familias.find(f => f.id === editingId)?.data_casamento;
-    if (propria) return { data: propria, origem: "cadastrada na própria família" };
-    const h = casamentoHerdado[editingId];
+    const h = editingId ? casamentoHerdado[editingId] : undefined;
     if (!h) return undefined;
     return {
       data: h.data,
