@@ -185,13 +185,6 @@ export default function PainelPastoral() {
   const [resumo, setResumo] = useState<ResumoPastoral | null>(null);
   const [candidatos, setCandidatos] = useState<CandidatosMembresia | null>(null);
   const [visitantes, setVisitantes] = useState<ResumoVisitantes | null>(null);
-  /**
-   * Quantos compromissos a agenda tem de hoje ate hoje+6.
-   *
-   * Quem conta e o proprio AgendaDoDia, por callback — ver a nota em
-   * `onTotalDaJanela`. Contar por fora divergia da lista.
-   */
-  const [compromissos, setCompromissos] = useState(0);
   /** Compromissos por dia, para a tira. Vem do proprio AgendaDoDia. */
   const [agendaPorDia, setAgendaPorDia] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
@@ -246,29 +239,50 @@ export default function PainelPastoral() {
    * lê `eventosExternos` por dentro. Ficavam nas duas listas ao mesmo tempo:
    * a Semana de Oração da JMN em 1º de setembro era contada aqui E lá.
    */
-  const celebracoesDeHoje = useMemo(() => {
-    return eventos
-      .filter(ev => (ev.data_evento ?? ev.proxima_data) === hoje)
-      .map(ev => ({
-        chave: `${ev.tipo}-${ev.ref_id}-${hoje}`,
-        data: hoje,
+  const celebracoesPorDia = useMemo(() => {
+    const mapa: Record<string, ItemData[]> = {};
+    for (let i = 0; i <= DIAS_A_FRENTE; i++) {
+      const d = new Date(hoje + "T00:00");
+      d.setDate(d.getDate() + i);
+      mapa[isoLocal(d)] = [];
+    }
+    for (const ev of eventos) {
+      const data = ev.data_evento ?? ev.proxima_data;
+      if (!data || !(data in mapa)) continue;
+      mapa[data].push({
+        chave: `${ev.tipo}-${ev.ref_id}-${data}`,
+        data,
         categoria: ev.tipo as Categoria,
         titulo: ev.titulo,
         detalhe: detalheEfemeride(ev),
         evento: ev,
-      }) as ItemData)
-      .sort((a, b) => a.categoria.localeCompare(b.categoria) || a.titulo.localeCompare(b.titulo));
+      });
+    }
+    for (const iso of Object.keys(mapa)) {
+      mapa[iso].sort((a, b) =>
+        a.categoria.localeCompare(b.categoria) || a.titulo.localeCompare(b.titulo));
+    }
+    return mapa;
   }, [eventos, hoje]);
 
-  /** Os sete dias da tira, com quantos compromissos cada um tem. */
+  /**
+   * Os sete dias da tira, com TUDO que cada um tem.
+   *
+   * Compromissos e celebrações somados. A tira filtra a seção inteira, e um
+   * contador que ignorasse metade do que ela abre voltaria ao problema de
+   * antes: números na tira sem relação com a lista logo abaixo.
+   */
   const dias = useMemo(
     () => Array.from({ length: DIAS_A_FRENTE + 1 }, (_, i) => {
       const d = new Date(hoje + "T00:00");
       d.setDate(d.getDate() + i);
       const iso = isoLocal(d);
-      return { data: iso, total: agendaPorDia[iso] ?? 0 };
+      return {
+        data: iso,
+        total: (agendaPorDia[iso] ?? 0) + (celebracoesPorDia[iso]?.length ?? 0),
+      };
     }),
-    [hoje, agendaPorDia],
+    [hoje, agendaPorDia, celebracoesPorDia],
   );
 
   if (loading) return <PaginaSkeleton />;
@@ -345,23 +359,27 @@ export default function PainelPastoral() {
             rotulo="Celebrações hoje"
             valor={resumo.aniversarios_hoje + resumo.bodas_hoje}
             tom="celebracao" icone={PartyPopper}
-            onClick={() => irParaSecao("celebracoes")}
+            onClick={() => irParaSecao("agenda")}
             descricao={
               // "bodas" não tem singular: uma bodas, duas bodas.
               `${resumo.aniversarios_hoje} ${resumo.aniversarios_hoje === 1 ? "aniversário" : "aniversários"}` +
               ` e ${resumo.bodas_hoje} bodas hoje — ir para A semana`
             }
           />
-          {/* Era "Datas (7d)", e contava as CELEBRAÇÕES da semana — a soma
-              exata da tira de sete dias. Media 11 sem que nenhum dos onze
-              fosse um compromisso da igreja: cinco cultos marcados para hoje
-              não entravam na conta.
+          {/* Conta TUDO que a semana tem: compromissos da igreja, feriados,
+              calendário da CBB, reservas de espaço e as celebrações das
+              pessoas — a mesma soma da tira de sete dias.
 
-              Agora conta a agenda: cultos, ensaios, reuniões, o que estiver
-              marcado de hoje até hoje + 6. Aniversários e bodas ficam de
-              fora — já têm indicador próprio e a lista logo abaixo. */}
+              Este indicador já errou duas vezes, e as duas por medir coisa
+              diferente da que a tira abre. Contou só celebrações enquanto a
+              seção mostrava a agenda ("11" sem que nenhum dos onze fosse um
+              culto), e depois só compromissos enquanto a tira somava os
+              dois. **A regra que sobrou: ele mede exatamente o que a tira
+              soma.** Por isso lê `dias`, e não uma contagem paralela. */}
           <Indicador
-            rotulo="Agenda (7d)" valor={compromissos} tom="gold" icone={CalendarCheck}
+            rotulo="Agenda (7d)"
+            valor={dias.reduce((s, d) => s + d.total, 0)}
+            tom="gold" icone={CalendarCheck}
             onClick={() => irParaSecao("agenda")} descricao="Ir para a Agenda"
           />
           <Indicador
@@ -397,45 +415,30 @@ export default function PainelPastoral() {
           reservas de espaço. Fica antes de "Datas importantes" porque é o
           que tem hora marcada — o resto da semana pode esperar a rolagem. */}
       {/* ── Celebrações de hoje ─────────────────────────────────────────
-          Aniversário, bodas, anos de membresia e anos de pastorado: quatro
-          jeitos de a igreja ter algo a dizer a alguém HOJE.
+      {/* ── A semana ────────────────────────────────────────────────────
+          Uma seção só, e a tira filtra tudo o que há no dia: as celebrações
+          das pessoas e os compromissos da igreja.
 
-          Só hoje, a pedido. Felicitar é coisa do dia — uma lista de sete
-          dias transformava isso numa agenda de lembretes, e a pessoa que
-          faz aniversário na sexta não precisa aparecer na quarta.
+          "Celebrações de hoje" era uma seção separada logo acima. Saiu para
+          ganhar espaço — eram dois títulos, dois blocos e duas listas para
+          responder a mesma pergunta ("o que tem neste dia?"), e a de cima
+          só sabia falar de hoje.
 
-          Feriados e calendário da CBB não entram: não são celebração de
-          ninguém, e já aparecem na Agenda logo abaixo. Ficavam nas duas
-          listas ao mesmo tempo. */}
-      <section id="celebracoes" className="scroll-mt-[280px] sm:scroll-mt-[230px]">
-        <TituloDaSecao icone={PartyPopper} tom="celebracao" contagem={celebracoesDeHoje.length}>
-          Celebrações de hoje
-        </TituloDaSecao>
-        {celebracoesDeHoje.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-2 px-3 border rounded-md">
-            Ninguém faz aniversário nem completa tempo de casa hoje.
-          </p>
-        ) : (
-          <div className="grid sm:grid-cols-2 gap-1.5">
-            {celebracoesDeHoje.map(item => <LinhaData key={item.chave} item={item} />)}
-          </div>
-        )}
-      </section>
+          A ORDEM DENTRO DO DIA. As celebrações vêm primeiro, apesar de a
+          agenda ter hora marcada: quem abre o painel de manhã abre para
+          saber de quem precisa lembrar, e felicitar é o que se faz assim
+          que se lê. O culto das 19h a liderança já sabe de cor.
 
-      {/* ── Agenda ──────────────────────────────────────────────────────
-          Os compromissos: cultos, ensaios, reuniões, reservas de espaço,
-          feriados e o calendário da Convenção Batista.
+          POR QUE AS DUAS LISTAS CONTINUAM SEPARADAS. Uma celebração não é
+          um compromisso: não tem hora, não tem lugar, e o que se faz com
+          ela é mandar uma mensagem — a linha inteira é o link do WhatsApp,
+          com a felicitação já escrita. Empurrá-la para dentro da lista de
+          horários a transformaria numa linha "dia todo" sem ação nenhuma.
 
-          A tira de sete dias fica ABAIXO da lista, e não acima: ela é o
-          controle da agenda, e um controle abaixo do que controla mantém o
-          conteúdo no topo da seção — quem abre o painel quer ver o dia,
-          não escolher qual dia ver.
-
-          Ela conta COMPROMISSOS, não celebrações. Antes contava as
-          efemérides, e os números da tira não tinham relação com a lista
-          logo abaixo dela. Quem conta agora é o próprio `AgendaDoDia`, que
-          reporta por `onJanela` o mesmo conjunto que desenha — ver a nota
-          lá sobre as três fontes desta lista. */}
+          Feriados e calendário da CBB ficam só na agenda. Não são
+          celebração de ninguém, e já vêm de `eventosExternos` lá dentro —
+          repeti-los aqui era a duplicação que a JMN de 1º de setembro
+          expôs. */}
       <section id="agenda" className="scroll-mt-[280px] sm:scroll-mt-[230px]">
         <TituloDaSecao icone={CalendarClock}>
           {diaAberto === hoje
@@ -444,9 +447,8 @@ export default function PainelPastoral() {
         </TituloDaSecao>
 
         {/* A tira vem antes da lista: é o filtro, e o que ele pede abre
-            logo abaixo. Chegou a ficar embaixo por uma versão, na ideia de
-            manter o conteúdo colado ao título — mas um controle depois do
-            resultado obriga a rolar de volta para trocar de dia. */}
+            logo abaixo. Um controle depois do resultado obrigaria a rolar
+            de volta para trocar de dia. */}
         <TiraDaSemana
           dias={dias}
           hojeIso={hoje}
@@ -454,13 +456,20 @@ export default function PainelPastoral() {
           onAbrir={setDiaAberto}
         />
 
+        {(celebracoesPorDia[diaAberto] ?? []).length > 0 && (
+          <div className="mt-3 grid sm:grid-cols-2 gap-1.5">
+            {(celebracoesPorDia[diaAberto] ?? []).map(item => (
+              <LinhaData key={item.chave} item={item} />
+            ))}
+          </div>
+        )}
+
         <div className="mt-3">
           <AgendaDoDia
             dia={diaAberto}
-            onJanela={({ total, porDia }) => {
-              setCompromissos(total);
-              setAgendaPorDia(porDia);
-            }}
+            // Só o mapa por dia: o total sai da soma da tira, para o
+            // indicador e a tira nunca discordarem. Ver a nota no indicador.
+            onJanela={({ porDia }) => setAgendaPorDia(porDia)}
           />
         </div>
       </section>
@@ -682,7 +691,7 @@ function TiraDaSemana({
             role="tab"
             aria-selected={ehAberto}
             onClick={() => onAbrir(d.data)}
-            title={`${rotuloDoDia(d.data, hojeIso)} — ${n === 0 ? "nada marcado" : n === 1 ? "1 compromisso" : `${n} compromissos`}`}
+            title={`${rotuloDoDia(d.data, hojeIso)} — ${n === 0 ? "nada marcado" : n === 1 ? "1 item" : `${n} itens`}`}
             className={`rounded-md border px-1 py-1.5 text-center min-w-0 transition-colors
               hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring
               ${ehAberto ? "border-gold bg-muted ring-1 ring-gold/40" : n === 0 ? "border-dashed opacity-60" : ""}`}
