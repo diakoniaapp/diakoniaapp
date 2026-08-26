@@ -5,6 +5,10 @@
 
 import { useEffect, useState } from "react";
 import { supabase, supabaseRel } from "@/integrations/supabase/client";
+import { conferir } from "@/lib/escritaConferida";
+import { toast } from "sonner";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, User, Shield, Church, MapPin, Calendar, Star, Pencil, MessageCircle, NotebookPen } from "lucide-react";
@@ -135,6 +139,24 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
   // O pedido de quem abriu so RESTRINGE; nunca amplia o direito.
   const podeEditar  = !somenteLeitura && temDireito;
 
+  /**
+   * Escrever observação pastoral é direito separado de editar a ficha.
+   *
+   * O pastor titular perdeu a edição do cadastro em 27/08/2026 — a regra
+   * passou a ser "só admin e secretaria editam pessoas". Mas ele precisa
+   * anotar o que conversou, e antes disso o único lugar onde a observação se
+   * escrevia era o formulário de 6 passos, que ele não abre mais.
+   *
+   * Sem este bloco, a restrição teria tirado dele a única coisa que só ele
+   * faz. O banco já sabe separar as duas: a política deixa o pastor gravar na
+   * linha e o gatilho `zzz_pastor_so_observacoes` recusa qualquer outra
+   * coluna.
+   *
+   * `somenteLeitura` NÃO bloqueia aqui, e é deliberado: quem abre a ficha
+   * pelo Painel Pastoral está justamente fazendo cuidado pastoral.
+   */
+  const podeAnotar = semResposta ? podeEditarPessoas : podeFazer("editar_obs_pastorais");
+
   // Fecha a ficha e abre o formulário na tela de Pessoas.
   //
   // O parâmetro `?abrir=<id>` já existia e já fazia exatamente isso — não
@@ -151,6 +173,41 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
   const [areas, setAreas]           = useState<AreaVinculo[]>([]);
   const [historia, setHistoria]     = useState<EventoDaHistoria[]>([]);
   const [loading, setLoading]       = useState(false);
+  const [anotando, setAnotando]     = useState(false);
+  const [rascunho, setRascunho]     = useState("");
+  const [salvandoObs, setSalvandoObs] = useState(false);
+
+  /**
+   * Grava a observação pastoral, e só ela.
+   *
+   * O `.select()` não é enfeite: a política de UPDATE de `membros` é de
+   * admin+secretaria, e o pastor passa por outra (`pastor_acessa_obs_pastorais`).
+   * Se alguém mexer numa das duas, o UPDATE barrado voltaria como SUCESSO com
+   * zero linhas — e a tela diria "salvo" sobre nada. É o padrão do projeto,
+   * em `lib/escritaConferida.ts`.
+   *
+   * Manda UMA coluna de propósito. O gatilho do banco recusaria as outras de
+   * qualquer forma, mas mandar só o que se quer mudar evita depender disso e
+   * torna o erro impossível em vez de evitável.
+   */
+  async function salvarObservacoes() {
+    if (!pessoa) return;
+    setSalvandoObs(true);
+    const texto = rascunho.trim();
+    const r = conferir(
+      await supabase
+        .from("membros")
+        .update({ observacoes_pastorais: texto || null })
+        .eq("id", pessoa.id)
+        .select("id"),
+      "A observação pastoral",
+    );
+    setSalvandoObs(false);
+    if (!r.ok) return toast.error(r.erro);
+    setPessoa({ ...pessoa, observacoes_pastorais: texto || null });
+    setAnotando(false);
+    toast.success("Observação pastoral salva.");
+  }
 
   useEffect(() => {
     if (!pessoaId || !open) return;
@@ -394,14 +451,54 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
 
                 `whitespace-pre-line` porque são texto escrito à mão, com
                 quebras que o autor pôs de propósito. */}
-            {pessoa.observacoes_pastorais?.trim() && (
+            {(pessoa.observacoes_pastorais?.trim() || podeAnotar) && (
               <div className="space-y-1.5">
                 <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   <NotebookPen className="w-3 h-3" /> Observações pastorais
+                  {podeAnotar && !anotando && (
+                    <button
+                      type="button"
+                      onClick={() => { setRascunho(pessoa.observacoes_pastorais ?? ""); setAnotando(true); }}
+                      className="ml-auto normal-case tracking-normal text-primary hover:underline"
+                    >
+                      {pessoa.observacoes_pastorais?.trim() ? "Editar" : "Anotar"}
+                    </button>
+                  )}
                 </div>
-                <p className="text-sm whitespace-pre-line rounded-lg border bg-muted/40 px-3 py-2">
-                  {pessoa.observacoes_pastorais.trim()}
-                </p>
+
+                {anotando ? (
+                  <div className="space-y-2">
+                    <Textarea
+                      value={rascunho}
+                      onChange={(e) => setRascunho(e.target.value)}
+                      rows={5}
+                      autoFocus
+                      placeholder="O que a igreja precisa lembrar sobre esta pessoa."
+                      className="text-sm"
+                    />
+                    <div className="flex items-center gap-2">
+                      <Button type="button" size="sm" onClick={salvarObservacoes} disabled={salvandoObs}>
+                        {salvandoObs ? "Salvando..." : "Salvar"}
+                      </Button>
+                      <Button
+                        type="button" size="sm" variant="ghost"
+                        onClick={() => setAnotando(false)} disabled={salvandoObs}
+                      >
+                        Cancelar
+                      </Button>
+                    </div>
+                  </div>
+                ) : pessoa.observacoes_pastorais?.trim() ? (
+                  <p className="text-sm whitespace-pre-line rounded-lg border bg-muted/40 px-3 py-2">
+                    {pessoa.observacoes_pastorais.trim()}
+                  </p>
+                ) : (
+                  // Só aparece para quem pode anotar: para os demais o bloco
+                  // inteiro continua sumindo quando não há o que ler.
+                  <p className="text-sm text-muted-foreground rounded-lg border border-dashed px-3 py-2">
+                    Nada anotado ainda.
+                  </p>
+                )}
               </div>
             )}
 
