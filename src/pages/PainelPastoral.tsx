@@ -336,7 +336,7 @@ export default function PainelPastoral() {
           resumo e virou o índice da tela. Ver `Indicador` em
           components/painel/blocos.tsx para o porquê do desenho. */}
       {resumo && (
-        <FaixaDeIndicadores colunas={5}>
+        <FaixaDeIndicadores colunas={6}>
           <Indicador
             rotulo="Aniv. hoje" valor={resumo.aniversarios_hoje} tom="celebracao" icone={Cake}
             onClick={() => irParaSecao("datas")} descricao="Ir para Datas importantes"
@@ -364,6 +364,14 @@ export default function PainelPastoral() {
           <Indicador
             rotulo="Em acompanhamento" valor={visitantes?.emAcompanhamento ?? 0} tom="celebracao" icone={Users}
             onClick={() => irParaSecao("visitantes")} descricao="Ir para Acompanhamento de visitantes"
+          />
+          {/* Sem número, de propósito: Discipulado são quatro abas, e cada
+              uma carrega os próprios dados. Ver a nota em `IndicadorProps`.
+              É o atalho para a seção mais ao fundo do painel — a que mais
+              custa alcançar rolando. */}
+          <Indicador
+            rotulo="Discipulado" tom="gold" icone={Sprout}
+            onClick={() => irParaSecao("discipulado")} descricao="Ir para Acompanhamento do discipulado"
           />
         </FaixaDeIndicadores>
       )}

@@ -810,16 +810,24 @@ export default function Eventos() {
         </div>
       </div>
 
-      {/* FAB mobile */}
-      {isMobile && canEdit && (
-        <button
-          onClick={() => openCreate()}
-          className="fixed bottom-5 right-5 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center hover:scale-105 transition-transform z-40"
-          aria-label="Novo evento"
-        >
-          <Plus className="w-6 h-6" />
-        </button>
-      )}
+      {/*
+        O FAB próprio desta tela saiu em 26/08/2026.
+
+        Ela desenhava um botão "+" em `fixed bottom-5 right-5 z-40`, e o
+        AppLayout já monta o `QuickActionsFab` global em `fixed right-4
+        bottom-[5.5rem] z-50`. **No celular apareciam os dois**, um por cima
+        do outro, com significados diferentes: este criava evento, o outro
+        abre o leque de ações rápidas.
+
+        Nada precisou ser criado no lugar: **"Novo evento" já era uma ação do
+        FAB global**, apontando para `/eventos?novo=1` — o mesmo deep link
+        que o efeito de `searchParams` acima já tratava. Os dois botões
+        faziam a mesma coisa, e um deles estava sobrando desde sempre.
+
+        O portão de permissão também já é melhor lá: este FAB usava um
+        `canEdit` único, enquanto o global dá a cada ação o seu — "Adicionar
+        pessoa" aparece para a liderança, "Novo evento" não.
+      */}
 
       <EditScopeDialog open={scopeOpen} onClose={() => setScopeOpen(false)} onChoose={handleScope} action="editar" />
 

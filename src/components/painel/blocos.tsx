@@ -24,7 +24,7 @@
 // quantos são e usa esse número de colunas a partir de `sm`.
 
 import { Children } from "react";
-import type { LucideIcon } from "lucide-react";
+import { ChevronRight, type LucideIcon } from "lucide-react";
 
 /**
  * As famílias de cor do sistema, por nome.
@@ -47,7 +47,16 @@ const TOM_NUMERO: Record<Tom, string> = {
 
 interface IndicadorProps {
   rotulo: string;
-  valor: number | string;
+  /**
+   * Ausente, o indicador vira só um atalho: ícone e rótulo, sem número.
+   *
+   * Serve para seções que não se resumem a uma contagem — "Discipulado" são
+   * quatro abas (EBD, Pequenos Grupos, Campanhas, Crescimento), e cada uma
+   * carrega os próprios dados dentro de si. Inventar um número aqui exigiria
+   * buscar as agregações das quatro só para pintar um algarismo no topo, e
+   * um `0` ou um `—` no lugar diria que não há discipulado — que é falso.
+   */
+  valor?: number | string;
   tom?: Tom;
   icone?: LucideIcon;
   /** Quando dado, o indicador vira botão e leva a algum lugar da tela. */
@@ -67,6 +76,7 @@ export function Indicador({
   // como se não existisse. Um zero precisa recuar e continuar legível — quem
   // olha para "Sem contato" quer saber que o número é zero, não descobrir
   // que a caixa sumiu.
+  const semNumero = valor === undefined;
   const vazio = valor === 0 || valor === "—" || valor === "0";
   const corNumero = vazio ? "text-muted-foreground" : TOM_NUMERO[tom];
 
@@ -94,9 +104,16 @@ export function Indicador({
           {rotulo}
         </span>
       </span>
-      <span className={`text-lg sm:text-2xl font-semibold leading-none tabular-nums shrink-0 order-1 sm:order-2 ${corNumero}`}>
-        {valor}
-      </span>
+      {!semNumero && (
+        <span className={`text-lg sm:text-2xl font-semibold leading-none tabular-nums shrink-0 order-1 sm:order-2 ${corNumero}`}>
+          {valor}
+        </span>
+      )}
+      {/* Sem número, uma seta ocupa o lugar dele: o bloco continua alinhado
+          com os vizinhos na faixa, e diz que leva a algum lugar. */}
+      {semNumero && (
+        <ChevronRight className={`w-4 h-4 shrink-0 order-1 sm:order-2 ${TOM_NUMERO[tom]}`} />
+      )}
     </>
   );
 
