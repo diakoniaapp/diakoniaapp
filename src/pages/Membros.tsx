@@ -2,11 +2,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
+import { pendenciaPorChave } from "@/lib/pendenciasCadastro";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Pencil, Link2, Briefcase, Sparkles, BarChart3, MoreHorizontal, MessageCircle, IdCard, Cake, X, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
+import { Plus, Search, Pencil, Link2, Briefcase, Sparkles, BarChart3, MoreHorizontal, MessageCircle, IdCard, Cake, X, ChevronUp, ChevronDown, ChevronsUpDown, ClipboardCheck } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -569,6 +570,21 @@ export default function Membros() {
     setOrdem((o) => (o.campo === campo ? { campo, desc: !o.desc } : { campo, desc: false }));
     const [searchParams, setSearchParams] = useSearchParams();
 
+  /**
+   * O recorte pedido pelo painel: `/membros?pendencia=sem-telefone`.
+   *
+   * Derivado da URL, e não copiado para um `useState`. Duas razões, e a
+   * segunda é a que importa: estado paralelo à barra de endereço
+   * dessincroniza no "voltar" do navegador; e o link precisa poder ser
+   * copiado e mandado a outra pessoa — que é exatamente o que a 1ª
+   * Secretária, hoje sem login, vai precisar receber.
+   *
+   * Chave desconhecida devolve `undefined` e a lista fica inteira, em vez de
+   * vazia: link velho ou digitado errado não pode fazer a tela parecer que a
+   * igreja não tem ninguém.
+   */
+  const pendencia = pendenciaPorChave(searchParams.get("pendencia"));
+
   // ── Tratar parâmetros de query ao carregar ──────────────────────────────────
   useEffect(() => {
         // `?cuidado=` foi embora com o filtro de contato. Links antigos que
@@ -751,6 +767,13 @@ export default function Membros() {
                 (qDigitos.length >= 3 && (m.telefone_celular ?? "").replace(/\D/g, "").includes(qDigitos));
         const matchTipo = tipoFiltro === "todos" || m.tipo_pessoa === tipoFiltro;
 
+        // O recorte vem de `lib/pendenciasCadastro.ts`, o MESMO arquivo que o
+        // aviso do painel usa para contar. Se ele estivesse escrito aqui, o
+        // cartão diria "64 pessoas" e esta lista mostraria outro número no
+        // dia em que alguém mexesse num dos dois — foi o que aconteceu com a
+        // agenda hoje de manhã, faixa dizendo 21 sobre uma lista de 22.
+        const matchPendencia = !pendencia || pendencia.combina(m);
+
         // O filtro de perfil de acesso saiu. Ele lia `membros.perfil_acesso`,
         // que é coluna legada: o formulário grava null nela de propósito desde
         // que o acesso passou a viver em `user_roles`. O que sobrou ali é
@@ -758,8 +781,8 @@ export default function Membros() {
         // "lideranca" —, enquanto as pessoas com acesso de verdade são 6.
         // O filtro oferecia Tesoureiro e Professor EBD, que não existem como
         // papel em lugar nenhum do sistema, e não encontrava o admin real.
-        return matchSearch && matchTipo;
-  }), [membros, search, tipoFiltro]);
+        return matchSearch && matchTipo && matchPendencia;
+  }), [membros, search, tipoFiltro, pendencia]);
 
   const filtered = useMemo(() => baseFiltrados.filter((m) => {
 
@@ -831,19 +854,19 @@ export default function Membros() {
   const inicio = (paginaAtual - 1) * POR_PAGINA;
   const visiveis = filtered.slice(inicio, inicio + POR_PAGINA);
 
-  // ── Clicar num nome passa a ABRIR A PESSOA, não editá-la ─────────────
-  //
-  // Antes, o único jeito de chegar a alguém pelo catálogo era abrindo o
-  // formulário de cinco passos. O sistema não tinha como OLHAR uma pessoa —
-  // só como alterá-la. Quem queria saber há quanto tempo ninguém falava com
-  // fulano abria um formulário de edição e saía dele com medo de ter mexido
-  // em alguma coisa.
-  //
-  // Agora o nome abre a ficha (história, vínculos, onde serve) e o lápis
-  // abre a edição. Dois trabalhos, dois botões.
-  const [fichaDe, setFichaDe] = useState<string | null>(null);
-
-  // Um unico conjunto de acoes para cartao e tabela. Duplicar o menu nos dois
+  // ── Clicar num nome passa a ABRIR A PESSOA, não editá-la ─────────────
+  //
+  // Antes, o único jeito de chegar a alguém pelo catálogo era abrindo o
+  // formulário de cinco passos. O sistema não tinha como OLHAR uma pessoa —
+  // só como alterá-la. Quem queria saber há quanto tempo ninguém falava com
+  // fulano abria um formulário de edição e saía dele com medo de ter mexido
+  // em alguma coisa.
+  //
+  // Agora o nome abre a ficha (história, vínculos, onde serve) e o lápis
+  // abre a edição. Dois trabalhos, dois botões.
+  const [fichaDe, setFichaDe] = useState<string | null>(null);
+
+  // Um unico conjunto de acoes para cartao e tabela. Duplicar o menu nos dois
   // lugares seria garantir que um dia so um deles ganhe uma acao nova.
   const acoes = {
     onEditar:    (m: Membro) => { setEditing(m); setOpen(true); },
@@ -854,12 +877,19 @@ export default function Membros() {
   };
 
   const filtrando =
-    search.trim() !== "" || tipoFiltro !== "todos" || grupoFiltro !== "todos";
+    search.trim() !== "" || tipoFiltro !== "todos" || grupoFiltro !== "todos" || !!pendencia;
 
   const limparFiltros = () => {
     setSearch("");
     setTipoFiltro("todos");
     setGrupoFiltro("todos");
+    // O recorte de pendência mora na URL, não no estado: limpar é tirar da
+    // barra de endereço. Sem isto, "Limpar filtros" deixaria a lista recortada
+    // e nenhum controle na tela explicando por quê.
+    if (searchParams.has("pendencia")) {
+      searchParams.delete("pendencia");
+      setSearchParams(searchParams, { replace: true });
+    }
     buscaRef.current?.focus();
   };
 
@@ -917,6 +947,31 @@ export default function Membros() {
                 }
                     />
                     <div className="p-4 md:p-8 space-y-4" ref={topoRef}>
+                            {/* ── O recorte veio do painel ──────────────────────────────
+                                Uma lista recortada sem dizer que está recortada é a mesma
+                                armadilha do filtro de tipo da agenda: a tela mostra menos
+                                do que existe e nada na tela explica por quê. Aqui o aviso
+                                diz o recorte, quantas pessoas ele tem e o que se perde
+                                enquanto não for corrigido — e traz a saída ao lado. */}
+                            {pendencia && (
+                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-warning-line bg-warning-soft/40 px-3 py-2">
+                                <ClipboardCheck className="w-4 h-4 shrink-0 text-warning-text" />
+                                <span className="text-sm min-w-0">
+                                  <span className="font-medium">{pendencia.rotulo}</span>
+                                  <span className="text-muted-foreground"> — {pendencia.consequencia}</span>
+                                </span>
+                                <span className="text-sm tabular-nums text-muted-foreground">
+                                  {filtered.length} {filtered.length === 1 ? "pessoa" : "pessoas"}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={limparFiltros}
+                                  className="text-sm text-primary hover:underline ml-auto"
+                                >
+                                  Ver todas
+                                </button>
+                              </div>
+                            )}
                             <div className="flex flex-col md:flex-row md:flex-wrap gap-3 md:items-center">
                                       {/* min-w-[220px]: os três seletores têm largura fixa de 224px cada, e
                                                       numa janela estreita — ou com a barra lateral aberta — eles tomavam
@@ -1217,8 +1272,8 @@ export default function Membros() {
                                             // um alvo estreito no meio de uma linha alta, alem de
                                             // ficar abaixo dos 24px minimos da WCAG 2.5.8.
                                             className="block w-full min-w-0 py-2 text-left font-medium hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
-                                            onClick={() => setFichaDe(m.id)}
-                                          >
+                                            onClick={() => setFichaDe(m.id)}
+                                          >
                                             <span className="flex items-center gap-2 min-w-0">
                                               <span className="truncate">{m.nome_completo}</span>
                                               <MarcaAniversario nascimento={m.data_nascimento} />
@@ -1371,8 +1426,8 @@ export default function Membros() {
                             )}
                     </div>
               
-                    <PessoaCard pessoaId={fichaDe} open={!!fichaDe} onClose={() => setFichaDe(null)} />
-
+                    <PessoaCard pessoaId={fichaDe} open={!!fichaDe} onClose={() => setFichaDe(null)} />
+
       <MembroForm open={open} onOpenChange={setOpen} membro={editing} onSaved={load} />
                     <VinculosPessoaDialog
                               open={!!vinculosPessoa}

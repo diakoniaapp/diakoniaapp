@@ -2,115 +2,82 @@
 // Cadastros que se contradizem: o registro afirma uma coisa e deixa em branco
 // o campo que a sustenta.
 //
-// POR QUE SO CONTRADICAO, E NAO "CAMPO VAZIO"
+// QUAIS pendências existem, e POR QUE só contradição e não "campo vazio",
+// mora em `lib/pendenciasCadastro.ts` — junto do recorte que a tela de Pessoas
+// usa para listar as mesmas pessoas. Este arquivo só conta e desenha.
 //
-// Medido na base real, entre os 277 cadastros ativos:
+// ── DE QUEM É ESTA TAREFA ──────────────────────────────────────────────────
 //
-//   casado sem data de casamento     35   13%
-//   membro sem data de entrada       54   19%
-//   sem data de nascimento          183   66%
-//   sem telefone nem e-mail         127   46%
+// Da secretaria. Isso está dito no registro de widgets, em `permissoes`, e até
+// 26/08/2026 estava dito errado: a lista trazia `ver_pessoas`, que pertence a
+// seis papéis — inclusive `voluntario`. Como o teste do registro é `.some()`,
+// bastava um: o aviso aparecia para todo mundo com acesso ao catálogo, e um
+// voluntário via um cartão anunciando que 64 pessoas da igreja estavam sem
+// telefone.
 //
-// Os dois primeiros sao contradicoes — alguem marcou "casado" e nao disse
-// quando; alguem e membro e nao ha data de entrada. Da para corrigir olhando
-// o proprio registro, e o erro tem consequencia: sem data de casamento a
-// pessoa nunca aparece nas bodas, sem data de entrada nao entra no tempo de
-// casa.
+// Tarefa endereçada a todos não é de ninguém — é a razão pela qual esta lista
+// não andava.
 //
-// Os dois ultimos sao apenas campo em branco, e em 66% dos casos. Alerta que
-// aponta dois tercos da base nao ajuda a decidir nada — vira ruido de fundo, e
-// e exatamente o tipo de marca que passei a semana removendo desta interface.
-// Por isso ficaram de fora.
+// ── CADA LINHA LEVA À SUA PRÓPRIA LISTA ────────────────────────────────────
+//
+// Antes havia um link só, para `/membros` sem filtro nenhum. Quem clicava em
+// "64 pessoas sem telefone" caía numa lista de 295 e tinha de descobrir
+// sozinho quais eram as 64. O aviso era uma cobrança sem instrumento.
 
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, ArrowRight } from "lucide-react";
+import { Loader2, ChevronRight } from "lucide-react";
 import { useReportarVazio } from "@/components/hoje/vazio";
+import { PENDENCIAS_CADASTRO, type PendenciaCadastro } from "@/lib/pendenciasCadastro";
 
-interface Pendencia {
-  chave: string;
+interface Achada {
+  def: PendenciaCadastro;
   quantidade: number;
-  /** Frase completa, ja no singular ou plural certo. */
-  texto: (n: number) => string;
-  /** O que se perde enquanto nao for corrigido. */
-  consequencia: string;
-  /** Bloqueia o cuidado inteiro, nao so um recurso. Sobe e ganha cor. */
-  destaque?: boolean;
+  /** Só a de alcance usa: quantos por cento da igreja sobram alcançáveis. */
+  detalhe?: string;
 }
 
 export function CadastrosInconsistentes() {
-  const [pendencias, setPendencias] = useState<Pendencia[] | null>(null);
+  const [achadas, setAchadas] = useState<Achada[] | null>(null);
 
   useEffect(() => {
     let cancelado = false;
 
     (async () => {
-      const contar = async (aplicar: (q: ReturnType<typeof baseQuery>) => unknown) => {
-        const q = baseQuery();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { count } = (await (aplicar(q) as any)) ?? {};
-        return count ?? 0;
-      };
-      function baseQuery() {
-        return supabase.from("membros").select("id", { count: "exact", head: true }).eq("status", "ativo");
-      }
+      const base = () =>
+        supabase.from("membros").select("id", { count: "exact", head: true });
 
       try {
-        const [semContato, ativos, casados, membrosSemEntrada] = await Promise.all([
-          contar(q => q.is("telefone_celular", null)),
-          contar(q => q),
-          contar(q => q.eq("estado_civil", "casado").is("data_casamento", null)),
-          contar(q => q.eq("tipo_pessoa", "membro").is("data_entrada", null)),
+        const [ativosRes, ...contagens] = await Promise.all([
+          base().eq("status", "ativo"),
+          ...PENDENCIAS_CADASTRO.map(p => p.filtrarConsulta(base())),
         ]);
-
         if (cancelado) return;
 
-        const achadas: Pendencia[] = [];
+        const ativos = (ativosRes as { count: number | null }).count ?? 0;
 
-        // ALCANCE VEM PRIMEIRO, e nao por ordem alfabetica de importancia.
-        //
-        // Quando este bloco nasceu, eu deixei "sem telefone" DE FORA: sao 46%
-        // da base, e marca presente em quase metade nao distingue nada — era a
-        // regra certa quando o objetivo era reduzir ruido visual.
-        //
-        // Sob o Diakonia Care o objetivo mudou, e com ele a resposta. Quem nao
-        // tem telefone nao recebe aniversario, nao recebe convite, nao entra em
-        // nenhuma jornada de cuidado. Nao e um campo em branco: e uma pessoa
-        // fora de alcance. Deixou de ser ruido para virar a primeira linha.
-        if (semContato > 0) {
-          const alcancaveis = ativos - semContato;
-          const pct = ativos > 0 ? Math.round((alcancaveis / ativos) * 100) : 0;
-          achadas.push({
-            chave: "sem-telefone",
-            quantidade: semContato,
-            destaque: true,
-            texto: n => `${n} ${n === 1 ? "pessoa" : "pessoas"} sem telefone cadastrado`,
-            consequencia: `a igreja alcança ${pct}% de quem está ativo`,
-          });
-        }
+        const lista: Achada[] = [];
+        PENDENCIAS_CADASTRO.forEach((def, i) => {
+          const quantidade = (contagens[i] as { count: number | null }).count ?? 0;
+          if (quantidade === 0) return;
+          // O alcance ganha um número que os outros não têm: o que importa
+          // não é quantas faltam, é quanto da igreja continua alcançável.
+          const detalhe =
+            def.chave === "sem-telefone" && ativos > 0
+              ? `a igreja alcança ${Math.round(((ativos - quantidade) / ativos) * 100)}% de quem está ativo`
+              : undefined;
+          lista.push({ def, quantidade, detalhe });
+        });
 
-        if (casados > 0) {
-          achadas.push({
-            chave: "casado-sem-data",
-            quantidade: casados,
-            texto: n => `${n} ${n === 1 ? "pessoa casada" : "pessoas casadas"} sem data de casamento`,
-            consequencia: "não aparecem nas bodas do mês",
-          });
-        }
-        if (membrosSemEntrada > 0) {
-          achadas.push({
-            chave: "membro-sem-entrada",
-            quantidade: membrosSemEntrada,
-            texto: n => `${n} ${n === 1 ? "membro" : "membros"} sem data de entrada`,
-            consequencia: "ficam de fora do tempo de casa",
-          });
-        }
-        setPendencias(achadas);
+        // Destaque primeiro: das três, é a única que impede QUALQUER cuidado
+        // de chegar. As outras impedem um recurso específico.
+        lista.sort((a, b) => Number(!!b.def.destaque) - Number(!!a.def.destaque));
+        setAchadas(lista);
       } catch {
         // Consulta opcional: se falhar, o bloco some em vez de quebrar o painel.
-        if (!cancelado) setPendencias([]);
+        if (!cancelado) setAchadas([]);
       }
     })();
 
@@ -118,9 +85,9 @@ export function CadastrosInconsistentes() {
   }, []);
 
   // Bloco vazio nao existe: sem pendencia, a faixa se esconde.
-  useReportarVazio(pendencias !== null && pendencias.length === 0);
+  useReportarVazio(achadas !== null && achadas.length === 0);
 
-  if (pendencias === null) {
+  if (achadas === null) {
     return (
       <Card className="border-dashed">
         <CardContent className="py-5 text-center text-muted-foreground text-xs">
@@ -130,32 +97,33 @@ export function CadastrosInconsistentes() {
     );
   }
 
-  if (pendencias.length === 0) return null;
+  if (achadas.length === 0) return null;
 
   return (
     <Card>
-      <CardContent className="py-3 space-y-2">
-        <ul className="space-y-1.5">
-          {pendencias.map(p => (
-            <li key={p.chave} className="text-sm">
-              {/* A linha de alcance leva a cor de alerta: das tres, e a unica
-                  que impede QUALQUER cuidado de chegar. As outras impedem um
-                  recurso especifico. */}
-              <span className={p.destaque ? "font-medium text-warning-text" : "font-medium"}>
-                {p.texto(p.quantidade)}
-              </span>
-              <span className="text-muted-foreground"> — {p.consequencia}</span>
+      <CardContent className="py-2">
+        <ul className="divide-y -my-1">
+          {achadas.map(({ def, quantidade, detalhe }) => (
+            <li key={def.chave}>
+              {/* A linha inteira é o link, e não um "abrir Pessoas" no rodapé:
+                  o que se quer ao ler "64 sem telefone" é ver quem são as 64,
+                  e o alvo do dedo passa a ser a frase toda. `min-h-11` é o
+                  mínimo tocável do projeto. */}
+              <Link
+                to={`/membros?pendencia=${def.chave}`}
+                className="flex items-center gap-2 py-2 min-h-11 group"
+              >
+                <span className="text-sm min-w-0 flex-1">
+                  <span className={def.destaque ? "font-medium text-warning-text" : "font-medium"}>
+                    {def.texto(quantidade)}
+                  </span>
+                  <span className="text-muted-foreground"> — {detalhe ?? def.consequencia}</span>
+                </span>
+                <ChevronRight className="w-4 h-4 shrink-0 text-muted-foreground group-hover:text-primary transition-colors" />
+              </Link>
             </li>
           ))}
         </ul>
-        {/* Um caminho so, para a lista onde se corrige. A tela de Pessoas ja
-            tem busca e filtros; nao vale inventar uma tela nova para isto. */}
-        <Link
-          to="/membros"
-          className="inline-flex items-center gap-1 text-sm text-primary hover:underline min-h-[44px]"
-        >
-          Abrir Pessoas para corrigir <ArrowRight className="w-3.5 h-3.5" />
-        </Link>
       </CardContent>
     </Card>
   );

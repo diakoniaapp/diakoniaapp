@@ -172,7 +172,15 @@ export const widgetRegistry: Widget[] = [
   { id: "cadastros-inconsistentes", label: "Cadastros a corrigir",
     subtitulo: "Registros que se contradizem",
     icone: ClipboardCheck, component: CadastrosInconsistentes,
-    permissoes: ["ver_pessoas","ver_painel_secretaria","ver_painel_admin"],
+    // SEM `ver_pessoas`. Corrigir cadastro é tarefa da secretaria, e
+    // `ver_pessoas` pertence a seis papéis — admin, pastor, diakonia,
+    // secretaria, lideranca e voluntario. Como o teste abaixo é `.some()`,
+    // bastava esse para o aviso aparecer a todos: um voluntário via um cartão
+    // anunciando que 64 pessoas da igreja estavam sem telefone.
+    //
+    // Tarefa endereçada a todos não é de ninguém. Restam `ver_painel_secretaria`
+    // (admin, secretaria) e `ver_painel_admin`.
+    permissoes: ["ver_painel_secretaria","ver_painel_admin"],
     prioridade: 1 },
 
   { id: "vida-das-familias", label: "Vida das famílias",
