@@ -7,6 +7,9 @@ const TIPO_COLORS: Record<EventoTipo, string> = {
   ensaio: "#d97706",       // âmbar
   acao_social: "#db2777",  // rosa
   curso: "#0d9488",        // teal
+  live: "#dc2626",         // vermelho — a cor do "ao vivo"
+  palestra: "#0891b2",     // ciano
+  comunhao: "#ea580c",     // laranja
   outro: "#7c3aed",        // roxo (evento especial)
 };
 

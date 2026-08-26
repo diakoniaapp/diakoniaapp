@@ -29,7 +29,7 @@ type LocalAmbiente = "templo" | "sala" | "administrativo" | "tecnico" | "area_so
 type LocalUso = "culto" | "ensino" | "musica" | "comunicacao" | "administrativo" | "manutencao" | "apoio_tecnico" | "armazenamento";
 type LocalLocInterna = "frente" | "fundos" | "lado_esquerdo" | "lado_direito" | "centro" | "area_externa";
 type LocalRestricao = "livre" | "restrito" | "tecnico";
-type EventoTipo = "culto" | "reuniao" | "ensaio" | "acao_social" | "curso" | "outro";
+type EventoTipo = "culto" | "reuniao" | "ensaio" | "acao_social" | "curso" | "live" | "palestra" | "comunhao" | "outro";
 
 interface Local {
   id: string;
@@ -102,6 +102,9 @@ const EVENTO_TIPOS: { value: EventoTipo; label: string }[] = [
   { value: "ensaio", label: "Ensaio" },
   { value: "acao_social", label: "Ação Social" },
   { value: "curso", label: "Curso" },
+  { value: "live", label: "Live" },
+  { value: "palestra", label: "Palestra" },
+  { value: "comunhao", label: "Comunhão" },
   { value: "outro", label: "Outro" },
 ];
 

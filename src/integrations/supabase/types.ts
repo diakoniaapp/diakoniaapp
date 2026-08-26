@@ -12823,6 +12823,9 @@ export type Database = {
         | "ensaio"
         | "acao_social"
         | "curso"
+        | "live"
+        | "palestra"
+        | "comunhao"
         | "outro"
       eventos_status_evento_enum:
         | "Planejado"
@@ -13604,6 +13607,9 @@ export const Constants = {
         "ensaio",
         "acao_social",
         "curso",
+        "live",
+        "palestra",
+        "comunhao",
         "outro",
       ],
       eventos_status_evento_enum: [

@@ -36,7 +36,8 @@ import {
 } from "@/lib/agenda/arrecadacao";
 import type { EventoOcorrencia, EventoRow } from "@/lib/agenda/types";
 
-// Os seis valores do enum `evento_tipo` no banco, e só eles.
+// Os valores do enum `evento_tipo` no banco, e só eles. Eram seis; `live`,
+// `palestra` e `comunhao` entraram na migration 20260826200000.
 //
 // O mapa anterior listava "estudo", "evento", "visita", "oracao" e "retiro",
 // que não existem no enum — nenhum evento poderia tê-los. Rótulo para valor
@@ -48,6 +49,9 @@ const TIPO_LABEL: Record<string, string> = {
   ensaio:      "Ensaio",
   acao_social: "Ação social",
   curso:       "Curso",
+  live:        "Live",
+  palestra:    "Palestra",
+  comunhao:    "Comunhão",
   outro:       "Outro",
 };
 
@@ -171,7 +175,20 @@ function useAgoraEmMinutos(): number {
   return min;
 }
 
-export function AgendaDoDia() {
+/**
+ * `dia` — qual dia mostrar. Ausente, mostra hoje.
+ *
+ * Existe para o Painel Pastoral: lá a tira de sete dias escolhe o dia, e a
+ * agenda acompanha a escolha junto das celebrações. No painel inicial a prop
+ * não é passada, e nada muda.
+ *
+ * **Todo o comportamento de "hoje" fica atrás de `ehHoje`**: o relógio que
+ * marca o que está acontecendo agora, a virada para amanhã quando o dia
+ * acaba, e o recolhimento do que já passou. Nenhum deles faz sentido para
+ * uma sexta-feira que ainda vai chegar — e aplicá-los ali produziria coisas
+ * como riscar um culto que ainda não aconteceu.
+ */
+export function AgendaDoDia({ dia }: { dia?: string } = {}) {
   const [ocorrencias, setOcorrencias] = useState<EventoOcorrencia[]>([]);
   const [loading, setLoading] = useState(true);
   const [convite, setConvite] = useState<EventoOcorrencia | null>(null);
@@ -179,21 +196,29 @@ export function AgendaDoDia() {
 
   // Relogio: reclassifica os eventos a cada virada de minuto.
   const agoraMin = useAgoraEmMinutos();
+  const hojeISO  = dataLocal();
+  const diaAlvo  = dia ?? hojeISO;
+  const ehHoje   = diaAlvo === hojeISO;
+
   // Classifica so os de HOJE. Aplicar o relogio de hoje a um evento de
   // amanha faria a Live Matinal das 06:30 nascer riscada as 20h de hoje.
-  const hojeISO  = dataLocal();
-  const momentos = classificar(
-    ocorrencias.filter(o => (o.data ?? hojeISO) === hojeISO),
-    agoraMin,
-  );
+  const doDia = ocorrencias.filter(o => (o.data ?? hojeISO) === diaAlvo);
+  const momentos = ehHoje
+    ? classificar(doDia, agoraMin)
+    : new Map(doDia.map(o => [o.key, "futuro" as Momento]));
 
   useReportarVazio(loading || ocorrencias.length === 0);
 
   useEffect(() => {
     let cancelado = false;
     const hoje = hojeLocal();
+    // A janela vai ate hoje + 7. Ela precisava chegar so a amanha enquanto o
+    // bloco era sempre de hoje (ver `sobrouHoje`); com a prop `dia`, o Painel
+    // Pastoral pode pedir qualquer dia da semana, e o alvo tem de estar
+    // dentro do que foi expandido. Sao os mesmos `eventos` ja buscados — o
+    // custo e a expansao das recorrencias, nao uma consulta a mais.
     const amanha = new Date(hoje);
-    amanha.setDate(amanha.getDate() + 1);
+    amanha.setDate(amanha.getDate() + 7);
 
     (async () => {
       try {
@@ -242,33 +267,33 @@ export function AgendaDoDia() {
     );
   }
 
-  // ── Quando o dia vira ────────────────────────────────────────────────────
+  // ── O dia vira à meia-noite, e só ───────────────────────────────────────
   //
-  // Uma agenda que so olha para hoje fica inutil justamente no fim do dia:
-  // as 22h, com tudo ja realizado, o bloco vira uma lista de cinco itens
-  // riscados. Nao informa nada, e ainda ocupa o alto da tela.
+  // Havia aqui uma regra diferente: assim que NADA mais restasse por
+  // acontecer hoje, o bloco passava a mostrar amanhã. Num dia cuja última
+  // atividade terminava às 15h, ele virava às 15h.
   //
-  // A regra: enquanto sobrar QUALQUER coisa por acontecer hoje, mostra hoje.
-  // Quando nao sobrar, mostra amanha — que e a pergunta que a pessoa passa a
-  // ter as 22h de uma terca: "o que tem amanha?".
+  // Retirada a pedido, em 26/08/2026, e o motivo é bom: um bloco chamado
+  // "hoje" que mostra amanhã ainda dentro de hoje mente sobre a própria
+  // etiqueta. Quem olha às 16h de uma terça e lê a agenda de quarta não tem
+  // como saber que o dia mudou embaixo dela — e pode concluir que perdeu
+  // alguma coisa, ou que o culto foi cancelado.
   //
-  // Nao e por horario fixo. Um dia que acaba as 15h vira as 15h; um que tem
-  // culto as 20h so vira depois das 21h30. Quem manda e a agenda, nao o
-  // relogio.
-  const chaveHoje = dataLocal();
-  const deHoje   = ocorrencias.filter(o => (o.data ?? chaveHoje) === chaveHoje);
-  const deAmanha = ocorrencias.filter(o => (o.data ?? chaveHoje) !== chaveHoje);
-
-  const sobrouHoje = deHoje.some(o => momentos.get(o.key) !== "passou");
-  const viraOdia   = !sobrouHoje && deAmanha.length > 0;
+  // Agora hoje é hoje até 23:59:59. A virada acontece quando o dia vira de
+  // verdade: no Painel Pastoral o relógio de um minuto compara a data local
+  // e recarrega (ver PainelPastoral.tsx); no painel inicial, na próxima
+  // carga da página.
+  //
+  // O que já passou continua visível e recolhido — ver `jaPassaram` abaixo.
+  // É isso que impede o bloco de virar uma lista de riscados no fim do dia,
+  // sem precisar trocar o dia para resolver.
+  const deHoje = doDia;
 
   // O que já terminou desce para o fim da lista, mantendo a ordem de horário
   // dentro de cada grupo. O bloco passa a responder "o que vem agora" em vez
   // de "como o dia foi planejado de manhã" — e o que passou continua visível,
   // porque saber que a reunião das 9h já aconteceu também é informação.
-  const ordenadas = viraOdia
-    ? deAmanha
-    : [...deHoje].sort((a, b) => {
+  const ordenadas = [...deHoje].sort((a, b) => {
         const pa = momentos.get(a.key) === "passou" ? 1 : 0;
         const pb = momentos.get(b.key) === "passou" ? 1 : 0;
         return pa - pb;
@@ -285,8 +310,8 @@ export function AgendaDoDia() {
   // Agora a história vira uma linha, que se abre se alguém quiser. Continua
   // acessível porque saber que a reunião das 9h aconteceu é informação — só
   // não é a informação que se procura ao abrir o painel às nove da noite.
-  const jaPassaram = viraOdia ? [] : ordenadas.filter(o => momentos.get(o.key) === "passou");
-  const visiveis   = viraOdia ? ordenadas : ordenadas.filter(o => momentos.get(o.key) !== "passou");
+  const jaPassaram = ordenadas.filter(o => momentos.get(o.key) === "passou");
+  const visiveis   = ordenadas.filter(o => momentos.get(o.key) !== "passou");
   const listadas   = verPassado ? [...visiveis, ...jaPassaram] : visiveis;
 
   if (ocorrencias.length === 0) {
@@ -306,15 +331,6 @@ export function AgendaDoDia() {
   return (
     <div className="space-y-2">
 
-      {/* Diz de que dia e a lista, porque o titulo da secao continua sendo
-          "Acontecendo hoje" — e as 22h ele estaria mentindo sem esta linha. */}
-      {viraOdia && (
-        <p className="text-xs text-muted-foreground px-1 flex items-center gap-1.5">
-          <CalendarDays className="w-3.5 h-3.5 shrink-0" />
-          Hoje já passou. <b className="text-foreground font-medium">Amanhã:</b>
-        </p>
-      )}
-
       <ul className="divide-y rounded-md border bg-card">
         {listadas.map(o => {
           const ev    = o.evento;
@@ -326,7 +342,7 @@ export function AgendaDoDia() {
             : CATEGORIA_LABEL[cat] ?? null;
           // Virou o dia: nenhum evento de amanha e "agora", "a seguir" nem
           // "passou" — eles simplesmente ainda vao acontecer.
-          const momento = viraOdia ? "futuro" : (momentos.get(o.key) ?? "futuro");
+          const momento = momentos.get(o.key) ?? "futuro";
           const passou  = momento === "passou";
 
           return (

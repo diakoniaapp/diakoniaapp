@@ -346,15 +346,18 @@ export default function PainelPastoral() {
           A agenda do dia com hora e lugar: cultos, ensaios, reuniões e
           reservas de espaço. Fica antes de "Datas importantes" porque é o
           que tem hora marcada — o resto da semana pode esperar a rolagem. */}
-      <section id="hoje">
-        <TituloDaSecao icone={CalendarClock}>Acontecendo hoje</TituloDaSecao>
-        <AgendaDoDia />
-      </section>
+      {/* ── A semana: a tira escolhe o dia, e os dois blocos obedecem ────
+          Antes eram duas seções independentes. "Acontecendo hoje" mostrava
+          sempre hoje, enquanto logo abaixo a tira de sete dias deixava
+          escolher a sexta — e a agenda continuava na quarta. Duas leituras
+          de dia diferentes, uma ao lado da outra.
 
-      {/* ── Datas importantes: hoje + 6 dias ────────────────────────────── */}
+          Agora a tira comanda as duas: o compromisso com hora e a celebração
+          são o mesmo dia. `AgendaDoDia` recebe `dia`; sem a prop, no painel
+          inicial, ele segue exatamente como era. */}
       <section id="datas" className="scroll-mt-4">
         <TituloDaSecao icone={CalendarCheck} contagem={totalDatas}>
-          Datas importantes
+          A semana
         </TituloDaSecao>
         <div className="space-y-3">
           {/*
@@ -377,6 +380,10 @@ export default function PainelPastoral() {
                 aberto={diaAberto}
                 onAbrir={setDiaAberto}
               />
+              {/* Os compromissos com hora do dia escolhido — cultos, ensaios,
+                  reuniões e reservas de espaço, com recorrências expandidas.
+                  Vêm antes das celebrações porque têm hora marcada. */}
+              <AgendaDoDia dia={diaAberto} />
               <BlocoDoDia
                 data={diaAberto}
                 itens={dias.find(d => d.data === diaAberto)?.itens ?? []}

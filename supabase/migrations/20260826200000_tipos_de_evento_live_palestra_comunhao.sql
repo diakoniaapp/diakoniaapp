@@ -1,0 +1,50 @@
+-- ─── "Live", "Palestra" e "Comunhão" entram como tipos de evento ───────────
+--
+-- ── POR QUE ────────────────────────────────────────────────────────────────
+--
+-- Os dois já acontecem na igreja e estavam guardados sob rótulos emprestados.
+-- Medido na agenda em 26/08/2026:
+--
+--   "Live Matinal de Oração | MINISTÉRIO DE ORAÇÃO"        tipo = outro
+--   "Palestra | MINISTÉRIO CELEBRANDO A TRANSFORMAÇÃO"     tipo = curso
+--
+-- Uma transmissão não é culto presencial nem reunião: tem outro lugar (um
+-- canal), outro público e outra logística. Uma palestra não é um curso: é
+-- encontro único, sem matrícula nem continuidade.
+--
+-- Enquanto ficam em "Outro" e "Curso", nenhuma tela consegue contá-las,
+-- filtrá-las ou pintá-las de forma distinta — e os rótulos emprestados
+-- perdem sentido, porque passam a significar duas coisas cada um.
+--
+-- ── SOBRE ALTER TYPE ... ADD VALUE ─────────────────────────────────────────
+--
+-- O CLAUDE.md (§6.3) registra a armadilha: **`ALTER TYPE ... ADD VALUE` não
+-- roda na mesma transação em que o valor é usado.** Esta migration só
+-- ACRESCENTA o valor — não insere nem atualiza linha nenhuma com ele —,
+-- então o problema não se apresenta aqui. Qualquer migration futura que
+-- queira gravar `'live'` precisa ser separada desta.
+--
+-- `IF NOT EXISTS` para a migration poder ser reaplicada sem erro.
+--
+-- ── O QUE ESTA MIGRATION NÃO FAZ ───────────────────────────────────────────
+--
+-- **Não reclassifica os eventos que já existem.** Trocar o tipo de um evento
+-- é decisão de quem cuida da agenda, não efeito colateral de uma migration —
+-- e os dois são recorrentes, então a mudança alcançaria de uma vez todas as
+-- ocorrências, inclusive as passadas.
+--
+-- Depois de aplicada esta, e em migration SEPARADA (ver a armadilha acima),
+-- a reclassificação seria:
+--
+--   UPDATE public.eventos SET tipo = 'live'
+--    WHERE titulo ILIKE 'live %' AND tipo = 'outro';
+--   UPDATE public.eventos SET tipo = 'palestra'
+--    WHERE titulo ILIKE 'palestra%' AND tipo = 'curso';
+--
+-- Pela tela também funciona, e é o caminho mais seguro: quem edita vê qual
+-- evento está mudando.
+-- ─────────────────────────────────────────────────────────────────────────────
+
+ALTER TYPE public.evento_tipo ADD VALUE IF NOT EXISTS 'live';
+ALTER TYPE public.evento_tipo ADD VALUE IF NOT EXISTS 'palestra';
+ALTER TYPE public.evento_tipo ADD VALUE IF NOT EXISTS 'comunhao';

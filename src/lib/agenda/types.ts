@@ -1,5 +1,5 @@
 export type EventoStatus = "agendado" | "realizado" | "cancelado";
-export type EventoTipo = "culto" | "reuniao" | "ensaio" | "acao_social" | "curso" | "outro";
+export type EventoTipo = "culto" | "reuniao" | "ensaio" | "acao_social" | "curso" | "live" | "palestra" | "comunhao" | "outro";
 export type Resp = "principal" | "apoio";
 export type AgendaView = "dia" | "semana" | "mes" | "lista";
 export type ColorBy = "ministerio" | "tipo";
@@ -82,6 +82,9 @@ export const TIPO_LABEL: Record<EventoTipo, string> = {
   ensaio: "Ensaio",
   acao_social: "Ação Social",
   curso: "Curso/Treinamento",
+  live: "Live",
+  palestra: "Palestra",
+  comunhao: "Comunhão",
   outro: "Outro",
 };
 
