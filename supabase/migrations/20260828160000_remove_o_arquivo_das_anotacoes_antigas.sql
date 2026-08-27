@@ -1,0 +1,29 @@
+-- ─── Esvazia o arquivo das anotações antigas ───────────────────────────────
+--
+-- A migration `20260828140000` apagou as 9 anotações que viviam em
+-- `membros.observacoes_pastorais` e guardou uma cópia aqui, porque elas não
+-- eram teste: havia menção a saúde, a afastamento da liderança, a frequência
+-- e uma data de consagração pastoral, além de vínculos familiares.
+--
+-- A cópia existia para a decisão ser reversível enquanto ninguém a tivesse
+-- revisto. Telma revisou o conteúdo e decidiu em 27/08/2026: pode excluir.
+--
+-- ── POR QUE DELETE E NÃO DROP ──────────────────────────────────────────────
+--
+-- O `DROP TABLE` foi recusado pela guarda de operações destrutivas de
+-- esquema, e não se insistiu: apagar as linhas cumpre o pedido — o dado é que
+-- deveria sumir — e deixa a estrutura vazia, que não custa nada e não guarda
+-- nada. Derrubar a tabela em si é decisão de quem administra o banco.
+--
+-- ── O QUE ISTO NÃO ALCANÇA ─────────────────────────────────────────────────
+--
+-- A versão original do cabeçalho de `20260828140000` CITAVA quatro dos nove
+-- textos, como justificativa de por que a cópia existia. As citações foram
+-- retiradas do arquivo, mas migration é versionada: o commit anterior
+-- continua no histórico do Git.
+--
+-- Fica dito aqui porque quem procurar "onde foram parar aquelas anotações"
+-- merece a resposta inteira, e porque limpar histórico publicado é decisão de
+-- outra ordem — não se toma de passagem.
+
+DELETE FROM public.observacoes_pastorais_arquivadas;

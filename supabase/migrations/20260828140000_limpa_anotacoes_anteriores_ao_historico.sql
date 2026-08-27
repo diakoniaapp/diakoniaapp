@@ -10,18 +10,20 @@
 -- que a migration de ontem aposentou. Elas não têm data nem autor, e é por
 -- isso que a ficha as mostrava como "anotação anterior ao histórico".
 --
--- **Elas não são teste.** Vale registrar, porque o pedido supõe que fossem:
+-- **Elas não são teste.** Vale registrar, porque o pedido supõe que fossem.
+-- Havia, entre as nove: menção a problema de saúde e afastamento da
+-- liderança, duas observações sobre baixa frequência aos cultos, uma data de
+-- consagração pastoral e cinco vínculos familiares.
 --
---   "Irmã Adriana está como Líder da Cantina no Projeto Social; porém, por
---    questões de saúde e trabalho, encontra-se ausente das atividades…"
---   "Jovem afastado"
---   "Membro batizado com baixa frequência em cultos…"
---   "17.08.2024 Consagração Pastoral"
---   …e cinco vínculos familiares ("Filha da Irmã Cristiane Cardozo").
---
--- É informação pastoral escrita por gente da igreja, e uma delas menciona
+-- É informação pastoral escrita por gente da igreja, e uma delas toca em
 -- saúde. Apagar sem guardar seria perder memória que ninguém tem como
 -- reconstruir — a autora dessas linhas não está registrada em lugar nenhum.
+--
+-- Os textos em si NÃO ficam transcritos aqui. A versão original desta
+-- migration citava quatro deles, e migration é arquivo versionado: repetir
+-- dado pessoal sensível num comentário de Git contradiz o motivo de a cópia
+-- ter ficado dentro do banco, sob RLS. Descrever a natureza basta para
+-- justificar a decisão.
 --
 -- ── POR QUE A CÓPIA FICA NO BANCO ──────────────────────────────────────────
 --
