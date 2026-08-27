@@ -560,13 +560,6 @@ export default function PainelPastoral() {
               ))}
             </div>
 
-
-            {candidatos.abaixoDaIdade > 0 && (
-              <p className="text-xs text-muted-foreground">
-                {candidatos.abaixoDaIdade} congregado{candidatos.abaixoDaIdade > 1 ? "s" : ""} abaixo
-                de {IDADE_MINIMA_BATISMO} anos — fora da lista por idade.
-              </p>
-            )}
           </div>
         </section>
       )}

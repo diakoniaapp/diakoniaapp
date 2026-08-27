@@ -42,7 +42,17 @@ export interface CandidatosMembresia {
    * certo para isso — ela vai precisar dele.
    */
   semDataNascimento: number;
-  /** Congregados abaixo da idade mínima. Só o número — não há ação pastoral. */
+  /**
+   * Congregados abaixo da idade mínima. Só o número — não há ação pastoral.
+   *
+   * **Deixou de ser exibido em 27/08/2026**, a pedido: o subtítulo da seção
+   * já declara "congregados com 9 anos ou mais", e quem tem menos está fora
+   * por definição. A linha gastava espaço para repetir a regra.
+   *
+   * A contagem fica porque ela fecha a conta: todo congregado cai em
+   * exatamente um dos três baldes — elegível, sem data, abaixo da idade. Quem
+   * ler só os dois primeiros não conseguiria conferir que a soma bate.
+   */
   abaixoDaIdade: number;
 }
 
