@@ -7032,6 +7032,11 @@ export type Database = {
           saida_registrada_por_nome: string | null
           data_membro: string | null
           data_nascimento: string | null
+          // Dia e mês de quem não teve o ano registrado. O ano guardado é
+          // sempre 2000 e NÃO é dado — nunca calcular idade daqui. Acrescentada
+          // à mão em 27/08/2026 (migration 20260828210000). Uma regeneração do
+          // types.ts a traz do banco e descarta este comentário — reconferir.
+          nascimento_dia_mes: string | null
           data_ordenacao_diaconal: string | null
           data_ordenacao_presbiteral: string | null
           email: string | null
@@ -7122,6 +7127,11 @@ export type Database = {
           saida_registrada_por_nome?: string | null
           data_membro?: string | null
           data_nascimento?: string | null
+          // Dia e mês de quem não teve o ano registrado. O ano guardado é
+          // sempre 2000 e NÃO é dado — nunca calcular idade daqui. Acrescentada
+          // à mão em 27/08/2026 (migration 20260828210000). Uma regeneração do
+          // types.ts a traz do banco e descarta este comentário — reconferir.
+          nascimento_dia_mes?: string | null
           data_ordenacao_diaconal?: string | null
           data_ordenacao_presbiteral?: string | null
           email?: string | null
@@ -7212,6 +7222,11 @@ export type Database = {
           saida_registrada_por_nome?: string | null
           data_membro?: string | null
           data_nascimento?: string | null
+          // Dia e mês de quem não teve o ano registrado. O ano guardado é
+          // sempre 2000 e NÃO é dado — nunca calcular idade daqui. Acrescentada
+          // à mão em 27/08/2026 (migration 20260828210000). Uma regeneração do
+          // types.ts a traz do banco e descarta este comentário — reconferir.
+          nascimento_dia_mes?: string | null
           data_ordenacao_diaconal?: string | null
           data_ordenacao_presbiteral?: string | null
           email?: string | null

@@ -26,16 +26,21 @@
 //   membro sem data de entrada ...  ~54   18%
 //   sem data de nascimento .......  86   29%
 //
-// "Sem data de nascimento" ficou de fora de propósito, apesar de ser o maior:
-// não é contradição, é campo em branco, e não há nada no cadastro que permita
-// à secretaria descobrir a data sozinha — só perguntando à pessoa. Vira uma
-// lista que não se resolve trabalhando, e alerta que não zera para de ser
-// lido.
+// A regra original era só CONTRADIÇÃO, nunca campo em branco, e "sem data de
+// nascimento" tinha ficado de fora por isso: não há nada no cadastro que
+// permita à secretaria descobrir a data sozinha — só perguntando à pessoa.
+// O receio era criar uma lista que não se resolve trabalhando, e alerta que
+// não zera para de ser lido.
 //
-// Os outros três se corrigem olhando o próprio registro ou com uma pergunta
-// objetiva, e cada um tem consequência nomeável — que é o que a `consequencia`
-// diz. "Falta um campo" não move ninguém; "não aparecem nas bodas do mês"
-// move.
+// **O receio se mostrou infundado, e está medido.** A pendência entrou
+// depois, e em pouco mais de um dia caiu de 84 para 53 pessoas: 37
+// congregados resolvidos. A lista era trabalhável; o que faltava era ela
+// existir. Fica registrado porque a regra "só contradição" continua valendo
+// para o resto — a exceção é que campo em branco entra quando alguém PODE ir
+// atrás dele, e aqui a secretaria podia.
+//
+// Cada entrada tem consequência nomeável — que é o que a `consequencia` diz.
+// "Falta um campo" não move ninguém; "não aparecem nas bodas do mês" move.
 
 /** O bastante de uma pessoa para decidir se ela tem a pendência. */
 export interface PessoaParaPendencia {
@@ -49,6 +54,8 @@ export interface PessoaParaPendencia {
   data_entrada?: string | null;
   tipo_entrada?: string | null;
   data_nascimento?: string | null;
+  /** Dia e mês de quem não teve o ano registrado. Ver lib/idade.ts. */
+  nascimento_dia_mes?: string | null;
   sexo?: string | null;
 }
 
@@ -131,23 +138,53 @@ export const PENDENCIAS_CADASTRO: PendenciaCadastro[] = [
     filtrarConsulta: q => q.eq("status", "ativo").eq("tipo_pessoa", "membro").is("tipo_entrada", null),
     combina:         m => m.status === "ativo" && m.tipo_pessoa === "membro" && !m.tipo_entrada,
   },
+  // ── O nascimento, em duas filas ──────────────────────────────────────────
+  //
+  // Era uma pendência só, "sem data de nascimento", e o comentário dela dizia
+  // 84 pessoas — 35 membros, 46 congregados e 3 visitantes, medido em
+  // 27/08/2026. **Remedido em 27/08/2026, à tarde: são 52** — 41 membros, 9
+  // congregados e 3 visitantes. A secretaria resolveu 37 congregados desde
+  // que a lista existe. O número velho ficou registrado aqui porque a queda é
+  // a prova de que a fila é trabalhável, que era a dúvida quando ela nasceu.
+  //
+  // Agora são duas, porque passaram a existir TRÊS estados e não dois: quem
+  // tem tudo, quem tem só o dia e o mês, e quem não tem nada. A coluna
+  // `nascimento_dia_mes` (migration 20260828210000) recebe o meio.
+  //
+  // A ordem entre elas não é arbitrária. "Sem nada" vem primeiro porque é a
+  // que impede TUDO — inclusive a felicitação, que é o que a igreja
+  // efetivamente faz. "Só falta o ano" vem depois porque, resolvida a
+  // primeira metade, o que sobra bloqueia dois indicadores e nenhuma ação.
+  //
+  // E a segunda continua sendo pendência de propósito: a regra da casa é
+  // cadastro completo. Meia data é uma estação para a fila não ficar parada
+  // inteira — não é o destino, e a lista tem de continuar dizendo isso.
   {
     chave: "sem-data-nascimento",
     rotulo: "Sem data de nascimento",
     texto: n => `${n} ${n === 1 ? "pessoa" : "pessoas"} sem data de nascimento`,
-    // A maior lacuna do cadastro, e a que trava mais coisa de uma vez:
-    // medido em 27/08/2026 são 84 pessoas — 35 membros, 46 congregados e 3
-    // visitantes.
-    //
-    // Sem ela a pessoa não recebe felicitação de aniversário, não tem faixa
-    // de EBD, não entra na pirâmide etária do Painel Pastoral e — no caso
-    // dos congregados, que são a maioria destes — **a regra dos 9 anos não
-    // consegue julgar se ela é candidata ao batismo**. Ela não fica de fora
-    // da lista de candidatos por não ter idade; fica de fora por ser
-    // indecidível, que é diferente e ninguém vê.
+    // Nem o dia nem o mês. Enquanto for assim, a pessoa não recebe
+    // felicitação de aniversário, não tem faixa de EBD, não entra na pirâmide
+    // etária e — no caso dos congregados — **a regra dos 9 anos não consegue
+    // julgar se ela é candidata ao batismo**. Ela não fica de fora da lista de
+    // candidatos por não ter idade; fica de fora por ser indecidível, que é
+    // diferente e ninguém vê.
     consequencia: "ficam fora dos aniversários, da EBD e da fila do batismo",
-    filtrarConsulta: q => q.eq("status", "ativo").is("data_nascimento", null),
-    combina:         m => m.status === "ativo" && !m.data_nascimento,
+    filtrarConsulta: q => q.eq("status", "ativo").is("data_nascimento", null).is("nascimento_dia_mes", null),
+    combina:         m => m.status === "ativo" && !m.data_nascimento && !m.nascimento_dia_mes,
+  },
+  {
+    chave: "sem-ano-de-nascimento",
+    rotulo: "Sem o ano de nascimento",
+    texto: n => `${n} ${n === 1 ? "pessoa" : "pessoas"} com o aniversário sem o ano`,
+    // Estas já recebem felicitação — o dia e o mês bastam para isso, e é por
+    // isso que valeu aceitar meia data. O que o ano ainda compra é IDADE, e
+    // idade só decide duas coisas: a faixa da pirâmide etária e a regra dos 9
+    // anos. Dizer isso com precisão é o que impede a secretaria de tratar as
+    // duas filas com a mesma urgência.
+    consequencia: "ficam fora da pirâmide etária e da fila do batismo",
+    filtrarConsulta: q => q.eq("status", "ativo").not("nascimento_dia_mes", "is", null),
+    combina:         m => m.status === "ativo" && !!m.nascimento_dia_mes,
   },
   {
     chave: "sem-estado-civil",

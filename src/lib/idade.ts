@@ -36,3 +36,53 @@ export function idadeEm(dataNascimento: string | null | undefined): number | nul
   if (m < 0 || (m === 0 && hoje.getDate() < nasc.getDate())) anos--;
   return anos;
 }
+
+// ─── O aniversário quando não se sabe o ano ────────────────────────────────
+//
+// Medido em 27/08/2026: 53 das 294 pessoas ativas não tinham data de
+// nascimento nenhuma, porque o sistema anterior guardava só o dia e o mês de
+// muita gente e aqui o campo era tudo-ou-nada.
+//
+// A coluna `nascimento_dia_mes` recebe essa metade. Ela é uma `date` com o
+// ano fixado em 2000 por CHECK — ver a migration 20260828210000, que explica
+// por que 2000 e não outro (é bissexto, então 29/02 cabe).
+//
+// **O ano de 2000 não é dado.** Estas funções existem para que ninguém
+// precise lembrar disso: `diaEMesDeNascimento` é o único caminho para ler o
+// aniversário, e `idadeEm` continua exigindo a data completa. Quem tem só
+// dia e mês tem idade NULA, que é a verdade.
+
+/** O par dia/mês do aniversário, venha ele da data completa ou da parcial. */
+export function diaEMesDeNascimento(
+  pessoa: { data_nascimento?: string | null; nascimento_dia_mes?: string | null },
+): { dia: number; mes: number } | null {
+  const iso = pessoa.data_nascimento || pessoa.nascimento_dia_mes;
+  if (!iso) return null;
+  // Fatiar o ISO em vez de construir uma Date: `new Date("2000-08-29")` é
+  // meia-noite UTC, que no horário de Brasília volta um dia — a mesma
+  // armadilha que o `+ "T00:00"` de `idadeEm` evita.
+  const [, mm, dd] = iso.split("-").map(Number);
+  if (!mm || !dd) return null;
+  return { dia: dd, mes: mm };
+}
+
+/** "14/03" — para escrever o aniversário sem afirmar um ano que não se sabe. */
+export function aniversarioCurto(
+  pessoa: { data_nascimento?: string | null; nascimento_dia_mes?: string | null },
+): string | null {
+  const p = diaEMesDeNascimento(pessoa);
+  if (!p) return null;
+  return `${String(p.dia).padStart(2, "0")}/${String(p.mes).padStart(2, "0")}`;
+}
+
+/**
+ * O que se sabe sobre o nascimento desta pessoa. Três estados, não dois —
+ * e é essa terceira caixa que a secretaria precisa ver separada.
+ */
+export function estadoDoNascimento(
+  pessoa: { data_nascimento?: string | null; nascimento_dia_mes?: string | null },
+): "completo" | "so_dia_e_mes" | "nada" {
+  if (pessoa.data_nascimento) return "completo";
+  if (pessoa.nascimento_dia_mes) return "so_dia_e_mes";
+  return "nada";
+}

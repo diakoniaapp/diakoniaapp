@@ -67,12 +67,44 @@ const TIPO_ENTRADA_LABEL: Record<string, string> = {
   transferencia: "Transferência",
 };
 
+// ── Meia data de nascimento ───────────────────────────────────────────────
+//
+// O valor gravado é uma date ISO com o ano SEMPRE 2000 — o banco tem CHECK
+// para isso. 2000 é bissexto, e é esse o motivo de ser ele: 29/02 precisa
+// caber. Ver a migration 20260828210000.
+const MESES = [
+  "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+  "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+];
+const DIAS_DO_MES = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+const mesDaMeiaData = (iso: string) => (iso ? String(Number(iso.slice(5, 7))) : "");
+const diaDaMeiaData = (iso: string) => (iso ? String(Number(iso.slice(8, 10))) : "");
+
+/**
+ * Recompõe a meia data, mantendo o dia dentro do mês escolhido.
+ *
+ * Sem o corte, trocar 31/01 para fevereiro produziria 31/02, que o banco
+ * recusa por CHECK — e escrita recusada por CHECK ou pela RLS volta como
+ * sucesso silencioso em alguns caminhos. Melhor não deixar existir.
+ */
+function meiaData(mes: string, dia: string): string {
+  if (!mes || !dia) return "";
+  const m = Math.min(12, Math.max(1, Number(mes)));
+  const d = Math.min(DIAS_DO_MES[m - 1], Math.max(1, Number(dia)));
+  return `2000-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
 const empty = {
   nome_completo:            "",
   tipo_pessoa:              "congregado" as const,
   perfil_acesso:            ""               as const, // null no banco; preenchido só se Membro
   cpf:                      "",
   data_nascimento:          "",
+  // Dia e mês de quem não teve o ano registrado. O banco recusa esta e
+  // data_nascimento preenchidas ao mesmo tempo (CHECK), então a interface
+  // limpa uma ao ligar a outra. Ver migration 20260828210000.
+  nascimento_dia_mes:       "",
   sexo:                     "",
   estado_civil:             "",
   data_casamento:           "",
@@ -202,6 +234,8 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
   const [ebdClasses, setEbdClasses] = useState<EbdClasse[]>([]);
   const [ebdClasseSelecionada, setEbdClasseSelecionada] = useState<string>("");
   const [ebdSugestaoId, setEbdSugestaoId] = useState<string | null>(null);
+  /** "Não sei o ano" ligado. Nasce do registro; não é coluna do banco. */
+  const [semAnoNasc, setSemAnoNasc] = useState(false);
 
   // Áreas disponíveis (agrupadas por ministério) e selecionadas
   const [areasPorMinisterio, setAreasPorMinisterio] = useState<{
@@ -258,8 +292,13 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
       // para uma coluna `boolean not null`.
       f.telefone_dispensado = !!(membro as any).telefone_dispensado;
       setForm(f);
+      // Quem está gravado com meia data abre a ficha já com o interruptor
+      // ligado — senão o campo apareceria vazio e salvar apagaria o dia e o
+      // mês que a secretaria tinha conseguido.
+      setSemAnoNasc(!!(membro as any).nascimento_dia_mes);
     } else {
       setForm(empty);
+      setSemAnoNasc(false);
     }
   }, [membro, open]);
 
@@ -803,9 +842,83 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                 </Select>
               </div>
 
+              {/* ── Data de nascimento, inteira ou pela metade ──────────────
+                  Medido em 27/08/2026: 53 das 294 pessoas ativas não tinham
+                  data nenhuma, porque o sistema anterior guardava só o dia e
+                  o mês de muita gente e este campo era tudo-ou-nada. O ano
+                  que faltava mantinha essas pessoas fora dos ANIVERSÁRIOS —
+                  que é o que a igreja de fato faz no dia — para proteger dois
+                  indicadores que não dependem dele.
+
+                  As duas colunas nunca convivem: o banco tem CHECK, e a
+                  interface limpa uma ao ligar a outra. */}
               <div>
-                <Label translate="no">Data de nascimento</Label>
-                <Input type="date" value={form.data_nascimento} onChange={(e) => set("data_nascimento", e.target.value)} />
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <Label translate="no">Data de nascimento</Label>
+                  <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      className="rounded border-border w-3.5 h-3.5 accent-dourado"
+                      checked={semAnoNasc}
+                      onChange={(e) => {
+                        setSemAnoNasc(e.target.checked);
+                        if (e.target.checked) set("data_nascimento", "");
+                        else set("nascimento_dia_mes", "");
+                      }}
+                    />
+                    Não sei o ano
+                  </label>
+                </div>
+
+                {semAnoNasc ? (
+                  <>
+                    {/* Dia antes do mês: é a ordem brasileira, e a ordem em
+                        que se fala — "vinte e nove de agosto". O campo de data
+                        completa já lê dd/mm/aaaa; ter o mês primeiro aqui
+                        fazia os dois campos da mesma linha discordarem. */}
+                    <div className="grid grid-cols-[5.5rem_1fr] gap-2">
+                      <Select
+                        value={diaDaMeiaData(form.nascimento_dia_mes) || undefined}
+                        onValueChange={(v) => set("nascimento_dia_mes", meiaData(mesDaMeiaData(form.nascimento_dia_mes) || "1", v))}
+                      >
+                        <SelectTrigger><SelectValue placeholder="Dia" /></SelectTrigger>
+                        <SelectContent>
+                          {/* Os dias que existem NAQUELE mês — 31 enquanto
+                              nenhum mês foi escolhido. Fevereiro tem 29 porque
+                              o ano gravado é 2000, bissexto. E `meiaData` corta
+                              o dia ao trocar o mês: quem escolher 31 e depois
+                              fevereiro vê o valor virar 29, corrigido à vista
+                              em vez de recusado na gravação. */}
+                          {Array.from(
+                            { length: DIAS_DO_MES[Number(mesDaMeiaData(form.nascimento_dia_mes) || 1) - 1] },
+                            (_, i) => (
+                              <SelectItem key={i} value={String(i + 1)}>{i + 1}</SelectItem>
+                            ),
+                          )}
+                        </SelectContent>
+                      </Select>
+                      <Select
+                        value={mesDaMeiaData(form.nascimento_dia_mes) || undefined}
+                        onValueChange={(v) => set("nascimento_dia_mes", meiaData(v, diaDaMeiaData(form.nascimento_dia_mes) || "1"))}
+                      >
+                        <SelectTrigger><SelectValue placeholder="Mês" /></SelectTrigger>
+                        <SelectContent>
+                          {MESES.map((nome, i) => (
+                            <SelectItem key={i} value={String(i + 1)}>{nome}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1.5 leading-snug">
+                      A pessoa passa a receber felicitação de aniversário.
+                      <strong className="font-medium text-foreground"> O ano continua pendente</strong>{" "}
+                      — sem ele ela fica fora da pirâmide etária e da fila do batismo.
+                    </p>
+                  </>
+                ) : (
+                  <Input type="date" value={form.data_nascimento} onChange={(e) => set("data_nascimento", e.target.value)} />
+                )}
+
                 {candidatoMembresia && (
                   <Badge variant="outline" className="mt-1 text-xs bg-primary/5">
                     Candidato a membresia ({idadeEstimada} anos)
@@ -1462,7 +1575,14 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                   <>
                     <RevisaoLinha label="E-mail">{form.email || "—"}</RevisaoLinha>
                     <RevisaoLinha label="Sexo">{form.sexo || "—"}</RevisaoLinha>
-                    <RevisaoLinha label="Data de nasc.">{form.data_nascimento || "—"}</RevisaoLinha>
+                    {/* A revisão diz o estado, não só o campo: "só dia e mês"
+                        é uma resposta, "—" não é. */}
+                    <RevisaoLinha label="Data de nasc.">
+                      {form.data_nascimento
+                        || (form.nascimento_dia_mes
+                            ? `${form.nascimento_dia_mes.slice(8, 10)}/${form.nascimento_dia_mes.slice(5, 7)} — falta o ano`
+                            : "—")}
+                    </RevisaoLinha>
                     <RevisaoLinha label="Estado civil">{form.estado_civil || "—"}</RevisaoLinha>
                     {isMembro && (
                       <RevisaoLinha label="Data de entrada">{form.data_entrada || "—"}</RevisaoLinha>

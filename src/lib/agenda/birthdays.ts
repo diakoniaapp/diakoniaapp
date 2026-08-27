@@ -1,4 +1,5 @@
 import type { EventoOcorrencia, EventoRow } from "./types";
+import { diaEMesDeNascimento } from "@/lib/idade";
 
 export const ANIV_COLOR = "#f59e0b"; // âmbar / dourado
 export const CASAMENTO_COLOR = "#ec4899"; // rosa
@@ -7,6 +8,8 @@ export interface PessoaAniv {
   id: string;
   nome_completo: string;
   data_nascimento: string | null;
+  /** Dia e mês de quem não teve o ano registrado. Ver lib/idade.ts. */
+  nascimento_dia_mes?: string | null;
   data_casamento: string | null;
   tipo_pessoa: "membro" | "congregado" | "visitante";
 }
@@ -84,11 +87,23 @@ export function aniversariosNoIntervalo(
     const dataStr = ymd(d);
 
     for (const p of elegiveis) {
-      // Nascimento
-      if (p.data_nascimento) {
-        const [yy, mm, dd] = p.data_nascimento.split("-").map(Number);
+      // ── Nascimento ────────────────────────────────────────────────────
+      //
+      // O par dia/mês vem do ajudante, porque pode estar em duas colunas:
+      // `data_nascimento` quando se sabe tudo, `nascimento_dia_mes` quando
+      // só se sabe o dia e o mês. Medido em 27/08/2026: eram 53 pessoas sem
+      // data nenhuma, invisíveis aqui por falta de um ano que não muda nada
+      // no que a igreja faz no dia.
+      //
+      // A IDADE continua saindo só da data completa. Sem ela o rótulo perde
+      // o "· 56 anos" e fica "Aniversário · Membro" — que é a verdade, e é
+      // o mesmo que a view do banco já faz com `anos_vai_completar` nulo.
+      const nasc = diaEMesDeNascimento(p);
+      if (nasc) {
+        const { dia: dd, mes: mm } = nasc;
         if (mm === month && dd === day) {
-          const idade = d.getFullYear() - yy;
+          const anoDeNascimento = p.data_nascimento ? Number(p.data_nascimento.split("-")[0]) : null;
+          const idade = anoDeNascimento === null ? 0 : d.getFullYear() - anoDeNascimento;
           out.push(
             buildVirtual({
               id: `aniv-${p.id}-${dataStr}`,

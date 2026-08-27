@@ -45,9 +45,9 @@ export default function AgendaPrint() {
       ]);
       const { data: pa } = await supabase
         .from("membros")
-        .select("id, nome_completo, data_nascimento, data_casamento, tipo_pessoa")
+        .select("id, nome_completo, data_nascimento, nascimento_dia_mes, data_casamento, tipo_pessoa")
         .in("tipo_pessoa", ["membro", "congregado"])
-        .or("data_nascimento.not.is.null,data_casamento.not.is.null");
+        .or("data_nascimento.not.is.null,nascimento_dia_mes.not.is.null,data_casamento.not.is.null");
       const { data: masters } = await supabase
         .from("eventos")
         .select("*")

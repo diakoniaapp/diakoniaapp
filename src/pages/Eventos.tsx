@@ -159,9 +159,9 @@ export default function Eventos() {
       supabase.from("locais").select("id, nome, nome_completo, status, permite_agendamento").order("nome_completo"),
       supabase
         .from("membros")
-        .select("id, nome_completo, data_nascimento, data_casamento, tipo_pessoa")
+        .select("id, nome_completo, data_nascimento, nascimento_dia_mes, data_casamento, tipo_pessoa")
         .in("tipo_pessoa", ["membro", "congregado"])
-        .or("data_nascimento.not.is.null,data_casamento.not.is.null"),
+        .or("data_nascimento.not.is.null,nascimento_dia_mes.not.is.null,data_casamento.not.is.null"),
     ]);
     const firstError = [ev, mn, ar, em, ea, lc, pa].find((r: any) => r.error)?.error;
     if (firstError) {
