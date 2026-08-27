@@ -12,22 +12,23 @@
 //
 // Dois quadros, pedidos em 26/08/2026 para o Painel Pastoral:
 //
-//   **A forma do rol** — pirâmide etária cruzada com sexo. Responde "para
-//   quem estamos pregando": 62 pessoas com 60 anos ou mais e 47 com menos de
-//   30 é uma igreja com um formato, e esse formato tem consequência
-//   pastoral.
+//   **A forma do rol** — pirâmide etária cruzada com sexo, e a leitura dela
+//   em três números. Responde "para quem estamos pregando": um rol com
+//   mediana de 46 anos, 32% acima de 60 e 12% entre 18 e 29 tem um formato,
+//   e esse formato tem consequência pastoral.
 //
-//   **Entradas no rol** — quantas pessoas entraram por ano, nos últimos dez.
+//   **Movimento de membros** — entradas acima do eixo, saídas abaixo.
 //
 // ── A REGRA DESTE ARQUIVO: O QUE NÃO SE SABE APARECE ───────────────────────
 //
 // Os dois quadros têm buracos grandes no dado, e nenhum dos dois os esconde:
 //
-//   · **35 dos 225 membros não têm data de nascimento** (16%). A pirâmide é
-//     desenhada sobre 190 pessoas, e diz isso embaixo.
-//   · **67 dos 225 não têm ano de entrada** (30%). O gráfico de entradas cobre
-//     158, e a barra de cobertura em cima dele mostra a proporção ANTES de
-//     qualquer barra de ano ser lida.
+//   · **35 dos 226 membros não têm data de nascimento** (15%). A pirâmide é
+//     desenhada sobre 191, e diz isso embaixo — inclusive nas porcentagens,
+//     cujo denominador é 191 e não 226.
+//   · **66 dos 226 não têm ano de entrada** (29%). O gráfico de movimento
+//     cobre 160, e a barra de cobertura em cima dele mostra a proporção
+//     ANTES de qualquer barra de ano ser lida.
 //
 // A alternativa — calcular sobre quem tem dado e não mencionar o resto — foi
 // descartada por ser exatamente o defeito que a ficha da pessoa acabou de
@@ -61,16 +62,26 @@ export function BlocoRebanho({ dados }: { dados: IndicadoresMembresia }) {
           confundia: anunciava os três vínculos logo acima de uma pirâmide
           desenhada só sobre os membros.
 
-          Aqui em cima ela faz o trabalho certo — explica de onde vem o
-          número do título da seção — e deixa cada quadro livre para dizer
-          qual é a SUA base. */}
+          Movê-la para cá não bastou. **Telma perguntou duas vezes se os
+          gráficos somavam os três vínculos** — e a pergunta é justa: um
+          número grande em negrito, logo acima de dois gráficos, ocupa a
+          posição de quem anuncia o assunto do que vem a seguir. O "os 226
+          membros" ao lado de cada título existia, em letra miúda, e perdia
+          a disputa.
+
+          Por isso a segunda frase, no mesmo tamanho da primeira: quem lê a
+          linha de contexto lê junto o que ela NÃO é. Duas perguntas iguais
+          sobre a mesma tela são defeito de quem escreveu a tela. */}
       <p className="text-xs text-muted-foreground">
-        <strong className="text-foreground tabular-nums">{total}</strong> pessoas ativas:
-        {" "}<strong className="text-foreground tabular-nums">{rol.membros}</strong> membros,
+        O rebanho tem <strong className="text-foreground tabular-nums">{total}</strong> pessoas
+        ativas: <strong className="text-foreground tabular-nums">{rol.membros}</strong> membros,
         {" "}<strong className="text-foreground tabular-nums">{rol.congregados}</strong> congregados
         {rol.visitantes > 0 && (
           <> e <strong className="text-foreground tabular-nums">{rol.visitantes}</strong> visitantes</>
         )}.
+        {" "}<span className="text-foreground">Os dois quadros abaixo contam
+        só os {rol.membros} membros</span> — congregados e visitantes ficam de fora
+        dos dois.
       </p>
       <QuadroDaForma c={c} totalDoRol={rol.membros} />
       <QuadroDoMovimento mv={mv} totalDoRol={rol.membros} />
@@ -91,19 +102,58 @@ function QuadroDaForma({
 
   return (
     <div className="rounded-lg border bg-card p-3 space-y-3">
-      {/* O subtítulo diz a base do quadro, e não a do rebanho: a pirâmide
-          é dos MEMBROS. Congregado e visitante ficam de fora porque 48 dos
-          65 congregados não têm data de nascimento — pô-los aqui trocaria
-          ~17 pessoas reais por 48 desconhecidas e deformaria o desenho. */}
+      {/* A base é o ROL. Ver a nota em `FAIXAS`, no serviço: a pirâmide
+          chegou a cobrir o rebanho inteiro para dar conteúdo a uma faixa de
+          Berçário, e voltou — dezenove crianças não pagam a queda de
+          cobertura de 85% para 71%. */}
       <div className="flex items-baseline gap-2 flex-wrap min-w-0">
         <h3 className="font-serif text-sm flex items-center gap-1.5 shrink-0">
           <Users2 className="w-3.5 h-3.5 text-violeta-text" />
           A forma do rol
         </h3>
-        <p className="text-xs text-muted-foreground min-w-0">
-          os <strong className="text-foreground tabular-nums">{totalDoRol}</strong> membros
-        </p>
+        {/* Etiqueta, e não texto solto: o escopo de um gráfico precisa ser
+            lido antes dele, e uma frase em cinza ao lado do título se lê
+            depois — quando já se tirou a conclusão errada. */}
+        <span className="text-[11px] rounded border border-border bg-muted/60 px-1.5 py-0.5 shrink-0">
+          só os <strong className="tabular-nums">{totalDoRol}</strong> membros
+        </span>
       </div>
+
+      {/* ── A leitura, antes do desenho ──────────────────────────────────
+          A pirâmide mostra o formato; estes três números o traduzem — e são
+          a redução que os estudos de composição de igreja costumam fazer.
+          Ninguém os extrai olhando barras.
+
+          Ficam ACIMA porque respondem à pergunta que faz olhar a pirâmide
+          ("estamos envelhecendo?"). Embaixo virariam nota de rodapé de uma
+          conclusão que o leitor já tirou, certa ou errada.
+
+          O denominador é `comDataNascimento`, e não o rol inteiro: dizer
+          "30% dos membros" sobre uma conta feita em 191 de 226 seria a
+          mesma meia-verdade que o resto deste bloco recusa. Por isso a
+          linha de baixo diz sobre quantos a conta vale. */}
+      {c.idadeMediana !== null && c.comDataNascimento > 0 && (
+        <div className="flex flex-wrap gap-x-4 gap-y-1 rounded-md bg-muted/50 px-2.5 py-1.5">
+          <span className="text-xs text-muted-foreground">
+            Idade mediana{" "}
+            <strong className="text-foreground tabular-nums text-sm">{c.idadeMediana}</strong> anos
+          </span>
+          <span className="text-xs text-muted-foreground" title="Estatuto do Idoso: 60 anos ou mais">
+            60 ou mais{" "}
+            <strong className="text-violeta-text tabular-nums text-sm">
+              {Math.round((c.maioresDe60 / c.comDataNascimento) * 100)}%
+            </strong>
+            <span className="tabular-nums"> ({c.maioresDe60})</span>
+          </span>
+          <span className="text-xs text-muted-foreground" title="Estatuto da Juventude: até 29 anos">
+            18 a 29{" "}
+            <strong className="text-info-text tabular-nums text-sm">
+              {Math.round((c.jovens / c.comDataNascimento) * 100)}%
+            </strong>
+            <span className="tabular-nums"> ({c.jovens})</span>
+          </span>
+        </div>
+      )}
 
       {/* ── A legenda vem ANTES da pirâmide ──────────────────────────────
           Sem ela, as duas cores são só duas cores: quem lê primeiro as
@@ -127,6 +177,9 @@ function QuadroDaForma({
 
           As barras têm altura mínima quando o valor é 1: uma faixa com uma
           pessoa não pode desaparecer só porque a escala é 43. */}
+      {/* A coluna do meio voltou a 3rem junto com os rótulos curtos. Com
+          os nomes da EBD ela precisava de 5.5rem, e as barras encolhiam
+          justamente no celular. */}
       <div className="space-y-1">
         {deCimaParaBaixo.map(f => (
           <div key={f.rotulo} className="grid grid-cols-[1.75rem_1fr_3rem_1fr_1.75rem] items-center gap-1">
@@ -137,17 +190,20 @@ function QuadroDaForma({
               <div
                 className="h-4 rounded-l-sm bg-info"
                 style={{ width: `${(f.masculino / c.maiorCelula) * 100}%` }}
-                title={`${f.masculino} homens de ${f.rotulo}`}
+                title={`${f.masculino} homens · ${f.rotulo}, ${f.idades}`}
               />
             </div>
-            <span className="text-[11px] text-center text-muted-foreground tabular-nums">
+            <span
+              className="text-[11px] text-center text-muted-foreground tabular-nums"
+              title={`${f.rotulo} anos — ${f.idades} — ${f.total} membros`}
+            >
               {f.rotulo}
             </span>
             <div className="flex justify-start">
               <div
                 className="h-4 rounded-r-sm bg-celebracao"
                 style={{ width: `${(f.feminino / c.maiorCelula) * 100}%` }}
-                title={`${f.feminino} mulheres de ${f.rotulo}`}
+                title={`${f.feminino} mulheres · ${f.rotulo}, ${f.idades}`}
               />
             </div>
             <span className="text-[11px] tabular-nums text-left text-muted-foreground">
@@ -162,7 +218,7 @@ function QuadroDaForma({
           do desenho — perto o bastante para quem leu a forma não sair sem
           saber sobre quantos ela foi desenhada. */}
       <p className="text-[11px] text-muted-foreground leading-relaxed">
-        Desenhada sobre {c.comDataNascimento} membros.
+        Desenhada sobre {c.comDataNascimento} dos {totalDoRol} membros.
         {c.semDataNascimento > 0 && (
           <>
             {" "}<strong className="font-medium text-warning-text">{c.semDataNascimento} sem
@@ -224,6 +280,10 @@ function QuadroDoMovimento({
           <ArrowUpDown className="w-3.5 h-3.5 text-violeta-text" />
           Movimento de membros
         </h3>
+        {/* A mesma etiqueta de escopo do quadro de cima, pelo mesmo motivo. */}
+        <span className="text-[11px] rounded border border-border bg-muted/60 px-1.5 py-0.5 shrink-0">
+          só os <strong className="tabular-nums">{totalDoRol}</strong> membros
+        </span>
         <p className="text-xs text-muted-foreground min-w-0">
           últimos {ANOS_NA_JANELA} anos
           {noAnoAtual && (

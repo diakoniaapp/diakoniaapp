@@ -69,25 +69,59 @@ const STATUS_DE_SAIDA = ["transferido", "desligado", "falecido"] as const;
  *
  * `ate` é o último ano ainda dentro da faixa. A última é aberta.
  *
- * **Por que 0–17 e não 9–17.** O batismo se dá a partir dos 9 anos, então
- * seria tentador começar a pirâmide ali. Mas a pirâmide mostra quem ESTÁ no
- * rol, não quem pode entrar: se houver um membro de 7 anos, ele precisa
- * aparecer em algum lugar. Uma faixa que começa aos 9 o esconderia.
+ * ── AS DUAS TENTATIVAS, E POR QUE ESTA VOLTOU ─────────────────────────────
+ *
+ * Em 27/08/2026 estas faixas foram trocadas pela escada da EBD — Berçário,
+ * Crianças, Juniores, Adolescentes, Jovens, Adultos, Maiores de 60 — e
+ * voltaram no mesmo dia. O motivo está medido:
+ *
+ *   · **"Adultos (26–59)" é uma faixa de 34 anos** e engolia 84 das 210
+ *     pessoas: 40% numa barra só. A pirâmide virava duas barras grandes e
+ *     cinco tocos, e o formato que ela existe para mostrar sumia.
+ *
+ *   · **Berçário obrigava a mudar a base.** Sobre o rol, a faixa tinha ZERO
+ *     — ninguém é batizado aos dois anos. Para ela ter conteúdo, a pirâmide
+ *     passava a cobrir o rebanho inteiro, e a cobertura caía de 191 em 226
+ *     membros (85%) para 210 em 294 pessoas (71%), porque 48 dos 65
+ *     congregados não têm data de nascimento.
+ *
+ * As faixas da EBD servem ao que foram feitas: repartir crianças para
+ * ensinar. O rol é população adulta — só 1 membro tem menos de 9 anos.
+ *
+ * ── DE ONDE VÊM ESTES CORTES ──────────────────────────────────────────────
+ *
+ * São referências brasileiras, não importadas:
+ *
+ *   · **60** é o corte de idoso no Estatuto do Idoso (Lei 10.741/2003). Os
+ *     estudos congregacionais americanos cortam em 65, ancorados na
+ *     aposentadoria de lá; aqui isso esconderia 20 pessoas que a própria
+ *     lei do país já conta como idosas.
+ *   · **29** fecha a juventude no Estatuto da Juventude (Lei 12.852/2013).
+ *
+ * Seis faixas sobre ~191 pessoas dão barras entre 20 e 43: nenhuma domina,
+ * nenhuma some.
  */
-const FAIXAS: { rotulo: string; ate: number }[] = [
-  { rotulo: "0–17",  ate: 17 },
-  { rotulo: "18–29", ate: 29 },
-  { rotulo: "30–44", ate: 44 },
-  { rotulo: "45–59", ate: 59 },
-  { rotulo: "60–74", ate: 74 },
-  { rotulo: "75+",   ate: Infinity },
+const FAIXAS: { rotulo: string; idades: string; ate: number }[] = [
+  { rotulo: "0–17",  idades: "crianças e adolescentes", ate: 17 },
+  { rotulo: "18–29", idades: "jovens",                  ate: 29 },
+  { rotulo: "30–44", idades: "adultos",                 ate: 44 },
+  { rotulo: "45–59", idades: "adultos",                 ate: 59 },
+  { rotulo: "60–74", idades: "idosos",                  ate: 74 },
+  { rotulo: "75+",   idades: "idosos longevos",         ate: Infinity },
 ];
+
+/** A partir daqui a pessoa é idosa pelo Estatuto do Idoso (Lei 10.741/2003). */
+const IDADE_DE_IDOSO = 60;
+/** A juventude termina aqui pelo Estatuto da Juventude (Lei 12.852/2013). */
+const FIM_DA_JUVENTUDE = 29;
 
 export interface FaixaEtaria {
   rotulo: string;
+  /** "12 a 17 anos" — vai para o `title`, já que o rótulo é só o nome. */
+  idades: string;
   feminino: number;
   masculino: number;
-  /** Membros da faixa sem sexo registrado. Contados, não escondidos. */
+  /** Pessoas da faixa sem sexo registrado. Contadas, não escondidas. */
   semSexo: number;
   total: number;
 }
@@ -103,6 +137,14 @@ export interface IndicadoresMembresia {
   /** As três formas de vínculo, todas com `status = 'ativo'`. */
   rol: { membros: number; congregados: number; visitantes: number };
 
+  /**
+   * A pirâmide, sobre os MEMBROS ATIVOS — o rol.
+   *
+   * Chegou a cobrir o rebanho inteiro, por algumas horas em 27/08/2026,
+   * enquanto as faixas eram as da EBD; voltou junto com elas. Ver a nota em
+   * `FAIXAS` para o porquê — em resumo, a cobertura caía de 85% para 71% em
+   * troca de dezenove crianças.
+   */
   composicao: {
     /** Da mais nova para a mais velha. A tela desenha ao contrário. */
     faixas: FaixaEtaria[];
@@ -115,6 +157,22 @@ export interface IndicadoresMembresia {
     semSexo: number;
     /** O maior valor de célula da pirâmide — a escala das barras. */
     maiorCelula: number;
+    /**
+     * A leitura que a pirâmide desenha e que ninguém extrai olhando barras.
+     *
+     * Três números, que é a redução que os estudos de composição de igreja
+     * costumam fazer. Aqui eles são fortes: medido em 27/08/2026, quase um
+     * terço do rol tem 60 anos ou mais, contra um em cada oito entre 18 e
+     * 29 — quase três idosos para cada jovem adulto.
+     *
+     * As porcentagens NÃO são calculadas aqui de propósito: a tela precisa
+     * do denominador (`comDataNascimento`) para dizer sobre quantos elas
+     * valem, e mandar só o percentual pronto convidaria a exibi-lo sem essa
+     * ressalva.
+     */
+    idadeMediana: number | null;
+    maioresDe60: number;
+    jovens: number;
   };
 
   movimento: {
@@ -188,21 +246,29 @@ export async function indicadoresMembresia(): Promise<IndicadoresMembresia> {
     else if (p.tipo_pessoa === "visitante") rol.visitantes++;
   }
 
-  // A pirâmide e as entradas são do ROL: membros ativos. Congregado ainda
+  // A pirâmide E as entradas são do ROL: membros ativos. Congregado ainda
   // não entrou, e quem saiu já não está.
   const membros = pessoas.filter(p => p.tipo_pessoa === "membro" && p.status === "ativo");
 
+
   // ── A pirâmide ───────────────────────────────────────────────────────────
   const faixas: FaixaEtaria[] = FAIXAS.map(f => ({
-    rotulo: f.rotulo, feminino: 0, masculino: 0, semSexo: 0, total: 0,
+    rotulo: f.rotulo, idades: f.idades, feminino: 0, masculino: 0, semSexo: 0, total: 0,
   }));
   let comDataNascimento = 0, semDataNascimento = 0;
   let feminino = 0, masculino = 0, semSexo = 0;
+  let maioresDe60 = 0, jovens = 0;
+  const idades: number[] = [];
 
   for (const p of membros) {
     const idade = idadeEm(p.data_nascimento);
     if (idade === null) { semDataNascimento++; continue; }
     comDataNascimento++;
+    idades.push(idade);
+    if (idade >= IDADE_DE_IDOSO) maioresDe60++;
+    // 18 a 29: a faixa da sucessão. Crianças não entram — a pergunta é
+    // quantos adultos jovens o rol tem, não quantos menores.
+    if (idade >= 18 && idade <= FIM_DA_JUVENTUDE) jovens++;
 
     const i = FAIXAS.findIndex(f => idade <= f.ate);
     // `findIndex` só devolveria -1 com idade negativa (data no futuro); a
@@ -218,6 +284,19 @@ export async function indicadoresMembresia(): Promise<IndicadoresMembresia> {
   const maiorCelula = Math.max(
     1, ...faixas.map(f => Math.max(f.feminino, f.masculino, f.semSexo)),
   );
+
+  // Mediana, e não média: a média de idade se deixa puxar por um punhado de
+  // pessoas muito velhas ou muito novas. A mediana responde "metade do
+  // rebanho tem mais de tantos anos", que é a frase que se quer dizer.
+  //
+  // Com número par de pessoas, a média das duas do meio, arredondada — uma
+  // mediana de 46,5 anos não diz nada a mais que 47.
+  const ordenadas = [...idades].sort((a, b) => a - b);
+  const idadeMediana = ordenadas.length === 0
+    ? null
+    : ordenadas.length % 2 === 1
+      ? ordenadas[(ordenadas.length - 1) / 2]
+      : Math.round((ordenadas[ordenadas.length / 2 - 1] + ordenadas[ordenadas.length / 2]) / 2);
 
   // ── A janela de anos ─────────────────────────────────────────────────────
   const anoAtual = new Date().getFullYear();
@@ -273,6 +352,7 @@ export async function indicadoresMembresia(): Promise<IndicadoresMembresia> {
     composicao: {
       faixas, comDataNascimento, semDataNascimento,
       feminino, masculino, semSexo, maiorCelula,
+      idadeMediana, maioresDe60, jovens,
     },
     movimento: {
       porAno,
