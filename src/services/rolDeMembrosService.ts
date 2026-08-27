@@ -98,8 +98,8 @@ const STATUS_DE_SAIDA = ["transferido", "desligado", "falecido"] as const;
  *     lei do país já conta como idosas.
  *   · **29** fecha a juventude no Estatuto da Juventude (Lei 12.852/2013).
  *
- * Seis faixas sobre ~191 pessoas dão barras entre 20 e 43: nenhuma domina,
- * nenhuma some.
+ * Sete faixas sobre ~215 pessoas: nenhuma domina, e a única que ficou
+ * aberta (90+) começa onde a diferença passa a ser de cuidado.
  */
 const FAIXAS: { rotulo: string; idades: string; ate: number }[] = [
   { rotulo: "0–17",  idades: "crianças e adolescentes", ate: 17 },
@@ -107,13 +107,31 @@ const FAIXAS: { rotulo: string; idades: string; ate: number }[] = [
   { rotulo: "30–44", idades: "adultos",                 ate: 44 },
   { rotulo: "45–59", idades: "adultos",                 ate: 59 },
   { rotulo: "60–74", idades: "idosos",                  ate: 74 },
-  { rotulo: "75+",   idades: "idosos longevos",         ate: Infinity },
+  { rotulo: "75–89", idades: "idosos longevos",         ate: 89 },
+  // ── Por que 90+ ganhou faixa própria ──────────────────────────────────
+  //
+  // "75+" era uma faixa aberta e escondia gente demais: medido em
+  // 27/08/2026, dos 25 membros acima de 75, **11 tinham 90 anos ou mais** —
+  // quase metade —, incluindo duas centenárias. Uma barra só dizia
+  // "idosos" sobre uma pessoa de 76 e outra de 100, que são realidades
+  // pastorais diferentes: uma vai à igreja, a outra recebe visita em casa.
+  //
+  // É a única faixa que fica aberta, porque tem de ficar — mas agora
+  // começa onde a diferença passa a ser de cuidado, e não só de idade.
+  { rotulo: "90+",   idades: "90 anos ou mais",         ate: Infinity },
 ];
 
 /** A partir daqui a pessoa é idosa pelo Estatuto do Idoso (Lei 10.741/2003). */
 const IDADE_DE_IDOSO = 60;
 /** A juventude termina aqui pelo Estatuto da Juventude (Lei 12.852/2013). */
 const FIM_DA_JUVENTUDE = 29;
+
+/** Quem está numa faixa. O bastante para listar e abrir a ficha. */
+export interface PessoaNaFaixa {
+  id: string;
+  nome: string;
+  idade: number;
+}
 
 export interface FaixaEtaria {
   rotulo: string;
@@ -124,6 +142,68 @@ export interface FaixaEtaria {
   /** Pessoas da faixa sem sexo registrado. Contadas, não escondidas. */
   semSexo: number;
   total: number;
+  /**
+   * Quem são, por lado da pirâmide.
+   *
+   * A pirâmide dizia "35" e não dizia quem. Agora o cursor sobre a barra
+   * abre a lista, e cada nome abre a ficha — a pergunta que vem depois de
+   * "somos uma igreja de 60+?" é sempre "quem são eles?".
+   *
+   * **Os contadores acima saem do tamanho destas listas**, e não de um
+   * incremento paralelo: dois caminhos para o mesmo número é como o número
+   * e a lista passam a discordar.
+   */
+  pessoas: {
+    masculino: PessoaNaFaixa[];
+    feminino: PessoaNaFaixa[];
+    semSexo: PessoaNaFaixa[];
+  };
+}
+
+/**
+ * Quem entrou ou saiu num ano.
+ *
+ * A linha tem a mesma forma dos dois lados do eixo: **data, nome, e como**.
+ *
+ * `quando` abre a linha porque é a coluna que se percorre numa lista
+ * ordenada por data; `tipo` a fecha porque qualifica o que aconteceu —
+ * batismo ou transferência de um lado, falecimento ou desligamento do
+ * outro. Era só o motivo da saída até 27/08/2026, quando a entrada ganhou
+ * tipo próprio e as duas listas passaram a se ler igual.
+ */
+export interface PessoaNoAno {
+  id: string;
+  nome: string;
+  /**
+   * "14/03" — o dia e o mês, e só.
+   *
+   * O ano não entra porque **já é a barra de onde o cartão saiu**. Escrevê-lo
+   * em cada linha seria repetir 22 vezes o que o eixo diz uma vez.
+   *
+   * Vai ANTES do nome na tela: numa lista ordenada por data, a data é a
+   * coluna que se percorre, e nomes de comprimento variável no começo da
+   * linha deixariam as datas serrilhadas à direita.
+   */
+  quando: string;
+  /**
+   * COMO foi o movimento, depois do nome.
+   *
+   * Na saída: transferido, desligado ou falecido — sempre presente, porque
+   * sai do próprio `status`.
+   *
+   * Na entrada: aclamação, batismo, reconciliação ou transferência. **Vem
+   * vazio na maioria**, e é assim que tem de ser: a coluna `tipo_entrada`
+   * nasceu em 27/08/2026, e os 184 membros que já tinham data de entrada
+   * não têm tipo registrado. Linha sem tipo mostra só a data e o nome, em
+   * vez de "não registrado" repetido vinte vezes no mesmo cartão.
+   */
+  tipo?: string;
+  /**
+   * A data crua, em ISO, só para ordenar.
+   *
+   * `quando` não serve: "14/03" e "02/07" ordenam pelo dia antes do mês.
+   */
+  data: string;
 }
 
 export interface MovimentoNoAno {
@@ -131,7 +211,52 @@ export interface MovimentoNoAno {
   entradas: number;
   /** Membros com status de saída e `data_saida` neste ano. */
   saidas: number;
+  /** Os contadores acima saem do tamanho destas listas — nunca de um
+   *  incremento paralelo, que é como número e lista passam a discordar. */
+  pessoasEntrada: PessoaNoAno[];
+  pessoasSaida: PessoaNoAno[];
 }
+
+/**
+ * "2026-03-14" → "14/03".
+ *
+ * Era "14 de março", por extenso. Encurtou porque a data passou a abrir a
+ * linha: por extenso ela ocupava metade da largura do cartão e empurrava o
+ * nome — que é o conteúdo — para a segunda linha em quase todo mundo.
+ *
+ * Fatiar a string em vez de construir um `Date`: a coluna é `date` e vem
+ * sempre como "AAAA-MM-DD". Um `new Date` aqui reabriria a armadilha do
+ * fuso, que faz 1º de janeiro virar 31 de dezembro.
+ */
+function diaEMes(iso: string | null | undefined): string {
+  if (!iso || iso.length < 10) return "";
+  const mes = iso.slice(5, 7);
+  const dia = iso.slice(8, 10);
+  if (!/^\d\d$/.test(mes) || !/^\d\d$/.test(dia)) return "";
+  return `${dia}/${mes}`;
+}
+
+/** O motivo da saída, em uma palavra, para a lista do cartão. */
+const MOTIVO_DA_SAIDA: Record<string, string> = {
+  transferido: "transferido",
+  desligado:   "desligado",
+  falecido:    "falecido",
+};
+
+/**
+ * O tipo de entrada, na mesma forma que o motivo da saída: minúscula, uma
+ * palavra, depois do nome.
+ *
+ * Os valores são os do enum `tipo_entrada_rol`. **Profissão de fé não está
+ * aqui** porque não é uma forma de entrar: antecede o batismo e é
+ * pré-requisito dele — ver a migration `20260828200000`.
+ */
+const TIPO_DE_ENTRADA: Record<string, string> = {
+  aclamacao:     "aclamação",
+  batismo:       "batismo",
+  reconciliacao: "reconciliação",
+  transferencia: "transferência",
+};
 
 export interface IndicadoresMembresia {
   /** As três formas de vínculo, todas com `status = 'ativo'`. */
@@ -206,12 +331,14 @@ export interface IndicadoresMembresia {
 
 interface LinhaPessoa {
   id: string;
+  nome_completo: string;
   tipo_pessoa: string | null;
   status: string | null;
   sexo: string | null;
   data_nascimento: string | null;
   data_entrada: string | null;
   data_saida: string | null;
+  tipo_entrada: string | null;
 }
 
 /** Os quatro primeiros dígitos de "AAAA-MM-DD", sem passar por `Date`. */
@@ -232,7 +359,7 @@ function anoDe(iso: string | null | undefined): number | null {
 export async function indicadoresMembresia(): Promise<IndicadoresMembresia> {
   const { data, error } = await supabase
     .from("membros")
-    .select("id, tipo_pessoa, status, sexo, data_nascimento, data_entrada, data_saida");
+    .select("id, nome_completo, tipo_pessoa, status, sexo, data_nascimento, data_entrada, data_saida, tipo_entrada");
 
   if (error) throw error;
   const pessoas = (data ?? []) as LinhaPessoa[];
@@ -254,6 +381,7 @@ export async function indicadoresMembresia(): Promise<IndicadoresMembresia> {
   // ── A pirâmide ───────────────────────────────────────────────────────────
   const faixas: FaixaEtaria[] = FAIXAS.map(f => ({
     rotulo: f.rotulo, idades: f.idades, feminino: 0, masculino: 0, semSexo: 0, total: 0,
+    pessoas: { masculino: [], feminino: [], semSexo: [] },
   }));
   let comDataNascimento = 0, semDataNascimento = 0;
   let feminino = 0, masculino = 0, semSexo = 0;
@@ -275,10 +403,24 @@ export async function indicadoresMembresia(): Promise<IndicadoresMembresia> {
     // última faixa é aberta. Cair na última é o comportamento seguro.
     const faixa = faixas[i === -1 ? faixas.length - 1 : i];
 
-    if (p.sexo === "feminino")       { faixa.feminino++;  feminino++; }
-    else if (p.sexo === "masculino") { faixa.masculino++; masculino++; }
-    else                             { faixa.semSexo++;   semSexo++;  }
-    faixa.total++;
+    // Guarda a pessoa no lado dela. Os contadores saem daqui no fim, para
+    // o número da barra e a lista do cartão nunca poderem discordar.
+    const quem = { id: p.id, nome: p.nome_completo, idade };
+    if (p.sexo === "feminino")       { faixa.pessoas.feminino.push(quem);  feminino++; }
+    else if (p.sexo === "masculino") { faixa.pessoas.masculino.push(quem); masculino++; }
+    else                             { faixa.pessoas.semSexo.push(quem);   semSexo++;  }
+  }
+
+  // Os contadores, derivados das listas — e a ordem em que os nomes serão
+  // lidos: do mais velho para o mais novo, como a própria pirâmide.
+  for (const f of faixas) {
+    for (const lado of [f.pessoas.masculino, f.pessoas.feminino, f.pessoas.semSexo]) {
+      lado.sort((a, b) => b.idade - a.idade || a.nome.localeCompare(b.nome, "pt-BR"));
+    }
+    f.masculino = f.pessoas.masculino.length;
+    f.feminino  = f.pessoas.feminino.length;
+    f.semSexo   = f.pessoas.semSexo.length;
+    f.total     = f.masculino + f.feminino + f.semSexo;
   }
 
   const maiorCelula = Math.max(
@@ -303,7 +445,9 @@ export async function indicadoresMembresia(): Promise<IndicadoresMembresia> {
   const primeiroDaJanela = anoAtual - (ANOS_NA_JANELA - 1);
 
   const porAno: MovimentoNoAno[] = [];
-  for (let a = primeiroDaJanela; a <= anoAtual; a++) porAno.push({ ano: a, entradas: 0, saidas: 0 });
+  for (let a = primeiroDaJanela; a <= anoAtual; a++) {
+    porAno.push({ ano: a, entradas: 0, saidas: 0, pessoasEntrada: [], pessoasSaida: [] });
+  }
   const naJanela = (ano: number) => porAno.find(x => x.ano === ano);
 
   // ── Entradas ─────────────────────────────────────────────────────────────
@@ -321,7 +465,13 @@ export async function indicadoresMembresia(): Promise<IndicadoresMembresia> {
     // "anteriores" seria mentira; fica de fora, e o total que a tela usa
     // para dizer quantos o gráfico cobre continua sendo `comAnoEntrada`.
     const item = naJanela(ano);
-    if (item) item.entradas++;
+    if (item) {
+      item.pessoasEntrada.push({
+        id: p.id, nome: p.nome_completo,
+        quando: diaEMes(p.data_entrada), data: p.data_entrada ?? "",
+        tipo: TIPO_DE_ENTRADA[p.tipo_entrada ?? ""],
+      });
+    }
   }
 
   // ── Saídas ───────────────────────────────────────────────────────────────
@@ -342,7 +492,41 @@ export async function indicadoresMembresia(): Promise<IndicadoresMembresia> {
     if (ano === null) { semAnoSaida++; continue; }
     comAnoSaida++;
     const item = naJanela(ano);
-    if (item) item.saidas++;
+    if (item) {
+      // A saída ganha a data pelo mesmo motivo que a entrada — as duas
+      // listas são a mesma coisa vista dos dois lados do eixo, e uma sem
+      // data ao lado da outra com data pareceria dado faltando.
+      item.pessoasSaida.push({
+        id: p.id, nome: p.nome_completo,
+        quando: diaEMes(p.data_saida),
+        tipo: MOTIVO_DA_SAIDA[p.status ?? ""] ?? "saiu do rol",
+        data: p.data_saida ?? "",
+      });
+    }
+  }
+
+  // Contadores derivados das listas, e a ordem em que os nomes serão lidos:
+  // **por data, do começo do ano para o fim**.
+  //
+  // A lista é a narrativa de um ano, e um ano se lê de janeiro para
+  // dezembro. Ordenar por nome não dizia nada sobre um movimento, e do mais
+  // recente para o mais antigo obrigava a ler o ano de trás para a frente.
+  //
+  // O empate — várias pessoas no mesmo dia, o que é a REGRA aqui, porque a
+  // assembleia recebe em grupo (oito entraram em 03/12/2023) — cai no nome,
+  // para a lista não embaralhar a cada carregamento da tela.
+  //
+  // A comparação é entre datas ISO ("2026-03-14"), que ordenam corretamente
+  // como texto. O campo `quando` NÃO serve: "14/03" e "02/07" ordenariam
+  // pelo dia antes do mês.
+  const maisAntigoPrimeiro = (x: PessoaNoAno, y: PessoaNoAno) =>
+    x.data.localeCompare(y.data) || x.nome.localeCompare(y.nome, "pt-BR");
+
+  for (const a of porAno) {
+    a.pessoasEntrada.sort(maisAntigoPrimeiro);
+    a.pessoasSaida.sort(maisAntigoPrimeiro);
+    a.entradas = a.pessoasEntrada.length;
+    a.saidas   = a.pessoasSaida.length;
   }
 
   const maior = Math.max(1, ...porAno.map(x => Math.max(x.entradas, x.saidas)));

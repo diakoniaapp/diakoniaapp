@@ -45,8 +45,193 @@
 // é lida antes dos anos, e não disputa escala com eles.
 
 import { Users2, ArrowUpDown } from "lucide-react";
-import type { IndicadoresMembresia } from "@/services/rolDeMembrosService";
+import type { IndicadoresMembresia, PessoaNaFaixa } from "@/services/rolDeMembrosService";
 import { ANOS_NA_JANELA } from "@/services/rolDeMembrosService";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+// O nome abre a ficha em modo consulta — sem lápis de edição, como no bloco
+// de candidatos logo acima nesta mesma tela.
+import { NomePessoa } from "@/components/membros/ficha";
+
+/**
+ * Um trecho de gráfico que abre a lista de quem está nele.
+ *
+ * Nasceu dentro da pirâmide e saiu para cá quando o gráfico de movimento
+ * pediu a mesma coisa: são duas telas com a mesma pergunta — "quem são?" —
+ * e duas cópias seriam duas listas que um dia divergem no formato.
+ *
+ * ── POR QUE HoverCard, E NÃO Tooltip ───────────────────────────────────────
+ *
+ * Tooltip fecha quando o cursor sai do gatilho, e o ponteiro nunca alcança os
+ * nomes. `HoverCard` mantém o cartão aberto enquanto o cursor caminha para
+ * dentro dele, que é o que permite CLICAR num nome.
+ *
+ * O primitivo já existia em `components/ui/hover-card.tsx` e nunca tinha sido
+ * usado por ninguém — mais um dos objetos dormentes deste projeto.
+ *
+ * ── O GATILHO É UM BOTÃO ───────────────────────────────────────────────────
+ *
+ * `HoverCard` abre por hover **e por foco**; com um botão, quem navega por
+ * teclado chega com Tab, e no celular — onde hover não existe — o toque dá
+ * foco e abre. Sem isso o recurso seria só para quem tem mouse.
+ */
+function CartaoDeNomes({
+  itens, rotuloAria, align, className, children,
+}: {
+  /**
+   * `quando` abre a linha, `detalhe` a fecha.
+   *
+   * A pirâmide manda só `detalhe` (a idade); os dois gráficos de movimento
+   * mandam `quando` (o dia e o mês), e a saída manda os dois — a data na
+   * frente e o motivo atrás.
+   */
+  itens: { id: string; nome: string; quando?: string; detalhe?: string }[];
+  /** O que o leitor de tela ouve antes de abrir. */
+  rotuloAria: string;
+  align: "start" | "center" | "end";
+  /** As classes do gatilho — ele é a própria célula do gráfico. */
+  className: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <HoverCard openDelay={120} closeDelay={80}>
+      <HoverCardTrigger asChild>
+        <button
+          type="button"
+          className={`${className} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}
+          aria-label={rotuloAria}
+        >
+          {children}
+        </button>
+      </HoverCardTrigger>
+      <HoverCardContent align={align} className="w-72 p-2.5">
+        {/* SEM CABEÇALHO, de propósito. Ele repetia o número, o recorte e o
+            lado — todos a centímetros do cursor que acabou de apontar para
+            eles. O `aria-label` do gatilho continua dizendo tudo: ali não é
+            repetição, é a única forma de quem usa leitor de tela saber o que
+            está prestes a abrir.
+
+            ── Por que os nomes QUEBRAM, e não truncam ──────────────────
+            "Maralice Leal Marques Moutin…" não é um nome: é a metade de um.
+            Truncar serve para coluna de tabela, onde a linha tem outros
+            dados; aqui o nome É o conteúdo. Medido no rol: o maior tem 46
+            caracteres, a mediana 25, e só 6 de 215 passam de 40 — a maioria
+            cabe numa linha e um punhado usa duas.
+
+            Rola quando a lista é grande: 60–74 tem 35 mulheres. Sem teto o
+            cartão passaria da altura da janela. */}
+        {/* A data numa COLUNA fixa, e não solta no meio do texto.
+            `tabular-nums` mais uma largura fixa alinham "07/08" debaixo de
+            "31/12": numa lista ordenada por data, ela é a coluna que se
+            percorre, e serrilhada obriga a reler cada linha. O nome fica
+            num bloco próprio para poder quebrar sem passar por baixo da
+            data. */}
+        <ul className="space-y-1 max-h-64 overflow-y-auto pr-1">
+          {itens.map(p => (
+            <li key={p.id} className="text-[11px] leading-snug flex gap-1.5">
+              {p.quando && (
+                <span className="text-muted-foreground tabular-nums shrink-0 w-[2.6rem]">
+                  {p.quando}
+                </span>
+              )}
+              <span className="min-w-0">
+                <NomePessoa id={p.id} nome={p.nome} somenteLeitura />
+                {p.detalhe && (
+                  <span className="text-muted-foreground whitespace-nowrap"> · {p.detalhe}</span>
+                )}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </HoverCardContent>
+    </HoverCard>
+  );
+}
+
+/**
+ * O lado de uma faixa: o número, a barra, e quem está ali dentro.
+ *
+ * ── POR QUE HoverCard, E NÃO Tooltip ───────────────────────────────────────
+ *
+ * O `title` que havia aqui dizia "35 mulheres de 60–74" e parava nisso. A
+ * pergunta seguinte — "quem são?" — não tinha resposta na tela: era preciso ir
+ * ao catálogo, filtrar por idade (o que não existe) e cruzar com o sexo.
+ *
+ * Tooltip não serve para isto: fecha quando o cursor sai do gatilho, e o
+ * ponteiro nunca alcança os nomes. `HoverCard` mantém o cartão aberto enquanto
+ * o cursor caminha para dentro dele, que é o que permite CLICAR num nome.
+ *
+ * O primitivo já existia em `components/ui/hover-card.tsx` e nunca tinha sido
+ * usado por ninguém — mais um dos objetos dormentes deste projeto.
+ *
+ * ── O GATILHO É UM BOTÃO ───────────────────────────────────────────────────
+ *
+ * E não a `<div>` que era antes. `HoverCard` abre por hover **e por foco**;
+ * com um botão, quem navega por teclado chega à lista com Tab, e no celular
+ * — onde hover não existe — o toque dá foco e abre o cartão. Sem isso o
+ * recurso seria só para quem tem mouse.
+ */
+function LadoDaFaixa({
+  pessoas, quantidade, rotulo, sexo, escala, lado,
+}: {
+  pessoas: PessoaNaFaixa[];
+  quantidade: number;
+  rotulo: string;
+  sexo: "homens" | "mulheres";
+  /** O maior valor de célula da pirâmide — a largura de 100%. */
+  escala: number;
+  lado: "esquerda" | "direita";
+}) {
+  const esquerda = lado === "esquerda";
+
+  const numero = (
+    <span className={`text-[11px] tabular-nums text-muted-foreground ${esquerda ? "text-right" : "text-left"}`}>
+      {quantidade || ""}
+    </span>
+  );
+
+  /**
+   * A barra desenhada — e, quando há gente, o próprio gatilho.
+   *
+   * O gatilho é a CÉLULA inteira da grade, não a barra colorida: numa faixa
+   * de duas pessoas a barra tem uns poucos pixels, e caçar isso com o cursor
+   * seria pior que não ter o recurso. Assim a metade da linha inteira abre o
+   * cartão, e a barra dentro dela só desenha.
+   *
+   * Uma primeira versão pôs `display: contents` num <button> em volta das
+   * DUAS células, para não desalinhar a grade. Não funciona: elemento com
+   * `contents` não gera caixa, então não é alvo de ponteiro nem tem
+   * geometria para o cartão se posicionar. O cartão simplesmente não abria.
+   */
+  const conteudoDaBarra = (
+    <div
+      className={`h-4 ${esquerda ? "rounded-l-sm bg-info" : "rounded-r-sm bg-celebracao"}`}
+      style={{ width: `${(quantidade / escala) * 100}%` }}
+    />
+  );
+  const alinhamento = esquerda ? "justify-end" : "justify-start";
+
+  // Faixa vazia não vira gatilho: um cartão que abre para dizer "ninguém"
+  // é pior que nada, e ainda rouba o cursor de passagem.
+  if (quantidade === 0) {
+    const vazia = <div className={`flex ${alinhamento}`}>{conteudoDaBarra}</div>;
+    // A ordem das células depende do lado: a grade é espelhada —
+    // [nº-M][barra-M][faixa][barra-F][nº-F].
+    return esquerda ? <>{numero}{vazia}</> : <>{vazia}{numero}</>;
+  }
+
+  const gatilho = (
+    <CartaoDeNomes
+      itens={pessoas.map(p => ({ id: p.id, nome: p.nome, detalhe: String(p.idade) }))}
+      rotuloAria={`Ver ${sexo === "homens" ? "os" : "as"} ${quantidade} ${sexo} de ${rotulo}`}
+      align={esquerda ? "end" : "start"}
+      className={`flex ${alinhamento} w-full rounded-sm`}
+    >
+      {conteudoDaBarra}
+    </CartaoDeNomes>
+  );
+
+  return esquerda ? <>{numero}{gatilho}</> : <>{gatilho}{numero}</>;
+}
 
 /** Largura mínima de cada barra de ano. Abaixo disso o rótulo trunca. */
 const LARGURA_DA_BARRA = "min-w-[26px]";
@@ -183,32 +368,22 @@ function QuadroDaForma({
       <div className="space-y-1">
         {deCimaParaBaixo.map(f => (
           <div key={f.rotulo} className="grid grid-cols-[1.75rem_1fr_3rem_1fr_1.75rem] items-center gap-1">
-            <span className="text-[11px] tabular-nums text-right text-muted-foreground">
-              {f.masculino || ""}
-            </span>
-            <div className="flex justify-end">
-              <div
-                className="h-4 rounded-l-sm bg-info"
-                style={{ width: `${(f.masculino / c.maiorCelula) * 100}%` }}
-                title={`${f.masculino} homens · ${f.rotulo}, ${f.idades}`}
-              />
-            </div>
+            <LadoDaFaixa
+              pessoas={f.pessoas.masculino} quantidade={f.masculino}
+              rotulo={f.rotulo} sexo="homens"
+              escala={c.maiorCelula} lado="esquerda"
+            />
             <span
               className="text-[11px] text-center text-muted-foreground tabular-nums"
               title={`${f.rotulo} anos — ${f.idades} — ${f.total} membros`}
             >
               {f.rotulo}
             </span>
-            <div className="flex justify-start">
-              <div
-                className="h-4 rounded-r-sm bg-celebracao"
-                style={{ width: `${(f.feminino / c.maiorCelula) * 100}%` }}
-                title={`${f.feminino} mulheres · ${f.rotulo}, ${f.idades}`}
-              />
-            </div>
-            <span className="text-[11px] tabular-nums text-left text-muted-foreground">
-              {f.feminino || ""}
-            </span>
+            <LadoDaFaixa
+              pessoas={f.pessoas.feminino} quantidade={f.feminino}
+              rotulo={f.rotulo} sexo="mulheres"
+              escala={c.maiorCelula} lado="direita"
+            />
           </div>
         ))}
       </div>
@@ -352,13 +527,37 @@ function QuadroDoMovimento({
                 <span className="text-[11px] tabular-nums text-muted-foreground leading-none">
                   {a.entradas || ""}
                 </span>
-                <div className={`w-full ${ALTURA_DA_PISTA} flex items-end`}>
-                  <div
-                    className={`w-full rounded-t-sm ${a.entradas > 0 ? "bg-violeta" : "bg-border"}`}
-                    style={{ height: alturaDaBarra(a.entradas) }}
-                    title={`${a.entradas} entrada(s) em ${a.ano}`}
-                  />
-                </div>
+                {/* A pista é o gatilho, e não a barra colorida: num ano de
+                    duas entradas a barra tem poucos pixels de altura, e
+                    caçar isso com o cursor seria pior que não ter a lista.
+                    Assim a coluna inteira do ano abre o cartão. */}
+                {a.entradas > 0 ? (
+                  <CartaoDeNomes
+                    // Mesma tradução da saída: `tipo` no serviço, `detalhe`
+                    // aqui. Vem vazio para quem ainda não tem tipo de
+                    // entrada registrado, e a linha então mostra só data e
+                    // nome — ver a nota em `PessoaNoAno`.
+                    itens={a.pessoasEntrada.map(p => ({
+                      id: p.id, nome: p.nome, quando: p.quando, detalhe: p.tipo,
+                    }))}
+                    rotuloAria={`Ver quem entrou no rol em ${a.ano}`}
+                    align="center"
+                    className={`w-full ${ALTURA_DA_PISTA} flex items-end rounded-sm`}
+                  >
+                    <div
+                      className="w-full rounded-t-sm bg-violeta"
+                      style={{ height: alturaDaBarra(a.entradas) }}
+                    />
+                  </CartaoDeNomes>
+                ) : (
+                  <div className={`w-full ${ALTURA_DA_PISTA} flex items-end`}>
+                    <div
+                      className="w-full rounded-t-sm bg-border"
+                      style={{ height: alturaDaBarra(a.entradas) }}
+                      title={`Nenhuma entrada registrada em ${a.ano}`}
+                    />
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -380,13 +579,31 @@ function QuadroDoMovimento({
           <div className="relative flex items-start gap-1">
             {mv.porAno.map(a => (
               <div key={a.ano} className={`flex flex-col items-center gap-1 ${LARGURA_DA_COLUNA}`}>
-                <div className={`w-full ${ALTURA_DA_PISTA} flex items-start`}>
-                  <div
-                    className={`w-full rounded-b-sm ${a.saidas > 0 ? "bg-gold" : "bg-border"}`}
-                    style={{ height: alturaDaBarra(a.saidas) }}
-                    title={`${a.saidas} saída(s) em ${a.ano}`}
-                  />
-                </div>
+                {a.saidas > 0 ? (
+                  <CartaoDeNomes
+                    // `tipo` vira `detalhe`: no serviço o campo tem o nome do
+                    // que ele é; aqui, o do lugar onde aparece.
+                    itens={a.pessoasSaida.map(p => ({
+                      id: p.id, nome: p.nome, quando: p.quando, detalhe: p.tipo,
+                    }))}
+                    rotuloAria={`Ver quem saiu do rol em ${a.ano}`}
+                    align="center"
+                    className={`w-full ${ALTURA_DA_PISTA} flex items-start rounded-sm`}
+                  >
+                    <div
+                      className="w-full rounded-b-sm bg-gold"
+                      style={{ height: alturaDaBarra(a.saidas) }}
+                    />
+                  </CartaoDeNomes>
+                ) : (
+                  <div className={`w-full ${ALTURA_DA_PISTA} flex items-start`}>
+                    <div
+                      className="w-full rounded-b-sm bg-border"
+                      style={{ height: alturaDaBarra(a.saidas) }}
+                      title={`Nenhuma saída registrada em ${a.ano}`}
+                    />
+                  </div>
+                )}
                 <span className="text-[11px] tabular-nums text-muted-foreground leading-none">
                   {a.saidas || ""}
                 </span>
