@@ -10,7 +10,10 @@
 // função usa, todo mundo nascido em 1º de janeiro perderia um ano.
 
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { idadeEm, diaEMesDeNascimento, aniversarioCurto, estadoDoNascimento } from "./idade";
+import {
+  idadeEm, diaEMesDeNascimento, aniversarioCurto, estadoDoNascimento,
+  montarMeiaData, diasDoMes, diaDeMeiaData, mesDeMeiaData,
+} from "./idade";
 
 /** Fixa o relógio num instante local conhecido. */
 function hojeE(iso: string) {
@@ -150,5 +153,61 @@ describe("a fronteira: a parcial NUNCA vira idade", () => {
     // documenta o valor que denuncia o engano.
     expect(idadeEm("2000-08-29")).not.toBeNull();
     expect(estadoDoNascimento({ nascimento_dia_mes: "2000-08-29" })).not.toBe("completo");
+  });
+});
+
+
+// ─── Compor meia data ──────────────────────────────────────────────────────
+//
+// A regra que impede combinação impossível de existir. A lista de dias tem o
+// comprimento do mês, então 31 de junho não chega a ser oferecido — mas a
+// função é a última linha de defesa se alguém montar o valor de outro jeito.
+
+describe("diasDoMes", () => {
+  it("dá o comprimento de cada mês", () => {
+    expect(diasDoMes(1)).toBe(31);
+    expect(diasDoMes(4)).toBe(30);
+    expect(diasDoMes(6)).toBe(30);
+  });
+
+  it("fevereiro tem 29 — é a razão de o ano fixo ser bissexto", () => {
+    expect(diasDoMes(2)).toBe(29);
+  });
+
+  it("sem mês escolhido, 31 — o teto de qualquer mês", () => {
+    expect(diasDoMes("")).toBe(31);
+    expect(diasDoMes(0)).toBe(31);
+    expect(diasDoMes(13)).toBe(31);
+  });
+});
+
+describe("montarMeiaData", () => {
+  it("junta dia e mês com o ano 2000", () => {
+    expect(montarMeiaData(14, 6)).toBe("2000-06-14");
+    expect(montarMeiaData("9", "1")).toBe("2000-01-09");
+  });
+
+  it("aceita 29/02", () => {
+    expect(montarMeiaData(29, 2)).toBe("2000-02-29");
+  });
+
+  it("é vazio enquanto falta uma das metades", () => {
+    expect(montarMeiaData("", 6)).toBe("");
+    expect(montarMeiaData(14, "")).toBe("");
+    expect(montarMeiaData("", "")).toBe("");
+  });
+
+  it("é vazio quando a combinação não existe no calendário", () => {
+    expect(montarMeiaData(31, 6)).toBe("");
+    expect(montarMeiaData(30, 2)).toBe("");
+    expect(montarMeiaData(14, 13)).toBe("");
+    expect(montarMeiaData(0, 6)).toBe("");
+  });
+
+  it("fecha o ciclo com os leitores", () => {
+    const iso = montarMeiaData(29, 2);
+    expect(diaDeMeiaData(iso)).toBe("29");
+    expect(mesDeMeiaData(iso)).toBe("2");
+    expect(diaEMesDeNascimento({ nascimento_dia_mes: iso })).toEqual({ dia: 29, mes: 2 });
   });
 });

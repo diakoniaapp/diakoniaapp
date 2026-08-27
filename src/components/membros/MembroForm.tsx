@@ -30,6 +30,9 @@ import {
 import { TelefoneInput } from "@/components/ui/TelefoneInput";
 import { supabase } from "@/integrations/supabase/client";
 import { conferir } from "@/lib/escritaConferida";
+import {
+  MESES, diasDoMes, montarMeiaData, diaDeMeiaData, mesDeMeiaData,
+} from "@/lib/idade";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import type { Membro } from "@/pages/Membros";
@@ -67,32 +70,99 @@ const TIPO_ENTRADA_LABEL: Record<string, string> = {
   transferencia: "Transferência",
 };
 
-// ── Meia data de nascimento ───────────────────────────────────────────────
-//
-// O valor gravado é uma date ISO com o ano SEMPRE 2000 — o banco tem CHECK
-// para isso. 2000 é bissexto, e é esse o motivo de ser ele: 29/02 precisa
-// caber. Ver a migration 20260828210000.
-const MESES = [
-  "janeiro", "fevereiro", "março", "abril", "maio", "junho",
-  "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
-];
-const DIAS_DO_MES = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-
-const mesDaMeiaData = (iso: string) => (iso ? String(Number(iso.slice(5, 7))) : "");
-const diaDaMeiaData = (iso: string) => (iso ? String(Number(iso.slice(8, 10))) : "");
-
 /**
- * Recompõe a meia data, mantendo o dia dentro do mês escolhido.
+ * O dia do aniversário: digita-se, e a lista se estreita.
  *
- * Sem o corte, trocar 31/01 para fevereiro produziria 31/02, que o banco
- * recusa por CHECK — e escrita recusada por CHECK ou pela RLS volta como
- * sucesso silencioso em alguns caminhos. Melhor não deixar existir.
+ * Existe porque um `<Select>` de 31 itens obriga a rolar para dizer "14", e
+ * a secretaria faz isso dezenas de vezes seguidas. Aqui teclar 1 e 4 basta.
+ *
+ * Não usa o Popover do Radix de propósito: isto vive DENTRO de um Dialog do
+ * Radix, e dois gerenciadores de foco aninhados brigam pelo cursor — o campo
+ * perderia o foco justamente enquanto se digita nele. Uma lista posicionada
+ * em CSS não tem esse problema e não precisa de nada além do que já existe.
+ *
+ * A lista tem o comprimento do MÊS escolhido, então 31 de junho não chega a
+ * ser oferecido: a combinação impossível não se constrói.
  */
-function meiaData(mes: string, dia: string): string {
-  if (!mes || !dia) return "";
-  const m = Math.min(12, Math.max(1, Number(mes)));
-  const d = Math.min(DIAS_DO_MES[m - 1], Math.max(1, Number(dia)));
-  return `2000-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+function DiaDoAniversario({
+  valor, maximo, onChange,
+}: {
+  valor: string;
+  maximo: number;
+  onChange: (dia: string) => void;
+}) {
+  const [aberto, setAberto] = useState(false);
+  const [texto, setTexto] = useState("");
+
+  const dias = Array.from({ length: maximo }, (_, i) => String(i + 1));
+  // "1" traz 1, 10..19, 21, 31 — quem digita um dígito ainda está no meio do
+  // caminho, e esconder os de dois dígitos obrigaria a apagar e recomeçar.
+  const filtrados = texto ? dias.filter(d => d.startsWith(texto)) : dias;
+
+  const escolher = (d: string) => {
+    onChange(d);
+    setTexto("");
+    setAberto(false);
+  };
+
+  return (
+    <div className="relative">
+      <Input
+        value={aberto ? texto : valor}
+        placeholder="Dia"
+        inputMode="numeric"
+        aria-label="Dia do aniversário"
+        autoComplete="off"
+        className="tabular-nums"
+        onFocus={() => { setAberto(true); setTexto(""); }}
+        // O atraso deixa o clique numa opção acontecer antes do fechamento:
+        // sem ele, o blur derruba a lista e o clique cai no vazio.
+        onBlur={() => setTimeout(() => setAberto(false), 120)}
+        onChange={(e) => {
+          const t = e.target.value.replace(/D/g, "").slice(0, 2);
+          setTexto(t);
+          setAberto(true);
+          // Dois dígitos que só podem ser um dia: escolhe sozinho, para não
+          // exigir um clique a mais de quem já disse o que queria.
+          const exatos = dias.filter(d => d.startsWith(t));
+          if (t.length === 2 && exatos.length === 1) escolher(exatos[0]);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && filtrados.length) { e.preventDefault(); escolher(filtrados[0]); }
+          if (e.key === "Escape") { setAberto(false); setTexto(""); }
+        }}
+      />
+      {aberto && (
+        <ul
+          role="listbox"
+          className="absolute z-50 mt-1 w-full max-h-44 overflow-y-auto rounded-md border border-border bg-popover shadow-md py-1"
+        >
+          {filtrados.length === 0 && (
+            <li className="px-3 py-1.5 text-xs text-muted-foreground">
+              Nenhum dia com {texto}
+            </li>
+          )}
+          {filtrados.map(d => (
+            <li key={d}>
+              <button
+                type="button"
+                role="option"
+                aria-selected={d === valor}
+                // onMouseDown, e não onClick: o clique só chegaria depois do
+                // blur do campo, e a lista já teria fechado.
+                onMouseDown={(e) => { e.preventDefault(); escolher(d); }}
+                className={`w-full text-left px-3 py-1.5 text-sm tabular-nums transition-colors
+                  hover:bg-accent hover:text-accent-foreground
+                  ${d === valor ? "bg-muted font-medium" : ""}`}
+              >
+                {d}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
 }
 
 const empty = {
@@ -236,6 +306,18 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
   const [ebdSugestaoId, setEbdSugestaoId] = useState<string | null>(null);
   /** "Não sei o ano" ligado. Nasce do registro; não é coluna do banco. */
   const [semAnoNasc, setSemAnoNasc] = useState(false);
+  /**
+   * Dia e mês guardados SEPARADOS, e não derivados do valor gravado.
+   *
+   * O valor gravado é uma data única, que só existe inteira: não há como ela
+   * representar "mês escolhido, dia ainda não". Derivar as duas metades dela
+   * fazia trocar de janeiro para fevereiro com o dia 31 apagar TAMBÉM o mês
+   * recém-escolhido — o campo voltava ao zero na cara de quem tinha acabado
+   * de responder metade.
+   */
+  const [nascDia, setNascDia] = useState("");
+  const [nascMes, setNascMes] = useState("");
+
 
   // Áreas disponíveis (agrupadas por ministério) e selecionadas
   const [areasPorMinisterio, setAreasPorMinisterio] = useState<{
@@ -295,10 +377,15 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
       // Quem está gravado com meia data abre a ficha já com o interruptor
       // ligado — senão o campo apareceria vazio e salvar apagaria o dia e o
       // mês que a secretaria tinha conseguido.
-      setSemAnoNasc(!!(membro as any).nascimento_dia_mes);
+      const meia = (membro as any).nascimento_dia_mes || "";
+      setSemAnoNasc(!!meia);
+      setNascDia(diaDeMeiaData(meia));
+      setNascMes(mesDeMeiaData(meia));
     } else {
       setForm(empty);
       setSemAnoNasc(false);
+      setNascDia("");
+      setNascMes("");
     }
   }, [membro, open]);
 
@@ -862,8 +949,13 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                       checked={semAnoNasc}
                       onChange={(e) => {
                         setSemAnoNasc(e.target.checked);
-                        if (e.target.checked) set("data_nascimento", "");
-                        else set("nascimento_dia_mes", "");
+                        if (e.target.checked) {
+                          set("data_nascimento", "");
+                        } else {
+                          set("nascimento_dia_mes", "");
+                          setNascDia("");
+                          setNascMes("");
+                        }
                       }}
                     />
                     Não sei o ano
@@ -872,34 +964,40 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
 
                 {semAnoNasc ? (
                   <>
-                    {/* Dia antes do mês: é a ordem brasileira, e a ordem em
-                        que se fala — "vinte e nove de agosto". O campo de data
-                        completa já lê dd/mm/aaaa; ter o mês primeiro aqui
-                        fazia os dois campos da mesma linha discordarem. */}
-                    <div className="grid grid-cols-[5.5rem_1fr] gap-2">
+                    {/* ── Dia com busca, mês por extenso ─────────────────
+                        O dia se digita e a lista se estreita; o mês continua
+                        sendo escolhido pelo nome, porque número de mês é o
+                        tipo de coisa que ninguém confere.
+
+                        Dia antes do mês: é a ordem brasileira, a ordem em que
+                        se fala — "vinte e nove de agosto" — e a mesma do campo
+                        de data completa que aparece quando o ano é conhecido.
+
+                        A lista de dias tem o comprimento do mês escolhido, de
+                        modo que 31 de junho não chega a ser oferecido. */}
+                    <div className="grid grid-cols-[5rem_1fr] gap-2">
+                      <DiaDoAniversario
+                        valor={nascDia}
+                        maximo={diasDoMes(nascMes)}
+                        onChange={(d) => {
+                          setNascDia(d);
+                          set("nascimento_dia_mes", montarMeiaData(d, nascMes));
+                        }}
+                      />
                       <Select
-                        value={diaDaMeiaData(form.nascimento_dia_mes) || undefined}
-                        onValueChange={(v) => set("nascimento_dia_mes", meiaData(mesDaMeiaData(form.nascimento_dia_mes) || "1", v))}
-                      >
-                        <SelectTrigger><SelectValue placeholder="Dia" /></SelectTrigger>
-                        <SelectContent>
-                          {/* Os dias que existem NAQUELE mês — 31 enquanto
-                              nenhum mês foi escolhido. Fevereiro tem 29 porque
-                              o ano gravado é 2000, bissexto. E `meiaData` corta
-                              o dia ao trocar o mês: quem escolher 31 e depois
-                              fevereiro vê o valor virar 29, corrigido à vista
-                              em vez de recusado na gravação. */}
-                          {Array.from(
-                            { length: DIAS_DO_MES[Number(mesDaMeiaData(form.nascimento_dia_mes) || 1) - 1] },
-                            (_, i) => (
-                              <SelectItem key={i} value={String(i + 1)}>{i + 1}</SelectItem>
-                            ),
-                          )}
-                        </SelectContent>
-                      </Select>
-                      <Select
-                        value={mesDaMeiaData(form.nascimento_dia_mes) || undefined}
-                        onValueChange={(v) => set("nascimento_dia_mes", meiaData(v, diaDaMeiaData(form.nascimento_dia_mes) || "1"))}
+                        value={nascMes || undefined}
+                        onValueChange={(m) => {
+                          setNascMes(m);
+                          // Trocar o mês pode tornar o dia impossível — 31 de
+                          // janeiro virando fevereiro. O dia é DESCARTADO, não
+                          // corrigido: cortar 31 para 29 seria o sistema
+                          // escolhendo um aniversário no lugar de quem sabe
+                          // qual é. O MÊS fica, porque a pessoa acabou de
+                          // escolhê-lo; some só o dia, e o campo pede de novo.
+                          const cabe = Number(nascDia) <= diasDoMes(m);
+                          if (!cabe) setNascDia("");
+                          set("nascimento_dia_mes", montarMeiaData(cabe ? nascDia : "", m));
+                        }}
                       >
                         <SelectTrigger><SelectValue placeholder="Mês" /></SelectTrigger>
                         <SelectContent>

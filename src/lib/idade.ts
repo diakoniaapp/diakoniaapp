@@ -86,3 +86,49 @@ export function estadoDoNascimento(
   if (pessoa.nascimento_dia_mes) return "so_dia_e_mes";
   return "nada";
 }
+
+// ─── Compor meia data: dia + mês ───────────────────────────────────────────
+//
+// O campo teve três formas até chegar aqui, e a terceira é a que a secretaria
+// pediu depois de usar as duas primeiras:
+//
+//   1. dois seletores — rolar 31 itens para dizer "14" é lento, e ela faz
+//      isso dezenas de vezes seguidas;
+//   2. um campo dd/mm digitado — rápido, mas o mês vira um número que
+//      ninguém confere, e 31/06 só se descobre errado depois de digitado;
+//   3. dia com busca + mês por nome, que é o que está no ar: o dia se digita
+//      e a lista se estreita; o mês continua sendo escolhido por extenso.
+//
+// A forma 3 tem uma propriedade que as outras não tinham: **combinação
+// impossível não pode ser construída**. A lista de dias tem o comprimento do
+// mês escolhido, então 31 de junho não está lá para ser escolhido.
+
+export const MESES = [
+  "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+  "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+];
+
+/** Fevereiro tem 29 porque o ano gravado é 2000, que é bissexto. */
+export const DIAS_DO_MES = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+/** Quantos dias tem o mês escolhido. Sem mês, 31 — o teto de qualquer um. */
+export const diasDoMes = (mes: string | number) => {
+  const m = Number(mes);
+  return m >= 1 && m <= 12 ? DIAS_DO_MES[m - 1] : 31;
+};
+
+export const diaDeMeiaData = (iso: string) => (iso ? String(Number(iso.slice(8, 10))) : "");
+export const mesDeMeiaData = (iso: string) => (iso ? String(Number(iso.slice(5, 7))) : "");
+
+/**
+ * Junta dia e mês na meia data com o ano 2000. Devolve "" quando ainda falta
+ * uma das duas metades, ou quando a combinação não existe no calendário.
+ *
+ * O "" é deliberado: uma data pela metade não pode ser gravada como se
+ * estivesse pronta, e a coluna aceita nulo.
+ */
+export function montarMeiaData(dia: string | number, mes: string | number): string {
+  const d = Number(dia), m = Number(mes);
+  if (!d || !m || m < 1 || m > 12 || d < 1 || d > DIAS_DO_MES[m - 1]) return "";
+  return `2000-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
