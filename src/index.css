@@ -388,10 +388,41 @@
     scroll-behavior: smooth;
   }
 
+  /* ── A escala da interface cresce com a tela ──────────────────────────
+     "As fontes estão muito pequenas, desproporcionais" — Telma, numa tela
+     de 1920, em 27/08/2026.
+
+     ANTES DISSO eu tinha tentado o caminho errado: subir classe por
+     classe nos componentes do painel, de 11px para 13px. Não resolveu, e
+     não podia resolver. O sistema inteiro foi desenhado numa escala
+     compacta — raiz de 16px, corpo de 15px, títulos de seção de 18px —, e
+     mexer em alguns textos só desequilibra o conjunto. Daí
+     "desproporcionais": o problema não era o tamanho de um texto, era a
+     escala de tudo.
+
+     A correção é aqui, na RAIZ. No Tailwind quase toda medida é `rem` —
+     texto, espaçamento, altura de linha, largura máxima —, então subir a
+     raiz cresce a interface inteira MANTENDO as proporções entre as
+     partes. É a diferença entre aumentar a letra e aproximar a tela.
+
+     Os cortes são por largura de janela, não por densidade de pixel: o
+     que aperta a leitura é a distância física do monitor grande, e
+     largura é o único indício disso que o navegador oferece.
+
+     Abaixo de 1280px nada muda — no celular e no notebook a escala
+     compacta está certa, e ali o problema oposto (falta de espaço) é o
+     que manda. */
+  @media (min-width: 1280px) { :root { font-size: 17px; } }
+  @media (min-width: 1600px) { :root { font-size: 18px; } }
+  @media (min-width: 1900px) { :root { font-size: 19px; } }
+
   body {
     @apply bg-background text-foreground antialiased;
     font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
-    font-size: 15px;
+    /* 0.9375rem = os mesmos 15px de antes numa raiz de 16px. Em `rem` e
+       não em `px` para acompanhar a escala da raiz acima — em pixel fixo,
+       este seria o único texto do sistema que não crescesse. */
+    font-size: 0.9375rem;
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
