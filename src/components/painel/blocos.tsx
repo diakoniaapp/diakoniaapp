@@ -106,7 +106,10 @@ export function Indicador({
         {Icone && (
           <Icone className={`w-3.5 h-3.5 shrink-0 ${vazio ? "text-muted-foreground" : TOM_NUMERO[tom]}`} />
         )}
-        <span className="text-[11px] uppercase tracking-wide text-muted-foreground truncate min-w-0">
+        {/* 11px era pequeno demais numa tela de 1920: o rótulo do atalho é
+            o único texto do bloco desde que os números saíram, e ele
+            precisa se ler sem esforço. Cresce mais um passo no desktop. */}
+        <span className="text-xs sm:text-sm uppercase tracking-wide text-muted-foreground truncate min-w-0">
           {rotulo}
         </span>
       </span>
@@ -215,9 +218,9 @@ export function TituloDaSecao({
   return (
     <div className="flex items-center gap-2 mb-2 min-w-0">
       <Icone className={`w-4 h-4 shrink-0 ${TOM_NUMERO[tom]}`} />
-      <h2 className="font-serif text-base leading-none min-w-0 truncate">{children}</h2>
+      <h2 className="font-serif text-base sm:text-lg leading-none min-w-0 truncate">{children}</h2>
       {contagem !== undefined && (
-        <span className="text-xs text-muted-foreground tabular-nums shrink-0">{contagem}</span>
+        <span className="text-sm text-muted-foreground tabular-nums shrink-0">{contagem}</span>
       )}
       <div className="h-px flex-1 bg-border" />
       {acao && <div className="shrink-0">{acao}</div>}

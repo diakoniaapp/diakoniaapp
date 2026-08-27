@@ -103,7 +103,7 @@ function CartaoDeNomes({
           {children}
         </button>
       </HoverCardTrigger>
-      <HoverCardContent align={align} className="w-72 p-2.5">
+      <HoverCardContent align={align} className="w-80 p-3">
         {/* SEM CABEÇALHO, de propósito. Ele repetia o número, o recorte e o
             lado — todos a centímetros do cursor que acabou de apontar para
             eles. O `aria-label` do gatilho continua dizendo tudo: ali não é
@@ -127,7 +127,7 @@ function CartaoDeNomes({
             data. */}
         <ul className="space-y-1 max-h-64 overflow-y-auto pr-1">
           {itens.map(p => (
-            <li key={p.id} className="text-[11px] leading-snug flex gap-1.5">
+            <li key={p.id} className="text-xs leading-snug flex gap-1.5">
               {p.quando && (
                 <span className="text-muted-foreground tabular-nums shrink-0 w-[2.6rem]">
                   {p.quando}
@@ -184,7 +184,7 @@ function LadoDaFaixa({
   const esquerda = lado === "esquerda";
 
   const numero = (
-    <span className={`text-[11px] tabular-nums text-muted-foreground ${esquerda ? "text-right" : "text-left"}`}>
+    <span className={`text-xs tabular-nums text-muted-foreground ${esquerda ? "text-right" : "text-left"}`}>
       {quantidade || ""}
     </span>
   );
@@ -299,7 +299,7 @@ function QuadroDaForma({
         {/* Etiqueta, e não texto solto: o escopo de um gráfico precisa ser
             lido antes dele, e uma frase em cinza ao lado do título se lê
             depois — quando já se tirou a conclusão errada. */}
-        <span className="text-[11px] rounded border border-border bg-muted/60 px-1.5 py-0.5 shrink-0">
+        <span className="text-xs rounded border border-border bg-muted/60 px-1.5 py-0.5 shrink-0">
           só os <strong className="tabular-nums">{totalDoRol}</strong> membros
         </span>
       </div>
@@ -343,7 +343,7 @@ function QuadroDaForma({
       {/* ── A legenda vem ANTES da pirâmide ──────────────────────────────
           Sem ela, as duas cores são só duas cores: quem lê primeiro as
           barras e depois descobre qual lado é qual precisa reler tudo. */}
-      <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+      <div className="flex items-center gap-3 text-xs text-muted-foreground">
         <span className="flex items-center gap-1">
           <span className="w-2.5 h-2.5 rounded-sm bg-info shrink-0" />
           Masculino <span className="tabular-nums text-foreground">{c.masculino}</span>
@@ -367,14 +367,14 @@ function QuadroDaForma({
           justamente no celular. */}
       <div className="space-y-1">
         {deCimaParaBaixo.map(f => (
-          <div key={f.rotulo} className="grid grid-cols-[1.75rem_1fr_3rem_1fr_1.75rem] items-center gap-1">
+          <div key={f.rotulo} className="grid grid-cols-[2rem_1fr_3.5rem_1fr_2rem] items-center gap-1">
             <LadoDaFaixa
               pessoas={f.pessoas.masculino} quantidade={f.masculino}
               rotulo={f.rotulo} sexo="homens"
               escala={c.maiorCelula} lado="esquerda"
             />
             <span
-              className="text-[11px] text-center text-muted-foreground tabular-nums"
+              className="text-xs text-center text-muted-foreground tabular-nums"
               title={`${f.rotulo} anos — ${f.idades} — ${f.total} membros`}
             >
               {f.rotulo}
@@ -392,7 +392,7 @@ function QuadroDaForma({
           As duas lacunas ficam na mesma linha, em letra miúda, logo abaixo
           do desenho — perto o bastante para quem leu a forma não sair sem
           saber sobre quantos ela foi desenhada. */}
-      <p className="text-[11px] text-muted-foreground leading-relaxed">
+      <p className="text-xs text-muted-foreground leading-relaxed">
         Desenhada sobre {c.comDataNascimento} dos {totalDoRol} membros.
         {c.semDataNascimento > 0 && (
           <>
@@ -456,7 +456,7 @@ function QuadroDoMovimento({
           Movimento de membros
         </h3>
         {/* A mesma etiqueta de escopo do quadro de cima, pelo mesmo motivo. */}
-        <span className="text-[11px] rounded border border-border bg-muted/60 px-1.5 py-0.5 shrink-0">
+        <span className="text-xs rounded border border-border bg-muted/60 px-1.5 py-0.5 shrink-0">
           só os <strong className="tabular-nums">{totalDoRol}</strong> membros
         </span>
         <p className="text-xs text-muted-foreground min-w-0">
@@ -469,7 +469,7 @@ function QuadroDoMovimento({
       </div>
 
       {/* A legenda antes do gráfico: duas cores sem legenda são duas cores. */}
-      <div className="flex items-center gap-x-3 gap-y-1 flex-wrap text-[11px] text-muted-foreground">
+      <div className="flex items-center gap-x-3 gap-y-1 flex-wrap text-xs text-muted-foreground">
         <span className="flex items-center gap-1">
           <span className="w-2.5 h-2.5 rounded-sm bg-violeta shrink-0" /> Entradas
         </span>
@@ -494,7 +494,7 @@ function QuadroDoMovimento({
             title={`${ent.comAno} membros com ano de entrada registrado`}
           />
         </div>
-        <p className="text-[11px] text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           As entradas cobrem <strong className="text-foreground tabular-nums">{ent.comAno}</strong> dos
           {" "}{totalDoRol} membros.
           {ent.semAno > 0 && (
@@ -524,7 +524,7 @@ function QuadroDoMovimento({
           <div className="flex items-end gap-1">
             {mv.porAno.map(a => (
               <div key={a.ano} className={`flex flex-col items-center gap-1 ${LARGURA_DA_COLUNA}`}>
-                <span className="text-[11px] tabular-nums text-muted-foreground leading-none">
+                <span className="text-xs tabular-nums text-muted-foreground leading-none">
                   {a.entradas || ""}
                 </span>
                 {/* A pista é o gatilho, e não a barra colorida: num ano de
@@ -568,7 +568,7 @@ function QuadroDoMovimento({
             {mv.porAno.map(a => (
               <span
                 key={a.ano}
-                className={`${LARGURA_DA_COLUNA} text-center text-[10px] tabular-nums text-muted-foreground pt-0.5 leading-none`}
+                className={`${LARGURA_DA_COLUNA} text-center text-[11px] sm:text-xs tabular-nums text-muted-foreground pt-0.5 leading-none`}
               >
                 {String(a.ano).slice(2)}
               </span>
@@ -604,7 +604,7 @@ function QuadroDoMovimento({
                     />
                   </div>
                 )}
-                <span className="text-[11px] tabular-nums text-muted-foreground leading-none">
+                <span className="text-xs tabular-nums text-muted-foreground leading-none">
                   {a.saidas || ""}
                 </span>
               </div>
@@ -615,7 +615,7 @@ function QuadroDoMovimento({
                 das barras que um dia estarão embaixo. */}
             {nenhumaBarraDeSaida && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <span className="text-[11px] text-muted-foreground/80 bg-card px-2 text-center">
+                <span className="text-xs text-muted-foreground/80 bg-card px-2 text-center">
                   à espera dos primeiros registros de saída
                 </span>
               </div>
@@ -628,7 +628,7 @@ function QuadroDoMovimento({
           Um por lacuna, e cada um diz de que lado está falando. */}
       <div className="space-y-1 border-t pt-2">
         {ent.anteriores > 0 && (
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             Mais <strong className="text-foreground tabular-nums">{ent.anteriores}</strong> entradas
             registradas antes de {primeiroAno}
             {ent.anoMaisAntigo !== null && <> — a mais antiga em {ent.anoMaisAntigo}</>}.
@@ -653,7 +653,7 @@ function QuadroDoMovimento({
             cada um tem a sua frase e as duas aparecem juntas quando é o
             caso. Nenhuma delas afirma que não houve saída: dizem o que há
             e o que falta registrar. */}
-        <p className="text-[11px] text-muted-foreground leading-relaxed">
+        <p className="text-xs text-muted-foreground leading-relaxed">
           {sai.comAno > 0 && (
             <>
               <strong className="font-medium text-foreground tabular-nums">{sai.comAno}</strong>

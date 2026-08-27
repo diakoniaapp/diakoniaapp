@@ -315,7 +315,18 @@ export default function PainelPastoral() {
   if (loading) return <PaginaSkeleton />;
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
+    // ── A largura ──────────────────────────────────────────────────────
+    //
+    // Era `max-w-5xl` fixo — 1024px. Numa tela de 1920 sobravam mais de
+    // 600px vazios de cada lado, e o conteúdo ficava espremido no meio:
+    // gráficos estreitos e a impressão geral de letra pequena que motivou
+    // este ajuste.
+    //
+    // Cresce em dois degraus e para em 1280px. **Não vai até a borda de
+    // propósito**: esta tela tem parágrafos, e linha de texto muito larga
+    // cansa de ler — a régua clássica são 60 a 80 caracteres. 1280px
+    // acomoda os gráficos sem esticar a prosa além disso.
+    <div className="p-6 max-w-5xl xl:max-w-6xl 2xl:max-w-7xl mx-auto space-y-6">
       {/* ── Cabeçalho fixo ──────────────────────────────────────────────
           Título, data, a frase do dia e a faixa de indicadores acompanham a
           rolagem. O painel é longo — sete seções —, e a faixa é também o
@@ -392,8 +403,12 @@ export default function PainelPastoral() {
             tom="gold" icone={CalendarCheck}
             onClick={() => irParaSecao("agenda")} descricao="Ir para a Agenda"
           />
+          {/* "Cand. batismo" truncava para "CAND. BATIS…" a 375px depois
+              que a fonte da faixa cresceu. Abreviação cortada não diz nada;
+              palavra inteira diz, e o destino — "Candidatos à membresia" —
+              completa o sentido. */}
           <Indicador
-            rotulo="Cand. batismo" tom="info" icone={Droplets}
+            rotulo="Candidatos" tom="info" icone={Droplets}
             onClick={() => irParaSecao("candidatos")} descricao="Ir para Candidatos à membresia"
           />
           {/* Fica colado em "Cand. batismo" porque os dois falam da mesma
