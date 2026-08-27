@@ -281,6 +281,11 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
    */
   const anotacoes = historia
     .filter(e => e.tipo === "anotacao")
+    // Mais recente sempre em cima. `historiaDaPessoa` já devolve nessa ordem,
+    // mas ela ordena a LINHA DO TEMPO: se um dia alguém a inverter para
+    // contar a vida do começo, este bloco viraria junto sem ninguém notar.
+    // A garantia fica aqui, ao lado de quem depende dela.
+    .sort((a, b) => (a.data < b.data ? 1 : a.data > b.data ? -1 : 0))
     .map(e => {
       const d = new Date(e.data);
       const dois = (n: number) => String(n).padStart(2, "0");
@@ -677,10 +682,10 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
             {(pessoa.observacoes_pastorais?.trim() || anotacoes.length > 0 || podeAnotar) && (
               <div className="space-y-1.5">
                 <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  {/* Sem contador. Um "1" solto ao lado do título lia-se como
+                      numeração da anotação, não como quantidade — e com a
+                      lista logo abaixo, contar é redundante. */}
                   <NotebookPen className="w-3 h-3" /> Anotações pastorais
-                  {anotacoes.length > 0 && (
-                    <span className="normal-case tracking-normal tabular-nums">{anotacoes.length}</span>
-                  )}
                   {podeAnotar && !anotando && (
                     <button
                       type="button"
