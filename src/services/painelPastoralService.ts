@@ -4,6 +4,10 @@
 // o bloco de candidatos à membresia, que o painel ganhou em 26/08/2026.
 
 import { supabase } from "@/integrations/supabase/client";
+// A conta de idade saiu daqui para `lib/idade.ts` quando o bloco de
+// membresia passou a precisar dela — duas cópias seriam duas telas
+// discordando sobre a idade da mesma pessoa. Ver o cabeçalho de lá.
+import { idadeEm } from "@/lib/idade";
 
 // ─── Candidatos à membresia ────────────────────────────────────────────────
 
@@ -44,16 +48,6 @@ export interface CandidatosMembresia {
 
 /** Idade mínima para o batismo, conforme já praticado em `MembroForm`. */
 export const IDADE_MINIMA_BATISMO = 9;
-
-function idadeEm(dataNascimento: string | null): number | null {
-  if (!dataNascimento) return null;
-  const nasc = new Date(dataNascimento + "T00:00");
-  const hoje = new Date();
-  let anos = hoje.getFullYear() - nasc.getFullYear();
-  const m = hoje.getMonth() - nasc.getMonth();
-  if (m < 0 || (m === 0 && hoje.getDate() < nasc.getDate())) anos--;
-  return anos;
-}
 
 /**
  * Congregados ativos, separados em três grupos pela idade.

@@ -18,10 +18,18 @@ export const STATUS_INFO: Record<MembroStatus, StatusInfo> = {
     cor: "bg-success/15 text-success border-success/30",
     descricao: "Membro em comunhão e atividade regular na igreja.",
   },
+  // A etiqueta é "Inativo"; a palavra que explica o que isso É passou a ser
+  // "ausência", e não "afastamento" — trocada a pedido em 26/08/2026. Onde há
+  // espaço para as duas, a tela escreve "Inativo (Ausente)": o seletor da
+  // ficha e o filtro do catálogo. Aqui, que é uma etiqueta dentro de uma
+  // linha de lista, só a primeira cabe.
+  //
+  // O valor no banco segue sendo `inativo` em qualquer caso. Trocar o enum
+  // obrigaria a mexer em políticas, gatilhos e consultas por um nome de tela.
   inativo: {
     label: "Inativo",
     cor: "bg-muted text-muted-foreground border-border",
-    descricao: "Afastamento temporário (saúde, viagem, etc). Continua membro — pode retornar a qualquer momento.",
+    descricao: "Ausência temporária (saúde, viagem, etc). Continua membro — pode retornar a qualquer momento.",
   },
   transferido: {
     label: "Transferido",

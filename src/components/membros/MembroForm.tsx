@@ -69,6 +69,9 @@ const empty = {
   cep:                      "",
   data_entrada:             new Date().toISOString().slice(0, 10),
   status:                   "ativo",
+  // Vazia por padrão: só tem sentido com status de saída, e o seletor de
+  // status a limpa sozinho quando a pessoa volta ao rol — ver `trocarStatus`.
+  data_saida:               "",
   observacoes_pastorais:    "",
   // Funções na igreja e as datas de cada uma. Ver lib/funcaoMinisterial.ts.
   //
@@ -324,6 +327,34 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
   }, [open, membro?.id]);
 
   const set = (k: string, v: any) => setForm((f: any) => ({ ...f, [k]: v }));
+
+  /**
+   * Os três status que tiram a pessoa do rol.
+   *
+   * `inativo` NÃO está aqui: inativo ("Ausente", na tela) é ausência temporária — a pessoa
+   * continua membro. Sair do rol é outra coisa, passa por assembleia, e é o
+   * que o gatilho `a_assina_saida_do_rol` assina no banco.
+   */
+  const STATUS_DE_SAIDA = ["transferido", "desligado", "falecido"];
+  const saindoDoRol = STATUS_DE_SAIDA.includes(form.status);
+
+  /**
+   * Troca o status e limpa a data de saída quando a pessoa volta ao rol.
+   *
+   * Sem isto, quem marcasse "transferido", pusesse a data e voltasse atrás
+   * salvaria um ativo com data de saída — e o gráfico de Movimento de
+   * Membros desenharia uma barra de saída para quem não saiu.
+   *
+   * O banco também limpa (o gatilho zera o carimbo quando o status volta),
+   * mas o formulário precisa limpar ANTES: senão o campo continua na tela
+   * com um valor que vai ser descartado sem aviso nenhum.
+   */
+  const trocarStatus = (novo: string) =>
+    setForm((f: any) => ({
+      ...f,
+      status: novo,
+      data_saida: STATUS_DE_SAIDA.includes(novo) ? f.data_saida : "",
+    }));
 
   // ── Submit ─────────────────────────────────────────────────────────────
   const onSubmit = async (e: React.FormEvent) => {
@@ -899,13 +930,17 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
 
                   <div className={isMembro ? "" : "md:col-span-2"}>
                     <Label translate="no">{isMembro ? "Status do membro" : "Status do congregado"}</Label>
-                    <Select value={form.status || "ativo"} onValueChange={(v) => set("status", v)}>
+                    <Select value={form.status || "ativo"} onValueChange={trocarStatus}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {isMembro ? (
                           <>
                             <SelectItem value="ativo">Ativo</SelectItem>
-                            <SelectItem value="inativo">Inativo (afastamento)</SelectItem>
+                            {/* "Ausente" no lugar de "afastamento", trocado a
+                                pedido em 26/08/2026. O valor gravado continua
+                                sendo `inativo` — muda só a palavra que a
+                                igreja lê. */}
+                            <SelectItem value="inativo">Inativo (Ausente)</SelectItem>
                             <SelectItem value="transferido">Transferido</SelectItem>
                             <SelectItem value="desligado">Desligado</SelectItem>
                             <SelectItem value="falecido">Falecido</SelectItem>
@@ -919,6 +954,38 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                       </SelectContent>
                     </Select>
                   </div>
+
+                  {/* ── Data de saída ────────────────────────────────────
+                      Só aparece com transferido, desligado ou falecido —
+                      os três que tiram do rol. Inativo não a pede: quem
+                      está afastado não saiu.
+
+                      **Sem esta data a saída não existe para o sistema.**
+                      O gráfico de Movimento de Membros põe cada saída no
+                      ano dela; sem ano, a pessoa fica contada à parte, num
+                      rodapé, e nunca vira barra. Por isso o campo é
+                      obrigatório quando aparece. */}
+                  {isMembro && saindoDoRol && (
+                    <div className="md:col-span-2">
+                      <Label translate="no">
+                        Data de saída <span className="text-destructive">*</span>
+                      </Label>
+                      <Input
+                        type="date"
+                        required
+                        value={form.data_saida || ""}
+                        onChange={(e) => set("data_saida", e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {form.status === "falecido"
+                          ? "Data do falecimento."
+                          : form.status === "transferido"
+                          ? "Data da transferência para a outra igreja."
+                          : "Data em que a assembleia aprovou o desligamento."}
+                        {" "}Quem registrar fica assinado na ficha.
+                      </p>
+                    </div>
+                  )}
 
                   {/* FASE B: Bloco "Perfil de acesso no sistema" REMOVIDO.
                       O acesso ao sistema vive em user_roles.role e é gerenciado pelo

@@ -496,6 +496,29 @@ export default function Membros() {
     const [open, setOpen] = useState(false);
     const [editing, setEditing] = useState<Membro | null>(null);
     const [tipoFiltro, setTipoFiltro] = useState<string>("todos");
+
+    /**
+     * A situação do cadastro: ativo, afastado ou fora do rol.
+     *
+     * ── POR QUE ISTO É O "BANCO DE EX-MEMBROS" ─────────────────────────────
+     *
+     * Telma pediu, em 26/08/2026, um banco de ex-membros e outro de inativos.
+     * A tentação é criar duas telas; seria errado. **`membros` é o eixo do
+     * domínio — 69 chaves estrangeiras apontam para ela.** Mover quem saiu
+     * para outra tabela arrancaria a pessoa do próprio histórico: as escalas
+     * que serviu, as visitas que recebeu, a família de que faz parte.
+     *
+     * Quem saiu continua sendo a mesma linha, com `status` dizendo o que
+     * aconteceu. O "banco" é este recorte — e assim a busca por nome encontra
+     * a pessoa em qualquer situação, que é o que se quer de um arquivo.
+     *
+     * O padrão continua sendo "todos": mudar para "ativos" esconderia gente
+     * de quem já procura por aqui hoje.
+     */
+    const [situacaoFiltro, setSituacaoFiltro] = useState<string>("todos");
+
+    /** Os três status que tiram do rol. `inativo` ("Ausente") não é saída. */
+    const FORA_DO_ROL = ["transferido", "desligado", "falecido"];
     // Filtro de cuidado. Nao e um modulo nem uma tela: e mais uma opcao na
     // mesma barra de filtros, respondendo a pergunta que o pastor faz e que a
     // lista nao respondia — "de quem ninguem cuida ha tempo?".
@@ -782,8 +805,14 @@ export default function Membros() {
         // "lideranca" —, enquanto as pessoas com acesso de verdade são 6.
         // O filtro oferecia Tesoureiro e Professor EBD, que não existem como
         // papel em lugar nenhum do sistema, e não encontrava o admin real.
-        return matchSearch && matchTipo && matchPendencia;
-  }), [membros, search, tipoFiltro, pendencia]);
+        const matchSituacao =
+                situacaoFiltro === "todos"    ? true
+              : situacaoFiltro === "ativos"   ? m.status === "ativo"
+              : situacaoFiltro === "inativos" ? m.status === "inativo"
+              : /* ex-membros */                FORA_DO_ROL.includes(m.status);
+
+        return matchSearch && matchTipo && matchPendencia && matchSituacao;
+  }), [membros, search, tipoFiltro, pendencia, situacaoFiltro]);
 
   const filtered = useMemo(() => baseFiltrados.filter((m) => {
 
@@ -878,7 +907,8 @@ export default function Membros() {
   };
 
   const filtrando =
-    search.trim() !== "" || tipoFiltro !== "todos" || grupoFiltro !== "todos" || !!pendencia;
+    search.trim() !== "" || tipoFiltro !== "todos" || grupoFiltro !== "todos" || !!pendencia ||
+    situacaoFiltro !== "todos";
 
   const limparFiltros = () => {
     setSearch("");
@@ -915,7 +945,7 @@ export default function Membros() {
   // A ordem entra na lista pelo mesmo motivo: ordenar por bairro estando na
   // página 7 mostraria a fatia 121–140 de uma lista que acabou de ser
   // reembaralhada — quem pediu "por bairro" quer ver o começo, não o meio.
-  useEffect(() => { setPagina(1); }, [search, tipoFiltro, grupoFiltro, ordem]);
+  useEffect(() => { setPagina(1); }, [search, tipoFiltro, grupoFiltro, ordem, situacaoFiltro]);
 
   // Foco na busca ao abrir: quem entra em Pessoas quase sempre vem procurar
   // alguém. Só no desktop — em celular abriria o teclado por cima da lista.
@@ -1017,6 +1047,25 @@ export default function Membros() {
                                                                 <SelectItem value="membro">Membro</SelectItem>
                                                                 <SelectItem value="congregado">Congregado</SelectItem>
                                                                 <SelectItem value="visitante">Visitante</SelectItem>
+                                                  </SelectContent>
+                                      </Select>
+                                      {/* Situação do cadastro — os dois "bancos" pedidos em
+                                          26/08/2026 vivem aqui, como recorte, e não como telas
+                                          separadas. Ver a nota em `situacaoFiltro`.
+
+                                          Os rótulos dizem o que cada um É, e não só o nome do
+                                          status: "Ex-membros" sozinho não diferencia de
+                                          "Inativos" para quem não conhece a distinção
+                                          estatutária. */}
+                                      <Select value={situacaoFiltro} onValueChange={setSituacaoFiltro}>
+                                                  <SelectTrigger className="md:w-64">
+                                                                <SelectValue placeholder="Situação" />
+                                                  </SelectTrigger>
+                                                  <SelectContent>
+                                                                <SelectItem value="todos">Todas as situações</SelectItem>
+                                                                <SelectItem value="ativos">Ativos</SelectItem>
+                                                                <SelectItem value="inativos">Inativos (Ausentes)</SelectItem>
+                                                                <SelectItem value="ex">Ex-membros (transferidos, desligados, falecidos)</SelectItem>
                                                   </SelectContent>
                                       </Select>
                                       {/* Sobraram a busca e o tipo de pessoa. Saíram dois seletores:

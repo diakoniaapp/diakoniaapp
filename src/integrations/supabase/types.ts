@@ -7021,6 +7021,14 @@ export type Database = {
           data_consagracao_missionaria: string | null
           data_consagracao_pastoral: string | null
           data_entrada: string | null
+          // Saída do rol e a assinatura de quem a registrou. Acrescentadas à
+          // mão em 26/08/2026 (migration 20260828180000). Uma regeneração do
+          // types.ts as traz do banco e descarta este comentário — reconferir.
+          data_saida: string | null
+          saida_registrada_em: string | null
+          saida_registrada_por: string | null
+          saida_registrada_por_funcao: string | null
+          saida_registrada_por_nome: string | null
           data_membro: string | null
           data_nascimento: string | null
           data_ordenacao_diaconal: string | null
@@ -7102,6 +7110,14 @@ export type Database = {
           data_consagracao_missionaria?: string | null
           data_consagracao_pastoral?: string | null
           data_entrada?: string | null
+          // Saída do rol e a assinatura de quem a registrou. Acrescentadas à
+          // mão em 26/08/2026 (migration 20260828180000). Uma regeneração do
+          // types.ts as traz do banco e descarta este comentário — reconferir.
+          data_saida?: string | null
+          saida_registrada_em?: string | null
+          saida_registrada_por?: string | null
+          saida_registrada_por_funcao?: string | null
+          saida_registrada_por_nome?: string | null
           data_membro?: string | null
           data_nascimento?: string | null
           data_ordenacao_diaconal?: string | null
@@ -7183,6 +7199,14 @@ export type Database = {
           data_consagracao_missionaria?: string | null
           data_consagracao_pastoral?: string | null
           data_entrada?: string | null
+          // Saída do rol e a assinatura de quem a registrou. Acrescentadas à
+          // mão em 26/08/2026 (migration 20260828180000). Uma regeneração do
+          // types.ts as traz do banco e descarta este comentário — reconferir.
+          data_saida?: string | null
+          saida_registrada_em?: string | null
+          saida_registrada_por?: string | null
+          saida_registrada_por_funcao?: string | null
+          saida_registrada_por_nome?: string | null
           data_membro?: string | null
           data_nascimento?: string | null
           data_ordenacao_diaconal?: string | null

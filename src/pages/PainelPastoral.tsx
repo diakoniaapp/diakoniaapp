@@ -77,6 +77,7 @@ import {
   Cake, Heart, MessageCircle, CalendarCheck, Award, Flag, BookMarked,
   Sparkles, AlertCircle, Users, ChevronRight, Crown, Flame, Droplets,
   GraduationCap, UserCheck, CalendarClock, Sprout, BarChart2, PartyPopper,
+  Users2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PaginaSkeleton } from "@/components/ListState";
@@ -91,6 +92,10 @@ import {
   type CandidatosMembresia,
 } from "@/services/painelPastoralService";
 import { getResumoVisitantes, type ResumoVisitantes } from "@/services/visitanteService";
+import {
+  indicadoresMembresia,
+  type IndicadoresMembresia,
+} from "@/services/rolDeMembrosService";
 // "Acontecendo hoje" — o mesmo bloco do painel inicial, reaproveitado inteiro.
 // Ele expande as recorrências e soma as reservas de espaço, que é o que faz o
 // culto de domingo e o ensaio de sábado realmente aparecerem. O hook
@@ -114,6 +119,9 @@ import PainelEstrategico from "@/pages/PainelEstrategico";
 import {
   Indicador, FaixaDeIndicadores, TituloDaSecao, irParaSecao,
 } from "@/components/painel/blocos";
+// A pirâmide etária e as entradas por ano. Os quadros confessam as próprias
+// lacunas — ver o cabeçalho do arquivo.
+import { BlocoRebanho } from "@/components/painel/BlocoRebanho";
 
 /** Hoje + 6 = uma semana contando o próprio dia. */
 const DIAS_A_FRENTE = 6;
@@ -187,6 +195,21 @@ export default function PainelPastoral() {
   const [resumo, setResumo] = useState<ResumoPastoral | null>(null);
   const [candidatos, setCandidatos] = useState<CandidatosMembresia | null>(null);
   const [visitantes, setVisitantes] = useState<ResumoVisitantes | null>(null);
+  const [indicadores, setIndicadores] = useState<IndicadoresMembresia | null>(null);
+
+  /**
+   * O rebanho inteiro: membros + congregados + visitantes, todos ativos.
+   *
+   * **Não confundir com o rol.** O rol são só os 225 membros — quem passou
+   * por assembleia. O rebanho é quem a igreja acompanha, e inclui os 65
+   * congregados e os 3 visitantes que ainda não entraram no rol.
+   *
+   * A seção se chamava "A membresia" e o nome estava errado justamente por
+   * apagar essa diferença; ver o comentário da seção lá embaixo.
+   */
+  const totalDoRebanho = indicadores
+    ? indicadores.rol.membros + indicadores.rol.congregados + indicadores.rol.visitantes
+    : 0;
   /** Compromissos por dia, para a tira. Vem do proprio AgendaDoDia. */
   const [agendaPorDia, setAgendaPorDia] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
@@ -210,16 +233,18 @@ export default function PainelPastoral() {
   async function carregar() {
     setLoading(true);
     try {
-      const [ev, r, cm, vs] = await Promise.all([
+      const [ev, r, cm, vs, mb] = await Promise.all([
         proximosDias(DIAS_A_FRENTE),
         resumoPainel(),
         candidatosMembresia(),
         getResumoVisitantes(),
+        indicadoresMembresia(),
       ]);
       setEventos(ev);
       setResumo(r);
       setCandidatos(cm);
       setVisitantes(vs);
+      setIndicadores(mb);
       setAtualizadoEm(new Date());
     } catch (e: any) {
       toast.error(e?.message ?? "Erro ao carregar painel");
@@ -346,7 +371,7 @@ export default function PainelPastoral() {
           resumo e virou o índice da tela. Ver `Indicador` em
           components/painel/blocos.tsx para o porquê do desenho. */}
       {resumo && (
-        <FaixaDeIndicadores colunas={4}>
+        <FaixaDeIndicadores colunas={5}>
           {/*
             "Celebrações hoje" era um indicador aqui. Saiu: ele levava ao
             MESMO lugar que "Agenda" — a seção passou a ser uma só —, e a
@@ -375,6 +400,21 @@ export default function PainelPastoral() {
           <Indicador
             rotulo="Cand. batismo" valor={candidatos?.elegiveis.length ?? 0} tom="info" icone={Droplets}
             onClick={() => irParaSecao("candidatos")} descricao="Ir para Candidatos à membresia"
+          />
+          {/* O tamanho do rol, e o atalho para a forma dele. Fica colado em
+              "Cand. batismo" porque os dois falam da mesma coisa vista de
+              dois lados: quem está para entrar e quem já entrou. */}
+          {/* O rebanho INTEIRO: membros, congregados e visitantes ativos.
+              Não é o rol — o rol são os 225 membros, e aparece dentro da
+              seção. Aqui o número tem de bater com o do título para onde o
+              clique leva; um indicador dizendo 225 aterrissando num título
+              que diz 293 é o tipo de desencontro que faz duvidar dos dois.
+
+              Rótulo de uma palavra: "Rol de membros" truncava para
+              "ROL DE ME…" a 375px, que não diz nada. */}
+          <Indicador
+            rotulo="Rebanho" valor={totalDoRebanho} tom="violeta" icone={Users2}
+            onClick={() => irParaSecao("rebanho")} descricao="Ir para O rebanho"
           />
           {/* Era "Visit. sem contato", com o número de quem está há mais de
               7 dias sem registro. Trocado a pedido por quem ESTÁ sendo
@@ -525,6 +565,32 @@ export default function PainelPastoral() {
         </section>
       )}
 
+
+      {/* ── O rebanho ───────────────────────────────────────────────────
+          **Chamava-se "A membresia", e o nome estava errado.** Membresia é
+          o rol — só os membros. O que a seção abre é o conjunto de quem
+          frequenta: membros, congregados e visitantes ativos. Corrigido a
+          pedido da Telma em 26/08/2026.
+
+          Fica logo abaixo de "Candidatos à membresia" de propósito: um
+          quadro mostra quem está na porta, o outro mostra a casa. Ler os
+          dois em sequência é a leitura que a seção quer provocar — seis
+          candidatos entrando num rol com este formato etário.
+
+          **Não some quando está vazio**, ao contrário das seções acima. O
+          canal de "estou vazio" existe para trabalho pendente: um bloco de
+          acolhimento sem ninguém para acolher é ruído. Aqui é o oposto —
+          um rol de zero membros seria a notícia mais importante da tela, e
+          esconder o quadro justamente nesse caso o tornaria inútil como
+          indicador. Só a ausência de DADO o esconde. */}
+      {indicadores && (
+        <section id="rebanho" className="scroll-mt-[280px] sm:scroll-mt-[230px]">
+          <TituloDaSecao icone={Users2} tom="violeta" contagem={totalDoRebanho}>
+            O rebanho
+          </TituloDaSecao>
+          <BlocoRebanho dados={indicadores} />
+        </section>
+      )}
 
       {/* ── Acompanhamento de visitantes ────────────────────────────────── */}
       {visitantes && visitantes.total > 0 && (

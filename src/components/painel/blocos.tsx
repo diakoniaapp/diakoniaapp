@@ -225,16 +225,75 @@ export function TituloDaSecao({
   );
 }
 
+/** Respiro entre a base do cabeçalho fixo e o título da seção. */
+const FOLGA = 12;
+
+/** Quem realmente rola: no AppLayout é o `<main>`, não a janela. */
+function roladorDe(el: HTMLElement): HTMLElement | null {
+  let n = el.parentElement;
+  while (n && n !== document.body) {
+    const cs = getComputedStyle(n);
+    if (/auto|scroll/.test(cs.overflowY) && n.scrollHeight > n.clientHeight + 4) return n;
+    n = n.parentElement;
+  }
+  return null;
+}
+
+/** A altura do cabeçalho grudado no topo do rolador, medida agora. */
+function alturaDoCabecalhoFixo(rolador: HTMLElement): number {
+  let maior = 0;
+  for (const el of Array.from(rolador.querySelectorAll<HTMLElement>("*"))) {
+    if (getComputedStyle(el).position !== "sticky") continue;
+    const r = el.getBoundingClientRect();
+    // Só o que está encostado no topo do rolador conta: uma barra grudada
+    // no meio da página não atrapalha o destino da rolagem.
+    if (r.top <= rolador.getBoundingClientRect().top + 1) maior = Math.max(maior, r.height);
+  }
+  return maior;
+}
+
 /**
  * Leva a tela até uma seção, respeitando quem pediu menos movimento.
  *
  * `prefers-reduced-motion` não é detalhe de acessibilidade opcional aqui: a
  * rolagem suave por uma tela longa é exatamente o tipo de animação que causa
  * desconforto em quem tem sensibilidade vestibular.
+ *
+ * ── POR QUE MEDE, EM VEZ DE CONFIAR NO `scroll-mt` ─────────────────────────
+ *
+ * Antes isto era um `scrollIntoView` puro, e o desvio ficava por conta do
+ * `scroll-mt-[280px] sm:scroll-mt-[230px]` repetido em cada `<section>`. Dois
+ * números escritos à mão para descrever a altura do cabeçalho fixo — que
+ * muda com a largura da tela E com o conteúdo do próprio cabeçalho.
+ *
+ * **Eles envelheceram na primeira vez que o cabeçalho mudou.** Ao ganhar um
+ * quinto indicador, a faixa passou de duas para três linhas entre 640px e
+ * 1024px: o cabeçalho foi a 243px contra os 230 do `scroll-mt`, e TODAS as
+ * seções passaram a parar 13px atrás dele. Medido, não deduzido.
+ *
+ * Medir na hora resolve os dois eixos de uma vez e não tem como envelhecer.
+ * O `scroll-mt` das seções continua nos arquivos: ele ainda serve à
+ * navegação por âncora do navegador, que não passa por aqui.
  */
 export function irParaSecao(id: string) {
   const alvo = document.getElementById(id);
   if (!alvo) return;
   const suave = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  alvo.scrollIntoView({ behavior: suave ? "smooth" : "auto", block: "start" });
+  const comportamento: ScrollBehavior = suave ? "smooth" : "auto";
+
+  const rolador = roladorDe(alvo);
+  // Sem rolador identificado, o comportamento antigo — que já era o certo
+  // quando quem rola é a janela.
+  if (!rolador) {
+    alvo.scrollIntoView({ behavior: comportamento, block: "start" });
+    return;
+  }
+
+  const desvio = alturaDoCabecalhoFixo(rolador) + FOLGA;
+  const destino =
+    rolador.scrollTop +
+    (alvo.getBoundingClientRect().top - rolador.getBoundingClientRect().top) -
+    desvio;
+
+  rolador.scrollTo({ top: Math.max(0, destino), behavior: comportamento });
 }

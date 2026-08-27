@@ -28,6 +28,28 @@ import { historiaDaPessoa, diasDesdeOUltimoContato, type EventoDaHistoria } from
 import { ROLE_LABEL } from "@/types/usuario";
 import { normalizarTelefone, formatarTelefoneSemDDI } from "@/lib/telefone";
 
+// ── Datas ─────────────────────────────────────────────────────
+//
+// Duas linhas para não trazer `date-fns` só por isto, e para a assinatura da
+// saída sair no MESMO formato da assinatura da anotação pastoral logo abaixo
+// dela na ficha ("26.08.2026 às 23h27"). Dois formatos de data na mesma tela
+// fazem parecer que vieram de sistemas diferentes.
+
+const dois = (n: number) => String(n).padStart(2, "0");
+
+/** "AAAA-MM-DD" → "20/08/2026". O `T00:00` evita o recuo de fuso. */
+function soData(iso: string): string {
+  const d = new Date(iso.length === 10 ? `${iso}T00:00` : iso);
+  return `${dois(d.getDate())}/${dois(d.getMonth() + 1)}/${d.getFullYear()}`;
+}
+
+/** Carimbo com hora, no formato da assinatura: "26.08.2026 às 23h27". */
+function dataComHora(iso: string): string {
+  const d = new Date(iso);
+  return `${dois(d.getDate())}.${dois(d.getMonth() + 1)}.${d.getFullYear()}`
+       + ` às ${dois(d.getHours())}h${dois(d.getMinutes())}`;
+}
+
 // ── Tipos ─────────────────────────────────────────────────────
 
 interface PessoaCompleta {
@@ -38,6 +60,12 @@ interface PessoaCompleta {
   tipo_pessoa: string;
   status: string;
   data_entrada: string | null;
+  // A saída do rol e a assinatura de quem a registrou. Ver a migration
+  // 20260828180000 — o carimbo é do gatilho, não do cliente.
+  data_saida: string | null;
+  saida_registrada_em: string | null;
+  saida_registrada_por_nome: string | null;
+  saida_registrada_por_funcao: string | null;
   created_at: string | null;
   origem_cadastro: string | null;
   email: string | null;
@@ -292,7 +320,6 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
     .sort((a, b) => (a.data < b.data ? 1 : a.data > b.data ? -1 : 0))
     .map(e => {
       const d = new Date(e.data);
-      const dois = (n: number) => String(n).padStart(2, "0");
       /**
        * "Telma | Admin - 26.08.2026 às 20h48".
        *
@@ -463,7 +490,7 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
       // Pessoa
       const { data: p } = await supabase
         .from("membros")
-        .select("id,nome_completo,nome_social,foto_url,tipo_pessoa,status,data_entrada,email,telefone_celular,perfil_acesso,observacoes_pastorais,created_at,origem_cadastro")
+        .select("id,nome_completo,nome_social,foto_url,tipo_pessoa,status,data_entrada,data_saida,saida_registrada_em,saida_registrada_por_nome,saida_registrada_por_funcao,email,telefone_celular,perfil_acesso,observacoes_pastorais,created_at,origem_cadastro")
         .eq("id", pessoaId)
         .single();
       if (cancelado) return;
@@ -659,6 +686,45 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
                 </div>
               </div>
             </div>
+
+            {/* ── Saiu do rol ──────────────────────────────────────────
+                A ficha de um ex-membro precisa dizer isso ANTES de
+                qualquer outra coisa: quem abre a ficha de alguém que foi
+                transferido e lê ministérios, escalas e família sem essa
+                linha lê um cadastro ativo.
+
+                A assinatura vem junto e não é enfeite — tirar alguém do
+                rol é ato de assembleia, e a ficha guarda quem registrou.
+                Ela é gravada pelo gatilho `a_assina_saida_do_rol`, e não
+                pelo formulário: neste projeto o navegador fala direto com
+                o banco, e assinatura que o cliente escreve é assinatura
+                que o cliente pode omitir.
+
+                `inativo` NÃO entra aqui: ausência não é saída, e a
+                pessoa continua no rol. */}
+            {["transferido", "desligado", "falecido"].includes(pessoa.status) && (
+              <div className="rounded-lg border border-warning-line bg-warning-soft/60 px-3 py-2 space-y-0.5">
+                <p className="text-sm text-warning-text">
+                  <strong className="font-semibold">
+                    {pessoa.status === "transferido" ? "Transferido"
+                      : pessoa.status === "desligado" ? "Desligado"
+                      : "Falecido"}
+                  </strong>
+                  {pessoa.data_saida
+                    ? <> em {soData(pessoa.data_saida)}</>
+                    : <> — sem data de saída registrada</>}
+                </p>
+                {/* Miúda e esmaecida, como a assinatura da anotação
+                    pastoral: é procedência, não conteúdo. */}
+                {pessoa.saida_registrada_por_nome && (
+                  <p className="text-[11px] italic text-muted-foreground">
+                    registrado por {pessoa.saida_registrada_por_nome.split(" ")[0]}
+                    {pessoa.saida_registrada_por_funcao && ` | ${pessoa.saida_registrada_por_funcao}`}
+                    {pessoa.saida_registrada_em && ` — ${dataComHora(pessoa.saida_registrada_em)}`}
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* ── Há quanto tempo ninguém fala com esta pessoa ──────────
 
