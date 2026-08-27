@@ -10,6 +10,29 @@
     <meta name="author" content="Diakonia App" />
     <meta name="robots" content="noindex, nofollow" />
 
+    <!-- ── Ícone ────────────────────────────────────────────────────────
+         Não havia <link rel="icon"> nenhum: o navegador caía no
+         /favicon.ico por convenção, e aquele arquivo ainda era o ícone
+         antigo. Declarado agora, com o SVG primeiro.
+
+         **O SVG é o principal**, e não um extra: ele é nítido em qualquer
+         tamanho e em qualquer densidade de tela, e pesa 1,4 KB. O `.ico`
+         fica como alternativa para navegador que não entende SVG em
+         favicon — daí o `rel="alternate icon"`, que é o que faz os dois
+         conviverem sem o navegador baixar os dois. -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="alternate icon" href="/favicon.ico" sizes="48x48" />
+
+    <!-- FALTA o apple-touch-icon.png, e é de propósito: um <link> apontando
+         para arquivo que não existe é pior que a ausência dele. O atalho na
+         tela inicial do iPhone precisa de PNG (o Safari não aceita SVG ali),
+         e gerar esse PNG pede uma ferramenta de rasterização que este
+         repositório não tem. Sem ele, o iOS usa uma miniatura da página.
+
+         Para resolver depois: exportar public/favicon.svg em 180×180 sobre
+         fundo #FBFAF7 (o iOS ignora transparência) e voltar com a linha
+         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />. -->
+
     <!-- Open Graph -->
     <meta property="og:type"        content="website" />
     <meta property="og:title"       content="Diakonia App — Sistema de Gestão da Igreja" />
