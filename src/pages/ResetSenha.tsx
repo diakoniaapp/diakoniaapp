@@ -1,6 +1,6 @@
 // ============================================================
 // ResetSenha.tsx — Redefinição de Senha via Link de E-mail
-// Diakonia App — Sistema de Gestão da Igreja
+// DiakoniaApp — Sistema de Gestão Ministerial
 // Rota: /auth/reset
 // ============================================================
 

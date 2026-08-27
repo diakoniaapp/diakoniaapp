@@ -56,12 +56,12 @@ export function MobileNavDrawer({ children }: { children: React.ReactNode }) {
         side="left"
         className="w-[85vw] max-w-sm p-0 flex flex-col bg-sidebar text-sidebar-foreground border-sidebar-border"
       >
-        <SheetHeader className="p-4 border-b border-sidebar-border text-left space-y-0">
+        <SheetHeader className="p-4 border-b border-sidebar-border text-center space-y-0">
           <SheetTitle asChild>
             <div>
-              <BrandMark className="text-xl text-sidebar-foreground" />
-              <div className="text-xs tracking-[0.18em] uppercase text-sidebar-foreground/55 mt-1">
-                Sistema da Igreja
+              <BrandMark className="text-[2.23rem] text-sidebar-foreground" />
+              <div className="text-xs tracking-[0.18em] -mr-[0.18em] uppercase text-sidebar-foreground/55 mt-2">
+                Gestão Ministerial
               </div>
             </div>
           </SheetTitle>

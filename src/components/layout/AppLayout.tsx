@@ -193,10 +193,15 @@ export default function AppLayout() {
       {/* Sidebar desktop */}
       <aside className="hidden md:flex w-64 flex-col bg-sidebar text-sidebar-foreground">
         {/* Logo */}
-        <div className="p-5 border-b border-sidebar-border">
-          <BrandMark className="text-2xl text-sidebar-foreground" />
-          <div className="text-xs tracking-[0.18em] uppercase text-sidebar-foreground/55 mt-1.5">
-            Sistema da Igreja
+        <div className="p-5 border-b border-sidebar-border text-center">
+          <BrandMark className="text-[2.23rem] text-sidebar-foreground" />
+          {/* A margem negativa cancela o espacejamento que sobra DEPOIS da
+              última letra. Sem ele o texto centraliza pela caixa, que é
+              2,3px mais larga que a tinta, e as bordas de baixo ficam
+              1,2px à esquerda das de cima — justo o desalinho que este
+              par de larguras existe para não ter. */}
+          <div className="text-xs tracking-[0.18em] -mr-[0.18em] uppercase text-sidebar-foreground/55 mt-2">
+            Gestão Ministerial
           </div>
         </div>
 
