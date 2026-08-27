@@ -10,6 +10,10 @@ import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, User, Shield, Church, MapPin, Calendar, Star, Pencil, MessageCircle, NotebookPen, Home as IconeCasa } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -168,7 +172,7 @@ interface PessoaCardProps {
 
 export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = false }: PessoaCardProps) {
   const navigate = useNavigate();
-  const { podeEditarPessoas, user, roles } = useAuth();
+  const { podeEditarPessoas, user, roles, hasRole } = useAuth();
   const { podeFazer, permissoes: permsCarregadas, loading: permsCarregando } = usePermissoes();
   // Mesmo piso usado no catalogo: conjunto vazio quer dizer consulta falhada,
   // nao usuario sem direito.
@@ -306,6 +310,8 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
         `${dois(d.getDate())}.${dois(d.getMonth() + 1)}.${d.getFullYear()}` +
         ` às ${dois(d.getHours())}h${dois(d.getMinutes())}`;
       return {
+        id: e.refId ?? null,
+        texto: e.detalhe ?? "",
         detalhe: e.detalhe,
         // Sem nome gravado — anotação antiga ou escrita por caminho que não o
         // informou — a assinatura não inventa um: fica só função e data.
@@ -317,6 +323,21 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
   const [familia, setFamilia]       = useState<{ nome: string; parentesco: string; responsavel: boolean } | null>(null);
   const [loading, setLoading]       = useState(false);
   const [anotando, setAnotando]     = useState(false);
+  /** Id da anotação em edição — só o administrador chega aqui. */
+  const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [anotacaoParaApagar, setAnotacaoParaApagar] =
+    useState<{ id: string; texto: string } | null>(null);
+
+  /**
+   * Corrigir e apagar anotação é só do administrador.
+   *
+   * Pelo papel, e não por permissão: apagar é a operação sem volta, e é a
+   * convenção deste banco — dezenas de tabelas dão INSERT e UPDATE a vários
+   * papéis e DELETE só ao admin. As políticas `admin_update_anotacao` e
+   * `admin_delete_anotacao` dizem o mesmo do lado de lá, e é ELA que manda:
+   * se um dia divergirem, a tela oferece um botão que o banco recusa.
+   */
+  const ehAdmin = hasRole("admin");
   const [rascunho, setRascunho]     = useState("");
   const [salvandoObs, setSalvandoObs] = useState(false);
 
@@ -366,6 +387,54 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
     setRascunho("");
     setAnotando(false);
     toast.success("Anotação registrada.");
+  }
+
+  /**
+   * Corrige o texto de uma anotação, e só ele.
+   *
+   * Data e autor NÃO são tocados: quem conserta um erro de digitação não vira
+   * autor da anotação. A política do banco impõe o mesmo pelo `WITH CHECK`.
+   */
+  async function salvarEdicao() {
+    if (!pessoa || !editandoId) return;
+    const texto = rascunho.trim();
+    if (!texto) return toast.error("A anotação não pode ficar vazia. Para removê-la, use Excluir.");
+
+    setSalvandoObs(true);
+    const r = conferir(
+      await supabase
+        .from("visita_historico")
+        .update({ observacao: texto })
+        .eq("id", editandoId)
+        .select("id"),
+      "A anotação",
+    );
+    setSalvandoObs(false);
+    if (!r.ok) return toast.error(r.erro);
+    setHistoria(await historiaDaPessoa(pessoa.id));
+    setEditandoId(null);
+    setRascunho("");
+    toast.success("Anotação corrigida.");
+  }
+
+  async function apagarAnotacao() {
+    if (!pessoa || !anotacaoParaApagar) return;
+    setSalvandoObs(true);
+    // `.select()` também no DELETE: sem política que permita, ele volta como
+    // sucesso com zero linhas — e a tela diria "excluída" sobre nada.
+    const r = conferir(
+      await supabase
+        .from("visita_historico")
+        .delete()
+        .eq("id", anotacaoParaApagar.id)
+        .select("id"),
+      "A anotação",
+    );
+    setSalvandoObs(false);
+    if (!r.ok) return toast.error(r.erro);
+    setHistoria(await historiaDaPessoa(pessoa.id));
+    setAnotacaoParaApagar(null);
+    toast.success("Anotação excluída.");
   }
 
   useEffect(() => {
@@ -727,14 +796,59 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
                 {/* Da mais recente para a mais antiga: quem abre a ficha
                     quer saber o que se sabe HOJE sobre a pessoa. */}
                 {anotacoes.map((a, i) => (
-                  <div key={i} className="rounded-lg border bg-muted/40 px-3 py-2">
-                    <p className="text-sm whitespace-pre-line">{a.detalhe}</p>
-                    {/* Miúda, itálica e esmaecida: a assinatura situa a
-                        anotação sem disputar leitura com ela. O que importa
-                        na tela é o que foi escrito. */}
-                    <p className="text-[11px] italic text-muted-foreground/70 mt-1 tabular-nums">
-                      {a.assinatura}
-                    </p>
+                  <div key={a.id ?? i} className="rounded-lg border bg-muted/40 px-3 py-2">
+                    {editandoId === a.id ? (
+                      <div className="space-y-2">
+                        <Textarea
+                          value={rascunho}
+                          onChange={(e) => setRascunho(e.target.value)}
+                          rows={4} autoFocus className="text-sm"
+                        />
+                        <div className="flex items-center gap-2">
+                          <Button type="button" size="sm" onClick={salvarEdicao} disabled={salvandoObs}>
+                            {salvandoObs ? "Salvando..." : "Salvar"}
+                          </Button>
+                          <Button
+                            type="button" size="sm" variant="ghost"
+                            onClick={() => setEditandoId(null)} disabled={salvandoObs}
+                          >
+                            Cancelar
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-sm whitespace-pre-line">{a.detalhe}</p>
+                        {/* Miúda, itálica e esmaecida: a assinatura situa a
+                            anotação sem disputar leitura com ela. O que importa
+                            na tela é o que foi escrito. */}
+                        <p className="text-[11px] italic text-muted-foreground/70 mt-1 tabular-nums flex items-center gap-2">
+                          <span>{a.assinatura}</span>
+                          {/* Só o administrador, e só aqui. As ações vêm em
+                              corpo miúdo junto da assinatura, e não como
+                              botões: corrigir anotação é exceção, não o que
+                              se faz ao abrir uma ficha. */}
+                          {ehAdmin && a.id && (
+                            <span className="ml-auto flex items-center gap-2 not-italic shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => { setRascunho(a.texto); setEditandoId(a.id); setAnotando(false); }}
+                                className="text-primary hover:underline"
+                              >
+                                Editar
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setAnotacaoParaApagar({ id: a.id!, texto: a.texto })}
+                                className="text-destructive-text hover:underline"
+                              >
+                                Excluir
+                              </button>
+                            </span>
+                          )}
+                        </p>
+                      </>
+                    )}
                   </div>
                 ))}
 
@@ -871,6 +985,41 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
           </div>
         )}
       </DialogContent>
+
+      {/* Confirmação com `AlertDialog`, e nunca `confirm()` nativo.
+          Em navegador embarcado — que é onde a igreja usa o sistema no
+          celular — a caixa nativa é bloqueada e devolve "cancelou" sem
+          perguntar: o botão simplesmente não faria nada. Ver Risco 3 do
+          CLAUDE.md. */}
+      <AlertDialog
+        open={!!anotacaoParaApagar}
+        onOpenChange={(v) => { if (!v) setAnotacaoParaApagar(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir esta anotação?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {/* O texto aparece na pergunta: apagar memória pastoral pelo
+                  id, sem ver o que se apaga, é como o "Teste" e a anotação de
+                  março ficam parecidos na hora do clique. */}
+              <span className="block rounded-md border bg-muted/40 px-3 py-2 my-2 text-sm whitespace-pre-line text-foreground">
+                {anotacaoParaApagar?.texto}
+              </span>
+              Não há como desfazer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={salvandoObs}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); apagarAnotacao(); }}
+              disabled={salvandoObs}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {salvandoObs ? "Excluindo..." : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

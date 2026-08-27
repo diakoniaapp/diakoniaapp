@@ -85,6 +85,13 @@ export interface EventoDaHistoria {
   titulo: string;
   detalhe?: string | null;
   /**
+   * Id da linha em `visita_historico`. Só nas anotações.
+   *
+   * É o que permite ao administrador corrigir ou apagar uma anotação: sem
+   * ele a tela saberia mostrar e não saberia apontar.
+   */
+  refId?: string | null;
+  /**
    * Quem escreveu — só nas anotações pastorais.
    *
    * Dois campos, e não um texto emendado. Emendar "nome · função" obrigava a
@@ -156,7 +163,7 @@ export async function historiaDaPessoa(pessoaId: string): Promise<EventoDaHistor
       .select("tipo, descricao, data")
       .eq("membro_id", pessoaId),
     supabase.from("visita_historico")
-      .select("tipo, observacao, created_at, registrado_por_nome, registrado_por_funcao")
+      .select("id, tipo, observacao, created_at, registrado_por_nome, registrado_por_funcao")
       .eq("visitante_id", pessoaId),
     // area_voluntarios, e não ministerio_membros nem pessoa_participacao:
     // essas duas estão vazias em produção. Ver o comentário no topo.
@@ -319,6 +326,7 @@ export async function historiaDaPessoa(pessoaId: string): Promise<EventoDaHistor
       tipo: ehAnotacao ? "anotacao" : "contato",
       titulo: ROTULO_CONTATO[c.tipo ?? ""] ?? "Contato",
       detalhe: c.observacao,
+      refId:       ehAnotacao ? c.id : null,
       autorNome:   ehAnotacao ? c.registrado_por_nome   : null,
       autorFuncao: ehAnotacao ? c.registrado_por_funcao : null,
     });
