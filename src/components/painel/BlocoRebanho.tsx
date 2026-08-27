@@ -637,8 +637,31 @@ function QuadroDoMovimento({
 
         {/* A frase da saída muda com o que existe, e nenhuma das versões
             afirma que não houve saída — só que não há registro. */}
+        {/* ── Os TRÊS estados da saída ─────────────────────────────────
+            Este rodapé tinha só dois ramos — "há saídas sem data" e
+            "nenhuma saída" — e faltava justamente o caso normal a partir
+            do momento em que a igreja começasse a registrar.
+
+            **Ele mentiu na primeira vez que foi usado.** Com três saídas
+            desenhadas logo acima (Gloria e Marcia transferidas em 19/04,
+            Leonardo falecido em 19/08) e nenhuma sem data, a condição
+            `semAno > 0` dava falso e caía no ramo final: "Nenhuma saída
+            registrada ainda", sob as três barras.
+
+            Os dois números são independentes e podem coexistir — saídas
+            com data viram barra, saídas sem data ficam de fora —, então
+            cada um tem a sua frase e as duas aparecem juntas quando é o
+            caso. Nenhuma delas afirma que não houve saída: dizem o que há
+            e o que falta registrar. */}
         <p className="text-[11px] text-muted-foreground leading-relaxed">
-          {sai.semAno > 0 ? (
+          {sai.comAno > 0 && (
+            <>
+              <strong className="font-medium text-foreground tabular-nums">{sai.comAno}</strong>
+              {" "}saída{sai.comAno > 1 ? "s" : ""} registrada{sai.comAno > 1 ? "s" : ""} com
+              data{sai.semAno > 0 ? ". " : "."}
+            </>
+          )}
+          {sai.semAno > 0 && (
             <>
               <strong className="font-medium text-warning-text tabular-nums">{sai.semAno}</strong>
               {" "}pessoa{sai.semAno > 1 ? "s" : ""} marcada{sai.semAno > 1 ? "s" : ""} como
@@ -646,7 +669,8 @@ function QuadroDoMovimento({
               saída</strong> — sem data não há ano onde pousar a barra. Basta editar a
               ficha e preencher a data de saída.
             </>
-          ) : (
+          )}
+          {sai.comAno === 0 && sai.semAno === 0 && (
             <>
               Nenhuma saída registrada ainda. A metade de baixo se preenche
               sozinha assim que uma ficha receber transferido, desligado ou

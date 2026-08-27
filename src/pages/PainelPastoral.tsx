@@ -367,71 +367,62 @@ export default function PainelPastoral() {
       )}
 
       {/* ── A faixa de indicadores ──────────────────────────────────────
-          Cada um leva à seção correspondente: a faixa deixou de ser só um
-          resumo e virou o índice da tela. Ver `Indicador` em
-          components/painel/blocos.tsx para o porquê do desenho. */}
+          **É um índice, não um painel de números.** Cada bloco leva à sua
+          seção, e nenhum mostra contagem — só ícone, rótulo e a seta.
+
+          Os números saíram a pedido da Telma em 27/08/2026. O motivo é bom:
+          eles competiam com o conteúdo. Cinco algarismos grandes no alto da
+          tela pedem leitura e prometem significado, mas cada um só repetia
+          algo que a seção logo abaixo diz melhor e com contexto — "292" não
+          quer dizer nada sozinho, e "292 pessoas ativas: 261 membros, 28
+          congregados e 3 visitantes" quer.
+
+          "Discipulado" já era assim desde o começo, porque são quatro abas
+          e não havia número honesto a exibir. Agora os cinco se leem igual.
+
+          Ver `Indicador` em components/painel/blocos.tsx: sem `valor`, o
+          bloco vira atalho e uma seta ocupa o lugar do algarismo. */}
       {resumo && (
         <FaixaDeIndicadores colunas={5}>
-          {/*
-            "Celebrações hoje" era um indicador aqui. Saiu: ele levava ao
-            MESMO lugar que "Agenda" — a seção passou a ser uma só —, e a
-            frase logo acima já abre com "Hoje: 3 aniversariantes".
-
-            Dois cartões para um destino, com o dado repetido na linha de
-            cima. O que ele mostrava não se perdeu: está na frase, e está na
-            lista do dia, onde cada nome é o link da felicitação.
-          */}
-          {/* Conta TUDO que a semana tem: compromissos da igreja, feriados,
-              calendário da CBB, reservas de espaço e as celebrações das
-              pessoas — a mesma soma da tira de sete dias.
-
-              Este indicador já errou duas vezes, e as duas por medir coisa
-              diferente da que a tira abre. Contou só celebrações enquanto a
-              seção mostrava a agenda ("11" sem que nenhum dos onze fosse um
-              culto), e depois só compromissos enquanto a tira somava os
-              dois. **A regra que sobrou: ele mede exatamente o que a tira
-              soma.** Por isso lê `dias`, e não uma contagem paralela. */}
+          {/* "Celebrações hoje" era um indicador aqui. Saiu: levava ao MESMO
+              lugar que "Agenda" — a seção passou a ser uma só —, e a frase
+              logo acima já abre com "Hoje: 3 aniversariantes". */}
           <Indicador
             rotulo="Agenda (7d)"
-            valor={dias.reduce((s, d) => s + d.total, 0)}
             tom="gold" icone={CalendarCheck}
             onClick={() => irParaSecao("agenda")} descricao="Ir para a Agenda"
           />
           <Indicador
-            rotulo="Cand. batismo" valor={candidatos?.elegiveis.length ?? 0} tom="info" icone={Droplets}
+            rotulo="Cand. batismo" tom="info" icone={Droplets}
             onClick={() => irParaSecao("candidatos")} descricao="Ir para Candidatos à membresia"
           />
-          {/* O tamanho do rol, e o atalho para a forma dele. Fica colado em
-              "Cand. batismo" porque os dois falam da mesma coisa vista de
-              dois lados: quem está para entrar e quem já entrou. */}
-          {/* O rebanho INTEIRO: membros, congregados e visitantes ativos.
-              Não é o rol — o rol são os 225 membros, e aparece dentro da
-              seção. Aqui o número tem de bater com o do título para onde o
-              clique leva; um indicador dizendo 225 aterrissando num título
-              que diz 293 é o tipo de desencontro que faz duvidar dos dois.
+          {/* Fica colado em "Cand. batismo" porque os dois falam da mesma
+              coisa vista de dois lados: quem está para entrar e quem já
+              entrou.
 
               Rótulo de uma palavra: "Rol de membros" truncava para
-              "ROL DE ME…" a 375px, que não diz nada. */}
+              "ROL DE ME…" a 375px, que não diz nada. E "Rebanho" é o certo
+              — a seção abre membros, congregados e visitantes, não só o
+              rol. */}
           <Indicador
-            rotulo="Rebanho" valor={totalDoRebanho} tom="violeta" icone={Users2}
+            rotulo="Rebanho" tom="violeta" icone={Users2}
             onClick={() => irParaSecao("rebanho")} descricao="Ir para O rebanho"
           />
-          {/* Era "Visit. sem contato", com o número de quem está há mais de
-              7 dias sem registro. Trocado a pedido por quem ESTÁ sendo
-              acompanhado — contatado, retornou, em relacionamento ou em
-              acompanhamento.
+          {/* Chamou-se "Visit. sem contato" e depois "Em acompanhamento".
+              Virou "Visitantes" a pedido, em 27/08/2026: sem número ao lado,
+              "Em acompanhamento" descrevia um recorte que o bloco já não
+              mostrava, e ainda era o rótulo mais comprido da faixa — o único
+              que truncava no celular.
 
-              Muda o tom junto: a ausência de contato é alerta, o
-              acompanhamento em curso é celebração. O número de quem está sem
-              contato continua na seção de visitantes, onde tem contexto. */}
+              O tom continua sendo o de celebração, e não o de alerta: quem
+              está sendo acompanhado é boa notícia. Quem está SEM contato
+              aparece dentro da seção, onde tem contexto. */}
           <Indicador
-            rotulo="Em acompanhamento" valor={visitantes?.emAcompanhamento ?? 0} tom="celebracao" icone={Users}
+            rotulo="Visitantes" tom="celebracao" icone={Users}
             onClick={() => irParaSecao("visitantes")} descricao="Ir para Acompanhamento de visitantes"
           />
-          {/* Sem número, de propósito: Discipulado são quatro abas, e cada
-              uma carrega os próprios dados. Ver a nota em `IndicadorProps`.
-              É o atalho para a seção mais ao fundo do painel — a que mais
-              custa alcançar rolando. */}
+          {/* O atalho para a seção mais ao fundo do painel — a que mais custa
+              alcançar rolando. */}
           <Indicador
             rotulo="Discipulado" tom="gold" icone={Sprout}
             onClick={() => irParaSecao("discipulado")} descricao="Ir para Acompanhamento do discipulado"
