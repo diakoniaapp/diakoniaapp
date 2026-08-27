@@ -19,6 +19,9 @@ import { MembroForm } from "@/components/membros/MembroForm";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { VinculosPessoaDialog } from "@/components/familias/VinculosPessoaDialog";
 import AtuacoesDialog from "@/components/membros/AtuacoesDialog";
+// Trocar a situação sem atravessar os seis passos do assistente — ver o
+// cabeçalho do arquivo para o porquê de ser um diálogo próprio.
+import SituacaoDialog from "@/components/membros/SituacaoDialog";
 import VisitanteDialog from "@/components/membros/VisitanteDialog";
 import { ListSkeleton, EmptyState, ErrorState } from "@/components/ListState";
 import { StatusMembroBadge } from "@/components/membros/StatusMembroBadge";
@@ -39,6 +42,8 @@ export interface Membro {
     email: string | null;
     bairro: string | null;
     status: "ativo" | "inativo" | "transferido" | "falecido" | "desligado";
+    /** Preenchida só para quem saiu do rol. Ver a migration 20260828180000. */
+    data_saida: string | null;
     estado_civil: string | null;
     // Campos calculados na query (não persistem na tabela)
     areas?: string[];
@@ -119,13 +124,16 @@ const tipoPessoaColor = TIPO_PESSOA_COR as Record<string, string>;
 // Fica em componente proprio porque cartao (celular) e tabela (desktop) usam o
 // mesmo conjunto: duplicar o menu seria garantir que um dia so um dos dois ganhe
 // uma acao nova.
-function AcoesPessoa({ m, onEditar, onVinculos, onAtuacoes, onVisitante, onContato, mostrarEditar = true }: {
+function AcoesPessoa({ m, onEditar, onVinculos, onAtuacoes, onVisitante, onContato, onSituacao, podeEditar, mostrarEditar = true }: {
   m: Membro;
   onEditar:    (m: Membro) => void;
   onVinculos:  (m: Membro) => void;
   onAtuacoes:  (m: Membro) => void;
   onVisitante: (m: Membro) => void;
   onContato:   (m: Membro) => void;
+  onSituacao:  (m: Membro) => void;
+  /** Trocar situação é escrita em `membros`: mesma porta do lápis. */
+  podeEditar:  boolean;
   /** Na tabela do desktop o nome ja abre a edicao; o lapis so repetiria. */
   mostrarEditar?: boolean;
 }) {
@@ -186,6 +194,25 @@ function AcoesPessoa({ m, onEditar, onVinculos, onAtuacoes, onVisitante, onConta
             <DropdownMenuItem onClick={() => onContato(m)}>
               <MessageCircle className="w-4 h-4 mr-2 text-muted-foreground" />
               Registrar contato
+            </DropdownMenuItem>
+          )}
+          {/* ── Alterar situação ────────────────────────────────────
+              Aqui, e não dentro do assistente de seis passos.
+
+              Marcar alguém como transferido custava abrir a ficha,
+              escolher o status e clicar "Próximo" cinco vezes por telas
+              que não têm nada a ver — contato, vínculos, quando serve,
+              acesso, revisão. Quem está organizando a membresia repete
+              isso dezenas de vezes seguidas, e cinco cliques inúteis por
+              pessoa viram motivo para não fazer.
+
+              Fica logo abaixo de "Ver ficha" porque é a segunda coisa
+              mais feita nesta lista, e antes dos vínculos porque muda o
+              que a pessoa É, não onde ela está ligada. */}
+          {podeEditar && (
+            <DropdownMenuItem onClick={() => onSituacao(m)}>
+              <ClipboardCheck className="w-4 h-4 mr-2 text-muted-foreground" />
+              Alterar situação
             </DropdownMenuItem>
           )}
           <DropdownMenuItem onClick={() => onVinculos(m)}>
@@ -527,6 +554,7 @@ export default function Membros() {
     const [vinculosPessoa, setVinculosPessoa] = useState<Membro | null>(null);
     const [atuacoesPessoa, setAtuacoesPessoa] = useState<Membro | null>(null);
     const [visitantePessoa, setVisitantePessoa] = useState<Membro | null>(null);
+    const [situacaoPessoa, setSituacaoPessoa] = useState<Membro | null>(null);
     const [contatoPessoa, setContatoPessoa] = useState<Membro | null>(null);
     const [salvandoContato, setSalvandoContato] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -904,6 +932,8 @@ export default function Membros() {
     onAtuacoes:  setAtuacoesPessoa,
     onVisitante: setVisitantePessoa,
     onContato:   setContatoPessoa,
+    onSituacao:  setSituacaoPessoa,
+    podeEditar:  canEdit,
   };
 
   const filtrando =
@@ -1497,6 +1527,15 @@ export default function Membros() {
                               open={!!visitantePessoa}
                               onOpenChange={(v) => { if (!v) setVisitantePessoa(null); }}
                               pessoa={visitantePessoa}
+                              onSaved={load}
+                            />
+                    {/* `onSaved={load}` recarrega a lista: sem isso a linha
+                        continuaria mostrando a etiqueta antiga logo depois de
+                        a gravação ter dado certo. */}
+                    <SituacaoDialog
+                              open={!!situacaoPessoa}
+                              onOpenChange={(v) => { if (!v) setSituacaoPessoa(null); }}
+                              pessoa={situacaoPessoa}
                               onSaved={load}
                             />
 
