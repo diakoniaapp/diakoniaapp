@@ -143,9 +143,13 @@ const ROTULO_CONTATO: Record<string, string> = {
  * FATO na vida da pessoa. São coisas diferentes, e a segunda é a que
  * interessa a quem abre a ficha.
  */
+/** Para onde a pessoa foi promovida: "membro", "congregado", "visitante". */
+function destinoDaPromocao(descricao: string | null): string | undefined {
+  return /para\s+(\w+)/i.exec(descricao ?? "")?.[1]?.toLowerCase();
+}
+
 function fraseDaPromocao(descricao: string | null): string {
-  const m = /para\s+(\w+)/i.exec(descricao ?? "");
-  const destino = m?.[1]?.toLowerCase();
+  const destino = destinoDaPromocao(descricao);
   if (destino === "membro")     return "Tornou-se membro";
   if (destino === "congregado") return "Tornou-se congregado";
   if (destino === "visitante")  return "Passou a visitante";
@@ -250,24 +254,53 @@ export async function historiaDaPessoa(pessoaId: string): Promise<EventoDaHistor
     if (!m.data) continue;
 
     /**
-     * A promoção carimbada pela importação também sai.
+     * ── A PROMOÇÃO A MEMBRO SAI QUANDO HÁ DATA DE ENTRADA ─────────────────
      *
-     * Mesmo sintoma do carimbo de cadastro, vindo de outra tabela: a ficha de
-     * Alberto Pereira Olimpio mostrava "Tornou-se membro · 02 de jun. de
-     * 2026" ACIMA de "Entrou no rol de membros · 25 de fev. de 2018". Ele é
-     * membro desde 2018; junho de 2026 é o dia em que a linha foi importada.
+     * Regra dita pela Telma em 27/08/2026: **"entrou na igreja" é a data de
+     * membresia**; a linha de `historico_membro` é a data em que a
+     * INFORMAÇÃO foi lançada no sistema, e essa não é fato da vida da
+     * pessoa.
      *
-     * Medido em 26/08/2026: `historico_membro` tem 113 linhas datadas em
-     * junho, espalhadas pelos 10 dias em que a importação rodou, e 101 em
-     * agosto — estas últimas são promoções feitas aqui, por gente, e ficam.
+     * O defeito que a expôs: a ficha de Neusa Maria Almeida Mendes Da Silva
+     * mostrava "Tornou-se membro · há 5 dias" logo acima de "Entrou no rol
+     * de membros · 02 de fev. de 1997". Ela é membro desde 1997; os cinco
+     * dias são de quando alguém a reclassificou no cadastro.
      *
-     * Não se perde informação: para membro, "Entrou no rol de membros" conta
-     * a mesma coisa com a data certa. A data verdadeira da promoção dos
-     * importados não existe em lugar nenhum, e inventá-la era o defeito.
+     * ── POR QUE A REGRA ANTERIOR NÃO PEGAVA ───────────────────────────────
+     *
+     * Ela recortava só as promoções da importação de junho
+     * (`origem_cadastro = importacao` E data antes de julho), supondo que o
+     * que viesse depois fosse promoção de verdade, feita por gente. É
+     * verdade que foi feita por gente — mas o que essa gente estava fazendo
+     * era **arrumar o cadastro de quem já era membro**, não recebendo
+     * ninguém na igreja. A data do trabalho de arrumação vazava para a
+     * linha do tempo como se fosse a data da entrada.
+     *
+     * ── POR QUE SUPRIMIR EM VEZ DE COMPARAR DATAS ─────────────────────────
+     *
+     * Seria possível esconder só quando a promoção fosse MUITO posterior à
+     * data de entrada, mantendo-a quando as duas coincidem. Não vale: nesse
+     * caso as duas linhas contam o mesmo fato com o mesmo dia, e a ficha
+     * repete "Tornou-se membro" e "Entrou no rol de membros" empilhados.
+     *
+     * Em qualquer dos casos, `data_entrada` é a fonte certa — e ela já vira
+     * a linha "Entrou no rol de membros", com a data verdadeira.
+     *
+     * Promoção a CONGREGADO continua aparecendo: é outro fato, e não tem
+     * nenhuma outra coluna que a conte.
      */
-    const promocaoCarimbada =
-      p?.origem_cadastro === "importacao" && m.data < "2026-07-01";
-    if (promocaoCarimbada) continue;
+    const viraMembro = destinoDaPromocao(m.descricao) === "membro";
+    if (viraMembro && p?.data_entrada) continue;
+
+    /**
+     * E a promoção carimbada pela importação sai de qualquer jeito.
+     *
+     * Cobre quem foi importado e NÃO tem data de entrada — 82 membros em
+     * 27/08/2026. Para eles a regra acima não se aplica, e o carimbo de
+     * junho continuaria encabeçando a linha do tempo. Medido: são 113
+     * linhas datadas nos 10 dias em que a importação rodou.
+     */
+    if (p?.origem_cadastro === "importacao" && m.data < "2026-07-01") continue;
 
     eventos.push({ data: m.data, tipo: "promocao", titulo: fraseDaPromocao(m.descricao) });
   }
