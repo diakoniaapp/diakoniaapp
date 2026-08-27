@@ -24,6 +24,13 @@ export interface EbdEsperado {
   matricula_id?: string | null;
   outra_classe_id?: string | null;
   outra_classe_nome?: string | null;
+  /**
+   * O que a pessoa é na OUTRA classe: aluno ou professor.
+   *
+   * Sem isto a tela diria "Classe Isac Rodrigues" sem dizer se ela senta ou
+   * ensina lá — e é essa diferença que decide se faz sentido movê-la.
+   */
+  outra_classe_papel?: "aluno" | "professor" | null;
 }
 
 export async function listarClasses(incluirInativas = false): Promise<EbdClasse[]> {
@@ -58,7 +65,19 @@ export async function matriculadosDaClasse(classeId: string) {
     .eq("classe_id", classeId)
     .eq("ativo", true);
   if (error) throw error;
-  return data ?? [];
+
+  // ── Ordem alfabética, e ordenada AQUI ────────────────────────────────────
+  //
+  // A consulta não tinha ORDER BY nenhum: a lista de chamada saía na ordem em
+  // que as matrículas foram criadas. Numa classe de 21 pessoas, procurar um
+  // nome virava leitura linha a linha.
+  //
+  // A ordenação é no cliente, e não um `.order()` na consulta, por causa dos
+  // acentos: a comparação do Postgres depende do collation do banco, e
+  // `localeCompare` com pt-BR põe Ângela junto de Ana, onde quem lê procura.
+  return (data ?? []).sort((a: any, b: any) =>
+    (a.membros?.nome_completo ?? "").localeCompare(b.membros?.nome_completo ?? "", "pt-BR"),
+  );
 }
 
 export async function matricular(pessoaId: string, classeId: string) {
@@ -66,6 +85,26 @@ export async function matricular(pessoaId: string, classeId: string) {
     .from("ebd_matriculas")
     .insert({ pessoa_id: pessoaId, classe_id: classeId, ativo: true });
   if (error) throw error;
+}
+
+/**
+ * Move a pessoa para esta classe, encerrando a matrícula que ela tiver em
+ * outra. Devolve o id da matrícula nesta classe.
+ *
+ * Existe porque `matricular` é um INSERT puro e o índice único do banco é
+ * `(pessoa_id, classe_id)`: ele impede a mesma pessoa duas vezes na MESMA
+ * classe e permite, sem reclamar, a mesma pessoa em duas classes diferentes.
+ * Enquanto a aba "Esperados" escondia quem já estava em outra classe, isso
+ * não podia acontecer por clique. Agora que ela mostra, pode — e por isso a
+ * ação virou uma RPC que faz as duas escritas numa transação só.
+ */
+export async function moverAluno(pessoaId: string, classeDestinoId: string): Promise<string> {
+  const { data, error } = await supabase.rpc("ebd_mover_aluno", {
+    p_pessoa_id: pessoaId,
+    p_classe_destino: classeDestinoId,
+  });
+  if (error) throw error;
+  return data as string;
 }
 
 export async function desmatricular(matriculaId: string) {
@@ -162,10 +201,20 @@ export async function listarProfessores(classeId: string): Promise<EbdProfessor[
     .from("ebd_professores")
     .select("id, classe_id, pessoa_id, tipo, ativo, desde, membros(id, nome_completo)")
     .eq("classe_id", classeId)
-    .eq("ativo", true)
-    .order("tipo");
+    .eq("ativo", true);
   if (error) throw error;
-  return (data ?? []) as EbdProfessor[];
+
+  // ── Por hierarquia, não por alfabeto ─────────────────────────────────────
+  //
+  // Era `.order("tipo")`, e `tipo` é texto: a ordem alfabética punha
+  // "auxiliar" antes de "principal". A tela mostrava a auxiliar em cima da
+  // professora responsável pela classe — exatamente ao contrário do que a
+  // palavra "principal" significa.
+  const ORDEM: Record<string, number> = { principal: 0, auxiliar: 1, substituto: 2 };
+  return ((data ?? []) as EbdProfessor[]).sort((a, b) =>
+    (ORDEM[a.tipo] ?? 9) - (ORDEM[b.tipo] ?? 9) ||
+    (a.membros?.nome_completo ?? "").localeCompare(b.membros?.nome_completo ?? "", "pt-BR"),
+  );
 }
 
 export async function adicionarProfessor(

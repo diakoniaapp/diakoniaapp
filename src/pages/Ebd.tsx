@@ -63,10 +63,22 @@ export default function Ebd() {
           .eq("classe_id", c.id)
           .eq("ativo", true);
         const { data: esps } = await supabase.rpc("esperados_da_classe", { p_classe_id: c.id });
+        // ── Só quem está SEM classe ──────────────────────────────────────
+        //
+        // A função passou a devolver também quem cabe aqui mas já estuda ou
+        // ensina em outra classe (migration 20260828220000), para a
+        // professora não sentir falta de um nome sem saber onde ele está.
+        //
+        // O cartão do índice, porém, responde outra pergunta: quantos ainda
+        // precisam ser acolhidos. Contar a lista inteira aqui somaria gente
+        // já acomodada e inflaria o número — na Classe Professora Edna
+        // seriam 94 no lugar de 81.
+        const livres = ((esps as any[] | null) ?? [])
+          .filter(e => !e.ja_matriculado && !e.outra_classe_id);
         enriched.push({
           ...c,
           qtd_matriculados: qtdMat ?? 0,
-          qtd_esperados: (esps as any[] | null)?.length ?? 0,
+          qtd_esperados: livres.length,
         });
       }
       setClasses(enriched);

@@ -12017,6 +12017,13 @@ export type Database = {
         Args: { p_classe_id: string; p_data: string }
         Returns: string
       }
+      // Acrescentados à mão em 27/08/2026 (migration 20260828220000): a
+      // coluna outra_classe_papel e a função ebd_mover_aluno. Uma regeneração
+      // do types.ts as traz do banco e descarta este comentário — reconferir.
+      ebd_mover_aluno: {
+        Args: { p_classe_destino: string; p_pessoa_id: string }
+        Returns: string
+      }
       esperados_da_classe: {
         Args: { p_classe_id: string }
         Returns: {
@@ -12027,6 +12034,7 @@ export type Database = {
           nome_completo: string
           outra_classe_id: string
           outra_classe_nome: string
+          outra_classe_papel: string
           pessoa_id: string
           sexo: string
         }[]

@@ -100,20 +100,38 @@ export function ProfessoresBloco({ classeId }: Props) {
           </p>
         )}
 
-        <div className="space-y-1.5">
+        {/* ── Cartões lado a lado, o principal primeiro ────────────────────
+            Eram linhas empilhadas, e a ordem vinha de `.order("tipo")` — que
+            é texto, então "auxiliar" vinha antes de "principal". A tela punha
+            a auxiliar em cima da responsável pela classe, o contrário do que
+            a palavra significa. A ordem agora é por hierarquia, no serviço.
+
+            Lado a lado porque uma equipe de duas ou três pessoas se lê de uma
+            vez; empilhada, ela ocupava a altura de uma lista sem ser uma.
+
+            `items-start` e não `items-center`: nome comprido quebra em duas
+            linhas, e com centro os cartões da fileira ficariam desalinhados
+            pelo meio. */}
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 items-start">
           {professores.map(p => (
-            <div key={p.id} className="flex items-center justify-between border rounded-md px-3 py-2">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-sm font-medium truncate">
+            <div
+              key={p.id}
+              className="flex items-start justify-between gap-2 border rounded-md px-3 py-2"
+            >
+              {/* min-w-0 no item de flex com texto truncável — a mesma
+                  armadilha que já apareceu seis vezes neste projeto. */}
+              <div className="min-w-0 space-y-1">
+                <p className="text-sm font-medium leading-snug break-words">
                   {p.membros?.nome_completo ?? "Pessoa removida"}
-                </span>
+                </p>
                 <Badge variant="outline" className={`text-xs ${tipoCor[p.tipo]}`}>
                   {tipoLabel[p.tipo]}
                 </Badge>
               </div>
               <Button variant="ghost" size="sm" disabled={busy}
                 onClick={() => remover(p.id)}
-                className="text-destructive hover:text-destructive" title="Remover professor">
+                className="text-destructive hover:text-destructive shrink-0 -mr-1"
+                title="Remover professor">
                 <UserMinus className="w-3.5 h-3.5" />
               </Button>
             </div>

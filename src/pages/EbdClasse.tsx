@@ -11,11 +11,11 @@ import {
 } from "@/components/ui/tabs";
 import {
   Loader2, ArrowLeft, UserPlus, UserMinus, Users, GraduationCap, Search, Pencil, Trash2,
-  PowerOff, RotateCcw,
+  PowerOff, RotateCcw, ArrowRightLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  carregarClasse, esperadosDaClasse, matriculadosDaClasse,
+  carregarClasse, esperadosDaClasse, matriculadosDaClasse, moverAluno,
   matricular, desmatricular, excluirClasse, desativarClasse, reativarClasse,
   type EbdClasse, type EbdEsperado,
 } from "@/services/ebdService";
@@ -46,6 +46,8 @@ export default function EbdClasse() {
   const { classeId = "" } = useParams();
   const [classe, setClasse] = useState<EbdClasse | null>(null);
   const [esperados, setEsperados] = useState<EbdEsperado[]>([]);
+  /** Quem está prestes a ser trazido de outra classe. Null = diálogo fechado. */
+  const [aMover, setAMover] = useState<EbdEsperado | null>(null);
   const [matriculados, setMatriculados] = useState<MatRow[]>([]);
 
   const [filtro, setFiltro] = useState("");
@@ -97,6 +99,27 @@ export default function EbdClasse() {
       await recarregar();
     } catch (e: any) {
       toast.error(e?.message ?? "Erro ao matricular");
+    } finally { setBusy(false); }
+  }
+
+  /**
+   * Trazer para cá quem já está em outra classe.
+   *
+   * Não é o mesmo que matricular: o índice único do banco é
+   * `(pessoa_id, classe_id)`, então um INSERT deixaria a pessoa ATIVA nas
+   * duas classes — em duas listas de chamada, contada duas vezes. A RPC
+   * encerra a anterior e cria a nova na mesma transação.
+   */
+  async function handleMover() {
+    if (!aMover) return;
+    setBusy(true);
+    try {
+      await moverAluno(aMover.pessoa_id, classeId);
+      toast.success(`${aMover.nome_completo} veio para esta classe`);
+      setAMover(null);
+      await recarregar();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erro ao mover");
     } finally { setBusy(false); }
   }
 
@@ -170,6 +193,11 @@ export default function EbdClasse() {
   const espFiltrados = esperados
     .filter(e => !e.ja_matriculado)
     .filter(e => e.nome_completo.toLowerCase().includes(filtroLower));
+
+  // Quem cabe aqui e não está em classe nenhuma — os que dependem só de um
+  // clique. Separado de `espFiltrados` porque são perguntas diferentes:
+  // a aba mostra TODO MUNDO que cabe, o cartão conta quem falta acolher.
+  const semClasse = esperados.filter(e => !e.ja_matriculado && !e.outra_classe_id);
 
   // Todos que cabem no perfil, dentro e fora. É o denominador que dá sentido
   // aos outros dois números.
@@ -252,12 +280,15 @@ export default function EbdClasse() {
           <p className="text-xs text-muted-foreground">Matriculados</p>
           <p className="text-2xl font-semibold text-success-text">{matriculados.length}</p>
         </CardContent></Card>
-        {/* Esperados = quem falta. Zero aqui quer dizer classe completa, e
-            não classe vazia — por isso o número apaga em vez de alarmar. */}
+        {/* "Sem classe" e não "Esperados": desde que a aba passou a mostrar
+            também quem está em OUTRA classe, "esperados" virou duas coisas
+            diferentes. Este número é o acionável — quem não está em lugar
+            nenhum. Zero aqui quer dizer que ninguém do perfil está solto, e
+            não classe vazia; por isso o número apaga em vez de alarmar. */}
         <Card><CardContent className="py-3 text-center">
-          <p className="text-xs text-muted-foreground">Esperados</p>
-          <p className={`text-2xl font-semibold ${espFiltrados.length > 0 ? "text-warning-text" : "text-muted-foreground"}`}>
-            {esperados.filter(e => !e.ja_matriculado).length}
+          <p className="text-xs text-muted-foreground">Sem classe</p>
+          <p className={`text-2xl font-semibold ${semClasse.length > 0 ? "text-warning-text" : "text-muted-foreground"}`}>
+            {semClasse.length}
           </p>
         </CardContent></Card>
         {/* "Não matriculados" contava 277 no Berçário: todo mundo da igreja
@@ -335,6 +366,13 @@ export default function EbdClasse() {
 
         {/* Esperados (faixa etária) */}
         <TabsContent value="esperados" className="space-y-2">
+          {/* Dito uma vez no topo, em vez de repetido em cada linha. */}
+          {espFiltrados.some(e => e.outra_classe_id) && (
+            <p className="text-xs text-muted-foreground">
+              Quem já tem classe aparece aqui de propósito, esmaecido: assim
+              nenhum nome do perfil desta classe fica sem resposta.
+            </p>
+          )}
           {/* Dois vazios diferentes, e confundi-los seria ruim: uma classe
               completa e uma classe sem candidato pedem coisas opostas de
               quem lê. */}
@@ -352,32 +390,68 @@ export default function EbdClasse() {
                   <p className="text-xs">
                     {classe.idade_min ?? 0}–{classe.idade_max ?? "+"} anos ·{" "}
                     {classe.genero === "misto" ? "ambos os sexos" : classe.genero}.
-                    Só entram pessoas ativas com data de nascimento preenchida,
-                    que não sejam professores e que ainda não estejam em outra classe.
+                    Só entram pessoas ativas com data de nascimento preenchida
+                    e que não sejam professores desta classe.
                   </p>
                 </>
               )}
             </div>
           )}
-          {espFiltrados.map((e) => (
-            <Card key={e.pessoa_id}>
-              <CardContent className="flex items-center justify-between py-3 gap-3">
-                <div className="min-w-0 flex-1">
-                  <NomePessoa id={e.pessoa_id} nome={e.nome_completo} className="font-medium truncate block" />
-                  <p className="text-xs text-muted-foreground">
-                    {e.idade ?? "?"} anos
-                    {e.sexo && ` · ${e.sexo}`}
-                  </p>
-                </div>
-                <Button
-                  size="sm" onClick={() => handleMatricular(e.pessoa_id)}
-                  disabled={busy} className="gap-1.5"
-                >
-                  <UserPlus className="w-4 h-4" /> Matricular
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
+          {/* ── Onde cada pessoa do perfil está ─────────────────────────────
+              A aba escondia quem já estava em outra classe, e sumir é a pior
+              resposta para quem coordena: a professora que procura um aluno de
+              12 anos e não o encontra não sabe se ele não existe, se está sem
+              data de nascimento, ou se está na classe ao lado.
+
+              Agora aparece todo mundo do perfil, cada um com o lugar onde
+              está. Quem já tem classe fica esmaecido e com o botão em contorno
+              — presente para consulta, sem competir com quem depende de um
+              clique. */}
+          {espFiltrados.map((e) => {
+            const alocado = !!e.outra_classe_id;
+            const ensina = e.outra_classe_papel === "professor";
+            const aluno = e.sexo === "feminino" ? "Aluna" : "Aluno";
+            return (
+              <Card key={e.pessoa_id} className={alocado ? "bg-muted/30" : undefined}>
+                <CardContent className="flex items-center justify-between py-3 gap-3">
+                  <div className="min-w-0 flex-1">
+                    <NomePessoa id={e.pessoa_id} nome={e.nome_completo} className="font-medium truncate block" />
+                    <p className="text-xs text-muted-foreground">
+                      {e.idade ?? "?"} anos
+                      {e.sexo && ` · ${e.sexo}`}
+                    </p>
+                    {alocado && (
+                      <Badge
+                        variant="outline"
+                        className={`mt-1 text-xs font-normal ${ensina
+                          ? "border-info-line text-info-text"
+                          : "border-border text-muted-foreground"}`}
+                      >
+                        {ensina ? "Ensina em" : `${aluno} em`} {e.outra_classe_nome}
+                      </Badge>
+                    )}
+                  </div>
+                  {alocado ? (
+                    <Button
+                      size="sm" variant="outline"
+                      onClick={() => setAMover(e)}
+                      disabled={busy} className="gap-1.5 shrink-0"
+                      title={`Trazer de ${e.outra_classe_nome} para esta classe`}
+                    >
+                      <ArrowRightLeft className="w-4 h-4" /> Trazer
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm" onClick={() => handleMatricular(e.pessoa_id)}
+                      disabled={busy} className="gap-1.5 shrink-0"
+                    >
+                      <UserPlus className="w-4 h-4" /> Matricular
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </TabsContent>
 
       </Tabs>
@@ -389,6 +463,44 @@ export default function EbdClasse() {
         classe={classe}
         onSaved={recarregar}
       />
+
+      {/* ── Confirmar a transferência ────────────────────────────────────
+          Trazer alguém de outra classe TIRA a pessoa de lá — é decisão de
+          duas classes, não de uma. Um clique sem pergunta esvaziaria a lista
+          de chamada da colega sem que ela soubesse.
+
+          AlertDialog e não confirm(): a caixa nativa é bloqueada em navegador
+          embarcado, devolve "cancelou" sem perguntar, e o botão simplesmente
+          não faria nada no celular — ver Risco 3 do CLAUDE.md. */}
+      <AlertDialog open={!!aMover} onOpenChange={(o) => !o && setAMover(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Trazer para esta classe?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong>{aMover?.nome_completo}</strong>{" "}
+              {aMover?.outra_classe_papel === "professor"
+                ? "ensina"
+                : aMover?.sexo === "feminino" ? "é aluna" : "é aluno"} em{" "}
+              <strong>{aMover?.outra_classe_nome}</strong>.
+              {aMover?.outra_classe_papel === "professor" ? (
+                <> Continuará ensinando lá e passará a estudar em{" "}
+                  <strong>{classe.nome}</strong>.</>
+              ) : (
+                <> A matrícula em <strong>{aMover?.outra_classe_nome}</strong> será
+                  encerrada e a pessoa passará a constar na lista de chamada de{" "}
+                  <strong>{classe.nome}</strong>. O histórico da classe anterior
+                  é preservado.</>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleMover} disabled={busy}>
+              Trazer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Confirmar desativação (soft) */}
       <AlertDialog open={confirmDeactivate} onOpenChange={setConfirmDeactivate}>
