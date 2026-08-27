@@ -212,6 +212,48 @@
                         hsl(36 22% 92%) 40%,
                         hsl(30 28% 86%) 100%);
 
+    /* ── DOURADO DE VERDADE ──────────────────────────────────────────
+       A família chamada `--gold` neste sistema **não é dourada**: é hue
+       12, terracota. É por isso que o botão "Entrar" saía cor de tijolo
+       numa tela onde se pediu dourado. O CLAUDE.md já registra a
+       armadilha irmã — `--teal` aqui é âmbar, não azul-esverdeado.
+
+       Renomear `--gold` mexeria em dezenas de telas. Então o dourado
+       entra como família própria, e os mesmos tons do ícone da aba:
+       hue 40-45, do claro de reflexo ao escuro de sombra. */
+    --dourado:        41 57% 50%;
+    --dourado-claro:  46 81% 84%;
+    --dourado-escuro: 38 66% 41%;
+    /* 31% e não 33%: medido no navegador, a 33% o dourado-text mede
+       4,44:1 sobre o fundo da tela de acesso — a um fio do mínimo de
+       4,5:1 para texto pequeno. A 31% mede 4,91:1. */
+    --dourado-text:   40 62% 31%;
+    --dourado-soft:   45 70% 95%;
+    --dourado-line:   43 50% 80%;
+
+    /* Cinco paradas, não duas. Duas dão um degradê; cinco dão metal —
+       a luz entra depressa, o meio-tom demora, e a sombra fecha. A
+       parada de 18% é o brilho, a mesma faixa estreita que o logotipo
+       tem gravada. */
+    --gradient-dourado: linear-gradient(135deg,
+                        hsl(46 81% 84%)  0%,
+                        hsl(44 78% 79%) 18%,
+                        hsl(44 76% 71%) 38%,
+                        hsl(41 67% 60%) 66%,
+                        hsl(38 66% 41%) 100%);
+
+    /* O gradiente do BOTÃO é mais curto que o da marca: não desce até o
+       âmbar. Com a rampa inteira, a tinta escura do rótulo media 3,4:1
+       na ponta de baixo; parando em hsl(41 57% 50%) mede 4,8:1. */
+    --gradient-dourado-botao: linear-gradient(135deg,
+                        hsl(44 78% 79%)  0%,
+                        hsl(44 76% 71%) 22%,
+                        hsl(41 67% 60%) 58%,
+                        hsl(41 57% 50%) 100%);
+    /* A tinta gravada no metal: marrom muito escuro, não branco. Branco
+       sobre ouro mede 2:1 e é o que fazia o botão parecer mostarda. */
+    --dourado-tinta:  37 70% 16%;
+
     /* ── Sombras ─────────────────────────────────────────────── */
     /* Cartao separa-se do fundo pela BORDA, nao pela sombra.
        Antes eram tres sinais para a mesma coisa — borda, shadow-sm do
@@ -351,6 +393,28 @@
                         hsl(25 18% 8%)  100%);
     --gradient-gold:  linear-gradient(135deg, hsl(12 52% 56%), hsl(12 40% 42%));
     --gradient-verse: linear-gradient(135deg, hsl(26 14% 16%), hsl(26 12% 13%));
+
+    /* O dourado no escuro: mais claro e menos saturado, senão vira
+       marrom sobre fundo escuro. Os tons de superfície invertem —
+       `soft` deixa de ser quase branco e vira um dourado bem sombrio. */
+    --dourado:        41 60% 58%;
+    --dourado-claro:  46 81% 84%;
+    --dourado-escuro: 39 58% 44%;
+    --dourado-text:   43 58% 66%;
+    --dourado-soft:   41 26% 14%;
+    --dourado-line:   42 32% 30%;
+    --gradient-dourado: linear-gradient(135deg,
+                        hsl(46 81% 84%)  0%,
+                        hsl(44 78% 79%) 18%,
+                        hsl(44 76% 71%) 38%,
+                        hsl(41 67% 60%) 66%,
+                        hsl(39 62% 44%) 100%);
+    --gradient-dourado-botao: linear-gradient(135deg,
+                        hsl(44 78% 79%)  0%,
+                        hsl(44 76% 71%) 22%,
+                        hsl(41 67% 60%) 58%,
+                        hsl(41 57% 52%) 100%);
+    --dourado-tinta:  37 70% 14%;
     --gradient-auth:  linear-gradient(160deg,
                         hsl(26 16% 14%) 0%,
                         hsl(26 14% 11%) 45%,
@@ -473,6 +537,22 @@
   .divider-gold {
     height: 1px;
     background: linear-gradient(to right, transparent, hsl(12 42% 56% / 0.35), transparent);
+    border: none;
+    margin: 1rem 0;
+  }
+
+  /* O divisor da tela de acesso, em dourado de verdade — o de cima é
+     terracota, como toda a família de mesmo nome neste sistema. Três
+     paradas em vez de uma: o brilho no centro é o que faz um fio de 1px
+     parecer metal em vez de risco. */
+  .divider-dourado {
+    height: 1px;
+    background: linear-gradient(to right,
+      transparent,
+      hsl(var(--dourado) / 0.4),
+      hsl(var(--dourado-claro) / 0.85),
+      hsl(var(--dourado) / 0.4),
+      transparent);
     border: none;
     margin: 1rem 0;
   }

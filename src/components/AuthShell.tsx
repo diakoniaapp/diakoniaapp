@@ -109,7 +109,7 @@ export function AuthShell({ children, versiculoFixo, wide = false, semVersiculo 
         {/* Cruz sutil — canto superior direito */}
         <svg
           viewBox="0 0 200 200"
-          className="absolute -top-10 -right-10 w-64 h-64 text-gold/5 dark:text-gold/4"
+          className="absolute -top-10 -right-10 w-64 h-64 text-dourado/[0.09] dark:text-dourado/[0.07]"
           fill="none"
           stroke="currentColor"
           strokeWidth="1.5"
@@ -118,8 +118,8 @@ export function AuthShell({ children, versiculoFixo, wide = false, semVersiculo 
           <line x1="40" y1="80" x2="160" y2="80" />
         </svg>
         {/* Círculo — canto inferior esquerdo */}
-        <div className="absolute -bottom-24 -left-24 w-72 h-72 rounded-full border border-gold/8 dark:border-gold/6" />
-        <div className="absolute -bottom-16 -left-16 w-48 h-48 rounded-full border border-gold/6 dark:border-gold/4" />
+        <div className="absolute -bottom-24 -left-24 w-72 h-72 rounded-full border border-dourado/[0.13] dark:border-dourado/[0.10]" />
+        <div className="absolute -bottom-16 -left-16 w-48 h-48 rounded-full border border-dourado/[0.09] dark:border-dourado/[0.07]" />
       </div>
 
       {/* ── Conteúdo central ── */}
@@ -128,14 +128,21 @@ export function AuthShell({ children, versiculoFixo, wide = false, semVersiculo 
         {/* Logo com animação de entrada */}
         <div className="text-center mb-8 animate-logo-appear">
           <div className="inline-flex flex-col items-center gap-3">
+            {/* Duas sombras empilhadas: a escura dá o descolamento do
+                fundo, a dourada difusa é a luz que o metal devolve em
+                volta de si. Só a escura fazia a marca parecer recortada
+                e colada; só a dourada, sem peso. */}
             <div className="drop-shadow-[0_3px_10px_rgba(0,0,0,0.20)] dark:drop-shadow-[0_3px_14px_rgba(0,0,0,0.50)]">
-              <BrandMark className="text-[4rem]" />
+              <BrandMark className="text-[4rem]" trocaPorTema />
             </div>
+            {/* A assinatura da marca, em dourado. Era cinza a 50% — a
+                mesma tinta do rodapé, o que fazia as duas coisas
+                parecerem igualmente descartáveis. */}
             <div className="space-y-0.5">
-              <p className="text-xs tracking-[0.22em] uppercase font-semibold text-foreground/50 dark:text-foreground/40 leading-relaxed">
+              <p className="text-xs tracking-[0.22em] uppercase font-semibold text-dourado-text leading-relaxed">
                 Conectando Pessoas,
               </p>
-              <p className="text-xs tracking-[0.22em] uppercase font-semibold text-foreground/50 dark:text-foreground/40 leading-relaxed">
+              <p className="text-xs tracking-[0.22em] uppercase font-semibold text-dourado-text leading-relaxed">
                 Organizando o Propósito
               </p>
             </div>
@@ -154,12 +161,25 @@ export function AuthShell({ children, versiculoFixo, wide = false, semVersiculo 
           </div>
         )}
 
-        {/* ── Rodapé ── */}
-        <p className="text-center text-xs text-foreground/25 dark:text-foreground/20 mt-5 tracking-wide leading-relaxed animate-fade-in-up delay-400">
-          DiakoniaApp — Sistema de Gestão Ministerial
-          <br />
-          CNPJ: 34.926.658/0001-40
-        </p>
+        {/* ── Rodapé ──────────────────────────────────────────────────
+            Estava a 25% de opacidade: mede cerca de 1,8:1 sobre o fundo
+            claro, contra o mínimo de 4,5:1 — texto que ocupa a página e
+            não se deixa ler. E, sem o versículo acima, o rodapé passou a
+            ser o único fecho da tela; colado no card, parecia sobra.
+
+            Três consertos: a régua dourada dá o fim da composição, a
+            razão social sobe para uma tinta legível, e o CNPJ desce para
+            uma linha menor — são duas informações de peso diferente, e
+            antes tinham exatamente o mesmo. */}
+        <div className="mt-8 animate-fade-in-up delay-300">
+          <div className="mx-auto w-24 divider-dourado opacity-70" />
+          <p className="text-center text-xs text-foreground/75 dark:text-foreground/70 tracking-wide">
+            DiakoniaApp <span className="text-dourado-text">—</span> Sistema de Gestão Ministerial
+          </p>
+          <p className="text-center text-[0.6875rem] text-foreground/65 dark:text-foreground/60 tracking-wider tabular-nums mt-1">
+            CNPJ: 34.926.658/0001-40
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -226,7 +246,13 @@ export function AuthCampo({
           className={cn(
             "pl-9 h-11 bg-background/70 dark:bg-background/60",
             "border-border/70 dark:border-border/60",
-            "focus:border-gold/60 dark:focus:border-gold/50",
+            // O foco em dourado, para casar com o botão Entrar.
+            "focus:border-dourado/70 dark:focus:border-dourado/60",
+            // O anel do shadcn usa `--ring`, que no tema escuro é
+            // hsl(12 48% 60%) — terracota. Aparecia salmão em volta do
+            // campo, a única cor fria numa tela de ouro. Aqui, e só aqui,
+            // ele vira dourado.
+            "focus-visible:ring-dourado/45 focus-visible:ring-offset-0",
             "placeholder:text-muted-foreground/50",
             "transition-colors",
             sufixo ? "pr-10" : "pr-3",

@@ -34,6 +34,19 @@ export default {
           // `text-gold-text`: para quando o dourado é a letra, e não o fundo.
           text: "hsl(var(--gold-text))",
         },
+        // ⚠️ `gold` acima é TERRACOTA (hue 12), apesar do nome. O dourado de
+        // verdade é este — ver o comentário em index.css.
+        dourado: {
+          DEFAULT: "hsl(var(--dourado))",
+          claro:   "hsl(var(--dourado-claro))",
+          escuro:  "hsl(var(--dourado-escuro))",
+          text:    "hsl(var(--dourado-text))",
+          soft:    "hsl(var(--dourado-soft))",
+          line:    "hsl(var(--dourado-line))",
+          // A tinta gravada no metal: o marrom escuro que vai EM CIMA do
+          // dourado. Branco sobre ouro mede 2:1 — ver o comentário no CSS.
+          tinta:   "hsl(var(--dourado-tinta))",
+        },
         teal: {
           DEFAULT: "hsl(var(--teal))",
           foreground: "hsl(var(--teal-foreground))",
@@ -155,6 +168,8 @@ export default {
       backgroundImage: {
         'gradient-hero': 'var(--gradient-hero)',
         'gradient-gold': 'var(--gradient-gold)',
+        'gradient-dourado': 'var(--gradient-dourado)',
+        'gradient-dourado-botao': 'var(--gradient-dourado-botao)',
         'gradient-verse': 'var(--gradient-verse)',
       },
       boxShadow: {

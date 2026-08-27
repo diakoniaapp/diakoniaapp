@@ -798,13 +798,31 @@ function TiraDaSemana({
               hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring
               ${ehAberto ? "border-gold bg-muted ring-1 ring-gold/40" : n === 0 ? "border-dashed opacity-60" : ""}`}
           >
+            {/* ── Quem é o número grande ────────────────────────────────
+                Era a QUANTIDADE de itens, com o dia do mês miúdo embaixo.
+                Invertido a pedido, e a inversão tem razão de ser: esta
+                tira é o SELETOR do dia. O que se escolhe aqui é uma data,
+                não uma contagem — então a data é a identidade do ladrilho
+                e a contagem é a anotação sobre ela.
+
+                O sinal disso estava na própria tela: para saber que dia
+                era "SÁB" era preciso ler o número miúdo, enquanto o número
+                grande respondia a uma pergunta que ninguém tinha feito
+                ainda. Agora o ladrilho diz "sábado, dia 29" e, em voz
+                baixa, "tem 1 coisa". */}
             <p className={`text-[10px] uppercase tracking-wide truncate ${ehHoje ? "text-gold-text" : "text-muted-foreground"}`}>
               {rotuloCurto(d.data, hojeIso)}
             </p>
             <p className="text-base font-semibold leading-none tabular-nums mt-0.5">
+              {dia}
+            </p>
+            {/* O traço, e não "0", quando o dia está vazio: zero é um
+                número e entra na leitura como se fosse contagem de algo.
+                E a linha existe sempre, mesmo vazia, para os sete
+                ladrilhos manterem a mesma altura. */}
+            <p className="text-[10px] text-muted-foreground/70 tabular-nums">
               {n === 0 ? <span className="text-muted-foreground/50">–</span> : n}
             </p>
-            <p className="text-[10px] text-muted-foreground/70 tabular-nums">{dia}</p>
           </button>
         );
       })}

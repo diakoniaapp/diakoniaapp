@@ -13,11 +13,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { rotaInicialPorPapel } from "@/components/layout/navConfig";
 import { toast } from "sonner";
 import {
-  AuthShell, AuthCard, AuthCampo, AuthErro,
-  getVersiculoAleatorio, getSaudacao,
+  AuthShell, AuthCard, AuthCampo, AuthErro, getSaudacao,
 } from "@/components/AuthShell";
 import {
-  Eye, EyeOff, Loader2, Phone, Lock, ArrowLeft, CheckCircle2,
+  Eye, EyeOff, Loader2, Phone, Lock, ArrowLeft, CheckCircle2, MessageCircle,
 } from "lucide-react";
 
 // ── Tipos de tela ──────────────────────────────────────────
@@ -76,7 +75,6 @@ export default function Auth() {
   const [lembrar, setLembrar]   = useState(!!localStorage.getItem("diakonia_tel"));
   const [busy, setBusy]         = useState(false);
   const [erroMsg, setErroMsg]   = useState<string | null>(null);
-  const [versiculo]             = useState(getVersiculoAleatorio);
 
   // ── Auto-login via params do link (Opção C) ──────────────────────────────
   useEffect(() => {
@@ -188,27 +186,37 @@ export default function Auth() {
     </button>
   );
 
+  // Sem versículo abaixo do card: a tela de entrada tem uma tarefa só, e
+  // o texto solto embaixo competia com ela pela atenção. O versículo
+  // continua em VERSICULOS_AUTH, para as demais telas do fluxo.
   return (
-    <AuthShell versiculoFixo={versiculo}>
+    <AuthShell semVersiculo>
 
       {/* ══════ TELA LOGIN ══════ */}
       {tela === "login" && (
         <AuthCard>
           {/* Cabeçalho */}
           <div className="space-y-1">
+            {/* A cruz era o emoji ✝️, que o Windows desenha num quadrado
+                ROXO — a única mancha fria de uma tela toda quente. O mesmo
+                sinal existe como caractere de texto (U+271D, sem o seletor
+                de emoji), e como texto ele herda a cor que se mandar. */}
             <h1 className="font-serif text-2xl font-bold tracking-wide text-foreground">
-              Graça e Paz ✝️
+              Graça e Paz{" "}
+              <span className="text-dourado-text/90 font-normal align-baseline" aria-hidden>
+                ✝
+              </span>
             </h1>
-            <p className="text-sm text-muted-foreground font-medium">
-              Que Deus abençoe sua jornada, {getSaudacao().toLowerCase()}! 🙏
-            </p>
-            <p className="text-xs text-muted-foreground/60 pt-0.5">
+            {/* Media 2,66:1 no claro e 2,81:1 no escuro com
+                `muted-foreground/60`. Ver o comentário sobre o token. */}
+            <p className="text-sm text-foreground/65 pt-0.5">
               Entre com seu telefone e senha para continuar.
             </p>
           </div>
 
-          {/* Divisor dourado */}
-          <div className="divider-gold" />
+          {/* Divisor dourado — agora dourado de verdade. O `divider-gold`
+              que estava aqui é terracota, como toda a família `gold`. */}
+          <div className="divider-dourado" />
 
           <form onSubmit={onSignIn} className="space-y-4">
             <AuthCampo
@@ -226,11 +234,11 @@ export default function Auth() {
             />
 
             {/* Lembrar telefone */}
-            <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer select-none group">
+            <label className="flex items-center gap-2 text-sm text-foreground/75 cursor-pointer select-none group">
               <input
                 type="checkbox" checked={lembrar}
                 onChange={e => setLembrar(e.target.checked)}
-                className="rounded border-border w-3.5 h-3.5 accent-gold"
+                className="rounded border-border w-3.5 h-3.5 accent-dourado"
               />
               <span className="group-hover:text-foreground transition-colors">
                 Lembrar meu telefone
@@ -239,9 +247,34 @@ export default function Auth() {
 
             <AuthErro mensagem={erroMsg} />
 
+            {/* ── O botão principal, em ouro ────────────────────────────
+                Era `bg-gold`, que neste sistema é TERRACOTA — daí o botão
+                cor de tijolo na primeira captura.
+
+                Quatro camadas fazem o metal, e nenhuma delas sozinha:
+
+                  · o gradiente de quatro paradas — a luz entra depressa,
+                    o meio-tom demora, a sombra fecha;
+                  · o RISCO DE LUZ no topo (`inset 0 1px`), que é o que
+                    dá espessura à peça: sem ele o botão é um retângulo
+                    pintado, com ele é uma chapa;
+                  · a base escura de 2px, a espessura vista de lado;
+                  · o halo dourado difuso, a luz que o metal devolve.
+
+                E a tinta é MARROM ESCURO, não branca: branco sobre ouro
+                mede 2:1 e foi o que fez o primeiro botão parecer mostarda.
+                Escuro sobre ouro mede 4,8:1 no pior ponto do gradiente e
+                lê como letra gravada no metal. */}
             <Button
               type="submit" disabled={busy}
-              className="w-full h-11 text-base font-semibold bg-gold hover:bg-gold/90 dark:hover:bg-gold/80 text-white shadow-md transition-all active:scale-[0.98]"
+              className="w-full h-11 text-base font-semibold tracking-wide
+                         text-dourado-tinta bg-gradient-dourado-botao
+                         border border-dourado-escuro/45
+                         shadow-[inset_0_1px_0_hsl(0_0%_100%/0.55),0_2px_0_hsl(var(--dourado-escuro)/0.55),0_10px_24px_-8px_hsl(var(--dourado)/0.6)]
+                         hover:brightness-[1.05]
+                         active:scale-[0.985] active:brightness-95
+                         active:shadow-[inset_0_1px_2px_hsl(38_60%_20%/0.35),0_1px_0_hsl(var(--dourado-escuro)/0.55)]
+                         transition-all"
             >
               {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : "Entrar"}
             </Button>
@@ -250,17 +283,39 @@ export default function Auth() {
           {/* Link recuperar */}
           <Link
             to="/esqueci-senha"
-            className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors underline-offset-4 hover:underline text-center"
+            className="block w-full text-center text-sm text-foreground/75 hover:text-foreground transition-colors underline-offset-4 hover:underline"
           >
             Esqueci minha senha
           </Link>
 
-          {/* Aviso de convite */}
-          <div className="bg-muted/50 dark:bg-muted/30 rounded-xl px-4 py-3 border border-border/40 dark:border-border/30">
-            <p className="text-xs text-muted-foreground text-center leading-relaxed">
-              📱 O acesso é concedido pela secretaria via convite por WhatsApp.
-              <br />Não possui acesso? Fale com a liderança da Igreja.
-            </p>
+          {/* ── Aviso de convite ────────────────────────────────────────
+              Era um bloco cinza com duas frases centralizadas do mesmo
+              tamanho e um emoji no lugar do ícone. Três defeitos juntos:
+              texto centralizado de duas linhas obriga o olho a procurar o
+              começo de cada uma; sem hierarquia, a PERGUNTA de quem está
+              travado ("não tenho acesso") ficava enterrada na segunda
+              linha; e cinza sobre cinza dizia "rodapé", não "leia isto".
+
+              Agora a pergunta vem primeiro, em dourado, porque é ela que
+              identifica quem precisa da caixa — quem já tem acesso passa
+              direto. */}
+          <div className="rounded-xl border border-dourado-line bg-dourado-soft px-4 py-3 flex items-start gap-3 text-left">
+            {/* O mesmo metal do botão, em miniatura — inclusive o risco
+                de luz no topo. Um quadrado dourado chapado ao lado de um
+                botão com relevo denuncia os dois. */}
+            <span className="mt-px shrink-0 w-7 h-7 rounded-md bg-gradient-dourado-botao
+                             border border-dourado-escuro/40 flex items-center justify-center
+                             shadow-[inset_0_1px_0_hsl(0_0%_100%/0.5),0_1px_3px_hsl(var(--dourado-escuro)/0.35)]">
+              <MessageCircle className="w-3.5 h-3.5 text-dourado-tinta" />
+            </span>
+            <div className="min-w-0 space-y-0.5">
+              <p className="text-xs font-semibold text-dourado-text">
+                Ainda não tem acesso?
+              </p>
+              <p className="text-xs text-foreground/65 dark:text-foreground/60 leading-relaxed">
+                Fale com a liderança da sua igreja.
+              </p>
+            </div>
           </div>
         </AuthCard>
       )}
@@ -281,9 +336,9 @@ export default function Auth() {
             </div>
           </div>
 
-          <div className="bg-gold/8 dark:bg-gold/10 border border-gold/25 dark:border-gold/20 rounded-xl px-4 py-3">
+          <div className="bg-dourado-soft border border-dourado-line rounded-xl px-4 py-3">
             <p className="text-sm text-foreground/80 leading-relaxed text-center">
-              <span className="font-semibold text-gold">{getSaudacao()}!</span> A equipe enviará
+              <span className="font-semibold text-dourado-text">{getSaudacao()}!</span> A equipe enviará
               um link de redefinição e será notificada para garantir seu acesso 💙
             </p>
           </div>
@@ -298,7 +353,11 @@ export default function Auth() {
             <AuthErro mensagem={erroMsg} />
             <Button
               type="submit" disabled={busy}
-              className="w-full h-11 font-semibold bg-gold hover:bg-gold/90 text-white shadow-md"
+              className="w-full h-11 font-semibold tracking-wide
+                         text-dourado-tinta bg-gradient-dourado-botao
+                         border border-dourado-escuro/45
+                         shadow-[inset_0_1px_0_hsl(0_0%_100%/0.55),0_2px_0_hsl(var(--dourado-escuro)/0.55),0_10px_24px_-8px_hsl(var(--dourado)/0.6)]
+                         hover:brightness-[1.05] active:scale-[0.985] active:brightness-95 transition-all"
             >
               {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : "Solicitar redefinição"}
             </Button>

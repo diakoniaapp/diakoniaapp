@@ -138,7 +138,7 @@ export default function ResetSenha() {
         <div className="text-center">
           <div className="inline-flex flex-col items-center gap-3">
             <div className="drop-shadow-[0_2px_8px_rgba(0,0,0,0.18)]">
-              <BrandMark className="text-[4rem] text-foreground" />
+              <BrandMark className="text-[4rem] text-foreground" trocaPorTema />
             </div>
             <div className="text-center space-y-0.5">
               <p className="text-xs tracking-[0.20em] uppercase font-semibold text-foreground/60 leading-relaxed">
