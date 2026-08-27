@@ -180,6 +180,8 @@ export default function PainelPastoral() {
    * mostrando o dia de ontem como se fosse o de hoje.
    */
   const [diaAberto, setDiaAberto] = useState(hoje);
+  /** Aba aberta em Discipulado. Controlada por causa da rolagem — ver o JSX. */
+  const [abaDiscipulado, setAbaDiscipulado] = useState("ebd");
 
   const [eventos, setEventos] = useState<EventoPastoral[]>([]);
   const [resumo, setResumo] = useState<ResumoPastoral | null>(null);
@@ -572,7 +574,37 @@ export default function PainelPastoral() {
           Cada aba carrega os próprios dados, com estado próprio. */}
       <section id="discipulado" className="scroll-mt-[280px] sm:scroll-mt-[230px]">
         <TituloDaSecao icone={Sprout}>Acompanhamento do discipulado</TituloDaSecao>
-        <Tabs defaultValue="ebd">
+        {/* Controlado, e não `defaultValue`, por causa da rolagem.
+
+            As quatro abas têm alturas muito diferentes — Crescimento traz
+            gráficos, Campanhas traz a tela inteira de campanhas, e o PGM
+            cabe em meia dúzia de linhas. Trocando de uma alta para uma
+            baixa, o conteúdo encolhe embaixo do leitor e a página fica
+            parada onde estava: a tela some para cima e sobra rodapé.
+
+            Levar a seção de volta ao topo a cada troca resolve, e usa o
+            mesmo caminho do indicador lá em cima — `irParaSecao` respeita
+            `prefers-reduced-motion`. Só dispara em troca feita por gente:
+            `onValueChange` não roda na montagem. */}
+        <Tabs
+          value={abaDiscipulado}
+          onValueChange={(v) => {
+            setAbaDiscipulado(v);
+            // Dois quadros de espera, e não `irParaSecao` direto.
+            //
+            // Medido: trocando de EBD para Pequenos Grupos a página inteira
+            // encolhe de 1955px para 1181px. Rolando ANTES disso, o navegador
+            // grampeia a posição quando o conteúdo some embaixo — a seção
+            // acabava a 723px do topo em vez de 230.
+            //
+            // O primeiro quadro deixa o React aplicar a troca; o segundo,
+            // deixa o layout assentar. Os dados que cada aba busca chegam
+            // depois e só fazem o bloco CRESCER abaixo do título, o que não
+            // move nada do que já está no topo.
+            requestAnimationFrame(() =>
+              requestAnimationFrame(() => irParaSecao("discipulado")));
+          }}
+        >
           <TabsList className="mb-3">
             <TabsTrigger value="ebd" className="gap-1.5 text-xs">
               <GraduationCap className="w-3.5 h-3.5" /> EBD
@@ -587,18 +619,28 @@ export default function PainelPastoral() {
               <BarChart2 className="w-3.5 h-3.5" /> Crescimento
             </TabsTrigger>
           </TabsList>
-          <TabsContent value="ebd" className="mt-0">
+          {/* ── `min-h` nas abas, e não é enfeite ──────────────────────────
+              Discipulado é a ÚLTIMA seção da página. Quando a aba aberta é
+              curta — Pequenos Grupos cabe em meia dúzia de linhas — não há
+              página abaixo dela para o navegador rolar, e o título nunca
+              chega ao topo por mais que se peça: ele para onde a rolagem
+              acaba. Foi o que a Telma viu como "a tela fica lá embaixo".
+
+              70vh garante que a seção sempre tenha para onde subir. O custo é
+              algum espaço em branco nas abas curtas, que é bem menos ruim que
+              um título que não obedece ao próprio atalho. */}
+          <TabsContent value="ebd" className="mt-0 min-h-[70vh]">
             <PainelAcompanhamentoEbd />
           </TabsContent>
-          <TabsContent value="pgm" className="mt-0">
+          <TabsContent value="pgm" className="mt-0 min-h-[70vh]">
             <PainelAcompanhamentoPgm />
           </TabsContent>
-          <TabsContent value="campanhas" className="mt-0">
+          <TabsContent value="campanhas" className="mt-0 min-h-[70vh]">
             {/* A tela inteira de campanhas, em modo embutido — inclusive o
                 assistente de criação. Ver o cabeçalho de CampanhasAdmin. */}
             <CampanhasAdmin embutido />
           </TabsContent>
-          <TabsContent value="crescimento" className="mt-0">
+          <TabsContent value="crescimento" className="mt-0 min-h-[70vh]">
             {/* A jornada visitante → congregado → membro. Mesma tela de
                 `/painel-estrategico`, em modo embutido. */}
             <PainelEstrategico embutido />
