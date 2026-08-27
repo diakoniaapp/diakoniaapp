@@ -75,7 +75,22 @@ export default function PainelSecretaria() {
   const totalGovernanca = (resumo?.atasPendentes ?? 0) + (resumo?.pautasRascunho ?? 0);
 
   return (
-    <div className="p-6 space-y-4 max-w-5xl">
+    // ── A largura ──────────────────────────────────────────────────────
+    //
+    // Duas correções na mesma linha, em 27/08/2026, junto com a mesma
+    // mudança no Painel Pastoral.
+    //
+    // **Faltava o `mx-auto`.** O container tinha 1024px encostado à
+    // ESQUERDA, e todo o vão sobrava de um lado só: 160px numa janela de
+    // 1440, mais de 600px numa de 1920. Assimetria que se lê como erro,
+    // porque é — o painel irmão sempre centralizou.
+    //
+    // **E cresce em dois degraus até 1280px**, como o outro. Esta tela é
+    // lista, não prosa, e as linhas de pendência ganham espaço para caber
+    // sem quebrar. Mas o teto continua valendo: o bloco "Pessoas sem
+    // família" é um parágrafo de nomes corridos, e esticá-lo até a borda
+    // o tornaria ilegível.
+    <div className="p-6 space-y-4 max-w-5xl xl:max-w-6xl 2xl:max-w-7xl mx-auto">
       {/* O cabeçalho acompanha a rolagem, como no Painel Pastoral: a faixa de
           indicadores é o índice da tela, e índice que sai de vista ao rolar
           obriga a voltar ao topo para trocar de assunto.
@@ -192,7 +207,7 @@ export default function PainelSecretaria() {
                     pessoa não entra nas bodas, não aparece na visão de
                     famílias e não herda endereço — e quem clica no nome cai
                     na ficha, onde o passo Vínculos tem a busca por parente. */}
-                <p className="text-xs text-muted-foreground">
+                <p className="text-sm text-muted-foreground">
                   Sem vínculo familiar elas ficam fora das bodas e da visão por
                   família. Clique no nome para abrir a ficha e vincular no passo
                   <span className="font-medium"> Vínculos</span>.
@@ -228,7 +243,7 @@ export default function PainelSecretaria() {
             <TituloDaSecao
               icone={Gavel} tom="violeta" contagem={totalGovernanca}
               acao={
-                <Link to="/governanca" className="text-xs text-primary hover:underline">
+                <Link to="/governanca" className="text-sm text-primary hover:underline">
                   Abrir Governança
                 </Link>
               }
@@ -278,7 +293,7 @@ export default function PainelSecretaria() {
             <TituloDaSecao
               icone={ScrollText} tom="gold" contagem={resumo.membresiaEmAndamento}
               acao={
-                <Link to="/membresia" className="text-xs text-primary hover:underline">
+                <Link to="/membresia" className="text-sm text-primary hover:underline">
                   Abrir Membresia
                 </Link>
               }
