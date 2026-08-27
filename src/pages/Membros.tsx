@@ -44,6 +44,15 @@ export interface Membro {
     status: "ativo" | "inativo" | "transferido" | "falecido" | "desligado";
     /** Preenchida só para quem saiu do rol. Ver a migration 20260828180000. */
     data_saida: string | null;
+    /**
+     * Como entrou no rol. Ver a migration 20260828200000.
+     *
+     * Declarada aqui porque o filtro de pendências a lê do lado do cliente:
+     * campo que vem no `select("*")` e não aparece nesta interface é campo
+     * que o TypeScript deixa passar como `undefined` sem avisar — o defeito
+     * que a nota do topo deste arquivo já registra.
+     */
+    tipo_entrada: string | null;
     estado_civil: string | null;
     // Campos calculados na query (não persistem na tabela)
     areas?: string[];

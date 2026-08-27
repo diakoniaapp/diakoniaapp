@@ -49,6 +49,24 @@ const COMO_CONHECEU_OPTS = [
 const PRECISA_QUEM_CONVIDOU = ["amigo_familiar", "indicacao_membro"];
 
 // ── Estado vazio ──────────────────────────────────────────────────────────
+/**
+ * Como a pessoa entrou no rol — o enum `tipo_entrada_rol` do banco.
+ *
+ * **Profissão de fé não está aqui de propósito.** Ela antecede o batismo e é
+ * pré-requisito dele, não uma quinta forma de entrar: oferecê-la ao lado de
+ * "Batismo" faria escolher entre duas metades do mesmo acontecimento, e a
+ * contagem de batismos do ano nasceria repartida entre as duas.
+ *
+ * O módulo de solicitações de membresia tem um enum concorrente que erra
+ * nisso — ver a migration `20260828200000`.
+ */
+const TIPO_ENTRADA_LABEL: Record<string, string> = {
+  aclamacao:     "Aclamação",
+  batismo:       "Batismo",
+  reconciliacao: "Reconciliação",
+  transferencia: "Transferência",
+};
+
 const empty = {
   nome_completo:            "",
   tipo_pessoa:              "congregado" as const,
@@ -68,6 +86,11 @@ const empty = {
   cidade:                   "",
   cep:                      "",
   data_entrada:             new Date().toISOString().slice(0, 10),
+  // Vazio por padrão, e nunca chutado. Para os 184 membros que já tinham
+  // data quando a coluna nasceu, "não registrado" é a verdade — e "batismo",
+  // que seria o palpite óbvio, é justamente o errado para quem veio por
+  // carta de outra igreja.
+  tipo_entrada:             "",
   status:                   "ativo",
   // Vazia por padrão: só tem sentido com status de saída, e o seletor de
   // status a limpa sozinho quando a pessoa volta ao rol — ver `trocarStatus`.
@@ -357,10 +380,21 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
     }));
 
   // ── Submit ─────────────────────────────────────────────────────────────
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  //
+  // `viaAtalho` é o botão "Salvar" que aparece nos passos intermediários ao
+  // EDITAR alguém — ver o rodapé, onde está o porquê de ele existir e de só
+  // aparecer na edição.
+  const onSubmit = async (e?: React.FormEvent, viaAtalho = false) => {
+    e?.preventDefault();
     // ⚠️ Guard: só salva no STEP FINAL (Revisão). Avancos intermediarios sao no botao "Proximo".
-    if (step !== 6) return;
+    //
+    // O atalho fura a guarda de propósito, e é seguro: os efeitos que
+    // carregam áreas, classe de EBD e perfil de serviço rodam ao ABRIR o
+    // diálogo, não ao chegar no passo. Salvar do passo 1 regrava exatamente
+    // o que foi lido — a diferença de áreas dá lista vazia, a EBD compara
+    // com a matrícula atual e não mexe, e o perfil de serviço só grava se
+    // `perfilTocado`. Verificado antes de soltar a guarda.
+    if (step !== 6 && !viaAtalho) return;
 
     if (!form.nome_completo.trim()) return toast.error("Informe o nome");
 
@@ -924,7 +958,48 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                     <div>
                       <Label translate="no">Data de entrada</Label>
                       <Input type="date" value={form.data_entrada} onChange={(e) => set("data_entrada", e.target.value)} />
-                      <p className="text-xs text-muted-foreground mt-0.5">Data do batismo/profissão de fé.</p>
+                      {/* A dica dizia "Data do batismo/profissão de fé" e
+                          supunha o tipo mais comum. Para quem veio por carta
+                          de outra igreja isso estava errado, e não havia onde
+                          corrigir. O campo ao lado passou a dizer COMO, e a
+                          dica agora aponta para ele em vez de adivinhar. */}
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Data em que entrou no rol — ver o tipo ao lado.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* ── Tipo de entrada — logo depois da data ──────────────
+                      Uma diz quando, a outra como. É o que a secretaria
+                      precisa para emitir carta e para responder à assembleia
+                      "quantos batismos tivemos este ano?" — pergunta que não
+                      tinha resposta enquanto as quatro formas de entrar
+                      estavam somadas numa coluna só.
+
+                      **Profissão de fé não está na lista**, e isso é
+                      doutrina, não esquecimento: ela antecede o batismo, é
+                      pré-requisito dele. Oferecê-la ao lado de "Batismo"
+                      faria escolher entre duas metades do mesmo
+                      acontecimento. */}
+                  {isMembro && (
+                    <div>
+                      <Label translate="no">Tipo de entrada</Label>
+                      <Select
+                        value={form.tipo_entrada || undefined}
+                        onValueChange={(v) => set("tipo_entrada", v)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Não registrado" />
+                        </SelectTrigger>
+                        {/* A lista sai do mesmo mapa que a Revisão lê: duas
+                            listas escritas à mão é como a tela e o resumo
+                            passam a discordar sobre a mesma pessoa. */}
+                        <SelectContent>
+                          {Object.entries(TIPO_ENTRADA_LABEL).map(([valor, rotulo]) => (
+                            <SelectItem key={valor} value={valor}>{rotulo}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   )}
 
@@ -1392,6 +1467,13 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                     {isMembro && (
                       <RevisaoLinha label="Data de entrada">{form.data_entrada || "—"}</RevisaoLinha>
                     )}
+                    {/* A revisão precisa revisar TODOS os campos: um que se
+                        preenche e não se revê é um que ninguém confere. */}
+                    {isMembro && (
+                      <RevisaoLinha label="Tipo de entrada">
+                        {TIPO_ENTRADA_LABEL[form.tipo_entrada as string] ?? "Não registrado"}
+                      </RevisaoLinha>
+                    )}
                     <RevisaoLinha label="Status">{form.status || "ativo"}</RevisaoLinha>
                     <RevisaoLinha label="Endereço">
                       {[form.endereco, form.numero, form.bairro, form.cidade]
@@ -1466,6 +1548,37 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                   passou de cinco passos para seis: no penúltimo passo o botão
                   virava "Salvar", o onSubmit barrava com `step !== 6`, e o
                   clique não fazia NADA. A tela travava ali, sem erro nenhum. */}
+              {/* ── Atalho de salvar ────────────────────────────────────
+                  Pedido em 27/08/2026: preencher um campo do passo 1 custava
+                  cinco cliques em "Próximo", por telas que não têm nada a ver
+                  com o que se veio corrigir. Quem está arrumando o cadastro
+                  repete isso dezenas de vezes seguidas.
+
+                  **Só na EDIÇÃO.** Para gente nova o assistente existe por um
+                  motivo: o efeito da EBD sugere uma classe a partir da data de
+                  nascimento e a pré-seleciona, então salvar do passo 1
+                  matricularia alguém numa classe que a secretaria não viu. Em
+                  quem já existe não há sugestão automática — a matrícula lida
+                  é a que já estava lá.
+
+                  `type="button"` e chamada direta, e não `type="submit"`:
+                  dois botões de submit no mesmo formulário fazem o Enter
+                  disparar o primeiro, e o primeiro aqui seria o atalho. */}
+              {membro && step < 6 && (
+                <Button
+                  key="salvar-atalho" type="button" variant="outline"
+                  onClick={() => {
+                    if (!form.nome_completo.trim()) {
+                      toast.error("Informe o nome completo");
+                      return;
+                    }
+                    onSubmit(undefined, true);
+                  }}
+                  disabled={busy}
+                >
+                  {busy ? "Salvando..." : "Salvar e fechar"}
+                </Button>
+              )}
               {step < 6 ? (
                 <Button key="proximo" type="button"
                   onClick={() => {

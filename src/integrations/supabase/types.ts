@@ -7025,6 +7025,7 @@ export type Database = {
           // mão em 26/08/2026 (migration 20260828180000). Uma regeneração do
           // types.ts as traz do banco e descarta este comentário — reconferir.
           data_saida: string | null
+          tipo_entrada: Database["public"]["Enums"]["tipo_entrada_rol"] | null
           saida_registrada_em: string | null
           saida_registrada_por: string | null
           saida_registrada_por_funcao: string | null
@@ -7114,6 +7115,7 @@ export type Database = {
           // mão em 26/08/2026 (migration 20260828180000). Uma regeneração do
           // types.ts as traz do banco e descarta este comentário — reconferir.
           data_saida?: string | null
+          tipo_entrada?: Database["public"]["Enums"]["tipo_entrada_rol"] | null
           saida_registrada_em?: string | null
           saida_registrada_por?: string | null
           saida_registrada_por_funcao?: string | null
@@ -7203,6 +7205,7 @@ export type Database = {
           // mão em 26/08/2026 (migration 20260828180000). Uma regeneração do
           // types.ts as traz do banco e descarta este comentário — reconferir.
           data_saida?: string | null
+          tipo_entrada?: Database["public"]["Enums"]["tipo_entrada_rol"] | null
           saida_registrada_em?: string | null
           saida_registrada_por?: string | null
           saida_registrada_por_funcao?: string | null
@@ -13038,6 +13041,11 @@ export type Database = {
         | "Preventiva"
         | "Corretiva"
         | "Emergencial"
+      tipo_entrada_rol:
+        | "aclamacao"
+        | "batismo"
+        | "reconciliacao"
+        | "transferencia"
       membro_status:
         | "ativo"
         | "inativo"
@@ -13844,6 +13852,12 @@ export const Constants = {
         "Preventiva",
         "Corretiva",
         "Emergencial",
+      ],
+      tipo_entrada_rol: [
+        "aclamacao",
+        "batismo",
+        "reconciliacao",
+        "transferencia",
       ],
       membro_status: [
         "ativo",

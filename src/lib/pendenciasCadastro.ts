@@ -47,6 +47,7 @@ export interface PessoaParaPendencia {
   data_casamento?: string | null;
   tipo_pessoa?: string | null;
   data_entrada?: string | null;
+  tipo_entrada?: string | null;
   data_nascimento?: string | null;
   sexo?: string | null;
 }
@@ -108,6 +109,27 @@ export const PENDENCIAS_CADASTRO: PendenciaCadastro[] = [
     consequencia: "ficam de fora do tempo de casa",
     filtrarConsulta: q => q.eq("status", "ativo").eq("tipo_pessoa", "membro").is("data_entrada", null),
     combina:         m => m.status === "ativo" && m.tipo_pessoa === "membro" && !m.data_entrada,
+  },
+  {
+    chave: "sem-tipo-entrada",
+    rotulo: "Membros sem tipo de entrada",
+    texto: n => `${n} ${n === 1 ? "membro" : "membros"} sem tipo de entrada`,
+    // A coluna `tipo_entrada` nasceu em 27/08/2026 — aclamação, batismo,
+    // reconciliação ou transferência —, então esta pendência começa valendo
+    // para quase todo o rol: 260 dos 261 membros ativos.
+    //
+    // **Ela fica logo abaixo de "sem data de entrada" de propósito**, e as
+    // duas se sobrepõem: dos 260 sem tipo, 81 também não têm data. Não é
+    // duplicação — é o mesmo trabalho. A ata da assembleia que registra
+    // QUANDO alguém entrou registra COMO na mesma linha, e quem abrir a
+    // ficha para preencher uma preenche a outra sem custo adicional.
+    //
+    // Por isso o recorte NÃO exclui quem está sem data. Excluir faria a
+    // pessoa aparecer só depois de a data ser preenchida, obrigando a
+    // secretaria a voltar à mesma ata duas vezes.
+    consequencia: "não se sabe se vieram por batismo, carta ou aclamação",
+    filtrarConsulta: q => q.eq("status", "ativo").eq("tipo_pessoa", "membro").is("tipo_entrada", null),
+    combina:         m => m.status === "ativo" && m.tipo_pessoa === "membro" && !m.tipo_entrada,
   },
   {
     chave: "sem-data-nascimento",
