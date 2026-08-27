@@ -269,14 +269,23 @@ export default function EbdClasse() {
    * explicação e ninguém percebe que alguém está na classe errada. O painel
    * já sinaliza o mesmo caso em "Alunos fora da faixa EBD".
    */
-  function foraDoPerfil(nasc: string | null | undefined, sexo: string | null | undefined): string | null {
+  function foraDoPerfil(
+    nasc: string | null | undefined,
+    sexo: string | null | undefined,
+  ): { tipo: "idade" | "sexo" | "sem_data"; texto: string } | null {
     if (!classe) return null;
-    if (!nasc) return "sem data de nascimento";
+    // O SEXO vem primeiro agora. Antes, a falta de data de nascimento
+    // devolvia cedo e escondia o desencontro de sexo: um homem sem data na
+    // Classe Professora Edna aparecia como "sem data de nascimento", que é
+    // verdade e não é o problema dele ali.
+    if (classe.genero !== "misto" && sexo && sexo !== classe.genero) {
+      return { tipo: "sexo", texto: String(sexo) };
+    }
+    if (!nasc) return { tipo: "sem_data", texto: "sem data de nascimento" };
     const idade = calcIdade(nasc);
-    if (idade === null) return "sem data de nascimento";
-    if (classe.idade_min !== null && idade < classe.idade_min) return idade + " anos";
-    if (classe.idade_max !== null && idade > classe.idade_max) return idade + " anos";
-    if (classe.genero !== "misto" && sexo && sexo !== classe.genero) return String(sexo);
+    if (idade === null) return { tipo: "sem_data", texto: "sem data de nascimento" };
+    if (classe.idade_min !== null && idade < classe.idade_min) return { tipo: "idade", texto: idade + " anos" };
+    if (classe.idade_max !== null && idade > classe.idade_max) return { tipo: "idade", texto: idade + " anos" };
     return null;
   }
   const matFiltrados = matriculados.filter(m => m.membros?.nome_completo.toLowerCase().includes(filtroLower));
@@ -477,10 +486,29 @@ export default function EbdClasse() {
                         </div>
                       );
                     }
+                    // ── O que ainda é "fora do perfil" numa classe de adulto
+                    //
+                    // De Adultos em diante a idade não decide mais a classe —
+                    // é a mesma regra do aviso de progressão. Então dizer que
+                    // alguém de 59 anos está "fora do perfil" de uma classe de
+                    // 26 a 56 é apontar um desencontro que a igreja já decidiu
+                    // não corrigir. Ruído permanente, na ficha de quem nunca
+                    // vai mudar de classe.
+                    //
+                    // O SEXO continua valendo, e é o que sobra: a Classe
+                    // Professora Edna é de mulheres e a Isac de homens. Um
+                    // homem na Edna está fora de perfil de verdade, com ou sem
+                    // progressão por idade.
+                    //
+                    // "Sem data de nascimento" também sai daqui: sem idade em
+                    // jogo, a falta dela não diz nada sobre ESTA classe. A
+                    // lacuna continua contada na fila de cadastros a corrigir,
+                    // que é onde alguém pode resolvê-la.
                     const motivo = foraDoPerfil(m.membros?.data_nascimento, m.membros?.sexo);
-                    return motivo ? (
+                    const mostraMotivo = motivo && (motivo.tipo === "sexo" || avisaProgressao);
+                    return mostraMotivo ? (
                       <Badge variant="outline" className="mt-1 text-xs text-warning-text border-warning-line">
-                        Fora do perfil da classe · {motivo}
+                        Fora do perfil da classe · {motivo.texto}
                       </Badge>
                     ) : null;
                   })()}
