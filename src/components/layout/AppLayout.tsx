@@ -243,7 +243,7 @@ export default function AppLayout() {
             com dois cliques de acaso dentro. */}
         {rotasAtalho.length > 0 && (
           <nav className="px-3 pt-3">
-            <p className="px-3 pb-1 text-xs uppercase tracking-widest text-sidebar-foreground/45">
+            <p className="px-3 pb-1 text-xs uppercase tracking-widest text-sidebar-foreground/55">
               Atalhos
             </p>
             {rotasAtalho.map(rota => {
@@ -276,7 +276,7 @@ export default function AppLayout() {
                   type="button"
                   onClick={() => toggleGroup(group.key)}
                   aria-expanded={isExpanded}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs uppercase tracking-widest text-sidebar-foreground/45 hover:text-sidebar-foreground/70 transition-colors"
+                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs uppercase tracking-widest text-sidebar-foreground/55 hover:text-sidebar-foreground/70 transition-colors"
                 >
                   {/* O icone do grupo saiu. Ele nao tinha funcao: o rotulo
                       nomeia o grupo e a seta ja mostra se esta aberto ou

@@ -369,7 +369,7 @@ export default function PainelPastoral() {
           <span className="min-w-0">
             {resumoNatural(resumo, candidatos, visitantes)}
             {atualizadoEm && (
-              <span className="text-[10px] text-muted-foreground/60 ml-1.5 whitespace-nowrap">
+              <span className="text-[10px] text-muted-foreground ml-1.5 whitespace-nowrap">
                 · {formatarAtualizadoHa(atualizadoEm)}
               </span>
             )}
@@ -820,7 +820,7 @@ function TiraDaSemana({
                 número e entra na leitura como se fosse contagem de algo.
                 E a linha existe sempre, mesmo vazia, para os sete
                 ladrilhos manterem a mesma altura. */}
-            <p className="text-[10px] text-muted-foreground/70 tabular-nums">
+            <p className="text-[10px] text-muted-foreground tabular-nums">
               {n === 0 ? <span className="text-muted-foreground/50">–</span> : n}
             </p>
           </button>
@@ -885,7 +885,7 @@ function LinhaData({ item }: { item: ItemData }) {
         title={`${item.titulo} · ${item.detalhe} — sem telefone cadastrado`}
       >
         {conteudo}
-        <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70 shrink-0">
+        <span className="text-[10px] uppercase tracking-wide text-muted-foreground shrink-0">
           sem telefone
         </span>
       </div>

@@ -319,7 +319,31 @@
     --muted:              26 12% 18%;
     /* 55% → 57%: sobre a faixa cinza (--muted) dava 4.43:1, logo abaixo do
        mínimo. Sobre o fundo já passava — é o caso da faixa que decide. */
-    --muted-foreground:   36 10% 57%;
+    /* ── 57% → 60% ────────────────────────────────────────────────
+       Medido no navegador, no tema escuro, contra TODAS as superfícies
+       que hospedam este texto:
+
+                        57%     60%
+         background     5,94    6,52
+         sidebar        6,08    6,67
+         popover        5,48    6,01
+         card           5,32    5,83
+         muted          4,49 ✗  4,93
+         secondary      4,17 ✗  4,57
+
+       O token vestia 1.248 trechos de texto e reprovava em duas
+       superfícies — as duas mais claras, que são justamente as de
+       etiqueta, aba e ladrilho, onde o texto secundário mais aparece.
+
+       60% e não mais: a 63% já passaria com folga, mas a distância para
+       o texto normal cai de 2,32:1 para 2,12:1, e "muted" começa a
+       deixar de ser muted. Legível e ainda subordinado é o ponto.
+
+       NÃO resolve os 36 usos com opacidade reduzida (/80 a /30): a /60
+       só passaria com o token a 85%, o que faria o texto secundário
+       brilhar mais que o principal. Esses são caso a caso — e a maioria
+       é ícone de estado vazio e traço, ornamento e não texto. */
+    --muted-foreground:   36 10% 60%;
 
     /* ── Gold / terracota mais suave no escuro ────────────────── */
     --accent:             12 48% 60%;

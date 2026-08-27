@@ -476,7 +476,7 @@ function QuadroDoMovimento({
         <span className="flex items-center gap-1">
           <span className="w-2.5 h-2.5 rounded-sm bg-gold shrink-0" /> Saídas
         </span>
-        <span className="text-muted-foreground/70">
+        <span className="text-muted-foreground">
           transferidos, desligados e falecidos
         </span>
       </div>

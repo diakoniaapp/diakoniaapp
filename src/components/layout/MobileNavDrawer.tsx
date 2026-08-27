@@ -97,7 +97,7 @@ export function MobileNavDrawer({ children }: { children: React.ReactNode }) {
             sinal — ver navUso.ts. */}
         {rotasAtalho.length > 0 && (
           <nav className="px-3 pt-3">
-            <p className="px-3 pb-1 text-xs uppercase tracking-widest text-sidebar-foreground/45">
+            <p className="px-3 pb-1 text-xs uppercase tracking-widest text-sidebar-foreground/55">
               Atalhos
             </p>
             {rotasAtalho.map(rota => {
@@ -120,7 +120,7 @@ export function MobileNavDrawer({ children }: { children: React.ReactNode }) {
             const Icon = group.icon;
             return (
               <div key={group.key} className="space-y-0.5">
-                <div className="flex items-center gap-2 px-3 py-1.5 text-xs uppercase tracking-widest text-sidebar-foreground/45">
+                <div className="flex items-center gap-2 px-3 py-1.5 text-xs uppercase tracking-widest text-sidebar-foreground/55">
                   <Icon className="w-3.5 h-3.5 shrink-0" />
                   <span>{group.label}</span>
                 </div>
