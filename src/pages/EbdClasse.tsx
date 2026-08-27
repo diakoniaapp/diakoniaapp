@@ -15,7 +15,9 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  carregarClasse, esperadosDaClasse, matriculadosDaClasse, moverAluno,
+  carregarClasse, esperadosDaClasse, matriculadosDaClasse, moverParaClasse,
+  alertasIdadeDaClasse, temProgressaoPorIdade, manterNaClasse, listarClasses,
+  type EbdAlertaIdade,
   matricular, desmatricular, excluirClasse, desativarClasse, reativarClasse,
   type EbdClasse, type EbdEsperado,
 } from "@/services/ebdService";
@@ -48,6 +50,12 @@ export default function EbdClasse() {
   const [esperados, setEsperados] = useState<EbdEsperado[]>([]);
   /** Quem está prestes a ser trazido de outra classe. Null = diálogo fechado. */
   const [aMover, setAMover] = useState<EbdEsperado | null>(null);
+  /** Alunos DESTA classe que passaram do teto de idade dela. */
+  const [alertasIdade, setAlertasIdade] = useState<EbdAlertaIdade[]>([]);
+  const [progredindo, setProgredindo] = useState<string | null>(null);
+  /** Nome de cada classe, para dizer PARA ONDE o aluno vai. A view devolve
+   *  só o id da sugerida. */
+  const [nomeClassePorId, setNomeClassePorId] = useState<Record<string, string>>({});
   const [matriculados, setMatriculados] = useState<MatRow[]>([]);
 
   const [filtro, setFiltro] = useState("");
@@ -68,12 +76,16 @@ export default function EbdClasse() {
     try {
       const c = await carregarClasse(classeId);
       setClasse(c);
-      const [esp, mat] = await Promise.all([
+      const [esp, mat, alertas, todasAsClasses] = await Promise.all([
         esperadosDaClasse(classeId),
         matriculadosDaClasse(classeId) as Promise<MatRow[]>,
+        alertasIdadeDaClasse(classeId),
+        listarClasses(true),
       ]);
       setEsperados(esp);
       setMatriculados(mat);
+      setAlertasIdade(alertas);
+      setNomeClassePorId(Object.fromEntries(todasAsClasses.map(c => [c.id, c.nome])));
 
       // A lista de "sem classe" saiu daqui em 20/08/2026.
       //
@@ -107,14 +119,18 @@ export default function EbdClasse() {
    *
    * Não é o mesmo que matricular: o índice único do banco é
    * `(pessoa_id, classe_id)`, então um INSERT deixaria a pessoa ATIVA nas
-   * duas classes — em duas listas de chamada, contada duas vezes. A RPC
-   * encerra a anterior e cria a nova na mesma transação.
+   * duas classes — em duas listas de chamada, contada duas vezes.
+   *
+   * `moverParaClasse` chama a RPC `mover_aluno_classe`, que já existia no
+   * banco e encerra a anterior e cria a nova na mesma transação. Cheguei a
+   * criar uma segunda função para isso antes de conferir — ver a migration
+   * 20260828230000, que a apaga.
    */
   async function handleMover() {
     if (!aMover) return;
     setBusy(true);
     try {
-      await moverAluno(aMover.pessoa_id, classeId);
+      await moverParaClasse(aMover.pessoa_id, classeId);
       toast.success(`${aMover.nome_completo} veio para esta classe`);
       setAMover(null);
       await recarregar();
@@ -160,6 +176,36 @@ export default function EbdClasse() {
     } finally { setBusy(false); }
   }
 
+  /**
+   * As duas saídas de quem passou da faixa: subir ou ficar.
+   *
+   * "Manter" grava `progressao_dispensada_em` e é o que faz o aviso sumir.
+   * Sem ele o alerta reaparece para sempre — e alerta que não some vira
+   * paisagem, até o dia em que aparece alguém que precisa mudar e ninguém
+   * repara. A idade é regra, não sentença: há o adolescente que fica mais um
+   * ano com a turma onde tem amigos.
+   */
+  async function handleManterNaClasse(a: EbdAlertaIdade) {
+    setProgredindo(a.pessoa_id);
+    const r = await manterNaClasse(a.pessoa_id);
+    setProgredindo(null);
+    if (!r.ok) return toast.error(r.erro ?? "Não foi possível registrar a decisão.");
+    toast.success(`${a.nome_completo} continua nesta classe.`);
+    await recarregar();
+  }
+
+  async function handleProgredir(a: EbdAlertaIdade) {
+    if (!a.classe_sugerida_id) return;
+    setProgredindo(a.pessoa_id);
+    try {
+      await moverParaClasse(a.pessoa_id, a.classe_sugerida_id);
+      toast.success(`${a.nome_completo} mudou de classe.`);
+      await recarregar();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erro ao mover");
+    } finally { setProgredindo(null); }
+  }
+
   async function handleDesmatricular(matriculaId: string) {
     setBusy(true);
     try {
@@ -199,6 +245,13 @@ export default function EbdClasse() {
   // a aba mostra TODO MUNDO que cabe, o cartão conta quem falta acolher.
   const semClasse = esperados.filter(e => !e.ja_matriculado && !e.outra_classe_id);
 
+  // Os que já têm classe, DENTRO do que a busca deixou passar: a frase que
+  // abre a conta precisa somar com a lista que está na tela, e não com a
+  // lista inteira.
+  const emOutraClasse = espFiltrados.filter(e => e.outra_classe_id);
+  /** Quem falta acolher, já filtrado pela busca. É este o número da aba. */
+  const semClasseFiltrados = espFiltrados.length - emOutraClasse.length;
+
   // Todos que cabem no perfil, dentro e fora. É o denominador que dá sentido
   // aos outros dois números.
   const noPerfil = esperados.length;
@@ -227,6 +280,22 @@ export default function EbdClasse() {
     return null;
   }
   const matFiltrados = matriculados.filter(m => m.membros?.nome_completo.toLowerCase().includes(filtroLower));
+
+  /**
+   * O aviso de progressão, por aluno — e só nas classes da escada.
+   *
+   * Ele morava no painel do módulo, longe de quem dá aula. Passou para a
+   * matrícula porque é a professora daquela turma quem decide se o aluno sobe
+   * ou fica, e ela abre a lista de chamada, não o índice da EBD.
+   *
+   * `temProgressaoPorIdade` corta de Adultos em diante: lá a idade não decide
+   * mais a classe, e o aviso seria ruído permanente para quem nunca vai mudar.
+   * Ver a constante no ebdService, com as ordens medidas.
+   */
+  const avisaProgressao = !!classe && temProgressaoPorIdade(classe);
+  const alertaPorPessoa: Record<string, EbdAlertaIdade> = avisaProgressao
+    ? Object.fromEntries(alertasIdade.map(a => [a.pessoa_id, a]))
+    : {};
 
 
   return (
@@ -318,7 +387,19 @@ export default function EbdClasse() {
       <Tabs defaultValue="matriculados" className="space-y-3">
         <TabsList>
           <TabsTrigger value="matriculados">Matriculados ({matFiltrados.length})</TabsTrigger>
-          <TabsTrigger value="esperados">Esperados ({espFiltrados.length})</TabsTrigger>
+          {/* ── O número conta quem FALTA, não quantas linhas há ──────────
+              Eu tinha feito o contrário: o rótulo somava as linhas listadas,
+              incluindo quem já está em outra classe, para o número nunca
+              discordar da lista.
+
+              Corrigido a pedido, e a razão é melhor que a minha: quem já tem
+              classe não é trabalho pendente. Somá-lo faz a aba anunciar um
+              esforço que não existe — e é justamente o número de quem está
+              SEM classe que a professora usa para saber quanto falta.
+
+              O rótulo não fica mentindo porque a frase logo abaixo diz, com
+              todas as letras, que a lista traz também os já alocados. */}
+          <TabsTrigger value="esperados">Esperados ({semClasseFiltrados})</TabsTrigger>
         </TabsList>
 
         {/* Matriculados */}
@@ -342,7 +423,60 @@ export default function EbdClasse() {
                     {m.membros?.sexo && ` · ${m.membros.sexo}`}
                     {" · matriculado em "}{new Date(m.data_matricula).toLocaleDateString("pt-BR")}
                   </p>
+                  {/* ── Passou da faixa: o aviso do professor ───────────────
+                      Vem antes do "fora do perfil" porque é o acionável: um
+                      diz que há o que fazer e oferece as duas saídas, o outro
+                      é constatação.
+
+                      Quando os dois valem, mostrar os dois seria dizer a mesma
+                      coisa duas vezes — "12 anos" numa classe de 9 a 11 é o
+                      motivo do primeiro e o texto do segundo. Por isso o
+                      segundo só aparece quando não há aviso de progressão. */}
                   {(() => {
+                    const a = alertaPorPessoa[m.pessoa_id];
+                    if (a) {
+                      const destino = a.classe_sugerida_id ? nomeClassePorId[a.classe_sugerida_id] : null;
+                      const ocupado = progredindo === a.pessoa_id;
+                      return (
+                        <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+                          <Badge
+                            variant="outline"
+                            className="text-xs font-normal text-warning-text border-warning-line bg-warning-soft/40
+                                       max-w-full whitespace-normal text-left leading-snug"
+                            title={a.passou_da_faixa_em
+                              ? `Passou da idade máxima em ${new Date(a.passou_da_faixa_em + "T00:00:00").toLocaleDateString("pt-BR")}`
+                              : undefined}
+                          >
+                            Passou da faixa{destino ? ` — vai para ${destino}` : ""}
+                          </Badge>
+                          {destino && (
+                            <Button
+                              type="button" size="sm" variant="outline"
+                              className="h-7 gap-1 text-xs"
+                              disabled={busy || ocupado}
+                              onClick={() => handleProgredir(a)}
+                            >
+                              <ArrowRightLeft className="w-3.5 h-3.5" />
+                              {ocupado ? "Movendo..." : "Mover"}
+                            </Button>
+                          )}
+                          {/* A idade é regra, não sentença: há o adolescente
+                              que fica mais um ano com a turma onde tem amigos.
+                              Sem uma forma de dizer "este fica", o aviso
+                              reaparece para sempre — e aviso que não some vira
+                              paisagem. */}
+                          <button
+                            type="button"
+                            disabled={busy || ocupado}
+                            onClick={() => handleManterNaClasse(a)}
+                            title={`Manter ${a.nome_completo} nesta classe`}
+                            className="text-xs underline text-muted-foreground hover:text-foreground"
+                          >
+                            Manter
+                          </button>
+                        </div>
+                      );
+                    }
                     const motivo = foraDoPerfil(m.membros?.data_nascimento, m.membros?.sexo);
                     return motivo ? (
                       <Badge variant="outline" className="mt-1 text-xs text-warning-text border-warning-line">
@@ -366,11 +500,24 @@ export default function EbdClasse() {
 
         {/* Esperados (faixa etária) */}
         <TabsContent value="esperados" className="space-y-2">
-          {/* Dito uma vez no topo, em vez de repetido em cada linha. */}
-          {espFiltrados.some(e => e.outra_classe_id) && (
+{/* ── A conta da aba, aberta ───────────────────────────────────────
+              O número da aba conta as LINHAS que estão abaixo dela — listar
+              94 nomes sob um rótulo que diz 80 seria a divergência que este
+              projeto já pagou caro (ver o cabeçalho de pendenciasCadastro.ts:
+              uma faixa dizia 21 sobre uma lista de 22 linhas).
+
+              Mas "94 esperados" também não pode ser lido como "94 para
+              matricular". Então a conta fica aberta aqui embaixo, sobre o
+              MESMO conjunto que a busca filtrou — senão a frase discordaria
+              da lista assim que alguém digitasse no campo acima. */}
+          {emOutraClasse.length > 0 && (
             <p className="text-xs text-muted-foreground">
-              Quem já tem classe aparece aqui de propósito, esmaecido: assim
-              nenhum nome do perfil desta classe fica sem resposta.
+              A lista traz também{" "}
+              <strong className="font-medium text-foreground">{emOutraClasse.length}</strong>{" "}
+              {emOutraClasse.length === 1 ? "pessoa que já está" : "pessoas que já estão"}{" "}
+              em outra classe, esmaecida{emOutraClasse.length === 1 ? "" : "s"} e fora da
+              conta acima — para nenhum nome do perfil desta classe ficar sem
+              resposta.
             </p>
           )}
           {/* Dois vazios diferentes, e confundi-los seria ruim: uma classe

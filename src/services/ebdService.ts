@@ -14,6 +14,57 @@ export interface EbdClasse {
   ativo: boolean;
 }
 
+/**
+ * A partir desta posição na `ordem` da EBD, mudar de classe deixa de ser
+ * questão de idade — e o aviso de progressão para de valer.
+ *
+ * Medido em 27/08/2026, nas classes ativas:
+ *
+ *   Berçário 10 · Crianças 20 · Juniores 40 · Adolescentes 50 · Jovens 60
+ *   Adultos 70 · Classe Profa. Edna 75 · Classe Isac Rodrigues 80
+ *
+ * As cinco primeiras formam a escada: cada uma tem teto de idade e existe uma
+ * seguinte. De Adultos em diante não há degrau — Edna e Isac vão de 40 a 99 e
+ * se distinguem por SEXO, não por faixa. Ninguém "passa" delas.
+ *
+ * A regra mora na `ordem`, que é a ordenação da própria igreja, e não nos
+ * nomes das classes: renomear "Jovens" não deve mudar quem recebe aviso.
+ * Criar uma classe etária nova entre as existentes também não — basta dar a
+ * ela uma `ordem` abaixo de 70.
+ */
+export const ORDEM_PRIMEIRA_CLASSE_ADULTA = 70;
+
+/** A classe ainda faz parte da escada de progressão por idade? */
+export function temProgressaoPorIdade(classe: Pick<EbdClasse, "ordem" | "idade_max">): boolean {
+  return classe.ordem < ORDEM_PRIMEIRA_CLASSE_ADULTA && classe.idade_max !== null;
+}
+
+/** Um aluno que passou do teto de idade da classe onde está. */
+export interface EbdAlertaIdade {
+  pessoa_id: string;
+  nome_completo: string;
+  idade_atual: number | null;
+  classe_atual: string;
+  classe_sugerida_id: string | null;
+  passou_da_faixa_em: string | null;
+}
+
+/**
+ * Os alunos DESTA classe que passaram do teto de idade dela.
+ *
+ * Mesma fonte que o painel do módulo usava — a view `vw_ebd_alertas_idade`,
+ * que já exclui quem teve a progressão dispensada. Ler daqui, e não recalcular
+ * na tela, é o que impede as duas contas de divergirem.
+ */
+export async function alertasIdadeDaClasse(classeId: string): Promise<EbdAlertaIdade[]> {
+  const { data, error } = await supabase
+    .from("vw_ebd_alertas_idade")
+    .select("pessoa_id, nome_completo, idade_atual, classe_atual, classe_sugerida_id, passou_da_faixa_em")
+    .eq("classe_atual_id", classeId);
+  if (error) throw error;
+  return (data ?? []) as EbdAlertaIdade[];
+}
+
 export interface EbdEsperado {
   pessoa_id: string;
   nome_completo: string;
@@ -85,26 +136,6 @@ export async function matricular(pessoaId: string, classeId: string) {
     .from("ebd_matriculas")
     .insert({ pessoa_id: pessoaId, classe_id: classeId, ativo: true });
   if (error) throw error;
-}
-
-/**
- * Move a pessoa para esta classe, encerrando a matrícula que ela tiver em
- * outra. Devolve o id da matrícula nesta classe.
- *
- * Existe porque `matricular` é um INSERT puro e o índice único do banco é
- * `(pessoa_id, classe_id)`: ele impede a mesma pessoa duas vezes na MESMA
- * classe e permite, sem reclamar, a mesma pessoa em duas classes diferentes.
- * Enquanto a aba "Esperados" escondia quem já estava em outra classe, isso
- * não podia acontecer por clique. Agora que ela mostra, pode — e por isso a
- * ação virou uma RPC que faz as duas escritas numa transação só.
- */
-export async function moverAluno(pessoaId: string, classeDestinoId: string): Promise<string> {
-  const { data, error } = await supabase.rpc("ebd_mover_aluno", {
-    p_pessoa_id: pessoaId,
-    p_classe_destino: classeDestinoId,
-  });
-  if (error) throw error;
-  return data as string;
 }
 
 export async function desmatricular(matriculaId: string) {
