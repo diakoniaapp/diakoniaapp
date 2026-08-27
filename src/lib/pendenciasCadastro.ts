@@ -47,6 +47,8 @@ export interface PessoaParaPendencia {
   data_casamento?: string | null;
   tipo_pessoa?: string | null;
   data_entrada?: string | null;
+  data_nascimento?: string | null;
+  sexo?: string | null;
 }
 
 export interface PendenciaCadastro {
@@ -106,6 +108,47 @@ export const PENDENCIAS_CADASTRO: PendenciaCadastro[] = [
     consequencia: "ficam de fora do tempo de casa",
     filtrarConsulta: q => q.eq("status", "ativo").eq("tipo_pessoa", "membro").is("data_entrada", null),
     combina:         m => m.status === "ativo" && m.tipo_pessoa === "membro" && !m.data_entrada,
+  },
+  {
+    chave: "sem-data-nascimento",
+    rotulo: "Sem data de nascimento",
+    texto: n => `${n} ${n === 1 ? "pessoa" : "pessoas"} sem data de nascimento`,
+    // A maior lacuna do cadastro, e a que trava mais coisa de uma vez:
+    // medido em 27/08/2026 são 84 pessoas — 35 membros, 46 congregados e 3
+    // visitantes.
+    //
+    // Sem ela a pessoa não recebe felicitação de aniversário, não tem faixa
+    // de EBD, não entra na pirâmide etária do Painel Pastoral e — no caso
+    // dos congregados, que são a maioria destes — **a regra dos 9 anos não
+    // consegue julgar se ela é candidata ao batismo**. Ela não fica de fora
+    // da lista de candidatos por não ter idade; fica de fora por ser
+    // indecidível, que é diferente e ninguém vê.
+    consequencia: "ficam fora dos aniversários, da EBD e da fila do batismo",
+    filtrarConsulta: q => q.eq("status", "ativo").is("data_nascimento", null),
+    combina:         m => m.status === "ativo" && !m.data_nascimento,
+  },
+  {
+    chave: "sem-estado-civil",
+    rotulo: "Sem estado civil",
+    texto: n => `${n} ${n === 1 ? "pessoa" : "pessoas"} sem estado civil`,
+    // Fica ANTES de "sem sexo" de propósito: é a pendência que gera outra.
+    // Enquanto o estado civil estiver vazio, ninguém pergunta pela data de
+    // casamento — então parte dos 61 "casados sem data" de hoje pode estar
+    // escondida aqui, invisível às duas contagens.
+    consequencia: "enquanto estiver vazio, ninguém pergunta pela data de casamento",
+    filtrarConsulta: q => q.eq("status", "ativo").is("estado_civil", null),
+    combina:         m => m.status === "ativo" && !m.estado_civil,
+  },
+  {
+    chave: "sem-sexo",
+    rotulo: "Sem sexo registrado",
+    texto: n => `${n} ${n === 1 ? "pessoa" : "pessoas"} sem sexo registrado`,
+    // As classes da EBD têm perfil de faixa etária E sexo — ver
+    // `esperados_da_classe`. Sem o campo, a pessoa não é esperada em classe
+    // nenhuma, e some da chamada sem que ninguém tenha decidido isso.
+    consequencia: "a EBD monta as classes por faixa e sexo, e elas não entram",
+    filtrarConsulta: q => q.eq("status", "ativo").is("sexo", null),
+    combina:         m => m.status === "ativo" && !m.sexo,
   },
 ];
 
