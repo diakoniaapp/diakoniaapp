@@ -10,7 +10,10 @@
 // mesmo arquivo e ninguém pensa nas duas ao mesmo tempo.
 
 import { describe, it, expect } from "vitest";
-import { rotaInicialPorPapel, ROUTE_ROLES, ATALHOS_TOPO, ROLES_PAINEL_PASTORAL } from "./navConfig";
+import {
+  rotaInicialPorPapel, ROUTE_ROLES, ATALHOS_TOPO, ROLES_PAINEL_PASTORAL,
+  NAV_GROUPS, type NavItem,
+} from "./navConfig";
 import type { AppRole } from "@/hooks/useAuth";
 
 describe("a secretaria não vê o Painel Pastoral", () => {
@@ -102,6 +105,65 @@ describe("rotaInicialPorPapel", () => {
         exigido.includes(papel),
         `${papel} seria mandado para ${destino}, que exige ${exigido.join(", ")}`,
       ).toBe(true);
+    }
+  });
+});
+
+// ─── O recorte do pastor titular ──────────────────────────────────────────
+//
+// A regra da igreja é uma frase — "o pastor deve visualizar só o que estiver
+// no painel pastoral" — e a implementação é uma subtração espalhada por dez
+// `allowedRoles`. Este bloco é o único lugar onde a frase volta a ser uma
+// coisa só, e onde se percebe se alguém acrescentar um item ao menu sem
+// pensar nele.
+describe("o pastor titular alcança exatamente o recorte do painel dele", () => {
+  const TITULAR: AppRole[] = ["diakonia"];
+  const alcanca = (item: NavItem) => !item.allowedRoles || item.allowedRoles.some(r => TITULAR.includes(r));
+  const todosOsItens = [...ATALHOS_TOPO, ...NAV_GROUPS.flatMap(g => g.items)];
+
+  // O que o Painel Pastoral cobre: o dia e a agenda, o rebanho, os
+  // visitantes, as famílias, o discipulado, os candidatos à membresia e os
+  // assuntos urgentes. Mais a Home, que é de todos.
+  const DENTRO = [
+    "/", "/painel-pastoral", "/membros", "/visitantes", "/familias",
+    "/ebd", "/pgm", "/membresia", "/assuntos", "/eventos",
+  ];
+
+  it("vê o recorte inteiro, e nada além", () => {
+    const vistos = todosOsItens.filter(alcanca).map(i => i.to).sort();
+    expect(vistos).toEqual([...DENTRO].sort());
+  });
+
+  it("não alcança as bancadas alheias", () => {
+    // Nomeadas uma a uma: um `not.toContain` sobre a lista inteira passaria
+    // mesmo que o item tivesse sumido do menu por outro motivo.
+    for (const rota of [
+      "/ministerios", "/organograma", "/governanca", "/estrutura",
+      "/arrecadacao", "/financas", "/financas/fiscal", "/financas/reunioes",
+      "/financas/executivo", "/locais", "/painel-secretaria",
+    ]) {
+      const item = todosOsItens.find(i => i.to === rota);
+      expect(item, `${rota} sumiu do menu — o teste precisa saber disso`).toBeDefined();
+      expect(alcanca(item!), `${rota} continua ao alcance do pastor titular`).toBe(false);
+    }
+  });
+
+  it("a guarda de rota acompanha o menu — a URL digitada também recusa", () => {
+    // Esconder só o item deixaria a URL direta e a paleta Ctrl+K abertas.
+    for (const rota of ["/ministerios", "/organograma", "/estrutura", "/locais"]) {
+      const exigido = ROUTE_ROLES[rota];
+      expect(exigido, `${rota} não tem guarda de rota`).toBeDefined();
+      expect(exigido).not.toContain("diakonia");
+    }
+  });
+
+  it("o que ele vê, a guarda de rota deixa entrar", () => {
+    // O outro lado: menu que oferece e portão que recusa é o defeito do
+    // cartão que não leva a lugar nenhum, cometido duas vezes esta semana.
+    for (const rota of DENTRO) {
+      const exigido = ROUTE_ROLES[rota];
+      if (!exigido) continue;
+      expect(exigido, `${rota} está no menu dele mas a guarda recusa`).toContain("diakonia");
     }
   });
 });

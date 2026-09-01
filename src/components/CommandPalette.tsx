@@ -12,7 +12,7 @@ import {
   ShieldAlert, UserPlus, type LucideIcon,
 } from "lucide-react";
 import { usePermissoes } from "@/hooks/usePermissoes";
-import { ROLES_PAINEL_PASTORAL } from "@/components/layout/navConfig";
+import { ROLES_PAINEL_PASTORAL, papeisExigidosPara } from "@/components/layout/navConfig";
 import { useAuth, type AppRole } from "@/hooks/useAuth";
 import { EVENTO_ABRIR_BUSCA } from "@/lib/commandPalette";
 
@@ -137,6 +137,17 @@ export function CommandPalette() {
        r.permissoes.length === 0 ||
        r.permissoes.some(p => permissoes.has(p)))
       && (!r.allowedRoles || r.allowedRoles.some(p => roles.includes(p)))
+      // ── A paleta obedece a guarda de rota ────────────────────────────
+      //
+      // Cada entrada daqui declarava a propria audiencia, e a maioria nao
+      // declarava nenhuma — a paleta oferecia telas que o portao recusa. Era
+      // o quarto caminho para a mesma tela (menu, URL, redirecionamento,
+      // busca), e o unico que ninguem lembrava de fechar.
+      //
+      // Deferir a ROUTE_ROLES resolve para toda entrada, inclusive as que
+      // ainda nem existem: quem acrescentar um atalho aqui herda a guarda da
+      // rota sem precisar saber que ela existe.
+      && (() => { const exigido = papeisExigidosPara(r.to); return !exigido || exigido.some(p => roles.includes(p)); })()
     );
     const porGrupo: Record<string, CommandRoute[]> = {};
     visiveis.forEach(r => {

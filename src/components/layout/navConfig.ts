@@ -22,6 +22,44 @@ export const ROLES_PASTORAL: AppRole[] = ["admin", "secretaria", "pastor", "diak
 export const ROLES_ADMIN: AppRole[]    = ["admin", "secretaria"];
 
 /**
+ * As mesmas listas, sem o pastor titular.
+ *
+ * ── A REGRA ────────────────────────────────────────────────────────────────
+ *
+ * Dita pela igreja em 01/09/2026: "o pastor deve visualizar só o que estiver
+ * no painel pastoral", depois de "ADMINISTRADOR dono do sistema vê tudo e
+ * todos".
+ *
+ * O painel dele cobre um recorte definido — o dia, o rebanho, os visitantes,
+ * os candidatos à membresia, o discipulado (EBD e Pequenos Grupos), as
+ * famílias, quem serve e os assuntos urgentes. Tudo o que o pastor titular
+ * alcança pelo menu tem de estar dentro desse recorte; o resto é trabalho de
+ * outra bancada.
+ *
+ * ── O QUE ELE PERDE, E POR QUÊ ─────────────────────────────────────────────
+ *
+ *   Ministérios, Organograma   gestão de equipes — bancada de quem lidera
+ *   Reuniões e Atas            governança, trabalho da secretaria
+ *   Estrutura                  matéria institucional, não pastoral
+ *   Bazar e Cantina            arrecadação
+ *   Financeiro (os quatro)     tesouraria
+ *   Espaços                    cadastro de locais
+ *
+ * ── POR QUE POR SUBTRAÇÃO, E NÃO POR UMA LISTA NOVA ────────────────────────
+ *
+ * O menu já decide audiência item a item, com `allowedRoles`. Uma lista
+ * paralela de "rotas do pastor" seria um QUARTO portão — somando-se ao menu, à
+ * guarda de rota e à permissão do banco, que já discordavam entre si esta
+ * semana e custaram dois defeitos de cartão que não leva a lugar nenhum.
+ *
+ * A regra inteira, que a subtração espalha, fica verificável num lugar só: o
+ * teste "o pastor titular alcança exatamente o recorte do painel dele", em
+ * `navConfig.test.ts`.
+ */
+export const ROLES_LIDERES_SEM_TITULAR: AppRole[]  = ["admin", "secretaria", "pastor", "lideranca"];
+export const ROLES_PASTORAL_SEM_TITULAR: AppRole[] = ["admin", "secretaria", "pastor"];
+
+/**
  * Quem enxerga o Painel Pastoral.
  *
  * ── ESTREITADO EM 01/09/2026, A PEDIDO DA IGREJA ───────────────────────────
@@ -116,11 +154,11 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: "/membros",      label: "Catálogo",    icon: Users,          allowedRoles: ROLES_LIDERES },
       { to: "/visitantes",   label: "Visitantes",  icon: UserCheck },
       { to: "/familias",     label: "Famílias",    icon: Home,           allowedRoles: ROLES_LIDERES },
-      { to: "/ministerios",  label: "Ministérios", icon: HeartHandshake, allowedRoles: ROLES_LIDERES },
+      { to: "/ministerios",  label: "Ministérios", icon: HeartHandshake, allowedRoles: ROLES_LIDERES_SEM_TITULAR },
       // Organograma veio de "Configurações". Ele nao configura nada: e uma
       // VISTA das pessoas e de como se organizam — mesma materia de Catalogo,
       // Familias e Ministerios, e para o mesmo publico (liderancas).
-      { to: "/organograma",  label: "Organograma", icon: Building2,      allowedRoles: ROLES_LIDERES },
+      { to: "/organograma",  label: "Organograma", icon: Building2,      allowedRoles: ROLES_LIDERES_SEM_TITULAR },
       // "Equipes" (/areas) saiu do menu: area mora dentro de ministerio, e
       // agora se chega la pelo proprio ministerio — o cartao inteiro abre
       // "Áreas — <ministério>". Um item de primeiro nivel para algo que e
@@ -155,25 +193,25 @@ export const NAV_GROUPS: NavGroup[] = [
       // mesmo rotulo para coisas diferentes. Esta trata de reunioes e
       // assembleias da igreja; a outra, das financeiras. Agora cada uma diz
       // qual e, sem depender de o usuario reparar em qual grupo esta.
-      { to: "/governanca",  label: "Reuniões e Atas", icon: Gavel,       allowedRoles: ROLES_LIDERES },
+      { to: "/governanca",  label: "Reuniões e Atas", icon: Gavel,       allowedRoles: ROLES_LIDERES_SEM_TITULAR },
       { to: "/assuntos",    label: "Assuntos",        icon: CheckSquare, allowedRoles: ROLES_LIDERES },
       // Estrutura veio de "Configurações": e a estrutura institucional da
       // igreja, extraida dos documentos — materia administrativa, e continua
       // aberta a pastores, que o menu da conta nao alcanca.
-      { to: "/estrutura",   label: "Estrutura",       icon: Network,     allowedRoles: ROLES_PASTORAL },
-      { to: "/arrecadacao", label: "Bazar e Cantina", icon: ShoppingBag, allowedRoles: ROLES_LIDERES },
+      { to: "/estrutura",   label: "Estrutura",       icon: Network,     allowedRoles: ROLES_PASTORAL_SEM_TITULAR },
+      { to: "/arrecadacao", label: "Bazar e Cantina", icon: ShoppingBag, allowedRoles: ROLES_LIDERES_SEM_TITULAR },
     ],
   },
   {
     key: "financeiro",
     label: "Financeiro",
     icon: DollarSign,
-    allowedRoles: ROLES_LIDERES,
+    allowedRoles: ROLES_LIDERES_SEM_TITULAR,
     items: [
-      { to: "/financas",           label: "Tesouraria",          icon: DollarSign, allowedRoles: ROLES_LIDERES },
-      { to: "/financas/fiscal",    label: "Módulo Fiscal",       icon: DollarSign, allowedRoles: ROLES_LIDERES },
-      { to: "/financas/reunioes",  label: "Reuniões financeiras", icon: DollarSign, allowedRoles: ROLES_LIDERES },
-      { to: "/financas/executivo", label: "Visão Executiva",     icon: DollarSign, allowedRoles: ROLES_PASTORAL },
+      { to: "/financas",           label: "Tesouraria",          icon: DollarSign, allowedRoles: ROLES_LIDERES_SEM_TITULAR },
+      { to: "/financas/fiscal",    label: "Módulo Fiscal",       icon: DollarSign, allowedRoles: ROLES_LIDERES_SEM_TITULAR },
+      { to: "/financas/reunioes",  label: "Reuniões financeiras", icon: DollarSign, allowedRoles: ROLES_LIDERES_SEM_TITULAR },
+      { to: "/financas/executivo", label: "Visão Executiva",     icon: DollarSign, allowedRoles: ROLES_PASTORAL_SEM_TITULAR },
     ],
   },
   {
@@ -182,7 +220,7 @@ export const NAV_GROUPS: NavGroup[] = [
     icon: CalendarDays,
     items: [
       { to: "/eventos", label: "Agenda",  icon: CalendarDays },
-      { to: "/locais",  label: "Espaços", icon: MapPin, allowedRoles: ROLES_LIDERES },
+      { to: "/locais",  label: "Espaços", icon: MapPin, allowedRoles: ROLES_LIDERES_SEM_TITULAR },
     ],
   },
   // O grupo "Configurações" deixou de existir.
@@ -239,13 +277,17 @@ export const pageTitles: Record<string, string> = {
 export const ROUTE_ROLES: Record<string, AppRole[]> = {
   "/membros":            ROLES_LIDERES,
   "/familias":           ROLES_LIDERES,
-  "/ministerios":        ROLES_LIDERES,
-  "/locais":             ROLES_LIDERES,
+  // Sem o pastor titular, aqui e no menu, pelo mesmo motivo: sao telas fora do
+  // recorte do painel dele. Esconder so o item do menu deixaria a URL digitada
+  // e a paleta Ctrl+K abertas — o defeito que o comentario de
+  // ROLES_PAINEL_PASTORAL ja registra.
+  "/ministerios":        ROLES_LIDERES_SEM_TITULAR,
+  "/locais":             ROLES_LIDERES_SEM_TITULAR,
   "/painel-estrategico": ROLES_PASTORAL,
   "/ebd":                ROLES_LIDERES,
   "/admin/campanhas":    ROLES_LIDERES,
-  "/organograma":        ROLES_LIDERES,
-  "/estrutura":          ROLES_PASTORAL,
+  "/organograma":        ROLES_LIDERES_SEM_TITULAR,
+  "/estrutura":          ROLES_PASTORAL_SEM_TITULAR,
   "/usuarios":           ROLES_ADMIN,
   // `ROLES_ADMIN` é ["admin", "secretaria"] — o nome engana, mas é exatamente
   // o par que deve entrar aqui. Pastor e liderança ficam de fora de propósito:
@@ -253,6 +295,44 @@ export const ROUTE_ROLES: Record<string, AppRole[]> = {
   // executa, e trabalho endereçado a quem não o faz é o defeito que ela veio
   // corrigir.
   "/painel-secretaria":  ROLES_ADMIN,
+
+  // ── AS ROTAS QUE NAO TINHAM GUARDA NENHUMA ────────────────────────────
+  //
+  // O Risco 5 do CLAUDE.md ja media: "/admin/* (7 rotas) e /financas/* (18
+  // rotas) NAO aparecem em ROUTE_ROLES. Quem digitar a URL chega a tela."
+  //
+  // Entram agora porque o pastor titular precisa ser recusado nelas, e
+  // esconder so o item do menu deixaria a URL e a paleta Ctrl+K abertas. O
+  // efeito colateral e bem-vindo: hoje um voluntario que digitasse /financas
+  // entrava.
+  //
+  // A guarda e por caminho EXATO — as sub-rotas de /financas continuam sem
+  // portao. Fechar as dezoito exige casamento por prefixo, que e outro
+  // trabalho; estas seis sao as que o menu oferece.
+  "/governanca":         ROLES_LIDERES_SEM_TITULAR,
+  "/arrecadacao":        ROLES_LIDERES_SEM_TITULAR,
+  "/financas":           ROLES_LIDERES_SEM_TITULAR,
+  "/financas/fiscal":    ROLES_LIDERES_SEM_TITULAR,
+  "/financas/reunioes":  ROLES_LIDERES_SEM_TITULAR,
+  "/financas/executivo": ROLES_PASTORAL_SEM_TITULAR,
+
+  // ── /admin e /areas ───────────────────────────────────────────────────
+  //
+  // A outra metade do Risco 5: as sete telas sob /admin — LGPD, importação,
+  // exportação, identidade, documentos, campanhas, recuperação de senha —
+  // também não tinham guarda, e a paleta Ctrl+K as oferecia a qualquer papel.
+  // Conferido em 01/09/2026: o pastor titular enxergava "LGPD" e "Exportação
+  // de dados" na busca.
+  //
+  // A entrada de "/admin" vale para as sete pelo casamento por PREFIXO de
+  // papeisExigidosPara(), que a paleta usa. O guarda do AppLayout continua
+  // exato e não alcança as sub-rotas — mas o CLAUDE.md registra que essas
+  // telas já se defendem sozinhas com hasRole, e a RLS é o último portão.
+  //
+  // "/areas" é a lista de equipes de todos os ministérios: mesma matéria de
+  // "/ministerios", mesmo público.
+  "/admin":              ROLES_ADMIN,
+  "/areas":              ROLES_LIDERES_SEM_TITULAR,
   // Sem guarda, a secretaria continuaria chegando pela URL, pelo atalho
   // /ebd/acompanhamento e pela paleta — esconder o item do menu esconderia
   // so um dos quatro caminhos.
@@ -292,4 +372,32 @@ export function rotaInicialPorPapel(roles: AppRole[]): string {
   // nota acima promete não produzir, e que o último teste deste arquivo pega.
   if (roles.includes("diakonia")) return "/painel-pastoral";
   return "/";
+}
+
+/**
+ * Os papeis exigidos por uma rota, considerando SUB-ROTAS.
+ *
+ * `ROUTE_ROLES` e indexado por caminho exato, e o guarda do `AppLayout` o le
+ * assim — e uma limitacao que o Risco 5 do CLAUDE.md ja registra: uma rota
+ * com parametro, como `/ebd/:classeId`, nao casa com a entrada de `/ebd`.
+ *
+ * Esta funcao faz o casamento por PREFIXO, com o mais longo vencendo:
+ * `/financas/executivo` acha a entrada dele, e nao a de `/financas`. Serve a
+ * paleta Ctrl+K, onde a alternativa era cadastrar cada sub-rota a mao e
+ * esquecer a proxima — foi assim que `/arrecadacao/espacos` continuou sendo
+ * oferecido ao pastor titular depois de `/arrecadacao` ser fechado.
+ *
+ * O guarda de rota NAO usa isto ainda. Trocar o casamento exato por prefixo
+ * la muda o comportamento de setenta e seis rotas de uma vez, e e trabalho
+ * proprio — aqui o alcance e uma lista de atalhos.
+ */
+export function papeisExigidosPara(rota: string): AppRole[] | undefined {
+  // Sem a query string: `/financas?lancar=true` e a mesma tela de `/financas`.
+  const limpa = rota.split("?")[0];
+  let melhor: string | undefined;
+  for (const caminho of Object.keys(ROUTE_ROLES)) {
+    if (limpa !== caminho && !limpa.startsWith(caminho + "/")) continue;
+    if (!melhor || caminho.length > melhor.length) melhor = caminho;
+  }
+  return melhor ? ROUTE_ROLES[melhor] : undefined;
 }
