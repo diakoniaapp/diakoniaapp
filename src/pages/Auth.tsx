@@ -10,7 +10,7 @@ import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { rotaInicialPorPapel } from "@/components/layout/navConfig";
+import { destinoInicial } from "@/lib/destinoInicial";
 import { toast } from "sonner";
 import {
   AuthShell, AuthCard, AuthCampo, AuthErro, getSaudacao,
@@ -65,7 +65,7 @@ function traduzirErro(msg: string): string {
 // ── Componente Principal ───────────────────────────────────
 export default function Auth() {
   const navigate       = useNavigate();
-  const { user, loading, roles, rolesCarregados } = useAuth();
+  const { user, loading, roles, rolesCarregados, pessoaId, pessoaCarregada } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [tela, setTela]         = useState<Tela>("login");
@@ -121,9 +121,26 @@ export default function Auth() {
       const lgpdOk = sessionStorage.getItem(`lgpd_ok_${user.id}`);
       if (!lgpdOk) { navigate("/aceite-lgpd", { replace: true }); return; }
       if (!rolesCarregados) return;
-      navigate(rotaInicialPorPapel(roles), { replace: true });
+      // ── Espera também o elo conta→ficha ────────────────────────────────
+      //
+      // Quem não tem bancada por PAPEL pode ter por LIDERANÇA, e descobrir
+      // isso exige `pessoaId`. A mesma razão que já obrigava a esperar
+      // `rolesCarregados` vale aqui: navegar antes da resposta manda o líder
+      // do ministério para a Home às vezes e para a bancada dele às vezes —
+      // pior que não ter, porque ninguém confia no que funciona de vez em
+      // quando.
+      //
+      // A espera continua curta e invisível, com o botão em "Entrando…", e as
+      // duas consultas correm em paralelo desde a montagem do AuthProvider.
+      if (!pessoaCarregada) return;
+
+      let cancelado = false;
+      destinoInicial(roles, pessoaId).then(destino => {
+        if (!cancelado) navigate(destino, { replace: true });
+      });
+      return () => { cancelado = true; };
     }
-  }, [user, loading, roles, rolesCarregados, navigate]);
+  }, [user, loading, roles, rolesCarregados, pessoaId, pessoaCarregada, navigate]);
 
   useEffect(() => { setErroMsg(null); }, [telefone, senha]);
 
