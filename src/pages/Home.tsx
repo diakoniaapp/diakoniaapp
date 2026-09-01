@@ -15,9 +15,13 @@
 // Agora:
 //
 //   Home      quem eu sou aqui, e o que a igreja espera de mim
-//   Painéis   o que eu faço — Pastoral, Secretaria, Crescimento, Finanças
+//   Painéis   o que eu faço — Pastoral, Secretaria, Tesouraria
 //
-// Os widgets não sumiram: foram para os painéis, pelo campo `painel` do
+// Crescimento não vira cartão: ele já é uma aba do Painel Pastoral, e o
+// `App.tsx` registra que foi embutido lá para não haver dois caminhos
+// disputando o mesmo conteúdo.
+//
+// Os widgets não sumiram: foram para os painéis, pelo campo `paineis` do
 // registry. Ver `dashboard/widgetRegistry.tsx`.
 //
 // ── A ORDEM DOS BLOCOS ─────────────────────────────────────────────────────
@@ -39,15 +43,19 @@
 // que mostrar — o canal `VazioCtx`, que já existia. Uma Home com sete títulos
 // e três blocos vazios diria a quem chega que ele está perdendo alguma coisa.
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { UserPlus, Search } from "lucide-react";
+import {
+  UserPlus, Search, CalendarClock, LayoutGrid, Cake, IdCard, BookOpen, Share2,
+  type LucideIcon,
+} from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { usePermissoes } from "@/hooks/usePermissoes";
 import { verseOfTheDay } from "@/lib/agenda/verses";
 import VisitanteRapidoDialog from "@/components/membros/VisitanteRapidoDialog";
 import { openCommandPalette } from "@/lib/commandPalette";
 import { Secao } from "@/components/eu/Secao";
+import { FaixaDeIndicadores, Indicador, irParaSecao } from "@/components/painel/blocos";
 import { MeusPaineis } from "@/components/eu/MeusPaineis";
 import { MinhaFicha } from "@/components/eu/MinhaFicha";
 import { MinhaSemana, MinhaEbdCard, MeuPgmCard } from "@/components/eu/MinhaVida";
@@ -70,6 +78,22 @@ const ROLE_LABEL: Record<string, string> = {
   diakonia: "Pastor titular", pastor: "Pastor",
   lideranca: "Liderança", voluntario: "Voluntário",
 };
+
+/**
+ * Os atalhos da tira, na ordem das seções.
+ *
+ * Rótulos curtos: a tira tem até seis colunas e o rótulo é o único texto de
+ * cada célula. "A sua semana" vira "SEMANA" — quem lê a tira já está na Home
+ * e não precisa da frase inteira, que continua no título da seção.
+ */
+const ATALHOS: { id: string; rotulo: string; icone: LucideIcon }[] = [
+  { id: "minha-semana", rotulo: "Semana",   icone: CalendarClock },
+  { id: "meus-paineis", rotulo: "Painéis",  icone: LayoutGrid },
+  { id: "para-celebrar", rotulo: "Celebrar", icone: Cake },
+  { id: "meus-dados",   rotulo: "Meus dados", icone: IdCard },
+  { id: "minha-vida",   rotulo: "Minha vida", icone: BookOpen },
+  { id: "convidar",     rotulo: "Convidar",  icone: Share2 },
+];
 
 export default function Home() {
   const { roles, pessoaId, pessoaCarregada } = useAuth();
@@ -98,6 +122,17 @@ export default function Home() {
   })();
 
   const papel = ROLE_LABEL[roles[0] ?? ""] ?? null;
+
+  // ── A tira de atalhos ────────────────────────────────────────────────
+  //
+  // Cada seção avisa se tem ou não o que mostrar, e a tira monta a partir
+  // disso. "Meus dados" não avisa nada: ela nunca está vazia — ou traz a
+  // ficha, ou explica por que não há ficha ligada — então nasce presente.
+  const [vazias, setVazias] = useState<Record<string, boolean>>({});
+  const marcarVazio = useCallback((id: string, vazio: boolean) => {
+    setVazias(v => (v[id] === vazio ? v : { ...v, [id]: vazio }));
+  }, []);
+  const atalhos = ATALHOS.filter(a => !vazias[a.id]);
 
   return (
     <div>
@@ -143,23 +178,47 @@ export default function Home() {
         </div>
       </div>
 
+      {/* ── A tira de atalhos ────────────────────────────────────────────
+
+          O mesmo mecanismo do Painel Pastoral, e os mesmos componentes:
+          `FaixaDeIndicadores` + `Indicador` + `irParaSecao`. Ele mede o
+          cabeçalho fixo na hora do salto, em vez de confiar num `scroll-mt`
+          escrito à mão — e o comentário de `irParaSecao` conta por quê: o
+          número fixo envelheceu na primeira vez que o cabeçalho mudou.
+
+          Só entram as seções que ESTA pessoa tem. Um atalho para uma seção
+          escondida rolaria a tela até nada, e prometeria conteúdo que ela
+          não tem — que é o oposto de um atalho. */}
+      <div className="px-4 md:px-8 pt-4 max-w-5xl mx-auto">
+        <FaixaDeIndicadores colunas={Math.min(Math.max(atalhos.length, 3), 6)}>
+          {atalhos.map(a => (
+            <Indicador key={a.id} rotulo={a.rotulo} icone={a.icone}
+              onClick={() => irParaSecao(a.id)}
+              descricao={`Ir para ${a.rotulo}`} />
+          ))}
+        </FaixaDeIndicadores>
+      </div>
+
       <div className="p-4 md:p-8 space-y-10 max-w-5xl mx-auto">
-        <Secao titulo="A sua semana" subtitulo="O que a igreja espera de você nos próximos dias">
+        <Secao id="minha-semana" onVazio={marcarVazio}
+          titulo="A sua semana" subtitulo="O que a igreja espera de você nos próximos dias">
           {pessoaId && <MinhaSemana pessoaId={pessoaId} />}
         </Secao>
 
-        <Secao titulo="Seus painéis" subtitulo="Onde você trabalha neste sistema">
+        <Secao id="meus-paineis" onVazio={marcarVazio}
+          titulo="Seus painéis" subtitulo="Onde você trabalha neste sistema">
           <MeusPaineis permissoes={permissoes} />
         </Secao>
 
-        <Secao titulo="Para celebrar" subtitulo="Aniversários e bodas dos próximos sete dias">
+        <Secao id="para-celebrar" onVazio={marcarVazio}
+          titulo="Para celebrar" subtitulo="Aniversários e bodas dos próximos sete dias">
           <AniversariosParaCelebrar />
         </Secao>
 
         {/* Sem `Secao`: este bloco nunca está vazio — ou mostra a ficha, ou
             explica por que não há ficha ligada à conta. Envolvê-lo no canal
             do vazio seria dar a ele a chance de sumir sem explicar. */}
-        <section className="space-y-2">
+        <section id="meus-dados" className="space-y-2 scroll-mt-24">
           <div className="px-1">
             <h2 className="font-serif text-lg">Meus dados</h2>
             <p className="text-xs text-muted-foreground">
@@ -173,7 +232,8 @@ export default function Home() {
               : null}
         </section>
 
-        <Secao titulo="Minha vida na igreja" subtitulo="Escola Bíblica e Pequeno Grupo">
+        <Secao id="minha-vida" onVazio={marcarVazio}
+          titulo="Minha vida na igreja" subtitulo="Escola Bíblica e Pequeno Grupo">
           {pessoaId && (
             <div className="grid gap-2 md:grid-cols-2">
               <MinhaEbdCard pessoaId={pessoaId} />
@@ -182,7 +242,8 @@ export default function Home() {
           )}
         </Secao>
 
-        <Secao titulo="Convide alguém" subtitulo="A agenda dos próximos dias, com a mensagem pronta">
+        <Secao id="convidar" onVazio={marcarVazio}
+          titulo="Convide alguém" subtitulo="A agenda dos próximos dias, com a mensagem pronta">
           <AgendaParaConvidar eu={ficha} />
         </Secao>
 

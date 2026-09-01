@@ -59,7 +59,7 @@ export function AniversariosParaCelebrar() {
   return (
     <div className="grid gap-2">
       {eventos.slice(0, 6).map(ev => (
-        <Card key={`${ev.tipo}-${ev.ref_id}`}>
+        <Card key={`${ev.tipo}-${ev.ref_id}`} className="min-w-0">
           <CardContent className="p-3 flex items-center gap-3">
             {ev.tipo === "casamento"
               ? <Heart className="w-4 h-4 shrink-0 text-gold" />
@@ -184,12 +184,17 @@ export function AgendaParaConvidar({ eu }: { eu: MinhaFicha | null }) {
       {ocorrencias.slice(0, 5).map(o => {
         const ev: any = o.evento;
         return (
-          <Card key={o.key}>
+          <Card key={o.key} className="min-w-0">
             <CardContent className="p-3 flex items-center gap-3">
               <CalendarDays className="w-4 h-4 shrink-0 text-muted-foreground" />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5 min-w-0">
-                  <p className="text-sm font-medium truncate">{ev?.titulo}</p>
+                  {/* `min-w-0` no próprio <p>: ele é item de flex, e item de
+                      flex nasce com `min-width: auto` — o `truncate` não corta
+                      nada e o título empurra o cartão para fora da tela. É o
+                      mesmo transbordo que este repositório já viu seis vezes,
+                      e que tem teste e2e só para ele. */}
+                  <p className="text-sm font-medium truncate min-w-0">{ev?.titulo}</p>
                   {ev?.transmissao_online && (
                     <Badge variant="outline" className="shrink-0 gap-1 text-xs">
                       <Radio className="w-3 h-3" /> ao vivo

@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { useVerComo } from "@/hooks/useVerComo";
 
 // AppRole reflete o enum app_role do Supabase.
 // FASE C: migration adiciona "voluntario" e "pastor".
@@ -19,7 +20,22 @@ export type AppRole =
 interface AuthContextValue {
   user: User | null;
   session: Session | null;
+  /**
+   * Os papéis EFETIVOS — os que decidem o que a tela oferece.
+   *
+   * Normalmente são os reais. Durante "Ver como" são o papel simulado: é
+   * assim que a administradora enxerga o aplicativo pelos olhos de outro
+   * perfil, já que menu, guardas de rota e telas leem daqui.
+   */
   roles: AppRole[];
+  /**
+   * Os papéis de verdade da conta, indiferentes à simulação.
+   *
+   * Quem decide se a pessoa PODE simular tem de perguntar por aqui — usar
+   * `roles` faria a administradora perder o botão de sair no instante em que
+   * entrasse no modo, e ficar presa nele.
+   */
+  rolesReais: AppRole[];
   /** Se a consulta de papéis já respondeu — ver a nota em `fetchRoles`. */
   rolesCarregados: boolean;
   /**
@@ -139,9 +155,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => sub.subscription.unsubscribe();
   }, []);
 
+  /**
+   * Os papéis EFETIVOS — os que decidem o que a tela oferece.
+   *
+   * Iguais aos reais, exceto quando a administradora está em "Ver como": ali
+   * ela passa a enxergar o aplicativo com o papel escolhido, e é justamente
+   * `roles`/`hasRole` que o `AppLayout`, o menu e as guardas de rota leem.
+   *
+   * O que NÃO muda: `user`, `session` e, portanto, a RLS. Ver a nota longa em
+   * `useVerComo.tsx` — isto troca o que o aplicativo oferece, nunca o que o
+   * banco permite.
+   */
+  const { papel: papelSimulado } = useVerComo();
+  const rolesEfetivos: AppRole[] = papelSimulado ? [papelSimulado] : roles;
+
   const hasRole = (r: AppRole | AppRole[]) => {
     const arr = Array.isArray(r) ? r : [r];
-    return roles.some((role) => arr.includes(role));
+    return rolesEfetivos.some((role) => arr.includes(role));
   };
 
   const signOut = async () => {
@@ -180,7 +210,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const podeEditarPessoas = hasRole(["admin", "secretaria", "diakonia", "pastor"]);
 
   return (
-    <AuthContext.Provider value={{ user, session, roles, rolesCarregados, pessoaId, pessoaCarregada, loading, signOut, hasRole, canEdit, podeEditarPessoas }}>
+    <AuthContext.Provider value={{ user, session, roles: rolesEfetivos, rolesReais: roles, rolesCarregados, pessoaId, pessoaCarregada, loading, signOut, hasRole, canEdit, podeEditarPessoas }}>
       {children}
     </AuthContext.Provider>
   );

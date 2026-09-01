@@ -16,7 +16,7 @@
 
 import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
-import { Sparkles, ClipboardCheck, TrendingUp, Wallet, type LucideIcon } from "lucide-react";
+import { Sparkles, ClipboardCheck, Wallet, type LucideIcon } from "lucide-react";
 import { useReportarVazio } from "@/components/hoje/vazio";
 
 interface PainelDisponivel {
@@ -28,6 +28,11 @@ interface PainelDisponivel {
   permissoes: string[];
 }
 
+// Crescimento NÃO entra nesta lista, embora tenha rota própria
+// (`/painel-estrategico`). Ele já é uma das abas do Painel Pastoral — o
+// comentário no `App.tsx` registra que foi embutido lá justamente para não ter
+// dois caminhos disputando o mesmo conteúdo. Um cartão aqui recriaria o
+// segundo caminho que aquela decisão fechou.
 const PAINEIS: PainelDisponivel[] = [
   { to: "/painel-pastoral", nome: "Painel Pastoral",
     paraQue: "Quem chegou, quem sumiu e quem precisa de uma visita",
@@ -35,10 +40,9 @@ const PAINEIS: PainelDisponivel[] = [
   { to: "/painel-secretaria", nome: "Painel da Secretaria",
     paraQue: "Cadastros a corrigir, membresia e o que a igreja precisa registrar",
     icon: ClipboardCheck, permissoes: ["ver_painel_secretaria", "ver_painel_admin"] },
-  { to: "/painel-estrategico", nome: "Crescimento",
-    paraQue: "Como a igreja tem crescido, e por onde as pessoas entram",
-    icon: TrendingUp, permissoes: ["ver_painel_admin", "ver_painel_pastoral"] },
-  { to: "/financas", nome: "Finanças",
+  // "Tesouraria" e não "Finanças": é o nome do trabalho e de quem o faz na
+  // igreja. "Finanças" nomeia o assunto; o cartão leva a uma bancada.
+  { to: "/financas", nome: "Tesouraria",
     paraQue: "Entradas, saídas e o que vence nos próximos dias",
     icon: Wallet, permissoes: ["ver_painel_tesouraria", "ver_financeiro"] },
 ];

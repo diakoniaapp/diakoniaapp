@@ -38,7 +38,7 @@ export function MinhaSemana({ pessoaId }: { pessoaId: string }) {
   return (
     <div className="grid gap-2">
       {itens.map((c, i) => (
-        <Card key={i}>
+        <Card key={i} className="min-w-0">
           <CardContent className="p-3 flex items-center gap-3">
             <CalendarClock className="w-4 h-4 shrink-0 text-gold" />
             <div className="min-w-0 flex-1">

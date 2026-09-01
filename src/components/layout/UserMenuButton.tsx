@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { User, LogOut, ShieldCheck, Moon, Sun } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import { ADMIN_MENU_ITEMS } from "@/components/layout/adminMenuItems";
+import { VerComoMenu } from "@/components/layout/VerComoMenu";
 
 export function UserMenuButton() {
   const { user, signOut, hasRole, roles } = useAuth();
@@ -122,6 +123,8 @@ export function UserMenuButton() {
             ))}
           </>
         )}
+
+        <VerComoMenu />
 
         <DropdownMenuSeparator />
         {/* ── O tema escuro deixa de ser código morto ──────────────────────

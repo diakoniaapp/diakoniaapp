@@ -1,4 +1,5 @@
 import { Outlet, NavLink, useNavigate, useLocation } from "react-router-dom";
+import { FaixaVerComo } from "@/components/layout/VerComoMenu";
 import { useAuth } from "@/hooks/useAuth";
 import { LogOut, ChevronLeft, ChevronDown, Search, Moon, Sun } from "lucide-react";
 import { BrandMark } from "@/components/Brand";
@@ -412,6 +413,7 @@ export default function AppLayout() {
           key={location.pathname}
           className="flex-1 overflow-x-hidden overflow-y-auto pb-20 md:pb-0 animate-fade-in"
         >
+          <FaixaVerComo />
           <Outlet />
         </main>
 

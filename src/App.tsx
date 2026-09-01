@@ -78,6 +78,7 @@ import PrimeiroAcesso from "./pages/PrimeiroAcesso.tsx";
 import AceiteLgpd from "./pages/AceiteLgpd.tsx";
 import Usuarios from "./pages/Usuarios.tsx";
 import { AuthProvider } from "./hooks/useAuth.tsx";
+import { VerComoProvider } from "./hooks/useVerComo.tsx";
 import { ErrorBoundary } from "./components/ErrorBoundary.tsx";
 import { ThemeProvider } from "./hooks/useTheme.tsx";
 
@@ -91,6 +92,9 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
+            {/* Fora do AuthProvider porque e ele quem consulta o papel simulado
+                para montar os papeis efetivos. Ver useVerComo.tsx. */}
+            <VerComoProvider>
             <AuthProvider>
               <Routes>
                 {/* Rotas públicas (sem layout) */}
@@ -194,6 +198,7 @@ const App = () => (
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </AuthProvider>
+            </VerComoProvider>
           </BrowserRouter>
         </TooltipProvider>
       </QueryClientProvider>
