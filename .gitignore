@@ -37,3 +37,7 @@ supabase/config.toml.bak
 e2e/.sessao.json
 test-results/
 playwright-report/
+
+# Rascunho de sessão — ver workspace/README.md
+workspace/*
+!workspace/README.md
