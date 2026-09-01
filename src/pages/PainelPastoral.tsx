@@ -124,6 +124,7 @@ import {
 import { BlocoRebanho } from "@/components/painel/BlocoRebanho";
 import { WidgetsDoPainel } from "@/dashboard/WidgetsDoPainel";
 import { TiraDaSemana, rotuloDoDia } from "@/components/painel/TiraDaSemana";
+import { formatarAtualizadoHa } from "@/components/painel/blocos";
 
 /** Hoje + 6 = uma semana contando o próprio dia. */
 const DIAS_A_FRENTE = 6;
@@ -868,14 +869,4 @@ function resumoNatural(
   return partes.join(" ");
 }
 
-function formatarAtualizadoHa(data: Date | null): string {
-  if (!data) return "";
-  const diffMin = Math.floor((Date.now() - data.getTime()) / 60000);
-  if (diffMin < 1) return "agora mesmo";
-  if (diffMin === 1) return "há 1 minuto";
-  if (diffMin < 60) return `há ${diffMin} minutos`;
-  const diffH = Math.floor(diffMin / 60);
-  if (diffH === 1) return "há 1 hora";
-  return `há ${diffH} horas`;
-}
 

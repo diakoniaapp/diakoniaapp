@@ -322,3 +322,22 @@ export function irParaSecao(id: string) {
 
   rolador.scrollTo({ top: Math.max(0, destino), behavior: comportamento });
 }
+
+/**
+ * "agora mesmo", "há 3 minutos", "há 2 horas".
+ *
+ * Morava dentro do `PainelPastoral`. Saiu quando o Painel da Secretaria
+ * ganhou a mesma frase de resumo: duas cópias de uma regra de arredondamento
+ * dariam, mais cedo ou mais tarde, dois textos diferentes para o mesmo
+ * instante — e as duas telas ficam a um clique uma da outra.
+ */
+export function formatarAtualizadoHa(data: Date | null): string {
+  if (!data) return "";
+  const diffMin = Math.floor((Date.now() - data.getTime()) / 60000);
+  if (diffMin < 1) return "agora mesmo";
+  if (diffMin === 1) return "há 1 minuto";
+  if (diffMin < 60) return `há ${diffMin} minutos`;
+  const diffH = Math.floor(diffMin / 60);
+  if (diffH === 1) return "há 1 hora";
+  return `há ${diffH} horas`;
+}

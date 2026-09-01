@@ -41,7 +41,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { NomePessoa } from "@/components/membros/ficha";
 import {
-  Indicador, FaixaDeIndicadores, TituloDaSecao, irParaSecao,
+  Indicador, FaixaDeIndicadores, TituloDaSecao, irParaSecao, formatarAtualizadoHa,
 } from "@/components/painel/blocos";
 import { PENDENCIAS_CADASTRO, type PendenciaCadastro } from "@/lib/pendenciasCadastro";
 import {
@@ -57,12 +57,15 @@ export default function PainelSecretaria() {
   const [erro, setErro] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [verTodasSemFamilia, setVerTodas] = useState(false);
+  /** Quando os números da tela foram lidos — o "· há 3 minutos" do resumo. */
+  const [atualizadoEm, setAtualizadoEm] = useState<Date | null>(null);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
     setErro(null);
     try {
       setResumo(await carregarPainelSecretaria());
+      setAtualizadoEm(new Date());
     } catch (e: unknown) {
       setErro(e instanceof Error ? e.message : "Não foi possível carregar o painel.");
     } finally {
@@ -121,22 +124,56 @@ export default function PainelSecretaria() {
           </Button>
         </div>
 
+        {/* ── Resumo em linguagem natural ────────────────────────────────
+            O mesmo lugar e a mesma forma do Painel Pastoral: uma frase, sem
+            caixa, com o "atualizado há" em corpo menor na mesma linha.
+
+            Esta tela não tinha nenhuma. Ela abria com quatro números grandes
+            — 266, 82, 4, 2 — e cabia a quem lesse descobrir qual deles pedia
+            atenção primeiro. A frase diz. */}
+        {resumo && (
+          <p className="text-sm text-muted-foreground flex items-start gap-1.5">
+            <ClipboardCheck className="w-3.5 h-3.5 text-gold shrink-0 mt-0.5" />
+            <span className="min-w-0">
+              {resumoNatural(resumo, totalCadastro, totalGovernanca)}
+              {atualizadoEm && (
+                <span className="text-[10px] text-muted-foreground ml-1.5 whitespace-nowrap">
+                  · {formatarAtualizadoHa(atualizadoEm)}
+                </span>
+              )}
+            </span>
+          </p>
+        )}
+
+        {/* ── A faixa de indicadores ──────────────────────────────────────
+            **É um índice, não um painel de números.** Sem `valor`, cada bloco
+            vira atalho: ícone, rótulo e a seta.
+
+            Os números saíram do Painel Pastoral a pedido da Telma em
+            27/08/2026, e o motivo vale igual aqui — eles competiam com o
+            conteúdo. "266" no alto da tela pede leitura e promete
+            significado, mas a seção logo abaixo já diz o mesmo com contexto:
+            "10 pessoas sem telefone cadastrado — a igreja não tem como falar
+            com elas". O algarismo sozinho não diz o que fazer com ele.
+
+            E aqui competiam DUAS vezes: o mesmo total reaparece na contagem
+            ao lado do título de cada seção, que é onde ele significa algo. */}
         {resumo && (
           <FaixaDeIndicadores colunas={4}>
             <Indicador
-              rotulo="Cadastro" valor={totalCadastro} tom="warning" icone={ClipboardCheck}
+              rotulo="Cadastro" tom="warning" icone={ClipboardCheck}
               onClick={() => irParaSecao("cadastro")} descricao="Ir para Cadastro a corrigir"
             />
             <Indicador
-              rotulo="Sem família" valor={resumo.semFamilia.length} tom="info" icone={Home}
+              rotulo="Sem família" tom="info" icone={Home}
               onClick={() => irParaSecao("sem-familia")} descricao="Ir para Pessoas sem família"
             />
             <Indicador
-              rotulo="Governança" valor={totalGovernanca} tom="violeta" icone={Gavel}
+              rotulo="Governança" tom="violeta" icone={Gavel}
               onClick={() => irParaSecao("governanca")} descricao="Ir para Governança"
             />
             <Indicador
-              rotulo="Membresia" valor={resumo.membresiaEmAndamento} tom="gold" icone={ScrollText}
+              rotulo="Membresia" tom="gold" icone={ScrollText}
               onClick={() => irParaSecao("membresia")} descricao="Ir para Membresia"
             />
           </FaixaDeIndicadores>
@@ -353,4 +390,68 @@ export default function PainelSecretaria() {
       <WidgetsDoPainel painel="secretaria" />
     </div>
   );
+}
+
+/**
+ * A frase que abre o painel, em português e não em algarismos.
+ *
+ * ── COMO ELA ESCOLHE O QUE DIZER ───────────────────────────────────────────
+ *
+ * Não repete os quatro totais — isso a faixa já fazia, e era justamente o
+ * problema: "266, 82, 4, 2" não diz por onde começar.
+ *
+ * A ordem aqui é de urgência, e a primeira posição não é escolha desta
+ * função: `PENDENCIAS_CADASTRO` marca uma entrada com `destaque: true`, e
+ * hoje é "sem telefone cadastrado". O motivo está escrito lá — quem não tem
+ * telefone não recebe aniversário, não recebe convite, não é alcançável. Se
+ * a igreja um dia mudar essa marca, a frase acompanha sozinha.
+ *
+ * Depois vem o que trava OUTRO trabalho: membresia em andamento espera
+ * decisão, ata pendente trava a governança. Cadastro incompleto e gente sem
+ * família são fila — importam, e podem esperar a rolagem.
+ */
+function resumoNatural(
+  r: ResumoSecretaria,
+  totalCadastro: number,
+  totalGovernanca: number,
+): string {
+  const partes: string[] = [];
+
+  const marcada = PENDENCIAS_CADASTRO.find(p => p.destaque);
+  const nMarcada = marcada
+    ? (r.pendencias.find(p => p.chave === marcada.chave)?.quantidade ?? 0)
+    : 0;
+  if (marcada && nMarcada > 0) partes.push(marcada.texto(nMarcada));
+
+  if (r.membresiaEmAndamento > 0) {
+    partes.push(`${r.membresiaEmAndamento} ${r.membresiaEmAndamento === 1
+      ? "solicitação de membresia em andamento"
+      : "solicitações de membresia em andamento"}`);
+  }
+  if (totalGovernanca > 0) {
+    partes.push(`${totalGovernanca} ${totalGovernanca === 1
+      ? "pendência de governança" : "pendências de governança"}`);
+  }
+
+  // ── A FILA NÃO ENTRA NA FRASE QUANDO HÁ URGÊNCIA ─────────────────────
+  //
+  // A primeira versão fechava com "Ao todo, 266 correções de cadastro e 82
+  // pessoas sem família". Ficou com quatro linhas no celular contra duas do
+  // Painel Pastoral — e, pior, repetia o que a seção logo abaixo já diz ao
+  // lado do próprio título ("Cadastro a corrigir  266").
+  //
+  // Era o mesmo defeito pelo qual os números saíram da faixa, cometido de
+  // novo três linhas depois. O total só aparece quando NÃO há urgência: ali
+  // ele deixa de competir e passa a ser a resposta.
+  if (partes.length > 0) return `Atenção: ${partes.join(", ")}.`;
+
+  const fila: string[] = [];
+  if (totalCadastro > 0) {
+    fila.push(`${totalCadastro} ${totalCadastro === 1 ? "correção" : "correções"} de cadastro`);
+  }
+  if (r.semFamilia.length > 0) {
+    fila.push(`${r.semFamilia.length} ${r.semFamilia.length === 1 ? "pessoa" : "pessoas"} sem família`);
+  }
+  if (fila.length === 0) return "Cadastro em dia e nada pendente — tudo em ordem! 🙏";
+  return `Nada urgente. Na fila: ${fila.join(" e ")}.`;
 }
