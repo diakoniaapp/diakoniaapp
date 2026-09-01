@@ -1,7 +1,13 @@
 // ─── Usuarios.tsx — Painel Administrativo de Acessos ─────────────────────────
 //
-// DOMÍNIO: supervisão técnica, auditoria, controle de acessos.
-// NÃO é onde se cria usuário — acesso é criado na ficha da Pessoa.
+// DOMÍNIO: supervisão técnica, auditoria, controle de acessos — e, desde
+// 01/09/2026, a CRIAÇÃO deles.
+//
+// O cabeçalho dizia "NÃO é onde se cria usuário — acesso é criado na ficha da
+// Pessoa". A ficha nunca ofereceu isso: criarAcessoPessoa() existia inteira no
+// serviço e não era chamada por tela nenhuma. As duas frases — esta e o
+// subtítulo da tela — mandavam quem administra a uma porta inexistente, e a
+// igreja ficou com os mesmos três acessos desde o começo.
 //
 // Acesso restrito: admin e secretaria.
 
@@ -15,7 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
   AlertCircle, RefreshCw, ShieldCheck, UserX,
-  Users, KeyRound, Send, Search, ExternalLink, Trash2,
+  Users, KeyRound, Send, Search, ExternalLink, Trash2, UserPlus,
 } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -35,6 +41,7 @@ import { ROLE_LABEL, ROLE_VARIANT } from "@/types/usuario";
 import { Badge as UiBadge } from "@/components/ui/badge";
 import { formatarTelefoneSemDDI } from "@/lib/telefone";
 import { PermissoesDosPerfis } from "@/components/usuarios/PermissoesDosPerfis";
+import { NovoAcessoDialog } from "@/components/usuarios/NovoAcessoDialog";
 
 // ─── Tipos locais ─────────────────────────────────────────────────────────────
 
@@ -76,6 +83,7 @@ export default function Usuarios() {
   const [aRemover,  setARemover]  = useState<AcessoComNome | null>(null);
   const [trocando,  setTrocando]  = useState<string | null>(null);
   const [removendo, setRemovendo] = useState(false);
+  const [criandoAcesso, setCriandoAcesso] = useState(false);
 
   const podeGerenciar = hasRole(["admin", "secretaria"]);
 
@@ -110,10 +118,26 @@ export default function Usuarios() {
   // ── Ação: resetar/reenviar ──────────────────────────────────────────────────
 
   /**
-   * Os cinco perfis oferecidos. `diakonia` fica fora: o próprio tipo o marca
-   * como legado, já migrado para `pastor`.
+   * Os perfis oferecidos.
+   *
+   * ── `diakonia` ENTROU EM 01/09/2026 ──────────────────────────────────────
+   *
+   * O comentário anterior dizia que ele ficava de fora porque "o próprio tipo
+   * o marca como legado, já migrado para `pastor`". Essa crença foi DESMENTIDA
+   * em 26/08 e corrigida em `types/usuario.ts`, que hoje o rotula "Pastor
+   * titular" e registra a medição: `diakonia` está no enum desde a primeira
+   * migration e tem 62 combinações tabela+operação contra 34 de `pastor`; e
+   * `pastor` sozinho não enxerga famílias, visitas nem histórico de membresia.
+   *
+   * A correção não chegou até aqui, e a consequência era concreta: **não havia
+   * como atribuir o perfil de pastor titular por tela nenhuma**. O Painel
+   * Pastoral acabara de passar a ser exclusivo dele, e o papel era
+   * inalcançável — o portão fechado e a chave sem cópia.
+   *
+   * A ordem desce do mais amplo ao mais estreito, que é como se lê uma lista
+   * de permissão.
    */
-  const PERFIS: AppRole[] = ["admin", "secretaria", "pastor", "lideranca", "voluntario"];
+  const PERFIS: AppRole[] = ["admin", "secretaria", "diakonia", "pastor", "lideranca", "voluntario"];
 
   async function handleTrocarPerfil(a: AcessoComNome, papel: AppRole) {
     setTrocando(a.userId);
@@ -194,20 +218,39 @@ export default function Usuarios() {
             <ShieldCheck className="w-5 h-5 text-primary" />
             <h1 className="text-xl font-semibold">Painel de Acessos</h1>
           </div>
+          {/* O subtítulo mandava "abrir a ficha da pessoa em Pessoas" para
+              criar acesso. A ficha nunca ofereceu isso, e `criarAcessoPessoa`
+              não era chamada por tela nenhuma — a instrução apontava para uma
+              porta que não existe, e a igreja ficou com três acessos. A porta
+              passou a existir aqui, no botão ao lado. */}
           <p className="text-sm text-muted-foreground mt-0.5">
-            Supervisão técnica · Para criar acesso, abra a ficha da pessoa em{" "}
-            <Link to="/membros" className="underline hover:text-foreground">Pessoas</Link>
+            Supervisão técnica · quem entra no sistema, com que perfil e desde quando
           </p>
         </div>
-        <Button
-          variant="outline" size="sm"
-          onClick={carregar} disabled={carregando}
-          className="gap-2"
-        >
-          <RefreshCw className={`w-4 h-4 ${carregando ? "animate-spin" : ""}`} />
-          {carregando ? "Atualizando..." : "Atualizar"}
-        </Button>
+        <div className="flex items-center gap-2">
+          {podeGerenciar && (
+            <Button size="sm" onClick={() => setCriandoAcesso(true)} className="gap-2">
+              <UserPlus className="w-4 h-4" />
+              Novo acesso
+            </Button>
+          )}
+          <Button
+            variant="outline" size="sm"
+            onClick={carregar} disabled={carregando}
+            className="gap-2"
+          >
+            <RefreshCw className={`w-4 h-4 ${carregando ? "animate-spin" : ""}`} />
+            {carregando ? "Atualizando..." : "Atualizar"}
+          </Button>
+        </div>
       </div>
+
+      <NovoAcessoDialog
+        aberto={criandoAcesso}
+        onFechar={() => setCriandoAcesso(false)}
+        perfis={PERFIS}
+        aoCriar={carregar}
+      />
 
       {/* Resumo */}
       {!carregando && !erro && (
