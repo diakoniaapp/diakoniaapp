@@ -55,6 +55,40 @@
 -- trabalho, e mais fino: exige saber, por tabela, quem edita o quê.
 --
 -- O que muda aqui é o tamanho da porta, não o número de fechaduras.
+--
+-- ── APLICADA EM 01/09/2026, E CONFERIDA ────────────────────────────────────
+--
+-- Antes: 43 políticas `ALL` abertas em 43 tabelas. Depois: nenhuma. 43
+-- políticas `_equipe` no lugar, e `profiles` sem a "liberar tudo temporario".
+--
+-- Simulando as quatro contas reais contra o banco já alterado:
+--
+--                            Telma    Lourdes    Bruno    Lúcio
+--                            (admin)  (secret.) (lider.)  (pastor titular)
+--   fin_lancamentos             1         1         1         0
+--   fin_contas                  5         5         5         0
+--   gov_reunioes                1         1         1         0
+--   gov_pautas                  3         3         3         0
+--   pgm_grupos                  4         4         4         4
+--   solicitacoes_membresia      2         2         2         2
+--   membros                   297       297       297       297
+--   profiles                    4         4         1         1
+--
+-- Ninguém perdeu o que usa. O pastor titular zerou dinheiro e governança
+-- mantendo membros, PGM e membresia — que é o conteúdo do painel dele.
+--
+-- ── O QUE AINDA FICOU ABERTO ───────────────────────────────────────────────
+--
+-- Varrendo as 144 tabelas do schema com a identidade do pastor, sobraram 62
+-- com linhas visíveis. Nenhuma de dinheiro, nenhuma de ata. Mas a causa
+-- continua viva noutro formato:
+--
+--   49 políticas de SELECT abertas em ~46 tabelas
+--    6 políticas de UPDATE abertas — inclusive em `recuperacao_senha`
+--
+-- Qualquer pessoa logada ainda LÊ escalas, EBD, eventos, campanhas,
+-- documentos, Bazar e Cantina, e ainda ESCREVE em seis tabelas. Fica para a
+-- próxima, com o mesmo método: medir, agrupar, trocar, conferir.
 
 BEGIN;
 
