@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.15"
+    PostgrestVersion: "14.5"
   }
   graphql_public: {
     Tables: {
@@ -214,7 +214,71 @@ export type Database = {
           ultima_escala_em?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "area_voluntarios_area_id_fkey"
+            columns: ["area_id"]
+            isOneToOne: false
+            referencedRelation: "areas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "area_voluntarios_area_id_fkey"
+            columns: ["area_id"]
+            isOneToOne: false
+            referencedRelation: "v_voluntarios_completo"
+            referencedColumns: ["area_id"]
+          },
+          {
+            foreignKeyName: "area_voluntarios_membro_id_fkey"
+            columns: ["membro_id"]
+            isOneToOne: false
+            referencedRelation: "membros"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "area_voluntarios_membro_id_fkey"
+            columns: ["membro_id"]
+            isOneToOne: false
+            referencedRelation: "v_membros_mapa"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "area_voluntarios_membro_id_fkey"
+            columns: ["membro_id"]
+            isOneToOne: false
+            referencedRelation: "v_membros_perfil"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "area_voluntarios_membro_id_fkey"
+            columns: ["membro_id"]
+            isOneToOne: false
+            referencedRelation: "v_ranking_convidadores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "area_voluntarios_membro_id_fkey"
+            columns: ["membro_id"]
+            isOneToOne: false
+            referencedRelation: "v_visitantes_alerta"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "area_voluntarios_ministerio_id_fkey"
+            columns: ["ministerio_id"]
+            isOneToOne: false
+            referencedRelation: "ministerios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "area_voluntarios_ministerio_id_fkey"
+            columns: ["ministerio_id"]
+            isOneToOne: false
+            referencedRelation: "v_voluntarios_completo"
+            referencedColumns: ["ministerio_id"]
+          },
+        ]
       }
       areas: {
         Row: {
@@ -2786,9 +2850,9 @@ export type Database = {
           classe_id: string
           created_at: string | null
           data_matricula: string
-          progressao_dispensada_em: string | null
           id: string
           pessoa_id: string
+          progressao_dispensada_em: string | null
           updated_at: string | null
         }
         Insert: {
@@ -2796,9 +2860,9 @@ export type Database = {
           classe_id: string
           created_at?: string | null
           data_matricula?: string
-          progressao_dispensada_em?: string | null
           id?: string
           pessoa_id: string
+          progressao_dispensada_em?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -2806,9 +2870,9 @@ export type Database = {
           classe_id?: string
           created_at?: string | null
           data_matricula?: string
-          progressao_dispensada_em?: string | null
           id?: string
           pessoa_id?: string
+          progressao_dispensada_em?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -3495,6 +3559,8 @@ export type Database = {
           status: Database["public"]["Enums"]["evento_status"]
           tipo: Database["public"]["Enums"]["evento_tipo"]
           titulo: string
+          transmissao_online: boolean
+          transmissao_url: string | null
           updated_at: string
           visitante_id: string | null
         }
@@ -3519,6 +3585,8 @@ export type Database = {
           status?: Database["public"]["Enums"]["evento_status"]
           tipo?: Database["public"]["Enums"]["evento_tipo"]
           titulo: string
+          transmissao_online?: boolean
+          transmissao_url?: string | null
           updated_at?: string
           visitante_id?: string | null
         }
@@ -3543,6 +3611,8 @@ export type Database = {
           status?: Database["public"]["Enums"]["evento_status"]
           tipo?: Database["public"]["Enums"]["evento_tipo"]
           titulo?: string
+          transmissao_online?: boolean
+          transmissao_url?: string | null
           updated_at?: string
           visitante_id?: string | null
         }
@@ -7021,24 +7091,11 @@ export type Database = {
           data_consagracao_missionaria: string | null
           data_consagracao_pastoral: string | null
           data_entrada: string | null
-          // Saída do rol e a assinatura de quem a registrou. Acrescentadas à
-          // mão em 26/08/2026 (migration 20260828180000). Uma regeneração do
-          // types.ts as traz do banco e descarta este comentário — reconferir.
-          data_saida: string | null
-          tipo_entrada: Database["public"]["Enums"]["tipo_entrada_rol"] | null
-          saida_registrada_em: string | null
-          saida_registrada_por: string | null
-          saida_registrada_por_funcao: string | null
-          saida_registrada_por_nome: string | null
           data_membro: string | null
           data_nascimento: string | null
-          // Dia e mês de quem não teve o ano registrado. O ano guardado é
-          // sempre 2000 e NÃO é dado — nunca calcular idade daqui. Acrescentada
-          // à mão em 27/08/2026 (migration 20260828210000). Uma regeneração do
-          // types.ts a traz do banco e descarta este comentário — reconferir.
-          nascimento_dia_mes: string | null
           data_ordenacao_diaconal: string | null
           data_ordenacao_presbiteral: string | null
+          data_saida: string | null
           email: string | null
           endereco: string | null
           endereco_completo: string | null
@@ -7062,6 +7119,7 @@ export type Database = {
           lgpd_aceito: boolean
           longitude: number | null
           membro_igreja: boolean | null
+          nascimento_dia_mes: string | null
           nome_completo: string
           nome_social: string | null
           numero: string | null
@@ -7069,6 +7127,7 @@ export type Database = {
           observacoes: string | null
           observacoes_pastorais: string | null
           onboarding_completo: boolean
+          origem_cadastro: string
           parentesco: string | null
           pequeno_grupo_id: string | null
           perfil_acesso: Database["public"]["Enums"]["perfil_acesso"] | null
@@ -7077,6 +7136,10 @@ export type Database = {
           responsavel_familiar: boolean
           responsavel_id: string | null
           rg: string | null
+          saida_registrada_em: string | null
+          saida_registrada_por: string | null
+          saida_registrada_por_funcao: string | null
+          saida_registrada_por_nome: string | null
           score_engajamento: number
           sexo: Database["public"]["Enums"]["sexo"] | null
           status: Database["public"]["Enums"]["membro_status"]
@@ -7085,10 +7148,10 @@ export type Database = {
             | null
           telefone_celular: string | null
           telefone_dispensado: boolean
-          origem_cadastro: string
           telefone_e164: string | null
           telefone_fixo: string | null
           tem_acesso_sistema: boolean
+          tipo_entrada: Database["public"]["Enums"]["tipo_entrada_rol"] | null
           tipo_pessoa: Database["public"]["Enums"]["tipo_pessoa"]
           uf: string | null
           ultimo_contato_em: string | null
@@ -7116,24 +7179,11 @@ export type Database = {
           data_consagracao_missionaria?: string | null
           data_consagracao_pastoral?: string | null
           data_entrada?: string | null
-          // Saída do rol e a assinatura de quem a registrou. Acrescentadas à
-          // mão em 26/08/2026 (migration 20260828180000). Uma regeneração do
-          // types.ts as traz do banco e descarta este comentário — reconferir.
-          data_saida?: string | null
-          tipo_entrada?: Database["public"]["Enums"]["tipo_entrada_rol"] | null
-          saida_registrada_em?: string | null
-          saida_registrada_por?: string | null
-          saida_registrada_por_funcao?: string | null
-          saida_registrada_por_nome?: string | null
           data_membro?: string | null
           data_nascimento?: string | null
-          // Dia e mês de quem não teve o ano registrado. O ano guardado é
-          // sempre 2000 e NÃO é dado — nunca calcular idade daqui. Acrescentada
-          // à mão em 27/08/2026 (migration 20260828210000). Uma regeneração do
-          // types.ts a traz do banco e descarta este comentário — reconferir.
-          nascimento_dia_mes?: string | null
           data_ordenacao_diaconal?: string | null
           data_ordenacao_presbiteral?: string | null
+          data_saida?: string | null
           email?: string | null
           endereco?: string | null
           endereco_completo?: string | null
@@ -7157,6 +7207,7 @@ export type Database = {
           lgpd_aceito?: boolean
           longitude?: number | null
           membro_igreja?: boolean | null
+          nascimento_dia_mes?: string | null
           nome_completo: string
           nome_social?: string | null
           numero?: string | null
@@ -7164,6 +7215,7 @@ export type Database = {
           observacoes?: string | null
           observacoes_pastorais?: string | null
           onboarding_completo?: boolean
+          origem_cadastro?: string
           parentesco?: string | null
           pequeno_grupo_id?: string | null
           perfil_acesso?: Database["public"]["Enums"]["perfil_acesso"] | null
@@ -7172,6 +7224,10 @@ export type Database = {
           responsavel_familiar?: boolean
           responsavel_id?: string | null
           rg?: string | null
+          saida_registrada_em?: string | null
+          saida_registrada_por?: string | null
+          saida_registrada_por_funcao?: string | null
+          saida_registrada_por_nome?: string | null
           score_engajamento?: number
           sexo?: Database["public"]["Enums"]["sexo"] | null
           status?: Database["public"]["Enums"]["membro_status"]
@@ -7181,9 +7237,9 @@ export type Database = {
           telefone_celular?: string | null
           telefone_dispensado?: boolean
           telefone_e164?: string | null
-          origem_cadastro?: string
           telefone_fixo?: string | null
           tem_acesso_sistema?: boolean
+          tipo_entrada?: Database["public"]["Enums"]["tipo_entrada_rol"] | null
           tipo_pessoa?: Database["public"]["Enums"]["tipo_pessoa"]
           uf?: string | null
           ultimo_contato_em?: string | null
@@ -7211,24 +7267,11 @@ export type Database = {
           data_consagracao_missionaria?: string | null
           data_consagracao_pastoral?: string | null
           data_entrada?: string | null
-          // Saída do rol e a assinatura de quem a registrou. Acrescentadas à
-          // mão em 26/08/2026 (migration 20260828180000). Uma regeneração do
-          // types.ts as traz do banco e descarta este comentário — reconferir.
-          data_saida?: string | null
-          tipo_entrada?: Database["public"]["Enums"]["tipo_entrada_rol"] | null
-          saida_registrada_em?: string | null
-          saida_registrada_por?: string | null
-          saida_registrada_por_funcao?: string | null
-          saida_registrada_por_nome?: string | null
           data_membro?: string | null
           data_nascimento?: string | null
-          // Dia e mês de quem não teve o ano registrado. O ano guardado é
-          // sempre 2000 e NÃO é dado — nunca calcular idade daqui. Acrescentada
-          // à mão em 27/08/2026 (migration 20260828210000). Uma regeneração do
-          // types.ts a traz do banco e descarta este comentário — reconferir.
-          nascimento_dia_mes?: string | null
           data_ordenacao_diaconal?: string | null
           data_ordenacao_presbiteral?: string | null
+          data_saida?: string | null
           email?: string | null
           endereco?: string | null
           endereco_completo?: string | null
@@ -7252,6 +7295,7 @@ export type Database = {
           lgpd_aceito?: boolean
           longitude?: number | null
           membro_igreja?: boolean | null
+          nascimento_dia_mes?: string | null
           nome_completo?: string
           nome_social?: string | null
           numero?: string | null
@@ -7259,6 +7303,7 @@ export type Database = {
           observacoes?: string | null
           observacoes_pastorais?: string | null
           onboarding_completo?: boolean
+          origem_cadastro?: string
           parentesco?: string | null
           pequeno_grupo_id?: string | null
           perfil_acesso?: Database["public"]["Enums"]["perfil_acesso"] | null
@@ -7267,6 +7312,10 @@ export type Database = {
           responsavel_familiar?: boolean
           responsavel_id?: string | null
           rg?: string | null
+          saida_registrada_em?: string | null
+          saida_registrada_por?: string | null
+          saida_registrada_por_funcao?: string | null
+          saida_registrada_por_nome?: string | null
           score_engajamento?: number
           sexo?: Database["public"]["Enums"]["sexo"] | null
           status?: Database["public"]["Enums"]["membro_status"]
@@ -7276,9 +7325,9 @@ export type Database = {
           telefone_celular?: string | null
           telefone_dispensado?: boolean
           telefone_e164?: string | null
-          origem_cadastro?: string
           telefone_fixo?: string | null
           tem_acesso_sistema?: boolean
+          tipo_entrada?: Database["public"]["Enums"]["tipo_entrada_rol"] | null
           tipo_pessoa?: Database["public"]["Enums"]["tipo_pessoa"]
           uf?: string | null
           ultimo_contato_em?: string | null
@@ -7847,6 +7896,69 @@ export type Database = {
           ordem?: number
         }
         Relationships: []
+      }
+      observacoes_pastorais_arquivadas: {
+        Row: {
+          arquivado_em: string
+          id: string
+          membro_id: string
+          motivo: string
+          nome_completo: string
+          texto: string
+        }
+        Insert: {
+          arquivado_em?: string
+          id?: string
+          membro_id: string
+          motivo: string
+          nome_completo: string
+          texto: string
+        }
+        Update: {
+          arquivado_em?: string
+          id?: string
+          membro_id?: string
+          motivo?: string
+          nome_completo?: string
+          texto?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "observacoes_pastorais_arquivadas_membro_id_fkey"
+            columns: ["membro_id"]
+            isOneToOne: false
+            referencedRelation: "membros"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "observacoes_pastorais_arquivadas_membro_id_fkey"
+            columns: ["membro_id"]
+            isOneToOne: false
+            referencedRelation: "v_membros_mapa"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "observacoes_pastorais_arquivadas_membro_id_fkey"
+            columns: ["membro_id"]
+            isOneToOne: false
+            referencedRelation: "v_membros_perfil"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "observacoes_pastorais_arquivadas_membro_id_fkey"
+            columns: ["membro_id"]
+            isOneToOne: false
+            referencedRelation: "v_ranking_convidadores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "observacoes_pastorais_arquivadas_membro_id_fkey"
+            columns: ["membro_id"]
+            isOneToOne: false
+            referencedRelation: "v_visitantes_alerta"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pdv_caixa: {
         Row: {
@@ -11119,7 +11231,43 @@ export type Database = {
             | null
           ultima_escala_em: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "area_voluntarios_membro_id_fkey"
+            columns: ["pessoa_id"]
+            isOneToOne: false
+            referencedRelation: "membros"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "area_voluntarios_membro_id_fkey"
+            columns: ["pessoa_id"]
+            isOneToOne: false
+            referencedRelation: "v_membros_mapa"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "area_voluntarios_membro_id_fkey"
+            columns: ["pessoa_id"]
+            isOneToOne: false
+            referencedRelation: "v_membros_perfil"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "area_voluntarios_membro_id_fkey"
+            columns: ["pessoa_id"]
+            isOneToOne: false
+            referencedRelation: "v_ranking_convidadores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "area_voluntarios_membro_id_fkey"
+            columns: ["pessoa_id"]
+            isOneToOne: false
+            referencedRelation: "v_visitantes_alerta"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       vw_agenda_igreja: {
         Row: {
@@ -11148,6 +11296,7 @@ export type Database = {
           telefone: string | null
           telefone_secundario: string | null
           tipo: string | null
+          tipo_pessoa: Database["public"]["Enums"]["tipo_pessoa"] | null
           titulo: string | null
         }
         Relationships: []
@@ -11307,11 +11456,9 @@ export type Database = {
           classe_sugerida_id: string | null
           data_nascimento: string | null
           idade_atual: number | null
-          // Acrescentadas a mao: a geracao deste arquivo e anterior a
-          // migration 20260820220000.
           idade_max: number | null
-          passou_da_faixa_em: string | null
           nome_completo: string | null
+          passou_da_faixa_em: string | null
           pessoa_id: string | null
           sexo: string | null
         }
@@ -11815,38 +11962,6 @@ export type Database = {
           titulo: string
         }[]
       }
-      // ── Acrescentadas à mão em 20/08/2026 ───────────────────────────
-      //
-      // Este arquivo é gerado a partir do banco, e a geração é anterior às
-      // migrations 20260820150000 e 20260820170000. Sem estas entradas o
-      // `supabase.rpc("painel_de_acessos")` não compila — e a alternativa,
-      // um cast no ponto de chamada, apagaria a conferência de tipo do
-      // retorno inteiro, que é justamente onde os erros aparecem.
-      //
-      // Na próxima regeração do arquivo elas voltam sozinhas, com o mesmo
-      // formato, e este comentário sai junto.
-      definir_perfil: {
-        Args: { p_user_id: string; p_role: Database["public"]["Enums"]["app_role"] }
-        Returns: string
-      }
-      painel_de_acessos: {
-        Args: Record<PropertyKey, never>
-        Returns: {
-          user_id: string
-          nome: string
-          login: string
-          telefone: string
-          pessoa_id: string | null
-          papeis: string[]
-          ultimo_acesso: string | null
-          criado_em: string | null
-          bloqueado: boolean
-        }[]
-      }
-      revogar_acesso: {
-        Args: { p_user_id: string }
-        Returns: string
-      }
       agenda_pastoral_proximos_dias: {
         Args: { p_dias?: number }
         Returns: {
@@ -11860,6 +11975,7 @@ export type Database = {
           telefone: string
           telefone_secundario: string
           tipo: string
+          tipo_pessoa: Database["public"]["Enums"]["tipo_pessoa"]
           titulo: string
         }[]
       }
@@ -11982,6 +12098,13 @@ export type Database = {
         Returns: Database["public"]["Enums"]["app_role"]
       }
       dashboard_ministerios: { Args: { p_igreja_id?: string }; Returns: Json }
+      definir_perfil: {
+        Args: {
+          p_role: Database["public"]["Enums"]["app_role"]
+          p_user_id: string
+        }
+        Returns: string
+      }
       domingo_da_semana: { Args: { p_data: string }; Returns: string }
       ebd_chamada_view: {
         Args: { p_aula_id: string }
@@ -12017,12 +12140,67 @@ export type Database = {
         Args: { p_classe_id: string; p_data: string }
         Returns: string
       }
-      // Acrescentados à mão em 27/08/2026 (migration 20260828220000): a
-      // coluna outra_classe_papel e a função ebd_mover_aluno. Uma regeneração
-      // do types.ts as traz do banco e descarta este comentário — reconferir.
-      ebd_mover_aluno: {
-        Args: { p_classe_destino: string; p_pessoa_id: string }
-        Returns: string
+      ebd_painel_alunos_ausentes: {
+        Args: { p_limite?: number }
+        Returns: {
+          ausencias: number
+          classe: string
+          idade: number
+          nome: string
+          oportunidades: number
+          pessoa_id: string
+          presencas: number
+          sexo: string
+          taxa: number
+        }[]
+      }
+      ebd_painel_por_classe: {
+        Args: never
+        Returns: {
+          aulas_com_chamada: number
+          aulas_sem_chamada: number
+          classe: string
+          classe_id: string
+          cor: string
+          homens: number
+          matriculados: number
+          mulheres: number
+          presencas: number
+          taxa: number
+          ultima_aula: string
+        }[]
+      }
+      ebd_painel_por_faixa: {
+        Args: never
+        Returns: {
+          ausencias: number
+          faixa: string
+          matriculados: number
+          ordem: number
+          presencas: number
+          taxa: number
+        }[]
+      }
+      ebd_painel_resumo: {
+        Args: never
+        Returns: {
+          alunos_matriculados: number
+          alunos_sem_data_nasc: number
+          aulas_com_chamada: number
+          aulas_sem_chamada: number
+          aulas_total: number
+          classes_ativas: number
+          homens_matriculados: number
+          homens_presentes: number
+          mulheres_matriculadas: number
+          mulheres_presentes: number
+          presencas_registradas: number
+          presentes: number
+          primeira_aula: string
+          taxa_presenca: number
+          ultima_aula: string
+          visitantes: number
+        }[]
       }
       esperados_da_classe: {
         Args: { p_classe_id: string }
@@ -12414,6 +12592,20 @@ export type Database = {
       }
       normalizar_site: { Args: { p_url: string }; Returns: string }
       normalizar_telefone: { Args: { tel: string }; Returns: string }
+      painel_de_acessos: {
+        Args: never
+        Returns: {
+          bloqueado: boolean
+          criado_em: string
+          login: string
+          nome: string
+          papeis: string[]
+          pessoa_id: string
+          telefone: string
+          ultimo_acesso: string
+          user_id: string
+        }[]
+      }
       pessoa_atual: { Args: never; Returns: string }
       pessoas_sem_familia_sobrenome_conhecido: {
         Args: never
@@ -12587,6 +12779,7 @@ export type Database = {
           pessoas_sem_familia_sugerida: number
         }[]
       }
+      revogar_acesso: { Args: { p_user_id: string }; Returns: string }
       secretaria_alertas: {
         Args: never
         Returns: {
@@ -12638,6 +12831,8 @@ export type Database = {
           p_area_id: string
           p_data_evento: string
           p_dia_semana?: string
+          p_hora_fim?: string
+          p_hora_inicio?: string
           p_limite?: number
           p_turno?: string
         }
@@ -12885,10 +13080,10 @@ export type Database = {
         | "ensaio"
         | "acao_social"
         | "curso"
+        | "outro"
         | "live"
         | "palestra"
         | "comunhao"
-        | "outro"
       eventos_status_evento_enum:
         | "Planejado"
         | "Em Andamento"
@@ -13064,11 +13259,6 @@ export type Database = {
         | "Preventiva"
         | "Corretiva"
         | "Emergencial"
-      tipo_entrada_rol:
-        | "aclamacao"
-        | "batismo"
-        | "reconciliacao"
-        | "transferencia"
       membro_status:
         | "ativo"
         | "inativo"
@@ -13281,6 +13471,11 @@ export type Database = {
         | "concluida"
         | "cancelada"
       status_voluntario: "ativo" | "em_descanso" | "inativo" | "afastado"
+      tipo_entrada_rol:
+        | "aclamacao"
+        | "batismo"
+        | "reconciliacao"
+        | "transferencia"
       tipo_lideranca_ref: "ministerio" | "area"
       tipo_pessoa: "membro" | "congregado" | "visitante" | "ex_membro"
       tipo_solicitacao_membresia:
@@ -13674,10 +13869,10 @@ export const Constants = {
         "ensaio",
         "acao_social",
         "curso",
+        "outro",
         "live",
         "palestra",
         "comunhao",
-        "outro",
       ],
       eventos_status_evento_enum: [
         "Planejado",
@@ -13875,12 +14070,6 @@ export const Constants = {
         "Preventiva",
         "Corretiva",
         "Emergencial",
-      ],
-      tipo_entrada_rol: [
-        "aclamacao",
-        "batismo",
-        "reconciliacao",
-        "transferencia",
       ],
       membro_status: [
         "ativo",
@@ -14124,6 +14313,12 @@ export const Constants = {
         "cancelada",
       ],
       status_voluntario: ["ativo", "em_descanso", "inativo", "afastado"],
+      tipo_entrada_rol: [
+        "aclamacao",
+        "batismo",
+        "reconciliacao",
+        "transferencia",
+      ],
       tipo_lideranca_ref: ["ministerio", "area"],
       tipo_pessoa: ["membro", "congregado", "visitante", "ex_membro"],
       tipo_solicitacao_membresia: [
