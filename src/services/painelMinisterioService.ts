@@ -200,7 +200,16 @@ export interface PainelMinisterio {
   lider: string | null;
   areas: AreaDoMinisterio[];
   voluntarios: VoluntarioDoMinisterio[];
+  /** Só as que ainda vão acontecer — é o que `v_proximas_escalas` traz. */
   escalas: EscalaDoMinisterio[];
+  /**
+   * Quantas escalas o ministério já teve, passadas incluídas.
+   *
+   * Existe para uma frase: sem ele a tela não distingue "nunca houve escala"
+   * de "as que houve já passaram", e as duas dizem coisas diferentes a quem
+   * lidera.
+   */
+  totalDeEscalas: number;
   tarefas: TarefaDaArea[];
 }
 
@@ -226,9 +235,20 @@ export async function carregarPainelMinisterio(ministerioId: string): Promise<Pa
     supabase.from("v_voluntarios_completo")
       .select("pessoa_id, nome_completo, telefone_celular, area_id, area_nome, funcao, status_voluntario, ultima_escala_em, total_escalas, carga_atual_mes, nivel_sobrecarga, em_descanso")
       .eq("ministerio_id", ministerioId),
-    supabase.from("escalas")
-      .select("id, titulo, data_evento, hora_inicio, local, status, area_id, areas(nome)")
-      .eq("ministerio_id", ministerioId).order("data_evento", { ascending: false }).limit(30),
+    // ── A VIEW CONTA, E CONTA MELHOR ─────────────────────────────────
+    //
+    // `v_proximas_escalas` já agrega total, confirmados, pendentes e
+    // recusados por escala. A primeira versão desta função buscava
+    // `escala_voluntarios` numa segunda consulta e somava à mão — e juntava
+    // pendente com recusado, que são respostas opostas.
+    //
+    // A view só traz o que ainda vai acontecer, que é o que a seção mostra.
+    // Quantas escalas o ministério já teve no total vem separado, abaixo:
+    // sem esse número, a tela não saberia distinguir "nunca houve escala" de
+    // "as que houve já passaram", e as duas frases são diferentes.
+    supabase.from("v_proximas_escalas")
+      .select("id, titulo, data_evento, hora_inicio, local, status, area_id, area_nome, total_escalados, confirmados")
+      .eq("ministerio_id", ministerioId).order("data_evento"),
     supabase.from("membros").select("nome_completo").eq("id", (min as any).lider_id ?? "").maybeSingle(),
   ]);
 
@@ -237,34 +257,17 @@ export async function carregarPainelMinisterio(ministerioId: string): Promise<Pa
   // Checklist e contagem de escalados: duas consultas que só fazem sentido
   // depois de saber as áreas e as escalas. `in` com lista vazia devolve zero
   // linhas no PostgREST, mas gasta a viagem — daí os `if`.
-  const idsEscala = (escalas ?? []).map((e: any) => e.id);
-  const [{ data: tarefas }, { data: escalados }] = await Promise.all([
-    idsArea.length
+  const idsArea2 = (areas ?? []).map((a: any) => a.id);
+  const [{ data: tarefas }, { count: totalEscalas }] = await Promise.all([
+    idsArea2.length
       ? supabase.from("checklist_area")
           .select("id, area_id, nome_tarefa, descricao, ordem, obrigatoria")
-          .in("area_id", idsArea).eq("ativo", true).order("ordem")
+          .in("area_id", idsArea2).eq("ativo", true).order("ordem")
       : Promise.resolve({ data: [] as any[] }),
-    idsEscala.length
-      ? supabase.from("escala_voluntarios").select("escala_id, status").in("escala_id", idsEscala)
-      : Promise.resolve({ data: [] as any[] }),
+    // Só a contagem, sem trazer linha: é usada para uma frase.
+    supabase.from("escalas").select("id", { count: "exact", head: true })
+      .eq("ministerio_id", ministerioId),
   ]);
-
-  // `status_presenca_escala` tem cinco valores: pendente, confirmado,
-  // recusado, ausente, presente. Confirmado e presente contam como "disse
-  // sim" — o segundo é quem já veio, e seria estranho ele deixar de contar
-  // depois do culto. Recusado e ausente não contam, e é isso que faz o
-  // número "3 de 5 confirmados" significar alguma coisa.
-  //
-  // Em uso hoje: confirmado (9), pendente (3).
-  const DISSE_SIM = new Set(["confirmado", "presente"]);
-  const porEscala = new Map<string, { total: number; ok: number }>();
-  for (const e of (escalados ?? []) as any[]) {
-    const c = porEscala.get(e.escala_id) ?? { total: 0, ok: 0 };
-    c.total++;
-    if (DISSE_SIM.has(String(e.status))) c.ok++;
-    porEscala.set(e.escala_id, c);
-  }
-
   const porArea = new Map<string, number>();
   for (const v of (vols ?? []) as any[]) {
     // `estaServindo`, e nao `=== "ativo"`: a view devolve "ativa".
@@ -292,13 +295,15 @@ export async function carregarPainelMinisterio(ministerioId: string): Promise<Pa
       tarefas: tarefasPorArea.get(a.id) ?? 0,
     })),
     voluntarios: ((vols ?? []) as any[]) as VoluntarioDoMinisterio[],
+    // Os números já vêm somados da view; aqui só se renomeia.
     escalas: ((escalas ?? []) as any[]).map(e => ({
       id: e.id, titulo: e.titulo, data_evento: e.data_evento,
       hora_inicio: e.hora_inicio, local: e.local, status: e.status,
-      area_id: e.area_id, area_nome: e.areas?.nome ?? null,
-      escalados: porEscala.get(e.id)?.total ?? 0,
-      confirmados: porEscala.get(e.id)?.ok ?? 0,
+      area_id: e.area_id, area_nome: e.area_nome ?? null,
+      escalados: e.total_escalados ?? 0,
+      confirmados: e.confirmados ?? 0,
     })),
+    totalDeEscalas: totalEscalas ?? 0,
     tarefas: ((tarefas ?? []) as any[]) as TarefaDaArea[],
   };
 }

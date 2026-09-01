@@ -21,6 +21,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { conferir } from "@/lib/escritaConferida";
 import { normalizarTelefone } from "@/lib/telefone";
+import { listarGruposDaPessoa, sugerirPgmPorBairro } from "@/services/pgmService";
 
 // ─── Minha ficha ──────────────────────────────────────────────────────────
 
@@ -234,35 +235,62 @@ export interface MeuPgm {
 
 const CAMPOS_GRUPO = "id, nome, dia_semana, horario, bairro, endereco, whatsapp_link";
 
+/**
+ * O Pequeno Grupo da pessoa — ou o convite ao mais próximo.
+ *
+ * ── REUSA O QUE JÁ EXISTIA ─────────────────────────────────────────────────
+ *
+ * A primeira versão consultava `pgm_membros` e `pgm_grupos` à mão e comparava
+ * bairro com uma normalização própria. Duas coisas já estavam prontas e não
+ * eram chamadas por ninguém — apareceram na auditoria de 01/09:
+ *
+ *   `listarGruposDaPessoa()`    o vínculo da pessoa
+ *   `sugerirPgmPorBairro()`     a sugestão, via RPC `pgm_sugerir_por_bairro`
+ *
+ * A RPC é melhor que a minha comparação: além do bairro, ela traz o NÚMERO DE
+ * MEMBROS de cada grupo e o nome do LÍDER, e ordena do maior para o menor.
+ * Convidar alguém para o grupo mais cheio do bairro é melhor conselho que
+ * convidar para o primeiro em ordem alfabética.
+ *
+ * ── O QUE ELA NÃO FAZ, E POR ISSO O RECUO FICA ─────────────────────────────
+ *
+ * A RPC casa o bairro com `lower()` e nada mais — quem não tem grupo no
+ * próprio bairro recebe lista vazia. O recuo para "todos os grupos ativos"
+ * continua aqui: um convite a atravessar a cidade ainda é melhor que nenhum.
+ */
 export async function meuPgm(pessoaId: string, meuBairro?: string | null): Promise<MeuPgm> {
-  const { data: vinculo } = await supabase
-    .from("pgm_membros")
-    .select(`papel, pgm_grupos(${CAMPOS_GRUPO})`)
-    .eq("pessoa_id", pessoaId).eq("ativo", true).maybeSingle();
-
-  if (vinculo && (vinculo as any).pgm_grupos) {
+  const meus = await listarGruposDaPessoa(pessoaId);
+  const primeiro = meus[0] as any;
+  if (primeiro?.grupo) {
     return {
-      meu: { ...(vinculo as any).pgm_grupos, papel: (vinculo as any).papel ?? null },
+      meu: { ...(primeiro.grupo as GrupoResumo), papel: primeiro.papel ?? null },
       sugestoes: [],
       sugestaoPorBairro: false,
     };
   }
 
+  const doBairro = meuBairro?.trim()
+    ? await sugerirPgmPorBairro(meuBairro).catch(() => [])
+    : [];
+  if (doBairro.length > 0) {
+    return {
+      meu: null,
+      // A RPC não devolve `endereco` nem `whatsapp_link`; o cartão de sugestão
+      // não os usa, e inventar `null` é mais honesto que buscá-los de novo.
+      sugestoes: doBairro.map(g => ({
+        id: g.id, nome: g.nome, dia_semana: g.dia_semana, horario: g.horario,
+        bairro: g.bairro, endereco: null, whatsapp_link: null,
+      })),
+      sugestaoPorBairro: true,
+    };
+  }
+
   const { data: grupos } = await supabase
     .from("pgm_grupos").select(CAMPOS_GRUPO).eq("ativo", true).order("nome");
-  const todos = (grupos ?? []) as GrupoResumo[];
-
-  // Comparação sem acento e sem caixa: "Vila Isabel" e "vila isabel" são o
-  // mesmo bairro, e o cadastro tem as duas grafias.
-  const limpar = (s?: string | null) =>
-    (s ?? "").trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
-  const alvo = limpar(meuBairro);
-  const doBairro = alvo ? todos.filter(g => limpar(g.bairro) === alvo) : [];
-
   return {
     meu: null,
-    sugestoes: doBairro.length ? doBairro : todos,
-    sugestaoPorBairro: doBairro.length > 0,
+    sugestoes: (grupos ?? []) as GrupoResumo[],
+    sugestaoPorBairro: false,
   };
 }
 
@@ -286,9 +314,23 @@ const DIAS = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sáb
  * O que a igreja espera desta pessoa nos próximos dias.
  *
  * Só existem três fontes de compromisso pessoal neste banco: a escala de
- * serviço, a aula da EBD e a reunião do PGM. Nenhuma delas tem tela que
- * responda "e eu?" — a escala se vê pelo evento, a EBD pela classe, o PGM
+ * serviço, a aula da EBD e a reunião do PGM. Nenhuma delas tinha tela que
+ * respondesse "e eu?" — a escala se via pelo evento, a EBD pela classe, o PGM
  * pelo grupo. Sempre pelo lado de quem organiza.
+ *
+ * ── LÊ A VIEW `v_minha_escala`, E NÃO A TABELA ─────────────────────────────
+ *
+ * A primeira versão montava o JOIN à mão sobre `escala_voluntarios`. A view já
+ * existia, com o mesmo JOIN e mais três colunas, e nenhuma tela a abria —
+ * apareceu na auditoria de 01/09 entre as 15 views nunca consultadas.
+ *
+ * E ela acerta onde a minha errava: filtrava por `status` fora de
+ * `["recusado", "cancelado", "removido"]`, e os dois últimos NÃO EXISTEM no
+ * enum `status_presenca_escala` — que tem pendente, confirmado, recusado,
+ * ausente e presente. Dois terços daquele filtro não filtravam nada.
+ *
+ * A view descarta o recusado e o passado; aqui só resta cortar o fim da
+ * janela e filtrar a pessoa.
  */
 export async function minhaSemana(pessoaId: string, dias = 7): Promise<CompromissoMeu[]> {
   // Data local, nunca `toISOString()`: das 21h à meia-noite em Brasília ele
@@ -296,35 +338,26 @@ export async function minhaSemana(pessoaId: string, dias = 7): Promise<Compromis
   const d = new Date();
   const iso = (x: Date) =>
     `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
-  const hoje = iso(d);
   const fim = iso(new Date(d.getFullYear(), d.getMonth(), d.getDate() + dias));
 
-  const { data: escalado } = await supabase
-    .from("escala_voluntarios")
-    .select("status, funcao, escalas(titulo, data_evento, hora_inicio, local)")
-    .eq("pessoa_id", pessoaId);
+  const { data } = await supabase
+    .from("v_minha_escala")
+    .select("titulo, data_evento, hora_inicio, local, funcao, status, area_nome, pessoa_id")
+    .eq("pessoa_id", pessoaId)
+    .lte("data_evento", fim)
+    .order("data_evento");
 
-  const fora = new Set(["recusado", "cancelado", "removido"]);
-  const lista: CompromissoMeu[] = [];
-
-  for (const e of (escalado ?? []) as any[]) {
-    const esc = e.escalas;
-    if (!esc?.data_evento) continue;
-    if (esc.data_evento < hoje || esc.data_evento > fim) continue;
-    if (fora.has(String(e.status ?? ""))) continue;
-    lista.push({
-      tipo: "escala",
-      titulo: esc.titulo ?? "Escala de serviço",
-      detalhe: e.funcao ?? null,
-      data: esc.data_evento,
-      hora: esc.hora_inicio ? String(esc.hora_inicio).slice(0, 5) : null,
-      para: esc.local ?? null,
-      status: e.status ?? null,
-    });
-  }
-
-  return lista.sort((a, b) =>
-    a.data === b.data ? (a.hora ?? "").localeCompare(b.hora ?? "") : a.data.localeCompare(b.data));
+  return ((data ?? []) as any[]).map(e => ({
+    tipo: "escala" as const,
+    titulo: e.titulo ?? "Escala de serviço",
+    // A área entra no detalhe junto da função: "Recepção · Porta principal"
+    // diz mais que a função sozinha, e a view já traz as duas.
+    detalhe: [e.area_nome, e.funcao].filter(Boolean).join(" · ") || null,
+    data: e.data_evento,
+    hora: e.hora_inicio ? String(e.hora_inicio).slice(0, 5) : null,
+    para: e.local ?? null,
+    status: e.status ?? null,
+  }));
 }
 
 // ─── O que a igreja é, para quem assina o convite ─────────────────────────

@@ -160,10 +160,27 @@ export async function listarMembrosDoGrupo(grupoId: string): Promise<PgmMembroCo
   }));
 }
 
-export async function listarGruposDaPessoa(pessoaId: string): Promise<(PgmMembro & { grupo_nome: string })[]> {
+/**
+ * Os grupos de que a pessoa participa.
+ *
+ * O embed passou a trazer o grupo INTEIRO, e não só o nome. Quem pergunta "de
+ * que grupo eu participo?" quase sempre pergunta junto quando ele se reúne e
+ * como falar com ele — e devolver só o nome obrigava o chamador a uma segunda
+ * consulta. Foi o que a Home fez ao nascer, em 01/09: refez esta função à mão
+ * porque a original não servia inteira.
+ *
+ * `grupo_nome` continua no retorno, para não quebrar quem já o lia.
+ */
+export async function listarGruposDaPessoa(pessoaId: string): Promise<(PgmMembro & {
+  grupo_nome: string;
+  grupo: {
+    id: string; nome: string; dia_semana: number | null; horario: string | null;
+    bairro: string | null; endereco: string | null; whatsapp_link: string | null;
+  } | null;
+})[]> {
   const { data } = await supabase
     .from("pgm_membros")
-    .select("*, grupo:pgm_grupos(nome)")
+    .select("*, grupo:pgm_grupos(id, nome, dia_semana, horario, bairro, endereco, whatsapp_link)")
     .eq("pessoa_id", pessoaId)
     .eq("ativo", true);
   return (data ?? []).map((r: any) => ({ ...r, grupo_nome: r.grupo?.nome ?? "—" }));

@@ -244,6 +244,10 @@ conferidas**. As outras 109 podem falhar em silêncio.
 
 ## 10. Se fosse para escolher três
 
+> **As três foram feitas em 01/09/2026, logo após este levantamento.** O que
+> segue é o que se pediu; abaixo de cada uma, o que de fato aconteceu.
+
+
 1. **Consertar as cinco políticas de conta≠ficha.** É o defeito com maior
    alcance, custa uma migration, e desbloqueia coisas que a igreja pensa que
    tem: confirmar escala, dizer quando pode servir, aceitar a LGPD.
@@ -253,3 +257,48 @@ conferidas**. As outras 109 podem falhar em silêncio.
 
 3. **Trocar meu código duplicado pelas views que já existiam** (§6). Pequeno,
    e evita que o repositório carregue duas versões da mesma conta.
+
+---
+
+## 11. O que foi feito depois deste levantamento
+
+**As cinco políticas de conta ≠ ficha** — migration `20260901180000`, aplicada.
+Todas passaram a comparar com `minha_pessoa_id()`. Ensaiado com ROLLBACK sob a
+identidade da administradora: `perfil_servico` devolveu 1 linha, que a política
+antiga jamais teria liberado.
+
+**A tabela `liderancas` vazia** — migration `20260901190000`, aplicada. Em vez
+de preencher uma terceira cópia da liderança, as funções passaram a ler as
+colunas que a igreja já mantém:
+
+- `fn_meus_ministerios()` — os ministérios que a pessoa lidera, SETOF uuid
+- `fn_minhas_areas()` — as áreas que lidera, mais as dos ministérios que lidera
+- `fn_meu_ministerio_id()` — mantida, agora lendo o lugar certo
+
+As onze políticas passaram de `=` para `IN`. **A troca importa:** 3 das 24
+pessoas que lideram lideram mais de um ministério, e com `=` elas teriam
+acesso a metade.
+
+Conferido com um líder real: o Pastor Lúcio alcança o Ministério Pastoral e a
+área dele. A função antiga, que devolvia nulo para todos, voltou a responder.
+
+**O código duplicado** — trocado pelas views e serviços que já existiam:
+
+| era | virou |
+|---|---|
+| JOIN à mão em `escala_voluntarios` | view `v_minha_escala` |
+| contagem de escalados no painel | view `v_proximas_escalas` |
+| consulta própria de PGM + comparação de bairro | `listarGruposDaPessoa()` e `sugerirPgmPorBairro()` |
+
+Dois ganhos além de menos código: a view separa **pendente de recusado**, que
+a contagem manual juntava; e o filtro manual descartava `status` em
+`["recusado", "cancelado", "removido"]` — os dois últimos **não existem** no
+enum, então dois terços daquele filtro não filtravam nada.
+
+`v_proximas_escalas` ganhou `ministerio_id` e `area_id` no fim (migration
+`20260901200000`): sem eles, filtrar o painel de um ministério exigiria casar
+pelo NOME. `listarGruposDaPessoa()` passou a trazer o grupo inteiro, e não só
+o nome — era por isso que não servia.
+
+Conferido na tela: o painel de Comunhão mostra os mesmos 2 escalas, "sem
+ninguém" e "0/1", e os mesmos 44 voluntários de antes da troca.

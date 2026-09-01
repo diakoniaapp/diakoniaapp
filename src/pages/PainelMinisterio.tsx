@@ -370,7 +370,10 @@ function SecaoEquipe({ painel }: { painel: Painel }) {
 // ─── Escalas, com o checklist do dia ──────────────────────────────────────
 
 function SecaoEscalas({ painel, pessoaId }: { painel: Painel; pessoaId: string | null }) {
-  const futuras = useMemo(() => escalasFuturas(painel.escalas), [painel.escalas]);
+  // A view `v_proximas_escalas` já filtra por data e ordena; não há o que
+  // recortar aqui. `escalasFuturas` continua exportada para quem receber uma
+  // lista que inclua o passado.
+  const futuras = painel.escalas;
   const [aberta, setAberta] = useState<string | null>(null);
 
   return (
@@ -381,7 +384,7 @@ function SecaoEscalas({ painel, pessoaId }: { painel: Painel; pessoaId: string |
 
       {futuras.length === 0 ? (
         <p className="text-sm text-muted-foreground py-2 px-3 border rounded-md">
-          {painel.escalas.length === 0
+          {painel.totalDeEscalas === 0
             ? "Nenhuma escala criada para este ministério."
             : "Nenhuma escala à frente — as anteriores já aconteceram."}
         </p>

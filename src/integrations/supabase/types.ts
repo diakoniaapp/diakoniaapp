@@ -11023,6 +11023,7 @@ export type Database = {
       v_proximas_escalas: {
         Row: {
           area_cor: string | null
+          area_id: string | null
           area_nome: string | null
           confirmados: number | null
           data_evento: string | null
@@ -11030,6 +11031,7 @@ export type Database = {
           hora_inicio: string | null
           id: string | null
           local: string | null
+          ministerio_id: string | null
           ministerio_nome: string | null
           pendentes: number | null
           recusados: number | null
@@ -11037,7 +11039,36 @@ export type Database = {
           titulo: string | null
           total_escalados: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "escalas_area_id_fkey"
+            columns: ["area_id"]
+            isOneToOne: false
+            referencedRelation: "areas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "escalas_area_id_fkey"
+            columns: ["area_id"]
+            isOneToOne: false
+            referencedRelation: "v_voluntarios_completo"
+            referencedColumns: ["area_id"]
+          },
+          {
+            foreignKeyName: "escalas_ministerio_id_fkey"
+            columns: ["ministerio_id"]
+            isOneToOne: false
+            referencedRelation: "ministerios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "escalas_ministerio_id_fkey"
+            columns: ["ministerio_id"]
+            isOneToOne: false
+            referencedRelation: "v_voluntarios_completo"
+            referencedColumns: ["ministerio_id"]
+          },
+        ]
       }
       v_ranking_convidadores: {
         Row: {
@@ -12478,6 +12509,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      fn_meus_ministerios: { Args: never; Returns: string[] }
       fn_minha_permissao: {
         Args: { p_modulo: string }
         Returns: {
@@ -12491,6 +12523,7 @@ export type Database = {
           role: Database["public"]["Enums"]["app_role"]
         }[]
       }
+      fn_minhas_areas: { Args: never; Returns: string[] }
       fn_permissao: {
         Args: { p_acao: string; p_modulo: string }
         Returns: boolean
@@ -12575,6 +12608,7 @@ export type Database = {
       }
       is_lider_ou_superior: { Args: never; Returns: boolean }
       is_operador_ou_superior: { Args: never; Returns: boolean }
+      minha_pessoa_id: { Args: never; Returns: string }
       minhas_permissoes: {
         Args: never
         Returns: {
@@ -12780,6 +12814,27 @@ export type Database = {
         }[]
       }
       revogar_acesso: { Args: { p_user_id: string }; Returns: string }
+      salvar_meus_dados: {
+        Args: {
+          p_bairro: string
+          p_cep: string
+          p_cidade: string
+          p_complemento: string
+          p_data_casamento: string
+          p_data_nascimento: string
+          p_email: string
+          p_endereco: string
+          p_nome_completo: string
+          p_numero: string
+          p_telefone_celular: string
+          p_uf: string
+        }
+        Returns: {
+          atualizado_em: string
+          id: string
+          nome_completo: string
+        }[]
+      }
       secretaria_alertas: {
         Args: never
         Returns: {
