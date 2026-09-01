@@ -39,7 +39,18 @@ describe("destinoInicial", () => {
   it("o pastor titular vai para o Painel Pastoral", async () => {
     meusMinisterios.mockResolvedValue(UM);
     expect(await destinoInicial(["diakonia"] as AppRole[], "p1")).toBe("/painel-pastoral");
-    expect(await destinoInicial(["pastor"] as AppRole[], "p1")).toBe("/painel-pastoral");
+  });
+
+  it("o papel `pastor` cai na regra da liderança, como qualquer outro", async () => {
+    // O Painel Pastoral virou do pastor titular em 01/09/2026, e `pastor` é
+    // papel reduzido — 34 combinações contra as 62 de `diakonia`. Sem bancada
+    // por papel, ele segue o mesmo caminho de todo mundo: se liderar um
+    // ministério, vai para a bancada dele.
+    meusMinisterios.mockResolvedValue(UM);
+    expect(await destinoInicial(["pastor"] as AppRole[], "p1")).toBe("/ministerios/min-1/painel");
+
+    meusMinisterios.mockResolvedValue([]);
+    expect(await destinoInicial(["pastor"] as AppRole[], "p1")).toBe("/");
   });
 
   it("quem lidera UM ministério cai na bancada dele", async () => {

@@ -29,12 +29,26 @@ describe("a secretaria não vê o Painel Pastoral", () => {
     expect(ROUTE_ROLES["/painel-pastoral"]).not.toContain("secretaria");
   });
 
-  it("mas continua aberto a quem cuida", () => {
-    // Tirar a secretária não pode tirar quem trabalha ali — e o pastor
-    // titular é `diakonia`, não `pastor`, que é o erro fácil de cometer.
-    for (const papel of ["admin", "pastor", "diakonia", "lideranca"] as AppRole[]) {
-      expect(ROLES_PAINEL_PASTORAL).toContain(papel);
-    }
+  it("continua aberto a quem cuida — e o pastor titular é `diakonia`", () => {
+    // O erro fácil é achar que pastor titular é `pastor`. Não é: o CLAUDE.md
+    // mede 62 combinações tabela+operação para `diakonia` contra 34 de
+    // `pastor`, e este último nem enxerga famílias e visitas.
+    expect(ROLES_PAINEL_PASTORAL).toContain("diakonia");
+  });
+
+  it("a administração entra por ser dona do sistema, não por ser pastoral", () => {
+    // Pedido da igreja em 01/09/2026, com a separação dita em voz alta:
+    // "ADMINISTRAÇÃO dono do sistema". Sem ela na lista o painel ficaria
+    // invisível a todos — nenhuma conta tem `diakonia` hoje.
+    expect(ROLES_PAINEL_PASTORAL).toContain("admin");
+  });
+
+  it("saíram a liderança e o papel `pastor`", () => {
+    // Liderança acompanhava o cuidado sem executá-lo, que é o mesmo motivo da
+    // saída da secretária em 26/08. E `pastor` é papel reduzido: mandá-lo a um
+    // painel que ele não consegue ler seria promessa vazia.
+    expect(ROLES_PAINEL_PASTORAL).not.toContain("lideranca");
+    expect(ROLES_PAINEL_PASTORAL).not.toContain("pastor");
   });
 });
 
@@ -46,7 +60,13 @@ describe("rotaInicialPorPapel", () => {
   it("pastor titular entra no Painel Pastoral", () => {
     // `diakonia` é o perfil de pastor titular — ver a nota em useAuth.tsx.
     expect(rotaInicialPorPapel(["diakonia"])).toBe("/painel-pastoral");
-    expect(rotaInicialPorPapel(["pastor"])).toBe("/painel-pastoral");
+  });
+
+  it("o papel `pastor` NÃO vai para o Painel Pastoral", () => {
+    // Saiu em 01/09/2026 junto com a estreitada de `ROLES_PAINEL_PASTORAL`.
+    // Mandá-lo para lá seria mandá-lo para uma guarda que recusa no instante
+    // seguinte — o vaivém que o último teste deste bloco existe para pegar.
+    expect(rotaInicialPorPapel(["pastor"])).toBe("/");
   });
 
   it("quem não tem bancada de trabalho cai na Home", () => {

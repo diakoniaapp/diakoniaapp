@@ -24,21 +24,46 @@ export const ROLES_ADMIN: AppRole[]    = ["admin", "secretaria"];
 /**
  * Quem enxerga o Painel Pastoral.
  *
- * É `ROLES_LIDERES` menos `secretaria`. Ela tem a bancada dela desde
- * 26/08/2026, e o painel pastoral trata de cuidado — acolhimento, candidatos
- * ao batismo, discipulado —, que ela não executa. Ver uma tela de trabalho
- * alheia todo dia é o mesmo ruído que a Home tinha para ela.
+ * ── ESTREITADO EM 01/09/2026, A PEDIDO DA IGREJA ───────────────────────────
  *
- * A liderança fica. Ela acompanha o cuidado, e tirá-la não foi pedido.
+ * Era `["admin", "pastor", "diakonia", "lideranca"]`. O pedido foi direto —
+ * "o acesso deve ser para quem tem o perfil de PASTOR TITULAR" — com a
+ * separação dita em seguida: "ADMINISTRAÇÃO dono do sistema".
  *
- * Vale notar que a permissão `ver_painel_pastoral` do banco é mais estreita
- * ainda — admin, pastor e diakonia, sem liderança. As duas listas discordam
- * desde antes disto, e quem manda em cada lugar é diferente: esta governa
- * menu e rota, aquela governa os blocos do painel de Home e as ações rápidas.
- * Unificar as duas é decisão de produto, não ajuste — e mudaria o que o Bruno
- * vê hoje.
+ * São dois, e por razões diferentes:
+ *
+ *   diakonia   é o pastor titular, e esta é a bancada DELE: acolhimento,
+ *              candidatos ao batismo, discipulado, o cuidado da igreja.
+ *   admin      não é perfil pastoral. Entra por administrar o sistema — por
+ *              ser dona da casa, não por fazer o trabalho de dentro dela.
+ *
+ * ── QUEM SAIU, E POR QUÊ ───────────────────────────────────────────────────
+ *
+ * `lideranca` — acompanhava o cuidado sem executá-lo, que é exatamente o
+ * motivo pelo qual a secretária saiu daqui em 26/08.
+ *
+ * `pastor` — é papel REDUZIDO, não um segundo pastor titular. O CLAUDE.md
+ * mede: `diakonia` tem 62 combinações tabela+operação contra 34 de `pastor`, e
+ * `pastor` sozinho não enxerga famílias, visitas nem histórico de membresia.
+ * Mandá-lo a um painel de cuidado que ele não consegue ler seria promessa
+ * vazia. Nenhuma conta tem esse papel hoje.
+ *
+ * ── O QUE ISSO CUSTA AGORA ─────────────────────────────────────────────────
+ *
+ * Medido em 01/09/2026: **nenhuma conta tem `diakonia`**. As três são admin,
+ * secretaria e lideranca. Até a secretaria criar o acesso do pastor titular,
+ * quem abre este painel é a administração — e é por isso que ela ficou.
+ *
+ * ── A PERMISSÃO DO BANCO AINDA DISCORDA ────────────────────────────────────
+ *
+ * `ver_painel_pastoral` em `role_permissoes` vale para admin, diakonia E
+ * pastor. Esta lista governa menu, rota e paleta; aquela governa o cartão da
+ * Home e as ações rápidas. Enquanto não se alinharem, um usuário `pastor`
+ * veria o cartão na Home e bateria na guarda ao clicar.
+ *
+ * Alinhar exige apagar uma linha em produção, e está proposto à parte.
  */
-export const ROLES_PAINEL_PASTORAL: AppRole[] = ["admin", "pastor", "diakonia", "lideranca"];
+export const ROLES_PAINEL_PASTORAL: AppRole[] = ["diakonia", "admin"];
 
 export interface NavItem {
   to: string;
@@ -261,6 +286,10 @@ export const ROUTE_ROLES: Record<string, AppRole[]> = {
  */
 export function rotaInicialPorPapel(roles: AppRole[]): string {
   if (roles.includes("secretaria")) return "/painel-secretaria";
-  if (roles.includes("diakonia") || roles.includes("pastor")) return "/painel-pastoral";
+  // `pastor` saiu daqui em 01/09/2026, junto com a estreitada de
+  // `ROLES_PAINEL_PASTORAL` para o pastor titular. Deixá-lo mandaria a pessoa
+  // para uma tela que a guarda recusa no instante seguinte — o vaivém que a
+  // nota acima promete não produzir, e que o último teste deste arquivo pega.
+  if (roles.includes("diakonia")) return "/painel-pastoral";
   return "/";
 }
