@@ -12,14 +12,21 @@
 //
 // ── QUEM ABRE ──────────────────────────────────────────────────────────────
 //
-// Quem lidera, mais pastoral e administração. A liderança é lida das colunas
-// `lider_id` das tabelas, e NÃO de `fn_meu_ministerio_id()` — essa função lê
-// da tabela `liderancas`, que está vazia, e devolve NULL para todo mundo. Ver
-// a nota longa em `painelMinisterioService.ts`.
+// Quem LIDERA este ministério, mais o dono do sistema. Nada de "pastoral abre
+// tudo": a regra da igreja é "ADMINISTRADOR dono do sistema vê tudo e todos;
+// Pastor Titular vê o painel pastoral apenas".
 //
-// Quem não lidera nada e não é pastoral encontra uma explicação, não uma tela
-// vazia. É o caso real do Bruno: tem papel de liderança e não lidera área
-// nenhuma hoje.
+// A liderança é lida das colunas `lider_id` das tabelas, e NÃO de
+// `fn_meu_ministerio_id()` — essa função lê da tabela `liderancas`, que está
+// vazia, e devolve NULL para todo mundo. Ver a nota longa em
+// `painelMinisterioService.ts`.
+//
+// Isso quer dizer que o painel segue o CADASTRO: hoje o Ministério de
+// Administração é do Caio Marcelo; amanhã, de quem a secretaria registrar no
+// lugar dele. Nenhum nome está escrito no código.
+//
+// Quem não lidera nada encontra uma explicação, não uma tela vazia. É o caso
+// real do Bruno: tem papel de liderança e não lidera área nenhuma hoje.
 //
 // ── O CHECKLIST ────────────────────────────────────────────────────────────
 //
@@ -64,10 +71,20 @@ export default function PainelMinisterio() {
   const [erro, setErro] = useState<string | null>(null);
   const [atualizadoEm, setAtualizadoEm] = useState<Date | null>(null);
 
-  // Pastoral e administração abrem qualquer ministério; os demais, só o que
-  // lideram. `hasRole` respeita o "Ver como": a administradora simulando
-  // liderança vê o que a liderança veria, que é o ponto daquele modo.
-  const ehPastoralOuAdmin = hasRole(["admin", "secretaria", "diakonia", "pastor"]);
+  // ── SÓ O DONO DO SISTEMA ABRE MINISTÉRIO ALHEIO ──────────────────────
+  //
+  // Era `[admin, secretaria, diakonia, pastor]`. A regra da igreja, dita em
+  // 01/09/2026, é mais estreita: "ADMINISTRADOR dono do sistema vê tudo e
+  // todos. Pastor Titular vê o painel pastoral apenas. É o filtro para cada
+  // ministério."
+  //
+  // Então o pastor titular abre o Painel Pastoral e mais nada; a secretária, o
+  // dela. Quem lidera um ministério abre o dele — e isso vem de `lidero`,
+  // logo abaixo, que lê o cadastro e não uma lista de papéis.
+  //
+  // `hasRole` respeita o "Ver como": a administradora simulando liderança vê o
+  // que a liderança veria, que é o ponto daquele modo.
+  const ehDonoDoSistema = hasRole("admin");
 
   const carregar = useCallback(async () => {
     if (!ministerioId) return;
@@ -91,7 +108,7 @@ export default function PainelMinisterio() {
   useEffect(() => { carregar(); }, [carregar]);
 
   const lidero = (meus ?? []).find(m => m.id === ministerioId);
-  const podeVer = ehPastoralOuAdmin || !!lidero;
+  const podeVer = ehDonoDoSistema || !!lidero;
   const podeEditarTarefas = hasRole(["admin", "lideranca"]);
 
   if (carregando && !painel) {
@@ -112,15 +129,44 @@ export default function PainelMinisterio() {
           o conteúdo rolaria visível pelas laterais do bloco fixo. */}
       <div className="sticky top-0 z-20 bg-background -mx-6 px-6 -mt-6 pt-6 pb-3 space-y-3 border-b">
         <div className="flex items-start justify-between gap-3">
+          {/* ── "Administração" quer dizer DUAS coisas nesta igreja ────────
+
+              O papel `admin`, que é o dono do sistema, e o Ministério de
+              Administração, que é uma equipe com líder e áreas. A tela
+              mostrava só "Administração", e o nome sozinho não escolhe entre
+              as duas.
+
+              A palavra MINISTÉRIO entra como sobrescrito, e não colada ao
+              nome: "Ministério de Administração" funcionaria, mas o mesmo
+              molde produziria "Ministério de Pastoral" e "Ministério de
+              Celebrando a Transformação". Os nomes vêm do cadastro e não
+              seguem um padrão único — juntar as duas palavras à força
+              quebraria em três dos onze. */}
           <div className="min-w-0">
+            <span className="block text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
+              Ministério
+            </span>
             <h1 className="font-serif text-2xl flex items-center gap-2 min-w-0">
               <Boxes className="w-6 h-6 text-gold shrink-0" />
               <span className="truncate">{painel.nome}</span>
             </h1>
-            <p className="text-sm text-muted-foreground">
-              {lidero ? lidero.comoLidero : "Ministério"}
-              {painel.lider ? ` · ${painel.lider}` : ""}
+            {/* Quem lidera vem do CADASTRO, e é assim que se lê aqui: hoje o
+                Caio Marcelo, amanhã quem a secretaria registrar em
+                `ministerios.lider_id`. A tela não conhece nome nenhum de cor.
+
+                Antes esta linha era "Líder de área · Caio Marcelo", com o meu
+                papel e o líder colados por um ponto — e lia-se como se o Caio
+                fosse o líder de área. São duas informações diferentes, e agora
+                a segunda desce para a sua própria linha. */}
+            <p className="text-sm text-muted-foreground truncate">
+              {painel.lider ? `Líder: ${painel.lider}` : "Sem líder cadastrado"}
             </p>
+            {lidero && (
+              <p className="text-xs text-muted-foreground truncate">
+                Você aqui é {lidero.comoLidero.toLowerCase()}
+                {lidero.areasQueLidero.length > 0 && ` de ${lidero.areasQueLidero.join(", ")}`}
+              </p>
+            )}
           </div>
           <Button type="button" variant="ghost" size="sm" onClick={carregar}
             disabled={carregando} className="gap-1.5 text-xs shrink-0">

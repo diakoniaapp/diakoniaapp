@@ -35,18 +35,36 @@ interface PainelDisponivel {
 // comentário no `App.tsx` registra que foi embutido lá justamente para não ter
 // dois caminhos disputando o mesmo conteúdo. Um cartão aqui recriaria o
 // segundo caminho que aquela decisão fechou.
+// ── CADA CARTÃO EXIGE A PERMISSÃO DELE, E SÓ ────────────────────────────────
+//
+// A regra da igreja, dita em 01/09/2026: "ADMINISTRADOR dono do sistema vê
+// tudo e todos. Pastor Titular vê o painel pastoral apenas."
+//
+// Antes, dois cartões aceitavam TAMBÉM uma permissão mais ampla — Secretaria
+// aceitava `ver_painel_admin`, Tesouraria aceitava `ver_financeiro` — e as
+// duas incluem `diakonia` no banco. O pastor titular via as três bancadas.
+//
+// Pior que ver: a rota `/painel-secretaria` é guardada por `[admin,
+// secretaria]`. Ele via o cartão e era devolvido ao clicar. Cartão que não
+// leva a lugar nenhum é pior que ausência — quem clica conclui que o sistema
+// quebrou, e está certo.
+//
+// Com uma permissão por cartão, a lista do banco passa a ser a regra, e ela já
+// está correta: `ver_painel_secretaria` é admin+secretaria,
+// `ver_painel_tesouraria` é admin. O administrador continua vendo tudo porque
+// tem as três — não por uma exceção escrita aqui.
 const PAINEIS: PainelDisponivel[] = [
   { to: "/painel-pastoral", nome: "Painel Pastoral",
     paraQue: "Quem chegou, quem sumiu e quem precisa de uma visita",
     icon: Sparkles, permissoes: ["ver_painel_pastoral"] },
   { to: "/painel-secretaria", nome: "Painel da Secretaria",
     paraQue: "Cadastros a corrigir, membresia e o que a igreja precisa registrar",
-    icon: ClipboardCheck, permissoes: ["ver_painel_secretaria", "ver_painel_admin"] },
+    icon: ClipboardCheck, permissoes: ["ver_painel_secretaria"] },
   // "Tesouraria" e não "Finanças": é o nome do trabalho e de quem o faz na
   // igreja. "Finanças" nomeia o assunto; o cartão leva a uma bancada.
   { to: "/financas", nome: "Tesouraria",
     paraQue: "Entradas, saídas e o que vence nos próximos dias",
-    icon: Wallet, permissoes: ["ver_painel_tesouraria", "ver_financeiro"] },
+    icon: Wallet, permissoes: ["ver_painel_tesouraria"] },
 ];
 
 export function MeusPaineis({ permissoes, pessoaId }: {
@@ -85,6 +103,11 @@ export function MeusPaineis({ permissoes, pessoaId }: {
           key={m.id}
           to={`/ministerios/${m.id}/painel`}
           nome={m.nome}
+          // "Administração" quer dizer duas coisas nesta igreja: o papel de
+          // dono do sistema e um ministério com líder e áreas. Ao lado de
+          // "Painel da Secretaria" e "Tesouraria", o nome sozinho seria lido
+          // como o painel do administrador.
+          sobrescrito="Ministério"
           // O que a pessoa é ali, e não o que a tela mostra. "Líder de área ·
           // Bazar" diz por que este cartão apareceu para ela e não para o
           // vizinho — que é a pergunta que um cartão inesperado levanta.
@@ -96,8 +119,10 @@ export function MeusPaineis({ permissoes, pessoaId }: {
   );
 }
 
-function CartaoDePainel({ to, nome, paraQue, icon: Icon }: {
+function CartaoDePainel({ to, nome, paraQue, icon: Icon, sobrescrito }: {
   to: string; nome: string; paraQue: string; icon: LucideIcon;
+  /** Palavra miúda acima do nome. Ver o uso em "Ministério". */
+  sobrescrito?: string;
 }) {
   return (
     <Link to={to}>
@@ -108,6 +133,11 @@ function CartaoDePainel({ to, nome, paraQue, icon: Icon }: {
         <CardContent className="p-3 flex items-start gap-2.5">
           <Icon className="w-4 h-4 mt-0.5 shrink-0 text-muted-foreground" />
           <div className="min-w-0">
+            {sobrescrito && (
+              <span className="block text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                {sobrescrito}
+              </span>
+            )}
             <p className="text-sm font-medium leading-tight truncate">{nome}</p>
             <p className="text-xs text-muted-foreground leading-snug mt-0.5">{paraQue}</p>
           </div>
