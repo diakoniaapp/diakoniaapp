@@ -257,7 +257,7 @@ export default function Eventos() {
   }, [from, to]);
 
   // Expand and filter
-  const ocorrencias = useMemo(() => {
+  const ocorrenciasCalc = useMemo(() => {
     const internos = expandirOcorrencias(eventos, from, to).map((o) => ({
       ...o,
       categoria: "igreja" as const,
@@ -265,7 +265,10 @@ export default function Eventos() {
     const externos = eventosExternos(from, to);
     const aniversarios = aniversariosNoIntervalo(pessoasAniv, from, to);
     const cats = filtros.categorias ?? ["igreja", "batista", "feriado", "aniversario", "casamento", "arrecadacao"];
-    const all = [...internos, ...externos, ...aniversarios, ...reservasOcc].filter((o) => {
+    // O universo do período, ANTES de qualquer filtro. É o denominador que
+    // permite dizer "61 de 102" em vez de só "61" — ver o cabeçalho.
+    const universo = [...internos, ...externos, ...aniversarios, ...reservasOcc];
+    const all = universo.filter((o) => {
       const cat = o.categoria ?? "igreja";
       return cats.includes(cat);
     });
@@ -336,8 +339,22 @@ export default function Eventos() {
         }
       }
     }
-    return filtrado;
+    return { lista: filtrado, universo: universo.length };
   }, [eventos, from, to, filtros, evMin, evArea, pessoasAniv, reservasOcc, ministerios, areas, locais]);
+
+  // ── O cabeçalho passa a dizer o que está ESCONDIDO ───────────────────────
+  //
+  // A tela dizia "61 eventos no período" — verdade, e insuficiente. Um filtro
+  // salvo no navegador continua valendo depois de fechar e reabrir o sistema,
+  // e o único sinal era um "1" ao lado do botão Filtros.
+  //
+  // O comentário em AgendaFilters já previa este defeito com estas palavras:
+  // "sem isso, um filtro esquecido ligado viraria 'sumiram eventos da
+  // agenda'". Foi exatamente o que aconteceu — a contagem existia, mas não
+  // dizia de quanto. "61 de 102" diz.
+  const ocorrencias = ocorrenciasCalc.lista;
+  const totalNoPeriodo = ocorrenciasCalc.universo;
+  const escondidos = totalNoPeriodo - ocorrencias.length;
 
   // Navigation
   const nav = (dir: -1 | 0 | 1) => {
@@ -670,7 +687,12 @@ export default function Eventos() {
     <div>
       <PageHeader
         title="Agenda"
-        description={loading ? "Carregando…" : `${ocorrencias.length} eventos no período`}
+        description={
+          loading ? "Carregando…"
+          : escondidos > 0
+            ? `${ocorrencias.length} de ${totalNoPeriodo} eventos — ${escondidos} ${escondidos === 1 ? "escondido" : "escondidos"} pelos filtros`
+            : `${ocorrencias.length} eventos no período`
+        }
         actions={
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={() => setPrintOpen(true)}>

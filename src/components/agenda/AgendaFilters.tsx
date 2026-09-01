@@ -173,6 +173,25 @@ export function AgendaFilters({ filtros, onChange, ministerios, areas, locais }:
   //
   // "Cor por" veio junto: e preferencia de exibicao, nao filtro, e ninguem
   // troca duas vezes no mesmo dia.
+  /**
+   * Devolve tudo ao estado de "não filtrando".
+   *
+   * Não existia, e a falta dela é metade do problema: um filtro fica salvo no
+   * navegador e continua valendo depois de fechar o sistema. Para voltar a ver
+   * a agenda inteira era preciso abrir o painel e REMARCAR caixa por caixa —
+   * vinte e uma áreas, onze ministérios, nove tipos. Ninguém faz isso; a
+   * pessoa conclui que a agenda perdeu eventos.
+   *
+   * "Tudo marcado" e "nada marcado" filtram igual (ver o comentário sobre
+   * narrow em Eventos.tsx), e a lista vazia é a que sobrevive a criar uma
+   * área nova — por isso limpa para vazio, e não para tudo-marcado.
+   */
+  const limparTudo = () => onChange({
+    ...filtros,
+    ministerios: [], areas: [], tipos: [], locais: [], status: [],
+    categorias: ALL_CATS,
+  });
+
   return (
     <Sheet>
       <SheetTrigger asChild>
@@ -191,6 +210,22 @@ export function AgendaFilters({ filtros, onChange, ministerios, areas, locais }:
         <SheetHeader className="text-left">
           <SheetTitle className="font-serif">Filtros da agenda</SheetTitle>
         </SheetHeader>
+        {/* O aviso e a saída, juntos: quem chega aqui procurando eventos que
+            sumiram precisa ler o que está restrito e poder desfazer num
+            clique. */}
+        {restringindo > 0 && (
+          <div className="flex items-center justify-between gap-3 rounded-md border border-warning-line bg-warning-soft/40 px-3 py-2 mt-3">
+            <p className="text-xs text-warning-text">
+              {restringindo === 1
+                ? "1 filtro está escondendo parte da agenda."
+                : `${restringindo} filtros estão escondendo parte da agenda.`}
+            </p>
+            <Button type="button" size="sm" variant="outline" className="h-7 text-xs shrink-0"
+              onClick={limparTudo}>
+              Mostrar tudo
+            </Button>
+          </div>
+        )}
         <div className="flex flex-wrap items-center gap-2 py-4">{chips}</div>
         <div className="border-t pt-4">{corPor}</div>
       </SheetContent>

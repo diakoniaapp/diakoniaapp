@@ -16,6 +16,7 @@ import { escalasDoEvento, type EscalaDaArea } from "@/services/escalaService";
 import { Users } from "lucide-react";
 import { toast } from "sonner";
 import { RecurrenceEditor } from "./RecurrenceEditor";
+import { hojeLocal } from "@/lib/agenda/recurrence";
 
 export interface EventFormPayload {
   titulo: string;
@@ -97,7 +98,10 @@ export function EventDialog({
     if (!open) return;
     setTitulo(ev?.titulo || "");
     setTipo(ev?.tipo || "culto");
-    setData(ev?.data || defaultDate || new Date().toISOString().slice(0, 10));
+    // `hojeLocal()` e não `toISOString()`: em UTC, das 21h à meia-noite em
+    // Brasília a resposta é amanhã. Só não mordia aqui porque o calendário
+    // quase sempre passa `defaultDate` — quase.
+    setData(ev?.data || defaultDate || hojeLocal());
     setHi(ev?.hora_inicio || defaultHora || "");
     setHf(ev?.hora_fim || "");
     setLocalId(ev?.local_id || "");
@@ -286,7 +290,7 @@ export function EventDialog({
           </div>
 
           {!isExceptionEdit && (
-            <RecurrenceEditor freq={recFreq} regra={recRegra}
+            <RecurrenceEditor freq={recFreq} regra={recRegra} dataInicio={data}
               onChange={(f, r) => { setRecFreq(f); setRecRegra(r); }} />
           )}
           {isExceptionEdit && partOfSeries && (

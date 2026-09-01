@@ -23,7 +23,10 @@ export default function AgendaPrint() {
   const fLocs = (sp.get("locais") || "").split(",").filter(Boolean);
   const fTipos = (sp.get("tipos") || "").split(",").filter(Boolean) as EventoTipo[];
   const fStatus = (sp.get("status") || "").split(",").filter(Boolean) as EventoStatus[];
-  const fCats = ((sp.get("categorias") || "igreja,batista,feriado,aniversario,casamento").split(",").filter(Boolean)) as CategoriaEvento[];
+  // As SEIS categorias da agenda. Faltava `arrecadacao` nesta lista: quem
+  // abrisse /agenda/print sem o parâmetro — um link salvo, um F5 na página —
+  // recebia um PDF sem as reservas de espaço, sem nada dizer que faltavam.
+  const fCats = ((sp.get("categorias") || "igreja,batista,feriado,aniversario,casamento,arrecadacao").split(",").filter(Boolean)) as CategoriaEvento[];
 
   const [eventos, setEventos] = useState<EventoRow[]>([]);
   const [mins, setMins] = useState<Min[]>([]);

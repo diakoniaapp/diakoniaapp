@@ -5,6 +5,27 @@ function parseLocalDate(yyyyMmDd: string): Date {
   const [y, m, d] = yyyyMmDd.split("-").map(Number);
   return new Date(y, m - 1, d);
 }
+/**
+ * Hoje, no fuso de quem está olhando.
+ *
+ * Existe porque `new Date().toISOString().slice(0, 10)` devolve a data em
+ * UTC: das 21h à meia-noite em Brasília ele já responde AMANHÃ. Medido às
+ * 21h22 de 27/08/2026 — o formulário de evento sugeria 28/08.
+ *
+ * Não é hipótese: o culto desta igreja é às 22h, então a janela em que o erro
+ * acontece é exatamente a janela em que alguém cadastraria esse culto.
+ */
+export function hojeLocal(): string {
+  return toYmd(new Date());
+}
+
+/** Uma data local somada de N meses, para sugerir fim de série. */
+export function daquiAMeses(isoInicio: string, meses: number): string {
+  const [a, m, d] = isoInicio.split("-").map(Number);
+  const dt = new Date(a, m - 1 + meses, d);
+  return toYmd(dt);
+}
+
 function toYmd(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -137,9 +158,17 @@ export function descreverRegra(reg: RecorrenciaRegra | null): string {
       case "personalizado": return "Personalizado";
     }
   })();
+  // ── "encerrada" é o que faltava para a EBD não ter sumido em silêncio ──
+  //
+  // Medido em produção: três séries com regra já vencida, e uma delas é a
+  // Escola Bíblica Dominical — semanal, de 04/01/2026 a 04/01/2026. Ela
+  // aparecia UMA vez no calendário e nunca mais, e nada na tela dizia que a
+  // série tinha acabado. O evento mais regular da igreja, invisível.
+  const encerrada =
+    reg.fim.tipo === "data" && reg.fim.data && reg.fim.data < hojeLocal();
   const fim =
     reg.fim.tipo === "nunca" ? "" :
-    reg.fim.tipo === "data" ? ` até ${reg.fim.data}` :
+    reg.fim.tipo === "data" ? ` até ${reg.fim.data}${encerrada ? " — série encerrada" : ""}` :
     ` por ${reg.fim.n} ocorrências`;
   return `${base}${fim}`;
 }
