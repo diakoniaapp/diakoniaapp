@@ -14,10 +14,12 @@
 // `useReportarVazio`, e a seção inteira se apaga. Um bloco intitulado "Meus
 // painéis" com nada dentro seria pior que ausência: diria que ela perdeu algo.
 
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
-import { Sparkles, ClipboardCheck, Wallet, type LucideIcon } from "lucide-react";
+import { Sparkles, ClipboardCheck, Wallet, Boxes, type LucideIcon } from "lucide-react";
 import { useReportarVazio } from "@/components/hoje/vazio";
+import { meusMinisterios, type MinisterioQueLidero } from "@/services/painelMinisterioService";
 
 interface PainelDisponivel {
   to: string;
@@ -47,32 +49,70 @@ const PAINEIS: PainelDisponivel[] = [
     icon: Wallet, permissoes: ["ver_painel_tesouraria", "ver_financeiro"] },
 ];
 
-export function MeusPaineis({ permissoes }: { permissoes: Set<string> }) {
-  const meus = PAINEIS.filter(p => p.permissoes.some(c => permissoes.has(c)));
-  useReportarVazio(meus.length === 0);
-  if (meus.length === 0) return null;
+export function MeusPaineis({ permissoes, pessoaId }: {
+  permissoes: Set<string>;
+  /** Para descobrir os ministérios que esta pessoa lidera. */
+  pessoaId?: string | null;
+}) {
+  const fixos = PAINEIS.filter(p => p.permissoes.some(c => permissoes.has(c)));
+
+  // ── Os ministérios que a pessoa lidera ──────────────────────────────
+  //
+  // Não saem de uma lista escrita à mão como os quatro acima: dependem de
+  // quem está olhando. São onze ministérios e vinte áreas, e a liderança de
+  // cada um mora em `ministerios.lider_id` / `areas.lider_id`.
+  //
+  // Vai por permissão NENHUMA de propósito. Quem lidera uma área abre a
+  // bancada dela por liderar, não por ter `ver_ministerios` — e é justamente
+  // quem tem menos permissões que mais precisa de uma porta direta.
+  const [meusMin, setMeusMin] = useState<MinisterioQueLidero[]>([]);
+  useEffect(() => {
+    if (!pessoaId) { setMeusMin([]); return; }
+    meusMinisterios(pessoaId).then(setMeusMin).catch(() => setMeusMin([]));
+  }, [pessoaId]);
+
+  const total = fixos.length + meusMin.length;
+  useReportarVazio(total === 0);
+  if (total === 0) return null;
 
   return (
     <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-      {meus.map(p => {
-        const Icon = p.icon;
-        return (
-          <Link key={p.to} to={p.to}>
-            <Card className="h-full hover:border-gold/40 transition-colors">
-              {/* `min-w-0` no filho de flex com texto truncável: o mesmo
-                  transbordo já apareceu seis vezes neste repositório e tem
-                  teste e2e só para ele. */}
-              <CardContent className="p-3 flex items-start gap-2.5">
-                <Icon className="w-4 h-4 mt-0.5 shrink-0 text-muted-foreground" />
-                <div className="min-w-0">
-                  <p className="text-sm font-medium leading-tight">{p.nome}</p>
-                  <p className="text-xs text-muted-foreground leading-snug mt-0.5">{p.paraQue}</p>
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
-        );
-      })}
+      {fixos.map(p => (
+        <CartaoDePainel key={p.to} to={p.to} nome={p.nome} paraQue={p.paraQue} icon={p.icon} />
+      ))}
+      {meusMin.map(m => (
+        <CartaoDePainel
+          key={m.id}
+          to={`/ministerios/${m.id}/painel`}
+          nome={m.nome}
+          // O que a pessoa é ali, e não o que a tela mostra. "Líder de área ·
+          // Bazar" diz por que este cartão apareceu para ela e não para o
+          // vizinho — que é a pergunta que um cartão inesperado levanta.
+          paraQue={[m.comoLidero, ...m.areasQueLidero].join(" · ")}
+          icon={Boxes}
+        />
+      ))}
     </div>
+  );
+}
+
+function CartaoDePainel({ to, nome, paraQue, icon: Icon }: {
+  to: string; nome: string; paraQue: string; icon: LucideIcon;
+}) {
+  return (
+    <Link to={to}>
+      <Card className="h-full hover:border-gold/40 transition-colors">
+        {/* `min-w-0` no filho de flex com texto truncável: o mesmo transbordo
+            já apareceu sete vezes neste repositório e tem teste e2e só para
+            ele. */}
+        <CardContent className="p-3 flex items-start gap-2.5">
+          <Icon className="w-4 h-4 mt-0.5 shrink-0 text-muted-foreground" />
+          <div className="min-w-0">
+            <p className="text-sm font-medium leading-tight truncate">{nome}</p>
+            <p className="text-xs text-muted-foreground leading-snug mt-0.5">{paraQue}</p>
+          </div>
+        </CardContent>
+      </Card>
+    </Link>
   );
 }

@@ -258,7 +258,7 @@ export default function Home() {
 
         <Secao id="meus-paineis" onVazio={marcarVazio}
           titulo="Seus painéis" subtitulo="Onde você trabalha neste sistema">
-          <MeusPaineis permissoes={permissoes} />
+          <MeusPaineis permissoes={permissoes} pessoaId={pessoaId} />
         </Secao>
 
         <Secao id="agenda" onVazio={marcarVazio}

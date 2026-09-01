@@ -10,6 +10,7 @@ import Home from "./pages/Home.tsx";
 import Membros from "./pages/Membros.tsx";
 import Familias from "./pages/Familias.tsx";
 import Ministerios from "./pages/Ministerios.tsx";
+import PainelMinisterio from "./pages/PainelMinisterio.tsx";
 import MinisterioVoluntarios from "./pages/MinisterioVoluntarios.tsx";
 import Eventos from "./pages/Eventos.tsx";
 import Locais from "./pages/Locais.tsx";
@@ -122,6 +123,10 @@ const App = () => (
                   <Route path="/membros" element={<Membros />} />
                   <Route path="/familias" element={<Familias />} />
                   <Route path="/ministerios" element={<Ministerios />} />
+                  {/* A bancada de quem lidera: areas, equipe, escalas e o
+                      checklist de tarefas. Sob /ministerios porque e o painel
+                      DE um ministerio, e nao mais um painel da casa. */}
+                  <Route path="/ministerios/:ministerioId/painel" element={<PainelMinisterio />} />
                   <Route path="/ministerios/:ministerioId/voluntarios" element={<MinisterioVoluntarios />} />
                   <Route path="/eventos" element={<Eventos />} />
                   <Route path="/agenda" element={<Navigate to="/eventos" replace />} />
