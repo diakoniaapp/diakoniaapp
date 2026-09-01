@@ -36,6 +36,25 @@ export type Prioridade = 0 | 1 | 2 | 3;
 // mesma coisa, por mais bem feito que fosse o corte. Com uma tela só, o
 // registry volta a ter uma regra só: prioridade.
 
+/**
+ * Em que painel este widget mora.
+ *
+ * ── POR QUE ISTO PASSOU A EXISTIR ──────────────────────────────────────────
+ *
+ * A Home deixou de ser painel de trabalho e virou a tela pessoal de quem
+ * entrou. Só que 13 dos 16 widgets daqui existiam SOMENTE lá — medido em
+ * 01/09/2026 por importação: fora do `Dashboard.tsx` apareciam apenas
+ * `AgendaDoDia` (Painel Pastoral), `QuemNinguemProcurou` (Membros) e
+ * `AlertasInteligentes` (dentro de outro widget). Tirar da Home sem dar
+ * destino teria apagado o Acolhimento, os Alertas, os Cadastros a corrigir e
+ * a Agenda fiscal do sistema inteiro.
+ *
+ * O destino podia ter sido escrito à mão nos três painéis — 961, 350 e 552
+ * linhas de JSX. Um campo aqui é mais barato e, sobretudo, mantém a regra
+ * onde ela já estava: o registry é quem sabe quem vê o quê (AD-5).
+ */
+export type PainelDoWidget = "pastoral" | "secretaria" | "estrategico" | "financas";
+
 export interface Widget {
   id: string;
   label: string;
@@ -46,6 +65,16 @@ export interface Widget {
   areas?: string[];
   prioridade: Prioridade;
   ativo?: boolean;
+  /**
+   * Painéis em que este widget aparece. Ausente ou vazio = nenhum, e o widget
+   * fica sem casa — que é exatamente o defeito que este campo existe para
+   * impedir. Há teste reprovando entrada ativa sem painel.
+   *
+   * Mais de um painel é legítimo: o Acolhimento interessa ao pastor e à
+   * secretaria por motivos diferentes, e a permissão de cada um continua
+   * decidindo se ele de fato aparece.
+   */
+  paineis?: PainelDoWidget[];
 }
 
 const AlertasInteligentes = lazy(() => import("@/components/dashboard/AlertasInteligentes").then(m => ({ default: m.AlertasInteligentes })));
@@ -93,7 +122,7 @@ export const widgetRegistry: Widget[] = [
     subtitulo: "Pessoas esperando um contato — as mais esquecidas primeiro",
     icone: HeartHandshake, component: QuemNinguemProcurou,
     permissoes: ["ver_pessoas","ver_painel_pastoral","ver_painel_secretaria","ver_painel_admin"],
-    prioridade: 0, ativo: false },
+    prioridade: 0, paineis: ["pastoral"], ativo: false },
 
   // "Ações de hoje" passou à frente de "Acontecendo hoje". Os dois são
   // prioridade 0, e a ordem do array é o desempate — então ela é uma
@@ -131,7 +160,7 @@ export const widgetRegistry: Widget[] = [
     subtitulo: "Quem chegou e ainda espera um contato",
     icone: HandHeart, component: AcolhimentoVisitantes,
     permissoes: ["ver_pessoas","ver_painel_pastoral","ver_painel_secretaria","ver_painel_admin"],
-    prioridade: 0 },
+    prioridade: 0, paineis: ["pastoral", "secretaria"] },
 
   { id: "acoes-do-dia", label: "Ações de hoje",
     // Nao "que acontecem agora": o bloco tambem mostra o que vem pela
@@ -140,12 +169,12 @@ export const widgetRegistry: Widget[] = [
     // oito dias era hoje.
     subtitulo: "Aniversários, bodas e visitas — hoje e nos próximos dias",
     icone: CalendarCheck, component: AcoesDoDia,
-    permissoes: ["ver_pessoas"], prioridade: 0 },
+    permissoes: ["ver_pessoas"], prioridade: 0, paineis: ["pastoral"] },
 
   { id: "agenda-do-dia", label: "Acontecendo hoje",
     subtitulo: "Cultos, reuniões, ensaios e reservas de hoje",
     icone: CalendarDays, component: AgendaDoDia,
-    permissoes: ["ver_pessoas","ver_familias","ver_ebd","ver_pgm"], prioridade: 0 },
+    permissoes: ["ver_pessoas","ver_familias","ver_ebd","ver_pgm"], prioridade: 0, paineis: ["pastoral"] },
 
   // Prioridade 1, nao 0: um voluntario sobrecarregado pede conversa esta
   // semana, nao neste minuto. O que e de hoje — aniversario, agenda — vem
@@ -157,13 +186,13 @@ export const widgetRegistry: Widget[] = [
     subtitulo: "Sinais de quem está servindo demais, ou parou de servir",
     icone: HeartHandshake, component: SinaisDeVoluntariado,
     permissoes: ["ver_pessoas","ver_painel_pastoral","ver_painel_secretaria","ver_painel_admin"],
-    prioridade: 1 },
+    prioridade: 1, paineis: ["pastoral"] },
 
   { id: "alertas-inteligentes", label: "Alertas inteligentes",
     subtitulo: "Coisas que precisam da sua decisão",
     icone: Bell, component: AlertasInteligentes,
     permissoes: ["ver_pessoas","ver_painel_pastoral","ver_painel_secretaria","ver_painel_admin"],
-    prioridade: 0 },
+    prioridade: 0, paineis: ["pastoral"] },
 
   // Prioridade 1, nao 0: cadastro contraditorio pede correcao, mas nao e
   // urgente como um visitante que esta se perdendo. Faixa "trava" porque e
@@ -181,62 +210,77 @@ export const widgetRegistry: Widget[] = [
     // Tarefa endereçada a todos não é de ninguém. Restam `ver_painel_secretaria`
     // (admin, secretaria) e `ver_painel_admin`.
     permissoes: ["ver_painel_secretaria","ver_painel_admin"],
-    prioridade: 1 },
+    prioridade: 1, paineis: ["secretaria"] },
 
   { id: "vida-das-familias", label: "Vida das famílias",
     subtitulo: "Aniversários e bodas da semana",
     icone: Heart, component: VidaDasFamilias,
-    permissoes: ["ver_familias","ver_painel_pastoral"], prioridade: 2 },
+    permissoes: ["ver_familias","ver_painel_pastoral"], prioridade: 2, paineis: ["pastoral"] },
 
   { id: "resumo-ebd", label: "Resumo da EBD",
     subtitulo: "Presença, crescimento e atenção pastoral",
     icone: GraduationCap, component: ResumoEbd,
-    permissoes: ["ver_ebd"], prioridade: 2 },
+    permissoes: ["ver_ebd"], prioridade: 2, paineis: ["pastoral"] },
 
   { id: "campanhas-ebd", label: "Campanhas em andamento",
     subtitulo: "Metas e arrecadação",
     icone: DollarSign, component: CampanhasEbd,
-    permissoes: ["ver_financeiro","ver_ebd"], prioridade: 2 },
+    permissoes: ["ver_financeiro","ver_ebd"], prioridade: 2, paineis: ["pastoral", "financas"] },
 
   { id: "atencao-pessoas", label: "Atenção em pessoas",
     subtitulo: "Visitantes recentes, sem família, sem classe EBD",
     icone: Users, component: AtencaoEmPessoas,
-    permissoes: ["ver_pessoas"], prioridade: 2 },
+    permissoes: ["ver_pessoas"], prioridade: 2, paineis: ["pastoral"] },
 
   { id: "resumo-pgm", label: "Pequenos Grupos",
     subtitulo: "Onde a vida da igreja acontece durante a semana",
     icone: Users, component: ResumoPgm,
-    permissoes: ["ver_pgm"], prioridade: 2 },
+    permissoes: ["ver_pgm"], prioridade: 2, paineis: ["pastoral"] },
 
   { id: "meus-assuntos", label: "Meus assuntos",
     subtitulo: "Tarefas sob sua responsabilidade",
     icone: CheckSquare, component: MeusAssuntos,
-    permissoes: ["ver_assuntos"], prioridade: 1 },
+    permissoes: ["ver_assuntos"], prioridade: 1, paineis: ["secretaria"] },
 
   { id: "agenda-fiscal-urgente", label: "Agenda fiscal",
     subtitulo: "Obrigações vencendo e atrasadas",
     icone: Receipt, component: AgendaFiscalUrgente,
-    permissoes: ["ver_fiscal","ver_financeiro","ver_painel_tesouraria","ver_painel_admin"], prioridade: 0 },
+    permissoes: ["ver_fiscal","ver_financeiro","ver_painel_tesouraria","ver_painel_admin"], prioridade: 0, paineis: ["financas"] },
 
   { id: "manutencao-arrecadacao", label: "Manutenção Bazar/Cantina",
     subtitulo: "Problemas reportados e recorrências",
     icone: Wrench, component: ManutencaoArrec,
-    permissoes: ["ver_manutencao","ver_arrecadacao_admin"], prioridade: 1 },
+    permissoes: ["ver_manutencao","ver_arrecadacao_admin"], prioridade: 1, paineis: ["financas"] },
 
   { id: "assuntos-urgentes", label: "Assuntos urgentes da igreja",
     subtitulo: "Atrasados e vencendo essa semana",
     icone: AlertTriangle, component: AssuntosUrgentes,
-    permissoes: ["ver_painel_admin","ver_painel_secretaria","ver_painel_pastoral"], prioridade: 0 },
+    permissoes: ["ver_painel_admin","ver_painel_secretaria","ver_painel_pastoral"], prioridade: 0, paineis: ["pastoral", "secretaria"] },
 
   { id: "insights-sistema", label: "Insights do sistema",
     subtitulo: "Sugestões automáticas para a liderança",
     icone: Lightbulb, component: InsightsDoSistema,
-    permissoes: ["ver_painel_admin"], prioridade: 3 },
+    permissoes: ["ver_painel_admin"], prioridade: 3, paineis: ["estrategico"] },
 ];
 
 export interface ContextoUsuario {
   permissoes: Set<string>;
   areas?: string[];
+}
+
+/**
+ * Os widgets de UM painel, para ESTE usuário.
+ *
+ * Dois filtros, e os dois precisam passar: o painel diz onde o widget mora, a
+ * permissão diz se esta pessoa o vê. Separados de propósito — o Acolhimento
+ * mora no Pastoral e no da Secretaria, e cada um deles tem gente que entra
+ * sem poder ver visitante.
+ */
+export function getWidgetsDoPainel(
+  ctx: ContextoUsuario,
+  painel: PainelDoWidget,
+): Widget[] {
+  return getWidgetsParaUsuario(ctx).filter(w => (w.paineis ?? []).includes(painel));
 }
 
 export function getWidgetsParaUsuario(

@@ -22,6 +22,26 @@ interface AuthContextValue {
   roles: AppRole[];
   /** Se a consulta de papéis já respondeu — ver a nota em `fetchRoles`. */
   rolesCarregados: boolean;
+  /**
+   * A ficha em `membros` de quem está logado — o elo `profiles.pessoa_id`.
+   *
+   * `user.id` diz qual CONTA entrou; este diz qual PESSOA ela é. São duas
+   * coisas, e confundi-las já custou caro neste banco: duas políticas de
+   * `membros` — `membro_ve_proprio` e `membro_edita_proprio` — comparavam
+   * `membros.id` com `auth.uid()`. Medido em 01/09/2026: das 297 fichas,
+   * ZERO têm o id de uma conta. As duas nunca liberaram uma linha.
+   *
+   * Antes disto, três telas descobriam o elo por conta própria — `AppLayout`,
+   * `MobileBottomNav` e `arrecadacao/Caixa` —, cada uma com a sua consulta a
+   * `profiles`. Agora quem precisa pergunta aqui.
+   *
+   * `null` quer dizer duas coisas, e `pessoaCarregada` separa: ainda não
+   * respondeu, ou esta conta não tem ficha ligada — o que acontece quando o
+   * acesso é criado antes de a pessoa existir no cadastro.
+   */
+  pessoaId: string | null;
+  /** Se a consulta do elo já respondeu. Ver a nota em `pessoaId`. */
+  pessoaCarregada: boolean;
   loading: boolean;
   signOut: () => Promise<void>;
   hasRole: (r: AppRole | AppRole[]) => boolean;
@@ -36,6 +56,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [roles, setRoles] = useState<AppRole[]>([]);
+  const [pessoaId, setPessoaId] = useState<string | null>(null);
+  const [pessoaCarregada, setPessoaCarregada] = useState(false);
   const [loading, setLoading] = useState(true);
 
   /**
@@ -68,23 +90,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  /**
+   * O elo conta → ficha.
+   *
+   * Consulta própria, e não `select("role, pessoa_id")` junto da de papéis:
+   * são tabelas diferentes (`user_roles` e `profiles`) e falhas diferentes.
+   * Quem não tem ficha ligada continua com os papéis dele — perder o acesso
+   * inteiro porque o cadastro está incompleto seria o pior dos dois mundos.
+   */
+  const fetchPessoa = async (uid: string) => {
+    try {
+      const { data } = await supabase
+        .from("profiles").select("pessoa_id").eq("id", uid).maybeSingle();
+      setPessoaId(data?.pessoa_id ?? null);
+    } finally {
+      setPessoaCarregada(true);
+    }
+  };
+
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, sess) => {
       setSession(sess);
       setUser(sess?.user ?? null);
       if (sess?.user) {
         setRolesCarregados(false);   // trocou de usuário: o que havia não vale
-        setTimeout(() => fetchRoles(sess.user.id), 0);
+        setPessoaCarregada(false);   // e a ficha do anterior menos ainda
+        setTimeout(() => { fetchRoles(sess.user.id); fetchPessoa(sess.user.id); }, 0);
       } else {
         setRoles([]);
         setRolesCarregados(true);    // sem usuário, "nenhum papel" é resposta
+        setPessoaId(null);
+        setPessoaCarregada(true);
       }
     });
     supabase.auth.getSession().then(({ data: { session: sess } }) => {
       setSession(sess);
       setUser(sess?.user ?? null);
-      if (sess?.user) fetchRoles(sess.user.id).finally(() => setLoading(false));
-      else { setRolesCarregados(true); setLoading(false); }
+      if (sess?.user) {
+        // Só `loading` espera os papéis: é ele que segura a navegação. A ficha
+        // é assunto de tela, e uma tela pode desenhar o esqueleto enquanto ela
+        // não chega — prender o app inteiro por causa dela atrasaria todo mundo.
+        fetchPessoa(sess.user.id);
+        fetchRoles(sess.user.id).finally(() => setLoading(false));
+      } else {
+        setRolesCarregados(true); setPessoaCarregada(true); setLoading(false);
+      }
     });
     return () => sub.subscription.unsubscribe();
   }, []);
@@ -130,7 +180,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const podeEditarPessoas = hasRole(["admin", "secretaria", "diakonia", "pastor"]);
 
   return (
-    <AuthContext.Provider value={{ user, session, roles, rolesCarregados, loading, signOut, hasRole, canEdit, podeEditarPessoas }}>
+    <AuthContext.Provider value={{ user, session, roles, rolesCarregados, pessoaId, pessoaCarregada, loading, signOut, hasRole, canEdit, podeEditarPessoas }}>
       {children}
     </AuthContext.Provider>
   );

@@ -122,6 +122,7 @@ import {
 // A pirâmide etária e as entradas por ano. Os quadros confessam as próprias
 // lacunas — ver o cabeçalho do arquivo.
 import { BlocoRebanho } from "@/components/painel/BlocoRebanho";
+import { WidgetsDoPainel } from "@/dashboard/WidgetsDoPainel";
 
 /** Hoje + 6 = uma semana contando o próprio dia. */
 const DIAS_A_FRENTE = 6;
@@ -724,6 +725,11 @@ export default function PainelPastoral() {
 
         A rota continua existindo e atendendo quem tem link salvo.
       */}
+
+      {/* Os blocos que a Home devolveu ao virar tela pessoal. Quem decide
+          quais aparecem aqui e o registry, pelo campo `paineis` — e a
+          permissao de quem olha continua valendo por cima. */}
+      <WidgetsDoPainel painel="pastoral" />
     </div>
   );
 }

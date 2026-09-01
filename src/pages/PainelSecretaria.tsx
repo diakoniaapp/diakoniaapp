@@ -47,6 +47,7 @@ import { PENDENCIAS_CADASTRO, type PendenciaCadastro } from "@/lib/pendenciasCad
 import {
   carregarPainelSecretaria, type ResumoSecretaria,
 } from "@/services/painelSecretariaService";
+import { WidgetsDoPainel } from "@/dashboard/WidgetsDoPainel";
 
 /** Quantos nomes cabem antes de a lista virar rolagem sem fim. */
 const AMOSTRA_SEM_FAMILIA = 12;
@@ -345,6 +346,11 @@ export default function PainelSecretaria() {
           </section>
         </>
       )}
+
+      {/* Os blocos que a Home devolveu ao virar tela pessoal. Quem decide
+          quais aparecem aqui e o registry, pelo campo `paineis` — e a
+          permissao de quem olha continua valendo por cima. */}
+      <WidgetsDoPainel painel="secretaria" />
     </div>
   );
 }

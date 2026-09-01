@@ -15,6 +15,7 @@ import {
   ArrowRight, BarChart2, Eye, Target, Heart,
 } from "lucide-react";
 import { avaliarEvolucao } from "@/lib/evolucaoFluxo";
+import { WidgetsDoPainel } from "@/dashboard/WidgetsDoPainel";
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -444,6 +445,11 @@ export default function PainelEstrategico({ embutido = false }: { embutido?: boo
         </Card>
 
       </div>
+
+      {/* Os blocos que a Home devolveu ao virar tela pessoal. Quem decide
+          quais aparecem aqui e o registry, pelo campo `paineis` — e a
+          permissao de quem olha continua valendo por cima. */}
+      <WidgetsDoPainel painel="estrategico" />
     </div>
   );
 }

@@ -1,0 +1,213 @@
+// ─── Home — a tela de quem acabou de entrar ───────────────────────────────
+//
+// ── O QUE ESTA TELA SUBSTITUI ──────────────────────────────────────────────
+//
+// Um painel de trabalho: dezesseis widgets de acolhimento, alertas, pendências
+// e resumos, montados a partir da permissão de quem olha. Ele funcionava — e
+// era a tela errada para o primeiro momento.
+//
+// A razão é que ele respondia sempre pelos OUTROS. Quem não foi procurado,
+// quem passou da faixa da EBD, quem está sobrecarregado. Para as três contas
+// de hoje isso faz sentido: as três são da liderança. Para as 297 pessoas do
+// cadastro, no dia em que cada uma tiver acesso, a primeira tela do sistema da
+// própria igreja não pode ser a lista de tarefas de outra pessoa.
+//
+// Agora:
+//
+//   Home      quem eu sou aqui, e o que a igreja espera de mim
+//   Painéis   o que eu faço — Pastoral, Secretaria, Crescimento, Finanças
+//
+// Os widgets não sumiram: foram para os painéis, pelo campo `painel` do
+// registry. Ver `dashboard/widgetRegistry.tsx`.
+//
+// ── A ORDEM DOS BLOCOS ─────────────────────────────────────────────────────
+//
+// Não é a ordem em que as ideias apareceram; é a de quem tem pressa.
+//
+//   1. A minha semana     o único bloco que pede algo de quem lê. Some
+//                         sozinho quando não há nada marcado.
+//   2. Meus painéis       o destino de quem entrou para trabalhar. Vem antes
+//                         dos dados porque é o motivo de a maioria entrar.
+//   3. Aniversários       a coisa mais compartilhável da igreja, e a que
+//                         perde valor mais rápido.
+//   4. Minha ficha        consulta e correção. Não tem pressa, mas é o
+//                         bloco que a pessoa procura quando vem por isso.
+//   5. Minha vida         classe da EBD e Pequeno Grupo.
+//   6. Convidar           a agenda dos próximos dias, com o convite pronto.
+//
+// Cada seção se apaga sozinha quando o bloco de dentro avisa que não tem o
+// que mostrar — o canal `VazioCtx`, que já existia. Uma Home com sete títulos
+// e três blocos vazios diria a quem chega que ele está perdendo alguma coisa.
+
+import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { UserPlus, Search } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { usePermissoes } from "@/hooks/usePermissoes";
+import { verseOfTheDay } from "@/lib/agenda/verses";
+import VisitanteRapidoDialog from "@/components/membros/VisitanteRapidoDialog";
+import { openCommandPalette } from "@/lib/commandPalette";
+import { Secao } from "@/components/eu/Secao";
+import { MeusPaineis } from "@/components/eu/MeusPaineis";
+import { MinhaFicha } from "@/components/eu/MinhaFicha";
+import { MinhaSemana, MinhaEbdCard, MeuPgmCard } from "@/components/eu/MinhaVida";
+import { AniversariosParaCelebrar, AgendaParaConvidar } from "@/components/eu/ParaCompartilhar";
+import { minhaFicha, type MinhaFicha as Ficha } from "@/services/meuEspacoService";
+
+function saudacao(): string {
+  const h = new Date().getHours();
+  if (h >= 5 && h < 12) return "Bom dia";
+  if (h >= 12 && h < 18) return "Boa tarde";
+  return "Boa noite";
+}
+
+// QUINTA cópia deste mapa no repositório — as outras estão em types/usuario.ts,
+// AppLayout.tsx, UserMenuButton.tsx e (até ser aposentado) Dashboard.tsx. Ao
+// trocar um rótulo, trocar em todas: em 26/08/2026 "Pastor titular" mudou em
+// três e a tela do painel continuou dizendo "Pastor".
+const ROLE_LABEL: Record<string, string> = {
+  admin: "Administrador", secretaria: "Secretaria",
+  diakonia: "Pastor titular", pastor: "Pastor",
+  lideranca: "Liderança", voluntario: "Voluntário",
+};
+
+export default function Home() {
+  const { roles, pessoaId, pessoaCarregada } = useAuth();
+  const { permissoes } = usePermissoes();
+  const [ficha, setFicha] = useState<Ficha | null>(null);
+  const [abrirVisitante, setAbrirVisitante] = useState(false);
+  const verse = verseOfTheDay();
+
+  // A ficha é carregada UMA vez aqui e emprestada aos blocos que precisam
+  // dela: o nome na saudação, a assinatura do convite e o bairro que orienta
+  // a sugestão de Pequeno Grupo. Três consultas iguais seriam três.
+  useEffect(() => {
+    if (!pessoaId) { setFicha(null); return; }
+    minhaFicha(pessoaId).then(setFicha).catch(() => setFicha(null));
+  }, [pessoaId]);
+
+  // O primeiro nome sai da FICHA, e não de `profiles.nome`. Este último é
+  // mantido por cópia e diverge: em produção há conta cujo `profiles.nome` é
+  // "Telma Souza" e cuja ficha diz "Telma Rodrigues de Souza". Quem a igreja
+  // conhece é a ficha.
+  const primeiroNome = (() => {
+    const n = (ficha?.nome_social || ficha?.nome_completo || "").trim();
+    if (!n) return null;
+    const p = n.split(/\s+/)[0];
+    return p.charAt(0).toUpperCase() + p.slice(1);
+  })();
+
+  const papel = ROLE_LABEL[roles[0] ?? ""] ?? null;
+
+  return (
+    <div>
+      <div className="border-b bg-card">
+        <div className="px-4 md:px-8 py-3 md:py-6 flex flex-col md:flex-row md:items-end md:justify-between gap-2 md:gap-4">
+          <div className="min-w-0 space-y-0.5 md:space-y-1">
+            {papel && (
+              <span className="hidden md:block text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                {papel}
+              </span>
+            )}
+            <div className="flex items-start justify-between gap-3">
+              <h1 className="font-serif text-xl md:text-4xl text-foreground min-w-0">
+                {saudacao()}{primeiroNome ? `, ${primeiroNome}` : ""}! 🙏
+              </h1>
+              {permissoes.has("criar_pessoa") && (
+                <Button size="sm" onClick={() => setAbrirVisitante(true)}
+                  className="md:hidden gap-1.5 shrink-0 bg-gold hover:bg-gold/90 text-white border-0 shadow-sm">
+                  <UserPlus className="w-4 h-4" />
+                  <span translate="no">Visitante</span>
+                </Button>
+              )}
+            </div>
+            <p className="font-serif text-sm md:text-base leading-snug text-foreground/95">
+              &ldquo;{verse.texto}&rdquo;
+              <span className="text-muted-foreground text-xs font-sans whitespace-nowrap">
+                {" "}— {verse.ref}
+              </span>
+            </p>
+          </div>
+          {/* O atalho de visitante é trabalho de quem recebe, não de todo
+              mundo: para quem não cadastra ninguém ele seria um botão dourado
+              no alto da tela levando a uma porta fechada. */}
+          {permissoes.has("criar_pessoa") && (
+            <div className="hidden md:flex gap-2 shrink-0 self-end md:self-auto">
+              <Button onClick={() => setAbrirVisitante(true)}
+                className="gap-2 bg-gold hover:bg-gold/90 text-white border-0 shadow-sm">
+                <UserPlus className="w-4 h-4" />
+                <span translate="no">Visitante Rápido</span>
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="p-4 md:p-8 space-y-10 max-w-5xl mx-auto">
+        <Secao titulo="A sua semana" subtitulo="O que a igreja espera de você nos próximos dias">
+          {pessoaId && <MinhaSemana pessoaId={pessoaId} />}
+        </Secao>
+
+        <Secao titulo="Seus painéis" subtitulo="Onde você trabalha neste sistema">
+          <MeusPaineis permissoes={permissoes} />
+        </Secao>
+
+        <Secao titulo="Para celebrar" subtitulo="Aniversários e bodas dos próximos sete dias">
+          <AniversariosParaCelebrar />
+        </Secao>
+
+        {/* Sem `Secao`: este bloco nunca está vazio — ou mostra a ficha, ou
+            explica por que não há ficha ligada à conta. Envolvê-lo no canal
+            do vazio seria dar a ele a chance de sumir sem explicar. */}
+        <section className="space-y-2">
+          <div className="px-1">
+            <h2 className="font-serif text-lg">Meus dados</h2>
+            <p className="text-xs text-muted-foreground">
+              Você corrige o que é seu; vínculo e funções são com a secretaria
+            </p>
+          </div>
+          {pessoaCarregada && pessoaId
+            ? <MinhaFicha pessoaId={pessoaId} />
+            : pessoaCarregada
+              ? <SemFicha />
+              : null}
+        </section>
+
+        <Secao titulo="Minha vida na igreja" subtitulo="Escola Bíblica e Pequeno Grupo">
+          {pessoaId && (
+            <div className="grid gap-2 md:grid-cols-2">
+              <MinhaEbdCard pessoaId={pessoaId} />
+              <MeuPgmCard pessoaId={pessoaId} bairro={ficha?.bairro} />
+            </div>
+          )}
+        </Secao>
+
+        <Secao titulo="Convide alguém" subtitulo="A agenda dos próximos dias, com a mensagem pronta">
+          <AgendaParaConvidar eu={ficha} />
+        </Secao>
+
+        <div className="text-center">
+          <button type="button" onClick={openCommandPalette}
+            className="inline-flex items-center gap-1.5 min-h-[44px] px-2 text-xs text-muted-foreground hover:text-foreground transition-colors">
+            <Search className="w-3.5 h-3.5" />
+            <span>Buscar qualquer página ou ação</span>
+            <kbd className="hidden md:inline px-1 py-0.5 rounded bg-muted text-xs">Ctrl K</kbd>
+          </button>
+        </div>
+      </div>
+
+      <VisitanteRapidoDialog open={abrirVisitante} onOpenChange={setAbrirVisitante} onSaved={() => {}} />
+    </div>
+  );
+}
+
+function SemFicha() {
+  return (
+    <div className="rounded-lg border border-dashed p-4">
+      <p className="text-sm">Sua conta ainda não está ligada a uma ficha de cadastro.</p>
+      <p className="text-xs text-muted-foreground mt-1">
+        Fale com a secretaria para que ela faça a ligação — depois disso seus dados aparecem aqui.
+      </p>
+    </div>
+  );
+}

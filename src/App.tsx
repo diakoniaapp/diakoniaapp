@@ -6,7 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "./pages/NotFound.tsx";
 import Auth from "./pages/Auth.tsx";
 import AppLayout from "./components/layout/AppLayout.tsx";
-import Dashboard from "./pages/Dashboard.tsx";
+import Home from "./pages/Home.tsx";
 import Membros from "./pages/Membros.tsx";
 import Familias from "./pages/Familias.tsx";
 import Ministerios from "./pages/Ministerios.tsx";
@@ -105,7 +105,7 @@ const App = () => (
 
                 {/* Rotas protegidas (dentro do AppLayout) */}
                 <Route element={<AppLayout />}>
-                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/" element={<Home />} />
                   {/* A tela HOJE foi fundida no painel.
                       Ela e o painel liam o mesmo registry, com a mesma
                       saudação e a mesma linguagem visual, e qualquer divisão

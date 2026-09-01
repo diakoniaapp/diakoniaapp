@@ -16,6 +16,7 @@ import { TransferenciaForm } from "@/components/financas/TransferenciaForm";
 import { Settings, ArrowRightLeft, RotateCw, Package, Sparkles, Layers, Target, Briefcase } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { PaginaSkeleton } from "@/components/ListState";
+import { WidgetsDoPainel } from "@/dashboard/WidgetsDoPainel";
 
 const ICONE_CONTA: Record<string, JSX.Element> = {
   caixa:     <Wallet className="w-4 h-4" />,
@@ -172,6 +173,10 @@ export default function Financas() {
         onOpenChange={setTransfOpen}
         onSaved={carregar}
       />
+
+      {/* Os blocos que a Home devolveu ao virar tela pessoal — aqui, a agenda
+          fiscal e a manutencao de Bazar/Cantina. Ver `widgetRegistry.paineis`. */}
+      <WidgetsDoPainel painel="financas" />
     </div>
   );
 }
