@@ -244,15 +244,37 @@ function roladorDe(el: HTMLElement): HTMLElement | null {
 
 /** A altura do cabeçalho grudado no topo do rolador, medida agora. */
 function alturaDoCabecalhoFixo(rolador: HTMLElement): number {
-  let maior = 0;
+  const topoDoRolador = rolador.getBoundingClientRect().top;
+  let maisBaixo = 0;
+
   for (const el of Array.from(rolador.querySelectorAll<HTMLElement>("*"))) {
-    if (getComputedStyle(el).position !== "sticky") continue;
+    const cs = getComputedStyle(el);
+    if (cs.position !== "sticky") continue;
+
+    // Onde ESTE elemento gruda. Quase sempre `top: 0`, mas não sempre: a tira
+    // de atalhos da Home gruda ABAIXO da faixa do "Ver como", com
+    // `top: var(--altura-ver-como)`. Sem ler o valor resolvido, ela seria
+    // tomada por uma barra solta no meio da página e simplesmente ignorada.
+    const ondeGruda = parseFloat(cs.top);
+    if (!Number.isFinite(ondeGruda)) continue;
+
     const r = el.getBoundingClientRect();
-    // Só o que está encostado no topo do rolador conta: uma barra grudada
-    // no meio da página não atrapalha o destino da rolagem.
-    if (r.top <= rolador.getBoundingClientRect().top + 1) maior = Math.max(maior, r.height);
+    // Grudado é estar no lugar onde grudaria — e não "encostado no topo".
+    if (r.top > topoDoRolador + ondeGruda + 1) continue;
+
+    // ── A BORDA DE BAIXO, E NÃO A ALTURA ────────────────────────────────
+    //
+    // Isto media `Math.max(…, r.height)`. Com UM cabeçalho fixo dá no mesmo;
+    // com DOIS empilhados, não: a faixa do "Ver como" tem ~36px e a tira de
+    // atalhos ~78, e o maior dos dois é menor que o conjunto. As seções
+    // parariam 36px atrás — atrás da própria tira que as chamou.
+    //
+    // Somar os dois também estaria errado: nada garante que estejam
+    // empilhados sem folga. A borda de baixo do que desce mais é a única
+    // medida que vale nos dois casos, e não precisa saber quantos são.
+    maisBaixo = Math.max(maisBaixo, r.bottom - topoDoRolador);
   }
-  return maior;
+  return maisBaixo;
 }
 
 /**

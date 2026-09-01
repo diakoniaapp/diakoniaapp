@@ -8,6 +8,7 @@
 // não vê a agenda quando na verdade quem está olhando é uma administradora
 // fantasiada. A faixa diz as duas coisas em uma linha e traz a saída.
 
+import { useEffect, useRef } from "react";
 import {
   DropdownMenuLabel, DropdownMenuItem, DropdownMenuSeparator,
   DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuPortal,
@@ -86,10 +87,40 @@ export function VerComoMenu() {
  */
 export function FaixaVerComo() {
   const { papel, simulando, sair } = useVerComo();
+  const ref = useRef<HTMLDivElement>(null);
+
+  // ── A faixa publica a própria altura ──────────────────────────────────
+  //
+  // A tira de atalhos da Home também é fixa, e precisa grudar ABAIXO desta.
+  // O número não pode ser escrito à mão: esta faixa tem uma linha no desktop
+  // e duas no celular, e o texto dela muda com o nome do papel — "Vendo como
+  // Pastor titular" quebra onde "Vendo como Pastor" não quebra.
+  //
+  // É o mesmo erro que `irParaSecao` documenta ter cometido com `scroll-mt`:
+  // dois números fixos que envelheceram na primeira vez que o cabeçalho mudou.
+  // Medir na hora não tem como envelhecer.
+  useEffect(() => {
+    const raiz = document.documentElement;
+    const el = ref.current;
+    if (!simulando || !el) {
+      raiz.style.setProperty("--altura-ver-como", "0px");
+      return;
+    }
+    const medir = () =>
+      raiz.style.setProperty("--altura-ver-como", `${Math.round(el.offsetHeight)}px`);
+    medir();
+    const obs = new ResizeObserver(medir);
+    obs.observe(el);
+    return () => {
+      obs.disconnect();
+      raiz.style.setProperty("--altura-ver-como", "0px");
+    };
+  }, [simulando, papel]);
+
   if (!simulando) return null;
 
   return (
-    <div className="sticky top-0 z-50 bg-gold text-white">
+    <div ref={ref} className="sticky top-0 z-50 bg-gold text-white">
       <div className="px-3 py-1.5 flex items-center gap-2 text-xs">
         <Eye className="w-3.5 h-3.5 shrink-0" />
         <p className="min-w-0 flex-1 leading-snug">

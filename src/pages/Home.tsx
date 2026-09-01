@@ -32,12 +32,15 @@
 //                         sozinho quando não há nada marcado.
 //   2. Meus painéis       o destino de quem entrou para trabalhar. Vem antes
 //                         dos dados porque é o motivo de a maioria entrar.
-//   3. Aniversários       a coisa mais compartilhável da igreja, e a que
-//                         perde valor mais rápido.
+//   3. Agenda             sete dias com a tira do Painel Pastoral: o que a
+//                         igreja celebra e o que ela faz, com a felicitação e
+//                         o convite prontos. Nasceu de dois blocos separados
+//                         — "Para celebrar" e "Convide alguém" — que
+//                         respondiam à mesma pergunta com dois recortes de
+//                         tempo diferentes.
 //   4. Minha ficha        consulta e correção. Não tem pressa, mas é o
 //                         bloco que a pessoa procura quando vem por isso.
 //   5. Minha vida         classe da EBD e Pequeno Grupo.
-//   6. Convidar           a agenda dos próximos dias, com o convite pronto.
 //
 // Cada seção se apaga sozinha quando o bloco de dentro avisa que não tem o
 // que mostrar — o canal `VazioCtx`, que já existia. Uma Home com sete títulos
@@ -46,7 +49,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
-  UserPlus, Search, CalendarClock, LayoutGrid, Cake, IdCard, BookOpen, Share2,
+  UserPlus, Search, CalendarClock, LayoutGrid, CalendarDays, IdCard, BookOpen,
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -59,7 +62,7 @@ import { FaixaDeIndicadores, Indicador, irParaSecao } from "@/components/painel/
 import { MeusPaineis } from "@/components/eu/MeusPaineis";
 import { MinhaFicha } from "@/components/eu/MinhaFicha";
 import { MinhaSemana, MinhaEbdCard, MeuPgmCard } from "@/components/eu/MinhaVida";
-import { AniversariosParaCelebrar, AgendaParaConvidar } from "@/components/eu/ParaCompartilhar";
+import { AgendaDaSemana } from "@/components/eu/AgendaDaSemana";
 import { minhaFicha, type MinhaFicha as Ficha } from "@/services/meuEspacoService";
 
 function saudacao(): string {
@@ -89,10 +92,9 @@ const ROLE_LABEL: Record<string, string> = {
 const ATALHOS: { id: string; rotulo: string; icone: LucideIcon }[] = [
   { id: "minha-semana", rotulo: "Semana",   icone: CalendarClock },
   { id: "meus-paineis", rotulo: "Painéis",  icone: LayoutGrid },
-  { id: "para-celebrar", rotulo: "Celebrar", icone: Cake },
+  { id: "agenda",       rotulo: "Agenda",   icone: CalendarDays },
   { id: "meus-dados",   rotulo: "Meus dados", icone: IdCard },
   { id: "minha-vida",   rotulo: "Minha vida", icone: BookOpen },
-  { id: "convidar",     rotulo: "Convidar",  icone: Share2 },
 ];
 
 export default function Home() {
@@ -136,6 +138,24 @@ export default function Home() {
 
   return (
     <div>
+      {/* ── O cabeçalho fixo: saudação E tira, juntas ───────────────────
+
+          `sticky` e não `fixed`: quem rola é o `<main>` do AppLayout, não a
+          janela — o mesmo motivo que o Painel Pastoral registra no cabeçalho
+          dele. Por isso funciona sem cálculo de posição.
+
+          As duas grudam JUNTAS, num invólucro só. Fixar apenas a tira faria
+          a saudação enrolar por baixo dela e sumir: quem abre o sistema
+          perderia o próprio nome ao primeiro gesto de rolagem.
+
+          O `top` sai de uma variável medida, e não de um número. Quando a
+          administradora entra em "Ver como", a faixa dourada ocupa o topo —
+          e ela tem uma linha no desktop e duas no celular. A própria faixa
+          publica a altura dela em `--altura-ver-como`. */}
+      <div
+        className="sticky z-30"
+        style={{ top: "var(--altura-ver-como, 0px)" }}
+      >
       <div className="border-b bg-card">
         <div className="px-4 md:px-8 py-3 md:py-6 flex flex-col md:flex-row md:items-end md:justify-between gap-2 md:gap-4">
           <div className="min-w-0 space-y-0.5 md:space-y-1">
@@ -189,15 +209,32 @@ export default function Home() {
           Só entram as seções que ESTA pessoa tem. Um atalho para uma seção
           escondida rolaria a tela até nada, e prometeria conteúdo que ela
           não tem — que é o oposto de um atalho. */}
-      <div className="px-4 md:px-8 pt-4 max-w-5xl mx-auto">
-        <FaixaDeIndicadores colunas={Math.min(Math.max(atalhos.length, 3), 6)}>
-          {atalhos.map(a => (
-            <Indicador key={a.id} rotulo={a.rotulo} icone={a.icone}
-              onClick={() => irParaSecao(a.id)}
-              descricao={`Ir para ${a.rotulo}`} />
-          ))}
-        </FaixaDeIndicadores>
+      {/* ── Fixa, e por isso opaca e de largura inteira ─────────────────
+
+          `sticky` gruda dentro do PRÓPRIO rolador, e aqui quem rola é o
+          `<main>` do AppLayout — não a janela. Por isso funciona sem `fixed`
+          e sem cálculo de posição.
+
+          O `top` sai de uma variável medida, e não de um número: quando a
+          administradora entra em "Ver como", a faixa dourada ocupa o topo, e
+          ela tem uma linha no desktop e duas no celular. A própria faixa
+          publica a altura dela em `--altura-ver-como`.
+
+          A moldura externa vai de ponta a ponta e é opaca de propósito: com
+          `max-w-5xl` só no que está fixo, o conteúdo passaria por baixo pelas
+          laterais ao rolar. A largura de leitura fica na camada de dentro. */}
+      <div className="bg-background border-b">
+        <div className="px-4 md:px-8 py-2 max-w-5xl mx-auto">
+          <FaixaDeIndicadores colunas={Math.min(Math.max(atalhos.length, 3), 6)}>
+            {atalhos.map(a => (
+              <Indicador key={a.id} rotulo={a.rotulo} icone={a.icone}
+                onClick={() => irParaSecao(a.id)}
+                descricao={`Ir para ${a.rotulo}`} />
+            ))}
+          </FaixaDeIndicadores>
+        </div>
       </div>
+      </div>{/* fim do cabeçalho fixo */}
 
       <div className="p-4 md:p-8 space-y-10 max-w-5xl mx-auto">
         <Secao id="minha-semana" onVazio={marcarVazio}
@@ -208,11 +245,6 @@ export default function Home() {
         <Secao id="meus-paineis" onVazio={marcarVazio}
           titulo="Seus painéis" subtitulo="Onde você trabalha neste sistema">
           <MeusPaineis permissoes={permissoes} />
-        </Secao>
-
-        <Secao id="para-celebrar" onVazio={marcarVazio}
-          titulo="Para celebrar" subtitulo="Aniversários e bodas dos próximos sete dias">
-          <AniversariosParaCelebrar />
         </Secao>
 
         {/* Sem `Secao`: este bloco nunca está vazio — ou mostra a ficha, ou
@@ -242,9 +274,9 @@ export default function Home() {
           )}
         </Secao>
 
-        <Secao id="convidar" onVazio={marcarVazio}
-          titulo="Convide alguém" subtitulo="A agenda dos próximos dias, com a mensagem pronta">
-          <AgendaParaConvidar eu={ficha} />
+        <Secao id="agenda" onVazio={marcarVazio}
+          titulo="Agenda" subtitulo="Sete dias — o que a igreja celebra e o que ela faz">
+          <AgendaDaSemana eu={ficha} />
         </Secao>
 
         <div className="text-center">
