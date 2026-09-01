@@ -175,17 +175,19 @@ export default function Auth() {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/auth/reset`,
     });
-    // Registra solicitação administrativa
-    const { data: membro } = await supabase
-      // membros nao tem coluna `telefone`; o celular fica em telefone_celular,
-      // gravado so com digitos (ver ebdService). Consultando o nome errado, a
-      // query falhava e a solicitacao era registrada sem nome nem pessoa_id.
-      .from("membros").select("id, nome_completo")
-      .eq("telefone_celular", digits).maybeSingle();
-    await supabase.from("recuperacao_senha").insert({
-      email, nome: membro?.nome_completo ?? null,
-      pessoa_id: membro?.id ?? null, status: "pendente",
-    }).maybeSingle();
+    // Registra a solicitação administrativa.
+    //
+    // Quem está nesta tela esqueceu a senha, ou seja: NAO esta logada. Daqui
+    // nao da para consultar `membros` — `anon` recebe "permission denied", e
+    // toda solicitacao caía na fila sem nome e sem pessoa_id, deixando a
+    // secretaria com um email sintetico e nenhuma pista de quem pediu.
+    //
+    // Quem procura o nome agora é o banco: `pedir_recuperacao_senha` é
+    // SECURITY DEFINER, resolve a pessoa pelo telefone e monta a linha
+    // inteira. Ela nao retorna nada de proposito — telefone cadastrado e
+    // telefone inventado ficam indistinguiveis de fora, para a tela nao virar
+    // um oraculo de quem é da igreja.
+    await supabase.rpc("pedir_recuperacao_senha", { p_telefone: telefone });
     setBusy(false);
     if (error && !error.message.includes("For security purposes")) {
       setErroMsg(traduzirErro(error.message)); return;

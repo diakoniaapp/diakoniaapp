@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       acolhimento_tarefas: {
@@ -12640,6 +12615,10 @@ export type Database = {
           user_id: string
         }[]
       }
+      pedir_recuperacao_senha: {
+        Args: { p_telefone: string }
+        Returns: undefined
+      }
       pessoa_atual: { Args: never; Returns: string }
       pessoas_sem_familia_sobrenome_conhecido: {
         Args: never
@@ -12904,6 +12883,7 @@ export type Database = {
           ultima_escala_em: string
         }[]
       }
+      telefone_canonico: { Args: { p_telefone: string }; Returns: string }
       tem_permissao: { Args: { p_codigo: string }; Returns: boolean }
       validar_convite: {
         Args: { p_token: string }
@@ -13693,9 +13673,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       acompanhamento_status: [
