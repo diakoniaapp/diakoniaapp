@@ -30,7 +30,7 @@ import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Cake, Heart, MessageCircle, Copy, Radio, CalendarDays } from "lucide-react";
+import { Cake, Heart, MessageCircle, Copy, Radio } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   proximosDias, linkWhatsApp, type EventoPastoral,
@@ -47,6 +47,7 @@ import {
 } from "@/services/meuEspacoService";
 import { useReportarVazio } from "@/components/hoje/vazio";
 import { TiraDaSemana, rotuloDoDia } from "@/components/painel/TiraDaSemana";
+import { iconeDaOcorrencia, rotuloDaOcorrencia } from "@/lib/agenda/aparenciaDoEvento";
 
 /** Hoje + 6 — sete casas, iguais às do Painel Pastoral. */
 const DIAS_A_FRENTE = 6;
@@ -234,10 +235,16 @@ export function AgendaDaSemana({ eu }: { eu: MinhaFicha | null }) {
         <div className="grid gap-2">
           {doDia.agenda.map(o => {
             const ev: any = o.evento;
+            // O mesmo ícone e a mesma etiqueta que o Painel Pastoral usa para
+            // este evento — os dois leem `aparenciaDoEvento`. Duas agendas
+            // mostrando o mesmo culto com caras diferentes ensinariam que a
+            // cara não quer dizer nada.
+            const Icone = iconeDaOcorrencia(o);
+            const rotulo = rotuloDaOcorrencia(o);
             return (
               <Card key={o.key} className="min-w-0">
                 <CardContent className="p-3 flex items-center gap-3">
-                  <CalendarDays className="w-4 h-4 shrink-0 text-muted-foreground" />
+                  <Icone className="w-4 h-4 shrink-0 text-muted-foreground" />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 min-w-0">
                       {/* `min-w-0` no próprio <p>: ele é item de flex, e item
@@ -253,6 +260,7 @@ export function AgendaDaSemana({ eu }: { eu: MinhaFicha | null }) {
                     </div>
                     <p className="text-xs text-muted-foreground truncate">
                       {[
+                        rotulo,
                         ev?.hora_inicio ? String(ev.hora_inicio).slice(0, 5) : null,
                         ev?.local_nome ?? null,
                       ].filter(Boolean).join(" · ") || "dia todo"}

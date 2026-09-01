@@ -30,6 +30,7 @@ import { ConvidarParaEvento } from "@/components/dashboard/ConvidarParaEvento";
 import { supabase } from "@/integrations/supabase/client";
 import { useReportarVazio } from "@/components/hoje/vazio";
 import { expandirOcorrencias } from "@/lib/agenda/recurrence";
+import { iconeDaOcorrencia, rotuloDaOcorrencia } from "@/lib/agenda/aparenciaDoEvento";
 import { eventosExternos } from "@/lib/agenda/externalEvents";
 import {
   fetchReservasAgenda, reservasComoOcorrencias, mapEspacoCodigoParaLocalId,
@@ -43,23 +44,7 @@ import type { EventoOcorrencia, EventoRow } from "@/lib/agenda/types";
 // que não existem no enum — nenhum evento poderia tê-los. Rótulo para valor
 // impossível não quebra nada, mas descreve um sistema que não é este, e é
 // assim que alguém depois passa a acreditar que o tipo existe.
-const TIPO_LABEL: Record<string, string> = {
-  culto:       "Culto",
-  reuniao:     "Reunião",
-  ensaio:      "Ensaio",
-  acao_social: "Ação social",
-  curso:       "Curso",
-  live:        "Live",
-  palestra:    "Palestra",
-  comunhao:    "Comunhão",
-  outro:       "Outro",
-};
 
-const CATEGORIA_LABEL: Record<string, string> = {
-  batista: "Calendário batista",
-  feriado: "Feriado",
-  arrecadacao: "Reserva de espaço",
-};
 
 function formatarHora(h: string | null | undefined): string | null {
   if (!h) return null;
@@ -384,9 +369,11 @@ export function AgendaDoDia({
           const hora  = formatarHora(ev?.hora_inicio);
           const fim   = formatarHora(ev?.hora_fim);
           const cat   = o.categoria ?? "igreja";
-          const rotulo = cat === "igreja"
-            ? (ev?.tipo ? TIPO_LABEL[ev.tipo] ?? ev.tipo : null)
-            : CATEGORIA_LABEL[cat] ?? null;
+          // Rotulo e icone saem do MESMO lugar que a agenda da Home le —
+          // `lib/agenda/aparenciaDoEvento`. Antes os dois mapas moravam aqui,
+          // e um culto teria cara diferente nas duas telas.
+          const rotulo = rotuloDaOcorrencia(o);
+          const Icone  = iconeDaOcorrencia(o);
           // Virou o dia: nenhum evento de amanha e "agora", "a seguir" nem
           // "passou" — eles simplesmente ainda vao acontecer.
           const momento = momentos.get(o.key) ?? "futuro";
@@ -415,9 +402,21 @@ export function AgendaDoDia({
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <p className={`text-sm truncate ${passou ? "font-normal line-through decoration-1" : "font-medium"}`}>
-                  {ev?.titulo}
-                </p>
+                <div className="flex items-center gap-1.5 min-w-0">
+                  {/* O ícone do TIPO, e não um calendário genérico — o mesmo
+                      que a agenda da Home mostra para este evento, porque as
+                      duas leem `lib/agenda/aparenciaDoEvento`.
+
+                      A coluna da esquerda continua sendo só o horário: o
+                      comentário dela registra que um ícone ali "se repetia uma
+                      vez por evento para dizer o que '19:00' já diz sozinho".
+                      Este não repete nada — diz que é culto, ensaio ou curso,
+                      e é o que deixa achar na lista sem ler linha por linha. */}
+                  <Icone className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
+                  <p className={`text-sm truncate min-w-0 ${passou ? "font-normal line-through decoration-1" : "font-medium"}`}>
+                    {ev?.titulo}
+                  </p>
+                </div>
                 {/* O estado dito por extenso, e não só por cor: quem enxerga
                     mal, ou está no sol da rua, não lê um fundo dourado. */}
                 {momento === "agora" && (

@@ -83,13 +83,27 @@ const ROLE_LABEL: Record<string, string> = {
 };
 
 /**
- * Os atalhos da tira, na ordem das seções.
+ * Os atalhos da tira, NA ORDEM EM QUE AS SEÇÕES APARECEM ABAIXO.
+ *
+ * ── A ORDEM É CONTRATO, E JÁ QUEBROU UMA VEZ ───────────────────────────────
+ *
+ * Ao fundir "Para celebrar" e "Convide alguém" numa Agenda só, a seção nova
+ * herdou o lugar da segunda — o último — enquanto esta lista continuou
+ * anunciando-a em terceiro. A tira dizia uma coisa e a página fazia outra, e
+ * nada reclamou: o salto funcionava, só levava a um lugar inesperado.
+ *
+ * Uma tira fixa é uma promessa sobre a forma da página. Quem lê "Agenda" em
+ * terceiro espera encontrá-la em terceiro ao rolar — e é justamente quem rola
+ * em vez de clicar que descobre a mentira.
+ *
+ * Por isso a ordem virou dado conferível: `ORDEM_DAS_SECOES` é lida pelo
+ * teste `Home.test.ts`, que compara com a ordem dos `id`s no JSX.
  *
  * Rótulos curtos: a tira tem até seis colunas e o rótulo é o único texto de
  * cada célula. "A sua semana" vira "SEMANA" — quem lê a tira já está na Home
  * e não precisa da frase inteira, que continua no título da seção.
  */
-const ATALHOS: { id: string; rotulo: string; icone: LucideIcon }[] = [
+export const ATALHOS: { id: string; rotulo: string; icone: LucideIcon }[] = [
   { id: "minha-semana", rotulo: "Semana",   icone: CalendarClock },
   { id: "meus-paineis", rotulo: "Painéis",  icone: LayoutGrid },
   { id: "agenda",       rotulo: "Agenda",   icone: CalendarDays },
@@ -247,6 +261,11 @@ export default function Home() {
           <MeusPaineis permissoes={permissoes} />
         </Secao>
 
+        <Secao id="agenda" onVazio={marcarVazio}
+          titulo="Agenda" subtitulo="Sete dias — o que a igreja celebra e o que ela faz">
+          <AgendaDaSemana eu={ficha} />
+        </Secao>
+
         {/* Sem `Secao`: este bloco nunca está vazio — ou mostra a ficha, ou
             explica por que não há ficha ligada à conta. Envolvê-lo no canal
             do vazio seria dar a ele a chance de sumir sem explicar. */}
@@ -272,11 +291,6 @@ export default function Home() {
               <MeuPgmCard pessoaId={pessoaId} bairro={ficha?.bairro} />
             </div>
           )}
-        </Secao>
-
-        <Secao id="agenda" onVazio={marcarVazio}
-          titulo="Agenda" subtitulo="Sete dias — o que a igreja celebra e o que ela faz">
-          <AgendaDaSemana eu={ficha} />
         </Secao>
 
         <div className="text-center">

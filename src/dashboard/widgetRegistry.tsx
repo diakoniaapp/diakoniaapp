@@ -75,6 +75,19 @@ export interface Widget {
    * decidindo se ele de fato aparece.
    */
   paineis?: PainelDoWidget[];
+  /**
+   * Onde este widget aparece FORA do registry, quando `paineis` está vazio.
+   *
+   * Existe por um caso real: o `AgendaDoDia` é montado pelo próprio Painel
+   * Pastoral, ligado à tira de sete dias. Pendurá-lo também pelo registry
+   * produziu a mesma agenda duas vezes na mesma tela.
+   *
+   * A alternativa era deixar `paineis: []` e calar. Só que "vazio de
+   * propósito" e "esqueceram de preencher" ficariam idênticos no arquivo — e
+   * é justamente essa diferença que o teste precisa enxergar. Quem tira um
+   * widget dos painéis diz aqui quem passa a mostrá-lo.
+   */
+  renderizadoPor?: string;
 }
 
 const AlertasInteligentes = lazy(() => import("@/components/dashboard/AlertasInteligentes").then(m => ({ default: m.AlertasInteligentes })));
@@ -171,10 +184,22 @@ export const widgetRegistry: Widget[] = [
     icone: CalendarCheck, component: AcoesDoDia,
     permissoes: ["ver_pessoas"], prioridade: 0, paineis: ["pastoral"] },
 
+  // ── SEM PAINEL, E ISSO É UMA DECISÃO ──────────────────────────────────
+  //
+  // `paineis: []` porque o Painel Pastoral JÁ monta o `AgendaDoDia` por conta
+  // própria, dentro da seção "A semana", ligado à tira de sete dias que
+  // escolhe o dia. Pendurá-lo também aqui produzia a mesma agenda duas vezes
+  // na mesma tela — conferido: dois títulos "Acontecendo hoje" e o mesmo
+  // Projeto Social das 10:30 listado nos dois.
+  //
+  // O widget continua vivo e completo. O que ele perdeu foi o único painel em
+  // que já havia quem o mostrasse melhor: lá ele obedece ao dia escolhido,
+  // aqui mostraria sempre hoje.
   { id: "agenda-do-dia", label: "Acontecendo hoje",
     subtitulo: "Cultos, reuniões, ensaios e reservas de hoje",
     icone: CalendarDays, component: AgendaDoDia,
-    permissoes: ["ver_pessoas","ver_familias","ver_ebd","ver_pgm"], prioridade: 0, paineis: ["pastoral"] },
+    permissoes: ["ver_pessoas","ver_familias","ver_ebd","ver_pgm"], prioridade: 0, paineis: [],
+    renderizadoPor: "PainelPastoral, na seção A semana — ligado à tira de sete dias" },
 
   // Prioridade 1, nao 0: um voluntario sobrecarregado pede conversa esta
   // semana, nao neste minuto. O que e de hoje — aniversario, agenda — vem

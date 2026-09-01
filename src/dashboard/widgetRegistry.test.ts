@@ -19,10 +19,19 @@ import { widgetRegistry, getWidgetsDoPainel, type PainelDoWidget } from "./widge
 const PAINEIS: PainelDoWidget[] = ["pastoral", "secretaria", "estrategico", "financas"];
 
 describe("widgetRegistry", () => {
-  it("todo widget ativo tem pelo menos um painel", () => {
+  it("todo widget ativo tem painel — ou diz quem o mostra no lugar", () => {
+    // A exceção é declarada, não presumida. O `AgendaDoDia` sai dos painéis
+    // porque o Painel Pastoral já o monta ligado à tira de sete dias, e
+    // pendurá-lo também aqui produzia a agenda DUAS vezes na mesma tela —
+    // conferido: dois títulos "Acontecendo hoje" e o mesmo Projeto Social das
+    // 10:30 listado nos dois.
+    //
+    // Sem `renderizadoPor`, "vazio de propósito" e "esqueceram de preencher"
+    // seriam indistinguíveis, e este teste teria virado um teste que passa.
     const orfaos = widgetRegistry
       .filter(w => w.ativo !== false)
       .filter(w => !w.paineis || w.paineis.length === 0)
+      .filter(w => !w.renderizadoPor)
       .map(w => w.id);
     expect(orfaos).toEqual([]);
   });
@@ -56,7 +65,22 @@ describe("widgetRegistry", () => {
     const vistos = new Set(
       PAINEIS.flatMap(p => getWidgetsDoPainel({ permissoes: todas }, p)).map(w => w.id),
     );
-    const ativos = widgetRegistry.filter(w => w.ativo !== false).map(w => w.id);
+    const ativos = widgetRegistry
+      .filter(w => w.ativo !== false)
+      // Quem declara `renderizadoPor` aparece por fora do registry, e por
+      // isso não deve aparecer por dentro dele. Ver o teste acima.
+      .filter(w => !w.renderizadoPor)
+      .map(w => w.id);
     expect([...ativos].filter(id => !vistos.has(id))).toEqual([]);
+  });
+
+  it("quem é renderizado por fora não aparece em painel nenhum", () => {
+    // O outro lado da moeda: declarar `renderizadoPor` E deixar um painel
+    // preenchido traria de volta exatamente a duplicação que o campo existe
+    // para encerrar.
+    const emDobro = widgetRegistry
+      .filter(w => w.renderizadoPor && (w.paineis ?? []).length > 0)
+      .map(w => w.id);
+    expect(emDobro).toEqual([]);
   });
 });
