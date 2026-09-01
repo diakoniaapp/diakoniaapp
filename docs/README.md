@@ -13,6 +13,7 @@ para o documento profundo em vez de repeti-lo.
 | **Em que pé estamos hoje** | `PROJECT_STATE.md` |
 | **O que fazer agora** | `NEXT_TASK.md` |
 | O que está quebrado | `KNOWN_ISSUES.md` |
+| **Auditoria geral — o que foi medido em 01/09** | `AVALIACAO_GERAL.md` |
 | Por que decidimos assim | `DECISIONS.md` |
 | O que vem depois | `BACKLOG.md` · `ROADMAP.md` |
 | O ciclo atual | `CURRENT_SPRINT.md` |
