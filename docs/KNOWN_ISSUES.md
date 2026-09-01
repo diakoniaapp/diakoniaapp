@@ -8,7 +8,7 @@ Ordenados por custo de descobrir tarde. Números foram contados, não estimados.
 |---|---|---|
 | 1 | **39 `confirm()` nativos** fora de `AlertDialog`. Em navegador embarcado devolvem "cancelou" sem perguntar — botão que não faz nada no celular, sem erro | `grep -rn "confirm(" src --include=*.tsx \| grep -v AlertDialog` |
 | 2 | **Abas do Discipulado inalcançáveis no celular**: 474px sem ancestral rolável; o `<main>` recorta e as abas da direita não podem ser tocadas | conferido a 375px |
-| 3 | **EBD fora da agenda desde janeiro** — série semanal com regra de 04/01 a 04/01. Dado, não código | 3 séries vencidas |
+| 3 | ~~**EBD fora da agenda desde janeiro**~~ — **resolvido em 01/09/2026**: o fim da série passou de 04/01 para 27/12, a mesma data dos dois cultos dominicais. A causa (o campo "Em" preenchido com hoje) foi corrigida em `cb542d5`; sem ela, o UPDATE seria remendo | restam 2 séries vencidas, possivelmente legítimas: Ensaio Jovens (24/07) e Vigília pelas Famílias (29/05) |
 | 4 | **Barra "% do perfil matriculado"** dá 0% no Berçário (8 alunos) e 150% em Crianças | tela do módulo EBD |
 | 5 | **`meta description`** promete "campanhas" (módulo sem uso) e termina em "e muito mais" | `index.html:9` |
 | 6 | **Não existe `apple-touch-icon.png`** — instruções num comentário do `index.html` | `public/` |
