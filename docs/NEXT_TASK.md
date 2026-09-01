@@ -11,12 +11,16 @@ O banco já mudou; falta a interface. Ordem sugerida:
    campo de endereço. Incluir no `EventFormPayload` e no `onSubmit` de
    `Eventos.tsx`.
 
-3. **`ConvidarParaEvento.tsx`** — trocar o `montarMensagem` local pelo
-   `montarConvite` de `lib/agenda/convite.ts`. Buscar:
-   - quem assina: `v_meu_contexto` (`nome_completo`, `funcao_ministerial`)
-     mais `membros.sexo` pelo mesmo id;
-   - a igreja e o canal: `identidade_igreja` (`nome_igreja`, `redes_sociais`);
-   - o endereço: `transmissao_url` do evento, ou `atalhoDoCanal()` do YouTube.
+3. ~~**Primeiro consumidor de `montarConvite`**~~ — **feito em 01/09**, mas
+   em outro arquivo: `components/eu/AgendaDaSemana.tsx`, na Home. Ele já monta
+   a mensagem inteira com quem assina (nome + função + sexo, da própria ficha),
+   a igreja e o canal (`identidade_igreja`), e o endereço (`transmissao_url`
+   do evento, ou `atalhoDoCanal()` do YouTube). Conferido na tela: convite
+   copiado com saudação por horário, local, horário e assinatura.
+
+   **`ConvidarParaEvento.tsx` continua com o `montarMensagem` local** — é o
+   que o Painel Pastoral usa, e é a duplicação que sobra. Trocar por
+   `montarConvite` é agora um recorte-e-cola do que a Home já faz.
 
 4. **`AgendaDoDia.tsx`** — passar `transmissao_online` e `transmissao_url` ao
    `ConvidarParaEvento`.

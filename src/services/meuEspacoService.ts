@@ -20,6 +20,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { conferir } from "@/lib/escritaConferida";
+import { normalizarTelefone } from "@/lib/telefone";
 
 // ─── Minha ficha ──────────────────────────────────────────────────────────
 
@@ -105,7 +106,14 @@ export async function salvarMeusDados(d: MeusDadosEditaveis) {
       p_nome_completo:    d.nome_completo,
       p_data_nascimento:  vazio(d.data_nascimento),
       p_data_casamento:   vazio(d.data_casamento),
-      p_telefone_celular: vazio(d.telefone_celular),
+      // `normalizarTelefone` acrescenta o DDI 55, que a coluna exige por CHECK
+      // (`^55[0-9]{10,11}$`). O campo da tela guarda só os dígitos digitados —
+      // "21983991229" —, e sem esta linha o banco recusaria.
+      //
+      // A função no banco faz a MESMA normalização, de propósito: ela é a
+      // porta única, e uma porta que só abre para quem já sabe o formato não
+      // é porta. Aqui é conveniência; lá é contrato.
+      p_telefone_celular: vazio(normalizarTelefone(d.telefone_celular)),
       p_email:            vazio(d.email),
       p_cep:              vazio(d.cep),
       p_endereco:         vazio(d.endereco),

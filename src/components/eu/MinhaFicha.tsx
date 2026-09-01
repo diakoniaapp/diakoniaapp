@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/dialog";
 import { Pencil, Phone, Mail, MapPin, Cake, Heart, Info, Loader2 } from "lucide-react";
 import { rotuloFuncao, ordenarFuncoes } from "@/lib/funcaoMinisterial";
+import { formatarTelefone, limparTelefone } from "@/lib/telefone";
 import {
   minhaFicha, salvarMeusDados,
   type MinhaFicha as Ficha, type MeusDadosEditaveis,
@@ -131,7 +132,7 @@ export function MinhaFicha({ pessoaId }: { pessoaId: string }) {
           </div>
 
           <div className="grid gap-1.5 text-sm sm:grid-cols-2">
-            <Linha icon={Phone} valor={ficha.telefone_celular} falta="Celular não informado" />
+            <Linha icon={Phone} valor={ficha.telefone_celular ? formatarTelefone(ficha.telefone_celular) : null} falta="Celular não informado" />
             <Linha icon={Mail} valor={ficha.email} falta="E-mail não informado" />
             {/* O ano que falta é PENDÊNCIA, e a pessoa é quem pode fechá-la —
                 por isso ela aparece com o convite junto, e não como um traço
@@ -236,8 +237,18 @@ function DialogCorrigir({ aberto, onFechar, ficha, onSalvo }: {
 
           <div className="grid gap-3 sm:grid-cols-2">
             <Campo id="cel" rotulo="Celular">
-              <Input id="cel" inputMode="tel" value={form.telefone_celular ?? ""}
-                onChange={e => set("telefone_celular", e.target.value)} />
+              {/* O padrão do projeto, escrito em `lib/telefone.ts`: a tela
+                  mostra "+55 (21) 99999-9999" e o banco guarda só os dígitos.
+
+                  A primeira versão deste campo mostrava "5521983991229" cru e
+                  mandava ao banco o que fosse digitado — e a coluna tem um
+                  CHECK exigindo `^55[0-9]{10,11}$`. Quem escrevesse "(21)
+                  98399-1229", que é como se escreve telefone, receberia uma
+                  linha de erro do Postgres na cara. Descoberto ensaiando a
+                  função com ROLLBACK, antes de chegar a alguém. */}
+              <Input id="cel" inputMode="tel" placeholder="+55 (21) 99999-9999"
+                value={formatarTelefone(form.telefone_celular)}
+                onChange={e => set("telefone_celular", limparTelefone(e.target.value))} />
             </Campo>
             <Campo id="email" rotulo="E-mail">
               <Input id="email" type="email" value={form.email ?? ""}
