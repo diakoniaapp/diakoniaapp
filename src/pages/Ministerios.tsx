@@ -9,7 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Sparkles, X, RefreshCw, Loader2 } from "lucide-react";
+import { Plus, Pencil, Sparkles, X, RefreshCw, Loader2, Layers } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
@@ -254,19 +255,28 @@ export default function Ministerios() {
                                                                     >
                                                                       <CardContent className="p-4 flex items-center gap-3">
                                                                         <div className="flex-1 min-w-0">
-                                                                          {/* Alvo esticado. Antes a acao principal era um botao
-                                                                              "Areas" de 90px no rodape do cartao; agora o cartao
-                                                                              inteiro abre as areas do ministerio.
+                                                                          {/* Alvo esticado — e ele leva ao PAINEL do ministerio.
                                                                               `block w-full` impede que o h3 com truncate estique
-                                                                              o botao ate a largura do nome. */}
-                                                                          <button
-                                                                            type="button"
-                                                                            onClick={() => setAreasOpenFor(m)}
-                                                                            aria-label={`Áreas de ${m.nome}`}
+                                                                              o link ate a largura do nome.
+
+                                                                              ── POR QUE O PAINEL, E NAO AS AREAS ─────────────
+                                                                              A rota `/ministerios/:id/painel` existe e funciona
+                                                                              para os onze desde que foi escrita, mas NENHUMA tela
+                                                                              linkava para ela: so se chegava pela Home, e so aos
+                                                                              ministerios que a pessoa lidera. Medido em 02/09:
+                                                                              nove dos onze paineis eram inalcancaveis.
+
+                                                                              O painel e a bancada — areas, quem serve, proximas
+                                                                              escalas e checklist. As areas continuam a um clique,
+                                                                              no botao ao lado, porque o dialogo delas e a unica
+                                                                              porta para CRIAR e EDITAR area. */}
+                                                                          <Link
+                                                                            to={`/ministerios/${m.id}/painel`}
+                                                                            aria-label={`Abrir o painel de ${m.nome}`}
                                                                             className="block w-full min-w-0 text-left after:absolute after:inset-0 after:rounded-lg focus:outline-none"
                                                                           >
                                                                             <h3 className="font-serif text-lg truncate">{m.nome}</h3>
-                                                                          </button>
+                                                                          </Link>
                                                                           {/* A sigla saiu: e a abreviacao do nome que esta ao lado
                                                                               por extenso. "Ativo" tambem — 10 dos 11 ministerios
                                                                               estao ativos, e o cartao inativo ja fica esmaecido.
@@ -285,8 +295,17 @@ export default function Ministerios() {
                                                                             ].filter(Boolean).join(" • ")}
                                                                           </p>
                                                                         </div>
+                                                                        {/* z-10 tira os dois botoes de baixo do alvo esticado. */}
+                                                                        <Button
+                                                                          variant="ghost" size="icon"
+                                                                          onClick={() => setAreasOpenFor(m)}
+                                                                          aria-label={`Áreas de ${m.nome}`}
+                                                                          title="Áreas"
+                                                                          className="h-11 w-11 shrink-0 relative z-10"
+                                                                        >
+                                                                          <Layers className="w-4 h-4" />
+                                                                        </Button>
                                                                         {canEdit && (
-                                                                          // z-10 tira o lapis de baixo do alvo esticado.
                                                                           <Button
                                                                             variant="ghost" size="icon"
                                                                             onClick={() => startEdit(m)}
