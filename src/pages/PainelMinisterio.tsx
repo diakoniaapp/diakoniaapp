@@ -65,7 +65,9 @@ import { carregarBancadaEbd, type BancadaEbd } from "@/services/bancadaEbdServic
 import { SecaoEbd } from "@/components/painel/SecaoEbd";
 import { carregarBancadaArrecadacao, type BancadaArrecadacao } from "@/services/bancadaArrecadacaoService";
 import { SecaoArrecadacao } from "@/components/painel/SecaoArrecadacao";
-import { GraduationCap, ShoppingBag } from "lucide-react";
+import { carregarBancadaPgm, type BancadaPgm } from "@/services/bancadaPgmService";
+import { SecaoPgm } from "@/components/painel/SecaoPgm";
+import { GraduationCap, ShoppingBag, Home as Casa } from "lucide-react";
 
 export default function PainelMinisterio() {
   const { ministerioId } = useParams<{ ministerioId: string }>();
@@ -79,6 +81,7 @@ export default function PainelMinisterio() {
   // separada de `painel` porque é outra ida ao banco e nem todo painel a tem.
   const [ebd, setEbd] = useState<BancadaEbd | null>(null);
   const [arr, setArr] = useState<BancadaArrecadacao | null>(null);
+  const [pgm, setPgm] = useState<BancadaPgm | null>(null);
 
   // ── SÓ O DONO DO SISTEMA ABRE MINISTÉRIO ALHEIO ──────────────────────
   //
@@ -112,6 +115,7 @@ export default function PainelMinisterio() {
       // em dez dos onze painéis, para jogar fora.
       setEbd(p?.modulo === "ebd" ? await carregarBancadaEbd() : null);
       setArr(p?.modulo === "arrecadacao" ? await carregarBancadaArrecadacao() : null);
+      setPgm(p?.modulo === "pgm" ? await carregarBancadaPgm() : null);
 
       setAtualizadoEm(new Date());
     } catch (e: unknown) {
@@ -194,7 +198,7 @@ export default function PainelMinisterio() {
         <p className="text-sm text-muted-foreground flex items-start gap-1.5">
           <Boxes className="w-3.5 h-3.5 text-gold shrink-0 mt-0.5" />
           <span className="min-w-0">
-            {resumoNatural(painel, ebd, arr)}
+            {resumoNatural(painel, ebd, arr, pgm)}
             {atualizadoEm && (
               <span className="text-[10px] text-muted-foreground ml-1.5 whitespace-nowrap">
                 · {formatarAtualizadoHa(atualizadoEm)}
@@ -208,7 +212,7 @@ export default function PainelMinisterio() {
             chip dele vem PRIMEIRO — na mesma ordem em que as seções aparecem
             abaixo. Uma tira que mente sobre a ordem já custou um defeito
             nesta casa, e por isso a da Home está travada por teste. */}
-        <FaixaDeIndicadores colunas={ebd || arr ? 5 : 4}>
+        <FaixaDeIndicadores colunas={ebd || arr || pgm ? 5 : 4}>
           {ebd && (
             <Indicador rotulo="Escola" tom="violeta" icone={GraduationCap}
               onClick={() => irParaSecao("ebd")} descricao="Ir para a Escola Bíblica" />
@@ -216,6 +220,10 @@ export default function PainelMinisterio() {
           {arr && (
             <Indicador rotulo="Bazar" tom="gold" icone={ShoppingBag}
               onClick={() => irParaSecao("arrecadacao")} descricao="Ir para Bazar e Cantina" />
+          )}
+          {pgm && (
+            <Indicador rotulo="Grupos" tom="success" icone={Casa}
+              onClick={() => irParaSecao("pgm")} descricao="Ir para Pequenos Grupos" />
           )}
           <Indicador rotulo="Áreas" tom="info" icone={Boxes}
             onClick={() => irParaSecao("areas")} descricao="Ir para Áreas" />
@@ -233,6 +241,7 @@ export default function PainelMinisterio() {
           As quatro seções comuns continuam abaixo, iguais para os onze. */}
       {ebd && <SecaoEbd ebd={ebd} />}
       {arr && <SecaoArrecadacao arr={arr} />}
+      {pgm && <SecaoPgm pgm={pgm} />}
 
       <SecaoAreas painel={painel} />
       <SecaoEquipe painel={painel} />
@@ -261,6 +270,7 @@ function resumoNatural(
   p: Painel,
   ebd: BancadaEbd | null,
   arr: BancadaArrecadacao | null,
+  pgm: BancadaPgm | null,
 ): string {
   const futuras = escalasFuturas(p.escalas);
   const partes: string[] = [];
@@ -292,6 +302,20 @@ function resumoNatural(
     if (arr.manutencao.length > 0) {
       partes.push(`${arr.manutencao.length} ${arr.manutencao.length === 1
         ? "pendência de manutenção" : "pendências de manutenção"}`);
+    }
+  }
+
+  // Pequenos Grupos: o que este ministério considera urgente não é só o que
+  // está parado, é também o que falta existir. Um grupo sem reunião e um
+  // bairro sem grupo pesam diferente, e os dois entram.
+  if (pgm) {
+    if (pgm.semMembros.length > 0) {
+      partes.push(`${pgm.semMembros.length} ${pgm.semMembros.length === 1
+        ? "grupo sem nenhum membro" : "grupos sem nenhum membro"}`);
+    }
+    if (pgm.semReuniao.length > 0) {
+      partes.push(`${pgm.semReuniao.length} ${pgm.semReuniao.length === 1
+        ? "grupo sem reunião registrada" : "grupos sem reunião registrada"}`);
     }
   }
 
