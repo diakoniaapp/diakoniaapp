@@ -17,9 +17,22 @@ import {
 import type { AppRole } from "@/hooks/useAuth";
 
 // ─── Roles auxiliares ────────────────────────────────────────────────────────
-export const ROLES_LIDERES: AppRole[]  = ["admin", "secretaria", "pastor", "diakonia", "lideranca"];
-export const ROLES_PASTORAL: AppRole[] = ["admin", "secretaria", "pastor", "diakonia"];
-export const ROLES_ADMIN: AppRole[]    = ["admin", "secretaria"];
+// ── QUEM É O PASTOR TITULAR MUDOU DE NOME EM 02/09/2026 ────────────────────
+//
+// Era `diakonia` — o nome do FORNECEDOR vestindo um cargo da igreja. A igreja
+// separou as três coisas:
+//
+//   diakonia    dono do sistema, que o constrói; vê tudo e todos, em qualquer
+//               igreja. Não é cargo de igreja nenhuma.
+//   admin       pessoa da igreja que configura o sistema do zero
+//   pastor      o pastor titular
+//
+// Então `diakonia` entra em toda lista onde `admin` está, porque vê tudo, e
+// `pastor` passa a ser o titular — o que INVERTE as listas "sem titular"
+// logo abaixo.
+export const ROLES_LIDERES: AppRole[]  = ["admin", "diakonia", "secretaria", "tesouraria", "pastor", "lideranca"];
+export const ROLES_PASTORAL: AppRole[] = ["admin", "diakonia", "secretaria", "pastor"];
+export const ROLES_ADMIN: AppRole[]    = ["admin", "diakonia", "secretaria"];
 
 /**
  * As mesmas listas, sem o pastor titular.
@@ -56,8 +69,11 @@ export const ROLES_ADMIN: AppRole[]    = ["admin", "secretaria"];
  * teste "o pastor titular alcança exatamente o recorte do painel dele", em
  * `navConfig.test.ts`.
  */
-export const ROLES_LIDERES_SEM_TITULAR: AppRole[]  = ["admin", "secretaria", "pastor", "lideranca"];
-export const ROLES_PASTORAL_SEM_TITULAR: AppRole[] = ["admin", "secretaria", "pastor"];
+// Invertidas em 02/09/2026: o titular passou de `diakonia` para `pastor`,
+// então é `pastor` que sai daqui. `diakonia` entra, porque o dono do sistema
+// alcança tudo — inclusive o que o titular não alcança.
+export const ROLES_LIDERES_SEM_TITULAR: AppRole[]  = ["admin", "diakonia", "secretaria", "tesouraria", "lideranca"];
+export const ROLES_PASTORAL_SEM_TITULAR: AppRole[] = ["admin", "diakonia", "secretaria"];
 
 /**
  * Quem enxerga o Painel Pastoral.
@@ -101,7 +117,7 @@ export const ROLES_PASTORAL_SEM_TITULAR: AppRole[] = ["admin", "secretaria", "pa
  *
  * Alinhar exige apagar uma linha em produção, e está proposto à parte.
  */
-export const ROLES_PAINEL_PASTORAL: AppRole[] = ["diakonia", "admin"];
+export const ROLES_PAINEL_PASTORAL: AppRole[] = ["pastor", "admin", "diakonia"];
 
 export interface NavItem {
   to: string;
@@ -390,7 +406,7 @@ export function rotaInicialPorPapel(roles: AppRole[]): string {
   // `ROLES_PAINEL_PASTORAL` para o pastor titular. Deixá-lo mandaria a pessoa
   // para uma tela que a guarda recusa no instante seguinte — o vaivém que a
   // nota acima promete não produzir, e que o último teste deste arquivo pega.
-  if (roles.includes("diakonia")) return "/painel-pastoral";
+  if (roles.includes("pastor")) return "/painel-pastoral";
   return "/";
 }
 

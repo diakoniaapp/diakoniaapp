@@ -54,7 +54,8 @@ export function UserMenuButton() {
 
   const roleLabel: Record<string, string> = {
     admin: "Administrador",     secretaria: "Secretaria",
-    diakonia: "Pastor titular", pastor:     "Pastor",
+    diakonia: "Diakonia",       pastor:     "Pastor titular",
+    tesouraria: "Tesouraria",
     lideranca: "Liderança",     voluntario: "Voluntário",
     membro:    "Membro",
   };

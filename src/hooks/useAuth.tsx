@@ -23,6 +23,9 @@ export type AppRole =
   | "diakonia"
   | "lideranca"
   | "voluntario"
+  // Nasce em 20260902150000: quem OPERA o dinheiro da igreja. O `admin`
+  // configura o plano de contas; a tesouraria lança, aprova e concilia.
+  | "tesouraria"
   // Desde 20260901250000, o padrão de fábrica: toda conta nova nasce assim, e
   // é o recorte que a igreja ditou em 01/09 — a própria ficha, a própria EBD,
   // a própria escala, o próprio PGM e a agenda sem edição.
@@ -218,7 +221,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * os outros recria o defeito, e o `COMMENT` da política no banco repete
    * este aviso para quem chegar por lá.
    */
-  const podeEditarPessoas = hasRole(["admin", "secretaria", "diakonia", "pastor"]);
+  const podeEditarPessoas = hasRole(["admin", "diakonia", "secretaria", "pastor"]);
 
   return (
     <AuthContext.Provider value={{ user, session, roles: rolesEfetivos, rolesReais: roles, rolesCarregados, pessoaId, pessoaCarregada, loading, signOut, hasRole, canEdit, podeEditarPessoas }}>

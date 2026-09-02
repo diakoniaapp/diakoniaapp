@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { MobileNavDrawer } from "@/components/layout/MobileNavDrawer";
 import { resolverTarefaPrincipal, type TarefaPrincipal } from "@/hoje/tarefaPrincipal";
 
-const ROLES_LIDERES: AppRole[] = ["admin", "secretaria", "pastor", "diakonia", "lideranca"];
+const ROLES_LIDERES: AppRole[] = ["admin", "diakonia", "secretaria", "tesouraria", "pastor", "lideranca"];
 
 // Máximo 4 destinos fixos + "Menu".
 //

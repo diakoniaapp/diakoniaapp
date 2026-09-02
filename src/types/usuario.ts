@@ -29,23 +29,56 @@ export interface Usuario {
 //   62 combinacoes tabela+operacao para `diakonia`, 34 para `pastor`.
 //   `pastor` nao acrescenta nada que `diakonia` ja nao tenha.
 //
-// Por isso `diakonia` volta a ser oferecido, com o rotulo que descreve o que
-// ele e na pratica: **Pastor titular**.
+// Por isso `diakonia` voltou a ser oferecido em 26/08/2026, com o rotulo que
+// descrevia o que ele era na pratica: **Pastor titular**.
+//
+// ── E POR QUE ELE SAIU DAQUI EM 02/09/2026 ─────────────────────────────────
+//
+// Tudo acima continua sendo verdade sobre o ALCANCE de `diakonia` — ele
+// enxergava mesmo o dobro de `pastor`. O que estava errado era outra coisa,
+// e a igreja a nomeou: **`diakonia` e o nome do FORNECEDOR**, e ele estava
+// vestindo um cargo de igreja.
+//
+// A separacao ficou assim:
+//
+//   diakonia    dono do sistema, que o constroi. Ve tudo e todos, em
+//               qualquer igreja. NAO e um perfil que uma igreja concede —
+//               por isso saiu desta lista de opcoes de convite.
+//   admin       pessoa da igreja que configura o sistema do zero
+//   pastor      o pastor titular, que em 20260902190000 recebeu o rebanho
+//               inteiro que faltava: familias, vinculos, historico, visitas
+//               e acompanhamento de visitante
+//
+// `tesouraria` entra na lista porque nasceu em 20260902150000: quem opera o
+// dinheiro da igreja, que o admin apenas configura.
 export type RoleOption =
   | "admin"
   | "secretaria"
-  | "diakonia"
+  | "tesouraria"
   | "pastor"
   | "lideranca"
-  | "voluntario";
+  | "voluntario"
+  | "membro";
 
 // `diakonia` e `pastor` sao papeis distintos com alcances distintos — nao
 // rotule os dois igual, ou quem escolhe no menu nao tem como diferenciar.
 export const ROLE_LABEL: Record<string, string> = {
-  admin:      "Administrador",
+  // ── 02/09/2026: TRÊS COISAS QUE ESTAVAM EMBOLADAS ────────────────────────
+  //
+  // A igreja separou o que o sistema misturava:
+  //
+  //   diakonia   dono do sistema, que o CONSTRÓI. Vê tudo e todos, em
+  //              qualquer igreja. Não é cargo de igreja nenhuma — e era ele
+  //              que, até esta data, vestia o cargo de pastor titular.
+  //   admin      pessoa da igreja que CONFIGURA o sistema do zero. "do
+  //              sistema" está no rótulo de propósito: sem isso, confunde-se
+  //              com o Ministério de Administração, que é outra coisa.
+  //   pastor     o pastor titular.
+  admin:      "Administrador do sistema",
   secretaria: "Secretaria",
-  diakonia:   "Pastor titular",   // alcance completo — ver comentario acima
-  pastor:     "Pastor",           // alcance reduzido: sem familias nem acolhimento
+  diakonia:   "Diakonia — dono do sistema",
+  pastor:     "Pastor titular",
+  tesouraria: "Tesouraria",
   lideranca:  "Liderança",
   voluntario: "Voluntário",
   // O padrão de fábrica desde 20260901250000: toda conta nova nasce assim.
@@ -58,9 +91,10 @@ export const ROLE_VARIANT: Record<
   "default" | "secondary" | "outline" | "destructive"
 > = {
   admin:      "default",
+  diakonia:   "default",     // dono do sistema — o mesmo destaque do admin
   secretaria: "secondary",
-  diakonia:   "secondary",   // alcance amplo — destaca como a secretaria
-  pastor:     "outline",
+  tesouraria: "secondary",
+  pastor:     "secondary",
   lideranca:  "outline",
   voluntario: "outline",
   membro:     "outline",

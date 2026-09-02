@@ -50,7 +50,7 @@ const STATUS_CONFIG: Record<StatusAcesso, { label: string; cor: string; icone: t
 // medido em 26/08/2026, `pastor` sozinho não enxerga famílias, vínculos,
 // visitas, histórico de membresia nem acompanhamento de visitante — e
 // `diakonia` enxerga. Ver o comentário em `types/usuario.ts`.
-const ROLES_CONVITE: RoleOption[] = ["voluntario", "lideranca", "secretaria", "pastor", "diakonia", "admin"];
+const ROLES_CONVITE: RoleOption[] = ["membro", "voluntario", "lideranca", "secretaria", "tesouraria", "pastor", "admin"];
 
 interface AcessoCardProps {
   pessoaId:     string;

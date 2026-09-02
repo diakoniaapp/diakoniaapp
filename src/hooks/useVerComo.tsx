@@ -52,7 +52,7 @@ import type { AppRole } from "@/hooks/useAuth";
  * pastor 15, lideranca 5, voluntario 2.
  */
 export const PAPEIS_SIMULAVEIS: AppRole[] = [
-  "diakonia", "pastor", "secretaria", "lideranca", "voluntario", "membro",
+  "pastor", "secretaria", "tesouraria", "lideranca", "voluntario", "membro",
 ];
 
 const CHAVE = "ver_como_papel";
@@ -103,16 +103,18 @@ export function useVerComo(): VerComoValor {
 
 /** "Pastor titular", "Liderança"… — o rótulo que a igreja usa. */
 export const ROTULO_PAPEL: Record<string, string> = {
-  admin: "Administrador", secretaria: "Secretaria",
-  diakonia: "Pastor titular", pastor: "Pastor",
+  admin: "Administrador do sistema", secretaria: "Secretaria",
+  diakonia: "Diakonia — dono do sistema", pastor: "Pastor titular",
+  tesouraria: "Tesouraria",
   lideranca: "Liderança", voluntario: "Voluntário",
   membro: "Membro",
 };
 
 /** Uma frase curta dizendo o que aquele perfil é na igreja. */
 export const DESCRICAO_PAPEL: Record<string, string> = {
-  diakonia: "Vê pessoas, famílias, visitas e todo o cuidado pastoral",
-  pastor: "Cuidado pastoral, com alcance menor que o do pastor titular",
+  diakonia: "Constrói o sistema. Vê tudo e todos, em qualquer igreja",
+  pastor: "Pessoas, famílias, visitas e todo o cuidado pastoral",
+  tesouraria: "Lança, aprova e concilia o dinheiro da igreja",
   secretaria: "Cadastro, membresia, agenda e o registro da igreja",
   lideranca: "A própria área: voluntários, escalas e eventos do ministério",
   voluntario: "Quase nada além da própria ficha e da agenda",

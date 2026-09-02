@@ -32,26 +32,35 @@ describe("a secretaria não vê o Painel Pastoral", () => {
     expect(ROUTE_ROLES["/painel-pastoral"]).not.toContain("secretaria");
   });
 
-  it("continua aberto a quem cuida — e o pastor titular é `diakonia`", () => {
-    // O erro fácil é achar que pastor titular é `pastor`. Não é: o CLAUDE.md
-    // mede 62 combinações tabela+operação para `diakonia` contra 34 de
-    // `pastor`, e este último nem enxerga famílias e visitas.
-    expect(ROLES_PAINEL_PASTORAL).toContain("diakonia");
+  it("continua aberto a quem cuida — e o pastor titular é `pastor`", () => {
+    // Até 02/09/2026 o titular era `diakonia`, e este teste dizia o
+    // contrário do que diz agora — com razão, na época: `pastor` media 34
+    // combinações tabela+operação contra 62 de `diakonia`, e nem enxergava
+    // famílias e visitas.
+    //
+    // A igreja então separou o que estava embolado: `diakonia` é o nome do
+    // FORNECEDOR e passou a ser o dono do sistema; `pastor` recebeu o
+    // rebanho que lhe faltava (20260902190000) e virou o titular.
+    expect(ROLES_PAINEL_PASTORAL).toContain("pastor");
   });
 
   it("a administração entra por ser dona do sistema, não por ser pastoral", () => {
     // Pedido da igreja em 01/09/2026, com a separação dita em voz alta:
-    // "ADMINISTRAÇÃO dono do sistema". Sem ela na lista o painel ficaria
-    // invisível a todos — nenhuma conta tem `diakonia` hoje.
+    // "ADMINISTRAÇÃO dono do sistema".
     expect(ROLES_PAINEL_PASTORAL).toContain("admin");
+    // E o dono do sistema entra pelo mesmo motivo: ele vê tudo e todos.
+    expect(ROLES_PAINEL_PASTORAL).toContain("diakonia");
   });
 
-  it("saíram a liderança e o papel `pastor`", () => {
+  it("saíram a liderança, a secretaria e a tesouraria", () => {
     // Liderança acompanhava o cuidado sem executá-lo, que é o mesmo motivo da
-    // saída da secretária em 26/08. E `pastor` é papel reduzido: mandá-lo a um
-    // painel que ele não consegue ler seria promessa vazia.
+    // saída da secretária em 26/08. A tesouraria nunca teve o que fazer aqui.
+    //
+    // `pastor` estava nesta lista até 02/09/2026, quando era papel reduzido.
+    // Hoje ele É o titular, e a asserção que o excluía virou a do teste acima.
     expect(ROLES_PAINEL_PASTORAL).not.toContain("lideranca");
-    expect(ROLES_PAINEL_PASTORAL).not.toContain("pastor");
+    expect(ROLES_PAINEL_PASTORAL).not.toContain("secretaria");
+    expect(ROLES_PAINEL_PASTORAL).not.toContain("tesouraria");
   });
 });
 
@@ -61,15 +70,17 @@ describe("rotaInicialPorPapel", () => {
   });
 
   it("pastor titular entra no Painel Pastoral", () => {
-    // `diakonia` é o perfil de pastor titular — ver a nota em useAuth.tsx.
-    expect(rotaInicialPorPapel(["diakonia"])).toBe("/painel-pastoral");
+    // Desde 02/09/2026 o titular é `pastor` — ver a nota em types/usuario.ts.
+    expect(rotaInicialPorPapel(["pastor"])).toBe("/painel-pastoral");
   });
 
-  it("o papel `pastor` NÃO vai para o Painel Pastoral", () => {
-    // Saiu em 01/09/2026 junto com a estreitada de `ROLES_PAINEL_PASTORAL`.
-    // Mandá-lo para lá seria mandá-lo para uma guarda que recusa no instante
-    // seguinte — o vaivém que o último teste deste bloco existe para pegar.
-    expect(rotaInicialPorPapel(["pastor"])).toBe("/");
+  it("a tesouraria NÃO tem bancada por papel", () => {
+    // Este teste era sobre `pastor`, excluído em 01/09/2026 e reabilitado em
+    // 02/09 como titular. Quem ocupa agora o lugar de "papel sem bancada
+    // própria" é a tesouraria: ela cai na Home, e de lá abre a Tesouraria
+    // pelo cartão. Mandá-la direto a um painel que a guarda recusa seria o
+    // vaivém que o último teste deste bloco existe para pegar.
+    expect(rotaInicialPorPapel(["tesouraria"])).toBe("/");
   });
 
   it("quem não tem bancada de trabalho cai na Home", () => {
@@ -95,7 +106,8 @@ describe("rotaInicialPorPapel", () => {
 
   it("nunca manda ninguém para uma tela que a guarda de rota recusa", () => {
     const papeis: AppRole[] = [
-      "admin", "secretaria", "pastor", "diakonia", "lideranca", "voluntario",
+      "admin", "secretaria", "pastor", "diakonia", "tesouraria", "lideranca",
+      "voluntario", "membro",
     ];
     for (const papel of papeis) {
       const destino = rotaInicialPorPapel([papel]);
@@ -117,7 +129,7 @@ describe("rotaInicialPorPapel", () => {
 // coisa só, e onde se percebe se alguém acrescentar um item ao menu sem
 // pensar nele.
 describe("o pastor titular alcança exatamente o recorte do painel dele", () => {
-  const TITULAR: AppRole[] = ["diakonia"];
+  const TITULAR: AppRole[] = ["pastor"];
   const alcanca = (item: NavItem) => !item.allowedRoles || item.allowedRoles.some(r => TITULAR.includes(r));
   const todosOsItens = [...ATALHOS_TOPO, ...NAV_GROUPS.flatMap(g => g.items)];
 
@@ -153,7 +165,7 @@ describe("o pastor titular alcança exatamente o recorte do painel dele", () => 
     for (const rota of ["/ministerios", "/organograma", "/estrutura", "/locais"]) {
       const exigido = ROUTE_ROLES[rota];
       expect(exigido, `${rota} não tem guarda de rota`).toBeDefined();
-      expect(exigido).not.toContain("diakonia");
+      expect(exigido).not.toContain("pastor");
     }
   });
 
@@ -163,7 +175,7 @@ describe("o pastor titular alcança exatamente o recorte do painel dele", () => 
     for (const rota of DENTRO) {
       const exigido = ROUTE_ROLES[rota];
       if (!exigido) continue;
-      expect(exigido, `${rota} está no menu dele mas a guarda recusa`).toContain("diakonia");
+      expect(exigido, `${rota} está no menu dele mas a guarda recusa`).toContain("pastor");
     }
   });
 });

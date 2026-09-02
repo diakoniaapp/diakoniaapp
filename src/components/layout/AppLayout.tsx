@@ -156,7 +156,8 @@ export default function AppLayout() {
     admin: "Administrador", secretaria: "Secretaria",
     // `diakonia` e `pastor` sao papeis com alcances diferentes — ver
     // types/usuario.ts. Rotular os dois de "Pastor" escondia a diferenca.
-    diakonia: "Pastor titular", pastor: "Pastor",
+    diakonia: "Diakonia — dono do sistema", pastor: "Pastor titular",
+    tesouraria: "Tesouraria",
     lideranca: "Liderança", voluntario: "Voluntário",
     // Todo acesso novo nasce aqui desde 20260901250000 — sem este rótulo,
     // a conta recém-criada apareceria sem nome de perfil na interface.

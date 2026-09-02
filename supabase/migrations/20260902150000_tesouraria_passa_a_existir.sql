@@ -1,0 +1,31 @@
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Tesouraria passa a existir
+-- ═══════════════════════════════════════════════════════════════════════════
+--
+-- ── POR QUE SOZINHA NESTA MIGRATION ────────────────────────────────────────
+--
+-- `ALTER TYPE ... ADD VALUE` não pode ser usado na mesma transação que usa o
+-- valor novo. Então esta migration só acrescenta, e a seguinte
+-- (20260902160000) é que concede permissões a ele. Duas migrations onde
+-- pareceria caber uma.
+--
+-- ── POR QUE ELE PRECISA EXISTIR ────────────────────────────────────────────
+--
+-- A igreja definiu em 02/09/2026 o que o `admin` é: "vendi esse sistema e o
+-- admin vai precisar configurá-lo do zero — esse é o papel do admin". Ou
+-- seja, **configurar, não operar**.
+--
+-- Medido: numa igreja nova, o admin monta 23 superfícies e cerca de 250
+-- linhas — identidade, estrutura, ministérios, áreas, cargos, classes de EBD,
+-- plano de contas, centros de custo, espaços do Bazar, documentos, catálogo
+-- de permissões — antes de existir uma única pessoa cadastrada.
+--
+-- O que NÃO é dele é o que só acontece depois que a casa está de pé: lançar
+-- dinheiro, aprovar pagamento, ver a folha, operar o caixa. Ele **cria** o
+-- plano de contas; quem **lança** é quem cuida do dinheiro.
+--
+-- Só que hoje essas sete permissões são exclusivas do `admin`, e tirá-las
+-- dele sem ter para quem dar deixaria a igreja sem ninguém capaz de lançar
+-- uma oferta. `tesouraria` é esse alguém.
+
+ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'tesouraria';

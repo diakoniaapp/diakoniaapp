@@ -42,7 +42,9 @@ import {
  * Deixá-lo de fora escondia da administração o único perfil que dá ao pastor
  * o que ele precisa para o cuidado pastoral.
  */
-const PERFIS: AppRole[] = ["admin", "secretaria", "diakonia", "pastor", "lideranca", "voluntario"];
+// Sem `diakonia`: ele tem o catálogo inteiro por definição (dono do
+// sistema), e mostrar 47 caixas todas marcadas só ocuparia a tela.
+const PERFIS: AppRole[] = ["admin", "secretaria", "tesouraria", "pastor", "lideranca", "voluntario", "membro"];
 
 export function PermissoesDosPerfis({ podeGerenciar }: { podeGerenciar: boolean }) {
   const [perfil, setPerfil]     = useState<AppRole>("lideranca");

@@ -140,7 +140,10 @@ export default function Usuarios() {
   // Em ordem de alcance, do maior para o menor. `membro` fecha a lista e é
   // o padrão de fábrica do banco (20260901250000): sem ele aqui dava para
   // criar uma conta e nunca conseguir devolvê-la ao perfil mais restrito.
-  const PERFIS: AppRole[] = ["admin", "secretaria", "diakonia", "pastor", "lideranca", "voluntario", "membro"];
+  // `diakonia` NÃO está aqui de propósito: é o papel de quem constrói o
+  // sistema, não um perfil que a igreja concede. `definir_perfil` o preserva
+  // justamente para que a tela de acessos de uma igreja não o toque.
+  const PERFIS: AppRole[] = ["admin", "secretaria", "tesouraria", "pastor", "lideranca", "voluntario", "membro"];
 
   async function handleTrocarPerfil(a: AcessoComNome, papel: AppRole) {
     setTrocando(a.userId);
