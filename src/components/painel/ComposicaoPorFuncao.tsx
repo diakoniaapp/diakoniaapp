@@ -42,6 +42,21 @@ import type { VoluntarioDoMinisterio } from "@/services/painelMinisterioService"
 /** As palavras que o cadastro usa quando NÃO se registrou função nenhuma. */
 const GENERICAS = new Set(["", "voluntário", "voluntario"]);
 
+// ── A COLUNA `funcao` GUARDA TRÊS COISAS MISTURADAS ────────────────────────
+//
+// Isto já estava documentado em `MinisterioVoluntarios.tsx`, e eu não li antes
+// de escrever este arquivo — a primeira versão mostrava "Recepção · 16" e
+// "Introdução · 1" no painel da Comunhão como se fossem funções. São os nomes
+// das duas ÁREAS dela, que vazaram para a coluna.
+//
+// Contado no banco: "Voluntário" 46 vezes (o padrão que o formulário grava),
+// nomes de área 17 vezes, e as funções de verdade — Líder, Co-líder, Apoio,
+// Planejamento, Atendimento, e os instrumentos da Música.
+//
+// Nome de área na coluna de função não diz nada que a linha já não diga: a
+// pessoa serve na Recepção, e o que ela FAZ na recepção continua desconhecido.
+// Por isso conta como ausência, e não como função.
+
 export interface Funcao {
   nome: string;
   pessoas: number;
@@ -63,10 +78,19 @@ export function composicao(voluntarios: VoluntarioDoMinisterio[]): {
   const semFuncao = new Set<string>();
   const todos = new Set<string>();
 
+  // Os nomes de área DESTE ministério, para reconhecer os que vazaram para a
+  // coluna de função. Sai dos próprios voluntários: eles trazem `area_nome`, e
+  // pedir as áreas ao banco de novo seria uma consulta para saber o que já
+  // está na mão.
+  const nomesDeArea = new Set(
+    voluntarios.map((v) => (v.area_nome ?? "").trim().toLowerCase()).filter(Boolean),
+  );
+
   for (const v of voluntarios) {
     todos.add(v.pessoa_id);
     const f = (v.funcao ?? "").trim();
-    if (GENERICAS.has(f.toLowerCase())) { semFuncao.add(v.pessoa_id); continue; }
+    const chave = f.toLowerCase();
+    if (GENERICAS.has(chave) || nomesDeArea.has(chave)) { semFuncao.add(v.pessoa_id); continue; }
     if (!porFuncao.has(f)) porFuncao.set(f, new Set());
     porFuncao.get(f)!.add(v.pessoa_id);
   }

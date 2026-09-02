@@ -5,8 +5,8 @@ import { composicao } from "./ComposicaoPorFuncao";
 import type { VoluntarioDoMinisterio } from "@/services/painelMinisterioService";
 
 /** Só os campos que `composicao` lê — o resto da view não interessa aqui. */
-const v = (pessoa_id: string, funcao: string | null, area_id = "a1") =>
-  ({ pessoa_id, funcao, area_id } as unknown as VoluntarioDoMinisterio);
+const v = (pessoa_id: string, funcao: string | null, area_nome = "Área A") =>
+  ({ pessoa_id, funcao, area_nome, area_id: area_nome } as unknown as VoluntarioDoMinisterio);
 
 describe("composicao", () => {
   it("conta PESSOAS, não vínculos", () => {
@@ -37,6 +37,34 @@ describe("composicao", () => {
     expect(r.funcoes).toEqual([{ nome: "Baterista", pessoas: 1 }]);
     expect(r.semFuncao).toBe(4);
     expect(r.total).toBe(5);
+  });
+
+  it("nome de ÁREA na coluna de função conta como ausência, não como função", () => {
+    // O defeito que a primeira versão deste arquivo tinha, e que só apareceu
+    // no painel da Comunhão: ele mostrava "Recepção · 16" e "Introdução · 1"
+    // como se fossem funções. São as duas ÁREAS do ministério, que vazaram
+    // para a coluna — contado no banco, 17 vezes.
+    //
+    // "Recepção · Recepção" não diz o que a pessoa faz na recepção. É a mesma
+    // regra que `MinisterioVoluntarios.onde()` já aplicava desde antes, e que
+    // eu não li antes de escrever.
+    const r = composicao([
+      v("p1", "Recepção", "Recepção"),
+      v("p2", "Recepção", "Recepção"),
+      v("p3", "Introdução", "Introdução"),
+      v("p4", "Líder", "Recepção"),
+    ]);
+    expect(r.funcoes).toEqual([{ nome: "Líder", pessoas: 1 }]);
+    expect(r.semFuncao).toBe(3);
+  });
+
+  it("a comparação ignora maiúsculas e espaços nas pontas", () => {
+    const r = composicao([
+      v("p1", " recepção ", "Recepção"),
+      v("p2", "RECEPÇÃO", "Recepção"),
+    ]);
+    expect(r.funcoes).toEqual([]);
+    expect(r.semFuncao).toBe(2);
   });
 
   it("quem tem função numa área e é genérico noutra NÃO entra em `semFuncao`", () => {
