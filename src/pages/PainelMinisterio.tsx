@@ -68,6 +68,8 @@ import { SecaoArrecadacao } from "@/components/painel/SecaoArrecadacao";
 import { carregarBancadaPgm, type BancadaPgm } from "@/services/bancadaPgmService";
 import { SecaoPgm } from "@/components/painel/SecaoPgm";
 import { ComposicaoPorFuncao, composicao } from "@/components/painel/ComposicaoPorFuncao";
+import { carregarAgendaDoMinisterio, type AgendaDoMinisterio } from "@/services/agendaDoMinisterioService";
+import { SecaoAgendaDoMinisterio } from "@/components/painel/SecaoAgendaDoMinisterio";
 import { GraduationCap, ShoppingBag, Home as Casa } from "lucide-react";
 
 export default function PainelMinisterio() {
@@ -83,6 +85,9 @@ export default function PainelMinisterio() {
   const [ebd, setEbd] = useState<BancadaEbd | null>(null);
   const [arr, setArr] = useState<BancadaArrecadacao | null>(null);
   const [pgm, setPgm] = useState<BancadaPgm | null>(null);
+  // A agenda é dos ONZE, e não de um módulo: por isso vem junto das outras
+  // duas consultas, e não depois de saber qual módulo o ministério opera.
+  const [agenda, setAgenda] = useState<AgendaDoMinisterio | null>(null);
 
   // ── SÓ O DONO DO SISTEMA ABRE MINISTÉRIO ALHEIO ──────────────────────
   //
@@ -104,12 +109,14 @@ export default function PainelMinisterio() {
     setCarregando(true);
     setErro(null);
     try {
-      const [p, m] = await Promise.all([
+      const [p, m, ag] = await Promise.all([
         carregarPainelMinisterio(ministerioId),
         pessoaId ? meusMinisterios(pessoaId) : Promise.resolve([]),
+        carregarAgendaDoMinisterio(ministerioId),
       ]);
       setPainel(p);
       setMeus(m);
+      setAgenda(ag);
 
       // A bancada específica é uma SEGUNDA ida ao banco, e só para quem tem
       // módulo. Pedi-la junto das outras duas custaria seis consultas de EBD
@@ -246,6 +253,10 @@ export default function PainelMinisterio() {
 
       <SecaoAreas painel={painel} />
       <SecaoEquipe painel={painel} />
+      {/* A agenda vem ANTES das escalas: 54 vínculos evento↔ministério
+          contra 10 escalas. Para dez dos onze, é aqui que o ministério
+          acontece. */}
+      {agenda && <SecaoAgendaDoMinisterio agenda={agenda} />}
       <SecaoEscalas painel={painel} pessoaId={pessoaId} />
       <SecaoChecklist painel={painel} podeEditar={podeEditarTarefas} aoMudar={carregar} />
     </div>
