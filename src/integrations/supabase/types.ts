@@ -7632,6 +7632,7 @@ export type Database = {
           igreja_id: string
           lider_id: string | null
           local_reuniao: string | null
+          modulo: string | null
           nome: string
           objetivo: string | null
           publico_alvo: string | null
@@ -7657,6 +7658,7 @@ export type Database = {
           igreja_id?: string
           lider_id?: string | null
           local_reuniao?: string | null
+          modulo?: string | null
           nome: string
           objetivo?: string | null
           publico_alvo?: string | null
@@ -7682,6 +7684,7 @@ export type Database = {
           igreja_id?: string
           lider_id?: string | null
           local_reuniao?: string | null
+          modulo?: string | null
           nome?: string
           objetivo?: string | null
           publico_alvo?: string | null

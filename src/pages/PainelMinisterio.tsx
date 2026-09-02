@@ -61,6 +61,9 @@ import {
   type PainelMinisterio as Painel, type MinisterioQueLidero,
   type EscalaDoMinisterio, type TarefaDaArea,
 } from "@/services/painelMinisterioService";
+import { carregarBancadaEbd, type BancadaEbd } from "@/services/bancadaEbdService";
+import { SecaoEbd } from "@/components/painel/SecaoEbd";
+import { GraduationCap } from "lucide-react";
 
 export default function PainelMinisterio() {
   const { ministerioId } = useParams<{ ministerioId: string }>();
@@ -70,6 +73,9 @@ export default function PainelMinisterio() {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [atualizadoEm, setAtualizadoEm] = useState<Date | null>(null);
+  // A bancada específica do ministério, quando ele opera um módulo. Fica
+  // separada de `painel` porque é outra ida ao banco e nem todo painel a tem.
+  const [ebd, setEbd] = useState<BancadaEbd | null>(null);
 
   // ── SÓ O DONO DO SISTEMA ABRE MINISTÉRIO ALHEIO ──────────────────────
   //
@@ -97,6 +103,12 @@ export default function PainelMinisterio() {
       ]);
       setPainel(p);
       setMeus(m);
+
+      // A bancada específica é uma SEGUNDA ida ao banco, e só para quem tem
+      // módulo. Pedi-la junto das outras duas custaria seis consultas de EBD
+      // em dez dos onze painéis, para jogar fora.
+      setEbd(p?.modulo === "ebd" ? await carregarBancadaEbd() : null);
+
       setAtualizadoEm(new Date());
     } catch (e: unknown) {
       setErro(e instanceof Error ? e.message : "Não foi possível carregar o painel.");
@@ -178,7 +190,7 @@ export default function PainelMinisterio() {
         <p className="text-sm text-muted-foreground flex items-start gap-1.5">
           <Boxes className="w-3.5 h-3.5 text-gold shrink-0 mt-0.5" />
           <span className="min-w-0">
-            {resumoNatural(painel)}
+            {resumoNatural(painel, ebd)}
             {atualizadoEm && (
               <span className="text-[10px] text-muted-foreground ml-1.5 whitespace-nowrap">
                 · {formatarAtualizadoHa(atualizadoEm)}
@@ -188,7 +200,15 @@ export default function PainelMinisterio() {
         </p>
 
         {/* Índice, não painel de números — a mesma decisão dos outros dois. */}
-        <FaixaDeIndicadores colunas={4}>
+        {/* Ganha uma quinta coluna quando o ministério opera um módulo, e o
+            chip dele vem PRIMEIRO — na mesma ordem em que as seções aparecem
+            abaixo. Uma tira que mente sobre a ordem já custou um defeito
+            nesta casa, e por isso a da Home está travada por teste. */}
+        <FaixaDeIndicadores colunas={ebd ? 5 : 4}>
+          {ebd && (
+            <Indicador rotulo="Escola" tom="violeta" icone={GraduationCap}
+              onClick={() => irParaSecao("ebd")} descricao="Ir para a Escola Bíblica" />
+          )}
           <Indicador rotulo="Áreas" tom="info" icone={Boxes}
             onClick={() => irParaSecao("areas")} descricao="Ir para Áreas" />
           <Indicador rotulo="Equipe" tom="success" icone={Users}
@@ -199,6 +219,11 @@ export default function PainelMinisterio() {
             onClick={() => irParaSecao("checklist")} descricao="Ir para Checklist de tarefas" />
         </FaixaDeIndicadores>
       </div>
+
+      {/* A bancada do módulo vem PRIMEIRO: para a Educação Cristã, o
+          trabalho é a Escola, e as três áreas dela são consequência disso.
+          As quatro seções comuns continuam abaixo, iguais para os onze. */}
+      {ebd && <SecaoEbd ebd={ebd} />}
 
       <SecaoAreas painel={painel} />
       <SecaoEquipe painel={painel} />
@@ -223,9 +248,34 @@ export default function PainelMinisterio() {
  *   área sem checklist    não é urgência, é o convite a começar — e some
  *                         sozinho quando a área ganha a primeira tarefa.
  */
-function resumoNatural(p: Painel): string {
+function resumoNatural(p: Painel, ebd: BancadaEbd | null): string {
   const futuras = escalasFuturas(p.escalas);
   const partes: string[] = [];
+
+  // ── A BANCADA DO MÓDULO ENTRA AQUI, E ENTRA PRIMEIRO ─────────────────
+  //
+  // Sem isto o painel se contradizia dentro da mesma tela: o resumo dizia
+  // "Nada urgente. 3 áreas ainda não têm checklist" enquanto, dois
+  // centímetros abaixo, a Escola avisava 5 classes sem chamada e uma classe
+  // com nove crianças e nenhum professor. O resumo só sabia de áreas,
+  // escalas e voluntários — e para a Educação Cristã é o que menos importa.
+  //
+  // Primeiro porque é o mais grave: uma classe sem professor é uma criança
+  // sem quem a receba no domingo; um checklist faltando, não.
+  if (ebd) {
+    if (ebd.semProfessor.length > 0) {
+      partes.push(`${ebd.semProfessor.length} ${ebd.semProfessor.length === 1
+        ? "classe com aluno e sem professor" : "classes com aluno e sem professor"}`);
+    }
+    if (ebd.semChamada.length > 0) {
+      partes.push(`${ebd.semChamada.length} ${ebd.semChamada.length === 1
+        ? "classe sem chamada" : "classes sem chamada"}`);
+    }
+    if (ebd.foraDaFaixa.length > 0) {
+      partes.push(`${ebd.foraDaFaixa.length} ${ebd.foraDaFaixa.length === 1
+        ? "aluno fora da faixa da classe" : "alunos fora da faixa da classe"}`);
+    }
+  }
 
   const vazias = futuras.filter(e => e.escalados === 0).length;
   if (vazias > 0) {

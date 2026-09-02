@@ -197,6 +197,13 @@ export interface PainelMinisterio {
   nome: string;
   sigla: string | null;
   objetivo: string | null;
+  /**
+   * Qual módulo do sistema este ministério opera — `ebd`, `arrecadacao` ou
+   * `pgm`. Vem de `ministerios.modulo` (migration 20260902100000) e decide
+   * qual bancada específica a tela mostra ANTES das quatro seções comuns.
+   * `null` para os dez que ainda não foram ligados a nenhum.
+   */
+  modulo: "ebd" | "arrecadacao" | "pgm" | null;
   lider: string | null;
   areas: AreaDoMinisterio[];
   voluntarios: VoluntarioDoMinisterio[];
@@ -222,7 +229,7 @@ function hojeIso(): string {
 export async function carregarPainelMinisterio(ministerioId: string): Promise<PainelMinisterio | null> {
   const { data: min } = await supabase
     .from("ministerios")
-    .select("id, nome, sigla, objetivo, lider_id")
+    .select("id, nome, sigla, objetivo, lider_id, modulo")
     .eq("id", ministerioId).maybeSingle();
   if (!min) return null;
 
@@ -285,6 +292,7 @@ export async function carregarPainelMinisterio(ministerioId: string): Promise<Pa
     nome: (min as any).nome,
     sigla: (min as any).sigla,
     objetivo: (min as any).objetivo,
+    modulo: ((min as any).modulo ?? null) as "ebd" | "arrecadacao" | "pgm" | null,
     lider: (lider as any)?.nome_completo ?? null,
     areas: ((areas ?? []) as any[]).map(a => ({
       id: a.id, nome: a.nome, cor: a.cor_identidade,
