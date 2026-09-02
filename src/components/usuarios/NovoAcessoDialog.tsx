@@ -70,12 +70,19 @@ export function NovoAcessoDialog({ aberto, onFechar, perfis, aoCriar }: {
     if (!aberto) { setBusca(""); setPessoas([]); setEscolhida(null); setPapel("membro"); }
   }, [aberto]);
 
-  // ── Só quem ainda NÃO tem acesso ────────────────────────────────────
+  // ── Só quem ainda NÃO tem acesso, e não é visitante ─────────────────
   //
   // Oferecer quem já tem produziria o erro "este telefone já possui acesso"
   // depois de a pessoa escolher — e a tela já sabe a resposta antes de
   // perguntar. Quem já tem aparece na lista de baixo do painel, com
   // "Reenviar".
+  //
+  // Visitante também não aparece: regra da igreja em 01/09/2026, "visitantes
+  // não terão acessos ao sistema". A guarda de verdade está no banco (o
+  // gatilho `impedir_acesso_de_visitante`, migration 20260901260000) — este
+  // filtro existe para a pessoa não escolher alguém e só então levar um erro.
+  // Quando um visitante virar membro ou congregado na ficha, ele passa a
+  // aparecer aqui sozinho.
   useEffect(() => {
     const termo = busca.trim();
     if (termo.length < 2) { setPessoas([]); return; }
@@ -86,6 +93,7 @@ export function NovoAcessoDialog({ aberto, onFechar, perfis, aoCriar }: {
         supabase.from("membros")
           .select("id, nome_completo, telefone_celular, tipo_pessoa")
           .eq("status", "ativo")
+          .neq("tipo_pessoa", "visitante")
           .ilike("nome_completo", `%${termo}%`)
           .order("nome_completo").limit(30),
         supabase.from("profiles").select("pessoa_id"),
