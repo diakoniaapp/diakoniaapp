@@ -19,8 +19,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BookOpen, Home as Casa, CalendarClock, MessageCircle, Loader2 } from "lucide-react";
 import {
-  minhaEbd, meuPgm, minhaSemana, nomeDoDia,
-  type MinhaEbd, type MeuPgm, type CompromissoMeu,
+  minhaEbd, conviteEbd, meuPgm, minhaSemana, nomeDoDia,
+  type MinhaEbd, type ConviteEbd, type MeuPgm, type CompromissoMeu,
 } from "@/services/meuEspacoService";
 import { useReportarVazio } from "@/components/hoje/vazio";
 
@@ -77,12 +77,59 @@ function quando(iso: string, hora: string | null): string {
 
 // ─── A minha classe da EBD ────────────────────────────────────────────────
 
-export function MinhaEbdCard({ pessoaId }: { pessoaId: string }) {
+export function MinhaEbdCard({
+  pessoaId, nascimento, sexo,
+}: {
+  pessoaId: string;
+  nascimento?: string | null;
+  sexo?: string | null;
+}) {
   const [dados, setDados] = useState<MinhaEbd | null | undefined>(undefined);
+  const [convite, setConvite] = useState<ConviteEbd | null | undefined>(undefined);
+
   useEffect(() => { minhaEbd(pessoaId).then(setDados); }, [pessoaId]);
 
-  useReportarVazio(dados === undefined || dados === null);
-  if (!dados) return null;
+  // O convite só é buscado quando se sabe que não há matrícula. Perguntar
+  // antes gastaria duas chamadas para descartar uma delas em quase todos os
+  // casos — 110 das 297 pessoas já estudam em alguma classe.
+  useEffect(() => {
+    if (dados === undefined) return;
+    if (dados !== null) { setConvite(null); return; }
+    conviteEbd(nascimento, sexo).then(setConvite);
+  }, [dados, nascimento, sexo]);
+
+  const carregando = dados === undefined || convite === undefined;
+  useReportarVazio(carregando || (dados === null && convite === null));
+
+  if (carregando) return null;
+
+  // ── Sem classe: o convite ───────────────────────────────────────────────
+  if (!dados) {
+    if (!convite) return null;
+    return (
+      <Card>
+        <CardContent className="p-4 space-y-2">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <BookOpen className="w-4 h-4 shrink-0 text-gold" />
+                <p className="font-medium truncate">{convite.classe}</p>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Uma classe da Escola Bíblica Dominical {convite.criterio}
+              </p>
+            </div>
+            <Button asChild size="sm" variant="ghost" className="shrink-0 text-xs">
+              <Link to={`/ebd/${convite.classeId}`}>Conhecer</Link>
+            </Button>
+          </div>
+          {convite.descricao && (
+            <p className="text-xs text-muted-foreground">{convite.descricao}</p>
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>

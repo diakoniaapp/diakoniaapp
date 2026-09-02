@@ -287,7 +287,11 @@ export default function Home() {
           titulo="Minha vida na igreja" subtitulo="Escola Bíblica e Pequeno Grupo">
           {pessoaId && (
             <div className="grid gap-2 md:grid-cols-2">
-              <MinhaEbdCard pessoaId={pessoaId} />
+              <MinhaEbdCard
+                pessoaId={pessoaId}
+                nascimento={ficha?.data_nascimento}
+                sexo={ficha?.sexo}
+              />
               <MeuPgmCard pessoaId={pessoaId} bairro={ficha?.bairro} />
             </div>
           )}

@@ -208,6 +208,90 @@ export async function minhaEbd(pessoaId: string): Promise<MinhaEbd | null> {
   };
 }
 
+// ─── O convite à classe, para quem não está em nenhuma ────────────────────
+
+export interface ConviteEbd {
+  classeId: string;
+  classe: string;
+  cor: string | null;
+  descricao: string | null;
+  /** "para mulheres, de 30 a 45 anos" — o motivo, em palavras. */
+  criterio: string;
+}
+
+/**
+ * A classe sugerida para quem ainda não estuda em nenhuma.
+ *
+ * ── QUEM ESCOLHE É O BANCO ─────────────────────────────────────────────────
+ *
+ * `sugerir_classe_ebd(nascimento, sexo)` já existia e não era chamada por
+ * ninguém. Ela filtra por faixa etária e gênero, prefere a classe específica
+ * de gênero sobre a mista e, entre as que servem, a de faixa mais estreita —
+ * que é a regra "sexo e/ou idade" ditada pela igreja, escrita em SQL.
+ *
+ * É SECURITY DEFINER, o que passa a importar depois de 20260901240000: o
+ * membro comum não lê a matrícula de ninguém, e mesmo assim recebe a
+ * sugestão.
+ *
+ * ── QUANDO NÃO DÁ PARA SUGERIR ─────────────────────────────────────────────
+ *
+ * Sem data de nascimento não há idade, e sem idade nenhuma das 8 classes
+ * casa — todas têm faixa etária definida. São 54 das 297 fichas nessa
+ * situação. Aqui a função devolve `null` e a tela pede o dado, em vez de
+ * chutar: sugerir a turma errada é pior que não sugerir.
+ *
+ * `nascimento_dia_mes` (dia e mês sem ano, herança do sistema antigo) NÃO
+ * serve de substituto — dele não sai idade.
+ */
+export async function conviteEbd(
+  dataNascimento: string | null | undefined,
+  sexo: string | null | undefined,
+): Promise<ConviteEbd | null> {
+  if (!dataNascimento) return null;
+
+  const { data: classeId, error } = await supabase.rpc("sugerir_classe_ebd", {
+    p_data_nascimento: dataNascimento,
+    p_sexo: sexo ?? undefined,
+  });
+  if (error || !classeId) return null;
+
+  const { data: classe } = await supabase
+    .from("ebd_classes")
+    .select("id, nome, cor, descricao, genero, idade_min, idade_max")
+    .eq("id", classeId as string)
+    .maybeSingle();
+  if (!classe) return null;
+
+  return {
+    classeId: classe.id,
+    classe: classe.nome,
+    cor: classe.cor ?? null,
+    descricao: classe.descricao ?? null,
+    criterio: criterioDaClasse(classe.genero, classe.idade_min, classe.idade_max),
+  };
+}
+
+/** "para mulheres, de 30 a 45 anos" · "de 18 a 29 anos" · "aberta a todas as idades". */
+function criterioDaClasse(
+  genero: string | null,
+  min: number | null,
+  max: number | null,
+): string {
+  const publico =
+    genero === "masculino" ? "para homens"
+    : genero === "feminino" ? "para mulheres"
+    : null;
+
+  const faixa =
+    min != null && max != null ? `de ${min} a ${max} anos`
+    : min != null ? `a partir de ${min} anos`
+    : max != null ? `até ${max} anos`
+    : null;
+
+  const partes = [publico, faixa].filter(Boolean);
+  return partes.length ? partes.join(", ") : "aberta a todas as idades";
+}
+
 // ─── Meu Pequeno Grupo ────────────────────────────────────────────────────
 
 export interface GrupoResumo {
