@@ -3,8 +3,15 @@ import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useVerComo } from "@/hooks/useVerComo";
 
-// AppRole reflete o enum app_role do Supabase.
-// FASE C: migration adiciona "voluntario" e "pastor".
+// AppRole é um SUBCONJUNTO escolhido do enum `app_role` do Supabase — não o
+// enum inteiro. O banco tem dez valores; os quatro de fora (`lider`,
+// `operador`, `visualizador` e, até 01/09/2026, `membro`) nunca tiveram conta
+// nem concessão, e deixá-los fora do tipo impede de atribuí-los por engano.
+//
+// A contrapartida é que acrescentar papel aqui é um passo manual, e esquecê-lo
+// aparece como erro de tipo — foi o que aconteceu ao pôr `membro` como padrão
+// de fábrica: quatro arquivos deixaram de compilar de uma vez, que é
+// exatamente o comportamento que se quer de um tipo assim.
 export type AppRole =
   | "admin"
   | "secretaria"
@@ -15,7 +22,11 @@ export type AppRole =
   // Ver o comentario longo em types/usuario.ts.
   | "diakonia"
   | "lideranca"
-  | "voluntario";
+  | "voluntario"
+  // Desde 20260901250000, o padrão de fábrica: toda conta nova nasce assim, e
+  // é o recorte que a igreja ditou em 01/09 — a própria ficha, a própria EBD,
+  // a própria escala, o próprio PGM e a agenda sem edição.
+  | "membro";
 
 interface AuthContextValue {
   user: User | null;

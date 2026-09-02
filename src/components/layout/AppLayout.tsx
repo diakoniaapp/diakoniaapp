@@ -158,6 +158,9 @@ export default function AppLayout() {
     // types/usuario.ts. Rotular os dois de "Pastor" escondia a diferenca.
     diakonia: "Pastor titular", pastor: "Pastor",
     lideranca: "Liderança", voluntario: "Voluntário",
+    // Todo acesso novo nasce aqui desde 20260901250000 — sem este rótulo,
+    // a conta recém-criada apareceria sem nome de perfil na interface.
+    membro: "Membro",
   };
 
   const currentTitle = pageTitles[location.pathname] ?? "Diakonia";

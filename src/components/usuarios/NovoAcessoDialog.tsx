@@ -63,11 +63,11 @@ export function NovoAcessoDialog({ aberto, onFechar, perfis, aoCriar }: {
   const [pessoas, setPessoas] = useState<PessoaSemAcesso[]>([]);
   const [carregando, setCarregando] = useState(false);
   const [escolhida, setEscolhida] = useState<PessoaSemAcesso | null>(null);
-  const [papel, setPapel] = useState<AppRole>("lideranca");
+  const [papel, setPapel] = useState<AppRole>("membro");
   const [criando, setCriando] = useState(false);
 
   useEffect(() => {
-    if (!aberto) { setBusca(""); setPessoas([]); setEscolhida(null); setPapel("lideranca"); }
+    if (!aberto) { setBusca(""); setPessoas([]); setEscolhida(null); setPapel("membro"); }
   }, [aberto]);
 
   // ── Só quem ainda NÃO tem acesso ────────────────────────────────────
@@ -124,18 +124,30 @@ export function NovoAcessoDialog({ aberto, onFechar, perfis, aoCriar }: {
       // sistema é `user_roles` — o CLAUDE.md registra que os dois divergem e
       // que `profiles.role` "não deve ser lido".
       //
-      // Pior: o gatilho `handle_new_user` insere `user_roles = 'lideranca'`
-      // para toda conta nova (ou 'admin', se for a primeira do banco). Sem
-      // esta chamada, o pastor titular nasceria como liderança, e ninguém
-      // veria a diferença até ele entrar e não achar o painel dele.
-      if (papel !== "lideranca") {
-        const conta = await supabase.from("profiles").select("id").eq("pessoa_id", escolhida.id).maybeSingle();
-        const uid = (conta.data as any)?.id as string | undefined;
-        if (uid) {
-          const rp = await definirPerfil(uid, papel);
-          if (!rp.ok) {
-            toast.warning(`Acesso criado, mas o perfil ficou como Liderança: ${rp.mensagem}`, { duration: 20000 });
-          }
+      // O gatilho `handle_new_user` põe o papel mais fraco, `membro`, em toda
+      // conta nova (ou `admin`, se for a primeira do banco — 20260901250000).
+      // Quem escolheu outro precisa desta chamada.
+      //
+      // ── POR QUE SEM ATALHO ─────────────────────────────────────────────
+      //
+      // Aqui havia um `if (papel !== "lideranca")`, que pulava este passo
+      // justamente quando o papel escolhido era igual ao padrão do gatilho.
+      // Era uma chamada economizada ao preço de um acoplamento invisível
+      // entre esta tela e uma função do banco — e quando o padrão mudou de
+      // `lideranca` para `membro`, o atalho passaria a fazer TODA nova
+      // liderança nascer como membro, calada.
+      //
+      // Agora chama sempre. Quando o papel escolhido já é o que o gatilho
+      // pôs, `definir_perfil` reescreve o mesmo valor e ninguém sente.
+      const conta = await supabase.from("profiles").select("id").eq("pessoa_id", escolhida.id).maybeSingle();
+      const uid = (conta.data as any)?.id as string | undefined;
+      if (uid) {
+        const rp = await definirPerfil(uid, papel);
+        if (!rp.ok) {
+          toast.warning(
+            `Acesso criado, mas o perfil ficou como Membro — o mais restrito. ${rp.mensagem}`,
+            { duration: 20000 },
+          );
         }
       }
 

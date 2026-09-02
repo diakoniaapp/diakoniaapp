@@ -48,6 +48,9 @@ export const ROLE_LABEL: Record<string, string> = {
   pastor:     "Pastor",           // alcance reduzido: sem familias nem acolhimento
   lideranca:  "Liderança",
   voluntario: "Voluntário",
+  // O padrão de fábrica desde 20260901250000: toda conta nova nasce assim.
+  // Sem esta linha, a conta recém-criada aparece sem rótulo de perfil.
+  membro:     "Membro",
 };
 
 export const ROLE_VARIANT: Record<
@@ -60,6 +63,7 @@ export const ROLE_VARIANT: Record<
   pastor:     "outline",
   lideranca:  "outline",
   voluntario: "outline",
+  membro:     "outline",
 };
 
 export interface NovoUsuarioDados {

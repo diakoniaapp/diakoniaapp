@@ -137,7 +137,10 @@ export default function Usuarios() {
    * A ordem desce do mais amplo ao mais estreito, que é como se lê uma lista
    * de permissão.
    */
-  const PERFIS: AppRole[] = ["admin", "secretaria", "diakonia", "pastor", "lideranca", "voluntario"];
+  // Em ordem de alcance, do maior para o menor. `membro` fecha a lista e é
+  // o padrão de fábrica do banco (20260901250000): sem ele aqui dava para
+  // criar uma conta e nunca conseguir devolvê-la ao perfil mais restrito.
+  const PERFIS: AppRole[] = ["admin", "secretaria", "diakonia", "pastor", "lideranca", "voluntario", "membro"];
 
   async function handleTrocarPerfil(a: AcessoComNome, papel: AppRole) {
     setTrocando(a.userId);

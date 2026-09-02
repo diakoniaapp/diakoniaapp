@@ -56,8 +56,11 @@ export function UserMenuButton() {
     admin: "Administrador",     secretaria: "Secretaria",
     diakonia: "Pastor titular", pastor:     "Pastor",
     lideranca: "Liderança",     voluntario: "Voluntário",
+    membro:    "Membro",
   };
-  const principalRole = roles[0] ?? "lideranca";
+  // O recuo acompanha o padrão de fábrica do banco: quem não tem papel legível
+  // é tratado como membro, o mais restrito — nunca como liderança.
+  const principalRole = roles[0] ?? "membro";
 
   const handleSignOut = async () => {
     await signOut();

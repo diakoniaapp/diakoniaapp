@@ -52,7 +52,7 @@ import type { AppRole } from "@/hooks/useAuth";
  * pastor 15, lideranca 5, voluntario 2.
  */
 export const PAPEIS_SIMULAVEIS: AppRole[] = [
-  "diakonia", "pastor", "secretaria", "lideranca", "voluntario",
+  "diakonia", "pastor", "secretaria", "lideranca", "voluntario", "membro",
 ];
 
 const CHAVE = "ver_como_papel";
@@ -106,6 +106,7 @@ export const ROTULO_PAPEL: Record<string, string> = {
   admin: "Administrador", secretaria: "Secretaria",
   diakonia: "Pastor titular", pastor: "Pastor",
   lideranca: "Liderança", voluntario: "Voluntário",
+  membro: "Membro",
 };
 
 /** Uma frase curta dizendo o que aquele perfil é na igreja. */
@@ -115,4 +116,5 @@ export const DESCRICAO_PAPEL: Record<string, string> = {
   secretaria: "Cadastro, membresia, agenda e o registro da igreja",
   lideranca: "A própria área: voluntários, escalas e eventos do ministério",
   voluntario: "Quase nada além da própria ficha e da agenda",
+  membro: "A própria ficha, a própria EBD, a própria escala e o próprio PGM",
 };

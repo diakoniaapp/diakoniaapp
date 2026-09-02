@@ -256,6 +256,7 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
   const FUNCAO_CURTA: Record<string, string> = {
     admin: "Admin", secretaria: "Secretaria", diakonia: "Pastor titular",
     pastor: "Pastor", lideranca: "Liderança", voluntario: "Voluntário",
+    membro: "Membro",
   };
   const funcaoDeQuemAnota =
     roles.map(r => FUNCAO_CURTA[r] ?? ROLE_LABEL[r] ?? r).join(" · ") || "Sem função";
