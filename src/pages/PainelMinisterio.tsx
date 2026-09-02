@@ -63,7 +63,9 @@ import {
 } from "@/services/painelMinisterioService";
 import { carregarBancadaEbd, type BancadaEbd } from "@/services/bancadaEbdService";
 import { SecaoEbd } from "@/components/painel/SecaoEbd";
-import { GraduationCap } from "lucide-react";
+import { carregarBancadaArrecadacao, type BancadaArrecadacao } from "@/services/bancadaArrecadacaoService";
+import { SecaoArrecadacao } from "@/components/painel/SecaoArrecadacao";
+import { GraduationCap, ShoppingBag } from "lucide-react";
 
 export default function PainelMinisterio() {
   const { ministerioId } = useParams<{ ministerioId: string }>();
@@ -76,6 +78,7 @@ export default function PainelMinisterio() {
   // A bancada específica do ministério, quando ele opera um módulo. Fica
   // separada de `painel` porque é outra ida ao banco e nem todo painel a tem.
   const [ebd, setEbd] = useState<BancadaEbd | null>(null);
+  const [arr, setArr] = useState<BancadaArrecadacao | null>(null);
 
   // ── SÓ O DONO DO SISTEMA ABRE MINISTÉRIO ALHEIO ──────────────────────
   //
@@ -108,6 +111,7 @@ export default function PainelMinisterio() {
       // módulo. Pedi-la junto das outras duas custaria seis consultas de EBD
       // em dez dos onze painéis, para jogar fora.
       setEbd(p?.modulo === "ebd" ? await carregarBancadaEbd() : null);
+      setArr(p?.modulo === "arrecadacao" ? await carregarBancadaArrecadacao() : null);
 
       setAtualizadoEm(new Date());
     } catch (e: unknown) {
@@ -190,7 +194,7 @@ export default function PainelMinisterio() {
         <p className="text-sm text-muted-foreground flex items-start gap-1.5">
           <Boxes className="w-3.5 h-3.5 text-gold shrink-0 mt-0.5" />
           <span className="min-w-0">
-            {resumoNatural(painel, ebd)}
+            {resumoNatural(painel, ebd, arr)}
             {atualizadoEm && (
               <span className="text-[10px] text-muted-foreground ml-1.5 whitespace-nowrap">
                 · {formatarAtualizadoHa(atualizadoEm)}
@@ -204,10 +208,14 @@ export default function PainelMinisterio() {
             chip dele vem PRIMEIRO — na mesma ordem em que as seções aparecem
             abaixo. Uma tira que mente sobre a ordem já custou um defeito
             nesta casa, e por isso a da Home está travada por teste. */}
-        <FaixaDeIndicadores colunas={ebd ? 5 : 4}>
+        <FaixaDeIndicadores colunas={ebd || arr ? 5 : 4}>
           {ebd && (
             <Indicador rotulo="Escola" tom="violeta" icone={GraduationCap}
               onClick={() => irParaSecao("ebd")} descricao="Ir para a Escola Bíblica" />
+          )}
+          {arr && (
+            <Indicador rotulo="Bazar" tom="gold" icone={ShoppingBag}
+              onClick={() => irParaSecao("arrecadacao")} descricao="Ir para Bazar e Cantina" />
           )}
           <Indicador rotulo="Áreas" tom="info" icone={Boxes}
             onClick={() => irParaSecao("areas")} descricao="Ir para Áreas" />
@@ -224,6 +232,7 @@ export default function PainelMinisterio() {
           trabalho é a Escola, e as três áreas dela são consequência disso.
           As quatro seções comuns continuam abaixo, iguais para os onze. */}
       {ebd && <SecaoEbd ebd={ebd} />}
+      {arr && <SecaoArrecadacao arr={arr} />}
 
       <SecaoAreas painel={painel} />
       <SecaoEquipe painel={painel} />
@@ -248,7 +257,11 @@ export default function PainelMinisterio() {
  *   área sem checklist    não é urgência, é o convite a começar — e some
  *                         sozinho quando a área ganha a primeira tarefa.
  */
-function resumoNatural(p: Painel, ebd: BancadaEbd | null): string {
+function resumoNatural(
+  p: Painel,
+  ebd: BancadaEbd | null,
+  arr: BancadaArrecadacao | null,
+): string {
   const futuras = escalasFuturas(p.escalas);
   const partes: string[] = [];
 
@@ -262,6 +275,26 @@ function resumoNatural(p: Painel, ebd: BancadaEbd | null): string {
   //
   // Primeiro porque é o mais grave: uma classe sem professor é uma criança
   // sem quem a receba no domingo; um checklist faltando, não.
+  // Caixa aberto ganha de tudo o mais que este painel sabe: é dinheiro sem
+  // dono, e conciliação que não acontece. Vem antes até do que a Escola
+  // avisa, e muito antes de checklist de área.
+  if (arr) {
+    if (arr.caixasAbertos.length > 0) {
+      const mais = arr.caixasAbertos[0].diasAberto;
+      partes.push(`${arr.caixasAbertos.length} ${arr.caixasAbertos.length === 1
+        ? "caixa sem fechamento" : "caixas sem fechamento"}` +
+        (mais > 0 ? ` (o mais antigo há ${mais} dias)` : ""));
+    }
+    if (arr.vencidas > 0) {
+      partes.push(`${arr.vencidas} ${arr.vencidas === 1
+        ? "reserva por encerrar" : "reservas por encerrar"}`);
+    }
+    if (arr.manutencao.length > 0) {
+      partes.push(`${arr.manutencao.length} ${arr.manutencao.length === 1
+        ? "pendência de manutenção" : "pendências de manutenção"}`);
+    }
+  }
+
   if (ebd) {
     if (ebd.semProfessor.length > 0) {
       partes.push(`${ebd.semProfessor.length} ${ebd.semProfessor.length === 1
