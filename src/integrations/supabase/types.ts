@@ -8358,51 +8358,6 @@ export type Database = {
         }
         Relationships: []
       }
-      permissoes_modulo: {
-        Row: {
-          apenas_ministerio: boolean
-          apenas_proprio: boolean
-          created_at: string
-          id: number
-          modulo: string
-          observacao: string | null
-          pode_criar: boolean
-          pode_editar: boolean
-          pode_excluir: boolean
-          pode_exportar: boolean
-          pode_ver: boolean
-          role: Database["public"]["Enums"]["app_role"]
-        }
-        Insert: {
-          apenas_ministerio?: boolean
-          apenas_proprio?: boolean
-          created_at?: string
-          id?: number
-          modulo: string
-          observacao?: string | null
-          pode_criar?: boolean
-          pode_editar?: boolean
-          pode_excluir?: boolean
-          pode_exportar?: boolean
-          pode_ver?: boolean
-          role: Database["public"]["Enums"]["app_role"]
-        }
-        Update: {
-          apenas_ministerio?: boolean
-          apenas_proprio?: boolean
-          created_at?: string
-          id?: number
-          modulo?: string
-          observacao?: string | null
-          pode_criar?: boolean
-          pode_editar?: boolean
-          pode_excluir?: boolean
-          pode_exportar?: boolean
-          pode_ver?: boolean
-          role?: Database["public"]["Enums"]["app_role"]
-        }
-        Relationships: []
-      }
       pessoa_cargo_estatutario: {
         Row: {
           ativo: boolean | null
