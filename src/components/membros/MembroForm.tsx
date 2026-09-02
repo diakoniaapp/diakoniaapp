@@ -325,6 +325,23 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
     areas: { id: string; nome: string; lider_id: string | null; co_lider_id: string | null }[];
   }[]>([]);
   const [areasSelecionadas, setAreasSelecionadas] = useState<Set<string>>(new Set());
+  // ── O QUE A PESSOA FAZ EM CADA ÁREA ─────────────────────────────────
+  //
+  // Este formulário gravava `funcao: "Voluntário"` fixo no código. Medido em
+  // 02/09/2026, é de onde vêm os 46 "Voluntário" do banco — e, contando os
+  // nomes de área que também vazaram para a coluna, 80 dos 128 vínculos
+  // ativos não dizem o que a pessoa faz. A Comunhão tem 40 de 44.
+  //
+  // Quem lidera não monta escala de recepção sem isso, e quem marcava a área
+  // aqui não tinha onde escrever. Agora tem — e continua opcional: obrigar a
+  // função no cadastro de uma pessoa emperraria o trabalho da secretaria por
+  // um dado que quem lidera preenche melhor depois, em Atuações.
+  const [funcaoPorArea, setFuncaoPorArea] = useState<Record<string, string>>({});
+  // As áreas em que a pessoa JÁ serve quando o formulário abriu. Serve para
+  // não oferecer o campo de função onde ele não teria efeito: o insert só
+  // acontece para as áreas NOVAS, e mudar a função de um vínculo que já
+  // existe é em Atuações.
+  const [areasAtuais, setAreasAtuais] = useState<Set<string>>(new Set());
 
   // ── As duas listas longas nascem fechadas ──────────────────────────────
   //
@@ -467,9 +484,14 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
           .eq("membro_id", membro.id)
           .eq("status", "ativa");
         if (cancelled) return;
-        setAreasSelecionadas(new Set((vinculos ?? []).map((v: any) => v.area_id)));
+        const jaServe = new Set((vinculos ?? []).map((v: any) => v.area_id as string));
+        setAreasSelecionadas(jaServe);
+        setAreasAtuais(jaServe);
+        setFuncaoPorArea({});
       } else {
         setAreasSelecionadas(new Set());
+        setAreasAtuais(new Set());
+        setFuncaoPorArea({});
       }
     })();
     return () => { cancelled = true; };
@@ -618,7 +640,11 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
               area_id:       areaId,
               ministerio_id: infoMap.get(areaId),
               membro_id:     pessoaId,
-              funcao:        "Voluntário",
+              // "Voluntário" deixa de ser a única resposta e passa a ser o
+              // recuo de quem não informou. Continua sendo o genérico que a
+              // composição do painel lê como ausência — e é honesto: ninguém
+              // disse o que a pessoa faz.
+              funcao:        (funcaoPorArea[areaId] ?? "").trim() || "Voluntário",
               data_inicio:   hoje,
               status:        "ativa",
             }))
@@ -1507,26 +1533,53 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                           const checked = areasSelecionadas.has(a.id);
                           const ehLider = !!membro && (a.lider_id === membro.id || a.co_lider_id === membro.id);
                           return (
-                            <label key={a.id} className="flex items-center gap-2 cursor-pointer text-sm hover:bg-muted/40 px-2 py-1 rounded">
-                              <Checkbox
-                                checked={checked}
-                                onCheckedChange={(v) => {
-                                  setAreasSelecionadas(prev => {
-                                    const next = new Set(prev);
-                                    if (v) next.add(a.id); else next.delete(a.id);
-                                    return next;
-                                  });
-                                }}
-                              />
-                              <span className="flex items-center gap-1 min-w-0">
-                                <span className="truncate">{a.nome}</span>
-                                {ehLider && (
-                                  <span className="text-xs font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-destructive-soft text-destructive-text border border-destructive-line shrink-0">
-                                    Líder
-                                  </span>
-                                )}
-                              </span>
-                            </label>
+                            <div key={a.id} className="min-w-0">
+                              <label className="flex items-center gap-2 cursor-pointer text-sm hover:bg-muted/40 px-2 py-1 rounded">
+                                <Checkbox
+                                  checked={checked}
+                                  onCheckedChange={(v) => {
+                                    setAreasSelecionadas(prev => {
+                                      const next = new Set(prev);
+                                      if (v) next.add(a.id); else next.delete(a.id);
+                                      return next;
+                                    });
+                                    // Desmarcou: a função digitada some junto.
+                                    // Guardá-la para ressuscitar num clique
+                                    // futuro faria a tela lembrar de algo que
+                                    // a pessoa desfez.
+                                    if (!v) setFuncaoPorArea(prev => {
+                                      const next = { ...prev };
+                                      delete next[a.id];
+                                      return next;
+                                    });
+                                  }}
+                                />
+                                <span className="flex items-center gap-1 min-w-0">
+                                  <span className="truncate">{a.nome}</span>
+                                  {ehLider && (
+                                    <span className="text-xs font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-destructive-soft text-destructive-text border border-destructive-line shrink-0">
+                                      Líder
+                                    </span>
+                                  )}
+                                </span>
+                              </label>
+
+                              {/* O campo só aparece para área MARCADA, e só
+                                  quando o vínculo ainda vai nascer: mudar a
+                                  função de quem já serve é em Atuações, que
+                                  confere a escrita e respeita o recorte de
+                                  quem lidera. Aqui, um campo que não salvasse
+                                  seria pior que campo nenhum. */}
+                              {checked && !areasAtuais.has(a.id) && (
+                                <Input
+                                  value={funcaoPorArea[a.id] ?? ""}
+                                  onChange={(e) =>
+                                    setFuncaoPorArea(prev => ({ ...prev, [a.id]: e.target.value }))}
+                                  placeholder="O que faz aqui? (opcional)"
+                                  className="h-7 text-xs mt-1 ml-8"
+                                />
+                              )}
+                            </div>
                           );
                         })}
                       </div>
