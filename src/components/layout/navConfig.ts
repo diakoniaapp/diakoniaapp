@@ -199,7 +199,23 @@ export const NAV_GROUPS: NavGroup[] = [
       // igreja, extraida dos documentos — materia administrativa, e continua
       // aberta a pastores, que o menu da conta nao alcanca.
       { to: "/estrutura",   label: "Estrutura",       icon: Network,     allowedRoles: ROLES_PASTORAL_SEM_TITULAR },
-      { to: "/arrecadacao", label: "Bazar e Cantina", icon: ShoppingBag, allowedRoles: ROLES_LIDERES_SEM_TITULAR },
+      // ── BAZAR E CANTINA SÃO DA ADMINISTRAÇÃO ────────────────────────
+      //
+      // Regra da igreja em 02/09/2026: "Ministério de Administração e Perfil
+      // Administração apenas verão as arrecadações". São as duas
+      // Administrações que ela mesma separou — o PERFIL (`admin`, dona do
+      // sistema) e o MINISTÉRIO (com líder no cadastro).
+      //
+      // O MENU oferece só ao perfil. Quem lidera o ministério não chega por
+      // aqui e sim pelo próprio painel, no link "Abrir o Bazar" — e a rota o
+      // deixa passar (ver ROUTE_ROLES). Menu e rota são coisas diferentes: o
+      // menu é o convite, a rota é a porta.
+      //
+      // Pôr `lideranca` no menu colocaria "Bazar e Cantina" na barra de quem
+      // lidera a Música, que abriria uma tela vazia — a RLS não lhe dá linha
+      // nenhuma. Tela que oferece o que não entrega é o defeito que este
+      // projeto vem consertando a semana toda.
+      { to: "/arrecadacao", label: "Bazar e Cantina", icon: ShoppingBag, allowedRoles: ["admin"] },
     ],
   },
   {
@@ -310,7 +326,11 @@ export const ROUTE_ROLES: Record<string, AppRole[]> = {
   // portao. Fechar as dezoito exige casamento por prefixo, que e outro
   // trabalho; estas seis sao as que o menu oferece.
   "/governanca":         ROLES_LIDERES_SEM_TITULAR,
-  "/arrecadacao":        ROLES_LIDERES_SEM_TITULAR,
+  // A porta é mais larga que o convite, de propósito: quem lidera o
+  // ministério do Bazar precisa entrar pelo link do painel dele. Quem não
+  // lidera passa por aqui e encontra o banco calado — as sete políticas de
+  // 20260902140000 só respondem a quem lidera o módulo.
+  "/arrecadacao":        ["admin", "lideranca"],
   "/financas":           ROLES_LIDERES_SEM_TITULAR,
   "/financas/fiscal":    ROLES_LIDERES_SEM_TITULAR,
   "/financas/reunioes":  ROLES_LIDERES_SEM_TITULAR,
