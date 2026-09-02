@@ -75,6 +75,23 @@ export const ROLES_ADMIN: AppRole[]    = ["admin", "diakonia", "secretaria"];
 export const ROLES_LIDERES_SEM_TITULAR: AppRole[]  = ["admin", "diakonia", "secretaria", "tesouraria", "lideranca"];
 export const ROLES_PASTORAL_SEM_TITULAR: AppRole[] = ["admin", "diakonia", "secretaria"];
 
+// ── O DINHEIRO TEM LISTA PRÓPRIA ───────────────────────────────────────────
+//
+// Regra da igreja em 02/09/2026, em quatro palavras: "liderança nao opera o
+// financeiro". A RLS já a obedece — 20260902210000 tirou `lideranca` das 21
+// tabelas de `fin_` e `fiscal_`.
+//
+// O menu tem de obedecer também, senão oferece o que o banco nega: quem
+// lidera um ministério veria "Tesouraria" na barra e abriria uma tela vazia.
+// Tela que promete o que não entrega é o defeito que este projeto vem
+// consertando a semana toda.
+//
+// Lista própria, e não `ROLES_LIDERES_SEM_TITULAR` menos um: aquela constante
+// serve a ministérios, governança, assuntos e arrecadação, onde a liderança
+// continua entrando. Reusá-la aqui amarraria duas decisões diferentes na
+// mesma linha.
+export const ROLES_FINANCEIRO: AppRole[] = ["admin", "diakonia", "secretaria", "tesouraria"];
+
 /**
  * Quem enxerga o Painel Pastoral.
  *
@@ -238,11 +255,11 @@ export const NAV_GROUPS: NavGroup[] = [
     key: "financeiro",
     label: "Financeiro",
     icon: DollarSign,
-    allowedRoles: ROLES_LIDERES_SEM_TITULAR,
+    allowedRoles: ROLES_FINANCEIRO,
     items: [
-      { to: "/financas",           label: "Tesouraria",          icon: DollarSign, allowedRoles: ROLES_LIDERES_SEM_TITULAR },
-      { to: "/financas/fiscal",    label: "Módulo Fiscal",       icon: DollarSign, allowedRoles: ROLES_LIDERES_SEM_TITULAR },
-      { to: "/financas/reunioes",  label: "Reuniões financeiras", icon: DollarSign, allowedRoles: ROLES_LIDERES_SEM_TITULAR },
+      { to: "/financas",           label: "Tesouraria",          icon: DollarSign, allowedRoles: ROLES_FINANCEIRO },
+      { to: "/financas/fiscal",    label: "Módulo Fiscal",       icon: DollarSign, allowedRoles: ROLES_FINANCEIRO },
+      { to: "/financas/reunioes",  label: "Reuniões financeiras", icon: DollarSign, allowedRoles: ROLES_FINANCEIRO },
       { to: "/financas/executivo", label: "Visão Executiva",     icon: DollarSign, allowedRoles: ROLES_PASTORAL_SEM_TITULAR },
     ],
   },
@@ -347,9 +364,9 @@ export const ROUTE_ROLES: Record<string, AppRole[]> = {
   // lidera passa por aqui e encontra o banco calado — as sete políticas de
   // 20260902140000 só respondem a quem lidera o módulo.
   "/arrecadacao":        ["admin", "lideranca"],
-  "/financas":           ROLES_LIDERES_SEM_TITULAR,
-  "/financas/fiscal":    ROLES_LIDERES_SEM_TITULAR,
-  "/financas/reunioes":  ROLES_LIDERES_SEM_TITULAR,
+  "/financas":           ROLES_FINANCEIRO,
+  "/financas/fiscal":    ROLES_FINANCEIRO,
+  "/financas/reunioes":  ROLES_FINANCEIRO,
   "/financas/executivo": ROLES_PASTORAL_SEM_TITULAR,
 
   // ── /admin e /areas ───────────────────────────────────────────────────
