@@ -226,6 +226,18 @@ export const NAV_GROUPS: NavGroup[] = [
       // mesmo rotulo para coisas diferentes. Esta trata de reunioes e
       // assembleias da igreja; a outra, das financeiras. Agora cada uma diz
       // qual e, sem depender de o usuario reparar em qual grupo esta.
+      // ── A LIDERANÇA VÊ AS ATAS, E ISSO FOI DECIDIDO ─────────────────
+      //
+      // Em 02/09/2026 a igreja tirou `lideranca` do financeiro
+      // (20260902210000) e, na mesma conversa, foi perguntada sobre a
+      // vizinha: e as atas? A resposta foi "sim, liderança vê".
+      //
+      // Fica escrito porque a semelhança engana. Governança estava ao lado
+      // do financeiro nas 28 tabelas fechadas em 01/09, e quem vier depois
+      // vai olhar esta linha, lembrar que o dinheiro perdeu a liderança, e
+      // achar que aqui ficou um serviço por fazer. Não ficou: ata de
+      // assembleia e voto não são dinheiro, e quem lidera um ministério
+      // participa de assembleia.
       { to: "/governanca",  label: "Reuniões e Atas", icon: Gavel,       allowedRoles: ROLES_LIDERES_SEM_TITULAR },
       { to: "/assuntos",    label: "Assuntos",        icon: CheckSquare, allowedRoles: ROLES_LIDERES },
       // Estrutura veio de "Configurações": e a estrutura institucional da
