@@ -67,6 +67,7 @@ import { carregarBancadaArrecadacao, type BancadaArrecadacao } from "@/services/
 import { SecaoArrecadacao } from "@/components/painel/SecaoArrecadacao";
 import { carregarBancadaPgm, type BancadaPgm } from "@/services/bancadaPgmService";
 import { SecaoPgm } from "@/components/painel/SecaoPgm";
+import { ComposicaoPorFuncao, composicao } from "@/components/painel/ComposicaoPorFuncao";
 import { GraduationCap, ShoppingBag, Home as Casa } from "lucide-react";
 
 export default function PainelMinisterio() {
@@ -344,6 +345,21 @@ function resumoNatural(
     partes.push(`${abaixo.length} ${abaixo.length === 1 ? "área abaixo do mínimo" : "áreas abaixo do mínimo"} de voluntários`);
   }
 
+  // ── QUEM FAZ O QUÊ, QUANDO A IGREJA NÃO SABE ─────────────────────────
+  //
+  // Medido em 02/09/2026: 80 dos 128 vínculos ativos da igreja não têm
+  // função — 62%. A Comunhão tem 25 de 44.
+  //
+  // O aviso só sobe ao resumo quando passa da METADE da equipe. Abaixo
+  // disso é um dado que a seção "Quem serve" já mostra, e repeti-lo aqui
+  // encheria de ruído os painéis pequenos: um ministério de três pessoas com
+  // uma sem função não tem problema nenhum.
+  const equipe = p.voluntarios.filter(estaServindo);
+  const { semFuncao, total: naEquipe } = composicao(equipe);
+  if (naEquipe >= 4 && semFuncao * 2 > naEquipe) {
+    partes.push(`${semFuncao} de ${naEquipe} sem função definida`);
+  }
+
   const pesados = p.voluntarios.filter(estaSobrecarregado).length;
   if (pesados > 0) {
     partes.push(`${pesados} ${pesados === 1 ? "voluntário sobrecarregado" : "voluntários sobrecarregados"}`);
@@ -421,6 +437,12 @@ function SecaoEquipe({ painel }: { painel: Painel }) {
         </Link>}>
         Quem serve
       </TituloDaSecao>
+
+      {/* A composição vem ANTES da lista de nomes: quem lidera pergunta
+          primeiro "tenho baterista?" e só depois "quem é". Na Música isso é
+          a pergunta inteira; nos outros dez é o resumo de uma lista que só
+          mostra doze de cada vez. */}
+      {ativos.length > 0 && <ComposicaoPorFuncao voluntarios={ativos} />}
 
       {ativos.length === 0 ? (
         <p className="text-sm text-muted-foreground py-2 px-3 border rounded-md">
