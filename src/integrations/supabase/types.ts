@@ -131,6 +131,108 @@ export type Database = {
         }
         Relationships: []
       }
+      area_funcoes: {
+        Row: {
+          area_id: string
+          ativo: boolean
+          created_at: string
+          descricao: string | null
+          id: string
+          min_por_escala: number
+          nome: string
+          ordem: number
+          updated_at: string
+        }
+        Insert: {
+          area_id: string
+          ativo?: boolean
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          min_por_escala?: number
+          nome: string
+          ordem?: number
+          updated_at?: string
+        }
+        Update: {
+          area_id?: string
+          ativo?: boolean
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          min_por_escala?: number
+          nome?: string
+          ordem?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "area_funcoes_area_id_fkey"
+            columns: ["area_id"]
+            isOneToOne: false
+            referencedRelation: "areas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "area_funcoes_area_id_fkey"
+            columns: ["area_id"]
+            isOneToOne: false
+            referencedRelation: "v_voluntarios_completo"
+            referencedColumns: ["area_id"]
+          },
+        ]
+      }
+      area_voluntario_funcoes: {
+        Row: {
+          area_funcao_id: string
+          area_voluntario_id: string
+          confirmada_em: string | null
+          confirmada_por: string | null
+          created_at: string
+          id: string
+          observacoes: string | null
+          origem: string
+          principal: boolean
+        }
+        Insert: {
+          area_funcao_id: string
+          area_voluntario_id: string
+          confirmada_em?: string | null
+          confirmada_por?: string | null
+          created_at?: string
+          id?: string
+          observacoes?: string | null
+          origem?: string
+          principal?: boolean
+        }
+        Update: {
+          area_funcao_id?: string
+          area_voluntario_id?: string
+          confirmada_em?: string | null
+          confirmada_por?: string | null
+          created_at?: string
+          id?: string
+          observacoes?: string | null
+          origem?: string
+          principal?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "area_voluntario_funcoes_area_funcao_id_fkey"
+            columns: ["area_funcao_id"]
+            isOneToOne: false
+            referencedRelation: "area_funcoes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "area_voluntario_funcoes_area_voluntario_id_fkey"
+            columns: ["area_voluntario_id"]
+            isOneToOne: false
+            referencedRelation: "area_voluntarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       area_voluntarios: {
         Row: {
           area_id: string
@@ -12416,6 +12518,7 @@ export type Database = {
         Args: { p_ano: number; p_mes: number }
         Returns: Json
       }
+      fn_area_do_vinculo: { Args: { p_vinculo: string }; Returns: string }
       fn_areas_do_ministerio: { Args: { min_id: string }; Returns: string[] }
       fn_areas_do_voluntario: { Args: { uid: string }; Returns: string[] }
       fn_contexto_usuario: { Args: never; Returns: Json }
@@ -12461,6 +12564,7 @@ export type Database = {
         Args: { p_acao: string; p_modulo: string }
         Returns: boolean
       }
+      fn_pessoa_do_vinculo: { Args: { p_vinculo: string }; Returns: string }
       fn_pode_editar_obs_pastoral: { Args: never; Returns: boolean }
       fn_pode_executar: { Args: { acao: string }; Returns: boolean }
       fn_todas_minhas_permissoes: {
