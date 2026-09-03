@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { carregarDiretoria, ocupantesDoCargo, type CargoDiretoria } from "@/services/diretoriaService";
 import { SELECT_AREA_COM_LIDER } from "@/services/estruturaService";
+import { ConferenciaLideranca } from "@/components/estrutura/ConferenciaLideranca";
 
 // -- Tipos ---------------------------------------------------
 
@@ -459,6 +460,16 @@ export default function EstruturaDaIgreja() {
             Estrutura derivada sincronizada em {ultimaSync}
           </p>
         )}
+
+        {/* ── A conferência de liderança ─────────────────────────────────
+            Fica nesta tela, e antes do regimento, porque é exatamente a
+            pergunta do subtítulo dela: "quanto disso a ficha das pessoas
+            confirma". A diretoria já era conferida contra o documento;
+            faltava conferir liderança contra o cadastro das equipes — que é
+            de onde o sistema tira o acesso de cada um. */}
+        <div className="rounded-xl border bg-card px-4 py-4">
+          <ConferenciaLideranca podeEditar={isAdmin} />
+        </div>
 
         {/* ── Só o Regimento ─────────────────────────────────────────────
             Diretoria, Conselho e Diaconia foram para o Organograma, onde a
