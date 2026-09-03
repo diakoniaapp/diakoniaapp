@@ -59,6 +59,18 @@ function BarraDeCarga({ v }: { v: VoluntarioDoPainel }) {
   // pilha de quatro itens parece dado faltando, e não pergunta não feita —
   // e a linha "Ninguém perguntou ainda" já diz isso, com palavras.
   if (!v.temPerfil) return null;
+
+  // Sem teto declarado — "de vez em quando", "quando precisarem" — a barra
+  // sairia com um denominador que a pessoa não escolheu. Fica só a contagem:
+  // é o que se sabe, e é tudo o que se sabe.
+  if (v.maxMes === null) {
+    return (
+      <span className="text-xs text-muted-foreground tabular-nums whitespace-nowrap">
+        {v.cargaMes} {v.cargaMes === 1 ? "escala" : "escalas"} no mês
+      </span>
+    );
+  }
+
   const pct = Math.min(100, Math.round((v.cargaMes / Math.max(v.maxMes, 1)) * 100));
   const tom = pct >= 100 ? "bg-destructive" : pct >= 60 ? "bg-warning" : "bg-success";
   return (

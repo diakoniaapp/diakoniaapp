@@ -57,7 +57,15 @@ export interface VoluntarioDoPainel {
 
   /** Só significam alguma coisa quando `temPerfil`. */
   cargaMes: number;
-  maxMes: number;
+  /**
+   * Quantas escalas no mês a pessoa DISSE que aguenta — derivado da frequência
+   * que ela escolheu, e não da coluna `max_escalas_mes`.
+   *
+   * `null` para quem escolheu "de vez em quando" ou "quando precisarem": essas
+   * doze pessoas não declararam número nenhum, e inventar um seria a mesma
+   * mentira em sentido contrário.
+   */
+  maxMes: number | null;
   sobrecarga: number;
 
   ultimaEscala: string | null;
@@ -105,7 +113,7 @@ export async function voluntariosDoMinisterio(ministerioId: string): Promise<Vol
       descansoAte: l.descanso_ate,
 
       cargaMes:   l.carga_atual_mes  ?? 0,
-      maxMes:     l.max_escalas_mes  ?? 4,
+      maxMes:     tetoDeclarado(l.frequencia_maxima as Frequencia | null),
       sobrecarga: l.nivel_sobrecarga ?? 0,
 
       ultimaEscala:  ultima,
@@ -123,11 +131,43 @@ export async function voluntariosDoMinisterio(ministerioId: string): Promise<Vol
 // A ordem é a de urgência para quem monta escala, e "sem_perfil" NÃO é o pior:
 // é só o mais comum hoje, e some sozinho conforme a igreja preenche.
 
+/**
+ * O teto do mês sai da frequência que a pessoa escolheu.
+ *
+ * ── POR QUE NÃO SAI DE `max_escalas_mes` ────────────────────────────────────
+ *
+ * Contado em 03/09/2026: a coluna vale **4 para as 76 pessoas**, tenham elas
+ * dito "toda semana" (13), "quinzenal" (9), "uma vez por mês" (42), "de vez em
+ * quando" (1) ou "quando precisarem" (11). É um padrão do banco que ninguém
+ * escolheu, e fazia "uma vez por mês" e "toda semana" parecerem a mesma coisa.
+ *
+ * O efeito medido: sete pessoas que disseram "uma vez por mês" e já serviram
+ * uma vez neste mês apareciam como 1/4, barra verde, "Disponível" — quando já
+ * tinham feito exatamente o que se dispuseram a fazer.
+ *
+ * A coluna não é tocada. Ela continua lá, com o 4, e simplesmente deixou de
+ * ser lida: quem responde é a frequência, que é o que a pessoa disse.
+ */
+export function tetoDeclarado(f: Frequencia | null): number | null {
+  switch (f) {
+    case "toda_semana": return 4;
+    case "quinzenal":   return 2;
+    case "mensal":      return 1;
+    // "De vez em quando" e "quando precisarem" não são números. Quem escolheu
+    // uma delas não pôs teto — pôs uma condição, e a tela não deve fingir que
+    // leu um número onde não havia.
+    default:            return null;
+  }
+}
+
 export type EstadoVoluntario = "descanso" | "no_limite" | "sumido" | "sem_perfil" | "disponivel";
 
 export function estadoDe(v: VoluntarioDoPainel): EstadoVoluntario {
   if (v.emDescanso) return "descanso";
-  if (v.temPerfil && v.cargaMes >= v.maxMes) return "no_limite";
+  // `maxMes` nulo é quem não declarou número: essa pessoa não chega ao
+  // limite porque não pôs limite. Comparar com um teto inventado a poria "no
+  // limite" sem que ela tivesse dito qualquer coisa parecida.
+  if (v.temPerfil && v.maxMes !== null && v.cargaMes >= v.maxMes) return "no_limite";
   if (v.diasSemServir !== null && v.diasSemServir >= 60) return "sumido";
   if (!v.temPerfil) return "sem_perfil";
   return "disponivel";
