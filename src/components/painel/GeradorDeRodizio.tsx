@@ -1,4 +1,14 @@
-// ─── A escala do mês, no painel de quem a monta ──────────────────────────────
+// ─── O gerador do rodízio, dentro de "Escalas" ───────────────────────────────
+//
+// Morava em seção própria, com nav própria — "Escala", ao lado de "Escalas"
+// na mesma tira de atalhos. Duas palavras que só se distinguem por um "s"
+// apontando para dois lugares diferentes é o tipo de coisa que ninguém
+// escolheria de propósito.
+//
+// E as duas eram a mesma pergunta em dois estágios: isto AQUI é o que cria
+// linhas em `escalas`; "Próximas escalas", logo abaixo, é a lista dessas
+// mesmas linhas. Gerar e não ver o resultado na lista era o defeito de
+// verdade — a nomenclatura só o deixou visível.
 //
 // A igreja cria o culto na agenda e marca que ele precisa do apoio deste
 // ministério. O evento aparece aqui, e um botão monta o rodízio do mês.
@@ -22,7 +32,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
 import { Shuffle, CalendarPlus, Loader2, Save, AlertTriangle, CalendarClock } from "lucide-react";
-import { TituloDaSecao } from "@/components/painel/blocos";
 import { carregarMes, gravarRascunho, type MesDoRodizio } from "@/services/escalaDoMes";
 import { montarRodizio, type PlanoDoMes } from "@/services/rodizio";
 
@@ -35,7 +44,21 @@ function diaEHora(data: string, hora: string | null): string {
     (hora ? ` · ${hora.slice(0, 5)}` : "");
 }
 
-export function SecaoRodizio({ ministerioId }: { ministerioId: string }) {
+export function GeradorDeRodizio({ ministerioId, pessoaId, aoGravar }: {
+  ministerioId: string;
+  /**
+   * A FICHA de quem está gravando — `useAuth().pessoaId`, não o id da conta.
+   * `escalas.criado_por` referencia `membros(id)`; passar o id da conta
+   * (`auth.uid()`) derruba a gravação com "violates foreign key constraint
+   * escalas_criado_por_fkey". Foi o primeiro clique real neste botão que
+   * achou o defeito.
+   */
+  pessoaId: string | null;
+  /** Chamado depois de gravar com sucesso — é o que faz "Próximas escalas",
+      logo abaixo, mostrar o que acabou de ser criado sem precisar atualizar
+      a página. */
+  aoGravar: () => void;
+}) {
   const agora = new Date();
   // O mês que interessa é o PRÓXIMO: escala se monta antes, não durante.
   const [quando, setQuando] = useState(() => {
@@ -63,10 +86,12 @@ export function SecaoRodizio({ ministerioId }: { ministerioId: string }) {
   async function gravar() {
     if (!plano) return;
     setGravando(true);
-    const r = await gravarRascunho(ministerioId, plano);
+    const r = await gravarRascunho(ministerioId, plano, pessoaId);
     setGravando(false);
     if (!r.ok) return toast.error(r.erro);
     toast.success(`Rascunho salvo: ${r.pessoas} ${r.pessoas === 1 ? "pessoa" : "pessoas"} em ${r.escalas} ${r.escalas === 1 ? "escala" : "escalas"}.`);
+    setPlano(null);
+    aoGravar();
   }
 
   function mover(passo: number) {
@@ -75,17 +100,18 @@ export function SecaoRodizio({ ministerioId }: { ministerioId: string }) {
   }
 
   return (
-    <section id="rodizio" className="scroll-mt-[240px]">
-      <TituloDaSecao icone={Shuffle} tom="info" contagem={mes?.eventos.length}>
-        Escala do mês
-      </TituloDaSecao>
+    <div className="rounded-md border bg-card px-3 py-2.5 mb-2">
+      <p className="flex items-center gap-2 text-sm font-medium mb-2">
+        <Shuffle className="w-4 h-4 shrink-0 text-muted-foreground" />
+        Montar a escala do mês
+      </p>
 
       <div className="flex flex-wrap items-center gap-1.5 mb-2">
         <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-xs"
           onClick={() => mover(-1)}>←</Button>
         {/* `capitalize` do Tailwind põe maiúscula em CADA palavra, e saía
             "Outubro De 2026". A maiúscula é uma só, na primeira letra. */}
-        <span className="text-sm font-medium min-w-[9rem]">
+        <span className="text-sm min-w-[9rem]">
           {MESES[quando.mes - 1][0].toUpperCase() + MESES[quando.mes - 1].slice(1)} de {quando.ano}
         </span>
         <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-xs"
@@ -141,7 +167,7 @@ export function SecaoRodizio({ ministerioId }: { ministerioId: string }) {
               </p>
 
               {plano.vagas.map(v => (
-                <div key={`${v.evento_id}-${v.area_id}`} className="rounded-md border bg-card px-3 py-2.5">
+                <div key={`${v.evento_id}-${v.area_id}`} className="rounded-md border bg-background px-3 py-2.5">
                   <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                     <span className="text-sm font-medium">{v.area_nome}</span>
                     <span className="text-xs text-muted-foreground">{v.titulo}</span>
@@ -218,12 +244,12 @@ export function SecaoRodizio({ ministerioId }: { ministerioId: string }) {
 
               <p className="text-xs text-muted-foreground">
                 Salvo como rascunho, ninguém é avisado: o estado é <Badge variant="outline" className="text-xs h-4 px-1 font-normal">planejada</Badge>{" "}
-                até alguém confirmar a escala.
+                até alguém confirmar a escala — e a linha aparece em "Próximas escalas", logo abaixo.
               </p>
             </div>
           )}
         </>
       )}
-    </section>
+    </div>
   );
 }

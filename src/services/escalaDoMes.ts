@@ -131,12 +131,16 @@ export async function carregarMes(
  * cria sem procurar as multiplicaria a cada clique.
  */
 export async function gravarRascunho(
-  ministerioId: string, plano: PlanoDoMes,
+  ministerioId: string, plano: PlanoDoMes, criadoPorPessoaId: string | null,
 ): Promise<ResultadoEscrita & { escalas?: number; pessoas?: number }> {
   const comGente = plano.vagas.filter(v => v.escalados.length > 0);
   if (comGente.length === 0) return { ok: false, erro: "O rodízio não encontrou ninguém para escalar." };
 
-  const { data: sessao } = await supabase.auth.getUser();
+  // `escalas.criado_por` referencia `membros(id)` — a FICHA, não a conta.
+  // A primeira versão gravava `auth.getUser().id`, o id da CONTA, e o banco
+  // recusava com "violates foreign key constraint escalas_criado_por_fkey".
+  // conta ≠ ficha, pela enésima vez nesta casa: quem chama já tem o
+  // `pessoaId` do `useAuth()`, e é esse que se passa aqui.
   let escalasTocadas = 0;
   let pessoasGravadas = 0;
 
@@ -156,7 +160,7 @@ export async function gravarRascunho(
         titulo: `${vaga.area_nome} — ${vaga.titulo}`,
         data_evento: vaga.data,
         status: "planejada",
-        criado_por: sessao?.user?.id ?? null,
+        criado_por: criadoPorPessoaId,
       }).select("id");
       const rc = conferir(criada, "A escala");
       if (!rc.ok) return rc;

@@ -42,7 +42,7 @@ import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
   Boxes, Users, CalendarClock, ListChecks, ChevronRight, RefreshCw,
-  Plus, Trash2, Check, AlertTriangle, Phone, DoorOpen, Shuffle,
+  Plus, Trash2, Check, AlertTriangle, Phone, DoorOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -69,7 +69,7 @@ import { carregarBancadaPgm, type BancadaPgm } from "@/services/bancadaPgmServic
 import { SecaoPgm } from "@/components/painel/SecaoPgm";
 import { carregarBancadaAcolhimento, type BancadaAcolhimento } from "@/services/bancadaAcolhimentoService";
 import { SecaoAcolhimento } from "@/components/painel/SecaoAcolhimento";
-import { SecaoRodizio } from "@/components/painel/SecaoRodizio";
+import { GeradorDeRodizio } from "@/components/painel/GeradorDeRodizio";
 import { ComposicaoPorFuncao, composicao } from "@/components/painel/ComposicaoPorFuncao";
 import { carregarPostos, type PostosDoMinisterio } from "@/services/postos";
 import { carregarAgendaDoMinisterio, type AgendaDoMinisterio } from "@/services/agendaDoMinisterioService";
@@ -246,8 +246,6 @@ export default function PainelMinisterio() {
             <Indicador rotulo="Porta" tom="success" icone={DoorOpen}
               onClick={() => irParaSecao("acolhimento")} descricao="Ir para A porta da frente" />
           )}
-          <Indicador rotulo="Escala" tom="info" icone={Shuffle}
-            onClick={() => irParaSecao("rodizio")} descricao="Ir para Escala do mês" />
           <Indicador rotulo="Áreas" tom="info" icone={Boxes}
             onClick={() => irParaSecao("areas")} descricao="Ir para Áreas" />
           <Indicador rotulo="Equipe" tom="success" icone={Users}
@@ -266,7 +264,6 @@ export default function PainelMinisterio() {
       {arr && <SecaoArrecadacao arr={arr} />}
       {pgm && <SecaoPgm pgm={pgm} />}
       {ac && <SecaoAcolhimento ac={ac} />}
-      <SecaoRodizio ministerioId={ministerioId} />
 
       <SecaoAreas painel={painel} />
       <SecaoEquipe painel={painel} postos={postos} ministerioId={ministerioId} />
@@ -274,7 +271,7 @@ export default function PainelMinisterio() {
           contra 10 escalas. Para dez dos onze, é aqui que o ministério
           acontece. */}
       {agenda && <SecaoAgendaDoMinisterio agenda={agenda} />}
-      <SecaoEscalas painel={painel} pessoaId={pessoaId} />
+      <SecaoEscalas painel={painel} pessoaId={pessoaId} ministerioId={ministerioId} aoMudar={carregar} />
       <SecaoChecklist painel={painel} podeEditar={podeEditarTarefas} aoMudar={carregar} />
     </div>
   );
@@ -548,7 +545,9 @@ function SecaoEquipe({ painel, postos, ministerioId }: {
 
 // ─── Escalas, com o checklist do dia ──────────────────────────────────────
 
-function SecaoEscalas({ painel, pessoaId }: { painel: Painel; pessoaId: string | null }) {
+function SecaoEscalas({ painel, pessoaId, ministerioId, aoMudar }: {
+  painel: Painel; pessoaId: string | null; ministerioId: string; aoMudar: () => void;
+}) {
   // A view `v_proximas_escalas` já filtra por data e ordena; não há o que
   // recortar aqui. `escalasFuturas` continua exportada para quem receber uma
   // lista que inclua o passado.
@@ -558,8 +557,14 @@ function SecaoEscalas({ painel, pessoaId }: { painel: Painel; pessoaId: string |
   return (
     <section id="escalas" className="scroll-mt-[240px]">
       <TituloDaSecao icone={CalendarClock} tom="gold" contagem={futuras.length}>
-        Próximas escalas
+        Escalas
       </TituloDaSecao>
+
+      <GeradorDeRodizio ministerioId={ministerioId} pessoaId={pessoaId} aoGravar={aoMudar} />
+
+      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5">
+        Próximas escalas
+      </p>
 
       {futuras.length === 0 ? (
         <p className="text-sm text-muted-foreground py-2 px-3 border rounded-md">
