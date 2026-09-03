@@ -69,6 +69,7 @@ import { carregarBancadaPgm, type BancadaPgm } from "@/services/bancadaPgmServic
 import { SecaoPgm } from "@/components/painel/SecaoPgm";
 import { carregarBancadaAcolhimento, type BancadaAcolhimento } from "@/services/bancadaAcolhimentoService";
 import { SecaoAcolhimento } from "@/components/painel/SecaoAcolhimento";
+import { CatalogoDaArea } from "@/components/painel/CatalogoDaArea";
 import { GeradorDeRodizio } from "@/components/painel/GeradorDeRodizio";
 import { ComposicaoPorFuncao, composicao } from "@/components/painel/ComposicaoPorFuncao";
 import { carregarPostos, type PostosDoMinisterio } from "@/services/postos";
@@ -146,6 +147,9 @@ export default function PainelMinisterio() {
 
   const lidero = (meus ?? []).find(m => m.id === ministerioId);
   const podeVer = ehDonoDoSistema || !!lidero;
+  // Mesmo recorte para o checklist e para o catálogo de postos — a RLS de
+  // `area_funcoes` já estreita a liderança à própria área por baixo; aqui
+  // só se decide se o lápis aparece.
   const podeEditarTarefas = hasRole(["admin", "lideranca"]);
 
   if (carregando && !painel) {
@@ -265,7 +269,7 @@ export default function PainelMinisterio() {
       {pgm && <SecaoPgm pgm={pgm} />}
       {ac && <SecaoAcolhimento ac={ac} />}
 
-      <SecaoAreas painel={painel} />
+      <SecaoAreas painel={painel} postos={postos} podeEditar={podeEditarTarefas} aoMudar={carregar} />
       <SecaoEquipe painel={painel} postos={postos} ministerioId={ministerioId} />
       {/* A agenda vem ANTES das escalas: 54 vínculos evento↔ministério
           contra 10 escalas. Para dez dos onze, é aqui que o ministério
@@ -422,7 +426,14 @@ function resumoNatural(
 
 // ─── Áreas ────────────────────────────────────────────────────────────────
 
-function SecaoAreas({ painel }: { painel: Painel }) {
+function SecaoAreas({ painel, postos, podeEditar, aoMudar }: {
+  painel: Painel; postos: PostosDoMinisterio | null; podeEditar: boolean; aoMudar: () => void;
+}) {
+  // Uma por vez: abrir a segunda fecha a primeira, do mesmo jeito que as
+  // linhas de "Próximas escalas" já fazem — duas listas de postos abertas ao
+  // mesmo tempo na tela do celular é mais rolagem que leitura.
+  const [aberta, setAberta] = useState<string | null>(null);
+
   return (
     <section id="areas" className="scroll-mt-[240px]">
       <TituloDaSecao icone={Boxes} tom="info" contagem={painel.areas.length}>
@@ -437,24 +448,43 @@ function SecaoAreas({ painel }: { painel: Painel }) {
           {painel.areas.map(a => {
             const piso = a.min_voluntarios ?? 0;
             const faltam = piso > 0 ? piso - a.voluntarios : 0;
+            const catalogo = postos?.catalogo.get(a.id) ?? [];
+            const expandida = aberta === a.id;
             return (
-              <li key={a.id} className="flex items-center gap-3 px-3 py-2.5 min-w-0">
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium truncate min-w-0">{a.nome}</p>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {a.voluntarios} {a.voluntarios === 1 ? "voluntário" : "voluntários"}
-                    {piso > 0 ? ` · mínimo ${piso}` : ""}
-                    {a.tarefas > 0 ? ` · ${a.tarefas} ${a.tarefas === 1 ? "tarefa" : "tarefas"}` : " · sem checklist"}
-                  </p>
-                </div>
-                {/* O aviso só aparece quando a própria igreja declarou um piso
-                    e ele não está sendo cumprido. Sem `min_voluntarios`, não
-                    há como saber se três pessoas são muitas ou poucas. */}
-                {faltam > 0 && (
-                  <Badge variant="outline" className="shrink-0 gap-1 text-xs text-warning-text border-warning-line">
-                    <AlertTriangle className="w-3 h-3" />
-                    faltam {faltam}
-                  </Badge>
+              <li key={a.id} className="min-w-0">
+                <button
+                  type="button"
+                  onClick={() => setAberta(expandida ? null : a.id)}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 min-w-0 text-left hover:bg-muted/40 transition-colors"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate min-w-0">{a.nome}</p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {a.voluntarios} {a.voluntarios === 1 ? "voluntário" : "voluntários"}
+                      {piso > 0 ? ` · mínimo ${piso}` : ""}
+                      {a.tarefas > 0 ? ` · ${a.tarefas} ${a.tarefas === 1 ? "tarefa" : "tarefas"}` : " · sem checklist"}
+                      {postos && (catalogo.length > 0
+                        ? ` · ${catalogo.length} ${catalogo.length === 1 ? "posto" : "postos"}`
+                        : " · sem posto no catálogo")}
+                    </p>
+                  </div>
+                  {/* O aviso só aparece quando a própria igreja declarou um piso
+                      e ele não está sendo cumprido. Sem `min_voluntarios`, não
+                      há como saber se três pessoas são muitas ou poucas. */}
+                  {faltam > 0 && (
+                    <Badge variant="outline" className="shrink-0 gap-1 text-xs text-warning-text border-warning-line">
+                      <AlertTriangle className="w-3 h-3" />
+                      faltam {faltam}
+                    </Badge>
+                  )}
+                  <ChevronRight className={`w-4 h-4 shrink-0 text-muted-foreground transition-transform ${expandida ? "rotate-90" : ""}`} />
+                </button>
+
+                {expandida && postos && (
+                  <CatalogoDaArea
+                    areaId={a.id} areaNome={a.nome} catalogo={catalogo}
+                    podeEditar={podeEditar} onMudou={aoMudar}
+                  />
                 )}
               </li>
             );

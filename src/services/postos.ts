@@ -198,6 +198,37 @@ export async function criarPosto(
                               ordem: p.ordem ?? 0, min_por_escala: p.min_por_escala ?? 0 } };
 }
 
+/**
+ * Renomeia um posto do catálogo.
+ *
+ * O mesmo gatilho e o mesmo índice único de `criarPosto` valem aqui — eles
+ * rodam em INSERT OU UPDATE. Não é preciso repetir as regras: um posto
+ * renomeado para "Voluntário" é recusado do mesmo jeito que um criado assim.
+ *
+ * Não muda quem ocupa o posto. Renomear "Atendimento" para "Recepção de
+ * visitante" continua sendo as mesmas pessoas, com o nome novo.
+ */
+export async function editarPosto(
+  postoId: string, novoNome: string,
+): Promise<ResultadoEscrita & { posto?: Posto }> {
+  const limpo = novoNome.trim();
+  if (!limpo) return { ok: false, erro: "Escreva o nome do posto." };
+
+  const resultado = await supabase.from("area_funcoes")
+    .update({ nome: limpo })
+    .eq("id", postoId)
+    .select("id, area_id, nome, ordem, min_por_escala");
+
+  if (resultado.error) return { ok: false, erro: traduzir(resultado.error.message, limpo) };
+
+  const rc = conferir(resultado, "O posto");
+  if (!rc.ok) return { ok: false, erro: rc.erro };
+
+  const p = (resultado.data as any[])[0];
+  return { ok: true, posto: { id: p.id, area_id: p.area_id, nome: p.nome,
+                              ordem: p.ordem ?? 0, min_por_escala: p.min_por_escala ?? 0 } };
+}
+
 function traduzir(mensagem: string, nome: string): string {
   const m = mensagem.toLowerCase();
   if (m.includes("area_funcoes_sem_repetir")) return `“${nome}” já existe nesta área.`;
@@ -205,6 +236,6 @@ function traduzir(mensagem: string, nome: string): string {
   if (m.includes("area_funcoes_nome_util")) {
     return `“${nome}” não descreve um posto. Liderança vem da área, e “Voluntário” é a ausência de resposta.`;
   }
-  if (m.includes("row-level security")) return "Você só pode criar postos nas áreas que lidera.";
+  if (m.includes("row-level security")) return "Você só pode mexer nos postos das áreas que lidera.";
   return mensagem;
 }
