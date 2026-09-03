@@ -20,7 +20,8 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Shuffle, CalendarPlus, Loader2, Save, AlertTriangle } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Shuffle, CalendarPlus, Loader2, Save, AlertTriangle, CalendarClock } from "lucide-react";
 import { TituloDaSecao } from "@/components/painel/blocos";
 import { carregarMes, gravarRascunho, type MesDoRodizio } from "@/services/escalaDoMes";
 import { montarRodizio, type PlanoDoMes } from "@/services/rodizio";
@@ -154,7 +155,12 @@ export function SecaoRodizio({ ministerioId }: { ministerioId: string }) {
                       {v.escalados.map(e => (
                         <li key={e.pessoa_id} className="flex flex-wrap items-baseline gap-x-2 text-xs">
                           <span className="font-medium">{e.nome}</span>
-                          <span className="text-muted-foreground">{e.porque}</span>
+                          {/* Presumido tem cor: a escala não esconde que
+                              aquele nome entrou por palpite, e não por
+                              resposta. */}
+                          <span className={e.presumido ? "text-warning-text" : "text-muted-foreground"}>
+                            {e.porque}
+                          </span>
                         </li>
                       ))}
                     </ul>
@@ -168,6 +174,47 @@ export function SecaoRodizio({ ministerioId }: { ministerioId: string }) {
                   )}
                 </div>
               ))}
+
+              {/* ── A COBRANÇA DA FICHA ────────────────────────────────
+                  Silêncio não é recusa: quem não informou entra na urna. Mas
+                  presumir para sempre transforma a lacuna em regra, e a
+                  escala passa a ser palpite com cara de decisão. Por isso a
+                  lista é de TODA a equipe sem disponibilidade, e não só de
+                  quem calhou de ser sorteado. */}
+              {plano.semDisponibilidade.length > 0 && (
+                <div className="rounded-md border border-warning-line bg-warning-soft px-3 py-2.5">
+                  <p className="flex items-center gap-2 text-sm font-medium text-warning-text">
+                    <CalendarClock className="w-4 h-4 shrink-0" />
+                    {plano.semDisponibilidade.length === 1
+                      ? "1 pessoa da equipe não disse quando pode servir"
+                      : `${plano.semDisponibilidade.length} pessoas da equipe não disseram quando podem servir`}
+                  </p>
+                  <p className="text-xs text-warning-text/90 mt-0.5">
+                    Elas entram no rodízio como disponíveis — o silêncio não é recusa —, mas isso é
+                    palpite. O passo <strong>Quando serve</strong>, na ficha de cada uma, troca o
+                    palpite por resposta.
+                  </p>
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {plano.semDisponibilidade.slice(0, 15).map(p => (
+                      <span key={p.pessoa_id}
+                        className="rounded-full border border-warning-line bg-background px-2.5 py-0.5 text-xs">
+                        {p.nome}
+                      </span>
+                    ))}
+                    {plano.semDisponibilidade.length > 15 && (
+                      <span className="text-xs text-warning-text/80 self-center">
+                        e mais {plano.semDisponibilidade.length - 15}
+                      </span>
+                    )}
+                  </div>
+                  <Link
+                    to={`/ministerios/${ministerioId}/voluntarios`}
+                    className="inline-block mt-2 text-xs text-warning-text underline underline-offset-2 hover:text-foreground"
+                  >
+                    Abrir a equipe e informar
+                  </Link>
+                </div>
+              )}
 
               <p className="text-xs text-muted-foreground">
                 Salvo como rascunho, ninguém é avisado: o estado é <Badge variant="outline" className="text-xs h-4 px-1 font-normal">planejada</Badge>{" "}

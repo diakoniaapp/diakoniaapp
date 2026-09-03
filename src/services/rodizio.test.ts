@@ -203,12 +203,66 @@ describe("montarRodizio — explica o que faltou", () => {
     expect(plano.vagas[0].motivoDaFalta).toBe("todos já cumpriram o que se dispuseram no mês");
   });
 
-  it("aponta quem não disse quando pode servir", () => {
+  it("cada escalado vem com a frase que explica a escolha", () => {
     const plano = montarRodizio(
       [culto("2026-10-04", 1)],
-      [pessoa({ pessoa_id: "muda", dias: [] })],
+      [pessoa({ pessoa_id: "ana", diasSemServir: 47, maxMes: 2, cargaMes: 0 })],
     );
-    expect(plano.vagas[0].motivoDaFalta).toContain("não disse quando pode servir");
+    expect(plano.vagas[0].escalados[0].porque).toBe("não serve há 47 dias · 0 de 2 no mês");
+  });
+});
+
+// ── QUEM NÃO INFORMOU ──────────────────────────────────────────────────────
+//
+// Decisão da igreja, 03/09/2026: silêncio não é recusa. Quem não disse quando
+// pode servir entra na urna — mas a escala diz que foi palpite, e o painel
+// cobra o preenchimento. Presumir sem cobrar transformaria a lacuna em regra.
+describe("montarRodizio — quem não informou disponibilidade", () => {
+  it("entra na urna em vez de ficar de fora", () => {
+    const plano = montarRodizio(
+      [culto("2026-10-04", 1)],
+      [pessoa({ pessoa_id: "muda", dias: [], turnos: [] })],
+    );
+    expect(plano.vagas[0].escalados.map(e => e.pessoa_id)).toEqual(["muda"]);
+  });
+
+  it("é marcada como presumida, e a frase diz por quê", () => {
+    const plano = montarRodizio(
+      [culto("2026-10-04", 1)],
+      [pessoa({ pessoa_id: "muda", dias: [], diasSemServir: 20, maxMes: 1 })],
+    );
+    const e = plano.vagas[0].escalados[0];
+    expect(e.presumido).toBe(true);
+    expect(e.porque).toBe("não disse quando pode servir · não serve há 20 dias · 0 de 1 no mês");
+  });
+
+  it("quem declarou NÃO é marcada como presumida", () => {
+    const plano = montarRodizio(
+      [culto("2026-10-04", 1)],
+      [pessoa({ pessoa_id: "ana", dias: ["domingo"] })],
+    );
+    expect(plano.vagas[0].escalados[0].presumido).toBe(false);
+  });
+
+  it("quem marcou ALGUNS dias e não este continua de fora", () => {
+    // Silêncio é presunção; "só sábado" é uma resposta, e a resposta vale.
+    const plano = montarRodizio(
+      [culto("2026-10-04", 1)],
+      [pessoa({ pessoa_id: "so_sabado", dias: ["sabado"] })],
+    );
+    expect(plano.vagas[0].escalados).toHaveLength(0);
+  });
+
+  it("lista TODA a equipe sem disponibilidade, não só quem foi sorteado", () => {
+    // O painel cobra a ficha de todos. Cobrar só de quem calhou de entrar
+    // deixaria o resto invisível até o mês seguinte.
+    const plano = montarRodizio(
+      [culto("2026-10-04", 1)],
+      [pessoa({ pessoa_id: "muda1", nome: "Zuleica", dias: [] }),
+       pessoa({ pessoa_id: "muda2", nome: "Abel", dias: [] }),
+       pessoa({ pessoa_id: "falante", dias: ["domingo"] })],
+    );
+    expect(plano.semDisponibilidade.map(p => p.nome)).toEqual(["Abel", "Zuleica"]);
   });
 
   it("cada escalado vem com a frase que explica a escolha", () => {

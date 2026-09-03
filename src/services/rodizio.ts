@@ -19,7 +19,8 @@
 //   • passar do teto que a pessoa declarou — "uma vez por mês" é uma vez no
 //     mês inteiro, e o contador sobe DENTRO da própria geração, senão o
 //     segundo domingo não sabe do primeiro;
-//   • escalar quem não marcou aquele dia ou aquele turno;
+//   • escalar quem MARCOU dias e não marcou aquele — quem não marcou nenhum
+//     é caso à parte, ver abaixo;
 //   • escalar quem está em descanso;
 //   • pôr a mesma pessoa em duas áreas do mesmo culto — Recepção e Introdução
 //     acontecem à mesma hora.
@@ -55,6 +56,15 @@ export interface Escalado {
   nome: string;
   /** A frase que aparece ao lado do nome. Sem ela o líder não confia. */
   porque: string;
+  /**
+   * Entrou por presunção: não disse quando pode servir.
+   *
+   * A igreja decidiu em 03/09/2026 que quem não informou entra na urna — o
+   * silêncio dela não é um "não". Mas a escala tem de dizer que foi palpite, e
+   * o painel tem de cobrar o preenchimento da ficha: presumir para sempre é
+   * transformar a lacuna em regra.
+   */
+  presumido: boolean;
 }
 
 export interface VagaDaEscala {
@@ -76,6 +86,11 @@ export interface PlanoDoMes {
   pessoasUsadas: number;
   /** Vagas que ficaram incompletas. */
   incompletas: number;
+  /**
+   * Quem está na urna sem ter dito quando pode servir — TODA a equipe, e não
+   * só quem calhou de ser sorteado. É a lista que o painel cobra.
+   */
+  semDisponibilidade: { pessoa_id: string; nome: string }[];
 }
 
 const DIA_DA_SEMANA: DiaSemana[] =
@@ -111,8 +126,14 @@ function sorteador(semente: number): () => number {
   };
 }
 
+/** Quem não marcou dia nenhum entra por presunção — e a tela diz isso. */
+export function presumido(c: CandidatoDaArea): boolean {
+  return c.dias.length === 0;
+}
+
 function frase(c: CandidatoDaArea, jaNoMes: number): string {
   const partes: string[] = [];
+  if (presumido(c)) partes.push("não disse quando pode servir");
   partes.push(c.diasSemServir === null
     ? "nunca serviu"
     : c.diasSemServir === 0 ? "serviu hoje" : `não serve há ${c.diasSemServir} dias`);
@@ -160,7 +181,10 @@ export function montarRodizio(
       const elegiveis = daArea.filter(c => {
         if (c.emDescanso) return false;
         if (jaNesteEvento.has(c.pessoa_id)) return false;
-        if (!c.dias.includes(dia)) return false;
+        // Silêncio não é recusa. Quem não marcou dia NENHUM entra — a igreja
+        // decidiu assim, e o painel cobra o preenchimento em separado. Quem
+        // marcou alguns e não marcou este, esse disse que não pode.
+        if (c.dias.length > 0 && !c.dias.includes(dia)) return false;
         if (turno && c.turnos.length > 0
             && !c.turnos.includes(turno) && !c.turnos.includes("dia_todo")) return false;
         const gasto = usoNoMes.get(c.pessoa_id) ?? c.cargaMes;
@@ -201,7 +225,7 @@ export function montarRodizio(
         ultimaVezNesteMes.set(c.pessoa_id, indice);
         jaNesteEvento.add(c.pessoa_id);
         usados.add(c.pessoa_id);
-        return { pessoa_id: c.pessoa_id, nome: c.nome, porque: texto };
+        return { pessoa_id: c.pessoa_id, nome: c.nome, porque: texto, presumido: presumido(c) };
       });
 
       const faltam = Math.max(0, area.minimo - escalados.length);
@@ -214,10 +238,16 @@ export function montarRodizio(
     }
   });
 
+  const mudos = new Map<string, string>();
+  for (const c of candidatos) if (presumido(c)) mudos.set(c.pessoa_id, c.nome);
+
   return {
     vagas,
     pessoasUsadas: usados.size,
     incompletas: vagas.filter(v => v.faltam > 0).length,
+    semDisponibilidade: [...mudos.entries()]
+      .map(([pessoa_id, nome]) => ({ pessoa_id, nome }))
+      .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")),
   };
 }
 
@@ -234,13 +264,8 @@ function porQueFaltou(
 ): string {
   if (daArea.length === 0) return "ninguém serve nesta área";
 
-  const semPerfil = daArea.filter(c => c.dias.length === 0).length;
-  const noDia = daArea.filter(c => c.dias.includes(dia));
-  if (noDia.length === 0) {
-    return semPerfil > 0
-      ? `ninguém marcou ${dia} — e ${semPerfil} ${semPerfil === 1 ? "pessoa não disse" : "pessoas não disseram"} quando pode servir`
-      : `ninguém marcou ${dia}`;
-  }
+  const noDia = daArea.filter(c => c.dias.length === 0 || c.dias.includes(dia));
+  if (noDia.length === 0) return `ninguém marcou ${dia}`;
 
   const noTurno = turno
     ? noDia.filter(c => c.turnos.length === 0 || c.turnos.includes(turno) || c.turnos.includes("dia_todo"))

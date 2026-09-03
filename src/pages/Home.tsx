@@ -50,6 +50,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   UserPlus, Search, CalendarClock, LayoutGrid, CalendarDays, IdCard, BookOpen, HeartHandshake,
+  DoorOpen,
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -63,6 +64,7 @@ import { MeusPaineis } from "@/components/eu/MeusPaineis";
 import { MinhaFicha } from "@/components/eu/MinhaFicha";
 import { MinhaSemana, MinhaEbdCard, MeuPgmCard } from "@/components/eu/MinhaVida";
 import { OndeEuSirvo } from "@/components/eu/OndeEuSirvo";
+import { PortaNoHome } from "@/components/eu/PortaNoHome";
 import { AgendaDaSemana } from "@/components/eu/AgendaDaSemana";
 import { minhaFicha, type MinhaFicha as Ficha } from "@/services/meuEspacoService";
 
@@ -107,6 +109,7 @@ const ROLE_LABEL: Record<string, string> = {
 export const ATALHOS: { id: string; rotulo: string; icone: LucideIcon }[] = [
   { id: "minha-semana", rotulo: "Semana",   icone: CalendarClock },
   { id: "meus-paineis", rotulo: "Painéis",  icone: LayoutGrid },
+  { id: "porta",        rotulo: "Porta",    icone: DoorOpen },
   { id: "agenda",       rotulo: "Agenda",   icone: CalendarDays },
   { id: "meus-dados",   rotulo: "Meus dados", icone: IdCard },
   // "Onde sirvo" e não "Onde você serve": o rótulo é o único texto da célula,
@@ -263,6 +266,11 @@ export default function Home() {
         <Secao id="meus-paineis" onVazio={marcarVazio}
           titulo="Seus painéis" subtitulo="Onde você trabalha neste sistema">
           <MeusPaineis permissoes={permissoes} pessoaId={pessoaId} />
+        </Secao>
+
+        <Secao id="porta" onVazio={marcarVazio}
+          titulo="A porta da frente" subtitulo="Quem chegou na igreja e ainda espera ser procurado">
+          <PortaNoHome pessoaId={pessoaId} />
         </Secao>
 
         <Secao id="agenda" onVazio={marcarVazio}
