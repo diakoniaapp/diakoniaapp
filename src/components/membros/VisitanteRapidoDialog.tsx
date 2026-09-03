@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { idDaAreaDeAcolhimento } from "@/services/bancadaAcolhimentoService";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
@@ -168,11 +169,16 @@ export default function VisitanteRapidoDialog({ open, onOpenChange, onSaved }: P
       d.setDate(d.getDate() + n);
       return d.toISOString().split("T")[0];
     };
+    // Sem `area_id`, estas quatro nasciam órfãs — foi assim que as 12 de
+    // hoje chegaram soltas. `idDaAreaDeAcolhimento()` resolve pelo módulo do
+    // ministério, não pelo nome da área, então sobrevive a um novo
+    // renomeio como o de hoje (Recepção → Integração).
+    const areaId = await idDaAreaDeAcolhimento();
     const tarefas = [
-      { visitante_id: visitanteId, titulo: `Enviar mensagem de boas-vindas — ${primeiro}`,  data: addDias(0)  },
-      { visitante_id: visitanteId, titulo: `Entrar em contato com ${primeiro}`,              data: addDias(2)  },
-      { visitante_id: visitanteId, titulo: `Convidar ${primeiro} para retornar ao culto`,    data: addDias(7)  },
-      { visitante_id: visitanteId, titulo: `Recontato — verificar situação de ${primeiro}`,  data: addDias(15) },
+      { visitante_id: visitanteId, titulo: `Enviar mensagem de boas-vindas — ${primeiro}`,  data: addDias(0),  area_id: areaId },
+      { visitante_id: visitanteId, titulo: `Entrar em contato com ${primeiro}`,              data: addDias(2),  area_id: areaId },
+      { visitante_id: visitanteId, titulo: `Convidar ${primeiro} para retornar ao culto`,    data: addDias(7),  area_id: areaId },
+      { visitante_id: visitanteId, titulo: `Recontato — verificar situação de ${primeiro}`,  data: addDias(15), area_id: areaId },
     ];
     await supabase.from("acolhimento_tarefas").insert(tarefas);
   };

@@ -24,6 +24,23 @@
 
 import { supabase } from "@/integrations/supabase/client";
 
+/**
+ * A área dona das tarefas de acolhimento — hoje "Crescimento", mas o código
+ * não deve saber disso pelo nome. `ministerios.area_acolhimento_id` é o
+ * mesmo desenho de `ministerios.modulo`, um nível abaixo: aponta para a área
+ * certa mesmo que amanhã ela seja renomeada de novo.
+ *
+ * `null` quando nenhum ministério com módulo de acolhimento existe, ou
+ * quando existe mas ainda não apontou uma área — a tela que usa isto trata
+ * os dois casos como "sem dono", e não inventa um.
+ */
+export async function idDaAreaDeAcolhimento(): Promise<string | null> {
+  const { data } = await supabase
+    .from("ministerios").select("area_acolhimento_id")
+    .eq("modulo", "acolhimento").maybeSingle();
+  return (data as any)?.area_acolhimento_id ?? null;
+}
+
 export interface TarefaDeAcolhimento {
   id: string;
   titulo: string;

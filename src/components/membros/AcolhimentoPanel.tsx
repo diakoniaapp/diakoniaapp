@@ -12,6 +12,7 @@ import type { Membro } from "@/pages/Membros";
 import { calcularEtapa, getMensagem, buildWhatsAppLink } from "@/lib/visitantesFluxo";
 import { TIPO_PESSOA_COR } from "@/lib/tipoPessoa";
 import { conferir } from "@/lib/escritaConferida";
+import { idDaAreaDeAcolhimento } from "@/services/bancadaAcolhimentoService";
 
 interface Tarefa {
   id: string;
@@ -90,6 +91,9 @@ export function AcolhimentoPanel({ pessoa, onUpdated }: Props) {
       visitante_id: pessoa.id,
       titulo: `Recontato adicional — ${pessoa.nome_completo}`,
       data: d.toISOString().slice(0, 10),
+      // Sem isto a tarefa nasce órfã — foi assim que as 12 de antes ficaram
+      // soltas de área nenhuma.
+      area_id: await idDaAreaDeAcolhimento(),
     });
     if (error) return toast.error(error.message);
     toast.success("Lembrete adicionado");

@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       acolhimento_tarefas: {
         Row: {
+          area_id: string | null
           atualizado_em: string
           concluida: boolean
           criado_em: string
@@ -26,6 +27,7 @@ export type Database = {
           visitante_id: string
         }
         Insert: {
+          area_id?: string | null
           atualizado_em?: string
           concluida?: boolean
           criado_em?: string
@@ -36,6 +38,7 @@ export type Database = {
           visitante_id: string
         }
         Update: {
+          area_id?: string | null
           atualizado_em?: string
           concluida?: boolean
           criado_em?: string
@@ -46,6 +49,20 @@ export type Database = {
           visitante_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "acolhimento_tarefas_area_id_fkey"
+            columns: ["area_id"]
+            isOneToOne: false
+            referencedRelation: "areas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "acolhimento_tarefas_area_id_fkey"
+            columns: ["area_id"]
+            isOneToOne: false
+            referencedRelation: "v_voluntarios_completo"
+            referencedColumns: ["area_id"]
+          },
           {
             foreignKeyName: "acolhimento_tarefas_visitante_id_fkey"
             columns: ["visitante_id"]
@@ -7718,6 +7735,7 @@ export type Database = {
       }
       ministerios: {
         Row: {
+          area_acolhimento_id: string | null
           ativo: boolean
           co_lider_id: string | null
           congregacao_id: string | null
@@ -7744,6 +7762,7 @@ export type Database = {
           vice_lider_id: string | null
         }
         Insert: {
+          area_acolhimento_id?: string | null
           ativo?: boolean
           co_lider_id?: string | null
           congregacao_id?: string | null
@@ -7770,6 +7789,7 @@ export type Database = {
           vice_lider_id?: string | null
         }
         Update: {
+          area_acolhimento_id?: string | null
           ativo?: boolean
           co_lider_id?: string | null
           congregacao_id?: string | null
@@ -7796,6 +7816,20 @@ export type Database = {
           vice_lider_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "ministerios_area_acolhimento_id_fkey"
+            columns: ["area_acolhimento_id"]
+            isOneToOne: false
+            referencedRelation: "areas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ministerios_area_acolhimento_id_fkey"
+            columns: ["area_acolhimento_id"]
+            isOneToOne: false
+            referencedRelation: "v_voluntarios_completo"
+            referencedColumns: ["area_id"]
+          },
           {
             foreignKeyName: "ministerios_congregacao_id_fkey"
             columns: ["congregacao_id"]
