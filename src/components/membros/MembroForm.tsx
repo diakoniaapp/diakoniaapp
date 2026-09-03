@@ -336,7 +336,6 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
   // aqui não tinha onde escrever. Agora tem — e continua opcional: obrigar a
   // função no cadastro de uma pessoa emperraria o trabalho da secretaria por
   // um dado que quem lidera preenche melhor depois, em Atuações.
-  const [funcaoPorArea, setFuncaoPorArea] = useState<Record<string, string>>({});
   // As áreas em que a pessoa JÁ serve quando o formulário abriu. Serve para
   // não oferecer o campo de função onde ele não teria efeito: o insert só
   // acontece para as áreas NOVAS, e mudar a função de um vínculo que já
@@ -487,11 +486,9 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
         const jaServe = new Set((vinculos ?? []).map((v: any) => v.area_id as string));
         setAreasSelecionadas(jaServe);
         setAreasAtuais(jaServe);
-        setFuncaoPorArea({});
       } else {
         setAreasSelecionadas(new Set());
         setAreasAtuais(new Set());
-        setFuncaoPorArea({});
       }
     })();
     return () => { cancelled = true; };
@@ -644,7 +641,10 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
               // recuo de quem não informou. Continua sendo o genérico que a
               // composição do painel lê como ausência — e é honesto: ninguém
               // disse o que a pessoa faz.
-              funcao:        (funcaoPorArea[areaId] ?? "").trim() || "Voluntário",
+              // A coluna é NOT NULL e ninguém mais a lê: quem responde "o que
+              // esta pessoa faz" é `area_voluntario_funcoes`. Fica o genérico
+              // até a coluna ser aposentada (A·7 do plano).
+              funcao:        "Voluntário",
               data_inicio:   hoje,
               status:        "ativa",
             }))
@@ -1543,15 +1543,6 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                                       if (v) next.add(a.id); else next.delete(a.id);
                                       return next;
                                     });
-                                    // Desmarcou: a função digitada some junto.
-                                    // Guardá-la para ressuscitar num clique
-                                    // futuro faria a tela lembrar de algo que
-                                    // a pessoa desfez.
-                                    if (!v) setFuncaoPorArea(prev => {
-                                      const next = { ...prev };
-                                      delete next[a.id];
-                                      return next;
-                                    });
                                   }}
                                 />
                                 <span className="flex items-center gap-1 min-w-0">
@@ -1570,15 +1561,15 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                                   confere a escrita e respeita o recorte de
                                   quem lidera. Aqui, um campo que não salvasse
                                   seria pior que campo nenhum. */}
-                              {checked && !areasAtuais.has(a.id) && (
-                                <Input
-                                  value={funcaoPorArea[a.id] ?? ""}
-                                  onChange={(e) =>
-                                    setFuncaoPorArea(prev => ({ ...prev, [a.id]: e.target.value }))}
-                                  placeholder="O que faz aqui? (opcional)"
-                                  className="h-7 text-xs mt-1 ml-8"
-                                />
-                              )}
+                              {/* Havia aqui um campo livre "O que faz aqui?",
+                                  de 02/09. Durou um dia: desde 03/09 o que a
+                                  pessoa faz é um POSTO do catálogo da área, e
+                                  um campo de texto ao lado de um catálogo é
+                                  o convite a reescrever "Recepção" na função
+                                  de quem serve na Recepção — que foi como os
+                                  21 nomes de área entraram na coluna antiga.
+                                  Este passo diz ONDE a pessoa serve. O posto
+                                  é escolhido na equipe, onde o catálogo mora. */}
                             </div>
                           );
                         })}
@@ -1591,9 +1582,11 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                     própria lista que se quis recolher. */}
                 {abrirAreas && (
                 <p className="text-xs text-muted-foreground">
-                  Função padrão registrada: <strong>Voluntário</strong>. Líderes de área podem (e geralmente devem) 
-                  marcar a própria área aqui também — assim aparecem nas escalas. Para ajustes finos (líder, 
-                  coordenador, etc), abra Ministérios → o ministério desejado → Voluntários.
+                  Aqui se marca <strong>onde</strong> a pessoa serve. O que ela <strong>faz</strong> em cada
+                  área — o posto — escolhe-se em <strong>Ministérios → o ministério → Voluntários</strong>,
+                  numa fileira de etiquetas ao lado do nome dela. Liderança não é posto: quem lidera a área
+                  entra pelo cadastro da própria área. Líderes que também servem devem marcar-se aqui, senão
+                  não aparecem nas escalas.
                 </p>
                 )}
               </div>
@@ -1755,8 +1748,24 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                         ? (ebdClasses.find(c => c.id === ebdClasseSelecionada)?.nome ?? "—")
                         : "—"}
                     </RevisaoLinha>
+                    {/* O passo 3 tem TRÊS blocos e a revisão mostrava um.
+                        Marcava-se Diácono e 1º Tesoureiro e salvava-se sem
+                        nunca reler — justamente os campos com efeito no
+                        estatuto da igreja. */}
+                    {(isCongregado || isMembro) && (
+                      <RevisaoLinha label="Funções ministeriais">
+                        {funcoesSelecionadas.length > 0
+                          ? funcoesSelecionadas.map(rotuloFuncao).join(", ")
+                          : "Nenhuma"}
+                      </RevisaoLinha>
+                    )}
+                    {/* "2 selecionada(s)" obriga a voltar para saber QUAIS.
+                        Uma revisão que faz voltar não revisa nada. */}
                     <RevisaoLinha label="Áreas de atuação">
-                      {areasSelecionadas.size === 0 ? "Nenhuma" : `${areasSelecionadas.size} selecionada(s)`}
+                      {areasSelecionadas.size === 0 ? "Nenhuma" : areasPorMinisterio
+                        .flatMap(g => g.areas.filter(a => areasSelecionadas.has(a.id))
+                          .map(a => `${a.nome} (${g.ministerio.nome})`))
+                        .join(", ")}
                     </RevisaoLinha>
                     {/* A revisão precisa revisar TODOS os passos. Sem esta linha,
                         o passo 4 seria o único que a pessoa preenche e não vê

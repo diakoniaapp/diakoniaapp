@@ -89,14 +89,14 @@ interface CargoEstatutario {
 
 interface MinisterioVinculo {
   ministerio_nome: string;
-  funcao: string;
   cor: string | null;
 }
 
 interface AreaVinculo {
   ministerio_nome: string;
   area_nome: string;
-  funcao: string;
+  /** Os postos que a pessoa ocupa nesta área. Vazio = ninguém disse ainda. */
+  postos: string[];
 }
 
 // ── Helpers visuais ───────────────────────────────────────────
@@ -111,21 +111,10 @@ const TIPO_CONFIG: Record<string, { label: string; cor: string }> =
     ]),
   );
 
-const FUNCAO_CONFIG: Record<string, { label: string; cor: string }> = {
-  // O roxo saiu. Ele não existe na paleta da igreja, e numa lista de
-  // etiquetas ao lado de co-líder, tesoureiro e diácono ele dizia "isto
-  // aqui é de outro sistema". Liderar é a função de maior peso da lista:
-  // fica com a cor da casa. Mesmo caminho que QuadrosInstitucionais.tsx já
-  // tinha tomado para a diretoria.
-  lider:       { label: "Líder",       cor: "bg-primary/10 text-primary border-primary/30" },
-  co_lider:    { label: "Co-líder",    cor: "bg-info-soft text-info-text border-info-line" },
-  secretario:  { label: "Secretário",  cor: "bg-info-soft text-info-text border-info-line" },
-  tesoureiro:  { label: "Tesoureiro",  cor: "bg-warning-soft text-warning-text border-warning-line" },
-  voluntario:  { label: "Voluntário",  cor: "bg-success-soft text-success-text border-success-line" },
-  diacono:     { label: "Diácono",     cor: "bg-warning-soft text-warning-text border-warning-line" },
-  obreiro:     { label: "Obreiro",     cor: "bg-teal/15 text-teal border-teal/30" },
-  colaborador: { label: "Colaborador", cor: "bg-gray-100 text-gray-600 border-gray-300" },
-};
+// `FUNCAO_CONFIG` morava aqui: um mapa de oito rótulos com cor, indexado
+// por chaves em minúsculas e sem acento. Nenhum leitor sobrou — as duas
+// telas que o usavam mostravam a coisa errada por causa dele. Ver o
+// comentário no bloco de Ministérios, mais abaixo.
 
 const PERFIL_CONFIG: Record<string, { label: string; cor: string }> = {
   admin:        { label: "Admin",        cor: "bg-primary/10 text-primary" },
@@ -536,7 +525,7 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
       // As duas consultas que moravam aqui viraram uma.
       const { data: av } = await supabase
         .from("area_voluntarios")
-        .select("area_id, funcao, status, areas(id, nome, ministerios(nome, cor))")
+        .select("area_id, funcao, status, areas(id, nome, ministerios(nome, cor)), area_voluntario_funcoes(area_funcoes(nome))")
         .eq("membro_id", pessoaId)
         // .eq e nao .in(["ativa","ativo"]): status e o enum atuacao_status, e
         // "ativo" NAO e um valor dele — so "ativa" e "encerrada". Passar um
@@ -561,17 +550,14 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
       const todosMin = [
         ...(av ?? []).filter((r: any) => r.areas?.ministerios).map((r: any) => ({
           ministerio_nome: r.areas.ministerios.nome ?? "–",
-          funcao: r.funcao ?? "voluntario",
           cor: r.areas.ministerios.cor ?? null,
         })),
         ...(mm ?? []).map((r: any) => ({
           ministerio_nome: r.ministerios?.nome ?? "–",
-          funcao: r.funcao ?? "voluntario",
           cor: r.ministerios?.cor ?? null,
         })),
         ...(pp ?? []).filter((r: any) => r.ministerios).map((r: any) => ({
           ministerio_nome: r.ministerios?.nome ?? "–",
-          funcao: r.funcao ?? "voluntario",
           cor: r.ministerios?.cor ?? null,
         })),
       ];
@@ -595,12 +581,14 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
         ...(av ?? []).filter((r: any) => r.areas).map((r: any) => ({
           ministerio_nome: r.areas.ministerios?.nome ?? "–",
           area_nome: r.areas.nome ?? "–",
-          funcao: r.funcao ?? "voluntario",
+          postos: (r.area_voluntario_funcoes ?? [])
+            .map((l: any) => l.area_funcoes?.nome)
+            .filter(Boolean) as string[],
         })),
         ...(pa ?? []).filter((r: any) => r.areas).map((r: any) => ({
           ministerio_nome: (r.areas as any).ministerios?.nome ?? "–",
           area_nome: (r.areas as any).nome ?? "–",
-          funcao: r.funcao ?? "voluntario",
+          postos: [] as string[],
         })),
       ]);
 
@@ -989,17 +977,22 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
                   <Church className="w-3 h-3" /> Ministérios
                 </div>
                 <div className="flex flex-wrap gap-1.5">
-                  {ministerios.map((m, i) => {
-                    const fCfg = FUNCAO_CONFIG[m.funcao] ?? FUNCAO_CONFIG.voluntario;
-                    return (
-                      <div key={i} className="flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs bg-background">
-                        <span className="font-medium truncate max-w-[140px]">{m.ministerio_nome}</span>
-                        <Badge variant="outline" className={`text-xs h-3.5 px-1 ${fCfg.cor}`}>
-                          {fCfg.label}
-                        </Badge>
-                      </div>
-                    );
-                  })}
+                  {/* A etiqueta de função saiu daqui, e por um defeito medido:
+                      `FUNCAO_CONFIG` tem chaves em minúsculas e sem acento
+                      (`lider`, `voluntario`) e o que se gravava era "Líder",
+                      "Guitarrista", "Apoio". A busca nunca acertava, caía no
+                      padrão, e a ficha dizia VOLUNTÁRIO PARA TODA A GENTE —
+                      inclusive para os seis líderes de área da igreja.
+                      Vinte e sete linhas abaixo, o mesmo mapa era usado com
+                      outro fallback, e ali saía o texto cru. O mesmo cartão,
+                      duas mentiras diferentes.
+                      Função de ministério não existe: os vínculos são por
+                      ÁREA, e é lá que o posto mora — no bloco seguinte. */}
+                  {ministerios.map((m, i) => (
+                    <div key={i} className="flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs bg-background">
+                      <span className="font-medium truncate max-w-[140px]">{m.ministerio_nome}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
@@ -1016,9 +1009,18 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
                       <span className="text-foreground font-medium">{a.area_nome}</span>
                       <span>em</span>
                       <span>{a.ministerio_nome}</span>
-                      <Badge variant="outline" className="text-xs h-3.5 px-1 ml-auto">
-                        {FUNCAO_CONFIG[a.funcao]?.label ?? a.funcao}
-                      </Badge>
+                      {/* O posto, agora do catálogo da área — e a ausência
+                          dita com todas as letras, porque um travessão
+                          parece dado faltando e não pergunta não feita. */}
+                      <span className="ml-auto flex flex-wrap gap-1 justify-end">
+                        {a.postos.length > 0 ? a.postos.map(nome => (
+                          <Badge key={nome} variant="outline" className="text-xs h-3.5 px-1">
+                            {nome}
+                          </Badge>
+                        )) : (
+                          <span className="text-warning-text">sem posto definido</span>
+                        )}
+                      </span>
                     </div>
                   ))}
                 </div>
