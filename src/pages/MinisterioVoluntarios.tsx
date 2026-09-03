@@ -338,6 +338,10 @@ export default function MinisterioVoluntarios() {
                           size="sm"
                           onClick={() => setEditando(v)}
                           className="h-7 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground"
+                          // Vinte botões "Editar" idênticos numa lista de vinte
+                          // pessoas: quem navega por leitor de tela ouve a lista
+                          // toda antes de saber de quem é cada um.
+                          aria-label={`${v.temPerfil ? "Editar" : "Informar"} quando ${v.nome_completo} pode servir`}
                         >
                           <CalendarClock className="w-3 h-3" />
                           {v.temPerfil ? "Editar" : "Informar"}
