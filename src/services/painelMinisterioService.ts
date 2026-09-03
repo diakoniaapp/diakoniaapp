@@ -203,7 +203,7 @@ export interface PainelMinisterio {
    * qual bancada específica a tela mostra ANTES das quatro seções comuns.
    * `null` para os dez que ainda não foram ligados a nenhum.
    */
-  modulo: "ebd" | "arrecadacao" | "pgm" | null;
+  modulo: "ebd" | "arrecadacao" | "pgm" | "acolhimento" | null;
   lider: string | null;
   areas: AreaDoMinisterio[];
   voluntarios: VoluntarioDoMinisterio[];
@@ -292,7 +292,7 @@ export async function carregarPainelMinisterio(ministerioId: string): Promise<Pa
     nome: (min as any).nome,
     sigla: (min as any).sigla,
     objetivo: (min as any).objetivo,
-    modulo: ((min as any).modulo ?? null) as "ebd" | "arrecadacao" | "pgm" | null,
+    modulo: ((min as any).modulo ?? null) as "ebd" | "arrecadacao" | "pgm" | "acolhimento" | null,
     lider: (lider as any)?.nome_completo ?? null,
     areas: ((areas ?? []) as any[]).map(a => ({
       id: a.id, nome: a.nome, cor: a.cor_identidade,

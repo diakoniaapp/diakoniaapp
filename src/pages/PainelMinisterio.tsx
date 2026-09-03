@@ -42,7 +42,7 @@ import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
   Boxes, Users, CalendarClock, ListChecks, ChevronRight, RefreshCw,
-  Plus, Trash2, Check, AlertTriangle, Phone,
+  Plus, Trash2, Check, AlertTriangle, Phone, DoorOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -67,6 +67,8 @@ import { carregarBancadaArrecadacao, type BancadaArrecadacao } from "@/services/
 import { SecaoArrecadacao } from "@/components/painel/SecaoArrecadacao";
 import { carregarBancadaPgm, type BancadaPgm } from "@/services/bancadaPgmService";
 import { SecaoPgm } from "@/components/painel/SecaoPgm";
+import { carregarBancadaAcolhimento, type BancadaAcolhimento } from "@/services/bancadaAcolhimentoService";
+import { SecaoAcolhimento } from "@/components/painel/SecaoAcolhimento";
 import { ComposicaoPorFuncao, composicao } from "@/components/painel/ComposicaoPorFuncao";
 import { carregarPostos, type PostosDoMinisterio } from "@/services/postos";
 import { carregarAgendaDoMinisterio, type AgendaDoMinisterio } from "@/services/agendaDoMinisterioService";
@@ -86,6 +88,7 @@ export default function PainelMinisterio() {
   const [ebd, setEbd] = useState<BancadaEbd | null>(null);
   const [arr, setArr] = useState<BancadaArrecadacao | null>(null);
   const [pgm, setPgm] = useState<BancadaPgm | null>(null);
+  const [ac, setAc] = useState<BancadaAcolhimento | null>(null);
   // A agenda é dos ONZE, e não de um módulo: por isso vem junto das outras
   // duas consultas, e não depois de saber qual módulo o ministério opera.
   const [agenda, setAgenda] = useState<AgendaDoMinisterio | null>(null);
@@ -128,6 +131,7 @@ export default function PainelMinisterio() {
       setEbd(p?.modulo === "ebd" ? await carregarBancadaEbd() : null);
       setArr(p?.modulo === "arrecadacao" ? await carregarBancadaArrecadacao() : null);
       setPgm(p?.modulo === "pgm" ? await carregarBancadaPgm() : null);
+      setAc(p?.modulo === "acolhimento" ? await carregarBancadaAcolhimento() : null);
 
       setAtualizadoEm(new Date());
     } catch (e: unknown) {
@@ -210,7 +214,7 @@ export default function PainelMinisterio() {
         <p className="text-sm text-muted-foreground flex items-start gap-1.5">
           <Boxes className="w-3.5 h-3.5 text-gold shrink-0 mt-0.5" />
           <span className="min-w-0">
-            {resumoNatural(painel, ebd, arr, pgm, postos)}
+            {resumoNatural(painel, ebd, arr, pgm, ac, postos)}
             {atualizadoEm && (
               <span className="text-[10px] text-muted-foreground ml-1.5 whitespace-nowrap">
                 · {formatarAtualizadoHa(atualizadoEm)}
@@ -237,6 +241,10 @@ export default function PainelMinisterio() {
             <Indicador rotulo="Grupos" tom="success" icone={Casa}
               onClick={() => irParaSecao("pgm")} descricao="Ir para Pequenos Grupos" />
           )}
+          {ac && (
+            <Indicador rotulo="Porta" tom="success" icone={DoorOpen}
+              onClick={() => irParaSecao("acolhimento")} descricao="Ir para A porta da frente" />
+          )}
           <Indicador rotulo="Áreas" tom="info" icone={Boxes}
             onClick={() => irParaSecao("areas")} descricao="Ir para Áreas" />
           <Indicador rotulo="Equipe" tom="success" icone={Users}
@@ -254,6 +262,7 @@ export default function PainelMinisterio() {
       {ebd && <SecaoEbd ebd={ebd} />}
       {arr && <SecaoArrecadacao arr={arr} />}
       {pgm && <SecaoPgm pgm={pgm} />}
+      {ac && <SecaoAcolhimento ac={ac} />}
 
       <SecaoAreas painel={painel} />
       <SecaoEquipe painel={painel} postos={postos} ministerioId={ministerioId} />
@@ -287,6 +296,7 @@ function resumoNatural(
   ebd: BancadaEbd | null,
   arr: BancadaArrecadacao | null,
   pgm: BancadaPgm | null,
+  ac: BancadaAcolhimento | null,
   postos: PostosDoMinisterio | null,
 ): string {
   const futuras = escalasFuturas(p.escalas);
@@ -333,6 +343,22 @@ function resumoNatural(
     if (pgm.semReuniao.length > 0) {
       partes.push(`${pgm.semReuniao.length} ${pgm.semReuniao.length === 1
         ? "grupo sem reunião registrada" : "grupos sem reunião registrada"}`);
+    }
+  }
+
+  // Acolhimento: uma tarefa de acolhimento vencida é um visitante que
+  // procuraram tarde — e tarde demais deixa de ser procurar. Por isso o
+  // atraso entra na frase, e não só a contagem.
+  if (ac) {
+    if (ac.tarefasVencidas > 0) {
+      const pior = ac.tarefas[0]?.atraso ?? 0;
+      partes.push(`${ac.tarefasVencidas} ${ac.tarefasVencidas === 1
+        ? "tarefa de acolhimento vencida" : "tarefas de acolhimento vencidas"}` +
+        (pior > 0 ? ` (a mais antiga há ${pior} dias)` : ""));
+    }
+    if (ac.semLaco.length > 0) {
+      partes.push(`${ac.semLaco.length} ${ac.semLaco.length === 1
+        ? "pessoa sem classe, grupo ou área" : "pessoas sem classe, grupo ou área"}`);
     }
   }
 
