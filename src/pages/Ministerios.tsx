@@ -78,7 +78,12 @@ export default function Ministerios() {
   const load = async () => {
             setLoading(true); setLoadingCounts(true); setError(null);
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const { data, error: err } = await supabase.from("ministerios").select("*, areas(count)").order("nome");
+            // `areas!areas_ministerio_id_fkey`, e não `areas(count)`: desde
+            // 20260903150000 há uma SEGUNDA relação entre ministerios e areas
+            // (ministerios.area_acolhimento_id → areas.id), e o PostgREST
+            // recusa embutir sem dizer qual das duas seguir — quebrou esta
+            // tela inteira em produção até este nome ser escrito.
+            const { data, error: err } = await supabase.from("ministerios").select("*, areas!areas_ministerio_id_fkey(count)").order("nome");
             if (err) { toast.error(err.message); setError(err.message); }
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const rows = (data ?? []) as any[];

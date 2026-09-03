@@ -509,7 +509,7 @@ export async function ondeEuSirvo(pessoaId: string): Promise<AreaOndeSirvo[]> {
     .from("area_voluntarios")
     .select(`
       id, area_id,
-      areas(id, nome, lider_id, co_lider_id, ministerios(nome)),
+      areas(id, nome, lider_id, co_lider_id, ministerios!areas_ministerio_id_fkey(nome)),
       area_voluntario_funcoes(id, area_funcao_id, confirmada_em, area_funcoes(nome))
     `)
     .eq("membro_id", pessoaId)

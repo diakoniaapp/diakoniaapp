@@ -61,7 +61,7 @@ export async function meusMinisterios(pessoaId: string): Promise<MinisterioQueLi
       .select("id, nome, sigla, cor, lider_id, vice_lider_id, co_lider_id")
       .eq("ativo", true),
     supabase.from("areas")
-      .select("id, nome, ministerio_id, lider_id, co_lider_id, ministerios(id, nome, sigla, cor)")
+      .select("id, nome, ministerio_id, lider_id, co_lider_id, ministerios!areas_ministerio_id_fkey(id, nome, sigla, cor)")
       .eq("ativo", true),
   ]);
 

@@ -176,7 +176,7 @@ export async function historiaDaPessoa(pessoaId: string): Promise<EventoDaHistor
     // estrangeira existe, o PostgREST aceita o join e a segunda consulta
     // que morava aqui embaixo deixou de ser necessária.
     supabase.from("area_voluntarios")
-      .select("area_id, data_inicio, funcao, status, areas(nome, ministerios(nome))")
+      .select("area_id, data_inicio, funcao, status, areas(nome, ministerios!areas_ministerio_id_fkey(nome))")
       .eq("membro_id", pessoaId),
   ]);
 

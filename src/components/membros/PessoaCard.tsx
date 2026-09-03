@@ -525,7 +525,7 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
       // As duas consultas que moravam aqui viraram uma.
       const { data: av } = await supabase
         .from("area_voluntarios")
-        .select("area_id, funcao, status, areas(id, nome, ministerios(nome, cor)), area_voluntario_funcoes(area_funcoes(nome))")
+        .select("area_id, funcao, status, areas(id, nome, ministerios!areas_ministerio_id_fkey(nome, cor)), area_voluntario_funcoes(area_funcoes(nome))")
         .eq("membro_id", pessoaId)
         // .eq e nao .in(["ativa","ativo"]): status e o enum atuacao_status, e
         // "ativo" NAO e um valor dele — so "ativa" e "encerrada". Passar um
@@ -572,7 +572,7 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
       // TABELA AUSENTE EM PRODUCAO — ver migration 20260528_estrutura_organizacional.sql
       const { data: pa } = await supabase
         .from("pessoa_participacao")
-        .select("funcao, areas(nome, ministerios(nome))")
+        .select("funcao, areas(nome, ministerios!areas_ministerio_id_fkey(nome))")
         .eq("pessoa_id", pessoaId)
         .eq("ativo", true)
         .not("area_id", "is", null);

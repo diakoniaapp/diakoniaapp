@@ -45,7 +45,7 @@ export function InsightsDoSistema() {
         // 1. Áreas precisando de voluntários
         const [{ data: areas }, { data: vols }] = await Promise.all([
           supabase.from("areas")
-            .select("id, nome, ativo, min_voluntarios, ministerio_id, ministerios(nome, ativo)"),
+            .select("id, nome, ativo, min_voluntarios, ministerio_id, ministerios!areas_ministerio_id_fkey(nome, ativo)"),
           supabase.from("area_voluntarios")
             .select("area_id, status, membro_id"),
         ]);

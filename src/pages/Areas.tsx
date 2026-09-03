@@ -55,7 +55,7 @@ export default function Areas() {
     setLoading(true);
     try {
       const [{ data: a }, { data: m }, { data: vols }, { data: mb }] = await Promise.all([
-        supabase.from("areas").select("id, nome, sigla, ativo, ministerio_id, lider_id, co_lider_id, ministerios(id, nome, ativo)").order("nome"),
+        supabase.from("areas").select("id, nome, sigla, ativo, ministerio_id, lider_id, co_lider_id, ministerios!areas_ministerio_id_fkey(id, nome, ativo)").order("nome"),
         supabase.from("ministerios").select("id, nome, ativo").order("nome"),
         supabase.from("area_voluntarios").select("area_id, status, membro_id"),
         supabase.from("membros").select("id, nome_completo"),

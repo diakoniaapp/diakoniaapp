@@ -451,7 +451,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
     (async () => {
       const { data: rawAreas } = await supabase
         .from("areas")
-        .select("id, nome, ministerio_id, ativo, lider_id, co_lider_id, ministerios(id, nome, ativo)")
+        .select("id, nome, ministerio_id, ativo, lider_id, co_lider_id, ministerios!areas_ministerio_id_fkey(id, nome, ativo)")
         .eq("ativo", true)
         .order("nome");
       if (cancelled) return;
