@@ -93,6 +93,14 @@ export function ComposicaoPorFuncao({ voluntarios, postos, ministerioId }: {
   // que dizer — e um bloco vazio é pior que a ausência dele.
   if (funcoes.length === 0 && semFuncao === 0) return null;
 
+  // `funcoes.length === 0` significa "ninguém OCUPA posto nenhum" — e isso
+  // acontecia tanto quando o catálogo não existia quanto quando existia e
+  // ninguém tinha sido ligado ainda. A Recepção provou a diferença: 4 postos
+  // no catálogo, 43 pessoas, zero ligações — "nenhum posto foi registrado"
+  // seria falso ali. A pergunta certa é sobre o CATÁLOGO, não sobre quem já
+  // foi ligado.
+  const catalogoExiste = !!postos && [...postos.catalogo.values()].some(l => l.length > 0);
+
   return (
     <div className="rounded-md border bg-card px-3 py-2.5 mb-2">
       <p className="flex items-center gap-2 text-sm font-medium">
@@ -126,7 +134,7 @@ export function ComposicaoPorFuncao({ voluntarios, postos, ministerioId }: {
               : `${semFuncao} pessoas sem posto definido`}
           </Link>
           <span className="text-muted-foreground">
-            {funcoes.length === 0
+            {!catalogoExiste
               ? " — nenhum posto foi registrado neste ministério ainda."
               : " — abrir a lista para preencher."}
           </span>
