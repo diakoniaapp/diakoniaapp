@@ -17,20 +17,25 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Plus, X, Check, Loader2 } from "lucide-react";
+import { Plus, X, Check, Loader2, BadgeCheck } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import {
-  ocuparPosto, desocuparPosto, criarPosto, type Posto, type Ocupacao,
+  ocuparPosto, desocuparPosto, criarPosto, confirmarPosto,
+  type Posto, type Ocupacao,
 } from "@/services/postos";
 
 export function PostosDoVinculo({
-  areaId, areaNome, vinculoId, catalogo, ocupacoes, podeEditar, mostrarArea, onMudou,
+  areaId, areaNome, vinculoId, catalogo, ocupacoes, lideranca,
+  podeEditar, mostrarArea, onMudou,
 }: {
   areaId: string;
   areaNome: string;
   vinculoId: string | undefined;
   catalogo: Posto[];
   ocupacoes: Ocupacao[];
+  /** Derivado de `areas.lider_id`. Nunca digitado, e por isso nunca em conflito. */
+  lideranca: "Líder" | "Co-líder" | null;
   podeEditar: boolean;
   mostrarArea: boolean;
   onMudou: () => void;
@@ -63,6 +68,18 @@ export function PostosDoVinculo({
     onMudou();
   }
 
+  // O "amém" da equipe ao que o voluntário declarou no Meu Espaço. Sem este
+  // botão, a autodeclaração seria um campo livre com outro nome: alguém diz e
+  // ninguém responde.
+  async function confirmar(x: { o: Ocupacao; p: Posto }) {
+    setOcupado(true);
+    const r = await confirmarPosto(x.o.id);
+    setOcupado(false);
+    if (!r.ok) return toast.error(r.erro);
+    toast.success(`Confirmado: ${x.p.nome} em ${areaNome}.`);
+    onMudou();
+  }
+
   async function desocupar(x: { o: Ocupacao; p: Posto }) {
     setOcupado(true);
     const r = await desocuparPosto(x.o.id);
@@ -84,12 +101,21 @@ export function PostosDoVinculo({
 
   // Sem permissão de escrita, a fileira vira texto — e diz a ausência com
   // todas as letras, porque "—" parece dado faltando e não pergunta não feita.
+  // A etiqueta de liderança vem do cadastro da área e aparece dos dois lados,
+  // com ou sem permissão de edição: é um fato sobre a pessoa, não uma ação.
+  const selo = lideranca && (
+    <Badge variant="outline" className="text-xs h-4 px-1 bg-primary/10 text-primary border-primary/30">
+      {lideranca}
+    </Badge>
+  );
+
   if (!podeEditar) {
     return (
-      <p className="text-xs text-muted-foreground">
+      <p className="text-xs text-muted-foreground flex flex-wrap items-center gap-1.5">
         {mostrarArea && <span className="font-medium">{areaNome}: </span>}
+        {selo}
         {minhas.length > 0
-          ? minhas.map(x => x.p.nome).join(" · ")
+          ? <span>{minhas.map(x => x.p.nome).join(" · ")}</span>
           : <span className="text-warning-text">sem posto definido</span>}
       </p>
     );
@@ -100,6 +126,7 @@ export function PostosDoVinculo({
       {mostrarArea && (
         <span className="text-xs font-medium text-muted-foreground mr-0.5">{areaNome}:</span>
       )}
+      {selo}
 
       {minhas.map(x => (
         <span
@@ -116,6 +143,18 @@ export function PostosDoVinculo({
             <span className="opacity-60" title="Posto principal">★</span>
           )}
           {x.o.pendente && <span className="opacity-70">a confirmar</span>}
+          {x.o.pendente && (
+            <button
+              type="button"
+              onClick={() => confirmar(x)}
+              disabled={ocupado}
+              aria-label={`Confirmar ${x.p.nome}`}
+              title="A pessoa declarou isto. Confirmar."
+              className="rounded-full p-0.5 hover:bg-background/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <BadgeCheck className="w-3.5 h-3.5" />
+            </button>
+          )}
           <button
             type="button"
             onClick={() => desocupar(x)}

@@ -41,15 +41,26 @@ export interface PostosDoMinisterio {
   vinculo: Map<string, string>;
   /** id do vínculo → o que a pessoa ocupa ali. */
   ocupacoes: Map<string, Ocupacao[]>;
+  /**
+   * `pessoa|area` → "Líder" ou "Co-líder", DERIVADO de `areas.lider_id`.
+   *
+   * Liderança nunca mais é digitada. Havia 9 vínculos com "Líder" escrito à
+   * mão no campo de função e 12 líderes que a coluna conhecia e o texto não —
+   * duas fontes para o mesmo fato, uma delas pela metade. Agora há uma, e a
+   * outra não tem onde caber: o catálogo recusa "Líder" como nome de posto.
+   */
+  lideranca: Map<string, "Líder" | "Co-líder">;
 }
 
 export const chave = (pessoaId: string, areaId: string) => `${pessoaId}|${areaId}`;
 
 export async function carregarPostos(ministerioId: string): Promise<PostosDoMinisterio> {
-  const vazio: PostosDoMinisterio = { catalogo: new Map(), vinculo: new Map(), ocupacoes: new Map() };
+  const vazio: PostosDoMinisterio = {
+    catalogo: new Map(), vinculo: new Map(), ocupacoes: new Map(), lideranca: new Map(),
+  };
 
   const { data: areas } = await supabase
-    .from("areas").select("id").eq("ministerio_id", ministerioId);
+    .from("areas").select("id, lider_id, co_lider_id").eq("ministerio_id", ministerioId);
   const areaIds = (areas ?? []).map(a => a.id);
   if (areaIds.length === 0) return vazio;
 
@@ -98,7 +109,29 @@ export async function carregarPostos(ministerioId: string): Promise<PostosDoMini
     }
   }
 
-  return { catalogo, vinculo, ocupacoes };
+  const lideranca = new Map<string, "Líder" | "Co-líder">();
+  for (const a of (areas ?? []) as any[]) {
+    if (a.lider_id)    lideranca.set(chave(a.lider_id, a.id), "Líder");
+    if (a.co_lider_id) lideranca.set(chave(a.co_lider_id, a.id), "Co-líder");
+  }
+
+  return { catalogo, vinculo, ocupacoes, lideranca };
+}
+
+/**
+ * A liderança confirma o que o voluntário declarou.
+ *
+ * O caminho é o do IDE Escalas: quem melhor sabe o que o Fulano faz na
+ * Recepção é o Fulano; quem responde pela equipe é que diz amém. Sem este
+ * passo a autodeclaração seria só um campo livre com outro nome.
+ */
+export async function confirmarPosto(ligacaoId: string): Promise<ResultadoEscrita> {
+  const { data: sessao } = await supabase.auth.getUser();
+  const resultado = await supabase.from("area_voluntario_funcoes")
+    .update({ confirmada_em: new Date().toISOString(), confirmada_por: sessao?.user?.id ?? null })
+    .eq("id", ligacaoId)
+    .select("id");
+  return conferir(resultado, "A confirmação");
 }
 
 /**

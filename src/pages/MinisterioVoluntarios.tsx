@@ -303,6 +303,7 @@ export default function MinisterioVoluntarios() {
                                 vinculoId={vinculoId}
                                 catalogo={postos.catalogo.get(a.area_id) ?? []}
                                 ocupacoes={vinculoId ? (postos.ocupacoes.get(vinculoId) ?? []) : []}
+                                lideranca={postos.lideranca.get(chave(v.pessoa_id, a.area_id)) ?? null}
                                 podeEditar={podeEditar}
                                 mostrarArea={v.atuacoes.length > 1}
                                 onMudou={recarregar}

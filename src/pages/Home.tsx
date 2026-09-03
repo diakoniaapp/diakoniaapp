@@ -49,7 +49,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
-  UserPlus, Search, CalendarClock, LayoutGrid, CalendarDays, IdCard, BookOpen,
+  UserPlus, Search, CalendarClock, LayoutGrid, CalendarDays, IdCard, BookOpen, HeartHandshake,
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -62,6 +62,7 @@ import { FaixaDeIndicadores, Indicador, irParaSecao } from "@/components/painel/
 import { MeusPaineis } from "@/components/eu/MeusPaineis";
 import { MinhaFicha } from "@/components/eu/MinhaFicha";
 import { MinhaSemana, MinhaEbdCard, MeuPgmCard } from "@/components/eu/MinhaVida";
+import { OndeEuSirvo } from "@/components/eu/OndeEuSirvo";
 import { AgendaDaSemana } from "@/components/eu/AgendaDaSemana";
 import { minhaFicha, type MinhaFicha as Ficha } from "@/services/meuEspacoService";
 
@@ -108,6 +109,9 @@ export const ATALHOS: { id: string; rotulo: string; icone: LucideIcon }[] = [
   { id: "meus-paineis", rotulo: "Painéis",  icone: LayoutGrid },
   { id: "agenda",       rotulo: "Agenda",   icone: CalendarDays },
   { id: "meus-dados",   rotulo: "Meus dados", icone: IdCard },
+  // "Onde sirvo" e não "Onde você serve": o rótulo é o único texto da célula,
+  // e quem lê a tira já está na própria Home.
+  { id: "onde-sirvo",   rotulo: "Onde sirvo", icone: HeartHandshake },
   { id: "minha-vida",   rotulo: "Minha vida", icone: BookOpen },
 ];
 
@@ -282,6 +286,14 @@ export default function Home() {
               ? <SemFicha />
               : null}
         </section>
+
+        {/* Entre os dados e a vida na igreja, porque é as duas coisas: é um
+            dado da pessoa, e é o que ela faz aqui. Some inteira para quem não
+            serve em área nenhuma — o convite a servir é outra conversa. */}
+        <Secao id="onde-sirvo" onVazio={marcarVazio}
+          titulo="Onde você serve" subtitulo="As suas áreas, e o que você faz em cada uma">
+          {pessoaId && <OndeEuSirvo pessoaId={pessoaId} />}
+        </Secao>
 
         <Secao id="minha-vida" onVazio={marcarVazio}
           titulo="Minha vida na igreja" subtitulo="Escola Bíblica e Pequeno Grupo">

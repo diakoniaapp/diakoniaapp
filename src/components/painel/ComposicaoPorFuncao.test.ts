@@ -49,7 +49,7 @@ function postosDe(linhas: [string, string, ...string[]][]): PostosDoMinisterio {
       });
     }
   }
-  return { catalogo, vinculo, ocupacoes };
+  return { catalogo, vinculo, ocupacoes, lideranca: new Map() };
 }
 
 describe("composicao", () => {

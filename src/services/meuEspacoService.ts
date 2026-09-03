@@ -19,7 +19,7 @@
 // obriga quem desenha a tela a ter em mãos o denominador.
 
 import { supabase } from "@/integrations/supabase/client";
-import { conferir } from "@/lib/escritaConferida";
+import { conferir, type ResultadoEscrita } from "@/lib/escritaConferida";
 import { normalizarTelefone } from "@/lib/telefone";
 import { listarGruposDaPessoa, sugerirPgmPorBairro } from "@/services/pgmService";
 
@@ -476,4 +476,106 @@ export async function identidadeParaConvite(): Promise<IdentidadeParaConvite> {
 export function nomeDoDia(n: number | null | undefined): string | null {
   if (n === null || n === undefined) return null;
   return DIAS[n] ?? null;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ONDE EU SIRVO, E O QUE EU FAÇO LÁ
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// 114 dos 132 vínculos ativos não dizem o que a pessoa faz. Pedir que um líder
+// preencha 114 linhas é pedir a uma pessoa o que 86 sabem melhor: quem sabe o
+// que o Fulano faz na Recepção é o Fulano.
+//
+// O desenho é o do IDE Escalas, verificado antes de escrever: o voluntário
+// escolhe entre as funções da área, a liderança é notificada e confirma. O
+// banco já impõe as três amarras — só a própria pessoa declara, só como
+// `autodeclarada`, e nunca já confirmada.
+
+export interface AreaOndeSirvo {
+  vinculo_id: string;
+  area_id: string;
+  area_nome: string;
+  ministerio_nome: string;
+  /** "Líder" ou "Co-líder", derivado de `areas.lider_id`. Nunca digitado. */
+  lideranca: "Líder" | "Co-líder" | null;
+  /** O que a área oferece. Vazia = a área ainda não declarou postos. */
+  catalogo: { id: string; nome: string }[];
+  /** O que eu já ocupo ali. */
+  meus: { ligacao_id: string; posto_id: string; nome: string; pendente: boolean }[];
+}
+
+export async function ondeEuSirvo(pessoaId: string): Promise<AreaOndeSirvo[]> {
+  const { data } = await supabase
+    .from("area_voluntarios")
+    .select(`
+      id, area_id,
+      areas(id, nome, lider_id, co_lider_id, ministerios(nome)),
+      area_voluntario_funcoes(id, area_funcao_id, confirmada_em, area_funcoes(nome))
+    `)
+    .eq("membro_id", pessoaId)
+    .eq("status", "ativa");
+
+  if (!data || data.length === 0) return [];
+
+  // O catálogo vem à parte: o embed acima traz só os postos que EU ocupo, e a
+  // pergunta que a tela faz é "o que existe aqui que eu ainda não disse".
+  const areaIds = (data as any[]).map(r => r.area_id).filter(Boolean);
+  const { data: postos } = await supabase
+    .from("area_funcoes")
+    .select("id, area_id, nome")
+    .in("area_id", areaIds)
+    .eq("ativo", true)
+    .order("ordem");
+
+  const porArea = new Map<string, { id: string; nome: string }[]>();
+  for (const p of (postos ?? []) as any[]) {
+    const lista = porArea.get(p.area_id) ?? [];
+    lista.push({ id: p.id, nome: p.nome });
+    porArea.set(p.area_id, lista);
+  }
+
+  return (data as any[])
+    .filter(r => r.areas)
+    .map(r => ({
+      vinculo_id: r.id,
+      area_id: r.area_id,
+      area_nome: r.areas.nome ?? "—",
+      ministerio_nome: r.areas.ministerios?.nome ?? "—",
+      lideranca: r.areas.lider_id === pessoaId ? "Líder" as const
+               : r.areas.co_lider_id === pessoaId ? "Co-líder" as const
+               : null,
+      catalogo: porArea.get(r.area_id) ?? [],
+      meus: (r.area_voluntario_funcoes ?? []).map((l: any) => ({
+        ligacao_id: l.id,
+        posto_id: l.area_funcao_id,
+        nome: l.area_funcoes?.nome ?? "—",
+        pendente: l.confirmada_em === null,
+      })),
+    }))
+    .sort((a, b) => a.ministerio_nome.localeCompare(b.ministerio_nome, "pt-BR")
+                 || a.area_nome.localeCompare(b.area_nome, "pt-BR"));
+}
+
+/**
+ * "É isto que eu faço aqui."
+ *
+ * Nasce pendente, e é o banco que garante: a política de INSERT do voluntário
+ * exige `origem = 'autodeclarada'` e `confirmada_em` nulo. Se esta função
+ * tentasse autoconfirmar, a linha seria recusada — o que foi conferido no
+ * ensaio da migration, com a conta do pastor Lúcio.
+ */
+export async function declararPosto(vinculoId: string, postoId: string): Promise<ResultadoEscrita> {
+  const resultado = await supabase.from("area_voluntario_funcoes").insert({
+    area_voluntario_id: vinculoId,
+    area_funcao_id: postoId,
+    origem: "autodeclarada",
+  }).select("id");
+  return conferir(resultado, "A sua função");
+}
+
+/** Desdizer, enquanto ninguém confirmou. Depois disso é assunto da equipe. */
+export async function retirarDeclaracao(ligacaoId: string): Promise<ResultadoEscrita> {
+  const resultado = await supabase
+    .from("area_voluntario_funcoes").delete().eq("id", ligacaoId).select("id");
+  return conferir(resultado, "A sua função");
 }
