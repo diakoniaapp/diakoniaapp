@@ -68,6 +68,7 @@ import { SecaoArrecadacao } from "@/components/painel/SecaoArrecadacao";
 import { carregarBancadaPgm, type BancadaPgm } from "@/services/bancadaPgmService";
 import { SecaoPgm } from "@/components/painel/SecaoPgm";
 import { ComposicaoPorFuncao, composicao } from "@/components/painel/ComposicaoPorFuncao";
+import { carregarPostos, type PostosDoMinisterio } from "@/services/postos";
 import { carregarAgendaDoMinisterio, type AgendaDoMinisterio } from "@/services/agendaDoMinisterioService";
 import { SecaoAgendaDoMinisterio } from "@/components/painel/SecaoAgendaDoMinisterio";
 import { GraduationCap, ShoppingBag, Home as Casa } from "lucide-react";
@@ -88,6 +89,7 @@ export default function PainelMinisterio() {
   // A agenda é dos ONZE, e não de um módulo: por isso vem junto das outras
   // duas consultas, e não depois de saber qual módulo o ministério opera.
   const [agenda, setAgenda] = useState<AgendaDoMinisterio | null>(null);
+  const [postos, setPostos] = useState<PostosDoMinisterio | null>(null);
 
   // ── SÓ O DONO DO SISTEMA ABRE MINISTÉRIO ALHEIO ──────────────────────
   //
@@ -109,14 +111,16 @@ export default function PainelMinisterio() {
     setCarregando(true);
     setErro(null);
     try {
-      const [p, m, ag] = await Promise.all([
+      const [p, m, ag, pos] = await Promise.all([
         carregarPainelMinisterio(ministerioId),
         pessoaId ? meusMinisterios(pessoaId) : Promise.resolve([]),
         carregarAgendaDoMinisterio(ministerioId),
+        carregarPostos(ministerioId),
       ]);
       setPainel(p);
       setMeus(m);
       setAgenda(ag);
+      setPostos(pos);
 
       // A bancada específica é uma SEGUNDA ida ao banco, e só para quem tem
       // módulo. Pedi-la junto das outras duas custaria seis consultas de EBD
@@ -206,7 +210,7 @@ export default function PainelMinisterio() {
         <p className="text-sm text-muted-foreground flex items-start gap-1.5">
           <Boxes className="w-3.5 h-3.5 text-gold shrink-0 mt-0.5" />
           <span className="min-w-0">
-            {resumoNatural(painel, ebd, arr, pgm)}
+            {resumoNatural(painel, ebd, arr, pgm, postos)}
             {atualizadoEm && (
               <span className="text-[10px] text-muted-foreground ml-1.5 whitespace-nowrap">
                 · {formatarAtualizadoHa(atualizadoEm)}
@@ -252,7 +256,7 @@ export default function PainelMinisterio() {
       {pgm && <SecaoPgm pgm={pgm} />}
 
       <SecaoAreas painel={painel} />
-      <SecaoEquipe painel={painel} />
+      <SecaoEquipe painel={painel} postos={postos} ministerioId={ministerioId} />
       {/* A agenda vem ANTES das escalas: 54 vínculos evento↔ministério
           contra 10 escalas. Para dez dos onze, é aqui que o ministério
           acontece. */}
@@ -283,6 +287,7 @@ function resumoNatural(
   ebd: BancadaEbd | null,
   arr: BancadaArrecadacao | null,
   pgm: BancadaPgm | null,
+  postos: PostosDoMinisterio | null,
 ): string {
   const futuras = escalasFuturas(p.escalas);
   const partes: string[] = [];
@@ -366,9 +371,9 @@ function resumoNatural(
   // encheria de ruído os painéis pequenos: um ministério de três pessoas com
   // uma sem função não tem problema nenhum.
   const equipe = p.voluntarios.filter(estaServindo);
-  const { semFuncao, total: naEquipe } = composicao(equipe);
+  const { semFuncao, total: naEquipe } = composicao(equipe, postos);
   if (naEquipe >= 4 && semFuncao * 2 > naEquipe) {
-    partes.push(`${semFuncao} de ${naEquipe} sem função definida`);
+    partes.push(`${semFuncao} de ${naEquipe} sem posto definido`);
   }
 
   const pesados = p.voluntarios.filter(estaSobrecarregado).length;
@@ -435,7 +440,9 @@ function SecaoAreas({ painel }: { painel: Painel }) {
 
 // ─── Quem serve ───────────────────────────────────────────────────────────
 
-function SecaoEquipe({ painel }: { painel: Painel }) {
+function SecaoEquipe({ painel, postos, ministerioId }: {
+  painel: Painel; postos: PostosDoMinisterio | null; ministerioId: string;
+}) {
   const ativos = painel.voluntarios.filter(estaServindo);
   const afastados = painel.voluntarios.filter(v => !estaServindo(v));
 
@@ -453,7 +460,9 @@ function SecaoEquipe({ painel }: { painel: Painel }) {
           primeiro "tenho baterista?" e só depois "quem é". Na Música isso é
           a pergunta inteira; nos outros dez é o resumo de uma lista que só
           mostra doze de cada vez. */}
-      {ativos.length > 0 && <ComposicaoPorFuncao voluntarios={ativos} />}
+      {ativos.length > 0 && (
+        <ComposicaoPorFuncao voluntarios={ativos} postos={postos} ministerioId={ministerioId} />
+      )}
 
       {ativos.length === 0 ? (
         <p className="text-sm text-muted-foreground py-2 px-3 border rounded-md">

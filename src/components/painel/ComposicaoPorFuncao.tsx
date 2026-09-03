@@ -1,61 +1,35 @@
-// ─── A composição da equipe, por função ───────────────────────────────────
+// ─── A composição da equipe, por posto ────────────────────────────────────
 //
 // ── DE ONDE ISTO VEIO ──────────────────────────────────────────────────────
 //
-// A igreja pediu painéis com a particularidade de cada ministério, um a um. A
-// Música parecia pedir um módulo próprio — e medindo, a particularidade dela
-// não era um módulo: era que **`funcao` guarda o instrumento**. Guitarrista,
-// Contrabaixista, Baterista, Tecladista/Trompetista, Violão, Vocal.
+// A igreja pediu painéis com a particularidade de cada ministério. A Música
+// parecia pedir um módulo próprio — e medindo, a particularidade dela não era
+// um módulo: era que a função guardava o INSTRUMENTO. Guitarrista,
+// Contrabaixista, Baterista, Tecladista, Trompetista, Violão.
 //
-// Medindo os onze antes de escrever, a resposta mudou de forma:
+// ── A REESCRITA DE 03/09/2026 ──────────────────────────────────────────────
 //
-//   Música                6 funções próprias — todas instrumentos
-//   Administração         5 — Apoio, Atendimento, Planejamento, Líder, Co-líder
-//   Comunhão/Integração   3 — Introdução, Recepção, Líder
-//   Oração                2 — Abertura, Transmissão (e ZERO genéricos)
-//   Diaconia              1 — Cozinha
-//   Comunicação           1 — Criador de Conteúdo
-//   Evangelismo, Educação Cristã, Famílias   nenhuma
+// A primeira versão lia `area_voluntarios.funcao`, texto livre, e por isso
+// passava a vida a filtrar lixo: uma lista de palavras genéricas, uma lista
+// de nomes de área, comparação sem acento nem caixa. Mesmo assim mostrou
+// "Recepção · 16" como se fosse função — o nome da própria área.
 //
-// Ou seja: função é um campo usado de verdade por oito dos onze, e o que
-// faltava não era uma seção da Música — era esta, que serve os onze e que na
-// Música é onde mais significa.
+// Agora lê o POSTO, que a área declara e o banco protege: nome de área,
+// genérico e "Líder" não entram no catálogo porque um gatilho e um CHECK os
+// recusam. Toda a filtragem defensiva deste arquivo pôde sair — não porque se
+// decidiu confiar, mas porque passou a haver quem garanta.
 //
-// ── O NÚMERO QUE JUSTIFICA O ALERTA ────────────────────────────────────────
+// ── O QUE CONTINUA VERDADE ─────────────────────────────────────────────────
 //
-// **80 dos 128 vínculos ativos não têm função** — 62%. A Comunhão, maior
-// equipe da igreja, tem 25 de 44 assim. Quem lidera não monta uma escala de
-// recepção sem saber quem faz o quê, e hoje essa informação não aparecia em
-// tela nenhuma.
-//
-// ── O QUE ESTA TELA NÃO FAZ ────────────────────────────────────────────────
-//
-// Não separa "Líder" e "Co-líder" das demais, embora sejam hierarquia e não
-// trabalho. Separá-las exigiria uma lista de nomes especiais no código, e a
-// igreja é quem escreve essas palavras no cadastro — amanhã pode ser
-// "Coordenador". Aparecem junto, e quem lidera lê sem dificuldade.
+// Conta PESSOAS, não vínculos: quem é guitarrista em Músicos e em Vocal é um
+// guitarrista, não dois. E quem tem posto numa área e nenhum noutra já
+// respondeu à pergunta — não entra na fila de quem falta.
 
 import { Badge } from "@/components/ui/badge";
 import { UserCog } from "lucide-react";
+import { Link } from "react-router-dom";
 import type { VoluntarioDoMinisterio } from "@/services/painelMinisterioService";
-
-/** As palavras que o cadastro usa quando NÃO se registrou função nenhuma. */
-const GENERICAS = new Set(["", "voluntário", "voluntario"]);
-
-// ── A COLUNA `funcao` GUARDA TRÊS COISAS MISTURADAS ────────────────────────
-//
-// Isto já estava documentado em `MinisterioVoluntarios.tsx`, e eu não li antes
-// de escrever este arquivo — a primeira versão mostrava "Recepção · 16" e
-// "Introdução · 1" no painel da Comunhão como se fossem funções. São os nomes
-// das duas ÁREAS dela, que vazaram para a coluna.
-//
-// Contado no banco: "Voluntário" 46 vezes (o padrão que o formulário grava),
-// nomes de área 17 vezes, e as funções de verdade — Líder, Co-líder, Apoio,
-// Planejamento, Atendimento, e os instrumentos da Música.
-//
-// Nome de área na coluna de função não diz nada que a linha já não diga: a
-// pessoa serve na Recepção, e o que ela FAZ na recepção continua desconhecido.
-// Por isso conta como ausência, e não como função.
+import { chave, type PostosDoMinisterio } from "@/services/postos";
 
 export interface Funcao {
   nome: string;
@@ -63,55 +37,57 @@ export interface Funcao {
 }
 
 /**
- * Agrupa por função, contando PESSOAS e não vínculos.
+ * Agrupa por posto, contando pessoas.
  *
- * Quem serve em duas áreas do mesmo ministério com a mesma função apareceria
- * duas vezes numa contagem ingênua — e a pergunta que a tela responde é
- * "quantos bateristas eu tenho", não "quantas linhas há na tabela".
+ * `postos` nulo é o estado de carregamento, e devolve lista vazia com
+ * `semFuncao` zero — a tela não desenha nada. É deliberado: anunciar "17 sem
+ * posto" antes de os dados chegarem seria alarmar com o próprio atraso.
  */
-export function composicao(voluntarios: VoluntarioDoMinisterio[]): {
-  funcoes: Funcao[];
-  semFuncao: number;
-  total: number;
-} {
-  const porFuncao = new Map<string, Set<string>>();
-  const semFuncao = new Set<string>();
-  const todos = new Set<string>();
+export function composicao(
+  voluntarios: VoluntarioDoMinisterio[],
+  postos: PostosDoMinisterio | null,
+): { funcoes: Funcao[]; semFuncao: number; total: number } {
+  const todos = new Set(voluntarios.map(v => v.pessoa_id));
+  if (!postos) return { funcoes: [], semFuncao: 0, total: todos.size };
 
-  // Os nomes de área DESTE ministério, para reconhecer os que vazaram para a
-  // coluna de função. Sai dos próprios voluntários: eles trazem `area_nome`, e
-  // pedir as áreas ao banco de novo seria uma consulta para saber o que já
-  // está na mão.
-  const nomesDeArea = new Set(
-    voluntarios.map((v) => (v.area_nome ?? "").trim().toLowerCase()).filter(Boolean),
-  );
-
-  for (const v of voluntarios) {
-    todos.add(v.pessoa_id);
-    const f = (v.funcao ?? "").trim();
-    const chave = f.toLowerCase();
-    if (GENERICAS.has(chave) || nomesDeArea.has(chave)) { semFuncao.add(v.pessoa_id); continue; }
-    if (!porFuncao.has(f)) porFuncao.set(f, new Set());
-    porFuncao.get(f)!.add(v.pessoa_id);
+  // id do posto → nome, montado uma vez a partir do catálogo de cada área.
+  const nomeDoPosto = new Map<string, string>();
+  for (const lista of postos.catalogo.values()) {
+    for (const p of lista) nomeDoPosto.set(p.id, p.nome);
   }
 
-  // Quem tem função numa área e é genérico noutra conta como tendo função:
-  // a pergunta é se a igreja sabe o que a pessoa faz, e sabe.
-  for (const s of porFuncao.values()) for (const p of s) semFuncao.delete(p);
+  const porPosto = new Map<string, Set<string>>();
+  const comAlgum = new Set<string>();
+
+  for (const v of voluntarios) {
+    if (!v.area_id) continue;
+    const vinculoId = postos.vinculo.get(chave(v.pessoa_id, v.area_id));
+    if (!vinculoId) continue;
+
+    for (const o of postos.ocupacoes.get(vinculoId) ?? []) {
+      const nome = nomeDoPosto.get(o.area_funcao_id);
+      if (!nome) continue;
+      if (!porPosto.has(nome)) porPosto.set(nome, new Set());
+      porPosto.get(nome)!.add(v.pessoa_id);
+      comAlgum.add(v.pessoa_id);
+    }
+  }
 
   return {
-    funcoes: [...porFuncao.entries()]
+    funcoes: [...porPosto.entries()]
       .map(([nome, s]) => ({ nome, pessoas: s.size }))
       .sort((a, b) => b.pessoas - a.pessoas || a.nome.localeCompare(b.nome, "pt-BR")),
-    semFuncao: semFuncao.size,
+    semFuncao: [...todos].filter(p => !comAlgum.has(p)).length,
     total: todos.size,
   };
 }
 
-export function ComposicaoPorFuncao({ voluntarios }: {
+export function ComposicaoPorFuncao({ voluntarios, postos, ministerioId }: {
   voluntarios: VoluntarioDoMinisterio[];
+  postos: PostosDoMinisterio | null;
+  ministerioId: string;
 }) {
-  const { funcoes, semFuncao } = composicao(voluntarios);
+  const { funcoes, semFuncao } = composicao(voluntarios, postos);
 
   // Sem função nenhuma registrada e sem ninguém a cobrar, o bloco não tem o
   // que dizer — e um bloco vazio é pior que a ausência dele.
@@ -134,12 +110,26 @@ export function ComposicaoPorFuncao({ voluntarios }: {
         </div>
       )}
 
+      {/* O número leva ao trabalho. Antes ele parava aqui: a tela contava
+          "11 sem função" em três lugares diferentes e nenhum deles abria a
+          lista de quem eram — quem lidera lia o número e ia procurar as
+          pessoas uma a uma, por baixo de um menu de três pontos. */}
       {semFuncao > 0 && (
-        <p className="text-xs text-warning-text mt-2">
-          {semFuncao === 1
-            ? "1 pessoa sem função definida no cadastro."
-            : `${semFuncao} pessoas sem função definida no cadastro.`}
-          {funcoes.length === 0 && " Nenhuma função foi registrada neste ministério."}
+        <p className="text-xs mt-2">
+          <Link
+            to={`/ministerios/${ministerioId}/voluntarios?sem=posto`}
+            className="text-warning-text underline underline-offset-2 hover:text-foreground
+                       focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+          >
+            {semFuncao === 1
+              ? "1 pessoa sem posto definido"
+              : `${semFuncao} pessoas sem posto definido`}
+          </Link>
+          <span className="text-muted-foreground">
+            {funcoes.length === 0
+              ? " — nenhum posto foi registrado neste ministério ainda."
+              : " — abrir a lista para preencher."}
+          </span>
         </p>
       )}
     </div>

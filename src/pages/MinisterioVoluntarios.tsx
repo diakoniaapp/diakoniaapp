@@ -18,7 +18,7 @@
 // da pessoa. Ver o comentário longo em services/voluntariosPainel.ts.
 
 import { useEffect, useState, useMemo } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,8 @@ import {
   voluntariosDoMinisterio, estadoDe, ROTULO_ESTADO, quandoServe,
   type VoluntarioDoPainel, type EstadoVoluntario,
 } from "@/services/voluntariosPainel";
+import { carregarPostos, chave, type PostosDoMinisterio } from "@/services/postos";
+import { PostosDoVinculo } from "@/components/ministerios/PostosDoVinculo";
 
 /** Cada estado tem cor E forma — a cor sozinha não é acessível. */
 const COR_ESTADO: Record<EstadoVoluntario, string> = {
@@ -76,38 +78,42 @@ function BarraDeCarga({ v }: { v: VoluntarioDoPainel }) {
 }
 
 /**
- * "Onde serve" — áreas, e a função só quando ela informa alguma coisa.
+ * "Onde serve" — só as áreas.
  *
- * A coluna `funcao` de `area_voluntarios` guarda três coisas misturadas,
- * contadas no banco: "Voluntário" 46 vezes (o padrão que o formulário grava),
- * nomes de ÁREA que vazaram para lá — "Recepção" 16, "Introdução" 1 — e as
- * funções de verdade: Líder, Co-líder, Apoio, Planejamento, Atendimento.
+ * Esta função também mostrava a função, e passava a vida a filtrar lixo:
+ * `area_voluntarios.funcao` guardava "Voluntário" 84 vezes, nomes de ÁREA
+ * — "Recepção" 16, "Vocal" 4, "Introdução" 1 — e "Líder" 9, contra 18
+ * funções de verdade em 132 vínculos. Sem filtro, a linha saía
+ * "Recepção · Recepção".
  *
- * Sem filtrar, a linha saía "Recepção · Recepção" e "Introdução · Voluntário".
- * Repetir o nome da área e anunciar o padrão genérico não dizem nada — e uma
- * linha de apoio que não diz nada rouba a atenção de uma que diz.
+ * O que a pessoa FAZ agora tem lugar próprio: o posto, declarado pela área,
+ * na fileira de etiquetas logo abaixo. Aqui ficou o que sempre foi — onde.
  */
 function onde(v: VoluntarioDoPainel): string {
-  const areas = v.atuacoes.map(a => a.area_nome);
-  const areasNorm = new Set(areas.map(x => x.toLowerCase()));
-  const funcoes = [...new Set(
-    v.atuacoes
-      .map(a => (a.funcao ?? "").trim())
-      .filter(f => f && f.toLowerCase() !== "voluntário" && f.toLowerCase() !== "voluntario")
-      .filter(f => !areasNorm.has(f.toLowerCase())),
-  )];
-  return [...areas, ...funcoes].join(" · ");
+  return v.atuacoes.map(a => a.area_nome).join(" · ");
 }
 
 export default function MinisterioVoluntarios() {
   const { ministerioId = "" } = useParams();
+  const [buscaUrl, setBuscaUrl] = useSearchParams();
   const [nomeMinisterio, setNome] = useState<string>("");
   const [lista, setLista] = useState<VoluntarioDoPainel[]>([]);
+  const [postos, setPostos] = useState<PostosDoMinisterio | null>(null);
   const [loading, setLoading] = useState(true);
   const [versao, setVersao] = useState(0);
   const [busca, setBusca] = useState("");
   const [filtro, setFiltro] = useState<EstadoVoluntario | "todos">("todos");
   const [editando, setEditando] = useState<VoluntarioDoPainel | null>(null);
+
+  // O painel do ministério manda para cá com `?sem=posto` já ligado. Era o
+  // elo que faltava: ele contava "11 de 17 sem função" em três lugares e
+  // nenhum deles levava a lugar nenhum.
+  const soSemPosto = buscaUrl.get("sem") === "posto";
+  const alternarSemPosto = () => {
+    const proximo = new URLSearchParams(buscaUrl);
+    if (soSemPosto) proximo.delete("sem"); else proximo.set("sem", "posto");
+    setBuscaUrl(proximo, { replace: true });
+  };
 
   // O portão é o da POLÍTICA, não o `canEdit` do app.
   //
@@ -122,12 +128,14 @@ export default function MinisterioVoluntarios() {
     if (!ministerioId) return;
     (async () => {
       setLoading(true);
-      const [{ data: m }, vols] = await Promise.all([
+      const [{ data: m }, vols, pos] = await Promise.all([
         supabase.from("ministerios").select("nome").eq("id", ministerioId).maybeSingle(),
         voluntariosDoMinisterio(ministerioId),
+        carregarPostos(ministerioId),
       ]);
       setNome(m?.nome ?? "");
       setLista(vols);
+      setPostos(pos);
       setLoading(false);
     })();
   }, [ministerioId, versao]);
@@ -142,6 +150,24 @@ export default function MinisterioVoluntarios() {
     [lista],
   );
 
+  /**
+   * Sem posto em NENHUMA das suas áreas neste ministério.
+   *
+   * Quem é baterista em Músicos e não declarou nada em Vocal já respondeu à
+   * pergunta "o que esta pessoa faz aqui" — cobrar de novo por causa da
+   * segunda área transformaria a fila num barulho que ninguém termina.
+   */
+  const semPosto = useMemo(() => {
+    const fn = (v: VoluntarioDoPainel) => {
+      if (!postos) return false;
+      return !v.atuacoes.some(a => {
+        const id = postos.vinculo.get(chave(v.pessoa_id, a.area_id));
+        return id ? (postos.ocupacoes.get(id)?.length ?? 0) > 0 : false;
+      });
+    };
+    return { fn, quantos: postos ? comEstado.filter(({ v }) => fn(v)).length : 0 };
+  }, [comEstado, postos]);
+
   /** Quantos em cada estado — vira o número da ficha de filtro. */
   const contagem = useMemo(() => {
     const c: Record<string, number> = { todos: comEstado.length };
@@ -153,11 +179,12 @@ export default function MinisterioVoluntarios() {
     const termo = busca.trim().toLowerCase();
     return comEstado.filter(({ v, estado }) => {
       if (filtro !== "todos" && estado !== filtro) return false;
+      if (soSemPosto && !semPosto.fn(v)) return false;
       if (!termo) return true;
       return v.nome_completo.toLowerCase().includes(termo)
         || v.atuacoes.some(a => a.area_nome.toLowerCase().includes(termo));
     });
-  }, [comEstado, filtro, busca]);
+  }, [comEstado, filtro, busca, soSemPosto, semPosto]);
 
   // A ordem das fichas é a de urgência para quem monta escala.
   const fichas: (EstadoVoluntario | "todos")[] =
@@ -212,6 +239,27 @@ export default function MinisterioVoluntarios() {
               </button>
             );
           })}
+
+          {/* Outro eixo, e por isso separado por uma barra: as fichas acima
+              dizem em que ESTADO a pessoa está; esta diz o que falta saber
+              sobre ela. Cruzam-se — dá para pedir os disponíveis sem posto. */}
+          {semPosto.quantos > 0 && (
+            <>
+              <span aria-hidden="true" className="self-center px-1 text-border">|</span>
+              <button
+                type="button"
+                onClick={alternarSemPosto}
+                aria-pressed={soSemPosto}
+                className={`min-h-[36px] px-3 rounded-full border text-xs font-medium transition-colors
+                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                  soSemPosto ? "bg-warning-text text-warning-foreground border-warning-text"
+                             : "bg-warning-soft border-warning-line text-warning-text hover:brightness-95"
+                }`}
+              >
+                <span className="tabular-nums font-semibold">{semPosto.quantos}</span> sem posto
+              </button>
+            </>
+          )}
         </div>
 
         {/* ── A lista ─────────────────────────────────────────────────── */}
@@ -239,6 +287,30 @@ export default function MinisterioVoluntarios() {
                       <p className="text-xs text-muted-foreground truncate">
                         {onde(v)}
                       </p>
+
+                      {/* O que a pessoa FAZ, uma fileira por área. Quem serve
+                          em duas áreas do ministério tem dois catálogos
+                          diferentes, e um posto de uma não vale na outra. */}
+                      {postos && (
+                        <div className="space-y-1 pt-0.5">
+                          {v.atuacoes.map(a => {
+                            const vinculoId = postos.vinculo.get(chave(v.pessoa_id, a.area_id));
+                            return (
+                              <PostosDoVinculo
+                                key={a.area_id}
+                                areaId={a.area_id}
+                                areaNome={a.area_nome}
+                                vinculoId={vinculoId}
+                                catalogo={postos.catalogo.get(a.area_id) ?? []}
+                                ocupacoes={vinculoId ? (postos.ocupacoes.get(vinculoId) ?? []) : []}
+                                podeEditar={podeEditar}
+                                mostrarArea={v.atuacoes.length > 1}
+                                onMudou={recarregar}
+                              />
+                            );
+                          })}
+                        </div>
+                      )}
 
                       <p className="text-xs text-muted-foreground truncate">
                         {quandoServe(v)}
