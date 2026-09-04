@@ -12591,6 +12591,10 @@ export type Database = {
         Args: { p_motivo?: string; p_vinculo_id: string }
         Returns: undefined
       }
+      diaconia_iniciar_frequencia: {
+        Args: { p_pessoa_assistida_id: string }
+        Returns: string
+      }
       diaconia_lidera_area: { Args: { p_area_id: string }; Returns: boolean }
       diaconia_marcar_confirmado: {
         Args: {

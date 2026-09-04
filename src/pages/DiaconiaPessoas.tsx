@@ -40,8 +40,9 @@ import {
   rotuloMoradia, rotuloSexo, rotuloEstadoCivil,
   pessoasNaCasa, rendaPerCapita, carregarLimitesPerCapita, classificarPerCapita, ROTULO_CLASSIFICACAO,
   encerrarVinculo, reabrirVinculo, buscarMembro, vincularMembro,
+  iniciarFrequencia, sugerirPgmPorBairro, quandoOPgmSeReune,
   type PessoaAssistida, type FichaSocioeconomica, type DadosFicha, type Endereco, type Familiar,
-  type LimitesPerCapita, type VinculoEncerrado, type MembroEncontrado,
+  type LimitesPerCapita, type VinculoEncerrado, type MembroEncontrado, type SugestaoPgm,
 } from "@/services/diaconiaService";
 import { Badge } from "@/components/ui/badge";
 import { TelefoneInput } from "@/components/ui/TelefoneInput";
@@ -541,6 +542,7 @@ function FichaDaPessoa({ pessoa, onAtualizou, limites }: {
   const [novaAberta, setNovaAberta] = useState(false);
   const [editando, setEditando] = useState(false);
   const [encerrando, setEncerrando] = useState(false);
+  const [transicao, setTransicao] = useState(false);
 
   useEffect(() => {
     fichasDaPessoa(pessoaId).then(setFichas).catch(() => setFichas([]));
@@ -568,13 +570,29 @@ function FichaDaPessoa({ pessoa, onAtualizou, limites }: {
     );
   }
 
+  if (transicao) {
+    return (
+      <div className="px-3 pb-3 pl-8">
+        <ComecouAFrequentar pessoa={pessoa}
+          onConcluiu={() => { setTransicao(false); onAtualizou(); }}
+          onCancelar={() => setTransicao(false)} />
+      </div>
+    );
+  }
+
   return (
     <div className="px-3 pb-3 pl-8 space-y-2">
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
           Ficha socioeconômica
         </p>
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
+          {!pessoa.membro_id && (
+            <Button size="sm" variant="ghost" className="h-6 px-2 text-xs gap-1 text-success-text"
+              onClick={() => setTransicao(true)}>
+              <UserCheck className="w-3 h-3" /> Começou a frequentar
+            </Button>
+          )}
           <Button size="sm" variant="ghost" className="h-6 px-2 text-xs gap-1" onClick={() => setEditando(true)}>
             <Pencil className="w-3 h-3" /> Editar dados
           </Button>
@@ -678,6 +696,88 @@ function EncerrarAcompanhamento({ vinculoId, nome, onEncerrou, onCancelar }: {
       <div className="flex gap-2 justify-end">
         <Button size="sm" variant="outline" onClick={onCancelar} disabled={busy}>Cancelar</Button>
         <Button size="sm" onClick={confirmar} disabled={busy}>{busy ? "Encerrando..." : "Confirmar"}</Button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * "Estreitar o contato" era o objetivo dela desde o primeiro pedido — às
+ * vezes funciona. Cria a ficha de visitante (mesmo caminho de qualquer
+ * visitante novo, visível no Painel Pastoral) e, com o bairro que já foi
+ * coletado, já mostra os Pequenos Grupos por perto — pedido dela: "como
+ * indicar um pequeno grupo para que o assistido possa frequentar?".
+ */
+function ComecouAFrequentar({ pessoa, onConcluiu, onCancelar }: {
+  pessoa: PessoaAssistida; onConcluiu: () => void; onCancelar: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [feito, setFeito] = useState(false);
+  const [pgms, setPgms] = useState<SugestaoPgm[] | null>(null);
+
+  async function confirmar() {
+    setBusy(true);
+    try {
+      const r = await iniciarFrequencia(pessoa.id);
+      if (!r.ok) { toast.error(r.erro); return; }
+      toast.success(`${pessoa.nome_completo} agora tem ficha de visitante`);
+      setFeito(true);
+      if (pessoa.bairro) {
+        try { setPgms(await sugerirPgmPorBairro(pessoa.bairro)); }
+        catch { setPgms([]); }
+      } else {
+        setPgms([]);
+      }
+    } finally { setBusy(false); }
+  }
+
+  if (feito) {
+    return (
+      <div className="rounded-md border border-success-line bg-success-soft px-2.5 py-2.5 space-y-2.5">
+        <p className="text-sm text-success-text">
+          Ficha de visitante criada. Já aparece no Painel Pastoral.
+        </p>
+        <div>
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            Pequenos Grupos {pessoa.bairro ? `perto de ${pessoa.bairro}` : "por perto"}
+          </p>
+          {pgms === null ? (
+            <p className="text-xs text-muted-foreground mt-1">Buscando…</p>
+          ) : !pessoa.bairro ? (
+            <p className="text-xs text-muted-foreground mt-1">Sem bairro cadastrado — não dá pra sugerir por perto.</p>
+          ) : pgms.length === 0 ? (
+            <p className="text-xs text-muted-foreground mt-1">Nenhum grupo em {pessoa.bairro} ainda.</p>
+          ) : (
+            <ul className="space-y-1.5 mt-1.5">
+              {pgms.map(g => (
+                <li key={g.id} className="rounded border bg-background px-2 py-1.5 text-xs">
+                  <p className="font-medium">{g.nome}</p>
+                  <p className="text-muted-foreground">
+                    {[quandoOPgmSeReune(g), g.lider_nome ? `líder ${g.lider_nome}` : null, `${g.qtd_membros} pessoas`]
+                      .filter(Boolean).join(" · ")}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <div className="flex justify-end">
+          <Button size="sm" onClick={onConcluiu}>Fechar</Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-md border border-success-line bg-success-soft px-2.5 py-2.5 space-y-2.5">
+      <p className="text-sm">
+        <strong>{pessoa.nome_completo}</strong> passa a ter uma ficha de visitante — visível no Painel
+        Pastoral, no mesmo caminho de qualquer visitante novo. A ficha socioeconômica continua só da
+        Diaconia; isto só diz que a pessoa começou a frequentar.
+      </p>
+      <div className="flex gap-2 justify-end">
+        <Button size="sm" variant="outline" onClick={onCancelar} disabled={busy}>Cancelar</Button>
+        <Button size="sm" onClick={confirmar} disabled={busy}>{busy ? "Criando..." : "Confirmar"}</Button>
       </div>
     </div>
   );
