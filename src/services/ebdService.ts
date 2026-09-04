@@ -335,7 +335,11 @@ export async function atualizarAula(aulaId: string, patch: Partial<EbdAula>) {
 export async function chamadaView(aulaId: string): Promise<EbdChamadaRow[]> {
   const { data, error } = await supabase.rpc("ebd_chamada_view", { p_aula_id: aulaId });
   if (error) throw error;
-  return (data ?? []) as EbdChamadaRow[];
+  // O banco já ordena (20260904250000), mas ORDER BY puro não necessariamente
+  // acerta acento como uma pessoa brasileira leria — mesmo cuidado de
+  // `pessoasDaArea`/`listarPresencas` (diaconiaService.ts/pgmService.ts).
+  return ((data ?? []) as EbdChamadaRow[])
+    .sort((a, b) => a.nome_completo.localeCompare(b.nome_completo, "pt-BR"));
 }
 
 export async function marcarPresenca(

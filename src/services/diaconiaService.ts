@@ -513,7 +513,11 @@ export async function obterOuCriarOcasiao(areaId: string, data: string): Promise
 export async function chamadaView(ocasiaoId: string): Promise<LinhaDaChamada[]> {
   const { data, error } = await supabase.rpc("diaconia_chamada_view", { p_ocasiao_id: ocasiaoId });
   if (error) throw new Error(traduzir(error.message));
-  return (data ?? []) as LinhaDaChamada[];
+  // O banco já ordena, mas ORDER BY puro não necessariamente acerta acento
+  // como uma pessoa brasileira leria — mesmo cuidado de `pessoasDaArea`
+  // aqui mesmo, e de `listarPresencas` no PGM.
+  return ((data ?? []) as LinhaDaChamada[])
+    .sort((a, b) => a.nome_completo.localeCompare(b.nome_completo, "pt-BR"));
 }
 
 export async function marcarConfirmado(ocasiaoId: string, pessoaAssistidaId: string, confirmado: boolean): Promise<void> {
