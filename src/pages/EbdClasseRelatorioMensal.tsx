@@ -20,7 +20,8 @@ import { toast } from "sonner";
 import logoDiakonia from "@/assets/logo-diakonia.png";
 import {
   carregarClasse, relatorioMensalResumo, relatorioMensalFrequencia, versiculoPorFaixaEtaria,
-  type EbdClasse, type RelatorioMensalResumo, type FrequenciaAluno,
+  aulasDoMes, chamadaView,
+  type EbdClasse, type RelatorioMensalResumo, type FrequenciaAluno, type EbdAula, type EbdChamadaRow,
 } from "@/services/ebdService";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -54,6 +55,11 @@ export default function EbdClasseRelatorioMensal() {
   const [frequencia, setFrequencia] = useState<FrequenciaAluno[]>([]);
   const [loading, setLoading] = useState(true);
   const [emitidoPor, setEmitidoPor] = useState("");
+  // "Este relatório não deve ficar na aula e sim nos relatórios das
+  // classes" — cada aula do mês, com link direto pro relatório dela.
+  // Antes só dava pra chegar lá trocando a data na tela de chamada.
+  const [aulas, setAulas] = useState<EbdAula[]>([]);
+  const [aulaStats, setAulaStats] = useState<Map<string, { matriculados: number; presentes: number; taxa: number | null }>>(new Map());
 
   const [ano, mes] = useMemo(() => mesIso.split("-").map(Number), [mesIso]);
 
@@ -61,14 +67,42 @@ export default function EbdClasseRelatorioMensal() {
     (async () => {
       setLoading(true);
       try {
-        const [c, r, f] = await Promise.all([
+        const [c, r, f, aulasMes] = await Promise.all([
           carregarClasse(classeId),
           relatorioMensalResumo(classeId, ano, mes),
           relatorioMensalFrequencia(classeId, ano, mes),
+          aulasDoMes(classeId, ano, mes),
         ]);
         setClasse(c);
         setResumo(r);
         setFrequencia(f);
+        setAulas(aulasMes);
+
+        // Poucas aulas por mês (tipicamente 4-5 domingos) — paralelo direto,
+        // sem virar N+1 de verdade.
+        const aulaIds = aulasMes.map(a => a.id);
+        const [statsPorAula, presRows] = await Promise.all([
+          Promise.all(aulasMes.map(a => chamadaView(a.id).catch((): EbdChamadaRow[] => []))),
+          aulaIds.length > 0
+            ? supabase.from("ebd_presencas").select("aula_id").in("aula_id", aulaIds).then(r => r.data ?? [])
+            : Promise.resolve([] as { aula_id: string }[]),
+        ]);
+        // Aula sem nenhuma presença registrada é chamada não feita, não
+        // "todos faltaram" — mesma regra de sempre.
+        const aulasComChamada = new Set(presRows.map(p => p.aula_id));
+        const mapa = new Map<string, { matriculados: number; presentes: number; taxa: number | null }>();
+        aulasMes.forEach((a, i) => {
+          const linhas = statsPorAula[i];
+          const mat = linhas.filter(l => l.tipo === "matriculado");
+          const pres = mat.filter(l => l.presente);
+          const temChamada = aulasComChamada.has(a.id);
+          mapa.set(a.id, {
+            matriculados: mat.length,
+            presentes: pres.length,
+            taxa: temChamada && mat.length > 0 ? Math.round((pres.length / mat.length) * 100) : null,
+          });
+        });
+        setAulaStats(mapa);
 
         if (user) {
           const { data: prof } = await supabase
@@ -233,6 +267,34 @@ export default function EbdClasseRelatorioMensal() {
                 {resumo!.aulas_total - resumo!.aulas_com_chamada} aula(s) do mês ainda sem chamada
                 registrada — não entra no cálculo da presença média.
               </p>
+            )}
+
+            {aulas.length > 0 && (
+              <section className="avoid-break mb-6">
+                <h3 className="font-serif text-base mb-2 text-gold">Aulas do mês ({aulas.length})</h3>
+                <div className="space-y-1 text-sm">
+                  {aulas.map(a => {
+                    const st = aulaStats.get(a.id);
+                    return (
+                      <Link
+                        key={a.id}
+                        to={`/ebd/${classeId}/chamada/relatorio?data=${a.data}`}
+                        className="flex items-center justify-between gap-2 border-b border-border/40 py-1.5 px-1 -mx-1 rounded hover:bg-muted/40 transition-colors"
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate capitalize">
+                            {new Date(a.data + "T00:00").toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short" })}
+                          </span>
+                          {a.tema && <span className="block text-xs text-muted-foreground truncate">{a.tema}</span>}
+                        </span>
+                        <span className={`tabular-nums text-xs shrink-0 ${corDaTaxa(st?.taxa ?? null)}`}>
+                          {st && st.taxa !== null ? `${st.presentes}/${st.matriculados} (${st.taxa}%)` : "sem chamada"}
+                        </span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </section>
             )}
 
             {frequencia.length > 0 && (

@@ -485,6 +485,26 @@ export interface EbdChamadaRow {
   tipo: "matriculado" | "visitante" | "professor";
 }
 
+/**
+ * As aulas de uma classe num mês — "o relatório não deveria ficar na
+ * aula, e sim nos relatórios das classes": antes só dava pra chegar no
+ * relatório de uma aula específica trocando a data na tela de chamada.
+ * Usada em EbdClasseRelatorioMensal.tsx pra listar cada domingo do mês
+ * com link direto pro relatório dele.
+ */
+export async function aulasDoMes(classeId: string, ano: number, mes: number): Promise<EbdAula[]> {
+  const inicio = `${ano}-${String(mes).padStart(2, "0")}-01`;
+  const fim = new Date(ano, mes, 1).toISOString().slice(0, 10);
+  const { data, error } = await supabase
+    .from("ebd_aulas")
+    .select("*")
+    .eq("classe_id", classeId)
+    .gte("data", inicio).lt("data", fim)
+    .order("data");
+  if (error) throw error;
+  return (data ?? []) as EbdAula[];
+}
+
 /** Só olha — ao contrário de `obterOuCriarAula`, nunca cria uma aula nova.
  *  Usado pra decidir se um domingo já foi dado (e finalizado) sem gerar
  *  uma linha em `ebd_aulas` só de passagem. */
