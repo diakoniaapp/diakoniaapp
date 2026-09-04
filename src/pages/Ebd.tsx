@@ -6,10 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, GraduationCap, ChevronRight, Users, Plus, Pencil } from "lucide-react";
+import { Loader2, GraduationCap, ChevronRight, Users, Plus, Pencil, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { listarClasses, type EbdClasse } from "@/services/ebdService";
+import { ebdPorClasse, type EbdClasseLinha } from "@/services/ebdPainelService";
 import { ClasseForm } from "@/components/ebd/ClasseForm";
 import { useAuth } from "@/hooks/useAuth";
 import { PaginaSkeleton } from "@/components/ListState";
@@ -17,6 +18,10 @@ import { PaginaSkeleton } from "@/components/ListState";
 interface ClasseCard extends EbdClasse {
   qtd_matriculados: number;
   qtd_esperados: number;
+  /** Quantas aulas desta classe nunca tiveram chamada lançada — sinal de
+   *  atenção, não julgamento (a classe pode ter aula marcada sem ter
+   *  acontecido ainda). */
+  aulasSemChamada: number;
 }
 
 export default function Ebd() {
@@ -33,7 +38,15 @@ export default function Ebd() {
   async function carregar() {
     setLoading(true);
     try {
-      const cs = await listarClasses(mostrarInativas);
+      const [cs, porClasse] = await Promise.all([
+        listarClasses(mostrarInativas),
+        // Uma chamada só, pra todas as classes — não N+1. Sem tentar/pegar:
+        // um cartão sem esse dado ainda mostra tudo o mais, só sem o aviso.
+        ebdPorClasse().catch((): EbdClasseLinha[] => []),
+      ]);
+      const semChamadaPorClasse = new Map<string, number>(
+        porClasse.map(p => [p.classe_id, p.aulas_sem_chamada]),
+      );
       const enriched: ClasseCard[] = [];
       for (const c of cs) {
         const { count: qtdMat } = await supabase
@@ -58,6 +71,7 @@ export default function Ebd() {
           ...c,
           qtd_matriculados: qtdMat ?? 0,
           qtd_esperados: livres.length,
+          aulasSemChamada: semChamadaPorClasse.get(c.id) ?? 0,
         });
       }
       setClasses(enriched);
@@ -133,6 +147,13 @@ export default function Ebd() {
               <CardContent className="space-y-3">
                 <p className="text-xs text-muted-foreground">{faixaTexto(c)}</p>
 
+                {c.aulasSemChamada > 0 && (
+                  <p className="text-xs text-warning-text flex items-center gap-1.5">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    {c.aulasSemChamada} {c.aulasSemChamada === 1 ? "aula" : "aulas"} sem chamada lançada
+                  </p>
+                )}
+
                 <div className="flex items-center gap-3 text-xs">
                   <span className="flex items-center gap-1">
                     <Users className="w-3.5 h-3.5 text-success-text" />
@@ -159,7 +180,17 @@ export default function Ebd() {
                   {taxa}% do perfil da classe matriculado
                 </p>
 
-                <div className="flex gap-1.5 mt-1">
+                {/* Chamada em destaque — pedido dela: "dar mais ênfase ao
+                    fazer chamada". É o gesto que se repete toda semana; o
+                    resto ("Abrir" pra matrículas/professores, "Editar") é
+                    trabalho ocasional e fica menor, por baixo. */}
+                <div className="space-y-1.5 mt-1">
+                  <Button asChild size="sm" className="w-full gap-1.5 bg-gold hover:bg-gold/90 text-white border-0">
+                    <Link to={`/ebd/${c.id}/chamada`}>
+                      <GraduationCap className="w-3.5 h-3.5" /> Fazer chamada
+                    </Link>
+                  </Button>
+                  <div className="flex gap-1.5">
                   <Button asChild variant="outline" size="sm" className="w-full gap-1.5"><Link to={`/ebd/${c.id}`} className="flex-1">
                       Abrir <ChevronRight className="w-3.5 h-3.5" />
                     </Link></Button>
@@ -172,6 +203,7 @@ export default function Ebd() {
                       <Pencil className="w-3.5 h-3.5" />
                     </Button>
                   )}
+                  </div>
                 </div>
               </CardContent>
             </Card>
