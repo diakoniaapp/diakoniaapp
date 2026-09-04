@@ -43,8 +43,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { PaginaSkeleton } from "@/components/ListState";
 import { Indicador, FaixaDeIndicadores, TituloDaSecao, irParaSecao } from "@/components/painel/blocos";
 
-/** Nome + idade de um membro ausente — só o que a lista de "clicar pra ver" precisa. */
-interface MembroAusente {
+/** Nome + idade de quem está ausente — só o que a lista de "clicar pra ver" precisa. */
+interface PessoaAusente {
   pessoa_id: string;
   nome_completo: string;
   idade: number | null;
@@ -53,13 +53,15 @@ interface MembroAusente {
 interface ClasseCard extends EbdClasse {
   qtd_matriculados: number;
   /** Todo mundo que cabe no perfil (idade/gênero), matriculado ou não —
-   *  denominador certo da cobertura. */
+   *  denominador certo da cobertura. Membro + congregado + visitante da
+   *  EBD (quem já apareceu numa aula) — pedido dela: "volte a considerar
+   *  MEMBROS + CONGREGADOS + VISITANTES DA EBD". */
   qtd_elegiveis: number;
-  /** Só MEMBRO (não congregado), cabe no perfil e não está matriculado em
-   *  NENHUMA classe — alimenta o painel "fora da EBD" por faixa etária
-   *  (pedido dela: "liste os nomes, classificados pela faixa etária"). */
-  membrosAusentes: MembroAusente[];
-  membrosElegiveis: number;
+  /** Do mesmo público de `qtd_elegiveis`, cabe no perfil e não está
+   *  matriculado em NENHUMA classe — alimenta o painel "fora da EBD" por
+   *  faixa etária (pedido dela: "liste os nomes, classificados pela faixa
+   *  etária"). */
+  pessoasAusentes: PessoaAusente[];
   aulasSemChamada: number;
   professores: EbdProfessor[];
 }
@@ -149,14 +151,15 @@ export default function Ebd() {
           .eq("classe_id", c.id)
           .eq("ativo", true);
         const { data: espsRaw } = await supabase.rpc("esperados_da_classe", { p_classe_id: c.id });
+        // Membro + congregado + visitante da EBD (a própria RPC já traz só
+        // essas três) — pedido dela: "volte a considerar MEMBROS +
+        // CONGREGADOS + VISITANTES DA EBD".
         const esps = (espsRaw as any[] | null) ?? [];
-        const soMembros = esps.filter(e => e.tipo_pessoa === "membro");
         enriched.push({
           ...c,
           qtd_matriculados: qtdMat ?? 0,
           qtd_elegiveis: esps.length,
-          membrosElegiveis: soMembros.length,
-          membrosAusentes: soMembros
+          pessoasAusentes: esps
             .filter(e => !e.ja_matriculado && !e.outra_classe_id)
             .map(e => ({ pessoa_id: e.pessoa_id, nome_completo: e.nome_completo, idade: e.idade })),
           aulasSemChamada: semChamadaPorClasse.get(c.id) ?? 0,
@@ -217,10 +220,10 @@ export default function Ebd() {
     ? Math.round((gerais.matriculados / gerais.membrosAtivos) * 100)
     : null;
 
-  // Classes com pelo menos um membro elegível — base do painel "fora da
+  // Classes com pelo menos uma pessoa elegível — base do painel "fora da
   // EBD" por faixa etária (clique no indicador).
   const classesComElegiveis = useMemo(
-    () => classes.filter(c => c.membrosElegiveis > 0),
+    () => classes.filter(c => c.qtd_elegiveis > 0),
     [classes],
   );
 
@@ -241,9 +244,9 @@ export default function Ebd() {
     return mapa;
   }, [frequenciaAlunos]);
 
-  // "Fora da EBD": de quem CABE numa classe pela idade (só MEMBRO — pedido
-  // dela em "liste os nomes, classificados pela faixa etária" fala de
-  // membros, mesmo padrão de Adesão). Pedido dela em cima do painel: "em
+  // "Fora da EBD": de quem CABE numa classe pela idade — membro, congregado
+  // ou visitante da EBD (pedido dela: "volte a considerar MEMBROS +
+  // CONGREGADOS + VISITANTES DA EBD"). Pedido dela em cima do painel: "em
   // colunas: elegíveis - matriculados = % de ausentes (soma das
   // ausências)" — ausente aqui é as DUAS coisas somadas: quem nunca se
   // matriculou em classe nenhuma E quem está matriculado nesta classe mas
@@ -252,9 +255,9 @@ export default function Ebd() {
   // 3-8... ver ORDEM_PRIMEIRA_CLASSE_ADULTA em ebdService.ts): cada
   // pessoa elegível cai em no máximo uma classe.
   const foraDaEbd = useMemo(() => {
-    const elegiveis = classes.reduce((s, c) => s + c.membrosElegiveis, 0);
+    const elegiveis = classes.reduce((s, c) => s + c.qtd_elegiveis, 0);
     const ausentes = classes.reduce(
-      (s, c) => s + c.membrosAusentes.length + (faltandoPorClasse.get(c.nome)?.length ?? 0),
+      (s, c) => s + c.pessoasAusentes.length + (faltandoPorClasse.get(c.nome)?.length ?? 0),
       0,
     );
     return elegiveis > 0 ? Math.round((ausentes / elegiveis) * 100) : null;
@@ -386,9 +389,9 @@ export default function Ebd() {
       <p className="text-xs text-muted-foreground -mt-3">
         <strong>Adesão</strong>: {gerais?.matriculados ?? 0} de {gerais?.membrosAtivos ?? 0} membros ativos da
         igreja estão numa classe.{" "}
-        <strong>Fora da EBD</strong>: de quem cabe na faixa etária de alguma classe (membros), quantos nunca se
-        matricularam ou estão matriculados mas não apareceram este mês. Clique em Presença, Novos, Visitantes ou
-        Fora da EBD para ver o detalhe.
+        <strong>Fora da EBD</strong>: de quem cabe na faixa etária de alguma classe (membros, congregados e
+        visitantes da EBD), quantos nunca se matricularam ou estão matriculados mas não apareceram este mês.
+        Clique em Presença, Novos, Visitantes ou Fora da EBD para ver o detalhe.
       </p>
 
       {/* Pedido dela: "coloque link para os indicadores" — cada painel abre
@@ -466,19 +469,20 @@ export default function Ebd() {
       {painelAberto === "foraDaEbd" && (
         <div className="rounded-lg border bg-card divide-y -mt-2">
           <p className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
-            Fora da EBD, por faixa etária — da mais nova para a mais velha. Ausentes = nunca se matriculou + está
-            matriculado mas não apareceu este mês. Clique numa classe para ver os nomes.
+            Fora da EBD, por faixa etária — membros, congregados e visitantes da EBD, da mais nova para a mais
+            velha. Ausentes = nunca se matriculou + está matriculado mas não apareceu este mês. Clique numa classe
+            para ver os nomes.
           </p>
           {classesComElegiveis.length === 0 ? (
-            <p className="px-3 py-3 text-sm text-muted-foreground text-center">Sem faixas com membros elegíveis.</p>
+            <p className="px-3 py-3 text-sm text-muted-foreground text-center">Sem faixas com gente elegível.</p>
           ) : classesComElegiveis.map(c => {
             const faltando = faltandoPorClasse.get(c.nome) ?? [];
             // "elegíveis - matriculados = % de ausentes (soma das
             // ausências)" — pedido dela, em cima do painel: as colunas
             // fecham a conta em vez de deixar a subtração implícita.
-            const ausentesTotal = c.membrosAusentes.length + faltando.length;
-            const matriculadosEfetivos = c.membrosElegiveis - ausentesTotal;
-            const pct = Math.round((ausentesTotal / c.membrosElegiveis) * 100);
+            const ausentesTotal = c.pessoasAusentes.length + faltando.length;
+            const matriculadosEfetivos = c.qtd_elegiveis - ausentesTotal;
+            const pct = Math.round((ausentesTotal / c.qtd_elegiveis) * 100);
             const aberto = classesForaDaEbdAbertas.has(c.id);
             return (
               <div key={c.id}>
@@ -496,7 +500,7 @@ export default function Ebd() {
                   </span>
                   <span className="grid grid-cols-3 gap-1 text-center">
                     <span className="block">
-                      <span className="block text-sm font-semibold tabular-nums">{c.membrosElegiveis}</span>
+                      <span className="block text-sm font-semibold tabular-nums">{c.qtd_elegiveis}</span>
                       <span className="block text-[9px] uppercase tracking-wide text-muted-foreground">Elegíveis</span>
                     </span>
                     <span className="block">
@@ -515,17 +519,17 @@ export default function Ebd() {
                 {aberto && (
                   <div className="px-3 pb-3 space-y-2 border-t pt-2 bg-muted/20">
                     <p className="text-xs text-muted-foreground">
-                      {c.membrosElegiveis} elegíveis − {matriculadosEfetivos} matriculados de verdade ={" "}
-                      {ausentesTotal} ausentes ({pct}%): {c.membrosAusentes.length} nunca se matricularam
+                      {c.qtd_elegiveis} elegíveis − {matriculadosEfetivos} matriculados de verdade ={" "}
+                      {ausentesTotal} ausentes ({pct}%): {c.pessoasAusentes.length} nunca se matricularam
                       {faltando.length > 0 && <> e {faltando.length} estão matriculados mas não apareceram este mês</>}.
                     </p>
                     <div>
                       <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Nunca matriculados</p>
-                      {c.membrosAusentes.length === 0 ? (
-                        <p className="text-xs text-success-text">Todos os membros elegíveis estão matriculados.</p>
+                      {c.pessoasAusentes.length === 0 ? (
+                        <p className="text-xs text-success-text">Todos os elegíveis estão matriculados.</p>
                       ) : (
                         <div className="space-y-0.5">
-                          {c.membrosAusentes.map(m => (
+                          {c.pessoasAusentes.map(m => (
                             <div key={m.pessoa_id} className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
                               <span className="truncate">{m.nome_completo}</span>
                               {m.idade !== null && <span className="shrink-0">{m.idade} anos</span>}

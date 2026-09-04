@@ -10,21 +10,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog";
-import {
   ArrowLeft, Camera, Image as ImageIcon, Loader2, UserPlus,
   Calendar, GraduationCap, Save, CheckCircle2, FileText, Check, Undo2,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
   obterOuCriarAula, carregarAula, atualizarAula,
-  chamadaView, marcarPresenca, adicionarVisitanteAula, uploadFotoAula,
+  chamadaView, marcarPresenca, uploadFotoAula,
   carregarClasse,
   type EbdAula, type EbdClasse, type EbdChamadaRow,
 } from "@/services/ebdService";
-import { TelefoneInput } from "@/components/ui/TelefoneInput";
 import { PaginaSkeleton } from "@/components/ListState";
+import VisitanteRapidoDialog from "@/components/membros/VisitanteRapidoDialog";
 
 // Calcula o domingo mais próximo (passado ou hoje)
 function domingoMaisRecente(): string {
@@ -47,11 +44,11 @@ export default function EbdChamada() {
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState<string | null>(null);
 
-  // Dialog visitante
+  // Dialog visitante — mesmo cadastro do sistema principal (Home/Dashboard),
+  // pedido dela: "use o mesmo cadastro de visitante do sistema principal,
+  // no visitante da ebd". Ganha de graça o que o formulário próprio daqui
+  // não tinha: "como conheceu", e-mail, e as 4 tarefas de acolhimento.
   const [visitOpen, setVisitOpen] = useState(false);
-  const [visitNome, setVisitNome] = useState("");
-  const [visitTel, setVisitTel] = useState("");
-  const [visitBusy, setVisitBusy] = useState(false);
 
   // Upload foto
   const [uploadingFoto, setUploadingFoto] = useState(false);
@@ -116,22 +113,14 @@ export default function EbdChamada() {
     }
   }
 
-  async function handleAdicionarVisitante(e: React.FormEvent) {
-    e.preventDefault();
-    if (!visitNome.trim()) { toast.error("Nome obrigatório"); return; }
+  async function handleVisitanteCriado(pessoaId: string, nomeCompleto: string) {
     if (!aula) return;
-    setVisitBusy(true);
     try {
-      await adicionarVisitanteAula(aula.id, visitNome, visitTel);
-      toast.success("Visitante adicionado");
-      setVisitNome("");
-      setVisitTel("");
-      setVisitOpen(false);
+      await marcarPresenca(aula.id, pessoaId, true, true);
+      toast.success(`${nomeCompleto.split(" ")[0]} marcado(a) presente nesta aula`);
       await carregar();
     } catch (e: any) {
-      toast.error(e?.message ?? "Erro ao adicionar visitante");
-    } finally {
-      setVisitBusy(false);
+      toast.error(e?.message ?? "Visitante cadastrado, mas não deu pra marcar presença nesta aula");
     }
   }
 
@@ -447,43 +436,12 @@ export default function EbdChamada() {
         </CardContent>
       </Card>
 
-      {/* Dialog novo visitante */}
-      <Dialog open={visitOpen} onOpenChange={setVisitOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Novo visitante</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleAdicionarVisitante} className="space-y-3">
-            <div>
-              <Label>Nome completo *</Label>
-              <Input
-                required autoFocus
-                value={visitNome}
-                onChange={(e) => setVisitNome(e.target.value)}
-                placeholder="Como ela(e) se chama?"
-              />
-            </div>
-            <div>
-              <Label>Telefone (opcional)</Label>
-              <TelefoneInput
-                value={visitTel}
-                onChange={setVisitTel}
-              />
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Será cadastrada(o) como visitante em Pessoas e marcado como presente nesta aula.
-            </p>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setVisitOpen(false)} disabled={visitBusy}>
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={visitBusy}>
-                {visitBusy ? "Salvando..." : "Adicionar"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      {/* Dialog novo visitante — mesmo cadastro do sistema principal */}
+      <VisitanteRapidoDialog
+        open={visitOpen}
+        onOpenChange={setVisitOpen}
+        onCreated={handleVisitanteCriado}
+      />
     </div>
   );
 }

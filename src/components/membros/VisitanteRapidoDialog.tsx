@@ -21,6 +21,10 @@ interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   onSaved?: () => void;
+  /** Dispara com o id da pessoa recém-criada — pra quem precisa fazer algo
+   *  específico com ela na sequência (ex: EbdChamada marca presença na
+   *  aula). Roda antes de `onSaved`. */
+  onCreated?: (id: string, nomeCompleto: string) => void;
 }
 
 interface PessoaItem {
@@ -42,7 +46,7 @@ const COMO_CONHECEU_OPTIONS = [
 
 // ── Componente ─────────────────────────────────────────────────────────────────
 
-export default function VisitanteRapidoDialog({ open, onOpenChange, onSaved }: Props) {
+export default function VisitanteRapidoDialog({ open, onOpenChange, onSaved, onCreated }: Props) {
   // Dados principais
   const [nome,      setNome]      = useState("");
   const [telefone,  setTelefone]  = useState("");
@@ -215,6 +219,7 @@ export default function VisitanteRapidoDialog({ open, onOpenChange, onSaved }: P
     if (data?.id) await criarTarefas(data.id, nome.trim());
 
     toast.success(`${nome.trim().split(" ")[0]} cadastrado(a)! Já está no acompanhamento. ✅`);
+    if (data?.id) onCreated?.(data.id, nome.trim());
     onOpenChange(false);
     onSaved?.();
   };

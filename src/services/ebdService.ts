@@ -533,33 +533,6 @@ export async function marcarPresenca(
   if (error) throw error;
 }
 
-export async function adicionarVisitanteAula(
-  aulaId: string,
-  nome: string,
-  telefone?: string,
-): Promise<string> {
-  // 1. Criar pessoa do tipo visitante
-  const payload: any = {
-    nome_completo: nome.trim(),
-    tipo_pessoa: "visitante",
-    status: "ativo",
-    data_entrada: new Date().toISOString().slice(0, 10),
-    como_conheceu: "evento_igreja",
-    como_conheceu_descricao: "Veio na EBD",
-  };
-  if (telefone) payload.telefone_celular = telefone.replace(/\D/g, "");
-  const { data: novaPessoa, error: e1 } = await supabase
-    .from("membros")
-    .insert(payload)
-    .select("id")
-    .single();
-  if (e1) throw e1;
-
-  // 2. Marcar presença com eh_visitante=true
-  await marcarPresenca(aulaId, novaPessoa.id, true, true);
-  return novaPessoa.id;
-}
-
 export async function uploadFotoAula(aulaId: string, classeId: string, file: File): Promise<string> {
   const ext = file.name.split(".").pop() || "jpg";
   const path = `${classeId}/${aulaId}.${ext}`;
