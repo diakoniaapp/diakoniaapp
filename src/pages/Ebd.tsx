@@ -21,7 +21,7 @@
 // os que fazem aniversário no mês". `todosOsMatriculados()` continua
 // sendo a fonte — só não vira mais lista própria, alimenta unicamente os
 // aniversariantes.
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -103,11 +103,15 @@ export default function Ebd() {
   const [visitantesLista, setVisitantesLista] = useState<VisitanteEbd[]>([]);
   // Pedido dela: "coloque link para os indicadores" — só um painel aberto
   // por vez, senão a tela vira quatro listas empilhadas de uma vez.
-  const [painelAberto, setPainelAberto] = useState<"presenca" | "novos" | "visitantes" | "foraDaEbd" | null>(null);
+  const [painelAberto, setPainelAberto] = useState<
+    "matriculados" | "presenca" | "novos" | "visitantes" | "adesao" | "foraDaEbd" | null
+  >(null);
   // "Não ficou bom a lista de nomes" — os nomes de "Fora da EBD" ficam
   // escondidos por padrão, um acordeão por classe (mesmo padrão do "Ver
   // telefone"), não uma parede de nomes de cara.
   const [classesForaDaEbdAbertas, setClassesForaDaEbdAbertas] = useState<Set<string>>(new Set());
+  const [classesMatriculadosAbertas, setClassesMatriculadosAbertas] = useState<Set<string>>(new Set());
+  const [classesAdesaoAbertas, setClassesAdesaoAbertas] = useState<Set<string>>(new Set());
 
   useEffect(() => { carregar(); }, [mostrarInativas]);
 
@@ -253,6 +257,20 @@ export default function Ebd() {
     [classes],
   );
 
+  // Matriculados de cada classe, por nome — alimenta os acordeões de
+  // "Matriculados" e "Adesão" (pedido dela: "crie o que temos no card
+  // adesão [o desenho do Fora da EBD]. para os demais cards"). Vem do
+  // mesmo `alunos` já carregado, sem consulta nova.
+  const matriculadosPorClasseNome = useMemo(() => {
+    const mapa = new Map<string, AlunoMatriculado[]>();
+    for (const a of alunos) {
+      const lista = mapa.get(a.classe_nome) ?? [];
+      lista.push(a);
+      mapa.set(a.classe_nome, lista);
+    }
+    return mapa;
+  }, [alunos]);
+
   // "Fora da ebd tem um problema... mostra quem não está matriculado...
   // mas deveríamos verificar tbm quem está matriculado, mas faltando" —
   // ela tinha razão: matriculado que nunca aparece está tão fora da EBD
@@ -317,13 +335,21 @@ export default function Ebd() {
     });
   }
 
-  function alternarClasseForaDaEbd(classeId: string) {
-    setClassesForaDaEbdAbertas(prev => {
-      const novo = new Set(prev);
-      if (novo.has(classeId)) novo.delete(classeId); else novo.add(classeId);
-      return novo;
-    });
+  // Um acordeão-por-classe genérico — Fora da EBD, Matriculados e Adesão
+  // usam o mesmo padrão (mesmo de "Ver telefone"), cada um com seu
+  // próprio Set de classes abertas.
+  function criarAlternador(setState: Dispatch<SetStateAction<Set<string>>>) {
+    return (classeId: string) => {
+      setState(prev => {
+        const novo = new Set(prev);
+        if (novo.has(classeId)) novo.delete(classeId); else novo.add(classeId);
+        return novo;
+      });
+    };
   }
+  const alternarClasseForaDaEbd = criarAlternador(setClassesForaDaEbdAbertas);
+  const alternarClasseMatriculados = criarAlternador(setClassesMatriculadosAbertas);
+  const alternarClasseAdesao = criarAlternador(setClassesAdesaoAbertas);
 
   function faixaTexto(c: EbdClasse) {
     if (c.idade_min == null && c.idade_max == null) return "Sem faixa";
@@ -385,7 +411,10 @@ export default function Ebd() {
             rola pra fora de vista. Compactos de propósito: é cabeçalho, não
             o conteúdo principal da tela. */}
         <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
-          <Stat label="Matriculados" valor={gerais?.matriculados ?? "—"} compacto />
+          <Stat
+            label="Matriculados" valor={gerais?.matriculados ?? "—"} compacto ativo={painelAberto === "matriculados"}
+            onClick={() => setPainelAberto(p => p === "matriculados" ? null : "matriculados")}
+          />
           <Stat
             label="Presença"
             valor={resumoMes?.taxa_presenca != null ? `${resumoMes.taxa_presenca}%` : "—"}
@@ -400,7 +429,10 @@ export default function Ebd() {
             label="Visitantes" valor={resumoMes?.visitantes ?? "—"} compacto ativo={painelAberto === "visitantes"}
             onClick={() => setPainelAberto(p => p === "visitantes" ? null : "visitantes")}
           />
-          <Stat label="Adesão" valor={adesao !== null ? `${adesao}%` : "—"} compacto />
+          <Stat
+            label="Adesão" valor={adesao !== null ? `${adesao}%` : "—"} compacto ativo={painelAberto === "adesao"}
+            onClick={() => setPainelAberto(p => p === "adesao" ? null : "adesao")}
+          />
           <Stat
             label="Fora da EBD" valor={foraDaEbd !== null ? `${foraDaEbd}%` : "—"} compacto ativo={painelAberto === "foraDaEbd"}
             onClick={() => setPainelAberto(p => p === "foraDaEbd" ? null : "foraDaEbd")}
@@ -417,11 +449,72 @@ export default function Ebd() {
         e visitantes da EBD estão numa classe.{" "}
         <strong>Fora da EBD</strong>: de quem cabe na faixa etária de alguma classe (membros, congregados e
         visitantes da EBD), quantos nunca se matricularam ou estão matriculados mas não apareceram este mês.
-        Clique em Presença, Novos, Visitantes ou Fora da EBD para ver o detalhe.
+        Clique em qualquer indicador acima para ver o detalhe por classe.
       </p>
 
       {/* Pedido dela: "coloque link para os indicadores" — cada painel abre
           sob o indicador clicado, um de cada vez. */}
+      {painelAberto === "matriculados" && (
+        <div className="rounded-lg border bg-card divide-y -mt-2">
+          <p className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
+            Matriculados por classe, da mais nova para a mais velha. Clique numa classe para ver os nomes.
+          </p>
+          {classes.length === 0 ? (
+            <p className="px-3 py-3 text-sm text-muted-foreground text-center">Nenhuma classe cadastrada.</p>
+          ) : classes.map(c => {
+            // Mesma conta do cartão da classe ("% do perfil") — pode passar
+            // de 100%: há gente matriculada fora do perfil da classe (ver
+            // comentário em EbdClasse.tsx), e isso não é erro a esconder.
+            const cobertura = c.qtd_elegiveis > 0 ? Math.round((c.qtd_matriculados / c.qtd_elegiveis) * 100) : 0;
+            const nomes = matriculadosPorClasseNome.get(c.nome) ?? [];
+            const aberto = classesMatriculadosAbertas.has(c.id);
+            return (
+              <div key={c.id}>
+                <button
+                  type="button"
+                  onClick={() => alternarClasseMatriculados(c.id)}
+                  className="w-full px-3 py-2 space-y-1.5 text-left hover:bg-muted/40 transition-colors"
+                >
+                  <span className="flex items-center justify-between gap-2">
+                    <span className="min-w-0">
+                      <span className="font-medium text-sm truncate block">{c.nome}</span>
+                      <span className="text-xs text-muted-foreground">{faixaTexto(c)}</span>
+                    </span>
+                    <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform shrink-0 ${aberto ? "rotate-180" : ""}`} />
+                  </span>
+                  <span className="grid grid-cols-3 gap-1 text-center">
+                    <span className="block">
+                      <span className="block text-sm font-semibold tabular-nums">{c.qtd_elegiveis}</span>
+                      <span className="block text-[9px] uppercase tracking-wide text-muted-foreground">Elegíveis</span>
+                    </span>
+                    <span className="block">
+                      <span className="block text-sm font-semibold tabular-nums text-gold">{c.qtd_matriculados}</span>
+                      <span className="block text-[9px] uppercase tracking-wide text-muted-foreground">Matriculados</span>
+                    </span>
+                    <span className="block">
+                      <span className="block text-sm font-semibold tabular-nums">{cobertura}%</span>
+                      <span className="block text-[9px] uppercase tracking-wide text-muted-foreground">do perfil</span>
+                    </span>
+                  </span>
+                </button>
+
+                {aberto && (
+                  <div className="px-3 pb-3 space-y-0.5 border-t pt-2 bg-muted/20">
+                    {nomes.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">Nenhum matriculado nesta classe.</p>
+                    ) : nomes.map(a => (
+                      <div key={a.pessoa_id} className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                        <span className="truncate">{a.nome_completo}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {painelAberto === "presenca" && (
         <div className="rounded-lg border bg-card divide-y -mt-2">
           <p className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
@@ -489,6 +582,65 @@ export default function Ebd() {
               </span>
             </div>
           ))}
+        </div>
+      )}
+
+      {painelAberto === "adesao" && (
+        <div className="rounded-lg border bg-card divide-y -mt-2">
+          <p className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
+            Adesão por faixa etária — membros, congregados e visitantes da EBD, da mais nova para a mais velha.
+            Clique numa classe para ver os nomes.
+          </p>
+          {classesComElegiveis.length === 0 ? (
+            <p className="px-3 py-3 text-sm text-muted-foreground text-center">Sem faixas com gente elegível.</p>
+          ) : classesComElegiveis.map(c => {
+            const pctAdesao = Math.round((c.qtd_matriculados / c.qtd_elegiveis) * 100);
+            const nomes = matriculadosPorClasseNome.get(c.nome) ?? [];
+            const aberto = classesAdesaoAbertas.has(c.id);
+            return (
+              <div key={c.id}>
+                <button
+                  type="button"
+                  onClick={() => alternarClasseAdesao(c.id)}
+                  className="w-full px-3 py-2 space-y-1.5 text-left hover:bg-muted/40 transition-colors"
+                >
+                  <span className="flex items-center justify-between gap-2">
+                    <span className="min-w-0">
+                      <span className="font-medium text-sm truncate block">{c.nome}</span>
+                      <span className="text-xs text-muted-foreground">{faixaTexto(c)}</span>
+                    </span>
+                    <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform shrink-0 ${aberto ? "rotate-180" : ""}`} />
+                  </span>
+                  <span className="grid grid-cols-3 gap-1 text-center">
+                    <span className="block">
+                      <span className="block text-sm font-semibold tabular-nums">{c.qtd_elegiveis}</span>
+                      <span className="block text-[9px] uppercase tracking-wide text-muted-foreground">Elegíveis</span>
+                    </span>
+                    <span className="block">
+                      <span className="block text-sm font-semibold tabular-nums">{c.qtd_matriculados}</span>
+                      <span className="block text-[9px] uppercase tracking-wide text-muted-foreground">Matriculados</span>
+                    </span>
+                    <span className="block">
+                      <span className="block text-sm font-semibold tabular-nums text-success-text">{pctAdesao}%</span>
+                      <span className="block text-[9px] uppercase tracking-wide text-muted-foreground">Adesão</span>
+                    </span>
+                  </span>
+                </button>
+
+                {aberto && (
+                  <div className="px-3 pb-3 space-y-0.5 border-t pt-2 bg-muted/20">
+                    {nomes.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">Nenhum matriculado nesta classe.</p>
+                    ) : nomes.map(a => (
+                      <div key={a.pessoa_id} className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                        <span className="truncate">{a.nome_completo}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
