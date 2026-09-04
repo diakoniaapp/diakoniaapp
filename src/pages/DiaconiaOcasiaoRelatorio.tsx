@@ -71,7 +71,7 @@ export default function DiaconiaOcasiaoRelatorio() {
     }
     linhasMsg.push(`"Servi ao Senhor com alegria." — Salmos 100:2`);
     linhasMsg.push("");
-    linhasMsg.push(`_Enviado pelo Diakonia APP — Sistema de Igrejas_`);
+    linhasMsg.push(`_Enviado pelo DiakoniaApp — Gestão Ministerial_`);
     return linhasMsg.join("\n");
   }
 
@@ -150,9 +150,9 @@ export default function DiaconiaOcasiaoRelatorio() {
               draggable={false}
             />
             <div>
-              <h2 className="font-serif text-lg leading-tight">Diakonia APP — Sistema de Igrejas</h2>
+              <h2 className="font-serif text-lg leading-tight">DiakoniaApp</h2>
               <p className="text-xs text-muted-foreground mt-0.5 tracking-[0.12em] uppercase">
-                Conectando pessoas, organizando o propósito
+                Gestão Ministerial
               </p>
             </div>
           </div>

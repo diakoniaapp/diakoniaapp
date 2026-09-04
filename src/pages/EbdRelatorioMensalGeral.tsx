@@ -95,7 +95,7 @@ export default function EbdRelatorioMensalGeral() {
       comChamada.forEach(c => l.push(`• ${c.classe_nome}: ${c.presentes}/${c.matriculados * c.aulas_com_chamada} (${c.taxa}%)`));
       l.push("");
     }
-    l.push(`_Enviado pelo Diakonia APP — Sistema de Igrejas_`);
+    l.push(`_Enviado pelo DiakoniaApp — Gestão Ministerial_`);
     return l.join("\n");
   }
 
@@ -179,9 +179,9 @@ export default function EbdRelatorioMensalGeral() {
               draggable={false}
             />
             <div>
-              <h2 className="font-serif text-lg leading-tight">Diakonia APP — Sistema de Igrejas</h2>
+              <h2 className="font-serif text-lg leading-tight">DiakoniaApp</h2>
               <p className="text-xs text-muted-foreground mt-0.5 tracking-[0.12em] uppercase">
-                Conectando pessoas, organizando o propósito
+                Gestão Ministerial
               </p>
             </div>
           </div>

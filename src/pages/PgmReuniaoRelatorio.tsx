@@ -123,7 +123,7 @@ export default function PgmReuniaoRelatorio() {
 
     linhas.push(`"Onde estiverem dois ou três reunidos em meu nome, ali estou no meio deles." — Mt 18:20`);
     linhas.push("");
-    linhas.push(`_Enviado pelo Diakonia APP — Sistema de Igrejas_`);
+    linhas.push(`_Enviado pelo DiakoniaApp — Gestão Ministerial_`);
 
     return linhas.join("\n");
   }
@@ -213,9 +213,9 @@ export default function PgmReuniaoRelatorio() {
               draggable={false}
             />
             <div>
-              <h2 className="font-serif text-lg leading-tight">Diakonia APP — Sistema de Igrejas</h2>
+              <h2 className="font-serif text-lg leading-tight">DiakoniaApp</h2>
               <p className="text-xs text-muted-foreground mt-0.5 tracking-[0.12em] uppercase">
-                Conectando pessoas, organizando o propósito
+                Gestão Ministerial
               </p>
             </div>
           </div>

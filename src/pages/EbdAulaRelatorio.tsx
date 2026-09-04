@@ -105,7 +105,7 @@ export default function EbdAulaRelatorio() {
     if (aula.observacoes) { linhasMsg.push(`📝 *Observações:* ${aula.observacoes}`); linhasMsg.push(""); }
     if (versiculo) linhasMsg.push(`${versiculo.texto} — ${versiculo.referencia}`);
     linhasMsg.push("");
-    linhasMsg.push(`_Enviado pelo Diakonia APP — Sistema de Igrejas_`);
+    linhasMsg.push(`_Enviado pelo DiakoniaApp — Gestão Ministerial_`);
     return linhasMsg.join("\n");
   }
 
@@ -192,9 +192,9 @@ export default function EbdAulaRelatorio() {
               draggable={false}
             />
             <div>
-              <h2 className="font-serif text-lg leading-tight">Diakonia APP — Sistema de Igrejas</h2>
+              <h2 className="font-serif text-lg leading-tight">DiakoniaApp</h2>
               <p className="text-xs text-muted-foreground mt-0.5 tracking-[0.12em] uppercase">
-                Conectando pessoas, organizando o propósito
+                Gestão Ministerial
               </p>
             </div>
           </div>

@@ -138,9 +138,9 @@ export default function FinancasRelatorio() {
                 printColorAdjust: "exact", WebkitPrintColorAdjust: "exact",
               }} draggable={false} />
             <div>
-              <h2 className="font-serif text-lg leading-tight">Diakonia APP — Sistema de Igrejas</h2>
+              <h2 className="font-serif text-lg leading-tight">DiakoniaApp</h2>
               <p className="text-xs text-muted-foreground mt-0.5 tracking-[0.12em] uppercase">
-                Conectando pessoas, organizando o propósito
+                Gestão Ministerial
               </p>
             </div>
           </div>
