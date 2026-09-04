@@ -615,11 +615,16 @@ function FichaDaPessoa({ pessoa, onAtualizou, limites }: {
 
   return (
     <div className="px-3 pb-3 pl-8 space-y-2">
-      <div className="flex items-center justify-between gap-2">
+      {/* Empilhado, não lado a lado: com três botões ("Começou a frequentar"
+          é o mais recente) uma linha só não cabe numa tela estreita — o
+          texto era cortado na borda em vez de quebrar. Rótulo sempre em
+          cima, botões sempre numa linha própria com largura cheia pra
+          quebrar entre si se precisar. */}
+      <div className="space-y-1.5">
         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
           Ficha socioeconômica
         </p>
-        <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
+        <div className="flex items-center gap-1 flex-wrap">
           {!pessoa.membro_id && (
             <Button size="sm" variant="ghost" className="h-6 px-2 text-xs gap-1 text-success-text"
               onClick={() => setTransicao(true)}>
