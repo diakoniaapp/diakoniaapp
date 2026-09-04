@@ -208,10 +208,18 @@ export default function Ebd() {
   // "Faixa etária mais ausente da EBD (membros apenas)": entre as classes
   // com pelo menos um membro elegível, qual tem a MAIOR fração de membros
   // que cabem na faixa e não estão matriculados em nenhuma classe.
+  // "Não ficou bom mostrando 100% ausente Crianças... pois fala-se de
+  // membros" — ela tinha razão: Crianças tem 1 (UM) membro elegível, e esse
+  // único ausente virava "100%" — o mesmo problema de "aula sem chamada"
+  // (uma amostra pequena demais produzindo um número que parece grave e não
+  // é). MINIMO_ELEGIVEIS corta faixa com gente de menos pra dizer algo —
+  // Adultos (90 elegíveis, 64 ausentes) é o achado de verdade que "100%" de
+  // 1 pessoa estava escondendo.
+  const MINIMO_ELEGIVEIS_PARA_FAIXA_AUSENTE = 5;
   const faixaMaisAusente = useMemo(() => {
     let melhor: { classe: ClasseCard; percentual: number } | null = null;
     for (const c of classes) {
-      if (c.membrosElegiveis === 0) continue;
+      if (c.membrosElegiveis < MINIMO_ELEGIVEIS_PARA_FAIXA_AUSENTE) continue;
       const percentual = Math.round((c.membrosAusentes.length / c.membrosElegiveis) * 100);
       if (!melhor || percentual > melhor.percentual) melhor = { classe: c, percentual };
     }
@@ -336,8 +344,10 @@ export default function Ebd() {
         matriculados em nenhuma.{" "}
         {faixaMaisAusente && (
           <>
-            <strong>Faixa mais ausente</strong>: entre as classes, {faixaMaisAusente.classe.nome} é onde a maior
-            fração de MEMBROS elegíveis (não congregados) ainda não está matriculada — {faixaMaisAusente.percentual}%.
+            <strong>Faixa mais ausente</strong>: entre as classes com pelo menos {MINIMO_ELEGIVEIS_PARA_FAIXA_AUSENTE} membros
+            elegíveis, {faixaMaisAusente.classe.nome} é onde a maior fração ainda não está matriculada —{" "}
+            {faixaMaisAusente.classe.membrosAusentes.length} de {faixaMaisAusente.classe.membrosElegiveis} membros
+            ({faixaMaisAusente.percentual}%).
           </>
         )}
       </p>
