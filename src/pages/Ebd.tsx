@@ -68,7 +68,9 @@ interface ClasseCard extends EbdClasse {
 
 interface IndicadoresGerais {
   matriculados: number;
-  membrosAtivos: number;
+  /** Membro + congregado + visitante da EBD, ativos — o público que a
+   *  Adesão mede dos dois lados da conta (ver comentário em `carregar`). */
+  populacaoAdesao: number;
   novosAlunosNoMes: number;
 }
 
@@ -116,18 +118,35 @@ export default function Ebd() {
       const ano = hoje.getFullYear();
       const mes = hoje.getMonth() + 1;
 
-      const [cs, porClasse, professores, mat, resumo, membrosAtivos, novos, visitantes] = await Promise.all([
+      const [cs, porClasse, professores, mat, resumo, populacaoAdesao, novos, visitantes] = await Promise.all([
         listarClasses(mostrarInativas),
         ebdPorClasse().catch((): EbdClasseLinha[] => []),
         professoresPorClasse().catch(() => new Map<string, EbdProfessor[]>()),
         todosOsMatriculados().catch(() => []),
         relatorioMensalGeralResumo(ano, mes).catch(() => null),
-        // "Adesão": só MEMBRO — pedido dela: "deverá ter apenas MEMBROS".
-        // Congregado, visitante e ex-membro ficam fora da conta.
+        // "Adesão não deveria medir MEMBROS + CONGREGADOS + VISITANTES?" —
+        // ela tinha razão: o numerador (matriculados, todo mundo que
+        // "esperados_da_classe" aceita — membro/congregado/visitante da
+        // EBD) já não era só membro, mas o denominador continuava
+        // filtrando só membro (bug: 89 matriculados incluíam 15
+        // congregados, contra 251 "membros ativos" — populações
+        // diferentes disfarçadas de mesma conta). Mesmo público dos dois
+        // lados agora: membro + congregado + visitante da EBD (quem já
+        // apareceu numa aula, `ebd_presencas.eh_visitante`).
         (async () => {
-          const r = await supabase.from("membros").select("id", { count: "exact", head: true })
-            .eq("status", "ativo").eq("tipo_pessoa", "membro");
-          return r.count ?? 0;
+          const [membrosCongregados, visRows] = await Promise.all([
+            supabase.from("membros").select("id", { count: "exact", head: true })
+              .eq("status", "ativo").in("tipo_pessoa", ["membro", "congregado"]),
+            supabase.from("ebd_presencas").select("pessoa_id").eq("eh_visitante", true),
+          ]);
+          const idsVisitantes = [...new Set((visRows.data ?? []).map(r => r.pessoa_id))];
+          let visitantesAtivos = 0;
+          if (idsVisitantes.length > 0) {
+            const r = await supabase.from("membros").select("id", { count: "exact", head: true })
+              .eq("status", "ativo").eq("tipo_pessoa", "visitante").in("id", idsVisitantes);
+            visitantesAtivos = r.count ?? 0;
+          }
+          return (membrosCongregados.count ?? 0) + visitantesAtivos;
         })().catch(() => 0),
         // "Novos: moste os novos" e "Visitantes: mostre os visitantes da
         // ebd" — as listas já vêm prontas; a contagem é só o tamanho delas,
@@ -174,7 +193,7 @@ export default function Ebd() {
       setClasses(enriched);
       setGerais({
         matriculados: enriched.reduce((s, c) => s + c.qtd_matriculados, 0),
-        membrosAtivos,
+        populacaoAdesao,
         novosAlunosNoMes: novos.length,
       });
 
@@ -218,11 +237,13 @@ export default function Ebd() {
     }
   }
 
-  // "Adesão": fração dos MEMBROS ativos da igreja que estão matriculados
-  // em alguma classe — o quanto a EBD alcança da própria igreja, não só de
-  // quem já é aluno. Só membro, não congregado — pedido dela.
-  const adesao = gerais && gerais.membrosAtivos > 0
-    ? Math.round((gerais.matriculados / gerais.membrosAtivos) * 100)
+  // "Adesão": fração de quem é da igreja (membro + congregado + visitante
+  // da EBD) que está matriculada em alguma classe — o quanto a EBD alcança
+  // da própria igreja, não só de quem já é aluno. Numerador e denominador
+  // precisam ser o MESMO público, senão a % mente — ver comentário em
+  // `carregar`.
+  const adesao = gerais && gerais.populacaoAdesao > 0
+    ? Math.round((gerais.matriculados / gerais.populacaoAdesao) * 100)
     : null;
 
   // Classes com pelo menos uma pessoa elegível — base do painel "fora da
@@ -392,8 +413,8 @@ export default function Ebd() {
           propósito: é explicação, não algo que precisa estar sempre à
           vista. */}
       <p className="text-xs text-muted-foreground -mt-3">
-        <strong>Adesão</strong>: {gerais?.matriculados ?? 0} de {gerais?.membrosAtivos ?? 0} membros ativos da
-        igreja estão numa classe.{" "}
+        <strong>Adesão</strong>: {gerais?.matriculados ?? 0} de {gerais?.populacaoAdesao ?? 0} membros, congregados
+        e visitantes da EBD estão numa classe.{" "}
         <strong>Fora da EBD</strong>: de quem cabe na faixa etária de alguma classe (membros, congregados e
         visitantes da EBD), quantos nunca se matricularam ou estão matriculados mas não apareceram este mês.
         Clique em Presença, Novos, Visitantes ou Fora da EBD para ver o detalhe.
