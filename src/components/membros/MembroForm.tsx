@@ -264,9 +264,12 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   // "Poderia dar o acesso só após salvar; escolhendo dar acesso ou não" —
-  // pessoa NOVA (membro/congregado) ganha essa pergunta assim que o
-  // cadastro salva de verdade, num diálogo à parte — não durante o
-  // assistente, onde o passo 5 só podia dizer "ainda não dá".
+  // membro/congregado (novo OU em edição) ganha essa tela assim que o
+  // cadastro salva de verdade, num diálogo à parte — nunca mais durante
+  // o assistente. Pessoa nova recebe a pergunta "quer dar acesso?"
+  // primeiro (`querAcesso` começa false); quem já existia pode já ter
+  // acesso ou não, então pula direto pro cartão (`querAcesso` começa
+  // true) — ver onde cada um é setado, perto do fim do `onSubmit`.
   const [pessoaSalva, setPessoaSalva] = useState<{ id: string; nome: string; telefone: string | null } | null>(null);
   const [querAcesso, setQuerAcesso] = useState(false);
   // Cinco passos desde que "Acesso ao sistema" saiu de dentro de Vínculos.
@@ -276,7 +279,11 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
   // Seis passos desde 19/08/2026: "Disponibilidade" entrou antes da Revisão.
   // Ela é a única peça do ecossistema de escalas que não existia — o resto do
   // banco já tinha tudo. Ver services/perfilServico.ts.
-  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5 | 6>(1);
+  // "Revisão deveria aparecer antes de dar acesso" — Acesso saiu da
+  // sequência numerada (eram 6 passos, agora são 5). Acesso passou a
+  // acontecer só DEPOIS de salvar, num diálogo à parte — ver `pessoaSalva`
+  // mais abaixo — pra pessoa nova E pra quem já existe, não só pra nova.
+  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
 
   // O perfil de serviço mora em outra tabela (perfil_servico), com política
   // de escrita PRÓPRIA — e mais generosa que a de `membros`: `lideranca`
@@ -545,7 +552,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
     // o que foi lido — a diferença de áreas dá lista vazia, a EBD compara
     // com a matrícula atual e não mexe, e o perfil de serviço só grava se
     // `perfilTocado`. Verificado antes de soltar a guarda.
-    if (step !== 6 && !viaAtalho) return;
+    if (step !== 5 && !viaAtalho) return;
 
     if (!form.nome_completo.trim()) return toast.error("Informe o nome");
 
@@ -729,12 +736,18 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
 
     setBusy(false);
 
-    // Pessoa nova, membro ou congregado: a pergunta de acesso aparece
-    // agora, num diálogo à parte, em vez de fechar direto — ver
-    // `pessoaSalva` e o Dialog dele mais abaixo. Visitante não entra
-    // (acesso é só pra quem congrega, mesma regra do passo 5).
-    if (!membro && savedId && (payload.tipo_pessoa === "membro" || payload.tipo_pessoa === "congregado")) {
-      setPessoaSalva({ id: savedId, nome: form.nome_completo.trim(), telefone: payload.telefone_celular ?? null });
+    // "Revisão deveria aparecer antes de dar acesso" — Acesso não é mais
+    // passo do assistente; acontece DEPOIS de salvar, num diálogo à parte
+    // (`pessoaSalva`, Dialog no fim do arquivo). Vale pra pessoa nova E
+    // pra edição — ela pediu pela "ordem de editar pessoas" também.
+    // Visitante não entra (acesso é só pra quem congrega).
+    const pessoaIdAcesso = membro?.id ?? savedId;
+    if (pessoaIdAcesso && (payload.tipo_pessoa === "membro" || payload.tipo_pessoa === "congregado")) {
+      setPessoaSalva({ id: pessoaIdAcesso, nome: form.nome_completo.trim(), telefone: payload.telefone_celular ?? null });
+      // Pessoa nova: pergunta "quer dar acesso?" primeiro (pode ser "não,
+      // ainda" — criança, alguém em triagem). Quem já existe pode já ter
+      // acesso ou não; vai direto pro cartão, que mostra os dois estados.
+      setQuerAcesso(!!membro);
       onOpenChange(false);
       onSaved();
       return;
@@ -855,8 +868,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                 { n: 2 as const, label: "Contato" },
                 { n: 3 as const, label: "Vínculos" },
                 { n: 4 as const, label: "Quando serve", inativo: areasSelecionadas.size === 0 },
-                { n: 5 as const, label: "Acesso" },
-                { n: 6 as const, label: "Revisão" },
+                { n: 5 as const, label: "Revisão" },
               ]).map((p, idx, arr) => (
                 <div key={p.n} className="flex items-center flex-1">
                   <button
@@ -1644,56 +1656,14 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
 
                         </>)}
 
-            {/* ── STEP 4 — ACESSO AO SISTEMA ── */}
-            {step === 5 && (<>
-            <div className="space-y-3">
-              <div>
-                <p className="text-sm font-medium">Acesso ao sistema</p>
-                {/* Dizer o que este passo NÃO é. Perfil de acesso é permissão de
-                    login; liderar um ministério ou ensinar na EBD são vínculos, e
-                    ficam no passo anterior. As duas coisas se chamam "perfil" na
-                    conversa do dia a dia e vivem em tabelas diferentes — quem
-                    procurar aqui para marcar alguém como líder do Louvor precisa
-                    saber, na hora, que não é aqui. */}
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Permissão para entrar no sistema. Liderança de ministério e
-                  professor de EBD são vínculos, e ficam no passo anterior.
-                </p>
-              </div>
-
-              {(isCongregado || isMembro) && membro && (
-                <AcessoCard
-                  pessoaId={membro.id}
-                  nomeCompleto={form.nome_completo || membro.nome_completo}
-                  telefone={form.telefone_celular || membro.telefone_celular}
-                />
-              )}
-
-              {/* Convite precisa de um id de pessoa para vincular. Em vez de um
-                  passo em branco no cadastro novo, o passo explica a ordem: salvar
-                  primeiro, convidar depois. */}
-              {(isCongregado || isMembro) && !membro && (
-                <p className="text-xs text-warning-text px-2 py-1.5 bg-warning-soft rounded border border-warning-line">
-                  O convite de acesso é criado depois de salvar o cadastro. Termine
-                  o cadastro e abra a pessoa de novo para conceder acesso.
-                </p>
-              )}
-
-              {isVisitante && (
-                <p className="text-xs text-muted-foreground px-2 py-1.5 bg-muted rounded border">
-                  Acesso ao sistema é para membros e congregados. Visitante recebe
-                  acesso quando passa a congregar.
-                </p>
-              )}
-            </div>
-                        </>)}
-
             {/* ── STEP 4 — QUANDO SERVE ──
 
-                Antes de "Acesso", por pedido da Telma. E faz sentido: quem
-                serve é assunto do voluntariado, que vem logo depois de
-                Vínculos; dar acesso ao sistema é decisão administrativa, e
-                fecha o cadastro junto com a revisão. */}
+                Vem logo depois de Vínculos porque quem serve é assunto do
+                voluntariado. "Acesso" saiu da sequência numerada — deixou
+                de ser um passo pré-salvamento (ver comentário grande perto
+                do `onSubmit`, e o Dialog de `pessoaSalva` no fim do
+                arquivo): "revisão deveria aparecer antes de dar acesso",
+                pedido dela — agora Acesso só existe DEPOIS de salvar. */}
             {/* "Quando serve" só se aplica a quem serve em alguma área.
 
                 A regra é da Telma e está certa: disponibilidade é informação
@@ -1703,10 +1673,12 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
 
                 Mas o passo NÃO some da lista. Sumir mudaria a contagem de
                 passos conforme o que se marca duas telas atrás, e o
-                indicador passaria de 6 para 5 no meio do preenchimento. Foi
-                exatamente uma numeração de passo fora de sincronia que
-                travou este formulário ontem; não vou reintroduzir o problema
-                em forma dinâmica.
+                indicador ficaria fora de sincronia NO MEIO do preenchimento
+                — foi exatamente isso que travou este formulário antes (ver
+                histórico do bug de `key` nos botões, logo abaixo). Essa
+                regra é sobre mudança DINÂMICA de contagem; a saída de
+                "Acesso" da lista é uma mudança ESTÁTICA, decidida no
+                código, e não tem esse risco.
 
                 Então o passo continua lá, e explica por que está vazio — com
                 o caminho de volta a um clique. Quem quiser registrar
@@ -1733,8 +1705,8 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
               )
             )}
 
-            {/* ── STEP 6 — REVISÃO ── */}
-            {step === 6 && (
+            {/* ── STEP 5 — REVISÃO ── */}
+            {step === 5 && (
               <section className="space-y-3">
                 <div className="rounded-md border bg-gradient-verse p-4 text-center">
                   <h3 className="font-serif text-lg">Quase lá! Confira os dados</h3>
@@ -1825,7 +1797,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
               )}
               {step > 1 ? (
                 <Button type="button" variant="outline"
-                  onClick={() => setStep(((step as number) - 1) as 1 | 2 | 3 | 4 | 5 | 6)}
+                  onClick={() => setStep(((step as number) - 1) as 1 | 2 | 3 | 4 | 5)}
                   disabled={busy}>
                   ← Anterior
                 </Button>
@@ -1855,10 +1827,11 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                   Com `key` diferente, o React desmonta um e monta o outro. O nó
                   clicado sai do documento antes da ação padrão, e não há submit.
                   ────────────────────────────────────────────────────────────── */}
-              {/* `step < 6`, e não `< 5`. Ficou para trás quando o formulário
-                  passou de cinco passos para seis: no penúltimo passo o botão
-                  virava "Salvar", o onSubmit barrava com `step !== 6`, e o
-                  clique não fazia NADA. A tela travava ali, sem erro nenhum. */}
+              {/* `step < 5` — o passo final agora é Revisão (5), desde que
+                  "Acesso" saiu da sequência numerada. Regra de ouro que já
+                  causou dois bugs aqui: este número TEM que bater com o
+                  passo mais alto de verdade, e com a guarda `step !== 5`
+                  do onSubmit — os dois lados precisam mudar juntos. */}
               {/* "Esta ordem não está muito intuitiva" — o atalho "Salvar e
                   fechar" morava ENTRE Anterior e Próximo, quebrando o par
                   Anterior/Próximo que qualquer assistente de passos deixa
@@ -1867,7 +1840,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                   pilha, embaixo de um botão secundário. Movido pra depois
                   do par de navegação: Anterior/Cancelar, Próximo/Salvar,
                   e só então o atalho, como uma saída à parte. */}
-              {step < 6 ? (
+              {step < 5 ? (
                 <Button key="proximo" type="button"
                   onClick={() => {
                     // Valida campos obrigatórios do passo atual
@@ -1879,7 +1852,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                       toast.error("Telefone é obrigatório para visitante");
                       return;
                     }
-                    setStep(((step as number) + 1) as 1 | 2 | 3 | 4 | 5 | 6);
+                    setStep(((step as number) + 1) as 1 | 2 | 3 | 4 | 5);
                   }}
                   disabled={busy}>
                   Próximo →
@@ -1906,7 +1879,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                   `type="button"` e chamada direta, e não `type="submit"`:
                   dois botões de submit no mesmo formulário fazem o Enter
                   disparar o primeiro, e o primeiro aqui seria o atalho. */}
-              {membro && step < 6 && (
+              {membro && step < 5 && (
                 <Button
                   key="salvar-atalho" type="button" variant="outline"
                   onClick={() => {
@@ -1971,12 +1944,13 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* ── Pergunta de acesso, depois de salvar pessoa nova ──────────────
+      {/* ── Acesso, depois de salvar (nova pessoa ou edição) ──────────────
           "Poderia dar o acesso só após salvar; escolhendo dar acesso ou
-          não" — diálogo à parte, aberto só depois que o cadastro já está
-          gravado (`pessoaSalva` só existe com um id de verdade). Fechar
-          aqui não desfaz o cadastro; só decide se o convite é criado
-          agora ou depois. */}
+          não" / "revisão deveria aparecer antes de dar acesso" — diálogo
+          à parte, aberto só depois que o cadastro já está gravado
+          (`pessoaSalva` só existe com um id de verdade). Fechar aqui não
+          desfaz o cadastro; só decide se o convite é criado agora ou
+          depois. */}
       <Dialog
         open={!!pessoaSalva}
         onOpenChange={(v) => { if (!v) { setPessoaSalva(null); setQuerAcesso(false); } }}
