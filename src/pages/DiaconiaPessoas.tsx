@@ -703,10 +703,14 @@ function EncerrarAcompanhamento({ vinculoId, nome, onEncerrou, onCancelar }: {
 
 /**
  * "Estreitar o contato" era o objetivo dela desde o primeiro pedido — às
- * vezes funciona. Cria a ficha de visitante (mesmo caminho de qualquer
- * visitante novo, visível no Painel Pastoral) e, com o bairro que já foi
- * coletado, já mostra os Pequenos Grupos por perto — pedido dela: "como
- * indicar um pequeno grupo para que o assistido possa frequentar?".
+ * vezes funciona. Cria a ficha de CONGREGADO, não visitante: quem vem 1x
+ * por mês buscar a cesta, assiste o culto e vai embora não é alguém "recém
+ * chegado" esperando contato (ela apontou a confusão: "pode ser confundida
+ * com um visitante real"). Congregado é quem frequenta sem ser membro — o
+ * rótulo certo pra esse vínculo, e um que não entra na fila de acolhimento
+ * de visitante novo. Com o bairro que já foi coletado, já mostra os
+ * Pequenos Grupos por perto — pedido dela: "como indicar um pequeno grupo
+ * para que o assistido possa frequentar?".
  */
 function ComecouAFrequentar({ pessoa, onConcluiu, onCancelar }: {
   pessoa: PessoaAssistida; onConcluiu: () => void; onCancelar: () => void;
@@ -720,7 +724,7 @@ function ComecouAFrequentar({ pessoa, onConcluiu, onCancelar }: {
     try {
       const r = await iniciarFrequencia(pessoa.id);
       if (!r.ok) { toast.error(r.erro); return; }
-      toast.success(`${pessoa.nome_completo} agora tem ficha de visitante`);
+      toast.success(`${pessoa.nome_completo} agora tem ficha de congregado`);
       setFeito(true);
       if (pessoa.bairro) {
         try { setPgms(await sugerirPgmPorBairro(pessoa.bairro)); }
@@ -735,7 +739,7 @@ function ComecouAFrequentar({ pessoa, onConcluiu, onCancelar }: {
     return (
       <div className="rounded-md border border-success-line bg-success-soft px-2.5 py-2.5 space-y-2.5">
         <p className="text-sm text-success-text">
-          Ficha de visitante criada. Já aparece no Painel Pastoral.
+          Ficha de congregado criada. Já aparece no Painel Pastoral.
         </p>
         <div>
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -771,9 +775,10 @@ function ComecouAFrequentar({ pessoa, onConcluiu, onCancelar }: {
   return (
     <div className="rounded-md border border-success-line bg-success-soft px-2.5 py-2.5 space-y-2.5">
       <p className="text-sm">
-        <strong>{pessoa.nome_completo}</strong> passa a ter uma ficha de visitante — visível no Painel
-        Pastoral, no mesmo caminho de qualquer visitante novo. A ficha socioeconômica continua só da
-        Diaconia; isto só diz que a pessoa começou a frequentar.
+        <strong>{pessoa.nome_completo}</strong> passa a ter uma ficha de congregado — quem frequenta
+        sem ser membro, visível no Painel Pastoral. Não entra como visitante novo, pra não ser
+        confundida com quem acabou de chegar. A ficha socioeconômica continua só da Diaconia; isto só
+        diz que a pessoa começou a frequentar o culto.
       </p>
       <div className="flex gap-2 justify-end">
         <Button size="sm" variant="outline" onClick={onCancelar} disabled={busy}>Cancelar</Button>
