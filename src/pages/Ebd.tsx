@@ -27,7 +27,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  GraduationCap, ChevronRight, Plus, Pencil, AlertCircle, FileText, Cake, Users, Phone, Flag,
+  GraduationCap, ChevronRight, ChevronDown, Plus, Pencil, AlertCircle, FileText, Cake, Users, Phone, Flag,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -100,6 +100,10 @@ export default function Ebd() {
   // Pedido dela: "coloque link para os indicadores" — só um painel aberto
   // por vez, senão a tela vira quatro listas empilhadas de uma vez.
   const [painelAberto, setPainelAberto] = useState<"presenca" | "novos" | "visitantes" | "foraDaEbd" | null>(null);
+  // "Não ficou bom a lista de nomes" — os nomes de "Fora da EBD" ficam
+  // escondidos por padrão, um acordeão por classe (mesmo padrão do "Ver
+  // telefone"), não uma parede de nomes de cara.
+  const [classesForaDaEbdAbertas, setClassesForaDaEbdAbertas] = useState<Set<string>>(new Set());
 
   useEffect(() => { carregar(); }, [mostrarInativas]);
 
@@ -277,6 +281,14 @@ export default function Ebd() {
     });
   }
 
+  function alternarClasseForaDaEbd(classeId: string) {
+    setClassesForaDaEbdAbertas(prev => {
+      const novo = new Set(prev);
+      if (novo.has(classeId)) novo.delete(classeId); else novo.add(classeId);
+      return novo;
+    });
+  }
+
   function faixaTexto(c: EbdClasse) {
     if (c.idade_min == null && c.idade_max == null) return "Sem faixa";
     if (c.idade_max == null) return `${c.idade_min}+ anos`;
@@ -446,55 +458,76 @@ export default function Ebd() {
       {painelAberto === "foraDaEbd" && (
         <div className="rounded-lg border bg-card divide-y -mt-2">
           <p className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
-            Fora da EBD, por faixa etária — quem nunca se matriculou e quem está matriculado mas não apareceu este mês
+            Fora da EBD, por faixa etária — da mais nova para a mais velha. Clique numa classe para ver os nomes.
           </p>
           {classesComElegiveis.length === 0 ? (
             <p className="px-3 py-3 text-sm text-muted-foreground text-center">Sem faixas com membros elegíveis.</p>
           ) : classesComElegiveis.map(c => {
             const pct = Math.round((c.membrosAusentes.length / c.membrosElegiveis) * 100);
             const faltando = faltandoPorClasse.get(c.nome) ?? [];
+            const aberto = classesForaDaEbdAbertas.has(c.id);
             return (
-              <div key={c.id} className="px-3 py-2 space-y-1.5">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium text-sm truncate">{c.nome}</span>
-                  <span className="text-xs tabular-nums text-muted-foreground shrink-0">
-                    {c.membrosAusentes.length} de {c.membrosElegiveis} nunca matriculados ({pct}%)
+              <div key={c.id}>
+                <button
+                  type="button"
+                  onClick={() => alternarClasseForaDaEbd(c.id)}
+                  className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left hover:bg-muted/40 transition-colors"
+                >
+                  <span className="min-w-0">
+                    <span className="font-medium text-sm truncate block">{c.nome}</span>
+                    <span className="text-xs text-muted-foreground">{faixaTexto(c)}</span>
                   </span>
-                </div>
+                  <span className="flex items-center gap-2 shrink-0">
+                    {faltando.length > 0 && (
+                      <span className="text-[10px] text-warning-text">
+                        +{faltando.length} sem aparecer
+                      </span>
+                    )}
+                    <span className="text-sm font-semibold tabular-nums">{pct}%</span>
+                    <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${aberto ? "rotate-180" : ""}`} />
+                  </span>
+                </button>
 
-                <div>
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Nunca matriculados</p>
-                  {c.membrosAusentes.length === 0 ? (
-                    <p className="text-xs text-success-text">Todos os membros elegíveis estão matriculados.</p>
-                  ) : (
-                    <div className="space-y-0.5">
-                      {c.membrosAusentes.map(m => (
-                        <div key={m.pessoa_id} className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                          <span className="truncate">{m.nome_completo}</span>
-                          {m.idade !== null && <span className="shrink-0">{m.idade} anos</span>}
+                {aberto && (
+                  <div className="px-3 pb-3 space-y-2 border-t pt-2 bg-muted/20">
+                    <p className="text-xs text-muted-foreground">
+                      {c.membrosAusentes.length} de {c.membrosElegiveis} membros elegíveis nunca se matricularam ({pct}%).
+                    </p>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Nunca matriculados</p>
+                      {c.membrosAusentes.length === 0 ? (
+                        <p className="text-xs text-success-text">Todos os membros elegíveis estão matriculados.</p>
+                      ) : (
+                        <div className="space-y-0.5">
+                          {c.membrosAusentes.map(m => (
+                            <div key={m.pessoa_id} className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                              <span className="truncate">{m.nome_completo}</span>
+                              {m.idade !== null && <span className="shrink-0">{m.idade} anos</span>}
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      )}
                     </div>
-                  )}
-                </div>
 
-                <div>
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                    Matriculados, mas não apareceram este mês
-                  </p>
-                  {faltando.length === 0 ? (
-                    <p className="text-xs text-success-text">Nenhum matriculado com 0% de presença este mês.</p>
-                  ) : (
-                    <div className="space-y-0.5">
-                      {faltando.map(f => (
-                        <div key={f.pessoa_id} className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                          <span className="truncate">{f.nome_completo}</span>
-                          <span className="shrink-0">0/{f.oportunidades} aulas</span>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                        Matriculados, mas não apareceram este mês
+                      </p>
+                      {faltando.length === 0 ? (
+                        <p className="text-xs text-success-text">Nenhum matriculado com 0% de presença este mês.</p>
+                      ) : (
+                        <div className="space-y-0.5">
+                          {faltando.map(f => (
+                            <div key={f.pessoa_id} className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                              <span className="truncate">{f.nome_completo}</span>
+                              <span className="shrink-0">0/{f.oportunidades} aulas</span>
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      )}
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             );
           })}
