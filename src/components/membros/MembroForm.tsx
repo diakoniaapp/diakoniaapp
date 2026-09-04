@@ -263,6 +263,12 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
   const [form, setForm] = useState<any>(empty);
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // "Poderia dar o acesso só após salvar; escolhendo dar acesso ou não" —
+  // pessoa NOVA (membro/congregado) ganha essa pergunta assim que o
+  // cadastro salva de verdade, num diálogo à parte — não durante o
+  // assistente, onde o passo 5 só podia dizer "ainda não dá".
+  const [pessoaSalva, setPessoaSalva] = useState<{ id: string; nome: string; telefone: string | null } | null>(null);
+  const [querAcesso, setQuerAcesso] = useState(false);
   // Cinco passos desde que "Acesso ao sistema" saiu de dentro de Vínculos.
   // Estava junto de áreas de atuação e família, e ninguém procura permissão
   // de login nesse meio — a pergunta "onde eu escolho o perfil da pessoa?"
@@ -722,6 +728,18 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
     }
 
     setBusy(false);
+
+    // Pessoa nova, membro ou congregado: a pergunta de acesso aparece
+    // agora, num diálogo à parte, em vez de fechar direto — ver
+    // `pessoaSalva` e o Dialog dele mais abaixo. Visitante não entra
+    // (acesso é só pra quem congrega, mesma regra do passo 5).
+    if (!membro && savedId && (payload.tipo_pessoa === "membro" || payload.tipo_pessoa === "congregado")) {
+      setPessoaSalva({ id: savedId, nome: form.nome_completo.trim(), telefone: payload.telefone_celular ?? null });
+      onOpenChange(false);
+      onSaved();
+      return;
+    }
+
     onOpenChange(false);
     onSaved();
   };
@@ -1952,6 +1970,59 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* ── Pergunta de acesso, depois de salvar pessoa nova ──────────────
+          "Poderia dar o acesso só após salvar; escolhendo dar acesso ou
+          não" — diálogo à parte, aberto só depois que o cadastro já está
+          gravado (`pessoaSalva` só existe com um id de verdade). Fechar
+          aqui não desfaz o cadastro; só decide se o convite é criado
+          agora ou depois. */}
+      <Dialog
+        open={!!pessoaSalva}
+        onOpenChange={(v) => { if (!v) { setPessoaSalva(null); setQuerAcesso(false); } }}
+      >
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-serif text-xl">
+              {querAcesso ? "Dar acesso ao sistema" : "Pessoa cadastrada"}
+            </DialogTitle>
+          </DialogHeader>
+
+          {!querAcesso ? (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                <strong>{pessoaSalva?.nome}</strong> foi cadastrada(o). Quer dar acesso ao sistema para ela(e)
+                agora?
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  type="button" variant="outline" className="flex-1"
+                  onClick={() => { setPessoaSalva(null); setQuerAcesso(false); }}
+                >
+                  Agora não
+                </Button>
+                <Button type="button" className="flex-1" onClick={() => setQuerAcesso(true)}>
+                  Sim, dar acesso
+                </Button>
+              </div>
+            </div>
+          ) : pessoaSalva && (
+            <div className="space-y-3">
+              <AcessoCard
+                pessoaId={pessoaSalva.id}
+                nomeCompleto={pessoaSalva.nome}
+                telefone={pessoaSalva.telefone}
+              />
+              <Button
+                type="button" variant="outline" className="w-full"
+                onClick={() => { setPessoaSalva(null); setQuerAcesso(false); }}
+              >
+                Concluir
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
