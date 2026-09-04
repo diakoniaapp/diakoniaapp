@@ -485,6 +485,20 @@ export interface EbdChamadaRow {
   tipo: "matriculado" | "visitante" | "professor";
 }
 
+/** Só olha — ao contrário de `obterOuCriarAula`, nunca cria uma aula nova.
+ *  Usado pra decidir se um domingo já foi dado (e finalizado) sem gerar
+ *  uma linha em `ebd_aulas` só de passagem. */
+export async function buscarAulaPorData(classeId: string, data: string): Promise<EbdAula | null> {
+  const { data: row, error } = await supabase
+    .from("ebd_aulas")
+    .select("*")
+    .eq("classe_id", classeId)
+    .eq("data", data)
+    .maybeSingle();
+  if (error) throw error;
+  return (row ?? null) as EbdAula | null;
+}
+
 export async function obterOuCriarAula(classeId: string, data: string): Promise<string> {
   const { data: id, error } = await supabase.rpc("ebd_obter_ou_criar_aula", {
     p_classe_id: classeId,

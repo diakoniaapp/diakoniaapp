@@ -361,32 +361,6 @@ export default function EbdClasse() {
         </div>
       </div>
 
-      {/* Stats rápidas */}
-      <div className="grid grid-cols-3 gap-3">
-        <Card><CardContent className="py-3 text-center">
-          <p className="text-xs text-muted-foreground">Matriculados</p>
-          <p className="text-2xl font-semibold text-success-text">{matriculados.length}</p>
-        </CardContent></Card>
-        {/* "Sem classe" e não "Esperados": desde que a aba passou a mostrar
-            também quem está em OUTRA classe, "esperados" virou duas coisas
-            diferentes. Este número é o acionável — quem não está em lugar
-            nenhum. Zero aqui quer dizer que ninguém do perfil está solto, e
-            não classe vazia; por isso o número apaga em vez de alarmar. */}
-        <Card><CardContent className="py-3 text-center">
-          <p className="text-xs text-muted-foreground">Sem classe</p>
-          <p className={`text-2xl font-semibold ${semClasse.length > 0 ? "text-warning-text" : "text-muted-foreground"}`}>
-            {semClasse.length}
-          </p>
-        </CardContent></Card>
-        {/* "Não matriculados" contava 277 no Berçário: todo mundo da igreja
-            que não é bebê. Trocado pelo total que CABE nesta classe, que é
-            o denominador dos outros dois. */}
-        <Card><CardContent className="py-3 text-center">
-          <p className="text-xs text-muted-foreground">No perfil da classe</p>
-          <p className="text-2xl font-semibold">{noPerfil}</p>
-        </CardContent></Card>
-      </div>
-
       {/* Professores */}
       <ProfessoresBloco classeId={classeId} />
 
@@ -400,6 +374,17 @@ export default function EbdClasse() {
           onChange={(e) => setFiltro(e.target.value)}
         />
       </div>
+
+      {/* "Sem classe seriam os esperados" — ela notou: o cartão "Matriculados"
+          e o cartão "Sem classe" só repetiam os números que já aparecem nos
+          rótulos das abas logo abaixo (Matriculados (N) / Esperados (N)).
+          Os 3 cartões de estatística saíram; "No perfil da classe" — o
+          único que não duplicava nada — virou esta frase, o denominador
+          por escrito em vez de um cartão à parte. */}
+      <p className="text-xs text-muted-foreground -mt-1">
+        <strong>{noPerfil}</strong> pessoas cabem no perfil desta classe (idade/gênero) — entre matriculadas
+        aqui, matriculadas em outra classe, ou ainda sem classe nenhuma.
+      </p>
 
       {/* Abas */}
       <Tabs defaultValue="matriculados" className="space-y-3">

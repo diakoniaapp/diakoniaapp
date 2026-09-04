@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  obterOuCriarAula, carregarAula, atualizarAula,
+  obterOuCriarAula, carregarAula, atualizarAula, buscarAulaPorData,
   chamadaView, marcarPresenca, uploadFotoAula,
   carregarClasse,
   type EbdAula, type EbdClasse, type EbdChamadaRow,
@@ -30,15 +30,27 @@ function domingoMaisRecente(): string {
   return d.toISOString().slice(0, 10);
 }
 
+function domingoSeguinte(dataIso: string): string {
+  const d = new Date(dataIso + "T00:00:00");
+  d.setDate(d.getDate() + 7);
+  return d.toISOString().slice(0, 10);
+}
+
 export default function EbdChamada() {
   const { classeId = "" } = useParams();
   const navigate = useNavigate();
+  // Um link com ?data= é escolha de quem clicou (relatório, "reabrir esta
+  // aula") — nunca é redirecionado. Só o padrão automático avança sozinho.
+  const dataDaUrl = new URLSearchParams(window.location.search).get("data");
 
   const [classe, setClasse] = useState<EbdClasse | null>(null);
-  const [data, setData] = useState<string>(() => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get("data") || domingoMaisRecente();
-  });
+  // "Deve ser guardado um histórico das aulas... e ir seguindo para as
+  // próximas" — pedido dela: se o domingo mais recente já foi finalizado,
+  // a tela não deve continuar reabrindo a mesma aula pronta; avança
+  // sozinha pro próximo domingo em branco. `null` = ainda decidindo (só
+  // quando não veio ?data= explícito), resolvido no efeito abaixo antes
+  // de carregar qualquer coisa.
+  const [data, setData] = useState<string | null>(() => dataDaUrl);
   const [aula, setAula] = useState<EbdAula | null>(null);
   const [linhas, setLinhas] = useState<EbdChamadaRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,10 +68,33 @@ export default function EbdChamada() {
   // Finalizar — carimbo, não cadeado
   const [marcandoFechada, setMarcandoFechada] = useState(false);
 
-  useEffect(() => { carregar(); }, [classeId, data]);
+  // Resolve o domingo padrão ANTES de carregar qualquer coisa — assim a
+  // tela nunca mostra a aula antiga pra depois trocar sozinha por baixo
+  // dos pés de quem está olhando. Só olha (`buscarAulaPorData`, nunca
+  // cria) — quem cria de verdade é `obterOuCriarAula`, lá embaixo, só
+  // depois que a data final já está decidida.
+  useEffect(() => {
+    if (dataDaUrl || !classeId) return;
+    let cancelado = false;
+    (async () => {
+      let candidata = domingoMaisRecente();
+      for (let i = 0; i < 12; i++) {
+        const a = await buscarAulaPorData(classeId, candidata).catch(() => null);
+        if (!a || !a.fechada) break;
+        candidata = domingoSeguinte(candidata);
+      }
+      if (!cancelado) setData(candidata);
+    })();
+    return () => { cancelado = true; };
+  }, [classeId]);
+
+  useEffect(() => {
+    if (data === null) return;
+    carregar();
+  }, [classeId, data]);
 
   async function carregar() {
-    if (!classeId) return;
+    if (!classeId || data === null) return;
     setLoading(true);
     try {
       const c = await carregarClasse(classeId);
@@ -170,7 +205,7 @@ export default function EbdChamada() {
     };
   }, [linhas]);
 
-  if (loading || !classe) {
+  if (loading || !classe || data === null) {
     return <PaginaSkeleton />;
   }
 
