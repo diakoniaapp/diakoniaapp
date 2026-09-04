@@ -224,7 +224,7 @@ export function EscalaDialog({ open, onOpenChange, evento, areasDoEvento }: Prop
                     {esc.escalados.map(e => (
                       <li key={e.id} className="flex items-center gap-2 px-3 py-2">
                         <div className="flex-1 min-w-0">
-                          <NomePessoa id={e.pessoa_id} nome={e.nome_completo} className="text-sm truncate block" />
+                          <NomePessoa id={e.pessoa_id} nome={e.nome_completo} className="text-sm truncate block w-full" />
                           {e.motivo_recusa && (
                             <p className="text-xs text-destructive-text truncate">“{e.motivo_recusa}”</p>
                           )}

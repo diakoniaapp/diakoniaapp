@@ -168,7 +168,7 @@ export function QuemNinguemProcurou() {
                 <li key={p.id} className="py-2 flex items-center gap-3 flex-wrap">
                   <span className="text-base leading-none shrink-0" aria-hidden="true">{s.icone}</span>
                   <div className="flex-1 min-w-[10rem]">
-                    <NomePessoa id={p.id} nome={p.nome_completo} className="font-medium truncate leading-tight block" />
+                    <NomePessoa id={p.id} nome={p.nome_completo} className="font-medium truncate leading-tight block w-full" />
                     <p className="text-xs text-muted-foreground">{s.texto}</p>
                   </div>
                   {/* Duas ações de um toque, com rótulo. O ícone sozinho obriga

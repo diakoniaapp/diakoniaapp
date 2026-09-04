@@ -354,7 +354,7 @@ export default function EbdChamada() {
               }`}
             >
               <div className="text-left min-w-0">
-                <NomePessoa id={r.pessoa_id} nome={r.nome_completo} className="font-medium truncate block" />
+                <NomePessoa id={r.pessoa_id} nome={r.nome_completo} className="font-medium truncate block w-full" />
                 <div className="text-xs text-muted-foreground">Professor(a)</div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -398,7 +398,7 @@ export default function EbdChamada() {
             }`}
           >
             <div className="text-left min-w-0">
-              <NomePessoa id={r.pessoa_id} nome={r.nome_completo} className="font-medium truncate block" />
+              <NomePessoa id={r.pessoa_id} nome={r.nome_completo} className="font-medium truncate block w-full" />
               <div className="text-xs text-muted-foreground">
                 {r.idade != null ? `${r.idade} anos` : "Sem idade"}
               </div>
@@ -435,8 +435,8 @@ export default function EbdChamada() {
             >
               <div className="text-left min-w-0">
                 <div className="flex items-center gap-2">
-                  <NomePessoa id={r.pessoa_id} nome={r.nome_completo} className="font-medium truncate" />
-                  <Badge variant="outline" className="text-xs text-warning-text border-warning-line">
+                  <NomePessoa id={r.pessoa_id} nome={r.nome_completo} className="font-medium truncate flex-1 min-w-0" />
+                  <Badge variant="outline" className="text-xs text-warning-text border-warning-line shrink-0">
                     Visitante
                   </Badge>
                 </div>

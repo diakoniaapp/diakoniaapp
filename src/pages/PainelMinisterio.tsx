@@ -541,7 +541,7 @@ function SecaoEquipe({ painel, postos, ministerioId }: {
             <li key={`${v.pessoa_id}-${v.area_id}`} className="flex items-center gap-3 px-3 py-2.5 min-w-0">
               <div className="min-w-0 flex-1">
                 <NomePessoa id={v.pessoa_id} nome={v.nome_completo}
-                  className="text-sm font-medium truncate block min-w-0" />
+                  className="text-sm font-medium truncate block min-w-0 w-full" />
                 <p className="text-xs text-muted-foreground truncate">
                   {[v.area_nome, v.funcao].filter(Boolean).join(" · ") || "sem área"}
                   {v.total_escalas ? ` · ${v.total_escalas} ${v.total_escalas === 1 ? "escala" : "escalas"}` : ""}

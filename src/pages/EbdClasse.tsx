@@ -584,7 +584,7 @@ export default function EbdClasse() {
               <Card key={e.pessoa_id} className={alocado ? "bg-muted/30" : undefined}>
                 <CardContent className="flex items-center justify-between py-3 gap-3">
                   <div className="min-w-0 flex-1">
-                    <NomePessoa id={e.pessoa_id} nome={e.nome_completo} className="font-medium truncate block" />
+                    <NomePessoa id={e.pessoa_id} nome={e.nome_completo} className="font-medium truncate block w-full" />
                     <p className="text-xs text-muted-foreground">
                       {e.idade ?? "?"} anos
                       {e.sexo && ` · ${e.sexo}`}

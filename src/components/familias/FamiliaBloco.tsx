@@ -459,7 +459,7 @@ export function FamiliaBloco({ pessoaId, nomeCompleto, endereco, onChange }: Pro
                           });
                         }}
                       />
-                      <NomePessoa id={s.pessoa_id} nome={s.nome_completo} className="font-medium truncate" />
+                      <NomePessoa id={s.pessoa_id} nome={s.nome_completo} className="font-medium truncate flex-1 min-w-0" />
                       {s.familia_nome ? (
                         <Badge variant="outline" className="text-xs border-destructive-line text-destructive-text">
                           {s.familia_nome}
