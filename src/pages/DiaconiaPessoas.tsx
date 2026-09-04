@@ -33,15 +33,15 @@ import {
 import { ArrowLeft, ChevronRight, HeartHandshake, MapPin, Pencil, Phone, Plus, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 import {
-  pessoasDaArea, criarPessoa, atualizarPessoa, fichasDaPessoa, salvarFicha,
+  pessoasDaArea, pessoasEncerradasDaArea, criarPessoa, atualizarPessoa, fichasDaPessoa, salvarFicha,
   SITUACOES_MORADIA, SEXOS, ESTADOS_CIVIS, BENEFICIOS_FEDERAIS,
   TIPOS_DEFICIENCIA, FAIXAS_TEMPO_TRABALHO, SETORES_DE_OCUPACAO, FONTES_DE_SUSTENTO,
   NECESSIDADES, ESCOLARIDADES, PARENTESCOS, NACIONALIDADES, MOTIVOS_ENCERRAMENTO,
   rotuloMoradia, rotuloSexo, rotuloEstadoCivil,
   pessoasNaCasa, rendaPerCapita, carregarLimitesPerCapita, classificarPerCapita, ROTULO_CLASSIFICACAO,
-  encerrarVinculo,
+  encerrarVinculo, reabrirVinculo,
   type PessoaAssistida, type FichaSocioeconomica, type DadosFicha, type Endereco, type Familiar,
-  type LimitesPerCapita,
+  type LimitesPerCapita, type VinculoEncerrado,
 } from "@/services/diaconiaService";
 import { Badge } from "@/components/ui/badge";
 import { TelefoneInput } from "@/components/ui/TelefoneInput";
@@ -124,6 +124,12 @@ export default function DiaconiaPessoas() {
   // Uma vez por tela, não uma vez por pessoa — os limites não mudam entre uma
   // ficha e outra na mesma sessão de trabalho.
   const [limites, setLimites] = useState<LimitesPerCapita | null>(null);
+  // Quem teve o acompanhamento encerrado — carregado à parte, e escondido
+  // atrás de um "Ver encerrados" por padrão: não é o que quem abre a tela
+  // veio ver, mas precisa existir um caminho até aqui pra desfazer um
+  // engano.
+  const [encerrados, setEncerrados] = useState<VinculoEncerrado[] | null>(null);
+  const [verEncerrados, setVerEncerrados] = useState(false);
 
   useEffect(() => { carregar(); carregarLimitesPerCapita().then(setLimites).catch(() => {}); }, [areaId]);
 
@@ -134,10 +140,33 @@ export default function DiaconiaPessoas() {
       const { data: area } = await supabase.from("areas").select("nome").eq("id", areaId).maybeSingle();
       setAreaNome((area as any)?.nome ?? "");
       setPessoas(await pessoasDaArea(areaId));
+      setEncerrados(null); // recarrega só quando "Ver encerrados" é aberto
     } catch (e: any) {
       toast.error(e?.message ?? "Erro ao carregar");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function abrirEncerrados() {
+    setVerEncerrados(v => !v);
+    if (encerrados === null) {
+      try { setEncerrados(await pessoasEncerradasDaArea(areaId)); }
+      catch (e: any) { toast.error(e?.message ?? "Erro ao carregar encerrados"); }
+    }
+  }
+
+  async function reabrir(vinculoId: string, nome: string) {
+    const r = await reabrirVinculo(vinculoId);
+    if (!r.ok) { toast.error(r.erro); return; }
+    toast.success(`${nome} voltou a ser acompanhada nesta área`);
+    // `carregar()` zera `encerrados` de propósito (força recarregar na
+    // próxima vez que o painel abrir) — como ele já está aberto aqui,
+    // busca de novo em vez de deixar "Carregando…" pendurado.
+    await carregar();
+    if (verEncerrados) {
+      try { setEncerrados(await pessoasEncerradasDaArea(areaId)); }
+      catch { setEncerrados([]); }
     }
   }
 
@@ -192,6 +221,38 @@ export default function DiaconiaPessoas() {
           ))}
         </ul>
       )}
+
+      <div>
+        <Button variant="ghost" size="sm" className="text-xs text-muted-foreground gap-1" onClick={abrirEncerrados}>
+          <ChevronRight className={`w-3 h-3 transition-transform ${verEncerrados ? "rotate-90" : ""}`} />
+          Ver encerrados
+        </Button>
+        {verEncerrados && (
+          encerrados === null ? (
+            <p className="text-xs text-muted-foreground px-2">Carregando…</p>
+          ) : encerrados.length === 0 ? (
+            <p className="text-xs text-muted-foreground px-2">Ninguém encerrado nesta área.</p>
+          ) : (
+            <ul className="divide-y rounded-md border bg-muted/20 mt-1.5">
+              {encerrados.map(e => (
+                <li key={e.vinculo_id} className="flex items-center gap-3 px-3 py-2 min-w-0">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm truncate min-w-0">{e.nome_completo}</p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {e.motivo_encerramento ?? "sem motivo registrado"}
+                      {" · "}{e.encerrado_em.slice(0, 10).split("-").reverse().join("/")}
+                    </p>
+                  </div>
+                  <Button size="sm" variant="outline" className="h-7 text-xs shrink-0"
+                    onClick={() => reabrir(e.vinculo_id, e.nome_completo)}>
+                    Reabrir
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )
+        )}
+      </div>
 
       <NovaPessoaDialog open={novoOpen} onOpenChange={setNovoOpen} areaId={areaId} onCriada={carregar} />
     </div>

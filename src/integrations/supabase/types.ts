@@ -13892,6 +13892,10 @@ export type Database = {
         | "tutelado"
         | "irmao"
         | "outro"
+        | "sogro_sogra"
+        | "genro_nora"
+        | "sobrinho_sobrinha"
+        | "cunhado_cunhada"
       patrimonio_bens_estado_conservacao_enum:
         | "Ótimo"
         | "Bom"
@@ -14713,6 +14717,10 @@ export const Constants = {
         "tutelado",
         "irmao",
         "outro",
+        "sogro_sogra",
+        "genro_nora",
+        "sobrinho_sobrinha",
+        "cunhado_cunhada",
       ],
       patrimonio_bens_estado_conservacao_enum: [
         "Ótimo",

@@ -324,6 +324,32 @@ export async function pessoasDaArea(areaId: string): Promise<(PessoaAssistida & 
     .sort((a, b) => a.nome_completo.localeCompare(b.nome_completo, "pt-BR"));
 }
 
+export interface VinculoEncerrado extends PessoaAssistida {
+  vinculo_id: string;
+  encerrado_em: string;
+  motivo_encerramento: string | null;
+}
+
+/**
+ * Quem teve o acompanhamento encerrado nesta área — separado de
+ * `pessoasDaArea` (que só traz `ativo=true`) porque encerrar não é
+ * apagar: a única forma de reabrir por engano é primeiro conseguir achar
+ * quem foi encerrado.
+ */
+export async function pessoasEncerradasDaArea(areaId: string): Promise<VinculoEncerrado[]> {
+  const { data, error } = await supabase
+    .from("diaconia_vinculos")
+    .select(`id, encerrado_em, motivo_encerramento, diaconia_pessoas_assistidas(${CAMPOS_PESSOA})`)
+    .eq("area_id", areaId).eq("ativo", false).order("encerrado_em", { ascending: false });
+  if (error) throw error;
+  return ((data ?? []) as any[])
+    .filter(v => v.diaconia_pessoas_assistidas)
+    .map(v => ({
+      vinculo_id: v.id, encerrado_em: v.encerrado_em, motivo_encerramento: v.motivo_encerramento,
+      ...v.diaconia_pessoas_assistidas,
+    }));
+}
+
 /** Cadastra (ou reaproveita) a pessoa e a vincula à área. A única porta de entrada de gente nova. */
 export async function criarPessoa(
   areaId: string, nome: string, dados?: DadosIdentidade, membroId?: string,

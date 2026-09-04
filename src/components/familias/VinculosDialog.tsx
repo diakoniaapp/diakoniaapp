@@ -13,13 +13,26 @@ import { Plus, Trash2, Crown, Search, Check } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 
+// Pedido dela ao ver a lista de parentesco da ficha da Diaconia: "copie
+// esses graus de parentesco para a ficha de pessoas do sistema, na hora de
+// alocá-la em famílias." Medido antes de mexer: o enum `parentesco_tipo`
+// já tinha `neto`, `irmao` e `outro` — só escondidos desta tela. Faltavam
+// de verdade quatro (migration 20260904150000): sogro_sogra, genro_nora,
+// sobrinho_sobrinha, cunhado_cunhada.
 export const parentescoOptions = [
-  { value: "pai_mae", label: "Pai/Mãe" },
   { value: "conjuge", label: "Cônjuge" },
   { value: "filho", label: "Filho(a)" },
-  { value: "avo", label: "Avô/Avó" },
   { value: "enteado", label: "Enteado(a)" },
+  { value: "neto", label: "Neto(a)" },
+  { value: "pai_mae", label: "Pai/Mãe" },
+  { value: "sogro_sogra", label: "Sogro(a)" },
+  { value: "irmao", label: "Irmão/Irmã" },
+  { value: "genro_nora", label: "Genro/Nora" },
+  { value: "avo", label: "Avô/Avó" },
+  { value: "sobrinho_sobrinha", label: "Sobrinho(a)" },
+  { value: "cunhado_cunhada", label: "Cunhado(a)" },
   { value: "tutelado", label: "Tutelado(a)" },
+  { value: "outro", label: "Outro" },
 ] as const;
 
 export const parentescoLabel: Record<string, string> = Object.fromEntries(
