@@ -280,6 +280,35 @@ export async function listarProfessores(classeId: string): Promise<EbdProfessor[
   );
 }
 
+/**
+ * Professores de TODAS as classes ativas, agrupados por classe — uma
+ * consulta só. Pro índice de classes (Ebd.tsx), que mostra o nome de quem
+ * leciona em cada cartão: chamar `listarProfessores` uma vez por classe ali
+ * seria voltar ao N+1 que `ebdPorClasse()` já evitou pro resto do cartão.
+ */
+export async function professoresPorClasse(): Promise<Map<string, EbdProfessor[]>> {
+  const { data, error } = await supabase
+    .from("ebd_professores")
+    .select("id, classe_id, pessoa_id, tipo, ativo, desde, membros(id, nome_completo)")
+    .eq("ativo", true);
+  if (error) throw error;
+
+  const ORDEM: Record<string, number> = { principal: 0, auxiliar: 1, substituto: 2 };
+  const porClasse = new Map<string, EbdProfessor[]>();
+  for (const p of (data ?? []) as EbdProfessor[]) {
+    const lista = porClasse.get(p.classe_id) ?? [];
+    lista.push(p);
+    porClasse.set(p.classe_id, lista);
+  }
+  for (const lista of porClasse.values()) {
+    lista.sort((a, b) =>
+      (ORDEM[a.tipo] ?? 9) - (ORDEM[b.tipo] ?? 9) ||
+      (a.membros?.nome_completo ?? "").localeCompare(b.membros?.nome_completo ?? "", "pt-BR"),
+    );
+  }
+  return porClasse;
+}
+
 export async function adicionarProfessor(
   classeId: string,
   pessoaId: string,

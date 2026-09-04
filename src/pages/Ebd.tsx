@@ -1,33 +1,44 @@
 // ─── Ebd.tsx — Listagem de classes ─────────────────────────────────────────
+//
+// Redesenhado a partir do feedback dela sobre a primeira versão dos
+// cartões: grandes demais, "150% do perfil" sem sentido, sem dizer quem
+// leciona, botões ocupando espaço. E um pedido novo: uma faixa fixa acima
+// dos cartões, com os números do mês e link pro relatório — "onde a
+// pessoa responsável pela área vai trabalhar".
 import { useEffect, useState } from "react";
-import { NomePessoa } from "@/components/membros/ficha";
 import { Link } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, GraduationCap, ChevronRight, Users, Plus, Pencil, AlertCircle } from "lucide-react";
-import { toast } from "sonner";
+import { GraduationCap, ChevronRight, Plus, Pencil, AlertCircle, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { listarClasses, type EbdClasse } from "@/services/ebdService";
-import { ebdPorClasse, type EbdClasseLinha } from "@/services/ebdPainelService";
+import { listarClasses, professoresPorClasse, type EbdClasse, type EbdProfessor } from "@/services/ebdService";
+import { ebdPorClasse, relatorioMensalGeralResumo, type EbdClasseLinha, type RelatorioMensalGeralResumo } from "@/services/ebdPainelService";
 import { ClasseForm } from "@/components/ebd/ClasseForm";
 import { useAuth } from "@/hooks/useAuth";
 import { PaginaSkeleton } from "@/components/ListState";
 
 interface ClasseCard extends EbdClasse {
   qtd_matriculados: number;
-  qtd_esperados: number;
-  /** Quantas aulas desta classe nunca tiveram chamada lançada — sinal de
-   *  atenção, não julgamento (a classe pode ter aula marcada sem ter
-   *  acontecido ainda). */
+  /** Todo mundo que cabe no perfil (idade/gênero), matriculado ou não —
+   *  o denominador certo da cobertura. Não confundir com "livres"
+   *  (quem ainda pode ser convidado), que é outra pergunta. */
+  qtd_elegiveis: number;
+  /** Quantas aulas desta classe nunca tiveram chamada lançada. */
   aulasSemChamada: number;
+  professores: EbdProfessor[];
 }
+
+const MESES = [
+  "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+  "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+];
 
 export default function Ebd() {
   const { hasRole } = useAuth();
   const podeCriar = hasRole(["admin", "secretaria", "pastor", "diakonia"]);
   const [classes, setClasses] = useState<ClasseCard[]>([]);
+  const [resumoMes, setResumoMes] = useState<RelatorioMensalGeralResumo | null>(null);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [classeEditando, setClasseEditando] = useState<EbdClasse | null>(null);
@@ -38,15 +49,19 @@ export default function Ebd() {
   async function carregar() {
     setLoading(true);
     try {
-      const [cs, porClasse] = await Promise.all([
+      const hoje = new Date();
+      const [cs, porClasse, professores, resumo] = await Promise.all([
         listarClasses(mostrarInativas),
-        // Uma chamada só, pra todas as classes — não N+1. Sem tentar/pegar:
-        // um cartão sem esse dado ainda mostra tudo o mais, só sem o aviso.
+        // Cada uma, uma chamada só pra todas as classes — não N+1 por cartão.
         ebdPorClasse().catch((): EbdClasseLinha[] => []),
+        professoresPorClasse().catch(() => new Map<string, EbdProfessor[]>()),
+        relatorioMensalGeralResumo(hoje.getFullYear(), hoje.getMonth() + 1).catch(() => null),
       ]);
       const semChamadaPorClasse = new Map<string, number>(
         porClasse.map(p => [p.classe_id, p.aulas_sem_chamada]),
       );
+      setResumoMes(resumo);
+
       const enriched: ClasseCard[] = [];
       for (const c of cs) {
         const { count: qtdMat } = await supabase
@@ -55,23 +70,16 @@ export default function Ebd() {
           .eq("classe_id", c.id)
           .eq("ativo", true);
         const { data: esps } = await supabase.rpc("esperados_da_classe", { p_classe_id: c.id });
-        // ── Só quem está SEM classe ──────────────────────────────────────
-        //
-        // A função passou a devolver também quem cabe aqui mas já estuda ou
-        // ensina em outra classe (migration 20260828220000), para a
-        // professora não sentir falta de um nome sem saber onde ele está.
-        //
-        // O cartão do índice, porém, responde outra pergunta: quantos ainda
-        // precisam ser acolhidos. Contar a lista inteira aqui somaria gente
-        // já acomodada e inflaria o número — na Classe Professora Edna
-        // seriam 94 no lugar de 81.
-        const livres = ((esps as any[] | null) ?? [])
-          .filter(e => !e.ja_matriculado && !e.outra_classe_id);
         enriched.push({
           ...c,
           qtd_matriculados: qtdMat ?? 0,
-          qtd_esperados: livres.length,
+          // Todo mundo que cabe no perfil, matriculado em QUALQUER lugar ou
+          // em lugar nenhum — o total, não só quem ainda falta convidar.
+          // Achado dela: dividir matriculados pela sobra ("livres") dava
+          // 150% em Crianças, porque a sobra não é o total.
+          qtd_elegiveis: ((esps as any[] | null) ?? []).length,
           aulasSemChamada: semChamadaPorClasse.get(c.id) ?? 0,
+          professores: professores.get(c.id) ?? [],
         });
       }
       setClasses(enriched);
@@ -93,10 +101,17 @@ export default function Ebd() {
          : "Misto";
   }
 
+  function nomesDosProfessores(profs: EbdProfessor[]): string | null {
+    if (profs.length === 0) return null;
+    return profs.map(p => p.membros?.nome_completo).filter(Boolean).join(", ");
+  }
+
   if (loading) return <PaginaSkeleton />;
 
+  const hoje = new Date();
+
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <div className="p-6 max-w-6xl mx-auto space-y-5">
       <header className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="font-serif text-2xl flex items-center gap-2">
@@ -118,92 +133,112 @@ export default function Ebd() {
         )}
       </header>
 
+      {/* A faixa de trabalho de quem responde pela EBD inteira — pedido
+          dela: "onde a pessoa responsável pela área vai trabalhar". Os
+          cartões abaixo respondem por UMA classe; isto responde pelo
+          ministério. Fica acima, sempre visível ao abrir a tela, sem
+          precisar entrar em cada classe pra montar o quadro geral. */}
+      <div className="rounded-xl border border-gold/30 bg-gradient-verse p-4 space-y-3">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <p className="text-sm font-medium flex items-center gap-1.5">
+            Este mês · <span className="capitalize text-muted-foreground font-normal">{MESES[hoje.getMonth()]}</span>
+          </p>
+          <Button asChild size="sm" variant="outline" className="gap-1.5 h-7 text-xs bg-background/60">
+            <Link to="/ebd/relatorio-mensal">
+              <FileText className="w-3.5 h-3.5" /> Relatório completo
+            </Link>
+          </Button>
+        </div>
+        {resumoMes && resumoMes.aulas_total > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+            <FaixaStat label="Classes" valor={resumoMes.classes_ativas} />
+            <FaixaStat label="Matriculados" valor={resumoMes.matriculados} />
+            <FaixaStat label="Aulas c/ chamada" valor={`${resumoMes.aulas_com_chamada}/${resumoMes.aulas_total}`} />
+            <FaixaStat label="Presença média" valor={resumoMes.taxa_presenca !== null ? `${resumoMes.taxa_presenca}%` : "—"} highlight />
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground">Nenhuma aula registrada ainda este mês, em nenhuma classe.</p>
+        )}
+      </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {/* `grid-cols-1` explícito, e não só a ausência de `md:`/`lg:` — sem
+          ele, o grid não tinha `grid-template-columns` nenhum no celular e
+          caía no auto do navegador, que mede pelo MAIOR conteúdo (aqui, o
+          nome do professor) em vez do espaço disponível. O `truncate` do
+          nome não fazia nada porque a coluna nunca ficava estreita o
+          bastante pra precisar truncar — ela crescia pra caber o nome
+          inteiro, e o cartão vazava da tela. */}
+      <div className="grid gap-3 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
         {classes.map((c) => {
-          const taxa = c.qtd_esperados > 0
-            ? Math.round((c.qtd_matriculados / c.qtd_esperados) * 100)
+          const cobertura = c.qtd_elegiveis > 0
+            ? Math.round((c.qtd_matriculados / c.qtd_elegiveis) * 100)
             : 0;
+          const nomesProf = nomesDosProfessores(c.professores);
           return (
-            <Card key={c.id} className={`rounded-2xl shadow hover:shadow-md transition-shadow ${!c.ativo ? "opacity-60 border-dashed" : ""}`}>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2 justify-between">
-                  <span className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full" style={{ background: c.cor ?? "#cfa451" }} />
-                    {c.nome}
+            <Card key={c.id} className={`rounded-xl ${!c.ativo ? "opacity-60 border-dashed" : ""}`}>
+              <CardContent className="p-3.5 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1.5 min-w-0">
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: c.cor ?? "#cfa451" }} />
+                    <span className="font-medium text-sm truncate">{c.nome}</span>
                   </span>
-                  <span className="flex items-center gap-1">
+                  <span className="flex items-center gap-1 shrink-0">
                     {!c.ativo && (
-                      <Badge variant="outline" className="text-xs bg-warning-soft text-warning-text border-warning-line">
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-warning-soft text-warning-text border-warning-line">
                         Desativada
                       </Badge>
                     )}
-                    <Badge variant="outline" className="text-xs">
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0">
                       {generoTexto(c.genero)}
                     </Badge>
                   </span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <p className="text-xs text-muted-foreground">{faixaTexto(c)}</p>
+                </div>
+
+                <p className="text-xs text-muted-foreground truncate">
+                  {faixaTexto(c)}{nomesProf ? ` · ${nomesProf}` : ""}
+                </p>
 
                 {c.aulasSemChamada > 0 && (
-                  <p className="text-xs text-warning-text flex items-center gap-1.5">
-                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                    {c.aulasSemChamada} {c.aulasSemChamada === 1 ? "aula" : "aulas"} sem chamada lançada
+                  <p className="text-xs text-warning-text flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3 shrink-0" />
+                    {c.aulasSemChamada} {c.aulasSemChamada === 1 ? "aula" : "aulas"} sem chamada
                   </p>
                 )}
 
-                <div className="flex items-center gap-3 text-xs">
-                  <span className="flex items-center gap-1">
-                    <Users className="w-3.5 h-3.5 text-success-text" />
-                    <strong>{c.qtd_matriculados}</strong> matriculados
-                  </span>
-                  <span className="text-muted-foreground">·</span>
-                  <span className="text-muted-foreground">
-                    {/* "no perfil", e não "esperados": na ficha da classe
-                        "Esperados" passou a ser quem AINDA FALTA matricular,
-                        e este número é o total que cabe — dentro e fora.
-                        A mesma palavra com dois sentidos em duas telas é o
-                        tipo de coisa que faz alguém desconfiar do sistema */}
-                    <strong>{c.qtd_esperados}</strong> no perfil
-                  </span>
+                <div className="flex items-center justify-between gap-2 text-xs">
+                  <span><strong>{c.qtd_matriculados}</strong> matriculado{c.qtd_matriculados === 1 ? "" : "s"}</span>
+                  <span className="text-muted-foreground">{cobertura}% do perfil</span>
                 </div>
-
-                <div className="h-2 rounded bg-muted overflow-hidden">
+                <div className="h-1.5 rounded bg-muted overflow-hidden">
                   <div
                     className="h-full bg-gold/80 transition-all"
-                    style={{ width: `${Math.min(100, taxa)}%` }}
+                    style={{ width: `${Math.min(100, cobertura)}%` }}
                   />
                 </div>
-                <p className="text-xs text-muted-foreground text-right">
-                  {taxa}% do perfil da classe matriculado
-                </p>
 
-                {/* Chamada em destaque — pedido dela: "dar mais ênfase ao
-                    fazer chamada". É o gesto que se repete toda semana; o
-                    resto ("Abrir" pra matrículas/professores, "Editar") é
-                    trabalho ocasional e fica menor, por baixo. */}
-                <div className="space-y-1.5 mt-1">
-                  <Button asChild size="sm" className="w-full gap-1.5 bg-gold hover:bg-gold/90 text-white border-0">
+                {/* Chamada em destaque, mas numa linha só — pedido dela: os
+                    botões estavam ocupando espaço demais. O peso vem da cor
+                    e do tamanho relativo, não de uma linha inteira própria. */}
+                <div className="flex gap-1.5 pt-1">
+                  <Button asChild size="sm" className="flex-1 gap-1.5 h-8 bg-gold hover:bg-gold/90 text-white border-0">
                     <Link to={`/ebd/${c.id}/chamada`}>
-                      <GraduationCap className="w-3.5 h-3.5" /> Fazer chamada
+                      <GraduationCap className="w-3.5 h-3.5" /> Chamada
                     </Link>
                   </Button>
-                  <div className="flex gap-1.5">
-                  <Button asChild variant="outline" size="sm" className="w-full gap-1.5"><Link to={`/ebd/${c.id}`} className="flex-1">
-                      Abrir <ChevronRight className="w-3.5 h-3.5" />
-                    </Link></Button>
+                  <Button asChild variant="outline" size="sm" className="h-8 px-2.5" title="Abrir classe">
+                    <Link to={`/ebd/${c.id}`}>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </Link>
+                  </Button>
                   {podeCriar && (
                     <Button
-                      type="button" variant="ghost" size="sm"
+                      type="button" variant="ghost" size="sm" className="h-8 px-2.5"
                       onClick={(e) => { e.preventDefault(); setClasseEditando(c); setFormOpen(true); }}
                       title="Editar classe"
                     >
                       <Pencil className="w-3.5 h-3.5" />
                     </Button>
                   )}
-                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -217,8 +252,15 @@ export default function Ebd() {
         classe={classeEditando}
         onSaved={carregar}
       />
+    </div>
+  );
+}
 
-
+function FaixaStat({ label, valor, highlight }: { label: string; valor: number | string; highlight?: boolean }) {
+  return (
+    <div>
+      <p className={`font-semibold tabular-nums ${highlight ? "text-lg text-gold" : "text-base"}`}>{valor}</p>
+      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
     </div>
   );
 }
