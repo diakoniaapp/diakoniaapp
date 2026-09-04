@@ -525,6 +525,61 @@ export async function atualizarAula(aulaId: string, patch: Partial<EbdAula>) {
   if (error) throw error;
 }
 
+/**
+ * A aula anterior a `dataAtual`, na mesma classe, que TEVE chamada de
+ * verdade (pelo menos uma presença registrada) — "aula sem chamada não é
+ * aula em que todos faltaram", mesma regra de sempre: uma aula criada mas
+ * nunca marcada não conta como "a aula anterior" pra efeito de comparação.
+ * Usada no relatório por aula, pra "presença subiu/caiu vs. a última aula".
+ */
+export async function aulaAnteriorComChamada(
+  classeId: string,
+  dataAtual: string,
+): Promise<{ id: string; data: string } | null> {
+  const { data, error } = await supabase
+    .from("ebd_aulas")
+    .select("id, data, ebd_presencas!inner(id)")
+    .eq("classe_id", classeId)
+    .lt("data", dataAtual)
+    .order("data", { ascending: false })
+    .limit(1);
+  if (error) throw error;
+  const row = (data ?? [])[0];
+  return row ? { id: row.id, data: row.data } : null;
+}
+
+/**
+ * Quantas aulas seguidas (contando esta) tiveram chamada feita, andando
+ * pra trás até achar uma sem nenhuma presença ou acabar o histórico. Olha
+ * no máximo as últimas 20 aulas — não precisa ir mais longe pra dizer
+ * "6ª aula seguida com chamada".
+ */
+export async function sequenciaAulasComChamada(classeId: string, dataAtual: string): Promise<number> {
+  const { data: aulas, error } = await supabase
+    .from("ebd_aulas")
+    .select("id, data")
+    .eq("classe_id", classeId)
+    .lte("data", dataAtual)
+    .order("data", { ascending: false })
+    .limit(20);
+  if (error) throw error;
+  if (!aulas || aulas.length === 0) return 0;
+
+  const { data: pres, error: e2 } = await supabase
+    .from("ebd_presencas")
+    .select("aula_id")
+    .in("aula_id", aulas.map(a => a.id));
+  if (e2) throw e2;
+  const aulasComChamada = new Set((pres ?? []).map(p => p.aula_id));
+
+  let seq = 0;
+  for (const a of aulas) {
+    if (!aulasComChamada.has(a.id)) break;
+    seq++;
+  }
+  return seq;
+}
+
 export async function chamadaView(aulaId: string): Promise<EbdChamadaRow[]> {
   const { data, error } = await supabase.rpc("ebd_chamada_view", { p_aula_id: aulaId });
   if (error) throw error;

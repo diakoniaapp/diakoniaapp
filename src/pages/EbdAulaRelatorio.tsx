@@ -14,8 +14,9 @@ import { toast } from "sonner";
 import logoDiakonia from "@/assets/logo-diakonia.png";
 import {
   obterOuCriarAula, carregarAula, carregarClasse, chamadaView, listarProfessores,
-  versiculoPorFaixaEtaria,
-  type EbdAula, type EbdClasse, type EbdChamadaRow, type EbdProfessor,
+  versiculoPorFaixaEtaria, aulaAnteriorComChamada, sequenciaAulasComChamada,
+  relatorioMensalFrequencia,
+  type EbdAula, type EbdClasse, type EbdChamadaRow, type EbdProfessor, type FrequenciaAluno,
 } from "@/services/ebdService";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -37,6 +38,13 @@ export default function EbdAulaRelatorio() {
   const [professores, setProfessores] = useState<EbdProfessor[]>([]);
   const [loading, setLoading] = useState(true);
   const [emitidoPor, setEmitidoPor] = useState<string>("");
+  // "Sugira mais estatísticas... quero ver combinadas" — três pedidos dela
+  // juntos: % de presença (com a comparação da aula anterior), a
+  // sequência de aulas seguidas com chamada feita, e o histórico do mês
+  // (presença perfeita / quantas faltas) por pessoa.
+  const [taxaAnterior, setTaxaAnterior] = useState<number | null>(null);
+  const [sequencia, setSequencia] = useState<number>(0);
+  const [frequenciaMes, setFrequenciaMes] = useState<Map<string, FrequenciaAluno>>(new Map());
 
   useEffect(() => {
     (async () => {
@@ -45,14 +53,29 @@ export default function EbdAulaRelatorio() {
         const c = await carregarClasse(classeId);
         setClasse(c);
         const aulaId = await obterOuCriarAula(classeId, data);
-        const [a, view, profs] = await Promise.all([
+        const [ano, mes] = data.split("-").map(Number);
+        const [a, view, profs, anterior, seq, freq] = await Promise.all([
           carregarAula(aulaId),
           chamadaView(aulaId),
           listarProfessores(classeId),
+          aulaAnteriorComChamada(classeId, data).catch(() => null),
+          sequenciaAulasComChamada(classeId, data).catch(() => 0),
+          relatorioMensalFrequencia(classeId, ano, mes).catch((): FrequenciaAluno[] => []),
         ]);
         setAula(a);
         setLinhas(view);
         setProfessores(profs);
+        setSequencia(seq);
+        setFrequenciaMes(new Map(freq.map(f => [f.pessoa_id, f])));
+
+        if (anterior) {
+          const viewAnterior = await chamadaView(anterior.id).catch((): EbdChamadaRow[] => []);
+          const matAnterior = viewAnterior.filter(l => l.tipo === "matriculado");
+          const presAnterior = matAnterior.filter(l => l.presente);
+          setTaxaAnterior(matAnterior.length > 0 ? Math.round((presAnterior.length / matAnterior.length) * 100) : null);
+        } else {
+          setTaxaAnterior(null);
+        }
 
         if (user) {
           const { data: prof } = await supabase
@@ -79,6 +102,16 @@ export default function EbdAulaRelatorio() {
   const professorPrincipal = professores.find(p => p.tipo === "principal") ?? professores[0];
   const versiculo = classe ? versiculoPorFaixaEtaria(classe) : null;
 
+  // "Presença subiu/caiu vs. a última aula" — só compara contra uma aula
+  // que teve chamada de verdade (`aulaAnteriorComChamada` já filtra isso).
+  // Sem aula anterior pra comparar (primeira aula da classe), não mostra
+  // nada em vez de inventar um "0%" que não quer dizer nada.
+  const delta = taxaAnterior !== null ? taxaPresenca - taxaAnterior : null;
+  const deltaTexto = delta === null ? undefined
+    : delta === 0 ? "= que a última"
+    : delta > 0 ? `↑ ${delta} pts vs. última`
+    : `↓ ${Math.abs(delta)} pts vs. última`;
+
   function montarMensagemWhatsApp(): string {
     if (!classe || !aula) return "";
     const linhasMsg: string[] = [];
@@ -89,7 +122,8 @@ export default function EbdAulaRelatorio() {
     if (professoresPresenca.length > 0) {
       linhasMsg.push(`👩‍🏫 *Professor(es):* ${professoresPresentes.map(p => p.nome_completo).join(", ") || "nenhum presente"}`);
     }
-    linhasMsg.push(`👥 *Presença:* ${presentes.length} de ${matriculados.length} (${taxaPresenca}%)`);
+    linhasMsg.push(`👥 *Presença:* ${presentes.length} de ${matriculados.length} (${taxaPresenca}%)${deltaTexto ? ` — ${deltaTexto}` : ""}`);
+    if (sequencia > 1) linhasMsg.push(`🔥 ${sequencia}ª aula seguida com chamada registrada`);
     if (visitantesPresentes.length > 0) linhasMsg.push(`🌱 *Visitantes:* ${visitantesPresentes.length}`);
     linhasMsg.push("");
     if (presentes.length > 0) {
@@ -247,23 +281,42 @@ export default function EbdAulaRelatorio() {
           </section>
         )}
 
-        <section className="avoid-break grid grid-cols-4 gap-2 mb-6 text-center">
+        <section className="avoid-break grid grid-cols-5 gap-2 mb-1 text-center">
           <Stat label="Presentes" valor={presentes.length} highlight />
           <Stat label="Ausentes" valor={ausentes.length} />
           <Stat label="Visitantes" valor={visitantesPresentes.length} />
           <Stat label="Total" valor={totalPresentes} />
+          <Stat label="% Presença" valor={`${taxaPresenca}%`} sub={deltaTexto} />
         </section>
+
+        {/* "Sugira mais estatísticas... quero ver combinadas" — contexto
+            que um número sozinho não dá: quantas aulas seguidas a classe
+            vem registrando chamada de verdade. */}
+        {sequencia > 1 && (
+          <p className="avoid-break text-xs text-muted-foreground text-center mb-6">
+            {sequencia}ª aula seguida com chamada registrada.
+          </p>
+        )}
+        {sequencia <= 1 && <div className="mb-6" />}
 
         {presentes.length > 0 && (
           <section className="avoid-break mb-6">
             <h3 className="font-serif text-base mb-2 text-gold">Presentes ({presentes.length})</h3>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-              {presentes.map(p => (
-                <div key={p.pessoa_id} className="flex items-center gap-1.5 border-b border-border/40 py-1">
-                  <Check className="w-3 h-3 text-success-text shrink-0" />
-                  <span className="truncate">{p.nome_completo}</span>
-                </div>
-              ))}
+              {presentes.map(p => {
+                const freq = frequenciaMes.get(p.pessoa_id);
+                // Presença perfeita só conta com mais de uma aula no mês —
+                // "100% de 1" não é a mesma coisa que "100% de 4" (mesma
+                // disciplina de amostra pequena de sempre).
+                const perfeita = freq && freq.oportunidades > 1 && freq.taxa === 100;
+                return (
+                  <div key={p.pessoa_id} className="flex items-center gap-1.5 border-b border-border/40 py-1">
+                    <Check className="w-3 h-3 text-success-text shrink-0" />
+                    <span className="truncate">{p.nome_completo}</span>
+                    {perfeita && <span className="text-gold shrink-0" title="Presença perfeita no mês">🌟</span>}
+                  </div>
+                );
+              })}
             </div>
           </section>
         )}
@@ -272,12 +325,20 @@ export default function EbdAulaRelatorio() {
           <section className="avoid-break mb-6">
             <h3 className="font-serif text-base mb-2 text-muted-foreground">Ausentes ({ausentes.length})</h3>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-              {ausentes.map(p => (
-                <div key={p.pessoa_id} className="flex items-center gap-1.5 border-b border-border/40 py-1 text-muted-foreground">
-                  <X className="w-3 h-3 shrink-0" />
-                  <span className="truncate">{p.nome_completo}</span>
-                </div>
-              ))}
+              {ausentes.map(p => {
+                const freq = frequenciaMes.get(p.pessoa_id);
+                return (
+                  <div key={p.pessoa_id} className="flex items-center gap-1.5 border-b border-border/40 py-1 text-muted-foreground">
+                    <X className="w-3 h-3 shrink-0" />
+                    <span className="truncate">{p.nome_completo}</span>
+                    {freq && freq.oportunidades > 0 && (
+                      <span className="text-[10px] shrink-0 ml-auto tabular-nums">
+                        {freq.oportunidades - freq.presencas}/{freq.oportunidades} no mês
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </section>
         )}
@@ -327,11 +388,14 @@ export default function EbdAulaRelatorio() {
   );
 }
 
-function Stat({ label, valor, highlight }: { label: string; valor: number; highlight?: boolean }) {
+function Stat({ label, valor, highlight, sub }: {
+  label: string; valor: number | string; highlight?: boolean; sub?: string;
+}) {
   return (
     <div className={`border rounded-md py-2 px-2 ${highlight ? "border-gold bg-gold/5" : ""}`}>
       <p className={`font-semibold tabular-nums ${highlight ? "text-2xl text-gold" : "text-xl"}`}>{valor}</p>
       <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
+      {sub && <p className="text-[10px] text-muted-foreground mt-0.5">{sub}</p>}
     </div>
   );
 }
