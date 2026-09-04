@@ -27,7 +27,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  GraduationCap, ChevronRight, ChevronDown, Plus, Pencil, AlertCircle, FileText, Cake, Users, Phone, Flag,
+  GraduationCap, ChevronRight, ChevronDown, Plus, AlertCircle, FileText, Cake, Users, Phone, Flag,
+  Settings,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -767,6 +768,10 @@ export default function Ebd() {
             return (
               <Card key={c.id} className={`rounded-lg ${!c.ativo ? "opacity-60 border-dashed" : ""}`}>
                 <CardContent className="p-3 space-y-1.5">
+                  {/* Pedido dela, no print do cartão: engrenagem no canto
+                      (onde ficava o badge de gênero) abre editar; o gênero
+                      desceu pra linha miúda debaixo do nome, junto da
+                      faixa etária. */}
                   <div className="flex items-center justify-between gap-2">
                     <span className="flex items-center gap-1.5 min-w-0">
                       <span className="w-2 h-2 rounded-full shrink-0" style={{ background: c.cor ?? "#cfa451" }} />
@@ -778,14 +783,21 @@ export default function Ebd() {
                           Desativada
                         </Badge>
                       )}
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                        {generoTexto(c.genero)}
-                      </Badge>
+                      {podeCriar && (
+                        <button
+                          type="button"
+                          onClick={() => { setClasseEditando(c); setFormOpen(true); }}
+                          className="h-6 w-6 flex items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                          title="Editar classe"
+                        >
+                          <Settings className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </span>
                   </div>
 
-                  <p className="text-xs text-muted-foreground truncate">
-                    {faixaTexto(c)}{nomesProf ? ` · ${nomesProf}` : ""}
+                  <p className="text-[11px] text-muted-foreground truncate">
+                    {generoTexto(c.genero)} · {faixaTexto(c)}{nomesProf ? ` · ${nomesProf}` : ""}
                   </p>
 
                   {c.aulasSemChamada > 0 && (
@@ -802,8 +814,9 @@ export default function Ebd() {
 
                   {/* Pedido dela, no print do cartão: "crie botoes visuais:
                       abrir - editar classe - chamada" — o ">" e o lápis
-                      sozinhos não diziam o que faziam; os três agora têm
-                      ícone + rótulo, não só ícone com tooltip. */}
+                      sozinhos não diziam o que faziam. "Editar" depois
+                      virou a engrenagem no canto superior, então sobram
+                      só os dois botões de verdade aqui embaixo. */}
                   <div className="flex gap-1.5 pt-0.5">
                     <Button asChild size="sm" className="flex-1 gap-1.5 h-8 text-xs bg-gold hover:bg-gold/90 text-white border-0">
                       <Link to={`/ebd/${c.id}/chamada`}>
@@ -815,14 +828,6 @@ export default function Ebd() {
                         <ChevronRight className="w-3.5 h-3.5" /> Abrir
                       </Link>
                     </Button>
-                    {podeCriar && (
-                      <Button
-                        type="button" variant="outline" size="sm" className="h-8 gap-1 text-xs px-2.5"
-                        onClick={(e) => { e.preventDefault(); setClasseEditando(c); setFormOpen(true); }}
-                      >
-                        <Pencil className="w-3.5 h-3.5" /> Editar
-                      </Button>
-                    )}
                   </div>
                 </CardContent>
               </Card>
