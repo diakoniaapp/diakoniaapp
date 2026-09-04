@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import logoDiakonia from "@/assets/logo-diakonia.png";
 import {
   obterOuCriarAula, carregarAula, carregarClasse, chamadaView, listarProfessores,
+  versiculoPorFaixaEtaria,
   type EbdAula, type EbdClasse, type EbdChamadaRow, type EbdProfessor,
 } from "@/services/ebdService";
 import { useAuth } from "@/hooks/useAuth";
@@ -76,6 +77,7 @@ export default function EbdAulaRelatorio() {
   const totalPresentes = presentes.length + visitantesPresentes.length;
   const taxaPresenca = matriculados.length > 0 ? Math.round((presentes.length / matriculados.length) * 100) : 0;
   const professorPrincipal = professores.find(p => p.tipo === "principal") ?? professores[0];
+  const versiculo = classe ? versiculoPorFaixaEtaria(classe) : null;
 
   function montarMensagemWhatsApp(): string {
     if (!classe || !aula) return "";
@@ -101,7 +103,7 @@ export default function EbdAulaRelatorio() {
       linhasMsg.push("");
     }
     if (aula.observacoes) { linhasMsg.push(`📝 *Observações:* ${aula.observacoes}`); linhasMsg.push(""); }
-    linhasMsg.push(`"Ensina a criança no caminho em que deve andar." — Pv 22:6`);
+    if (versiculo) linhasMsg.push(`${versiculo.texto} — ${versiculo.referencia}`);
     linhasMsg.push("");
     linhasMsg.push(`_Enviado pelo Diakonia APP — Sistema de Igrejas_`);
     return linhasMsg.join("\n");
@@ -314,12 +316,12 @@ export default function EbdAulaRelatorio() {
           </div>
         </section>
 
-        <footer className="avoid-break mt-10 pt-4 border-t border-gold/30 text-center">
-          <p className="text-xs italic text-muted-foreground font-serif">
-            "Ensina a criança no caminho em que deve andar, e ainda quando for velho não se desviará dele."
-          </p>
-          <p className="text-xs text-gold tracking-wide mt-1">Provérbios 22:6</p>
-        </footer>
+        {versiculo && (
+          <footer className="avoid-break mt-10 pt-4 border-t border-gold/30 text-center">
+            <p className="text-xs italic text-muted-foreground font-serif">{versiculo.texto}</p>
+            <p className="text-xs text-gold tracking-wide mt-1">{versiculo.referencia}</p>
+          </footer>
+        )}
       </div>
     </div>
   );

@@ -19,7 +19,7 @@ import { ArrowLeft, Printer, MessageCircle, GraduationCap } from "lucide-react";
 import { toast } from "sonner";
 import logoDiakonia from "@/assets/logo-diakonia.png";
 import {
-  carregarClasse, relatorioMensalResumo, relatorioMensalFrequencia,
+  carregarClasse, relatorioMensalResumo, relatorioMensalFrequencia, versiculoPorFaixaEtaria,
   type EbdClasse, type RelatorioMensalResumo, type FrequenciaAluno,
 } from "@/services/ebdService";
 import { useAuth } from "@/hooks/useAuth";
@@ -92,6 +92,9 @@ export default function EbdClasseRelatorioMensal() {
     if (resumo.taxa_presenca !== null) l.push(`📊 *Presença média:* ${resumo.taxa_presenca}%`);
     if (resumo.visitantes > 0) l.push(`🌱 *Visitantes no mês:* ${resumo.visitantes}`);
     l.push("");
+    const versiculoMsg = versiculoPorFaixaEtaria(classe);
+    l.push(`${versiculoMsg.texto} — ${versiculoMsg.referencia}`);
+    l.push("");
     l.push(`_Enviado pelo Diakonia APP — Sistema de Igrejas_`);
     return l.join("\n");
   }
@@ -122,6 +125,7 @@ export default function EbdClasseRelatorioMensal() {
   const hoje = new Date().toLocaleDateString("pt-BR");
   const horaHoje = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   const semAulaNoMes = !resumo || resumo.aulas_total === 0;
+  const versiculo = versiculoPorFaixaEtaria(classe);
 
   return (
     <div className="bg-background min-h-screen">
@@ -252,10 +256,8 @@ export default function EbdClasseRelatorioMensal() {
         )}
 
         <footer className="avoid-break mt-10 pt-4 border-t border-gold/30 text-center">
-          <p className="text-xs italic text-muted-foreground font-serif">
-            "Ensina a criança no caminho em que deve andar, e ainda quando for velho não se desviará dele."
-          </p>
-          <p className="text-xs text-gold tracking-wide mt-1">Provérbios 22:6</p>
+          <p className="text-xs italic text-muted-foreground font-serif">{versiculo.texto}</p>
+          <p className="text-xs text-gold tracking-wide mt-1">{versiculo.referencia}</p>
         </footer>
       </div>
     </div>

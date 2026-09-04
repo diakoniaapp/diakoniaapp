@@ -39,6 +39,38 @@ export function temProgressaoPorIdade(classe: Pick<EbdClasse, "ordem" | "idade_m
   return classe.ordem < ORDEM_PRIMEIRA_CLASSE_ADULTA && classe.idade_max !== null;
 }
 
+// ─── O versículo do rodapé, por faixa etária ────────────────────────────────
+//
+// Pedido dela, olhando o relatório da Classe Edna (40-99 anos, mulheres)
+// terminar com "ensina a CRIANÇA no caminho que deve andar" — o mesmo
+// versículo fixo que os relatórios de aula e mensal usavam pra qualquer
+// classe. Faz sentido pra Crianças, não pra quem já criou os filhos.
+//
+// A faixa é decidida por `idade_min` da classe (não `idade_max`, que fica
+// nulo justamente nas classes de adulto/terceira idade — ver
+// `temProgressaoPorIdade`). Ordenado do mais novo pro mais velho; a busca
+// pega a ÚLTIMA faixa cujo mínimo cabe na idade mínima da classe.
+interface VersiculoRodape { texto: string; referencia: string }
+
+const FAIXAS_VERSICULO: (VersiculoRodape & { min: number })[] = [
+  { min: 0,  texto: `"Deixai vir a mim as crianças, e não as impeçais; porque dos tais é o reino de Deus."`, referencia: "Marcos 10:14" },
+  { min: 3,  texto: `"Ensina a criança no caminho em que deve andar, e ainda quando for velho não se desviará dele."`, referencia: "Provérbios 22:6" },
+  { min: 9,  texto: `"Ninguém despreze a tua mocidade, mas sê o exemplo dos fiéis, na palavra, no trato, no amor, no espírito, na fé, na pureza."`, referencia: "1 Timóteo 4:12" },
+  { min: 18, texto: `"Lembra-te do teu Criador nos dias da tua mocidade, antes que venham os maus dias."`, referencia: "Eclesiastes 12:1" },
+  { min: 26, texto: `"Eu, porém, e a minha casa serviremos ao Senhor."`, referencia: "Josué 24:15" },
+  { min: 40, texto: `"Coroa de honra são as cãs, achando-se elas no caminho da justiça."`, referencia: "Provérbios 16:31" },
+];
+
+/** Classe sem `idade_min` (não deveria acontecer, mas não é motivo pra quebrar o relatório). */
+const VERSICULO_GENERICO: VersiculoRodape = FAIXAS_VERSICULO[1];
+
+export function versiculoPorFaixaEtaria(classe: Pick<EbdClasse, "idade_min">): VersiculoRodape {
+  if (classe.idade_min === null) return VERSICULO_GENERICO;
+  const idade = classe.idade_min;
+  const faixa = [...FAIXAS_VERSICULO].reverse().find(f => idade >= f.min);
+  return faixa ?? VERSICULO_GENERICO;
+}
+
 /** Um aluno que passou do teto de idade da classe onde está. */
 export interface EbdAlertaIdade {
   pessoa_id: string;
