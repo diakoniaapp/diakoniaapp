@@ -1841,6 +1841,37 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                   passou de cinco passos para seis: no penúltimo passo o botão
                   virava "Salvar", o onSubmit barrava com `step !== 6`, e o
                   clique não fazia NADA. A tela travava ali, sem erro nenhum. */}
+              {/* "Esta ordem não está muito intuitiva" — o atalho "Salvar e
+                  fechar" morava ENTRE Anterior e Próximo, quebrando o par
+                  Anterior/Próximo que qualquer assistente de passos deixa
+                  lado a lado. No celular (`flex-col`), isso empurrava o
+                  botão principal — dourado, "Próximo" — pro final da
+                  pilha, embaixo de um botão secundário. Movido pra depois
+                  do par de navegação: Anterior/Cancelar, Próximo/Salvar,
+                  e só então o atalho, como uma saída à parte. */}
+              {step < 6 ? (
+                <Button key="proximo" type="button"
+                  onClick={() => {
+                    // Valida campos obrigatórios do passo atual
+                    if (step === 1 && !form.nome_completo.trim()) {
+                      toast.error("Informe o nome completo");
+                      return;
+                    }
+                    if (step === 1 && isVisitante && !form.telefone_celular.trim()) {
+                      toast.error("Telefone é obrigatório para visitante");
+                      return;
+                    }
+                    setStep(((step as number) + 1) as 1 | 2 | 3 | 4 | 5 | 6);
+                  }}
+                  disabled={busy}>
+                  Próximo →
+                </Button>
+              ) : (
+                <Button key="salvar" type="submit" disabled={busy}>
+                  {busy ? "Salvando..." : membro ? "Salvar alterações" : `Cadastrar ${tipo}`}
+                </Button>
+              )}
+
               {/* ── Atalho de salvar ────────────────────────────────────
                   Pedido em 27/08/2026: preencher um campo do passo 1 custava
                   cinco cliques em "Próximo", por telas que não têm nada a ver
@@ -1870,28 +1901,6 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                   disabled={busy}
                 >
                   {busy ? "Salvando..." : "Salvar e fechar"}
-                </Button>
-              )}
-              {step < 6 ? (
-                <Button key="proximo" type="button"
-                  onClick={() => {
-                    // Valida campos obrigatórios do passo atual
-                    if (step === 1 && !form.nome_completo.trim()) {
-                      toast.error("Informe o nome completo");
-                      return;
-                    }
-                    if (step === 1 && isVisitante && !form.telefone_celular.trim()) {
-                      toast.error("Telefone é obrigatório para visitante");
-                      return;
-                    }
-                    setStep(((step as number) + 1) as 1 | 2 | 3 | 4 | 5 | 6);
-                  }}
-                  disabled={busy}>
-                  Próximo →
-                </Button>
-              ) : (
-                <Button key="salvar" type="submit" disabled={busy}>
-                  {busy ? "Salvando..." : membro ? "Salvar alterações" : `Cadastrar ${tipo}`}
                 </Button>
               )}
             </DialogFooter>
