@@ -22,12 +22,12 @@
 // sendo a fonte — só não vira mais lista própria, alimenta unicamente os
 // aniversariantes.
 import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  GraduationCap, ChevronRight, ChevronDown, Plus, AlertCircle, FileText, Cake, Users, Phone, Flag,
+  GraduationCap, ChevronDown, Plus, AlertCircle, FileText, Cake, Users, Phone, Flag,
   Settings,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -84,6 +84,7 @@ const MESES_ABREV = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "se
 const scrollMt = "scroll-mt-[190px] sm:scroll-mt-[150px]";
 
 export default function Ebd() {
+  const navigate = useNavigate();
   const { hasRole } = useAuth();
   const podeCriar = hasRole(["admin", "secretaria", "pastor", "diakonia"]);
   const [classes, setClasses] = useState<ClasseCard[]>([]);
@@ -766,12 +767,18 @@ export default function Ebd() {
               : 0;
             const nomesProf = nomesDosProfessores(c.professores);
             return (
-              <Card key={c.id} className={`rounded-lg ${!c.ativo ? "opacity-60 border-dashed" : ""}`}>
+              // "Tire os botões chamada e abrir... torne o próprio card
+              // clicável para abrir... ganhe espaço" — ela concordou em
+              // manter só Chamada (é a ação de toda semana; "Abrir" virou
+              // clicar no cartão). onClick no Card + stopPropagation nos
+              // dois controles internos (engrenagem e botão Chamada), pra
+              // eles não disparar a navegação do cartão junto.
+              <Card
+                key={c.id}
+                onClick={() => navigate(`/ebd/${c.id}`)}
+                className={`rounded-lg cursor-pointer transition-colors hover:border-gold/50 ${!c.ativo ? "opacity-60 border-dashed" : ""}`}
+              >
                 <CardContent className="p-3 space-y-1.5">
-                  {/* Pedido dela, no print do cartão: engrenagem no canto
-                      (onde ficava o badge de gênero) abre editar; o gênero
-                      desceu pra linha miúda debaixo do nome, junto da
-                      faixa etária. */}
                   <div className="flex items-center justify-between gap-2">
                     <span className="flex items-center gap-1.5 min-w-0">
                       <span className="w-2 h-2 rounded-full shrink-0" style={{ background: c.cor ?? "#cfa451" }} />
@@ -786,7 +793,7 @@ export default function Ebd() {
                       {podeCriar && (
                         <button
                           type="button"
-                          onClick={() => { setClasseEditando(c); setFormOpen(true); }}
+                          onClick={(e) => { e.stopPropagation(); setClasseEditando(c); setFormOpen(true); }}
                           className="h-6 w-6 flex items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                           title="Editar classe"
                         >
@@ -812,23 +819,15 @@ export default function Ebd() {
                     <span className="text-muted-foreground"> · {cobertura}% do perfil</span>
                   </p>
 
-                  {/* Pedido dela, no print do cartão: "crie botoes visuais:
-                      abrir - editar classe - chamada" — o ">" e o lápis
-                      sozinhos não diziam o que faziam. "Editar" depois
-                      virou a engrenagem no canto superior, então sobram
-                      só os dois botões de verdade aqui embaixo. */}
-                  <div className="flex gap-1.5 pt-0.5">
-                    <Button asChild size="sm" className="flex-1 gap-1.5 h-8 text-xs bg-gold hover:bg-gold/90 text-white border-0">
-                      <Link to={`/ebd/${c.id}/chamada`}>
-                        <GraduationCap className="w-3.5 h-3.5" /> Chamada
-                      </Link>
-                    </Button>
-                    <Button asChild variant="outline" size="sm" className="h-8 gap-1 text-xs px-2.5">
-                      <Link to={`/ebd/${c.id}`}>
-                        <ChevronRight className="w-3.5 h-3.5" /> Abrir
-                      </Link>
-                    </Button>
-                  </div>
+                  <Button
+                    asChild size="sm"
+                    className="w-full gap-1.5 h-8 text-xs bg-gold hover:bg-gold/90 text-white border-0"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Link to={`/ebd/${c.id}/chamada`}>
+                      <GraduationCap className="w-3.5 h-3.5" /> Chamada
+                    </Link>
+                  </Button>
                 </CardContent>
               </Card>
             );
