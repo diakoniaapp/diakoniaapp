@@ -2529,43 +2529,79 @@ export type Database = {
       }
       diaconia_fichas_socioeconomicas: {
         Row: {
-          composicao_familiar: number | null
+          adolescentes_12_18: number | null
+          adultos_19_59: number | null
+          atuacao_clt: string | null
           created_at: string
+          criancas_ate_11: number | null
           data_preenchimento: string
+          familiares: Json
           id: string
+          idosos_60_mais: number | null
+          ja_trabalhou_clt: boolean | null
+          maior_necessidade: string | null
           observacoes: string | null
           pessoa_assistida_id: string
+          possui_deficiencia: boolean | null
+          possui_renda: boolean | null
           preenchido_por: string | null
           qual_beneficio: string | null
+          qual_deficiencia: string | null
           recebe_beneficio_social: boolean | null
+          renda_mensal: number | null
           situacao_moradia: string | null
-          situacao_trabalho: string | null
+          sustento_familia: string | null
+          tempo_clt: string | null
         }
         Insert: {
-          composicao_familiar?: number | null
+          adolescentes_12_18?: number | null
+          adultos_19_59?: number | null
+          atuacao_clt?: string | null
           created_at?: string
+          criancas_ate_11?: number | null
           data_preenchimento?: string
+          familiares?: Json
           id?: string
+          idosos_60_mais?: number | null
+          ja_trabalhou_clt?: boolean | null
+          maior_necessidade?: string | null
           observacoes?: string | null
           pessoa_assistida_id: string
+          possui_deficiencia?: boolean | null
+          possui_renda?: boolean | null
           preenchido_por?: string | null
           qual_beneficio?: string | null
+          qual_deficiencia?: string | null
           recebe_beneficio_social?: boolean | null
+          renda_mensal?: number | null
           situacao_moradia?: string | null
-          situacao_trabalho?: string | null
+          sustento_familia?: string | null
+          tempo_clt?: string | null
         }
         Update: {
-          composicao_familiar?: number | null
+          adolescentes_12_18?: number | null
+          adultos_19_59?: number | null
+          atuacao_clt?: string | null
           created_at?: string
+          criancas_ate_11?: number | null
           data_preenchimento?: string
+          familiares?: Json
           id?: string
+          idosos_60_mais?: number | null
+          ja_trabalhou_clt?: boolean | null
+          maior_necessidade?: string | null
           observacoes?: string | null
           pessoa_assistida_id?: string
+          possui_deficiencia?: boolean | null
+          possui_renda?: boolean | null
           preenchido_por?: string | null
           qual_beneficio?: string | null
+          qual_deficiencia?: string | null
           recebe_beneficio_social?: boolean | null
+          renda_mensal?: number | null
           situacao_moradia?: string | null
-          situacao_trabalho?: string | null
+          sustento_familia?: string | null
+          tempo_clt?: string | null
         }
         Relationships: [
           {
@@ -2619,29 +2655,77 @@ export type Database = {
       diaconia_pessoas_assistidas: {
         Row: {
           ativo: boolean
+          bairro: string | null
+          cep: string | null
+          cidade: string | null
+          complemento: string | null
+          cpf: string | null
           created_at: string
+          data_nascimento: string | null
+          endereco: string | null
+          escolaridade: string | null
+          estado_civil: Database["public"]["Enums"]["estado_civil"] | null
           id: string
           membro_id: string | null
+          nacionalidade: string | null
+          naturalidade: string | null
           nome_completo: string
+          numero: string | null
+          profissao: string | null
+          rg: string | null
+          sexo: Database["public"]["Enums"]["sexo"] | null
           telefone: string | null
+          uf: string | null
           updated_at: string
         }
         Insert: {
           ativo?: boolean
+          bairro?: string | null
+          cep?: string | null
+          cidade?: string | null
+          complemento?: string | null
+          cpf?: string | null
           created_at?: string
+          data_nascimento?: string | null
+          endereco?: string | null
+          escolaridade?: string | null
+          estado_civil?: Database["public"]["Enums"]["estado_civil"] | null
           id?: string
           membro_id?: string | null
+          nacionalidade?: string | null
+          naturalidade?: string | null
           nome_completo: string
+          numero?: string | null
+          profissao?: string | null
+          rg?: string | null
+          sexo?: Database["public"]["Enums"]["sexo"] | null
           telefone?: string | null
+          uf?: string | null
           updated_at?: string
         }
         Update: {
           ativo?: boolean
+          bairro?: string | null
+          cep?: string | null
+          cidade?: string | null
+          complemento?: string | null
+          cpf?: string | null
           created_at?: string
+          data_nascimento?: string | null
+          endereco?: string | null
+          escolaridade?: string | null
+          estado_civil?: Database["public"]["Enums"]["estado_civil"] | null
           id?: string
           membro_id?: string | null
+          nacionalidade?: string | null
+          naturalidade?: string | null
           nome_completo?: string
+          numero?: string | null
+          profissao?: string | null
+          rg?: string | null
+          sexo?: Database["public"]["Enums"]["sexo"] | null
           telefone?: string | null
+          uf?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -12448,6 +12532,10 @@ export type Database = {
         }
         Returns: string
       }
+      diaconia_atualizar_pessoa: {
+        Args: { p_dados?: Json; p_nome: string; p_pessoa_assistida_id: string }
+        Returns: undefined
+      }
       diaconia_chamada_view: {
         Args: { p_ocasiao_id: string }
         Returns: {
@@ -12460,9 +12548,9 @@ export type Database = {
       diaconia_criar_pessoa: {
         Args: {
           p_area_id: string
+          p_dados?: Json
           p_membro_id?: string
           p_nome: string
-          p_telefone?: string
         }
         Returns: string
       }
@@ -12481,15 +12569,7 @@ export type Database = {
       }
       diaconia_posso_atender: { Args: { p_area_id: string }; Returns: boolean }
       diaconia_salvar_ficha: {
-        Args: {
-          p_composicao_familiar?: number
-          p_observacoes?: string
-          p_pessoa_assistida_id: string
-          p_qual_beneficio?: string
-          p_recebe_beneficio_social?: boolean
-          p_situacao_moradia?: string
-          p_situacao_trabalho?: string
-        }
+        Args: { p_dados: Json; p_pessoa_assistida_id: string }
         Returns: string
       }
       diaconia_vincular_area: {

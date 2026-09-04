@@ -2,8 +2,18 @@
 //
 // Pedido de 03/09/2026 (ver [[diaconia-porta-de-entrada]] na memória): cestas
 // básicas, culto de rua de terça, jantar pós-culto — gente que às vezes só
-// está na igreja para buscar a cesta. Cadastro leve, ficha socioeconômica
-// enxuta e qualitativa, e uma chamada de confirmação igual à da EBD.
+// está na igreja para buscar a cesta. Cadastro completo, ficha
+// socioeconômica, e uma chamada de confirmação igual à da EBD.
+//
+// ── A FICHA (04/09) ESPELHA A FICHA IMPRESSA DA IGREJA, MELHORADA ───────────
+//
+// Ela mostrou a ficha de papel que a Diaconia usa hoje e pediu para melhorar,
+// não só copiar — pesquisado como bancos de alimentos e o CRAS fazem isto
+// (ver a migration 20260904110000 para as fontes e o raciocínio completo).
+// A melhoria principal: `renda_mensal`, que a ficha de papel não tinha —
+// junto com a composição por faixa etária (que o papel já tinha), dá pra
+// calcular renda per capita, como ela pediu ("com isto, daria pra fazer a
+// per capita").
 //
 // ── DUAS PORTAS, DOIS RECORTES ───────────────────────────────────────────────
 //
@@ -14,29 +24,80 @@
 // (`diaconia_posso_atender`/`diaconia_lidera_area`); este arquivo não decide
 // nada, só chama.
 //
-// ── TODA ESCRITA PASSA POR RPC ───────────────────────────────────────────────
+// ── TODA ESCRITA PASSA POR RPC, E OS DADOS VÃO NUM jsonb ─────────────────────
 //
-// Sem exceção. As tabelas não têm política de INSERT/UPDATE para quem não é
-// admin/secretaria — só a RPC, que checa a porta certa antes de gravar.
+// As tabelas não têm política de INSERT/UPDATE para quem não é admin/
+// secretaria — só a RPC, que checa a porta certa antes de gravar. E as RPCs
+// de escrita levam a maior parte dos campos num `p_dados jsonb`, não um
+// parâmetro por campo: a lista de campos já cresceu duas vezes desde 03/09,
+// e cada vez exigiu `DROP FUNCTION` explícito para não colidir (ver
+// 20260904100000). Com jsonb, o próximo campo não muda a assinatura.
 
 import { supabase } from "@/integrations/supabase/client";
 import { type ResultadoEscrita } from "@/lib/escritaConferida";
 
-export interface PessoaAssistida {
+export interface Endereco {
+  cep?: string | null;
+  endereco?: string | null;
+  numero?: string | null;
+  complemento?: string | null;
+  bairro?: string | null;
+  cidade?: string | null;
+  uf?: string | null;
+}
+
+/** O que muda pouco — identidade, não situação. Espelha a ficha impressa. */
+export interface DadosIdentidade extends Endereco {
+  data_nascimento?: string | null;
+  sexo?: string | null;
+  estado_civil?: string | null;
+  rg?: string | null;
+  cpf?: string | null;
+  nacionalidade?: string | null;
+  naturalidade?: string | null;
+  profissao?: string | null;
+  escolaridade?: string | null;
+  telefone?: string | null;
+}
+
+export interface PessoaAssistida extends DadosIdentidade {
   id: string;
   nome_completo: string;
   telefone: string | null;
   membro_id: string | null;
 }
 
+/** Um morador da casa — pergunta 7 da ficha impressa. */
+export interface Familiar {
+  nome: string;
+  idade: number | null;
+  parentesco: string;
+  trabalha: boolean;
+  estuda: boolean;
+  pcd: boolean;
+  qual_pcd?: string | null;
+}
+
 export interface FichaSocioeconomica {
   id: string;
   data_preenchimento: string;
-  composicao_familiar: number | null;
-  situacao_moradia: string | null;
-  situacao_trabalho: string | null;
+  possui_deficiencia: boolean | null;
+  qual_deficiencia: string | null;
+  possui_renda: boolean | null;
+  renda_mensal: number | null;
   recebe_beneficio_social: boolean | null;
   qual_beneficio: string | null;
+  ja_trabalhou_clt: boolean | null;
+  tempo_clt: string | null;
+  atuacao_clt: string | null;
+  situacao_moradia: string | null;
+  criancas_ate_11: number | null;
+  adolescentes_12_18: number | null;
+  adultos_19_59: number | null;
+  idosos_60_mais: number | null;
+  familiares: Familiar[];
+  sustento_familia: string | null;
+  maior_necessidade: string | null;
   observacoes: string | null;
 }
 
@@ -48,35 +109,66 @@ export interface LinhaDaChamada {
 }
 
 export const SITUACOES_MORADIA = [
-  { valor: "propria", rotulo: "Própria" },
-  { valor: "alugada", rotulo: "Alugada" },
-  { valor: "cedida", rotulo: "Cedida" },
+  { valor: "alugada", rotulo: "Alugado" },
+  { valor: "propria", rotulo: "Próprio" },
+  { valor: "cedida", rotulo: "Emprestado" },
+  // Fora da ficha impressa, de propósito: o culto de rua de terça atende
+  // quem não tem teto, e o papel não previa esse público.
   { valor: "situacao_de_rua", rotulo: "Situação de rua" },
-  { valor: "outra", rotulo: "Outra" },
+  { valor: "outra", rotulo: "Outros" },
 ] as const;
 
-export const SITUACOES_TRABALHO = [
-  { valor: "empregado", rotulo: "Empregado" },
-  { valor: "desempregado", rotulo: "Desempregado" },
-  { valor: "informal", rotulo: "Trabalho informal" },
-  { valor: "aposentado", rotulo: "Aposentado" },
-  { valor: "outro", rotulo: "Outro" },
+export const SEXOS = [
+  { valor: "masculino", rotulo: "Masculino" },
+  { valor: "feminino", rotulo: "Feminino" },
 ] as const;
 
-function rotuloDe(lista: readonly { valor: string; rotulo: string }[], valor: string | null): string | null {
+export const ESTADOS_CIVIS = [
+  { valor: "solteiro", rotulo: "Solteiro(a)" },
+  { valor: "casado", rotulo: "Casado(a)" },
+  { valor: "divorciado", rotulo: "Divorciado(a)" },
+  { valor: "viuvo", rotulo: "Viúvo(a)" },
+  { valor: "uniao_estavel", rotulo: "União estável" },
+  { valor: "separado", rotulo: "Separado(a)" },
+] as const;
+
+function rotuloDe(lista: readonly { valor: string; rotulo: string }[], valor: string | null | undefined): string | null {
   if (!valor) return null;
   return lista.find(o => o.valor === valor)?.rotulo ?? valor;
 }
-export const rotuloMoradia   = (v: string | null) => rotuloDe(SITUACOES_MORADIA, v);
-export const rotuloTrabalho  = (v: string | null) => rotuloDe(SITUACOES_TRABALHO, v);
+export const rotuloMoradia     = (v: string | null | undefined) => rotuloDe(SITUACOES_MORADIA, v);
+export const rotuloSexo        = (v: string | null | undefined) => rotuloDe(SEXOS, v);
+export const rotuloEstadoCivil = (v: string | null | undefined) => rotuloDe(ESTADOS_CIVIS, v);
+
+/** Quantas pessoas moram na casa, somando as quatro faixas — o denominador da per capita. */
+export function pessoasNaCasa(f: Pick<FichaSocioeconomica, "criancas_ate_11" | "adolescentes_12_18" | "adultos_19_59" | "idosos_60_mais">): number {
+  return (f.criancas_ate_11 ?? 0) + (f.adolescentes_12_18 ?? 0) + (f.adultos_19_59 ?? 0) + (f.idosos_60_mais ?? 0);
+}
+
+/**
+ * Renda per capita — calculada, nunca gravada.
+ *
+ * Ela pediu isto ao ver a ficha impressa: as faixas etárias já dão o
+ * denominador, `renda_mensal` dá o numerador. `null` quando falta um dos
+ * dois — não confundir "não calculado" com "zero".
+ */
+export function rendaPerCapita(f: FichaSocioeconomica): number | null {
+  const pessoas = pessoasNaCasa(f);
+  if (f.renda_mensal == null || pessoas === 0) return null;
+  return f.renda_mensal / pessoas;
+}
 
 // ─── Pessoas e vínculos ──────────────────────────────────────────────────
+
+const CAMPOS_PESSOA =
+  "id, nome_completo, telefone, membro_id, cep, endereco, numero, complemento, bairro, cidade, uf, " +
+  "data_nascimento, sexo, estado_civil, rg, cpf, nacionalidade, naturalidade, profissao, escolaridade";
 
 /** Quem é atendido em cada área do ministério — via as `diaconia_vinculos` que a RLS deixa ver. */
 export async function pessoasDaArea(areaId: string): Promise<(PessoaAssistida & { vinculo_id: string })[]> {
   const { data, error } = await supabase
     .from("diaconia_vinculos")
-    .select("id, ativo, diaconia_pessoas_assistidas(id, nome_completo, telefone, membro_id)")
+    .select(`id, ativo, diaconia_pessoas_assistidas(${CAMPOS_PESSOA})`)
     .eq("area_id", areaId).eq("ativo", true);
   if (error) throw error;
   return ((data ?? []) as any[])
@@ -87,13 +179,24 @@ export async function pessoasDaArea(areaId: string): Promise<(PessoaAssistida & 
 
 /** Cadastra (ou reaproveita) a pessoa e a vincula à área. A única porta de entrada de gente nova. */
 export async function criarPessoa(
-  areaId: string, nome: string, telefone?: string, membroId?: string,
+  areaId: string, nome: string, dados?: DadosIdentidade, membroId?: string,
 ): Promise<ResultadoEscrita & { id?: string }> {
   const { data, error } = await supabase.rpc("diaconia_criar_pessoa", {
-    p_area_id: areaId, p_nome: nome, p_telefone: telefone ?? null, p_membro_id: membroId ?? null,
+    p_area_id: areaId, p_nome: nome, p_membro_id: membroId ?? null, p_dados: (dados ?? {}) as any,
   });
   if (error) return { ok: false, erro: traduzir(error.message) };
   return { ok: true, id: data as string };
+}
+
+/** Corrige os dados de quem já está cadastrado. Mesma porta larga da chamada. */
+export async function atualizarPessoa(
+  pessoaAssistidaId: string, nome: string, dados?: DadosIdentidade,
+): Promise<ResultadoEscrita> {
+  const { error } = await supabase.rpc("diaconia_atualizar_pessoa", {
+    p_pessoa_assistida_id: pessoaAssistidaId, p_nome: nome, p_dados: (dados ?? {}) as any,
+  });
+  if (error) return { ok: false, erro: traduzir(error.message) };
+  return { ok: true };
 }
 
 export async function vincularArea(pessoaAssistidaId: string, areaId: string): Promise<ResultadoEscrita> {
@@ -106,31 +209,29 @@ export async function vincularArea(pessoaAssistidaId: string, areaId: string): P
 
 // ─── Ficha socioeconômica — só ministra/líder ───────────────────────────
 
+const CAMPOS_FICHA =
+  "id, data_preenchimento, possui_deficiencia, qual_deficiencia, possui_renda, renda_mensal, " +
+  "recebe_beneficio_social, qual_beneficio, ja_trabalhou_clt, tempo_clt, atuacao_clt, situacao_moradia, " +
+  "criancas_ate_11, adolescentes_12_18, adultos_19_59, idosos_60_mais, familiares, " +
+  "sustento_familia, maior_necessidade, observacoes";
+
 export async function fichasDaPessoa(pessoaAssistidaId: string): Promise<FichaSocioeconomica[]> {
   const { data, error } = await supabase
     .from("diaconia_fichas_socioeconomicas")
-    .select("id, data_preenchimento, composicao_familiar, situacao_moradia, situacao_trabalho, recebe_beneficio_social, qual_beneficio, observacoes")
+    .select(CAMPOS_FICHA)
     .eq("pessoa_assistida_id", pessoaAssistidaId)
     .order("data_preenchimento", { ascending: false });
   if (error) throw error;
-  return (data ?? []) as FichaSocioeconomica[];
+  return ((data ?? []) as any[]).map(f => ({ ...f, familiares: (f.familiares ?? []) as Familiar[] }));
 }
 
+export type DadosFicha = Omit<FichaSocioeconomica, "id" | "data_preenchimento">;
+
 export async function salvarFicha(
-  pessoaAssistidaId: string,
-  ficha: {
-    composicaoFamiliar?: number | null; situacaoMoradia?: string | null; situacaoTrabalho?: string | null;
-    recebeBeneficioSocial?: boolean | null; qualBeneficio?: string | null; observacoes?: string | null;
-  },
+  pessoaAssistidaId: string, dados: Partial<DadosFicha>,
 ): Promise<ResultadoEscrita> {
   const { error } = await supabase.rpc("diaconia_salvar_ficha", {
-    p_pessoa_assistida_id: pessoaAssistidaId,
-    p_composicao_familiar: ficha.composicaoFamiliar ?? null,
-    p_situacao_moradia: ficha.situacaoMoradia ?? null,
-    p_situacao_trabalho: ficha.situacaoTrabalho ?? null,
-    p_recebe_beneficio_social: ficha.recebeBeneficioSocial ?? null,
-    p_qual_beneficio: ficha.qualBeneficio ?? null,
-    p_observacoes: ficha.observacoes ?? null,
+    p_pessoa_assistida_id: pessoaAssistidaId, p_dados: dados as any,
   });
   if (error) return { ok: false, erro: traduzir(error.message) };
   return { ok: true };
@@ -159,11 +260,11 @@ export async function marcarConfirmado(ocasiaoId: string, pessoaAssistidaId: str
   if (error) throw new Error(traduzir(error.message));
 }
 
-/** Cadastra alguém novo e já confirma na ocasião aberta — o "+ novo" da chamada. */
+/** Cadastra alguém novo e já confirma na ocasião aberta — o "+ novo" da chamada, rápido de propósito. */
 export async function adicionarPessoaNaChamada(
   ocasiaoId: string, areaId: string, nome: string, telefone?: string,
 ): Promise<ResultadoEscrita & { id?: string }> {
-  const r = await criarPessoa(areaId, nome, telefone);
+  const r = await criarPessoa(areaId, nome, telefone ? { telefone } : undefined);
   if (!r.ok || !r.id) return r;
   await marcarConfirmado(ocasiaoId, r.id, true);
   return r;
@@ -227,6 +328,7 @@ export async function carregarBancadaDiaconia(ministerioId: string): Promise<Ban
 
 function traduzir(mensagem: string): string {
   if (mensagem.includes("Você não atende nesta área")) return mensagem;
+  if (mensagem.includes("Você não atende esta pessoa")) return mensagem;
   if (mensagem.includes("Só a liderança da Diaconia")) return mensagem;
   if (mensagem.includes("row-level security")) return "Você não tem acesso a esta área da Diaconia.";
   return mensagem;
