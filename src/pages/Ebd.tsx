@@ -41,6 +41,13 @@ import { useAuth } from "@/hooks/useAuth";
 import { PaginaSkeleton } from "@/components/ListState";
 import { Indicador, FaixaDeIndicadores, TituloDaSecao, irParaSecao } from "@/components/painel/blocos";
 
+/** Nome + idade de um membro ausente — só o que a lista de "clicar pra ver" precisa. */
+interface MembroAusente {
+  pessoa_id: string;
+  nome_completo: string;
+  idade: number | null;
+}
+
 interface ClasseCard extends EbdClasse {
   qtd_matriculados: number;
   /** Todo mundo que cabe no perfil (idade/gênero), matriculado ou não —
@@ -49,6 +56,10 @@ interface ClasseCard extends EbdClasse {
   /** Cabe no perfil e não está matriculado em NENHUMA classe — quem falta
    *  convidar. Alimenta o indicador "fora da EBD". */
   qtd_livres: number;
+  /** Só MEMBRO (não congregado), pra faixa mais ausente — pedido dela:
+   *  "porcentagem de faixa etária mais ausente da EBD (membros apenas)". */
+  membrosAusentes: MembroAusente[];
+  membrosElegiveis: number;
   aulasSemChamada: number;
   professores: EbdProfessor[];
 }
@@ -83,6 +94,10 @@ export default function Ebd() {
   // telefone". Cada linha guarda o próprio estado: revelar o telefone de
   // uma professora não revela o de todas.
   const [telefonesVisiveis, setTelefonesVisiveis] = useState<Set<string>>(new Set());
+  // Pedido dela: "para a porcentagem dos ausentes, permita visualizar o
+  // nome clicando na informação" — o indicador é só o número; os nomes só
+  // aparecem se alguém pedir.
+  const [mostrarAusentes, setMostrarAusentes] = useState(false);
 
   useEffect(() => { carregar(); }, [mostrarInativas]);
 
@@ -130,11 +145,16 @@ export default function Ebd() {
           .eq("ativo", true);
         const { data: espsRaw } = await supabase.rpc("esperados_da_classe", { p_classe_id: c.id });
         const esps = (espsRaw as any[] | null) ?? [];
+        const soMembros = esps.filter(e => e.tipo_pessoa === "membro");
         enriched.push({
           ...c,
           qtd_matriculados: qtdMat ?? 0,
           qtd_elegiveis: esps.length,
           qtd_livres: esps.filter(e => !e.ja_matriculado && !e.outra_classe_id).length,
+          membrosElegiveis: soMembros.length,
+          membrosAusentes: soMembros
+            .filter(e => !e.ja_matriculado && !e.outra_classe_id)
+            .map(e => ({ pessoa_id: e.pessoa_id, nome_completo: e.nome_completo, idade: e.idade })),
           aulasSemChamada: semChamadaPorClasse.get(c.id) ?? 0,
           professores: professores.get(c.id) ?? [],
         });
@@ -183,6 +203,19 @@ export default function Ebd() {
     const elegiveis = classes.reduce((s, c) => s + c.qtd_elegiveis, 0);
     const livres = classes.reduce((s, c) => s + c.qtd_livres, 0);
     return elegiveis > 0 ? Math.round((livres / elegiveis) * 100) : null;
+  }, [classes]);
+
+  // "Faixa etária mais ausente da EBD (membros apenas)": entre as classes
+  // com pelo menos um membro elegível, qual tem a MAIOR fração de membros
+  // que cabem na faixa e não estão matriculados em nenhuma classe.
+  const faixaMaisAusente = useMemo(() => {
+    let melhor: { classe: ClasseCard; percentual: number } | null = null;
+    for (const c of classes) {
+      if (c.membrosElegiveis === 0) continue;
+      const percentual = Math.round((c.membrosAusentes.length / c.membrosElegiveis) * 100);
+      if (!melhor || percentual > melhor.percentual) melhor = { classe: c, percentual };
+    }
+    return melhor;
   }, [classes]);
 
   const aniversariantes = useMemo(() => {
@@ -272,7 +305,7 @@ export default function Ebd() {
             ficam grudados no topo junto com os atalhos, não numa seção que
             rola pra fora de vista. Compactos de propósito: é cabeçalho, não
             o conteúdo principal da tela. */}
-        <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+        <div className="grid grid-cols-3 sm:grid-cols-7 gap-1.5">
           <Stat label="Matriculados" valor={gerais?.matriculados ?? "—"} compacto />
           <Stat
             label="Presença"
@@ -283,19 +316,47 @@ export default function Ebd() {
           <Stat label="Visitantes" valor={resumoMes?.visitantes ?? "—"} compacto />
           <Stat label="Adesão" valor={adesao !== null ? `${adesao}%` : "—"} compacto />
           <Stat label="Fora da EBD" valor={foraDaEbd !== null ? `${foraDaEbd}%` : "—"} compacto />
+          <Stat
+            label={faixaMaisAusente ? `Ausente: ${faixaMaisAusente.classe.nome}` : "Faixa mais ausente"}
+            valor={faixaMaisAusente ? `${faixaMaisAusente.percentual}%` : "—"}
+            compacto
+            onClick={faixaMaisAusente ? () => setMostrarAusentes(v => !v) : undefined}
+          />
         </div>
       </div>
 
-      {/* Os dois últimos precisam de uma frase — um "%" sozinho não diz o
-          que está sendo comparado com o quê. Fica fora do cabeçalho fixo,
-          de propósito: é explicação, não algo que precisa estar sempre à
+      {/* Os últimos precisam de uma frase — um "%" sozinho não diz o que
+          está sendo comparado com o quê. Fica fora do cabeçalho fixo, de
+          propósito: é explicação, não algo que precisa estar sempre à
           vista. */}
       <p className="text-xs text-muted-foreground -mt-3">
         <strong>Adesão</strong>: {gerais?.matriculados ?? 0} de {gerais?.membrosAtivos ?? 0} membros ativos da
         igreja estão numa classe.{" "}
         <strong>Fora da EBD</strong>: de quem cabe na faixa etária de alguma classe, quantos ainda não foram
-        matriculados em nenhuma.
+        matriculados em nenhuma.{" "}
+        {faixaMaisAusente && (
+          <>
+            <strong>Faixa mais ausente</strong>: entre as classes, {faixaMaisAusente.classe.nome} é onde a maior
+            fração de MEMBROS elegíveis (não congregados) ainda não está matriculada — {faixaMaisAusente.percentual}%.
+          </>
+        )}
       </p>
+
+      {/* Pedido dela: "permita visualizar o nome clicando na informação" — os
+          nomes só aparecem se alguém clicar no indicador acima. */}
+      {mostrarAusentes && faixaMaisAusente && (
+        <div className="rounded-lg border bg-card divide-y -mt-2">
+          <p className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
+            Membros de {faixaMaisAusente.classe.nome} ausentes da EBD ({faixaMaisAusente.classe.membrosAusentes.length})
+          </p>
+          {faixaMaisAusente.classe.membrosAusentes.map(m => (
+            <div key={m.pessoa_id} className="flex items-center justify-between gap-2 px-3 py-1.5 text-sm">
+              <span className="truncate">{m.nome_completo}</span>
+              {m.idade !== null && <span className="text-xs text-muted-foreground shrink-0">{m.idade} anos</span>}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* ── Classes ──────────────────────────────────────────────────────── */}
       <section id="classes" className={scrollMt}>
@@ -521,17 +582,22 @@ export default function Ebd() {
   );
 }
 
-function Stat({ label, valor, highlight, compacto }: {
-  label: string; valor: number | string; highlight?: boolean; compacto?: boolean;
+function Stat({ label, valor, highlight, compacto, onClick }: {
+  label: string; valor: number | string; highlight?: boolean; compacto?: boolean; onClick?: () => void;
 }) {
-  return (
-    <div className={`border rounded-md text-center ${compacto ? "py-1 px-1" : "py-2 px-2"} ${highlight ? "border-gold bg-gold/5" : ""}`}>
+  const classes = `border rounded-md text-center w-full ${compacto ? "py-1 px-1" : "py-2 px-2"} ${highlight ? "border-gold bg-gold/5" : ""} ${onClick ? "hover:bg-muted transition-colors cursor-pointer" : ""}`;
+  const conteudo = (
+    <>
       <p className={`font-semibold tabular-nums ${highlight ? "text-gold" : ""} ${compacto ? "text-sm" : "text-lg"}`}>
         {valor}
       </p>
       <p className={`uppercase tracking-wide text-muted-foreground truncate ${compacto ? "text-[9px]" : "text-[10px]"}`}>
         {label}
       </p>
-    </div>
+    </>
   );
+  if (onClick) {
+    return <button type="button" onClick={onClick} className={classes}>{conteudo}</button>;
+  }
+  return <div className={classes}>{conteudo}</div>;
 }

@@ -12795,6 +12795,7 @@ export type Database = {
           outra_classe_papel: string
           pessoa_id: string
           sexo: string
+          tipo_pessoa: string
         }[]
       }
       excluir_importacao: {

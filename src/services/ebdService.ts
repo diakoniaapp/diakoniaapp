@@ -103,6 +103,8 @@ export interface EbdEsperado {
   sexo: string | null;
   data_nascimento: string | null;
   idade: number | null;
+  /** "membro" ou "congregado" — pedido dela: alguns indicadores contam só membro. */
+  tipo_pessoa: "membro" | "congregado";
   ja_matriculado: boolean;
   matricula_id?: string | null;
   outra_classe_id?: string | null;
