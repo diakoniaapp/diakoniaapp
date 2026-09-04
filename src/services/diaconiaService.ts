@@ -35,6 +35,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { type ResultadoEscrita } from "@/lib/escritaConferida";
+import { idadeEm } from "@/lib/idade";
 
 export interface Endereco {
   cep?: string | null;
@@ -91,10 +92,6 @@ export interface FichaSocioeconomica {
   tempo_clt: string | null;
   atuacao_clt: string | null;
   situacao_moradia: string | null;
-  criancas_ate_11: number | null;
-  adolescentes_12_18: number | null;
-  adultos_19_59: number | null;
-  idosos_60_mais: number | null;
   familiares: Familiar[];
   sustento_familia: string | null;
   maior_necessidade: string | null;
@@ -132,6 +129,16 @@ export const ESTADOS_CIVIS = [
   { valor: "separado", rotulo: "Separado(a)" },
 ] as const;
 
+/** Os mais comuns entre quem a Diaconia atende — "Outro" abre um campo livre. */
+export const BENEFICIOS_FEDERAIS = [
+  "Bolsa Família",
+  "BPC/LOAS",
+  "Auxílio Gás",
+  "Aposentadoria/Pensão (INSS)",
+  "Seguro-Desemprego",
+  "Outro",
+] as const;
+
 function rotuloDe(lista: readonly { valor: string; rotulo: string }[], valor: string | null | undefined): string | null {
   if (!valor) return null;
   return lista.find(o => o.valor === valor)?.rotulo ?? valor;
@@ -140,15 +147,23 @@ export const rotuloMoradia     = (v: string | null | undefined) => rotuloDe(SITU
 export const rotuloSexo        = (v: string | null | undefined) => rotuloDe(SEXOS, v);
 export const rotuloEstadoCivil = (v: string | null | undefined) => rotuloDe(ESTADOS_CIVIS, v);
 
-/** Quantas pessoas moram na casa, somando as quatro faixas — o denominador da per capita. */
-export function pessoasNaCasa(f: Pick<FichaSocioeconomica, "criancas_ate_11" | "adolescentes_12_18" | "adultos_19_59" | "idosos_60_mais">): number {
-  return (f.criancas_ate_11 ?? 0) + (f.adolescentes_12_18 ?? 0) + (f.adultos_19_59 ?? 0) + (f.idosos_60_mais ?? 0);
+/**
+ * Quantas pessoas moram na casa — a própria pessoa mais quem ela listou em
+ * "quem mora na casa" (pergunta 7 da ficha impressa).
+ *
+ * Até 04/09 isto vinha de quatro caixas de contagem por faixa etária (Q6),
+ * preenchidas À PARTE da lista de moradores (Q7) — a mesma informação
+ * duas vezes, podendo discordar. A contagem agora É a lista: soma sozinha,
+ * sem pedir de novo o que já foi dito.
+ */
+export function pessoasNaCasa(f: Pick<FichaSocioeconomica, "familiares">): number {
+  return 1 + f.familiares.length;
 }
 
 /**
  * Renda per capita — calculada, nunca gravada.
  *
- * Ela pediu isto ao ver a ficha impressa: as faixas etárias já dão o
+ * Ela pediu isto ao ver a ficha impressa: a lista de moradores já dá o
  * denominador, `renda_mensal` dá o numerador. `null` quando falta um dos
  * dois — não confundir "não calculado" com "zero".
  */
@@ -157,6 +172,73 @@ export function rendaPerCapita(f: FichaSocioeconomica): number | null {
   if (f.renda_mensal == null || pessoas === 0) return null;
   return f.renda_mensal / pessoas;
 }
+
+const FAIXAS_ETARIAS = [
+  { chave: "criancas", rotulo: "até 11", ate: 11 },
+  { chave: "adolescentes", rotulo: "12 a 18", ate: 18 },
+  { chave: "adultos", rotulo: "19 a 59", ate: 59 },
+  { chave: "idosos", rotulo: "60 ou mais", ate: Infinity },
+] as const;
+
+/**
+ * A composição por faixa etária, só para leitura — a mesma pergunta que a
+ * ficha impressa fazia em separado (Q6), derivada da lista de moradores e
+ * da data de nascimento da própria pessoa. Quem não tem idade conhecida
+ * (a pessoa sem `data_nascimento`, ou um morador só com "idade" em
+ * branco) entra em `semIdade`, não é jogado fora nem chutado numa faixa.
+ */
+export function distribuicaoEtaria(
+  pessoa: Pick<PessoaAssistida, "data_nascimento">, f: Pick<FichaSocioeconomica, "familiares">,
+): { criancas: number; adolescentes: number; adultos: number; idosos: number; semIdade: number } {
+  const contagem = { criancas: 0, adolescentes: 0, adultos: 0, idosos: 0, semIdade: 0 };
+  const idades = [idadeEm(pessoa.data_nascimento), ...f.familiares.map(fam => fam.idade)];
+  for (const idade of idades) {
+    if (idade == null) { contagem.semIdade++; continue; }
+    const faixa = FAIXAS_ETARIAS.find(fx => idade <= fx.ate) ?? FAIXAS_ETARIAS[FAIXAS_ETARIAS.length - 1];
+    contagem[faixa.chave]++;
+  }
+  return contagem;
+}
+
+// ─── O piso da per capita — configurável, não fixo no código ────────────
+
+export interface LimitesPerCapita {
+  extremaPobreza: number;
+  pobreza: number;
+}
+
+export type ClassificacaoVulnerabilidade = "extrema_pobreza" | "pobreza" | "acima_da_linha";
+
+export async function carregarLimitesPerCapita(): Promise<LimitesPerCapita> {
+  const { data, error } = await supabase.from("diaconia_config").select("chave, valor");
+  if (error) throw error;
+  const porChave = new Map(((data ?? []) as any[]).map(r => [r.chave, Number(r.valor)]));
+  return {
+    extremaPobreza: porChave.get("limite_extrema_pobreza") ?? 218,
+    pobreza: porChave.get("limite_pobreza") ?? 810.5,
+  };
+}
+
+export async function atualizarLimitePerCapita(chave: "limite_extrema_pobreza" | "limite_pobreza", valor: number): Promise<ResultadoEscrita> {
+  const { error } = await supabase.from("diaconia_config")
+    .update({ valor, atualizado_em: new Date().toISOString(), atualizado_por: (await supabase.auth.getUser()).data.user?.id ?? null })
+    .eq("chave", chave);
+  if (error) return { ok: false, erro: "Você não pode alterar este limite." };
+  return { ok: true };
+}
+
+/** Classifica pela linha oficial do CadÚnico — orienta a leitura, não decide a ajuda. */
+export function classificarPerCapita(valor: number, limites: LimitesPerCapita): ClassificacaoVulnerabilidade {
+  if (valor <= limites.extremaPobreza) return "extrema_pobreza";
+  if (valor <= limites.pobreza) return "pobreza";
+  return "acima_da_linha";
+}
+
+export const ROTULO_CLASSIFICACAO: Record<ClassificacaoVulnerabilidade, string> = {
+  extrema_pobreza: "Extrema pobreza",
+  pobreza: "Pobreza",
+  acima_da_linha: "Acima da linha",
+};
 
 // ─── Pessoas e vínculos ──────────────────────────────────────────────────
 
@@ -212,8 +294,7 @@ export async function vincularArea(pessoaAssistidaId: string, areaId: string): P
 const CAMPOS_FICHA =
   "id, data_preenchimento, possui_deficiencia, qual_deficiencia, possui_renda, renda_mensal, " +
   "recebe_beneficio_social, qual_beneficio, ja_trabalhou_clt, tempo_clt, atuacao_clt, situacao_moradia, " +
-  "criancas_ate_11, adolescentes_12_18, adultos_19_59, idosos_60_mais, familiares, " +
-  "sustento_familia, maior_necessidade, observacoes";
+  "familiares, sustento_familia, maior_necessidade, observacoes";
 
 export async function fichasDaPessoa(pessoaAssistidaId: string): Promise<FichaSocioeconomica[]> {
   const { data, error } = await supabase
@@ -323,6 +404,87 @@ export async function carregarBancadaDiaconia(ministerioId: string): Promise<Ban
     areas: lista.map(a => ({ area_id: a.id, area_nome: a.nome, pessoas: porArea.get(a.id)?.size ?? 0 })),
     totalPessoas: todasPessoas.size,
     atendimentosMes,
+  };
+}
+
+// ─── Indicadores ─────────────────────────────────────────────────────────
+//
+// A ficha, sozinha, é dado cru — só vira indicador quando alguém soma. Isto
+// olha para todo mundo vinculado às áreas do ministério, pega a ficha MAIS
+// RECENTE de cada um (quem tem mais de uma, é a última que vale — a
+// situação de hoje, não a de dois anos atrás) e classifica pela linha do
+// CadÚnico. Cobertura entra primeiro: sem saber quantos NÃO têm ficha, os
+// outros números mentem por omissão.
+
+export interface IndicadoresDiaconia {
+  comFicha: number;
+  semFicha: number;
+  distribuicao: Record<ClassificacaoVulnerabilidade, number>;
+  /** Tem ficha, mas sem renda ou sem gente na casa suficiente pra calcular per capita. */
+  semDadoParaClassificar: number;
+  perCapitaMedio: number | null;
+  criancasAtendidas: number;
+  idososAtendidos: number;
+}
+
+export async function carregarIndicadoresDiaconia(
+  ministerioId: string, limites: LimitesPerCapita,
+): Promise<IndicadoresDiaconia | null> {
+  const { data: areas } = await supabase
+    .from("areas").select("id").eq("ministerio_id", ministerioId).eq("ativo", true);
+  const areaIds = ((areas ?? []) as any[]).map(a => a.id);
+  if (areaIds.length === 0) return null;
+
+  const { data: vinculos } = await supabase
+    .from("diaconia_vinculos").select("pessoa_assistida_id").in("area_id", areaIds).eq("ativo", true);
+  const pessoaIds = [...new Set(((vinculos ?? []) as any[]).map(v => v.pessoa_assistida_id))];
+  if (pessoaIds.length === 0) return null;
+
+  const [{ data: pessoas }, { data: fichas }] = await Promise.all([
+    supabase.from("diaconia_pessoas_assistidas").select("id, data_nascimento").in("id", pessoaIds),
+    supabase.from("diaconia_fichas_socioeconomicas")
+      .select("pessoa_assistida_id, data_preenchimento, renda_mensal, familiares")
+      .in("pessoa_assistida_id", pessoaIds)
+      .order("data_preenchimento", { ascending: false }),
+  ]);
+
+  const pessoaPorId = new Map(((pessoas ?? []) as any[]).map(p => [p.id, p]));
+  // A primeira ficha de cada pessoa, na ordem (mais recente primeiro) já vencida acima, é a que vale.
+  const ultimaFichaPorPessoa = new Map<string, any>();
+  for (const f of (fichas ?? []) as any[]) {
+    if (!ultimaFichaPorPessoa.has(f.pessoa_assistida_id)) ultimaFichaPorPessoa.set(f.pessoa_assistida_id, f);
+  }
+
+  const distribuicao: Record<ClassificacaoVulnerabilidade, number> = { extrema_pobreza: 0, pobreza: 0, acima_da_linha: 0 };
+  let semDadoParaClassificar = 0;
+  const percapitas: number[] = [];
+  let criancasAtendidas = 0, idososAtendidos = 0;
+
+  for (const [pessoaId, ficha] of ultimaFichaPorPessoa) {
+    const f = { ...ficha, familiares: (ficha.familiares ?? []) as Familiar[] };
+    const percapita = rendaPerCapita(f);
+    if (percapita != null) {
+      distribuicao[classificarPerCapita(percapita, limites)]++;
+      percapitas.push(percapita);
+    } else {
+      semDadoParaClassificar++;
+    }
+    const pessoa = pessoaPorId.get(pessoaId);
+    if (pessoa) {
+      const faixas = distribuicaoEtaria(pessoa, f);
+      criancasAtendidas += faixas.criancas;
+      idososAtendidos += faixas.idosos;
+    }
+  }
+
+  return {
+    comFicha: ultimaFichaPorPessoa.size,
+    semFicha: pessoaIds.length - ultimaFichaPorPessoa.size,
+    distribuicao,
+    semDadoParaClassificar,
+    perCapitaMedio: percapitas.length > 0 ? percapitas.reduce((a, b) => a + b, 0) / percapitas.length : null,
+    criancasAtendidas,
+    idososAtendidos,
   };
 }
 

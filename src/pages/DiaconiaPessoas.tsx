@@ -34,10 +34,13 @@ import { ArrowLeft, ChevronRight, HeartHandshake, MapPin, Pencil, Phone, Plus, T
 import { toast } from "sonner";
 import {
   pessoasDaArea, criarPessoa, atualizarPessoa, fichasDaPessoa, salvarFicha,
-  SITUACOES_MORADIA, SEXOS, ESTADOS_CIVIS, rotuloMoradia, rotuloSexo, rotuloEstadoCivil,
-  pessoasNaCasa, rendaPerCapita,
+  SITUACOES_MORADIA, SEXOS, ESTADOS_CIVIS, BENEFICIOS_FEDERAIS,
+  rotuloMoradia, rotuloSexo, rotuloEstadoCivil,
+  pessoasNaCasa, rendaPerCapita, carregarLimitesPerCapita, classificarPerCapita, ROTULO_CLASSIFICACAO,
   type PessoaAssistida, type FichaSocioeconomica, type DadosFicha, type Endereco, type Familiar,
+  type LimitesPerCapita,
 } from "@/services/diaconiaService";
+import { Badge } from "@/components/ui/badge";
 import { TelefoneInput } from "@/components/ui/TelefoneInput";
 import { CamposEndereco } from "@/components/ui/CamposEndereco";
 import { PaginaSkeleton } from "@/components/ListState";
@@ -55,6 +58,27 @@ function formatarReais(v: number): string {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+/**
+ * A per capita, com a cor dizendo se está abaixo ou acima do esperado —
+ * pedido dela: "mostre visualmente". A linha é a do CadÚnico (configurável
+ * em `diaconia_config`, ver a migration 20260904120000); a cor orienta a
+ * leitura, a decisão continua sendo de quem lidera.
+ */
+function PercapitaBadge({ valor, limites }: { valor: number; limites: LimitesPerCapita | null }) {
+  if (!limites) return <span className="font-medium">{formatarReais(valor)}/pessoa</span>;
+  const classificacao = classificarPerCapita(valor, limites);
+  const tom = classificacao === "extrema_pobreza"
+    ? "text-destructive-text border-destructive-line bg-destructive-soft"
+    : classificacao === "pobreza"
+    ? "text-warning-text border-warning-line bg-warning-soft"
+    : "text-success-text border-success-line bg-success-soft";
+  return (
+    <Badge variant="outline" className={`text-xs font-medium ${tom}`}>
+      {formatarReais(valor)}/pessoa · {ROTULO_CLASSIFICACAO[classificacao]}
+    </Badge>
+  );
+}
+
 export default function DiaconiaPessoas() {
   const { ministerioId = "", areaId = "" } = useParams();
   const [areaNome, setAreaNome] = useState("");
@@ -62,8 +86,11 @@ export default function DiaconiaPessoas() {
   const [loading, setLoading] = useState(true);
   const [aberta, setAberta] = useState<string | null>(null);
   const [novoOpen, setNovoOpen] = useState(false);
+  // Uma vez por tela, não uma vez por pessoa — os limites não mudam entre uma
+  // ficha e outra na mesma sessão de trabalho.
+  const [limites, setLimites] = useState<LimitesPerCapita | null>(null);
 
-  useEffect(() => { carregar(); }, [areaId]);
+  useEffect(() => { carregar(); carregarLimitesPerCapita().then(setLimites).catch(() => {}); }, [areaId]);
 
   async function carregar() {
     if (!areaId) return;
@@ -125,7 +152,7 @@ export default function DiaconiaPessoas() {
                 </div>
                 <ChevronRight className={`w-4 h-4 shrink-0 text-muted-foreground transition-transform ${aberta === p.id ? "rotate-90" : ""}`} />
               </button>
-              {aberta === p.id && <FichaDaPessoa pessoa={p} onAtualizou={carregar} />}
+              {aberta === p.id && <FichaDaPessoa pessoa={p} onAtualizou={carregar} limites={limites} />}
             </li>
           ))}
         </ul>
@@ -310,8 +337,8 @@ function EditarDados({ pessoa, onSalvou, onCancelar }: {
   );
 }
 
-function FichaDaPessoa({ pessoa, onAtualizou }: {
-  pessoa: PessoaAssistida; onAtualizou: () => void;
+function FichaDaPessoa({ pessoa, onAtualizou, limites }: {
+  pessoa: PessoaAssistida; onAtualizou: () => void; limites: LimitesPerCapita | null;
 }) {
   const pessoaId = pessoa.id;
   const [fichas, setFichas] = useState<FichaSocioeconomica[] | null>(null);
@@ -372,9 +399,7 @@ function FichaDaPessoa({ pessoa, onAtualizou }: {
                   ].filter(Boolean).join(" · ") || "sem dados"}
                 </p>
                 {percapita != null && (
-                  <p className="font-medium text-success-text">
-                    Per capita: {formatarReais(percapita)}/pessoa
-                  </p>
+                  <p><PercapitaBadge valor={percapita} limites={limites} /></p>
                 )}
                 {f.familiares.length > 0 && (
                   <p className="text-muted-foreground flex items-center gap-1">
@@ -393,7 +418,8 @@ function FichaDaPessoa({ pessoa, onAtualizou }: {
       )}
 
       {novaAberta ? (
-        <NovaFicha pessoaId={pessoaId} onSalvou={() => { setNovaAberta(false); recarregar(); }}
+        <NovaFicha pessoaId={pessoaId} limites={limites}
+          onSalvou={() => { setNovaAberta(false); recarregar(); }}
           onCancelar={() => setNovaAberta(false)} />
       ) : (
         <Button size="sm" variant="outline" className="text-xs" onClick={() => setNovaAberta(true)}>
@@ -406,8 +432,8 @@ function FichaDaPessoa({ pessoa, onAtualizou }: {
 
 const FAMILIAR_VAZIO: Familiar = { nome: "", idade: null, parentesco: "", trabalha: false, estuda: false, pcd: false, qual_pcd: "" };
 
-function NovaFicha({ pessoaId, onSalvou, onCancelar }: {
-  pessoaId: string; onSalvou: () => void; onCancelar: () => void;
+function NovaFicha({ pessoaId, limites, onSalvou, onCancelar }: {
+  pessoaId: string; limites: LimitesPerCapita | null; onSalvou: () => void; onCancelar: () => void;
 }) {
   const [possuiDeficiencia, setPossuiDeficiencia] = useState(false);
   const [qualDeficiencia, setQualDeficiencia] = useState("");
@@ -415,23 +441,21 @@ function NovaFicha({ pessoaId, onSalvou, onCancelar }: {
   const [rendaMensal, setRendaMensal] = useState("");
   const [recebeBeneficio, setRecebeBeneficio] = useState(false);
   const [qualBeneficio, setQualBeneficio] = useState("");
+  const [outroBeneficio, setOutroBeneficio] = useState("");
   const [jaTrabalhouClt, setJaTrabalhouClt] = useState(false);
   const [tempoClt, setTempoClt] = useState("");
   const [atuacaoClt, setAtuacaoClt] = useState("");
   const [moradia, setMoradia] = useState<string>("");
-  const [criancas, setCriancas] = useState("");
-  const [adolescentes, setAdolescentes] = useState("");
-  const [adultos, setAdultos] = useState("");
-  const [idosos, setIdosos] = useState("");
   const [familiares, setFamiliares] = useState<Familiar[]>([]);
   const [sustento, setSustento] = useState("");
   const [necessidade, setNecessidade] = useState("");
   const [obs, setObs] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const totalCasa = (Number(criancas) || 0) + (Number(adolescentes) || 0) + (Number(adultos) || 0) + (Number(idosos) || 0);
-  const percapitaPreview = possuiRenda && rendaMensal && totalCasa > 0
-    ? Number(rendaMensal) / totalCasa : null;
+  // A pessoa + quem ela listou como morador — a contagem soma sozinha, sem
+  // pedir de novo o que a lista abaixo já diz.
+  const totalCasa = 1 + familiares.length;
+  const percapitaPreview = possuiRenda && rendaMensal ? Number(rendaMensal) / totalCasa : null;
 
   function alterarFamiliar(i: number, campo: keyof Familiar, valor: any) {
     setFamiliares(prev => prev.map((f, idx) => idx === i ? { ...f, [campo]: valor } : f));
@@ -446,15 +470,13 @@ function NovaFicha({ pessoaId, onSalvou, onCancelar }: {
         possui_renda: possuiRenda,
         renda_mensal: possuiRenda && rendaMensal ? Number(rendaMensal) : null,
         recebe_beneficio_social: recebeBeneficio,
-        qual_beneficio: recebeBeneficio ? qualBeneficio || null : null,
+        qual_beneficio: recebeBeneficio
+          ? (qualBeneficio === "Outro" ? outroBeneficio || null : qualBeneficio || null)
+          : null,
         ja_trabalhou_clt: jaTrabalhouClt,
         tempo_clt: jaTrabalhouClt ? tempoClt || null : null,
         atuacao_clt: jaTrabalhouClt ? atuacaoClt || null : null,
         situacao_moradia: moradia || null,
-        criancas_ate_11: criancas ? Number(criancas) : 0,
-        adolescentes_12_18: adolescentes ? Number(adolescentes) : 0,
-        adultos_19_59: adultos ? Number(adultos) : 0,
-        idosos_60_mais: idosos ? Number(idosos) : 0,
         familiares: familiares.filter(f => f.nome.trim()),
         sustento_familia: sustento || null,
         maior_necessidade: necessidade || null,
@@ -493,7 +515,17 @@ function NovaFicha({ pessoaId, onSalvou, onCancelar }: {
         <Label htmlFor={`benef-${pessoaId}`} className="text-xs font-normal">Recebe benefício do governo federal</Label>
       </div>
       {recebeBeneficio && (
-        <Input placeholder="Qual — Bolsa Família, BPC, Auxílio Gás…" value={qualBeneficio} onChange={e => setQualBeneficio(e.target.value)} className="h-8 text-sm" />
+        <div className="space-y-1.5">
+          <Select value={qualBeneficio} onValueChange={setQualBeneficio}>
+            <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Qual benefício" /></SelectTrigger>
+            <SelectContent>
+              {BENEFICIOS_FEDERAIS.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          {qualBeneficio === "Outro" && (
+            <Input placeholder="Qual?" value={outroBeneficio} onChange={e => setOutroBeneficio(e.target.value)} className="h-8 text-sm" />
+          )}
+        </div>
       )}
 
       <div className="flex items-center gap-2">
@@ -518,38 +550,8 @@ function NovaFicha({ pessoaId, onSalvou, onCancelar }: {
       </div>
 
       <div>
-        <Label className="text-xs">Quantas pessoas moram na casa, incluindo a pessoa (por faixa de idade)</Label>
-        <div className="grid grid-cols-4 gap-1.5 mt-1">
-          <div>
-            <Label className="text-[10px] text-muted-foreground">Até 11 anos</Label>
-            <Input type="number" min={0} value={criancas} onChange={e => setCriancas(e.target.value)} className="h-8 text-sm" />
-          </div>
-          <div>
-            <Label className="text-[10px] text-muted-foreground">12 a 18</Label>
-            <Input type="number" min={0} value={adolescentes} onChange={e => setAdolescentes(e.target.value)} className="h-8 text-sm" />
-          </div>
-          <div>
-            <Label className="text-[10px] text-muted-foreground">19 a 59</Label>
-            <Input type="number" min={0} value={adultos} onChange={e => setAdultos(e.target.value)} className="h-8 text-sm" />
-          </div>
-          <div>
-            <Label className="text-[10px] text-muted-foreground">60 ou mais</Label>
-            <Input type="number" min={0} value={idosos} onChange={e => setIdosos(e.target.value)} className="h-8 text-sm" />
-          </div>
-        </div>
-        {totalCasa > 0 && (
-          <p className="text-xs text-muted-foreground mt-1">
-            {totalCasa} {totalCasa === 1 ? "pessoa" : "pessoas"} na casa
-            {percapitaPreview != null && (
-              <span className="text-success-text font-medium"> · per capita {formatarReais(percapitaPreview)}</span>
-            )}
-          </p>
-        )}
-      </div>
-
-      <div>
         <div className="flex items-center justify-between">
-          <Label className="text-xs">Quem mora na casa</Label>
+          <Label className="text-xs">Quem mais mora na casa, além da pessoa</Label>
           <Button type="button" size="sm" variant="ghost" className="h-6 px-2 text-xs gap-1"
             onClick={() => setFamiliares(prev => [...prev, { ...FAMILIAR_VAZIO }])}>
             <Plus className="w-3 h-3" /> Adicionar
@@ -592,6 +594,12 @@ function NovaFicha({ pessoaId, onSalvou, onCancelar }: {
             ))}
           </div>
         )}
+        <p className="text-xs text-muted-foreground mt-1.5">
+          {totalCasa} {totalCasa === 1 ? "pessoa" : "pessoas"} na casa, contando a própria pessoa
+          {percapitaPreview != null && (
+            <span className="ml-1"><PercapitaBadge valor={percapitaPreview} limites={limites} /></span>
+          )}
+        </p>
       </div>
 
       <div>

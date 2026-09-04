@@ -2527,17 +2527,37 @@ export type Database = {
           },
         ]
       }
+      diaconia_config: {
+        Row: {
+          atualizado_em: string
+          atualizado_por: string | null
+          chave: string
+          descricao: string | null
+          valor: number
+        }
+        Insert: {
+          atualizado_em?: string
+          atualizado_por?: string | null
+          chave: string
+          descricao?: string | null
+          valor: number
+        }
+        Update: {
+          atualizado_em?: string
+          atualizado_por?: string | null
+          chave?: string
+          descricao?: string | null
+          valor?: number
+        }
+        Relationships: []
+      }
       diaconia_fichas_socioeconomicas: {
         Row: {
-          adolescentes_12_18: number | null
-          adultos_19_59: number | null
           atuacao_clt: string | null
           created_at: string
-          criancas_ate_11: number | null
           data_preenchimento: string
           familiares: Json
           id: string
-          idosos_60_mais: number | null
           ja_trabalhou_clt: boolean | null
           maior_necessidade: string | null
           observacoes: string | null
@@ -2554,15 +2574,11 @@ export type Database = {
           tempo_clt: string | null
         }
         Insert: {
-          adolescentes_12_18?: number | null
-          adultos_19_59?: number | null
           atuacao_clt?: string | null
           created_at?: string
-          criancas_ate_11?: number | null
           data_preenchimento?: string
           familiares?: Json
           id?: string
-          idosos_60_mais?: number | null
           ja_trabalhou_clt?: boolean | null
           maior_necessidade?: string | null
           observacoes?: string | null
@@ -2579,15 +2595,11 @@ export type Database = {
           tempo_clt?: string | null
         }
         Update: {
-          adolescentes_12_18?: number | null
-          adultos_19_59?: number | null
           atuacao_clt?: string | null
           created_at?: string
-          criancas_ate_11?: number | null
           data_preenchimento?: string
           familiares?: Json
           id?: string
-          idosos_60_mais?: number | null
           ja_trabalhou_clt?: boolean | null
           maior_necessidade?: string | null
           observacoes?: string | null
