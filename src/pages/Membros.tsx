@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Pencil, Link2, Briefcase, Sparkles, BarChart3, MoreHorizontal, MessageCircle, IdCard, Cake, X, ChevronUp, ChevronDown, ChevronsUpDown, ClipboardCheck } from "lucide-react";
+import { Plus, Search, Pencil, Link2, Briefcase, Sparkles, BarChart3, MoreHorizontal, MessageCircle, IdCard, Cake, X, ChevronUp, ChevronDown, ChevronsUpDown, ClipboardCheck, Trash2 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -133,7 +133,7 @@ const tipoPessoaColor = TIPO_PESSOA_COR as Record<string, string>;
 // Fica em componente proprio porque cartao (celular) e tabela (desktop) usam o
 // mesmo conjunto: duplicar o menu seria garantir que um dia so um dos dois ganhe
 // uma acao nova.
-function AcoesPessoa({ m, onEditar, onVinculos, onAtuacoes, onVisitante, onContato, onSituacao, podeEditar, mostrarEditar = true }: {
+function AcoesPessoa({ m, onEditar, onVinculos, onAtuacoes, onVisitante, onContato, onSituacao, podeEditar, ehAdmin, mostrarEditar = true }: {
   m: Membro;
   onEditar:    (m: Membro) => void;
   onVinculos:  (m: Membro) => void;
@@ -143,6 +143,14 @@ function AcoesPessoa({ m, onEditar, onVinculos, onAtuacoes, onVisitante, onConta
   onSituacao:  (m: Membro) => void;
   /** Trocar situação é escrita em `membros`: mesma porta do lápis. */
   podeEditar:  boolean;
+  /**
+   * Mostra "Excluir definitivamente" no menu. O clique reaproveita
+   * `onEditar` — o botão de excluir de verdade já mora dentro do form de
+   * edição (passo 1, só admin, com checagem de vínculos); aqui só decide
+   * SE o atalho aparece. Sem isso ofereceríamos um atalho para um clique
+   * que o form vai recusar de qualquer jeito.
+   */
+  ehAdmin: boolean;
   /** Na tabela do desktop o nome ja abre a edicao; o lapis so repetiria. */
   mostrarEditar?: boolean;
 }) {
@@ -237,6 +245,24 @@ function AcoesPessoa({ m, onEditar, onVinculos, onAtuacoes, onVisitante, onConta
               <Sparkles className="w-4 h-4 mr-2 text-warning-text" />
               Acompanhar visitante
             </DropdownMenuItem>
+          )}
+          {/* Excluir de verdade já existe dentro de "Editar" (passo 1, só
+              para admin — MembroForm.tsx), com checagem de vínculos antes
+              de apagar. Este item não duplica aquele fluxo: só abre a
+              MESMA edição, direto no passo onde o botão vermelho já está,
+              pra quem quer excluir não precisar primeiro descobrir que
+              "Editar" é o caminho. Restrito a quem já está inativo — a
+              lista não é lugar de tentar excluir alguém ativo por engano;
+              isso continua exigindo passar por "Alterar situação" antes,
+              igual sempre. */}
+          {ehAdmin && m.status === "inativo" && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => onEditar(m)} className="text-destructive focus:text-destructive">
+                <Trash2 className="w-4 h-4 mr-2" />
+                Excluir definitivamente
+              </DropdownMenuItem>
+            </>
           )}
         </DropdownMenuContent>
       </DropdownMenu>
@@ -943,6 +969,7 @@ export default function Membros() {
     onContato:   setContatoPessoa,
     onSituacao:  setSituacaoPessoa,
     podeEditar:  canEdit,
+    ehAdmin:     hasRole("admin"),
   };
 
   const filtrando =
