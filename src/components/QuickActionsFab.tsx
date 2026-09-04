@@ -5,6 +5,27 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 
 /**
+ * Nos painéis de trabalho (Pastoral, Secretaria, EBD, Diaconia) o FAB some.
+ *
+ * Pedido dela, vendo o próprio Painel da EBD: "coloque este atalho apenas
+ * onde for realmente necessário". Medido antes de decidir: essas telas já
+ * têm as próprias ações primárias (Fazer chamada, Nova classe...), e as
+ * quatro ações do FAB (pessoa/evento/família/ministério) não têm relação
+ * com o que se faz ali — só brigam visualmente com o botão da tela, o
+ * mesmo problema já registrado antes em `EbdChamada.tsx`.
+ *
+ * Não virou "só na Home": em Membros, Visitantes, Eventos e Famílias o
+ * atalho continua sendo exatamente o que ele deveria ser — um jeito rápido
+ * de adicionar sem sair de onde se está —, e ali nunca colidiu com nada.
+ */
+function ehPainelDeTrabalho(pathname: string): boolean {
+  if (pathname === "/painel-pastoral" || pathname === "/painel-secretaria") return true;
+  if (pathname === "/ebd" || pathname.startsWith("/ebd/")) return true;
+  if (/^\/ministerios\/[^/]+\/diaconia\//.test(pathname)) return true;
+  return false;
+}
+
+/**
  * Floating Action Button (FAB) com ações rápidas.
  * Visível apenas em mobile (md:hidden) e somente para usuários com permissão de edição.
  * Ações: Adicionar pessoa, Novo evento, Nova família, Criar ministério.
@@ -22,6 +43,8 @@ export function QuickActionsFab() {
 
   // Some só para quem não pode fazer nada daqui.
   if (!canEdit && !podeEditarPessoas) return null;
+  // Some nos painéis de trabalho — ver comentário de `ehPainelDeTrabalho`.
+  if (ehPainelDeTrabalho(location.pathname)) return null;
 
   const go = (path: string, query?: string) => {
     setOpen(false);
