@@ -14,15 +14,17 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { ArrowLeft, Calendar, Loader2, UserPlus, HeartHandshake, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Calendar, Loader2, UserPlus, HeartHandshake, CheckCircle2, FileText, Check, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   obterOuCriarOcasiao, chamadaView, marcarConfirmado, adicionarPessoaNaChamada,
+  carregarOcasiao, marcarOcasiao,
   type LinhaDaChamada,
 } from "@/services/diaconiaService";
 import { TelefoneInput } from "@/components/ui/TelefoneInput";
@@ -39,6 +41,8 @@ export default function DiaconiaChamada() {
     return params.get("data") || new Date().toISOString().slice(0, 10);
   });
   const [ocasiaoId, setOcasiaoId] = useState<string | null>(null);
+  const [fechada, setFechada] = useState(false);
+  const [marcandoFechada, setMarcandoFechada] = useState(false);
   const [linhas, setLinhas] = useState<LinhaDaChamada[]>([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
@@ -60,7 +64,9 @@ export default function DiaconiaChamada() {
       setAreaNome((area as any)?.nome ?? "");
       const id = await obterOuCriarOcasiao(areaId, data);
       setOcasiaoId(id);
-      setLinhas(await chamadaView(id));
+      const [linhasCarregadas, ocasiao] = await Promise.all([chamadaView(id), carregarOcasiao(id)]);
+      setLinhas(linhasCarregadas);
+      setFechada(ocasiao?.fechada ?? false);
     } catch (e: any) {
       setErro(e?.message ?? "Não foi possível abrir a chamada.");
     } finally {
@@ -101,6 +107,20 @@ export default function DiaconiaChamada() {
     }
   }
 
+  async function alternarFechada() {
+    if (!ocasiaoId) return;
+    const novoValor = !fechada;
+    setMarcandoFechada(true);
+    try {
+      const r = await marcarOcasiao(ocasiaoId, novoValor);
+      if (!r.ok) { toast.error(r.erro); return; }
+      setFechada(novoValor);
+      toast.success(novoValor ? "Chamada finalizada" : "Chamada reaberta");
+    } finally {
+      setMarcandoFechada(false);
+    }
+  }
+
   const confirmados = useMemo(() => linhas.filter(l => l.confirmado).length, [linhas]);
 
   if (loading && linhas.length === 0 && !erro) return <PaginaSkeleton />;
@@ -122,13 +142,41 @@ export default function DiaconiaChamada() {
         <Button asChild variant="ghost" size="icon">
           <Link to={`/ministerios/${ministerioId}/painel`}><ArrowLeft className="w-4 h-4" /></Link>
         </Button>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h1 className="font-serif text-xl flex items-center gap-2 truncate">
             <HeartHandshake className="w-5 h-5 text-gold" />
             {areaNome || "Chamada"}
           </h1>
           <p className="text-xs text-muted-foreground">Confirmação de atendimento</p>
         </div>
+      </div>
+
+      {/* Finalizar é carimbo, não cadeado — continua editável depois de
+          finalizada, sem precisar de ninguém destravar (decisão dela). */}
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {ocasiaoId && (
+          <Button asChild variant="outline" size="sm" className="gap-1.5">
+            <Link to={`/ministerios/${ministerioId}/diaconia/${areaId}/chamada/relatorio?data=${data}`}>
+              <FileText className="w-3.5 h-3.5" /> Relatório
+            </Link>
+          </Button>
+        )}
+        <Button
+          variant={fechada ? "outline" : "default"}
+          size="sm"
+          className="gap-1.5"
+          onClick={alternarFechada}
+          disabled={marcandoFechada || !ocasiaoId}
+        >
+          {fechada
+            ? <><Undo2 className="w-3.5 h-3.5" /> Reabrir</>
+            : <><Check className="w-3.5 h-3.5" /> Finalizar chamada</>}
+        </Button>
+        {fechada && (
+          <Badge variant="outline" className="text-xs text-success-text border-success-line">
+            Finalizada
+          </Badge>
+        )}
       </div>
 
       <Card>

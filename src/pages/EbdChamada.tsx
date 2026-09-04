@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   ArrowLeft, Camera, Image as ImageIcon, Loader2, UserPlus,
-  Calendar, GraduationCap, Save, CheckCircle2,
+  Calendar, GraduationCap, Save, CheckCircle2, FileText, Check, Undo2,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -55,6 +55,9 @@ export default function EbdChamada() {
 
   // Upload foto
   const [uploadingFoto, setUploadingFoto] = useState(false);
+
+  // Finalizar — carimbo, não cadeado
+  const [marcandoFechada, setMarcandoFechada] = useState(false);
 
   useEffect(() => { carregar(); }, [classeId, data]);
 
@@ -132,6 +135,21 @@ export default function EbdChamada() {
     }
   }
 
+  async function alternarFechada() {
+    if (!aula) return;
+    const novoValor = !aula.fechada;
+    setMarcandoFechada(true);
+    try {
+      await atualizarAula(aula.id, { fechada: novoValor });
+      setAula({ ...aula, fechada: novoValor });
+      toast.success(novoValor ? "Chamada finalizada" : "Chamada reaberta");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erro ao marcar");
+    } finally {
+      setMarcandoFechada(false);
+    }
+  }
+
   async function handleUploadFoto(file: File) {
     if (!aula || !classeId) return;
     setUploadingFoto(true);
@@ -179,6 +197,34 @@ export default function EbdChamada() {
           </h1>
           <p className="text-xs text-muted-foreground">Chamada da aula</p>
         </div>
+      </div>
+
+      {/* Finalizar é carimbo, não cadeado — continua editável depois de
+          finalizada, sem precisar de ninguém destravar. */}
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {aula && (
+          <Button asChild variant="outline" size="sm" className="gap-1.5">
+            <Link to={`/ebd/${classeId}/chamada/relatorio?data=${data}`}>
+              <FileText className="w-3.5 h-3.5" /> Relatório
+            </Link>
+          </Button>
+        )}
+        <Button
+          variant={aula?.fechada ? "outline" : "default"}
+          size="sm"
+          className="gap-1.5"
+          onClick={alternarFechada}
+          disabled={marcandoFechada || !aula}
+        >
+          {aula?.fechada
+            ? <><Undo2 className="w-3.5 h-3.5" /> Reabrir</>
+            : <><Check className="w-3.5 h-3.5" /> Finalizar chamada</>}
+        </Button>
+        {aula?.fechada && (
+          <Badge variant="outline" className="text-xs text-success-text border-success-line">
+            Finalizada
+          </Badge>
+        )}
       </div>
 
       {/* Data e foto */}

@@ -533,6 +533,34 @@ export async function adicionarPessoaNaChamada(
   return r;
 }
 
+export interface Ocasiao {
+  id: string;
+  area_id: string;
+  data: string;
+  observacoes: string | null;
+  /** Carimbo, não cadeado — sinaliza que a chamada foi conferida, mas
+   *  continua editável depois. Ver migration 20260904230000. */
+  fechada: boolean;
+}
+
+export async function carregarOcasiao(ocasiaoId: string): Promise<Ocasiao | null> {
+  const { data, error } = await supabase
+    .from("diaconia_ocasioes")
+    .select("id, area_id, data, observacoes, fechada")
+    .eq("id", ocasiaoId)
+    .maybeSingle();
+  if (error) throw new Error(traduzir(error.message));
+  return (data as Ocasiao) ?? null;
+}
+
+export async function marcarOcasiao(ocasiaoId: string, fechada: boolean): Promise<ResultadoEscrita> {
+  const { error } = await supabase.rpc("diaconia_marcar_ocasiao", {
+    p_ocasiao_id: ocasiaoId, p_fechada: fechada,
+  });
+  if (error) return { ok: false, erro: traduzir(error.message) };
+  return { ok: true };
+}
+
 // ─── A bancada do painel ─────────────────────────────────────────────────
 
 export interface AreaDaDiaconia {

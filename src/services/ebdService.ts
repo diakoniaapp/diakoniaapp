@@ -285,6 +285,9 @@ export interface EbdAula {
   tema?: string | null;
   foto_url?: string | null;
   observacoes?: string | null;
+  /** Carimbo, não cadeado — sinaliza que a chamada foi conferida, mas
+   *  continua editável depois. Ver migration 20260904230000. */
+  fechada?: boolean;
   created_at?: string;
 }
 

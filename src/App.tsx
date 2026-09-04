@@ -32,8 +32,10 @@ import Ebd from "./pages/Ebd.tsx";
 import EbdClasse from "./pages/EbdClasse.tsx";
 import Areas from "./pages/Areas.tsx";
 import EbdChamada from "./pages/EbdChamada.tsx";
+import EbdAulaRelatorio from "./pages/EbdAulaRelatorio.tsx";
 import DiaconiaPessoas from "./pages/DiaconiaPessoas.tsx";
 import DiaconiaChamada from "./pages/DiaconiaChamada.tsx";
+import DiaconiaOcasiaoRelatorio from "./pages/DiaconiaOcasiaoRelatorio.tsx";
 import EbdCampanhas from "./pages/EbdCampanhas.tsx";
 import EbdCampanha from "./pages/EbdCampanha.tsx";
 import EbdCampanhaRelatorio from "./pages/EbdCampanhaRelatorio.tsx";
@@ -136,6 +138,7 @@ const App = () => (
                       criar as áreas). */}
                   <Route path="/ministerios/:ministerioId/diaconia/:areaId/pessoas" element={<DiaconiaPessoas />} />
                   <Route path="/ministerios/:ministerioId/diaconia/:areaId/chamada" element={<DiaconiaChamada />} />
+                  <Route path="/ministerios/:ministerioId/diaconia/:areaId/chamada/relatorio" element={<DiaconiaOcasiaoRelatorio />} />
                   <Route path="/eventos" element={<Eventos />} />
                   <Route path="/agenda" element={<Navigate to="/eventos" replace />} />
                   <Route path="/locais" element={<Locais />} />
@@ -155,6 +158,7 @@ const App = () => (
                   <Route path="/ebd/:classeId" element={<EbdClasse />} />
                   <Route path="/areas" element={<Areas />} />
                   <Route path="/ebd/:classeId/chamada" element={<EbdChamada />} />
+                  <Route path="/ebd/:classeId/chamada/relatorio" element={<EbdAulaRelatorio />} />
                   <Route path="/ebd/:classeId/campanhas" element={<EbdCampanhas />} />
                   <Route path="/ebd/:classeId/campanhas/:campanhaId" element={<EbdCampanha />} />
                   <Route path="/ebd/:classeId/campanhas/:campanhaId/relatorio" element={<EbdCampanhaRelatorio />} />

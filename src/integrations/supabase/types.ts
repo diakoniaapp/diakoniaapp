@@ -2633,6 +2633,7 @@ export type Database = {
           area_id: string
           created_at: string
           data: string
+          fechada: boolean
           id: string
           observacoes: string | null
         }
@@ -2640,6 +2641,7 @@ export type Database = {
           area_id: string
           created_at?: string
           data: string
+          fechada?: boolean
           id?: string
           observacoes?: string | null
         }
@@ -2647,6 +2649,7 @@ export type Database = {
           area_id?: string
           created_at?: string
           data?: string
+          fechada?: boolean
           id?: string
           observacoes?: string | null
         }
@@ -3083,6 +3086,7 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           data: string
+          fechada: boolean
           foto_url: string | null
           id: string
           observacoes: string | null
@@ -3094,6 +3098,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           data: string
+          fechada?: boolean
           foto_url?: string | null
           id?: string
           observacoes?: string | null
@@ -3105,6 +3110,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           data?: string
+          fechada?: boolean
           foto_url?: string | null
           id?: string
           observacoes?: string | null
@@ -12606,6 +12612,10 @@ export type Database = {
           p_pessoa_assistida_id: string
         }
         Returns: string
+      }
+      diaconia_marcar_ocasiao: {
+        Args: { p_fechada: boolean; p_ocasiao_id: string }
+        Returns: undefined
       }
       diaconia_obter_ou_criar_ocasiao: {
         Args: { p_area_id: string; p_data: string }
