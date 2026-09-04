@@ -1,0 +1,270 @@
+// ─── EbdRelatorioMensalGeral.tsx — o mês inteiro, todas as classes ─────────
+//
+// Segunda peça do pedido dela: "crie relatório mensal para todas as
+// classes, que conversa com o painel pastoral". O relatório mensal por
+// classe (EbdClasseRelatorioMensal.tsx) já existia; este soma o ministério
+// inteiro. Alcançável de dentro do Painel Pastoral, em
+// PainelAcompanhamentoEbd.tsx — a EBD já mora lá, este relatório só dá a
+// ela uma versão imprimível/compartilhável do mês.
+//
+// Mesmas regras de sempre: aula sem chamada não conta como "todos
+// faltaram"; professor não conta como aluno matriculado na frequência.
+
+import { useEffect, useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ArrowLeft, Printer, MessageCircle, GraduationCap } from "lucide-react";
+import { toast } from "sonner";
+import logoDiakonia from "@/assets/logo-diakonia.png";
+import {
+  relatorioMensalGeralResumo, relatorioMensalGeralPorClasse,
+  type RelatorioMensalGeralResumo, type FrequenciaClasse,
+} from "@/services/ebdPainelService";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { PaginaSkeleton } from "@/components/ListState";
+
+const MESES = [
+  "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+  "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+];
+
+function mesAtualISO(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+/** Verde ≥75%, âmbar 50–74%, vermelho <50%. Nulo (sem chamada no mês) fica neutro. */
+function corDaTaxa(taxa: number | null): string {
+  if (taxa === null) return "text-muted-foreground";
+  if (taxa >= 75) return "text-success-text";
+  if (taxa >= 50) return "text-warning-text";
+  return "text-destructive-text";
+}
+
+export default function EbdRelatorioMensalGeral() {
+  const { user } = useAuth();
+  const [params] = useSearchParams();
+  const [mesIso, setMesIso] = useState(params.get("mes") || mesAtualISO());
+  const [resumo, setResumo] = useState<RelatorioMensalGeralResumo | null>(null);
+  const [porClasse, setPorClasse] = useState<FrequenciaClasse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [emitidoPor, setEmitidoPor] = useState("");
+
+  const [ano, mes] = useMemo(() => mesIso.split("-").map(Number), [mesIso]);
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      try {
+        const [r, c] = await Promise.all([
+          relatorioMensalGeralResumo(ano, mes),
+          relatorioMensalGeralPorClasse(ano, mes),
+        ]);
+        setResumo(r);
+        setPorClasse(c);
+
+        if (user) {
+          const { data: prof } = await supabase
+            .from("profiles").select("nome").eq("id", user.id).maybeSingle();
+          setEmitidoPor(prof?.nome ?? user.email ?? "Sistema");
+        }
+      } catch (e: any) {
+        toast.error(e?.message ?? "Erro");
+      } finally { setLoading(false); }
+    })();
+  }, [ano, mes, user]);
+
+  function montarMensagemWhatsApp(): string {
+    if (!resumo) return "";
+    const l: string[] = [];
+    l.push(`📖 *EBD — todas as classes*`);
+    l.push(`📅 ${MESES[mes - 1]} de ${ano}`);
+    l.push("");
+    l.push(`🏫 *Classes ativas:* ${resumo.classes_ativas}`);
+    l.push(`👥 *Matriculados:* ${resumo.matriculados}`);
+    l.push(`📋 *Aulas com chamada:* ${resumo.aulas_com_chamada} de ${resumo.aulas_total}`);
+    if (resumo.taxa_presenca !== null) l.push(`📊 *Presença média geral:* ${resumo.taxa_presenca}%`);
+    if (resumo.visitantes > 0) l.push(`🌱 *Visitantes no mês:* ${resumo.visitantes}`);
+    l.push("");
+    const comChamada = porClasse.filter(c => c.taxa !== null);
+    if (comChamada.length > 0) {
+      l.push("*Por classe:*");
+      comChamada.forEach(c => l.push(`• ${c.classe_nome}: ${c.presentes}/${c.matriculados * c.aulas_com_chamada} (${c.taxa}%)`));
+      l.push("");
+    }
+    l.push(`_Enviado pelo Diakonia APP — Sistema de Igrejas_`);
+    return l.join("\n");
+  }
+
+  function compartilharWhatsApp() {
+    const msg = montarMensagemWhatsApp();
+    if (!msg) { toast.error("Carregando dados..."); return; }
+    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
+  }
+
+  async function copiarTexto() {
+    try {
+      await navigator.clipboard.writeText(montarMensagemWhatsApp());
+      toast.success("Resumo copiado!");
+    } catch {
+      toast.error("Não foi possível copiar");
+    }
+  }
+
+  if (loading) return <PaginaSkeleton />;
+
+  const hoje = new Date().toLocaleDateString("pt-BR");
+  const horaHoje = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  const semAulaNoMes = !resumo || resumo.aulas_total === 0;
+
+  return (
+    <div className="bg-background min-h-screen">
+      <style>{`
+        @media print {
+          @page { size: A4; margin: 1.2cm 1.5cm; }
+          html, body { background: white !important; height: auto !important; overflow: visible !important; }
+          body * { visibility: hidden !important; }
+          .relatorio-page, .relatorio-page * { visibility: visible !important; }
+          .relatorio-page {
+            position: absolute !important;
+            left: 0 !important; top: 0 !important;
+            width: 100% !important; max-width: 100% !important;
+            margin: 0 !important; padding: 0 !important;
+            box-shadow: none !important; border: none !important;
+            background: white !important;
+          }
+          .avoid-break { page-break-inside: avoid; }
+        }
+      `}</style>
+
+      <div className="no-print sticky top-0 z-10 bg-card border-b">
+        <div className="max-w-4xl mx-auto px-4 py-2 flex items-center gap-2 flex-wrap">
+          <Button asChild variant="ghost" size="sm" className="gap-1.5">
+            <Link to="/painel-pastoral">
+              <ArrowLeft className="w-3.5 h-3.5" /> Voltar
+            </Link>
+          </Button>
+          <div className="flex items-center gap-1.5 ml-2">
+            <Label className="text-xs text-muted-foreground shrink-0">Mês</Label>
+            <Input type="month" value={mesIso} onChange={(e) => setMesIso(e.target.value)} className="h-8 w-auto" />
+          </div>
+          <div className="flex items-center gap-1 ml-auto flex-wrap">
+            <Button onClick={copiarTexto} size="sm" variant="outline" className="gap-1.5">
+              📋 Copiar
+            </Button>
+            <Button onClick={compartilharWhatsApp} size="sm" className="gap-1.5 bg-success hover:bg-success text-white">
+              <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
+            </Button>
+            <Button onClick={() => window.print()} size="sm" className="gap-1.5 bg-gold hover:bg-gold/90 text-white">
+              <Printer className="w-3.5 h-3.5" /> Imprimir
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <div className="relatorio-page max-w-4xl mx-auto bg-white text-foreground p-8 md:p-10 my-4 md:my-6 shadow-elevated border border-border/40 rounded-md print:my-0">
+        <header className="avoid-break flex items-start justify-between gap-4 pb-4 border-b-2 border-gold/30">
+          <div className="flex items-center gap-4">
+            <img
+              src={logoDiakonia}
+              alt="DIAKONIA"
+              className="h-14 w-auto object-contain"
+              style={{
+                filter: "drop-shadow(0 2px 3px rgba(0,0,0,0.35)) drop-shadow(0 1px 1px rgba(0,0,0,0.25))",
+                printColorAdjust: "exact", WebkitPrintColorAdjust: "exact",
+              }}
+              draggable={false}
+            />
+            <div>
+              <h2 className="font-serif text-lg leading-tight">Diakonia APP — Sistema de Igrejas</h2>
+              <p className="text-xs text-muted-foreground mt-0.5 tracking-[0.12em] uppercase">
+                Conectando pessoas, organizando o propósito
+              </p>
+            </div>
+          </div>
+          <div className="text-right text-xs text-muted-foreground space-y-0.5">
+            <p>Emitido em <strong className="text-foreground">{hoje}</strong> às {horaHoje}</p>
+            <p>Por <strong className="text-foreground">{emitidoPor}</strong></p>
+          </div>
+        </header>
+
+        <div className="text-center my-6 avoid-break">
+          <p className="text-xs tracking-[0.25em] uppercase text-gold">Relatório Mensal — Escola Bíblica Dominical</p>
+          <h1 className="font-serif text-3xl mt-2 flex items-center justify-center gap-2">
+            <GraduationCap className="w-7 h-7 text-gold" /> Todas as classes
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1 capitalize">{MESES[mes - 1]} de {ano}</p>
+        </div>
+
+        {semAulaNoMes ? (
+          <p className="text-sm text-muted-foreground text-center py-10 avoid-break">
+            Nenhuma aula registrada neste mês, em nenhuma classe.
+          </p>
+        ) : (
+          <>
+            <section className="avoid-break grid grid-cols-2 md:grid-cols-5 gap-2 mb-6 text-center">
+              <Stat label="Classes ativas" valor={resumo!.classes_ativas} />
+              <Stat label="Matriculados" valor={resumo!.matriculados} />
+              <Stat
+                label="Aulas c/ chamada"
+                valor={`${resumo!.aulas_com_chamada}/${resumo!.aulas_total}`}
+              />
+              <Stat
+                label="Presença média"
+                valor={resumo!.taxa_presenca !== null ? `${resumo!.taxa_presenca}%` : "—"}
+                highlight
+              />
+              <Stat label="Visitantes" valor={resumo!.visitantes} />
+            </section>
+
+            {resumo!.aulas_com_chamada < resumo!.aulas_total && (
+              <p className="text-xs text-muted-foreground text-center mb-6 avoid-break">
+                {resumo!.aulas_total - resumo!.aulas_com_chamada} aula(s) do mês ainda sem chamada
+                registrada, em uma ou mais classes — não entram no cálculo da presença média.
+              </p>
+            )}
+
+            <section className="avoid-break mb-6">
+              <h3 className="font-serif text-base mb-2 text-gold">Por classe</h3>
+              <div className="space-y-1 text-sm">
+                {porClasse.map(c => (
+                  <div key={c.classe_id} className="flex items-center justify-between gap-2 border-b border-border/40 py-1.5">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium">{c.classe_nome}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {c.matriculados} matriculado{c.matriculados === 1 ? "" : "s"} ·{" "}
+                        {c.aulas_com_chamada}/{c.aulas_total} aula(s) com chamada
+                      </p>
+                    </div>
+                    <span className={`tabular-nums text-sm font-medium shrink-0 ${corDaTaxa(c.taxa)}`}>
+                      {c.taxa !== null ? `${c.taxa}%` : "—"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </>
+        )}
+
+        <footer className="avoid-break mt-10 pt-4 border-t border-gold/30 text-center">
+          <p className="text-xs italic text-muted-foreground font-serif">
+            "Ensinai as verdades e os mandamentos do Senhor... para que os conheça a geração vindoura."
+          </p>
+          <p className="text-xs text-gold tracking-wide mt-1">Salmos 78:5-6</p>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
+function Stat({ label, valor, highlight }: { label: string; valor: number | string; highlight?: boolean }) {
+  return (
+    <div className={`border rounded-md py-2 px-2 ${highlight ? "border-gold bg-gold/5" : ""}`}>
+      <p className={`font-semibold tabular-nums ${highlight ? "text-2xl text-gold" : "text-xl"}`}>{valor}</p>
+      <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
+    </div>
+  );
+}

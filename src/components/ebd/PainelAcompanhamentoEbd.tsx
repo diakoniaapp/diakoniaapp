@@ -28,12 +28,13 @@
 // 20260826140000_painel_de_acompanhamento_da_ebd.sql.
 
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Users, AlertCircle, TrendingUp, TrendingDown,
-  ClipboardList, Loader2,
+  ClipboardList, Loader2, FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 // O cartao de numero vivia aqui, duplicado do PainelPastoral e do PGM.
@@ -100,6 +101,18 @@ export function PainelAcompanhamentoEbd() {
 
   return (
     <div className="space-y-4">
+      {/* Pedido dela: "relatório mensal para todas as classes, que conversa
+          com o painel pastoral" — este link é a conversa. O relatório em si
+          (impressão + WhatsApp) mora em EbdRelatorioMensalGeral.tsx; aqui
+          fica só o acesso, pra não duplicar a mesma soma em dois lugares. */}
+      <div className="flex justify-end">
+        <Button asChild size="sm" variant="outline" className="gap-1.5">
+          <Link to="/ebd/relatorio-mensal">
+            <FileText className="w-3.5 h-3.5" /> Relatório mensal
+          </Link>
+        </Button>
+      </div>
+
       {/* Aviso que precede qualquer número de frequência.
           Sem ele, "19,4%" leria como "a EBD esvaziou". Com ele, lê como "a
           chamada foi feita em 3 das 12 aulas, e nessas 3 a frequência foi

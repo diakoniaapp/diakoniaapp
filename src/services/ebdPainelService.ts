@@ -91,6 +91,49 @@ export async function ebdAlunosAusentes(limite = 12): Promise<EbdAlunoAusente[]>
   return ((data as any[]) ?? []) as EbdAlunoAusente[];
 }
 
+// ─── Relatório mensal consolidado — todas as classes ────────────────────────
+//
+// Pedido dela: "crie relatório mensal para todas as classes, que conversa
+// com o painel pastoral". O relatório mensal por classe (ebdService.ts) já
+// existia; este soma todas as classes ativas de uma vez, pra quem lidera o
+// ministério. Mesmas duas regras de sempre: aula sem chamada não conta como
+// "todos faltaram", e professor não conta como aluno matriculado.
+
+export interface RelatorioMensalGeralResumo {
+  classes_ativas: number;
+  aulas_total: number;
+  aulas_com_chamada: number;
+  matriculados: number;
+  presentes: number;
+  ausentes: number;
+  visitantes: number;
+  /** Nulo quando não há nenhuma oportunidade de presença no mês. */
+  taxa_presenca: number | null;
+}
+
+export interface FrequenciaClasse {
+  classe_id: string;
+  classe_nome: string;
+  matriculados: number;
+  aulas_total: number;
+  aulas_com_chamada: number;
+  presentes: number;
+  /** Nulo quando a classe não teve aula com chamada, ou não tem matriculado. */
+  taxa: number | null;
+}
+
+export async function relatorioMensalGeralResumo(ano: number, mes: number): Promise<RelatorioMensalGeralResumo | null> {
+  const { data, error } = await supabase.rpc("ebd_relatorio_mensal_geral_resumo" as any, { p_ano: ano, p_mes: mes });
+  if (error) throw error;
+  return ((data as any[]) ?? [])[0] ?? null;
+}
+
+export async function relatorioMensalGeralPorClasse(ano: number, mes: number): Promise<FrequenciaClasse[]> {
+  const { data, error } = await supabase.rpc("ebd_relatorio_mensal_geral_por_classe" as any, { p_ano: ano, p_mes: mes });
+  if (error) throw error;
+  return ((data as any[]) ?? []) as FrequenciaClasse[];
+}
+
 // ─── Leituras derivadas ────────────────────────────────────────────────────
 
 /**

@@ -12745,6 +12745,31 @@ export type Database = {
           taxa: number
         }[]
       }
+      ebd_relatorio_mensal_geral_por_classe: {
+        Args: { p_ano: number; p_mes: number }
+        Returns: {
+          aulas_com_chamada: number
+          aulas_total: number
+          classe_id: string
+          classe_nome: string
+          matriculados: number
+          presentes: number
+          taxa: number
+        }[]
+      }
+      ebd_relatorio_mensal_geral_resumo: {
+        Args: { p_ano: number; p_mes: number }
+        Returns: {
+          aulas_com_chamada: number
+          aulas_total: number
+          ausentes: number
+          classes_ativas: number
+          matriculados: number
+          presentes: number
+          taxa_presenca: number
+          visitantes: number
+        }[]
+      }
       ebd_relatorio_mensal_resumo: {
         Args: { p_ano: number; p_classe_id: string; p_mes: number }
         Returns: {

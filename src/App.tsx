@@ -34,6 +34,7 @@ import Areas from "./pages/Areas.tsx";
 import EbdChamada from "./pages/EbdChamada.tsx";
 import EbdAulaRelatorio from "./pages/EbdAulaRelatorio.tsx";
 import EbdClasseRelatorioMensal from "./pages/EbdClasseRelatorioMensal.tsx";
+import EbdRelatorioMensalGeral from "./pages/EbdRelatorioMensalGeral.tsx";
 import DiaconiaPessoas from "./pages/DiaconiaPessoas.tsx";
 import DiaconiaChamada from "./pages/DiaconiaChamada.tsx";
 import DiaconiaOcasiaoRelatorio from "./pages/DiaconiaOcasiaoRelatorio.tsx";
@@ -161,6 +162,7 @@ const App = () => (
                   <Route path="/ebd/:classeId/chamada" element={<EbdChamada />} />
                   <Route path="/ebd/:classeId/chamada/relatorio" element={<EbdAulaRelatorio />} />
                   <Route path="/ebd/:classeId/relatorio-mensal" element={<EbdClasseRelatorioMensal />} />
+                  <Route path="/ebd/relatorio-mensal" element={<EbdRelatorioMensalGeral />} />
                   <Route path="/ebd/:classeId/campanhas" element={<EbdCampanhas />} />
                   <Route path="/ebd/:classeId/campanhas/:campanhaId" element={<EbdCampanha />} />
                   <Route path="/ebd/:classeId/campanhas/:campanhaId/relatorio" element={<EbdCampanhaRelatorio />} />
