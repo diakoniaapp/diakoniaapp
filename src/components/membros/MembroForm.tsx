@@ -1325,12 +1325,25 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                 <h3 className="font-semibold text-sm text-muted-foreground flex items-center gap-1.5" translate="no">
                   <GraduationCap className="w-3.5 h-3.5" /> Classe EBD
                 </h3>
-                <Select value={ebdClasseSelecionada || undefined} onValueChange={setEbdClasseSelecionada}>
+                {/* "O cadastro da pessoa sugere a classe, mas deve permitir
+                    desmarcar ou escolher nenhuma" — o item "— Nenhuma —"
+                    estava com `disabled`, então aparecia na lista mas
+                    nunca dava pra clicar nele; a sugestão (✨) preenche
+                    sozinha só pra pessoa NOVA sem nada escolhido ainda
+                    (ver useEffect acima), mas depois disso quem edita
+                    precisa poder voltar atrás. Radix não aceita value=""
+                    num SelectItem, por isso o sentinela "__none__" — o
+                    onValueChange traduz de volta pra "" antes de salvar
+                    no estado. */}
+                <Select
+                  value={ebdClasseSelecionada || undefined}
+                  onValueChange={(v) => setEbdClasseSelecionada(v === "__none__" ? "" : v)}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecionar classe..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__none__" disabled>— Nenhuma —</SelectItem>
+                    <SelectItem value="__none__">— Nenhuma —</SelectItem>
                     {ebdClasses.map(c => (
                       <SelectItem key={c.id} value={c.id}>
                         {c.nome}
