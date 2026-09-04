@@ -739,7 +739,13 @@ export default function PainelPastoral() {
 // ─── Helpers de UI ─────────────────────────────────────────────────────────
 
 function formatarData(iso: string): string {
-  return new Date(iso + "T00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
+  // Só usado para `data_congregado` (`membros`, timestamptz — não `date`).
+  // Volta do banco como "2026-09-04T00:00:00+00:00", já com "T" e fuso; a
+  // concatenação ingênua de "T00:00" faz "...+00:00T00:00" e vira Invalid
+  // Date. Corta antes do primeiro "T" — funciona tanto pra isso quanto pra
+  // uma data já enxuta tipo "2026-09-04", que não tem "T" pra cortar.
+  const data = iso.split("T")[0];
+  return new Date(data + "T00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
 }
 
 /** "Hoje", "Amanhã" ou "Qui, 28 de ago" — o rótulo do balde de um dia. */
