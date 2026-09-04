@@ -131,13 +131,13 @@ export default function FinancasRelatorio() {
       <div className="relatorio-page max-w-5xl mx-auto bg-white text-foreground p-8 md:p-10 my-4 md:my-6 shadow-elevated border border-border/40 rounded-md print:my-0">
         {/* Cabeçalho institucional */}
         <header className="avoid-break flex items-start justify-between gap-4 pb-4 border-b-2 border-gold/30">
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col items-center gap-1">
             <img src={logoDiakonia} alt="DIAKONIA" className="h-14 w-auto object-contain"
               style={{
                 filter: "drop-shadow(0 2px 3px rgba(0,0,0,0.35)) drop-shadow(0 1px 1px rgba(0,0,0,0.25))",
                 printColorAdjust: "exact", WebkitPrintColorAdjust: "exact",
               }} draggable={false} />
-            <div>
+            <div className="text-center">
               <h2 className="font-serif text-lg leading-tight">DiakoniaApp</h2>
               <p className="text-xs text-muted-foreground mt-0.5 tracking-[0.12em] uppercase">
                 Gestão Ministerial

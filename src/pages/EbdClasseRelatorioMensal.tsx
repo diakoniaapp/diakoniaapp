@@ -176,7 +176,7 @@ export default function EbdClasseRelatorioMensal() {
       {/* Página do relatório */}
       <div className="relatorio-page max-w-4xl mx-auto bg-white text-foreground p-8 md:p-10 my-4 md:my-6 shadow-elevated border border-border/40 rounded-md print:my-0">
         <header className="avoid-break flex items-start justify-between gap-4 pb-4 border-b-2 border-gold/30">
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col items-center gap-1">
             <img
               src={logoDiakonia}
               alt="DIAKONIA"
@@ -187,7 +187,7 @@ export default function EbdClasseRelatorioMensal() {
               }}
               draggable={false}
             />
-            <div>
+            <div className="text-center">
               <h2 className="font-serif text-lg leading-tight">DiakoniaApp</h2>
               <p className="text-xs text-muted-foreground mt-0.5 tracking-[0.12em] uppercase">
                 Gestão Ministerial
