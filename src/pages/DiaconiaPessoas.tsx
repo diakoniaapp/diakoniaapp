@@ -545,8 +545,12 @@ function NovaFicha({ pessoaId, limites, onSalvou, onCancelar }: {
   const [busy, setBusy] = useState(false);
 
   // A pessoa + quem ela listou como morador — a contagem soma sozinha, sem
-  // pedir de novo o que a lista abaixo já diz.
-  const totalCasa = 1 + familiares.length;
+  // pedir de novo o que a lista abaixo já diz. Só conta quem já tem nome:
+  // "+ Adicionar" cria a linha vazia antes de a pessoa digitar nada, e
+  // contar essa linha em branco mostrava "2 pessoas" sem ninguém preenchido
+  // — achado por ela ao abrir uma ficha nova e ainda não ter digitado nada.
+  // O mesmo filtro que `salvar()` usa antes de gravar.
+  const totalCasa = 1 + familiares.filter(f => f.nome.trim()).length;
   // Renda de trabalho MAIS valor do benefício — a mesma soma que o CadÚnico
   // faz. Pergunta dela: "como calcular a per capita? soma-se renda +
   // benefício?" — sim, e por isso o preview soma os dois aqui também.
