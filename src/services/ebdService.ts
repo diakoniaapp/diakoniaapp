@@ -297,7 +297,13 @@ export interface EbdChamadaRow {
   idade: number | null;
   presente: boolean;
   eh_visitante: boolean;
-  tipo: "matriculado" | "visitante";
+  /**
+   * Professor entra à parte, nunca junto dos alunos — mesmo quando também é
+   * matriculado na própria classe (achado real: uma professora aparecia
+   * contada como falta na lista de alunos). `ebd_chamada_view`
+   * (20260904240000) já tira quem é professor do grupo 'matriculado'.
+   */
+  tipo: "matriculado" | "visitante" | "professor";
 }
 
 export async function obterOuCriarAula(classeId: string, data: string): Promise<string> {

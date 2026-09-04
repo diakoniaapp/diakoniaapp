@@ -66,9 +66,13 @@ export default function EbdAulaRelatorio() {
 
   const matriculados = useMemo(() => linhas.filter(l => l.tipo === "matriculado"), [linhas]);
   const visitantes = useMemo(() => linhas.filter(l => l.tipo === "visitante"), [linhas]);
+  // Presença própria, à parte dos alunos — mesmo quando um professor também
+  // está matriculado na própria classe (ver ebd_chamada_view, 20260904240000).
+  const professoresPresenca = useMemo(() => linhas.filter(l => l.tipo === "professor"), [linhas]);
   const presentes = useMemo(() => matriculados.filter(l => l.presente), [matriculados]);
   const ausentes = useMemo(() => matriculados.filter(l => !l.presente), [matriculados]);
   const visitantesPresentes = useMemo(() => visitantes.filter(l => l.presente), [visitantes]);
+  const professoresPresentes = useMemo(() => professoresPresenca.filter(l => l.presente), [professoresPresenca]);
   const totalPresentes = presentes.length + visitantesPresentes.length;
   const taxaPresenca = matriculados.length > 0 ? Math.round((presentes.length / matriculados.length) * 100) : 0;
   const professorPrincipal = professores.find(p => p.tipo === "principal") ?? professores[0];
@@ -80,6 +84,9 @@ export default function EbdAulaRelatorio() {
     linhasMsg.push(`📅 ${dataLongaBr(data)}`);
     linhasMsg.push("");
     if (aula.tema) { linhasMsg.push(`✨ *Tema:* ${aula.tema}`); linhasMsg.push(""); }
+    if (professoresPresenca.length > 0) {
+      linhasMsg.push(`👩‍🏫 *Professor(es):* ${professoresPresentes.map(p => p.nome_completo).join(", ") || "nenhum presente"}`);
+    }
     linhasMsg.push(`👥 *Presença:* ${presentes.length} de ${matriculados.length} (${taxaPresenca}%)`);
     if (visitantesPresentes.length > 0) linhasMsg.push(`🌱 *Visitantes:* ${visitantesPresentes.length}`);
     linhasMsg.push("");
@@ -205,6 +212,22 @@ export default function EbdAulaRelatorio() {
           <section className="avoid-break mb-6 p-4 rounded-md bg-gradient-verse border border-gold/30 text-center">
             <p className="text-xs uppercase tracking-wide text-gold">Tema da aula</p>
             <p className="font-serif text-xl mt-1">{aula.tema}</p>
+          </section>
+        )}
+
+        {professoresPresenca.length > 0 && (
+          <section className="avoid-break mb-6">
+            <h3 className="font-serif text-base mb-2 text-gold">
+              Professor{professoresPresenca.length > 1 ? "es" : ""} ({professoresPresentes.length}/{professoresPresenca.length})
+            </h3>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+              {professoresPresenca.map(p => (
+                <div key={p.pessoa_id} className={`flex items-center gap-1.5 border-b border-border/40 py-1 ${p.presente ? "" : "text-muted-foreground"}`}>
+                  {p.presente ? <Check className="w-3 h-3 text-gold shrink-0" /> : <X className="w-3 h-3 shrink-0" />}
+                  <span className="truncate">{p.nome_completo}</span>
+                </div>
+              ))}
+            </div>
           </section>
         )}
 

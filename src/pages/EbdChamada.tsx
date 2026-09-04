@@ -167,6 +167,7 @@ export default function EbdChamada() {
   const stats = useMemo(() => {
     const matriculados = linhas.filter(l => l.tipo === "matriculado");
     const visitantes  = linhas.filter(l => l.tipo === "visitante");
+    const professores = linhas.filter(l => l.tipo === "professor");
     const presentesMat = matriculados.filter(l => l.presente).length;
     const presentesVis = visitantes.filter(l => l.presente).length;
     return {
@@ -174,6 +175,8 @@ export default function EbdChamada() {
       presMat: presentesMat,
       totalVis: visitantes.length,
       presVis: presentesVis,
+      totalPro: professores.length,
+      presPro: professores.filter(l => l.presente).length,
       totalPresentes: presentesMat + presentesVis,
     };
   }, [linhas]);
@@ -182,6 +185,7 @@ export default function EbdChamada() {
     return <PaginaSkeleton />;
   }
 
+  const professores = linhas.filter(l => l.tipo === "professor");
   const matriculados = linhas.filter(l => l.tipo === "matriculado");
   const visitantes  = linhas.filter(l => l.tipo === "visitante");
 
@@ -301,6 +305,46 @@ export default function EbdChamada() {
           <p className="text-xl font-semibold text-warning-text">{stats.presVis}/{stats.totalVis}</p>
         </CardContent></Card>
       </div>
+
+      {/* Professor(es) — presença à parte, nunca junto dos alunos. Achado
+          real: uma professora também matriculada na própria classe caía
+          contada como falta na lista dos alunos. */}
+      {professores.length > 0 && (
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between px-1">
+            <h3 className="text-xs uppercase tracking-wide text-gold font-medium">
+              Professor{professores.length > 1 ? "es" : ""}
+            </h3>
+            <span className="text-xs text-muted-foreground">{stats.presPro}/{stats.totalPro}</span>
+          </div>
+          {professores.map((r) => (
+            <button
+              key={r.pessoa_id}
+              type="button"
+              onClick={() => togglePresenca(r, !r.presente)}
+              disabled={salvando === r.pessoa_id}
+              className={`w-full flex items-center justify-between border rounded-lg px-3 py-3 transition-all active:scale-[0.99] ${
+                r.presente
+                  ? "bg-gold/10 border-gold/40"
+                  : "bg-background hover:bg-muted/40"
+              }`}
+            >
+              <div className="text-left min-w-0">
+                <NomePessoa id={r.pessoa_id} nome={r.nome_completo} className="font-medium truncate block" />
+                <div className="text-xs text-muted-foreground">Professor(a)</div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {salvando === r.pessoa_id
+                  ? <Loader2 className="w-4 h-4 animate-spin" />
+                  : r.presente
+                  ? <CheckCircle2 className="w-6 h-6 text-gold" />
+                  : <div className="w-6 h-6 rounded-full border-2 border-muted-foreground/30" />
+                }
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Botão visitante */}
       <Button onClick={() => setVisitOpen(true)} className="w-full gap-1.5">
