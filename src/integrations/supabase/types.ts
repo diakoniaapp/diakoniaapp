@@ -2485,6 +2485,249 @@ export type Database = {
           },
         ]
       }
+      diaconia_atendimentos: {
+        Row: {
+          confirmado: boolean
+          confirmado_por: string | null
+          created_at: string
+          id: string
+          ocasiao_id: string
+          pessoa_assistida_id: string
+        }
+        Insert: {
+          confirmado?: boolean
+          confirmado_por?: string | null
+          created_at?: string
+          id?: string
+          ocasiao_id: string
+          pessoa_assistida_id: string
+        }
+        Update: {
+          confirmado?: boolean
+          confirmado_por?: string | null
+          created_at?: string
+          id?: string
+          ocasiao_id?: string
+          pessoa_assistida_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "diaconia_atendimentos_ocasiao_id_fkey"
+            columns: ["ocasiao_id"]
+            isOneToOne: false
+            referencedRelation: "diaconia_ocasioes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diaconia_atendimentos_pessoa_assistida_id_fkey"
+            columns: ["pessoa_assistida_id"]
+            isOneToOne: false
+            referencedRelation: "diaconia_pessoas_assistidas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      diaconia_fichas_socioeconomicas: {
+        Row: {
+          composicao_familiar: number | null
+          created_at: string
+          data_preenchimento: string
+          id: string
+          observacoes: string | null
+          pessoa_assistida_id: string
+          preenchido_por: string | null
+          qual_beneficio: string | null
+          recebe_beneficio_social: boolean | null
+          situacao_moradia: string | null
+          situacao_trabalho: string | null
+        }
+        Insert: {
+          composicao_familiar?: number | null
+          created_at?: string
+          data_preenchimento?: string
+          id?: string
+          observacoes?: string | null
+          pessoa_assistida_id: string
+          preenchido_por?: string | null
+          qual_beneficio?: string | null
+          recebe_beneficio_social?: boolean | null
+          situacao_moradia?: string | null
+          situacao_trabalho?: string | null
+        }
+        Update: {
+          composicao_familiar?: number | null
+          created_at?: string
+          data_preenchimento?: string
+          id?: string
+          observacoes?: string | null
+          pessoa_assistida_id?: string
+          preenchido_por?: string | null
+          qual_beneficio?: string | null
+          recebe_beneficio_social?: boolean | null
+          situacao_moradia?: string | null
+          situacao_trabalho?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "diaconia_fichas_socioeconomicas_pessoa_assistida_id_fkey"
+            columns: ["pessoa_assistida_id"]
+            isOneToOne: false
+            referencedRelation: "diaconia_pessoas_assistidas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      diaconia_ocasioes: {
+        Row: {
+          area_id: string
+          created_at: string
+          data: string
+          id: string
+          observacoes: string | null
+        }
+        Insert: {
+          area_id: string
+          created_at?: string
+          data: string
+          id?: string
+          observacoes?: string | null
+        }
+        Update: {
+          area_id?: string
+          created_at?: string
+          data?: string
+          id?: string
+          observacoes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "diaconia_ocasioes_area_id_fkey"
+            columns: ["area_id"]
+            isOneToOne: false
+            referencedRelation: "areas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diaconia_ocasioes_area_id_fkey"
+            columns: ["area_id"]
+            isOneToOne: false
+            referencedRelation: "v_voluntarios_completo"
+            referencedColumns: ["area_id"]
+          },
+        ]
+      }
+      diaconia_pessoas_assistidas: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          id: string
+          membro_id: string | null
+          nome_completo: string
+          telefone: string | null
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          membro_id?: string | null
+          nome_completo: string
+          telefone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          membro_id?: string | null
+          nome_completo?: string
+          telefone?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "diaconia_pessoas_assistidas_membro_id_fkey"
+            columns: ["membro_id"]
+            isOneToOne: false
+            referencedRelation: "membros"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diaconia_pessoas_assistidas_membro_id_fkey"
+            columns: ["membro_id"]
+            isOneToOne: false
+            referencedRelation: "v_membros_mapa"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diaconia_pessoas_assistidas_membro_id_fkey"
+            columns: ["membro_id"]
+            isOneToOne: false
+            referencedRelation: "v_membros_perfil"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diaconia_pessoas_assistidas_membro_id_fkey"
+            columns: ["membro_id"]
+            isOneToOne: false
+            referencedRelation: "v_ranking_convidadores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diaconia_pessoas_assistidas_membro_id_fkey"
+            columns: ["membro_id"]
+            isOneToOne: false
+            referencedRelation: "v_visitantes_alerta"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      diaconia_vinculos: {
+        Row: {
+          area_id: string
+          ativo: boolean
+          created_at: string
+          id: string
+          pessoa_assistida_id: string
+        }
+        Insert: {
+          area_id: string
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          pessoa_assistida_id: string
+        }
+        Update: {
+          area_id?: string
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          pessoa_assistida_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "diaconia_vinculos_area_id_fkey"
+            columns: ["area_id"]
+            isOneToOne: false
+            referencedRelation: "areas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diaconia_vinculos_area_id_fkey"
+            columns: ["area_id"]
+            isOneToOne: false
+            referencedRelation: "v_voluntarios_completo"
+            referencedColumns: ["area_id"]
+          },
+          {
+            foreignKeyName: "diaconia_vinculos_pessoa_assistida_id_fkey"
+            columns: ["pessoa_assistida_id"]
+            isOneToOne: false
+            referencedRelation: "diaconia_pessoas_assistidas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       documento_estrutura: {
         Row: {
           ativo: boolean
@@ -12204,6 +12447,54 @@ export type Database = {
           p_user_id: string
         }
         Returns: string
+      }
+      diaconia_chamada_view: {
+        Args: { p_ocasiao_id: string }
+        Returns: {
+          confirmado: boolean
+          nome_completo: string
+          pessoa_assistida_id: string
+          telefone: string
+        }[]
+      }
+      diaconia_criar_pessoa: {
+        Args: {
+          p_area_id: string
+          p_membro_id?: string
+          p_nome: string
+          p_telefone?: string
+        }
+        Returns: string
+      }
+      diaconia_lidera_area: { Args: { p_area_id: string }; Returns: boolean }
+      diaconia_marcar_confirmado: {
+        Args: {
+          p_confirmado: boolean
+          p_ocasiao_id: string
+          p_pessoa_assistida_id: string
+        }
+        Returns: string
+      }
+      diaconia_obter_ou_criar_ocasiao: {
+        Args: { p_area_id: string; p_data: string }
+        Returns: string
+      }
+      diaconia_posso_atender: { Args: { p_area_id: string }; Returns: boolean }
+      diaconia_salvar_ficha: {
+        Args: {
+          p_composicao_familiar?: number
+          p_observacoes?: string
+          p_pessoa_assistida_id: string
+          p_qual_beneficio?: string
+          p_recebe_beneficio_social?: boolean
+          p_situacao_moradia?: string
+          p_situacao_trabalho?: string
+        }
+        Returns: string
+      }
+      diaconia_vincular_area: {
+        Args: { p_area_id: string; p_pessoa_assistida_id: string }
+        Returns: undefined
       }
       domingo_da_semana: { Args: { p_data: string }; Returns: string }
       ebd_chamada_view: {

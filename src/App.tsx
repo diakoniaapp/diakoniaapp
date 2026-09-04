@@ -32,6 +32,8 @@ import Ebd from "./pages/Ebd.tsx";
 import EbdClasse from "./pages/EbdClasse.tsx";
 import Areas from "./pages/Areas.tsx";
 import EbdChamada from "./pages/EbdChamada.tsx";
+import DiaconiaPessoas from "./pages/DiaconiaPessoas.tsx";
+import DiaconiaChamada from "./pages/DiaconiaChamada.tsx";
 import EbdCampanhas from "./pages/EbdCampanhas.tsx";
 import EbdCampanha from "./pages/EbdCampanha.tsx";
 import EbdCampanhaRelatorio from "./pages/EbdCampanhaRelatorio.tsx";
@@ -128,6 +130,12 @@ const App = () => (
                       DE um ministerio, e nao mais um painel da casa. */}
                   <Route path="/ministerios/:ministerioId/painel" element={<PainelMinisterio />} />
                   <Route path="/ministerios/:ministerioId/voluntarios" element={<MinisterioVoluntarios />} />
+                  {/* A porta de entrada da Diaconia — pessoas assistidas e a
+                      chamada de confirmação, uma área por vez (cestas
+                      básicas hoje; culto de rua e jantar quando a igreja
+                      criar as áreas). */}
+                  <Route path="/ministerios/:ministerioId/diaconia/:areaId/pessoas" element={<DiaconiaPessoas />} />
+                  <Route path="/ministerios/:ministerioId/diaconia/:areaId/chamada" element={<DiaconiaChamada />} />
                   <Route path="/eventos" element={<Eventos />} />
                   <Route path="/agenda" element={<Navigate to="/eventos" replace />} />
                   <Route path="/locais" element={<Locais />} />

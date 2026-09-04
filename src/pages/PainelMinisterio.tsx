@@ -69,13 +69,15 @@ import { carregarBancadaPgm, type BancadaPgm } from "@/services/bancadaPgmServic
 import { SecaoPgm } from "@/components/painel/SecaoPgm";
 import { carregarBancadaAcolhimento, type BancadaAcolhimento } from "@/services/bancadaAcolhimentoService";
 import { SecaoAcolhimento } from "@/components/painel/SecaoAcolhimento";
+import { carregarBancadaDiaconia, type BancadaDiaconia } from "@/services/diaconiaService";
+import { SecaoDiaconia } from "@/components/painel/SecaoDiaconia";
 import { CatalogoDaArea } from "@/components/painel/CatalogoDaArea";
 import { GeradorDeRodizio } from "@/components/painel/GeradorDeRodizio";
 import { ComposicaoPorFuncao, composicao } from "@/components/painel/ComposicaoPorFuncao";
 import { carregarPostos, type PostosDoMinisterio } from "@/services/postos";
 import { carregarAgendaDoMinisterio, type AgendaDoMinisterio } from "@/services/agendaDoMinisterioService";
 import { SecaoAgendaDoMinisterio } from "@/components/painel/SecaoAgendaDoMinisterio";
-import { GraduationCap, ShoppingBag, Home as Casa } from "lucide-react";
+import { GraduationCap, ShoppingBag, Home as Casa, HeartHandshake } from "lucide-react";
 
 export default function PainelMinisterio() {
   const { ministerioId } = useParams<{ ministerioId: string }>();
@@ -91,6 +93,7 @@ export default function PainelMinisterio() {
   const [arr, setArr] = useState<BancadaArrecadacao | null>(null);
   const [pgm, setPgm] = useState<BancadaPgm | null>(null);
   const [ac, setAc] = useState<BancadaAcolhimento | null>(null);
+  const [dc, setDc] = useState<BancadaDiaconia | null>(null);
   // A agenda é dos ONZE, e não de um módulo: por isso vem junto das outras
   // duas consultas, e não depois de saber qual módulo o ministério opera.
   const [agenda, setAgenda] = useState<AgendaDoMinisterio | null>(null);
@@ -134,6 +137,7 @@ export default function PainelMinisterio() {
       setArr(p?.modulo === "arrecadacao" ? await carregarBancadaArrecadacao() : null);
       setPgm(p?.modulo === "pgm" ? await carregarBancadaPgm() : null);
       setAc(p?.modulo === "acolhimento" ? await carregarBancadaAcolhimento() : null);
+      setDc(p?.modulo === "diaconia" && ministerioId ? await carregarBancadaDiaconia(ministerioId) : null);
 
       setAtualizadoEm(new Date());
     } catch (e: unknown) {
@@ -219,7 +223,7 @@ export default function PainelMinisterio() {
         <p className="text-sm text-muted-foreground flex items-start gap-1.5">
           <Boxes className="w-3.5 h-3.5 text-gold shrink-0 mt-0.5" />
           <span className="min-w-0">
-            {resumoNatural(painel, ebd, arr, pgm, ac, postos)}
+            {resumoNatural(painel, ebd, arr, pgm, ac, dc, postos)}
             {atualizadoEm && (
               <span className="text-[10px] text-muted-foreground ml-1.5 whitespace-nowrap">
                 · {formatarAtualizadoHa(atualizadoEm)}
@@ -233,7 +237,7 @@ export default function PainelMinisterio() {
             chip dele vem PRIMEIRO — na mesma ordem em que as seções aparecem
             abaixo. Uma tira que mente sobre a ordem já custou um defeito
             nesta casa, e por isso a da Home está travada por teste. */}
-        <FaixaDeIndicadores colunas={ebd || arr || pgm ? 5 : 4}>
+        <FaixaDeIndicadores colunas={ebd || arr || pgm || ac || dc ? 5 : 4}>
           {ebd && (
             <Indicador rotulo="Escola" tom="violeta" icone={GraduationCap}
               onClick={() => irParaSecao("ebd")} descricao="Ir para a Escola Bíblica" />
@@ -249,6 +253,10 @@ export default function PainelMinisterio() {
           {ac && (
             <Indicador rotulo="Porta" tom="success" icone={DoorOpen}
               onClick={() => irParaSecao("acolhimento")} descricao="Ir para A porta da frente" />
+          )}
+          {dc && (
+            <Indicador rotulo="Assistidos" tom="success" icone={HeartHandshake}
+              onClick={() => irParaSecao("diaconia")} descricao="Ir para Quem é assistido" />
           )}
           <Indicador rotulo="Áreas" tom="info" icone={Boxes}
             onClick={() => irParaSecao("areas")} descricao="Ir para Áreas" />
@@ -268,6 +276,7 @@ export default function PainelMinisterio() {
       {arr && <SecaoArrecadacao arr={arr} />}
       {pgm && <SecaoPgm pgm={pgm} />}
       {ac && <SecaoAcolhimento ac={ac} />}
+      {dc && ministerioId && <SecaoDiaconia dc={dc} ministerioId={ministerioId} />}
 
       <SecaoAreas painel={painel} postos={postos} podeEditar={podeEditarTarefas} aoMudar={carregar} />
       <SecaoEquipe painel={painel} postos={postos} ministerioId={ministerioId} />
@@ -302,6 +311,7 @@ function resumoNatural(
   arr: BancadaArrecadacao | null,
   pgm: BancadaPgm | null,
   ac: BancadaAcolhimento | null,
+  dc: BancadaDiaconia | null,
   postos: PostosDoMinisterio | null,
 ): string {
   const futuras = escalasFuturas(p.escalas);
