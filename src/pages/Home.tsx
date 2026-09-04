@@ -50,7 +50,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   UserPlus, Search, CalendarClock, LayoutGrid, CalendarDays, IdCard, BookOpen, HeartHandshake,
-  DoorOpen,
+  DoorOpen, GraduationCap,
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -63,6 +63,7 @@ import { FaixaDeIndicadores, Indicador, irParaSecao } from "@/components/painel/
 import { MeusPaineis } from "@/components/eu/MeusPaineis";
 import { MinhaFicha } from "@/components/eu/MinhaFicha";
 import { MinhaSemana, MinhaEbdCard, MeuPgmCard } from "@/components/eu/MinhaVida";
+import { ChamadaDeHoje } from "@/components/eu/ChamadaDeHoje";
 import { OndeEuSirvo } from "@/components/eu/OndeEuSirvo";
 import { PortaNoHome } from "@/components/eu/PortaNoHome";
 import { AgendaDaSemana } from "@/components/eu/AgendaDaSemana";
@@ -107,6 +108,10 @@ const ROLE_LABEL: Record<string, string> = {
  * e não precisa da frase inteira, que continua no título da seção.
  */
 export const ATALHOS: { id: string; rotulo: string; icone: LucideIcon }[] = [
+  // Só domingo, só pra quem leciona — a seção vive vazia o resto da semana e
+  // some sozinha (ver ChamadaDeHoje.tsx). Primeiro da lista de propósito: no
+  // dia em que existe, é a coisa mais urgente da tela.
+  { id: "chamada-hoje", rotulo: "Chamada",  icone: GraduationCap },
   { id: "minha-semana", rotulo: "Semana",   icone: CalendarClock },
   { id: "meus-paineis", rotulo: "Painéis",  icone: LayoutGrid },
   { id: "porta",        rotulo: "Porta",    icone: DoorOpen },
@@ -258,6 +263,11 @@ export default function Home() {
       </div>{/* fim do cabeçalho fixo */}
 
       <div className="p-4 md:p-8 space-y-10 max-w-5xl mx-auto">
+        <Secao id="chamada-hoje" onVazio={marcarVazio}
+          titulo="Chamada de hoje" subtitulo="Sua classe da Escola Bíblica Dominical">
+          {pessoaId && <ChamadaDeHoje pessoaId={pessoaId} />}
+        </Secao>
+
         <Secao id="minha-semana" onVazio={marcarVazio}
           titulo="A sua semana" subtitulo="O que a igreja espera de você nos próximos dias">
           {pessoaId && <MinhaSemana pessoaId={pessoaId} />}
