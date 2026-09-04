@@ -323,7 +323,22 @@ export default function EbdClasse() {
             </p>
           </div>
         </div>
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-2 items-center flex-wrap">
+          {/* "Fazer chamada" é a ação de todo domingo — mesma ênfase (dourado,
+              cheia) que já ganhou nos cartões do índice de classes; o resto
+              aqui é ocasional (editar, relatório, campanhas), por isso fica
+              em contorno, sem competir com ela. */}
+          <Button asChild size="sm" className="gap-1.5 bg-gold hover:bg-gold/90 text-white border-0">
+            <Link to={`/ebd/${classeId}/chamada`}>
+              <GraduationCap className="w-3.5 h-3.5" /> Fazer chamada
+            </Link>
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link to={`/ebd/${classeId}/relatorio-mensal`}>Relatório mensal</Link>
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link to={`/ebd/${classeId}/campanhas`}>Campanhas</Link>
+          </Button>
           {podeEditar && (
             <>
               <Button variant="outline" size="sm" onClick={() => setEditOpen(true)} className="gap-1.5">
@@ -343,15 +358,6 @@ export default function EbdClasse() {
               </Button>
             </>
           )}
-          <Button asChild variant="outline" size="sm">
-            <Link to={`/ebd/${classeId}/chamada`}>Fazer chamada</Link>
-          </Button>
-          <Button asChild variant="outline" size="sm">
-            <Link to={`/ebd/${classeId}/relatorio-mensal`}>Relatório mensal</Link>
-          </Button>
-          <Button asChild variant="outline" size="sm">
-            <Link to={`/ebd/${classeId}/campanhas`}>Campanhas</Link>
-          </Button>
         </div>
       </div>
 
