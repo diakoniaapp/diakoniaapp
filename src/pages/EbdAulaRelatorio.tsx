@@ -208,6 +208,20 @@ export default function EbdAulaRelatorio() {
           <p className="text-sm text-muted-foreground mt-1 capitalize">{dataLongaBr(data)}</p>
         </div>
 
+        {/* Foto da turma — pedido dela: "para impressão, traga a foto da
+            turma". Só existe quando alguém subiu uma na chamada
+            (EbdChamada.tsx); sem foto, a seção nem aparece. */}
+        {aula.foto_url && (
+          <section className="avoid-break mb-6 text-center">
+            <img
+              src={aula.foto_url}
+              alt={`Foto da turma — ${classe.nome}`}
+              className="max-h-80 w-auto mx-auto rounded-md border border-border/40 object-cover"
+              style={{ printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" }}
+            />
+          </section>
+        )}
+
         {aula.tema && (
           <section className="avoid-break mb-6 p-4 rounded-md bg-gradient-verse border border-gold/30 text-center">
             <p className="text-xs uppercase tracking-wide text-gold">Tema da aula</p>

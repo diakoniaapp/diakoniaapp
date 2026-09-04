@@ -12735,6 +12735,28 @@ export type Database = {
           visitantes: number
         }[]
       }
+      ebd_relatorio_mensal_frequencia: {
+        Args: { p_ano: number; p_classe_id: string; p_mes: number }
+        Returns: {
+          nome_completo: string
+          oportunidades: number
+          pessoa_id: string
+          presencas: number
+          taxa: number
+        }[]
+      }
+      ebd_relatorio_mensal_resumo: {
+        Args: { p_ano: number; p_classe_id: string; p_mes: number }
+        Returns: {
+          aulas_com_chamada: number
+          aulas_total: number
+          ausentes: number
+          matriculados: number
+          presentes: number
+          taxa_presenca: number
+          visitantes: number
+        }[]
+      }
       esperados_da_classe: {
         Args: { p_classe_id: string }
         Returns: {

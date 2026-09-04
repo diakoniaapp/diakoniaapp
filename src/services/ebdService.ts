@@ -394,6 +394,53 @@ export async function uploadFotoAula(aulaId: string, classeId: string, file: Fil
   return publicUrl;
 }
 
+// ─── Relatório mensal ──────────────────────────────────────────────────────
+//
+// Soma o mês inteiro de uma classe: quantas aulas aconteceram, presença
+// média, e a frequência de cada matriculado. Mesma regra do painel geral
+// de acompanhamento (`ebdPainelService.ts`): "aula sem nenhuma presença
+// registrada é chamada não feita, não 'todos faltaram'" — só entra no
+// cálculo quem teve chamada de verdade. E o mesmo cuidado do relatório por
+// aula: professor não conta como matriculado na frequência.
+
+export interface RelatorioMensalResumo {
+  aulas_total: number;
+  aulas_com_chamada: number;
+  matriculados: number;
+  presentes: number;
+  ausentes: number;
+  visitantes: number;
+  /** Nulo quando não há aula com chamada, ou não há matriculado — não há taxa a calcular. */
+  taxa_presenca: number | null;
+}
+
+export interface FrequenciaAluno {
+  pessoa_id: string;
+  nome_completo: string;
+  oportunidades: number;
+  presencas: number;
+  taxa: number | null;
+}
+
+export async function relatorioMensalResumo(classeId: string, ano: number, mes: number): Promise<RelatorioMensalResumo | null> {
+  const { data, error } = await supabase.rpc("ebd_relatorio_mensal_resumo", {
+    p_classe_id: classeId, p_ano: ano, p_mes: mes,
+  });
+  if (error) throw error;
+  return ((data as any[]) ?? [])[0] ?? null;
+}
+
+export async function relatorioMensalFrequencia(classeId: string, ano: number, mes: number): Promise<FrequenciaAluno[]> {
+  const { data, error } = await supabase.rpc("ebd_relatorio_mensal_frequencia", {
+    p_classe_id: classeId, p_ano: ano, p_mes: mes,
+  });
+  if (error) throw error;
+  // Já vem ordenado do banco; localeCompare aqui é o mesmo reforço de
+  // acento consciente que chamadaView() usa.
+  return ((data ?? []) as FrequenciaAluno[])
+    .sort((a, b) => a.nome_completo.localeCompare(b.nome_completo, "pt-BR"));
+}
+
 // ─── Campanhas EBD ─────────────────────────────────────────────────────────
 export interface CampanhaEbd {
   id: string;
