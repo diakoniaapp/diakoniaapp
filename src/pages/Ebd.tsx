@@ -622,24 +622,27 @@ export default function Ebd() {
                     <span className="text-muted-foreground"> · {cobertura}% do perfil</span>
                   </p>
 
+                  {/* Pedido dela, no print do cartão: "crie botoes visuais:
+                      abrir - editar classe - chamada" — o ">" e o lápis
+                      sozinhos não diziam o que faziam; os três agora têm
+                      ícone + rótulo, não só ícone com tooltip. */}
                   <div className="flex gap-1.5 pt-0.5">
-                    <Button asChild size="sm" className="flex-1 gap-1.5 h-7 text-xs bg-gold hover:bg-gold/90 text-white border-0">
+                    <Button asChild size="sm" className="flex-1 gap-1.5 h-8 text-xs bg-gold hover:bg-gold/90 text-white border-0">
                       <Link to={`/ebd/${c.id}/chamada`}>
                         <GraduationCap className="w-3.5 h-3.5" /> Chamada
                       </Link>
                     </Button>
-                    <Button asChild variant="outline" size="sm" className="h-7 w-7 p-0" title="Abrir classe">
+                    <Button asChild variant="outline" size="sm" className="h-8 gap-1 text-xs px-2.5">
                       <Link to={`/ebd/${c.id}`}>
-                        <ChevronRight className="w-3.5 h-3.5" />
+                        <ChevronRight className="w-3.5 h-3.5" /> Abrir
                       </Link>
                     </Button>
                     {podeCriar && (
                       <Button
-                        type="button" variant="ghost" size="sm" className="h-7 w-7 p-0"
+                        type="button" variant="outline" size="sm" className="h-8 gap-1 text-xs px-2.5"
                         onClick={(e) => { e.preventDefault(); setClasseEditando(c); setFormOpen(true); }}
-                        title="Editar classe"
                       >
-                        <Pencil className="w-3.5 h-3.5" />
+                        <Pencil className="w-3.5 h-3.5" /> Editar
                       </Button>
                     )}
                   </div>
