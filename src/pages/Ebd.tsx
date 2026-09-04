@@ -32,7 +32,9 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import {
   listarClasses, professoresPorClasse, todosOsMatriculados, listarCampanhas, resumoCampanha,
+  novasMatriculasDoMes, visitantesDoMes, relatorioMensalFrequencia,
   type EbdClasse, type EbdProfessor, type AlunoMatriculado, type CampanhaEbd, type ResumoCampanha,
+  type NovaMatricula, type VisitanteEbd, type FrequenciaAluno,
 } from "@/services/ebdService";
 import { formatarTelefoneSemDDI } from "@/lib/telefone";
 import { ebdPorClasse, relatorioMensalGeralResumo, type EbdClasseLinha, type RelatorioMensalGeralResumo } from "@/services/ebdPainelService";
@@ -53,11 +55,9 @@ interface ClasseCard extends EbdClasse {
   /** Todo mundo que cabe no perfil (idade/gênero), matriculado ou não —
    *  denominador certo da cobertura. */
   qtd_elegiveis: number;
-  /** Cabe no perfil e não está matriculado em NENHUMA classe — quem falta
-   *  convidar. Alimenta o indicador "fora da EBD". */
-  qtd_livres: number;
-  /** Só MEMBRO (não congregado), pra faixa mais ausente — pedido dela:
-   *  "porcentagem de faixa etária mais ausente da EBD (membros apenas)". */
+  /** Só MEMBRO (não congregado), cabe no perfil e não está matriculado em
+   *  NENHUMA classe — alimenta o painel "fora da EBD" por faixa etária
+   *  (pedido dela: "liste os nomes, classificados pela faixa etária"). */
   membrosAusentes: MembroAusente[];
   membrosElegiveis: number;
   aulasSemChamada: number;
@@ -94,10 +94,12 @@ export default function Ebd() {
   // telefone". Cada linha guarda o próprio estado: revelar o telefone de
   // uma professora não revela o de todas.
   const [telefonesVisiveis, setTelefonesVisiveis] = useState<Set<string>>(new Set());
-  // Pedido dela: "para a porcentagem dos ausentes, permita visualizar o
-  // nome clicando na informação" — o indicador é só o número; os nomes só
-  // aparecem se alguém pedir.
-  const [mostrarAusentes, setMostrarAusentes] = useState(false);
+  const [frequenciaAlunos, setFrequenciaAlunos] = useState<(FrequenciaAluno & { classe_nome: string })[]>([]);
+  const [novosLista, setNovosLista] = useState<NovaMatricula[]>([]);
+  const [visitantesLista, setVisitantesLista] = useState<VisitanteEbd[]>([]);
+  // Pedido dela: "coloque link para os indicadores" — só um painel aberto
+  // por vez, senão a tela vira quatro listas empilhadas de uma vez.
+  const [painelAberto, setPainelAberto] = useState<"presenca" | "novos" | "visitantes" | "foraDaEbd" | null>(null);
 
   useEffect(() => { carregar(); }, [mostrarInativas]);
 
@@ -105,14 +107,15 @@ export default function Ebd() {
     setLoading(true);
     try {
       const hoje = new Date();
-      const primeiroDiaDoMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().slice(0, 10);
+      const ano = hoje.getFullYear();
+      const mes = hoje.getMonth() + 1;
 
-      const [cs, porClasse, professores, mat, resumo, membrosAtivos, novosAlunos] = await Promise.all([
+      const [cs, porClasse, professores, mat, resumo, membrosAtivos, novos, visitantes] = await Promise.all([
         listarClasses(mostrarInativas),
         ebdPorClasse().catch((): EbdClasseLinha[] => []),
         professoresPorClasse().catch(() => new Map<string, EbdProfessor[]>()),
         todosOsMatriculados().catch(() => []),
-        relatorioMensalGeralResumo(hoje.getFullYear(), hoje.getMonth() + 1).catch(() => null),
+        relatorioMensalGeralResumo(ano, mes).catch(() => null),
         // "Adesão": só MEMBRO — pedido dela: "deverá ter apenas MEMBROS".
         // Congregado, visitante e ex-membro ficam fora da conta.
         (async () => {
@@ -120,21 +123,19 @@ export default function Ebd() {
             .eq("status", "ativo").eq("tipo_pessoa", "membro");
           return r.count ?? 0;
         })().catch(() => 0),
-        // "Novos alunos": matrículas ativas abertas desde o dia 1 deste mês,
-        // em classe ativa.
-        (async () => {
-          const r = await supabase.from("ebd_matriculas")
-            .select("id, ebd_classes!inner(ativo)", { count: "exact", head: true })
-            .eq("ativo", true).eq("ebd_classes.ativo", true)
-            .gte("data_matricula", primeiroDiaDoMes);
-          return r.count ?? 0;
-        })().catch(() => 0),
+        // "Novos: moste os novos" e "Visitantes: mostre os visitantes da
+        // ebd" — as listas já vêm prontas; a contagem é só o tamanho delas,
+        // não uma consulta à parte.
+        novasMatriculasDoMes(ano, mes).catch((): NovaMatricula[] => []),
+        visitantesDoMes(ano, mes).catch((): VisitanteEbd[] => []),
       ]);
       const semChamadaPorClasse = new Map<string, number>(
         porClasse.map(p => [p.classe_id, p.aulas_sem_chamada]),
       );
       setAlunos(mat);
       setResumoMes(resumo);
+      setNovosLista(novos);
+      setVisitantesLista(visitantes);
 
       const enriched: ClasseCard[] = [];
       for (const c of cs) {
@@ -150,7 +151,6 @@ export default function Ebd() {
           ...c,
           qtd_matriculados: qtdMat ?? 0,
           qtd_elegiveis: esps.length,
-          qtd_livres: esps.filter(e => !e.ja_matriculado && !e.outra_classe_id).length,
           membrosElegiveis: soMembros.length,
           membrosAusentes: soMembros
             .filter(e => !e.ja_matriculado && !e.outra_classe_id)
@@ -163,8 +163,28 @@ export default function Ebd() {
       setGerais({
         matriculados: enriched.reduce((s, c) => s + c.qtd_matriculados, 0),
         membrosAtivos,
-        novosAlunosNoMes: novosAlunos,
+        novosAlunosNoMes: novos.length,
       });
+
+      // "Presença: mostre dos mais presentes para os mais ausentes" — taxa
+      // de frequência de cada aluno no mês, juntando todas as classes
+      // ativas. Uma chamada por classe (poucas classes, não vale montar
+      // outra RPC "geral" só pra isso).
+      const nomeDaClassePorId = new Map(cs.map(c => [c.id, c.nome]));
+      const ativas = cs.filter(c => c.ativo);
+      const porAluno = await Promise.all(
+        ativas.map(c =>
+          relatorioMensalFrequencia(c.id, ano, mes)
+            .then(lista => lista.map(f => ({ ...f, classe_nome: nomeDaClassePorId.get(c.id) ?? "—" })))
+            .catch((): (FrequenciaAluno & { classe_nome: string })[] => []),
+        ),
+      );
+      // Sem chamada no mês = taxa nula, não zero — não dá pra dizer que
+      // faltou quem nunca teve chamada pra faltar. Esses ficam por último,
+      // não no topo dos "mais ausentes".
+      setFrequenciaAlunos(
+        porAluno.flat().sort((a, b) => (b.taxa ?? -1) - (a.taxa ?? -1)),
+      );
 
       // Campanhas de arrecadação — de TODAS as classes, não uma por vez
       // (`listarCampanhas()` sem classeId já devolve todas). "Acompanhamento
@@ -172,9 +192,9 @@ export default function Ebd() {
       // encerrada não pede acompanhamento.
       const nomeDaClasse = new Map(cs.map(c => [c.id, c.nome]));
       const todasCampanhas = await listarCampanhas().catch((): CampanhaEbd[] => []);
-      const ativas = todasCampanhas.filter(c => c.ativo);
+      const campanhasAtivas = todasCampanhas.filter(c => c.ativo);
       const comResumo = await Promise.all(
-        ativas.map(async c => ({
+        campanhasAtivas.map(async c => ({
           ...c,
           classe_nome: c.classe_id ? (nomeDaClasse.get(c.classe_id) ?? null) : null,
           resumo: await resumoCampanha(c.id).catch(() => null),
@@ -193,38 +213,41 @@ export default function Ebd() {
     ? Math.round((gerais.matriculados / gerais.membrosAtivos) * 100)
     : null;
 
-  // "Fora da EBD": de quem CABE numa classe pela idade (elegível em
-  // alguma faixa), quantos ainda não estão matriculados em NENHUMA —
-  // pedido dela: "quantos membros deveriam estar na ebd e nao estão".
-  // Soma por classe porque as faixas etárias não se sobrepõem (Berçário
-  // 0-3, Crianças 3-8... ver ORDEM_PRIMEIRA_CLASSE_ADULTA em
+  // "Fora da EBD": de quem CABE numa classe pela idade (só MEMBRO — pedido
+  // dela em "liste os nomes, classificados pela faixa etária" fala de
+  // membros, mesmo padrão de Adesão), quantos ainda não estão matriculados
+  // em NENHUMA. Soma por classe porque as faixas etárias não se sobrepõem
+  // (Berçário 0-3, Crianças 3-8... ver ORDEM_PRIMEIRA_CLASSE_ADULTA em
   // ebdService.ts): cada pessoa elegível cai em no máximo uma classe.
   const foraDaEbd = useMemo(() => {
-    const elegiveis = classes.reduce((s, c) => s + c.qtd_elegiveis, 0);
-    const livres = classes.reduce((s, c) => s + c.qtd_livres, 0);
-    return elegiveis > 0 ? Math.round((livres / elegiveis) * 100) : null;
+    const elegiveis = classes.reduce((s, c) => s + c.membrosElegiveis, 0);
+    const ausentes = classes.reduce((s, c) => s + c.membrosAusentes.length, 0);
+    return elegiveis > 0 ? Math.round((ausentes / elegiveis) * 100) : null;
   }, [classes]);
 
-  // "Faixa etária mais ausente da EBD (membros apenas)": entre as classes
-  // com pelo menos um membro elegível, qual tem a MAIOR fração de membros
-  // que cabem na faixa e não estão matriculados em nenhuma classe.
-  // "Não ficou bom mostrando 100% ausente Crianças... pois fala-se de
-  // membros" — ela tinha razão: Crianças tem 1 (UM) membro elegível, e esse
-  // único ausente virava "100%" — o mesmo problema de "aula sem chamada"
-  // (uma amostra pequena demais produzindo um número que parece grave e não
-  // é). MINIMO_ELEGIVEIS corta faixa com gente de menos pra dizer algo —
-  // Adultos (90 elegíveis, 64 ausentes) é o achado de verdade que "100%" de
-  // 1 pessoa estava escondendo.
-  const MINIMO_ELEGIVEIS_PARA_FAIXA_AUSENTE = 5;
-  const faixaMaisAusente = useMemo(() => {
-    let melhor: { classe: ClasseCard; percentual: number } | null = null;
-    for (const c of classes) {
-      if (c.membrosElegiveis < MINIMO_ELEGIVEIS_PARA_FAIXA_AUSENTE) continue;
-      const percentual = Math.round((c.membrosAusentes.length / c.membrosElegiveis) * 100);
-      if (!melhor || percentual > melhor.percentual) melhor = { classe: c, percentual };
+  // Classes com pelo menos um membro elegível — base do painel "fora da
+  // EBD" por faixa etária (clique no indicador).
+  const classesComElegiveis = useMemo(
+    () => classes.filter(c => c.membrosElegiveis > 0),
+    [classes],
+  );
+
+  // "Fora da ebd tem um problema... mostra quem não está matriculado...
+  // mas deveríamos verificar tbm quem está matriculado, mas faltando" —
+  // ela tinha razão: matriculado que nunca aparece está tão fora da EBD
+  // quanto quem nunca se matriculou. Taxa 0% (com chamada no mês) é "não
+  // apareceu nenhuma vez" — taxa nula (sem chamada no mês) não entra aqui,
+  // não dá pra dizer que faltou quem não teve chamada.
+  const faltandoPorClasse = useMemo(() => {
+    const mapa = new Map<string, (FrequenciaAluno & { classe_nome: string })[]>();
+    for (const f of frequenciaAlunos) {
+      if (f.taxa !== 0) continue;
+      const lista = mapa.get(f.classe_nome) ?? [];
+      lista.push(f);
+      mapa.set(f.classe_nome, lista);
     }
-    return melhor;
-  }, [classes]);
+    return mapa;
+  }, [frequenciaAlunos]);
 
   const aniversariantes = useMemo(() => {
     const mesAtual = new Date().getMonth();
@@ -313,22 +336,26 @@ export default function Ebd() {
             ficam grudados no topo junto com os atalhos, não numa seção que
             rola pra fora de vista. Compactos de propósito: é cabeçalho, não
             o conteúdo principal da tela. */}
-        <div className="grid grid-cols-3 sm:grid-cols-7 gap-1.5">
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
           <Stat label="Matriculados" valor={gerais?.matriculados ?? "—"} compacto />
           <Stat
             label="Presença"
             valor={resumoMes?.taxa_presenca != null ? `${resumoMes.taxa_presenca}%` : "—"}
             highlight compacto
+            onClick={() => setPainelAberto(p => p === "presenca" ? null : "presenca")}
           />
-          <Stat label="Novos" valor={gerais?.novosAlunosNoMes ?? "—"} compacto />
-          <Stat label="Visitantes" valor={resumoMes?.visitantes ?? "—"} compacto />
-          <Stat label="Adesão" valor={adesao !== null ? `${adesao}%` : "—"} compacto />
-          <Stat label="Fora da EBD" valor={foraDaEbd !== null ? `${foraDaEbd}%` : "—"} compacto />
           <Stat
-            label={faixaMaisAusente ? `Ausente: ${faixaMaisAusente.classe.nome}` : "Faixa mais ausente"}
-            valor={faixaMaisAusente ? `${faixaMaisAusente.percentual}%` : "—"}
-            compacto
-            onClick={faixaMaisAusente ? () => setMostrarAusentes(v => !v) : undefined}
+            label="Novos" valor={gerais?.novosAlunosNoMes ?? "—"} compacto
+            onClick={() => setPainelAberto(p => p === "novos" ? null : "novos")}
+          />
+          <Stat
+            label="Visitantes" valor={resumoMes?.visitantes ?? "—"} compacto
+            onClick={() => setPainelAberto(p => p === "visitantes" ? null : "visitantes")}
+          />
+          <Stat label="Adesão" valor={adesao !== null ? `${adesao}%` : "—"} compacto />
+          <Stat
+            label="Fora da EBD" valor={foraDaEbd !== null ? `${foraDaEbd}%` : "—"} compacto
+            onClick={() => setPainelAberto(p => p === "foraDaEbd" ? null : "foraDaEbd")}
           />
         </div>
       </div>
@@ -340,31 +367,137 @@ export default function Ebd() {
       <p className="text-xs text-muted-foreground -mt-3">
         <strong>Adesão</strong>: {gerais?.matriculados ?? 0} de {gerais?.membrosAtivos ?? 0} membros ativos da
         igreja estão numa classe.{" "}
-        <strong>Fora da EBD</strong>: de quem cabe na faixa etária de alguma classe, quantos ainda não foram
-        matriculados em nenhuma.{" "}
-        {faixaMaisAusente && (
-          <>
-            <strong>Faixa mais ausente</strong>: entre as classes com pelo menos {MINIMO_ELEGIVEIS_PARA_FAIXA_AUSENTE} membros
-            elegíveis, {faixaMaisAusente.classe.nome} é onde a maior fração ainda não está matriculada —{" "}
-            {faixaMaisAusente.classe.membrosAusentes.length} de {faixaMaisAusente.classe.membrosElegiveis} membros
-            ({faixaMaisAusente.percentual}%).
-          </>
-        )}
+        <strong>Fora da EBD</strong>: de quem cabe na faixa etária de alguma classe (membros), quantos ainda não
+        foram matriculados em nenhuma. Clique em Presença, Novos, Visitantes ou Fora da EBD para ver o detalhe.
       </p>
 
-      {/* Pedido dela: "permita visualizar o nome clicando na informação" — os
-          nomes só aparecem se alguém clicar no indicador acima. */}
-      {mostrarAusentes && faixaMaisAusente && (
+      {/* Pedido dela: "coloque link para os indicadores" — cada painel abre
+          sob o indicador clicado, um de cada vez. */}
+      {painelAberto === "presenca" && (
         <div className="rounded-lg border bg-card divide-y -mt-2">
           <p className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
-            Membros de {faixaMaisAusente.classe.nome} ausentes da EBD ({faixaMaisAusente.classe.membrosAusentes.length})
+            Presença no mês — dos mais presentes para os mais ausentes ({frequenciaAlunos.length})
           </p>
-          {faixaMaisAusente.classe.membrosAusentes.map(m => (
-            <div key={m.pessoa_id} className="flex items-center justify-between gap-2 px-3 py-1.5 text-sm">
-              <span className="truncate">{m.nome_completo}</span>
-              {m.idade !== null && <span className="text-xs text-muted-foreground shrink-0">{m.idade} anos</span>}
+          {frequenciaAlunos.length === 0 ? (
+            <p className="px-3 py-3 text-sm text-muted-foreground text-center">Sem chamadas registradas este mês.</p>
+          ) : frequenciaAlunos.map(f => (
+            <div key={`${f.pessoa_id}-${f.classe_nome}`} className="flex items-center justify-between gap-2 px-3 py-1.5 text-sm">
+              <div className="min-w-0">
+                <p className="truncate">{f.nome_completo}</p>
+                <p className="text-xs text-muted-foreground truncate">{f.classe_nome}</p>
+              </div>
+              <span className="text-xs tabular-nums shrink-0">
+                {f.taxa === null ? (
+                  <span className="text-muted-foreground">sem chamada no mês</span>
+                ) : (
+                  <>
+                    <strong>{f.taxa}%</strong>{" "}
+                    <span className="text-muted-foreground">({f.presencas}/{f.oportunidades})</span>
+                  </>
+                )}
+              </span>
             </div>
           ))}
+        </div>
+      )}
+
+      {painelAberto === "novos" && (
+        <div className="rounded-lg border bg-card divide-y -mt-2">
+          <p className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
+            Novas matrículas do mês ({novosLista.length})
+          </p>
+          {novosLista.length === 0 ? (
+            <p className="px-3 py-3 text-sm text-muted-foreground text-center">Nenhuma matrícula nova este mês.</p>
+          ) : novosLista.map(n => (
+            <div key={n.pessoa_id} className="flex items-center justify-between gap-2 px-3 py-1.5 text-sm">
+              <div className="min-w-0">
+                <p className="truncate">{n.nome_completo}</p>
+                <p className="text-xs text-muted-foreground truncate">{n.classe_nome}</p>
+              </div>
+              <span className="text-xs text-muted-foreground shrink-0">
+                {new Date(n.data_matricula + "T00:00").toLocaleDateString("pt-BR")}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {painelAberto === "visitantes" && (
+        <div className="rounded-lg border bg-card divide-y -mt-2">
+          <p className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
+            Visitantes da EBD no mês ({visitantesLista.length})
+          </p>
+          {visitantesLista.length === 0 ? (
+            <p className="px-3 py-3 text-sm text-muted-foreground text-center">Nenhum visitante registrado este mês.</p>
+          ) : visitantesLista.map((v, i) => (
+            <div key={`${v.pessoa_id}-${v.data}-${i}`} className="flex items-center justify-between gap-2 px-3 py-1.5 text-sm">
+              <div className="min-w-0">
+                <p className="truncate">{v.nome_completo}</p>
+                <p className="text-xs text-muted-foreground truncate">{v.classe_nome}</p>
+              </div>
+              <span className="text-xs text-muted-foreground shrink-0">
+                {new Date(v.data + "T00:00").toLocaleDateString("pt-BR")}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {painelAberto === "foraDaEbd" && (
+        <div className="rounded-lg border bg-card divide-y -mt-2">
+          <p className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
+            Fora da EBD, por faixa etária — quem nunca se matriculou e quem está matriculado mas não apareceu este mês
+          </p>
+          {classesComElegiveis.length === 0 ? (
+            <p className="px-3 py-3 text-sm text-muted-foreground text-center">Sem faixas com membros elegíveis.</p>
+          ) : classesComElegiveis.map(c => {
+            const pct = Math.round((c.membrosAusentes.length / c.membrosElegiveis) * 100);
+            const faltando = faltandoPorClasse.get(c.nome) ?? [];
+            return (
+              <div key={c.id} className="px-3 py-2 space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium text-sm truncate">{c.nome}</span>
+                  <span className="text-xs tabular-nums text-muted-foreground shrink-0">
+                    {c.membrosAusentes.length} de {c.membrosElegiveis} nunca matriculados ({pct}%)
+                  </span>
+                </div>
+
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Nunca matriculados</p>
+                  {c.membrosAusentes.length === 0 ? (
+                    <p className="text-xs text-success-text">Todos os membros elegíveis estão matriculados.</p>
+                  ) : (
+                    <div className="space-y-0.5">
+                      {c.membrosAusentes.map(m => (
+                        <div key={m.pessoa_id} className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                          <span className="truncate">{m.nome_completo}</span>
+                          {m.idade !== null && <span className="shrink-0">{m.idade} anos</span>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                    Matriculados, mas não apareceram este mês
+                  </p>
+                  {faltando.length === 0 ? (
+                    <p className="text-xs text-success-text">Nenhum matriculado com 0% de presença este mês.</p>
+                  ) : (
+                    <div className="space-y-0.5">
+                      {faltando.map(f => (
+                        <div key={f.pessoa_id} className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                          <span className="truncate">{f.nome_completo}</span>
+                          <span className="shrink-0">0/{f.oportunidades} aulas</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 

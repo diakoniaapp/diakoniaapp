@@ -163,6 +163,85 @@ export async function todosOsMatriculados(): Promise<AlunoMatriculado[]> {
     .sort((a, b) => a.nome_completo.localeCompare(b.nome_completo, "pt-BR"));
 }
 
+export interface NovaMatricula {
+  pessoa_id: string;
+  nome_completo: string;
+  classe_nome: string;
+  data_matricula: string;
+}
+
+/**
+ * Quem matriculou neste mês, em toda classe ativa — pedido dela: "novos:
+ * moste os novos". `[inicio, fim)` em vez de `EXTRACT` porque o índice de
+ * `data_matricula` (se existir) trabalha melhor com faixa do que com função.
+ */
+export async function novasMatriculasDoMes(ano: number, mes: number): Promise<NovaMatricula[]> {
+  const inicio = `${ano}-${String(mes).padStart(2, "0")}-01`;
+  const fim = new Date(ano, mes, 1).toISOString().slice(0, 10);
+  const { data, error } = await supabase
+    .from("ebd_matriculas")
+    .select("pessoa_id, data_matricula, membros(nome_completo), ebd_classes!inner(nome, ativo)")
+    .eq("ativo", true).eq("ebd_classes.ativo", true)
+    .gte("data_matricula", inicio).lt("data_matricula", fim)
+    .order("data_matricula", { ascending: false });
+  if (error) throw error;
+  return ((data ?? []) as any[]).map(r => ({
+    pessoa_id: r.pessoa_id,
+    nome_completo: r.membros?.nome_completo ?? "—",
+    classe_nome: r.ebd_classes?.nome ?? "—",
+    data_matricula: r.data_matricula,
+  }));
+}
+
+export interface VisitanteEbd {
+  pessoa_id: string;
+  nome_completo: string;
+  classe_nome: string;
+  data: string;
+}
+
+/**
+ * Visitantes presentes em alguma aula deste mês — pedido dela: "visitantes:
+ * mostre os visitantes da ebd". Duas consultas, não uma com embed aninhado
+ * dois níveis (aula → classe): mais simples de ler e de confiar que o
+ * PostgREST resolve certo.
+ */
+export async function visitantesDoMes(ano: number, mes: number): Promise<VisitanteEbd[]> {
+  const inicio = `${ano}-${String(mes).padStart(2, "0")}-01`;
+  const fim = new Date(ano, mes, 1).toISOString().slice(0, 10);
+
+  const { data: aulas, error: e1 } = await supabase
+    .from("ebd_aulas")
+    .select("id, data, ebd_classes!inner(nome, ativo)")
+    .eq("ebd_classes.ativo", true)
+    .gte("data", inicio).lt("data", fim);
+  if (e1) throw e1;
+  const aulaIds = ((aulas ?? []) as any[]).map(a => a.id);
+  if (aulaIds.length === 0) return [];
+  const infoDaAula = new Map(
+    ((aulas ?? []) as any[]).map(a => [a.id, { data: a.data, classe_nome: a.ebd_classes?.nome ?? "—" }]),
+  );
+
+  const { data: pres, error: e2 } = await supabase
+    .from("ebd_presencas")
+    .select("pessoa_id, aula_id, membros(nome_completo)")
+    .in("aula_id", aulaIds)
+    .eq("presente", true).eq("eh_visitante", true);
+  if (e2) throw e2;
+
+  return ((pres ?? []) as any[])
+    .map(r => {
+      const info = infoDaAula.get(r.aula_id);
+      return {
+        pessoa_id: r.pessoa_id,
+        nome_completo: r.membros?.nome_completo ?? "—",
+        classe_nome: info?.classe_nome ?? "—",
+        data: info?.data ?? "",
+      };
+    })
+    .sort((a, b) => b.data.localeCompare(a.data));
+}
+
 export async function carregarClasse(id: string): Promise<EbdClasse | null> {
   const { data } = await supabase
     .from("ebd_classes")
