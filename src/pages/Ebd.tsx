@@ -143,29 +143,34 @@ export default function Ebd() {
       setNovosLista(novos);
       setVisitantesLista(visitantes);
 
-      const enriched: ClasseCard[] = [];
-      for (const c of cs) {
-        const { count: qtdMat } = await supabase
-          .from("ebd_matriculas")
-          .select("id", { count: "exact", head: true })
-          .eq("classe_id", c.id)
-          .eq("ativo", true);
-        const { data: espsRaw } = await supabase.rpc("esperados_da_classe", { p_classe_id: c.id });
-        // Membro + congregado + visitante da EBD (a própria RPC já traz só
-        // essas três) — pedido dela: "volte a considerar MEMBROS +
-        // CONGREGADOS + VISITANTES DA EBD".
-        const esps = (espsRaw as any[] | null) ?? [];
-        enriched.push({
-          ...c,
-          qtd_matriculados: qtdMat ?? 0,
-          qtd_elegiveis: esps.length,
-          pessoasAusentes: esps
-            .filter(e => !e.ja_matriculado && !e.outra_classe_id)
-            .map(e => ({ pessoa_id: e.pessoa_id, nome_completo: e.nome_completo, idade: e.idade })),
-          aulasSemChamada: semChamadaPorClasse.get(c.id) ?? 0,
-          professores: professores.get(c.id) ?? [],
-        });
-      }
+      // Uma classe por vez aqui virava 2×N idas ao banco em série (8
+      // classes = 16 round-trips um atrás do outro). As classes são
+      // independentes entre si — em paralelo.
+      const enriched: ClasseCard[] = await Promise.all(
+        cs.map(async (c): Promise<ClasseCard> => {
+          const [{ count: qtdMat }, { data: espsRaw }] = await Promise.all([
+            supabase.from("ebd_matriculas")
+              .select("id", { count: "exact", head: true })
+              .eq("classe_id", c.id)
+              .eq("ativo", true),
+            supabase.rpc("esperados_da_classe", { p_classe_id: c.id }),
+          ]);
+          // Membro + congregado + visitante da EBD (a própria RPC já traz
+          // só essas três) — pedido dela: "volte a considerar MEMBROS +
+          // CONGREGADOS + VISITANTES DA EBD".
+          const esps = (espsRaw as any[] | null) ?? [];
+          return {
+            ...c,
+            qtd_matriculados: qtdMat ?? 0,
+            qtd_elegiveis: esps.length,
+            pessoasAusentes: esps
+              .filter(e => !e.ja_matriculado && !e.outra_classe_id)
+              .map(e => ({ pessoa_id: e.pessoa_id, nome_completo: e.nome_completo, idade: e.idade })),
+            aulasSemChamada: semChamadaPorClasse.get(c.id) ?? 0,
+            professores: professores.get(c.id) ?? [],
+          };
+        }),
+      );
       setClasses(enriched);
       setGerais({
         matriculados: enriched.reduce((s, c) => s + c.qtd_matriculados, 0),
@@ -363,20 +368,20 @@ export default function Ebd() {
           <Stat
             label="Presença"
             valor={resumoMes?.taxa_presenca != null ? `${resumoMes.taxa_presenca}%` : "—"}
-            highlight compacto
+            highlight compacto ativo={painelAberto === "presenca"}
             onClick={() => setPainelAberto(p => p === "presenca" ? null : "presenca")}
           />
           <Stat
-            label="Novos" valor={gerais?.novosAlunosNoMes ?? "—"} compacto
+            label="Novos" valor={gerais?.novosAlunosNoMes ?? "—"} compacto ativo={painelAberto === "novos"}
             onClick={() => setPainelAberto(p => p === "novos" ? null : "novos")}
           />
           <Stat
-            label="Visitantes" valor={resumoMes?.visitantes ?? "—"} compacto
+            label="Visitantes" valor={resumoMes?.visitantes ?? "—"} compacto ativo={painelAberto === "visitantes"}
             onClick={() => setPainelAberto(p => p === "visitantes" ? null : "visitantes")}
           />
           <Stat label="Adesão" valor={adesao !== null ? `${adesao}%` : "—"} compacto />
           <Stat
-            label="Fora da EBD" valor={foraDaEbd !== null ? `${foraDaEbd}%` : "—"} compacto
+            label="Fora da EBD" valor={foraDaEbd !== null ? `${foraDaEbd}%` : "—"} compacto ativo={painelAberto === "foraDaEbd"}
             onClick={() => setPainelAberto(p => p === "foraDaEbd" ? null : "foraDaEbd")}
           />
         </div>
@@ -791,13 +796,25 @@ export default function Ebd() {
   );
 }
 
-function Stat({ label, valor, highlight, compacto, onClick }: {
-  label: string; valor: number | string; highlight?: boolean; compacto?: boolean; onClick?: () => void;
+function Stat({ label, valor, highlight, compacto, ativo, onClick }: {
+  label: string; valor: number | string; highlight?: boolean; compacto?: boolean; ativo?: boolean; onClick?: () => void;
 }) {
-  const classes = `border rounded-md text-center w-full ${compacto ? "py-1 px-1" : "py-2 px-2"} ${highlight ? "border-gold bg-gold/5" : ""} ${onClick ? "hover:bg-muted transition-colors cursor-pointer" : ""}`;
+  // Achado na revisão: metade destes tiles é clicável (abre um painel) e a
+  // outra metade não (Matriculados, Adesão), mas nada distinguia os dois
+  // além do hover — invisível no celular, onde é usado de verdade. O
+  // ponto no canto é o mesmo sinal de "leva a algo" que `Indicador` já usa
+  // na faixa fixa (lá é uma seta); `ativo` marca qual painel está aberto
+  // agora, senão fica ambíguo qual dos quatro clicáveis gerou a lista
+  // embaixo.
+  const classes = `relative border rounded-md text-center w-full ${compacto ? "py-1 px-1" : "py-2 px-2"} ${
+    ativo ? "border-gold bg-gold/10" : highlight ? "border-gold bg-gold/5" : ""
+  } ${onClick ? "hover:bg-muted transition-colors cursor-pointer" : ""}`;
   const conteudo = (
     <>
-      <p className={`font-semibold tabular-nums ${highlight ? "text-gold" : ""} ${compacto ? "text-sm" : "text-lg"}`}>
+      {onClick && (
+        <span className={`absolute top-1 right-1 w-1.5 h-1.5 rounded-full ${ativo ? "bg-gold" : "bg-muted-foreground/40"}`} />
+      )}
+      <p className={`font-semibold tabular-nums ${highlight || ativo ? "text-gold" : ""} ${compacto ? "text-sm" : "text-lg"}`}>
         {valor}
       </p>
       <p className={`uppercase tracking-wide text-muted-foreground truncate ${compacto ? "text-[9px]" : "text-[10px]"}`}>
