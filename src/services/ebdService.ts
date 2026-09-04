@@ -124,6 +124,43 @@ export async function listarClasses(incluirInativas = false): Promise<EbdClasse[
   return (data ?? []) as EbdClasse[];
 }
 
+export interface AlunoMatriculado {
+  pessoa_id: string;
+  nome_completo: string;
+  data_nascimento: string | null;
+  sexo: string | null;
+  classe_id: string;
+  classe_nome: string;
+}
+
+/**
+ * Todo mundo matriculado em alguma classe ativa — o rol completo do
+ * ministério, não classe por classe. Pedido dela: "todos os matriculados em
+ * classes, devem aparecer no painel da EBD". Uma consulta só; a lista de
+ * aniversariantes do painel é derivada DESTA mesma resposta (filtrar por mês
+ * do que já veio), não uma segunda ida ao banco.
+ */
+export async function todosOsMatriculados(): Promise<AlunoMatriculado[]> {
+  const { data, error } = await supabase
+    .from("ebd_matriculas")
+    .select("pessoa_id, membros(nome_completo, data_nascimento, sexo), ebd_classes!inner(id, nome, ativo)")
+    .eq("ativo", true)
+    .eq("ebd_classes.ativo", true);
+  if (error) throw error;
+
+  return ((data ?? []) as any[])
+    .filter(r => r.membros)
+    .map(r => ({
+      pessoa_id: r.pessoa_id,
+      nome_completo: r.membros.nome_completo,
+      data_nascimento: r.membros.data_nascimento,
+      sexo: r.membros.sexo,
+      classe_id: r.ebd_classes.id,
+      classe_nome: r.ebd_classes.nome,
+    }))
+    .sort((a, b) => a.nome_completo.localeCompare(b.nome_completo, "pt-BR"));
+}
+
 export async function carregarClasse(id: string): Promise<EbdClasse | null> {
   const { data } = await supabase
     .from("ebd_classes")
