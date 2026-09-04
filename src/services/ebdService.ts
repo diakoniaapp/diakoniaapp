@@ -171,13 +171,14 @@ export interface NovaMatricula {
 }
 
 /**
- * Quem matriculou neste mês, em toda classe ativa — pedido dela: "novos:
- * moste os novos". `[inicio, fim)` em vez de `EXTRACT` porque o índice de
- * `data_matricula` (se existir) trabalha melhor com faixa do que com função.
+ * Quem matriculou no período `[inicio, fim)`, em toda classe ativa — pedido
+ * dela: "novos: moste os novos". Faixa em vez de `EXTRACT` porque o índice
+ * de `data_matricula` (se existir) trabalha melhor com faixa do que com
+ * função. Recebe o intervalo já pronto (não `ano`/`mes`) desde que o
+ * relatório geral (`EbdRelatorioMensalGeral.tsx`) passou a aceitar
+ * semana/mês/ano — quem calcula a faixa é o chamador.
  */
-export async function novasMatriculasDoMes(ano: number, mes: number): Promise<NovaMatricula[]> {
-  const inicio = `${ano}-${String(mes).padStart(2, "0")}-01`;
-  const fim = new Date(ano, mes, 1).toISOString().slice(0, 10);
+export async function novasMatriculasDoMes(inicio: string, fim: string): Promise<NovaMatricula[]> {
   const { data, error } = await supabase
     .from("ebd_matriculas")
     .select("pessoa_id, data_matricula, membros(nome_completo), ebd_classes!inner(nome, ativo)")

@@ -91,13 +91,17 @@ export async function ebdAlunosAusentes(limite = 12): Promise<EbdAlunoAusente[]>
   return ((data as any[]) ?? []) as EbdAlunoAusente[];
 }
 
-// ─── Relatório mensal consolidado — todas as classes ────────────────────────
+// ─── Relatório geral — todas as classes, período livre ──────────────────────
 //
 // Pedido dela: "crie relatório mensal para todas as classes, que conversa
-// com o painel pastoral". O relatório mensal por classe (ebdService.ts) já
-// existia; este soma todas as classes ativas de uma vez, pra quem lidera o
-// ministério. Mesmas duas regras de sempre: aula sem chamada não conta como
-// "todos faltaram", e professor não conta como aluno matriculado.
+// com o painel pastoral", depois ampliado pra "transforme a que já existe
+// num seletor de período (semana/mês/ano)". As duas RPCs recebiam
+// `(p_ano, p_mes)` — migration 20260904300000 trocou por `(p_inicio, p_fim)`,
+// intervalo meio-aberto `[inicio, fim)`, pra atender semana/mês/ano com o
+// mesmo par de funções. Quem calcula o intervalo é o chamador (`EbdRelatorio
+// MensalGeral.tsx`). Mesmas três regras de sempre: aula sem chamada não
+// conta como "todos faltaram"; professor não conta como aluno matriculado;
+// a oportunidade de presença é matriculados × aulas-com-chamada, POR CLASSE.
 
 export interface RelatorioMensalGeralResumo {
   classes_ativas: number;
@@ -107,7 +111,7 @@ export interface RelatorioMensalGeralResumo {
   presentes: number;
   ausentes: number;
   visitantes: number;
-  /** Nulo quando não há nenhuma oportunidade de presença no mês. */
+  /** Nulo quando não há nenhuma oportunidade de presença no período. */
   taxa_presenca: number | null;
 }
 
@@ -122,14 +126,14 @@ export interface FrequenciaClasse {
   taxa: number | null;
 }
 
-export async function relatorioMensalGeralResumo(ano: number, mes: number): Promise<RelatorioMensalGeralResumo | null> {
-  const { data, error } = await supabase.rpc("ebd_relatorio_mensal_geral_resumo" as any, { p_ano: ano, p_mes: mes });
+export async function relatorioGeralResumo(inicio: string, fim: string): Promise<RelatorioMensalGeralResumo | null> {
+  const { data, error } = await supabase.rpc("ebd_relatorio_geral_resumo" as any, { p_inicio: inicio, p_fim: fim });
   if (error) throw error;
   return ((data as any[]) ?? [])[0] ?? null;
 }
 
-export async function relatorioMensalGeralPorClasse(ano: number, mes: number): Promise<FrequenciaClasse[]> {
-  const { data, error } = await supabase.rpc("ebd_relatorio_mensal_geral_por_classe" as any, { p_ano: ano, p_mes: mes });
+export async function relatorioGeralPorClasse(inicio: string, fim: string): Promise<FrequenciaClasse[]> {
+  const { data, error } = await supabase.rpc("ebd_relatorio_geral_por_classe" as any, { p_inicio: inicio, p_fim: fim });
   if (error) throw error;
   return ((data as any[]) ?? []) as FrequenciaClasse[];
 }

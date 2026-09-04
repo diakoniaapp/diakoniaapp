@@ -1,11 +1,18 @@
-// ─── EbdRelatorioMensalGeral.tsx — o mês inteiro, todas as classes ─────────
+// ─── EbdRelatorioMensalGeral.tsx — todas as classes, período livre ─────────
 //
 // Segunda peça do pedido dela: "crie relatório mensal para todas as
 // classes, que conversa com o painel pastoral". O relatório mensal por
 // classe (EbdClasseRelatorioMensal.tsx) já existia; este soma o ministério
 // inteiro. Alcançável de dentro do Painel Pastoral, em
 // PainelAcompanhamentoEbd.tsx — a EBD já mora lá, este relatório só dá a
-// ela uma versão imprimível/compartilhável do mês.
+// ela uma versão imprimível/compartilhável do período.
+//
+// Ampliado depois: "transforme a que já existe num seletor de período
+// (semana/mês/ano) no lugar do campo de mês que já tem lá e traga todos os
+// indicadores pensados". Como EBD só acontece aos domingos, "semana" aqui
+// sempre cai numa faixa de 7 dias que contém no máximo UM domingo — o
+// intervalo é semana ISO (segunda a domingo), calculado a partir de
+// `<input type="week">`.
 //
 // Mesmas regras de sempre: aula sem chamada não conta como "todos
 // faltaram"; professor não conta como aluno matriculado na frequência.
@@ -19,9 +26,10 @@ import { ArrowLeft, Printer, MessageCircle, GraduationCap } from "lucide-react";
 import { toast } from "sonner";
 import logoDiakonia from "@/assets/logo-diakonia.png";
 import {
-  relatorioMensalGeralResumo, relatorioMensalGeralPorClasse,
+  relatorioGeralResumo, relatorioGeralPorClasse,
   type RelatorioMensalGeralResumo, type FrequenciaClasse,
 } from "@/services/ebdPainelService";
+import { novasMatriculasDoMes } from "@/services/ebdService";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { PaginaSkeleton } from "@/components/ListState";
@@ -31,12 +39,96 @@ const MESES = [
   "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
 ];
 
+type Periodo = "semana" | "mes" | "ano";
+
 function mesAtualISO(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-/** Verde ≥75%, âmbar 50–74%, vermelho <50%. Nulo (sem chamada no mês) fica neutro. */
+/** `YYYY-Www` da semana ISO (segunda a domingo) que contém `data`. */
+function semanaIsoDe(data: Date): string {
+  const d = new Date(Date.UTC(data.getFullYear(), data.getMonth(), data.getDate()));
+  const diaDaSemana = d.getUTCDay() || 7; // Segunda=1 ... Domingo=7
+  d.setUTCDate(d.getUTCDate() + 4 - diaDaSemana); // quinta-feira desta semana
+  const anoIso = d.getUTCFullYear();
+  const inicioDoAno = new Date(Date.UTC(anoIso, 0, 1));
+  const semana = Math.ceil(((d.getTime() - inicioDoAno.getTime()) / 86400000 + 1) / 7);
+  return `${anoIso}-W${String(semana).padStart(2, "0")}`;
+}
+
+function formatarISO(d: Date): string {
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+}
+
+/** A segunda-feira (00:00 UTC) da semana ISO `YYYY-Www`. */
+function segundaDaSemanaIso(semanaIso: string): Date {
+  const [anoStr, wStr] = semanaIso.split("-W");
+  const anoIso = Number(anoStr);
+  const semana = Number(wStr);
+  const jan4 = new Date(Date.UTC(anoIso, 0, 4));
+  const jan4Dow = jan4.getUTCDay() || 7;
+  const segundaDaSemana1 = new Date(jan4);
+  segundaDaSemana1.setUTCDate(jan4.getUTCDate() - jan4Dow + 1);
+  const segunda = new Date(segundaDaSemana1);
+  segunda.setUTCDate(segundaDaSemana1.getUTCDate() + (semana - 1) * 7);
+  return segunda;
+}
+
+function formatarDiaMes(iso: string): string {
+  const [, m, d] = iso.split("-");
+  return `${d}/${m}`;
+}
+
+interface Intervalo { inicio: string; fim: string }
+
+function calcularIntervalo(periodo: Periodo, semanaIso: string, mesIso: string, anoNum: number): Intervalo {
+  if (periodo === "semana") {
+    const segunda = segundaDaSemanaIso(semanaIso);
+    const domingoSeguinte = new Date(segunda);
+    domingoSeguinte.setUTCDate(segunda.getUTCDate() + 7);
+    return { inicio: formatarISO(segunda), fim: formatarISO(domingoSeguinte) };
+  }
+  if (periodo === "ano") {
+    return { inicio: `${anoNum}-01-01`, fim: `${anoNum + 1}-01-01` };
+  }
+  const [ano, mes] = mesIso.split("-").map(Number);
+  const fim = mes === 12 ? `${ano + 1}-01-01` : `${ano}-${String(mes + 1).padStart(2, "0")}-01`;
+  return { inicio: `${ano}-${String(mes).padStart(2, "0")}-01`, fim };
+}
+
+/** Mesmo tipo de período, imediatamente anterior — para o comparativo de presença. */
+function calcularIntervaloAnterior(periodo: Periodo, semanaIso: string, mesIso: string, anoNum: number): Intervalo {
+  if (periodo === "semana") {
+    const segunda = segundaDaSemanaIso(semanaIso);
+    const segundaAnterior = new Date(segunda);
+    segundaAnterior.setUTCDate(segunda.getUTCDate() - 7);
+    return { inicio: formatarISO(segundaAnterior), fim: formatarISO(segunda) };
+  }
+  if (periodo === "ano") {
+    return { inicio: `${anoNum - 1}-01-01`, fim: `${anoNum}-01-01` };
+  }
+  const [ano, mes] = mesIso.split("-").map(Number);
+  const mesAnterior = mes === 1 ? 12 : mes - 1;
+  const anoDoMesAnterior = mes === 1 ? ano - 1 : ano;
+  return {
+    inicio: `${anoDoMesAnterior}-${String(mesAnterior).padStart(2, "0")}-01`,
+    fim: `${ano}-${String(mes).padStart(2, "0")}-01`,
+  };
+}
+
+function rotuloDoPeriodo(periodo: Periodo, intervalo: Intervalo, anoNum: number): string {
+  if (periodo === "semana") {
+    const domingo = new Date(intervalo.fim + "T00:00:00Z");
+    domingo.setUTCDate(domingo.getUTCDate() - 1);
+    return `Semana de ${formatarDiaMes(intervalo.inicio)} a ${formatarDiaMes(formatarISO(domingo))}/${domingo.getUTCFullYear()}`;
+  }
+  if (periodo === "ano") return `Ano de ${anoNum}`;
+  const [ano, mes] = intervalo.inicio.split("-").map(Number);
+  return `${MESES[mes - 1]} de ${ano}`;
+}
+
+/** Verde ≥75%, âmbar 50–74%, vermelho <50%. Nulo (sem chamada no período) fica neutro. */
 function corDaTaxa(taxa: number | null): string {
   if (taxa === null) return "text-muted-foreground";
   if (taxa >= 75) return "text-success-text";
@@ -44,27 +136,48 @@ function corDaTaxa(taxa: number | null): string {
   return "text-destructive-text";
 }
 
+function textoDelta(atual: number | null, anterior: number | null): string | undefined {
+  if (atual === null || anterior === null) return undefined;
+  const delta = Math.round((atual - anterior) * 10) / 10;
+  if (delta === 0) return "= que o período anterior";
+  return delta > 0 ? `↑ ${delta} pts vs. período anterior` : `↓ ${Math.abs(delta)} pts vs. período anterior`;
+}
+
 export default function EbdRelatorioMensalGeral() {
   const { user } = useAuth();
   const [params] = useSearchParams();
+  const [periodo, setPeriodo] = useState<Periodo>("mes");
+  const [semanaIso, setSemanaIso] = useState(semanaIsoDe(new Date()));
   const [mesIso, setMesIso] = useState(params.get("mes") || mesAtualISO());
+  const [anoNum, setAnoNum] = useState(new Date().getFullYear());
   const [resumo, setResumo] = useState<RelatorioMensalGeralResumo | null>(null);
   const [porClasse, setPorClasse] = useState<FrequenciaClasse[]>([]);
+  const [taxaAnterior, setTaxaAnterior] = useState<number | null>(null);
+  const [novosNoPeriodo, setNovosNoPeriodo] = useState(0);
   const [loading, setLoading] = useState(true);
   const [emitidoPor, setEmitidoPor] = useState("");
 
-  const [ano, mes] = useMemo(() => mesIso.split("-").map(Number), [mesIso]);
+  const intervalo = useMemo(
+    () => calcularIntervalo(periodo, semanaIso, mesIso, anoNum),
+    [periodo, semanaIso, mesIso, anoNum],
+  );
+  const rotulo = useMemo(() => rotuloDoPeriodo(periodo, intervalo, anoNum), [periodo, intervalo, anoNum]);
 
   useEffect(() => {
     (async () => {
       setLoading(true);
       try {
-        const [r, c] = await Promise.all([
-          relatorioMensalGeralResumo(ano, mes),
-          relatorioMensalGeralPorClasse(ano, mes),
+        const anterior = calcularIntervaloAnterior(periodo, semanaIso, mesIso, anoNum);
+        const [r, c, resumoAnterior, novos] = await Promise.all([
+          relatorioGeralResumo(intervalo.inicio, intervalo.fim),
+          relatorioGeralPorClasse(intervalo.inicio, intervalo.fim),
+          relatorioGeralResumo(anterior.inicio, anterior.fim).catch(() => null),
+          novasMatriculasDoMes(intervalo.inicio, intervalo.fim).catch(() => []),
         ]);
         setResumo(r);
         setPorClasse(c);
+        setTaxaAnterior(resumoAnterior?.taxa_presenca ?? null);
+        setNovosNoPeriodo(novos.length);
 
         if (user) {
           const { data: prof } = await supabase
@@ -75,19 +188,24 @@ export default function EbdRelatorioMensalGeral() {
         toast.error(e?.message ?? "Erro");
       } finally { setLoading(false); }
     })();
-  }, [ano, mes, user]);
+  }, [intervalo.inicio, intervalo.fim, periodo, semanaIso, mesIso, anoNum, user]);
 
   function montarMensagemWhatsApp(): string {
     if (!resumo) return "";
     const l: string[] = [];
     l.push(`📖 *EBD — todas as classes*`);
-    l.push(`📅 ${MESES[mes - 1]} de ${ano}`);
+    l.push(`📅 ${rotulo}`);
     l.push("");
     l.push(`🏫 *Classes ativas:* ${resumo.classes_ativas}`);
     l.push(`👥 *Matriculados:* ${resumo.matriculados}`);
     l.push(`📋 *Aulas com chamada:* ${resumo.aulas_com_chamada} de ${resumo.aulas_total}`);
-    if (resumo.taxa_presenca !== null) l.push(`📊 *Presença média geral:* ${resumo.taxa_presenca}%`);
-    if (resumo.visitantes > 0) l.push(`🌱 *Visitantes no mês:* ${resumo.visitantes}`);
+    if (resumo.taxa_presenca !== null) {
+      const delta = textoDelta(resumo.taxa_presenca, taxaAnterior);
+      l.push(`📊 *Presença média:* ${resumo.taxa_presenca}%${delta ? ` (${delta})` : ""}`);
+    }
+    l.push(`🙋 *Ausentes:* ${resumo.ausentes}`);
+    if (resumo.visitantes > 0) l.push(`🌱 *Visitantes:* ${resumo.visitantes}`);
+    if (novosNoPeriodo > 0) l.push(`✨ *Novos alunos:* ${novosNoPeriodo}`);
     l.push("");
     const comChamada = porClasse.filter(c => c.taxa !== null);
     if (comChamada.length > 0) {
@@ -118,7 +236,8 @@ export default function EbdRelatorioMensalGeral() {
 
   const hoje = new Date().toLocaleDateString("pt-BR");
   const horaHoje = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-  const semAulaNoMes = !resumo || resumo.aulas_total === 0;
+  const semAulaNoPeriodo = !resumo || resumo.aulas_total === 0;
+  const deltaPresenca = resumo ? textoDelta(resumo.taxa_presenca, taxaAnterior) : undefined;
 
   return (
     <div className="bg-background min-h-screen">
@@ -147,10 +266,41 @@ export default function EbdRelatorioMensalGeral() {
               <ArrowLeft className="w-3.5 h-3.5" /> Voltar
             </Link>
           </Button>
-          <div className="flex items-center gap-1.5 ml-2">
-            <Label className="text-xs text-muted-foreground shrink-0">Mês</Label>
-            <Input type="month" value={mesIso} onChange={(e) => setMesIso(e.target.value)} className="h-8 w-auto" />
+
+          <div className="flex items-center gap-1 ml-2 border rounded-md p-0.5">
+            {(["semana", "mes", "ano"] as const).map(p => (
+              <Button
+                key={p}
+                type="button"
+                size="sm"
+                variant={periodo === p ? "default" : "ghost"}
+                className={`h-7 px-2.5 text-xs ${periodo === p ? "" : "text-muted-foreground"}`}
+                onClick={() => setPeriodo(p)}
+              >
+                {p === "semana" ? "Semana" : p === "mes" ? "Mês" : "Ano"}
+              </Button>
+            ))}
           </div>
+
+          <div className="flex items-center gap-1.5">
+            {periodo === "semana" && (
+              <Input type="week" value={semanaIso} onChange={(e) => setSemanaIso(e.target.value)} className="h-8 w-auto" />
+            )}
+            {periodo === "mes" && (
+              <Input type="month" value={mesIso} onChange={(e) => setMesIso(e.target.value)} className="h-8 w-auto" />
+            )}
+            {periodo === "ano" && (
+              <Input
+                type="number"
+                value={anoNum}
+                onChange={(e) => setAnoNum(Number(e.target.value) || anoNum)}
+                className="h-8 w-20"
+                min={2020}
+                max={new Date().getFullYear() + 1}
+              />
+            )}
+          </div>
+
           <div className="flex items-center gap-1 ml-auto flex-wrap">
             <Button onClick={copiarTexto} size="sm" variant="outline" className="gap-1.5">
               📋 Copiar
@@ -192,20 +342,20 @@ export default function EbdRelatorioMensalGeral() {
         </header>
 
         <div className="text-center my-6 avoid-break">
-          <p className="text-xs tracking-[0.25em] uppercase text-gold">Relatório Mensal — Escola Bíblica Dominical</p>
+          <p className="text-xs tracking-[0.25em] uppercase text-gold">Relatório Geral — Escola Bíblica Dominical</p>
           <h1 className="font-serif text-3xl mt-2 flex items-center justify-center gap-2">
             <GraduationCap className="w-7 h-7 text-gold" /> Todas as classes
           </h1>
-          <p className="text-sm text-muted-foreground mt-1 capitalize">{MESES[mes - 1]} de {ano}</p>
+          <p className="text-sm text-muted-foreground mt-1">{rotulo}</p>
         </div>
 
-        {semAulaNoMes ? (
+        {semAulaNoPeriodo ? (
           <p className="text-sm text-muted-foreground text-center py-10 avoid-break">
-            Nenhuma aula registrada neste mês, em nenhuma classe.
+            Nenhuma aula registrada neste período, em nenhuma classe.
           </p>
         ) : (
           <>
-            <section className="avoid-break grid grid-cols-2 md:grid-cols-5 gap-2 mb-6 text-center">
+            <section className="avoid-break grid grid-cols-2 md:grid-cols-4 gap-2 mb-6 text-center">
               <Stat label="Classes ativas" valor={resumo!.classes_ativas} />
               <Stat label="Matriculados" valor={resumo!.matriculados} />
               <Stat
@@ -215,14 +365,17 @@ export default function EbdRelatorioMensalGeral() {
               <Stat
                 label="Presença média"
                 valor={resumo!.taxa_presenca !== null ? `${resumo!.taxa_presenca}%` : "—"}
+                sub={deltaPresenca}
                 highlight
               />
+              <Stat label="Ausentes" valor={resumo!.ausentes} />
               <Stat label="Visitantes" valor={resumo!.visitantes} />
+              <Stat label="Novos alunos" valor={novosNoPeriodo} />
             </section>
 
             {resumo!.aulas_com_chamada < resumo!.aulas_total && (
               <p className="text-xs text-muted-foreground text-center mb-6 avoid-break">
-                {resumo!.aulas_total - resumo!.aulas_com_chamada} aula(s) do mês ainda sem chamada
+                {resumo!.aulas_total - resumo!.aulas_com_chamada} aula(s) do período ainda sem chamada
                 registrada, em uma ou mais classes — não entram no cálculo da presença média.
               </p>
             )}
@@ -260,11 +413,12 @@ export default function EbdRelatorioMensalGeral() {
   );
 }
 
-function Stat({ label, valor, highlight }: { label: string; valor: number | string; highlight?: boolean }) {
+function Stat({ label, valor, sub, highlight }: { label: string; valor: number | string; sub?: string; highlight?: boolean }) {
   return (
     <div className={`border rounded-md py-2 px-2 ${highlight ? "border-gold bg-gold/5" : ""}`}>
       <p className={`font-semibold tabular-nums ${highlight ? "text-2xl text-gold" : "text-xl"}`}>{valor}</p>
       <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
+      {sub && <p className="text-[10px] text-muted-foreground mt-0.5">{sub}</p>}
     </div>
   );
 }

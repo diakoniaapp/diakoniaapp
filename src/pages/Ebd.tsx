@@ -38,7 +38,7 @@ import {
   type NovaMatricula, type VisitanteEbd, type FrequenciaAluno,
 } from "@/services/ebdService";
 import { formatarTelefoneSemDDI } from "@/lib/telefone";
-import { ebdPorClasse, relatorioMensalGeralResumo, type EbdClasseLinha, type RelatorioMensalGeralResumo } from "@/services/ebdPainelService";
+import { ebdPorClasse, relatorioGeralResumo, type EbdClasseLinha, type RelatorioMensalGeralResumo } from "@/services/ebdPainelService";
 import { ClasseForm } from "@/components/ebd/ClasseForm";
 import { useAuth } from "@/hooks/useAuth";
 import { PaginaSkeleton } from "@/components/ListState";
@@ -123,13 +123,15 @@ export default function Ebd() {
       const hoje = new Date();
       const ano = hoje.getFullYear();
       const mes = hoje.getMonth() + 1;
+      const inicioDoMes = `${ano}-${String(mes).padStart(2, "0")}-01`;
+      const fimDoMes = new Date(ano, mes, 1).toISOString().slice(0, 10);
 
       const [cs, porClasse, professores, mat, resumo, populacaoAdesao, novos, visitantes] = await Promise.all([
         listarClasses(mostrarInativas),
         ebdPorClasse().catch((): EbdClasseLinha[] => []),
         professoresPorClasse().catch(() => new Map<string, EbdProfessor[]>()),
         todosOsMatriculados().catch(() => []),
-        relatorioMensalGeralResumo(ano, mes).catch(() => null),
+        relatorioGeralResumo(inicioDoMes, fimDoMes).catch(() => null),
         // "Adesão não deveria medir MEMBROS + CONGREGADOS + VISITANTES?" —
         // ela tinha razão: o numerador (matriculados, todo mundo que
         // "esperados_da_classe" aceita — membro/congregado/visitante da
@@ -157,7 +159,7 @@ export default function Ebd() {
         // "Novos: moste os novos" e "Visitantes: mostre os visitantes da
         // ebd" — as listas já vêm prontas; a contagem é só o tamanho delas,
         // não uma consulta à parte.
-        novasMatriculasDoMes(ano, mes).catch((): NovaMatricula[] => []),
+        novasMatriculasDoMes(inicioDoMes, fimDoMes).catch((): NovaMatricula[] => []),
         visitantesDoMes(ano, mes).catch((): VisitanteEbd[] => []),
       ]);
       const semChamadaPorClasse = new Map<string, number>(
