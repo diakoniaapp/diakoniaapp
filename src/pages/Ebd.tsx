@@ -217,18 +217,6 @@ export default function Ebd() {
     ? Math.round((gerais.matriculados / gerais.membrosAtivos) * 100)
     : null;
 
-  // "Fora da EBD": de quem CABE numa classe pela idade (só MEMBRO — pedido
-  // dela em "liste os nomes, classificados pela faixa etária" fala de
-  // membros, mesmo padrão de Adesão), quantos ainda não estão matriculados
-  // em NENHUMA. Soma por classe porque as faixas etárias não se sobrepõem
-  // (Berçário 0-3, Crianças 3-8... ver ORDEM_PRIMEIRA_CLASSE_ADULTA em
-  // ebdService.ts): cada pessoa elegível cai em no máximo uma classe.
-  const foraDaEbd = useMemo(() => {
-    const elegiveis = classes.reduce((s, c) => s + c.membrosElegiveis, 0);
-    const ausentes = classes.reduce((s, c) => s + c.membrosAusentes.length, 0);
-    return elegiveis > 0 ? Math.round((ausentes / elegiveis) * 100) : null;
-  }, [classes]);
-
   // Classes com pelo menos um membro elegível — base do painel "fora da
   // EBD" por faixa etária (clique no indicador).
   const classesComElegiveis = useMemo(
@@ -252,6 +240,25 @@ export default function Ebd() {
     }
     return mapa;
   }, [frequenciaAlunos]);
+
+  // "Fora da EBD": de quem CABE numa classe pela idade (só MEMBRO — pedido
+  // dela em "liste os nomes, classificados pela faixa etária" fala de
+  // membros, mesmo padrão de Adesão). Pedido dela em cima do painel: "em
+  // colunas: elegíveis - matriculados = % de ausentes (soma das
+  // ausências)" — ausente aqui é as DUAS coisas somadas: quem nunca se
+  // matriculou em classe nenhuma E quem está matriculado nesta classe mas
+  // não apareceu a nenhuma aula com chamada no mês. Soma por classe
+  // porque as faixas etárias não se sobrepõem (Berçário 0-3, Crianças
+  // 3-8... ver ORDEM_PRIMEIRA_CLASSE_ADULTA em ebdService.ts): cada
+  // pessoa elegível cai em no máximo uma classe.
+  const foraDaEbd = useMemo(() => {
+    const elegiveis = classes.reduce((s, c) => s + c.membrosElegiveis, 0);
+    const ausentes = classes.reduce(
+      (s, c) => s + c.membrosAusentes.length + (faltandoPorClasse.get(c.nome)?.length ?? 0),
+      0,
+    );
+    return elegiveis > 0 ? Math.round((ausentes / elegiveis) * 100) : null;
+  }, [classes, faltandoPorClasse]);
 
   const aniversariantes = useMemo(() => {
     const mesAtual = new Date().getMonth();
@@ -379,8 +386,9 @@ export default function Ebd() {
       <p className="text-xs text-muted-foreground -mt-3">
         <strong>Adesão</strong>: {gerais?.matriculados ?? 0} de {gerais?.membrosAtivos ?? 0} membros ativos da
         igreja estão numa classe.{" "}
-        <strong>Fora da EBD</strong>: de quem cabe na faixa etária de alguma classe (membros), quantos ainda não
-        foram matriculados em nenhuma. Clique em Presença, Novos, Visitantes ou Fora da EBD para ver o detalhe.
+        <strong>Fora da EBD</strong>: de quem cabe na faixa etária de alguma classe (membros), quantos nunca se
+        matricularam ou estão matriculados mas não apareceram este mês. Clique em Presença, Novos, Visitantes ou
+        Fora da EBD para ver o detalhe.
       </p>
 
       {/* Pedido dela: "coloque link para os indicadores" — cada painel abre
@@ -458,40 +466,58 @@ export default function Ebd() {
       {painelAberto === "foraDaEbd" && (
         <div className="rounded-lg border bg-card divide-y -mt-2">
           <p className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
-            Fora da EBD, por faixa etária — da mais nova para a mais velha. Clique numa classe para ver os nomes.
+            Fora da EBD, por faixa etária — da mais nova para a mais velha. Ausentes = nunca se matriculou + está
+            matriculado mas não apareceu este mês. Clique numa classe para ver os nomes.
           </p>
           {classesComElegiveis.length === 0 ? (
             <p className="px-3 py-3 text-sm text-muted-foreground text-center">Sem faixas com membros elegíveis.</p>
           ) : classesComElegiveis.map(c => {
-            const pct = Math.round((c.membrosAusentes.length / c.membrosElegiveis) * 100);
             const faltando = faltandoPorClasse.get(c.nome) ?? [];
+            // "elegíveis - matriculados = % de ausentes (soma das
+            // ausências)" — pedido dela, em cima do painel: as colunas
+            // fecham a conta em vez de deixar a subtração implícita.
+            const ausentesTotal = c.membrosAusentes.length + faltando.length;
+            const matriculadosEfetivos = c.membrosElegiveis - ausentesTotal;
+            const pct = Math.round((ausentesTotal / c.membrosElegiveis) * 100);
             const aberto = classesForaDaEbdAbertas.has(c.id);
             return (
               <div key={c.id}>
                 <button
                   type="button"
                   onClick={() => alternarClasseForaDaEbd(c.id)}
-                  className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left hover:bg-muted/40 transition-colors"
+                  className="w-full px-3 py-2 space-y-1.5 text-left hover:bg-muted/40 transition-colors"
                 >
-                  <span className="min-w-0">
-                    <span className="font-medium text-sm truncate block">{c.nome}</span>
-                    <span className="text-xs text-muted-foreground">{faixaTexto(c)}</span>
+                  <span className="flex items-center justify-between gap-2">
+                    <span className="min-w-0">
+                      <span className="font-medium text-sm truncate block">{c.nome}</span>
+                      <span className="text-xs text-muted-foreground">{faixaTexto(c)}</span>
+                    </span>
+                    <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform shrink-0 ${aberto ? "rotate-180" : ""}`} />
                   </span>
-                  <span className="flex items-center gap-2 shrink-0">
-                    {faltando.length > 0 && (
-                      <span className="text-[10px] text-warning-text">
-                        +{faltando.length} sem aparecer
+                  <span className="grid grid-cols-3 gap-1 text-center">
+                    <span className="block">
+                      <span className="block text-sm font-semibold tabular-nums">{c.membrosElegiveis}</span>
+                      <span className="block text-[9px] uppercase tracking-wide text-muted-foreground">Elegíveis</span>
+                    </span>
+                    <span className="block">
+                      <span className="block text-sm font-semibold tabular-nums">{matriculadosEfetivos}</span>
+                      <span className="block text-[9px] uppercase tracking-wide text-muted-foreground">Matriculados</span>
+                    </span>
+                    <span className="block">
+                      <span className="block text-sm font-semibold tabular-nums text-warning-text">{pct}%</span>
+                      <span className="block text-[9px] uppercase tracking-wide text-muted-foreground">
+                        Ausentes ({ausentesTotal})
                       </span>
-                    )}
-                    <span className="text-sm font-semibold tabular-nums">{pct}%</span>
-                    <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${aberto ? "rotate-180" : ""}`} />
+                    </span>
                   </span>
                 </button>
 
                 {aberto && (
                   <div className="px-3 pb-3 space-y-2 border-t pt-2 bg-muted/20">
                     <p className="text-xs text-muted-foreground">
-                      {c.membrosAusentes.length} de {c.membrosElegiveis} membros elegíveis nunca se matricularam ({pct}%).
+                      {c.membrosElegiveis} elegíveis − {matriculadosEfetivos} matriculados de verdade ={" "}
+                      {ausentesTotal} ausentes ({pct}%): {c.membrosAusentes.length} nunca se matricularam
+                      {faltando.length > 0 && <> e {faltando.length} estão matriculados mas não apareceram este mês</>}.
                     </p>
                     <div>
                       <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Nunca matriculados</p>
