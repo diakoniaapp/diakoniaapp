@@ -35,8 +35,11 @@ import { toast } from "sonner";
 import {
   pessoasDaArea, criarPessoa, atualizarPessoa, fichasDaPessoa, salvarFicha,
   SITUACOES_MORADIA, SEXOS, ESTADOS_CIVIS, BENEFICIOS_FEDERAIS,
+  TIPOS_DEFICIENCIA, FAIXAS_TEMPO_TRABALHO, SETORES_DE_OCUPACAO, FONTES_DE_SUSTENTO,
+  NECESSIDADES, ESCOLARIDADES, PARENTESCOS, NACIONALIDADES, MOTIVOS_ENCERRAMENTO,
   rotuloMoradia, rotuloSexo, rotuloEstadoCivil,
   pessoasNaCasa, rendaPerCapita, carregarLimitesPerCapita, classificarPerCapita, ROTULO_CLASSIFICACAO,
+  encerrarVinculo,
   type PessoaAssistida, type FichaSocioeconomica, type DadosFicha, type Endereco, type Familiar,
   type LimitesPerCapita,
 } from "@/services/diaconiaService";
@@ -56,6 +59,38 @@ function enderecoResumido(p: Endereco): string | null {
 
 function formatarReais(v: number): string {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+/**
+ * Uma lista suspensa que sabe abrir "Outro" com campo próprio.
+ *
+ * Pedido dela: "não use campos de escrita livre, trabalhe sempre com
+ * listas, para que possamos aferir corretamente... ao final, deixe as
+ * informações adicionais para textos livres." `valor` é sempre a resposta
+ * final — uma das opções, ou o texto de "Outro" — não duas variáveis que o
+ * chamador precisa reconciliar.
+ */
+function SelectOuOutro({ opcoes, valor, onChange, placeholder = "Selecione" }: {
+  opcoes: readonly string[]; valor: string; onChange: (v: string) => void; placeholder?: string;
+}) {
+  const [modoOutro, setModoOutro] = useState(() => valor !== "" && !opcoes.includes(valor));
+  const selecionado = modoOutro ? "Outro" : valor;
+  return (
+    <div className="space-y-1.5">
+      <Select value={selecionado || undefined} onValueChange={v => {
+        if (v === "Outro") { setModoOutro(true); onChange(""); }
+        else { setModoOutro(false); onChange(v); }
+      }}>
+        <SelectTrigger className="h-8 text-sm"><SelectValue placeholder={placeholder} /></SelectTrigger>
+        <SelectContent>
+          {opcoes.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+        </SelectContent>
+      </Select>
+      {modoOutro && (
+        <Input placeholder="Qual?" value={valor} onChange={e => onChange(e.target.value)} className="h-8 text-sm" />
+      )}
+    </div>
+  );
 }
 
 /**
@@ -313,20 +348,20 @@ function EditarDados({ pessoa, onSalvou, onCancelar }: {
       <div className="grid grid-cols-2 gap-2">
         <div>
           <Label className="text-xs">Nacionalidade</Label>
-          <Input value={nacionalidade} onChange={e => setNacionalidade(e.target.value)} className="h-8 text-sm" />
+          <SelectOuOutro opcoes={NACIONALIDADES} valor={nacionalidade} onChange={setNacionalidade} />
         </div>
         <div>
-          <Label className="text-xs">Naturalidade</Label>
+          <Label className="text-xs">Naturalidade (cidade)</Label>
           <Input value={naturalidade} onChange={e => setNaturalidade(e.target.value)} className="h-8 text-sm" />
         </div>
       </div>
       <div>
         <Label className="text-xs">Profissão</Label>
-        <Input value={profissao} onChange={e => setProfissao(e.target.value)} className="h-8 text-sm" />
+        <SelectOuOutro opcoes={SETORES_DE_OCUPACAO} valor={profissao} onChange={setProfissao} />
       </div>
       <div>
         <Label className="text-xs">Escolaridade</Label>
-        <Input value={escolaridade} onChange={e => setEscolaridade(e.target.value)} className="h-8 text-sm" />
+        <SelectOuOutro opcoes={ESCOLARIDADES} valor={escolaridade} onChange={setEscolaridade} />
       </div>
 
       <div className="flex gap-2 justify-end pt-1">
@@ -338,12 +373,13 @@ function EditarDados({ pessoa, onSalvou, onCancelar }: {
 }
 
 function FichaDaPessoa({ pessoa, onAtualizou, limites }: {
-  pessoa: PessoaAssistida; onAtualizou: () => void; limites: LimitesPerCapita | null;
+  pessoa: PessoaAssistida & { vinculo_id: string }; onAtualizou: () => void; limites: LimitesPerCapita | null;
 }) {
   const pessoaId = pessoa.id;
   const [fichas, setFichas] = useState<FichaSocioeconomica[] | null>(null);
   const [novaAberta, setNovaAberta] = useState(false);
   const [editando, setEditando] = useState(false);
+  const [encerrando, setEncerrando] = useState(false);
 
   useEffect(() => {
     fichasDaPessoa(pessoaId).then(setFichas).catch(() => setFichas([]));
@@ -361,15 +397,31 @@ function FichaDaPessoa({ pessoa, onAtualizou, limites }: {
     );
   }
 
+  if (encerrando) {
+    return (
+      <div className="px-3 pb-3 pl-8">
+        <EncerrarAcompanhamento vinculoId={pessoa.vinculo_id} nome={pessoa.nome_completo}
+          onEncerrou={() => { setEncerrando(false); onAtualizou(); }}
+          onCancelar={() => setEncerrando(false)} />
+      </div>
+    );
+  }
+
   return (
     <div className="px-3 pb-3 pl-8 space-y-2">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
           Ficha socioeconômica
         </p>
-        <Button size="sm" variant="ghost" className="h-6 px-2 text-xs gap-1" onClick={() => setEditando(true)}>
-          <Pencil className="w-3 h-3" /> Editar dados
-        </Button>
+        <div className="flex items-center gap-1 shrink-0">
+          <Button size="sm" variant="ghost" className="h-6 px-2 text-xs gap-1" onClick={() => setEditando(true)}>
+            <Pencil className="w-3 h-3" /> Editar dados
+          </Button>
+          <Button size="sm" variant="ghost" className="h-6 px-2 text-xs gap-1 text-muted-foreground"
+            onClick={() => setEncerrando(true)}>
+            Encerrar
+          </Button>
+        </div>
       </div>
 
       {fichas === null ? (
@@ -391,10 +443,10 @@ function FichaDaPessoa({ pessoa, onAtualizou, limites }: {
                     naCasa > 0 ? `${naCasa} na casa` : null,
                     rotuloMoradia(f.situacao_moradia),
                     f.possui_renda === true
-                      ? `renda ${f.renda_mensal != null ? formatarReais(f.renda_mensal) : "sem valor"}`
-                      : f.possui_renda === false ? "sem renda" : null,
+                      ? `trabalho ${f.renda_mensal != null ? formatarReais(f.renda_mensal) : "sem valor"}`
+                      : f.possui_renda === false ? "sem renda de trabalho" : null,
                     f.recebe_beneficio_social === true
-                      ? `benefício${f.qual_beneficio ? ` (${f.qual_beneficio})` : ""}`
+                      ? `${f.qual_beneficio ?? "benefício"}${f.valor_beneficio != null ? ` ${formatarReais(f.valor_beneficio)}` : ""}`
                       : f.recebe_beneficio_social === false ? "sem benefício" : null,
                   ].filter(Boolean).join(" · ") || "sem dados"}
                 </p>
@@ -430,6 +482,46 @@ function FichaDaPessoa({ pessoa, onAtualizou, limites }: {
   );
 }
 
+/**
+ * Encerrar não é desmarcar — é dizer por quê. Pesquisado (PAIF/CRAS): todo
+ * acompanhamento familiar continuado tem um "encerramento formal" como
+ * registro obrigatório, com motivo. Reaproveita `diaconia_vinculos.ativo`
+ * que já existia; só o motivo é novo.
+ */
+function EncerrarAcompanhamento({ vinculoId, nome, onEncerrou, onCancelar }: {
+  vinculoId: string; nome: string; onEncerrou: () => void; onCancelar: () => void;
+}) {
+  const [motivo, setMotivo] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function confirmar() {
+    setBusy(true);
+    try {
+      const r = await encerrarVinculo(vinculoId, motivo || undefined);
+      if (!r.ok) { toast.error(r.erro); return; }
+      toast.success(`Acompanhamento de ${nome} encerrado nesta área`);
+      onEncerrou();
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <div className="rounded-md border border-warning-line bg-warning-soft px-2.5 py-2.5 space-y-2.5">
+      <p className="text-sm">
+        Encerrar o acompanhamento de <strong>{nome}</strong> nesta área. Ela sai da chamada e das
+        pendências, mas o histórico da ficha continua guardado — dá pra reabrir depois.
+      </p>
+      <div>
+        <Label className="text-xs">Motivo</Label>
+        <SelectOuOutro opcoes={MOTIVOS_ENCERRAMENTO} valor={motivo} onChange={setMotivo} />
+      </div>
+      <div className="flex gap-2 justify-end">
+        <Button size="sm" variant="outline" onClick={onCancelar} disabled={busy}>Cancelar</Button>
+        <Button size="sm" onClick={confirmar} disabled={busy}>{busy ? "Encerrando..." : "Confirmar"}</Button>
+      </div>
+    </div>
+  );
+}
+
 const FAMILIAR_VAZIO: Familiar = { nome: "", idade: null, parentesco: "", trabalha: false, estuda: false, pcd: false, qual_pcd: "" };
 
 function NovaFicha({ pessoaId, limites, onSalvou, onCancelar }: {
@@ -441,7 +533,7 @@ function NovaFicha({ pessoaId, limites, onSalvou, onCancelar }: {
   const [rendaMensal, setRendaMensal] = useState("");
   const [recebeBeneficio, setRecebeBeneficio] = useState(false);
   const [qualBeneficio, setQualBeneficio] = useState("");
-  const [outroBeneficio, setOutroBeneficio] = useState("");
+  const [valorBeneficio, setValorBeneficio] = useState("");
   const [jaTrabalhouClt, setJaTrabalhouClt] = useState(false);
   const [tempoClt, setTempoClt] = useState("");
   const [atuacaoClt, setAtuacaoClt] = useState("");
@@ -455,7 +547,12 @@ function NovaFicha({ pessoaId, limites, onSalvou, onCancelar }: {
   // A pessoa + quem ela listou como morador — a contagem soma sozinha, sem
   // pedir de novo o que a lista abaixo já diz.
   const totalCasa = 1 + familiares.length;
-  const percapitaPreview = possuiRenda && rendaMensal ? Number(rendaMensal) / totalCasa : null;
+  // Renda de trabalho MAIS valor do benefício — a mesma soma que o CadÚnico
+  // faz. Pergunta dela: "como calcular a per capita? soma-se renda +
+  // benefício?" — sim, e por isso o preview soma os dois aqui também.
+  const rendaTotalPreview = (possuiRenda && rendaMensal ? Number(rendaMensal) : 0)
+    + (recebeBeneficio && valorBeneficio ? Number(valorBeneficio) : 0);
+  const percapitaPreview = rendaTotalPreview > 0 ? rendaTotalPreview / totalCasa : null;
 
   function alterarFamiliar(i: number, campo: keyof Familiar, valor: any) {
     setFamiliares(prev => prev.map((f, idx) => idx === i ? { ...f, [campo]: valor } : f));
@@ -470,9 +567,8 @@ function NovaFicha({ pessoaId, limites, onSalvou, onCancelar }: {
         possui_renda: possuiRenda,
         renda_mensal: possuiRenda && rendaMensal ? Number(rendaMensal) : null,
         recebe_beneficio_social: recebeBeneficio,
-        qual_beneficio: recebeBeneficio
-          ? (qualBeneficio === "Outro" ? outroBeneficio || null : qualBeneficio || null)
-          : null,
+        qual_beneficio: recebeBeneficio ? qualBeneficio || null : null,
+        valor_beneficio: recebeBeneficio && valorBeneficio ? Number(valorBeneficio) : null,
         ja_trabalhou_clt: jaTrabalhouClt,
         tempo_clt: jaTrabalhouClt ? tempoClt || null : null,
         atuacao_clt: jaTrabalhouClt ? atuacaoClt || null : null,
@@ -496,7 +592,7 @@ function NovaFicha({ pessoaId, limites, onSalvou, onCancelar }: {
         <Label htmlFor={`def-${pessoaId}`} className="text-xs font-normal">Possui alguma deficiência</Label>
       </div>
       {possuiDeficiencia && (
-        <Input placeholder="Qual" value={qualDeficiencia} onChange={e => setQualDeficiencia(e.target.value)} className="h-8 text-sm" />
+        <SelectOuOutro opcoes={TIPOS_DEFICIENCIA} valor={qualDeficiencia} onChange={setQualDeficiencia} placeholder="Qual" />
       )}
 
       <div className="flex items-center gap-2">
@@ -516,15 +612,11 @@ function NovaFicha({ pessoaId, limites, onSalvou, onCancelar }: {
       </div>
       {recebeBeneficio && (
         <div className="space-y-1.5">
-          <Select value={qualBeneficio} onValueChange={setQualBeneficio}>
-            <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Qual benefício" /></SelectTrigger>
-            <SelectContent>
-              {BENEFICIOS_FEDERAIS.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          {qualBeneficio === "Outro" && (
-            <Input placeholder="Qual?" value={outroBeneficio} onChange={e => setOutroBeneficio(e.target.value)} className="h-8 text-sm" />
-          )}
+          <SelectOuOutro opcoes={BENEFICIOS_FEDERAIS} valor={qualBeneficio} onChange={setQualBeneficio} placeholder="Qual benefício" />
+          <div>
+            <Label className="text-xs">Valor do benefício (R$) — para calcular a per capita</Label>
+            <Input type="number" min={0} step="0.01" value={valorBeneficio} onChange={e => setValorBeneficio(e.target.value)} className="h-8 text-sm" />
+          </div>
         </div>
       )}
 
@@ -534,8 +626,8 @@ function NovaFicha({ pessoaId, limites, onSalvou, onCancelar }: {
       </div>
       {jaTrabalhouClt && (
         <div className="grid grid-cols-2 gap-2">
-          <Input placeholder="Quanto tempo" value={tempoClt} onChange={e => setTempoClt(e.target.value)} className="h-8 text-sm" />
-          <Input placeholder="Em que atuava" value={atuacaoClt} onChange={e => setAtuacaoClt(e.target.value)} className="h-8 text-sm" />
+          <SelectOuOutro opcoes={FAIXAS_TEMPO_TRABALHO} valor={tempoClt} onChange={setTempoClt} placeholder="Quanto tempo" />
+          <SelectOuOutro opcoes={SETORES_DE_OCUPACAO} valor={atuacaoClt} onChange={setAtuacaoClt} placeholder="Em que atuava" />
         </div>
       )}
 
@@ -573,8 +665,8 @@ function NovaFicha({ pessoaId, limites, onSalvou, onCancelar }: {
                     <Trash2 className="w-3 h-3" />
                   </Button>
                 </div>
-                <Input placeholder="Grau de parentesco" value={f.parentesco}
-                  onChange={e => alterarFamiliar(i, "parentesco", e.target.value)} className="h-7 text-xs" />
+                <SelectOuOutro opcoes={PARENTESCOS} valor={f.parentesco}
+                  onChange={v => alterarFamiliar(i, "parentesco", v)} placeholder="Grau de parentesco" />
                 <div className="flex items-center gap-3 flex-wrap">
                   <label className="flex items-center gap-1 text-[11px]">
                     <Checkbox checked={f.trabalha} onCheckedChange={v => alterarFamiliar(i, "trabalha", !!v)} /> Trabalha
@@ -604,11 +696,11 @@ function NovaFicha({ pessoaId, limites, onSalvou, onCancelar }: {
 
       <div>
         <Label className="text-xs">De que maneira tira o sustento da família</Label>
-        <Textarea rows={2} value={sustento} onChange={e => setSustento(e.target.value)} className="text-sm" />
+        <SelectOuOutro opcoes={FONTES_DE_SUSTENTO} valor={sustento} onChange={setSustento} />
       </div>
       <div>
         <Label className="text-xs">Qual a maior necessidade da família no momento</Label>
-        <Textarea rows={2} value={necessidade} onChange={e => setNecessidade(e.target.value)} className="text-sm" />
+        <SelectOuOutro opcoes={NECESSIDADES} valor={necessidade} onChange={setNecessidade} />
       </div>
       <div>
         <Label className="text-xs">Informações adicionais</Label>

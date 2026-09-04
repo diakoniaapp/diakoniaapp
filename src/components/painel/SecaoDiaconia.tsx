@@ -11,15 +11,24 @@
 // dado cru, ninguém somava. Isto soma. Cobertura vem primeiro — sem saber
 // quantos NÃO têm ficha, a distribuição por vulnerabilidade mentiria por
 // omissão (contaria só quem já foi triado, como se fosse todo mundo).
+//
+// ── QUEM PAROU DE VIR (04/09, ainda) ──────────────────────────────────────
+//
+// A origem do problema, nas palavras dela: as cestas nasceram na pandemia
+// para durar 3 meses, e desde então nunca houve acompanhamento — "até pra
+// saber se pode continuar ou se já não precisa de ajuda". O critério é
+// dela: "não veio 2 meses seguidos". Não pede ficha nem data marcada —
+// só olha a chamada, que já existe.
 
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { HeartHandshake, ChevronRight, ClipboardList } from "lucide-react";
+import { HeartHandshake, ChevronRight, ClipboardList, UserX } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { TituloDaSecao } from "@/components/painel/blocos";
 import {
   carregarIndicadoresDiaconia, carregarLimitesPerCapita, ROTULO_CLASSIFICACAO,
-  type BancadaDiaconia, type IndicadoresDiaconia,
+  carregarPendenciasAcompanhamento,
+  type BancadaDiaconia, type IndicadoresDiaconia, type PendenciaAcompanhamento,
 } from "@/services/diaconiaService";
 
 function hojeISO(): string {
@@ -32,12 +41,14 @@ function formatarReais(v: number): string {
 
 export function SecaoDiaconia({ dc, ministerioId }: { dc: BancadaDiaconia; ministerioId: string }) {
   const [ind, setInd] = useState<IndicadoresDiaconia | null>(null);
+  const [pendencias, setPendencias] = useState<PendenciaAcompanhamento[] | null>(null);
 
   useEffect(() => {
     carregarLimitesPerCapita()
       .then(limites => carregarIndicadoresDiaconia(ministerioId, limites))
       .then(setInd)
       .catch(() => setInd(null));
+    carregarPendenciasAcompanhamento(ministerioId).then(setPendencias).catch(() => setPendencias(null));
   }, [ministerioId]);
 
   return (
@@ -78,6 +89,35 @@ export function SecaoDiaconia({ dc, ministerioId }: { dc: BancadaDiaconia; minis
             </li>
           ))}
         </ul>
+      )}
+
+      {pendencias && pendencias.length > 0 && (
+        <div className="rounded-md border border-warning-line bg-warning-soft px-3 py-2.5 mb-2">
+          <p className="flex items-center gap-2 text-sm font-medium text-warning-text">
+            <UserX className="w-4 h-4 shrink-0" />
+            {pendencias.length === 1 ? "1 pessoa parou de vir" : `${pendencias.length} pessoas pararam de vir`}
+          </p>
+          <p className="text-xs text-warning-text/90 mt-0.5">
+            Não confirmadas nas últimas {pendencias[0]?.faltasSeguidas ?? 2}+ vezes que a área abriu chamada —
+            reavalie se ainda precisam, ou encerre o acompanhamento.
+          </p>
+          <ul className="mt-2 space-y-1">
+            {pendencias.slice(0, 8).map(p => (
+              <li key={p.vinculo_id} className="flex items-baseline justify-between gap-2 text-xs">
+                <Link to={`/ministerios/${ministerioId}/diaconia/${p.area_id}/pessoas`}
+                  className="text-foreground hover:underline min-w-0 truncate">
+                  {p.nome} <span className="text-muted-foreground">· {p.area_nome}</span>
+                </Link>
+                <span className="text-warning-text tabular-nums shrink-0">
+                  {p.faltasSeguidas} faltas
+                </span>
+              </li>
+            ))}
+          </ul>
+          {pendencias.length > 8 && (
+            <p className="text-xs text-warning-text/80 mt-1.5">e mais {pendencias.length - 8}.</p>
+          )}
+        </div>
       )}
 
       {ind && dc.totalPessoas > 0 && (

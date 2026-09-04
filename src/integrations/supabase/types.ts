@@ -2572,6 +2572,7 @@ export type Database = {
           situacao_moradia: string | null
           sustento_familia: string | null
           tempo_clt: string | null
+          valor_beneficio: number | null
         }
         Insert: {
           atuacao_clt?: string | null
@@ -2593,6 +2594,7 @@ export type Database = {
           situacao_moradia?: string | null
           sustento_familia?: string | null
           tempo_clt?: string | null
+          valor_beneficio?: number | null
         }
         Update: {
           atuacao_clt?: string | null
@@ -2614,6 +2616,7 @@ export type Database = {
           situacao_moradia?: string | null
           sustento_familia?: string | null
           tempo_clt?: string | null
+          valor_beneficio?: number | null
         }
         Relationships: [
           {
@@ -2783,21 +2786,30 @@ export type Database = {
           area_id: string
           ativo: boolean
           created_at: string
+          encerrado_em: string | null
+          encerrado_por: string | null
           id: string
+          motivo_encerramento: string | null
           pessoa_assistida_id: string
         }
         Insert: {
           area_id: string
           ativo?: boolean
           created_at?: string
+          encerrado_em?: string | null
+          encerrado_por?: string | null
           id?: string
+          motivo_encerramento?: string | null
           pessoa_assistida_id: string
         }
         Update: {
           area_id?: string
           ativo?: boolean
           created_at?: string
+          encerrado_em?: string | null
+          encerrado_por?: string | null
           id?: string
+          motivo_encerramento?: string | null
           pessoa_assistida_id?: string
         }
         Relationships: [
@@ -12566,6 +12578,10 @@ export type Database = {
         }
         Returns: string
       }
+      diaconia_encerrar_vinculo: {
+        Args: { p_motivo?: string; p_vinculo_id: string }
+        Returns: undefined
+      }
       diaconia_lidera_area: { Args: { p_area_id: string }; Returns: boolean }
       diaconia_marcar_confirmado: {
         Args: {
@@ -12580,6 +12596,10 @@ export type Database = {
         Returns: string
       }
       diaconia_posso_atender: { Args: { p_area_id: string }; Returns: boolean }
+      diaconia_reabrir_vinculo: {
+        Args: { p_vinculo_id: string }
+        Returns: undefined
+      }
       diaconia_salvar_ficha: {
         Args: { p_dados: Json; p_pessoa_assistida_id: string }
         Returns: string

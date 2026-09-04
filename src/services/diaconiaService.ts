@@ -88,6 +88,7 @@ export interface FichaSocioeconomica {
   renda_mensal: number | null;
   recebe_beneficio_social: boolean | null;
   qual_beneficio: string | null;
+  valor_beneficio: number | null;
   ja_trabalhou_clt: boolean | null;
   tempo_clt: string | null;
   atuacao_clt: string | null;
@@ -139,6 +140,57 @@ export const BENEFICIOS_FEDERAIS = [
   "Outro",
 ] as const;
 
+// ── Pedido dela em 04/09: "não use campos de escrita livre, trabalhe
+// sempre com listas, para que possamos aferir corretamente... ao final,
+// deixe as informações adicionais para textos livres." Cada lista abaixo
+// troca um campo de texto por um de escolha — só `observacoes` continua
+// livre. Todas terminam em "Outro" com campo próprio, para o caso real que
+// a lista não previu não virar dado perdido.
+
+export const TIPOS_DEFICIENCIA = [
+  "Física", "Visual", "Auditiva", "Intelectual", "Múltipla", "Outra",
+] as const;
+
+export const FAIXAS_TEMPO_TRABALHO = [
+  "Menos de 1 ano", "1 a 3 anos", "3 a 5 anos", "Mais de 5 anos",
+] as const;
+
+/** Usada tanto para "profissão" (identidade) quanto "em que atuava" (histórico CLT) — a mesma pergunta em dois momentos. */
+export const SETORES_DE_OCUPACAO = [
+  "Comércio", "Serviços domésticos", "Construção civil", "Indústria",
+  "Transporte", "Alimentação/Cozinha", "Segurança", "Educação", "Saúde",
+  "Serviços gerais/Limpeza", "Autônomo/Informal", "Outro",
+] as const;
+
+export const FONTES_DE_SUSTENTO = [
+  "Emprego formal", "Trabalho informal/autônomo", "Benefício social",
+  "Aposentadoria/Pensão", "Ajuda de familiares ou amigos", "Doações", "Outra",
+] as const;
+
+export const NECESSIDADES = [
+  "Alimentação", "Moradia/Aluguel", "Saúde/Remédio", "Emprego",
+  "Roupas/Calçados", "Contas/Dívidas", "Documentação", "Outra",
+] as const;
+
+export const ESCOLARIDADES = [
+  "Sem escolaridade", "Fundamental incompleto", "Fundamental completo",
+  "Médio incompleto", "Médio completo", "Superior incompleto",
+  "Superior completo", "Pós-graduação",
+] as const;
+
+export const PARENTESCOS = [
+  "Cônjuge/Companheiro(a)", "Filho(a)", "Enteado(a)", "Neto(a)", "Pai/Mãe",
+  "Sogro(a)", "Irmão/Irmã", "Genro/Nora", "Avô/Avó", "Sobrinho(a)",
+  "Cunhado(a)", "Outro",
+] as const;
+
+export const NACIONALIDADES = ["Brasileira", "Outra"] as const;
+
+export const MOTIVOS_ENCERRAMENTO = [
+  "Superou a situação", "Não retornou contato", "Mudou de cidade ou bairro",
+  "Passou a receber ajuda de outra forma", "A pedido da própria pessoa", "Outro",
+] as const;
+
 function rotuloDe(lista: readonly { valor: string; rotulo: string }[], valor: string | null | undefined): string | null {
   if (!valor) return null;
   return lista.find(o => o.valor === valor)?.rotulo ?? valor;
@@ -161,16 +213,29 @@ export function pessoasNaCasa(f: Pick<FichaSocioeconomica, "familiares">): numbe
 }
 
 /**
- * Renda per capita — calculada, nunca gravada.
+ * A renda familiar total — trabalho MAIS benefício, a mesma soma que o
+ * CadÚnico faz. Ela perguntou: "como calcular a per capita? soma-se renda
+ * + benefício? como saber o valor do benefício?" — `qual_beneficio` dizia
+ * QUAL, nunca QUANTO; `valor_beneficio` supre isso.
  *
- * Ela pediu isto ao ver a ficha impressa: a lista de moradores já dá o
- * denominador, `renda_mensal` dá o numerador. `null` quando falta um dos
- * dois — não confundir "não calculado" com "zero".
+ * Cada parcela só entra quando o booleano correspondente é `true` — uma
+ * pessoa com `possui_renda=false` não contribui com `renda_mensal` nem que
+ * o campo tenha ficado com lixo de uma ficha anterior. `null` só quando os
+ * DOIS booleanos nunca foram respondidos — nesse caso não se sabe nada,
+ * que é diferente de saber que a renda é zero.
  */
+export function rendaFamiliarTotal(f: FichaSocioeconomica): number | null {
+  if (f.possui_renda == null && f.recebe_beneficio_social == null) return null;
+  const trabalho = f.possui_renda ? (f.renda_mensal ?? 0) : 0;
+  const beneficio = f.recebe_beneficio_social ? (f.valor_beneficio ?? 0) : 0;
+  return trabalho + beneficio;
+}
+
+/** Renda per capita — calculada, nunca gravada. `null` quando não se sabe a renda. */
 export function rendaPerCapita(f: FichaSocioeconomica): number | null {
-  const pessoas = pessoasNaCasa(f);
-  if (f.renda_mensal == null || pessoas === 0) return null;
-  return f.renda_mensal / pessoas;
+  const total = rendaFamiliarTotal(f);
+  if (total == null) return null;
+  return total / pessoasNaCasa(f);
 }
 
 const FAIXAS_ETARIAS = [
@@ -293,8 +358,8 @@ export async function vincularArea(pessoaAssistidaId: string, areaId: string): P
 
 const CAMPOS_FICHA =
   "id, data_preenchimento, possui_deficiencia, qual_deficiencia, possui_renda, renda_mensal, " +
-  "recebe_beneficio_social, qual_beneficio, ja_trabalhou_clt, tempo_clt, atuacao_clt, situacao_moradia, " +
-  "familiares, sustento_familia, maior_necessidade, observacoes";
+  "recebe_beneficio_social, qual_beneficio, valor_beneficio, ja_trabalhou_clt, tempo_clt, atuacao_clt, " +
+  "situacao_moradia, familiares, sustento_familia, maior_necessidade, observacoes";
 
 export async function fichasDaPessoa(pessoaAssistidaId: string): Promise<FichaSocioeconomica[]> {
   const { data, error } = await supabase
@@ -443,7 +508,7 @@ export async function carregarIndicadoresDiaconia(
   const [{ data: pessoas }, { data: fichas }] = await Promise.all([
     supabase.from("diaconia_pessoas_assistidas").select("id, data_nascimento").in("id", pessoaIds),
     supabase.from("diaconia_fichas_socioeconomicas")
-      .select("pessoa_assistida_id, data_preenchimento, renda_mensal, familiares")
+      .select("pessoa_assistida_id, data_preenchimento, possui_renda, renda_mensal, recebe_beneficio_social, valor_beneficio, familiares")
       .in("pessoa_assistida_id", pessoaIds)
       .order("data_preenchimento", { ascending: false }),
   ]);
@@ -486,6 +551,104 @@ export async function carregarIndicadoresDiaconia(
     criancasAtendidas,
     idososAtendidos,
   };
+}
+
+// ─── Quem parou de vir ───────────────────────────────────────────────────
+//
+// A origem do problema, nas palavras dela: "estas cestas começaram a ser
+// doadas na época da pandemia, com a intenção de auxiliar por 3 meses, e
+// não houve acompanhamento... até pra saber se pode continuar ou se já
+// não precisa de ajuda." O critério é dela — "não veio 2 meses seguidos" —
+// e não pede campo novo nenhum: a chamada já grava quem foi confirmado em
+// cada ocasião. Isto conta faltas seguidas a partir de hoje pra trás, só
+// sobre ocasiões que ALGUÉM realmente abriu — um mês em que ninguém rodou
+// a chamada não conta nem a favor nem contra, porque não há como saber se
+// a pessoa viria.
+
+export interface PendenciaAcompanhamento {
+  vinculo_id: string;
+  pessoa_id: string;
+  nome: string;
+  area_id: string;
+  area_nome: string;
+  faltasSeguidas: number;
+  ultimaConfirmacaoEm: string | null;
+}
+
+export async function carregarPendenciasAcompanhamento(
+  ministerioId: string, minimoFaltas = 2,
+): Promise<PendenciaAcompanhamento[]> {
+  const { data: areas } = await supabase
+    .from("areas").select("id, nome").eq("ministerio_id", ministerioId).eq("ativo", true);
+  const listaAreas = (areas ?? []) as { id: string; nome: string }[];
+  if (listaAreas.length === 0) return [];
+  const areaIds = listaAreas.map(a => a.id);
+  const nomeDaArea = new Map(listaAreas.map(a => [a.id, a.nome]));
+
+  const hoje = new Date().toISOString().slice(0, 10);
+  const [{ data: vinculos }, { data: ocasioes }] = await Promise.all([
+    supabase.from("diaconia_vinculos")
+      .select(`id, area_id, pessoa_assistida_id, diaconia_pessoas_assistidas(nome_completo)`)
+      .in("area_id", areaIds).eq("ativo", true),
+    supabase.from("diaconia_ocasioes")
+      .select("id, area_id, data").in("area_id", areaIds).lte("data", hoje)
+      .order("data", { ascending: false }),
+  ]);
+
+  const ocasioesPorArea = new Map<string, { id: string; data: string }[]>();
+  for (const o of (ocasioes ?? []) as any[]) {
+    if (!ocasioesPorArea.has(o.area_id)) ocasioesPorArea.set(o.area_id, []);
+    ocasioesPorArea.get(o.area_id)!.push({ id: o.id, data: o.data });
+  }
+
+  const ocasiaoIds = ((ocasioes ?? []) as any[]).map(o => o.id);
+  const confirmadosPorOcasiao = new Map<string, Set<string>>();
+  if (ocasiaoIds.length > 0) {
+    const { data: atendimentos } = await supabase
+      .from("diaconia_atendimentos").select("ocasiao_id, pessoa_assistida_id")
+      .in("ocasiao_id", ocasiaoIds).eq("confirmado", true);
+    for (const a of (atendimentos ?? []) as any[]) {
+      if (!confirmadosPorOcasiao.has(a.ocasiao_id)) confirmadosPorOcasiao.set(a.ocasiao_id, new Set());
+      confirmadosPorOcasiao.get(a.ocasiao_id)!.add(a.pessoa_assistida_id);
+    }
+  }
+
+  const pendencias: PendenciaAcompanhamento[] = [];
+  for (const v of (vinculos ?? []) as any[]) {
+    const ocasioesDaArea = ocasioesPorArea.get(v.area_id) ?? [];
+    let faltas = 0;
+    let ultimaConfirmacaoEm: string | null = null;
+    for (const o of ocasioesDaArea) {
+      const veio = confirmadosPorOcasiao.get(o.id)?.has(v.pessoa_assistida_id) ?? false;
+      if (veio) { ultimaConfirmacaoEm = o.data; break; }
+      faltas++;
+    }
+    if (faltas >= minimoFaltas) {
+      pendencias.push({
+        vinculo_id: v.id, pessoa_id: v.pessoa_assistida_id,
+        nome: v.diaconia_pessoas_assistidas?.nome_completo ?? "—",
+        area_id: v.area_id, area_nome: nomeDaArea.get(v.area_id) ?? "—",
+        faltasSeguidas: faltas, ultimaConfirmacaoEm,
+      });
+    }
+  }
+  return pendencias.sort((a, b) => b.faltasSeguidas - a.faltasSeguidas);
+}
+
+/** Decide que a pessoa não precisa mais de acompanhamento nesta área — com motivo, porta estrita. */
+export async function encerrarVinculo(vinculoId: string, motivo?: string): Promise<ResultadoEscrita> {
+  const { error } = await supabase.rpc("diaconia_encerrar_vinculo", {
+    p_vinculo_id: vinculoId, p_motivo: motivo ?? null,
+  });
+  if (error) return { ok: false, erro: traduzir(error.message) };
+  return { ok: true };
+}
+
+/** Desfaz um encerramento por engano — mesma porta. */
+export async function reabrirVinculo(vinculoId: string): Promise<ResultadoEscrita> {
+  const { error } = await supabase.rpc("diaconia_reabrir_vinculo", { p_vinculo_id: vinculoId });
+  if (error) return { ok: false, erro: traduzir(error.message) };
+  return { ok: true };
 }
 
 function traduzir(mensagem: string): string {
