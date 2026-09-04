@@ -2669,6 +2669,7 @@ export type Database = {
       }
       diaconia_pessoas_assistidas: {
         Row: {
+          assistida_desde: string | null
           ativo: boolean
           bairro: string | null
           cep: string | null
@@ -2694,6 +2695,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          assistida_desde?: string | null
           ativo?: boolean
           bairro?: string | null
           cep?: string | null
@@ -2719,6 +2721,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          assistida_desde?: string | null
           ativo?: boolean
           bairro?: string | null
           cep?: string | null

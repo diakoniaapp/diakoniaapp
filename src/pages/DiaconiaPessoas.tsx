@@ -62,6 +62,14 @@ function formatarReais(v: number): string {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+/** "desde mai/2021" — só mês e ano; o dia exato não importa pra quem lê a lista. */
+function assistidaDesde(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const [ano, mes] = iso.split("-");
+  const nome = new Date(Number(ano), Number(mes) - 1, 1).toLocaleDateString("pt-BR", { month: "short" });
+  return `assistida desde ${nome.replace(".", "")}/${ano}`;
+}
+
 /**
  * Uma lista suspensa que sabe abrir "Outro" com campo próprio.
  *
@@ -221,6 +229,11 @@ export default function DiaconiaPessoas() {
                       <MapPin className="w-3 h-3 shrink-0" /> <span className="truncate">{enderecoResumido(p)}</span>
                     </p>
                   )}
+                  {assistidaDesde(p.assistida_desde) && (
+                    <p className="text-xs text-muted-foreground truncate min-w-0">
+                      {assistidaDesde(p.assistida_desde)}
+                    </p>
+                  )}
                 </div>
                 <ChevronRight className={`w-4 h-4 shrink-0 text-muted-foreground transition-transform ${aberta === p.id ? "rotate-90" : ""}`} />
               </button>
@@ -270,9 +283,11 @@ export default function DiaconiaPessoas() {
 function NovaPessoaDialog({ open, onOpenChange, areaId, onCriada }: {
   open: boolean; onOpenChange: (v: boolean) => void; areaId: string; onCriada: () => void;
 }) {
+  const hoje = new Date().toISOString().slice(0, 10);
   const [nome, setNome] = useState("");
   const [tel, setTel] = useState("");
   const [end, setEnd] = useState<Endereco>({});
+  const [desde, setDesde] = useState(hoje);
   const [busy, setBusy] = useState(false);
 
   async function enviar(e: React.FormEvent) {
@@ -280,10 +295,10 @@ function NovaPessoaDialog({ open, onOpenChange, areaId, onCriada }: {
     if (!nome.trim()) { toast.error("Nome obrigatório"); return; }
     setBusy(true);
     try {
-      const r = await criarPessoa(areaId, nome, { telefone: tel || undefined, ...end });
+      const r = await criarPessoa(areaId, nome, { telefone: tel || undefined, ...end, assistida_desde: desde || undefined });
       if (!r.ok) { toast.error(r.erro); return; }
       toast.success("Cadastrada");
-      setNome(""); setTel(""); setEnd({}); onOpenChange(false);
+      setNome(""); setTel(""); setEnd({}); setDesde(hoje); onOpenChange(false);
       onCriada();
     } finally { setBusy(false); }
   }
@@ -300,6 +315,14 @@ function NovaPessoaDialog({ open, onOpenChange, areaId, onCriada }: {
           <div>
             <Label>Telefone (opcional)</Label>
             <TelefoneInput value={tel} onChange={setTel} />
+          </div>
+          <div>
+            <Label>Assistida desde</Label>
+            <Input type="date" value={desde} onChange={e => setDesde(e.target.value)} />
+            <p className="text-xs text-muted-foreground mt-1">
+              Já vem preenchido com hoje. Ao digitar uma ficha de papel antiga, troque pela data
+              real do primeiro atendimento.
+            </p>
           </div>
 
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide pt-1">
@@ -399,6 +422,7 @@ function EditarDados({ pessoa, onSalvou, onCancelar }: {
   const [naturalidade, setNaturalidade] = useState(pessoa.naturalidade ?? "");
   const [profissao, setProfissao] = useState(pessoa.profissao ?? "");
   const [escolaridade, setEscolaridade] = useState(pessoa.escolaridade ?? "");
+  const [desde, setDesde] = useState(pessoa.assistida_desde ?? "");
   const [busy, setBusy] = useState(false);
   const [vinculandoMembro, setVinculandoMembro] = useState(false);
 
@@ -431,6 +455,7 @@ function EditarDados({ pessoa, onSalvou, onCancelar }: {
         data_nascimento: dataNasc || null, sexo: sexo || null, estado_civil: estadoCivil || null,
         rg: rg || null, cpf: cpf || null, nacionalidade: nacionalidade || null,
         naturalidade: naturalidade || null, profissao: profissao || null, escolaridade: escolaridade || null,
+        assistida_desde: desde || null,
       });
       if (!r.ok) { toast.error(r.erro); return; }
       toast.success("Dados atualizados");
@@ -475,6 +500,14 @@ function EditarDados({ pessoa, onSalvou, onCancelar }: {
         uf={end.uf ?? ""} mostrarUf
         onChange={(campo, valor) => setEnd(prev => ({ ...prev, [campo]: valor }))}
       />
+
+      <div>
+        <Label className="text-xs">Assistida desde</Label>
+        <Input type="date" value={desde} onChange={e => setDesde(e.target.value)} className="h-8 text-sm" />
+        <p className="text-xs text-muted-foreground mt-1">
+          O primeiro atendimento, não a data em que a ficha foi digitada.
+        </p>
+      </div>
 
       <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide pt-1">Identidade</p>
       <div className="grid grid-cols-2 gap-2">

@@ -59,6 +59,13 @@ export interface DadosIdentidade extends Endereco {
   profissao?: string | null;
   escolaridade?: string | null;
   telefone?: string | null;
+  /**
+   * Quando a pessoa começou a ser assistida — não a data de digitação
+   * (`created_at`, automática). Mora aqui, e não numa interface própria, só
+   * porque `criarPessoa`/`atualizarPessoa` já recebem `DadosIdentidade` como
+   * o payload inteiro; não é dado de identidade de verdade.
+   */
+  assistida_desde?: string | null;
 }
 
 export interface PessoaAssistida extends DadosIdentidade {
@@ -309,7 +316,8 @@ export const ROTULO_CLASSIFICACAO: Record<ClassificacaoVulnerabilidade, string> 
 
 const CAMPOS_PESSOA =
   "id, nome_completo, telefone, membro_id, cep, endereco, numero, complemento, bairro, cidade, uf, " +
-  "data_nascimento, sexo, estado_civil, rg, cpf, nacionalidade, naturalidade, profissao, escolaridade";
+  "data_nascimento, sexo, estado_civil, rg, cpf, nacionalidade, naturalidade, profissao, escolaridade, " +
+  "assistida_desde";
 
 /** Quem é atendido em cada área do ministério — via as `diaconia_vinculos` que a RLS deixa ver. */
 export async function pessoasDaArea(areaId: string): Promise<(PessoaAssistida & { vinculo_id: string })[]> {
