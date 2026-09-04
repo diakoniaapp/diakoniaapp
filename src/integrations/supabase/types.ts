@@ -12560,6 +12560,15 @@ export type Database = {
         Args: { p_dados?: Json; p_nome: string; p_pessoa_assistida_id: string }
         Returns: undefined
       }
+      diaconia_buscar_membro: {
+        Args: { p_termo: string }
+        Returns: {
+          id: string
+          nome_completo: string
+          telefone_celular: string
+          tipo_pessoa: string
+        }[]
+      }
       diaconia_chamada_view: {
         Args: { p_ocasiao_id: string }
         Returns: {
@@ -12606,6 +12615,10 @@ export type Database = {
       }
       diaconia_vincular_area: {
         Args: { p_area_id: string; p_pessoa_assistida_id: string }
+        Returns: undefined
+      }
+      diaconia_vincular_membro: {
+        Args: { p_membro_id: string; p_pessoa_assistida_id: string }
         Returns: undefined
       }
       domingo_da_semana: { Args: { p_data: string }; Returns: string }

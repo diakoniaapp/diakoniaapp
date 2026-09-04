@@ -30,7 +30,7 @@ import {
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { ArrowLeft, ChevronRight, HeartHandshake, MapPin, Pencil, Phone, Plus, Trash2, Users } from "lucide-react";
+import { ArrowLeft, ChevronRight, HeartHandshake, MapPin, Pencil, Phone, Plus, Trash2, Users, UserCheck, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   pessoasDaArea, pessoasEncerradasDaArea, criarPessoa, atualizarPessoa, fichasDaPessoa, salvarFicha,
@@ -39,9 +39,9 @@ import {
   NECESSIDADES, ESCOLARIDADES, PARENTESCOS, NACIONALIDADES, MOTIVOS_ENCERRAMENTO,
   rotuloMoradia, rotuloSexo, rotuloEstadoCivil,
   pessoasNaCasa, rendaPerCapita, carregarLimitesPerCapita, classificarPerCapita, ROTULO_CLASSIFICACAO,
-  encerrarVinculo, reabrirVinculo,
+  encerrarVinculo, reabrirVinculo, buscarMembro, vincularMembro,
   type PessoaAssistida, type FichaSocioeconomica, type DadosFicha, type Endereco, type Familiar,
-  type LimitesPerCapita, type VinculoEncerrado,
+  type LimitesPerCapita, type VinculoEncerrado, type MembroEncontrado,
 } from "@/services/diaconiaService";
 import { Badge } from "@/components/ui/badge";
 import { TelefoneInput } from "@/components/ui/TelefoneInput";
@@ -202,7 +202,14 @@ export default function DiaconiaPessoas() {
               <button type="button" onClick={() => setAberta(aberta === p.id ? null : p.id)}
                 className="w-full flex items-center gap-3 px-3 py-2.5 min-w-0 text-left hover:bg-muted/40 transition-colors">
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium truncate min-w-0">{p.nome_completo}</p>
+                  <p className="text-sm font-medium truncate min-w-0 flex items-center gap-1.5">
+                    <span className="truncate">{p.nome_completo}</span>
+                    {p.membro_id && (
+                      <Badge variant="outline" className="text-[10px] font-normal shrink-0 gap-0.5 px-1.5 py-0">
+                        <UserCheck className="w-2.5 h-2.5" /> Membro
+                      </Badge>
+                    )}
+                  </p>
                   {p.telefone && (
                     <p className="text-xs text-muted-foreground flex items-center gap-1">
                       <Phone className="w-3 h-3" /> {p.telefone}
@@ -320,6 +327,59 @@ function NovaPessoaDialog({ open, onOpenChange, areaId, onCriada }: {
   );
 }
 
+/**
+ * "E para os membros que também são assistidos?" — busca própria porque
+ * `membros` não é legível pela sessão de um líder comum; passa por
+ * `diaconia_buscar_membro`, que devolve só nome/tipo/telefone.
+ */
+function BuscaMembroDiaconia({ onEscolher }: { onEscolher: (m: MembroEncontrado) => void }) {
+  const [busca, setBusca] = useState("");
+  const [resultados, setResultados] = useState<MembroEncontrado[]>([]);
+  const [buscando, setBuscando] = useState(false);
+  const [aberto, setAberto] = useState(false);
+
+  useEffect(() => {
+    if (busca.trim().length < 2) { setResultados([]); return; }
+    setBuscando(true);
+    const t = setTimeout(async () => {
+      try { setResultados(await buscarMembro(busca)); }
+      catch { setResultados([]); }
+      finally { setBuscando(false); }
+    }, 250);
+    return () => clearTimeout(t);
+  }, [busca]);
+
+  return (
+    <div className="relative">
+      <Input
+        placeholder="Buscar por nome (mín. 2 letras)…"
+        value={busca}
+        onFocus={() => setAberto(true)}
+        onChange={e => { setBusca(e.target.value); setAberto(true); }}
+        className="h-8 text-sm pr-8"
+      />
+      {buscando && <Loader2 className="absolute right-2.5 top-2 w-3.5 h-3.5 animate-spin text-muted-foreground" />}
+      {aberto && busca.trim().length >= 2 && (
+        <div className="absolute z-20 left-0 right-0 mt-1 border rounded-md max-h-48 overflow-y-auto bg-background shadow-md">
+          {!buscando && resultados.length === 0 && (
+            <p className="text-xs text-muted-foreground p-2.5 text-center">Ninguém encontrado.</p>
+          )}
+          {resultados.map(m => (
+            <button key={m.id} type="button"
+              onClick={() => { onEscolher(m); setBusca(""); setResultados([]); setAberto(false); }}
+              className="w-full text-left px-2.5 py-2 text-xs hover:bg-accent transition-colors border-b last:border-0">
+              <div className="font-medium">{m.nome_completo}</div>
+              <div className="text-muted-foreground">
+                {m.tipo_pessoa}{m.telefone_celular ? ` · ${m.telefone_celular}` : ""}
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function EditarDados({ pessoa, onSalvou, onCancelar }: {
   pessoa: PessoaAssistida; onSalvou: () => void; onCancelar: () => void;
 }) {
@@ -339,6 +399,27 @@ function EditarDados({ pessoa, onSalvou, onCancelar }: {
   const [profissao, setProfissao] = useState(pessoa.profissao ?? "");
   const [escolaridade, setEscolaridade] = useState(pessoa.escolaridade ?? "");
   const [busy, setBusy] = useState(false);
+  const [vinculandoMembro, setVinculandoMembro] = useState(false);
+
+  async function escolherMembro(m: MembroEncontrado) {
+    setVinculandoMembro(true);
+    try {
+      const r = await vincularMembro(pessoa.id, m.id);
+      if (!r.ok) { toast.error(r.erro); return; }
+      toast.success(`Ligada à ficha de ${m.nome_completo}`);
+      onSalvou();
+    } finally { setVinculandoMembro(false); }
+  }
+
+  async function desvincularMembro() {
+    setVinculandoMembro(true);
+    try {
+      const r = await vincularMembro(pessoa.id, null);
+      if (!r.ok) { toast.error(r.erro); return; }
+      toast.success("Desligada da ficha de membro");
+      onSalvou();
+    } finally { setVinculandoMembro(false); }
+  }
 
   async function salvar() {
     if (!nome.trim()) { toast.error("Nome obrigatório"); return; }
@@ -358,6 +439,25 @@ function EditarDados({ pessoa, onSalvou, onCancelar }: {
 
   return (
     <div className="rounded-md border bg-card px-2.5 py-2.5 space-y-2.5">
+      <div>
+        <Label className="text-xs flex items-center gap-1">
+          <UserCheck className="w-3 h-3" /> Já é membro ou congregado da igreja?
+        </Label>
+        {pessoa.membro_id ? (
+          <div className="flex items-center justify-between gap-2 rounded border bg-success-soft border-success-line px-2 py-1.5 mt-1">
+            <Badge variant="outline" className="text-xs gap-1 border-success-line text-success-text">
+              <UserCheck className="w-3 h-3" /> Ficha ligada
+            </Badge>
+            <Button type="button" size="sm" variant="ghost" className="h-6 px-1.5 gap-1 text-xs text-muted-foreground"
+              onClick={desvincularMembro} disabled={vinculandoMembro}>
+              <X className="w-3 h-3" /> Desligar
+            </Button>
+          </div>
+        ) : (
+          <BuscaMembroDiaconia onEscolher={escolherMembro} />
+        )}
+      </div>
+
       <div>
         <Label className="text-xs">Nome completo</Label>
         <Input value={nome} onChange={e => setNome(e.target.value)} className="h-8 text-sm" />

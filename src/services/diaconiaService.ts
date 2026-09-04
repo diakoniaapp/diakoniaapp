@@ -380,6 +380,40 @@ export async function vincularArea(pessoaAssistidaId: string, areaId: string): P
   return { ok: true };
 }
 
+// ─── E se já for membro? ─────────────────────────────────────────────────
+//
+// Pergunta dela: "e para os membros que também são assistidos?" —
+// `membro_id` existe desde 03/09, mas nenhuma tela oferecia como escolher
+// o membro. `membros` só é legível por admin/secretaria/diakonia (mais a
+// própria equipe do líder, um recorte estreito demais aqui) — por isso a
+// busca não lê `membros` direto (o `BuscaPessoa` do resto do sistema
+// voltaria vazio pra quase todo líder de Diaconia); passa por
+// `diaconia_buscar_membro`, que devolve só nome/tipo/telefone, não a
+// ficha inteira.
+
+export interface MembroEncontrado {
+  id: string;
+  nome_completo: string;
+  tipo_pessoa: string | null;
+  telefone_celular: string | null;
+}
+
+export async function buscarMembro(termo: string): Promise<MembroEncontrado[]> {
+  if (termo.trim().length < 2) return [];
+  const { data, error } = await supabase.rpc("diaconia_buscar_membro", { p_termo: termo });
+  if (error) throw error;
+  return (data ?? []) as MembroEncontrado[];
+}
+
+/** Vincula (ou, com `null`, desvincula) quem já está cadastrado a uma ficha de membro/congregado existente. */
+export async function vincularMembro(pessoaAssistidaId: string, membroId: string | null): Promise<ResultadoEscrita> {
+  const { error } = await supabase.rpc("diaconia_vincular_membro", {
+    p_pessoa_assistida_id: pessoaAssistidaId, p_membro_id: membroId,
+  });
+  if (error) return { ok: false, erro: traduzir(error.message) };
+  return { ok: true };
+}
+
 // ─── Ficha socioeconômica — só ministra/líder ───────────────────────────
 
 const CAMPOS_FICHA =
