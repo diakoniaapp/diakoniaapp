@@ -13,38 +13,50 @@
 // solto no topo compete com o conteúdo e não diz nada sozinho — "292" não
 // explica, a seção explica.
 //
-// Três seções, pedidas em duas mensagens seguidas: "classes" (os cartões,
-// já existiam), "aniversariantes" e "alunos" ("todos os matriculados em
-// classes, devem aparecer no painel da EBD" — o rol completo, não classe
-// por classe).
+// Três seções: "classes" (os cartões), "professores" (o rol de quem
+// leciona, com telefone sob pedido — ver comentário na seção) e
+// "aniversariantes". Chegou a ter uma quarta, "alunos" — o rol completo,
+// 89 nomes — a pedido dela mesma ("todos os matriculados... devem
+// aparecer"). Ela viu e voltou atrás: "não quero os nomes todos... apenas
+// os que fazem aniversário no mês". `todosOsMatriculados()` continua
+// sendo a fonte — só não vira mais lista própria, alimenta unicamente os
+// aniversariantes.
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
-  GraduationCap, ChevronRight, Plus, Pencil, AlertCircle, FileText, Cake, Users2, Search,
+  GraduationCap, ChevronRight, Plus, Pencil, AlertCircle, FileText, Cake, Users, Phone, Flag,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  listarClasses, professoresPorClasse, todosOsMatriculados,
-  type EbdClasse, type EbdProfessor, type AlunoMatriculado,
+  listarClasses, professoresPorClasse, todosOsMatriculados, listarCampanhas, resumoCampanha,
+  type EbdClasse, type EbdProfessor, type AlunoMatriculado, type CampanhaEbd, type ResumoCampanha,
 } from "@/services/ebdService";
-import { ebdPorClasse, type EbdClasseLinha } from "@/services/ebdPainelService";
+import { formatarTelefoneSemDDI } from "@/lib/telefone";
+import { ebdPorClasse, relatorioMensalGeralResumo, type EbdClasseLinha, type RelatorioMensalGeralResumo } from "@/services/ebdPainelService";
 import { ClasseForm } from "@/components/ebd/ClasseForm";
 import { useAuth } from "@/hooks/useAuth";
 import { PaginaSkeleton } from "@/components/ListState";
 import { Indicador, FaixaDeIndicadores, TituloDaSecao, irParaSecao } from "@/components/painel/blocos";
-import { idadeEm } from "@/lib/idade";
 
 interface ClasseCard extends EbdClasse {
   qtd_matriculados: number;
   /** Todo mundo que cabe no perfil (idade/gênero), matriculado ou não —
    *  denominador certo da cobertura. */
   qtd_elegiveis: number;
+  /** Cabe no perfil e não está matriculado em NENHUMA classe — quem falta
+   *  convidar. Alimenta o indicador "fora da EBD". */
+  qtd_livres: number;
   aulasSemChamada: number;
   professores: EbdProfessor[];
+}
+
+interface IndicadoresGerais {
+  matriculados: number;
+  membrosAtivos: number;
+  novosAlunosNoMes: number;
 }
 
 const MESES = [
@@ -60,27 +72,54 @@ export default function Ebd() {
   const podeCriar = hasRole(["admin", "secretaria", "pastor", "diakonia"]);
   const [classes, setClasses] = useState<ClasseCard[]>([]);
   const [alunos, setAlunos] = useState<AlunoMatriculado[]>([]);
+  const [resumoMes, setResumoMes] = useState<RelatorioMensalGeralResumo | null>(null);
+  const [gerais, setGerais] = useState<IndicadoresGerais | null>(null);
+  const [campanhas, setCampanhas] = useState<(CampanhaEbd & { classe_nome: string | null; resumo: ResumoCampanha | null })[]>([]);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [classeEditando, setClasseEditando] = useState<EbdClasse | null>(null);
   const [mostrarInativas, setMostrarInativas] = useState(false);
-  const [buscaAluno, setBuscaAluno] = useState("");
+  // Telefone não aparece de cara — pedido dela: "com opção de ver
+  // telefone". Cada linha guarda o próprio estado: revelar o telefone de
+  // uma professora não revela o de todas.
+  const [telefonesVisiveis, setTelefonesVisiveis] = useState<Set<string>>(new Set());
 
   useEffect(() => { carregar(); }, [mostrarInativas]);
 
   async function carregar() {
     setLoading(true);
     try {
-      const [cs, porClasse, professores, mat] = await Promise.all([
+      const hoje = new Date();
+      const primeiroDiaDoMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().slice(0, 10);
+
+      const [cs, porClasse, professores, mat, resumo, membrosAtivos, novosAlunos] = await Promise.all([
         listarClasses(mostrarInativas),
         ebdPorClasse().catch((): EbdClasseLinha[] => []),
         professoresPorClasse().catch(() => new Map<string, EbdProfessor[]>()),
         todosOsMatriculados().catch(() => []),
+        relatorioMensalGeralResumo(hoje.getFullYear(), hoje.getMonth() + 1).catch(() => null),
+        // "Adesão": só MEMBRO — pedido dela: "deverá ter apenas MEMBROS".
+        // Congregado, visitante e ex-membro ficam fora da conta.
+        (async () => {
+          const r = await supabase.from("membros").select("id", { count: "exact", head: true })
+            .eq("status", "ativo").eq("tipo_pessoa", "membro");
+          return r.count ?? 0;
+        })().catch(() => 0),
+        // "Novos alunos": matrículas ativas abertas desde o dia 1 deste mês,
+        // em classe ativa.
+        (async () => {
+          const r = await supabase.from("ebd_matriculas")
+            .select("id, ebd_classes!inner(ativo)", { count: "exact", head: true })
+            .eq("ativo", true).eq("ebd_classes.ativo", true)
+            .gte("data_matricula", primeiroDiaDoMes);
+          return r.count ?? 0;
+        })().catch(() => 0),
       ]);
       const semChamadaPorClasse = new Map<string, number>(
         porClasse.map(p => [p.classe_id, p.aulas_sem_chamada]),
       );
       setAlunos(mat);
+      setResumoMes(resumo);
 
       const enriched: ClasseCard[] = [];
       for (const c of cs) {
@@ -89,20 +128,62 @@ export default function Ebd() {
           .select("id", { count: "exact", head: true })
           .eq("classe_id", c.id)
           .eq("ativo", true);
-        const { data: esps } = await supabase.rpc("esperados_da_classe", { p_classe_id: c.id });
+        const { data: espsRaw } = await supabase.rpc("esperados_da_classe", { p_classe_id: c.id });
+        const esps = (espsRaw as any[] | null) ?? [];
         enriched.push({
           ...c,
           qtd_matriculados: qtdMat ?? 0,
-          qtd_elegiveis: ((esps as any[] | null) ?? []).length,
+          qtd_elegiveis: esps.length,
+          qtd_livres: esps.filter(e => !e.ja_matriculado && !e.outra_classe_id).length,
           aulasSemChamada: semChamadaPorClasse.get(c.id) ?? 0,
           professores: professores.get(c.id) ?? [],
         });
       }
       setClasses(enriched);
+      setGerais({
+        matriculados: enriched.reduce((s, c) => s + c.qtd_matriculados, 0),
+        membrosAtivos,
+        novosAlunosNoMes: novosAlunos,
+      });
+
+      // Campanhas de arrecadação — de TODAS as classes, não uma por vez
+      // (`listarCampanhas()` sem classeId já devolve todas). "Acompanhamento
+      // das campanhas que estão acontecendo nas classes", só as ativas —
+      // encerrada não pede acompanhamento.
+      const nomeDaClasse = new Map(cs.map(c => [c.id, c.nome]));
+      const todasCampanhas = await listarCampanhas().catch((): CampanhaEbd[] => []);
+      const ativas = todasCampanhas.filter(c => c.ativo);
+      const comResumo = await Promise.all(
+        ativas.map(async c => ({
+          ...c,
+          classe_nome: c.classe_id ? (nomeDaClasse.get(c.classe_id) ?? null) : null,
+          resumo: await resumoCampanha(c.id).catch(() => null),
+        })),
+      );
+      setCampanhas(comResumo);
     } finally {
       setLoading(false);
     }
   }
+
+  // "Adesão": fração dos MEMBROS ativos da igreja que estão matriculados
+  // em alguma classe — o quanto a EBD alcança da própria igreja, não só de
+  // quem já é aluno. Só membro, não congregado — pedido dela.
+  const adesao = gerais && gerais.membrosAtivos > 0
+    ? Math.round((gerais.matriculados / gerais.membrosAtivos) * 100)
+    : null;
+
+  // "Fora da EBD": de quem CABE numa classe pela idade (elegível em
+  // alguma faixa), quantos ainda não estão matriculados em NENHUMA —
+  // pedido dela: "quantos membros deveriam estar na ebd e nao estão".
+  // Soma por classe porque as faixas etárias não se sobrepõem (Berçário
+  // 0-3, Crianças 3-8... ver ORDEM_PRIMEIRA_CLASSE_ADULTA em
+  // ebdService.ts): cada pessoa elegível cai em no máximo uma classe.
+  const foraDaEbd = useMemo(() => {
+    const elegiveis = classes.reduce((s, c) => s + c.qtd_elegiveis, 0);
+    const livres = classes.reduce((s, c) => s + c.qtd_livres, 0);
+    return elegiveis > 0 ? Math.round((livres / elegiveis) * 100) : null;
+  }, [classes]);
 
   const aniversariantes = useMemo(() => {
     const mesAtual = new Date().getMonth();
@@ -113,13 +194,24 @@ export default function Ebd() {
       );
   }, [alunos]);
 
-  const alunosFiltrados = useMemo(() => {
-    const termo = buscaAluno.trim().toLowerCase();
-    if (!termo) return alunos;
-    return alunos.filter(a =>
-      a.nome_completo.toLowerCase().includes(termo) || a.classe_nome.toLowerCase().includes(termo),
-    );
-  }, [alunos, buscaAluno]);
+  // Rol de professores, todas as classes juntas — derivado do que já foi
+  // carregado (cada classe já traz os próprios professores), sem consulta
+  // extra ao banco.
+  const professoresDoMinisterio = useMemo(() => {
+    return classes
+      .flatMap(c => c.professores.map(p => ({ ...p, classe_nome: c.nome })))
+      .sort((a, b) =>
+        (a.membros?.nome_completo ?? "").localeCompare(b.membros?.nome_completo ?? "", "pt-BR"),
+      );
+  }, [classes]);
+
+  function alternarTelefone(professorId: string) {
+    setTelefonesVisiveis(prev => {
+      const novo = new Set(prev);
+      if (novo.has(professorId)) novo.delete(professorId); else novo.add(professorId);
+      return novo;
+    });
+  }
 
   function faixaTexto(c: EbdClasse) {
     if (c.idade_min == null && c.idade_max == null) return "Sem faixa";
@@ -157,21 +249,53 @@ export default function Ebd() {
           )}
         </div>
 
-        <FaixaDeIndicadores colunas={3}>
+        <FaixaDeIndicadores colunas={4}>
           <Indicador
             rotulo="Classes" tom="gold" icone={GraduationCap}
             onClick={() => irParaSecao("classes")} descricao="Ir para as classes"
           />
           <Indicador
-            rotulo="Alunos" tom="violeta" icone={Users2}
-            onClick={() => irParaSecao("alunos")} descricao="Ir para todos os alunos"
+            rotulo="Professores" tom="info" icone={Users}
+            onClick={() => irParaSecao("professores")} descricao="Ir para os professores"
+          />
+          <Indicador
+            rotulo="Campanhas" tom="violeta" icone={Flag}
+            onClick={() => irParaSecao("campanhas")} descricao="Ir para as campanhas de arrecadação"
           />
           <Indicador
             rotulo="Aniversariantes" tom="celebracao" icone={Cake}
             onClick={() => irParaSecao("aniversariantes")} descricao="Ir para aniversariantes do mês"
           />
         </FaixaDeIndicadores>
+
+        {/* Pedido dela: "indicadores precisa ser fixo" — os números vitais
+            ficam grudados no topo junto com os atalhos, não numa seção que
+            rola pra fora de vista. Compactos de propósito: é cabeçalho, não
+            o conteúdo principal da tela. */}
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+          <Stat label="Matriculados" valor={gerais?.matriculados ?? "—"} compacto />
+          <Stat
+            label="Presença"
+            valor={resumoMes?.taxa_presenca != null ? `${resumoMes.taxa_presenca}%` : "—"}
+            highlight compacto
+          />
+          <Stat label="Novos" valor={gerais?.novosAlunosNoMes ?? "—"} compacto />
+          <Stat label="Visitantes" valor={resumoMes?.visitantes ?? "—"} compacto />
+          <Stat label="Adesão" valor={adesao !== null ? `${adesao}%` : "—"} compacto />
+          <Stat label="Fora da EBD" valor={foraDaEbd !== null ? `${foraDaEbd}%` : "—"} compacto />
+        </div>
       </div>
+
+      {/* Os dois últimos precisam de uma frase — um "%" sozinho não diz o
+          que está sendo comparado com o quê. Fica fora do cabeçalho fixo,
+          de propósito: é explicação, não algo que precisa estar sempre à
+          vista. */}
+      <p className="text-xs text-muted-foreground -mt-3">
+        <strong>Adesão</strong>: {gerais?.matriculados ?? 0} de {gerais?.membrosAtivos ?? 0} membros ativos da
+        igreja estão numa classe.{" "}
+        <strong>Fora da EBD</strong>: de quem cabe na faixa etária de alguma classe, quantos ainda não foram
+        matriculados em nenhuma.
+      </p>
 
       {/* ── Classes ──────────────────────────────────────────────────────── */}
       <section id="classes" className={scrollMt}>
@@ -259,37 +383,100 @@ export default function Ebd() {
         </div>
       </section>
 
-      {/* ── Alunos ───────────────────────────────────────────────────────── */}
-      <section id="alunos" className={scrollMt}>
-        <TituloDaSecao icone={Users2} tom="violeta" contagem={alunos.length}>
-          Todos os alunos
+      {/* ── Professores ──────────────────────────────────────────────────── */}
+      <section id="professores" className={scrollMt}>
+        <TituloDaSecao icone={Users} tom="info" contagem={professoresDoMinisterio.length}>
+          Professores
         </TituloDaSecao>
 
-        <div className="relative mb-2">
-          <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por nome ou classe…"
-            value={buscaAluno}
-            onChange={(e) => setBuscaAluno(e.target.value)}
-            className="pl-8 h-9"
-          />
-        </div>
-
-        {alunosFiltrados.length === 0 ? (
+        {professoresDoMinisterio.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-4">
-            {alunos.length === 0 ? "Nenhum aluno matriculado ainda." : "Ninguém encontrado com esse termo."}
+            Nenhuma classe tem professor cadastrado ainda.
           </p>
         ) : (
-          <div className="rounded-lg border bg-card divide-y max-h-[420px] overflow-y-auto">
-            {alunosFiltrados.map(a => {
-              const idade = idadeEm(a.data_nascimento);
+          <div className="rounded-lg border bg-card divide-y">
+            {professoresDoMinisterio.map(p => {
+              const telefoneVisivel = telefonesVisiveis.has(p.id);
+              const telefone = p.membros?.telefone_celular ?? null;
               return (
-                <div key={a.pessoa_id} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
-                  <span className="truncate">{a.nome_completo}</span>
-                  <span className="text-xs text-muted-foreground shrink-0">
-                    {a.classe_nome}{idade !== null ? ` · ${idade} anos` : ""}
-                  </span>
+                <div key={p.id} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
+                  <div className="min-w-0">
+                    <p className="truncate">{p.membros?.nome_completo ?? "—"}</p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {p.classe_nome}{p.tipo !== "principal" ? ` · ${p.tipo}` : ""}
+                    </p>
+                  </div>
+                  {telefone ? (
+                    telefoneVisivel ? (
+                      <a
+                        href={`https://wa.me/${telefone.replace(/\D/g, "")}`}
+                        target="_blank" rel="noopener noreferrer"
+                        className="text-xs text-success-text shrink-0 flex items-center gap-1 hover:underline"
+                      >
+                        <Phone className="w-3.5 h-3.5" /> {formatarTelefoneSemDDI(telefone)}
+                      </a>
+                    ) : (
+                      <Button
+                        type="button" variant="ghost" size="sm" className="h-7 text-xs gap-1 shrink-0"
+                        onClick={() => alternarTelefone(p.id)}
+                      >
+                        <Phone className="w-3.5 h-3.5" /> Ver telefone
+                      </Button>
+                    )
+                  ) : (
+                    <span className="text-xs text-muted-foreground shrink-0">Sem telefone</span>
+                  )}
                 </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* ── Campanhas de arrecadação ─────────────────────────────────────── */}
+      <section id="campanhas" className={scrollMt}>
+        <TituloDaSecao icone={Flag} tom="violeta" contagem={campanhas.length}>
+          Campanhas de arrecadação em andamento
+        </TituloDaSecao>
+
+        {campanhas.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-4">
+            Nenhuma campanha de arrecadação ativa no momento.
+          </p>
+        ) : (
+          <div className="grid gap-3 grid-cols-1 md:grid-cols-2">
+            {campanhas.map(c => {
+              const meta = c.resumo?.meta ?? c.meta_valor;
+              const arrecadado = c.resumo?.arrecadado ?? 0;
+              const pct = meta > 0 ? Math.min(100, Math.round((arrecadado / meta) * 100)) : 0;
+              const conteudo = (
+                <Card className="rounded-lg">
+                  <CardContent className="p-3 space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium text-sm truncate">{c.nome}</span>
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0">
+                        {c.classe_nome ?? "Igreja toda"}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Até {new Date(c.data_fim + "T00:00").toLocaleDateString("pt-BR")}
+                    </p>
+                    <p className="text-xs">
+                      <strong>{arrecadado.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong>
+                      <span className="text-muted-foreground">
+                        {" "}de {meta.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} · {pct}%
+                      </span>
+                    </p>
+                    <div className="h-1.5 rounded bg-muted overflow-hidden">
+                      <div className="h-full bg-violeta/80" style={{ width: `${pct}%` }} />
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+              return c.classe_id ? (
+                <Link key={c.id} to={`/ebd/${c.classe_id}/campanhas`} className="block">{conteudo}</Link>
+              ) : (
+                <div key={c.id}>{conteudo}</div>
               );
             })}
           </div>
@@ -330,6 +517,21 @@ export default function Ebd() {
         classe={classeEditando}
         onSaved={carregar}
       />
+    </div>
+  );
+}
+
+function Stat({ label, valor, highlight, compacto }: {
+  label: string; valor: number | string; highlight?: boolean; compacto?: boolean;
+}) {
+  return (
+    <div className={`border rounded-md text-center ${compacto ? "py-1 px-1" : "py-2 px-2"} ${highlight ? "border-gold bg-gold/5" : ""}`}>
+      <p className={`font-semibold tabular-nums ${highlight ? "text-gold" : ""} ${compacto ? "text-sm" : "text-lg"}`}>
+        {valor}
+      </p>
+      <p className={`uppercase tracking-wide text-muted-foreground truncate ${compacto ? "text-[9px]" : "text-[10px]"}`}>
+        {label}
+      </p>
     </div>
   );
 }

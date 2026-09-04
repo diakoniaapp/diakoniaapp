@@ -293,13 +293,13 @@ export interface EbdProfessor {
   tipo: "principal" | "auxiliar" | "substituto";
   ativo: boolean;
   desde: string;
-  membros?: { id: string; nome_completo: string } | null;
+  membros?: { id: string; nome_completo: string; telefone_celular: string | null } | null;
 }
 
 export async function listarProfessores(classeId: string): Promise<EbdProfessor[]> {
   const { data, error } = await supabase
     .from("ebd_professores")
-    .select("id, classe_id, pessoa_id, tipo, ativo, desde, membros(id, nome_completo)")
+    .select("id, classe_id, pessoa_id, tipo, ativo, desde, membros(id, nome_completo, telefone_celular)")
     .eq("classe_id", classeId)
     .eq("ativo", true);
   if (error) throw error;
@@ -326,7 +326,7 @@ export async function listarProfessores(classeId: string): Promise<EbdProfessor[
 export async function professoresPorClasse(): Promise<Map<string, EbdProfessor[]>> {
   const { data, error } = await supabase
     .from("ebd_professores")
-    .select("id, classe_id, pessoa_id, tipo, ativo, desde, membros(id, nome_completo)")
+    .select("id, classe_id, pessoa_id, tipo, ativo, desde, membros(id, nome_completo, telefone_celular)")
     .eq("ativo", true);
   if (error) throw error;
 
