@@ -289,6 +289,14 @@ export default function EbdRelatorioMensalGeral() {
             box-shadow: none !important; border: none !important;
             background: white !important;
           }
+          /* Sem isso, o navegador some com toda cor de fundo ao imprimir/
+             exportar PDF (economia de tinta por padrão) — as barras do
+             gráfico por faixa etária e qualquer destaque colorido saem em
+             branco. */
+          .relatorio-page * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
           .avoid-break { page-break-inside: avoid; }
         }
       `}</style>

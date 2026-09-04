@@ -125,6 +125,13 @@ export default function EbdCampanhaRelatorio() {
             background: white !important;
           }
 
+          /* Sem isso, o navegador some com toda cor de fundo ao imprimir/
+             exportar PDF (economia de tinta por padrão). */
+          .relatorio-page * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+
           .page-break { page-break-before: always; }
           .avoid-break { page-break-inside: avoid; }
           table { page-break-inside: auto; }
