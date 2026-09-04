@@ -138,6 +138,32 @@ export async function relatorioGeralPorClasse(inicio: string, fim: string): Prom
   return ((data as any[]) ?? []) as FrequenciaClasse[];
 }
 
+/**
+ * Por faixa etária REAL do aluno (não pela classe) — pedido dela: "um
+ * gráfico medindo a faixa etária mais presente e mais ausente". Diferente
+ * de `_por_classe`: uma faixa etária às vezes tem mais de uma classe (ex.:
+ * duas classes de 40+), e olhar só "por classe" esconde esse agrupamento.
+ * Mesma categorização de `ebd_painel_por_faixa` (painel, sem período) —
+ * migration 20260904310000 — mas com `[inicio, fim)` e já excluindo
+ * professor de "matriculado" (a versão antiga do painel tem essa falha
+ * registrada e não corrigida; esta função nova nasce sem ela).
+ */
+export interface FrequenciaFaixa {
+  faixa: string;
+  ordem: number;
+  matriculados: number;
+  presentes: number;
+  ausentes: number;
+  /** Nulo quando a faixa não teve nenhuma oportunidade de presença no período. */
+  taxa: number | null;
+}
+
+export async function relatorioGeralPorFaixa(inicio: string, fim: string): Promise<FrequenciaFaixa[]> {
+  const { data, error } = await supabase.rpc("ebd_relatorio_geral_por_faixa" as any, { p_inicio: inicio, p_fim: fim });
+  if (error) throw error;
+  return ((data as any[]) ?? []) as FrequenciaFaixa[];
+}
+
 // ─── Leituras derivadas ────────────────────────────────────────────────────
 
 /**

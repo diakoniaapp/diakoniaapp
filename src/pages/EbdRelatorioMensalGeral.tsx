@@ -16,6 +16,11 @@
 //
 // Mesmas regras de sempre: aula sem chamada não conta como "todos
 // faltaram"; professor não conta como aluno matriculado na frequência.
+//
+// Ganhou depois um gráfico por faixa etária: "QURO NO RELATÓRIO, UM
+// GRAFICO MEDINDO A FAICA ETÁRIA MAIS PRESENTE E MAIS AUSENTE". Diferente
+// de "por classe": uma faixa etária às vezes tem mais de uma classe (ex.:
+// duas classes de 40+) — o gráfico soma isso, a lista por classe não.
 
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
@@ -26,8 +31,8 @@ import { ArrowLeft, Printer, MessageCircle, GraduationCap } from "lucide-react";
 import { toast } from "sonner";
 import logoDiakonia from "@/assets/logo-diakonia.png";
 import {
-  relatorioGeralResumo, relatorioGeralPorClasse,
-  type RelatorioMensalGeralResumo, type FrequenciaClasse,
+  relatorioGeralResumo, relatorioGeralPorClasse, relatorioGeralPorFaixa,
+  type RelatorioMensalGeralResumo, type FrequenciaClasse, type FrequenciaFaixa,
 } from "@/services/ebdPainelService";
 import { novasMatriculasDoMes } from "@/services/ebdService";
 import { useAuth } from "@/hooks/useAuth";
@@ -136,6 +141,13 @@ function corDaTaxa(taxa: number | null): string {
   return "text-destructive-text";
 }
 
+/** Mesmos limites de `corDaTaxa`, em cor de preenchimento pro gráfico de barras. */
+function corDaBarra(taxa: number): string {
+  if (taxa >= 75) return "bg-success";
+  if (taxa >= 50) return "bg-warning";
+  return "bg-destructive";
+}
+
 function textoDelta(atual: number | null, anterior: number | null): string | undefined {
   if (atual === null || anterior === null) return undefined;
   const delta = Math.round((atual - anterior) * 10) / 10;
@@ -152,6 +164,7 @@ export default function EbdRelatorioMensalGeral() {
   const [anoNum, setAnoNum] = useState(new Date().getFullYear());
   const [resumo, setResumo] = useState<RelatorioMensalGeralResumo | null>(null);
   const [porClasse, setPorClasse] = useState<FrequenciaClasse[]>([]);
+  const [porFaixa, setPorFaixa] = useState<FrequenciaFaixa[]>([]);
   const [taxaAnterior, setTaxaAnterior] = useState<number | null>(null);
   const [novosNoPeriodo, setNovosNoPeriodo] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -163,19 +176,32 @@ export default function EbdRelatorioMensalGeral() {
   );
   const rotulo = useMemo(() => rotuloDoPeriodo(periodo, intervalo, anoNum), [periodo, intervalo, anoNum]);
 
+  // Ordenado da faixa mais presente pra mais ausente — o gráfico é um
+  // ranking, não a ordem cronológica de idade que a RPC devolve. Faixas
+  // sem chamada no período (`taxa` nulo) vão pro fim, sem competir.
+  const porFaixaOrdenada = useMemo(() => {
+    const comTaxa = porFaixa.filter(f => f.taxa !== null).sort((a, b) => (b.taxa ?? 0) - (a.taxa ?? 0));
+    const semTaxa = porFaixa.filter(f => f.taxa === null);
+    return [...comTaxa, ...semTaxa];
+  }, [porFaixa]);
+  const faixaMaisPresente = porFaixaOrdenada.find(f => f.taxa !== null) ?? null;
+  const faixaMaisAusente = [...porFaixaOrdenada].reverse().find(f => f.taxa !== null) ?? null;
+
   useEffect(() => {
     (async () => {
       setLoading(true);
       try {
         const anterior = calcularIntervaloAnterior(periodo, semanaIso, mesIso, anoNum);
-        const [r, c, resumoAnterior, novos] = await Promise.all([
+        const [r, c, faixas, resumoAnterior, novos] = await Promise.all([
           relatorioGeralResumo(intervalo.inicio, intervalo.fim),
           relatorioGeralPorClasse(intervalo.inicio, intervalo.fim),
+          relatorioGeralPorFaixa(intervalo.inicio, intervalo.fim).catch((): FrequenciaFaixa[] => []),
           relatorioGeralResumo(anterior.inicio, anterior.fim).catch(() => null),
           novasMatriculasDoMes(intervalo.inicio, intervalo.fim).catch(() => []),
         ]);
         setResumo(r);
         setPorClasse(c);
+        setPorFaixa(faixas);
         setTaxaAnterior(resumoAnterior?.taxa_presenca ?? null);
         setNovosNoPeriodo(novos.length);
 
@@ -206,6 +232,14 @@ export default function EbdRelatorioMensalGeral() {
     l.push(`🙋 *Ausentes:* ${resumo.ausentes}`);
     if (resumo.visitantes > 0) l.push(`🌱 *Visitantes:* ${resumo.visitantes}`);
     if (novosNoPeriodo > 0) l.push(`✨ *Novos alunos:* ${novosNoPeriodo}`);
+    // O matriculado vai junto do % — sem isso, "100%" de 1 pessoa só lê-se
+    // como número forte, e não é (mesma lição de `f8e89be`, no painel).
+    if (faixaMaisPresente) {
+      l.push(`🔝 *Faixa mais presente:* ${faixaMaisPresente.faixa} (${faixaMaisPresente.taxa}%, ${faixaMaisPresente.matriculados} matriculado${faixaMaisPresente.matriculados === 1 ? "" : "s"})`);
+    }
+    if (faixaMaisAusente && faixaMaisAusente.faixa !== faixaMaisPresente?.faixa) {
+      l.push(`⚠️ *Faixa mais ausente:* ${faixaMaisAusente.faixa} (${faixaMaisAusente.taxa}%, ${faixaMaisAusente.matriculados} matriculado${faixaMaisAusente.matriculados === 1 ? "" : "s"})`);
+    }
     l.push("");
     const comChamada = porClasse.filter(c => c.taxa !== null);
     if (comChamada.length > 0) {
@@ -378,6 +412,33 @@ export default function EbdRelatorioMensalGeral() {
                 {resumo!.aulas_total - resumo!.aulas_com_chamada} aula(s) do período ainda sem chamada
                 registrada, em uma ou mais classes — não entram no cálculo da presença média.
               </p>
+            )}
+
+            {porFaixaOrdenada.length > 0 && (
+              <section className="avoid-break mb-6">
+                <h3 className="font-serif text-base mb-2 text-gold">Por faixa etária</h3>
+                <div className="space-y-2.5">
+                  {porFaixaOrdenada.map(f => (
+                    <div key={f.faixa}>
+                      <div className="flex items-baseline justify-between gap-2 text-xs mb-1">
+                        <span className="font-medium text-foreground">{f.faixa}</span>
+                        <span className="text-muted-foreground shrink-0">
+                          {f.matriculados} matriculado{f.matriculados === 1 ? "" : "s"}
+                          {f.taxa !== null ? ` · ${f.taxa}%` : " · sem chamada no período"}
+                        </span>
+                      </div>
+                      <div className="h-2.5 rounded-full bg-muted overflow-hidden">
+                        {f.taxa !== null && (
+                          <div
+                            className={`h-full rounded-full ${corDaBarra(f.taxa)}`}
+                            style={{ width: `${Math.min(f.taxa, 100)}%` }}
+                          />
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
             )}
 
             <section className="avoid-break mb-6">
