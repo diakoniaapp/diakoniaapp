@@ -24,8 +24,14 @@
 // escondida no meio de uma conta — a lacuna é o achado pastoral: mostra em
 // que classe o registro parou.
 //
-// Toda a aritmética mora nas quatro RPCs da migration
-// 20260826140000_painel_de_acompanhamento_da_ebd.sql.
+// Toda a aritmética morava nas quatro RPCs da migration
+// 20260826140000_painel_de_acompanhamento_da_ebd.sql — mas essas somam
+// "desde sempre", sem período. Ela pediu, olhando este bloco ao lado do
+// botão "Relatório mensal": "quero os mesmos indicadores do relatório
+// mensal". Trocado pelas RPCs período-livre de EbdRelatorioMensalGeral.tsx
+// (migrations 20260904300000/310000), fixas no mês atual — o mesmo recorte
+// que o relatório abre por padrão — para os dois números baterem quando ela
+// for de um pro outro.
 
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -33,20 +39,22 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Users, AlertCircle, TrendingUp, TrendingDown,
+  AlertCircle, TrendingUp, TrendingDown,
   ClipboardList, Loader2, FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 // O cartao de numero vivia aqui, duplicado do PainelPastoral e do PGM.
 import { Indicador, FaixaDeIndicadores } from "@/components/painel/blocos";
 import {
-  ebdResumo, ebdPorFaixa, faixasExtremas,
-  type EbdResumo, type EbdFaixa,
+  relatorioGeralResumo, relatorioGeralPorFaixa, faixasExtremas,
+  type RelatorioMensalGeralResumo, type EbdFaixa,
 } from "@/services/ebdPainelService";
+import { novasMatriculasDoMes } from "@/services/ebdService";
 
 export function PainelAcompanhamentoEbd() {
-  const [resumo, setResumo] = useState<EbdResumo | null>(null);
+  const [resumo, setResumo] = useState<RelatorioMensalGeralResumo | null>(null);
   const [faixas, setFaixas] = useState<EbdFaixa[]>([]);
+  const [novosNoMes, setNovosNoMes] = useState(0);
   const [loading, setLoading] = useState(true);
   const [falhou, setFalhou] = useState(false);
 
@@ -55,11 +63,27 @@ export function PainelAcompanhamentoEbd() {
   async function carregar() {
     setLoading(true);
     try {
-      // Só as duas agregações que a tela desenha. `ebdPorClasse` e
-      // `ebdAlunosAusentes` saíram junto com os blocos que alimentavam —
-      // buscar o que ninguém vê é duas idas ao banco por nada.
-      const [r, f] = await Promise.all([ebdResumo(), ebdPorFaixa()]);
-      setResumo(r); setFaixas(f);
+      const hoje = new Date();
+      const ano = hoje.getFullYear();
+      const mes = hoje.getMonth() + 1;
+      const inicioDoMes = `${ano}-${String(mes).padStart(2, "0")}-01`;
+      const fimDoMes = new Date(ano, mes, 1).toISOString().slice(0, 10);
+
+      const [r, f, novos] = await Promise.all([
+        relatorioGeralResumo(inicioDoMes, fimDoMes),
+        relatorioGeralPorFaixa(inicioDoMes, fimDoMes),
+        novasMatriculasDoMes(inicioDoMes, fimDoMes),
+      ]);
+      setResumo(r);
+      // Mesmos nomes de campo de `EbdFaixa`, só que `relatorioGeralPorFaixa`
+      // devolve `presentes`/`ausentes` em vez de `presencas`/`ausencias` —
+      // adapta aqui pra reaproveitar `faixasExtremas()` e o render de baixo
+      // sem duplicar os dois.
+      setFaixas(f.map(x => ({
+        faixa: x.faixa, ordem: x.ordem, matriculados: x.matriculados,
+        presencas: x.presentes, ausencias: x.ausentes, taxa: x.taxa,
+      })));
+      setNovosNoMes(novos.length);
       setFalhou(false);
     } catch (e: any) {
       // Um bloco que falha não pode derrubar o painel inteiro nem sumir em
@@ -96,8 +120,9 @@ export function PainelAcompanhamentoEbd() {
   }
 
   const { maisPresente, maisAusente } = faixasExtremas(faixas);
-  const semChamada = resumo.aulas_sem_chamada;
+  const semChamada = resumo.aulas_total - resumo.aulas_com_chamada;
   const semTaxa = resumo.aulas_com_chamada === 0;
+  const semDataNasc = faixas.find(f => f.faixa === "Sem data de nascimento")?.matriculados ?? 0;
 
   return (
     <div className="space-y-4">
@@ -131,37 +156,29 @@ export function PainelAcompanhamentoEbd() {
         </div>
       )}
 
-      {/* Números do topo */}
-      <FaixaDeIndicadores colunas={5}>
-        <Indicador rotulo="Alunos" valor={resumo.alunos_matriculados} tom="info" />
+      {/* Números do topo — os mesmos sete do relatório mensal
+          (EbdRelatorioMensalGeral.tsx), pedido dela pra baterem quando ela
+          for de um pro outro. `colunas={4}` porque `FaixaDeIndicadores` só
+          tem entrada até 6 no mapa de colunas — sete vira 4+3, mesma
+          densidade que o relatório já usa (`grid-cols-4`) pro mesmo grupo. */}
+      <FaixaDeIndicadores colunas={4}>
         <Indicador rotulo="Classes ativas" valor={resumo.classes_ativas} tom="info" />
-        <Indicador rotulo="Com chamada" valor={resumo.aulas_com_chamada} tom="celebracao" />
-        <Indicador rotulo="Frequência" valor={semTaxa ? "—" : `${resumo.taxa_presenca}%`} tom="success" />
+        <Indicador rotulo="Matriculados" valor={resumo.matriculados} tom="info" />
+        <Indicador rotulo="Aulas c/ chamada" valor={`${resumo.aulas_com_chamada}/${resumo.aulas_total}`} tom="celebracao" />
+        <Indicador rotulo="Presença média" valor={semTaxa ? "—" : `${resumo.taxa_presenca}%`} tom="success" />
+        <Indicador rotulo="Ausentes" valor={resumo.ausentes} tom="warning" />
         <Indicador rotulo="Visitantes" valor={resumo.visitantes} tom="neutro" />
+        <Indicador rotulo="Novos alunos" valor={novosNoMes} tom="celebracao" />
       </FaixaDeIndicadores>
 
-      {/* Homens x mulheres */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Users className="w-4 h-4 text-muted-foreground" />
-            Homens e mulheres
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Balanca
-            titulo="Matriculados"
-            esquerdaRotulo="Homens" esquerdaValor={resumo.homens_matriculados}
-            direitaRotulo="Mulheres" direitaValor={resumo.mulheres_matriculadas}
-          />
-          <Balanca
-            titulo="Presenças registradas"
-            esquerdaRotulo="Homens" esquerdaValor={resumo.homens_presentes}
-            direitaRotulo="Mulheres" direitaValor={resumo.mulheres_presentes}
-            vazio="Nenhuma presença registrada ainda."
-          />
-        </CardContent>
-      </Card>
+      {/* "Homens e mulheres" saiu daqui: media matriculados/presenças por
+          sexo a partir de `ebd_painel_resumo()` (desde sempre, sem
+          período), campo que o resumo período-livre de cima não tem. Ela
+          pediu "os mesmos indicadores do relatório mensal" — o relatório
+          não tem esse recorte, e duplicar uma consulta à parte só pra
+          preservar um bloco que ninguém pediu para manter contrariaria o
+          próprio pedido. Se fizer falta, é uma pergunta nova, não uma
+          suposição minha. */}
 
       {/* Faixa etária */}
       <Card>
@@ -223,12 +240,12 @@ export function PainelAcompanhamentoEbd() {
             </table>
           </div>
 
-          {resumo.alunos_sem_data_nasc > 0 && (
+          {semDataNasc > 0 && (
             <p className="text-xs text-muted-foreground flex items-start gap-1.5">
               <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-              {resumo.alunos_sem_data_nasc} aluno{resumo.alunos_sem_data_nasc > 1 ? "s" : ""} sem
-              data de nascimento — aparece{resumo.alunos_sem_data_nasc > 1 ? "m" : ""} na faixa
-              própria, não some{resumo.alunos_sem_data_nasc > 1 ? "m" : ""} da conta.
+              {semDataNasc} aluno{semDataNasc > 1 ? "s" : ""} sem
+              data de nascimento — aparece{semDataNasc > 1 ? "m" : ""} na faixa
+              própria, não some{semDataNasc > 1 ? "m" : ""} da conta.
             </p>
           )}
         </CardContent>
@@ -253,47 +270,3 @@ export function PainelAcompanhamentoEbd() {
   );
 }
 
-// ─── Helpers de UI ─────────────────────────────────────────────────────────
-
-
-/**
- * Barra de proporção entre dois grupos.
- *
- * Os números vêm escritos ao lado da barra de propósito: uma barra sozinha
- * comunica proporção, mas esconde a escala — 3 contra 1 e 300 contra 100
- * desenham igual.
- */
-function Balanca({
-  titulo, esquerdaRotulo, esquerdaValor, direitaRotulo, direitaValor, vazio,
-}: {
-  titulo: string;
-  esquerdaRotulo: string; esquerdaValor: number;
-  direitaRotulo: string; direitaValor: number;
-  vazio?: string;
-}) {
-  const total = esquerdaValor + direitaValor;
-  if (total === 0) {
-    return (
-      <div>
-        <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1">{titulo}</p>
-        <p className="text-sm text-muted-foreground">{vazio ?? "Sem dados."}</p>
-      </div>
-    );
-  }
-  const pctE = Math.round((esquerdaValor / total) * 100);
-  return (
-    <div>
-      <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1">{titulo}</p>
-      <div className="flex items-center gap-2 text-sm mb-1 flex-wrap">
-        <span className="tabular-nums"><strong>{esquerdaValor}</strong> {esquerdaRotulo}</span>
-        <span className="text-muted-foreground">·</span>
-        <span className="tabular-nums"><strong>{direitaValor}</strong> {direitaRotulo}</span>
-        <span className="text-xs text-muted-foreground">({pctE}% / {100 - pctE}%)</span>
-      </div>
-      <div className="h-2 rounded-full overflow-hidden flex bg-muted">
-        <div className="bg-info" style={{ width: `${pctE}%` }} aria-hidden />
-        <div className="bg-celebracao" style={{ width: `${100 - pctE}%` }} aria-hidden />
-      </div>
-    </div>
-  );
-}
