@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { hojeLocal, toYmd } from "@/lib/data";
 
 export type GovReuniaoTipo = "diretoria" | "lideranca" | "conselho" | "extraordinaria" | "outra";
 export type GovReuniaoStatus = "agendada" | "em_andamento" | "concluida" | "cancelada" | "adiada";
@@ -383,19 +384,14 @@ export async function gerarAssembleiaDaReuniao(reuniaoId: string, opts?: {
     throw new Error("Nenhuma pauta deliberativa pronta para assembleia");
   }
 
-  // 2) Próximo domingo
-  //
-  // `.toISOString()` converte pra UTC antes de cortar a data, e `d` carrega
-  // a hora "agora" (nunca zerada) durante toda a soma de dias — das 21h à
-  // meia-noite em Brasília (UTC-3) isso já é depois da meia-noite em UTC, e
-  // o "próximo domingo" virava segunda-feira. Mesma causa, mesmo conserto
-  // do incidente já achado em `EbdChamada.tsx`/`domingoMaisRecente()`: ler
-  // os componentes de data no fuso local, sem passar por UTC.
+  // 2) Próximo domingo — `toYmd` (não `.toISOString()`) por causa do bug já
+  // documentado em bug-fuso-horario-datas.md: "próximo domingo" virava
+  // segunda-feira das 21h à meia-noite em Brasília.
   const proxDomingo = opts?.dataAssembleia ?? (() => {
     const d = new Date();
     const dias = (7 - d.getDay()) % 7 || 7;
     d.setDate(d.getDate() + dias);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    return toYmd(d);
   })();
 
   // 3) Cria assembleia
@@ -519,7 +515,7 @@ export async function decidirPauta(
     votos_nao: votos.nao,
     votos_abstencao: votos.abstencao,
     votos_impedimento: votos.impedimento,
-    data_decisao: new Date().toISOString().slice(0, 10),
+    data_decisao: hojeLocal(),
     observacao_decisao: observacao ?? null,
   });
 }

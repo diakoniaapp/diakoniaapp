@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { hojeLocal } from "@/lib/data";
 import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -139,7 +140,7 @@ function NovaReuniaoDialog({ open, onOpenChange, onSaved }: {
 }) {
   const [titulo, setTitulo] = useState("Reunião de Diretoria");
   const [tipo, setTipo] = useState<GovReuniaoTipo>("diretoria");
-  const [data, setData] = useState(new Date().toISOString().slice(0, 10));
+  const [data, setData] = useState(hojeLocal());
   const [horario, setHorario] = useState("19:30");
   const [local, setLocal] = useState("Sala da Igreja");
   const [observacoes, setObservacoes] = useState("");
@@ -149,7 +150,7 @@ function NovaReuniaoDialog({ open, onOpenChange, onSaved }: {
     if (!open) return;
     setTitulo("Reunião de Diretoria");
     setTipo("diretoria");
-    setData(new Date().toISOString().slice(0, 10));
+    setData(hojeLocal());
     setHorario("19:30");
     setLocal("Sala da Igreja");
     setObservacoes("");
