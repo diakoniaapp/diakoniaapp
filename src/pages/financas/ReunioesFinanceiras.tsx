@@ -34,6 +34,12 @@ const STATUS_LABEL: Record<string, string> = {
   realizada: "Realizada", cancelada: "Cancelada",
 };
 
+/** Formato que `<input type="datetime-local">` espera, no fuso local — nunca por `.toISOString()`. */
+function formatarDatetimeLocal(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 export default function ReunioesFinanceiras() {
   const [lista, setLista] = useState<ReuniaoFinanceira[]>([]);
   const [loading, setLoading] = useState(true);
@@ -125,7 +131,13 @@ function NovaReuniaoDialog({ open, onOpenChange, onSaved }: {
     periodicidade: "mensal" as const,
     competencia_inicio: inicio,
     competencia_fim: fim,
-    data_reuniao: new Date(hoje.getTime() + 7 * 86_400_000).toISOString().slice(0,16),
+    // `<input type="datetime-local">` lê a string como hora LOCAL, sem
+    // conversão nenhuma — mas `.toISOString()` devolve a hora em UTC.
+    // Sugerir "daqui a 7 dias" assim aparecia 3h adiantado (17:30 em vez
+    // de 14:30), e quem salvasse sem perceber gravava o horário errado
+    // (`new Date(form.data_reuniao).toISOString()` reinterpreta a string
+    // como local — certo, DESDE que a string já esteja em hora local).
+    data_reuniao: formatarDatetimeLocal(new Date(hoje.getTime() + 7 * 86_400_000)),
     local: "",
   });
   const [salvando, setSalvando] = useState(false);

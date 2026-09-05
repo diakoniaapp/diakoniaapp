@@ -42,6 +42,21 @@ export interface ContextoTarefa {
 
 type Resolvedor = (ctx: ContextoTarefa) => Promise<TarefaPrincipal | null>;
 
+/**
+ * Hoje, no fuso de quem está olhando — nunca `.toISOString()`.
+ *
+ * Achado ao auditar o app inteiro atrás do mesmo bug já corrigido em
+ * `EbdChamada.tsx`/`domingoMaisRecente()`: `.toISOString()` converte pra
+ * UTC antes de cortar a data, e das 21h à meia-noite em Brasília
+ * (UTC-3) isso já é depois da meia-noite em UTC. Aqui o efeito era uma
+ * conta que vence HOJE aparecer rotulada "está atrasada" a partir das
+ * 21h — a primeira e mais urgente das tarefas da tela HOJE.
+ */
+function hojeLocalIso(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 // ─── Contas: o que vence hoje, ou já venceu ───────────────────────────────
 //
 // Primeiro de todos, e por um motivo que os outros não têm: prazo de
@@ -57,7 +72,7 @@ const contaVencendo: Resolvedor = async (ctx) => {
     ctx.permissoes.has("ver_painel_tesouraria");
   if (!podeVer) return null;
 
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = hojeLocalIso();
   const { data, error } = await supabase
     .from("fiscal_agenda")
     .select("id, codigo_obrigacao, vencimento")
