@@ -33,6 +33,7 @@
 // significado de uma coluna existente quebraria quem já a consome.
 
 import { supabase } from "@/integrations/supabase/client";
+import { hojeMaisDias } from "@/lib/data";
 
 export interface PgmResumo {
   total_grupos: number;
@@ -88,9 +89,7 @@ export function quandoSeReune(g: PgmGrupo): string {
 }
 
 export async function carregarPainelPgm(): Promise<PgmPainel> {
-  const trintaDiasAtras = new Date();
-  trintaDiasAtras.setDate(trintaDiasAtras.getDate() - 30);
-  const desde = trintaDiasAtras.toISOString().slice(0, 10);
+  const desde = hojeMaisDias(-30);
 
   // ── As duas buscas que saíram, e como trazê-las de volta ────────────────
   //

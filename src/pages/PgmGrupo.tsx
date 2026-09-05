@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { hojeLocal } from "@/lib/data";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -87,7 +88,7 @@ export default function PgmGrupo() {
   async function startNovaReuniao() {
     setIniciandoReuniao(true);
     try {
-      const hoje = new Date().toISOString().slice(0, 10);
+      const hoje = hojeLocal();
       const rid = await iniciarReuniao(grupoId, hoje);
       navigate(`/pgm/${grupoId}/reuniao/${rid}`);
     } catch (e: any) {

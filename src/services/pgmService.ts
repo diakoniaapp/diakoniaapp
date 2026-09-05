@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { hojeLocal } from "@/lib/data";
 
 // ─── Tipos ───────────────────────────────────────────────────────────────
 export type PgmPapel = "participante" | "lider" | "colider" | "anfitriao";
@@ -203,7 +204,7 @@ export async function vincularPessoa(
 export async function desvincularPessoa(grupoId: string, pessoaId: string): Promise<void> {
   const { error } = await supabase
     .from("pgm_membros")
-    .update({ ativo: false, data_saida: new Date().toISOString().slice(0, 10) })
+    .update({ ativo: false, data_saida: hojeLocal() })
     .eq("grupo_id", grupoId)
     .eq("pessoa_id", pessoaId);
   if (error) throw error;
@@ -497,7 +498,7 @@ export async function responderPedidoOracao(
 ): Promise<void> {
   const { error } = await supabase.from("pgm_pedidos_oracao").update({
     status: "respondido",
-    respondido_em: new Date().toISOString().slice(0, 10),
+    respondido_em: hojeLocal(),
     resposta,
   }).eq("id", id);
   if (error) throw error;
