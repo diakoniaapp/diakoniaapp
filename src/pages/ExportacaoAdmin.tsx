@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { hojeLocal } from "@/lib/data";
 import type { Database } from "@/integrations/supabase/types";
 import { useAuth } from "@/hooks/useAuth";
 import { PageHeader } from "@/components/PageHeader";
@@ -193,7 +194,7 @@ export default function ExportacaoAdmin() {
 
       // Gera e baixa o CSV
       const csv       = gerarCsv(registros as Record<string,any>[], camposSel);
-      const dataStr   = new Date().toISOString().slice(0,10);
+      const dataStr   = hojeLocal();
       const nomeArq   = `diakonia_membros_${dataStr}.csv`;
       baixarArquivo(csv, nomeArq, "text/csv;charset=utf-8;");
 

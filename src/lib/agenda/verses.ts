@@ -27,7 +27,11 @@ export const VERSES_SERVICO: Verse[] = [
 
 /** Versículo determinístico pelo dia (rotativo). */
 export function verseOfTheDay(date = new Date()): Verse {
-  // Dia juliano simples para garantir rotação diária
-  const day = Math.floor(date.getTime() / 86_400_000);
+  // Dia juliano simples pra garantir rotação diária — mas contado a partir
+  // da meia-noite LOCAL, não de `date.getTime()` direto: `getTime()` é
+  // sempre UTC, e o versículo trocaria às 21h em Brasília em vez de meia-
+  // noite (mesma causa do bug já documentado em bug-fuso-horario-datas.md).
+  const meiaNoiteLocal = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const day = Math.floor(meiaNoiteLocal.getTime() / 86_400_000);
   return VERSES_SERVICO[day % VERSES_SERVICO.length];
 }

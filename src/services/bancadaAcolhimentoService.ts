@@ -23,6 +23,7 @@
 // lista num alarme permanente que ninguém termina.
 
 import { supabase } from "@/integrations/supabase/client";
+import { hojeLocal, hojeMaisDias } from "@/lib/data";
 
 /**
  * A área dona das tarefas de acolhimento — hoje "Crescimento", mas o código
@@ -82,8 +83,8 @@ export interface BancadaAcolhimento {
 const DIA = 86_400_000;
 
 export async function carregarBancadaAcolhimento(): Promise<BancadaAcolhimento | null> {
-  const hoje = new Date();
-  const dozeMeses = new Date(hoje.getTime() - 365 * DIA).toISOString().slice(0, 10);
+  const hojeISO = hojeLocal();
+  const dozeMeses = hojeMaisDias(-365);
 
   const [tarefas, pessoas, historico, pgm, ebd, areas] = await Promise.all([
     supabase.from("acolhimento_tarefas")
@@ -115,7 +116,6 @@ export async function carregarBancadaAcolhimento(): Promise<BancadaAcolhimento |
   const servindo = new Set((areas.data ?? []).map((r: any) => r.membro_id));
   const temLaco = (id: string) => emPgm.has(id) || emEbd.has(id) || servindo.has(id);
 
-  const hojeISO = hoje.toISOString().slice(0, 10);
   const listaTarefas: TarefaDeAcolhimento[] = ((tarefas.data ?? []) as any[]).map(t => ({
     id: t.id,
     titulo: t.titulo ?? "—",

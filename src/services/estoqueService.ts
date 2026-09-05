@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { hojeLocal } from "@/lib/data";
 
 export type EstoqueMovTipo = "entrada" | "saida" | "ajuste";
 export type EstoqueUrgencia = "esgotado" | "critico" | "comprar" | "baixo" | "ok";
@@ -122,7 +123,7 @@ export async function registrarMovimento(input: {
     quantidade: input.quantidade,
     valor_unitario: input.valor_unitario ?? null,
     valor_total: input.valor_unitario ? input.quantidade * input.valor_unitario : null,
-    data: input.data ?? new Date().toISOString().slice(0, 10),
+    data: input.data ?? hojeLocal(),
     motivo: input.motivo ?? null,
     fornecedor_id: input.fornecedor_id ?? null,
     lancamento_id: input.lancamento_id ?? null,

@@ -24,6 +24,7 @@ import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { HeartHandshake, TrendingUp, PauseCircle, MessageCircleOff } from "lucide-react";
+import { hojeMaisDias } from "@/lib/data";
 
 type Tipo = "sobrecarga" | "sumido" | "recusou" | "volta";
 
@@ -50,8 +51,7 @@ export function SinaisDeVoluntariado() {
 
   useEffect(() => {
     (async () => {
-      const hoje = new Date();
-      const emQuinzeDias = new Date(hoje.getTime() + 15 * DIA).toISOString().slice(0, 10);
+      const emQuinzeDias = hojeMaisDias(15);
 
       const [{ data: perfis }, { data: vinculos }, { data: recusas }] = await Promise.all([
         supabase.from("perfil_servico")

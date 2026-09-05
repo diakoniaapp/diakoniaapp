@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { hojeLocal } from "@/lib/data";
 import { BuscaPessoa, type PessoaResultado } from "@/components/ui/BuscaPessoa";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,7 +35,7 @@ export default function VoluntariosDialog({ area, open, onOpenChange }: Props) {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Pessoa | null>(null);
   const [funcao, setFuncao] = useState("");
-  const [dataInicio, setDataInicio] = useState<string>(new Date().toISOString().slice(0,10));
+  const [dataInicio, setDataInicio] = useState<string>(hojeLocal());
 
   const podeAdicionar = area.ativo && area.ministerio_ativo;
 
@@ -60,7 +61,7 @@ export default function VoluntariosDialog({ area, open, onOpenChange }: Props) {
 
   const resetForm = () => {
     setShowForm(false); setSelected(null); setSearch(""); setFuncao("");
-    setDataInicio(new Date().toISOString().slice(0,10));
+    setDataInicio(hojeLocal());
   };
 
   const pessoaName = (id: string) => pessoas.find(p=>p.id===id)?.nome_completo ?? "—";
@@ -99,7 +100,7 @@ export default function VoluntariosDialog({ area, open, onOpenChange }: Props) {
   };
 
   const encerrar = async (a: Atuacao) => {
-    const hoje = new Date().toISOString().slice(0,10);
+    const hoje = hojeLocal();
     const { error } = await supabase.from("area_voluntarios")
       .update({ status: "encerrada", data_fim: hoje })
       .eq("id", a.id);
