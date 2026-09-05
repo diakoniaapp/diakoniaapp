@@ -434,11 +434,11 @@ export default function Ebd() {
             onClick={() => setPainelAberto(p => p === "visitantes" ? null : "visitantes")}
           />
           <Stat
-            label="Adesão" valor={adesao !== null ? `${adesao}%` : "—"} compacto ativo={painelAberto === "adesao"}
+            label="Alcance" valor={adesao !== null ? `${adesao}%` : "—"} compacto ativo={painelAberto === "adesao"}
             onClick={() => setPainelAberto(p => p === "adesao" ? null : "adesao")}
           />
           <Stat
-            label="Fora da EBD" valor={foraDaEbd !== null ? `${foraDaEbd}%` : "—"} compacto ativo={painelAberto === "foraDaEbd"}
+            label="Não alcançados" valor={foraDaEbd !== null ? `${foraDaEbd}%` : "—"} compacto ativo={painelAberto === "foraDaEbd"}
             onClick={() => setPainelAberto(p => p === "foraDaEbd" ? null : "foraDaEbd")}
           />
         </div>
@@ -449,9 +449,9 @@ export default function Ebd() {
           propósito: é explicação, não algo que precisa estar sempre à
           vista. */}
       <p className="text-xs text-muted-foreground -mt-3">
-        <strong>Adesão</strong>: {gerais?.matriculados ?? 0} de {gerais?.populacaoAdesao ?? 0} membros, congregados
+        <strong>Alcance</strong>: {gerais?.matriculados ?? 0} de {gerais?.populacaoAdesao ?? 0} membros, congregados
         e visitantes da EBD estão numa classe.{" "}
-        <strong>Fora da EBD</strong>: de quem cabe na faixa etária de alguma classe (membros, congregados e
+        <strong>Não alcançados</strong>: de quem cabe na faixa etária de alguma classe (membros, congregados e
         visitantes da EBD), quantos nunca se matricularam ou estão matriculados mas não apareceram este mês.
         Clique em qualquer indicador acima para ver o detalhe por classe.
       </p>
@@ -592,7 +592,7 @@ export default function Ebd() {
       {painelAberto === "adesao" && (
         <div className="rounded-lg border bg-card divide-y -mt-2">
           <p className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
-            Adesão por faixa etária — membros, congregados e visitantes da EBD, da mais nova para a mais velha.
+            Alcance por faixa etária — membros, congregados e visitantes da EBD, da mais nova para a mais velha.
             Clique numa classe para ver os nomes.
           </p>
           {classesComElegiveis.length === 0 ? (
@@ -626,7 +626,7 @@ export default function Ebd() {
                     </span>
                     <span className="block">
                       <span className="block text-sm font-semibold tabular-nums text-success-text">{pctAdesao}%</span>
-                      <span className="block text-[9px] uppercase tracking-wide text-muted-foreground">Adesão</span>
+                      <span className="block text-[9px] uppercase tracking-wide text-muted-foreground">Alcance</span>
                     </span>
                   </span>
                 </button>
@@ -651,9 +651,9 @@ export default function Ebd() {
       {painelAberto === "foraDaEbd" && (
         <div className="rounded-lg border bg-card divide-y -mt-2">
           <p className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
-            Fora da EBD, por faixa etária — membros, congregados e visitantes da EBD, da mais nova para a mais
-            velha. Ausentes = nunca se matriculou + está matriculado mas não apareceu este mês. Clique numa classe
-            para ver os nomes.
+            Não alcançados, por faixa etária — membros, congregados e visitantes da EBD, da mais nova para a mais
+            velha. Não alcançados = nunca se matriculou + está matriculado mas não apareceu este mês. Clique numa
+            classe para ver os nomes.
           </p>
           {classesComElegiveis.length === 0 ? (
             <p className="px-3 py-3 text-sm text-muted-foreground text-center">Sem faixas com gente elegível.</p>
@@ -692,7 +692,7 @@ export default function Ebd() {
                     <span className="block">
                       <span className="block text-sm font-semibold tabular-nums text-warning-text">{pct}%</span>
                       <span className="block text-[9px] uppercase tracking-wide text-muted-foreground">
-                        Ausentes ({ausentesTotal})
+                        Não alcançados ({ausentesTotal})
                       </span>
                     </span>
                   </span>
