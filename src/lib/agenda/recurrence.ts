@@ -1,37 +1,14 @@
 import { RRule, Frequency, Weekday } from "rrule";
 import type { EventoRow, EventoOcorrencia, RecorrenciaRegra } from "./types";
+import { parseLocalDate, hojeLocal, daquiAMeses, toYmd } from "@/lib/data";
 
-function parseLocalDate(yyyyMmDd: string): Date {
-  const [y, m, d] = yyyyMmDd.split("-").map(Number);
-  return new Date(y, m - 1, d);
-}
-/**
- * Hoje, no fuso de quem está olhando.
- *
- * Existe porque `new Date().toISOString().slice(0, 10)` devolve a data em
- * UTC: das 21h à meia-noite em Brasília ele já responde AMANHÃ. Medido às
- * 21h22 de 27/08/2026 — o formulário de evento sugeria 28/08.
- *
- * Não é hipótese: o culto desta igreja é às 22h, então a janela em que o erro
- * acontece é exatamente a janela em que alguém cadastraria esse culto.
- */
-export function hojeLocal(): string {
-  return toYmd(new Date());
-}
-
-/** Uma data local somada de N meses, para sugerir fim de série. */
-export function daquiAMeses(isoInicio: string, meses: number): string {
-  const [a, m, d] = isoInicio.split("-").map(Number);
-  const dt = new Date(a, m - 1 + meses, d);
-  return toYmd(dt);
-}
-
-function toYmd(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${dd}`;
-}
+// `hojeLocal`/`daquiAMeses` nasceram aqui — o comentário original explicava
+// o incidente medido (21h22 de 27/08/2026, formulário de evento sugerindo
+// o dia seguinte). Promovidos pra `src/lib/data.ts` em 04/09/2026 depois de
+// uma auditoria achar a mesma causa em ~55 outros lugares do sistema.
+// Reexportados aqui pra não quebrar `RecurrenceEditor.tsx`/`EventDialog.tsx`,
+// que já importam os dois deste módulo.
+export { hojeLocal, daquiAMeses };
 
 function buildRule(reg: RecorrenciaRegra, dtstart: Date): RRule {
   const freqMap: Record<RecorrenciaRegra["freq"], Frequency> = {
