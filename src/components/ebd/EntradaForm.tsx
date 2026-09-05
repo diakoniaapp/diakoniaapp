@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { hojeLocal } from "@/lib/data";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
@@ -32,7 +33,7 @@ export function EntradaForm({ campanhaId, open, onOpenChange, onSaved, entrada }
   const [valor, setValor] = useState<number>(0);
   const [tipo, setTipo] = useState<EntradaEbd["tipo"]>("oferta");
   const [forma, setForma] = useState<EntradaEbd["forma"]>("envelope");
-  const [data, setData] = useState(new Date().toISOString().slice(0, 10));
+  const [data, setData] = useState(hojeLocal());
   const [descricao, setDescricao] = useState("");
   const [usarSimbolico, setUsarSimbolico] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -57,7 +58,7 @@ export function EntradaForm({ campanhaId, open, onOpenChange, onSaved, entrada }
       setValor(0);
       setTipo("oferta");
       setForma("envelope");
-      setData(new Date().toISOString().slice(0, 10));
+      setData(hojeLocal());
       setDescricao("");
       setUsarSimbolico(true);
       setComprovanteAtual(null);

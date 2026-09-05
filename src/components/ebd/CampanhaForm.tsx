@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { hojeLocal } from "@/lib/data";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -26,7 +27,7 @@ const EMPTY = (classeId: string): CampanhaInput => ({
   classe_id: classeId,
   nome: "",
   descricao: "",
-  data_inicio: new Date().toISOString().slice(0, 10),
+  data_inicio: hojeLocal(),
   data_fim: "",
   meta_valor: 0,
   ativo: true,
