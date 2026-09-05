@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { hojeLocal } from "@/lib/data";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
@@ -29,7 +30,7 @@ export function TransferenciaForm({ open, onOpenChange, contaOrigemPadrao, onSav
   const [origemId, setOrigemId] = useState("");
   const [destinoId, setDestinoId] = useState("");
   const [valor, setValor] = useState<number>(0);
-  const [data, setData] = useState(new Date().toISOString().slice(0, 10));
+  const [data, setData] = useState(hojeLocal());
   const [descricao, setDescricao] = useState("");
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -43,7 +44,7 @@ export function TransferenciaForm({ open, onOpenChange, contaOrigemPadrao, onSav
       setDestinoId("");
     });
     setValor(0);
-    setData(new Date().toISOString().slice(0, 10));
+    setData(hojeLocal());
     setDescricao("");
     setArquivo(null);
     setPreviewUrl(null);

@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { hojeLocal } from "@/lib/data";
 
 // ─── Tipos ───────────────────────────────────────────────────────────────
 export type FinContaTipo = "caixa" | "banco" | "pix" | "envelope" | "cartao" | "aplicacao" | "cofre";
@@ -512,7 +513,7 @@ export async function confirmarPagamento(lancamentoId: string, opts?: {
 }): Promise<void> {
   const patch: any = {
     status: "realizado",
-    data_pagamento: opts?.dataPagamento ?? new Date().toISOString().slice(0, 10),
+    data_pagamento: opts?.dataPagamento ?? hojeLocal(),
   };
   if (opts?.valorReal && opts.valorReal > 0) patch.valor = opts.valorReal;
   await atualizarLancamento(lancamentoId, patch);

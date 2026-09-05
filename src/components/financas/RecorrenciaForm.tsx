@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { hojeLocal } from "@/lib/data";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
@@ -39,7 +40,7 @@ export function RecorrenciaForm({ open, onOpenChange, recorrencia, onSaved }: Pr
   const [fornecedorId, setFornecedorId] = useState("");
   const [frequencia, setFrequencia] = useState<FinFrequencia>("mensal");
   const [diaVencimento, setDiaVencimento] = useState<number>(10);
-  const [dataInicio, setDataInicio] = useState(new Date().toISOString().slice(0, 10));
+  const [dataInicio, setDataInicio] = useState(hojeLocal());
   const [dataFim, setDataFim] = useState("");
   const [observacao, setObservacao] = useState("");
   const [lembrar5d, setLembrar5d] = useState(true);
@@ -84,7 +85,7 @@ export function RecorrenciaForm({ open, onOpenChange, recorrencia, onSaved }: Pr
       setTipo("saida"); setDescricao(""); setValor(0); setValorVariavel(false);
       setContaId(""); setCategoriaId(""); setCentroId(""); setFornecedorId("");
       setFrequencia("mensal"); setDiaVencimento(10);
-      setDataInicio(new Date().toISOString().slice(0, 10)); setDataFim("");
+      setDataInicio(hojeLocal()); setDataFim("");
       setObservacao(""); setLembrar5d(true); setLembrar1d(true); setLembrarDia(true);
     }
   }, [open, recorrencia]);

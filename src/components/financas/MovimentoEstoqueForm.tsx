@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { hojeLocal } from "@/lib/data";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
@@ -26,7 +27,7 @@ export function MovimentoEstoqueForm({ open, onOpenChange, item, onSaved }: Prop
   const [tipo, setTipo] = useState<EstoqueMovTipo>("entrada");
   const [quantidade, setQuantidade] = useState<number>(0);
   const [valorUnitario, setValorUnitario] = useState<number | "">("");
-  const [data, setData] = useState(new Date().toISOString().slice(0, 10));
+  const [data, setData] = useState(hojeLocal());
   const [motivo, setMotivo] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -35,7 +36,7 @@ export function MovimentoEstoqueForm({ open, onOpenChange, item, onSaved }: Prop
     setTipo("entrada");
     setQuantidade(0);
     setValorUnitario("");
-    setData(new Date().toISOString().slice(0, 10));
+    setData(hojeLocal());
     setMotivo("");
   }, [open]);
 

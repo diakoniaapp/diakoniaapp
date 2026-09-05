@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { hojeLocal } from "@/lib/data";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -232,7 +233,7 @@ function FormReembolso({ caixaId, onSaved }: { caixaId: string; onSaved: () => v
 
   const [form, setForm] = useState({
     valor: "", desc: "", beneficiario: "",
-    nf_numero: "", nf_serie: "", nf_emitida: new Date().toISOString().slice(0,10), nf_cnpj: "",
+    nf_numero: "", nf_serie: "", nf_emitida: hojeLocal(), nf_cnpj: "",
   });
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [salvando, setSalvando] = useState(false);
@@ -295,7 +296,7 @@ function FormAbate({ caixaId, onSaved }: { caixaId: string; onSaved: () => void 
   const [salvando, setSalvando] = useState(false);
   const [form, setForm] = useState({
     fin_id: "", desc: "",
-    nf_numero: "", nf_serie: "", nf_emitida: new Date().toISOString().slice(0,10), nf_cnpj: "",
+    nf_numero: "", nf_serie: "", nf_emitida: hojeLocal(), nf_cnpj: "",
   });
   const [arquivo, setArquivo] = useState<File | null>(null);
   useEffect(() => { listarLancamentosSaidaDisponiveis().then(setLancs); }, []);

@@ -12,6 +12,7 @@
 // ══════════════════════════════════════════════════════════════════════
 
 import { supabase, supabaseRel } from "@/integrations/supabase/client";
+import { hojeLocal } from "@/lib/data";
 
 // ─── Enums (refletem os enums SQL exatamente) ───────────────────────────
 export type ReservaStatus =
@@ -736,7 +737,7 @@ export async function registrarCusto(
       tipo: "custo" as MovimentoTipo,
       valor,
       descricao,
-      data_movimento: dataMovimento ?? new Date().toISOString().slice(0,10),
+      data_movimento: dataMovimento ?? hojeLocal(),
       registrado_por: (await supabase.auth.getUser()).data.user?.id,
     })
     .select().single();
@@ -849,7 +850,7 @@ export async function registrarReversaoAdmin(
       tipo: "reversao_admin" as MovimentoTipo,
       valor,
       descricao,
-      data_movimento: new Date().toISOString().slice(0,10),
+      data_movimento: hojeLocal(),
       registrado_por: (await supabase.auth.getUser()).data.user?.id,
     })
     .select().single();

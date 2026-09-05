@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { hojeLocal } from "@/lib/data";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -300,7 +301,7 @@ function AbaAgenda() {
     try {
       await darBaixaObrigacao(it.id, {
         valor_pago: valor,
-        data_pagamento: new Date().toISOString().slice(0,10),
+        data_pagamento: hojeLocal(),
       });
       toast.success("Baixa registrada");
       await carregar();
@@ -312,7 +313,7 @@ function AbaAgenda() {
   if (loading) return <Loading />;
 
   const fmtData = (s: string) => new Date(s + "T00:00").toLocaleDateString("pt-BR");
-  const hoje = new Date().toISOString().slice(0,10);
+  const hoje = hojeLocal();
   const isAtrasado = (it: FiscalAgendaItem) => it.status === "pendente" && it.vencimento < hoje;
 
   return (

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { hojeLocal } from "@/lib/data";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
@@ -41,7 +42,7 @@ export function LancamentoForm({
   const isEdit = !!lancamento;
 
   const [tipo, setTipo] = useState<FinMovimentoTipo>(tipoPadrao);
-  const [data, setData] = useState(new Date().toISOString().slice(0, 10));
+  const [data, setData] = useState(hojeLocal());
   const [valor, setValor] = useState<number>(0);
   const [contaId, setContaId] = useState<string>("");
   const [categoriaId, setCategoriaId] = useState<string>("");
@@ -108,7 +109,7 @@ export function LancamentoForm({
       setObservacoes(lancamento.observacoes ?? "");
     } else {
       setTipo(tipoPadrao);
-      setData(new Date().toISOString().slice(0, 10));
+      setData(hojeLocal());
       setValor(0);
       setContaId(contaIdPadrao ?? "");
       setCategoriaId(""); setCentroCustoId(""); setFornecedorId("");

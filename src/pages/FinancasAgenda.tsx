@@ -13,6 +13,7 @@ import {
   listarProximosVencimentos, confirmarPagamento, brl,
   type FinVencimento,
 } from "@/services/finService";
+import { hojeMaisDias } from "@/lib/data";
 
 function dataBr(s: string) {
   return new Date(s + "T00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
@@ -36,7 +37,7 @@ export default function FinancasAgenda() {
   async function carregar() {
     setLoading(true);
     try {
-      const ate30 = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const ate30 = hojeMaisDias(30);
       const data = await listarProximosVencimentos({
         ateData: ate30,
         tipo: filtroTipo !== "todos" ? filtroTipo : undefined,
