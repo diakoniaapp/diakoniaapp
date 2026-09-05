@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Printer, MessageCircle, Check, X } from "lucide-react";
 import { toast } from "sonner";
 import logoDiakonia from "@/assets/logo-diakonia.png";
+import { hojeLocal } from "@/lib/data";
 import {
   obterOuCriarOcasiao, chamadaView, type LinhaDaChamada,
 } from "@/services/diaconiaService";
@@ -25,7 +26,7 @@ function dataLongaBr(s: string) {
 export default function DiaconiaOcasiaoRelatorio() {
   const { ministerioId = "", areaId = "" } = useParams();
   const [params] = useSearchParams();
-  const data = params.get("data") || new Date().toISOString().slice(0, 10);
+  const data = params.get("data") || hojeLocal();
   const { user } = useAuth();
 
   const [areaNome, setAreaNome] = useState("");

@@ -30,6 +30,7 @@ import {
 import { TelefoneInput } from "@/components/ui/TelefoneInput";
 import { PaginaSkeleton } from "@/components/ListState";
 import { supabase } from "@/integrations/supabase/client";
+import { hojeLocal } from "@/lib/data";
 
 export default function DiaconiaChamada() {
   const { ministerioId = "", areaId = "" } = useParams();
@@ -38,7 +39,7 @@ export default function DiaconiaChamada() {
   const [areaNome, setAreaNome] = useState<string>("");
   const [data, setData] = useState<string>(() => {
     const params = new URLSearchParams(window.location.search);
-    return params.get("data") || new Date().toISOString().slice(0, 10);
+    return params.get("data") || hojeLocal();
   });
   const [ocasiaoId, setOcasiaoId] = useState<string | null>(null);
   const [fechada, setFechada] = useState(false);

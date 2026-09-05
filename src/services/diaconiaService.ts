@@ -36,6 +36,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { type ResultadoEscrita } from "@/lib/escritaConferida";
 import { idadeEm } from "@/lib/idade";
+import { hojeLocal, toYmd } from "@/lib/data";
 
 export interface Endereco {
   cep?: string | null;
@@ -587,9 +588,11 @@ export async function carregarBancadaDiaconia(ministerioId: string): Promise<Ban
   if (lista.length === 0) return null;
   const areaIds = lista.map(a => a.id);
 
-  const inicioDoMes = new Date();
-  inicioDoMes.setDate(1);
-  const desde = inicioDoMes.toISOString().slice(0, 10);
+  // `toYmd(new Date(ano, mes, 1))` e não `.setDate(1)` + `.toISOString()`:
+  // este segundo caminho mantém a HORA de agora, e das 21h à meia-noite em
+  // Brasília isso vira dia 2 do mês em vez de dia 1 (ver bug-fuso-horario-datas.md).
+  const hoje = new Date();
+  const desde = toYmd(new Date(hoje.getFullYear(), hoje.getMonth(), 1));
 
   const [vinculos, ocasioes] = await Promise.all([
     supabase.from("diaconia_vinculos").select("area_id, pessoa_assistida_id").in("area_id", areaIds).eq("ativo", true),
@@ -734,7 +737,7 @@ export async function carregarPendenciasAcompanhamento(
   const areaIds = listaAreas.map(a => a.id);
   const nomeDaArea = new Map(listaAreas.map(a => [a.id, a.nome]));
 
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = hojeLocal();
   const [{ data: vinculos }, { data: ocasioes }] = await Promise.all([
     supabase.from("diaconia_vinculos")
       .select(`id, area_id, pessoa_assistida_id, diaconia_pessoas_assistidas(nome_completo)`)

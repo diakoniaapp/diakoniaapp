@@ -18,6 +18,7 @@
 // telefone errado.
 
 import { useEffect, useState } from "react";
+import { hojeLocal } from "@/lib/data";
 import { Link, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -283,7 +284,7 @@ export default function DiaconiaPessoas() {
 function NovaPessoaDialog({ open, onOpenChange, areaId, onCriada }: {
   open: boolean; onOpenChange: (v: boolean) => void; areaId: string; onCriada: () => void;
 }) {
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = hojeLocal();
   const [nome, setNome] = useState("");
   const [tel, setTel] = useState("");
   const [end, setEnd] = useState<Endereco>({});

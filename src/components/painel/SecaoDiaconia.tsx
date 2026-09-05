@@ -30,9 +30,10 @@ import {
   carregarPendenciasAcompanhamento,
   type BancadaDiaconia, type IndicadoresDiaconia, type PendenciaAcompanhamento,
 } from "@/services/diaconiaService";
+import { hojeLocal } from "@/lib/data";
 
 function hojeISO(): string {
-  return new Date().toISOString().slice(0, 10);
+  return hojeLocal();
 }
 
 function formatarReais(v: number): string {
