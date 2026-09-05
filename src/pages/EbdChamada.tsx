@@ -23,17 +23,30 @@ import {
 import { PaginaSkeleton } from "@/components/ListState";
 import VisitanteRapidoDialog from "@/components/membros/VisitanteRapidoDialog";
 
-// Calcula o domingo mais próximo (passado ou hoje)
+function formatarISOLocal(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+// Calcula o domingo mais próximo (passado ou hoje).
+//
+// Achado ao verificar ao vivo às 21h59 (horário de Brasília): `.toISOString()`
+// converte pra UTC ANTES de cortar a data, e a hora do dia que `new Date()`
+// carrega desde o início (a hora "agora", nunca zerada) empurra qualquer
+// horário de Brasília a partir das 21h pra depois da meia-noite em UTC — o
+// domingo "mais recente" virava segunda-feira. `formatarISOLocal` lê os
+// componentes de data no fuso local, sem passar por UTC — não tem virada de
+// dia possível.
 function domingoMaisRecente(): string {
   const d = new Date();
   while (d.getDay() !== 0) d.setDate(d.getDate() - 1);
-  return d.toISOString().slice(0, 10);
+  return formatarISOLocal(d);
 }
 
 function domingoSeguinte(dataIso: string): string {
-  const d = new Date(dataIso + "T00:00:00");
+  const [ano, mes, dia] = dataIso.split("-").map(Number);
+  const d = new Date(ano, mes - 1, dia);
   d.setDate(d.getDate() + 7);
-  return d.toISOString().slice(0, 10);
+  return formatarISOLocal(d);
 }
 
 export default function EbdChamada() {
