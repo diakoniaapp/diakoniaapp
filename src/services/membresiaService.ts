@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { hojeLocal } from "@/lib/data";
 
 // ─── Tipos ───────────────────────────────────────────────────────────────
 export type TipoSolicitacao =
@@ -148,7 +149,7 @@ export async function atualizarSolicitacao(id: string, patch: Partial<Solicitaca
 export async function aprovarSolicitacao(id: string, observacao?: string): Promise<void> {
   await atualizarSolicitacao(id, {
     status: "aprovada",
-    data_aprovacao: new Date().toISOString().slice(0, 10),
+    data_aprovacao: hojeLocal(),
     observacao_aprovacao: observacao ?? null,
   });
 }
@@ -163,7 +164,7 @@ export async function rejeitarSolicitacao(id: string, observacao: string): Promi
 export async function concluirSolicitacao(id: string): Promise<void> {
   await atualizarSolicitacao(id, {
     status: "concluida",
-    data_conclusao: new Date().toISOString().slice(0, 10),
+    data_conclusao: hojeLocal(),
   });
 }
 

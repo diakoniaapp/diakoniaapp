@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { hojeLocal } from "@/lib/data";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -73,7 +74,7 @@ export default function VisitanteDialog({ open, onOpenChange, pessoa, onSaved }:
 
   // novo registro de visita
   const [novaVisita, setNovaVisita] = useState({
-    data: new Date().toISOString().slice(0, 10),
+    data: hojeLocal(),
     origem: "",
     acompanhado_por: "",
     observacoes: "",
@@ -124,7 +125,7 @@ export default function VisitanteDialog({ open, onOpenChange, pessoa, onSaved }:
     const { error } = await supabase.from("visitas").insert(payload);
     if (error) return toast.error(error.message);
     toast.success("Visita registrada");
-    setNovaVisita({ data: new Date().toISOString().slice(0, 10), origem: "", acompanhado_por: "", observacoes: "" });
+    setNovaVisita({ data: hojeLocal(), origem: "", acompanhado_por: "", observacoes: "" });
     load();
   };
 

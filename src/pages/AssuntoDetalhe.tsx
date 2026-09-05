@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { hojeLocal } from "@/lib/data";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -65,7 +66,7 @@ export default function AssuntoDetalhe() {
     try {
       await atualizarAssunto(id, {
         status: "concluido",
-        data_conclusao: new Date().toISOString().slice(0, 10),
+        data_conclusao: hojeLocal(),
         observacao_conclusao: obs ?? null,
       });
       toast.success("Concluído ✓");

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { hojeLocal } from "@/lib/data";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -187,7 +188,7 @@ const empty = {
   bairro:                   "",
   cidade:                   "",
   cep:                      "",
-  data_entrada:             new Date().toISOString().slice(0, 10),
+  data_entrada:             hojeLocal(),
   // Vazio por padrão, e nunca chutado. Para os 184 membros que já tinham
   // data quando a coluna nasceu, "não registrado" é a verdade — e "batismo",
   // que seria o palpite óbvio, é justamente o errado para quem veio por
@@ -238,7 +239,7 @@ function addDias(n: number): string {
 
 // ── Tarefas de acolhimento automáticas ───────────────────────────────────
 async function criarTarefasAcolhimento(visitanteId: string, nome: string) {
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = hojeLocal();
   const { data: evt } = await supabase
     .from("eventos").select("data").gte("data", hoje).neq("status", "cancelado")
     .order("data", { ascending: true }).limit(1).maybeSingle();
@@ -644,7 +645,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
             .select("id, ministerio_id")
             .in("id", novos);
           const infoMap = new Map((areasInfo ?? []).map((a: any) => [a.id, a.ministerio_id]));
-          const hoje = new Date().toISOString().slice(0, 10);
+          const hoje = hojeLocal();
           await supabase.from("area_voluntarios").insert(
             novos.map(areaId => ({
               area_id:       areaId,
@@ -669,7 +670,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
         if (removidos.length > 0) {
           await supabase
             .from("area_voluntarios")
-            .update({ status: "encerrada", data_fim: new Date().toISOString().slice(0, 10) })
+            .update({ status: "encerrada", data_fim: hojeLocal() })
             .eq("membro_id", pessoaId)
             .in("area_id", removidos)
             .eq("status", "ativa");
