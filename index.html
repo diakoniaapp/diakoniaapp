@@ -23,15 +23,22 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="alternate icon" href="/favicon.ico" sizes="48x48" />
 
-    <!-- FALTA o apple-touch-icon.png, e é de propósito: um <link> apontando
-         para arquivo que não existe é pior que a ausência dele. O atalho na
-         tela inicial do iPhone precisa de PNG (o Safari não aceita SVG ali),
-         e gerar esse PNG pede uma ferramenta de rasterização que este
-         repositório não tem. Sem ele, o iOS usa uma miniatura da página.
+    <!-- ── Instalável como app ──────────────────────────────────────────
+         O manifest e o registro do service worker são injetados aqui
+         automaticamente no build pelo vite-plugin-pwa (ver vite.config.ts)
+         — nada a fazer manualmente com eles.
 
-         Para resolver depois: exportar public/favicon.svg em 180×180 sobre
-         fundo #FBFAF7 (o iOS ignora transparência) e voltar com a linha
-         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />. -->
+         O que o plugin NÃO injeta sozinho é o suporte específico do iOS: o
+         Safari não lê o manifest pra decidir o ícone/tela cheia do atalho,
+         só estas tags. apple-touch-icon.png foi gerado em 180×180 a partir
+         de public/favicon.svg (sobre fundo #F5F3F0 — o iOS ignora
+         transparência e pintaria de preto sem isso). -->
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Diakonia" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#9d6125" />
 
     <!-- Open Graph -->
     <meta property="og:type"        content="website" />
