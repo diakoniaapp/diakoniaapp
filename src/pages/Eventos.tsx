@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { conferir } from "@/lib/escritaConferida";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -567,7 +568,11 @@ export default function Eventos() {
         const newId = data!.id as string;
         // Para séries, setar recorrencia_id = id
         if (payload.recorrencia) {
-          await supabase.from("eventos").update({ recorrencia_id: newId }).eq("id", newId);
+          const r = conferir(
+            await supabase.from("eventos").update({ recorrencia_id: newId }).eq("id", newId).select("id"),
+            "O evento",
+          );
+          if (!r.ok) throw new Error(r.erro);
         }
         await insertLinks(newId, payload.ministerios, payload.areas);
         toast.success("Evento criado");
@@ -597,8 +602,11 @@ export default function Eventos() {
       if (!partOfSeries || occ.isExcecao || !occ.isOcorrenciaVirtual) {
         const base = corePayload(payload);
         const updateBody = { ...base, recorrencia_regra: payload.recorrencia } as never;
-        const { error } = await supabase.from("eventos").update(updateBody).eq("id", baseRow.id);
-        if (error) throw error;
+        const r = conferir(
+          await supabase.from("eventos").update(updateBody).eq("id", baseRow.id).select("id"),
+          "O evento",
+        );
+        if (!r.ok) throw new Error(r.erro);
         await insertLinks(baseRow.id, payload.ministerios, payload.areas);
         toast.success("Evento atualizado");
         setDialogOpen(false);
@@ -611,8 +619,11 @@ export default function Eventos() {
       if (scope === "serie") {
         const base = corePayload(payload);
         const updateBody = { ...base, recorrencia_regra: payload.recorrencia } as never;
-        const { error } = await supabase.from("eventos").update(updateBody).eq("id", masterId);
-        if (error) throw error;
+        const r = conferir(
+          await supabase.from("eventos").update(updateBody).eq("id", masterId).select("id"),
+          "A série",
+        );
+        if (!r.ok) throw new Error(r.erro);
         await insertLinks(masterId, payload.ministerios, payload.areas);
         toast.success("Série atualizada");
       } else if (scope === "este") {
@@ -639,11 +650,15 @@ export default function Eventos() {
             ...currentMasterReg,
             fim: { tipo: "data", data: cutoff },
           };
-          const { error: e1 } = await supabase
-            .from("eventos")
-            .update({ recorrencia_regra: novaRegra } as never)
-            .eq("id", masterId);
-          if (e1) throw e1;
+          const r1 = conferir(
+            await supabase
+              .from("eventos")
+              .update({ recorrencia_regra: novaRegra } as never)
+              .eq("id", masterId)
+              .select("id"),
+            "A série",
+          );
+          if (!r1.ok) throw new Error(r1.erro);
         }
         // Criar novo master
         const base = corePayload(payload);
@@ -651,7 +666,11 @@ export default function Eventos() {
         const { data, error: e2 } = await supabase.from("eventos").insert(newMasterBody).select("id").single();
         if (e2) throw e2;
         const newId = data!.id as string;
-        await supabase.from("eventos").update({ recorrencia_id: newId }).eq("id", newId);
+        const r2 = conferir(
+          await supabase.from("eventos").update({ recorrencia_id: newId }).eq("id", newId).select("id"),
+          "O evento",
+        );
+        if (!r2.ok) throw new Error(r2.erro);
         await insertLinks(newId, payload.ministerios, payload.areas);
         toast.success("Série atualizada a partir desta data");
       }
