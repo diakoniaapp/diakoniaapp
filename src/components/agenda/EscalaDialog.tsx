@@ -35,7 +35,7 @@ import {
 import {
   escalasDoEvento, criarEscala, sugestoesPara, escalar, tirarDaEscala,
   responderEscala, marcarNotificado, excluirEscala, buscarVoluntariosDaArea,
-  ROTULO_PRESENCA, turnoDe,
+  ROTULO_PRESENCA, COR_PRESENCA, turnoDe,
   type EscalaDaArea, type Sugestao, type StatusPresenca,
 } from "@/services/escalaService";
 import { buildWhatsAppLink } from "@/lib/visitantesFluxo";
@@ -56,14 +56,6 @@ interface Props {
   /** As áreas marcadas no evento — as candidatas naturais a ter escala. */
   areasDoEvento: AreaOpt[];
 }
-
-const COR_PRESENCA: Record<StatusPresenca, string> = {
-  pendente:   "bg-muted text-muted-foreground border-border",
-  confirmado: "bg-success-soft text-success-text border-success-line",
-  recusado:   "bg-destructive-soft text-destructive-text border-destructive-line",
-  presente:   "bg-success text-success-foreground border-success",
-  ausente:    "bg-warning-soft text-warning-text border-warning-line",
-};
 
 export function EscalaDialog({ open, onOpenChange, evento, areasDoEvento }: Props) {
   const [escalas, setEscalas] = useState<EscalaDaArea[]>([]);

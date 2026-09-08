@@ -29,6 +29,17 @@ export const ROTULO_PRESENCA: Record<StatusPresenca, string> = {
   ausente:    "Faltou",
 };
 
+// Movido de EscalaDialog.tsx pra cá — a tela de visualização do evento
+// (EventoViewDialog) também lista quem está escalado, e precisava do mesmo
+// mapa de cor. Melhor uma fonte só do que duas cópias divergindo.
+export const COR_PRESENCA: Record<StatusPresenca, string> = {
+  pendente:   "bg-muted text-muted-foreground border-border",
+  confirmado: "bg-success-soft text-success-text border-success-line",
+  recusado:   "bg-destructive-soft text-destructive-text border-destructive-line",
+  presente:   "bg-success text-success-foreground border-success",
+  ausente:    "bg-warning-soft text-warning-text border-warning-line",
+};
+
 export interface Escalado {
   id: string;
   pessoa_id: string;
