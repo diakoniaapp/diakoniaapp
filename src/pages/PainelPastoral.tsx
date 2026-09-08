@@ -91,7 +91,10 @@ import {
   IDADE_MINIMA_BATISMO,
   type CandidatosMembresia,
 } from "@/services/painelPastoralService";
-import { getResumoVisitantes, type ResumoVisitantes } from "@/services/visitanteService";
+import {
+  getResumoVisitantes, resumoTarefasAcolhimento,
+  type ResumoVisitantes, type ResumoTarefasAcolhimento,
+} from "@/services/visitanteService";
 import {
   indicadoresMembresia,
   type IndicadoresMembresia,
@@ -198,6 +201,7 @@ export default function PainelPastoral() {
   const [resumo, setResumo] = useState<ResumoPastoral | null>(null);
   const [candidatos, setCandidatos] = useState<CandidatosMembresia | null>(null);
   const [visitantes, setVisitantes] = useState<ResumoVisitantes | null>(null);
+  const [tarefasAcolhimento, setTarefasAcolhimento] = useState<ResumoTarefasAcolhimento | null>(null);
   const [indicadores, setIndicadores] = useState<IndicadoresMembresia | null>(null);
 
   /**
@@ -236,18 +240,20 @@ export default function PainelPastoral() {
   async function carregar() {
     setLoading(true);
     try {
-      const [ev, r, cm, vs, mb] = await Promise.all([
+      const [ev, r, cm, vs, mb, ta] = await Promise.all([
         proximosDias(DIAS_A_FRENTE),
         resumoPainel(),
         candidatosMembresia(),
         getResumoVisitantes(),
         indicadoresMembresia(),
+        resumoTarefasAcolhimento(),
       ]);
       setEventos(ev);
       setResumo(r);
       setCandidatos(cm);
       setVisitantes(vs);
       setIndicadores(mb);
+      setTarefasAcolhimento(ta);
       setAtualizadoEm(new Date());
     } catch (e: any) {
       toast.error(e?.message ?? "Erro ao carregar painel");
@@ -610,12 +616,27 @@ export default function PainelPastoral() {
             Acompanhamento de visitantes
           </TituloDaSecao>
           <div className="space-y-3">
-            <FaixaDeIndicadores colunas={5}>
+            <FaixaDeIndicadores colunas={6}>
               <Indicador rotulo="Novos (7d)"  valor={visitantes.novos}            tom="info" />
               <Indicador rotulo="Em acomp."   valor={visitantes.emAcompanhamento} tom="celebracao" />
               <Indicador rotulo="Sem contato" valor={visitantes.semContato}       tom="warning" />
               <Indicador rotulo="Prontos"     valor={visitantes.prontosCrescer}   tom="success" />
               <Indicador rotulo="Congregaram" valor={visitantes.convertidos}      tom="neutro" />
+              {/* O "motor" de /visitantes, trazido pra cá a pedido dela: não é
+                  quantas pessoas, é quanto do trabalho de acolher elas já foi
+                  feito — as 4 tarefas automáticas (boas-vindas, contato,
+                  convite, recontato) que nascem com cada visitante novo. Sem
+                  onClick, igual aos cinco vizinhos: o clique pra agir mora no
+                  "Acolhimento →" do título da seção, não em cada número.
+                  Só aparece com valor quando há tarefa pra contar; sem
+                  visitante nenhum, `tarefasAcolhimento.total` é 0 e o
+                  indicador mostra "—" em vez de um 0% que soaria a alarme
+                  falso (ninguém pra acolher, não acolhimento zerado). */}
+              <Indicador
+                rotulo="Tarefas"
+                valor={tarefasAcolhimento && tarefasAcolhimento.total > 0 ? `${tarefasAcolhimento.pct}%` : "—"}
+                tom="gold"
+              />
             </FaixaDeIndicadores>
             {visitantes.semContato > 0 && (
               <p className="text-xs text-warning-text flex items-start gap-1.5">

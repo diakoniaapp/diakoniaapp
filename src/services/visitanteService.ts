@@ -406,6 +406,41 @@ export async function getResumoVisitantes(): Promise<ResumoVisitantes> {
   };
 }
 
+// ─── Resumo agregado das tarefas de acolhimento ────────────────────────────
+
+export interface ResumoTarefasAcolhimento {
+  total:  number;
+  feitas: number;
+  /** 0-100. Sem tarefa nenhuma (ninguém pra acolher), fica 0 — não NaN. */
+  pct:    number;
+}
+
+/**
+ * O percentual agregado de tarefas de acolhimento concluídas — o "motor" que
+ * já existe em `/visitantes` (Painel de Visitantes), trazido pro Painel
+ * Pastoral a pedido dela. Só conta tarefas de quem ainda é visitante — quem
+ * já congregou ou virou membro sai da régua, do mesmo jeito que sai da
+ * listagem principal de `/visitantes`.
+ */
+export async function resumoTarefasAcolhimento(): Promise<ResumoTarefasAcolhimento> {
+  const { data: visitantes } = await supabase
+    .from("membros")
+    .select("id")
+    .eq("tipo_pessoa", "visitante");
+
+  const ids = (visitantes ?? []).map(v => v.id);
+  if (ids.length === 0) return { total: 0, feitas: 0, pct: 0 };
+
+  const { data: tarefas } = await supabase
+    .from("acolhimento_tarefas")
+    .select("concluida")
+    .in("visitante_id", ids);
+
+  const total  = tarefas?.length ?? 0;
+  const feitas = (tarefas ?? []).filter(t => t.concluida).length;
+  return { total, feitas, pct: total ? Math.round((feitas / total) * 100) : 0 };
+}
+
 // ─── WhatsApp ─────────────────────────────────────────────────────────────────
 
 /**
