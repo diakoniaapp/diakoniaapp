@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { conferir } from "@/lib/escritaConferida";
 
 export type AssuntoPrioridade = "alta" | "media" | "baixa";
 export type AssuntoStatus = "aberto" | "em_andamento" | "concluido" | "cancelado" | "aguardando_terceiro";
@@ -134,13 +135,19 @@ export async function criarAssunto(input: Partial<Assunto>): Promise<Assunto> {
 }
 
 export async function atualizarAssunto(id: string, patch: Partial<Assunto>): Promise<void> {
-  const { error } = await supabase.from("assuntos").update(patch as any).eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("assuntos").update(patch as any).eq("id", id).select("id"),
+    "O assunto",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 export async function excluirAssunto(id: string): Promise<void> {
-  const { error } = await supabase.from("assuntos").delete().eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("assuntos").delete().eq("id", id).select("id"),
+    "O assunto",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 // ─── Histórico ────────────────────────────────────────────────────────
@@ -184,8 +191,11 @@ export async function vincularAssuntoNaReuniao(reuniaoId: string, assuntoId: str
 }
 
 export async function desvincularAssuntoDaReuniao(vinculoId: string): Promise<void> {
-  const { error } = await supabase.from("reuniao_assuntos").delete().eq("id", vinculoId);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("reuniao_assuntos").delete().eq("id", vinculoId).select("id"),
+    "O vínculo",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 export async function importarPautaAutomatica(reuniaoId: string): Promise<number> {

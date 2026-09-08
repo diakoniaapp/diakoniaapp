@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { conferir } from "@/lib/escritaConferida";
 import { hojeLocal } from "@/lib/data";
 import { BuscaPessoa, type PessoaResultado } from "@/components/ui/BuscaPessoa";
 import { Button } from "@/components/ui/button";
@@ -101,10 +102,14 @@ export default function VoluntariosDialog({ area, open, onOpenChange }: Props) {
 
   const encerrar = async (a: Atuacao) => {
     const hoje = hojeLocal();
-    const { error } = await supabase.from("area_voluntarios")
-      .update({ status: "encerrada", data_fim: hoje })
-      .eq("id", a.id);
-    if (error) return toast.error(error.message);
+    const r = conferir(
+      await supabase.from("area_voluntarios")
+        .update({ status: "encerrada", data_fim: hoje })
+        .eq("id", a.id)
+        .select("id"),
+      "A atuação",
+    );
+    if (!r.ok) return toast.error(r.erro);
     toast.success("Atuação encerrada");
     load();
   };

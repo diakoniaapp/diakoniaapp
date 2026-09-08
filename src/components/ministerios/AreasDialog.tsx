@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { conferir } from "@/lib/escritaConferida";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -47,9 +48,13 @@ export default function AreasDialog({ ministerio, membros, open, onOpenChange }:
     e.preventDefault();
     const payload: any = { ...form };
     Object.keys(payload).forEach(k=>{ if(payload[k]==="") payload[k]=null; });
-    let error;
+    let error: { message: string } | null = null;
     if (editingId) {
-      ({ error } = await supabase.from("areas").update(payload).eq("id", editingId));
+      const r = conferir(
+        await supabase.from("areas").update(payload).eq("id", editingId).select("id"),
+        "A área",
+      );
+      if (!r.ok) error = { message: r.erro };
     } else {
       payload.ministerio_id = ministerio.id;
       ({ error } = await supabase.from("areas").insert(payload));

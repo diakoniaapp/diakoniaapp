@@ -40,6 +40,7 @@
 // agrupamentos sem que nenhum endereço tivesse mudado.
 
 import { supabase } from "@/integrations/supabase/client";
+import { conferir } from "@/lib/escritaConferida";
 
 /** Precisão do ponto obtido. Ver comentário da coluna `geo_precisao`. */
 export type GeoPrecisao = "rua" | "bairro";
@@ -212,20 +213,23 @@ export async function geocodificarPendentes(
       continue;
     }
 
-    const { error } = await supabase
-      .from("familias")
-      .update({
-        latitude: achado.lat,
-        longitude: achado.lon,
-        geo_precisao: precisao,
-        geocodificado_em: new Date().toISOString(),
-      })
-      .eq("id", f.id)
-      .select("id");
+    const r = conferir(
+      await supabase
+        .from("familias")
+        .update({
+          latitude: achado.lat,
+          longitude: achado.lon,
+          geo_precisao: precisao,
+          geocodificado_em: new Date().toISOString(),
+        })
+        .eq("id", f.id)
+        .select("id"),
+      "A família",
+    );
 
     saida.push(
-      error
-        ? { nome: f.nome_familia, ok: false, motivo: error.message }
+      !r.ok
+        ? { nome: f.nome_familia, ok: false, motivo: r.erro }
         : { nome: f.nome_familia, ok: true, precisao },
     );
 

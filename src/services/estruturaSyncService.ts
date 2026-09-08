@@ -1,5 +1,6 @@
 // estruturaSyncService.ts — Sincroniza secoes_documento -> documento_estrutura
 import { supabase } from "@/integrations/supabase/client";
+import { conferir } from "@/lib/escritaConferida";
 
 export interface SecaoParaSync {
   id: string; documento_id: string; documento_titulo: string;
@@ -118,11 +119,15 @@ export async function aplicarSync(
         const { error } = await supabase.from("documento_estrutura").insert(payload);
         if (error) throw error; criados++;
       } else if (acao==="atualizar" && item.idExistente) {
-        const { error } = await supabase.from("documento_estrutura")
-          .update({ descricao:payload.descricao, base_institucional:payload.base_institucional,
-            referencia_documento:payload.referencia_documento, ordem:payload.ordem })
-          .eq("id",item.idExistente);
-        if (error) throw error; atualizados++;
+        const r = conferir(
+          await supabase.from("documento_estrutura")
+            .update({ descricao:payload.descricao, base_institucional:payload.base_institucional,
+              referencia_documento:payload.referencia_documento, ordem:payload.ordem })
+            .eq("id",item.idExistente)
+            .select("id"),
+          "O item da estrutura",
+        );
+        if (!r.ok) throw new Error(r.erro); atualizados++;
       }
     } catch (e) {
       console.warn("[estruturaSync] Erro ao processar item " + item.nome + ":", e);
