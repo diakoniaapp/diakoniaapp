@@ -43,21 +43,37 @@ const REGEX_EMAIL = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
 //
 // Testado com um cartão real: o Tesseract leu um "7" escrito à mão como "/"
 // no meio do número. Cheguei a tentar aceitar "/" aqui pra recuperar esse
-// caso — e destesti: com "/" liberado, a mesma consulta gulosa passa a
+// caso — e desisti: com "/" liberado, a mesma consulta gulosa passa a
 // alcançar a DATA DE NASCIMENTO na linha ao lado (esta ficha tem os dois
 // campos lado a lado) e cola os dígitos dos dois num número que PARECE
 // válido — mesma contagem de dígitos de um telefone de verdade — mas está
 // simplesmente errado. Um telefone errado que ninguém confere é pior que um
 // campo vazio que pede pra ser digitado — por isso a regra fica estrita: um
-// separador que a OCR não reconhece limpa quebra a leitura, e a pessoa
-// preenche à mão. Ver o texto reconhecido, que sempre aparece do lado.
+// separador que a OCR não reconhece quebra a leitura, e a pessoa preenche à
+// mão. Ver o texto reconhecido, que sempre aparece do lado.
 const REGEX_DIGITOS_TELEFONE = /\d[\d\s().-]{8,17}\d/g;
 
 // DD/MM/AA ou DD/MM/AAAA — o cartão real escreve ano com 2 dígitos ("71").
 const REGEX_DATA = /\b(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2}|\d{4})\b/;
 
-function extrairTelefone(texto: string): string | null {
-  for (const m of texto.matchAll(REGEX_DIGITOS_TELEFONE)) {
+/**
+ * Segundo problema real, achado testando com o Tesseract de verdade: DATA DE
+ * NASCIMENTO e TELEFONE ficam lado a lado neste cartão, e a OCR devolve as
+ * duas linhas de valor GRUDADAS numa só — "15/04/1971 21975193855", só um
+ * espaço separando. Sem tratamento, a busca gulosa por telefone começa a
+ * varrer já em "1971" (a barra da data quebra o início, mas o fim do ano
+ * sobra limpo), gruda esses 4 dígitos com os 11 do telefone e o total
+ * (15 dígitos) estoura o limite — nenhum telefone é encontrado.
+ *
+ * Por isso a data já reconhecida é REMOVIDA do texto antes de procurar o
+ * telefone: sem o "1971" ali do lado, sobra só o telefone limpo.
+ */
+function extrairTelefone(texto: string, dataEncontrada: RegExpMatchArray | null): string | null {
+  const idx = dataEncontrada?.index;
+  const semData = dataEncontrada && idx !== undefined
+    ? texto.slice(0, idx) + " " + texto.slice(idx + dataEncontrada[0].length)
+    : texto;
+  for (const m of semData.matchAll(REGEX_DIGITOS_TELEFONE)) {
     const digitos = m[0].replace(/\D/g, "");
     if (digitos.length < 10 || digitos.length > 13) continue;
     const normalizado = normalizarTelefone(digitos);
@@ -84,8 +100,7 @@ function anoCompleto(yy: number): number {
   return yy <= anoCurtoAtual + 5 ? 2000 + yy : 1900 + yy;
 }
 
-function extrairDataNascimento(texto: string): string | null {
-  const m = texto.match(REGEX_DATA);
+function extrairDataNascimento(m: RegExpMatchArray | null): string | null {
   if (!m) return null;
   const dia = Number(m[1]);
   const mes = Number(m[2]);
@@ -155,11 +170,15 @@ export async function lerCartaoVisitante(file: File): Promise<CartaoVisitanteLid
 
   const linhas = texto.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
 
-  const telefone       = extrairTelefone(texto);
-  const email          = extrairEmail(texto);
-  const dataNascimento = extrairDataNascimento(texto);
-  const nome           = extrairNome(linhas);
-  const endereco       = extrairEndereco(linhas);
+  // A data é achada uma vez só e passada adiante: `extrairTelefone` precisa
+  // dela pra removê-la antes de procurar dígitos de telefone (ver o
+  // comentário lá em cima do porquê).
+  const dataMatch       = texto.match(REGEX_DATA);
+  const dataNascimento  = extrairDataNascimento(dataMatch);
+  const telefone        = extrairTelefone(texto, dataMatch);
+  const email           = extrairEmail(texto);
+  const nome            = extrairNome(linhas);
+  const endereco        = extrairEndereco(linhas);
 
   return {
     textoBruto: texto,
