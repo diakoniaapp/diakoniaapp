@@ -448,9 +448,19 @@ export default function Eventos() {
   // e dito em voz alta, em vez de sumir.
   const insertLinks = async (
     eventoId: string,
-    mins: { ministerio_id: string; responsabilidade: Resp }[],
-    ars: string[],
+    minsInput: { ministerio_id: string; responsabilidade: Resp }[],
+    arsInput: string[],
   ) => {
+    // Defesa extra, além do conserto no toggle de `EventDialog.tsx`:
+    // `evento_areas`/`evento_ministerios` têm UNIQUE (evento_id, area_id)/
+    // (evento_id, ministerio_id). Se `arsInput`/`minsInput` chegarem com
+    // repetição por qualquer caminho (o de hoje foi um duplo toque rápido
+    // no pill de área — corrigido — mas o INSERT em lote não deveria
+    // depender de o chamador nunca duplicar), o insert quebra com 400 e a
+    // pessoa só vê "Erro ao salvar". Dedupe aqui garante que a escrita
+    // nunca falha por isso, não importa a origem.
+    const ars = [...new Set(arsInput)];
+    const mins = [...new Map(minsInput.map(m => [m.ministerio_id, m])).values()];
     const [{ data: minsAtuais }, { data: arsAtuais }] = await Promise.all([
       supabase.from("evento_ministerios")
         .select("ministerio_id, responsabilidade").eq("evento_id", eventoId),
@@ -629,7 +639,13 @@ export default function Eventos() {
       setDialogOpen(false);
       await load();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Erro ao salvar";
+      // `err instanceof Error` falha pros erros que o Supabase lança: são
+      // objetos simples (`{message, code, details}`), não instâncias de
+      // `Error`. Com `instanceof`, todo erro do Supabase virava o genérico
+      // "Erro ao salvar" — foi assim que o 400 de `evento_areas` (UNIQUE
+      // violada por área duplicada, ver `toggleArea`) chegou sem explicação
+      // nenhuma. `?.message` funciona pros dois tipos de erro.
+      const msg = (err as { message?: string })?.message ?? "Erro ao salvar";
       toast.error(msg);
     }
   };

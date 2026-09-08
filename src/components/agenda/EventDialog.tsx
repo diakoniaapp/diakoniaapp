@@ -170,8 +170,18 @@ export function EventDialog({
     setMins(next);
     setArs(ars.filter(aid => next.some(m => m.ministerio_id === areas.find(a => a.id === aid)?.ministerio_id)));
   };
+  // `setArs(prev => ...)` e não `setArs(ars.includes(id) ? ...)`: a segunda
+  // forma lê o `ars` fechado no render atual, e um duplo toque rápido no
+  // pill de uma área (comum no celular) dispara dois cliques antes do
+  // primeiro re-render — os dois veem o mesmo `ars` sem o id ainda, e os
+  // dois decidem "adicionar", inserindo o id duas vezes. Isso não é
+  // cosmético: `evento_areas` tem `UNIQUE (evento_id, area_id)`, e o INSERT
+  // em lote com o id repetido quebra com um 400 na hora de salvar —
+  // "Erro ao salvar" sem explicar o porquê. O atualizador funcional lê o
+  // estado mais recente sempre, então o segundo clique já vê o id
+  // adicionado pelo primeiro e o remove em vez de duplicar.
   const toggleArea = (id: string) =>
-    setArs(ars.includes(id) ? ars.filter(x => x !== id) : [...ars, id]);
+    setArs(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
