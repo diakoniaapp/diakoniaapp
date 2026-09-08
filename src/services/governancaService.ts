@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { hojeLocal, toYmd } from "@/lib/data";
+import { conferir } from "@/lib/escritaConferida";
 
 export type GovReuniaoTipo = "diretoria" | "lideranca" | "conselho" | "extraordinaria" | "outra";
 export type GovReuniaoStatus = "agendada" | "em_andamento" | "concluida" | "cancelada" | "adiada";
@@ -127,13 +128,19 @@ export async function criarReuniao(input: Partial<GovReuniao>): Promise<GovReuni
 }
 
 export async function atualizarReuniao(id: string, patch: Partial<GovReuniao>): Promise<void> {
-  const { error } = await supabase.from("gov_reunioes").update(patch as any).eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("gov_reunioes").update(patch as any).eq("id", id).select("id"),
+    "A reunião",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 export async function excluirReuniao(id: string): Promise<void> {
-  const { error } = await supabase.from("gov_reunioes").delete().eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("gov_reunioes").delete().eq("id", id).select("id"),
+    "A reunião",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 // ─── Participantes ──────────────────────────────────────────────────────
@@ -178,13 +185,19 @@ export async function autoConvocarLideranca(reuniaoId: string): Promise<number> 
 }
 
 export async function marcarPresenca(id: string, presente: boolean): Promise<void> {
-  const { error } = await supabase.from("gov_participantes").update({ presente }).eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("gov_participantes").update({ presente }).eq("id", id).select("id"),
+    "O participante",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 export async function removerParticipante(id: string): Promise<void> {
-  const { error } = await supabase.from("gov_participantes").delete().eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("gov_participantes").delete().eq("id", id).select("id"),
+    "O participante",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 // ─── Pautas ──────────────────────────────────────────────────────────────
@@ -204,13 +217,19 @@ export async function criarPauta(input: Partial<GovPauta>): Promise<GovPauta> {
 }
 
 export async function atualizarPauta(id: string, patch: Partial<GovPauta>): Promise<void> {
-  const { error } = await supabase.from("gov_pautas").update(patch as any).eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("gov_pautas").update(patch as any).eq("id", id).select("id"),
+    "A pauta",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 export async function excluirPauta(id: string): Promise<void> {
-  const { error } = await supabase.from("gov_pautas").delete().eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("gov_pautas").delete().eq("id", id).select("id"),
+    "A pauta",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 export async function sugerirPautas(): Promise<Array<{
@@ -364,8 +383,11 @@ export async function criarAssembleia(input: Partial<GovAssembleia>): Promise<Go
 }
 
 export async function atualizarAssembleia(id: string, patch: Partial<GovAssembleia>): Promise<void> {
-  const { error } = await supabase.from("gov_assembleias").update(patch as any).eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("gov_assembleias").update(patch as any).eq("id", id).select("id"),
+    "A assembleia",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 // ─── Gerar assembleia a partir de pautas marcadas em reuniao ─────────────
@@ -460,8 +482,11 @@ export async function listarPresentes(assembleiaId: string): Promise<GovPresente
 export async function marcarPresencaAssembleia(id: string, presente: boolean): Promise<void> {
   const patch: any = { presente };
   if (presente) patch.hora_chegada = new Date().toTimeString().slice(0, 8);
-  const { error } = await supabase.from("gov_assembleia_presentes").update(patch).eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("gov_assembleia_presentes").update(patch).eq("id", id).select("id"),
+    "A presença",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 // ─── Quórum (recalculado client-side + atualiza no banco) ────────────────
