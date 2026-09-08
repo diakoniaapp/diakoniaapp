@@ -12,7 +12,7 @@ import { Quote, ShieldCheck, UserPlus, Sparkles, Search, Loader2 } from "lucide-
 import { useAuth } from "@/hooks/useAuth";
 import { verseOfTheDay } from "@/lib/agenda/verses";
 import { usePermissoes } from "@/hooks/usePermissoes";
-import VisitanteRapidoDialog from "@/components/membros/VisitanteRapidoDialog";
+import { MembroForm } from "@/components/membros/MembroForm";
 import { openCommandPalette } from "@/lib/commandPalette";
 import { VazioCtx, type ReportarVazio } from "@/components/hoje/vazio";
 import { Suspense } from "react";
@@ -206,7 +206,10 @@ export default function Dashboard() {
 
       </div>
 
-      <VisitanteRapidoDialog open={openVisitanteRapido} onOpenChange={setOpenVisitanteRapido} onSaved={() => {}} />
+      <MembroForm
+        open={openVisitanteRapido} onOpenChange={setOpenVisitanteRapido}
+        membro={null} tipoInicial="visitante" onSaved={() => {}}
+      />
     </div>
   );
 }

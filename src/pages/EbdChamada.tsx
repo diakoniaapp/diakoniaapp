@@ -21,7 +21,7 @@ import {
   type EbdAula, type EbdClasse, type EbdChamadaRow,
 } from "@/services/ebdService";
 import { PaginaSkeleton } from "@/components/ListState";
-import VisitanteRapidoDialog from "@/components/membros/VisitanteRapidoDialog";
+import { MembroForm } from "@/components/membros/MembroForm";
 
 function formatarISOLocal(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -485,10 +485,13 @@ export default function EbdChamada() {
       </Card>
 
       {/* Dialog novo visitante — mesmo cadastro do sistema principal */}
-      <VisitanteRapidoDialog
+      <MembroForm
         open={visitOpen}
         onOpenChange={setVisitOpen}
+        membro={null}
+        tipoInicial="visitante"
         onCreated={handleVisitanteCriado}
+        onSaved={() => {}}
       />
     </div>
   );

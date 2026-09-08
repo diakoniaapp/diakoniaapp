@@ -318,9 +318,9 @@ export async function tornarCongregadoIntegrado(
 // ─── Tarefas de acolhimento ───────────────────────────────────────────────────
 //
 // `acolhimento_tarefas` já existia no banco (INSERT em série em
-// `MembroForm.tsx`/`VisitanteRapidoDialog.tsx` ao cadastrar um visitante: 4
-// tarefas padrão — boas-vindas, contato, convite pro próximo evento,
-// recontato), mas só aparecia dentro de um diálogo por vez
+// `MembroForm.tsx` ao cadastrar um visitante: 4 tarefas padrão — boas-
+// vindas, contato, convite pro próximo evento, recontato), mas só aparecia
+// dentro de um diálogo por vez
 // (`AcolhimentoPanel.tsx`). O painel principal (`Visitantes.tsx`) pede pra
 // ver isso de cara, por nome, sem abrir nada — daqui em diante.
 

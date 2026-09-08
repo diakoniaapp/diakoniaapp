@@ -56,7 +56,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { usePermissoes } from "@/hooks/usePermissoes";
 import { verseOfTheDay } from "@/lib/agenda/verses";
-import VisitanteRapidoDialog from "@/components/membros/VisitanteRapidoDialog";
+import { MembroForm } from "@/components/membros/MembroForm";
 import { openCommandPalette } from "@/lib/commandPalette";
 import { Secao } from "@/components/eu/Secao";
 import { FaixaDeIndicadores, Indicador, irParaSecao } from "@/components/painel/blocos";
@@ -337,7 +337,10 @@ export default function Home() {
         </div>
       </div>
 
-      <VisitanteRapidoDialog open={abrirVisitante} onOpenChange={setAbrirVisitante} onSaved={() => {}} />
+      <MembroForm
+        open={abrirVisitante} onOpenChange={setAbrirVisitante}
+        membro={null} tipoInicial="visitante" onSaved={() => {}}
+      />
     </div>
   );
 }

@@ -31,6 +31,8 @@ import {
 import { TelefoneInput } from "@/components/ui/TelefoneInput";
 import { supabase } from "@/integrations/supabase/client";
 import { conferir } from "@/lib/escritaConferida";
+import { lerCartaoVisitante } from "@/services/ocrVisitanteService";
+import { Camera, Loader2 as LoaderIcon, X as XIcon } from "lucide-react";
 import {
   MESES, diasDoMes, montarMeiaData, diaDeMeiaData, mesDeMeiaData,
 } from "@/lib/idade";
@@ -222,6 +224,15 @@ interface Props {
   onOpenChange: (v: boolean) => void;
   membro: Membro | null;
   onSaved: () => void;
+  /** Tipo com que o formulário abre para um cadastro NOVO (ignorado ao
+   *  editar — aí o tipo vem do registro). Usado pelos atalhos de "novo
+   *  visitante" espalhados pelo sistema (Painel, Início, Chamada da EBD),
+   *  que hoje abrem este mesmo formulário em vez de um diálogo à parte. */
+  tipoInicial?: "visitante" | "congregado" | "membro";
+  /** Dispara com o id da pessoa recém-CRIADA (nunca em edição) — pra quem
+   *  precisa fazer algo específico com ela na sequência, como a Chamada da
+   *  EBD marcando presença na aula. Roda antes de `onSaved`. */
+  onCreated?: (id: string, nomeCompleto: string) => void;
 }
 
 
@@ -255,7 +266,7 @@ async function criarTarefasAcolhimento(visitanteId: string, nome: string) {
 }
 
 // ── Componente principal ──────────────────────────────────────────────────
-export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
+export function MembroForm({ open, onOpenChange, membro, onSaved, tipoInicial, onCreated }: Props) {
   const { hasRole } = useAuth();
   // FASE D: helper unificado — "editando" vs "criando".
   const isEditing = Boolean(membro);
@@ -298,9 +309,51 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
   // painel não teria como dizer a verdade sobre nenhuma delas.
   const [perfilTocado, setPerfilTocado] = useState(false);
 
+  // ── Foto do cartão impresso de visitante ────────────────────────────────
+  // Só aparece pra cadastro NOVO de visitante (ver render do passo 1). Lê a
+  // foto com OCR (ocrVisitanteService.ts) e pré-preenche o que reconhecer —
+  // sem travar o campo: o texto reconhecido inteiro fica visível do lado, e
+  // tudo continua editável, porque o palpite de campo pode errar.
+  const [lendoCartao, setLendoCartao] = useState(false);
+  const [textoCartao, setTextoCartao] = useState<string | null>(null);
+  const [cartaoPreviewUrl, setCartaoPreviewUrl] = useState<string | null>(null);
+
+  const lerFotoCartao = async (file: File) => {
+    setCartaoPreviewUrl(URL.createObjectURL(file));
+    setLendoCartao(true);
+    try {
+      const lido = await lerCartaoVisitante(file);
+      setTextoCartao(lido.textoBruto);
+      // Só preenche o que ainda está vazio — não sobrescreve o que o
+      // voluntário já tinha digitado antes de anexar a foto.
+      if (lido.nome && !form.nome_completo.trim()) set("nome_completo", lido.nome);
+      if (lido.telefone && !form.telefone_celular.trim()) set("telefone_celular", lido.telefone);
+      if (lido.email && !form.email?.trim()) set("email", lido.email);
+      if (lido.dataNascimento && !form.data_nascimento.trim() && !semAnoNasc) set("data_nascimento", lido.dataNascimento);
+      if (lido.endereco && !form.endereco.trim()) set("endereco", lido.endereco);
+      const achouAlgo = lido.nome || lido.telefone || lido.dataNascimento || lido.endereco;
+      if (!achouAlgo) {
+        toast.message("Não consegui reconhecer os campos do cartão — confira o texto reconhecido abaixo e preencha à mão.");
+      } else {
+        toast.success("Cartão lido — confira os campos preenchidos. As caixinhas marcadas (como conheceu, pedidos de oração) precisam ser escolhidas à mão.");
+      }
+    } catch (e) {
+      toast.error("Não foi possível ler o cartão: " + (e as Error).message);
+    } finally {
+      setLendoCartao(false);
+    }
+  };
+
+  const limparCartao = () => {
+    if (cartaoPreviewUrl) URL.revokeObjectURL(cartaoPreviewUrl);
+    setCartaoPreviewUrl(null);
+    setTextoCartao(null);
+  };
+
   // Reset wizard step quando abrir
   useEffect(() => {
     if (open) setStep(1);
+    if (open) { limparCartao(); setLendoCartao(false); }
     // Perfil vem junto com a abertura. Pessoa sem perfil devolve null, e o
     // formulário começa no PERFIL_VAZIO — que não é "indisponível", é
     // "ninguém perguntou ainda".
@@ -412,11 +465,12 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
       setNascDia(diaDeMeiaData(meia));
       setNascMes(mesDeMeiaData(meia));
     } else {
-      setForm(empty);
+      setForm(tipoInicial ? { ...empty, tipo_pessoa: tipoInicial } : empty);
       setSemAnoNasc(false);
       setNascDia("");
       setNascMes("");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [membro, open]);
 
   // EBD: carregar classes disponíveis e classe atual da pessoa (se houver)
@@ -695,9 +749,17 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
       if (!r.ok) toast.warning("Cadastro salvo, mas a disponibilidade não: " + r.erro);
     }
 
-    // EBD: sincronizar matrícula
+    // EBD: sincronizar matrícula.
+    //
+    // Pulado no atalho de visitante novo (passo 1) de propósito: o efeito
+    // que sugere e PRÉ-SELECIONA uma classe a partir da data de nascimento
+    // roda assim que ela é preenchida, e o atalho salva sem passar pelo
+    // passo que mostra essa seleção — matricularia alguém numa classe que
+    // ninguém da secretaria viu. No fluxo completo (até Revisão) a seleção
+    // aparece e pode ser revista antes de salvar; aqui não.
+    const usandoAtalhoVisitanteNovo = !membro && viaAtalho;
     const pessoaIdEbd = membro?.id ?? savedId;
-    if (pessoaIdEbd) {
+    if (pessoaIdEbd && !usandoAtalhoVisitanteNovo) {
       try {
         const atuais = await classesDaPessoa(pessoaIdEbd);
         const atualId = atuais[0]?.classe_id ?? null;
@@ -749,11 +811,13 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
       // ainda" — criança, alguém em triagem). Quem já existe pode já ter
       // acesso ou não; vai direto pro cartão, que mostra os dois estados.
       setQuerAcesso(!!membro);
+      if (!membro && savedId) onCreated?.(savedId, form.nome_completo.trim());
       onOpenChange(false);
       onSaved();
       return;
     }
 
+    if (!membro && savedId) onCreated?.(savedId, form.nome_completo.trim());
     onOpenChange(false);
     onSaved();
   };
@@ -919,6 +983,74 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                 </p>
               )}
             </div>
+
+            {/* ── Foto do cartão impresso ──────────────────────────────
+                Só em cadastro NOVO de visitante — é aqui que a foto existe:
+                editar alguém já cadastrado não tem cartão novo pra ler. O
+                OCR (ocrVisitanteService.ts) lê nome, data de nascimento,
+                telefone e endereço; as duas seções de caixinha marcada à
+                mão (como conheceu, pedidos de oração) ele não sabe ler —
+                Tesseract reconhece texto, não desenho de marcação — então
+                ficam pro texto reconhecido, que aparece do lado, escolhidas
+                à mão. */}
+            {!membro && isVisitante && (
+              <div className="rounded-md border border-dashed p-3 bg-muted/20 space-y-2">
+                <Label className="text-xs font-medium flex items-center gap-1.5">
+                  <Camera className="w-3.5 h-3.5" />
+                  Foto do cartão preenchido{" "}
+                  <span className="text-xs text-muted-foreground font-normal">(opcional)</span>
+                </Label>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Tire uma foto do cartão que a pessoa preencheu à mão — o sistema tenta ler nome,
+                  data de nascimento, telefone e endereço. Os campos continuam editáveis.
+                </p>
+                {cartaoPreviewUrl ? (
+                  <div className="flex items-start gap-2">
+                    <img
+                      src={cartaoPreviewUrl} alt="Cartão anexado"
+                      className="w-20 h-20 object-cover rounded-md border shrink-0"
+                    />
+                    <div className="flex-1 min-w-0 space-y-1">
+                      {lendoCartao ? (
+                        <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                          <LoaderIcon className="w-3.5 h-3.5 animate-spin" /> Lendo o cartão…
+                        </p>
+                      ) : (
+                        <button
+                          type="button" onClick={limparCartao}
+                          className="text-xs text-muted-foreground underline underline-offset-2 flex items-center gap-1 hover:text-foreground"
+                        >
+                          <XIcon className="w-3 h-3" /> Remover e tentar outra foto
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <label className="flex items-center justify-center gap-2 h-11 px-3 rounded-md border border-dashed cursor-pointer text-xs text-muted-foreground hover:bg-muted/40 hover:text-foreground transition-colors">
+                    <Camera className="w-4 h-4" />
+                    Anexar foto do cartão
+                    <input
+                      type="file" accept="image/*" capture="environment" className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) lerFotoCartao(f);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                )}
+                {textoCartao && (
+                  <details className="text-xs">
+                    <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+                      Ver texto reconhecido no cartão — inclui como conheceu a igreja e pedidos de oração
+                    </summary>
+                    <pre className="mt-1.5 whitespace-pre-wrap font-sans text-xs text-muted-foreground bg-background rounded border p-2 max-h-40 overflow-y-auto">
+                      {textoCartao}
+                    </pre>
+                  </details>
+                )}
+              </div>
+            )}
 
                         </>)}
 
@@ -1864,18 +1996,19 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                 </Button>
               )}
 
-              {/* ── Atalho de salvar ────────────────────────────────────
+              {/* ── Atalho de salvar (edição) ────────────────────────────
                   Pedido em 27/08/2026: preencher um campo do passo 1 custava
                   cinco cliques em "Próximo", por telas que não têm nada a ver
                   com o que se veio corrigir. Quem está arrumando o cadastro
                   repete isso dezenas de vezes seguidas.
 
-                  **Só na EDIÇÃO.** Para gente nova o assistente existe por um
-                  motivo: o efeito da EBD sugere uma classe a partir da data de
-                  nascimento e a pré-seleciona, então salvar do passo 1
-                  matricularia alguém numa classe que a secretaria não viu. Em
-                  quem já existe não há sugestão automática — a matrícula lida
-                  é a que já estava lá.
+                  Continua só na edição: pra gente nova em geral o assistente
+                  existe por um motivo (o efeito da EBD sugere e pré-seleciona
+                  uma classe a partir da data de nascimento, e salvar do
+                  passo 1 sem passar pelo passo que mostra essa seleção
+                  matricularia alguém numa classe que ninguém viu). O atalho
+                  de visitante novo, logo abaixo, é a exceção deliberada —
+                  ver `usandoAtalhoVisitanteNovo` no `onSubmit`.
 
                   `type="button"` e chamada direta, e não `type="submit"`:
                   dois botões de submit no mesmo formulário fazem o Enter
@@ -1893,6 +2026,34 @@ export function MembroForm({ open, onOpenChange, membro, onSaved }: Props) {
                   disabled={busy}
                 >
                   {busy ? "Salvando..." : "Salvar e fechar"}
+                </Button>
+              )}
+
+              {/* ── Atalho de cadastro (visitante novo) ──────────────────
+                  Pedido dela ao unificar "Visitante Rápido" com este
+                  formulário: os 3 atalhos de cadastro rápido (Painel, Início,
+                  Chamada da EBD) continuam rápidos — nome, telefone e a foto
+                  do cartão já bastam, sem obrigar a passar por Vínculos e
+                  Quando Serve, que não fazem sentido pra quem acabou de
+                  chegar. Só no passo 1, e só pra visitante NOVO — editar
+                  alguém já tem o atalho acima. */}
+              {!membro && isVisitante && step === 1 && (
+                <Button
+                  key="cadastrar-atalho" type="button" variant="outline"
+                  onClick={() => {
+                    if (!form.nome_completo.trim()) {
+                      toast.error("Informe o nome completo");
+                      return;
+                    }
+                    if (!form.telefone_celular.trim()) {
+                      toast.error("Telefone é obrigatório para visitante");
+                      return;
+                    }
+                    onSubmit(undefined, true);
+                  }}
+                  disabled={busy}
+                >
+                  {busy ? "Cadastrando..." : "Cadastrar visitante"}
                 </Button>
               )}
             </DialogFooter>
