@@ -69,7 +69,7 @@
 //    objetos que nunca eram consultados.
 
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -179,6 +179,7 @@ function detalheEfemeride(ev: EventoPastoral): string {
 }
 
 export default function PainelPastoral() {
+  const navigate = useNavigate();
   // A data local vira estado: quando ela muda, o efeito abaixo recarrega tudo.
   const [hoje, setHoje] = useState(() => isoLocal(new Date()));
 
@@ -616,26 +617,56 @@ export default function PainelPastoral() {
             Acompanhamento de visitantes
           </TituloDaSecao>
           <div className="space-y-3">
+            {/* Pedido dela: os seis números viraram link, não só o "Acolhimento →"
+                do título — clicar em qualquer um leva direto pra /visitantes,
+                onde dá pra agir (registrar contato, WhatsApp, marcar tarefa).
+
+                "Congregaram" é a exceção capenga: quem já congregou saiu de
+                `tipo_pessoa = 'visitante'`, então a lista de /visitantes não
+                mostra mais essa pessoa — o link leva pro lugar certo (o
+                painel de acolhimento), só não pro RECORTE exato daquele
+                número. Não há hoje uma tela própria de "quem converteu" pra
+                apontar em vez disso. */}
             <FaixaDeIndicadores colunas={6}>
-              <Indicador rotulo="Novos (7d)"  valor={visitantes.novos}            tom="info" />
-              <Indicador rotulo="Em acomp."   valor={visitantes.emAcompanhamento} tom="celebracao" />
-              <Indicador rotulo="Sem contato" valor={visitantes.semContato}       tom="warning" />
-              <Indicador rotulo="Prontos"     valor={visitantes.prontosCrescer}   tom="success" />
-              <Indicador rotulo="Congregaram" valor={visitantes.convertidos}      tom="neutro" />
+              <Indicador
+                rotulo="Novos (7d)" valor={visitantes.novos} tom="info"
+                onClick={() => navigate("/visitantes")}
+                descricao="Ir para o Painel de Visitantes"
+              />
+              <Indicador
+                rotulo="Em acomp." valor={visitantes.emAcompanhamento} tom="celebracao"
+                onClick={() => navigate("/visitantes")}
+                descricao="Ir para o Painel de Visitantes"
+              />
+              <Indicador
+                rotulo="Sem contato" valor={visitantes.semContato} tom="warning"
+                onClick={() => navigate("/visitantes")}
+                descricao="Ir para o Painel de Visitantes"
+              />
+              <Indicador
+                rotulo="Prontos" valor={visitantes.prontosCrescer} tom="success"
+                onClick={() => navigate("/visitantes")}
+                descricao="Ir para o Painel de Visitantes"
+              />
+              <Indicador
+                rotulo="Congregaram" valor={visitantes.convertidos} tom="neutro"
+                onClick={() => navigate("/visitantes")}
+                descricao="Ir para o Painel de Visitantes"
+              />
               {/* O "motor" de /visitantes, trazido pra cá a pedido dela: não é
                   quantas pessoas, é quanto do trabalho de acolher elas já foi
                   feito — as 4 tarefas automáticas (boas-vindas, contato,
-                  convite, recontato) que nascem com cada visitante novo. Sem
-                  onClick, igual aos cinco vizinhos: o clique pra agir mora no
-                  "Acolhimento →" do título da seção, não em cada número.
-                  Só aparece com valor quando há tarefa pra contar; sem
-                  visitante nenhum, `tarefasAcolhimento.total` é 0 e o
-                  indicador mostra "—" em vez de um 0% que soaria a alarme
-                  falso (ninguém pra acolher, não acolhimento zerado). */}
+                  convite, recontato) que nascem com cada visitante novo. Só
+                  aparece com valor quando há tarefa pra contar; sem visitante
+                  nenhum, `tarefasAcolhimento.total` é 0 e o indicador mostra
+                  "—" em vez de um 0% que soaria a alarme falso (ninguém pra
+                  acolher, não acolhimento zerado). */}
               <Indicador
                 rotulo="Tarefas"
                 valor={tarefasAcolhimento && tarefasAcolhimento.total > 0 ? `${tarefasAcolhimento.pct}%` : "—"}
                 tom="gold"
+                onClick={() => navigate("/visitantes")}
+                descricao="Ir para o Painel de Visitantes"
               />
             </FaixaDeIndicadores>
             {visitantes.semContato > 0 && (
