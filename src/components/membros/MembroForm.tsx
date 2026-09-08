@@ -31,8 +31,7 @@ import {
 import { TelefoneInput } from "@/components/ui/TelefoneInput";
 import { supabase } from "@/integrations/supabase/client";
 import { conferir } from "@/lib/escritaConferida";
-import { lerCartaoVisitante } from "@/services/ocrVisitanteService";
-import { Camera, Loader2 as LoaderIcon, X as XIcon } from "lucide-react";
+import { Camera, X as XIcon } from "lucide-react";
 import {
   MESES, diasDoMes, montarMeiaData, diaDeMeiaData, mesDeMeiaData,
 } from "@/lib/idade";
@@ -310,50 +309,33 @@ export function MembroForm({ open, onOpenChange, membro, onSaved, tipoInicial, o
   const [perfilTocado, setPerfilTocado] = useState(false);
 
   // ── Foto do cartão impresso de visitante ────────────────────────────────
-  // Só aparece pra cadastro NOVO de visitante (ver render do passo 1). Lê a
-  // foto com OCR (ocrVisitanteService.ts) e pré-preenche o que reconhecer —
-  // sem travar o campo: o texto reconhecido inteiro fica visível do lado, e
-  // tudo continua editável, porque o palpite de campo pode errar.
-  const [lendoCartao, setLendoCartao] = useState(false);
-  const [textoCartao, setTextoCartao] = useState<string | null>(null);
+  // Só aparece pra cadastro NOVO de visitante (ver render do passo 1).
+  //
+  // Chegou a tentar LER a foto (OCR) e pré-preencher os campos — tirado em
+  // 08/09/2026. O motor gratuito (Tesseract) lê bem texto impresso, mas o
+  // cartão é preenchido à mão, e reconhecimento de caligrafia é um problema
+  // bem mais difícil, que esse motor não resolve. Um serviço que lê
+  // caligrafia de verdade (Google Cloud Vision e afins) é pago por imagem e
+  // precisa de uma peça nova no sistema pra guardar a chave em segurança —
+  // decisão dela: por ora fica só o anexo, sem tentar adivinhar os campos.
+  // A foto fica visível aqui do lado enquanto o voluntário digita, pra
+  // conferir o que a pessoa escreveu — os campos continuam 100% manuais.
   const [cartaoPreviewUrl, setCartaoPreviewUrl] = useState<string | null>(null);
 
-  const lerFotoCartao = async (file: File) => {
+  const anexarFotoCartao = (file: File) => {
+    if (cartaoPreviewUrl) URL.revokeObjectURL(cartaoPreviewUrl);
     setCartaoPreviewUrl(URL.createObjectURL(file));
-    setLendoCartao(true);
-    try {
-      const lido = await lerCartaoVisitante(file);
-      setTextoCartao(lido.textoBruto);
-      // Só preenche o que ainda está vazio — não sobrescreve o que o
-      // voluntário já tinha digitado antes de anexar a foto.
-      if (lido.nome && !form.nome_completo.trim()) set("nome_completo", lido.nome);
-      if (lido.telefone && !form.telefone_celular.trim()) set("telefone_celular", lido.telefone);
-      if (lido.email && !form.email?.trim()) set("email", lido.email);
-      if (lido.dataNascimento && !form.data_nascimento.trim() && !semAnoNasc) set("data_nascimento", lido.dataNascimento);
-      if (lido.endereco && !form.endereco.trim()) set("endereco", lido.endereco);
-      const achouAlgo = lido.nome || lido.telefone || lido.dataNascimento || lido.endereco;
-      if (!achouAlgo) {
-        toast.message("Não consegui reconhecer os campos do cartão — confira o texto reconhecido abaixo e preencha à mão.");
-      } else {
-        toast.success("Cartão lido — confira os campos preenchidos. As caixinhas marcadas (como conheceu, pedidos de oração) precisam ser escolhidas à mão.");
-      }
-    } catch (e) {
-      toast.error("Não foi possível ler o cartão: " + (e as Error).message);
-    } finally {
-      setLendoCartao(false);
-    }
   };
 
   const limparCartao = () => {
     if (cartaoPreviewUrl) URL.revokeObjectURL(cartaoPreviewUrl);
     setCartaoPreviewUrl(null);
-    setTextoCartao(null);
   };
 
   // Reset wizard step quando abrir
   useEffect(() => {
     if (open) setStep(1);
-    if (open) { limparCartao(); setLendoCartao(false); }
+    if (open) limparCartao();
     // Perfil vem junto com a abertura. Pessoa sem perfil devolve null, e o
     // formulário começa no PERFIL_VAZIO — que não é "indisponível", é
     // "ninguém perguntou ainda".
@@ -986,13 +968,16 @@ export function MembroForm({ open, onOpenChange, membro, onSaved, tipoInicial, o
 
             {/* ── Foto do cartão impresso ──────────────────────────────
                 Só em cadastro NOVO de visitante — é aqui que a foto existe:
-                editar alguém já cadastrado não tem cartão novo pra ler. O
-                OCR (ocrVisitanteService.ts) lê nome, data de nascimento,
-                telefone e endereço; as duas seções de caixinha marcada à
-                mão (como conheceu, pedidos de oração) ele não sabe ler —
-                Tesseract reconhece texto, não desenho de marcação — então
-                ficam pro texto reconhecido, que aparece do lado, escolhidas
-                à mão. */}
+                editar alguém já cadastrado não tem cartão novo pra anexar.
+
+                Chegou a ter leitura automática (OCR) tentando preencher os
+                campos sozinha — tirada em 08/09/2026. O cartão é preenchido
+                à mão, e o motor gratuito (Tesseract) lê muito mal
+                caligrafia — na prática vinha em branco quase sempre. Sem um
+                serviço pago de nuvem (fora de escopo por ora, decisão dela),
+                fica só o anexo: a foto some visível aqui do lado enquanto o
+                voluntário olha o cartão e digita os campos abaixo, 100%
+                manual. */}
             {!membro && isVisitante && (
               <div className="rounded-md border border-dashed p-3 bg-muted/20 space-y-2">
                 <Label className="text-xs font-medium flex items-center gap-1.5">
@@ -1001,8 +986,8 @@ export function MembroForm({ open, onOpenChange, membro, onSaved, tipoInicial, o
                   <span className="text-xs text-muted-foreground font-normal">(opcional)</span>
                 </Label>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Tire uma foto do cartão que a pessoa preencheu à mão — o sistema tenta ler nome,
-                  data de nascimento, telefone e endereço. Os campos continuam editáveis.
+                  Tire uma foto do cartão que a pessoa preencheu à mão, pra ter do lado enquanto
+                  preenche os campos abaixo.
                 </p>
                 {cartaoPreviewUrl ? (
                   <div className="flex items-start gap-2">
@@ -1010,20 +995,12 @@ export function MembroForm({ open, onOpenChange, membro, onSaved, tipoInicial, o
                       src={cartaoPreviewUrl} alt="Cartão anexado"
                       className="w-20 h-20 object-cover rounded-md border shrink-0"
                     />
-                    <div className="flex-1 min-w-0 space-y-1">
-                      {lendoCartao ? (
-                        <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                          <LoaderIcon className="w-3.5 h-3.5 animate-spin" /> Lendo o cartão…
-                        </p>
-                      ) : (
-                        <button
-                          type="button" onClick={limparCartao}
-                          className="text-xs text-muted-foreground underline underline-offset-2 flex items-center gap-1 hover:text-foreground"
-                        >
-                          <XIcon className="w-3 h-3" /> Remover e tentar outra foto
-                        </button>
-                      )}
-                    </div>
+                    <button
+                      type="button" onClick={limparCartao}
+                      className="text-xs text-muted-foreground underline underline-offset-2 flex items-center gap-1 hover:text-foreground"
+                    >
+                      <XIcon className="w-3 h-3" /> Remover e tentar outra foto
+                    </button>
                   </div>
                 ) : (
                   <label className="flex items-center justify-center gap-2 h-11 px-3 rounded-md border border-dashed cursor-pointer text-xs text-muted-foreground hover:bg-muted/40 hover:text-foreground transition-colors">
@@ -1033,21 +1010,11 @@ export function MembroForm({ open, onOpenChange, membro, onSaved, tipoInicial, o
                       type="file" accept="image/*" capture="environment" className="hidden"
                       onChange={(e) => {
                         const f = e.target.files?.[0];
-                        if (f) lerFotoCartao(f);
+                        if (f) anexarFotoCartao(f);
                         e.target.value = "";
                       }}
                     />
                   </label>
-                )}
-                {textoCartao && (
-                  <details className="text-xs">
-                    <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-                      Ver texto reconhecido no cartão — inclui como conheceu a igreja e pedidos de oração
-                    </summary>
-                    <pre className="mt-1.5 whitespace-pre-wrap font-sans text-xs text-muted-foreground bg-background rounded border p-2 max-h-40 overflow-y-auto">
-                      {textoCartao}
-                    </pre>
-                  </details>
                 )}
               </div>
             )}
