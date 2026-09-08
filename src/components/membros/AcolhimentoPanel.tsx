@@ -13,6 +13,7 @@ import { calcularEtapa, getMensagem, buildWhatsAppLink } from "@/lib/visitantesF
 import { TIPO_PESSOA_COR } from "@/lib/tipoPessoa";
 import { conferir } from "@/lib/escritaConferida";
 import { idDaAreaDeAcolhimento } from "@/services/bancadaAcolhimentoService";
+import { alternarTarefaAcolhimento } from "@/services/visitanteService";
 
 interface Tarefa {
   id: string;
@@ -62,11 +63,8 @@ export function AcolhimentoPanel({ pessoa, onUpdated }: Props) {
 
   const toggleTarefa = async (tarefa: Tarefa) => {
     const novaConcluida = !tarefa.concluida;
-    const { error } = await supabase
-      .from("acolhimento_tarefas")
-      .update({ concluida: novaConcluida, data_conclusao: novaConcluida ? new Date().toISOString() : null })
-      .eq("id", tarefa.id);
-    if (error) return toast.error(error.message);
+    const r = await alternarTarefaAcolhimento(tarefa.id, novaConcluida);
+    if (!r.ok) return toast.error(r.erro);
     setTarefas((ts) => ts.map((t) => (t.id === tarefa.id ? { ...t, concluida: novaConcluida } : t)));
   };
 

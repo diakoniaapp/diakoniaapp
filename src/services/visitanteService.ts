@@ -315,6 +315,60 @@ export async function tornarCongregadoIntegrado(
   return { ok: true, pessoaId: visitante.id };
 }
 
+// ─── Tarefas de acolhimento ───────────────────────────────────────────────────
+//
+// `acolhimento_tarefas` já existia no banco (INSERT em série em
+// `MembroForm.tsx`/`VisitanteRapidoDialog.tsx` ao cadastrar um visitante: 4
+// tarefas padrão — boas-vindas, contato, convite pro próximo evento,
+// recontato), mas só aparecia dentro de um diálogo por vez
+// (`AcolhimentoPanel.tsx`). O painel principal (`Visitantes.tsx`) pede pra
+// ver isso de cara, por nome, sem abrir nada — daqui em diante.
+
+export interface TarefaAcolhimento {
+  id:             string;
+  visitante_id:   string;
+  titulo:         string;
+  data:           string;
+  concluida:      boolean;
+  data_conclusao: string | null;
+}
+
+/**
+ * Tarefas de acolhimento de vários visitantes de uma vez, agrupadas por
+ * pessoa — uma consulta só pra lista inteira, não uma por cartão.
+ */
+export async function buscarTarefasDosVisitantes(
+  visitanteIds: string[]
+): Promise<Record<string, TarefaAcolhimento[]>> {
+  if (visitanteIds.length === 0) return {};
+  const { data } = await supabase
+    .from("acolhimento_tarefas")
+    .select("id, visitante_id, titulo, data, concluida, data_conclusao")
+    .in("visitante_id", visitanteIds)
+    .order("data", { ascending: true });
+
+  const porVisitante: Record<string, TarefaAcolhimento[]> = {};
+  for (const t of (data ?? []) as TarefaAcolhimento[]) {
+    (porVisitante[t.visitante_id] ??= []).push(t);
+  }
+  return porVisitante;
+}
+
+/** Marca (ou desmarca) uma tarefa de acolhimento como concluída. */
+export async function alternarTarefaAcolhimento(
+  tarefaId: string,
+  concluida: boolean
+): Promise<{ ok: boolean; erro?: string }> {
+  return conferir(
+    await supabase
+      .from("acolhimento_tarefas")
+      .update({ concluida, data_conclusao: concluida ? new Date().toISOString() : null })
+      .eq("id", tarefaId)
+      .select("id"),
+    "A tarefa",
+  );
+}
+
 // ─── Dashboard: resumos ───────────────────────────────────────────────────────
 
 export interface ResumoVisitantes {

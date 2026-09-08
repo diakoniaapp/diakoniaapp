@@ -9,10 +9,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ListSkeleton, EmptyState, ErrorState } from "@/components/ListState";
 import VisitanteDialog from "@/components/membros/VisitanteDialog";
 import AcoesHoje from "@/components/membros/AcoesHoje";
+import { Progress } from "@/components/ui/progress";
+import { Checkbox } from "@/components/ui/checkbox";
 import type { Membro } from "@/pages/Membros";
 import {
   TrendingUp, AlertTriangle, Phone,
-  ArrowRight, Sparkles, RotateCcw, List, MessageCircle,
+  ArrowRight, Sparkles, RotateCcw, List, MessageCircle, ListChecks,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -26,6 +28,9 @@ import {
 import { logHistorico } from "@/lib/historicoFluxo";
 import { normalizarTelefone, formatarTelefoneSemDDI } from "@/lib/telefone";
 import { conferir } from "@/lib/escritaConferida";
+import {
+  buscarTarefasDosVisitantes, alternarTarefaAcolhimento, type TarefaAcolhimento,
+} from "@/services/visitanteService";
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
 
@@ -49,6 +54,11 @@ export default function Visitantes() {
   const [selected, setSelected]       = useState<VisitanteMembro | null>(null);
   const [busyId, setBusyId]           = useState<string | null>(null);
   const [busyPromote, setBusyPromote] = useState<string | null>(null);
+  // Tarefas de acolhimento (acolhimento_tarefas), por visitante — a lista
+  // inteira vira o painel único: em vez de abrir um diálogo por pessoa para
+  // ver quantas tarefas faltam, o cartão já mostra o percentual e a lista.
+  const [tarefasPorVisitante, setTarefasPorVisitante] = useState<Record<string, TarefaAcolhimento[]>>({});
+  const [busyTarefaId, setBusyTarefaId] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -59,11 +69,40 @@ export default function Visitantes() {
       .eq("tipo_pessoa", "visitante")
       .order("created_at", { ascending: true });
     if (e) setError(e.message);
-    setVisitantes((data ?? []) as VisitanteMembro[]);
+    const lista = (data ?? []) as VisitanteMembro[];
+    setVisitantes(lista);
     setLoading(false);
+    // Uma consulta só para as tarefas de todo mundo, não uma por cartão.
+    setTarefasPorVisitante(await buscarTarefasDosVisitantes(lista.map(v => v.id)));
   };
 
   useEffect(() => { load(); }, []);
+
+  const toggleTarefa = async (tarefa: TarefaAcolhimento) => {
+    setBusyTarefaId(tarefa.id);
+    const novaConcluida = !tarefa.concluida;
+    const r = await alternarTarefaAcolhimento(tarefa.id, novaConcluida);
+    if (!r.ok) {
+      toast.error(r.erro);
+    } else {
+      setTarefasPorVisitante(prev => ({
+        ...prev,
+        [tarefa.visitante_id]: (prev[tarefa.visitante_id] ?? []).map(t =>
+          t.id === tarefa.id ? { ...t, concluida: novaConcluida } : t
+        ),
+      }));
+    }
+    setBusyTarefaId(null);
+  };
+
+  // ── O motor: percentual de tarefas de acolhimento concluídas, somando
+  // todo mundo. É o pulso do painel — a métrica que diz se a igreja está
+  // dando conta do cuidado com quem chegou, não só quantas pessoas tem.
+  const motorTarefas = useMemo(() => {
+    const todas = Object.values(tarefasPorVisitante).flat();
+    const feitas = todas.filter(t => t.concluida).length;
+    return { total: todas.length, feitas, pct: todas.length ? Math.round((feitas / todas.length) * 100) : 0 };
+  }, [tarefasPorVisitante]);
 
   // ── Estatísticas ────────────────────────────────────────────────────────────
 
@@ -206,6 +245,25 @@ export default function Visitantes() {
           {stats.retornaram === 1 ? "retornou" : "retornaram"} em {DIAS_RETORNO} dias
         </p>
 
+        {/* O motor do painel: quantas tarefas de acolhimento (as 4 que nascem
+            automaticamente com cada visitante — boas-vindas, contato, convite,
+            recontato) já foram cumpridas, somando todo mundo. Não é "quantos
+            visitantes tem" — é "estamos dando conta do cuidado com eles". */}
+        {motorTarefas.total > 0 && (
+          <div className="rounded-lg border bg-card px-4 py-3 space-y-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-medium flex items-center gap-1.5" translate="no">
+                <ListChecks className="w-4 h-4 text-primary shrink-0" />
+                Tarefas de acolhimento concluídas
+              </p>
+              <span className="text-sm font-semibold tabular-nums" translate="no">
+                {motorTarefas.feitas}/{motorTarefas.total} · {motorTarefas.pct}%
+              </span>
+            </div>
+            <Progress value={motorTarefas.pct} className="h-2" />
+          </div>
+        )}
+
         {/* M3.3 — Pessoas prontas para crescer */}
         {stats.prontosCrescer > 0 && (
           <div className="flex items-center justify-between gap-3 rounded-lg border border-success/30 bg-success/5 px-4 py-3">
@@ -293,7 +351,10 @@ export default function Visitantes() {
                     busy={busyId === v.id} busyPromote={busyPromote === v.id}
                     onOpen={() => setSelected(v)} onRetorno={() => registrarRetorno(v)}
                     onContato={() => marcarContato(v)} onWhatsApp={() => abrirWhatsApp(v)}
-                    onPromover={(para) => promoverPessoa(v, para)} />
+                    onPromover={(para) => promoverPessoa(v, para)}
+                    tarefas={tarefasPorVisitante[v.id] ?? []}
+                    busyTarefaId={busyTarefaId}
+                    onToggleTarefa={toggleTarefa} />
                 ))}
               </div>
             )}
@@ -323,7 +384,10 @@ export default function Visitantes() {
                           busy={busyId === v.id} busyPromote={busyPromote === v.id}
                           onOpen={() => setSelected(v)} onRetorno={() => registrarRetorno(v)}
                           onContato={() => marcarContato(v)} onWhatsApp={() => abrirWhatsApp(v)}
-                          onPromover={(para) => promoverPessoa(v, para)} />
+                          onPromover={(para) => promoverPessoa(v, para)}
+                    tarefas={tarefasPorVisitante[v.id] ?? []}
+                    busyTarefaId={busyTarefaId}
+                    onToggleTarefa={toggleTarefa} />
                       ))}
                     </div>
                   </section>
@@ -339,7 +403,10 @@ export default function Visitantes() {
                         busy={busyId === v.id} busyPromote={busyPromote === v.id}
                         onOpen={() => setSelected(v)} onRetorno={() => registrarRetorno(v)}
                         onContato={() => marcarContato(v)} onWhatsApp={() => abrirWhatsApp(v)}
-                        onPromover={(para) => promoverPessoa(v, para)} />
+                        onPromover={(para) => promoverPessoa(v, para)}
+                    tarefas={tarefasPorVisitante[v.id] ?? []}
+                    busyTarefaId={busyTarefaId}
+                    onToggleTarefa={toggleTarefa} />
                     ))}
                   </div>
                 </section>
@@ -396,16 +463,22 @@ function JornadaBar({ tipoPessoa, pronto }: { tipoPessoa: string; pronto: boolea
 
 // ── VisitanteCard ─────────────────────────────────────────────────────────────
 
-function VisitanteCard({ v, busy, busyPromote, variant, onOpen, onRetorno, onContato, onWhatsApp, onPromover }: {
-  v:           VisitanteMembro;
-  busy:        boolean;
-  busyPromote: boolean;
-  variant?:    "success";
-  onOpen:      () => void;
-  onRetorno:   () => void;
-  onContato:   () => void;
-  onWhatsApp:  () => void;
-  onPromover:  (para: "congregado" | "membro") => void;
+function VisitanteCard({
+  v, busy, busyPromote, variant, onOpen, onRetorno, onContato, onWhatsApp, onPromover,
+  tarefas, busyTarefaId, onToggleTarefa,
+}: {
+  v:              VisitanteMembro;
+  busy:           boolean;
+  busyPromote:    boolean;
+  variant?:       "success";
+  onOpen:         () => void;
+  onRetorno:      () => void;
+  onContato:      () => void;
+  onWhatsApp:     () => void;
+  onPromover:     (para: "congregado" | "membro") => void;
+  tarefas:        TarefaAcolhimento[];
+  busyTarefaId:   string | null;
+  onToggleTarefa: (t: TarefaAcolhimento) => void;
 }) {
   const nv        = v.numero_visitas ?? 1;
   const etapa     = calcularEtapa(nv, v.created_at);
@@ -414,6 +487,17 @@ function VisitanteCard({ v, busy, busyPromote, variant, onOpen, onRetorno, onCon
   const dias      = Math.floor((Date.now() - new Date(v.created_at).getTime()) / 86_400_000);
   const iconBg    = variant === "success" ? "bg-success/15 text-success" : "bg-warning/15 text-warning-text";
   const nome      = v.nome_completo.split(" ")[0];
+
+  // Percentual de tarefas de acolhimento concluídas — é o que a Telma pediu
+  // pra ver "por nome": não abre nada, já está no cartão.
+  const totalTarefas  = tarefas.length;
+  const feitasTarefas = tarefas.filter(t => t.concluida).length;
+  const pctTarefas     = totalTarefas ? Math.round((feitasTarefas / totalTarefas) * 100) : null;
+  const tomTarefas     = pctTarefas === null ? "" : pctTarefas === 100
+    ? "bg-success/15 text-success border-success/30"
+    : pctTarefas === 0
+    ? "bg-muted text-muted-foreground border-border"
+    : "bg-warning/15 text-warning-text border-warning/30";
 
   const evolucao = avaliarEvolucao({
     tipo_pessoa:         v.tipo_pessoa,
@@ -457,6 +541,11 @@ function VisitanteCard({ v, busy, busyPromote, variant, onOpen, onRetorno, onCon
               <Badge variant="outline" className="text-xs h-4 px-1.5">
                 {ETAPA_LABEL[etapa]}
               </Badge>
+              {pctTarefas !== null && (
+                <Badge variant="outline" className={`text-xs h-4 px-1.5 ${tomTarefas}`} translate="no">
+                  {feitasTarefas}/{totalTarefas} tarefas · {pctTarefas}%
+                </Badge>
+              )}
             </div>
 
             {/* Meta */}
@@ -464,6 +553,34 @@ function VisitanteCard({ v, busy, busyPromote, variant, onOpen, onRetorno, onCon
               {[formatarTelefoneSemDDI(v.telefone_celular), v.bairro].filter(Boolean).join(" - ") || "sem contato"}
               {" — "}Dia {dias} · {nv} {nv === 1 ? "visita" : "visitas"}
             </p>
+
+            {/* Tarefas de acolhimento — listadas, não escondidas atrás de um
+                diálogo. As 4 nascem sozinhas ao cadastrar (boas-vindas,
+                contato, convite, recontato); marcar aqui já grava. */}
+            {totalTarefas > 0 && (
+              <div className="rounded-md border bg-muted/20 px-2.5 py-2 space-y-1">
+                <Progress value={pctTarefas ?? 0} className="h-1.5" />
+                <ul className="space-y-1 pt-0.5">
+                  {tarefas.map(t => (
+                    <li key={t.id} className="flex items-start gap-2">
+                      <Checkbox
+                        checked={t.concluida}
+                        disabled={busyTarefaId === t.id}
+                        onCheckedChange={() => onToggleTarefa(t)}
+                        className="mt-0.5 shrink-0"
+                        aria-label={`Marcar "${t.titulo.split(" — ")[0]}" como ${t.concluida ? "pendente" : "concluída"}`}
+                      />
+                      <span
+                        className={`text-xs leading-snug ${t.concluida ? "line-through text-muted-foreground" : "text-foreground"}`}
+                        translate="no"
+                      >
+                        {t.titulo.split(" — ")[0]}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             {/* M3.1 + M3.2 — Banner de evolução humanizado + ações sugeridas */}
             {evolucao.sugestao && (
