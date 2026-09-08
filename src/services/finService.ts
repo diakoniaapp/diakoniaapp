@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { hojeLocal } from "@/lib/data";
+import { conferir } from "@/lib/escritaConferida";
 
 // ─── Tipos ───────────────────────────────────────────────────────────────
 export type FinContaTipo = "caixa" | "banco" | "pix" | "envelope" | "cartao" | "aplicacao" | "cofre";
@@ -149,13 +150,19 @@ export async function criarConta(input: Partial<FinConta>): Promise<FinConta> {
 }
 
 export async function atualizarConta(id: string, patch: Partial<FinConta>): Promise<void> {
-  const { error } = await supabase.from("fin_contas").update(patch as any).eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("fin_contas").update(patch as any).eq("id", id).select("id"),
+    "A conta",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 export async function desativarConta(id: string): Promise<void> {
-  const { error } = await supabase.from("fin_contas").update({ ativo: false }).eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("fin_contas").update({ ativo: false }).eq("id", id).select("id"),
+    "A desativação da conta",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 // ─── Categorias ──────────────────────────────────────────────────────────
@@ -262,16 +269,22 @@ export async function criarLancamento(input: Partial<FinLancamento>): Promise<Fi
 }
 
 export async function atualizarLancamento(id: string, patch: Partial<FinLancamento>): Promise<void> {
-  const { error } = await supabase.from("fin_lancamentos").update(patch as any).eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("fin_lancamentos").update(patch as any).eq("id", id).select("id"),
+    "O lançamento",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 export async function excluirLancamento(id: string): Promise<void> {
   // tenta apagar comprovante junto
   const { data: l } = await supabase.from("fin_lancamentos").select("comprovante_url").eq("id", id).maybeSingle();
   if (l?.comprovante_url) await removerComprovante(l.comprovante_url);
-  const { error } = await supabase.from("fin_lancamentos").delete().eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("fin_lancamentos").delete().eq("id", id).select("id"),
+    "O lançamento",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 // ─── Comprovantes (storage: fin-comprovantes) ───────────────────────────
@@ -318,13 +331,19 @@ export async function criarCategoria(input: Partial<FinCategoria>): Promise<FinC
 }
 
 export async function atualizarCategoria(id: string, patch: Partial<FinCategoria>): Promise<void> {
-  const { error } = await supabase.from("fin_categorias").update(patch as any).eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("fin_categorias").update(patch as any).eq("id", id).select("id"),
+    "A categoria",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 export async function excluirCategoria(id: string): Promise<void> {
-  const { error } = await supabase.from("fin_categorias").delete().eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("fin_categorias").delete().eq("id", id).select("id"),
+    "A categoria",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 export async function listarCategoriasTodas(): Promise<FinCategoria[]> {
@@ -336,13 +355,19 @@ export async function listarCategoriasTodas(): Promise<FinCategoria[]> {
 
 // ─── Reativar conta ─────────────────────────────────────────────────────
 export async function reativarConta(id: string): Promise<void> {
-  const { error } = await supabase.from("fin_contas").update({ ativo: true }).eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("fin_contas").update({ ativo: true }).eq("id", id).select("id"),
+    "A reativação da conta",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 export async function excluirConta(id: string): Promise<void> {
-  const { error } = await supabase.from("fin_contas").delete().eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("fin_contas").delete().eq("id", id).select("id"),
+    "A conta",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 // ─── Transferência entre contas ──────────────────────────────────────────
@@ -476,13 +501,19 @@ export async function criarRecorrencia(input: Partial<FinRecorrencia>): Promise<
 }
 
 export async function atualizarRecorrencia(id: string, patch: Partial<FinRecorrencia>): Promise<void> {
-  const { error } = await supabase.from("fin_recorrencias").update(patch as any).eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("fin_recorrencias").update(patch as any).eq("id", id).select("id"),
+    "A recorrência",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 export async function excluirRecorrencia(id: string): Promise<void> {
-  const { error } = await supabase.from("fin_recorrencias").delete().eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("fin_recorrencias").delete().eq("id", id).select("id"),
+    "A recorrência",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 // ─── Gerar previstos ────────────────────────────────────────────────────
@@ -785,8 +816,8 @@ export async function criarOrcamento(input: Partial<FinOrcamento>): Promise<FinO
 }
 
 export async function excluirOrcamento(id: string): Promise<void> {
-  const { error } = await supabase.from("fin_orcamentos").delete().eq("id", id);
-  if (error) throw error;
+  const r = conferir(await supabase.from("fin_orcamentos").delete().eq("id", id).select("id"), "O orçamento");
+  if (!r.ok) throw new Error(r.erro);
 }
 
 export async function listarOrcamentoVsReal(): Promise<FinOrcamentoVsReal[]> {
