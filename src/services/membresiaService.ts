@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { hojeLocal } from "@/lib/data";
+import { conferir } from "@/lib/escritaConferida";
 
 // ─── Tipos ───────────────────────────────────────────────────────────────
 export type TipoSolicitacao =
@@ -142,8 +143,11 @@ export async function criarSolicitacao(input: Partial<SolicitacaoMembresia>): Pr
 }
 
 export async function atualizarSolicitacao(id: string, patch: Partial<SolicitacaoMembresia>): Promise<void> {
-  const { error } = await supabase.from("solicitacoes_membresia").update(patch as any).eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("solicitacoes_membresia").update(patch as any).eq("id", id).select("id"),
+    "A solicitação",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 export async function aprovarSolicitacao(id: string, observacao?: string): Promise<void> {
@@ -218,8 +222,11 @@ export async function anexarDocumento(
 
 export async function excluirDocumento(id: string, path: string): Promise<void> {
   await supabase.storage.from("membresia-docs").remove([path]);
-  const { error } = await supabase.from("solicitacoes_documentos").delete().eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("solicitacoes_documentos").delete().eq("id", id).select("id"),
+    "O documento",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 export async function documentoSignedUrl(path: string, segs = 600): Promise<string | null> {

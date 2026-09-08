@@ -290,11 +290,15 @@ export async function matricular(pessoaId: string, classeId: string) {
 }
 
 export async function desmatricular(matriculaId: string) {
-  const { error } = await supabase
-    .from("ebd_matriculas")
-    .update({ ativo: false, updated_at: new Date().toISOString() })
-    .eq("id", matriculaId);
-  if (error) throw error;
+  const r = conferir(
+    await supabase
+      .from("ebd_matriculas")
+      .update({ ativo: false, updated_at: new Date().toISOString() })
+      .eq("id", matriculaId)
+      .select("id"),
+    "A matrícula",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 export async function sugerirClasse(dataNascimento: string, sexo?: string | null): Promise<string | null> {
@@ -349,22 +353,33 @@ export async function atualizarClasse(id: string, patch: Partial<ClasseInput>): 
 
 export async function excluirClasse(id: string): Promise<void> {
   // Trigger no banco impede DELETE se houver matriculados ou aulas
-  const { error } = await supabase.from("ebd_classes").delete().eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("ebd_classes").delete().eq("id", id).select("id"),
+    "A classe",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 export async function desativarClasse(id: string): Promise<void> {
-  const { error } = await supabase.from("ebd_classes")
-    .update({ ativo: false, updated_at: new Date().toISOString() })
-    .eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("ebd_classes")
+      .update({ ativo: false, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select("id"),
+    "A classe",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 export async function reativarClasse(id: string): Promise<void> {
-  const { error } = await supabase.from("ebd_classes")
-    .update({ ativo: true, updated_at: new Date().toISOString() })
-    .eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("ebd_classes")
+      .update({ ativo: true, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select("id"),
+    "A classe",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 // ─── Professores ────────────────────────────────────────────────────────────
@@ -440,11 +455,15 @@ export async function adicionarProfessor(
 }
 
 export async function removerProfessor(id: string): Promise<void> {
-  const { error } = await supabase
-    .from("ebd_professores")
-    .update({ ativo: false, updated_at: new Date().toISOString() })
-    .eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase
+      .from("ebd_professores")
+      .update({ ativo: false, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select("id"),
+    "O professor",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 export async function moverParaClasse(pessoaId: string, classeNovaId: string): Promise<string> {
@@ -539,11 +558,15 @@ export async function carregarAula(aulaId: string): Promise<EbdAula | null> {
 }
 
 export async function atualizarAula(aulaId: string, patch: Partial<EbdAula>) {
-  const { error } = await supabase
-    .from("ebd_aulas")
-    .update(patch)
-    .eq("id", aulaId);
-  if (error) throw error;
+  const r = conferir(
+    await supabase
+      .from("ebd_aulas")
+      .update(patch)
+      .eq("id", aulaId)
+      .select("id"),
+    "A aula",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 /**
@@ -755,13 +778,19 @@ export async function criarCampanha(input: CampanhaInput): Promise<CampanhaEbd> 
 }
 
 export async function atualizarCampanha(id: string, patch: Partial<CampanhaInput>): Promise<void> {
-  const { error } = await supabase.from("ebd_campanhas").update(patch).eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("ebd_campanhas").update(patch).eq("id", id).select("id"),
+    "A campanha",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 export async function excluirCampanha(id: string): Promise<void> {
-  const { error } = await supabase.from("ebd_campanhas").delete().eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("ebd_campanhas").delete().eq("id", id).select("id"),
+    "A campanha",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 export async function listarEntradas(campanhaId: string): Promise<EntradaEbd[]> {
@@ -789,8 +818,11 @@ export async function atualizarEntrada(
   id: string,
   patch: Partial<Omit<EntradaEbd, "id" | "campanha_id" | "created_at" | "registrado_por">>,
 ): Promise<void> {
-  const { error } = await supabase.from("ebd_entradas").update(patch).eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("ebd_entradas").update(patch).eq("id", id).select("id"),
+    "A entrada",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 export async function excluirEntrada(id: string): Promise<void> {
@@ -800,8 +832,11 @@ export async function excluirEntrada(id: string): Promise<void> {
   if (entrada?.comprovante_url) {
     await removerComprovante(entrada.comprovante_url);
   }
-  const { error } = await supabase.from("ebd_entradas").delete().eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("ebd_entradas").delete().eq("id", id).select("id"),
+    "A entrada",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 // ─── Comprovantes (storage: ebd-comprovantes, bucket privado) ──────────────
