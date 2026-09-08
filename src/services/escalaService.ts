@@ -219,6 +219,40 @@ export async function sugestoesPara(
 }
 
 /**
+ * Busca por nome em TODO o elenco da área — não só nos 12 sugeridos.
+ *
+ * Pedido dela: "todos os nomes da area de integração deverão aparecer
+ * listados... não estou encontrando HUGO ALEXANDRE". `sugestoesPara()`
+ * pontua e corta na `p_limite` (12 por padrão) — quem serve bem mas não
+ * está entre os mais recomendados no dia/turno simplesmente não aparece.
+ * Isso é correto para SUGESTÃO (o motor priorizando quem ele acha melhor),
+ * mas errado para BUSCA (a liderança sabe quem quer chamar e só precisa
+ * achar o nome). Esta função ignora pontuação: devolve qualquer
+ * voluntário ativo da área cujo nome bate com o termo.
+ */
+export async function buscarVoluntariosDaArea(
+  areaId: string, termo: string,
+): Promise<{ pessoa_id: string; nome_completo: string }[]> {
+  if (!termo.trim()) return [];
+  // `!inner`: sem ele, um nome que não bate com o termo não exclui a linha
+  // de `area_voluntarios` — só zera o `membros` embutido, e a linha
+  // sobraria como ruído. Com `!inner` o filtro em `membros.nome_completo`
+  // vira join de verdade, e só volta quem realmente bate.
+  const { data, error } = await supabase
+    .from("area_voluntarios")
+    .select("membro_id, membros!inner(id, nome_completo, status)")
+    .eq("area_id", areaId)
+    .eq("status", "ativa")
+    .eq("membros.status", "ativo")
+    .ilike("membros.nome_completo", `%${termo.trim()}%`)
+    .limit(20);
+  if (error) throw error;
+  return ((data ?? []) as any[])
+    .map(r => ({ pessoa_id: r.membros.id as string, nome_completo: r.membros.nome_completo as string }))
+    .sort((a, b) => a.nome_completo.localeCompare(b.nome_completo, "pt-BR"));
+}
+
+/**
  * Coloca alguém na escala.
  *
  * `sugerido_automaticamente` e `score_sugestao` são gravados para que um dia
