@@ -13,6 +13,7 @@
 
 import { supabase, supabaseRel } from "@/integrations/supabase/client";
 import { hojeLocal } from "@/lib/data";
+import { conferir } from "@/lib/escritaConferida";
 
 // ─── Enums (refletem os enums SQL exatamente) ───────────────────────────
 export type ReservaStatus =
@@ -158,9 +159,11 @@ export async function atualizarTaxasEspaco(
   id: string,
   taxas: Pick<Espaco, "taxa_debito_pct" | "taxa_credito_pct" | "taxa_pix_pct">,
 ): Promise<void> {
-  const { error } = await supabase
-    .from("arr_espacos").update(taxas).eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("arr_espacos").update(taxas).eq("id", id).select("id"),
+    "As taxas do espaço",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -256,43 +259,57 @@ export async function solicitarReserva(input: ReservaNova): Promise<Reserva> {
 
 export async function aprovarReserva(id: string): Promise<void> {
   const userId = (await supabase.auth.getUser()).data.user?.id;
-  const { error } = await supabase
-    .from("arr_reservas")
-    .update({
-      status: "aprovada",
-      aprovada_por: userId,
-      aprovada_em: new Date().toISOString(),
-    })
-    .eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase
+      .from("arr_reservas")
+      .update({
+        status: "aprovada",
+        aprovada_por: userId,
+        aprovada_em: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .select("id"),
+    "A aprovação da reserva",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 export async function recusarReserva(id: string, motivo: string): Promise<void> {
   const userId = (await supabase.auth.getUser()).data.user?.id;
-  const { error } = await supabase
-    .from("arr_reservas")
-    .update({
-      status: "recusada",
-      motivo_recusa: motivo,
-      aprovada_por: userId,
-      aprovada_em: new Date().toISOString(),
-    })
-    .eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase
+      .from("arr_reservas")
+      .update({
+        status: "recusada",
+        motivo_recusa: motivo,
+        aprovada_por: userId,
+        aprovada_em: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .select("id"),
+    "A recusa da reserva",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 export async function iniciarUso(id: string): Promise<void> {
-  const { error } = await supabase
-    .from("arr_reservas").update({ status: "em_uso" }).eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("arr_reservas").update({ status: "em_uso" }).eq("id", id).select("id"),
+    "O início de uso",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 export async function arquivarReserva(id: string): Promise<void> {
-  const { error } = await supabase
-    .from("arr_reservas")
-    .update({ arquivado_em: new Date().toISOString() })
-    .eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase
+      .from("arr_reservas")
+      .update({ arquivado_em: new Date().toISOString() })
+      .eq("id", id)
+      .select("id"),
+    "O arquivamento da reserva",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -348,16 +365,20 @@ export async function listarChecklist(reservaId: string): Promise<ChecklistItem[
 
 export async function marcarChecklist(itemId: string, ok: boolean, obs?: string): Promise<void> {
   const userId = (await supabase.auth.getUser()).data.user?.id;
-  const { error } = await supabase
-    .from("arr_reserva_checklist")
-    .update({
-      ok,
-      ok_em: ok ? new Date().toISOString() : null,
-      ok_por: ok ? userId : null,
-      observacao: obs ?? null,
-    })
-    .eq("id", itemId);
-  if (error) throw error;
+  const r = conferir(
+    await supabase
+      .from("arr_reserva_checklist")
+      .update({
+        ok,
+        ok_em: ok ? new Date().toISOString() : null,
+        ok_por: ok ? userId : null,
+        observacao: obs ?? null,
+      })
+      .eq("id", itemId)
+      .select("id"),
+    "O item da checklist",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -394,17 +415,23 @@ export async function criarProduto(input: Partial<Produto>): Promise<Produto> {
 }
 
 export async function atualizarProduto(id: string, patch: Partial<Produto>): Promise<void> {
-  const { error } = await supabase
-    .from("arr_produtos").update(patch).eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("arr_produtos").update(patch).eq("id", id).select("id"),
+    "O produto",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 export async function arquivarProduto(id: string): Promise<void> {
-  const { error } = await supabase
-    .from("arr_produtos")
-    .update({ arquivado_em: new Date().toISOString() })
-    .eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase
+      .from("arr_produtos")
+      .update({ arquivado_em: new Date().toISOString() })
+      .eq("id", id)
+      .select("id"),
+    "O arquivamento do produto",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -519,11 +546,15 @@ export async function carregarCaixa(caixaId: string): Promise<Caixa | null> {
 
 // ─── Transição de estado do caixa ───────────────────────────────────────
 export async function moverCaixaParaConciliando(caixaId: string): Promise<void> {
-  const { error } = await supabase
-    .from("arr_caixas")
-    .update({ estado: "conciliando", conciliando_desde: new Date().toISOString() })
-    .eq("id", caixaId);
-  if (error) throw error;
+  const r = conferir(
+    await supabase
+      .from("arr_caixas")
+      .update({ estado: "conciliando", conciliando_desde: new Date().toISOString() })
+      .eq("id", caixaId)
+      .select("id"),
+    "A conciliação do caixa",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 export async function fecharCaixa(caixaId: string, observacao?: string): Promise<void> {
@@ -537,17 +568,23 @@ export async function fecharCaixa(caixaId: string, observacao?: string): Promise
   if (er) throw er;
   if (!caixa) throw new Error("Caixa não encontrado");
 
-  // 2. Fecha o caixa
-  const { error } = await supabase
-    .from("arr_caixas")
-    .update({
-      estado: "fechado",
-      fechado_em: new Date().toISOString(),
-      fechado_por: userId,
-      observacao: observacao ?? null,
-    })
-    .eq("id", caixaId);
-  if (error) throw error;
+  // 2. Fecha o caixa. Sem conferir(), um bloqueio de RLS aqui é o pior caso
+  // do arquivo inteiro: a tela diria "caixa fechado" com o caixa continuando
+  // aberto de verdade.
+  const r = conferir(
+    await supabase
+      .from("arr_caixas")
+      .update({
+        estado: "fechado",
+        fechado_em: new Date().toISOString(),
+        fechado_por: userId,
+        observacao: observacao ?? null,
+      })
+      .eq("id", caixaId)
+      .select("id"),
+    "O fechamento do caixa",
+  );
+  if (!r.ok) throw new Error(r.erro);
 
   // 3. F12a: encerra a reserva (sai do "em uso") — só se ainda estiver em uso
   if (caixa.reserva_id) {
@@ -579,16 +616,20 @@ export async function reabrirCaixa(caixaId: string, motivo?: string): Promise<vo
   }
 
   // 1. Reabre o caixa (limpa fechado_em + observacao opcional)
-  const { error } = await supabase
-    .from("arr_caixas")
-    .update({
-      estado: "aberto",
-      fechado_em: null,
-      fechado_por: null,
-      observacao: motivo ? `[REABERTO em ${new Date().toLocaleString("pt-BR")} por user ${userId}: ${motivo}]` : null,
-    })
-    .eq("id", caixaId);
-  if (error) throw error;
+  const r = conferir(
+    await supabase
+      .from("arr_caixas")
+      .update({
+        estado: "aberto",
+        fechado_em: null,
+        fechado_por: null,
+        observacao: motivo ? `[REABERTO em ${new Date().toLocaleString("pt-BR")} por user ${userId}: ${motivo}]` : null,
+      })
+      .eq("id", caixaId)
+      .select("id"),
+    "A reabertura do caixa",
+  );
+  if (!r.ok) throw new Error(r.erro);
 
   // 2. Volta reserva pra em_uso
   if (caixa.reserva_id) {
@@ -647,16 +688,20 @@ export async function registrarVendaPDV(
 
 export async function cancelarVenda(vendaId: string, motivo: string): Promise<void> {
   const userId = (await supabase.auth.getUser()).data.user?.id;
-  const { error } = await supabase
-    .from("arr_vendas")
-    .update({
-      cancelada: true,
-      motivo_cancelamento: motivo,
-      cancelada_em: new Date().toISOString(),
-      cancelada_por: userId,
-    })
-    .eq("id", vendaId);
-  if (error) throw error;
+  const r = conferir(
+    await supabase
+      .from("arr_vendas")
+      .update({
+        cancelada: true,
+        motivo_cancelamento: motivo,
+        cancelada_em: new Date().toISOString(),
+        cancelada_por: userId,
+      })
+      .eq("id", vendaId)
+      .select("id"),
+    "O cancelamento da venda",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 // ─── Operadores designados ─────────────────────────────────────────────
@@ -682,9 +727,11 @@ export async function designarOperador(
 }
 
 export async function removerOperador(operadorId: string): Promise<void> {
-  const { error } = await supabase
-    .from("arr_caixa_operadores").delete().eq("id", operadorId);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("arr_caixa_operadores").delete().eq("id", operadorId).select("id"),
+    "A remoção do operador",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -859,11 +906,15 @@ export async function registrarReversaoAdmin(
 }
 
 export async function arquivarMovimento(id: string): Promise<void> {
-  const { error } = await supabase
-    .from("arr_movimentos")
-    .update({ arquivado_em: new Date().toISOString() })
-    .eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase
+      .from("arr_movimentos")
+      .update({ arquivado_em: new Date().toISOString() })
+      .eq("id", id)
+      .select("id"),
+    "O arquivamento do movimento",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 // ─── Listar fin_lancamentos saída disponíveis (não vinculados) ─────────
@@ -937,9 +988,11 @@ export async function marcarChecklistComObs(
     observacao: observacao ?? null,
   };
   if (problema_reportado !== undefined) patch.problema_reportado = problema_reportado;
-  const { error } = await supabase
-    .from("arr_reserva_checklist").update(patch).eq("id", itemId);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("arr_reserva_checklist").update(patch).eq("id", itemId).select("id"),
+    "O item da checklist",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 // ─── Problemas de manutenção ───────────────────────────────────────────
@@ -999,23 +1052,29 @@ export async function atualizarProblema(
   id: string,
   patch: Partial<Omit<ProblemaManutencao, "espaco">>,
 ): Promise<void> {
-  const { error } = await supabase
-    .from("arr_problemas_manutencao").update(patch).eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("arr_problemas_manutencao").update(patch).eq("id", id).select("id"),
+    "O problema de manutenção",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 export async function resolverProblema(id: string, descricao: string): Promise<void> {
   const userId = (await supabase.auth.getUser()).data.user?.id;
-  const { error } = await supabase
-    .from("arr_problemas_manutencao")
-    .update({
-      status: "resolvido",
-      resolvido_em: new Date().toISOString(),
-      resolvido_por: userId,
-      resolucao_descricao: descricao,
-    })
-    .eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase
+      .from("arr_problemas_manutencao")
+      .update({
+        status: "resolvido",
+        resolvido_em: new Date().toISOString(),
+        resolvido_por: userId,
+        resolucao_descricao: descricao,
+      })
+      .eq("id", id)
+      .select("id"),
+    "A resolução do problema",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -1047,14 +1106,18 @@ export async function atualizarResponsavelEspaco(
   nome: string | null,
   whatsapp: string | null,
 ): Promise<void> {
-  const { error } = await supabase
-    .from("arr_espacos")
-    .update({
-      responsavel_manutencao_nome: nome,
-      whatsapp_manutencao: whatsapp,
-    })
-    .eq("id", espacoId);
-  if (error) throw error;
+  const r = conferir(
+    await supabase
+      .from("arr_espacos")
+      .update({
+        responsavel_manutencao_nome: nome,
+        whatsapp_manutencao: whatsapp,
+      })
+      .eq("id", espacoId)
+      .select("id"),
+    "O responsável pela manutenção",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 /** Monta link wa.me com lista de problemas pendentes pra responsável. */
@@ -1421,19 +1484,27 @@ export async function atualizarChecklistTemplate(
   id: string,
   patch: Partial<Pick<ChecklistTemplate, "item" | "ordem" | "obrigatorio" | "ativo" | "tipo" | "espaco_id">>,
 ): Promise<void> {
-  const { error } = await supabase
-    .from("arr_checklist_template")
-    .update(patch)
-    .eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase
+      .from("arr_checklist_template")
+      .update(patch)
+      .eq("id", id)
+      .select("id"),
+    "O item do modelo de checklist",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 export async function arquivarChecklistTemplate(id: string): Promise<void> {
-  const { error } = await supabase
-    .from("arr_checklist_template")
-    .update({ ativo: false })
-    .eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase
+      .from("arr_checklist_template")
+      .update({ ativo: false })
+      .eq("id", id)
+      .select("id"),
+    "O arquivamento do modelo",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 
@@ -1558,11 +1629,15 @@ export async function registrarMovimentoEstoque(input: {
   if (e1) throw e1;
 
   // Atualiza estoque
-  const { error: e2 } = await supabase
-    .from("arr_produtos")
-    .update({ estoque_atual: novo, updated_at: new Date().toISOString() })
-    .eq("id", input.produto_id);
-  if (e2) throw e2;
+  const r = conferir(
+    await supabase
+      .from("arr_produtos")
+      .update({ estoque_atual: novo, updated_at: new Date().toISOString() })
+      .eq("id", input.produto_id)
+      .select("id"),
+    "O estoque do produto",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 /** Listar campanhas ativas/recentes de um espaço (pra UI escolher onde vincular produto). */
@@ -1590,10 +1665,14 @@ export async function listarReservasDoEspaco(
  * reserva ficou pendurada em "em_uso" (caso pré-F12a).
  */
 export async function encerrarReserva(reservaId: string): Promise<void> {
-  const { error } = await supabase
-    .from("arr_reservas")
-    .update({ status: "encerrada" })
-    .eq("id", reservaId)
-    .in("status", ["em_uso", "aprovada"]);
-  if (error) throw error;
+  const r = conferir(
+    await supabase
+      .from("arr_reservas")
+      .update({ status: "encerrada" })
+      .eq("id", reservaId)
+      .in("status", ["em_uso", "aprovada"])
+      .select("id"),
+    "O encerramento da reserva",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
