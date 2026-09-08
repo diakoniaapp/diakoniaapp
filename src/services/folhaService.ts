@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { conferir } from "@/lib/escritaConferida";
 
 export type FinVinculoTipo = "clt" | "mei" | "rpa" | "prebenda" | "estagio" | "voluntario_remunerado";
 
@@ -64,13 +65,19 @@ export async function criarContratado(input: Partial<FinContratado>): Promise<Fi
 }
 
 export async function atualizarContratado(id: string, patch: Partial<FinContratado>): Promise<void> {
-  const { error } = await supabase.from("fin_contratados").update(patch as any).eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("fin_contratados").update(patch as any).eq("id", id).select("id"),
+    "O contratado",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 export async function desativarContratado(id: string): Promise<void> {
-  const { error } = await supabase.from("fin_contratados").update({ ativo: false }).eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("fin_contratados").update({ ativo: false }).eq("id", id).select("id"),
+    "O contratado",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 // ─── Tabelas vigentes ─────────────────────────────────────────────────────

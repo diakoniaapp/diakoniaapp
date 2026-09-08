@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { conferir } from "@/lib/escritaConferida";
 
 export type Periodicidade = "mensal" | "trimestral" | "anual" | "extraordinaria";
 export type StatusReuniao = "agendada" | "em_andamento" | "realizada" | "cancelada";
@@ -85,19 +86,23 @@ export async function criarReuniao(input: Partial<ReuniaoFinanceira>): Promise<R
 }
 
 export async function atualizarReuniao(id: string, patch: Partial<ReuniaoFinanceira>): Promise<void> {
-  const { error } = await supabase
-    .from("fin_reunioes_financeiras")
-    .update({ ...patch, atualizado_em: new Date().toISOString() } as never)
-    .eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase
+      .from("fin_reunioes_financeiras")
+      .update({ ...patch, atualizado_em: new Date().toISOString() } as never)
+      .eq("id", id)
+      .select("id"),
+    "A reunião",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 export async function excluirReuniao(id: string): Promise<void> {
-  const { error } = await supabase
-    .from("fin_reunioes_financeiras")
-    .delete()
-    .eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("fin_reunioes_financeiras").delete().eq("id", id).select("id"),
+    "A reunião",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 /** Gera pauta automática pelo período. Retorna o JSON pronto. */
@@ -144,17 +149,17 @@ export async function adicionarDecisao(input: Partial<DecisaoReuniao>): Promise<
 }
 
 export async function atualizarDecisao(id: string, patch: Partial<DecisaoReuniao>): Promise<void> {
-  const { error } = await supabase
-    .from("fin_decisoes_reuniao")
-    .update(patch)
-    .eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("fin_decisoes_reuniao").update(patch).eq("id", id).select("id"),
+    "A decisão",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 export async function excluirDecisao(id: string): Promise<void> {
-  const { error } = await supabase
-    .from("fin_decisoes_reuniao")
-    .delete()
-    .eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("fin_decisoes_reuniao").delete().eq("id", id).select("id"),
+    "A decisão",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }

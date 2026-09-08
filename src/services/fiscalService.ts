@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { conferir } from "@/lib/escritaConferida";
 
 export type FiscalEsfera = "federal" | "municipal" | "estadual";
 export type FiscalPeriodicidade = "mensal" | "anual" | "trimestral";
@@ -68,11 +69,15 @@ export async function carregarConfig(): Promise<FiscalConfig | null> {
 }
 
 export async function atualizarConfig(patch: Partial<FiscalConfig>): Promise<void> {
-  const { error } = await supabase
-    .from("fiscal_config")
-    .update({ ...patch, atualizado_em: new Date().toISOString() })
-    .eq("id", 1);
-  if (error) throw error;
+  const r = conferir(
+    await supabase
+      .from("fiscal_config")
+      .update({ ...patch, atualizado_em: new Date().toISOString() })
+      .eq("id", 1)
+      .select("id"),
+    "A configuração fiscal",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 // ─── Tipos & Obrigações ativas ────────────────────────────────────────
@@ -146,27 +151,35 @@ export async function darBaixaObrigacao(
   agendaId: string,
   dados: { valor_pago: number; data_pagamento: string; observacao?: string },
 ): Promise<void> {
-  const { error } = await supabase
-    .from("fiscal_agenda")
-    .update({
-      ...dados,
-      status: "pago",
-      atualizado_em: new Date().toISOString(),
-    })
-    .eq("id", agendaId);
-  if (error) throw error;
+  const r = conferir(
+    await supabase
+      .from("fiscal_agenda")
+      .update({
+        ...dados,
+        status: "pago",
+        atualizado_em: new Date().toISOString(),
+      })
+      .eq("id", agendaId)
+      .select("id"),
+    "A obrigação fiscal",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 export async function dispensarObrigacao(agendaId: string, motivo: string): Promise<void> {
-  const { error } = await supabase
-    .from("fiscal_agenda")
-    .update({
-      status: "dispensado",
-      observacao: motivo,
-      atualizado_em: new Date().toISOString(),
-    })
-    .eq("id", agendaId);
-  if (error) throw error;
+  const r = conferir(
+    await supabase
+      .from("fiscal_agenda")
+      .update({
+        status: "dispensado",
+        observacao: motivo,
+        atualizado_em: new Date().toISOString(),
+      })
+      .eq("id", agendaId)
+      .select("id"),
+    "A obrigação fiscal",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -350,11 +363,11 @@ export async function listarDocumentosObrigacao(agendaId: string): Promise<Fisca
 export async function excluirDocumentoFiscal(doc: FiscalDocumento): Promise<void> {
   // Remove do storage
   await supabase.storage.from("fiscal-docs").remove([doc.storage_path]);
-  const { error } = await supabase
-    .from("fiscal_documentos")
-    .delete()
-    .eq("id", doc.id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("fiscal_documentos").delete().eq("id", doc.id).select("id"),
+    "O documento fiscal",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 /** URL assinada (válida por 1h) para visualizar/baixar. */
