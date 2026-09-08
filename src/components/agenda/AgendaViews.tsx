@@ -23,7 +23,7 @@ const HOURS = Array.from({ length: 18 }, (_, i) => i + 6); // 06..23
 const SLOT_H = 48; // px por hora
 
 // Convert snake_case location parts to Title Case
-function formatLocal(local: string | null | undefined): string {
+export function formatLocal(local: string | null | undefined): string {
   if (!local) return "";
   return local
     .split(" - ")
@@ -50,11 +50,11 @@ function evChipCls(o: EventoOcorrencia) {
 }
 
 /** Evento com horario marcado — o resto e do dia inteiro e nao precisa dizer. */
-function temHora(o: EventoOcorrencia) {
+export function temHora(o: EventoOcorrencia) {
   return !!o.evento.hora_inicio;
 }
 
-function timeRange(o: EventoOcorrencia) {
+export function timeRange(o: EventoOcorrencia) {
   const hi = o.evento.hora_inicio?.slice(0, 5);
   const hf = o.evento.hora_fim?.slice(0, 5);
   if (hi && hf) return `${hi}–${hf}`;

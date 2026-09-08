@@ -9,7 +9,6 @@ import { Plus, ChevronLeft, ChevronRight, CalendarDays, Printer } from "lucide-r
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { usePermissoes } from "@/hooks/usePermissoes";
-import { useIsMobile } from "@/hooks/use-mobile";
 import {
   format,
   addDays,
@@ -44,6 +43,7 @@ import {
 import { aniversariosNoIntervalo, type PessoaAniv } from "@/lib/agenda/birthdays";
 import { AgendaFilters } from "@/components/agenda/AgendaFilters";
 import { EventDialog, EventFormPayload } from "@/components/agenda/EventDialog";
+import { EventoViewDialog } from "@/components/agenda/EventoViewDialog";
 import { EditScopeDialog, EditScope } from "@/components/agenda/EditScopeDialog";
 import { MonthView, WeekView, DayView, ListView, VIEW_LABELS } from "@/components/agenda/AgendaViews";
 import { ListSkeleton, EmptyState, ErrorState } from "@/components/ListState";
@@ -84,7 +84,6 @@ export default function Eventos() {
   // — e o recado de escritaConferida apareceria em vez de um "excluído"
   // que mentia.
   const podeExcluir = semResposta ? papelEdita : podeFazer("excluir_evento");
-  const isMobile = useIsMobile();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Loaded data
@@ -137,6 +136,10 @@ export default function Eventos() {
   const [scopeOpen, setScopeOpen] = useState(false);
   const [scopePending, setScopePending] = useState<EventoOcorrencia | null>(null);
   const [printOpen, setPrintOpen] = useState(false);
+  // Tela de visualização, aberta ao clicar num evento — ver `openView` logo
+  // abaixo pra saber por que ela existe separada de `editing`.
+  const [viewing, setViewing] = useState<EventoOcorrencia | null>(null);
+  const [viewOpen, setViewOpen] = useState(false);
 
   useEffect(() => {
     localStorage.setItem(FILTROS_KEY, JSON.stringify(filtros));
@@ -145,7 +148,12 @@ export default function Eventos() {
     localStorage.setItem(VIEW_KEY, view);
   }, [view]);
 
-  const effectiveView: AgendaView = isMobile ? "lista" : view;
+  // Antes o celular sempre caía em "lista", nunca no calendário — a Telma
+  // pediu pra ver a agenda do celular como calendário, igual à do
+  // computador. `view` já é a preferência salva (padrão "mes"), e agora
+  // vale em qualquer tamanho de tela; o seletor Dia/Semana/Mês/Agenda
+  // abaixo também deixou de se esconder no celular por causa disso.
+  const effectiveView: AgendaView = view;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -670,7 +678,30 @@ export default function Eventos() {
     setDialogOpen(true);
   };
 
-  const openEdit = (occ: EventoOcorrencia) => {
+  // Entra de fato no formulário de edição — hoje só chamada a partir do
+  // botão "Editar" da tela de visualização (`openView` abaixo). Pergunta o
+  // escopo primeiro quando for série recorrente, como sempre foi.
+  const startEdit = (occ: EventoOcorrencia) => {
+    if (!canEdit) return;
+    const isRecurringSeries = !!occ.serieId && !occ.isExcecao;
+    if (isRecurringSeries) {
+      setScopePending(occ);
+      setScopeOpen(true);
+      return;
+    }
+    setEditing(occ);
+    setDialogOpen(true);
+  };
+
+  // Clique num evento na agenda (celular ou computador).
+  //
+  // Antes ia direto pro formulário de edição. A Telma pediu pra separar:
+  // clicar deveria só MOSTRAR o evento, e as opções de edição só aparecerem
+  // se ela tocar em "Editar" — evita editar sem querer, principalmente no
+  // celular. Reserva de arrecadação e evento institucional continuam como
+  // eram, porque não há "editar" possível ali: a primeira é um link
+  // inteligente pra outra tela, o segundo é gerado (não mora em `eventos`).
+  const openView = (occ: EventoOcorrencia) => {
     if (occ.categoria === "arrecadacao") {
       // F13: link inteligente pra reserva (camada de arrecadação)
       window.location.href = `/arrecadacao/reserva/${occ.baseId}`;
@@ -682,15 +713,8 @@ export default function Eventos() {
       });
       return;
     }
-    if (!canEdit) return;
-    const isRecurringSeries = !!occ.serieId && !occ.isExcecao;
-    if (isRecurringSeries) {
-      setScopePending(occ);
-      setScopeOpen(true);
-      return;
-    }
-    setEditing(occ);
-    setDialogOpen(true);
+    setViewing(occ);
+    setViewOpen(true);
   };
 
   const handleScope = (scope: EditScope) => {
@@ -709,6 +733,12 @@ export default function Eventos() {
         .map((x) => ({ ministerio_id: x.ministerio_id, responsabilidade: x.responsabilidade }))
     : [];
   const initialAreas = editing ? evArea.filter((x) => x.evento_id === editing.baseId).map((x) => x.area_id) : [];
+  const viewingMins = viewing
+    ? evMin
+        .filter((x) => x.evento_id === viewing.baseId)
+        .map((x) => ({ ministerio_id: x.ministerio_id, responsabilidade: x.responsabilidade }))
+    : [];
+  const viewingAreas = viewing ? evArea.filter((x) => x.evento_id === viewing.baseId).map((x) => x.area_id) : [];
 
   return (
     <div>
@@ -779,18 +809,18 @@ export default function Eventos() {
                 Imprimir
               </Button>
 
-              {!isMobile && (
-                <div className="ml-auto">
-                  <Tabs value={view} onValueChange={(v) => setView(v as AgendaView)}>
-                    <TabsList>
-                      <TabsTrigger value="dia">{VIEW_LABELS.dia}</TabsTrigger>
-                      <TabsTrigger value="semana">{VIEW_LABELS.semana}</TabsTrigger>
-                      <TabsTrigger value="mes">{VIEW_LABELS.mes}</TabsTrigger>
-                      <TabsTrigger value="lista">{VIEW_LABELS.lista}</TabsTrigger>
-                    </TabsList>
-                  </Tabs>
-                </div>
-              )}
+              {/* Já apareceu no computador e no celular: o seletor de visão é
+                  o que faz o celular deixar de estar preso à lista. */}
+              <div className="ml-auto">
+                <Tabs value={view} onValueChange={(v) => setView(v as AgendaView)}>
+                  <TabsList>
+                    <TabsTrigger value="dia">{VIEW_LABELS.dia}</TabsTrigger>
+                    <TabsTrigger value="semana">{VIEW_LABELS.semana}</TabsTrigger>
+                    <TabsTrigger value="mes">{VIEW_LABELS.mes}</TabsTrigger>
+                    <TabsTrigger value="lista">{VIEW_LABELS.lista}</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -815,7 +845,7 @@ export default function Eventos() {
                   ocorrencias={ocorrencias}
                   colorBy={filtros.colorBy}
                   ministerios={ministerios}
-                  onEventClick={openEdit}
+                  onEventClick={openView}
                   onSlotClick={(d) => {
                     setRefDate(d);
                     setView("dia");
@@ -828,7 +858,7 @@ export default function Eventos() {
                   ocorrencias={ocorrencias}
                   colorBy={filtros.colorBy}
                   ministerios={ministerios}
-                  onEventClick={openEdit}
+                  onEventClick={openView}
                   onSlotClick={(d, h) => openCreate(d, h)}
                 />
               )}
@@ -838,7 +868,7 @@ export default function Eventos() {
                   ocorrencias={ocorrencias}
                   colorBy={filtros.colorBy}
                   ministerios={ministerios}
-                  onEventClick={openEdit}
+                  onEventClick={openView}
                   onSlotClick={(d, h) => openCreate(d, h)}
                 />
               )}
@@ -847,7 +877,7 @@ export default function Eventos() {
                   ocorrencias={ocorrencias}
                   colorBy={filtros.colorBy}
                   ministerios={ministerios}
-                  onEventClick={openEdit}
+                  onEventClick={openView}
                 />
               )}
             </>
@@ -884,6 +914,28 @@ export default function Eventos() {
         areas={areas}
         locais={locais}
         refDate={refDate}
+      />
+
+      <EventoViewDialog
+        open={viewOpen}
+        onClose={() => {
+          setViewOpen(false);
+          setViewing(null);
+        }}
+        ocorrencia={viewing}
+        ministerios={ministerios}
+        areas={areas}
+        locais={locais}
+        minsDoEvento={viewingMins}
+        areasDoEvento={viewingAreas}
+        onEdit={
+          canEdit && viewing
+            ? () => {
+                setViewOpen(false);
+                startEdit(viewing);
+              }
+            : undefined
+        }
       />
 
       <EventDialog
