@@ -574,8 +574,19 @@ export default function Eventos() {
       const partOfSeries = !!occ.serieId;
       const scope: EditScope = (occ as unknown as { __scope?: EditScope }).__scope || "este";
 
-      // Caso 1: evento simples (sem série) ou exceção
-      if (!partOfSeries || occ.isExcecao) {
+      // Caso 1: evento simples (sem série), exceção já existente, OU a
+      // própria ocorrência-âncora da série (a data que `eventos.data`
+      // guarda de verdade, não uma data calculada pela regra).
+      //
+      // Achado ao vivo: editar "apenas este evento" na âncora da série
+      // caía no branch de série (`isOcorrenciaVirtual` só ficava true
+      // pras ocorrências FUTURAS, calculadas — a âncora tem linha própria
+      // desde sempre) e tentava INSERIR uma exceção com a mesma data/
+      // hora/local do evento mestre — que, claro, já existe. O gatilho
+      // `validate_evento_conflito` acusava "conflito" com o próprio
+      // evento, porque tecnicamente eram duas linhas (mestre + exceção
+      // recém-inserida) disputando o mesmo local no mesmo horário.
+      if (!partOfSeries || occ.isExcecao || !occ.isOcorrenciaVirtual) {
         const base = corePayload(payload);
         const updateBody = { ...base, recorrencia_regra: payload.recorrencia } as never;
         const { error } = await supabase.from("eventos").update(updateBody).eq("id", baseRow.id);
