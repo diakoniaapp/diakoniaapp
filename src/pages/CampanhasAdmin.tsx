@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { conferir } from "@/lib/escritaConferida";
 import { useAuth } from "@/hooks/useAuth";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -151,13 +152,21 @@ export default function CampanhasAdmin({ embutido = false }: { embutido?: boolea
 
   const excluirCampanha = async (id: string) => {
     if (!confirm("Excluir esta campanha? Todos os materiais e eventos vinculados serão desvinculados.")) return;
-    await supabase.from("campanhas").delete().eq("id", id);
+    const r = conferir(
+      await supabase.from("campanhas").delete().eq("id", id).select("id"),
+      "A campanha",
+    );
+    if (!r.ok) return toast.error(r.erro);
     toast.success("Campanha removida.");
     carregarCampanhas();
   };
 
   const alterarStatus = async (id: string, status: string) => {
-    await supabase.from("campanhas").update({ status }).eq("id", id);
+    const r = conferir(
+      await supabase.from("campanhas").update({ status }).eq("id", id).select("id"),
+      "A campanha",
+    );
+    if (!r.ok) return toast.error(r.erro);
     if (status === "ativa") {
       await supabase.rpc("gerar_notificacoes_campanha", { p_campanha_id: id });
     }
@@ -542,7 +551,11 @@ function WizardCampanha({ campanha, onClose, onSalvo }: {
       };
 
       if (campanhaId) {
-        await supabase.from("campanhas").update(payload).eq("id", campanhaId);
+        const r = conferir(
+          await supabase.from("campanhas").update(payload).eq("id", campanhaId).select("id"),
+          "A campanha",
+        );
+        if (!r.ok) throw new Error(r.erro);
       } else {
         const { data, error } = await supabase
           .from("campanhas").insert(payload).select("id").single();

@@ -7,6 +7,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { conferir } from "@/lib/escritaConferida";
 import { useAuth } from "@/hooks/useAuth";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -81,19 +82,23 @@ export default function RecuperacaoSenhaAdmin() {
   // ── Marcar como resolvido ─────────────────────────────────────
   const resolver = async (item: Solicitacao) => {
     setResolvendo(item.id);
-    const { error } = await supabase
-      .from("recuperacao_senha")
-      .update({
-        status:        "resolvido",
-        resolvido_em:  new Date().toISOString(),
-        resolvido_por: user?.email ?? null,
-      })
-      .eq("id", item.id);
+    const r = conferir(
+      await supabase
+        .from("recuperacao_senha")
+        .update({
+          status:        "resolvido",
+          resolvido_em:  new Date().toISOString(),
+          resolvido_por: user?.email ?? null,
+        })
+        .eq("id", item.id)
+        .select("id"),
+      "A solicitação",
+    );
 
     setResolvendo(null);
 
-    if (error) {
-      toast.error("Erro ao atualizar. Tente novamente.");
+    if (!r.ok) {
+      toast.error(r.erro);
       return;
     }
     toast.success(`Solicitação de ${item.nome ?? item.email} marcada como resolvida ✅`);

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { conferir } from "@/lib/escritaConferida";
 import { useAuth } from "@/hooks/useAuth";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -246,9 +247,13 @@ const [uploadando, setUploadando] = useState(false);
   setSavingDoc(true);
   const payload: any = { ...formDoc };
   Object.keys(payload).forEach(k => { if (payload[k] === "") payload[k] = null; });
-  let error;
+  let error: { message: string } | null = null;
   if (editingDocId) {
-    ({ error } = await supabase.from("documentos").update(payload).eq("id", editingDocId));
+    const r = conferir(
+      await supabase.from("documentos").update(payload).eq("id", editingDocId).select("id"),
+      "O documento",
+    );
+    if (!r.ok) error = { message: r.erro };
   } else {
     ({ error } = await supabase.from("documentos").insert(payload));
   }
@@ -308,9 +313,18 @@ const [uploadando, setUploadando] = useState(false);
   };
 
   const marcarVigente = async (d: Documento) => {
+    // Sem conferir() neste primeiro UPDATE de propósito: zero linhas afetadas
+    // é um resultado válido (pode não haver outro documento vigente deste
+    // tipo agora), não só sinal de bloqueio de RLS — não dá pra distinguir
+    // os dois casos só pela contagem. O segundo UPDATE, por id, é que precisa
+    // ser conferido: ou marca ESTE documento como vigente, ou a tela não
+    // pode dizer que marcou.
     await supabase.from("documentos").update({ vigente: false }).eq("tipo", d.tipo);
-    const { error } = await supabase.from("documentos").update({ vigente: true }).eq("id", d.id);
-    if (error) return toast.error(error.message);
+    const r = conferir(
+      await supabase.from("documentos").update({ vigente: true }).eq("id", d.id).select("id"),
+      "O documento",
+    );
+    if (!r.ok) return toast.error(r.erro);
     toast.success(`"${d.titulo}" marcado como vigente`);
     loadDocs();
   };
@@ -331,9 +345,13 @@ const [uploadando, setUploadando] = useState(false);
       nivel_hierarquico: formSecao.nivel_hierarquico ? Number(formSecao.nivel_hierarquico) : null,
       ordem: Number(formSecao.ordem),
     };
-    let error;
+    let error: { message: string } | null = null;
     if (editingSecaoId) {
-      ({ error } = await supabase.from("secoes_documento").update(payload).eq("id", editingSecaoId));
+      const r = conferir(
+        await supabase.from("secoes_documento").update(payload).eq("id", editingSecaoId).select("id"),
+        "A seção",
+      );
+      if (!r.ok) error = { message: r.erro };
     } else {
       ({ error } = await supabase.from("secoes_documento").insert(payload));
     }
@@ -361,8 +379,11 @@ const [uploadando, setUploadando] = useState(false);
   };
 
   const excluirSecao = async (id: string) => {
-    const { error } = await supabase.from("secoes_documento").delete().eq("id", id);
-    if (error) return toast.error(error.message);
+    const r = conferir(
+      await supabase.from("secoes_documento").delete().eq("id", id).select("id"),
+      "A seção",
+    );
+    if (!r.ok) return toast.error(r.erro);
     toast.success("Seção removida");
     loadSecoes(secaoDocId!);
   };
@@ -391,9 +412,13 @@ const [uploadando, setUploadando] = useState(false);
       .from("identidade_igreja").select("id").eq("ativa", true).maybeSingle();
     if (!igr?.id) { toast.error("Nenhuma identidade da igreja configurada."); setSavingEst(false); return; }
     payload.igreja_id = igr.id;
-    let error;
+    let error: { message: string } | null = null;
     if (editingEstId) {
-      ({ error } = await supabase.from("documento_estrutura").update(payload).eq("id", editingEstId));
+      const r = conferir(
+        await supabase.from("documento_estrutura").update(payload).eq("id", editingEstId).select("id"),
+        "O item da estrutura",
+      );
+      if (!r.ok) error = { message: r.erro };
     } else {
       ({ error } = await supabase.from("documento_estrutura").insert(payload));
     }
@@ -408,8 +433,11 @@ const [uploadando, setUploadando] = useState(false);
 
   const excluirEstrutura = async (id: string) => {
     if (!confirm("Remover este item da estrutura?")) return;
-    const { error } = await supabase.from("documento_estrutura").update({ ativo: false }).eq("id", id);
-    if (error) return toast.error(error.message);
+    const r = conferir(
+      await supabase.from("documento_estrutura").update({ ativo: false }).eq("id", id).select("id"),
+      "O item da estrutura",
+    );
+    if (!r.ok) return toast.error(r.erro);
     toast.success("Item removido");
     setEstruturas(prev => prev.filter(e => e.id !== id));
   };

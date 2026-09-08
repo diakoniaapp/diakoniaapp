@@ -302,7 +302,9 @@ export async function recuperarTelefone(u: Usuario): Promise<string | null> {
     const tel = limparTelefone(email.split("@")[0]);
     if (!tel || tel.length < 10) return null;
 
-    // Persiste para não buscar novamente na próxima vez
+    // Persiste para não buscar novamente na próxima vez — sem conferir() de
+    // propósito: é só um cache. Se o UPDATE for barrado, a função ainda
+    // devolve o telefone certo, só busca de novo na próxima vez.
     await supabase.from("profiles").update({ telefone: tel }).eq("id", u.id);
     return tel;
   } catch {
@@ -320,6 +322,10 @@ export async function reenviarAcesso(u: Usuario): Promise<UserServiceResult> {
 
   if (erro) return { ok: false, erro };
 
+  // Sem conferir() de propósito: a senha já foi resetada de verdade pelo RPC
+  // acima. Se este UPDATE for barrado, o pior que acontece é a pessoa não
+  // ser forçada a trocar a senha no próximo login — não vale falhar um
+  // reset que já aconteceu por causa de um carimbo secundário.
   await supabase.from("profiles").update({ primeiro_acesso: true }).eq("id", u.id);
   return { ok: true, senha, tel: tel ?? undefined };
 }
@@ -334,6 +340,10 @@ export async function resetarSenha(u: Usuario): Promise<UserServiceResult> {
 
   if (erro) return { ok: false, erro };
 
+  // Sem conferir() de propósito: a senha já foi resetada de verdade pelo RPC
+  // acima. Se este UPDATE for barrado, o pior que acontece é a pessoa não
+  // ser forçada a trocar a senha no próximo login — não vale falhar um
+  // reset que já aconteceu por causa de um carimbo secundário.
   await supabase.from("profiles").update({ primeiro_acesso: true }).eq("id", u.id);
   return { ok: true, senha, tel: tel ?? undefined };
 }

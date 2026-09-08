@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { conferir } from "@/lib/escritaConferida";
 import { useAuth } from "@/hooks/useAuth";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -532,8 +533,11 @@ export default function IdentidadeAdmin() {
     let igrejId = identidade?.id ?? null;
 
     if (igrejId) {
-      const { error } = await supabase.from("identidade_igreja").update(payload).eq("id", igrejId);
-      if (error) { toast.error(error.message); setSaving(false); return; }
+      const r = conferir(
+        await supabase.from("identidade_igreja").update(payload).eq("id", igrejId).select("id"),
+        "A identidade da igreja",
+      );
+      if (!r.ok) { toast.error(r.erro); setSaving(false); return; }
     } else {
       const { data, error } = await supabase
         .from("identidade_igreja")
@@ -543,17 +547,33 @@ export default function IdentidadeAdmin() {
       igrejId = (data as any).id;
     }
 
-    // Valores
+    // Valores. Cada update/delete conferido — sem isso, um valor que a RLS
+    // barrasse pra editar/remover simplesmente ficaria como estava, e o
+    // toast final diria "salva com sucesso" mesmo assim.
+    let algumErro = false;
     for (const v of valores) {
-      if (v._delete && v.id) { await supabase.from("identidade_valores").delete().eq("id", v.id); continue; }
+      if (v._delete && v.id) {
+        const r = conferir(
+          await supabase.from("identidade_valores").delete().eq("id", v.id).select("id"),
+          "Um valor",
+        );
+        if (!r.ok) algumErro = true;
+        continue;
+      }
       if (v._delete || !v.valor.trim()) continue;
       if (v.id) {
-        await supabase.from("identidade_valores")
-          .update({ valor: v.valor.trim(), descricao: v.descricao.trim() || null, icone: v.icone.trim() || null, ordem: v.ordem })
-          .eq("id", v.id);
+        const r = conferir(
+          await supabase.from("identidade_valores")
+            .update({ valor: v.valor.trim(), descricao: v.descricao.trim() || null, icone: v.icone.trim() || null, ordem: v.ordem })
+            .eq("id", v.id)
+            .select("id"),
+          "Um valor",
+        );
+        if (!r.ok) algumErro = true;
       } else {
-        await supabase.from("identidade_valores")
+        const { error } = await supabase.from("identidade_valores")
           .insert({ igreja_id: igrejId, valor: v.valor.trim(), descricao: v.descricao.trim() || null, icone: v.icone.trim() || null, ordem: v.ordem, ativo: true });
+        if (error) algumErro = true;
       }
     }
 
@@ -561,16 +581,27 @@ export default function IdentidadeAdmin() {
     const { data: atuais } = await supabase.from("igreja_instituicoes").select("instituicao_id").eq("igreja_id", igrejId);
     const atuaisSet = new Set((atuais ?? []).map((a: any) => a.instituicao_id));
     for (const id of vinculadas) {
-      if (!atuaisSet.has(id))
-        await supabase.from("igreja_instituicoes").insert({ igreja_id: igrejId, instituicao_id: id });
+      if (!atuaisSet.has(id)) {
+        const { error } = await supabase.from("igreja_instituicoes").insert({ igreja_id: igrejId, instituicao_id: id });
+        if (error) algumErro = true;
+      }
     }
     for (const id of atuaisSet) {
-      if (!vinculadas.has(id))
-        await supabase.from("igreja_instituicoes").delete().eq("igreja_id", igrejId).eq("instituicao_id", id);
+      if (!vinculadas.has(id)) {
+        const r = conferir(
+          await supabase.from("igreja_instituicoes").delete().eq("igreja_id", igrejId).eq("instituicao_id", id).select("igreja_id"),
+          "Um vínculo institucional",
+        );
+        if (!r.ok) algumErro = true;
+      }
     }
 
     setSaving(false);
-    toast.success("Identidade salva com sucesso!");
+    if (algumErro) {
+      toast.error("Identidade salva, mas algum item (valor ou vínculo) não pôde ser alterado — seu perfil pode não ter permissão.");
+    } else {
+      toast.success("Identidade salva com sucesso!");
+    }
     load();
   };
 

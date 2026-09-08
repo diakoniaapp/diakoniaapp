@@ -334,7 +334,13 @@ export async function resetarSenhaAcesso(
     return { ok: false, erro: msgAmigavel };
   }
 
-  // Marca como primeiro_acesso = true (forçar troca)
+  // Marca como primeiro_acesso = true (forçar troca).
+  //
+  // Sem conferir() de propósito: a senha já foi resetada de verdade pelo RPC
+  // acima, e a função já vai devolver {ok: true, senha}. Se este UPDATE for
+  // barrado, o pior que acontece é a pessoa não ser forçada a trocar a senha
+  // no próximo login — não vale falhar um reset que já aconteceu por causa
+  // de um carimbo secundário.
   await supabase.from("profiles").update({ primeiro_acesso: true }).eq("id", userId);
   // Log de auditoria
   if (pessoaId) {
@@ -369,7 +375,9 @@ export async function recuperarTelefoneAcesso(
   const tel = email.split("@")[0].replace(/\D/g, "");
   if (!tel || tel.length < 10) return null;
 
-  // Persiste no profile para não buscar sempre
+  // Persiste no profile para não buscar sempre — sem conferir() de propósito:
+  // é só um cache. Se o UPDATE for barrado, a função ainda devolve o telefone
+  // certo (calculado logo acima), só busca de novo na próxima vez.
   await supabase.from("profiles").update({ telefone: tel }).eq("id", userId);
   return tel;
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { conferir } from "@/lib/escritaConferida";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -231,8 +232,11 @@ export default function Locais() {
     };
 
     if (editing) {
-      const { error } = await supabase.from("locais" as any).update(payload).eq("id", editing.id);
-      if (error) return toast.error(error.message);
+      const r = conferir(
+        await supabase.from("locais" as any).update(payload).eq("id", editing.id).select("id"),
+        "O local",
+      );
+      if (!r.ok) return toast.error(r.erro);
       toast.success("Local atualizado");
     } else {
       const { error } = await supabase.from("locais" as any).insert(payload);
@@ -274,8 +278,11 @@ export default function Locais() {
 
   const toggleStatus = async (l: Local) => {
     const novo: LocalStatus = l.status === "ativo" ? "inativo" : "ativo";
-    const { error } = await supabase.from("locais" as any).update({ status: novo }).eq("id", l.id);
-    if (error) return toast.error(error.message);
+    const r = conferir(
+      await supabase.from("locais" as any).update({ status: novo }).eq("id", l.id).select("id"),
+      "O local",
+    );
+    if (!r.ok) return toast.error(r.erro);
     toast.success(novo === "ativo" ? "Local reativado" : "Local inativado");
     load();
   };

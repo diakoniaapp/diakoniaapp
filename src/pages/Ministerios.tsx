@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { conferir } from "@/lib/escritaConferida";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -190,8 +191,14 @@ export default function Ministerios() {
               co_lider_id: semVazio(form.co_lider_id),
               ativo:       form.ativo,
             };
-            let err;
-            if (editingId) { ({ error: err } = await supabase.from("ministerios").update(payload).eq("id", editingId)); }
+            let err: { message: string } | null = null;
+            if (editingId) {
+              const r = conferir(
+                await supabase.from("ministerios").update(payload).eq("id", editingId).select("id"),
+                "O ministério",
+              );
+              if (!r.ok) err = { message: r.erro };
+            }
             else { ({ error: err } = await supabase.from("ministerios").insert(payload)); }
             if (err) return toast.error(err.message);
             toast.success(editingId ? "Ministério atualizado" : "Ministério cadastrado");
