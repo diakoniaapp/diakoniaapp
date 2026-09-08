@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { hojeLocal } from "@/lib/data";
+import { conferir } from "@/lib/escritaConferida";
 
 // ─── Tipos ───────────────────────────────────────────────────────────────
 export type PgmPapel = "participante" | "lider" | "colider" | "anfitriao";
@@ -115,23 +116,35 @@ export async function criarGrupo(input: GrupoInput): Promise<PgmGrupo> {
 }
 
 export async function atualizarGrupo(id: string, patch: Partial<GrupoInput>): Promise<void> {
-  const { error } = await supabase.from("pgm_grupos").update(patch).eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("pgm_grupos").update(patch).eq("id", id).select("id"),
+    "O grupo",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 export async function desativarGrupo(id: string): Promise<void> {
-  const { error } = await supabase.from("pgm_grupos").update({ ativo: false }).eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("pgm_grupos").update({ ativo: false }).eq("id", id).select("id"),
+    "O grupo",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 export async function reativarGrupo(id: string): Promise<void> {
-  const { error } = await supabase.from("pgm_grupos").update({ ativo: true }).eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("pgm_grupos").update({ ativo: true }).eq("id", id).select("id"),
+    "O grupo",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 export async function excluirGrupo(id: string): Promise<void> {
-  const { error } = await supabase.from("pgm_grupos").delete().eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("pgm_grupos").delete().eq("id", id).select("id"),
+    "O grupo",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 // ─── Membros (vínculos) ─────────────────────────────────────────────────
@@ -202,22 +215,32 @@ export async function vincularPessoa(
 }
 
 export async function desvincularPessoa(grupoId: string, pessoaId: string): Promise<void> {
-  const { error } = await supabase
-    .from("pgm_membros")
-    .update({ ativo: false, data_saida: hojeLocal() })
-    .eq("grupo_id", grupoId)
-    .eq("pessoa_id", pessoaId);
-  if (error) throw error;
+  const r = conferir(
+    await supabase
+      .from("pgm_membros")
+      .update({ ativo: false, data_saida: hojeLocal() })
+      .eq("grupo_id", grupoId)
+      .eq("pessoa_id", pessoaId)
+      .select("id"),
+    "O vínculo",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 export async function alterarPapel(membroId: string, papel: PgmPapel): Promise<void> {
-  const { error } = await supabase.from("pgm_membros").update({ papel }).eq("id", membroId);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("pgm_membros").update({ papel }).eq("id", membroId).select("id"),
+    "O papel",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 export async function marcarPrincipal(membroId: string): Promise<void> {
-  const { error } = await supabase.from("pgm_membros").update({ principal: true }).eq("id", membroId);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("pgm_membros").update({ principal: true }).eq("id", membroId).select("id"),
+    "O membro",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 // ─── Helpers de UI ──────────────────────────────────────────────────────
@@ -309,15 +332,21 @@ export async function iniciarReuniao(grupoId: string, data: string, tema?: strin
 }
 
 export async function atualizarReuniao(id: string, patch: Partial<Omit<PgmReuniao, "id" | "grupo_id" | "created_at">>): Promise<void> {
-  const { error } = await supabase.from("pgm_reunioes").update(patch).eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("pgm_reunioes").update(patch).eq("id", id).select("id"),
+    "A reunião",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 export async function excluirReuniao(id: string): Promise<void> {
-  const r = await carregarReuniao(id);
-  if (r?.foto_url) await removerFotoReuniao(r.foto_url);
-  const { error } = await supabase.from("pgm_reunioes").delete().eq("id", id);
-  if (error) throw error;
+  const reuniao = await carregarReuniao(id);
+  if (reuniao?.foto_url) await removerFotoReuniao(reuniao.foto_url);
+  const r = conferir(
+    await supabase.from("pgm_reunioes").delete().eq("id", id).select("id"),
+    "A reunião",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 // ─── Presenças ───────────────────────────────────────────────────────────
@@ -348,8 +377,11 @@ export async function listarPresencas(reuniaoId: string): Promise<PgmPresencaCom
 }
 
 export async function marcarPresenca(presencaId: string, presente: boolean): Promise<void> {
-  const { error } = await supabase.from("pgm_presencas").update({ presente }).eq("id", presencaId);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("pgm_presencas").update({ presente }).eq("id", presencaId).select("id"),
+    "A presença",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 // ─── Visitas ────────────────────────────────────────────────────────────
@@ -380,8 +412,11 @@ export async function registrarVisita(reuniaoId: string, input: {
 }
 
 export async function excluirVisita(id: string): Promise<void> {
-  const { error } = await supabase.from("pgm_visitas").delete().eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("pgm_visitas").delete().eq("id", id).select("id"),
+    "A visita",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 // ─── Foto da reunião ─────────────────────────────────────────────────────
@@ -496,23 +531,32 @@ export async function registrarPedidoOracao(input: {
 export async function responderPedidoOracao(
   id: string, resposta: string,
 ): Promise<void> {
-  const { error } = await supabase.from("pgm_pedidos_oracao").update({
-    status: "respondido",
-    respondido_em: hojeLocal(),
-    resposta,
-  }).eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("pgm_pedidos_oracao").update({
+      status: "respondido",
+      respondido_em: hojeLocal(),
+      resposta,
+    }).eq("id", id).select("id"),
+    "O pedido de oração",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 export async function arquivarPedidoOracao(id: string): Promise<void> {
-  const { error } = await supabase.from("pgm_pedidos_oracao")
-    .update({ status: "arquivado" }).eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("pgm_pedidos_oracao")
+      .update({ status: "arquivado" }).eq("id", id).select("id"),
+    "O pedido de oração",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 export async function excluirPedidoOracao(id: string): Promise<void> {
-  const { error } = await supabase.from("pgm_pedidos_oracao").delete().eq("id", id);
-  if (error) throw error;
+  const r = conferir(
+    await supabase.from("pgm_pedidos_oracao").delete().eq("id", id).select("id"),
+    "O pedido de oração",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 // ─── Multiplicação ────────────────────────────────────────────────────────
