@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +22,12 @@ const fmtBR = (n: number | null | undefined) =>
 const fmtMes = () =>
   new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 
+/** Um toast por fonte que falhou — nunca some em silêncio atrás de "R$ 0,00". */
+function avisarFalha(oQue: string, motivo: unknown) {
+  console.error(`Visão Executiva — falha ao carregar ${oQue}:`, motivo);
+  toast.error(`Não foi possível carregar ${oQue}.`);
+}
+
 export default function DashboardExecutivo() {
   const [saldo, setSaldo] = useState<SaldoConsolidado | null>(null);
   const [fluxo, setFluxo] = useState<FluxoCaixaMes[]>([]);
@@ -29,18 +36,34 @@ export default function DashboardExecutivo() {
   const [alertas, setAlertas] = useState<AlertaExecutivo[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // ── Cinco fontes, cinco falhas possíveis, uma só não trava as outras ──────
+  //
+  // Era `Promise.all`: um erro em QUALQUER uma das cinco rejeitava o
+  // conjunto, e como não havia `.catch`, nenhum `setX` rodava — a tela
+  // renderizava com o estado inicial inteiro (tudo em zero/vazio) e o
+  // `finally` escondia o "Carregando", então nada avisava que tinha dado
+  // errado. Achado em 09/09/2026: `fin_exec_alertas()` tinha uma coluna
+  // errada (`o.valor`, corrigida na migration 20260909210000) e a Visão
+  // Executiva inteira aparecia como "Tudo em ordem — sem alertas críticos"
+  // sobre um saldo real que nunca chegou a carregar.
+  //
+  // `allSettled` isola cada fonte: quem carregou aparece, quem falhou avisa
+  // — e as outras quatro continuam de pé.
   useEffect(() => {
-    Promise.all([
+    Promise.allSettled([
       buscarSaldoConsolidado(),
       buscarFluxo12m(),
       buscarCentrosAno(),
       buscarIndicadoresEclesiasticos(),
       buscarAlertasExecutivos(),
-    ])
-      .then(([s, f, c, i, a]) => {
-        setSaldo(s); setFluxo(f); setCentros(c); setIndicadores(i); setAlertas(a);
-      })
-      .finally(() => setLoading(false));
+    ]).then(([s, f, c, i, a]) => {
+      if (s.status === "fulfilled") setSaldo(s.value); else avisarFalha("o saldo consolidado", s.reason);
+      if (f.status === "fulfilled") setFluxo(f.value); else avisarFalha("o fluxo de caixa", f.reason);
+      if (c.status === "fulfilled") setCentros(c.value); else avisarFalha("os centros de custo", c.reason);
+      if (i.status === "fulfilled") setIndicadores(i.value); else avisarFalha("os indicadores eclesiásticos", i.reason);
+      if (a.status === "fulfilled") setAlertas(a.value); else avisarFalha("os alertas executivos", a.reason);
+      setLoading(false);
+    });
   }, []);
 
   if (loading) {
