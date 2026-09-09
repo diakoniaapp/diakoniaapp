@@ -1,10 +1,16 @@
 // ─── painelTesourariaService.ts — os dados do Painel da Tesouraria ────────
 //
-// Sprint 1 do plano "Bancada da Tesouraria" (08/09/2026): só o que a frase-
-// resumo e os dois primeiros blocos precisam — fiscal e caixa, os dois riscos
-// que custam dinheiro de verdade quando alguém deixa passar (multa e dinheiro
-// em espécie sem responsável claro). Pendências, conciliação e orçamento
-// entram nos sprints seguintes, sobre este mesmo arquivo.
+// Sprint 1 do plano "Bancada da Tesouraria" (08/09/2026): fiscal e caixa, os
+// dois riscos que custam dinheiro de verdade quando alguém deixa passar
+// (multa e dinheiro em espécie sem responsável claro).
+//
+// Sprint 2: Pendências, Próximos vencimentos e Orçamento. Nenhum dos três
+// precisou de tabela nova — `finService.ts` já tinha tudo, só nunca reunido
+// num lugar que prioriza. `listarOrcamentoVsReal()` ficou de fora de
+// propósito: `alertasCentros()` já entrega os MESMOS centros, só que
+// classificados por severidade e com frase pronta — reconstruir o
+// julgamento aqui a partir dos números crus duplicaria uma régua que já
+// existe em `fin_alertas_centros` (RPC do banco).
 //
 // O bloco Fiscal não duplica lógica: reaproveita `carregarResumoFiscal()` de
 // `fiscalService.ts`, o mesmo dado que já vira o widget `AgendaFiscalUrgente`
@@ -13,6 +19,11 @@
 // nenhum do sistema, uma lista de "todos os caixas abertos agora".
 
 import { supabase } from "@/integrations/supabase/client";
+import { hojeMaisDias } from "@/lib/data";
+import {
+  listarLancamentos, listarProximosVencimentos, alertasCentros,
+  type FinLancamentoExtenso, type FinVencimento, type FinAlertaCentro,
+} from "@/services/finService";
 
 export interface CaixaAberto {
   id: string;
@@ -69,4 +80,60 @@ export const HORAS_CAIXA_URGENTE = 24;
 
 export function caixaEhUrgente(c: CaixaAberto): boolean {
   return Date.now() - new Date(c.aberto_em).getTime() > HORAS_CAIXA_URGENTE * 3_600_000;
+}
+
+// ─── Pendências ─────────────────────────────────────────────────────────
+//
+// Duas naturezas diferentes, por isso o `motivo` em vez de uma lista só:
+// "aguardando aprovação" é decisão (alguém precisa dizer sim ou não) e
+// "sem comprovante" é documentação faltando na prestação de contas do mês.
+// Confundir as duas na mesma frase esconderia qual delas trava o quê.
+
+export type MotivoPendencia = "aprovacao" | "comprovante";
+
+export interface PendenciaLancamento extends FinLancamentoExtenso {
+  motivo: MotivoPendencia;
+}
+
+/** Janela do "sem comprovante": mais que isto é história, não pendência do dia a dia. */
+export const DIAS_JANELA_COMPROVANTE = 30;
+
+export async function listarPendencias(): Promise<PendenciaLancamento[]> {
+  const [aguardando, realizadosRecentes] = await Promise.all([
+    // Sem `dataInicio`: aprovação parada é decisão em aberto, e fica mais
+    // urgente com o tempo — não menos. Não faz sentido ela "expirar" da lista.
+    listarLancamentos({ status: "aguardando_aprovacao" }),
+    listarLancamentos({ status: "realizado", dataInicio: hojeMaisDias(-DIAS_JANELA_COMPROVANTE) }),
+  ]);
+
+  const semComprovante = realizadosRecentes.filter(l => !l.comprovante_url);
+
+  return [
+    ...aguardando.map(l => ({ ...l, motivo: "aprovacao" as const })),
+    ...semComprovante.map(l => ({ ...l, motivo: "comprovante" as const })),
+  ];
+}
+
+// ─── Próximos vencimentos ───────────────────────────────────────────────
+//
+// Janela de 7 dias — o mesmo horizonte que "esta semana" já nomeia dentro de
+// `FinVencimento.urgencia`. Vencimento mais distante que isto é recorrência
+// ou orçamento, não "próximo".
+export const DIAS_JANELA_VENCIMENTOS = 7;
+
+export async function listarVencimentosDaSemana(): Promise<FinVencimento[]> {
+  return listarProximosVencimentos({ ateData: hojeMaisDias(DIAS_JANELA_VENCIMENTOS) });
+}
+
+// ─── Orçamento ──────────────────────────────────────────────────────────
+//
+// Só os dois tipos de alerta que falam de ORÇAMENTO ("acima_orcamento" e
+// "orcamento_atencao"). `alertasCentros()` também devolve "crescimento" e
+// "sem_movimento" — sinais reais, mas de outra pergunta ("este centro mudou
+// de padrão?"), não da que este bloco responde ("algum centro estourou?").
+// Misturar os quatro tipos aqui repetiria o defeito que o Painel Pastoral já
+// corrigiu: uma seção que promete uma coisa e mostra outra.
+export async function listarAlertasOrcamento(): Promise<FinAlertaCentro[]> {
+  const todos = await alertasCentros();
+  return todos.filter(a => a.tipo_alerta === "acima_orcamento" || a.tipo_alerta === "orcamento_atencao");
 }
