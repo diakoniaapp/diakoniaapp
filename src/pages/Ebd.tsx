@@ -40,7 +40,7 @@ import {
 import { formatarTelefoneSemDDI } from "@/lib/telefone";
 import { ebdPorClasse, relatorioGeralResumo, type EbdClasseLinha, type RelatorioMensalGeralResumo } from "@/services/ebdPainelService";
 import { ClasseForm } from "@/components/ebd/ClasseForm";
-import { useAuth } from "@/hooks/useAuth";
+import { usePodeOperarModulo } from "@/hooks/usePodeOperarModulo";
 import { PaginaSkeleton } from "@/components/ListState";
 import { Indicador, FaixaDeIndicadores, TituloDaSecao, irParaSecao } from "@/components/painel/blocos";
 
@@ -85,8 +85,12 @@ const scrollMt = "scroll-mt-[190px] sm:scroll-mt-[150px]";
 
 export default function Ebd() {
   const navigate = useNavigate();
-  const { hasRole } = useAuth();
-  const podeCriar = hasRole(["admin", "secretaria", "pastor", "diakonia"]);
+  // Papel [admin, secretaria, pastor, diakonia] OU liderar o ministério de
+  // EBD — o mesmo OR que a RLS de `ebd_*` aplica desde a migration
+  // 20260903160000 (ver usePodeOperarModulo). Antes era só o `hasRole` do
+  // primeiro ramo, e a líder da EBD (papel `lideranca`) não via "Nova
+  // classe" nem o botão de editar, embora o banco a deixasse gravar.
+  const podeCriar = usePodeOperarModulo("ebd");
   const [classes, setClasses] = useState<ClasseCard[]>([]);
   const [alunos, setAlunos] = useState<AlunoMatriculado[]>([]);
   const [resumoMes, setResumoMes] = useState<RelatorioMensalGeralResumo | null>(null);

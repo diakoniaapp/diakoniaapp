@@ -28,7 +28,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useAuth } from "@/hooks/useAuth";
+import { usePodeOperarModulo } from "@/hooks/usePodeOperarModulo";
 import { useNavigate } from "react-router-dom";
 import { PaginaSkeleton } from "@/components/ListState";
 
@@ -64,8 +64,10 @@ export default function EbdClasse() {
   const [editOpen, setEditOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
-  const { hasRole } = useAuth();
-  const podeEditar = hasRole(["admin", "secretaria", "pastor", "diakonia"]);
+  // Papel [admin, secretaria, pastor, diakonia] OU liderar o ministério de
+  // EBD — o mesmo OR da RLS de `ebd_*` (ver usePodeOperarModulo). Antes era
+  // só o primeiro ramo, e a líder da EBD não via Editar/Desativar/Excluir.
+  const podeEditar = usePodeOperarModulo("ebd");
   const navigate = useNavigate();
 
   useEffect(() => { recarregar(); }, [classeId]);
