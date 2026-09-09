@@ -6,11 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import {
   ArrowLeft, DollarSign, Plus, Loader2, Trash2,
   TrendingUp, Sparkles, Calendar, Pencil, Paperclip, FileText,
+  Lock, LockOpen,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
   carregarCampanha, resumoCampanha, listarEntradas, excluirEntrada,
-  carregarClasse, comprovanteSignedUrl,
+  carregarClasse, comprovanteSignedUrl, encerrarCampanha, reabrirCampanha,
   type CampanhaEbd, type ResumoCampanha, type EntradaEbd, type EbdClasse,
 } from "@/services/ebdService";
 import { CampanhaForm } from "@/components/ebd/CampanhaForm";
@@ -42,6 +43,7 @@ export default function EbdCampanha() {
   const [editOpen, setEditOpen] = useState(false);
   const [novaEntradaOpen, setNovaEntradaOpen] = useState(false);
   const [entradaEdit, setEntradaEdit] = useState<EntradaEbd | null>(null);
+  const [busyEncerramento, setBusyEncerramento] = useState(false);
 
   async function abrirComprovante(path: string) {
     const url = await comprovanteSignedUrl(path);
@@ -84,6 +86,31 @@ export default function EbdCampanha() {
     }
   }
 
+  /**
+   * Fecha ou reabre — nome, meta e datas ficam intocados. Existe pra não
+   * obrigar a abrir "Editar" (que pede tudo de novo) só pra desligar um
+   * interruptor. Pedido dela em 09/09/2026, direto na tela da campanha.
+   */
+  async function alternarEncerramento() {
+    if (!campanha) return;
+    const fechando = campanha.ativo;
+    if (!confirm(fechando
+      ? `Encerrar "${campanha.nome}"? As entradas continuam registradas — ela só sai da lista de campanhas ativas.`
+      : `Reabrir "${campanha.nome}"?`
+    )) return;
+    setBusyEncerramento(true);
+    try {
+      if (fechando) await encerrarCampanha(campanha.id);
+      else await reabrirCampanha(campanha.id);
+      toast.success(fechando ? "Campanha encerrada" : "Campanha reaberta");
+      carregar();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erro");
+    } finally {
+      setBusyEncerramento(false);
+    }
+  }
+
   if (loading) {
     return <PaginaSkeleton />;
   }
@@ -101,9 +128,20 @@ export default function EbdCampanha() {
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" size="icon"><Link to={`/ebd/${classeId}/campanhas`}><ArrowLeft className="w-4 h-4" /></Link></Button>
         <div className="flex-1 min-w-0">
-          <h1 className="font-serif text-xl flex items-center gap-2 truncate">
-            <DollarSign className="w-5 h-5 text-gold" />
-            {campanha.nome}
+          {/* `truncate` no `<span>` do nome, não no `<h1>` inteiro: um `<h1>`
+              com `truncate` e vários filhos flex trunca a LINHA toda como
+              uma unidade, e num nome longo (este mesmo, "Farinha
+              Enriquecida | Missões Mundiais 2026") o badge "Encerrada"
+              nunca chegava a aparecer — sumia junto com o resto do texto
+              cortado. */}
+          <h1 className="font-serif text-xl flex items-center gap-2 min-w-0">
+            <DollarSign className="w-5 h-5 text-gold shrink-0" />
+            <span className="truncate min-w-0">{campanha.nome}</span>
+            {/* Só na campanha encerrada: a ativa não precisa de etiqueta —
+                é o estado padrão de quem abre a tela pra trabalhar nela. */}
+            {!campanha.ativo && (
+              <Badge variant="outline" className="text-xs shrink-0">Encerrada</Badge>
+            )}
           </h1>
           <p className="text-xs text-muted-foreground">
             {classe?.nome} · {new Date(campanha.data_inicio + "T00:00").toLocaleDateString("pt-BR")} → {new Date(campanha.data_fim + "T00:00").toLocaleDateString("pt-BR")}
@@ -114,6 +152,16 @@ export default function EbdCampanha() {
           </Link></Button>
         <Button type="button" variant="outline" size="sm" onClick={() => setEditOpen(true)} className="gap-1.5">
           <Pencil className="w-3.5 h-3.5" /> Editar
+        </Button>
+        {/* Fechar/reabrir direto, sem passar pela edição inteira — pedido
+            dela em 09/09/2026. */}
+        <Button
+          type="button" variant="outline" size="sm" className="gap-1.5"
+          onClick={alternarEncerramento} disabled={busyEncerramento}
+        >
+          {campanha.ativo
+            ? <><Lock className="w-3.5 h-3.5" /> Fechar campanha</>
+            : <><LockOpen className="w-3.5 h-3.5" /> Reabrir campanha</>}
         </Button>
       </div>
 

@@ -4,11 +4,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  ArrowLeft, DollarSign, Plus, Loader2, ChevronRight, Calendar,
+  ArrowLeft, DollarSign, Plus, Loader2, ChevronRight, Calendar, Lock, LockOpen,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  listarCampanhas, carregarClasse, resumoCampanha,
+  listarCampanhas, carregarClasse, resumoCampanha, encerrarCampanha, reabrirCampanha,
   type CampanhaEbd, type ResumoCampanha, type EbdClasse,
 } from "@/services/ebdService";
 import { CampanhaForm } from "@/components/ebd/CampanhaForm";
@@ -96,7 +96,7 @@ export default function EbdCampanhas() {
           <h2 className="text-xs uppercase tracking-wide text-muted-foreground px-1">
             Ativas ({ativas.length})
           </h2>
-          {ativas.map(c => <CampanhaCard key={c.id} c={c} classeId={classeId} />)}
+          {ativas.map(c => <CampanhaCard key={c.id} c={c} classeId={classeId} onMudou={carregar} />)}
         </section>
       )}
 
@@ -105,7 +105,7 @@ export default function EbdCampanhas() {
           <h2 className="text-xs uppercase tracking-wide text-muted-foreground px-1">
             Encerradas ({arquivadas.length})
           </h2>
-          {arquivadas.map(c => <CampanhaCard key={c.id} c={c} classeId={classeId} />)}
+          {arquivadas.map(c => <CampanhaCard key={c.id} c={c} classeId={classeId} onMudou={carregar} />)}
         </section>
       )}
 
@@ -120,39 +120,88 @@ export default function EbdCampanhas() {
   );
 }
 
-function CampanhaCard({ c, classeId }: { c: CampanhaComResumo; classeId: string }) {
+function CampanhaCard({ c, classeId, onMudou }: {
+  c: CampanhaComResumo; classeId: string;
+  /** Recarrega a lista depois de fechar/reabrir — a campanha muda de seção
+      ("Ativas" ↔ "Encerradas"), então o card em si não basta atualizar. */
+  onMudou: () => void;
+}) {
   const r = c.resumo;
-  return (
-    <Link to={`/ebd/${classeId}/campanhas/${c.id}`}>
-      <Card className="hover:shadow-md transition-shadow cursor-pointer">
-        <CardContent className="py-3 space-y-2">
-          <div className="flex items-center justify-between gap-2">
-            <div className="min-w-0">
-              <h3 className="font-medium truncate">{c.nome}</h3>
-              <p className="text-xs text-muted-foreground flex items-center gap-1">
-                <Calendar className="w-3 h-3" />
-                {new Date(c.data_inicio + "T00:00").toLocaleDateString("pt-BR")} → {new Date(c.data_fim + "T00:00").toLocaleDateString("pt-BR")}
-              </p>
-            </div>
-            <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
-          </div>
+  const [busy, setBusy] = useState(false);
 
-          {r && (
-            <>
-              <div className="flex items-baseline justify-between text-xs">
-                <span className="font-semibold text-sm">{brl(r.arrecadado)}</span>
-                <span className="text-muted-foreground">de {brl(r.meta)} · {Math.round(r.percentual)}%</span>
+  /**
+   * Fecha ou reabre, sem passar pela edição inteira (nome, meta, datas) só
+   * pra desligar um interruptor. Pedido dela em 09/09/2026, direto na lista
+   * de campanhas da classe.
+   */
+  async function alternar() {
+    const fechando = c.ativo;
+    if (!confirm(fechando
+      ? `Encerrar "${c.nome}"? As entradas continuam registradas — ela só sai da lista de campanhas ativas.`
+      : `Reabrir "${c.nome}"?`
+    )) return;
+    setBusy(true);
+    try {
+      if (fechando) await encerrarCampanha(c.id);
+      else await reabrirCampanha(c.id);
+      toast.success(fechando ? "Campanha encerrada" : "Campanha reaberta");
+      onMudou();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erro");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card className="hover:shadow-md transition-shadow">
+      <CardContent className="py-3">
+        <div className="flex items-center gap-2">
+          {/* O link cobre nome, datas e progresso — não o cartão inteiro,
+              porque o botão de fechar/reabrir mora do lado de fora dele.
+              Um `<button>` dentro de `<a>` é HTML inválido, o mesmo defeito
+              do Badge dentro de `<p>` corrigido hoje — só do outro lado da
+              relação (aqui é o link que teria um interativo dentro dele). */}
+          <Link to={`/ebd/${classeId}/campanhas/${c.id}`} className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <h3 className="font-medium truncate">{c.nome}</h3>
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Calendar className="w-3 h-3" />
+                  {new Date(c.data_inicio + "T00:00").toLocaleDateString("pt-BR")} → {new Date(c.data_fim + "T00:00").toLocaleDateString("pt-BR")}
+                </p>
               </div>
-              <div className="h-2 rounded bg-muted overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-gold to-success transition-all"
-                  style={{ width: `${Math.min(100, r.percentual)}%` }}
-                />
+              <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+            </div>
+
+            {r && (
+              <div className="mt-2 space-y-1">
+                <div className="flex items-baseline justify-between text-xs">
+                  <span className="font-semibold text-sm">{brl(r.arrecadado)}</span>
+                  <span className="text-muted-foreground">de {brl(r.meta)} · {Math.round(r.percentual)}%</span>
+                </div>
+                <div className="h-2 rounded bg-muted overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-gold to-success transition-all"
+                    style={{ width: `${Math.min(100, r.percentual)}%` }}
+                  />
+                </div>
               </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
-    </Link>
+            )}
+          </Link>
+
+          <Button
+            type="button" variant="ghost" size="icon"
+            className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
+            onClick={alternar} disabled={busy}
+            title={c.ativo ? "Fechar campanha" : "Reabrir campanha"}
+          >
+            {busy
+              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              : c.ativo ? <Lock className="w-3.5 h-3.5" /> : <LockOpen className="w-3.5 h-3.5" />}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

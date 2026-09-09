@@ -785,6 +785,34 @@ export async function atualizarCampanha(id: string, patch: Partial<CampanhaInput
   if (!r.ok) throw new Error(r.erro);
 }
 
+/**
+ * Encerra a campanha sem tocar em mais nada — nome, meta e datas continuam
+ * como estavam, só `ativo` vira `false`.
+ *
+ * Antes disto, o único jeito de encerrar era abrir "Editar", que pede nome,
+ * datas e meta de novo só para desligar um interruptor — pedido dela em
+ * 09/09/2026: "fechar campanha" direto, dentro da tela da classe. Mesmo
+ * padrão de `desativarClasse`/`reativarClasse`, só que `ebd_campanhas` não
+ * tem `updated_at` (`ebd_classes` tem).
+ */
+export async function encerrarCampanha(id: string): Promise<void> {
+  const r = conferir(
+    await supabase.from("ebd_campanhas").update({ ativo: false }).eq("id", id).select("id"),
+    "A campanha",
+  );
+  if (!r.ok) throw new Error(r.erro);
+}
+
+/** O caminho de volta — a campanha some da lista de "Ativas" por engano é
+ *  reversível, e não deveria pedir passar pela edição inteira também. */
+export async function reabrirCampanha(id: string): Promise<void> {
+  const r = conferir(
+    await supabase.from("ebd_campanhas").update({ ativo: true }).eq("id", id).select("id"),
+    "A campanha",
+  );
+  if (!r.ok) throw new Error(r.erro);
+}
+
 export async function excluirCampanha(id: string): Promise<void> {
   const r = conferir(
     await supabase.from("ebd_campanhas").delete().eq("id", id).select("id"),
