@@ -17,6 +17,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { conferir, type ResultadoEscrita } from "@/lib/escritaConferida";
 import { tetoDeclarado } from "@/services/voluntariosPainel";
+import { hojeLocal } from "@/lib/data";
 import type { DiaSemana, Turno, Frequencia } from "@/services/perfilServico";
 import type { EventoParaEscalar, CandidatoDaArea, PlanoDoMes } from "@/services/rodizio";
 
@@ -27,6 +28,10 @@ export interface MesDoRodizio {
   areas: { id: string; nome: string; minimo: number }[];
 }
 
+/** O mês inteiro, do dia 1 ao último — o calendário, sem opinião nenhuma
+ *  sobre "hoje". Continua existindo assim para quem precisar do mês de
+ *  verdade (um relatório, por exemplo); `carregarMes` decide por conta
+ *  própria onde a janela do RODÍZIO começa. */
 export function limitesDoMes(ano: number, mes: number): { de: string; ate: string } {
   const dois = (n: number) => String(n).padStart(2, "0");
   const ultimoDia = new Date(ano, mes, 0).getDate();
@@ -36,7 +41,19 @@ export function limitesDoMes(ano: number, mes: number): { de: string; ate: strin
 export async function carregarMes(
   ministerioId: string, ano: number, mes: number,
 ): Promise<MesDoRodizio> {
-  const { de, ate } = limitesDoMes(ano, mes);
+  const { de: primeiroDia, ate } = limitesDoMes(ano, mes);
+  // No mês ATUAL, a janela do rodízio começa HOJE, não no dia 1 — dia que já
+  // passou não tem construção de escala nenhuma pra fazer. Em qualquer outro
+  // mês (passado, pra ver o que já foi; futuro, pra montar com folga), o mês
+  // inteiro continua valendo, porque não há "hoje" atravessando ele.
+  //
+  // Pedido dela em 09/09/2026, revendo o padrão de abrir sempre no mês
+  // seguinte: "estamos em fase de construção ainda, vale deixar mais
+  // aberto... mes atual, do dia pra frente". O padrão de abertura mudou em
+  // `GeradorDeRodizio.tsx`; esta é a metade que faz o mês atual não trazer
+  // dias que já passaram.
+  const hojeISO = hojeLocal();
+  const de = hojeISO.slice(0, 7) === primeiroDia.slice(0, 7) ? hojeISO : primeiroDia;
 
   const [{ data: areasData }, { data: porMinisterio }, { data: porArea }, { data: vols }] =
     await Promise.all([

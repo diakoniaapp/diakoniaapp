@@ -60,11 +60,15 @@ export function GeradorDeRodizio({ ministerioId, pessoaId, aoGravar }: {
   aoGravar: () => void;
 }) {
   const agora = new Date();
-  // O mês que interessa é o PRÓXIMO: escala se monta antes, não durante.
-  const [quando, setQuando] = useState(() => {
-    const d = new Date(agora.getFullYear(), agora.getMonth() + 1, 1);
-    return { ano: d.getFullYear(), mes: d.getMonth() + 1 };
-  });
+  // Abria no mês PRÓXIMO, com o raciocínio "escala se monta antes, não
+  // durante". Revisto a pedido dela em 09/09/2026, ainda em fase de
+  // construção do sistema: "vale deixar mais aberto... mes atual, do dia
+  // pra frente" — abre no mês atual, e `carregarMes` (em `escalaDoMes.ts`)
+  // corta os dias que já passaram dele, então nunca sobra pedaço do mês
+  // sem como preencher. A seta "→" continua levando a qualquer mês futuro.
+  const [quando, setQuando] = useState(() => ({
+    ano: agora.getFullYear(), mes: agora.getMonth() + 1,
+  }));
 
   const [mes, setMes] = useState<MesDoRodizio | null>(null);
   const [plano, setPlano] = useState<PlanoDoMes | null>(null);
@@ -242,10 +246,15 @@ export function GeradorDeRodizio({ ministerioId, pessoaId, aoGravar }: {
                 </div>
               )}
 
-              <p className="text-xs text-muted-foreground">
+              {/* `<div>`, não `<p>`: `Badge` renderiza um `<div>` (ver
+                  `components/ui/badge.tsx`), e `<div>` dentro de `<p>` é
+                  HTML inválido — o React avisa disso no console assim que
+                  esta seção aparece. Achado ao testar a mudança na janela
+                  do rodízio, não relacionado a ela. */}
+              <div className="text-xs text-muted-foreground">
                 Salvo como rascunho, ninguém é avisado: o estado é <Badge variant="outline" className="text-xs h-4 px-1 font-normal">planejada</Badge>{" "}
                 até alguém confirmar a escala — e a linha aparece em "Próximas escalas", logo abaixo.
-              </p>
+              </div>
             </div>
           )}
         </>
