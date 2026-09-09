@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import {
   listarContas, resumoFinanceiroMes, brl, CONTA_TIPO_LABEL,
-  type FinConta, type FinResumoMes,
+  type FinConta, type FinResumoMes, type FinMovimentoTipo,
 } from "@/services/finService";
 import { LancamentoForm } from "@/components/financas/LancamentoForm";
 import { TransferenciaForm } from "@/components/financas/TransferenciaForm";
@@ -46,9 +46,36 @@ export default function Financas() {
   const [resumo, setResumo] = useState<FinResumoMes | null>(null);
   const [loading, setLoading] = useState(true);
   const [lancarOpen, setLancarOpen] = useState(false);
+  const [tipoPadraoLancamento, setTipoPadraoLancamento] = useState<FinMovimentoTipo>("entrada");
   const [transfOpen, setTransfOpen] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => { carregar(); }, []);
+
+  // ── ?lancar=true (e opcionalmente ?tipo=) abre o formulário sozinho ──────
+  //
+  // Achado ao construir o Painel da Tesouraria (Sprint 3, 09/09/2026): três
+  // lugares do sistema já prometiam isto — o atalho "Lançamento" da tela
+  // HOJE (`tarefaPrincipal.ts`), a ação rápida do mesmo nome
+  // (`quickActionsRegistry.tsx`) e a paleta Ctrl+K — e nenhum funcionava.
+  // Todos navegavam para `/financas?lancar=true`, e esta tela nunca lia a
+  // query string: `lancarOpen` só virava `true` pelo clique no botão "Novo
+  // lançamento". O link chegava, a URL mudava, e o diálogo continuava
+  // fechado — sem erro nenhum, porque não havia nada para falhar.
+  //
+  // Mesmo padrão de `Membros.tsx`/`Visitantes.tsx`: lê uma vez, aplica, e
+  // limpa da URL com `replace: true` — senão um F5 reabriria o formulário
+  // sozinho.
+  useEffect(() => {
+    if (searchParams.get("lancar") !== "true") return;
+    const tipo = searchParams.get("tipo");
+    if (tipo === "entrada" || tipo === "saida") setTipoPadraoLancamento(tipo);
+    setLancarOpen(true);
+    searchParams.delete("lancar");
+    searchParams.delete("tipo");
+    setSearchParams(searchParams, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   async function carregar() {
     setLoading(true);
@@ -175,7 +202,8 @@ export default function Financas() {
 
       <LancamentoForm
         open={lancarOpen}
-        onOpenChange={setLancarOpen}
+        onOpenChange={(v) => { setLancarOpen(v); if (!v) setTipoPadraoLancamento("entrada"); }}
+        tipoPadrao={tipoPadraoLancamento}
         onSaved={carregar}
       />
       <TransferenciaForm

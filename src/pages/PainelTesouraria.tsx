@@ -49,7 +49,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   DollarSign, Receipt, Wallet, ChevronRight, RefreshCw, Sparkles, Package,
-  Clock, CalendarClock, Target,
+  Clock, CalendarClock, Target, ShoppingCart, HandCoins, Scale,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -192,6 +192,40 @@ export default function PainelTesouraria() {
 
       {fiscal && (
         <>
+          {/* ── Ações rápidas ──────────────────────────────────────────────
+              Sprint 3. Não vêm de `quickActionsRegistry.tsx` — medido ao
+              construir este bloco: o único consumidor daquele registry é
+              `Dashboard.tsx`, e `Dashboard.tsx` não está em nenhuma rota de
+              `App.tsx` desde que a Home virou tela pessoal. O registry ficou
+              como dado morto, sem ninguém lendo. Corrigir isso é trabalho à
+              parte (dar ao registry um campo `paineis`, como o
+              `widgetRegistry` já tem, ou apagar o que não serve mais) — aqui
+              o objetivo era a tesoureira ter os botões HOJE, não destravar
+              o registry inteiro. */}
+          <section className="flex flex-wrap gap-2">
+            <Button asChild size="sm" className="gap-1.5 bg-gold hover:bg-gold/90 text-white">
+              <Link to="/financas?lancar=true"><DollarSign className="w-3.5 h-3.5" /> Novo lançamento</Link>
+            </Button>
+            <Button asChild size="sm" variant="outline" className="gap-1.5">
+              <Link to="/financas?lancar=true&tipo=entrada"><HandCoins className="w-3.5 h-3.5" /> Registrar oferta</Link>
+            </Button>
+            <Button asChild size="sm" variant="outline" className="gap-1.5">
+              <Link to="/arrecadacao"><ShoppingCart className="w-3.5 h-3.5" /> Abrir caixa</Link>
+            </Button>
+            {/* "Fechar caixa" rola até a seção Caixa desta mesma tela, em vez
+                de navegar — ela já lista cada caixa aberto com o link direto
+                de fechamento, então sair da página seria um passo a mais. */}
+            <Button
+              type="button" size="sm" variant="outline" className="gap-1.5"
+              onClick={() => irParaSecao("caixa")}
+            >
+              <Wallet className="w-3.5 h-3.5" /> Fechar caixa
+            </Button>
+            <Button asChild size="sm" variant="outline" className="gap-1.5">
+              <Link to="/financas"><Scale className="w-3.5 h-3.5" /> Conciliar</Link>
+            </Button>
+          </section>
+
           {/* ── Fiscal ─────────────────────────────────────────────────── */}
           <section id="fiscal" className="scroll-mt-[220px]">
             <TituloDaSecao icone={Receipt} tom="warning" contagem={totalFiscal}>

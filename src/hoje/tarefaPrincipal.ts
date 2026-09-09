@@ -14,9 +14,12 @@
 // conforme a regra de que bloco vazio não existe.
 
 import { supabase } from "@/integrations/supabase/client";
+import { hojeMaisDias } from "@/lib/data";
+import { resumoMaloteFiscal } from "@/services/fiscalService";
 import type { LucideIcon } from "lucide-react";
 import {
   GraduationCap, Users, DollarSign, ShoppingCart, FileText, Receipt,
+  Scale, Paperclip,
 } from "lucide-react";
 
 export interface TarefaPrincipal {
@@ -129,6 +132,131 @@ const caixaAberto: Resolvedor = async (ctx) => {
   };
 };
 
+// ─── Conciliação: lançamento realizado, extrato ainda não conferido ──────
+//
+// Sprint 3 do plano "Bancada da Tesouraria" (09/09/2026). Não gera multa
+// como a conta vencendo — mas acumula: quanto mais tempo um lançamento fica
+// "realizado" sem virar "conciliado", mais caro fica reconstruir o que
+// aconteceu quando alguém finalmente for conferir contra o extrato. Por
+// isso entra logo depois do caixa aberto, e não junto dos atalhos
+// permanentes do fim da lista.
+const DIAS_CONCILIACAO_PENDENTE = 7;
+
+const conciliacaoPendente: Resolvedor = async (ctx) => {
+  const podeVer = ctx.permissoes.has("ver_financeiro") || ctx.permissoes.has("ver_painel_tesouraria");
+  if (!podeVer) return null;
+
+  const { error, count } = await supabase
+    .from("fin_lancamentos")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "realizado")
+    .lte("data", hojeMaisDias(-DIAS_CONCILIACAO_PENDENTE));
+
+  if (error || !count) return null;
+
+  return {
+    id: "conciliacao-pendente",
+    titulo: count === 1
+      ? "1 lançamento aguardando conciliação"
+      : `${count} lançamentos aguardando conciliação`,
+    subtitulo: `Sem conferir contra o extrato há mais de ${DIAS_CONCILIACAO_PENDENTE} dias`,
+    acao: "Conferir",
+    abaLabel: "Conciliar",
+    to: "/financas",
+    icon: Scale,
+  };
+};
+
+// ─── Reunião financeira: pauta ou decisão em aberto ───────────────────────
+//
+// Duas perguntas, uma resolvida de cada vez: primeiro se há uma reunião
+// AGENDADA sem pauta ainda (trabalho de preparo, olhando pra frente).
+// Só se essa não pegar nada, a reunião REALIZADA mais recente sem nenhuma
+// decisão registrada (trabalho de fechamento, olhando pra trás) — pauta
+// gerada e decisão pendente são coisas diferentes, e misturá-las numa
+// consulta só esconderia qual das duas travar a governança financeira.
+const prestacaoContasPendente: Resolvedor = async (ctx) => {
+  const podeVer = ctx.permissoes.has("ver_financeiro") || ctx.permissoes.has("ver_painel_tesouraria");
+  if (!podeVer) return null;
+
+  const { data: agendada } = await supabase
+    .from("fin_reunioes_financeiras")
+    .select("id, titulo, pauta_jsonb")
+    .eq("status", "agendada")
+    .order("data_reuniao", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (agendada && !agendada.pauta_jsonb) {
+    return {
+      id: "reuniao-sem-pauta",
+      titulo: `Pauta da reunião — ${agendada.titulo}`,
+      subtitulo: "Ainda não gerada",
+      acao: "Gerar pauta",
+      abaLabel: "Pauta",
+      to: "/financas/reunioes",
+      icon: FileText,
+    };
+  }
+
+  const { data: realizada } = await supabase
+    .from("fin_reunioes_financeiras")
+    .select("id, titulo")
+    .eq("status", "realizada")
+    .order("data_reuniao", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!realizada) return null;
+
+  const { count } = await supabase
+    .from("fin_decisoes_reuniao")
+    .select("id", { count: "exact", head: true })
+    .eq("reuniao_id", realizada.id);
+  if (count && count > 0) return null;
+
+  return {
+    id: "reuniao-sem-decisao",
+    titulo: `Decisões da reunião — ${realizada.titulo}`,
+    subtitulo: "Nenhuma decisão registrada ainda",
+    acao: "Registrar",
+    abaLabel: "Decisões",
+    to: "/financas/reunioes",
+    icon: FileText,
+  };
+};
+
+// ─── Documento fiscal: baixa dada, comprovante ainda não anexado ─────────
+//
+// O mais adiável dos cinco resolvedores financeiros — a obrigação já foi
+// paga, só falta arquivar. Reaproveita `resumoMaloteFiscal()`, a mesma RPC
+// que já monta o malote do mês para exportação: cada obrigação paga vem com
+// `qtd_documentos`, e zero documentos numa obrigação já quitada é
+// exatamente o buraco que este resolvedor aponta.
+const documentoFiscalFaltando: Resolvedor = async (ctx) => {
+  const podeVer =
+    ctx.permissoes.has("ver_fiscal") ||
+    ctx.permissoes.has("ver_financeiro") ||
+    ctx.permissoes.has("ver_painel_tesouraria");
+  if (!podeVer) return null;
+
+  const agora = new Date();
+  const resumo = await resumoMaloteFiscal(agora.getFullYear(), agora.getMonth() + 1);
+  const faltando = resumo.por_obrigacao.filter(o => o.status === "pago" && o.qtd_documentos === 0);
+  if (faltando.length === 0) return null;
+
+  return {
+    id: "documento-fiscal-faltando",
+    titulo: faltando.length === 1
+      ? `Documento faltando — ${faltando[0].nome}`
+      : `${faltando.length} obrigações sem documento no malote`,
+    subtitulo: "Paga, mas sem comprovante anexado",
+    acao: "Abrir malote",
+    abaLabel: "Malote",
+    to: "/financas/fiscal",
+    icon: Paperclip,
+  };
+};
+
 // ─── Professor de EBD: a chamada da classe dele ───────────────────────────
 const chamadaEbd: Resolvedor = async (ctx) => {
   if (!ctx.pessoaId || !ctx.permissoes.has("ver_ebd")) return null;
@@ -218,14 +346,31 @@ const membresia: Resolvedor = async (ctx) => {
  * Ordem = prioridade, e a régua é o custo de deixar para depois.
  *
  * Conta vencendo vem primeiro: é a única cujo atraso vira multa. Caixa aberto
- * vem em seguida, por representar algo em curso com consequência contábil. Os
- * demais seguem a frequência de uso do perfil — e os dois últimos são atalhos
- * permanentes, não pendências: aparecem sempre que ninguém acima tem algo a
- * dizer.
+ * vem em seguida, por representar algo em curso com consequência contábil.
+ *
+ * ── O CLUSTER FINANCEIRO, SPRINT 3 (09/09/2026) ────────────────────────────
+ *
+ * Três resolvedores novos ficam junto dos dois primeiros, não espalhados
+ * pela lista — todos os cinco respondem à mesma pergunta ("o que custa mais
+ * caro adiar, no dinheiro da igreja?") e a resposta muda com o tempo de
+ * espera, não com o tipo de tela:
+ *
+ *   1. conta vencendo             multa por dia de atraso
+ *   2. caixa aberto                dinheiro em espécie sem responsável
+ *   3. conciliação pendente        fica mais caro reconstruir quanto mais espera
+ *   4. reunião sem pauta/decisão   trava a governança financeira, mas só 1x por reunião
+ *   5. documento fiscal faltando   o mais adiável: a obrigação já foi paga
+ *
+ * Os demais seguem a frequência de uso do perfil — e os dois últimos são
+ * atalhos permanentes, não pendências: aparecem sempre que ninguém acima tem
+ * algo a dizer.
  */
 const RESOLVEDORES: Resolvedor[] = [
   contaVencendo,
   caixaAberto,
+  conciliacaoPendente,
+  prestacaoContasPendente,
+  documentoFiscalFaltando,
   chamadaEbd,
   reuniaoPgm,
   lancamento,
