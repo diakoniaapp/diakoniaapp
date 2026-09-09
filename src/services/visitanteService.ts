@@ -377,8 +377,13 @@ export interface ResumoVisitantes {
   emAcompanhamento: number;    // status: contatado, retornou, em_relacionamento, em_acompanhamento
   semContato:       number;    // último contato há mais de 7 dias
   prontosCrescer:   number;    // ≥3 visitas ou em_acompanhamento
-  convertidos:      number;    // data_congregado não nulo (histórico)
+  convertidos:      number;    // congregaram nos últimos 90 dias (ver nota abaixo)
 }
+
+// Janela do indicador "Congregaram". 90 dias, não 7 como os outros — congregar
+// é raro (medido em 08/09/2026: nenhum caso ainda no banco), então uma janela
+// de 7 dias ficaria vazia quase sempre e pareceria quebrada mesmo funcionando.
+const DIAS_JANELA_CONVERTIDOS = 90;
 
 export async function getResumoVisitantes(): Promise<ResumoVisitantes> {
   const { data } = await supabase
@@ -389,6 +394,28 @@ export async function getResumoVisitantes(): Promise<ResumoVisitantes> {
   const lista = data ?? [];
   const agora = Date.now();
   const dias7  = 7  * 86_400_000;
+
+  // ── "Congregaram" pede uma consulta À PARTE, não um filtro da lista acima ──
+  //
+  // Achado na auditoria de 08/09/2026: a consulta antiga contava
+  // `data_congregado` dentro da MESMA lista que já veio filtrada por
+  // `tipo_pessoa = 'visitante'`. Só que virar congregado é justamente o que
+  // MUDA o `tipo_pessoa` de alguém — `tornarCongregado()` grava os dois campos
+  // juntos. Ninguém é as duas coisas ao mesmo tempo, então o filtro de cima
+  // torna o indicador estruturalmente zero: ele nunca poderia contar a pessoa
+  // que procura, porque ela já não está mais na lista quando o campo que
+  // procuramos é preenchido.
+  //
+  // A consulta certa não parte de "visitante" — parte de quem tem
+  // `data_congregado` preenchida dentro da janela, seja qual for o
+  // `tipo_pessoa` atual (hoje só `congregado` chega lá, mas não vale prender
+  // a consulta a esse valor específico).
+  const desde = new Date(agora - DIAS_JANELA_CONVERTIDOS * 86_400_000).toISOString().slice(0, 10);
+  const { data: convertidosRecentes } = await supabase
+    .from("membros")
+    .select("id")
+    .not("data_congregado", "is", null)
+    .gte("data_congregado", desde);
 
   return {
     total:            lista.length,
@@ -402,7 +429,7 @@ export async function getResumoVisitantes(): Promise<ResumoVisitantes> {
     prontosCrescer: lista.filter(v =>
       (v.numero_visitas ?? 0) >= 3 || v.status_acolhimento === "em_acompanhamento"
     ).length,
-    convertidos: lista.filter(v => !!v.data_congregado).length,
+    convertidos: (convertidosRecentes ?? []).length,
   };
 }
 
