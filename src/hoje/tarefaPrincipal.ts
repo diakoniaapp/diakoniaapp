@@ -303,6 +303,42 @@ const reuniaoPgm: Resolvedor = async (ctx) => {
   const dia = typeof data.dia_semana === "number" ? DIAS[data.dia_semana] : null;
   const quando = [dia, data.horario?.slice(0, 5)].filter(Boolean).join(" · ");
 
+  // ── UM TOQUE A MENOS QUANDO O ENCONTRO DE HOJE JÁ EXISTE ────────────────
+  //
+  // Achado na auditoria de navegação (Fase 2 da Bússola do Diakonia,
+  // 09/09/2026): esta tarefa sempre levava à página do GRUPO, e de lá o
+  // líder ainda precisava achar e clicar "Iniciar encontro de hoje" — um
+  // toque a mais que a Chamada da EBD não pede, porque aquela já abre
+  // direto na chamada.
+  //
+  // A diferença fica só em ENCONTRAR, nunca em CRIAR: "Iniciar encontro" é
+  // ação deliberada do líder (grava uma linha nova em `pgm_reunioes`), e um
+  // toque na aba adaptativa não deveria ter esse efeito colateral — criaria
+  // encontros fantasma para quem só espiou a aba sem intenção de começar
+  // agora. Quando o encontro de hoje JÁ existe (o líder já apertou o botão,
+  // de outro aparelho ou mais cedo), a tarefa leva direto pra ele; quando
+  // não existe ainda, continua levando ao grupo, onde o botão está.
+  const hoje = hojeLocalIso();
+  const { data: reuniaoHoje } = await supabase
+    .from("pgm_reunioes")
+    .select("id")
+    .eq("grupo_id", data.id)
+    .eq("data", hoje)
+    .limit(1)
+    .maybeSingle();
+
+  if (reuniaoHoje) {
+    return {
+      id: "reuniao-pgm",
+      titulo: `Encontro de hoje — ${data.nome}`,
+      subtitulo: "Continuar registrando presença",
+      acao: "Abrir encontro",
+      abaLabel: "Encontro",
+      to: `/pgm/${data.id}/reuniao/${reuniaoHoje.id}`,
+      icon: Users,
+    };
+  }
+
   return {
     id: "reuniao-pgm",
     titulo: data.nome,
