@@ -17,13 +17,25 @@
 // — e é por isso que este painel EMBUTE aquele componente em vez de reler o
 // resumo fiscal aqui dentro. Só o de Caixa é novo, porque não havia, em lugar
 // nenhum do sistema, uma lista de "todos os caixas abertos agora".
+//
+// Sprint 4: Alertas (anomalias do mês + alertas financeiros gerais, os dois
+// já existentes em `finService.ts`) e o cruzamento com a Diaconia — cestas
+// compradas × pessoas atendidas, pedido explícito da liderança. Esta última
+// é a única peça do painel inteiro sem par pronto no banco: as duas metades
+// existem (`carregarBancadaDiaconia()` já soma confirmações do mês;
+// `fin_centros_custo` já pode vincular a um ministério ou área), mas nunca
+// se encontraram numa consulta. Ver `carregarCruzamentoDiaconia()` abaixo
+// para a decisão de como ligar as duas.
 
 import { supabase } from "@/integrations/supabase/client";
-import { hojeMaisDias } from "@/lib/data";
+import { hojeMaisDias, toYmd } from "@/lib/data";
 import {
   listarLancamentos, listarProximosVencimentos, alertasCentros,
+  anomaliasMes, alertasFinanceiros, brl,
   type FinLancamentoExtenso, type FinVencimento, type FinAlertaCentro,
+  type FinAnomalia, type FinAlertaFinanceiro,
 } from "@/services/finService";
+import { carregarBancadaDiaconia } from "@/services/diaconiaService";
 
 export interface CaixaAberto {
   id: string;
@@ -136,4 +148,136 @@ export async function listarVencimentosDaSemana(): Promise<FinVencimento[]> {
 export async function listarAlertasOrcamento(): Promise<FinAlertaCentro[]> {
   const todos = await alertasCentros();
   return todos.filter(a => a.tipo_alerta === "acima_orcamento" || a.tipo_alerta === "orcamento_atencao");
+}
+
+// ─── Alertas ────────────────────────────────────────────────────────────
+//
+// Duas fontes que já existem em `finService.ts`, nunca priorizadas juntas:
+// `anomaliasMes()` (uma categoria fugindo do próprio padrão dos últimos 6
+// meses) e `alertasFinanceiros()` (avisos gerais, cada um já com link
+// pronto). As duas viram uma lista só, ordenada por severidade — quem olha
+// este bloco quer "o que foge do padrão", não de qual RPC o dado veio.
+//
+// Só "crítico" e "atenção" entram — "normal" não é alerta, e "info" (só em
+// `alertasFinanceiros`) é a mesma categoria que os outros blocos já deixam
+// de fora: não compete por atenção com o que realmente pede decisão.
+
+export type SeveridadeAlerta = "critico" | "atencao";
+
+export interface AlertaTesouraria {
+  id: string;
+  titulo: string;
+  descricao: string;
+  severidade: SeveridadeAlerta;
+  to: string | null;
+}
+
+/** "R$ 1.200 gasto este mês, 40% acima da média dos últimos 6 meses (R$ 860)". */
+function descreverAnomalia(a: FinAnomalia): string {
+  const tipoLabel = a.tipo === "saida" ? "gasto" : "recebido";
+  if (a.severidade === "novo" || !a.media_6m) {
+    return `${brl(a.valor_mes)} ${tipoLabel} este mês — categoria sem histórico nos últimos 6 meses`;
+  }
+  const pct = Math.abs(Math.round(a.variacao_pct ?? 0));
+  const direcao = (a.variacao_pct ?? 0) >= 0 ? "acima" : "abaixo";
+  return `${brl(a.valor_mes)} ${tipoLabel} este mês, ${pct}% ${direcao} da média dos últimos 6 meses (${brl(a.media_6m)})`;
+}
+
+export async function listarAlertasTesouraria(): Promise<AlertaTesouraria[]> {
+  const [anomalias, gerais] = await Promise.all([
+    anomaliasMes(),
+    alertasFinanceiros(),
+  ]);
+
+  const deAnomalias: AlertaTesouraria[] = anomalias
+    .filter((a): a is FinAnomalia & { severidade: "critico" | "atencao" } =>
+      a.severidade === "critico" || a.severidade === "atencao")
+    .map(a => ({
+      id: `anomalia-${a.categoria_id}`,
+      titulo: `${a.categoria_nome} fora do padrão`,
+      descricao: descreverAnomalia(a),
+      severidade: a.severidade,
+      to: null,
+    }));
+
+  const deGerais: AlertaTesouraria[] = gerais
+    .filter((a): a is FinAlertaFinanceiro & { severidade: "critico" | "atencao" } =>
+      a.severidade === "critico" || a.severidade === "atencao")
+    .map(a => ({
+      id: `geral-${a.tipo}`,
+      titulo: a.titulo,
+      descricao: a.descricao,
+      severidade: a.severidade,
+      to: a.link,
+    }));
+
+  // Crítico primeiro — mesma régua de prioridade do resto do painel.
+  return [...deGerais, ...deAnomalias].sort((x, y) =>
+    (x.severidade === "critico" ? 0 : 1) - (y.severidade === "critico" ? 0 : 1));
+}
+
+// ─── Cruzamento com a Diaconia ────────────────────────────────────────────
+//
+// Pedido dela, verbatim (03/09/2026, ao desenhar a porta de entrada da
+// Diaconia): "podemos medir a qtdd de cestas compradas X quantidade de
+// pessoas atendidas". As duas metades já existiam, cada uma no módulo dela:
+//
+//   pessoas atendidas   `carregarBancadaDiaconia()` já soma confirmações do
+//                       mês em qualquer área do ministério de Diaconia —
+//                       hoje só "Cestas Básicas" está ativa (nem "Culto de
+//                       Rua" nem "Jantar Pós-Culto" viraram área ainda), mas
+//                       a consulta já é por MINISTÉRIO, então não precisa
+//                       mudar quando essas áreas nascerem.
+//
+//   cestas compradas    não existe pronto: seguido pelo dinheiro, via
+//                       `fin_centros_custo`, que pode se vincular a um
+//                       MINISTÉRIO ou a uma ÁREA (`FinCentroVinculo`). Este
+//                       cruzamento soma os dois níveis — o centro pode ter
+//                       sido criado com qualquer um dos dois vínculos,
+//                       dependendo de quem rodou `seedCentrosCusto()`.
+//
+// Se nenhum centro de custo estiver vinculado ainda, `gastoMes` volta
+// `null` — não `0`. Zero seria mentir por omissão, o mesmo erro que
+// `v_voluntarios_completo` já ensinou a não repetir: "não gastamos nada" e
+// "ninguém configurou onde isso é lançado" são fatos diferentes, e só o
+// segundo é verdade aqui até a administração vincular um centro.
+
+export interface CruzamentoDiaconia {
+  atendimentosMes: number;
+  gastoMes: number | null;
+  temCentroCusto: boolean;
+}
+
+export async function carregarCruzamentoDiaconia(): Promise<CruzamentoDiaconia | null> {
+  const { data: ministerio } = await supabase
+    .from("ministerios").select("id").eq("modulo", "diaconia").maybeSingle();
+  if (!ministerio) return null;
+
+  const bancada = await carregarBancadaDiaconia(ministerio.id);
+  if (!bancada) return null;
+
+  const { data: areas } = await supabase
+    .from("areas").select("id").eq("ministerio_id", ministerio.id).eq("ativo", true);
+  const vinculoIds = [ministerio.id, ...((areas ?? []) as { id: string }[]).map(a => a.id)];
+
+  const { data: centros } = await supabase
+    .from("fin_centros_custo").select("id").in("vinculo_id", vinculoIds);
+  const centroIds = ((centros ?? []) as { id: string }[]).map(c => c.id);
+
+  if (centroIds.length === 0) {
+    return { atendimentosMes: bancada.atendimentosMes, gastoMes: null, temCentroCusto: false };
+  }
+
+  const hoje = new Date();
+  const inicioMes = toYmd(new Date(hoje.getFullYear(), hoje.getMonth(), 1));
+  const { data: lancs } = await supabase
+    .from("fin_lancamentos")
+    .select("valor")
+    .in("centro_custo_id", centroIds)
+    .eq("tipo", "saida")
+    .in("status", ["realizado", "conciliado"])
+    .gte("data", inicioMes);
+
+  const gastoMes = ((lancs ?? []) as { valor: number }[]).reduce((s, l) => s + Number(l.valor), 0);
+  return { atendimentosMes: bancada.atendimentosMes, gastoMes, temCentroCusto: true };
 }

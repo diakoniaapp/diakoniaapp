@@ -44,12 +44,23 @@
 //
 // Como no Painel da Secretaria, e pelo mesmo motivo: bancada que muda de
 // forma toda manhã obriga a reprocurar tudo.
+//
+// ── SPRINT 4: ALERTAS E O CRUZAMENTO COM A DIACONIA (09/09/2026) ───────────
+//
+// Fecha o backlog do painel. "Alertas" junta duas fontes que já existiam
+// em `finService.ts` sem nunca terem sido priorizadas juntas — anomalias
+// do mês e alertas financeiros gerais. O cruzamento com a Diaconia (cestas
+// compradas × pessoas atendidas) foi pedido explícito da liderança em
+// 03/09/2026 e é a única peça do painel sem par pronto no banco: ver
+// `carregarCruzamentoDiaconia()` em `painelTesourariaService.ts` para a
+// decisão de como as duas metades (financeiro e Diaconia) se encontram.
 
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   DollarSign, Receipt, Wallet, ChevronRight, RefreshCw, Sparkles, Package,
-  Clock, CalendarClock, Target, ShoppingCart, HandCoins, Scale,
+  Clock, CalendarClock, Target, ShoppingCart, HandCoins, Scale, Lightbulb,
+  HeartHandshake,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -61,6 +72,8 @@ import {
   listarCaixasAbertos, formatarTempoAberto, caixaEhUrgente, type CaixaAberto,
   listarPendencias, type PendenciaLancamento, DIAS_JANELA_COMPROVANTE,
   listarVencimentosDaSemana, listarAlertasOrcamento, DIAS_JANELA_VENCIMENTOS,
+  listarAlertasTesouraria, type AlertaTesouraria,
+  carregarCruzamentoDiaconia, type CruzamentoDiaconia,
 } from "@/services/painelTesourariaService";
 import { AgendaFiscalUrgente } from "@/components/dashboard/AgendaFiscalUrgente";
 
@@ -70,6 +83,8 @@ export default function PainelTesouraria() {
   const [pendencias, setPendencias] = useState<PendenciaLancamento[]>([]);
   const [vencimentos, setVencimentos] = useState<FinVencimento[]>([]);
   const [alertasOrc, setAlertasOrc] = useState<FinAlertaCentro[]>([]);
+  const [alertas, setAlertas] = useState<AlertaTesouraria[]>([]);
+  const [diaconia, setDiaconia] = useState<CruzamentoDiaconia | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(true);
   /** Quando os números da tela foram lidos — o "· há 3 minutos" do resumo. */
@@ -79,18 +94,25 @@ export default function PainelTesouraria() {
     setCarregando(true);
     setErro(null);
     try {
-      const [f, c, p, v, a] = await Promise.all([
+      const [f, c, p, v, a, al, d] = await Promise.all([
         carregarResumoFiscal(),
         listarCaixasAbertos(),
         listarPendencias(),
         listarVencimentosDaSemana(),
         listarAlertasOrcamento(),
+        listarAlertasTesouraria(),
+        // A única peça sem par pronto no banco — isolada com o próprio
+        // catch, para que uma falha aqui (ministério de Diaconia ainda sem
+        // `modulo`, RLS de outra área) não derrube o painel inteiro.
+        carregarCruzamentoDiaconia().catch(() => null),
       ]);
       setFiscal(f);
       setCaixas(c);
       setPendencias(p);
       setVencimentos(v);
       setAlertasOrc(a);
+      setAlertas(al);
+      setDiaconia(d);
       setAtualizadoEm(new Date());
     } catch (e: unknown) {
       setErro(e instanceof Error ? e.message : "Não foi possível carregar o painel.");
@@ -106,6 +128,7 @@ export default function PainelTesouraria() {
   const aprovacoesPendentes = pendencias.filter(p => p.motivo === "aprovacao");
   const semComprovante = pendencias.filter(p => p.motivo === "comprovante");
   const orcamentoCriticos = alertasOrc.filter(a => a.severidade === "critico");
+  const alertasCriticos = alertas.filter(a => a.severidade === "critico");
 
   return (
     <div className="p-6 space-y-4 max-w-5xl xl:max-w-6xl 2xl:max-w-7xl mx-auto">
@@ -141,7 +164,7 @@ export default function PainelTesouraria() {
           <p className="text-sm text-muted-foreground flex items-start gap-1.5">
             <DollarSign className="w-3.5 h-3.5 text-gold shrink-0 mt-0.5" />
             <span className="min-w-0">
-              {resumoNatural(fiscal, caixas, caixasUrgentes, aprovacoesPendentes, semComprovante, vencimentos, orcamentoCriticos, alertasOrc)}
+              {resumoNatural(fiscal, caixas, caixasUrgentes, aprovacoesPendentes, semComprovante, vencimentos, orcamentoCriticos, alertasOrc, alertasCriticos, alertas)}
               {atualizadoEm && (
                 <span className="text-[10px] text-muted-foreground ml-1.5 whitespace-nowrap">
                   · {formatarAtualizadoHa(atualizadoEm)}
@@ -155,7 +178,7 @@ export default function PainelTesouraria() {
             Mesma regra dos outros dois painéis, decidida em 27/08/2026: sem
             `valor`, cada bloco vira atalho de ícone + rótulo + seta. */}
         {fiscal && (
-          <FaixaDeIndicadores colunas={5}>
+          <FaixaDeIndicadores colunas={6}>
             <Indicador
               rotulo="Fiscal" tom="warning" icone={Receipt}
               onClick={() => irParaSecao("fiscal")} descricao="Ir para Fiscal"
@@ -175,6 +198,10 @@ export default function PainelTesouraria() {
             <Indicador
               rotulo="Orçamento" tom="violeta" icone={Target}
               onClick={() => irParaSecao("orcamento")} descricao="Ir para Orçamento"
+            />
+            <Indicador
+              rotulo="Alertas" tom="gold" icone={Lightbulb}
+              onClick={() => irParaSecao("alertas")} descricao="Ir para Alertas"
             />
           </FaixaDeIndicadores>
         )}
@@ -367,6 +394,67 @@ export default function PainelTesouraria() {
             )}
           </section>
 
+          {/* ── Alertas ────────────────────────────────────────────────── */}
+          <section id="alertas" className="scroll-mt-[220px]">
+            <TituloDaSecao icone={Lightbulb} tom="gold" contagem={alertas.length}>
+              Alertas
+            </TituloDaSecao>
+
+            {/* O cruzamento com a Diaconia mora aqui dentro, não numa seção
+                própria — é um alerta específico, não um bloco do mesmo porte
+                que Fiscal ou Caixa. Três estados possíveis: sem ministério
+                de Diaconia cadastrado (não renderiza nada), com ministério
+                mas sem centro de custo vinculado (mostra o que dá, é
+                honesto sobre o que falta) e com os dois (mostra a conta
+                inteira). */}
+            {diaconia && (
+              <div className="rounded-md border bg-card p-3 mb-2 flex items-start gap-2">
+                <HeartHandshake className="w-4 h-4 text-gold shrink-0 mt-0.5" />
+                <p className="text-sm min-w-0 flex-1">
+                  <span className="font-medium">
+                    {diaconia.atendimentosMes} {diaconia.atendimentosMes === 1 ? "pessoa atendida" : "pessoas atendidas"} este mês
+                  </span>
+                  {diaconia.temCentroCusto ? (
+                    <span className="text-muted-foreground"> · {brl(diaconia.gastoMes)} gastos com cestas</span>
+                  ) : (
+                    <span className="text-muted-foreground"> · nenhum centro de custo vinculado à Diaconia ainda, sem como somar o valor gasto</span>
+                  )}
+                </p>
+              </div>
+            )}
+
+            {alertas.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-2 px-3 border rounded-md">
+                Nenhum alerta — nada fora do padrão dos últimos 6 meses.
+              </p>
+            ) : (
+              <ul className="divide-y rounded-md border bg-card">
+                {alertas.map(a => {
+                  const linha = (
+                    <span className="text-sm min-w-0 flex-1">
+                      <span className={a.severidade === "critico" ? "font-medium text-destructive-text" : "font-medium text-warning-text"}>
+                        {a.titulo}
+                      </span>
+                      <span className="text-muted-foreground"> — {a.descricao}</span>
+                    </span>
+                  );
+                  return (
+                    <li key={a.id}>
+                      {a.to ? (
+                        <Link to={a.to} className="flex items-center gap-2 px-3 py-2.5 min-h-11 group">
+                          {linha}
+                          <ChevronRight className="w-4 h-4 shrink-0 text-muted-foreground group-hover:text-primary transition-colors" />
+                        </Link>
+                      ) : (
+                        <div className="flex items-center gap-2 px-3 py-2.5 min-h-11">{linha}</div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
+
           {/* ── Atalhos ────────────────────────────────────────────────── */}
           <section className="pt-1">
             <TituloDaSecao icone={DollarSign} tom="neutro">Ir para</TituloDaSecao>
@@ -415,6 +503,8 @@ function resumoNatural(
   vencimentos: FinVencimento[],
   orcamentoCriticos: FinAlertaCentro[],
   alertasOrc: FinAlertaCentro[],
+  alertasCriticos: AlertaTesouraria[],
+  alertas: AlertaTesouraria[],
 ): string {
   const partes: string[] = [];
 
@@ -435,6 +525,10 @@ function resumoNatural(
   if (orcamentoCriticos.length > 0) {
     partes.push(`${orcamentoCriticos.length} ${orcamentoCriticos.length === 1
       ? "centro de custo acima do orçamento" : "centros de custo acima do orçamento"}`);
+  }
+  if (alertasCriticos.length > 0) {
+    partes.push(`${alertasCriticos.length} ${alertasCriticos.length === 1
+      ? "alerta crítico" : "alertas críticos"}`);
   }
   if (partes.length > 0) return `Atenção: ${partes.join(", ")}.`;
 
@@ -460,6 +554,12 @@ function resumoNatural(
   if (alertasOrc.length > 0) {
     fila.push(`${alertasOrc.length} ${alertasOrc.length === 1
       ? "centro de custo em atenção" : "centros de custo em atenção"}`);
+  }
+  // `alertasCriticos` já entrou na urgência acima — aqui só o restante
+  // (severidade "atenção"), senão o mesmo alerta apareceria duas vezes.
+  const alertasEmAtencao = alertas.length - alertasCriticos.length;
+  if (alertasEmAtencao > 0) {
+    fila.push(`${alertasEmAtencao} ${alertasEmAtencao === 1 ? "alerta" : "alertas"} em atenção`);
   }
   if (fila.length === 0) return "Fiscal em dia, nenhum caixa aberto e nada pendente — tudo em ordem! 🙏";
   return `Nada urgente. Na fila: ${fila.join(", ")}.`;
