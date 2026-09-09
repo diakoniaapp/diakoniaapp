@@ -27,7 +27,7 @@
 // Não inventa senha nem a envia. `criarAcessoPessoa` gera a senha temporária,
 // e o que sai daqui é a mensagem de WhatsApp PRONTA, aberta para quem
 // administra revisar e enviar. Quem envia é uma pessoa — é o padrão de todo o
-// resto do sistema, que fala com a igreja por `wa.me` e nunca por API.
+// resto do sistema, que fala com a igreja pelo WhatsApp Web e nunca por API.
 
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";

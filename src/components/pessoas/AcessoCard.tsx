@@ -268,7 +268,7 @@ export function AcessoCard({ pessoaId, nomeCompleto, telefone }: AcessoCardProps
                 variant="ghost" size="sm"
                 onClick={() => {
                   const tel = (acesso.telefone || telefone!).replace(/\D/g, "");
-                  window.open(`https://wa.me/${normalizarTelefone(tel)}`, "_blank", "noopener,noreferrer");
+                  window.open(`https://web.whatsapp.com/send?phone=${normalizarTelefone(tel)}`, "_blank", "noopener,noreferrer");
                 }}
                 className="gap-1.5 text-xs text-success-text hover:text-success-text hover:bg-success-soft"
                 title="Abrir WhatsApp"
@@ -396,8 +396,8 @@ export function AcessoCard({ pessoaId, nomeCompleto, telefone }: AcessoCardProps
               onClick={() => {
                 if (!convitePronto) return;
                 const wa = telefone
-                  ? `https://wa.me/${normalizarTelefone(telefone)}?text=${encodeURIComponent(convitePronto.mensagem)}`
-                  : `https://wa.me/?text=${encodeURIComponent(convitePronto.mensagem)}`;
+                  ? `https://web.whatsapp.com/send?phone=${normalizarTelefone(telefone)}&text=${encodeURIComponent(convitePronto.mensagem)}`
+                  : `https://web.whatsapp.com/send?text=${encodeURIComponent(convitePronto.mensagem)}`;
                 window.open(wa, "_blank", "noopener,noreferrer");
                 setConvitePronto(null);
               }}

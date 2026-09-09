@@ -101,7 +101,7 @@ export function QuemNinguemProcurou() {
     const primeiro = p.nome_completo.split(" ")[0];
     const msg = `Olá, ${primeiro}! Passando para saber como você está. 🙏`;
     window.open(
-      `https://wa.me/${fone.startsWith("55") ? fone : "55" + fone}?text=${encodeURIComponent(msg)}`,
+      `https://web.whatsapp.com/send?phone=${fone.startsWith("55") ? fone : "55" + fone}&text=${encodeURIComponent(msg)}`,
       "_blank", "noopener,noreferrer",
     );
   };

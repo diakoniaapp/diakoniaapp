@@ -113,7 +113,7 @@ export function montarMensagemWhatsApp(
     `_"Conectando pessoas, organizando o propósito."_`,
   ].join("\n");
 
-  const url = `https://wa.me/${normalizarTelefone(tel)}?text=${encodeURIComponent(mensagem)}`;
+  const url = `https://web.whatsapp.com/send?phone=${normalizarTelefone(tel)}&text=${encodeURIComponent(mensagem)}`;
   return { ok: true, url, mensagem, telefone: tel };
 }
 
@@ -145,7 +145,7 @@ export function enviarWhatsApp(
     `_"Conectando pessoas, organizando o propósito."_`,
   ].join("\n");
 
-  const url = `https://wa.me/${normalizarTelefone(tel)}?text=${encodeURIComponent(mensagem)}`;
+  const url = `https://web.whatsapp.com/send?phone=${normalizarTelefone(tel)}&text=${encodeURIComponent(mensagem)}`;
 
   // Tenta abrir; browsers bloqueiam silenciosamente se não for gesto do user.
   // window.open retorna a janela ou null se bloqueada.

@@ -264,8 +264,8 @@ export async function montarMensagemTarefasResponsavel(
   const mensagem = linhas.join("\n");
   const tel = (pessoa.telefone ?? "").replace(/\D/g, "");
   const url = tel
-    ? `https://wa.me/${tel}?text=${encodeURIComponent(mensagem)}`
-    : `https://wa.me/?text=${encodeURIComponent(mensagem)}`;
+    ? `https://web.whatsapp.com/send?phone=${tel}&text=${encodeURIComponent(mensagem)}`
+    : `https://web.whatsapp.com/send?text=${encodeURIComponent(mensagem)}`;
   return { mensagem, url };
 }
 
@@ -371,7 +371,7 @@ export function montarLembreteAssuntoIndividual(
   const mensagem = linhas.join("\n");
   const tel = (telefoneResponsavel ?? "").replace(/\D/g, "");
   const url = tel
-    ? `https://wa.me/${tel}?text=${encodeURIComponent(mensagem)}`
-    : `https://wa.me/?text=${encodeURIComponent(mensagem)}`;
+    ? `https://web.whatsapp.com/send?phone=${tel}&text=${encodeURIComponent(mensagem)}`
+    : `https://web.whatsapp.com/send?text=${encodeURIComponent(mensagem)}`;
   return { mensagem, url };
 }

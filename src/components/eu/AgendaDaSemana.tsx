@@ -183,7 +183,7 @@ export function AgendaDaSemana({ eu }: { eu: MinhaFicha | null }) {
   const compartilhar = async (o: EventoOcorrencia, comoLink: boolean) => {
     const texto = textoDoConvite(o);
     if (comoLink) {
-      window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, "_blank", "noopener");
+      window.open(`https://web.whatsapp.com/send?text=${encodeURIComponent(texto)}`, "_blank", "noopener");
       return;
     }
     try {

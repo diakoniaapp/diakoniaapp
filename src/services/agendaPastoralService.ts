@@ -180,7 +180,7 @@ export function mensagemPastoral(evento: EventoPastoral): string {
 export function linkWhatsApp(evento: EventoPastoral, telefoneSelecionado?: string): string {
   const tel = (telefoneSelecionado || evento.telefone || "").replace(/\D/g, "");
   const msg = encodeURIComponent(mensagemPastoral(evento));
-  return tel ? `https://wa.me/${tel}?text=${msg}` : `https://wa.me/?text=${msg}`;
+  return tel ? `https://web.whatsapp.com/send?phone=${tel}&text=${msg}` : `https://web.whatsapp.com/send?text=${msg}`;
 }
 
 // ─── Inteligência Pastoral ─────────────────────────────────────────────────

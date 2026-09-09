@@ -867,7 +867,7 @@ export default function Ebd() {
                   {telefone ? (
                     telefoneVisivel ? (
                       <a
-                        href={`https://wa.me/${telefone.replace(/\D/g, "")}`}
+                        href={`https://web.whatsapp.com/send?phone=${telefone.replace(/\D/g, "")}`}
                         target="_blank" rel="noopener noreferrer"
                         className="text-xs text-success-text shrink-0 flex items-center gap-1 hover:underline"
                       >

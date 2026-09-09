@@ -550,7 +550,7 @@ function VisitanteCard({
   const abrirWhatsAppSugestao = (msg: string) => {
     const cel = v.telefone_celular?.replace(/\D/g, "");
     if (!cel) return toast.error("Telefone não cadastrado");
-    window.open(`https://wa.me/${normalizarTelefone(cel)}?text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
+    window.open(`https://web.whatsapp.com/send?phone=${normalizarTelefone(cel)}&text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
   };
 
   return (

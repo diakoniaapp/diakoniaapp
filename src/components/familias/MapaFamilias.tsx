@@ -187,7 +187,7 @@ function semRepetir(grupos: Agrupamento[], limite = 3): Agrupamento[] {
 function linkWhats(tel: string | null): string | null {
   const d = (tel ?? "").replace(/\D/g, "");
   if (d.length < 10) return null;
-  return `https://wa.me/${d.startsWith("55") ? d : "55" + d}`;
+  return `https://web.whatsapp.com/send?phone=${d.startsWith("55") ? d : "55" + d}`;
 }
 
 export function MapaFamilias() {

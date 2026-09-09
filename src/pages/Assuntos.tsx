@@ -92,7 +92,7 @@ export default function Assuntos() {
       linhas.push("_Por gentileza, sinaliza pra mim como anda cada um?_", "", "_Secretaria · QIBRJ_");
       const mensagem = linhas.join("\n");
       const tel = (pessoa.telefone_celular ?? "").replace(/\D/g, "");
-      const url = tel ? `https://wa.me/${tel}?text=${encodeURIComponent(mensagem)}` : `https://wa.me/?text=${encodeURIComponent(mensagem)}`;
+      const url = tel ? `https://web.whatsapp.com/send?phone=${tel}&text=${encodeURIComponent(mensagem)}` : `https://web.whatsapp.com/send?text=${encodeURIComponent(mensagem)}`;
       window.open(url, "_blank");
       // Pequena pausa pra navegador não bloquear pop-ups
       await new Promise(r => setTimeout(r, 400));

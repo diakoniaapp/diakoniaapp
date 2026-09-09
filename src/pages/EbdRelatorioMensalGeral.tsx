@@ -254,7 +254,7 @@ export default function EbdRelatorioMensalGeral() {
   function compartilharWhatsApp() {
     const msg = montarMensagemWhatsApp();
     if (!msg) { toast.error("Carregando dados..."); return; }
-    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
+    window.open(`https://web.whatsapp.com/send?text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
   }
 
   async function copiarTexto() {

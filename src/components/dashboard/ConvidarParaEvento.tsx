@@ -114,7 +114,7 @@ export function ConvidarParaEvento({ open, onOpenChange, ...evento }: Props) {
   const abrirWhats = () => {
     // Sem número: o WhatsApp abre o seletor de contatos com o texto pronto.
     window.open(
-      `https://wa.me/?text=${encodeURIComponent(mensagem)}`,
+      `https://web.whatsapp.com/send?text=${encodeURIComponent(mensagem)}`,
       "_blank", "noopener,noreferrer",
     );
   };

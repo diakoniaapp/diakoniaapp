@@ -85,6 +85,16 @@ export function getMensagem(etapa: EtapaFluxo, nomeCompleto: string): string {
 // ------------------------------------------------------------
 // Link WhatsApp clicável
 // ------------------------------------------------------------
+//
+// `web.whatsapp.com/send`, não `wa.me`. Os dois abrem uma conversa com texto
+// pronto, mas `wa.me` é o redirecionador OFICIAL do WhatsApp — e a primeira
+// coisa que ele tenta é abrir o APLICATIVO instalado (celular ou desktop),
+// só caindo para o navegador se não achar nenhum. Pedido dela em 09/09/2026:
+// "preciso que abra no whatsappweb e não no aplicativo". `web.whatsapp.com`
+// é a URL do próprio site do WhatsApp Web — sem redirecionamento nenhum, o
+// navegador abre direto nela, e o aplicativo instalado nunca entra na
+// jogada. O mesmo padrão foi trocado nos ~25 outros lugares do sistema que
+// montavam o link à mão em vez de chamar esta função.
 export function buildWhatsAppLink(
   telefone: string | null | undefined,
   mensagem: string
@@ -94,7 +104,7 @@ export function buildWhatsAppLink(
   if (!numeros) return null;
   // Adiciona DDI 55 (Brasil) se ainda não tiver
   const comDDI = numeros.startsWith("55") ? numeros : `55${numeros}`;
-  return `https://wa.me/${comDDI}?text=${encodeURIComponent(mensagem)}`;
+  return `https://web.whatsapp.com/send?phone=${comDDI}&text=${encodeURIComponent(mensagem)}`;
 }
 
 // ------------------------------------------------------------

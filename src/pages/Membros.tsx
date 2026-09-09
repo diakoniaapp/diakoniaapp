@@ -470,7 +470,7 @@ function Telefone({ numero }: { numero?: string | null }) {
 
   return (
     <a
-      href={`https://wa.me/${normalizarTelefone(numero)}`}
+      href={`https://web.whatsapp.com/send?phone=${normalizarTelefone(numero)}`}
       target="_blank"
       rel="noopener noreferrer"
       onClick={(e) => e.stopPropagation()}

@@ -748,7 +748,7 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
                 Pastoral até 26/08/2026. */}
             {pessoa.telefone_celular && (
               <a
-                href={`https://wa.me/${normalizarTelefone(pessoa.telefone_celular)}`}
+                href={`https://web.whatsapp.com/send?phone=${normalizarTelefone(pessoa.telefone_celular)}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 title={`Enviar mensagem para ${pessoa.nome_social ?? pessoa.nome_completo} no WhatsApp`}

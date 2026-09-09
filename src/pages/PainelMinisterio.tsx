@@ -556,7 +556,7 @@ function SecaoEquipe({ painel, postos, ministerioId }: {
                 </Badge>
               )}
               {v.telefone_celular && (
-                <a href={`https://wa.me/${v.telefone_celular.replace(/\D/g, "")}`}
+                <a href={`https://web.whatsapp.com/send?phone=${v.telefone_celular.replace(/\D/g, "")}`}
                   target="_blank" rel="noopener noreferrer"
                   title={`Falar com ${v.nome_completo} — ${formatarTelefone(v.telefone_celular)}`}
                   className="shrink-0 text-muted-foreground hover:text-foreground">

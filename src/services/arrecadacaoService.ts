@@ -1120,7 +1120,7 @@ export async function atualizarResponsavelEspaco(
   if (!r.ok) throw new Error(r.erro);
 }
 
-/** Monta link wa.me com lista de problemas pendentes pra responsável. */
+/** Monta link do WhatsApp Web com lista de problemas pendentes pra responsável. */
 export function montarWhatsAppManutencao(
   problemas: ProblemaManutencao[],
   espacoNome: string,
@@ -1173,8 +1173,8 @@ export function montarWhatsAppManutencao(
   const mensagem = linhas.join("\n");
   const tel = (telefone ?? "").replace(/\D/g, "");
   const url = tel
-    ? `https://wa.me/${tel}?text=${encodeURIComponent(mensagem)}`
-    : `https://wa.me/?text=${encodeURIComponent(mensagem)}`;
+    ? `https://web.whatsapp.com/send?phone=${tel}&text=${encodeURIComponent(mensagem)}`
+    : `https://web.whatsapp.com/send?text=${encodeURIComponent(mensagem)}`;
   return { mensagem, url };
 }
 
@@ -1204,7 +1204,7 @@ export async function aprovarReservaComAcordo(
 
 
 
-/** Monta link wa.me com termo de uso completo (sem link de aceite — F7). */
+/** Monta link do WhatsApp Web com termo de uso completo (sem link de aceite — F7). */
 export function montarWhatsAppAprovacao(
   info: {
     finalidade: string;
@@ -1244,8 +1244,8 @@ export function montarWhatsAppAprovacao(
   const mensagem = linhas.join("\n");
   const tel = (responsavel.telefone ?? "").replace(/[^0-9]/g, "");
   const url = tel
-    ? `https://wa.me/${tel}?text=${encodeURIComponent(mensagem)}`
-    : `https://wa.me/?text=${encodeURIComponent(mensagem)}`;
+    ? `https://web.whatsapp.com/send?phone=${tel}&text=${encodeURIComponent(mensagem)}`
+    : `https://web.whatsapp.com/send?text=${encodeURIComponent(mensagem)}`;
   return { mensagem, url };
 }
 

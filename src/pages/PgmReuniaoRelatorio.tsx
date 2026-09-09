@@ -131,7 +131,7 @@ export default function PgmReuniaoRelatorio() {
   function compartilharWhatsApp() {
     const msg = montarMensagemWhatsApp();
     if (!msg) { toast.error("Carregando dados..."); return; }
-    const url = `https://wa.me/?text=${encodeURIComponent(msg)}`;
+    const url = `https://web.whatsapp.com/send?text=${encodeURIComponent(msg)}`;
     window.open(url, "_blank", "noopener,noreferrer");
   }
 
