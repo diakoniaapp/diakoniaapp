@@ -47,6 +47,7 @@
 // e três blocos vazios diria a quem chega que ele está perdendo alguma coisa.
 
 import { useCallback, useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   UserPlus, Search, CalendarClock, LayoutGrid, CalendarDays, IdCard, BookOpen, HeartHandshake,
@@ -129,6 +130,37 @@ export default function Home() {
   const [ficha, setFicha] = useState<Ficha | null>(null);
   const [abrirVisitante, setAbrirVisitante] = useState(false);
   const verse = verseOfTheDay();
+  const location = useLocation();
+
+  // ── Chegada por âncora, de fora da Home ──────────────────────────────
+  //
+  // 09/09/2026: "Meu Painel" (antes "Meu Perfil"), no menu da conta, levava para `/membros` — o
+  // catálogo de TODAS as 301 pessoas, não um resumo de quem está logado.
+  // Pedido dela: deveria abrir um resumo da própria pessoa, e isso já
+  // existe aqui — é a seção "Meus dados" (`MinhaFicha`), só que só
+  // alcançável rolando, nunca por link direto de outra tela.
+  //
+  // `irParaSecao` (blocos.tsx) já resolve rolador customizado — o `<main>`
+  // do AppLayout, não a janela — mas só funciona com o elemento já montado
+  // na tela, então não serve pra navegação ENTRE páginas. Isto fecha essa
+  // lacuna: ao chegar na Home com uma âncora na URL (`/#meus-dados`), rola
+  // pra lá assim que a seção nasce.
+  //
+  // "Meus dados" nunca fica vazia — ver o comentário de `ATALHOS` mais
+  // abaixo — mas o que fica ACIMA dela (Semana, Painéis, Porta, Agenda) é
+  // tudo assíncrono, e cada resposta que chega muda a altura de cima e
+  // empurra a seção-alvo pra baixo do ponto que a primeira rolagem já
+  // tinha alcançado. O padrão de duplo `requestAnimationFrame`, usado pro
+  // Discipulado, resolve troca de ABA — layout síncrono; aqui quem muda o
+  // layout são requisições de rede, que frame nenhum espera. Rola de novo
+  // em alguns instantes seguintes, pra alcançar o ponto final mesmo que o
+  // conteúdo de cima ainda esteja chegando.
+  useEffect(() => {
+    if (!location.hash) return;
+    const id = location.hash.slice(1);
+    const timers = [0, 150, 400, 900].map(ms => setTimeout(() => irParaSecao(id), ms));
+    return () => timers.forEach(clearTimeout);
+  }, [location.hash]);
 
   // A ficha é carregada UMA vez aqui e emprestada aos blocos que precisam
   // dela: o nome na saudação, a assinatura do convite e o bairro que orienta

@@ -9,7 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { User, LogOut, ShieldCheck, Moon, Sun } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
-import { ADMIN_MENU_ITEMS } from "@/components/layout/adminMenuItems";
+import { ADMIN_MENU_GROUPS } from "@/components/layout/adminMenuItems";
 import { VerComoMenu } from "@/components/layout/VerComoMenu";
 
 export function UserMenuButton() {
@@ -103,27 +103,39 @@ export function UserMenuButton() {
 
         <DropdownMenuSeparator />
 
+        {/* 09/09/2026: ia para `/membros` — o catálogo de todo mundo, não um
+            resumo de quem está logado. Vai para "Meus dados", na própria
+            Home — ver o comentário da âncora em `Home.tsx`. Rótulo "Meu
+            Painel", não "Meu Perfil" — pedido dela. */}
         <DropdownMenuItem className="gap-2 cursor-pointer py-2.5"
-          onClick={() => navigate("/membros")}>
+          onClick={() => navigate("/#meus-dados")}>
           <User className="w-4 h-4 text-muted-foreground" />
-          <span>Meu Perfil</span>
+          <span>Meu Painel</span>
         </DropdownMenuItem>
 
         {hasRole(["admin", "secretaria"]) && (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-xs uppercase tracking-widest text-muted-foreground/60 py-1">
-              Administração
-            </DropdownMenuLabel>
             {/* A lista mora em adminMenuItems.ts e e a mesma do menu do
                 desktop (rodape da barra lateral). Eram duas copias, e so esta
-                tinha os itens — no desktop nao havia entrada nenhuma. */}
-            {ADMIN_MENU_ITEMS.map(({ path, label, icon: Icon }) => (
-              <DropdownMenuItem key={path} className="gap-2 cursor-pointer py-2.5"
-                onClick={() => navigate(path)}>
-                <Icon className="w-4 h-4 text-muted-foreground" />
-                <span>{label}</span>
-              </DropdownMenuItem>
+                tinha os itens — no desktop nao havia entrada nenhuma.
+
+                Em três grupos desde 09/09/2026, não mais um "Administração"
+                só com sete itens soltos embaixo — ver o comentário no topo
+                de adminMenuItems.ts pelo porquê de cada grupo. */}
+            {ADMIN_MENU_GROUPS.map(({ label: grupo, items }) => (
+              <div key={grupo}>
+                <DropdownMenuLabel className="text-xs uppercase tracking-widest text-muted-foreground/60 py-1">
+                  {grupo}
+                </DropdownMenuLabel>
+                {items.map(({ path, label, icon: Icon }) => (
+                  <DropdownMenuItem key={path} className="gap-2 cursor-pointer py-2.5"
+                    onClick={() => navigate(path)}>
+                    <Icon className="w-4 h-4 text-muted-foreground" />
+                    <span>{label}</span>
+                  </DropdownMenuItem>
+                ))}
+              </div>
             ))}
           </>
         )}

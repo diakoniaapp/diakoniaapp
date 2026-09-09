@@ -1,7 +1,7 @@
 import { Outlet, NavLink, useNavigate, useLocation } from "react-router-dom";
 import { FaixaVerComo } from "@/components/layout/VerComoMenu";
 import { useAuth } from "@/hooks/useAuth";
-import { LogOut, ChevronLeft, ChevronDown, Search, Moon, Sun } from "lucide-react";
+import { LogOut, ChevronLeft, ChevronDown, Search, Moon, Sun, User } from "lucide-react";
 import { BrandMark } from "@/components/Brand";
 import { useEffect, useState } from "react";
 import { QuickActionsFab } from "@/components/QuickActionsFab";
@@ -17,7 +17,7 @@ import {
   type NavGroup, type NavItem,
 } from "@/components/layout/navConfig";
 import { toast } from "sonner";
-import { ADMIN_MENU_ITEMS } from "@/components/layout/adminMenuItems";
+import { ADMIN_MENU_GROUPS } from "@/components/layout/adminMenuItems";
 import { supabase } from "@/integrations/supabase/client";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
@@ -355,21 +355,40 @@ export default function AppLayout() {
                   </span>
                 </div>
               </DropdownMenuLabel>
+              {/* 09/09/2026: o menu do celular (UserMenuButton) tinha "Meu
+                  Painel" e este, do desktop, não — mais uma metade que
+                  ficava pra trás, o mesmo defeito que o comentário logo
+                  abaixo descreve para os itens de administração. Vai para
+                  "Meus dados" na Home, não `/membros` — ver o comentário da
+                  âncora em `Home.tsx`. Rótulo "Meu Painel", não "Meu
+                  Perfil" — pedido dela. */}
+              <DropdownMenuItem className="cursor-pointer" onClick={() => navigate("/#meus-dados")}>
+                <User className="w-4 h-4 mr-2 text-muted-foreground" />
+                Meu Painel
+              </DropdownMenuItem>
+
               {/* As funcoes de administracao do sistema ficam aqui, no menu do
                   perfil. Este e o menu do DESKTOP; o do celular vive no
                   UserMenuButton e le a mesma lista — antes so ele tinha os
-                  itens, e no desktop nao havia entrada nenhuma. */}
+                  itens, e no desktop nao havia entrada nenhuma.
+
+                  Em três grupos desde 09/09/2026 — ver o comentário no topo
+                  de adminMenuItems.ts. */}
               {hasRole(["admin", "secretaria"]) && (
                 <>
                   <DropdownMenuSeparator />
-                  <DropdownMenuLabel className="text-xs uppercase tracking-widest text-muted-foreground/60 py-1">
-                    Administração
-                  </DropdownMenuLabel>
-                  {ADMIN_MENU_ITEMS.map(({ path, label, icon: Icon }) => (
-                    <DropdownMenuItem key={path} className="cursor-pointer" onClick={() => navigate(path)}>
-                      <Icon className="w-4 h-4 mr-2 text-muted-foreground" />
-                      {label}
-                    </DropdownMenuItem>
+                  {ADMIN_MENU_GROUPS.map(({ label: grupo, items }) => (
+                    <div key={grupo}>
+                      <DropdownMenuLabel className="text-xs uppercase tracking-widest text-muted-foreground/60 py-1">
+                        {grupo}
+                      </DropdownMenuLabel>
+                      {items.map(({ path, label, icon: Icon }) => (
+                        <DropdownMenuItem key={path} className="cursor-pointer" onClick={() => navigate(path)}>
+                          <Icon className="w-4 h-4 mr-2 text-muted-foreground" />
+                          {label}
+                        </DropdownMenuItem>
+                      ))}
+                    </div>
                   ))}
                 </>
               )}
