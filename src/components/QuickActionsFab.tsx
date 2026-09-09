@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Plus, UserPlus, CalendarPlus, Home as HomeIcon, HeartHandshake } from "lucide-react";
+import { Plus, UserPlus, CalendarPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -10,9 +10,9 @@ import { useAuth } from "@/hooks/useAuth";
  * Pedido dela, vendo o próprio Painel da EBD: "coloque este atalho apenas
  * onde for realmente necessário". Medido antes de decidir: essas telas já
  * têm as próprias ações primárias (Fazer chamada, Nova classe...), e as
- * quatro ações do FAB (pessoa/evento/família/ministério) não têm relação
- * com o que se faz ali — só brigam visualmente com o botão da tela, o
- * mesmo problema já registrado antes em `EbdChamada.tsx`.
+ * ações do FAB (pessoa/evento) não têm relação com o que se faz ali — só
+ * brigam visualmente com o botão da tela, o mesmo problema já registrado
+ * antes em `EbdChamada.tsx`.
  *
  * Não virou "só na Home": em Membros, Visitantes, Eventos e Famílias o
  * atalho continua sendo exatamente o que ele deveria ser — um jeito rápido
@@ -28,7 +28,10 @@ function ehPainelDeTrabalho(pathname: string): boolean {
 /**
  * Floating Action Button (FAB) com ações rápidas.
  * Visível apenas em mobile (md:hidden) e somente para usuários com permissão de edição.
- * Ações: Adicionar pessoa, Novo evento, Nova família, Criar ministério.
+ * Ações: Adicionar pessoa, Novo evento.
+ *
+ * Tinha mais duas — Nova família, Criar ministério —, tiradas a pedido dela
+ * em 09/09/2026.
  *
  * Cada atalho carrega o próprio portão. Antes o menu inteiro sumia com um
  * único `canEdit`, e desde 20/08/2026 isso deixou de ser verdade: a
@@ -55,6 +58,8 @@ export function QuickActionsFab() {
     }
   };
 
+  // "Nova família" e "Criar ministério" saíram a pedido dela em
+  // 09/09/2026 — duas ações a menos no atalho mais rápido do sistema.
   const actions = [
     {
       label: "Adicionar pessoa",
@@ -66,20 +71,6 @@ export function QuickActionsFab() {
       label: "Novo evento",
       icon: CalendarPlus,
       onClick: () => go("/eventos", "novo"),
-      visible: canEdit,
-    },
-    {
-      label: "Nova família",
-      icon: HomeIcon,
-      onClick: () => go("/familias", "novo"),
-      // `vinculos_familiares` aceita admin, secretaria e diakonia — não
-      // liderança. Mostrar aqui daria um botão que o banco recusa.
-      visible: canEdit,
-    },
-    {
-      label: "Criar ministério",
-      icon: HeartHandshake,
-      onClick: () => go("/ministerios", "novo"),
       visible: canEdit,
     },
   ].filter((a) => a.visible);
@@ -130,8 +121,8 @@ export function QuickActionsFab() {
           </span>
         )}
         <button
-          aria-label={open ? "Fechar ações rápidas" : "Adicionar pessoa, evento ou família"}
-          title={open ? "Fechar" : "Adicionar pessoa, evento ou família"}
+          aria-label={open ? "Fechar ações rápidas" : "Adicionar pessoa ou evento"}
+          title={open ? "Fechar" : "Adicionar pessoa ou evento"}
           onClick={() => setOpen((v) => !v)}
           className={cn(
             "w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-elevated",

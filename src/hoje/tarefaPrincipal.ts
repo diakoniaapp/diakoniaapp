@@ -19,7 +19,7 @@ import { resumoMaloteFiscal } from "@/services/fiscalService";
 import type { LucideIcon } from "lucide-react";
 import {
   GraduationCap, Users, DollarSign, ShoppingCart, FileText, Receipt,
-  Scale, Paperclip, UserPlus,
+  Scale, Paperclip, ClipboardPlus,
 } from "lucide-react";
 
 export interface TarefaPrincipal {
@@ -364,6 +364,11 @@ const reuniaoPgm: Resolvedor = async (ctx) => {
 // direto, sem exigir achar o botão) — conferido antes de usar, depois do
 // "Criar Ministério" do menu da conta ter apontado pra um parâmetro que
 // `Ministerios.tsx` nunca lia.
+//
+// Ícone `ClipboardPlus`, não um ícone de pessoa: a aba fixa "Pessoas", ao
+// lado desta na mesma barra, já usa `Users` — dois ícones de gente lado a
+// lado ficavam parecidos demais num relance de 20px. Pedido dela: "estão
+// iguais".
 const novaPessoa: Resolvedor = async (ctx) => {
   if (!ctx.permissoes.has("editar_pessoa")) return null;
   return {
@@ -373,7 +378,7 @@ const novaPessoa: Resolvedor = async (ctx) => {
     acao: "Cadastrar",
     abaLabel: "Cadastro",
     to: "/membros?novo=1",
-    icon: UserPlus,
+    icon: ClipboardPlus,
   };
 };
 
