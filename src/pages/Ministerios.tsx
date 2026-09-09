@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Sparkles, X, RefreshCw, Loader2, Layers } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
@@ -75,6 +75,28 @@ export default function Ministerios() {
                   paraCriar: [], paraAtualizar: [], paraManter: [], orfaos: [],
         });
         const [refFonte, setRefFonte] = useState<"ia" | "parser" | "combinado">("parser");
+        const [searchParams, setSearchParams] = useSearchParams();
+
+        // ── Chegada por `?novo=1` ────────────────────────────────────────
+        //
+        // 09/09/2026: achado verificando os atalhos do botão "+" (FAB) —
+        // "Criar ministério" apontava pra aqui com esse parâmetro, e esta
+        // tela nunca o lia. Diferente do atalho equivalente que saiu do
+        // menu da conta (esse sim era redundante com o próprio botão "Novo
+        // ministério" da lista), o do FAB tem valor real: é o único jeito
+        // de abrir o formulário direto de QUALQUER outra tela, sem primeiro
+        // navegar pra Ministérios. Mesmo parâmetro que `Membros.tsx`,
+        // `Eventos.tsx`, `Familias.tsx` e `Membresia.tsx` já usam.
+        useEffect(() => {
+                if (searchParams.get("novo") !== "1") return;
+                setEditingId(null);
+                setForm(emptyForm);
+                setOpen(true);
+                const limpo = new URLSearchParams(searchParams);
+                limpo.delete("novo");
+                setSearchParams(limpo, { replace: true });
+                // eslint-disable-next-line react-hooks/exhaustive-deps
+        }, [searchParams]);
 
   const load = async () => {
             setLoading(true); setLoadingCounts(true); setError(null);
