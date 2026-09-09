@@ -574,14 +574,43 @@ export async function multiplicarGrupo(
 }
 
 // ─── Geografia ────────────────────────────────────────────────────────────
-export async function sugerirPgmPorBairro(bairro: string): Promise<Array<{
-  id: string; nome: string; dia_semana: number | null; horario: string | null;
-  bairro: string | null; qtd_membros: number; lider_nome: string | null;
-}>> {
+
+/** O que `pgm_sugerir_por_bairro` devolve. */
+export interface SugestaoPgm {
+  id: string;
+  nome: string;
+  dia_semana: number | null;
+  horario: string | null;
+  bairro: string | null;
+  qtd_membros: number;
+  lider_nome: string | null;
+}
+
+const DIAS_DA_SEMANA = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+
+/** "Terça · 19:30" — nulo quando falta um dos dois. */
+export function quandoOPgmSeReune(s: Pick<SugestaoPgm, "dia_semana" | "horario">): string | null {
+  const dia = s.dia_semana != null ? DIAS_DA_SEMANA[s.dia_semana] : null;
+  const hora = s.horario ? s.horario.slice(0, 5) : null;
+  return [dia, hora].filter(Boolean).join(" · ") || null;
+}
+
+/**
+ * PGMs perto de um bairro — não é exclusiva de nenhum módulo. Usada pelo
+ * próprio "e eu?" da Home (`meuEspacoService.meuPgm`), pela Diaconia (ao
+ * marcar alguém como "começou a frequentar") e, a partir de 09/09/2026,
+ * pelo cadastro geral de pessoas (`MembroForm`) — mesma pergunta em três
+ * lugares: "tem um Pequeno Grupo perto daqui?"
+ *
+ * Até 09/09/2026 a Diaconia tinha sua própria cópia deste tipo e desta
+ * função em `diaconiaService.ts`. `diaconiaService.ts` agora reexporta os
+ * três daqui — ver o comentário lá.
+ */
+export async function sugerirPgmPorBairro(bairro: string): Promise<SugestaoPgm[]> {
   if (!bairro?.trim()) return [];
   const { data, error } = await supabase.rpc("pgm_sugerir_por_bairro", { p_bairro: bairro.trim() });
   if (error) throw error;
-  return data ?? [];
+  return (data ?? []) as SugestaoPgm[];
 }
 
 // ─── Alertas pastorais ────────────────────────────────────────────────────

@@ -23,6 +23,7 @@ import { FamiliaBloco } from "@/components/familias/FamiliaBloco";
 import { listarClasses, sugerirClasse, classesDaPessoa, type EbdClasse } from "@/services/ebdService";
 import { PassoDisponibilidade } from "@/components/membros/PassoDisponibilidade";
 import { carregarPerfil, salvarPerfil, resumoLegivel, PERFIL_VAZIO, type PerfilServico } from "@/services/perfilServico";
+import { sugerirPgmPorBairro, quandoOPgmSeReune, type SugestaoPgm } from "@/services/pgmService";
 import { normalizarTelefone, validarTelefone, formatarTelefoneSemDDI } from "@/lib/telefone";
 import {
   FUNCAO_MINISTERIAL, FUNCOES_EM_ORDEM, funcaoAposentada, rotuloFuncao,
@@ -288,7 +289,18 @@ export function MembroForm({ open, onOpenChange, membro, onSaved, tipoInicial, o
   // primeiro (`querAcesso` começa false); quem já existia pode já ter
   // acesso ou não, então pula direto pro cartão (`querAcesso` começa
   // true) — ver onde cada um é setado, perto do fim do `onSubmit`.
-  const [pessoaSalva, setPessoaSalva] = useState<{ id: string; nome: string; telefone: string | null } | null>(null);
+  const [pessoaSalva, setPessoaSalva] = useState<{
+    id: string; nome: string; telefone: string | null;
+    /**
+     * Bairro pra sugerir Pequenos Grupos — só quando a pessoa VIROU
+     * congregada agora (nova, ou vinha de outro tipo e mudou nesta
+     * edição). Ver o comentário perto de onde isto é montado, no
+     * `onSubmit`. `null` quer dizer "não é o momento" — não confundir com
+     * "sem bairro cadastrado", que mostra a sugestão vazia em vez de
+     * escondê-la.
+     */
+    bairroParaSugerirPgm: string | null;
+  } | null>(null);
   const [querAcesso, setQuerAcesso] = useState(false);
   // Cinco passos desde que "Acesso ao sistema" saiu de dentro de Vínculos.
   // Estava junto de áreas de atuação e família, e ninguém procura permissão
@@ -795,7 +807,24 @@ export function MembroForm({ open, onOpenChange, membro, onSaved, tipoInicial, o
     // Visitante não entra (acesso é só pra quem congrega).
     const pessoaIdAcesso = membro?.id ?? savedId;
     if (pessoaIdAcesso && (payload.tipo_pessoa === "membro" || payload.tipo_pessoa === "congregado")) {
-      setPessoaSalva({ id: pessoaIdAcesso, nome: form.nome_completo.trim(), telefone: payload.telefone_celular ?? null });
+      // Sugestão de Pequenos Grupos por bairro — Fase 5 da Bússola,
+      // 09/09/2026. Só no momento em que a pessoa VIRA congregada: nova
+      // pessoa cadastrada já como congregado, ou edição que muda o tipo
+      // PARA congregado (visitante que passou a congregar). Editar quem já
+      // era congregado, ou salvar como membro, não dispara — a pergunta
+      // "tem PGM por perto?" já foi respondida, ou nunca foi a pergunta
+      // certa. Mesmo instante que a Diaconia já usa em
+      // `ComecouAFrequentar` (`DiaconiaPessoas.tsx`), estendido pra fora
+      // dela — a função é a mesma, `pgmService.sugerirPgmPorBairro`.
+      const viraCongregadoAgora =
+        payload.tipo_pessoa === "congregado" && (!membro || membro.tipo_pessoa !== "congregado");
+      setPessoaSalva({
+        id: pessoaIdAcesso, nome: form.nome_completo.trim(), telefone: payload.telefone_celular ?? null,
+        // "" (não `null`) quando é o momento mas não há bairro: o bloco
+        // aparece mesmo assim, avisando que não dá pra sugerir sem bairro
+        // — `null` esconde o bloco inteiro, que é outra mensagem.
+        bairroParaSugerirPgm: viraCongregadoAgora ? (form.bairro?.trim() ?? "") : null,
+      });
       // Pessoa nova: pergunta "quer dar acesso?" primeiro (pode ser "não,
       // ainda" — criança, alguém em triagem). Quem já existe pode já ter
       // acesso ou não; vai direto pro cartão, que mostra os dois estados.
@@ -2105,6 +2134,9 @@ export function MembroForm({ open, onOpenChange, membro, onSaved, tipoInicial, o
                 <strong>{pessoaSalva?.nome}</strong> foi cadastrada(o). Quer dar acesso ao sistema para ela(e)
                 agora?
               </p>
+              {pessoaSalva?.bairroParaSugerirPgm !== null && pessoaSalva?.bairroParaSugerirPgm !== undefined && (
+                <SugestaoPgmDoCadastro bairro={pessoaSalva.bairroParaSugerirPgm} />
+              )}
               <div className="flex gap-2">
                 <Button
                   type="button" variant="outline" className="flex-1"
@@ -2150,6 +2182,56 @@ function RevisaoLinha({ label, children }: { label: string; children: React.Reac
     <div className="flex items-start justify-between gap-3 text-sm border-b py-1.5">
       <span className="text-xs uppercase tracking-wide text-muted-foreground shrink-0">{label}</span>
       <span className="font-medium text-right break-words min-w-0">{children}</span>
+    </div>
+  );
+}
+
+// ── Sugestão de PGM por bairro, no diálogo de "pessoa cadastrada" ──────────
+//
+// 09/09/2026. Mesma pergunta que a Diaconia já responde em
+// `ComecouAFrequentar` (`DiaconiaPessoas.tsx`), agora também no cadastro
+// geral: "tem um Pequeno Grupo perto daqui?" — no instante em que alguém
+// vira congregado, não escondido numa tela que só a própria pessoa abriria
+// (a Home já mostra isto, mas só pra quem tem conta e loga). Quem cadastra
+// vê na hora, e pode falar do PGM ali mesmo, ainda com a pessoa por perto.
+function SugestaoPgmDoCadastro({ bairro }: { bairro: string }) {
+  const [pgms, setPgms] = useState<SugestaoPgm[] | null>(null);
+
+  useEffect(() => {
+    if (!bairro) { setPgms([]); return; }
+    let cancelado = false;
+    sugerirPgmPorBairro(bairro)
+      .then(r => { if (!cancelado) setPgms(r); })
+      .catch(() => { if (!cancelado) setPgms([]); });
+    return () => { cancelado = true; };
+  }, [bairro]);
+
+  return (
+    <div className="space-y-1.5 border-t pt-3">
+      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+        Pequenos Grupos {bairro ? `perto de ${bairro}` : "por perto"}
+      </p>
+      {!bairro ? (
+        <p className="text-xs text-muted-foreground">
+          Sem bairro cadastrado — não dá pra sugerir por perto.
+        </p>
+      ) : pgms === null ? (
+        <p className="text-xs text-muted-foreground">Buscando…</p>
+      ) : pgms.length === 0 ? (
+        <p className="text-xs text-muted-foreground">Nenhum grupo em {bairro} ainda.</p>
+      ) : (
+        <ul className="space-y-1.5">
+          {pgms.map(g => (
+            <li key={g.id} className="rounded border px-2 py-1.5 text-xs">
+              <p className="font-medium">{g.nome}</p>
+              <p className="text-muted-foreground">
+                {[quandoOPgmSeReune(g), g.lider_nome ? `líder ${g.lider_nome}` : null, `${g.qtd_membros} pessoas`]
+                  .filter(Boolean).join(" · ")}
+              </p>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

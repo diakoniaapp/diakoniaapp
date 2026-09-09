@@ -440,37 +440,17 @@ export async function iniciarFrequencia(pessoaAssistidaId: string): Promise<Resu
   return { ok: true, membroId: data as string };
 }
 
-export interface SugestaoPgm {
-  id: string;
-  nome: string;
-  dia_semana: number | null;
-  horario: string | null;
-  bairro: string | null;
-  qtd_membros: number;
-  lider_nome: string | null;
-}
-
-const DIAS_DA_SEMANA = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
-
-/** "Terça · 19:30" — nulo quando falta um dos dois. */
-export function quandoOPgmSeReune(s: Pick<SugestaoPgm, "dia_semana" | "horario">): string | null {
-  const dia = s.dia_semana != null ? DIAS_DA_SEMANA[s.dia_semana] : null;
-  const hora = s.horario ? s.horario.slice(0, 5) : null;
-  return [dia, hora].filter(Boolean).join(" · ") || null;
-}
-
 /**
- * Pergunta dela: "como indicar um pequeno grupo para que o assistido
- * possa frequentar?" — `pgm_sugerir_por_bairro` já existia antes desta
- * sessão, feita exatamente pra isto. Não é exclusiva da Diaconia — é a
- * mesma função que outros convites do sistema já usam.
+ * 09/09/2026: a Diaconia tinha a própria cópia disto — tipo, função de
+ * formatação e a chamada ao `pgm_sugerir_por_bairro`, todas idênticas às de
+ * `pgmService.ts`. A pergunta dela — "como indicar um pequeno grupo para
+ * que o assistido possa frequentar?" — nunca foi exclusiva da Diaconia; o
+ * comentário antigo aqui já dizia isso. Vira reexport: quem importava
+ * destes três nomes DAQUI continua importando os mesmos nomes, sem mudar
+ * uma linha — só que agora há uma implementação só, em `pgmService.ts`,
+ * usada também pelo cadastro geral de pessoas (`MembroForm`).
  */
-export async function sugerirPgmPorBairro(bairro: string): Promise<SugestaoPgm[]> {
-  if (!bairro?.trim()) return [];
-  const { data, error } = await supabase.rpc("pgm_sugerir_por_bairro", { p_bairro: bairro });
-  if (error) throw error;
-  return (data ?? []) as SugestaoPgm[];
-}
+export { sugerirPgmPorBairro, quandoOPgmSeReune, type SugestaoPgm } from "@/services/pgmService";
 
 // ─── Ficha socioeconômica — só ministra/líder ───────────────────────────
 
