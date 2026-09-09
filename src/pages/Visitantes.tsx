@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent } from "@/components/ui/card";
@@ -47,7 +47,18 @@ const DIAS_RETORNO = 15;
 
 // ── Componente principal ──────────────────────────────────────────────────────
 
+const ABAS_VALIDAS = new Set(["acao", "nao_voltou", "todos"]);
+
 export default function Visitantes() {
+  // `?aba=` deixa outro painel apontar pra uma aba específica — sem isto,
+  // todo link de fora caía sempre em "Ação do dia" (a `defaultValue` de
+  // sempre), mesmo quando quem mandou o link queria mostrar "Não voltaram"
+  // ou "Todos". Só lida na abertura: a navegação entre abas continua sendo
+  // local, não fica reescrevendo a URL a cada clique.
+  const [searchParams] = useSearchParams();
+  const abaParam = searchParams.get("aba");
+  const abaInicial = abaParam && ABAS_VALIDAS.has(abaParam) ? abaParam : "acao";
+
   const [visitantes, setVisitantes]   = useState<VisitanteMembro[]>([]);
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState<string | null>(null);
@@ -297,7 +308,7 @@ export default function Visitantes() {
         )}
 
         {/* Abas */}
-        <Tabs defaultValue="acao">
+        <Tabs defaultValue={abaInicial}>
           {/* As abas transbordavam: 113px de conteudo numa caixa de 110px, e o
               contador invadia a aba vizinha — lia-se "Ação do dia 2Não voltaram".
               Tres correcoes: h-11 (eram 32px, abaixo do alvo de toque de 44px que

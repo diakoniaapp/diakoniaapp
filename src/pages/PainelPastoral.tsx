@@ -617,41 +617,53 @@ export default function PainelPastoral() {
             Acompanhamento de visitantes
           </TituloDaSecao>
           <div className="space-y-3">
-            {/* Pedido dela: os seis números viraram link, não só o "Acolhimento →"
-                do título — clicar em qualquer um leva direto pra /visitantes,
-                onde dá pra agir (registrar contato, WhatsApp, marcar tarefa).
+            {/* Pedido dela: os seis números viraram link — e não pro mesmo
+                lugar genérico todos. Cada um mira o recorte que de fato
+                mostra aquelas pessoas:
 
-                "Congregaram" é a exceção capenga: quem já congregou saiu de
-                `tipo_pessoa = 'visitante'`, então a lista de /visitantes não
-                mostra mais essa pessoa — o link leva pro lugar certo (o
-                painel de acolhimento), só não pro RECORTE exato daquele
-                número. Não há hoje uma tela própria de "quem converteu" pra
-                apontar em vez disso. */}
+                - Novos/Em acomp./Prontos → aba "Todos" de /visitantes. A
+                  aba "Ação do dia" só mostra quem precisa de contato AGORA
+                  — alguém "pronto pra crescer" ou "em acompanhamento" pode
+                  já estar em dia com o contato e não aparecer lá. "Todos"
+                  é o superconjunto que garante que a pessoa aparece.
+                - Sem contato → aba "Ação do dia" — é exatamente essa aba,
+                  ver `AcoesHoje`/`precisaAcao`.
+                - Congregaram → **não é /visitantes**. Quem já congregou saiu
+                  de `tipo_pessoa = 'visitante'` no instante em que virou
+                  congregado — a lista de visitantes nunca mostra essa
+                  pessoa, não importa a aba. Vai pra /membros, filtrado por
+                  tipo. (Achado à parte, registrado em
+                  `visitanteService.ts`: a contagem em si é sempre 0 hoje,
+                  porque `data_congregado` não está populado em nenhum dos
+                  31 congregados ativos do banco — assunto de cadastro, não
+                  desta tela.)
+                - Tarefas → /visitantes sem aba específica; é um resumo
+                  agregado, não um recorte de pessoas. */}
             <FaixaDeIndicadores colunas={6}>
               <Indicador
                 rotulo="Novos (7d)" valor={visitantes.novos} tom="info"
-                onClick={() => navigate("/visitantes")}
-                descricao="Ir para o Painel de Visitantes"
+                onClick={() => navigate("/visitantes?aba=todos")}
+                descricao="Ir para Todos os visitantes"
               />
               <Indicador
                 rotulo="Em acomp." valor={visitantes.emAcompanhamento} tom="celebracao"
-                onClick={() => navigate("/visitantes")}
-                descricao="Ir para o Painel de Visitantes"
+                onClick={() => navigate("/visitantes?aba=todos")}
+                descricao="Ir para Todos os visitantes"
               />
               <Indicador
                 rotulo="Sem contato" valor={visitantes.semContato} tom="warning"
-                onClick={() => navigate("/visitantes")}
-                descricao="Ir para o Painel de Visitantes"
+                onClick={() => navigate("/visitantes?aba=acao")}
+                descricao="Ir para Ação do dia, em Visitantes"
               />
               <Indicador
                 rotulo="Prontos" valor={visitantes.prontosCrescer} tom="success"
-                onClick={() => navigate("/visitantes")}
-                descricao="Ir para o Painel de Visitantes"
+                onClick={() => navigate("/visitantes?aba=todos")}
+                descricao="Ir para Todos os visitantes"
               />
               <Indicador
                 rotulo="Congregaram" valor={visitantes.convertidos} tom="neutro"
-                onClick={() => navigate("/visitantes")}
-                descricao="Ir para o Painel de Visitantes"
+                onClick={() => navigate("/membros?tipo=congregado")}
+                descricao="Ir para Pessoas, filtrado por congregados"
               />
               {/* O "motor" de /visitantes, trazido pra cá a pedido dela: não é
                   quantas pessoas, é quanto do trabalho de acolher elas já foi

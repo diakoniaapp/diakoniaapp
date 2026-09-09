@@ -689,6 +689,18 @@ export default function Membros() {
                 searchParams.delete("t");
                 setSearchParams(searchParams, { replace: true });
         }
+        // `?tipo=` — outro painel apontando pro recorte certo (ex.: "Congregaram"
+        // do Painel Pastoral, que antes linkava pra /visitantes, onde quem já
+        // congregou nunca aparece — saiu de `tipo_pessoa = 'visitante'` no
+        // instante em que virou congregado). Lido uma vez e limpo da URL, como
+        // `?novo=`: depois disso o filtro vira escolha normal do `<Select>` da
+        // tela, não fica preso reescrevendo por cima de quem mudar o filtro à mão.
+        const tipoParam = searchParams.get("tipo");
+        if (tipoParam && ["membro", "congregado", "visitante", "todos"].includes(tipoParam)) {
+                setTipoFiltro(tipoParam);
+                searchParams.delete("tipo");
+                setSearchParams(searchParams, { replace: true });
+        }
   }, [searchParams, canEdit, setSearchParams]);
 
   const load = async () => {
