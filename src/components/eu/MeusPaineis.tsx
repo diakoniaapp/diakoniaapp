@@ -106,16 +106,19 @@ export function MeusPaineis({ permissoes, pessoaId }: {
         <CartaoDePainel key={p.to} to={p.to} nome={p.nome} paraQue={p.paraQue} icon={p.icon} />
       ))}
       {meusMin.map(m => (
-        // O único módulo com bancada própria (09/09/2026): quem lidera a
-        // Diaconia — o ministério inteiro ou só uma área dela — vai direto
-        // para `/painel-diaconia`, não para o painel genérico. Mesma pessoa,
-        // endereço melhor, sem exigir a permissão de banco que os quatro
-        // cartões fixos acima exigem (ver o comentário no topo do arquivo) —
-        // esta lista já é permissão nenhuma DE PROPÓSITO.
+        // A Diaconia é o único ministério com módulo dedicado (09/09/2026):
+        // o cartão troca só o rótulo e o ícone — "Painel da Diaconia", não
+        // "Ministério · Diaconia e Ação Social" — mas o destino continua
+        // sendo o MESMO painel genérico de ministério que todo mundo usa.
+        // `/painel-diaconia` existe como atalho fixo do menu (que não pode
+        // carregar o id do ministério na URL) e redireciona para cá; aqui,
+        // que já se tem o id em mãos, ir direto evita o salto à toa. Ver o
+        // comentário no topo de `PainelDiaconia.tsx` sobre por que NÃO é uma
+        // segunda tela.
         m.modulo === "diaconia" ? (
           <CartaoDePainel
             key={m.id}
-            to="/painel-diaconia"
+            to={`/ministerios/${m.id}/painel`}
             nome="Painel da Diaconia"
             paraQue={[m.comoLidero, ...m.areasQueLidero].join(" · ")}
             icon={HeartHandshake}

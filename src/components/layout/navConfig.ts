@@ -182,12 +182,16 @@ export const ATALHOS_TOPO: NavItem[] = [
   // auditoria encontrou. `ROLES_FINANCEIRO`, não `ROLES_ADMIN`: quem tem só o
   // papel `tesouraria` precisa ver o atalho, não só admin/diakonia/secretaria.
   { to: "/painel-tesouraria", label: "Painel da Tesouraria", icon: Wallet, allowedRoles: ROLES_FINANCEIRO },
-  // Quarto painel dedicado, 09/09/2026. Achado revendo o próprio "Diakonia
-  // Care" do Painel Pastoral: a Diaconia e Ação Social tinha módulo pronto
-  // (cadastro, ficha socioeconômica, chamada de confirmação — em
-  // `SecaoDiaconia`) e nenhuma bancada própria, ao contrário de
-  // Pastoral/Secretaria/Tesouraria — só chegava lá por dentro do painel
-  // genérico de ministério. `ROLES_LIDERES_SEM_TITULAR`, a mesma malha de
+  // Quarto atalho fixo, 09/09/2026 — não uma quarta tela. Achado revendo o
+  // próprio "Diakonia Care" do Painel Pastoral: a Diaconia e Ação Social
+  // tinha módulo pronto (`SecaoDiaconia`, dentro do painel genérico de
+  // ministério) e nenhum endereço fixo para chegar lá, ao contrário de
+  // Pastoral/Secretaria/Tesouraria. A tentativa inicial construiu uma tela
+  // própria e duplicou o que `SecaoDiaconia` já mostrava em
+  // `/ministerios/:id/painel` — ela pegou a sobreposição no mesmo dia.
+  // `PainelDiaconia.tsx` virou um redirecionamento: resolve qual ministério
+  // tem `modulo = 'diaconia'` e manda para o painel de verdade dele, sem
+  // segunda tela. `ROLES_LIDERES_SEM_TITULAR`, a mesma malha de
   // "/ministerios": a Diaconia não é um papel de sistema (`AppRole`) próprio,
   // é um ministério, e sua liderança é quem já enxerga ministérios.
   { to: "/painel-diaconia", label: "Painel da Diaconia", icon: HeartHandshake, allowedRoles: ROLES_LIDERES_SEM_TITULAR },
