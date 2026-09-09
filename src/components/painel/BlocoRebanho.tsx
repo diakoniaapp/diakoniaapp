@@ -718,13 +718,49 @@ function QuadroDoMovimento({
       </div>
 
       {/* ── Os rodapés ───────────────────────────────────────────────────
-          Um por lacuna, e cada um diz de que lado está falando. */}
+          Um por lacuna, e cada um diz de que lado está falando.
+
+          ── "E SE PRECISARMOS CONSULTAR REGISTROS ANTERIORES?" ─────────────
+          Pergunta dela em 09/09/2026, vendo estas duas linhas como texto
+          puro — diziam quantos, nunca quem. Viraram `CartaoDeNomes`, o
+          mesmo componente que já abre as barras do gráfico: a frase inteira
+          é o gatilho, sublinhado para avisar que é clicável (as barras não
+          precisam do sublinhado — parecem barra; texto corrido precisa). */}
       <div className="space-y-1 border-t pt-2">
         {ent.anteriores > 0 && (
           <p className="text-xs text-muted-foreground">
-            Mais <strong className="text-foreground tabular-nums">{ent.anteriores}</strong> entradas
-            registradas antes de {primeiroAno}
+            <CartaoDeNomes
+              itens={ent.pessoasAnteriores.map(p => ({
+                id: p.id, nome: p.nome, quando: p.quando, detalhe: p.tipo,
+              }))}
+              rotuloAria={`Ver quem entrou ${doQue} antes de ${primeiroAno}`}
+              align="start"
+              className="rounded-sm underline decoration-dotted underline-offset-2 hover:decoration-solid text-left"
+            >
+              Mais <strong className="text-foreground tabular-nums">{ent.anteriores}</strong> entradas
+              registradas antes de {primeiroAno}
+            </CartaoDeNomes>
             {ent.anoMaisAntigo !== null && <> — a mais antiga em {ent.anoMaisAntigo}</>}.
+          </p>
+        )}
+
+        {/* A mesma lacuna do lado de cima, do lado de baixo: até 09/09/2026
+            só as entradas antigas tinham linha própria — as saídas antigas
+            entravam em `sai.comAno` e desapareciam sem explicação. */}
+        {sai.anteriores > 0 && (
+          <p className="text-xs text-muted-foreground">
+            <CartaoDeNomes
+              itens={sai.pessoasAnteriores.map(p => ({
+                id: p.id, nome: p.nome, quando: p.quando, detalhe: p.tipo,
+              }))}
+              rotuloAria={`Ver quem saiu ${doQue} antes de ${primeiroAno}`}
+              align="start"
+              className="rounded-sm underline decoration-dotted underline-offset-2 hover:decoration-solid text-left"
+            >
+              Mais <strong className="text-foreground tabular-nums">{sai.anteriores}</strong> saídas
+              registradas antes de {primeiroAno}
+            </CartaoDeNomes>
+            {sai.anoMaisAntigo !== null && <> — a mais antiga em {sai.anoMaisAntigo}</>}.
           </p>
         )}
 

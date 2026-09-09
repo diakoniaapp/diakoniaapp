@@ -314,6 +314,16 @@ export interface IndicadoresMembresia {
       anteriores: number;
       /** O ano mais antigo com entrada registrada. Nulo se não houver. */
       anoMaisAntigo: number | null;
+      /**
+       * Quem são as `anteriores` — a lista por trás do número.
+       *
+       * Pedido dela em 09/09/2026, vendo a frase "Mais 12 entradas
+       * registradas antes de 2016" sem jeito nenhum de saber quem: "e se
+       * precisarmos consultar registros anteriores?". A frase virou botão,
+       * e esta lista é o que ele abre — mesmo `CartaoDeNomes` que já abre
+       * as barras do gráfico.
+       */
+      pessoasAnteriores: PessoaNoAno[];
       comAno: number;
       /** Membros ativos sem `data_entrada`. O buraco que o bloco confessa. */
       semAno: number;
@@ -328,6 +338,18 @@ export interface IndicadoresMembresia {
        * Contado à parte, nunca desenhado: sem ano não há barra.
        */
       semAno: number;
+      /**
+       * Saídas com data ANTERIOR à janela — o mesmo campo que `entradas` já
+       * tinha, e que faltava aqui até 09/09/2026: até então essas saídas
+       * entravam em `comAno` mas não apareciam em lugar nenhum da tela, ao
+       * contrário das entradas antigas, que ao menos ganhavam uma linha de
+       * texto. Agora as duas metades do gráfico confessam a mesma lacuna.
+       */
+      anteriores: number;
+      /** O ano mais antigo com saída registrada. Nulo se não houver. */
+      anoMaisAntigo: number | null;
+      /** Quem são as `anteriores` — mesma ideia de `entradas.pessoasAnteriores`. */
+      pessoasAnteriores: PessoaNoAno[];
     };
   };
 }
@@ -477,6 +499,7 @@ export async function indicadoresMembresia(
   // ── Entradas ─────────────────────────────────────────────────────────────
   let anteriores = 0, comAnoEntrada = 0, semAnoEntrada = 0;
   let anoMaisAntigo: number | null = null;
+  const pessoasAnterioresEntrada: PessoaNoAno[] = [];
 
   for (const p of membros) {
     const ano = anoDe(p.data_entrada);
@@ -484,18 +507,23 @@ export async function indicadoresMembresia(
 
     comAnoEntrada++;
     if (anoMaisAntigo === null || ano < anoMaisAntigo) anoMaisAntigo = ano;
-    if (ano < primeiroDaJanela) { anteriores++; continue; }
+
+    const linha: PessoaNoAno = {
+      id: p.id, nome: p.nome_completo,
+      quando: diaEMes(p.data_entrada), data: p.data_entrada ?? "",
+      tipo: TIPO_DE_ENTRADA[p.tipo_entrada ?? ""],
+    };
+
+    if (ano < primeiroDaJanela) {
+      anteriores++;
+      pessoasAnterioresEntrada.push(linha);
+      continue;
+    }
     // Data de entrada no futuro não tem casa na janela. Somá-la a
     // "anteriores" seria mentira; fica de fora, e o total que a tela usa
     // para dizer quantos o gráfico cobre continua sendo `comAnoEntrada`.
     const item = naJanela(ano);
-    if (item) {
-      item.pessoasEntrada.push({
-        id: p.id, nome: p.nome_completo,
-        quando: diaEMes(p.data_entrada), data: p.data_entrada ?? "",
-        tipo: TIPO_DE_ENTRADA[p.tipo_entrada ?? ""],
-      });
-    }
+    if (item) item.pessoasEntrada.push(linha);
   }
 
   // ── Saídas ───────────────────────────────────────────────────────────────
@@ -507,7 +535,9 @@ export async function indicadoresMembresia(
   // congregado marcado como falecido é uma perda para a igreja mas não é uma
   // saída do rol — ele nunca esteve nele. No escopo "rebanho" a mesma barra
   // conta as três pessoas que a pirâmide de cima também passou a contar.
-  let comAnoSaida = 0, semAnoSaida = 0;
+  let comAnoSaida = 0, semAnoSaida = 0, anterioresSaida = 0;
+  let anoMaisAntigoSaida: number | null = null;
+  const pessoasAnterioresSaida: PessoaNoAno[] = [];
 
   for (const p of pessoas) {
     if (escopo === "rol" && p.tipo_pessoa !== "membro") continue;
@@ -516,18 +546,25 @@ export async function indicadoresMembresia(
     const ano = anoDe(p.data_saida);
     if (ano === null) { semAnoSaida++; continue; }
     comAnoSaida++;
-    const item = naJanela(ano);
-    if (item) {
-      // A saída ganha a data pelo mesmo motivo que a entrada — as duas
-      // listas são a mesma coisa vista dos dois lados do eixo, e uma sem
-      // data ao lado da outra com data pareceria dado faltando.
-      item.pessoasSaida.push({
-        id: p.id, nome: p.nome_completo,
-        quando: diaEMes(p.data_saida),
-        tipo: MOTIVO_DA_SAIDA[p.status ?? ""] ?? "saiu do rol",
-        data: p.data_saida ?? "",
-      });
+    if (anoMaisAntigoSaida === null || ano < anoMaisAntigoSaida) anoMaisAntigoSaida = ano;
+
+    // A saída ganha a data pelo mesmo motivo que a entrada — as duas
+    // listas são a mesma coisa vista dos dois lados do eixo, e uma sem
+    // data ao lado da outra com data pareceria dado faltando.
+    const linha: PessoaNoAno = {
+      id: p.id, nome: p.nome_completo,
+      quando: diaEMes(p.data_saida),
+      tipo: MOTIVO_DA_SAIDA[p.status ?? ""] ?? "saiu do rol",
+      data: p.data_saida ?? "",
+    };
+
+    if (ano < primeiroDaJanela) {
+      anterioresSaida++;
+      pessoasAnterioresSaida.push(linha);
+      continue;
     }
+    const item = naJanela(ano);
+    if (item) item.pessoasSaida.push(linha);
   }
 
   // Contadores derivados das listas, e a ordem em que os nomes serão lidos:
@@ -553,6 +590,10 @@ export async function indicadoresMembresia(
     a.entradas = a.pessoasEntrada.length;
     a.saidas   = a.pessoasSaida.length;
   }
+  // As duas listas de "antes da janela" leem-se do mesmo jeito: do
+  // registro mais antigo para o mais recente.
+  pessoasAnterioresEntrada.sort(maisAntigoPrimeiro);
+  pessoasAnterioresSaida.sort(maisAntigoPrimeiro);
 
   const maior = Math.max(1, ...porAno.map(x => Math.max(x.entradas, x.saidas)));
 
@@ -566,8 +607,15 @@ export async function indicadoresMembresia(
     movimento: {
       porAno,
       maior,
-      entradas: { anteriores, anoMaisAntigo, comAno: comAnoEntrada, semAno: semAnoEntrada },
-      saidas:   { comAno: comAnoSaida, semAno: semAnoSaida },
+      entradas: {
+        anteriores, anoMaisAntigo, pessoasAnteriores: pessoasAnterioresEntrada,
+        comAno: comAnoEntrada, semAno: semAnoEntrada,
+      },
+      saidas: {
+        comAno: comAnoSaida, semAno: semAnoSaida,
+        anteriores: anterioresSaida, anoMaisAntigo: anoMaisAntigoSaida,
+        pessoasAnteriores: pessoasAnterioresSaida,
+      },
     },
   };
 }
