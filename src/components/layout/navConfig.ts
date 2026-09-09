@@ -452,9 +452,15 @@ export function rotaInicialPorPapel(roles: AppRole[]): string {
  * esquecer a proxima — foi assim que `/arrecadacao/espacos` continuou sendo
  * oferecido ao pastor titular depois de `/arrecadacao` ser fechado.
  *
- * O guarda de rota NAO usa isto ainda. Trocar o casamento exato por prefixo
- * la muda o comportamento de setenta e seis rotas de uma vez, e e trabalho
- * proprio — aqui o alcance e uma lista de atalhos.
+ * ── O GUARDA DE ROTA JA USA ISTO ────────────────────────────────────────────
+ *
+ * Ligado em 08/09/2026: o `AppLayout` chamava `ROUTE_ROLES` por caminho exato,
+ * e esta nota aqui ainda dizia o contrário — achado relendo o arquivo na
+ * auditoria de navegação da mesma semana. `AppLayout` agora chama esta função
+ * direto, então o casamento por prefixo vale para as setenta e seis rotas de
+ * uma vez, não só para a paleta. O que continua por fazer é o oposto: cobrir
+ * as rotas que nem `ROUTE_ROLES` nem esta lista de atalhos alcançam — o
+ * Risco 5 do CLAUDE.md mede quantas ainda ficam de fora.
  */
 export function papeisExigidosPara(rota: string): AppRole[] | undefined {
   // Sem a query string: `/financas?lancar=true` e a mesma tela de `/financas`.
