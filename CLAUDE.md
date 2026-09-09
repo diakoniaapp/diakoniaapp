@@ -676,50 +676,37 @@ Priorizar por risco de RLS: escrever primeiro onde a política é mais restritiv
 portão da tela. **Atenção ao contar:** `await supabase` indentado como argumento de
 `conferir(` **não** é escrita cega — um regex ingênuo conta a mais.
 
-### Risco 5 — A guarda de rota por papel cobre 9 de 76 rotas
+### Risco 5 — A guarda de rota por papel
 
-> **Corrigido em 20/08/2026.** A versão anterior deste documento afirmava que
-> *nenhuma* rota tinha guarda por papel. Estava errado.
+> **Corrigido em 20/08/2026** (a versão anterior deste documento afirmava que
+> *nenhuma* rota tinha guarda por papel — estava errado) **e novamente em
+> 08/09/2026** (casamento por prefixo, ver abaixo).
 
 Existe controle de acesso por papéis nas rotas: `ROUTE_ROLES`, declarado em
-`components/layout/navConfig.ts` e aplicado pelo `AppLayout` a cada navegação.
-Quem não tem o papel exigido é redirecionado para o painel.
+`components/layout/navConfig.ts` (hoje ~20 entradas) e aplicado pelo
+`AppLayout` a cada navegação. Quem não tem o papel exigido vê um toast
+("Você não tem acesso a esta tela.") e é redirecionado para a Home.
 
-```ts
-// components/layout/navConfig.ts
-export const ROUTE_ROLES: Record<string, AppRole[]> = {
-  "/membros":            ROLES_LIDERES,
-  "/familias":           ROLES_LIDERES,
-  "/ministerios":        ROLES_LIDERES,
-  "/locais":             ROLES_LIDERES,
-  "/painel-estrategico": ROLES_PASTORAL,
-  "/ebd":                ROLES_LIDERES,
-  "/organograma":        ROLES_LIDERES,
-  "/estrutura":          ROLES_PASTORAL,
-  "/usuarios":           ROLES_ADMIN,
-};
-```
+**A guarda passou a casar por PREFIXO, não por caminho exato.** Até
+08/09/2026 ela lia `ROUTE_ROLES[location.pathname]` direto — uma rota com
+parâmetro ou sub-rota (`/financas/*`, `/admin/*`) não batia com a entrada do
+grupo (`/financas`, `/admin`) e passava sem checar papel nenhum, mesmo a
+paleta Ctrl+K já escondendo o ITEM correspondente com a mesma lógica de
+prefixo (`papeisExigidosPara()`, que já existia só para isso). Agora o
+guarda usa a mesma função: `papeisExigidosPara(location.pathname)`, o
+prefixo mais longo vence, `/financas/qualquer-coisa` herda a guarda de
+`/financas`.
 
-**Cobertura medida: 9 rotas protegidas, 76 rotas no total — 67 sem guarda.**
+**Limitação que continua**: a guarda só age depois de os papéis carregarem
+(`roles.length > 0`). Antes disso a tela já renderizou — a RLS do banco
+continua sendo o backstop de verdade, isto aqui é só a experiência de
+navegação.
 
-**Limitações observadas:**
-
-- **As rotas mais sensíveis não estão na lista.** `/admin/*` (7 rotas) e
-  `/financas/*` (18 rotas) **não** aparecem em `ROUTE_ROLES`. Quem digitar a URL
-  chega à tela.
-- **A guarda é por caminho exato**, não por prefixo: `Record<string, AppRole[]>`
-  indexado por `location.pathname`. Uma rota com parâmetro — `/ebd/:classeId` — não
-  casa com a entrada de `/ebd`.
-- **A guarda só age depois de os papéis carregarem** (`roles.length > 0`). Antes
-  disso a tela já renderizou.
-
-**Impacto:** contido, mas por acúmulo e não por desenho — as telas de `/admin`
-se defendem sozinhas com `hasRole(...)`, e a RLS é o backstop. Depende de cada tela
-lembrar.
-
-**Mitigação:** acrescentar as rotas de `/admin/*` e `/financas/*` a `ROUTE_ROLES`,
-ou trocar a busca por caminho exato por casamento de prefixo. Enquanto não houver,
-**toda tela nova sob `/admin` precisa da sua própria guarda interna**.
+**Impacto residual:** rotas que não têm NENHUM ancestral em `ROUTE_ROLES`
+continuam sem guarda nenhuma na navegação (ainda dependem de `hasRole(...)`
+dentro da própria tela + RLS). Antes de criar uma tela nova sob um prefixo
+sensível, conferir se esse prefixo já tem entrada em `ROUTE_ROLES` — se não
+tiver, a tela nova entra sem porta nenhuma na navegação.
 
 ### Risco 6 — `pg_stat_user_tables.n_live_tup` mente
 
@@ -835,14 +822,15 @@ duas afirmações se mostraram **falsas** e quatro achados relevantes estavam
 |---|---|
 | Dizia antes | "Só há guarda de autenticação (`AppLayout`)" |
 | Evidência | `ROUTE_ROLES` em `components/layout/navConfig.ts`, aplicado pelo `AppLayout` |
-| Diz agora | 9 rotas protegidas de 76; 67 sem guarda |
-| Onde | [Risco 5](#risco-5--a-guarda-de-rota-por-papel-cobre-9-de-76-rotas) |
+| Diz agora | ~20 rotas com entrada própria em `ROUTE_ROLES`, casamento por prefixo desde 08/09/2026 |
+| Onde | [Risco 5](#risco-5--a-guarda-de-rota-por-papel) |
 
-A **preocupação original continua válida** — `/admin/*` e `/financas/*` não estão
-entre as nove — mas o diagnóstico estava errado. O risco passou a documentar a
-cobertura real, o mapa completo das 9 rotas e três limitações que só apareceram ao
-ler o código do portão: a busca é por **caminho exato** (rota com parâmetro não
-casa), e a guarda **só age depois de os papéis carregarem**.
+A **preocupação original era válida** — `/admin/*` e `/financas/*` não tinham
+entrada própria e a busca era por **caminho exato**, então sub-rota não casava
+com a entrada do grupo. **Fechada em 08/09/2026**: a guarda passou a usar
+`papeisExigidosPara()` (casamento por prefixo, já existia só para a paleta
+Ctrl+K). Limitação que continua: a guarda **só age depois de os papéis
+carregarem**.
 
 **2 · "Todo acesso ao banco passa por `services/`" — era falso.**
 
