@@ -338,9 +338,12 @@ export default function AppLayout() {
                 <div className="w-9 h-9 rounded-full bg-gold/20 flex items-center justify-center text-gold font-semibold text-xs shrink-0">
                   {iniciais}
                 </div>
+                {/* 09/09/2026, pedido dela: sem e-mail aqui nem no rótulo
+                    do menu abaixo — pra quem entrou por telefone,
+                    `user.email` é o valor sintético do auth
+                    (telefone@app.diakonia...), não um e-mail de verdade. */}
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium truncate">{nomeDisplay ?? "Sem nome"}</div>
-                  <div className="text-xs text-sidebar-foreground/60 truncate">{user.email}</div>
                 </div>
                 <ChevronDown className="w-4 h-4 text-sidebar-foreground/60 shrink-0" />
               </button>
@@ -349,7 +352,6 @@ export default function AppLayout() {
               <DropdownMenuLabel>
                 <div className="flex flex-col">
                   <span className="font-medium">{nomeDisplay ?? "Sem nome"}</span>
-                  <span className="text-xs font-normal text-muted-foreground truncate">{user.email}</span>
                   <span className="text-xs text-muted-foreground mt-0.5">
                     {roleLabel[principalRole] ?? principalRole}
                   </span>

@@ -90,9 +90,12 @@ export function UserMenuButton() {
             <Avatar className="w-8 h-8">
               <AvatarFallback className="bg-gold/20 text-gold font-bold text-xs">{initials}</AvatarFallback>
             </Avatar>
+            {/* 09/09/2026, pedido dela: sem e-mail aqui — pra quem entrou
+                por telefone, `user.email` é o valor sintético do auth
+                (telefone@app.diakonia...), não um e-mail de verdade, e
+                mostrá-lo confundia mais do que ajudava. */}
             <div className="min-w-0">
               <p className="font-semibold text-sm truncate">{nome || "Usuário"}</p>
-              <p className="text-xs text-muted-foreground truncate">{user.email}</p>
             </div>
           </div>
           <div className="flex items-center gap-1.5 mt-2">
