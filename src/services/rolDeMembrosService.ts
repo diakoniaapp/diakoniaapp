@@ -590,10 +590,21 @@ export async function indicadoresMembresia(
     a.entradas = a.pessoasEntrada.length;
     a.saidas   = a.pessoasSaida.length;
   }
-  // As duas listas de "antes da janela" leem-se do mesmo jeito: do
-  // registro mais antigo para o mais recente.
-  pessoasAnterioresEntrada.sort(maisAntigoPrimeiro);
-  pessoasAnterioresSaida.sort(maisAntigoPrimeiro);
+
+  // ── As listas de "antes da janela" leem-se ao CONTRÁRIO das de um ano ──
+  //
+  // Dentro de um ano a ordem é cronológica (ver o comentário acima): um ano
+  // se lê de janeiro para dezembro. "Antes de 2017" não é um ano, é décadas
+  // — e quem abre essa lista quase sempre quer saber quem ficou de fora do
+  // gráfico por pouco, não quem entrou há mais tempo. Pedido dela em
+  // 09/09/2026, olhando a lista começar em 1941: "ordem decrescente... nos
+  // dois painéis. Faz mais sentido?" — faz: o registro mais recente (o mais
+  // perto da borda esquerda do gráfico) fica no topo, sem rolar décadas.
+  const maisRecentePrimeiro = (x: PessoaNoAno, y: PessoaNoAno) =>
+    y.data.localeCompare(x.data) || x.nome.localeCompare(y.nome, "pt-BR");
+
+  pessoasAnterioresEntrada.sort(maisRecentePrimeiro);
+  pessoasAnterioresSaida.sort(maisRecentePrimeiro);
 
   const maior = Math.max(1, ...porAno.map(x => Math.max(x.entradas, x.saidas)));
 
