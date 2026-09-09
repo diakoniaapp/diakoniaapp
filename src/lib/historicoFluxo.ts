@@ -15,6 +15,8 @@ export type TipoHistorico =
   | "evento"
   | "observacao"
   | "cadastro"
+  | "entrada_rol"
+  | "cadastro_sistema"
   | "promocao_congregado"
   | "promocao_membro";
 
@@ -47,7 +49,18 @@ export const HISTORICO_CONFIG: Record<
   TipoHistorico,
   { label: string; cor: string; emoji: string }
 > = {
+  // "Primeiro culto" — só para VISITANTE. É a história real de quem chegou:
+  // alguém apareceu, foi cadastrado, e aquela data É o primeiro culto.
   cadastro:            { label: "Primeiro culto",      emoji: "🏠", cor: "text-info-text bg-info-soft border-info-line" },
+  // Membro/congregado com `data_entrada` conhecida — o marco real da
+  // caminhada (assembleia, batismo...), não a data em que a LINHA nasceu
+  // no banco. Ver `VisitanteTimeline.tsx` e o pedido dela em 09/09/2026.
+  entrada_rol:         { label: "Entrada no rol",       emoji: "📜", cor: "text-gold bg-warning-soft border-warning-line" },
+  // Membro/congregado SEM `data_entrada` — o fallback quando só se sabe
+  // quando o cadastro foi digitado, nunca quando a pessoa entrou de fato.
+  // Existe pra não deixar a ficha sem nenhum marco, mas não finge ser
+  // "Primeiro culto": diz exatamente o que é.
+  cadastro_sistema:    { label: "Cadastro no sistema",  emoji: "🗂️", cor: "text-muted-foreground bg-muted border-border" },
   whatsapp:            { label: "WhatsApp",             emoji: "💬", cor: "text-success-text bg-success-soft border-success-line" },
   ligacao:             { label: "Ligação",              emoji: "📞", cor: "text-info-text bg-info-soft border-info-line" },
   visita_presencial:   { label: "Visita presencial",    emoji: "🚪", cor: "text-warning-text bg-warning-soft border-warning-line" },

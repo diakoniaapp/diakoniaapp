@@ -52,6 +52,15 @@ export interface Visitante {
   data_membro:         string | null;
   created_at:          string;
   updated_at:          string;
+  /**
+   * Data real de entrada no rol (assembleia, batismo...) — não confundir com
+   * `created_at`, que é só quando a LINHA foi criada no banco. Pedido dela
+   * em 09/09/2026: a ficha de um membro importado do sistema anterior
+   * mostrava `created_at` como "Primeiro culto", quando aquela data era só
+   * o dia em que a secretaria digitou o cadastro.
+   */
+  data_entrada:        string | null;
+  tipo_entrada:        string | null;
   // campos extras (join)
   como_conheceu:       string | null;
   bairro:              string | null;

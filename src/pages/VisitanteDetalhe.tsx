@@ -43,6 +43,7 @@ import {
 } from "@/types/visitante";
 import type { Visitante, StatusAcolhimento } from "@/types/visitante";
 import { formatarTelefoneSemDDI } from "@/lib/telefone";
+import { parseLocalDate } from "@/lib/data";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -411,19 +412,40 @@ export default function VisitanteDetalhe() {
                 <p className="font-medium">{visitante.bairro}</p>
               </div>
             )}
-            {visitante.created_at && (
-              <div>
-                {/* "Primeira visita" so faz sentido para quem visitou. Num
-                    membro, esta data e a do cadastro no sistema — e chamar de
-                    primeira visita a data em que a secretaria digitou alguem
-                    que congrega ha vinte anos conta uma historia errada. */}
-                <p className="text-xs text-muted-foreground">
-                  {isCongregadoOuMembro ? "Cadastrado em" : "Primeira visita"}
-                </p>
-                <p className="font-medium">
-                  {format(new Date(visitante.created_at), "dd/MM/yyyy", { locale: ptBR })}
-                </p>
-              </div>
+            {/* ── A data de chegada, e não a data do cadastro ────────────────
+                Pedido dela em 09/09/2026: "'cadastrado em' deve mostrar
+                apenas para VISITANTES ... para membros, mostre sempre a
+                data de entrada". `created_at` é só quando a LINHA nasceu no
+                banco — para quem chegou agora isso É a primeira visita, mas
+                para um membro importado do sistema anterior pode ser anos
+                depois da entrada real, e rotular aquilo de "Cadastrado em"
+                (ou pior, de "Primeiro culto" na linha do tempo abaixo)
+                inventa um fato. Membro/congregado usa `data_entrada` — a
+                data real da assembleia/batismo — e, sem ela, o campo some:
+                nenhum dado é melhor que um dado inventado. */}
+            {isCongregadoOuMembro ? (
+              visitante.data_entrada && (
+                <div>
+                  <p className="text-xs text-muted-foreground">Data de entrada</p>
+                  {/* `data_entrada` é `date`, sem hora — `new Date(str)` a
+                      leria como meia-noite UTC e devolveria o dia ANTERIOR
+                      num navegador em Brasília. `parseLocalDate` lê os
+                      componentes direto, sem passar por UTC. Ver `lib/data.ts`
+                      e a mesma correção em `VisitanteTimeline.tsx`. */}
+                  <p className="font-medium">
+                    {format(parseLocalDate(visitante.data_entrada), "dd/MM/yyyy", { locale: ptBR })}
+                  </p>
+                </div>
+              )
+            ) : (
+              visitante.created_at && (
+                <div>
+                  <p className="text-xs text-muted-foreground">Primeira visita</p>
+                  <p className="font-medium">
+                    {format(new Date(visitante.created_at), "dd/MM/yyyy", { locale: ptBR })}
+                  </p>
+                </div>
+              )
             )}
             {visitante.como_conheceu && (
               <div>
@@ -521,6 +543,8 @@ export default function VisitanteDetalhe() {
         dataCadastro={visitante.created_at}
         dataCongregado={visitante.data_congregado}
         dataMembro={visitante.data_membro}
+        dataEntrada={visitante.data_entrada}
+        tipoEntrada={visitante.tipo_entrada}
         somenteMarcos={isCongregadoOuMembro}
       />
 

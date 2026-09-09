@@ -250,8 +250,12 @@ const MOTIVO_DA_SAIDA: Record<string, string> = {
  * Os valores são os do enum `tipo_entrada_rol`. **Profissão de fé não está
  * aqui** porque não é uma forma de entrar: antecede o batismo e é
  * pré-requisito dele — ver a migration `20260828200000`.
+ *
+ * Exportado desde 09/09/2026: `VisitanteTimeline.tsx` precisa do mesmo
+ * rótulo para o marco "Entrada no rol" na ficha de membro — duplicar o
+ * mapa ali era um convite às duas listas divergirem um dia.
  */
-const TIPO_DE_ENTRADA: Record<string, string> = {
+export const TIPO_DE_ENTRADA: Record<string, string> = {
   aclamacao:     "aclamação",
   batismo:       "batismo",
   reconciliacao: "reconciliação",

@@ -9,6 +9,8 @@ import { Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { HISTORICO_CONFIG } from "@/lib/historicoFluxo";
 import type { TipoHistorico } from "@/lib/historicoFluxo";
+import { TIPO_DE_ENTRADA } from "@/services/rolDeMembrosService";
+import { parseLocalDate } from "@/lib/data";
 
 // ── Tipos ─────────────────────────────────────────────────────
 
@@ -17,6 +19,16 @@ interface HistoricoItem {
   tipo: TipoHistorico;
   observacao: string | null;
   created_at: string;
+  /**
+   * `membros.data_entrada` é `date`, sem hora — ao contrário de todo outro
+   * marco desta linha do tempo, que vem de `timestamptz` de verdade.
+   * `new Date("2019-07-07")` é interpretado como meia-noite UTC pela
+   * especificação, e convertido de volta pro fuso local na exibição vira
+   * "06/07 · 21:00" num navegador em Brasília — a mesma classe de bug do
+   * arquivo `lib/data.ts` (ver o cabeçalho de lá). A DATA já sai corrigida
+   * por `parseLocalDate`; esta flag esconde a HORA, que nunca existiu.
+   */
+  semHora?: boolean;
 }
 
 interface Props {
@@ -26,6 +38,16 @@ interface Props {
   /** Datas estáticas de promoção (opcional — já podem estar no log) */
   dataCongregado?: string | null;
   dataMembro?: string | null;
+  /**
+   * Data real de entrada no rol (`membros.data_entrada`) — só faz sentido
+   * quando `somenteMarcos` é true. Existindo, ela substitui o "Primeiro
+   * culto" fabricado a partir de `dataCadastro`: pedido dela em 09/09/2026,
+   * vendo a ficha de um membro importado dizer "Primeiro culto" na data em
+   * que a secretaria digitou o cadastro, não a data em que ele de fato
+   * entrou. Ver `entrada_rol` e `cadastro_sistema` em `historicoFluxo.ts`.
+   */
+  dataEntrada?: string | null;
+  tipoEntrada?: string | null;
   /**
    * Esconde os registros de contato e deixa só os marcos de caminhada.
    *
@@ -59,11 +81,24 @@ function formatarHora(iso: string): string {
 
 // ── Componente ────────────────────────────────────────────────
 
-/** Os três que contam a caminhada, e não o acompanhamento. */
-const MARCOS: TipoHistorico[] = ["cadastro", "promocao_congregado", "promocao_membro"];
+/**
+ * Os que contam a caminhada de quem já é da casa — e não o acompanhamento.
+ *
+ * `"cadastro"` (rótulo "Primeiro culto") de propósito NÃO está aqui: só se
+ * aplica quando `somenteMarcos` é true (membro/congregado), e "Primeiro
+ * culto" é conceito de visitante. Sem essa exclusão, um "cadastro" real
+ * gravado em `visita_historico` durante uma importação (como o de Raquel,
+ * achado em 09/09/2026) continuava aparecendo do lado do marco certo —
+ * "Entrada no rol" e "Primeiro culto" juntos, dizendo coisas diferentes
+ * sobre a mesma pessoa.
+ */
+const MARCOS: TipoHistorico[] = [
+  "entrada_rol", "cadastro_sistema", "promocao_congregado", "promocao_membro",
+];
 
 export default function VisitanteTimeline({
-  pessoaId, dataCadastro, dataCongregado, dataMembro, somenteMarcos = false,
+  pessoaId, dataCadastro, dataCongregado, dataMembro,
+  dataEntrada, tipoEntrada, somenteMarcos = false,
 }: Props) {
   const [itens, setItens]     = useState<HistoricoItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -99,15 +134,52 @@ export default function VisitanteTimeline({
       created_at: dataCongregado,
     });
   }
-  // Garantir que haja ao menos o cadastro
-  const temCadastro = itens.find(i => i.tipo === "cadastro");
-  if (!temCadastro) {
-    marcosExtras.push({
-      id: "static-cadastro",
-      tipo: "cadastro",
-      observacao: "Primeiro culto — cadastro inicial",
-      created_at: dataCadastro,
-    });
+  // ── O marco de chegada: "Primeiro culto" só é verdade pra visitante ──────
+  //
+  // Para VISITANTE, `dataCadastro` (created_at) é confiável: alguém apareceu
+  // e foi cadastrado ali, na hora. "Primeiro culto" é exatamente o que
+  // aconteceu.
+  //
+  // Para MEMBRO/CONGREGADO (`somenteMarcos`), `dataCadastro` não é isso —
+  // é só quando a LINHA nasceu no banco, que pode ser anos depois da pessoa
+  // ter entrado (o caso comum: importação do sistema anterior). Chamar
+  // aquilo de "Primeiro culto" inventa um fato. Com `dataEntrada` real
+  // (`membros.data_entrada`), o marco vira `entrada_rol`, na data certa; sem
+  // ela, vira `cadastro_sistema` — mesma data de antes, mas dizendo o que
+  // ela É, não o que não é.
+  if (somenteMarcos) {
+    const temMarcoDeEntrada = itens.find(i => i.tipo === "entrada_rol" || i.tipo === "cadastro_sistema");
+    if (!temMarcoDeEntrada) {
+      if (dataEntrada) {
+        const rotulo = tipoEntrada ? TIPO_DE_ENTRADA[tipoEntrada] : null;
+        marcosExtras.push({
+          id: "static-entrada-rol",
+          tipo: "entrada_rol",
+          observacao: rotulo ? `Entrada por ${rotulo}` : null,
+          // `parseLocalDate`, não `new Date(dataEntrada)` direto: ver o
+          // comentário de `semHora` em `HistoricoItem`.
+          created_at: parseLocalDate(dataEntrada).toISOString(),
+          semHora: true,
+        });
+      } else {
+        marcosExtras.push({
+          id: "static-cadastro-sistema",
+          tipo: "cadastro_sistema",
+          observacao: "Data de entrada não registrada — esta é só a data em que o cadastro entrou no sistema.",
+          created_at: dataCadastro,
+        });
+      }
+    }
+  } else {
+    const temCadastro = itens.find(i => i.tipo === "cadastro");
+    if (!temCadastro) {
+      marcosExtras.push({
+        id: "static-cadastro",
+        tipo: "cadastro",
+        observacao: "Primeiro culto — cadastro inicial",
+        created_at: dataCadastro,
+      });
+    }
   }
 
   const todos = [...itens, ...marcosExtras]
@@ -179,7 +251,8 @@ export default function VisitanteTimeline({
                     {cfg.label}
                   </span>
                   <span className="text-xs text-muted-foreground" translate="no">
-                    {formatarData(item.created_at)} · {formatarHora(item.created_at)}
+                    {formatarData(item.created_at)}
+                    {!item.semHora && <> · {formatarHora(item.created_at)}</>}
                   </span>
                 </div>
                 {item.observacao && (

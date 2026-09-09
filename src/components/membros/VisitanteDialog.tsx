@@ -288,12 +288,23 @@ export default function VisitanteDialog({ open, onOpenChange, pessoa, onSaved }:
 
           {/* JORNADA / HISTÓRICO */}
           <TabsContent value="historico" className="mt-4">
+            {/* `somenteMarcos` faltava aqui — este diálogo nunca passava a
+                condição de "isCongregadoOuMembro" que `VisitanteDetalhe.tsx`
+                já calculava, então TODO membro aberto por aqui via a linha
+                do tempo completa de visitante, "Primeiro culto" incluso.
+                Achado junto do pedido dela em 09/09/2026 sobre a mesma
+                confusão na outra tela. `dataEntrada`/`tipoEntrada` pelo
+                mesmo motivo — sem eles o marco de chegada de um membro
+                continuava vindo de `created_at`. */}
             {pessoa && (
               <VisitanteTimeline
                 pessoaId={pessoa.id}
                 dataCadastro={(pessoa as VisitanteMembro).created_at}
                 dataCongregado={(pessoa as VisitanteMembro).data_congregado}
                 dataMembro={(pessoa as VisitanteMembro).data_membro}
+                dataEntrada={pessoa.data_entrada}
+                tipoEntrada={pessoa.tipo_entrada}
+                somenteMarcos={!isVisitante}
               />
             )}
           </TabsContent>

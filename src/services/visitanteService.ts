@@ -19,7 +19,8 @@ export async function buscarVisitante(id: string): Promise<Visitante | null> {
       responsavel_id, quem_convidou_id, numero_visitas,
       ultimo_contato_em, ultimo_contato_tipo,
       data_congregado, data_membro, created_at, updated_at,
-      como_conheceu, bairro, data_nascimento, sexo
+      como_conheceu, bairro, data_nascimento, sexo,
+      data_entrada, tipo_entrada
     `)
     .eq("id", id)
     .single();
