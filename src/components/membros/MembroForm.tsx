@@ -1067,50 +1067,6 @@ export function MembroForm({ open, onOpenChange, membro, onSaved, tipoInicial, o
               </div>
 
               <div>
-                <Label translate="no">
-                  Telefone celular {isVisitante && <span className="text-destructive">*</span>}
-                </Label>
-                <TelefoneInput
-                  value={form.telefone_celular}
-                  onChange={(v) => set("telefone_celular", v)}
-                />
-                {/* ── Dispensar o telefone ────────────────────────────────
-                    Só com o campo vazio. Com telefone preenchido a caixa não
-                    quereria dizer nada, e uma caixa que não muda nada é uma
-                    pergunta a mais em cada cadastro.
-
-                    Fora para visitante: ali o telefone é obrigatório de
-                    verdade — sem ele não há acolhimento, que é a razão de o
-                    visitante estar no sistema.
-
-                    O texto não diz "criança" porque a regra não é essa: é
-                    "não tem telefone próprio". Vale para o idoso que usa o
-                    telefone do filho e para quem é contatado pela família.
-                    Criança é o caso mais comum, não o único. */}
-                {!isVisitante && !form.telefone_celular?.trim() && (
-                  <label className="flex items-start gap-2 mt-2 cursor-pointer">
-                    <Checkbox
-                      checked={!!form.telefone_dispensado}
-                      onCheckedChange={(v) => set("telefone_dispensado", !!v)}
-                      className="mt-0.5"
-                    />
-                    <span className="text-xs text-muted-foreground leading-snug">
-                      <span className="font-medium text-foreground">Não tem telefone próprio</span>
-                      {" "}— criança, ou quem é contatado pelo telefone de um
-                      familiar. Sai da lista de cadastros a corrigir.
-                    </span>
-                  </label>
-                )}
-              </div>
-
-              {(isCongregado || isMembro) && (
-                <div>
-                  <Label translate="no">E-mail</Label>
-                  <Input type="email" value={form.email} onChange={(e) => set("email", e.target.value)} />
-                </div>
-              )}
-
-              <div>
                 <Label translate="no">Sexo</Label>
                 <Select value={form.sexo || undefined} onValueChange={(v) => set("sexo", v)}>
                   <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
@@ -1249,6 +1205,63 @@ export function MembroForm({ open, onOpenChange, membro, onSaved, tipoInicial, o
                 </div>
               )}
 
+            </section>
+
+                        </>)}
+
+            {step === 2 && (<>
+            {/* ── CONTATO: telefone e e-mail ──────────────────────────────
+                09/09/2026: moveram-se pra cá de dentro de "Identificação".
+                Pedido dela — a aba se chamava "Contato" mas quem morava
+                nela era só o endereço; telefone e e-mail, que SÃO contato,
+                ficavam na aba de identidade. "Identificação" volta a ser só
+                quem a pessoa é (nome, sexo, nascimento, estado civil); esta
+                aba passa a ser tudo por onde ela é alcançada — telefone,
+                e-mail e endereço, juntos. */}
+            <section className="grid md:grid-cols-2 gap-3">
+              <div>
+                <Label translate="no">
+                  Telefone celular {isVisitante && <span className="text-destructive">*</span>}
+                </Label>
+                <TelefoneInput
+                  value={form.telefone_celular}
+                  onChange={(v) => set("telefone_celular", v)}
+                />
+                {/* ── Dispensar o telefone ────────────────────────────────
+                    Só com o campo vazio. Com telefone preenchido a caixa não
+                    quereria dizer nada, e uma caixa que não muda nada é uma
+                    pergunta a mais em cada cadastro.
+
+                    Fora para visitante: ali o telefone é obrigatório de
+                    verdade — sem ele não há acolhimento, que é a razão de o
+                    visitante estar no sistema.
+
+                    O texto não diz "criança" porque a regra não é essa: é
+                    "não tem telefone próprio". Vale para o idoso que usa o
+                    telefone do filho e para quem é contatado pela família.
+                    Criança é o caso mais comum, não o único. */}
+                {!isVisitante && !form.telefone_celular?.trim() && (
+                  <label className="flex items-start gap-2 mt-2 cursor-pointer">
+                    <Checkbox
+                      checked={!!form.telefone_dispensado}
+                      onCheckedChange={(v) => set("telefone_dispensado", !!v)}
+                      className="mt-0.5"
+                    />
+                    <span className="text-xs text-muted-foreground leading-snug">
+                      <span className="font-medium text-foreground">Não tem telefone próprio</span>
+                      {" "}— criança, ou quem é contatado pelo telefone de um
+                      familiar. Sai da lista de cadastros a corrigir.
+                    </span>
+                  </label>
+                )}
+              </div>
+
+              {(isCongregado || isMembro) && (
+                <div>
+                  <Label translate="no">E-mail</Label>
+                  <Input type="email" value={form.email} onChange={(e) => set("email", e.target.value)} />
+                </div>
+              )}
             </section>
 
                         </>)}
@@ -1985,7 +1998,11 @@ export function MembroForm({ open, onOpenChange, membro, onSaved, tipoInicial, o
                       toast.error("Informe o nome completo");
                       return;
                     }
-                    if (step === 1 && isVisitante && !form.telefone_celular.trim()) {
+                    // Telefone mudou de aba em 09/09/2026 (Identificação →
+                    // Contato, passo 2) — a checagem segue o campo, senão
+                    // ninguém sairia do passo 1 sem um telefone que nem
+                    // aparece mais nele.
+                    if (step === 2 && isVisitante && !form.telefone_celular.trim()) {
                       toast.error("Telefone é obrigatório para visitante");
                       return;
                     }
@@ -2039,9 +2056,16 @@ export function MembroForm({ open, onOpenChange, membro, onSaved, tipoInicial, o
                   Chamada da EBD) continuam rápidos — nome, telefone e a foto
                   do cartão já bastam, sem obrigar a passar por Vínculos e
                   Quando Serve, que não fazem sentido pra quem acabou de
-                  chegar. Só no passo 1, e só pra visitante NOVO — editar
-                  alguém já tem o atalho acima. */}
-              {!membro && isVisitante && step === 1 && (
+                  chegar. Só pra visitante NOVO — editar alguém já tem o
+                  atalho acima.
+
+                  Passo 2, não mais o 1: telefone mudou de aba em 09/09/2026
+                  (Identificação → Contato), e o atalho segue o campo — sem
+                  isso o botão apareceria numa tela sem telefone nenhum pra
+                  preencher antes de clicar. Nome e foto do cartão continuam
+                  no passo 1; um "Próximo" a mais, e o resto do assistente
+                  (Vínculos, Quando Serve) continua pulado. */}
+              {!membro && isVisitante && step === 2 && (
                 <Button
                   key="cadastrar-atalho" type="button" variant="outline"
                   onClick={() => {
