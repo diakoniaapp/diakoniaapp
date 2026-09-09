@@ -750,10 +750,16 @@ function QuadroDoMovimento({
           puro — diziam quantos, nunca quem. Viraram `CartaoDeNomes`, o
           mesmo componente que já abre as barras do gráfico: a frase inteira
           é o gatilho, sublinhado para avisar que é clicável (as barras não
-          precisam do sublinhado — parecem barra; texto corrido precisa). */}
+          precisam do sublinhado — parecem barra; texto corrido precisa).
+
+          `<div>`, não `<p>`: o cartão que `CartaoDeNomes` abre (`HoverCardContent`
+          → `<ul>`) não é portalado neste projeto — ver `components/ui/hover-card.tsx`
+          — então ele nasce como filho de verdade de quem o chama. Um `<ul>`
+          dentro de `<p>` é HTML inválido, e o React avisa disso no console
+          assim que a primeira lista abre. */}
       <div className="space-y-1 border-t pt-2">
         {ent.anteriores > 0 && (
-          <p className="text-xs text-muted-foreground">
+          <div className="text-xs text-muted-foreground">
             <CartaoDeNomes
               itens={ent.pessoasAnteriores.map(p => ({
                 id: p.id, nome: p.nome, quando: comAno(p.data), detalhe: p.tipo,
@@ -767,14 +773,14 @@ function QuadroDoMovimento({
               registradas antes de {primeiroAno}
             </CartaoDeNomes>
             {ent.anoMaisAntigo !== null && <> — a mais antiga em {ent.anoMaisAntigo}</>}.
-          </p>
+          </div>
         )}
 
         {/* A mesma lacuna do lado de cima, do lado de baixo: até 09/09/2026
             só as entradas antigas tinham linha própria — as saídas antigas
             entravam em `sai.comAno` e desapareciam sem explicação. */}
         {sai.anteriores > 0 && (
-          <p className="text-xs text-muted-foreground">
+          <div className="text-xs text-muted-foreground">
             <CartaoDeNomes
               itens={sai.pessoasAnteriores.map(p => ({
                 id: p.id, nome: p.nome, quando: comAno(p.data), detalhe: p.tipo,
@@ -788,7 +794,7 @@ function QuadroDoMovimento({
               registradas antes de {primeiroAno}
             </CartaoDeNomes>
             {sai.anoMaisAntigo !== null && <> — a mais antiga em {sai.anoMaisAntigo}</>}.
-          </p>
+          </div>
         )}
 
         {/* A frase da saída muda com o que existe, e nenhuma das versões
