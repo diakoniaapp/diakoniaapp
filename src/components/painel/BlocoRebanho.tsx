@@ -10,26 +10,39 @@
 // A distinção não é preciosismo de vocabulário: o título dizia 225 sobre uma
 // seção cuja primeira linha listava 293 pessoas.
 //
-// ── DUAS TELAS, DESDE 09/09/2026 ────────────────────────────────────────────
+// ── TRÊS COMPONENTES, DESDE 09/09/2026 ──────────────────────────────────────
 //
 // Até aqui, um `BlocoRebanho` só reunia a frase geral e os dois quadros de
-// detalhe do rol na mesma seção do Painel Pastoral. Pedido dela: "o rebanho
-// deve ser a contagem geral de pessoas (para o pastor)" — e os dois quadros,
-// que são estatística de ROL FORMAL, foram para o Painel da Secretaria, que
-// já cuida de cadastro e governança.
+// detalhe na mesma seção do Painel Pastoral. Pedido dela, no mesmo dia, em
+// dois passos:
+//
+//   1. "o rebanho deve ser a contagem geral de pessoas (para o pastor)" — os
+//      dois quadros, que eram estatística de ROL FORMAL, foram para o Painel
+//      da Secretaria, que já cuida de cadastro e governança.
+//   2. "o grafico deve estar no painel pastoral tbm, porem com contagem
+//      geral" — os MESMOS dois quadros voltaram ao Painel Pastoral, mas
+//      contando todo mundo (membros + congregados + visitantes ativos), não
+//      só o rol. Não é o quadro antigo de volta: é a mesma visualização,
+//      sobre outra população.
 //
 //   `ResumoRebanho` — a frase geral (membros + congregados + visitantes),
 //   no Painel Pastoral. "Quantas pessoas a igreja acompanha."
 //
-//   `DetalheDoRol` — os dois quadros, no Painel da Secretaria:
+//   `DetalheDoRol` — os dois quadros sobre o ROL FORMAL, no Painel da
+//   Secretaria — composição para assembleia, quem entrou/saiu do rol.
 //
-//   **A forma do rol** — pirâmide etária cruzada com sexo, e a leitura dela
-//   em três números. Responde "para quem estamos pregando": um rol com
-//   mediana de 46 anos, 32% acima de 60 e 12% entre 18 e 29 tem um formato,
-//   e esse formato tem consequência pastoral — mas é composição de rol
-//   formal, o assunto de quem cuida do cadastro e da assembleia.
+//   `DetalheDoRebanho` — os mesmos dois quadros sobre o REBANHO inteiro, no
+//   Painel Pastoral, logo abaixo de `ResumoRebanho`.
 //
-//   **Movimento de membros** — entradas acima do eixo, saídas abaixo.
+//   **A forma** — pirâmide etária cruzada com sexo, e a leitura dela em três
+//   números. Responde "para quem estamos pregando" (ou, no rebanho inteiro,
+//   "para quem a igreja já está olhando").
+//
+//   **O movimento** — entradas acima do eixo, saídas abaixo.
+//
+// Os dois quadros ganharam uma prop, `geral`, que troca a população nos
+// rótulos e nos textos — ver o comentário de `DetalheDoRebanho` para o
+// porquê de ela morar nos quadros, e não aqui em cima.
 //
 // ── A REGRA DESTE ARQUIVO: O QUE NÃO SE SABE APARECE ───────────────────────
 //
@@ -305,33 +318,77 @@ export function DetalheDoRol({ dados }: { dados: IndicadoresMembresia }) {
   );
 }
 
+/**
+ * Os mesmos dois quadros, sobre o REBANHO inteiro — membros, congregados e
+ * visitantes ativos, não só o rol. Painel Pastoral, desde 09/09/2026.
+ *
+ * ── POR QUE DOIS COMPONENTES, E NÃO `DetalheDoRol` COM UMA PROP ────────────
+ *
+ * Existe uma prop, `geral`, mas ela vive um nível abaixo, nos dois quadros —
+ * de propósito. Chamar `DetalheDoRol` com `escopo="rebanho"` do Painel
+ * Pastoral criaria um nome que mente: "detalhe DO ROL, mas na verdade não é
+ * o rol". Dois nomes, cada um dizendo a população certa, custam uma função
+ * pequena a mais e evitam essa contradição no próprio nome do componente.
+ *
+ * `dados` aqui **precisa** vir de `indicadoresMembresia("rebanho")` — a
+ * pirâmide e o movimento já chegam calculados sobre a população certa; este
+ * componente só decide o texto e repassa `geral` para os quadros lerem.
+ */
+export function DetalheDoRebanho({ dados }: { dados: IndicadoresMembresia }) {
+  const { rol, composicao: c, movimento: mv } = dados;
+  const total = rol.membros + rol.congregados + rol.visitantes;
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-muted-foreground">
+        Os dois quadros abaixo contam as <strong className="text-foreground tabular-nums">{total}</strong>
+        {" "}pessoas do rebanho: <strong className="text-foreground tabular-nums">{rol.membros}</strong> membros,
+        {" "}<strong className="text-foreground tabular-nums">{rol.congregados}</strong> congregados
+        {rol.visitantes > 0 && (
+          <> e <strong className="text-foreground tabular-nums">{rol.visitantes}</strong> visitantes</>
+        )}.
+      </p>
+      <QuadroDaForma c={c} totalDoRol={total} geral />
+      <QuadroDoMovimento mv={mv} totalDoRol={total} geral />
+    </div>
+  );
+}
+
 // ─── Quadro 1 · A forma do rol ─────────────────────────────────────────────
 
 function QuadroDaForma({
-  c, totalDoRol,
-}: { c: IndicadoresMembresia["composicao"]; totalDoRol: number }) {
+  c, totalDoRol, geral = false,
+}: { c: IndicadoresMembresia["composicao"]; totalDoRol: number; geral?: boolean }) {
   // A pirâmide se lê de cima para baixo, do mais velho para o mais novo —
   // é a convenção, e é o que faz a forma significar alguma coisa: base larga
   // é igreja jovem, topo pesado é igreja envelhecendo. O serviço devolve na
   // ordem natural (mais novo primeiro), então aqui inverte.
   const deCimaParaBaixo = [...c.faixas].reverse();
+  // A mesma tela, duas populações: `geral` é o Painel Pastoral pedindo
+  // "contagem de todas as pessoas" em 09/09/2026 — membros, congregados e
+  // visitantes ativos — contra o padrão, só o rol de membros, que o Painel
+  // da Secretaria continua usando.
+  const substantivo = geral ? "pessoas" : "membros";
 
   return (
     <div className="rounded-lg border bg-card p-3 space-y-3">
-      {/* A base é o ROL. Ver a nota em `FAIXAS`, no serviço: a pirâmide
-          chegou a cobrir o rebanho inteiro para dar conteúdo a uma faixa de
-          Berçário, e voltou — dezenove crianças não pagam a queda de
-          cobertura de 85% para 71%. */}
+      {/* A base é o ROL, ou o REBANHO — conforme `geral`. Ver a nota em
+          `FAIXAS`, no serviço: as FAIXAS em si chegaram a cobrir o rebanho
+          inteiro para dar conteúdo a uma faixa de Berçário, e voltaram —
+          dezenove crianças não pagam a queda de cobertura de 85% para 71%.
+          Isso é sobre a forma das faixas; `geral` é outra coisa, é sobre
+          quem entra na conta. */}
       <div className="flex items-baseline gap-2 flex-wrap min-w-0">
         <h3 className="font-serif text-sm flex items-center gap-1.5 shrink-0">
           <Users2 className="w-3.5 h-3.5 text-violeta-text" />
-          A forma do rol
+          {geral ? "A forma do rebanho" : "A forma do rol"}
         </h3>
         {/* Etiqueta, e não texto solto: o escopo de um gráfico precisa ser
             lido antes dele, e uma frase em cinza ao lado do título se lê
             depois — quando já se tirou a conclusão errada. */}
         <span className="text-xs rounded border border-border bg-muted/60 px-1.5 py-0.5 shrink-0">
-          só os <strong className="tabular-nums">{totalDoRol}</strong> membros
+          {geral ? "todo o rebanho —" : "só os"}{" "}
+          <strong className="tabular-nums">{totalDoRol}</strong> {substantivo}
         </span>
       </div>
 
@@ -406,7 +463,7 @@ function QuadroDaForma({
             />
             <span
               className="text-xs text-center text-muted-foreground tabular-nums"
-              title={`${f.rotulo} anos — ${f.idades} — ${f.total} membros`}
+              title={`${f.rotulo} anos — ${f.idades} — ${f.total} ${substantivo}`}
             >
               {f.rotulo}
             </span>
@@ -424,7 +481,7 @@ function QuadroDaForma({
           do desenho — perto o bastante para quem leu a forma não sair sem
           saber sobre quantos ela foi desenhada. */}
       <p className="text-xs text-muted-foreground leading-relaxed">
-        Desenhada sobre {c.comDataNascimento} dos {totalDoRol} membros.
+        Desenhada sobre {c.comDataNascimento} dos {totalDoRol} {substantivo}.
         {c.semDataNascimento > 0 && (
           <>
             {" "}<strong className="font-medium text-warning-text">{c.semDataNascimento} sem
@@ -467,13 +524,17 @@ const ALTURA_DA_PISTA = "h-16";
 const LARGURA_DA_COLUNA = "flex-1 min-w-[26px]";
 
 function QuadroDoMovimento({
-  mv, totalDoRol,
-}: { mv: IndicadoresMembresia["movimento"]; totalDoRol: number }) {
+  mv, totalDoRol, geral = false,
+}: { mv: IndicadoresMembresia["movimento"]; totalDoRol: number; geral?: boolean }) {
   const { entradas: ent, saidas: sai } = mv;
   const percentualComAno = totalDoRol > 0 ? Math.round((ent.comAno / totalDoRol) * 100) : 0;
   const noAnoAtual = mv.porAno[mv.porAno.length - 1];
   const primeiroAno = mv.porAno[0]?.ano;
   const nenhumaBarraDeSaida = mv.porAno.every(a => a.saidas === 0);
+  // Mesma dobra de `QuadroDaForma`: `geral` troca a população, e com ela o
+  // substantivo e o que os cartões de nome dizem ter aberto.
+  const substantivo = geral ? "pessoas" : "membros";
+  const doQue = geral ? "do rebanho" : "do rol";
 
   /** Altura em porcentagem da pista, com piso para o valor 1 não sumir. */
   const alturaDaBarra = (v: number) =>
@@ -484,11 +545,12 @@ function QuadroDoMovimento({
       <div className="flex items-baseline gap-2 flex-wrap min-w-0">
         <h3 className="font-serif text-sm flex items-center gap-1.5 shrink-0">
           <ArrowUpDown className="w-3.5 h-3.5 text-violeta-text" />
-          Movimento de membros
+          {geral ? "Movimento do rebanho" : "Movimento de membros"}
         </h3>
         {/* A mesma etiqueta de escopo do quadro de cima, pelo mesmo motivo. */}
         <span className="text-xs rounded border border-border bg-muted/60 px-1.5 py-0.5 shrink-0">
-          só os <strong className="tabular-nums">{totalDoRol}</strong> membros
+          {geral ? "todo o rebanho —" : "só os"}{" "}
+          <strong className="tabular-nums">{totalDoRol}</strong> {substantivo}
         </span>
         <p className="text-xs text-muted-foreground min-w-0">
           últimos {ANOS_NA_JANELA} anos
@@ -522,12 +584,12 @@ function QuadroDoMovimento({
           <div
             className="bg-violeta"
             style={{ width: `${percentualComAno}%` }}
-            title={`${ent.comAno} membros com ano de entrada registrado`}
+            title={`${ent.comAno} ${substantivo} com ano de entrada registrado`}
           />
         </div>
         <p className="text-xs text-muted-foreground">
           As entradas cobrem <strong className="text-foreground tabular-nums">{ent.comAno}</strong> dos
-          {" "}{totalDoRol} membros.
+          {" "}{totalDoRol} {substantivo}.
           {ent.semAno > 0 && (
             <>
               {" "}<strong className="font-medium text-warning-text tabular-nums">{ent.semAno}</strong>
@@ -571,7 +633,7 @@ function QuadroDoMovimento({
                     itens={a.pessoasEntrada.map(p => ({
                       id: p.id, nome: p.nome, quando: p.quando, detalhe: p.tipo,
                     }))}
-                    rotuloAria={`Ver quem entrou no rol em ${a.ano}`}
+                    rotuloAria={`Ver quem entrou ${doQue} em ${a.ano}`}
                     align="center"
                     className={`w-full ${ALTURA_DA_PISTA} flex items-end rounded-sm`}
                   >
@@ -617,7 +679,7 @@ function QuadroDoMovimento({
                     itens={a.pessoasSaida.map(p => ({
                       id: p.id, nome: p.nome, quando: p.quando, detalhe: p.tipo,
                     }))}
-                    rotuloAria={`Ver quem saiu do rol em ${a.ano}`}
+                    rotuloAria={`Ver quem saiu ${doQue} em ${a.ano}`}
                     align="center"
                     className={`w-full ${ALTURA_DA_PISTA} flex items-start rounded-sm`}
                   >

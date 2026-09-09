@@ -124,7 +124,7 @@ import {
 } from "@/components/painel/blocos";
 // A pirâmide etária e as entradas por ano. Os quadros confessam as próprias
 // lacunas — ver o cabeçalho do arquivo.
-import { ResumoRebanho } from "@/components/painel/BlocoRebanho";
+import { ResumoRebanho, DetalheDoRebanho } from "@/components/painel/BlocoRebanho";
 import { WidgetsDoPainel } from "@/dashboard/WidgetsDoPainel";
 import { TiraDaSemana, rotuloDoDia } from "@/components/painel/TiraDaSemana";
 import { formatarAtualizadoHa } from "@/components/painel/blocos";
@@ -248,7 +248,7 @@ export default function PainelPastoral() {
         resumoPainel(),
         candidatosMembresia(),
         getResumoVisitantes(),
-        indicadoresMembresia(),
+        indicadoresMembresia("rebanho"),
         resumoTarefasAcolhimento(),
       ]);
       setEventos(ev);
@@ -707,11 +707,19 @@ export default function PainelPastoral() {
           Fica logo abaixo de "Quem está entrando" de propósito: um quadro
           mostra quem está na porta, o outro mostra a casa.
 
-          09/09/2026, pedido dela: "o rebanho deve ser a contagem geral de
-          pessoas (para o pastor)". Os dois quadros de detalhe do rol —
-          pirâmide etária, movimento de entradas e saídas — saíram daqui;
-          são estatística de governança, e moram agora no Painel da
-          Secretaria (`DetalheDoRol`). Fica só a frase geral.
+          09/09/2026, pedido dela, em dois passos no mesmo dia:
+
+            1. "o rebanho deve ser a contagem geral de pessoas (para o
+               pastor)" — os dois quadros de detalhe (pirâmide etária,
+               movimento de entradas e saídas) saíram daqui, porque eram
+               estatística de ROL FORMAL — governança, assunto de quem cuida
+               do cadastro. Foram para o Painel da Secretaria (`DetalheDoRol`).
+            2. "o grafico deve estar no painel pastoral tbm, porem com
+               contagem geral" — os mesmos dois quadros voltaram para cá,
+               mas contando o REBANHO inteiro (membros + congregados +
+               visitantes ativos), não só o rol. `DetalheDoRebanho`, não
+               `DetalheDoRol`: é a mesma visualização sobre outra população,
+               não a seção antiga de volta.
 
           **Não some quando está vazio**, ao contrário da seção acima. O
           canal de "estou vazio" existe para trabalho pendente: um bloco de
@@ -725,6 +733,7 @@ export default function PainelPastoral() {
             O rebanho
           </TituloDaSecao>
           <ResumoRebanho dados={indicadores} />
+          <DetalheDoRebanho dados={indicadores} />
         </section>
       )}
 

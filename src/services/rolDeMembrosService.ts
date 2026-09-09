@@ -263,12 +263,15 @@ export interface IndicadoresMembresia {
   rol: { membros: number; congregados: number; visitantes: number };
 
   /**
-   * A pirâmide, sobre os MEMBROS ATIVOS — o rol.
+   * A pirâmide. População conforme o `escopo` pedido: só membros ativos —
+   * o rol — por padrão, ou membros + congregados + visitantes ativos com
+   * `escopo: "rebanho"`, desde 09/09/2026.
    *
-   * Chegou a cobrir o rebanho inteiro, por algumas horas em 27/08/2026,
-   * enquanto as faixas eram as da EBD; voltou junto com elas. Ver a nota em
-   * `FAIXAS` para o porquê — em resumo, a cobertura caía de 85% para 71% em
-   * troca de dezenove crianças.
+   * As faixas etárias em si (`FAIXAS`) chegaram a mudar para caber o
+   * rebanho inteiro, por algumas horas em 27/08/2026, e voltaram: ver a nota
+   * em `FAIXAS` para o porquê — em resumo, a cobertura caía de 85% para 71%
+   * em troca de dezenove crianças. Isso é sobre a FORMA das faixas, e vale
+   * igual nos dois escopos; o que o parâmetro muda é só quem entra na conta.
    */
   composicao: {
     /** Da mais nova para a mais velha. A tela desenha ao contrário. */
@@ -355,8 +358,26 @@ function anoDe(iso: string | null | undefined): number | null {
  * nas não-ativas. A repartição é feita aqui, no navegador — são
  * ~295 linhas, e assim a regra de faixa etária fica ao lado da constante que
  * a define, em vez de espalhada em seis agregações SQL.
+ *
+ * ── O PARÂMETRO `escopo`, DESDE 09/09/2026 ──────────────────────────────────
+ *
+ * A pirâmide e o movimento nasceram só sobre o ROL (membros ativos) — é o
+ * padrão, `"rol"`, e o Painel da Secretaria continua chamando a função sem
+ * argumento nenhum para pedir exatamente isso: estatística de governança,
+ * do rol formal.
+ *
+ * Pedido dela no Painel Pastoral: "o grafico deve estar no painel pastoral
+ * tbm, porem com contagem geral" — os MESMOS dois quadros, mas contando
+ * todo mundo que a igreja acompanha (membros + congregados + visitantes
+ * ativos), não só quem já é membro. É `escopo: "rebanho"`.
+ *
+ * O bloco `rol` da resposta (membros/congregados/visitantes) não muda com o
+ * escopo — já é a contagem completa dos três vínculos. Só `composicao` e
+ * `movimento` mudam de população.
  */
-export async function indicadoresMembresia(): Promise<IndicadoresMembresia> {
+export async function indicadoresMembresia(
+  escopo: "rol" | "rebanho" = "rol",
+): Promise<IndicadoresMembresia> {
   const { data, error } = await supabase
     .from("membros")
     .select("id, nome_completo, tipo_pessoa, status, sexo, data_nascimento, data_entrada, data_saida, tipo_entrada");
@@ -373,9 +394,12 @@ export async function indicadoresMembresia(): Promise<IndicadoresMembresia> {
     else if (p.tipo_pessoa === "visitante") rol.visitantes++;
   }
 
-  // A pirâmide E as entradas são do ROL: membros ativos. Congregado ainda
-  // não entrou, e quem saiu já não está.
-  const membros = pessoas.filter(p => p.tipo_pessoa === "membro" && p.status === "ativo");
+  // A população da pirâmide e das entradas: só membros ativos no escopo
+  // "rol" (o padrão); todo mundo ativo — membros, congregados, visitantes —
+  // no escopo "rebanho". Quem saiu já não está em nenhum dos dois.
+  const membros = pessoas.filter(p =>
+    p.status === "ativo" && (escopo === "rebanho" || p.tipo_pessoa === "membro"),
+  );
 
 
   // ── A pirâmide ───────────────────────────────────────────────────────────
@@ -479,13 +503,14 @@ export async function indicadoresMembresia(): Promise<IndicadoresMembresia> {
   // Quem tem status de saída **e** `data_saida` vira barra no ano; quem tem o
   // status e não tem a data fica contado à parte, e a tela diz isso.
   //
-  // Só `tipo_pessoa = 'membro'`: este gráfico é do ROL. Um congregado marcado
-  // como falecido é uma perda para a igreja e não é uma saída do rol — ele
-  // nunca esteve nele.
+  // No escopo "rol", só `tipo_pessoa = 'membro'`: este gráfico é do ROL, e um
+  // congregado marcado como falecido é uma perda para a igreja mas não é uma
+  // saída do rol — ele nunca esteve nele. No escopo "rebanho" a mesma barra
+  // conta as três pessoas que a pirâmide de cima também passou a contar.
   let comAnoSaida = 0, semAnoSaida = 0;
 
   for (const p of pessoas) {
-    if (p.tipo_pessoa !== "membro") continue;
+    if (escopo === "rol" && p.tipo_pessoa !== "membro") continue;
     if (!p.status || !(STATUS_DE_SAIDA as readonly string[]).includes(p.status)) continue;
 
     const ano = anoDe(p.data_saida);
