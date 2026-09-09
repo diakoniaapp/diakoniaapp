@@ -13,9 +13,10 @@ import { registrarVisita, atalhos, grupoMereceAbrir, temHistoricoBastante } from
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
 import { UserMenuButton } from "@/components/layout/UserMenuButton";
 import {
-  NAV_GROUPS, PAINEL, ATALHOS_TOPO, pageTitles, ROUTE_ROLES,
+  NAV_GROUPS, PAINEL, ATALHOS_TOPO, pageTitles, papeisExigidosPara,
   type NavGroup, type NavItem,
 } from "@/components/layout/navConfig";
+import { toast } from "sonner";
 import { ADMIN_MENU_ITEMS } from "@/components/layout/adminMenuItems";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -137,8 +138,20 @@ export default function AppLayout() {
       return;
     }
 
-    const required = ROUTE_ROLES[location.pathname];
+    // Prefixo, e não `ROUTE_ROLES[location.pathname]` exato — o Risco 5 do
+    // CLAUDE.md já registrava: rota com parâmetro ou sub-rota (`/financas/*`,
+    // 18 rotas; `/admin/*`, 7 rotas) não batia com a entrada exata do grupo, e
+    // passava sem guarda nenhuma aqui — só a paleta Ctrl+K já usava
+    // `papeisExigidosPara` pra esconder o ITEM, o que não impedia digitar a
+    // URL direto. A função já existia, só não estava ligada na guarda de
+    // verdade.
+    const required = papeisExigidosPara(location.pathname);
     if (required && roles.length > 0 && !hasRole(required)) {
+      // Sem aviso nenhum, o redirecionamento parecia bug: a pessoa clicava
+      // num link ou digitava a URL e "voltava pra Home" sem explicação —
+      // igual ao "tela que promete e não entrega" que o projeto já persegue
+      // em outros lugares, só que aqui nem chegava a prometer.
+      toast.error("Você não tem acesso a esta tela.");
       navigate("/", { replace: true });
     }
   }, [user, loading, navigate, location.pathname, roles, hasRole]);
