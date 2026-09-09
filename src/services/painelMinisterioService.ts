@@ -42,6 +42,13 @@ export interface MinisterioQueLidero {
   comoLidero: string;
   /** As áreas deste ministério que ela lidera. Vazio = lidera o ministério. */
   areasQueLidero: string[];
+  /**
+   * `'diaconia'` para o único ministério com módulo dedicado — o resto é
+   * `null`. `MeusPaineis` usa isto para mandar quem lidera a Diaconia direto
+   * para `/painel-diaconia` (09/09/2026), em vez do painel genérico de
+   * ministério: mesma pessoa, endereço melhor, sem exigir permissão nova.
+   */
+  modulo: string | null;
 }
 
 /**
@@ -58,10 +65,10 @@ export interface MinisterioQueLidero {
 export async function meusMinisterios(pessoaId: string): Promise<MinisterioQueLidero[]> {
   const [{ data: mins }, { data: areas }] = await Promise.all([
     supabase.from("ministerios")
-      .select("id, nome, sigla, cor, lider_id, vice_lider_id, co_lider_id")
+      .select("id, nome, sigla, cor, modulo, lider_id, vice_lider_id, co_lider_id")
       .eq("ativo", true),
     supabase.from("areas")
-      .select("id, nome, ministerio_id, lider_id, co_lider_id, ministerios!areas_ministerio_id_fkey(id, nome, sigla, cor)")
+      .select("id, nome, ministerio_id, lider_id, co_lider_id, ministerios!areas_ministerio_id_fkey(id, nome, sigla, cor, modulo)")
       .eq("ativo", true),
   ]);
 
@@ -75,7 +82,7 @@ export async function meusMinisterios(pessoaId: string): Promise<MinisterioQueLi
       : null;
     if (!papel) continue;
     porId.set(m.id, {
-      id: m.id, nome: m.nome, sigla: m.sigla, cor: m.cor,
+      id: m.id, nome: m.nome, sigla: m.sigla, cor: m.cor, modulo: m.modulo ?? null,
       comoLidero: papel, areasQueLidero: [],
     });
   }
@@ -92,7 +99,7 @@ export async function meusMinisterios(pessoaId: string): Promise<MinisterioQueLi
       continue;
     }
     porId.set(m.id, {
-      id: m.id, nome: m.nome, sigla: m.sigla, cor: m.cor,
+      id: m.id, nome: m.nome, sigla: m.sigla, cor: m.cor, modulo: m.modulo ?? null,
       comoLidero: "Líder de área", areasQueLidero: [a.nome],
     });
   }

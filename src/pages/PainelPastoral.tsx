@@ -77,7 +77,7 @@ import {
   Cake, Heart, MessageCircle, CalendarCheck, Award, Flag, BookMarked,
   Sparkles, AlertCircle, Users, ChevronRight, Crown, Flame, Droplets,
   GraduationCap, UserCheck, CalendarClock, Sprout, BarChart2, PartyPopper,
-  Users2, HandHeart, HeartHandshake,
+  Users2, HandHeart,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PaginaSkeleton } from "@/components/ListState";
@@ -99,10 +99,6 @@ import {
   indicadoresMembresia,
   type IndicadoresMembresia,
 } from "@/services/rolDeMembrosService";
-import {
-  resumoDiaconiaPastoral, ROTULO_CLASSIFICACAO,
-  type ResumoDiaconiaPastoral,
-} from "@/services/diaconiaService";
 // "Acontecendo hoje" — o mesmo bloco do painel inicial, reaproveitado inteiro.
 // Ele expande as recorrências e soma as reservas de espaço, que é o que faz o
 // culto de domingo e o ensaio de sábado realmente aparecerem. O hook
@@ -201,7 +197,7 @@ export default function PainelPastoral() {
   const [diaAberto, setDiaAberto] = useState(hoje);
   /** Aba aberta em Discipulado. Controlada por causa da rolagem — ver o JSX. */
   const [abaDiscipulado, setAbaDiscipulado] = useState("ebd");
-  /** Aba aberta em Diakonia Care — mesmo controle e mesmo motivo. */
+  /** Aba aberta em "Quem está entrando" — mesmo controle e mesmo motivo. */
   const [abaCare, setAbaCare] = useState("acolhimento");
 
   const [eventos, setEventos] = useState<EventoPastoral[]>([]);
@@ -210,7 +206,6 @@ export default function PainelPastoral() {
   const [visitantes, setVisitantes] = useState<ResumoVisitantes | null>(null);
   const [tarefasAcolhimento, setTarefasAcolhimento] = useState<ResumoTarefasAcolhimento | null>(null);
   const [indicadores, setIndicadores] = useState<IndicadoresMembresia | null>(null);
-  const [diaconia, setDiaconia] = useState<ResumoDiaconiaPastoral | null>(null);
 
   /**
    * O rebanho inteiro: membros + congregados + visitantes, todos ativos.
@@ -248,19 +243,13 @@ export default function PainelPastoral() {
   async function carregar() {
     setLoading(true);
     try {
-      const [ev, r, cm, vs, mb, ta, dc] = await Promise.all([
+      const [ev, r, cm, vs, mb, ta] = await Promise.all([
         proximosDias(DIAS_A_FRENTE),
         resumoPainel(),
         candidatosMembresia(),
         getResumoVisitantes(),
         indicadoresMembresia(),
         resumoTarefasAcolhimento(),
-        // Isolada com o próprio catch: é a única consulta desta tela que
-        // atravessa dois módulos (Pessoas/Discipulado e Diaconia), e uma
-        // falha aqui não pode derrubar o resto do painel pastoral junto —
-        // mesma decisão já tomada para o cruzamento de Diaconia no Painel
-        // da Tesouraria.
-        resumoDiaconiaPastoral().catch(() => null),
       ]);
       setEventos(ev);
       setResumo(r);
@@ -268,7 +257,6 @@ export default function PainelPastoral() {
       setVisitantes(vs);
       setIndicadores(mb);
       setTarefasAcolhimento(ta);
-      setDiaconia(dc);
       setAtualizadoEm(new Date());
     } catch (e: any) {
       toast.error(e?.message ?? "Erro ao carregar painel");
@@ -391,7 +379,7 @@ export default function PainelPastoral() {
         <p className="text-sm text-muted-foreground flex items-start gap-1.5">
           <Sparkles className="w-3.5 h-3.5 text-gold shrink-0 mt-0.5" />
           <span className="min-w-0">
-            {resumoNatural(resumo, candidatos, visitantes, diaconia)}
+            {resumoNatural(resumo, candidatos, visitantes)}
             {atualizadoEm && (
               <span className="text-[10px] text-muted-foreground ml-1.5 whitespace-nowrap">
                 · {formatarAtualizadoHa(atualizadoEm)}
@@ -427,19 +415,28 @@ export default function PainelPastoral() {
             tom="gold" icone={CalendarCheck}
             onClick={() => irParaSecao("agenda")} descricao="Ir para a Agenda"
           />
-          {/* ── DIAKONIA CARE, um indicador só (Fase 3 da Bússola, 09/09/2026) ──
+          {/* ── QUEM ESTÁ ENTRANDO, um indicador só (Fase 3 da Bússola,
+              09/09/2026; renomeada em 09/09/2026) ──
               Eram dois — "Candidatos" e "Visitantes" — cada um levando à
               própria seção. Viraram abas de UMA seção, mesmo molde que
               "Discipulado" já usa para EBD/PGM/Campanhas/Crescimento: as
-              três peças (acolhimento de visitante, candidatos à membresia,
-              Diaconia) respondem à mesma pergunta — "quem precisa do meu
-              cuidado agora?" — e por isso moram juntas, não em três lugares
-              que ninguém olha em sequência. */}
+              duas peças (acolhimento de visitante, candidatos à membresia)
+              respondem à mesma pergunta — "quem está chegando à igreja
+              agora, e em que ponto do caminho?" — e por isso moram juntas.
+
+              TINHA UMA TERCEIRA ABA, DIACONIA. Saiu daqui: chamava-se
+              "Diakonia Care", nome que pegava emprestada a identidade do
+              ministério Diaconia e Ação Social para uma seção que não é
+              dele — as outras duas abas são cuidado PASTORAL (receber e
+              acompanhar o crescimento espiritual), e o cuidado da Diaconia
+              é de outra natureza (socioeconômico) — achado dela em
+              09/09/2026, revendo o próprio Top 10 desta Bússola. A
+              Diaconia ganhou painel próprio — ver `PainelDiaconia.tsx`. */}
           <Indicador
-            rotulo="Diakonia Care" tom="celebracao" icone={HandHeart}
-            onClick={() => irParaSecao("diakonia-care")} descricao="Ir para Diakonia Care"
+            rotulo="Entrando" tom="celebracao" icone={HandHeart}
+            onClick={() => irParaSecao("entrando")} descricao="Ir para Quem está entrando"
           />
-          {/* Fica logo depois de Diakonia Care porque os dois falam da mesma
+          {/* Fica logo depois de "Entrando" porque os dois falam da mesma
               coisa vista de dois lados: quem está na porta, e quem já é a
               casa.
 
@@ -525,19 +522,28 @@ export default function PainelPastoral() {
         </div>
       </section>
 
-      {/* ── Diakonia Care ──────────────────────────────────────────────────
-          Fase 3 da Bússola do Diakonia (09/09/2026). Três seções que
-          respondiam à mesma pergunta separadamente — acolhimento de
-          visitante, candidatos à membresia, e a Diaconia (que nunca tinha
-          leitura nenhuma aqui, só no painel de quem a lidera) — viram três
-          abas de uma seção só. Não reconstrói nenhuma das três: cada aba
-          reaproveita a consulta e o componente que já existiam.
+      {/* ── Quem está entrando ──────────────────────────────────────────────
+          Fase 3 da Bússola do Diakonia (09/09/2026); renomeada em
+          09/09/2026. Duas seções que respondiam à mesma pergunta
+          separadamente — acolhimento de visitante e candidatos à membresia
+          — viram duas abas de uma seção só. Não reconstrói nenhuma das
+          duas: cada aba reaproveita a consulta e o componente que já
+          existiam.
+
+          CHAMAVA-SE "DIAKONIA CARE" E TINHA UMA TERCEIRA ABA, DIACONIA.
+          O nome emprestava a identidade de um ministério — Diaconia e Ação
+          Social — para uma seção que não é dele: acolhimento de visitante
+          e candidatos à membresia são cuidado PASTORAL (receber, acompanhar
+          o crescimento espiritual); a Diaconia cuida de outra coisa
+          (vulnerabilidade socioeconômica). A aba de Diaconia saiu — tem
+          painel próprio agora, ver `PainelDiaconia.tsx` — e a seção ficou
+          com um nome que não pertence a ninguém além dela mesma.
 
           Sempre visível, como "Discipulado": as abas gerenciam o próprio
           vazio, e uma lista de abas que aparece e desaparece com o dado
           seria mais confusa do que útil. */}
-      <section id="diakonia-care" className="scroll-mt-[280px] sm:scroll-mt-[230px]">
-        <TituloDaSecao icone={HandHeart} tom="celebracao">Diakonia Care</TituloDaSecao>
+      <section id="entrando" className="scroll-mt-[280px] sm:scroll-mt-[230px]">
+        <TituloDaSecao icone={HandHeart} tom="celebracao">Quem está entrando</TituloDaSecao>
         <Tabs
           value={abaCare}
           onValueChange={(v) => {
@@ -545,7 +551,7 @@ export default function PainelPastoral() {
             // Mesmo ajuste de rolagem do Discipulado — ver o comentário lá
             // embaixo para o porquê dos dois quadros de espera.
             requestAnimationFrame(() =>
-              requestAnimationFrame(() => irParaSecao("diakonia-care")));
+              requestAnimationFrame(() => irParaSecao("entrando")));
           }}
         >
           <TabsList className="mb-3">
@@ -562,14 +568,6 @@ export default function PainelPastoral() {
               {candidatos && candidatos.elegiveis.length > 0 && (
                 <Badge variant="outline" className="ml-1 h-4 px-1 text-[10px] text-info-text border-info-line">
                   {candidatos.elegiveis.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="diaconia" className="gap-1.5 text-xs">
-              <HeartHandshake className="w-3.5 h-3.5" /> Diaconia
-              {diaconia && diaconia.pendencias.length > 0 && (
-                <Badge variant="outline" className="ml-1 h-4 px-1 text-[10px] text-warning-text border-warning-line">
-                  {diaconia.pendencias.length}
                 </Badge>
               )}
             </TabsTrigger>
@@ -695,17 +693,6 @@ export default function PainelPastoral() {
                   ))}
                 </div>
               </>
-            )}
-          </TabsContent>
-
-          {/* ── Diaconia — nova, esta seção nunca tinha leitura pastoral ──── */}
-          <TabsContent value="diaconia" className="mt-0 space-y-3">
-            {!diaconia ? (
-              <p className="text-sm text-muted-foreground py-2 px-3 border rounded-md">
-                Sem ministério de Diaconia cadastrado, ou ninguém vinculado ainda.
-              </p>
-            ) : (
-              <SecaoDiaconiaCare resumo={diaconia} />
             )}
           </TabsContent>
         </Tabs>
@@ -841,69 +828,6 @@ export default function PainelPastoral() {
   );
 }
 
-// ─── Diakonia Care — aba Diaconia ───────────────────────────────────────────
-//
-// Primeira leitura da Diaconia fora do painel de quem a lidera. Deliberadamente
-// enxuta: cobertura de ficha, vulnerabilidade e quem parou de vir — o que um
-// pastor precisa saber para decidir se visita alguém, não o checklist
-// operacional (isso é do painel do ministério) nem o lado financeiro (isso é
-// da Tesouraria, no cruzamento com cestas compradas).
-function SecaoDiaconiaCare({ resumo }: { resumo: ResumoDiaconiaPastoral }) {
-  const { indicadores: ind, pendencias, ministerioId } = resumo;
-  const totalPessoas = ind.comFicha + ind.semFicha;
-
-  return (
-    <>
-      <FaixaDeIndicadores colunas={4}>
-        <Indicador rotulo="Com ficha" valor={`${ind.comFicha}/${totalPessoas || 0}`} tom="info" />
-        <Indicador
-          rotulo={ROTULO_CLASSIFICACAO.extrema_pobreza}
-          valor={ind.distribuicao.extrema_pobreza} tom="warning"
-        />
-        <Indicador rotulo="Crianças" valor={ind.criancasAtendidas} tom="celebracao" />
-        <Indicador rotulo="Idosos" valor={ind.idososAtendidos} tom="violeta" />
-      </FaixaDeIndicadores>
-
-      {pendencias.length === 0 ? (
-        <p className="text-sm text-muted-foreground py-2 px-3 border rounded-md">
-          Ninguém acumulando faltas — todo mundo vinculado veio na última ocasião registrada.
-        </p>
-      ) : (
-        <div className="space-y-1.5">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-            Quem parou de vir
-          </p>
-          <ul className="divide-y rounded-md border bg-card">
-            {pendencias.slice(0, 6).map(p => (
-              <li key={p.vinculo_id} className="flex items-center gap-2 px-3 py-2 min-w-0">
-                <span className="text-sm min-w-0 flex-1 truncate">
-                  <span className="font-medium">{p.nome}</span>
-                  <span className="text-muted-foreground">
-                    {" · "}{p.area_nome} · {p.faltasSeguidas} {p.faltasSeguidas === 1 ? "falta seguida" : "faltas seguidas"}
-                  </span>
-                </span>
-              </li>
-            ))}
-          </ul>
-          {pendencias.length > 6 && (
-            <p className="text-xs text-muted-foreground px-1">
-              + {pendencias.length - 6} {pendencias.length - 6 === 1 ? "outra" : "outras"}.
-            </p>
-          )}
-        </div>
-      )}
-
-      <div className="flex justify-end">
-        <Button asChild variant="ghost" size="sm" className="gap-1 text-xs h-7">
-          <Link to={`/ministerios/${ministerioId}/painel`}>
-            Painel da Diaconia <ChevronRight className="w-3 h-3" />
-          </Link>
-        </Button>
-      </div>
-    </>
-  );
-}
-
 // ─── Helpers de UI ─────────────────────────────────────────────────────────
 
 function formatarData(iso: string): string {
@@ -1015,7 +939,6 @@ function resumoNatural(
   r: ResumoPastoral,
   c: CandidatosMembresia | null,
   v: ResumoVisitantes | null,
-  dc: ResumoDiaconiaPastoral | null,
 ): string {
   const celebra: string[] = [];
   if (r.aniversarios_hoje > 0) {
@@ -1032,10 +955,10 @@ function resumoNatural(
   if (c && c.elegiveis.length > 0) {
     pendencias.push(`${c.elegiveis.length} ${c.elegiveis.length === 1 ? "candidato" : "candidatos"} ao batismo`);
   }
-  if (dc && dc.pendencias.length > 0) {
-    pendencias.push(`${dc.pendencias.length} ${dc.pendencias.length === 1
-      ? "pessoa da Diaconia parou de vir" : "pessoas da Diaconia pararam de vir"}`);
-  }
+  // A Diaconia saiu desta frase em 09/09/2026: cuidado com quem está na
+  // porta ou entrando na membresia é pastoral; "quem parou de vir" na
+  // Diaconia é cuidado social, e mora no painel da própria Diaconia — ver
+  // o comentário da seção "Quem está entrando", logo abaixo.
   // `r.familias_sem_resp` continua vindo de `resumo_painel_pastoral` e é
   // deliberadamente ignorado aqui: definir responsável de família é cadastro,
   // trabalho da secretaria, e mora em /familias.

@@ -19,10 +19,10 @@ vi.mock("@/services/painelMinisterioService", () => ({
 import { destinoInicial } from "./destinoInicial";
 import type { AppRole } from "@/hooks/useAuth";
 
-const UM = [{ id: "min-1", nome: "Administração", sigla: null, cor: null, comoLidero: "Líder", areasQueLidero: [] }];
+const UM = [{ id: "min-1", nome: "Administração", sigla: null, cor: null, modulo: null, comoLidero: "Líder", areasQueLidero: [] }];
 const DOIS = [
   ...UM,
-  { id: "min-2", nome: "Pastoral", sigla: null, cor: null, comoLidero: "Líder de área", areasQueLidero: ["PGM"] },
+  { id: "min-2", nome: "Pastoral", sigla: null, cor: null, modulo: null, comoLidero: "Líder de área", areasQueLidero: ["PGM"] },
 ];
 
 beforeEach(() => { meusMinisterios.mockReset(); meusMinisterios.mockResolvedValue([]); });

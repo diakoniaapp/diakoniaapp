@@ -17,7 +17,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
-import { Sparkles, ClipboardCheck, Wallet, Boxes, type LucideIcon } from "lucide-react";
+import { Sparkles, ClipboardCheck, Wallet, HeartHandshake, Boxes, type LucideIcon } from "lucide-react";
 import { useReportarVazio } from "@/components/hoje/vazio";
 import { meusMinisterios, type MinisterioQueLidero } from "@/services/painelMinisterioService";
 
@@ -106,21 +106,37 @@ export function MeusPaineis({ permissoes, pessoaId }: {
         <CartaoDePainel key={p.to} to={p.to} nome={p.nome} paraQue={p.paraQue} icon={p.icon} />
       ))}
       {meusMin.map(m => (
-        <CartaoDePainel
-          key={m.id}
-          to={`/ministerios/${m.id}/painel`}
-          nome={m.nome}
-          // "Administração" quer dizer duas coisas nesta igreja: o papel de
-          // dono do sistema e um ministério com líder e áreas. Ao lado de
-          // "Painel da Secretaria" e "Tesouraria", o nome sozinho seria lido
-          // como o painel do administrador.
-          sobrescrito="Ministério"
-          // O que a pessoa é ali, e não o que a tela mostra. "Líder de área ·
-          // Bazar" diz por que este cartão apareceu para ela e não para o
-          // vizinho — que é a pergunta que um cartão inesperado levanta.
-          paraQue={[m.comoLidero, ...m.areasQueLidero].join(" · ")}
-          icon={Boxes}
-        />
+        // O único módulo com bancada própria (09/09/2026): quem lidera a
+        // Diaconia — o ministério inteiro ou só uma área dela — vai direto
+        // para `/painel-diaconia`, não para o painel genérico. Mesma pessoa,
+        // endereço melhor, sem exigir a permissão de banco que os quatro
+        // cartões fixos acima exigem (ver o comentário no topo do arquivo) —
+        // esta lista já é permissão nenhuma DE PROPÓSITO.
+        m.modulo === "diaconia" ? (
+          <CartaoDePainel
+            key={m.id}
+            to="/painel-diaconia"
+            nome="Painel da Diaconia"
+            paraQue={[m.comoLidero, ...m.areasQueLidero].join(" · ")}
+            icon={HeartHandshake}
+          />
+        ) : (
+          <CartaoDePainel
+            key={m.id}
+            to={`/ministerios/${m.id}/painel`}
+            nome={m.nome}
+            // "Administração" quer dizer duas coisas nesta igreja: o papel de
+            // dono do sistema e um ministério com líder e áreas. Ao lado de
+            // "Painel da Secretaria" e "Tesouraria", o nome sozinho seria lido
+            // como o painel do administrador.
+            sobrescrito="Ministério"
+            // O que a pessoa é ali, e não o que a tela mostra. "Líder de área ·
+            // Bazar" diz por que este cartão apareceu para ela e não para o
+            // vizinho — que é a pergunta que um cartão inesperado levanta.
+            paraQue={[m.comoLidero, ...m.areasQueLidero].join(" · ")}
+            icon={Boxes}
+          />
+        )
       ))}
     </div>
   );
