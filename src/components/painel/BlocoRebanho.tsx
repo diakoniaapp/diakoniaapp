@@ -78,6 +78,20 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/h
 import { NomePessoa } from "@/components/membros/ficha";
 
 /**
+ * "2016-05-18" → "18/05/2016". Só para as listas de "antes da janela": elas
+ * cruzam décadas, e "18/05" sozinho não diz de qual ano — ao contrário das
+ * listas por barra, onde o ano já está dito pela barra que abriu o cartão.
+ *
+ * Fatia a string em vez de passar por `Date`, pelo mesmo motivo do `diaEMes`
+ * no serviço: a coluna é `date`, sempre "AAAA-MM-DD", e um `new Date` aqui
+ * reabriria a armadilha do fuso.
+ */
+function comAno(iso: string): string {
+  if (!iso || iso.length < 10) return "";
+  return `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
+}
+
+/**
  * Um trecho de gráfico que abre a lista de quem está nele.
  *
  * Nasceu dentro da pirâmide e saiu para cá quando o gráfico de movimento
@@ -100,7 +114,7 @@ import { NomePessoa } from "@/components/membros/ficha";
  * foco e abre. Sem isso o recurso seria só para quem tem mouse.
  */
 function CartaoDeNomes({
-  itens, rotuloAria, align, className, children,
+  itens, rotuloAria, align, className, children, larguraQuando = "w-[2.6rem]",
 }: {
   /**
    * `quando` abre a linha, `detalhe` a fecha.
@@ -116,6 +130,17 @@ function CartaoDeNomes({
   /** As classes do gatilho — ele é a própria célula do gráfico. */
   className: string;
   children: React.ReactNode;
+  /**
+   * A largura da coluna de `quando`. O padrão cabe "07/08" — dia e mês,
+   * que é o que toda barra do gráfico manda, porque o ANO já está dito
+   * pela própria barra em que o cartão foi aberto.
+   *
+   * As listas de "antes da janela" (`ent.pessoasAnteriores` etc.) são a
+   * exceção: cruzam décadas, então precisam do ano na própria linha — sem
+   * ele, "18/05" ao lado de "07/10" não diz se são o mesmo ano ou não.
+   * Pedido dela em 09/09/2026, vendo a lista sem ano: "coloque o ano".
+   */
+  larguraQuando?: string;
 }) {
   return (
     <HoverCard openDelay={120} closeDelay={80}>
@@ -154,7 +179,7 @@ function CartaoDeNomes({
           {itens.map(p => (
             <li key={p.id} className="text-xs leading-snug flex gap-1.5">
               {p.quando && (
-                <span className="text-muted-foreground tabular-nums shrink-0 w-[2.6rem]">
+                <span className={`text-muted-foreground tabular-nums shrink-0 ${larguraQuando}`}>
                   {p.quando}
                 </span>
               )}
@@ -731,11 +756,12 @@ function QuadroDoMovimento({
           <p className="text-xs text-muted-foreground">
             <CartaoDeNomes
               itens={ent.pessoasAnteriores.map(p => ({
-                id: p.id, nome: p.nome, quando: p.quando, detalhe: p.tipo,
+                id: p.id, nome: p.nome, quando: comAno(p.data), detalhe: p.tipo,
               }))}
               rotuloAria={`Ver quem entrou ${doQue} antes de ${primeiroAno}`}
               align="start"
               className="rounded-sm underline decoration-dotted underline-offset-2 hover:decoration-solid text-left"
+              larguraQuando="w-20"
             >
               Mais <strong className="text-foreground tabular-nums">{ent.anteriores}</strong> entradas
               registradas antes de {primeiroAno}
@@ -751,11 +777,12 @@ function QuadroDoMovimento({
           <p className="text-xs text-muted-foreground">
             <CartaoDeNomes
               itens={sai.pessoasAnteriores.map(p => ({
-                id: p.id, nome: p.nome, quando: p.quando, detalhe: p.tipo,
+                id: p.id, nome: p.nome, quando: comAno(p.data), detalhe: p.tipo,
               }))}
               rotuloAria={`Ver quem saiu ${doQue} antes de ${primeiroAno}`}
               align="start"
               className="rounded-sm underline decoration-dotted underline-offset-2 hover:decoration-solid text-left"
+              larguraQuando="w-20"
             >
               Mais <strong className="text-foreground tabular-nums">{sai.anteriores}</strong> saídas
               registradas antes de {primeiroAno}
