@@ -25,6 +25,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { HeartHandshake, TrendingUp, PauseCircle, MessageCircleOff } from "lucide-react";
 import { hojeMaisDias } from "@/lib/data";
+import { useReportarVazio } from "@/components/hoje/vazio";
 
 type Tipo = "sobrecarga" | "sumido" | "recusou" | "volta";
 
@@ -48,6 +49,15 @@ const DIA = 86_400_000;
 
 export function SinaisDeVoluntariado() {
   const [sinais, setSinais] = useState<Sinal[] | null>(null);
+
+  // 09/09/2026: o widget se apagava por dentro (`if (sinais.length === 0)
+  // return null`, ver comentário do topo), mas nunca avisava a `Secao` que o
+  // envolve — ela só esconde título e tudo quando o filho chama
+  // `useReportarVazio`. Sem isto, "Quem serve" ficava no Painel Pastoral
+  // toda vez que ninguém desse sinal nenhum: um título e subtítulo prometendo
+  // conteúdo, sem uma linha embaixo. `true` também durante o carregamento —
+  // mesmo motivo de sempre: nascer escondido e aparecer já com conteúdo.
+  useReportarVazio(!sinais || sinais.length === 0);
 
   useEffect(() => {
     (async () => {
