@@ -188,6 +188,13 @@ const empty = {
   complemento:              "",
   bairro:                   "",
   cidade:                   "",
+  // 09/09/2026: `membros.uf` sempre existiu, e este formulário nunca a lia
+  // nem gravava — o campo de UF do `CamposEndereco` (mostrado só pra
+  // congregado/membro, ver `mostrarUf` abaixo) ficava sempre em branco, e a
+  // busca por nome de rua nunca funcionava: ela depende de UF, e sem esta
+  // prop controlada o componente nunca via o valor que o próprio CEP
+  // preenchia. Ver o comentário em `CamposEndereco.tsx` sobre `ufEfetivo`.
+  uf:                       "",
   cep:                      "",
   data_entrada:             hojeLocal(),
   // Vazio por padrão, e nunca chutado. Para os 184 membros que já tinham
@@ -1229,6 +1236,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved, tipoInicial, o
                   complemento={form.complemento ?? ""}
                   bairro={form.bairro ?? ""}
                   cidade={form.cidade ?? ""}
+                  uf={form.uf ?? ""}
                   onChange={(campo, valor) => set(campo, valor)}
                   disabled={busy}
                   mostrarNumero

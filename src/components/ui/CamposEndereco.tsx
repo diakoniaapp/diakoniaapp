@@ -57,6 +57,23 @@ export function CamposEndereco({
   const [status,    setStatus]    = useState<StatusCep>("idle");
   const [msgErro,   setMsgErro]   = useState<string>("");
 
+  // ── UF interna, independente de `mostrarUf` ─────────────────────────────
+  //
+  // 09/09/2026: a busca por nome de rua precisa de UF pra consultar o
+  // ViaCEP, mas nem todo formulário que usa este componente rastreia UF no
+  // próprio estado — o de visitante aqui e o de `Familias.tsx` não têm
+  // coluna `uf` na tabela, e mandar o valor pelo `onChange` faria o payload
+  // (que muitos formulários montam com `{ ...form }`) tentar gravar numa
+  // coluna que não existe.
+  //
+  // A UF que o ViaCEP devolve sempre alimenta ESTE estado — usado por baixo
+  // dos panos pra habilitar a busca por rua — e só sobe pro formulário via
+  // `onChange("uf", ...)` quando `mostrarUf` diz que o formulário sabe lidar
+  // com ela. `ufEfetivo` prioriza a prop controlada (quando o pai a
+  // rastreia) e cai pra este estado interno quando não.
+  const [ufInterno, setUfInterno] = useState("");
+  const ufEfetivo = uf || ufInterno;
+
   // ── Busca reversa por nome da rua ──────────────────────────────────────
   const [sugestoes, setSugestoes] = useState<EnderecoViaCep[]>([]);
   const [buscandoRua, setBuscandoRua] = useState(false);
@@ -65,7 +82,7 @@ export function CamposEndereco({
 
   function dispararBuscaRua(valor: string) {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (valor.trim().length < 3 || !uf || !cidade) {
+    if (valor.trim().length < 3 || !ufEfetivo || !cidade) {
       setSugestoes([]);
       setMostrandoSugestoes(false);
       return;
@@ -73,7 +90,7 @@ export function CamposEndereco({
     debounceRef.current = setTimeout(async () => {
       setBuscandoRua(true);
       try {
-        const r = await buscarCepPorLogradouro(uf, cidade, valor);
+        const r = await buscarCepPorLogradouro(ufEfetivo, cidade, valor);
         if (r.ok && r.resultados) {
           setSugestoes(r.resultados.slice(0, 8));
           setMostrandoSugestoes(true);
@@ -91,6 +108,7 @@ export function CamposEndereco({
     onChange("cep",       e.cep);
     onChange("endereco",  e.logradouro);
     onChange("bairro",    e.bairro);
+    setUfInterno(e.uf);
     if (mostrarUf) onChange("uf", e.uf);
     onChange("cidade",    e.localidade);
     setSugestoes([]);
@@ -126,6 +144,7 @@ export function CamposEndereco({
     if (!endereco || !endereco.trim()) onChange("endereco",    e.logradouro);
     if (!bairro   || !bairro.trim())   onChange("bairro",     e.bairro);
     if (!cidade   || !cidade.trim())   onChange("cidade",     e.localidade);
+    setUfInterno(e.uf);
     if (mostrarUf)                     onChange("uf",         e.uf);
     // Complemento: preenche só se ViaCEP retornar e campo estiver vazio
     if ((!complemento || !complemento.trim()) && e.complemento) {
@@ -217,9 +236,18 @@ export function CamposEndereco({
           </div>
         )}
 
-        {!cidade && (
+        {(!cidade || !ufEfetivo) && (
           <p className="text-xs text-muted-foreground mt-0.5">
-            💡 Preencha primeiro a cidade pra habilitar a busca por nome da rua.
+            {/* Normalmente as duas já vêm do CEP — este aviso só aparece pra
+                quem está digitando o endereço do zero, sem CEP em mãos.
+                Quando o campo de UF nem aparece nesta tela (`!mostrarUf`),
+                pedir pra "preencher a UF" seria pedir o impossível — o
+                caminho aqui é sempre o CEP. */}
+            💡 {!mostrarUf
+              ? "Preencha o CEP acima"
+              : !cidade && !ufEfetivo ? "Preencha primeiro cidade e UF"
+              : !cidade ? "Preencha primeiro a cidade"
+              : "Preencha primeiro a UF"} pra habilitar a busca por nome da rua.
           </p>
         )}
       </div>
