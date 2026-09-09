@@ -38,7 +38,13 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
 const EMAIL_PADRAO = "telma@diakoniaapp.com.br";
-const REMETENTE = "Diakonia <resumo@diakoniaapp.com.br>";
+// Provisório: `diakoniaapp.com.br` ainda não está verificado no Resend
+// (achado ao testar de verdade em 09/09/2026 — a chamada real devolveu
+// 403 "domain is not verified"). `onboarding@resend.dev` é o remetente de
+// testes do próprio Resend, funciona sem verificação nenhuma. Trocar para
+// "Diakonia <resumo@diakoniaapp.com.br>" assim que o domínio for verificado
+// em https://resend.com/domains — a troca é só esta linha.
+const REMETENTE = "Diakonia <onboarding@resend.dev>";
 
 interface DigestPastoral {
   aniversarios_semana: number;
