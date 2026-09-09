@@ -14,31 +14,58 @@
 
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { BookOpen, Home as Casa, CalendarClock, MessageCircle, Loader2 } from "lucide-react";
+import { BookOpen, Home as Casa, CalendarClock, MessageCircle, Loader2, Check, X } from "lucide-react";
 import {
   minhaEbd, conviteEbd, meuPgm, minhaSemana, nomeDoDia,
   type MinhaEbd, type ConviteEbd, type MeuPgm, type CompromissoMeu,
 } from "@/services/meuEspacoService";
+import { responderEscala } from "@/services/escalaService";
 import { useReportarVazio } from "@/components/hoje/vazio";
 
 // ─── A minha semana ───────────────────────────────────────────────────────
 
 export function MinhaSemana({ pessoaId }: { pessoaId: string }) {
   const [itens, setItens] = useState<CompromissoMeu[] | null>(null);
+  /** O `escalaVolId` da linha com um toque em andamento — só uma por vez. */
+  const [respondendo, setRespondendo] = useState<string | null>(null);
   useEffect(() => { minhaSemana(pessoaId).then(setItens); }, [pessoaId]);
 
   // `true` também enquanto carrega: a seção nasce escondida e aparece já com
   // conteúdo, em vez de piscar vazia — está escrito no canal `vazio.ts`.
   useReportarVazio(!itens || itens.length === 0);
+
+  // 09/09/2026: a `v_minha_escala` já era lida aqui, mas o toque de resposta
+  // nunca existia — o selo "confirmar" comparava `c.status === "convidado"`,
+  // um valor que não existe no enum `status_presenca_escala` (pendente,
+  // confirmado, recusado, ausente, presente), então nunca acendia. Quem via
+  // "Fulano — hoje, 19:30" tinha que abrir a escala em outro lugar (o painel
+  // do líder, ou o WhatsApp de quem organiza) só para dizer "sim, vou".
+  const responder = async (escalaVolId: string, status: "confirmado" | "recusado") => {
+    setRespondendo(escalaVolId);
+    const r = await responderEscala(escalaVolId, status);
+    setRespondendo(null);
+    if (!r.ok) { toast.error(r.erro); return; }
+    if (status === "recusado") {
+      // A view só traz quem não recusou — sumir da lista aqui é o mesmo que
+      // uma recarga real faria, só que sem esperar por ela.
+      setItens(prev => (prev ?? []).filter(c => c.escalaVolId !== escalaVolId));
+      toast.success("Recusa registrada — quem organiza foi avisado.");
+    } else {
+      setItens(prev => prev && prev.map(c => c.escalaVolId === escalaVolId ? { ...c, status } : c));
+      toast.success("Presença confirmada!");
+    }
+  };
+
   if (!itens || itens.length === 0) return null;
 
   return (
     <div className="grid gap-2">
       {itens.map((c, i) => (
-        <Card key={i} className="min-w-0">
+        <Card key={c.escalaVolId ?? i} className="min-w-0">
           <CardContent className="p-3 flex items-center gap-3">
             <CalendarClock className="w-4 h-4 shrink-0 text-gold" />
             <div className="min-w-0 flex-1">
@@ -49,10 +76,30 @@ export function MinhaSemana({ pessoaId }: { pessoaId: string }) {
                 {c.para ? ` · ${c.para}` : ""}
               </p>
             </div>
-            {/* Escala ainda sem resposta é a única que pede algo de quem lê.
-                As confirmadas ficam sem selo: um selo em tudo não destaca nada. */}
-            {c.status === "convidado" && (
-              <Badge variant="outline" className="text-xs shrink-0">confirmar</Badge>
+            {/* Escala ainda sem resposta é a única que pede algo de quem lê —
+                e agora pede aqui mesmo, sem trocar de tela. As confirmadas
+                ficam com um selo discreto; um selo em tudo não destaca nada. */}
+            {c.status === "pendente" && c.escalaVolId ? (
+              respondendo === c.escalaVolId ? (
+                <Loader2 className="w-4 h-4 shrink-0 animate-spin text-muted-foreground" />
+              ) : (
+                <div className="flex items-center gap-0.5 shrink-0">
+                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7"
+                    aria-label={`Confirmar presença em ${c.titulo}`}
+                    onClick={() => responder(c.escalaVolId!, "confirmado")}>
+                    <Check className="w-3.5 h-3.5 text-success-text" />
+                  </Button>
+                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7"
+                    aria-label={`Avisar que não pode em ${c.titulo}`}
+                    onClick={() => responder(c.escalaVolId!, "recusado")}>
+                    <X className="w-3.5 h-3.5 text-destructive-text" />
+                  </Button>
+                </div>
+              )
+            ) : c.status === "confirmado" && (
+              <Badge variant="outline" className="text-xs shrink-0 text-success-text border-success-line">
+                confirmado
+              </Badge>
             )}
           </CardContent>
         </Card>

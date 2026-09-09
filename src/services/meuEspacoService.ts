@@ -390,6 +390,12 @@ export interface CompromissoMeu {
   para: string | null;
   /** Escala aceita, recusada ou ainda sem resposta. */
   status: string | null;
+  /**
+   * O id de `escala_voluntarios`, só quando `tipo === "escala"` — é o que
+   * `responderEscala()` precisa para confirmar ou recusar. EBD e PGM não têm
+   * (ainda) resposta por toque aqui, então ficam `null`.
+   */
+  escalaVolId: string | null;
 }
 
 const DIAS = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
@@ -426,7 +432,7 @@ export async function minhaSemana(pessoaId: string, dias = 7): Promise<Compromis
 
   const { data } = await supabase
     .from("v_minha_escala")
-    .select("titulo, data_evento, hora_inicio, local, funcao, status, area_nome, pessoa_id")
+    .select("escala_vol_id, titulo, data_evento, hora_inicio, local, funcao, status, area_nome, pessoa_id")
     .eq("pessoa_id", pessoaId)
     .lte("data_evento", fim)
     .order("data_evento");
@@ -441,6 +447,7 @@ export async function minhaSemana(pessoaId: string, dias = 7): Promise<Compromis
     hora: e.hora_inicio ? String(e.hora_inicio).slice(0, 5) : null,
     para: e.local ?? null,
     status: e.status ?? null,
+    escalaVolId: e.escala_vol_id ?? null,
   }));
 }
 
