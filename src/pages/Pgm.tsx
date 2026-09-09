@@ -8,7 +8,7 @@ import {
   Users, Plus, Loader2, ChevronRight, Pencil,
   Calendar, Clock, MapPin, MessageCircle, Sparkles,
 } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
+import { usePodeOperarModulo } from "@/hooks/usePodeOperarModulo";
 import {
   listarGrupos, diaSemanaTexto, horarioTexto,
   type PgmGrupoResumo, type PgmGrupo,
@@ -17,8 +17,11 @@ import { GrupoForm } from "@/components/pgm/GrupoForm";
 import { PaginaSkeleton } from "@/components/ListState";
 
 export default function Pgm() {
-  const { hasRole } = useAuth();
-  const podeCriar = hasRole(["admin", "secretaria", "pastor", "diakonia"]);
+  // Papel [admin, secretaria, pastor, diakonia] OU liderar o ministério de
+  // PGM — o mesmo OR da RLS de `pgm_*` (ver usePodeOperarModulo). Antes era
+  // só o primeiro ramo, e quem lidera os Pequenos Grupos (papel `lideranca`)
+  // não via "Novo PGM" nem o botão de editar.
+  const podeCriar = usePodeOperarModulo("pgm");
   const [grupos, setGrupos] = useState<PgmGrupoResumo[]>([]);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);

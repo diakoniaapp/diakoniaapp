@@ -14,7 +14,7 @@ import {
   Crown, Home as HomeIcon, UsersRound,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useAuth } from "@/hooks/useAuth";
+import { usePodeOperarModulo } from "@/hooks/usePodeOperarModulo";
 import {
   carregarGrupo, listarMembrosDoGrupo, listarReunioes, iniciarReuniao, excluirReuniao, resumoPresenca,
   vincularPessoa, desvincularPessoa, marcarPrincipal,
@@ -40,8 +40,11 @@ const PAPEL_ICONE: Record<PgmPapel, JSX.Element> = {
 export default function PgmGrupo() {
   const { grupoId = "" } = useParams();
   const navigate = useNavigate();
-  const { hasRole } = useAuth();
-  const podeEditar = hasRole(["admin", "secretaria", "pastor", "diakonia"]);
+  // Papel [admin, secretaria, pastor, diakonia] OU liderar o ministério de
+  // PGM — o mesmo OR da RLS de `pgm_*` (ver usePodeOperarModulo). Antes era
+  // só o primeiro ramo, e quem lidera os Pequenos Grupos não via nenhum dos
+  // botões de operação (editar, multiplicar, iniciar encontro, participantes).
+  const podeEditar = usePodeOperarModulo("pgm");
   const [grupo, setGrupo] = useState<PgmGrupoResumo | null>(null);
   const [membros, setMembros] = useState<PgmMembroComPessoa[]>([]);
   const [loading, setLoading] = useState(true);
