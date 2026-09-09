@@ -46,14 +46,20 @@ export interface QuickAction {
 
 export const quickActionsRegistry: QuickAction[] = [
   // ── P0 — As 3-4 ações MAIS frequentes (vão pro topo) ───────────────
+  // 09/09/2026: as duas de baixo apontavam para `?abrir=novo` — parâmetro
+  // que nenhuma das duas telas lê como "abra o formulário de criação"
+  // (em `Membros.tsx`, `abrir` espera um ID de pessoa pra EDITAR). Corrigido
+  // pra `?novo=1`, achado auditando o mesmo bug na paleta de busca — ver o
+  // comentário em `CommandPalette.tsx`. Continua sem consumidor nenhum, por
+  // isso o resto deste arquivo.
   { id: "nova-pessoa", label: "Cadastrar pessoa", icon: UserPlus,
-    to: "/membros?abrir=novo", permissoes: ["criar_pessoa"], prioridade: 0 },
+    to: "/membros?novo=1", permissoes: ["criar_pessoa"], prioridade: 0 },
 
   { id: "novo-lancamento", label: "Lançamento", icon: DollarSign,
     to: "/financas?lancar=true", permissoes: ["lancar_financeiro"], prioridade: 0 },
 
   { id: "nova-membresia", label: "Solicitar membresia", icon: FileText,
-    to: "/membresia?abrir=novo", permissoes: ["criar_membresia","ver_membresia"], prioridade: 0 },
+    to: "/membresia?novo=1", permissoes: ["criar_membresia","ver_membresia"], prioridade: 0 },
 
   // ── Sprint 3 do Painel da Tesouraria (09/09/2026) ──────────────────
   //

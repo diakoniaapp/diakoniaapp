@@ -40,13 +40,19 @@ interface CommandRoute {
 
 const ROUTES: CommandRoute[] = [
   // ── Ações rápidas (criam algo) ────────────────────────────────────
-  { to: "/membros?abrir=novo",  label: "+ Cadastrar pessoa", icon: UserPlus,
+  //
+  // 09/09/2026: as duas de baixo apontavam para `?abrir=novo` — em
+  // `Membros.tsx`, `abrir` espera um ID de pessoa pra EDITAR (não a
+  // palavra "novo"), e `Membresia.tsx` não lia parâmetro nenhum ainda.
+  // As duas telas usam `?novo=1`; corrigido aqui, e ligado em
+  // `Membresia.tsx` pra passar a valer.
+  { to: "/membros?novo=1",  label: "+ Cadastrar pessoa", icon: UserPlus,
     group: "Ações", keywords: ["novo","membro","congregado","cadastro"],
     permissoes: ["criar_pessoa"] },
   { to: "/financas?lancar=true", label: "+ Lançamento financeiro", icon: DollarSign,
     group: "Ações", keywords: ["entrada","saida","despesa","receita","lancar"],
     permissoes: ["lancar_financeiro"] },
-  { to: "/membresia?abrir=novo", label: "+ Solicitar membresia", icon: FileText,
+  { to: "/membresia?novo=1", label: "+ Solicitar membresia", icon: FileText,
     group: "Ações", keywords: ["solicitacao","batismo","aclamacao"],
     permissoes: ["criar_membresia","ver_membresia"] },
 

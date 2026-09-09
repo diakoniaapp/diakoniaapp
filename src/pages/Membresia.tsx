@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -25,8 +25,27 @@ export default function Membresia() {
   const [filtroTipo, setFiltroTipo] = useState<TipoSolicitacao | "__all__">("__all__");
   const [busca, setBusca] = useState("");
   const [novoOpen, setNovoOpen] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => { carregar(); }, [filtroStatus, filtroTipo, busca]);
+
+  // ── Chegada por `?novo=1` ────────────────────────────────────────────
+  //
+  // 09/09/2026: achado auditando os atalhos da paleta de busca (Ctrl+K) e
+  // do registry de ações rápidas — "+ Solicitar membresia" apontava para
+  // `/membresia?abrir=novo`, um parâmetro que esta tela nunca leu. O
+  // atalho navegava pra cá e não abria dialog nenhum; a pessoa tinha que
+  // achar e clicar "Nova solicitação" do mesmo jeito, sem o passo a menos
+  // que o atalho prometia. Mesmo parâmetro que `Membros.tsx` já usa
+  // (`?novo=1`), não `?abrir=novo` — os dois chamadores foram corrigidos
+  // pra usar este.
+  useEffect(() => {
+    if (searchParams.get("novo") !== "1") return;
+    setNovoOpen(true);
+    const limpo = new URLSearchParams(searchParams);
+    limpo.delete("novo");
+    setSearchParams(limpo, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   async function carregar() {
     setLoading(true);
