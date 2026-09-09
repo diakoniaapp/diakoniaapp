@@ -77,7 +77,7 @@ import {
   Cake, Heart, MessageCircle, CalendarCheck, Award, Flag, BookMarked,
   Sparkles, AlertCircle, Users, ChevronRight, Crown, Flame, Droplets,
   GraduationCap, UserCheck, CalendarClock, Sprout, BarChart2, PartyPopper,
-  Users2,
+  Users2, HandHeart, HeartHandshake,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PaginaSkeleton } from "@/components/ListState";
@@ -99,6 +99,10 @@ import {
   indicadoresMembresia,
   type IndicadoresMembresia,
 } from "@/services/rolDeMembrosService";
+import {
+  resumoDiaconiaPastoral, ROTULO_CLASSIFICACAO,
+  type ResumoDiaconiaPastoral,
+} from "@/services/diaconiaService";
 // "Acontecendo hoje" — o mesmo bloco do painel inicial, reaproveitado inteiro.
 // Ele expande as recorrências e soma as reservas de espaço, que é o que faz o
 // culto de domingo e o ensaio de sábado realmente aparecerem. O hook
@@ -197,6 +201,8 @@ export default function PainelPastoral() {
   const [diaAberto, setDiaAberto] = useState(hoje);
   /** Aba aberta em Discipulado. Controlada por causa da rolagem — ver o JSX. */
   const [abaDiscipulado, setAbaDiscipulado] = useState("ebd");
+  /** Aba aberta em Diakonia Care — mesmo controle e mesmo motivo. */
+  const [abaCare, setAbaCare] = useState("acolhimento");
 
   const [eventos, setEventos] = useState<EventoPastoral[]>([]);
   const [resumo, setResumo] = useState<ResumoPastoral | null>(null);
@@ -204,6 +210,7 @@ export default function PainelPastoral() {
   const [visitantes, setVisitantes] = useState<ResumoVisitantes | null>(null);
   const [tarefasAcolhimento, setTarefasAcolhimento] = useState<ResumoTarefasAcolhimento | null>(null);
   const [indicadores, setIndicadores] = useState<IndicadoresMembresia | null>(null);
+  const [diaconia, setDiaconia] = useState<ResumoDiaconiaPastoral | null>(null);
 
   /**
    * O rebanho inteiro: membros + congregados + visitantes, todos ativos.
@@ -241,13 +248,19 @@ export default function PainelPastoral() {
   async function carregar() {
     setLoading(true);
     try {
-      const [ev, r, cm, vs, mb, ta] = await Promise.all([
+      const [ev, r, cm, vs, mb, ta, dc] = await Promise.all([
         proximosDias(DIAS_A_FRENTE),
         resumoPainel(),
         candidatosMembresia(),
         getResumoVisitantes(),
         indicadoresMembresia(),
         resumoTarefasAcolhimento(),
+        // Isolada com o próprio catch: é a única consulta desta tela que
+        // atravessa dois módulos (Pessoas/Discipulado e Diaconia), e uma
+        // falha aqui não pode derrubar o resto do painel pastoral junto —
+        // mesma decisão já tomada para o cruzamento de Diaconia no Painel
+        // da Tesouraria.
+        resumoDiaconiaPastoral().catch(() => null),
       ]);
       setEventos(ev);
       setResumo(r);
@@ -255,6 +268,7 @@ export default function PainelPastoral() {
       setVisitantes(vs);
       setIndicadores(mb);
       setTarefasAcolhimento(ta);
+      setDiaconia(dc);
       setAtualizadoEm(new Date());
     } catch (e: any) {
       toast.error(e?.message ?? "Erro ao carregar painel");
@@ -377,7 +391,7 @@ export default function PainelPastoral() {
         <p className="text-sm text-muted-foreground flex items-start gap-1.5">
           <Sparkles className="w-3.5 h-3.5 text-gold shrink-0 mt-0.5" />
           <span className="min-w-0">
-            {resumoNatural(resumo, candidatos, visitantes)}
+            {resumoNatural(resumo, candidatos, visitantes, diaconia)}
             {atualizadoEm && (
               <span className="text-[10px] text-muted-foreground ml-1.5 whitespace-nowrap">
                 · {formatarAtualizadoHa(atualizadoEm)}
@@ -404,7 +418,7 @@ export default function PainelPastoral() {
           Ver `Indicador` em components/painel/blocos.tsx: sem `valor`, o
           bloco vira atalho e uma seta ocupa o lugar do algarismo. */}
       {resumo && (
-        <FaixaDeIndicadores colunas={5}>
+        <FaixaDeIndicadores colunas={4}>
           {/* "Celebrações hoje" era um indicador aqui. Saiu: levava ao MESMO
               lugar que "Agenda" — a seção passou a ser uma só —, e a frase
               logo acima já abre com "Hoje: 3 aniversariantes". */}
@@ -413,17 +427,21 @@ export default function PainelPastoral() {
             tom="gold" icone={CalendarCheck}
             onClick={() => irParaSecao("agenda")} descricao="Ir para a Agenda"
           />
-          {/* "Cand. batismo" truncava para "CAND. BATIS…" a 375px depois
-              que a fonte da faixa cresceu. Abreviação cortada não diz nada;
-              palavra inteira diz, e o destino — "Candidatos à membresia" —
-              completa o sentido. */}
+          {/* ── DIAKONIA CARE, um indicador só (Fase 3 da Bússola, 09/09/2026) ──
+              Eram dois — "Candidatos" e "Visitantes" — cada um levando à
+              própria seção. Viraram abas de UMA seção, mesmo molde que
+              "Discipulado" já usa para EBD/PGM/Campanhas/Crescimento: as
+              três peças (acolhimento de visitante, candidatos à membresia,
+              Diaconia) respondem à mesma pergunta — "quem precisa do meu
+              cuidado agora?" — e por isso moram juntas, não em três lugares
+              que ninguém olha em sequência. */}
           <Indicador
-            rotulo="Candidatos" tom="info" icone={Droplets}
-            onClick={() => irParaSecao("candidatos")} descricao="Ir para Candidatos à membresia"
+            rotulo="Diakonia Care" tom="celebracao" icone={HandHeart}
+            onClick={() => irParaSecao("diakonia-care")} descricao="Ir para Diakonia Care"
           />
-          {/* Fica colado em "Cand. batismo" porque os dois falam da mesma
-              coisa vista de dois lados: quem está para entrar e quem já
-              entrou.
+          {/* Fica logo depois de Diakonia Care porque os dois falam da mesma
+              coisa vista de dois lados: quem está na porta, e quem já é a
+              casa.
 
               Rótulo de uma palavra: "Rol de membros" truncava para
               "ROL DE ME…" a 375px, que não diz nada. E "Rebanho" é o certo
@@ -432,19 +450,6 @@ export default function PainelPastoral() {
           <Indicador
             rotulo="Rebanho" tom="violeta" icone={Users2}
             onClick={() => irParaSecao("rebanho")} descricao="Ir para O rebanho"
-          />
-          {/* Chamou-se "Visit. sem contato" e depois "Em acompanhamento".
-              Virou "Visitantes" a pedido, em 27/08/2026: sem número ao lado,
-              "Em acompanhamento" descrevia um recorte que o bloco já não
-              mostrava, e ainda era o rótulo mais comprido da faixa — o único
-              que truncava no celular.
-
-              O tom continua sendo o de celebração, e não o de alerta: quem
-              está sendo acompanhado é boa notícia. Quem está SEM contato
-              aparece dentro da seção, onde tem contexto. */}
-          <Indicador
-            rotulo="Visitantes" tom="celebracao" icone={Users}
-            onClick={() => irParaSecao("visitantes")} descricao="Ir para Acompanhamento de visitantes"
           />
           {/* O atalho para a seção mais ao fundo do painel — a que mais custa
               alcançar rolando. */}
@@ -520,60 +525,191 @@ export default function PainelPastoral() {
         </div>
       </section>
 
-      {/* ── Candidatos à membresia ──────────────────────────────────────── */}
-      {candidatos && candidatos.elegiveis.length > 0 && (
-        <section id="candidatos" className="scroll-mt-[280px] sm:scroll-mt-[230px]">
-          <TituloDaSecao icone={Droplets} tom="info" contagem={candidatos.elegiveis.length}>
-            Candidatos à membresia
-          </TituloDaSecao>
-          <div className="space-y-3">
-            <p className="text-xs text-muted-foreground">
-              Congregados com {IDADE_MINIMA_BATISMO} anos ou mais — candidatos ao batismo
-              e à entrada no rol de membros.
-            </p>
+      {/* ── Diakonia Care ──────────────────────────────────────────────────
+          Fase 3 da Bússola do Diakonia (09/09/2026). Três seções que
+          respondiam à mesma pergunta separadamente — acolhimento de
+          visitante, candidatos à membresia, e a Diaconia (que nunca tinha
+          leitura nenhuma aqui, só no painel de quem a lidera) — viram três
+          abas de uma seção só. Não reconstrói nenhuma das três: cada aba
+          reaproveita a consulta e o componente que já existiam.
 
-            {/*
-              Duas colunas e uma linha por pessoa, como em "Datas importantes":
-              um nome e uma idade nao precisam da largura inteira do cartao.
+          Sempre visível, como "Discipulado": as abas gerenciam o próprio
+          vazio, e uma lista de abas que aparece e desaparece com o dado
+          seria mais confusa do que útil. */}
+      <section id="diakonia-care" className="scroll-mt-[280px] sm:scroll-mt-[230px]">
+        <TituloDaSecao icone={HandHeart} tom="celebracao">Diakonia Care</TituloDaSecao>
+        <Tabs
+          value={abaCare}
+          onValueChange={(v) => {
+            setAbaCare(v);
+            // Mesmo ajuste de rolagem do Discipulado — ver o comentário lá
+            // embaixo para o porquê dos dois quadros de espera.
+            requestAnimationFrame(() =>
+              requestAnimationFrame(() => irParaSecao("diakonia-care")));
+          }}
+        >
+          <TabsList className="mb-3">
+            <TabsTrigger value="acolhimento" className="gap-1.5 text-xs">
+              <Users className="w-3.5 h-3.5" /> Acolhimento
+              {visitantes && visitantes.semContato > 0 && (
+                <Badge variant="outline" className="ml-1 h-4 px-1 text-[10px] text-warning-text border-warning-line">
+                  {visitantes.semContato}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="candidatos" className="gap-1.5 text-xs">
+              <Droplets className="w-3.5 h-3.5" /> Candidatos
+              {candidatos && candidatos.elegiveis.length > 0 && (
+                <Badge variant="outline" className="ml-1 h-4 px-1 text-[10px] text-info-text border-info-line">
+                  {candidatos.elegiveis.length}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="diaconia" className="gap-1.5 text-xs">
+              <HeartHandshake className="w-3.5 h-3.5" /> Diaconia
+              {diaconia && diaconia.pendencias.length > 0 && (
+                <Badge variant="outline" className="ml-1 h-4 px-1 text-[10px] text-warning-text border-warning-line">
+                  {diaconia.pendencias.length}
+                </Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
 
-              A linha toda abre a ficha — **em modo consulta**. Antes ela
-              navegava para `/membros?abrir=`, que tira a pessoa do painel e
-              cai numa tela onde se edita. Aqui a ficha e um dialogo por cima,
-              sem lapis de edicao: este painel serve a lideranca pastoral, e
-              alterar cadastro e trabalho da secretaria.
+          {/* ── Acolhimento — era a seção "Acompanhamento de visitantes" ── */}
+          <TabsContent value="acolhimento" className="mt-0 space-y-3">
+            {!visitantes || visitantes.total === 0 ? (
+              <p className="text-sm text-muted-foreground py-2 px-3 border rounded-md">
+                Nenhum visitante ativo no momento.
+              </p>
+            ) : (
+              <>
+                <div className="flex justify-end">
+                  <Button asChild variant="ghost" size="sm" className="gap-1 text-xs h-7">
+                    <Link to="/visitantes">Painel de Visitantes <ChevronRight className="w-3 h-3" /></Link>
+                  </Button>
+                </div>
+                {/* Pedido dela: os seis números viraram link — e não pro mesmo
+                    lugar genérico todos. Cada um mira o recorte que de fato
+                    mostra aquelas pessoas:
 
-              O cartao inteiro so monta quando ha elegiveis, entao nao ha caso
-              vazio a tratar.
-            */}
-            <div className="grid sm:grid-cols-2 gap-1.5">
-              {candidatos.elegiveis.map(p => (
-                <div
-                  key={p.id}
-                  className="flex items-center gap-1.5 border rounded-md px-2.5 py-1.5 min-w-0 bg-info-soft/40"
-                >
-                  <Droplets className="w-3.5 h-3.5 shrink-0 text-info-text" />
-                  {/* `leading-tight` porque o <button> do NomePessoa entra no
-                      fluxo de texto e, sem isso, estica a caixa de linha. */}
-                  <p className="text-sm leading-tight truncate min-w-0 flex-1">
-                    <NomePessoa
-                      id={p.id}
-                      nome={p.nome_completo}
-                      somenteLeitura
-                      className="font-medium align-middle leading-tight"
-                    />
-                    <span className="text-muted-foreground align-middle">
-                      {" · "}{p.idade} anos
-                      {p.data_congregado && ` · desde ${formatarData(p.data_congregado)}`}
+                    - Novos/Em acomp./Prontos → aba "Todos" de /visitantes. A
+                      aba "Ação do dia" só mostra quem precisa de contato AGORA
+                      — alguém "pronto pra crescer" ou "em acompanhamento" pode
+                      já estar em dia com o contato e não aparecer lá. "Todos"
+                      é o superconjunto que garante que a pessoa aparece.
+                    - Sem contato → aba "Ação do dia" — é exatamente essa aba,
+                      ver `AcoesHoje`/`precisaAcao`.
+                    - Congregaram → **não é /visitantes**. Quem já congregou saiu
+                      de `tipo_pessoa = 'visitante'` no instante em que virou
+                      congregado — a lista de visitantes nunca mostra essa
+                      pessoa, não importa a aba. Vai pra /membros, filtrado por
+                      tipo.
+                    - Tarefas → /visitantes sem aba específica; é um resumo
+                      agregado, não um recorte de pessoas. */}
+                <FaixaDeIndicadores colunas={6}>
+                  <Indicador
+                    rotulo="Novos (7d)" valor={visitantes.novos} tom="info"
+                    onClick={() => navigate("/visitantes?aba=todos")}
+                    descricao="Ir para Todos os visitantes"
+                  />
+                  <Indicador
+                    rotulo="Em acomp." valor={visitantes.emAcompanhamento} tom="celebracao"
+                    onClick={() => navigate("/visitantes?aba=todos")}
+                    descricao="Ir para Todos os visitantes"
+                  />
+                  <Indicador
+                    rotulo="Sem contato" valor={visitantes.semContato} tom="warning"
+                    onClick={() => navigate("/visitantes?aba=acao")}
+                    descricao="Ir para Ação do dia, em Visitantes"
+                  />
+                  <Indicador
+                    rotulo="Prontos" valor={visitantes.prontosCrescer} tom="success"
+                    onClick={() => navigate("/visitantes?aba=todos")}
+                    descricao="Ir para Todos os visitantes"
+                  />
+                  <Indicador
+                    rotulo="Congregaram" valor={visitantes.convertidos} tom="neutro"
+                    onClick={() => navigate("/membros?tipo=congregado")}
+                    descricao="Ir para Pessoas, filtrado por congregados"
+                  />
+                  {/* O "motor" de /visitantes: não é quantas pessoas, é quanto
+                      do trabalho de acolher elas já foi feito — as 4 tarefas
+                      automáticas (boas-vindas, contato, convite, recontato)
+                      que nascem com cada visitante novo. */}
+                  <Indicador
+                    rotulo="Tarefas"
+                    valor={tarefasAcolhimento && tarefasAcolhimento.total > 0 ? `${tarefasAcolhimento.pct}%` : "—"}
+                    tom="gold"
+                    onClick={() => navigate("/visitantes")}
+                    descricao="Ir para o Painel de Visitantes"
+                  />
+                </FaixaDeIndicadores>
+                {visitantes.semContato > 0 && (
+                  <p className="text-xs text-warning-text flex items-start gap-1.5">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                    <span>
+                      <strong>{visitantes.semContato}</strong> {visitantes.semContato === 1 ? "visitante está" : "visitantes estão"} há
+                      mais de 7 dias sem contato registrado.
                     </span>
                   </p>
+                )}
+              </>
+            )}
+          </TabsContent>
+
+          {/* ── Candidatos — era a seção "Candidatos à membresia" ────────── */}
+          <TabsContent value="candidatos" className="mt-0 space-y-3">
+            {!candidatos || candidatos.elegiveis.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-2 px-3 border rounded-md">
+                Nenhum congregado elegível ao batismo no momento.
+              </p>
+            ) : (
+              <>
+                <p className="text-xs text-muted-foreground">
+                  Congregados com {IDADE_MINIMA_BATISMO} anos ou mais — candidatos ao batismo
+                  e à entrada no rol de membros.
+                </p>
+                {/* A linha toda abre a ficha — em modo consulta, sem lápis de
+                    edição: este painel serve a liderança pastoral, e alterar
+                    cadastro é trabalho da secretaria. */}
+                <div className="grid sm:grid-cols-2 gap-1.5">
+                  {candidatos.elegiveis.map(p => (
+                    <div
+                      key={p.id}
+                      className="flex items-center gap-1.5 border rounded-md px-2.5 py-1.5 min-w-0 bg-info-soft/40"
+                    >
+                      <Droplets className="w-3.5 h-3.5 shrink-0 text-info-text" />
+                      <p className="text-sm leading-tight truncate min-w-0 flex-1">
+                        <NomePessoa
+                          id={p.id}
+                          nome={p.nome_completo}
+                          somenteLeitura
+                          className="font-medium align-middle leading-tight"
+                        />
+                        <span className="text-muted-foreground align-middle">
+                          {" · "}{p.idade} anos
+                          {p.data_congregado && ` · desde ${formatarData(p.data_congregado)}`}
+                        </span>
+                      </p>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </>
+            )}
+          </TabsContent>
 
-          </div>
-        </section>
-      )}
-
+          {/* ── Diaconia — nova, esta seção nunca tinha leitura pastoral ──── */}
+          <TabsContent value="diaconia" className="mt-0 space-y-3">
+            {!diaconia ? (
+              <p className="text-sm text-muted-foreground py-2 px-3 border rounded-md">
+                Sem ministério de Diaconia cadastrado, ou ninguém vinculado ainda.
+              </p>
+            ) : (
+              <SecaoDiaconiaCare resumo={diaconia} />
+            )}
+          </TabsContent>
+        </Tabs>
+      </section>
 
       {/* ── O rebanho ───────────────────────────────────────────────────
           **Chamava-se "A membresia", e o nome estava errado.** Membresia é
@@ -581,12 +717,10 @@ export default function PainelPastoral() {
           frequenta: membros, congregados e visitantes ativos. Corrigido a
           pedido da Telma em 26/08/2026.
 
-          Fica logo abaixo de "Candidatos à membresia" de propósito: um
-          quadro mostra quem está na porta, o outro mostra a casa. Ler os
-          dois em sequência é a leitura que a seção quer provocar — seis
-          candidatos entrando num rol com este formato etário.
+          Fica logo abaixo de Diakonia Care de propósito: um quadro mostra
+          quem está na porta, o outro mostra a casa.
 
-          **Não some quando está vazio**, ao contrário das seções acima. O
+          **Não some quando está vazio**, ao contrário da seção acima. O
           canal de "estou vazio" existe para trabalho pendente: um bloco de
           acolhimento sem ninguém para acolher é ruído. Aqui é o oposto —
           um rol de zero membros seria a notícia mais importante da tela, e
@@ -598,99 +732,6 @@ export default function PainelPastoral() {
             O rebanho
           </TituloDaSecao>
           <BlocoRebanho dados={indicadores} />
-        </section>
-      )}
-
-      {/* ── Acompanhamento de visitantes ────────────────────────────────── */}
-      {visitantes && visitantes.total > 0 && (
-        <section id="visitantes" className="scroll-mt-[280px] sm:scroll-mt-[230px]">
-          <TituloDaSecao
-            icone={Users}
-            tom="neutro"
-            contagem={visitantes.total}
-            acao={
-              <Button asChild variant="ghost" size="sm" className="gap-1 text-xs h-7">
-                <Link to="/visitantes">Acolhimento <ChevronRight className="w-3 h-3" /></Link>
-              </Button>
-            }
-          >
-            Acompanhamento de visitantes
-          </TituloDaSecao>
-          <div className="space-y-3">
-            {/* Pedido dela: os seis números viraram link — e não pro mesmo
-                lugar genérico todos. Cada um mira o recorte que de fato
-                mostra aquelas pessoas:
-
-                - Novos/Em acomp./Prontos → aba "Todos" de /visitantes. A
-                  aba "Ação do dia" só mostra quem precisa de contato AGORA
-                  — alguém "pronto pra crescer" ou "em acompanhamento" pode
-                  já estar em dia com o contato e não aparecer lá. "Todos"
-                  é o superconjunto que garante que a pessoa aparece.
-                - Sem contato → aba "Ação do dia" — é exatamente essa aba,
-                  ver `AcoesHoje`/`precisaAcao`.
-                - Congregaram → **não é /visitantes**. Quem já congregou saiu
-                  de `tipo_pessoa = 'visitante'` no instante em que virou
-                  congregado — a lista de visitantes nunca mostra essa
-                  pessoa, não importa a aba. Vai pra /membros, filtrado por
-                  tipo. (Achado à parte, registrado em
-                  `visitanteService.ts`: a contagem em si é sempre 0 hoje,
-                  porque `data_congregado` não está populado em nenhum dos
-                  31 congregados ativos do banco — assunto de cadastro, não
-                  desta tela.)
-                - Tarefas → /visitantes sem aba específica; é um resumo
-                  agregado, não um recorte de pessoas. */}
-            <FaixaDeIndicadores colunas={6}>
-              <Indicador
-                rotulo="Novos (7d)" valor={visitantes.novos} tom="info"
-                onClick={() => navigate("/visitantes?aba=todos")}
-                descricao="Ir para Todos os visitantes"
-              />
-              <Indicador
-                rotulo="Em acomp." valor={visitantes.emAcompanhamento} tom="celebracao"
-                onClick={() => navigate("/visitantes?aba=todos")}
-                descricao="Ir para Todos os visitantes"
-              />
-              <Indicador
-                rotulo="Sem contato" valor={visitantes.semContato} tom="warning"
-                onClick={() => navigate("/visitantes?aba=acao")}
-                descricao="Ir para Ação do dia, em Visitantes"
-              />
-              <Indicador
-                rotulo="Prontos" valor={visitantes.prontosCrescer} tom="success"
-                onClick={() => navigate("/visitantes?aba=todos")}
-                descricao="Ir para Todos os visitantes"
-              />
-              <Indicador
-                rotulo="Congregaram" valor={visitantes.convertidos} tom="neutro"
-                onClick={() => navigate("/membros?tipo=congregado")}
-                descricao="Ir para Pessoas, filtrado por congregados"
-              />
-              {/* O "motor" de /visitantes, trazido pra cá a pedido dela: não é
-                  quantas pessoas, é quanto do trabalho de acolher elas já foi
-                  feito — as 4 tarefas automáticas (boas-vindas, contato,
-                  convite, recontato) que nascem com cada visitante novo. Só
-                  aparece com valor quando há tarefa pra contar; sem visitante
-                  nenhum, `tarefasAcolhimento.total` é 0 e o indicador mostra
-                  "—" em vez de um 0% que soaria a alarme falso (ninguém pra
-                  acolher, não acolhimento zerado). */}
-              <Indicador
-                rotulo="Tarefas"
-                valor={tarefasAcolhimento && tarefasAcolhimento.total > 0 ? `${tarefasAcolhimento.pct}%` : "—"}
-                tom="gold"
-                onClick={() => navigate("/visitantes")}
-                descricao="Ir para o Painel de Visitantes"
-              />
-            </FaixaDeIndicadores>
-            {visitantes.semContato > 0 && (
-              <p className="text-xs text-warning-text flex items-start gap-1.5">
-                <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                <span>
-                  <strong>{visitantes.semContato}</strong> {visitantes.semContato === 1 ? "visitante está" : "visitantes estão"} há
-                  mais de 7 dias sem contato registrado.
-                </span>
-              </p>
-            )}
-          </div>
         </section>
       )}
 
@@ -797,6 +838,69 @@ export default function PainelPastoral() {
           permissao de quem olha continua valendo por cima. */}
       <WidgetsDoPainel painel="pastoral" />
     </div>
+  );
+}
+
+// ─── Diakonia Care — aba Diaconia ───────────────────────────────────────────
+//
+// Primeira leitura da Diaconia fora do painel de quem a lidera. Deliberadamente
+// enxuta: cobertura de ficha, vulnerabilidade e quem parou de vir — o que um
+// pastor precisa saber para decidir se visita alguém, não o checklist
+// operacional (isso é do painel do ministério) nem o lado financeiro (isso é
+// da Tesouraria, no cruzamento com cestas compradas).
+function SecaoDiaconiaCare({ resumo }: { resumo: ResumoDiaconiaPastoral }) {
+  const { indicadores: ind, pendencias, ministerioId } = resumo;
+  const totalPessoas = ind.comFicha + ind.semFicha;
+
+  return (
+    <>
+      <FaixaDeIndicadores colunas={4}>
+        <Indicador rotulo="Com ficha" valor={`${ind.comFicha}/${totalPessoas || 0}`} tom="info" />
+        <Indicador
+          rotulo={ROTULO_CLASSIFICACAO.extrema_pobreza}
+          valor={ind.distribuicao.extrema_pobreza} tom="warning"
+        />
+        <Indicador rotulo="Crianças" valor={ind.criancasAtendidas} tom="celebracao" />
+        <Indicador rotulo="Idosos" valor={ind.idososAtendidos} tom="violeta" />
+      </FaixaDeIndicadores>
+
+      {pendencias.length === 0 ? (
+        <p className="text-sm text-muted-foreground py-2 px-3 border rounded-md">
+          Ninguém acumulando faltas — todo mundo vinculado veio na última ocasião registrada.
+        </p>
+      ) : (
+        <div className="space-y-1.5">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            Quem parou de vir
+          </p>
+          <ul className="divide-y rounded-md border bg-card">
+            {pendencias.slice(0, 6).map(p => (
+              <li key={p.vinculo_id} className="flex items-center gap-2 px-3 py-2 min-w-0">
+                <span className="text-sm min-w-0 flex-1 truncate">
+                  <span className="font-medium">{p.nome}</span>
+                  <span className="text-muted-foreground">
+                    {" · "}{p.area_nome} · {p.faltasSeguidas} {p.faltasSeguidas === 1 ? "falta seguida" : "faltas seguidas"}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+          {pendencias.length > 6 && (
+            <p className="text-xs text-muted-foreground px-1">
+              + {pendencias.length - 6} {pendencias.length - 6 === 1 ? "outra" : "outras"}.
+            </p>
+          )}
+        </div>
+      )}
+
+      <div className="flex justify-end">
+        <Button asChild variant="ghost" size="sm" className="gap-1 text-xs h-7">
+          <Link to={`/ministerios/${ministerioId}/painel`}>
+            Painel da Diaconia <ChevronRight className="w-3 h-3" />
+          </Link>
+        </Button>
+      </div>
+    </>
   );
 }
 
@@ -911,6 +1015,7 @@ function resumoNatural(
   r: ResumoPastoral,
   c: CandidatosMembresia | null,
   v: ResumoVisitantes | null,
+  dc: ResumoDiaconiaPastoral | null,
 ): string {
   const celebra: string[] = [];
   if (r.aniversarios_hoje > 0) {
@@ -926,6 +1031,10 @@ function resumoNatural(
   }
   if (c && c.elegiveis.length > 0) {
     pendencias.push(`${c.elegiveis.length} ${c.elegiveis.length === 1 ? "candidato" : "candidatos"} ao batismo`);
+  }
+  if (dc && dc.pendencias.length > 0) {
+    pendencias.push(`${dc.pendencias.length} ${dc.pendencias.length === 1
+      ? "pessoa da Diaconia parou de vir" : "pessoas da Diaconia pararam de vir"}`);
   }
   // `r.familias_sem_resp` continua vindo de `resumo_painel_pastoral` e é
   // deliberadamente ignorado aqui: definir responsável de família é cadastro,

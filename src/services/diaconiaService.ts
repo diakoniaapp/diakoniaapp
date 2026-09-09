@@ -810,3 +810,48 @@ function traduzir(mensagem: string): string {
   if (mensagem.includes("row-level security")) return "Você não tem acesso a esta área da Diaconia.";
   return mensagem;
 }
+
+// ─── Diakonia Care (Fase 3 da Bússola do Diakonia, 09/09/2026) ────────────
+//
+// A Diaconia ganha, aqui, sua primeira leitura FORA do painel de quem a
+// lidera. `carregarBancadaDiaconia()`/`carregarIndicadoresDiaconia()` só
+// eram chamadas de dentro de `PainelMinisterio.tsx`, com o `ministerioId`
+// vindo da URL — o Painel Pastoral não tem essa URL, então precisa achar o
+// ministério sozinho.
+
+/** O único ministério com `modulo = 'diaconia'` — `null` se a igreja ainda não tiver um. */
+export async function ministerioDiaconiaId(): Promise<string | null> {
+  const { data } = await supabase
+    .from("ministerios").select("id").eq("modulo", "diaconia").maybeSingle();
+  return (data as { id: string } | null)?.id ?? null;
+}
+
+export interface ResumoDiaconiaPastoral {
+  ministerioId: string;
+  indicadores: IndicadoresDiaconia;
+  pendencias: PendenciaAcompanhamento[];
+}
+
+/**
+ * A leitura pastoral da Diaconia: cobertura de ficha, vulnerabilidade, e
+ * quem parou de vir — sem o lado financeiro (isso é a Tesouraria, ver
+ * `carregarCruzamentoDiaconia()` em `painelTesourariaService.ts`) e sem o
+ * checklist operacional (isso é o painel do ministério).
+ *
+ * `null` quando a igreja ainda não tem ministério de Diaconia cadastrado, ou
+ * quando ele não tem ninguém vinculado ainda — mesmo critério de
+ * `carregarIndicadoresDiaconia`, que devolve `null` nesse caso.
+ */
+export async function resumoDiaconiaPastoral(): Promise<ResumoDiaconiaPastoral | null> {
+  const ministerioId = await ministerioDiaconiaId();
+  if (!ministerioId) return null;
+
+  const limites = await carregarLimitesPerCapita();
+  const [indicadores, pendencias] = await Promise.all([
+    carregarIndicadoresDiaconia(ministerioId, limites),
+    carregarPendenciasAcompanhamento(ministerioId),
+  ]);
+  if (!indicadores) return null;
+
+  return { ministerioId, indicadores, pendencias };
+}
