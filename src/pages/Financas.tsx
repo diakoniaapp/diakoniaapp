@@ -17,6 +17,7 @@ import { Settings, ArrowRightLeft, RotateCw, Package, Sparkles, Layers, Target, 
 import { useAuth } from "@/hooks/useAuth";
 import { PaginaSkeleton } from "@/components/ListState";
 import { WidgetsDoPainel } from "@/dashboard/WidgetsDoPainel";
+import { ROLES_FINANCEIRO } from "@/components/layout/navConfig";
 
 const ICONE_CONTA: Record<string, JSX.Element> = {
   caixa:     <Wallet className="w-4 h-4" />,
@@ -30,7 +31,16 @@ const ICONE_CONTA: Record<string, JSX.Element> = {
 
 export default function Financas() {
   const { hasRole } = useAuth();
-  const podeUsar = hasRole(["admin", "secretaria", "pastor", "diakonia"]);
+  // Era `["admin", "secretaria", "pastor", "diakonia"]` — a mesma lista
+  // genérica copiada em EBD e PGM, sem relação com quem de fato mexe em
+  // dinheiro. Ela deixava `pastor` entrar (fora do recorte financeiro desde
+  // 02/09/2026, ver `ROLES_FINANCEIRO`) e barrava `tesouraria` — a própria
+  // rota (`ROUTE_ROLES["/financas"]`) já usa `ROLES_FINANCEIRO` e deixava
+  // passar; só esta checagem interna, redundante, discordava e devolvia
+  // "Acesso restrito à tesouraria" para quem tem exatamente esse papel.
+  // Achado ao construir o Painel da Tesouraria (08/09/2026): o atalho "Ir
+  // para Tesouraria" de lá levaria a essa mesma parede.
+  const podeUsar = hasRole(ROLES_FINANCEIRO);
 
   const [contas, setContas] = useState<FinConta[]>([]);
   const [resumo, setResumo] = useState<FinResumoMes | null>(null);

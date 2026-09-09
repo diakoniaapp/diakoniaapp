@@ -41,17 +41,16 @@ describe("destinoInicial", () => {
     expect(await destinoInicial(["pastor"] as AppRole[], "p1")).toBe("/painel-pastoral");
   });
 
-  it("a tesouraria cai na regra da liderança, como qualquer outra", async () => {
-    // Este teste era sobre `pastor`, que até 02/09/2026 era papel reduzido e
-    // não tinha bancada própria. Agora ele É o pastor titular e vai para o
-    // Painel Pastoral — quem ficou sem bancada por papel é a `tesouraria`,
-    // que segue o caminho de todo mundo: se liderar um ministério, vai para
-    // a bancada dele.
+  it("a tesouraria vai para o Painel da Tesouraria, mesmo liderando um ministério", async () => {
+    // Até 08/09/2026 `tesouraria` era o papel sem bancada própria e caía na
+    // regra de liderança, como qualquer outro. O Painel da Tesouraria
+    // (auditoria de navegação da mesma semana) deu a ela o mesmo tipo de
+    // papel de propósito que secretaria e pastor já tinham — e a mesma regra
+    // de composição vale: quem tem bancada por papel nem chega a perguntar
+    // pela liderança.
     meusMinisterios.mockResolvedValue(UM);
-    expect(await destinoInicial(["tesouraria"] as AppRole[], "p1")).toBe("/ministerios/min-1/painel");
-
-    meusMinisterios.mockResolvedValue([]);
-    expect(await destinoInicial(["tesouraria"] as AppRole[], "p1")).toBe("/");
+    expect(await destinoInicial(["tesouraria"] as AppRole[], "p1")).toBe("/painel-tesouraria");
+    expect(meusMinisterios).not.toHaveBeenCalled();
   });
 
   it("quem lidera UM ministério cai na bancada dele", async () => {

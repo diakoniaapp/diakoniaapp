@@ -62,8 +62,15 @@ const PAINEIS: PainelDisponivel[] = [
     icon: ClipboardCheck, permissoes: ["ver_painel_secretaria"] },
   // "Tesouraria" e não "Finanças": é o nome do trabalho e de quem o faz na
   // igreja. "Finanças" nomeia o assunto; o cartão leva a uma bancada.
-  { to: "/financas", nome: "Tesouraria",
-    paraQue: "Entradas, saídas e o que vence nos próximos dias",
+  //
+  // Até 08/09/2026 este cartão levava a `/financas` — o comentário acima já
+  // prometia "bancada" antes de ela existir. O Painel da Tesouraria
+  // (auditoria de navegação da mesma semana) cumpre a promessa: agora é uma
+  // tela própria, com a mesma frase-resumo e chegada automática no login que
+  // os outros dois painéis já têm. `/financas` continua existindo como
+  // catálogo — o "Ir para Tesouraria" de dentro do painel novo leva lá.
+  { to: "/painel-tesouraria", nome: "Tesouraria",
+    paraQue: "Fiscal e caixa — o que precisa de atenção agora",
     icon: Wallet, permissoes: ["ver_painel_tesouraria"] },
 ];
 

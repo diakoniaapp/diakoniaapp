@@ -12,7 +12,7 @@ import {
   Network, FileText, ScrollText,
   CheckSquare, UserCheck, Sprout, Gavel,
   ShoppingBag, type LucideIcon,
-  ClipboardCheck,
+  ClipboardCheck, Wallet,
 } from "lucide-react";
 import type { AppRole } from "@/hooks/useAuth";
 
@@ -176,6 +176,12 @@ export const ATALHOS_TOPO: NavItem[] = [
   // Só admin e secretaria. Aparecer para a liderança faria o atalho prometer
   // uma tela que a guarda de rota recusa — pior que não aparecer.
   { to: "/painel-secretaria", label: "Painel da Secretaria", icon: ClipboardCheck, allowedRoles: ROLES_ADMIN },
+  // Fecha o trio. Achado na auditoria de navegação de 08/09/2026: pastor e
+  // secretaria já tinham bancada própria com chegada automática no login, e
+  // tesouraria caía na Home genérica — o maior problema estrutural que a
+  // auditoria encontrou. `ROLES_FINANCEIRO`, não `ROLES_ADMIN`: quem tem só o
+  // papel `tesouraria` precisa ver o atalho, não só admin/diakonia/secretaria.
+  { to: "/painel-tesouraria", label: "Painel da Tesouraria", icon: Wallet, allowedRoles: ROLES_FINANCEIRO },
 ];
 
 export const NAV_GROUPS: NavGroup[] = [
@@ -311,6 +317,7 @@ export const pageTitles: Record<string, string> = {
   "/agenda-pastoral":         "Agenda Pastoral",
   "/painel-pastoral":         "Painel Pastoral",
   "/painel-secretaria":       "Painel da Secretaria",
+  "/painel-tesouraria":       "Painel da Tesouraria",
   "/locais":                  "Espaços",
   "/visitantes":              "Visitantes",
   "/painel-estrategico":      "Crescimento",
@@ -402,6 +409,10 @@ export const ROUTE_ROLES: Record<string, AppRole[]> = {
   // /ebd/acompanhamento e pela paleta — esconder o item do menu esconderia
   // so um dos quatro caminhos.
   "/painel-pastoral":    ROLES_PAINEL_PASTORAL,
+  // `ROLES_FINANCEIRO`, não uma lista própria: é a mesma malha que já fecha
+  // "/financas" e as outras três rotas do grupo Financeiro — o papel
+  // `tesouraria` precisa entrar aqui pelo mesmo motivo que entra lá.
+  "/painel-tesouraria":  ROLES_FINANCEIRO,
 };
 
 /**
@@ -436,6 +447,10 @@ export function rotaInicialPorPapel(roles: AppRole[]): string {
   // para uma tela que a guarda recusa no instante seguinte — o vaivém que a
   // nota acima promete não produzir, e que o último teste deste arquivo pega.
   if (roles.includes("pastor")) return "/painel-pastoral";
+  // Fecha o trio, achado na auditoria de navegação de 08/09/2026: tesouraria
+  // caía na Home genérica enquanto secretaria e pastor já tinham bancada
+  // própria — o maior problema estrutural que a auditoria encontrou.
+  if (roles.includes("tesouraria")) return "/painel-tesouraria";
   return "/";
 }
 

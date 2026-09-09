@@ -74,13 +74,16 @@ describe("rotaInicialPorPapel", () => {
     expect(rotaInicialPorPapel(["pastor"])).toBe("/painel-pastoral");
   });
 
-  it("a tesouraria NÃO tem bancada por papel", () => {
-    // Este teste era sobre `pastor`, excluído em 01/09/2026 e reabilitado em
-    // 02/09 como titular. Quem ocupa agora o lugar de "papel sem bancada
-    // própria" é a tesouraria: ela cai na Home, e de lá abre a Tesouraria
-    // pelo cartão. Mandá-la direto a um painel que a guarda recusa seria o
-    // vaivém que o último teste deste bloco existe para pegar.
-    expect(rotaInicialPorPapel(["tesouraria"])).toBe("/");
+  it("tesouraria entra no Painel da Tesouraria", () => {
+    // Até 08/09/2026 este teste dizia o oposto — "a tesouraria NÃO tem
+    // bancada por papel", e caía na Home. Era exatamente o problema
+    // estrutural que a auditoria de navegação da mesma semana encontrou: o
+    // pastor e a secretária já tinham bancada própria, e ela não. O Painel
+    // da Tesouraria fecha esse trio.
+    expect(rotaInicialPorPapel(["tesouraria"])).toBe("/painel-tesouraria");
+    // E a guarda de rota deixa entrar — senão seria o vaivém que este bloco
+    // de testes existe para pegar.
+    expect(ROUTE_ROLES["/painel-tesouraria"]).toContain("tesouraria");
   });
 
   it("quem não tem bancada de trabalho cai na Home", () => {
