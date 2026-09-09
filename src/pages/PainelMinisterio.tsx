@@ -42,7 +42,7 @@ import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
   Boxes, Users, CalendarClock, ListChecks, ChevronRight, RefreshCw,
-  Plus, Trash2, Check, AlertTriangle, Phone, DoorOpen,
+  Plus, Trash2, Check, AlertTriangle, Phone, DoorOpen, Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -61,6 +61,7 @@ import {
   type PainelMinisterio as Painel, type MinisterioQueLidero,
   type EscalaDoMinisterio, type TarefaDaArea,
 } from "@/services/painelMinisterioService";
+import { sugestoesPara, escalar, type Sugestao } from "@/services/escalaService";
 import { carregarBancadaEbd, type BancadaEbd } from "@/services/bancadaEbdService";
 import { SecaoEbd } from "@/components/painel/SecaoEbd";
 import { carregarBancadaArrecadacao, type BancadaArrecadacao } from "@/services/bancadaArrecadacaoService";
@@ -619,6 +620,7 @@ function SecaoEscalas({ painel, pessoaId, ministerioId, aoMudar }: {
               key={e.id} escala={e} painel={painel} pessoaId={pessoaId}
               aberta={aberta === e.id}
               onAlternar={() => setAberta(aberta === e.id ? null : e.id)}
+              aoMudar={aoMudar}
             />
           ))}
         </ul>
@@ -627,13 +629,50 @@ function SecaoEscalas({ painel, pessoaId, ministerioId, aoMudar }: {
   );
 }
 
-function LinhaEscala({ escala, painel, pessoaId, aberta, onAlternar }: {
+function LinhaEscala({ escala, painel, pessoaId, aberta, onAlternar, aoMudar }: {
   escala: EscalaDoMinisterio; painel: Painel; pessoaId: string | null;
-  aberta: boolean; onAlternar: () => void;
+  aberta: boolean; onAlternar: () => void; aoMudar: () => void;
 }) {
   const tarefas = painel.tarefas.filter(t => t.area_id === escala.area_id);
   const [feitas, setFeitas] = useState<Set<string>>(new Set());
   const [carregado, setCarregado] = useState(false);
+
+  // ── Sugestão de voluntário, com motivo ─────────────────────────────────
+  //
+  // Fase 5 da Bússola do Diakonia (09/09/2026, adiantada). O motor já existe
+  // — `sugerir_voluntarios_escala()`, score + motivo legível — e já é usado
+  // no diálogo de escala do evento (`EscalaDialog.tsx`). Nunca tinha chegado
+  // à tela do líder: aqui ele fica sabendo que a escala está incompleta
+  // (pelo "sem ninguém" ou "2/5" da linha) e teria que sair do painel para
+  // agir. Mesmo padrão visual do diálogo — nome, score, motivo, botão
+  // "Escalar" — para não obrigar a aprender dois jeitos de fazer a mesma
+  // coisa.
+  const [mostrarSugestoes, setMostrarSugestoes] = useState(false);
+  const [sugestoes, setSugestoes] = useState<Sugestao[]>([]);
+  const [buscandoSugestoes, setBuscandoSugestoes] = useState(false);
+  const [escalando, setEscalando] = useState(false);
+
+  const alternarSugestoes = async () => {
+    const abrindo = !mostrarSugestoes;
+    setMostrarSugestoes(abrindo);
+    if (!abrindo || !escala.area_id) return;
+    setBuscandoSugestoes(true);
+    const { sugestoes: s, erro } = await sugestoesPara(
+      escala.area_id, escala.data_evento, escala.hora_inicio, 8);
+    setBuscandoSugestoes(false);
+    if (erro) { toast.error("Não deu para sugerir: " + erro); return; }
+    setSugestoes(s);
+  };
+
+  const escalarSugerido = async (s: Sugestao) => {
+    setEscalando(true);
+    const r = await escalar(escala.id, s.pessoa_id, { sugerido: true, score: s.score });
+    setEscalando(false);
+    if (!r.ok) { toast.error(r.erro); return; }
+    setSugestoes(prev => prev.filter(x => x.pessoa_id !== s.pessoa_id));
+    toast.success(`${s.nome_completo.split(" ")[0]} escalado(a) — aguardando confirmação.`);
+    aoMudar();
+  };
 
   // Só busca a conferência quando a linha abre: são até 30 escalas na tela, e
   // uma consulta por linha na montagem seria trinta viagens para mostrar o
@@ -717,6 +756,44 @@ function LinhaEscala({ escala, painel, pessoaId, aberta, onAlternar }: {
                 </li>
               ))}
             </ul>
+          )}
+
+          {escala.area_id && (
+            <div className="mt-3 pt-3 border-t border-border">
+              <button type="button" onClick={alternarSugestoes}
+                className="flex items-center gap-1.5 text-xs font-medium text-gold hover:underline">
+                <Sparkles className="w-3.5 h-3.5" />
+                {mostrarSugestoes ? "Ocultar sugestões" : "Sugerir voluntário"}
+              </button>
+
+              {mostrarSugestoes && (
+                <div className="mt-2">
+                  {buscandoSugestoes ? (
+                    <p className="text-xs text-muted-foreground">Buscando…</p>
+                  ) : sugestoes.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">Sem sugestão disponível para esta data.</p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {sugestoes.map(s => (
+                        <li key={s.pessoa_id} className="flex items-center justify-between gap-2 min-w-0">
+                          <div className="min-w-0">
+                            <NomePessoa id={s.pessoa_id} nome={s.nome_completo}
+                              className="text-sm truncate block w-full" />
+                            <p className={`text-xs truncate ${s.disponivel ? "text-muted-foreground" : "text-warning-text"}`}>
+                              {Math.round(s.score)} pts · {s.motivo}
+                            </p>
+                          </div>
+                          <Button type="button" size="sm" variant="outline" className="shrink-0"
+                            disabled={escalando} onClick={() => escalarSugerido(s)}>
+                            Escalar
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </div>
           )}
         </div>
       )}
