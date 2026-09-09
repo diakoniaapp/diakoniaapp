@@ -19,7 +19,7 @@ import { resumoMaloteFiscal } from "@/services/fiscalService";
 import type { LucideIcon } from "lucide-react";
 import {
   GraduationCap, Users, DollarSign, ShoppingCart, FileText, Receipt,
-  Scale, Paperclip,
+  Scale, Paperclip, UserPlus,
 } from "lucide-react";
 
 export interface TarefaPrincipal {
@@ -350,6 +350,33 @@ const reuniaoPgm: Resolvedor = async (ctx) => {
   };
 };
 
+// ─── Cadastro rápido: nova pessoa ──────────────────────────────────────────
+//
+// 09/09/2026, pedido dela ao reavaliar a barra inferior: quem acumula os
+// três papéis (pastoral, secretaria, tesouraria) tem "cadastrar quem
+// chegou" como o gesto mais repetido do dia — não é uma pendência com
+// prazo, como as cinco financeiras acima, mas é o atalho permanente mais
+// útil pra esse perfil quando nenhuma delas tem nada a dizer. Fica ANTES
+// de `lancamento` na lista: quem tem as duas permissões vê "Cadastro"
+// primeiro, não "Lançar".
+//
+// `/membros?novo=1` é lido de verdade por `Membros.tsx` (abre o diálogo
+// direto, sem exigir achar o botão) — conferido antes de usar, depois do
+// "Criar Ministério" do menu da conta ter apontado pra um parâmetro que
+// `Ministerios.tsx` nunca lia.
+const novaPessoa: Resolvedor = async (ctx) => {
+  if (!ctx.permissoes.has("editar_pessoa")) return null;
+  return {
+    id: "nova-pessoa",
+    titulo: "Nova pessoa",
+    subtitulo: "Cadastrar quem chegou",
+    acao: "Cadastrar",
+    abaLabel: "Cadastro",
+    to: "/membros?novo=1",
+    icon: UserPlus,
+  };
+};
+
 // ─── Tesouraria: lançar é o gesto mais repetido ───────────────────────────
 const lancamento: Resolvedor = async (ctx) => {
   if (!ctx.permissoes.has("lancar_financeiro")) return null;
@@ -397,9 +424,11 @@ const membresia: Resolvedor = async (ctx) => {
  *   4. reunião sem pauta/decisão   trava a governança financeira, mas só 1x por reunião
  *   5. documento fiscal faltando   o mais adiável: a obrigação já foi paga
  *
- * Os demais seguem a frequência de uso do perfil — e os dois últimos são
+ * Os demais seguem a frequência de uso do perfil — e os três últimos são
  * atalhos permanentes, não pendências: aparecem sempre que ninguém acima tem
- * algo a dizer.
+ * algo a dizer. `novaPessoa` vem antes de `lancamento` porque quem acumula
+ * cadastro e financeiro — o caso dela — cadastra gente mais vezes por dia do
+ * que lança uma entrada avulsa; ver o comentário do resolvedor.
  */
 const RESOLVEDORES: Resolvedor[] = [
   contaVencendo,
@@ -409,6 +438,7 @@ const RESOLVEDORES: Resolvedor[] = [
   documentoFiscalFaltando,
   chamadaEbd,
   reuniaoPgm,
+  novaPessoa,
   lancamento,
   membresia,
 ];
