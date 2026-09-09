@@ -124,7 +124,7 @@ import {
 } from "@/components/painel/blocos";
 // A pirâmide etária e as entradas por ano. Os quadros confessam as próprias
 // lacunas — ver o cabeçalho do arquivo.
-import { BlocoRebanho } from "@/components/painel/BlocoRebanho";
+import { ResumoRebanho } from "@/components/painel/BlocoRebanho";
 import { WidgetsDoPainel } from "@/dashboard/WidgetsDoPainel";
 import { TiraDaSemana, rotuloDoDia } from "@/components/painel/TiraDaSemana";
 import { formatarAtualizadoHa } from "@/components/painel/blocos";
@@ -704,21 +704,27 @@ export default function PainelPastoral() {
           frequenta: membros, congregados e visitantes ativos. Corrigido a
           pedido da Telma em 26/08/2026.
 
-          Fica logo abaixo de Diakonia Care de propósito: um quadro mostra
-          quem está na porta, o outro mostra a casa.
+          Fica logo abaixo de "Quem está entrando" de propósito: um quadro
+          mostra quem está na porta, o outro mostra a casa.
+
+          09/09/2026, pedido dela: "o rebanho deve ser a contagem geral de
+          pessoas (para o pastor)". Os dois quadros de detalhe do rol —
+          pirâmide etária, movimento de entradas e saídas — saíram daqui;
+          são estatística de governança, e moram agora no Painel da
+          Secretaria (`DetalheDoRol`). Fica só a frase geral.
 
           **Não some quando está vazio**, ao contrário da seção acima. O
           canal de "estou vazio" existe para trabalho pendente: um bloco de
           acolhimento sem ninguém para acolher é ruído. Aqui é o oposto —
-          um rol de zero membros seria a notícia mais importante da tela, e
-          esconder o quadro justamente nesse caso o tornaria inútil como
-          indicador. Só a ausência de DADO o esconde. */}
+          um rebanho de zero pessoas seria a notícia mais importante da
+          tela, e esconder o quadro justamente nesse caso o tornaria inútil
+          como indicador. Só a ausência de DADO o esconde. */}
       {indicadores && (
         <section id="rebanho" className="scroll-mt-[280px] sm:scroll-mt-[230px]">
           <TituloDaSecao icone={Users2} tom="violeta" contagem={totalDoRebanho}>
             O rebanho
           </TituloDaSecao>
-          <BlocoRebanho dados={indicadores} />
+          <ResumoRebanho dados={indicadores} />
         </section>
       )}
 

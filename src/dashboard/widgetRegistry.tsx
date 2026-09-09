@@ -169,11 +169,15 @@ export const widgetRegistry: Widget[] = [
   //
   // Os tres sao prioridade 0 e os tres somem quando nao ha o que fazer,
   // entao esta ordem so decide quem fica no topo entre os que sobraram.
+  // Só no Pastoral desde 09/09/2026, a pedido dela: acolher visitante é
+  // cuidado pastoral (receber, acompanhar quem chegou), não trabalho da
+  // secretaria — mesma régua que já separou "Quem está entrando" da
+  // Diaconia no Painel Pastoral, no mesmo dia.
   { id: "acolhimento-visitantes", label: "Acolhimento",
     subtitulo: "Quem chegou e ainda espera um contato",
     icone: HandHeart, component: AcolhimentoVisitantes,
     permissoes: ["ver_pessoas","ver_painel_pastoral","ver_painel_secretaria","ver_painel_admin"],
-    prioridade: 0, paineis: ["pastoral", "secretaria"] },
+    prioridade: 0, paineis: ["pastoral"] },
 
   { id: "acoes-do-dia", label: "Ações de hoje",
     // Nao "que acontecem agora": o bloco tambem mostra o que vem pela

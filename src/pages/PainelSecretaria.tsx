@@ -47,6 +47,10 @@ import { PENDENCIAS_CADASTRO, type PendenciaCadastro } from "@/lib/pendenciasCad
 import {
   carregarPainelSecretaria, type ResumoSecretaria,
 } from "@/services/painelSecretariaService";
+import {
+  indicadoresMembresia, type IndicadoresMembresia,
+} from "@/services/rolDeMembrosService";
+import { DetalheDoRol } from "@/components/painel/BlocoRebanho";
 import { WidgetsDoPainel } from "@/dashboard/WidgetsDoPainel";
 
 /** Quantos nomes cabem antes de a lista virar rolagem sem fim. */
@@ -59,12 +63,21 @@ export default function PainelSecretaria() {
   const [verTodasSemFamilia, setVerTodas] = useState(false);
   /** Quando os números da tela foram lidos — o "· há 3 minutos" do resumo. */
   const [atualizadoEm, setAtualizadoEm] = useState<Date | null>(null);
+  /** Os dois quadros de detalhe do rol — ver `DetalheDoRol`, que veio do
+   *  Painel Pastoral em 09/09/2026. Busca separada da de `resumo` porque a
+   *  fonte é outra (`indicadoresMembresia`, não `carregarPainelSecretaria`). */
+  const [indicadoresRol, setIndicadoresRol] = useState<IndicadoresMembresia | null>(null);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
     setErro(null);
     try {
-      setResumo(await carregarPainelSecretaria());
+      const [painel, rol] = await Promise.all([
+        carregarPainelSecretaria(),
+        indicadoresMembresia(),
+      ]);
+      setResumo(painel);
+      setIndicadoresRol(rol);
       setAtualizadoEm(new Date());
     } catch (e: unknown) {
       setErro(e instanceof Error ? e.message : "Não foi possível carregar o painel.");
@@ -361,6 +374,23 @@ export default function PainelSecretaria() {
                 <ChevronRight className="w-4 h-4 shrink-0 text-muted-foreground group-hover:text-primary transition-colors" />
               </Link>
             )}
+          </section>
+
+          {/* ── Detalhe do rol ─────────────────────────────────────────────
+              Veio do Painel Pastoral em 09/09/2026, a pedido dela: "essa
+              tela deve estar tbm em secretaria". Pirâmide etária e movimento
+              de entradas/saídas são estatística de governança do rol formal
+              — composição para assembleia —, não do rebanho inteiro que o
+              pastor acompanha; é trabalho de secretaria, e mora aqui agora.
+
+              Sem contagem no título: os dois quadros não têm um número único
+              que os resuma (a pirâmide tem N faixas, o movimento tem N
+              anos) — ao contrário das outras seções desta tela. */}
+          <section id="detalhe-rol" className="scroll-mt-[220px]">
+            <TituloDaSecao icone={ScrollText} tom="gold">
+              Detalhe do rol
+            </TituloDaSecao>
+            {indicadoresRol && <DetalheDoRol dados={indicadoresRol} />}
           </section>
 
           {/* ── Atalhos ────────────────────────────────────────────────── */}

@@ -1,4 +1,4 @@
-// ─── BlocoRebanho.tsx — a forma do rol e as entradas nele ──────────────────
+// ─── BlocoRebanho.tsx — a contagem geral, e a forma do rol ─────────────────
 //
 // ── O NOME ─────────────────────────────────────────────────────────────────
 //
@@ -10,12 +10,24 @@
 // A distinção não é preciosismo de vocabulário: o título dizia 225 sobre uma
 // seção cuja primeira linha listava 293 pessoas.
 //
-// Dois quadros, pedidos em 26/08/2026 para o Painel Pastoral:
+// ── DUAS TELAS, DESDE 09/09/2026 ────────────────────────────────────────────
+//
+// Até aqui, um `BlocoRebanho` só reunia a frase geral e os dois quadros de
+// detalhe do rol na mesma seção do Painel Pastoral. Pedido dela: "o rebanho
+// deve ser a contagem geral de pessoas (para o pastor)" — e os dois quadros,
+// que são estatística de ROL FORMAL, foram para o Painel da Secretaria, que
+// já cuida de cadastro e governança.
+//
+//   `ResumoRebanho` — a frase geral (membros + congregados + visitantes),
+//   no Painel Pastoral. "Quantas pessoas a igreja acompanha."
+//
+//   `DetalheDoRol` — os dois quadros, no Painel da Secretaria:
 //
 //   **A forma do rol** — pirâmide etária cruzada com sexo, e a leitura dela
 //   em três números. Responde "para quem estamos pregando": um rol com
 //   mediana de 46 anos, 32% acima de 60 e 12% entre 18 e 29 tem um formato,
-//   e esse formato tem consequência pastoral.
+//   e esse formato tem consequência pastoral — mas é composição de rol
+//   formal, o assunto de quem cuida do cadastro e da assembleia.
 //
 //   **Movimento de membros** — entradas acima do eixo, saídas abaixo.
 //
@@ -236,37 +248,56 @@ function LadoDaFaixa({
 /** Largura mínima de cada barra de ano. Abaixo disso o rótulo trunca. */
 const LARGURA_DA_BARRA = "min-w-[26px]";
 
-export function BlocoRebanho({ dados }: { dados: IndicadoresMembresia }) {
-  const { rol, composicao: c, movimento: mv } = dados;
+/**
+ * A contagem geral — pastoral, não estatística de rol.
+ *
+ * 09/09/2026, pedido dela: "o rebanho deve ser a contagem geral de pessoas
+ * (para o pastor)". Até aqui, "O rebanho" media as três coisas — a frase
+ * geral E os dois quadros de detalhe do rol (pirâmide etária, movimento) —
+ * numa seção só, no Painel Pastoral. Os dois quadros são leitura de rol
+ * formal (idade para pregação, mas também composição para assembleia) e
+ * mudaram de casa: ver `DetalheDoRol`, agora no Painel da Secretaria.
+ *
+ * O que fica aqui é só a frase — "quantas pessoas a igreja acompanha, e
+ * como elas se dividem" — que é exatamente o que um pastor pergunta ao
+ * pensar no rebanho inteiro, membros e quem ainda está a caminho de ser.
+ */
+export function ResumoRebanho({ dados }: { dados: IndicadoresMembresia }) {
+  const { rol } = dados;
   const total = rol.membros + rol.congregados + rol.visitantes;
 
   return (
+    <p className="text-sm text-muted-foreground">
+      O rebanho tem <strong className="text-foreground tabular-nums">{total}</strong> pessoas
+      ativas: <strong className="text-foreground tabular-nums">{rol.membros}</strong> membros,
+      {" "}<strong className="text-foreground tabular-nums">{rol.congregados}</strong> congregados
+      {rol.visitantes > 0 && (
+        <> e <strong className="text-foreground tabular-nums">{rol.visitantes}</strong> visitantes</>
+      )}.
+    </p>
+  );
+}
+
+/**
+ * Os dois quadros de detalhe do ROL — pirâmide etária, movimento de
+ * entradas e saídas. Estatística de governança (composição para
+ * assembleia, quem entrou/saiu do rol formal), por isso mudou para o
+ * Painel da Secretaria em 09/09/2026 — ver o comentário de `ResumoRebanho`.
+ */
+export function DetalheDoRol({ dados }: { dados: IndicadoresMembresia }) {
+  const { rol, composicao: c, movimento: mv } = dados;
+
+  return (
     <div className="space-y-3">
-      {/* ── A repartição do rebanho, antes dos dois quadros ───────────────
+      {/* ── Só o rol, dito antes dos dois quadros ─────────────────────────
           Esta linha morava dentro do quadro "A forma do rol", e ali
           confundia: anunciava os três vínculos logo acima de uma pirâmide
-          desenhada só sobre os membros.
-
-          Movê-la para cá não bastou. **Telma perguntou duas vezes se os
-          gráficos somavam os três vínculos** — e a pergunta é justa: um
-          número grande em negrito, logo acima de dois gráficos, ocupa a
-          posição de quem anuncia o assunto do que vem a seguir. O "os 226
-          membros" ao lado de cada título existia, em letra miúda, e perdia
-          a disputa.
-
-          Por isso a segunda frase, no mesmo tamanho da primeira: quem lê a
-          linha de contexto lê junto o que ela NÃO é. Duas perguntas iguais
-          sobre a mesma tela são defeito de quem escreveu a tela. */}
+          desenhada só sobre os membros. Aqui ela some a mesma dúvida que
+          gerou o rótulo "só os N membros" em cada quadro — Telma perguntou
+          duas vezes se os gráficos somavam os três vínculos. */}
       <p className="text-xs text-muted-foreground">
-        O rebanho tem <strong className="text-foreground tabular-nums">{total}</strong> pessoas
-        ativas: <strong className="text-foreground tabular-nums">{rol.membros}</strong> membros,
-        {" "}<strong className="text-foreground tabular-nums">{rol.congregados}</strong> congregados
-        {rol.visitantes > 0 && (
-          <> e <strong className="text-foreground tabular-nums">{rol.visitantes}</strong> visitantes</>
-        )}.
-        {" "}<span className="text-foreground">Os dois quadros abaixo contam
-        só os {rol.membros} membros</span> — congregados e visitantes ficam de fora
-        dos dois.
+        Os dois quadros abaixo contam só <strong className="text-foreground tabular-nums">{rol.membros}</strong>
+        {" "}membros do rol — congregados e visitantes ficam de fora dos dois.
       </p>
       <QuadroDaForma c={c} totalDoRol={rol.membros} />
       <QuadroDoMovimento mv={mv} totalDoRol={rol.membros} />
