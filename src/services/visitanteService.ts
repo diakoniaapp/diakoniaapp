@@ -433,6 +433,78 @@ export async function getResumoVisitantes(): Promise<ResumoVisitantes> {
   };
 }
 
+// ─── Percentual por tipo de tarefa — onde o processo mais falha ───────────
+//
+// Fase 3 da Bússola do Diakonia (09/09/2026). O motor já mostra "75%
+// concluído" por visitante e, agregado, por igreja inteira — a leitura que
+// falta é a INVERSA: das quatro tarefas (boas-vindas, contato, convite,
+// recontato), qual delas a igreja mais deixa passar? Se "recontato" tem taxa
+// muito menor que as outras três, é padrão de PROCESSO, não de pessoa — e
+// hoje não há tela nenhuma que mostre essa quebra.
+//
+// `acolhimento_tarefas` não tem coluna de tipo — só `titulo`, texto livre.
+// Consultado ao vivo em produção (09/09/2026): os quatro tipos aparecem com
+// redação levemente diferente conforme quando a tarefa nasceu ("Recontato
+// com visitante — X" e "Recontato — verificar situação de X" são o mesmo
+// tipo). A classificação é por palavra-chave, testada contra os 24 títulos
+// reais do banco nesta data.
+
+export type TipoTarefaAcolhimento = "boas-vindas" | "contato" | "convite" | "recontato" | "outro";
+
+export const ROTULO_TIPO_TAREFA: Record<TipoTarefaAcolhimento, string> = {
+  "boas-vindas": "Boas-vindas",
+  contato: "Contato",
+  convite: "Convite",
+  recontato: "Recontato",
+  outro: "Outras",
+};
+
+/**
+ * Classifica pelo texto do título. A ORDEM importa: "recontato" contém
+ * "contato" como substring, então precisa ser testado primeiro — senão todo
+ * recontato cairia classificado como contato simples.
+ */
+export function classificarTarefaAcolhimento(titulo: string): TipoTarefaAcolhimento {
+  const t = titulo.toLowerCase();
+  if (t.includes("boas-vindas") || t.includes("boas vindas")) return "boas-vindas";
+  if (t.includes("recontato")) return "recontato";
+  if (t.includes("convid") || t.includes("convite") || t.includes("retornar ao culto")) return "convite";
+  if (t.includes("contato")) return "contato";
+  return "outro";
+}
+
+export interface PctPorTipoTarefa {
+  tipo: TipoTarefaAcolhimento;
+  rotulo: string;
+  total: number;
+  feitas: number;
+  pct: number;
+}
+
+/**
+ * Agrega uma lista de tarefas (já carregada — esta função não vai ao banco)
+ * por tipo. Pura de propósito: `/visitantes` já busca as tarefas de todo
+ * mundo pra calcular o motor geral; esta é a mesma lista, só que quebrada.
+ * Só devolve os tipos que de fato aparecem — sem tarefa de convite ainda,
+ * não há linha "Convite: 0/0" fingindo ser medição.
+ */
+export function pctPorTipoTarefa(tarefas: Pick<TarefaAcolhimento, "titulo" | "concluida">[]): PctPorTipoTarefa[] {
+  const porTipo = new Map<TipoTarefaAcolhimento, { total: number; feitas: number }>();
+  for (const t of tarefas) {
+    const tipo = classificarTarefaAcolhimento(t.titulo);
+    const atual = porTipo.get(tipo) ?? { total: 0, feitas: 0 };
+    atual.total++;
+    if (t.concluida) atual.feitas++;
+    porTipo.set(tipo, atual);
+  }
+
+  const ORDEM: TipoTarefaAcolhimento[] = ["boas-vindas", "contato", "convite", "recontato", "outro"];
+  return ORDEM.filter(tipo => porTipo.has(tipo)).map(tipo => {
+    const { total, feitas } = porTipo.get(tipo)!;
+    return { tipo, rotulo: ROTULO_TIPO_TAREFA[tipo], total, feitas, pct: total ? Math.round((feitas / total) * 100) : 0 };
+  });
+}
+
 // ─── Resumo agregado das tarefas de acolhimento ────────────────────────────
 
 export interface ResumoTarefasAcolhimento {

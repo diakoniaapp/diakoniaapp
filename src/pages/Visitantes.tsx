@@ -30,6 +30,7 @@ import { normalizarTelefone, formatarTelefoneSemDDI } from "@/lib/telefone";
 import { conferir } from "@/lib/escritaConferida";
 import {
   buscarTarefasDosVisitantes, alternarTarefaAcolhimento, type TarefaAcolhimento,
+  pctPorTipoTarefa,
 } from "@/services/visitanteService";
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
@@ -114,6 +115,15 @@ export default function Visitantes() {
     const feitas = todas.filter(t => t.concluida).length;
     return { total: todas.length, feitas, pct: todas.length ? Math.round((feitas / todas.length) * 100) : 0 };
   }, [tarefasPorVisitante]);
+
+  // ── A mesma lista, quebrada por tipo — onde o processo mais falha ────
+  // Fase 3 da Bússola do Diakonia. Mesma lista já carregada, nenhuma consulta
+  // nova: `pctPorTipoTarefa` é pura, só agrega o que `tarefasPorVisitante`
+  // já tem.
+  const porTipoTarefa = useMemo(
+    () => pctPorTipoTarefa(Object.values(tarefasPorVisitante).flat()),
+    [tarefasPorVisitante],
+  );
 
   // ── Estatísticas ────────────────────────────────────────────────────────────
 
@@ -272,6 +282,25 @@ export default function Visitantes() {
               </span>
             </div>
             <Progress value={motorTarefas.pct} className="h-2" />
+
+            {/* A mesma métrica, quebrada por tipo — onde o processo mais
+                falha. Só aparece com mais de um tipo: com um só, a quebra
+                repetiria exatamente o número de cima. */}
+            {porTipoTarefa.length > 1 && (
+              <div className="pt-2 mt-1.5 border-t space-y-1.5">
+                {porTipoTarefa.map(t => (
+                  <div key={t.tipo} className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground w-20 shrink-0 truncate">
+                      {t.rotulo}
+                    </span>
+                    <Progress value={t.pct} className="h-1.5 flex-1" />
+                    <span className="text-xs text-muted-foreground tabular-nums w-16 text-right shrink-0">
+                      {t.feitas}/{t.total} · {t.pct}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
