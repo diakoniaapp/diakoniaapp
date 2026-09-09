@@ -23,6 +23,7 @@ interface PessoaDB {
   id:                   string;
   nome_completo:        string;
   tipo_pessoa:          string;
+  status:               string | null;
   numero_visitas:       number | null;
   ultimo_contato_em:    string | null;
   ultimo_contato_tipo:  string | null;
@@ -66,10 +67,17 @@ export default function PainelEstrategico({ embutido = false }: { embutido?: boo
   useEffect(() => { load(); }, []);
 
   // ── Segmentos ────────────────────────────────────────────────────────────
-
-  const visitantes   = useMemo(() => pessoas.filter(p => p.tipo_pessoa === "visitante"),   [pessoas]);
-  const congregados  = useMemo(() => pessoas.filter(p => p.tipo_pessoa === "congregado"),  [pessoas]);
-  const membros      = useMemo(() => pessoas.filter(p => p.tipo_pessoa === "membro"),      [pessoas]);
+  //
+  // `status === "ativo"`, sempre — achado ao verificar todos os painéis
+  // (09/09/2026): sem o filtro, "Membros" no funil somava 264 (251 ativos +
+  // 10 inativos + 2 transferidos + 1 falecido), contra os 251 que o resto
+  // do sistema mostra como "membros" — Painel Pastoral, Painel da
+  // Secretaria, o próprio Catálogo. Um funil que soma quem já SAIU do rol
+  // conta uma jornada que não é mais a jornada de ninguém hoje. É a mesma
+  // régua que `rolDeMembrosService.ts` já usa para o rol e o rebanho.
+  const visitantes   = useMemo(() => pessoas.filter(p => p.tipo_pessoa === "visitante"  && p.status === "ativo"), [pessoas]);
+  const congregados  = useMemo(() => pessoas.filter(p => p.tipo_pessoa === "congregado" && p.status === "ativo"), [pessoas]);
+  const membros      = useMemo(() => pessoas.filter(p => p.tipo_pessoa === "membro"     && p.status === "ativo"), [pessoas]);
 
   // ── Indicadores ──────────────────────────────────────────────────────────
 
