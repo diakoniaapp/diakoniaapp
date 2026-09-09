@@ -204,6 +204,7 @@ export function AgendaDoDia({
   const [loading, setLoading] = useState(true);
   const [convite, setConvite] = useState<EventoOcorrencia | null>(null);
   const [verPassado, setVerPassado] = useState(false);
+  const [verTodos, setVerTodos] = useState(false);
 
   // Relogio: reclassifica os eventos a cada virada de minuto.
   const agoraMin = useAgoraEmMinutos();
@@ -219,6 +220,12 @@ export function AgendaDoDia({
     : new Map(doDia.map(o => [o.key, "futuro" as Momento]));
 
   useReportarVazio(loading || ocorrencias.length === 0);
+
+  // Trocar de dia na tira do Painel Pastoral não desmonta este componente —
+  // só muda a prop `dia`. Sem isto, "ver mais" ficado aberto em quinta
+  // (que tinha oito compromissos) continuaria aberto ao trocar pra
+  // sexta-feira vazia, sem nunca ter sido pedido lá.
+  useEffect(() => { setVerTodos(false); setVerPassado(false); }, [diaAlvo]);
 
   useEffect(() => {
     let cancelado = false;
@@ -344,7 +351,27 @@ export function AgendaDoDia({
   // não é a informação que se procura ao abrir o painel às nove da noite.
   const jaPassaram = ordenadas.filter(o => momentos.get(o.key) === "passou");
   const visiveis   = ordenadas.filter(o => momentos.get(o.key) !== "passou");
-  const listadas   = verPassado ? [...visiveis, ...jaPassaram] : visiveis;
+
+  // ── Um dia cheio não pode pesar sete linhas na tela ──────────────────────
+  //
+  // Um culto de domingo com seis compromissos (partilha, ensaio, live,
+  // reunião...) enchia a tela inteira de "Acontecendo hoje" antes de
+  // qualquer outra seção aparecer — a queixa dela em 09/09/2026, vendo o
+  // Painel Pastoral. O corte segue a mesma régua que já existe pro que
+  // passou: os `LIMITE_VISIVEL` primeiros — que já vêm ordenados com "agora"
+  // e "próximo" na frente — bastam pra responder "o que vem"; o resto é um
+  // clique, não uma rolagem.
+  //
+  // Um dia leve (a maioria) nunca mostra o botão: só aparece quando há mais
+  // do que o limite, então em dias normais nada muda.
+  const LIMITE_VISIVEL = 3;
+  const visiveisTopo  = visiveis.slice(0, LIMITE_VISIVEL);
+  const visiveisResto = visiveis.slice(LIMITE_VISIVEL);
+  const listadas = [
+    ...visiveisTopo,
+    ...(verTodos ? visiveisResto : []),
+    ...(verPassado ? jaPassaram : []),
+  ];
 
   if (ocorrencias.length === 0) {
     return (
@@ -463,6 +490,22 @@ export function AgendaDoDia({
           );
         })}
       </ul>
+
+      {/* Continuação da MESMA lista, não um link pra outro lugar — por isso
+          é um botão de largura total, encostado no `<ul>` acima, e não fica
+          junto da linha de "já aconteceram"/"abrir agenda" abaixo, que são
+          outra coisa (histórico do dia, atalho pra fora daqui). */}
+      {visiveisResto.length > 0 && !verTodos && (
+        <Button
+          type="button" variant="outline" size="sm"
+          onClick={() => setVerTodos(true)}
+          className="w-full gap-1.5 text-xs text-muted-foreground hover:text-foreground min-h-[44px]"
+        >
+          <ChevronDown className="w-3.5 h-3.5" />
+          Ver mais {visiveisResto.length} {visiveisResto.length === 1 ? "compromisso" : "compromissos"}
+        </Button>
+      )}
+
       <div className="flex items-center justify-between gap-2 flex-wrap">
         {/* O dia que já foi, em uma linha. Só aparece quando há o que
             recolher — num dia que ainda nem começou, não há passado a
