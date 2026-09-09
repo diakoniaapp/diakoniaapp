@@ -182,6 +182,11 @@ export const ATALHOS_TOPO: NavItem[] = [
   // auditoria encontrou. `ROLES_FINANCEIRO`, não `ROLES_ADMIN`: quem tem só o
   // papel `tesouraria` precisa ver o atalho, não só admin/diakonia/secretaria.
   { to: "/painel-tesouraria", label: "Painel da Tesouraria", icon: Wallet, allowedRoles: ROLES_FINANCEIRO },
+  // Subiu do grupo "Agenda & Espaços" em 09/09/2026, ao desmontar aquele
+  // grupo — ver o comentário no fim de `NAV_GROUPS`. Sem `allowedRoles`,
+  // como já era: Agenda é de uso diário e transversal, todo papel a vê,
+  // igual a "Home".
+  { to: "/eventos", label: "Agenda", icon: CalendarDays },
 ];
 
 export const NAV_GROUPS: NavGroup[] = [
@@ -203,6 +208,12 @@ export const NAV_GROUPS: NavGroup[] = [
       // "Áreas — <ministério>". Um item de primeiro nivel para algo que e
       // filho de outro item disputava atencao e sugeria dois caminhos
       // paralelos. A rota continua existindo e atendendo quem tem link salvo.
+      //
+      // Membresia veio de "Administração" em 09/09/2026, ao desmontar aquele
+      // grupo — ver o comentário no fim deste arquivo. É cadastro de pessoa
+      // (o processo formal de entrada no rol), mesma matéria de Catálogo e
+      // Famílias — não administração de sistema nenhuma.
+      { to: "/membresia",    label: "Membresia",   icon: FileText,       allowedRoles: ROLES_LIDERES },
     ],
   },
   {
@@ -223,11 +234,62 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    key: "administracao",
-    label: "Administração",
+    key: "financeiro",
+    label: "Financeiro",
+    icon: DollarSign,
+    allowedRoles: ROLES_FINANCEIRO,
+    items: [
+      { to: "/financas",           label: "Tesouraria",          icon: DollarSign, allowedRoles: ROLES_FINANCEIRO },
+      { to: "/financas/fiscal",    label: "Módulo Fiscal",       icon: DollarSign, allowedRoles: ROLES_FINANCEIRO },
+      { to: "/financas/reunioes",  label: "Reuniões financeiras", icon: DollarSign, allowedRoles: ROLES_FINANCEIRO },
+      { to: "/financas/executivo", label: "Visão Executiva",     icon: DollarSign, allowedRoles: ROLES_PASTORAL_SEM_TITULAR },
+      // ── BAZAR E CANTINA SÃO DA ADMINISTRAÇÃO ────────────────────────
+      //
+      // Regra da igreja em 02/09/2026: "Ministério de Administração e Perfil
+      // Administração apenas verão as arrecadações". São as duas
+      // Administrações que ela mesma separou — o PERFIL (`admin`, dona do
+      // sistema) e o MINISTÉRIO (com líder no cadastro).
+      //
+      // O MENU oferece só ao perfil. Quem lidera o ministério não chega por
+      // aqui e sim pelo próprio painel, no link "Abrir o Bazar" — e a rota o
+      // deixa passar (ver ROUTE_ROLES). Menu e rota são coisas diferentes: o
+      // menu é o convite, a rota é a porta.
+      //
+      // Pôr `lideranca` no menu colocaria "Bazar e Cantina" na barra de quem
+      // lidera a Música, que abriria uma tela vazia — a RLS não lhe dá linha
+      // nenhuma. Tela que oferece o que não entrega é o defeito que este
+      // projeto vem consertando a semana toda.
+      //
+      // Migrou do extinto grupo "Administração" em 09/09/2026 — ver o
+      // comentário no fim deste arquivo. É operação de varejo com fluxo de
+      // caixa próprio: mais perto de Financeiro do que de qualquer outro
+      // vizinho que já teve.
+      { to: "/arrecadacao", label: "Bazar e Cantina", icon: ShoppingBag, allowedRoles: ["admin"] },
+      // Espaços migrou do extinto grupo "Agenda & Espaços" na mesma leva —
+      // cadastro do prédio físico, mesmo assunto de Bazar e Cantina (que
+      // também reserva espaço), e não tinha relação nenhuma com Agenda além
+      // de os dois começarem com a letra A.
+      { to: "/locais",  label: "Espaços", icon: MapPin, allowedRoles: ROLES_LIDERES_SEM_TITULAR },
+    ],
+  },
+  // ── "LIDERANÇA" — O QUE SOBROU DE "ADMINISTRAÇÃO" DEPOIS DE REDISTRIBUÍDO ──
+  //
+  // Achado na auditoria de navegação de 08/09/2026 (Raio-X do Diakonia):
+  // "Administração" reunia Membresia, Reuniões e Atas, Assuntos, Estrutura e
+  // Bazar e Cantina — cinco assuntos sem parentesco além de "não coube em
+  // outro grupo". Cada um foi para onde o assunto já mora: Membresia em
+  // Pessoas (é cadastro de gente), Bazar e Cantina em Financeiro (é dinheiro).
+  //
+  // Os três que sobraram — Reuniões e Atas, Assuntos, Estrutura — SÃO
+  // parentes de verdade: os três são como a liderança da igreja decide e
+  // registra, não como ela cuida de gente nem como ela move dinheiro. Um
+  // grupo de três, e não três itens soltos, porque a matéria em comum é real
+  // — diferente do que "Administração" tinha.
+  {
+    key: "lideranca",
+    label: "Liderança",
     icon: ScrollText,
     items: [
-      { to: "/membresia",   label: "Membresia",       icon: FileText,    allowedRoles: ROLES_LIDERES },
       // "Reuniões" aparecia DUAS vezes na barra — aqui e no Financeiro — com o
       // mesmo rotulo para coisas diferentes. Esta trata de reunioes e
       // assembleias da igreja; a outra, das financeiras. Agora cada uma diz
@@ -250,44 +312,6 @@ export const NAV_GROUPS: NavGroup[] = [
       // igreja, extraida dos documentos — materia administrativa, e continua
       // aberta a pastores, que o menu da conta nao alcanca.
       { to: "/estrutura",   label: "Estrutura",       icon: Network,     allowedRoles: ROLES_PASTORAL_SEM_TITULAR },
-      // ── BAZAR E CANTINA SÃO DA ADMINISTRAÇÃO ────────────────────────
-      //
-      // Regra da igreja em 02/09/2026: "Ministério de Administração e Perfil
-      // Administração apenas verão as arrecadações". São as duas
-      // Administrações que ela mesma separou — o PERFIL (`admin`, dona do
-      // sistema) e o MINISTÉRIO (com líder no cadastro).
-      //
-      // O MENU oferece só ao perfil. Quem lidera o ministério não chega por
-      // aqui e sim pelo próprio painel, no link "Abrir o Bazar" — e a rota o
-      // deixa passar (ver ROUTE_ROLES). Menu e rota são coisas diferentes: o
-      // menu é o convite, a rota é a porta.
-      //
-      // Pôr `lideranca` no menu colocaria "Bazar e Cantina" na barra de quem
-      // lidera a Música, que abriria uma tela vazia — a RLS não lhe dá linha
-      // nenhuma. Tela que oferece o que não entrega é o defeito que este
-      // projeto vem consertando a semana toda.
-      { to: "/arrecadacao", label: "Bazar e Cantina", icon: ShoppingBag, allowedRoles: ["admin"] },
-    ],
-  },
-  {
-    key: "financeiro",
-    label: "Financeiro",
-    icon: DollarSign,
-    allowedRoles: ROLES_FINANCEIRO,
-    items: [
-      { to: "/financas",           label: "Tesouraria",          icon: DollarSign, allowedRoles: ROLES_FINANCEIRO },
-      { to: "/financas/fiscal",    label: "Módulo Fiscal",       icon: DollarSign, allowedRoles: ROLES_FINANCEIRO },
-      { to: "/financas/reunioes",  label: "Reuniões financeiras", icon: DollarSign, allowedRoles: ROLES_FINANCEIRO },
-      { to: "/financas/executivo", label: "Visão Executiva",     icon: DollarSign, allowedRoles: ROLES_PASTORAL_SEM_TITULAR },
-    ],
-  },
-  {
-    key: "agenda",
-    label: "Agenda & Espaços",
-    icon: CalendarDays,
-    items: [
-      { to: "/eventos", label: "Agenda",  icon: CalendarDays },
-      { to: "/locais",  label: "Espaços", icon: MapPin, allowedRoles: ROLES_LIDERES_SEM_TITULAR },
     ],
   },
   // O grupo "Configurações" deixou de existir.
@@ -305,6 +329,17 @@ export const NAV_GROUPS: NavGroup[] = [
   // Um grupo chamado "Configurações" que nao guardava configuracao nenhuma
   // custava uma faixa na barra e uma decisao a cada busca: "sera que esta em
   // Configurações?".
+  //
+  // ── "ADMINISTRAÇÃO" E "AGENDA & ESPAÇOS" TIVERAM O MESMO DESTINO (09/09/2026) ──
+  //
+  // Fase 1 da Bússola do Diakonia, último item em aberto. "Administração"
+  // era um grupo por eliminação — cinco assuntos sem parentesco, o mesmo
+  // defeito que já tinha derrubado "Configurações". "Agenda & Espaços" era
+  // um grupo de dois itens sem relação nenhuma entre si além do nome: Agenda
+  // é de uso diário e transversal (subiu para os atalhos do topo, ao lado de
+  // Home); Espaços é cadastro do prédio (desceu para Financeiro, perto de
+  // Bazar e Cantina, que também reserva espaço). Nenhuma rota mudou, nenhum
+  // `allowedRoles` mudou — só o endereço no menu.
 ];
 
 export const pageTitles: Record<string, string> = {
