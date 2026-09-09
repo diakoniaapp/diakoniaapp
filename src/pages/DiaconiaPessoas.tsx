@@ -212,14 +212,17 @@ export default function DiaconiaPessoas() {
               <button type="button" onClick={() => setAberta(aberta === p.id ? null : p.id)}
                 className="w-full flex items-center gap-3 px-3 py-2.5 min-w-0 text-left hover:bg-muted/40 transition-colors">
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium truncate min-w-0 flex items-center gap-1.5">
+                  {/* `<div>`, não `<p>`: `Badge` é sempre um `<div>` (ver
+                      `components/ui/badge.tsx`), e `<div>` dentro de `<p>`
+                      é HTML inválido. */}
+                  <div className="text-sm font-medium truncate min-w-0 flex items-center gap-1.5">
                     <span className="truncate">{p.nome_completo}</span>
                     {p.membro_id && (
                       <Badge variant="outline" className="text-[10px] font-normal shrink-0 gap-0.5 px-1.5 py-0">
                         <UserCheck className="w-2.5 h-2.5" /> Membro
                       </Badge>
                     )}
-                  </p>
+                  </div>
                   {p.telefone && (
                     <p className="text-xs text-muted-foreground flex items-center gap-1">
                       <Phone className="w-3 h-3" /> {p.telefone}

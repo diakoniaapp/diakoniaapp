@@ -172,7 +172,10 @@ export function OracaoBlock({ grupoId, podeEditar }: Props) {
                 <div className="flex items-start gap-2">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm leading-snug whitespace-pre-wrap">{p.texto}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5 flex-wrap">
+                    {/* `<div>`, não `<p>`: `Badge` é sempre um `<div>` (ver
+                        `components/ui/badge.tsx`), e `<div>` dentro de `<p>`
+                        é HTML inválido — e aqui são três. */}
+                    <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5 flex-wrap">
                       {p.pessoa_nome && <span>por <strong className="text-foreground">{p.pessoa_nome}</strong></span>}
                       <Badge variant="outline" className="text-xs gap-0.5">
                         {p.visibilidade === "privada" ? <EyeOff className="w-2 h-2" />
@@ -188,7 +191,7 @@ export function OracaoBlock({ grupoId, podeEditar }: Props) {
                       {p.status === "arquivado" && (
                         <Badge variant="outline" className="text-xs">Arquivado</Badge>
                       )}
-                    </p>
+                    </div>
                     {p.resposta && (
                       <p className="text-xs italic text-success-text mt-1 pl-2 border-l-2 border-success-line">
                         "{p.resposta}"

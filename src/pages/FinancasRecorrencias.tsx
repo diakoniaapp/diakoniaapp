@@ -99,11 +99,14 @@ export default function FinancasRecorrencias() {
                   ? <TrendingUp className="w-4 h-4 text-success-text" />
                   : <TrendingDown className="w-4 h-4 text-destructive-text" />}
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium text-sm truncate flex items-center gap-1.5">
+                  {/* `<div>`, não `<p>`: `Badge` é sempre um `<div>` (ver
+                      `components/ui/badge.tsx`), e `<div>` dentro de `<p>`
+                      é HTML inválido — e aqui são dois. */}
+                  <div className="font-medium text-sm truncate flex items-center gap-1.5">
                     {r.descricao}
                     {!r.ativo && <Badge variant="outline" className="text-xs bg-warning-soft text-warning-text border-warning-line">Inativa</Badge>}
                     {r.valor_variavel && <Badge variant="outline" className="text-xs">variável</Badge>}
-                  </p>
+                  </div>
                   <p className="text-xs text-muted-foreground">
                     {FREQUENCIA_LABEL[r.frequencia]} · todo dia {r.dia_vencimento}
                   </p>

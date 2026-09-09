@@ -154,10 +154,13 @@ export default function FinancasAdmin() {
                       {ICONE_CONTA[c.tipo] ?? <Wallet className="w-4 h-4" />}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="font-medium text-sm truncate flex items-center gap-1.5">
+                      {/* `<div>`, não `<p>`: `Badge` é sempre um `<div>`
+                          (ver `components/ui/badge.tsx`), e `<div>` dentro
+                          de `<p>` é HTML inválido. */}
+                      <div className="font-medium text-sm truncate flex items-center gap-1.5">
                         {c.nome}
                         {!c.ativo && <Badge variant="outline" className="text-xs bg-warning-soft text-warning-text border-warning-line">Desativada</Badge>}
-                      </p>
+                      </div>
                       <p className="text-xs text-muted-foreground">
                         {CONTA_TIPO_LABEL[c.tipo]}
                         {c.banco_nome && ` · ${c.banco_nome}`}

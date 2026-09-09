@@ -168,11 +168,14 @@ export function AprovacaoDialog({ open, onOpenChange, reserva, onAprovado }: Pro
 
         {!aprovado ? (
           <div className="space-y-3 text-sm">
-            <p className="text-xs text-muted-foreground">
+            {/* `<div>`, não `<p>`: `Badge` é sempre um `<div>` (ver
+                `components/ui/badge.tsx`), e `<div>` dentro de `<p>` é HTML
+                inválido. */}
+            <div className="text-xs text-muted-foreground">
               Ao aprovar: a reserva fica <Badge variant="outline">aprovada</Badge>,
               a data fica reservada e os destinatários do termo aparecem aqui pra
               envio pelo WhatsApp.
-            </p>
+            </div>
             <Button onClick={aprovar} disabled={salvando}
               className="w-full gap-2 bg-success hover:bg-success">
               {salvando ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}

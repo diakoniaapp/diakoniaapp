@@ -155,9 +155,12 @@ export default function CaixaPDV() {
     return (
       <div className="p-8 max-w-md mx-auto text-center space-y-3">
         <h2 className="font-serif text-xl">Caixa não está aberto</h2>
-        <p className="text-sm text-muted-foreground">
+        {/* `<div>`, não `<p>`: `Badge` é sempre um `<div>` (ver
+            `components/ui/badge.tsx`), e `<div>` dentro de `<p>` é HTML
+            inválido. */}
+        <div className="text-sm text-muted-foreground">
           Estado atual: <Badge>{caixa.estado}</Badge>
-        </p>
+        </div>
         <div className="flex gap-2 justify-center">
           <Button asChild variant="outline"><Link to={`/arrecadacao/reserva/${caixa.reserva_id}`}>Voltar à reserva</Link></Button>
           {caixa.estado === "fechado" && (

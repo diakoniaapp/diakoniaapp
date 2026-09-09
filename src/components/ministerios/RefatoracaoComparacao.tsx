@@ -139,7 +139,10 @@ function ItemCard({
                               <div className="mt-2 space-y-1.5">
                                 {item.diferencas.filter(d => d.tipo !== "sem_mudanca").map((dif, i) => (
                                                   <div key={i} className="rounded-md bg-background border p-2 text-xs">
-                                                    <p className="font-medium text-xs uppercase text-muted-foreground mb-1">
+                                                    {/* `<div>`, não `<p>`: `Badge` é sempre um `<div>`
+                                                        (ver `components/ui/badge.tsx`), e `<div>` dentro
+                                                        de `<p>` é HTML inválido. */}
+                                                    <div className="font-medium text-xs uppercase text-muted-foreground mb-1">
                                                       {dif.label}
                                                       {dif.tipo === "novo" && (
                                                                               <Badge variant="outline" className="ml-2 text-xs bg-success-soft text-success-text border-success-line">Novo campo</Badge>
@@ -147,7 +150,7 @@ function ItemCard({
                                                       {dif.tipo === "modificado" && (
                                                                               <Badge variant="outline" className="ml-2 text-xs bg-warning-soft text-warning-text border-warning-line">Mais completo</Badge>
                                                                             )}
-                                                    </p>
+                                                    </div>
                                                     {dif.valorAtual && (
                                                                           <div className="flex items-start gap-1 mb-1">
                                                                             <Minus className="w-3 h-3 text-destructive-text mt-0.5 shrink-0" />

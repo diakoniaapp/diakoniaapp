@@ -348,11 +348,14 @@ function DetalheReuniao({ id, voltar }: { id: string; voltar: () => void }) {
               <span className="text-xs text-muted-foreground w-5 text-right">{idx + 1}.</span>
               <div className="flex-1">
                 <p className="text-sm">{d.descricao}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
+                {/* `<div>`, não `<p>`: `Badge` é sempre um `<div>` (ver
+                    `components/ui/badge.tsx`), e `<div>` dentro de `<p>` é
+                    HTML inválido. */}
+                <div className="text-xs text-muted-foreground mt-0.5">
                   {d.responsavel_nome && `Resp.: ${d.responsavel_nome}`}
                   {d.prazo && ` · Prazo: ${new Date(d.prazo + "T00:00").toLocaleDateString("pt-BR")}`}
                   {d.assunto_id && <Badge variant="outline" className="text-xs ml-1.5">↗ virou assunto</Badge>}
-                </p>
+                </div>
               </div>
               <Badge variant="outline" className="text-xs">{d.status}</Badge>
             </div>
