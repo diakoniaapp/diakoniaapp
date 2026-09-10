@@ -31,8 +31,10 @@
 //   `DetalheDoRol` — os dois quadros sobre o ROL FORMAL, no Painel da
 //   Secretaria — composição para assembleia, quem entrou/saiu do rol.
 //
-//   `DetalheDoRebanho` — os mesmos dois quadros sobre o REBANHO inteiro, no
-//   Painel Pastoral, logo abaixo de `ResumoRebanho`.
+//   `DetalheDoRebanho` — os mesmos dois quadros, no Painel Pastoral, logo
+//   abaixo de `ResumoRebanho`. A forma ainda conta o REBANHO inteiro; o
+//   movimento voltou a contar só o rol em 09/09/2026 — ver o comentário do
+//   próprio componente, mais abaixo, para o porquê.
 //
 //   **A forma** — pirâmide etária cruzada com sexo, e a leitura dela em três
 //   números. Responde "para quem estamos pregando" (ou, no rebanho inteiro,
@@ -355,9 +357,21 @@ export function DetalheDoRol({ dados }: { dados: IndicadoresMembresia }) {
  * o rol". Dois nomes, cada um dizendo a população certa, custam uma função
  * pequena a mais e evitam essa contradição no próprio nome do componente.
  *
- * `dados` aqui **precisa** vir de `indicadoresMembresia("rebanho")` — a
- * pirâmide e o movimento já chegam calculados sobre a população certa; este
- * componente só decide o texto e repassa `geral` para os quadros lerem.
+ * `dados` aqui **precisa** vir de `indicadoresMembresia("rebanho", "rol")` —
+ * a pirâmide já chega calculada sobre o rebanho inteiro, e o movimento sobre
+ * só o rol; este componente só decide o texto e repassa `geral` para o
+ * quadro que ainda é geral.
+ *
+ * ── OS DOIS QUADROS NÃO TÊM MAIS A MESMA POPULAÇÃO ──────────────────────────
+ *
+ * Pedido dela em 09/09/2026, vendo o quadro de movimento contar saídas de
+ * congregados e visitantes: "não faz sentido medir saidas de congregados e
+ * visitantes". Tem razão — **saída é sair do ROL**, e quem nunca esteve nele
+ * não pode sair. A pirâmide ("a forma do rebanho") continua contando todo
+ * mundo, porque essa é uma pergunta sobre quem a igreja pastoreia hoje; o
+ * movimento voltou a ser só membros, a mesma população que já usa no Painel
+ * da Secretaria — daí `QuadroDoMovimento` aqui não levar `geral`, e
+ * `totalDoRol` ser `rol.membros`, não `total`.
  */
 export function DetalheDoRebanho({ dados }: { dados: IndicadoresMembresia }) {
   const { rol, composicao: c, movimento: mv } = dados;
@@ -366,15 +380,16 @@ export function DetalheDoRebanho({ dados }: { dados: IndicadoresMembresia }) {
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">
-        Os dois quadros abaixo contam as <strong className="text-foreground tabular-nums">{total}</strong>
+        A forma abaixo conta as <strong className="text-foreground tabular-nums">{total}</strong>
         {" "}pessoas do rebanho: <strong className="text-foreground tabular-nums">{rol.membros}</strong> membros,
         {" "}<strong className="text-foreground tabular-nums">{rol.congregados}</strong> congregados
         {rol.visitantes > 0 && (
           <> e <strong className="text-foreground tabular-nums">{rol.visitantes}</strong> visitantes</>
-        )}.
+        )}
+        {" "}— o movimento, logo abaixo, é só do rol: só membros saem dele.
       </p>
       <QuadroDaForma c={c} totalDoRol={total} geral />
-      <QuadroDoMovimento mv={mv} totalDoRol={total} geral />
+      <QuadroDoMovimento mv={mv} totalDoRol={rol.membros} />
     </div>
   );
 }

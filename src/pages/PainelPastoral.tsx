@@ -248,7 +248,10 @@ export default function PainelPastoral() {
         resumoPainel(),
         candidatosMembresia(),
         getResumoVisitantes(),
-        indicadoresMembresia("rebanho"),
+        // `"rol"` como segundo argumento: a pirâmide é geral (rebanho
+        // inteiro), mas o movimento — entradas e saídas — volta a ser só
+        // membros. Ver o comentário de `DetalheDoRebanho`, em BlocoRebanho.tsx.
+        indicadoresMembresia("rebanho", "rol"),
         resumoTarefasAcolhimento(),
       ]);
       setEventos(ev);

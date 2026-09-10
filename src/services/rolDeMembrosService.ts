@@ -400,9 +400,27 @@ function anoDe(iso: string | null | undefined): number | null {
  * O bloco `rol` da resposta (membros/congregados/visitantes) não muda com o
  * escopo — já é a contagem completa dos três vínculos. Só `composicao` e
  * `movimento` mudam de população.
+ *
+ * ── `escopoMovimento`, SEPARADO DE `escopo`, DESDE 09/09/2026 ───────────────
+ *
+ * Até aqui um escopo só valia para os dois quadros. Pedido dela olhando o
+ * Painel Pastoral: "mostre o movimento apenas de membros, não faz sentido
+ * medir saidas de congregados e visitantes". Faz sentido: **saída é sair do
+ * ROL**, e congregado ou visitante nunca esteve nele — "saída" de um deles é
+ * na verdade deixar de congregar, um evento de natureza diferente que este
+ * gráfico não mede (e que se um dia for medido, é outro dado, com outra
+ * fonte). A pirâmide continua geral no Painel Pastoral — "quem estamos
+ * pastoreando" é uma pergunta sobre todo mundo —, só o movimento voltou a
+ * ser só membros ali.
+ *
+ * Por isso os dois parâmetros: `escopo` continua regendo a pirâmide
+ * (`composicao`), e `escopoMovimento` — que por padrão repete `escopo`, para
+ * as chamadas de um argumento só (Painel da Secretaria) continuarem se
+ * comportando exatamente como antes — rege as entradas e saídas.
  */
 export async function indicadoresMembresia(
   escopo: "rol" | "rebanho" = "rol",
+  escopoMovimento: "rol" | "rebanho" = escopo,
 ): Promise<IndicadoresMembresia> {
   const { data, error } = await supabase
     .from("membros")
@@ -420,11 +438,19 @@ export async function indicadoresMembresia(
     else if (p.tipo_pessoa === "visitante") rol.visitantes++;
   }
 
-  // A população da pirâmide e das entradas: só membros ativos no escopo
-  // "rol" (o padrão); todo mundo ativo — membros, congregados, visitantes —
-  // no escopo "rebanho". Quem saiu já não está em nenhum dos dois.
+  // A população da pirâmide: só membros ativos no escopo "rol" (o padrão);
+  // todo mundo ativo — membros, congregados, visitantes — no escopo
+  // "rebanho". Quem saiu já não está em nenhum dos dois.
   const membros = pessoas.filter(p =>
     p.status === "ativo" && (escopo === "rebanho" || p.tipo_pessoa === "membro"),
+  );
+
+  // A população das ENTRADAS — pode ser outra, desde `escopoMovimento`. As
+  // saídas usam o mesmo escopo mais abaixo, filtrando `pessoas` direto (elas
+  // não estão em `membros`/`membrosMovimento`, que só trazem quem está ativo
+  // agora — ver o comentário da seção "Saídas").
+  const membrosMovimento = escopoMovimento === escopo ? membros : pessoas.filter(p =>
+    p.status === "ativo" && (escopoMovimento === "rebanho" || p.tipo_pessoa === "membro"),
   );
 
 
@@ -505,7 +531,7 @@ export async function indicadoresMembresia(
   let anoMaisAntigo: number | null = null;
   const pessoasAnterioresEntrada: PessoaNoAno[] = [];
 
-  for (const p of membros) {
+  for (const p of membrosMovimento) {
     const ano = anoDe(p.data_entrada);
     if (ano === null) { semAnoEntrada++; continue; }
 
@@ -535,7 +561,8 @@ export async function indicadoresMembresia(
   // Quem tem status de saída **e** `data_saida` vira barra no ano; quem tem o
   // status e não tem a data fica contado à parte, e a tela diz isso.
   //
-  // No escopo "rol", só `tipo_pessoa = 'membro'`: este gráfico é do ROL, e um
+  // No escopo "rol" (que é `escopoMovimento`, não `escopo` — ver o cabeçalho
+  // da função), só `tipo_pessoa = 'membro'`: este gráfico é do ROL, e um
   // congregado marcado como falecido é uma perda para a igreja mas não é uma
   // saída do rol — ele nunca esteve nele. No escopo "rebanho" a mesma barra
   // conta as três pessoas que a pirâmide de cima também passou a contar.
@@ -544,7 +571,7 @@ export async function indicadoresMembresia(
   const pessoasAnterioresSaida: PessoaNoAno[] = [];
 
   for (const p of pessoas) {
-    if (escopo === "rol" && p.tipo_pessoa !== "membro") continue;
+    if (escopoMovimento === "rol" && p.tipo_pessoa !== "membro") continue;
     if (!p.status || !(STATUS_DE_SAIDA as readonly string[]).includes(p.status)) continue;
 
     const ano = anoDe(p.data_saida);
