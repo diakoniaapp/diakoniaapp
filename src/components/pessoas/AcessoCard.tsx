@@ -33,7 +33,8 @@ import {
   type StatusAcesso,
 } from "@/services/acessoService";
 import { ROLE_LABEL, type RoleOption } from "@/types/usuario";
-import { formatarTelefone, normalizarTelefone } from "@/lib/telefone";
+import { formatarTelefone } from "@/lib/telefone";
+import { montarLinkWhatsApp } from "@/lib/whatsapp";
 import { supabase } from "@/integrations/supabase/client";
 
 // ─── Helpers visuais ──────────────────────────────────────────────────────────
@@ -267,8 +268,8 @@ export function AcessoCard({ pessoaId, nomeCompleto, telefone }: AcessoCardProps
                 type="button"
                 variant="ghost" size="sm"
                 onClick={() => {
-                  const tel = (acesso.telefone || telefone!).replace(/\D/g, "");
-                  window.open(`https://web.whatsapp.com/send?phone=${normalizarTelefone(tel)}`, "_blank", "noopener,noreferrer");
+                  const tel = acesso.telefone || telefone!;
+                  window.open(montarLinkWhatsApp({ telefone: tel }), "_blank", "noopener,noreferrer");
                 }}
                 className="gap-1.5 text-xs text-success-text hover:text-success-text hover:bg-success-soft"
                 title="Abrir WhatsApp"
@@ -395,9 +396,7 @@ export function AcessoCard({ pessoaId, nomeCompleto, telefone }: AcessoCardProps
               type="button" className="gap-2"
               onClick={() => {
                 if (!convitePronto) return;
-                const wa = telefone
-                  ? `https://web.whatsapp.com/send?phone=${normalizarTelefone(telefone)}&text=${encodeURIComponent(convitePronto.mensagem)}`
-                  : `https://web.whatsapp.com/send?text=${encodeURIComponent(convitePronto.mensagem)}`;
+                const wa = montarLinkWhatsApp({ telefone, texto: convitePronto.mensagem });
                 window.open(wa, "_blank", "noopener,noreferrer");
                 setConvitePronto(null);
               }}

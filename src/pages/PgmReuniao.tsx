@@ -22,7 +22,8 @@ import {
   carregarGrupo, PAPEL_LABEL,
   type PgmReuniao, type PgmPresencaComPessoa, type PgmVisita, type PgmGrupoResumo,
 } from "@/services/pgmService";
-import { formatarTelefoneSemDDI, normalizarTelefone } from "@/lib/telefone";
+import { formatarTelefoneSemDDI } from "@/lib/telefone";
+import { montarLinkWhatsApp } from "@/lib/whatsapp";
 import { PaginaSkeleton } from "@/components/ListState";
 
 export default function PgmReuniaoPage() {
@@ -362,11 +363,11 @@ export default function PgmReuniaoPage() {
                     </p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    {/* normalizarTelefone e não `replace(/\D/g)`: tirar a pontuação
-                        de um número guardado sem DDI deixa 11 dígitos, e o WhatsApp
-                        Web sem código de país abre conversa com ninguém. */}
+                    {/* `montarLinkWhatsApp` normaliza o número (garante o DDI 55 —
+                        sem ele o WhatsApp Web "abre conversa com ninguém") e
+                        respeita a preferência Web/app do usuário. */}
                     {v.telefone && (
-                      <a href={`https://web.whatsapp.com/send?phone=${normalizarTelefone(v.telefone)}`} target="_blank" rel="noopener noreferrer">
+                      <a href={montarLinkWhatsApp({ telefone: v.telefone })} target="_blank" rel="noopener noreferrer">
                         <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-success-text">
                           <MessageCircle className="w-3.5 h-3.5" />
                         </Button>

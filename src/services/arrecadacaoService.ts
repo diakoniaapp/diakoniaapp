@@ -14,6 +14,7 @@
 import { supabase, supabaseRel } from "@/integrations/supabase/client";
 import { hojeLocal } from "@/lib/data";
 import { conferir } from "@/lib/escritaConferida";
+import { montarLinkWhatsApp } from "@/lib/whatsapp";
 
 // ─── Enums (refletem os enums SQL exatamente) ───────────────────────────
 export type ReservaStatus =
@@ -1171,10 +1172,7 @@ export function montarWhatsAppManutencao(
     "_Diakonia APP — Manutenção_",
   );
   const mensagem = linhas.join("\n");
-  const tel = (telefone ?? "").replace(/\D/g, "");
-  const url = tel
-    ? `https://web.whatsapp.com/send?phone=${tel}&text=${encodeURIComponent(mensagem)}`
-    : `https://web.whatsapp.com/send?text=${encodeURIComponent(mensagem)}`;
+  const url = montarLinkWhatsApp({ telefone, texto: mensagem });
   return { mensagem, url };
 }
 
@@ -1242,10 +1240,7 @@ export function montarWhatsAppAprovacao(
     "_Diakonia APP — Arrecadação_",
   ];
   const mensagem = linhas.join("\n");
-  const tel = (responsavel.telefone ?? "").replace(/[^0-9]/g, "");
-  const url = tel
-    ? `https://web.whatsapp.com/send?phone=${tel}&text=${encodeURIComponent(mensagem)}`
-    : `https://web.whatsapp.com/send?text=${encodeURIComponent(mensagem)}`;
+  const url = montarLinkWhatsApp({ telefone: responsavel.telefone, texto: mensagem });
   return { mensagem, url };
 }
 

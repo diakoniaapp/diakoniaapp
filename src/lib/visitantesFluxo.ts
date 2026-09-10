@@ -4,6 +4,7 @@
 // ============================================================
 
 import type { Database } from "@/integrations/supabase/types";
+import { montarLinkWhatsApp } from "@/lib/whatsapp";
 
 /** Espelha o enum status_acolhimento_enum do banco. */
 export type StatusAcolhimento = Database["public"]["Enums"]["status_acolhimento_enum"];
@@ -86,25 +87,20 @@ export function getMensagem(etapa: EtapaFluxo, nomeCompleto: string): string {
 // Link WhatsApp clicável
 // ------------------------------------------------------------
 //
-// `web.whatsapp.com/send`, não `wa.me`. Os dois abrem uma conversa com texto
-// pronto, mas `wa.me` é o redirecionador OFICIAL do WhatsApp — e a primeira
-// coisa que ele tenta é abrir o APLICATIVO instalado (celular ou desktop),
-// só caindo para o navegador se não achar nenhum. Pedido dela em 09/09/2026:
-// "preciso que abra no whatsappweb e não no aplicativo". `web.whatsapp.com`
-// é a URL do próprio site do WhatsApp Web — sem redirecionamento nenhum, o
-// navegador abre direto nela, e o aplicativo instalado nunca entra na
-// jogada. O mesmo padrão foi trocado nos ~25 outros lugares do sistema que
-// montavam o link à mão em vez de chamar esta função.
+// WhatsApp Web ou aplicativo, conforme a preferência do usuário — a lógica
+// mora em `lib/whatsapp.ts` (`montarLinkWhatsApp`), que este e o resto do
+// sistema chamam. Ver o cabeçalho de lá para o histórico (09/09: só Web;
+// 10/09: as duas opções, o usuário escolhe).
+//
+// O contrato de retorno continua: `null` quando não há telefone, porque os
+// chamadores fazem `if (!link)`.
 export function buildWhatsAppLink(
   telefone: string | null | undefined,
   mensagem: string
 ): string | null {
   if (!telefone) return null;
-  const numeros = telefone.replace(/\D/g, "");
-  if (!numeros) return null;
-  // Adiciona DDI 55 (Brasil) se ainda não tiver
-  const comDDI = numeros.startsWith("55") ? numeros : `55${numeros}`;
-  return `https://web.whatsapp.com/send?phone=${comDDI}&text=${encodeURIComponent(mensagem)}`;
+  if (!telefone.replace(/\D/g, "")) return null;
+  return montarLinkWhatsApp({ telefone, texto: mensagem });
 }
 
 // ------------------------------------------------------------

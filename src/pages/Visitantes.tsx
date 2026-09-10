@@ -26,7 +26,8 @@ import {
   ETAPAS_JORNADA,
 } from "@/lib/evolucaoFluxo";
 import { logHistorico } from "@/lib/historicoFluxo";
-import { normalizarTelefone, formatarTelefoneSemDDI } from "@/lib/telefone";
+import { formatarTelefoneSemDDI } from "@/lib/telefone";
+import { montarLinkWhatsApp } from "@/lib/whatsapp";
 import { conferir } from "@/lib/escritaConferida";
 import {
   buscarTarefasDosVisitantes, alternarTarefaAcolhimento, type TarefaAcolhimento,
@@ -550,7 +551,7 @@ function VisitanteCard({
   const abrirWhatsAppSugestao = (msg: string) => {
     const cel = v.telefone_celular?.replace(/\D/g, "");
     if (!cel) return toast.error("Telefone não cadastrado");
-    window.open(`https://web.whatsapp.com/send?phone=${normalizarTelefone(cel)}&text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
+    window.open(montarLinkWhatsApp({ telefone: v.telefone_celular, texto: msg }), "_blank", "noopener,noreferrer");
   };
 
   return (

@@ -1,5 +1,6 @@
 // ─── agendaPastoralService.ts — Agenda + WhatsApp ─────────────────────────
 import { supabase } from "@/integrations/supabase/client";
+import { montarLinkWhatsApp } from "@/lib/whatsapp";
 
 /**
  * Efemérides da vida da igreja.
@@ -177,10 +178,13 @@ export function mensagemPastoral(evento: EventoPastoral): string {
 }
 
 // ── Link WhatsApp ──────────────────────────────────────────────────────────
+// WhatsApp Web ou aplicativo, conforme a preferência do usuário — ver
+// `lib/whatsapp.ts`.
 export function linkWhatsApp(evento: EventoPastoral, telefoneSelecionado?: string): string {
-  const tel = (telefoneSelecionado || evento.telefone || "").replace(/\D/g, "");
-  const msg = encodeURIComponent(mensagemPastoral(evento));
-  return tel ? `https://web.whatsapp.com/send?phone=${tel}&text=${msg}` : `https://web.whatsapp.com/send?text=${msg}`;
+  return montarLinkWhatsApp({
+    telefone: telefoneSelecionado || evento.telefone || "",
+    texto: mensagemPastoral(evento),
+  });
 }
 
 // ─── Inteligência Pastoral ─────────────────────────────────────────────────

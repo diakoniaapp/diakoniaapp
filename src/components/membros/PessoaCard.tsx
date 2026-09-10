@@ -27,6 +27,7 @@ import { LinhaDoTempo } from "@/components/membros/LinhaDoTempo";
 import { historiaDaPessoa, diasDesdeOUltimoContato, type EventoDaHistoria } from "@/services/historiaPessoa";
 import { ROLE_LABEL } from "@/types/usuario";
 import { normalizarTelefone, formatarTelefoneSemDDI } from "@/lib/telefone";
+import { montarLinkWhatsApp } from "@/lib/whatsapp";
 
 // ── Datas ─────────────────────────────────────────────────────
 //
@@ -748,7 +749,7 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
                 Pastoral até 26/08/2026. */}
             {pessoa.telefone_celular && (
               <a
-                href={`https://web.whatsapp.com/send?phone=${normalizarTelefone(pessoa.telefone_celular)}`}
+                href={montarLinkWhatsApp({ telefone: pessoa.telefone_celular })}
                 target="_blank"
                 rel="noopener noreferrer"
                 title={`Enviar mensagem para ${pessoa.nome_social ?? pessoa.nome_completo} no WhatsApp`}

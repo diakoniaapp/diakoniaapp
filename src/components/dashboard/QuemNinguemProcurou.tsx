@@ -31,6 +31,7 @@ import { toast } from "sonner";
 import { Loader2, MessageCircle, CheckCircle2, ArrowRight } from "lucide-react";
 import { useReportarVazio } from "@/components/hoje/vazio";
 import { logHistorico } from "@/lib/historicoFluxo";
+import { montarLinkWhatsApp } from "@/lib/whatsapp";
 import ContatoResultadoDialog from "@/components/membros/ContatoResultadoDialog";
 
 const QUANTAS = 5;
@@ -101,7 +102,7 @@ export function QuemNinguemProcurou() {
     const primeiro = p.nome_completo.split(" ")[0];
     const msg = `Olá, ${primeiro}! Passando para saber como você está. 🙏`;
     window.open(
-      `https://web.whatsapp.com/send?phone=${fone.startsWith("55") ? fone : "55" + fone}&text=${encodeURIComponent(msg)}`,
+      montarLinkWhatsApp({ telefone: p.telefone_celular, texto: msg }),
       "_blank", "noopener,noreferrer",
     );
   };

@@ -27,7 +27,8 @@ import { ListSkeleton, EmptyState, ErrorState } from "@/components/ListState";
 import { StatusMembroBadge } from "@/components/membros/StatusMembroBadge";
 import ContatoResultadoDialog from "@/components/membros/ContatoResultadoDialog";
 import { logHistorico } from "@/lib/historicoFluxo";
-import { formatarTelefoneSemDDI, normalizarTelefone, telefoneValido } from "@/lib/telefone";
+import { formatarTelefoneSemDDI, telefoneValido } from "@/lib/telefone";
+import { montarLinkWhatsApp } from "@/lib/whatsapp";
 import { rotuloFuncao, temFuncao, rotulosDe } from "@/lib/funcaoMinisterial";
 import { TIPO_PESSOA_LABEL, TIPO_PESSOA_COR } from "@/lib/tipoPessoa";
 import PessoaCard from "@/components/membros/PessoaCard";
@@ -470,7 +471,7 @@ function Telefone({ numero }: { numero?: string | null }) {
 
   return (
     <a
-      href={`https://web.whatsapp.com/send?phone=${normalizarTelefone(numero)}`}
+      href={montarLinkWhatsApp({ telefone: numero })}
       target="_blank"
       rel="noopener noreferrer"
       onClick={(e) => e.stopPropagation()}

@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { conferir } from "@/lib/escritaConferida";
+import { montarLinkWhatsApp } from "@/lib/whatsapp";
 
 export type AssuntoPrioridade = "alta" | "media" | "baixa";
 export type AssuntoStatus = "aberto" | "em_andamento" | "concluido" | "cancelado" | "aguardando_terceiro";
@@ -262,10 +263,7 @@ export async function montarMensagemTarefasResponsavel(
   linhas.push("Obrigada pela dedicação!", "", "_Secretaria da Igreja_", "", "_Enviado pelo Diakonia APP_");
 
   const mensagem = linhas.join("\n");
-  const tel = (pessoa.telefone ?? "").replace(/\D/g, "");
-  const url = tel
-    ? `https://web.whatsapp.com/send?phone=${tel}&text=${encodeURIComponent(mensagem)}`
-    : `https://web.whatsapp.com/send?text=${encodeURIComponent(mensagem)}`;
+  const url = montarLinkWhatsApp({ telefone: pessoa.telefone, texto: mensagem });
   return { mensagem, url };
 }
 
@@ -369,9 +367,6 @@ export function montarLembreteAssuntoIndividual(
   );
 
   const mensagem = linhas.join("\n");
-  const tel = (telefoneResponsavel ?? "").replace(/\D/g, "");
-  const url = tel
-    ? `https://web.whatsapp.com/send?phone=${tel}&text=${encodeURIComponent(mensagem)}`
-    : `https://web.whatsapp.com/send?text=${encodeURIComponent(mensagem)}`;
+  const url = montarLinkWhatsApp({ telefone: telefoneResponsavel, texto: mensagem });
   return { mensagem, url };
 }

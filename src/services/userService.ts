@@ -32,6 +32,7 @@ import {
   validarTelefone,
   telefoneValido,
 } from "@/lib/telefone";
+import { montarLinkWhatsApp } from "@/lib/whatsapp";
 
 export {
   limparTelefone,
@@ -113,7 +114,7 @@ export function montarMensagemWhatsApp(
     `_"Conectando pessoas, organizando o propósito."_`,
   ].join("\n");
 
-  const url = `https://web.whatsapp.com/send?phone=${normalizarTelefone(tel)}&text=${encodeURIComponent(mensagem)}`;
+  const url = montarLinkWhatsApp({ telefone: tel, texto: mensagem });
   return { ok: true, url, mensagem, telefone: tel };
 }
 
@@ -145,7 +146,7 @@ export function enviarWhatsApp(
     `_"Conectando pessoas, organizando o propósito."_`,
   ].join("\n");
 
-  const url = `https://web.whatsapp.com/send?phone=${normalizarTelefone(tel)}&text=${encodeURIComponent(mensagem)}`;
+  const url = montarLinkWhatsApp({ telefone: tel, texto: mensagem });
 
   // Tenta abrir; browsers bloqueiam silenciosamente se não for gesto do user.
   // window.open retorna a janela ou null se bloqueada.

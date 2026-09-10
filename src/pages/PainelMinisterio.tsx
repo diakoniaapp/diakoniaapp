@@ -54,6 +54,7 @@ import {
 } from "@/components/painel/blocos";
 import { useAuth } from "@/hooks/useAuth";
 import { formatarTelefone } from "@/lib/telefone";
+import { montarLinkWhatsApp } from "@/lib/whatsapp";
 import {
   carregarPainelMinisterio, meusMinisterios, escalasFuturas,
   estaServindo, estaSobrecarregado,
@@ -556,7 +557,7 @@ function SecaoEquipe({ painel, postos, ministerioId }: {
                 </Badge>
               )}
               {v.telefone_celular && (
-                <a href={`https://web.whatsapp.com/send?phone=${v.telefone_celular.replace(/\D/g, "")}`}
+                <a href={montarLinkWhatsApp({ telefone: v.telefone_celular })}
                   target="_blank" rel="noopener noreferrer"
                   title={`Falar com ${v.nome_completo} — ${formatarTelefone(v.telefone_celular)}`}
                   className="shrink-0 text-muted-foreground hover:text-foreground">

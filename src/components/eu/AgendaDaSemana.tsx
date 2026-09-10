@@ -35,6 +35,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   proximosDias, linkWhatsApp, type EventoPastoral,
 } from "@/services/agendaPastoralService";
+import { montarLinkWhatsApp } from "@/lib/whatsapp";
 import { montarConvite, atalhoDoCanal } from "@/lib/agenda/convite";
 import { expandirOcorrencias } from "@/lib/agenda/recurrence";
 import { eventosExternos } from "@/lib/agenda/externalEvents";
@@ -183,7 +184,7 @@ export function AgendaDaSemana({ eu }: { eu: MinhaFicha | null }) {
   const compartilhar = async (o: EventoOcorrencia, comoLink: boolean) => {
     const texto = textoDoConvite(o);
     if (comoLink) {
-      window.open(`https://web.whatsapp.com/send?text=${encodeURIComponent(texto)}`, "_blank", "noopener");
+      window.open(montarLinkWhatsApp({ texto }), "_blank", "noopener");
       return;
     }
     try {

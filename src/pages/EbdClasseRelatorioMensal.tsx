@@ -25,6 +25,7 @@ import {
 } from "@/services/ebdService";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { montarLinkWhatsApp } from "@/lib/whatsapp";
 import { PaginaSkeleton } from "@/components/ListState";
 
 const MESES = [
@@ -136,7 +137,7 @@ export default function EbdClasseRelatorioMensal() {
   function compartilharWhatsApp() {
     const msg = montarMensagemWhatsApp();
     if (!msg) { toast.error("Carregando dados..."); return; }
-    window.open(`https://web.whatsapp.com/send?text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
+    window.open(montarLinkWhatsApp({ texto: msg }), "_blank", "noopener,noreferrer");
   }
 
   async function copiarTexto() {

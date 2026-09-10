@@ -27,6 +27,7 @@ import { Link } from "react-router-dom";
 import { MapContainer, TileLayer, CircleMarker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { supabase } from "@/integrations/supabase/client";
+import { montarLinkWhatsApp } from "@/lib/whatsapp";
 import { toast } from "sonner";
 import {
   familiasPendentes, geocodificarPendentes, MAX_POR_VEZ,
@@ -187,7 +188,7 @@ function semRepetir(grupos: Agrupamento[], limite = 3): Agrupamento[] {
 function linkWhats(tel: string | null): string | null {
   const d = (tel ?? "").replace(/\D/g, "");
   if (d.length < 10) return null;
-  return `https://web.whatsapp.com/send?phone=${d.startsWith("55") ? d : "55" + d}`;
+  return montarLinkWhatsApp({ telefone: tel });
 }
 
 export function MapaFamilias() {

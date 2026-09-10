@@ -33,6 +33,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { MessageCircle, Copy, Check, Users, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { normalizarTelefone, validarTelefone } from "@/lib/telefone";
+import { montarLinkWhatsApp } from "@/lib/whatsapp";
 import { toast } from "sonner";
 
 interface Props {
@@ -113,10 +114,7 @@ export function ConvidarParaEvento({ open, onOpenChange, ...evento }: Props) {
 
   const abrirWhats = () => {
     // Sem número: o WhatsApp abre o seletor de contatos com o texto pronto.
-    window.open(
-      `https://web.whatsapp.com/send?text=${encodeURIComponent(mensagem)}`,
-      "_blank", "noopener,noreferrer",
-    );
+    window.open(montarLinkWhatsApp({ texto: mensagem }), "_blank", "noopener,noreferrer");
   };
 
   const alcance = telefones?.length ?? 0;

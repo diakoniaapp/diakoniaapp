@@ -18,6 +18,7 @@ import {
   type AssuntoDashboard, type AssuntoPrioridade, type AssuntoStatus,
 } from "@/services/assuntosService";
 import { supabase } from "@/integrations/supabase/client";
+import { montarLinkWhatsApp } from "@/lib/whatsapp";
 import { toast } from "sonner";
 import { AssuntoForm } from "@/components/assuntos/AssuntoForm";
 import { PaginaSkeleton } from "@/components/ListState";
@@ -91,8 +92,7 @@ export default function Assuntos() {
       });
       linhas.push("_Por gentileza, sinaliza pra mim como anda cada um?_", "", "_Secretaria · QIBRJ_");
       const mensagem = linhas.join("\n");
-      const tel = (pessoa.telefone_celular ?? "").replace(/\D/g, "");
-      const url = tel ? `https://web.whatsapp.com/send?phone=${tel}&text=${encodeURIComponent(mensagem)}` : `https://web.whatsapp.com/send?text=${encodeURIComponent(mensagem)}`;
+      const url = montarLinkWhatsApp({ telefone: pessoa.telefone_celular, texto: mensagem });
       window.open(url, "_blank");
       // Pequena pausa pra navegador não bloquear pop-ups
       await new Promise(r => setTimeout(r, 400));

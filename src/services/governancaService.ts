@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { hojeLocal, toYmd } from "@/lib/data";
 import { conferir } from "@/lib/escritaConferida";
+import { montarLinkWhatsApp } from "@/lib/whatsapp";
 
 export type GovReuniaoTipo = "diretoria" | "lideranca" | "conselho" | "extraordinaria" | "outra";
 export type GovReuniaoStatus = "agendada" | "em_andamento" | "concluida" | "cancelada" | "adiada";
@@ -319,10 +320,7 @@ export function montarConvocacaoWhatsApp(
     "_Enviado pelo Diakonia APP_",
   );
   const mensagem = linhas.join("\n");
-  const tel = (pessoa.telefone ?? "").replace(/\D/g, "");
-  const url = tel
-    ? `https://web.whatsapp.com/send?phone=${tel}&text=${encodeURIComponent(mensagem)}`
-    : `https://web.whatsapp.com/send?text=${encodeURIComponent(mensagem)}`;
+  const url = montarLinkWhatsApp({ telefone: pessoa.telefone, texto: mensagem });
   return { mensagem, url };
 }
 
@@ -645,10 +643,7 @@ export function montarConvocacaoAssembleia(
     "_Enviado pelo Diakonia APP_",
   );
   const mensagem = linhas.join("\n");
-  const tel = (pessoa.telefone ?? "").replace(/\D/g, "");
-  const url = tel
-    ? `https://web.whatsapp.com/send?phone=${tel}&text=${encodeURIComponent(mensagem)}`
-    : `https://web.whatsapp.com/send?text=${encodeURIComponent(mensagem)}`;
+  const url = montarLinkWhatsApp({ telefone: pessoa.telefone, texto: mensagem });
   return { mensagem, url };
 }
 

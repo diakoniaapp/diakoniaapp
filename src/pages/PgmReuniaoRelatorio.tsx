@@ -14,6 +14,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { formatarTelefoneSemDDI } from "@/lib/telefone";
+import { montarLinkWhatsApp } from "@/lib/whatsapp";
 import { PaginaSkeleton } from "@/components/ListState";
 
 function dataBr(s: string) {
@@ -131,8 +132,7 @@ export default function PgmReuniaoRelatorio() {
   function compartilharWhatsApp() {
     const msg = montarMensagemWhatsApp();
     if (!msg) { toast.error("Carregando dados..."); return; }
-    const url = `https://web.whatsapp.com/send?text=${encodeURIComponent(msg)}`;
-    window.open(url, "_blank", "noopener,noreferrer");
+    window.open(montarLinkWhatsApp({ texto: msg }), "_blank", "noopener,noreferrer");
   }
 
   async function copiarTexto() {

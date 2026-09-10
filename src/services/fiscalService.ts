@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { conferir } from "@/lib/escritaConferida";
+import { montarLinkWhatsApp } from "@/lib/whatsapp";
 
 export type FiscalEsfera = "federal" | "municipal" | "estadual";
 export type FiscalPeriodicidade = "mensal" | "anual" | "trimestral";
@@ -285,10 +286,7 @@ export function montarAlertaFiscalWhatsApp(
   );
 
   const mensagem = linhas.join("\n");
-  const tel = (telefoneTesouraria ?? "").replace(/\D/g, "");
-  const url = tel
-    ? `https://web.whatsapp.com/send?phone=${tel}&text=${encodeURIComponent(mensagem)}`
-    : `https://web.whatsapp.com/send?text=${encodeURIComponent(mensagem)}`;
+  const url = montarLinkWhatsApp({ telefone: telefoneTesouraria, texto: mensagem });
   return { mensagem, url };
 }
 

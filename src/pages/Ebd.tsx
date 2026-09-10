@@ -38,6 +38,7 @@ import {
   type NovaMatricula, type VisitanteEbd, type FrequenciaAluno,
 } from "@/services/ebdService";
 import { formatarTelefoneSemDDI } from "@/lib/telefone";
+import { montarLinkWhatsApp } from "@/lib/whatsapp";
 import { ebdPorClasse, relatorioGeralResumo, type EbdClasseLinha, type RelatorioMensalGeralResumo } from "@/services/ebdPainelService";
 import { ClasseForm } from "@/components/ebd/ClasseForm";
 import { usePodeOperarModulo } from "@/hooks/usePodeOperarModulo";
@@ -867,7 +868,7 @@ export default function Ebd() {
                   {telefone ? (
                     telefoneVisivel ? (
                       <a
-                        href={`https://web.whatsapp.com/send?phone=${telefone.replace(/\D/g, "")}`}
+                        href={montarLinkWhatsApp({ telefone })}
                         target="_blank" rel="noopener noreferrer"
                         className="text-xs text-success-text shrink-0 flex items-center gap-1 hover:underline"
                       >

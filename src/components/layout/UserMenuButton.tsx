@@ -7,8 +7,12 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { User, LogOut, ShieldCheck, Moon, Sun } from "lucide-react";
+import { User, LogOut, ShieldCheck, Moon, Sun, Globe, Smartphone } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
+import {
+  getDestinoWhatsApp, setDestinoWhatsApp, DESTINO_WHATSAPP_LABEL,
+  type DestinoWhatsApp,
+} from "@/lib/whatsapp";
 import { ADMIN_MENU_GROUPS } from "@/components/layout/adminMenuItems";
 import { VerComoMenu } from "@/components/layout/VerComoMenu";
 
@@ -18,6 +22,17 @@ export function UserMenuButton() {
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const [nome, setNome] = useState<string>("");
+
+  // Preferência local (por navegador/aparelho) de para onde os links do
+  // WhatsApp abrem — Web ou aplicativo. Mesma natureza do tema. Ver
+  // `lib/whatsapp.ts`. 10/09/2026, pedido dela: "mostre as duas opções... e
+  // o usuário escolhe".
+  const [zapDestino, setZapDestino] = useState<DestinoWhatsApp>(getDestinoWhatsApp);
+  const alternarZap = () => {
+    const proximo: DestinoWhatsApp = zapDestino === "web" ? "app" : "web";
+    setDestinoWhatsApp(proximo);
+    setZapDestino(proximo);
+  };
 
   const primeiroNome = (valor: string | null | undefined): string => {
     if (!valor || valor.includes("@")) return "";
@@ -162,6 +177,26 @@ export function UserMenuButton() {
         <DropdownMenuItem className="gap-2 cursor-pointer py-2.5" onClick={toggleTheme}>
           {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           <span>{theme === "dark" ? "Tema claro" : "Tema escuro"}</span>
+        </DropdownMenuItem>
+
+        {/* ── Onde o WhatsApp abre ─────────────────────────────────────────
+            Preferência por aparelho: o celular tem o app, o computador da
+            recepção talvez não. O rótulo nomeia PARA ONDE a linha muda (como
+            "Tema escuro" acima nomeia o alvo), e a linha de baixo diz o que
+            está valendo agora. */}
+        <DropdownMenuItem
+          className="gap-2 cursor-pointer py-2.5"
+          onClick={(e) => { e.preventDefault(); alternarZap(); }}
+        >
+          {zapDestino === "web"
+            ? <Smartphone className="w-4 h-4" />
+            : <Globe className="w-4 h-4" />}
+          <div className="flex flex-col">
+            <span>{DESTINO_WHATSAPP_LABEL[zapDestino === "web" ? "app" : "web"]}</span>
+            <span className="text-xs text-muted-foreground">
+              Agora: {zapDestino === "web" ? "WhatsApp Web" : "aplicativo"}
+            </span>
+          </div>
         </DropdownMenuItem>
 
         <DropdownMenuSeparator />
