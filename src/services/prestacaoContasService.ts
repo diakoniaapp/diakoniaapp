@@ -33,6 +33,15 @@
 // flexibilidade se um dia for útil, mas o comportamento replicado aqui é o
 // do Excel: uma nota por linha, ancorada no último mês do período — seja
 // ele de 1 mês ou de 12.
+//
+// ── FILTRO POR CONTA (12/09/2026) ────────────────────────────────────────
+// "Relatório por caixa" — pedido explícito: a mesma demonstração, mas só
+// com o que se moveu numa conta específica (Caixinha, Bradesco...), não
+// todas juntas. `contaId` é opcional em toda a cadeia; sem ele, o
+// comportamento é exatamente o de antes (todas as contas somadas). Notas
+// (`fin_relatorio_notas`) continuam por categoria/centro, não por conta —
+// uma nota sobre "Sustento Pastoral" vale pra qualquer conta que tenha
+// pago, então não teria sentido fragmentar por conta também.
 import { daquiAMeses, daquiADias } from "@/lib/data";
 import {
   listarLancamentos, listarContas, listarCategorias, listarCentrosCusto,
@@ -117,17 +126,22 @@ function somaGrupos(grupos: PrestacaoContasGrupo[], qtdMeses: number): number[] 
   return Array.from({ length: qtdMeses }, (_, i) => grupos.reduce((s, g) => s + g.valores[i], 0));
 }
 
-/** Saldo de todas as contas (ativas e inativas — o histórico não some) no instante imediatamente ANTES de `dataLimiteExclusiva`. */
-async function saldoAcumuladoAntesDe(dataLimiteExclusiva: string): Promise<number> {
+/**
+ * Saldo no instante imediatamente ANTES de `dataLimiteExclusiva`. Sem
+ * `contaId`: todas as contas somadas (ativas e inativas — o histórico não
+ * some). Com `contaId`: só o saldo inicial e o movimento daquela conta.
+ */
+async function saldoAcumuladoAntesDe(dataLimiteExclusiva: string, contaId?: string): Promise<number> {
   const contas = await listarContas(true);
-  const saldoInicial = contas.reduce((s, c) => s + Number(c.saldo_inicial), 0);
+  const contasRelevantes = contaId ? contas.filter(c => c.id === contaId) : contas;
+  const saldoInicial = contasRelevantes.reduce((s, c) => s + Number(c.saldo_inicial), 0);
 
   // `listarLancamentos` tem teto de 300 linhas (mesma proteção documentada
   // em dreService.gerarDRE) — para o volume de hoje não pesa; se a igreja
   // acumular mais de 300 lançamentos históricos antes do período, este
   // saldo passa a truncar e precisa virar uma soma no banco (RPC), não em
   // memória.
-  const antes = await listarLancamentos({ dataFim: daquiADias(dataLimiteExclusiva, -1) });
+  const antes = await listarLancamentos({ dataFim: daquiADias(dataLimiteExclusiva, -1), contaId });
   const movimento = antes
     .filter(l => l.status === "realizado" || l.status === "conciliado")
     .reduce((s, l) => s + (l.tipo === "entrada" ? Number(l.valor) : -Number(l.valor)), 0);
@@ -139,8 +153,9 @@ async function saldoAcumuladoAntesDe(dataLimiteExclusiva: string): Promise<numbe
  * @param ano       ano do primeiro mês do período
  * @param mesInicio 1-12
  * @param qtdMeses  quantos meses o período tem, a partir de `mesInicio` — 1 (padrão/mensal), 3 (o antigo "trimestre", agora só um preset da tela), 6, 12, ou qualquer outro número que a tesouraria escolher
+ * @param contaId   opcional — restringe a demonstração a uma única conta ("relatório por caixa"). Sem ele, soma todas as contas, igual sempre foi.
  */
-export async function gerarPrestacaoContas(ano: number, mesInicio: number, qtdMeses: number): Promise<PrestacaoContasResultado> {
+export async function gerarPrestacaoContas(ano: number, mesInicio: number, qtdMeses: number, contaId?: string): Promise<PrestacaoContasResultado> {
   const dataInicio = `${ano}-${String(mesInicio).padStart(2, "0")}-01`;
   const dataFimExclusiva = daquiAMeses(dataInicio, qtdMeses);
   const dataFim = daquiADias(dataFimExclusiva, -1);
@@ -157,11 +172,11 @@ export async function gerarPrestacaoContas(ano: number, mesInicio: number, qtdMe
   const mesAncoraNota = { ano: ultimoMes.ano, mes: ultimoMes.numero };
 
   const [lancsBrutos, categorias, centros, notasDoMesAncora, saldoAnterior] = await Promise.all([
-    listarLancamentos({ dataInicio, dataFim }),
+    listarLancamentos({ dataInicio, dataFim, contaId }),
     listarCategorias(),
     listarCentrosCusto(),
     listarNotasDoPeriodo(mesAncoraNota.ano, mesAncoraNota.mes),
-    Promise.all(mesesChaves.map(chave => saldoAcumuladoAntesDe(`${chave}-01`))),
+    Promise.all(mesesChaves.map(chave => saldoAcumuladoAntesDe(`${chave}-01`, contaId))),
   ]);
 
   const lancs = lancsBrutos.filter(l => l.status === "realizado" || l.status === "conciliado");

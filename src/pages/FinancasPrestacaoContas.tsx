@@ -15,11 +15,21 @@
 // cabeçalho institucional, assinaturas, rodapé com o mesmo versículo —
 // reaproveitado, não reinventado, pra ficar indistinguível do que a
 // diretoria já reconhece nos outros documentos financeiros do sistema.
+//
+// "Relatório por caixa" (12/09/2026): filtro opcional por conta
+// (`?conta=`). O fechamento de período continua sempre de TODAS as contas
+// juntas — filtrar pra uma conta é só uma lente de leitura, não muda o que
+// "Fechar período" trava — por isso os controles de fechamento somem
+// quando há filtro de conta, com uma nota explicando por quê, em vez de
+// deixar parecer que fechar ali fecharia só aquela conta.
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
@@ -29,11 +39,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   ArrowLeft, ChevronLeft, ChevronRight, MessageSquare, MessageSquarePlus,
-  ScrollText, Minus, Plus, Lock, LockOpen, ShieldCheck, Loader2, Printer, Download,
+  ScrollText, Minus, Plus, Lock, LockOpen, ShieldCheck, Loader2, Printer, Download, Wallet,
 } from "lucide-react";
 import { toast } from "sonner";
 import logoDiakonia from "@/assets/logo-diakonia.png";
-import { brl, downloadCSV } from "@/services/finService";
+import { brl, downloadCSV, listarContas, type FinConta } from "@/services/finService";
 import {
   gerarPrestacaoContas, gerarCSVPrestacaoContas,
   type PrestacaoContasResultado, type PrestacaoContasGrupo,
@@ -63,6 +73,10 @@ const PRESETS_LARGURA = [
   { qtd: 12, label: "Anual" },
 ];
 
+// Sentinela pro Select — Radix não aceita `value=""` num SelectItem, mesmo
+// padrão já usado em prestacaoContasService.ts (`CENTRO_SEM`).
+const TODAS_CONTAS = "__todas__";
+
 function periodoAtual(): { ano: number; mes: number } {
   const [ano, mes] = hojeLocal().split("-").map(Number);
   return { ano, mes };
@@ -76,9 +90,11 @@ export default function FinancasPrestacaoContas() {
   const ano = Number(searchParams.get("ano")) || padrao.ano;
   const mes = Number(searchParams.get("mes")) || padrao.mes;
   const qtdMeses = Math.min(24, Math.max(1, Number(searchParams.get("qtd")) || 1));
+  const contaId = searchParams.get("conta") || "";
 
   const [dados, setDados] = useState<PrestacaoContasResultado | null>(null);
   const [fechamento, setFechamento] = useState<FinFechamentoPeriodo | null>(null);
+  const [contas, setContas] = useState<FinConta[]>([]);
   const [loading, setLoading] = useState(true);
   const [emitidoPor, setEmitidoPor] = useState("");
   const [processando, setProcessando] = useState(false);
@@ -93,11 +109,14 @@ export default function FinancasPrestacaoContas() {
     setLoading(true);
     try {
       const [resultado, fech] = await Promise.all([
-        gerarPrestacaoContas(ano, mes, qtdMeses),
+        gerarPrestacaoContas(ano, mes, qtdMeses, contaId || undefined),
+        // Fechamento é sempre de todas as contas juntas — não recebe
+        // contaId, mesmo com filtro ativo (ver comentário no topo do arquivo).
         buscarFechamento(ano, mes, qtdMeses),
       ]);
       setDados(resultado);
       setFechamento(fech);
+      if (contas.length === 0) setContas(await listarContas());
       if (user) {
         const { data: prof } = await supabase.from("profiles").select("nome").eq("id", user.id).maybeSingle();
         setEmitidoPor(prof?.nome ?? user.email ?? "Sistema");
@@ -153,10 +172,15 @@ export default function FinancasPrestacaoContas() {
     }
   }
 
-  useEffect(() => { carregar(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [ano, mes, qtdMeses]);
+  useEffect(() => { carregar(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [ano, mes, qtdMeses, contaId]);
 
-  function atualizarParams(novoAno: number, novoMes: number, novaQtd: number) {
-    setSearchParams({ ano: String(novoAno), mes: String(novoMes), qtd: String(novaQtd) });
+  // `contaId` viaja junto por padrão (senão trocar de mês derrubaria o
+  // filtro de conta sem avisar) — só quem quer trocar a conta passa
+  // explicitamente.
+  function atualizarParams(novoAno: number, novoMes: number, novaQtd: number, novaContaId = contaId) {
+    const params: Record<string, string> = { ano: String(novoAno), mes: String(novoMes), qtd: String(novaQtd) };
+    if (novaContaId) params.conta = novaContaId;
+    setSearchParams(params);
   }
 
   function deslocarPeriodo(passosDeMes: number) {
@@ -168,15 +192,22 @@ export default function FinancasPrestacaoContas() {
     atualizarParams(ano, mes, Math.min(24, Math.max(1, novaQtd)));
   }
 
+  function mudarConta(novaContaId: string) {
+    atualizarParams(ano, mes, qtdMeses, novaContaId === TODAS_CONTAS ? "" : novaContaId);
+  }
+
   function abrirNota(titulo: string, categoriaId: string, centroCustoId: string | null) {
     setNota({ aberto: true, titulo, categoriaId, centroCustoId });
   }
 
   function exportarCSV() {
     if (!dados) return;
-    downloadCSV(`QIBRJ_Prestacao_de_Contas_${ano}${String(mes).padStart(2, "0")}_${qtdMeses}m.csv`, gerarCSVPrestacaoContas(dados));
+    const sufixoConta = contaAtual ? `_${contaAtual.nome.replace(/\s+/g, "")}` : "";
+    downloadCSV(`QIBRJ_Prestacao_de_Contas_${ano}${String(mes).padStart(2, "0")}_${qtdMeses}m${sufixoConta}.csv`, gerarCSVPrestacaoContas(dados));
     toast.success("CSV exportado");
   }
+
+  const contaAtual = contas.find(c => c.id === contaId) ?? null;
 
   if (loading) return <PaginaSkeleton />;
   if (!dados) return <div className="p-8 text-center text-muted-foreground">Não foi possível carregar.</div>;
@@ -246,6 +277,24 @@ export default function FinancasPrestacaoContas() {
             </div>
           </div>
 
+          {/* "Relatório por caixa" — filtro opcional por conta. Some tudo
+              junto por padrão (sempre foi assim); escolher uma conta aqui
+              restringe a demonstração inteira só ao que se moveu nela. */}
+          <div className="flex items-center justify-center gap-1.5">
+            <Wallet className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+            <Select value={contaId || TODAS_CONTAS} onValueChange={mudarConta}>
+              <SelectTrigger className="h-8 w-56 text-xs">
+                <SelectValue placeholder="Todas as contas" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={TODAS_CONTAS}>Todas as contas</SelectItem>
+                {contas.map(c => (
+                  <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="flex items-center justify-center gap-1 flex-wrap">
             {PRESETS_LARGURA.map(p => (
               <Button
@@ -268,32 +317,41 @@ export default function FinancasPrestacaoContas() {
               </Button>
             </div>
 
-            <span className="mx-1 text-border">|</span>
+            {!contaId && (
+              <>
+                <span className="mx-1 text-border">|</span>
 
-            <StatusIcone status={fechamento?.status ?? "aberto"} />
-            <Badge variant="outline" className={CLASSE_BADGE[fechamento?.status ?? "aberto"]}>
-              {STATUS_FECHAMENTO_LABEL[fechamento?.status ?? "aberto"]}
-            </Badge>
-            {(!fechamento || fechamento.status === "aberto" || fechamento.status === "em_revisao") && (
-              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setConfirmandoFechar(true)}>
-                <Lock className="w-3.5 h-3.5" /> Fechar período
-              </Button>
-            )}
-            {fechamento?.status === "fechado" && souAdmin && (
-              <Button size="sm" className="gap-1.5 bg-gold hover:bg-gold/90 text-white" onClick={onAprovar} disabled={processando}>
-                <ShieldCheck className="w-3.5 h-3.5" /> Aprovar
-              </Button>
-            )}
-            {(fechamento?.status === "fechado" || fechamento?.status === "aprovado") && souAdmin && (
-              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setReabrindo(true)}>
-                <LockOpen className="w-3.5 h-3.5" /> Reabrir
-              </Button>
+                <StatusIcone status={fechamento?.status ?? "aberto"} />
+                <Badge variant="outline" className={CLASSE_BADGE[fechamento?.status ?? "aberto"]}>
+                  {STATUS_FECHAMENTO_LABEL[fechamento?.status ?? "aberto"]}
+                </Badge>
+                {(!fechamento || fechamento.status === "aberto" || fechamento.status === "em_revisao") && (
+                  <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setConfirmandoFechar(true)}>
+                    <Lock className="w-3.5 h-3.5" /> Fechar período
+                  </Button>
+                )}
+                {fechamento?.status === "fechado" && souAdmin && (
+                  <Button size="sm" className="gap-1.5 bg-gold hover:bg-gold/90 text-white" onClick={onAprovar} disabled={processando}>
+                    <ShieldCheck className="w-3.5 h-3.5" /> Aprovar
+                  </Button>
+                )}
+                {(fechamento?.status === "fechado" || fechamento?.status === "aprovado") && souAdmin && (
+                  <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setReabrindo(true)}>
+                    <LockOpen className="w-3.5 h-3.5" /> Reabrir
+                  </Button>
+                )}
+              </>
             )}
           </div>
-          {(fechamento?.status === "fechado" || fechamento?.status === "aprovado") && (
+          {!contaId && (fechamento?.status === "fechado" || fechamento?.status === "aprovado") && (
             <p className="text-xs text-muted-foreground text-center">
               Lançamentos deste período estão travados para edição
               {fechamento.fechado_em && ` — fechado em ${new Date(fechamento.fechado_em).toLocaleDateString("pt-BR")}`}.
+            </p>
+          )}
+          {contaId && (
+            <p className="text-xs text-muted-foreground text-center">
+              Fechamento sempre considera todas as contas juntas — volte para "Todas as contas" para fechar o período.
             </p>
           )}
         </div>
@@ -329,6 +387,11 @@ export default function FinancasPrestacaoContas() {
             <ScrollText className="w-3.5 h-3.5" /> Prestação de Contas
           </p>
           <h1 className="font-serif text-3xl mt-2">{rotuloPeriodo}</h1>
+          {contaAtual && (
+            <p className="text-sm text-gold mt-1 flex items-center justify-center gap-1.5">
+              <Wallet className="w-3.5 h-3.5" /> {contaAtual.nome}
+            </p>
+          )}
           <p className="text-xs text-muted-foreground mt-1">
             {dados.qtdLancamentos} lançamento{dados.qtdLancamentos !== 1 ? "s" : ""} · realizados/conciliados
           </p>
