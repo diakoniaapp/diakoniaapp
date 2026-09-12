@@ -32,6 +32,12 @@ interface Props {
   onOpenChange: (v: boolean) => void;
   /** Conta pré-selecionada (vinda da tela de movimentação) */
   contaIdPadrao?: string;
+  /** Quando true, o campo Conta vira texto fixo (não dá pra trocar) —
+      usado quando a conta já é inequívoca, como lançar a partir do
+      extrato de UMA conta (`ConciliacaoOFXDialog`). Precisa vir com
+      `contaIdPadrao` e `contaNomeTravado` preenchidos. */
+  contaTravada?: boolean;
+  contaNomeTravado?: string;
   /** Tipo padrão (entrada/saida) */
   tipoPadrao?: FinMovimentoTipo;
   /** Lançamento em edição */
@@ -46,7 +52,7 @@ interface Props {
 
 export function LancamentoForm({
   open, onOpenChange, contaIdPadrao, tipoPadrao = "entrada",
-  lancamento, rascunho, onSaved,
+  lancamento, rascunho, contaTravada, contaNomeTravado, onSaved,
 }: Props) {
   const isEdit = !!lancamento;
 
@@ -54,6 +60,13 @@ export function LancamentoForm({
   const [data, setData] = useState(hojeLocal());
   const [valor, setValor] = useState<number>(0);
   const [contaId, setContaId] = useState<string>("");
+  // Com `contaTravada`, a conta não depende do state (que só é setado
+  // dentro de um `useEffect`, um passo depois do primeiro render) — usa
+  // `contaIdPadrao` direto, sempre disponível de cara. Evita qualquer
+  // corrida entre "o effect ainda não rodou" e "a pessoa já pode clicar
+  // Salvar", o que travaria com "Selecione a conta" numa conta que já
+  // estava certa na tela.
+  const contaIdEfetivo = (contaTravada && contaIdPadrao) ? contaIdPadrao : contaId;
   const [categoriaId, setCategoriaId] = useState<string>("");
   const [centroCustoId, setCentroCustoId] = useState<string>("");
   const [fornecedorBusca, setFornecedorBusca] = useState("");
@@ -242,7 +255,7 @@ export function LancamentoForm({
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (valor <= 0) { toast.error("Valor inválido"); return; }
-    if (!contaId) { toast.error("Selecione a conta"); return; }
+    if (!contaIdEfetivo) { toast.error("Selecione a conta"); return; }
     if (rateando && !rateioValido) {
       toast.error("O rateio precisa somar 100% entre pelo menos 2 centros.");
       return;
@@ -267,7 +280,7 @@ export function LancamentoForm({
         : (centroCustoId || null);
 
       const payload: any = {
-        tipo, data, valor, conta_id: contaId,
+        tipo, data, valor, conta_id: contaIdEfetivo,
         categoria_id: categoriaId || null,
         centro_custo_id: centroPrincipal,
         fornecedor_id: fornecedorId || null,
@@ -359,14 +372,20 @@ export function LancamentoForm({
 
           <div>
             <Label>Conta *</Label>
-            <Select value={contaId} onValueChange={setContaId}>
-              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-              <SelectContent>
-                {contas.map(c => (
-                  <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {contaTravada ? (
+              <div className="h-9 flex items-center px-3 rounded-md border bg-muted/40 text-sm text-muted-foreground">
+                {contaNomeTravado ?? "—"}
+              </div>
+            ) : (
+              <Select value={contaId} onValueChange={setContaId}>
+                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  {contas.map(c => (
+                    <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">

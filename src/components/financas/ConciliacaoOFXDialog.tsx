@@ -209,6 +209,8 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
       open={!!lancarTransacao}
       onOpenChange={(v) => { if (!v) setLancarTransacao(null); }}
       contaIdPadrao={contaId}
+      contaTravada
+      contaNomeTravado={contaNome}
       tipoPadrao={lancarTransacao?.tipo as FinMovimentoTipo}
       rascunho={lancarTransacao ? {
         data: lancarTransacao.data,
