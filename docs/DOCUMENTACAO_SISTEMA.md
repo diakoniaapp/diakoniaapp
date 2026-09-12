@@ -715,9 +715,23 @@ auditoria, gap analysis e cada item concluído estão registrados em
 `docs/ROADMAP_FINANCEIRO_ERP.md`; esta seção é o retrato atual, aquele
 documento é o histórico de como se chegou aqui.
 
+**Navegação unificada (12/09/2026):** `/financas` e `/painel-tesouraria`
+tentavam ser hub ao mesmo tempo — a grade de atalhos de `/financas`
+duplicava o "Ir para" do painel quase item a item, e foi essa duplicação
+que quebrou em silêncio (o componente `Atalho` recebia a rota e nunca
+virava `<Link>`, ninguém notou até a grade crescer o bastante pra alguém
+clicar num item novo). Resolvido seguindo o padrão que ferramentas como
+Omie usam — um painel de pendências do dia + um só lugar de navegação —
+não dois hubs concorrendo: `/financas` agora é só "Contas correntes"
+(saldo por conta, lançar, transferir); `/painel-tesouraria` — que já era
+a bancada de trabalho e a rota de login de quem tem o papel `tesouraria`
+— ganhou os 17 atalhos do módulo inteiro em "Ir para". **Em aberto:**
+se o papel `admin` também deveria cair no Painel da Tesouraria no login
+(hoje só `tesouraria` cai lá).
+
 | Rota | O que é |
 |---|---|
-| `/financas` | Tesouraria — contas, lançamentos, plano de contas, centros de custo |
+| `/financas` | Contas correntes — saldo e extrato de cada conta, lançar, transferir (navegação completa do módulo mora em `/painel-tesouraria`, ver acima) |
 | `/financas/conta/:id` | Extrato de uma conta — conciliação manual (badge clicável + lote) e, em contas `tipo: banco`, botão "Importar OFX" |
 | `/financas/recorrencias` | Despesas/receitas que se repetem — gera lançamentos previstos |
 | `/financas/agenda` | Contas a pagar / a receber + seção "Aguardando aprovação" (aprovar/rejeitar `status: aguardando_aprovacao`) |
@@ -846,7 +860,7 @@ em português, seções que ficam visíveis mesmo em zero.
 | **Home** | `/` | todos | Identidade pessoal ("quem eu sou aqui, o que a igreja espera de mim esta semana"). Lista de tarefas — feito sai da tela. Cartão de chamada da EBD só aos domingos. "A sua semana" (`v_minha_escala`). |
 | **Painel Pastoral** | `/painel-pastoral` | pastor, liderança | "Acontecendo hoje" (agenda, limite de 3 + ver mais), "Quem está entrando" (acolhimento + candidatos ao batismo), "O rebanho" (contagem geral: membros+congregados+visitantes, com pirâmide etária e movimento de entradas/saídas — **o movimento conta só membros**, pois só do rol se sai), Discipulado (EBD/PGM/Campanhas/Crescimento em abas). |
 | **Painel da Secretaria** | `/painel-secretaria` | admin, secretaria | Cadastro, governança, membresia. "Detalhe do rol" (pirâmide + movimento, só membros). Cadastros a corrigir. |
-| **Painel da Tesouraria** | `/painel-tesouraria` | tesouraria | Frase-resumo, prazo fiscal mais próximo, caixa aberto, pendências, vencimentos, orçamento, alertas — 6 blocos. Cruzamento com a Diaconia (cestas × atendidos). 4 sprints, no ar. |
+| **Painel da Tesouraria** | `/painel-tesouraria` | tesouraria | Frase-resumo, prazo fiscal mais próximo, caixa aberto, pendências, vencimentos, orçamento, alertas — 6 blocos. Cruzamento com a Diaconia (cestas × atendidos). Desde 12/09/2026, também a **bancada única de navegação** do módulo: "Ir para" tem os 17 atalhos do Financeiro — `/financas` deixou de ter uma grade própria (era hub + extrato ao mesmo tempo, duplicava este menu; ver §7.11). |
 | **Painel da Diaconia** | `/painel-diaconia` | liderança da Diaconia | **Redireciona** para o painel de ministério com `SecaoDiaconia`. |
 | **Painel da EBD** | `/ebd` | responsável pela EBD | Cabeçalho sticky com 6+ indicadores, atalhos para as classes, professores, aniversariantes do mês, campanhas de arrecadação por classe. |
 | **Painel do Ministério** | `/ministerios/:id/painel` | líder de ministério | Frase-resumo, faixa de indicadores, bancada por módulo (EBD, Bazar, PGM, Acolhimento, Diaconia), sugestão de voluntário com motivo direto na linha da escala. |
