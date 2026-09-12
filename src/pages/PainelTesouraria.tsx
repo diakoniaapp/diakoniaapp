@@ -131,6 +131,7 @@ export default function PainelTesouraria() {
   const caixasUrgentes = caixas.filter(caixaEhUrgente);
   const aprovacoesPendentes = pendencias.filter(p => p.motivo === "aprovacao");
   const semComprovante = pendencias.filter(p => p.motivo === "comprovante");
+  const aguardandoConciliacao = pendencias.filter(p => p.motivo === "conciliacao");
   const orcamentoCriticos = alertasOrc.filter(a => a.severidade === "critico");
   const alertasCriticos = alertas.filter(a => a.severidade === "critico");
 
@@ -168,7 +169,7 @@ export default function PainelTesouraria() {
           <p className="text-sm text-muted-foreground flex items-start gap-1.5">
             <DollarSign className="w-3.5 h-3.5 text-gold shrink-0 mt-0.5" />
             <span className="min-w-0">
-              {resumoNatural(fiscal, caixas, caixasUrgentes, aprovacoesPendentes, semComprovante, vencimentos, orcamentoCriticos, alertasOrc, alertasCriticos, alertas)}
+              {resumoNatural(fiscal, caixas, caixasUrgentes, aprovacoesPendentes, semComprovante, aguardandoConciliacao, vencimentos, orcamentoCriticos, alertasOrc, alertasCriticos, alertas)}
               {atualizadoEm && (
                 <span className="text-[10px] text-muted-foreground ml-1.5 whitespace-nowrap">
                   · {formatarAtualizadoHa(atualizadoEm)}
@@ -254,11 +255,15 @@ export default function PainelTesouraria() {
             </Button>
             {/* Conciliação (manual + extrato OFX) ficou pronta em 12/09/2026 —
                 mas é sempre de UMA conta por vez (`/financas/conta/:id`), sem
-                tela "conciliar tudo" no sistema. Levar para o hub de contas,
-                de onde a pessoa escolhe qual conta bater com o extrato, é o
-                mais honesto até existir um resumo cruzando todas as contas. */}
+                tela "conciliar tudo" no sistema. Com pendência real na lista
+                (a seção Pendências agora conta isso — motivo "conciliacao"),
+                o botão pula direto pra conta da primeira pendência, em vez de
+                mandar escolher no hub; sem pendência, cai no hub de contas
+                mesmo, mais honesto que fingir que sabe onde ir. */}
             <Button asChild size="sm" variant="outline" className="gap-1.5">
-              <Link to="/financas"><Scale className="w-3.5 h-3.5" /> Conciliar</Link>
+              <Link to={aguardandoConciliacao.length > 0 ? `/financas/conta/${aguardandoConciliacao[0].conta_id}` : "/financas"}>
+                <Scale className="w-3.5 h-3.5" /> Conciliar{aguardandoConciliacao.length > 0 ? ` (${aguardandoConciliacao.length})` : ""}
+              </Link>
             </Button>
           </section>
 
@@ -321,19 +326,28 @@ export default function PainelTesouraria() {
             </TituloDaSecao>
             {pendencias.length === 0 ? (
               <p className="text-sm text-muted-foreground py-2 px-3 border rounded-md">
-                Nenhuma aprovação parada e nenhum comprovante faltando nos últimos {DIAS_JANELA_COMPROVANTE} dias.
+                Nenhuma aprovação parada, nenhum comprovante faltando e nenhuma conciliação pendente nos últimos {DIAS_JANELA_COMPROVANTE} dias.
               </p>
             ) : (
               <ul className="divide-y rounded-md border bg-card">
+                {/* Cada linha leva pro lugar exato onde ela se resolve —
+                    aprovação/comprovante na agenda, conciliação na conta —
+                    em vez de só listar sem dar o próximo passo. */}
                 {pendencias.slice(0, 8).map(p => (
-                  <li key={`${p.motivo}-${p.id}`} className="flex items-center gap-2 px-3 py-2.5 min-h-11">
-                    <span className="text-sm min-w-0 flex-1">
-                      <span className="font-medium">{p.descricao ?? p.categoria_nome ?? "Lançamento"}</span>
-                      <span className="text-muted-foreground"> — {brl(p.valor)}</span>
-                      <span className={p.motivo === "aprovacao" ? "text-warning-text" : "text-muted-foreground"}>
-                        {" "}· {p.motivo === "aprovacao" ? "aguardando aprovação" : "sem comprovante"}
+                  <li key={`${p.motivo}-${p.id}`}>
+                    <Link
+                      to={p.motivo === "conciliacao" ? `/financas/conta/${p.conta_id}` : "/financas/agenda"}
+                      className="flex items-center gap-2 px-3 py-2.5 min-h-11 group"
+                    >
+                      <span className="text-sm min-w-0 flex-1">
+                        <span className="font-medium">{p.descricao ?? p.categoria_nome ?? "Lançamento"}</span>
+                        <span className="text-muted-foreground"> — {brl(p.valor)}</span>
+                        <span className={p.motivo === "aprovacao" ? "text-warning-text" : p.motivo === "conciliacao" ? "text-info-text" : "text-muted-foreground"}>
+                          {" "}· {p.motivo === "aprovacao" ? "aguardando aprovação" : p.motivo === "conciliacao" ? "aguardando conciliação" : "sem comprovante"}
+                        </span>
                       </span>
-                    </span>
+                      <ChevronRight className="w-4 h-4 shrink-0 text-muted-foreground group-hover:text-primary transition-colors" />
+                    </Link>
                   </li>
                 ))}
                 {pendencias.length > 8 && (
@@ -471,70 +485,81 @@ export default function PainelTesouraria() {
               Unificação de 12/09/2026: `/financas` deixou de ter uma grade
               de atalhos (era hub + extrato ao mesmo tempo, duplicava este
               menu inteiro, e foi essa duplicação que quebrou em silêncio
-              sem ninguém notar). Esta lista agora é o único "menu grande"
-              do módulo — o Painel da Tesouraria é a bancada diária de quem
-              tem o papel tesouraria, então é aqui que a navegação completa
-              mora, não lá. */}
-          <section className="pt-1">
+              sem ninguém notar). Esta lista virou o único "menu grande" do
+              módulo — mas 17 botões soltos no mesmo peso visual era o
+              mesmo erro de novo, só que mudado de endereço: uma bancada de
+              trabalho prioriza o que se usa todo dia, não lista tudo junto.
+              Duas filas, não uma: o que o tesoureiro mexe toda semana
+              primeiro, relatório/config depois — a pessoa não precisa
+              escanear 17 botões pra achar "Contas a pagar". */}
+          <section className="pt-1 space-y-2.5">
             <TituloDaSecao icone={DollarSign} tom="neutro">Ir para</TituloDaSecao>
-            <div className="flex flex-wrap gap-2">
-              <Button asChild variant="outline" size="sm" className="gap-1.5">
-                <Link to="/financas"><DollarSign className="w-3.5 h-3.5" /> Contas correntes</Link>
-              </Button>
-              <Button asChild variant="outline" size="sm" className="gap-1.5">
-                <Link to="/financas/agenda?tipo=saida"><TrendingDown className="w-3.5 h-3.5" /> Contas a pagar</Link>
-              </Button>
-              <Button asChild variant="outline" size="sm" className="gap-1.5">
-                <Link to="/financas/agenda?tipo=entrada"><TrendingUp className="w-3.5 h-3.5" /> Contas a receber</Link>
-              </Button>
-              <Button asChild variant="outline" size="sm" className="gap-1.5">
-                <Link to="/financas/recorrencias"><RotateCw className="w-3.5 h-3.5" /> Recorrências</Link>
-              </Button>
-              <Button asChild variant="outline" size="sm" className="gap-1.5">
-                <Link to="/financas/relatorio"><Receipt className="w-3.5 h-3.5" /> Malote contábil</Link>
-              </Button>
-              <Button asChild variant="outline" size="sm" className="gap-1.5">
-                <Link to="/financas/centros"><Layers className="w-3.5 h-3.5" /> Centros de custo</Link>
-              </Button>
-              <Button asChild variant="outline" size="sm" className="gap-1.5">
-                <Link to="/financas/orcamento"><Target className="w-3.5 h-3.5" /> Orçamento</Link>
-              </Button>
-              <Button asChild variant="outline" size="sm" className="gap-1.5">
-                <Link to="/financas/estoque"><Package className="w-3.5 h-3.5" /> Estoque</Link>
-              </Button>
-              <Button asChild variant="outline" size="sm" className="gap-1.5">
-                <Link to="/financas/folha"><Briefcase className="w-3.5 h-3.5" /> Folha</Link>
-              </Button>
-              <Button asChild variant="outline" size="sm" className="gap-1.5">
-                <Link to="/financas/fiscal"><Receipt className="w-3.5 h-3.5" /> Módulo Fiscal</Link>
-              </Button>
-              <Button asChild variant="outline" size="sm" className="gap-1.5">
-                <Link to="/financas/reunioes"><Handshake className="w-3.5 h-3.5" /> Reuniões financeiras</Link>
-              </Button>
-              <Button asChild variant="outline" size="sm" className="gap-1.5">
-                <Link to="/financas/doacoes"><HandCoins className="w-3.5 h-3.5" /> Doações</Link>
-              </Button>
-              {hasRole(ROLES_DOADORES) && (
+            <div>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1.5">Dia a dia</p>
+              <div className="flex flex-wrap gap-2">
                 <Button asChild variant="outline" size="sm" className="gap-1.5">
-                  <Link to="/financas/doadores"><Users className="w-3.5 h-3.5" /> Doadores</Link>
+                  <Link to="/financas"><DollarSign className="w-3.5 h-3.5" /> Contas correntes</Link>
                 </Button>
-              )}
-              <Button asChild variant="outline" size="sm" className="gap-1.5">
-                <Link to="/financas/insights"><Sparkles className="w-3.5 h-3.5" /> Insights</Link>
-              </Button>
-              {hasRole(ROLES_PASTORAL_SEM_TITULAR) && (
-                <>
+                <Button asChild variant="outline" size="sm" className="gap-1.5">
+                  <Link to="/financas/agenda?tipo=saida"><TrendingDown className="w-3.5 h-3.5" /> Contas a pagar</Link>
+                </Button>
+                <Button asChild variant="outline" size="sm" className="gap-1.5">
+                  <Link to="/financas/agenda?tipo=entrada"><TrendingUp className="w-3.5 h-3.5" /> Contas a receber</Link>
+                </Button>
+                <Button asChild variant="outline" size="sm" className="gap-1.5">
+                  <Link to="/financas/doacoes"><HandCoins className="w-3.5 h-3.5" /> Doações</Link>
+                </Button>
+                <Button asChild variant="outline" size="sm" className="gap-1.5">
+                  <Link to="/financas/recorrencias"><RotateCw className="w-3.5 h-3.5" /> Recorrências</Link>
+                </Button>
+              </div>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1.5">Relatórios e módulos</p>
+              <div className="flex flex-wrap gap-2">
+                <Button asChild variant="outline" size="sm" className="gap-1.5">
+                  <Link to="/financas/relatorio"><Receipt className="w-3.5 h-3.5" /> Malote contábil</Link>
+                </Button>
+                <Button asChild variant="outline" size="sm" className="gap-1.5">
+                  <Link to="/financas/centros"><Layers className="w-3.5 h-3.5" /> Centros de custo</Link>
+                </Button>
+                <Button asChild variant="outline" size="sm" className="gap-1.5">
+                  <Link to="/financas/orcamento"><Target className="w-3.5 h-3.5" /> Orçamento</Link>
+                </Button>
+                <Button asChild variant="outline" size="sm" className="gap-1.5">
+                  <Link to="/financas/estoque"><Package className="w-3.5 h-3.5" /> Estoque</Link>
+                </Button>
+                <Button asChild variant="outline" size="sm" className="gap-1.5">
+                  <Link to="/financas/folha"><Briefcase className="w-3.5 h-3.5" /> Folha</Link>
+                </Button>
+                <Button asChild variant="outline" size="sm" className="gap-1.5">
+                  <Link to="/financas/fiscal"><Receipt className="w-3.5 h-3.5" /> Módulo Fiscal</Link>
+                </Button>
+                <Button asChild variant="outline" size="sm" className="gap-1.5">
+                  <Link to="/financas/reunioes"><Handshake className="w-3.5 h-3.5" /> Reuniões financeiras</Link>
+                </Button>
+                {hasRole(ROLES_DOADORES) && (
                   <Button asChild variant="outline" size="sm" className="gap-1.5">
-                    <Link to="/financas/executivo"><LineChart className="w-3.5 h-3.5" /> Visão Executiva</Link>
+                    <Link to="/financas/doadores"><Users className="w-3.5 h-3.5" /> Doadores</Link>
                   </Button>
-                  <Button asChild variant="outline" size="sm" className="gap-1.5">
-                    <Link to="/financas/dre"><ScrollText className="w-3.5 h-3.5" /> DRE Eclesiástica</Link>
-                  </Button>
-                </>
-              )}
-              <Button asChild variant="outline" size="sm" className="gap-1.5">
-                <Link to="/arrecadacao"><ShoppingCart className="w-3.5 h-3.5" /> Bazar e Cantina</Link>
-              </Button>
+                )}
+                <Button asChild variant="outline" size="sm" className="gap-1.5">
+                  <Link to="/financas/insights"><Sparkles className="w-3.5 h-3.5" /> Insights</Link>
+                </Button>
+                {hasRole(ROLES_PASTORAL_SEM_TITULAR) && (
+                  <>
+                    <Button asChild variant="outline" size="sm" className="gap-1.5">
+                      <Link to="/financas/executivo"><LineChart className="w-3.5 h-3.5" /> Visão Executiva</Link>
+                    </Button>
+                    <Button asChild variant="outline" size="sm" className="gap-1.5">
+                      <Link to="/financas/dre"><ScrollText className="w-3.5 h-3.5" /> DRE Eclesiástica</Link>
+                    </Button>
+                  </>
+                )}
+                <Button asChild variant="outline" size="sm" className="gap-1.5">
+                  <Link to="/arrecadacao"><ShoppingCart className="w-3.5 h-3.5" /> Bazar e Cantina</Link>
+                </Button>
+              </div>
             </div>
           </section>
         </>
@@ -564,6 +589,7 @@ function resumoNatural(
   caixasUrgentes: CaixaAberto[],
   aprovacoesPendentes: PendenciaLancamento[],
   semComprovante: PendenciaLancamento[],
+  aguardandoConciliacao: PendenciaLancamento[],
   vencimentos: FinVencimento[],
   orcamentoCriticos: FinAlertaCentro[],
   alertasOrc: FinAlertaCentro[],
@@ -610,6 +636,10 @@ function resumoNatural(
   if (semComprovante.length > 0) {
     fila.push(`${semComprovante.length} ${semComprovante.length === 1
       ? "lançamento sem comprovante" : "lançamentos sem comprovante"}`);
+  }
+  if (aguardandoConciliacao.length > 0) {
+    fila.push(`${aguardandoConciliacao.length} ${aguardandoConciliacao.length === 1
+      ? "lançamento aguardando conciliação" : "lançamentos aguardando conciliação"}`);
   }
   if (vencimentos.length > 0) {
     fila.push(`${vencimentos.length} ${vencimentos.length === 1

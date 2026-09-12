@@ -31,7 +31,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { hojeMaisDias, toYmd } from "@/lib/data";
 import {
   listarLancamentos, listarProximosVencimentos, alertasCentros,
-  anomaliasMes, alertasFinanceiros, brl,
+  anomaliasMes, alertasFinanceiros, listarContas, brl,
   type FinLancamentoExtenso, type FinVencimento, type FinAlertaCentro,
   type FinAnomalia, type FinAlertaFinanceiro,
 } from "@/services/finService";
@@ -96,33 +96,45 @@ export function caixaEhUrgente(c: CaixaAberto): boolean {
 
 // ─── Pendências ─────────────────────────────────────────────────────────
 //
-// Duas naturezas diferentes, por isso o `motivo` em vez de uma lista só:
-// "aguardando aprovação" é decisão (alguém precisa dizer sim ou não) e
-// "sem comprovante" é documentação faltando na prestação de contas do mês.
-// Confundir as duas na mesma frase esconderia qual delas trava o quê.
+// Três naturezas diferentes, por isso o `motivo` em vez de uma lista só:
+// "aguardando aprovação" é decisão (alguém precisa dizer sim ou não),
+// "sem comprovante" é documentação faltando na prestação de contas do mês,
+// e "aguardando conciliação" (12/09/2026, junto com a conciliação bancária
+// em si — item 6/7 do roadmap do ERP financeiro) é lançamento `realizado`
+// numa conta banco que ainda não foi batido com o extrato. Confundir as
+// três na mesma frase esconderia qual delas trava o quê — e a conciliação
+// é exatamente o tipo de coisa que "sai da cabeça" se não tiver um lugar
+// fixo pra aparecer todo dia.
 
-export type MotivoPendencia = "aprovacao" | "comprovante";
+export type MotivoPendencia = "aprovacao" | "comprovante" | "conciliacao";
 
 export interface PendenciaLancamento extends FinLancamentoExtenso {
   motivo: MotivoPendencia;
 }
 
-/** Janela do "sem comprovante": mais que isto é história, não pendência do dia a dia. */
+/** Janela do "sem comprovante"/"aguardando conciliação": mais que isto é história, não pendência do dia a dia. */
 export const DIAS_JANELA_COMPROVANTE = 30;
 
 export async function listarPendencias(): Promise<PendenciaLancamento[]> {
-  const [aguardando, realizadosRecentes] = await Promise.all([
+  const [aguardando, realizadosRecentes, contas] = await Promise.all([
     // Sem `dataInicio`: aprovação parada é decisão em aberto, e fica mais
     // urgente com o tempo — não menos. Não faz sentido ela "expirar" da lista.
     listarLancamentos({ status: "aguardando_aprovacao" }),
     listarLancamentos({ status: "realizado", dataInicio: hojeMaisDias(-DIAS_JANELA_COMPROVANTE) }),
+    listarContas(),
   ]);
 
   const semComprovante = realizadosRecentes.filter(l => !l.comprovante_url);
 
+  // Conciliação só faz sentido em conta `tipo: banco` — é a única com
+  // extrato de verdade pra bater (Caixinha/Envelope/Cartão não têm OFX).
+  const contasBanco = new Set(contas.filter(c => c.tipo === "banco").map(c => c.id));
+  const aguardandoConciliacao = realizadosRecentes.filter(l => contasBanco.has(l.conta_id));
+
   return [
     ...aguardando.map(l => ({ ...l, motivo: "aprovacao" as const })),
     ...semComprovante.map(l => ({ ...l, motivo: "comprovante" as const })),
+    ...aguardandoConciliacao.map(l => ({ ...l, motivo: "conciliacao" as const })),
   ];
 }
 
