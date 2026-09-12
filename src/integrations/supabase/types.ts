@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       acolhimento_tarefas: {
@@ -4256,6 +4281,9 @@ export type Database = {
       fin_categorias: {
         Row: {
           ativo: boolean
+          classificacao_dre:
+            | Database["public"]["Enums"]["fin_classificacao_dre"]
+            | null
           conta_contabil: string | null
           cor: string | null
           created_at: string
@@ -4270,6 +4298,9 @@ export type Database = {
         }
         Insert: {
           ativo?: boolean
+          classificacao_dre?:
+            | Database["public"]["Enums"]["fin_classificacao_dre"]
+            | null
           conta_contabil?: string | null
           cor?: string | null
           created_at?: string
@@ -4284,6 +4315,9 @@ export type Database = {
         }
         Update: {
           ativo?: boolean
+          classificacao_dre?:
+            | Database["public"]["Enums"]["fin_classificacao_dre"]
+            | null
           conta_contabil?: string | null
           cor?: string | null
           created_at?: string
@@ -5452,6 +5486,71 @@ export type Database = {
             columns: ["fornecedor_id"]
             isOneToOne: false
             referencedRelation: "fin_fornecedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fin_relatorio_notas: {
+        Row: {
+          ano: number
+          categoria_id: string | null
+          centro_custo_id: string | null
+          created_at: string
+          criado_por: string | null
+          id: string
+          mes: number
+          nota: string
+          updated_at: string
+        }
+        Insert: {
+          ano: number
+          categoria_id?: string | null
+          centro_custo_id?: string | null
+          created_at?: string
+          criado_por?: string | null
+          id?: string
+          mes: number
+          nota: string
+          updated_at?: string
+        }
+        Update: {
+          ano?: number
+          categoria_id?: string | null
+          centro_custo_id?: string | null
+          created_at?: string
+          criado_por?: string | null
+          id?: string
+          mes?: number
+          nota?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_relatorio_notas_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "fin_categorias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_relatorio_notas_centro_custo_id_fkey"
+            columns: ["centro_custo_id"]
+            isOneToOne: false
+            referencedRelation: "fin_centros_custo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_relatorio_notas_centro_custo_id_fkey"
+            columns: ["centro_custo_id"]
+            isOneToOne: false
+            referencedRelation: "vw_fin_centros_resumo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_relatorio_notas_criado_por_fkey"
+            columns: ["criado_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -12735,18 +12834,8 @@ export type Database = {
           visitantes: number
         }[]
       }
-      ebd_relatorio_mensal_frequencia: {
-        Args: { p_ano: number; p_classe_id: string; p_mes: number }
-        Returns: {
-          nome_completo: string
-          oportunidades: number
-          pessoa_id: string
-          presencas: number
-          taxa: number
-        }[]
-      }
-      ebd_relatorio_mensal_geral_por_classe: {
-        Args: { p_ano: number; p_mes: number }
+      ebd_relatorio_geral_por_classe: {
+        Args: { p_fim: string; p_inicio: string }
         Returns: {
           aulas_com_chamada: number
           aulas_total: number
@@ -12757,8 +12846,19 @@ export type Database = {
           taxa: number
         }[]
       }
-      ebd_relatorio_mensal_geral_resumo: {
-        Args: { p_ano: number; p_mes: number }
+      ebd_relatorio_geral_por_faixa: {
+        Args: { p_fim: string; p_inicio: string }
+        Returns: {
+          ausentes: number
+          faixa: string
+          matriculados: number
+          ordem: number
+          presentes: number
+          taxa: number
+        }[]
+      }
+      ebd_relatorio_geral_resumo: {
+        Args: { p_fim: string; p_inicio: string }
         Returns: {
           aulas_com_chamada: number
           aulas_total: number
@@ -12768,6 +12868,16 @@ export type Database = {
           presentes: number
           taxa_presenca: number
           visitantes: number
+        }[]
+      }
+      ebd_relatorio_mensal_frequencia: {
+        Args: { p_ano: number; p_classe_id: string; p_mes: number }
+        Returns: {
+          nome_completo: string
+          oportunidades: number
+          pessoa_id: string
+          presencas: number
+          taxa: number
         }[]
       }
       ebd_relatorio_mensal_resumo: {
@@ -13033,6 +13143,7 @@ export type Database = {
         Args: { p_ano: number; p_mes: number }
         Returns: Json
       }
+      fmt_brl: { Args: { casas?: number; v: number }; Returns: string }
       fn_area_do_vinculo: { Args: { p_vinculo: string }; Returns: string }
       fn_areas_do_ministerio: { Args: { min_id: string }; Returns: string[] }
       fn_areas_do_voluntario: { Args: { uid: string }; Returns: string[] }
@@ -13373,6 +13484,7 @@ export type Database = {
           pessoas_sem_familia_sugerida: number
         }[]
       }
+      resumo_semanal_digest: { Args: never; Returns: Json }
       revogar_acesso: { Args: { p_user_id: string }; Returns: string }
       salvar_meus_dados: {
         Args: {
@@ -13715,6 +13827,13 @@ export type Database = {
         | "campanha"
         | "geral"
         | "evento"
+        | "subgrupo_administracao"
+      fin_classificacao_dre:
+        | "receitas_regulares"
+        | "outras_receitas"
+        | "despesas"
+        | "despesas_financeiras"
+        | "outras_despesas"
       fin_conta_tipo:
         | "caixa"
         | "banco"
@@ -14259,6 +14378,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       acompanhamento_status: [
@@ -14508,6 +14630,14 @@ export const Constants = {
         "campanha",
         "geral",
         "evento",
+        "subgrupo_administracao",
+      ],
+      fin_classificacao_dre: [
+        "receitas_regulares",
+        "outras_receitas",
+        "despesas",
+        "despesas_financeiras",
+        "outras_despesas",
       ],
       fin_conta_tipo: [
         "caixa",
