@@ -707,26 +707,64 @@ terça, jantar pós-culto de domingo) — não necessariamente membro.
   quem está dentro e do movimento — pirâmide etária, entradas/saídas por ano, no
   Painel Pastoral e no da Secretaria).
 
-### 7.11 Financeiro — construído, adoção incipiente
+### 7.11 Financeiro — construído como ERP eclesiástico (12/09/2026)
 
-Grupo de menu "Financeiro". Tabelas `fin_*` (~18) e `fiscal_*`.
+Grupo de menu "Financeiro". Tabelas `fin_*` (~23) e `fiscal_*` (5). Missão
+completa de transformar o módulo num ERP eclesiástico rodou em 12/09/2026 —
+auditoria, gap analysis e cada item concluído estão registrados em
+`docs/ROADMAP_FINANCEIRO_ERP.md`; esta seção é o retrato atual, aquele
+documento é o histórico de como se chegou aqui.
 
 | Rota | O que é |
 |---|---|
 | `/financas` | Tesouraria — contas, lançamentos, plano de contas, centros de custo |
-| `/financas/conta/:id` | Extrato de uma conta |
+| `/financas/conta/:id` | Extrato de uma conta — conciliação manual (badge clicável + lote) e, em contas `tipo: banco`, botão "Importar OFX" |
 | `/financas/recorrencias` | Despesas/receitas que se repetem — gera lançamentos previstos |
-| `/financas/agenda` | Contas a pagar / a receber |
-| `/financas/relatorio` · `/financas/relatorio/:ano/:mes` | Relatório mensal |
+| `/financas/agenda` | Contas a pagar / a receber + seção "Aguardando aprovação" (aprovar/rejeitar `status: aguardando_aprovacao`) |
+| `/financas/relatorio` · `/financas/relatorio/:ano/:mes` | Relatório mensal (malote) |
 | `/financas/estoque` | Estoque |
 | `/financas/insights` | Previsão de caixa 30/60/90 dias (`fin_previsao_caixa`) |
-| `/financas/centros` · `/financas/centro/:id` | Centros de custo |
+| `/financas/centros` · `/financas/centro/:id` | Centros de custo — `vinculo_tipo` inclui `evento` (sem centro criado ainda; `fin_seed_centros_custo()` não tem passo pra eventos) |
+| `/financas/centro/:id/prestacao-contas` | Prestação de contas exportável/imprimível por centro (serve ministério/campanha/evento/projeto social — mesmo relatório, o `vinculo_tipo` muda o rótulo) |
 | `/financas/orcamento` | Orçamento (`fin_orcamentos.valor_planejado`) |
 | `/financas/folha` | Folha & Encargos — calculadora CLT, aba "Contratados" |
 | `/financas/fiscal` | Módulo Fiscal — obrigações, agenda fiscal, malote mensal à contabilidade, ingestão de nota fiscal por OCR |
 | `/financas/reunioes` | Reuniões financeiras + decisões |
-| `/financas/executivo` | Visão Executiva — dashboard com gráficos (recharts) |
+| `/financas/doacoes` | Doações — total do mês, por forma de pagamento, por categoria, recorrentes ativas |
+| `/financas/doadores` · `/financas/doadores/:pessoaId` | Histórico de contribuição por pessoa — acesso restrito a `ROLES_DOADORES` (`admin`, `diakonia`, `tesouraria`; **sem** `secretaria`, mais estreito que o resto do módulo por decisão de privacidade da Telma) |
+| `/financas/executivo` | Visão Executiva — dashboard com gráficos (recharts), com atalho para a DRE |
+| `/financas/dre` · `/financas/dre/:ano` | DRE Eclesiástica — formato de demonstração (Receitas por grupo → Despesas por grupo → Resultado), não lista solta. Restrita a `ROLES_PASTORAL_SEM_TITULAR` |
 | `/financas/admin` | Config do módulo |
+
+**Fluxo de aprovação (v1, um nível):** `fin_lancamentos.status` tem
+`aguardando_aprovacao`; quem tem papel `admin`/`diakonia`/`secretaria`/
+`tesouraria` aprova (`realizado`) ou rejeita (`cancelado`, motivo em
+`observacoes`) em `/financas/agenda`. **Não existe** nível "Solicitante"
+(liderança de ministério pedindo despesa) — decisão confirmada com a Telma
+em 12/09/2026: só tesoureiro e administrador do sistema operam o módulo,
+a migration `20260902210000_lideranca_nao_opera_o_financeiro.sql` continua
+correta como está.
+
+**Rateio entre centros de custo:** `LancamentoForm.tsx` permite dividir um
+lançamento entre vários centros por percentual (`fin_lancamento_rateio`).
+O lançamento grava `centro_custo_id` = centro de maior percentual — os
+relatórios por centro (Prestação de Contas, Top 5 da Visão Executiva)
+somam por essa coluna, não pelo rateio completo.
+
+**Conciliação bancária:** manual (toggle `realizado`⇄`conciliado`, individual
+ou em lote) e automática via importação de extrato OFX
+(`ofxService.ts` — testado contra um extrato real do Bradesco, formato
+OFX 1.02/SGML/`CHARSET:1252`). O casamento só CONCILIA lançamentos
+`realizado` já existentes, nunca cria um novo sozinho; o que não casar
+pode ser lançado na hora (botão "Lançar", pré-preenche data/valor/
+descrição, categoria/centro de custo continuam manuais).
+
+**Trilha de auditoria:** `criarLancamento()`/`atualizarLancamento()`
+(`finService.ts`) carimbam `audit_user_id`/`audit_em` em toda escrita —
+cobre todo caminho do app (nenhum código escreve direto em
+`fin_lancamentos`); não cobre SQL direto/RPC futura que contorne essas
+duas funções (um trigger de banco cobriria isso, fica como possível
+endurecimento futuro).
 
 - **Formatação de moeda:** a função Postgres **`fmt_brl(numeric, casas)`**
   (migration `20260909200000`) formata em padrão brasileiro (`.` milhar, `,`
@@ -740,6 +778,18 @@ Grupo de menu "Financeiro". Tabelas `fin_*` (~18) e `fiscal_*`.
   (colunas e enums errados — `o.valor`→`o.valor_planejado`, `'a_pagar'`→`'previsto'`,
   `data_vencimento`→`data`). Cada fonte que falha agora dá um `toast.error`
   próprio.
+- **Bug crítico corrigido em 12/09/2026:** `fiscal_sincronizar_pagamento_trigger()`
+  comparava `new.status = 'pago'`, valor que nunca existiu em
+  `fin_lancamento_status` — quebrava **todo** UPDATE em `fin_lancamentos`,
+  não só os relacionados a status. Migration
+  `20260912013100_conserta_gatilho_fiscal_que_quebrava_todo_update.sql`.
+- **`LancamentoForm.tsx`: campo "Conta" pré-preenchido via prop** usa um
+  valor derivado (`contaIdEfetivo = contaId || contaIdPadrao`), não só o
+  `state` `contaId` — um bug de timing (`state` setado num `useEffect`, um
+  passo depois do primeiro render) fazia o campo abrir em branco mesmo com
+  a conta certa disponível de cara. Vale lembrar deste padrão em qualquer
+  outro formulário deste projeto que pré-preencha um campo obrigatório via
+  prop esperando que a pessoa possa salvar quase imediatamente.
 - **`arr_reservas` tem 0 linhas** — as telas de detalhe de reserva/caixa de
   arrecadação não foram exercitadas com dado real.
 
@@ -842,7 +892,7 @@ em Membros/Visitantes/Eventos.
 /ebd/:classeId/campanhas/:id     Campanha (+ /relatorio)
 /pgm · /pgm/:grupoId             Pequenos Grupos
 /pgm/:grupoId/reuniao/:rid       Reunião do grupo (+ /relatorio)
-/financas  + 14 sub-rotas        Financeiro (ver §7.11)
+/financas  + 21 sub-rotas        Financeiro (ver §7.11)
 /arrecadacao + 7 sub-rotas       Bazar, Cantina, Espaços (ver §7.12)
 /membresia · /membresia/:id      Processo de membresia
 /governanca · /reuniao/:id · /assembleia/:id   Reuniões e Atas
@@ -967,7 +1017,7 @@ Ordenados por custo de descobrir tarde.
 | 9 | **11 tabelas com RLS ligada e ZERO políticas** (7 `pdv_*`, `bazar_reservas`, `documentos_fiscais`, `fin_solicitacoes`). | Bloqueiam tudo. Quando o módulo Bazar/PDV for ligado, travará em silêncio até alguém escrever as políticas. **Avisar antes de ativar.** |
 | 10 | **Pacote de produção > 2,6 MB** sem `manualChunks`. Primeira carga lenta em 3G — e a igreja usa celular. | Separar `pdfjs-dist`, `tesseract.js`, `leaflet`, `recharts`. |
 | 11 | **Sem CI** — nada roda sozinho. Cada entrega depende de alguém rodar `tsc`, `vite build`, `vitest`, `playwright`. | — |
-| 12 | **1 teste unitário trivial** era o estado em 20/08; hoje são **~198 testes** reais (vitest) + 3 specs Playwright de layout. | — |
+| 12 | **1 teste unitário trivial** era o estado em 20/08; hoje são **218 testes** reais (vitest) + 3 specs Playwright de layout. | — |
 | 13 | **Duplicações estruturais** — dois modelos de permissão (só `role_permissoes` vivo); papel em dois lugares (`user_roles` vs `profiles.role`); dois modos de abrir a ficha (`FichaProvider` vs estado local em 3 telas). | Documentadas; não corrigidas. |
 | 14 | **`meta description`** promete "campanhas" (módulo sem uso). **Sem `apple-touch-icon` na versão antiga** (resolvido no PWA de 08/09). | Backlog. |
 | 15 | **Validações de formulário nunca construídas** — nascimento no futuro / acima de 120 anos, casamento antes dos 14, entrada no futuro. | Backlog. |
@@ -1114,6 +1164,22 @@ Os grandes arcos desde o levantamento de 20/08/2026 (que originou `CLAUDE.md` /
 - **10/09/2026** — Painel Pastoral: movimento do rebanho volta a contar só
   membros. WhatsApp: usuário escolhe entre WhatsApp Web e aplicativo (preferência
   local no menu do usuário; `src/lib/whatsapp.ts`).
+- **Financeiro como ERP eclesiástico (12/09/2026)** — auditoria completa do
+  módulo (`docs/ROADMAP_FINANCEIRO_ERP.md`) achou que a maior parte do que
+  parecia faltar já existia no schema, só sem tela: vínculo "evento" em
+  centros de custo, rateio (`fin_lancamento_rateio`), conciliação
+  (`conciliado`) e aprovação (`aguardando_aprovacao`). Construído no mesmo
+  dia: aprovação de despesas (1 nível), prestação de contas exportável por
+  centro, tela "Doações", DRE Eclesiástica formal, conciliação manual e
+  automática via extrato OFX real do Bradesco (com botão "Lançar" pro que
+  não casar), histórico de doação por pessoa (`ROLES_DOADORES`, mais
+  restrito que o resto do módulo), e a trilha de auditoria
+  (`audit_user_id`/`audit_em`) finalmente carimbada em toda escrita. Bug
+  crítico achado e corrigido no caminho: `fiscal_sincronizar_pagamento_trigger()`
+  quebrava todo UPDATE em `fin_lancamentos` comparando contra um valor de
+  status que nunca existiu no enum. Também corrigido: pré-preenchimento de
+  "Conta" no `LancamentoForm.tsx` abrindo em branco por corrida de timing
+  entre `useEffect` e o primeiro render.
 
 ---
 
