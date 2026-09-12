@@ -120,6 +120,11 @@ export interface FinLancamento {
   data_pagamento: string | null;
   origem: string;
   created_at?: string;
+  /** Quem mexeu por último e quando — carimbado em toda escrita que
+      passa por `criarLancamento`/`atualizarLancamento` (ver comentário
+      lá). Genérico ("última escrita"), não específico de aprovação. */
+  audit_user_id?: string | null;
+  audit_em?: string | null;
 }
 
 export interface FinLancamentoExtenso extends FinLancamento {
@@ -343,15 +348,31 @@ export async function listarLancamentos(filtro: FiltroLancamento = {}): Promise<
   }));
 }
 
+// `audit_user_id`/`audit_em` existiam desde a criação da tabela e
+// nenhuma linha de código os preenchia (achado na auditoria do ERP
+// financeiro, 12/09/2026) — "quem mexeu por último, quando", carimbado
+// aqui, depois do `...input`/`...patch`, pra nunca ser sobrescrito por
+// valor que vier de fora. Cobre toda escrita que passa por estas duas
+// funções — que é, hoje, todo caminho do app (services e componentes
+// sempre chamam `criarLancamento`/`atualizarLancamento`, nunca escrevem
+// direto em `fin_lancamentos`). Não é um gatilho de banco: uma escrita
+// que algum dia contornasse estas funções (SQL direto, RPC nova) não
+// seria carimbada — um trigger cobriria isso também, mas pede migration
+// e o token de gerenciamento está expirado agora; registrado no roadmap
+// como possível endurecimento futuro.
 export async function criarLancamento(input: Partial<FinLancamento>): Promise<FinLancamento> {
-  const { data, error } = await supabase.from("fin_lancamentos").insert(input as any).select("*").single();
+  const userId = (await supabase.auth.getUser()).data.user?.id;
+  const payload = { ...input, audit_user_id: userId ?? null, audit_em: new Date().toISOString() };
+  const { data, error } = await supabase.from("fin_lancamentos").insert(payload as any).select("*").single();
   if (error) throw error;
   return data as FinLancamento;
 }
 
 export async function atualizarLancamento(id: string, patch: Partial<FinLancamento>): Promise<void> {
+  const userId = (await supabase.auth.getUser()).data.user?.id;
+  const payload = { ...patch, audit_user_id: userId ?? null, audit_em: new Date().toISOString() };
   const r = conferir(
-    await supabase.from("fin_lancamentos").update(patch as any).eq("id", id).select("id"),
+    await supabase.from("fin_lancamentos").update(payload as any).eq("id", id).select("id"),
     "O lançamento",
   );
   if (!r.ok) throw new Error(r.erro);
