@@ -218,9 +218,17 @@ uma reversão de uma decisão já tomada neste projeto e precisa da Telma.
    o acesso de `lideranca` a `fin_lancamentos` ("liderança não opera o
    financeiro"). Um fluxo Solicitante→Tesouraria→Administração→Pastor, do
    jeito que a missão descreve, **pressupõe que um líder de ministério possa
-   pedir** — o que reabre essa porta. Confirmar antes de eu desenhar a RLS:
-   quero que líder de ministério possa SOLICITAR uma despesa (sem poder
-   lançar/editar/excluir), e a aprovação em cadeia até quem?
+   pedir** — o que reabre essa porta. Perguntado em 12/09/2026 (item 8 do
+   roadmap abaixo):
+   - **Cadeia de aprovação: RESPONDIDA.** Solicitante → Tesouraria só
+     (tesouraria aprova/rejeita direto — mesmo grupo que já decide
+     `aguardando_aprovacao` hoje). **Não** é o fluxo de 4 etapas da missão
+     original.
+   - **Quem pode solicitar: AINDA EM ABERTO.** A Telma respondeu "ainda não
+     sei, quero pensar mais" — não construir nada de item 8 até ela voltar
+     com uma resposta (líder de ministério? só quem já opera o financeiro
+     hoje? outro grupo?). A pergunta certa a fazer quando ela retomar é só
+     essa — a cadeia já está decidida.
 2. **Doador — quem vê o extrato de quem deu?** Ver a Nota de Privacidade
    acima.
 3. ~~**Conciliação bancária — qual banco, qual formato?**~~ Respondida em
