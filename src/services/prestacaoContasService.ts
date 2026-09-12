@@ -262,3 +262,37 @@ export async function gerarPrestacaoContas(ano: number, mesInicio: number, qtdMe
     qtdForaDoPlanoOficial,
   };
 }
+
+// ─── Fase 7: exportação — mesmo formato de linha do gerarCSVDRE ─────────
+export function gerarCSVPrestacaoContas(r: PrestacaoContasResultado): string {
+  const colunasMes = r.meses.map(m => `${m.nome}${m.ano !== r.meses[0].ano ? `/${m.ano}` : ""}`);
+  const linhas: string[] = [`Secao;Grupo;Categoria;${colunasMes.join(";")}`];
+
+  const fmt = (n: number) => n.toFixed(2);
+  linhas.push(`;;Saldo Anterior;${r.saldoAnterior.map(fmt).join(";")}`);
+
+  r.gruposReceita.forEach(g => {
+    g.linhas.forEach(l => linhas.push(`Receitas;${g.titulo};${l.nome};${l.valores.map(fmt).join(";")}`));
+    linhas.push(`Receitas;${g.titulo};TOTAL DO GRUPO;${g.valores.map(fmt).join(";")}`);
+  });
+  linhas.push(`Receitas;;TOTAL RECEITAS;${r.totalReceitas.map(fmt).join(";")}`);
+
+  r.gruposDespesaPorCentro.forEach(g => {
+    g.linhas.forEach(l => linhas.push(`Despesas;${g.titulo};${l.nome};${l.valores.map(fmt).join(";")}`));
+    linhas.push(`Despesas;${g.titulo};TOTAL DO GRUPO;${g.valores.map(fmt).join(";")}`);
+  });
+  linhas.push(`Despesas;;TOTAL DESPESAS;${r.totalDespesas.map(fmt).join(";")}`);
+
+  if (r.grupoDespesasFinanceiras) {
+    r.grupoDespesasFinanceiras.linhas.forEach(l =>
+      linhas.push(`Despesas Financeiras;;${l.nome};${l.valores.map(fmt).join(";")}`));
+  }
+  if (r.grupoOutrasDespesas) {
+    r.grupoOutrasDespesas.linhas.forEach(l =>
+      linhas.push(`Outras Despesas;;${l.nome};${l.valores.map(fmt).join(";")}`));
+  }
+
+  linhas.push(`;;RESULTADO DO PERIODO;${r.resultado.map(fmt).join(";")}`);
+  linhas.push(`;;SALDO FINAL;${r.saldoFinal.map(fmt).join(";")}`);
+  return linhas.join("\n");
+}

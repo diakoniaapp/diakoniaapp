@@ -3,19 +3,21 @@
 // Projeto Tesouraria (docs/PROJETO_TESOURARIA_PRESTACAO_CONTAS.md §8.3) —
 // a grade que a tesouraria hoje monta à mão no Excel, gerada ao vivo de
 // `fin_lancamentos` por `prestacaoContasService.gerarPrestacaoContas()`.
-// Somente leitura por enquanto: sem fechamento formal ainda (Fase 6) e sem
-// exportação em PDF (Fase 7) — o objetivo desta fase é rodar em paralelo
-// com a planilha real e conferir que os números batem.
 //
 // Revisado em 12/09/2026 (pedido explícito): o período é MENSAL por
 // padrão, e "trimestral" é só um preset de largura entre outros (1, 3, 6,
 // 12 meses, ou um número escolhido à mão) — não mais o formato fixo da
 // tela. `?ano=&mes=&qtd=` na URL, não parâmetro de rota — mesmo padrão que
 // `Financas.tsx` já usa pra `?lancar=true`.
+//
+// Fase 7 (12/09/2026): exportação PDF/impressão e CSV. Mesmo padrão de
+// `.relatorio-page` + `@media print` que `FinancasDRE.tsx` já usa —
+// cabeçalho institucional, assinaturas, rodapé com o mesmo versículo —
+// reaproveitado, não reinventado, pra ficar indistinguível do que a
+// diretoria já reconhece nos outros documentos financeiros do sistema.
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -27,12 +29,14 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   ArrowLeft, ChevronLeft, ChevronRight, MessageSquare, MessageSquarePlus,
-  AlertTriangle, ScrollText, Minus, Plus, Lock, LockOpen, ShieldCheck, Loader2,
+  ScrollText, Minus, Plus, Lock, LockOpen, ShieldCheck, Loader2, Printer, Download,
 } from "lucide-react";
 import { toast } from "sonner";
-import { brl } from "@/services/finService";
+import logoDiakonia from "@/assets/logo-diakonia.png";
+import { brl, downloadCSV } from "@/services/finService";
 import {
-  gerarPrestacaoContas, type PrestacaoContasResultado, type PrestacaoContasGrupo,
+  gerarPrestacaoContas, gerarCSVPrestacaoContas,
+  type PrestacaoContasResultado, type PrestacaoContasGrupo,
 } from "@/services/prestacaoContasService";
 import {
   buscarFechamento, fecharPeriodo, aprovarPeriodo, reabrirPeriodo,
@@ -42,6 +46,7 @@ import { NotaRelatorioModal } from "@/components/financas/NotaRelatorioModal";
 import { PaginaSkeleton } from "@/components/ListState";
 import { hojeLocal, daquiAMeses } from "@/lib/data";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 const STATUS_FECHAMENTO_LABEL: Record<string, string> = {
   aberto: "Aberto", em_revisao: "Em revisão", fechado: "Fechado", aprovado: "Aprovado",
@@ -64,7 +69,7 @@ function periodoAtual(): { ano: number; mes: number } {
 }
 
 export default function FinancasPrestacaoContas() {
-  const { hasRole } = useAuth();
+  const { user, hasRole } = useAuth();
   const souAdmin = hasRole("admin");
   const [searchParams, setSearchParams] = useSearchParams();
   const padrao = periodoAtual();
@@ -75,6 +80,7 @@ export default function FinancasPrestacaoContas() {
   const [dados, setDados] = useState<PrestacaoContasResultado | null>(null);
   const [fechamento, setFechamento] = useState<FinFechamentoPeriodo | null>(null);
   const [loading, setLoading] = useState(true);
+  const [emitidoPor, setEmitidoPor] = useState("");
   const [processando, setProcessando] = useState(false);
   const [confirmandoFechar, setConfirmandoFechar] = useState(false);
   const [reabrindo, setReabrindo] = useState(false);
@@ -92,6 +98,10 @@ export default function FinancasPrestacaoContas() {
       ]);
       setDados(resultado);
       setFechamento(fech);
+      if (user) {
+        const { data: prof } = await supabase.from("profiles").select("nome").eq("id", user.id).maybeSingle();
+        setEmitidoPor(prof?.nome ?? user.email ?? "Sistema");
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro ao gerar a prestação de contas.");
     } finally {
@@ -162,6 +172,12 @@ export default function FinancasPrestacaoContas() {
     setNota({ aberto: true, titulo, categoriaId, centroCustoId });
   }
 
+  function exportarCSV() {
+    if (!dados) return;
+    downloadCSV(`QIBRJ_Prestacao_de_Contas_${ano}${String(mes).padStart(2, "0")}_${qtdMeses}m.csv`, gerarCSVPrestacaoContas(dados));
+    toast.success("CSV exportado");
+  }
+
   if (loading) return <PaginaSkeleton />;
   if (!dados) return <div className="p-8 text-center text-muted-foreground">Não foi possível carregar.</div>;
 
@@ -172,83 +188,92 @@ export default function FinancasPrestacaoContas() {
     : primeiro.ano === ultimo.ano
       ? `${NOME_MES_ABREV[primeiro.numero]}–${NOME_MES_ABREV[ultimo.numero]} · ${primeiro.ano}`
       : `${NOME_MES_ABREV[primeiro.numero]}/${primeiro.ano}–${NOME_MES_ABREV[ultimo.numero]}/${ultimo.ano}`;
+  const hojeBr = new Date().toLocaleDateString("pt-BR");
+  const horaBr = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
   return (
-    <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-4">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="font-serif text-2xl flex items-center gap-2">
-            <ScrollText className="w-6 h-6 text-gold" /> Prestação de Contas
-          </h1>
-          <p className="text-xs text-muted-foreground">
-            Gerado ao vivo dos lançamentos — mesma estrutura da planilha apresentada à diretoria.
-          </p>
-        </div>
-        <Button asChild variant="ghost" size="sm" className="gap-1.5">
-          <Link to="/financas"><ArrowLeft className="w-3.5 h-3.5" /> Contas correntes</Link>
-        </Button>
-      </div>
+    <div className="bg-background min-h-screen">
+      <style>{`
+        @media print {
+          @page { size: A4 landscape; margin: 1.2cm 1.5cm; }
+          html, body { background: white !important; height: auto !important; overflow: visible !important; }
+          body * { visibility: hidden !important; }
+          .relatorio-page, .relatorio-page * { visibility: visible !important; }
+          .relatorio-page {
+            position: absolute !important;
+            left: 0 !important; top: 0 !important;
+            width: 100% !important; max-width: 100% !important;
+            margin: 0 !important; padding: 0 !important;
+            box-shadow: none !important; border: none !important;
+            background: white !important;
+          }
+          .relatorio-page * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          .avoid-break { page-break-inside: avoid; }
+          /* Botão de nota some no papel — o \`.no-print\` de fora já sumia
+             sozinho (fora de .relatorio-page, pego pela regra de visibility
+             acima); este está DENTRO da página impressa, por isso precisa
+             da própria regra. */
+          .relatorio-page .no-print { display: none !important; }
+        }
+      `}</style>
 
-      {/* Período: desloca de 1 em 1 mês; largura escolhe quantos meses aparecem */}
-      <div className="flex flex-col items-center gap-2">
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" onClick={() => deslocarPeriodo(-1)}>
-            <ChevronLeft className="w-3.5 h-3.5" />
-          </Button>
-          <span className="text-sm font-medium px-2 min-w-40 text-center">{rotuloPeriodo}</span>
-          <Button size="sm" variant="outline" onClick={() => deslocarPeriodo(1)}>
-            <ChevronRight className="w-3.5 h-3.5" />
-          </Button>
-        </div>
-
-        <div className="flex items-center gap-1 flex-wrap justify-center">
-          {PRESETS_LARGURA.map(p => (
-            <Button
-              key={p.qtd}
-              size="sm"
-              variant={qtdMeses === p.qtd ? "default" : "outline"}
-              className={qtdMeses === p.qtd ? "bg-gold hover:bg-gold/90 text-white" : ""}
-              onClick={() => mudarLargura(p.qtd)}
-            >
-              {p.label}
+      {/* Barra de controles — período, fechamento, exportação */}
+      <div className="no-print sticky top-0 z-10 bg-card border-b">
+        <div className="max-w-5xl mx-auto px-4 py-2 space-y-2">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <Button asChild variant="ghost" size="sm" className="gap-1.5">
+              <Link to="/financas"><ArrowLeft className="w-3.5 h-3.5" /> Contas correntes</Link>
             </Button>
-          ))}
-          <div className="flex items-center gap-0.5 ml-1 border rounded-md">
-            <Button size="sm" variant="ghost" className="px-2" onClick={() => mudarLargura(qtdMeses - 1)} disabled={qtdMeses <= 1}>
-              <Minus className="w-3 h-3" />
-            </Button>
-            <span className="text-xs w-14 text-center tabular-nums">{qtdMeses} {qtdMeses === 1 ? "mês" : "meses"}</span>
-            <Button size="sm" variant="ghost" className="px-2" onClick={() => mudarLargura(qtdMeses + 1)} disabled={qtdMeses >= 24}>
-              <Plus className="w-3 h-3" />
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* Fechamento do período — Fase 6. "Trimestral" não é o formato do
-          fechamento, é só a largura escolhida acima; o fechamento é sempre
-          do período exato que está na tela (ano, mês inicial, qtd meses). */}
-      <Card>
-        <CardContent className="py-3 px-4 flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-2">
-            <StatusIcone status={fechamento?.status ?? "aberto"} />
-            <div>
-              <Badge variant="outline" className={CLASSE_BADGE[fechamento?.status ?? "aberto"]}>
-                {STATUS_FECHAMENTO_LABEL[fechamento?.status ?? "aberto"]}
-              </Badge>
-              {fechamento?.status === "fechado" || fechamento?.status === "aprovado" ? (
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Lançamentos deste período estão travados para edição.
-                  {fechamento.fechado_em && ` Fechado em ${new Date(fechamento.fechado_em).toLocaleDateString("pt-BR")}.`}
-                </p>
-              ) : (
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Lançamentos ainda podem ser editados. Fechar trava tudo que estiver realizado/conciliado neste período.
-                </p>
-              )}
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="outline" onClick={() => deslocarPeriodo(-1)}>
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </Button>
+              <span className="text-sm font-medium px-1 min-w-36 text-center">{rotuloPeriodo}</span>
+              <Button size="sm" variant="outline" onClick={() => deslocarPeriodo(1)}>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Button onClick={exportarCSV} size="sm" variant="outline" className="gap-1.5">
+                <Download className="w-3.5 h-3.5" /> CSV
+              </Button>
+              <Button onClick={() => window.print()} size="sm" className="gap-1.5 bg-gold hover:bg-gold/90 text-white">
+                <Printer className="w-3.5 h-3.5" /> Imprimir / PDF
+              </Button>
             </div>
           </div>
-          <div className="flex items-center gap-1.5">
+
+          <div className="flex items-center justify-center gap-1 flex-wrap">
+            {PRESETS_LARGURA.map(p => (
+              <Button
+                key={p.qtd}
+                size="sm"
+                variant={qtdMeses === p.qtd ? "default" : "outline"}
+                className={qtdMeses === p.qtd ? "bg-gold hover:bg-gold/90 text-white" : ""}
+                onClick={() => mudarLargura(p.qtd)}
+              >
+                {p.label}
+              </Button>
+            ))}
+            <div className="flex items-center gap-0.5 ml-1 border rounded-md">
+              <Button size="sm" variant="ghost" className="px-2" onClick={() => mudarLargura(qtdMeses - 1)} disabled={qtdMeses <= 1}>
+                <Minus className="w-3 h-3" />
+              </Button>
+              <span className="text-xs w-14 text-center tabular-nums">{qtdMeses} {qtdMeses === 1 ? "mês" : "meses"}</span>
+              <Button size="sm" variant="ghost" className="px-2" onClick={() => mudarLargura(qtdMeses + 1)} disabled={qtdMeses >= 24}>
+                <Plus className="w-3 h-3" />
+              </Button>
+            </div>
+
+            <span className="mx-1 text-border">|</span>
+
+            <StatusIcone status={fechamento?.status ?? "aberto"} />
+            <Badge variant="outline" className={CLASSE_BADGE[fechamento?.status ?? "aberto"]}>
+              {STATUS_FECHAMENTO_LABEL[fechamento?.status ?? "aberto"]}
+            </Badge>
             {(!fechamento || fechamento.status === "aberto" || fechamento.status === "em_revisao") && (
               <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setConfirmandoFechar(true)}>
                 <Lock className="w-3.5 h-3.5" /> Fechar período
@@ -265,28 +290,55 @@ export default function FinancasPrestacaoContas() {
               </Button>
             )}
           </div>
-        </CardContent>
-      </Card>
+          {(fechamento?.status === "fechado" || fechamento?.status === "aprovado") && (
+            <p className="text-xs text-muted-foreground text-center">
+              Lançamentos deste período estão travados para edição
+              {fechamento.fechado_em && ` — fechado em ${new Date(fechamento.fechado_em).toLocaleDateString("pt-BR")}`}.
+            </p>
+          )}
+        </div>
+      </div>
 
-      {dados.qtdForaDoPlanoOficial > 0 && (
-        <Card className="border-warning-line bg-warning-soft">
-          <CardContent className="py-2.5 px-4 flex items-center gap-2 text-xs text-warning-text">
-            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-            {dados.qtdForaDoPlanoOficial} lançamento{dados.qtdForaDoPlanoOficial !== 1 ? "s" : ""} do
-            período não {dados.qtdForaDoPlanoOficial !== 1 ? "entraram" : "entrou"} neste relatório —
-            sem categoria do Plano de Contas Oficial, ou é transferência entre contas próprias.
-          </CardContent>
-        </Card>
-      )}
+      {/* PÁGINA DO RELATÓRIO */}
+      <div className="relatorio-page max-w-5xl mx-auto bg-white text-foreground p-8 md:p-10 my-4 md:my-6 shadow-elevated border border-border/40 rounded-md print:my-0">
+        <header className="avoid-break flex items-start justify-between gap-4 pb-4 border-b-2 border-gold/30">
+          <div className="flex flex-col items-center gap-1">
+            <img src={logoDiakonia} alt="DIAKONIA" className="h-14 w-auto object-contain"
+              style={{
+                filter: "drop-shadow(0 2px 3px rgba(0,0,0,0.35)) drop-shadow(0 1px 1px rgba(0,0,0,0.25))",
+                printColorAdjust: "exact", WebkitPrintColorAdjust: "exact",
+              }} draggable={false} />
+            <div className="text-center">
+              <h2 className="font-serif text-lg leading-tight">DiakoniaApp</h2>
+              <p className="text-xs text-muted-foreground mt-0.5 tracking-[0.12em] uppercase">
+                Gestão Ministerial
+              </p>
+            </div>
+          </div>
+          <div className="text-right text-xs text-muted-foreground space-y-0.5">
+            <p>Emitido em <strong className="text-foreground">{hojeBr}</strong> às {horaBr}</p>
+            <p>Por <strong className="text-foreground">{emitidoPor}</strong></p>
+            {fechamento && (fechamento.status === "fechado" || fechamento.status === "aprovado") && (
+              <p className="text-gold font-medium">{STATUS_FECHAMENTO_LABEL[fechamento.status]}</p>
+            )}
+          </div>
+        </header>
 
-      <Card>
-        <CardContent className="p-4 md:p-6 overflow-x-auto">
-          <table className="w-full text-xs border-collapse" style={{ minWidth: Math.max(560, 220 + dados.meses.length * 100) }}>
+        <div className="text-center my-6 avoid-break">
+          <p className="text-xs tracking-[0.25em] uppercase text-gold flex items-center justify-center gap-1.5">
+            <ScrollText className="w-3.5 h-3.5" /> Prestação de Contas
+          </p>
+          <h1 className="font-serif text-3xl mt-2">{rotuloPeriodo}</h1>
+          <p className="text-xs text-muted-foreground mt-1">
+            {dados.qtdLancamentos} lançamento{dados.qtdLancamentos !== 1 ? "s" : ""} · realizados/conciliados
+          </p>
+        </div>
+
+        <section className="mb-6 overflow-x-auto">
+          <table className="w-full text-xs border-collapse">
             <thead>
               <tr className="border-b border-border/60">
-                <th className="text-left font-medium py-1.5 text-muted-foreground">
-                  {dados.qtdLancamentos} lançamento{dados.qtdLancamentos !== 1 ? "s" : ""} realizado{dados.qtdLancamentos !== 1 ? "s" : ""}/conciliado{dados.qtdLancamentos !== 1 ? "s" : ""}
-                </th>
+                <th className="text-left font-medium py-1.5"></th>
                 {dados.meses.map((m, i) => (
                   <th key={i} className="text-right font-medium py-1.5 uppercase tracking-wide text-muted-foreground whitespace-nowrap">
                     {m.nome}{m.ano !== dados.meses[0].ano ? `/${m.ano}` : ""}
@@ -333,8 +385,41 @@ export default function FinancasPrestacaoContas() {
               <LinhaTotal titulo="Saldo Final" valores={dados.saldoFinal} destaque />
             </tbody>
           </table>
-        </CardContent>
-      </Card>
+        </section>
+
+        {dados.qtdForaDoPlanoOficial > 0 && (
+          <p className="avoid-break text-xs text-muted-foreground italic mb-6">
+            {dados.qtdForaDoPlanoOficial} lançamento{dados.qtdForaDoPlanoOficial !== 1 ? "s" : ""} do período não
+            {dados.qtdForaDoPlanoOficial !== 1 ? " entraram" : " entrou"} nesta demonstração — sem categoria do
+            Plano de Contas Oficial, ou é transferência entre contas próprias.
+          </p>
+        )}
+
+        {/* Assinaturas */}
+        <section className="avoid-break mt-12 pt-4">
+          <div className="grid grid-cols-2 gap-12 text-center text-xs">
+            <div>
+              <div className="border-t border-foreground/60 pt-1 mx-4">
+                <p className="font-medium">Tesouraria</p>
+                <p className="text-muted-foreground text-xs">Responsável pela conta</p>
+              </div>
+            </div>
+            <div>
+              <div className="border-t border-foreground/60 pt-1 mx-4">
+                <p className="font-medium">Conselho Fiscal</p>
+                <p className="text-muted-foreground text-xs">Confere e aprova</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <footer className="avoid-break mt-10 pt-4 border-t border-gold/30 text-center">
+          <p className="text-xs italic text-muted-foreground font-serif">
+            "Tudo, porém, deve ser feito com decência e ordem."
+          </p>
+          <p className="text-xs text-gold tracking-wide mt-1">1 Coríntios 14:40</p>
+        </footer>
+      </div>
 
       <NotaRelatorioModal
         open={nota.aberto}
@@ -459,7 +544,7 @@ function Bloco({ grupo, centroCustoId, onNota, corTotal, semSubtotalProprio }: {
             <button
               type="button"
               onClick={() => onNota(`${l.nome} · ${grupo.titulo}`, l.categoriaId, centroCustoId)}
-              className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+              className="no-print inline-flex items-center gap-1 hover:text-foreground transition-colors"
               title={l.temNota ? "Ver/editar nota" : "Adicionar nota"}
             >
               {l.nome}
@@ -467,6 +552,9 @@ function Bloco({ grupo, centroCustoId, onNota, corTotal, semSubtotalProprio }: {
                 ? <MessageSquare className="w-3 h-3 text-gold shrink-0" />
                 : <MessageSquarePlus className="w-3 h-3 opacity-0 group-hover:opacity-60 shrink-0 transition-opacity" />}
             </button>
+            <span className="hidden print:inline">
+              {l.nome}{l.temNota ? " 💬" : ""}
+            </span>
           </td>
           {l.valores.map((v, i) => (
             <td key={i} className="py-0.5 text-right tabular-nums whitespace-nowrap">{v === 0 ? "—" : brl(v)}</td>

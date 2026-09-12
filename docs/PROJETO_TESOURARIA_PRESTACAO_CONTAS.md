@@ -1,9 +1,13 @@
-# Projeto Técnico — Tesouraria como sistema oficial da Prestação de Contas Trimestral
+# Projeto Técnico — Tesouraria como sistema oficial da Prestação de Contas
 
-> **Status:** Fase 1 aplicada em produção em 12/09/2026 — Plano de Contas Oficial
-> seedado, mapeamento executado, verificado ao vivo (`72` categorias, `59`
-> classificadas, `8` descontinuadas, `5` fora do Plano Oficial — bate exatamente com
-> o previsto). Fases 2–7 seguem como projeto, uma por vez.
+> **Status:** as 7 fases aplicadas em produção em 12/09/2026. Plano de Contas
+> Oficial seedado (`72` categorias, `59` classificadas), centros de custo com os
+> subgrupos de Administração, notas por linha, a tela `/financas/prestacao-de-contas`
+> gerando ao vivo com período mensal-flexível (não mais trimestre fixo — revisão a
+> meio do projeto, por pedido explícito), fechamento/aprovação/reabertura com trava
+> real de banco, e exportação PDF/CSV no mesmo padrão dos outros relatórios do
+> sistema. Falta só a decisão de negócio: rodar em paralelo com a planilha real por
+> um período e, se bater, aposentar a planilha.
 >
 > **De onde vêm os números deste documento.** Tudo abaixo foi medido, não estimado:
 > as 4 planilhas trimestrais de 2025 (`Relatório Financeiro - 01 a 03.2025.xlsm` até
@@ -622,7 +626,7 @@ do projeto continua sendo: ensaiar com `BEGIN;...ROLLBACK;`, medir antes e depoi
 | **4** | ✅ **Aplicada 12/09/2026.** `fin_relatorio_notas` (tabela + RLS), `relatorioNotasService.ts` (CRUD com `conferir()`) e `NotaRelatorioModal.tsx` (seção 8.4) — nenhuma tela ainda o invoca, é peça pronta pra Fase 5 montar. `types.ts` regenerado via `supabase gen types` (estava desatualizado mesmo antes desta fase — trouxe também mudanças recentes de EBD que não eram deste projeto). | Sim — 1 tabela nova | Baixo |
 | **5** | ✅ **Aplicada 12/09/2026.** Tela `/financas/prestacao-de-contas` (seção 8.3) — `prestacaoContasService.gerarPrestacaoContas()` mais a tela, somente leitura, gerada ao vivo. Trimestre virou calendário fixo (Jan-Mar/Abr-Jun/Jul-Set/Out-Dez), não o recorte ad-hoc das 4 planilhas de 2025. Nota por linha ancorada no último mês do trimestre — replica o comportamento real do Excel (uma célula de comentário por linha, não uma por mês), usando a granularidade mensal da Fase 4 só como reserva de flexibilidade. Verificado com dado real de produção: 3º Trimestre/2026 bateu exato à mão (Ofertas R$1.070 + Dízimos R$652 = R$1.722 em Setembro; Energia Elétrica de fora por estar "previsto", não realizado) — e o aviso "3 lançamentos fora do relatório" apontou certo os 2 sem categoria + a transferência interna. Nota testada ponta a ponta (salvou, ícone apareceu, apaguei, ícone sumiu). | Não | — |
 | **6** | ✅ **Aplicada 12/09/2026.** `fin_fechamentos_periodo` (não mais "_trimestre" — período é `ano_inicio+mes_inicio+qtd_meses`, trimestre é só um preset de tela) + trigger de bloqueio em `fin_lancamentos` + RPCs `fin_fechar_periodo`/`fin_aprovar_periodo`/`fin_reabrir_periodo` (as duas últimas exigem `is_admin()` de verdade). Tela integrada em `/financas/prestacao-de-contas`: badge de status, botão Fechar (`AlertDialog`), Aprovar e Reabrir (`Dialog` com motivo obrigatório, admin only). Testado ponta a ponta num período de teste sem dado real (Dez/2026): fechar trava UPDATE/DELETE (confirmado, mensagem de erro clara), aprovar trava de novo com mensagem própria, reabrir destrava e registra motivo+timestamp — tudo limpo depois. | Sim — 1 tabela + 1 coluna + 1 trigger + 3 RPCs | Médio (mexe em regra de escrita, mas via trigger aditivo — não tocou a policy de RLS que já funciona) |
-| **7** | Exportação PDF idêntica ao padrão apresentado hoje; aposentar a planilha depois de pelo menos 1 trimestre em que os dois bateram | Não | — |
+| **7** | ✅ **Aplicada 12/09/2026.** Exportação PDF/impressão — mesmo padrão `.relatorio-page` + `@media print` de `FinancasDRE.tsx` (cabeçalho institucional, assinaturas Tesouraria/Conselho Fiscal, rodapé com o mesmo versículo), reaproveitado, não reinventado. CSV também (`gerarCSVPrestacaoContas`, mesmo formato de `gerarCSVDRE`). Falta só a decisão da Telma: aposentar a planilha depois de pelo menos 1 período em que os dois baterem lado a lado. | Não | — |
 
 A Fase 5 é o ponto de decisão real: só depois de um trimestre inteiro em que o
 relatório do sistema bateu, número por número, com o que a tesouraria montaria à
