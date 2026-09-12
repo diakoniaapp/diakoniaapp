@@ -748,6 +748,7 @@ se o papel `admin` também deveria cair no Painel da Tesouraria no login
 | `/financas/doadores` · `/financas/doadores/:pessoaId` | Histórico de contribuição por pessoa — acesso restrito a `ROLES_DOADORES` (`admin`, `diakonia`, `tesouraria`; **sem** `secretaria`, mais estreito que o resto do módulo por decisão de privacidade da Telma) |
 | `/financas/executivo` | Visão Executiva — dashboard com gráficos (recharts), com atalho para a DRE |
 | `/financas/dre` · `/financas/dre/:ano` | DRE Eclesiástica — formato de demonstração (Receitas por grupo → Despesas por grupo → Resultado), não lista solta. Restrita a `ROLES_PASTORAL_SEM_TITULAR` |
+| `/financas/prestacao-de-contas` | Prestação de Contas — ver bloco abaixo |
 | `/financas/admin` | Config do módulo |
 
 **Fluxo de aprovação (v1, um nível):** `fin_lancamentos.status` tem
@@ -779,6 +780,62 @@ cobre todo caminho do app (nenhum código escreve direto em
 `fin_lancamentos`); não cobre SQL direto/RPC futura que contorne essas
 duas funções (um trigger de banco cobriria isso, fica como possível
 endurecimento futuro).
+
+**Prestação de Contas — projeto separado, concluído em 12/09/2026
+(`docs/PROJETO_TESOURARIA_PRESTACAO_CONTAS.md`):** transforma o módulo no
+caminho de produzir a demonstração que a tesouraria hoje monta à mão num
+Excel trimestral e leva à diretoria. Sete fases, todas aplicadas:
+
+- **Plano de Contas Oficial** — extraído célula a célula das 4 planilhas
+  reais de 2025 (idêntico nas 4, nunca mudou uma categoria o ano inteiro).
+  `fin_categorias.classificacao_dre` (coluna nova, enum
+  `fin_classificacao_dre`: `receitas_regulares` / `outras_receitas` /
+  `despesas` / `despesas_financeiras` / `outras_despesas`) classifica **59
+  das 72 categorias** de produção; as que ficam de fora (Campanhas,
+  Eventos, Vendas, Materiais EBD, Outras despesas) são uso de outro
+  módulo e não entram na demonstração oficial, de propósito — não é gap,
+  é escopo. `conta_contabil` continua reservado para um código contábil
+  de verdade, se a contabilidade terceirizada um dia fornecer um.
+- **Centros de custo:** os 11 ministérios já batiam com os grupos do
+  Plano Oficial (seed automático desde a Fase 7 do Financeiro). Só faltou
+  criar os 5 subgrupos contábeis de `Min. Administração` (Pessoal,
+  Serviços, Ornamentação, Consumo, Patrimônio — `vinculo_tipo =
+  'subgrupo_administracao'`, novo valor de enum) — **não confundir** com
+  as áreas reais da igreja que já existem sob o mesmo ministério (mesmo
+  nome "Ornamentação" por coincidência, conceitos diferentes).
+- **`/financas/prestacao-de-contas`** (`prestacaoContasService.
+  gerarPrestacaoContas()`) — gera ao vivo, de `fin_lancamentos`: Saldo
+  Anterior → Receitas (por classificação) → Despesas (por centro de
+  custo) → Despesas Financeiras → Outras Despesas → Resultado → Saldo
+  Final. **Período é mensal por padrão, não trimestre fixo** — revisado a
+  meio do projeto por pedido explícito ("não deixar o fechamento por
+  trimestre amarrado, e sim como opção"); a tela deixa escolher 1, 2, 3
+  (trimestral vira só um preset de largura) ou quantos meses quiser, a
+  partir de qualquer mês/ano inicial, inclusive atravessando virada de
+  ano. Lançamento sem categoria oficial (inclusive transferência entre
+  contas próprias) fica de fora da demonstração e conta num aviso — não
+  some em silêncio.
+- **Nota por linha** (`fin_relatorio_notas`) — o equivalente estruturado
+  do comentário 💬 que a planilha tem hoje numa célula solta. Guardada por
+  mês (flexibilidade de schema), mas usada como o Excel real usa: uma
+  nota por linha, ancorada no último mês do período exibido.
+- **Fechamento de período** (`fin_fechamentos_periodo`, chave
+  `ano_inicio+mes_inicio+qtd_meses` — o mesmo formato mensal-flexível da
+  leitura, "trimestre" nunca foi conceito de banco). A trava de
+  UPDATE/DELETE em lançamento de período fechado é um **trigger** em
+  `fin_lancamentos` (`fin_bloqueia_lancamento_fechado`), não uma política
+  de RLS reescrita — aditivo, não mexeu na política `fin_lanc_all` que já
+  funciona. Fechar é RPC (`fin_fechar_periodo`, mesma malha de escrita do
+  resto do módulo); aprovar e reabrir (`fin_aprovar_periodo`,
+  `fin_reabrir_periodo`) exigem `is_admin()` de verdade — não existe
+  papel `tesouraria` no enum `app_role` do banco, só como rótulo de app.
+- **Exportação PDF/CSV** — mesmo padrão `.relatorio-page` + `@media
+  print` que a DRE já usa (cabeçalho institucional, assinaturas
+  Tesouraria/Conselho Fiscal, o mesmo versículo no rodapé).
+
+**Em aberto:** decisão de negócio, não técnica — rodar um período real em
+paralelo com a planilha e, se bater número a número, aposentar a
+planilha de vez.
 
 - **Formatação de moeda:** a função Postgres **`fmt_brl(numeric, casas)`**
   (migration `20260909200000`) formata em padrão brasileiro (`.` milhar, `,`
@@ -906,7 +963,7 @@ em Membros/Visitantes/Eventos.
 /ebd/:classeId/campanhas/:id     Campanha (+ /relatorio)
 /pgm · /pgm/:grupoId             Pequenos Grupos
 /pgm/:grupoId/reuniao/:rid       Reunião do grupo (+ /relatorio)
-/financas  + 21 sub-rotas        Financeiro (ver §7.11)
+/financas  + 22 sub-rotas        Financeiro (ver §7.11)
 /arrecadacao + 7 sub-rotas       Bazar, Cantina, Espaços (ver §7.12)
 /membresia · /membresia/:id      Processo de membresia
 /governanca · /reuniao/:id · /assembleia/:id   Reuniões e Atas
@@ -1194,6 +1251,25 @@ Os grandes arcos desde o levantamento de 20/08/2026 (que originou `CLAUDE.md` /
   status que nunca existiu no enum. Também corrigido: pré-preenchimento de
   "Conta" no `LancamentoForm.tsx` abrindo em branco por corrida de timing
   entre `useEffect` e o primeiro render.
+- **Projeto Tesouraria — Prestação de Contas (12/09/2026,
+  `docs/PROJETO_TESOURARIA_PRESTACAO_CONTAS.md`)** — 7 fases, todas
+  aplicadas no mesmo dia, a partir da análise célula a célula das 4
+  planilhas reais de 2025 que a tesouraria leva à diretoria: Plano de
+  Contas Oficial (`fin_categorias.classificacao_dre`, 59 categorias),
+  subgrupos contábeis de Administração, `/financas/prestacao-de-contas`
+  gerando a demonstração ao vivo com período **mensal-flexível — revisado
+  a meio do projeto por pedido explícito pra não ficar amarrado a
+  trimestre**, nota por linha (`fin_relatorio_notas`), fechamento/
+  aprovação/reabertura de período com trava real de banco
+  (`fin_fechamentos_periodo` + trigger, não RLS reescrita), e exportação
+  PDF/CSV no mesmo padrão da DRE. Dois bugs reais achados e corrigidos no
+  caminho, nenhum dos dois no escopo original: o agrupamento da DRE
+  (`dreService.ts`) usava nome de categoria como chave e ficou desatualizado
+  quando o Plano Oficial renomeou a maioria delas; e `vw_fin_resumo_mes`
+  somava transferência entre contas próprias como entrada E saída de
+  verdade, inflando "Entradas/Saídas do mês" no Painel. Em aberto: decisão
+  de negócio (não técnica) de rodar um período real ao lado da planilha
+  antes de aposentá-la.
 
 ---
 
