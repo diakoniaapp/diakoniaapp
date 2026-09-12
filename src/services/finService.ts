@@ -38,11 +38,23 @@ export interface FinConta {
   limite_credito: number | null;
 }
 
+// Fase 1 do projeto Tesouraria (12/09/2026): classificacao_dre é o
+// agrupamento fixo do Plano de Contas Oficial 2025 (receitas_regulares /
+// outras_receitas / despesas / despesas_financeiras / outras_despesas),
+// populado nas 59 categorias oficiais. NULL numa categoria = fora do
+// Plano Oficial (Campanhas, Eventos, Vendas, Materiais EBD, Outras
+// despesas — uso interno de outro módulo, não entra na Prestação de
+// Contas trimestral). Ver docs/PROJETO_TESOURARIA_PRESTACAO_CONTAS.md §6.1.
+export type FinClassificacaoDRE =
+  | "receitas_regulares" | "outras_receitas"
+  | "despesas" | "despesas_financeiras" | "outras_despesas";
+
 export interface FinCategoria {
   id: string;
   nome: string;
   tipo: FinMovimentoTipo;
   conta_contabil: string | null;
+  classificacao_dre: FinClassificacaoDRE | null;
   cor: string | null;
   icone: string | null;
   pai_id: string | null;
