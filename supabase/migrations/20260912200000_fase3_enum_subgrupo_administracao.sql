@@ -1,0 +1,24 @@
+-- ─── Fase 3 (1/2): novo valor de enum para os subgrupos contábeis da Administração ──
+--
+-- docs/PROJETO_TESOURARIA_PRESTACAO_CONTAS.md §3.2–3.3 e §6.3.
+--
+-- O Plano de Contas Oficial 2025 é o único ministério que a planilha real
+-- quebra em subgrupo contábil: "Ministério de Administração" aparece em 5
+-- blocos (Pessoal, Serviços, Ornamentação, Consumo, Patrimônio), cada um
+-- repetindo as 44 categorias de despesa por baixo (confirmado varrendo as
+-- 784 linhas da aba "Relatório" nas 4 planilhas de 2025).
+--
+-- fin_centros_custo já tem, sob Min. Administração, 4 ÁREAS reais da igreja
+-- (Apoio Adm, Bazar, Cantina, Ornamentação — via centro_pai_id, seed da
+-- Fase 7 do Financeiro). Por coincidência de nome, uma delas também se
+-- chama "Ornamentação" — mas é um conceito diferente (quem faz o trabalho,
+-- não como o gasto se classifica contabilmente). Um vinculo_tipo próprio
+-- evita a tela confundir os dois quando listar os filhos de Min.
+-- Administração.
+--
+-- Por que uma migration separada só para isto: ALTER TYPE ... ADD VALUE não
+-- pode ser usado na mesma transação em que é criado (CLAUDE.md §6.3). Os 5
+-- centros de custo que usam este valor entram na migration seguinte
+-- (20260912200500), depois que este valor já está commitado.
+
+alter type public.fin_centro_vinculo add value if not exists 'subgrupo_administracao';

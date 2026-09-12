@@ -17,7 +17,7 @@ export type FinFormaPagamento = "pix" | "dinheiro" | "cartao_debito" | "cartao_c
 // o que já foi criado; ver o comentário de `VINCULO_LABEL` em
 // `FinancasCentros.tsx` para o que falta de verdade (decidir QUAIS
 // eventos merecem centro de custo próprio — não é todo culto de domingo).
-export type FinCentroVinculo = "ministerio" | "area" | "ebd_classe" | "pgm_grupo" | "campanha" | "geral" | "evento";
+export type FinCentroVinculo = "ministerio" | "area" | "ebd_classe" | "pgm_grupo" | "campanha" | "geral" | "evento" | "subgrupo_administracao";
 
 export interface FinConta {
   id: string;

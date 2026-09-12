@@ -40,6 +40,14 @@ const VINCULO_LABEL: Record<FinCentroVinculo, string> = {
   campanha: "Campanha",
   geral: "Geral",
   evento: "Evento",
+  // Fase 3 do projeto Tesouraria (12/09/2026): os 5 subgrupos contábeis de
+  // "Ministério de Administração" do Plano de Contas Oficial (Pessoal,
+  // Serviços, Ornamentação, Consumo, Patrimônio) — ver
+  // docs/PROJETO_TESOURARIA_PRESTACAO_CONTAS.md §3.2. Vínculo próprio para
+  // não se confundir com as ÁREAS reais que já existem sob o mesmo
+  // ministério (mesmo nome "Ornamentação" por coincidência, conceito
+  // diferente — ver §3.3 do mesmo documento).
+  subgrupo_administracao: "Subgrupo contábil",
 };
 
 const VINCULO_COR: Record<FinCentroVinculo, string> = {
@@ -50,6 +58,7 @@ const VINCULO_COR: Record<FinCentroVinculo, string> = {
   campanha:   "bg-destructive-soft text-destructive-text border-destructive-line",
   evento:     "bg-celebracao-soft text-celebracao-text border-celebracao-line",
   geral:      "bg-muted text-muted-foreground border-border",
+  subgrupo_administracao: "bg-gold/10 text-gold border-gold/30",
 };
 
 export default function FinancasCentros() {
