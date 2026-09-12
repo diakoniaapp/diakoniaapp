@@ -36,12 +36,17 @@ interface Props {
   tipoPadrao?: FinMovimentoTipo;
   /** Lançamento em edição */
   lancamento?: FinLancamento | null;
+  /** Pré-preenchimento vindo de fora (ex: linha de extrato OFX sem
+      lançamento correspondente) — só se aplica criando (`!lancamento`);
+      a pessoa ainda escolhe categoria/centro de custo, nunca adivinhados
+      a partir do texto do banco. */
+  rascunho?: { data?: string; valor?: number; descricao?: string; forma?: FinFormaPagamento };
   onSaved: () => void;
 }
 
 export function LancamentoForm({
   open, onOpenChange, contaIdPadrao, tipoPadrao = "entrada",
-  lancamento, onSaved,
+  lancamento, rascunho, onSaved,
 }: Props) {
   const isEdit = !!lancamento;
 
@@ -136,17 +141,17 @@ export function LancamentoForm({
       }).catch(() => { setRateando(false); setRateio([]); });
     } else {
       setTipo(tipoPadrao);
-      setData(hojeLocal());
-      setValor(0);
+      setData(rascunho?.data ?? hojeLocal());
+      setValor(rascunho?.valor ?? 0);
       setContaId(contaIdPadrao ?? "");
       setCategoriaId(""); setCentroCustoId(""); setFornecedorId("");
-      setForma(""); setStatus("realizado");
-      setDescricao(""); setDocumentoNumero(""); setObservacoes("");
+      setForma(rascunho?.forma ?? ""); setStatus("realizado");
+      setDescricao(rascunho?.descricao ?? ""); setDocumentoNumero(""); setObservacoes("");
       setRateando(false); setRateio([]);
     }
     setArquivo(null);
     setPreviewUrl(null);
-  }, [open, lancamento, contaIdPadrao, tipoPadrao]);
+  }, [open, lancamento, contaIdPadrao, tipoPadrao, rascunho]);
 
   function addLinhaRateio() {
     setRateio(prev => [...prev, { chave: crypto.randomUUID(), centroCustoId: "", percentual: 0 }]);

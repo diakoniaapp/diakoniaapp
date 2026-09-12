@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseOFX, encodingDoOFX, casarComLancamentos, type OFXTransacao } from "./ofxService";
+import { parseOFX, encodingDoOFX, casarComLancamentos, inferirFormaPagamento, type OFXTransacao } from "./ofxService";
 import type { FinLancamentoExtenso } from "./finService";
 
 // Amostra sintética — mesma estrutura do arquivo real do Bradesco
@@ -189,5 +189,24 @@ describe("casarComLancamentos", () => {
     );
     expect(r[0].status).toBe("encontrado");
     expect(r[1].status).toBe("sem_correspondencia");
+  });
+});
+
+describe("inferirFormaPagamento", () => {
+  it("reconhece PIX", () => {
+    expect(inferirFormaPagamento("PIX RECEBIDO REM: FULANO 01/09")).toBe("pix");
+  });
+
+  it("reconhece TED/transferência", () => {
+    expect(inferirFormaPagamento("TED-TRANSF ELET DISPON REMET.FULANO")).toBe("transferencia");
+    expect(inferirFormaPagamento("TRANSF AUTORIZ ENTRE AGS FULANO")).toBe("transferencia");
+  });
+
+  it("reconhece boleto/pagamento eletrônico", () => {
+    expect(inferirFormaPagamento("PAGTO ELETRONICO TRIBUTO INTERNET")).toBe("boleto");
+  });
+
+  it("não chuta quando o padrão não é óbvio", () => {
+    expect(inferirFormaPagamento("TITULO DE CAPITALIZACAO CAPITALIZACAO")).toBeUndefined();
   });
 });

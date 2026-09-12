@@ -3,18 +3,28 @@
 // Item 7 do roadmap do ERP financeiro. Mesmo padrão de Dialog que
 // `TransferenciaForm.tsx`/`LancamentoForm.tsx` já usam — não uma tela
 // nova. Lê o arquivo, mostra o que casou (vai ser conciliado com um
-// clique, reaproveitando `conciliarEmLote` do item 6) e o que não casou
-// (fica listado — nunca cria lançamento sozinho, ver o comentário em
-// `ofxService.ts` sobre por quê).
+// clique, reaproveitando `conciliarEmLote` do item 6) e o que não casou.
+//
+// "O que não casou" tem um botão "Lançar" que abre o MESMO
+// `LancamentoForm` de sempre, pré-preenchido com data/valor/descrição da
+// linha do extrato — a pessoa ainda escolhe categoria e centro de custo,
+// nunca adivinhados a partir do MEMO do banco (ver `ofxService.ts`).
+// Depois de salvar, a lista é recasada: o lançamento recém-criado tem os
+// mesmos data/valor/tipo da transação, então cai automaticamente em
+// "encontrado" e entra no próximo "Conciliar N".
 import { useState } from "react";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { FileUp, Scale, CheckCircle2, HelpCircle } from "lucide-react";
-import { listarLancamentos, conciliarEmLote, brl } from "@/services/finService";
-import { parseOFX, encodingDoOFX, casarComLancamentos, type OFXCasamento } from "@/services/ofxService";
+import { FileUp, Scale, CheckCircle2, HelpCircle, Plus } from "lucide-react";
+import { listarLancamentos, conciliarEmLote, brl, type FinMovimentoTipo } from "@/services/finService";
+import {
+  parseOFX, encodingDoOFX, casarComLancamentos, inferirFormaPagamento,
+  type OFXCasamento, type OFXTransacao,
+} from "@/services/ofxService";
+import { LancamentoForm } from "./LancamentoForm";
 
 interface Props {
   open: boolean;
@@ -37,11 +47,22 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [processando, setProcessando] = useState(false);
   const [conciliando, setConciliando] = useState(false);
+  const [transacoes, setTransacoes] = useState<OFXTransacao[] | null>(null);
   const [resultado, setResultado] = useState<OFXCasamento[] | null>(null);
+  const [lancarTransacao, setLancarTransacao] = useState<OFXTransacao | null>(null);
 
   function reiniciar() {
     setArquivo(null);
+    setTransacoes(null);
     setResultado(null);
+  }
+
+  async function recasar(txs: OFXTransacao[]) {
+    const datas = txs.map(t => t.data).sort();
+    const dataInicio = addDias(datas[0], -5);
+    const dataFim = addDias(datas[datas.length - 1], 5);
+    const realizados = await listarLancamentos({ contaId, status: "realizado", dataInicio, dataFim });
+    setResultado(casarComLancamentos(txs, realizados));
   }
 
   async function processarArquivo(file: File) {
@@ -52,17 +73,14 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
       const bytes = new Uint8Array(await file.arrayBuffer());
       const encoding = encodingDoOFX(bytes);
       const texto = new TextDecoder(encoding).decode(bytes);
-      const transacoes = parseOFX(texto);
-      if (transacoes.length === 0) {
+      const txs = parseOFX(texto);
+      if (txs.length === 0) {
         toast.error("Nenhuma transação encontrada nesse arquivo — confira se é o extrato em OFX.");
         setProcessando(false);
         return;
       }
-      const datas = transacoes.map(t => t.data).sort();
-      const dataInicio = addDias(datas[0], -5);
-      const dataFim = addDias(datas[datas.length - 1], 5);
-      const realizados = await listarLancamentos({ contaId, status: "realizado", dataInicio, dataFim });
-      setResultado(casarComLancamentos(transacoes, realizados));
+      setTransacoes(txs);
+      await recasar(txs);
     } catch (e: any) {
       toast.error(e?.message ?? "Erro ao ler o arquivo");
     } finally {
@@ -89,7 +107,14 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
     }
   }
 
+  async function aoSalvarLancamento() {
+    setLancarTransacao(null);
+    if (transacoes) await recasar(transacoes);
+    onSaved(); // refresca a lista por trás (FinancasConta) mesmo sem fechar este dialog
+  }
+
   return (
+    <>
     <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) reiniciar(); }}>
       <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
@@ -98,8 +123,8 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
           </DialogTitle>
           <DialogDescription>
             Casa as transações do extrato de <strong>{contaNome}</strong> com os lançamentos já
-            registrados como "Realizado" e concilia os que baterem. Nunca cria lançamento novo —
-            o que não casar fica listado para lançar ou conferir à mão.
+            registrados como "Realizado" e concilia os que baterem. O que não casar pode ser
+            lançado na hora — ou conferido à mão depois.
           </DialogDescription>
         </DialogHeader>
 
@@ -136,13 +161,21 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
               <div className="rounded-md border border-warning-line bg-warning-soft/30 p-3">
                 <p className="text-sm font-medium text-warning-text flex items-center gap-1.5">
                   <HelpCircle className="w-4 h-4" />
-                  {pendentes.length} sem correspondência automática — revise à mão
+                  {pendentes.length} sem correspondência automática
                 </p>
-                <ul className="text-xs text-muted-foreground mt-1.5 space-y-0.5 max-h-32 overflow-y-auto">
+                <ul className="text-xs mt-1.5 space-y-1 max-h-48 overflow-y-auto">
                   {pendentes.map((r, i) => (
-                    <li key={i} className="truncate">
-                      {dataBr(r.transacao.data)} · {brl(r.transacao.valor)} · {r.transacao.memo}
-                      {r.status === "ambiguo" && ` — ${r.candidatos.length} lançamentos parecidos`}
+                    <li key={i} className="flex items-center gap-2">
+                      <span className="flex-1 min-w-0 truncate text-muted-foreground">
+                        {dataBr(r.transacao.data)} · {brl(r.transacao.valor)} · {r.transacao.memo}
+                        {r.status === "ambiguo" && ` — ${r.candidatos.length} lançamentos parecidos, revise à mão`}
+                      </span>
+                      {r.status === "sem_correspondencia" && (
+                        <Button type="button" size="sm" variant="outline" className="h-6 text-xs px-2 gap-1 shrink-0"
+                          onClick={() => setLancarTransacao(r.transacao)}>
+                          <Plus className="w-3 h-3" /> Lançar
+                        </Button>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -166,5 +199,25 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    {/* Lançar a partir de uma linha do extrato sem correspondência —
+        mesmo formulário de sempre, só pré-preenchido. Dialog irmão, não
+        aninhado dentro do de cima — mesmo padrão de FinancasConta.tsx
+        (TransferenciaForm/LancamentoForm lado a lado, nunca um dentro
+        do outro). */}
+    <LancamentoForm
+      open={!!lancarTransacao}
+      onOpenChange={(v) => { if (!v) setLancarTransacao(null); }}
+      contaIdPadrao={contaId}
+      tipoPadrao={lancarTransacao?.tipo as FinMovimentoTipo}
+      rascunho={lancarTransacao ? {
+        data: lancarTransacao.data,
+        valor: lancarTransacao.valor,
+        descricao: lancarTransacao.memo,
+        forma: inferirFormaPagamento(lancarTransacao.memo),
+      } : undefined}
+      onSaved={aoSalvarLancamento}
+    />
+    </>
   );
 }

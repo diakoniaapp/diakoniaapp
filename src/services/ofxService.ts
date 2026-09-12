@@ -24,7 +24,7 @@
 // transação do extrato sem correspondência fica listada para revisão
 // manual — a tesouraria já fazia essa revisão comparando papel com tela;
 // agora a lista sai pronta.
-import type { FinLancamentoExtenso, FinMovimentoTipo } from "./finService";
+import type { FinLancamentoExtenso, FinMovimentoTipo, FinFormaPagamento } from "./finService";
 
 export interface OFXTransacao {
   fitid: string;
@@ -85,6 +85,21 @@ export function parseOFX(texto: string): OFXTransacao[] {
       };
     })
     .filter(t => t.data.length === 10 && Number.isFinite(t.valor) && t.valor > 0);
+}
+
+/**
+ * Chute best-effort pra pré-preencher "Forma de pagamento" ao lançar uma
+ * transação do extrato que não tinha correspondência — a pessoa confirma
+ * ou troca antes de salvar, nunca é gravado sem passar pela tela. Só
+ * reconhece os padrões mais óbvios do MEMO do Bradesco; o resto fica em
+ * branco de propósito, em vez de arriscar um chute ruim.
+ */
+export function inferirFormaPagamento(memo: string): FinFormaPagamento | undefined {
+  const m = memo.toUpperCase();
+  if (m.includes("PIX")) return "pix";
+  if (m.includes("TED") || m.includes("TRANSF")) return "transferencia";
+  if (m.includes("BOLETO") || m.includes("PAGTO ELETRON")) return "boleto";
+  return undefined;
 }
 
 export type OFXStatusCasamento = "encontrado" | "sem_correspondencia" | "ambiguo";
