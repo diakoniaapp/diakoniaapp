@@ -134,14 +134,27 @@ Resposta da Telma: **"os tesoureiros e administrador do sistema podem ver
 tudo sobre as doações"** — mesma malha de pessoas que já opera o resto do
 financeiro (ver item 8 do roadmap, fechado no mesmo dia com a mesma
 resposta: só tesoureiro e administrador do sistema mexem nessa área,
-liderança de ministério não entra). Não é preciso uma RLS mais restrita
-nem mais permissiva do que a que já existe em `fin_lancamentos` — a
-mesma política que já gate ia esse módulo cobre doação sem exceção.
+liderança de ministério não entra).
 
-**Isso desbloqueia, mas não constrói**, um relatório "quanto Fulano
-contribuiu" / histórico de doação por pessoa — ninguém pediu essa tela
-ainda; `pessoa_id` em `fin_lancamentos` já existe e já resolve pra nome,
-então quando ela quiser essa tela, o dado já está pronto, só falta a UI.
+**Construída em 12/09/2026** — `/financas/doadores` (lista, ordenada por
+NOME não por valor, de propósito — a nota de privacidade já registrava o
+risco pastoral de virar "ranking de doadores") e
+`/financas/doadores/:pessoaId` (histórico completo de uma pessoa, mesmo
+padrão de impressão/PDF dos outros relatórios, sem assinatura — não é
+recibo de doação nem prestação de contas formal, os dois continuam fora
+do escopo). `doadorService.ts` reaproveita `fin_lancamentos`/`pessoa_id`
+que já existiam — nenhuma tabela nova, nenhuma migration.
+
+**Acesso mais estreito que o resto do financeiro, de propósito**: nova
+constante `ROLES_DOADORES` (`admin`, `diakonia`, `tesouraria`) em
+`navConfig.ts` — sem `secretaria`, que vê o resto do módulo mas não esta
+tela, seguindo a resposta literal da Telma. Link "Por doador" em
+`/financas/doacoes` só aparece pra quem tem esse papel (`hasRole`).
+
+Verificado ao vivo com 4 contribuições de teste (2 pessoas): totais,
+contagem, média e o agrupamento por pessoa bateram exatamente; CSV e
+período (ano/todo o período) testados. Um bug de pluralização
+("contribuiçõões") apareceu e foi corrigido antes do commit.
 
 ---
 
