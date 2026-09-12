@@ -1,46 +1,25 @@
 # Roadmap — Financeiro como ERP eclesiástico
 
-> ## 🔴 ACHADO CRÍTICO, 12/09/2026 — nenhum UPDATE em `fin_lancamentos`
-> ## funciona em produção agora
+> ## ✅ RESOLVIDO em 12/09/2026 — o bug que quebrava todo UPDATE em
+> ## `fin_lancamentos`
 >
-> Achado testando o botão de aprovar/rejeitar desta entrega (ver Fase 3
-> abaixo), mas é **independente dela** — pré-existente, e mais grave que
-> tudo o mais neste documento.
+> Achado testando o botão de aprovar/rejeitar desta entrega — mas era
+> **independente dela**, pré-existente, e mais grave que tudo o mais
+> neste documento: `fiscal_sincronizar_pagamento_trigger()` comparava
+> `new.status = 'pago'`, valor que **nunca existiu** no enum
+> `fin_lancamento_status` (era vocabulário de `fiscal_agenda.status`,
+> copiado pro lugar errado) — e essa comparação falhava **sempre**, em
+> **qualquer** UPDATE de `fin_lancamentos`, mesmo editar só `observacoes`.
 >
-> `fiscal_sincronizar_pagamento_trigger()` (dispara em todo `UPDATE` de
-> `fin_lancamentos`) compara `new.status = 'pago'` — só que `'pago'`
-> **nunca foi um valor válido** do enum `fin_lancamento_status`
-> (`previsto|realizado|conciliado|cancelado|aguardando_aprovacao`). É
-> vocabulário do enum de `fiscal_agenda.status`, copiado para o lugar
-> errado. O Postgres tenta converter o literal pro tipo do enum antes de
-> decidir se a condição bate — e essa conversão falha **sempre**,
-> incondicionalmente.
->
-> **Testado ao vivo, contra produção, três vezes, com um lançamento
-> descartável (criado e apagado na hora):**
->
-> | Operação | Resultado |
-> |---|---|
-> | Editar só `observacoes` (não toca `status`) | `400` — `invalid input value for enum fin_lancamento_status: "pago"` |
-> | `status → realizado` (o que o botão "Pagar"/"Receber" já faz) | mesmo erro |
-> | `status → cancelado` (o que "Rejeitar" desta entrega faz) | mesmo erro |
->
-> **Ou seja: hoje, em produção, ninguém consegue editar um lançamento
-> financeiro já criado — nem categorizar, nem marcar como pago, nem
-> corrigir uma descrição.** Só criar (INSERT) e apagar (DELETE) funcionam.
-> Não há como saber há quanto tempo isso está quebrado — a função não
-> aparece em nenhuma migration rastreada, só no dump de
-> `supabase/baseline/schema.sql`.
->
-> **Conserto escrito, NÃO aplicado**:
-> `supabase/migrations/20260912013100_conserta_gatilho_fiscal_que_quebrava_todo_update.sql`
-> — troca `'pago'` por `'realizado'` (a transição real que o código já
-> usa). Não apliquei porque `SUPABASE_ACCESS_TOKEN` estava
-> `401 Unauthorized` nesta sessão (três tentativas, inclusive o endpoint
-> mais simples). **Isto é urgente — muito mais que qualquer item do
-> roadmap abaixo.** Duas saídas: (1) renovar o token e me pedir para
-> aplicar e ensaiar como sempre, ou (2) rodar o `CREATE OR REPLACE
-> FUNCTION` de dentro do arquivo, direto no SQL Editor do Supabase.
+> Token de gerenciamento renovado pela Telma; migration
+> `20260912013100_conserta_gatilho_fiscal_que_quebrava_todo_update.sql`
+> ensaiada com `BEGIN…ROLLBACK` (rodando os dois UPDATEs que antes
+> quebravam, dentro da transação desfeita) e **aplicada em produção**.
+> Confirmado ao vivo, duas vezes: direto por REST (editar observações +
+> marcar como realizado, sem erro) e pelo botão real "Aprovar" em
+> `/financas/agenda` (toast "Aprovado", item some da lista). Lançamentos
+> de teste criados e apagados na mesma sessão — produção limpa,
+> conferido por busca (`descricao ilike '%TESTE%'` → `[]`).
 
 > Auditoria feita por medição direta (schema gerado, migrations, código —
 > **não** pela API de gerenciamento: o token de sessão estava expirado/sem
@@ -208,20 +187,23 @@ lugar nenhum do sistema, um botão que aprove ou rejeite**. A própria
   — agora vai para `/financas/agenda`, onde a decisão realmente pode ser
   tomada.
 
-**Sem migration nesta v1 — de propósito.** O token de gerenciamento do
-Supabase (`SUPABASE_ACCESS_TOKEN`) está retornando `401 Unauthorized` nesta
-sessão (verificado três vezes, inclusive no endpoint mais simples possível —
-listar projetos). Sem ele não dá para ensaiar/aplicar migration em produção
-com a disciplina de sempre (`BEGIN…ROLLBACK` antes de aplicar). Em vez de
-escrever uma migration "às cegas" (sem poder confirmar que rodou), a v1 usa
-só colunas que **já existem e já funcionam** (`status`, `observacoes`) — o
-botão aprova/rejeita de verdade, hoje, sem depender de nada novo no banco.
+**Sem migration nesta v1 — de propósito.** Escrita a v1 sem acesso de escrita
+ao banco (token expirado naquele momento), ela usa só colunas que **já
+existem e já funcionam** (`status`, `observacoes`) — o botão aprova/rejeita
+de verdade, sem depender de nada novo no banco.
 
-**Fast-follow, quando o token for renovado:** `aprovado_por uuid`,
-`aprovado_em timestamptz` em `fin_lancamentos` — colunas de auditoria
-própria (quem exatamente aprovou, e quando), em vez de inferir pela `data_pagamento`
-e pelo autor do UPDATE. Aditivo, sem risco, só precisa de acesso de escrita
-ao banco para aplicar.
+**Achado ao procurar onde carimbar "quem aprovou, quando" (12/09/2026):**
+`fin_lancamentos` **já tem** `audit_user_id uuid` (FK para `profiles`) e
+`audit_em timestamptz` — colunas de auditoria genérica que existem desde a
+criação da tabela e que **nenhuma linha de código do sistema preenche**.
+Mesmo padrão de sempre neste projeto: infraestrutura pronta, nunca ligada.
+**Não wireei nesta entrega** — são colunas de "quem mexeu por último",
+genéricas para QUALQUER escrita, não específicas de aprovação; usá-las só
+para aprovar/rejeitar misturaria os dois sentidos (uma edição de descrição
+depois da aprovação sobrescreveria o carimbo de quem aprovou). Ligar
+`audit_user_id`/`audit_em` direito é trabalho maior — em `atualizarLancamento()`,
+para toda escrita, não só a de aprovação — e fica registrado aqui como
+achado, não como pendência desta feature.
 
 **Escopo deliberadamente de UM NÍVEL só** (quem tem papel `admin`,
 `diakonia`, `secretaria` ou `tesouraria` aprova — o mesmo grupo que já pode

@@ -17,7 +17,7 @@ Ordenados por custo de descobrir tarde. Números foram contados, não estimados.
 
 | # | Defeito |
 |---|---|
-| 19 | 🔴 **CRÍTICO, achado em 12/09/2026: nenhum `UPDATE` em `fin_lancamentos` funciona em produção.** `fiscal_sincronizar_pagamento_trigger()` compara `new.status = 'pago'`, valor que nunca existiu no enum `fin_lancamento_status` — a conversão falha sempre, em qualquer UPDATE (mesmo editar só `observacoes`). Testado ao vivo, 3 vezes. Conserto escrito e **não aplicado**: `supabase/migrations/20260912013100_conserta_gatilho_fiscal_que_quebrava_todo_update.sql` — faltou acesso de escrita ao banco na sessão (`SUPABASE_ACCESS_TOKEN` com `401`). Detalhe em `docs/ROADMAP_FINANCEIRO_ERP.md` |
+| ~~19~~ | ~~**CRÍTICO: nenhum `UPDATE` em `fin_lancamentos` funcionava em produção.**~~ — **RESOLVIDO em 12/09/2026** (migration `20260912013100`). `fiscal_sincronizar_pagamento_trigger()` comparava `new.status = 'pago'`, valor que nunca existiu no enum `fin_lancamento_status` — a conversão falhava sempre, em qualquer UPDATE (mesmo editar só `observacoes`). Ensaiado com `BEGIN…ROLLBACK`, aplicado, confirmado ao vivo duas vezes (REST direto e pelo botão real de aprovação). Detalhe em `docs/ROADMAP_FINANCEIRO_ERP.md` |
 | 7 | Gatilho carimba **meia-assinatura** quando `auth.uid()` é NULL (escrita pela API de gerenciamento). Conserto: `IF auth.uid() IS NULL THEN RETURN NEW; END IF;` |
 | 8 | Política **`membros_by_igreja` não checa papel** — e permissivas se somam com OR, anulando as mais estreitas |
 | 9 | **Leonardo Pereira Vieira**: falecido em 19/08, saída sem assinatura. Não inventamos quem registrou |
