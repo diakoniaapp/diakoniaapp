@@ -121,7 +121,7 @@ caminho diferente (não deve ser reconstruído):
 | **Emissão de recibo de doação (dedutibilidade, Lei 9.532)** | ✔ (Asaas tem nativo) | 🔴 | Fora do escopo desta entrega — é feature nova, não gap de UI |
 | **Gateway de cobrança (boleto, link de pagamento, PIX cobrança)** | ✔ | 🔴 (o sistema REGISTRA que entrou dinheiro; não GERA cobrança) | Fora do escopo — decisão de produto grande (gateway = contrato, taxa, PCI) |
 | **Multi-empresa / centro de lucro consolidado** | ✔ | N/A — mono-igreja por desenho (AD-3 do sistema) | **Não se aplica**, não é gap |
-| **Auditoria/trilha de quem alterou o quê** | ✔ | 🟡 — `fin_lancamentos.audit_user_id`/`audit_em` já existem como colunas; não verificado se todo UPDATE os preenche | Vale conferir, baixo esforço |
+| **Auditoria/trilha de quem alterou o quê** | ✔ | ✔ — **FEITO em 12/09/2026.** `criarLancamento()`/`atualizarLancamento()` (`finService.ts`) agora carimbam `audit_user_id`/`audit_em` em toda escrita que passa por elas — que é hoje todo caminho do app. Sem migration (as colunas já existiam). Cobre app; não cobre SQL direto/RPC futura que contorne estas duas funções — um trigger de banco cobriria isso também, registrado como possível endurecimento futuro se a Telma quiser (precisa de migration e o token de gerenciamento está expirado agora). Verificado ao vivo pela UI real: criar um lançamento carimbou o usuário e o instante certos; editar o mesmo lançamento avançou `audit_em` mantendo o mesmo usuário | pequeno | colunas já existiam, sem migration |
 
 ### Nota de privacidade — doador
 
