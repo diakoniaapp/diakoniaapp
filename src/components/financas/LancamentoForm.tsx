@@ -11,11 +11,15 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { TrendingUp, TrendingDown, Camera, FileUp, X, Paperclip, Sparkles, Loader2 } from "lucide-react";
+import {
+  TrendingUp, TrendingDown, Camera, FileUp, X, Paperclip, Sparkles, Loader2,
+  SplitSquareHorizontal, Plus, Trash2,
+} from "lucide-react";
 import {
   listarContas, listarCategorias, listarCentrosCusto, listarFornecedores,
   criarLancamento, atualizarLancamento, uploadComprovante, removerComprovante,
   buscarFornecedorPorCnpj, criarFornecedor, sugerirCentroPorCategoria, brl,
+  listarRateio, salvarRateio,
   FORMA_LABEL, STATUS_LABEL,
   type FinConta, type FinCategoria, type FinCentroCusto, type FinFornecedor,
   type FinLancamento, type FinMovimentoTipo, type FinFormaPagamento, type FinStatus,
@@ -55,6 +59,17 @@ export function LancamentoForm({
   const [documentoNumero, setDocumentoNumero] = useState("");
   const [observacoes, setObservacoes] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // ── Rateio entre centros de custo ────────────────────────────────────
+  // `fin_lancamento_rateio` existia desde sempre, zero linhas, nenhuma
+  // tela — item 3 do roadmap do ERP financeiro. `rateando` troca o campo
+  // "Centro de custo" (um só) por uma lista de linhas centro+percentual.
+  // O centro de MAIOR percentual continua indo pro `centro_custo_id` do
+  // lançamento — os relatórios por centro já existentes (Prestação de
+  // Contas, Top 5, Visão Executiva) somam por essa coluna, não pelo
+  // rateio; refazer isso é trabalho à parte, registrado no roadmap.
+  const [rateando, setRateando] = useState(false);
+  const [rateio, setRateio] = useState<{ chave: string; centroCustoId: string; percentual: number }[]>([]);
 
   // Listas
   const [contas, setContas] = useState<FinConta[]>([]);
@@ -107,6 +122,18 @@ export function LancamentoForm({
       setDescricao(lancamento.descricao ?? "");
       setDocumentoNumero(lancamento.documento_numero ?? "");
       setObservacoes(lancamento.observacoes ?? "");
+      // Carrega o rateio existente, se houver — um lançamento editado que
+      // já foi rateado antes precisa abrir mostrando a divisão, não um
+      // centro só (perderia a informação ao salvar de novo sem querer).
+      listarRateio(lancamento.id).then(itens => {
+        if (itens.length > 0) {
+          setRateando(true);
+          setRateio(itens.map(i => ({ chave: i.id, centroCustoId: i.centro_custo_id, percentual: Number(i.percentual) })));
+        } else {
+          setRateando(false);
+          setRateio([]);
+        }
+      }).catch(() => { setRateando(false); setRateio([]); });
     } else {
       setTipo(tipoPadrao);
       setData(hojeLocal());
@@ -115,10 +142,25 @@ export function LancamentoForm({
       setCategoriaId(""); setCentroCustoId(""); setFornecedorId("");
       setForma(""); setStatus("realizado");
       setDescricao(""); setDocumentoNumero(""); setObservacoes("");
+      setRateando(false); setRateio([]);
     }
     setArquivo(null);
     setPreviewUrl(null);
   }, [open, lancamento, contaIdPadrao, tipoPadrao]);
+
+  function addLinhaRateio() {
+    setRateio(prev => [...prev, { chave: crypto.randomUUID(), centroCustoId: "", percentual: 0 }]);
+  }
+  function removeLinhaRateio(chave: string) {
+    setRateio(prev => prev.filter(r => r.chave !== chave));
+  }
+  function mudarLinhaRateio(chave: string, patch: Partial<{ centroCustoId: string; percentual: number }>) {
+    setRateio(prev => prev.map(r => r.chave === chave ? { ...r, ...patch } : r));
+  }
+  const totalPercentualRateio = rateio.reduce((s, r) => s + (Number(r.percentual) || 0), 0);
+  const rateioValido = rateio.length >= 2
+    && rateio.every(r => r.centroCustoId && r.percentual > 0)
+    && Math.abs(totalPercentualRateio - 100) < 0.01;
 
   useEffect(() => {
     if (!arquivo || !arquivo.type.startsWith("image/")) { setPreviewUrl(null); return; }
@@ -196,6 +238,10 @@ export function LancamentoForm({
     e.preventDefault();
     if (valor <= 0) { toast.error("Valor inválido"); return; }
     if (!contaId) { toast.error("Selecione a conta"); return; }
+    if (rateando && !rateioValido) {
+      toast.error("O rateio precisa somar 100% entre pelo menos 2 centros.");
+      return;
+    }
 
     setBusy(true);
     try {
@@ -207,10 +253,18 @@ export function LancamentoForm({
         comprovantePath = await uploadComprovante(arquivo, tempId);
       }
 
+      // Rateado: o centro de MAIOR percentual vira o "principal" do
+      // lançamento — ver o comentário de `FinLancamentoRateio` em
+      // finService.ts para o porquê (relatórios por centro ainda somam
+      // por essa coluna, não pelo rateio).
+      const centroPrincipal = rateando
+        ? rateio.slice().sort((a, b) => b.percentual - a.percentual)[0]?.centroCustoId ?? null
+        : (centroCustoId || null);
+
       const payload: any = {
         tipo, data, valor, conta_id: contaId,
         categoria_id: categoriaId || null,
-        centro_custo_id: centroCustoId || null,
+        centro_custo_id: centroPrincipal,
         fornecedor_id: fornecedorId || null,
         forma_pagamento: forma || null,
         status,
@@ -220,12 +274,29 @@ export function LancamentoForm({
         comprovante_url: comprovantePath,
       };
 
+      let lancamentoId: string;
       if (isEdit && lancamento) {
         await atualizarLancamento(lancamento.id, payload);
+        lancamentoId = lancamento.id;
         toast.success("Lançamento atualizado");
       } else {
-        await criarLancamento(payload);
+        const criado = await criarLancamento(payload);
+        lancamentoId = criado.id;
         toast.success(`${tipo === "entrada" ? "Entrada" : "Saída"} registrada`);
+      }
+
+      // Grava o rateio (ou limpa, se ela desmarcou "ratear" num lançamento
+      // que antes tinha). `isEdit` porque um lançamento novo sem rateio
+      // nunca teve nada pra apagar — chamar salvarRateio([]) à toa é uma
+      // viagem ao banco sem efeito nenhum.
+      if (rateando) {
+        await salvarRateio(lancamentoId, rateio.map(r => ({
+          centroCustoId: r.centroCustoId,
+          percentual: r.percentual,
+          valor: Math.round(valor * (r.percentual / 100) * 100) / 100,
+        })));
+      } else if (isEdit) {
+        await salvarRateio(lancamentoId, []);
       }
 
       onOpenChange(false);
@@ -307,16 +378,77 @@ export function LancamentoForm({
             </div>
             <div>
               <Label>Centro de custo</Label>
-              <Select value={centroCustoId} onValueChange={setCentroCustoId}>
-                <SelectTrigger><SelectValue placeholder="(opcional)" /></SelectTrigger>
-                <SelectContent>
-                  {centros.map(c => (
-                    <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {rateando ? (
+                <Button type="button" variant="outline" size="sm" className="w-full justify-start gap-1.5 text-xs text-muted-foreground font-normal"
+                  onClick={() => { setRateando(false); setRateio([]); }}>
+                  <SplitSquareHorizontal className="w-3.5 h-3.5 text-gold shrink-0" />
+                  Rateado — desfazer
+                </Button>
+              ) : (
+                <Select value={centroCustoId} onValueChange={setCentroCustoId}>
+                  <SelectTrigger><SelectValue placeholder="(opcional)" /></SelectTrigger>
+                  <SelectContent>
+                    {centros.map(c => (
+                      <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
           </div>
+
+          {!rateando && (
+            <button type="button"
+              onClick={() => { setRateando(true); setRateio([{ chave: crypto.randomUUID(), centroCustoId: centroCustoId || "", percentual: 100 }]); }}
+              className="text-xs text-muted-foreground hover:text-foreground underline decoration-dotted underline-offset-2 -mt-2 flex items-center gap-1">
+              <SplitSquareHorizontal className="w-3 h-3" /> Dividir este valor entre vários centros de custo
+            </button>
+          )}
+
+          {/* ── Rateio ─────────────────────────────────────────────────────
+              Item 3 do roadmap do ERP financeiro: uma conta que serve mais
+              de um ministério (a luz do prédio, por exemplo) dividida por
+              percentual. `fin_lancamento_rateio` existia desde sempre, zero
+              linhas, nenhuma tela — até aqui. */}
+          {rateando && (
+            <div className="space-y-2 rounded-md border border-gold/30 bg-muted/20 p-3">
+              <div className="flex items-center justify-between">
+                <Label className="flex items-center gap-1.5">
+                  <SplitSquareHorizontal className="w-3.5 h-3.5 text-gold" /> Ratear entre centros
+                </Label>
+                <span className={`text-xs tabular-nums font-medium ${Math.abs(totalPercentualRateio - 100) < 0.01 ? "text-success-text" : "text-warning-text"}`}>
+                  {totalPercentualRateio.toFixed(1)}% de 100%
+                </span>
+              </div>
+              <div className="space-y-1.5">
+                {rateio.map(r => (
+                  <div key={r.chave} className="flex items-center gap-1.5">
+                    <Select value={r.centroCustoId} onValueChange={(v) => mudarLinhaRateio(r.chave, { centroCustoId: v })}>
+                      <SelectTrigger className="flex-1 h-8 text-xs"><SelectValue placeholder="Centro" /></SelectTrigger>
+                      <SelectContent>
+                        {centros.map(c => (
+                          <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Input type="number" min={0} max={100} step="0.1" value={r.percentual || ""}
+                      onChange={(e) => mudarLinhaRateio(r.chave, { percentual: Number(e.target.value) })}
+                      className="w-16 h-8 text-xs" placeholder="%" />
+                    <span className="text-xs text-muted-foreground tabular-nums w-20 shrink-0 text-right">
+                      {valor > 0 ? brl(valor * ((r.percentual || 0) / 100)) : "—"}
+                    </span>
+                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive shrink-0"
+                      onClick={() => removeLinhaRateio(r.chave)}>
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              <Button type="button" variant="outline" size="sm" className="gap-1.5 text-xs h-7" onClick={addLinhaRateio}>
+                <Plus className="w-3 h-3" /> Adicionar centro
+              </Button>
+            </div>
+          )}
 
           <div>
             <Label>Descrição</Label>
@@ -492,7 +624,7 @@ export function LancamentoForm({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={busy}
+            <Button type="submit" disabled={busy || (rateando && !rateioValido)}
               className={tipo === "entrada" ? "bg-success hover:bg-success text-white" : "bg-destructive hover:bg-destructive text-white"}>
               {busy ? "..." : (isEdit ? "Salvar" : "Registrar")}
             </Button>

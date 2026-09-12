@@ -62,6 +62,25 @@ export interface FinCentroCusto {
   ativo: boolean;
 }
 
+// Um lançamento que serve mais de um centro (a conta de luz do prédio,
+// dividida entre os ministérios que usam o espaço) — `fin_lancamento_rateio`
+// existia desde sempre, zero linhas, nenhuma tela. `lancamento_id` continua
+// tendo o CENTRO PRINCIPAL em `fin_lancamentos.centro_custo_id` (o de maior
+// percentual) — os relatórios por centro que já existem (Prestação de
+// Contas, Top 5 da Visão Executiva, `vw_fin_centros_resumo`) somam por essa
+// coluna, e nenhum deles foi refeito para ler o rateio. Fazer isso é
+// trabalho à parte — listado no roadmap — porque envolve reescrever RPC/
+// view que já rodam em produção, não só a tela de lançar.
+export interface FinLancamentoRateio {
+  id: string;
+  lancamento_id: string;
+  centro_custo_id: string;
+  centro_nome?: string;
+  percentual: number;
+  valor: number;
+  observacao: string | null;
+}
+
 export interface FinFornecedor {
   id: string;
   nome: string;
@@ -196,6 +215,56 @@ export async function criarCentroCusto(input: Partial<FinCentroCusto>): Promise<
   const { data, error } = await supabase.from("fin_centros_custo").insert(input as any).select("*").single();
   if (error) throw error;
   return data as FinCentroCusto;
+}
+
+// ─── Rateio entre centros de custo ──────────────────────────────────────
+export async function listarRateio(lancamentoId: string): Promise<FinLancamentoRateio[]> {
+  const { data, error } = await supabase
+    .from("fin_lancamento_rateio")
+    .select("id, lancamento_id, centro_custo_id, percentual, valor, observacao")
+    .eq("lancamento_id", lancamentoId);
+  if (error) throw error;
+  const rows = (data ?? []) as FinLancamentoRateio[];
+  if (rows.length === 0) return rows;
+
+  const ccIds = Array.from(new Set(rows.map(r => r.centro_custo_id)));
+  const { data: ccs } = await supabase.from("fin_centros_custo").select("id, nome").in("id", ccIds);
+  const mCC = new Map((ccs ?? []).map((c: any) => [c.id, c.nome]));
+  return rows.map(r => ({ ...r, centro_nome: mCC.get(r.centro_custo_id) }));
+}
+
+/**
+ * Substitui o rateio inteiro de um lançamento pelos itens dados —
+ * apaga o que existia e grava de novo, mais simples que tentar casar
+ * linha a linha, e o volume por lançamento é sempre pequeno (poucos
+ * centros). `itens` já vem com `percentual` conferido em 100% pela tela;
+ * esta função não reconfere, só grava.
+ */
+// Sem `conferir()` de propósito: apagar o rateio ANTERIOR de um lançamento
+// que nunca teve rateio é 0 linhas de verdade, não RLS barrando — a mesma
+// categoria de UPDATE/DELETE em massa que `escritaConferida.ts` documenta
+// como ambígua (0 pode ser "nada pra apagar" ou "bloqueado"), então não
+// entra no padrão. O INSERT que vem depois, esse sim, falha alto se a RLS
+// barrar (erro de verdade, não sucesso silencioso).
+export async function salvarRateio(
+  lancamentoId: string,
+  itens: { centroCustoId: string; percentual: number; valor: number; observacao?: string }[],
+): Promise<void> {
+  const { error: delError } = await supabase.from("fin_lancamento_rateio").delete().eq("lancamento_id", lancamentoId);
+  if (delError) throw delError;
+
+  if (itens.length === 0) return; // rateio removido — lançamento volta a ter um centro só
+
+  const { error } = await supabase.from("fin_lancamento_rateio").insert(
+    itens.map(i => ({
+      lancamento_id: lancamentoId,
+      centro_custo_id: i.centroCustoId,
+      percentual: i.percentual,
+      valor: i.valor,
+      observacao: i.observacao ?? null,
+    })),
+  );
+  if (error) throw error;
 }
 
 // ─── Fornecedores ────────────────────────────────────────────────────────
