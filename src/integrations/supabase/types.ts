@@ -4852,6 +4852,72 @@ export type Database = {
           },
         ]
       }
+      fin_fechamentos_periodo: {
+        Row: {
+          ano_inicio: number
+          aprovado_em: string | null
+          aprovado_por: string | null
+          created_at: string
+          fechado_em: string | null
+          fechado_por: string | null
+          id: string
+          mes_inicio: number
+          observacao_geral: string | null
+          qtd_meses: number
+          saldo_anterior: number | null
+          saldo_final: number | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          ano_inicio: number
+          aprovado_em?: string | null
+          aprovado_por?: string | null
+          created_at?: string
+          fechado_em?: string | null
+          fechado_por?: string | null
+          id?: string
+          mes_inicio: number
+          observacao_geral?: string | null
+          qtd_meses: number
+          saldo_anterior?: number | null
+          saldo_final?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          ano_inicio?: number
+          aprovado_em?: string | null
+          aprovado_por?: string | null
+          created_at?: string
+          fechado_em?: string | null
+          fechado_por?: string | null
+          id?: string
+          mes_inicio?: number
+          observacao_geral?: string | null
+          qtd_meses?: number
+          saldo_anterior?: number | null
+          saldo_final?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_fechamentos_periodo_aprovado_por_fkey"
+            columns: ["aprovado_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_fechamentos_periodo_fechado_por_fkey"
+            columns: ["fechado_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fin_folha_competencias: {
         Row: {
           ano: number
@@ -5157,6 +5223,7 @@ export type Database = {
           descricao: string | null
           documento_numero: string | null
           familia_id: string | null
+          fechamento_id: string | null
           forma_pagamento:
             | Database["public"]["Enums"]["fin_forma_pagamento"]
             | null
@@ -5185,6 +5252,7 @@ export type Database = {
           descricao?: string | null
           documento_numero?: string | null
           familia_id?: string | null
+          fechamento_id?: string | null
           forma_pagamento?:
             | Database["public"]["Enums"]["fin_forma_pagamento"]
             | null
@@ -5213,6 +5281,7 @@ export type Database = {
           descricao?: string | null
           documento_numero?: string | null
           familia_id?: string | null
+          fechamento_id?: string | null
           forma_pagamento?:
             | Database["public"]["Enums"]["fin_forma_pagamento"]
             | null
@@ -5261,6 +5330,13 @@ export type Database = {
             columns: ["conta_id"]
             isOneToOne: false
             referencedRelation: "fin_contas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_lancamentos_fechamento_id_fkey"
+            columns: ["fechamento_id"]
+            isOneToOne: false
+            referencedRelation: "fin_fechamentos_periodo"
             referencedColumns: ["id"]
           },
           {
@@ -12956,6 +13032,10 @@ export type Database = {
           variacao_pct: number
         }[]
       }
+      fin_aprovar_periodo: {
+        Args: { p_fechamento_id: string }
+        Returns: undefined
+      }
       fin_calc_proxima_data: {
         Args: {
           p_dia: number
@@ -13015,6 +13095,10 @@ export type Database = {
         }[]
       }
       fin_exec_saldo_consolidado: { Args: never; Returns: Json }
+      fin_fechar_periodo: {
+        Args: { p_fechamento_id: string }
+        Returns: undefined
+      }
       fin_gerar_recorrencias: {
         Args: { p_ate_data?: string; p_recorrencia_id?: string }
         Returns: number
@@ -13033,6 +13117,10 @@ export type Database = {
           saldo_projetado_60d: number
           saldo_projetado_90d: number
         }[]
+      }
+      fin_reabrir_periodo: {
+        Args: { p_fechamento_id: string; p_motivo: string }
+        Returns: undefined
       }
       fin_recalc_saldo_conta: {
         Args: { p_conta_id: string }

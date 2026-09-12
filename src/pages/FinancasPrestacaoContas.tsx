@@ -16,18 +16,36 @@ import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   ArrowLeft, ChevronLeft, ChevronRight, MessageSquare, MessageSquarePlus,
-  AlertTriangle, ScrollText, Minus, Plus,
+  AlertTriangle, ScrollText, Minus, Plus, Lock, LockOpen, ShieldCheck, Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { brl } from "@/services/finService";
 import {
   gerarPrestacaoContas, type PrestacaoContasResultado, type PrestacaoContasGrupo,
 } from "@/services/prestacaoContasService";
+import {
+  buscarFechamento, fecharPeriodo, aprovarPeriodo, reabrirPeriodo,
+  type FinFechamentoPeriodo,
+} from "@/services/fechamentoPeriodoService";
 import { NotaRelatorioModal } from "@/components/financas/NotaRelatorioModal";
 import { PaginaSkeleton } from "@/components/ListState";
 import { hojeLocal, daquiAMeses } from "@/lib/data";
+import { useAuth } from "@/hooks/useAuth";
+
+const STATUS_FECHAMENTO_LABEL: Record<string, string> = {
+  aberto: "Aberto", em_revisao: "Em revisão", fechado: "Fechado", aprovado: "Aprovado",
+};
 
 const NOME_MES_ABREV = [
   "", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez",
@@ -46,6 +64,8 @@ function periodoAtual(): { ano: number; mes: number } {
 }
 
 export default function FinancasPrestacaoContas() {
+  const { hasRole } = useAuth();
+  const souAdmin = hasRole("admin");
   const [searchParams, setSearchParams] = useSearchParams();
   const padrao = periodoAtual();
   const ano = Number(searchParams.get("ano")) || padrao.ano;
@@ -53,7 +73,12 @@ export default function FinancasPrestacaoContas() {
   const qtdMeses = Math.min(24, Math.max(1, Number(searchParams.get("qtd")) || 1));
 
   const [dados, setDados] = useState<PrestacaoContasResultado | null>(null);
+  const [fechamento, setFechamento] = useState<FinFechamentoPeriodo | null>(null);
   const [loading, setLoading] = useState(true);
+  const [processando, setProcessando] = useState(false);
+  const [confirmandoFechar, setConfirmandoFechar] = useState(false);
+  const [reabrindo, setReabrindo] = useState(false);
+  const [motivoReabertura, setMotivoReabertura] = useState("");
   const [nota, setNota] = useState<{
     aberto: boolean; titulo: string; categoriaId: string; centroCustoId: string | null;
   }>({ aberto: false, titulo: "", categoriaId: "", centroCustoId: null });
@@ -61,11 +86,60 @@ export default function FinancasPrestacaoContas() {
   async function carregar() {
     setLoading(true);
     try {
-      setDados(await gerarPrestacaoContas(ano, mes, qtdMeses));
+      const [resultado, fech] = await Promise.all([
+        gerarPrestacaoContas(ano, mes, qtdMeses),
+        buscarFechamento(ano, mes, qtdMeses),
+      ]);
+      setDados(resultado);
+      setFechamento(fech);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro ao gerar a prestação de contas.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function onFechar() {
+    setProcessando(true);
+    try {
+      await fecharPeriodo(ano, mes, qtdMeses);
+      toast.success("Período fechado — lançamentos travados para edição.");
+      setConfirmandoFechar(false);
+      await carregar();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível fechar o período.");
+    } finally {
+      setProcessando(false);
+    }
+  }
+
+  async function onAprovar() {
+    if (!fechamento) return;
+    setProcessando(true);
+    try {
+      await aprovarPeriodo(fechamento.id);
+      toast.success("Período aprovado.");
+      await carregar();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível aprovar o período.");
+    } finally {
+      setProcessando(false);
+    }
+  }
+
+  async function onReabrir() {
+    if (!fechamento || !motivoReabertura.trim()) return;
+    setProcessando(true);
+    try {
+      await reabrirPeriodo(fechamento.id, motivoReabertura.trim());
+      toast.success("Período reaberto.");
+      setReabrindo(false);
+      setMotivoReabertura("");
+      await carregar();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível reabrir o período.");
+    } finally {
+      setProcessando(false);
     }
   }
 
@@ -151,6 +225,49 @@ export default function FinancasPrestacaoContas() {
         </div>
       </div>
 
+      {/* Fechamento do período — Fase 6. "Trimestral" não é o formato do
+          fechamento, é só a largura escolhida acima; o fechamento é sempre
+          do período exato que está na tela (ano, mês inicial, qtd meses). */}
+      <Card>
+        <CardContent className="py-3 px-4 flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <StatusIcone status={fechamento?.status ?? "aberto"} />
+            <div>
+              <Badge variant="outline" className={CLASSE_BADGE[fechamento?.status ?? "aberto"]}>
+                {STATUS_FECHAMENTO_LABEL[fechamento?.status ?? "aberto"]}
+              </Badge>
+              {fechamento?.status === "fechado" || fechamento?.status === "aprovado" ? (
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Lançamentos deste período estão travados para edição.
+                  {fechamento.fechado_em && ` Fechado em ${new Date(fechamento.fechado_em).toLocaleDateString("pt-BR")}.`}
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Lançamentos ainda podem ser editados. Fechar trava tudo que estiver realizado/conciliado neste período.
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5">
+            {(!fechamento || fechamento.status === "aberto" || fechamento.status === "em_revisao") && (
+              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setConfirmandoFechar(true)}>
+                <Lock className="w-3.5 h-3.5" /> Fechar período
+              </Button>
+            )}
+            {fechamento?.status === "fechado" && souAdmin && (
+              <Button size="sm" className="gap-1.5 bg-gold hover:bg-gold/90 text-white" onClick={onAprovar} disabled={processando}>
+                <ShieldCheck className="w-3.5 h-3.5" /> Aprovar
+              </Button>
+            )}
+            {(fechamento?.status === "fechado" || fechamento?.status === "aprovado") && souAdmin && (
+              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setReabrindo(true)}>
+                <LockOpen className="w-3.5 h-3.5" /> Reabrir
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       {dados.qtdForaDoPlanoOficial > 0 && (
         <Card className="border-warning-line bg-warning-soft">
           <CardContent className="py-2.5 px-4 flex items-center gap-2 text-xs text-warning-text">
@@ -229,9 +346,68 @@ export default function FinancasPrestacaoContas() {
         centroCustoId={nota.centroCustoId}
         onSalvo={carregar}
       />
+
+      <AlertDialog open={confirmandoFechar} onOpenChange={(v) => !processando && setConfirmandoFechar(v)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Fechar {rotuloPeriodo}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Todo lançamento realizado ou conciliado deste período trava para edição e exclusão.
+              Isso pode ser desfeito depois (um administrador pode reabrir, com motivo registrado),
+              mas não é o passo de todo dia — feche quando o período estiver revisado.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={processando}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={onFechar} disabled={processando} className="gap-1.5">
+              {processando && <Loader2 className="w-3.5 h-3.5 animate-spin" />} Fechar período
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reabrir pede motivo, por isso é Dialog e não AlertDialog — mesmo padrão de FinancasAgenda.tsx */}
+      <Dialog open={reabrindo} onOpenChange={(v) => { if (!processando) { setReabrindo(v); if (!v) setMotivoReabertura(""); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reabrir {rotuloPeriodo}</DialogTitle>
+            <DialogDescription>
+              Destrava os lançamentos deste período para edição. O motivo fica registrado no
+              histórico do fechamento, com data e hora.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={motivoReabertura}
+            onChange={(e) => setMotivoReabertura(e.target.value)}
+            placeholder="Por que este período está sendo reaberto?"
+            rows={3}
+            autoFocus
+          />
+          <DialogFooter>
+            <Button variant="outline" disabled={processando} onClick={() => { setReabrindo(false); setMotivoReabertura(""); }}>
+              Cancelar
+            </Button>
+            <Button disabled={processando || !motivoReabertura.trim()} onClick={onReabrir} className="gap-1.5">
+              {processando && <Loader2 className="w-3.5 h-3.5 animate-spin" />} Reabrir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
+function StatusIcone({ status }: { status: string }) {
+  if (status === "fechado" || status === "aprovado") return <Lock className="w-4 h-4 text-warning-text shrink-0" />;
+  return <LockOpen className="w-4 h-4 text-muted-foreground shrink-0" />;
+}
+
+const CLASSE_BADGE: Record<string, string> = {
+  aberto: "bg-muted text-muted-foreground border-border",
+  em_revisao: "bg-info-soft text-info-text border-info-line",
+  fechado: "bg-warning-soft text-warning-text border-warning-line",
+  aprovado: "bg-success-soft text-success-text border-success-line",
+};
 
 function LinhaSecao({ titulo }: { titulo: string }) {
   return (
