@@ -247,12 +247,25 @@ function Stat({ icon, label, valor, destaque }: { icon: JSX.Element; label: stri
   );
 }
 
+// Achado em 12/09/2026 (a Telma clicou e nada aconteceu): este componente
+// recebia `to` mas nunca virava `<Link>` — era um `<div>` com estilo de
+// hover/cursor-pointer só de mentira, nos 12 atalhos da tela, desde antes
+// desta sessão. `disabled` continua renderizando `<div>` (não faz sentido
+// navegar pra rota "Em breve"); o resto agora é `<Link>` de verdade.
 function Atalho({ to, icon, label, disabled }: { to: string; icon: JSX.Element; label: string; disabled?: boolean }) {
-  return (
-    <div className={`border rounded-md p-3 flex items-center gap-2 ${disabled ? "opacity-50" : "hover:bg-muted/40 cursor-pointer"}`}>
+  const conteudo = (
+    <>
       {icon}
       <span className="text-xs font-medium">{label}</span>
       {disabled && <Badge variant="outline" className="text-xs ml-auto">Em breve</Badge>}
-    </div>
+    </>
+  );
+  if (disabled) {
+    return <div className="border rounded-md p-3 flex items-center gap-2 opacity-50">{conteudo}</div>;
+  }
+  return (
+    <Link to={to} className="border rounded-md p-3 flex items-center gap-2 hover:bg-muted/40 cursor-pointer">
+      {conteudo}
+    </Link>
   );
 }
