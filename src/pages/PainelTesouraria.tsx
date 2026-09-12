@@ -68,7 +68,9 @@ import {
   Indicador, FaixaDeIndicadores, TituloDaSecao, irParaSecao, formatarAtualizadoHa,
 } from "@/components/painel/blocos";
 import { carregarResumoFiscal, type ResumoFiscalDashboard } from "@/services/fiscalService";
-import { brl, type FinVencimento, type FinAlertaCentro } from "@/services/finService";
+import {
+  brl, resumoFinanceiroMes, type FinVencimento, type FinAlertaCentro, type FinResumoMes,
+} from "@/services/finService";
 import {
   listarCaixasAbertos, formatarTempoAberto, caixaEhUrgente, type CaixaAberto,
   listarPendencias, type PendenciaLancamento, DIAS_JANELA_COMPROVANTE,
@@ -83,6 +85,12 @@ import { ROLES_DOADORES, ROLES_PASTORAL_SEM_TITULAR } from "@/components/layout/
 export default function PainelTesouraria() {
   const { hasRole } = useAuth();
   const [fiscal, setFiscal] = useState<ResumoFiscalDashboard | null>(null);
+  // A pergunta que faltava responder: "o painel reflete o módulo
+  // financeiro?" — não, ele só mostrava contagem de PROBLEMA (fiscal,
+  // caixa, pendência, alerta). Zero número de dinheiro. Achado em
+  // 12/09/2026: `resumoFinanceiroMes()` já existe, já alimenta os cards
+  // de `/financas` — só nunca tinha sido chamado aqui.
+  const [resumo, setResumo] = useState<FinResumoMes | null>(null);
   const [caixas, setCaixas] = useState<CaixaAberto[]>([]);
   const [pendencias, setPendencias] = useState<PendenciaLancamento[]>([]);
   const [vencimentos, setVencimentos] = useState<FinVencimento[]>([]);
@@ -98,8 +106,9 @@ export default function PainelTesouraria() {
     setCarregando(true);
     setErro(null);
     try {
-      const [f, c, p, v, a, al, d] = await Promise.all([
+      const [f, r, c, p, v, a, al, d] = await Promise.all([
         carregarResumoFiscal(),
+        resumoFinanceiroMes(),
         listarCaixasAbertos(),
         listarPendencias(),
         listarVencimentosDaSemana(),
@@ -111,6 +120,7 @@ export default function PainelTesouraria() {
         carregarCruzamentoDiaconia().catch(() => null),
       ]);
       setFiscal(f);
+      setResumo(r);
       setCaixas(c);
       setPendencias(p);
       setVencimentos(v);
@@ -224,6 +234,40 @@ export default function PainelTesouraria() {
 
       {fiscal && (
         <>
+          {/* ── Saldo e movimento ─────────────────────────────────────────
+              A primeira coisa que faltava: nenhum número de dinheiro no
+              painel inteiro, só contagem de problema. `resumoFinanceiroMes()`
+              já existia e já alimentava os cards de `/financas` — reaproveitado
+              aqui, não recalculado. */}
+          {resumo && (
+            <section className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              <div className="rounded-md border border-gold/40 bg-gold/5 p-2.5">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                  <Wallet className="w-3.5 h-3.5 text-gold" /> Saldo total
+                </p>
+                <p className="font-semibold tabular-nums mt-0.5 text-xl text-gold">{brl(resumo.saldo_total)}</p>
+              </div>
+              <div className="rounded-md border p-2.5">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                  <TrendingUp className="w-3.5 h-3.5 text-success-text" /> Entradas do mês
+                </p>
+                <p className="font-semibold tabular-nums mt-0.5 text-lg">{brl(resumo.entradas_mes)}</p>
+              </div>
+              <div className="rounded-md border p-2.5">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                  <TrendingDown className="w-3.5 h-3.5 text-destructive-text" /> Saídas do mês
+                </p>
+                <p className="font-semibold tabular-nums mt-0.5 text-lg">{brl(resumo.saidas_mes)}</p>
+              </div>
+              <div className="rounded-md border p-2.5">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                  <CalendarClock className="w-3.5 h-3.5 text-warning-text" /> Previstas (mês)
+                </p>
+                <p className="font-semibold tabular-nums mt-0.5 text-lg">{brl(resumo.previstas_mes)}</p>
+              </div>
+            </section>
+          )}
+
           {/* ── Ações rápidas ──────────────────────────────────────────────
               Sprint 3. Não vêm de `quickActionsRegistry.tsx` — medido ao
               construir este bloco: o único consumidor daquele registry é
