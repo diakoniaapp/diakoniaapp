@@ -60,13 +60,17 @@ export function LancamentoForm({
   const [data, setData] = useState(hojeLocal());
   const [valor, setValor] = useState<number>(0);
   const [contaId, setContaId] = useState<string>("");
-  // Com `contaTravada`, a conta não depende do state (que só é setado
-  // dentro de um `useEffect`, um passo depois do primeiro render) — usa
-  // `contaIdPadrao` direto, sempre disponível de cara. Evita qualquer
-  // corrida entre "o effect ainda não rodou" e "a pessoa já pode clicar
-  // Salvar", o que travaria com "Selecione a conta" numa conta que já
-  // estava certa na tela.
-  const contaIdEfetivo = (contaTravada && contaIdPadrao) ? contaIdPadrao : contaId;
+  // A conta não depende só do state (que só é setado dentro de um
+  // `useEffect`, um passo depois do primeiro render) — cai pra
+  // `contaIdPadrao` direto quando o state ainda não pegou, o que é
+  // sempre disponível de cara. Achado ao vivo em 12/09/2026: o botão
+  // "Novo lançamento" de dentro de uma conta abria o campo "Conta"
+  // mostrando "Selecione" em vez da conta certa, mesmo com
+  // `contaIdPadrao` correto — o mesmo bug que motivou `contaTravada`,
+  // só que sem trava nenhuma. `||` nunca sobrepõe uma escolha real: uma
+  // vez que a pessoa seleciona algo, `contaId` deixa de ser "" e passa a
+  // valer sozinho.
+  const contaIdEfetivo = (contaTravada && contaIdPadrao) ? contaIdPadrao : (contaId || contaIdPadrao || "");
   const [categoriaId, setCategoriaId] = useState<string>("");
   const [centroCustoId, setCentroCustoId] = useState<string>("");
   const [fornecedorBusca, setFornecedorBusca] = useState("");
@@ -377,7 +381,7 @@ export function LancamentoForm({
                 {contaNomeTravado ?? "—"}
               </div>
             ) : (
-              <Select value={contaId} onValueChange={setContaId}>
+              <Select value={contaIdEfetivo} onValueChange={setContaId}>
                 <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
                   {contas.map(c => (
