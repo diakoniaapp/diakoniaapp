@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import {
 } from "recharts";
 import {
   Briefcase, Loader2, Printer, TrendingUp, TrendingDown, Wallet,
-  AlertCircle, AlertTriangle, ChevronRight, Building, Sparkles, Heart,
+  AlertCircle, AlertTriangle, ChevronRight, Building, Sparkles, Heart, Target,
 } from "lucide-react";
 import {
   buscarSaldoConsolidado, buscarFluxo12m, buscarCentrosAno,
@@ -66,6 +66,25 @@ export default function DashboardExecutivo() {
     });
   }, []);
 
+  // ── Orçamento × Realizado, consolidado ────────────────────────────────
+  //
+  // Pedido explícito da missão do ERP financeiro: "Dashboard Executivo
+  // Financeiro" precisa mostrar "Orçamento x Realizado", e não mostrava —
+  // só o "Top 5 centros de custo" trazia orçado/realizado, um por um, sem
+  // nenhum total. `centros` já chega com `orcado` e `realizado` de TODOS
+  // os centros do ano (o componente só EXIBE os 5 primeiros) — soma-los
+  // aqui não pede RPC nova nem consulta a mais, só ler o que já está na
+  // tela. Centro sem orçamento definido (`orcado === 0`) entra na soma de
+  // `realizado` mas não distorce o percentual: sem denominador, não há
+  // "consumido" para calcular.
+  const orcamentoConsolidado = useMemo(() => {
+    const comOrcamento = centros.filter(c => c.orcado > 0);
+    const totalOrcado = comOrcamento.reduce((s, c) => s + c.orcado, 0);
+    const totalRealizado = comOrcamento.reduce((s, c) => s + c.realizado, 0);
+    const percentual = totalOrcado > 0 ? (totalRealizado / totalOrcado) * 100 : null;
+    return { totalOrcado, totalRealizado, percentual, qtdCentros: comOrcamento.length };
+  }, [centros]);
+
   if (loading) {
     return (
       <div className="py-12 text-center text-sm text-muted-foreground">
@@ -120,6 +139,62 @@ export default function DashboardExecutivo() {
           variacao={saldo && saldo.previsao_90d < (saldo.previsao_60d || 0) ? "-" : "+"}
         />
       </div>
+
+      {/* ZONA 1B — ORÇAMENTO × REALIZADO, CONSOLIDADO
+          Complementa o "Top 5 centros de custo" da Zona 3: aquele mostra
+          orçado/realizado CENTRO A CENTRO; este soma todos os centros com
+          orçamento definido num número só — "no total, quanto do que foi
+          planejado para o ano já foi gasto". */}
+      <Card>
+        <CardContent className="p-3">
+          <div className="flex items-center gap-2 mb-2">
+            <Target className="w-4 h-4 text-gold shrink-0" />
+            <span className="text-xs uppercase tracking-wide text-muted-foreground">
+              Orçamento do ano × Realizado
+            </span>
+          </div>
+          {orcamentoConsolidado.qtdCentros === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              Nenhum centro de custo com orçamento definido para {new Date().getFullYear()}.
+            </p>
+          ) : (
+            <>
+              <div className="flex items-baseline justify-between gap-2 flex-wrap">
+                <span className="text-lg md:text-xl font-serif font-medium">
+                  {fmtBR(orcamentoConsolidado.totalRealizado)}
+                  <span className="text-sm font-sans text-muted-foreground font-normal">
+                    {" "}de {fmtBR(orcamentoConsolidado.totalOrcado)} planejados
+                  </span>
+                </span>
+                {orcamentoConsolidado.percentual != null && (
+                  <span className={
+                    "text-sm font-semibold tabular-nums " +
+                    (orcamentoConsolidado.percentual >= 100 ? "text-destructive-text" :
+                     orcamentoConsolidado.percentual >= 90 ? "text-warning-text" : "text-success-text")
+                  }>
+                    {orcamentoConsolidado.percentual.toFixed(0)}% consumido
+                  </span>
+                )}
+              </div>
+              <div className="h-2 rounded bg-muted overflow-hidden mt-2">
+                <div
+                  className={
+                    "h-full transition-all " +
+                    ((orcamentoConsolidado.percentual ?? 0) >= 100 ? "bg-destructive" :
+                     (orcamentoConsolidado.percentual ?? 0) >= 90 ? "bg-warning" : "bg-success")
+                  }
+                  style={{ width: `${Math.min(100, orcamentoConsolidado.percentual ?? 0)}%` }}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground mt-1.5">
+                {orcamentoConsolidado.qtdCentros} centro{orcamentoConsolidado.qtdCentros !== 1 ? "s" : ""} de custo
+                com orçamento definido — veja o detalhe por centro em "Top 5 centros de custo",
+                abaixo, ou em <span className="italic">Financeiro → Centros de custo</span>.
+              </p>
+            </>
+          )}
+        </CardContent>
+      </Card>
 
       {/* ZONA 2 — FLUXO DE CAIXA 12 MESES */}
       <Card>
