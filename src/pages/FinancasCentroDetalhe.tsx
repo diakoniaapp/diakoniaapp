@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   ArrowLeft, Layers, Loader2, Calendar, TrendingUp, TrendingDown,
-  Paperclip,
+  Paperclip, FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -102,6 +102,11 @@ export default function FinancasCentroDetalhe() {
             <p className="text-xs text-muted-foreground">Vinculado a: {centro.vinculo_nome}</p>
           )}
         </div>
+        <Button asChild variant="outline" size="sm" className="gap-1.5 shrink-0">
+          <Link to={`/financas/centro/${centroId}/prestacao-contas`}>
+            <FileText className="w-3.5 h-3.5" /> Prestação de contas
+          </Link>
+        </Button>
       </div>
 
       {/* Stats */}

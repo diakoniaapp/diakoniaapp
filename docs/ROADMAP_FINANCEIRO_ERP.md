@@ -92,7 +92,7 @@ Legenda: 🟢 EXISTE (schema + RLS + service + tela, em uso) · 🟡 EXISTE PARC
 | **Conciliação bancária** | botão "Conciliar" existe, **leva para `/financas` genérico** | 🔴 |
 | **Aprovação de despesas** | — | 🔴 → 🟢 nesta entrega (ver Fase 3) |
 | **Doações (tela dedicada)** | — | 🟡 (dado existe, sem tela própria) |
-| **Prestação de contas exportável** | `/financas/centro/:id` mostra o detalhe, mas não gera um documento formal para entregar a um doador/ministério | 🟡 |
+| **Prestação de contas exportável** | `/financas/centro/:id/prestacao-contas` — documento formal, imprimível/PDF/CSV | 🟢 nesta entrega |
 | **DRE Eclesiástica formal** | Visão Executiva cobre o conteúdo, não o formato | 🟡 |
 | **Importação de extrato (OFX/CSV bancário)** | — | 🔴 |
 
@@ -240,7 +240,7 @@ Em ordem de esforço crescente:
 
 | # | Item | Esforço | Reaproveita |
 |---|---|---|---|
-| 1 | **Prestação de contas exportável por centro de custo** — o mesmo padrão de impressão/PDF que já existe em `FinancasRelatorio.tsx` e nos 7 relatórios do sistema, aplicado a `FinancasCentroDetalhe.tsx` | pequeno | padrão de impressão existente, `fin_centros_custo`, `fin_lancamento_rateio` |
+| ~~1~~ | ~~**Prestação de contas exportável por centro de custo**~~ — **FEITO em 12/09/2026**. `FinancasCentroPrestacaoContas.tsx` (`/financas/centro/:id/prestacao-contas`, botão em `FinancasCentroDetalhe.tsx`), mesmo padrão de impressão/PDF dos outros 7 relatórios. Cobre de graça os quatro "Por Ministério/Campanha/Evento/Projeto Social" da missão — são o mesmo relatório sobre o mesmo `fin_centros_custo`, só o `vinculo_tipo` muda o rótulo. Seletor "todo o período" (padrão) ou por ano — um centro de custo não tem data de início/fim guardada. Verificado ao vivo com 3 lançamentos de teste (criados e apagados na sessão): demonstrativo, categorias, tabela e CSV bateram | pequeno | padrão de impressão existente, `fin_centros_custo`, `listarLancamentos` |
 | 2 | **`fin_centro_vinculo` "evento" na UI** — o banco já tem o valor no enum; `FinCentroVinculo` (TS) e `VINCULO_LABEL` não o listam (há um comentário no código explicando por quê — conferir se ainda vale) | pequeno | — |
 | 3 | **Rateio de lançamento entre centros** — `fin_lancamento_rateio` existe, sem tela | médio | tabela pronta |
 | 4 | **Tela "Doações"** — filtro de `fin_lancamentos` por categoria "Dízimo/Oferta/Missões" + `forma_pagamento`, com destaque para as recorrentes (`fin_recorrencias`) | médio | tudo já existe, é composição de tela nova |
