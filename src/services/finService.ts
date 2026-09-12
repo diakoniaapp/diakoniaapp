@@ -7,7 +7,17 @@ export type FinContaTipo = "caixa" | "banco" | "pix" | "envelope" | "cartao" | "
 export type FinMovimentoTipo = "entrada" | "saida";
 export type FinStatus = "previsto" | "realizado" | "conciliado" | "cancelado" | "aguardando_aprovacao";
 export type FinFormaPagamento = "pix" | "dinheiro" | "cartao_debito" | "cartao_credito" | "transferencia" | "boleto" | "envelope" | "outro";
-export type FinCentroVinculo = "ministerio" | "area" | "ebd_classe" | "pgm_grupo" | "campanha" | "geral";
+// O enum `fin_centro_vinculo` no banco TEM "evento" (conferido direto no
+// Postgres em 12/09/2026: `ministerio|area|ebd_classe|pgm_grupo|campanha|
+// geral|evento`) — um comentário antigo em `FinancasCentros.tsx` dizia o
+// contrário. `fin_seed_centros_custo()` é quem povoa `fin_centros_custo`
+// automaticamente, e ela NÃO tem um passo para eventos (só ministérios,
+// áreas, classes EBD, grupos de PGM, campanhas de EBD) — por isso nenhum
+// centro com esse vínculo existe hoje. O tipo aqui reflete o banco, não
+// o que já foi criado; ver o comentário de `VINCULO_LABEL` em
+// `FinancasCentros.tsx` para o que falta de verdade (decidir QUAIS
+// eventos merecem centro de custo próprio — não é todo culto de domingo).
+export type FinCentroVinculo = "ministerio" | "area" | "ebd_classe" | "pgm_grupo" | "campanha" | "geral" | "evento";
 
 export interface FinConta {
   id: string;

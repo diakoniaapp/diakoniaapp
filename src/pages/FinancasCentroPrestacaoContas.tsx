@@ -37,6 +37,7 @@ import { PaginaSkeleton } from "@/components/ListState";
 const VINCULO_LABEL: Record<FinCentroVinculo, string> = {
   ministerio: "Ministério", area: "Área", ebd_classe: "Classe EBD",
   pgm_grupo: "Pequeno Grupo", campanha: "Campanha", geral: "Geral",
+  evento: "Evento",
 };
 
 interface CentroInfo {

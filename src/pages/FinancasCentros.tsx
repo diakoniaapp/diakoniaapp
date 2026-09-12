@@ -21,6 +21,17 @@ import {
   brl, type FinCentroResumo, type FinAlertaCentro, type FinCentroVinculo,
 } from "@/services/finService";
 
+// "Evento" incluído aqui desde 12/09/2026 — o enum do banco TEM esse
+// valor (conferido direto no Postgres), ao contrário do que um
+// comentário antigo deste arquivo dizia. **Nenhum centro com esse
+// vínculo existe ainda**: `fin_seed_centros_custo()` — a única forma de
+// um centro nascer, não há tela de criar manual — não tem passo para
+// eventos. Faltando decidir QUAIS eventos merecem centro de custo
+// próprio antes de estender o seed (não faz sentido um culto de domingo
+// comum virar linha de orçamento; um evento especial — aniversário da
+// igreja, conferência, um mutirão — provavelmente sim). Até essa
+// decisão, o rótulo/cor abaixo só existem para o dia em que alguém
+// criar um centro assim (à mão, via banco) não quebrar a tela.
 const VINCULO_LABEL: Record<FinCentroVinculo, string> = {
   ministerio: "Ministério",
   area: "Área",
@@ -28,6 +39,7 @@ const VINCULO_LABEL: Record<FinCentroVinculo, string> = {
   pgm_grupo: "PGM",
   campanha: "Campanha",
   geral: "Geral",
+  evento: "Evento",
 };
 
 const VINCULO_COR: Record<FinCentroVinculo, string> = {
@@ -35,9 +47,8 @@ const VINCULO_COR: Record<FinCentroVinculo, string> = {
   area:       "bg-info-soft text-info-text border-info-line",
   ebd_classe: "bg-success-soft text-success-text border-success-line",
   pgm_grupo:  "bg-warning-soft text-warning-text border-warning-line",
-  // O enum fin_centro_vinculo não tem "evento" — entradas removidas por serem
-  // inalcançáveis.
   campanha:   "bg-destructive-soft text-destructive-text border-destructive-line",
+  evento:     "bg-celebracao-soft text-celebracao-text border-celebracao-line",
   geral:      "bg-muted text-muted-foreground border-border",
 };
 
