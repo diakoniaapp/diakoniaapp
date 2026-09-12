@@ -92,6 +92,17 @@ export const ROLES_PASTORAL_SEM_TITULAR: AppRole[] = ["admin", "diakonia", "secr
 // mesma linha.
 export const ROLES_FINANCEIRO: AppRole[] = ["admin", "diakonia", "secretaria", "tesouraria"];
 
+// ── DOADOR — quem vê o histórico de contribuição por pessoa ────────────────
+//
+// Mais estreito que `ROLES_FINANCEIRO` de propósito. Pergunta feita à Telma
+// em 12/09/2026 (nota de privacidade do roadmap do ERP financeiro: ligar
+// nome de pessoa a valor doado tem implicação pastoral, não só técnica):
+// resposta literal foi "os tesoureiros e administrador do sistema podem
+// ver tudo sobre as doações". `secretaria` — que enxerga o resto do
+// financeiro — fica de fora aqui; `diakonia` entra pelo mesmo motivo de
+// sempre (é o dono do sistema, vê tudo, não é cargo de igreja).
+export const ROLES_DOADORES: AppRole[] = ["admin", "diakonia", "tesouraria"];
+
 /**
  * Quem enxerga o Painel Pastoral.
  *
@@ -254,6 +265,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: "/financas",           label: "Tesouraria",          icon: DollarSign, allowedRoles: ROLES_FINANCEIRO },
       { to: "/financas/doacoes",   label: "Doações",             icon: HandCoins,  allowedRoles: ROLES_FINANCEIRO },
+      { to: "/financas/doadores",  label: "Doadores",            icon: Users,      allowedRoles: ROLES_DOADORES },
       { to: "/financas/fiscal",    label: "Módulo Fiscal",       icon: DollarSign, allowedRoles: ROLES_FINANCEIRO },
       { to: "/financas/reunioes",  label: "Reuniões financeiras", icon: DollarSign, allowedRoles: ROLES_FINANCEIRO },
       { to: "/financas/executivo", label: "Visão Executiva",     icon: DollarSign, allowedRoles: ROLES_PASTORAL_SEM_TITULAR },
@@ -384,6 +396,7 @@ export const pageTitles: Record<string, string> = {
   "/financas":                "Tesouraria",
   "/financas/executivo":      "Visão Executiva",
   "/financas/dre":            "DRE Eclesiástica",
+  "/financas/doadores":       "Doadores",
   "/arrecadacao":             "Bazar e Cantina",
   "/admin/recuperacao-senha": "Recuperar Senha",
   "/admin/lgpd":              "LGPD",
@@ -441,10 +454,19 @@ export const ROUTE_ROLES: Record<string, AppRole[]> = {
   "/financas/executivo": ROLES_PASTORAL_SEM_TITULAR,
   // Mesma malha da Visão Executiva, de propósito: uma DRE formal é o
   // mesmo tipo de documento — leitura estratégica/pastoral, não operação
-  // do dia a dia de tesouraria. Caminho EXATO como as demais — o
-  // comentário acima ("AS ROTAS QUE NAO TINHAM GUARDA NENHUMA") já
-  // registra que sub-rotas de /financas não herdam guarda por prefixo.
+  // do dia a dia de tesouraria. `papeisExigidosPara()` casa por PREFIXO
+  // (`limpa.startsWith(caminho + "/")`, não só igualdade exata) — o
+  // comentário acima ("AS ROTAS QUE NAO TINHAM GUARDA NENHUMA") descrevia
+  // o estado antes dessa função existir; hoje uma entrada aqui cobre a
+  // rota exata E as sub-rotas dela (ex: "/financas/dre/2026" herda esta
+  // linha), só não sobrepõe uma entrada mais específica que exista.
   "/financas/dre":       ROLES_PASTORAL_SEM_TITULAR,
+  // Nota de privacidade do doador (12/09/2026): "tesoureiros e
+  // administrador do sistema podem ver tudo sobre as doações" — malha
+  // mais estreita que ROLES_FINANCEIRO (sem secretaria), ver o comentário
+  // de ROLES_DOADORES. Cobre "/financas/doadores" e
+  // "/financas/doadores/:pessoaId" pelo mesmo casamento por prefixo.
+  "/financas/doadores":  ROLES_DOADORES,
 
   // ── /admin e /areas ───────────────────────────────────────────────────
   //

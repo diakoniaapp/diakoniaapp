@@ -59,6 +59,8 @@ import FinancasCentroDetalhe from "./pages/FinancasCentroDetalhe.tsx";
 import FinancasCentroPrestacaoContas from "./pages/FinancasCentroPrestacaoContas.tsx";
 import FinancasFolha from "./pages/FinancasFolha.tsx";
 import FinancasDoacoes from "./pages/FinancasDoacoes.tsx";
+import FinancasDoadores from "./pages/FinancasDoadores.tsx";
+import FinancasDoadorDetalhe from "./pages/FinancasDoadorDetalhe.tsx";
 import FinancasFiscal from "./pages/financas/Fiscal.tsx";
 import ReunioesFinanceiras from "./pages/financas/ReunioesFinanceiras.tsx";
 import DashboardExecutivo from "./pages/financas/DashboardExecutivo.tsx";
@@ -181,6 +183,8 @@ const App = () => (
                   <Route path="/financas/recorrencias" element={<FinancasRecorrencias />} />
                   <Route path="/financas/agenda" element={<FinancasAgenda />} />
                   <Route path="/financas/doacoes" element={<FinancasDoacoes />} />
+                  <Route path="/financas/doadores" element={<FinancasDoadores />} />
+                  <Route path="/financas/doadores/:pessoaId" element={<FinancasDoadorDetalhe />} />
                   <Route path="/financas/relatorio" element={<FinancasRelatorio />} />
                   <Route path="/financas/relatorio/:ano/:mes" element={<FinancasRelatorio />} />
                   <Route path="/financas/estoque" element={<FinancasEstoque />} />

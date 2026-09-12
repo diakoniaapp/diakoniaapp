@@ -289,6 +289,7 @@ export interface FiltroLancamento {
   status?: FinStatus;
   categoriaId?: string;
   centroCustoId?: string;
+  pessoaId?: string;
   dataInicio?: string;
   dataFim?: string;
   busca?: string;
@@ -301,6 +302,7 @@ export async function listarLancamentos(filtro: FiltroLancamento = {}): Promise<
   if (filtro.status) q = q.eq("status", filtro.status);
   if (filtro.categoriaId) q = q.eq("categoria_id", filtro.categoriaId);
   if (filtro.centroCustoId) q = q.eq("centro_custo_id", filtro.centroCustoId);
+  if (filtro.pessoaId) q = q.eq("pessoa_id", filtro.pessoaId);
   if (filtro.dataInicio) q = q.gte("data", filtro.dataInicio);
   if (filtro.dataFim) q = q.lte("data", filtro.dataFim);
   if (filtro.busca && filtro.busca.length >= 2) q = q.ilike("descricao", `%${filtro.busca}%`);

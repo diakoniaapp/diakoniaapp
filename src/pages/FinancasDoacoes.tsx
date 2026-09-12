@@ -20,7 +20,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  ArrowLeft, HandCoins, ChevronLeft, ChevronRight, RotateCw,
+  ArrowLeft, HandCoins, ChevronLeft, ChevronRight, RotateCw, Users,
   Smartphone, Banknote, CreditCard, Landmark, FileText, Mail, HelpCircle,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -31,6 +31,8 @@ import {
 } from "@/services/finService";
 import { hojeLocal } from "@/lib/data";
 import { PaginaSkeleton } from "@/components/ListState";
+import { useAuth } from "@/hooks/useAuth";
+import { ROLES_DOADORES } from "@/components/layout/navConfig";
 
 const MESES = [
   "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
@@ -52,6 +54,7 @@ function dataBr(s: string) {
 }
 
 export default function FinancasDoacoes() {
+  const { hasRole } = useAuth();
   const hoje = new Date();
   const [ano, setAno] = useState(hoje.getFullYear());
   const [mes, setMes] = useState(hoje.getMonth() + 1); // 1-12
@@ -126,6 +129,11 @@ export default function FinancasDoacoes() {
             Dízimos, ofertas, campanhas e missões — por forma de pagamento e recorrência
           </p>
         </div>
+        {hasRole(ROLES_DOADORES) && (
+          <Button asChild size="sm" variant="outline" className="gap-1.5">
+            <Link to="/financas/doadores"><Users className="w-3.5 h-3.5" /> Por doador</Link>
+          </Button>
+        )}
         <div className="flex items-center gap-1">
           <Button size="sm" variant="outline" onClick={() => navegarMes(-1)}><ChevronLeft className="w-3.5 h-3.5" /></Button>
           <span className="text-sm font-medium px-2 whitespace-nowrap">{MESES[mes - 1]} {ano}</span>
