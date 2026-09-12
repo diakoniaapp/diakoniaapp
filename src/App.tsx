@@ -62,6 +62,7 @@ import FinancasDoacoes from "./pages/FinancasDoacoes.tsx";
 import FinancasFiscal from "./pages/financas/Fiscal.tsx";
 import ReunioesFinanceiras from "./pages/financas/ReunioesFinanceiras.tsx";
 import DashboardExecutivo from "./pages/financas/DashboardExecutivo.tsx";
+import FinancasDRE from "./pages/FinancasDRE.tsx";
 import ArrecadacaoHome from "./pages/arrecadacao/index.tsx";
 import ArrecadacaoEspacos from "./pages/arrecadacao/Espacos.tsx";
 import ArrecadacaoNovaReserva from "./pages/arrecadacao/NovaReserva.tsx";
@@ -192,6 +193,8 @@ const App = () => (
                   <Route path="/financas/fiscal" element={<FinancasFiscal />} />
                   <Route path="/financas/reunioes" element={<ReunioesFinanceiras />} />
                   <Route path="/financas/executivo" element={<DashboardExecutivo />} />
+                  <Route path="/financas/dre" element={<FinancasDRE />} />
+                  <Route path="/financas/dre/:ano" element={<FinancasDRE />} />
                   <Route path="/arrecadacao" element={<ArrecadacaoHome />} />
                   <Route path="/arrecadacao/espacos" element={<ArrecadacaoEspacos />} />
                   <Route path="/arrecadacao/reservas/nova" element={<ArrecadacaoNovaReserva />} />

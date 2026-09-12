@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import {
 import {
   Briefcase, Loader2, Printer, TrendingUp, TrendingDown, Wallet,
   AlertCircle, AlertTriangle, ChevronRight, Building, Sparkles, Heart, Target,
+  ScrollText,
 } from "lucide-react";
 import {
   buscarSaldoConsolidado, buscarFluxo12m, buscarCentrosAno,
@@ -102,6 +104,9 @@ export default function DashboardExecutivo() {
           <h1 className="font-serif text-xl md:text-2xl">Visão Executiva</h1>
           <p className="text-xs text-muted-foreground">Visão estratégica financeira · {fmtMes()}</p>
         </div>
+        <Button asChild size="sm" variant="outline" className="gap-1.5">
+          <Link to="/financas/dre"><ScrollText className="w-3.5 h-3.5" /> DRE Eclesiástica</Link>
+        </Button>
         <Button size="sm" variant="outline" onClick={() => window.print()} className="gap-1.5">
           <Printer className="w-3.5 h-3.5" /> Imprimir / PDF
         </Button>

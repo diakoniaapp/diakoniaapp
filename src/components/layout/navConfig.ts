@@ -257,6 +257,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: "/financas/fiscal",    label: "Módulo Fiscal",       icon: DollarSign, allowedRoles: ROLES_FINANCEIRO },
       { to: "/financas/reunioes",  label: "Reuniões financeiras", icon: DollarSign, allowedRoles: ROLES_FINANCEIRO },
       { to: "/financas/executivo", label: "Visão Executiva",     icon: DollarSign, allowedRoles: ROLES_PASTORAL_SEM_TITULAR },
+      { to: "/financas/dre",       label: "DRE Eclesiástica",    icon: ScrollText, allowedRoles: ROLES_PASTORAL_SEM_TITULAR },
       // ── BAZAR E CANTINA SÃO DA ADMINISTRAÇÃO ────────────────────────
       //
       // Regra da igreja em 02/09/2026: "Ministério de Administração e Perfil
@@ -382,6 +383,7 @@ export const pageTitles: Record<string, string> = {
   "/assuntos":                "Assuntos",
   "/financas":                "Tesouraria",
   "/financas/executivo":      "Visão Executiva",
+  "/financas/dre":            "DRE Eclesiástica",
   "/arrecadacao":             "Bazar e Cantina",
   "/admin/recuperacao-senha": "Recuperar Senha",
   "/admin/lgpd":              "LGPD",
@@ -437,6 +439,12 @@ export const ROUTE_ROLES: Record<string, AppRole[]> = {
   "/financas/fiscal":    ROLES_FINANCEIRO,
   "/financas/reunioes":  ROLES_FINANCEIRO,
   "/financas/executivo": ROLES_PASTORAL_SEM_TITULAR,
+  // Mesma malha da Visão Executiva, de propósito: uma DRE formal é o
+  // mesmo tipo de documento — leitura estratégica/pastoral, não operação
+  // do dia a dia de tesouraria. Caminho EXATO como as demais — o
+  // comentário acima ("AS ROTAS QUE NAO TINHAM GUARDA NENHUMA") já
+  // registra que sub-rotas de /financas não herdam guarda por prefixo.
+  "/financas/dre":       ROLES_PASTORAL_SEM_TITULAR,
 
   // ── /admin e /areas ───────────────────────────────────────────────────
   //
