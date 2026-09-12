@@ -213,22 +213,19 @@ uma reversão de uma decisão já tomada neste projeto e precisa da Telma.
 
 ### 🔜 Pendente de decisão da Telma antes de eu continuar
 
-1. **"Solicitante" no fluxo de aprovação — quem pode pedir?** A migration
+1. ~~**"Solicitante" no fluxo de aprovação — quem pode pedir?"**~~
+   **RESPONDIDA em 12/09/2026 — NÃO SE APLICA.** A migration
    `20260902210000_lideranca_nao_opera_o_financeiro.sql` fechou de propósito
-   o acesso de `lideranca` a `fin_lancamentos` ("liderança não opera o
-   financeiro"). Um fluxo Solicitante→Tesouraria→Administração→Pastor, do
-   jeito que a missão descreve, **pressupõe que um líder de ministério possa
-   pedir** — o que reabre essa porta. Perguntado em 12/09/2026 (item 8 do
-   roadmap abaixo):
-   - **Cadeia de aprovação: RESPONDIDA.** Solicitante → Tesouraria só
-     (tesouraria aprova/rejeita direto — mesmo grupo que já decide
-     `aguardando_aprovacao` hoje). **Não** é o fluxo de 4 etapas da missão
-     original.
-   - **Quem pode solicitar: AINDA EM ABERTO.** A Telma respondeu "ainda não
-     sei, quero pensar mais" — não construir nada de item 8 até ela voltar
-     com uma resposta (líder de ministério? só quem já opera o financeiro
-     hoje? outro grupo?). A pergunta certa a fazer quando ela retomar é só
-     essa — a cadeia já está decidida.
+   o acesso de `lideranca` a `fin_lancamentos`; o fluxo Solicitante→
+   Tesouraria→Administração→Pastor da missão original pressupunha que um
+   líder de ministério pudesse pedir. A Telma confirmou: "quem opera o
+   módulo financeiro são os tesoureiros e administrador do sistema" — não
+   existe (nem deve existir) um papel "solicitante" separado; liderança de
+   ministério não entra nessa tela, nem pra pedir. A migration que fecha o
+   acesso da liderança **continua certa como está**. Item 8 do roadmap
+   abaixo fica marcado como não aplicável — nenhuma RLS nova, nenhuma
+   tabela nova (`fin_solicitacoes`, achada na auditoria com RLS ligada e
+   zero políticas, continua sem uso — não é este o caso dela).
 2. **Doador — quem vê o extrato de quem deu?** Ver a Nota de Privacidade
    acima.
 3. ~~**Conciliação bancária — qual banco, qual formato?**~~ Respondida em
@@ -258,7 +255,7 @@ Em ordem de esforço crescente:
 | ~~5~~ | ~~**DRE Eclesiástica no formato de demonstração**~~ — **FEITO em 12/09/2026**. `FinancasDRE.tsx` (`/financas/dre`, `/financas/dre/:ano`, no menu Financeiro e com atalho na Visão Executiva) — mesmo padrão de impressão/PDF dos outros relatórios, mas no FORMATO de demonstração (Receitas por grupo → Total → Despesas por grupo → Total → Resultado do Período), não a lista solta "por categoria" que o malote e a prestação de contas já mostram. `dreService.ts` novo: agrupa por NOME de categoria (Contribuições, Campanhas e Eventos, Doações, Receitas Financeiras / Despesas com Pessoal, Administrativas, Instalações, Ministeriais), porque `fin_categorias.conta_contabil` está NULL nas 33 categorias em produção — conferido direto no banco — não havia plano de contas oficial pra reaproveitar, e a Telma não trouxe um modelo de referência (item 4 das decisões pendentes, abaixo). Categoria fora do mapa cai em "Outras" — nunca some da demonstração. Sem migration — é agrupamento em memória sobre `fin_lancamentos`/`fin_categorias` que já existem. Anual (não mensal — o malote já cobre o mês). Acesso restrito a `ROLES_PASTORAL_SEM_TITULAR`, mesma malha da Visão Executiva (documento de leitura estratégica, não operação diária de tesouraria). Verificado ao vivo com 7 lançamentos de teste cobrindo os 7 grupos (4 receita + 3 despesa): cada subtotal de grupo, o total de receitas (R$1.400), total de despesas (R$1.020) e o resultado (+R$380) bateram exatamente; navegação entre anos e estado vazio também testados | médio-alto | `fin_lancamentos`, `fin_categorias` — nenhuma RPC nova |
 | ~~6~~ | ~~**Conciliação manual**~~ — **FEITO em 12/09/2026**. `FinancasConta.tsx`: badge de situação clicável em cada lançamento `realizado`/`conciliado` (alterna direto, sem diálogo — reversível: "bateu com o extrato" ⇄ "desfazer"). Checkbox por linha (só em `realizado`) + botão "Conciliar N" no cabeçalho para conciliar em lote (`conciliarEmLote()`, usa `conferir()`). `finService.ts`: `conciliarLancamento`, `desconciliarLancamento`, `conciliarEmLote` novos — nenhuma migration, só liberam o status `conciliado` que já existia no enum. Verificado ao vivo: toggle individual ida-e-volta confirmado, e o fluxo em lote (selecionar via checkbox → "Conciliar 1" → toast "1 lançamento conciliado" → status muda, checkbox some) | médio | status `conciliado` já existia no enum |
 | ~~7~~ | ~~**Importação de extrato (OFX)**~~ — **FEITO em 12/09/2026**. Extrato real do Bradesco (OFX, exportado 09/09/2026) confirmou o formato: OFX 1.02/SGML, `CHARSET:1252` (Windows-1252 — sem isso, nome com acento vira lixo), `TRNAMT` com vírgula decimal. **Achado no arquivo real**: `DTPOSTED` não é sempre o dia de verdade — o Bradesco agrupa vários dias sob uma única data quando há fim de semana/feriado no meio; o casamento usa uma janela de ±5 dias por causa disso, não igualdade exata. `ofxService.ts` faz o parse e casa cada transação do extrato com um lançamento `realizado` já existente (mesmo tipo, mesmo valor, dentro da janela) — **nunca cria lançamento novo**: categoria e centro de custo são decisão de quem lança, o MEMO do banco não basta pra adivinhar os dois com segurança. `ConciliacaoOFXDialog.tsx` (botão "Importar OFX" em `FinancasConta.tsx`, só em contas `tipo: banco`) mostra o que casou e concilia em lote reaproveitando `conciliarEmLote` do item 6; o que não casou fica listado para lançar/conferir à mão. Sem migration — nenhum FITID é guardado: como só CONCILIA (nunca cria), reimportar um extrato com sobreposição de datas é idempotente por natureza (marcar `conciliado` de novo não faz nada). Limite documentado no código: duas transações de mesmo valor/dia com dois lançamentos iguais no sistema caem em "ambíguo" em vez de casar 1-para-1 — errar para o lado de pedir revisão manual é a escolha certa em dado financeiro. 16 testes automatizados (parse, encoding, casamento, incluindo o caso guloso de duplicata) + verificação à parte contra o arquivo real de produção (156 transações, decodificação correta confirmada, um lançamento de teste casado com a transação certa do banco) — o arquivo real tem nome e valor de doadores de verdade e por isso não virou fixture do repositório | alto | `fin_lancamentos` (`conciliarEmLote`, já existente) — nenhuma migration |
-| 8 | **Fluxo de aprovação multinível** | alto (é decisão de RLS nova) | depende do item 1 da lista de decisões |
+| ~~8~~ | ~~**Fluxo de aprovação multinível**~~ — **NÃO SE APLICA, confirmado em 12/09/2026**. Só tesoureiro e administrador do sistema operam o financeiro da QIBRJ; não existe papel "solicitante" nem líder de ministério pedindo despesa por aqui. A aprovação de um nível já implementada no item "Aprovação de despesas (v1)" (status `aguardando_aprovacao` → tesouraria decide) já é suficiente — nada novo a construir | — | `lideranca_nao_opera_o_financeiro` continua correta como está |
 
 ---
 
