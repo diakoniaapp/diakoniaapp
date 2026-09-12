@@ -1,23 +1,24 @@
-// ─── FinancasPrestacaoContasTrimestral.tsx ───────────────────────────────
+// ─── FinancasPrestacaoContas.tsx ─────────────────────────────────────────
 //
-// Fase 5 do projeto Tesouraria (docs/PROJETO_TESOURARIA_PRESTACAO_CONTAS.md
-// §8.3) — a grade que a tesouraria hoje monta à mão no Excel todo
-// trimestre, gerada ao vivo de `fin_lancamentos` por `prestacaoContasService.
-// gerarPrestacaoContas()`. Somente leitura por enquanto: sem fechamento,
-// sem exportação em PDF (isso é Fase 6 e 7) — o objetivo desta fase é
-// rodar em paralelo com a planilha real por um trimestre e conferir que os
-// números batem, antes de qualquer coisa passar a depender só do sistema.
+// Projeto Tesouraria (docs/PROJETO_TESOURARIA_PRESTACAO_CONTAS.md §8.3) —
+// a grade que a tesouraria hoje monta à mão no Excel, gerada ao vivo de
+// `fin_lancamentos` por `prestacaoContasService.gerarPrestacaoContas()`.
+// Somente leitura por enquanto: sem fechamento formal ainda (Fase 6) e sem
+// exportação em PDF (Fase 7) — o objetivo desta fase é rodar em paralelo
+// com a planilha real e conferir que os números batem.
 //
-// `?ano=` e `?trimestre=` na URL, não parâmetro de rota — mesmo padrão que
-// `Financas.tsx` já usa pra `?lancar=true`, evita a fragilidade de rota
-// com parâmetro opcional no react-router 6.
+// Revisado em 12/09/2026 (pedido explícito): o período é MENSAL por
+// padrão, e "trimestral" é só um preset de largura entre outros (1, 3, 6,
+// 12 meses, ou um número escolhido à mão) — não mais o formato fixo da
+// tela. `?ano=&mes=&qtd=` na URL, não parâmetro de rota — mesmo padrão que
+// `Financas.tsx` já usa pra `?lancar=true`.
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   ArrowLeft, ChevronLeft, ChevronRight, MessageSquare, MessageSquarePlus,
-  AlertTriangle, ScrollText,
+  AlertTriangle, ScrollText, Minus, Plus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { brl } from "@/services/finService";
@@ -26,18 +27,30 @@ import {
 } from "@/services/prestacaoContasService";
 import { NotaRelatorioModal } from "@/components/financas/NotaRelatorioModal";
 import { PaginaSkeleton } from "@/components/ListState";
-import { hojeLocal } from "@/lib/data";
+import { hojeLocal, daquiAMeses } from "@/lib/data";
 
-function trimestreAtual(): { ano: number; trimestre: number } {
+const NOME_MES_ABREV = [
+  "", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez",
+];
+
+const PRESETS_LARGURA = [
+  { qtd: 1, label: "Mensal" },
+  { qtd: 3, label: "Trimestral" },
+  { qtd: 6, label: "Semestral" },
+  { qtd: 12, label: "Anual" },
+];
+
+function periodoAtual(): { ano: number; mes: number } {
   const [ano, mes] = hojeLocal().split("-").map(Number);
-  return { ano, trimestre: Math.ceil(mes / 3) };
+  return { ano, mes };
 }
 
-export default function FinancasPrestacaoContasTrimestral() {
+export default function FinancasPrestacaoContas() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const padrao = trimestreAtual();
+  const padrao = periodoAtual();
   const ano = Number(searchParams.get("ano")) || padrao.ano;
-  const trimestre = Number(searchParams.get("trimestre")) || padrao.trimestre;
+  const mes = Number(searchParams.get("mes")) || padrao.mes;
+  const qtdMeses = Math.min(24, Math.max(1, Number(searchParams.get("qtd")) || 1));
 
   const [dados, setDados] = useState<PrestacaoContasResultado | null>(null);
   const [loading, setLoading] = useState(true);
@@ -48,7 +61,7 @@ export default function FinancasPrestacaoContasTrimestral() {
   async function carregar() {
     setLoading(true);
     try {
-      setDados(await gerarPrestacaoContas(ano, trimestre));
+      setDados(await gerarPrestacaoContas(ano, mes, qtdMeses));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro ao gerar a prestação de contas.");
     } finally {
@@ -56,13 +69,19 @@ export default function FinancasPrestacaoContasTrimestral() {
     }
   }
 
-  useEffect(() => { carregar(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [ano, trimestre]);
+  useEffect(() => { carregar(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [ano, mes, qtdMeses]);
 
-  function irPara(novoAno: number, novoTrimestre: number) {
-    let a = novoAno, t = novoTrimestre;
-    if (t < 1) { t = 4; a -= 1; }
-    if (t > 4) { t = 1; a += 1; }
-    setSearchParams({ ano: String(a), trimestre: String(t) });
+  function atualizarParams(novoAno: number, novoMes: number, novaQtd: number) {
+    setSearchParams({ ano: String(novoAno), mes: String(novoMes), qtd: String(novaQtd) });
+  }
+
+  function deslocarPeriodo(passosDeMes: number) {
+    const [a, m] = daquiAMeses(`${ano}-${String(mes).padStart(2, "0")}-01`, passosDeMes).split("-").map(Number);
+    atualizarParams(a, m, qtdMeses);
+  }
+
+  function mudarLargura(novaQtd: number) {
+    atualizarParams(ano, mes, Math.min(24, Math.max(1, novaQtd)));
   }
 
   function abrirNota(titulo: string, categoriaId: string, centroCustoId: string | null) {
@@ -72,12 +91,20 @@ export default function FinancasPrestacaoContasTrimestral() {
   if (loading) return <PaginaSkeleton />;
   if (!dados) return <div className="p-8 text-center text-muted-foreground">Não foi possível carregar.</div>;
 
+  const primeiro = dados.meses[0];
+  const ultimo = dados.meses[dados.meses.length - 1];
+  const rotuloPeriodo = qtdMeses === 1
+    ? `${primeiro.nome} · ${primeiro.ano}`
+    : primeiro.ano === ultimo.ano
+      ? `${NOME_MES_ABREV[primeiro.numero]}–${NOME_MES_ABREV[ultimo.numero]} · ${primeiro.ano}`
+      : `${NOME_MES_ABREV[primeiro.numero]}/${primeiro.ano}–${NOME_MES_ABREV[ultimo.numero]}/${ultimo.ano}`;
+
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="font-serif text-2xl flex items-center gap-2">
-            <ScrollText className="w-6 h-6 text-gold" /> Prestação de Contas Trimestral
+            <ScrollText className="w-6 h-6 text-gold" /> Prestação de Contas
           </h1>
           <p className="text-xs text-muted-foreground">
             Gerado ao vivo dos lançamentos — mesma estrutura da planilha apresentada à diretoria.
@@ -88,16 +115,40 @@ export default function FinancasPrestacaoContasTrimestral() {
         </Button>
       </div>
 
-      <div className="flex items-center justify-center gap-2">
-        <Button size="sm" variant="outline" onClick={() => irPara(ano, trimestre - 1)}>
-          <ChevronLeft className="w-3.5 h-3.5" />
-        </Button>
-        <span className="text-sm font-medium px-2 min-w-32 text-center">
-          {trimestre}º Trimestre · {ano}
-        </span>
-        <Button size="sm" variant="outline" onClick={() => irPara(ano, trimestre + 1)}>
-          <ChevronRight className="w-3.5 h-3.5" />
-        </Button>
+      {/* Período: desloca de 1 em 1 mês; largura escolhe quantos meses aparecem */}
+      <div className="flex flex-col items-center gap-2">
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={() => deslocarPeriodo(-1)}>
+            <ChevronLeft className="w-3.5 h-3.5" />
+          </Button>
+          <span className="text-sm font-medium px-2 min-w-40 text-center">{rotuloPeriodo}</span>
+          <Button size="sm" variant="outline" onClick={() => deslocarPeriodo(1)}>
+            <ChevronRight className="w-3.5 h-3.5" />
+          </Button>
+        </div>
+
+        <div className="flex items-center gap-1 flex-wrap justify-center">
+          {PRESETS_LARGURA.map(p => (
+            <Button
+              key={p.qtd}
+              size="sm"
+              variant={qtdMeses === p.qtd ? "default" : "outline"}
+              className={qtdMeses === p.qtd ? "bg-gold hover:bg-gold/90 text-white" : ""}
+              onClick={() => mudarLargura(p.qtd)}
+            >
+              {p.label}
+            </Button>
+          ))}
+          <div className="flex items-center gap-0.5 ml-1 border rounded-md">
+            <Button size="sm" variant="ghost" className="px-2" onClick={() => mudarLargura(qtdMeses - 1)} disabled={qtdMeses <= 1}>
+              <Minus className="w-3 h-3" />
+            </Button>
+            <span className="text-xs w-14 text-center tabular-nums">{qtdMeses} {qtdMeses === 1 ? "mês" : "meses"}</span>
+            <Button size="sm" variant="ghost" className="px-2" onClick={() => mudarLargura(qtdMeses + 1)} disabled={qtdMeses >= 24}>
+              <Plus className="w-3 h-3" />
+            </Button>
+          </div>
+        </div>
       </div>
 
       {dados.qtdForaDoPlanoOficial > 0 && (
@@ -105,7 +156,7 @@ export default function FinancasPrestacaoContasTrimestral() {
           <CardContent className="py-2.5 px-4 flex items-center gap-2 text-xs text-warning-text">
             <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
             {dados.qtdForaDoPlanoOficial} lançamento{dados.qtdForaDoPlanoOficial !== 1 ? "s" : ""} do
-            trimestre não {dados.qtdForaDoPlanoOficial !== 1 ? "entraram" : "entrou"} neste relatório —
+            período não {dados.qtdForaDoPlanoOficial !== 1 ? "entraram" : "entrou"} neste relatório —
             sem categoria do Plano de Contas Oficial, ou é transferência entre contas próprias.
           </CardContent>
         </Card>
@@ -113,14 +164,16 @@ export default function FinancasPrestacaoContasTrimestral() {
 
       <Card>
         <CardContent className="p-4 md:p-6 overflow-x-auto">
-          <table className="w-full text-xs border-collapse min-w-[560px]">
+          <table className="w-full text-xs border-collapse" style={{ minWidth: Math.max(560, 220 + dados.meses.length * 100) }}>
             <thead>
               <tr className="border-b border-border/60">
                 <th className="text-left font-medium py-1.5 text-muted-foreground">
                   {dados.qtdLancamentos} lançamento{dados.qtdLancamentos !== 1 ? "s" : ""} realizado{dados.qtdLancamentos !== 1 ? "s" : ""}/conciliado{dados.qtdLancamentos !== 1 ? "s" : ""}
                 </th>
-                {dados.meses.map(m => (
-                  <th key={m.numero} className="text-right font-medium py-1.5 uppercase tracking-wide text-muted-foreground">{m.nome}</th>
+                {dados.meses.map((m, i) => (
+                  <th key={i} className="text-right font-medium py-1.5 uppercase tracking-wide text-muted-foreground whitespace-nowrap">
+                    {m.nome}{m.ano !== dados.meses[0].ano ? `/${m.ano}` : ""}
+                  </th>
                 ))}
               </tr>
             </thead>
@@ -129,7 +182,7 @@ export default function FinancasPrestacaoContasTrimestral() {
 
               <LinhaSecao titulo="Receitas" />
               {dados.gruposReceita.length === 0 ? (
-                <LinhaVazia texto="Sem receitas oficiais no período." />
+                <LinhaVazia texto="Sem receitas oficiais no período." colSpan={dados.meses.length + 1} />
               ) : dados.gruposReceita.map(g => (
                 <Bloco key={g.chave} grupo={g} centroCustoId={null} onNota={abrirNota} corTotal="text-success-text" />
               ))}
@@ -137,7 +190,7 @@ export default function FinancasPrestacaoContasTrimestral() {
 
               <LinhaSecao titulo="Despesas" />
               {dados.gruposDespesaPorCentro.length === 0 ? (
-                <LinhaVazia texto="Sem despesas oficiais no período." />
+                <LinhaVazia texto="Sem despesas oficiais no período." colSpan={dados.meses.length + 1} />
               ) : dados.gruposDespesaPorCentro.map(g => (
                 <Bloco key={g.chave} grupo={g} centroCustoId={g.chave === "__sem_centro__" ? null : g.chave} onNota={abrirNota} corTotal="text-destructive-text" />
               ))}
@@ -170,8 +223,8 @@ export default function FinancasPrestacaoContasTrimestral() {
         open={nota.aberto}
         onOpenChange={(v) => setNota(n => ({ ...n, aberto: v }))}
         titulo={nota.titulo}
-        ano={ano}
-        mes={dados.mesAncoraNota}
+        ano={dados.mesAncoraNota.ano}
+        mes={dados.mesAncoraNota.mes}
         categoriaId={nota.categoriaId}
         centroCustoId={nota.centroCustoId}
         onSalvo={carregar}
@@ -183,15 +236,15 @@ export default function FinancasPrestacaoContasTrimestral() {
 function LinhaSecao({ titulo }: { titulo: string }) {
   return (
     <tr>
-      <td colSpan={4} className="pt-4 pb-1">
+      <td colSpan={99} className="pt-4 pb-1">
         <h3 className="font-serif text-sm text-gold uppercase tracking-wide">{titulo}</h3>
       </td>
     </tr>
   );
 }
 
-function LinhaVazia({ texto }: { texto: string }) {
-  return <tr><td colSpan={4} className="py-1.5 text-muted-foreground italic">{texto}</td></tr>;
+function LinhaVazia({ texto, colSpan }: { texto: string; colSpan: number }) {
+  return <tr><td colSpan={colSpan} className="py-1.5 text-muted-foreground italic">{texto}</td></tr>;
 }
 
 function LinhaTotal({ titulo, valores, destaque, forte, cor }: {
@@ -201,7 +254,7 @@ function LinhaTotal({ titulo, valores, destaque, forte, cor }: {
     <tr className={destaque ? `border-t-2 border-gold/40 font-semibold ${forte ? "text-sm" : ""}` : "text-muted-foreground"}>
       <td className={`py-1.5 ${destaque ? "uppercase tracking-wide" : ""}`}>{titulo}</td>
       {valores.map((v, i) => (
-        <td key={i} className={`py-1.5 text-right tabular-nums ${cor ?? ""}`}>{brl(v)}</td>
+        <td key={i} className={`py-1.5 text-right tabular-nums whitespace-nowrap ${cor ?? ""}`}>{brl(v)}</td>
       ))}
     </tr>
   );
@@ -220,7 +273,7 @@ function Bloco({ grupo, centroCustoId, onNota, corTotal, semSubtotalProprio }: {
         <tr className="border-b border-border/40">
           <td className="py-1 font-medium">{grupo.titulo}</td>
           {grupo.valores.map((v, i) => (
-            <td key={i} className={`py-1 text-right tabular-nums font-medium ${corTotal}`}>{brl(v)}</td>
+            <td key={i} className={`py-1 text-right tabular-nums whitespace-nowrap font-medium ${corTotal}`}>{brl(v)}</td>
           ))}
         </tr>
       )}
@@ -240,7 +293,7 @@ function Bloco({ grupo, centroCustoId, onNota, corTotal, semSubtotalProprio }: {
             </button>
           </td>
           {l.valores.map((v, i) => (
-            <td key={i} className="py-0.5 text-right tabular-nums">{v === 0 ? "—" : brl(v)}</td>
+            <td key={i} className="py-0.5 text-right tabular-nums whitespace-nowrap">{v === 0 ? "—" : brl(v)}</td>
           ))}
         </tr>
       ))}

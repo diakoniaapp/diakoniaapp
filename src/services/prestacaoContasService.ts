@@ -1,11 +1,21 @@
 // ─── prestacaoContasService.ts ───────────────────────────────────────────
 //
-// Fase 5 do projeto Tesouraria (docs/PROJETO_TESOURARIA_PRESTACAO_CONTAS.md
-// §8.3 e §9) — gera ao vivo, de `fin_lancamentos`, a mesma grade que a
-// tesouraria hoje monta à mão no Excel todo trimestre: Saldo Anterior →
-// Receitas (por classificação) → Despesas (por ministério/centro de
-// custo) → Despesas Financeiras → Outras Despesas → Resultado → Saldo
-// Final, três colunas de mês.
+// Projeto Tesouraria (docs/PROJETO_TESOURARIA_PRESTACAO_CONTAS.md §8.3 e
+// §9) — gera ao vivo, de `fin_lancamentos`, a mesma grade que a tesouraria
+// hoje monta à mão no Excel: Saldo Anterior → Receitas (por classificação)
+// → Despesas (por ministério/centro de custo) → Despesas Financeiras →
+// Outras Despesas → Resultado → Saldo Final, uma coluna por mês.
+//
+// ── PERÍODO É UM NÚMERO DE MESES, NÃO "TRIMESTRE" ────────────────────────
+// Revisado em 12/09/2026, por pedido explícito: "não deixar o fechamento
+// por trimestre amarrado, e sim como opção". O relatório é MENSAL por
+// padrão (`qtdMeses = 1`) — quem olha escolhe acrescentar mais meses (2, 3,
+// 6, 12...) a partir de um mês/ano inicial. Trimestre continua existindo,
+// só que como um preset de `qtdMeses = 3` na tela, igual a "semestral" ou
+// "anual" seriam — não como o formato do dado. `gerarPrestacaoContas`
+// nunca soube o que é "trimestre"; a versão anterior só computava errado
+// o mês inicial a partir de um número 1-4. Esta versão recebe o mês
+// inicial direto.
 //
 // ── POR QUE SÓ CATEGORIAS DO PLANO OFICIAL ENTRAM ────────────────────────
 // Só lançamentos cuja categoria tem `classificacao_dre` preenchida somam
@@ -16,19 +26,13 @@
 // contam em `qtdForaDoPlanoOficial` — não somem em silêncio, a tela avisa
 // quantos ficaram fora.
 //
-// ── TRIMESTRE = CALENDÁRIO, NÃO O RECORTE AD-HOC DE 2025 ─────────────────
-// As 4 planilhas de 2025 tinham recortes irregulares (1T e 2T normais,
-// mas "3T" cobria JUL-OUT e "4T" só NOV-DEZ — a igreja emendou meses
-// enquanto punha o relatório em dia). Daqui pra frente, trimestre é
-// calendário fixo (Jan-Mar/Abr-Jun/Jul-Set/Out-Dez) — previsível, e é o
-// que "trimestral" normalmente quer dizer.
-//
-// ── A NOTA POR LINHA FICA NO ÚLTIMO MÊS DO TRIMESTRE ──────────────────────
+// ── A NOTA POR LINHA FICA NO ÚLTIMO MÊS DO PERÍODO ───────────────────────
 // A planilha real tem UMA célula de comentário por linha (categoria dentro
-// de um ministério), cobrindo o trimestre inteiro em texto livre — não uma
+// de um ministério), cobrindo o período inteiro em texto livre — não uma
 // célula por mês. `fin_relatorio_notas` (Fase 4) guarda por mês para ter a
 // flexibilidade se um dia for útil, mas o comportamento replicado aqui é o
-// do Excel: uma nota por linha, ancorada no último mês do trimestre.
+// do Excel: uma nota por linha, ancorada no último mês do período — seja
+// ele de 1 mês ou de 12.
 import { daquiAMeses, daquiADias } from "@/lib/data";
 import {
   listarLancamentos, listarContas, listarCategorias, listarCentrosCusto,
@@ -39,7 +43,7 @@ import { listarNotasDoPeriodo } from "./relatorioNotasService";
 export interface PrestacaoContasLinha {
   categoriaId: string;
   nome: string;
-  valores: number[]; // 3 posições, uma por mês do trimestre
+  valores: number[]; // 1 posição por mês do período, na ordem de `meses`
   total: number;
   temNota: boolean;
 }
@@ -50,13 +54,11 @@ export interface PrestacaoContasGrupo {
   valores: number[];
   total: number;
 }
-export interface PrestacaoContasMes { numero: number; nome: string; }
+export interface PrestacaoContasMes { ano: number; numero: number; nome: string; }
 
 export interface PrestacaoContasResultado {
-  ano: number;
-  trimestre: number;
-  meses: [PrestacaoContasMes, PrestacaoContasMes, PrestacaoContasMes];
-  mesAncoraNota: number; // último mês do trimestre — onde a nota de cada linha vive
+  meses: PrestacaoContasMes[]; // comprimento = qtdMeses pedido
+  mesAncoraNota: { ano: number; mes: number }; // último mês do período — onde a nota de cada linha vive
   saldoAnterior: number[];
   gruposReceita: PrestacaoContasGrupo[];
   totalReceitas: number[];
@@ -80,19 +82,19 @@ const TITULO_CLASSIFICACAO_RECEITA: Record<string, string> = {
   outras_receitas: "Outras Receitas",
 };
 
-function primeiroMesDoTrimestre(trimestre: number): number {
-  return (trimestre - 1) * 3 + 1;
-}
-
 type MapaValores = Map<string, { nome: string; valores: number[] }>;
 
-function acumular(mapa: MapaValores, id: string, nome: string, idx: number, valor: number) {
-  if (!mapa.has(id)) mapa.set(id, { nome, valores: [0, 0, 0] });
+function novaLinha(qtdMeses: number): number[] {
+  return new Array(qtdMeses).fill(0);
+}
+
+function acumular(mapa: MapaValores, id: string, nome: string, idx: number, valor: number, qtdMeses: number) {
+  if (!mapa.has(id)) mapa.set(id, { nome, valores: novaLinha(qtdMeses) });
   mapa.get(id)!.valores[idx] += valor;
 }
 
 function somaMeses(valores: number[]): number {
-  return valores[0] + valores[1] + valores[2];
+  return valores.reduce((s, v) => s + v, 0);
 }
 
 function linhasDoMapa(mapa: MapaValores, notas: Set<string>): PrestacaoContasLinha[] {
@@ -105,12 +107,12 @@ function linhasDoMapa(mapa: MapaValores, notas: Set<string>): PrestacaoContasLin
     .sort((a, b) => Math.abs(b.total) - Math.abs(a.total));
 }
 
-function subtotalPorMes(linhas: PrestacaoContasLinha[]): number[] {
-  return [0, 1, 2].map(i => linhas.reduce((s, l) => s + l.valores[i], 0));
+function subtotalPorMes(linhas: PrestacaoContasLinha[], qtdMeses: number): number[] {
+  return Array.from({ length: qtdMeses }, (_, i) => linhas.reduce((s, l) => s + l.valores[i], 0));
 }
 
-function somaGrupos(grupos: PrestacaoContasGrupo[]): number[] {
-  return [0, 1, 2].map(i => grupos.reduce((s, g) => s + g.valores[i], 0));
+function somaGrupos(grupos: PrestacaoContasGrupo[], qtdMeses: number): number[] {
+  return Array.from({ length: qtdMeses }, (_, i) => grupos.reduce((s, g) => s + g.valores[i], 0));
 }
 
 /** Saldo de todas as contas (ativas e inativas — o histórico não some) no instante imediatamente ANTES de `dataLimiteExclusiva`. */
@@ -120,7 +122,7 @@ async function saldoAcumuladoAntesDe(dataLimiteExclusiva: string): Promise<numbe
 
   // `listarLancamentos` tem teto de 300 linhas (mesma proteção documentada
   // em dreService.gerarDRE) — para o volume de hoje não pesa; se a igreja
-  // acumular mais de 300 lançamentos históricos antes de um trimestre, este
+  // acumular mais de 300 lançamentos históricos antes do período, este
   // saldo passa a truncar e precisa virar uma soma no banco (RPC), não em
   // memória.
   const antes = await listarLancamentos({ dataFim: daquiADias(dataLimiteExclusiva, -1) });
@@ -131,19 +133,33 @@ async function saldoAcumuladoAntesDe(dataLimiteExclusiva: string): Promise<numbe
   return saldoInicial + movimento;
 }
 
-export async function gerarPrestacaoContas(ano: number, trimestre: number): Promise<PrestacaoContasResultado> {
-  const mesIni = primeiroMesDoTrimestre(trimestre);
-  const dataInicio = `${ano}-${String(mesIni).padStart(2, "0")}-01`;
-  const dataFimExclusiva = daquiAMeses(dataInicio, 3);
+/**
+ * @param ano       ano do primeiro mês do período
+ * @param mesInicio 1-12
+ * @param qtdMeses  quantos meses o período tem, a partir de `mesInicio` — 1 (padrão/mensal), 3 (o antigo "trimestre", agora só um preset da tela), 6, 12, ou qualquer outro número que a tesouraria escolher
+ */
+export async function gerarPrestacaoContas(ano: number, mesInicio: number, qtdMeses: number): Promise<PrestacaoContasResultado> {
+  const dataInicio = `${ano}-${String(mesInicio).padStart(2, "0")}-01`;
+  const dataFimExclusiva = daquiAMeses(dataInicio, qtdMeses);
   const dataFim = daquiADias(dataFimExclusiva, -1);
-  const mesAncoraNota = mesIni + 2;
+
+  // Chave "YYYY-MM" por posição — não `mesInicio + i`, porque um período de
+  // vários meses pode atravessar virada de ano (ex.: Nov/2026 + 6 meses
+  // chega em Abr/2027).
+  const mesesChaves = Array.from({ length: qtdMeses }, (_, i) => daquiAMeses(dataInicio, i).slice(0, 7));
+  const meses: PrestacaoContasMes[] = mesesChaves.map(chave => {
+    const [a, m] = chave.split("-").map(Number);
+    return { ano: a, numero: m, nome: NOME_MES[m] };
+  });
+  const ultimoMes = meses[meses.length - 1];
+  const mesAncoraNota = { ano: ultimoMes.ano, mes: ultimoMes.numero };
 
   const [lancsBrutos, categorias, centros, notasDoMesAncora, saldoAnterior] = await Promise.all([
     listarLancamentos({ dataInicio, dataFim }),
     listarCategorias(),
     listarCentrosCusto(),
-    listarNotasDoPeriodo(ano, mesAncoraNota),
-    Promise.all([0, 1, 2].map(i => saldoAcumuladoAntesDe(daquiAMeses(dataInicio, i)))),
+    listarNotasDoPeriodo(mesAncoraNota.ano, mesAncoraNota.mes),
+    Promise.all(mesesChaves.map(chave => saldoAcumuladoAntesDe(`${chave}-01`))),
   ]);
 
   const lancs = lancsBrutos.filter(l => l.status === "realizado" || l.status === "conciliado");
@@ -154,7 +170,7 @@ export async function gerarPrestacaoContas(ano: number, trimestre: number): Prom
     notas.has(`${categoriaId}|${centroCustoId ?? ""}`);
 
   function indiceDoMes(dataYmd: string): number {
-    return Number(dataYmd.slice(5, 7)) - mesIni;
+    return mesesChaves.indexOf(dataYmd.slice(0, 7));
   }
 
   let qtdForaDoPlanoOficial = 0;
@@ -170,14 +186,14 @@ export async function gerarPrestacaoContas(ano: number, trimestre: number): Prom
     const idx = indiceDoMes(l.data);
     const mapa = porClassificacaoReceita.get(cat.classificacao_dre);
     if (!mapa) return; // classificação de despesa numa entrada — inconsistência de dado, ignora sem quebrar a tela
-    acumular(mapa, cat.id, cat.nome, idx, Number(l.valor));
+    acumular(mapa, cat.id, cat.nome, idx, Number(l.valor), qtdMeses);
   });
   const gruposReceita: PrestacaoContasGrupo[] = (["receitas_regulares", "outras_receitas"] as const)
     .map(chave => {
       const linhas = linhasDoMapa(porClassificacaoReceita.get(chave)!, new Set(
         Array.from(porClassificacaoReceita.get(chave)!.keys()).filter(id => temNota(id, null)),
       ));
-      const valores = subtotalPorMes(linhas);
+      const valores = subtotalPorMes(linhas, qtdMeses);
       return { chave, titulo: TITULO_CLASSIFICACAO_RECEITA[chave], linhas, valores, total: somaMeses(valores) };
     })
     .filter(g => g.linhas.length > 0);
@@ -195,13 +211,13 @@ export async function gerarPrestacaoContas(ano: number, trimestre: number): Prom
     const valor = Number(l.valor);
 
     if (cat.classificacao_dre === "despesas_financeiras") {
-      acumular(mapaDespFin, cat.id, cat.nome, idx, valor);
+      acumular(mapaDespFin, cat.id, cat.nome, idx, valor, qtdMeses);
     } else if (cat.classificacao_dre === "outras_despesas") {
-      acumular(mapaOutrasDesp, cat.id, cat.nome, idx, valor);
+      acumular(mapaOutrasDesp, cat.id, cat.nome, idx, valor, qtdMeses);
     } else if (cat.classificacao_dre === "despesas") {
       const centroId = l.centro_custo_id ?? CENTRO_SEM;
       if (!porCentro.has(centroId)) porCentro.set(centroId, new Map());
-      acumular(porCentro.get(centroId)!, cat.id, cat.nome, idx, valor);
+      acumular(porCentro.get(centroId)!, cat.id, cat.nome, idx, valor, qtdMeses);
     }
     // receitas_regulares/outras_receitas numa saída: mesma inconsistência de dado do bloco acima, ignorada.
   });
@@ -211,7 +227,7 @@ export async function gerarPrestacaoContas(ano: number, trimestre: number): Prom
       const linhas = linhasDoMapa(mapa, new Set(
         Array.from(mapa.keys()).filter(id => temNota(id, centroId === CENTRO_SEM ? null : centroId)),
       ));
-      const valores = subtotalPorMes(linhas);
+      const valores = subtotalPorMes(linhas, qtdMeses);
       const titulo = centroId === CENTRO_SEM ? "Sem centro de custo" : (centroMap.get(centroId)?.nome ?? "Centro removido");
       return { chave: centroId, titulo, linhas, valores, total: somaMeses(valores) };
     })
@@ -221,22 +237,21 @@ export async function gerarPrestacaoContas(ano: number, trimestre: number): Prom
   function grupoFlat(mapa: MapaValores, chave: string, titulo: string): PrestacaoContasGrupo | null {
     const linhas = linhasDoMapa(mapa, new Set(Array.from(mapa.keys()).filter(id => temNota(id, null))));
     if (linhas.length === 0) return null;
-    const valores = subtotalPorMes(linhas);
+    const valores = subtotalPorMes(linhas, qtdMeses);
     return { chave, titulo, linhas, valores, total: somaMeses(valores) };
   }
   const grupoDespesasFinanceiras = grupoFlat(mapaDespFin, "despesas_financeiras", "Despesas Financeiras");
   const grupoOutrasDespesas = grupoFlat(mapaOutrasDesp, "outras_despesas", "Outras Despesas");
 
-  const totalReceitas = somaGrupos(gruposReceita);
-  const totalDespesas = somaGrupos(gruposDespesaPorCentro);
-  const totalDespFin = grupoDespesasFinanceiras?.valores ?? [0, 0, 0];
-  const totalOutrasDesp = grupoOutrasDespesas?.valores ?? [0, 0, 0];
-  const resultado = [0, 1, 2].map(i => totalReceitas[i] - totalDespesas[i] - totalDespFin[i] - totalOutrasDesp[i]);
-  const saldoFinal = [0, 1, 2].map(i => saldoAnterior[i] + resultado[i]);
+  const totalReceitas = somaGrupos(gruposReceita, qtdMeses);
+  const totalDespesas = somaGrupos(gruposDespesaPorCentro, qtdMeses);
+  const totalDespFin = grupoDespesasFinanceiras?.valores ?? novaLinha(qtdMeses);
+  const totalOutrasDesp = grupoOutrasDespesas?.valores ?? novaLinha(qtdMeses);
+  const resultado = Array.from({ length: qtdMeses }, (_, i) => totalReceitas[i] - totalDespesas[i] - totalDespFin[i] - totalOutrasDesp[i]);
+  const saldoFinal = Array.from({ length: qtdMeses }, (_, i) => saldoAnterior[i] + resultado[i]);
 
   return {
-    ano, trimestre,
-    meses: [0, 1, 2].map(i => ({ numero: mesIni + i, nome: NOME_MES[mesIni + i] })) as PrestacaoContasResultado["meses"],
+    meses,
     mesAncoraNota,
     saldoAnterior,
     gruposReceita, totalReceitas,

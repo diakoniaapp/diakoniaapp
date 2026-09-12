@@ -65,7 +65,7 @@ import FinancasFiscal from "./pages/financas/Fiscal.tsx";
 import ReunioesFinanceiras from "./pages/financas/ReunioesFinanceiras.tsx";
 import DashboardExecutivo from "./pages/financas/DashboardExecutivo.tsx";
 import FinancasDRE from "./pages/FinancasDRE.tsx";
-import FinancasPrestacaoContasTrimestral from "./pages/FinancasPrestacaoContasTrimestral.tsx";
+import FinancasPrestacaoContas from "./pages/FinancasPrestacaoContas.tsx";
 import ArrecadacaoHome from "./pages/arrecadacao/index.tsx";
 import ArrecadacaoEspacos from "./pages/arrecadacao/Espacos.tsx";
 import ArrecadacaoNovaReserva from "./pages/arrecadacao/NovaReserva.tsx";
@@ -200,7 +200,7 @@ const App = () => (
                   <Route path="/financas/executivo" element={<DashboardExecutivo />} />
                   <Route path="/financas/dre" element={<FinancasDRE />} />
                   <Route path="/financas/dre/:ano" element={<FinancasDRE />} />
-                  <Route path="/financas/prestacao-de-contas" element={<FinancasPrestacaoContasTrimestral />} />
+                  <Route path="/financas/prestacao-de-contas" element={<FinancasPrestacaoContas />} />
                   <Route path="/arrecadacao" element={<ArrecadacaoHome />} />
                   <Route path="/arrecadacao/espacos" element={<ArrecadacaoEspacos />} />
                   <Route path="/arrecadacao/reservas/nova" element={<ArrecadacaoNovaReserva />} />

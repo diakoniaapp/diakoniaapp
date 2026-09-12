@@ -9,30 +9,37 @@
 //
 // ── DE ONDE VEM O AGRUPAMENTO ABAIXO ──────────────────────────────────
 //
-// `fin_categorias.conta_contabil` existe desde sempre na tabela — e está
-// NULL nas 33 categorias que existem em produção hoje (conferido direto
-// no Postgres em 12/09/2026). Não há um plano de contas de verdade para
-// reaproveitar ainda. O ROADMAP_FINANCEIRO_ERP.md registrava isso como
-// decisão pendente da Telma ("qual modelo? CBB, ou modelo próprio da
-// contabilidade?") — sem uma resposta específica, o agrupamento abaixo
-// usa uma estrutura GENÉRICA, comum a demonstrações de igreja (Contri-
-// buições / Despesas com Pessoal / Administrativas / Instalações /
-// Ministeriais), por NOME de categoria — não por código contábil
-// inventado. Se a Telma trouxer um plano de contas oficial depois, é só
-// popular `conta_contabil` e trocar a chave de agrupamento por ele; nada
-// no schema muda, e nenhum lançamento precisa ser remapeado à mão.
+// Corrigido em 12/09/2026: a Fase 1 do projeto Tesouraria
+// (docs/PROJETO_TESOURARIA_PRESTACAO_CONTAS.md) renomeou boa parte das
+// categorias pro nome oficial ("Dízimos"→"Dizimos", "Prebenda pastoral"→
+// "Prebenda", "Salários CLT"→"Salários"...) e criou 38 categorias novas —
+// e este arquivo continuou com as chaves ANTIGAS, por nome, sem ninguém
+// notar até a tela ser conferida de novo: "Dizimos" (R$652 reais em
+// produção) caía no fallback "Outras Receitas Operacionais" em vez de
+// "Contribuições", porque a chave do mapa ainda dizia "dízimos" com
+// acento. Mesma causa afetava a maioria das categorias de despesa.
+//
+// O comentário original daqui (antes desta correção) já previa o dia em
+// que um plano de contas oficial existiria — "é só popular conta_contabil
+// e trocar a chave de agrupamento por ele". Não trocou por
+// `classificacao_dre` (a classificação oficial, Fase 1) porque ela só tem
+// 3 baldes de despesa (despesas / despesas_financeiras / outras_despesas),
+// mais grossos que os 5 que esta DRE pastoral já usa (Pessoal /
+// Administrativas / Instalações / Ministeriais / Outras) — group por ela
+// perderia granularidade que a Telma já está acostumada a ver aqui. A
+// correção troca só as CHAVES para o nome oficial atual, mantendo a
+// mesma estrutura de 5 baldes.
 import { listarLancamentos, type FinLancamentoExtenso } from "./finService";
 
 const GRUPO_RECEITA: Record<string, string> = {
-  "dízimos": "Contribuições",
+  "dizimos": "Contribuições",
   "ofertas": "Contribuições",
-  "ofertas especiais": "Contribuições",
+  "ofertas para missões": "Contribuições",
   "campanhas": "Campanhas e Eventos",
   "eventos": "Campanhas e Eventos",
-  "doações": "Doações",
   "vendas (livraria)": "Outras Receitas Operacionais",
-  "outras receitas": "Outras Receitas Operacionais",
-  "rendimento aplicação": "Receitas Financeiras",
+  "descontos obtidos": "Receitas Financeiras",
+  "rendimentos de aplicações": "Receitas Financeiras",
 };
 const ORDEM_GRUPO_RECEITA = [
   "Contribuições", "Campanhas e Eventos", "Doações",
@@ -41,30 +48,66 @@ const ORDEM_GRUPO_RECEITA = [
 const GRUPO_RECEITA_FALLBACK = "Outras Receitas Operacionais";
 
 const GRUPO_DESPESA: Record<string, string> = {
-  "prebenda pastoral": "Despesas com Pessoal",
-  "salários clt": "Despesas com Pessoal",
-  "inss / fgts / encargos": "Despesas com Pessoal",
-  "vale alimentação": "Despesas com Pessoal",
+  // Pessoal
+  "salários": "Despesas com Pessoal",
+  "prebenda": "Despesas com Pessoal",
+  "férias": "Despesas com Pessoal",
+  "rescisões": "Despesas com Pessoal",
+  "13º salário": "Despesas com Pessoal",
+  "inss": "Despesas com Pessoal",
+  "fgts": "Despesas com Pessoal",
+  "irrf": "Despesas com Pessoal",
+  "pis": "Despesas com Pessoal",
+  "assessoria saude ocupacional": "Despesas com Pessoal",
+  "vale refeição": "Despesas com Pessoal",
   "vale transporte": "Despesas com Pessoal",
-  "rpa (autônomos)": "Despesas com Pessoal",
-  "mei (prestadores)": "Despesas com Pessoal",
+  "seguro de vida": "Despesas com Pessoal",
+  "sustento pastoral": "Despesas com Pessoal",
+  "sustento pastoral auxiliar": "Despesas com Pessoal",
+  "outros benefícios": "Despesas com Pessoal",
+  "inss/irrf": "Despesas com Pessoal",
+  "serviço prestado pf": "Despesas com Pessoal",
+  "serviço prestado pj": "Despesas com Pessoal",
+  "assistente musical": "Despesas com Pessoal",
+  // Administrativas
   "material de escritório": "Despesas Administrativas",
-  "material de limpeza": "Despesas Administrativas",
   "tarifas bancárias": "Despesas Administrativas",
-  "internet/telefone": "Despesas Administrativas",
-  "impostos / taxas": "Despesas Administrativas",
+  "tarifa cartão credito": "Despesas Administrativas",
+  "internet": "Despesas Administrativas",
+  "telefonia": "Despesas Administrativas",
+  "impostos e taxas": "Despesas Administrativas",
+  "contabilidade": "Despesas Administrativas",
+  "sistemas de informática": "Despesas Administrativas",
+  "assinaturas e mensalidades": "Despesas Administrativas",
+  "iss": "Despesas Administrativas",
+  "juros": "Despesas Administrativas",
+  "multas": "Despesas Administrativas",
+  "iof": "Despesas Administrativas",
+  "seguros": "Despesas Administrativas",
+  "iptu": "Despesas Administrativas",
+  // Instalações
   "aluguel": "Despesas com Instalações",
   "água e esgoto": "Despesas com Instalações",
   "energia elétrica": "Despesas com Instalações",
-  "manutenção predial": "Despesas com Instalações",
-  "manutenção equipamentos": "Despesas com Instalações",
-  "construção / reforma": "Despesas com Instalações",
-  "material de som": "Despesas com Instalações",
+  "manutenção de imobilizado": "Despesas com Instalações",
+  "móveis e equipamentos em geral": "Despesas com Instalações",
+  "condomínio": "Despesas com Instalações",
+  "limpeza e dedetização": "Despesas com Instalações",
+  "dedetização": "Despesas com Instalações",
+  "gas": "Despesas com Instalações",
+  "monitoramento": "Despesas com Instalações",
+  "aluguel de equipamentos": "Despesas com Instalações",
+  // Ministeriais
+  "material de consumo": "Despesas Ministeriais",
+  "combustível": "Despesas Ministeriais",
   "materiais ebd": "Despesas Ministeriais",
-  "eventos / almoço": "Despesas Ministeriais",
-  "transporte/combustível": "Despesas Ministeriais",
-  "diaconia / assistência": "Despesas Ministeriais",
-  "missões": "Despesas Ministeriais",
+  "ofertas preletores": "Despesas Ministeriais",
+  "outros repasses missionários": "Despesas Ministeriais",
+  // Outras
+  "pendencias financeiro": "Outras Despesas",
+  "assembleia convenção batista brasileira": "Outras Despesas",
+  "outros gastos cartão": "Outras Despesas",
+  "doações e contribuições": "Outras Despesas",
   "outras despesas": "Outras Despesas",
 };
 const ORDEM_GRUPO_DESPESA = [

@@ -272,10 +272,12 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: "/financas/dre",       label: "DRE Eclesiástica",    icon: ScrollText, allowedRoles: ROLES_PASTORAL_SEM_TITULAR },
       // Fase 5 do projeto Tesouraria (12/09/2026): diferente da DRE (leitura
       // estratégica pronta), esta é a bancada de PREPARO da tesouraria —
-      // revisão, notas, e no futuro o fechamento do trimestre antes de
+      // revisão, notas, e no futuro o fechamento do período antes de
       // qualquer coisa ir à diretoria. Por isso ROLES_FINANCEIRO (mesma
       // malha de /financas), não ROLES_PASTORAL_SEM_TITULAR como a DRE.
-      { to: "/financas/prestacao-de-contas", label: "Prestação de Contas Trimestral", icon: ScrollText, allowedRoles: ROLES_FINANCEIRO },
+      // "Trimestral" saiu do nome — o período é mensal por padrão, com
+      // trimestre só como um preset de largura entre outros na tela.
+      { to: "/financas/prestacao-de-contas", label: "Prestação de Contas", icon: ScrollText, allowedRoles: ROLES_FINANCEIRO },
       // ── BAZAR E CANTINA SÃO DA ADMINISTRAÇÃO ────────────────────────
       //
       // Regra da igreja em 02/09/2026: "Ministério de Administração e Perfil
@@ -402,7 +404,7 @@ export const pageTitles: Record<string, string> = {
   "/financas":                "Tesouraria",
   "/financas/executivo":      "Visão Executiva",
   "/financas/dre":            "DRE Eclesiástica",
-  "/financas/prestacao-de-contas": "Prestação de Contas Trimestral",
+  "/financas/prestacao-de-contas": "Prestação de Contas",
   "/financas/doadores":       "Doadores",
   "/arrecadacao":             "Bazar e Cantina",
   "/admin/recuperacao-senha": "Recuperar Senha",
