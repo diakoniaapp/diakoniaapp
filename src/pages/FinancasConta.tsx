@@ -11,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   ArrowLeft, DollarSign, Loader2, Plus, Search, Filter,
   TrendingUp, TrendingDown, Pencil, Trash2, Paperclip,
-  CheckCircle2, Clock, XCircle, Scale,
+  CheckCircle2, Clock, XCircle, Scale, FileUp,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -23,6 +23,7 @@ import {
 } from "@/services/finService";
 import { LancamentoForm } from "@/components/financas/LancamentoForm";
 import { TransferenciaForm } from "@/components/financas/TransferenciaForm";
+import { ConciliacaoOFXDialog } from "@/components/financas/ConciliacaoOFXDialog";
 import { ArrowRightLeft } from "lucide-react";
 import { PaginaSkeleton } from "@/components/ListState";
 
@@ -56,6 +57,7 @@ export default function FinancasConta() {
   const [novoOpen, setNovoOpen] = useState(false);
   const [editando, setEditando] = useState<FinLancamentoExtenso | null>(null);
   const [transfOpen, setTransfOpen] = useState(false);
+  const [ofxOpen, setOfxOpen] = useState(false);
   // Conciliação manual (item 6 do roadmap do ERP): seleção só de
   // `realizado` — não faz sentido conciliar algo que ainda não aconteceu
   // (previsto), que foi cancelado, ou que ainda espera aprovação.
@@ -169,6 +171,11 @@ export default function FinancasConta() {
             className="gap-1.5 bg-success hover:bg-success text-white">
             <Scale className="w-3.5 h-3.5" />
             {conciliando ? "..." : `Conciliar ${selecionados.size}`}
+          </Button>
+        )}
+        {conta.tipo === "banco" && (
+          <Button variant="outline" size="sm" onClick={() => setOfxOpen(true)} className="gap-1.5">
+            <FileUp className="w-3.5 h-3.5" /> Importar OFX
           </Button>
         )}
         <Button variant="outline" size="sm" onClick={() => setTransfOpen(true)} className="gap-1.5 text-info-text hover:text-info-text">
@@ -348,6 +355,13 @@ export default function FinancasConta() {
         open={transfOpen}
         onOpenChange={setTransfOpen}
         contaOrigemPadrao={contaId}
+        onSaved={carregar}
+      />
+      <ConciliacaoOFXDialog
+        open={ofxOpen}
+        onOpenChange={setOfxOpen}
+        contaId={contaId}
+        contaNome={conta.nome}
         onSaved={carregar}
       />
       <LancamentoForm
