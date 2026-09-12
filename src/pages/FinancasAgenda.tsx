@@ -3,15 +3,24 @@ import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import {
-  ArrowLeft, Calendar, Clock, AlertTriangle, CheckCircle2, Loader2,
-  TrendingUp, TrendingDown,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  ArrowLeft, Calendar, Clock, AlertTriangle, CheckCircle2, XCircle, Loader2,
+  TrendingUp, TrendingDown, Gavel,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PaginaSkeleton } from "@/components/ListState";
 import {
-  listarProximosVencimentos, confirmarPagamento, brl,
-  type FinVencimento,
+  listarProximosVencimentos, confirmarPagamento, listarLancamentos,
+  aprovarLancamento, rejeitarLancamento, brl,
+  type FinVencimento, type FinLancamentoExtenso,
 } from "@/services/finService";
 import { hojeMaisDias } from "@/lib/data";
 
@@ -29,8 +38,18 @@ const URGENCIA_INFO: Record<FinVencimento["urgencia"], { cor: string; label: str
 
 export default function FinancasAgenda() {
   const [vencimentos, setVencimentos] = useState<FinVencimento[]>([]);
+  // "Aguardando aprovação" é decisão, não vencimento — por isso não entra na
+  // lista de cima (que é organizada por urgência de DATA). Carregada à
+  // parte, sempre visível, independente do filtro Entrada/Saída de baixo:
+  // uma aprovação parada não fica menos urgente por não bater com o filtro
+  // do dia. Ver o comentário em `painelTesourariaService.listarPendencias`.
+  const [aguardandoAprovacao, setAguardandoAprovacao] = useState<FinLancamentoExtenso[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtroTipo, setFiltroTipo] = useState<"todos" | "entrada" | "saida">("saida");
+  const [aprovando, setAprovando] = useState<FinLancamentoExtenso | null>(null);
+  const [rejeitando, setRejeitando] = useState<FinLancamentoExtenso | null>(null);
+  const [motivoRejeicao, setMotivoRejeicao] = useState("");
+  const [decidindo, setDecidindo] = useState(false);
 
   useEffect(() => { carregar(); }, [filtroTipo]);
 
@@ -38,11 +57,15 @@ export default function FinancasAgenda() {
     setLoading(true);
     try {
       const ate30 = hojeMaisDias(30);
-      const data = await listarProximosVencimentos({
-        ateData: ate30,
-        tipo: filtroTipo !== "todos" ? filtroTipo : undefined,
-      });
-      setVencimentos(data);
+      const [venc, pend] = await Promise.all([
+        listarProximosVencimentos({
+          ateData: ate30,
+          tipo: filtroTipo !== "todos" ? filtroTipo : undefined,
+        }),
+        listarLancamentos({ status: "aguardando_aprovacao" }),
+      ]);
+      setVencimentos(venc);
+      setAguardandoAprovacao(pend);
     } catch (e: any) { toast.error(e?.message ?? "Erro"); }
     finally { setLoading(false); }
   }
@@ -54,6 +77,31 @@ export default function FinancasAgenda() {
       toast.success(`${v.tipo === "saida" ? "Pago" : "Recebido"}!`);
       await carregar();
     } catch (e: any) { toast.error(e?.message ?? "Erro"); }
+  }
+
+  async function confirmarAprovacao() {
+    if (!aprovando) return;
+    setDecidindo(true);
+    try {
+      await aprovarLancamento(aprovando.id);
+      toast.success("Aprovado");
+      setAprovando(null);
+      await carregar();
+    } catch (e: any) { toast.error(e?.message ?? "Erro"); }
+    finally { setDecidindo(false); }
+  }
+
+  async function confirmarRejeicao() {
+    if (!rejeitando || !motivoRejeicao.trim()) return;
+    setDecidindo(true);
+    try {
+      await rejeitarLancamento(rejeitando.id, motivoRejeicao);
+      toast.success("Rejeitado");
+      setRejeitando(null);
+      setMotivoRejeicao("");
+      await carregar();
+    } catch (e: any) { toast.error(e?.message ?? "Erro"); }
+    finally { setDecidindo(false); }
   }
 
   // Agrupa por urgência
@@ -111,6 +159,50 @@ export default function FinancasAgenda() {
         </Card>
       </div>
 
+      {/* ── Aguardando aprovação ──────────────────────────────────────────
+          Fica ANTES dos vencimentos por urgência: uma decisão parada não
+          tem "dias para vencer" — ela só fica mais cara de resolver quanto
+          mais espera. Ligado em 12/09/2026: o status já existia, o Painel
+          da Tesouraria já listava, faltava o botão que decidisse. */}
+      {aguardandoAprovacao.length > 0 && (
+        <div className="space-y-1.5">
+          <p className="text-xs uppercase tracking-wide font-medium text-muted-foreground px-1 flex items-center gap-1">
+            <Gavel className="w-3 h-3" /> Aguardando aprovação ({aguardandoAprovacao.length})
+          </p>
+          {aguardandoAprovacao.map(l => (
+            <div key={l.id} className="flex items-center justify-between border rounded-md px-3 py-2 bg-info-soft/40 border-info-line">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                {l.tipo === "entrada"
+                  ? <TrendingUp className="w-4 h-4 text-success-text shrink-0" />
+                  : <TrendingDown className="w-4 h-4 text-destructive-text shrink-0" />}
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium truncate">{l.descricao ?? "—"}</p>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    <Clock className="w-2.5 h-2.5" /> {dataBr(l.data)}
+                    {l.conta_nome && <> · {l.conta_nome}</>}
+                    {l.centro_nome && <> · {l.centro_nome}</>}
+                    {l.fornecedor_nome && <> · {l.fornecedor_nome}</>}
+                  </p>
+                </div>
+              </div>
+              <p className={`text-sm font-semibold tabular-nums mr-2 ${l.tipo === "entrada" ? "text-success-text" : "text-destructive-text"}`}>
+                {brl(Number(l.valor))}
+              </p>
+              <div className="flex items-center gap-1 shrink-0">
+                <Button size="sm" variant="outline" onClick={() => setRejeitando(l)}
+                  className="gap-1 h-7 text-xs text-destructive-text hover:text-destructive-text border-destructive-line hover:bg-destructive-soft">
+                  <XCircle className="w-3 h-3" /> Rejeitar
+                </Button>
+                <Button size="sm" onClick={() => setAprovando(l)}
+                  className="bg-success hover:bg-success text-white gap-1 h-7 text-xs">
+                  <CheckCircle2 className="w-3 h-3" /> Aprovar
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {vencimentos.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="py-10 text-center text-muted-foreground text-sm space-y-2">
@@ -165,6 +257,69 @@ export default function FinancasAgenda() {
           })}
         </div>
       )}
+
+      {/* ── Aprovar ── */}
+      <AlertDialog open={!!aprovando} onOpenChange={(v) => !v && setAprovando(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Aprovar lançamento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {aprovando && (
+                <>
+                  {aprovando.tipo === "saida" ? "Pagamento" : "Recebimento"} de{" "}
+                  <strong className="text-foreground">{brl(Number(aprovando.valor))}</strong>
+                  {" "}— {aprovando.descricao ?? "sem descrição"}.
+                  {" "}Vira <strong className="text-foreground">realizado</strong>, com data de
+                  pagamento hoje.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={decidindo}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmarAprovacao} disabled={decidindo}
+              className="bg-success hover:bg-success text-white">
+              {decidindo ? <Loader2 className="w-4 h-4 animate-spin" /> : "Aprovar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── Rejeitar — pede o motivo, por isso é Dialog e não AlertDialog:
+          o botão de confirmar precisa ficar desabilitado até haver texto. */}
+      <Dialog open={!!rejeitando} onOpenChange={(v) => { if (!v) { setRejeitando(null); setMotivoRejeicao(""); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rejeitar lançamento</DialogTitle>
+            <DialogDescription>
+              {rejeitando && (
+                <>
+                  {brl(Number(rejeitando.valor))} — {rejeitando.descricao ?? "sem descrição"}.
+                  {" "}Vira <strong className="text-foreground">cancelado</strong>. O motivo fica
+                  registrado nas observações do lançamento.
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={motivoRejeicao}
+            onChange={(e) => setMotivoRejeicao(e.target.value)}
+            placeholder="Por que está sendo rejeitado?"
+            rows={3}
+            autoFocus
+          />
+          <DialogFooter>
+            <Button variant="outline" disabled={decidindo}
+              onClick={() => { setRejeitando(null); setMotivoRejeicao(""); }}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" disabled={decidindo || !motivoRejeicao.trim()}
+              onClick={confirmarRejeicao}>
+              {decidindo ? <Loader2 className="w-4 h-4 animate-spin" /> : "Rejeitar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -303,7 +303,10 @@ export default function PainelTesouraria() {
           <section id="pendencias" className="scroll-mt-[220px]">
             <TituloDaSecao
               icone={Clock} tom="warning" contagem={pendencias.length}
-              acao={<Link to="/financas" className="text-sm text-primary hover:underline">Abrir Tesouraria</Link>}
+              // Vai para a Agenda financeira, não para o hub genérico: é lá
+              // que "aguardando aprovação" agora tem os botões Aprovar/
+              // Rejeitar (12/09/2026) — o hub só listava sem decidir nada.
+              acao={<Link to="/financas/agenda" className="text-sm text-primary hover:underline">Abrir agenda financeira</Link>}
             >
               Pendências
             </TituloDaSecao>
@@ -326,7 +329,7 @@ export default function PainelTesouraria() {
                 ))}
                 {pendencias.length > 8 && (
                   <li className="px-3 py-2 text-xs text-muted-foreground">
-                    + {pendencias.length - 8} outras — veja todas em Tesouraria.
+                    + {pendencias.length - 8} outras — veja todas na agenda financeira.
                   </li>
                 )}
               </ul>

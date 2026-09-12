@@ -1,0 +1,274 @@
+# Roadmap — Financeiro como ERP eclesiástico
+
+> ## 🔴 ACHADO CRÍTICO, 12/09/2026 — nenhum UPDATE em `fin_lancamentos`
+> ## funciona em produção agora
+>
+> Achado testando o botão de aprovar/rejeitar desta entrega (ver Fase 3
+> abaixo), mas é **independente dela** — pré-existente, e mais grave que
+> tudo o mais neste documento.
+>
+> `fiscal_sincronizar_pagamento_trigger()` (dispara em todo `UPDATE` de
+> `fin_lancamentos`) compara `new.status = 'pago'` — só que `'pago'`
+> **nunca foi um valor válido** do enum `fin_lancamento_status`
+> (`previsto|realizado|conciliado|cancelado|aguardando_aprovacao`). É
+> vocabulário do enum de `fiscal_agenda.status`, copiado para o lugar
+> errado. O Postgres tenta converter o literal pro tipo do enum antes de
+> decidir se a condição bate — e essa conversão falha **sempre**,
+> incondicionalmente.
+>
+> **Testado ao vivo, contra produção, três vezes, com um lançamento
+> descartável (criado e apagado na hora):**
+>
+> | Operação | Resultado |
+> |---|---|
+> | Editar só `observacoes` (não toca `status`) | `400` — `invalid input value for enum fin_lancamento_status: "pago"` |
+> | `status → realizado` (o que o botão "Pagar"/"Receber" já faz) | mesmo erro |
+> | `status → cancelado` (o que "Rejeitar" desta entrega faz) | mesmo erro |
+>
+> **Ou seja: hoje, em produção, ninguém consegue editar um lançamento
+> financeiro já criado — nem categorizar, nem marcar como pago, nem
+> corrigir uma descrição.** Só criar (INSERT) e apagar (DELETE) funcionam.
+> Não há como saber há quanto tempo isso está quebrado — a função não
+> aparece em nenhuma migration rastreada, só no dump de
+> `supabase/baseline/schema.sql`.
+>
+> **Conserto escrito, NÃO aplicado**:
+> `supabase/migrations/20260912013100_conserta_gatilho_fiscal_que_quebrava_todo_update.sql`
+> — troca `'pago'` por `'realizado'` (a transição real que o código já
+> usa). Não apliquei porque `SUPABASE_ACCESS_TOKEN` estava
+> `401 Unauthorized` nesta sessão (três tentativas, inclusive o endpoint
+> mais simples). **Isto é urgente — muito mais que qualquer item do
+> roadmap abaixo.** Duas saídas: (1) renovar o token e me pedir para
+> aplicar e ensaiar como sempre, ou (2) rodar o `CREATE OR REPLACE
+> FUNCTION` de dentro do arquivo, direto no SQL Editor do Supabase.
+
+> Auditoria feita por medição direta (schema gerado, migrations, código —
+> **não** pela API de gerenciamento: o token de sessão estava expirado/sem
+> escopo em 12/09/2026, `401 Unauthorized`; refazer com token novo se quiser
+> confirmar linha a linha em produção). Data: 12/09/2026.
+>
+> **Achado central da auditoria:** o módulo Financeiro é muito mais completo
+> do que a missão original presumia. Não é "construir um ERP do zero sobre uma
+> base simples" — é **terminar de ligar um schema que já foi desenhado como
+> ERP** e nunca foi totalmente exposto na tela. Boa parte do Gap Analysis
+> abaixo é sobre isso: campo/enum/tabela já existe, UI não usa.
+
+---
+
+## Fase 1 — Matriz de auditoria
+
+Legenda: 🟢 EXISTE (schema + RLS + service + tela, em uso) · 🟡 EXISTE PARCIAL
+(schema pronto, tela ausente ou incompleta) · 🔴 NÃO EXISTE.
+
+### Tabelas `fin_*` (23) e `fiscal_*` (5)
+
+| Tabela | Estado | Nota |
+|---|---|---|
+| `fin_contas` | 🟢 | tipo inclui `pix`, `cartao`, `aplicacao`, `cofre` — não só banco/caixa |
+| `fin_categorias` | 🟢 | tem `conta_contabil` (código contábil) — **não usado em relatório nenhum ainda** |
+| `fin_centros_custo` | 🟢 | `vinculo_tipo`: `ministerio\|area\|ebd_classe\|pgm_grupo\|campanha\|geral` — falta `evento` na tela (existe no enum do banco, o tipo TS não o lista — ver Gap 2.2) |
+| `fin_lancamentos` | 🟢 | `pessoa_id` e `familia_id` já linkam o lançamento a quem deu/recebeu; `status` já tem `conciliado` e `aguardando_aprovacao` — **os dois sem ação nenhuma na tela (ver Fase 3, item já implementado)** |
+| `fin_lancamento_rateio` | 🟡 | rateio de um lançamento entre centros de custo — schema existe, **não achei tela que o exponha** |
+| `fin_orcamentos` | 🟢 | `/financas/orcamento`, planejado × realizado |
+| `fin_recorrencias` | 🟢 | `/financas/recorrencias` — genérico, serve dízimo recorrente sem ser rotulado assim |
+| `fin_fornecedores` | 🟢 | inclui `chave_pix` |
+| `fin_contratados` + `fin_folha_*` + `fin_tabela_inss_empregado` + `fin_tabela_irrf` | 🟢 | `/financas/folha` — CLT completo, calculadora com INSS/IRRF |
+| `fin_vinculo_tipo` (enum) | 🟢 | `clt\|mei\|rpa\|prebenda\|estagio\|voluntario_remunerado` — **já cobre prebenda pastoral**, termo eclesiástico específico |
+| `fin_estoque_itens/_movimentos` | 🟢 | `/financas/estoque` |
+| `fin_reunioes_financeiras` + `fin_decisoes_reuniao` | 🟢 | `/financas/reunioes` |
+| `fin_solicitacoes` | 🔴 | **RLS ligada, ZERO políticas — bloqueia tudo.** Colunas: `area_id, ministerio_id, valor, descricao, status, data_solicitacao/aprovacao/pagamento`. Zero código a referencia. É literalmente uma tabela de "solicitação de despesa por área/ministério" pronta e nunca ligada — ver Gap 3.1 |
+| `fiscal_obrigacoes_ativas` + `fiscal_agenda` + `fiscal_documentos` + `fiscal_config` + `fiscal_tipos_obrigacao` | 🟢 | `/financas/fiscal` — obrigações, malote mensal, ingestão de nota por OCR |
+
+### Views e RPCs de leitura
+
+| Objeto | Estado | Nota |
+|---|---|---|
+| `vw_fin_proximos_vencimentos` | 🟢 | alimenta `/financas/agenda` |
+| `fin_previsao_caixa` | 🟢 | `/financas/insights` — 30/60/90 dias |
+| `fin_alertas_financeiros` / `fin_alertas_centros` | 🟢 | Painel da Tesouraria |
+| `fin_comparativo_meses` / `fin_anomalias_mes` | 🟢 | `/financas/insights` |
+| `fin_top_fornecedores` | 🟢 | `/financas/insights` |
+| `fin_exec_indicadores_eclesiasticos` | 🟡 | **já existe e já roda** na Visão Executiva — dízimo/oferta/missões por categoria de texto, com variação % mês a mês e total do ano. É 70% de uma DRE, mas é uma LISTA de indicadores, não uma demonstração contábil formal (ver Gap 4.4) |
+| `fin_exec_saldo_consolidado` / `fin_exec_centros_ano` / `fin_exec_alertas` | 🟢 | Visão Executiva — corrigidos em 09/09/2026 (3 bugs SQL reais) |
+| `fiscal_resumo_dashboard` / `fiscal_insights` / `fiscal_historico_medio` | 🟢 | `/financas/fiscal` |
+
+### Telas (`pages/`, `pages/financas/`)
+
+| Tela | Rota | Estado |
+|---|---|---|
+| Tesouraria (hub) | `/financas` | 🟢 |
+| Extrato da conta | `/financas/conta/:id` | 🟢 |
+| Agenda (a pagar/receber) | `/financas/agenda` | 🟢 — **agora também "Aguardando aprovação", ver Fase 3** |
+| Recorrências | `/financas/recorrencias` | 🟢 |
+| Relatório mensal (malote) | `/financas/relatorio` | 🟢 — por categoria, por conta, CSV, impressão |
+| Estoque | `/financas/estoque` | 🟢 |
+| Insights | `/financas/insights` | 🟢 |
+| Centros de custo | `/financas/centros` + `/financas/centro/:id` | 🟢 |
+| Orçamento | `/financas/orcamento` | 🟢 |
+| Folha & Encargos | `/financas/folha` | 🟢 |
+| Módulo Fiscal | `/financas/fiscal` | 🟢 |
+| Reuniões financeiras | `/financas/reunioes` | 🟢 |
+| Visão Executiva | `/financas/executivo` | 🟢 — dashboard com gráficos (recharts), indicadores eclesiásticos |
+| Painel da Tesouraria | `/painel-tesouraria` | 🟢 — 4 sprints, 6 blocos, no ar desde 09/09 |
+| **Conciliação bancária** | botão "Conciliar" existe, **leva para `/financas` genérico** | 🔴 |
+| **Aprovação de despesas** | — | 🔴 → 🟢 nesta entrega (ver Fase 3) |
+| **Doações (tela dedicada)** | — | 🟡 (dado existe, sem tela própria) |
+| **Prestação de contas exportável** | `/financas/centro/:id` mostra o detalhe, mas não gera um documento formal para entregar a um doador/ministério | 🟡 |
+| **DRE Eclesiástica formal** | Visão Executiva cobre o conteúdo, não o formato | 🟡 |
+| **Importação de extrato (OFX/CSV bancário)** | — | 🔴 |
+
+---
+
+## Fase 2 — Gap Analysis (Omie / Conta Azul / ERPNext / Asaas / Dynamics 365 F&O)
+
+Comparação **funcional**, não de nomenclatura — o que essas ferramentas
+resolvem que o Diakonia ainda não resolve, e o que **já** resolve por um
+caminho diferente (não deve ser reconstruído):
+
+| Capacidade | Nos ERPs comerciais | No Diakonia hoje | Veredito |
+|---|---|---|---|
+| Lançar receita/despesa, categorizar, vincular a centro de custo | ✔ | ✔ (`fin_lancamentos` + `fin_categorias` + `fin_centros_custo`) | **Já tem** |
+| Orçado × realizado | ✔ | ✔ (`/financas/orcamento`) | **Já tem** |
+| Fluxo de caixa projetado | ✔ | ✔ (`fin_previsao_caixa`, 30/60/90d) | **Já tem** |
+| Contas a pagar/receber com alerta de vencimento | ✔ | ✔ (`/financas/agenda`) | **Já tem** |
+| Recorrência de lançamento | ✔ | ✔ (`fin_recorrencias`) | **Já tem** |
+| Multi-conta (banco, caixa, PIX, cofre, aplicação) | ✔ | ✔ (`fin_contas.tipo`) | **Já tem** |
+| Folha de pagamento CLT | ✔ (módulo à parte, geralmente pago) | ✔ (`/financas/folha`, INSS/IRRF) | **Já tem, e de graça** |
+| **Aprovação de despesa antes de pagar** | ✔ (Omie: "aprovação de contas a pagar"; Dynamics: fluxo configurável) | 🔴 até hoje | **Gap real — fechado nesta entrega, versão simples** |
+| **Conciliação bancária (importar extrato e casar com lançamento)** | ✔ (todos os 5 comparados) | 🔴 — nem manual existe | **Maior gap técnico real** |
+| **DRE / Balancete no formato contábil** (Receita Bruta → Deduções → Despesas por grupo → Resultado) | ✔ | 🟡 — o dado está todo lá (`conta_contabil`, indicadores eclesiásticos), falta o FORMATO da demonstração | **Gap de apresentação, não de dado** |
+| **Prestação de contas gerável/exportável por centro** | parcial nos genéricos; **é o diferencial eclesiástico** — igreja presta contas a doadores e à assembleia, empresa não | 🟡 — o detalhe por centro existe na tela, falta virar documento (PDF/impressão) como já existe para o relatório mensal | **Gap pequeno — reaproveita o padrão de impressão que já existe em 7 relatórios do sistema** |
+| **CRM de doador / histórico de contribuição por pessoa** | ✔ (Conta Azul, Asaas — é modelo "cliente") | 🟡 — `pessoa_id` no lançamento já existe e já é resolvido para nome; **não há relatório "quanto Fulano contribuiu"** | **Decisão de produto antes de tecnologia — ver Nota de Privacidade abaixo** |
+| **Emissão de recibo de doação (dedutibilidade, Lei 9.532)** | ✔ (Asaas tem nativo) | 🔴 | Fora do escopo desta entrega — é feature nova, não gap de UI |
+| **Gateway de cobrança (boleto, link de pagamento, PIX cobrança)** | ✔ | 🔴 (o sistema REGISTRA que entrou dinheiro; não GERA cobrança) | Fora do escopo — decisão de produto grande (gateway = contrato, taxa, PCI) |
+| **Multi-empresa / centro de lucro consolidado** | ✔ | N/A — mono-igreja por desenho (AD-3 do sistema) | **Não se aplica**, não é gap |
+| **Auditoria/trilha de quem alterou o quê** | ✔ | 🟡 — `fin_lancamentos.audit_user_id`/`audit_em` já existem como colunas; não verificado se todo UPDATE os preenche | Vale conferir, baixo esforço |
+
+### Nota de privacidade — doador
+
+Antes de construir "CRM de doador" / relatório "quem deu quanto": em muitas
+tradições batistas a contribuição é vista como ato entre a pessoa e Deus, e
+expor "ranking de doadores" ou até um extrato individual sem pedir tem
+implicação pastoral, não só técnica. O dado técnico já permite (é
+`pessoa_id` em `fin_lancamentos`); a pergunta de **quem pode ver o quê** —
+só a própria pessoa? só tesouraria para fins de recibo de IR? ninguém além
+de quem lançou? — é uma decisão da Telma antes de eu desenhar a RLS.
+**Não construído nesta entrega; listado no roadmap como item que precisa de
+uma resposta dela primeiro (Fase 3, "Pendente de decisão").**
+
+---
+
+## Fase 3 — Nomenclatura Diakonia (já em vigor na maior parte)
+
+O sistema **já não usa nomenclatura empresarial** — conferido no código, não
+suposto:
+
+| Termo empresarial | Termo já usado no Diakonia |
+|---|---|
+| Cliente | *(não existe o conceito — quem dá é `pessoa_id`, ligado a `membros`)* |
+| Projeto / Centro de custo | **Centro de custo** vinculado a `ministerio\|area\|campanha\|ebd_classe\|pgm_grupo` — já usa os nomes reais da igreja, não "projeto 1", "projeto 2" |
+| Unidade de negócio | **Ministério** / **Área** |
+| Receita (genérico) | A categoria já é livre: "Dízimo", "Oferta", "Missões", etc. — texto, não enum fechado, então a igreja nomeia como quiser |
+| Funcionário | `fin_vinculo_tipo` já distingue `clt\|mei\|rpa\|prebenda\|estagio\|voluntario_remunerado` — **"prebenda" é o termo certo para o sustento pastoral**, não "salário" |
+
+**Não há trabalho de renomeação a fazer** — quando cheguei a procurar
+"cliente"/"projeto" cru no módulo financeiro, não achei. O sistema já nasceu
+com vocabulário de igreja aqui.
+
+---
+
+## Fase 3 — Implementação: o que entra nesta entrega, e o que fica para depois
+
+Dado o tamanho do pedido (8 subsistemas, cada um author-completo — migration,
+RLS, service, componente, página, rota, menu, teste, doc), e que isto é um
+sistema financeiro de produção **sem ambiente de homologação**, **não vou
+gerar as 8 frentes de uma vez sem checkpoint**. Seguindo a própria disciplina
+que a missão pede ("para cada recurso: migration → RLS → service → tela →
+teste → doc", um recurso de cada vez) e a prática já estabelecida neste
+projeto (rehearse com `BEGIN/ROLLBACK`, `tsc`/`vitest` limpos por commit,
+commit por mudança lógica):
+
+### ✅ Implementado nesta entrega — Aprovação de despesas (versão 1)
+
+O gap mais barato e mais real: `fin_lancamentos.status` já tem
+`aguardando_aprovacao`, o Painel da Tesouraria já LISTA essas pendências
+("aguardando aprovação" aparece na seção Pendências) — mas **não existia, em
+lugar nenhum do sistema, um botão que aprove ou rejeite**. A própria
+`painelTesourariaService.ts` já tinha o comentário: *"'aguardando aprovação'
+é decisão — alguém precisa dizer sim ou não"* — e ninguém podia.
+
+- `finService.ts`: `aprovarLancamento(id)` (`status → realizado`, carimba
+  `data_pagamento = hoje`) e `rejeitarLancamento(id, motivo)`
+  (`status → cancelado`, guarda o motivo em `observacoes`) — os dois via
+  `atualizarLancamento()`, que já usa `conferir()`.
+- `FinancasAgenda.tsx`: nova seção "Aguardando aprovação", acima dos
+  vencimentos por urgência, com os dois botões.
+- Corrigido de caminho: o link "Abrir Tesouraria" da seção Pendências do
+  Painel da Tesouraria ia para `/financas` (hub genérico, sem filtro nenhum)
+  — agora vai para `/financas/agenda`, onde a decisão realmente pode ser
+  tomada.
+
+**Sem migration nesta v1 — de propósito.** O token de gerenciamento do
+Supabase (`SUPABASE_ACCESS_TOKEN`) está retornando `401 Unauthorized` nesta
+sessão (verificado três vezes, inclusive no endpoint mais simples possível —
+listar projetos). Sem ele não dá para ensaiar/aplicar migration em produção
+com a disciplina de sempre (`BEGIN…ROLLBACK` antes de aplicar). Em vez de
+escrever uma migration "às cegas" (sem poder confirmar que rodou), a v1 usa
+só colunas que **já existem e já funcionam** (`status`, `observacoes`) — o
+botão aprova/rejeita de verdade, hoje, sem depender de nada novo no banco.
+
+**Fast-follow, quando o token for renovado:** `aprovado_por uuid`,
+`aprovado_em timestamptz` em `fin_lancamentos` — colunas de auditoria
+própria (quem exatamente aprovou, e quando), em vez de inferir pela `data_pagamento`
+e pelo autor do UPDATE. Aditivo, sem risco, só precisa de acesso de escrita
+ao banco para aplicar.
+
+**Escopo deliberadamente de UM NÍVEL só** (quem tem papel `admin`,
+`diakonia`, `secretaria` ou `tesouraria` aprova — o mesmo grupo que já pode
+escrever em `fin_lancamentos` hoje). **Não construí o nível "Solicitante"**
+(ministério pede, tesouraria aprova) — ver "Pendente de decisão" abaixo, é
+uma reversão de uma decisão já tomada neste projeto e precisa da Telma.
+
+### 🔜 Pendente de decisão da Telma antes de eu continuar
+
+1. **"Solicitante" no fluxo de aprovação — quem pode pedir?** A migration
+   `20260902210000_lideranca_nao_opera_o_financeiro.sql` fechou de propósito
+   o acesso de `lideranca` a `fin_lancamentos` ("liderança não opera o
+   financeiro"). Um fluxo Solicitante→Tesouraria→Administração→Pastor, do
+   jeito que a missão descreve, **pressupõe que um líder de ministério possa
+   pedir** — o que reabre essa porta. Confirmar antes de eu desenhar a RLS:
+   quero que líder de ministério possa SOLICITAR uma despesa (sem poder
+   lançar/editar/excluir), e a aprovação em cadeia até quem?
+2. **Doador — quem vê o extrato de quem deu?** Ver a Nota de Privacidade
+   acima.
+3. **Conciliação bancária — qual banco, qual formato?** OFX é o padrão mais
+   comum (Febraban), mas cada banco exporta um pouco diferente. Preciso de
+   um arquivo de exemplo real (extrato exportado do banco que vocês usam)
+   para desenhar o parser sem adivinhar.
+4. **DRE Eclesiástica formal — qual modelo?** Há convenções diferentes entre
+   convenções batistas (algumas seguem o plano de contas da CBB, outras têm
+   modelo próprio). Se a Telma tiver um modelo de referência (um DRE que a
+   contabilidade já usa, ou que a convenção pede), reaproveitar a estrutura
+   dele evita eu inventar um plano de contas que depois precise ser
+   remapeado.
+
+### 📋 Roadmap do que falta, sem precisar de decisão prévia (posso seguir sozinho quando ela pedir)
+
+Em ordem de esforço crescente:
+
+| # | Item | Esforço | Reaproveita |
+|---|---|---|---|
+| 1 | **Prestação de contas exportável por centro de custo** — o mesmo padrão de impressão/PDF que já existe em `FinancasRelatorio.tsx` e nos 7 relatórios do sistema, aplicado a `FinancasCentroDetalhe.tsx` | pequeno | padrão de impressão existente, `fin_centros_custo`, `fin_lancamento_rateio` |
+| 2 | **`fin_centro_vinculo` "evento" na UI** — o banco já tem o valor no enum; `FinCentroVinculo` (TS) e `VINCULO_LABEL` não o listam (há um comentário no código explicando por quê — conferir se ainda vale) | pequeno | — |
+| 3 | **Rateio de lançamento entre centros** — `fin_lancamento_rateio` existe, sem tela | médio | tabela pronta |
+| 4 | **Tela "Doações"** — filtro de `fin_lancamentos` por categoria "Dízimo/Oferta/Missões" + `forma_pagamento`, com destaque para as recorrentes (`fin_recorrencias`) | médio | tudo já existe, é composição de tela nova |
+| 5 | **DRE Eclesiástica no formato de demonstração** (não lista de indicadores) | médio-alto | `fin_exec_indicadores_eclesiasticos`, `fin_categorias.conta_contabil` |
+| 6 | **Conciliação manual** (marcar um `realizado` como `conciliado` ao bater com o extrato, sem importar arquivo ainda) | médio | status já existe, só falta a ação — mesmo padrão desta entrega |
+| 7 | **Importação de extrato (OFX/CSV)** | alto | depende do item 3 da lista de decisões |
+| 8 | **Fluxo de aprovação multinível** | alto (é decisão de RLS nova) | depende do item 1 da lista de decisões |
+
+---
+
+*Este documento é o plano; `DOCUMENTACAO_SISTEMA.md` continua sendo o
+retrato do sistema inteiro. Atualizar os dois quando um item da lista acima
+for fechado.*

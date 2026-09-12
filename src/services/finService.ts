@@ -550,6 +550,38 @@ export async function confirmarPagamento(lancamentoId: string, opts?: {
   await atualizarLancamento(lancamentoId, patch);
 }
 
+// ─── Aprovar/rejeitar — aguardando_aprovacao → realizado | cancelado ────
+//
+// O status `aguardando_aprovacao` existe desde sempre em `fin_lancamentos`
+// e o Painel da Tesouraria já lista essas pendências ("'aguardando
+// aprovação' é decisão — alguém precisa dizer sim ou não", comentário em
+// `painelTesourariaService.ts`) — mas não havia, em lugar nenhum do
+// sistema, um botão que decidisse. Ligado em 12/09/2026, pedido dela
+// ("Aprovação de Despesas" na missão do ERP Financeiro).
+//
+// Sem colunas novas de propósito nesta versão: `aprovado_por`/`aprovado_em`
+// próprios ficam para quando o acesso de escrita ao banco desta sessão for
+// restabelecido (o token de gerenciamento estava expirado em 12/09/2026) —
+// ver `docs/ROADMAP_FINANCEIRO_ERP.md`. Por ora, aprovar carimba
+// `data_pagamento` (o mesmo que `confirmarPagamento` já faz) e rejeitar
+// guarda o motivo em `observacoes`, que já existe.
+export async function aprovarLancamento(lancamentoId: string): Promise<void> {
+  await atualizarLancamento(lancamentoId, {
+    status: "realizado",
+    data_pagamento: hojeLocal(),
+  });
+}
+
+export async function rejeitarLancamento(lancamentoId: string, motivo: string): Promise<void> {
+  const atual = await supabase.from("fin_lancamentos").select("observacoes").eq("id", lancamentoId).maybeSingle();
+  const observacoesAnteriores = atual.data?.observacoes ?? "";
+  const carimbo = `[Rejeitado em ${hojeLocal()}] ${motivo.trim()}`;
+  await atualizarLancamento(lancamentoId, {
+    status: "cancelado",
+    observacoes: observacoesAnteriores ? `${observacoesAnteriores}\n${carimbo}` : carimbo,
+  });
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // FASE 5 — Malote Contábil (relatório mensal consolidado)
 // ═══════════════════════════════════════════════════════════════════════════
