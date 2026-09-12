@@ -117,7 +117,7 @@ caminho diferente (não deve ser reconstruído):
 | **Conciliação bancária (importar extrato e casar com lançamento)** | ✔ (todos os 5 comparados) | 🔴 — nem manual existe | **Maior gap técnico real** |
 | **DRE / Balancete no formato contábil** (Receita Bruta → Deduções → Despesas por grupo → Resultado) | ✔ | 🟡 — o dado está todo lá (`conta_contabil`, indicadores eclesiásticos), falta o FORMATO da demonstração | **Gap de apresentação, não de dado** |
 | **Prestação de contas gerável/exportável por centro** | parcial nos genéricos; **é o diferencial eclesiástico** — igreja presta contas a doadores e à assembleia, empresa não | 🟡 — o detalhe por centro existe na tela, falta virar documento (PDF/impressão) como já existe para o relatório mensal | **Gap pequeno — reaproveita o padrão de impressão que já existe em 7 relatórios do sistema** |
-| **CRM de doador / histórico de contribuição por pessoa** | ✔ (Conta Azul, Asaas — é modelo "cliente") | 🟡 — `pessoa_id` no lançamento já existe e já é resolvido para nome; **não há relatório "quanto Fulano contribuiu"** | **Decisão de produto antes de tecnologia — ver Nota de Privacidade abaixo** |
+| **CRM de doador / histórico de contribuição por pessoa** | ✔ (Conta Azul, Asaas — é modelo "cliente") | 🟡 — `pessoa_id` no lançamento já existe e já é resolvido para nome; **não há relatório "quanto Fulano contribuiu"** | **Decisão de privacidade RESOLVIDA em 12/09/2026 (ver Nota abaixo) — a tela em si continua não construída, ninguém pediu ainda** |
 | **Emissão de recibo de doação (dedutibilidade, Lei 9.532)** | ✔ (Asaas tem nativo) | 🔴 | Fora do escopo desta entrega — é feature nova, não gap de UI |
 | **Gateway de cobrança (boleto, link de pagamento, PIX cobrança)** | ✔ | 🔴 (o sistema REGISTRA que entrou dinheiro; não GERA cobrança) | Fora do escopo — decisão de produto grande (gateway = contrato, taxa, PCI) |
 | **Multi-empresa / centro de lucro consolidado** | ✔ | N/A — mono-igreja por desenho (AD-3 do sistema) | **Não se aplica**, não é gap |
@@ -125,15 +125,23 @@ caminho diferente (não deve ser reconstruído):
 
 ### Nota de privacidade — doador
 
-Antes de construir "CRM de doador" / relatório "quem deu quanto": em muitas
-tradições batistas a contribuição é vista como ato entre a pessoa e Deus, e
-expor "ranking de doadores" ou até um extrato individual sem pedir tem
-implicação pastoral, não só técnica. O dado técnico já permite (é
-`pessoa_id` em `fin_lancamentos`); a pergunta de **quem pode ver o quê** —
-só a própria pessoa? só tesouraria para fins de recibo de IR? ninguém além
-de quem lançou? — é uma decisão da Telma antes de eu desenhar a RLS.
-**Não construído nesta entrega; listado no roadmap como item que precisa de
-uma resposta dela primeiro (Fase 3, "Pendente de decisão").**
+**RESOLVIDA em 12/09/2026.** A pergunta era: em muitas tradições batistas a
+contribuição é vista como ato entre a pessoa e Deus, e expor "ranking de
+doadores" ou até um extrato individual sem pedir tem implicação pastoral,
+não só técnica — quem pode ver o quê antes de eu desenhar RLS pra isso?
+
+Resposta da Telma: **"os tesoureiros e administrador do sistema podem ver
+tudo sobre as doações"** — mesma malha de pessoas que já opera o resto do
+financeiro (ver item 8 do roadmap, fechado no mesmo dia com a mesma
+resposta: só tesoureiro e administrador do sistema mexem nessa área,
+liderança de ministério não entra). Não é preciso uma RLS mais restrita
+nem mais permissiva do que a que já existe em `fin_lancamentos` — a
+mesma política que já gate ia esse módulo cobre doação sem exceção.
+
+**Isso desbloqueia, mas não constrói**, um relatório "quanto Fulano
+contribuiu" / histórico de doação por pessoa — ninguém pediu essa tela
+ainda; `pessoa_id` em `fin_lancamentos` já existe e já resolve pra nome,
+então quando ela quiser essa tela, o dado já está pronto, só falta a UI.
 
 ---
 
@@ -226,8 +234,9 @@ uma reversão de uma decisão já tomada neste projeto e precisa da Telma.
    abaixo fica marcado como não aplicável — nenhuma RLS nova, nenhuma
    tabela nova (`fin_solicitacoes`, achada na auditoria com RLS ligada e
    zero políticas, continua sem uso — não é este o caso dela).
-2. **Doador — quem vê o extrato de quem deu?** Ver a Nota de Privacidade
-   acima.
+2. ~~**Doador — quem vê o extrato de quem deu?**~~ **RESPONDIDA em
+   12/09/2026.** Tesoureiros e administrador do sistema podem ver tudo
+   sobre as doações — ver Nota de Privacidade acima.
 3. ~~**Conciliação bancária — qual banco, qual formato?**~~ Respondida em
    12/09/2026: a Telma trouxe um extrato real do Bradesco (OFX, exportado
    09/09/2026). Construída no mesmo dia — ver item 7 abaixo.
