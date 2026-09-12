@@ -61,6 +61,7 @@ import {
   DollarSign, Receipt, Wallet, ChevronRight, RefreshCw, Sparkles, Package,
   Clock, CalendarClock, Target, ShoppingCart, HandCoins, Scale, Lightbulb,
   HeartHandshake, Users, ScrollText, Layers, Handshake,
+  TrendingDown, TrendingUp, RotateCw, Briefcase, LineChart,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -466,41 +467,74 @@ export default function PainelTesouraria() {
             )}
           </section>
 
-          {/* ── Atalhos ────────────────────────────────────────────────── */}
+          {/* ── Atalhos ────────────────────────────────────────────────────
+              Unificação de 12/09/2026: `/financas` deixou de ter uma grade
+              de atalhos (era hub + extrato ao mesmo tempo, duplicava este
+              menu inteiro, e foi essa duplicação que quebrou em silêncio
+              sem ninguém notar). Esta lista agora é o único "menu grande"
+              do módulo — o Painel da Tesouraria é a bancada diária de quem
+              tem o papel tesouraria, então é aqui que a navegação completa
+              mora, não lá. */}
           <section className="pt-1">
             <TituloDaSecao icone={DollarSign} tom="neutro">Ir para</TituloDaSecao>
             <div className="flex flex-wrap gap-2">
               <Button asChild variant="outline" size="sm" className="gap-1.5">
-                <Link to="/financas"><DollarSign className="w-3.5 h-3.5" /> Tesouraria</Link>
+                <Link to="/financas"><DollarSign className="w-3.5 h-3.5" /> Contas correntes</Link>
               </Button>
               <Button asChild variant="outline" size="sm" className="gap-1.5">
-                <Link to="/financas/fiscal"><Receipt className="w-3.5 h-3.5" /> Módulo Fiscal</Link>
+                <Link to="/financas/agenda?tipo=saida"><TrendingDown className="w-3.5 h-3.5" /> Contas a pagar</Link>
               </Button>
               <Button asChild variant="outline" size="sm" className="gap-1.5">
-                <Link to="/arrecadacao"><Package className="w-3.5 h-3.5" /> Bazar e Cantina</Link>
+                <Link to="/financas/agenda?tipo=entrada"><TrendingUp className="w-3.5 h-3.5" /> Contas a receber</Link>
               </Button>
               <Button asChild variant="outline" size="sm" className="gap-1.5">
-                <Link to="/financas/insights"><Sparkles className="w-3.5 h-3.5" /> Insights</Link>
+                <Link to="/financas/recorrencias"><RotateCw className="w-3.5 h-3.5" /> Recorrências</Link>
               </Button>
               <Button asChild variant="outline" size="sm" className="gap-1.5">
-                <Link to="/financas/doacoes"><HandCoins className="w-3.5 h-3.5" /> Doações</Link>
+                <Link to="/financas/relatorio"><Receipt className="w-3.5 h-3.5" /> Malote contábil</Link>
               </Button>
               <Button asChild variant="outline" size="sm" className="gap-1.5">
                 <Link to="/financas/centros"><Layers className="w-3.5 h-3.5" /> Centros de custo</Link>
               </Button>
               <Button asChild variant="outline" size="sm" className="gap-1.5">
+                <Link to="/financas/orcamento"><Target className="w-3.5 h-3.5" /> Orçamento</Link>
+              </Button>
+              <Button asChild variant="outline" size="sm" className="gap-1.5">
+                <Link to="/financas/estoque"><Package className="w-3.5 h-3.5" /> Estoque</Link>
+              </Button>
+              <Button asChild variant="outline" size="sm" className="gap-1.5">
+                <Link to="/financas/folha"><Briefcase className="w-3.5 h-3.5" /> Folha</Link>
+              </Button>
+              <Button asChild variant="outline" size="sm" className="gap-1.5">
+                <Link to="/financas/fiscal"><Receipt className="w-3.5 h-3.5" /> Módulo Fiscal</Link>
+              </Button>
+              <Button asChild variant="outline" size="sm" className="gap-1.5">
                 <Link to="/financas/reunioes"><Handshake className="w-3.5 h-3.5" /> Reuniões financeiras</Link>
+              </Button>
+              <Button asChild variant="outline" size="sm" className="gap-1.5">
+                <Link to="/financas/doacoes"><HandCoins className="w-3.5 h-3.5" /> Doações</Link>
               </Button>
               {hasRole(ROLES_DOADORES) && (
                 <Button asChild variant="outline" size="sm" className="gap-1.5">
                   <Link to="/financas/doadores"><Users className="w-3.5 h-3.5" /> Doadores</Link>
                 </Button>
               )}
+              <Button asChild variant="outline" size="sm" className="gap-1.5">
+                <Link to="/financas/insights"><Sparkles className="w-3.5 h-3.5" /> Insights</Link>
+              </Button>
               {hasRole(ROLES_PASTORAL_SEM_TITULAR) && (
-                <Button asChild variant="outline" size="sm" className="gap-1.5">
-                  <Link to="/financas/dre"><ScrollText className="w-3.5 h-3.5" /> DRE Eclesiástica</Link>
-                </Button>
+                <>
+                  <Button asChild variant="outline" size="sm" className="gap-1.5">
+                    <Link to="/financas/executivo"><LineChart className="w-3.5 h-3.5" /> Visão Executiva</Link>
+                  </Button>
+                  <Button asChild variant="outline" size="sm" className="gap-1.5">
+                    <Link to="/financas/dre"><ScrollText className="w-3.5 h-3.5" /> DRE Eclesiástica</Link>
+                  </Button>
+                </>
               )}
+              <Button asChild variant="outline" size="sm" className="gap-1.5">
+                <Link to="/arrecadacao"><ShoppingCart className="w-3.5 h-3.5" /> Bazar e Cantina</Link>
+              </Button>
             </div>
           </section>
         </>

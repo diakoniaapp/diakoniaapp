@@ -2,11 +2,10 @@ import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
-  DollarSign, Wallet, TrendingUp, TrendingDown, AlertTriangle, Loader2,
+  DollarSign, Wallet, TrendingUp, TrendingDown, AlertTriangle,
   Plus, ChevronRight, Building2, CreditCard, PiggyBank, Mail, Coins,
-  Receipt, Handshake, HandCoins, LineChart, ScrollText, Users,
+  Settings, ArrowRightLeft,
 } from "lucide-react";
 import {
   listarContas, resumoFinanceiroMes, brl, CONTA_TIPO_LABEL,
@@ -14,11 +13,10 @@ import {
 } from "@/services/finService";
 import { LancamentoForm } from "@/components/financas/LancamentoForm";
 import { TransferenciaForm } from "@/components/financas/TransferenciaForm";
-import { Settings, ArrowRightLeft, RotateCw, Package, Sparkles, Layers, Target, Briefcase } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { PaginaSkeleton } from "@/components/ListState";
 import { WidgetsDoPainel } from "@/dashboard/WidgetsDoPainel";
-import { ROLES_FINANCEIRO, ROLES_PASTORAL_SEM_TITULAR, ROLES_DOADORES } from "@/components/layout/navConfig";
+import { ROLES_FINANCEIRO } from "@/components/layout/navConfig";
 
 const ICONE_CONTA: Record<string, JSX.Element> = {
   caixa:     <Wallet className="w-4 h-4" />,
@@ -106,10 +104,19 @@ export default function Financas() {
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="font-serif text-2xl flex items-center gap-2">
-            <DollarSign className="w-6 h-6 text-gold" /> Finanças
+            <DollarSign className="w-6 h-6 text-gold" /> Contas correntes
           </h1>
+          {/* Unificação de 12/09/2026: esta tela era hub + extrato de contas
+              ao mesmo tempo, com uma grade de 15 atalhos que duplicava o menu
+              lateral inteiro — e foi exatamente essa grade que quebrou
+              silenciosamente sem ninguém notar (`Atalho` recebia `to` e
+              nunca virava link). Agora é só o extrato: saldo por conta,
+              lançar, transferir. O resto do módulo — Doações, DRE, Fiscal,
+              Reuniões, Centros, Orçamento etc. — mora no menu lateral e no
+              Painel da Tesouraria ("Ir para"), que é a bancada de trabalho
+              diária de quem tem o papel tesouraria. */}
           <p className="text-xs text-muted-foreground">
-            Tesouraria digital — entradas, saídas, contas e relatórios.
+            Saldo e extrato de cada conta. Para o resto do módulo, veja o menu ao lado.
           </p>
         </div>
         {/* flex-wrap: as tres acoes somavam 447px numa linha so, numa tela de
@@ -185,34 +192,6 @@ export default function Financas() {
         )}
       </div>
 
-      {/* Atalhos */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pt-2">
-        <Atalho to="/financas/agenda?tipo=saida" icon={<TrendingDown className="w-4 h-4 text-destructive-text" />} label="Contas a pagar" />
-        <Atalho to="/financas/agenda?tipo=entrada" icon={<TrendingUp className="w-4 h-4 text-success-text" />} label="Contas a receber" />
-        <Atalho to="/financas/recorrencias" icon={<RotateCw className="w-4 h-4 text-gold" />} label="Recorrências" />
-        <Atalho to="/financas/estoque" icon={<Package className="w-4 h-4 text-info-text" />} label="Estoque" />
-        <Atalho to="/financas/relatorio" icon={<AlertTriangle className="w-4 h-4 text-warning-text" />} label="Malote contábil" />
-        <Atalho to="/financas/centros" icon={<Layers className="w-4 h-4 text-violeta-text" />} label="Centros" />
-        <Atalho to="/financas/orcamento" icon={<Target className="w-4 h-4 text-success-text" />} label="Orçamento" />
-        <Atalho to="/financas/insights" icon={<Sparkles className="w-4 h-4 text-gold" />} label="Insights" />
-        <Atalho to="/financas/folha" icon={<Briefcase className="w-4 h-4 text-violeta-text" />} label="Folha" />
-        <Atalho to="/financas/fiscal" icon={<Receipt className="w-4 h-4 text-warning-text" />} label="Módulo Fiscal" />
-        <Atalho to="/financas/reunioes" icon={<Handshake className="w-4 h-4 text-info-text" />} label="Reuniões" />
-        <Atalho to="/financas/doacoes" icon={<HandCoins className="w-4 h-4 text-success-text" />} label="Doações" />
-        {hasRole(ROLES_DOADORES) && (
-          <Atalho to="/financas/doadores" icon={<Users className="w-4 h-4 text-gold" />} label="Doadores" />
-        )}
-        {hasRole(ROLES_PASTORAL_SEM_TITULAR) && (
-          <>
-            <Atalho to="/financas/executivo" icon={<LineChart className="w-4 h-4 text-violeta-text" />} label="Visão Executiva" />
-            <Atalho to="/financas/dre" icon={<ScrollText className="w-4 h-4 text-gold" />} label="DRE Eclesiástica" />
-          </>
-        )}
-      </div>
-      <p className="text-xs text-muted-foreground text-center pt-2">
-        ✨ Sistema financeiro completo · Aprovação · Rateio · DRE · Conciliação (manual e OFX) · Doadores
-      </p>
-
       <LancamentoForm
         open={lancarOpen}
         onOpenChange={(v) => { setLancarOpen(v); if (!v) setTipoPadraoLancamento("entrada"); }}
@@ -244,28 +223,5 @@ function Stat({ icon, label, valor, destaque }: { icon: JSX.Element; label: stri
         </p>
       </CardContent>
     </Card>
-  );
-}
-
-// Achado em 12/09/2026 (a Telma clicou e nada aconteceu): este componente
-// recebia `to` mas nunca virava `<Link>` — era um `<div>` com estilo de
-// hover/cursor-pointer só de mentira, nos 12 atalhos da tela, desde antes
-// desta sessão. `disabled` continua renderizando `<div>` (não faz sentido
-// navegar pra rota "Em breve"); o resto agora é `<Link>` de verdade.
-function Atalho({ to, icon, label, disabled }: { to: string; icon: JSX.Element; label: string; disabled?: boolean }) {
-  const conteudo = (
-    <>
-      {icon}
-      <span className="text-xs font-medium">{label}</span>
-      {disabled && <Badge variant="outline" className="text-xs ml-auto">Em breve</Badge>}
-    </>
-  );
-  if (disabled) {
-    return <div className="border rounded-md p-3 flex items-center gap-2 opacity-50">{conteudo}</div>;
-  }
-  return (
-    <Link to={to} className="border rounded-md p-3 flex items-center gap-2 hover:bg-muted/40 cursor-pointer">
-      {conteudo}
-    </Link>
   );
 }
