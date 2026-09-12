@@ -72,7 +72,9 @@ export interface PrestacaoContasResultado {
   qtdForaDoPlanoOficial: number;
 }
 
-const NOME_MES = [
+// Exportado — painelTesourariaService.ts reaproveita pro rótulo do "período
+// não fechado", em vez de duplicar os 12 nomes.
+export const NOME_MES = [
   "", "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
 ];

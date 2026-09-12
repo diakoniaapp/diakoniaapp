@@ -73,7 +73,7 @@ import {
 } from "@/services/finService";
 import {
   listarCaixasAbertos, formatarTempoAberto, caixaEhUrgente, type CaixaAberto,
-  listarPendencias, type PendenciaLancamento, DIAS_JANELA_COMPROVANTE,
+  listarPendencias, type ItemPendencia, type PendenciaLancamento, type PendenciaFechamento, DIAS_JANELA_COMPROVANTE,
   listarVencimentosDaSemana, listarAlertasOrcamento, DIAS_JANELA_VENCIMENTOS,
   listarAlertasTesouraria, type AlertaTesouraria,
   carregarCruzamentoDiaconia, type CruzamentoDiaconia,
@@ -92,7 +92,7 @@ export default function PainelTesouraria() {
   // de `/financas` — só nunca tinha sido chamado aqui.
   const [resumo, setResumo] = useState<FinResumoMes | null>(null);
   const [caixas, setCaixas] = useState<CaixaAberto[]>([]);
-  const [pendencias, setPendencias] = useState<PendenciaLancamento[]>([]);
+  const [pendencias, setPendencias] = useState<ItemPendencia[]>([]);
   const [vencimentos, setVencimentos] = useState<FinVencimento[]>([]);
   const [alertasOrc, setAlertasOrc] = useState<FinAlertaCentro[]>([]);
   const [alertas, setAlertas] = useState<AlertaTesouraria[]>([]);
@@ -139,9 +139,10 @@ export default function PainelTesouraria() {
 
   const totalFiscal = fiscal ? fiscal.total_atrasados + fiscal.total_urgentes + fiscal.total_proximos : 0;
   const caixasUrgentes = caixas.filter(caixaEhUrgente);
-  const aprovacoesPendentes = pendencias.filter(p => p.motivo === "aprovacao");
-  const semComprovante = pendencias.filter(p => p.motivo === "comprovante");
-  const aguardandoConciliacao = pendencias.filter(p => p.motivo === "conciliacao");
+  const aprovacoesPendentes = pendencias.filter((p): p is PendenciaLancamento => p.motivo === "aprovacao");
+  const semComprovante = pendencias.filter((p): p is PendenciaLancamento => p.motivo === "comprovante");
+  const aguardandoConciliacao = pendencias.filter((p): p is PendenciaLancamento => p.motivo === "conciliacao");
+  const fechamentosPendentes = pendencias.filter((p): p is PendenciaFechamento => p.motivo === "fechamento");
   const orcamentoCriticos = alertasOrc.filter(a => a.severidade === "critico");
   const alertasCriticos = alertas.filter(a => a.severidade === "critico");
 
@@ -179,7 +180,7 @@ export default function PainelTesouraria() {
           <p className="text-sm text-muted-foreground flex items-start gap-1.5">
             <DollarSign className="w-3.5 h-3.5 text-gold shrink-0 mt-0.5" />
             <span className="min-w-0">
-              {resumoNatural(fiscal, caixas, caixasUrgentes, aprovacoesPendentes, semComprovante, aguardandoConciliacao, vencimentos, orcamentoCriticos, alertasOrc, alertasCriticos, alertas)}
+              {resumoNatural(fiscal, caixas, caixasUrgentes, aprovacoesPendentes, semComprovante, aguardandoConciliacao, fechamentosPendentes, vencimentos, orcamentoCriticos, alertasOrc, alertasCriticos, alertas)}
               {atualizadoEm && (
                 <span className="text-[10px] text-muted-foreground ml-1.5 whitespace-nowrap">
                   · {formatarAtualizadoHa(atualizadoEm)}
@@ -370,28 +371,42 @@ export default function PainelTesouraria() {
             </TituloDaSecao>
             {pendencias.length === 0 ? (
               <p className="text-sm text-muted-foreground py-2 px-3 border rounded-md">
-                Nenhuma aprovação parada, nenhum comprovante faltando e nenhuma conciliação pendente nos últimos {DIAS_JANELA_COMPROVANTE} dias.
+                Nenhuma aprovação parada, nenhum comprovante faltando, nenhuma conciliação pendente nos últimos {DIAS_JANELA_COMPROVANTE} dias e nenhum mês anterior ficou sem fechar.
               </p>
             ) : (
               <ul className="divide-y rounded-md border bg-card">
                 {/* Cada linha leva pro lugar exato onde ela se resolve —
-                    aprovação/comprovante na agenda, conciliação na conta —
-                    em vez de só listar sem dar o próximo passo. */}
+                    aprovação/comprovante na agenda, conciliação na conta,
+                    fechamento na Prestação de Contas — em vez de só listar
+                    sem dar o próximo passo. */}
                 {pendencias.slice(0, 8).map(p => (
-                  <li key={`${p.motivo}-${p.id}`}>
-                    <Link
-                      to={p.motivo === "conciliacao" ? `/financas/conta/${p.conta_id}` : "/financas/agenda"}
-                      className="flex items-center gap-2 px-3 py-2.5 min-h-11 group"
-                    >
-                      <span className="text-sm min-w-0 flex-1">
-                        <span className="font-medium">{p.descricao ?? p.categoria_nome ?? "Lançamento"}</span>
-                        <span className="text-muted-foreground"> — {brl(p.valor)}</span>
-                        <span className={p.motivo === "aprovacao" ? "text-warning-text" : p.motivo === "conciliacao" ? "text-info-text" : "text-muted-foreground"}>
-                          {" "}· {p.motivo === "aprovacao" ? "aguardando aprovação" : p.motivo === "conciliacao" ? "aguardando conciliação" : "sem comprovante"}
+                  <li key={p.motivo === "fechamento" ? p.id : `${p.motivo}-${p.id}`}>
+                    {p.motivo === "fechamento" ? (
+                      <Link
+                        to={`/financas/prestacao-de-contas?ano=${p.ano}&mes=${p.mes}&qtd=1`}
+                        className="flex items-center gap-2 px-3 py-2.5 min-h-11 group"
+                      >
+                        <span className="text-sm min-w-0 flex-1">
+                          <span className="font-medium">{p.rotuloMes}</span>
+                          <span className="text-muted-foreground"> · período não fechado</span>
                         </span>
-                      </span>
-                      <ChevronRight className="w-4 h-4 shrink-0 text-muted-foreground group-hover:text-primary transition-colors" />
-                    </Link>
+                        <ChevronRight className="w-4 h-4 shrink-0 text-muted-foreground group-hover:text-primary transition-colors" />
+                      </Link>
+                    ) : (
+                      <Link
+                        to={p.motivo === "conciliacao" ? `/financas/conta/${p.conta_id}` : "/financas/agenda"}
+                        className="flex items-center gap-2 px-3 py-2.5 min-h-11 group"
+                      >
+                        <span className="text-sm min-w-0 flex-1">
+                          <span className="font-medium">{p.descricao ?? p.categoria_nome ?? "Lançamento"}</span>
+                          <span className="text-muted-foreground"> — {brl(p.valor)}</span>
+                          <span className={p.motivo === "aprovacao" ? "text-warning-text" : p.motivo === "conciliacao" ? "text-info-text" : "text-muted-foreground"}>
+                            {" "}· {p.motivo === "aprovacao" ? "aguardando aprovação" : p.motivo === "conciliacao" ? "aguardando conciliação" : "sem comprovante"}
+                          </span>
+                        </span>
+                        <ChevronRight className="w-4 h-4 shrink-0 text-muted-foreground group-hover:text-primary transition-colors" />
+                      </Link>
+                    )}
                   </li>
                 ))}
                 {pendencias.length > 8 && (
@@ -582,6 +597,9 @@ export default function PainelTesouraria() {
                 <Button asChild variant="outline" size="sm" className="gap-1.5">
                   <Link to="/financas/reunioes"><Handshake className="w-3.5 h-3.5" /> Reuniões financeiras</Link>
                 </Button>
+                <Button asChild variant="outline" size="sm" className="gap-1.5">
+                  <Link to="/financas/prestacao-de-contas"><ScrollText className="w-3.5 h-3.5" /> Prestação de Contas</Link>
+                </Button>
                 {hasRole(ROLES_DOADORES) && (
                   <Button asChild variant="outline" size="sm" className="gap-1.5">
                     <Link to="/financas/doadores"><Users className="w-3.5 h-3.5" /> Doadores</Link>
@@ -634,6 +652,7 @@ function resumoNatural(
   aprovacoesPendentes: PendenciaLancamento[],
   semComprovante: PendenciaLancamento[],
   aguardandoConciliacao: PendenciaLancamento[],
+  fechamentosPendentes: PendenciaFechamento[],
   vencimentos: FinVencimento[],
   orcamentoCriticos: FinAlertaCentro[],
   alertasOrc: FinAlertaCentro[],
@@ -684,6 +703,9 @@ function resumoNatural(
   if (aguardandoConciliacao.length > 0) {
     fila.push(`${aguardandoConciliacao.length} ${aguardandoConciliacao.length === 1
       ? "lançamento aguardando conciliação" : "lançamentos aguardando conciliação"}`);
+  }
+  if (fechamentosPendentes.length > 0) {
+    fila.push(`${fechamentosPendentes[0].rotuloMes} sem fechar`);
   }
   if (vencimentos.length > 0) {
     fila.push(`${vencimentos.length} ${vencimentos.length === 1

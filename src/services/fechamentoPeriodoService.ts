@@ -65,3 +65,24 @@ export async function reabrirPeriodo(fechamentoId: string, motivo: string): Prom
   const { error } = await supabase.rpc("fin_reabrir_periodo", { p_fechamento_id: fechamentoId, p_motivo: motivo });
   if (error) throw error;
 }
+
+/**
+ * Existe algum fechamento (`fechado` ou `aprovado`) cujo intervalo cobre o
+ * mês `ano`/`mes`? Usado pelo Painel da Tesouraria pra sinalizar período
+ * vencido sem fechar — ver `painelTesourariaService.listarFechamentosPendentes()`.
+ * Le todos os fechados/aprovados (hoje são poucos) e computa o intervalo em
+ * memória — não vale a pena uma RPC só pra isso ainda.
+ */
+export async function existeFechamentoParaMes(ano: number, mes: number): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("fin_fechamentos_periodo")
+    .select("ano_inicio, mes_inicio, qtd_meses")
+    .in("status", ["fechado", "aprovado"]);
+  if (error) throw error;
+
+  const alvo = ano * 12 + mes;
+  return (data ?? []).some(f => {
+    const inicio = f.ano_inicio * 12 + f.mes_inicio;
+    return alvo >= inicio && alvo < inicio + f.qtd_meses;
+  });
+}

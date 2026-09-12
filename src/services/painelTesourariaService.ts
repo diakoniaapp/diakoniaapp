@@ -28,7 +28,7 @@
 // para a decisão de como ligar as duas.
 
 import { supabase } from "@/integrations/supabase/client";
-import { hojeMaisDias, toYmd } from "@/lib/data";
+import { hojeMaisDias, hojeLocal, daquiADias, toYmd } from "@/lib/data";
 import {
   listarLancamentos, listarProximosVencimentos, alertasCentros,
   anomaliasMes, alertasFinanceiros, listarContas, brl,
@@ -36,6 +36,8 @@ import {
   type FinAnomalia, type FinAlertaFinanceiro,
 } from "@/services/finService";
 import { carregarBancadaDiaconia } from "@/services/diaconiaService";
+import { existeFechamentoParaMes } from "@/services/fechamentoPeriodoService";
+import { NOME_MES } from "@/services/prestacaoContasService";
 
 export interface CaixaAberto {
   id: string;
@@ -96,32 +98,78 @@ export function caixaEhUrgente(c: CaixaAberto): boolean {
 
 // ─── Pendências ─────────────────────────────────────────────────────────
 //
-// Três naturezas diferentes, por isso o `motivo` em vez de uma lista só:
+// Quatro naturezas diferentes, por isso o `motivo` em vez de uma lista só:
 // "aguardando aprovação" é decisão (alguém precisa dizer sim ou não),
 // "sem comprovante" é documentação faltando na prestação de contas do mês,
-// e "aguardando conciliação" (12/09/2026, junto com a conciliação bancária
-// em si — item 6/7 do roadmap do ERP financeiro) é lançamento `realizado`
-// numa conta banco que ainda não foi batido com o extrato. Confundir as
-// três na mesma frase esconderia qual delas trava o quê — e a conciliação
-// é exatamente o tipo de coisa que "sai da cabeça" se não tiver um lugar
-// fixo pra aparecer todo dia.
+// "aguardando conciliação" (12/09/2026, junto com a conciliação bancária
+// em si) é lançamento `realizado` numa conta banco que ainda não foi
+// batido com o extrato, e "fechamento" (12/09/2026, Fase 6 do projeto
+// Tesouraria) é o mês anterior com movimento real e ainda sem fechamento
+// formal. Confundir as quatro na mesma frase esconderia qual delas trava
+// o quê — cada uma é um tipo de decisão diferente que "sai da cabeça" se
+// não tiver um lugar fixo pra aparecer todo dia.
+//
+// "fechamento" não é um `FinLancamentoExtenso` — é um período, não um
+// lançamento — por isso a união discriminada `ItemPendencia` em vez de
+// forçar `valor`/`conta_id`/etc. fictícios só para caber no mesmo molde
+// das outras três. Forçar o molde seria escrita que mente, o mesmo
+// defeito que `escritaConferida.ts` existe para evitar do outro lado.
 
-export type MotivoPendencia = "aprovacao" | "comprovante" | "conciliacao";
+export type MotivoPendencia = "aprovacao" | "comprovante" | "conciliacao" | "fechamento";
 
 export interface PendenciaLancamento extends FinLancamentoExtenso {
-  motivo: MotivoPendencia;
+  motivo: "aprovacao" | "comprovante" | "conciliacao";
 }
+
+export interface PendenciaFechamento {
+  id: string;
+  motivo: "fechamento";
+  ano: number;
+  mes: number;
+  rotuloMes: string;
+}
+
+export type ItemPendencia = PendenciaLancamento | PendenciaFechamento;
 
 /** Janela do "sem comprovante"/"aguardando conciliação": mais que isto é história, não pendência do dia a dia. */
 export const DIAS_JANELA_COMPROVANTE = 30;
 
-export async function listarPendencias(): Promise<PendenciaLancamento[]> {
-  const [aguardando, realizadosRecentes, contas] = await Promise.all([
+/**
+ * Só o mês anterior ao atual — não uma varredura desde sempre. O
+ * fechamento de período (Fase 6) é recente; sinalizar todo mês antes dele
+ * existir encheria a lista de pendência que ninguém poderia ter fechado
+ * na época. E só entra se o mês teve lançamento `realizado`/`conciliado`
+ * de verdade — mês sem movimento nenhum não precisa ser fechado.
+ */
+export async function listarFechamentosPendentes(): Promise<PendenciaFechamento[]> {
+  const inicioMesAtual = hojeLocal().slice(0, 7) + "-01";
+  const fimMesAnterior = daquiADias(inicioMesAtual, -1);
+  const inicioMesAnterior = fimMesAnterior.slice(0, 7) + "-01";
+  const [ano, mes] = inicioMesAnterior.split("-").map(Number);
+
+  const [lancsMesAnterior, jaFechado] = await Promise.all([
+    listarLancamentos({ dataInicio: inicioMesAnterior, dataFim: fimMesAnterior }),
+    existeFechamentoParaMes(ano, mes),
+  ]);
+  const teveMovimento = lancsMesAnterior.some(l => l.status === "realizado" || l.status === "conciliado");
+  if (!teveMovimento || jaFechado) return [];
+
+  return [{
+    id: `fechamento-${ano}-${mes}`,
+    motivo: "fechamento",
+    ano, mes,
+    rotuloMes: `${NOME_MES[mes]}/${ano}`,
+  }];
+}
+
+export async function listarPendencias(): Promise<ItemPendencia[]> {
+  const [aguardando, realizadosRecentes, contas, fechamentosPendentes] = await Promise.all([
     // Sem `dataInicio`: aprovação parada é decisão em aberto, e fica mais
     // urgente com o tempo — não menos. Não faz sentido ela "expirar" da lista.
     listarLancamentos({ status: "aguardando_aprovacao" }),
     listarLancamentos({ status: "realizado", dataInicio: hojeMaisDias(-DIAS_JANELA_COMPROVANTE) }),
     listarContas(),
+    listarFechamentosPendentes(),
   ]);
 
   const semComprovante = realizadosRecentes.filter(l => !l.comprovante_url);
@@ -135,6 +183,7 @@ export async function listarPendencias(): Promise<PendenciaLancamento[]> {
     ...aguardando.map(l => ({ ...l, motivo: "aprovacao" as const })),
     ...semComprovante.map(l => ({ ...l, motivo: "comprovante" as const })),
     ...aguardandoConciliacao.map(l => ({ ...l, motivo: "conciliacao" as const })),
+    ...fechamentosPendentes,
   ];
 }
 
