@@ -91,7 +91,7 @@ Legenda: 🟢 EXISTE (schema + RLS + service + tela, em uso) · 🟡 EXISTE PARC
 | Painel da Tesouraria | `/painel-tesouraria` | 🟢 — 4 sprints, 6 blocos, no ar desde 09/09 |
 | **Conciliação bancária** | botão "Conciliar" existe, **leva para `/financas` genérico** | 🔴 |
 | **Aprovação de despesas** | — | 🔴 → 🟢 nesta entrega (ver Fase 3) |
-| **Doações (tela dedicada)** | — | 🟡 (dado existe, sem tela própria) |
+| **Doações (tela dedicada)** | `/financas/doacoes`, no menu Financeiro | 🟢 nesta entrega |
 | **Prestação de contas exportável** | `/financas/centro/:id/prestacao-contas` — documento formal, imprimível/PDF/CSV | 🟢 nesta entrega |
 | **DRE Eclesiástica formal** | Visão Executiva cobre o conteúdo, não o formato | 🟡 |
 | **Importação de extrato (OFX/CSV bancário)** | — | 🔴 |
@@ -243,7 +243,7 @@ Em ordem de esforço crescente:
 | ~~1~~ | ~~**Prestação de contas exportável por centro de custo**~~ — **FEITO em 12/09/2026**. `FinancasCentroPrestacaoContas.tsx` (`/financas/centro/:id/prestacao-contas`, botão em `FinancasCentroDetalhe.tsx`), mesmo padrão de impressão/PDF dos outros 7 relatórios. Cobre de graça os quatro "Por Ministério/Campanha/Evento/Projeto Social" da missão — são o mesmo relatório sobre o mesmo `fin_centros_custo`, só o `vinculo_tipo` muda o rótulo. Seletor "todo o período" (padrão) ou por ano — um centro de custo não tem data de início/fim guardada. Verificado ao vivo com 3 lançamentos de teste (criados e apagados na sessão): demonstrativo, categorias, tabela e CSV bateram | pequeno | padrão de impressão existente, `fin_centros_custo`, `listarLancamentos` |
 | 2 | **`fin_centro_vinculo` "evento" na UI** — o banco já tem o valor no enum; `FinCentroVinculo` (TS) e `VINCULO_LABEL` não o listam (há um comentário no código explicando por quê — conferir se ainda vale) | pequeno | — |
 | 3 | **Rateio de lançamento entre centros** — `fin_lancamento_rateio` existe, sem tela | médio | tabela pronta |
-| 4 | **Tela "Doações"** — filtro de `fin_lancamentos` por categoria "Dízimo/Oferta/Missões" + `forma_pagamento`, com destaque para as recorrentes (`fin_recorrencias`) | médio | tudo já existe, é composição de tela nova |
+| ~~4~~ | ~~**Tela "Doações"**~~ — **FEITO em 12/09/2026**. `FinancasDoacoes.tsx` (`/financas/doacoes`, no menu Financeiro): total do mês, por forma de pagamento (barra + ícone por PIX/Dinheiro/Cartão/Transferência/Boleto/Envelope), por categoria, recorrentes ativas (`fin_recorrencias` tipo entrada), lista do mês com navegação mês a mês. Estilo bancada de trabalho, não relatório imprimível (esse já existe — Prestação de Contas). Verificado ao vivo com 3 lançamentos + 1 recorrência de teste | médio | tudo já existia, era composição de tela nova |
 | 5 | **DRE Eclesiástica no formato de demonstração** (não lista de indicadores) | médio-alto | `fin_exec_indicadores_eclesiasticos`, `fin_categorias.conta_contabil` |
 | 6 | **Conciliação manual** (marcar um `realizado` como `conciliado` ao bater com o extrato, sem importar arquivo ainda) | médio | status já existe, só falta a ação — mesmo padrão desta entrega |
 | 7 | **Importação de extrato (OFX/CSV)** | alto | depende do item 3 da lista de decisões |

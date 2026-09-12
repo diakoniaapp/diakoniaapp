@@ -12,7 +12,7 @@ import {
   Network, FileText, ScrollText,
   CheckSquare, UserCheck, Sprout, Gavel,
   ShoppingBag, type LucideIcon,
-  ClipboardCheck, Wallet,
+  ClipboardCheck, Wallet, HandCoins,
 } from "lucide-react";
 import type { AppRole } from "@/hooks/useAuth";
 
@@ -253,6 +253,7 @@ export const NAV_GROUPS: NavGroup[] = [
     allowedRoles: ROLES_FINANCEIRO,
     items: [
       { to: "/financas",           label: "Tesouraria",          icon: DollarSign, allowedRoles: ROLES_FINANCEIRO },
+      { to: "/financas/doacoes",   label: "Doações",             icon: HandCoins,  allowedRoles: ROLES_FINANCEIRO },
       { to: "/financas/fiscal",    label: "Módulo Fiscal",       icon: DollarSign, allowedRoles: ROLES_FINANCEIRO },
       { to: "/financas/reunioes",  label: "Reuniões financeiras", icon: DollarSign, allowedRoles: ROLES_FINANCEIRO },
       { to: "/financas/executivo", label: "Visão Executiva",     icon: DollarSign, allowedRoles: ROLES_PASTORAL_SEM_TITULAR },
