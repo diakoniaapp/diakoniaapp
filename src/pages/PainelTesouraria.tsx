@@ -60,7 +60,7 @@ import { Link } from "react-router-dom";
 import {
   DollarSign, Receipt, Wallet, ChevronRight, RefreshCw, Sparkles, Package,
   Clock, CalendarClock, Target, ShoppingCart, HandCoins, Scale, Lightbulb,
-  HeartHandshake,
+  HeartHandshake, Users, ScrollText, Layers, Handshake,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -76,8 +76,11 @@ import {
   carregarCruzamentoDiaconia, type CruzamentoDiaconia,
 } from "@/services/painelTesourariaService";
 import { AgendaFiscalUrgente } from "@/components/dashboard/AgendaFiscalUrgente";
+import { useAuth } from "@/hooks/useAuth";
+import { ROLES_DOADORES, ROLES_PASTORAL_SEM_TITULAR } from "@/components/layout/navConfig";
 
 export default function PainelTesouraria() {
+  const { hasRole } = useAuth();
   const [fiscal, setFiscal] = useState<ResumoFiscalDashboard | null>(null);
   const [caixas, setCaixas] = useState<CaixaAberto[]>([]);
   const [pendencias, setPendencias] = useState<PendenciaLancamento[]>([]);
@@ -248,6 +251,11 @@ export default function PainelTesouraria() {
             >
               <Wallet className="w-3.5 h-3.5" /> Fechar caixa
             </Button>
+            {/* Conciliação (manual + extrato OFX) ficou pronta em 12/09/2026 —
+                mas é sempre de UMA conta por vez (`/financas/conta/:id`), sem
+                tela "conciliar tudo" no sistema. Levar para o hub de contas,
+                de onde a pessoa escolhe qual conta bater com o extrato, é o
+                mais honesto até existir um resumo cruzando todas as contas. */}
             <Button asChild size="sm" variant="outline" className="gap-1.5">
               <Link to="/financas"><Scale className="w-3.5 h-3.5" /> Conciliar</Link>
             </Button>
@@ -474,6 +482,25 @@ export default function PainelTesouraria() {
               <Button asChild variant="outline" size="sm" className="gap-1.5">
                 <Link to="/financas/insights"><Sparkles className="w-3.5 h-3.5" /> Insights</Link>
               </Button>
+              <Button asChild variant="outline" size="sm" className="gap-1.5">
+                <Link to="/financas/doacoes"><HandCoins className="w-3.5 h-3.5" /> Doações</Link>
+              </Button>
+              <Button asChild variant="outline" size="sm" className="gap-1.5">
+                <Link to="/financas/centros"><Layers className="w-3.5 h-3.5" /> Centros de custo</Link>
+              </Button>
+              <Button asChild variant="outline" size="sm" className="gap-1.5">
+                <Link to="/financas/reunioes"><Handshake className="w-3.5 h-3.5" /> Reuniões financeiras</Link>
+              </Button>
+              {hasRole(ROLES_DOADORES) && (
+                <Button asChild variant="outline" size="sm" className="gap-1.5">
+                  <Link to="/financas/doadores"><Users className="w-3.5 h-3.5" /> Doadores</Link>
+                </Button>
+              )}
+              {hasRole(ROLES_PASTORAL_SEM_TITULAR) && (
+                <Button asChild variant="outline" size="sm" className="gap-1.5">
+                  <Link to="/financas/dre"><ScrollText className="w-3.5 h-3.5" /> DRE Eclesiástica</Link>
+                </Button>
+              )}
             </div>
           </section>
         </>

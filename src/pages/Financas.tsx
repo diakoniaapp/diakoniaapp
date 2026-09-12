@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   DollarSign, Wallet, TrendingUp, TrendingDown, AlertTriangle, Loader2,
   Plus, ChevronRight, Building2, CreditCard, PiggyBank, Mail, Coins,
+  Receipt, Handshake, HandCoins, LineChart, ScrollText, Users,
 } from "lucide-react";
 import {
   listarContas, resumoFinanceiroMes, brl, CONTA_TIPO_LABEL,
@@ -17,7 +18,7 @@ import { Settings, ArrowRightLeft, RotateCw, Package, Sparkles, Layers, Target, 
 import { useAuth } from "@/hooks/useAuth";
 import { PaginaSkeleton } from "@/components/ListState";
 import { WidgetsDoPainel } from "@/dashboard/WidgetsDoPainel";
-import { ROLES_FINANCEIRO } from "@/components/layout/navConfig";
+import { ROLES_FINANCEIRO, ROLES_PASTORAL_SEM_TITULAR, ROLES_DOADORES } from "@/components/layout/navConfig";
 
 const ICONE_CONTA: Record<string, JSX.Element> = {
   caixa:     <Wallet className="w-4 h-4" />,
@@ -195,9 +196,21 @@ export default function Financas() {
         <Atalho to="/financas/orcamento" icon={<Target className="w-4 h-4 text-success-text" />} label="Orçamento" />
         <Atalho to="/financas/insights" icon={<Sparkles className="w-4 h-4 text-gold" />} label="Insights" />
         <Atalho to="/financas/folha" icon={<Briefcase className="w-4 h-4 text-violeta-text" />} label="Folha" />
+        <Atalho to="/financas/fiscal" icon={<Receipt className="w-4 h-4 text-warning-text" />} label="Módulo Fiscal" />
+        <Atalho to="/financas/reunioes" icon={<Handshake className="w-4 h-4 text-info-text" />} label="Reuniões" />
+        <Atalho to="/financas/doacoes" icon={<HandCoins className="w-4 h-4 text-success-text" />} label="Doações" />
+        {hasRole(ROLES_DOADORES) && (
+          <Atalho to="/financas/doadores" icon={<Users className="w-4 h-4 text-gold" />} label="Doadores" />
+        )}
+        {hasRole(ROLES_PASTORAL_SEM_TITULAR) && (
+          <>
+            <Atalho to="/financas/executivo" icon={<LineChart className="w-4 h-4 text-violeta-text" />} label="Visão Executiva" />
+            <Atalho to="/financas/dre" icon={<ScrollText className="w-4 h-4 text-gold" />} label="DRE Eclesiástica" />
+          </>
+        )}
       </div>
       <p className="text-xs text-muted-foreground text-center pt-2">
-        ✨ Sistema financeiro completo · 6 fases entregues · OCR · Recorrências · Estoque · Malote · Insights
+        ✨ Sistema financeiro completo · Aprovação · Rateio · DRE · Conciliação (manual e OFX) · Doadores
       </p>
 
       <LancamentoForm
