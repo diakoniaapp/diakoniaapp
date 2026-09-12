@@ -7,15 +7,17 @@ import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   ArrowLeft, DollarSign, Loader2, Plus, Search, Filter,
   TrendingUp, TrendingDown, Pencil, Trash2, Paperclip,
-  CheckCircle2, Clock, XCircle,
+  CheckCircle2, Clock, XCircle, Scale,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
   carregarConta, listarLancamentos, excluirLancamento, brl,
   comprovanteSignedUrl, CONTA_TIPO_LABEL,
+  conciliarLancamento, desconciliarLancamento, conciliarEmLote,
   type FinConta, type FinLancamentoExtenso, type FinMovimentoTipo, type FinStatus,
   STATUS_LABEL,
 } from "@/services/finService";
@@ -54,6 +56,11 @@ export default function FinancasConta() {
   const [novoOpen, setNovoOpen] = useState(false);
   const [editando, setEditando] = useState<FinLancamentoExtenso | null>(null);
   const [transfOpen, setTransfOpen] = useState(false);
+  // Conciliação manual (item 6 do roadmap do ERP): seleção só de
+  // `realizado` — não faz sentido conciliar algo que ainda não aconteceu
+  // (previsto), que foi cancelado, ou que ainda espera aprovação.
+  const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
+  const [conciliando, setConciliando] = useState(false);
 
   // Período do filtro — mês atual por default
   const hoje = new Date();
@@ -99,6 +106,36 @@ export default function FinancasConta() {
     } catch (e: any) { toast.error(e?.message ?? "Erro"); }
   }
 
+  /** Alterna um lançamento entre realizado e conciliado — clique direto
+      no selo de situação. Reversível: bater errado tem volta. */
+  async function alternarConciliacao(l: FinLancamentoExtenso) {
+    try {
+      if (l.status === "conciliado") await desconciliarLancamento(l.id);
+      else await conciliarLancamento(l.id);
+      await carregar();
+    } catch (e: any) { toast.error(e?.message ?? "Erro"); }
+  }
+
+  function alternarSelecao(id: string) {
+    setSelecionados(prev => {
+      const novo = new Set(prev);
+      if (novo.has(id)) novo.delete(id); else novo.add(id);
+      return novo;
+    });
+  }
+
+  async function conciliarSelecionados() {
+    if (selecionados.size === 0) return;
+    setConciliando(true);
+    try {
+      await conciliarEmLote(Array.from(selecionados));
+      toast.success(`${selecionados.size} lançamento${selecionados.size > 1 ? "s" : ""} conciliado${selecionados.size > 1 ? "s" : ""}`);
+      setSelecionados(new Set());
+      await carregar();
+    } catch (e: any) { toast.error(e?.message ?? "Erro"); }
+    finally { setConciliando(false); }
+  }
+
   if (loading && !conta) {
     return <PaginaSkeleton />;
   }
@@ -127,6 +164,13 @@ export default function FinancasConta() {
             Saldo atual: <strong style={{ color: conta.cor ?? undefined }}>{brl(Number(conta.saldo_atual))}</strong>
           </p>
         </div>
+        {selecionados.size > 0 && (
+          <Button size="sm" onClick={conciliarSelecionados} disabled={conciliando}
+            className="gap-1.5 bg-success hover:bg-success text-white">
+            <Scale className="w-3.5 h-3.5" />
+            {conciliando ? "..." : `Conciliar ${selecionados.size}`}
+          </Button>
+        )}
         <Button variant="outline" size="sm" onClick={() => setTransfOpen(true)} className="gap-1.5 text-info-text hover:text-info-text">
           <ArrowRightLeft className="w-3.5 h-3.5" /> Transferir
         </Button>
@@ -206,6 +250,7 @@ export default function FinancasConta() {
             <table className="w-full text-xs">
               <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
+                  <th className="w-8"></th>
                   <th className="text-left py-2 px-2 w-20">Situação</th>
                   <th className="text-left py-2 px-2 w-16">Data</th>
                   <th className="text-left py-2 px-2">Descrição / Fornecedor</th>
@@ -217,12 +262,28 @@ export default function FinancasConta() {
                 </tr>
               </thead>
               <tbody>
-                {lancamentos.map(l => (
+                {lancamentos.map(l => {
+                  const conciliavel = l.status === "realizado" || l.status === "conciliado";
+                  return (
                   <tr key={l.id} className="border-t hover:bg-muted/30">
                     <td className="py-1.5 px-2">
-                      <span className={`inline-flex items-center gap-1 text-xs ${STATUS_COR[l.status]}`}>
-                        {STATUS_ICONE[l.status]} {STATUS_LABEL[l.status]}
-                      </span>
+                      {l.status === "realizado" && (
+                        <Checkbox checked={selecionados.has(l.id)} onCheckedChange={() => alternarSelecao(l.id)}
+                          aria-label={`Selecionar ${l.descricao ?? "lançamento"} para conciliar`} />
+                      )}
+                    </td>
+                    <td className="py-1.5 px-2">
+                      {conciliavel ? (
+                        <button type="button" onClick={() => alternarConciliacao(l)}
+                          title={l.status === "conciliado" ? "Bateu com o extrato — clique para desfazer" : "Marcar como conciliado (bateu com o extrato)"}
+                          className={`inline-flex items-center gap-1 text-xs hover:underline decoration-dotted ${STATUS_COR[l.status]}`}>
+                          {STATUS_ICONE[l.status]} {STATUS_LABEL[l.status]}
+                        </button>
+                      ) : (
+                        <span className={`inline-flex items-center gap-1 text-xs ${STATUS_COR[l.status]}`}>
+                          {STATUS_ICONE[l.status]} {STATUS_LABEL[l.status]}
+                        </span>
+                      )}
                     </td>
                     <td className="py-1.5 px-2 whitespace-nowrap">{dataBr(l.data)}</td>
                     <td className="py-1.5 px-2 min-w-[200px]">
@@ -270,7 +331,8 @@ export default function FinancasConta() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           )}

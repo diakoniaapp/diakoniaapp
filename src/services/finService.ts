@@ -629,6 +629,35 @@ export async function confirmarPagamento(lancamentoId: string, opts?: {
   await atualizarLancamento(lancamentoId, patch);
 }
 
+// ─── Conciliação manual — realizado ⇄ conciliado ────────────────────────
+//
+// Item 6 do roadmap do ERP financeiro: o status `conciliado` já existia
+// (e os relatórios já tratam `realizado`/`conciliado` como equivalentes
+// para "dinheiro que já circulou"), mas nada na tela jamais o gravava —
+// o botão "Conciliar" do Painel da Tesouraria só levava para o hub
+// genérico. Sem importação de extrato ainda (OFX/CSV — depende do banco
+// e formato que a Telma usar, decisão registrada no roadmap): isto é só
+// a MARCAÇÃO manual, "bati este lançamento com o extrato do banco".
+//
+// Conciliar é reversível de propósito — um "bati" errado precisa ter
+// volta sem virar exclusão.
+export async function conciliarLancamento(lancamentoId: string): Promise<void> {
+  await atualizarLancamento(lancamentoId, { status: "conciliado" });
+}
+export async function desconciliarLancamento(lancamentoId: string): Promise<void> {
+  await atualizarLancamento(lancamentoId, { status: "realizado" });
+}
+
+/** Conciliar vários de uma vez — o caso real de bater um extrato inteiro. */
+export async function conciliarEmLote(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  const r = conferir(
+    await supabase.from("fin_lancamentos").update({ status: "conciliado" }).in("id", ids).select("id"),
+    "A conciliação",
+  );
+  if (!r.ok) throw new Error(r.erro);
+}
+
 // ─── Aprovar/rejeitar — aguardando_aprovacao → realizado | cancelado ────
 //
 // O status `aguardando_aprovacao` existe desde sempre em `fin_lancamentos`
