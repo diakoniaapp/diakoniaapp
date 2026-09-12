@@ -167,7 +167,7 @@ mapeamento de baixo risco, não migração de dado histórico.
 | Outras receitas | **descontinuar** — genérica demais, sem equivalente oficial | — |
 | Campanhas | **manter fora do Plano Oficial** — usada pelo módulo Arrecadação/Campanhas (Missão 50k etc.), não entra na prestação de contas trimestral | — |
 | Doações | **fundir com Ofertas** — decidido pela Telma em 12/09/2026 (executado na Fase 1) | Ofertas |
-| Eventos | **a confirmar** — sem equivalente oficial explícito | — |
+| Eventos | **manter fora do Plano Oficial** — confirmado pela Telma em 12/09/2026 (Fase 2); não entra na Prestação de Contas trimestral, só uso interno do módulo Arrecadação | — |
 | Vendas (livraria) | **manter fora do Plano Oficial** — provável escopo do módulo Bazar/Cantina | — |
 
 ### 2.2 Despesas (25 atuais → 44+5+5 oficiais)
@@ -192,7 +192,7 @@ mapeamento de baixo risco, não migração de dado histórico.
 | MEI (prestadores) | mapear | Serviço Prestado PJ |
 | RPA (autônomos) | mapear | Serviço Prestado PF |
 | Transporte/combustível | mapear (parcial) | Combustível (Outras Despesas) — a parte "transporte" que for benefício de funcionário vira Vale Transporte |
-| Construção / reforma | **a confirmar** — despesa corrente ou imobilizado? Oficial não tem categoria de capex explícita; mais próxima é Manutenção de Imobilizado, mas semanticamente é diferente (reforma ≠ manutenção) | — |
+| Construção / reforma | **fundir com Manutenção de Imobilizado** — decidido pela Telma em 12/09/2026 (Fase 2) | Manutenção de Imobilizado |
 | Diaconia / assistência | **corrigir o modelo, não a categoria** — "Diaconia" já é um centro de custo (`Min. Diaconia e Ação Social`). Isto hoje é usado como categoria quando deveria ser centro de custo; a categoria real seria a que descreve o gasto em si (ex. Material de Consumo, Outros Gastos Cartão) | — |
 | Missões | **mesmo problema** — Missões é `Min. Evangelismo e Missões` (centro de custo). Categoria real mais próxima do gasto seria Outros Repasses Missionários | — |
 | Materiais EBD | **manter fora do Plano Oficial** — específica do módulo EBD; se entrar no relatório oficial, reclassificar como Material de Consumo | — |
@@ -617,7 +617,7 @@ do projeto continua sendo: ensaiar com `BEGIN;...ROLLBACK;`, medir antes e depoi
 |---|---|---|---|
 | **0** | Este documento, validado pela Telma | Não | — |
 | **1** | ✅ **Aplicada 12/09/2026.** Plano de Contas Oficial: seed das 5 receitas + 44+5+5 despesas em `fin_categorias`, coluna `classificacao_dre` criada e populada, "Doações" fundida em "Ofertas", "Diaconia"/"Missões" descontinuadas como categoria. Migration: `20260912190000_fase1_plano_de_contas_oficial.sql` | Sim — 1 coluna + 1 enum + seed | Baixo (7 lançamentos em produção, nenhum quebrado — conferido) |
-| **2** | ~~Confirmar com a tesouraria~~ — Doações (funde com Ofertas) e Diaconia/Missões-como-categoria (descontinuadas) já decididos pela Telma em 12/09/2026. Restam só Eventos e Construção/reforma, de baixo impacto (sem lançamento real hoje) — revisar quando surgir o primeiro caso real | Não | — |
+| **2** | ✅ **Aplicada 12/09/2026.** Eventos confirmado fora do Plano Oficial; Construção/reforma funde com Manutenção de Imobilizado. Migration: `20260912194500_fase2_fecha_mapeamento_eventos_reforma.sql`. Mapeamento da seção 2 fechado por completo. | Sim — 1 UPDATE de observação | Baixíssimo |
 | **3** | Centros de custo: 5 subgrupos de Administração + novo valor de enum `subgrupo_administracao` | Sim — 1 valor de enum + 5 linhas | Baixo |
 | **4** | `fin_relatorio_notas` — tabela + modal da seção 8.4, sem ligar ainda ao relatório | Sim — 1 tabela nova | Baixo |
 | **5** | Tela "Prestação de Contas Trimestral" (seção 8.3) — **somente leitura**, gerada ao vivo, sem fechamento ainda. Rodar em paralelo com a planilha por 1 trimestre real, comparando número a número | Não | — |

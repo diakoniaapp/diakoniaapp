@@ -22,7 +22,7 @@
 | Outras receitas | *(sem equivalente oficial)* | — | Receita · fora do Plano Oficial | **Descontinuar** (`ativo=false`) |
 | Campanhas | *(fora do Plano Oficial — módulo Arrecadação)* | — | Receita · fora do Plano Oficial | Manter ativa, sem classificação |
 | Doações | Ofertas | — | Receita · Receitas Regulares | **Fundir com Ofertas** — decisão da Telma, 12/09/2026 (revisão do mesmo dia) |
-| Eventos | *(fora do Plano Oficial — módulo Arrecadação)* | — | Receita · fora do Plano Oficial | Manter ativa, sem classificação |
+| Eventos | *(fora do Plano Oficial — módulo Arrecadação)* | — | Receita · fora do Plano Oficial | Manter ativa, sem classificação — confirmado com a Telma, 12/09/2026 (Fase 2) |
 | Vendas (livraria) | *(fora do Plano Oficial — módulo Bazar/Cantina)* | — | Receita · fora do Plano Oficial | Manter ativa, sem classificação |
 | Água e esgoto | Água e Esgoto | qualquer ministério | Despesa | Renomear |
 | Aluguel | Aluguel | qualquer | Despesa | Manter |
@@ -44,7 +44,7 @@
 | Tarifas bancárias | Tarifas Bancárias | — (centro "Geral / Operacional") | Despesa Financeira | Renomear |
 | INSS / FGTS / Encargos | INSS + FGTS + INSS/IRRF | qualquer | Despesa | **Descontinuar** — desmembra em 3 categorias novas (Parte B) |
 | Internet/telefone | Internet + Telefonia | qualquer | Despesa | **Descontinuar** — desmembra em 2 categorias novas (Parte B) |
-| Construção / reforma | *(sem equivalente — é capex, não despesa corrente)* | — | Despesa · fora do Plano Oficial | **Descontinuar** (revisar se a igreja passar a reformar com frequência) |
+| Construção / reforma | Manutenção de Imobilizado | qualquer | Despesa | **Fundir** — decisão da Telma, 12/09/2026 (Fase 2) |
 | Diaconia / assistência | *(não é categoria — é centro de custo)* | **Min. Diaconia e Ação Social** | — | **Descontinuar como categoria** — decisão da Telma, 12/09/2026 |
 | Missões | *(não é categoria — é centro de custo)* | **Min. Evangelismo e Missões** | — | **Descontinuar como categoria** — decisão da Telma, 12/09/2026. Repasse a missões usa a categoria oficial "Outros Repasses Missionários" |
 | Materiais EBD | *(fora do Plano Oficial — módulo EBD)* | qualquer | Despesa · fora do Plano Oficial | Manter ativa, sem classificação |
