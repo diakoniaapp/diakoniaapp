@@ -8,8 +8,8 @@ import {
   Settings, ArrowRightLeft,
 } from "lucide-react";
 import {
-  listarContas, resumoFinanceiroMes, brl, CONTA_TIPO_LABEL,
-  type FinConta, type FinResumoMes, type FinMovimentoTipo,
+  listarContas, resumoFinanceiroMes, indicadoresEclesiasticosMensais, brl, CONTA_TIPO_LABEL,
+  type FinConta, type FinResumoMes, type FinMovimentoTipo, type IndicadorEclesiasticoMes,
 } from "@/services/finService";
 import { LancamentoForm } from "@/components/financas/LancamentoForm";
 import { TransferenciaForm } from "@/components/financas/TransferenciaForm";
@@ -43,6 +43,7 @@ export default function Financas() {
 
   const [contas, setContas] = useState<FinConta[]>([]);
   const [resumo, setResumo] = useState<FinResumoMes | null>(null);
+  const [indicadores, setIndicadores] = useState<IndicadorEclesiasticoMes[]>([]);
   const [loading, setLoading] = useState(true);
   const [lancarOpen, setLancarOpen] = useState(false);
   const [tipoPadraoLancamento, setTipoPadraoLancamento] = useState<FinMovimentoTipo>("entrada");
@@ -79,12 +80,14 @@ export default function Financas() {
   async function carregar() {
     setLoading(true);
     try {
-      const [cs, r] = await Promise.all([
+      const [cs, r, ind] = await Promise.all([
         listarContas(),
         resumoFinanceiroMes().catch(() => null),
+        indicadoresEclesiasticosMensais(6).catch(() => []),
       ]);
       setContas(cs);
       setResumo(r);
+      setIndicadores(ind);
     } finally { setLoading(false); }
   }
 
@@ -191,6 +194,53 @@ export default function Financas() {
           </div>
         )}
       </div>
+
+      {/* Indicadores eclesiásticos — pedido da Telma em 13/09/2026 no lugar
+          de "Campanhas em andamento" (widget de EBD, agora só dentro do
+          próprio módulo de EBD, ver /ebd). Soma todas as contas juntas,
+          mês a mês — mesma classificação de nome de categoria que a Visão
+          Executiva usa, só que em série (6 meses) e não presa a
+          ROLES_PASTORAL_SEM_TITULAR, porque quem acompanha isso no dia a
+          dia é a tesouraria. */}
+      {indicadores.length > 0 && (
+        <div className="space-y-2">
+          <h2 className="text-xs uppercase tracking-wide text-muted-foreground px-1 mt-2">
+            Indicadores eclesiásticos — últimos {indicadores.length} meses
+          </h2>
+          <Card>
+            <CardContent className="py-3 overflow-x-auto">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr>
+                    <th className="text-left text-xs font-medium text-muted-foreground pb-2 pr-3">Categoria</th>
+                    {indicadores.map(i => (
+                      <th key={`${i.ano}-${i.mes}`} className="text-right text-xs font-medium text-muted-foreground pb-2 px-2 whitespace-nowrap">
+                        {i.rotulo}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {([
+                    ["dizimos", "Dízimos"],
+                    ["ofertas", "Ofertas"],
+                    ["missoes", "Missões"],
+                  ] as const).map(([chave, rotulo]) => (
+                    <tr key={chave} className="border-t border-border/40">
+                      <td className="py-1.5 pr-3 font-medium">{rotulo}</td>
+                      {indicadores.map(i => (
+                        <td key={`${i.ano}-${i.mes}`} className="py-1.5 px-2 text-right tabular-nums">
+                          {i[chave] > 0 ? brl(i[chave]) : <span className="text-muted-foreground">—</span>}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <LancamentoForm
         open={lancarOpen}

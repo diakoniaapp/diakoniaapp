@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { hojeLocal } from "@/lib/data";
+import { hojeLocal, daquiAMeses } from "@/lib/data";
 import { conferir } from "@/lib/escritaConferida";
 
 // ─── Tipos ───────────────────────────────────────────────────────────────
@@ -853,6 +853,71 @@ export async function resumoMensal(ano: number, mes: number): Promise<ResumoMens
     porCategoria, porConta,
     lancamentos: realizados,
   };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Indicadores eclesiásticos mensais (Dízimos / Ofertas / Missões)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Pedido da Telma (13/09/2026), ao pedir pra tirar "Campanhas em
+// andamento" (widget de EBD) do hub da Tesouraria: no lugar, uma
+// visualização de dízimos/ofertas/missões mês a mês, somando TODAS as
+// contas. `fin_exec_indicadores_eclesiasticos` (RPC da Visão Executiva)
+// já faz uma classificação parecida, mas só mês atual × mês anterior —
+// não uma série de vários meses — e fica atrás de `ROLES_PASTORAL_SEM_
+// TITULAR`, mais restrito que quem toca o dia a dia da tesouraria. Feito
+// em app (sem RPC nova) pra ficar no hub certo com a audiência certa.
+//
+// Achado nesse meio tempo: a RPC classifica testando '%oferta%' ANTES de
+// '%missao%' — então "Ofertas para Missões" (categoria oficial do Plano
+// de Contas, Fase 1) sempre cai em "Ofertas", nunca em "Missões", porque
+// o nome contém as duas palavras e o CASE para no primeiro that bate.
+// Não mexi na RPC (fora do pedido de hoje), mas aqui a ordem é invertida
+// de propósito — checa "missão" antes de "oferta" — pra não repetir o
+// mesmo desvio numa tela nova.
+export interface IndicadorEclesiasticoMes {
+  ano: number; mes: number; rotulo: string;
+  dizimos: number; ofertas: number; missoes: number;
+}
+
+const MES_ABREV = ["", "Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+
+function classificarIndicadorEclesiastico(nomeCategoria: string): "dizimos" | "ofertas" | "missoes" | null {
+  if (/d[ií]zimo/i.test(nomeCategoria)) return "dizimos";
+  if (/miss[aã]o|miss[oõ]es/i.test(nomeCategoria)) return "missoes";
+  if (/oferta/i.test(nomeCategoria)) return "ofertas";
+  return null;
+}
+
+export async function indicadoresEclesiasticosMensais(meses = 6): Promise<IndicadorEclesiasticoMes[]> {
+  const hoje = hojeLocal();
+  const inicioMesAtual = hoje.slice(0, 7) + "-01";
+  const dataInicio = daquiAMeses(inicioMesAtual, -(meses - 1));
+
+  const lancs = await listarLancamentos({ tipo: "entrada", dataInicio, dataFim: hoje });
+  // Mesmo cuidado de 12/13-09-2026: transferência entre contas não é
+  // receita, e sem categoria nunca bateria em nenhum dos 3 padrões acima
+  // mesmo assim — mas exclui aqui também, por clareza e consistência com
+  // o resto do módulo.
+  const validos = lancs.filter(l =>
+    (l.status === "realizado" || l.status === "conciliado") && l.origem !== "transferencia");
+
+  const porMes = new Map<string, IndicadorEclesiasticoMes>();
+  for (let i = 0; i < meses; i++) {
+    const chave = daquiAMeses(dataInicio, i);
+    const [ano, mes] = chave.split("-").map(Number);
+    porMes.set(chave.slice(0, 7), { ano, mes, rotulo: `${MES_ABREV[mes]}/${String(ano).slice(2)}`, dizimos: 0, ofertas: 0, missoes: 0 });
+  }
+
+  validos.forEach(l => {
+    const chave = l.data.slice(0, 7);
+    const alvo = porMes.get(chave);
+    if (!alvo || !l.categoria_nome) return;
+    const indicador = classificarIndicadorEclesiastico(l.categoria_nome);
+    if (indicador) alvo[indicador] += Number(l.valor);
+  });
+
+  return Array.from(porMes.values());
 }
 
 // ─── Exportação CSV ─────────────────────────────────────────────────────

@@ -517,6 +517,52 @@ depois. `tsc`/`vitest` (218/218)/`vite build` limpos.
 
 ---
 
+## ✅ Fora do roadmap original — Indicadores eclesiásticos no hub da Tesouraria (13/09/2026)
+
+Pedido da Telma ao ver o widget "Campanhas em andamento" (arrecadação de
+classes de EBD) aparecendo em `/financas`: "deixe... apenas no módulo de
+EBD" — e, no lugar, uma visualização de dízimos/ofertas/missões mensais,
+somando todas as contas.
+
+**Widget de EBD removido do hub financeiro** — `widgetRegistry.tsx`
+tinha `campanhas-ebd` com `paineis: ["pastoral", "financas"]`; conferido
+que `pages/Ebd.tsx` já constrói a própria seção "Campanhas de
+arrecadação em andamento" (linha ~895, com todas as classes, não uma
+reimportação do widget) — a entrada do registro virou **puramente
+duplicada** fora do módulo de EBD. Removida a entrada inteira (não só
+`paineis: []`) e apagado `components/dashboard/CampanhasEbd.tsx`, órfão
+depois disso (só era importado pelo próprio registro).
+
+**`finService.indicadoresEclesiasticosMensais(meses)`** — nova, sem RPC
+nem migration: agrupa `fin_lancamentos` (entrada, realizado/conciliado,
+`origem <> 'transferencia'`) por mês e por categoria batendo em
+Dízimos/Ofertas/Missões, série de N meses. Existe uma RPC parecida
+(`fin_exec_indicadores_eclesiasticos`, Visão Executiva) mas só compara
+mês atual × anterior, e fica atrás de `ROLES_PASTORAL_SEM_TITULAR` — mais
+restrito que quem acompanha isso todo dia. **Achado no caminho**: essa
+RPC testa `'%oferta%'` antes de `'%missao%'` num `CASE`, então "Ofertas
+para Missões" (categoria oficial) sempre cai em "Ofertas" — nunca
+corrigido na RPC (fora do pedido de hoje), mas a função nova inverte essa
+ordem de propósito pra não repetir o desvio.
+
+Renderizado em `Financas.tsx` como tabela simples (categoria × mês),
+no lugar exato onde "Campanhas em andamento" aparecia.
+
+**Achado no meio do caminho, não relacionado à tarefa**: `fin_lancamentos`
+apareceu com só 1 linha (era pra ter várias, inclusive as que eu tinha
+acabado de conferir ao vivo hoje) — a Telma confirmou que apagou os
+lançamentos de propósito enquanto testava a lixeira recém-corrigida
+(ver commit da correção). Sem ação de recuperação necessária; os
+indicadores aparecem zerados hoje porque é isso que o banco tem agora,
+não por bug.
+
+`tsc`/`vitest` (225/225)/`vite build` limpos. Verificado ao vivo: seção
+renderiza sem os dados de EBD, tabela de indicadores aparece com os 6
+meses certos (zerada, refletindo o estado atual do banco); `/ebd` mantém
+sua própria seção de campanhas intacta.
+
+---
+
 *Este documento é o plano; `DOCUMENTACAO_SISTEMA.md` continua sendo o
 retrato do sistema inteiro. Atualizar os dois quando um item da lista acima
 for fechado.*

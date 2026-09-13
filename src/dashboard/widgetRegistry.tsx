@@ -96,7 +96,6 @@ const QuemNinguemProcurou = lazy(() => import("@/components/dashboard/QuemNingue
 const AcoesDoDia          = lazy(() => import("@/components/dashboard/AcoesDoDia").then(m => ({ default: m.AcoesDoDia })));
 const VidaDasFamilias     = lazy(() => import("@/components/dashboard/VidaDasFamilias").then(m => ({ default: m.VidaDasFamilias })));
 const ResumoEbd           = lazy(() => import("@/components/dashboard/ResumoEbd").then(m => ({ default: m.ResumoEbd })));
-const CampanhasEbd        = lazy(() => import("@/components/dashboard/CampanhasEbd").then(m => ({ default: m.CampanhasEbd })));
 const ResumoPgm           = lazy(() => import("@/components/dashboard/ResumoPgm").then(m => ({ default: m.ResumoPgm })));
 const AtencaoEmPessoas    = lazy(() => import("@/components/dashboard/AtencaoEmPessoas").then(m => ({ default: m.AtencaoEmPessoas })));
 const AgendaDoDia         = lazy(() => import("@/components/dashboard/AgendaDoDia").then(m => ({ default: m.AgendaDoDia })));
@@ -250,11 +249,6 @@ export const widgetRegistry: Widget[] = [
     subtitulo: "Presença, crescimento e atenção pastoral",
     icone: GraduationCap, component: ResumoEbd,
     permissoes: ["ver_ebd"], prioridade: 2, paineis: ["pastoral"] },
-
-  { id: "campanhas-ebd", label: "Campanhas em andamento",
-    subtitulo: "Metas e arrecadação",
-    icone: DollarSign, component: CampanhasEbd,
-    permissoes: ["ver_financeiro","ver_ebd"], prioridade: 2, paineis: ["pastoral", "financas"] },
 
   { id: "atencao-pessoas", label: "Atenção em pessoas",
     subtitulo: "Visitantes recentes, sem família, sem classe EBD",
