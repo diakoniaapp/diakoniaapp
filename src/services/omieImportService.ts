@@ -17,8 +17,8 @@
 import { supabase } from "@/integrations/supabase/client";
 import { conferir } from "@/lib/escritaConferida";
 import {
-  listarCategoriasTodas, criarFornecedor, criarLancamento, atualizarConta,
-  type FinCategoria, type FinMovimentoTipo, type FinFornecedor,
+  listarCategoriasTodas, atualizarConta,
+  type FinCategoria, type FinMovimentoTipo,
 } from "./finService";
 import {
   parseOmieXlsx, separarCategoriaEPercentuais, ehTransferencia,
@@ -201,21 +201,35 @@ export async function confirmarImportacaoOmie(
   const userId = (await supabase.auth.getUser()).data.user?.id ?? null;
   const agora = new Date().toISOString();
 
-  // Cria cada fornecedor novo UMA vez só (dedupe por CNPJ/CPF) — "BANCO
-  // BRADESCO S.A." se repete dezenas de vezes no mesmo extrato.
+  // Cria todo fornecedor novo NUMA TACADA SÓ (dedupe por CNPJ/CPF antes de
+  // montar o array) — "BANCO BRADESCO S.A." se repete dezenas de vezes no
+  // mesmo extrato. Até 13/09/2026 isto era um loop com `await
+  // criarFornecedor` sequencial, um round-trip por fornecedor novo (achado
+  // numa revisão: um extrato com 76 fornecedores novos levava 76
+  // round-trips em série). `criarFornecedor` insere um de cada vez porque
+  // devolve `.single()`; aqui insere-se direto (sem passar por ela) porque
+  // o volume pede um único INSERT com vários valores.
   const cacheFornecedor = new Map<string, string>();
-  let fornecedoresCriados = 0;
+  const novosPorCnpj = new Map<string, string>(); // cnpjCpf → nome
   for (const r of rascunhos) {
-    if (r.fornecedorNomeParaCriar && r.cpfCnpj && !cacheFornecedor.has(r.cpfCnpj)) {
-      const novo: FinFornecedor = await criarFornecedor({
-        nome: r.fornecedorNomeParaCriar,
-        cnpj_cpf: r.cpfCnpj,
-        tipo: r.cpfCnpj.length === 14 ? "juridica" : "fisica",
-        observacao: `Criado automaticamente pela importação do Omie (${loteTag}).`,
-      });
-      cacheFornecedor.set(r.cpfCnpj, novo.id);
-      fornecedoresCriados++;
+    if (r.fornecedorNomeParaCriar && r.cpfCnpj && !novosPorCnpj.has(r.cpfCnpj)) {
+      novosPorCnpj.set(r.cpfCnpj, r.fornecedorNomeParaCriar);
     }
+  }
+  let fornecedoresCriados = 0;
+  if (novosPorCnpj.size > 0) {
+    const payload = Array.from(novosPorCnpj, ([cnpjCpf, nome]) => ({
+      nome,
+      cnpj_cpf: cnpjCpf,
+      tipo: cnpjCpf.length === 14 ? "juridica" as const : "fisica" as const,
+      observacao: `Criado automaticamente pela importação do Omie (${loteTag}).`,
+    }));
+    const { data, error } = await supabase.from("fin_fornecedores").insert(payload).select("id, cnpj_cpf");
+    if (error) throw error;
+    for (const f of (data ?? []) as { id: string; cnpj_cpf: string }[]) {
+      cacheFornecedor.set(f.cnpj_cpf, f.id);
+    }
+    fornecedoresCriados = data?.length ?? 0;
   }
 
   const linhas = rascunhos.map(r => {

@@ -393,6 +393,24 @@ export async function listarLancamentos(filtro: FiltroLancamento = {}): Promise<
   }));
 }
 
+/** Só o que é dinheiro de verdade: realizado/conciliado, e sem as pernas
+ *  de transferência entre contas da própria igreja. Extraído em
+ *  13/09/2026 — o mesmo par de filtros vivia copiado em `resumoMensal` e
+ *  `indicadoresEclesiasticosMensais` (aqui), em `gerarDRE`
+ *  (`dreService.ts`) e em `FinancasDoacoes.tsx`; uma correção (como a já
+ *  feita em `vw_fin_resumo_mes`, 12/09/2026) precisava ser replicada nas
+ *  quatro cópias, e uma esquecida voltaria a contar uma perna de
+ *  transferência como receita/despesa real. `origem !== "transferencia"`:
+ *  `criarTransferencia()` grava DOIS lançamentos (saída na origem +
+ *  entrada no destino) sem categoria, e sem este filtro cada perna soma
+ *  como receita/despesa na demonstração. */
+export function lancamentosRealizadosSemTransferencia<T extends { status: FinStatus; origem: string }>(
+  lancs: T[],
+): T[] {
+  return lancs.filter(l =>
+    (l.status === "realizado" || l.status === "conciliado") && l.origem !== "transferencia");
+}
+
 // `audit_user_id`/`audit_em` existiam desde a criação da tabela e
 // nenhuma linha de código os preenchia (achado na auditoria do ERP
 // financeiro, 12/09/2026) — "quem mexeu por último, quando", carimbado
@@ -804,8 +822,9 @@ export async function resumoMensal(ano: number, mes: number): Promise<ResumoMens
   // usando `realizados` (não filtrado) de propósito: ali a transferência É
   // movimento real daquela conta específica — só o total agregado e a
   // quebra por categoria (que não têm "categoria transferência") é que
-  // precisam ignorá-la.
-  const semTransferencia = realizados.filter(l => l.origem !== "transferencia");
+  // precisam ignorá-la. `lancamentosRealizadosSemTransferencia` já cobre
+  // o filtro de status também, então parte de `lancs`, não de `realizados`.
+  const semTransferencia = lancamentosRealizadosSemTransferencia(lancs);
 
   const totalEntradas = semTransferencia.filter(l => l.tipo === "entrada").reduce((s, l) => s + Number(l.valor), 0);
   const totalSaidas   = semTransferencia.filter(l => l.tipo === "saida").reduce((s, l) => s + Number(l.valor), 0);
@@ -905,8 +924,7 @@ export async function indicadoresEclesiasticosMensais(meses = 6): Promise<Indica
   // receita, e sem categoria nunca bateria em nenhum dos 3 padrões acima
   // mesmo assim — mas exclui aqui também, por clareza e consistência com
   // o resto do módulo.
-  const validos = lancs.filter(l =>
-    (l.status === "realizado" || l.status === "conciliado") && l.origem !== "transferencia");
+  const validos = lancamentosRealizadosSemTransferencia(lancs);
 
   const porMes = new Map<string, IndicadorEclesiasticoMes>();
   for (let i = 0; i < meses; i++) {

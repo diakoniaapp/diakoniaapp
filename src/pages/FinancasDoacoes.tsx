@@ -26,7 +26,7 @@ import {
 import { toast } from "sonner";
 import {
   listarLancamentos, listarRecorrencias, brl,
-  FORMA_LABEL, FREQUENCIA_LABEL,
+  FORMA_LABEL, FREQUENCIA_LABEL, lancamentosRealizadosSemTransferencia,
   type FinLancamentoExtenso, type FinRecorrencia, type FinFormaPagamento,
 } from "@/services/finService";
 import { hojeLocal } from "@/lib/data";
@@ -76,12 +76,13 @@ export default function FinancasDoacoes() {
       ]);
       // Só realizado/conciliado é dinheiro que já entrou de verdade —
       // mesma regra do malote mensal e da prestação de contas.
-      // `origem !== "transferencia"`: achado em 12/09/2026 comparando com a
-      // DRE (mesmo bug do `vw_fin_resumo_mes`/`dreService.gerarDRE`) — uma
-      // transferência entre contas da própria igreja (Caixa → Bradesco, por
-      // exemplo) grava uma perna de ENTRADA sem categoria, e sem este
-      // filtro ela contava como doação.
-      setLancs(ls.filter(l => (l.status === "realizado" || l.status === "conciliado") && l.origem !== "transferencia"));
+      // `lancamentosRealizadosSemTransferencia`: achado em 12/09/2026
+      // comparando com a DRE (mesmo bug do
+      // `vw_fin_resumo_mes`/`dreService.gerarDRE`) — uma transferência
+      // entre contas da própria igreja (Caixa → Bradesco, por exemplo)
+      // grava uma perna de ENTRADA sem categoria, e sem este filtro ela
+      // contava como doação.
+      setLancs(lancamentosRealizadosSemTransferencia(ls));
       setRecorrencias(recs.filter(r => r.tipo === "entrada"));
     } catch (e: any) { toast.error(e?.message ?? "Erro"); }
     finally { setLoading(false); }

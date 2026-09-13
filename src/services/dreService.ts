@@ -29,7 +29,7 @@
 // perderia granularidade que a Telma já está acostumada a ver aqui. A
 // correção troca só as CHAVES para o nome oficial atual, mantendo a
 // mesma estrutura de 5 baldes.
-import { listarLancamentos, type FinLancamentoExtenso } from "./finService";
+import { listarLancamentos, lancamentosRealizadosSemTransferencia, type FinLancamentoExtenso } from "./finService";
 
 const GRUPO_RECEITA: Record<string, string> = {
   "dizimos": "Contribuições",
@@ -177,7 +177,7 @@ export async function gerarDRE(ano: number): Promise<DREResultado> {
     dataInicio: `${ano}-01-01`,
     dataFim: `${ano}-12-31`,
   });
-  // `origem <> 'transferencia'` — mesmo bug já corrigido em
+  // `lancamentosRealizadosSemTransferencia` — mesmo bug já corrigido em
   // `vw_fin_resumo_mes` (12/09/2026): uma transferência entre contas grava
   // DOIS lançamentos (saída na origem + entrada no destino, ver
   // `criarTransferencia()`), e sem este filtro cada perna somava como
@@ -185,8 +185,7 @@ export async function gerarDRE(ano: number): Promise<DREResultado> {
   // TOTAL vendo "Outras Receitas Operacionais / Sem categoria" com o valor
   // exato de uma transferência — transferência não tem categoria, por isso
   // caía no fallback em vez de sumir.
-  const realizados = lancs.filter(l =>
-    (l.status === "realizado" || l.status === "conciliado") && l.origem !== "transferencia");
+  const realizados = lancamentosRealizadosSemTransferencia(lancs);
 
   const entradas = realizados.filter(l => l.tipo === "entrada");
   const saidas = realizados.filter(l => l.tipo === "saida");

@@ -120,7 +120,17 @@ export default function FinancasConta() {
     else toast.error("Não foi possível abrir o comprovante");
   }
 
-  async function confirmarExcluir() {
+  // `AlertDialogAction` é um `DialogPrimitive.Close` por baixo — fecha o
+  // diálogo no clique, SÍNCRONO, antes de qualquer `await` deste handler
+  // rodar (achado numa revisão em 13/09/2026, confirmado lendo o código-
+  // fonte do Radix: `onClick` do Action é `composeEventHandlers(onClick, ()
+  // => context.onOpenChange(false))`). Sem o `preventDefault()`, um erro na
+  // exclusão (RLS barrando, rede) mostra o toast com o diálogo já fechado —
+  // parece que funcionou. `preventDefault()` pula esse close automático
+  // (Radix checa `event.defaultPrevented`); o fecho de verdade continua
+  // sendo `setApagando(null)`, só que agora depois do resultado.
+  async function confirmarExcluir(e: React.MouseEvent) {
+    e.preventDefault();
     if (!apagando) return;
     setExcluindoBusy(true);
     try {
