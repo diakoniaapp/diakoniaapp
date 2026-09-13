@@ -69,10 +69,18 @@ export function ImportacaoOmieDialog({ open, onOpenChange, contaId, contaNome, o
     if (!rascunhos) return;
     setConfirmando(true);
     try {
-      const r = await confirmarImportacaoOmie(rascunhos, contaId);
+      // `saldo_inicial` PRIMEIRO, os lançamentos DEPOIS — nessa ordem de
+      // propósito. `fin_recalc_saldo_conta()` (gatilho em fin_lancamentos)
+      // recalcula `saldo_atual = saldo_inicial + movimento` a cada
+      // lançamento gravado, lendo o `saldo_inicial` que a conta tiver
+      // NAQUELE INSTANTE. Gravar na ordem invertida deixa `saldo_atual`
+      // travado em "0 + movimento" em vez de "saldo_inicial + movimento" —
+      // bug real, achado ao vivo pela Telma (Caixa de Envelopes mostrou
+      // -R$928 em vez de R$0) e corrigido direto no banco naquela conta.
       if (usarSaldoInicial && resumo?.saldoAnterior != null) {
         await atualizarConta(contaId, { saldo_inicial: resumo.saldoAnterior });
       }
+      const r = await confirmarImportacaoOmie(rascunhos, contaId);
       toast.success(`${r.criados} lançamento${r.criados !== 1 ? "s" : ""} importado${r.criados !== 1 ? "s" : ""}` +
         (r.fornecedoresCriados > 0 ? ` · ${r.fornecedoresCriados} fornecedor(es) novo(s)` : ""));
       setUltimoLote(r.loteTag);

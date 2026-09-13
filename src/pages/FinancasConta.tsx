@@ -166,6 +166,16 @@ export default function FinancasConta() {
   const totalEntradasPeriodo = lancamentos.filter(l => l.tipo === "entrada" && (l.status === "realizado" || l.status === "conciliado")).reduce((s, l) => s + Number(l.valor), 0);
   const totalSaidasPeriodo  = lancamentos.filter(l => l.tipo === "saida"   && (l.status === "realizado" || l.status === "conciliado")).reduce((s, l) => s + Number(l.valor), 0);
 
+  // `listarLancamentos` busca do mais recente pro mais antigo (padrão do
+  // serviço, usado por várias telas) — aqui na tela do extrato, a Telma
+  // pediu ordem cronológica (mais antigo primeiro), igual o extrato do
+  // Omie/banco de verdade lê. Reordenado só pra EXIBIÇÃO, sem mudar
+  // `listarLancamentos` (que outras telas usam esperando a ordem atual).
+  const lancamentosOrdenados = [...lancamentos].sort((a, b) =>
+    a.data === b.data
+      ? (a.created_at ?? "").localeCompare(b.created_at ?? "")
+      : a.data.localeCompare(b.data));
+
   return (
     <div className="p-3 md:p-5 max-w-7xl mx-auto space-y-3">
       {/* Cabeçalho */}
@@ -287,7 +297,7 @@ export default function FinancasConta() {
                 </tr>
               </thead>
               <tbody>
-                {lancamentos.map(l => {
+                {lancamentosOrdenados.map(l => {
                   const conciliavel = l.status === "realizado" || l.status === "conciliado";
                   return (
                   <tr key={l.id} className="border-t hover:bg-muted/30">
