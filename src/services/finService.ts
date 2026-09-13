@@ -620,6 +620,11 @@ export interface FinRecorrencia {
   lembrar_dia: boolean;
   ultimo_gerado_ate: string | null;
   observacao: string | null;
+  // Preenchido só por `listarRecorrencias()` (join manual, igual
+  // `listarLancamentos`) — não existe na tabela. Fase 4.4 do roadmap
+  // Financeiro: o dado (`fornecedor_id`) já existia e já era preenchível
+  // no formulário desde sempre, mas nenhuma tela mostrava o nome.
+  fornecedor_nome?: string;
 }
 
 export interface FinVencimento {
@@ -638,7 +643,14 @@ export async function listarRecorrencias(incluirInativas = false): Promise<FinRe
   if (!incluirInativas) q = q.eq("ativo", true);
   const { data, error } = await q;
   if (error) throw error;
-  return (data ?? []) as FinRecorrencia[];
+  const recs = (data ?? []) as FinRecorrencia[];
+  if (recs.length === 0) return recs;
+
+  const fornIds = Array.from(new Set(recs.map(r => r.fornecedor_id).filter(Boolean))) as string[];
+  if (fornIds.length === 0) return recs;
+  const { data: forns } = await supabase.from("fin_fornecedores").select("id, nome").in("id", fornIds);
+  const mF = new Map((forns ?? []).map((f: any) => [f.id, f.nome]));
+  return recs.map(r => ({ ...r, fornecedor_nome: r.fornecedor_id ? mF.get(r.fornecedor_id) : undefined }));
 }
 
 export async function criarRecorrencia(input: Partial<FinRecorrencia>): Promise<FinRecorrencia> {

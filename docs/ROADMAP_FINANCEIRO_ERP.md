@@ -378,25 +378,35 @@ persistiu), e apagar o registro de teste via REST antes de encerrar —
 produção confirmada limpa depois. `tsc`/`vitest` (218/218)/`vite build`
 limpos.
 
-### Fase 4.2 — Leitor de boleto (linha digitável)
+### ✅ Fase 4.2 (parte 1/2) — Decodificação da linha digitável — FEITO em 13/09/2026
 
-**O que entra.** Um campo "Colar/ler linha digitável" no
-`LancamentoForm.tsx` (os 47-48 dígitos do boleto): `src/lib/boleto.ts`
-(função pura, sem React) decodifica banco, valor e data de vencimento —
-a linha digitável tem posições fixas e dígito verificador (módulo 10/11),
-**decodificação determinística, não é OCR nem IA**. Se o sistema tiver
-câmera disponível (mobile), um leitor de código de barras real (lib tipo
-`zxing` ou `quagga`, carregada lazy como o Tesseract) preenche o campo
-sozinho; sem câmera, colar os números funciona igual.
+Feita a parte que não dependia de decisão nenhuma: `src/lib/boleto.ts`
+(função pura, sem React) decodifica banco, valor e vencimento dos 47
+dígitos de um boleto de **cobrança** — posições fixas + dígito
+verificador módulo 10 em cada um dos 3 primeiros campos, conferido antes
+de aceitar o número (rejeita com mensagem clara se algum dígito não
+bate, ou se vier 48 dígitos — aí é conta de consumo/convênio, formato
+diferente, fora do escopo desta versão). O DV geral (módulo 11, sobre os
+44 dígitos do código de barras) fica de fora de propósito — sua regra de
+exceção pra resto 0/1/10 é fácil de implementar errado, e os 3 DVs de
+campo já pegam a esmagadora maioria dos erros de digitação.
 
-**Decisão pendente da Telma:** vale a pena o leitor por câmera (lib
-nova, mais peso no bundle) ou a digitação/colagem manual da linha
-digitável já resolve o essencial (elimina o erro de digitar valor e data
-errados, que é o risco real)? Posso fazer os dois em sequência — texto
-primeiro, câmera depois, se fizer falta.
+`LancamentoForm.tsx` ganhou o campo "Ler boleto (linha digitável)" —
+aparece só numa saída nova (nunca editando, nunca numa entrada). Colar os
+números preenche Data e Valor sozinhos assim que reconhece 47 dígitos;
+erro de digitação aparece em vermelho na hora, sem tentar adivinhar nada.
 
-**Esforço:** pequeno (decodificação + campo de texto) a médio (se entrar
-a leitura por câmera).
+7 testes unitários com uma linha digitável montada e conferida à mão
+(checksum e fator de vencimento recalculados manualmente, não copiados de
+lugar nenhum). Verificado ao vivo: colar a linha de teste preencheu
+Valor (R$100,00) e Data (15/01/1998) corretamente; adulterar um dígito
+mostrou o erro certo. `tsc`/`vitest` (225/225)/`vite build` limpos.
+
+**Parte 2/2 (câmera) continua em aberto** — decisão pendente da Telma:
+vale a pena o leitor por câmera (lib nova tipo `zxing`, mais peso no
+bundle) ou colar os números já resolve o essencial (elimina o erro de
+digitar valor/data errados, que era o risco real)? Sem essa decisão, não
+sigo pra essa parte.
 
 ### Fase 4.3 — Importação de XML de NF (NFe/NFSe)
 
@@ -420,19 +430,14 @@ arriscaria não bater com a nota real.
 **Esforço:** médio (NFe nacional) a médio-alto (se precisar do layout
 NFSe-Rio especificamente).
 
-### Fase 4.4 — "Despesa recorrente" visível por fornecedor
+### ✅ Fase 4.4 — "Despesa recorrente" visível por fornecedor — FEITO em 13/09/2026
 
-**O que entra.** `FinancasRecorrencias.tsx` hoje mostra descrição,
-frequência e valor de cada recorrência, mas **nunca o nome do fornecedor**
-— mesmo a coluna já existindo no banco e já sendo preenchível no form.
-Acrescenta o nome do fornecedor na linha da lista (quando houver) e, na
-ficha do fornecedor (Fase 4.1), uma seção "Despesas recorrentes deste
-fornecedor" linkando para lá. **Não é tabela nova nem RPC nova** — é
-expor um dado que já existe.
-
-**Esforço:** pequeno. **Decisão pendente:** nenhuma.
-**Depende de:** Fase 4.1 para a ficha do fornecedor (a lista em si pode
-ganhar o nome do fornecedor independente, sem esperar).
+`listarRecorrencias()` ganhou join manual com `fin_fornecedores` (mesmo
+padrão de `listarLancamentos`) e `FinancasRecorrencias.tsx` mostra o nome
+do fornecedor na linha, quando houver. A seção "Despesas recorrentes
+deste fornecedor" na ficha (Fase 4.1) já cobria a outra ponta. Sem
+migration, sem RPC nova — só expondo um dado que já existia. `tsc`
+limpo.
 
 ---
 

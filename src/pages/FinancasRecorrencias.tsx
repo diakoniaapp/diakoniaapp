@@ -109,6 +109,7 @@ export default function FinancasRecorrencias() {
                   </div>
                   <p className="text-xs text-muted-foreground">
                     {FREQUENCIA_LABEL[r.frequencia]} · todo dia {r.dia_vencimento}
+                    {r.fornecedor_nome && ` · ${r.fornecedor_nome}`}
                   </p>
                 </div>
               </div>

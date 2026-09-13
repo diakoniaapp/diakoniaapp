@@ -26,6 +26,7 @@ import {
   FIN_COMPROVANTE_MAX,
 } from "@/services/finService";
 import { extrairDadosDoComprovante, type OcrResultado } from "@/services/ocrService";
+import { decodificarLinhaDigitavel, type BoletoDecodificado } from "@/lib/boleto";
 
 interface Props {
   open: boolean;
@@ -108,6 +109,28 @@ export function LancamentoForm({
   const [ocr, setOcr] = useState<OcrResultado | null>(null);
   const [fornecedorOcrSugerido, setFornecedorOcrSugerido] = useState<FinFornecedor | null>(null);
 
+  // Leitor de boleto (Fase 4.2 do roadmap Financeiro) — decodificação
+  // determinística da linha digitável, sem OCR. Só faz sentido pra saída
+  // nova (pagar um boleto); editando ou numa entrada, o campo nem aparece.
+  const [boletoTexto, setBoletoTexto] = useState("");
+  const [boletoErro, setBoletoErro] = useState<string | null>(null);
+  const [boletoOk, setBoletoOk] = useState<BoletoDecodificado | null>(null);
+
+  useEffect(() => {
+    const digitos = boletoTexto.replace(/\D/g, "");
+    if (digitos.length < 47) { setBoletoErro(null); setBoletoOk(null); return; }
+    try {
+      const r = decodificarLinhaDigitavel(boletoTexto);
+      setBoletoOk(r);
+      setBoletoErro(null);
+      if (r.valor) setValor(r.valor);
+      if (r.vencimento) setData(r.vencimento);
+    } catch (e: any) {
+      setBoletoOk(null);
+      setBoletoErro(e?.message ?? "Não consegui ler esses números.");
+    }
+  }, [boletoTexto]);
+
   useEffect(() => {
     if (!open) return;
     Promise.all([
@@ -168,6 +191,7 @@ export function LancamentoForm({
     }
     setArquivo(null);
     setPreviewUrl(null);
+    setBoletoTexto(""); setBoletoErro(null); setBoletoOk(null);
   }, [open, lancamento, contaIdPadrao, tipoPadrao, rascunho]);
 
   function addLinhaRateio() {
@@ -361,6 +385,21 @@ export function LancamentoForm({
         )}
 
         <form onSubmit={onSubmit} className="space-y-3">
+          {!isEdit && tipo === "saida" && (
+            <div>
+              <Label>Ler boleto (linha digitável) — opcional</Label>
+              <Input value={boletoTexto} onChange={(e) => setBoletoTexto(e.target.value)}
+                placeholder="Cole os 47 números do boleto..." />
+              {boletoErro && <p className="text-xs text-destructive-text mt-0.5">{boletoErro}</p>}
+              {boletoOk && (
+                <p className="text-xs text-success-text mt-0.5">
+                  ✓ Valor{boletoOk.valor ? ` (${brl(boletoOk.valor)})` : ""} e vencimento
+                  {boletoOk.vencimento ? ` (${new Date(boletoOk.vencimento + "T00:00").toLocaleDateString("pt-BR")})` : ""} preenchidos abaixo
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Data *</Label>
