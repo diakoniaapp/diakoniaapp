@@ -9,6 +9,10 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   ArrowLeft, DollarSign, Loader2, Plus, Search, Filter,
   TrendingUp, TrendingDown, Pencil, Trash2, Paperclip,
   CheckCircle2, Clock, XCircle, Scale, FileUp,
@@ -63,6 +67,12 @@ export default function FinancasConta() {
   // (previsto), que foi cancelado, ou que ainda espera aprovação.
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   const [conciliando, setConciliando] = useState(false);
+  // `confirm()` nativo não funciona em WebView (Risco 3 do CLAUDE.md) —
+  // devolve falso sem perguntar, então o código lia "cancelou" e a
+  // lixeira parecia simplesmente não fazer nada. Achado ao vivo pela
+  // Telma ("a lixeira não funciona") em 13/09/2026.
+  const [apagando, setApagando] = useState<FinLancamentoExtenso | null>(null);
+  const [excluindoBusy, setExcluindoBusy] = useState(false);
 
   // Período do filtro — mês atual por default
   const hoje = new Date();
@@ -99,13 +109,16 @@ export default function FinancasConta() {
     else toast.error("Não foi possível abrir o comprovante");
   }
 
-  async function deletar(id: string) {
-    if (!confirm("Excluir este lançamento? Não dá pra desfazer.")) return;
+  async function confirmarExcluir() {
+    if (!apagando) return;
+    setExcluindoBusy(true);
     try {
-      await excluirLancamento(id);
+      await excluirLancamento(apagando.id);
       toast.success("Excluído");
+      setApagando(null);
       await carregar();
     } catch (e: any) { toast.error(e?.message ?? "Erro"); }
+    finally { setExcluindoBusy(false); }
   }
 
   /** Alterna um lançamento entre realizado e conciliado — clique direto
@@ -332,7 +345,7 @@ export default function FinancasConta() {
                         </Button>
                         <Button type="button" variant="ghost" size="icon"
                           className="h-7 w-7 text-destructive hover:bg-destructive/10"
-                          onClick={() => deletar(l.id)}>
+                          onClick={() => setApagando(l)}>
                           <Trash2 className="w-3 h-3" />
                         </Button>
                       </div>
@@ -371,6 +384,25 @@ export default function FinancasConta() {
         lancamento={editando}
         onSaved={carregar}
       />
+
+      <AlertDialog open={!!apagando} onOpenChange={(v) => !v && setApagando(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir lançamento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {apagando?.descricao ? `"${apagando.descricao}"` : "Este lançamento"} — {apagando && brl(Number(apagando.valor))}.
+              Não dá pra desfazer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={excluindoBusy}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmarExcluir} disabled={excluindoBusy}
+              className="bg-destructive hover:bg-destructive/90 text-white">
+              {excluindoBusy ? "..." : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
