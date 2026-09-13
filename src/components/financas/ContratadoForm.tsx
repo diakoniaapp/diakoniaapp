@@ -12,6 +12,7 @@
 // fora do quadro de membros — funcionário nem sempre é da igreja.
 import { useState, useEffect } from "react";
 import { hojeLocal } from "@/lib/data";
+import { paraNumero } from "@/lib/dinheiro";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
@@ -99,7 +100,11 @@ export function ContratadoForm({ open, onOpenChange, contratado, onSaved }: Prop
     }
   }
 
-  const num = (s: string) => (s.trim() === "" ? null : Number(s));
+  // `paraNumero` (não `Number` puro): mesmo bug do "928,00" rejeitado por
+  // `type="number"` corrigido aqui — os campos de dinheiro deste form
+  // (salário, VT, MEI, RPA, prebenda) agora são texto livre, e o texto
+  // digitado pode vir com vírgula decimal.
+  const num = (s: string) => (s.trim() === "" ? null : paraNumero(s));
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -218,7 +223,7 @@ export function ContratadoForm({ open, onOpenChange, contratado, onSaved }: Prop
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <Label className="text-xs">Salário base</Label>
-                  <Input type="number" step="0.01" value={campos.salarioBase} onChange={(e) => set("salarioBase", e.target.value)} className="h-8 text-sm" />
+                  <Input type="text" inputMode="decimal" value={campos.salarioBase} onChange={(e) => set("salarioBase", e.target.value)} className="h-8 text-sm" />
                 </div>
                 <div>
                   <Label className="text-xs">Jornada (h/semana)</Label>
@@ -230,7 +235,7 @@ export function ContratadoForm({ open, onOpenChange, contratado, onSaved }: Prop
                 </div>
                 <div>
                   <Label className="text-xs">Vale-alimentação/dia</Label>
-                  <Input type="number" step="0.01" value={campos.valeAlimentacaoDia} onChange={(e) => set("valeAlimentacaoDia", e.target.value)} className="h-8 text-sm" />
+                  <Input type="text" inputMode="decimal" value={campos.valeAlimentacaoDia} onChange={(e) => set("valeAlimentacaoDia", e.target.value)} className="h-8 text-sm" />
                 </div>
                 <div>
                   <Label className="text-xs">Vale-transporte (dias/mês)</Label>
@@ -238,7 +243,7 @@ export function ContratadoForm({ open, onOpenChange, contratado, onSaved }: Prop
                 </div>
                 <div>
                   <Label className="text-xs">Valor da passagem (VT)</Label>
-                  <Input type="number" step="0.01" value={campos.vtPassagemValor} onChange={(e) => set("vtPassagemValor", e.target.value)} className="h-8 text-sm" />
+                  <Input type="text" inputMode="decimal" value={campos.vtPassagemValor} onChange={(e) => set("vtPassagemValor", e.target.value)} className="h-8 text-sm" />
                 </div>
               </div>
             </div>
@@ -247,7 +252,7 @@ export function ContratadoForm({ open, onOpenChange, contratado, onSaved }: Prop
           {(campos.vinculo === "estagio" || campos.vinculo === "voluntario_remunerado") && (
             <div>
               <Label>Valor mensal</Label>
-              <Input type="number" step="0.01" value={campos.salarioBase} onChange={(e) => set("salarioBase", e.target.value)} />
+              <Input type="text" inputMode="decimal" value={campos.salarioBase} onChange={(e) => set("salarioBase", e.target.value)} />
             </div>
           )}
 
@@ -261,7 +266,7 @@ export function ContratadoForm({ open, onOpenChange, contratado, onSaved }: Prop
                 </div>
                 <div>
                   <Label className="text-xs">Valor mensal</Label>
-                  <Input type="number" step="0.01" value={campos.meiValorMensal} onChange={(e) => set("meiValorMensal", e.target.value)} className="h-8 text-sm" />
+                  <Input type="text" inputMode="decimal" value={campos.meiValorMensal} onChange={(e) => set("meiValorMensal", e.target.value)} className="h-8 text-sm" />
                 </div>
                 <div className="col-span-2">
                   <Label className="text-xs">Atividade</Label>
@@ -274,7 +279,7 @@ export function ContratadoForm({ open, onOpenChange, contratado, onSaved }: Prop
           {campos.vinculo === "rpa" && (
             <div>
               <Label>Valor padrão (RPA)</Label>
-              <Input type="number" step="0.01" value={campos.rpaValorPadrao} onChange={(e) => set("rpaValorPadrao", e.target.value)} />
+              <Input type="text" inputMode="decimal" value={campos.rpaValorPadrao} onChange={(e) => set("rpaValorPadrao", e.target.value)} />
             </div>
           )}
 
@@ -284,15 +289,15 @@ export function ContratadoForm({ open, onOpenChange, contratado, onSaved }: Prop
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <Label className="text-xs">Prebenda mensal</Label>
-                  <Input type="number" step="0.01" value={campos.prebendaValor} onChange={(e) => set("prebendaValor", e.target.value)} className="h-8 text-sm" />
+                  <Input type="text" inputMode="decimal" value={campos.prebendaValor} onChange={(e) => set("prebendaValor", e.target.value)} className="h-8 text-sm" />
                 </div>
                 <div>
                   <Label className="text-xs">Auxílio aluguel</Label>
-                  <Input type="number" step="0.01" value={campos.prebendaAuxAluguel} onChange={(e) => set("prebendaAuxAluguel", e.target.value)} className="h-8 text-sm" />
+                  <Input type="text" inputMode="decimal" value={campos.prebendaAuxAluguel} onChange={(e) => set("prebendaAuxAluguel", e.target.value)} className="h-8 text-sm" />
                 </div>
                 <div className="col-span-2">
                   <Label className="text-xs">Outros auxílios</Label>
-                  <Input type="number" step="0.01" value={campos.prebendaAuxOutros} onChange={(e) => set("prebendaAuxOutros", e.target.value)} className="h-8 text-sm" />
+                  <Input type="text" inputMode="decimal" value={campos.prebendaAuxOutros} onChange={(e) => set("prebendaAuxOutros", e.target.value)} className="h-8 text-sm" />
                 </div>
               </div>
               <label className="flex items-center gap-1.5 text-xs cursor-pointer">

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { hojeLocal } from "@/lib/data";
+import { paraNumero } from "@/lib/dinheiro";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
@@ -60,6 +61,17 @@ export function LancamentoForm({
   const [tipo, setTipo] = useState<FinMovimentoTipo>(tipoPadrao);
   const [data, setData] = useState(hojeLocal());
   const [valor, setValor] = useState<number>(0);
+  // Campo em si é texto livre (não `type="number"`) — achado numa revisão
+  // em 13/09/2026: o mesmo bug já corrigido em `ContaForm.tsx` (número
+  // nativo rejeita a vírgula que qualquer brasileiro digita) continuava
+  // vivo aqui, no campo de dinheiro mais usado do sistema. `valor`
+  // (number) continua sendo o que o resto do formulário usa (rateio,
+  // payload); `valorTexto` só espelha o que aparece no campo.
+  const [valorTexto, setValorTexto] = useState("");
+  function atualizarValor(v: number) {
+    setValor(v);
+    setValorTexto(v ? String(v) : "");
+  }
   const [contaId, setContaId] = useState<string>("");
   // A conta não depende só do state (que só é setado dentro de um
   // `useEffect`, um passo depois do primeiro render) — cai pra
@@ -123,7 +135,7 @@ export function LancamentoForm({
       const r = decodificarLinhaDigitavel(boletoTexto);
       setBoletoOk(r);
       setBoletoErro(null);
-      if (r.valor) setValor(r.valor);
+      if (r.valor) atualizarValor(r.valor);
       if (r.vencimento) setData(r.vencimento);
     } catch (e: any) {
       setBoletoOk(null);
@@ -157,7 +169,7 @@ export function LancamentoForm({
     if (lancamento) {
       setTipo(lancamento.tipo);
       setData(lancamento.data);
-      setValor(Number(lancamento.valor));
+      atualizarValor(Number(lancamento.valor));
       setContaId(lancamento.conta_id);
       setCategoriaId(lancamento.categoria_id ?? "");
       setCentroCustoId(lancamento.centro_custo_id ?? "");
@@ -182,7 +194,7 @@ export function LancamentoForm({
     } else {
       setTipo(tipoPadrao);
       setData(rascunho?.data ?? hojeLocal());
-      setValor(rascunho?.valor ?? 0);
+      atualizarValor(rascunho?.valor ?? 0);
       setContaId(contaIdPadrao ?? "");
       setCategoriaId(""); setCentroCustoId(""); setFornecedorId("");
       setForma(rascunho?.forma ?? ""); setStatus("realizado");
@@ -242,7 +254,7 @@ export function LancamentoForm({
 
   async function aplicarSugestoesOcr() {
     if (!ocr) return;
-    if (ocr.valor && ocr.valor > 0) setValor(ocr.valor);
+    if (ocr.valor && ocr.valor > 0) atualizarValor(ocr.valor);
     if (ocr.data) setData(ocr.data);
     if (ocr.numeroDoc) setDocumentoNumero(ocr.numeroDoc);
 
@@ -407,8 +419,9 @@ export function LancamentoForm({
             </div>
             <div>
               <Label>Valor (R$) *</Label>
-              <Input type="number" min={0.01} step="0.01" required
-                value={valor || ""} onChange={(e) => setValor(Number(e.target.value))}
+              <Input type="text" inputMode="decimal" required
+                value={valorTexto}
+                onChange={(e) => { setValorTexto(e.target.value); setValor(paraNumero(e.target.value)); }}
                 autoFocus={!isEdit} />
             </div>
           </div>

@@ -889,6 +889,12 @@ function classificarIndicadorEclesiastico(nomeCategoria: string): "dizimos" | "o
   return null;
 }
 
+// `listarLancamentos` tem um teto de 300 linhas (proteção existente, não
+// desta função) — com a janela padrão de 6 meses e o volume de hoje
+// (produção com poucas dezenas de lançamentos/mês) não pesa; numa janela
+// maior ou com mais movimento, o teto passa a truncar os meses mais
+// antigos da série e precisa virar paginação (mesmo aviso de `gerarDRE`
+// em `dreService.ts`).
 export async function indicadoresEclesiasticosMensais(meses = 6): Promise<IndicadorEclesiasticoMes[]> {
   const hoje = hojeLocal();
   const inicioMesAtual = hoje.slice(0, 7) + "-01";

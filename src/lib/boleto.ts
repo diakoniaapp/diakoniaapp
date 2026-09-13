@@ -32,8 +32,21 @@ export interface BoletoDecodificado {
   vencimento: string | null;   // YYYY-MM-DD, null se o fator vier zerado
 }
 
-// 07/10/1997 — dia 0 da tabela de fator de vencimento FEBRABAN.
-const EPOCA_FATOR_VENCIMENTO = "1997-10-07";
+// 07/10/1997 — dia 0 da tabela CLÁSSICA de fator de vencimento FEBRABAN.
+// Achado numa revisão em 13/09/2026 (não tinha sido considerado quando
+// este arquivo foi escrito, no mesmo dia): o fator chegou no teto 9999
+// em 21/02/2025, e a FEBRABAN reiniciou a contagem pra 1000 a partir de
+// 22/02/2025 — confirmado com fontes do setor (Sankhya, KMEE, Senior,
+// fev/2025). Sem isso, TODO boleto lido depois de 21/02/2025 (ou seja,
+// qualquer um lido por este sistema, já que hoje é 13/09/2026) decodifica
+// pra uma data ~24 anos no passado, porque o mesmo fator pequeno agora
+// significa outra data. Fator nunca foi < 1000 em nenhum dos dois ciclos
+// (a tabela clássica também só usava 1000-9999 na prática), então
+// `fator >= 1000` sempre cai no ciclo novo — o `< 1000` só existe aqui
+// por segurança, não porque aconteça de verdade. Isso volta a quebrar
+// perto de 2049, quando o fator novo chegar em 9999 de novo.
+const EPOCA_FATOR_CLASSICA = "1997-10-07";
+const EPOCA_FATOR_NOVA = "2025-02-22"; // fator 1000 = este dia
 
 function soDigitos(s: string): string {
   return s.replace(/\D/g, "");
@@ -83,7 +96,9 @@ export function decodificarLinhaDigitavel(entrada: string): BoletoDecodificado {
   }
 
   const fator = Number(fatorVencimento);
-  const vencimento = fator > 0 ? daquiADias(EPOCA_FATOR_VENCIMENTO, fator) : null;
+  const vencimento = fator <= 0 ? null
+    : fator >= 1000 ? daquiADias(EPOCA_FATOR_NOVA, fator - 1000)
+    : daquiADias(EPOCA_FATOR_CLASSICA, fator);
 
   const valorCentavos = Number(valorStr);
   const valor = valorCentavos > 0 ? valorCentavos / 100 : null;

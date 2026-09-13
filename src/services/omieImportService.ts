@@ -15,8 +15,9 @@
 //      (`[lote:omie-<timestamp>]`), pra dar pra desfazer o lote inteiro
 //      se algo vier errado — sem precisar de tabela nova.
 import { supabase } from "@/integrations/supabase/client";
+import { conferir } from "@/lib/escritaConferida";
 import {
-  listarCategoriasTodas, criarFornecedor, criarLancamento,
+  listarCategoriasTodas, criarFornecedor, criarLancamento, atualizarConta,
   type FinCategoria, type FinMovimentoTipo, type FinFornecedor,
 } from "./finService";
 import {
@@ -175,11 +176,27 @@ export interface ResultadoImportacaoOmie {
 
 /** Grava de verdade. `contaId` é a mesma para todas as linhas — a tela
  *  de importação é sempre aberta a partir de UMA conta (mesmo padrão do
- *  `ConciliacaoOFXDialog`). */
+ *  `ConciliacaoOFXDialog`).
+ *
+ *  `saldoInicial`, quando informado, é gravado ANTES de qualquer
+ *  lançamento — de propósito, e AQUI dentro (não na tela chamadora), pra
+ *  quem chamar isto não poder reproduzir o bug achado numa revisão em
+ *  13/09/2026: o gatilho `fin_recalc_saldo_conta()` (em `fin_lancamentos`)
+ *  recalcula `saldo_atual = saldo_inicial + movimento` a cada lançamento
+ *  gravado, lendo o `saldo_inicial` que a conta tiver NAQUELE INSTANTE.
+ *  Gravar os lançamentos antes do saldo inicial deixa `saldo_atual`
+ *  travado em "0 + movimento" em vez de "saldo_inicial + movimento" — bug
+ *  real, achado ao vivo pela Telma (Caixa de Envelopes mostrou -R$928 em
+ *  vez de R$0) e corrigido direto no banco naquela conta. */
 export async function confirmarImportacaoOmie(
   rascunhos: RascunhoOmie[],
   contaId: string,
+  saldoInicial?: number | null,
 ): Promise<ResultadoImportacaoOmie> {
+  if (saldoInicial != null) {
+    await atualizarConta(contaId, { saldo_inicial: saldoInicial });
+  }
+
   const loteTag = `omie-${new Date().toISOString()}`;
   const userId = (await supabase.auth.getUser()).data.user?.id ?? null;
   const agora = new Date().toISOString();
@@ -239,13 +256,21 @@ export async function confirmarImportacaoOmie(
 
 /** Desfaz um lote inteiro pelo carimbo gravado em `observacoes`. Não
  *  apaga fornecedor criado junto — o fornecedor pode já ter sido
- *  reaproveitado por um lançamento manual feito depois da importação. */
+ *  reaproveitado por um lançamento manual feito depois da importação.
+ *
+ *  Usa `conferir()` (achado numa revisão em 13/09/2026: antes só checava
+ *  `error`, e um DELETE barrado pela RLS devolve sucesso com zero linhas
+ *  — indistinguível de "não achou nada pra apagar". O botão "Desfazer"
+ *  só existe na tela logo após uma importação bem-sucedida e some depois
+ *  do primeiro uso, então zero linhas apagadas aqui só pode significar
+ *  bloqueio, nunca "já tinha sido desfeito". */
 export async function desfazerImportacaoOmie(loteTag: string): Promise<number> {
-  const { data, error } = await supabase
+  const resultado = await supabase
     .from("fin_lancamentos")
     .delete()
     .ilike("observacoes", `[lote:${loteTag}]%`)
     .select("id");
-  if (error) throw error;
-  return data?.length ?? 0;
+  const r = conferir(resultado, "A importação");
+  if (!r.ok) throw new Error(r.erro);
+  return resultado.data?.length ?? 0;
 }

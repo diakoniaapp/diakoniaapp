@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Wallet, Building2 } from "lucide-react";
+import { paraNumero } from "@/lib/dinheiro";
 import {
   criarConta, atualizarConta, CONTA_TIPO_LABEL,
   type FinConta, type FinContaTipo,
@@ -27,15 +28,11 @@ interface Props {
 // jeito que qualquer brasileiro digita) e o campo não aceitou, sobrando
 // um resto tipo "0,01" no lugar. Corrigido trocando por texto livre +
 // `inputMode="decimal"` (teclado numérico no celular, mas aceita
-// qualquer caractere) e parseando na entrega, não a cada tecla — aceita
-// tanto "928,00" (vírgula = decimal, ponto = milhar) quanto "928.00"
-// (sem vírgula, ponto vira decimal).
-function paraNumero(texto: string): number {
-  const limpo = texto.trim();
-  if (!limpo) return 0;
-  if (limpo.includes(",")) return Number(limpo.replace(/\./g, "").replace(",", ".")) || 0;
-  return Number(limpo) || 0;
-}
+// qualquer caractere) e parseando na entrega, não a cada tecla.
+// `paraNumero` mora em `src/lib/dinheiro.ts` — mesmo parser usado por
+// todo campo de dinheiro do sistema, depois que uma revisão achou o
+// mesmo bug (e um segundo, ponto-como-milhar tratado errado) ainda vivo
+// nos campos de `LancamentoForm.tsx` e `ContratadoForm.tsx`.
 
 const CORES = [
   "#10b981", "#0ea5e9", "#6366f1", "#a855f7",

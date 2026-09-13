@@ -55,4 +55,20 @@ describe("decodificarLinhaDigitavel", () => {
     const r = decodificarLinhaDigitavel(semVencimento);
     expect(r.vencimento).toBeNull();
   });
+
+  // Achado em revisão de 13/09/2026: a FEBRABAN reiniciou o fator de
+  // vencimento pra 1000 em 22/02/2025 (confirmado com fontes do setor —
+  // Sankhya, KMEE, Senior). Fator 1000 = 22/02/2025 no ciclo novo, não
+  // 07/10/1997+1000 dias (~2000) do ciclo clássico.
+  it("fator >= 1000 usa o ciclo novo pós-reinício FEBRABAN (fator 1000 = 22/02/2025)", () => {
+    const cicloNovo = "1234567897" + "12345678903" + "12345678903" + "1" + "1000" + "0000010000";
+    const r = decodificarLinhaDigitavel(cicloNovo);
+    expect(r.vencimento).toBe("2025-02-22");
+  });
+
+  it("fator 1000 + N dias no ciclo novo soma certo (1015 = 22/02/2025 + 15 dias)", () => {
+    const cicloNovo = "1234567897" + "12345678903" + "12345678903" + "1" + "1015" + "0000010000";
+    const r = decodificarLinhaDigitavel(cicloNovo);
+    expect(r.vencimento).toBe("2025-03-09");
+  });
 });
