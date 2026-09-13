@@ -149,8 +149,13 @@ export function ImportacaoOmieDialog({ open, onOpenChange, contaId, contaNome, o
           <div className="space-y-3">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
               <div className="rounded-md border p-2">
-                <p className="text-xs text-muted-foreground">Lançamentos</p>
+                <p className="text-xs text-muted-foreground">Linhas do Omie</p>
                 <p className="text-lg font-semibold tabular-nums">{resumo.totalLinhas}</p>
+                {rascunhos.length !== resumo.totalLinhas && (
+                  <p className="text-xs text-muted-foreground">
+                    → {rascunhos.length} lançamentos (uma linha tinha rateio entre categorias)
+                  </p>
+                )}
               </div>
               <div className="rounded-md border border-success-line bg-success-soft/20 p-2">
                 <p className="text-xs text-success-text flex items-center gap-1"><TrendingUp className="w-3 h-3" /> Entradas</p>

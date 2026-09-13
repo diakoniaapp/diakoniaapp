@@ -104,7 +104,12 @@ export async function prepararImportacaoOmie(
   const mapaPessoa = new Map((pessoasExistentes ?? []).map((p: any) => [p.cpf, p]));
 
   const categoriasNaoEncontradas = new Set<string>();
-  let fornecedoresACriar = 0;
+  // Dedupe por CNPJ/CPF dentro do próprio lote — "BANCO BRADESCO S.A."
+  // repete dezenas de vezes (uma tarifa por dia) com o mesmo CNPJ, e sem
+  // isto o resumo contava "76 fornecedores novos" quando o commit (que já
+  // dedupe corretamente) ia criar uma fração disso. Achado ao vivo pela
+  // Telma comparando o card do resumo com o botão de confirmar.
+  const cnpjsNovosNoLote = new Set<string>();
   let pessoasVinculadas = 0;
   let totalEntradas = 0;
   let totalSaidas = 0;
@@ -130,7 +135,7 @@ export async function prepararImportacaoOmie(
     if (!transferencia && tipo === "saida" && bruta.cpfCnpj) {
       const existente = mapaFornecedor.get(bruta.cpfCnpj);
       if (existente) fornecedorId = existente.id;
-      else { fornecedorNomeParaCriar = bruta.clienteFornecedor; fornecedoresACriar++; }
+      else { fornecedorNomeParaCriar = bruta.clienteFornecedor; cnpjsNovosNoLote.add(bruta.cpfCnpj); }
     }
     if (!transferencia && tipo === "entrada" && bruta.cpfCnpj?.length === 11) {
       const existente = mapaPessoa.get(bruta.cpfCnpj);
@@ -156,7 +161,7 @@ export async function prepararImportacaoOmie(
       totalLinhas: linhasBrutas.length,
       totalEntradas, totalSaidas,
       categoriasNaoEncontradas: Array.from(categoriasNaoEncontradas),
-      fornecedoresACriar, pessoasVinculadas,
+      fornecedoresACriar: cnpjsNovosNoLote.size, pessoasVinculadas,
       saldoAnterior,
     },
   };
