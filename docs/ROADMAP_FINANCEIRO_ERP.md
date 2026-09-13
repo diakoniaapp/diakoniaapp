@@ -420,6 +420,82 @@ ganhar o nome do fornecedor independente, sem esperar).
 
 ---
 
+## ✅ Fase 5 — Cadastro de Contratados — FEITO em 12/09/2026
+
+Achado respondendo a pergunta da Telma "e se a pessoa física [fornecedor]
+já for alguém cadastrado no catálogo de pessoas?" — ela esclareceu que o
+caso real é **funcionários que são membros** (o eletricista da
+congregação, o professor de música que recebe cachê). Isso não é
+Fornecedores (Fase 4.1, fechada) — funcionário mora em `fin_contratados`,
+a aba "Contratados" de **Folha & Encargos**. Cavando esse módulo achei um
+buraco maior que a pergunta original:
+
+- `/financas/folha` é, no subtítulo da própria tela, **"calculadoras
+  didáticas pra você acompanhar e aprender"** — CLT/MEI/RPA/Prebenda. A
+  aba "Contratados" só **lista** (`ListaContratados`) quem já está na
+  tabela `fin_contratados`.
+- `criarContratado`/`atualizarContratado`/`desativarContratado` **já
+  existem** em `folhaService.ts`, com `conferir()` e tudo — e **nenhuma
+  tela em lugar nenhum do sistema as chama**. Quem estiver cadastrado
+  hoje entrou por SQL direto, não pela interface. Não dá pra cadastrar
+  funcionário nenhum pela tela hoje, membro ou não.
+- `fin_contratados.pessoa_id` **já existe** (aponta pra `membros`,
+  mesmo desenho de `fin_lancamentos.pessoa_id` que a Doadores usa) e está
+  no mesmo estado dormente: schema pronto, zero leitura, zero escrita.
+
+**O que entra nesta fase:**
+
+1. `ContratadoForm.tsx` (Dialog, mesmo padrão de `FornecedorForm.tsx` e
+   `RecorrenciaForm.tsx`) — campos comuns (nome, CPF, vínculo, cargo,
+   data início/fim) e campos condicionais por `vinculo` (CLT: salário,
+   jornada, dependentes, VT/VA; MEI: CNPJ, atividade, valor mensal; RPA:
+   valor padrão; Prebenda: valor, auxílio aluguel/outros, CEBAS, INSS do
+   pastor) — todos já existem em `FinContratado`, é só expor.
+2. **Busca no catálogo já pronta pra reaproveitar**:
+   [`src/components/ui/BuscaPessoa.tsx`](../src/components/ui/BuscaPessoa.tsx)
+   já é exatamente o componente certo — autocomplete server-side em
+   `membros`, devolve `cpf` e `telefone_celular` junto do nome, usado hoje
+   em Agenda/Diaconia/Famílias. Selecionar um membro pré-preenche
+   nome/CPF e grava `pessoa_id`; deixar em branco cadastra alguém de fora
+   do quadro de membros (funcionário nem sempre é da igreja). **Isto
+   reduz bastante o esforço** — a peça mais cara (buscar pessoa) já está
+   pronta, testada e em produção noutras telas.
+3. `FinancasFolha.tsx`: aba "Contratados" ganha botão "Novo" e
+   ações editar/desativar por linha (mesmo padrão AlertDialog de
+   Fornecedores — nunca `confirm()` nativo).
+
+**Esforço:** médio — o formulário tem mais campos condicionais que
+`FornecedorForm`, mas a busca de pessoa (a parte nova de verdade) já
+existia pronta. **Decisão pendente:** nenhuma — mesmo caso de
+Fornecedores, é composição sobre schema e componentes que já existem.
+
+`ContratadoForm.tsx` cobriu os 3 itens do plano: campos comuns + por
+vínculo, `BuscaPessoa` pré-preenchendo nome/CPF e gravando `pessoa_id`,
+e a aba Contratados de `FinancasFolha.tsx` ganhou "Novo"/editar/
+desativar/reativar (o botão "Novo" já existia, **desabilitado, com o
+texto literal "(em breve)"** — só foi ligado).
+
+**Bug de UX encontrado e corrigido no mesmo commit**: `carregar()`
+gatilhava `setLoading(true)`/`false` a cada desativar/reativar ou toggle
+de "mostrar inativos" — como a tela inteira desmonta em `loading`,
+a `Tabs` (não controlada, `defaultValue="calc"`) esquecia que o usuário
+estava em "Contratados" e voltava pra "Calculadoras" sozinha. Corrigido
+separando o loading da PRIMEIRA carga (bloqueia a página) do refetch
+de fundo (não bloqueia nada) — e o mesmo padrão, que já existia em
+`FinancasFornecedores.tsx` (Fase 4.1, sem `Tabs` mas com o mesmo
+pisca-pisca), foi corrigido lá também de graça. `<p>` com `Badge` dentro
+(mesmo bug de HTML inválido já achado em `FinancasRecorrencias.tsx`)
+apareceu de novo em `ListaContratados` — trocado por `<div>`.
+
+Verificado ao vivo: cadastrado um contratado de teste (CLT) buscando
+"Telma" no catálogo — nome/CPF pré-preenchidos sozinhos; editado (o
+`pessoa_id` voltou vinculado corretamente na reedição, confirmado por
+REST antes de apagar); desativado e reativado sem a aba resetar; console
+limpo em aba nova. Registro de teste apagado, produção conferida limpa
+depois. `tsc`/`vitest` (218/218)/`vite build` limpos.
+
+---
+
 *Este documento é o plano; `DOCUMENTACAO_SISTEMA.md` continua sendo o
 retrato do sistema inteiro. Atualizar os dois quando um item da lista acima
 for fechado.*

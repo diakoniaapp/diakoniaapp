@@ -36,15 +36,26 @@ export default function FinancasFornecedores() {
   const [alternando, setAlternando] = useState<FinFornecedor | null>(null);
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => { carregar(); }, [mostrarInativos]);
+  // `loading` só gate o esqueleto da primeira carga — achado em
+  // FinancasFolha.tsx (Fase 5): se `carregar()` o tocasse toda vez, cada
+  // inativar/reativar ou alternar "mostrar inativos" piscava a lista
+  // inteira pro esqueleto em vez de só atualizar as linhas.
+  useEffect(() => {
+    carregar().finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    if (loading) return;
+    carregar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mostrarInativos]);
 
   async function carregar() {
-    setLoading(true);
     try {
       setFornecedores(await listarFornecedores(undefined, mostrarInativos));
     } catch (e: any) {
       toast.error(e?.message ?? "Erro ao carregar fornecedores");
-    } finally { setLoading(false); }
+    }
   }
 
   const filtrados = useMemo(() => {

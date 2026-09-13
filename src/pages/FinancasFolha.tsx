@@ -13,24 +13,70 @@ import {
 } from "@/components/ui/tabs";
 import {
   ArrowLeft, Users, Calculator, Loader2, Plus, Briefcase,
-  TrendingUp, AlertCircle,
+  TrendingUp, AlertCircle, Pencil, PowerOff, RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { PaginaSkeleton } from "@/components/ListState";
 import {
-  listarContratados, brl, VINCULO_LABEL, VINCULO_COR,
+  listarContratados, atualizarContratado, desativarContratado,
+  brl, VINCULO_LABEL, VINCULO_COR,
   calcularCLT, calcularRPA, calcularMEI, calcularPrebenda,
   type FinContratado, type FinVinculoTipo,
   type ResultadoCLT, type ResultadoRPA, type ResultadoMEI, type ResultadoPrebenda,
 } from "@/services/folhaService";
+import { ContratadoForm } from "@/components/financas/ContratadoForm";
 
 export default function FinancasFolha() {
   const [contratados, setContratados] = useState<FinContratado[]>([]);
   const [loading, setLoading] = useState(true);
+  const [mostrarInativos, setMostrarInativos] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
+  const [editando, setEditando] = useState<FinContratado | null>(null);
+  const [alternando, setAlternando] = useState<FinContratado | null>(null);
+  const [busy, setBusy] = useState(false);
 
+  // `loading` só gate o esqueleto da PÁGINA INTEIRA na primeira carga — se
+  // `carregar()` o tocasse toda vez (era o bug original), desativar um
+  // contratado ou alternar "mostrar inativos" desmontava a árvore toda e a
+  // Tabs (não controlada, `defaultValue="calc"`) esquecia que o usuário
+  // estava na aba Contratados, jogando de volta pra Calculadoras.
   useEffect(() => {
-    listarContratados().then(setContratados).catch(() => {}).finally(() => setLoading(false));
+    carregar().finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  useEffect(() => {
+    if (loading) return; // evita a segunda busca durante a carga inicial
+    carregar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mostrarInativos]);
+
+  async function carregar() {
+    try {
+      setContratados(await listarContratados(mostrarInativos));
+    } catch (e: any) { toast.error(e?.message ?? "Erro"); }
+  }
+
+  async function confirmarAlternar() {
+    if (!alternando) return;
+    setBusy(true);
+    try {
+      if (alternando.ativo) {
+        await desativarContratado(alternando.id);
+        toast.success("Contratado desativado");
+      } else {
+        await atualizarContratado(alternando.id, { ativo: true });
+        toast.success("Contratado reativado");
+      }
+      setAlternando(null);
+      await carregar();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erro");
+    } finally { setBusy(false); }
+  }
 
   if (loading) return <PaginaSkeleton />;
 
@@ -63,9 +109,38 @@ export default function FinancasFolha() {
         </TabsContent>
 
         <TabsContent value="contratados">
-          <ListaContratados contratados={contratados} />
+          <ListaContratados
+            contratados={contratados}
+            mostrarInativos={mostrarInativos}
+            onMostrarInativosChange={setMostrarInativos}
+            onNovo={() => { setEditando(null); setFormOpen(true); }}
+            onEditar={(c) => { setEditando(c); setFormOpen(true); }}
+            onAlternar={setAlternando}
+          />
         </TabsContent>
       </Tabs>
+
+      <ContratadoForm open={formOpen} onOpenChange={(v) => { setFormOpen(v); if (!v) setEditando(null); }}
+        contratado={editando} onSaved={carregar} />
+
+      <AlertDialog open={!!alternando} onOpenChange={(v) => !v && setAlternando(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{alternando?.ativo ? "Desativar contratado?" : "Reativar contratado?"}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {alternando?.ativo
+                ? `"${alternando?.nome}" deixa de aparecer na lista ativa. Nada nos cálculos ou lançamentos já feitos muda.`
+                : `"${alternando?.nome}" volta a aparecer na lista ativa.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmarAlternar} disabled={busy}>
+              {busy ? "..." : "Confirmar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -481,32 +556,61 @@ function Linha({ label, valor, hint, bold }: { label: string; valor: number; hin
 // ═══════════════════════════════════════════════════════════════════════════
 // Lista de contratados
 // ═══════════════════════════════════════════════════════════════════════════
-function ListaContratados({ contratados }: { contratados: FinContratado[] }) {
+function ListaContratados({ contratados, mostrarInativos, onMostrarInativosChange, onNovo, onEditar, onAlternar }: {
+  contratados: FinContratado[];
+  mostrarInativos: boolean;
+  onMostrarInativosChange: (v: boolean) => void;
+  onNovo: () => void;
+  onEditar: (c: FinContratado) => void;
+  onAlternar: (c: FinContratado) => void;
+}) {
   return (
     <Card>
       <CardContent className="py-3 space-y-2">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <h3 className="font-serif text-base">Contratados ({contratados.length})</h3>
-          <Button size="sm" disabled className="gap-1.5">
-            <Plus className="w-3.5 h-3.5" /> Novo (em breve)
-          </Button>
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+              <input type="checkbox" checked={mostrarInativos} onChange={(e) => onMostrarInativosChange(e.target.checked)} />
+              Mostrar inativos
+            </label>
+            <Button size="sm" onClick={onNovo} className="gap-1.5 bg-gold hover:bg-gold/90 text-white">
+              <Plus className="w-3.5 h-3.5" /> Novo
+            </Button>
+          </div>
         </div>
         {contratados.length === 0 ? (
           <p className="text-xs text-muted-foreground italic text-center py-6">
-            Cadastro de contratados será habilitado em breve.
-            Por ora, use as <strong>calculadoras</strong> para conferir valores antes de cada pagamento.
+            Nenhum contratado cadastrado ainda.
+            Use as <strong>calculadoras</strong> para conferir valores antes de cada pagamento.
           </p>
         ) : (
           <div className="space-y-1">
             {contratados.map(c => (
-              <div key={c.id} className="border rounded-md px-3 py-2 flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">{c.nome}</p>
-                  <p className="text-xs text-muted-foreground">{c.cargo}</p>
+              <div key={c.id} className={`border rounded-md px-3 py-2 flex items-center justify-between gap-2 ${!c.ativo ? "opacity-60 border-dashed" : ""}`}>
+                <div className="min-w-0 flex-1">
+                  {/* `<div>`, não `<p>`: `Badge` é sempre um `<div>` (ver
+                      `components/ui/badge.tsx`) — mesmo bug já corrigido
+                      em `FinancasRecorrencias.tsx`. */}
+                  <div className="text-sm font-medium truncate flex items-center gap-1.5">
+                    {c.nome}
+                    {!c.ativo && <Badge variant="outline" className="text-xs bg-warning-soft text-warning-text border-warning-line">Inativo</Badge>}
+                  </div>
+                  <p className="text-xs text-muted-foreground truncate">{c.cargo}</p>
                 </div>
-                <Badge variant="outline" className={`text-xs ${VINCULO_COR[c.vinculo]}`}>
+                <Badge variant="outline" className={`text-xs shrink-0 ${VINCULO_COR[c.vinculo]}`}>
                   {VINCULO_LABEL[c.vinculo]}
                 </Badge>
+                <div className="flex items-center gap-0.5 shrink-0">
+                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7"
+                    onClick={() => onEditar(c)} title="Editar">
+                    <Pencil className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7"
+                    onClick={() => onAlternar(c)} title={c.ativo ? "Desativar" : "Reativar"}>
+                    {c.ativo ? <PowerOff className="w-3.5 h-3.5 text-warning-text" /> : <RotateCcw className="w-3.5 h-3.5 text-success-text" />}
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
