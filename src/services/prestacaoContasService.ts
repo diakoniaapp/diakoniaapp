@@ -131,7 +131,7 @@ function somaGrupos(grupos: PrestacaoContasGrupo[], qtdMeses: number): number[] 
  * `contaId`: todas as contas somadas (ativas e inativas — o histórico não
  * some). Com `contaId`: só o saldo inicial e o movimento daquela conta.
  */
-async function saldoAcumuladoAntesDe(dataLimiteExclusiva: string, contaId?: string): Promise<number> {
+export async function saldoAcumuladoAntesDe(dataLimiteExclusiva: string, contaId?: string): Promise<number> {
   const contas = await listarContas(true);
   const contasRelevantes = contaId ? contas.filter(c => c.id === contaId) : contas;
   const saldoInicial = contasRelevantes.reduce((s, c) => s + Number(c.saldo_inicial), 0);

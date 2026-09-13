@@ -28,6 +28,7 @@ import {
 import { LancamentoForm } from "@/components/financas/LancamentoForm";
 import { TransferenciaForm } from "@/components/financas/TransferenciaForm";
 import { ConciliacaoOFXDialog } from "@/components/financas/ConciliacaoOFXDialog";
+import { saldoAcumuladoAntesDe } from "@/services/prestacaoContasService";
 import { ImportacaoOmieDialog } from "@/components/financas/ImportacaoOmieDialog";
 import { ArrowRightLeft } from "lucide-react";
 import { PaginaSkeleton } from "@/components/ListState";
@@ -75,6 +76,12 @@ export default function FinancasConta() {
   // Telma ("a lixeira não funciona") em 13/09/2026.
   const [apagando, setApagando] = useState<FinLancamentoExtenso | null>(null);
   const [excluindoBusy, setExcluindoBusy] = useState(false);
+  // Saldo real da conta um instante antes de "Data inicial" — âncora da
+  // coluna "Saldo" (acumulado), pedido da Telma pra bater com o jeito que
+  // um extrato de banco/Omie de verdade se lê. Reaproveita a mesma conta
+  // de `prestacaoContasService.saldoAcumuladoAntesDe` (soma saldo_inicial
+  // da conta + movimento realizado/conciliado antes da data).
+  const [saldoAntesDoPeriodo, setSaldoAntesDoPeriodo] = useState(0);
 
   // Período do filtro — mês atual por default
   const hoje = new Date();
@@ -91,7 +98,7 @@ export default function FinancasConta() {
     if (!contaId) return;
     setLoading(true);
     try {
-      const [c, ls] = await Promise.all([
+      const [c, ls, saldoAntes] = await Promise.all([
         carregarConta(contaId),
         listarLancamentos({
           contaId,
@@ -99,9 +106,11 @@ export default function FinancasConta() {
           dataInicio, dataFim,
           busca: busca.length >= 2 ? busca : undefined,
         }),
+        saldoAcumuladoAntesDe(dataInicio, contaId),
       ]);
       setConta(c);
       setLancamentos(ls);
+      setSaldoAntesDoPeriodo(saldoAntes);
     } finally { setLoading(false); }
   }
 
@@ -175,6 +184,22 @@ export default function FinancasConta() {
     a.data === b.data
       ? (a.created_at ?? "").localeCompare(b.created_at ?? "")
       : a.data.localeCompare(b.data));
+
+  // Saldo acumulado por linha — só realizado/conciliado mexe no saldo
+  // (previsto/cancelado/aguardando aprovação não aconteceram de verdade
+  // ainda, mesma regra de `fin_recalc_saldo_conta` no banco). Com filtro
+  // de tipo ou busca ativo, a coluna passa a acumular só o que está
+  // filtrado — não é mais o saldo real da conta linha a linha, é só a
+  // soma do que apareceu na tela; aceitável, não escondido, mas vale
+  // saber se um dia isso confundir.
+  let acumulado = saldoAntesDoPeriodo;
+  const saldoPorLancamento = new Map<string, number>();
+  for (const l of lancamentosOrdenados) {
+    if (l.status === "realizado" || l.status === "conciliado") {
+      acumulado += l.tipo === "entrada" ? Number(l.valor) : -Number(l.valor);
+    }
+    saldoPorLancamento.set(l.id, acumulado);
+  }
 
   return (
     <div className="p-3 md:p-5 max-w-7xl mx-auto space-y-3">
@@ -264,7 +289,7 @@ export default function FinancasConta() {
         </Card>
         <Card>
           <CardContent className="py-2 px-3">
-            <p className="text-xs uppercase text-muted-foreground">Saldo do período</p>
+            <p className="text-xs uppercase text-muted-foreground">Movimento do período</p>
             <p className="text-sm font-semibold tabular-nums">{brl(totalEntradasPeriodo - totalSaidasPeriodo)}</p>
           </CardContent>
         </Card>
@@ -292,6 +317,7 @@ export default function FinancasConta() {
                   <th className="text-left py-2 px-2 w-32">Categoria</th>
                   <th className="text-left py-2 px-2 w-28">Centro custo</th>
                   <th className="text-right py-2 px-2 w-28">Valor</th>
+                  <th className="text-right py-2 px-2 w-28">Saldo</th>
                   <th className="w-8"></th>
                   <th className="w-20"></th>
                 </tr>
@@ -343,6 +369,9 @@ export default function FinancasConta() {
                     </td>
                     <td className={`py-1.5 px-2 text-right tabular-nums font-medium ${l.tipo === "entrada" ? "text-success-text" : "text-destructive-text"}`}>
                       {l.tipo === "entrada" ? "+" : "−"} {brl(Number(l.valor))}
+                    </td>
+                    <td className="py-1.5 px-2 text-right tabular-nums text-muted-foreground">
+                      {brl(saldoPorLancamento.get(l.id) ?? 0)}
                     </td>
                     <td className="py-1.5 px-1">
                       {l.comprovante_url && (
