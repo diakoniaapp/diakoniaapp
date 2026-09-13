@@ -328,15 +328,19 @@ export default function FinancasConta() {
                   <th className="text-left py-2 px-2 w-28">Centro custo</th>
                   <th className="text-right py-2 px-2 w-28">Valor</th>
                   <th className="text-right py-2 px-2 w-28">Saldo</th>
-                  <th className="w-8"></th>
-                  <th className="w-20"></th>
+                  {/* Ações fixa na borda direita da área rolável — antes ficava
+                      fora da tela em qualquer conta com muitas colunas visíveis
+                      (Categoria + Centro custo + Saldo já empurram a tabela além
+                      da largura da tela), obrigando rolar pra achar o lápis.
+                      Achado pela Telma em 13/09/2026. */}
+                  <th className="w-28 sticky right-0 bg-muted/40"></th>
                 </tr>
               </thead>
               <tbody>
                 {lancamentosOrdenados.map(l => {
                   const conciliavel = l.status === "realizado" || l.status === "conciliado";
                   return (
-                  <tr key={l.id} className="border-t hover:bg-muted/30">
+                  <tr key={l.id} className="border-t hover:bg-muted/30 group">
                     <td className="py-1.5 px-2">
                       {l.status === "realizado" && (
                         <Checkbox checked={selecionados.has(l.id)} onCheckedChange={() => alternarSelecao(l.id)}
@@ -383,16 +387,14 @@ export default function FinancasConta() {
                     <td className="py-1.5 px-2 text-right tabular-nums text-muted-foreground">
                       {brl(saldoPorLancamento.get(l.id) ?? 0)}
                     </td>
-                    <td className="py-1.5 px-1">
-                      {l.comprovante_url && (
-                        <button type="button" onClick={() => abrirComprovante(l.comprovante_url!)} title="Ver comprovante"
-                          className="text-info-text hover:text-info-text">
-                          <Paperclip className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </td>
-                    <td className="py-1.5 px-1">
-                      <div className="flex items-center gap-0.5">
+                    <td className="py-1.5 px-1 sticky right-0 bg-background group-hover:bg-muted/30 border-l">
+                      <div className="flex items-center gap-0.5 justify-end">
+                        {l.comprovante_url && (
+                          <button type="button" onClick={() => abrirComprovante(l.comprovante_url!)} title="Ver comprovante"
+                            className="text-info-text hover:text-info-text">
+                            <Paperclip className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                         <Button type="button" variant="ghost" size="icon" className="h-7 w-7"
                           onClick={() => { setEditando(l); setNovoOpen(true); }}>
                           <Pencil className="w-3 h-3" />
