@@ -28,6 +28,7 @@ import {
 import { LancamentoForm } from "@/components/financas/LancamentoForm";
 import { TransferenciaForm } from "@/components/financas/TransferenciaForm";
 import { ConciliacaoOFXDialog } from "@/components/financas/ConciliacaoOFXDialog";
+import { ImportacaoOmieDialog } from "@/components/financas/ImportacaoOmieDialog";
 import { ArrowRightLeft } from "lucide-react";
 import { PaginaSkeleton } from "@/components/ListState";
 
@@ -62,6 +63,7 @@ export default function FinancasConta() {
   const [editando, setEditando] = useState<FinLancamentoExtenso | null>(null);
   const [transfOpen, setTransfOpen] = useState(false);
   const [ofxOpen, setOfxOpen] = useState(false);
+  const [omieOpen, setOmieOpen] = useState(false);
   // Conciliação manual (item 6 do roadmap do ERP): seleção só de
   // `realizado` — não faz sentido conciliar algo que ainda não aconteceu
   // (previsto), que foi cancelado, ou que ainda espera aprovação.
@@ -191,6 +193,9 @@ export default function FinancasConta() {
             <FileUp className="w-3.5 h-3.5" /> Importar OFX
           </Button>
         )}
+        <Button variant="outline" size="sm" onClick={() => setOmieOpen(true)} className="gap-1.5">
+          <FileUp className="w-3.5 h-3.5" /> Importar Omie
+        </Button>
         <Button variant="outline" size="sm" onClick={() => setTransfOpen(true)} className="gap-1.5 text-info-text hover:text-info-text">
           <ArrowRightLeft className="w-3.5 h-3.5" /> Transferir
         </Button>
@@ -373,6 +378,13 @@ export default function FinancasConta() {
       <ConciliacaoOFXDialog
         open={ofxOpen}
         onOpenChange={setOfxOpen}
+        contaId={contaId}
+        contaNome={conta.nome}
+        onSaved={carregar}
+      />
+      <ImportacaoOmieDialog
+        open={omieOpen}
+        onOpenChange={setOmieOpen}
         contaId={contaId}
         contaNome={conta.nome}
         onSaved={carregar}
