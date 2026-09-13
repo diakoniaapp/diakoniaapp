@@ -23,6 +23,20 @@ interface Props {
   onSaved: () => void;
 }
 
+// `<input type="number">` rejeita vírgula — a Telma digitou "928,00" (do
+// jeito que qualquer brasileiro digita) e o campo não aceitou, sobrando
+// um resto tipo "0,01" no lugar. Corrigido trocando por texto livre +
+// `inputMode="decimal"` (teclado numérico no celular, mas aceita
+// qualquer caractere) e parseando na entrega, não a cada tecla — aceita
+// tanto "928,00" (vírgula = decimal, ponto = milhar) quanto "928.00"
+// (sem vírgula, ponto vira decimal).
+function paraNumero(texto: string): number {
+  const limpo = texto.trim();
+  if (!limpo) return 0;
+  if (limpo.includes(",")) return Number(limpo.replace(/\./g, "").replace(",", ".")) || 0;
+  return Number(limpo) || 0;
+}
+
 const CORES = [
   "#10b981", "#0ea5e9", "#6366f1", "#a855f7",
   "#f59e0b", "#dc2626", "#ec4899", "#737373",
@@ -38,7 +52,7 @@ export function ContaForm({ open, onOpenChange, conta, onSaved }: Props) {
   const [bancoCodigo, setBancoCodigo] = useState("");
   const [agencia, setAgencia] = useState("");
   const [contaNumero, setContaNumero] = useState("");
-  const [saldoInicial, setSaldoInicial] = useState<number>(0);
+  const [saldoInicialTexto, setSaldoInicialTexto] = useState("0");
   const [cor, setCor] = useState("#cfa451");
   const [observacao, setObservacao] = useState("");
 
@@ -58,7 +72,7 @@ export function ContaForm({ open, onOpenChange, conta, onSaved }: Props) {
       setBancoCodigo(conta.banco_codigo ?? "");
       setAgencia(conta.agencia ?? "");
       setContaNumero(conta.conta_numero ?? "");
-      setSaldoInicial(Number(conta.saldo_inicial ?? 0));
+      setSaldoInicialTexto(String(conta.saldo_inicial ?? 0));
       setCor(conta.cor ?? "#cfa451");
       setObservacao(conta.observacao ?? "");
       setDiaVencimento(conta.dia_vencimento ?? "");
@@ -67,7 +81,7 @@ export function ContaForm({ open, onOpenChange, conta, onSaved }: Props) {
     } else {
       setNome(""); setTipo("banco");
       setBancoNome(""); setBancoCodigo(""); setAgencia(""); setContaNumero("");
-      setSaldoInicial(0); setCor("#cfa451"); setObservacao("");
+      setSaldoInicialTexto("0"); setCor("#cfa451"); setObservacao("");
       setDiaVencimento(""); setDiaFechamento(""); setLimiteCredito("");
     }
   }, [open, conta]);
@@ -84,7 +98,7 @@ export function ContaForm({ open, onOpenChange, conta, onSaved }: Props) {
         banco_codigo: bancoCodigo.trim() || null,
         agencia: agencia.trim() || null,
         conta_numero: contaNumero.trim() || null,
-        saldo_inicial: saldoInicial,
+        saldo_inicial: paraNumero(saldoInicialTexto),
         cor,
         observacao: observacao.trim() || null,
         dia_vencimento: tipo === "cartao" && diaVencimento ? Number(diaVencimento) : null,
@@ -139,8 +153,8 @@ export function ContaForm({ open, onOpenChange, conta, onSaved }: Props) {
             </div>
             <div>
               <Label>Saldo inicial (R$)</Label>
-              <Input type="number" step="0.01" value={saldoInicial || ""}
-                onChange={(e) => setSaldoInicial(Number(e.target.value))} />
+              <Input type="text" inputMode="decimal" value={saldoInicialTexto}
+                onChange={(e) => setSaldoInicialTexto(e.target.value)} />
               <p className="text-xs text-muted-foreground mt-0.5">
                 {isEdit ? "Alterar muda o saldo atual" : "Saldo que já está nesta conta"}
               </p>
