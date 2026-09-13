@@ -19,6 +19,33 @@ export type FinFormaPagamento = "pix" | "dinheiro" | "cartao_debito" | "cartao_c
 // eventos merecem centro de custo próprio — não é todo culto de domingo).
 export type FinCentroVinculo = "ministerio" | "area" | "ebd_classe" | "pgm_grupo" | "campanha" | "geral" | "evento" | "subgrupo_administracao";
 
+// Movido de `FinancasCentros.tsx` em 13/09/2026 — `FinancasAdmin.tsx`
+// passou a precisar dos mesmos rótulos/cores pra gerenciar centros de
+// custo (editar/desativar/excluir), e duas telas definindo o mesmo mapa
+// localmente é exatamente o tipo de duplicação que este projeto já
+// carrega demais (ver §4.1 do CLAUDE.md).
+export const VINCULO_LABEL: Record<FinCentroVinculo, string> = {
+  ministerio: "Ministério",
+  area: "Área",
+  ebd_classe: "Classe EBD",
+  pgm_grupo: "PGM",
+  campanha: "Campanha",
+  geral: "Geral",
+  evento: "Evento",
+  subgrupo_administracao: "Subgrupo contábil",
+};
+
+export const VINCULO_COR: Record<FinCentroVinculo, string> = {
+  ministerio: "bg-violeta-soft text-violeta-text border-violeta-line",
+  area:       "bg-info-soft text-info-text border-info-line",
+  ebd_classe: "bg-success-soft text-success-text border-success-line",
+  pgm_grupo:  "bg-warning-soft text-warning-text border-warning-line",
+  campanha:   "bg-destructive-soft text-destructive-text border-destructive-line",
+  evento:     "bg-celebracao-soft text-celebracao-text border-celebracao-line",
+  geral:      "bg-muted text-muted-foreground border-border",
+  subgrupo_administracao: "bg-gold/10 text-gold border-gold/30",
+};
+
 export interface FinConta {
   id: string;
   nome: string;
@@ -69,6 +96,7 @@ export interface FinCentroCusto {
   vinculo_tipo: FinCentroVinculo;
   vinculo_id: string | null;
   vinculo_nome: string | null;
+  centro_pai_id: string | null;
   orcamento_anual: number | null;
   cor: string | null;
   ativo: boolean;
@@ -241,6 +269,43 @@ export async function criarCentroCusto(input: Partial<FinCentroCusto>): Promise<
   const { data, error } = await supabase.from("fin_centros_custo").insert(input as any).select("*").single();
   if (error) throw error;
   return data as FinCentroCusto;
+}
+
+// Inclui inativos — só pra tela de administração
+// (`FinancasAdmin.tsx`); `listarCentrosCusto()` continua só-ativos, é o
+// que os formulários de lançamento usam.
+export async function listarCentrosCustoTodas(): Promise<FinCentroCusto[]> {
+  const { data, error } = await supabase
+    .from("fin_centros_custo").select("*").order("vinculo_tipo").order("nome");
+  if (error) throw error;
+  return (data ?? []) as FinCentroCusto[];
+}
+
+export async function atualizarCentroCusto(id: string, patch: Partial<FinCentroCusto>): Promise<void> {
+  const r = conferir(
+    await supabase.from("fin_centros_custo").update(patch as any).eq("id", id).select("id"),
+    "O centro de custo",
+  );
+  if (!r.ok) throw new Error(r.erro);
+}
+
+// Até 13/09/2026 não existia — nem tela, nem função. A RLS de
+// `fin_centros_custo` já é `FOR ALL` pra admin/diakonia/secretaria/
+// tesouraria (não tem a restrição "DELETE só admin" que é a convenção do
+// resto do banco — ver `20260902210000_lideranca_nao_opera_o_financeiro.
+// sql`), então o bloqueio nunca foi o banco: era só não ter sido
+// construído. Pedido direto da Telma (13/09/2026), pra poder apagar
+// centro de custo criado em teste. Mesma proteção de FK que
+// `excluirCategoria` — se algum `fin_lancamentos.centro_custo_id` ou
+// `fin_lancamento_rateio.centro_custo_id` apontar pra cá, o Postgres
+// recusa e quem chama decide (a tela mostra "em uso, desative" em vez de
+// excluir).
+export async function excluirCentroCusto(id: string): Promise<void> {
+  const r = conferir(
+    await supabase.from("fin_centros_custo").delete().eq("id", id).select("id"),
+    "O centro de custo",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 // ─── Rateio entre centros de custo ──────────────────────────────────────

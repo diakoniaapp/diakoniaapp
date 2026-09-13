@@ -7,8 +7,12 @@ import {
   Tabs, TabsContent, TabsList, TabsTrigger,
 } from "@/components/ui/tabs";
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   ArrowLeft, DollarSign, Loader2, Plus, Pencil, Trash2,
-  Wallet, Tag, RotateCcw, PowerOff,
+  Wallet, Tag, Layers, RotateCcw, PowerOff,
   TrendingUp, TrendingDown,
   Building2, CreditCard, PiggyBank, Mail, Coins,
 } from "lucide-react";
@@ -16,11 +20,14 @@ import { toast } from "sonner";
 import {
   listarContas, desativarConta, reativarConta, excluirConta,
   listarCategoriasTodas, excluirCategoria, atualizarCategoria,
+  listarCentrosCustoTodas, atualizarCentroCusto, excluirCentroCusto,
+  VINCULO_LABEL, VINCULO_COR,
   CONTA_TIPO_LABEL, brl,
-  type FinConta, type FinCategoria,
+  type FinConta, type FinCategoria, type FinCentroCusto, type FinCentroVinculo,
 } from "@/services/finService";
 import { ContaForm } from "@/components/financas/ContaForm";
 import { CategoriaForm } from "@/components/financas/CategoriaForm";
+import { CentroCustoForm } from "@/components/financas/CentroCustoForm";
 import { PaginaSkeleton } from "@/components/ListState";
 
 const ICONE_CONTA: Record<string, JSX.Element> = {
@@ -36,6 +43,7 @@ const ICONE_CONTA: Record<string, JSX.Element> = {
 export default function FinancasAdmin() {
   const [contas, setContas] = useState<FinConta[]>([]);
   const [categorias, setCategorias] = useState<FinCategoria[]>([]);
+  const [centros, setCentros] = useState<FinCentroCusto[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [contaOpen, setContaOpen] = useState(false);
@@ -44,17 +52,29 @@ export default function FinancasAdmin() {
   const [catOpen, setCatOpen] = useState(false);
   const [catEdit, setCatEdit] = useState<FinCategoria | null>(null);
 
+  const [ccOpen, setCcOpen] = useState(false);
+  const [ccEdit, setCcEdit] = useState<FinCentroCusto | null>(null);
+  // Confirmação por `AlertDialog`, não `confirm()` nativo — o resto desta
+  // tela ainda usa `confirm()` (`removerConta`/`removerCategoria`, débito
+  // pré-existente, fora do escopo de hoje), mas esse botão é novo
+  // (13/09/2026) e `confirm()` some sem erro em WebView (CLAUDE.md Risco
+  // 3) — exatamente onde a Telma mais usa o app.
+  const [ccApagando, setCcApagando] = useState<FinCentroCusto | null>(null);
+  const [ccExcluindoBusy, setCcExcluindoBusy] = useState(false);
+
   useEffect(() => { carregar(); }, []);
 
   async function carregar() {
     setLoading(true);
     try {
-      const [cs, ks] = await Promise.all([
+      const [cs, ks, ccs] = await Promise.all([
         listarContas(true),  // incluir inativas
         listarCategoriasTodas(),
+        listarCentrosCustoTodas(),
       ]);
       setContas(cs);
       setCategorias(ks);
+      setCentros(ccs);
     } finally { setLoading(false); }
   }
 
@@ -97,8 +117,37 @@ export default function FinancasAdmin() {
     }
   }
 
+  async function toggleCentro(c: FinCentroCusto) {
+    try {
+      await atualizarCentroCusto(c.id, { ativo: !c.ativo });
+      await carregar();
+    } catch (e: any) { toast.error(e?.message ?? "Erro"); }
+  }
+
+  async function confirmarRemoverCentro(e: React.MouseEvent) {
+    e.preventDefault(); // ver comentário em `ccApagando` — pula o close automático do AlertDialogAction
+    if (!ccApagando) return;
+    setCcExcluindoBusy(true);
+    try {
+      await excluirCentroCusto(ccApagando.id);
+      toast.success("Centro de custo excluído");
+      setCcApagando(null);
+      await carregar();
+    } catch (e: any) {
+      toast.error("Centro em uso — desative em vez de excluir.");
+    } finally { setCcExcluindoBusy(false); }
+  }
+
   const entradas = categorias.filter(c => c.tipo === "entrada");
   const saidas   = categorias.filter(c => c.tipo === "saida");
+
+  // Agrupado por vínculo — "ministerio" e "subgrupo_administracao" juntos
+  // primeiro (é a estrutura do Plano de Contas Oficial), depois os
+  // demais tipos (área, EBD, PGM, campanha, geral) na ordem de
+  // `VINCULO_LABEL`.
+  const centrosPorTipo = (Object.keys(VINCULO_LABEL) as FinCentroVinculo[])
+    .map(tipo => ({ tipo, lista: centros.filter(c => c.vinculo_tipo === tipo) }))
+    .filter(g => g.lista.length > 0);
 
   if (loading) {
     return <PaginaSkeleton />;
@@ -125,6 +174,9 @@ export default function FinancasAdmin() {
           </TabsTrigger>
           <TabsTrigger value="categorias" className="gap-1.5">
             <Tag className="w-3.5 h-3.5" /> Categorias ({categorias.length})
+          </TabsTrigger>
+          <TabsTrigger value="centros" className="gap-1.5">
+            <Layers className="w-3.5 h-3.5" /> Centros de custo ({centros.length})
           </TabsTrigger>
         </TabsList>
 
@@ -242,6 +294,43 @@ export default function FinancasAdmin() {
             Categorias <strong>em uso</strong> em lançamentos também precisam ser desativadas.
           </p>
         </TabsContent>
+
+        {/* ── ABA CENTROS DE CUSTO ───────────────────────────────── */}
+        <TabsContent value="centros" className="space-y-3">
+          {centrosPorTipo.length === 0 ? (
+            <Card className="border-dashed">
+              <CardContent className="py-6 text-center text-sm text-muted-foreground">
+                Nenhum centro de custo cadastrado.
+              </CardContent>
+            </Card>
+          ) : (
+            centrosPorTipo.map(({ tipo, lista }) => (
+              <Card key={tipo}>
+                <CardContent className="py-3 space-y-1.5">
+                  <p className="text-xs font-medium">
+                    <Badge variant="outline" className={`text-xs ${VINCULO_COR[tipo]}`}>
+                      {VINCULO_LABEL[tipo]}
+                    </Badge>
+                    <span className="text-muted-foreground ml-1.5">({lista.length})</span>
+                  </p>
+                  {lista.map(c => (
+                    <CentroLinha key={c.id} c={c}
+                      onEdit={() => { setCcEdit(c); setCcOpen(true); }}
+                      onToggle={() => toggleCentro(c)}
+                      onDelete={() => setCcApagando(c)} />
+                  ))}
+                </CardContent>
+              </Card>
+            ))
+          )}
+
+          <p className="text-xs text-muted-foreground text-center">
+            Centros de custo nascem sozinhos, sincronizados a partir de ministérios,
+            áreas, classes EBD, grupos de PGM e campanhas — não tem tela de criar à
+            mão. Centro <strong>em uso</strong> em lançamentos precisa ser desativado
+            em vez de excluído.
+          </p>
+        </TabsContent>
       </Tabs>
 
       <ContaForm
@@ -256,6 +345,31 @@ export default function FinancasAdmin() {
         categoria={catEdit}
         onSaved={carregar}
       />
+      <CentroCustoForm
+        open={ccOpen}
+        onOpenChange={(v) => { setCcOpen(v); if (!v) setCcEdit(null); }}
+        centro={ccEdit}
+        onSaved={carregar}
+      />
+
+      <AlertDialog open={!!ccApagando} onOpenChange={(v) => !v && setCcApagando(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir centro de custo?</AlertDialogTitle>
+            <AlertDialogDescription>
+              "{ccApagando?.nome}" — só funciona se ele não tiver lançamentos.
+              Não dá pra desfazer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={ccExcluindoBusy}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmarRemoverCentro} disabled={ccExcluindoBusy}
+              className="bg-destructive hover:bg-destructive/90 text-white">
+              {ccExcluindoBusy ? "..." : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -285,6 +399,33 @@ function CategoriaLinha({ k, onEdit, onToggle, onDelete }: {
             <Trash2 className="w-3 h-3" />
           </Button>
         )}
+      </div>
+    </div>
+  );
+}
+
+function CentroLinha({ c, onEdit, onToggle, onDelete }: {
+  c: FinCentroCusto; onEdit: () => void; onToggle: () => void; onDelete: () => void;
+}) {
+  return (
+    <div className={`flex items-center justify-between gap-1 text-sm border-l-2 pl-2 py-1 hover:bg-muted/30 ${!c.ativo ? "opacity-50" : ""}`}
+         style={{ borderColor: c.cor ?? "#888" }}>
+      <span className="truncate flex-1">
+        {c.nome}
+        {!c.ativo && <Badge variant="outline" className="text-xs ml-1 bg-warning-soft text-warning-text">desat.</Badge>}
+      </span>
+      <div className="flex items-center gap-0 shrink-0">
+        <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={onEdit} title="Editar">
+          <Pencil className="w-3 h-3" />
+        </Button>
+        <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={onToggle}
+          title={c.ativo ? "Desativar" : "Reativar"}>
+          {c.ativo ? <PowerOff className="w-3 h-3 text-warning-text" /> : <RotateCcw className="w-3 h-3 text-success-text" />}
+        </Button>
+        <Button type="button" variant="ghost" size="icon"
+          className="h-6 w-6 text-destructive" onClick={onDelete} title="Excluir">
+          <Trash2 className="w-3 h-3" />
+        </Button>
       </div>
     </div>
   );
