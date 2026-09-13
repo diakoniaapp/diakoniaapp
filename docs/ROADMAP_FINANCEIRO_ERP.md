@@ -1,5 +1,37 @@
 # Roadmap — Financeiro como ERP eclesiástico
 
+> ## ✅ RESOLVIDO em 12/09/2026 — transferência entre contas contando como
+> ## receita/despesa em 3 telas
+>
+> Achado pela Telma olhando a DRE: "ainda mostra a soma de entradas, quando
+> na verdade uma parte foi transferência". `transferir()` (finService.ts)
+> grava uma transferência como DOIS lançamentos (saída na origem + entrada
+> no destino, `origem: "transferencia"`, sem categoria) — e três lugares
+> somavam os dois lados como se fossem dinheiro real entrando/saindo da
+> igreja, em vez de dinheiro só mudando de bolso: `dreService.gerarDRE`,
+> `finService.resumoMensal` (malote contábil) e `FinancasDoacoes.tsx`
+> (uma transferência Caixa→Bradesco aparecia como "doação"). Mesma causa
+> já corrigida em `vw_fin_resumo_mes` no dia 12/09 mais cedo — não tinha
+> sido propagada para estes três.
+>
+> Corrigido filtrando `origem !== "transferencia"` nos TOTAIS e na quebra
+> por categoria dos três; a quebra **por conta** do malote e a **lista de
+> lançamentos** continuam mostrando a transferência — ali ela é movimento
+> real daquela conta específica, esconder seria o erro oposto. Verificado
+> ao vivo com a transferência real de R$2.000 já em produção: DRE caiu de
+> R$4.222/R$2.050 para R$2.222/R$50 (receita/despesa corretas, superávit
+> não mudou — os R$2.000 inflavam os dois lados igualmente); malote e
+> Doações bateram a mesma correção.
+>
+> **Ainda não auditado**: `fin_comparativo_meses`, `fin_anomalias_mes`,
+> `fin_top_fornecedores` e os 4 RPCs `fin_exec_*` da Visão Executiva — são
+> funções SQL que **não têm migration correspondente no repositório**
+> (drift confirmado: `grep` em `supabase/migrations/` não encontra
+> nenhuma delas), então não dá para ler o código-fonte atual nem corrigir
+> com segurança sem um token de gerenciamento válido para consultar
+> `pg_get_functiondef` em produção primeiro. Pendente até a Telma trazer
+> um token novo.
+
 > ## ✅ RESOLVIDO em 12/09/2026 — o bug que quebrava todo UPDATE em
 > ## `fin_lancamentos`
 >
@@ -278,6 +310,113 @@ Em ordem de esforço crescente:
 | ~~6~~ | ~~**Conciliação manual**~~ — **FEITO em 12/09/2026**. `FinancasConta.tsx`: badge de situação clicável em cada lançamento `realizado`/`conciliado` (alterna direto, sem diálogo — reversível: "bateu com o extrato" ⇄ "desfazer"). Checkbox por linha (só em `realizado`) + botão "Conciliar N" no cabeçalho para conciliar em lote (`conciliarEmLote()`, usa `conferir()`). `finService.ts`: `conciliarLancamento`, `desconciliarLancamento`, `conciliarEmLote` novos — nenhuma migration, só liberam o status `conciliado` que já existia no enum. Verificado ao vivo: toggle individual ida-e-volta confirmado, e o fluxo em lote (selecionar via checkbox → "Conciliar 1" → toast "1 lançamento conciliado" → status muda, checkbox some) | médio | status `conciliado` já existia no enum |
 | ~~7~~ | ~~**Importação de extrato (OFX)**~~ — **FEITO em 12/09/2026**. Extrato real do Bradesco (OFX, exportado 09/09/2026) confirmou o formato: OFX 1.02/SGML, `CHARSET:1252` (Windows-1252 — sem isso, nome com acento vira lixo), `TRNAMT` com vírgula decimal. **Achado no arquivo real**: `DTPOSTED` não é sempre o dia de verdade — o Bradesco agrupa vários dias sob uma única data quando há fim de semana/feriado no meio; o casamento usa uma janela de ±5 dias por causa disso, não igualdade exata. `ofxService.ts` faz o parse e casa cada transação do extrato com um lançamento `realizado` já existente (mesmo tipo, mesmo valor, dentro da janela) — **nunca cria lançamento novo**: categoria e centro de custo são decisão de quem lança, o MEMO do banco não basta pra adivinhar os dois com segurança. `ConciliacaoOFXDialog.tsx` (botão "Importar OFX" em `FinancasConta.tsx`, só em contas `tipo: banco`) mostra o que casou e concilia em lote reaproveitando `conciliarEmLote` do item 6; o que não casou fica listado para lançar/conferir à mão. Sem migration — nenhum FITID é guardado: como só CONCILIA (nunca cria), reimportar um extrato com sobreposição de datas é idempotente por natureza (marcar `conciliado` de novo não faz nada). Limite documentado no código: duas transações de mesmo valor/dia com dois lançamentos iguais no sistema caem em "ambíguo" em vez de casar 1-para-1 — errar para o lado de pedir revisão manual é a escolha certa em dado financeiro. 16 testes automatizados (parse, encoding, casamento, incluindo o caso guloso de duplicata) + verificação à parte contra o arquivo real de produção (156 transações, decodificação correta confirmada, um lançamento de teste casado com a transação certa do banco) — o arquivo real tem nome e valor de doadores de verdade e por isso não virou fixture do repositório | alto | `fin_lancamentos` (`conciliarEmLote`, já existente) — nenhuma migration |
 | ~~8~~ | ~~**Fluxo de aprovação multinível**~~ — **NÃO SE APLICA, confirmado em 12/09/2026**. Só tesoureiro e administrador do sistema operam o financeiro da QIBRJ; não existe papel "solicitante" nem líder de ministério pedindo despesa por aqui. A aprovação de um nível já implementada no item "Aprovação de despesas (v1)" (status `aguardando_aprovacao` → tesouraria decide) já é suficiente — nada novo a construir | — | `lideranca_nao_opera_o_financeiro` continua correta como está |
+
+---
+
+## Fase 4 — Fornecedores e despesas (gap Omie, 12/09/2026)
+
+Pedido da Telma: "como será a questão das despesas de fornecedores?"
+olhando para o que o Omie resolve — cadastro de fornecedor/prestador,
+lançamento manual, importação de NF, leitor de código de barras,
+recorrência. Auditoria por leitura direta do código (não suposição):
+
+| Capacidade | Omie | Diakonia hoje | Veredito |
+|---|---|---|---|
+| Cadastro de prestador/funcionário | módulo de RH separado | `/financas/folha` — CLT/MEI/RPA/prebenda/estágio/voluntário remunerado, com INSS/IRRF | **Já tem** — fora desta fase |
+| Lançamento manual de despesa com fornecedor | conta a pagar vinculada | `LancamentoForm.tsx` já busca/cria fornecedor inline | **Já tem** — fora desta fase |
+| Despesa recorrente vinculada a fornecedor | parcelamento/repetição automática | `fin_recorrencias.fornecedor_id` já existe no schema e já é preenchível em `RecorrenciaForm.tsx` (linha 108) | **Já tem no banco — falta só na tela, ver 4.4** |
+| Cadastro de fornecedores (tela própria) | ficha com histórico de compras | `fin_fornecedores` + `criarFornecedor`/`buscarFornecedorPorCnpj` existem, mas só **embutidos dentro do formulário de lançamento** — nenhuma tela lista, edita ou inativa um fornecedor; não há `atualizarFornecedor` nem `inativarFornecedor` no serviço | 🟡 Gap pequeno — ver 4.1 |
+| Leitor de código de barras (boleto) | câmera lê a linha digitável, preenche valor/vencimento/beneficiário | Não existe nada — nem OCR, nem decodificação de linha digitável | 🔴 Gap real, mas barato — ver 4.2 |
+| Importação de NF | lê o **XML** da NFe/NFSe (estrutural, sem chute) | Existe só via **OCR de imagem/PDF** (`ocrService.ts`, Tesseract + regex heurística, com nível de confiança reportado porque é probabilístico) | 🟡 Gap de qualidade, não de ausência — ver 4.3 |
+
+Ordem proposta: a mais barata e mais isolada primeiro, a que depende de
+decisão da Telma (formato real de NF) por último — mesma disciplina das
+fases da Tesouraria: **uma fase por vez, com checkpoint antes da
+próxima.**
+
+### ✅ Fase 4.1 — Tela de Fornecedores — FEITO em 12/09/2026
+
+`/financas/fornecedores` (lista com busca por nome/CNPJ, toggle "mostrar
+inativos", inativar/reativar por linha) + `/financas/fornecedor/:id`
+(ficha: dados cadastrais, dados bancários/Pix, histórico de lançamentos —
+`listarLancamentos` ganhou o filtro `fornecedorId` — e recorrências
+vinculadas, fechando parte da Fase 4.4 de graça: a lista já mostra o
+fornecedor de cada recorrência). `FornecedorForm.tsx` (Dialog) cobre
+criar/editar, incluindo `categoria_padrao_id` (já existia na tabela e já
+era LIDO pelo fluxo de OCR — nunca tinha tela para SER escrito) e
+`banco_nome`/`agencia`/`conta` (existiam na tabela, nem estavam na
+interface TypeScript — acrescentados).
+
+`finService.ts`: `atualizarFornecedor` e `buscarFornecedor` novos (sem
+migration — `ativo=false` já existia); `listarFornecedores` ganhou
+`incluirInativos` e o limite subiu de 50 (pensado pro autocomplete do
+lançamento) para 200 (a lista de gestão precisa ver todos). Link
+"Fornecedores" acrescentado ao grupo "Relatórios e módulos" do Painel da
+Tesouraria, ao lado de "Centros de custo" — mesmo padrão de navegação
+(não entra no menu lateral, que não lista Centros/Orçamento também).
+
+Verificado ao vivo: cadastrar um fornecedor de teste (PJ, CNPJ), abrir a
+ficha, inativar (AlertDialog, não `confirm()` nativo — banido pelo
+[Risco 3 do CLAUDE.md](../CLAUDE.md)), reativar, editar (telefone
+persistiu), e apagar o registro de teste via REST antes de encerrar —
+produção confirmada limpa depois. `tsc`/`vitest` (218/218)/`vite build`
+limpos.
+
+### Fase 4.2 — Leitor de boleto (linha digitável)
+
+**O que entra.** Um campo "Colar/ler linha digitável" no
+`LancamentoForm.tsx` (os 47-48 dígitos do boleto): `src/lib/boleto.ts`
+(função pura, sem React) decodifica banco, valor e data de vencimento —
+a linha digitável tem posições fixas e dígito verificador (módulo 10/11),
+**decodificação determinística, não é OCR nem IA**. Se o sistema tiver
+câmera disponível (mobile), um leitor de código de barras real (lib tipo
+`zxing` ou `quagga`, carregada lazy como o Tesseract) preenche o campo
+sozinho; sem câmera, colar os números funciona igual.
+
+**Decisão pendente da Telma:** vale a pena o leitor por câmera (lib
+nova, mais peso no bundle) ou a digitação/colagem manual da linha
+digitável já resolve o essencial (elimina o erro de digitar valor e data
+errados, que é o risco real)? Posso fazer os dois em sequência — texto
+primeiro, câmera depois, se fizer falta.
+
+**Esforço:** pequeno (decodificação + campo de texto) a médio (se entrar
+a leitura por câmera).
+
+### Fase 4.3 — Importação de XML de NF (NFe/NFSe)
+
+**O que entra.** Upload do arquivo `.xml` da nota (em vez da foto):
+parser extrai CNPJ emitente, razão social, valor total, data de emissão
+e número — mesmo fluxo que já existe para o OCR (busca fornecedor por
+CNPJ, oferece cadastrar se for novo), só que **sem chute**: o XML garante
+o valor certo, não "o maior número que parece R$ na imagem".
+
+**Decisão pendente da Telma — importante antes de programar:** NFe
+(produto) tem layout nacional único; **NFSe (serviço) não tem** — cada
+prefeitura define o próprio XML, e a maior parte das notas que uma
+tesouraria de igreja recebe costuma ser de serviço (manutenção,
+honorários, eventos), não de produto. Preciso de **um XML real** que a
+Diakonia tenha recebido de fornecedor — do jeito que a conciliação OFX
+só foi construída depois que você trouxe o extrato real do Bradesco — pra
+saber se é NFe nacional (mais simples) ou NFSe do município do Rio
+(layout próprio, mais trabalho). Sem isso eu construiria "no escuro" e
+arriscaria não bater com a nota real.
+
+**Esforço:** médio (NFe nacional) a médio-alto (se precisar do layout
+NFSe-Rio especificamente).
+
+### Fase 4.4 — "Despesa recorrente" visível por fornecedor
+
+**O que entra.** `FinancasRecorrencias.tsx` hoje mostra descrição,
+frequência e valor de cada recorrência, mas **nunca o nome do fornecedor**
+— mesmo a coluna já existindo no banco e já sendo preenchível no form.
+Acrescenta o nome do fornecedor na linha da lista (quando houver) e, na
+ficha do fornecedor (Fase 4.1), uma seção "Despesas recorrentes deste
+fornecedor" linkando para lá. **Não é tabela nova nem RPC nova** — é
+expor um dado que já existe.
+
+**Esforço:** pequeno. **Decisão pendente:** nenhuma.
+**Depende de:** Fase 4.1 para a ficha do fornecedor (a lista em si pode
+ganhar o nome do fornecedor independente, sem esperar).
 
 ---
 

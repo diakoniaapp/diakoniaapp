@@ -76,7 +76,12 @@ export default function FinancasDoacoes() {
       ]);
       // Só realizado/conciliado é dinheiro que já entrou de verdade —
       // mesma regra do malote mensal e da prestação de contas.
-      setLancs(ls.filter(l => l.status === "realizado" || l.status === "conciliado"));
+      // `origem !== "transferencia"`: achado em 12/09/2026 comparando com a
+      // DRE (mesmo bug do `vw_fin_resumo_mes`/`dreService.gerarDRE`) — uma
+      // transferência entre contas da própria igreja (Caixa → Bradesco, por
+      // exemplo) grava uma perna de ENTRADA sem categoria, e sem este
+      // filtro ela contava como doação.
+      setLancs(ls.filter(l => (l.status === "realizado" || l.status === "conciliado") && l.origem !== "transferencia"));
       setRecorrencias(recs.filter(r => r.tipo === "entrada"));
     } catch (e: any) { toast.error(e?.message ?? "Erro"); }
     finally { setLoading(false); }

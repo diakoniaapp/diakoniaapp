@@ -57,6 +57,8 @@ import FinancasCentros from "./pages/FinancasCentros.tsx";
 import FinancasOrcamento from "./pages/FinancasOrcamento.tsx";
 import FinancasCentroDetalhe from "./pages/FinancasCentroDetalhe.tsx";
 import FinancasCentroPrestacaoContas from "./pages/FinancasCentroPrestacaoContas.tsx";
+import FinancasFornecedores from "./pages/FinancasFornecedores.tsx";
+import FinancasFornecedorDetalhe from "./pages/FinancasFornecedorDetalhe.tsx";
 import FinancasFolha from "./pages/FinancasFolha.tsx";
 import FinancasDoacoes from "./pages/FinancasDoacoes.tsx";
 import FinancasDoadores from "./pages/FinancasDoadores.tsx";
@@ -194,6 +196,8 @@ const App = () => (
                   <Route path="/financas/orcamento" element={<FinancasOrcamento />} />
                   <Route path="/financas/centro/:centroId" element={<FinancasCentroDetalhe />} />
                   <Route path="/financas/centro/:centroId/prestacao-contas" element={<FinancasCentroPrestacaoContas />} />
+                  <Route path="/financas/fornecedores" element={<FinancasFornecedores />} />
+                  <Route path="/financas/fornecedor/:id" element={<FinancasFornecedorDetalhe />} />
                   <Route path="/financas/folha" element={<FinancasFolha />} />
                   <Route path="/financas/fiscal" element={<FinancasFiscal />} />
                   <Route path="/financas/reunioes" element={<ReunioesFinanceiras />} />

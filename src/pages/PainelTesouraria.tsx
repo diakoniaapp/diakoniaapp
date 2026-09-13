@@ -61,7 +61,7 @@ import {
   DollarSign, Receipt, Wallet, ChevronRight, RefreshCw, Sparkles, Package,
   Clock, CalendarClock, Target, ShoppingCart, HandCoins, Scale, Lightbulb,
   HeartHandshake, Users, ScrollText, Layers, Handshake,
-  TrendingDown, TrendingUp, RotateCw, Briefcase, LineChart,
+  TrendingDown, TrendingUp, RotateCw, Briefcase, LineChart, Building2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -581,6 +581,9 @@ export default function PainelTesouraria() {
                 </Button>
                 <Button asChild variant="outline" size="sm" className="gap-1.5">
                   <Link to="/financas/centros"><Layers className="w-3.5 h-3.5" /> Centros de custo</Link>
+                </Button>
+                <Button asChild variant="outline" size="sm" className="gap-1.5">
+                  <Link to="/financas/fornecedores"><Building2 className="w-3.5 h-3.5" /> Fornecedores</Link>
                 </Button>
                 <Button asChild variant="outline" size="sm" className="gap-1.5">
                   <Link to="/financas/orcamento"><Target className="w-3.5 h-3.5" /> Orçamento</Link>

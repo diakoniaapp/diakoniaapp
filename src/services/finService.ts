@@ -106,9 +106,18 @@ export interface FinFornecedor {
   uf: string | null;
   cep: string | null;
   chave_pix: string | null;
+  // `banco_nome`/`agencia`/`conta` já existiam na tabela (dado bancário pra
+  // pagar por transferência) e não estavam nesta interface — por isso
+  // nenhuma tela os usava. Acrescentados na Fase 4.1 do roadmap Financeiro
+  // (ver docs/ROADMAP_FINANCEIRO_ERP.md), junto com a tela de cadastro.
+  banco_nome: string | null;
+  agencia: string | null;
+  conta: string | null;
   categoria_padrao_id: string | null;
   ativo: boolean;
   observacao: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface FinLancamento {
@@ -285,18 +294,40 @@ export async function salvarRateio(
 }
 
 // ─── Fornecedores ────────────────────────────────────────────────────────
-export async function listarFornecedores(busca?: string): Promise<FinFornecedor[]> {
-  let q = supabase.from("fin_fornecedores").select("*").eq("ativo", true).order("nome").limit(50);
+// `limit(200)`, não 50: o limite original era pensado pro autocomplete do
+// `LancamentoForm` (poucos resultados de digitação), mas a tela de cadastro
+// (Fase 4.1) lista TODOS os fornecedores — e uma igreja não tem volume que
+// justifique paginação de verdade ainda.
+export async function listarFornecedores(busca?: string, incluirInativos = false): Promise<FinFornecedor[]> {
+  let q = supabase.from("fin_fornecedores").select("*").order("nome").limit(200);
+  if (!incluirInativos) q = q.eq("ativo", true);
   if (busca && busca.length >= 2) q = q.ilike("nome", `%${busca}%`);
   const { data, error } = await q;
   if (error) throw error;
   return (data ?? []) as FinFornecedor[];
 }
 
+export async function buscarFornecedor(id: string): Promise<FinFornecedor | null> {
+  const { data, error } = await supabase.from("fin_fornecedores").select("*").eq("id", id).maybeSingle();
+  if (error) throw error;
+  return (data ?? null) as FinFornecedor | null;
+}
+
 export async function criarFornecedor(input: Partial<FinFornecedor>): Promise<FinFornecedor> {
   const { data, error } = await supabase.from("fin_fornecedores").insert(input as any).select("*").single();
   if (error) throw error;
   return data as FinFornecedor;
+}
+
+// `ativo = false` em vez de apagar — mesma convenção do resto do banco
+// ([§5.1 do CLAUDE.md](../../CLAUDE.md)). Usado tanto para editar a ficha
+// quanto para inativar/reativar (patch `{ ativo: false | true }`).
+export async function atualizarFornecedor(id: string, patch: Partial<FinFornecedor>): Promise<void> {
+  const r = conferir(
+    await supabase.from("fin_fornecedores").update(patch as any).eq("id", id).select("id"),
+    "O fornecedor",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 // ─── Lançamentos ────────────────────────────────────────────────────────
@@ -307,6 +338,7 @@ export interface FiltroLancamento {
   categoriaId?: string;
   centroCustoId?: string;
   pessoaId?: string;
+  fornecedorId?: string;
   dataInicio?: string;
   dataFim?: string;
   busca?: string;
@@ -320,6 +352,7 @@ export async function listarLancamentos(filtro: FiltroLancamento = {}): Promise<
   if (filtro.categoriaId) q = q.eq("categoria_id", filtro.categoriaId);
   if (filtro.centroCustoId) q = q.eq("centro_custo_id", filtro.centroCustoId);
   if (filtro.pessoaId) q = q.eq("pessoa_id", filtro.pessoaId);
+  if (filtro.fornecedorId) q = q.eq("fornecedor_id", filtro.fornecedorId);
   if (filtro.dataInicio) q = q.gte("data", filtro.dataInicio);
   if (filtro.dataFim) q = q.lte("data", filtro.dataFim);
   if (filtro.busca && filtro.busca.length >= 2) q = q.ilike("descricao", `%${filtro.busca}%`);
@@ -751,12 +784,23 @@ export async function resumoMensal(ano: number, mes: number): Promise<ResumoMens
   // Filtra: só realizados/conciliados entram no malote
   const realizados = lancs.filter(l => l.status === "realizado" || l.status === "conciliado");
 
-  const totalEntradas = realizados.filter(l => l.tipo === "entrada").reduce((s, l) => s + Number(l.valor), 0);
-  const totalSaidas   = realizados.filter(l => l.tipo === "saida").reduce((s, l) => s + Number(l.valor), 0);
+  // Transferência entre contas da própria igreja não é receita nem despesa
+  // real — mesmo bug já corrigido em `vw_fin_resumo_mes` e
+  // `dreService.gerarDRE` (12/09/2026): as duas pernas (`criarTransferencia`)
+  // não têm categoria, e sem este filtro caíam em "Sem categoria" inflando
+  // TOTAL DE ENTRADAS e TOTAL DE SAÍDAS igualmente. `porConta` continua
+  // usando `realizados` (não filtrado) de propósito: ali a transferência É
+  // movimento real daquela conta específica — só o total agregado e a
+  // quebra por categoria (que não têm "categoria transferência") é que
+  // precisam ignorá-la.
+  const semTransferencia = realizados.filter(l => l.origem !== "transferencia");
+
+  const totalEntradas = semTransferencia.filter(l => l.tipo === "entrada").reduce((s, l) => s + Number(l.valor), 0);
+  const totalSaidas   = semTransferencia.filter(l => l.tipo === "saida").reduce((s, l) => s + Number(l.valor), 0);
 
   // Por categoria
   const catMap = new Map<string, { nome: string; tipo: FinMovimentoTipo; total: number; cor: string | null }>();
-  realizados.forEach(l => {
+  semTransferencia.forEach(l => {
     const key = l.categoria_id ?? "_sem";
     const ex = catMap.get(key);
     const nome = l.categoria_nome ?? "Sem categoria";
