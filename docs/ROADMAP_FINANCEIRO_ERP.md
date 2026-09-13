@@ -23,14 +23,30 @@
 > não mudou — os R$2.000 inflavam os dois lados igualmente); malote e
 > Doações bateram a mesma correção.
 >
-> **Ainda não auditado**: `fin_comparativo_meses`, `fin_anomalias_mes`,
-> `fin_top_fornecedores` e os 4 RPCs `fin_exec_*` da Visão Executiva — são
-> funções SQL que **não têm migration correspondente no repositório**
-> (drift confirmado: `grep` em `supabase/migrations/` não encontra
-> nenhuma delas), então não dá para ler o código-fonte atual nem corrigir
-> com segurança sem um token de gerenciamento válido para consultar
-> `pg_get_functiondef` em produção primeiro. Pendente até a Telma trazer
-> um token novo.
+> **✅ Auditoria concluída em 13/09/2026** — token novo trazido pela
+> Telma. Lidas as 9 funções (`fin_anomalias_mes`, `fin_comparativo_meses`,
+> `fin_top_fornecedores`, `fin_previsao_caixa`, `fin_exec_saldo_
+> consolidado`, `fin_exec_indicadores_eclesiasticos`, `fin_exec_centros_
+> ano`, `fin_exec_alertas`, `fin_exec_fluxo_12m`) via `pg_get_functiondef`
+> — nenhuma tinha migration própria no repositório (drift confirmado,
+> mesmo padrão já visto noutros lugares deste banco). Duas tinham o bug
+> (somavam entrada/saída por mês sem exigir categoria/centro/fornecedor,
+> que é o que naturalmente excluiria a transferência): `fin_comparativo_
+> meses` e `fin_exec_fluxo_12m` (alimenta o gráfico de 12 meses da Visão
+> Executiva). As outras 7 são seguras por desenho — exigem `categoria_id`,
+> `centro_custo_id` ou `fornecedor_id` (que transferência não tem), somam
+> todas as contas juntas (as duas pernas se cancelam), ou só olham
+> `status='previsto'` (transferência nasce `'realizado'`).
+>
+> Corrigidas as duas via `20260913120000_visao_executiva_exclui_
+> transferencia_e_null_safe.sql`, ensaiada com `BEGIN...ROLLBACK` e
+> aplicada. De brinde: o filtro `origem <> 'transferencia'` usado aqui e
+> em `vw_fin_resumo_mes` não era NULL-safe (`origem` é nullable) — trocado
+> por `IS DISTINCT FROM` nas três funções, sem mudar nenhum resultado
+> hoje (zero linhas com `origem` nulo em produção), só fechando a
+> brecha para o futuro. Verificado ao vivo: `fin_comparativo_meses(3)`
+> caiu de R$4.222,00/R$2.050,00 pra R$2.222,00/R$50,00 em setembro,
+> batendo com a DRE e o malote já corrigidos ontem.
 
 > ## ✅ RESOLVIDO em 12/09/2026 — o bug que quebrava todo UPDATE em
 > ## `fin_lancamentos`
