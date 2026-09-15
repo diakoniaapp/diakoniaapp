@@ -197,10 +197,21 @@ export default function FinancasConta() {
   // pediu ordem cronológica (mais antigo primeiro), igual o extrato do
   // Omie/banco de verdade lê. Reordenado só pra EXIBIÇÃO, sem mudar
   // `listarLancamentos` (que outras telas usam esperando a ordem atual).
-  const lancamentosOrdenados = [...lancamentos].sort((a, b) =>
-    a.data === b.data
-      ? (a.created_at ?? "").localeCompare(b.created_at ?? "")
-      : a.data.localeCompare(b.data));
+  //
+  // Na MESMA data, entrada vem antes de saída — pedido da Telma
+  // (15/09/2026): no Cartão de Crédito, a transferência do Bradesco
+  // chega no mesmo dia das despesas que ela paga, e ordenar só por
+  // `created_at` podia mostrar a despesa antes da transferência que a
+  // cobre — o saldo acumulado da linha (`saldoPorLancamento` abaixo)
+  // mostrava um mergulho negativo artificial no meio do dia que nunca
+  // existiu de verdade. Cobre transferência também: a perna que RECEBE é
+  // sempre `tipo: "entrada"`, então ordenar por tipo já basta, sem
+  // precisar checar `origem` à parte.
+  const lancamentosOrdenados = [...lancamentos].sort((a, b) => {
+    if (a.data !== b.data) return a.data.localeCompare(b.data);
+    if (a.tipo !== b.tipo) return a.tipo === "entrada" ? -1 : 1;
+    return (a.created_at ?? "").localeCompare(b.created_at ?? "");
+  });
 
   // Saldo acumulado por linha — só realizado/conciliado mexe no saldo
   // (previsto/cancelado/aguardando aprovação não aconteceram de verdade
