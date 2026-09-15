@@ -40,7 +40,7 @@ import {
 import { brl, type FinMovimentoTipo } from "@/services/finService";
 import {
   lerArquivoOmie, prepararImportacaoOmie, confirmarImportacaoOmie,
-  verificarArquivoJaImportado, verificarSobreposicaoPeriodo, desfazerImportacaoOmie,
+  verificarArquivoJaImportado, verificarSobreposicaoPeriodo, contaTemHistorico, desfazerImportacaoOmie,
   type RascunhoOmie, type ResumoImportacaoOmie, type ResolucaoPessoa,
 } from "@/services/omieImportService";
 
@@ -68,6 +68,15 @@ export function ImportacaoOmieDialog({ open, onOpenChange, contaId, contaNome, o
   const [arquivoHash, setArquivoHash] = useState<string | null>(null);
   const [arquivoNome, setArquivoNome] = useState<string | null>(null);
   const [usarSaldoInicial, setUsarSaldoInicial] = useState(true);
+  // A conta já tinha ALGUM lançamento antes deste arquivo? `null` = ainda
+  // não checou. Achado ao vivo pela Telma (15/09/2026): reimportar a
+  // Caixinha com um arquivo incremental (13/09-01/12/2026, a conta já
+  // tinha 2024-2026 inteiro) sobrescreveu o saldo_inicial CERTO
+  // (R$2.317,46, confirmado por ela mais cedo) pelo "saldo anterior"
+  // DESSE arquivo (R$173,59 — só o saldo em 12/09, véspera do recorte,
+  // não o saldo de abertura da conta). "Saldo anterior do arquivo" só é
+  // seguro pra virar saldo_inicial na PRIMEIRA importação da conta.
+  const [contaJaTinhaHistorico, setContaJaTinhaHistorico] = useState<boolean | null>(null);
   const [incluirDuplicatas, setIncluirDuplicatas] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
 
@@ -100,6 +109,8 @@ export function ImportacaoOmieDialog({ open, onOpenChange, contaId, contaNome, o
     setArquivoNome(null);
     setArquivoJaImportado(null);
     setSobreposicao(null);
+    setContaJaTinhaHistorico(null);
+    setUsarSaldoInicial(true);
     setIncluirDuplicatas(false);
     setEscolhasPessoa({});
   }
@@ -124,6 +135,12 @@ export function ImportacaoOmieDialog({ open, onOpenChange, contaId, contaNome, o
       const { rascunhos: r, resumo: res } = await prepararImportacaoOmie(linhas, saldoAnterior);
       setRascunhos(r);
       setResumo(res);
+
+      // Só marca "usar saldo anterior" por padrão quando é a PRIMEIRA
+      // importação da conta — ver comentário do estado acima.
+      const jaTinhaHistorico = await contaTemHistorico(contaId);
+      setContaJaTinhaHistorico(jaTinhaHistorico);
+      setUsarSaldoInicial(!jaTinhaHistorico);
 
       // Padrão: "vincular" quando achou um candidato seguro por nome — é
       // o caminho mais conservador (reaproveita quem já existe em vez de
@@ -384,11 +401,34 @@ export function ImportacaoOmieDialog({ open, onOpenChange, contaId, contaNome, o
               </div>
             )}
 
-            {resumo.saldoAnterior != null && (
+            {resumo.saldoAnterior != null && contaJaTinhaHistorico === false && (
               <label className="flex items-center gap-2 text-xs cursor-pointer border rounded-md p-2 bg-muted/20">
                 <input type="checkbox" checked={usarSaldoInicial} onChange={(e) => setUsarSaldoInicial(e.target.checked)} />
                 Usar {brl(resumo.saldoAnterior)} (saldo anterior no Omie) como saldo inicial de {contaNome}
               </label>
+            )}
+
+            {/* Conta já tem histórico — "saldo anterior" DESTE arquivo é só
+                a véspera do recorte que ele cobre, não o saldo de abertura
+                de verdade da conta. Sem checkbox marcado por padrão aqui:
+                usar por engano sobrescreveria um saldo_inicial já certo
+                (foi exatamente o que aconteceu com a Telma, 15/09/2026). */}
+            {resumo.saldoAnterior != null && contaJaTinhaHistorico === true && (
+              <div className="rounded-md border border-warning-line bg-warning-soft/30 p-3 space-y-1.5">
+                <p className="text-sm font-medium text-warning-text flex items-center gap-1.5">
+                  <AlertTriangle className="w-4 h-4" /> {contaNome} já tem lançamento de antes deste arquivo
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Este arquivo diz {brl(resumo.saldoAnterior)} de "saldo anterior" — mas isso é só o saldo na
+                  véspera do período que ELE cobre, não o saldo de abertura da conta. Deixe desmarcado (o normal
+                  pra importação incremental); só marque se tiver certeza de que quer sobrescrever o saldo inicial
+                  já registrado.
+                </p>
+                <label className="flex items-center gap-2 text-xs cursor-pointer">
+                  <Checkbox checked={usarSaldoInicial} onCheckedChange={(v) => setUsarSaldoInicial(v === true)} />
+                  Sobrescrever mesmo assim, usando {brl(resumo.saldoAnterior)} como novo saldo inicial
+                </label>
+              </div>
             )}
 
             <div className="space-y-1 max-h-64 overflow-y-auto border rounded-md p-2">

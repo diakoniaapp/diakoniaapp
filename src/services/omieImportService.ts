@@ -191,6 +191,30 @@ export async function verificarSobreposicaoPeriodo(
   return count ?? 0;
 }
 
+/** Esta conta JÁ TEM algum lançamento (de qualquer data, qualquer
+ *  origem)? Decide se o "saldo anterior" do arquivo pode virar o
+ *  `saldo_inicial` da conta com segurança.
+ *
+ *  Achado ao vivo pela Telma (15/09/2026): reimportar a Caixinha com um
+ *  arquivo novo (13/09 a 01/12/2026, incremental — a conta já tinha
+ *  histórico de 2024 a 2026 inteiro) sobrescreveu o saldo_inicial CERTO
+ *  (R$2.317,46, o saldo real de 31/12/2023, confirmado por ela mais cedo
+ *  nesta sessão) pelo "saldo anterior" DESSE arquivo — que é só o saldo
+ *  em 12/09/2026 (a véspera do início daquele recorte), não o saldo de
+ *  abertura da conta. `confirmarImportacaoOmie` até então aplicava
+ *  `saldoInicial` sempre que a tela mandava um valor, sem saber se era a
+ *  PRIMEIRA importação da conta (única vez em que "saldo anterior do
+ *  arquivo" e "saldo de abertura da conta" são a mesma coisa) ou uma
+ *  importação incremental posterior (em que não são). */
+export async function contaTemHistorico(contaId: string): Promise<boolean> {
+  const { count, error } = await supabase
+    .from("fin_lancamentos")
+    .select("id", { count: "exact", head: true })
+    .eq("conta_id", contaId);
+  if (error) throw error;
+  return (count ?? 0) > 0;
+}
+
 export async function prepararImportacaoOmie(
   linhasBrutas: OmieLinhaBruta[],
   saldoAnterior: number | null,
