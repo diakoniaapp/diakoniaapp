@@ -114,6 +114,24 @@ export async function definirObrigacaoAtiva(
       atualizado_em: new Date().toISOString(),
     });
   if (error) throw error;
+
+  // Desativar não apagava os vencimentos já gerados pra essa obrigação —
+  // achado ao vivo em 15/09/2026: a Telma desativou DIRF/DCTFWeb/eSocial
+  // e a agenda continuou mostrando "DIRF · 200d atraso" (26 linhas
+  // fantasmas no total — nenhuma paga, nenhuma vinculada a lançamento —
+  // apagadas manualmente naquele dia). Só limpa `pendente`/`atrasado`:
+  // histórico de pagamento real (`pago`) nunca é apagado por uma troca
+  // de configuração. Não usa `conferir()` — aqui zero linhas apagadas é
+  // o caso NORMAL (a maioria das obrigações desativadas não tem agenda
+  // pendente pra limpar), não um sinal de bloqueio por RLS.
+  if (!ativa) {
+    const { error: cleanupError } = await supabase
+      .from("fiscal_agenda")
+      .delete()
+      .eq("codigo_obrigacao", codigo)
+      .in("status", ["pendente", "atrasado"]);
+    if (cleanupError) console.warn("Não foi possível limpar a agenda da obrigação desativada:", cleanupError.message);
+  }
 }
 
 // ─── Agenda fiscal ────────────────────────────────────────────────────
