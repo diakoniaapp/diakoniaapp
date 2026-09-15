@@ -13157,6 +13157,12 @@ export type Database = {
         Args: { p_ate_data?: string; p_recorrencia_id?: string }
         Returns: number
       }
+      // Entrada manual (20260915180000_fin_movimento_antes_de_sem_teto_300.sql)
+      // — regeneração de types.ts a partir do banco a descarta.
+      fin_movimento_antes_de: {
+        Args: { p_conta_id?: string; p_data_limite_exclusiva: string }
+        Returns: number
+      }
       fin_previsao_caixa: {
         Args: never
         Returns: {

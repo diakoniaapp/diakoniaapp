@@ -42,6 +42,7 @@
 // (`fin_relatorio_notas`) continuam por categoria/centro, não por conta —
 // uma nota sobre "Sustento Pastoral" vale pra qualquer conta que tenha
 // pago, então não teria sentido fragmentar por conta também.
+import { supabase } from "@/integrations/supabase/client";
 import { daquiAMeses, daquiADias } from "@/lib/data";
 import {
   listarLancamentos, listarContas, listarCategorias, listarCentrosCusto,
@@ -130,23 +131,43 @@ function somaGrupos(grupos: PrestacaoContasGrupo[], qtdMeses: number): number[] 
  * Saldo no instante imediatamente ANTES de `dataLimiteExclusiva`. Sem
  * `contaId`: todas as contas somadas (ativas e inativas — o histórico não
  * some). Com `contaId`: só o saldo inicial e o movimento daquela conta.
+ *
+ * Achado em 15/09/2026 (pergunta da Telma sobre um valor estranho na coluna
+ * "Saldo" do extrato): esta função somava o movimento chamando
+ * `listarLancamentos`, que tem teto de 300 linhas — assim que uma conta
+ * passa de 300 lançamentos ANTES da data pedida, a soma em memória passava
+ * a truncar (descartando os mais antigos) e o saldo "antes do período"
+ * saía errado, mesmo a conta tendo `saldo_atual` certo (o gatilho
+ * `fin_recalc_saldo_conta` nunca passa por este teto). Agora a soma é feita
+ * no banco, pela função `fin_movimento_antes_de` (migration
+ * 20260915180000) — sem buscar linha nenhuma pro cliente, sem teto.
  */
 export async function saldoAcumuladoAntesDe(dataLimiteExclusiva: string, contaId?: string): Promise<number> {
   const contas = await listarContas(true);
   const contasRelevantes = contaId ? contas.filter(c => c.id === contaId) : contas;
   const saldoInicial = contasRelevantes.reduce((s, c) => s + Number(c.saldo_inicial), 0);
 
-  // `listarLancamentos` tem teto de 300 linhas (mesma proteção documentada
-  // em dreService.gerarDRE) — para o volume de hoje não pesa; se a igreja
-  // acumular mais de 300 lançamentos históricos antes do período, este
-  // saldo passa a truncar e precisa virar uma soma no banco (RPC), não em
-  // memória.
-  const antes = await listarLancamentos({ dataFim: daquiADias(dataLimiteExclusiva, -1), contaId });
-  const movimento = antes
-    .filter(l => l.status === "realizado" || l.status === "conciliado")
-    .reduce((s, l) => s + (l.tipo === "entrada" ? Number(l.valor) : -Number(l.valor)), 0);
+  if (contaId) {
+    const { data, error } = await supabase.rpc("fin_movimento_antes_de", {
+      p_data_limite_exclusiva: dataLimiteExclusiva,
+      p_conta_id: contaId,
+    });
+    if (error) throw error;
+    return saldoInicial + Number(data ?? 0);
+  }
 
-  return saldoInicial + movimento;
+  // Sem contaId: uma chamada por conta (a função não aceita lista) — o
+  // volume é 5 contas hoje, não pesa somar em paralelo.
+  const movimentos = await Promise.all(contasRelevantes.map(async (c) => {
+    const { data, error } = await supabase.rpc("fin_movimento_antes_de", {
+      p_data_limite_exclusiva: dataLimiteExclusiva,
+      p_conta_id: c.id,
+    });
+    if (error) throw error;
+    return Number(data ?? 0);
+  }));
+
+  return saldoInicial + movimentos.reduce((s, m) => s + m, 0);
 }
 
 /**
