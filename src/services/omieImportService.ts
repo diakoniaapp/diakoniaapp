@@ -49,8 +49,24 @@
 //          e deixa incluir mesmo assim, pra não esconder um caso real de
 //          dois pagamentos iguais no mesmo dia (aconteceu com tarifa
 //          bancária repetida, que é legítima).
+//
+// Revisto de novo em 15/09/2026, mesmo dia — achado ao vivo depois do item
+// (a) acima entrar no ar: criar pessoa automaticamente por CPF sem dono
+// tem um risco que fornecedor por CNPJ não tem — CPF sem correspondência
+// não quer dizer necessariamente "pessoa nova". Pode ser alguém JÁ
+// cadastrado (por exemplo pelo trabalho de vinculação retroativa por
+// NOME, 15/09/2026, que não precisava de CPF) cujo `membros.cpf` nunca
+// foi preenchido, ou foi grafado diferente. Criar direto duplicaria a
+// pessoa. Por isso, antes de sugerir "criar novo", `prepararImportacaoOmie`
+// tenta achar UM candidato não-ambíguo por nome entre os membros SEM CPF
+// salvo (`lib/fuzzyNome.ts` — mesmos três níveis de confiança do trabalho
+// de vinculação retroativa, agora formalizados em função reaproveitável).
+// Achando, `pessoasACriar` carrega `sugestaoExistente` e a tela oferece
+// "Vincular a X" como padrão em vez de "Cadastrar como novo" — a Telma
+// ainda escolhe, nunca é automático sem tela.
 import { supabase } from "@/integrations/supabase/client";
 import { conferir } from "@/lib/escritaConferida";
+import { encontrarCandidatoPorNome, type CandidatoNome } from "@/lib/fuzzyNome";
 import {
   listarCategoriasTodas, listarCentrosCusto, atualizarConta,
   type FinCategoria, type FinCentroCusto, type FinMovimentoTipo,
@@ -96,6 +112,11 @@ export interface RascunhoOmie {
 export interface PessoaACriar {
   cpf: string;
   nome: string;
+  /** Um membro já cadastrado (sem CPF salvo) cujo nome bate com este,
+   *  achado por `encontrarCandidatoPorNome` — ver comentário do topo do
+   *  arquivo. `null` quando não achou nenhum candidato seguro (a tela
+   *  então só oferece criar novo ou não cadastrar). */
+  sugestaoExistente: CandidatoNome | null;
 }
 
 export interface ResumoImportacaoOmie {
@@ -215,16 +236,24 @@ export async function prepararImportacaoOmie(
   const cpfsEntrada = Array.from(new Set(
     itens.filter(i => i.valor >= 0 && i.bruta.cpfCnpj?.length === 11).map(i => i.bruta.cpfCnpj!)));
 
-  const [{ data: fornecedoresExistentes }, { data: pessoasExistentes }] = await Promise.all([
+  const [{ data: fornecedoresExistentes }, { data: pessoasExistentes }, { data: membrosSemCpf }] = await Promise.all([
     cnpjsSaida.length
       ? supabase.from("fin_fornecedores").select("id, nome, cnpj_cpf").in("cnpj_cpf", cnpjsSaida)
       : Promise.resolve({ data: [] as any[] }),
     cpfsEntrada.length
       ? supabase.from("membros").select("id, nome_completo, cpf").in("cpf", cpfsEntrada)
       : Promise.resolve({ data: [] as any[] }),
+    // Candidatos pro casador de nomes (ver comentário do topo do arquivo,
+    // 15/09/2026) — só membro SEM cpf salvo entra aqui: sugerir "vincular"
+    // a alguém que já TEM um CPF diferente arriscaria juntar duas pessoas
+    // de verdade só por coincidência de nome parecido.
+    cpfsEntrada.length
+      ? supabase.from("membros").select("id, nome_completo").is("cpf", null)
+      : Promise.resolve({ data: [] as any[] }),
   ]);
   const mapaFornecedor = new Map((fornecedoresExistentes ?? []).map((f: any) => [f.cnpj_cpf, f]));
   const mapaPessoa = new Map((pessoasExistentes ?? []).map((p: any) => [p.cpf, p]));
+  const candidatosPorNome: CandidatoNome[] = (membrosSemCpf ?? []).map((m: any) => ({ id: m.id, nome: m.nome_completo }));
 
   const categoriasNaoEncontradas = new Set<string>();
   // Dedupe por CNPJ/CPF dentro do próprio lote — "BANCO BRADESCO S.A."
@@ -237,8 +266,9 @@ export async function prepararImportacaoOmie(
   // CPF de entrada sem membro correspondente — dedupe por CPF dentro do
   // lote, mesma razão que `cnpjsNovosNoLote` (uma pessoa pode contribuir
   // várias vezes no mesmo arquivo). Mantém o PRIMEIRO nome visto pra cada
-  // CPF, pra tela mostrar um nome estável.
-  const pessoasNovasNoLote = new Map<string, string>();
+  // CPF, pra tela mostrar um nome estável, e a sugestão de nome parecido
+  // (ver comentário do topo, 15/09/2026) calculada uma vez por CPF.
+  const pessoasNovasNoLote = new Map<string, { nome: string; sugestao: CandidatoNome | null }>();
   let pessoasVinculadas = 0;
   let centrosVinculados = 0;
   let totalEntradas = 0;
@@ -282,7 +312,12 @@ export async function prepararImportacaoOmie(
       if (existente) { pessoaId = existente.id; pessoaNome = existente.nome_completo; pessoasVinculadas++; }
       else {
         cpfNaoEncontrado = bruta.cpfCnpj;
-        if (!pessoasNovasNoLote.has(bruta.cpfCnpj)) pessoasNovasNoLote.set(bruta.cpfCnpj, bruta.clienteFornecedor);
+        if (!pessoasNovasNoLote.has(bruta.cpfCnpj)) {
+          pessoasNovasNoLote.set(bruta.cpfCnpj, {
+            nome: bruta.clienteFornecedor,
+            sugestao: encontrarCandidatoPorNome(bruta.clienteFornecedor, candidatosPorNome),
+          });
+        }
       }
     }
 
@@ -326,7 +361,7 @@ export async function prepararImportacaoOmie(
       saldoAnterior,
       centrosVinculados,
       departamentosNaoEncontrados: Array.from(departamentosNaoEncontrados),
-      pessoasACriar: Array.from(pessoasNovasNoLote, ([cpf, nome]) => ({ cpf, nome })),
+      pessoasACriar: Array.from(pessoasNovasNoLote, ([cpf, v]) => ({ cpf, nome: v.nome, sugestaoExistente: v.sugestao })),
       duplicatasNoArquivo,
     },
   };
@@ -339,9 +374,15 @@ export interface ResultadoImportacaoOmie {
   loteTag: string;
 }
 
-export interface PessoaParaCriar extends PessoaACriar {
-  tipoPessoa: "membro" | "congregado";
-}
+/** O que fazer com um CPF de entrada sem membro correspondente — decidido
+ *  pessoa por pessoa na tela (15/09/2026). `criar` grava gente nova (mesma
+ *  ideia de fornecedor por CNPJ, com a escolha extra de vínculo);
+ *  `vincular` usa um membro JÁ cadastrado (achado por `sugestaoExistente`
+ *  em `PessoaACriar`, ou escolhido à mão) — evita duplicar quem já existe
+ *  com o nome grafado diferente ou sem CPF salvo. */
+export type ResolucaoPessoa =
+  | (PessoaACriar & { acao: "criar"; tipoPessoa: "membro" | "congregado" })
+  | (PessoaACriar & { acao: "vincular"; membroExistenteId: string });
 
 /** Já existe importação deste arquivo (mesmo hash) nesta conta? Lançada
  *  como erro comum (não um código especial) — `ImportacaoOmieDialog.tsx`
@@ -377,11 +418,11 @@ const MSG_ARQUIVO_DUPLICADO =
  *  `incluirDuplicatasDoArquivo` (default `false`) decide se linhas
  *  marcadas `duplicataDeOutraLinha` entram ou ficam de fora.
  *
- *  `pessoasParaCriar`, quando informado, cria em `membros` cada CPF de
- *  entrada sem correspondente (a Telma escolhe membro/congregado por
- *  pessoa na tela) e religa o `pessoa_id` dos lançamentos daquele CPF —
- *  mesma ideia de `fornecedorNomeParaCriar`, só que pessoa pede uma
- *  escolha que fornecedor não pede. */
+ *  `resolucoesPessoa`, quando informado, resolve cada CPF de entrada sem
+ *  correspondente — `criar` grava gente nova em `membros`, `vincular` usa
+ *  alguém já cadastrado (ver `ResolucaoPessoa`) — e religa o `pessoa_id`
+ *  dos lançamentos daquele CPF. Mesma ideia de `fornecedorNomeParaCriar`,
+ *  só que pessoa pede uma escolha que fornecedor não pede. */
 export async function confirmarImportacaoOmie(
   rascunhos: RascunhoOmie[],
   contaId: string,
@@ -390,7 +431,7 @@ export async function confirmarImportacaoOmie(
     arquivoHash?: string;
     arquivoNome?: string;
     incluirDuplicatasDoArquivo?: boolean;
-    pessoasParaCriar?: PessoaParaCriar[];
+    resolucoesPessoa?: ResolucaoPessoa[];
   },
 ): Promise<ResultadoImportacaoOmie> {
   const linhasValidas = opcoes?.incluirDuplicatasDoArquivo
@@ -423,31 +464,50 @@ export async function confirmarImportacaoOmie(
     await atualizarConta(contaId, { saldo_inicial: saldoInicial });
   }
 
-  // Cria toda pessoa nova NUMA TACADA SÓ (mesmo padrão do fornecedor
-  // abaixo) — dedupe por CPF já veio pronto de `prepararImportacaoOmie`
-  // (`pessoasACriar`), aqui só grava. `data_congregado`/`data_membro` vira
-  // a data de HOJE (data real de entrada na igreja é desconhecida —
-  // marcar como se fosse a data da doação seria inventar dado que a
-  // planilha do Omie não tem).
+  // Resolve pessoa nova (CPF sem membro correspondente) — duas ações
+  // possíveis por `ResolucaoPessoa` (ver comentário lá):
+  //
+  //  `criar`: grava gente nova NUMA TACADA SÓ (mesmo padrão do fornecedor
+  //  abaixo). `data_congregado`/`data_membro` vira a data de HOJE (data
+  //  real de entrada na igreja é desconhecida — marcar como se fosse a
+  //  data da doação seria inventar dado que a planilha do Omie não tem).
+  //
+  //  `vincular`: usa um membro JÁ cadastrado — não cria nada, só religa e
+  //  tenta preencher o CPF dele (`is("cpf", null)`: só se continuar vazio,
+  //  nunca sobrescreve um CPF de verdade que tenha sido salvo nesse meio
+  //  tempo por outro caminho). O religamento usa `membroExistenteId`
+  //  direto — não depende do backfill de CPF ter funcionado.
   const cachePessoaCpf = new Map<string, string>();
   let pessoasCriadas = 0;
-  if (opcoes?.pessoasParaCriar && opcoes.pessoasParaCriar.length > 0) {
-    const payloadPessoas = opcoes.pessoasParaCriar.map(p => ({
-      nome_completo: p.nome,
-      cpf: p.cpf,
-      tipo_pessoa: p.tipoPessoa,
-      status: "ativo" as const,
-      origem_cadastro: "importacao_omie",
-      observacoes: `Cadastrado automaticamente pela importação do Omie (${loteTag}), a partir do CPF de uma doação sem correspondente em membros.`,
-      data_congregado: p.tipoPessoa === "congregado" ? agora : null,
-      data_membro: p.tipoPessoa === "membro" ? agora : null,
-    }));
-    const { data, error } = await supabase.from("membros").insert(payloadPessoas).select("id, cpf");
-    if (error) throw error;
-    for (const p of (data ?? []) as { id: string; cpf: string }[]) {
-      cachePessoaCpf.set(p.cpf, p.id);
+  if (opcoes?.resolucoesPessoa && opcoes.resolucoesPessoa.length > 0) {
+    const paraCriar = opcoes.resolucoesPessoa.filter(
+      (p): p is ResolucaoPessoa & { acao: "criar" } => p.acao === "criar");
+    const paraVincular = opcoes.resolucoesPessoa.filter(
+      (p): p is ResolucaoPessoa & { acao: "vincular" } => p.acao === "vincular");
+
+    if (paraCriar.length > 0) {
+      const payloadPessoas = paraCriar.map(p => ({
+        nome_completo: p.nome,
+        cpf: p.cpf,
+        tipo_pessoa: p.tipoPessoa,
+        status: "ativo" as const,
+        origem_cadastro: "importacao_omie",
+        observacoes: `Cadastrado automaticamente pela importação do Omie (${loteTag}), a partir do CPF de uma doação sem correspondente em membros.`,
+        data_congregado: p.tipoPessoa === "congregado" ? agora : null,
+        data_membro: p.tipoPessoa === "membro" ? agora : null,
+      }));
+      const { data, error } = await supabase.from("membros").insert(payloadPessoas).select("id, cpf");
+      if (error) throw error;
+      for (const p of (data ?? []) as { id: string; cpf: string }[]) {
+        cachePessoaCpf.set(p.cpf, p.id);
+      }
+      pessoasCriadas = data?.length ?? 0;
     }
-    pessoasCriadas = data?.length ?? 0;
+
+    for (const p of paraVincular) {
+      cachePessoaCpf.set(p.cpf, p.membroExistenteId);
+      await supabase.from("membros").update({ cpf: p.cpf }).eq("id", p.membroExistenteId).is("cpf", null);
+    }
   }
 
   // Cria todo fornecedor novo NUMA TACADA SÓ (dedupe por CNPJ/CPF antes de

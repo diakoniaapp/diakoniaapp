@@ -41,7 +41,7 @@ import { brl, type FinMovimentoTipo } from "@/services/finService";
 import {
   lerArquivoOmie, prepararImportacaoOmie, confirmarImportacaoOmie,
   verificarArquivoJaImportado, verificarSobreposicaoPeriodo, desfazerImportacaoOmie,
-  type RascunhoOmie, type ResumoImportacaoOmie, type PessoaParaCriar,
+  type RascunhoOmie, type ResumoImportacaoOmie, type ResolucaoPessoa,
 } from "@/services/omieImportService";
 
 interface Props {
@@ -56,7 +56,10 @@ function dataBr(s: string) {
   return new Date(s + "T00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
 }
 
-type EscolhaPessoa = "congregado" | "membro" | "nao";
+// "vincular" só aparece quando `sugestaoExistente` achou candidato —
+// pedido da Telma (15/09/2026): não duplicar quem já está cadastrado com
+// o nome grafado diferente do extrato, ou sem CPF salvo.
+type EscolhaPessoa = "vincular" | "congregado" | "membro" | "nao";
 
 export function ImportacaoOmieDialog({ open, onOpenChange, contaId, contaNome, onSaved }: Props) {
   const [processando, setProcessando] = useState(false);
@@ -122,8 +125,11 @@ export function ImportacaoOmieDialog({ open, onOpenChange, contaId, contaNome, o
       setRascunhos(r);
       setResumo(res);
 
+      // Padrão: "vincular" quando achou um candidato seguro por nome — é
+      // o caminho mais conservador (reaproveita quem já existe em vez de
+      // duplicar); sem sugestão, cai pro padrão anterior ("congregado").
       const escolhasIniciais: Record<string, EscolhaPessoa> = {};
-      for (const p of res.pessoasACriar) escolhasIniciais[p.cpf] = "congregado";
+      for (const p of res.pessoasACriar) escolhasIniciais[p.cpf] = p.sugestaoExistente ? "vincular" : "congregado";
       setEscolhasPessoa(escolhasIniciais);
 
       const datas = r.map(x => x.data).sort();
@@ -146,15 +152,21 @@ export function ImportacaoOmieDialog({ open, onOpenChange, contaId, contaNome, o
       // A ordem (saldo inicial antes dos lançamentos) é garantida dentro
       // de `confirmarImportacaoOmie` — ver o comentário lá.
       const saldoInicial = usarSaldoInicial ? resumo?.saldoAnterior ?? null : null;
-      const pessoasParaCriar: PessoaParaCriar[] = (resumo?.pessoasACriar ?? [])
-        .filter(p => escolhasPessoa[p.cpf] !== "nao")
-        .map(p => ({ ...p, tipoPessoa: (escolhasPessoa[p.cpf] as "membro" | "congregado") ?? "congregado" }));
+      const resolucoesPessoa: ResolucaoPessoa[] = (resumo?.pessoasACriar ?? [])
+        .flatMap((p): ResolucaoPessoa[] => {
+          const escolha = escolhasPessoa[p.cpf] ?? "congregado";
+          if (escolha === "nao") return [];
+          if (escolha === "vincular" && p.sugestaoExistente) {
+            return [{ ...p, acao: "vincular", membroExistenteId: p.sugestaoExistente.id }];
+          }
+          return [{ ...p, acao: "criar", tipoPessoa: escolha === "membro" ? "membro" : "congregado" }];
+        });
 
       const r = await confirmarImportacaoOmie(rascunhos, contaId, saldoInicial, {
         arquivoHash: arquivoHash ?? undefined,
         arquivoNome: arquivoNome ?? undefined,
         incluirDuplicatasDoArquivo: incluirDuplicatas,
-        pessoasParaCriar,
+        resolucoesPessoa,
       });
 
       const partes = [`${r.criados} lançamento${r.criados !== 1 ? "s" : ""} importado${r.criados !== 1 ? "s" : ""}`];
@@ -343,16 +355,26 @@ export function ImportacaoOmieDialog({ open, onOpenChange, contaId, contaNome, o
                   CPF sem membro correspondente. Escolha o vínculo de cada uma (ou "Não cadastrar"
                   pra deixar a doação sem pessoa vinculada, como era antes):
                 </p>
-                <div className="space-y-1 max-h-40 overflow-y-auto">
+                <div className="space-y-1.5 max-h-52 overflow-y-auto">
                   {resumo.pessoasACriar.map(p => (
                     <div key={p.cpf} className="flex items-center justify-between gap-2 text-xs border-b border-border/30 py-1 last:border-0">
-                      <span className="flex-1 min-w-0 truncate">{p.nome}</span>
-                      <Select value={escolhasPessoa[p.cpf] ?? "congregado"}
+                      <div className="flex-1 min-w-0">
+                        <p className="truncate">{p.nome}</p>
+                        {p.sugestaoExistente && (
+                          <p className="text-muted-foreground truncate">
+                            Pode ser <strong className="text-info-text">{p.sugestaoExistente.nome}</strong>, já cadastrado(a) sem CPF
+                          </p>
+                        )}
+                      </div>
+                      <Select value={escolhasPessoa[p.cpf] ?? (p.sugestaoExistente ? "vincular" : "congregado")}
                         onValueChange={(v) => setEscolhasPessoa(prev => ({ ...prev, [p.cpf]: v as EscolhaPessoa }))}>
-                        <SelectTrigger className="h-7 w-36 text-xs shrink-0"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="h-7 w-44 text-xs shrink-0"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="congregado">Congregado</SelectItem>
-                          <SelectItem value="membro">Membro</SelectItem>
+                          {p.sugestaoExistente && (
+                            <SelectItem value="vincular">Vincular a {p.sugestaoExistente.nome}</SelectItem>
+                          )}
+                          <SelectItem value="congregado">Cadastrar · Congregado</SelectItem>
+                          <SelectItem value="membro">Cadastrar · Membro</SelectItem>
                           <SelectItem value="nao">Não cadastrar</SelectItem>
                         </SelectContent>
                       </Select>
