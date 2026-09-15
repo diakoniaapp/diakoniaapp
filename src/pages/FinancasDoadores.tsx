@@ -28,21 +28,39 @@ function dataBr(s: string) {
   return new Date(s + "T00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
 }
 
+// Sem isto, "Ana Lúcia" (digitado com acento, do jeito natural de
+// escrever) não batia com "ANA LUCIA GOMES DA SILVA" (gravado sem
+// acento) — achado ao vivo pela Telma em 15/09/2026: a busca sempre
+// devolvia "sem doadores", mesmo com gente na lista. Mesmo padrão de
+// normalização já usado em `omieImportService.ts` (casar categoria/
+// fornecedor ignorando acento e maiúscula).
+function normalizar(s: string): string {
+  return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+}
+
 type Ordenacao = "nome" | "valor";
+
+const MESES = [
+  "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+  "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro",
+];
 
 export default function FinancasDoadores() {
   const [ano, setAno] = useState(new Date().getFullYear());
+  // `null` = ano inteiro (comportamento de sempre). Pedido da Telma
+  // (15/09/2026): poder estreitar pra um mês só.
+  const [mes, setMes] = useState<number | null>(null);
   const [doadores, setDoadores] = useState<DoadorResumo[]>([]);
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState("");
   const [ordenacao, setOrdenacao] = useState<Ordenacao>("nome");
 
-  useEffect(() => { carregar(); }, [ano]);
+  useEffect(() => { carregar(); }, [ano, mes]);
 
   async function carregar() {
     setLoading(true);
     try {
-      setDoadores(await listarDoadoresComResumo(ano));
+      setDoadores(await listarDoadoresComResumo(ano, mes ?? undefined));
     } catch (e: any) {
       toast.error(e?.message ?? "Erro ao carregar doadores");
     } finally { setLoading(false); }
@@ -51,7 +69,8 @@ export default function FinancasDoadores() {
   const filtrados = useMemo(() => {
     let lista = doadores;
     if (busca.length >= 2) {
-      lista = lista.filter(d => d.nome.toLowerCase().includes(busca.toLowerCase()));
+      const buscaNorm = normalizar(busca);
+      lista = lista.filter(d => normalizar(d.nome).includes(buscaNorm));
     }
     if (ordenacao === "valor") {
       lista = [...lista].sort((a, b) => b.totalAno - a.totalAno);
@@ -60,6 +79,7 @@ export default function FinancasDoadores() {
   }, [doadores, busca, ordenacao]);
 
   const totalGeral = doadores.reduce((s, d) => s + d.totalAno, 0);
+  const periodoLabel = mes === null ? String(ano) : `${MESES[mes - 1]}/${ano}`;
 
   if (loading) return <PaginaSkeleton />;
 
@@ -76,6 +96,16 @@ export default function FinancasDoadores() {
           </p>
         </div>
         <div className="flex items-center gap-1">
+          <Select value={mes === null ? "__ano__" : String(mes)}
+            onValueChange={(v) => setMes(v === "__ano__" ? null : Number(v))}>
+            <SelectTrigger className="h-8 text-xs w-[7.5rem]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__ano__">Ano inteiro</SelectItem>
+              {MESES.map((nome, i) => (
+                <SelectItem key={i} value={String(i + 1)}>{nome}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button size="sm" variant="outline" onClick={() => setAno(a => a - 1)}>
             <ChevronLeft className="w-3.5 h-3.5" />
           </Button>
@@ -104,13 +134,13 @@ export default function FinancasDoadores() {
       </Card>
 
       <p className="text-xs text-muted-foreground">
-        {doadores.length} pessoa{doadores.length !== 1 ? "s" : ""} contribuiu{doadores.length !== 1 ? "ram" : ""} em {ano} · total {brl(totalGeral)}
+        {doadores.length} pessoa{doadores.length !== 1 ? "s" : ""} contribuiu{doadores.length !== 1 ? "ram" : ""} em {periodoLabel} · total {brl(totalGeral)}
       </p>
 
       {filtrados.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="py-8 text-center text-sm text-muted-foreground">
-            {doadores.length === 0 ? `Nenhuma contribuição vinculada a pessoa em ${ano}.` : "Sem doadores com esse filtro."}
+            {doadores.length === 0 ? `Nenhuma contribuição vinculada a pessoa em ${periodoLabel}.` : "Sem doadores com esse filtro."}
           </CardContent>
         </Card>
       ) : (
