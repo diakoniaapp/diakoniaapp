@@ -34,6 +34,15 @@ export interface OmieLinhaBruta {
   documento: string | null;
   cpfCnpj: string | null;     // só dígitos
   observacoes: string | null;
+  /** Coluna "Departamento" do Omie — dimensão de rateio que mapeia
+   *  direto para "Ministério" numa igreja (achado no dossiê de auditoria
+   *  do Omie, 12/09/2026: Departamento id/empresa_id/nome/ativo, "mapeia
+   *  diretamente para Ministério: Louvor, Infantil, Missões, Diaconia").
+   *  Opcional de propósito — a tela "Conciliar Contas Correntes" (de onde
+   *  vêm os extratos que a Telma já exportou) não mostra essa coluna por
+   *  padrão, então todo arquivo já importado continua funcionando sem
+   *  ela; `null` quando a coluna não existe na planilha ou vem vazia. */
+  departamento: string | null;
 }
 
 export interface OmieCategoriaEValor {
@@ -96,6 +105,7 @@ export function parseOmieXlsx(buffer: ArrayBuffer): OmieExtratoLido {
   const cDocumento = col("Documento");
   const cCpfCnpj = col("Cliente ou Fornecedor (CNPJ/CPF)");
   const cObs = col("Observações");
+  const cDepartamento = col("Departamento");
 
   if (cCategoria === -1) {
     throw new Error("Essa planilha não tem a coluna Categoria — sem ela não dá pra classificar os lançamentos. No Omie, deixe a coluna \"Categoria\" visível na grade antes de exportar.");
@@ -132,6 +142,8 @@ export function parseOmieXlsx(buffer: ArrayBuffer): OmieExtratoLido {
       documento: cDocumento >= 0 && l[cDocumento] != null ? l[cDocumento].toString().trim() : null,
       cpfCnpj: cCpfCnpj >= 0 ? soDigitos(l[cCpfCnpj]?.toString()) : null,
       observacoes: cObs >= 0 && l[cObs] != null ? l[cObs].toString().trim() : null,
+      departamento: cDepartamento >= 0 && l[cDepartamento] != null
+        ? (l[cDepartamento].toString().trim() || null) : null,
     });
   }
   return { linhas: resultado, saldoAnterior };

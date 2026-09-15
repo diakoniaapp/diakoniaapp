@@ -17,8 +17,8 @@
 import { supabase } from "@/integrations/supabase/client";
 import { conferir } from "@/lib/escritaConferida";
 import {
-  listarCategoriasTodas, atualizarConta,
-  type FinCategoria, type FinMovimentoTipo,
+  listarCategoriasTodas, listarCentrosCusto, atualizarConta,
+  type FinCategoria, type FinCentroCusto, type FinMovimentoTipo,
 } from "./finService";
 import {
   parseOmieXlsx, separarCategoriaEPercentuais, ehTransferencia,
@@ -41,6 +41,9 @@ export interface RascunhoOmie {
   fornecedorNomeParaCriar: string | null;
   pessoaId: string | null;
   pessoaNome: string | null;
+  departamentoBruto: string | null;
+  centroCustoId: string | null;
+  centroCustoNome: string | null;
 }
 
 export interface ResumoImportacaoOmie {
@@ -51,6 +54,8 @@ export interface ResumoImportacaoOmie {
   fornecedoresACriar: number;
   pessoasVinculadas: number;
   saldoAnterior: number | null;
+  centrosVinculados: number;
+  departamentosNaoEncontrados: string[];
 }
 
 function normalizar(s: string): string {
@@ -66,12 +71,27 @@ export async function prepararImportacaoOmie(
   linhasBrutas: OmieLinhaBruta[],
   saldoAnterior: number | null,
 ): Promise<{ rascunhos: RascunhoOmie[]; resumo: ResumoImportacaoOmie }> {
-  const categorias = await listarCategoriasTodas();
+  const [categorias, centros] = await Promise.all([
+    listarCategoriasTodas(),
+    listarCentrosCusto(),
+  ]);
   const mapaCategoria = new Map<string, FinCategoria>();
   for (const c of categorias) {
     const chave = normalizar(c.nome);
     // Se houver categoria ativa E inativa com o mesmo nome, a ativa vence.
     if (!mapaCategoria.has(chave) || c.ativo) mapaCategoria.set(chave, c);
+  }
+
+  // Departamento (Omie) → centro de custo de ministério (Diakonia). Casa
+  // por `vinculo_nome` — o nome CRU do ministério ("Administração"), não
+  // `nome` ("Min. Administração") — porque é assim que
+  // `fin_seed_centros_custo()` grava (ver migration
+  // 20260915140000_seed_centros_custo_so_ministerio.sql).
+  const mapaCentro = new Map<string, FinCentroCusto>();
+  for (const c of centros) {
+    if (c.vinculo_tipo === "ministerio" && c.vinculo_nome) {
+      mapaCentro.set(normalizar(c.vinculo_nome), c);
+    }
   }
 
   // Explode rateios (categoria com percentual) em itens separados, cada
@@ -111,7 +131,9 @@ export async function prepararImportacaoOmie(
   // dedupe corretamente) ia criar uma fração disso. Achado ao vivo pela
   // Telma comparando o card do resumo com o botão de confirmar.
   const cnpjsNovosNoLote = new Set<string>();
+  const departamentosNaoEncontrados = new Set<string>();
   let pessoasVinculadas = 0;
+  let centrosVinculados = 0;
   let totalEntradas = 0;
   let totalSaidas = 0;
 
@@ -143,6 +165,14 @@ export async function prepararImportacaoOmie(
       if (existente) { pessoaId = existente.id; pessoaNome = existente.nome_completo; pessoasVinculadas++; }
     }
 
+    let centroCustoId: string | null = null;
+    let centroCustoNome: string | null = null;
+    if (bruta.departamento) {
+      const centro = mapaCentro.get(normalizar(bruta.departamento));
+      if (centro) { centroCustoId = centro.id; centroCustoNome = centro.nome; centrosVinculados++; }
+      else departamentosNaoEncontrados.add(bruta.departamento);
+    }
+
     return {
       data: bruta.data, tipo, valor: Math.abs(valor),
       categoriaBruta: categoria, categoriaId, categoriaNome,
@@ -153,6 +183,8 @@ export async function prepararImportacaoOmie(
       cpfCnpj: bruta.cpfCnpj,
       fornecedorId, fornecedorNomeParaCriar,
       pessoaId, pessoaNome,
+      departamentoBruto: bruta.departamento,
+      centroCustoId, centroCustoNome,
     };
   });
 
@@ -164,6 +196,8 @@ export async function prepararImportacaoOmie(
       categoriasNaoEncontradas: Array.from(categoriasNaoEncontradas),
       fornecedoresACriar: cnpjsNovosNoLote.size, pessoasVinculadas,
       saldoAnterior,
+      centrosVinculados,
+      departamentosNaoEncontrados: Array.from(departamentosNaoEncontrados),
     },
   };
 }
@@ -241,6 +275,7 @@ export async function confirmarImportacaoOmie(
       status: "conciliado" as const,
       conta_id: contaId,
       categoria_id: r.categoriaId,
+      centro_custo_id: r.centroCustoId,
       fornecedor_id: fornecedorId,
       pessoa_id: r.pessoaId,
       valor: r.valor,

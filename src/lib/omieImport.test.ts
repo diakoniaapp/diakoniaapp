@@ -17,11 +17,11 @@ const CABECALHO = [
   "Cliente ou Fornecedor (CNPJ/CPF)", "Observações",
 ];
 
-function montarXlsx(linhasDados: any[][]): ArrayBuffer {
+function montarXlsx(linhasDados: any[][], cabecalho: string[] = CABECALHO): ArrayBuffer {
   const aoa = [
     ["QUARTA IGREJA BATISTA — Finanças — Movimentação da Conta Corrente"],
     ["Emitido por Teste em 13/09/2026 00:00"],
-    CABECALHO,
+    cabecalho,
     ...linhasDados,
   ];
   const ws = XLSX.utils.aoa_to_sheet(aoa);
@@ -98,6 +98,34 @@ describe("parseOmieXlsx", () => {
     XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
     const buf = XLSX.write(wb, { type: "array", bookType: "xlsx" });
     expect(() => parseOmieXlsx(buf)).toThrow(/Categoria/);
+  });
+
+  // A tela "Conciliar Contas Correntes" (de onde vêm os extratos que a
+  // Telma já exportou) não mostra "Departamento" por padrão — todo
+  // arquivo já importado não tem essa coluna, e precisa continuar
+  // funcionando sem ela.
+  it("devolve departamento null quando a planilha não tem essa coluna", () => {
+    const buf = montarXlsx([linha({})]);
+    const { linhas: r } = parseOmieXlsx(buf);
+    expect(r[0].departamento).toBeNull();
+  });
+
+  it("lê a coluna Departamento quando presente na planilha", () => {
+    const comDepartamento = [...CABECALHO, "Departamento"];
+    const l = linha({});
+    l.push("Administração");
+    const buf = montarXlsx([l], comDepartamento);
+    const { linhas: r } = parseOmieXlsx(buf);
+    expect(r[0].departamento).toBe("Administração");
+  });
+
+  it("devolve departamento null quando a coluna existe mas a célula vem vazia", () => {
+    const comDepartamento = [...CABECALHO, "Departamento"];
+    const l = linha({});
+    l.push(null);
+    const buf = montarXlsx([l], comDepartamento);
+    const { linhas: r } = parseOmieXlsx(buf);
+    expect(r[0].departamento).toBeNull();
   });
 });
 

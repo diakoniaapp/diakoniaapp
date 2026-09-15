@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
-  FileUp, Upload, TrendingUp, TrendingDown, AlertTriangle, Building2, Users, Undo2,
+  FileUp, Upload, TrendingUp, TrendingDown, AlertTriangle, Building2, Users, Undo2, Layers,
 } from "lucide-react";
 import { brl, type FinMovimentoTipo } from "@/services/finService";
 import {
@@ -138,7 +138,8 @@ export function ImportacaoOmieDialog({ open, onOpenChange, contaId, contaNome, o
                 <span className="text-sm">Selecionar planilha (.xlsx) do Omie</span>
                 <span className="text-xs text-muted-foreground text-center">
                   Finanças → Passo 5 - Conciliar Contas Correntes → botão direito → Exportar →
-                  Excel. Precisa da coluna Categoria visível na grade.
+                  Excel. Precisa da coluna Categoria visível na grade — e, se quiser trazer o
+                  centro de custo (ministério) também, deixe "Departamento" visível também.
                 </span>
               </div>
             </label>
@@ -174,6 +175,9 @@ export function ImportacaoOmieDialog({ open, onOpenChange, contaId, contaNome, o
             <div className="flex flex-wrap gap-2 text-xs">
               <Badge variant="outline" className="gap-1"><Building2 className="w-3 h-3" /> {resumo.fornecedoresACriar} fornecedor(es) novo(s) a criar</Badge>
               <Badge variant="outline" className="gap-1"><Users className="w-3 h-3" /> {resumo.pessoasVinculadas} vinculado(s) a membro por CPF</Badge>
+              {resumo.centrosVinculados > 0 && (
+                <Badge variant="outline" className="gap-1"><Layers className="w-3 h-3" /> {resumo.centrosVinculados} vinculado(s) a centro de custo por Departamento</Badge>
+              )}
             </div>
 
             {resumo.categoriasNaoEncontradas.length > 0 && (
@@ -184,6 +188,18 @@ export function ImportacaoOmieDialog({ open, onOpenChange, contaId, contaNome, o
                 <p className="text-xs text-muted-foreground mt-1">
                   Esses lançamentos entram sem categoria (dá pra classificar um por um depois):
                   {" "}{resumo.categoriasNaoEncontradas.join(", ")}
+                </p>
+              </div>
+            )}
+
+            {resumo.departamentosNaoEncontrados.length > 0 && (
+              <div className="rounded-md border border-warning-line bg-warning-soft/30 p-3">
+                <p className="text-sm font-medium text-warning-text flex items-center gap-1.5">
+                  <AlertTriangle className="w-4 h-4" /> {resumo.departamentosNaoEncontrados.length} departamento(s) do Omie sem centro de custo correspondente
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Esses lançamentos entram sem centro de custo (dá pra vincular um por um depois):
+                  {" "}{resumo.departamentosNaoEncontrados.join(", ")}
                 </p>
               </div>
             )}
@@ -201,6 +217,9 @@ export function ImportacaoOmieDialog({ open, onOpenChange, contaId, contaNome, o
                   <span className="text-muted-foreground shrink-0">{dataBr(r.data)}</span>
                   <span className="flex-1 min-w-0 truncate">{r.descricao}</span>
                   <span className="text-muted-foreground shrink-0">{r.categoriaNome ?? r.categoriaBruta}</span>
+                  {r.centroCustoNome && (
+                    <span className="text-muted-foreground shrink-0 hidden sm:inline">· {r.centroCustoNome}</span>
+                  )}
                   <span className={`tabular-nums shrink-0 ${r.tipo === "entrada" ? "text-success-text" : "text-destructive-text"}`}>
                     {r.tipo === "entrada" ? "+" : "−"} {brl(r.valor)}
                   </span>
