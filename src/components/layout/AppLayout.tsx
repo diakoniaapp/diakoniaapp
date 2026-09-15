@@ -209,7 +209,12 @@ export default function AppLayout() {
     <FichaProvider>
     <div className="h-screen overflow-hidden flex w-full bg-background">
       {/* Sidebar desktop */}
-      <aside className="hidden md:flex w-64 flex-col bg-sidebar text-sidebar-foreground">
+      {/* `print:hidden` — achado em 15/09/2026: nenhuma tela com botão
+          "Imprimir/PDF" (FinancasConta, FinancasRelatorio...) escondia o
+          menu lateral na impressão. Cada uma tratava só o PRÓPRIO conteúdo;
+          o chevron do app (esta barra, o header mobile, o FAB, a barra
+          inferior) nunca tinha sido marcado — ia inteiro pro papel/PDF. */}
+      <aside className="hidden md:flex w-64 flex-col bg-sidebar text-sidebar-foreground print:hidden">
         {/* Logo */}
         <div className="p-5 border-b border-sidebar-border text-center">
           <BrandMark className="text-[2.23rem] text-sidebar-foreground" />
@@ -417,7 +422,7 @@ export default function AppLayout() {
           area util para fora do viewport no celular. */}
       <div className="flex-1 min-w-0 flex flex-col min-h-0">
         {/* Header mobile */}
-        <header className="md:hidden sticky top-0 z-40 flex items-center gap-2 h-14 px-3 bg-sidebar text-sidebar-foreground border-b border-sidebar-border pt-safe">
+        <header className="md:hidden sticky top-0 z-40 flex items-center gap-2 h-14 px-3 bg-sidebar text-sidebar-foreground border-b border-sidebar-border pt-safe print:hidden">
           {!isHome && (
             <button
               onClick={() => navigate(-1)}

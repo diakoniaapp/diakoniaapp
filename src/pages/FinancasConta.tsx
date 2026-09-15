@@ -217,14 +217,58 @@ export default function FinancasConta() {
   }
 
   return (
-    <div className="p-3 md:p-5 max-w-7xl mx-auto space-y-3 print:max-w-full print:p-0">
-      {/* Cabeçalho — some inteiro na impressão (pedido da Telma, 15/09/2026:
-          "quero a opção de impressão" no extrato de conta, não só em
-          relatórios). Mesmo padrão de `financas/DashboardExecutivo.tsx`
-          (`print:hidden` + bloco institucional só-impressão), mais leve que
-          o `.relatorio-page` da Prestação de Contas — aqui a tela de
-          trabalho e a versão impressa são o mesmo layout, só com botões e
-          colunas de ação escondidos. */}
+    <div className="relatorio-page p-3 md:p-5 max-w-7xl mx-auto space-y-3 print:max-w-full print:p-0">
+      {/* Impressão — refeita em 15/09/2026 ("melhore a visualização do pdf
+          de impressão... não está bom"). A primeira versão só marcava
+          `print:hidden`/`print:block` DENTRO desta página e confiava que o
+          resto cuidaria de si — não cuidava: o menu lateral do AppLayout
+          nunca escondia (ia inteiro pro papel), e o `<main>` que envolve
+          `<Outlet/>` tem `overflow-y-auto` dentro de um `h-screen
+          overflow-hidden` — impressão não expande scroll, então só saía a
+          página inteira que já cabia visível na tela, cortando o resto do
+          extrato. A correção usa o mesmo padrão já comprovado em
+          `FinancasRelatorio.tsx`: `.relatorio-page` escapa do layout via
+          `position: absolute` (funciona porque nenhum ancestral entre aqui
+          e o body tem `position` diferente de `static`) e
+          `body * { visibility: hidden }` esconde tudo — inclusive o menu,
+          sem precisar mexer em cada componente do AppLayout — enquanto
+          `.relatorio-page, .relatorio-page *` volta a ficar visível. Além
+          disso: `print:hidden` no AppLayout (defesa extra pra quem não usa
+          esse padrão), paisagem A4 (a tabela tem 7 colunas — retrato
+          apertaria Categoria/Centro custo/Saldo), `overflow: visible` no
+          scroll horizontal da tabela (senão corta colunas do mesmo jeito
+          que o `<main>` cortava linhas) e quebra de página evitada dentro
+          de cada linha. */}
+      <style>{`
+        @media print {
+          @page { size: A4 landscape; margin: 1cm 1.2cm; }
+          html, body { background: white !important; height: auto !important; overflow: visible !important; }
+          body * { visibility: hidden !important; }
+          .relatorio-page, .relatorio-page * { visibility: visible !important; }
+          .relatorio-page {
+            position: absolute !important;
+            left: 0 !important; top: 0 !important;
+            width: 100% !important; max-width: 100% !important;
+            margin: 0 !important; padding: 0 !important;
+            box-shadow: none !important; border: none !important;
+            background: white !important;
+          }
+          .relatorio-page * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          .relatorio-page .overflow-x-auto { overflow: visible !important; }
+          .relatorio-page table { width: 100% !important; }
+          .relatorio-page tr { page-break-inside: avoid; }
+          .avoid-break { page-break-inside: avoid; }
+        }
+      `}</style>
+
+      {/* Barra de ferramentas — só na tela, `print:hidden` some no papel.
+          O resto da página (cartões de resumo, tabela) é o MESMO layout
+          nos dois casos, com só duas colunas (seleção e ações) escondidas
+          por linha — ver comentário do `<style>` acima sobre o
+          `.relatorio-page`. */}
       <div className="flex items-center gap-2 flex-wrap print:hidden">
         <Button asChild variant="ghost" size="icon"><Link to="/financas"><ArrowLeft className="w-4 h-4" /></Link></Button>
         <div className="flex-1 min-w-0">
@@ -265,11 +309,12 @@ export default function FinancasConta() {
       </div>
 
       {/* Cabeçalho imprimível — mesmo padrão de financas/DashboardExecutivo.tsx */}
-      <div className="hidden print:block text-center mb-2">
+      <div className="avoid-break hidden print:block text-center mb-3 pb-3 border-b-2 border-gold/30">
         <h1 className="font-serif text-2xl">Quarta Igreja Batista do Rio de Janeiro</h1>
         <h2 className="font-serif text-lg mt-1">Extrato — {conta.nome}</h2>
-        <p className="text-xs text-muted-foreground">
-          {dataBr(dataInicio)} a {dataBr(dataFim)} · Gerado em {new Date().toLocaleString("pt-BR")}
+        <p className="text-xs text-muted-foreground mt-1">
+          {dataBr(dataInicio)} a {dataBr(dataFim)} · Saldo atual: <strong>{brl(Number(conta.saldo_atual))}</strong>
+          {" "}· Gerado em {new Date().toLocaleString("pt-BR")}
         </p>
       </div>
 
@@ -308,7 +353,7 @@ export default function FinancasConta() {
       </Card>
 
       {/* Resumo do período */}
-      <div className="grid grid-cols-3 gap-2">
+      <div className="avoid-break grid grid-cols-3 gap-2 print:mb-2">
         <Card className="bg-success-soft/40 border-success-line">
           <CardContent className="py-2 px-3">
             <p className="text-xs uppercase text-success-text flex items-center gap-1"><TrendingUp className="w-3 h-3" /> Entradas</p>
@@ -440,7 +485,7 @@ export default function FinancasConta() {
         </CardContent>
       </Card>
 
-      <p className="text-xs text-muted-foreground text-right">
+      <p className="text-xs text-muted-foreground text-right print:hidden">
         {lancamentos.length} lançamento{lancamentos.length === 1 ? "" : "s"} no período · até 300 mais recentes
       </p>
 
