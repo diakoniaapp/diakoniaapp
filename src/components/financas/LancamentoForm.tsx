@@ -27,7 +27,7 @@ import {
   FIN_COMPROVANTE_MAX,
 } from "@/services/finService";
 import { extrairDadosDoComprovante, type OcrResultado } from "@/services/ocrService";
-import { decodificarLinhaDigitavel, type BoletoDecodificado } from "@/lib/boleto";
+import { decodificarBoleto, type BoletoDecodificado } from "@/lib/boleto";
 // Carregado sob demanda — ZXing (leitor de câmera) pesa ~460kB no pacote
 // principal, e a maioria das aberturas deste formulário nunca clica em
 // "Ler com câmera". Mesma mitigação que o CLAUDE.md já registra (Risco
@@ -141,11 +141,28 @@ export function LancamentoForm({
   // `useEffect` de decodificação/preenchimento abaixo sem duplicar lógica.
   const [leitorCameraOpen, setLeitorCameraOpen] = useState(false);
 
+  // Aceita 44 dígitos (código de barras) OU 47 (linha digitável) — não só
+  // o segundo. Achado ao vivo pela Telma (15/09/2026), perguntando pelo
+  // leitor FÍSICO de código de barras (o leitor de mesa USB/Bluetooth,
+  // diferente da câmera adicionada antes nesta sessão): esse tipo de
+  // leitor funciona como teclado — "digita" os 44 números do código de
+  // barras direto neste campo, sem passar pela câmera nem por
+  // `LeitorCodigoBarras.tsx`. Com o corte fixo em 47, esses 44 caíam no
+  // `< 47` e a tela ficava muda (sem erro, sem sucesso) — parecia que o
+  // leitor físico não fazia nada. `decodificarBoleto` (lib/boleto.ts) já
+  // aceita os dois tamanhos e decide sozinho qual conversão aplicar.
   useEffect(() => {
     const digitos = boletoTexto.replace(/\D/g, "");
-    if (digitos.length < 47) { setBoletoErro(null); setBoletoOk(null); return; }
+    // Só tenta decodificar em 44 (código de barras completo) ou 47+
+    // (linha digitável completa/mais que isso, pra manter a mensagem de
+    // erro amigável que `decodificarLinhaDigitavel` já dá pros 48 dígitos
+    // de conta de consumo). 45-46 fica em silêncio — provavelmente é
+    // alguém digitando a linha digitável à mão, ainda no meio do caminho,
+    // não um erro pra mostrar a cada tecla.
+    const completo = digitos.length === 44 || digitos.length >= 47;
+    if (!completo) { setBoletoErro(null); setBoletoOk(null); return; }
     try {
-      const r = decodificarLinhaDigitavel(boletoTexto);
+      const r = decodificarBoleto(digitos);
       setBoletoOk(r);
       setBoletoErro(null);
       if (r.valor) atualizarValor(r.valor);
@@ -421,7 +438,13 @@ export function LancamentoForm({
                 </Button>
               </div>
               <Input value={boletoTexto} onChange={(e) => setBoletoTexto(e.target.value)}
-                placeholder="Cole os 47 números do boleto, ou use a câmera..." />
+                // Leitor físico de código de barras (USB/Bluetooth) manda
+                // um Enter depois dos dígitos, por padrão — sem isto, esse
+                // Enter submeteria o formulário inteiro antes da Telma
+                // escolher conta/categoria. Só neste campo: nos outros, o
+                // padrão do navegador (Enter = submit) continua igual.
+                onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }}
+                placeholder="Cole os 47 números, use a câmera ou o leitor de código de barras..." />
               {boletoErro && <p className="text-xs text-destructive-text mt-0.5">{boletoErro}</p>}
               {boletoOk && (
                 <p className="text-xs text-success-text mt-0.5">
