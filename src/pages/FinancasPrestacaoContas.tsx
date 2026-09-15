@@ -37,9 +37,11 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import {
-  ArrowLeft, ChevronLeft, ChevronRight, MessageSquare, MessageSquarePlus,
-  ScrollText, Minus, Plus, Lock, LockOpen, ShieldCheck, Loader2, Printer, Download, Wallet,
+  ArrowLeft, MessageSquare, MessageSquarePlus,
+  ScrollText, Lock, LockOpen, ShieldCheck, Loader2, Printer, Download, Wallet, CalendarDays,
 } from "lucide-react";
 import { toast } from "sonner";
 import logoDiakonia from "@/assets/logo-diakonia.png";
@@ -66,13 +68,6 @@ const NOME_MES_ABREV = [
   "", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez",
 ];
 
-const PRESETS_LARGURA = [
-  { qtd: 1, label: "Mensal" },
-  { qtd: 3, label: "Trimestral" },
-  { qtd: 6, label: "Semestral" },
-  { qtd: 12, label: "Anual" },
-];
-
 // Sentinela pro Select — Radix não aceita `value=""` num SelectItem, mesmo
 // padrão já usado em prestacaoContasService.ts (`CENTRO_SEM`).
 const TODAS_CONTAS = "__todas__";
@@ -80,6 +75,23 @@ const TODAS_CONTAS = "__todas__";
 function periodoAtual(): { ano: number; mes: number } {
   const [ano, mes] = hojeLocal().split("-").map(Number);
   return { ano, mes };
+}
+
+// `ano`/`mes`/`qtdMeses` continuam sendo o estado de verdade (mesmo
+// esquema de URL de sempre) — os dois seletores "Data Inicial"/"Data
+// Final" são só uma FORMA diferente de editar esse mesmo estado. Pedido
+// da Telma em 15/09/2026: não bastava trocar os presets (Mensal/
+// Trimestral/...) por dois `<input type="month">` — ela queria que
+// CLICAR no campo abrisse um calendário de verdade (o `type="month"`
+// nativo só deixa digitar/girar o valor com o teclado nesta combinação
+// de navegador/SO, sem abrir grade nenhuma). Por isso agora é um
+// `Popover` com o `Calendar` (dia-a-dia) do shadcn — o mesmo primitivo
+// que já existia em `components/ui/calendar.tsx` sem nunca ter sido
+// usado em lugar nenhum do sistema. O relatório continua sendo por MÊS
+// inteiro: o dia clicado só empresta mês/ano; "Data Inicial" vira o dia
+// 1 do mês escolhido e "Data Final" o último dia do mês escolhido.
+function diferencaEmMeses(anoIni: number, mesIni: number, anoFim: number, mesFim: number): number {
+  return (anoFim - anoIni) * 12 + (mesFim - mesIni) + 1;
 }
 
 export default function FinancasPrestacaoContas() {
@@ -91,6 +103,8 @@ export default function FinancasPrestacaoContas() {
   const mes = Number(searchParams.get("mes")) || padrao.mes;
   const qtdMeses = Math.min(24, Math.max(1, Number(searchParams.get("qtd")) || 1));
   const contaId = searchParams.get("conta") || "";
+  const [anoFim, mesFim] = daquiAMeses(`${ano}-${String(mes).padStart(2, "0")}-01`, qtdMeses - 1)
+    .split("-").map(Number);
 
   const [dados, setDados] = useState<PrestacaoContasResultado | null>(null);
   const [fechamento, setFechamento] = useState<FinFechamentoPeriodo | null>(null);
@@ -101,6 +115,8 @@ export default function FinancasPrestacaoContas() {
   const [confirmandoFechar, setConfirmandoFechar] = useState(false);
   const [reabrindo, setReabrindo] = useState(false);
   const [motivoReabertura, setMotivoReabertura] = useState("");
+  const [calInicioAberto, setCalInicioAberto] = useState(false);
+  const [calFimAberto, setCalFimAberto] = useState(false);
   const [nota, setNota] = useState<{
     aberto: boolean; titulo: string; categoriaId: string; centroCustoId: string | null;
   }>({ aberto: false, titulo: "", categoriaId: "", centroCustoId: null });
@@ -183,13 +199,33 @@ export default function FinancasPrestacaoContas() {
     setSearchParams(params);
   }
 
-  function deslocarPeriodo(passosDeMes: number) {
-    const [a, m] = daquiAMeses(`${ano}-${String(mes).padStart(2, "0")}-01`, passosDeMes).split("-").map(Number);
-    atualizarParams(a, m, qtdMeses);
+  // Clicar num dia no calendário de "Data Inicial" mantém "Data Final"
+  // fixa (recalcula quantos meses cabem entre os dois); clicar em "Data
+  // Final" mantém "Data Inicial" fixa. Se a pessoa escolher uma combinação
+  // invertida (Final antes de Inicial), a janela vira um único mês na
+  // ponta que acabou de mudar — nunca fica num intervalo negativo. O dia
+  // do mês clicado não importa, só o mês/ano — ver comentário acima de
+  // `diferencaEmMeses`.
+  function mudarInicio(data: Date | undefined) {
+    if (!data) return;
+    const novoAno = data.getFullYear();
+    const novoMes = data.getMonth() + 1;
+    const novaQtd = diferencaEmMeses(novoAno, novoMes, anoFim, mesFim);
+    atualizarParams(novoAno, novoMes, novaQtd < 1 ? 1 : Math.min(24, novaQtd));
+    setCalInicioAberto(false);
   }
 
-  function mudarLargura(novaQtd: number) {
-    atualizarParams(ano, mes, Math.min(24, Math.max(1, novaQtd)));
+  function mudarFim(data: Date | undefined) {
+    if (!data) return;
+    const novoAnoFim = data.getFullYear();
+    const novoMesFim = data.getMonth() + 1;
+    const novaQtd = diferencaEmMeses(ano, mes, novoAnoFim, novoMesFim);
+    if (novaQtd < 1) {
+      atualizarParams(novoAnoFim, novoMesFim, 1);
+    } else {
+      atualizarParams(ano, mes, Math.min(24, novaQtd));
+    }
+    setCalFimAberto(false);
   }
 
   function mudarConta(novaContaId: string) {
@@ -258,15 +294,7 @@ export default function FinancasPrestacaoContas() {
             <Button asChild variant="ghost" size="sm" className="gap-1.5">
               <Link to="/financas"><ArrowLeft className="w-3.5 h-3.5" /> Contas correntes</Link>
             </Button>
-            <div className="flex items-center gap-2">
-              <Button size="sm" variant="outline" onClick={() => deslocarPeriodo(-1)}>
-                <ChevronLeft className="w-3.5 h-3.5" />
-              </Button>
-              <span className="text-sm font-medium px-1 min-w-36 text-center">{rotuloPeriodo}</span>
-              <Button size="sm" variant="outline" onClick={() => deslocarPeriodo(1)}>
-                <ChevronRight className="w-3.5 h-3.5" />
-              </Button>
-            </div>
+            <span className="text-sm font-medium px-1 text-center">{rotuloPeriodo}</span>
             <div className="flex items-center gap-1.5">
               <Button onClick={exportarCSV} size="sm" variant="outline" className="gap-1.5">
                 <Download className="w-3.5 h-3.5" /> CSV
@@ -295,27 +323,54 @@ export default function FinancasPrestacaoContas() {
             </Select>
           </div>
 
-          <div className="flex items-center justify-center gap-1 flex-wrap">
-            {PRESETS_LARGURA.map(p => (
-              <Button
-                key={p.qtd}
-                size="sm"
-                variant={qtdMeses === p.qtd ? "default" : "outline"}
-                className={qtdMeses === p.qtd ? "bg-gold hover:bg-gold/90 text-white" : ""}
-                onClick={() => mudarLargura(p.qtd)}
-              >
-                {p.label}
-              </Button>
-            ))}
-            <div className="flex items-center gap-0.5 ml-1 border rounded-md">
-              <Button size="sm" variant="ghost" className="px-2" onClick={() => mudarLargura(qtdMeses - 1)} disabled={qtdMeses <= 1}>
-                <Minus className="w-3 h-3" />
-              </Button>
-              <span className="text-xs w-14 text-center tabular-nums">{qtdMeses} {qtdMeses === 1 ? "mês" : "meses"}</span>
-              <Button size="sm" variant="ghost" className="px-2" onClick={() => mudarLargura(qtdMeses + 1)} disabled={qtdMeses >= 24}>
-                <Plus className="w-3 h-3" />
-              </Button>
-            </div>
+          {/* Dois seletores com calendário de verdade (Popover + Calendar do
+              shadcn) em vez dos presets Mensal/Trimestral/Semestral/Anual —
+              pedido da Telma em 15/09/2026: escolher o período clicando no
+              campo, e o clique abrir um calendário pra valer (o
+              `<input type="month">` nativo, tentado primeiro, só deixava
+              digitar/girar o valor nesta combinação de navegador/SO — não
+              abria grade nenhuma). `ano`/`mes`/`qtdMeses` continuam sendo o
+              estado de verdade (mesma URL de sempre); "Data Inicial" edita o
+              começo, "Data Final" edita o fim, cada um recalculando
+              `qtdMeses` a partir do outro extremo fixo. */}
+          <div className="flex items-center justify-center gap-1.5 flex-wrap">
+            <Popover open={calInicioAberto} onOpenChange={setCalInicioAberto}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs font-normal justify-start">
+                  <CalendarDays className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                  <span className="text-muted-foreground">Data Inicial</span>
+                  <span className="font-medium">{new Date(ano, mes - 1, 1).toLocaleDateString("pt-BR")}</span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <CalendarPicker
+                  mode="single"
+                  selected={new Date(ano, mes - 1, 1)}
+                  defaultMonth={new Date(ano, mes - 1, 1)}
+                  onSelect={mudarInicio}
+                />
+              </PopoverContent>
+            </Popover>
+
+            <span className="text-xs text-muted-foreground">até</span>
+
+            <Popover open={calFimAberto} onOpenChange={setCalFimAberto}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs font-normal justify-start">
+                  <CalendarDays className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                  <span className="text-muted-foreground">Data Final</span>
+                  <span className="font-medium">{new Date(anoFim, mesFim, 0).toLocaleDateString("pt-BR")}</span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <CalendarPicker
+                  mode="single"
+                  selected={new Date(anoFim, mesFim, 0)}
+                  defaultMonth={new Date(anoFim, mesFim, 0)}
+                  onSelect={mudarFim}
+                />
+              </PopoverContent>
+            </Popover>
 
             {!contaId && (
               <>
