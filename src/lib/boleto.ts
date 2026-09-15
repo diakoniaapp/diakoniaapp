@@ -105,3 +105,52 @@ export function decodificarLinhaDigitavel(entrada: string): BoletoDecodificado {
 
   return { linhaDigitavel: digitos, banco: digitos.slice(0, 3), valor, vencimento };
 }
+
+/**
+ * Converte o código de barras impresso (44 dígitos, o que uma leitora de
+ * câmera decodifica da listra — formato Interleaved 2 of 5) pra linha
+ * digitável (47 dígitos, o que `decodificarLinhaDigitavel` espera).
+ *
+ * Pedido da Telma em 15/09/2026: "câmera ou leitor de código de barras" —
+ * ler a listra em vez de digitar/colar os 47 números à mão. O código de
+ * barras e a linha digitável carregam a MESMA informação em ordens
+ * diferentes; a linha digitável só acrescenta 3 dígitos verificadores
+ * (módulo 10, um por campo) que o código de barras não tem — por isso dá
+ * pra reconstruir uma a partir da outra sem perder nada, sem chamada de
+ * rede, com o mesmo `modulo10` que já decodifica a linha digitável.
+ *
+ * Layout do código de barras (padrão FEBRABAN, boleto de cobrança):
+ *   banco(3) + moeda(1) + DV geral(1) + fator de vencimento(4) + valor(10)
+ *   + campo livre(25)
+ */
+export function codigoBarrasParaLinhaDigitavel(entrada: string): string {
+  const digitos = soDigitos(entrada);
+  if (digitos.length !== 44) {
+    throw new Error(`O código de barras de um boleto tem 44 números — encontrei ${digitos.length}.`);
+  }
+
+  const banco = digitos.slice(0, 3);
+  const moeda = digitos.slice(3, 4);
+  const dvGeral = digitos.slice(4, 5);
+  const fatorValor = digitos.slice(5, 19); // fator de vencimento(4) + valor(10)
+  const campoLivre = digitos.slice(19, 44); // 25 dígitos
+
+  const campo1SemDv = banco + moeda + campoLivre.slice(0, 5);
+  const campo2SemDv = campoLivre.slice(5, 15);
+  const campo3SemDv = campoLivre.slice(15, 25);
+
+  return campo1SemDv + modulo10(campo1SemDv)
+    + campo2SemDv + modulo10(campo2SemDv)
+    + campo3SemDv + modulo10(campo3SemDv)
+    + dvGeral + fatorValor;
+}
+
+/** Lê tanto código de barras (44) quanto linha digitável (47) — o que a
+ *  câmera/leitor devolver — e decodifica. Ponto único que
+ *  `LeitorCodigoBarras.tsx` chama, pra não espalhar o "qual formato é
+ *  esse" pela tela. */
+export function decodificarBoleto(entrada: string): BoletoDecodificado {
+  const digitos = soDigitos(entrada);
+  if (digitos.length === 44) return decodificarLinhaDigitavel(codigoBarrasParaLinhaDigitavel(digitos));
+  return decodificarLinhaDigitavel(digitos);
+}

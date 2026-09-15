@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { hojeLocal } from "@/lib/data";
 import { paraNumero } from "@/lib/dinheiro";
 import {
@@ -28,6 +28,14 @@ import {
 } from "@/services/finService";
 import { extrairDadosDoComprovante, type OcrResultado } from "@/services/ocrService";
 import { decodificarLinhaDigitavel, type BoletoDecodificado } from "@/lib/boleto";
+// Carregado sob demanda — ZXing (leitor de câmera) pesa ~460kB no pacote
+// principal, e a maioria das aberturas deste formulário nunca clica em
+// "Ler com câmera". Mesma mitigação que o CLAUDE.md já registra (Risco
+// 10) pra libs usadas em poucas telas: `pdfjs-dist`/`tesseract.js` do OCR
+// de comprovante (`ocrService.ts`) já são carregados sob demanda lá
+// dentro; aqui é o mesmo raciocínio pro componente inteiro.
+const LeitorCodigoBarras = lazy(() =>
+  import("./LeitorCodigoBarras").then(m => ({ default: m.LeitorCodigoBarras })));
 
 interface Props {
   open: boolean;
@@ -127,6 +135,11 @@ export function LancamentoForm({
   const [boletoTexto, setBoletoTexto] = useState("");
   const [boletoErro, setBoletoErro] = useState<string | null>(null);
   const [boletoOk, setBoletoOk] = useState<BoletoDecodificado | null>(null);
+  // Ler com câmera (15/09/2026) — `LeitorCodigoBarras` devolve o boleto já
+  // decodificado; grava a linha digitável NORMALIZADA (47 dígitos) no
+  // mesmo campo de texto que o colar manual usa, pra reaproveitar o
+  // `useEffect` de decodificação/preenchimento abaixo sem duplicar lógica.
+  const [leitorCameraOpen, setLeitorCameraOpen] = useState(false);
 
   useEffect(() => {
     const digitos = boletoTexto.replace(/\D/g, "");
@@ -365,6 +378,7 @@ export function LancamentoForm({
   }
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -399,9 +413,15 @@ export function LancamentoForm({
         <form onSubmit={onSubmit} className="space-y-3">
           {!isEdit && tipo === "saida" && (
             <div>
-              <Label>Ler boleto (linha digitável) — opcional</Label>
+              <div className="flex items-center justify-between gap-2">
+                <Label>Ler boleto (linha digitável) — opcional</Label>
+                <Button type="button" variant="ghost" size="sm" className="h-6 gap-1 text-xs shrink-0"
+                  onClick={() => setLeitorCameraOpen(true)}>
+                  <Camera className="w-3 h-3" /> Ler com câmera
+                </Button>
+              </div>
               <Input value={boletoTexto} onChange={(e) => setBoletoTexto(e.target.value)}
-                placeholder="Cole os 47 números do boleto..." />
+                placeholder="Cole os 47 números do boleto, ou use a câmera..." />
               {boletoErro && <p className="text-xs text-destructive-text mt-0.5">{boletoErro}</p>}
               {boletoOk && (
                 <p className="text-xs text-success-text mt-0.5">
@@ -712,5 +732,22 @@ export function LancamentoForm({
         </form>
       </DialogContent>
     </Dialog>
+    {/* Só monta (e só então baixa o chunk do ZXing) quando a Telma
+        realmente clicar em "Ler com câmera" — ver comentário do import
+        `lazy` no topo do arquivo. */}
+    {leitorCameraOpen && (
+      <Suspense fallback={null}>
+        <LeitorCodigoBarras
+          open={leitorCameraOpen}
+          onOpenChange={setLeitorCameraOpen}
+          onLido={(boleto) => {
+            setBoletoTexto(boleto.linhaDigitavel);
+            setLeitorCameraOpen(false);
+            toast.success("Código lido!");
+          }}
+        />
+      </Suspense>
+    )}
+    </>
   );
 }
