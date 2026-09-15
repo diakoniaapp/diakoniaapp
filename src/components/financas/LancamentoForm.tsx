@@ -294,6 +294,15 @@ export function LancamentoForm({
       if (fornecedorOcrSugerido.categoria_padrao_id && !categoriaId) {
         setCategoriaId(fornecedorOcrSugerido.categoria_padrao_id);
       }
+      // Direto do fornecedor, não pelo encadeamento categoria → centro mais
+      // comum (`sugerirCentroPorCategoria`, disparado no useEffect abaixo só
+      // quando este campo ainda estiver vazio) — com poucos fornecedores
+      // fixos, o centro certo é o DESTE fornecedor, não a média da
+      // categoria inteira. Setado aqui, antes do useEffect rodar, ganha a
+      // corrida contra a sugestão genérica.
+      if (fornecedorOcrSugerido.centro_custo_padrao_id && !centroCustoId) {
+        setCentroCustoId(fornecedorOcrSugerido.centro_custo_padrao_id);
+      }
     } else if (ocr.razaoSocial) {
       setFornecedorBusca(ocr.razaoSocial);
     }
@@ -312,6 +321,13 @@ export function LancamentoForm({
         nome: ocr.razaoSocial,
         cnpj_cpf: ocr.cnpj,
         tipo: "juridica",
+        // Se a categoria/centro já foram escolhidos nesta mesma tela (por
+        // você ou por uma sugestão anterior), o fornecedor NOVO já nasce
+        // lembrando os dois — sem isso, só a segunda nota do mesmo
+        // fornecedor ganhava o preenchimento automático; a primeira vez
+        // sempre exigia escolher os dois à mão de novo.
+        categoria_padrao_id: categoriaId || null,
+        centro_custo_padrao_id: centroCustoId || null,
       });
       setFornecedorOcrSugerido(f);
       setFornecedorId(f.id);
@@ -625,7 +641,20 @@ export function LancamentoForm({
                 <div className="border rounded-md mt-1 max-h-32 overflow-y-auto bg-popover shadow">
                   {fornecedores.slice(0, 5).map(f => (
                     <button key={f.id} type="button"
-                      onClick={() => { setFornecedorId(f.id); setFornecedorBusca(f.nome); }}
+                      onClick={() => {
+                        setFornecedorId(f.id);
+                        setFornecedorBusca(f.nome);
+                        // Mesmo aprendizado da leitura por OCR/CNPJ, agora
+                        // também ao ESCOLHER o fornecedor direto da lista —
+                        // antes só o caminho do OCR preenchia a categoria, e
+                        // nem esse preenchia o centro de custo. Achado ao
+                        // implementar o pedido "aprenda... e preencha
+                        // automaticamente" (15/09/2026): não fazia sentido a
+                        // memória do fornecedor só valer quando veio de uma
+                        // foto/PDF.
+                        if (f.categoria_padrao_id && !categoriaId) setCategoriaId(f.categoria_padrao_id);
+                        if (f.centro_custo_padrao_id && !centroCustoId) setCentroCustoId(f.centro_custo_padrao_id);
+                      }}
                       className="w-full text-left px-2 py-1 text-sm hover:bg-muted/40">
                       {f.nome}
                     </button>
@@ -690,7 +719,8 @@ export function LancamentoForm({
               {ocr && (
                 <>
                   <p className="flex items-center gap-1.5 text-info-text font-medium">
-                    <Sparkles className="w-3.5 h-3.5" /> Detectamos:
+                    <Sparkles className="w-3.5 h-3.5" />
+                    {ocr.fonte === "pdf_texto" ? "Lemos do texto do PDF (exato, sem OCR):" : "Detectamos (OCR — confira antes de aplicar):"}
                   </p>
                   <div className="grid grid-cols-2 gap-x-3 gap-y-1">
                     {ocr.valor && (
@@ -731,7 +761,9 @@ export function LancamentoForm({
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground text-right">
-                    OCR em {(ocr.duracaoMs / 1000).toFixed(1)}s · confiança {ocr.confianca}%
+                    {ocr.fonte === "pdf_texto"
+                      ? `Lido em ${(ocr.duracaoMs / 1000).toFixed(1)}s · texto exato do arquivo`
+                      : `OCR em ${(ocr.duracaoMs / 1000).toFixed(1)}s · confiança ${ocr.confianca}% — aproximado, confira os números`}
                   </p>
                 </>
               )}

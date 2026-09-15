@@ -12,8 +12,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Building2, User } from "lucide-react";
 import {
-  listarCategorias, criarFornecedor, atualizarFornecedor,
-  type FinCategoria, type FinFornecedor,
+  listarCategorias, listarCentrosCusto, criarFornecedor, atualizarFornecedor,
+  type FinCategoria, type FinCentroCusto, type FinFornecedor,
 } from "@/services/finService";
 
 interface Props {
@@ -27,13 +27,14 @@ const VAZIO = {
   nome: "", tipo: "juridica" as string, cnpjCpf: "", email: "", telefone: "",
   chavePix: "", bancoNome: "", agencia: "", conta: "",
   endereco: "", bairro: "", cidade: "", uf: "", cep: "",
-  categoriaPadraoId: "", observacao: "",
+  categoriaPadraoId: "", centroCustoPadraoId: "", observacao: "",
 };
 
 export function FornecedorForm({ open, onOpenChange, fornecedor, onSaved }: Props) {
   const isEdit = !!fornecedor;
   const [campos, setCampos] = useState(VAZIO);
   const [categorias, setCategorias] = useState<FinCategoria[]>([]);
+  const [centros, setCentros] = useState<FinCentroCusto[]>([]);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -41,6 +42,7 @@ export function FornecedorForm({ open, onOpenChange, fornecedor, onSaved }: Prop
     // Categoria padrão é sempre de despesa — fornecedor é de quem a igreja
     // COMPRA, nunca de quem ela recebe.
     listarCategorias("saida").then(setCategorias);
+    listarCentrosCusto().then(setCentros);
   }, [open]);
 
   useEffect(() => {
@@ -62,6 +64,7 @@ export function FornecedorForm({ open, onOpenChange, fornecedor, onSaved }: Prop
         uf: fornecedor.uf ?? "",
         cep: fornecedor.cep ?? "",
         categoriaPadraoId: fornecedor.categoria_padrao_id ?? "",
+        centroCustoPadraoId: fornecedor.centro_custo_padrao_id ?? "",
         observacao: fornecedor.observacao ?? "",
       });
     } else {
@@ -95,6 +98,7 @@ export function FornecedorForm({ open, onOpenChange, fornecedor, onSaved }: Prop
         uf: campos.uf.trim().toUpperCase() || null,
         cep: campos.cep.replace(/\D/g, "") || null,
         categoria_padrao_id: campos.categoriaPadraoId || null,
+        centro_custo_padrao_id: campos.centroCustoPadraoId || null,
         observacao: campos.observacao.trim() || null,
       };
 
@@ -189,18 +193,29 @@ export function FornecedorForm({ open, onOpenChange, fornecedor, onSaved }: Prop
             </div>
           </div>
 
-          <div>
-            <Label>Categoria padrão de despesa</Label>
-            <Select value={campos.categoriaPadraoId} onValueChange={(v) => set("categoriaPadraoId", v)}>
-              <SelectTrigger><SelectValue placeholder="(opcional)" /></SelectTrigger>
-              <SelectContent>
-                {categorias.map(c => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Sugerida sozinha ao lançar uma despesa com este fornecedor.
-            </p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Categoria padrão de despesa</Label>
+              <Select value={campos.categoriaPadraoId} onValueChange={(v) => set("categoriaPadraoId", v)}>
+                <SelectTrigger><SelectValue placeholder="(opcional)" /></SelectTrigger>
+                <SelectContent>
+                  {categorias.map(c => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Centro de custo padrão</Label>
+              <Select value={campos.centroCustoPadraoId} onValueChange={(v) => set("centroCustoPadraoId", v)}>
+                <SelectTrigger><SelectValue placeholder="(opcional)" /></SelectTrigger>
+                <SelectContent>
+                  {centros.map(c => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
+          <p className="text-xs text-muted-foreground -mt-1.5">
+            Os dois vêm preenchidos sozinhos (aguardando confirmação) ao lançar uma despesa com este fornecedor.
+          </p>
 
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2">

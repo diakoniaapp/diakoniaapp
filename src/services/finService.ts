@@ -142,6 +142,12 @@ export interface FinFornecedor {
   agencia: string | null;
   conta: string | null;
   categoria_padrao_id: string | null;
+  // Pedido da Telma, 15/09/2026: "temos poucos fornecedores" — com poucos e
+  // recorrentes, o centro de custo certo é quase sempre o mesmo fornecedor
+  // → centro, não a média da categoria inteira (`fin_sugerir_centro_por_
+  // categoria`, que olha só a categoria). Guardado direto no fornecedor,
+  // mesmo padrão de `categoria_padrao_id`.
+  centro_custo_padrao_id: string | null;
   ativo: boolean;
   observacao: string | null;
   created_at: string;

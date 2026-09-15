@@ -5083,6 +5083,7 @@ export type Database = {
           banco_nome: string | null
           categoria_padrao_id: string | null
           cep: string | null
+          centro_custo_padrao_id: string | null
           chave_pix: string | null
           cidade: string | null
           cnpj_cpf: string | null
@@ -5105,6 +5106,7 @@ export type Database = {
           banco_nome?: string | null
           categoria_padrao_id?: string | null
           cep?: string | null
+          centro_custo_padrao_id?: string | null
           chave_pix?: string | null
           cidade?: string | null
           cnpj_cpf?: string | null
@@ -5127,6 +5129,7 @@ export type Database = {
           banco_nome?: string | null
           categoria_padrao_id?: string | null
           cep?: string | null
+          centro_custo_padrao_id?: string | null
           chave_pix?: string | null
           cidade?: string | null
           cnpj_cpf?: string | null
@@ -5148,6 +5151,13 @@ export type Database = {
             columns: ["categoria_padrao_id"]
             isOneToOne: false
             referencedRelation: "fin_categorias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_fornecedores_centro_custo_padrao_id_fkey"
+            columns: ["centro_custo_padrao_id"]
+            isOneToOne: false
+            referencedRelation: "fin_centros_custo"
             referencedColumns: ["id"]
           },
         ]
