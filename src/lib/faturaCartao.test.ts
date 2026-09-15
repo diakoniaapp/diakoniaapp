@@ -67,8 +67,10 @@ describe("lerFaturaCartao", () => {
     const f = lerFaturaCartao(EXTRATO_MARIA)!;
     // 01/09 (setembro) e as de dezembro — nenhuma é "janeiro/2024" de
     // verdade, a fatura fecha antes e cobre o(s) mês(es) anterior(es).
-    expect(f.transacoes[0].data).toBe("2023-09-01");
-    expect(f.transacoes[1].data).toBe("2023-12-05");
+    // `dataCompra` é a data real da compra — não a que vira o lançamento
+    // (essa é sempre `dataVencimento`, ver faturaImportService.ts).
+    expect(f.transacoes[0].dataCompra).toBe("2023-09-01");
+    expect(f.transacoes[1].dataCompra).toBe("2023-12-05");
   });
 
   it("bate o total calculado com o 'Total:' impresso no extrato — 901,79", () => {
@@ -91,7 +93,19 @@ describe("lerFaturaCartao", () => {
 
   it("SIDNEY: infere 2023 mesmo pra uma parcela de abril (009/009 — compra original bem antes)", () => {
     const f = lerFaturaCartao(EXTRATO_SIDNEY)!;
-    expect(f.transacoes[0].data).toBe("2023-04-20");
+    expect(f.transacoes[0].dataCompra).toBe("2023-04-20");
+  });
+
+  it("todas as transações compartilham a MESMA dataVencimento, mesmo com dataCompra espalhada por vários meses — é o dia em que o lançamento vai agrupar", () => {
+    const f = lerFaturaCartao(EXTRATO_SIDNEY)!;
+    const dataCompraDistintas = new Set(f.transacoes.map(t => t.dataCompra));
+    expect(dataCompraDistintas.size).toBeGreaterThan(1); // datas de compra variam
+    expect(f.dataVencimento).toBe("2024-01-10"); // uma só data de vencimento pra fatura inteira
+  });
+
+  it("devolve null (não inventa vencimento) quando o extrato não tem 'Data de vencimento'", () => {
+    const semVencimento = EXTRATO_MARIA.replace(/Data de vencimento:\s*10\/01\/2024\s*\n/, "");
+    expect(lerFaturaCartao(semVencimento)).toBeNull();
   });
 
   it("mantém duas transações do mesmo dia e histórico como linhas separadas (duas compras reais no Assaí/Abastec no mesmo dia)", () => {

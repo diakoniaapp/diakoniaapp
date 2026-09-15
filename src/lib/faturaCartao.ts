@@ -20,10 +20,22 @@
 // MAIOR que o mês de referência da fatura, o ano é o ANTERIOR ao da
 // fatura; senão, é o mesmo ano — testado contra as duas faturas reais
 // (nenhuma data caiu no ano errado).
+//
+// Pedido explícito da Telma (15/09/2026), depois de ver as 15 primeiras
+// transações importadas cada uma na sua própria data de compra: "embora
+// as despesas tragam informação da data da compra (anterior ao
+// vencimento da fatura) no sistema deve manter agrupados no dia do
+// vencimento do cartão". Bate com o que os meses já trazidos pelo Omie
+// já faziam — toda despesa de uma fatura e a transferência que a paga
+// aparecem na MESMA data no extrato (a do vencimento), não cada uma na
+// sua data de compra. `dataCompra` continua guardada (informação real,
+// não descartada — só não é mais o que vira `data` do lançamento;
+// `faturaImportService.ts` usa `dataVencimento` pra isso e carimba a
+// compra original na observação).
 import { textoDoPdf } from "@/services/ocrService";
 
 export interface TransacaoFatura {
-  data: string;          // ISO YYYY-MM-DD, já com o ano inferido
+  dataCompra: string;    // ISO YYYY-MM-DD — data real da compra, ano inferido
   dataRelativa: string;  // "DD/MM" como veio no extrato — pra conferência
   historico: string;
   valor: number;          // sempre positivo — sinal vira `tipo`
@@ -35,7 +47,10 @@ export interface FaturaCartaoLida {
   numeroCartao: string;      // só os 4 últimos dígitos visíveis, "XXXX.XXXX.XXXX.7682"
   mesReferencia: number;     // 1-12
   anoReferencia: number;
-  dataVencimento: string | null; // ISO
+  /** Data em que TODAS as transações desta fatura viram lançamento —
+      pedido acima. Sem isso não dá pra agrupar direito, então uma fatura
+      sem essa data reconhecida não é um extrato válido (ver `lerFaturaCartao`). */
+  dataVencimento: string; // ISO
   transacoes: TransacaoFatura[];
   totalDeclarado: number | null; // "Total:" do extrato — pra conferir contra a soma das linhas
   totalCalculado: number;        // soma de `transacoes` (saída − entrada)
@@ -72,12 +87,12 @@ export function lerFaturaCartao(texto: string): FaturaCartaoLida | null {
   const mMes = texto.match(/Mês:\s*([A-Za-zçÇãÃ]+)\/(\d{4})/i);
   const mVenc = texto.match(/Data de vencimento:\s*(\d{2})\/(\d{2})\/(\d{4})/i);
 
-  if (!mNome || !mMes) return null;
+  if (!mNome || !mMes || !mVenc) return null;
   const mesReferencia = NOME_MES[mMes[1].toLowerCase()];
   if (!mesReferencia) return null;
   const anoReferencia = Number(mMes[2]);
 
-  const dataVencimento = mVenc ? `${mVenc[3]}-${mVenc[2]}-${mVenc[1]}` : null;
+  const dataVencimento = `${mVenc[3]}-${mVenc[2]}-${mVenc[1]}`;
 
   const transacoes: TransacaoFatura[] = [];
   for (const linhaBruta of texto.split("\n")) {
@@ -89,7 +104,7 @@ export function lerFaturaCartao(texto: string): FaturaCartaoLida | null {
     const ano = inferirAno(mm, mesReferencia, anoReferencia);
     const valorBruto = paraNumeroBr(valorTexto);
     transacoes.push({
-      data: `${ano}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`,
+      dataCompra: `${ano}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`,
       dataRelativa,
       historico: historico.trim(),
       valor: Math.abs(valorBruto),

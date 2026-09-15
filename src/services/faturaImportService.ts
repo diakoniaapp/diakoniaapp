@@ -42,6 +42,13 @@ export interface ArquivoFaturaLido {
 export interface TransacaoFaturaRascunho extends TransacaoFatura {
   arquivoNome: string;
   titular: string;
+  /** Data do LANÇAMENTO — sempre o vencimento da fatura, não a data da
+      compra (`dataCompra`, herdada de `TransacaoFatura`). Pedido da Telma
+      (15/09/2026): mesmo a despesa trazendo a data real da compra
+      (anterior ao vencimento), o sistema agrupa tudo no dia do
+      vencimento — é o dia em que o dinheiro de fato sai da conta que
+      paga a fatura, e é como os meses já trazidos pelo Omie já ficam. */
+  dataVencimento: string;
   fornecedorId: string | null;
   /** Chave normalizada do histórico — usada só pra ligar esta transação à
       resolução (criar/vincular) escolhida na tela; nunca gravada. */
@@ -110,13 +117,17 @@ export async function prepararImportacaoFatura(
         ...t,
         arquivoNome: arq.nomeArquivo,
         titular: arq.lida.titular,
+        dataVencimento: arq.lida.dataVencimento,
         fornecedorId,
         fornecedorChave: fornecedorId ? null : chave,
       });
     }
   }
 
-  const datas = transacoes.map(t => t.data).sort();
+  // Período = as datas de VENCIMENTO envolvidas (o que vira `data` do
+  // lançamento), não as datas de compra — ver comentário de
+  // `TransacaoFaturaRascunho.dataVencimento`.
+  const datas = transacoes.map(t => t.dataVencimento).sort();
   const periodoMin = datas[0] ?? null;
   const periodoMax = datas[datas.length - 1] ?? null;
   const sobreposicaoNaConta = periodoMin && periodoMax
@@ -165,7 +176,7 @@ export async function confirmarImportacaoFatura(
 
   const hashesRegistrados: string[] = [];
   for (const arq of arquivos) {
-    const datasDoArquivo = transacoes.filter(t => t.arquivoNome === arq.nomeArquivo).map(t => t.data).sort();
+    const datasDoArquivo = transacoes.filter(t => t.arquivoNome === arq.nomeArquivo).map(t => t.dataVencimento).sort();
     const { error } = await supabase.from("fin_import_arquivos").insert({
       conta_id: contaId,
       arquivo_hash: arq.hash,
@@ -214,8 +225,13 @@ export async function confirmarImportacaoFatura(
 
   const linhas = transacoes.map(t => {
     const fornecedorId = t.fornecedorId ?? (t.fornecedorChave ? mapaChaveParaId.get(t.fornecedorChave) ?? null : null);
+    const [ay, am, ad] = t.dataCompra.split("-");
     return {
-      data: t.data,
+      // Vencimento da fatura, não a data da compra — pedido da Telma,
+      // ver comentário de `TransacaoFaturaRascunho.dataVencimento`. A
+      // data de compra real não é descartada: vai pra observação, pra
+      // continuar conferível ("fiel ao documento") mesmo agrupada.
+      data: t.dataVencimento,
       tipo: t.tipo,
       // Fatura já fechada e paga — sempre passado, nunca previsto (ao
       // contrário do Omie, que importa também contas a pagar futuras).
@@ -227,7 +243,7 @@ export async function confirmarImportacaoFatura(
       valor: t.valor,
       descricao: t.historico,
       documento_numero: null,
-      observacoes: `[lote:${loteTag}] Titular: ${t.titular}`,
+      observacoes: `[lote:${loteTag}] Titular: ${t.titular} · Compra em ${ad}/${am}/${ay}`,
       origem: "importado_fatura_cartao",
       audit_user_id: userId,
       audit_em: agora,

@@ -270,11 +270,20 @@ export function ImportacaoFaturaDialog({ open, onOpenChange, contaId, contaNome,
               </div>
             )}
 
+            {/* Lançamento nasce na data de VENCIMENTO da fatura (pedido da
+                Telma, 15/09/2026), não na data da compra — mas a compra
+                continua visível aqui (e vai pra observação do lançamento)
+                pra não esconder de onde veio cada valor. */}
             <div className="space-y-1 max-h-64 overflow-y-auto border rounded-md p-2">
               {amostra.map((t, i) => (
                 <div key={i} className="flex items-center justify-between gap-2 text-xs border-b border-border/30 py-1 last:border-0">
-                  <span className="text-muted-foreground shrink-0">{dataBr(t.data)}</span>
+                  <span className="text-muted-foreground shrink-0" title="Data do lançamento (vencimento da fatura)">
+                    {dataBr(t.dataVencimento)}
+                  </span>
                   <span className="flex-1 min-w-0 truncate">{t.historico}</span>
+                  <span className="text-muted-foreground shrink-0 hidden sm:inline" title="Data da compra">
+                    compra {dataBr(t.dataCompra)}
+                  </span>
                   <span className="text-muted-foreground shrink-0 hidden sm:inline">{t.titular}</span>
                   <span className={`tabular-nums shrink-0 ${t.tipo === "entrada" ? "text-success-text" : "text-destructive-text"}`}>
                     {t.tipo === "entrada" ? "+" : "−"} {brl(t.valor)}
