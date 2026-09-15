@@ -30,6 +30,7 @@ import { TransferenciaForm } from "@/components/financas/TransferenciaForm";
 import { ConciliacaoOFXDialog } from "@/components/financas/ConciliacaoOFXDialog";
 import { saldoAcumuladoAntesDe } from "@/services/prestacaoContasService";
 import { ImportacaoOmieDialog } from "@/components/financas/ImportacaoOmieDialog";
+import { ImportacaoFaturaDialog } from "@/components/financas/ImportacaoFaturaDialog";
 import { ArrowRightLeft } from "lucide-react";
 import { PaginaSkeleton } from "@/components/ListState";
 
@@ -69,6 +70,7 @@ export default function FinancasConta() {
   const [transfOpen, setTransfOpen] = useState(false);
   const [ofxOpen, setOfxOpen] = useState(false);
   const [omieOpen, setOmieOpen] = useState(false);
+  const [faturaOpen, setFaturaOpen] = useState(false);
   // Conciliação manual (item 6 do roadmap do ERP): seleção só de
   // `realizado` — não faz sentido conciliar algo que ainda não aconteceu
   // (previsto), que foi cancelado, ou que ainda espera aprovação.
@@ -296,6 +298,15 @@ export default function FinancasConta() {
         <Button variant="outline" size="sm" onClick={() => setOmieOpen(true)} className="gap-1.5">
           <FileUp className="w-3.5 h-3.5" /> Importar Omie
         </Button>
+        {/* Pedido da Telma (15/09/2026): pagamentos de 2024 do cartão, que
+            não passaram pelo Omie — só existem em PDF de fatura. Só faz
+            sentido pra conta tipo "cartao", mesma lógica do OFX só pra
+            "banco" acima. */}
+        {conta.tipo === "cartao" && (
+          <Button variant="outline" size="sm" onClick={() => setFaturaOpen(true)} className="gap-1.5">
+            <FileUp className="w-3.5 h-3.5" /> Importar Fatura
+          </Button>
+        )}
         <Button variant="outline" size="sm" onClick={() => setTransfOpen(true)} className="gap-1.5 text-info-text hover:text-info-text">
           <ArrowRightLeft className="w-3.5 h-3.5" /> Transferir
         </Button>
@@ -506,6 +517,13 @@ export default function FinancasConta() {
       <ImportacaoOmieDialog
         open={omieOpen}
         onOpenChange={setOmieOpen}
+        contaId={contaId}
+        contaNome={conta.nome}
+        onSaved={carregar}
+      />
+      <ImportacaoFaturaDialog
+        open={faturaOpen}
+        onOpenChange={setFaturaOpen}
         contaId={contaId}
         contaNome={conta.nome}
         onSaved={carregar}
