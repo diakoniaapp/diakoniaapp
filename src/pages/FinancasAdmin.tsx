@@ -54,13 +54,23 @@ export default function FinancasAdmin() {
 
   const [ccOpen, setCcOpen] = useState(false);
   const [ccEdit, setCcEdit] = useState<FinCentroCusto | null>(null);
-  // Confirmação por `AlertDialog`, não `confirm()` nativo — o resto desta
-  // tela ainda usa `confirm()` (`removerConta`/`removerCategoria`, débito
-  // pré-existente, fora do escopo de hoje), mas esse botão é novo
-  // (13/09/2026) e `confirm()` some sem erro em WebView (CLAUDE.md Risco
-  // 3) — exatamente onde a Telma mais usa o app.
-  const [ccApagando, setCcApagando] = useState<FinCentroCusto | null>(null);
-  const [ccExcluindoBusy, setCcExcluindoBusy] = useState(false);
+
+  // Um `AlertDialog` só pras 3 exclusões (conta/categoria/centro) — até
+  // 15/09/2026 cada uma usava `confirm()` nativo, que a Telma reportou
+  // "não consigo excluir" pra categoria: `confirm()` não dispara diálogo
+  // nenhum em WebView, devolve falso na hora, e o código lia isso como
+  // "cancelou" — sem erro, sem aviso (CLAUDE.md Risco 3). Reproduzido ao
+  // vivo neste navegador: console mostrava "Page dialog suppressed
+  // (confirm)... confirm() returned false". `excluirCentroCusto`, novo
+  // nesta mesma sessão, já tinha nascido certo (AlertDialog); as duas
+  // antigas foram convertidas agora, pro mesmo padrão.
+  const [apagando, setApagando] = useState<
+    | { tipo: "conta"; item: FinConta }
+    | { tipo: "categoria"; item: FinCategoria }
+    | { tipo: "centro"; item: FinCentroCusto }
+    | null
+  >(null);
+  const [excluindoBusy, setExcluindoBusy] = useState(false);
 
   useEffect(() => { carregar(); }, []);
 
@@ -87,15 +97,8 @@ export default function FinancasAdmin() {
     } catch (e: any) { toast.error(e?.message ?? "Erro"); }
   }
 
-  async function removerConta(c: FinConta) {
-    if (!confirm(`Excluir definitivamente "${c.nome}"?\nSó funciona se a conta NÃO tiver lançamentos.`)) return;
-    try {
-      await excluirConta(c.id);
-      toast.success("Conta excluída");
-      await carregar();
-    } catch (e: any) {
-      toast.error("Não foi possível excluir (provavelmente tem lançamentos). Use 'Desativar'.");
-    }
+  function pedirRemoverConta(c: FinConta) {
+    setApagando({ tipo: "conta", item: c });
   }
 
   async function toggleCategoria(k: FinCategoria) {
@@ -105,16 +108,9 @@ export default function FinancasAdmin() {
     } catch (e: any) { toast.error(e?.message ?? "Erro"); }
   }
 
-  async function removerCategoria(k: FinCategoria) {
+  function pedirRemoverCategoria(k: FinCategoria) {
     if (k.sistema) { toast.error("Categoria do sistema — só dá pra desativar"); return; }
-    if (!confirm(`Excluir categoria "${k.nome}"?`)) return;
-    try {
-      await excluirCategoria(k.id);
-      toast.success("Categoria excluída");
-      await carregar();
-    } catch (e: any) {
-      toast.error("Categoria em uso — desative em vez de excluir.");
-    }
+    setApagando({ tipo: "categoria", item: k });
   }
 
   async function toggleCentro(c: FinCentroCusto) {
@@ -124,18 +120,40 @@ export default function FinancasAdmin() {
     } catch (e: any) { toast.error(e?.message ?? "Erro"); }
   }
 
-  async function confirmarRemoverCentro(e: React.MouseEvent) {
-    e.preventDefault(); // ver comentário em `ccApagando` — pula o close automático do AlertDialogAction
-    if (!ccApagando) return;
-    setCcExcluindoBusy(true);
+  function pedirRemoverCentro(c: FinCentroCusto) {
+    setApagando({ tipo: "centro", item: c });
+  }
+
+  // `e.preventDefault()`: `AlertDialogAction` é um `DialogPrimitive.Close`
+  // por baixo do Radix — fecha o diálogo no clique, síncrono, antes de
+  // qualquer `await` deste handler rodar (achado numa revisão em
+  // 13/09/2026, ver FinancasConta.tsx). Sem isto, um erro de exclusão
+  // mostraria o toast com o diálogo já fechado.
+  async function confirmarExcluir(e: React.MouseEvent) {
+    e.preventDefault();
+    if (!apagando) return;
+    setExcluindoBusy(true);
     try {
-      await excluirCentroCusto(ccApagando.id);
-      toast.success("Centro de custo excluído");
-      setCcApagando(null);
+      if (apagando.tipo === "conta") {
+        await excluirConta(apagando.item.id);
+        toast.success("Conta excluída");
+      } else if (apagando.tipo === "categoria") {
+        await excluirCategoria(apagando.item.id);
+        toast.success("Categoria excluída");
+      } else {
+        await excluirCentroCusto(apagando.item.id);
+        toast.success("Centro de custo excluído");
+      }
+      setApagando(null);
       await carregar();
     } catch (e: any) {
-      toast.error("Centro em uso — desative em vez de excluir.");
-    } finally { setCcExcluindoBusy(false); }
+      const msgPorTipo = {
+        conta: "Não foi possível excluir (provavelmente tem lançamentos). Use 'Desativar'.",
+        categoria: "Categoria em uso — desative em vez de excluir.",
+        centro: "Centro em uso — desative em vez de excluir.",
+      };
+      toast.error(msgPorTipo[apagando.tipo]);
+    } finally { setExcluindoBusy(false); }
   }
 
   const entradas = categorias.filter(c => c.tipo === "entrada");
@@ -238,7 +256,7 @@ export default function FinancasAdmin() {
                     </Button>
                     <Button type="button" variant="ghost" size="icon"
                       className="h-7 w-7 text-destructive hover:bg-destructive/10"
-                      onClick={() => removerConta(c)} title="Excluir">
+                      onClick={() => pedirRemoverConta(c)} title="Excluir">
                       <Trash2 className="w-3.5 h-3.5" />
                     </Button>
                   </div>
@@ -268,7 +286,7 @@ export default function FinancasAdmin() {
                   <CategoriaLinha key={k.id} k={k}
                     onEdit={() => { setCatEdit(k); setCatOpen(true); }}
                     onToggle={() => toggleCategoria(k)}
-                    onDelete={() => removerCategoria(k)} />
+                    onDelete={() => pedirRemoverCategoria(k)} />
                 ))}
               </CardContent>
             </Card>
@@ -283,7 +301,7 @@ export default function FinancasAdmin() {
                   <CategoriaLinha key={k.id} k={k}
                     onEdit={() => { setCatEdit(k); setCatOpen(true); }}
                     onToggle={() => toggleCategoria(k)}
-                    onDelete={() => removerCategoria(k)} />
+                    onDelete={() => pedirRemoverCategoria(k)} />
                 ))}
               </CardContent>
             </Card>
@@ -307,17 +325,21 @@ export default function FinancasAdmin() {
             centrosPorTipo.map(({ tipo, lista }) => (
               <Card key={tipo}>
                 <CardContent className="py-3 space-y-1.5">
-                  <p className="text-xs font-medium">
+                  {/* `<div>`, não `<p>`: `Badge` é sempre um `<div>` (ver
+                      components/ui/badge.tsx), e `<div>` dentro de `<p>` é
+                      HTML inválido — mesmo cuidado já registrado na aba
+                      Contas logo acima. */}
+                  <div className="text-xs font-medium">
                     <Badge variant="outline" className={`text-xs ${VINCULO_COR[tipo]}`}>
                       {VINCULO_LABEL[tipo]}
                     </Badge>
                     <span className="text-muted-foreground ml-1.5">({lista.length})</span>
-                  </p>
+                  </div>
                   {lista.map(c => (
                     <CentroLinha key={c.id} c={c}
                       onEdit={() => { setCcEdit(c); setCcOpen(true); }}
                       onToggle={() => toggleCentro(c)}
-                      onDelete={() => setCcApagando(c)} />
+                      onDelete={() => pedirRemoverCentro(c)} />
                   ))}
                 </CardContent>
               </Card>
@@ -352,20 +374,24 @@ export default function FinancasAdmin() {
         onSaved={carregar}
       />
 
-      <AlertDialog open={!!ccApagando} onOpenChange={(v) => !v && setCcApagando(null)}>
+      <AlertDialog open={!!apagando} onOpenChange={(v) => !v && setApagando(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir centro de custo?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {apagando?.tipo === "conta" ? "Excluir conta?"
+                : apagando?.tipo === "categoria" ? "Excluir categoria?"
+                : "Excluir centro de custo?"}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              "{ccApagando?.nome}" — só funciona se ele não tiver lançamentos.
+              "{apagando?.item.nome}" — só funciona se não tiver lançamentos.
               Não dá pra desfazer.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={ccExcluindoBusy}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmarRemoverCentro} disabled={ccExcluindoBusy}
+            <AlertDialogCancel disabled={excluindoBusy}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmarExcluir} disabled={excluindoBusy}
               className="bg-destructive hover:bg-destructive/90 text-white">
-              {ccExcluindoBusy ? "..." : "Excluir"}
+              {excluindoBusy ? "..." : "Excluir"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
