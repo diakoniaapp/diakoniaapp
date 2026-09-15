@@ -15,7 +15,7 @@ import {
 import {
   ArrowLeft, DollarSign, Loader2, Plus, Search, Filter,
   TrendingUp, TrendingDown, Pencil, Trash2, Paperclip,
-  CheckCircle2, Clock, XCircle, Scale, FileUp,
+  CheckCircle2, Clock, XCircle, Scale, FileUp, Printer,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -217,9 +217,15 @@ export default function FinancasConta() {
   }
 
   return (
-    <div className="p-3 md:p-5 max-w-7xl mx-auto space-y-3">
-      {/* Cabeçalho */}
-      <div className="flex items-center gap-2 flex-wrap">
+    <div className="p-3 md:p-5 max-w-7xl mx-auto space-y-3 print:max-w-full print:p-0">
+      {/* Cabeçalho — some inteiro na impressão (pedido da Telma, 15/09/2026:
+          "quero a opção de impressão" no extrato de conta, não só em
+          relatórios). Mesmo padrão de `financas/DashboardExecutivo.tsx`
+          (`print:hidden` + bloco institucional só-impressão), mais leve que
+          o `.relatorio-page` da Prestação de Contas — aqui a tela de
+          trabalho e a versão impressa são o mesmo layout, só com botões e
+          colunas de ação escondidos. */}
+      <div className="flex items-center gap-2 flex-wrap print:hidden">
         <Button asChild variant="ghost" size="icon"><Link to="/financas"><ArrowLeft className="w-4 h-4" /></Link></Button>
         <div className="flex-1 min-w-0">
           <h1 className="font-serif text-lg flex items-center gap-2 truncate">
@@ -249,14 +255,26 @@ export default function FinancasConta() {
         <Button variant="outline" size="sm" onClick={() => setTransfOpen(true)} className="gap-1.5 text-info-text hover:text-info-text">
           <ArrowRightLeft className="w-3.5 h-3.5" /> Transferir
         </Button>
+        <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-1.5">
+          <Printer className="w-3.5 h-3.5" /> Imprimir / PDF
+        </Button>
         <Button onClick={() => { setEditando(null); setNovoOpen(true); }}
           className="gap-1.5 bg-gold hover:bg-gold/90 text-white">
           <Plus className="w-4 h-4" /> Novo lançamento
         </Button>
       </div>
 
+      {/* Cabeçalho imprimível — mesmo padrão de financas/DashboardExecutivo.tsx */}
+      <div className="hidden print:block text-center mb-2">
+        <h1 className="font-serif text-2xl">Quarta Igreja Batista do Rio de Janeiro</h1>
+        <h2 className="font-serif text-lg mt-1">Extrato — {conta.nome}</h2>
+        <p className="text-xs text-muted-foreground">
+          {dataBr(dataInicio)} a {dataBr(dataFim)} · Gerado em {new Date().toLocaleString("pt-BR")}
+        </p>
+      </div>
+
       {/* Filtros */}
-      <Card>
+      <Card className="print:hidden">
         <CardContent className="py-2.5 px-3 grid grid-cols-2 md:grid-cols-5 gap-2 items-end">
           <div>
             <label className="text-xs uppercase tracking-wide text-muted-foreground">Data inicial</label>
@@ -326,7 +344,7 @@ export default function FinancasConta() {
             <table className="w-full text-xs">
               <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
-                  <th className="w-8"></th>
+                  <th className="w-8 print:hidden"></th>
                   <th className="text-left py-2 px-2 w-20">Situação</th>
                   <th className="text-left py-2 px-2 w-16">Data</th>
                   <th className="text-left py-2 px-2">Descrição / Fornecedor</th>
@@ -338,8 +356,9 @@ export default function FinancasConta() {
                       fora da tela em qualquer conta com muitas colunas visíveis
                       (Categoria + Centro custo + Saldo já empurram a tabela além
                       da largura da tela), obrigando rolar pra achar o lápis.
-                      Achado pela Telma em 13/09/2026. */}
-                  <th className="w-28 sticky right-0 bg-muted/40"></th>
+                      Achado pela Telma em 13/09/2026. Some na impressão — lápis/
+                      lixeira/comprovante não fazem sentido no papel. */}
+                  <th className="w-28 sticky right-0 bg-muted/40 print:hidden"></th>
                 </tr>
               </thead>
               <tbody>
@@ -347,7 +366,7 @@ export default function FinancasConta() {
                   const conciliavel = l.status === "realizado" || l.status === "conciliado";
                   return (
                   <tr key={l.id} className="border-t hover:bg-muted/30 group">
-                    <td className="py-1.5 px-2">
+                    <td className="py-1.5 px-2 print:hidden">
                       {l.status === "realizado" && (
                         <Checkbox checked={selecionados.has(l.id)} onCheckedChange={() => alternarSelecao(l.id)}
                           aria-label={`Selecionar ${l.descricao ?? "lançamento"} para conciliar`} />
@@ -393,7 +412,7 @@ export default function FinancasConta() {
                     <td className="py-1.5 px-2 text-right tabular-nums text-muted-foreground">
                       {brl(saldoPorLancamento.get(l.id) ?? 0)}
                     </td>
-                    <td className="py-1.5 px-1 sticky right-0 bg-background group-hover:bg-muted/30 border-l">
+                    <td className="py-1.5 px-1 sticky right-0 bg-background group-hover:bg-muted/30 border-l print:hidden">
                       <div className="flex items-center gap-0.5 justify-end">
                         {l.comprovante_url && (
                           <button type="button" onClick={() => abrirComprovante(l.comprovante_url!)} title="Ver comprovante"
