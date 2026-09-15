@@ -5152,6 +5152,60 @@ export type Database = {
           },
         ]
       }
+      fin_import_arquivos: {
+        Row: {
+          arquivo_hash: string
+          arquivo_nome: string | null
+          conta_id: string
+          data_max: string | null
+          data_min: string | null
+          id: string
+          importado_em: string
+          importado_por: string | null
+          lote_tag: string
+          qtd_linhas: number
+        }
+        Insert: {
+          arquivo_hash: string
+          arquivo_nome?: string | null
+          conta_id: string
+          data_max?: string | null
+          data_min?: string | null
+          id?: string
+          importado_em?: string
+          importado_por?: string | null
+          lote_tag: string
+          qtd_linhas: number
+        }
+        Update: {
+          arquivo_hash?: string
+          arquivo_nome?: string | null
+          conta_id?: string
+          data_max?: string | null
+          data_min?: string | null
+          id?: string
+          importado_em?: string
+          importado_por?: string | null
+          lote_tag?: string
+          qtd_linhas?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_import_arquivos_conta_id_fkey"
+            columns: ["conta_id"]
+            isOneToOne: false
+            referencedRelation: "fin_contas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_import_arquivos_importado_por_fkey"
+            columns: ["importado_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fin_lancamento_rateio: {
         Row: {
           centro_custo_id: string

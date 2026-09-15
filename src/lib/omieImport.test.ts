@@ -7,7 +7,7 @@
 // o arquivo real (13/09/2026).
 import { describe, it, expect } from "vitest";
 import * as XLSX from "xlsx";
-import { parseOmieXlsx, separarCategoriaEPercentuais, ehTransferencia } from "./omieImport";
+import { parseOmieXlsx, separarCategoriaEPercentuais, ehTransferencia, calcularHashArquivo } from "./omieImport";
 
 const CABECALHO = [
   "Situação", "Data", "Cliente ou Fornecedor", "Conta Corrente", "Categoria",
@@ -149,5 +149,30 @@ describe("ehTransferencia", () => {
     expect(ehTransferencia("Saída de Transferência")).toBe(true);
     expect(ehTransferencia("Entrada de Transferência")).toBe(true);
     expect(ehTransferencia("Dizimos")).toBe(false);
+  });
+});
+
+// Trava de duplicidade (15/09/2026) — ver comentário de `calcularHashArquivo`
+// e do topo de `omieImportService.ts`.
+describe("calcularHashArquivo", () => {
+  it("gera o mesmo hash pro mesmo conteúdo", async () => {
+    const buf1 = montarXlsx([linha({ cliente: "FULANO" })]);
+    const buf2 = montarXlsx([linha({ cliente: "FULANO" })]);
+    const h1 = await calcularHashArquivo(buf1);
+    const h2 = await calcularHashArquivo(buf2);
+    expect(h1).toBe(h2);
+  });
+
+  it("gera hash diferente pra conteúdo diferente", async () => {
+    const buf1 = montarXlsx([linha({ cliente: "FULANO", valor: 100 })]);
+    const buf2 = montarXlsx([linha({ cliente: "FULANO", valor: 200 })]);
+    const h1 = await calcularHashArquivo(buf1);
+    const h2 = await calcularHashArquivo(buf2);
+    expect(h1).not.toBe(h2);
+  });
+
+  it("devolve um hex de 64 caracteres (SHA-256)", async () => {
+    const h = await calcularHashArquivo(montarXlsx([linha({})]));
+    expect(h).toMatch(/^[0-9a-f]{64}$/);
   });
 });

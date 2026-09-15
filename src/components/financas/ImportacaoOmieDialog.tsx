@@ -4,20 +4,44 @@
 // hoje só existe no Omie. Diferente de `ConciliacaoOFXDialog.tsx` — aqui
 // não existe lançamento nenhum no Diakonia ainda pra casar, então o
 // caminho é CRIAR (via `omieImportService.ts`), não conciliar.
-import { useState } from "react";
+//
+// Revisto em 15/09/2026 depois de um incidente real (2025 do Bradesco
+// importado duas vezes — ver o cabeçalho de `omieImportService.ts` pro
+// relato completo) e de um segundo pedido direto no mesmo dia. Três
+// mudanças de fundo:
+//
+//   1. A tela agora se FECHA SOZINHA ao confirmar — antes ficava aberta
+//      esperando um clique manual no X, com o formulário de arquivo pronto
+//      pra receber (e reimportar) o mesmo arquivo. "Desfazer" continua
+//      disponível, só que como botão dentro do toast de sucesso, não mais
+//      preso a esta tela.
+//   2. Três avisos ANTES de confirmar: arquivo já importado nesta conta
+//      (bloqueia — a trava de verdade é o banco, `fin_import_arquivos`),
+//      período que já tem lançamento nesta conta (avisa, não bloqueia) e
+//      linhas duplicadas dentro do PRÓPRIO arquivo (avisa, deixa incluir).
+//   3. CPF de doação sem membro correspondente agora pode virar cadastro
+//      automático — mesma ideia do fornecedor por CNPJ, com uma escolha a
+//      mais (membro ou congregado) porque doação sozinha não prova
+//      vínculo formal.
+import { useRef, useState } from "react";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import {
-  FileUp, Upload, TrendingUp, TrendingDown, AlertTriangle, Building2, Users, Undo2, Layers,
+  FileUp, Upload, TrendingUp, TrendingDown, AlertTriangle, Building2, Users, Layers, Copy, ShieldAlert,
 } from "lucide-react";
 import { brl, type FinMovimentoTipo } from "@/services/finService";
 import {
-  lerArquivoOmie, prepararImportacaoOmie, confirmarImportacaoOmie, desfazerImportacaoOmie,
-  type RascunhoOmie, type ResumoImportacaoOmie,
+  lerArquivoOmie, prepararImportacaoOmie, confirmarImportacaoOmie,
+  verificarArquivoJaImportado, verificarSobreposicaoPeriodo, desfazerImportacaoOmie,
+  type RascunhoOmie, type ResumoImportacaoOmie, type PessoaParaCriar,
 } from "@/services/omieImportService";
 
 interface Props {
@@ -32,32 +56,81 @@ function dataBr(s: string) {
   return new Date(s + "T00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
 }
 
+type EscolhaPessoa = "congregado" | "membro" | "nao";
+
 export function ImportacaoOmieDialog({ open, onOpenChange, contaId, contaNome, onSaved }: Props) {
   const [processando, setProcessando] = useState(false);
   const [rascunhos, setRascunhos] = useState<RascunhoOmie[] | null>(null);
   const [resumo, setResumo] = useState<ResumoImportacaoOmie | null>(null);
+  const [arquivoHash, setArquivoHash] = useState<string | null>(null);
+  const [arquivoNome, setArquivoNome] = useState<string | null>(null);
   const [usarSaldoInicial, setUsarSaldoInicial] = useState(true);
+  const [incluirDuplicatas, setIncluirDuplicatas] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
-  const [ultimoLote, setUltimoLote] = useState<string | null>(null);
-  const [desfazendo, setDesfazendo] = useState(false);
+
+  // Trava de arquivo já importado NESTA conta — checada assim que o
+  // arquivo é lido, antes de mostrar qualquer prévia. `null` = ainda não
+  // checou ou não achou (pode importar); preenchido = acha, bloqueia.
+  const [arquivoJaImportado, setArquivoJaImportado] = useState<{
+    lote_tag: string; qtd_linhas: number; importado_em: string;
+  } | null>(null);
+
+  // Quantos lançamentos a conta já tem no intervalo de datas do arquivo —
+  // só aviso, não impede confirmar (ver comentário do topo).
+  const [sobreposicao, setSobreposicao] = useState<number | null>(null);
+
+  // CPF → escolha da Telma (congregado é o padrão, o vínculo mais
+  // conservador pra quem só doou e não tinha cadastro nenhum).
+  const [escolhasPessoa, setEscolhasPessoa] = useState<Record<string, EscolhaPessoa>>({});
+
+  // Guarda síncrona contra clique duplo/corrida — o `disabled={confirmando}`
+  // do botão já ajuda, mas só depois do React re-renderizar; esta ref é
+  // checada ANTES de qualquer `await`, no mesmo tick do clique. Achado
+  // relevante porque foi exatamente uma corrida de clique que gerou o
+  // incidente de 2025 duplicado do Bradesco (ver cabeçalho do serviço).
+  const emVooRef = useRef(false);
 
   function reiniciar() {
     setRascunhos(null);
     setResumo(null);
-    setUltimoLote(null);
+    setArquivoHash(null);
+    setArquivoNome(null);
+    setArquivoJaImportado(null);
+    setSobreposicao(null);
+    setIncluirDuplicatas(false);
+    setEscolhasPessoa({});
   }
 
   async function processarArquivo(file: File) {
     setProcessando(true);
     try {
-      const { linhas, saldoAnterior } = await lerArquivoOmie(file);
+      const { linhas, saldoAnterior, hash, nomeArquivo } = await lerArquivoOmie(file);
       if (linhas.length === 0) {
         toast.error("Nenhum lançamento encontrado nesse arquivo.");
         return;
       }
+      setArquivoHash(hash);
+      setArquivoNome(nomeArquivo);
+
+      const jaImportado = await verificarArquivoJaImportado(contaId, hash);
+      if (jaImportado) {
+        setArquivoJaImportado(jaImportado);
+        return;
+      }
+
       const { rascunhos: r, resumo: res } = await prepararImportacaoOmie(linhas, saldoAnterior);
       setRascunhos(r);
       setResumo(res);
+
+      const escolhasIniciais: Record<string, EscolhaPessoa> = {};
+      for (const p of res.pessoasACriar) escolhasIniciais[p.cpf] = "congregado";
+      setEscolhasPessoa(escolhasIniciais);
+
+      const datas = r.map(x => x.data).sort();
+      if (datas.length > 0) {
+        const qtd = await verificarSobreposicaoPeriodo(contaId, datas[0], datas[datas.length - 1]);
+        setSobreposicao(qtd);
+      }
     } catch (e: any) {
       toast.error(e?.message ?? "Erro ao ler o arquivo");
     } finally {
@@ -66,45 +139,65 @@ export function ImportacaoOmieDialog({ open, onOpenChange, contaId, contaNome, o
   }
 
   async function confirmar() {
-    if (!rascunhos) return;
+    if (!rascunhos || emVooRef.current) return;
+    emVooRef.current = true;
     setConfirmando(true);
     try {
       // A ordem (saldo inicial antes dos lançamentos) é garantida dentro
       // de `confirmarImportacaoOmie` — ver o comentário lá.
       const saldoInicial = usarSaldoInicial ? resumo?.saldoAnterior ?? null : null;
-      const r = await confirmarImportacaoOmie(rascunhos, contaId, saldoInicial);
-      toast.success(`${r.criados} lançamento${r.criados !== 1 ? "s" : ""} importado${r.criados !== 1 ? "s" : ""}` +
-        (r.fornecedoresCriados > 0 ? ` · ${r.fornecedoresCriados} fornecedor(es) novo(s)` : ""));
-      setUltimoLote(r.loteTag);
-      setRascunhos(null);
-      setResumo(null);
+      const pessoasParaCriar: PessoaParaCriar[] = (resumo?.pessoasACriar ?? [])
+        .filter(p => escolhasPessoa[p.cpf] !== "nao")
+        .map(p => ({ ...p, tipoPessoa: (escolhasPessoa[p.cpf] as "membro" | "congregado") ?? "congregado" }));
+
+      const r = await confirmarImportacaoOmie(rascunhos, contaId, saldoInicial, {
+        arquivoHash: arquivoHash ?? undefined,
+        arquivoNome: arquivoNome ?? undefined,
+        incluirDuplicatasDoArquivo: incluirDuplicatas,
+        pessoasParaCriar,
+      });
+
+      const partes = [`${r.criados} lançamento${r.criados !== 1 ? "s" : ""} importado${r.criados !== 1 ? "s" : ""}`];
+      if (r.fornecedoresCriados > 0) partes.push(`${r.fornecedoresCriados} fornecedor(es) novo(s)`);
+      if (r.pessoasCriadas > 0) partes.push(`${r.pessoasCriadas} pessoa(s) nova(s)`);
+
+      // Fecha a tela sozinha — o "Desfazer" viaja pro toast (ação
+      // embutida do sonner), pra não precisar manter a tela aberta só por
+      // causa dele. Ver comentário do topo do arquivo.
+      onOpenChange(false);
+      reiniciar();
+      toast.success(partes.join(" · "), {
+        duration: 15000,
+        action: {
+          label: "Desfazer",
+          onClick: async () => {
+            try {
+              const n = await desfazerImportacaoOmie(r.loteTag);
+              toast.success(`${n} lançamento(s) removido(s) — importação desfeita`);
+              onSaved();
+            } catch (e: any) {
+              toast.error(e?.message ?? "Erro ao desfazer");
+            }
+          },
+        },
+      });
       onSaved();
     } catch (e: any) {
       toast.error(e?.message ?? "Erro ao importar");
     } finally {
       setConfirmando(false);
-    }
-  }
-
-  async function desfazer() {
-    if (!ultimoLote) return;
-    setDesfazendo(true);
-    try {
-      const n = await desfazerImportacaoOmie(ultimoLote);
-      toast.success(`${n} lançamento(s) removido(s) — importação desfeita`);
-      setUltimoLote(null);
-      onSaved();
-    } catch (e: any) {
-      toast.error(e?.message ?? "Erro ao desfazer");
-    } finally {
-      setDesfazendo(false);
+      emVooRef.current = false;
     }
   }
 
   const amostra = rascunhos?.slice(0, 50) ?? [];
+  const qtdValidas = rascunhos
+    ? (incluirDuplicatas ? rascunhos.length : rascunhos.filter(r => !r.duplicataDeOutraLinha).length)
+    : 0;
+  const travado = confirmando || processando;
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) reiniciar(); }}>
+    <Dialog open={open} onOpenChange={(v) => { if (travado) return; onOpenChange(v); if (!v) reiniciar(); }}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-serif text-xl flex items-center gap-2">
@@ -117,22 +210,29 @@ export function ImportacaoOmieDialog({ open, onOpenChange, contaId, contaNome, o
           </DialogDescription>
         </DialogHeader>
 
-        {ultimoLote && (
-          <div className="rounded-md border border-success-line bg-success-soft/30 p-3 flex items-center justify-between gap-3">
-            <p className="text-sm text-success-text">Importação concluída.</p>
-            <Button type="button" size="sm" variant="outline" className="gap-1.5" onClick={desfazer} disabled={desfazendo}>
-              <Undo2 className="w-3.5 h-3.5" /> {desfazendo ? "..." : "Desfazer esta importação"}
-            </Button>
+        {arquivoJaImportado && (
+          <div className="rounded-md border border-destructive-line bg-destructive-soft/30 p-3 space-y-1.5">
+            <p className="text-sm font-medium text-destructive-text flex items-center gap-1.5">
+              <ShieldAlert className="w-4 h-4" /> Este arquivo já foi importado em {contaNome}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Em {new Date(arquivoJaImportado.importado_em).toLocaleString("pt-BR")}, trazendo{" "}
+              {arquivoJaImportado.qtd_linhas} lançamento(s). Importar de novo duplicaria tudo — se o
+              arquivo mudou desde então, exporte de novo do Omie; se o problema foi na importação
+              anterior, desfaça-a primeiro (toast de "Desfazer" logo depois de importar, ou apague o
+              lote <code className="text-[11px]">{arquivoJaImportado.lote_tag}</code> manualmente).
+            </p>
+            <Button type="button" variant="ghost" size="sm" onClick={reiniciar}>Escolher outro arquivo</Button>
           </div>
         )}
 
-        {!rascunhos && !ultimoLote && (
+        {!rascunhos && !arquivoJaImportado && (
           processando ? (
             <p className="text-sm text-center text-muted-foreground py-6">Lendo a planilha...</p>
           ) : (
             <label className="cursor-pointer block">
               <input type="file" accept=".xlsx" className="hidden"
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) processarArquivo(f); }} />
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) processarArquivo(f); e.target.value = ""; }} />
               <div className="flex flex-col items-center gap-2 border-2 border-dashed rounded-md p-8 hover:border-gold/40">
                 <FileUp className="w-6 h-6 text-muted-foreground" />
                 <span className="text-sm">Selecionar planilha (.xlsx) do Omie</span>
@@ -180,6 +280,36 @@ export function ImportacaoOmieDialog({ open, onOpenChange, contaId, contaNome, o
               )}
             </div>
 
+            {sobreposicao != null && sobreposicao > 0 && (
+              <div className="rounded-md border border-warning-line bg-warning-soft/30 p-3">
+                <p className="text-sm font-medium text-warning-text flex items-center gap-1.5">
+                  <AlertTriangle className="w-4 h-4" /> {contaNome} já tem {sobreposicao} lançamento(s) no período deste arquivo
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Confira se este arquivo não é uma reimportação de um período já trazido antes —
+                  se for de propósito (corrigindo um pedaço), pode seguir.
+                </p>
+              </div>
+            )}
+
+            {resumo.duplicatasNoArquivo > 0 && (
+              <div className="rounded-md border border-warning-line bg-warning-soft/30 p-3 space-y-2">
+                <p className="text-sm font-medium text-warning-text flex items-center gap-1.5">
+                  <Copy className="w-4 h-4" /> {resumo.duplicatasNoArquivo} linha(s) idêntica(s) a outra linha deste MESMO arquivo
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Mesma data, valor, categoria, descrição e documento de outra linha já contada —
+                  pode ser o Omie exportando a linha em dobro, ou dois pagamentos iguais de
+                  verdade no mesmo dia (ex.: duas tarifas bancárias idênticas). Por padrão essas
+                  {" "}{resumo.duplicatasNoArquivo} ficam de fora da importação.
+                </p>
+                <label className="flex items-center gap-2 text-xs cursor-pointer">
+                  <Checkbox checked={incluirDuplicatas} onCheckedChange={(v) => setIncluirDuplicatas(v === true)} />
+                  Incluir mesmo assim (confirmei que são pagamentos diferentes)
+                </label>
+              </div>
+            )}
+
             {resumo.categoriasNaoEncontradas.length > 0 && (
               <div className="rounded-md border border-warning-line bg-warning-soft/30 p-3">
                 <p className="text-sm font-medium text-warning-text flex items-center gap-1.5">
@@ -204,6 +334,34 @@ export function ImportacaoOmieDialog({ open, onOpenChange, contaId, contaNome, o
               </div>
             )}
 
+            {resumo.pessoasACriar.length > 0 && (
+              <div className="rounded-md border border-info-line bg-info-soft/20 p-3 space-y-2">
+                <p className="text-sm font-medium text-info-text flex items-center gap-1.5">
+                  <Users className="w-4 h-4" /> {resumo.pessoasACriar.length} pessoa(s) deram entrada sem cadastro no Diakonia
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  CPF sem membro correspondente. Escolha o vínculo de cada uma (ou "Não cadastrar"
+                  pra deixar a doação sem pessoa vinculada, como era antes):
+                </p>
+                <div className="space-y-1 max-h-40 overflow-y-auto">
+                  {resumo.pessoasACriar.map(p => (
+                    <div key={p.cpf} className="flex items-center justify-between gap-2 text-xs border-b border-border/30 py-1 last:border-0">
+                      <span className="flex-1 min-w-0 truncate">{p.nome}</span>
+                      <Select value={escolhasPessoa[p.cpf] ?? "congregado"}
+                        onValueChange={(v) => setEscolhasPessoa(prev => ({ ...prev, [p.cpf]: v as EscolhaPessoa }))}>
+                        <SelectTrigger className="h-7 w-36 text-xs shrink-0"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="congregado">Congregado</SelectItem>
+                          <SelectItem value="membro">Membro</SelectItem>
+                          <SelectItem value="nao">Não cadastrar</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {resumo.saldoAnterior != null && (
               <label className="flex items-center gap-2 text-xs cursor-pointer border rounded-md p-2 bg-muted/20">
                 <input type="checkbox" checked={usarSaldoInicial} onChange={(e) => setUsarSaldoInicial(e.target.checked)} />
@@ -213,12 +371,15 @@ export function ImportacaoOmieDialog({ open, onOpenChange, contaId, contaNome, o
 
             <div className="space-y-1 max-h-64 overflow-y-auto border rounded-md p-2">
               {amostra.map((r, i) => (
-                <div key={i} className="flex items-center justify-between gap-2 text-xs border-b border-border/30 py-1 last:border-0">
+                <div key={i} className={`flex items-center justify-between gap-2 text-xs border-b border-border/30 py-1 last:border-0 ${r.duplicataDeOutraLinha ? "opacity-40" : ""}`}>
                   <span className="text-muted-foreground shrink-0">{dataBr(r.data)}</span>
                   <span className="flex-1 min-w-0 truncate">{r.descricao}</span>
                   <span className="text-muted-foreground shrink-0">{r.categoriaNome ?? r.categoriaBruta}</span>
                   {r.centroCustoNome && (
                     <span className="text-muted-foreground shrink-0 hidden sm:inline">· {r.centroCustoNome}</span>
+                  )}
+                  {r.duplicataDeOutraLinha && (
+                    <Badge variant="outline" className="shrink-0 text-[10px] px-1 py-0 border-warning-line text-warning-text">duplicata</Badge>
                   )}
                   <span className={`tabular-nums shrink-0 ${r.tipo === "entrada" ? "text-success-text" : "text-destructive-text"}`}>
                     {r.tipo === "entrada" ? "+" : "−"} {brl(r.valor)}
@@ -232,18 +393,18 @@ export function ImportacaoOmieDialog({ open, onOpenChange, contaId, contaNome, o
               )}
             </div>
 
-            <Button type="button" variant="ghost" size="sm" onClick={reiniciar}>Trocar arquivo</Button>
+            <Button type="button" variant="ghost" size="sm" onClick={reiniciar} disabled={travado}>Trocar arquivo</Button>
           </div>
         )}
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={confirmando}>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={travado}>
             Fechar
           </Button>
           {rascunhos && (
             <Button type="button" onClick={confirmar} disabled={confirmando}
               className="bg-gold hover:bg-gold/90 text-white gap-1.5">
-              <Upload className="w-3.5 h-3.5" /> {confirmando ? "Importando..." : `Importar ${rascunhos.length} lançamento(s)`}
+              <Upload className="w-3.5 h-3.5" /> {confirmando ? "Importando..." : `Importar ${qtdValidas} lançamento(s)`}
             </Button>
           )}
         </DialogFooter>

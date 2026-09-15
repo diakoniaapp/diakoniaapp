@@ -176,3 +176,18 @@ export function separarCategoriaEPercentuais(categoriaBruta: string, valorTotal:
 export function ehTransferencia(categoria: string): boolean {
   return categoria === "Saída de Transferência" || categoria === "Entrada de Transferência";
 }
+
+// ─── Trava de duplicidade (15/09/2026) ────────────────────────────────────
+//
+// Achado real: o histórico de 2025 do Bradesco foi importado DUAS VEZES —
+// dois lotes idênticos, 24 segundos de diferença. `calcularHashArquivo`
+// gera a impressão digital do arquivo (SHA-256 dos bytes crus, Web Crypto
+// — nenhuma lib nova) que `confirmarImportacaoOmie` grava em
+// `fin_import_arquivos` ANTES de inserir qualquer lançamento; a coluna
+// `unique (conta_id, arquivo_hash)` faz o próprio banco recusar uma
+// segunda tentativa do MESMO arquivo na MESMA conta, mesmo numa corrida
+// de clique duplo que a tela não pegou a tempo.
+export async function calcularHashArquivo(buffer: ArrayBuffer): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", buffer);
+  return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
