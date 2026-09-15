@@ -66,6 +66,7 @@
 // ainda escolhe, nunca é automático sem tela.
 import { supabase } from "@/integrations/supabase/client";
 import { conferir } from "@/lib/escritaConferida";
+import { hojeLocal } from "@/lib/data";
 import { encontrarCandidatoPorNome, type CandidatoNome } from "@/lib/fuzzyNome";
 import {
   listarCategoriasTodas, listarCentrosCusto, atualizarConta,
@@ -541,6 +542,18 @@ export async function confirmarImportacaoOmie(
     fornecedoresCriados = data?.length ?? 0;
   }
 
+  // Data de HOJE em diante nunca pode ser "conciliado": conciliação é o
+  // banco confirmando que o dinheiro já se moveu, e o dia de hoje ainda
+  // não fechou — nada datado hoje foi conciliado ainda, só a partir de
+  // ontem pra trás é que já é passado de verdade. Achado ao vivo pela
+  // Telma (15/09/2026): a importação de setembro/2026 trouxe 138 contas A
+  // PAGAR (previsão, ainda não pagas) já como "conciliado", porque esta
+  // função gravava esse status pra TODA linha sem olhar a data — primeira
+  // correção usava `data > hoje`, mas a Telma corrigiu: o corte é "depois
+  // de ONTEM", ou seja, hoje já entra como previsto (`data >= hoje`).
+  // `hojeLocal()`, não `new Date().toISOString()` — ver o comentário de
+  // `lib/data.ts` sobre o fuso virando o dia sozinho.
+  const hoje = hojeLocal();
   const linhas = linhasValidas.map(r => {
     const fornecedorId = r.fornecedorId ?? (r.cpfCnpj ? cacheFornecedor.get(r.cpfCnpj) ?? null : null);
     const pessoaId = r.pessoaId ?? (r.cpfNaoEncontrado ? cachePessoaCpf.get(r.cpfNaoEncontrado) ?? null : null);
@@ -548,7 +561,7 @@ export async function confirmarImportacaoOmie(
     return {
       data: r.data,
       tipo: r.tipo,
-      status: "conciliado" as const,
+      status: r.data >= hoje ? "previsto" as const : "conciliado" as const,
       conta_id: contaId,
       categoria_id: r.categoriaId,
       centro_custo_id: r.centroCustoId,
