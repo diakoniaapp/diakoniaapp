@@ -717,9 +717,14 @@ export function LancamentoForm({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label>Nº documento (NF/recibo)</Label>
+              <Label className="flex items-center gap-1.5">
+                Nº documento (NF/recibo)
+                {descricaoTravada && <Lock className="w-3 h-3 text-info-text" />}
+              </Label>
               <Input value={documentoNumero} onChange={(e) => setDocumentoNumero(e.target.value)}
-                placeholder="Opcional" />
+                placeholder="Opcional"
+                readOnly={descricaoTravada}
+                className={descricaoTravada ? "bg-muted/40 cursor-default" : undefined} />
             </div>
             <div>
               <Label>Fornecedor/recebedor</Label>
