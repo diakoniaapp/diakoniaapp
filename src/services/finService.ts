@@ -407,12 +407,20 @@ export interface FiltroLancamento {
   dataInicio?: string;
   dataFim?: string;
   busca?: string;
+  // Pedido da Telma em 15/09/2026: filtrar o extrato só pelas pernas de
+  // transferência entre contas próprias (`origem === "transferencia"`,
+  // gravadas por `criarTransferencia` — ver comentário de
+  // `lancamentosRealizadosSemTransferencia`). Não é um valor de `tipo`
+  // (transferência tem uma perna `entrada` e outra `saida`), por isso é
+  // um filtro à parte, mutuamente exclusivo com `tipo` na tela.
+  apenasTransferencia?: boolean;
 }
 
 export async function listarLancamentos(filtro: FiltroLancamento = {}): Promise<FinLancamentoExtenso[]> {
   let q = supabase.from("fin_lancamentos").select("*").order("data", { ascending: false }).order("created_at", { ascending: false });
   if (filtro.contaId) q = q.eq("conta_id", filtro.contaId);
   if (filtro.tipo) q = q.eq("tipo", filtro.tipo);
+  if (filtro.apenasTransferencia) q = q.eq("origem", "transferencia");
   if (filtro.status) q = q.eq("status", filtro.status);
   if (filtro.categoriaId) q = q.eq("categoria_id", filtro.categoriaId);
   if (filtro.centroCustoId) q = q.eq("centro_custo_id", filtro.centroCustoId);

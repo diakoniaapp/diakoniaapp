@@ -58,7 +58,11 @@ export default function FinancasConta() {
   const [conta, setConta] = useState<FinConta | null>(null);
   const [lancamentos, setLancamentos] = useState<FinLancamentoExtenso[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filtroTipo, setFiltroTipo] = useState<FinMovimentoTipo | "todos">("todos");
+  // "transferencia" não é um `FinMovimentoTipo` (transferência grava uma
+  // perna entrada e outra saída) — pedido da Telma em 15/09/2026 pra
+  // filtrar só essas pernas, então o Select trata como uma 4ª opção que
+  // vira `apenasTransferencia` em `listarLancamentos`, não `tipo`.
+  const [filtroTipo, setFiltroTipo] = useState<FinMovimentoTipo | "transferencia" | "todos">("todos");
   const [busca, setBusca] = useState("");
   const [novoOpen, setNovoOpen] = useState(false);
   const [editando, setEditando] = useState<FinLancamentoExtenso | null>(null);
@@ -102,7 +106,8 @@ export default function FinancasConta() {
         carregarConta(contaId),
         listarLancamentos({
           contaId,
-          tipo: filtroTipo !== "todos" ? filtroTipo : undefined,
+          tipo: filtroTipo !== "todos" && filtroTipo !== "transferencia" ? filtroTipo : undefined,
+          apenasTransferencia: filtroTipo === "transferencia" ? true : undefined,
           dataInicio, dataFim,
           busca: busca.length >= 2 ? busca : undefined,
         }),
@@ -269,6 +274,7 @@ export default function FinancasConta() {
                 <SelectItem value="todos">Todos</SelectItem>
                 <SelectItem value="entrada">Entradas</SelectItem>
                 <SelectItem value="saida">Saídas</SelectItem>
+                <SelectItem value="transferencia">Transferências</SelectItem>
               </SelectContent>
             </Select>
           </div>
