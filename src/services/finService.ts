@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { hojeLocal, daquiAMeses } from "@/lib/data";
 import { conferir } from "@/lib/escritaConferida";
+import type { ItemNota } from "@/services/ocrService";
 
 // ─── Tipos ───────────────────────────────────────────────────────────────
 export type FinContaTipo = "caixa" | "banco" | "pix" | "envelope" | "cartao" | "aplicacao" | "cofre";
@@ -154,6 +155,22 @@ export interface FinFornecedor {
   updated_at: string;
 }
 
+// Fase 3 (15/09/2026): "quero que exista um campo de descrição, com os
+// itens da nota... não permitir edição, para ser fiel ao documento". Este
+// tipo é a leitura ESTRUTURADA guardada em `nf_dados_extraidos`, separada
+// do `descricao` livre que a tesouraria pode editar — sobrevive mesmo se
+// a descrição, categoria ou centro de custo forem ajustados depois.
+// Calibrado com notas reais da tesouraria — ver comentário de
+// `extrairItensDaNota` em `ocrService.ts`. Só gravado quando a leitura
+// veio de texto exato do PDF (nunca OCR aproximado).
+export interface NfDadosExtraidos {
+  fonte: "pdf_texto";
+  fornecedorNome: string | null;
+  fornecedorCnpj: string | null;
+  numeroDocumento: string | null;
+  itens: ItemNota[];
+}
+
 export interface FinLancamento {
   id: string;
   data: string;
@@ -173,6 +190,7 @@ export interface FinLancamento {
   observacoes: string | null;
   comprovante_url: string | null;
   data_pagamento: string | null;
+  nf_dados_extraidos: NfDadosExtraidos | null;
   origem: string;
   created_at?: string;
   /** Quem mexeu por último e quando — carimbado em toda escrita que
@@ -437,7 +455,7 @@ export async function listarLancamentos(filtro: FiltroLancamento = {}): Promise<
   if (filtro.busca && filtro.busca.length >= 2) q = q.ilike("descricao", `%${filtro.busca}%`);
   const { data, error } = await q.limit(300);
   if (error) throw error;
-  const lancs = (data ?? []) as FinLancamento[];
+  const lancs = (data ?? []) as unknown as FinLancamento[];
   if (lancs.length === 0) return [];
 
   // Join manual com nomes (mais rápido + à prova de fk)
@@ -507,7 +525,7 @@ export async function criarLancamento(input: Partial<FinLancamento>): Promise<Fi
   const payload = { ...input, audit_user_id: userId ?? null, audit_em: new Date().toISOString() };
   const { data, error } = await supabase.from("fin_lancamentos").insert(payload as any).select("*").single();
   if (error) throw error;
-  return data as FinLancamento;
+  return data as unknown as FinLancamento;
 }
 
 export async function atualizarLancamento(id: string, patch: Partial<FinLancamento>): Promise<void> {

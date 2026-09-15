@@ -5294,6 +5294,7 @@ export type Database = {
           fornecedor_id: string | null
           id: string
           lancamento_pai_id: string | null
+          nf_dados_extraidos: Json | null
           observacoes: string | null
           origem: string | null
           pessoa_id: string | null
@@ -5323,6 +5324,7 @@ export type Database = {
           fornecedor_id?: string | null
           id?: string
           lancamento_pai_id?: string | null
+          nf_dados_extraidos?: Json | null
           observacoes?: string | null
           origem?: string | null
           pessoa_id?: string | null
@@ -5352,6 +5354,7 @@ export type Database = {
           fornecedor_id?: string | null
           id?: string
           lancamento_pai_id?: string | null
+          nf_dados_extraidos?: Json | null
           observacoes?: string | null
           origem?: string | null
           pessoa_id?: string | null

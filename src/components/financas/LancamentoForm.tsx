@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import {
   TrendingUp, TrendingDown, Camera, FileUp, X, Paperclip, Sparkles, Loader2,
-  SplitSquareHorizontal, Plus, Trash2,
+  SplitSquareHorizontal, Plus, Trash2, Lock, Unlock,
 } from "lucide-react";
 import {
   listarContas, listarCategorias, listarCentrosCusto, listarFornecedores,
@@ -24,9 +24,10 @@ import {
   FORMA_LABEL, STATUS_LABEL,
   type FinConta, type FinCategoria, type FinCentroCusto, type FinFornecedor,
   type FinLancamento, type FinMovimentoTipo, type FinFormaPagamento, type FinStatus,
+  type NfDadosExtraidos,
   FIN_COMPROVANTE_MAX,
 } from "@/services/finService";
-import { extrairDadosDoComprovante, type OcrResultado } from "@/services/ocrService";
+import { extrairDadosDoComprovante, type OcrResultado, type ItemNota } from "@/services/ocrService";
 import { decodificarBoleto, type BoletoDecodificado } from "@/lib/boleto";
 // Carregado sob demanda — ZXing (leitor de câmera) pesa ~460kB no pacote
 // principal, e a maioria das aberturas deste formulário nunca clica em
@@ -99,6 +100,16 @@ export function LancamentoForm({
   const [forma, setForma] = useState<FinFormaPagamento | "">("");
   const [status, setStatus] = useState<FinStatus>("realizado");
   const [descricao, setDescricao] = useState("");
+  // Fase 3 (15/09/2026), pedido da Telma: "quero que exista um campo de
+  // descrição, com os itens da nota... não permitir edição, para ser
+  // fiel ao documento". Só trava quando a leitura vem de texto EXATO do
+  // PDF (nunca OCR aproximado — ver `NfDadosExtraidos` em finService.ts)
+  // e o formato foi reconhecido (itens não vazios). `descricaoTravada`
+  // controla só a EDIÇÃO do campo; `nfItens` é o que aparece na lista
+  // read-only logo abaixo, e o que persiste em `nf_dados_extraidos`.
+  const [nfItens, setNfItens] = useState<ItemNota[]>([]);
+  const [descricaoTravada, setDescricaoTravada] = useState(false);
+  const [nfFornecedorLido, setNfFornecedorLido] = useState<{ nome: string | null; cnpj: string | null } | null>(null);
   const [documentoNumero, setDocumentoNumero] = useState("");
   const [observacoes, setObservacoes] = useState("");
   const [busy, setBusy] = useState(false);
@@ -209,6 +220,19 @@ export function LancamentoForm({
       setDescricao(lancamento.descricao ?? "");
       setDocumentoNumero(lancamento.documento_numero ?? "");
       setObservacoes(lancamento.observacoes ?? "");
+      // Reabrir um lançamento que nasceu de uma nota lida mantém a trava e
+      // a lista de itens — é o registro fiel ao documento, não algo que
+      // se perde ao só abrir pra olhar.
+      if (lancamento.nf_dados_extraidos) {
+        setNfItens(lancamento.nf_dados_extraidos.itens ?? []);
+        setNfFornecedorLido({
+          nome: lancamento.nf_dados_extraidos.fornecedorNome,
+          cnpj: lancamento.nf_dados_extraidos.fornecedorCnpj,
+        });
+        setDescricaoTravada((lancamento.nf_dados_extraidos.itens ?? []).length > 0);
+      } else {
+        setNfItens([]); setNfFornecedorLido(null); setDescricaoTravada(false);
+      }
       // Carrega o rateio existente, se houver — um lançamento editado que
       // já foi rateado antes precisa abrir mostrando a divisão, não um
       // centro só (perderia a informação ao salvar de novo sem querer).
@@ -230,6 +254,7 @@ export function LancamentoForm({
       setForma(rascunho?.forma ?? ""); setStatus("realizado");
       setDescricao(rascunho?.descricao ?? ""); setDocumentoNumero(""); setObservacoes("");
       setRateando(false); setRateio([]);
+      setNfItens([]); setNfFornecedorLido(null); setDescricaoTravada(false);
     }
     setArquivo(null);
     setPreviewUrl(null);
@@ -263,8 +288,11 @@ export function LancamentoForm({
     setArquivo(file);
     setOcr(null);
     setFornecedorOcrSugerido(null);
+    setNfItens([]); setNfFornecedorLido(null); setDescricaoTravada(false);
 
-    // Roda OCR em imagens e PDFs (PDFs são convertidos pra imagem internamente)
+    // Lê imagens e PDFs. PDF tenta texto exato primeiro (sem OCR nenhum —
+    // ver `textoDoPdf` em ocrService.ts); só rasteriza e roda Tesseract
+    // quando não há camada de texto aproveitável (documento escaneado).
     const ehPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
     if (file.type.startsWith("image/") || ehPdf) {
       setOcrLoading(true);
@@ -307,11 +335,33 @@ export function LancamentoForm({
       setFornecedorBusca(ocr.razaoSocial);
     }
 
-    if (!descricao && ocr.razaoSocial) {
+    // Itens da nota (Fase 3, 15/09/2026) — só quando a leitura veio de
+    // texto exato do PDF (nunca OCR de foto/escaneado, que erra dígito) E
+    // o formato foi reconhecido (itens não vazio — ver `extrairItensDaNota`
+    // em ocrService.ts). A descrição vira a lista de itens, travada: pedido
+    // explícito da Telma era "não permitir edição, pra ser fiel ao
+    // documento". `descartarLeituraDeItens` (botão logo abaixo do campo)
+    // destrava se o arquivo errado foi anexado.
+    if (ocr.fonte === "pdf_texto" && ocr.itens.length > 0) {
+      setDescricao(ocr.itens.map(i => `${i.descricao} (${i.quantidade} ${i.unidade})`).join("; "));
+      setNfItens(ocr.itens);
+      setNfFornecedorLido({ nome: ocr.razaoSocial, cnpj: ocr.cnpjFormatado });
+      setDescricaoTravada(true);
+    } else if (!descricao && ocr.razaoSocial) {
       setDescricao(ocr.razaoSocial);
     }
 
     toast.success("Dados aplicados ao formulário");
+  }
+
+  /** "Não é essa nota" / arquivo errado anexado — destrava a descrição pra
+      edição livre e descarta a lista de itens (não faz sentido mostrar
+      "lido da nota" de um documento que a pessoa acabou de dizer que não
+      é o certo). O texto que já estava no campo continua lá, só editável. */
+  function descartarLeituraDeItens() {
+    setDescricaoTravada(false);
+    setNfItens([]);
+    setNfFornecedorLido(null);
   }
 
   async function salvarFornecedorDoOcr() {
@@ -365,6 +415,20 @@ export function LancamentoForm({
         ? rateio.slice().sort((a, b) => b.percentual - a.percentual)[0]?.centroCustoId ?? null
         : (centroCustoId || null);
 
+      // Só grava a leitura estruturada da nota quando ainda está travada
+      // (confirmada como fiel ao documento) — se a pessoa clicou "não é
+      // essa nota", `nfItens` já foi limpo por `descartarLeituraDeItens`
+      // e isto vira `null` sozinho, sem precisar de um caso especial aqui.
+      const nfDadosExtraidos: NfDadosExtraidos | null = descricaoTravada && nfItens.length > 0
+        ? {
+            fonte: "pdf_texto",
+            fornecedorNome: nfFornecedorLido?.nome ?? null,
+            fornecedorCnpj: nfFornecedorLido?.cnpj ?? null,
+            numeroDocumento: documentoNumero.trim() || null,
+            itens: nfItens,
+          }
+        : null;
+
       const payload: any = {
         tipo, data, valor, conta_id: contaIdEfetivo,
         categoria_id: categoriaId || null,
@@ -376,6 +440,7 @@ export function LancamentoForm({
         documento_numero: documentoNumero.trim() || null,
         observacoes: observacoes.trim() || null,
         comprovante_url: comprovantePath,
+        nf_dados_extraidos: nfDadosExtraidos,
       };
 
       let lancamentoId: string;
@@ -590,9 +655,39 @@ export function LancamentoForm({
           )}
 
           <div>
-            <Label>Descrição</Label>
+            <Label className="flex items-center gap-1.5">
+              Descrição
+              {descricaoTravada && (
+                <span className="inline-flex items-center gap-1 text-xs font-normal text-info-text">
+                  <Lock className="w-3 h-3" /> lido da nota — fiel ao documento
+                </span>
+              )}
+            </Label>
             <Input value={descricao} onChange={(e) => setDescricao(e.target.value)}
-              placeholder="Ex: Aluguel do mês de junho" />
+              placeholder="Ex: Aluguel do mês de junho"
+              readOnly={descricaoTravada}
+              className={descricaoTravada ? "bg-muted/40 cursor-default" : undefined} />
+            {descricaoTravada && (
+              <button type="button" onClick={descartarLeituraDeItens}
+                className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground underline decoration-dotted">
+                <Unlock className="w-3 h-3" /> Não é essa nota / anexei o arquivo errado — destravar
+              </button>
+            )}
+            {nfItens.length > 0 && (
+              <div className="mt-1.5 rounded-md border bg-muted/20 p-2 text-xs space-y-1">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                  Itens da nota{nfFornecedorLido?.nome ? ` — ${nfFornecedorLido.nome}` : ""}
+                </p>
+                {nfItens.map((it, i) => (
+                  <div key={i} className="flex items-start justify-between gap-2">
+                    <span className="min-w-0 truncate">
+                      {it.descricao} <span className="text-muted-foreground">× {it.quantidade} {it.unidade}</span>
+                    </span>
+                    <span className="tabular-nums shrink-0">{brl(it.valorTotal)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
