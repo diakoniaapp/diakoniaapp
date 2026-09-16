@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  listarLancamentos, comprovanteSignedUrl, brl,
+  listarLancamentosSemTeto, comprovanteSignedUrl, brl,
   type FinLancamentoExtenso,
 } from "@/services/finService";
 import { supabase } from "@/integrations/supabase/client";
@@ -44,7 +44,14 @@ export default function FinancasCentroDetalhe() {
         .eq("id", centroId).maybeSingle();
       setCentro(c as any);
 
-      const ls = await listarLancamentos({ centroCustoId: centroId });
+      // Sem data — histórico do centro inteiro. `listarLancamentos` (teto
+      // de 300) até 16/09/2026: "Total gasto"/"Total recebido" viria
+      // errado assim que um centro de custo passasse de 300 lançamentos —
+      // mesmo bug achado e corrigido em `gerarPrestacaoContas`. Nenhum
+      // centro chega lá hoje (medido: máx. ~250), mas é preventivo — a
+      // classificação por centro de custo está crescendo (ver Administração
+      // e seus 5 subgrupos contábeis).
+      const ls = await listarLancamentosSemTeto({ centroCustoId: centroId });
       setLancs(ls);
     } catch (e: any) { toast.error(e?.message ?? "Erro"); }
     finally { setLoading(false); }

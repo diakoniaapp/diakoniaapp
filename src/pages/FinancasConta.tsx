@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  carregarConta, listarLancamentos, excluirLancamento, brl,
+  carregarConta, listarLancamentosSemTeto, excluirLancamento, brl,
   comprovanteSignedUrl, CONTA_TIPO_LABEL,
   conciliarLancamento, desconciliarLancamento, conciliarEmLote,
   type FinConta, type FinLancamentoExtenso, type FinMovimentoTipo, type FinStatus,
@@ -106,7 +106,14 @@ export default function FinancasConta() {
     try {
       const [c, ls, saldoAntes] = await Promise.all([
         carregarConta(contaId),
-        listarLancamentos({
+        // `listarLancamentos` (teto de 300) até 16/09/2026: os cartões
+        // "Entradas"/"Saídas"/"Movimento do período" somam em memória a
+        // partir desta mesma lista — um período largo (ou "todas as
+        // contas" não, mas uma conta corrida de anos) já passa de 300 e os
+        // cartões ficariam contando só os lançamentos mais recentes, não o
+        // período inteiro. Mesmo bug achado e corrigido em
+        // `gerarPrestacaoContas`.
+        listarLancamentosSemTeto({
           contaId,
           tipo: filtroTipo !== "todos" && filtroTipo !== "transferencia" ? filtroTipo : undefined,
           apenasTransferencia: filtroTipo === "transferencia" ? true : undefined,
@@ -559,7 +566,7 @@ export default function FinancasConta() {
       </Card>
 
       <p className="text-xs text-muted-foreground text-right print:hidden">
-        {lancamentos.length} lançamento{lancamentos.length === 1 ? "" : "s"} no período · até 300 mais recentes
+        {lancamentos.length} lançamento{lancamentos.length === 1 ? "" : "s"} no período
       </p>
 
       {/* Dialogs */}

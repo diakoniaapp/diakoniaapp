@@ -21,7 +21,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  buscarFornecedor, atualizarFornecedor, listarLancamentos, listarRecorrencias,
+  buscarFornecedor, atualizarFornecedor, listarLancamentosSemTeto, listarRecorrencias,
   comprovanteSignedUrl, brl, FREQUENCIA_LABEL,
   type FinFornecedor, type FinLancamentoExtenso, type FinRecorrencia,
 } from "@/services/finService";
@@ -50,7 +50,12 @@ export default function FinancasFornecedorDetalhe() {
     try {
       const [f, ls, recs] = await Promise.all([
         buscarFornecedor(id),
-        listarLancamentos({ fornecedorId: id }),
+        // Sem data — histórico do fornecedor inteiro, desde sempre.
+        // `listarLancamentos` (teto de 300) até 16/09/2026: "BANCO
+        // BRADESCO S.A. 237" já tem 958 lançamentos reais em produção —
+        // "Total pago" ficava contando só os ~300 mais recentes. Mesmo
+        // bug achado e corrigido em `gerarPrestacaoContas`.
+        listarLancamentosSemTeto({ fornecedorId: id }),
         listarRecorrencias(true),
       ]);
       setFornecedor(f);

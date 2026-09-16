@@ -18,7 +18,7 @@ import {
 import { toast } from "sonner";
 import { PaginaSkeleton } from "@/components/ListState";
 import {
-  listarProximosVencimentos, confirmarPagamento, listarLancamentos,
+  listarProximosVencimentos, confirmarPagamento, listarLancamentosSemTeto,
   aprovarLancamento, rejeitarLancamento, brl,
   type FinVencimento, type FinLancamentoExtenso,
 } from "@/services/finService";
@@ -62,7 +62,10 @@ export default function FinancasAgenda() {
           ateData: ate30,
           tipo: filtroTipo !== "todos" ? filtroTipo : undefined,
         }),
-        listarLancamentos({ status: "aguardando_aprovacao" }),
+        // Sem data — a fila de aprovação não "expira" com o tempo (mesmo
+        // motivo de painelTesourariaService.ts). `listarLancamentosSemTeto`
+        // pra não perder pendência antiga do teto de 300 se o backlog crescer.
+        listarLancamentosSemTeto({ status: "aguardando_aprovacao" }),
       ]);
       setVencimentos(venc);
       setAguardandoAprovacao(pend);

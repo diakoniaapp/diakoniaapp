@@ -30,7 +30,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { hojeMaisDias, hojeLocal, daquiADias, toYmd } from "@/lib/data";
 import {
-  listarLancamentos, listarProximosVencimentos, alertasCentros,
+  listarLancamentos, listarLancamentosSemTeto, listarProximosVencimentos, alertasCentros,
   anomaliasMes, alertasFinanceiros, listarContas, brl,
   type FinLancamentoExtenso, type FinVencimento, type FinAlertaCentro,
   type FinAnomalia, type FinAlertaFinanceiro,
@@ -165,8 +165,13 @@ export async function listarFechamentosPendentes(): Promise<PendenciaFechamento[
 export async function listarPendencias(): Promise<ItemPendencia[]> {
   const [aguardando, realizadosRecentes, contas, fechamentosPendentes] = await Promise.all([
     // Sem `dataInicio`: aprovação parada é decisão em aberto, e fica mais
-    // urgente com o tempo — não menos. Não faz sentido ela "expirar" da lista.
-    listarLancamentos({ status: "aguardando_aprovacao" }),
+    // urgente com o tempo — não menos. Não faz sentido ela "expirar" da
+    // lista — por isso é `listarLancamentosSemTeto`, não `listarLancamentos`
+    // (teto de 300): um backlog grande faria a aprovação MAIS antiga (a
+    // mais urgente) ser exatamente a que some da tela, ao contrário do que
+    // o comentário acima pede. Zero pendências hoje, mas é o mesmo bug de
+    // `gerarPrestacaoContas` se um dia crescer.
+    listarLancamentosSemTeto({ status: "aguardando_aprovacao" }),
     listarLancamentos({ status: "realizado", dataInicio: hojeMaisDias(-DIAS_JANELA_COMPROVANTE) }),
     listarContas(),
     listarFechamentosPendentes(),

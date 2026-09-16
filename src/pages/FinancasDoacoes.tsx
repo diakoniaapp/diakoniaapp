@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  listarLancamentos, listarRecorrencias, brl,
+  listarLancamentosSemTeto, listarRecorrencias, brl,
   FORMA_LABEL, FREQUENCIA_LABEL, lancamentosRealizadosSemTransferencia,
   type FinLancamentoExtenso, type FinRecorrencia, type FinFormaPagamento,
 } from "@/services/finService";
@@ -70,8 +70,14 @@ export default function FinancasDoacoes() {
     try {
       const ini = `${ano}-${String(mes).padStart(2, "0")}-01`;
       const fim = new Date(ano, mes, 0).toISOString().slice(0, 10); // último dia do mês
+      // `listarLancamentos` (teto de 300) até 16/09/2026: medido em
+      // produção, pelo menos 6 meses reais (dez/2024, abr/jun/ago/dez de
+      // 2025, jun/2026) já passam de 300 entradas sozinhas — "Total
+      // recebido em {mês}" desses meses estava contando só as ~300 mais
+      // recentes, não todas. Mesmo bug achado e corrigido em
+      // `gerarPrestacaoContas`.
       const [ls, recs] = await Promise.all([
-        listarLancamentos({ tipo: "entrada", dataInicio: ini, dataFim: fim }),
+        listarLancamentosSemTeto({ tipo: "entrada", dataInicio: ini, dataFim: fim }),
         listarRecorrencias(),
       ]);
       // Só realizado/conciliado é dinheiro que já entrou de verdade —

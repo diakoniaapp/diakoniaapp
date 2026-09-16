@@ -27,7 +27,7 @@ import {
 import { toast } from "sonner";
 import logoDiakonia from "@/assets/logo-diakonia.png";
 import {
-  listarLancamentos, gerarCSV, downloadCSV, brl,
+  listarLancamentosSemTeto, gerarCSV, downloadCSV, brl,
   type FinLancamentoExtenso, type FinCentroVinculo,
 } from "@/services/finService";
 import { useAuth } from "@/hooks/useAuth";
@@ -77,7 +77,12 @@ export default function FinancasCentroPrestacaoContas() {
         .eq("id", centroId).maybeSingle();
       setCentro(c as CentroInfo | null);
 
-      const ls = await listarLancamentos({ centroCustoId: centroId });
+      // "__todos__" (o padrão) busca a vida inteira do centro, sem data —
+      // `listarLancamentos` (teto de 300) até 16/09/2026 daria uma
+      // demonstração oficial ERRADA assim que um centro passasse de 300
+      // lançamentos. Mesmo bug achado e corrigido em
+      // `gerarPrestacaoContas`.
+      const ls = await listarLancamentosSemTeto({ centroCustoId: centroId });
       setTodosLancs(ls);
 
       if (user) {
