@@ -130,8 +130,15 @@ export default function FinancasAdmin() {
     } catch (e: any) { toast.error(e?.message ?? "Erro"); }
   }
 
+  // "Categoria do sistema — só dá pra desativar" continua valendo pra
+  // quem NÃO tem `estruturar_financeiro`. Pedido da Telma (16/09/2026,
+  // "ainda estamos em ambiente de teste, quero... ter opção de excluir
+  // categorias"): pra quem tem a permissão, `sistema` deixa de travar —
+  // 64 das 68 categorias hoje são `sistema=true` (o Plano de Contas
+  // Oficial inteiro), então travar por esse flag também pra proprietária
+  // esvaziava o pedido original de "eu mesma configuro".
   async function pedirRemoverCategoria(k: FinCategoria) {
-    if (k.sistema) { toast.error("Categoria do sistema — só dá pra desativar"); return; }
+    if (k.sistema && !podeEstruturar) { toast.error("Categoria do sistema — só dá pra desativar"); return; }
     setApagando({ tipo: "categoria", item: k });
     setImpactoExclusao(await contarLancamentosPorCategoria(k.id));
   }
@@ -335,10 +342,9 @@ export default function FinancasAdmin() {
           </div>
 
           <p className="text-xs text-muted-foreground text-center">
-            Categorias do <strong>sistema</strong> não podem ser excluídas — só desativadas.
             {podeEstruturar
-              ? " Categoria em uso mostra quantos lançamentos ficarão sem classificação antes de confirmar."
-              : " Criar e excluir categoria é restrito à administradora do sistema."}
+              ? "Categoria do sistema também pode ser excluída por aqui — o diálogo avisa antes. Categoria em uso mostra quantos lançamentos ficarão sem classificação."
+              : "Categorias do sistema não podem ser excluídas — só desativadas. Criar e excluir categoria é restrito à administradora do sistema."}
           </p>
         </TabsContent>
 
@@ -422,6 +428,17 @@ export default function FinancasAdmin() {
             <AlertDialogDescription asChild>
               <div className="space-y-1.5">
                 <p>"{apagando?.item.nome}" — não dá pra desfazer.</p>
+                {/* Categoria "sistema" faz parte do Plano de Contas Oficial
+                    (64 das 68 categorias hoje) — só quem tem
+                    `estruturar_financeiro` chega a ver este diálogo pra uma
+                    delas (ver CategoriaLinha), mas vale destacar mesmo
+                    assim, já que apaga algo usado pelo DRE/prestação de
+                    contas inteiros, não só um lançamento avulso. */}
+                {apagando?.tipo === "categoria" && apagando.item.sistema && (
+                  <p className="text-destructive-text font-medium">
+                    Categoria do sistema — faz parte do Plano de Contas Oficial.
+                  </p>
+                )}
                 {/* Impacto medido ANTES de perguntar (contarLancamentosPor
                     Categoria/Centro) — pedido da Telma (16/09/2026): permitir
                     excluir mesmo em uso, mas avisando quantos lançamentos
@@ -477,9 +494,11 @@ function CategoriaLinha({ k, onEdit, onToggle, onDelete }: {
           {k.ativo ? <PowerOff className="w-3 h-3 text-warning-text" /> : <RotateCcw className="w-3 h-3 text-success-text" />}
         </Button>
         {/* Excluir: restrito a quem tem "estruturar_financeiro" (onDelete
-            vem undefined pra quem não tem) — categoria do sistema continua
-            sem o botão pra ninguém, nem pra quem tem a permissão. */}
-        {!k.sistema && onDelete && (
+            vem undefined pra quem não tem). Categoria do sistema também
+            trava pra quem NÃO tem a permissão (FinancasAdmin.tsx já barra
+            antes de abrir o diálogo) — pra quem tem, o botão aparece
+            igual, incluindo `sistema`. */}
+        {onDelete && (
           <Button type="button" variant="ghost" size="icon"
             className="h-6 w-6 text-destructive" onClick={onDelete} title="Excluir">
             <Trash2 className="w-3 h-3" />
