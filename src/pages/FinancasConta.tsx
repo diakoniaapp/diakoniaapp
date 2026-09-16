@@ -522,9 +522,14 @@ export default function FinancasConta() {
                       {l.fornecedor_nome && l.fornecedor_nome !== l.descricao && (
                         <p className="text-xs text-muted-foreground truncate">{l.fornecedor_nome}</p>
                       )}
-                      {l.pessoa_nome && (
-                        <p className="text-xs text-muted-foreground truncate">de {l.pessoa_nome}</p>
-                      )}
+                      {/* "de {pessoa_nome}" removida (16/09/2026, pedido da
+                          Telma, print real do extrato): desde a
+                          capitalização em massa das descrições, `descricao`
+                          já mostra o nome legível ("José Dutra dos Santos")
+                          — o "de Jose Dutra Dos Santos" embaixo virou
+                          repetição visual, não informação nova. Mesma lógica
+                          que já suprimia `fornecedor_nome` duplicado, agora
+                          também pra `pessoa_nome`. */}
                     </td>
                     <td className="py-1.5 px-2 overflow-hidden">
                       {/* max-w-full + truncate — sem isso, uma categoria de
