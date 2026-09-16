@@ -370,7 +370,16 @@ export default function FinancasConta() {
           </div>
           <div className="min-w-0">
             <label className="text-xs uppercase tracking-wide text-muted-foreground">Data final</label>
-            <Input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} min={dataInicio} max="2099-12-31" className="h-8 text-xs w-full" />
+            <Input type="date" value={dataFim} onChange={(e) => {
+              const v = e.target.value;
+              // `min` no input só marca :invalid — não impede o onChange de
+              // disparar com uma data anterior à inicial (achado pela
+              // Telma ao digitar direto no campo final: o atributo min não
+              // bloqueia digitação manual, só a UI do seletor nativo).
+              // Por isso a guarda tem que estar aqui também, simétrica à
+              // da Data inicial.
+              setDataFim(v < dataInicio ? dataInicio : v);
+            }} min={dataInicio} max="2099-12-31" className="h-8 text-xs w-full" />
           </div>
           <div>
             <label className="text-xs uppercase tracking-wide text-muted-foreground">Tipo</label>
