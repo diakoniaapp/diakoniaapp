@@ -404,12 +404,17 @@ export async function salvarRateio(
 }
 
 // ─── Fornecedores ────────────────────────────────────────────────────────
-// `limit(200)`, não 50: o limite original era pensado pro autocomplete do
-// `LancamentoForm` (poucos resultados de digitação), mas a tela de cadastro
-// (Fase 4.1) lista TODOS os fornecedores — e uma igreja não tem volume que
-// justifique paginação de verdade ainda.
+// `limit(1000)` — era `limit(200)` até 16/09/2026, quando a auditoria de
+// filtros achou o efeito: a importação histórica do Omie levou
+// `fin_fornecedores` a 318 linhas (contado em produção), e `FinancasFornecedores.tsx`
+// chama `listarFornecedores(undefined, ...)` sem termo de busca pra listar
+// TODOS — com o teto em 200, os últimos ~118 (ordem alfabética) nunca
+// carregavam, e a busca da tela filtra só o que já está em memória, então
+// também não os achava. 1000 é o teto real por requisição do PostgREST
+// deste projeto (mesmo valor usado em `doadorService.ts`), longe do volume
+// atual — quando passar disso, paginar de verdade como lá.
 export async function listarFornecedores(busca?: string, incluirInativos = false): Promise<FinFornecedor[]> {
-  let q = supabase.from("fin_fornecedores").select("*").order("nome").limit(200);
+  let q = supabase.from("fin_fornecedores").select("*").order("nome").limit(1000);
   if (!incluirInativos) q = q.eq("ativo", true);
   if (busca && busca.length >= 2) q = q.ilike("nome", `%${busca}%`);
   const { data, error } = await q;

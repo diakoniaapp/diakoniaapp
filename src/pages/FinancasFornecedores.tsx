@@ -26,6 +26,15 @@ import {
 import { FornecedorForm } from "@/components/financas/FornecedorForm";
 import { PaginaSkeleton } from "@/components/ListState";
 
+// Mesmo bug e mesma correção de `FinancasDoadores.tsx` (achado ao vivo pela
+// Telma em 15/09/2026 naquela tela): buscar "jose" sem acento não batia com
+// "José" — nome gravado com acento depois da limpeza de capitalização em
+// massa (16/09/2026). Sem normalizar aqui, o mesmo bug reaparece na busca
+// de fornecedor.
+function normalizar(s: string): string {
+  return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+}
+
 export default function FinancasFornecedores() {
   const [fornecedores, setFornecedores] = useState<FinFornecedor[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,9 +69,9 @@ export default function FinancasFornecedores() {
 
   const filtrados = useMemo(() => {
     if (busca.length < 2) return fornecedores;
-    const termo = busca.toLowerCase();
+    const termo = normalizar(busca);
     return fornecedores.filter(f =>
-      f.nome.toLowerCase().includes(termo) || (f.cnpj_cpf ?? "").includes(busca.replace(/\D/g, "")));
+      normalizar(f.nome).includes(termo) || (f.cnpj_cpf ?? "").includes(busca.replace(/\D/g, "")));
   }, [fornecedores, busca]);
 
   async function confirmarAlternar() {
