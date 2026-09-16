@@ -1,6 +1,29 @@
 import { createRoot } from "react-dom/client";
+import { toast } from "sonner";
 import App from "./App.tsx";
 import "./index.css";
+
+// Deploy novo enquanto a aba já estava aberta: os módulos com lazy load
+// (`import("tesseract.js")`, `import("pdfjs-dist")`, telas por rota) ficam
+// referenciados pelo hash do build ANTERIOR, que some do servidor assim que
+// o deploy novo termina — daí "Failed to fetch dynamically imported module"
+// num OCR ou numa navegação. Achado ao vivo pela Telma (16/09/2026),
+// duas vezes no mesmo dia, cada vez com um hash de arquivo diferente —
+// bate exatamente com os pushes feitos nesta sessão. O Vite dispara este
+// evento nesse cenário; a correção oficial é recarregar a página, mas
+// force um reload sem aviso perderia o que ela estivesse digitando (ex.:
+// um lançamento pela metade) — por isso é um toast persistente com botão,
+// não um `location.reload()` direto.
+if (typeof window !== "undefined") {
+  window.addEventListener("vite:preloadError", (e) => {
+    e.preventDefault();
+    toast.error("Uma versão nova do sistema foi publicada.", {
+      description: "Atualize a página para continuar — sem isso, telas e recursos carregados aos poucos (como leitura de nota) vão continuar falhando.",
+      duration: Infinity,
+      action: { label: "Atualizar agora", onClick: () => window.location.reload() },
+    });
+  });
+}
 
 // Defensive shim: browser translation extensions (Google Translate, etc.) can
 // mutate Radix portal subtrees and cause React's reconciler to throw
