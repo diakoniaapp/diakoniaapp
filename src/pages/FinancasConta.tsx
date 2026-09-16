@@ -271,7 +271,15 @@ export default function FinancasConta() {
             print-color-adjust: exact !important;
           }
           .relatorio-page .overflow-x-auto { overflow: visible !important; }
-          .relatorio-page table { width: 100% !important; }
+          /* table-layout fixed — sem isso, a coluna de Descrição/Fornecedor
+             (a única sem largura fixa) cresce pelo CONTEÚDO real (nomes
+             longos de fornecedor) em vez de dividir o que sobra depois das
+             outras 6 colunas com largura fixa — e a tabela inteira passa a
+             ultrapassar a página, cortando "Saldo" fora do papel. Achado
+             pela Telma (16/09/2026) num PDF real onde "Saldo" saía cortado
+             na borda direita. Com fixed, a única coluna sem largura fixa
+             sempre recebe exatamente o que resta — nunca mais, nunca menos. */
+          .relatorio-page table { width: 100% !important; table-layout: fixed !important; }
           .relatorio-page tr { page-break-inside: avoid; }
           .avoid-break { page-break-inside: avoid; }
         }
@@ -483,9 +491,15 @@ export default function FinancasConta() {
                       )}
                     </td>
                     <td className="py-1.5 px-2 whitespace-nowrap">{dataBr(l.data)}</td>
-                    <td className="py-1.5 px-2 min-w-[200px]">
+                    <td className="py-1.5 px-2 min-w-[200px] print:min-w-0">
                       <p className="font-medium truncate">{l.descricao ?? "—"}</p>
-                      {l.fornecedor_nome && (
+                      {/* Suprime a linha do fornecedor quando é o mesmo texto da
+                          descrição — lançamentos importados do Omie/fatura
+                          repetem o nome do fornecedor em `descricao`, e a
+                          segunda linha idêntica só ocupava espaço (visível
+                          duplicado no PDF: "SUPERMERCADO MUNDIAL LTDA" duas
+                          vezes seguidas). Achado pela Telma (16/09/2026). */}
+                      {l.fornecedor_nome && l.fornecedor_nome !== l.descricao && (
                         <p className="text-xs text-muted-foreground truncate">{l.fornecedor_nome}</p>
                       )}
                       {l.pessoa_nome && (
@@ -494,7 +508,7 @@ export default function FinancasConta() {
                     </td>
                     <td className="py-1.5 px-2">
                       {l.categoria_nome && (
-                        <Badge variant="outline" className="text-xs"
+                        <Badge variant="outline" className="text-xs print:border-0 print:px-0 print:py-0 print:rounded-none print:bg-transparent print:font-normal"
                           style={l.categoria_cor ? { borderColor: l.categoria_cor, color: l.categoria_cor } : undefined}>
                           {l.categoria_nome}
                         </Badge>
