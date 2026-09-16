@@ -440,7 +440,7 @@ export interface FiltroLancamento {
   apenasTransferencia?: boolean;
 }
 
-export async function listarLancamentos(filtro: FiltroLancamento = {}): Promise<FinLancamentoExtenso[]> {
+function construirQueryLancamentos(filtro: FiltroLancamento) {
   let q = supabase.from("fin_lancamentos").select("*").order("data", { ascending: false }).order("created_at", { ascending: false });
   if (filtro.contaId) q = q.eq("conta_id", filtro.contaId);
   if (filtro.tipo) q = q.eq("tipo", filtro.tipo);
@@ -453,9 +453,41 @@ export async function listarLancamentos(filtro: FiltroLancamento = {}): Promise<
   if (filtro.dataInicio) q = q.gte("data", filtro.dataInicio);
   if (filtro.dataFim) q = q.lte("data", filtro.dataFim);
   if (filtro.busca && filtro.busca.length >= 2) q = q.ilike("descricao", `%${filtro.busca}%`);
-  const { data, error } = await q.limit(300);
+  return q;
+}
+
+export async function listarLancamentos(filtro: FiltroLancamento = {}): Promise<FinLancamentoExtenso[]> {
+  const { data, error } = await construirQueryLancamentos(filtro).limit(300);
   if (error) throw error;
-  const lancs = (data ?? []) as unknown as FinLancamento[];
+  return enriquecerLancamentos((data ?? []) as unknown as FinLancamento[]);
+}
+
+// Sem teto de 300 — pagina em blocos de 1000 até esgotar. Extraído em
+// 16/09/2026: `gerarPrestacaoContas` chamava `listarLancamentos` direto
+// pra montar a demonstração de "todas as contas" de um período de vários
+// meses, e um relatório de Jul-Set/2026 já trazia 276+ linhas SÓ NESSE
+// TRECHO — a un dos meses (Julho) desabou pra R$ 0,00/0 dizimistas porque
+// o corte de 300, ordenado do mais recente pro mais antigo, empurrou as
+// linhas de Julho fora da janela assim que Agosto+Setembro somados já
+// passavam de 300. Risco já estava documentado (mesmo aviso em
+// `dreService.ts`/`gerarDRE`) como "vai precisar virar paginação um dia"
+// — chegou o dia. `listarLancamentos` (o teto de 300) continua existindo
+// pras telas leves (extrato, listas) que só mostram uma página por vez.
+export async function listarLancamentosSemTeto(filtro: FiltroLancamento = {}): Promise<FinLancamentoExtenso[]> {
+  const TAMANHO_PAGINA = 1000;
+  const brutos: FinLancamento[] = [];
+  for (let pagina = 0; ; pagina++) {
+    const inicio = pagina * TAMANHO_PAGINA;
+    const { data, error } = await construirQueryLancamentos(filtro).range(inicio, inicio + TAMANHO_PAGINA - 1);
+    if (error) throw error;
+    const bloco = (data ?? []) as unknown as FinLancamento[];
+    brutos.push(...bloco);
+    if (bloco.length < TAMANHO_PAGINA) break;
+  }
+  return enriquecerLancamentos(brutos);
+}
+
+async function enriquecerLancamentos(lancs: FinLancamento[]): Promise<FinLancamentoExtenso[]> {
   if (lancs.length === 0) return [];
 
   // Join manual com nomes (mais rápido + à prova de fk)
@@ -905,7 +937,12 @@ export async function resumoMensal(ano: number, mes: number): Promise<ResumoMens
   const ini = `${ano}-${String(mes).padStart(2, "0")}-01`;
   const fim = new Date(ano, mes, 0).toISOString().slice(0, 10); // último dia
 
-  const lancs = await listarLancamentos({
+  // `listarLancamentos` (teto de 300) até 16/09/2026 — trocado ao achar o
+  // mesmo bug em `gerarPrestacaoContas`: 2026 sozinho já soma 1.854
+  // entradas (doadorService.ts tem a medição), então um único mês de TODAS
+  // as contas, entrada+saída, já corre risco real de passar de 300 e
+  // truncar o malote mensal em silêncio.
+  const lancs = await listarLancamentosSemTeto({
     dataInicio: ini, dataFim: fim,
   });
   // Filtra: só realizados/conciliados entram no malote
@@ -1005,18 +1042,21 @@ function classificarIndicadorEclesiastico(nomeCategoria: string): "dizimos" | "o
   return null;
 }
 
-// `listarLancamentos` tem um teto de 300 linhas (proteção existente, não
-// desta função) — com a janela padrão de 6 meses e o volume de hoje
-// (produção com poucas dezenas de lançamentos/mês) não pesa; numa janela
-// maior ou com mais movimento, o teto passa a truncar os meses mais
-// antigos da série e precisa virar paginação (mesmo aviso de `gerarDRE`
-// em `dreService.ts`).
+// Usava `listarLancamentos` (teto de 300 linhas) até 16/09/2026 — o aviso
+// aqui já dizia "numa janela maior ou com mais movimento, o teto passa a
+// truncar os meses mais antigos da série". Chegou o dia: 2026 sozinho já
+// soma 1.854 entradas (medição em doadorService.ts), bem mais que os 300
+// que a janela padrão de 6 meses cabia quando este comentário foi
+// escrito — é exatamente por isso que o cartão "Indicadores eclesiásticos"
+// do Painel da Tesouraria mostrava Abr-Jul/2026 zerados (truncados pela
+// ordenação mais-recente-primeiro) enquanto só Ago/Set apareciam com
+// número real. Trocado por `listarLancamentosSemTeto`.
 export async function indicadoresEclesiasticosMensais(meses = 6): Promise<IndicadorEclesiasticoMes[]> {
   const hoje = hojeLocal();
   const inicioMesAtual = hoje.slice(0, 7) + "-01";
   const dataInicio = daquiAMeses(inicioMesAtual, -(meses - 1));
 
-  const lancs = await listarLancamentos({ tipo: "entrada", dataInicio, dataFim: hoje });
+  const lancs = await listarLancamentosSemTeto({ tipo: "entrada", dataInicio, dataFim: hoje });
   // Mesmo cuidado de 12/13-09-2026: transferência entre contas não é
   // receita, e sem categoria nunca bateria em nenhum dos 3 padrões acima
   // mesmo assim — mas exclui aqui também, por clareza e consistência com

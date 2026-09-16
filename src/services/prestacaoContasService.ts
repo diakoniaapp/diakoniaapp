@@ -45,7 +45,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { daquiAMeses, daquiADias } from "@/lib/data";
 import {
-  listarLancamentos, listarContas, listarCategorias, listarCentrosCusto,
+  listarLancamentosSemTeto, listarContas, listarCategorias, listarCentrosCusto,
   type FinClassificacaoDRE, type FinCentroCusto,
 } from "./finService";
 import { listarNotasDoPeriodo } from "./relatorioNotasService";
@@ -255,7 +255,7 @@ export async function gerarPrestacaoContas(ano: number, mesInicio: number, qtdMe
   const mesAncoraNota = { ano: ultimoMes.ano, mes: ultimoMes.numero };
 
   const [lancsBrutos, categorias, centros, notasDoMesAncora, saldoAnterior] = await Promise.all([
-    listarLancamentos({ dataInicio, dataFim, contaId }),
+    listarLancamentosSemTeto({ dataInicio, dataFim, contaId }),
     listarCategorias(),
     listarCentrosCusto(),
     listarNotasDoPeriodo(mesAncoraNota.ano, mesAncoraNota.mes),

@@ -29,7 +29,7 @@
 // perderia granularidade que a Telma já está acostumada a ver aqui. A
 // correção troca só as CHAVES para o nome oficial atual, mantendo a
 // mesma estrutura de 5 baldes.
-import { listarLancamentos, lancamentosRealizadosSemTransferencia, type FinLancamentoExtenso } from "./finService";
+import { listarLancamentosSemTeto, lancamentosRealizadosSemTransferencia, type FinLancamentoExtenso } from "./finService";
 
 const GRUPO_RECEITA: Record<string, string> = {
   "dizimos": "Contribuições",
@@ -167,13 +167,17 @@ function agrupar(
 }
 
 // Anual, não mensal — o malote (`resumoMensal`) já cobre o mês; uma DRE
-// faz sentido como demonstração de um exercício. `listarLancamentos` tem
-// um teto de 300 linhas (proteção existente, não desta função); para o
-// volume de hoje (produção com poucas dezenas de lançamentos) não pesa —
-// se a igreja crescer a ponto de passar de 300 lançamentos realizados por
-// ano, este teto passa a truncar a demonstração e precisa virar paginação.
+// faz sentido como demonstração de um exercício.
+// Usava `listarLancamentos` (teto de 300 linhas) até 16/09/2026 — o risco
+// já estava anotado aqui ("se passar de 300 por ano, precisa virar
+// paginação") e se confirmou real ao investigar um bug parecido na
+// prestação de contas (`prestacaoContasService.ts`): contas de produção
+// já somam centenas de lançamentos por ano, então uma DRE anual real já
+// corria risco de vir truncada, cortando os meses mais antigos do
+// exercício (a ordenação é do mais recente pro mais antigo). Trocado por
+// `listarLancamentosSemTeto`, que pagina até esgotar.
 export async function gerarDRE(ano: number): Promise<DREResultado> {
-  const lancs = await listarLancamentos({
+  const lancs = await listarLancamentosSemTeto({
     dataInicio: `${ano}-01-01`,
     dataFim: `${ano}-12-31`,
   });
