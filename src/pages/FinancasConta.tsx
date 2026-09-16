@@ -355,6 +355,19 @@ export default function FinancasConta() {
         </p>
       </div>
 
+      {/* Filtros + resumo fixos ao rolar — pedido da Telma (16/09/2026): num
+          extrato longo, a faixa de datas e os cartões de saldo saíam de
+          tela ao descer a lista, e não dava pra saber o período nem o
+          resumo sem voltar ao topo. `sticky top-0` funciona porque quem
+          rola de verdade é o `<main>` do AppLayout (`overflow-y-auto`), não
+          a `window` — este bloco é filho direto daquele scroll. Margem
+          negativa + padding de volta (`-mx-3 md:-mx-5 px-3 md:px-5`)
+          estende o fundo sólido até a borda do container pra esconder o
+          conteúdo que passa por baixo ao rolar, sem alterar o alinhamento
+          do conteúdo em si. `print:static` porque a impressão já lida com
+          isso do jeito dela (ver `<style>` acima) — sticky não faz sentido
+          no papel. */}
+      <div className="sticky top-0 z-20 -mx-3 md:-mx-5 px-3 md:px-5 pb-3 space-y-3 bg-background border-b print:static print:mx-0 print:px-0 print:pb-0 print:border-0">
       {/* Filtros */}
       <Card className="print:hidden">
         <CardContent className="py-2.5 px-3 grid grid-cols-2 md:grid-cols-5 gap-2 items-end">
@@ -439,6 +452,7 @@ export default function FinancasConta() {
             <p className="text-sm font-semibold tabular-nums">{brl(totalEntradasPeriodo - totalSaidasPeriodo)}</p>
           </CardContent>
         </Card>
+      </div>
       </div>
 
       {/* Tabela de lançamentos */}
