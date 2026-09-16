@@ -674,8 +674,14 @@ export function LancamentoForm({
           )}
 
           <div>
+            {/* Rótulo trocado com "Fornecedor/recebedor" abaixo (16/09/2026,
+                pedido da Telma): este campo (`descricao`) é onde, na
+                prática, sempre se digita o nome de quem recebeu/vendeu —
+                "Descrição" descrevia mal um campo que nunca fica vazio de
+                verdade. O outro campo (`fornecedorBusca`, com busca e
+                vínculo a `fin_fornecedores`) é o que de fato é opcional. */}
             <Label className="flex items-center gap-1.5">
-              Descrição
+              Fornecedor/recebedor
               {descricaoTravada && (
                 <span className="inline-flex items-center gap-1 text-xs font-normal text-info-text">
                   <Lock className="w-3 h-3" /> lido da nota — fiel ao documento
@@ -746,7 +752,10 @@ export function LancamentoForm({
                 className={descricaoTravada ? "bg-muted/40 cursor-default" : undefined} />
             </div>
             <div>
-              <Label>Fornecedor/recebedor</Label>
+              {/* Rótulo trocado com "Fornecedor/recebedor" acima — ver
+                  comentário lá. Este campo (`fornecedorBusca`) é o que
+                  realmente fica em branco na maioria das vezes. */}
+              <Label>Descrição</Label>
               <Input value={fornecedorBusca}
                 onChange={(e) => {
                   setFornecedorBusca(e.target.value);
