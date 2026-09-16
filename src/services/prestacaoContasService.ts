@@ -46,7 +46,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { daquiAMeses, daquiADias } from "@/lib/data";
 import {
   listarLancamentos, listarContas, listarCategorias, listarCentrosCusto,
-  type FinClassificacaoDRE,
+  type FinClassificacaoDRE, type FinCentroCusto,
 } from "./finService";
 import { listarNotasDoPeriodo } from "./relatorioNotasService";
 
@@ -63,6 +63,12 @@ export interface PrestacaoContasGrupo {
   linhas: PrestacaoContasLinha[];
   valores: number[];
   total: number;
+  // Só preenchido no grupo "Ministério de Administração" — é o único
+  // ministério do Plano de Contas Oficial que a planilha real quebra em
+  // subgrupo contábil (Pessoal/Serviços/Ornamentação/Consumo/Patrimônio),
+  // ver docs/PROJETO_TESOURARIA_PRESTACAO_CONTAS.md §1.6 e §3.3. Quando
+  // presente, a tela renderiza estes sub-blocos em vez de `linhas`.
+  subgrupos?: PrestacaoContasGrupo[];
 }
 export interface PrestacaoContasMes { ano: number; numero: number; nome: string; }
 
@@ -125,6 +131,51 @@ function subtotalPorMes(linhas: PrestacaoContasLinha[], qtdMeses: number): numbe
 
 function somaGrupos(grupos: PrestacaoContasGrupo[], qtdMeses: number): number[] {
   return Array.from({ length: qtdMeses }, (_, i) => grupos.reduce((s, g) => s + g.valores[i], 0));
+}
+
+/**
+ * Junta os grupos de despesa cujo centro de custo é um dos 5 subgrupos
+ * contábeis da Administração (ou o próprio "Min. Administração", quando o
+ * lançamento não recebeu subgrupo) num único grupo composto — replica o
+ * bloco "MINISTÉRIO DE ADMINISTRAÇÃO" subdividido do Excel real (docs/
+ * PROJETO_TESOURARIA_PRESTACAO_CONTAS.md §1.6). As demais áreas que também
+ * ficam sob Min. Administração (Bazar, Cantina, Apoio Adm...) continuam
+ * como grupos soltos — são "quem fez o gasto", um eixo diferente de "como
+ * o gasto se classifica", e não fazem parte do pedido de agrupar por
+ * subgrupo contábil.
+ *
+ * Acha o centro do ministério pelo `centro_pai_id` dos próprios subgrupos
+ * — não por nome — porque é a relação que a migration
+ * 20260912200500_fase3_centros_custo_subgrupos_administracao.sql realmente
+ * grava, e sobrevive a uma renomeação de "Administração".
+ */
+function agruparAdministracao(
+  grupos: PrestacaoContasGrupo[], centros: FinCentroCusto[], qtdMeses: number,
+): PrestacaoContasGrupo[] {
+  const idsSubgrupo = new Set(centros.filter(c => c.vinculo_tipo === "subgrupo_administracao").map(c => c.id));
+  if (idsSubgrupo.size === 0) return grupos; // Fase 3 não aplicada nesta base — nada a fazer
+
+  const idMinisterio = centros.find(c => idsSubgrupo.has(c.id))?.centro_pai_id ?? null;
+
+  const filhos = grupos.filter(g => idsSubgrupo.has(g.chave) || g.chave === idMinisterio);
+  if (filhos.length === 0) return grupos;
+
+  const resto = grupos.filter(g => !(idsSubgrupo.has(g.chave) || g.chave === idMinisterio));
+  const subgrupos = filhos
+    .map(g => g.chave === idMinisterio ? { ...g, titulo: "Administração · Sem subgrupo" } : g)
+    .sort((a, b) => Math.abs(b.total) - Math.abs(a.total));
+
+  const valores = somaGrupos(subgrupos, qtdMeses);
+  const administracao: PrestacaoContasGrupo = {
+    chave: idMinisterio ?? "ministerio_administracao",
+    titulo: "Ministério de Administração",
+    linhas: [],
+    subgrupos,
+    valores,
+    total: somaMeses(valores),
+  };
+
+  return [...resto, administracao];
 }
 
 /**
@@ -260,7 +311,7 @@ export async function gerarPrestacaoContas(ano: number, mesInicio: number, qtdMe
     // receitas_regulares/outras_receitas numa saída: mesma inconsistência de dado do bloco acima, ignorada.
   });
 
-  const gruposDespesaPorCentro: PrestacaoContasGrupo[] = Array.from(porCentro.entries())
+  const gruposDespesaPorCentroFlat: PrestacaoContasGrupo[] = Array.from(porCentro.entries())
     .map(([centroId, mapa]) => {
       const linhas = linhasDoMapa(mapa, new Set(
         Array.from(mapa.keys()).filter(id => temNota(id, centroId === CENTRO_SEM ? null : centroId)),
@@ -269,8 +320,11 @@ export async function gerarPrestacaoContas(ano: number, mesInicio: number, qtdMe
       const titulo = centroId === CENTRO_SEM ? "Sem centro de custo" : (centroMap.get(centroId)?.nome ?? "Centro removido");
       return { chave: centroId, titulo, linhas, valores, total: somaMeses(valores) };
     })
-    .filter(g => g.linhas.length > 0)
-    .sort((a, b) => Math.abs(b.total) - Math.abs(a.total));
+    .filter(g => g.linhas.length > 0);
+
+  const gruposDespesaPorCentro: PrestacaoContasGrupo[] =
+    agruparAdministracao(gruposDespesaPorCentroFlat, centros, qtdMeses)
+      .sort((a, b) => Math.abs(b.total) - Math.abs(a.total));
 
   function grupoFlat(mapa: MapaValores, chave: string, titulo: string): PrestacaoContasGrupo | null {
     const linhas = linhasDoMapa(mapa, new Set(Array.from(mapa.keys()).filter(id => temNota(id, null))));
@@ -316,7 +370,14 @@ export function gerarCSVPrestacaoContas(r: PrestacaoContasResultado): string {
   linhas.push(`Receitas;;TOTAL RECEITAS;${r.totalReceitas.map(fmt).join(";")}`);
 
   r.gruposDespesaPorCentro.forEach(g => {
-    g.linhas.forEach(l => linhas.push(`Despesas;${g.titulo};${l.nome};${l.valores.map(fmt).join(";")}`));
+    if (g.subgrupos) {
+      g.subgrupos.forEach(sg => {
+        sg.linhas.forEach(l => linhas.push(`Despesas;${g.titulo} · ${sg.titulo};${l.nome};${l.valores.map(fmt).join(";")}`));
+        linhas.push(`Despesas;${g.titulo} · ${sg.titulo};TOTAL DO SUBGRUPO;${sg.valores.map(fmt).join(";")}`);
+      });
+    } else {
+      g.linhas.forEach(l => linhas.push(`Despesas;${g.titulo};${l.nome};${l.valores.map(fmt).join(";")}`));
+    }
     linhas.push(`Despesas;${g.titulo};TOTAL DO GRUPO;${g.valores.map(fmt).join(";")}`);
   });
   linhas.push(`Despesas;;TOTAL DESPESAS;${r.totalDespesas.map(fmt).join(";")}`);

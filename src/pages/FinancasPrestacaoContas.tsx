@@ -48,7 +48,7 @@ import logoDiakonia from "@/assets/logo-diakonia.png";
 import { brl, downloadCSV, listarContas, type FinConta } from "@/services/finService";
 import {
   gerarPrestacaoContas, gerarCSVPrestacaoContas,
-  type PrestacaoContasResultado, type PrestacaoContasGrupo,
+  type PrestacaoContasResultado, type PrestacaoContasGrupo, type PrestacaoContasLinha,
 } from "@/services/prestacaoContasService";
 import {
   buscarFechamento, fecharPeriodo, aprovarPeriodo, reabrirPeriodo,
@@ -656,29 +656,69 @@ function Bloco({ grupo, centroCustoId, onNota, corTotal, semSubtotalProprio }: {
           ))}
         </tr>
       )}
-      {grupo.linhas.map(l => (
-        <tr key={l.categoriaId} className="border-b border-border/20 text-muted-foreground group">
-          <td className="py-0.5 pl-4">
-            <button
-              type="button"
-              onClick={() => onNota(`${l.nome} · ${grupo.titulo}`, l.categoriaId, centroCustoId)}
-              className="no-print inline-flex items-center gap-1 hover:text-foreground transition-colors"
-              title={l.temNota ? "Ver/editar nota" : "Adicionar nota"}
-            >
-              {l.nome}
-              {l.temNota
-                ? <MessageSquare className="w-3 h-3 text-gold shrink-0" />
-                : <MessageSquarePlus className="w-3 h-3 opacity-0 group-hover:opacity-60 shrink-0 transition-opacity" />}
-            </button>
-            <span className="hidden print:inline">
-              {l.nome}{l.temNota ? " 💬" : ""}
-            </span>
-          </td>
-          {l.valores.map((v, i) => (
-            <td key={i} className="py-0.5 text-right tabular-nums whitespace-nowrap">{v === 0 ? "—" : brl(v)}</td>
+      {/* `subgrupos` só vem preenchido no grupo "Ministério de Administração" —
+          único do Plano de Contas Oficial com esse nível extra (Pessoal,
+          Serviços, Ornamentação, Consumo, Patrimônio). Ver
+          prestacaoContasService.ts (agruparAdministracao). */}
+      {grupo.subgrupos
+        ? grupo.subgrupos.map(sg => <BlocoSubgrupo key={sg.chave} subgrupo={sg} onNota={onNota} corTotal={corTotal} />)
+        : grupo.linhas.map(l => (
+            <LinhaCategoria key={l.categoriaId} linha={l} tituloGrupo={grupo.titulo}
+              centroCustoId={centroCustoId} onNota={onNota} indentClass="pl-4" />
           ))}
-        </tr>
+    </>
+  );
+}
+
+function BlocoSubgrupo({ subgrupo, onNota, corTotal }: {
+  subgrupo: PrestacaoContasGrupo;
+  onNota: (titulo: string, categoriaId: string, centroCustoId: string | null) => void;
+  corTotal: string;
+}) {
+  return (
+    <>
+      <tr className="border-b border-border/30">
+        <td className="py-1 pl-3 text-sm text-muted-foreground">{subgrupo.titulo}</td>
+        {subgrupo.valores.map((v, i) => (
+          <td key={i} className={`py-1 text-right tabular-nums whitespace-nowrap text-sm ${corTotal}`}>{brl(v)}</td>
+        ))}
+      </tr>
+      {subgrupo.linhas.map(l => (
+        <LinhaCategoria key={l.categoriaId} linha={l} tituloGrupo={subgrupo.titulo}
+          centroCustoId={subgrupo.chave} onNota={onNota} indentClass="pl-6" />
       ))}
     </>
+  );
+}
+
+function LinhaCategoria({ linha, tituloGrupo, centroCustoId, onNota, indentClass }: {
+  linha: PrestacaoContasLinha;
+  tituloGrupo: string;
+  centroCustoId: string | null;
+  onNota: (titulo: string, categoriaId: string, centroCustoId: string | null) => void;
+  indentClass: string;
+}) {
+  return (
+    <tr className="border-b border-border/20 text-muted-foreground group">
+      <td className={`py-0.5 ${indentClass}`}>
+        <button
+          type="button"
+          onClick={() => onNota(`${linha.nome} · ${tituloGrupo}`, linha.categoriaId, centroCustoId)}
+          className="no-print inline-flex items-center gap-1 hover:text-foreground transition-colors"
+          title={linha.temNota ? "Ver/editar nota" : "Adicionar nota"}
+        >
+          {linha.nome}
+          {linha.temNota
+            ? <MessageSquare className="w-3 h-3 text-gold shrink-0" />
+            : <MessageSquarePlus className="w-3 h-3 opacity-0 group-hover:opacity-60 shrink-0 transition-opacity" />}
+        </button>
+        <span className="hidden print:inline">
+          {linha.nome}{linha.temNota ? " 💬" : ""}
+        </span>
+      </td>
+      {linha.valores.map((v, i) => (
+        <td key={i} className="py-0.5 text-right tabular-nums whitespace-nowrap">{v === 0 ? "—" : brl(v)}</td>
+      ))}
+    </tr>
   );
 }
