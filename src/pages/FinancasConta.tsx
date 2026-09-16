@@ -357,11 +357,20 @@ export default function FinancasConta() {
               esse valor no ano. */}
           <div className="min-w-0">
             <label className="text-xs uppercase tracking-wide text-muted-foreground">Data inicial</label>
-            <Input type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} min="2000-01-01" max="2099-12-31" className="h-8 text-xs w-full" />
+            <Input type="date" value={dataInicio} onChange={(e) => {
+              const v = e.target.value;
+              setDataInicio(v);
+              // Pedido da Telma (16/09/2026): escolher uma inicial depois da
+              // final deixava o período invertido (extrato vazio, sem
+              // aviso — só "Entradas R$ 0,00" e "Saídas R$ 0,00" confusos).
+              // Em vez de deixar o usuário descobrir isso pela lista vazia,
+              // empurra a final pra igualar a nova inicial.
+              if (v > dataFim) setDataFim(v);
+            }} min="2000-01-01" max="2099-12-31" className="h-8 text-xs w-full" />
           </div>
           <div className="min-w-0">
             <label className="text-xs uppercase tracking-wide text-muted-foreground">Data final</label>
-            <Input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} min="2000-01-01" max="2099-12-31" className="h-8 text-xs w-full" />
+            <Input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} min={dataInicio} max="2099-12-31" className="h-8 text-xs w-full" />
           </div>
           <div>
             <label className="text-xs uppercase tracking-wide text-muted-foreground">Tipo</label>
