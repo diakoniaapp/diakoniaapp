@@ -49,6 +49,7 @@ import {
   type FinClassificacaoDRE, type FinCentroCusto,
 } from "./finService";
 import { listarNotasDoPeriodo } from "./relatorioNotasService";
+import { normalizarNome } from "@/lib/fuzzyNome";
 
 export interface PrestacaoContasLinha {
   categoriaId: string;
@@ -86,6 +87,16 @@ export interface PrestacaoContasResultado {
   saldoFinal: number[];
   qtdLancamentos: number;
   qtdForaDoPlanoOficial: number;
+  // Pedido da Telma (16/09/2026): quantos dizimistas por mês, contados por
+  // NOME ÚNICO — não por `pessoa_id`. A maioria dos lançamentos de Dízimo
+  // importados do Omie não tem `pessoa_id` vinculado (só o nome cru do
+  // extrato bancário em `descricao`); exigir o vínculo faria a contagem
+  // real cair quase a zero. Nomes são normalizados (sem acento/maiúscula,
+  // `normalizarNome` de fuzzyNome.ts — mesma função já usada para não
+  // duplicar a mesma pessoa grafada diferente em outra tela) antes de
+  // entrar no Set de cada mês, e "OFERTAS NÃO IDENTIFICADAS" (o placeholder
+  // do Omie pra depósito sem identificação) é excluído — não é uma pessoa.
+  dizimistasPorMes: number[];
 }
 
 // Exportado — painelTesourariaService.ts reaproveita pro rótulo do "período
@@ -269,6 +280,13 @@ export async function gerarPrestacaoContas(ano: number, mesInicio: number, qtdMe
     ["receitas_regulares", new Map()],
     ["outras_receitas", new Map()],
   ]);
+  // Um Set de nomes normalizados por mês — só para a categoria "Dízimos"
+  // (mesmo padrão de regex de `classificarIndicadorEclesiastico` em
+  // finService.ts, invertido de propósito aqui também não importa porque
+  // não há "missão"/"oferta" em jogo, só dízimo).
+  const nomesDizimistasPorMes: Set<string>[] = Array.from({ length: qtdMeses }, () => new Set<string>());
+  const PLACEHOLDER_SEM_IDENTIFICACAO = normalizarNome("OFERTAS NÃO IDENTIFICADAS");
+
   lancs.filter(l => l.tipo === "entrada").forEach(l => {
     const cat = l.categoria_id ? catMap.get(l.categoria_id) : undefined;
     if (!cat?.classificacao_dre) { qtdForaDoPlanoOficial++; return; }
@@ -276,7 +294,14 @@ export async function gerarPrestacaoContas(ano: number, mesInicio: number, qtdMe
     const mapa = porClassificacaoReceita.get(cat.classificacao_dre);
     if (!mapa) return; // classificação de despesa numa entrada — inconsistência de dado, ignora sem quebrar a tela
     acumular(mapa, cat.id, cat.nome, idx, Number(l.valor), qtdMeses);
+
+    if (/d[ií]zimo/i.test(cat.nome)) {
+      const nomeBruto = l.pessoa_nome ?? l.descricao ?? "";
+      const nome = normalizarNome(nomeBruto);
+      if (nome && nome !== PLACEHOLDER_SEM_IDENTIFICACAO) nomesDizimistasPorMes[idx].add(nome);
+    }
   });
+  const dizimistasPorMes = nomesDizimistasPorMes.map(s => s.size);
   const gruposReceita: PrestacaoContasGrupo[] = (["receitas_regulares", "outras_receitas"] as const)
     .map(chave => {
       const linhas = linhasDoMapa(porClassificacaoReceita.get(chave)!, new Set(
@@ -352,6 +377,7 @@ export async function gerarPrestacaoContas(ano: number, mesInicio: number, qtdMe
     resultado, saldoFinal,
     qtdLancamentos: lancs.length,
     qtdForaDoPlanoOficial,
+    dizimistasPorMes,
   };
 }
 
@@ -368,6 +394,7 @@ export function gerarCSVPrestacaoContas(r: PrestacaoContasResultado): string {
     linhas.push(`Receitas;${g.titulo};TOTAL DO GRUPO;${g.valores.map(fmt).join(";")}`);
   });
   linhas.push(`Receitas;;TOTAL RECEITAS;${r.totalReceitas.map(fmt).join(";")}`);
+  linhas.push(`Receitas;;DIZIMISTAS NO PERIODO (nomes unicos);${r.dizimistasPorMes.join(";")}`);
 
   r.gruposDespesaPorCentro.forEach(g => {
     if (g.subgrupos) {

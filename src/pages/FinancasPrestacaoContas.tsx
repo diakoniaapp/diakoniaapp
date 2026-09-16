@@ -474,6 +474,15 @@ export default function FinancasPrestacaoContas() {
                 <Bloco key={g.chave} grupo={g} centroCustoId={null} onNota={abrirNota} corTotal="text-success-text" />
               ))}
               <LinhaTotal titulo="Total Receitas" valores={dados.totalReceitas} destaque cor="text-success-text" />
+              {/* Pedido da Telma (16/09/2026): quantidade de dizimistas do
+                  período, contados por nome único (não por pessoa
+                  cadastrada — ver comentário em prestacaoContasService.ts
+                  sobre por que a maioria dos lançamentos de Dízimo
+                  importados não tem vínculo com um membro). Formatador
+                  próprio porque é contagem, não dinheiro — `brl` deixaria
+                  "3" virar "R$ 3,00". */}
+              <LinhaTotal titulo="Dizimistas no período (nomes únicos)" valores={dados.dizimistasPorMes}
+                formatador={(n) => String(n)} />
 
               <LinhaSecao titulo="Despesas" />
               {dados.gruposDespesaPorCentro.length === 0 ? (
@@ -626,14 +635,16 @@ function LinhaVazia({ texto, colSpan }: { texto: string; colSpan: number }) {
   return <tr><td colSpan={colSpan} className="py-1.5 text-muted-foreground italic">{texto}</td></tr>;
 }
 
-function LinhaTotal({ titulo, valores, destaque, forte, cor }: {
+function LinhaTotal({ titulo, valores, destaque, forte, cor, formatador }: {
   titulo: string; valores: number[]; destaque?: boolean; forte?: boolean; cor?: string;
+  formatador?: (v: number) => string;
 }) {
+  const fmt = formatador ?? brl;
   return (
     <tr className={destaque ? `border-t-2 border-gold/40 font-semibold ${forte ? "text-sm" : ""}` : "text-muted-foreground"}>
       <td className={`py-1.5 ${destaque ? "uppercase tracking-wide" : ""}`}>{titulo}</td>
       {valores.map((v, i) => (
-        <td key={i} className={`py-1.5 text-right tabular-nums whitespace-nowrap ${cor ?? ""}`}>{brl(v)}</td>
+        <td key={i} className={`py-1.5 text-right tabular-nums whitespace-nowrap ${cor ?? ""}`}>{fmt(v)}</td>
       ))}
     </tr>
   );
