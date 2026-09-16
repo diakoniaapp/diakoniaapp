@@ -506,9 +506,16 @@ export default function FinancasConta() {
                         <p className="text-xs text-muted-foreground truncate">de {l.pessoa_nome}</p>
                       )}
                     </td>
-                    <td className="py-1.5 px-2">
+                    <td className="py-1.5 px-2 overflow-hidden">
+                      {/* max-w-full + truncate — sem isso, uma categoria de
+                          nome longo ("Assistência Social / Ação Social")
+                          crescia além da largura da coluna e vazava por
+                          cima da coluna vizinha (Centro custo) na
+                          impressão, depois do table-layout:fixed passar a
+                          travar a largura em vez de deixar crescer. Achado
+                          ao gerar o PDF de teste (16/09/2026). */}
                       {l.categoria_nome && (
-                        <Badge variant="outline" className="text-xs print:border-0 print:px-0 print:py-0 print:rounded-none print:bg-transparent print:font-normal"
+                        <Badge variant="outline" className="text-xs max-w-full truncate print:border-0 print:px-0 print:py-0 print:rounded-none print:bg-transparent print:font-normal"
                           style={l.categoria_cor ? { borderColor: l.categoria_cor, color: l.categoria_cor } : undefined}>
                           {l.categoria_nome}
                         </Badge>
