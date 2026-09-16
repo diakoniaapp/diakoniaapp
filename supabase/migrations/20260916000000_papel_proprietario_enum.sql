@@ -1,0 +1,24 @@
+-- ─── Novo papel: proprietario ────────────────────────────────────────────
+--
+-- Pedido da Telma (16/09/2026): "quero eu mesma configurar [centros de
+-- custo e categorias] e para os demais perfis de acesso isso fica
+-- desativado". Medido antes de decidir: `gerenciar_financeiro` (a
+-- permissão que a tabela `permissoes` já descreve como "Configurar
+-- contas/categorias/centros") nunca é lida pelo front-end — a tela
+-- `/financas/admin` é aberta hoje por PREFIXO a `ROLES_FINANCEIRO`
+-- (admin, diakonia, secretaria, tesouraria), então Caio Marcelo (admin),
+-- Lourdes (secretaria) e Bruno (tesouraria) já veem a mesma tela que a
+-- Telma. Um papel novo, exclusivo dela, é a forma de restringir só a
+-- criação/exclusão de centro e categoria sem tirar o resto (editar,
+-- ativar/desativar) de quem já usa a tela hoje.
+--
+-- Alternativa descartada: checar o telefone/id da Telma direto no código.
+-- Funcionaria, mas é uma regra especial fora do modelo de papéis que o
+-- resto do sistema já usa (ver `diakonia` como precedente de papel
+-- específico, não genérico) — e não sobrevive a uma troca de conta.
+--
+-- ALTER TYPE ... ADD VALUE não roda na mesma transação em que o valor é
+-- usado (CLAUDE.md §6.3) — por isso a concessão do papel e a permissão
+-- nova entram na migration seguinte (20260916000100).
+
+alter type public.app_role add value if not exists 'proprietario';

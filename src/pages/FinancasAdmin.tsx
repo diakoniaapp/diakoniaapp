@@ -19,12 +19,13 @@ import {
 import { toast } from "sonner";
 import {
   listarContas, desativarConta, reativarConta, excluirConta,
-  listarCategoriasTodas, excluirCategoria, atualizarCategoria,
-  listarCentrosCustoTodas, atualizarCentroCusto, excluirCentroCusto,
+  listarCategoriasTodas, excluirCategoria, atualizarCategoria, contarLancamentosPorCategoria,
+  listarCentrosCustoTodas, atualizarCentroCusto, excluirCentroCusto, contarLancamentosPorCentro,
   VINCULO_LABEL, VINCULO_COR,
   CONTA_TIPO_LABEL, brl,
   type FinConta, type FinCategoria, type FinCentroCusto, type FinCentroVinculo,
 } from "@/services/finService";
+import { usePermissoes } from "@/hooks/usePermissoes";
 import { ContaForm } from "@/components/financas/ContaForm";
 import { CategoriaForm } from "@/components/financas/CategoriaForm";
 import { CentroCustoForm } from "@/components/financas/CentroCustoForm";
@@ -41,6 +42,19 @@ const ICONE_CONTA: Record<string, JSX.Element> = {
 };
 
 export default function FinancasAdmin() {
+  // "estruturar_financeiro": criar centro de custo à mão e excluir
+  // centro/categoria mesmo em uso — pedido da Telma (16/09/2026), "quero
+  // eu mesma configurar... para os demais perfis de acesso isso fica
+  // desativado". Medido antes: a tela hoje é aberta por QUALQUER papel de
+  // ROLES_FINANCEIRO (admin, diakonia, secretaria, tesouraria) — Caio
+  // (admin), Lourdes (secretaria) e Bruno (tesouraria) já chegam aqui.
+  // Um papel novo, "proprietario", só a Telma tem — ver migration
+  // 20260916000100. Editar (Pencil) e ativar/desativar continuam pra
+  // quem já usa a tela hoje; só criar/excluir centro e categoria ficam
+  // atrás desta permissão.
+  const { podeFazer } = usePermissoes();
+  const podeEstruturar = podeFazer("estruturar_financeiro");
+
   const [contas, setContas] = useState<FinConta[]>([]);
   const [categorias, setCategorias] = useState<FinCategoria[]>([]);
   const [centros, setCentros] = useState<FinCentroCusto[]>([]);
@@ -71,6 +85,13 @@ export default function FinancasAdmin() {
     | null
   >(null);
   const [excluindoBusy, setExcluindoBusy] = useState(false);
+  // Quantos lançamentos usam o item que está pra ser excluído — null
+  // enquanto conta, 0 quando não tem nenhum. `excluirCategoria`/
+  // `excluirCentroCusto` NUNCA foram bloqueados pelo banco pra este caso
+  // (`ON DELETE SET NULL`, não RESTRICT — ver o comentário corrigido em
+  // finService.ts), então a contagem precisa vir ANTES de perguntar, não
+  // depois de um erro que nunca ia acontecer.
+  const [impactoExclusao, setImpactoExclusao] = useState<number | null>(null);
 
   useEffect(() => { carregar(); }, []);
 
@@ -99,6 +120,7 @@ export default function FinancasAdmin() {
 
   function pedirRemoverConta(c: FinConta) {
     setApagando({ tipo: "conta", item: c });
+    setImpactoExclusao(null); // fora do escopo deste recurso — conta continua com a proteção de sempre
   }
 
   async function toggleCategoria(k: FinCategoria) {
@@ -108,9 +130,10 @@ export default function FinancasAdmin() {
     } catch (e: any) { toast.error(e?.message ?? "Erro"); }
   }
 
-  function pedirRemoverCategoria(k: FinCategoria) {
+  async function pedirRemoverCategoria(k: FinCategoria) {
     if (k.sistema) { toast.error("Categoria do sistema — só dá pra desativar"); return; }
     setApagando({ tipo: "categoria", item: k });
+    setImpactoExclusao(await contarLancamentosPorCategoria(k.id));
   }
 
   async function toggleCentro(c: FinCentroCusto) {
@@ -120,8 +143,9 @@ export default function FinancasAdmin() {
     } catch (e: any) { toast.error(e?.message ?? "Erro"); }
   }
 
-  function pedirRemoverCentro(c: FinCentroCusto) {
+  async function pedirRemoverCentro(c: FinCentroCusto) {
     setApagando({ tipo: "centro", item: c });
+    setImpactoExclusao(await contarLancamentosPorCentro(c.id));
   }
 
   // `e.preventDefault()`: `AlertDialogAction` é um `DialogPrimitive.Close`
@@ -145,12 +169,13 @@ export default function FinancasAdmin() {
         toast.success("Centro de custo excluído");
       }
       setApagando(null);
+      setImpactoExclusao(null);
       await carregar();
     } catch (e: any) {
       const msgPorTipo = {
         conta: "Não foi possível excluir (provavelmente tem lançamentos). Use 'Desativar'.",
-        categoria: "Categoria em uso — desative em vez de excluir.",
-        centro: "Centro em uso — desative em vez de excluir.",
+        categoria: "Categoria em uso por rateio, orçamento ou fornecedor padrão — desative em vez de excluir.",
+        centro: "Centro em uso por rateio, reserva ou fornecedor padrão — desative em vez de excluir.",
       };
       toast.error(msgPorTipo[apagando.tipo]);
     } finally { setExcluindoBusy(false); }
@@ -268,12 +293,14 @@ export default function FinancasAdmin() {
 
         {/* ── ABA CATEGORIAS ─────────────────────────────────────── */}
         <TabsContent value="categorias" className="space-y-3">
-          <div className="flex justify-end">
-            <Button size="sm" onClick={() => { setCatEdit(null); setCatOpen(true); }}
-              className="gap-1.5 bg-gold hover:bg-gold/90 text-white">
-              <Plus className="w-3.5 h-3.5" /> Nova categoria
-            </Button>
-          </div>
+          {podeEstruturar && (
+            <div className="flex justify-end">
+              <Button size="sm" onClick={() => { setCatEdit(null); setCatOpen(true); }}
+                className="gap-1.5 bg-gold hover:bg-gold/90 text-white">
+                <Plus className="w-3.5 h-3.5" /> Nova categoria
+              </Button>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {/* ENTRADAS */}
@@ -286,7 +313,7 @@ export default function FinancasAdmin() {
                   <CategoriaLinha key={k.id} k={k}
                     onEdit={() => { setCatEdit(k); setCatOpen(true); }}
                     onToggle={() => toggleCategoria(k)}
-                    onDelete={() => pedirRemoverCategoria(k)} />
+                    onDelete={podeEstruturar ? () => pedirRemoverCategoria(k) : undefined} />
                 ))}
               </CardContent>
             </Card>
@@ -301,7 +328,7 @@ export default function FinancasAdmin() {
                   <CategoriaLinha key={k.id} k={k}
                     onEdit={() => { setCatEdit(k); setCatOpen(true); }}
                     onToggle={() => toggleCategoria(k)}
-                    onDelete={() => pedirRemoverCategoria(k)} />
+                    onDelete={podeEstruturar ? () => pedirRemoverCategoria(k) : undefined} />
                 ))}
               </CardContent>
             </Card>
@@ -309,12 +336,23 @@ export default function FinancasAdmin() {
 
           <p className="text-xs text-muted-foreground text-center">
             Categorias do <strong>sistema</strong> não podem ser excluídas — só desativadas.
-            Categorias <strong>em uso</strong> em lançamentos também precisam ser desativadas.
+            {podeEstruturar
+              ? " Categoria em uso mostra quantos lançamentos ficarão sem classificação antes de confirmar."
+              : " Criar e excluir categoria é restrito à administradora do sistema."}
           </p>
         </TabsContent>
 
         {/* ── ABA CENTROS DE CUSTO ───────────────────────────────── */}
         <TabsContent value="centros" className="space-y-3">
+          {podeEstruturar && (
+            <div className="flex justify-end">
+              <Button size="sm" onClick={() => { setCcEdit(null); setCcOpen(true); }}
+                className="gap-1.5 bg-gold hover:bg-gold/90 text-white">
+                <Plus className="w-3.5 h-3.5" /> Novo centro de custo
+              </Button>
+            </div>
+          )}
+
           {centrosPorTipo.length === 0 ? (
             <Card className="border-dashed">
               <CardContent className="py-6 text-center text-sm text-muted-foreground">
@@ -339,7 +377,7 @@ export default function FinancasAdmin() {
                     <CentroLinha key={c.id} c={c}
                       onEdit={() => { setCcEdit(c); setCcOpen(true); }}
                       onToggle={() => toggleCentro(c)}
-                      onDelete={() => pedirRemoverCentro(c)} />
+                      onDelete={podeEstruturar ? () => pedirRemoverCentro(c) : undefined} />
                   ))}
                 </CardContent>
               </Card>
@@ -347,10 +385,9 @@ export default function FinancasAdmin() {
           )}
 
           <p className="text-xs text-muted-foreground text-center">
-            Centros de custo nascem sozinhos, sincronizados a partir de ministérios,
-            áreas, classes EBD, grupos de PGM e campanhas — não tem tela de criar à
-            mão. Centro <strong>em uso</strong> em lançamentos precisa ser desativado
-            em vez de excluído.
+            {podeEstruturar
+              ? "Os demais centros nascem sozinhos, sincronizados a partir de ministérios, áreas, classes EBD, grupos de PGM e campanhas — \"Geral\" é o único tipo criável à mão. Centro em uso mostra quantos lançamentos ficarão sem centro de custo antes de confirmar."
+              : "Centros de custo nascem sozinhos, sincronizados a partir de ministérios, áreas, classes EBD, grupos de PGM e campanhas. Criar e excluir centro é restrito à administradora do sistema."}
           </p>
         </TabsContent>
       </Tabs>
@@ -374,7 +411,7 @@ export default function FinancasAdmin() {
         onSaved={carregar}
       />
 
-      <AlertDialog open={!!apagando} onOpenChange={(v) => !v && setApagando(null)}>
+      <AlertDialog open={!!apagando} onOpenChange={(v) => { if (!v) { setApagando(null); setImpactoExclusao(null); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
@@ -382,14 +419,34 @@ export default function FinancasAdmin() {
                 : apagando?.tipo === "categoria" ? "Excluir categoria?"
                 : "Excluir centro de custo?"}
             </AlertDialogTitle>
-            <AlertDialogDescription>
-              "{apagando?.item.nome}" — só funciona se não tiver lançamentos.
-              Não dá pra desfazer.
+            <AlertDialogDescription asChild>
+              <div className="space-y-1.5">
+                <p>"{apagando?.item.nome}" — não dá pra desfazer.</p>
+                {/* Impacto medido ANTES de perguntar (contarLancamentosPor
+                    Categoria/Centro) — pedido da Telma (16/09/2026): permitir
+                    excluir mesmo em uso, mas avisando quantos lançamentos
+                    vão perder essa classificação, em vez do aviso genérico
+                    "só funciona se não tiver lançamentos" que nunca foi
+                    verdade pra este caso (ON DELETE SET NULL, não RESTRICT
+                    — ver finService.ts). Conta continua fora deste recurso. */}
+                {(apagando?.tipo === "categoria" || apagando?.tipo === "centro") && (
+                  impactoExclusao === null ? (
+                    <p className="text-muted-foreground">Verificando uso...</p>
+                  ) : impactoExclusao > 0 ? (
+                    <p className="text-warning-text font-medium">
+                      {impactoExclusao} lançamento{impactoExclusao === 1 ? "" : "s"} ficará{impactoExclusao === 1 ? "" : "ão"} sem
+                      {" "}{apagando?.tipo === "categoria" ? "categoria" : "centro de custo"}.
+                    </p>
+                  ) : (
+                    <p className="text-muted-foreground">Nenhum lançamento usa isto hoje.</p>
+                  )
+                )}
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={excluindoBusy}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmarExcluir} disabled={excluindoBusy}
+            <AlertDialogAction onClick={confirmarExcluir} disabled={excluindoBusy || impactoExclusao === null}
               className="bg-destructive hover:bg-destructive/90 text-white">
               {excluindoBusy ? "..." : "Excluir"}
             </AlertDialogAction>
@@ -401,7 +458,7 @@ export default function FinancasAdmin() {
 }
 
 function CategoriaLinha({ k, onEdit, onToggle, onDelete }: {
-  k: FinCategoria; onEdit: () => void; onToggle: () => void; onDelete: () => void;
+  k: FinCategoria; onEdit: () => void; onToggle: () => void; onDelete?: () => void;
 }) {
   return (
     <div className={`flex items-center justify-between gap-1 text-sm border-l-2 pl-2 py-1 hover:bg-muted/30 ${!k.ativo ? "opacity-50" : ""}`}
@@ -419,7 +476,10 @@ function CategoriaLinha({ k, onEdit, onToggle, onDelete }: {
           title={k.ativo ? "Desativar" : "Reativar"}>
           {k.ativo ? <PowerOff className="w-3 h-3 text-warning-text" /> : <RotateCcw className="w-3 h-3 text-success-text" />}
         </Button>
-        {!k.sistema && (
+        {/* Excluir: restrito a quem tem "estruturar_financeiro" (onDelete
+            vem undefined pra quem não tem) — categoria do sistema continua
+            sem o botão pra ninguém, nem pra quem tem a permissão. */}
+        {!k.sistema && onDelete && (
           <Button type="button" variant="ghost" size="icon"
             className="h-6 w-6 text-destructive" onClick={onDelete} title="Excluir">
             <Trash2 className="w-3 h-3" />
@@ -431,7 +491,7 @@ function CategoriaLinha({ k, onEdit, onToggle, onDelete }: {
 }
 
 function CentroLinha({ c, onEdit, onToggle, onDelete }: {
-  c: FinCentroCusto; onEdit: () => void; onToggle: () => void; onDelete: () => void;
+  c: FinCentroCusto; onEdit: () => void; onToggle: () => void; onDelete?: () => void;
 }) {
   return (
     <div className={`flex items-center justify-between gap-1 text-sm border-l-2 pl-2 py-1 hover:bg-muted/30 ${!c.ativo ? "opacity-50" : ""}`}
@@ -448,10 +508,14 @@ function CentroLinha({ c, onEdit, onToggle, onDelete }: {
           title={c.ativo ? "Desativar" : "Reativar"}>
           {c.ativo ? <PowerOff className="w-3 h-3 text-warning-text" /> : <RotateCcw className="w-3 h-3 text-success-text" />}
         </Button>
-        <Button type="button" variant="ghost" size="icon"
-          className="h-6 w-6 text-destructive" onClick={onDelete} title="Excluir">
-          <Trash2 className="w-3 h-3" />
-        </Button>
+        {/* Excluir: restrito a quem tem "estruturar_financeiro" (onDelete
+            vem undefined pra quem não tem). */}
+        {onDelete && (
+          <Button type="button" variant="ghost" size="icon"
+            className="h-6 w-6 text-destructive" onClick={onDelete} title="Excluir">
+            <Trash2 className="w-3 h-3" />
+          </Button>
+        )}
       </div>
     </div>
   );

@@ -319,17 +319,38 @@ export async function atualizarCentroCusto(id: string, patch: Partial<FinCentroC
 // resto do banco — ver `20260902210000_lideranca_nao_opera_o_financeiro.
 // sql`), então o bloqueio nunca foi o banco: era só não ter sido
 // construído. Pedido direto da Telma (13/09/2026), pra poder apagar
-// centro de custo criado em teste. Mesma proteção de FK que
-// `excluirCategoria` — se algum `fin_lancamentos.centro_custo_id` ou
-// `fin_lancamento_rateio.centro_custo_id` apontar pra cá, o Postgres
-// recusa e quem chama decide (a tela mostra "em uso, desative" em vez de
-// excluir).
+// centro de custo criado em teste.
+//
+// CORREÇÃO (16/09/2026): o comentário original dizia que "o Postgres
+// recusa" se algum `fin_lancamentos.centro_custo_id` apontar pra cá —
+// **falso**, conferido direto na constraint (`pg_get_constraintdef`):
+// `fin_lancamentos_centro_custo_id_fkey` é `ON DELETE SET NULL`, não
+// RESTRICT. A exclusão de um centro EM USO sempre funcionou, só que
+// apagando a classificação de todo lançamento em silêncio — a tela dizia
+// "em uso, desative" como se fosse impedido, mas nunca foi, pra este
+// caso. Só `fin_lancamento_rateio`, `arr_reservas` e
+// `fin_fornecedores.centro_custo_padrao_id` bloqueiam de verdade (RESTRICT/
+// NO ACTION). Por isso `contarLancamentosPorCentro` abaixo — quem chama
+// a exclusão precisa saber ANTES quantos lançamentos vão perder a
+// classificação, em vez de descobrir depois que a mensagem de erro
+// mentia.
 export async function excluirCentroCusto(id: string): Promise<void> {
   const r = conferir(
     await supabase.from("fin_centros_custo").delete().eq("id", id).select("id"),
     "O centro de custo",
   );
   if (!r.ok) throw new Error(r.erro);
+}
+
+// Conta quantos lançamentos ficariam "sem centro de custo" se este fosse
+// excluído — ver a correção no comentário de `excluirCentroCusto` acima
+// sobre por que isso precisa ser perguntado ANTES, não depois.
+export async function contarLancamentosPorCentro(centroId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from("fin_lancamentos").select("id", { count: "exact", head: true })
+    .eq("centro_custo_id", centroId);
+  if (error) throw error;
+  return count ?? 0;
 }
 
 // ─── Rateio entre centros de custo ──────────────────────────────────────
@@ -632,12 +653,27 @@ export async function atualizarCategoria(id: string, patch: Partial<FinCategoria
   if (!r.ok) throw new Error(r.erro);
 }
 
+// A mensagem "categoria em uso, desative em vez de excluir" (FinancasAdmin.
+// tsx) nunca foi garantida pelo banco pra este caso — mesma correção do
+// comentário de `excluirCentroCusto` em cima: `fin_lancamentos_categoria_
+// id_fkey` é `ON DELETE SET NULL`, não RESTRICT. A exclusão sempre
+// funcionou, só apagando a classificação de todo lançamento em silêncio.
 export async function excluirCategoria(id: string): Promise<void> {
   const r = conferir(
     await supabase.from("fin_categorias").delete().eq("id", id).select("id"),
     "A categoria",
   );
   if (!r.ok) throw new Error(r.erro);
+}
+
+// Conta quantos lançamentos ficariam "sem categoria" se esta fosse
+// excluída — ver o comentário de `excluirCategoria` acima.
+export async function contarLancamentosPorCategoria(categoriaId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from("fin_lancamentos").select("id", { count: "exact", head: true })
+    .eq("categoria_id", categoriaId);
+  if (error) throw error;
+  return count ?? 0;
 }
 
 export async function listarCategoriasTodas(): Promise<FinCategoria[]> {
