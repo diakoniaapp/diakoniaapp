@@ -235,6 +235,15 @@ export default function Financas() {
                       ))}
                     </tr>
                   ))}
+                  {/* Pedido da Telma (16/09/2026): soma das 3 linhas por mês. */}
+                  <tr className="border-t-2 border-gold/40 font-semibold">
+                    <td className="py-1.5 pr-3">Total</td>
+                    {indicadores.map(i => (
+                      <td key={`${i.ano}-${i.mes}`} className="py-1.5 px-2 text-right tabular-nums">
+                        {brl(i.dizimos + i.ofertas + i.missoes)}
+                      </td>
+                    ))}
+                  </tr>
                 </tbody>
               </table>
             </CardContent>
