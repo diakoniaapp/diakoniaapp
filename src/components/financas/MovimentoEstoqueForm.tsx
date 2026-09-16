@@ -110,10 +110,13 @@ export function MovimentoEstoqueForm({ open, onOpenChange, item, onSaved }: Prop
             {/* min-w-0 — sem isso o `<input type="date">` nativo não
                 encolhe abaixo da própria largura mínima e estoura a
                 coluna em tela estreita. Mesmo transbordo documentado no
-                CLAUDE.md (§6.2) — achado pela Telma (15/09/2026). */}
+                CLAUDE.md (§6.2) — achado pela Telma (15/09/2026).
+                min/max — sem isso o segmento de ANO aceita dígitos sem
+                limite ao corrigir (ex.: "26666"), estourando a caixa por
+                dentro. Achado pela Telma (16/09/2026). */}
             <div className="min-w-0">
               <Label>Data *</Label>
-              <Input type="date" required value={data} onChange={(e) => setData(e.target.value)} className="w-full" />
+              <Input type="date" required value={data} onChange={(e) => setData(e.target.value)} min="2000-01-01" max="2099-12-31" className="w-full" />
             </div>
           </div>
 

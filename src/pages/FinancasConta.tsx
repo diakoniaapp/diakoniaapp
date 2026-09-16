@@ -348,14 +348,20 @@ export default function FinancasConta() {
               dd/mm/aaaa + ícone de calendário do navegador), e a caixa
               estoura a coluna em telas estreitas. Mesmo transbordo já
               documentado no CLAUDE.md (§6.2) — achado pela Telma
-              (15/09/2026) neste filtro. */}
+              (15/09/2026) neste filtro.
+              min/max — sem isso, o WebView deixa o segmento de ANO crescer
+              sem limite de dígitos ao digitar/corrigir (ex.: "26666"),
+              estourando a própria caixa por dentro — um transbordo
+              diferente do de cima, que não some com min-w-0. Achado ao
+              vivo pela Telma (16/09/2026), com print mostrando exatamente
+              esse valor no ano. */}
           <div className="min-w-0">
             <label className="text-xs uppercase tracking-wide text-muted-foreground">Data inicial</label>
-            <Input type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} className="h-8 text-xs w-full" />
+            <Input type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} min="2000-01-01" max="2099-12-31" className="h-8 text-xs w-full" />
           </div>
           <div className="min-w-0">
             <label className="text-xs uppercase tracking-wide text-muted-foreground">Data final</label>
-            <Input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} className="h-8 text-xs w-full" />
+            <Input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} min="2000-01-01" max="2099-12-31" className="h-8 text-xs w-full" />
           </div>
           <div>
             <label className="text-xs uppercase tracking-wide text-muted-foreground">Tipo</label>

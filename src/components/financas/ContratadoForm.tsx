@@ -209,15 +209,18 @@ export function ContratadoForm({ open, onOpenChange, contratado, onSaved }: Prop
           {/* min-w-0 — sem isso o `<input type="date">` nativo não encolhe
               abaixo da própria largura mínima e estoura a coluna do grid
               em tela estreita. Mesmo transbordo documentado no CLAUDE.md
-              (§6.2) — achado pela Telma (15/09/2026). */}
+              (§6.2) — achado pela Telma (15/09/2026).
+              min/max — sem isso o segmento de ANO aceita dígitos sem
+              limite ao corrigir (ex.: "26666"), estourando a caixa por
+              dentro. Achado pela Telma (16/09/2026). */}
           <div className="grid grid-cols-2 gap-3">
             <div className="min-w-0">
               <Label>Início *</Label>
-              <Input type="date" value={campos.dataInicio} onChange={(e) => set("dataInicio", e.target.value)} required className="w-full" />
+              <Input type="date" value={campos.dataInicio} onChange={(e) => set("dataInicio", e.target.value)} required min="2000-01-01" max="2099-12-31" className="w-full" />
             </div>
             <div className="min-w-0">
               <Label>Fim (opcional)</Label>
-              <Input type="date" value={campos.dataFim} onChange={(e) => set("dataFim", e.target.value)} className="w-full" />
+              <Input type="date" value={campos.dataFim} onChange={(e) => set("dataFim", e.target.value)} min="2000-01-01" max="2099-12-31" className="w-full" />
             </div>
           </div>
 

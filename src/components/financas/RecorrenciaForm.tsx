@@ -214,10 +214,13 @@ export function RecorrenciaForm({ open, onOpenChange, recorrencia, onSaved }: Pr
                 encolhe abaixo da própria largura mínima e estoura a
                 coluna do grid de 3 em tela estreita. Mesmo transbordo
                 documentado no CLAUDE.md (§6.2) — achado pela Telma
-                (15/09/2026). */}
+                (15/09/2026).
+                min/max — sem isso o segmento de ANO aceita dígitos sem
+                limite ao corrigir (ex.: "26666"), estourando a caixa por
+                dentro. Achado pela Telma (16/09/2026). */}
             <div className="min-w-0">
               <Label>Início</Label>
-              <Input type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} className="w-full" />
+              <Input type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} min="2000-01-01" max="2099-12-31" className="w-full" />
             </div>
           </div>
 
@@ -244,7 +247,7 @@ export function RecorrenciaForm({ open, onOpenChange, recorrencia, onSaved }: Pr
 
           <div>
             <Label>Encerra em (opcional)</Label>
-            <Input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} />
+            <Input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} min="2000-01-01" max="2099-12-31" />
             <p className="text-xs text-muted-foreground mt-0.5">Em branco = indefinido</p>
           </div>
 
