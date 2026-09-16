@@ -259,6 +259,17 @@ export function LancamentoForm({
     setArquivo(null);
     setPreviewUrl(null);
     setBoletoTexto(""); setBoletoErro(null); setBoletoOk(null);
+    // Faltava zerar a leitura de OCR/PDF aqui — sem isso, ao editar um
+    // lançamento diferente (ou passar pro próximo, na tela de importação),
+    // a caixa "Lemos do texto do PDF" continuava mostrando o resultado do
+    // ARQUIVO ANTERIOR, porque nenhum arquivo novo tinha sido escolhido
+    // ainda pra `escolheArquivo` (a única outra função que zera `ocr`)
+    // rodar. Achado pela Telma (16/09/2026) com print mostrando dados de
+    // uma nota da Supermercado Mundial na caixa, editando um lançamento
+    // da Agata.
+    setOcr(null);
+    setOcrLoading(false);
+    setFornecedorOcrSugerido(null);
   }, [open, lancamento, contaIdPadrao, tipoPadrao, rascunho]);
 
   function addLinhaRateio() {
