@@ -1,11 +1,16 @@
 import { useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
+} from "@/components/ui/dialog";
 import {
   DollarSign, Wallet, TrendingUp, TrendingDown, AlertTriangle,
   Plus, ChevronRight, Building2, CreditCard, PiggyBank, Mail, Coins,
-  Settings, ArrowRightLeft,
+  Settings, ArrowRightLeft, Printer,
 } from "lucide-react";
 import {
   listarContas, resumoFinanceiroMes, indicadoresEclesiasticosMensais, brl, CONTA_TIPO_LABEL,
@@ -49,6 +54,47 @@ export default function Financas() {
   const [tipoPadraoLancamento, setTipoPadraoLancamento] = useState<FinMovimentoTipo>("entrada");
   const [transfOpen, setTransfOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+
+  // Diálogo "Imprimir" — pedido da Telma (16/09/2026): "hoje temos
+  // impressão isolada em cada conta, mas quero a opção de visualizar o
+  // extrato completo das contas, filtrando quais quero visualizar e
+  // imprimir... de acordo com filtro de data escolhido". Escolhe contas
+  // (todas marcadas por padrão) + período, e monta a query string que
+  // `FinancasRelatorioContas.tsx` lê pra gerar o documento combinado.
+  const [imprimirOpen, setImprimirOpen] = useState(false);
+  const [contasParaImprimir, setContasParaImprimir] = useState<Set<string>>(new Set());
+  const hojeImpressao = new Date();
+  const [printDataInicio, setPrintDataInicio] = useState(
+    new Date(hojeImpressao.getFullYear(), hojeImpressao.getMonth(), 1).toISOString().slice(0, 10)
+  );
+  const [printDataFim, setPrintDataFim] = useState(
+    new Date(hojeImpressao.getFullYear(), hojeImpressao.getMonth() + 1, 0).toISOString().slice(0, 10)
+  );
+
+  function abrirImprimir() {
+    setContasParaImprimir(new Set(contas.map(c => c.id)));
+    setImprimirOpen(true);
+  }
+
+  function alternarContaImpressao(id: string) {
+    setContasParaImprimir(prev => {
+      const novo = new Set(prev);
+      if (novo.has(id)) novo.delete(id); else novo.add(id);
+      return novo;
+    });
+  }
+
+  function gerarRelatorio() {
+    if (contasParaImprimir.size === 0) return;
+    const params = new URLSearchParams({
+      contas: Array.from(contasParaImprimir).join(","),
+      inicio: printDataInicio,
+      fim: printDataFim,
+    });
+    setImprimirOpen(false);
+    navigate(`/financas/relatorio-contas?${params.toString()}`);
+  }
 
   useEffect(() => { carregar(); }, []);
 
@@ -130,6 +176,9 @@ export default function Financas() {
           <Button asChild variant="outline" size="sm" className="gap-1.5"><Link to="/financas/admin">
               <Settings className="w-3.5 h-3.5" /> Configurações
             </Link></Button>
+          <Button variant="outline" size="sm" onClick={abrirImprimir} className="gap-1.5" disabled={contas.length === 0}>
+            <Printer className="w-3.5 h-3.5" /> Imprimir
+          </Button>
           <Button variant="outline" size="sm" onClick={() => setTransfOpen(true)} className="gap-1.5 text-info-text hover:text-info-text">
             <ArrowRightLeft className="w-3.5 h-3.5" /> Transferir
           </Button>
@@ -262,6 +311,57 @@ export default function Financas() {
         onOpenChange={setTransfOpen}
         onSaved={carregar}
       />
+
+      <Dialog open={imprimirOpen} onOpenChange={setImprimirOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Imprimir extrato de contas</DialogTitle>
+            <DialogDescription>
+              Escolha as contas e o período. Cada conta escolhida entra como
+              uma seção própria, com o saldo acumulado dela.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="min-w-0">
+                <label className="text-xs uppercase tracking-wide text-muted-foreground">Data inicial</label>
+                <Input type="date" value={printDataInicio} onChange={(e) => {
+                  const v = e.target.value;
+                  setPrintDataInicio(v);
+                  if (v > printDataFim) setPrintDataFim(v);
+                }} min="2000-01-01" max="2099-12-31" className="h-8 text-xs w-full" />
+              </div>
+              <div className="min-w-0">
+                <label className="text-xs uppercase tracking-wide text-muted-foreground">Data final</label>
+                <Input type="date" value={printDataFim} onChange={(e) => {
+                  const v = e.target.value;
+                  setPrintDataFim(v < printDataInicio ? printDataInicio : v);
+                }} min={printDataInicio} max="2099-12-31" className="h-8 text-xs w-full" />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs uppercase tracking-wide text-muted-foreground">Contas</label>
+              <div className="mt-1 space-y-1.5 max-h-56 overflow-y-auto border rounded-md p-2">
+                {contas.map(c => (
+                  <label key={c.id} className="flex items-center gap-2 text-sm cursor-pointer">
+                    <Checkbox checked={contasParaImprimir.has(c.id)} onCheckedChange={() => alternarContaImpressao(c.id)} />
+                    <span className="flex-1 truncate">{c.nome}</span>
+                    <span className="text-xs text-muted-foreground shrink-0">{CONTA_TIPO_LABEL[c.tipo]}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setImprimirOpen(false)}>Cancelar</Button>
+            <Button size="sm" onClick={gerarRelatorio} disabled={contasParaImprimir.size === 0}
+              className="gap-1.5 bg-gold hover:bg-gold/90 text-white">
+              <Printer className="w-3.5 h-3.5" />
+              Gerar relatório {contasParaImprimir.size > 0 && `(${contasParaImprimir.size})`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Os blocos que a Home devolveu ao virar tela pessoal — aqui, a agenda
           fiscal e a manutencao de Bazar/Cantina. Ver `widgetRegistry.paineis`. */}

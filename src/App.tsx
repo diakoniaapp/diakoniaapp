@@ -51,6 +51,7 @@ import FinancasAdmin from "./pages/FinancasAdmin.tsx";
 import FinancasRecorrencias from "./pages/FinancasRecorrencias.tsx";
 import FinancasAgenda from "./pages/FinancasAgenda.tsx";
 import FinancasRelatorio from "./pages/FinancasRelatorio.tsx";
+import FinancasRelatorioContas from "./pages/FinancasRelatorioContas.tsx";
 import FinancasEstoque from "./pages/FinancasEstoque.tsx";
 import FinancasInsights from "./pages/FinancasInsights.tsx";
 import FinancasCentros from "./pages/FinancasCentros.tsx";
@@ -182,6 +183,7 @@ const App = () => (
                   <Route path="/pgm/:grupoId/reuniao/:reuniaoId/relatorio" element={<PgmReuniaoRelatorio />} />
                   <Route path="/financas" element={<Financas />} />
                   <Route path="/financas/conta/:contaId" element={<FinancasConta />} />
+                  <Route path="/financas/relatorio-contas" element={<FinancasRelatorioContas />} />
                   <Route path="/financas/admin" element={<FinancasAdmin />} />
                   <Route path="/financas/recorrencias" element={<FinancasRecorrencias />} />
                   <Route path="/financas/agenda" element={<FinancasAgenda />} />

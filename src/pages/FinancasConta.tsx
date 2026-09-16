@@ -89,6 +89,41 @@ export default function FinancasConta() {
   // da conta + movimento realizado/conciliado antes da data).
   const [saldoAntesDoPeriodo, setSaldoAntesDoPeriodo] = useState(0);
 
+  // Altura real da faixa fixa (barra de ferramentas + filtros + resumo) —
+  // medida em runtime porque o conteúdo dela muda de altura sozinho
+  // (o `flex-wrap` da barra de botões quebra linha em telas estreitas, e
+  // o card de filtros também muda de 2 pra 5 colunas). Um `top` fixo em
+  // pixel quebraria em algum desses casos; `ResizeObserver` mede a altura
+  // de verdade a cada mudança e o cabeçalho da tabela (`<thead>`) usa esse
+  // valor como o próprio `top` do seu sticky, colando logo abaixo da
+  // faixa em vez de rolar escondido atrás dela. Pedido da Telma
+  // (16/09/2026): "aumente a faixa fixa para aparecer o título do
+  // extrato" — antes só a faixa de cima ficava fixa; a linha
+  // Situação/Data/Descrição.../Saldo rolava junto com os lançamentos.
+  //
+  // `useState` no lugar de `useRef` pro nó — um `ref={faixaFixaRef}` com
+  // `useRef` comum some no primeiro `if (loading && !conta) return
+  // <PaginaSkeleton />` (a div da faixa fixa só existe no JSX de baixo,
+  // que só monta depois de `conta` carregar) — o `useEffect([])` de
+  // montagem já tinha rodado E TERMINADO com `faixaFixaRef.current`
+  // ainda `null` naquele instante, e como as dependências são `[]`, ele
+  // nunca roda de novo quando a div de verdade aparece. Um "callback
+  // ref" guardado em estado dispara de novo toda vez que o nó DOM muda
+  // (inclusive de `null` pra montado, no exato momento em que o
+  // skeleton vira a tela real) — achado ao vivo (thead sticky com
+  // `top: 0px`, escondido atrás da faixa de cima, altura nunca saía
+  // de 0).
+  const [faixaFixaEl, setFaixaFixaEl] = useState<HTMLDivElement | null>(null);
+  const [alturaFaixaFixa, setAlturaFaixaFixa] = useState(0);
+  useEffect(() => {
+    if (!faixaFixaEl) return;
+    const medir = () => setAlturaFaixaFixa(faixaFixaEl.offsetHeight);
+    medir();
+    const ro = new ResizeObserver(medir);
+    ro.observe(faixaFixaEl);
+    return () => ro.disconnect();
+  }, [faixaFixaEl]);
+
   // Período do filtro — mês atual por default
   const hoje = new Date();
   const [dataInicio, setDataInicio] = useState(
@@ -303,7 +338,7 @@ export default function FinancasConta() {
           linhas da tabela passando por baixo ao rolar. `print:static`
           porque a impressão já resolve isso do jeito dela (ver o `<style>`
           de impressão acima) — sticky não faz sentido no papel. */}
-      <div className="sticky top-0 z-20 -mx-3 md:-mx-5 px-3 md:px-5 pt-3 md:pt-5 pb-3 space-y-3 bg-background border-b print:static print:mx-0 print:px-0 print:pt-0 print:pb-0 print:border-0">
+      <div ref={setFaixaFixaEl} className="sticky top-0 z-20 -mx-3 md:-mx-5 px-3 md:px-5 pt-3 md:pt-5 pb-3 space-y-3 bg-background border-b print:static print:mx-0 print:px-0 print:pt-0 print:pb-0 print:border-0">
       {/* Barra de ferramentas — só na tela, `print:hidden` some no papel.
           O resto da página (cartões de resumo, tabela) é o MESMO layout
           nos dois casos, com só duas colunas (seleção e ações) escondidas
@@ -456,7 +491,34 @@ export default function FinancasConta() {
 
       {/* Tabela de lançamentos */}
       <Card>
-        <CardContent className="p-0 overflow-x-auto">
+        {/* `<thead sticky top-0>` dentro de um `overflow-x-auto` NÃO gruda
+            no scroll da página (`<main>`) — tentativa inicial, revertida.
+            A spec do CSS trava os dois eixos de overflow juntos: só
+            declarar `overflow-x-auto` já faz o navegador computar
+            `overflow-y` como `auto` também (achado medindo
+            `getComputedStyle` ao vivo — nem `overflow-y-visible` escapa
+            disso, o navegador reescreve de volta), e QUALQUER valor de
+            overflow diferente de `visible` — inclusive `clip`/`hidden` —
+            conta como "contêiner de scroll" pra fins de `position:
+            sticky`. Resultado: o `<thead>` colava nesse CardContent (que
+            nunca rolava de verdade, só existia pra permitir a tabela
+            escapar pros lados em tela estreita) em vez de colar no
+            `<main>`, e "grudava" a `top` medida a partir do topo do
+            PRÓPRIO CardContent, empurrando o cabeçalho pra dentro do meio
+            da lista em vez de ficar visível.
+            Correção: em vez de brigar com a spec, esta área passa a ter
+            SCROLL PRÓPRIO de verdade — altura máxima calculada a partir
+            do que sobra da tela depois da faixa fixa (`alturaFaixaFixa`),
+            então `overflow-x-auto`/`overflow-y-auto` deixam de ser um
+            acidente e viram o scroll de verdade da tabela; `sticky top-0`
+            no `<thead>` cola no topo DESSE scroll, que é exatamente onde
+            a faixa fixa termina. É o mesmo padrão de qualquer grade de
+            dados com cabeçalho fixo (Excel, Notion). Impressão ignora
+            tudo isso: `.relatorio-page .overflow-x-auto { overflow:
+            visible !important; }` já existia no `<style>` de impressão
+            acima e continua batendo pelo nome da classe. */}
+        <CardContent className="p-0 overflow-x-auto overflow-y-auto"
+          style={{ maxHeight: alturaFaixaFixa ? `calc(100vh - ${alturaFaixaFixa}px - 7rem)` : undefined }}>
           {loading ? (
             <div className="py-6 text-center text-muted-foreground">
               <Loader2 className="w-4 h-4 animate-spin inline mr-1.5" /> Carregando...
@@ -467,26 +529,72 @@ export default function FinancasConta() {
             </p>
           ) : (
             <table className="w-full text-xs">
-              <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
+              {/* `sticky top-0` no `<thead>` (não em cada `th`) — cola a
+                  linha inteira de títulos no topo do scroll PRÓPRIO desta
+                  área (ver comentário do `CardContent` acima sobre por que
+                  não dá pra colar direto no `<main>`). `right-0` no `th`
+                  de Ações continua funcionando junto — são dois eixos de
+                  sticky independentes (vertical no thead relativo a este
+                  scroll, horizontal na célula relativo ao mesmo scroll,
+                  só que no eixo x), não um conflito. `print:static` porque
+                  a impressão já resolve isso do jeito dela (repete o
+                  cabeçalho por `page-break`, e o scroll interno vira
+                  `overflow:visible` no `<style>` de impressão acima). */}
+              <thead className="sticky top-0 z-10 bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground print:static">
                 <tr>
                   <th className="w-8 print:hidden"></th>
-                  <th className="text-left py-2 px-2 w-20">Situação</th>
-                  <th className="text-left py-2 px-2 w-16">Data</th>
+                  {/* Situação e Centro custo saíram de coluna própria
+                      (16/09/2026, pedido da Telma: "mostre Data - Descrição/
+                      Fornecedor - Categoria - valor - saldo, como um
+                      extrato de banco msm") — um extrato de banco de
+                      verdade não tem coluna de "situação" nem "centro de
+                      custo", só data/descrição/valor/saldo; a situação
+                      (previsto/realizado/conciliado/cancelado) virou um
+                      ícone colorido colado na própria data, clicável do
+                      mesmo jeito que já era (marca conciliado), só sem uma
+                      coluna e um texto só pra isso. Centro custo continua
+                      no banco e no CSV/relatório detalhado — só saiu desta
+                      tela, que agora imprime exatamente essas 5 colunas
+                      (o resto já é `print:hidden`). */}
+                  <th className="text-left py-2 px-2 w-24">Data</th>
                   <th className="text-left py-2 px-2">Descrição / Fornecedor</th>
-                  <th className="text-left py-2 px-2 w-32">Categoria</th>
-                  <th className="text-left py-2 px-2 w-28">Centro custo</th>
+                  <th className="text-left py-2 px-2 w-36">Categoria</th>
                   <th className="text-right py-2 px-2 w-28">Valor</th>
                   <th className="text-right py-2 px-2 w-28">Saldo</th>
                   {/* Ações fixa na borda direita da área rolável — antes ficava
-                      fora da tela em qualquer conta com muitas colunas visíveis
-                      (Categoria + Centro custo + Saldo já empurram a tabela além
-                      da largura da tela), obrigando rolar pra achar o lápis.
-                      Achado pela Telma em 13/09/2026. Some na impressão — lápis/
-                      lixeira/comprovante não fazem sentido no papel. */}
+                      fora da tela em qualquer conta com muitas colunas visíveis,
+                      obrigando rolar pra achar o lápis. Achado pela Telma em
+                      13/09/2026. Some na impressão — lápis/lixeira/comprovante
+                      não fazem sentido no papel. */}
                   <th className="w-28 sticky right-0 bg-muted/40 print:hidden"></th>
                 </tr>
               </thead>
               <tbody>
+                {/* Linha "Saldo inicial" — pedido da Telma (16/09/2026):
+                    "insira a linha de saldo inicial para o primeiro
+                    lançamento, para que o saldo corresponda corretamente".
+                    A coluna Saldo já estava matematicamente certa (soma a
+                    partir de `saldoAntesDoPeriodo`, calculado por
+                    `saldoAcumuladoAntesDe`) — o que faltava era MOSTRAR de
+                    onde esse acumulado começa, do jeito que um extrato de
+                    banco de verdade sempre abre com "SALDO ANTERIOR". Só
+                    aparece com `filtroTipo`/`busca` neutros: com um filtro
+                    de tipo ou busca ativo a coluna Saldo já vira "soma só
+                    do que apareceu na tela" (ver comentário acima, em
+                    `saldoPorLancamento`) — mostrar um "saldo inicial" ao
+                    lado de uma lista recortada seria mais confuso que
+                    ajudar. Sem seleção, sem lápis/lixeira — não é um
+                    lançamento de verdade, não dá pra editar nem excluir. */}
+                {filtroTipo === "todos" && busca.length < 2 && (
+                  <tr className="border-t bg-muted/20 text-muted-foreground italic">
+                    <td className="py-1.5 px-2 print:hidden"></td>
+                    <td className="py-1.5 px-2" colSpan={2}>Saldo inicial</td>
+                    <td className="py-1.5 px-2">até {dataBr(dataInicio)}</td>
+                    <td className="py-1.5 px-2 text-right tabular-nums"></td>
+                    <td className="py-1.5 px-2 text-right tabular-nums font-medium">{brl(saldoAntesDoPeriodo)}</td>
+                    <td className="py-1.5 px-1 sticky right-0 bg-muted/20 print:hidden"></td>
+                  </tr>
+                )}
                 {lancamentosOrdenados.map(l => {
                   const conciliavel = l.status === "realizado" || l.status === "conciliado";
                   return (
@@ -497,20 +605,23 @@ export default function FinancasConta() {
                           aria-label={`Selecionar ${l.descricao ?? "lançamento"} para conciliar`} />
                       )}
                     </td>
-                    <td className="py-1.5 px-2">
+                    <td className="py-1.5 px-2 whitespace-nowrap">
+                      {/* Ícone de situação colado na data, não mais uma
+                          coluna própria — mesmo clique de sempre (marca
+                          conciliado), só que compacto. O texto do status
+                          continua acessível pelo `title` do botão/span. */}
                       {conciliavel ? (
                         <button type="button" onClick={() => alternarConciliacao(l)}
                           title={l.status === "conciliado" ? "Bateu com o extrato — clique para desfazer" : "Marcar como conciliado (bateu com o extrato)"}
-                          className={`inline-flex items-center gap-1 text-xs hover:underline decoration-dotted ${STATUS_COR[l.status]}`}>
-                          {STATUS_ICONE[l.status]} {STATUS_LABEL[l.status]}
+                          className={`inline-flex items-center gap-1 hover:underline decoration-dotted ${STATUS_COR[l.status]}`}>
+                          {STATUS_ICONE[l.status]} {dataBr(l.data)}
                         </button>
                       ) : (
-                        <span className={`inline-flex items-center gap-1 text-xs ${STATUS_COR[l.status]}`}>
-                          {STATUS_ICONE[l.status]} {STATUS_LABEL[l.status]}
+                        <span className={`inline-flex items-center gap-1 ${STATUS_COR[l.status]}`} title={STATUS_LABEL[l.status]}>
+                          {STATUS_ICONE[l.status]} {dataBr(l.data)}
                         </span>
                       )}
                     </td>
-                    <td className="py-1.5 px-2 whitespace-nowrap">{dataBr(l.data)}</td>
                     <td className="py-1.5 px-2 min-w-[200px] print:min-w-0">
                       <p className="font-medium truncate">{l.descricao ?? "—"}</p>
                       {/* Suprime a linha do fornecedor quando é o mesmo texto da
@@ -535,19 +646,16 @@ export default function FinancasConta() {
                       {/* max-w-full + truncate — sem isso, uma categoria de
                           nome longo ("Assistência Social / Ação Social")
                           crescia além da largura da coluna e vazava por
-                          cima da coluna vizinha (Centro custo) na
-                          impressão, depois do table-layout:fixed passar a
-                          travar a largura em vez de deixar crescer. Achado
-                          ao gerar o PDF de teste (16/09/2026). */}
+                          cima da coluna vizinha (Valor) na impressão,
+                          depois do table-layout:fixed passar a travar a
+                          largura em vez de deixar crescer. Achado ao gerar
+                          o PDF de teste (16/09/2026). */}
                       {l.categoria_nome && (
                         <Badge variant="outline" className="text-xs max-w-full truncate print:border-0 print:px-0 print:py-0 print:rounded-none print:bg-transparent print:font-normal"
                           style={l.categoria_cor ? { borderColor: l.categoria_cor, color: l.categoria_cor } : undefined}>
                           {l.categoria_nome}
                         </Badge>
                       )}
-                    </td>
-                    <td className="py-1.5 px-2 text-xs text-muted-foreground truncate">
-                      {l.centro_nome ?? "—"}
                     </td>
                     <td className={`py-1.5 px-2 text-right tabular-nums font-medium ${l.tipo === "entrada" ? "text-success-text" : "text-destructive-text"}`}>
                       {l.tipo === "entrada" ? "+" : "−"} {brl(Number(l.valor))}
