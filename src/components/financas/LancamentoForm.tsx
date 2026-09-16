@@ -537,9 +537,14 @@ export function LancamentoForm({
           )}
 
           <div className="grid grid-cols-2 gap-3">
-            <div>
+            {/* min-w-0 — sem isso o `<input type="date">` nativo (dd/mm/aaaa
+                + ícone do navegador) não encolhe abaixo da própria largura
+                mínima e estoura a coluna do grid em tela estreita. Mesmo
+                transbordo documentado no CLAUDE.md (§6.2) — achado pela
+                Telma (15/09/2026) neste formulário. */}
+            <div className="min-w-0">
               <Label>Data *</Label>
-              <Input type="date" required value={data} onChange={(e) => setData(e.target.value)} />
+              <Input type="date" required value={data} onChange={(e) => setData(e.target.value)} className="w-full" />
             </div>
             <div>
               <Label>Valor (R$) *</Label>

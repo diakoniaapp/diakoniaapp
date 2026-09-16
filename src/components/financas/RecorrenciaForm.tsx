@@ -210,9 +210,14 @@ export function RecorrenciaForm({ open, onOpenChange, recorrencia, onSaved }: Pr
               <Input type="number" min={1} max={31} required
                 value={diaVencimento} onChange={(e) => setDiaVencimento(Number(e.target.value))} />
             </div>
-            <div>
+            {/* min-w-0 — sem isso o `<input type="date">` nativo não
+                encolhe abaixo da própria largura mínima e estoura a
+                coluna do grid de 3 em tela estreita. Mesmo transbordo
+                documentado no CLAUDE.md (§6.2) — achado pela Telma
+                (15/09/2026). */}
+            <div className="min-w-0">
               <Label>Início</Label>
-              <Input type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} />
+              <Input type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} className="w-full" />
             </div>
           </div>
 

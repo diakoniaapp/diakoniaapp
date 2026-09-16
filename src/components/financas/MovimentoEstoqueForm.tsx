@@ -107,9 +107,13 @@ export function MovimentoEstoqueForm({ open, onOpenChange, item, onSaved }: Prop
               <Input type="number" step="0.001" min={0.001} required
                 value={quantidade || ""} onChange={(e) => setQuantidade(Number(e.target.value))} autoFocus />
             </div>
-            <div>
+            {/* min-w-0 — sem isso o `<input type="date">` nativo não
+                encolhe abaixo da própria largura mínima e estoura a
+                coluna em tela estreita. Mesmo transbordo documentado no
+                CLAUDE.md (§6.2) — achado pela Telma (15/09/2026). */}
+            <div className="min-w-0">
               <Label>Data *</Label>
-              <Input type="date" required value={data} onChange={(e) => setData(e.target.value)} />
+              <Input type="date" required value={data} onChange={(e) => setData(e.target.value)} className="w-full" />
             </div>
           </div>
 

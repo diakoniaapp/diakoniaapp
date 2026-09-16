@@ -206,14 +206,18 @@ export function ContratadoForm({ open, onOpenChange, contratado, onSaved }: Prop
             </div>
           </div>
 
+          {/* min-w-0 — sem isso o `<input type="date">` nativo não encolhe
+              abaixo da própria largura mínima e estoura a coluna do grid
+              em tela estreita. Mesmo transbordo documentado no CLAUDE.md
+              (§6.2) — achado pela Telma (15/09/2026). */}
           <div className="grid grid-cols-2 gap-3">
-            <div>
+            <div className="min-w-0">
               <Label>Início *</Label>
-              <Input type="date" value={campos.dataInicio} onChange={(e) => set("dataInicio", e.target.value)} required />
+              <Input type="date" value={campos.dataInicio} onChange={(e) => set("dataInicio", e.target.value)} required className="w-full" />
             </div>
-            <div>
+            <div className="min-w-0">
               <Label>Fim (opcional)</Label>
-              <Input type="date" value={campos.dataFim} onChange={(e) => set("dataFim", e.target.value)} />
+              <Input type="date" value={campos.dataFim} onChange={(e) => set("dataFim", e.target.value)} className="w-full" />
             </div>
           </div>
 

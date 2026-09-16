@@ -343,13 +343,19 @@ export default function FinancasConta() {
       {/* Filtros */}
       <Card className="print:hidden">
         <CardContent className="py-2.5 px-3 grid grid-cols-2 md:grid-cols-5 gap-2 items-end">
-          <div>
+          {/* min-w-0 — sem isso, o item do grid não encolhe abaixo da
+              largura mínima do `<input type="date">` nativo (os segmentos
+              dd/mm/aaaa + ícone de calendário do navegador), e a caixa
+              estoura a coluna em telas estreitas. Mesmo transbordo já
+              documentado no CLAUDE.md (§6.2) — achado pela Telma
+              (15/09/2026) neste filtro. */}
+          <div className="min-w-0">
             <label className="text-xs uppercase tracking-wide text-muted-foreground">Data inicial</label>
-            <Input type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} className="h-8 text-xs" />
+            <Input type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} className="h-8 text-xs w-full" />
           </div>
-          <div>
+          <div className="min-w-0">
             <label className="text-xs uppercase tracking-wide text-muted-foreground">Data final</label>
-            <Input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} className="h-8 text-xs" />
+            <Input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} className="h-8 text-xs w-full" />
           </div>
           <div>
             <label className="text-xs uppercase tracking-wide text-muted-foreground">Tipo</label>
