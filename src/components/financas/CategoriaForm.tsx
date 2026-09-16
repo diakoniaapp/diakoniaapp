@@ -12,8 +12,27 @@ import { toast } from "sonner";
 import { TrendingUp, TrendingDown } from "lucide-react";
 import {
   criarCategoria, atualizarCategoria,
-  type FinCategoria, type FinMovimentoTipo,
+  type FinCategoria, type FinMovimentoTipo, type FinClassificacaoDRE,
 } from "@/services/finService";
+
+// Pedido da Telma (16/09/2026), depois de criar "Devoluções e Estornos"
+// por aqui e a categoria nascer sem `classificacao_dre`: o campo nunca
+// esteve neste formulário — só migration/SQL direto preenchia. Sem ele,
+// TODA categoria nova criada pela tela fica de fora da Prestação de
+// Contas/DRE em silêncio (a mesma lacuna já achada com "Assistência
+// Social / Ação Social" da Diaconia). Opções filtradas por `tipo`
+// porque uma categoria de entrada não pode ser "despesas", e vice-versa.
+const CLASSIFICACAO_POR_TIPO: Record<FinMovimentoTipo, { valor: FinClassificacaoDRE; rotulo: string }[]> = {
+  entrada: [
+    { valor: "receitas_regulares", rotulo: "Receitas Regulares (dízimos, ofertas)" },
+    { valor: "outras_receitas", rotulo: "Outras Receitas" },
+  ],
+  saida: [
+    { valor: "despesas", rotulo: "Despesas" },
+    { valor: "despesas_financeiras", rotulo: "Despesas Financeiras" },
+    { valor: "outras_despesas", rotulo: "Outras Despesas" },
+  ],
+};
 
 interface Props {
   open: boolean;
@@ -36,6 +55,7 @@ export function CategoriaForm({ open, onOpenChange, categoria, tipoPadrao = "sai
   const [cor, setCor] = useState("#888");
   const [ordem, setOrdem] = useState<number>(50);
   const [contaContabil, setContaContabil] = useState("");
+  const [classificacaoDre, setClassificacaoDre] = useState<FinClassificacaoDRE | "">("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -46,11 +66,22 @@ export function CategoriaForm({ open, onOpenChange, categoria, tipoPadrao = "sai
       setCor(categoria.cor ?? "#888");
       setOrdem(categoria.ordem ?? 50);
       setContaContabil(categoria.conta_contabil ?? "");
+      setClassificacaoDre(categoria.classificacao_dre ?? "");
     } else {
       setNome(""); setTipo(tipoPadrao);
-      setCor("#888"); setOrdem(50); setContaContabil("");
+      setCor("#888"); setOrdem(50); setContaContabil(""); setClassificacaoDre("");
     }
   }, [open, categoria, tipoPadrao]);
+
+  // Trocar entrada↔saída invalida a classificação escolhida (uma
+  // categoria de entrada não pode ser "despesas") — mesma guarda que já
+  // existia pra `tipo` em si (desabilitado pra categoria do sistema).
+  function mudarTipo(novoTipo: FinMovimentoTipo) {
+    setTipo(novoTipo);
+    if (!CLASSIFICACAO_POR_TIPO[novoTipo].some(o => o.valor === classificacaoDre)) {
+      setClassificacaoDre("");
+    }
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -62,6 +93,7 @@ export function CategoriaForm({ open, onOpenChange, categoria, tipoPadrao = "sai
         nome: nome.trim(),
         tipo, cor, ordem,
         conta_contabil: contaContabil.trim() || null,
+        classificacao_dre: classificacaoDre || null,
       };
       if (isEdit && categoria) {
         await atualizarCategoria(categoria.id, payload);
@@ -90,14 +122,14 @@ export function CategoriaForm({ open, onOpenChange, categoria, tipoPadrao = "sai
           <div className="grid grid-cols-2 gap-2">
             <Button type="button" size="sm"
               variant={tipo === "entrada" ? "default" : "outline"}
-              onClick={() => setTipo("entrada")}
+              onClick={() => mudarTipo("entrada")}
               className={tipo === "entrada" ? "bg-success text-white hover:bg-success gap-1.5" : "gap-1.5"}
               disabled={isEdit && categoria?.sistema}>
               <TrendingUp className="w-3.5 h-3.5" /> Entrada
             </Button>
             <Button type="button" size="sm"
               variant={tipo === "saida" ? "default" : "outline"}
-              onClick={() => setTipo("saida")}
+              onClick={() => mudarTipo("saida")}
               className={tipo === "saida" ? "bg-destructive text-white hover:bg-destructive gap-1.5" : "gap-1.5"}
               disabled={isEdit && categoria?.sistema}>
               <TrendingDown className="w-3.5 h-3.5" /> Saída
@@ -108,6 +140,22 @@ export function CategoriaForm({ open, onOpenChange, categoria, tipoPadrao = "sai
             <Label>Nome *</Label>
             <Input value={nome} onChange={(e) => setNome(e.target.value)} required autoFocus
               placeholder="Ex: Material de som" />
+          </div>
+
+          <div>
+            <Label>Classificação no Plano de Contas</Label>
+            <Select value={classificacaoDre || "__fora__"} onValueChange={(v) => setClassificacaoDre(v === "__fora__" ? "" : v as FinClassificacaoDRE)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__fora__">Fora do Plano Oficial</SelectItem>
+                {CLASSIFICACAO_POR_TIPO[tipo].map(o => (
+                  <SelectItem key={o.valor} value={o.valor}>{o.rotulo}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              "Fora do Plano Oficial" não entra na Prestação de Contas nem na DRE — só no extrato.
+            </p>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
