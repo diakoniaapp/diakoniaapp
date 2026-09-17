@@ -344,18 +344,21 @@ export default function FinancasConta() {
           nos dois casos, com só duas colunas (seleção e ações) escondidas
           por linha — ver comentário do `<style>` acima sobre o
           `.relatorio-page`. */}
-      <div className="flex items-center gap-2 flex-wrap print:hidden">
+      <div className="flex items-center justify-between gap-2 flex-wrap print:hidden">
+        <div className="flex items-center gap-2 min-w-0">
         <Button asChild variant="ghost" size="icon"><Link to="/financas"><ArrowLeft className="w-4 h-4" /></Link></Button>
-        <div className="flex-1 min-w-0">
+        <div className="min-w-0">
           <h1 className="font-serif text-lg flex items-center gap-2 truncate">
             <DollarSign className="w-5 h-5 text-gold" />
             {conta.nome}
             <Badge variant="outline" className="text-xs">{CONTA_TIPO_LABEL[conta.tipo]}</Badge>
           </h1>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground truncate">
             Saldo atual: <strong style={{ color: conta.cor ?? undefined }}>{brl(Number(conta.saldo_atual))}</strong>
           </p>
         </div>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
         {selecionados.size > 0 && (
           <Button size="sm" onClick={conciliarSelecionados} disabled={conciliando}
             className="gap-1.5 bg-success hover:bg-success text-white">
@@ -390,6 +393,7 @@ export default function FinancasConta() {
           className="gap-1.5 bg-gold hover:bg-gold/90 text-white">
           <Plus className="w-4 h-4" /> Novo lançamento
         </Button>
+        </div>
       </div>
 
       {/* Cabeçalho imprimível — mesmo padrão de financas/DashboardExecutivo.tsx */}
@@ -558,7 +562,13 @@ export default function FinancasConta() {
                       (o resto já é `print:hidden`). */}
                   <th className="text-left py-2 px-2 w-24">Data</th>
                   <th className="text-left py-2 px-2">Descrição / Fornecedor</th>
-                  <th className="text-left py-2 px-2 w-36">Categoria</th>
+                  {/* w-36 (144px) cortava nomes de categoria comuns
+                      ("Rendimentos de Aplicações") no PDF — achado ao vivo
+                      pela Telma na pré-visualização de impressão
+                      (17/09/2026). w-48 (192px) — sobra de Descrição/
+                      Fornecedor, a única coluna sem largura fixa, que tem
+                      folga em A4 paisagem. */}
+                  <th className="text-left py-2 px-2 w-48">Categoria</th>
                   <th className="text-right py-2 px-2 w-28">Valor</th>
                   <th className="text-right py-2 px-2 w-28">Saldo</th>
                   {/* Ações fixa na borda direita da área rolável — antes ficava

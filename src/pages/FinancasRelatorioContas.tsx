@@ -278,7 +278,10 @@ export default function FinancasRelatorioContas() {
                   <tr className="border-b-2 border-gold/40 text-left">
                     <th className="py-1 pr-1 w-16">Data</th>
                     <th className="py-1 pr-1">Descrição / Fornecedor</th>
-                    <th className="py-1 pr-1 w-28">Categoria</th>
+                    {/* w-28 (112px) cortava nomes de categoria comuns
+                        ("Rendimentos de Aplicações") — mesmo ajuste de
+                        `FinancasConta.tsx` na mesma sessão (17/09/2026). */}
+                    <th className="py-1 pr-1 w-40">Categoria</th>
                     {/* `w-20` (5rem) quebrava valores de 4 dígitos em duas
                         linhas ("+" numa linha, "R$ 1.285,00" na outra) —
                         achado ao vivo pela Telma num relatório com
