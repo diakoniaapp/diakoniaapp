@@ -86,6 +86,17 @@ export function CategoriaForm({ open, onOpenChange, categoria, tipoPadrao = "sai
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!nome.trim()) { toast.error("Informe o nome"); return; }
+    // Governança pedida pela Telma (16/09/2026): "todas as depesas
+    // precisam ser apresentadas em conselho, então todas precisam estar
+    // no relatorio" — nenhuma categoria de SAÍDA pode nascer ou ficar
+    // "Fora do Plano Oficial". O seletor abaixo já esconde essa opção
+    // pra saída; esta é a segunda trava, pro caso de uma categoria
+    // existente chegar aqui já com `classificacao_dre` nulo (dado
+    // antigo, ou uma categoria que estava "entrada" e virou "saida").
+    if (tipo === "saida" && !classificacaoDre) {
+      toast.error("Toda categoria de saída precisa de uma classificação — não pode ficar fora da Prestação de Contas.");
+      return;
+    }
 
     setBusy(true);
     try {
@@ -147,14 +158,20 @@ export function CategoriaForm({ open, onOpenChange, categoria, tipoPadrao = "sai
             <Select value={classificacaoDre || "__fora__"} onValueChange={(v) => setClassificacaoDre(v === "__fora__" ? "" : v as FinClassificacaoDRE)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="__fora__">Fora do Plano Oficial</SelectItem>
+                {/* "Fora do Plano Oficial" só existe pra ENTRADA — pedido
+                    da Telma (16/09/2026): toda despesa tem que ir a
+                    conselho, então nenhuma categoria de saída pode ficar
+                    de fora do relatório oficial. */}
+                {tipo === "entrada" && <SelectItem value="__fora__">Fora do Plano Oficial</SelectItem>}
                 {CLASSIFICACAO_POR_TIPO[tipo].map(o => (
                   <SelectItem key={o.valor} value={o.valor}>{o.rotulo}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground mt-0.5">
-              "Fora do Plano Oficial" não entra na Prestação de Contas nem na DRE — só no extrato.
+              {tipo === "saida"
+                ? "Toda categoria de saída entra na Prestação de Contas — não tem opção de ficar de fora."
+                : "\"Fora do Plano Oficial\" não entra na Prestação de Contas nem na DRE — só no extrato."}
             </p>
           </div>
 
