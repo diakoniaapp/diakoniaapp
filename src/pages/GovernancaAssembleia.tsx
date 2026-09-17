@@ -27,6 +27,10 @@ import {
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Zap, MessageCircle, Send } from "lucide-react";
 import { PaginaSkeleton } from "@/components/ListState";
 
@@ -39,6 +43,8 @@ export default function GovernancaAssembleia() {
   const [busy, setBusy] = useState(false);
   const [busca, setBusca] = useState("");
   const [convOpen, setConvOpen] = useState(false);
+  // confirm() nativo não funciona em WebView (Risco 3 do CLAUDE.md)
+  const [confirmandoExecutar, setConfirmandoExecutar] = useState(false);
 
   useEffect(() => { carregar(); }, [id]);
 
@@ -66,7 +72,6 @@ export default function GovernancaAssembleia() {
   }
 
   async function executarPendentes() {
-    if (!confirm("Executar todas as decisões aprovadas pendentes?\nIsto atualizará automaticamente as solicitações vinculadas.")) return;
     setBusy(true);
     try {
       const r = await executarAssembleia(id);
@@ -75,6 +80,7 @@ export default function GovernancaAssembleia() {
       } else {
         toast.success(`${r.length} pauta(s) executada(s)`);
       }
+      setConfirmandoExecutar(false);
       await carregar();
     } catch (e: any) { toast.error(e?.message ?? "Erro"); }
     finally { setBusy(false); }
@@ -192,7 +198,7 @@ export default function GovernancaAssembleia() {
           <MessageCircle className="w-3.5 h-3.5" /> Convocação WhatsApp
         </Button>
         {ass.status === "concluida" && (
-          <Button size="sm" onClick={executarPendentes} disabled={busy}
+          <Button size="sm" onClick={() => setConfirmandoExecutar(true)} disabled={busy}
             className="gap-1.5">
             <Zap className="w-3.5 h-3.5" /> Executar decisões
           </Button>
@@ -282,6 +288,23 @@ export default function GovernancaAssembleia() {
 
       {/* Dialog Convocação em massa */}
       <ConvocacaoDialog assembleia={ass} pautas={pautas} open={convOpen} onOpenChange={setConvOpen} onMarked={carregar} />
+
+      <AlertDialog open={confirmandoExecutar} onOpenChange={setConfirmandoExecutar}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Executar todas as decisões aprovadas pendentes?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Isto atualizará automaticamente as solicitações vinculadas.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); executarPendentes(); }} disabled={busy}>
+              {busy ? "..." : "Executar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -400,14 +423,12 @@ function PautaVotacao({ pauta, aptos, presentes, quorumAtingido, emAndamento, on
   const [observacao, setObservacao] = useState("");
   const [busy, setBusy] = useState(false);
   const [aberto, setAberto] = useState(false);
+  // confirm() nativo não funciona em WebView (Risco 3 do CLAUDE.md)
+  const [confirmandoSemQuorum, setConfirmandoSemQuorum] = useState<ResultadoVoto | null>(null);
 
   const decidida = pauta.status === "aprovada_assembleia" || pauta.status === "rejeitada" || pauta.status === "adiada";
 
-  async function decidir(resultado: ResultadoVoto) {
-    if (!emAndamento) { toast.error("Inicie a assembleia para votar"); return; }
-    if (!quorumAtingido) {
-      if (!confirm("Quórum não atingido! Deseja registrar a votação mesmo assim?")) return;
-    }
+  async function executarDecisao(resultado: ResultadoVoto) {
     setBusy(true);
     try {
       await decidirPauta(pauta.id, resultado, {
@@ -415,9 +436,16 @@ function PautaVotacao({ pauta, aptos, presentes, quorumAtingido, emAndamento, on
       }, observacao);
       toast.success(`Pauta ${resultado}!`);
       setAberto(false);
+      setConfirmandoSemQuorum(null);
       onChange();
     } catch (e: any) { toast.error(e?.message ?? "Erro"); }
     finally { setBusy(false); }
+  }
+
+  function decidir(resultado: ResultadoVoto) {
+    if (!emAndamento) { toast.error("Inicie a assembleia para votar"); return; }
+    if (!quorumAtingido) { setConfirmandoSemQuorum(resultado); return; }
+    executarDecisao(resultado);
   }
 
   // Auto-aprovação simples: todos os presentes votam sim
@@ -530,6 +558,26 @@ function PautaVotacao({ pauta, aptos, presentes, quorumAtingido, emAndamento, on
           </div>
         )}
       </CardContent>
+
+      <AlertDialog open={!!confirmandoSemQuorum} onOpenChange={(v) => !v && setConfirmandoSemQuorum(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Quórum não atingido!</AlertDialogTitle>
+            <AlertDialogDescription>
+              Deseja registrar a votação mesmo assim?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); confirmandoSemQuorum && executarDecisao(confirmandoSemQuorum); }}
+              disabled={busy}
+            >
+              {busy ? "..." : "Registrar mesmo assim"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }

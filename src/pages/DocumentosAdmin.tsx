@@ -15,6 +15,10 @@ import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
@@ -172,6 +176,8 @@ const [uploadando, setUploadando] = useState(false);
 
   // Estrutura derivada
   const [estruturas, setEstruturas] = useState<EstruturaItem[]>([]);
+  // confirm() nativo não funciona em WebView (Risco 3 do CLAUDE.md)
+  const [excluindoEstruturaId, setExcluindoEstruturaId] = useState<string | null>(null);
   const [loadingEst, setLoadingEst] = useState(false);
   const [estOpen, setEstOpen] = useState(false);
   const [editingEstId, setEditingEstId] = useState<string | null>(null);
@@ -432,12 +438,12 @@ const [uploadando, setUploadando] = useState(false);
   };
 
   const excluirEstrutura = async (id: string) => {
-    if (!confirm("Remover este item da estrutura?")) return;
     const r = conferir(
       await supabase.from("documento_estrutura").update({ ativo: false }).eq("id", id).select("id"),
       "O item da estrutura",
     );
     if (!r.ok) return toast.error(r.erro);
+    setExcluindoEstruturaId(null);
     toast.success("Item removido");
     setEstruturas(prev => prev.filter(e => e.id !== id));
   };
@@ -582,7 +588,7 @@ const [uploadando, setUploadando] = useState(false);
                               className="w-7 h-7 flex items-center justify-center rounded hover:bg-muted">
                               <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
                             </button>
-                            <button onClick={() => excluirEstrutura(item.id)}
+                            <button onClick={() => setExcluindoEstruturaId(item.id)}
                               className="w-7 h-7 flex items-center justify-center rounded hover:bg-destructive/10">
                               <Trash2 className="w-3.5 h-3.5 text-destructive" />
                             </button>
@@ -1119,6 +1125,20 @@ const [uploadando, setUploadando] = useState(false);
         onOpenChange={setSyncOpen}
         onConcluido={() => { setSyncOpen(false); loadEstruturas(); }}
       />
+
+      <AlertDialog open={!!excluindoEstruturaId} onOpenChange={(v) => !v && setExcluindoEstruturaId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover este item da estrutura?</AlertDialogTitle>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); excluindoEstruturaId && excluirEstrutura(excluindoEstruturaId); }}>
+              Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

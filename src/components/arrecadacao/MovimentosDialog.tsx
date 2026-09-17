@@ -3,6 +3,10 @@ import { hojeLocal } from "@/lib/data";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -57,6 +61,9 @@ export function MovimentosDialog({ open, onOpenChange, caixaId, onChange }: Prop
   const [resumo, setResumo] = useState<CaixaResumo | null>(null);
   const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState<"lista" | "custo" | "reembolso" | "abate" | "reversao">("lista");
+  // confirm() nativo não funciona em WebView (Risco 3 do CLAUDE.md)
+  const [apagando, setApagando] = useState<Movimento | null>(null);
+  const [apagandoBusy, setApagandoBusy] = useState(false);
 
   async function carregar() {
     setLoading(true);
@@ -74,13 +81,16 @@ export function MovimentosDialog({ open, onOpenChange, caixaId, onChange }: Prop
     carregar(); onChange?.(); setTab("lista");
   }
 
-  async function excluir(id: string) {
-    if (!confirm("Arquivar movimento? Saldo recalcula automaticamente.")) return;
+  async function confirmarExcluir() {
+    if (!apagando) return;
+    setApagandoBusy(true);
     try {
-      await arquivarMovimento(id);
+      await arquivarMovimento(apagando.id);
       toast.success("Arquivado");
+      setApagando(null);
       carregar(); onChange?.();
     } catch (err: any) { toast.error(explicarErro(err)); }
+    finally { setApagandoBusy(false); }
   }
 
   async function verAnexo(path: string) {
@@ -89,6 +99,7 @@ export function MovimentosDialog({ open, onOpenChange, caixaId, onChange }: Prop
   }
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
@@ -147,7 +158,7 @@ export function MovimentosDialog({ open, onOpenChange, caixaId, onChange }: Prop
                       <ExternalLink className="w-3 h-3" />
                     </button>
                   )}
-                  <button onClick={() => excluir(m.id)}
+                  <button onClick={() => setApagando(m)}
                     className="text-destructive-text hover:bg-destructive-soft p-1 rounded" title="Arquivar">
                     <Trash2 className="w-3 h-3" />
                   </button>
@@ -168,6 +179,27 @@ export function MovimentosDialog({ open, onOpenChange, caixaId, onChange }: Prop
         </Tabs>
       </DialogContent>
     </Dialog>
+
+    <AlertDialog open={!!apagando} onOpenChange={(v) => !v && setApagando(null)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Arquivar movimento?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Saldo recalcula automaticamente.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={apagandoBusy}>Cancelar</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={(e) => { e.preventDefault(); confirmarExcluir(); }}
+            disabled={apagandoBusy}
+          >
+            {apagandoBusy ? "..." : "Arquivar"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
 
@@ -365,10 +397,17 @@ function FormAbate({ caixaId, onSaved }: { caixaId: string; onSaved: () => void 
 function FormReversao({ caixaId, onSaved }: { caixaId: string; onSaved: () => void }) {
   const [valor, setValor] = useState(""); const [desc, setDesc] = useState("");
   const [salvando, setSalvando] = useState(false);
-  async function salvar() {
+  // confirm() nativo não funciona em WebView (Risco 3 do CLAUDE.md)
+  const [confirmando, setConfirmando] = useState(false);
+
+  function pedirConfirmacao() {
     const v = Number(valor.replace(",", "."));
     if (isNaN(v) || v <= 0 || !desc.trim()) { toast.error("Valor e descrição"); return; }
-    if (!confirm(`Reverter ${fmtBR(v)} pra Administração? Esta operação não move dinheiro real.`)) return;
+    setConfirmando(true);
+  }
+
+  async function salvar() {
+    const v = Number(valor.replace(",", "."));
     setSalvando(true);
     try {
       await registrarReversaoAdmin(caixaId, v, desc);
@@ -384,10 +423,30 @@ function FormReversao({ caixaId, onSaved }: { caixaId: string; onSaved: () => vo
       </p>
       <Field label="Valor a reverter *"><Input value={valor} onChange={e => setValor(e.target.value)} /></Field>
       <Field label="Descrição *"><Textarea value={desc} onChange={e => setDesc(e.target.value)} placeholder="Ex: Saldo remanescente devolvido para uso da Admin" /></Field>
-      <Button onClick={salvar} disabled={salvando} className="w-full gap-2 bg-violeta hover:bg-violeta">
+      <Button onClick={pedirConfirmacao} disabled={salvando} className="w-full gap-2 bg-violeta hover:bg-violeta">
         {salvando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
         Registrar reversão
       </Button>
+
+      <AlertDialog open={confirmando} onOpenChange={setConfirmando}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reverter {fmtBR(Number(valor.replace(",", ".")) || 0)} pra Administração?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta operação não move dinheiro real.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={salvando}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); setConfirmando(false); salvar(); }}
+              disabled={salvando}
+            >
+              {salvando ? "..." : "Reverter"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

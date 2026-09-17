@@ -17,6 +17,10 @@ import {
 import { CampanhaForm } from "@/components/ebd/CampanhaForm";
 import { EntradaForm } from "@/components/ebd/EntradaForm";
 import { PaginaSkeleton } from "@/components/ListState";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const TIPO_LABEL: Record<string, string> = { oferta: "Oferta", evento: "Evento", produto: "Produto" };
 const FORMA_LABEL: Record<string, string> = { pix: "PIX", envelope: "Envelope", outro: "Outro" };
@@ -44,6 +48,9 @@ export default function EbdCampanha() {
   const [novaEntradaOpen, setNovaEntradaOpen] = useState(false);
   const [entradaEdit, setEntradaEdit] = useState<EntradaEbd | null>(null);
   const [busyEncerramento, setBusyEncerramento] = useState(false);
+  // confirm() nativo não funciona em WebView (Risco 3 do CLAUDE.md)
+  const [excluindoId, setExcluindoId] = useState<string | null>(null);
+  const [confirmandoEncerramento, setConfirmandoEncerramento] = useState(false);
 
   async function abrirComprovante(path: string) {
     const url = await comprovanteSignedUrl(path);
@@ -75,10 +82,11 @@ export default function EbdCampanha() {
     } finally { setLoading(false); }
   }
 
-  async function deletarEntrada(id: string) {
-    if (!confirm("Excluir esta entrada?")) return;
+  async function deletarEntrada() {
+    if (!excluindoId) return;
     try {
-      await excluirEntrada(id);
+      await excluirEntrada(excluindoId);
+      setExcluindoId(null);
       toast.success("Entrada removida");
       carregar();
     } catch (e: any) {
@@ -94,15 +102,12 @@ export default function EbdCampanha() {
   async function alternarEncerramento() {
     if (!campanha) return;
     const fechando = campanha.ativo;
-    if (!confirm(fechando
-      ? `Encerrar "${campanha.nome}"? As entradas continuam registradas — ela só sai da lista de campanhas ativas.`
-      : `Reabrir "${campanha.nome}"?`
-    )) return;
     setBusyEncerramento(true);
     try {
       if (fechando) await encerrarCampanha(campanha.id);
       else await reabrirCampanha(campanha.id);
       toast.success(fechando ? "Campanha encerrada" : "Campanha reaberta");
+      setConfirmandoEncerramento(false);
       carregar();
     } catch (e: any) {
       toast.error(e?.message ?? "Erro");
@@ -157,7 +162,7 @@ export default function EbdCampanha() {
             dela em 09/09/2026. */}
         <Button
           type="button" variant="outline" size="sm" className="gap-1.5"
-          onClick={alternarEncerramento} disabled={busyEncerramento}
+          onClick={() => setConfirmandoEncerramento(true)} disabled={busyEncerramento}
         >
           {campanha.ativo
             ? <><Lock className="w-3.5 h-3.5" /> Fechar campanha</>
@@ -289,7 +294,7 @@ export default function EbdCampanha() {
                     <Pencil className="w-3.5 h-3.5" />
                   </Button>
                   <Button type="button" variant="ghost" size="icon"
-                    onClick={() => deletarEntrada(e.id)}
+                    onClick={() => setExcluindoId(e.id)}
                     className="h-8 w-8 text-destructive hover:bg-destructive/10"
                     title="Excluir entrada">
                     <Trash2 className="w-3.5 h-3.5" />
@@ -316,6 +321,44 @@ export default function EbdCampanha() {
         entrada={entradaEdit}
         onSaved={carregar}
       />
+
+      <AlertDialog open={!!excluindoId} onOpenChange={(v) => !v && setExcluindoId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir esta entrada?</AlertDialogTitle>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); deletarEntrada(); }}>
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmandoEncerramento} onOpenChange={setConfirmandoEncerramento}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {campanha.ativo ? `Encerrar "${campanha.nome}"?` : `Reabrir "${campanha.nome}"?`}
+            </AlertDialogTitle>
+            {campanha.ativo && (
+              <AlertDialogDescription>
+                As entradas continuam registradas — ela só sai da lista de campanhas ativas.
+              </AlertDialogDescription>
+            )}
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busyEncerramento}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); alternarEncerramento(); }}
+              disabled={busyEncerramento}
+            >
+              {busyEncerramento ? "..." : campanha.ativo ? "Encerrar" : "Reabrir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -9,6 +9,10 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   ArrowLeft, ClipboardList, Plus, Save, Trash2, Loader2, ListChecks,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -26,6 +30,9 @@ export default function ChecklistTemplates() {
   const [incluirArquivados, setIncluirArquivados] = useState(false);
   const [itens, setItens] = useState<ChecklistTemplate[]>([]);
   const [loading, setLoading] = useState(false);
+  // confirm() nativo não funciona em WebView (Risco 3 do CLAUDE.md)
+  const [arquivandoId, setArquivandoId] = useState<string | null>(null);
+  const [arquivandoBusy, setArquivandoBusy] = useState(false);
 
   const [novo, setNovo] = useState({
     item: "",
@@ -84,13 +91,16 @@ export default function ChecklistTemplates() {
     }
   }
 
-  async function arquivar(id: string) {
-    if (!confirm("Arquivar este item? Ele deixa de aparecer em novas reservas.")) return;
+  async function confirmarArquivar() {
+    if (!arquivandoId) return;
+    setArquivandoBusy(true);
     try {
-      await arquivarChecklistTemplate(id);
+      await arquivarChecklistTemplate(arquivandoId);
       toast.success("Item arquivado");
+      setArquivandoId(null);
       carregar();
     } catch (err: any) { toast.error(err?.message); }
+    finally { setArquivandoBusy(false); }
   }
 
   // Agrupar por tipo
@@ -219,7 +229,7 @@ export default function ChecklistTemplates() {
             itens={preUso}
             espacos={espacos}
             onUpdate={atualizar}
-            onArquivar={arquivar}
+            onArquivar={setArquivandoId}
           />
           <SecaoTipo
             titulo="Pós-uso (no encerramento)"
@@ -227,10 +237,30 @@ export default function ChecklistTemplates() {
             itens={posUso}
             espacos={espacos}
             onUpdate={atualizar}
-            onArquivar={arquivar}
+            onArquivar={setArquivandoId}
           />
         </>
       )}
+
+      <AlertDialog open={!!arquivandoId} onOpenChange={(v) => !v && setArquivandoId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Arquivar este item?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Ele deixa de aparecer em novas reservas.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={arquivandoBusy}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); confirmarArquivar(); }}
+              disabled={arquivandoBusy}
+            >
+              {arquivandoBusy ? "..." : "Arquivar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

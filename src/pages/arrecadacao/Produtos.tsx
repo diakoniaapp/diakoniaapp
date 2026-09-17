@@ -14,6 +14,10 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   ArrowLeft, Package, Plus, Loader2, Save, Trash2, Edit3,
   PackagePlus, PackageMinus, ClipboardEdit, AlertTriangle, Sparkles,
 } from "lucide-react";
@@ -273,6 +277,8 @@ function ProdutoDialog({
     ativo: produto?.ativo ?? true,
   });
   const [salvando, setSalvando] = useState(false);
+  // confirm() nativo não funciona em WebView (Risco 3 do CLAUDE.md)
+  const [confirmandoArquivar, setConfirmandoArquivar] = useState(false);
 
   async function salvar() {
     if (!form.nome.trim()) { toast.error("Informe o nome"); return; }
@@ -312,15 +318,16 @@ function ProdutoDialog({
 
   async function arquivar() {
     if (!produto) return;
-    if (!confirm(`Arquivar "${produto.nome}"? Ele some do PDV.`)) return;
     try {
       await arquivarProduto(produto.id);
       toast.success("Arquivado");
+      setConfirmandoArquivar(false);
       onSalvo();
     } catch (err: any) { toast.error(err?.message); }
   }
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
@@ -421,7 +428,7 @@ function ProdutoDialog({
               Salvar
             </Button>
             {editando && (
-              <Button variant="ghost" onClick={arquivar} className="text-destructive-text hover:bg-destructive-soft gap-1.5">
+              <Button variant="ghost" onClick={() => setConfirmandoArquivar(true)} className="text-destructive-text hover:bg-destructive-soft gap-1.5">
                 <Trash2 className="w-3.5 h-3.5" /> Arquivar
               </Button>
             )}
@@ -429,6 +436,24 @@ function ProdutoDialog({
         </div>
       </DialogContent>
     </Dialog>
+
+    <AlertDialog open={confirmandoArquivar} onOpenChange={setConfirmandoArquivar}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Arquivar "{produto?.nome}"?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Ele some do PDV.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogAction onClick={(e) => { e.preventDefault(); arquivar(); }}>
+            Arquivar
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
 

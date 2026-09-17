@@ -8,6 +8,10 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import {
   HandHeart, Plus, CheckCircle2, Archive, Trash2, Eye, EyeOff, Users,
@@ -36,6 +40,10 @@ export function OracaoBlock({ grupoId, podeEditar }: Props) {
   const [novoNomeAvulso, setNovoNomeAvulso] = useState("");
   const [novaVisibilidade, setNovaVisibilidade] = useState<PgmOracaoVisibilidade>("lieranca" as any);
   const [usarPessoaAvulsa, setUsarPessoaAvulsa] = useState(false);
+
+  // confirm() nativo não funciona em WebView (Risco 3 do CLAUDE.md)
+  const [pendente, setPendente] = useState<{ pedido: PgmPedidoComPessoa; acao: "arquivar" | "excluir" } | null>(null);
+  const [pendenteBusy, setPendenteBusy] = useState(false);
 
   useEffect(() => { carregar(); }, [grupoId, filtro]);
   useEffect(() => { setNovaVisibilidade("lideranca"); }, []);
@@ -76,23 +84,20 @@ export function OracaoBlock({ grupoId, podeEditar }: Props) {
     } catch (e: any) { toast.error(e?.message ?? "Erro"); }
   }
 
-  async function arquivar(p: PgmPedidoComPessoa) {
-    if (!confirm("Arquivar este pedido?")) return;
+  async function confirmarPendente() {
+    if (!pendente) return;
+    setPendenteBusy(true);
     try {
-      await arquivarPedidoOracao(p.id);
+      if (pendente.acao === "arquivar") await arquivarPedidoOracao(pendente.pedido.id);
+      else await excluirPedidoOracao(pendente.pedido.id);
+      setPendente(null);
       await carregar();
     } catch (e: any) { toast.error(e?.message ?? "Erro"); }
-  }
-
-  async function excluir(p: PgmPedidoComPessoa) {
-    if (!confirm("Excluir definitivamente?")) return;
-    try {
-      await excluirPedidoOracao(p.id);
-      await carregar();
-    } catch (e: any) { toast.error(e?.message ?? "Erro"); }
+    finally { setPendenteBusy(false); }
   }
 
   return (
+    <>
     <Card>
       <CardContent className="py-3 space-y-2">
         <div className="flex items-center justify-between flex-wrap gap-2">
@@ -206,12 +211,12 @@ export function OracaoBlock({ grupoId, podeEditar }: Props) {
                         <CheckCircle2 className="w-3.5 h-3.5" />
                       </Button>
                       <Button type="button" variant="ghost" size="icon"
-                        onClick={() => arquivar(p)} className="h-7 w-7 text-muted-foreground"
+                        onClick={() => setPendente({ pedido: p, acao: "arquivar" })} className="h-7 w-7 text-muted-foreground"
                         title="Arquivar">
                         <Archive className="w-3.5 h-3.5" />
                       </Button>
                       <Button type="button" variant="ghost" size="icon"
-                        onClick={() => excluir(p)} className="h-7 w-7 text-destructive"
+                        onClick={() => setPendente({ pedido: p, acao: "excluir" })} className="h-7 w-7 text-destructive"
                         title="Excluir">
                         <Trash2 className="w-3.5 h-3.5" />
                       </Button>
@@ -224,5 +229,25 @@ export function OracaoBlock({ grupoId, podeEditar }: Props) {
         )}
       </CardContent>
     </Card>
+
+    <AlertDialog open={!!pendente} onOpenChange={(v) => !v && setPendente(null)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            {pendente?.acao === "arquivar" ? "Arquivar este pedido?" : "Excluir definitivamente?"}
+          </AlertDialogTitle>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={pendenteBusy}>Cancelar</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={(e) => { e.preventDefault(); confirmarPendente(); }}
+            disabled={pendenteBusy}
+          >
+            {pendenteBusy ? "..." : pendente?.acao === "arquivar" ? "Arquivar" : "Excluir"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

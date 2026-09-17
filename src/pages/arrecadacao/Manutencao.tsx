@@ -9,6 +9,10 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   ArrowLeft, Wrench, Loader2, CheckCircle2, AlertTriangle, Filter, X, MessageCircle,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -36,6 +40,9 @@ export default function ManutencaoLista() {
   const [filtro, setFiltro] = useState<"abertos" | "todos" | ProblemaStatus>("abertos");
   const [resolvendo, setResolvendo] = useState<ProblemaManutencao | null>(null);
   const [espacos, setEspacos] = useState<Espaco[]>([]);
+  // confirm() nativo não funciona em WebView (Risco 3 do CLAUDE.md)
+  const [descartando, setDescartando] = useState<ProblemaManutencao | null>(null);
+  const [descartandoBusy, setDescartandoBusy] = useState(false);
 
   useEffect(() => { listarEspacos().then(setEspacos); }, []);
 
@@ -69,6 +76,17 @@ export default function ManutencaoLista() {
     } finally { setLoading(false); }
   }
   useEffect(() => { carregar(); }, [filtro]);
+
+  async function confirmarDescartar() {
+    if (!descartando) return;
+    setDescartandoBusy(true);
+    try {
+      await atualizarProblema(descartando.id, { status: "descartado" });
+      setDescartando(null);
+      carregar();
+    } catch (err: any) { toast.error(err?.message ?? "Erro"); }
+    finally { setDescartandoBusy(false); }
+  }
 
   return (
     <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-4">
@@ -160,11 +178,7 @@ export default function ManutencaoLista() {
                       <CheckCircle2 className="w-3.5 h-3.5" /> Resolver
                     </Button>
                     <Button size="sm" variant="ghost" className="text-xs text-muted-foreground"
-                      onClick={async () => {
-                        if (!confirm("Descartar este problema?")) return;
-                        try { await atualizarProblema(p.id, { status: "descartado" }); carregar(); }
-                        catch (err: any) { toast.error(err?.message ?? "Erro"); }
-                      }}>
+                      onClick={() => setDescartando(p)}>
                       Descartar
                     </Button>
                   </div>
@@ -180,6 +194,23 @@ export default function ManutencaoLista() {
           onCancel={() => setResolvendo(null)}
           onResolved={() => { setResolvendo(null); carregar(); }} />
       )}
+
+      <AlertDialog open={!!descartando} onOpenChange={(v) => !v && setDescartando(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Descartar este problema?</AlertDialogTitle>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={descartandoBusy}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); confirmarDescartar(); }}
+              disabled={descartandoBusy}
+            >
+              {descartandoBusy ? "..." : "Descartar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

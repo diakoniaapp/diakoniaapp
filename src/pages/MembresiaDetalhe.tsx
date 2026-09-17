@@ -13,6 +13,10 @@ import {
 import { toast } from "sonner";
 import { PaginaSkeleton } from "@/components/ListState";
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   carregarSolicitacao, listarDocumentos, listarHistorico,
   anexarDocumento, excluirDocumento, documentoSignedUrl,
   atualizarSolicitacao, aprovarSolicitacao, rejeitarSolicitacao, concluirSolicitacao,
@@ -32,6 +36,9 @@ export default function MembresiaDetalhe() {
 
   // Edição inline
   const [dataAssembleia, setDataAssembleia] = useState("");
+  // confirm() nativo não funciona em WebView (Risco 3 do CLAUDE.md)
+  const [excluindoDoc, setExcluindoDoc] = useState<DocumentoSolicitacao | null>(null);
+  const [confirmandoConcluir, setConfirmandoConcluir] = useState(false);
 
   useEffect(() => { carregar(); }, [id]);
 
@@ -64,10 +71,11 @@ export default function MembresiaDetalhe() {
     if (url) window.open(url, "_blank", "noopener,noreferrer");
   }
 
-  async function deletarDoc(d: DocumentoSolicitacao) {
-    if (!confirm("Excluir este documento?")) return;
+  async function deletarDoc() {
+    if (!excluindoDoc) return;
     try {
-      await excluirDocumento(d.id, d.arquivo_url);
+      await excluirDocumento(excluindoDoc.id, excluindoDoc.arquivo_url);
+      setExcluindoDoc(null);
       toast.success("Excluído");
       await carregar();
     } catch (e: any) { toast.error(e?.message ?? "Erro"); }
@@ -107,11 +115,11 @@ export default function MembresiaDetalhe() {
   }
 
   async function concluir() {
-    if (!confirm("Marcar como concluída? Isso encerra a solicitação.")) return;
     setBusy(true);
     try {
       await concluirSolicitacao(id);
       toast.success("Concluída");
+      setConfirmandoConcluir(false);
       await carregar();
     } catch (e: any) { toast.error(e?.message ?? "Erro"); }
     finally { setBusy(false); }
@@ -183,7 +191,7 @@ export default function MembresiaDetalhe() {
                     <p className="text-xs text-muted-foreground">{d.tipo} · v{d.versao}</p>
                   </button>
                   <Button type="button" variant="ghost" size="icon"
-                    onClick={() => deletarDoc(d)} className="h-7 w-7 text-destructive">
+                    onClick={() => setExcluindoDoc(d)} className="h-7 w-7 text-destructive">
                     <Trash2 className="w-3 h-3" />
                   </Button>
                 </div>
@@ -250,7 +258,7 @@ export default function MembresiaDetalhe() {
         </div>
       )}
       {sol.status === "aprovada" && (
-        <Button onClick={concluir} disabled={busy} className="w-full bg-gold hover:bg-gold/90 text-white gap-1.5">
+        <Button onClick={() => setConfirmandoConcluir(true)} disabled={busy} className="w-full bg-gold hover:bg-gold/90 text-white gap-1.5">
           <Check className="w-3.5 h-3.5" /> Marcar como concluída
         </Button>
       )}
@@ -288,6 +296,37 @@ export default function MembresiaDetalhe() {
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog open={!!excluindoDoc} onOpenChange={(v) => !v && setExcluindoDoc(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir este documento?</AlertDialogTitle>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); deletarDoc(); }}>
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmandoConcluir} onOpenChange={setConfirmandoConcluir}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Marcar como concluída?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Isso encerra a solicitação.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); concluir(); }} disabled={busy}>
+              {busy ? "..." : "Concluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

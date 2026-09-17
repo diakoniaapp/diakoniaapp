@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { hojeLocal } from "@/lib/data";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -93,6 +97,9 @@ export default function VisitanteDialog({ open, onOpenChange, pessoa, onSaved }:
 
   // conversão
   const [novoTipo, setNovoTipo] = useState<"congregado" | "membro">("congregado");
+  // confirm() nativo não funciona em WebView (Risco 3 do CLAUDE.md)
+  const [confirmandoConversao, setConfirmandoConversao] = useState(false);
+  const [convertendoBusy, setConvertendoBusy] = useState(false);
 
   const load = async () => {
     if (!pessoa) return;
@@ -202,10 +209,7 @@ export default function VisitanteDialog({ open, onOpenChange, pessoa, onSaved }:
 
   const converter = async () => {
     if (!pessoa) return;
-    const ok = window.confirm(
-      `Confirmar conversão de "${pessoa.nome_completo}" para ${novoTipo === "membro" ? "Membro" : "Congregado"}? A história como visitante será preservada.`
-    );
-    if (!ok) return;
+    setConvertendoBusy(true);
     const agora = new Date().toISOString();
     const dataField = novoTipo === "congregado"
       ? { data_congregado: agora }
@@ -220,7 +224,9 @@ export default function VisitanteDialog({ open, onOpenChange, pessoa, onSaved }:
         .select("id"),
       "A mudança de vínculo",
     );
+    setConvertendoBusy(false);
     if (!r.ok) return toast.error(r.erro);
+    setConfirmandoConversao(false);
     toast.success(`${pessoa.nome_completo.split(" ")[0]} deu o próximo passo — agora é ${novoTipo === "membro" ? "Membro" : "Congregado"}! 🎉`);
     onSaved?.();
     onOpenChange(false);
@@ -230,6 +236,7 @@ export default function VisitanteDialog({ open, onOpenChange, pessoa, onSaved }:
   const isVisitante = pessoa.tipo_pessoa === "visitante";
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto">
         <DialogHeader>
@@ -469,7 +476,7 @@ export default function VisitanteDialog({ open, onOpenChange, pessoa, onSaved }:
                   </SelectContent>
                 </Select>
               </div>
-              <Button onClick={converter} className="gap-2">
+              <Button onClick={() => setConfirmandoConversao(true)} className="gap-2">
                 <ArrowRight className="w-4 h-4" /> Confirmar conversão
               </Button>
             </div>
@@ -477,5 +484,28 @@ export default function VisitanteDialog({ open, onOpenChange, pessoa, onSaved }:
         </Tabs>
       </DialogContent>
     </Dialog>
+
+    <AlertDialog open={confirmandoConversao} onOpenChange={setConfirmandoConversao}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            Confirmar conversão de "{pessoa.nome_completo}" para {novoTipo === "membro" ? "Membro" : "Congregado"}?
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            A história como visitante será preservada.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={convertendoBusy}>Cancelar</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={(e) => { e.preventDefault(); converter(); }}
+            disabled={convertendoBusy}
+          >
+            {convertendoBusy ? "..." : "Confirmar"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
                  }

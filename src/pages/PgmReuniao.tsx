@@ -43,6 +43,9 @@ export default function PgmReuniaoPage() {
   const [observacoes, setObservacoes] = useState("");
   const [salvandoCabecalho, setSalvandoCabecalho] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // confirm() nativo não funciona em WebView (Risco 3 do CLAUDE.md)
+  const [confirmandoRemoverFoto, setConfirmandoRemoverFoto] = useState(false);
+  const [removendoVisitaId, setRemovendoVisitaId] = useState<string | null>(null);
   const [dataEditavel, setDataEditavel] = useState("");
 
   // Form: novo visitante
@@ -129,11 +132,11 @@ export default function PgmReuniaoPage() {
 
   async function removerFoto() {
     if (!reuniao?.foto_url) return;
-    if (!confirm("Remover foto do encontro?")) return;
     setBusy(true);
     try {
       await removerFotoReuniao(reuniao.foto_url);
       await atualizarReuniao(reuniao.id, { foto_url: null });
+      setConfirmandoRemoverFoto(false);
       await carregar();
     } catch (e: any) {
       toast.error(e?.message ?? "Erro");
@@ -169,10 +172,11 @@ export default function PgmReuniaoPage() {
     }
   }
 
-  async function removerVisita(id: string) {
-    if (!confirm("Remover este visitante?")) return;
+  async function confirmarRemoverVisita() {
+    if (!removendoVisitaId) return;
     try {
-      await excluirVisita(id);
+      await excluirVisita(removendoVisitaId);
+      setRemovendoVisitaId(null);
       await carregar();
     } catch (e: any) {
       toast.error(e?.message ?? "Erro");
@@ -263,7 +267,7 @@ export default function PgmReuniaoPage() {
               <img src={fotoUrl} alt="Encontro" className="rounded-md max-h-48 object-cover" />
               <Button type="button" variant="ghost" size="icon"
                 className="absolute top-1 right-1 h-7 w-7 bg-background/80 hover:bg-background"
-                onClick={removerFoto} disabled={busy}>
+                onClick={() => setConfirmandoRemoverFoto(true)} disabled={busy}>
                 <X className="w-3.5 h-3.5 text-destructive" />
               </Button>
             </div>
@@ -374,7 +378,7 @@ export default function PgmReuniaoPage() {
                       </a>
                     )}
                     <Button type="button" variant="ghost" size="icon"
-                      onClick={() => removerVisita(v.id)}
+                      onClick={() => setRemovendoVisitaId(v.id)}
                       className="h-7 w-7 text-destructive hover:bg-destructive/10">
                       <Trash2 className="w-3.5 h-3.5" />
                     </Button>
@@ -416,6 +420,34 @@ export default function PgmReuniaoPage() {
               className="bg-destructive text-white hover:bg-destructive/90"
             >
               {busy ? "Excluindo..." : "Sim, excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmandoRemoverFoto} onOpenChange={setConfirmandoRemoverFoto}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover foto do encontro?</AlertDialogTitle>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={removerFoto} disabled={busy}>
+              {busy ? "..." : "Remover"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!removendoVisitaId} onOpenChange={(v) => !v && setRemovendoVisitaId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover este visitante?</AlertDialogTitle>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmarRemoverVisita}>
+              Remover
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

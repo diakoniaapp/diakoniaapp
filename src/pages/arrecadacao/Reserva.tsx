@@ -15,6 +15,10 @@ import { PosUsoCheckDialog } from "@/components/arrecadacao/PosUsoCheckDialog";
 import { AprovacaoDialog } from "@/components/arrecadacao/AprovacaoDialog";
 import { PreUsoCheckDialog } from "@/components/arrecadacao/PreUsoCheckDialog";
 import { RecusarDialog } from "@/components/arrecadacao/RecusarDialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { PaginaSkeleton } from "@/components/ListState";
 import {
@@ -65,6 +69,9 @@ export default function ReservaDetalhe() {
   const [recusarOpen, setRecusarOpen] = useState(false);
   const [preUso, setPreUso] = useState<ChecklistItemV2[]>([]);
   const [posUsoCount, setPosUsoCount] = useState(0);
+  // confirm() nativo não funciona em WebView (Risco 3 do CLAUDE.md)
+  const [confirmandoArquivar, setConfirmandoArquivar] = useState(false);
+  const [confirmandoEncerrar, setConfirmandoEncerrar] = useState(false);
 
   async function carregar() {
     if (!id) return;
@@ -96,12 +103,21 @@ export default function ReservaDetalhe() {
       }
       if (tipo === "iniciar") await iniciarUsoEAbrirCaixa(reserva.id);
       if (tipo === "arquivar") {
-        if (!confirm("Arquivar esta reserva e todos os caixas/vendas vinculados?")) return;
         await arquivarReserva(reserva.id);
         nav("/arrecadacao"); return;
       }
       toast.success("Atualizado");
       await carregar();
+    } catch (err: any) { toast.error(err?.message ?? "Erro"); }
+  }
+
+  async function confirmarEncerrar() {
+    if (!reserva) return;
+    try {
+      await encerrarReserva(reserva.id);
+      toast.success("Reserva encerrada");
+      setConfirmandoEncerrar(false);
+      carregar();
     } catch (err: any) { toast.error(err?.message ?? "Erro"); }
   }
 
@@ -163,7 +179,7 @@ export default function ReservaDetalhe() {
             </Button>
           </>
         )}
-        <Button size="sm" variant="ghost" onClick={() => acao("arquivar")} className="text-destructive-text">
+        <Button size="sm" variant="ghost" onClick={() => setConfirmandoArquivar(true)} className="text-destructive-text">
           <Trash2 className="w-3.5 h-3.5" />
         </Button>
       </header>
@@ -275,14 +291,7 @@ export default function ReservaDetalhe() {
               )}
               {caixa.estado === "fechado" && reserva.status === "em_uso" && (
                 <Button size="lg" variant="outline"
-                  onClick={async () => {
-                    if (!confirm("Encerrar esta reserva? O caixa já está fechado e a reserva ainda consta como em uso.")) return;
-                    try {
-                      await encerrarReserva(reserva.id);
-                      toast.success("Reserva encerrada");
-                      carregar();
-                    } catch (err: any) { toast.error(err?.message ?? "Erro"); }
-                  }}
+                  onClick={() => setConfirmandoEncerrar(true)}
                   className="gap-2 h-12 px-4 border-destructive-line text-destructive-text hover:bg-destructive-soft">
                   <CheckCircle2 className="w-4 h-4" /> Encerrar reserva
                 </Button>
@@ -368,6 +377,40 @@ export default function ReservaDetalhe() {
           onChange={carregar}
         />
       )}
+
+      <AlertDialog open={confirmandoArquivar} onOpenChange={setConfirmandoArquivar}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Arquivar esta reserva?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Todos os caixas e vendas vinculados também são arquivados.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); acao("arquivar"); }}>
+              Arquivar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmandoEncerrar} onOpenChange={setConfirmandoEncerrar}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Encerrar esta reserva?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O caixa já está fechado e a reserva ainda consta como em uso.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); confirmarEncerrar(); }}>
+              Encerrar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

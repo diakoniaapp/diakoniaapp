@@ -24,6 +24,10 @@ import { NomePessoa } from "@/components/membros/ficha";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -61,6 +65,10 @@ export function EscalaDialog({ open, onOpenChange, evento, areasDoEvento }: Prop
   const [escalas, setEscalas] = useState<EscalaDaArea[]>([]);
   const [carregando, setCarregando] = useState(false);
   const [ocupado, setOcupado] = useState(false);
+  // confirm() nativo não funciona em WebView (Risco 3 do CLAUDE.md) — troca
+  // por AlertDialog, mesmo padrão já usado em FinancasFornecedores.tsx etc.
+  const [apagando, setApagando] = useState<EscalaDaArea | null>(null);
+  const [apagandoBusy, setApagandoBusy] = useState(false);
 
   const [sugestoesDe, setSugestoesDe] = useState<string | null>(null);   // escala_id
   const [sugestoes, setSugestoes] = useState<Sugestao[]>([]);
@@ -79,6 +87,17 @@ export function EscalaDialog({ open, onOpenChange, evento, areasDoEvento }: Prop
     setEscalas(await escalasDoEvento(evento.id, evento.data));
     setCarregando(false);
   };
+
+  async function confirmarExcluirEscala() {
+    if (!apagando) return;
+    setApagandoBusy(true);
+    try {
+      const r = await excluirEscala(apagando.id);
+      if (!r.ok) { toast.error(r.erro); return; }
+      setApagando(null);
+      await recarregar();
+    } finally { setApagandoBusy(false); }
+  }
 
   useEffect(() => {
     if (!open || !evento) return;
@@ -189,6 +208,7 @@ export function EscalaDialog({ open, onOpenChange, evento, areasDoEvento }: Prop
   const turno = turnoDe(evento.hora_inicio);
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[88vh] overflow-y-auto">
         <DialogHeader>
@@ -238,12 +258,7 @@ export function EscalaDialog({ open, onOpenChange, evento, areasDoEvento }: Prop
                     type="button" variant="ghost" size="icon" className="h-7 w-7"
                     aria-label={`Excluir a escala de ${esc.area_nome}`}
                     disabled={ocupado}
-                    onClick={async () => {
-                      if (!window.confirm(`Excluir a escala de ${esc.area_nome}? Quem já confirmou perde o registro.`)) return;
-                      const r = await excluirEscala(esc.id);
-                      if (!r.ok) return toast.error(r.erro);
-                      recarregar();
-                    }}
+                    onClick={() => setApagando(esc)}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </Button>
@@ -408,5 +423,26 @@ export function EscalaDialog({ open, onOpenChange, evento, areasDoEvento }: Prop
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <AlertDialog open={!!apagando} onOpenChange={(v) => !v && setApagando(null)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Excluir a escala de {apagando?.area_nome}?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Quem já confirmou perde o registro.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={apagandoBusy}>Cancelar</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={(e) => { e.preventDefault(); confirmarExcluirEscala(); }}
+            disabled={apagandoBusy}
+          >
+            {apagandoBusy ? "..." : "Excluir"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

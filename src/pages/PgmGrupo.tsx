@@ -57,6 +57,9 @@ export default function PgmGrupo() {
   const [resumo, setResumo] = useState<ResumoPresenca[]>([]);
   const [iniciandoReuniao, setIniciandoReuniao] = useState(false);
   const [multiplicarOpen, setMultiplicarOpen] = useState(false);
+  // confirm() nativo não funciona em WebView (Risco 3 do CLAUDE.md)
+  const [excluindoEncontro, setExcluindoEncontro] = useState<{ id: string; dataLabel: string } | null>(null);
+  const [removendoPessoaId, setRemovendoPessoaId] = useState<string | null>(null);
 
   useEffect(() => { carregar(); }, [grupoId]);
 
@@ -77,10 +80,11 @@ export default function PgmGrupo() {
     } finally { setLoading(false); }
   }
 
-  async function excluirEncontroInline(reuniaoId: string, dataLabel: string) {
-    if (!confirm(`Excluir encontro de ${dataLabel}? Isso apaga presenças, visitantes e foto. Não tem como desfazer.`)) return;
+  async function confirmarExcluirEncontro() {
+    if (!excluindoEncontro) return;
     try {
-      await excluirReuniao(reuniaoId);
+      await excluirReuniao(excluindoEncontro.id);
+      setExcluindoEncontro(null);
       toast.success("Encontro excluído");
       await carregar();
     } catch (e: any) {
@@ -112,10 +116,11 @@ export default function PgmGrupo() {
     } finally { setBusy(false); }
   }
 
-  async function removerPessoa(pessoaId: string) {
-    if (!confirm("Remover esta pessoa do grupo?")) return;
+  async function confirmarRemoverPessoa() {
+    if (!removendoPessoaId) return;
     try {
-      await desvincularPessoa(grupoId, pessoaId);
+      await desvincularPessoa(grupoId, removendoPessoaId);
+      setRemovendoPessoaId(null);
       toast.success("Pessoa removida");
       await carregar();
     } catch (e: any) {
@@ -310,7 +315,7 @@ export default function PgmGrupo() {
                     </Link>
                     {podeEditar && (
                       <Button type="button" variant="ghost" size="icon"
-                        onClick={() => excluirEncontroInline(r.id, dataLabel)}
+                        onClick={() => setExcluindoEncontro({ id: r.id, dataLabel })}
                         className="h-8 w-8 text-destructive hover:bg-destructive/10 mr-1"
                         title="Excluir encontro">
                         <TrashEnc className="w-3.5 h-3.5" />
@@ -392,7 +397,7 @@ export default function PgmGrupo() {
                       </Button>
                     )}
                     <Button type="button" variant="ghost" size="icon"
-                      onClick={() => removerPessoa(m.pessoa_id)}
+                      onClick={() => setRemovendoPessoaId(m.pessoa_id)}
                       className="h-7 w-7 text-destructive hover:bg-destructive/10"
                       title="Remover do grupo">
                       <Trash2 className="w-3.5 h-3.5" />
@@ -453,6 +458,37 @@ export default function PgmGrupo() {
             <AlertDialogCancel disabled={busy}>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={onExcluir} disabled={busy} className="bg-destructive text-white hover:bg-destructive/90">
               Excluir definitivamente
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!excluindoEncontro} onOpenChange={(v) => !v && setExcluindoEncontro(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir encontro de {excluindoEncontro?.dataLabel}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Isso apaga presenças, visitantes e foto. Não tem como desfazer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmarExcluirEncontro} className="bg-destructive text-white hover:bg-destructive/90">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!removendoPessoaId} onOpenChange={(v) => !v && setRemovendoPessoaId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover esta pessoa do grupo?</AlertDialogTitle>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmarRemoverPessoa}>
+              Remover
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

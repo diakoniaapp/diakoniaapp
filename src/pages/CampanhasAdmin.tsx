@@ -17,6 +17,10 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Flame, Plus, Upload, Loader2, Trash2, ChevronRight, ChevronLeft,
   CalendarDays, FileText, Image, Video, Music, File, Bell,
   CheckCircle2, AlertTriangle, Edit2, Star, X,
@@ -131,6 +135,8 @@ export default function CampanhasAdmin({ embutido = false }: { embutido?: boolea
   const [loading, setLoading]       = useState(true);
   const [showWizard, setShowWizard] = useState(false);
   const [editando, setEditando]     = useState<Campanha | null>(null);
+  // confirm() nativo não funciona em WebView (Risco 3 do CLAUDE.md)
+  const [excluindoId, setExcluindoId] = useState<string | null>(null);
 
   // ── Guarda de acesso ──
   useEffect(() => {
@@ -151,12 +157,12 @@ export default function CampanhasAdmin({ embutido = false }: { embutido?: boolea
   useEffect(() => { carregarCampanhas(); }, []);
 
   const excluirCampanha = async (id: string) => {
-    if (!confirm("Excluir esta campanha? Todos os materiais e eventos vinculados serão desvinculados.")) return;
     const r = conferir(
       await supabase.from("campanhas").delete().eq("id", id).select("id"),
       "A campanha",
     );
     if (!r.ok) return toast.error(r.erro);
+    setExcluindoId(null);
     toast.success("Campanha removida.");
     carregarCampanhas();
   };
@@ -224,7 +230,7 @@ export default function CampanhasAdmin({ embutido = false }: { embutido?: boolea
               {ativas.map((c) => (
                 <CampanhaCard key={c.id} campanha={c}
                   onEditar={() => { setEditando(c); setShowWizard(true); }}
-                  onExcluir={() => excluirCampanha(c.id)}
+                  onExcluir={() => setExcluindoId(c.id)}
                   onStatus={(s) => alterarStatus(c.id, s)}
                 />
               ))}
@@ -242,7 +248,7 @@ export default function CampanhasAdmin({ embutido = false }: { embutido?: boolea
               {rascunhos.map((c) => (
                 <CampanhaCard key={c.id} campanha={c}
                   onEditar={() => { setEditando(c); setShowWizard(true); }}
-                  onExcluir={() => excluirCampanha(c.id)}
+                  onExcluir={() => setExcluindoId(c.id)}
                   onStatus={(s) => alterarStatus(c.id, s)}
                 />
               ))}
@@ -260,7 +266,7 @@ export default function CampanhasAdmin({ embutido = false }: { embutido?: boolea
               {historico.map((c) => (
                 <CampanhaCard key={c.id} campanha={c}
                   onEditar={() => { setEditando(c); setShowWizard(true); }}
-                  onExcluir={() => excluirCampanha(c.id)}
+                  onExcluir={() => setExcluindoId(c.id)}
                   onStatus={(s) => alterarStatus(c.id, s)}
                 />
               ))}
@@ -285,6 +291,23 @@ export default function CampanhasAdmin({ embutido = false }: { embutido?: boolea
           onSalvo={() => { setShowWizard(false); setEditando(null); carregarCampanhas(); }}
         />
       )}
+
+      <AlertDialog open={!!excluindoId} onOpenChange={(v) => !v && setExcluindoId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir esta campanha?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Todos os materiais e eventos vinculados serão desvinculados.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); excluindoId && excluirCampanha(excluindoId); }}>
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

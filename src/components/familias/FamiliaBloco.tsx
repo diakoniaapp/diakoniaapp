@@ -24,6 +24,10 @@ import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -54,6 +58,9 @@ interface FamiliaAtual {
 
 export function FamiliaBloco({ pessoaId, nomeCompleto, endereco, onChange }: Props) {
   const [atual, setAtual]           = useState<FamiliaAtual | null>(null);
+  // confirm() nativo não funciona em WebView (Risco 3 do CLAUDE.md)
+  const [confirmandoSaida, setConfirmandoSaida] = useState(false);
+  const [saindoBusy, setSaindoBusy] = useState(false);
   const [sugestoes, setSugestoes]   = useState<SugestaoVinculo[]>([]);
   const [carregando, setCarregando] = useState(false);
   const [ignorado, setIgnorado]     = useState(false);
@@ -293,16 +300,19 @@ export function FamiliaBloco({ pessoaId, nomeCompleto, endereco, onChange }: Pro
 
   async function desvincular() {
     if (!atual) return;
-    if (!confirm("Remover esta pessoa da família?")) return;
+    setSaindoBusy(true);
     try {
       await desvincularPessoa(atual.vinculoId);
       toast.success("Pessoa removida da família");
       setAtual(null);
+      setConfirmandoSaida(false);
       const sugs = await sugerirVinculos(pessoaId, nomeCompleto);
       setSugestoes(sugs);
       onChange?.();
     } catch (e: any) {
       toast.error(e?.message ?? "Erro");
+    } finally {
+      setSaindoBusy(false);
     }
   }
 
@@ -330,7 +340,7 @@ export function FamiliaBloco({ pessoaId, nomeCompleto, endereco, onChange }: Pro
                   {atual.responsavel && " · Responsável"}
                 </p>
               </div>
-              <Button type="button" variant="ghost" size="sm" onClick={desvincular} className="text-destructive">
+              <Button type="button" variant="ghost" size="sm" onClick={() => setConfirmandoSaida(true)} className="text-destructive">
                 <X className="w-3.5 h-3.5 mr-1" /> Sair
               </Button>
             </div>
@@ -690,6 +700,22 @@ export function FamiliaBloco({ pessoaId, nomeCompleto, endereco, onChange }: Pro
         </DialogContent>
       </Dialog>
 
+      <AlertDialog open={confirmandoSaida} onOpenChange={setConfirmandoSaida}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover esta pessoa da família?</AlertDialogTitle>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={saindoBusy}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); desvincular(); }}
+              disabled={saindoBusy}
+            >
+              {saindoBusy ? "..." : "Remover"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

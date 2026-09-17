@@ -52,6 +52,9 @@ export default function GovernancaReuniao() {
   const [partOpen, setPartOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // confirm() nativo não funciona em WebView (Risco 3 do CLAUDE.md)
+  const [confirmandoAssembleia, setConfirmandoAssembleia] = useState(false);
+  const [confirmandoConvocacaoSemPauta, setConfirmandoConvocacaoSemPauta] = useState<{ p: GovParticipante; telefone?: string } | null>(null);
 
   useEffect(() => { carregar(); }, [id]);
 
@@ -90,11 +93,11 @@ export default function GovernancaReuniao() {
   }
 
   async function criarAssembleia() {
-    if (!confirm("Gerar assembleia com as pautas marcadas?\nVai criar para o próximo domingo.")) return;
     setBusy(true);
     try {
       const a = await gerarAssembleiaDaReuniao(id);
       toast.success("Assembleia criada!");
+      setConfirmandoAssembleia(false);
       navigate(`/governanca/assembleia/${a.id}`);
     } catch (e: any) { toast.error(e?.message ?? "Erro"); }
     finally { setBusy(false); }
@@ -139,8 +142,14 @@ export default function GovernancaReuniao() {
     }
     // Inclui as pautas no convite (vão como parte da mensagem)
     if (pautas.length === 0) {
-      if (!confirm("⚠ Nenhuma pauta cadastrada ainda. Enviar convocação sem pauta?\n\nSugestão: cadastre as pautas primeiro para enviar tudo no mesmo convite.")) return;
+      setConfirmandoConvocacaoSemPauta({ p, telefone });
+      return;
     }
+    abrirConvocacaoWhatsApp(p, telefone);
+  }
+
+  function abrirConvocacaoWhatsApp(p: GovParticipante, telefone?: string) {
+    if (!reun) return;
     const { url } = montarConvocacaoWhatsApp(reun, { nome: p.pessoa_nome, telefone }, pautas);
     window.open(url, "_blank", "noopener,noreferrer");
   }
@@ -248,7 +257,7 @@ export default function GovernancaReuniao() {
               <Plus className="w-3.5 h-3.5 mr-1.5" /> Nova pauta
             </Button>
             {deliberativas > 0 && (
-              <Button size="sm" onClick={criarAssembleia} disabled={busy}
+              <Button size="sm" onClick={() => setConfirmandoAssembleia(true)} disabled={busy}
                 className="ml-auto">
                 ⚖ Gerar assembleia ({deliberativas})
               </Button>
@@ -356,6 +365,47 @@ export default function GovernancaReuniao() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog open={confirmandoAssembleia} onOpenChange={setConfirmandoAssembleia}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Gerar assembleia com as pautas marcadas?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Vai criar para o próximo domingo.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); criarAssembleia(); }} disabled={busy}>
+              {busy ? "..." : "Gerar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!confirmandoConvocacaoSemPauta} onOpenChange={(v) => !v && setConfirmandoConvocacaoSemPauta(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>⚠ Nenhuma pauta cadastrada ainda. Enviar convocação sem pauta?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Sugestão: cadastre as pautas primeiro para enviar tudo no mesmo convite.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                if (!confirmandoConvocacaoSemPauta) return;
+                abrirConvocacaoWhatsApp(confirmandoConvocacaoSemPauta.p, confirmandoConvocacaoSemPauta.telefone);
+                setConfirmandoConvocacaoSemPauta(null);
+              }}
+            >
+              Enviar mesmo assim
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -364,6 +414,8 @@ export default function GovernancaReuniao() {
 function PautaLinha({ pauta, onChange }: { pauta: GovPauta; onChange: () => void }) {
   const [editandoDecisao, setEditandoDecisao] = useState(false);
   const [decisao, setDecisao] = useState(pauta.decisao ?? "");
+  // confirm() nativo não funciona em WebView (Risco 3 do CLAUDE.md)
+  const [confirmandoExcluir, setConfirmandoExcluir] = useState(false);
 
   async function salvarDecisao() {
     try {
@@ -380,9 +432,9 @@ function PautaLinha({ pauta, onChange }: { pauta: GovPauta; onChange: () => void
   }
 
   async function deletar() {
-    if (!confirm("Excluir esta pauta?")) return;
     try {
       await excluirPauta(pauta.id);
+      setConfirmandoExcluir(false);
       onChange();
     } catch (e: any) { toast.error(e?.message ?? "Erro"); }
   }
@@ -411,7 +463,7 @@ function PautaLinha({ pauta, onChange }: { pauta: GovPauta; onChange: () => void
               </Link>
             )}
           </div>
-          <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={deletar}>
+          <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setConfirmandoExcluir(true)}>
             <Trash2 className="w-3 h-3" />
           </Button>
         </div>
@@ -443,6 +495,20 @@ function PautaLinha({ pauta, onChange }: { pauta: GovPauta; onChange: () => void
           </div>
         )}
       </CardContent>
+
+      <AlertDialog open={confirmandoExcluir} onOpenChange={setConfirmandoExcluir}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir esta pauta?</AlertDialogTitle>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); deletar(); }}>
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }

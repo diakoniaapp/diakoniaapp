@@ -13,6 +13,10 @@ import {
 } from "@/services/ebdService";
 import { CampanhaForm } from "@/components/ebd/CampanhaForm";
 import { PaginaSkeleton } from "@/components/ListState";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 function brl(v: number) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -128,6 +132,8 @@ function CampanhaCard({ c, classeId, onMudou }: {
 }) {
   const r = c.resumo;
   const [busy, setBusy] = useState(false);
+  // confirm() nativo não funciona em WebView (Risco 3 do CLAUDE.md)
+  const [confirmando, setConfirmando] = useState(false);
 
   /**
    * Fecha ou reabre, sem passar pela edição inteira (nome, meta, datas) só
@@ -136,15 +142,12 @@ function CampanhaCard({ c, classeId, onMudou }: {
    */
   async function alternar() {
     const fechando = c.ativo;
-    if (!confirm(fechando
-      ? `Encerrar "${c.nome}"? As entradas continuam registradas — ela só sai da lista de campanhas ativas.`
-      : `Reabrir "${c.nome}"?`
-    )) return;
     setBusy(true);
     try {
       if (fechando) await encerrarCampanha(c.id);
       else await reabrirCampanha(c.id);
       toast.success(fechando ? "Campanha encerrada" : "Campanha reaberta");
+      setConfirmando(false);
       onMudou();
     } catch (e: any) {
       toast.error(e?.message ?? "Erro");
@@ -193,7 +196,7 @@ function CampanhaCard({ c, classeId, onMudou }: {
           <Button
             type="button" variant="ghost" size="icon"
             className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
-            onClick={alternar} disabled={busy}
+            onClick={() => setConfirmando(true)} disabled={busy}
             title={c.ativo ? "Fechar campanha" : "Reabrir campanha"}
           >
             {busy
@@ -202,6 +205,27 @@ function CampanhaCard({ c, classeId, onMudou }: {
           </Button>
         </div>
       </CardContent>
+
+      <AlertDialog open={confirmando} onOpenChange={setConfirmando}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {c.ativo ? `Encerrar "${c.nome}"?` : `Reabrir "${c.nome}"?`}
+            </AlertDialogTitle>
+            {c.ativo && (
+              <AlertDialogDescription>
+                As entradas continuam registradas — ela só sai da lista de campanhas ativas.
+              </AlertDialogDescription>
+            )}
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); alternar(); }} disabled={busy}>
+              {busy ? "..." : c.ativo ? "Encerrar" : "Reabrir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }

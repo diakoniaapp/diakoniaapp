@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -27,6 +31,8 @@ export function FechamentoDialog({ open, onOpenChange, caixaId, reservaFinalidad
   const [loading, setLoading] = useState(false);
   const [observacao, setObservacao] = useState("");
   const [fechando, setFechando] = useState(false);
+  // confirm() nativo não funciona em WebView (Risco 3 do CLAUDE.md)
+  const [confirmando, setConfirmando] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -39,7 +45,6 @@ export function FechamentoDialog({ open, onOpenChange, caixaId, reservaFinalidad
   }, [open, caixaId]);
 
   async function confirmar() {
-    if (!confirm("Encerrar o caixa definitivamente? Não dá pra registrar mais vendas depois.")) return;
     setFechando(true);
     try {
       await moverCaixaParaConciliando(caixaId);
@@ -64,6 +69,7 @@ export function FechamentoDialog({ open, onOpenChange, caixaId, reservaFinalidad
   const vendasAtivas = vendas.filter(v => !v.cancelada);
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
@@ -193,7 +199,7 @@ export function FechamentoDialog({ open, onOpenChange, caixaId, reservaFinalidad
           <Button variant="ghost" onClick={() => onOpenChange(false)} className="gap-1.5 ml-auto">
             <X className="w-3.5 h-3.5" /> Cancelar
           </Button>
-          <Button onClick={confirmar} disabled={fechando}
+          <Button onClick={() => setConfirmando(true)} disabled={fechando}
             className="bg-destructive hover:bg-destructive gap-1.5">
             {fechando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
             Fechar caixa
@@ -201,6 +207,27 @@ export function FechamentoDialog({ open, onOpenChange, caixaId, reservaFinalidad
         </div>
       </DialogContent>
     </Dialog>
+
+    <AlertDialog open={confirmando} onOpenChange={setConfirmando}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Encerrar o caixa definitivamente?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Não dá pra registrar mais vendas depois.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={fechando}>Cancelar</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={(e) => { e.preventDefault(); setConfirmando(false); confirmar(); }}
+            disabled={fechando}
+          >
+            {fechando ? "..." : "Fechar caixa"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
 
