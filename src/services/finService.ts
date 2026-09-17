@@ -295,6 +295,44 @@ export async function criarCentroCusto(input: Partial<FinCentroCusto>): Promise<
   return data as FinCentroCusto;
 }
 
+// Ordena uma lista de centros pra exibir num seletor: cada centro
+// principal primeiro (alfabético), com os subgrupos contábeis dele logo
+// abaixo, também alfabéticos, com o prefixo "{Pai} · " cortado do rótulo
+// (a indentação do seletor já mostra que é filho — repetir o nome do pai
+// não ajuda). Extraído em 17/09/2026 depois de copiar a mesma lógica 2
+// vezes (LancamentoForm.tsx, FinancasOrcamento.tsx) e estar prestes a
+// copiar de novo em RecorrenciaForm.tsx e ImportacaoFaturaDialog.tsx —
+// achado pela Telma pedindo pra conferir "todos os caminhos de centros
+// de custo". Genérico o bastante pra `FinCentroCusto[]` (a lista crua) e
+// `FinCentroResumo[]` (a lista com resumo de gasto), que só divergem em
+// campos que esta função não usa.
+export function ordenarCentrosParaSeletor<
+  T extends { id: string; nome: string; vinculo_tipo: FinCentroVinculo; centro_pai_id: string | null },
+>(centros: T[]): { centro: T; rotulo: string; indentado: boolean }[] {
+  const principais = centros
+    .filter(c => c.vinculo_tipo !== "subgrupo_administracao")
+    .slice().sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+  const subgruposPorPai = new Map<string, T[]>();
+  centros.forEach(c => {
+    if (c.vinculo_tipo === "subgrupo_administracao" && c.centro_pai_id) {
+      const lista = subgruposPorPai.get(c.centro_pai_id) ?? [];
+      lista.push(c);
+      subgruposPorPai.set(c.centro_pai_id, lista);
+    }
+  });
+  subgruposPorPai.forEach(lista => lista.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")));
+
+  const linhas: { centro: T; rotulo: string; indentado: boolean }[] = [];
+  principais.forEach(p => {
+    linhas.push({ centro: p, rotulo: p.nome, indentado: false });
+    (subgruposPorPai.get(p.id) ?? []).forEach(sg => {
+      const rotulo = sg.nome.includes(" · ") ? sg.nome.slice(sg.nome.indexOf(" · ") + 3) : sg.nome;
+      linhas.push({ centro: sg, rotulo, indentado: true });
+    });
+  });
+  return linhas;
+}
+
 // Inclui inativos — só pra tela de administração
 // (`FinancasAdmin.tsx`); `listarCentrosCusto()` continua só-ativos, é o
 // que os formulários de lançamento usam.

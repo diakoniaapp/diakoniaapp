@@ -20,7 +20,7 @@ import {
   listarContas, listarCategorias, listarCentrosCusto, listarFornecedores,
   criarLancamento, atualizarLancamento, uploadComprovante, removerComprovante,
   buscarFornecedorPorCnpj, criarFornecedor, sugerirCentroPorCategoria, brl,
-  listarRateio, salvarRateio,
+  listarRateio, salvarRateio, ordenarCentrosParaSeletor,
   FORMA_LABEL, STATUS_LABEL,
   type FinConta, type FinCategoria, type FinCentroCusto, type FinFornecedor,
   type FinLancamento, type FinMovimentoTipo, type FinFormaPagamento, type FinStatus,
@@ -135,36 +135,10 @@ export function LancamentoForm({
   // (17/09/2026, com print do seletor real): a lista crua vinha só em
   // ordem alfabética do NOME INTEIRO, então "Administração · Consumo"
   // (que começa com "A") caía longe de "Min. Administração" (que começa
-  // com "M") — subgrupo e pai nunca ficavam perto um do outro, e a lista
-  // toda virava uma sopa de ~20 itens sem estrutura nenhuma pra quem só
-  // queria achar "Diaconia". Reordena: cada centro principal primeiro,
-  // seus subgrupos (se tiver) logo abaixo, indentados, com o prefixo
-  // "{Pai} · " cortado do rótulo — já dá pra ver que é filho dele só pela
-  // indentação, repetir o nome do pai de novo não ajuda.
-  const centrosOrdenados = useMemo(() => {
-    const principais = centros
-      .filter(c => c.vinculo_tipo !== "subgrupo_administracao")
-      .slice().sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
-    const subgruposPorPai = new Map<string, FinCentroCusto[]>();
-    centros.forEach(c => {
-      if (c.vinculo_tipo === "subgrupo_administracao" && c.centro_pai_id) {
-        const lista = subgruposPorPai.get(c.centro_pai_id) ?? [];
-        lista.push(c);
-        subgruposPorPai.set(c.centro_pai_id, lista);
-      }
-    });
-    subgruposPorPai.forEach(lista => lista.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")));
-
-    const linhas: { centro: FinCentroCusto; rotulo: string; indentado: boolean }[] = [];
-    principais.forEach(p => {
-      linhas.push({ centro: p, rotulo: p.nome, indentado: false });
-      (subgruposPorPai.get(p.id) ?? []).forEach(sg => {
-        const rotulo = sg.nome.includes(" · ") ? sg.nome.slice(sg.nome.indexOf(" · ") + 3) : sg.nome;
-        linhas.push({ centro: sg, rotulo, indentado: true });
-      });
-    });
-    return linhas;
-  }, [centros]);
+  // com "M") — subgrupo e pai nunca ficavam perto um do outro. Ordenação
+  // em `ordenarCentrosParaSeletor` (finService.ts) — compartilhada com
+  // FinancasOrcamento.tsx, RecorrenciaForm.tsx e ImportacaoFaturaDialog.tsx.
+  const centrosOrdenados = useMemo(() => ordenarCentrosParaSeletor(centros), [centros]);
 
   // Comprovante
   const [arquivo, setArquivo] = useState<File | null>(null);

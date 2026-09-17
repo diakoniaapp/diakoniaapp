@@ -14,7 +14,7 @@
 // não precisa vincular o titular do cartão a uma pessoa; cada
 // "Histórico" vira um fornecedor, com o mesmo aprendizado de categoria/
 // centro de custo que já existe pros demais.
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
@@ -28,7 +28,7 @@ import {
   FileUp, Upload, TrendingDown, AlertTriangle, Building2, ShieldAlert, FileWarning,
 } from "lucide-react";
 import {
-  brl, listarCategorias, listarCentrosCusto,
+  brl, listarCategorias, listarCentrosCusto, ordenarCentrosParaSeletor,
   type FinCategoria, type FinCentroCusto,
 } from "@/services/finService";
 import {
@@ -53,6 +53,9 @@ export function ImportacaoFaturaDialog({ open, onOpenChange, contaId, contaNome,
   const [resumo, setResumo] = useState<ResumoImportacaoFatura | null>(null);
   const [categorias, setCategorias] = useState<FinCategoria[]>([]);
   const [centros, setCentros] = useState<FinCentroCusto[]>([]);
+  // Mesmo agrupamento por pai das outras telas que escolhem centro de
+  // custo — ver `ordenarCentrosParaSeletor` em finService.ts.
+  const centrosOrdenados = useMemo(() => ordenarCentrosParaSeletor(centros), [centros]);
   // chave (fornecedor normalizado) → o que fazer. Todo fornecedor novo
   // nasce como "criar", sem categoria/centro — a pessoa preenche só quem
   // quiser (fica sem categoria/centro por padrão, dá pra classificar
@@ -259,9 +262,17 @@ export function ImportacaoFaturaDialog({ open, onOpenChange, contaId, contaNome,
                       </Select>
                       <Select value={resolucoes[f.chave]?.centroCustoId ?? ""}
                         onValueChange={(v) => setResolucoes(prev => ({ ...prev, [f.chave]: { ...prev[f.chave], centroCustoId: v } }))}>
-                        <SelectTrigger className="h-7 w-32 text-xs"><SelectValue placeholder="Centro custo" /></SelectTrigger>
+                        <SelectTrigger className="h-7 w-32 text-xs">
+                          <SelectValue placeholder="Centro custo">
+                            {centros.find(c => c.id === resolucoes[f.chave]?.centroCustoId)?.nome}
+                          </SelectValue>
+                        </SelectTrigger>
                         <SelectContent>
-                          {centros.map(c => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
+                          {centrosOrdenados.map(({ centro, rotulo, indentado }) => (
+                            <SelectItem key={centro.id} value={centro.id} className={indentado ? "pl-12 text-muted-foreground" : "font-medium"}>
+                              {rotulo}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>

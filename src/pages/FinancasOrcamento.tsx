@@ -18,7 +18,7 @@ import { toast } from "sonner";
 import { PaginaSkeleton } from "@/components/ListState";
 import {
   listarOrcamentoVsReal, listarCentrosComResumo, criarOrcamento, excluirOrcamento,
-  brl, type FinOrcamentoVsReal, type FinCentroResumo,
+  ordenarCentrosParaSeletor, brl, type FinOrcamentoVsReal, type FinCentroResumo,
 } from "@/services/finService";
 
 export default function FinancasOrcamento() {
@@ -33,35 +33,10 @@ export default function FinancasOrcamento() {
 
   useEffect(() => { carregar(); }, []);
 
-  // Mesmo agrupamento por pai do seletor de centro no lançamento
-  // (LancamentoForm.tsx, 17/09/2026) — sem isso, "Administração ·
-  // Consumo" caía longe de "Min. Administração" na lista alfabética
-  // crua, e um orçamento por ministério inteiro ficava difícil de achar
-  // no meio dos subgrupos soltos.
-  const centrosOrdenados = useMemo(() => {
-    const principais = centros
-      .filter(c => c.vinculo_tipo !== "subgrupo_administracao")
-      .slice().sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
-    const subgruposPorPai = new Map<string, FinCentroResumo[]>();
-    centros.forEach(c => {
-      if (c.vinculo_tipo === "subgrupo_administracao" && c.centro_pai_id) {
-        const lista = subgruposPorPai.get(c.centro_pai_id) ?? [];
-        lista.push(c);
-        subgruposPorPai.set(c.centro_pai_id, lista);
-      }
-    });
-    subgruposPorPai.forEach(lista => lista.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")));
-
-    const linhas: { centro: FinCentroResumo; rotulo: string; indentado: boolean }[] = [];
-    principais.forEach(p => {
-      linhas.push({ centro: p, rotulo: p.nome, indentado: false });
-      (subgruposPorPai.get(p.id) ?? []).forEach(sg => {
-        const rotulo = sg.nome.includes(" · ") ? sg.nome.slice(sg.nome.indexOf(" · ") + 3) : sg.nome;
-        linhas.push({ centro: sg, rotulo, indentado: true });
-      });
-    });
-    return linhas;
-  }, [centros]);
+  // Mesmo agrupamento por pai do seletor de centro no lançamento — ver
+  // `ordenarCentrosParaSeletor` em finService.ts (compartilhado entre as
+  // 4 telas que escolhem centro de custo).
+  const centrosOrdenados = useMemo(() => ordenarCentrosParaSeletor(centros), [centros]);
 
   async function carregar() {
     setLoading(true);

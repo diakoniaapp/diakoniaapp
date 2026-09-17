@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { hojeLocal } from "@/lib/data";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import { RotateCw, TrendingUp, TrendingDown } from "lucide-react";
 import {
   listarContas, listarCategorias, listarCentrosCusto, listarFornecedores,
-  criarRecorrencia, atualizarRecorrencia, gerarRecorrencias,
+  criarRecorrencia, atualizarRecorrencia, gerarRecorrencias, ordenarCentrosParaSeletor,
   FREQUENCIA_LABEL,
   type FinConta, type FinCategoria, type FinCentroCusto, type FinFornecedor,
   type FinRecorrencia, type FinMovimentoTipo, type FinFrequencia,
@@ -52,6 +52,9 @@ export function RecorrenciaForm({ open, onOpenChange, recorrencia, onSaved }: Pr
   const [contas, setContas] = useState<FinConta[]>([]);
   const [categorias, setCategorias] = useState<FinCategoria[]>([]);
   const [centros, setCentros] = useState<FinCentroCusto[]>([]);
+  // Mesmo agrupamento por pai das outras telas que escolhem centro de
+  // custo — ver `ordenarCentrosParaSeletor` em finService.ts.
+  const centrosOrdenados = useMemo(() => ordenarCentrosParaSeletor(centros), [centros]);
   const [fornecedores, setFornecedores] = useState<FinFornecedor[]>([]);
 
   useEffect(() => {
@@ -237,9 +240,17 @@ export function RecorrenciaForm({ open, onOpenChange, recorrencia, onSaved }: Pr
             <div>
               <Label>Centro de custo</Label>
               <Select value={centroId} onValueChange={setCentroId}>
-                <SelectTrigger><SelectValue placeholder="(opcional)" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="(opcional)">
+                    {centros.find(c => c.id === centroId)?.nome}
+                  </SelectValue>
+                </SelectTrigger>
                 <SelectContent>
-                  {centros.map(c => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
+                  {centrosOrdenados.map(({ centro, rotulo, indentado }) => (
+                    <SelectItem key={centro.id} value={centro.id} className={indentado ? "pl-12 text-muted-foreground" : "font-medium"}>
+                      {rotulo}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
