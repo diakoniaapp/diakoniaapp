@@ -64,11 +64,10 @@ export interface PrestacaoContasGrupo {
   linhas: PrestacaoContasLinha[];
   valores: number[];
   total: number;
-  // Só preenchido no grupo "Ministério de Administração" — é o único
-  // ministério do Plano de Contas Oficial que a planilha real quebra em
-  // subgrupo contábil (Pessoal/Serviços/Ornamentação/Consumo/Patrimônio),
-  // ver docs/PROJETO_TESOURARIA_PRESTACAO_CONTAS.md §1.6 e §3.3. Quando
-  // presente, a tela renderiza estes sub-blocos em vez de `linhas`.
+  // Preenchido em QUALQUER centro principal que tiver subgrupo contábil
+  // — não só Administração (era assim até 17/09/2026, ver comentário de
+  // `agruparAdministracao`). Quando presente, a tela renderiza estes
+  // sub-blocos em vez de `linhas`.
   subgrupos?: PrestacaoContasGrupo[];
 }
 export interface PrestacaoContasMes { ano: number; numero: number; nome: string; }
@@ -145,48 +144,76 @@ function somaGrupos(grupos: PrestacaoContasGrupo[], qtdMeses: number): number[] 
 }
 
 /**
- * Junta os grupos de despesa cujo centro de custo é um dos 5 subgrupos
- * contábeis da Administração (ou o próprio "Min. Administração", quando o
- * lançamento não recebeu subgrupo) num único grupo composto — replica o
- * bloco "MINISTÉRIO DE ADMINISTRAÇÃO" subdividido do Excel real (docs/
- * PROJETO_TESOURARIA_PRESTACAO_CONTAS.md §1.6). As demais áreas que também
- * ficam sob Min. Administração (Bazar, Cantina, Apoio Adm...) continuam
- * como grupos soltos — são "quem fez o gasto", um eixo diferente de "como
- * o gasto se classifica", e não fazem parte do pedido de agrupar por
- * subgrupo contábil.
+ * Junta os grupos de despesa cujo centro de custo é subgrupo contábil de
+ * ALGUM centro principal num único grupo composto — um bloco por PAI que
+ * tiver pelo menos um subgrupo, replicando o jeito que a planilha real
+ * já quebrava "MINISTÉRIO DE ADMINISTRAÇÃO" (docs/PROJETO_TESOURARIA_
+ * PRESTACAO_CONTAS.md §1.6) em Pessoal/Serviços/Ornamentação/Consumo/
+ * Patrimônio, só que agora generalizado.
  *
- * Acha o centro do ministério pelo `centro_pai_id` dos próprios subgrupos
- * — não por nome — porque é a relação que a migration
- * 20260912200500_fase3_centros_custo_subgrupos_administracao.sql realmente
- * grava, e sobrevive a uma renomeação de "Administração".
+ * Até 17/09/2026 esta função só sabia de UM ministério — pegava o
+ * primeiro subgrupo encontrado, assumia que TODOS os subgrupos do banco
+ * eram filhos DELE, e rotulava o composto sempre "Ministério de
+ * Administração" fixo no código. Isso quebrou de verdade assim que a
+ * Telma passou a poder criar subgrupo em qualquer ministério
+ * (`CentroCustoForm.tsx`, mesma sessão) — Diaconia, Educação Cristã e
+ * Evangelismo e Missões ganharam subgrupos próprios, e a Prestação de
+ * Contas OFICIAL (a que vai pro Conselho Fiscal) ia empilhar o gasto de
+ * todos eles dentro de "Ministério de Administração", só porque essa
+ * função lia `centro_pai_id` de qualquer subgrupo que encontrasse
+ * primeiro. Agora agrupa por PAI de verdade — `Map<centro_pai_id,
+ * subgrupos[]>` — e nomeia cada composto pelo nome real do centro pai,
+ * não mais um título fixo.
  */
 function agruparAdministracao(
   grupos: PrestacaoContasGrupo[], centros: FinCentroCusto[], qtdMeses: number,
 ): PrestacaoContasGrupo[] {
-  const idsSubgrupo = new Set(centros.filter(c => c.vinculo_tipo === "subgrupo_administracao").map(c => c.id));
-  if (idsSubgrupo.size === 0) return grupos; // Fase 3 não aplicada nesta base — nada a fazer
+  const subgruposPorPai = new Map<string, FinCentroCusto[]>();
+  centros.forEach(c => {
+    if (c.vinculo_tipo === "subgrupo_administracao" && c.centro_pai_id) {
+      const lista = subgruposPorPai.get(c.centro_pai_id) ?? [];
+      lista.push(c);
+      subgruposPorPai.set(c.centro_pai_id, lista);
+    }
+  });
+  if (subgruposPorPai.size === 0) return grupos; // nenhum centro tem subgrupo nesta base — nada a fazer
 
-  const idMinisterio = centros.find(c => idsSubgrupo.has(c.id))?.centro_pai_id ?? null;
+  const centroMap = new Map(centros.map(c => [c.id, c]));
+  const grupoPorChave = new Map(grupos.map(g => [g.chave, g]));
+  const chavesConsumidas = new Set<string>();
+  const compostos: PrestacaoContasGrupo[] = [];
 
-  const filhos = grupos.filter(g => idsSubgrupo.has(g.chave) || g.chave === idMinisterio);
-  if (filhos.length === 0) return grupos;
+  subgruposPorPai.forEach((filhosCentro, paiId) => {
+    const paiNome = centroMap.get(paiId)?.nome ?? "Centro removido";
 
-  const resto = grupos.filter(g => !(idsSubgrupo.has(g.chave) || g.chave === idMinisterio));
-  const subgrupos = filhos
-    .map(g => g.chave === idMinisterio ? { ...g, titulo: "Administração · Sem subgrupo" } : g)
-    .sort((a, b) => Math.abs(b.total) - Math.abs(a.total));
+    const gruposFilhos: PrestacaoContasGrupo[] = [];
+    filhosCentro.forEach(sg => {
+      const g = grupoPorChave.get(sg.id);
+      if (g) { gruposFilhos.push(g); chavesConsumidas.add(sg.id); }
+    });
+    // Lançamento direto no centro pai, sem subgrupo escolhido — entra
+    // como uma linha a mais dentro do composto, não some.
+    const grupoPai = grupoPorChave.get(paiId);
+    if (grupoPai) {
+      gruposFilhos.push({ ...grupoPai, titulo: `${paiNome} · Sem subgrupo` });
+      chavesConsumidas.add(paiId);
+    }
+    if (gruposFilhos.length === 0) return; // pai sem nenhum gasto no período — nem nele nem nos filhos
 
-  const valores = somaGrupos(subgrupos, qtdMeses);
-  const administracao: PrestacaoContasGrupo = {
-    chave: idMinisterio ?? "ministerio_administracao",
-    titulo: "Ministério de Administração",
-    linhas: [],
-    subgrupos,
-    valores,
-    total: somaMeses(valores),
-  };
+    gruposFilhos.sort((a, b) => Math.abs(b.total) - Math.abs(a.total));
+    const valores = somaGrupos(gruposFilhos, qtdMeses);
+    compostos.push({
+      chave: paiId,
+      titulo: paiNome,
+      linhas: [],
+      subgrupos: gruposFilhos,
+      valores,
+      total: somaMeses(valores),
+    });
+  });
 
-  return [...resto, administracao];
+  const resto = grupos.filter(g => !chavesConsumidas.has(g.chave));
+  return [...resto, ...compostos];
 }
 
 /**

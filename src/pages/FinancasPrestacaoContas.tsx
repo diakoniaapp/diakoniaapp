@@ -667,9 +667,8 @@ function Bloco({ grupo, centroCustoId, onNota, corTotal, semSubtotalProprio }: {
           ))}
         </tr>
       )}
-      {/* `subgrupos` só vem preenchido no grupo "Ministério de Administração" —
-          único do Plano de Contas Oficial com esse nível extra (Pessoal,
-          Serviços, Ornamentação, Consumo, Patrimônio). Ver
+      {/* `subgrupos` vem preenchido em qualquer centro que tiver subgrupo
+          contábil (qualquer ministério pode ter, desde 17/09/2026) — ver
           prestacaoContasService.ts (agruparAdministracao). */}
       {grupo.subgrupos
         ? grupo.subgrupos.map(sg => <BlocoSubgrupo key={sg.chave} subgrupo={sg} onNota={onNota} corTotal={corTotal} />)
