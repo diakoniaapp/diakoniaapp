@@ -36,10 +36,16 @@ const CORES = [
   "#ec4899","#737373","#cfa451","#22d3ee","#84cc16","#fb923c",
 ];
 
-// Editar só muda nome/cor/orçamento — `vinculo_tipo`, `vinculo_id` e
-// `centro_pai_id` são estruturais (vêm do seed automático ou de
-// migration, nunca de digitação) e mudar um deles à toa desalinha o
-// centro do que ele diz representar.
+// Editar muda nome/cor/orçamento sempre — e, desde 17/09/2026, também o
+// centro pai, MAS só quando o tipo atual é "geral" ou "subgrupo_
+// administracao" (`podeReparentar` abaixo). `vinculo_tipo` continua
+// travado pros outros tipos (ministério/área/EBD/PGM/campanha/evento):
+// esses nascem sincronizados com uma linha de outra tabela por
+// `vinculo_id`, e "Sincronizar com ministérios" (`fin_seed_centros_
+// custo()`) usa esse par (tipo, vinculo_id) pra saber que já existe —
+// reparentar um desses pra "subgrupo" faria o próximo sync recriar um
+// centro "ministério" novo, duplicado, porque o original já não bateria
+// mais o par esperado.
 //
 // Criar (16/09/2026, pedido da Telma — "permita adição dos centros de
 // custo"): `criarCentroCusto()` já existia no serviço desde 13/09/2026
@@ -50,6 +56,11 @@ const CORES = [
 // permissão.
 export function CentroCustoForm({ open, onOpenChange, centro, centrosDisponiveis, onSaved }: Props) {
   const criando = open && !centro;
+  // Editando um "geral" ou um subgrupo já existente — pedido da Telma
+  // (17/09/2026): "inserir o subgrupo funciona apenas para novos
+  // centros? eu gostaria de editar os que já temos, adicionando os
+  // subgrupos". Antes o seletor de pai só aparecia na criação.
+  const podeReparentar = criando || centro?.vinculo_tipo === "geral" || centro?.vinculo_tipo === "subgrupo_administracao";
   const [nome, setNome] = useState("");
   const [cor, setCor] = useState("#888");
   const [orcamentoTexto, setOrcamentoTexto] = useState("");
@@ -64,8 +75,15 @@ export function CentroCustoForm({ open, onOpenChange, centro, centrosDisponiveis
   const [busy, setBusy] = useState(false);
 
   const paisDisponiveis = useMemo(
-    () => centrosDisponiveis.filter(c => c.vinculo_tipo !== "subgrupo_administracao" && c.ativo),
-    [centrosDisponiveis],
+    () => centrosDisponiveis.filter(c =>
+      c.vinculo_tipo !== "subgrupo_administracao" && c.ativo
+      // Editando: não pode ser pai de si mesmo, nem de um centro que já
+      // é filho dele (evita o ciclo "A é pai de B, B passa a ser pai de
+      // A" — improvável com só 1 nível de hierarquia hoje, mas de graça
+      // pra evitar).
+      && c.id !== centro?.id,
+    ),
+    [centrosDisponiveis, centro?.id],
   );
   const paiEscolhido = paisDisponiveis.find(c => c.id === centroPaiId);
 
@@ -74,7 +92,7 @@ export function CentroCustoForm({ open, onOpenChange, centro, centrosDisponiveis
     setNome(centro?.nome ?? "");
     setCor(centro?.cor ?? "#888");
     setOrcamentoTexto(centro?.orcamento_anual != null ? String(centro.orcamento_anual) : "");
-    setCentroPaiId("");
+    setCentroPaiId(centro?.centro_pai_id ?? "");
   }, [open, centro]);
 
   async function onSubmit(e: React.FormEvent) {
@@ -84,17 +102,18 @@ export function CentroCustoForm({ open, onOpenChange, centro, centrosDisponiveis
     setBusy(true);
     try {
       const orcamento_anual = orcamentoTexto.trim() ? paraNumero(orcamentoTexto) : null;
+      const vinculoPatch = centroPaiId
+        ? { vinculo_tipo: "subgrupo_administracao" as const, vinculo_id: null, vinculo_nome: null, centro_pai_id: centroPaiId }
+        : { vinculo_tipo: "geral" as const, vinculo_id: null, vinculo_nome: null, centro_pai_id: null };
       if (criando) {
-        await criarCentroCusto({
-          nome: nome.trim(), cor, orcamento_anual,
-          ...(centroPaiId
-            ? { vinculo_tipo: "subgrupo_administracao", vinculo_id: null, vinculo_nome: null, centro_pai_id: centroPaiId }
-            : { vinculo_tipo: "geral", vinculo_id: null, vinculo_nome: null, centro_pai_id: null }),
-        });
+        await criarCentroCusto({ nome: nome.trim(), cor, orcamento_anual, ...vinculoPatch });
         toast.success("Centro de custo criado");
       } else {
         if (!centro) return;
-        await atualizarCentroCusto(centro.id, { nome: nome.trim(), cor, orcamento_anual });
+        await atualizarCentroCusto(centro.id, {
+          nome: nome.trim(), cor, orcamento_anual,
+          ...(podeReparentar ? vinculoPatch : {}),
+        });
         toast.success("Centro de custo atualizado");
       }
       onOpenChange(false);
@@ -115,7 +134,9 @@ export function CentroCustoForm({ open, onOpenChange, centro, centrosDisponiveis
           <DialogDescription>
             {criando
               ? "Uso livre, sem vínculo automático a ministério/área/EBD/PGM/campanha — mas pode entrar como subgrupo de qualquer centro já existente."
-              : "Tipo de vínculo não muda por aqui — vem do jeito que o centro nasceu."}
+              : podeReparentar
+              ? "Pode mudar o centro pai a qualquer momento — o resto do vínculo não muda por aqui."
+              : "Sincronizado automaticamente — tipo de vínculo e centro pai não mudam por aqui."}
           </DialogDescription>
         </DialogHeader>
 
@@ -132,9 +153,10 @@ export function CentroCustoForm({ open, onOpenChange, centro, centrosDisponiveis
               placeholder="Opcional" />
           </div>
 
-          {/* Só na criação — depois de nascido, o vínculo é estrutural
-              (ver comentário no topo do arquivo). */}
-          {criando && (
+          {/* Na criação sempre; editando, só quando o tipo atual permite
+              (`podeReparentar`, ver comentário no topo do arquivo) —
+              ministério/área/EBD/PGM/campanha/evento continuam travados. */}
+          {podeReparentar && (
             <div>
               <Label>Centro pai (opcional)</Label>
               <Select value={centroPaiId || "__nenhum__"} onValueChange={(v) => {
