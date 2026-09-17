@@ -13,7 +13,7 @@ import {
   CheckSquare, UserCheck, Sprout, Gavel,
   ShoppingBag, type LucideIcon,
   ClipboardCheck, Wallet, HandCoins, Layers,
-  RotateCw, Receipt, Target, Package, Briefcase,
+  RotateCw, Receipt, Target, Package, Briefcase, FolderKanban,
 } from "lucide-react";
 import type { AppRole } from "@/hooks/useAuth";
 
@@ -284,6 +284,10 @@ export const NAV_GROUPS: NavGroup[] = [
       // apontava pra ela, mesmo o comentário de `Financas.tsx` dizendo o
       // contrário ("mora no menu lateral e no Painel da Tesouraria").
       { to: "/financas/centros",   label: "Centros de Custo",    icon: Layers,     allowedRoles: ROLES_FINANCEIRO },
+      // Fase 6 do ERP financeiro (17/09/2026): "para qual iniciativa" —
+      // dimensão nova, ortogonal a categoria/centro de custo. Ver
+      // docs/ROADMAP_FINANCEIRO_ERP.md Fase 6.
+      { to: "/financas/projetos", label: "Projetos",            icon: FolderKanban, allowedRoles: ROLES_FINANCEIRO },
       // Mesmo achado de "Centros de Custo" acima, dessa vez perguntado
       // direto ("onde está insights da tesouraria?", 17/09/2026) — só
       // alcançável pelo "Ir para" do Painel da Tesouraria.

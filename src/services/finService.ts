@@ -103,6 +103,27 @@ export interface FinCentroCusto {
   ativo: boolean;
 }
 
+// Fase 6 do ERP financeiro (17/09/2026) — a terceira dimensão de um
+// lançamento, ortogonal a categoria ("o que") e centro de custo ("para
+// quem"): projeto responde "para qual iniciativa" (120 Anos, Reforma do
+// Templo, Congresso de Casais...). Deliberadamente NÃO é um
+// `FinCentroVinculo` novo — ver docs/ROADMAP_FINANCEIRO_ERP.md Fase 6
+// para a auditoria que mostra por que essa porta já foi aberta e fechada
+// de propósito em 15/09/2026 (poluía o Plano de Contas Oficial).
+export type FinProjetoStatus = "ativo" | "encerrado";
+
+export interface FinProjeto {
+  id: string;
+  nome: string;
+  descricao: string | null;
+  meta_valor: number | null;
+  data_inicio: string | null;
+  data_fim: string | null;
+  status: FinProjetoStatus;
+  cor: string | null;
+  created_at?: string;
+}
+
 // Um lançamento que serve mais de um centro (a conta de luz do prédio,
 // dividida entre os ministérios que usam o espaço) — `fin_lancamento_rateio`
 // existia desde sempre, zero linhas, nenhuma tela. `lancamento_id` continua
@@ -183,6 +204,7 @@ export interface FinLancamento {
   fornecedor_id: string | null;
   pessoa_id: string | null;
   familia_id: string | null;
+  projeto_id: string | null;
   valor: number;
   descricao: string | null;
   forma_pagamento: FinFormaPagamento | null;
@@ -207,6 +229,7 @@ export interface FinLancamentoExtenso extends FinLancamento {
   centro_nome?: string;
   fornecedor_nome?: string;
   pessoa_nome?: string;
+  projeto_nome?: string;
 }
 
 export interface FinResumoMes {
@@ -391,6 +414,81 @@ export async function contarLancamentosPorCentro(centroId: string): Promise<numb
   return count ?? 0;
 }
 
+// ─── Projetos ────────────────────────────────────────────────────────────
+// Só ativos — mesmo padrão de `listarCentrosCusto()`, é o que os
+// formulários de lançamento usam.
+export async function listarProjetos(): Promise<FinProjeto[]> {
+  const { data, error } = await supabase
+    .from("fin_projetos").select("*").eq("status", "ativo").order("nome");
+  if (error) throw error;
+  return (data ?? []) as FinProjeto[];
+}
+
+// Inclui encerrados — só pra tela de administração de projetos.
+export async function listarProjetosTodos(): Promise<FinProjeto[]> {
+  const { data, error } = await supabase
+    .from("fin_projetos").select("*").order("status").order("nome");
+  if (error) throw error;
+  return (data ?? []) as FinProjeto[];
+}
+
+export async function carregarProjeto(id: string): Promise<FinProjeto | null> {
+  const { data, error } = await supabase.from("fin_projetos").select("*").eq("id", id).maybeSingle();
+  if (error) throw error;
+  return (data ?? null) as FinProjeto | null;
+}
+
+export async function criarProjeto(input: {
+  nome: string; descricao?: string | null; meta_valor?: number | null;
+  data_inicio?: string | null; data_fim?: string | null; cor?: string | null;
+}): Promise<FinProjeto> {
+  const { data, error } = await supabase.from("fin_projetos").insert(input as any).select("*").single();
+  if (error) throw error;
+  return data as FinProjeto;
+}
+
+export async function atualizarProjeto(id: string, patch: Partial<FinProjeto>): Promise<void> {
+  const r = conferir(
+    await supabase.from("fin_projetos").update(patch as any).eq("id", id).select("id"),
+    "O projeto",
+  );
+  if (!r.ok) throw new Error(r.erro);
+}
+
+/**
+ * Fecha ou reabre — nome, meta e datas ficam intocados. Mesmo padrão de
+ * `encerrarCampanha`/`reabrirCampanha` (`ebdService.ts`): existe pra não
+ * obrigar reabrir "Editar" só pra desligar um interruptor.
+ */
+export async function encerrarProjeto(id: string): Promise<void> {
+  await atualizarProjeto(id, { status: "encerrado" });
+}
+
+export async function reabrirProjeto(id: string): Promise<void> {
+  await atualizarProjeto(id, { status: "ativo" });
+}
+
+// `fin_lancamentos_projeto_id_fkey` é `ON DELETE SET NULL` (mesmo padrão
+// de `centro_custo_id` — ver correção no comentário de
+// `excluirCentroCusto` acima): excluir um projeto em uso não é bloqueado
+// pelo banco, só apaga a classificação de todo lançamento vinculado em
+// silêncio. `contarLancamentosPorProjeto` deixa a tela avisar ANTES.
+export async function contarLancamentosPorProjeto(projetoId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from("fin_lancamentos").select("id", { count: "exact", head: true })
+    .eq("projeto_id", projetoId);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+export async function excluirProjeto(id: string): Promise<void> {
+  const r = conferir(
+    await supabase.from("fin_projetos").delete().eq("id", id).select("id"),
+    "O projeto",
+  );
+  if (!r.ok) throw new Error(r.erro);
+}
+
 // ─── Rateio entre centros de custo ──────────────────────────────────────
 export async function listarRateio(lancamentoId: string): Promise<FinLancamentoRateio[]> {
   const { data, error } = await supabase
@@ -510,6 +608,7 @@ export interface FiltroLancamento {
   status?: FinStatus;
   categoriaId?: string;
   centroCustoId?: string;
+  projetoId?: string;
   pessoaId?: string;
   fornecedorId?: string;
   dataInicio?: string;
@@ -532,6 +631,7 @@ function construirQueryLancamentos(filtro: FiltroLancamento) {
   if (filtro.status) q = q.eq("status", filtro.status);
   if (filtro.categoriaId) q = q.eq("categoria_id", filtro.categoriaId);
   if (filtro.centroCustoId) q = q.eq("centro_custo_id", filtro.centroCustoId);
+  if (filtro.projetoId) q = q.eq("projeto_id", filtro.projetoId);
   if (filtro.pessoaId) q = q.eq("pessoa_id", filtro.pessoaId);
   if (filtro.fornecedorId) q = q.eq("fornecedor_id", filtro.fornecedorId);
   if (filtro.dataInicio) q = q.gte("data", filtro.dataInicio);
@@ -580,13 +680,15 @@ async function enriquecerLancamentos(lancs: FinLancamento[]): Promise<FinLancame
   const ccIds    = Array.from(new Set(lancs.map(l => l.centro_custo_id).filter(Boolean))) as string[];
   const fornIds  = Array.from(new Set(lancs.map(l => l.fornecedor_id).filter(Boolean))) as string[];
   const pessoaIds = Array.from(new Set(lancs.map(l => l.pessoa_id).filter(Boolean))) as string[];
+  const projIds  = Array.from(new Set(lancs.map(l => l.projeto_id).filter(Boolean))) as string[];
 
-  const [{ data: contas }, { data: cats }, { data: ccs }, { data: forns }, { data: pessoas }] = await Promise.all([
+  const [{ data: contas }, { data: cats }, { data: ccs }, { data: forns }, { data: pessoas }, { data: projs }] = await Promise.all([
     contaIds.length ? supabase.from("fin_contas").select("id, nome").in("id", contaIds) : Promise.resolve({ data: [] }),
     catIds.length   ? supabase.from("fin_categorias").select("id, nome, cor").in("id", catIds) : Promise.resolve({ data: [] }),
     ccIds.length    ? supabase.from("fin_centros_custo").select("id, nome").in("id", ccIds) : Promise.resolve({ data: [] }),
     fornIds.length  ? supabase.from("fin_fornecedores").select("id, nome").in("id", fornIds) : Promise.resolve({ data: [] }),
     pessoaIds.length ? supabase.from("membros").select("id, nome_completo").in("id", pessoaIds) : Promise.resolve({ data: [] }),
+    projIds.length  ? supabase.from("fin_projetos").select("id, nome").in("id", projIds) : Promise.resolve({ data: [] }),
   ]);
 
   const mC = new Map((contas ?? []).map((c: any) => [c.id, c.nome]));
@@ -594,6 +696,7 @@ async function enriquecerLancamentos(lancs: FinLancamento[]): Promise<FinLancame
   const mCC = new Map((ccs ?? []).map((c: any) => [c.id, c.nome]));
   const mF = new Map((forns ?? []).map((f: any) => [f.id, f.nome]));
   const mP = new Map((pessoas ?? []).map((p: any) => [p.id, p.nome_completo]));
+  const mPr = new Map((projs ?? []).map((p: any) => [p.id, p.nome]));
 
   return lancs.map(l => ({
     ...l,
@@ -603,6 +706,7 @@ async function enriquecerLancamentos(lancs: FinLancamento[]): Promise<FinLancame
     centro_nome:     l.centro_custo_id ? mCC.get(l.centro_custo_id) : undefined,
     fornecedor_nome: l.fornecedor_id ? mF.get(l.fornecedor_id) : undefined,
     pessoa_nome:     l.pessoa_id ? mP.get(l.pessoa_id) : undefined,
+    projeto_nome:    l.projeto_id ? mPr.get(l.projeto_id) : undefined,
   }));
 }
 

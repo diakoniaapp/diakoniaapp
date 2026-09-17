@@ -17,12 +17,12 @@ import {
   SplitSquareHorizontal, Plus, Trash2, Lock, Unlock,
 } from "lucide-react";
 import {
-  listarContas, listarCategorias, listarCentrosCusto, listarFornecedores,
+  listarContas, listarCategorias, listarCentrosCusto, listarFornecedores, listarProjetos,
   criarLancamento, atualizarLancamento, uploadComprovante, removerComprovante,
   buscarFornecedorPorCnpj, criarFornecedor, sugerirCentroPorCategoria, brl,
   listarRateio, salvarRateio, ordenarCentrosParaSeletor, buscarPessoasParaLancamento,
   FORMA_LABEL, STATUS_LABEL,
-  type FinConta, type FinCategoria, type FinCentroCusto, type FinFornecedor,
+  type FinConta, type FinCategoria, type FinCentroCusto, type FinFornecedor, type FinProjeto,
   type FinLancamento, type FinLancamentoExtenso, type FinMovimentoTipo, type FinFormaPagamento, type FinStatus,
   type NfDadosExtraidos, type FinPessoaBusca,
   FIN_COMPROVANTE_MAX,
@@ -99,6 +99,11 @@ export function LancamentoForm({
   const contaIdEfetivo = (contaTravada && contaIdPadrao) ? contaIdPadrao : (contaId || contaIdPadrao || "");
   const [categoriaId, setCategoriaId] = useState<string>("");
   const [centroCustoId, setCentroCustoId] = useState<string>("");
+  // Fase 6 do ERP financeiro (17/09/2026): terceira dimensão opcional, além
+  // de Categoria e Centro de Custo — "para qual iniciativa" (120 Anos,
+  // Reforma do Templo...). Ver docs/ROADMAP_FINANCEIRO_ERP.md Fase 6.
+  const [projetoId, setProjetoId] = useState<string>("");
+  const [projetos, setProjetos] = useState<FinProjeto[]>([]);
   const [fornecedorBusca, setFornecedorBusca] = useState("");
   const [fornecedorId, setFornecedorId] = useState<string>("");
   // Pedido da Telma (17/09/2026): "Fornecedor/recebedor deve ter validação
@@ -212,8 +217,9 @@ export function LancamentoForm({
       listarCategorias(tipo),
       listarCentrosCusto(),
       listarFornecedores(),
-    ]).then(([cs, ks, ccs, fs]) => {
-      setContas(cs); setCategorias(ks); setCentros(ccs); setFornecedores(fs);
+      listarProjetos(),
+    ]).then(([cs, ks, ccs, fs, prs]) => {
+      setContas(cs); setCategorias(ks); setCentros(ccs); setFornecedores(fs); setProjetos(prs);
     });
   }, [open, tipo]);
 
@@ -235,6 +241,7 @@ export function LancamentoForm({
       setContaId(lancamento.conta_id);
       setCategoriaId(lancamento.categoria_id ?? "");
       setCentroCustoId(lancamento.centro_custo_id ?? "");
+      setProjetoId(lancamento.projeto_id ?? "");
       setFornecedorId(lancamento.fornecedor_id ?? "");
       setPessoaId(lancamento.pessoa_id ?? "");
       // Nome pronto de `FinLancamentoExtenso` (já resolvido pela tela que
@@ -281,7 +288,7 @@ export function LancamentoForm({
       setData(rascunho?.data ?? hojeLocal());
       atualizarValor(rascunho?.valor ?? 0);
       setContaId(contaIdPadrao ?? "");
-      setCategoriaId(""); setCentroCustoId(""); setFornecedorId("");
+      setCategoriaId(""); setCentroCustoId(""); setProjetoId(""); setFornecedorId("");
       setPessoaId(""); setFornecedorBusca(""); setPessoasSugeridas([]);
       setForma(rascunho?.forma ?? ""); setStatus("realizado");
       setDescricao(rascunho?.descricao ?? ""); setDocumentoNumero(""); setObservacoes("");
@@ -478,6 +485,7 @@ export function LancamentoForm({
         tipo, data, valor, conta_id: contaIdEfetivo,
         categoria_id: categoriaId || null,
         centro_custo_id: centroPrincipal,
+        projeto_id: projetoId || null,
         fornecedor_id: fornecedorId || null,
         pessoa_id: pessoaId || null,
         forma_pagamento: forma || null,
@@ -688,6 +696,33 @@ export function LancamentoForm({
               className="text-xs text-muted-foreground hover:text-foreground underline decoration-dotted underline-offset-2 -mt-2 flex items-center gap-1">
               <SplitSquareHorizontal className="w-3 h-3" /> Dividir este valor entre vários centros de custo
             </button>
+          )}
+
+          {/* Fase 6 do ERP financeiro (17/09/2026): terceira dimensão, além
+              de Categoria e Centro de Custo — "para qual iniciativa" (120
+              Anos, Reforma do Templo...). Só aparece quando existe pelo
+              menos um projeto ativo, pra não acrescentar ruído em quem
+              nunca usa. Precisa de um item real "Nenhum" (sentinela
+              `__nenhum__`, nunca string vazia) porque, ao contrário de
+              Categoria/Centro (quase sempre preenchidos), a maioria dos
+              lançamentos não tem projeto — remover a seleção precisa ser
+              um clique, não só "nunca escolher nada". Isso também evita de
+              propósito a autocorreção do Radix documentada acima em
+              Categoria: aqui `value` sempre bate com um item montado
+              (o projeto real ou o sentinela), nunca fica vazio. */}
+          {projetos.length > 0 && (
+            <div>
+              <Label>Projeto (opcional)</Label>
+              <Select value={projetoId || "__nenhum__"} onValueChange={(v) => setProjetoId(v === "__nenhum__" ? "" : v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__nenhum__" className="text-muted-foreground">Nenhum</SelectItem>
+                  {projetos.map(p => (
+                    <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           )}
 
           {/* ── Rateio ─────────────────────────────────────────────────────

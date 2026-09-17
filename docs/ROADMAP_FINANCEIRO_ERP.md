@@ -563,6 +563,131 @@ sua própria seção de campanhas intacta.
 
 ---
 
+## 🚧 Fase 6 — Projetos (dimensão financeira para iniciativas, 17/09/2026)
+
+Pedido da Telma, no papel de PO/arquiteta/especialista em ERP e
+controladoria: acompanhar financeiramente iniciativas como "120 Anos",
+"Reforma e Restauração do Templo", "Congresso de Casais", "Missões
+Mundiais", hoje feito em planilha externa — inspirado no conceito de
+**Projeto** do Omie (campo opcional no lançamento, complementa Categoria
+e Centro de Custo, não substitui nenhum dos dois).
+
+**Auditoria feita antes de desenhar qualquer coisa** (medida em produção,
+não suposição):
+
+| Objeto | Estado real |
+|---|---|
+| `fin_categorias` | 61 linhas, todas "o que foi gasto" puro, bate 100% com o Plano de Contas Oficial. Nenhuma categoria "tipo projeto". |
+| `fin_centros_custo` | 27 linhas (11 `ministerio` + 16 `subgrupo_administracao`). **Zero linhas com `vinculo_tipo='campanha'`** — o enum ainda aceita o valor, nada usa. |
+| `fin_lancamentos` | 13.132 linhas. Sem `projeto_id` nem `campanha_id`. |
+| `fin_lancamento_rateio` (rateio entre centros de custo, Fase 3 desta entrega) | **0 linhas** — schema+RLS+serviço+tela existem desde 12/09/2026, nunca usado uma vez em produção. |
+| `campanhas` ("Campanhas Espirituais") | 1 linha ("Vitória Além da Taça"). Colunas 100% de conteúdo devocional (`contexto_espiritual`, `origem_identidade`), zero campo financeiro, presa a um `ministerio_id` só. |
+| `ebd_campanhas`+`ebd_entradas` | 2 campanhas. `ebd_campanhas` tem `meta_valor` (forma mais próxima do que se quer aqui), mas presa a `classe_id` (só EBD) e `ebd_entradas` só registra entrada — nunca despesa, nunca fala com `fin_lancamentos`. |
+| `carregarCruzamentoDiaconia()` (Diakonia Care × Tesouraria) | Cruza só via `fin_centros_custo` (ministério→área→subgrupo por `centro_pai_id`). Não usa "campanha"/"projeto" — compatibilidade garantida por não tocar nessa consulta. |
+
+**Achado central:** em 15/09/2026 (mesma missão, ver Fase acima sobre a
+limpeza do Plano de Contas), `fin_seed_centros_custo()` **criava
+automaticamente um centro de custo por campanha** (`vinculo_tipo=
+'campanha'`) — removido de propósito porque poluía a lista oficial que
+precisa casar com a aba "Plano de Contas" dos 4 relatórios trimestrais
+impressos. Tratar Projeto como centro de custo é reabrir exatamente o
+problema que aquela limpeza resolveu. Achado colateral: **"Evangelismo e
+Missões · Missões Mundiais" já existe como subgrupo de centro de custo**
+— se um Projeto nascer com esse nome cru, colide de propósito diferente
+(centro de custo = despesa recorrente do ministério o ano inteiro;
+projeto = campanha específica de arrecadação, com meta e prazo).
+
+**Decisão:** tabela nova `fin_projetos` + coluna nullable
+`fin_lancamentos.projeto_id`. Não reaproveita `campanhas` (semântica
+devocional, não financeira), não reaproveita `fin_centros_custo` (dimensão
+comprometida com o Plano de Contas Oficial, motivo do próprio reverso de
+15/09), não reaproveita `ebd_campanhas` (isolado, só entrada, só EBD).
+Espelha exatamente o padrão que `categoria_id`/`centro_custo_id`/
+`fornecedor_id` já usam — mais uma FK nullable, nenhum conceito novo de
+arquitetura. Regra de uso: Projeto só nasce quando a tesouraria precisa
+acompanhar meta/arrecadação/despesa de uma iniciativa **separada** do
+centro de custo que a hospeda — não é dimensão para tudo.
+
+```
+Categoria       = o que foi gasto        (já existe, sem mudança)
+Centro de Custo = para quem foi gasto    (já existe, sem mudança — Plano de Contas Oficial, fechado)
+Projeto         = para qual iniciativa   (novo, opcional, cruza livremente com os dois de cima)
+```
+
+### Estrutura de dados
+
+```sql
+create table fin_projetos (
+  id uuid primary key default gen_random_uuid(),
+  nome text not null,
+  descricao text,
+  meta_valor numeric,              -- opcional — nem todo projeto tem meta (Reforma pode não ter)
+  data_inicio date,
+  data_fim date,                   -- null = projeto em andamento, sem prazo definido
+  status text not null default 'ativo' check (status in ('ativo','encerrado')),
+  cor text,
+  created_at timestamptz not null default now()
+);
+
+alter table fin_lancamentos
+  add column projeto_id uuid references fin_projetos(id);
+```
+
+### MVP (esta entrega)
+
+1. `fin_projetos` + `fin_lancamentos.projeto_id` (migration + RLS mesmo
+   padrão de `fin_centros_custo`: leitura para quem já lê financeiro,
+   escrita para tesouraria/admin).
+2. `finService.ts`: CRUD de projeto (`listarProjetos`, `criarProjeto`,
+   `atualizarProjeto`, `encerrarProjeto`/`reabrirProjeto`) +
+   `enriquecerLancamentos` ganha `projeto_nome`, mesmo padrão de
+   `categoria_nome`/`centro_nome`/`fornecedor_nome`.
+3. `LancamentoForm.tsx`: terceiro `<Select>` opcional "Projeto", só
+   projetos `ativo`, mesmo padrão de Categoria/Centro de Custo.
+4. `/financas/projetos` (lista + CRUD) e `/financas/projeto/:id`
+   (arrecadação, despesas, meta, déficit/superávit, ticket médio) —
+   copiando `FinancasCentroPrestacaoContas.tsx`, troca o filtro
+   `centro_custo_id`→`projeto_id`.
+
+### ✅ Status desta entrega — FEITO em 17/09/2026
+
+MVP completo, `tsc`/`vite build` limpos: `20260917020000_fin_
+projetos.sql`, `finService.ts` (CRUD + `enriquecerLancamentos`),
+`LancamentoForm.tsx` (Select "Projeto"), `FinancasProjetos.tsx` +
+`ProjetoForm.tsx` (lista/CRUD), `FinancasProjetoDetalhe.tsx` (ficha/
+prestação de contas com meta/déficit-superávit/ticket médio), rota e
+menu (`navConfig.ts`, `PainelTesouraria.tsx`).
+
+**Bloqueio de token, superado.** `SUPABASE_ACCESS_TOKEN` deste ambiente
+estava expirado (401 confirmado direto na API de gerenciamento) — sem
+ele, e sem `psql`/driver `pg`/RPC de exec-SQL no banco (não deveria
+existir mesmo), não havia como aplicar a migration em produção. A Telma
+gerou um token novo; a migration foi ensaiada com `BEGIN`/`ROLLBACK` e
+aplicada de verdade com `COMMIT` pela API de gerenciamento.
+
+**Verificado ao vivo em produção, com dado criado e apagado na mesma
+sessão** (nunca em fixture): projeto "TESTE Claude - apagar" (meta
+R$1.000,00) criado pela tela `/financas/projetos`; lançamento de entrada
+de R$1,00 criado em `LancamentoForm.tsx` com esse projeto selecionado;
+`/financas/projeto/:id` mostrou corretamente Arrecadado R$1,00, Meta
+R$1.000,00 (0%), Déficit R$999,00, Ticket médio R$1,00 (1 entrada), e o
+lançamento na tabela detalhada. Lançamento e projeto apagados em
+seguida, saldo da conta e contagem de projetos confirmados de volta ao
+estado anterior.
+
+### Fora desta entrega, de propósito (evitar construir antecipado)
+
+- Vincular projeto a centro(s) de custo "esperados" para alertar uso fora
+  do previsto — só se incomodar na prática depois de um projeto real
+  rodar um ciclo inteiro.
+- Ligar `campanhas` (Campanhas Espirituais) a `fin_projetos` por afinidade
+  temática — nenhum pedido concreto, não construir.
+- Rateio de um lançamento entre vários projetos — `fin_lancamento_rateio`
+  (o equivalente pra centro de custo) tem **zero uso em produção**; não
+  replicar um padrão não comprovado.
+
+---
+
 *Este documento é o plano; `DOCUMENTACAO_SISTEMA.md` continua sendo o
 retrato do sistema inteiro. Atualizar os dois quando um item da lista acima
 for fechado.*

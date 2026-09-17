@@ -5298,6 +5298,7 @@ export type Database = {
           observacoes: string | null
           origem: string | null
           pessoa_id: string | null
+          projeto_id: string | null
           status: Database["public"]["Enums"]["fin_lancamento_status"]
           tipo: Database["public"]["Enums"]["fin_movimento_tipo"]
           updated_at: string
@@ -5328,6 +5329,7 @@ export type Database = {
           observacoes?: string | null
           origem?: string | null
           pessoa_id?: string | null
+          projeto_id?: string | null
           status?: Database["public"]["Enums"]["fin_lancamento_status"]
           tipo: Database["public"]["Enums"]["fin_movimento_tipo"]
           updated_at?: string
@@ -5358,6 +5360,7 @@ export type Database = {
           observacoes?: string | null
           origem?: string | null
           pessoa_id?: string | null
+          projeto_id?: string | null
           status?: Database["public"]["Enums"]["fin_lancamento_status"]
           tipo?: Database["public"]["Enums"]["fin_movimento_tipo"]
           updated_at?: string
@@ -5462,7 +5465,50 @@ export type Database = {
             referencedRelation: "v_visitantes_alerta"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "fin_lancamentos_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "fin_projetos"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      fin_projetos: {
+        Row: {
+          cor: string | null
+          created_at: string
+          data_fim: string | null
+          data_inicio: string | null
+          descricao: string | null
+          id: string
+          meta_valor: number | null
+          nome: string
+          status: string
+        }
+        Insert: {
+          cor?: string | null
+          created_at?: string
+          data_fim?: string | null
+          data_inicio?: string | null
+          descricao?: string | null
+          id?: string
+          meta_valor?: number | null
+          nome: string
+          status?: string
+        }
+        Update: {
+          cor?: string | null
+          created_at?: string
+          data_fim?: string | null
+          data_inicio?: string | null
+          descricao?: string | null
+          id?: string
+          meta_valor?: number | null
+          nome?: string
+          status?: string
+        }
+        Relationships: []
       }
       fin_orcamentos: {
         Row: {
