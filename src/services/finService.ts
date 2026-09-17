@@ -466,6 +466,26 @@ export async function buscarFornecedor(id: string): Promise<FinFornecedor | null
   return (data ?? null) as FinFornecedor | null;
 }
 
+/**
+ * Busca em `membros`, para o campo "Fornecedor/recebedor" do lançamento
+ * também reconhecer PESSOA (não só fornecedor) — pedido da Telma
+ * (17/09/2026): "temos recebimento dos membros para validar sem ter que
+ * digitar". `pessoa_id` já existe em `fin_lancamentos` desde sempre e já é
+ * usado pela importação do Omie (ela casa o nome do lote com `membros` —
+ * ver `omieImportService.ts`); só faltava o formulário MANUAL oferecer o
+ * mesmo caminho, em vez de só aceitar `fornecedor_id`.
+ */
+export interface FinPessoaBusca { id: string; nome: string; }
+export async function buscarPessoasParaLancamento(busca: string): Promise<FinPessoaBusca[]> {
+  if (busca.length < 2) return [];
+  const { data, error } = await supabase
+    .from("membros").select("id, nome_completo")
+    .ilike("nome_completo", `%${busca}%`)
+    .order("nome_completo").limit(8);
+  if (error) throw error;
+  return (data ?? []).map((p: any) => ({ id: p.id, nome: p.nome_completo }));
+}
+
 export async function criarFornecedor(input: Partial<FinFornecedor>): Promise<FinFornecedor> {
   const { data, error } = await supabase.from("fin_fornecedores").insert(input as any).select("*").single();
   if (error) throw error;

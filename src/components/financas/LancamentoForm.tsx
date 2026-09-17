@@ -20,11 +20,11 @@ import {
   listarContas, listarCategorias, listarCentrosCusto, listarFornecedores,
   criarLancamento, atualizarLancamento, uploadComprovante, removerComprovante,
   buscarFornecedorPorCnpj, criarFornecedor, sugerirCentroPorCategoria, brl,
-  listarRateio, salvarRateio, ordenarCentrosParaSeletor,
+  listarRateio, salvarRateio, ordenarCentrosParaSeletor, buscarPessoasParaLancamento,
   FORMA_LABEL, STATUS_LABEL,
   type FinConta, type FinCategoria, type FinCentroCusto, type FinFornecedor,
-  type FinLancamento, type FinMovimentoTipo, type FinFormaPagamento, type FinStatus,
-  type NfDadosExtraidos,
+  type FinLancamento, type FinLancamentoExtenso, type FinMovimentoTipo, type FinFormaPagamento, type FinStatus,
+  type NfDadosExtraidos, type FinPessoaBusca,
   FIN_COMPROVANTE_MAX,
 } from "@/services/finService";
 import { extrairDadosDoComprovante, type OcrResultado, type ItemNota } from "@/services/ocrService";
@@ -51,8 +51,12 @@ interface Props {
   contaNomeTravado?: string;
   /** Tipo padrão (entrada/saida) */
   tipoPadrao?: FinMovimentoTipo;
-  /** Lançamento em edição */
-  lancamento?: FinLancamento | null;
+  /** Lançamento em edição. Aceita a versão "extensa" (com `pessoa_nome`)
+      porque é o que as telas de listagem já têm em mãos — sem isso o
+      campo Fornecedor/recebedor reabriria mostrando o nome em branco
+      para um lançamento salvo com pessoa, só com o `pessoa_id` certo por
+      baixo. */
+  lancamento?: FinLancamento | FinLancamentoExtenso | null;
   /** Pré-preenchimento vindo de fora (ex: linha de extrato OFX sem
       lançamento correspondente) — só se aplica criando (`!lancamento`);
       a pessoa ainda escolhe categoria/centro de custo, nunca adivinhados
@@ -97,6 +101,14 @@ export function LancamentoForm({
   const [centroCustoId, setCentroCustoId] = useState<string>("");
   const [fornecedorBusca, setFornecedorBusca] = useState("");
   const [fornecedorId, setFornecedorId] = useState<string>("");
+  // Pedido da Telma (17/09/2026): "Fornecedor/recebedor deve ter validação
+  // para fornecedores e também catálogo de pessoas... temos recebimento
+  // dos membros para validar sem ter que digitar". `pessoaId` e
+  // `fornecedorId` são mutuamente exclusivos — escolher um limpa o outro,
+  // e é assim que a coluna já funciona no banco (nunca os dois juntos nos
+  // lançamentos existentes, conferido em produção).
+  const [pessoaId, setPessoaId] = useState<string>("");
+  const [pessoasSugeridas, setPessoasSugeridas] = useState<FinPessoaBusca[]>([]);
   const [forma, setForma] = useState<FinFormaPagamento | "">("");
   const [status, setStatus] = useState<FinStatus>("realizado");
   const [descricao, setDescricao] = useState("");
@@ -224,6 +236,16 @@ export function LancamentoForm({
       setCategoriaId(lancamento.categoria_id ?? "");
       setCentroCustoId(lancamento.centro_custo_id ?? "");
       setFornecedorId(lancamento.fornecedor_id ?? "");
+      setPessoaId(lancamento.pessoa_id ?? "");
+      // Nome pronto de `FinLancamentoExtenso` (já resolvido pela tela que
+      // chamou), em vez de esperar a lista de fornecedores/pessoas
+      // carregar pra então procurar o id nela — evita reabrir mostrando o
+      // campo em branco por uma fração de segundo.
+      setFornecedorBusca(
+        (lancamento as FinLancamentoExtenso).fornecedor_nome
+        ?? (lancamento as FinLancamentoExtenso).pessoa_nome
+        ?? ""
+      );
       setForma(lancamento.forma_pagamento ?? "");
       setStatus(lancamento.status);
       setDescricao(lancamento.descricao ?? "");
@@ -260,6 +282,7 @@ export function LancamentoForm({
       atualizarValor(rascunho?.valor ?? 0);
       setContaId(contaIdPadrao ?? "");
       setCategoriaId(""); setCentroCustoId(""); setFornecedorId("");
+      setPessoaId(""); setFornecedorBusca(""); setPessoasSugeridas([]);
       setForma(rascunho?.forma ?? ""); setStatus("realizado");
       setDescricao(rascunho?.descricao ?? ""); setDocumentoNumero(""); setObservacoes("");
       setRateando(false); setRateio([]);
@@ -338,6 +361,7 @@ export function LancamentoForm({
 
     if (fornecedorOcrSugerido) {
       setFornecedorId(fornecedorOcrSugerido.id);
+      setPessoaId("");
       setFornecedorBusca(fornecedorOcrSugerido.nome);
       if (fornecedorOcrSugerido.categoria_padrao_id && !categoriaId) {
         setCategoriaId(fornecedorOcrSugerido.categoria_padrao_id);
@@ -401,6 +425,7 @@ export function LancamentoForm({
       });
       setFornecedorOcrSugerido(f);
       setFornecedorId(f.id);
+      setPessoaId("");
       setFornecedorBusca(f.nome);
       toast.success("Fornecedor salvo para usar de novo");
     } catch (e: any) {
@@ -454,6 +479,7 @@ export function LancamentoForm({
         categoria_id: categoriaId || null,
         centro_custo_id: centroPrincipal,
         fornecedor_id: fornecedorId || null,
+        pessoa_id: pessoaId || null,
         forma_pagamento: forma || null,
         status,
         descricao: descricao.trim() || null,
@@ -716,44 +742,80 @@ export function LancamentoForm({
           )}
 
           <div>
-            {/* Rótulo trocado com "Fornecedor/recebedor" abaixo (16/09/2026,
-                pedido da Telma): este campo (`descricao`) é onde, na
-                prática, sempre se digita o nome de quem recebeu/vendeu —
-                "Descrição" descrevia mal um campo que nunca fica vazio de
-                verdade. O outro campo (`fornecedorBusca`, com busca e
-                vínculo a `fin_fornecedores`) é o que de fato é opcional. */}
-            <Label className="flex items-center gap-1.5">
-              Fornecedor/recebedor
-              {descricaoTravada && (
-                <span className="inline-flex items-center gap-1 text-xs font-normal text-info-text">
-                  <Lock className="w-3 h-3" /> lido da nota — fiel ao documento
-                </span>
-              )}
-            </Label>
-            <Input value={descricao} onChange={(e) => setDescricao(e.target.value)}
-              placeholder="Ex: Aluguel do mês de junho"
-              readOnly={descricaoTravada}
-              className={descricaoTravada ? "bg-muted/40 cursor-default" : undefined} />
-            {descricaoTravada && (
-              <button type="button" onClick={descartarLeituraDeItens}
-                className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground underline decoration-dotted">
-                <Unlock className="w-3 h-3" /> Não é essa nota / anexei o arquivo errado — destravar
-              </button>
-            )}
-            {nfItens.length > 0 && (
-              <div className="mt-1.5 rounded-md border bg-muted/20 p-2 text-xs space-y-1">
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                  Itens da nota{nfFornecedorLido?.nome ? ` — ${nfFornecedorLido.nome}` : ""}
-                </p>
-                {nfItens.map((it, i) => (
-                  <div key={i} className="flex items-start justify-between gap-2">
-                    <span className="min-w-0 truncate">
-                      {it.descricao} <span className="text-muted-foreground">× {it.quantidade} {it.unidade}</span>
-                    </span>
-                    <span className="tabular-nums shrink-0">{brl(it.valorTotal)}</span>
-                  </div>
+            {/* Telma (17/09/2026): "a descrição está com validação para
+                fornecedores. leve a validação para o campo
+                Fornecedor/recebedor e deixe descrição com texto livre" —
+                desfaz a troca de rótulos de 16/09 (que só tinha trocado o
+                RÓTULO, não o campo de verdade por baixo) e resolve direito:
+                este é agora o campo com busca de verdade, ligado a
+                `fornecedorId` OU `pessoaId` (nunca os dois — escolher um
+                limpa o outro). "...também catálogo de pessoas... temos
+                recebimento dos membros para validar sem ter que digitar":
+                a busca roda nas duas tabelas ao mesmo tempo
+                (`listarFornecedores` + `buscarPessoasParaLancamento`), com
+                uma etiqueta dizendo qual é qual — fornecedor e membro têm
+                nomes que se parecem, e a pessoa que lança precisa saber
+                em qual das duas está clicando. */}
+            <Label>Fornecedor/recebedor</Label>
+            <Input value={fornecedorBusca}
+              onChange={(e) => {
+                const v = e.target.value;
+                setFornecedorBusca(v);
+                setFornecedorId(""); setPessoaId("");
+                if (v.length >= 2) {
+                  listarFornecedores(v).then(setFornecedores);
+                  buscarPessoasParaLancamento(v).then(setPessoasSugeridas);
+                } else {
+                  setFornecedores([]); setPessoasSugeridas([]);
+                }
+              }}
+              placeholder="Nome do fornecedor ou de um membro..." />
+            {(fornecedores.length > 0 || pessoasSugeridas.length > 0) && fornecedorBusca && !fornecedorId && !pessoaId && (
+              <div className="border rounded-md mt-1 max-h-40 overflow-y-auto bg-popover shadow">
+                {fornecedores.slice(0, 5).map(f => (
+                  <button key={`f-${f.id}`} type="button"
+                    onClick={() => {
+                      setFornecedorId(f.id); setPessoaId("");
+                      setFornecedorBusca(f.nome);
+                      setFornecedores([]); setPessoasSugeridas([]);
+                      // Mesmo aprendizado da leitura por OCR/CNPJ, agora
+                      // também ao ESCOLHER o fornecedor direto da lista —
+                      // antes só o caminho do OCR preenchia a categoria, e
+                      // nem esse preenchia o centro de custo. Achado ao
+                      // implementar o pedido "aprenda... e preencha
+                      // automaticamente" (15/09/2026): não fazia sentido a
+                      // memória do fornecedor só valer quando veio de uma
+                      // foto/PDF.
+                      if (f.categoria_padrao_id && !categoriaId) setCategoriaId(f.categoria_padrao_id);
+                      if (f.centro_custo_padrao_id && !centroCustoId) setCentroCustoId(f.centro_custo_padrao_id);
+                    }}
+                    className="w-full flex items-center justify-between gap-2 text-left px-2 py-1.5 text-sm hover:bg-muted/40">
+                    <span className="truncate">{f.nome}</span>
+                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground shrink-0">Fornecedor</span>
+                  </button>
+                ))}
+                {pessoasSugeridas.map(p => (
+                  <button key={`p-${p.id}`} type="button"
+                    onClick={() => {
+                      setPessoaId(p.id); setFornecedorId("");
+                      setFornecedorBusca(p.nome);
+                      setFornecedores([]); setPessoasSugeridas([]);
+                    }}
+                    className="w-full flex items-center justify-between gap-2 text-left px-2 py-1.5 text-sm hover:bg-muted/40">
+                    <span className="truncate">{p.nome}</span>
+                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground shrink-0">Pessoa</span>
+                  </button>
                 ))}
               </div>
+            )}
+            {(fornecedorId || pessoaId) && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {fornecedorId ? "Fornecedor cadastrado" : "Membro do catálogo de pessoas"} — {" "}
+                <button type="button" className="underline decoration-dotted hover:text-foreground"
+                  onClick={() => { setFornecedorId(""); setPessoaId(""); setFornecedorBusca(""); }}>
+                  trocar
+                </button>
+              </p>
             )}
           </div>
 
@@ -794,45 +856,49 @@ export function LancamentoForm({
                 className={descricaoTravada ? "bg-muted/40 cursor-default" : undefined} />
             </div>
             <div>
-              {/* Rótulo trocado com "Fornecedor/recebedor" acima — ver
-                  comentário lá. Este campo (`fornecedorBusca`) é o que
-                  realmente fica em branco na maioria das vezes. */}
-              <Label>Descrição</Label>
-              <Input value={fornecedorBusca}
-                onChange={(e) => {
-                  setFornecedorBusca(e.target.value);
-                  setFornecedorId("");
-                  if (e.target.value.length >= 2) {
-                    listarFornecedores(e.target.value).then(setFornecedores);
-                  }
-                }}
-                placeholder="(opcional)" />
-              {fornecedores.length > 0 && fornecedorBusca && !fornecedorId && (
-                <div className="border rounded-md mt-1 max-h-32 overflow-y-auto bg-popover shadow">
-                  {fornecedores.slice(0, 5).map(f => (
-                    <button key={f.id} type="button"
-                      onClick={() => {
-                        setFornecedorId(f.id);
-                        setFornecedorBusca(f.nome);
-                        // Mesmo aprendizado da leitura por OCR/CNPJ, agora
-                        // também ao ESCOLHER o fornecedor direto da lista —
-                        // antes só o caminho do OCR preenchia a categoria, e
-                        // nem esse preenchia o centro de custo. Achado ao
-                        // implementar o pedido "aprenda... e preencha
-                        // automaticamente" (15/09/2026): não fazia sentido a
-                        // memória do fornecedor só valer quando veio de uma
-                        // foto/PDF.
-                        if (f.categoria_padrao_id && !categoriaId) setCategoriaId(f.categoria_padrao_id);
-                        if (f.centro_custo_padrao_id && !centroCustoId) setCentroCustoId(f.centro_custo_padrao_id);
-                      }}
-                      className="w-full text-left px-2 py-1 text-sm hover:bg-muted/40">
-                      {f.nome}
-                    </button>
-                  ))}
-                </div>
+              {/* Telma (17/09/2026): "deixe descrição com texto livre" —
+                  agora é só `descricao`, sem busca nem validação nenhuma.
+                  O aviso "lido da nota" e a lista de itens continuam AQUI
+                  (não no Fornecedor/recebedor): o que a leitura da NF trava
+                  é o TEXTO descritivo fiel ao documento, não a escolha de
+                  quem recebeu — essa é uma decisão da pessoa, mesmo numa
+                  nota lida por OCR. */}
+              <Label className="flex items-center gap-1.5">
+                Descrição
+                {descricaoTravada && (
+                  <span className="inline-flex items-center gap-1 text-xs font-normal text-info-text">
+                    <Lock className="w-3 h-3" /> lido da nota
+                  </span>
+                )}
+              </Label>
+              <Input value={descricao} onChange={(e) => setDescricao(e.target.value)}
+                placeholder="(opcional)"
+                readOnly={descricaoTravada}
+                className={descricaoTravada ? "bg-muted/40 cursor-default" : undefined} />
+              {descricaoTravada && (
+                <button type="button" onClick={descartarLeituraDeItens}
+                  className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground underline decoration-dotted">
+                  <Unlock className="w-3 h-3" /> Não é essa nota — destravar
+                </button>
               )}
             </div>
           </div>
+
+          {nfItens.length > 0 && (
+            <div className="rounded-md border bg-muted/20 p-2 text-xs space-y-1">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                Itens da nota{nfFornecedorLido?.nome ? ` — ${nfFornecedorLido.nome}` : ""}
+              </p>
+              {nfItens.map((it, i) => (
+                <div key={i} className="flex items-start justify-between gap-2">
+                  <span className="min-w-0 truncate">
+                    {it.descricao} <span className="text-muted-foreground">× {it.quantidade} {it.unidade}</span>
+                  </span>
+                  <span className="tabular-nums shrink-0">{brl(it.valorTotal)}</span>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Comprovante */}
           <div className="space-y-2">
