@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { FolderKanban } from "lucide-react";
 import { paraNumero } from "@/lib/dinheiro";
@@ -25,7 +26,7 @@ interface Props {
 }
 
 const VAZIO = {
-  nome: "", descricao: "", metaValor: "", dataInicio: "", dataFim: "",
+  nome: "", descricao: "", metaValor: "", dataInicio: "", dataFim: "", semMeta: false,
 };
 
 export function ProjetoForm({ open, onOpenChange, projeto, onSaved }: Props) {
@@ -45,6 +46,9 @@ export function ProjetoForm({ open, onOpenChange, projeto, onSaved }: Props) {
         metaValor: projeto.meta_valor != null ? String(projeto.meta_valor).replace(".", ",") : "",
         dataInicio: projeto.data_inicio ?? "",
         dataFim: projeto.data_fim ?? "",
+        // Reflete o estado atual gravado — editar um projeto que já não
+        // tinha meta não pode virar "tem meta zero" sem ninguém pedir.
+        semMeta: projeto.meta_valor == null,
       });
     } else {
       setCampos(VAZIO);
@@ -64,7 +68,7 @@ export function ProjetoForm({ open, onOpenChange, projeto, onSaved }: Props) {
       const payload = {
         nome: campos.nome.trim(),
         descricao: campos.descricao.trim() || null,
-        meta_valor: campos.metaValor.trim() ? paraNumero(campos.metaValor) : null,
+        meta_valor: campos.semMeta ? null : (campos.metaValor.trim() ? paraNumero(campos.metaValor) : null),
         data_inicio: campos.dataInicio || null,
         data_fim: campos.dataFim || null,
       };
@@ -113,10 +117,23 @@ export function ProjetoForm({ open, onOpenChange, projeto, onSaved }: Props) {
           </div>
 
           <div>
-            <Label>Meta de arrecadação</Label>
+            <div className="flex items-center justify-between">
+              <Label>Meta de arrecadação</Label>
+              <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
+                <Checkbox checked={campos.semMeta}
+                  onCheckedChange={(v) => set("semMeta", !!v)} />
+                Projeto sem meta definida
+              </label>
+            </div>
             <Input type="text" inputMode="decimal" value={campos.metaValor}
               onChange={(e) => set("metaValor", e.target.value)}
-              placeholder="Opcional — nem todo projeto tem meta" />
+              disabled={campos.semMeta}
+              placeholder={campos.semMeta ? "Sem meta de arrecadação definida" : "Opcional — nem todo projeto tem meta"} />
+            <p className="text-xs text-muted-foreground mt-1">
+              Só afeta a nota "meta de arrecadação definida" do relatório — o
+              cartão de déficit/superávit compara sempre com o total de
+              despesas já lançadas, com ou sem essa meta.
+            </p>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
