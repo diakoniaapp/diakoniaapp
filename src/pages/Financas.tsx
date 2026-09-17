@@ -71,6 +71,14 @@ export default function Financas() {
   const [printDataFim, setPrintDataFim] = useState(
     new Date(hojeImpressao.getFullYear(), hojeImpressao.getMonth() + 1, 0).toISOString().slice(0, 10)
   );
+  // Mesmo defeito relatado ao vivo pela Telma em FinancasConta.tsx
+  // (17/09/2026, "clico para alterar e ela leva para meses que eu nao
+  // digitei"): mexer no `value`/`min` do campo que o usuário NÃO está
+  // tocando, a cada `onChange`, atrapalha o seletor nativo de data no
+  // celular. Cada campo guarda só o que foi escolhido nele; a ordem se
+  // resolve aqui, na hora de gerar o relatório.
+  const printInicioEfetivo = printDataInicio <= printDataFim ? printDataInicio : printDataFim;
+  const printFimEfetivo = printDataInicio <= printDataFim ? printDataFim : printDataInicio;
 
   function abrirImprimir() {
     setContasParaImprimir(new Set(contas.map(c => c.id)));
@@ -89,8 +97,8 @@ export default function Financas() {
     if (contasParaImprimir.size === 0) return;
     const params = new URLSearchParams({
       contas: Array.from(contasParaImprimir).join(","),
-      inicio: printDataInicio,
-      fim: printDataFim,
+      inicio: printInicioEfetivo,
+      fim: printFimEfetivo,
     });
     setImprimirOpen(false);
     navigate(`/financas/relatorio-contas?${params.toString()}`);
@@ -325,18 +333,13 @@ export default function Financas() {
             <div className="grid grid-cols-2 gap-2">
               <div className="min-w-0">
                 <label className="text-xs uppercase tracking-wide text-muted-foreground">Data inicial</label>
-                <Input type="date" value={printDataInicio} onChange={(e) => {
-                  const v = e.target.value;
-                  setPrintDataInicio(v);
-                  if (v > printDataFim) setPrintDataFim(v);
-                }} min="2000-01-01" max="2099-12-31" className="h-8 text-xs w-full" />
+                <Input type="date" value={printDataInicio} onChange={(e) => setPrintDataInicio(e.target.value)}
+                  min="2000-01-01" max="2099-12-31" className="h-8 text-xs w-full" />
               </div>
               <div className="min-w-0">
                 <label className="text-xs uppercase tracking-wide text-muted-foreground">Data final</label>
-                <Input type="date" value={printDataFim} onChange={(e) => {
-                  const v = e.target.value;
-                  setPrintDataFim(v < printDataInicio ? printDataInicio : v);
-                }} min={printDataInicio} max="2099-12-31" className="h-8 text-xs w-full" />
+                <Input type="date" value={printDataFim} onChange={(e) => setPrintDataFim(e.target.value)}
+                  min="2000-01-01" max="2099-12-31" className="h-8 text-xs w-full" />
               </div>
             </div>
             <div>

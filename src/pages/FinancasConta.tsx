@@ -132,8 +132,24 @@ export default function FinancasConta() {
   const [dataFim, setDataFim] = useState(
     new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).toISOString().slice(0, 10)
   );
+  // Telma reportou ao vivo (17/09/2026), na conta "Caixinha
+  // Administrativo": "eu clico para alterar e ela leva para meses que
+  // eu nao digitei". Causa: a versão anterior escrevia no campo QUE o
+  // usuário não estava mexendo, a cada `onChange` — `min={dataInicio}`
+  // dinâmico na "Data final" e um `setDataFim`/`setDataInicio` cruzado
+  // pra impedir período invertido. Num seletor nativo de calendário
+  // (webview do celular), reatribuir `value`/`min` do OUTRO campo
+  // enquanto o usuário ainda está rolando/tocando no seu mexe com o
+  // estado interno do seletor aberto e ele pula de mês sozinho — o
+  // campo nunca fica só com o que foi de fato digitado/tocado.
+  // Correção: cada campo guarda exatamente o que foi escolhido nele, sem
+  // mexer no outro; se a ordem sair invertida (final antes de inicial),
+  // a consulta abaixo troca os dois só na hora de buscar — o usuário
+  // nunca vê o próprio campo mudar sozinho.
+  const inicioEfetivo = dataInicio <= dataFim ? dataInicio : dataFim;
+  const fimEfetivo = dataInicio <= dataFim ? dataFim : dataInicio;
 
-  useEffect(() => { carregar(); }, [contaId, filtroTipo, dataInicio, dataFim, busca]);
+  useEffect(() => { carregar(); }, [contaId, filtroTipo, inicioEfetivo, fimEfetivo, busca]);
 
   async function carregar() {
     if (!contaId) return;
@@ -152,10 +168,10 @@ export default function FinancasConta() {
           contaId,
           tipo: filtroTipo !== "todos" && filtroTipo !== "transferencia" ? filtroTipo : undefined,
           apenasTransferencia: filtroTipo === "transferencia" ? true : undefined,
-          dataInicio, dataFim,
+          dataInicio: inicioEfetivo, dataFim: fimEfetivo,
           busca: busca.length >= 2 ? busca : undefined,
         }),
-        saldoAcumuladoAntesDe(dataInicio, contaId),
+        saldoAcumuladoAntesDe(inicioEfetivo, contaId),
       ]);
       setConta(c);
       setLancamentos(ls);
@@ -401,7 +417,7 @@ export default function FinancasConta() {
         <h1 className="font-serif text-2xl">Quarta Igreja Batista do Rio de Janeiro</h1>
         <h2 className="font-serif text-lg mt-1">Extrato — {conta.nome}</h2>
         <p className="text-xs text-muted-foreground mt-1">
-          {dataBr(dataInicio)} a {dataBr(dataFim)} · Saldo atual: <strong>{brl(Number(conta.saldo_atual))}</strong>
+          {dataBr(inicioEfetivo)} a {dataBr(fimEfetivo)} · Saldo atual: <strong>{brl(Number(conta.saldo_atual))}</strong>
           {" "}· Gerado em {new Date().toLocaleString("pt-BR")}
         </p>
       </div>
@@ -423,29 +439,19 @@ export default function FinancasConta() {
               esse valor no ano. */}
           <div className="min-w-0">
             <label className="text-xs uppercase tracking-wide text-muted-foreground">Data inicial</label>
-            <Input type="date" value={dataInicio} onChange={(e) => {
-              const v = e.target.value;
-              setDataInicio(v);
-              // Pedido da Telma (16/09/2026): escolher uma inicial depois da
-              // final deixava o período invertido (extrato vazio, sem
-              // aviso — só "Entradas R$ 0,00" e "Saídas R$ 0,00" confusos).
-              // Em vez de deixar o usuário descobrir isso pela lista vazia,
-              // empurra a final pra igualar a nova inicial.
-              if (v > dataFim) setDataFim(v);
-            }} min="2000-01-01" max="2099-12-31" className="h-8 text-xs w-full" />
+            {/* Cada campo só grava o que foi escolhido NELE — nada de
+                empurrar o outro campo a cada tecla/toque (ver comentário
+                grande perto de `inicioEfetivo` acima, 17/09/2026: era isso
+                que fazia o seletor "pular" de mês sozinho no celular). Se
+                sair invertido, `inicioEfetivo`/`fimEfetivo` resolve a
+                ordem só na hora de buscar. */}
+            <Input type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)}
+              min="2000-01-01" max="2099-12-31" className="h-8 text-xs w-full" />
           </div>
           <div className="min-w-0">
             <label className="text-xs uppercase tracking-wide text-muted-foreground">Data final</label>
-            <Input type="date" value={dataFim} onChange={(e) => {
-              const v = e.target.value;
-              // `min` no input só marca :invalid — não impede o onChange de
-              // disparar com uma data anterior à inicial (achado pela
-              // Telma ao digitar direto no campo final: o atributo min não
-              // bloqueia digitação manual, só a UI do seletor nativo).
-              // Por isso a guarda tem que estar aqui também, simétrica à
-              // da Data inicial.
-              setDataFim(v < dataInicio ? dataInicio : v);
-            }} min={dataInicio} max="2099-12-31" className="h-8 text-xs w-full" />
+            <Input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)}
+              min="2000-01-01" max="2099-12-31" className="h-8 text-xs w-full" />
           </div>
           <div>
             <label className="text-xs uppercase tracking-wide text-muted-foreground">Tipo</label>
@@ -605,7 +611,7 @@ export default function FinancasConta() {
                   <tr className="border-t bg-muted/20 text-muted-foreground italic">
                     <td className="py-1.5 px-2 print:hidden"></td>
                     <td className="py-1.5 px-2" colSpan={2}>Saldo inicial</td>
-                    <td className="py-1.5 px-2">até {dataBr(dataInicio)}</td>
+                    <td className="py-1.5 px-2">até {dataBr(inicioEfetivo)}</td>
                     <td className="py-1.5 px-2 text-right tabular-nums"></td>
                     <td className="py-1.5 px-2 text-right tabular-nums font-medium whitespace-nowrap">{brl(saldoAntesDoPeriodo)}</td>
                     <td className="py-1.5 px-1 sticky right-0 bg-muted/20 print:hidden"></td>
