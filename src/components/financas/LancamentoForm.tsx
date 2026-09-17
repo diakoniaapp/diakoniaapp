@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useState, useEffect, useMemo, lazy, Suspense } from "react";
 import { hojeLocal } from "@/lib/data";
 import { paraNumero } from "@/lib/dinheiro";
 import {
@@ -130,6 +130,41 @@ export function LancamentoForm({
   const [categorias, setCategorias] = useState<FinCategoria[]>([]);
   const [centros, setCentros] = useState<FinCentroCusto[]>([]);
   const [fornecedores, setFornecedores] = useState<FinFornecedor[]>([]);
+
+  // Centro de custo, agrupado por pai — achado ao vivo pela Telma
+  // (17/09/2026, com print do seletor real): a lista crua vinha só em
+  // ordem alfabética do NOME INTEIRO, então "Administração · Consumo"
+  // (que começa com "A") caía longe de "Min. Administração" (que começa
+  // com "M") — subgrupo e pai nunca ficavam perto um do outro, e a lista
+  // toda virava uma sopa de ~20 itens sem estrutura nenhuma pra quem só
+  // queria achar "Diaconia". Reordena: cada centro principal primeiro,
+  // seus subgrupos (se tiver) logo abaixo, indentados, com o prefixo
+  // "{Pai} · " cortado do rótulo — já dá pra ver que é filho dele só pela
+  // indentação, repetir o nome do pai de novo não ajuda.
+  const centrosOrdenados = useMemo(() => {
+    const principais = centros
+      .filter(c => c.vinculo_tipo !== "subgrupo_administracao")
+      .slice().sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+    const subgruposPorPai = new Map<string, FinCentroCusto[]>();
+    centros.forEach(c => {
+      if (c.vinculo_tipo === "subgrupo_administracao" && c.centro_pai_id) {
+        const lista = subgruposPorPai.get(c.centro_pai_id) ?? [];
+        lista.push(c);
+        subgruposPorPai.set(c.centro_pai_id, lista);
+      }
+    });
+    subgruposPorPai.forEach(lista => lista.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")));
+
+    const linhas: { centro: FinCentroCusto; rotulo: string; indentado: boolean }[] = [];
+    principais.forEach(p => {
+      linhas.push({ centro: p, rotulo: p.nome, indentado: false });
+      (subgruposPorPai.get(p.id) ?? []).forEach(sg => {
+        const rotulo = sg.nome.includes(" · ") ? sg.nome.slice(sg.nome.indexOf(" · ") + 3) : sg.nome;
+        linhas.push({ centro: sg, rotulo, indentado: true });
+      });
+    });
+    return linhas;
+  }, [centros]);
 
   // Comprovante
   const [arquivo, setArquivo] = useState<File | null>(null);
@@ -609,10 +644,20 @@ export function LancamentoForm({
                 </Button>
               ) : (
                 <Select value={centroCustoId} onValueChange={setCentroCustoId}>
-                  <SelectTrigger><SelectValue placeholder="(opcional)" /></SelectTrigger>
+                  <SelectTrigger>
+                    {/* Filho explícito no `SelectValue` — sem isso, ele
+                        mostraria o rótulo CURTO do item da lista
+                        ("Consumo"), e fechado, sem o "Administração · "
+                        do lado, ficaria ambíguo de qual centro é. */}
+                    <SelectValue placeholder="(opcional)">
+                      {centros.find(c => c.id === centroCustoId)?.nome}
+                    </SelectValue>
+                  </SelectTrigger>
                   <SelectContent>
-                    {centros.map(c => (
-                      <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
+                    {centrosOrdenados.map(({ centro, rotulo, indentado }) => (
+                      <SelectItem key={centro.id} value={centro.id} className={indentado ? "pl-12 text-muted-foreground" : "font-medium"}>
+                        {rotulo}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -647,10 +692,16 @@ export function LancamentoForm({
                 {rateio.map(r => (
                   <div key={r.chave} className="flex items-center gap-1.5">
                     <Select value={r.centroCustoId} onValueChange={(v) => mudarLinhaRateio(r.chave, { centroCustoId: v })}>
-                      <SelectTrigger className="flex-1 h-8 text-xs"><SelectValue placeholder="Centro" /></SelectTrigger>
+                      <SelectTrigger className="flex-1 h-8 text-xs">
+                        <SelectValue placeholder="Centro">
+                          {centros.find(c => c.id === r.centroCustoId)?.nome}
+                        </SelectValue>
+                      </SelectTrigger>
                       <SelectContent>
-                        {centros.map(c => (
-                          <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
+                        {centrosOrdenados.map(({ centro, rotulo, indentado }) => (
+                          <SelectItem key={centro.id} value={centro.id} className={indentado ? "pl-12 text-muted-foreground" : "font-medium"}>
+                            {rotulo}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
