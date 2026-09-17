@@ -191,13 +191,28 @@ export default function FinancasAdmin() {
   const entradas = categorias.filter(c => c.tipo === "entrada");
   const saidas   = categorias.filter(c => c.tipo === "saida");
 
-  // Agrupado por vínculo — "ministerio" e "subgrupo_administracao" juntos
-  // primeiro (é a estrutura do Plano de Contas Oficial), depois os
-  // demais tipos (área, EBD, PGM, campanha, geral) na ordem de
-  // `VINCULO_LABEL`.
+  // Agrupado por vínculo, na ordem de `VINCULO_LABEL` — "subgrupo_
+  // administracao" NÃO entra como grupo próprio aqui (ver
+  // `subgruposPorPai` abaixo): pedido da Telma (17/09/2026), "coloque o
+  // subgrupo contábil abaixo de cada grupo" — antes os 5 subgrupos de
+  // "Min. Administração" apareciam soltos num card "Subgrupo contábil"
+  // por si, sem nenhuma pista visual de que eram DELE, longe da lista de
+  // ministérios onde ele está.
   const centrosPorTipo = (Object.keys(VINCULO_LABEL) as FinCentroVinculo[])
+    .filter(tipo => tipo !== "subgrupo_administracao")
     .map(tipo => ({ tipo, lista: centros.filter(c => c.vinculo_tipo === tipo) }))
     .filter(g => g.lista.length > 0);
+
+  // Subgrupos de cada centro, pra desenhar indentados logo abaixo do pai
+  // dentro do mesmo card de grupo — não outro grupo à parte.
+  const subgruposPorPai = new Map<string, FinCentroCusto[]>();
+  centros.forEach(c => {
+    if (c.vinculo_tipo === "subgrupo_administracao" && c.centro_pai_id) {
+      const lista = subgruposPorPai.get(c.centro_pai_id) ?? [];
+      lista.push(c);
+      subgruposPorPai.set(c.centro_pai_id, lista);
+    }
+  });
 
   if (loading) {
     return <PaginaSkeleton />;
@@ -380,10 +395,23 @@ export default function FinancasAdmin() {
                     <span className="text-muted-foreground ml-1.5">({lista.length})</span>
                   </div>
                   {lista.map(c => (
-                    <CentroLinha key={c.id} c={c}
-                      onEdit={() => { setCcEdit(c); setCcOpen(true); }}
-                      onToggle={() => toggleCentro(c)}
-                      onDelete={podeEstruturar ? () => pedirRemoverCentro(c) : undefined} />
+                    <div key={c.id}>
+                      <CentroLinha c={c}
+                        onEdit={() => { setCcEdit(c); setCcOpen(true); }}
+                        onToggle={() => toggleCentro(c)}
+                        onDelete={podeEstruturar ? () => pedirRemoverCentro(c) : undefined} />
+                      {/* Subgrupos DESTE centro, indentados logo abaixo —
+                          pedido da Telma (17/09/2026): "coloque o
+                          subgrupo contábil abaixo de cada grupo". */}
+                      {(subgruposPorPai.get(c.id) ?? []).map(sg => (
+                        <div key={sg.id} className="ml-4 border-l-2 border-border pl-2">
+                          <CentroLinha c={sg}
+                            onEdit={() => { setCcEdit(sg); setCcOpen(true); }}
+                            onToggle={() => toggleCentro(sg)}
+                            onDelete={podeEstruturar ? () => pedirRemoverCentro(sg) : undefined} />
+                        </div>
+                      ))}
+                    </div>
                   ))}
                 </CardContent>
               </Card>
