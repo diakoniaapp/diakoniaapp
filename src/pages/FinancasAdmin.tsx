@@ -14,7 +14,7 @@ import {
   ArrowLeft, DollarSign, Loader2, Plus, Pencil, Trash2,
   Wallet, Tag, Layers, RotateCcw, PowerOff,
   TrendingUp, TrendingDown,
-  Building2, CreditCard, PiggyBank, Mail, Coins,
+  Building2, CreditCard, PiggyBank, Mail, Coins, FolderPlus,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -68,6 +68,15 @@ export default function FinancasAdmin() {
 
   const [ccOpen, setCcOpen] = useState(false);
   const [ccEdit, setCcEdit] = useState<FinCentroCusto | null>(null);
+  // Pai pré-escolhido ao abrir "Novo centro de custo" a partir do botão
+  // de um centro específico (ver `CentroLinha` abaixo) — pedido da Telma
+  // (17/09/2026), depois de tentar achar essa opção dentro do EDITAR de
+  // um ministério (que continua travado, ver comentário em
+  // `CentroCustoForm.tsx`): "continuo sem ter como adicionar subgrupos
+  // nos grupos já existentes". O caminho era só o botão genérico "Novo
+  // centro de custo" lá em cima, escolhendo o pai à mão no seletor — sem
+  // ligação nenhuma com o ministério que ela estava olhando na lista.
+  const [ccPaiInicial, setCcPaiInicial] = useState<string | null>(null);
 
   // Um `AlertDialog` só pras 3 exclusões (conta/categoria/centro) — até
   // 15/09/2026 cada uma usava `confirm()` nativo, que a Telma reportou
@@ -367,7 +376,7 @@ export default function FinancasAdmin() {
         <TabsContent value="centros" className="space-y-3">
           {podeEstruturar && (
             <div className="flex justify-end">
-              <Button size="sm" onClick={() => { setCcEdit(null); setCcOpen(true); }}
+              <Button size="sm" onClick={() => { setCcEdit(null); setCcPaiInicial(null); setCcOpen(true); }}
                 className="gap-1.5 bg-gold hover:bg-gold/90 text-white">
                 <Plus className="w-3.5 h-3.5" /> Novo centro de custo
               </Button>
@@ -399,7 +408,8 @@ export default function FinancasAdmin() {
                       <CentroLinha c={c}
                         onEdit={() => { setCcEdit(c); setCcOpen(true); }}
                         onToggle={() => toggleCentro(c)}
-                        onDelete={podeEstruturar ? () => pedirRemoverCentro(c) : undefined} />
+                        onDelete={podeEstruturar ? () => pedirRemoverCentro(c) : undefined}
+                        onAddSubgrupo={podeEstruturar ? () => { setCcEdit(null); setCcPaiInicial(c.id); setCcOpen(true); } : undefined} />
                       {/* Subgrupos DESTE centro, indentados logo abaixo —
                           pedido da Telma (17/09/2026): "coloque o
                           subgrupo contábil abaixo de cada grupo". */}
@@ -440,8 +450,9 @@ export default function FinancasAdmin() {
       />
       <CentroCustoForm
         open={ccOpen}
-        onOpenChange={(v) => { setCcOpen(v); if (!v) setCcEdit(null); }}
+        onOpenChange={(v) => { setCcOpen(v); if (!v) { setCcEdit(null); setCcPaiInicial(null); } }}
         centro={ccEdit}
+        paiInicial={ccPaiInicial}
         centrosDisponiveis={centros}
         onSaved={carregar}
       />
@@ -538,8 +549,15 @@ function CategoriaLinha({ k, onEdit, onToggle, onDelete }: {
   );
 }
 
-function CentroLinha({ c, onEdit, onToggle, onDelete }: {
+function CentroLinha({ c, onEdit, onToggle, onDelete, onAddSubgrupo }: {
   c: FinCentroCusto; onEdit: () => void; onToggle: () => void; onDelete?: () => void;
+  // Sem valor = não oferece (subgrupo dentro de subgrupo não tem uso
+  // pedido — ver `CentroCustoForm.tsx`). Pedido da Telma (17/09/2026):
+  // editar um ministério não deixava adicionar subgrupo a ele (o próprio
+  // vínculo dele é travado, só nome/cor/orçamento mudam) — o caminho
+  // certo é criar um centro NOVO com este aqui de pai, e esse atalho
+  // pré-escolhe o pai em vez de deixar a pessoa procurar no seletor.
+  onAddSubgrupo?: () => void;
 }) {
   return (
     <div className={`flex items-center justify-between gap-1 text-sm border-l-2 pl-2 py-1 hover:bg-muted/30 ${!c.ativo ? "opacity-50" : ""}`}
@@ -549,6 +567,11 @@ function CentroLinha({ c, onEdit, onToggle, onDelete }: {
         {!c.ativo && <Badge variant="outline" className="text-xs ml-1 bg-warning-soft text-warning-text">desat.</Badge>}
       </span>
       <div className="flex items-center gap-0 shrink-0">
+        {onAddSubgrupo && (
+          <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={onAddSubgrupo} title="Adicionar subgrupo">
+            <FolderPlus className="w-3 h-3" />
+          </Button>
+        )}
         <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={onEdit} title="Editar">
           <Pencil className="w-3 h-3" />
         </Button>

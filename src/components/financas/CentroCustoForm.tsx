@@ -24,6 +24,12 @@ interface Props {
   // ministério/área/EBD/PGM/campanha, e criar um manualmente com esses
   // tipos desalinharia do que ele diz representar).
   centro: FinCentroCusto | null;
+  // Pai pré-escolhido ao abrir criando — pedido da Telma (17/09/2026):
+  // o botão "+" ao lado de um centro na lista (`FinancasAdmin.tsx`) usa
+  // isso pra já abrir com aquele centro selecionado como pai, em vez de
+  // fazer a pessoa procurar no seletor de novo. `null`/undefined = sem
+  // pré-escolha (o botão genérico "Novo centro de custo" no topo).
+  paiInicial?: string | null;
   // Lista completa (todos os tipos, ativos e inativos) — só pra montar o
   // seletor de "centro pai" na criação. Vem de fora (`FinancasAdmin.tsx`
   // já carrega isso pra tela inteira) em vez de buscar de novo aqui.
@@ -54,7 +60,7 @@ const CORES = [
 // financeiro` (só a Telma, papel "proprietario") — ver o botão "Novo
 // centro de custo" em FinancasAdmin.tsx, escondido pra quem não tem essa
 // permissão.
-export function CentroCustoForm({ open, onOpenChange, centro, centrosDisponiveis, onSaved }: Props) {
+export function CentroCustoForm({ open, onOpenChange, centro, paiInicial, centrosDisponiveis, onSaved }: Props) {
   const criando = open && !centro;
   // Editando um "geral" ou um subgrupo já existente — pedido da Telma
   // (17/09/2026): "inserir o subgrupo funciona apenas para novos
@@ -89,11 +95,21 @@ export function CentroCustoForm({ open, onOpenChange, centro, centrosDisponiveis
 
   useEffect(() => {
     if (!open) return;
-    setNome(centro?.nome ?? "");
     setCor(centro?.cor ?? "#888");
     setOrcamentoTexto(centro?.orcamento_anual != null ? String(centro.orcamento_anual) : "");
-    setCentroPaiId(centro?.centro_pai_id ?? "");
-  }, [open, centro]);
+    // Criando com pai pré-escolhido (botão "+" ao lado de um centro na
+    // lista): já entra com o pai selecionado e sugere o prefixo no nome,
+    // mesmo comportamento de escolher o pai à mão no seletor.
+    const paiId = !centro && paiInicial ? paiInicial : (centro?.centro_pai_id ?? "");
+    setCentroPaiId(paiId);
+    if (!centro && paiId) {
+      const pai = paisDisponiveis.find(c => c.id === paiId);
+      setNome(pai ? `${pai.nome.replace(/^Min\.\s*/, "")} · ` : "");
+    } else {
+      setNome(centro?.nome ?? "");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, centro, paiInicial]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
