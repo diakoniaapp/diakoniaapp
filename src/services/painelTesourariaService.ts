@@ -301,6 +301,17 @@ export async function listarAlertasTesouraria(): Promise<AlertaTesouraria[]> {
 //                       cruzamento soma os dois níveis — o centro pode ter
 //                       sido criado com qualquer um dos dois vínculos,
 //                       dependendo de quem rodou `seedCentrosCusto()`.
+//                       + subgrupo contábil (17/09/2026): "Cestas
+//                       Básicas", "Condolências" etc. são centros filhos
+//                       de "Min. Diaconia e Ação Social" por
+//                       `centro_pai_id`, não por `vinculo_id` — o filtro
+//                       original só olhava `vinculo_id`, então o gasto de
+//                       verdade da Diaconia (que agora é lançado nos
+//                       subgrupos, não no ministério direto) ficava fora
+//                       da soma. Achado perguntando "o cálculo de quanto
+//                       esse ministério já gastou pode não estar somando
+//                       os subgrupos dele" na mesma sessão que
+//                       generalizou subgrupo pra qualquer ministério.
 //
 // Se nenhum centro de custo estiver vinculado ainda, `gastoMes` volta
 // `null` — não `0`. Zero seria mentir por omissão, o mesmo erro que
@@ -328,7 +339,16 @@ export async function carregarCruzamentoDiaconia(): Promise<CruzamentoDiaconia |
 
   const { data: centros } = await supabase
     .from("fin_centros_custo").select("id").in("vinculo_id", vinculoIds);
-  const centroIds = ((centros ?? []) as { id: string }[]).map(c => c.id);
+  const centroIdsDiretos = ((centros ?? []) as { id: string }[]).map(c => c.id);
+
+  // Subgrupos contábeis dos centros diretos (ministério/área) — segunda
+  // rodada porque `centro_pai_id` aponta pro CENTRO, não pro
+  // ministério/área em `vinculo_id`; precisa achar os diretos primeiro
+  // pra depois achar quem tem um deles como pai.
+  const { data: subgrupos } = centroIdsDiretos.length
+    ? await supabase.from("fin_centros_custo").select("id").in("centro_pai_id", centroIdsDiretos)
+    : { data: [] as { id: string }[] };
+  const centroIds = [...centroIdsDiretos, ...((subgrupos ?? []) as { id: string }[]).map(c => c.id)];
 
   if (centroIds.length === 0) {
     return { atendimentosMes: bancada.atendimentosMes, gastoMes: null, temCentroCusto: false };

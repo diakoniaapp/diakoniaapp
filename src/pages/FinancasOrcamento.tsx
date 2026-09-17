@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,36 @@ export default function FinancasOrcamento() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => { carregar(); }, []);
+
+  // Mesmo agrupamento por pai do seletor de centro no lançamento
+  // (LancamentoForm.tsx, 17/09/2026) — sem isso, "Administração ·
+  // Consumo" caía longe de "Min. Administração" na lista alfabética
+  // crua, e um orçamento por ministério inteiro ficava difícil de achar
+  // no meio dos subgrupos soltos.
+  const centrosOrdenados = useMemo(() => {
+    const principais = centros
+      .filter(c => c.vinculo_tipo !== "subgrupo_administracao")
+      .slice().sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+    const subgruposPorPai = new Map<string, FinCentroResumo[]>();
+    centros.forEach(c => {
+      if (c.vinculo_tipo === "subgrupo_administracao" && c.centro_pai_id) {
+        const lista = subgruposPorPai.get(c.centro_pai_id) ?? [];
+        lista.push(c);
+        subgruposPorPai.set(c.centro_pai_id, lista);
+      }
+    });
+    subgruposPorPai.forEach(lista => lista.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")));
+
+    const linhas: { centro: FinCentroResumo; rotulo: string; indentado: boolean }[] = [];
+    principais.forEach(p => {
+      linhas.push({ centro: p, rotulo: p.nome, indentado: false });
+      (subgruposPorPai.get(p.id) ?? []).forEach(sg => {
+        const rotulo = sg.nome.includes(" · ") ? sg.nome.slice(sg.nome.indexOf(" · ") + 3) : sg.nome;
+        linhas.push({ centro: sg, rotulo, indentado: true });
+      });
+    });
+    return linhas;
+  }, [centros]);
 
   async function carregar() {
     setLoading(true);
@@ -186,9 +216,20 @@ export default function FinancasOrcamento() {
             <div>
               <Label>Centro de custo *</Label>
               <Select value={centroId} onValueChange={setCentroId}>
-                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectTrigger>
+                  {/* Filho explícito — fechado, mostra o nome completo do
+                      centro escolhido, não o rótulo curto indentado da
+                      lista (mesmo motivo de LancamentoForm.tsx). */}
+                  <SelectValue placeholder="Selecione">
+                    {centros.find(c => c.id === centroId)?.nome}
+                  </SelectValue>
+                </SelectTrigger>
                 <SelectContent>
-                  {centros.map(c => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
+                  {centrosOrdenados.map(({ centro, rotulo, indentado }) => (
+                    <SelectItem key={centro.id} value={centro.id} className={indentado ? "pl-12 text-muted-foreground" : "font-medium"}>
+                      {rotulo}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
