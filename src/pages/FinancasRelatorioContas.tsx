@@ -278,9 +278,14 @@ export default function FinancasRelatorioContas() {
                   <tr className="border-b-2 border-gold/40 text-left">
                     <th className="py-1 pr-1 w-16">Data</th>
                     <th className="py-1 pr-1">Descrição / Fornecedor</th>
-                    <th className="py-1 pr-1 w-32">Categoria</th>
-                    <th className="py-1 pr-1 w-20 text-right">Valor</th>
-                    <th className="py-1 pr-1 w-20 text-right">Saldo</th>
+                    <th className="py-1 pr-1 w-28">Categoria</th>
+                    {/* `w-20` (5rem) quebrava valores de 4 dígitos em duas
+                        linhas ("+" numa linha, "R$ 1.285,00" na outra) —
+                        achado ao vivo pela Telma num relatório com
+                        dízimo de R$1.285. `w-24` + `whitespace-nowrap`
+                        cobre até R$99.999,99 numa linha só. */}
+                    <th className="py-1 pr-1 w-24 text-right">Valor</th>
+                    <th className="py-1 pr-1 w-24 text-right">Saldo</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -293,7 +298,7 @@ export default function FinancasRelatorioContas() {
                     <td className="py-1 pr-1" colSpan={2}>Saldo inicial</td>
                     <td className="py-1 pr-1">até {dataBr(dataInicio)}</td>
                     <td className="py-1 pr-1 text-right"></td>
-                    <td className="py-1 pr-1 text-right tabular-nums font-medium">{brl(saldoInicial)}</td>
+                    <td className="py-1 pr-1 text-right tabular-nums font-medium whitespace-nowrap">{brl(saldoInicial)}</td>
                   </tr>
                   {lancsConta.length === 0 ? (
                     <tr>
@@ -316,10 +321,10 @@ export default function FinancasRelatorioContas() {
                         )}
                       </td>
                       <td className="py-1 pr-1 text-muted-foreground truncate">{l.categoria_nome ?? "—"}</td>
-                      <td className={`py-1 pr-1 text-right tabular-nums font-medium ${l.tipo === "entrada" ? "text-success-text" : "text-destructive-text"}`}>
+                      <td className={`py-1 pr-1 text-right tabular-nums font-medium whitespace-nowrap ${l.tipo === "entrada" ? "text-success-text" : "text-destructive-text"}`}>
                         {l.tipo === "entrada" ? "+" : "−"} {brl(Number(l.valor))}
                       </td>
-                      <td className="py-1 pr-1 text-right tabular-nums text-muted-foreground">{brl(saldoPorLancamento.get(l.id) ?? 0)}</td>
+                      <td className="py-1 pr-1 text-right tabular-nums text-muted-foreground whitespace-nowrap">{brl(saldoPorLancamento.get(l.id) ?? 0)}</td>
                     </tr>
                   ))}
                 </tbody>

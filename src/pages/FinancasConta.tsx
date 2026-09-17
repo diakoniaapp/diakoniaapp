@@ -591,7 +591,7 @@ export default function FinancasConta() {
                     <td className="py-1.5 px-2" colSpan={2}>Saldo inicial</td>
                     <td className="py-1.5 px-2">até {dataBr(dataInicio)}</td>
                     <td className="py-1.5 px-2 text-right tabular-nums"></td>
-                    <td className="py-1.5 px-2 text-right tabular-nums font-medium">{brl(saldoAntesDoPeriodo)}</td>
+                    <td className="py-1.5 px-2 text-right tabular-nums font-medium whitespace-nowrap">{brl(saldoAntesDoPeriodo)}</td>
                     <td className="py-1.5 px-1 sticky right-0 bg-muted/20 print:hidden"></td>
                   </tr>
                 )}
@@ -657,10 +657,10 @@ export default function FinancasConta() {
                         </Badge>
                       )}
                     </td>
-                    <td className={`py-1.5 px-2 text-right tabular-nums font-medium ${l.tipo === "entrada" ? "text-success-text" : "text-destructive-text"}`}>
+                    <td className={`py-1.5 px-2 text-right tabular-nums font-medium whitespace-nowrap ${l.tipo === "entrada" ? "text-success-text" : "text-destructive-text"}`}>
                       {l.tipo === "entrada" ? "+" : "−"} {brl(Number(l.valor))}
                     </td>
-                    <td className="py-1.5 px-2 text-right tabular-nums text-muted-foreground">
+                    <td className="py-1.5 px-2 text-right tabular-nums text-muted-foreground whitespace-nowrap">
                       {brl(saldoPorLancamento.get(l.id) ?? 0)}
                     </td>
                     <td className="py-1.5 px-1 sticky right-0 bg-background group-hover:bg-muted/30 border-l print:hidden">
