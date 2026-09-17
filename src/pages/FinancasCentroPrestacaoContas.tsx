@@ -27,7 +27,7 @@ import {
 import { toast } from "sonner";
 import logoDiakonia from "@/assets/logo-diakonia.png";
 import {
-  listarLancamentosSemTeto, gerarCSV, downloadCSV, brl,
+  listarLancamentosSemTeto, listarCentrosCusto, gerarCSV, downloadCSV, brl,
   type FinLancamentoExtenso, type FinCentroVinculo,
 } from "@/services/finService";
 import { useAuth } from "@/hooks/useAuth";
@@ -71,10 +71,12 @@ export default function FinancasCentroPrestacaoContas() {
     if (!centroId) return;
     setLoading(true);
     try {
-      const { data: c } = await supabase
-        .from("fin_centros_custo")
-        .select("id, nome, vinculo_tipo, vinculo_nome")
-        .eq("id", centroId).maybeSingle();
+      const [{ data: c }, todosCentros] = await Promise.all([
+        supabase.from("fin_centros_custo")
+          .select("id, nome, vinculo_tipo, vinculo_nome")
+          .eq("id", centroId).maybeSingle(),
+        listarCentrosCusto(),
+      ]);
       setCentro(c as CentroInfo | null);
 
       // "__todos__" (o padrão) busca a vida inteira do centro, sem data —
@@ -82,8 +84,18 @@ export default function FinancasCentroPrestacaoContas() {
       // demonstração oficial ERRADA assim que um centro passasse de 300
       // lançamentos. Mesmo bug achado e corrigido em
       // `gerarPrestacaoContas`.
-      const ls = await listarLancamentosSemTeto({ centroCustoId: centroId });
-      setTodosLancs(ls);
+      //
+      // + subgrupos (17/09/2026, mesmo pedido de `FinancasCentroDetalhe.
+      // tsx`): um centro com subgrupo contábil (ex.: "Min. Administração")
+      // normalmente não tem lançamento nenhum nele mesmo — o dinheiro é
+      // classificado nos filhos ("Administração · Patrimônio" etc). Sem
+      // somar os filhos aqui, a prestação de contas oficial de um
+      // ministério inteiro saía em branco.
+      const idsParaSomar = [centroId, ...todosCentros.filter(sc => sc.centro_pai_id === centroId).map(sc => sc.id)];
+      const blocos = await Promise.all(
+        idsParaSomar.map(id => listarLancamentosSemTeto({ centroCustoId: id })),
+      );
+      setTodosLancs(blocos.flat());
 
       if (user) {
         const { data: prof } = await supabase

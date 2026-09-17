@@ -57,15 +57,35 @@ export default function FinancasCentros() {
     finally { setSeedBusy(false); }
   }
 
+  // Subgrupo contábil não aparece na lista principal — mora dentro do
+  // centro pai (`centro_pai_id`), e é lá (`FinancasCentroDetalhe.tsx`)
+  // que aparece, numa seção "Subgrupos". Pedido da Telma (17/09/2026):
+  // "clicando em min adm, abre os subgrupos deste centro" — misturar os
+  // subgrupos soltos na lista principal, do lado do centro pai, é
+  // exatamente o que essa pergunta queria evitar.
+  const centrosPrincipais = useMemo(
+    () => centros.filter(c => c.vinculo_tipo !== "subgrupo_administracao"),
+    [centros],
+  );
+  const qtdSubgruposPorPai = useMemo(() => {
+    const m = new Map<string, number>();
+    centros.forEach(c => {
+      if (c.vinculo_tipo === "subgrupo_administracao" && c.centro_pai_id) {
+        m.set(c.centro_pai_id, (m.get(c.centro_pai_id) ?? 0) + 1);
+      }
+    });
+    return m;
+  }, [centros]);
+
   const filtrados = useMemo(() => {
-    return centros.filter(c => {
+    return centrosPrincipais.filter(c => {
       if (filtroTipo !== "__all__" && c.vinculo_tipo !== filtroTipo) return false;
       if (busca.length >= 2 && !c.nome.toLowerCase().includes(busca.toLowerCase())) return false;
       return true;
     });
-  }, [centros, filtroTipo, busca]);
+  }, [centrosPrincipais, filtroTipo, busca]);
 
-  const totalGasto = centros.reduce((s, c) => s + Number(c.gasto_90d), 0);
+  const totalGasto = centrosPrincipais.reduce((s, c) => s + Number(c.gasto_90d), 0);
 
   if (loading) return <PaginaSkeleton />;
 
@@ -131,9 +151,14 @@ export default function FinancasCentros() {
                 <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__all__">Todos os tipos</SelectItem>
-                  {Object.entries(VINCULO_LABEL).map(([k, l]) => (
-                    <SelectItem key={k} value={k}>{l}</SelectItem>
-                  ))}
+                  {/* Subgrupo contábil não filtra aqui — não aparece na
+                      lista principal (ver comentário em `centrosPrincipais`
+                      acima), então o filtro ficaria sempre vazio. */}
+                  {Object.entries(VINCULO_LABEL)
+                    .filter(([k]) => k !== "subgrupo_administracao")
+                    .map(([k, l]) => (
+                      <SelectItem key={k} value={k}>{l}</SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </CardContent>
@@ -167,6 +192,16 @@ export default function FinancasCentros() {
                             <Badge variant="outline" className={`text-xs ${VINCULO_COR[c.vinculo_tipo]}`}>
                               {VINCULO_LABEL[c.vinculo_tipo]}
                             </Badge>
+                            {/* Convite pra abrir o detalhe e ver os
+                                subgrupos — não dá pra expandir aqui na
+                                lista (cada subgrupo tem sua própria linha
+                                de gasto/data, não cabe resumir num badge
+                                só), então aponta pra onde estão. */}
+                            {qtdSubgruposPorPai.has(c.id) && (
+                              <Badge variant="outline" className="text-xs bg-gold/10 text-gold border-gold/30">
+                                {qtdSubgruposPorPai.get(c.id)} subgrupo{qtdSubgruposPorPai.get(c.id)! > 1 ? "s" : ""}
+                              </Badge>
+                            )}
                           </div>
                           <div className="text-xs text-muted-foreground flex gap-3 flex-wrap mt-0.5">
                             <span>{c.qtd_lancamentos_90d} lançamento(s) nos últimos 90d</span>
@@ -196,7 +231,8 @@ export default function FinancasCentros() {
         {/* ── POR TIPO (agrupado em cards) ─────────────────────────────── */}
         <TabsContent value="tipos" className="space-y-3">
           {(Object.entries(VINCULO_LABEL) as [FinCentroVinculo, string][]).map(([tipo, label]) => {
-            const lista = centros.filter(c => c.vinculo_tipo === tipo);
+            if (tipo === "subgrupo_administracao") return null;
+            const lista = centrosPrincipais.filter(c => c.vinculo_tipo === tipo);
             if (lista.length === 0) return null;
             const total = lista.reduce((s, c) => s + Number(c.gasto_90d), 0);
             return (
@@ -227,7 +263,7 @@ export default function FinancasCentros() {
       </Tabs>
 
       <div className="text-center text-xs text-muted-foreground pt-2">
-        Período de análise: últimos 90 dias · {centros.length} centros ativos
+        Período de análise: últimos 90 dias · {centrosPrincipais.length} centros ativos
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
@@ -6,6 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { paraNumero } from "@/lib/dinheiro";
 import {
@@ -21,6 +24,10 @@ interface Props {
   // ministério/área/EBD/PGM/campanha, e criar um manualmente com esses
   // tipos desalinharia do que ele diz representar).
   centro: FinCentroCusto | null;
+  // Lista completa (todos os tipos, ativos e inativos) — só pra montar o
+  // seletor de "centro pai" na criação. Vem de fora (`FinancasAdmin.tsx`
+  // já carrega isso pra tela inteira) em vez de buscar de novo aqui.
+  centrosDisponiveis: FinCentroCusto[];
   onSaved: () => void;
 }
 
@@ -41,18 +48,33 @@ const CORES = [
 // financeiro` (só a Telma, papel "proprietario") — ver o botão "Novo
 // centro de custo" em FinancasAdmin.tsx, escondido pra quem não tem essa
 // permissão.
-export function CentroCustoForm({ open, onOpenChange, centro, onSaved }: Props) {
+export function CentroCustoForm({ open, onOpenChange, centro, centrosDisponiveis, onSaved }: Props) {
   const criando = open && !centro;
   const [nome, setNome] = useState("");
   const [cor, setCor] = useState("#888");
   const [orcamentoTexto, setOrcamentoTexto] = useState("");
+  // "" = centro principal (sem pai), vira `vinculo_tipo: "geral"`. Qualquer
+  // outro valor = id de um centro existente, vira `vinculo_tipo:
+  // "subgrupo_administracao"` — pedido da Telma (17/09/2026): "qualquer
+  // ministério pode ter subgrupo... clicando em min adm, abre os
+  // subgrupos deste centro". Só oferece centros que NÃO são eles mesmos
+  // subgrupo — um subgrupo dentro de subgrupo não tem uso pedido, e
+  // complicaria a tela de detalhe (que só sabe mostrar 1 nível).
+  const [centroPaiId, setCentroPaiId] = useState<string>("");
   const [busy, setBusy] = useState(false);
+
+  const paisDisponiveis = useMemo(
+    () => centrosDisponiveis.filter(c => c.vinculo_tipo !== "subgrupo_administracao" && c.ativo),
+    [centrosDisponiveis],
+  );
+  const paiEscolhido = paisDisponiveis.find(c => c.id === centroPaiId);
 
   useEffect(() => {
     if (!open) return;
     setNome(centro?.nome ?? "");
     setCor(centro?.cor ?? "#888");
     setOrcamentoTexto(centro?.orcamento_anual != null ? String(centro.orcamento_anual) : "");
+    setCentroPaiId("");
   }, [open, centro]);
 
   async function onSubmit(e: React.FormEvent) {
@@ -65,7 +87,9 @@ export function CentroCustoForm({ open, onOpenChange, centro, onSaved }: Props) 
       if (criando) {
         await criarCentroCusto({
           nome: nome.trim(), cor, orcamento_anual,
-          vinculo_tipo: "geral", vinculo_id: null, vinculo_nome: null, centro_pai_id: null,
+          ...(centroPaiId
+            ? { vinculo_tipo: "subgrupo_administracao", vinculo_id: null, vinculo_nome: null, centro_pai_id: centroPaiId }
+            : { vinculo_tipo: "geral", vinculo_id: null, vinculo_nome: null, centro_pai_id: null }),
         });
         toast.success("Centro de custo criado");
       } else {
@@ -90,7 +114,7 @@ export function CentroCustoForm({ open, onOpenChange, centro, onSaved }: Props) 
           </DialogTitle>
           <DialogDescription>
             {criando
-              ? "Uso livre — não fica amarrado a ministério, área, EBD, PGM ou campanha."
+              ? "Uso livre, sem vínculo automático a ministério/área/EBD/PGM/campanha — mas pode entrar como subgrupo de qualquer centro já existente."
               : "Tipo de vínculo não muda por aqui — vem do jeito que o centro nasceu."}
           </DialogDescription>
         </DialogHeader>
@@ -107,6 +131,40 @@ export function CentroCustoForm({ open, onOpenChange, centro, onSaved }: Props) 
               onChange={(e) => setOrcamentoTexto(e.target.value)}
               placeholder="Opcional" />
           </div>
+
+          {/* Só na criação — depois de nascido, o vínculo é estrutural
+              (ver comentário no topo do arquivo). */}
+          {criando && (
+            <div>
+              <Label>Centro pai (opcional)</Label>
+              <Select value={centroPaiId || "__nenhum__"} onValueChange={(v) => {
+                const novoId = v === "__nenhum__" ? "" : v;
+                setCentroPaiId(novoId);
+                // Sugere o prefixo "{Pai} · " no nome — mesmo padrão que
+                // já existe nos 5 subgrupos de Min. Administração
+                // (Administração · Patrimônio, · Pessoal...). Só quando o
+                // nome ainda está vazio, pra não sobrescrever o que a
+                // pessoa já digitou.
+                if (novoId && !nome.trim()) {
+                  const pai = paisDisponiveis.find(c => c.id === novoId);
+                  if (pai) setNome(`${pai.nome.replace(/^Min\.\s*/, "")} · `);
+                }
+              }}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__nenhum__">Nenhum — centro principal</SelectItem>
+                  {paisDisponiveis.map(c => (
+                    <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">
+                {centroPaiId
+                  ? `Vira um subgrupo contábil dentro de "${paiEscolhido?.nome}" — aparece lá dentro, não na lista principal.`
+                  : "Sem pai, este centro entra na lista principal, igual aos de ministério/área/EBD/PGM/campanha."}
+              </p>
+            </div>
+          )}
 
           <div>
             <Label>Cor</Label>

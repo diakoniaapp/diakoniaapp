@@ -5,20 +5,22 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   ArrowLeft, Layers, Loader2, Calendar, TrendingUp, TrendingDown,
-  Paperclip, FileText,
+  Paperclip, FileText, ChevronRight, CornerUpLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  listarLancamentosSemTeto, comprovanteSignedUrl, brl,
-  type FinLancamentoExtenso,
+  listarLancamentosSemTeto, listarCentrosCusto, comprovanteSignedUrl, brl,
+  VINCULO_LABEL, VINCULO_COR,
+  type FinLancamentoExtenso, type FinCentroCusto, type FinCentroVinculo,
 } from "@/services/finService";
 import { supabase } from "@/integrations/supabase/client";
 import { PaginaSkeleton } from "@/components/ListState";
 
 interface CentroInfo {
   id: string; nome: string;
-  vinculo_tipo: string;
+  vinculo_tipo: FinCentroVinculo;
   vinculo_nome: string | null;
+  centro_pai_id: string | null;
   cor: string | null;
 }
 
@@ -29,6 +31,16 @@ function dataBr(s: string) {
 export default function FinancasCentroDetalhe() {
   const { centroId = "" } = useParams();
   const [centro, setCentro] = useState<CentroInfo | null>(null);
+  const [centroPai, setCentroPai] = useState<FinCentroCusto | null>(null);
+  // Subgrupos contábeis DESTE centro — pedido da Telma (17/09/2026):
+  // "clicando em min adm, abre os subgrupos deste centro... e assim com
+  // os demais sub grupos que eu criar". Cada subgrupo é seu próprio
+  // `fin_centros_custo` (`centro_pai_id` apontando pra este), e os
+  // lançamentos de verdade ficam classificados NELE, não no pai — "Min.
+  // Administração" sozinho normalmente não tem lançamento nenhum, quem
+  // tem são "Administração · Patrimônio", "· Pessoal" etc. Por isso os
+  // totais abaixo somam o centro pai E todos os subgrupos juntos.
+  const [subgrupos, setSubgrupos] = useState<FinCentroCusto[]>([]);
   const [lancs, setLancs] = useState<FinLancamentoExtenso[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -38,21 +50,30 @@ export default function FinancasCentroDetalhe() {
     if (!centroId) return;
     setLoading(true);
     try {
-      const { data: c } = await supabase
-        .from("fin_centros_custo")
-        .select("id, nome, vinculo_tipo, vinculo_nome, cor")
-        .eq("id", centroId).maybeSingle();
+      const [{ data: c }, todosCentros] = await Promise.all([
+        supabase.from("fin_centros_custo")
+          .select("id, nome, vinculo_tipo, vinculo_nome, centro_pai_id, cor")
+          .eq("id", centroId).maybeSingle(),
+        listarCentrosCusto(),
+      ]);
       setCentro(c as any);
 
-      // Sem data — histórico do centro inteiro. `listarLancamentos` (teto
-      // de 300) até 16/09/2026: "Total gasto"/"Total recebido" viria
-      // errado assim que um centro de custo passasse de 300 lançamentos —
-      // mesmo bug achado e corrigido em `gerarPrestacaoContas`. Nenhum
-      // centro chega lá hoje (medido: máx. ~250), mas é preventivo — a
-      // classificação por centro de custo está crescendo (ver Administração
-      // e seus 5 subgrupos contábeis).
-      const ls = await listarLancamentosSemTeto({ centroCustoId: centroId });
-      setLancs(ls);
+      const filhos = todosCentros.filter(sc => sc.centro_pai_id === centroId);
+      setSubgrupos(filhos);
+      setCentroPai(c?.centro_pai_id ? (todosCentros.find(pc => pc.id === c.centro_pai_id) ?? null) : null);
+
+      // Sem data — histórico do centro inteiro (+ subgrupos, se tiver).
+      // `listarLancamentos` (teto de 300) até 16/09/2026: "Total gasto"/
+      // "Total recebido" viria errado assim que um centro de custo
+      // passasse de 300 lançamentos — mesmo bug achado e corrigido em
+      // `gerarPrestacaoContas`. Nenhum centro chega lá sozinho hoje
+      // (medido: máx. ~250), mas somá-los é ainda mais motivo pra
+      // continuar sem teto.
+      const idsParaSomar = [centroId, ...filhos.map(f => f.id)];
+      const blocos = await Promise.all(
+        idsParaSomar.map(id => listarLancamentosSemTeto({ centroCustoId: id })),
+      );
+      setLancs(blocos.flat());
     } catch (e: any) { toast.error(e?.message ?? "Erro"); }
     finally { setLoading(false); }
   }
@@ -99,11 +120,24 @@ export default function FinancasCentroDetalhe() {
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-4">
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" size="icon"><Link to="/financas/centros"><ArrowLeft className="w-4 h-4" /></Link></Button>
-        <div className="flex-1">
-          <h1 className="font-serif text-xl flex items-center gap-2">
-            <Layers className="w-5 h-5 text-gold" />
+        <div className="flex-1 min-w-0">
+          {/* Breadcrumb pro centro pai — só existe quando ESTE centro é
+              um subgrupo (`centro_pai_id` preenchido). Sem isso, quem
+              chega direto num link de subgrupo (compartilhado, ou vindo
+              de um lançamento antigo) não tem como saber "de quem" esse
+              subgrupo é sem voltar pra lista e procurar. */}
+          {centroPai && (
+            <Link to={`/financas/centro/${centroPai.id}`}
+              className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mb-0.5">
+              <CornerUpLeft className="w-3 h-3" /> {centroPai.nome}
+            </Link>
+          )}
+          <h1 className="font-serif text-xl flex items-center gap-2 truncate">
+            <Layers className="w-5 h-5 text-gold shrink-0" />
             {centro.nome}
-            <Badge variant="outline" className="text-xs">{centro.vinculo_tipo}</Badge>
+            <Badge variant="outline" className={`text-xs shrink-0 ${VINCULO_COR[centro.vinculo_tipo]}`}>
+              {VINCULO_LABEL[centro.vinculo_tipo]}
+            </Badge>
           </h1>
           {centro.vinculo_nome && (
             <p className="text-xs text-muted-foreground">Vinculado a: {centro.vinculo_nome}</p>
@@ -116,7 +150,44 @@ export default function FinancasCentroDetalhe() {
         </Button>
       </div>
 
-      {/* Stats */}
+      {/* Subgrupos contábeis deste centro — pedido da Telma (17/09/2026).
+          Cada card mostra o total de gasto DELE (recortado de `lancs`,
+          que já traz o pai + todos os subgrupos juntos) e linka pra
+          própria página de detalhe, que por sua vez não tem subgrupo
+          nenhum (1 nível só, dado real de hoje). */}
+      {subgrupos.length > 0 && (
+        <div className="space-y-1.5">
+          <h2 className="text-xs uppercase tracking-wide text-muted-foreground px-1">
+            Subgrupos ({subgrupos.length})
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
+            {subgrupos.map(sg => {
+              const gastoSg = lancs
+                .filter(l => l.centro_custo_id === sg.id && (l.status === "realizado" || l.status === "conciliado") && l.tipo === "saida")
+                .reduce((s, l) => s + Number(l.valor), 0);
+              return (
+                <Link key={sg.id} to={`/financas/centro/${sg.id}`}
+                  className="flex items-center justify-between gap-2 border rounded-md px-3 py-2 hover:bg-muted/30"
+                  style={{ borderLeftColor: sg.cor ?? undefined, borderLeftWidth: sg.cor ? "3px" : undefined }}>
+                  <span className="text-sm font-medium truncate">{sg.nome}</span>
+                  <span className="text-sm font-semibold tabular-nums text-destructive-text shrink-0">{brl(gastoSg)}</span>
+                  <ChevronRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Stats — soma pai + subgrupos quando tem (ver comentário de
+          `carregar()`); sem isso, "Total gasto" de um centro com
+          subgrupo apareceria zerado mesmo tendo dinheiro gasto de
+          verdade, só que classificado nos filhos. */}
+      {subgrupos.length > 0 && (
+        <p className="text-xs text-muted-foreground px-1">
+          Totais abaixo somam este centro + os {subgrupos.length} subgrupo{subgrupos.length > 1 ? "s" : ""} acima.
+        </p>
+      )}
       <div className="grid grid-cols-3 gap-2">
         <Card>
           <CardContent className="py-2 px-3">
@@ -197,6 +268,12 @@ export default function FinancasCentroDetalhe() {
                   <p className="text-sm font-medium truncate">{l.descricao ?? "—"}</p>
                   <p className="text-xs text-muted-foreground">
                     {dataBr(l.data)}
+                    {/* Com subgrupo, a lista mistura lançamentos de mais
+                        de um centro (pai + cada filho) — sem mostrar QUAL
+                        deles aqui, não dava pra saber se um gasto era do
+                        pai ou de um subgrupo específico só olhando a
+                        lista combinada. */}
+                    {subgrupos.length > 0 && l.centro_nome && l.centro_nome !== centro.nome && ` · ${l.centro_nome}`}
                     {l.categoria_nome && ` · ${l.categoria_nome}`}
                     {l.conta_nome && ` · ${l.conta_nome}`}
                     {l.fornecedor_nome && ` · ${l.fornecedor_nome}`}

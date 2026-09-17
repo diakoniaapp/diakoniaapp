@@ -392,7 +392,7 @@ export default function FinancasAdmin() {
 
           <p className="text-xs text-muted-foreground text-center">
             {podeEstruturar
-              ? "Os demais centros nascem sozinhos, sincronizados a partir de ministérios, áreas, classes EBD, grupos de PGM e campanhas — \"Geral\" é o único tipo criável à mão. Centro em uso mostra quantos lançamentos ficarão sem centro de custo antes de confirmar."
+              ? "Os demais centros nascem sozinhos, sincronizados a partir de ministérios, áreas, classes EBD, grupos de PGM e campanhas — \"Geral\" e \"Subgrupo contábil\" são os únicos tipos criáveis à mão (Novo centro de custo, escolhendo um centro pai). Centro em uso mostra quantos lançamentos ficarão sem centro de custo antes de confirmar."
               : "Centros de custo nascem sozinhos, sincronizados a partir de ministérios, áreas, classes EBD, grupos de PGM e campanhas. Criar e excluir centro é restrito à administradora do sistema."}
           </p>
         </TabsContent>
@@ -414,6 +414,7 @@ export default function FinancasAdmin() {
         open={ccOpen}
         onOpenChange={(v) => { setCcOpen(v); if (!v) setCcEdit(null); }}
         centro={ccEdit}
+        centrosDisponiveis={centros}
         onSaved={carregar}
       />
 
