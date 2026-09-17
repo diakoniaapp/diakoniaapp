@@ -2,6 +2,10 @@ import { useEffect, useState } from "react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -39,6 +43,10 @@ export function DocumentosFiscaisDialog({ open, onOpenChange, agendaId, nomeObri
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [tipo, setTipo] = useState<FiscalDocTipo>("comprovante");
   const [obs, setObs] = useState("");
+  // `confirm()` nativo não dispara em WebView (CLAUDE.md Risco 3) — mesmo
+  // defeito já achado em várias telas do financeiro nesta sessão (17/09/2026).
+  const [apagando, setApagando] = useState<FiscalDocumento | null>(null);
+  const [apagandoBusy, setApagandoBusy] = useState(false);
 
   async function carregar() {
     setLoading(true);
@@ -72,15 +80,19 @@ export function DocumentosFiscaisDialog({ open, onOpenChange, agendaId, nomeObri
     }
   }
 
-  async function excluir(doc: FiscalDocumento) {
-    if (!confirm(`Excluir "${doc.nome_arquivo}"?`)) return;
+  async function confirmarExcluir() {
+    if (!apagando) return;
+    setApagandoBusy(true);
     try {
-      await excluirDocumentoFiscal(doc);
+      await excluirDocumentoFiscal(apagando);
       toast.success("Documento removido");
+      setApagando(null);
       await carregar();
       onChange?.();
     } catch (err: any) {
       toast.error(err?.message ?? "Erro ao excluir");
+    } finally {
+      setApagandoBusy(false);
     }
   }
 
@@ -165,13 +177,31 @@ export function DocumentosFiscaisDialog({ open, onOpenChange, agendaId, nomeObri
               <button onClick={() => ver(d)} title="Abrir" className="p-1 hover:bg-muted rounded">
                 <ExternalLink className="w-3.5 h-3.5 text-info-text" />
               </button>
-              <button onClick={() => excluir(d)} title="Excluir" className="p-1 hover:bg-destructive-soft rounded">
+              <button onClick={() => setApagando(d)} title="Excluir" className="p-1 hover:bg-destructive-soft rounded">
                 <Trash2 className="w-3.5 h-3.5 text-destructive-text" />
               </button>
             </div>
           ))}
         </div>
       </DialogContent>
+
+      <AlertDialog open={!!apagando} onOpenChange={(v) => !v && setApagando(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir documento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              "{apagando?.nome_arquivo}" — não pode ser desfeito.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={apagandoBusy}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); confirmarExcluir(); }} disabled={apagandoBusy}
+              className="bg-destructive hover:bg-destructive/90 text-white">
+              {apagandoBusy ? "..." : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

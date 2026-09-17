@@ -4,6 +4,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   ArrowLeft, RotateCw, Plus, Pencil, Trash2, PowerOff, RotateCcw,
   TrendingUp, TrendingDown, Loader2, Sparkles,
 } from "lucide-react";
@@ -22,6 +26,11 @@ export default function FinancasRecorrencias() {
   const [open, setOpen] = useState(false);
   const [editando, setEditando] = useState<FinRecorrencia | null>(null);
   const [gerando, setGerando] = useState(false);
+  // `confirm()` nativo não dispara em WebView (CLAUDE.md Risco 3) — mesmo
+  // defeito já achado em FinancasAgenda.tsx/FinancasOrcamento.tsx na
+  // mesma sessão (17/09/2026, "o botão pagar não leva a nenhum lugar").
+  const [apagando, setApagando] = useState<FinRecorrencia | null>(null);
+  const [apagandoBusy, setApagandoBusy] = useState(false);
 
   useEffect(() => { carregar(); }, []);
 
@@ -48,13 +57,16 @@ export default function FinancasRecorrencias() {
     await carregar();
   }
 
-  async function excluir(r: FinRecorrencia) {
-    if (!confirm(`Excluir "${r.descricao}"? Os lançamentos previstos ja gerados ficam.`)) return;
+  async function confirmarExcluir() {
+    if (!apagando) return;
+    setApagandoBusy(true);
     try {
-      await excluirRecorrencia(r.id);
+      await excluirRecorrencia(apagando.id);
       toast.success("Excluído");
+      setApagando(null);
       await carregar();
     } catch (e: any) { toast.error(e?.message ?? "Erro"); }
+    finally { setApagandoBusy(false); }
   }
 
   if (loading) return <PaginaSkeleton />;
@@ -126,7 +138,7 @@ export default function FinancasRecorrencias() {
                   {r.ativo ? <PowerOff className="w-3.5 h-3.5 text-warning-text" /> : <RotateCcw className="w-3.5 h-3.5 text-success-text" />}
                 </Button>
                 <Button type="button" variant="ghost" size="icon"
-                  className="h-7 w-7 text-destructive" onClick={() => excluir(r)} title="Excluir">
+                  className="h-7 w-7 text-destructive" onClick={() => setApagando(r)} title="Excluir">
                   <Trash2 className="w-3.5 h-3.5" />
                 </Button>
               </div>
@@ -137,6 +149,24 @@ export default function FinancasRecorrencias() {
 
       <RecorrenciaForm open={open} onOpenChange={(v) => { setOpen(v); if (!v) setEditando(null); }}
         recorrencia={editando} onSaved={carregar} />
+
+      <AlertDialog open={!!apagando} onOpenChange={(v) => !v && setApagando(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir recorrência?</AlertDialogTitle>
+            <AlertDialogDescription>
+              "{apagando?.descricao}" — os lançamentos previstos já gerados ficam.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={apagandoBusy}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); confirmarExcluir(); }} disabled={apagandoBusy}
+              className="bg-destructive hover:bg-destructive/90 text-white">
+              {apagandoBusy ? "..." : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

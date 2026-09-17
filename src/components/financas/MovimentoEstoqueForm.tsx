@@ -3,6 +3,10 @@ import { hojeLocal } from "@/lib/data";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -30,6 +34,11 @@ export function MovimentoEstoqueForm({ open, onOpenChange, item, onSaved }: Prop
   const [data, setData] = useState(hojeLocal());
   const [motivo, setMotivo] = useState("");
   const [busy, setBusy] = useState(false);
+  // `confirm()` nativo não dispara em WebView (CLAUDE.md Risco 3) — mesmo
+  // defeito já achado em várias telas do financeiro nesta sessão
+  // (17/09/2026). Aqui era só um aviso antes de deixar saldo negativo, não
+  // uma ação destrutiva — vira `AlertDialog` que já entra confirmado.
+  const [confirmandoNegativo, setConfirmandoNegativo] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -38,15 +47,10 @@ export function MovimentoEstoqueForm({ open, onOpenChange, item, onSaved }: Prop
     setValorUnitario("");
     setData(hojeLocal());
     setMotivo("");
+    setConfirmandoNegativo(false);
   }, [open]);
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (quantidade <= 0) { toast.error("Quantidade inválida"); return; }
-    if (tipo === "saida" && quantidade > Number(item.estoque_atual)) {
-      if (!confirm(`Saída de ${quantidade} ${item.unidade} mas só tem ${item.estoque_atual} em estoque.\nDeixar saldo negativo?`)) return;
-    }
-
+  async function registrar() {
     setBusy(true);
     try {
       await registrarMovimento({
@@ -58,11 +62,22 @@ export function MovimentoEstoqueForm({ open, onOpenChange, item, onSaved }: Prop
         motivo: motivo.trim() || null,
       });
       toast.success("Movimento registrado");
+      setConfirmandoNegativo(false);
       onOpenChange(false);
       onSaved();
     } catch (e: any) {
       toast.error(e?.message ?? "Erro");
     } finally { setBusy(false); }
+  }
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (quantidade <= 0) { toast.error("Quantidade inválida"); return; }
+    if (tipo === "saida" && quantidade > Number(item.estoque_atual)) {
+      setConfirmandoNegativo(true);
+      return;
+    }
+    await registrar();
   }
 
   const novoEstoque = tipo === "entrada"
@@ -166,6 +181,23 @@ export function MovimentoEstoqueForm({ open, onOpenChange, item, onSaved }: Prop
           </DialogFooter>
         </form>
       </DialogContent>
+
+      <AlertDialog open={confirmandoNegativo} onOpenChange={(v) => !v && setConfirmandoNegativo(false)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deixar saldo negativo?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Saída de {quantidade} {item.unidade}, mas só tem {Number(item.estoque_atual)} em estoque.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); registrar(); }} disabled={busy}>
+              {busy ? "..." : "Registrar mesmo assim"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

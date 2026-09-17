@@ -12,6 +12,10 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   CalendarDays, Plus, Loader2, FileText, Sparkles, ChevronRight,
   ArrowLeft, Printer, Trash2, CheckCircle2, AlertTriangle, TrendingUp, TrendingDown,
 } from "lucide-react";
@@ -218,6 +222,13 @@ function DetalheReuniao({ id, voltar }: { id: string; voltar: () => void }) {
   const [gerando, setGerando] = useState(false);
   const [novaDecisao, setNovaDecisao] = useState("");
   const [novoPrazo, setNovoPrazo] = useState("");
+  // `confirm()` nativo não dispara em WebView (CLAUDE.md Risco 3) — mesmo
+  // defeito já achado em FinancasAgenda.tsx/FinancasOrcamento.tsx/
+  // FinancasRecorrencias.tsx na mesma sessão (17/09/2026). Um estado só
+  // pras duas ações ("realizar"/"excluir") — mesmo padrão de
+  // FinancasAdmin.tsx (união discriminada num `apagando` só).
+  const [confirmandoAcao, setConfirmandoAcao] = useState<"realizar" | "excluir" | null>(null);
+  const [confirmandoBusy, setConfirmandoBusy] = useState(false);
 
   async function carregar() {
     setLoading(true);
@@ -263,18 +274,22 @@ function DetalheReuniao({ id, voltar }: { id: string; voltar: () => void }) {
     }
   }
 
-  async function marcarRealizada() {
-    if (!reuniao) return;
-    if (!confirm("Marcar como realizada e arquivar a pauta?")) return;
-    await atualizarReuniao(id, { status: "realizada" });
-    toast.success("Reunião arquivada");
-    await carregar();
-  }
-
-  async function excluir() {
-    if (!confirm("Excluir reunião? As decisões viraram assuntos e ficam preservadas.")) return;
-    await excluirReuniao(id);
-    voltar();
+  async function confirmarAcaoPendente() {
+    if (!confirmandoAcao) return;
+    setConfirmandoBusy(true);
+    try {
+      if (confirmandoAcao === "realizar") {
+        await atualizarReuniao(id, { status: "realizada" });
+        toast.success("Reunião arquivada");
+        setConfirmandoAcao(null);
+        await carregar();
+      } else {
+        await excluirReuniao(id);
+        setConfirmandoAcao(null);
+        voltar();
+      }
+    } catch (e: any) { toast.error(e?.message ?? "Erro"); }
+    finally { setConfirmandoBusy(false); }
   }
 
   if (loading || !reuniao) {
@@ -294,14 +309,36 @@ function DetalheReuniao({ id, voltar }: { id: string; voltar: () => void }) {
           <Printer className="w-3.5 h-3.5" /> Imprimir / PDF
         </Button>
         {reuniao.status !== "realizada" && (
-          <Button size="sm" variant="outline" onClick={marcarRealizada} className="gap-1.5 text-success-text">
+          <Button size="sm" variant="outline" onClick={() => setConfirmandoAcao("realizar")} className="gap-1.5 text-success-text">
             <CheckCircle2 className="w-3.5 h-3.5" /> Marcar realizada
           </Button>
         )}
-        <Button size="sm" variant="ghost" onClick={excluir} className="gap-1.5 text-destructive-text">
+        <Button size="sm" variant="ghost" onClick={() => setConfirmandoAcao("excluir")} className="gap-1.5 text-destructive-text">
           <Trash2 className="w-3.5 h-3.5" />
         </Button>
       </header>
+
+      <AlertDialog open={!!confirmandoAcao} onOpenChange={(v) => !v && setConfirmandoAcao(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmandoAcao === "realizar" ? "Marcar como realizada?" : "Excluir reunião?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmandoAcao === "realizar"
+                ? "Arquiva a pauta — a reunião sai da lista de agendadas."
+                : "As decisões viraram assuntos e ficam preservadas. Não dá pra desfazer."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={confirmandoBusy}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); confirmarAcaoPendente(); }} disabled={confirmandoBusy}
+              className={confirmandoAcao === "excluir" ? "bg-destructive hover:bg-destructive/90 text-white" : ""}>
+              {confirmandoBusy ? "..." : (confirmandoAcao === "realizar" ? "Marcar realizada" : "Excluir")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Cabeçalho imprimível */}
       <div className="hidden print:block text-center mb-4">

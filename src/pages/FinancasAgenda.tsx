@@ -23,6 +23,7 @@ import {
   type FinVencimento, type FinLancamentoExtenso,
 } from "@/services/finService";
 import { hojeMaisDias } from "@/lib/data";
+import { mensagemErro } from "@/lib/erroRede";
 
 function dataBr(s: string) {
   return new Date(s + "T00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
@@ -50,6 +51,14 @@ export default function FinancasAgenda() {
   const [rejeitando, setRejeitando] = useState<FinLancamentoExtenso | null>(null);
   const [motivoRejeicao, setMotivoRejeicao] = useState("");
   const [decidindo, setDecidindo] = useState(false);
+  // O botão "Pagar"/"Receber" usava `confirm()` nativo — reportado pela
+  // Telma (17/09/2026, print real): "o botão pagar não leva a nenhum
+  // lugar". Mesmo defeito documentado no CLAUDE.md (Risco 3) e já
+  // corrigido em FinancasAdmin.tsx/FinancasConta.tsx na mesma sessão:
+  // `confirm()` não dispara diálogo nenhum em WebView, devolve falso na
+  // hora, e o código lia isso como "cancelou" — sem erro, sem aviso.
+  const [confirmando, setConfirmando] = useState<FinVencimento | null>(null);
+  const [confirmandoBusy, setConfirmandoBusy] = useState(false);
 
   useEffect(() => { carregar(); }, [filtroTipo]);
 
@@ -73,13 +82,22 @@ export default function FinancasAgenda() {
     finally { setLoading(false); }
   }
 
-  async function confirmar(v: FinVencimento) {
-    if (!confirm(`Confirmar ${v.tipo === "saida" ? "pagamento" : "recebimento"} de ${brl(Number(v.valor))}?`)) return;
+  async function confirmarPagamentoDialog() {
+    if (!confirmando) return;
+    setConfirmandoBusy(true);
     try {
-      await confirmarPagamento(v.id);
-      toast.success(`${v.tipo === "saida" ? "Pago" : "Recebido"}!`);
+      await confirmarPagamento(confirmando.id);
+      toast.success(`${confirmando.tipo === "saida" ? "Pago" : "Recebido"}!`);
+      setConfirmando(null);
       await carregar();
-    } catch (e: any) { toast.error(e?.message ?? "Erro"); }
+    } catch (e: any) {
+      // "TypeError: Failed to fetch" cru assustava mais do que ajudava —
+      // achado ao vivo pela Telma (17/09/2026) tentando confirmar um
+      // pagamento com a conexão instável. `mensagemErro` (lib/erroRede.ts)
+      // troca isso por um aviso que diz o que fazer.
+      toast.error(mensagemErro(e, "Não foi possível confirmar"));
+    }
+    finally { setConfirmandoBusy(false); }
   }
 
   async function confirmarAprovacao() {
@@ -249,7 +267,7 @@ export default function FinancasAgenda() {
                     <p className={`text-sm font-semibold tabular-nums mr-2 ${v.tipo === "entrada" ? "text-success-text" : "text-destructive-text"}`}>
                       {brl(Number(v.valor))}
                     </p>
-                    <Button size="sm" onClick={() => confirmar(v)}
+                    <Button size="sm" onClick={() => setConfirmando(v)}
                       className="bg-success hover:bg-success text-white gap-1 h-7 text-xs">
                       <CheckCircle2 className="w-3 h-3" /> {v.tipo === "saida" ? "Pagar" : "Receber"}
                     </Button>
@@ -323,6 +341,26 @@ export default function FinancasAgenda() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!confirmando} onOpenChange={(v) => !v && setConfirmando(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Confirmar {confirmando?.tipo === "saida" ? "pagamento" : "recebimento"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmando?.descricao ?? "Este lançamento"} — {confirmando && brl(Number(confirmando.valor))}.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={confirmandoBusy}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); confirmarPagamentoDialog(); }} disabled={confirmandoBusy}
+              className="bg-success hover:bg-success text-white">
+              {confirmandoBusy ? "..." : (confirmando?.tipo === "saida" ? "Pagar" : "Receber")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -9,6 +9,10 @@ import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
@@ -30,6 +34,12 @@ export default function FinancasOrcamento() {
   const [valor, setValor] = useState<number>(0);
   const [mensal, setMensal] = useState(true);
   const [busy, setBusy] = useState(false);
+  // `confirm()` nativo não dispara em WebView (CLAUDE.md Risco 3) — mesmo
+  // defeito achado ao vivo em FinancasAgenda.tsx (17/09/2026, "o botão
+  // pagar não leva a nenhum lugar"); esta tela tinha o mesmo problema no
+  // "Excluir", só que ninguém tinha reportado ainda.
+  const [apagando, setApagando] = useState<FinOrcamentoVsReal | null>(null);
+  const [apagandoBusy, setApagandoBusy] = useState(false);
 
   useEffect(() => { carregar(); }, []);
 
@@ -70,12 +80,15 @@ export default function FinancasOrcamento() {
     } finally { setBusy(false); }
   }
 
-  async function deletar(id: string) {
-    if (!confirm("Excluir esta linha de orçamento?")) return;
+  async function confirmarDeletar() {
+    if (!apagando) return;
+    setApagandoBusy(true);
     try {
-      await excluirOrcamento(id);
+      await excluirOrcamento(apagando.id);
+      setApagando(null);
       await carregar();
     } catch (e: any) { toast.error(e?.message ?? "Erro"); }
+    finally { setApagandoBusy(false); }
   }
 
   if (loading) return <PaginaSkeleton />;
@@ -164,7 +177,7 @@ export default function FinancasOrcamento() {
                       </p>
                     </div>
                     <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive"
-                      onClick={() => deletar(o.id)}>
+                      onClick={() => setApagando(o)}>
                       <Trash2 className="w-3.5 h-3.5" />
                     </Button>
                   </div>
@@ -235,6 +248,25 @@ export default function FinancasOrcamento() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!apagando} onOpenChange={(v) => !v && setApagando(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir esta linha de orçamento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {apagando?.centro_nome} — {apagando && brl(Number(apagando.valor_planejado))} planejado.
+              Não dá pra desfazer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={apagandoBusy}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); confirmarDeletar(); }} disabled={apagandoBusy}
+              className="bg-destructive hover:bg-destructive/90 text-white">
+              {apagandoBusy ? "..." : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
