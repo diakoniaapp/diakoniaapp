@@ -70,8 +70,18 @@ export default function FinancasFornecedores() {
   const filtrados = useMemo(() => {
     if (busca.length < 2) return fornecedores;
     const termo = normalizar(busca);
+    // Achado ao vivo pela Telma (17/09/2026): buscar "Daniel" (sem nenhum
+    // dígito) mostrava a lista inteira, sem filtrar nada. Causa:
+    // `"qualquer coisa".includes("")` é sempre `true` em JS — uma busca só
+    // de letras zera `busca.replace(/\D/g, "")`, e o `||` do CNPJ/CPF
+    // vencia a comparação de nome pra TODA LINHA. `qtdDigitos.length >= 3`
+    // guarda a mesma corrida que `Membros.tsx` já resolve na busca de
+    // telefone — só entra na comparação de dígito quem de fato digitou
+    // dígito.
+    const digitosBusca = busca.replace(/\D/g, "");
     return fornecedores.filter(f =>
-      normalizar(f.nome).includes(termo) || (f.cnpj_cpf ?? "").includes(busca.replace(/\D/g, "")));
+      normalizar(f.nome).includes(termo)
+      || (digitosBusca.length >= 3 && (f.cnpj_cpf ?? "").includes(digitosBusca)));
   }, [fornecedores, busca]);
 
   async function confirmarAlternar() {
