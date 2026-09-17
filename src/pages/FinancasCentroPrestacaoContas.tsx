@@ -305,7 +305,9 @@ export default function FinancasCentroPrestacaoContas() {
                   {lancamentos.slice().sort((a, b) => a.data.localeCompare(b.data)).map(l => (
                     <tr key={l.id} className="border-b border-border/40">
                       <td className="py-1 pr-1 whitespace-nowrap">{dataBr(l.data)}</td>
-                      <td className="py-1 pr-1">{l.tipo === "entrada" ? "▲" : "▼"}</td>
+                      <td className={`py-1 pr-1 ${l.tipo === "entrada" ? "text-success-text" : "text-destructive-text"}`}>
+                        {l.tipo === "entrada" ? "▲" : "▼"}
+                      </td>
                       <td className="py-1 pr-1 truncate">{l.descricao ?? "—"}</td>
                       <td className="py-1 pr-1 text-muted-foreground truncate">{l.categoria_nome ?? "—"}</td>
                       <td className="py-1 pr-1 text-muted-foreground truncate">{l.documento_numero ?? ""}</td>
