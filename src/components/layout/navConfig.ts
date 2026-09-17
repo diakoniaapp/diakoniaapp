@@ -271,6 +271,10 @@ export const NAV_GROUPS: NavGroup[] = [
       // apontava pra ela, mesmo o comentário de `Financas.tsx` dizendo o
       // contrário ("mora no menu lateral e no Painel da Tesouraria").
       { to: "/financas/centros",   label: "Centros de Custo",    icon: Layers,     allowedRoles: ROLES_FINANCEIRO },
+      // Mesmo achado de "Centros de Custo" acima, dessa vez perguntado
+      // direto ("onde está insights da tesouraria?", 17/09/2026) — só
+      // alcançável pelo "Ir para" do Painel da Tesouraria.
+      { to: "/financas/insights",  label: "Insights",            icon: Sparkles,   allowedRoles: ROLES_FINANCEIRO },
       { to: "/financas/doacoes",   label: "Doações",             icon: HandCoins,  allowedRoles: ROLES_FINANCEIRO },
       { to: "/financas/doadores",  label: "Doadores",            icon: Users,      allowedRoles: ROLES_DOADORES },
       { to: "/financas/fiscal",    label: "Módulo Fiscal",       icon: DollarSign, allowedRoles: ROLES_FINANCEIRO },
