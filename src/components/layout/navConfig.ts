@@ -13,6 +13,7 @@ import {
   CheckSquare, UserCheck, Sprout, Gavel,
   ShoppingBag, type LucideIcon,
   ClipboardCheck, Wallet, HandCoins, Layers,
+  RotateCw, Receipt, Target, Package, Briefcase,
 } from "lucide-react";
 import type { AppRole } from "@/hooks/useAuth";
 
@@ -264,6 +265,18 @@ export const NAV_GROUPS: NavGroup[] = [
     allowedRoles: ROLES_FINANCEIRO,
     items: [
       { to: "/financas",           label: "Tesouraria",          icon: DollarSign, allowedRoles: ROLES_FINANCEIRO },
+      // As 7 linhas abaixo (17/09/2026): mesmo achado de "Centros de
+      // Custo"/"Insights" — todas essas telas só eram alcançáveis pelo
+      // "Ir para" do Painel da Tesouraria (23 links lá, 9 no menu lateral
+      // até este commit). Pedido explícito da Telma ("adicione") depois
+      // de perguntar por Insights e eu ter apontado a lacuna toda.
+      { to: "/financas/agenda",       label: "Agenda Financeira",   icon: CalendarDays, allowedRoles: ROLES_FINANCEIRO },
+      { to: "/financas/recorrencias", label: "Recorrências",        icon: RotateCw,      allowedRoles: ROLES_FINANCEIRO },
+      { to: "/financas/relatorio",    label: "Malote Contábil",     icon: Receipt,       allowedRoles: ROLES_FINANCEIRO },
+      { to: "/financas/fornecedores", label: "Fornecedores",        icon: Building2,     allowedRoles: ROLES_FINANCEIRO },
+      { to: "/financas/orcamento",    label: "Orçamento",           icon: Target,        allowedRoles: ROLES_FINANCEIRO },
+      { to: "/financas/estoque",      label: "Estoque",             icon: Package,       allowedRoles: ROLES_FINANCEIRO },
+      { to: "/financas/folha",        label: "Folha",               icon: Briefcase,     allowedRoles: ROLES_FINANCEIRO },
       // Achado pela Telma (17/09/2026): a tela existia (`/financas/centros`,
       // com ranking, alertas de orçamento e "crescimento atípico") desde
       // 13/09/2026, mas só era alcançável pelo link "Ir para" do Painel da
