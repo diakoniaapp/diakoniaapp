@@ -71,7 +71,41 @@ export function FechamentoDialog({ open, onOpenChange, caixaId, reservaFinalidad
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="relatorio-page max-w-2xl">
+        {/* Impressão — achado ao revisar todas as telas de impressão
+            (17/09/2026, pedido da Telma: "está limitando apenas para
+            alguns dados"). Este Dialog nunca tinha o escape do `<main>` do
+            AppLayout nem do próprio `DialogContent` — que por padrão
+            (`components/ui/dialog.tsx`) é `position: fixed` com
+            `max-h-[92vh] overflow-y-auto`: sem override, a impressão só
+            capturava o que já estava visível dentro dessa caixa de 92vh
+            rolada até onde a Telma estava olhando, cortando o resto do
+            fechamento. Mesmo padrão de `FinancasConta.tsx`, adaptado pra
+            cancelar o `fixed`/`transform`/altura máxima do Dialog. */}
+        <style>{`
+          @media print {
+            @page { size: A4; margin: 1.5cm; }
+            html, body { background: white !important; height: auto !important; overflow: visible !important; }
+            body * { visibility: hidden !important; }
+            .relatorio-page, .relatorio-page * { visibility: visible !important; }
+            .relatorio-page {
+              position: absolute !important;
+              left: 0 !important; top: 0 !important; right: 0 !important;
+              width: 100% !important; max-width: 100% !important;
+              max-height: none !important; overflow: visible !important;
+              transform: none !important;
+              margin: 0 !important; padding: 0 !important;
+              box-shadow: none !important; border: none !important;
+              background: white !important;
+            }
+            .relatorio-page * {
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            .relatorio-page .overflow-y-auto { overflow: visible !important; max-height: none !important; }
+            .relatorio-page tr { page-break-inside: avoid; }
+          }
+        `}</style>
         <DialogHeader>
           <DialogTitle>Fechamento do caixa</DialogTitle>
         </DialogHeader>
@@ -149,21 +183,23 @@ export function FechamentoDialog({ open, onOpenChange, caixaId, reservaFinalidad
               <Label className="text-xs flex items-center gap-1">
                 <TrendingUp className="w-3 h-3" /> Vendas registradas
               </Label>
+              {/* Sem corte de 20 linhas (achado 17/09/2026): isto é o
+                  registro oficial do fechamento — cortar vendas aqui é
+                  perda de dado contábil, não só de tela. A rolagem
+                  (`max-h-40 overflow-y-auto`) já resolve a usabilidade na
+                  tela sem tirar nenhuma venda do DOM; a impressão cancela
+                  esse limite (`.relatorio-page .overflow-y-auto` no
+                  `<style>` acima) e mostra todas. */}
               <div className="max-h-40 overflow-y-auto mt-1">
                 <table className="w-full text-xs">
                   <tbody className="divide-y">
-                    {vendasAtivas.slice(0, 20).map(v => (
+                    {vendasAtivas.map(v => (
                       <tr key={v.id}>
                         <td className="py-0.5">{new Date(v.data_venda).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</td>
                         <td className="text-muted-foreground">{v.forma_pagamento}</td>
                         <td className="text-right tabular-nums">{fmtBR(v.valor_total)}</td>
                       </tr>
                     ))}
-                    {vendasAtivas.length > 20 && (
-                      <tr><td colSpan={3} className="text-center text-muted-foreground text-xs py-1">
-                        + {vendasAtivas.length - 20} venda(s) anteriores
-                      </td></tr>
-                    )}
                   </tbody>
                 </table>
               </div>

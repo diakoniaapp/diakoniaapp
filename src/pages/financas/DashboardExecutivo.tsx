@@ -96,7 +96,36 @@ export default function DashboardExecutivo() {
   }
 
   return (
-    <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-5 print:max-w-full">
+    <div className="relatorio-page p-4 md:p-8 max-w-6xl mx-auto space-y-5 print:max-w-full print:p-0">
+      {/* Impressão — achado ao revisar todas as telas de impressão
+          (17/09/2026, pedido da Telma: "está limitando apenas para alguns
+          dados"). Faltava aqui o mesmo escape do `<main>` do AppLayout já
+          usado em `FinancasRelatorio.tsx`/`FinancasConta.tsx`: sem ele,
+          `<main>` (`overflow-y-auto` dentro de `h-screen overflow-hidden`)
+          só imprimia o trecho da página que já estava visível na rolagem
+          no momento do clique, cortando o resto do dashboard. */}
+      <style>{`
+        @media print {
+          @page { size: A4; margin: 1.5cm; }
+          html, body { background: white !important; height: auto !important; overflow: visible !important; }
+          body * { visibility: hidden !important; }
+          .relatorio-page, .relatorio-page * { visibility: visible !important; }
+          .relatorio-page {
+            position: absolute !important;
+            left: 0 !important; top: 0 !important; right: 0 !important;
+            width: 100% !important; max-width: 100% !important;
+            margin: 0 !important; padding: 0 !important;
+            box-shadow: none !important; border: none !important;
+            background: white !important;
+          }
+          .relatorio-page * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          .relatorio-page tr { page-break-inside: avoid; }
+          .avoid-break { page-break-inside: avoid; }
+        }
+      `}</style>
       {/* Header */}
       <header className="flex items-center gap-2 print:hidden">
         <Briefcase className="w-5 h-5 text-gold" />
