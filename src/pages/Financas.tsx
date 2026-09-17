@@ -2,15 +2,16 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import {
   DollarSign, Wallet, TrendingUp, TrendingDown, AlertTriangle,
   Plus, ChevronRight, Building2, CreditCard, PiggyBank, Mail, Coins,
-  Settings, ArrowRightLeft, Printer,
+  Settings, ArrowRightLeft, Printer, CalendarDays,
 } from "lucide-react";
 import {
   listarContas, resumoFinanceiroMes, indicadoresEclesiasticosMensais, brl, CONTA_TIPO_LABEL,
@@ -22,6 +23,11 @@ import { useAuth } from "@/hooks/useAuth";
 import { PaginaSkeleton } from "@/components/ListState";
 import { WidgetsDoPainel } from "@/dashboard/WidgetsDoPainel";
 import { ROLES_FINANCEIRO } from "@/components/layout/navConfig";
+import { toYmd, parseLocalDate } from "@/lib/data";
+
+function dataBr(s: string) {
+  return new Date(s + "T00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
+}
 
 const ICONE_CONTA: Record<string, JSX.Element> = {
   caixa:     <Wallet className="w-4 h-4" />,
@@ -65,18 +71,17 @@ export default function Financas() {
   const [imprimirOpen, setImprimirOpen] = useState(false);
   const [contasParaImprimir, setContasParaImprimir] = useState<Set<string>>(new Set());
   const hojeImpressao = new Date();
-  const [printDataInicio, setPrintDataInicio] = useState(
-    new Date(hojeImpressao.getFullYear(), hojeImpressao.getMonth(), 1).toISOString().slice(0, 10)
-  );
-  const [printDataFim, setPrintDataFim] = useState(
-    new Date(hojeImpressao.getFullYear(), hojeImpressao.getMonth() + 1, 0).toISOString().slice(0, 10)
-  );
-  // Mesmo defeito relatado ao vivo pela Telma em FinancasConta.tsx
-  // (17/09/2026, "clico para alterar e ela leva para meses que eu nao
-  // digitei"): mexer no `value`/`min` do campo que o usuário NÃO está
-  // tocando, a cada `onChange`, atrapalha o seletor nativo de data no
-  // celular. Cada campo guarda só o que foi escolhido nele; a ordem se
-  // resolve aqui, na hora de gerar o relatório.
+  const [printDataInicio, setPrintDataInicio] = useState(toYmd(new Date(hojeImpressao.getFullYear(), hojeImpressao.getMonth(), 1)));
+  const [printDataFim, setPrintDataFim] = useState(toYmd(new Date(hojeImpressao.getFullYear(), hojeImpressao.getMonth() + 1, 0)));
+  // Mesmo defeito relatado ao vivo pela Telma em FinancasConta.tsx: primeiro
+  // "clico para alterar e ela leva para meses que eu nao digitei" (o `min`
+  // dinâmico e o cruzamento entre campos, já sem efeito aqui), depois
+  // "continua com erro para DIGITAR a data; está funcionando apenas se
+  // escolher no ícone do calendário" (17/09/2026) — o teclado nativo do
+  // `<input type="date">` no WebView do celular é quem falha, não a lógica.
+  // Mesma troca pra calendário em popover feita em FinancasConta.tsx.
+  const [printCalInicioAberto, setPrintCalInicioAberto] = useState(false);
+  const [printCalFimAberto, setPrintCalFimAberto] = useState(false);
   const printInicioEfetivo = printDataInicio <= printDataFim ? printDataInicio : printDataFim;
   const printFimEfetivo = printDataInicio <= printDataFim ? printDataFim : printDataInicio;
 
@@ -333,13 +338,37 @@ export default function Financas() {
             <div className="grid grid-cols-2 gap-2">
               <div className="min-w-0">
                 <label className="text-xs uppercase tracking-wide text-muted-foreground">Data inicial</label>
-                <Input type="date" value={printDataInicio} onChange={(e) => setPrintDataInicio(e.target.value)}
-                  min="2000-01-01" max="2099-12-31" className="h-8 text-xs w-full" />
+                <Popover open={printCalInicioAberto} onOpenChange={setPrintCalInicioAberto}>
+                  <PopoverTrigger asChild>
+                    <Button type="button" variant="outline" size="sm"
+                      className="h-8 w-full justify-start gap-1.5 text-xs font-normal">
+                      <CalendarDays className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                      {dataBr(printDataInicio)}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarPicker mode="single" selected={parseLocalDate(printDataInicio)}
+                      defaultMonth={parseLocalDate(printDataInicio)}
+                      onSelect={(d) => { if (d) { setPrintDataInicio(toYmd(d)); setPrintCalInicioAberto(false); } }} />
+                  </PopoverContent>
+                </Popover>
               </div>
               <div className="min-w-0">
                 <label className="text-xs uppercase tracking-wide text-muted-foreground">Data final</label>
-                <Input type="date" value={printDataFim} onChange={(e) => setPrintDataFim(e.target.value)}
-                  min="2000-01-01" max="2099-12-31" className="h-8 text-xs w-full" />
+                <Popover open={printCalFimAberto} onOpenChange={setPrintCalFimAberto}>
+                  <PopoverTrigger asChild>
+                    <Button type="button" variant="outline" size="sm"
+                      className="h-8 w-full justify-start gap-1.5 text-xs font-normal">
+                      <CalendarDays className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                      {dataBr(printDataFim)}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarPicker mode="single" selected={parseLocalDate(printDataFim)}
+                      defaultMonth={parseLocalDate(printDataFim)}
+                      onSelect={(d) => { if (d) { setPrintDataFim(toYmd(d)); setPrintCalFimAberto(false); } }} />
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
             <div>

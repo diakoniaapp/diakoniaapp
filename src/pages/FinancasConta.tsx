@@ -12,10 +12,12 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import {
   ArrowLeft, DollarSign, Loader2, Plus, Search, Filter,
   TrendingUp, TrendingDown, Pencil, Trash2, Paperclip,
-  CheckCircle2, Clock, XCircle, Scale, FileUp, Printer, RefreshCw,
+  CheckCircle2, Clock, XCircle, Scale, FileUp, Printer, RefreshCw, CalendarDays,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -33,6 +35,7 @@ import { ImportacaoOmieDialog } from "@/components/financas/ImportacaoOmieDialog
 import { ImportacaoFaturaDialog } from "@/components/financas/ImportacaoFaturaDialog";
 import { ArrowRightLeft } from "lucide-react";
 import { PaginaSkeleton } from "@/components/ListState";
+import { toYmd, parseLocalDate } from "@/lib/data";
 
 function dataBr(s: string) {
   return new Date(s + "T00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
@@ -124,28 +127,29 @@ export default function FinancasConta() {
     return () => ro.disconnect();
   }, [faixaFixaEl]);
 
-  // Período do filtro — mês atual por default
+  // Período do filtro — mês atual por default. `toYmd` (não
+  // `.toISOString().slice(0,10)`) — essa última converte pra UTC antes de
+  // formatar, e lia o mês errado pertinho da virada (ver src/lib/data.ts).
   const hoje = new Date();
-  const [dataInicio, setDataInicio] = useState(
-    new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().slice(0, 10)
-  );
-  const [dataFim, setDataFim] = useState(
-    new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).toISOString().slice(0, 10)
-  );
+  const [dataInicio, setDataInicio] = useState(toYmd(new Date(hoje.getFullYear(), hoje.getMonth(), 1)));
+  const [dataFim, setDataFim] = useState(toYmd(new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0)));
   // Telma reportou ao vivo (17/09/2026), na conta "Caixinha
-  // Administrativo": "eu clico para alterar e ela leva para meses que
-  // eu nao digitei". Causa: a versão anterior escrevia no campo QUE o
-  // usuário não estava mexendo, a cada `onChange` — `min={dataInicio}`
-  // dinâmico na "Data final" e um `setDataFim`/`setDataInicio` cruzado
-  // pra impedir período invertido. Num seletor nativo de calendário
-  // (webview do celular), reatribuir `value`/`min` do OUTRO campo
-  // enquanto o usuário ainda está rolando/tocando no seu mexe com o
-  // estado interno do seletor aberto e ele pula de mês sozinho — o
-  // campo nunca fica só com o que foi de fato digitado/tocado.
-  // Correção: cada campo guarda exatamente o que foi escolhido nele, sem
-  // mexer no outro; se a ordem sair invertida (final antes de inicial),
-  // a consulta abaixo troca os dois só na hora de buscar — o usuário
-  // nunca vê o próprio campo mudar sozinho.
+  // Administrativo", em duas rodadas: primeiro "eu clico para alterar e
+  // ela leva para meses que eu nao digitei" (o `min` dinâmico e o
+  // cruzamento entre os dois campos, já corrigido abaixo), depois "continua
+  // com erro para DIGITAR a data; está funcionando apenas se escolher no
+  // ícone do calendário" — ou seja, o defeito real é o teclado do
+  // `<input type="date">` nativo no WebView do celular, não a lógica
+  // cruzada (que já tinha sido corrigida e o problema persistiu). Como o
+  // caminho por calendário já funciona pra ela, os dois campos trocaram o
+  // `<input type="date">` pelo mesmo padrão de calendário em popover que
+  // `FinancasPrestacaoContas.tsx` já usa (só que aqui escolhendo o DIA
+  // exato, não só mês) — elimina de vez a digitação que estava falhando,
+  // sem depender de adivinhar por que o teclado nativo não funcionava.
+  const [calInicioAberto, setCalInicioAberto] = useState(false);
+  const [calFimAberto, setCalFimAberto] = useState(false);
+  // Se a ordem sair invertida (final antes de inicial), a consulta abaixo
+  // troca os dois só na hora de buscar — nenhum campo precisa mudar sozinho.
   const inicioEfetivo = dataInicio <= dataFim ? dataInicio : dataFim;
   const fimEfetivo = dataInicio <= dataFim ? dataFim : dataInicio;
 
@@ -426,32 +430,52 @@ export default function FinancasConta() {
       <Card className="print:hidden">
         <CardContent className="py-2.5 px-3 grid grid-cols-2 md:grid-cols-6 gap-2 items-end">
           {/* min-w-0 — sem isso, o item do grid não encolhe abaixo da
-              largura mínima do `<input type="date">` nativo (os segmentos
-              dd/mm/aaaa + ícone de calendário do navegador), e a caixa
-              estoura a coluna em telas estreitas. Mesmo transbordo já
-              documentado no CLAUDE.md (§6.2) — achado pela Telma
-              (15/09/2026) neste filtro.
-              min/max — sem isso, o WebView deixa o segmento de ANO crescer
-              sem limite de dígitos ao digitar/corrigir (ex.: "26666"),
-              estourando a própria caixa por dentro — um transbordo
-              diferente do de cima, que não some com min-w-0. Achado ao
-              vivo pela Telma (16/09/2026), com print mostrando exatamente
-              esse valor no ano. */}
+              largura mínima do botão, e a caixa estoura a coluna em telas
+              estreitas. Mesmo transbordo já documentado no CLAUDE.md
+              (§6.2) — achado pela Telma (15/09/2026) neste filtro.
+              Calendário em popover, não `<input type="date">` nativo —
+              troca feita em 17/09/2026 depois da Telma confirmar, ao
+              vivo, que digitar direto no teclado nativo do WebView não
+              registrava nada ("está funcionando apenas se escolher no
+              ícone do calendário"), mesmo já sem o cruzamento entre os
+              dois campos que causava o defeito anterior. Cada campo só
+              grava o que foi escolhido NELE; se sair invertido (final
+              antes de inicial), `inicioEfetivo`/`fimEfetivo` resolve a
+              ordem só na hora de buscar — o usuário nunca vê o próprio
+              campo mudar sozinho. */}
           <div className="min-w-0">
             <label className="text-xs uppercase tracking-wide text-muted-foreground">Data inicial</label>
-            {/* Cada campo só grava o que foi escolhido NELE — nada de
-                empurrar o outro campo a cada tecla/toque (ver comentário
-                grande perto de `inicioEfetivo` acima, 17/09/2026: era isso
-                que fazia o seletor "pular" de mês sozinho no celular). Se
-                sair invertido, `inicioEfetivo`/`fimEfetivo` resolve a
-                ordem só na hora de buscar. */}
-            <Input type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)}
-              min="2000-01-01" max="2099-12-31" className="h-8 text-xs w-full" />
+            <Popover open={calInicioAberto} onOpenChange={setCalInicioAberto}>
+              <PopoverTrigger asChild>
+                <Button type="button" variant="outline" size="sm"
+                  className="h-8 w-full justify-start gap-1.5 text-xs font-normal">
+                  <CalendarDays className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                  {dataBr(dataInicio)}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <CalendarPicker mode="single" selected={parseLocalDate(dataInicio)}
+                  defaultMonth={parseLocalDate(dataInicio)}
+                  onSelect={(d) => { if (d) { setDataInicio(toYmd(d)); setCalInicioAberto(false); } }} />
+              </PopoverContent>
+            </Popover>
           </div>
           <div className="min-w-0">
             <label className="text-xs uppercase tracking-wide text-muted-foreground">Data final</label>
-            <Input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)}
-              min="2000-01-01" max="2099-12-31" className="h-8 text-xs w-full" />
+            <Popover open={calFimAberto} onOpenChange={setCalFimAberto}>
+              <PopoverTrigger asChild>
+                <Button type="button" variant="outline" size="sm"
+                  className="h-8 w-full justify-start gap-1.5 text-xs font-normal">
+                  <CalendarDays className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                  {dataBr(dataFim)}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <CalendarPicker mode="single" selected={parseLocalDate(dataFim)}
+                  defaultMonth={parseLocalDate(dataFim)}
+                  onSelect={(d) => { if (d) { setDataFim(toYmd(d)); setCalFimAberto(false); } }} />
+              </PopoverContent>
+            </Popover>
           </div>
           <div>
             <label className="text-xs uppercase tracking-wide text-muted-foreground">Tipo</label>
