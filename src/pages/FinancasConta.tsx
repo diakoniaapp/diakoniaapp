@@ -12,12 +12,11 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar as CalendarPicker } from "@/components/ui/calendar";
+import { CampoData } from "@/components/CampoData";
 import {
   ArrowLeft, DollarSign, Loader2, Plus, Search, Filter,
   TrendingUp, TrendingDown, Pencil, Trash2, Paperclip,
-  CheckCircle2, Clock, XCircle, Scale, FileUp, Printer, RefreshCw, CalendarDays,
+  CheckCircle2, Clock, XCircle, Scale, FileUp, Printer, RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -35,7 +34,7 @@ import { ImportacaoOmieDialog } from "@/components/financas/ImportacaoOmieDialog
 import { ImportacaoFaturaDialog } from "@/components/financas/ImportacaoFaturaDialog";
 import { ArrowRightLeft } from "lucide-react";
 import { PaginaSkeleton } from "@/components/ListState";
-import { toYmd, parseLocalDate } from "@/lib/data";
+import { toYmd } from "@/lib/data";
 
 function dataBr(s: string) {
   return new Date(s + "T00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
@@ -134,20 +133,19 @@ export default function FinancasConta() {
   const [dataInicio, setDataInicio] = useState(toYmd(new Date(hoje.getFullYear(), hoje.getMonth(), 1)));
   const [dataFim, setDataFim] = useState(toYmd(new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0)));
   // Telma reportou ao vivo (17/09/2026), na conta "Caixinha
-  // Administrativo", em duas rodadas: primeiro "eu clico para alterar e
-  // ela leva para meses que eu nao digitei" (o `min` dinâmico e o
-  // cruzamento entre os dois campos, já corrigido abaixo), depois "continua
+  // Administrativo", em três rodadas: (1) "eu clico para alterar e ela
+  // leva para meses que eu nao digitei" — o `min` dinâmico e o
+  // cruzamento entre os dois campos; (2) mesmo corrigido isso, "continua
   // com erro para DIGITAR a data; está funcionando apenas se escolher no
-  // ícone do calendário" — ou seja, o defeito real é o teclado do
-  // `<input type="date">` nativo no WebView do celular, não a lógica
-  // cruzada (que já tinha sido corrigida e o problema persistiu). Como o
-  // caminho por calendário já funciona pra ela, os dois campos trocaram o
-  // `<input type="date">` pelo mesmo padrão de calendário em popover que
-  // `FinancasPrestacaoContas.tsx` já usa (só que aqui escolhendo o DIA
-  // exato, não só mês) — elimina de vez a digitação que estava falhando,
-  // sem depender de adivinhar por que o teclado nativo não funcionava.
-  const [calInicioAberto, setCalInicioAberto] = useState(false);
-  const [calFimAberto, setCalFimAberto] = useState(false);
+  // ícone do calendário" — o teclado do `<input type="date">` nativo é
+  // quem falha no WebView, não a lógica; (3) depois de trocar tudo pro
+  // calendário em popover (sem `<input>` nenhum), "quero a opção de
+  // digitar + a opção de escolher pelo calendário, como estava antes, mas
+  // obedecendo a digitação, sem bugs" — tirar a digitação resolvia o
+  // sintoma mas não era o que ela queria. `CampoData`
+  // (components/CampoData.tsx) resolve as três: campo de texto com
+  // máscara (não o `<input type="date">` nativo problemático) + botão de
+  // calendário ao lado, e digitar de fato funciona.
   // Se a ordem sair invertida (final antes de inicial), a consulta abaixo
   // troca os dois só na hora de buscar — nenhum campo precisa mudar sozinho.
   const inicioEfetivo = dataInicio <= dataFim ? dataInicio : dataFim;
@@ -426,58 +424,36 @@ export default function FinancasConta() {
         </p>
       </div>
 
-      {/* Filtros */}
+      {/* Filtros — `flex flex-wrap`, não grid de colunas fixas. `CampoData`
+          (texto + botão de calendário) é mais largo que um `<input
+          type="date">` sozinho ou o botão único de antes; num grid de
+          coluna fixa, "dd/mm/aaaa" cortava (achado ao vivo, 17/09/2026).
+          Cada campo tem sua própria largura mínima com `min-w-[Npx]` e
+          quebra pra próxima linha sozinho quando não cabe, em vez de
+          espremer — mesmo padrão já usado no cabeçalho de
+          FinancasDoacoes.tsx nesta sessão. */}
       <Card className="print:hidden">
-        <CardContent className="py-2.5 px-3 grid grid-cols-2 md:grid-cols-6 gap-2 items-end">
-          {/* min-w-0 — sem isso, o item do grid não encolhe abaixo da
-              largura mínima do botão, e a caixa estoura a coluna em telas
-              estreitas. Mesmo transbordo já documentado no CLAUDE.md
-              (§6.2) — achado pela Telma (15/09/2026) neste filtro.
-              Calendário em popover, não `<input type="date">` nativo —
-              troca feita em 17/09/2026 depois da Telma confirmar, ao
-              vivo, que digitar direto no teclado nativo do WebView não
-              registrava nada ("está funcionando apenas se escolher no
-              ícone do calendário"), mesmo já sem o cruzamento entre os
-              dois campos que causava o defeito anterior. Cada campo só
+        <CardContent className="py-2.5 px-3 flex flex-wrap gap-2 items-end">
+          {/* `CampoData` — pedido da Telma em 17/09/2026: "quero a opção
+              de digitar + a opção de escolher pelo calendário, como
+              estava antes, mas obedecendo a digitação, sem bugs". Ver o
+              comentário grande no topo de `components/CampoData.tsx` pra
+              todo o histórico (teclado nativo quebrado no WebView → só
+              calendário tirou a digitação → esta versão devolve as duas,
+              com máscara de texto em vez do input nativo). Cada campo só
               grava o que foi escolhido NELE; se sair invertido (final
               antes de inicial), `inicioEfetivo`/`fimEfetivo` resolve a
               ordem só na hora de buscar — o usuário nunca vê o próprio
               campo mudar sozinho. */}
-          <div className="min-w-0">
+          <div className="min-w-[150px]">
             <label className="text-xs uppercase tracking-wide text-muted-foreground">Data inicial</label>
-            <Popover open={calInicioAberto} onOpenChange={setCalInicioAberto}>
-              <PopoverTrigger asChild>
-                <Button type="button" variant="outline" size="sm"
-                  className="h-8 w-full justify-start gap-1.5 text-xs font-normal">
-                  <CalendarDays className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                  {dataBr(dataInicio)}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <CalendarPicker mode="single" selected={parseLocalDate(dataInicio)}
-                  defaultMonth={parseLocalDate(dataInicio)}
-                  onSelect={(d) => { if (d) { setDataInicio(toYmd(d)); setCalInicioAberto(false); } }} />
-              </PopoverContent>
-            </Popover>
+            <CampoData value={dataInicio} onChange={setDataInicio} />
           </div>
-          <div className="min-w-0">
+          <div className="min-w-[150px]">
             <label className="text-xs uppercase tracking-wide text-muted-foreground">Data final</label>
-            <Popover open={calFimAberto} onOpenChange={setCalFimAberto}>
-              <PopoverTrigger asChild>
-                <Button type="button" variant="outline" size="sm"
-                  className="h-8 w-full justify-start gap-1.5 text-xs font-normal">
-                  <CalendarDays className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                  {dataBr(dataFim)}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <CalendarPicker mode="single" selected={parseLocalDate(dataFim)}
-                  defaultMonth={parseLocalDate(dataFim)}
-                  onSelect={(d) => { if (d) { setDataFim(toYmd(d)); setCalFimAberto(false); } }} />
-              </PopoverContent>
-            </Popover>
+            <CampoData value={dataFim} onChange={setDataFim} />
           </div>
-          <div>
+          <div className="w-28">
             <label className="text-xs uppercase tracking-wide text-muted-foreground">Tipo</label>
             <Select value={filtroTipo} onValueChange={(v) => setFiltroTipo(v as any)}>
               <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
@@ -489,7 +465,7 @@ export default function FinancasConta() {
               </SelectContent>
             </Select>
           </div>
-          <div className="md:col-span-2">
+          <div className="flex-1 min-w-[160px]">
             <label className="text-xs uppercase tracking-wide text-muted-foreground">Buscar descrição</label>
             <div className="relative">
               <Search className="w-3 h-3 absolute left-2 top-2.5 text-muted-foreground" />
