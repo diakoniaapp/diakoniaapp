@@ -405,7 +405,11 @@ export default function Familias() {
                       // botao herda a largura ja limitada do pai e o h3 trunca.
                       className="block w-full min-w-0 text-left after:absolute after:inset-0 after:rounded-lg focus:outline-none"
                     >
-                      <h3 className="font-serif text-lg truncate">Família {f.nome_familia}</h3>
+                      {/* title — mesmo achado de Membros.tsx (17/09/2026): nome de
+                          família cortado sem forma de ver o completo
+                          ("Família Aganetti Gonç..."). Tooltip nativo, sem mexer
+                          em layout nem largura de cartão. */}
+                      <h3 className="font-serif text-lg truncate" title={`Família ${f.nome_familia}`}>Família {f.nome_familia}</h3>
                     </button>
                     {/* Etiqueta de excecao: familia com membros e sem responsavel
                         e um problema que alguem precisa resolver. Familia em ordem
@@ -420,13 +424,14 @@ export default function Familias() {
                         nesta tela; rua e numero continuam na ficha. A data de
                         casamento tambem saiu: quem precisa dela e a faixa de bodas
                         do HOJE, nao quem procura uma familia. */}
-                    <p className="text-sm text-muted-foreground truncate">
-                      {[
+                    {(() => {
+                      const linha = [
                         responsaveis[f.id],
                         f.bairro,
                         loadingCounts ? null : `${counts[f.id] ?? 0} ${(counts[f.id] ?? 0) === 1 ? "membro" : "membros"}`,
-                      ].filter(Boolean).join(" • ")}
-                    </p>
+                      ].filter(Boolean).join(" • ");
+                      return <p className="text-sm text-muted-foreground truncate" title={linha}>{linha}</p>;
+                    })()}
                   </div>
                   {canEdit && (
                     // z-10 tira o lapis de baixo do alvo esticado. Sem isso o

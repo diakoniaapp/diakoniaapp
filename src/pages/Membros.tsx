@@ -1276,7 +1276,7 @@ export default function Membros() {
                                                                                                               onClick={() => { setEditing(m); setOpen(true); }}
                                                                                                               className="flex items-center gap-2 min-w-0 max-w-full text-left hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
                                                                                                             >
-                                                                                                              <span className="truncate">{m.nome_completo}</span>
+                                                                                                              <span className="truncate" title={m.nome_completo}>{m.nome_completo}</span>
                                                                                                               <MarcaAniversario nascimento={m.data_nascimento} />
                                                                                                             </button>
                                                                                                           </p>
@@ -1404,7 +1404,11 @@ export default function Membros() {
                                             onClick={() => setFichaDe(m.id)}
                                           >
                                             <span className="flex items-center gap-2 min-w-0">
-                                              <span className="truncate">{m.nome_completo}</span>
+                                              {/* title — achado ao vivo (17/09/2026): nome cortado sem
+                                                  nenhuma forma de ver o completo sem abrir a ficha
+                                                  ("Adriana ..." três vezes seguidas na mesma tela). O
+                                                  tooltip nativo não muda largura nem quebra layout nenhum. */}
+                                              <span className="truncate" title={m.nome_completo}>{m.nome_completo}</span>
                                               <MarcaAniversario nascimento={m.data_nascimento} />
                                             </span>
                                             {/* A segunda linha existe SEMPRE — com texto quando há vínculo,
