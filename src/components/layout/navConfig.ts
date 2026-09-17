@@ -12,7 +12,7 @@ import {
   Network, FileText, ScrollText,
   CheckSquare, UserCheck, Sprout, Gavel,
   ShoppingBag, type LucideIcon,
-  ClipboardCheck, Wallet, HandCoins,
+  ClipboardCheck, Wallet, HandCoins, Layers,
 } from "lucide-react";
 import type { AppRole } from "@/hooks/useAuth";
 
@@ -264,6 +264,13 @@ export const NAV_GROUPS: NavGroup[] = [
     allowedRoles: ROLES_FINANCEIRO,
     items: [
       { to: "/financas",           label: "Tesouraria",          icon: DollarSign, allowedRoles: ROLES_FINANCEIRO },
+      // Achado pela Telma (17/09/2026): a tela existia (`/financas/centros`,
+      // com ranking, alertas de orçamento e "crescimento atípico") desde
+      // 13/09/2026, mas só era alcançável pelo link "Ir para" do Painel da
+      // Tesouraria ou digitando a URL — nenhum item de menu lateral
+      // apontava pra ela, mesmo o comentário de `Financas.tsx` dizendo o
+      // contrário ("mora no menu lateral e no Painel da Tesouraria").
+      { to: "/financas/centros",   label: "Centros de Custo",    icon: Layers,     allowedRoles: ROLES_FINANCEIRO },
       { to: "/financas/doacoes",   label: "Doações",             icon: HandCoins,  allowedRoles: ROLES_FINANCEIRO },
       { to: "/financas/doadores",  label: "Doadores",            icon: Users,      allowedRoles: ROLES_DOADORES },
       { to: "/financas/fiscal",    label: "Módulo Fiscal",       icon: DollarSign, allowedRoles: ROLES_FINANCEIRO },
