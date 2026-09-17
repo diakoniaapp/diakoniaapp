@@ -599,7 +599,23 @@ export function LancamentoForm({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Categoria</Label>
-              <Select value={categoriaId} onValueChange={setCategoriaId}>
+              {/* Achado ao vivo pela Telma (17/09/2026): abrir "Editar
+                  lançamento" mostrava Categoria e Centro de custo em branco,
+                  mesmo com os dois preenchidos no banco. Rastreado até o
+                  próprio `@radix-ui/react-select`: enquanto a lista
+                  `categorias` recarrega (ela depende de `tipo`, que só é
+                  setado — via `lancamento.tipo` — DEPOIS que este efeito já
+                  chamou `setCategoriaId`), existe uma janela em que o
+                  `value` do Select não bate com nenhum `SelectItem` ainda
+                  montado. O Radix reage chamando `onValueChange("")`
+                  sozinho, pra "corrigir" a seleção — e isso apaga o valor
+                  certo que acabamos de carregar. Nenhum dos dois campos tem
+                  opção "(nenhuma)" pra escolher de propósito, então um
+                  `onValueChange` com string vazia nunca é um clique de
+                  verdade — só o Radix se autocorrigindo. Ignorá-lo é seguro
+                  e resolve na raiz, sem depender de mudar a ordem dos
+                  efeitos. */}
+              <Select value={categoriaId} onValueChange={(v) => { if (v) setCategoriaId(v); }}>
                 <SelectTrigger><SelectValue placeholder="(opcional)" /></SelectTrigger>
                 <SelectContent>
                   {categorias.map(c => (
@@ -617,7 +633,8 @@ export function LancamentoForm({
                   Rateado — desfazer
                 </Button>
               ) : (
-                <Select value={centroCustoId} onValueChange={setCentroCustoId}>
+                // Mesmo achado e mesma correção da Categoria, ao lado.
+                <Select value={centroCustoId} onValueChange={(v) => { if (v) setCentroCustoId(v); }}>
                   <SelectTrigger>
                     {/* Filho explícito no `SelectValue` — sem isso, ele
                         mostraria o rótulo CURTO do item da lista
