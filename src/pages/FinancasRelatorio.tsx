@@ -3,7 +3,7 @@ import { Link, useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-  ArrowLeft, Printer, Download, Loader2, ChevronLeft, ChevronRight,
+  ArrowLeft, Printer, Download, Loader2, ChevronLeft, ChevronRight, RefreshCw,
   TrendingUp, TrendingDown, DollarSign,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -38,22 +38,22 @@ export default function FinancasRelatorio() {
   const [loading, setLoading] = useState(true);
   const [emitidoPor, setEmitidoPor] = useState("");
 
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const r = await resumoMensal(ano, mes);
-        setResumo(r);
-        if (user) {
-          const { data: prof } = await supabase
-            .from("profiles").select("nome").eq("id", user.id).maybeSingle();
-          setEmitidoPor(prof?.nome ?? user.email ?? "Sistema");
-        }
-      } catch (e: any) {
-        toast.error(e?.message ?? "Erro");
-      } finally { setLoading(false); }
-    })();
-  }, [ano, mes, user]);
+  async function carregar() {
+    setLoading(true);
+    try {
+      const r = await resumoMensal(ano, mes);
+      setResumo(r);
+      if (user) {
+        const { data: prof } = await supabase
+          .from("profiles").select("nome").eq("id", user.id).maybeSingle();
+        setEmitidoPor(prof?.nome ?? user.email ?? "Sistema");
+      }
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erro");
+    } finally { setLoading(false); }
+  }
+
+  useEffect(() => { carregar(); }, [ano, mes, user]);
 
   function navegarMes(delta: number) {
     let m = mes + delta;
@@ -123,6 +123,10 @@ export default function FinancasRelatorio() {
             </Button>
           </div>
           <div className="flex items-center gap-1 ml-auto">
+            {/* Pedido da Telma (17/09/2026): recarregar sem trocar de mês. */}
+            <Button onClick={carregar} size="sm" variant="outline" disabled={loading} className="gap-1.5">
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} /> Atualizar
+            </Button>
             <Button onClick={exportarCSV} size="sm" variant="outline" className="gap-1.5">
               <Download className="w-3.5 h-3.5" /> CSV
             </Button>

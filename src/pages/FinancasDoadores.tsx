@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Users, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { ArrowLeft, Users, ChevronLeft, ChevronRight, Search, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { listarDoadoresComResumo, type DoadorResumo } from "@/services/doadorService";
 import { brl } from "@/services/finService";
@@ -85,9 +85,12 @@ export default function FinancasDoadores() {
 
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-4">
+      {/* Título e controles em linhas separadas — mesmo ajuste feito em
+          FinancasDoacoes.tsx (17/09/2026) pra não espremer o título numa
+          coluna estreita quando a linha de controles fica longa. */}
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" size="icon"><Link to="/financas/doacoes"><ArrowLeft className="w-4 h-4" /></Link></Button>
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <h1 className="font-serif text-xl flex items-center gap-2">
             <Users className="w-5 h-5 text-gold" /> Doadores
           </h1>
@@ -95,25 +98,29 @@ export default function FinancasDoadores() {
             Histórico de contribuição por pessoa — visível só para tesouraria e administração.
           </p>
         </div>
-        <div className="flex items-center gap-1">
-          <Select value={mes === null ? "__ano__" : String(mes)}
-            onValueChange={(v) => setMes(v === "__ano__" ? null : Number(v))}>
-            <SelectTrigger className="h-8 text-xs w-[7.5rem]"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__ano__">Ano inteiro</SelectItem>
-              {MESES.map((nome, i) => (
-                <SelectItem key={i} value={String(i + 1)}>{nome}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button size="sm" variant="outline" onClick={() => setAno(a => a - 1)}>
-            <ChevronLeft className="w-3.5 h-3.5" />
-          </Button>
-          <span className="text-sm font-medium px-2">{ano}</span>
-          <Button size="sm" variant="outline" onClick={() => setAno(a => a + 1)}>
-            <ChevronRight className="w-3.5 h-3.5" />
-          </Button>
-        </div>
+      </div>
+      <div className="flex items-center gap-1 flex-wrap">
+        <Select value={mes === null ? "__ano__" : String(mes)}
+          onValueChange={(v) => setMes(v === "__ano__" ? null : Number(v))}>
+          <SelectTrigger className="h-8 text-xs w-[7.5rem]"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__ano__">Ano inteiro</SelectItem>
+            {MESES.map((nome, i) => (
+              <SelectItem key={i} value={String(i + 1)}>{nome}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button size="sm" variant="outline" onClick={() => setAno(a => a - 1)}>
+          <ChevronLeft className="w-3.5 h-3.5" />
+        </Button>
+        <span className="text-sm font-medium px-2">{ano}</span>
+        <Button size="sm" variant="outline" onClick={() => setAno(a => a + 1)}>
+          <ChevronRight className="w-3.5 h-3.5" />
+        </Button>
+        {/* Pedido da Telma (17/09/2026): recarregar sem trocar de mês/ano. */}
+        <Button size="sm" variant="outline" onClick={carregar} disabled={loading} className="gap-1.5 ml-1">
+          <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} /> Atualizar
+        </Button>
       </div>
 
       <Card>

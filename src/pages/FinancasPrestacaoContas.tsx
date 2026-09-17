@@ -41,7 +41,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import {
   ArrowLeft, MessageSquare, MessageSquarePlus,
-  ScrollText, Lock, LockOpen, ShieldCheck, Loader2, Printer, Download, Wallet, CalendarDays,
+  ScrollText, Lock, LockOpen, ShieldCheck, Loader2, Printer, Download, Wallet, CalendarDays, RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import logoDiakonia from "@/assets/logo-diakonia.png";
@@ -296,6 +296,11 @@ export default function FinancasPrestacaoContas() {
             </Button>
             <span className="text-sm font-medium px-1 text-center">{rotuloPeriodo}</span>
             <div className="flex items-center gap-1.5">
+              {/* Pedido da Telma (17/09/2026): recarregar sem precisar mexer
+                  no período — útil ao editar um lançamento em outra aba. */}
+              <Button onClick={carregar} size="sm" variant="outline" disabled={loading} className="gap-1.5">
+                <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} /> Atualizar
+              </Button>
               <Button onClick={exportarCSV} size="sm" variant="outline" className="gap-1.5">
                 <Download className="w-3.5 h-3.5" /> CSV
               </Button>

@@ -13,7 +13,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
-  ArrowLeft, Printer, Download, ChevronLeft, ChevronRight,
+  ArrowLeft, Printer, Download, ChevronLeft, ChevronRight, RefreshCw,
   TrendingUp, TrendingDown, DollarSign, ScrollText,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -35,22 +35,22 @@ export default function FinancasDRE() {
   const [loading, setLoading] = useState(true);
   const [emitidoPor, setEmitidoPor] = useState("");
 
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const r = await gerarDRE(ano);
-        setDre(r);
-        if (user) {
-          const { data: prof } = await supabase
-            .from("profiles").select("nome").eq("id", user.id).maybeSingle();
-          setEmitidoPor(prof?.nome ?? user.email ?? "Sistema");
-        }
-      } catch (e: any) {
-        toast.error(e?.message ?? "Erro ao gerar a DRE");
-      } finally { setLoading(false); }
-    })();
-  }, [ano, user]);
+  async function carregar() {
+    setLoading(true);
+    try {
+      const r = await gerarDRE(ano);
+      setDre(r);
+      if (user) {
+        const { data: prof } = await supabase
+          .from("profiles").select("nome").eq("id", user.id).maybeSingle();
+        setEmitidoPor(prof?.nome ?? user.email ?? "Sistema");
+      }
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erro ao gerar a DRE");
+    } finally { setLoading(false); }
+  }
+
+  useEffect(() => { carregar(); }, [ano, user]);
 
   function exportarCSV() {
     if (!dre) return;
@@ -105,6 +105,10 @@ export default function FinancasDRE() {
             </Button>
           </div>
           <div className="flex items-center gap-1 ml-auto">
+            {/* Pedido da Telma (17/09/2026): recarregar sem trocar de ano. */}
+            <Button onClick={carregar} size="sm" variant="outline" disabled={loading} className="gap-1.5">
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} /> Atualizar
+            </Button>
             <Button onClick={exportarCSV} size="sm" variant="outline" className="gap-1.5">
               <Download className="w-3.5 h-3.5" /> CSV
             </Button>

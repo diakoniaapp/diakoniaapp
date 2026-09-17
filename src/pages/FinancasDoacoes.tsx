@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   ArrowLeft, HandCoins, ChevronLeft, ChevronRight, RotateCw, Users,
-  Smartphone, Banknote, CreditCard, Landmark, FileText, Mail, HelpCircle,
+  Smartphone, Banknote, CreditCard, Landmark, FileText, Mail, HelpCircle, RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -131,7 +131,11 @@ export default function FinancasDoacoes() {
 
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-4">
-      <div className="flex items-center gap-2 flex-wrap">
+      {/* Título e controles em linhas separadas — um único `flex-wrap` com
+          o título em `flex-1 min-w-0` deixa a caixa encolher até quase
+          sumir em vez de quebrar linha (o mesmo defeito de espremer já
+          corrigido em FinancasConta.tsx nesta sessão, 17/09/2026). */}
+      <div className="flex items-start gap-2">
         <Button asChild variant="ghost" size="icon"><Link to="/financas"><ArrowLeft className="w-4 h-4" /></Link></Button>
         <div className="flex-1 min-w-0">
           <h1 className="font-serif text-xl flex items-center gap-2">
@@ -141,6 +145,8 @@ export default function FinancasDoacoes() {
             Dízimos, ofertas, campanhas e missões — por forma de pagamento e recorrência
           </p>
         </div>
+      </div>
+      <div className="flex items-center gap-2 flex-wrap">
         {hasRole(ROLES_DOADORES) && (
           <Button asChild size="sm" variant="outline" className="gap-1.5">
             <Link to="/financas/doadores"><Users className="w-3.5 h-3.5" /> Por doador</Link>
@@ -151,6 +157,11 @@ export default function FinancasDoacoes() {
           <span className="text-sm font-medium px-2 whitespace-nowrap">{MESES[mes - 1]} {ano}</span>
           <Button size="sm" variant="outline" onClick={() => navegarMes(1)}><ChevronRight className="w-3.5 h-3.5" /></Button>
         </div>
+        {/* Pedido da Telma (17/09/2026): recarregar sem trocar de mês —
+            útil ao lançar uma doação em outra aba e voltar aqui. */}
+        <Button size="sm" variant="outline" onClick={carregar} disabled={loading} className="gap-1.5">
+          <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} /> Atualizar
+        </Button>
       </div>
 
       {/* Total do mês */}

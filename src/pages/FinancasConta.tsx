@@ -15,7 +15,7 @@ import {
 import {
   ArrowLeft, DollarSign, Loader2, Plus, Search, Filter,
   TrendingUp, TrendingDown, Pencil, Trash2, Paperclip,
-  CheckCircle2, Clock, XCircle, Scale, FileUp, Printer,
+  CheckCircle2, Clock, XCircle, Scale, FileUp, Printer, RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -408,7 +408,7 @@ export default function FinancasConta() {
 
       {/* Filtros */}
       <Card className="print:hidden">
-        <CardContent className="py-2.5 px-3 grid grid-cols-2 md:grid-cols-5 gap-2 items-end">
+        <CardContent className="py-2.5 px-3 grid grid-cols-2 md:grid-cols-6 gap-2 items-end">
           {/* min-w-0 — sem isso, o item do grid não encolhe abaixo da
               largura mínima do `<input type="date">` nativo (os segmentos
               dd/mm/aaaa + ícone de calendário do navegador), e a caixa
@@ -467,6 +467,12 @@ export default function FinancasConta() {
                 className="h-8 text-xs pl-6" placeholder="Digite..." />
             </div>
           </div>
+          {/* Pedido da Telma (17/09/2026): recarregar sem precisar mexer na
+              data — útil ao editar em outra aba/tela e voltar aqui. */}
+          <Button type="button" variant="outline" size="sm" onClick={carregar} disabled={loading}
+            className="h-8 text-xs gap-1.5">
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} /> Atualizar
+          </Button>
         </CardContent>
       </Card>
 
