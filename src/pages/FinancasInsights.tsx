@@ -166,7 +166,16 @@ export default function FinancasInsights() {
           evento:     { label: "Eventos", valor: 0, cor: "#06b6d4" },
           geral:      { label: "Geral/Operacional", valor: 0, cor: "#737373" },
         };
+        // Subgrupo contábil não soma aqui — pula de propósito. Desde a
+        // migration 20260917010000, `gasto_90d` do centro PAI já vem
+        // somado com os subgrupos dele direto do banco
+        // (vw_fin_centros_resumo); somar de novo aqui (mesmo redirecionando
+        // pro tipo do pai, como uma versão anterior deste trecho fazia)
+        // contaria o mesmo lançamento duas vezes — uma no total do pai,
+        // outra no total "solto" do subgrupo. Achado revisando esta tela
+        // depois de corrigir a view (17/09/2026).
         centros.forEach(c => {
+          if (c.vinculo_tipo === "subgrupo_administracao") return;
           if (porTipo[c.vinculo_tipo]) porTipo[c.vinculo_tipo].valor += Number(c.gasto_90d);
         });
         const lista = Object.values(porTipo).filter(p => p.valor > 0);
