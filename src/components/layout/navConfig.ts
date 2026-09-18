@@ -13,7 +13,7 @@ import {
   CheckSquare, UserCheck, Sprout, Gavel,
   ShoppingBag, type LucideIcon,
   ClipboardCheck, Wallet, HandCoins, Layers,
-  RotateCw, Receipt, Target, Package, Briefcase, FolderKanban,
+  RotateCw, Receipt, Target, Package, Briefcase, FolderKanban, LayoutGrid,
 } from "lucide-react";
 import type { AppRole } from "@/hooks/useAuth";
 
@@ -306,6 +306,21 @@ export const NAV_GROUPS: NavGroup[] = [
       // "Trimestral" saiu do nome — o período é mensal por padrão, com
       // trimestre só como um preset de largura entre outros na tela.
       { to: "/financas/prestacao-de-contas", label: "Prestação de Contas", icon: ScrollText, allowedRoles: ROLES_FINANCEIRO },
+      // N1 do plano "90 Dias de Diakonia" (17/09/2026): "'Ver tudo'... para
+      // o Painel da Tesouraria" — achado ao testar ao vivo: `/financas`
+      // é `Financas.tsx` ("Contas correntes", extrato por conta), um hub
+      // DIFERENTE de `/painel-tesouraria` (`PainelTesouraria.tsx`, que tem
+      // a seção "Ir para" com as 23 telas). Confundi os dois na primeira
+      // tentativa — o nome do primeiro item deste grupo ("Tesouraria")
+      // sugere isso, mas aponta pra `/financas`, não pro painel. O grupo
+      // Financeiro chegou a 18 itens — mesma densidade que a Bússola/Cinco
+      // Anos apontaram como problema (N2/F6 preveem cortar pra 6-7); este
+      // link garante que ninguém perde o caminho antes do corte. O hash
+      // `#ir-para` é obrigatório por dois motivos: (1) `AppLayout.tsx` usa
+      // `key={item.to}` no `.map()` dos itens — duas entradas com o mesmo
+      // `to` colidiriam; (2) é o que faz a página rolar até a lista certa
+      // (ver `useEffect` em `PainelTesouraria.tsx` que lê `location.hash`).
+      { to: "/painel-tesouraria#ir-para", label: "Ver tudo", icon: LayoutGrid, allowedRoles: ROLES_FINANCEIRO },
       // ── BAZAR E CANTINA SÃO DA ADMINISTRAÇÃO ────────────────────────
       //
       // Regra da igreja em 02/09/2026: "Ministério de Administração e Perfil

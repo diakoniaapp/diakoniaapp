@@ -56,7 +56,7 @@
 // decisão de como as duas metades (financeiro e Diaconia) se encontram.
 
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import {
   DollarSign, Receipt, Wallet, ChevronRight, RefreshCw, Sparkles, Package,
   Clock, CalendarClock, Target, ShoppingCart, HandCoins, Scale, Lightbulb,
@@ -136,6 +136,26 @@ export default function PainelTesouraria() {
   }, []);
 
   useEffect(() => { carregar(); }, [carregar]);
+
+  // Destino do "Ver tudo" que N1 acrescentou ao menu lateral do
+  // Financeiro (`navConfig.ts`) — `irParaSecao` já existia, mas só era
+  // chamada de DENTRO desta página (pelos `Indicador` da faixa); vindo de
+  // outra tela via `/painel-tesouraria#ir-para`, o React Router troca de
+  // rota sem rolar pra hash nenhum sozinho (isso é comportamento nativo
+  // do navegador numa âncora `<a>`, não algo que o client-side routing
+  // faça de graça).
+  //
+  // Precisa esperar `carregando` virar `false`: achado ao vivo — rolar no
+  // primeiro render (com `carregando` ainda `true`) calcula a posição de
+  // "Ir para" com a página ainda curta (seções em skeleton/vazias antes
+  // do `carregar()` terminar); quando o dado chega e a página cresce, a
+  // posição calculada já ficou velha e a rolagem visualmente não bate em
+  // lugar nenhum. Disparar só depois do carregamento acabar garante medir
+  // a altura final da página.
+  const location = useLocation();
+  useEffect(() => {
+    if (location.hash === "#ir-para" && !carregando) irParaSecao("ir-para");
+  }, [location.hash, carregando]);
 
   const totalFiscal = fiscal ? fiscal.total_atrasados + fiscal.total_urgentes + fiscal.total_proximos : 0;
   const caixasUrgentes = caixas.filter(caixaEhUrgente);
@@ -551,7 +571,12 @@ export default function PainelTesouraria() {
               Duas filas, não uma: o que o tesoureiro mexe toda semana
               primeiro, relatório/config depois — a pessoa não precisa
               escanear 17 botões pra achar "Contas a pagar". */}
-          <section className="pt-1 space-y-2.5">
+          {/* `id="ir-para"` — destino do link "Ver tudo" que N1 (plano "90
+              Dias de Diakonia") acrescentou ao fim do grupo Financeiro do
+              menu lateral: sem ele, "Ver tudo" e "Tesouraria" apontariam
+              pro mesmo `/financas` sem hash, e o `NavLink key={item.to}`
+              em AppLayout.tsx colidiria (duas entradas com a mesma key). */}
+          <section id="ir-para" className="pt-1 space-y-2.5 scroll-mt-[220px]">
             <TituloDaSecao icone={DollarSign} tom="neutro">Ir para</TituloDaSecao>
             <div>
               <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1.5">Dia a dia</p>
