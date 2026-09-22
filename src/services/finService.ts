@@ -224,6 +224,14 @@ export interface FinLancamento {
   data_pagamento: string | null;
   nf_dados_extraidos: NfDadosExtraidos | null;
   origem: string;
+  // Item 7 (22/09/2026): a perna irmã de uma transferência entre contas
+  // próprias (`origem === "transferencia"`) — as duas pernas apontam uma
+  // pra outra (simétrico, não "pai→filho" de verdade; o nome da coluna já
+  // existia assim no banco desde antes e não foi renomeado). Existia no
+  // banco e era gravado desde sempre, mas nunca tinha entrado nesta
+  // interface nem sido lido por tela nenhuma — `excluirLancamento` agora
+  // usa pra apagar as duas pernas juntas.
+  lancamento_pai_id?: string | null;
   created_at?: string;
   /** Quem mexeu por último e quando — carimbado em toda escrita que
       passa por `criarLancamento`/`atualizarLancamento` (ver comentário
@@ -768,12 +776,25 @@ export async function atualizarLancamento(id: string, patch: Partial<FinLancamen
   if (!r.ok) throw new Error(r.erro);
 }
 
+// Item 7 (22/09/2026): apagar só UMA perna de uma transferência (origem
+// === "transferencia") deixava a outra perna órfã — a conta irmã ficava
+// com uma "entrada"/"saída" sem explicação nenhuma, e o saldo dela
+// nunca mais batia com o extrato de verdade. `lancamento_pai_id` (agora
+// simétrico — ver comentário de `transferir()`) resolve isso: ao apagar
+// uma perna de transferência, a outra some junto, num único DELETE.
 export async function excluirLancamento(id: string): Promise<void> {
-  // tenta apagar comprovante junto
-  const { data: l } = await supabase.from("fin_lancamentos").select("comprovante_url").eq("id", id).maybeSingle();
+  const { data: l } = await supabase.from("fin_lancamentos")
+    .select("comprovante_url, origem, lancamento_pai_id").eq("id", id).maybeSingle();
+  const ids = l?.origem === "transferencia" && l.lancamento_pai_id ? [id, l.lancamento_pai_id] : [id];
+
   if (l?.comprovante_url) await removerComprovante(l.comprovante_url);
+  if (ids.length > 1) {
+    const { data: par } = await supabase.from("fin_lancamentos").select("comprovante_url").eq("id", ids[1]).maybeSingle();
+    if (par?.comprovante_url) await removerComprovante(par.comprovante_url);
+  }
+
   const r = conferir(
-    await supabase.from("fin_lancamentos").delete().eq("id", id).select("id"),
+    await supabase.from("fin_lancamentos").delete().in("id", ids).select("id"),
     "O lançamento",
   );
   if (!r.ok) throw new Error(r.erro);
@@ -782,14 +803,29 @@ export async function excluirLancamento(id: string): Promise<void> {
 // Exclusão em massa (item 2, "PRIORIDADE MÁXIMA" 22/09/2026) — um único
 // DELETE ... WHERE id IN (...), mesmo padrão de `conciliarEmLote` logo
 // abaixo (uma consulta em lote, não um loop de N consultas por linha).
+// Item 7 (22/09/2026): expande a lista com a perna irmã de qualquer
+// transferência selecionada que não tenha sido marcada junto — mesmo
+// motivo do `excluirLancamento` acima, sem essa expansão a exclusão em
+// massa também deixaria pernas órfãs.
 export async function excluirLancamentosEmLote(ids: string[]): Promise<void> {
   if (ids.length === 0) return;
-  const { data: ls } = await supabase.from("fin_lancamentos").select("comprovante_url").in("id", ids);
+  const { data: ls } = await supabase.from("fin_lancamentos")
+    .select("id, comprovante_url, origem, lancamento_pai_id").in("id", ids);
+  const idsCompletos = new Set(ids);
   for (const l of ls ?? []) {
+    if (l.origem === "transferencia" && l.lancamento_pai_id) idsCompletos.add(l.lancamento_pai_id);
+  }
+  const idsFinais = Array.from(idsCompletos);
+
+  const { data: comprovantes } = idsFinais.length > ids.length
+    ? await supabase.from("fin_lancamentos").select("comprovante_url").in("id", idsFinais)
+    : { data: ls };
+  for (const l of comprovantes ?? []) {
     if (l.comprovante_url) await removerComprovante(l.comprovante_url);
   }
+
   const r = conferir(
-    await supabase.from("fin_lancamentos").delete().in("id", ids).select("id"),
+    await supabase.from("fin_lancamentos").delete().in("id", idsFinais).select("id"),
     "A exclusão",
   );
   if (!r.ok) throw new Error(r.erro);
@@ -894,8 +930,23 @@ export async function excluirConta(id: string): Promise<void> {
 }
 
 // ─── Transferência entre contas ──────────────────────────────────────────
-// Cria 2 lançamentos vinculados (saída origem + entrada destino).
-// Se falhar no meio, tenta reverter o primeiro.
+// Item 7 (22/09/2026) — reescrito pra ser atômico de verdade. A versão
+// anterior gravava 2 INSERTs separados (saída, depois entrada) e, se o
+// segundo falhasse, tentava um DELETE de compensação no primeiro — uma
+// janela real (queda de conexão entre os dois INSERTs, ou o próprio
+// DELETE de compensação falhando) podia deixar uma perna órfã sem a
+// outra. Corrigido gerando os dois UUIDs no cliente (`crypto.randomUUID`)
+// ANTES de gravar, e mandando as duas linhas num único `.insert([...])`
+// — um único INSERT com duas linhas é uma única instrução SQL: o
+// Postgres grava as duas ou nenhuma, sem transação explícita nem
+// DELETE de compensação nenhum.
+//
+// `lancamento_pai_id` passa a ser SIMÉTRICO (cada perna aponta pra outra,
+// não só entrada→saída como antes) — a coluna já existia no banco só
+// pra isso, mas nunca era lida em lugar nenhum do app. Agora
+// `excluirLancamento`/`excluirLancamentosEmLote` usam pra apagar as duas
+// pernas juntas, em vez de deixar uma órfã quando alguém exclui só uma
+// pelo extrato.
 export async function transferir(input: {
   contaOrigemId: string;
   contaDestinoId: string;
@@ -919,39 +970,44 @@ export async function transferir(input: {
   const descBase = input.descricao?.trim() ||
     `Transferência: ${orig.nome} → ${dest.nome}`;
 
-  // 1) saída na origem
-  const saida = await criarLancamento({
-    tipo: "saida",
-    data: input.data,
-    valor: input.valor,
-    conta_id: input.contaOrigemId,
-    status: "realizado",
-    descricao: `${descBase} (saída)`,
-    origem: "transferencia",
-  });
+  const idSaida = crypto.randomUUID();
+  const idEntrada = crypto.randomUUID();
+  const userId = (await supabase.auth.getUser()).data.user?.id ?? null;
+  const agora = new Date().toISOString();
 
-  try {
-    // 2) entrada no destino — referencia a saída como pai
-    await criarLancamento({
-      tipo: "entrada",
-      data: input.data,
-      valor: input.valor,
-      conta_id: input.contaDestinoId,
-      status: "realizado",
+  const linhas = [
+    {
+      id: idSaida,
+      tipo: "saida", data: input.data, valor: input.valor,
+      conta_id: input.contaOrigemId, status: "realizado",
+      descricao: `${descBase} (saída)`,
+      origem: "transferencia", lancamento_pai_id: idEntrada,
+      audit_user_id: userId, audit_em: agora,
+    },
+    {
+      id: idEntrada,
+      tipo: "entrada", data: input.data, valor: input.valor,
+      conta_id: input.contaDestinoId, status: "realizado",
       descricao: `${descBase} (entrada)`,
-      origem: "transferencia",
-      lancamento_pai_id: saida.id,
-    } as any);
+      origem: "transferencia", lancamento_pai_id: idSaida,
+      audit_user_id: userId, audit_em: agora,
+    },
+  ];
 
-    // 3) Upload de comprovante (opcional) — anexa ao lançamento da saída
-    if (input.comprovanteFile) {
-      const path = await uploadComprovante(input.comprovanteFile, saida.id);
-      await atualizarLancamento(saida.id, { comprovante_url: path });
+  const { data, error } = await supabase.from("fin_lancamentos").insert(linhas as any).select("id");
+  if (error) throw error;
+  if ((data?.length ?? 0) !== 2) throw new Error("A transferência não gravou as duas pernas — tente de novo");
+
+  // Comprovante é opcional e cosmético — se falhar aqui, o dinheiro já
+  // moveu certo nas duas contas; melhor avisar e deixar sem anexo do que
+  // desfazer uma transferência que já está correta.
+  if (input.comprovanteFile) {
+    try {
+      const path = await uploadComprovante(input.comprovanteFile, idSaida);
+      await atualizarLancamento(idSaida, { comprovante_url: path });
+    } catch {
+      throw new Error("Transferência realizada, mas o comprovante não foi anexado — tente anexar editando o lançamento");
     }
-  } catch (e: any) {
-    // Reverte: se a entrada falhou, apaga a saída pra não ficar inconsistente
-    await excluirLancamento(saida.id).catch(() => {});
-    throw e;
   }
 }
 

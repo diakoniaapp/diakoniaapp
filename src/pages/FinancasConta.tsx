@@ -898,10 +898,17 @@ export default function FinancasConta() {
       <AlertDialog open={!!apagando} onOpenChange={(v) => !v && setApagando(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir lançamento?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {apagando?.origem === "transferencia" ? "Excluir transferência?" : "Excluir lançamento?"}
+            </AlertDialogTitle>
             <AlertDialogDescription>
               {apagando?.descricao ? `"${apagando.descricao}"` : "Este lançamento"} — {apagando && brl(Number(apagando.valor))}.
-              Não dá pra desfazer.
+              {/* Item 7 (22/09/2026): a exclusão agora apaga as duas pernas
+                  juntas (ver `excluirLancamento` em finService.ts) — avisa
+                  antes, pra não ser uma surpresa sumir um lançamento na
+                  OUTRA conta sem ter sido selecionado aqui. */}
+              {apagando?.origem === "transferencia" && " Isso também exclui a outra perna dessa transferência, na outra conta."}
+              {" "}Não dá pra desfazer.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -921,6 +928,12 @@ export default function FinancasConta() {
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir {selecionados.size} lançamento{selecionados.size > 1 ? "s" : ""}?</AlertDialogTitle>
             <AlertDialogDescription>
+              {/* Item 7 (22/09/2026) — mesmo aviso do diálogo individual:
+                  se a seleção tiver alguma perna de transferência, a outra
+                  perna (na conta irmã) some junto, mesmo sem estar
+                  marcada aqui. */}
+              {lancamentos.some(l => selecionados.has(l.id) && l.origem === "transferencia") &&
+                "Alguma transferência selecionada — a outra perna dela, na outra conta, também será excluída. "}
               Não dá pra desfazer.
             </AlertDialogDescription>
           </AlertDialogHeader>
