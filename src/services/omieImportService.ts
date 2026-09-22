@@ -678,11 +678,18 @@ export async function confirmarImportacaoOmie(
     //      esta (mesmo id gerado no cliente que `transferir()` já usa).
     //   4. Achando mais de uma (ambíguo mesmo escolhendo a conta): não
     //      arrisca — segue sem par, mesma prudência de sempre.
-    let idPropria: string | undefined;
+    // Id gerado no cliente pra TODA linha, não só a com escolha de
+    // transferência — achado ao vivo (22/09/2026): o insert em lote manda
+    // um ARRAY heterogêneo pro PostgREST quando só ALGUMAS linhas trazem
+    // `id` explícito; ele monta UM INSERT só pro bloco inteiro, e pras
+    // linhas SEM a chave `id` no objeto ele manda `NULL` de verdade (não
+    // "usa o default da coluna") — violava `not null` em `fin_lancamentos.
+    // id`, que só tem DEFAULT pra quem nunca envia a coluna no INSERT.
+    // Gerando sempre, o array fica uniforme e o bug desaparece.
+    const idPropria: string = crypto.randomUUID();
     let lancamentoPaiId: string | null = null;
     const contaOutraPerna = r.ehTransferencia ? opcoes?.contaOutraPernaPorIndice?.[indiceOriginal] : undefined;
     if (contaOutraPerna) {
-      idPropria = crypto.randomUUID();
       const tipoOposto: FinMovimentoTipo = r.tipo === "entrada" ? "saida" : "entrada";
       const { data: candidatos } = await supabase
         .from("fin_lancamentos").select("id")
@@ -718,7 +725,7 @@ export async function confirmarImportacaoOmie(
     }
 
     linhas.push({
-      ...(idPropria ? { id: idPropria } : {}),
+      id: idPropria,
       data: r.data,
       tipo: r.tipo,
       status,
