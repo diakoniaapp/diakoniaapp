@@ -12,8 +12,8 @@ import {
   Network, FileText, ScrollText,
   CheckSquare, UserCheck, Sprout, Gavel,
   ShoppingBag, type LucideIcon,
-  ClipboardCheck, Wallet, HandCoins, Layers,
-  RotateCw, Receipt, Target, Package, Briefcase, FolderKanban, LayoutGrid,
+  ClipboardCheck, Wallet,
+  Receipt, LayoutGrid,
 } from "lucide-react";
 import type { AppRole } from "@/hooks/useAuth";
 
@@ -264,61 +264,26 @@ export const NAV_GROUPS: NavGroup[] = [
     allowedRoles: ROLES_FINANCEIRO,
     items: [
       { to: "/financas",           label: "Tesouraria",          icon: DollarSign, allowedRoles: ROLES_FINANCEIRO },
-      // As 7 linhas abaixo (17/09/2026): mesmo achado de "Centros de
-      // Custo"/"Insights" — todas essas telas só eram alcançáveis pelo
-      // "Ir para" do Painel da Tesouraria (23 links lá, 9 no menu lateral
-      // até este commit). Pedido explícito da Telma ("adicione") depois
-      // de perguntar por Insights e eu ter apontado a lacuna toda.
       { to: "/financas/agenda",       label: "Agenda Financeira",   icon: CalendarDays, allowedRoles: ROLES_FINANCEIRO },
-      { to: "/financas/recorrencias", label: "Recorrências",        icon: RotateCw,      allowedRoles: ROLES_FINANCEIRO },
       { to: "/financas/relatorio",    label: "Malote Contábil",     icon: Receipt,       allowedRoles: ROLES_FINANCEIRO },
-      { to: "/financas/fornecedores", label: "Fornecedores",        icon: Building2,     allowedRoles: ROLES_FINANCEIRO },
-      { to: "/financas/orcamento",    label: "Orçamento",           icon: Target,        allowedRoles: ROLES_FINANCEIRO },
-      { to: "/financas/estoque",      label: "Estoque",             icon: Package,       allowedRoles: ROLES_FINANCEIRO },
-      { to: "/financas/folha",        label: "Folha",               icon: Briefcase,     allowedRoles: ROLES_FINANCEIRO },
-      // Achado pela Telma (17/09/2026): a tela existia (`/financas/centros`,
-      // com ranking, alertas de orçamento e "crescimento atípico") desde
-      // 13/09/2026, mas só era alcançável pelo link "Ir para" do Painel da
-      // Tesouraria ou digitando a URL — nenhum item de menu lateral
-      // apontava pra ela, mesmo o comentário de `Financas.tsx` dizendo o
-      // contrário ("mora no menu lateral e no Painel da Tesouraria").
-      { to: "/financas/centros",   label: "Centros de Custo",    icon: Layers,     allowedRoles: ROLES_FINANCEIRO },
-      // Fase 6 do ERP financeiro (17/09/2026): "para qual iniciativa" —
-      // dimensão nova, ortogonal a categoria/centro de custo. Ver
-      // docs/ROADMAP_FINANCEIRO_ERP.md Fase 6.
-      { to: "/financas/projetos", label: "Projetos",            icon: FolderKanban, allowedRoles: ROLES_FINANCEIRO },
-      // Mesmo achado de "Centros de Custo" acima, dessa vez perguntado
-      // direto ("onde está insights da tesouraria?", 17/09/2026) — só
-      // alcançável pelo "Ir para" do Painel da Tesouraria.
-      { to: "/financas/insights",  label: "Insights",            icon: Sparkles,   allowedRoles: ROLES_FINANCEIRO },
-      { to: "/financas/doacoes",   label: "Doações",             icon: HandCoins,  allowedRoles: ROLES_FINANCEIRO },
-      { to: "/financas/doadores",  label: "Doadores",            icon: Users,      allowedRoles: ROLES_DOADORES },
       { to: "/financas/fiscal",    label: "Módulo Fiscal",       icon: DollarSign, allowedRoles: ROLES_FINANCEIRO },
-      { to: "/financas/reunioes",  label: "Reuniões financeiras", icon: DollarSign, allowedRoles: ROLES_FINANCEIRO },
       { to: "/financas/executivo", label: "Visão Executiva",     icon: DollarSign, allowedRoles: ROLES_PASTORAL_SEM_TITULAR },
       { to: "/financas/dre",       label: "DRE Eclesiástica",    icon: ScrollText, allowedRoles: ROLES_PASTORAL_SEM_TITULAR },
-      // Fase 5 do projeto Tesouraria (12/09/2026): diferente da DRE (leitura
-      // estratégica pronta), esta é a bancada de PREPARO da tesouraria —
-      // revisão, notas, e no futuro o fechamento do período antes de
-      // qualquer coisa ir à diretoria. Por isso ROLES_FINANCEIRO (mesma
-      // malha de /financas), não ROLES_PASTORAL_SEM_TITULAR como a DRE.
-      // "Trimestral" saiu do nome — o período é mensal por padrão, com
-      // trimestre só como um preset de largura entre outros na tela.
       { to: "/financas/prestacao-de-contas", label: "Prestação de Contas", icon: ScrollText, allowedRoles: ROLES_FINANCEIRO },
-      // N1 do plano "90 Dias de Diakonia" (17/09/2026): "'Ver tudo'... para
-      // o Painel da Tesouraria" — achado ao testar ao vivo: `/financas`
-      // é `Financas.tsx` ("Contas correntes", extrato por conta), um hub
-      // DIFERENTE de `/painel-tesouraria` (`PainelTesouraria.tsx`, que tem
-      // a seção "Ir para" com as 23 telas). Confundi os dois na primeira
-      // tentativa — o nome do primeiro item deste grupo ("Tesouraria")
-      // sugere isso, mas aponta pra `/financas`, não pro painel. O grupo
-      // Financeiro chegou a 18 itens — mesma densidade que a Bússola/Cinco
-      // Anos apontaram como problema (N2/F6 preveem cortar pra 6-7); este
-      // link garante que ninguém perde o caminho antes do corte. O hash
-      // `#ir-para` é obrigatório por dois motivos: (1) `AppLayout.tsx` usa
-      // `key={item.to}` no `.map()` dos itens — duas entradas com o mesmo
-      // `to` colidiriam; (2) é o que faz a página rolar até a lista certa
-      // (ver `useEffect` em `PainelTesouraria.tsx` que lê `location.hash`).
+      // N2/F6 do roadmap "90 Dias" (22/09/2026): o grupo tinha chegado a 18
+      // itens (Recorrências, Fornecedores, Orçamento, Estoque, Folha,
+      // Centros de Custo, Projetos, Insights, Doações, Doadores, Reuniões
+      // financeiras saíram daqui) — mesma densidade que Bússola/Cinco Anos
+      // apontaram como problema. Ficam os 6 de operação diária + prestação
+      // de contas regular (caixa, obrigações fiscais, malote mensal,
+      // visão executiva, DRE, prestação de contas); o resto é cadastro/
+      // configuração de uso ocasional, sem perder o caminho — "Ver tudo"
+      // (N1, 17/09/2026) leva ao "Ir para" do Painel da Tesouraria, que
+      // lista as 23 telas do módulo. O hash `#ir-para` é obrigatório por
+      // dois motivos: (1) `AppLayout.tsx` usa `key={item.to}` no `.map()`
+      // dos itens — duas entradas com o mesmo `to` colidiriam; (2) é o que
+      // faz a página rolar até a lista certa (`useEffect` em
+      // `PainelTesouraria.tsx` que lê `location.hash`).
       { to: "/painel-tesouraria#ir-para", label: "Ver tudo", icon: LayoutGrid, allowedRoles: ROLES_FINANCEIRO },
       // ── BAZAR E CANTINA SÃO DA ADMINISTRAÇÃO ────────────────────────
       //

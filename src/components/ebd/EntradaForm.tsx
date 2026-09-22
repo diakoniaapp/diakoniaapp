@@ -4,6 +4,10 @@ import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -43,6 +47,11 @@ export function EntradaForm({ campanhaId, open, onOpenChange, onSaved, entrada }
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [comprovanteAtual, setComprovanteAtual] = useState<string | null>(null); // path no storage
   const [removerAtual, setRemoverAtual] = useState(false);
+  // `confirm()` nativo não funciona em WebView (Risco 3 do CLAUDE.md) —
+  // devolve falso sem perguntar, e a edição parecia simplesmente não
+  // salvar no celular. Trocado por `AlertDialog` (Semana 3 do roadmap
+  // "90 Dias", 22/09/2026).
+  const [confirmandoEdicao, setConfirmandoEdicao] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -88,12 +97,14 @@ export function EntradaForm({ campanhaId, open, onOpenChange, onSaved, entrada }
     setArquivo(file);
   }
 
-  async function onSubmit(e: React.FormEvent) {
+  function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (valor <= 0) { toast.error("Valor precisa ser maior que zero"); return; }
+    if (isEdit) { setConfirmandoEdicao(true); return; }
+    salvar();
+  }
 
-    if (isEdit && !confirm("Confirma a alteração desta entrada?\nO valor anterior será sobrescrito.")) return;
-
+  async function salvar() {
     setBusy(true);
     try {
       // 1) Resolver comprovante
@@ -131,13 +142,14 @@ export function EntradaForm({ campanhaId, open, onOpenChange, onSaved, entrada }
       onSaved();
     } catch (e: any) {
       toast.error(e?.message ?? "Erro");
-    } finally { setBusy(false); }
+    } finally { setBusy(false); setConfirmandoEdicao(false); }
   }
 
   const temComprovanteParaMostrar = (comprovanteAtual && !removerAtual) || arquivo;
   const arquivoEhPdf = arquivo?.type === "application/pdf" || (comprovanteAtual?.toLowerCase().endsWith(".pdf") && !arquivo);
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -314,5 +326,27 @@ export function EntradaForm({ campanhaId, open, onOpenChange, onSaved, entrada }
         </form>
       </DialogContent>
     </Dialog>
+
+      <AlertDialog open={confirmandoEdicao} onOpenChange={(v) => !v && setConfirmandoEdicao(false)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirma a alteração desta entrada?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O valor anterior será sobrescrito. Não dá pra desfazer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>Cancelar</AlertDialogCancel>
+            {/* `AlertDialogAction` fecha o diálogo antes de qualquer `await`
+                deste handler rodar (mesmo padrão documentado em várias
+                telas financeiras) — `preventDefault()` mantém o diálogo
+                aberto até `salvar()` terminar. */}
+            <AlertDialogAction onClick={(e) => { e.preventDefault(); salvar(); }} disabled={busy}>
+              {busy ? "..." : "Confirmar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
