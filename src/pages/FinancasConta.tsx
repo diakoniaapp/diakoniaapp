@@ -13,8 +13,10 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { CampoData } from "@/components/CampoData";
 import { paraNumero } from "@/lib/dinheiro";
+import { parseLocalDate } from "@/lib/data";
 import {
   ArrowLeft, DollarSign, Loader2, Plus, Search, ChevronDown,
   TrendingUp, TrendingDown, Pencil, Trash2, Paperclip,
@@ -59,8 +61,12 @@ const STATUS_COR: Record<FinStatus, string> = {
 // próprio `<Select>` como gatilho, que já desenha a mesma setinha sozinho
 // — não duplicado aqui. Mesmo sinal em todos: ponto dourado ao lado do
 // nome quando aquele filtro está ativo, igual o funil "cheio" do Excel.
-function CabecalhoFiltro({ label, ativo, align = "start", children }: {
-  label: string; ativo: boolean; align?: "start" | "end"; children: React.ReactNode;
+function CabecalhoFiltro({ label, ativo, align = "start", semPadding, children }: {
+  label: string; ativo: boolean; align?: "start" | "end";
+  /** Pro calendário de Data — mesmo padrão de `CampoData.tsx` (`p-0`), o
+      componente de calendário já traz o próprio respiro interno. */
+  semPadding?: boolean;
+  children: React.ReactNode;
 }) {
   return (
     <Popover>
@@ -71,7 +77,7 @@ function CabecalhoFiltro({ label, ativo, align = "start", children }: {
           <ChevronDown className="h-3 w-3 opacity-50 shrink-0" />
         </button>
       </PopoverTrigger>
-      <PopoverContent align={align} className="w-64 p-3 space-y-2 normal-case font-normal text-sm">
+      <PopoverContent align={align} className={semPadding ? "w-auto p-0 normal-case font-normal text-sm" : "w-64 p-3 space-y-2 normal-case font-normal text-sm"}>
         {children}
       </PopoverContent>
     </Popover>
@@ -137,6 +143,14 @@ export default function FinancasConta() {
   // é como qualquer brasileiro digita.
   const [filtroValorMinTexto, setFiltroValorMinTexto] = useState(() => searchParams.get("valorMin") ?? "");
   const [filtroValorMaxTexto, setFiltroValorMaxTexto] = useState(() => searchParams.get("valorMax") ?? "");
+  // Filtro de UM dia específico na coluna Data — pedido da Telma
+  // (22/09/2026: "veja como funciona o filtro da coluna data no Omie
+  // sistema"): lá o filtro de coluna escolhe uma data no calendário e
+  // mostra só aquele dia, separado do período (início/final) da faixa de
+  // cima, que continua existindo do jeito que já era pra ver o mês
+  // inteiro. Em memória, sobre o que o período já trouxe — mesmo
+  // raciocínio do filtro de Valor.
+  const [filtroDataEspecifica, setFiltroDataEspecifica] = useState(() => searchParams.get("dataExata") ?? "");
   // U3/F5 do roadmap "90 Dias" (22/09/2026, início pelo Financeiro): sem
   // paginação, uma conta com meses de histórico (algumas passam de 190
   // lançamentos no mês) renderizava a lista inteira de uma vez. Mesmo
@@ -258,7 +272,7 @@ export default function FinancasConta() {
   // servidor, mas muda quantas linhas sobram pra paginar).
   useEffect(() => { setPagina(1); }, [
     contaId, filtroTipo, inicioEfetivo, fimEfetivo, buscaDebounced,
-    filtroCategoriaId, filtroCentroCustoId, filtroValorMinTexto, filtroValorMaxTexto,
+    filtroCategoriaId, filtroCentroCustoId, filtroValorMinTexto, filtroValorMaxTexto, filtroDataEspecifica,
   ]);
 
   // Espelha os filtros na URL (`replace`, não empilha histórico a cada
@@ -271,11 +285,12 @@ export default function FinancasConta() {
     if (filtroCentroCustoId) params.set("centro", filtroCentroCustoId);
     if (filtroValorMinTexto.trim()) params.set("valorMin", filtroValorMinTexto);
     if (filtroValorMaxTexto.trim()) params.set("valorMax", filtroValorMaxTexto);
+    if (filtroDataEspecifica) params.set("dataExata", filtroDataEspecifica);
     params.set("de", dataInicio);
     params.set("ate", dataFim);
     setSearchParams(params, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtroTipo, busca, dataInicio, dataFim, filtroCategoriaId, filtroCentroCustoId, filtroValorMinTexto, filtroValorMaxTexto]);
+  }, [filtroTipo, busca, dataInicio, dataFim, filtroCategoriaId, filtroCentroCustoId, filtroValorMinTexto, filtroValorMaxTexto, filtroDataEspecifica]);
 
   // Lista de contas pro seletor rápido (item 3) — carregada uma vez só,
   // não depende de `contaId`, e já vem ordenada por `ordem`/`nome`
@@ -427,12 +442,6 @@ export default function FinancasConta() {
     </div>;
   }
 
-  // Referência pra saber se o filtro de Data está "ativo" (mudou do mês
-  // atual, o default) — usado só pro ponto dourado no cabeçalho, mesmo
-  // cálculo que gerou o valor inicial de `dataInicio`/`dataFim`.
-  const dataInicioDefault = toYmd(new Date(hoje.getFullYear(), hoje.getMonth(), 1));
-  const dataFimDefault = toYmd(new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0));
-
   // Filtro de Valor (min/max) — em memória, sobre o que o servidor já
   // trouxe pro período (ver comentário do estado, acima). Tudo que
   // depende do que aparece na tela parte DAQUI, não de `lancamentos` cru,
@@ -440,10 +449,26 @@ export default function FinancasConta() {
   // paginação nem com "N lançamentos no período".
   const valorMin = filtroValorMinTexto.trim() ? paraNumero(filtroValorMinTexto) : null;
   const valorMax = filtroValorMaxTexto.trim() ? paraNumero(filtroValorMaxTexto) : null;
+  // Filtro de Categoria só oferece o que a CONTA aceita (item 5: contas
+  // têm `aceita_receitas`/`aceita_despesas`) — pedido da Telma
+  // (22/09/2026, print real: uma conta só-receita mostrava categoria de
+  // despesa tipo "Salários"/"Férias" na lista, que nunca poderia aparecer
+  // ali mesmo). Conta que aceita os dois tipos (a maioria) continua
+  // vendo a lista inteira. A categoria já selecionada no filtro fica
+  // visível mesmo se não bater mais — não some sozinha da lista por
+  // trocar de conta com um filtro já ativo.
+  const categoriasParaFiltro = categorias.filter(c => {
+    if (c.id === filtroCategoriaId) return true;
+    if (conta.aceita_receitas && !conta.aceita_despesas) return c.tipo === "entrada";
+    if (conta.aceita_despesas && !conta.aceita_receitas) return c.tipo === "saida";
+    return true;
+  });
+
   const lancamentosFiltrados = lancamentos.filter(l => {
     const v = Number(l.valor);
     if (valorMin != null && v < valorMin) return false;
     if (valorMax != null && v > valorMax) return false;
+    if (filtroDataEspecifica && l.data !== filtroDataEspecifica) return false;
     return true;
   });
 
@@ -944,15 +969,22 @@ export default function FinancasConta() {
                       22/09/2026 (tinha saído em 16/09) — pedido dela junto
                       do pedido de filtro por coluna. */}
                   <th className="text-left py-2 px-2 w-24">
-                    <CabecalhoFiltro label="Data" ativo={dataInicio !== dataInicioDefault || dataFim !== dataFimDefault}>
-                      <div>
-                        <label className="text-xs text-muted-foreground">Data inicial</label>
-                        <CampoData value={dataInicio} onChange={setDataInicio} />
-                      </div>
-                      <div>
-                        <label className="text-xs text-muted-foreground">Data final</label>
-                        <CampoData value={dataFim} onChange={setDataFim} />
-                      </div>
+                    {/* Estilo Omie (pedido da Telma, 22/09/2026, com print
+                        de referência): escolhe UM dia no calendário, filtra
+                        só aquele dia — separado do período (Data inicial/
+                        final) da faixa de cima, que continua servindo pra
+                        ver o mês/intervalo inteiro. Clicar de novo no
+                        mesmo dia limpa o filtro (alterna), como o "x" que
+                        o Omie mostra do lado do campo preenchido. */}
+                    <CabecalhoFiltro label="Data" ativo={!!filtroDataEspecifica} semPadding>
+                      <CalendarPicker mode="single"
+                        selected={filtroDataEspecifica ? parseLocalDate(filtroDataEspecifica) : undefined}
+                        defaultMonth={filtroDataEspecifica ? parseLocalDate(filtroDataEspecifica) : parseLocalDate(inicioEfetivo)}
+                        onSelect={(d) => {
+                          if (!d) { setFiltroDataEspecifica(""); return; }
+                          const iso = toYmd(d);
+                          setFiltroDataEspecifica(iso === filtroDataEspecifica ? "" : iso);
+                        }} />
                     </CabecalhoFiltro>
                   </th>
                   <th className="text-left py-2 px-2">
@@ -990,7 +1022,7 @@ export default function FinancasConta() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="__todas__">Todas categorias</SelectItem>
-                        {categorias.map(c => (
+                        {categoriasParaFiltro.map(c => (
                           <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
                         ))}
                       </SelectContent>
