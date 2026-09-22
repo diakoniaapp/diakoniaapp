@@ -155,7 +155,24 @@ export function CategoriaForm({ open, onOpenChange, categoria, tipoPadrao = "sai
 
           <div>
             <Label>Classificação no Plano de Contas</Label>
-            <Select value={classificacaoDre || "__fora__"} onValueChange={(v) => setClassificacaoDre(v === "__fora__" ? "" : v as FinClassificacaoDRE)}>
+            {/* BUG CRÍTICO corrigido (18/09/2026, achado ao vivo — "Dízimos"
+                salvava "Receitas Regulares" no banco, mas reabrir sempre
+                mostrava "Fora do Plano Oficial"). Causa: o Radix Select
+                chama `onValueChange("")` sozinho quando o `value` atual
+                não bate com nenhum `SelectItem` MONTADO ainda — aqui isso
+                acontece no primeiro render depois de abrir o diálogo,
+                quando `tipo` ainda carrega o valor antigo (de uma edição
+                anterior) por uma fração de segundo antes do `useEffect`
+                corrigir, e a lista de opções momentaneamente não inclui
+                o item certo. Sem guarda, esse `onValueChange("")` batia
+                no mesmo `if` que trata o clique real em "Fora do Plano
+                Oficial" (`v === "__fora__"`) e limpava o campo — a escrita
+                no banco nunca foi afetada, só a LEITURA na tela seguinte.
+                Mesmo padrão já corrigido em `LancamentoForm.tsx`
+                (categoria/centro de custo, 17/09/2026): ignorar `v` vazio
+                é seguro porque um clique de verdade em "Fora do Plano
+                Oficial" sempre manda `"__fora__"`, nunca `""`. */}
+            <Select value={classificacaoDre || "__fora__"} onValueChange={(v) => { if (v) setClassificacaoDre(v === "__fora__" ? "" : v as FinClassificacaoDRE); }}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 {/* "Fora do Plano Oficial" só existe pra ENTRADA — pedido

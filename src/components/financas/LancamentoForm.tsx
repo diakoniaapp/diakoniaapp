@@ -706,14 +706,19 @@ export function LancamentoForm({
               `__nenhum__`, nunca string vazia) porque, ao contrário de
               Categoria/Centro (quase sempre preenchidos), a maioria dos
               lançamentos não tem projeto — remover a seleção precisa ser
-              um clique, não só "nunca escolher nada". Isso também evita de
-              propósito a autocorreção do Radix documentada acima em
-              Categoria: aqui `value` sempre bate com um item montado
-              (o projeto real ou o sentinela), nunca fica vazio. */}
+              um clique, não só "nunca escolher nada".
+              CORREÇÃO (18/09/2026): o comentário original dizia que isso
+              bastava pra evitar a autocorreção do Radix — falso. Se
+              `listarProjetos()` ainda não resolveu quando o efeito de
+              carregar-para-editar já setou `projetoId` pra um UUID real,
+              só o sentinela "__nenhum__" está montado; o Radix
+              autocorrige com `onValueChange("")`, e sem a guarda abaixo
+              isso limparia o projeto sozinho — mesmo bug achado ao vivo em
+              `CategoriaForm.tsx` (classificação revertendo sozinha). */}
           {projetos.length > 0 && (
             <div>
               <Label>Projeto (opcional)</Label>
-              <Select value={projetoId || "__nenhum__"} onValueChange={(v) => setProjetoId(v === "__nenhum__" ? "" : v)}>
+              <Select value={projetoId || "__nenhum__"} onValueChange={(v) => { if (v) setProjetoId(v === "__nenhum__" ? "" : v); }}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__nenhum__" className="text-muted-foreground">Nenhum</SelectItem>

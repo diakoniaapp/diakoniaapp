@@ -175,7 +175,14 @@ export function CentroCustoForm({ open, onOpenChange, centro, paiInicial, centro
           {podeReparentar && (
             <div>
               <Label>Centro pai (opcional)</Label>
+              {/* Guarda contra a autocorreção do Radix Select (mesmo bug
+                  achado e corrigido em `CategoriaForm.tsx`/`LancamentoForm.
+                  tsx`, 17-18/09/2026): sem o `if (!v) return`, um
+                  `onValueChange("")` disparado pelo próprio Radix — não
+                  por clique — bateria em `v === "__nenhum__" ? "" : v` e
+                  limparia o centro pai sozinho. */}
               <Select value={centroPaiId || "__nenhum__"} onValueChange={(v) => {
+                if (!v) return;
                 const novoId = v === "__nenhum__" ? "" : v;
                 setCentroPaiId(novoId);
                 // Sugere o prefixo "{Pai} · " no nome — mesmo padrão que
