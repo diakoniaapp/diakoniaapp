@@ -22,10 +22,26 @@ interface Props {
   onOpenChange: (v: boolean) => void;
   /** Conta pré-selecionada como origem */
   contaOrigemPadrao?: string;
+  /** Conta pré-selecionada como destino (22/09/2026) — usado quando quem
+   *  abre este formulário já sabe que ESTA conta é quem RECEBE (ex.: uma
+   *  linha de entrada sem correspondência na conciliação de OFX). Nunca
+   *  os dois ao mesmo tempo — quem chama escolhe um lado, a pessoa
+   *  preenche o outro. */
+  contaDestinoPadrao?: string;
+  /** Pré-preenchimento vindo de uma linha de extrato importado
+   *  (OFX/Omie) — mesma ideia do `rascunho` de `LancamentoForm.tsx`,
+   *  simplificada pros poucos campos que uma transferência tem. Tudo
+   *  continua editável; é só o ponto de partida. */
+  valorPadrao?: number;
+  dataPadrao?: string;
+  descricaoPadrao?: string;
   onSaved: () => void;
 }
 
-export function TransferenciaForm({ open, onOpenChange, contaOrigemPadrao, onSaved }: Props) {
+export function TransferenciaForm({
+  open, onOpenChange, contaOrigemPadrao, contaDestinoPadrao,
+  valorPadrao, dataPadrao, descricaoPadrao, onSaved,
+}: Props) {
   const [contas, setContas] = useState<FinConta[]>([]);
   const [origemId, setOrigemId] = useState("");
   const [destinoId, setDestinoId] = useState("");
@@ -40,15 +56,22 @@ export function TransferenciaForm({ open, onOpenChange, contaOrigemPadrao, onSav
     if (!open) return;
     listarContas().then((cs) => {
       setContas(cs);
-      setOrigemId(contaOrigemPadrao ?? cs[0]?.id ?? "");
-      setDestinoId("");
+      // Sem nenhum padrão dos dois lados (abertura "crua", só o botão
+      // "Transferir" do extrato), cai no primeiro da lista — como sempre
+      // foi. Com um padrão (origem OU destino, nunca os dois — ver
+      // comentário da prop), o OUTRO lado começa vazio de propósito: não
+      // dá pra adivinhar a conta certa, forçar um valor arriscaria uma
+      // transferência pra conta errada por engano.
+      const semNenhumPadrao = !contaOrigemPadrao && !contaDestinoPadrao;
+      setOrigemId(contaOrigemPadrao ?? (semNenhumPadrao ? cs[0]?.id ?? "" : ""));
+      setDestinoId(contaDestinoPadrao ?? "");
     });
-    setValor(0);
-    setData(hojeLocal());
-    setDescricao("");
+    setValor(valorPadrao ?? 0);
+    setData(dataPadrao ?? hojeLocal());
+    setDescricao(descricaoPadrao ?? "");
     setArquivo(null);
     setPreviewUrl(null);
-  }, [open, contaOrigemPadrao]);
+  }, [open, contaOrigemPadrao, contaDestinoPadrao, valorPadrao, dataPadrao, descricaoPadrao]);
 
   useEffect(() => {
     if (!arquivo || !arquivo.type.startsWith("image/")) { setPreviewUrl(null); return; }

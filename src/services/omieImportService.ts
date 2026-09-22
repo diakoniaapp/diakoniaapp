@@ -399,8 +399,16 @@ export interface ResultadoImportacaoOmie {
   loteTag: string;
   /** Pernas de transferência ligadas à perna irmã (`lancamento_pai_id`)
    *  automaticamente após esta importação — ver `parearTransferencias
-   *  Importadas` logo abaixo. */
+   *  Importadas` logo abaixo. NÃO conta as resolvidas na hora (ver
+   *  `transferenciasResolvidasNaHora`) — são contadas separadas porque
+   *  vêm de mecanismos diferentes (adivinhação vs. escolha da pessoa). */
   transferenciasPareadas: number;
+  /** Pernas de transferência cuja OUTRA conta foi escolhida na própria
+   *  tela de importação (22/09/2026, pedido direto — "dê opções de
+   *  editar os lançamentos na hora, pois assim as transferências podem
+   *  ser inseridas nas duas pernas") — ligadas ou criadas na hora,
+   *  atomicamente, sem depender do pareamento por adivinhação depois. */
+  transferenciasResolvidasNaHora: number;
 }
 
 // Pedido da Telma (22/09/2026): "encontre uma solução para extratos
@@ -510,11 +518,21 @@ export async function confirmarImportacaoOmie(
     arquivoNome?: string;
     incluirDuplicatasDoArquivo?: boolean;
     resolucoesPessoa?: ResolucaoPessoa[];
+    /** Índice em `rascunhos` (o array completo passado a esta função, não
+     *  o filtrado) → id da conta escolhida como a OUTRA perna desta
+     *  transferência, decidida na hora pela tela de importação
+     *  (22/09/2026). Só faz sentido pra linha com `ehTransferencia`.
+     *  Ver o bloco que monta `linhas` mais abaixo. */
+    contaOutraPernaPorIndice?: Record<number, string>;
   },
 ): Promise<ResultadoImportacaoOmie> {
-  const linhasValidas = opcoes?.incluirDuplicatasDoArquivo
-    ? rascunhos
-    : rascunhos.filter(r => !r.duplicataDeOutraLinha);
+  // Filtra preservando o índice ORIGINAL (índice em `rascunhos`) — é essa
+  // chave que `contaOutraPernaPorIndice` usa, porque a tela mostra e
+  // deixa escolher em cima de `rascunhos` (via `amostra`), não de um
+  // array já filtrado que ela nunca vê.
+  const filtroValida = (r: RascunhoOmie) => opcoes?.incluirDuplicatasDoArquivo || !r.duplicataDeOutraLinha;
+  const linhasValidas = rascunhos.filter(filtroValida);
+  const indicesValidos = rascunhos.map((_, i) => i).filter(i => filtroValida(rascunhos[i]));
 
   const loteTag = `omie-${new Date().toISOString()}`;
   const userId = (await supabase.auth.getUser()).data.user?.id ?? null;
@@ -631,14 +649,79 @@ export async function confirmarImportacaoOmie(
   // `hojeLocal()`, não `new Date().toISOString()` — ver o comentário de
   // `lib/data.ts` sobre o fuso virando o dia sozinho.
   const hoje = hojeLocal();
-  const linhas = linhasValidas.map(r => {
+  const linhas: any[] = [];
+  // Quando a linha existente (candidata sem par) já está no banco — não
+  // faz parte deste INSERT — seu `lancamento_pai_id` só pode ser ligado
+  // DEPOIS que a própria perna nova existir de verdade (FK). Acumula
+  // aqui e resolve depois do insert principal.
+  const religamentosPendentes: { candidatoId: string; idPropria: string }[] = [];
+  let transferenciasResolvidasNaHora = 0;
+
+  for (let k = 0; k < linhasValidas.length; k++) {
+    const r = linhasValidas[k];
+    const indiceOriginal = indicesValidos[k];
     const fornecedorId = r.fornecedorId ?? (r.cpfCnpj ? cacheFornecedor.get(r.cpfCnpj) ?? null : null);
     const pessoaId = r.pessoaId ?? (r.cpfNaoEncontrado ? cachePessoaCpf.get(r.cpfNaoEncontrado) ?? null : null);
     const obsBase = r.observacoes ? ` ${r.observacoes}` : "";
-    return {
+    const status = r.data >= hoje ? "previsto" as const : "conciliado" as const;
+
+    // Pedido da Telma (22/09/2026): "opções de editar os lançamentos na
+    // hora, pois assim as transferências podem ser inseridas nas duas
+    // pernas" — em vez de confiar só no pareamento por adivinhação
+    // depois (`parearTransferenciasImportadas`, que exige (data,valor)
+    // ser um par INEQUÍVOCO no banco inteiro), a tela deixa escolher a
+    // conta da outra perna JÁ na prévia. Com a conta escolhida:
+    //   1. Busca se a perna irmã JÁ existe sem par nessa conta (outra
+    //      importação, de outro dia) — evita duplicar.
+    //   2. Achando UMA (inequívoco): liga direto, sem criar nada a mais.
+    //   3. Não achando nenhuma: cria a perna espelho agora, atômico com
+    //      esta (mesmo id gerado no cliente que `transferir()` já usa).
+    //   4. Achando mais de uma (ambíguo mesmo escolhendo a conta): não
+    //      arrisca — segue sem par, mesma prudência de sempre.
+    let idPropria: string | undefined;
+    let lancamentoPaiId: string | null = null;
+    const contaOutraPerna = r.ehTransferencia ? opcoes?.contaOutraPernaPorIndice?.[indiceOriginal] : undefined;
+    if (contaOutraPerna) {
+      idPropria = crypto.randomUUID();
+      const tipoOposto: FinMovimentoTipo = r.tipo === "entrada" ? "saida" : "entrada";
+      const { data: candidatos } = await supabase
+        .from("fin_lancamentos").select("id")
+        .eq("conta_id", contaOutraPerna).eq("origem", "transferencia").is("lancamento_pai_id", null)
+        .eq("data", r.data).eq("valor", r.valor).eq("tipo", tipoOposto);
+      if (candidatos?.length === 1) {
+        lancamentoPaiId = candidatos[0].id;
+        religamentosPendentes.push({ candidatoId: candidatos[0].id, idPropria });
+        transferenciasResolvidasNaHora++;
+      } else if (!candidatos || candidatos.length === 0) {
+        const idEspelho = crypto.randomUUID();
+        lancamentoPaiId = idEspelho;
+        linhas.push({
+          id: idEspelho,
+          data: r.data, tipo: tipoOposto, status,
+          conta_id: contaOutraPerna,
+          categoria_id: null, centro_custo_id: null,
+          fornecedor_id: null, pessoa_id: null,
+          valor: r.valor,
+          descricao: r.descricao,
+          documento_numero: r.documentoNumero,
+          observacoes: `[lote:${loteTag}] perna espelho de "${r.descricao}"`,
+          origem: "transferencia",
+          lancamento_pai_id: idPropria,
+          audit_user_id: userId,
+          audit_em: agora,
+        });
+        transferenciasResolvidasNaHora++;
+      }
+      // candidatos.length > 1: ambíguo — idPropria fica definido (a linha
+      // ainda precisa do id pra manter o formato), mas `lancamentoPaiId`
+      // continua null.
+    }
+
+    linhas.push({
+      ...(idPropria ? { id: idPropria } : {}),
       data: r.data,
       tipo: r.tipo,
-      status: r.data >= hoje ? "previsto" as const : "conciliado" as const,
+      status,
       conta_id: contaId,
       categoria_id: r.categoriaId,
       centro_custo_id: r.centroCustoId,
@@ -649,14 +732,19 @@ export async function confirmarImportacaoOmie(
       documento_numero: r.documentoNumero,
       observacoes: `[lote:${loteTag}]${obsBase}`,
       origem: r.ehTransferencia ? "transferencia" : "importado_omie",
+      lancamento_pai_id: lancamentoPaiId,
       audit_user_id: userId,
       audit_em: agora,
-    };
-  });
+    });
+  }
 
   // Insere em blocos de 200 — não é limite conhecido do PostgREST pra
   // este volume, é só prudência (evitar um payload gigante numa tacada
-  // só quando o histórico trazido cobrir vários meses de uma vez).
+  // só quando o histórico trazido cobrir vários meses de uma vez). Pernas
+  // espelho (id gerado no cliente) sempre caem no MESMO bloco que a
+  // própria perna que as referencia — a ordem de inserção em `linhas`
+  // garante isso, e um FK dentro do mesmo INSERT multi-linha já funciona
+  // hoje pro par atômico de `transferir()`.
   const TAMANHO_BLOCO = 200;
   let criados = 0;
   let temTransferencia = false;
@@ -668,13 +756,21 @@ export async function confirmarImportacaoOmie(
     if (bloco.some(l => l.origem === "transferencia")) temTransferencia = true;
   }
 
-  // Só tenta parear se este lote trouxe alguma perna de transferência —
-  // ver `parearTransferenciasImportadas` acima. Roda sobre TODO o banco,
-  // não só este lote, porque a perna irmã de uma importação anterior
-  // (de outra conta, sem par até agora) pode estar esperando esta.
+  // Religa o lado que já existia no banco (candidato achado ANTES do
+  // insert, pertence a outro lote) — só depois que a perna nova, que ele
+  // aponta agora, existe de verdade (senão a FK barra).
+  for (const rel of religamentosPendentes) {
+    await supabase.from("fin_lancamentos").update({ lancamento_pai_id: rel.idPropria }).eq("id", rel.candidatoId);
+  }
+
+  // Só tenta parear por adivinhação se este lote trouxe alguma perna de
+  // transferência SEM escolha manual — ver `parearTransferenciasImportadas`
+  // acima. Roda sobre TODO o banco, não só este lote, porque a perna irmã
+  // de uma importação anterior (de outra conta, sem par até agora) pode
+  // estar esperando esta.
   const transferenciasPareadas = temTransferencia ? await parearTransferenciasImportadas() : 0;
 
-  return { criados, fornecedoresCriados, pessoasCriadas, loteTag, transferenciasPareadas };
+  return { criados, fornecedoresCriados, pessoasCriadas, loteTag, transferenciasPareadas, transferenciasResolvidasNaHora };
 }
 
 /** Desfaz um lote inteiro pelo carimbo gravado em `observacoes`. Não

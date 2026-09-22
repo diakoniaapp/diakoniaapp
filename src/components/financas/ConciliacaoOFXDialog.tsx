@@ -18,13 +18,14 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { FileUp, Scale, CheckCircle2, HelpCircle, Plus } from "lucide-react";
+import { FileUp, Scale, CheckCircle2, HelpCircle, Plus, ArrowRightLeft } from "lucide-react";
 import { listarLancamentos, conciliarEmLote, brl, type FinMovimentoTipo } from "@/services/finService";
 import {
   parseOFX, encodingDoOFX, casarComLancamentos, inferirFormaPagamento,
   type OFXCasamento, type OFXTransacao,
 } from "@/services/ofxService";
 import { LancamentoForm } from "./LancamentoForm";
+import { TransferenciaForm } from "./TransferenciaForm";
 
 interface Props {
   open: boolean;
@@ -50,6 +51,12 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
   const [transacoes, setTransacoes] = useState<OFXTransacao[] | null>(null);
   const [resultado, setResultado] = useState<OFXCasamento[] | null>(null);
   const [lancarTransacao, setLancarTransacao] = useState<OFXTransacao | null>(null);
+  // Pedido da Telma (22/09/2026): "dê opções de editar os lançamentos na
+  // hora, pois assim as transferências podem ser inseridas nas duas
+  // pernas" — uma linha sem correspondência pode ser transferência de
+  // outra conta (a `TransferenciaForm` já cria as duas pernas atômico,
+  // `transferir()` em finService.ts), não só um lançamento avulso.
+  const [transferirTransacao, setTransferirTransacao] = useState<OFXTransacao | null>(null);
 
   function reiniciar() {
     setArquivo(null);
@@ -113,6 +120,12 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
     onSaved(); // refresca a lista por trás (FinancasConta) mesmo sem fechar este dialog
   }
 
+  async function aoSalvarTransferencia() {
+    setTransferirTransacao(null);
+    if (transacoes) await recasar(transacoes);
+    onSaved();
+  }
+
   return (
     <>
     <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) reiniciar(); }}>
@@ -171,10 +184,19 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
                         {r.status === "ambiguo" && ` — ${r.candidatos.length} lançamentos parecidos, revise à mão`}
                       </span>
                       {r.status === "sem_correspondencia" && (
-                        <Button type="button" size="sm" variant="outline" className="h-6 text-xs px-2 gap-1 shrink-0"
-                          onClick={() => setLancarTransacao(r.transacao)}>
-                          <Plus className="w-3 h-3" /> Lançar
-                        </Button>
+                        <div className="flex gap-1 shrink-0">
+                          <Button type="button" size="sm" variant="outline" className="h-6 text-xs px-2 gap-1"
+                            onClick={() => setLancarTransacao(r.transacao)}>
+                            <Plus className="w-3 h-3" /> Lançar
+                          </Button>
+                          {/* Transferência entre contas — mesma linha do extrato pode ser
+                              o lado de cá de um movimento interno, não uma receita/despesa
+                              de verdade (pedido da Telma, 22/09/2026). */}
+                          <Button type="button" size="sm" variant="outline" className="h-6 text-xs px-2 gap-1"
+                            onClick={() => setTransferirTransacao(r.transacao)}>
+                            <ArrowRightLeft className="w-3 h-3" /> Transferência
+                          </Button>
+                        </div>
                       )}
                     </li>
                   ))}
@@ -219,6 +241,21 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
         forma: inferirFormaPagamento(lancarTransacao.memo),
       } : undefined}
       onSaved={aoSalvarLancamento}
+    />
+
+    {/* Mesma ideia do LancamentoForm acima: dialog irmão, pré-preenchido
+        com a linha do extrato. Se a transação é SAÍDA desta conta, esta
+        conta é a origem (dinheiro saiu daqui); se é ENTRADA, é o destino
+        — a pessoa só precisa escolher o outro lado. */}
+    <TransferenciaForm
+      open={!!transferirTransacao}
+      onOpenChange={(v) => { if (!v) setTransferirTransacao(null); }}
+      contaOrigemPadrao={transferirTransacao?.tipo === "saida" ? contaId : undefined}
+      contaDestinoPadrao={transferirTransacao?.tipo === "entrada" ? contaId : undefined}
+      valorPadrao={transferirTransacao?.valor}
+      dataPadrao={transferirTransacao?.data}
+      descricaoPadrao={transferirTransacao?.memo}
+      onSaved={aoSalvarTransferencia}
     />
     </>
   );

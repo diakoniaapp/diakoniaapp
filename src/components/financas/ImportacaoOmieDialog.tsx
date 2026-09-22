@@ -36,8 +36,9 @@ import {
 import { toast } from "sonner";
 import {
   FileUp, Upload, TrendingUp, TrendingDown, AlertTriangle, Building2, Users, Layers, Copy, ShieldAlert,
+  ArrowRightLeft,
 } from "lucide-react";
-import { brl, type FinMovimentoTipo } from "@/services/finService";
+import { listarContas, brl, type FinMovimentoTipo, type FinConta } from "@/services/finService";
 import {
   lerArquivoOmie, prepararImportacaoOmie, confirmarImportacaoOmie,
   verificarArquivoJaImportado, verificarSobreposicaoPeriodo, contaTemHistorico, desfazerImportacaoOmie,
@@ -95,6 +96,16 @@ export function ImportacaoOmieDialog({ open, onOpenChange, contaId, contaNome, o
   // conservador pra quem só doou e não tinha cadastro nenhum).
   const [escolhasPessoa, setEscolhasPessoa] = useState<Record<string, EscolhaPessoa>>({});
 
+  // Pedido da Telma (22/09/2026): "dê opções de editar os lançamentos na
+  // hora, pois assim as transferências podem ser inseridas nas duas
+  // pernas" — pra cada linha marcada como transferência (`ehTransferencia`),
+  // deixa escolher JÁ NA PRÉVIA qual é a conta do outro lado. Índice em
+  // `rascunhos` → conta escolhida; vai direto pra `contaOutraPernaPorIndice`
+  // de `confirmarImportacaoOmie`. Sem escolha, cai no pareamento por
+  // adivinhação de sempre (`parearTransferenciasImportadas`).
+  const [contasOutraPerna, setContasOutraPerna] = useState<FinConta[]>([]);
+  const [escolhasTransferencia, setEscolhasTransferencia] = useState<Record<number, string>>({});
+
   // Guarda síncrona contra clique duplo/corrida — o `disabled={confirmando}`
   // do botão já ajuda, mas só depois do React re-renderizar; esta ref é
   // checada ANTES de qualquer `await`, no mesmo tick do clique. Achado
@@ -113,6 +124,7 @@ export function ImportacaoOmieDialog({ open, onOpenChange, contaId, contaNome, o
     setUsarSaldoInicial(true);
     setIncluirDuplicatas(false);
     setEscolhasPessoa({});
+    setEscolhasTransferencia({});
   }
 
   async function processarArquivo(file: File) {
@@ -135,6 +147,13 @@ export function ImportacaoOmieDialog({ open, onOpenChange, contaId, contaNome, o
       const { rascunhos: r, resumo: res } = await prepararImportacaoOmie(linhas, saldoAnterior);
       setRascunhos(r);
       setResumo(res);
+
+      // Só busca a lista de contas se o arquivo trouxer alguma
+      // transferência — a maioria dos arquivos não traz, e a tela de
+      // escolha só aparece nesse caso (ver render da linha, abaixo).
+      if (r.some(x => x.ehTransferencia)) {
+        listarContas().then(cs => setContasOutraPerna(cs.filter(c => c.id !== contaId)));
+      }
 
       // Só marca "usar saldo anterior" por padrão quando é a PRIMEIRA
       // importação da conta — ver comentário do estado acima.
@@ -179,18 +198,30 @@ export function ImportacaoOmieDialog({ open, onOpenChange, contaId, contaNome, o
           return [{ ...p, acao: "criar", tipoPessoa: escolha === "membro" ? "membro" : "congregado" }];
         });
 
+      // Só manda escolha de linha que REALMENTE tem conta escolhida —
+      // `escolhasTransferencia` pode ter entradas vazias ("") deixadas
+      // pelo Select antes de decidir.
+      const contaOutraPernaPorIndice = Object.fromEntries(
+        Object.entries(escolhasTransferencia).filter(([, v]) => v));
+
       const r = await confirmarImportacaoOmie(rascunhos, contaId, saldoInicial, {
         arquivoHash: arquivoHash ?? undefined,
         arquivoNome: arquivoNome ?? undefined,
         incluirDuplicatasDoArquivo: incluirDuplicatas,
         resolucoesPessoa,
+        contaOutraPernaPorIndice,
       });
 
       const partes = [`${r.criados} lançamento${r.criados !== 1 ? "s" : ""} importado${r.criados !== 1 ? "s" : ""}`];
       if (r.fornecedoresCriados > 0) partes.push(`${r.fornecedoresCriados} fornecedor(es) novo(s)`);
       if (r.pessoasCriadas > 0) partes.push(`${r.pessoasCriadas} pessoa(s) nova(s)`);
-      // Pareamento automático de transferência (22/09/2026) — ver
-      // `parearTransferenciasImportadas` em omieImportService.ts.
+      // Transferência resolvida na hora (22/09/2026, escolha manual) e
+      // pareamento automático depois (por adivinhação, ver
+      // `parearTransferenciasImportadas`) — mecanismos diferentes,
+      // contados separado.
+      if (r.transferenciasResolvidasNaHora > 0) {
+        partes.push(`${r.transferenciasResolvidasNaHora} transferência(s) ligada(s) na hora`);
+      }
       if (r.transferenciasPareadas > 0) {
         partes.push(`${r.transferenciasPareadas / 2} transferência(s) ligada(s) à outra conta`);
       }
@@ -436,21 +467,49 @@ export function ImportacaoOmieDialog({ open, onOpenChange, contaId, contaNome, o
               </div>
             )}
 
+            {amostra.some(r => r.ehTransferencia) && (
+              <div className="rounded-md border border-info-line bg-info-soft/20 p-3 space-y-1">
+                <p className="text-sm font-medium text-info-text flex items-center gap-1.5">
+                  <ArrowRightLeft className="w-4 h-4" /> Linhas de transferência — escolha a outra conta
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Sem escolher, o sistema tenta ligar sozinho depois (só quando for inequívoco — mesma
+                  data e valor batendo em só uma outra conta). Escolhendo aqui, liga ou cria a perna
+                  espelho na hora, sem depender de adivinhação.
+                </p>
+              </div>
+            )}
+
             <div className="space-y-1 max-h-64 overflow-y-auto border rounded-md p-2">
               {amostra.map((r, i) => (
-                <div key={i} className={`flex items-center justify-between gap-2 text-xs border-b border-border/30 py-1 last:border-0 ${r.duplicataDeOutraLinha ? "opacity-40" : ""}`}>
-                  <span className="text-muted-foreground shrink-0">{dataBr(r.data)}</span>
-                  <span className="flex-1 min-w-0 truncate">{r.descricao}</span>
-                  <span className="text-muted-foreground shrink-0">{r.categoriaNome ?? r.categoriaBruta}</span>
-                  {r.centroCustoNome && (
-                    <span className="text-muted-foreground shrink-0 hidden sm:inline">· {r.centroCustoNome}</span>
+                <div key={i} className={`flex flex-col gap-1 text-xs border-b border-border/30 py-1 last:border-0 ${r.duplicataDeOutraLinha ? "opacity-40" : ""}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-muted-foreground shrink-0">{dataBr(r.data)}</span>
+                    <span className="flex-1 min-w-0 truncate">{r.descricao}</span>
+                    <span className="text-muted-foreground shrink-0">{r.categoriaNome ?? r.categoriaBruta}</span>
+                    {r.centroCustoNome && (
+                      <span className="text-muted-foreground shrink-0 hidden sm:inline">· {r.centroCustoNome}</span>
+                    )}
+                    {r.duplicataDeOutraLinha && (
+                      <Badge variant="outline" className="shrink-0 text-[10px] px-1 py-0 border-warning-line text-warning-text">duplicata</Badge>
+                    )}
+                    <span className={`tabular-nums shrink-0 ${r.tipo === "entrada" ? "text-success-text" : "text-destructive-text"}`}>
+                      {r.tipo === "entrada" ? "+" : "−"} {brl(r.valor)}
+                    </span>
+                  </div>
+                  {r.ehTransferencia && !r.duplicataDeOutraLinha && (
+                    <Select value={escolhasTransferencia[i] ?? ""}
+                      onValueChange={(v) => setEscolhasTransferencia(prev => ({ ...prev, [i]: v }))}>
+                      <SelectTrigger className="h-6 text-[11px] w-56 ml-auto">
+                        <SelectValue placeholder="Outra conta (opcional)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {contasOutraPerna.map(c => (
+                          <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   )}
-                  {r.duplicataDeOutraLinha && (
-                    <Badge variant="outline" className="shrink-0 text-[10px] px-1 py-0 border-warning-line text-warning-text">duplicata</Badge>
-                  )}
-                  <span className={`tabular-nums shrink-0 ${r.tipo === "entrada" ? "text-success-text" : "text-destructive-text"}`}>
-                    {r.tipo === "entrada" ? "+" : "−"} {brl(r.valor)}
-                  </span>
                 </div>
               ))}
               {rascunhos.length > amostra.length && (
