@@ -272,19 +272,25 @@ export default function PainelTesouraria() {
                 <p className="text-xs uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
                   <TrendingUp className="w-3.5 h-3.5 text-success-text" /> Entradas do mês
                 </p>
-                <p className="font-semibold tabular-nums mt-0.5 text-lg">{brl(resumo.entradas_mes)}</p>
+                <p className="font-semibold tabular-nums mt-0.5 text-lg text-success-text">{brl(resumo.entradas_mes)}</p>
               </div>
               <div className="rounded-md border p-2.5">
                 <p className="text-xs uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
                   <TrendingDown className="w-3.5 h-3.5 text-destructive-text" /> Saídas do mês
                 </p>
-                <p className="font-semibold tabular-nums mt-0.5 text-lg">{brl(resumo.saidas_mes)}</p>
+                <p className="font-semibold tabular-nums mt-0.5 text-lg text-destructive-text">{brl(resumo.saidas_mes)}</p>
               </div>
-              <div className="rounded-md border p-2.5">
+              {/* U5/U6 do roadmap "90 Dias" (22/09/2026): "previsto" tinha a
+                  MESMA cor de "realizado" (Entradas/Saídas acima) — os três
+                  valores eram texto simples, só o ícone pequeno diferia.
+                  Cor própria (warning, igual ao ícone) + borda tracejada:
+                  "previsto" precisa parecer diferente de "já aconteceu" à
+                  distância, não só de perto. */}
+              <div className="rounded-md border border-dashed p-2.5">
                 <p className="text-xs uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
                   <CalendarClock className="w-3.5 h-3.5 text-warning-text" /> Previstas (mês)
                 </p>
-                <p className="font-semibold tabular-nums mt-0.5 text-lg">{brl(resumo.previstas_mes)}</p>
+                <p className="font-semibold tabular-nums mt-0.5 text-lg text-warning-text">{brl(resumo.previstas_mes)}</p>
               </div>
             </section>
           )}
