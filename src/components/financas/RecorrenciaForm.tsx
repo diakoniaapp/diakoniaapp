@@ -15,6 +15,7 @@ import { RotateCw, TrendingUp, TrendingDown } from "lucide-react";
 import {
   listarContas, listarCategorias, listarCentrosCusto, listarFornecedores,
   criarRecorrencia, atualizarRecorrencia, gerarRecorrencias, ordenarCentrosParaSeletor,
+  sugerirCentroPorCategoria,
   FREQUENCIA_LABEL,
   type FinConta, type FinCategoria, type FinCentroCusto, type FinFornecedor,
   type FinRecorrencia, type FinMovimentoTipo, type FinFrequencia,
@@ -92,6 +93,18 @@ export function RecorrenciaForm({ open, onOpenChange, recorrencia, onSaved }: Pr
       setObservacao(""); setLembrar5d(true); setLembrar1d(true); setLembrarDia(true);
     }
   }, [open, recorrencia]);
+
+  // Auto-sugestão de centro de custo (22/09/2026) — mesmo mecanismo do
+  // `LancamentoForm.tsx`: só sugere se o campo ainda está vazio, então
+  // não sobrescreve o que já veio de `recorrencia` (efeito acima) nem uma
+  // escolha manual da pessoa.
+  useEffect(() => {
+    if (!categoriaId || centroId || !open) return;
+    (async () => {
+      const sugerido = await sugerirCentroPorCategoria(categoriaId);
+      if (sugerido) setCentroId(sugerido);
+    })();
+  }, [categoriaId, open]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();

@@ -11,8 +11,8 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { TrendingUp, TrendingDown } from "lucide-react";
 import {
-  criarCategoria, atualizarCategoria,
-  type FinCategoria, type FinMovimentoTipo, type FinClassificacaoDRE,
+  criarCategoria, atualizarCategoria, listarCentrosCusto,
+  type FinCategoria, type FinMovimentoTipo, type FinClassificacaoDRE, type FinCentroCusto,
 } from "@/services/finService";
 
 // Pedido da Telma (16/09/2026), depois de criar "Devoluções e Estornos"
@@ -56,7 +56,26 @@ export function CategoriaForm({ open, onOpenChange, categoria, tipoPadrao = "sai
   const [ordem, setOrdem] = useState<number>(50);
   const [contaContabil, setContaContabil] = useState("");
   const [classificacaoDre, setClassificacaoDre] = useState<FinClassificacaoDRE | "">("");
+  // Sugestão automática de centro de custo (22/09/2026) — "Centro de
+  // Custo Padrão" e "Subcentro de Custo Padrão" como dois campos NA TELA
+  // (pedido explícito da Telma, com mockup mostrando os dois separados),
+  // mas no banco é uma coluna só (`centro_custo_padrao_id`): um centro
+  // raiz (`centro_pai_id` nulo) OU um subcentro (`centro_pai_id`
+  // preenchido) — mesmo desenho de `fin_fornecedores.centro_custo_
+  // padrao_id`. `centroPrincipalId` guarda a escolha do 1º seletor;
+  // `subcentroId` a do 2º, sempre filtrado pelos filhos do 1º.
+  const [centros, setCentros] = useState<FinCentroCusto[]>([]);
+  const [centroPrincipalId, setCentroPrincipalId] = useState("");
+  const [subcentroId, setSubcentroId] = useState("");
   const [busy, setBusy] = useState(false);
+
+  const centrosPrincipais = centros.filter(c => !c.centro_pai_id);
+  const subcentrosDoPrincipal = centros.filter(c => c.centro_pai_id === centroPrincipalId);
+
+  useEffect(() => {
+    if (!open) return;
+    listarCentrosCusto().then(setCentros);
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -72,6 +91,26 @@ export function CategoriaForm({ open, onOpenChange, categoria, tipoPadrao = "sai
       setCor("#888"); setOrdem(50); setContaContabil(""); setClassificacaoDre("");
     }
   }, [open, categoria, tipoPadrao]);
+
+  // Separado do efeito acima: precisa de `centros` carregado pra saber se
+  // o `centro_custo_padrao_id` salvo é raiz ou subcentro (e então achar o
+  // pai). Roda de novo quando `centros` chega, não só na abertura.
+  useEffect(() => {
+    if (!open || centros.length === 0) return;
+    const padraoId = categoria?.centro_custo_padrao_id ?? "";
+    if (!padraoId) { setCentroPrincipalId(""); setSubcentroId(""); return; }
+    const centro = centros.find(c => c.id === padraoId);
+    if (!centro) { setCentroPrincipalId(""); setSubcentroId(""); return; }
+    if (centro.centro_pai_id) { setCentroPrincipalId(centro.centro_pai_id); setSubcentroId(centro.id); }
+    else { setCentroPrincipalId(centro.id); setSubcentroId(""); }
+  }, [open, categoria, centros]);
+
+  // Trocar o Centro invalida o Subcentro escolhido antes (era filho de
+  // outro pai) — mesma ideia de `mudarTipo` abaixo, pra classificação.
+  function mudarCentroPrincipal(v: string) {
+    setCentroPrincipalId(v);
+    setSubcentroId("");
+  }
 
   // Trocar entrada↔saída invalida a classificação escolhida (uma
   // categoria de entrada não pode ser "despesas") — mesma guarda que já
@@ -105,6 +144,7 @@ export function CategoriaForm({ open, onOpenChange, categoria, tipoPadrao = "sai
         tipo, cor, ordem,
         conta_contabil: contaContabil.trim() || null,
         classificacao_dre: classificacaoDre || null,
+        centro_custo_padrao_id: subcentroId || centroPrincipalId || null,
       };
       if (isEdit && categoria) {
         await atualizarCategoria(categoria.id, payload);
@@ -216,6 +256,38 @@ export function CategoriaForm({ open, onOpenChange, categoria, tipoPadrao = "sai
               ))}
             </div>
           </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Centro de custo padrão</Label>
+              <Select value={centroPrincipalId} onValueChange={(v) => { if (v) mudarCentroPrincipal(v); }}>
+                <SelectTrigger><SelectValue placeholder="(opcional)" /></SelectTrigger>
+                <SelectContent>
+                  {centrosPrincipais.map(c => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Subcentro de custo padrão</Label>
+              <Select value={subcentroId} onValueChange={(v) => { if (v) setSubcentroId(v); }}
+                disabled={!centroPrincipalId || subcentrosDoPrincipal.length === 0}>
+                <SelectTrigger>
+                  <SelectValue placeholder={centroPrincipalId ? "(nenhum)" : "Escolha o centro primeiro"}>
+                    {subcentrosDoPrincipal.find(c => c.id === subcentroId)?.nome.split(" · ")[1]}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {subcentrosDoPrincipal.map(c => (
+                    <SelectItem key={c.id} value={c.id}>{c.nome.split(" · ")[1] ?? c.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground -mt-1.5">
+            Sugerido sozinho ao escolher esta categoria num lançamento (dá pra trocar na hora).
+            Sem padrão cadastrado, o sistema sugere pelo centro mais usado nesta categoria até aqui.
+          </p>
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>

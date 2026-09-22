@@ -4281,6 +4281,7 @@ export type Database = {
       fin_categorias: {
         Row: {
           ativo: boolean
+          centro_custo_padrao_id: string | null
           classificacao_dre:
             | Database["public"]["Enums"]["fin_classificacao_dre"]
             | null
@@ -4298,6 +4299,7 @@ export type Database = {
         }
         Insert: {
           ativo?: boolean
+          centro_custo_padrao_id?: string | null
           classificacao_dre?:
             | Database["public"]["Enums"]["fin_classificacao_dre"]
             | null
@@ -4315,6 +4317,7 @@ export type Database = {
         }
         Update: {
           ativo?: boolean
+          centro_custo_padrao_id?: string | null
           classificacao_dre?:
             | Database["public"]["Enums"]["fin_classificacao_dre"]
             | null
@@ -4331,6 +4334,13 @@ export type Database = {
           tipo?: Database["public"]["Enums"]["fin_movimento_tipo"]
         }
         Relationships: [
+          {
+            foreignKeyName: "fin_categorias_centro_custo_padrao_id_fkey"
+            columns: ["centro_custo_padrao_id"]
+            isOneToOne: false
+            referencedRelation: "fin_centros_custo"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "fin_categorias_pai_id_fkey"
             columns: ["pai_id"]

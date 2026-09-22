@@ -99,6 +99,12 @@ export interface FinCategoria {
   sistema: boolean;
   ordem: number;
   ativo: boolean;
+  // Sugestão automática de centro de custo (22/09/2026) — mesmo desenho
+  // de `fin_fornecedores.centro_custo_padrao_id`, um nível acima: aponta
+  // pra um centro (raiz) ou subcentro (`fin_centros_custo.centro_pai_id`
+  // preenchido), os dois cabem numa coluna só. Prioridade 1 na RPC
+  // `fin_sugerir_centro_por_categoria`; sem isso, cai no histórico.
+  centro_custo_padrao_id: string | null;
 }
 
 export interface FinCentroCusto {

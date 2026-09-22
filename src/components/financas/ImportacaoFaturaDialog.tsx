@@ -28,7 +28,7 @@ import {
   FileUp, Upload, TrendingDown, AlertTriangle, Building2, ShieldAlert, FileWarning,
 } from "lucide-react";
 import {
-  brl, listarCategorias, listarCentrosCusto, ordenarCentrosParaSeletor,
+  brl, listarCategorias, listarCentrosCusto, ordenarCentrosParaSeletor, sugerirCentroPorCategoria,
   type FinCategoria, type FinCentroCusto,
 } from "@/services/finService";
 import {
@@ -254,7 +254,25 @@ export function ImportacaoFaturaDialog({ open, onOpenChange, contaId, contaNome,
                         <p className="text-muted-foreground">{f.qtdTransacoes}×</p>
                       </div>
                       <Select value={resolucoes[f.chave]?.categoriaId ?? ""}
-                        onValueChange={(v) => setResolucoes(prev => ({ ...prev, [f.chave]: { ...prev[f.chave], categoriaId: v } }))}>
+                        onValueChange={(v) => {
+                          // Guarda contra o auto-correção do Radix (`onValueChange("")`
+                          // sozinho quando o valor atual ainda não bate com nenhum item
+                          // montado) — mesmo achado do `CategoriaForm.tsx`/`LancamentoForm.tsx`.
+                          if (!v) return;
+                          setResolucoes(prev => ({ ...prev, [f.chave]: { ...prev[f.chave], categoriaId: v } }));
+                          // Mesma auto-sugestão de centro de custo do LancamentoForm,
+                          // aqui replicada porque este fluxo cria fornecedor+lançamento
+                          // direto (sem passar pelo LancamentoForm) — só sugere se esta
+                          // linha ainda não tem centro escolhido.
+                          if (!resolucoes[f.chave]?.centroCustoId) {
+                            sugerirCentroPorCategoria(v).then(sugerido => {
+                              if (!sugerido) return;
+                              setResolucoes(prev => prev[f.chave]?.centroCustoId
+                                ? prev
+                                : { ...prev, [f.chave]: { ...prev[f.chave], centroCustoId: sugerido } });
+                            });
+                          }
+                        }}>
                         <SelectTrigger className="h-7 w-32 text-xs"><SelectValue placeholder="Categoria" /></SelectTrigger>
                         <SelectContent>
                           {categorias.map(c => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
