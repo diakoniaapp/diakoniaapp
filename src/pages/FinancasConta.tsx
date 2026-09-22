@@ -418,7 +418,15 @@ export default function FinancasConta() {
       setSelecionados(new Set());
       setApagandoLote(false);
       await carregar();
-    } catch (e: any) { toast.error(e?.message ?? "Erro"); }
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erro");
+      // Diferente do delete de item único: em lote agora é possível parar
+      // NO MEIO (`emLotes`, finService.ts) — alguns lotes já apagados,
+      // outros não. Sem recarregar aqui, a tela continuaria mostrando como
+      // "selecionado, ainda na lista" linhas que já sumiram do banco.
+      setSelecionados(new Set());
+      await carregar();
+    }
     finally { setExcluindoLoteBusy(false); }
   }
 
@@ -431,6 +439,18 @@ export default function FinancasConta() {
       const todosMarcados = todosIds.length > 0 && todosIds.every(id => prev.has(id));
       return todosMarcados ? new Set() : new Set(todosIds);
     });
+  }
+
+  // Pedido da Telma (22/09/2026), vendo "Excluir 50" e tendo que repetir
+  // página por página: "permita excluir todo o período selecionado" — ela
+  // estava selecionando de 50 em 50. Ação separada do checkbox do
+  // cabeçalho (que continua só-página, de propósito — ver comentário
+  // acima): esta pega TODO `lancamentosOrdenados`, as centenas que podem
+  // estar escondidas nas outras páginas, respeitando os mesmos filtros já
+  // aplicados (data, categoria, centro, valor, busca — é o que a tela já
+  // mostra como "N lançamentos no período" no rodapé).
+  function selecionarPeriodoInteiro() {
+    setSelecionados(new Set(lancamentosOrdenados.map(l => l.id)));
   }
 
   if (loading && !conta) {
@@ -748,6 +768,16 @@ export default function FinancasConta() {
               <Trash2 className="w-3.5 h-3.5" />
               {`Excluir ${selecionados.size}`}
             </Button>
+            {/* Só aparece enquanto sobrar algo fora da seleção — some
+                sozinho assim que "selecionar todo o período" já pegou
+                tudo, sem precisar de um segundo clique pra notar que não
+                tem mais nada a fazer. */}
+            {selecionados.size < lancamentosOrdenados.length && (
+              <button type="button" onClick={selecionarPeriodoInteiro} disabled={conciliando || excluindoLoteBusy}
+                className="text-xs text-muted-foreground hover:text-foreground underline decoration-dotted underline-offset-2 whitespace-nowrap">
+                Selecionar os {lancamentosOrdenados.length} do período
+              </button>
+            )}
           </>
         )}
         {conta.tipo === "banco" && (
@@ -1227,6 +1257,12 @@ export default function FinancasConta() {
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir {selecionados.size} lançamento{selecionados.size > 1 ? "s" : ""}?</AlertDialogTitle>
             <AlertDialogDescription>
+              {/* Volume grande (seleção do período inteiro, 22/09/2026) —
+                  mostra o intervalo de datas pra conferir de novo ANTES de
+                  confirmar. Sem isso, um período errado no filtro de
+                  cima vira uma exclusão em massa silenciosa. */}
+              {selecionados.size > POR_PAGINA &&
+                `Isso inclui todo o período filtrado — de ${dataBr(inicioEfetivo)} a ${dataBr(fimEfetivo)}. `}
               {/* Item 7 (22/09/2026) — mesmo aviso do diálogo individual:
                   se a seleção tiver alguma perna de transferência, a outra
                   perna (na conta irmã) some junto, mesmo sem estar

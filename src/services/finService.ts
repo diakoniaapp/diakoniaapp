@@ -806,35 +806,65 @@ export async function excluirLancamento(id: string): Promise<void> {
   if (!r.ok) throw new Error(r.erro);
 }
 
-// Exclusão em massa (item 2, "PRIORIDADE MÁXIMA" 22/09/2026) — um único
-// DELETE ... WHERE id IN (...), mesmo padrão de `conciliarEmLote` logo
-// abaixo (uma consulta em lote, não um loop de N consultas por linha).
+// Quebra um array em pedaços de `tamanho` — usado só pra não estourar a
+// URL do PostgREST: `.in("id", ids)` vira query string (mesmo em DELETE),
+// e um UUID com vírgula pesa uns 37 caracteres — 1000 ids já passa de
+// 37.000, acima do limite comum de 8KB de muitos proxies/servidores.
+function emLotes<T>(arr: T[], tamanho: number): T[][] {
+  const lotes: T[][] = [];
+  for (let i = 0; i < arr.length; i += tamanho) lotes.push(arr.slice(i, i + tamanho));
+  return lotes;
+}
+
+// Exclusão em massa (item 2, "PRIORIDADE MÁXIMA" 22/09/2026) — em lotes de
+// 150 ids por `.in()` (achado em 22/09/2026: "selecionar todo o período"
+// pode juntar centenas de linhas de uma vez — um `.in()` só, sem lote,
+// estourava a URL). Mesmo padrão de `conciliarEmLote` logo abaixo pro
+// espírito (uma consulta por LOTE, não uma por linha), só que em blocos
+// em vez de um `.in()` único.
 // Item 7 (22/09/2026): expande a lista com a perna irmã de qualquer
 // transferência selecionada que não tenha sido marcada junto — mesmo
 // motivo do `excluirLancamento` acima, sem essa expansão a exclusão em
 // massa também deixaria pernas órfãs.
 export async function excluirLancamentosEmLote(ids: string[]): Promise<void> {
   if (ids.length === 0) return;
-  const { data: ls } = await supabase.from("fin_lancamentos")
-    .select("id, comprovante_url, origem, lancamento_pai_id").in("id", ids);
+  const TAMANHO_LOTE = 150;
+
+  const ls: { id: string; comprovante_url: string | null; origem: string; lancamento_pai_id: string | null }[] = [];
+  for (const lote of emLotes(ids, TAMANHO_LOTE)) {
+    const { data } = await supabase.from("fin_lancamentos")
+      .select("id, comprovante_url, origem, lancamento_pai_id").in("id", lote);
+    ls.push(...((data ?? []) as typeof ls));
+  }
+
   const idsCompletos = new Set(ids);
-  for (const l of ls ?? []) {
-    if (l.origem === "transferencia" && l.lancamento_pai_id) idsCompletos.add(l.lancamento_pai_id);
+  const idsParesFaltando: string[] = [];
+  for (const l of ls) {
+    if (l.origem === "transferencia" && l.lancamento_pai_id && !idsCompletos.has(l.lancamento_pai_id)) {
+      idsCompletos.add(l.lancamento_pai_id);
+      idsParesFaltando.push(l.lancamento_pai_id);
+    }
   }
+
+  const comprovantesUrls = ls.map(l => l.comprovante_url).filter((u): u is string => !!u);
+  if (idsParesFaltando.length > 0) {
+    for (const lote of emLotes(idsParesFaltando, TAMANHO_LOTE)) {
+      const { data } = await supabase.from("fin_lancamentos").select("comprovante_url").in("id", lote);
+      for (const l of data ?? []) if (l.comprovante_url) comprovantesUrls.push(l.comprovante_url);
+    }
+  }
+  for (const url of comprovantesUrls) await removerComprovante(url);
+
   const idsFinais = Array.from(idsCompletos);
-
-  const { data: comprovantes } = idsFinais.length > ids.length
-    ? await supabase.from("fin_lancamentos").select("comprovante_url").in("id", idsFinais)
-    : { data: ls };
-  for (const l of comprovantes ?? []) {
-    if (l.comprovante_url) await removerComprovante(l.comprovante_url);
+  let apagados = 0;
+  for (const lote of emLotes(idsFinais, TAMANHO_LOTE)) {
+    const r = conferir(
+      await supabase.from("fin_lancamentos").delete().in("id", lote).select("id"),
+      "A exclusão",
+    );
+    if (!r.ok) throw new Error(`${r.erro} (${apagados} de ${idsFinais.length} já excluídos antes de parar)`);
+    apagados += lote.length;
   }
-
-  const r = conferir(
-    await supabase.from("fin_lancamentos").delete().in("id", idsFinais).select("id"),
-    "A exclusão",
-  );
-  if (!r.ok) throw new Error(r.erro);
 }
 
 // ─── Comprovantes (storage: fin-comprovantes) ───────────────────────────
