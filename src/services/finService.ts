@@ -1011,35 +1011,125 @@ export async function transferir(input: {
   }
 }
 
-// Editar uma transferência (pedido da Telma, 22/09/2026, ao vivo: "hoje
-// no editar ela abre o form de lançamento" — o lápis do extrato abria o
-// `LancamentoForm` completo pra uma perna de transferência, deixando
-// mudar Conta/Valor/Categoria de só UM lado. Mudar o valor de só uma
-// perna quebraria a invariante da transferência (as duas pernas têm que
-// ter o mesmo valor) sem nada impedir — pior que uma tela errada, um jeito
-// de corromper o par silenciosamente.
-//
-// Edição fica restrita a Data e Descrição — o que não corrompe o par.
-// Conta/Valor são travados: pra mudar, exclui e cria de novo (mesmo
-// princípio já usado pro lançamento comum, "não dá pra desfazer"). Data é
-// sincronizada com a perna irmã (uma transferência acontece numa data só);
-// Descrição fica independente — cada perna pode ter uma nota própria.
+// Editar uma transferência — pedido da Telma em duas rodadas (22/09/2026):
+// primeiro "hoje no editar ela abre o form de lançamento" (o lápis abria o
+// `LancamentoForm` completo, deixando mudar Conta/Valor de só UMA perna
+// sem nada impedir a outra de ficar pra trás — pior que a tela errada, um
+// jeito de corromper o par silenciosamente); depois, vendo a versão
+// restrita a Data/Descrição: "mostre opções como no Omie sistema" — Omie
+// edita origem, destino e valor numa tela só, porque lá a transferência é
+// UM registro. Aqui são DUAS linhas em `fin_lancamentos` (uma por perna).
+// A saída: em vez de travar Conta/Valor, esta função escreve nas DUAS
+// pernas a cada edição desses campos — a mesma garantia de sincronismo
+// que `transferir()` dá na criação, só que em UPDATE em vez de INSERT.
+export interface FinTransferenciaDetalhe {
+  /** A perna que foi clicada no extrato — id original da chamada. */
+  id: string;
+  /** `false` = importada do Omie/OFX, sem `lancamento_pai_id` gravado —
+   *  a outra perna existe no banco, mas esta função não sabe qual é. */
+  temPar: boolean;
+  idSaida: string;
+  idEntrada: string | null;
+  contaOrigemId: string;
+  contaDestinoId: string | null;
+  valor: number;
+  data: string;
+  /** Descrição só DESTA perna — cada lado pode ter uma nota própria. */
+  descricao: string | null;
+  tipo: FinMovimentoTipo;
+}
+
+export async function carregarTransferencia(id: string): Promise<FinTransferenciaDetalhe> {
+  const { data: l, error } = await supabase.from("fin_lancamentos")
+    .select("id, tipo, data, valor, conta_id, descricao, origem, lancamento_pai_id")
+    .eq("id", id).maybeSingle();
+  if (error) throw error;
+  if (!l) throw new Error("Lançamento não encontrado");
+  if (l.origem !== "transferencia") throw new Error("Não é uma transferência");
+
+  if (!l.lancamento_pai_id) {
+    return {
+      id: l.id, temPar: false,
+      idSaida: l.tipo === "saida" ? l.id : "",
+      idEntrada: l.tipo === "entrada" ? l.id : null,
+      contaOrigemId: l.tipo === "saida" ? l.conta_id : "",
+      contaDestinoId: l.tipo === "entrada" ? l.conta_id : null,
+      valor: Number(l.valor), data: l.data, descricao: l.descricao,
+      tipo: l.tipo as FinMovimentoTipo,
+    };
+  }
+
+  const { data: par } = await supabase.from("fin_lancamentos")
+    .select("id, tipo, conta_id").eq("id", l.lancamento_pai_id).maybeSingle();
+  const saida = l.tipo === "saida" ? l : par;
+  const entrada = l.tipo === "entrada" ? l : par;
+
+  return {
+    id: l.id, temPar: !!par,
+    idSaida: saida?.id ?? l.id,
+    idEntrada: entrada?.id ?? null,
+    contaOrigemId: saida?.conta_id ?? l.conta_id,
+    contaDestinoId: entrada?.conta_id ?? null,
+    valor: Number(l.valor), data: l.data, descricao: l.descricao,
+    tipo: l.tipo as FinMovimentoTipo,
+  };
+}
+
 export async function atualizarTransferencia(
   id: string,
-  patch: { data?: string; descricao?: string | null },
+  patch: {
+    data?: string;
+    descricao?: string | null;
+    valor?: number;
+    contaOrigemId?: string;
+    contaDestinoId?: string;
+  },
 ): Promise<void> {
   const { data: l } = await supabase.from("fin_lancamentos")
-    .select("origem, lancamento_pai_id").eq("id", id).maybeSingle();
+    .select("origem, lancamento_pai_id, tipo").eq("id", id).maybeSingle();
   if (l?.origem !== "transferencia") throw new Error("Não é uma transferência");
+  if (patch.contaOrigemId && patch.contaDestinoId && patch.contaOrigemId === patch.contaDestinoId) {
+    throw new Error("Origem e destino precisam ser contas diferentes");
+  }
+  if (patch.valor != null && patch.valor <= 0) throw new Error("Valor inválido");
 
-  await atualizarLancamento(id, patch);
+  const idOutraPerna = l.lancamento_pai_id;
+
   // Nem toda perna de transferência tem par gravado — as importadas por
   // Omie/OFX detectam "é transferência" por heurística de texto e não
-  // conhecem a perna irmã (`lancamento_pai_id` só existe pra quem passou
-  // por `transferir()`, ver comentário lá). Sem par, só esta perna muda.
-  if (patch.data && l.lancamento_pai_id) {
-    await atualizarLancamento(l.lancamento_pai_id, { data: patch.data });
+  // conhecem a perna irmã. Sem par, só esta perna muda, e só o lado
+  // (origem/destino) que faz sentido pro tipo dela.
+  if (!idOutraPerna) {
+    const patchLocal: Partial<FinLancamento> = {};
+    if (patch.data) patchLocal.data = patch.data;
+    if (patch.descricao !== undefined) patchLocal.descricao = patch.descricao;
+    if (patch.valor != null) patchLocal.valor = patch.valor;
+    if (l.tipo === "saida" && patch.contaOrigemId) patchLocal.conta_id = patch.contaOrigemId;
+    if (l.tipo === "entrada" && patch.contaDestinoId) patchLocal.conta_id = patch.contaDestinoId;
+    if (Object.keys(patchLocal).length) await atualizarLancamento(id, patchLocal);
+    return;
   }
+
+  const idSaida = l.tipo === "saida" ? id : idOutraPerna;
+  const idEntrada = l.tipo === "entrada" ? id : idOutraPerna;
+
+  // Data e Valor têm que ficar IGUAIS nas duas pernas (uma transferência
+  // acontece numa data só, com um valor só); Conta muda cada lado
+  // independente (origem é a saída, destino é a entrada); Descrição
+  // continua por perna, só a que foi editada muda.
+  const patchSaida: Partial<FinLancamento> = {};
+  const patchEntrada: Partial<FinLancamento> = {};
+  if (patch.data) { patchSaida.data = patch.data; patchEntrada.data = patch.data; }
+  if (patch.valor != null) { patchSaida.valor = patch.valor; patchEntrada.valor = patch.valor; }
+  if (patch.contaOrigemId) patchSaida.conta_id = patch.contaOrigemId;
+  if (patch.contaDestinoId) patchEntrada.conta_id = patch.contaDestinoId;
+  if (patch.descricao !== undefined) {
+    if (id === idSaida) patchSaida.descricao = patch.descricao;
+    else patchEntrada.descricao = patch.descricao;
+  }
+
+  if (Object.keys(patchSaida).length) await atualizarLancamento(idSaida, patchSaida);
+  if (Object.keys(patchEntrada).length) await atualizarLancamento(idEntrada, patchEntrada);
 }
 
 export async function buscarFornecedorPorCnpj(cnpjDigitos: string): Promise<FinFornecedor | null> {
