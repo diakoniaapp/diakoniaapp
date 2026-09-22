@@ -52,6 +52,9 @@ interface Acompanhamento {
   visita_realizada: boolean;
   data_visita: string | null;
   proximo_passo: string | null;
+  /** Quando alguém agenda "falo com essa pessoa de novo em X" — opcional,
+   *  ver migration 20260922120000. Null é o normal. */
+  proxima_revisao_em: string | null;
   observacoes: string | null;
   created_at: string;
 }
@@ -92,6 +95,7 @@ export default function VisitanteDialog({ open, onOpenChange, pessoa, onSaved }:
     visita_realizada: false,
     data_visita: "",
     proximo_passo: "",
+    proxima_revisao_em: "",
     observacoes: "",
   });
 
@@ -156,6 +160,7 @@ export default function VisitanteDialog({ open, onOpenChange, pessoa, onSaved }:
       visita_realizada: novoAcomp.visita_realizada,
       data_visita: novoAcomp.data_visita || null,
       proximo_passo: novoAcomp.proximo_passo || null,
+      proxima_revisao_em: novoAcomp.proxima_revisao_em || null,
       observacoes: novoAcomp.observacoes || null,
       registrado_por: user?.id ?? null,
     };
@@ -164,7 +169,7 @@ export default function VisitanteDialog({ open, onOpenChange, pessoa, onSaved }:
     toast.success("Acompanhamento registrado");
     setNovoAcomp({
       status: "pendente", contato_feito: false, data_contato: "",
-      visita_realizada: false, data_visita: "", proximo_passo: "", observacoes: "",
+      visita_realizada: false, data_visita: "", proximo_passo: "", proxima_revisao_em: "", observacoes: "",
     });
     load();
   };
@@ -397,6 +402,14 @@ export default function VisitanteDialog({ open, onOpenChange, pessoa, onSaved }:
                   <Label translate="no" className="text-xs">Próximo passo</Label>
                   <Input placeholder="Ligar, convidar para célula..." value={novoAcomp.proximo_passo} onChange={(e) => setNovoAcomp({ ...novoAcomp, proximo_passo: e.target.value })} />
                 </div>
+                <div>
+                  {/* Bússola (22/09/2026): data marcada, não só o texto
+                      livre de "próximo passo" acima — opcional, de
+                      propósito. Sem data, o prazo padrão por dias corridos
+                      (visitantesFluxo.ts) continua valendo sozinho. */}
+                  <Label translate="no" className="text-xs">Revisar de novo em (opcional)</Label>
+                  <Input type="date" value={novoAcomp.proxima_revisao_em} onChange={(e) => setNovoAcomp({ ...novoAcomp, proxima_revisao_em: e.target.value })} />
+                </div>
                 <div className="flex items-center gap-2 mt-5">
                   <Checkbox id="contato" checked={novoAcomp.contato_feito} onCheckedChange={(v) => setNovoAcomp({ ...novoAcomp, contato_feito: !!v })} />
                   <Label htmlFor="contato" translate="no" className="text-sm">Contato feito</Label>
@@ -443,6 +456,12 @@ export default function VisitanteDialog({ open, onOpenChange, pessoa, onSaved }:
                       {a.proximo_passo && (
                         <div className="text-sm mt-1.5">
                           <span className="text-muted-foreground" translate="no">Próximo passo: </span>{a.proximo_passo}
+                        </div>
+                      )}
+                      {a.proxima_revisao_em && (
+                        <div className={`text-sm mt-1 ${a.proxima_revisao_em < hojeLocal() ? "text-warning-text font-medium" : "text-muted-foreground"}`}>
+                          Próxima revisão: {new Date(a.proxima_revisao_em + "T00:00:00").toLocaleDateString("pt-BR")}
+                          {a.proxima_revisao_em < hojeLocal() && " — vencida"}
                         </div>
                       )}
                       {a.observacoes && (

@@ -22,7 +22,7 @@
 
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { HeartHandshake, ChevronRight, ClipboardList, UserX, MessageCircle } from "lucide-react";
+import { HeartHandshake, ChevronRight, ClipboardList, UserX, CalendarClock, MessageCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -30,8 +30,9 @@ import { toast } from "sonner";
 import { TituloDaSecao } from "@/components/painel/blocos";
 import {
   carregarIndicadoresDiaconia, carregarLimitesPerCapita, ROTULO_CLASSIFICACAO,
-  carregarPendenciasAcompanhamento,
+  carregarPendenciasAcompanhamento, carregarFichasRevisaoVencida,
   type BancadaDiaconia, type IndicadoresDiaconia, type PendenciaAcompanhamento,
+  type FichaRevisaoVencida,
 } from "@/services/diaconiaService";
 import { hojeLocal } from "@/lib/data";
 import { montarLinkWhatsApp } from "@/lib/whatsapp";
@@ -63,6 +64,7 @@ function formatarReais(v: number): string {
 export function SecaoDiaconia({ dc, ministerioId }: { dc: BancadaDiaconia; ministerioId: string }) {
   const [ind, setInd] = useState<IndicadoresDiaconia | null>(null);
   const [pendencias, setPendencias] = useState<PendenciaAcompanhamento[] | null>(null);
+  const [revisaoVencida, setRevisaoVencida] = useState<FichaRevisaoVencida[] | null>(null);
 
   useEffect(() => {
     carregarLimitesPerCapita()
@@ -70,6 +72,7 @@ export function SecaoDiaconia({ dc, ministerioId }: { dc: BancadaDiaconia; minis
       .then(setInd)
       .catch(() => setInd(null));
     carregarPendenciasAcompanhamento(ministerioId).then(setPendencias).catch(() => setPendencias(null));
+    carregarFichasRevisaoVencida(ministerioId).then(setRevisaoVencida).catch(() => setRevisaoVencida(null));
   }, [ministerioId]);
 
   return (
@@ -161,6 +164,57 @@ export function SecaoDiaconia({ dc, ministerioId }: { dc: BancadaDiaconia; minis
           })}
           {pendencias.length > 8 && (
             <p className="text-xs text-warning-text/80 px-0.5">e mais {pendencias.length - 8}.</p>
+          )}
+        </div>
+      )}
+
+      {/* Bússola (22/09/2026): "próxima revisão", não "faltou na chamada" —
+          diferente do bloco acima, este olha a FICHA (quem tinha data
+          marcada e ela já passou), não a presença. Só aparece pra quem
+          alguém agendou revisão de propósito. */}
+      {revisaoVencida && revisaoVencida.length > 0 && (
+        <div className="mb-2 space-y-1.5">
+          <p className="flex items-center gap-2 text-sm font-medium text-warning-text px-0.5">
+            <CalendarClock className="w-4 h-4 shrink-0" />
+            {revisaoVencida.length === 1
+              ? "1 ficha com revisão vencida"
+              : `${revisaoVencida.length} fichas com revisão vencida`}
+          </p>
+          {revisaoVencida.slice(0, 8).map(r => (
+            <Card key={r.pessoaId} className="min-w-0 border-l-4 border-l-warning">
+              <CardContent className="p-2.5 flex items-center gap-2">
+                <div className="min-w-0 flex-1 space-y-1">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-sm font-medium truncate">{r.nome}</span>
+                    <Badge variant="outline" className="text-xs h-4 px-1.5 bg-warning/15 text-warning-text border-warning/30">
+                      {r.diasVencidos === 1 ? "1 dia vencida" : `${r.diasVencidos} dias vencida`}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground truncate">
+                    Revisão marcada para {r.proximaRevisaoEm.split("-").reverse().join("/")}
+                  </p>
+                </div>
+                <Button
+                  size="sm" className="h-9 px-3 gap-1.5 text-xs shrink-0 bg-[#25D366] hover:bg-[#128C7E] text-white border-0"
+                  disabled={!r.telefone}
+                  onClick={() => {
+                    if (!r.telefone) { toast.error("Telefone não cadastrado"); return; }
+                    window.open(
+                      montarLinkWhatsApp({
+                        telefone: r.telefone,
+                        texto: `Olá, ${r.nome.split(" ")[0]}! Está na hora de revermos sua situação por aqui. Podemos conversar? 💙`,
+                      }),
+                      "_blank", "noopener,noreferrer",
+                    );
+                  }}
+                >
+                  <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
+          {revisaoVencida.length > 8 && (
+            <p className="text-xs text-warning-text/80 px-0.5">e mais {revisaoVencida.length - 8}.</p>
           )}
         </div>
       )}

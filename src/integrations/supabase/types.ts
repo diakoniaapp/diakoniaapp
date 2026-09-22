@@ -134,6 +134,7 @@ export type Database = {
           id: string
           membro_id: string
           observacoes: string | null
+          proxima_revisao_em: string | null
           proximo_passo: string | null
           registrado_por: string | null
           responsavel_id: string | null
@@ -149,6 +150,7 @@ export type Database = {
           id?: string
           membro_id: string
           observacoes?: string | null
+          proxima_revisao_em?: string | null
           proximo_passo?: string | null
           registrado_por?: string | null
           responsavel_id?: string | null
@@ -164,6 +166,7 @@ export type Database = {
           id?: string
           membro_id?: string
           observacoes?: string | null
+          proxima_revisao_em?: string | null
           proximo_passo?: string | null
           registrado_por?: string | null
           responsavel_id?: string | null
@@ -2590,6 +2593,7 @@ export type Database = {
           possui_deficiencia: boolean | null
           possui_renda: boolean | null
           preenchido_por: string | null
+          proxima_revisao_em: string | null
           qual_beneficio: string | null
           qual_deficiencia: string | null
           recebe_beneficio_social: boolean | null
@@ -2612,6 +2616,7 @@ export type Database = {
           possui_deficiencia?: boolean | null
           possui_renda?: boolean | null
           preenchido_por?: string | null
+          proxima_revisao_em?: string | null
           qual_beneficio?: string | null
           qual_deficiencia?: string | null
           recebe_beneficio_social?: boolean | null
@@ -2634,6 +2639,7 @@ export type Database = {
           possui_deficiencia?: boolean | null
           possui_renda?: boolean | null
           preenchido_por?: string | null
+          proxima_revisao_em?: string | null
           qual_beneficio?: string | null
           qual_deficiencia?: string | null
           recebe_beneficio_social?: boolean | null

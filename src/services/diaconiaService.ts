@@ -105,6 +105,9 @@ export interface FichaSocioeconomica {
   sustento_familia: string | null;
   maior_necessidade: string | null;
   observacoes: string | null;
+  /** Quando a ficha precisa ser preenchida de novo — ver migration
+   *  20260922120000. Opcional: null é o normal, ninguém agendou revisão. */
+  proxima_revisao_em: string | null;
 }
 
 export interface LinhaDaChamada {
@@ -457,7 +460,7 @@ export { sugerirPgmPorBairro, quandoOPgmSeReune, type SugestaoPgm } from "@/serv
 const CAMPOS_FICHA =
   "id, data_preenchimento, possui_deficiencia, qual_deficiencia, possui_renda, renda_mensal, " +
   "recebe_beneficio_social, qual_beneficio, valor_beneficio, ja_trabalhou_clt, tempo_clt, atuacao_clt, " +
-  "situacao_moradia, familiares, sustento_familia, maior_necessidade, observacoes";
+  "situacao_moradia, familiares, sustento_familia, maior_necessidade, observacoes, proxima_revisao_em";
 
 export async function fichasDaPessoa(pessoaAssistidaId: string): Promise<FichaSocioeconomica[]> {
   const { data, error } = await supabase
@@ -772,6 +775,74 @@ export async function carregarPendenciasAcompanhamento(
     }
   }
   return pendencias.sort((a, b) => b.faltasSeguidas - a.faltasSeguidas);
+}
+
+// ─── Revisão de ficha vencida ────────────────────────────────────────────
+//
+// Bússola (22/09/2026): a mesma ideia de "quem parou de vir" acima, mas
+// olhando a FICHA em vez da CHAMADA — quem tem `proxima_revisao_em`
+// marcada e essa data já passou. Só entra na lista quem alguém agendou
+// revisão pra valer; ficha sem data marcada não aparece aqui (não é
+// "vencida", é "sem prazo definido" — não são a mesma coisa).
+
+export interface FichaRevisaoVencida {
+  pessoaId: string;
+  nome: string;
+  telefone: string | null;
+  proximaRevisaoEm: string;
+  diasVencidos: number;
+}
+
+export async function carregarFichasRevisaoVencida(
+  ministerioId: string,
+): Promise<FichaRevisaoVencida[]> {
+  const { data: areas } = await supabase
+    .from("areas").select("id").eq("ministerio_id", ministerioId).eq("ativo", true);
+  const areaIds = (areas ?? []).map((a: { id: string }) => a.id);
+  if (areaIds.length === 0) return [];
+
+  const { data: vinculos } = await supabase
+    .from("diaconia_vinculos")
+    .select("pessoa_assistida_id, diaconia_pessoas_assistidas(nome_completo, telefone)")
+    .in("area_id", areaIds).eq("ativo", true);
+  const pessoaIds = Array.from(new Set(
+    ((vinculos ?? []) as any[]).map(v => v.pessoa_assistida_id as string),
+  ));
+  if (pessoaIds.length === 0) return [];
+  const nomePorPessoa = new Map(((vinculos ?? []) as any[]).map(
+    v => [v.pessoa_assistida_id, v.diaconia_pessoas_assistidas],
+  ));
+
+  // Todas as fichas de todo mundo vinculado, mais recente primeiro — a
+  // PRIMEIRA que aparece pra cada pessoa é a ficha atual dela (mesma regra
+  // de `fichasDaPessoa`, só que pra várias pessoas de uma vez).
+  const { data: fichas } = await supabase
+    .from("diaconia_fichas_socioeconomicas")
+    .select("pessoa_assistida_id, data_preenchimento, proxima_revisao_em")
+    .in("pessoa_assistida_id", pessoaIds)
+    .order("data_preenchimento", { ascending: false });
+
+  const hoje = hojeLocal();
+  const jaVista = new Set<string>();
+  const vencidas: FichaRevisaoVencida[] = [];
+  for (const f of (fichas ?? []) as any[]) {
+    if (jaVista.has(f.pessoa_assistida_id)) continue;
+    jaVista.add(f.pessoa_assistida_id);
+    if (!f.proxima_revisao_em || f.proxima_revisao_em >= hoje) continue;
+    const pessoa = nomePorPessoa.get(f.pessoa_assistida_id);
+    const diasVencidos = Math.floor(
+      (new Date(hoje + "T00:00:00").getTime() - new Date(f.proxima_revisao_em + "T00:00:00").getTime())
+      / 86_400_000,
+    );
+    vencidas.push({
+      pessoaId: f.pessoa_assistida_id,
+      nome: pessoa?.nome_completo ?? "—",
+      telefone: pessoa?.telefone ?? null,
+      proximaRevisaoEm: f.proxima_revisao_em,
+      diasVencidos,
+    });
+  }
+  return vencidas.sort((a, b) => b.diasVencidos - a.diasVencidos);
 }
 
 /** Decide que a pessoa não precisa mais de acompanhamento nesta área — com motivo, porta estrita. */

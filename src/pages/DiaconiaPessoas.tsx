@@ -575,6 +575,7 @@ function FichaDaPessoa({ pessoa, onAtualizou, limites }: {
   pessoa: PessoaAssistida & { vinculo_id: string }; onAtualizou: () => void; limites: LimitesPerCapita | null;
 }) {
   const pessoaId = pessoa.id;
+  const hoje = hojeLocal();
   const [fichas, setFichas] = useState<FichaSocioeconomica[] | null>(null);
   const [novaAberta, setNovaAberta] = useState(false);
   const [editando, setEditando] = useState(false);
@@ -684,6 +685,12 @@ function FichaDaPessoa({ pessoa, onAtualizou, limites }: {
                   <p className="text-muted-foreground">Necessidade: {f.maior_necessidade}</p>
                 )}
                 {f.observacoes && <p className="text-muted-foreground">{f.observacoes}</p>}
+                {f.proxima_revisao_em && (
+                  <p className={f.proxima_revisao_em < hoje ? "text-warning-text font-medium" : "text-muted-foreground"}>
+                    Próxima revisão: {f.proxima_revisao_em.split("-").reverse().join("/")}
+                    {f.proxima_revisao_em < hoje && " — vencida"}
+                  </p>
+                )}
               </li>
             );
           })}
@@ -850,6 +857,7 @@ function NovaFicha({ pessoaId, limites, onSalvou, onCancelar }: {
   const [sustento, setSustento] = useState("");
   const [necessidade, setNecessidade] = useState("");
   const [obs, setObs] = useState("");
+  const [proximaRevisao, setProximaRevisao] = useState("");
   const [busy, setBusy] = useState(false);
 
   // A pessoa + quem ela listou como morador — a contagem soma sozinha, sem
@@ -889,6 +897,7 @@ function NovaFicha({ pessoaId, limites, onSalvou, onCancelar }: {
         sustento_familia: sustento || null,
         maior_necessidade: necessidade || null,
         observacoes: obs || null,
+        proxima_revisao_em: proximaRevisao || null,
       };
       const r = await salvarFicha(pessoaId, dados);
       if (!r.ok) { toast.error(r.erro); return; }
@@ -1017,6 +1026,13 @@ function NovaFicha({ pessoaId, limites, onSalvou, onCancelar }: {
       <div>
         <Label className="text-xs">Informações adicionais</Label>
         <Textarea rows={2} value={obs} onChange={e => setObs(e.target.value)} className="text-sm" />
+      </div>
+      <div>
+        {/* Bússola (22/09/2026): "todo caso de acompanhamento ganha uma
+            data de próxima revisão, não só um status" — opcional, de
+            propósito. Sem data marcada a ficha continua igual a hoje. */}
+        <Label className="text-xs">Revisar esta ficha de novo em (opcional)</Label>
+        <Input type="date" value={proximaRevisao} onChange={e => setProximaRevisao(e.target.value)} className="h-8 text-sm" />
       </div>
 
       <div className="flex gap-2 justify-end">
