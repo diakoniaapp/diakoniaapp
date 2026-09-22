@@ -6701,6 +6701,7 @@ export type Database = {
       }
       gov_reunioes: {
         Row: {
+          ata_alertada_em: string | null
           ata_url: string | null
           ata_versao: number
           created_at: string
@@ -6723,6 +6724,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          ata_alertada_em?: string | null
           ata_url?: string | null
           ata_versao?: number
           created_at?: string
@@ -6745,6 +6747,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          ata_alertada_em?: string | null
           ata_url?: string | null
           ata_versao?: number
           created_at?: string
@@ -12814,6 +12817,17 @@ export type Database = {
           total_vence_semana: number
         }[]
       }
+      atas_atrasadas_novas: {
+        Args: never
+        Returns: {
+          data_reuniao: string
+          dias_sem_ata: number
+          id: string
+          secretaria_nome: string | null
+          tipo: Database["public"]["Enums"]["gov_reuniao_tipo"]
+          titulo: string
+        }[]
+      }
       autocomplete_instituicoes: {
         Args: { p_busca: string }
         Returns: {
@@ -13506,6 +13520,10 @@ export type Database = {
       lidero_ministerio_do_modulo: {
         Args: { p_modulo: string }
         Returns: boolean
+      }
+      marcar_atas_alertadas: {
+        Args: { p_ids: string[] }
+        Returns: undefined
       }
       marcar_visitantes_alertados: {
         Args: { p_ids: string[] }
