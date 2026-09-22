@@ -1011,6 +1011,37 @@ export async function transferir(input: {
   }
 }
 
+// Editar uma transferência (pedido da Telma, 22/09/2026, ao vivo: "hoje
+// no editar ela abre o form de lançamento" — o lápis do extrato abria o
+// `LancamentoForm` completo pra uma perna de transferência, deixando
+// mudar Conta/Valor/Categoria de só UM lado. Mudar o valor de só uma
+// perna quebraria a invariante da transferência (as duas pernas têm que
+// ter o mesmo valor) sem nada impedir — pior que uma tela errada, um jeito
+// de corromper o par silenciosamente.
+//
+// Edição fica restrita a Data e Descrição — o que não corrompe o par.
+// Conta/Valor são travados: pra mudar, exclui e cria de novo (mesmo
+// princípio já usado pro lançamento comum, "não dá pra desfazer"). Data é
+// sincronizada com a perna irmã (uma transferência acontece numa data só);
+// Descrição fica independente — cada perna pode ter uma nota própria.
+export async function atualizarTransferencia(
+  id: string,
+  patch: { data?: string; descricao?: string | null },
+): Promise<void> {
+  const { data: l } = await supabase.from("fin_lancamentos")
+    .select("origem, lancamento_pai_id").eq("id", id).maybeSingle();
+  if (l?.origem !== "transferencia") throw new Error("Não é uma transferência");
+
+  await atualizarLancamento(id, patch);
+  // Nem toda perna de transferência tem par gravado — as importadas por
+  // Omie/OFX detectam "é transferência" por heurística de texto e não
+  // conhecem a perna irmã (`lancamento_pai_id` só existe pra quem passou
+  // por `transferir()`, ver comentário lá). Sem par, só esta perna muda.
+  if (patch.data && l.lancamento_pai_id) {
+    await atualizarLancamento(l.lancamento_pai_id, { data: patch.data });
+  }
+}
+
 export async function buscarFornecedorPorCnpj(cnpjDigitos: string): Promise<FinFornecedor | null> {
   if (!cnpjDigitos || cnpjDigitos.length < 11) return null;
   const { data } = await supabase.from("fin_fornecedores")

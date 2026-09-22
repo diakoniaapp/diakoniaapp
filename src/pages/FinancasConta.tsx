@@ -27,6 +27,7 @@ import {
   STATUS_LABEL,
 } from "@/services/finService";
 import { LancamentoForm } from "@/components/financas/LancamentoForm";
+import { EditarTransferenciaForm } from "@/components/financas/EditarTransferenciaForm";
 import { TransferenciaForm } from "@/components/financas/TransferenciaForm";
 import { ConciliacaoOFXDialog } from "@/components/financas/ConciliacaoOFXDialog";
 import { saldoAcumuladoAntesDe } from "@/services/prestacaoContasService";
@@ -85,6 +86,10 @@ export default function FinancasConta() {
   const [busca, setBusca] = useState(() => searchParams.get("busca") ?? "");
   const [novoOpen, setNovoOpen] = useState(false);
   const [editando, setEditando] = useState<FinLancamentoExtenso | null>(null);
+  // Editar uma perna de transferência abre um diálogo à parte (só Data/
+  // Descrição), não o `LancamentoForm` — pedido da Telma (22/09/2026),
+  // ver comentário grande em `EditarTransferenciaForm.tsx`.
+  const [editandoTransf, setEditandoTransf] = useState<FinLancamentoExtenso | null>(null);
   const [transfOpen, setTransfOpen] = useState(false);
   const [ofxOpen, setOfxOpen] = useState(false);
   const [omieOpen, setOmieOpen] = useState(false);
@@ -836,7 +841,10 @@ export default function FinancasConta() {
                           </button>
                         )}
                         <Button type="button" variant="ghost" size="icon" className="h-7 w-7"
-                          onClick={() => { setEditando(l); setNovoOpen(true); }}>
+                          onClick={() => {
+                            if (l.origem === "transferencia") setEditandoTransf(l);
+                            else { setEditando(l); setNovoOpen(true); }
+                          }}>
                           <Pencil className="w-3 h-3" />
                         </Button>
                         <Button type="button" variant="ghost" size="icon"
@@ -892,6 +900,12 @@ export default function FinancasConta() {
         onOpenChange={(v) => { setNovoOpen(v); if (!v) setEditando(null); }}
         contaIdPadrao={contaId}
         lancamento={editando}
+        onSaved={carregar}
+      />
+      <EditarTransferenciaForm
+        open={!!editandoTransf}
+        onOpenChange={(v) => !v && setEditandoTransf(null)}
+        lancamento={editandoTransf}
         onSaved={carregar}
       />
 
