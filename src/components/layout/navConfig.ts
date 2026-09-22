@@ -194,19 +194,18 @@ export const ATALHOS_TOPO: NavItem[] = [
   // auditoria encontrou. `ROLES_FINANCEIRO`, não `ROLES_ADMIN`: quem tem só o
   // papel `tesouraria` precisa ver o atalho, não só admin/diakonia/secretaria.
   { to: "/painel-tesouraria", label: "Painel da Tesouraria", icon: Wallet, allowedRoles: ROLES_FINANCEIRO },
-  // Quarto atalho fixo, 09/09/2026 — não uma quarta tela. Achado revendo o
-  // próprio "Diakonia Care" do Painel Pastoral: a Diaconia e Ação Social
-  // tinha módulo pronto (`SecaoDiaconia`, dentro do painel genérico de
-  // ministério) e nenhum endereço fixo para chegar lá, ao contrário de
-  // Pastoral/Secretaria/Tesouraria. A tentativa inicial construiu uma tela
-  // própria e duplicou o que `SecaoDiaconia` já mostrava em
-  // `/ministerios/:id/painel` — ela pegou a sobreposição no mesmo dia.
-  // `PainelDiaconia.tsx` virou um redirecionamento: resolve qual ministério
-  // tem `modulo = 'diaconia'` e manda para o painel de verdade dele, sem
-  // segunda tela. `ROLES_LIDERES_SEM_TITULAR`, a mesma malha de
-  // "/ministerios": a Diaconia não é um papel de sistema (`AppRole`) próprio,
-  // é um ministério, e sua liderança é quem já enxerga ministérios.
-  { to: "/painel-diaconia", label: "Painel da Diaconia", icon: HeartHandshake, allowedRoles: ROLES_LIDERES_SEM_TITULAR },
+  // N3/P1 do roadmap "90 Dias" (22/09/2026): atalho fixo da Diaconia
+  // removido daqui — ela passa a chegar só por "Meus Painéis", como
+  // qualquer outro ministério (já modelada em `MeusPaineis.tsx`, cartão
+  // "Painel da Diaconia" quando `modulo === 'diaconia'`). Motivo do
+  // roadmap: um atalho de painel só nasce pra papel de sistema (Pastoral/
+  // Secretaria/Tesouraria são papéis — `AppRole` — a Diaconia é um
+  // ministério como os outros dez, não um papel).
+  // `/painel-diaconia` continua existindo como ROTA — não sai daqui, só
+  // do atalho fixo — porque `PainelDiaconia.tsx` já é um redirecionamento
+  // (resolve o ministério com `modulo='diaconia'` e manda pro painel de
+  // verdade), então quem tinha o endereço salvo continua caindo no lugar
+  // certo. Ver `ROUTE_TITLES`/`ROUTE_ROLES` abaixo, que mantêm a entrada.
   // Subiu do grupo "Agenda & Espaços" em 09/09/2026, ao desmontar aquele
   // grupo — ver o comentário no fim de `NAV_GROUPS`. Sem `allowedRoles`,
   // como já era: Agenda é de uso diário e transversal, todo papel a vê,
