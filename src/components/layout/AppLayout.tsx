@@ -1,7 +1,7 @@
 import { Outlet, NavLink, useNavigate, useLocation } from "react-router-dom";
 import { FaixaVerComo } from "@/components/layout/VerComoMenu";
 import { useAuth } from "@/hooks/useAuth";
-import { LogOut, ChevronLeft, ChevronDown, Search, Moon, Sun, User } from "lucide-react";
+import { LogOut, ChevronLeft, ChevronDown, Search, Moon, Sun, User, Mail } from "lucide-react";
 import { BrandMark } from "@/components/Brand";
 import { useEffect, useState } from "react";
 import { QuickActionsFab } from "@/components/QuickActionsFab";
@@ -430,6 +430,21 @@ export default function AppLayout() {
                       ))}
                     </div>
                   ))}
+                </>
+              )}
+              {/* Fora de `ADMIN_MENU_GROUPS` de propósito — mesma nota do
+                  UserMenuButton.tsx: admin+diakonia, não admin+secretaria.
+                  Pedido dela (22/09/2026). */}
+              {hasRole(["admin", "diakonia"]) && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel className="text-xs uppercase tracking-widest text-muted-foreground/60 py-1">
+                    Sistema
+                  </DropdownMenuLabel>
+                  <DropdownMenuItem className="cursor-pointer" onClick={() => navigate("/admin/resumo-semanal")}>
+                    <Mail className="w-4 h-4 mr-2 text-muted-foreground" />
+                    Resumo Semanal por E-mail
+                  </DropdownMenuItem>
                 </>
               )}
               <DropdownMenuSeparator />

@@ -13713,6 +13713,10 @@ export type Database = {
           pessoas_sem_familia_sugerida: number
         }[]
       }
+      resumo_semanal_destinatarios: {
+        Args: never
+        Returns: { papel: string; email: string; nome: string }[]
+      }
       resumo_semanal_digest: { Args: never; Returns: Json }
       revogar_acesso: { Args: { p_user_id: string }; Returns: string }
       salvar_meus_dados: {
@@ -13750,6 +13754,15 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      sistema_resumo_semanal_definir_horario: {
+        Args: { p_dia_semana: number; p_hora: number; p_minuto: number }
+        Returns: undefined
+      }
+      sistema_resumo_semanal_pausar: {
+        Args: { p_ativo: boolean }
+        Returns: undefined
+      }
+      sistema_resumo_semanal_status: { Args: never; Returns: Json }
       solicitar_lgpd: {
         Args: { p_descricao?: string; p_email: string; p_tipo: string }
         Returns: string

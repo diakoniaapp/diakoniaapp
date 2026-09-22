@@ -22,6 +22,7 @@ import EstruturaDaIgreja from "./pages/EstruturaDaIgreja.tsx";
 import RecuperacaoSenhaAdmin from "./pages/RecuperacaoSenhaAdmin.tsx";
 import LgpdAdmin from "./pages/LgpdAdmin.tsx";
 import IdentidadeAdmin from "./pages/IdentidadeAdmin.tsx";
+import ResumoSemanalAdmin from "./pages/ResumoSemanalAdmin.tsx";
 import DocumentosAdmin from "./pages/DocumentosAdmin.tsx";
 import ImportacaoMembros from "./pages/ImportacaoMembros.tsx";
 import ExportacaoAdmin from "./pages/ExportacaoAdmin.tsx";
@@ -238,6 +239,7 @@ const App = () => (
                   <Route path="/admin/importacao" element={<ImportacaoMembros />} />
                   <Route path="/admin/exportacao" element={<ExportacaoAdmin />} />
                   <Route path="/admin/campanhas" element={<CampanhasAdmin />} />
+                  <Route path="/admin/resumo-semanal" element={<ResumoSemanalAdmin />} />
                 </Route>
 
                 {/* Redirecionar /dashboard para a raiz */}

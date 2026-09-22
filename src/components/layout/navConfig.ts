@@ -104,6 +104,13 @@ export const ROLES_FINANCEIRO: AppRole[] = ["admin", "diakonia", "secretaria", "
 // sempre (é o dono do sistema, vê tudo, não é cargo de igreja).
 export const ROLES_DOADORES: AppRole[] = ["admin", "diakonia", "tesouraria"];
 
+// Configuração de sistema (resumo semanal por e-mail, 22/09/2026) — mais
+// estreito que `ROLES_ADMIN` (que inclui secretaria): admin + diakonia
+// (dono do sistema), ninguém mais. Não é tela de cadastro da igreja, é
+// controle de uma automação que manda e-mail pra outros papéis — pedido
+// explícito dela: "para perfil de administrador e dono do sistema".
+export const ROLES_DONO_SISTEMA: AppRole[] = ["admin", "diakonia"];
+
 /**
  * Quem enxerga o Painel Pastoral.
  *
@@ -421,6 +428,7 @@ export const pageTitles: Record<string, string> = {
   "/admin/importacao":        "Importação",
   "/admin/exportacao":        "Exportação",
   "/admin/campanhas":         "Campanhas Espirituais",
+  "/admin/resumo-semanal":    "Resumo Semanal por E-mail",
 };
 
 export const ROUTE_ROLES: Record<string, AppRole[]> = {
@@ -500,6 +508,10 @@ export const ROUTE_ROLES: Record<string, AppRole[]> = {
   // "/areas" é a lista de equipes de todos os ministérios: mesma matéria de
   // "/ministerios", mesmo público.
   "/admin":              ROLES_ADMIN,
+  // Mais estreito que a linha "/admin" acima (que cobre as outras sete
+  // telas) — casamento por prefixo já resolve a precedência: a entrada
+  // mais específica (mais comprida) vence, ver `papeisExigidosPara()`.
+  "/admin/resumo-semanal": ROLES_DONO_SISTEMA,
   "/areas":              ROLES_LIDERES_SEM_TITULAR,
   // Sem guarda, a secretaria continuaria chegando pela URL, pelo atalho
   // /ebd/acompanhamento e pela paleta — esconder o item do menu esconderia

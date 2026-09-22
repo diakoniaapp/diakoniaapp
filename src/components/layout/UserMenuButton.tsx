@@ -7,7 +7,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { User, LogOut, ShieldCheck, Moon, Sun, Globe, Smartphone } from "lucide-react";
+import { User, LogOut, ShieldCheck, Moon, Sun, Globe, Smartphone, Mail } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import {
   getDestinoWhatsApp, setDestinoWhatsApp, DESTINO_WHATSAPP_LABEL,
@@ -155,6 +155,26 @@ export function UserMenuButton() {
                 ))}
               </div>
             ))}
+          </>
+        )}
+
+        {/* Configuração de sistema — admin + diakonia (dono do sistema),
+            de propósito FORA de `ADMIN_MENU_GROUPS`: aquele bloco é
+            admin+secretaria (não inclui diakonia), e esta tela é mais
+            restrita, não mais aberta — secretaria não entra aqui. Pedido
+            dela (22/09/2026), ao perguntar onde o resumo semanal por
+            e-mail era configurado. */}
+        {hasRole(["admin", "diakonia"]) && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-xs uppercase tracking-widest text-muted-foreground/60 py-1">
+              Sistema
+            </DropdownMenuLabel>
+            <DropdownMenuItem className="gap-2 cursor-pointer py-2.5"
+              onClick={() => navigate("/admin/resumo-semanal")}>
+              <Mail className="w-4 h-4 text-muted-foreground" />
+              <span>Resumo Semanal por E-mail</span>
+            </DropdownMenuItem>
           </>
         )}
 
