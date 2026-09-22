@@ -60,10 +60,13 @@ import { Link, useLocation } from "react-router-dom";
 import {
   DollarSign, Receipt, Wallet, ChevronRight, RefreshCw, Sparkles, Package,
   Clock, CalendarClock, Target, ShoppingCart, HandCoins, Scale, Lightbulb,
-  HeartHandshake, Users, ScrollText, Layers, Handshake,
+  HeartHandshake, Users, ScrollText, Layers, Handshake, MoreHorizontal,
   TrendingDown, TrendingUp, RotateCw, Briefcase, LineChart, Building2, FolderKanban,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Indicador, FaixaDeIndicadores, TituloDaSecao, irParaSecao, formatarAtualizadoHa,
 } from "@/components/painel/blocos";
@@ -305,37 +308,55 @@ export default function PainelTesouraria() {
               `widgetRegistry` já tem, ou apagar o que não serve mais) — aqui
               o objetivo era a tesoureira ter os botões HOJE, não destravar
               o registry inteiro. */}
+          {/* PA1 do roadmap "90 Dias" (22/09/2026): eram 5 botões do mesmo
+              peso visual (só "Novo lançamento" tinha cor própria) —
+              disputando atenção logo abaixo dos cartões de saldo. 1 botão
+              primário + "Mais ações" num menu: a ação mais comum continua
+              visível de cara, o resto está a um clique, não a zero. */}
           <section className="flex flex-wrap gap-2">
             <Button asChild size="sm" className="gap-1.5 bg-gold hover:bg-gold/90 text-white">
               <Link to="/financas?lancar=true"><DollarSign className="w-3.5 h-3.5" /> Novo lançamento</Link>
             </Button>
-            <Button asChild size="sm" variant="outline" className="gap-1.5">
-              <Link to="/financas?lancar=true&tipo=entrada"><HandCoins className="w-3.5 h-3.5" /> Registrar oferta</Link>
-            </Button>
-            <Button asChild size="sm" variant="outline" className="gap-1.5">
-              <Link to="/arrecadacao"><ShoppingCart className="w-3.5 h-3.5" /> Abrir caixa</Link>
-            </Button>
-            {/* "Fechar caixa" rola até a seção Caixa desta mesma tela, em vez
-                de navegar — ela já lista cada caixa aberto com o link direto
-                de fechamento, então sair da página seria um passo a mais. */}
-            <Button
-              type="button" size="sm" variant="outline" className="gap-1.5"
-              onClick={() => irParaSecao("caixa")}
-            >
-              <Wallet className="w-3.5 h-3.5" /> Fechar caixa
-            </Button>
-            {/* Conciliação (manual + extrato OFX) ficou pronta em 12/09/2026 —
-                mas é sempre de UMA conta por vez (`/financas/conta/:id`), sem
-                tela "conciliar tudo" no sistema. Com pendência real na lista
-                (a seção Pendências agora conta isso — motivo "conciliacao"),
-                o botão pula direto pra conta da primeira pendência, em vez de
-                mandar escolher no hub; sem pendência, cai no hub de contas
-                mesmo, mais honesto que fingir que sabe onde ir. */}
-            <Button asChild size="sm" variant="outline" className="gap-1.5">
-              <Link to={aguardandoConciliacao.length > 0 ? `/financas/conta/${aguardandoConciliacao[0].conta_id}` : "/financas"}>
-                <Scale className="w-3.5 h-3.5" /> Conciliar{aguardandoConciliacao.length > 0 ? ` (${aguardandoConciliacao.length})` : ""}
-              </Link>
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button type="button" size="sm" variant="outline" className="gap-1.5">
+                  <MoreHorizontal className="w-3.5 h-3.5" /> Mais ações
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuItem asChild>
+                  <Link to="/financas?lancar=true&tipo=entrada">
+                    <HandCoins className="w-4 h-4 mr-2 text-muted-foreground" /> Registrar oferta
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/arrecadacao">
+                    <ShoppingCart className="w-4 h-4 mr-2 text-muted-foreground" /> Abrir caixa
+                  </Link>
+                </DropdownMenuItem>
+                {/* "Fechar caixa" rola até a seção Caixa desta mesma tela, em
+                    vez de navegar — ela já lista cada caixa aberto com o
+                    link direto de fechamento, então sair da página seria um
+                    passo a mais. */}
+                <DropdownMenuItem onClick={() => irParaSecao("caixa")}>
+                  <Wallet className="w-4 h-4 mr-2 text-muted-foreground" /> Fechar caixa
+                </DropdownMenuItem>
+                {/* Conciliação (manual + extrato OFX) ficou pronta em
+                    12/09/2026 — mas é sempre de UMA conta por vez
+                    (`/financas/conta/:id`), sem tela "conciliar tudo" no
+                    sistema. Com pendência real na lista (a seção Pendências
+                    já conta isso — motivo "conciliacao"), o item pula
+                    direto pra conta da primeira pendência, em vez de mandar
+                    escolher no hub; sem pendência, cai no hub de contas
+                    mesmo, mais honesto que fingir que sabe onde ir. */}
+                <DropdownMenuItem asChild>
+                  <Link to={aguardandoConciliacao.length > 0 ? `/financas/conta/${aguardandoConciliacao[0].conta_id}` : "/financas"}>
+                    <Scale className="w-4 h-4 mr-2 text-muted-foreground" />
+                    Conciliar{aguardandoConciliacao.length > 0 ? ` (${aguardandoConciliacao.length})` : ""}
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </section>
 
           {/* ── Fiscal ─────────────────────────────────────────────────── */}
