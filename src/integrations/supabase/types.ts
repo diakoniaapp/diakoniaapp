@@ -7863,6 +7863,7 @@ export type Database = {
           email: string | null
           endereco: string | null
           endereco_completo: string | null
+          esfriando_alertado_em: string | null
           estado: string | null
           estado_civil: Database["public"]["Enums"]["estado_civil"] | null
           external_id: string | null
@@ -7951,6 +7952,7 @@ export type Database = {
           email?: string | null
           endereco?: string | null
           endereco_completo?: string | null
+          esfriando_alertado_em?: string | null
           estado?: string | null
           estado_civil?: Database["public"]["Enums"]["estado_civil"] | null
           external_id?: string | null
@@ -8039,6 +8041,7 @@ export type Database = {
           email?: string | null
           endereco?: string | null
           endereco_completo?: string | null
+          esfriando_alertado_em?: string | null
           estado?: string | null
           estado_civil?: Database["public"]["Enums"]["estado_civil"] | null
           external_id?: string | null
@@ -13504,6 +13507,10 @@ export type Database = {
         Args: { p_modulo: string }
         Returns: boolean
       }
+      marcar_visitantes_alertados: {
+        Args: { p_ids: string[] }
+        Returns: undefined
+      }
       minha_pessoa_id: { Args: never; Returns: string }
       minhas_permissoes: {
         Args: never
@@ -13850,6 +13857,17 @@ export type Database = {
           p_responsavel?: boolean
         }
         Returns: string
+      }
+      visitantes_esfriando_novos: {
+        Args: never
+        Returns: {
+          id: string
+          nome_completo: string
+          telefone_celular: string | null
+          dias_sem_contato: number
+          ultimo_contato_em: string | null
+          created_at: string
+        }[]
       }
     }
     Enums: {
