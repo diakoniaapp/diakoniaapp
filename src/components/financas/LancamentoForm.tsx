@@ -622,9 +622,17 @@ export function LancamentoForm({
               <Select value={contaIdEfetivo} onValueChange={setContaId}>
                 <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
-                  {contas.map(c => (
-                    <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
-                  ))}
+                  {/* Item 5 ("o comportamento deve ser respeitado em toda a
+                      aplicação"): só oferece conta que aceita o tipo
+                      (entrada=receita/saída=despesa) deste lançamento. A
+                      conta já escolhida continua na lista mesmo se não
+                      bater mais — não some sozinha embaixo de quem está
+                      editando um lançamento antigo. */}
+                  {contas
+                    .filter(c => c.id === contaIdEfetivo || (tipo === "entrada" ? c.aceita_receitas : c.aceita_despesas))
+                    .map(c => (
+                      <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             )}

@@ -64,6 +64,11 @@ export interface FinConta {
   dia_vencimento: number | null;
   dia_fechamento: number | null;
   limite_credito: number | null;
+  // Item 5 da "PRIORIDADE MÁXIMA" (22/09/2026): o que esta conta aceita
+  // lançar — antes toda conta aceitava tudo, sem exceção nenhuma.
+  aceita_receitas: boolean;
+  aceita_despesas: boolean;
+  aceita_transferencias: boolean;
 }
 
 // Fase 1 do projeto Tesouraria (12/09/2026): classificacao_dre é o
@@ -765,6 +770,22 @@ export async function excluirLancamento(id: string): Promise<void> {
   const r = conferir(
     await supabase.from("fin_lancamentos").delete().eq("id", id).select("id"),
     "O lançamento",
+  );
+  if (!r.ok) throw new Error(r.erro);
+}
+
+// Exclusão em massa (item 2, "PRIORIDADE MÁXIMA" 22/09/2026) — um único
+// DELETE ... WHERE id IN (...), mesmo padrão de `conciliarEmLote` logo
+// abaixo (uma consulta em lote, não um loop de N consultas por linha).
+export async function excluirLancamentosEmLote(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  const { data: ls } = await supabase.from("fin_lancamentos").select("comprovante_url").in("id", ids);
+  for (const l of ls ?? []) {
+    if (l.comprovante_url) await removerComprovante(l.comprovante_url);
+  }
+  const r = conferir(
+    await supabase.from("fin_lancamentos").delete().in("id", ids).select("id"),
+    "A exclusão",
   );
   if (!r.ok) throw new Error(r.erro);
 }

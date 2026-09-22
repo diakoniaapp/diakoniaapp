@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Wallet, Building2 } from "lucide-react";
 import { paraNumero } from "@/lib/dinheiro";
@@ -52,6 +53,13 @@ export function ContaForm({ open, onOpenChange, conta, onSaved }: Props) {
   const [saldoInicialTexto, setSaldoInicialTexto] = useState("0");
   const [cor, setCor] = useState("#cfa451");
   const [observacao, setObservacao] = useState("");
+  // Item 6 — ordem de exibição em dropdowns/listas/relatórios (a coluna
+  // `ordem` já existia no banco desde antes; só faltava a tela pra editar).
+  const [ordem, setOrdem] = useState(0);
+  // Item 5 — o que esta conta aceita lançar.
+  const [aceitaReceitas, setAceitaReceitas] = useState(true);
+  const [aceitaDespesas, setAceitaDespesas] = useState(true);
+  const [aceitaTransferencias, setAceitaTransferencias] = useState(true);
 
   // Cartão
   const [diaVencimento, setDiaVencimento] = useState<number | "">("");
@@ -75,17 +83,27 @@ export function ContaForm({ open, onOpenChange, conta, onSaved }: Props) {
       setDiaVencimento(conta.dia_vencimento ?? "");
       setDiaFechamento(conta.dia_fechamento ?? "");
       setLimiteCredito(conta.limite_credito ? Number(conta.limite_credito) : "");
+      setOrdem(conta.ordem ?? 0);
+      setAceitaReceitas(conta.aceita_receitas ?? true);
+      setAceitaDespesas(conta.aceita_despesas ?? true);
+      setAceitaTransferencias(conta.aceita_transferencias ?? true);
     } else {
       setNome(""); setTipo("banco");
       setBancoNome(""); setBancoCodigo(""); setAgencia(""); setContaNumero("");
       setSaldoInicialTexto("0"); setCor("#cfa451"); setObservacao("");
       setDiaVencimento(""); setDiaFechamento(""); setLimiteCredito("");
+      setOrdem(0);
+      setAceitaReceitas(true); setAceitaDespesas(true); setAceitaTransferencias(true);
     }
   }, [open, conta]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!nome.trim()) { toast.error("Informe o nome"); return; }
+    if (!aceitaReceitas && !aceitaDespesas && !aceitaTransferencias) {
+      toast.error("Marque ao menos uma operação que esta conta aceita");
+      return;
+    }
 
     setBusy(true);
     try {
@@ -101,6 +119,10 @@ export function ContaForm({ open, onOpenChange, conta, onSaved }: Props) {
         dia_vencimento: tipo === "cartao" && diaVencimento ? Number(diaVencimento) : null,
         dia_fechamento: tipo === "cartao" && diaFechamento ? Number(diaFechamento) : null,
         limite_credito: tipo === "cartao" && limiteCredito ? Number(limiteCredito) : null,
+        ordem,
+        aceita_receitas: aceitaReceitas,
+        aceita_despesas: aceitaDespesas,
+        aceita_transferencias: aceitaTransferencias,
       };
       if (isEdit && conta) {
         await atualizarConta(conta.id, payload);
@@ -156,6 +178,42 @@ export function ContaForm({ open, onOpenChange, conta, onSaved }: Props) {
                 {isEdit ? "Alterar muda o saldo atual" : "Saldo que já está nesta conta"}
               </p>
             </div>
+          </div>
+
+          {/* Ordem de exibição — item 6: controla a ordem em dropdowns,
+              listas, relatórios e no seletor rápido do extrato. Menor
+              aparece primeiro, mesmo padrão já usado em Categoria/Centro
+              de custo. */}
+          <div>
+            <Label>Ordem de exibição</Label>
+            <Input type="number" value={ordem} onChange={(e) => setOrdem(Number(e.target.value) || 0)}
+              className="w-24" />
+            <p className="text-xs text-muted-foreground mt-0.5">Menor aparece primeiro (ex.: Envelopes=1, Caixinha=2, Bradesco=3)</p>
+          </div>
+
+          {/* Operações aceitas — item 5: "o comportamento deve ser
+              respeitado em toda a aplicação". Guarda o dado aqui; quem
+              lê (LancamentoForm, TransferenciaForm) filtra o seletor de
+              conta por essas flags. */}
+          <div>
+            <Label>Operações aceitas por esta conta</Label>
+            <div className="space-y-1.5 pt-1">
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox checked={aceitaReceitas} onCheckedChange={(v) => setAceitaReceitas(!!v)} />
+                Receitas
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox checked={aceitaDespesas} onCheckedChange={(v) => setAceitaDespesas(!!v)} />
+                Despesas
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox checked={aceitaTransferencias} onCheckedChange={(v) => setAceitaTransferencias(!!v)} />
+                Transferências entre contas
+              </label>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Ex.: Conta Envelope = Receitas + Despesas + Transferências · Conta Banco = Receitas + Despesas + Transferências · Conta Investimento = só Transferências.
+            </p>
           </div>
 
           {/* Cor */}

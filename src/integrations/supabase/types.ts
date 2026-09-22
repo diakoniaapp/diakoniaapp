@@ -4402,6 +4402,9 @@ export type Database = {
       }
       fin_contas: {
         Row: {
+          aceita_despesas: boolean
+          aceita_receitas: boolean
+          aceita_transferencias: boolean
           agencia: string | null
           ativo: boolean
           banco_codigo: string | null
@@ -4423,6 +4426,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          aceita_despesas?: boolean
+          aceita_receitas?: boolean
+          aceita_transferencias?: boolean
           agencia?: string | null
           ativo?: boolean
           banco_codigo?: string | null
@@ -4444,6 +4450,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          aceita_despesas?: boolean
+          aceita_receitas?: boolean
+          aceita_transferencias?: boolean
           agencia?: string | null
           ativo?: boolean
           banco_codigo?: string | null

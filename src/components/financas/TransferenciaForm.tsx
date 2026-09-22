@@ -109,7 +109,13 @@ export function TransferenciaForm({ open, onOpenChange, contaOrigemPadrao, onSav
             <Select value={origemId} onValueChange={setOrigemId}>
               <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
               <SelectContent>
-                {contas.map(c => (
+                {/* Item 5 — só oferece conta que aceita transferência. A
+                    conta pré-selecionada (`contaOrigemPadrao`, vinda da
+                    tela do extrato) continua aparecendo mesmo se não
+                    aceitar — evita um Select "vazio" por engano de
+                    configuração, o formulário ainda barra no submit se
+                    fizer sentido no futuro. */}
+                {contas.filter(c => c.id === origemId || c.aceita_transferencias).map(c => (
                   <SelectItem key={c.id} value={c.id}>
                     {c.nome} · {brl(Number(c.saldo_atual))}
                   </SelectItem>
@@ -125,7 +131,7 @@ export function TransferenciaForm({ open, onOpenChange, contaOrigemPadrao, onSav
             <Select value={destinoId} onValueChange={setDestinoId}>
               <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
               <SelectContent>
-                {contas.filter(c => c.id !== origemId).map(c => (
+                {contas.filter(c => c.id !== origemId && (c.id === destinoId || c.aceita_transferencias)).map(c => (
                   <SelectItem key={c.id} value={c.id}>
                     {c.nome} · {brl(Number(c.saldo_atual))}
                   </SelectItem>

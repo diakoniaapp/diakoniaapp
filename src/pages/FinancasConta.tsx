@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,8 +20,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  carregarConta, listarLancamentosSemTeto, excluirLancamento, brl,
-  comprovanteSignedUrl, CONTA_TIPO_LABEL,
+  carregarConta, listarLancamentosSemTeto, excluirLancamento, excluirLancamentosEmLote, brl,
+  comprovanteSignedUrl, CONTA_TIPO_LABEL, listarContas,
   conciliarLancamento, desconciliarLancamento, conciliarEmLote,
   type FinConta, type FinLancamentoExtenso, type FinMovimentoTipo, type FinStatus,
   STATUS_LABEL,
@@ -58,15 +58,31 @@ const STATUS_ICONE: Record<FinStatus, JSX.Element> = {
 
 export default function FinancasConta() {
   const { contaId = "" } = useParams();
+  const navigate = useNavigate();
+  // Persistência de filtros (item 4, "PRIORIDADE MÁXIMA" 22/09/2026):
+  // escolhida a URL (query params), não localStorage nem só state em
+  // memória. Motivo: trocar de conta pelo seletor (item 3) NÃO desmonta
+  // este componente — mesma rota `/financas/conta/:contaId`, o React
+  // Router só troca o param — então o `useState` já sobrevive sozinho à
+  // troca de conta sem ajuda nenhuma. O que o `useState` sozinho NÃO
+  // sobrevive é um F5 (atualizar) ou sair da tela e voltar (desmonta de
+  // verdade) — casos que o pedido também cobre ("atualizar, retornar à
+  // tela"). Guardar na URL resolve os dois: F5 relê os mesmos params, e
+  // é o padrão mais simples que não precisa de storage nenhum (localStorage
+  // vazaria filtro de uma conta pra outra aba/sessão sem relação).
+  const [searchParams, setSearchParams] = useSearchParams();
   const [conta, setConta] = useState<FinConta | null>(null);
+  const [contas, setContas] = useState<FinConta[]>([]);
   const [lancamentos, setLancamentos] = useState<FinLancamentoExtenso[]>([]);
   const [loading, setLoading] = useState(true);
   // "transferencia" não é um `FinMovimentoTipo` (transferência grava uma
   // perna entrada e outra saída) — pedido da Telma em 15/09/2026 pra
   // filtrar só essas pernas, então o Select trata como uma 4ª opção que
   // vira `apenasTransferencia` em `listarLancamentos`, não `tipo`.
-  const [filtroTipo, setFiltroTipo] = useState<FinMovimentoTipo | "transferencia" | "todos">("todos");
-  const [busca, setBusca] = useState("");
+  const [filtroTipo, setFiltroTipo] = useState<FinMovimentoTipo | "transferencia" | "todos">(
+    () => (searchParams.get("tipo") as any) || "todos",
+  );
+  const [busca, setBusca] = useState(() => searchParams.get("busca") ?? "");
   const [novoOpen, setNovoOpen] = useState(false);
   const [editando, setEditando] = useState<FinLancamentoExtenso | null>(null);
   const [transfOpen, setTransfOpen] = useState(false);
@@ -84,6 +100,11 @@ export default function FinancasConta() {
   // Telma ("a lixeira não funciona") em 13/09/2026.
   const [apagando, setApagando] = useState<FinLancamentoExtenso | null>(null);
   const [excluindoBusy, setExcluindoBusy] = useState(false);
+  // Exclusão em massa (item 2) — confirmação ÚNICA pro lote inteiro, não
+  // um `AlertDialog` por linha. `apagandoLote` guarda só a CONTAGEM (não
+  // precisa dos objetos inteiros) pro texto de confirmação.
+  const [apagandoLote, setApagandoLote] = useState(false);
+  const [excluindoLoteBusy, setExcluindoLoteBusy] = useState(false);
   // Saldo real da conta um instante antes de "Data inicial" — âncora da
   // coluna "Saldo" (acumulado), pedido da Telma pra bater com o jeito que
   // um extrato de banco/Omie de verdade se lê. Reaproveita a mesma conta
@@ -130,8 +151,12 @@ export default function FinancasConta() {
   // `.toISOString().slice(0,10)`) — essa última converte pra UTC antes de
   // formatar, e lia o mês errado pertinho da virada (ver src/lib/data.ts).
   const hoje = new Date();
-  const [dataInicio, setDataInicio] = useState(toYmd(new Date(hoje.getFullYear(), hoje.getMonth(), 1)));
-  const [dataFim, setDataFim] = useState(toYmd(new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0)));
+  const [dataInicio, setDataInicio] = useState(
+    () => searchParams.get("de") ?? toYmd(new Date(hoje.getFullYear(), hoje.getMonth(), 1)),
+  );
+  const [dataFim, setDataFim] = useState(
+    () => searchParams.get("ate") ?? toYmd(new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0)),
+  );
   // Telma reportou ao vivo (17/09/2026), na conta "Caixinha
   // Administrativo", em três rodadas: (1) "eu clico para alterar e ela
   // leva para meses que eu nao digitei" — o `min` dinâmico e o
@@ -152,6 +177,35 @@ export default function FinancasConta() {
   const fimEfetivo = dataInicio <= dataFim ? dataFim : dataInicio;
 
   useEffect(() => { carregar(); }, [contaId, filtroTipo, inicioEfetivo, fimEfetivo, busca]);
+
+  // Espelha os filtros na URL (`replace`, não empilha histórico a cada
+  // tecla digitada) — é isso que sobrevive a F5 e a sair/voltar pra tela.
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (filtroTipo !== "todos") params.set("tipo", filtroTipo);
+    if (busca) params.set("busca", busca);
+    params.set("de", dataInicio);
+    params.set("ate", dataFim);
+    setSearchParams(params, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtroTipo, busca, dataInicio, dataFim]);
+
+  // Lista de contas pro seletor rápido (item 3) — carregada uma vez só,
+  // não depende de `contaId`, e já vem ordenada por `ordem`/`nome`
+  // (`listarContas`, item 6).
+  useEffect(() => { listarContas().then(setContas); }, []);
+
+  // Trocar de conta pelo seletor: preserva os filtros atuais na URL nova
+  // (item 4 pedia isso nominalmente — "ao trocar de conta"). Como é a
+  // MESMA rota (`/financas/conta/:contaId`), o React Router não desmonta
+  // o componente, e o `useState` dos filtros já sobrevive sozinho; ainda
+  // assim carrega a querystring atual explicitamente pra já nascer certa
+  // na primeira renderização com o novo `contaId`.
+  function trocarConta(novoContaId: string) {
+    if (novoContaId === contaId) return;
+    setSelecionados(new Set());
+    navigate(`/financas/conta/${novoContaId}${window.location.search}`);
+  }
 
   async function carregar() {
     if (!contaId) return;
@@ -227,16 +281,52 @@ export default function FinancasConta() {
     });
   }
 
+  // Conciliar só faz sentido pra quem já `realizado` (mesma regra de
+  // sempre — não dá pra "bater com o extrato" algo previsto/cancelado/
+  // aguardando aprovação). A seleção agora aceita QUALQUER linha (item 2
+  // pediu seleção geral, pra também poder excluir em massa), então este
+  // botão manda só o subconjunto conciliável da seleção — não o que
+  // estiver marcado que não seja `realizado`.
+  // `lancamentos` (não `lancamentosOrdenados`, que só existe depois de
+  // `conta` carregar) — a ordem não importa aqui, só quais ids.
+  const selecionadosConciliaveis = lancamentos
+    .filter(l => selecionados.has(l.id) && l.status === "realizado")
+    .map(l => l.id);
+
   async function conciliarSelecionados() {
-    if (selecionados.size === 0) return;
+    if (selecionadosConciliaveis.length === 0) return;
     setConciliando(true);
     try {
-      await conciliarEmLote(Array.from(selecionados));
-      toast.success(`${selecionados.size} lançamento${selecionados.size > 1 ? "s" : ""} conciliado${selecionados.size > 1 ? "s" : ""}`);
+      await conciliarEmLote(selecionadosConciliaveis);
+      const n = selecionadosConciliaveis.length;
+      toast.success(`${n} lançamento${n > 1 ? "s" : ""} conciliado${n > 1 ? "s" : ""}`);
       setSelecionados(new Set());
       await carregar();
     } catch (e: any) { toast.error(e?.message ?? "Erro"); }
     finally { setConciliando(false); }
+  }
+
+  async function confirmarExcluirSelecionados(e: React.MouseEvent) {
+    e.preventDefault(); // mesmo motivo do `confirmarExcluir` acima — AlertDialogAction fecha antes do await
+    if (selecionados.size === 0) return;
+    setExcluindoLoteBusy(true);
+    try {
+      const ids = Array.from(selecionados);
+      await excluirLancamentosEmLote(ids);
+      toast.success(`${ids.length} lançamento${ids.length > 1 ? "s" : ""} excluído${ids.length > 1 ? "s" : ""}`);
+      setSelecionados(new Set());
+      setApagandoLote(false);
+      await carregar();
+    } catch (e: any) { toast.error(e?.message ?? "Erro"); }
+    finally { setExcluindoLoteBusy(false); }
+  }
+
+  function alternarSelecionarTodos() {
+    setSelecionados(prev => {
+      const todosIds = lancamentosOrdenados.map(l => l.id);
+      const todosMarcados = todosIds.length > 0 && todosIds.every(id => prev.has(id));
+      return todosMarcados ? new Set() : new Set(todosIds);
+    });
   }
 
   if (loading && !conta) {
@@ -366,23 +456,60 @@ export default function FinancasConta() {
         <div className="flex items-center gap-2 min-w-0">
         <Button asChild variant="ghost" size="icon"><Link to="/financas"><ArrowLeft className="w-4 h-4" /></Link></Button>
         <div className="min-w-0">
-          <h1 className="font-serif text-lg flex items-center gap-2 truncate">
-            <DollarSign className="w-5 h-5 text-gold" />
-            {conta.nome}
-            <Badge variant="outline" className="text-xs">{CONTA_TIPO_LABEL[conta.tipo]}</Badge>
-          </h1>
+          {/* Troca rápida entre contas (item 3, "PRIORIDADE MÁXIMA"
+              22/09/2026) — pedido explícito: "sem sair da tela e sem
+              perder o contexto". Vira o próprio título clicável: o
+              `<Select>` só troca de visual (`variant="ghost"`-like via
+              classes) pra continuar lendo como o cabeçalho de sempre, mas
+              QUALQUER conta ativa (ordenada por `ordem`, item 6) está a um
+              clique. `trocarConta` já leva os filtros atuais junto. */}
+          <Select value={contaId} onValueChange={trocarConta}>
+            <SelectTrigger className="h-auto border-0 shadow-none p-0 gap-1.5 font-serif text-lg hover:bg-muted/40 rounded-md px-1 -mx-1 [&>svg]:opacity-50">
+              <DollarSign className="w-5 h-5 text-gold shrink-0" />
+              <SelectValue>
+                <span className="flex items-center gap-2 truncate">
+                  {conta.nome}
+                  <Badge variant="outline" className="text-xs font-sans font-normal">{CONTA_TIPO_LABEL[conta.tipo]}</Badge>
+                </span>
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {contas.map(c => (
+                <SelectItem key={c.id} value={c.id}>
+                  <span className="flex items-center gap-2">
+                    {c.nome}
+                    <span className="text-xs text-muted-foreground">{CONTA_TIPO_LABEL[c.tipo]}</span>
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <p className="text-xs text-muted-foreground truncate">
             Saldo atual: <strong style={{ color: conta.cor ?? undefined }}>{brl(Number(conta.saldo_atual))}</strong>
           </p>
         </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+        {/* Barra de ações da seleção em massa (item 2, "PRIORIDADE MÁXIMA"
+            22/09/2026) — aparece assim que qualquer linha é marcada.
+            "Conciliar" só conta o subconjunto `realizado` da seleção (ver
+            `selecionadosConciliaveis`); "Excluir" vale pra seleção inteira,
+            qualquer situação. */}
         {selecionados.size > 0 && (
-          <Button size="sm" onClick={conciliarSelecionados} disabled={conciliando}
-            className="gap-1.5 bg-success hover:bg-success text-white">
-            <Scale className="w-3.5 h-3.5" />
-            {conciliando ? "..." : `Conciliar ${selecionados.size}`}
-          </Button>
+          <>
+            {selecionadosConciliaveis.length > 0 && (
+              <Button size="sm" onClick={conciliarSelecionados} disabled={conciliando || excluindoLoteBusy}
+                className="gap-1.5 bg-success hover:bg-success text-white">
+                <Scale className="w-3.5 h-3.5" />
+                {conciliando ? "..." : `Conciliar ${selecionadosConciliaveis.length}`}
+              </Button>
+            )}
+            <Button size="sm" variant="outline" onClick={() => setApagandoLote(true)} disabled={conciliando || excluindoLoteBusy}
+              className="gap-1.5 text-destructive hover:text-destructive border-destructive/40 hover:bg-destructive/10">
+              <Trash2 className="w-3.5 h-3.5" />
+              {`Excluir ${selecionados.size}`}
+            </Button>
+          </>
         )}
         {conta.tipo === "banco" && (
           <Button variant="outline" size="sm" onClick={() => setOfxOpen(true)} className="gap-1.5">
@@ -558,7 +685,19 @@ export default function FinancasConta() {
                   `overflow:visible` no `<style>` de impressão acima). */}
               <thead className="sticky top-0 z-10 bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground print:static">
                 <tr>
-                  <th className="w-8 print:hidden"></th>
+                  <th className="w-8 print:hidden">
+                    {/* Selecionar todos (item 2) — marca/desmarca todas as linhas
+                        CARREGADAS na tela (o filtro de período já limita o que está
+                        visível; "todos" é relativo ao que apareceu, igual o resto
+                        da tela já trata filtro + busca). */}
+                    {lancamentosOrdenados.length > 0 && (
+                      <Checkbox
+                        checked={lancamentosOrdenados.every(l => selecionados.has(l.id))}
+                        onCheckedChange={alternarSelecionarTodos}
+                        aria-label="Selecionar todos os lançamentos"
+                      />
+                    )}
+                  </th>
                   {/* Situação e Centro custo saíram de coluna própria
                       (16/09/2026, pedido da Telma: "mostre Data - Descrição/
                       Fornecedor - Categoria - valor - saldo, como um
@@ -622,10 +761,13 @@ export default function FinancasConta() {
                   return (
                   <tr key={l.id} className="border-t hover:bg-muted/30 group">
                     <td className="py-1.5 px-2 print:hidden">
-                      {l.status === "realizado" && (
-                        <Checkbox checked={selecionados.has(l.id)} onCheckedChange={() => alternarSelecao(l.id)}
-                          aria-label={`Selecionar ${l.descricao ?? "lançamento"} para conciliar`} />
-                      )}
+                      {/* Seleção agora vale pra qualquer situação (item 2) —
+                          antes só `realizado` podia marcar, porque só servia
+                          pra conciliar; excluir em massa não tem essa
+                          restrição. `conciliarSelecionados` filtra sozinho o
+                          subconjunto conciliável na hora de agir. */}
+                      <Checkbox checked={selecionados.has(l.id)} onCheckedChange={() => alternarSelecao(l.id)}
+                        aria-label={`Selecionar ${l.descricao ?? "lançamento"}`} />
                     </td>
                     <td className="py-1.5 px-2 whitespace-nowrap">
                       {/* Ícone de situação colado na data, não mais uma
@@ -767,6 +909,26 @@ export default function FinancasConta() {
             <AlertDialogAction onClick={confirmarExcluir} disabled={excluindoBusy}
               className="bg-destructive hover:bg-destructive/90 text-white">
               {excluindoBusy ? "..." : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmação única pra exclusão em massa (item 2) — mesmo padrão
+          `preventDefault()` do diálogo de exclusão individual acima. */}
+      <AlertDialog open={apagandoLote} onOpenChange={(v) => !v && setApagandoLote(false)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir {selecionados.size} lançamento{selecionados.size > 1 ? "s" : ""}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Não dá pra desfazer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={excluindoLoteBusy}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmarExcluirSelecionados} disabled={excluindoLoteBusy}
+              className="bg-destructive hover:bg-destructive/90 text-white">
+              {excluindoLoteBusy ? "..." : "Excluir"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
