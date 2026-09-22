@@ -105,6 +105,21 @@ export default function FinancasConta() {
     () => (searchParams.get("tipo") as any) || "todos",
   );
   const [busca, setBusca] = useState(() => searchParams.get("busca") ?? "");
+  // Debounce (22/09/2026, achado ao vivo pela Telma): sem isso,
+  // `carregar()` (efeito abaixo, dependente de `busca`) rodava a CADA
+  // tecla — `setLoading(true)` trocava a tabela inteira (thead incluso)
+  // por um spinner por uma fração de segundo, desmontando qualquer coisa
+  // dentro dela. Inofensivo enquanto o campo de busca vivia sozinho na
+  // faixa de filtros; ficou visível quando o mesmo campo passou a viver
+  // TAMBÉM dentro do popover de filtro da coluna Descrição — cada letra
+  // "fechava" o popover porque ele literalmente desmontava e remontava.
+  // `buscaDebounced` é o valor que de fato dispara a busca; `busca` (o
+  // valor do campo) continua instantâneo pra digitar sem travar.
+  const [buscaDebounced, setBuscaDebounced] = useState(busca);
+  useEffect(() => {
+    const t = setTimeout(() => setBuscaDebounced(busca), 400);
+    return () => clearTimeout(t);
+  }, [busca]);
   // Filtros de coluna — Categoria e Centro de custo filtram no servidor
   // (`listarLancamentosSemTeto`). Persistem na URL, mesmo padrão dos
   // outros filtros desta tela.
@@ -228,13 +243,21 @@ export default function FinancasConta() {
   const inicioEfetivo = dataInicio <= dataFim ? dataInicio : dataFim;
   const fimEfetivo = dataInicio <= dataFim ? dataFim : dataInicio;
 
-  useEffect(() => { carregar(); }, [contaId, filtroTipo, inicioEfetivo, fimEfetivo, busca, filtroCategoriaId, filtroCentroCustoId]);
+  useEffect(() => { carregar(); }, [contaId, filtroTipo, inicioEfetivo, fimEfetivo, buscaDebounced, filtroCategoriaId, filtroCentroCustoId]);
+  // Trocar de CONTA limpa a lista antes de buscar — sem isso, o fix logo
+  // abaixo ("não mostrar spinner se já tem dado em mãos", pro popover não
+  // fechar sozinho) mostraria por um instante o extrato da conta ANTERIOR
+  // enquanto a nova carrega, já que `lancamentos` só troca quando a busca
+  // termina. Filtro/data/categoria mudando na MESMA conta não entra
+  // aqui de propósito — ali sim vale manter o dado antigo na tela até o
+  // novo chegar (evita o "pisca" que fechava o popover).
+  useEffect(() => { setLancamentos([]); }, [contaId]);
   // Voltar à página 1 quando o filtro muda — continuar na página 4 de um
   // período que agora só tem 1 página deixaria a tabela vazia. Valor
   // entra aqui também mesmo sendo filtro em memória (não refaz a busca no
   // servidor, mas muda quantas linhas sobram pra paginar).
   useEffect(() => { setPagina(1); }, [
-    contaId, filtroTipo, inicioEfetivo, fimEfetivo, busca,
+    contaId, filtroTipo, inicioEfetivo, fimEfetivo, buscaDebounced,
     filtroCategoriaId, filtroCentroCustoId, filtroValorMinTexto, filtroValorMaxTexto,
   ]);
 
@@ -296,7 +319,7 @@ export default function FinancasConta() {
           tipo: filtroTipo !== "todos" && filtroTipo !== "transferencia" ? filtroTipo : undefined,
           apenasTransferencia: filtroTipo === "transferencia" ? true : undefined,
           dataInicio: inicioEfetivo, dataFim: fimEfetivo,
-          busca: busca.length >= 2 ? busca : undefined,
+          busca: buscaDebounced.length >= 2 ? buscaDebounced : undefined,
           categoriaId: filtroCategoriaId || undefined,
           centroCustoId: filtroCentroCustoId || undefined,
         }),
@@ -853,7 +876,18 @@ export default function FinancasConta() {
             acima e continua batendo pelo nome da classe. */}
         <CardContent className="p-0 overflow-x-auto overflow-y-auto"
           style={{ maxHeight: alturaFaixaFixa ? `calc(100vh - ${alturaFaixaFixa}px - 7rem)` : undefined }}>
-          {loading ? (
+          {/* A causa de verdade do popover "fechando sozinho" (achado ao
+              vivo pela Telma, 22/09/2026): não era só falta de debounce —
+              era ISTO. `loading` virava `true` a cada novo `carregar()`
+              (filtro mudou, período mudou, "Atualizar") e trocava a
+              TABELA INTEIRA por este spinner, desmontando o `<thead>` e
+              qualquer popover de filtro aberto dentro dele junto. Corrigido
+              só mostrando o spinner no carregamento de verdade (ainda sem
+              nenhum lançamento em mãos); um recarregamento com dado
+              anterior na tela mantém a tabela montada — as linhas trocam
+              quando o novo lote chega, o `<thead>` e o que estiver aberto
+              nele nunca somem no meio do caminho. */}
+          {loading && lancamentos.length === 0 ? (
             <div className="py-6 text-center text-muted-foreground">
               <Loader2 className="w-4 h-4 animate-spin inline mr-1.5" /> Carregando...
             </div>
@@ -922,7 +956,7 @@ export default function FinancasConta() {
                     </CabecalhoFiltro>
                   </th>
                   <th className="text-left py-2 px-2">
-                    <CabecalhoFiltro label="Descrição / Fornecedor" ativo={busca.length >= 2}>
+                    <CabecalhoFiltro label="Descrição / Fornecedor" ativo={buscaDebounced.length >= 2}>
                       <label className="text-xs text-muted-foreground">Buscar na descrição</label>
                       <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Digite ao menos 2 letras..." className="h-8 text-xs" />
                     </CabecalhoFiltro>
@@ -1028,7 +1062,7 @@ export default function FinancasConta() {
                   fazendo sentido só nela também (ambas abaixo). */}
               {/* tbody de TELA — só a página atual (U3/F5, item de "90 Dias") */}
               <tbody className="print:hidden">
-                {paginaAtual === 1 && filtroTipo === "todos" && busca.length < 2 && (
+                {paginaAtual === 1 && filtroTipo === "todos" && buscaDebounced.length < 2 && (
                   <tr className="border-t bg-muted/20 text-muted-foreground italic">
                     <td className="py-1.5 px-2"></td>
                     <td className="py-1.5 px-2" colSpan={2}>Saldo inicial</td>
@@ -1043,7 +1077,7 @@ export default function FinancasConta() {
               </tbody>
               {/* tbody só de IMPRESSÃO — período inteiro, nunca paginado */}
               <tbody className="hidden print:table-row-group">
-                {filtroTipo === "todos" && busca.length < 2 && (
+                {filtroTipo === "todos" && buscaDebounced.length < 2 && (
                   <tr className="border-t bg-muted/20 text-muted-foreground italic">
                     <td className="py-1.5 px-2"></td>
                     <td className="py-1.5 px-2" colSpan={2}>Saldo inicial</td>
