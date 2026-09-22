@@ -22,8 +22,11 @@
 
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { HeartHandshake, ChevronRight, ClipboardList, UserX } from "lucide-react";
+import { HeartHandshake, ChevronRight, ClipboardList, UserX, MessageCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { toast } from "sonner";
 import { TituloDaSecao } from "@/components/painel/blocos";
 import {
   carregarIndicadoresDiaconia, carregarLimitesPerCapita, ROTULO_CLASSIFICACAO,
@@ -31,6 +34,23 @@ import {
   type BancadaDiaconia, type IndicadoresDiaconia, type PendenciaAcompanhamento,
 } from "@/services/diaconiaService";
 import { hojeLocal } from "@/lib/data";
+import { montarLinkWhatsApp } from "@/lib/whatsapp";
+
+// Épico 5 do roadmap "90 Dias" (22/09/2026): "levar o card de Visitante —
+// prioridade, status e ação num objeto só — pra dentro da Diakonia Care".
+// Antes, "quem parou de vir" era uma lista de texto sem cor nem ação:
+// clicava no nome, saía da tela, procurava a pessoa de novo na lista de
+// "Pessoas" pra então achar o telefone. Reaproveita `PRIORIDADE_STYLE`
+// (mesma paleta de `lib/visitantesFluxo.ts`, usada no card de Visitante)
+// — não inventa uma segunda linguagem visual pra "urgência" no sistema.
+const PRIORIDADE_FALTAS: { min: number; border: string; badge: string }[] = [
+  { min: 4, border: "border-l-destructive", badge: "bg-destructive/10 text-destructive-text border-destructive/30" },
+  { min: 3, border: "border-l-warning",     badge: "bg-warning/15 text-warning-text border-warning/30" },
+  { min: 0, border: "border-l-success",     badge: "bg-success/15 text-success-text border-success/30" },
+];
+function prioridadePorFaltas(n: number) {
+  return PRIORIDADE_FALTAS.find(p => n >= p.min)!;
+}
 
 function hojeISO(): string {
   return hojeLocal();
@@ -93,30 +113,54 @@ export function SecaoDiaconia({ dc, ministerioId }: { dc: BancadaDiaconia; minis
       )}
 
       {pendencias && pendencias.length > 0 && (
-        <div className="rounded-md border border-warning-line bg-warning-soft px-3 py-2.5 mb-2">
-          <p className="flex items-center gap-2 text-sm font-medium text-warning-text">
+        <div className="mb-2 space-y-1.5">
+          <p className="flex items-center gap-2 text-sm font-medium text-warning-text px-0.5">
             <UserX className="w-4 h-4 shrink-0" />
             {pendencias.length === 1 ? "1 pessoa parou de vir" : `${pendencias.length} pessoas pararam de vir`}
           </p>
-          <p className="text-xs text-warning-text/90 mt-0.5">
-            Não confirmadas nas últimas {pendencias[0]?.faltasSeguidas ?? 2}+ vezes que a área abriu chamada —
-            reavalie se ainda precisam, ou encerre o acompanhamento.
+          <p className="text-xs text-muted-foreground px-0.5">
+            Não confirmadas nas últimas vezes que a área abriu chamada — reavalie se ainda precisam,
+            ou encerre o acompanhamento.
           </p>
-          <ul className="mt-2 space-y-1">
-            {pendencias.slice(0, 8).map(p => (
-              <li key={p.vinculo_id} className="flex items-baseline justify-between gap-2 text-xs">
-                <Link to={`/ministerios/${ministerioId}/diaconia/${p.area_id}/pessoas`}
-                  className="text-foreground hover:underline min-w-0 truncate">
-                  {p.nome} <span className="text-muted-foreground">· {p.area_nome}</span>
-                </Link>
-                <span className="text-warning-text tabular-nums shrink-0">
-                  {p.faltasSeguidas} faltas
-                </span>
-              </li>
-            ))}
-          </ul>
+          {pendencias.slice(0, 8).map(p => {
+            const prio = prioridadePorFaltas(p.faltasSeguidas);
+            return (
+              <Card key={p.vinculo_id} className={`min-w-0 border-l-4 ${prio.border}`}>
+                <CardContent className="p-2.5 flex items-center gap-2">
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <Link to={`/ministerios/${ministerioId}/diaconia/${p.area_id}/pessoas`}
+                        className="text-sm font-medium truncate hover:underline">
+                        {p.nome}
+                      </Link>
+                      <Badge variant="outline" className={`text-xs h-4 px-1.5 ${prio.badge}`}>
+                        {p.faltasSeguidas} {p.faltasSeguidas === 1 ? "falta" : "faltas"}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground truncate">{p.area_nome}</p>
+                  </div>
+                  <Button
+                    size="sm" className="h-9 px-3 gap-1.5 text-xs shrink-0 bg-[#25D366] hover:bg-[#128C7E] text-white border-0"
+                    disabled={!p.telefone}
+                    onClick={() => {
+                      if (!p.telefone) { toast.error("Telefone não cadastrado"); return; }
+                      window.open(
+                        montarLinkWhatsApp({
+                          telefone: p.telefone,
+                          texto: `Olá, ${p.nome.split(" ")[0]}! Sentimos sua falta por aqui. Está tudo bem com você? 💙`,
+                        }),
+                        "_blank", "noopener,noreferrer",
+                      );
+                    }}
+                  >
+                    <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
+                  </Button>
+                </CardContent>
+              </Card>
+            );
+          })}
           {pendencias.length > 8 && (
-            <p className="text-xs text-warning-text/80 mt-1.5">e mais {pendencias.length - 8}.</p>
+            <p className="text-xs text-warning-text/80 px-0.5">e mais {pendencias.length - 8}.</p>
           )}
         </div>
       )}

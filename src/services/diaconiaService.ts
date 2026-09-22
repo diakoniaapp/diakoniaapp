@@ -701,6 +701,12 @@ export interface PendenciaAcompanhamento {
   vinculo_id: string;
   pessoa_id: string;
   nome: string;
+  // Épico 5 do roadmap "90 Dias" (22/09/2026): o card de visitante
+  // (Visitantes.tsx) tem ação de WhatsApp direto no cartão — pra levar o
+  // mesmo padrão pra cá, precisa do telefone junto da pendência, não só
+  // do nome. Sem essa coluna, a única ação era "abrir a lista de
+  // pessoas" e procurar de novo.
+  telefone: string | null;
   area_id: string;
   area_nome: string;
   faltasSeguidas: number;
@@ -720,7 +726,7 @@ export async function carregarPendenciasAcompanhamento(
   const hoje = hojeLocal();
   const [{ data: vinculos }, { data: ocasioes }] = await Promise.all([
     supabase.from("diaconia_vinculos")
-      .select(`id, area_id, pessoa_assistida_id, diaconia_pessoas_assistidas(nome_completo)`)
+      .select(`id, area_id, pessoa_assistida_id, diaconia_pessoas_assistidas(nome_completo, telefone)`)
       .in("area_id", areaIds).eq("ativo", true),
     supabase.from("diaconia_ocasioes")
       .select("id, area_id, data").in("area_id", areaIds).lte("data", hoje)
@@ -759,6 +765,7 @@ export async function carregarPendenciasAcompanhamento(
       pendencias.push({
         vinculo_id: v.id, pessoa_id: v.pessoa_assistida_id,
         nome: v.diaconia_pessoas_assistidas?.nome_completo ?? "—",
+        telefone: v.diaconia_pessoas_assistidas?.telefone ?? null,
         area_id: v.area_id, area_nome: nomeDaArea.get(v.area_id) ?? "—",
         faltasSeguidas: faltas, ultimaConfirmacaoEm,
       });
