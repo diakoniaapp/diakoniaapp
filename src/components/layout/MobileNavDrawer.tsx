@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { Search, LogOut } from "lucide-react";
 import {
@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { openCommandPalette } from "@/lib/commandPalette";
 import { NAV_GROUPS, PAINEL, ATALHOS_TOPO, type NavGroup, type NavItem } from "@/components/layout/navConfig";
 import { atalhos } from "@/lib/navUso";
+import { contarPendenciasP0, PAINEL_POR_ROTA } from "@/dashboard/pendenciasP0";
 
 /**
  * Menu completo para celular.
@@ -29,6 +30,24 @@ export function MobileNavDrawer({ children }: { children: React.ReactNode }) {
   );
   const { hasRole, signOut } = useAuth();
   const navigate = useNavigate();
+
+  // Épico 7 do roadmap "90 Dias" (22/09/2026) — mesmo badge da sidebar de
+  // desktop, aqui na gaveta. Busca de novo cada vez que a gaveta abre (não
+  // uma vez só na montagem): é a barra de navegação que o celular de fato
+  // usa no dia a dia, então vale mais a pena um número fresco a cada
+  // abertura do que economizar essa consulta.
+  const [pendenciasP0, setPendenciasP0] = useState<Record<string, number>>({});
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    Promise.all(
+      Object.entries(PAINEL_POR_ROTA).map(([rota, painel]) =>
+        contarPendenciasP0(painel).then(n => [rota, n] as const)),
+    ).then(pares => {
+      if (!cancelled) setPendenciasP0(Object.fromEntries(pares));
+    });
+    return () => { cancelled = true; };
+  }, [open]);
 
   const itemAllowed = (it: NavItem) => !it.allowedRoles || hasRole(it.allowedRoles);
   const groupAllowed = (g: NavGroup) =>
@@ -83,12 +102,20 @@ export function MobileNavDrawer({ children }: { children: React.ReactNode }) {
 
         {/* Home e Painel Pastoral, fora dos grupos — ver ATALHOS_TOPO */}
         <nav className="px-3 pt-3">
-          {ATALHOS_TOPO.filter(itemAllowed).map(item => (
-            <NavLink key={item.to} to={item.to} end={item.end} onClick={fechar} className={itemClass}>
-              <item.icon className="w-4 h-4 shrink-0" />
-              <span translate="no">{item.label}</span>
-            </NavLink>
-          ))}
+          {ATALHOS_TOPO.filter(itemAllowed).map(item => {
+            const pendencias = pendenciasP0[item.to] ?? 0;
+            return (
+              <NavLink key={item.to} to={item.to} end={item.end} onClick={fechar} className={itemClass}>
+                <item.icon className="w-4 h-4 shrink-0" />
+                <span translate="no" className="flex-1">{item.label}</span>
+                {pendencias > 0 && (
+                  <span className="text-[10px] font-semibold leading-none px-1.5 py-0.5 rounded-full bg-destructive-soft text-destructive-text border border-destructive-line tabular-nums">
+                    {pendencias}
+                  </span>
+                )}
+              </NavLink>
+            );
+          })}
         </nav>
 
         {/* Os mesmos atalhos da sidebar. Aqui valem ainda mais: a gaveta do

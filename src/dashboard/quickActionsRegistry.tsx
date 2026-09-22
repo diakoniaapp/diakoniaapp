@@ -32,6 +32,19 @@ import {
  * o mesmo campo `paineis` do widget é o conserto de verdade; até lá, o
  * Painel da Tesouraria mostra os próprios botões direto no JSX, e este
  * registry fica como estava — pronto pra quando alguém ligar o fio.
+ *
+ * ── DECISÃO FINAL (Mês 3, roadmap "90 Dias de Diakonia", 22/09/2026) ──────
+ *
+ * Fecha o plano de 90 dias: "religar ou remover" — decidido MANTER
+ * dormente, sem religar agora e sem apagar. Religar de verdade pede o
+ * campo `paineis` acima (refatoração em todos os painéis, não só aqui) e
+ * o roadmap já classificava isso como "baixo impacto, alto esforço" —
+ * nenhum sintoma visível hoje que pague o risco de mexer, e nenhuma tela
+ * fica pior por este arquivo continuar como está. Remover também não:
+ * cada ação aqui é dado válido, só sem consumidor vivo — apagar por
+ * apagar destruiria trabalho reaproveitável no dia em que alguém quiser
+ * mesmo ligar o fio. Revisitar só se uma tela nova precisar de ações
+ * rápidas cross-painel — até lá, nenhuma ação necessária.
  */
 
 export interface QuickAction {
