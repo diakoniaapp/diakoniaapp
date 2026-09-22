@@ -59,23 +59,27 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   DollarSign, Receipt, Wallet, ChevronRight, RefreshCw, Sparkles, Package,
-  Clock, CalendarClock, Target, ShoppingCart, HandCoins, Scale, Lightbulb,
+  Clock, CalendarClock, Target, HandCoins, Scale, Lightbulb,
   HeartHandshake, Users, ScrollText, Layers, Handshake, MoreHorizontal,
   TrendingDown, TrendingUp, RotateCw, Briefcase, LineChart, Building2, FolderKanban,
+  Globe2, Archive, BookOpenCheck, type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Progress } from "@/components/ui/progress";
+import { CampoData } from "@/components/CampoData";
 import {
   Indicador, FaixaDeIndicadores, TituloDaSecao, irParaSecao, formatarAtualizadoHa,
 } from "@/components/painel/blocos";
 import { carregarResumoFiscal, type ResumoFiscalDashboard } from "@/services/fiscalService";
 import {
-  brl, resumoFinanceiroMes, type FinVencimento, type FinAlertaCentro, type FinResumoMes,
+  brl, resumoFinanceiroMes, listarProjetos, listarCategorias, listarLancamentosSemTeto,
+  type FinVencimento, type FinAlertaCentro, type FinResumoMes,
+  type FinProjeto, type FinLancamentoExtenso,
 } from "@/services/finService";
 import {
-  listarCaixasAbertos, formatarTempoAberto, caixaEhUrgente, type CaixaAberto,
   listarPendencias, type ItemPendencia, type PendenciaLancamento, type PendenciaFechamento, DIAS_JANELA_COMPROVANTE,
   listarVencimentosDaSemana, listarAlertasOrcamento, DIAS_JANELA_VENCIMENTOS,
   listarAlertasTesouraria, type AlertaTesouraria,
@@ -83,6 +87,7 @@ import {
 } from "@/services/painelTesourariaService";
 import { AgendaFiscalUrgente } from "@/components/dashboard/AgendaFiscalUrgente";
 import { useAuth } from "@/hooks/useAuth";
+import { hojeLocal } from "@/lib/data";
 import { ROLES_DOADORES, ROLES_PASTORAL_SEM_TITULAR } from "@/components/layout/navConfig";
 
 export default function PainelTesouraria() {
@@ -94,12 +99,19 @@ export default function PainelTesouraria() {
   // 12/09/2026: `resumoFinanceiroMes()` já existe, já alimenta os cards
   // de `/financas` — só nunca tinha sido chamado aqui.
   const [resumo, setResumo] = useState<FinResumoMes | null>(null);
-  const [caixas, setCaixas] = useState<CaixaAberto[]>([]);
   const [pendencias, setPendencias] = useState<ItemPendencia[]>([]);
   const [vencimentos, setVencimentos] = useState<FinVencimento[]>([]);
   const [alertasOrc, setAlertasOrc] = useState<FinAlertaCentro[]>([]);
   const [alertas, setAlertas] = useState<AlertaTesouraria[]>([]);
   const [diaconia, setDiaconia] = useState<CruzamentoDiaconia | null>(null);
+  // Pedido dela (22/09/2026): "o que foi construído no módulo financeiro é
+  // robusto demais para ficar lá embaixo do painel" — projetos em
+  // andamento passam de link solto em "Ir para" a seção viva, com
+  // progresso calculado (mesma conta de `FinancasProjetoDetalhe.tsx`:
+  // soma de entradas por projeto, não um campo "arrecadado" guardado —
+  // não existe, e duplicar em uma coluna nova divergiria da tela de
+  // detalhe assim que alguém lançasse algo sem passar por aqui).
+  const [projetos, setProjetos] = useState<{ projeto: FinProjeto; arrecadado: number }[]>([]);
   const [erro, setErro] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(true);
   /** Quando os números da tela foram lidos — o "· há 3 minutos" do resumo. */
@@ -109,10 +121,13 @@ export default function PainelTesouraria() {
     setCarregando(true);
     setErro(null);
     try {
-      const [f, r, c, p, v, a, al, d] = await Promise.all([
+      const [f, r, proj, p, v, a, al, d] = await Promise.all([
         carregarResumoFiscal(),
         resumoFinanceiroMes(),
-        listarCaixasAbertos(),
+        listarProjetos().then(ativos => Promise.all(ativos.map(async projeto => {
+          const entradas = await listarLancamentosSemTeto({ projetoId: projeto.id, tipo: "entrada" });
+          return { projeto, arrecadado: entradas.reduce((s, l) => s + Number(l.valor), 0) };
+        }))),
         listarPendencias(),
         listarVencimentosDaSemana(),
         listarAlertasOrcamento(),
@@ -124,7 +139,7 @@ export default function PainelTesouraria() {
       ]);
       setFiscal(f);
       setResumo(r);
-      setCaixas(c);
+      setProjetos(proj);
       setPendencias(p);
       setVencimentos(v);
       setAlertasOrc(a);
@@ -139,6 +154,47 @@ export default function PainelTesouraria() {
   }, []);
 
   useEffect(() => { carregar(); }, [carregar]);
+
+  // ── Ofertas para Missões, filtrável por período ──────────────────────────
+  //
+  // Pedido dela (22/09/2026): "ver de forma rápida... as ofertas para
+  // missões, filtrando por calendário entre datas". Categoria já existe no
+  // Plano de Contas Oficial (migration 20260912190000) — "Ofertas para
+  // Missões", tipo entrada. Resolve o id UMA vez (a categoria não muda em
+  // tempo de execução), separado da busca por período, que roda de novo a
+  // cada troca de data sem precisar reconsultar a categoria.
+  const [categoriaMissoesId, setCategoriaMissoesId] = useState<string | null | undefined>(undefined);
+  useEffect(() => {
+    listarCategorias("entrada")
+      .then(cats => setCategoriaMissoesId(cats.find(c => c.nome === "Ofertas para Missões")?.id ?? null))
+      .catch(() => setCategoriaMissoesId(null));
+  }, []);
+
+  const hoje = hojeLocal();
+  const [missoesInicio, setMissoesInicio] = useState(() => hoje.slice(0, 7) + "-01");
+  const [missoesFim, setMissoesFim] = useState(hoje);
+  const [missoesLancamentos, setMissoesLancamentos] = useState<FinLancamentoExtenso[] | null>(null);
+  const [carregandoMissoes, setCarregandoMissoes] = useState(true);
+
+  const carregarMissoes = useCallback(async () => {
+    if (categoriaMissoesId === undefined) return;
+    if (categoriaMissoesId === null) { setMissoesLancamentos([]); setCarregandoMissoes(false); return; }
+    setCarregandoMissoes(true);
+    try {
+      const lancs = await listarLancamentosSemTeto({
+        tipo: "entrada", categoriaId: categoriaMissoesId,
+        dataInicio: missoesInicio, dataFim: missoesFim,
+      });
+      setMissoesLancamentos(lancs);
+    } catch {
+      setMissoesLancamentos([]);
+    } finally {
+      setCarregandoMissoes(false);
+    }
+  }, [categoriaMissoesId, missoesInicio, missoesFim]);
+
+  useEffect(() => { carregarMissoes(); }, [carregarMissoes]);
+  const totalMissoes = (missoesLancamentos ?? []).reduce((s, l) => s + Number(l.valor), 0);
 
   // Destino do "Ver tudo" que N1 acrescentou ao menu lateral do
   // Financeiro (`navConfig.ts`) — `irParaSecao` já existia, mas só era
@@ -161,7 +217,6 @@ export default function PainelTesouraria() {
   }, [location.hash, carregando]);
 
   const totalFiscal = fiscal ? fiscal.total_atrasados + fiscal.total_urgentes + fiscal.total_proximos : 0;
-  const caixasUrgentes = caixas.filter(caixaEhUrgente);
   const aprovacoesPendentes = pendencias.filter((p): p is PendenciaLancamento => p.motivo === "aprovacao");
   const semComprovante = pendencias.filter((p): p is PendenciaLancamento => p.motivo === "comprovante");
   const aguardandoConciliacao = pendencias.filter((p): p is PendenciaLancamento => p.motivo === "conciliacao");
@@ -203,7 +258,7 @@ export default function PainelTesouraria() {
           <p className="text-sm text-muted-foreground flex items-start gap-1.5">
             <DollarSign className="w-3.5 h-3.5 text-gold shrink-0 mt-0.5" />
             <span className="min-w-0">
-              {resumoNatural(fiscal, caixas, caixasUrgentes, aprovacoesPendentes, semComprovante, aguardandoConciliacao, fechamentosPendentes, vencimentos, orcamentoCriticos, alertasOrc, alertasCriticos, alertas)}
+              {resumoNatural(fiscal, aprovacoesPendentes, semComprovante, aguardandoConciliacao, fechamentosPendentes, vencimentos, orcamentoCriticos, alertasOrc, alertasCriticos, alertas)}
               {atualizadoEm && (
                 <span className="text-[10px] text-muted-foreground ml-1.5 whitespace-nowrap">
                   · {formatarAtualizadoHa(atualizadoEm)}
@@ -217,14 +272,10 @@ export default function PainelTesouraria() {
             Mesma regra dos outros dois painéis, decidida em 27/08/2026: sem
             `valor`, cada bloco vira atalho de ícone + rótulo + seta. */}
         {fiscal && (
-          <FaixaDeIndicadores colunas={6}>
+          <FaixaDeIndicadores colunas={7}>
             <Indicador
               rotulo="Fiscal" tom="warning" icone={Receipt}
               onClick={() => irParaSecao("fiscal")} descricao="Ir para Fiscal"
-            />
-            <Indicador
-              rotulo="Caixa" tom="info" icone={Wallet}
-              onClick={() => irParaSecao("caixa")} descricao="Ir para Caixa"
             />
             <Indicador
               rotulo="Pendências" tom="warning" icone={Clock}
@@ -233,6 +284,14 @@ export default function PainelTesouraria() {
             <Indicador
               rotulo="Vencimentos" tom="info" icone={CalendarClock}
               onClick={() => irParaSecao("vencimentos")} descricao="Ir para Próximos vencimentos"
+            />
+            <Indicador
+              rotulo="Projetos" tom="violeta" icone={FolderKanban}
+              onClick={() => irParaSecao("projetos")} descricao="Ir para Projetos em andamento"
+            />
+            <Indicador
+              rotulo="Missões" tom="info" icone={Globe2}
+              onClick={() => irParaSecao("missoes")} descricao="Ir para Ofertas para Missões"
             />
             <Indicador
               rotulo="Orçamento" tom="violeta" icone={Target}
@@ -329,18 +388,11 @@ export default function PainelTesouraria() {
                     <HandCoins className="w-4 h-4 mr-2 text-muted-foreground" /> Registrar oferta
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/arrecadacao">
-                    <ShoppingCart className="w-4 h-4 mr-2 text-muted-foreground" /> Abrir caixa
-                  </Link>
-                </DropdownMenuItem>
-                {/* "Fechar caixa" rola até a seção Caixa desta mesma tela, em
-                    vez de navegar — ela já lista cada caixa aberto com o
-                    link direto de fechamento, então sair da página seria um
-                    passo a mais. */}
-                <DropdownMenuItem onClick={() => irParaSecao("caixa")}>
-                  <Wallet className="w-4 h-4 mr-2 text-muted-foreground" /> Fechar caixa
-                </DropdownMenuItem>
+                {/* "Abrir caixa"/"Fechar caixa" SAÍRAM daqui em 22/09/2026,
+                    pedido dela: caixa é Bazar e Cantina, gerido pelo
+                    ministério de Administração — não é gesto de tesouraria,
+                    é gesto de quem opera o bazar. Mora no painel daquele
+                    ministério (`SecaoArrecadacao.tsx`, já existia). */}
                 {/* Conciliação (manual + extrato OFX) ficou pronta em
                     12/09/2026 — mas é sempre de UMA conta por vez
                     (`/financas/conta/:id`), sem tela "conciliar tudo" no
@@ -369,41 +421,10 @@ export default function PainelTesouraria() {
             </div>
           </section>
 
-          {/* ── Caixa ──────────────────────────────────────────────────── */}
-          <section id="caixa" className="scroll-mt-[220px]">
-            <TituloDaSecao icone={Wallet} tom="info" contagem={caixas.length}>
-              Caixa
-            </TituloDaSecao>
-            {caixas.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-2 px-3 border rounded-md">
-                Nenhum caixa aberto no momento.
-              </p>
-            ) : (
-              <ul className="divide-y rounded-md border bg-card">
-                {caixas.map(c => (
-                  <li key={c.id}>
-                    {/* A linha inteira é o link, como nas outras listas de
-                        painel — chega direto na tela de fechamento, sem
-                        passar pelo catálogo de reservas. */}
-                    <Link
-                      to={`/arrecadacao/caixa/${c.id}`}
-                      className="flex items-center gap-2 px-3 py-2.5 min-h-11 group"
-                    >
-                      <span className="text-sm min-w-0 flex-1">
-                        <span className={caixaEhUrgente(c) ? "font-medium text-warning-text" : "font-medium"}>
-                          {c.espaco_nome ?? c.finalidade ?? "Caixa"}
-                        </span>
-                        <span className="text-muted-foreground">
-                          {" "}— aberto {formatarTempoAberto(c.aberto_em)}
-                        </span>
-                      </span>
-                      <ChevronRight className="w-4 h-4 shrink-0 text-muted-foreground group-hover:text-primary transition-colors" />
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+          {/* Caixa SAIU daqui em 22/09/2026 — era 100% dado de Bazar e
+              Cantina (`arr_caixas`), nunca de tesouraria/financeiro de
+              verdade. Já mora no painel certo: `SecaoArrecadacao.tsx`,
+              dentro do painel do ministério de Administração. */}
 
           {/* ── Pendências ─────────────────────────────────────────────── */}
           <section id="pendencias" className="scroll-mt-[220px]">
@@ -498,6 +519,105 @@ export default function PainelTesouraria() {
             )}
           </section>
 
+          {/* ── Projetos em andamento ─────────────────────────────────────
+              Pedido dela (22/09/2026): "precisamos ver de forma rápida o
+              que é um projeto em andamento" — antes só existia como link
+              solto em "Ir para", sem número nenhum. Progresso = mesma
+              conta de `FinancasProjetoDetalhe.tsx` (soma de entradas do
+              projeto ÷ meta), calculada em `carregar()` acima — não uma
+              segunda fonte de verdade, e por isso também não existe uma
+              coluna "arrecadado" gravada em `fin_projetos`. */}
+          <section id="projetos" className="scroll-mt-[220px]">
+            <TituloDaSecao
+              icone={FolderKanban} tom="violeta" contagem={projetos.length}
+              acao={<Link to="/financas/projetos" className="text-sm text-primary hover:underline">Abrir Projetos</Link>}
+            >
+              Projetos em andamento
+            </TituloDaSecao>
+            {projetos.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-2 px-3 border rounded-md">
+                Nenhum projeto ativo no momento.
+              </p>
+            ) : (
+              <ul className="divide-y rounded-md border bg-card">
+                {projetos.map(({ projeto, arrecadado }) => {
+                  const pct = projeto.meta_valor ? Math.min(100, (arrecadado / projeto.meta_valor) * 100) : null;
+                  return (
+                    <li key={projeto.id}>
+                      <Link to={`/financas/projeto/${projeto.id}`} className="flex flex-col gap-1.5 px-3 py-2.5 group">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium min-w-0 flex-1 truncate">{projeto.nome}</span>
+                          <span className="text-sm text-muted-foreground shrink-0">
+                            {brl(arrecadado)}{projeto.meta_valor ? ` de ${brl(projeto.meta_valor)}` : ""}
+                          </span>
+                          <ChevronRight className="w-4 h-4 shrink-0 text-muted-foreground group-hover:text-primary transition-colors" />
+                        </div>
+                        {pct != null && <Progress value={pct} className="h-1.5" />}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
+
+          {/* ── Ofertas para Missões ──────────────────────────────────────
+              Pedido dela (22/09/2026): "as ofertas para missões, filtrando
+              por calendário entre datas". Categoria oficial "Ofertas para
+              Missões" (Plano de Contas, migration 20260912190000) — id
+              resolvido uma vez em `categoriaMissoesId`, ver useEffect
+              acima. Filtro de período é livre, não preso ao mês — ela
+              pediu "entre datas", não "este mês". */}
+          <section id="missoes" className="scroll-mt-[220px]">
+            <TituloDaSecao icone={Globe2} tom="info" contagem={missoesLancamentos?.length ?? 0}>
+              Ofertas para Missões
+            </TituloDaSecao>
+            <div className="flex flex-wrap items-end gap-2 mb-2">
+              <div>
+                <label className="text-xs text-muted-foreground">De</label>
+                <CampoData value={missoesInicio} onChange={setMissoesInicio} className="h-8 text-sm w-32" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Até</label>
+                <CampoData value={missoesFim} onChange={setMissoesFim} className="h-8 text-sm w-32" />
+              </div>
+            </div>
+            {carregandoMissoes ? (
+              <p className="text-sm text-muted-foreground py-2 px-3 border rounded-md">Carregando…</p>
+            ) : categoriaMissoesId === null ? (
+              <p className="text-sm text-muted-foreground py-2 px-3 border rounded-md">
+                Categoria "Ofertas para Missões" não encontrada no plano de contas.
+              </p>
+            ) : (missoesLancamentos ?? []).length === 0 ? (
+              <p className="text-sm text-muted-foreground py-2 px-3 border rounded-md">
+                Nenhuma oferta para missões no período.
+              </p>
+            ) : (
+              <>
+                <p className="text-sm font-medium mb-1.5">
+                  Total no período: <span className="text-gold">{brl(totalMissoes)}</span>
+                </p>
+                <ul className="divide-y rounded-md border bg-card">
+                  {(missoesLancamentos ?? []).slice(0, 8).map(l => (
+                    <li key={l.id} className="flex items-center gap-2 px-3 py-2.5 min-h-11">
+                      <span className="text-sm min-w-0 flex-1">
+                        <span className="font-medium">{l.descricao ?? l.pessoa_nome ?? "Oferta para missões"}</span>
+                        <span className="text-muted-foreground">
+                          {" "}— {brl(l.valor)} · {new Date(l.data + "T00:00:00").toLocaleDateString("pt-BR")}
+                        </span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                {(missoesLancamentos ?? []).length > 8 && (
+                  <p className="text-xs text-muted-foreground px-0.5 mt-1.5">
+                    + {(missoesLancamentos ?? []).length - 8} outras no período.
+                  </p>
+                )}
+              </>
+            )}
+          </section>
+
           {/* ── Orçamento ──────────────────────────────────────────────── */}
           <section id="orcamento" className="scroll-mt-[220px]">
             <TituloDaSecao
@@ -587,17 +707,20 @@ export default function PainelTesouraria() {
             )}
           </section>
 
-          {/* ── Atalhos ────────────────────────────────────────────────────
-              Unificação de 12/09/2026: `/financas` deixou de ter uma grade
-              de atalhos (era hub + extrato ao mesmo tempo, duplicava este
-              menu inteiro, e foi essa duplicação que quebrou em silêncio
-              sem ninguém notar). Esta lista virou o único "menu grande" do
-              módulo — mas 17 botões soltos no mesmo peso visual era o
-              mesmo erro de novo, só que mudado de endereço: uma bancada de
-              trabalho prioriza o que se usa todo dia, não lista tudo junto.
-              Duas filas, não uma: o que o tesoureiro mexe toda semana
-              primeiro, relatório/config depois — a pessoa não precisa
-              escanear 17 botões pra achar "Contas a pagar". */}
+          {/* ── Atalhos, por assunto de gestão diária ────────────────────────
+              Refeito em 22/09/2026, pedido dela: "o que foi construído no
+              módulo financeiro é robusto e bom demais para ficar lá embaixo
+              do painel... refaça com janelas por assunto" — e "tem que
+              fazer sentido para o trabalho de gestão diária financeira",
+              não por taxonomia abstrata. Quatro janelas, cada uma
+              respondendo a UMA pergunta do dia a dia da tesouraria:
+                Dia a dia                o que se mexe toda semana
+                Cadastros                referência que muda pouco
+                Compliance & Fechamento  obrigação com prazo
+                Leitura estratégica      análise, não operação
+              Projetos e Bazar/Cantina SAÍRAM daqui: o primeiro virou seção
+              viva (ver `#projetos` acima); o segundo é do ministério de
+              Administração, não da tesouraria. */}
           {/* `id="ir-para"` — destino do link "Ver tudo" que N1 (plano "90
               Dias de Diakonia") acrescentou ao fim do grupo Financeiro do
               menu lateral: sem ele, "Ver tudo" e "Tesouraria" apontariam
@@ -605,85 +728,88 @@ export default function PainelTesouraria() {
               em AppLayout.tsx colidiria (duas entradas com a mesma key). */}
           <section id="ir-para" className="pt-1 space-y-2.5 scroll-mt-[220px]">
             <TituloDaSecao icone={DollarSign} tom="neutro">Ir para</TituloDaSecao>
-            <div>
-              <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1.5">Dia a dia</p>
-              <div className="flex flex-wrap gap-2">
-                <Button asChild variant="outline" size="sm" className="gap-1.5">
-                  <Link to="/financas"><DollarSign className="w-3.5 h-3.5" /> Contas correntes</Link>
-                </Button>
-                <Button asChild variant="outline" size="sm" className="gap-1.5">
-                  <Link to="/financas/agenda?tipo=saida"><TrendingDown className="w-3.5 h-3.5" /> Contas a pagar</Link>
-                </Button>
-                <Button asChild variant="outline" size="sm" className="gap-1.5">
-                  <Link to="/financas/agenda?tipo=entrada"><TrendingUp className="w-3.5 h-3.5" /> Contas a receber</Link>
-                </Button>
-                <Button asChild variant="outline" size="sm" className="gap-1.5">
-                  <Link to="/financas/doacoes"><HandCoins className="w-3.5 h-3.5" /> Doações</Link>
-                </Button>
-                <Button asChild variant="outline" size="sm" className="gap-1.5">
-                  <Link to="/financas/recorrencias"><RotateCw className="w-3.5 h-3.5" /> Recorrências</Link>
-                </Button>
-              </div>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1.5">Relatórios e módulos</p>
-              <div className="flex flex-wrap gap-2">
-                <Button asChild variant="outline" size="sm" className="gap-1.5">
-                  <Link to="/financas/relatorio"><Receipt className="w-3.5 h-3.5" /> Malote contábil</Link>
-                </Button>
-                <Button asChild variant="outline" size="sm" className="gap-1.5">
-                  <Link to="/financas/centros"><Layers className="w-3.5 h-3.5" /> Centros de custo</Link>
-                </Button>
-                <Button asChild variant="outline" size="sm" className="gap-1.5">
-                  <Link to="/financas/projetos"><FolderKanban className="w-3.5 h-3.5" /> Projetos</Link>
-                </Button>
-                <Button asChild variant="outline" size="sm" className="gap-1.5">
-                  <Link to="/financas/fornecedores"><Building2 className="w-3.5 h-3.5" /> Fornecedores</Link>
-                </Button>
-                <Button asChild variant="outline" size="sm" className="gap-1.5">
-                  <Link to="/financas/orcamento"><Target className="w-3.5 h-3.5" /> Orçamento</Link>
-                </Button>
-                <Button asChild variant="outline" size="sm" className="gap-1.5">
-                  <Link to="/financas/estoque"><Package className="w-3.5 h-3.5" /> Estoque</Link>
-                </Button>
-                <Button asChild variant="outline" size="sm" className="gap-1.5">
-                  <Link to="/financas/folha"><Briefcase className="w-3.5 h-3.5" /> Folha</Link>
-                </Button>
-                <Button asChild variant="outline" size="sm" className="gap-1.5">
-                  <Link to="/financas/fiscal"><Receipt className="w-3.5 h-3.5" /> Módulo Fiscal</Link>
-                </Button>
-                <Button asChild variant="outline" size="sm" className="gap-1.5">
-                  <Link to="/financas/reunioes"><Handshake className="w-3.5 h-3.5" /> Reuniões financeiras</Link>
-                </Button>
-                <Button asChild variant="outline" size="sm" className="gap-1.5">
-                  <Link to="/financas/prestacao-de-contas"><ScrollText className="w-3.5 h-3.5" /> Prestação de Contas</Link>
-                </Button>
-                {hasRole(ROLES_DOADORES) && (
-                  <Button asChild variant="outline" size="sm" className="gap-1.5">
-                    <Link to="/financas/doadores"><Users className="w-3.5 h-3.5" /> Doadores</Link>
-                  </Button>
-                )}
-                <Button asChild variant="outline" size="sm" className="gap-1.5">
-                  <Link to="/financas/insights"><Sparkles className="w-3.5 h-3.5" /> Insights</Link>
-                </Button>
-                {hasRole(ROLES_PASTORAL_SEM_TITULAR) && (
-                  <>
-                    <Button asChild variant="outline" size="sm" className="gap-1.5">
-                      <Link to="/financas/executivo"><LineChart className="w-3.5 h-3.5" /> Visão Executiva</Link>
-                    </Button>
-                    <Button asChild variant="outline" size="sm" className="gap-1.5">
-                      <Link to="/financas/dre"><ScrollText className="w-3.5 h-3.5" /> DRE Eclesiástica</Link>
-                    </Button>
-                  </>
-                )}
-                <Button asChild variant="outline" size="sm" className="gap-1.5">
-                  <Link to="/arrecadacao"><ShoppingCart className="w-3.5 h-3.5" /> Bazar e Cantina</Link>
-                </Button>
-              </div>
+            <div className="grid sm:grid-cols-2 gap-2.5">
+              <JanelaAssunto
+                icone={Wallet} titulo="Dia a dia"
+                descricao="O que se mexe toda semana."
+                links={[
+                  { to: "/financas", label: "Contas correntes", icone: DollarSign },
+                  { to: "/financas/agenda?tipo=saida", label: "Contas a pagar", icone: TrendingDown },
+                  { to: "/financas/agenda?tipo=entrada", label: "Contas a receber", icone: TrendingUp },
+                  { to: "/financas/doacoes", label: "Doações", icone: HandCoins },
+                  { to: "/financas/recorrencias", label: "Recorrências", icone: RotateCw },
+                ]}
+              />
+              <JanelaAssunto
+                icone={Archive} titulo="Cadastros"
+                descricao="Referência que muda pouco — configure uma vez."
+                links={[
+                  { to: "/financas/centros", label: "Centros de Custo", icone: Layers },
+                  { to: "/financas/fornecedores", label: "Fornecedores", icone: Building2 },
+                  { to: "/financas/estoque", label: "Estoque", icone: Package },
+                  { to: "/financas/orcamento", label: "Planejar Orçamento", icone: Target },
+                ]}
+              />
+              <JanelaAssunto
+                icone={BookOpenCheck} titulo="Compliance & Fechamento"
+                descricao="Obrigação com prazo — o motivo de existir é o mesmo."
+                links={[
+                  { to: "/financas/fiscal", label: "Módulo Fiscal", icone: Receipt },
+                  { to: "/financas/relatorio", label: "Malote Contábil", icone: Receipt },
+                  { to: "/financas/folha", label: "Folha", icone: Briefcase },
+                  { to: "/financas/reunioes", label: "Reuniões Financeiras", icone: Handshake },
+                  { to: "/financas/prestacao-de-contas", label: "Prestação de Contas", icone: ScrollText },
+                ]}
+              />
+              <JanelaAssunto
+                icone={LineChart} titulo="Leitura estratégica"
+                descricao="Análise, não operação do dia a dia."
+                links={[
+                  ...(hasRole(ROLES_DOADORES) ? [{ to: "/financas/doadores", label: "Doadores", icone: Users }] : []),
+                  { to: "/financas/insights", label: "Insights", icone: Sparkles },
+                  ...(hasRole(ROLES_PASTORAL_SEM_TITULAR) ? [
+                    { to: "/financas/executivo", label: "Visão Executiva", icone: LineChart },
+                    { to: "/financas/dre", label: "DRE Eclesiástica", icone: ScrollText },
+                  ] : []),
+                ]}
+              />
             </div>
           </section>
         </>
       )}
+    </div>
+  );
+}
+
+/**
+ * Uma janela por assunto — ícone, título, uma frase dizendo o porquê do
+ * agrupamento, e os links dentro. Substitui, em 22/09/2026, o bloco único
+ * de 14 botões-pílula soltos: mesma informação, mas o "Insights"/"DRE
+ * Eclesiástica" deixam de parecer um link qualquer perdido no meio de
+ * outros treze — cada janela é um cartão com peso visual próprio, no
+ * mesmo padrão dos cartões de ministério da Home.
+ */
+function JanelaAssunto({ icone: Icone, titulo, descricao, links }: {
+  icone: LucideIcon; titulo: string; descricao: string;
+  links: { to: string; label: string; icone: LucideIcon }[];
+}) {
+  if (links.length === 0) return null;
+  return (
+    <div className="rounded-md border bg-card p-3 space-y-2">
+      <div className="flex items-start gap-2">
+        <Icone className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+        <div className="min-w-0">
+          <p className="text-sm font-medium">{titulo}</p>
+          <p className="text-xs text-muted-foreground">{descricao}</p>
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {links.map(l => (
+          <Button key={l.to} asChild variant="outline" size="sm" className="gap-1.5">
+            <Link to={l.to}><l.icone className="w-3.5 h-3.5" /> {l.label}</Link>
+          </Button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -705,8 +831,6 @@ function rotuloVencimento(v: FinVencimento): string {
  */
 function resumoNatural(
   fiscal: ResumoFiscalDashboard,
-  caixas: CaixaAberto[],
-  caixasUrgentes: CaixaAberto[],
   aprovacoesPendentes: PendenciaLancamento[],
   semComprovante: PendenciaLancamento[],
   aguardandoConciliacao: PendenciaLancamento[],
@@ -722,10 +846,6 @@ function resumoNatural(
   if (fiscal.total_atrasados > 0) {
     partes.push(`${fiscal.total_atrasados} ${fiscal.total_atrasados === 1
       ? "obrigação fiscal atrasada" : "obrigações fiscais atrasadas"}`);
-  }
-  if (caixasUrgentes.length > 0) {
-    partes.push(`${caixasUrgentes.length} ${caixasUrgentes.length === 1
-      ? "caixa aberto há mais de um dia" : "caixas abertos há mais de um dia"}`);
   }
   // Aprovação parada é decisão que trava outra pessoa — mesmo peso do que
   // gera multa, porque também não se resolve sozinha.
@@ -750,9 +870,6 @@ function resumoNatural(
   if (fiscal.total_urgentes > 0) {
     fila.push(`${fiscal.total_urgentes} ${fiscal.total_urgentes === 1
       ? "obrigação vencendo em breve" : "obrigações vencendo em breve"}`);
-  }
-  if (caixas.length > 0) {
-    fila.push(`${caixas.length} ${caixas.length === 1 ? "caixa aberto" : "caixas abertos"}`);
   }
   if (semComprovante.length > 0) {
     fila.push(`${semComprovante.length} ${semComprovante.length === 1
@@ -779,6 +896,6 @@ function resumoNatural(
   if (alertasEmAtencao > 0) {
     fila.push(`${alertasEmAtencao} ${alertasEmAtencao === 1 ? "alerta" : "alertas"} em atenção`);
   }
-  if (fila.length === 0) return "Fiscal em dia, nenhum caixa aberto e nada pendente — tudo em ordem! 🙏";
+  if (fila.length === 0) return "Fiscal em dia e nada pendente — tudo em ordem! 🙏";
   return `Nada urgente. Na fila: ${fila.join(", ")}.`;
 }
