@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import {
   TrendingUp, TrendingDown, Camera, FileUp, X, Paperclip, Sparkles, Loader2,
@@ -104,6 +105,12 @@ export function LancamentoForm({
   // Reforma do Templo...). Ver docs/ROADMAP_FINANCEIRO_ERP.md Fase 6.
   const [projetoId, setProjetoId] = useState<string>("");
   const [projetos, setProjetos] = useState<FinProjeto[]>([]);
+  // Caixa de seleção em vez de Select sempre visível (22/09/2026, pedido
+  // da Telma) — a maioria dos lançamentos não tem projeto, e o Select com
+  // "Nenhum" pré-selecionado ocupava espaço à toa em toda tela. Marcando,
+  // revela o seletor; desmarcando, some E limpa `projetoId` (não faz
+  // sentido salvar um projeto escolhido com a caixa desmarcada).
+  const [usarProjeto, setUsarProjeto] = useState(false);
   const [fornecedorBusca, setFornecedorBusca] = useState("");
   const [fornecedorId, setFornecedorId] = useState<string>("");
   // Pedido da Telma (17/09/2026): "Fornecedor/recebedor deve ter validação
@@ -242,6 +249,7 @@ export function LancamentoForm({
       setCategoriaId(lancamento.categoria_id ?? "");
       setCentroCustoId(lancamento.centro_custo_id ?? "");
       setProjetoId(lancamento.projeto_id ?? "");
+      setUsarProjeto(!!lancamento.projeto_id);
       setFornecedorId(lancamento.fornecedor_id ?? "");
       setPessoaId(lancamento.pessoa_id ?? "");
       // Nome pronto de `FinLancamentoExtenso` (já resolvido pela tela que
@@ -288,7 +296,7 @@ export function LancamentoForm({
       setData(rascunho?.data ?? hojeLocal());
       atualizarValor(rascunho?.valor ?? 0);
       setContaId(contaIdPadrao ?? "");
-      setCategoriaId(""); setCentroCustoId(""); setProjetoId(""); setFornecedorId("");
+      setCategoriaId(""); setCentroCustoId(""); setProjetoId(""); setUsarProjeto(false); setFornecedorId("");
       setPessoaId(""); setFornecedorBusca(""); setPessoasSugeridas([]);
       setForma(rascunho?.forma ?? ""); setStatus("realizado");
       setDescricao(rascunho?.descricao ?? ""); setDocumentoNumero(""); setObservacoes("");
@@ -724,17 +732,26 @@ export function LancamentoForm({
               isso limparia o projeto sozinho — mesmo bug achado ao vivo em
               `CategoriaForm.tsx` (classificação revertendo sozinha). */}
           {projetos.length > 0 && (
-            <div>
-              <Label>Projeto (opcional)</Label>
-              <Select value={projetoId || "__nenhum__"} onValueChange={(v) => { if (v) setProjetoId(v === "__nenhum__" ? "" : v); }}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__nenhum__" className="text-muted-foreground">Nenhum</SelectItem>
-                  {projetos.map(p => (
-                    <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="space-y-1.5">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Checkbox checked={usarProjeto} onCheckedChange={(v) => {
+                  const marcado = v === true;
+                  setUsarProjeto(marcado);
+                  if (!marcado) setProjetoId("");
+                }} />
+                Projeto (opcional)
+              </label>
+              {usarProjeto && (
+                <Select value={projetoId || "__nenhum__"} onValueChange={(v) => { if (v) setProjetoId(v === "__nenhum__" ? "" : v); }}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__nenhum__" className="text-muted-foreground">Nenhum</SelectItem>
+                    {projetos.map(p => (
+                      <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
           )}
 
