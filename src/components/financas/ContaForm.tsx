@@ -56,10 +56,14 @@ export function ContaForm({ open, onOpenChange, conta, onSaved }: Props) {
   // Item 6 — ordem de exibição em dropdowns/listas/relatórios (a coluna
   // `ordem` já existia no banco desde antes; só faltava a tela pra editar).
   const [ordem, setOrdem] = useState(0);
-  // Item 5 — o que esta conta aceita lançar.
+  // Item 5 — o que esta conta aceita lançar. Transferência em duas flags
+  // (22/09/2026, pedido dela vendo a tela em produção): entrada (pode ser
+  // destino) e saída (pode ser origem) são independentes — ex.: uma conta
+  // de Aplicação só recebe transferência, nunca é origem de uma.
   const [aceitaReceitas, setAceitaReceitas] = useState(true);
   const [aceitaDespesas, setAceitaDespesas] = useState(true);
-  const [aceitaTransferencias, setAceitaTransferencias] = useState(true);
+  const [aceitaTransferenciaEntrada, setAceitaTransferenciaEntrada] = useState(true);
+  const [aceitaTransferenciaSaida, setAceitaTransferenciaSaida] = useState(true);
 
   // Cartão
   const [diaVencimento, setDiaVencimento] = useState<number | "">("");
@@ -86,21 +90,23 @@ export function ContaForm({ open, onOpenChange, conta, onSaved }: Props) {
       setOrdem(conta.ordem ?? 0);
       setAceitaReceitas(conta.aceita_receitas ?? true);
       setAceitaDespesas(conta.aceita_despesas ?? true);
-      setAceitaTransferencias(conta.aceita_transferencias ?? true);
+      setAceitaTransferenciaEntrada(conta.aceita_transferencia_entrada ?? true);
+      setAceitaTransferenciaSaida(conta.aceita_transferencia_saida ?? true);
     } else {
       setNome(""); setTipo("banco");
       setBancoNome(""); setBancoCodigo(""); setAgencia(""); setContaNumero("");
       setSaldoInicialTexto("0"); setCor("#cfa451"); setObservacao("");
       setDiaVencimento(""); setDiaFechamento(""); setLimiteCredito("");
       setOrdem(0);
-      setAceitaReceitas(true); setAceitaDespesas(true); setAceitaTransferencias(true);
+      setAceitaReceitas(true); setAceitaDespesas(true);
+      setAceitaTransferenciaEntrada(true); setAceitaTransferenciaSaida(true);
     }
   }, [open, conta]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!nome.trim()) { toast.error("Informe o nome"); return; }
-    if (!aceitaReceitas && !aceitaDespesas && !aceitaTransferencias) {
+    if (!aceitaReceitas && !aceitaDespesas && !aceitaTransferenciaEntrada && !aceitaTransferenciaSaida) {
       toast.error("Marque ao menos uma operação que esta conta aceita");
       return;
     }
@@ -122,7 +128,8 @@ export function ContaForm({ open, onOpenChange, conta, onSaved }: Props) {
         ordem,
         aceita_receitas: aceitaReceitas,
         aceita_despesas: aceitaDespesas,
-        aceita_transferencias: aceitaTransferencias,
+        aceita_transferencia_entrada: aceitaTransferenciaEntrada,
+        aceita_transferencia_saida: aceitaTransferenciaSaida,
       };
       if (isEdit && conta) {
         await atualizarConta(conta.id, payload);
@@ -207,12 +214,16 @@ export function ContaForm({ open, onOpenChange, conta, onSaved }: Props) {
                 Despesas
               </label>
               <label className="flex items-center gap-2 text-sm">
-                <Checkbox checked={aceitaTransferencias} onCheckedChange={(v) => setAceitaTransferencias(!!v)} />
-                Transferências entre contas
+                <Checkbox checked={aceitaTransferenciaEntrada} onCheckedChange={(v) => setAceitaTransferenciaEntrada(!!v)} />
+                Transferências — entrada (pode ser destino)
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox checked={aceitaTransferenciaSaida} onCheckedChange={(v) => setAceitaTransferenciaSaida(!!v)} />
+                Transferências — saída (pode ser origem)
               </label>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Ex.: Conta Envelope = Receitas + Despesas + Transferências · Conta Banco = Receitas + Despesas + Transferências · Conta Investimento = só Transferências.
+              Ex.: Conta Envelope = Receitas + Despesas + Transferências (entrada e saída) · Conta Banco = idem · Conta Investimento = só Transferências entrada (só recebe, nunca é origem).
             </p>
           </div>
 

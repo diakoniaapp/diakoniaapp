@@ -68,7 +68,12 @@ export interface FinConta {
   // lançar — antes toda conta aceitava tudo, sem exceção nenhuma.
   aceita_receitas: boolean;
   aceita_despesas: boolean;
-  aceita_transferencias: boolean;
+  // Transferência virou duas flags (pedido da Telma, 22/09/2026, ao ver a
+  // tela em produção): uma conta pode fazer sentido só como DESTINO de
+  // transferência (ex.: Aplicação — só entra dinheiro por transferência,
+  // nunca sai por transferência) sem nunca poder ser ORIGEM.
+  aceita_transferencia_entrada: boolean;
+  aceita_transferencia_saida: boolean;
 }
 
 // Fase 1 do projeto Tesouraria (12/09/2026): classificacao_dre é o
