@@ -7,7 +7,8 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { User, LogOut, ShieldCheck, Moon, Sun, Globe, Smartphone, Mail } from "lucide-react";
+import { User, LogOut, ShieldCheck, Moon, Sun, Globe, Smartphone, Mail, ChevronDown } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useTheme } from "@/hooks/useTheme";
 import {
   getDestinoWhatsApp, setDestinoWhatsApp, DESTINO_WHATSAPP_LABEL,
@@ -28,6 +29,13 @@ export function UserMenuButton() {
   // `lib/whatsapp.ts`. 10/09/2026, pedido dela: "mostre as duas opções... e
   // o usuário escolhe".
   const [zapDestino, setZapDestino] = useState<DestinoWhatsApp>(getDestinoWhatsApp);
+  // Mesmo pedido e mesma medição do menu do desktop (AppLayout.tsx,
+  // 22/09/2026): admin+diakonia atravessa os sete itens de administração
+  // MAIS os quatro grupos da barra — aqui no celular, onde a tela é mais
+  // estreita, o peso desses sete itens incondicionais pesa ainda mais.
+  // Fechado por padrão a cada abertura, sem persistir — dropdown é
+  // transitório, diferente da barra lateral fixa.
+  const [adminAberto, setAdminAberto] = useState(false);
   const alternarZap = () => {
     const proximo: DestinoWhatsApp = zapDestino === "web" ? "app" : "web";
     setDestinoWhatsApp(proximo);
@@ -131,50 +139,54 @@ export function UserMenuButton() {
           <span>Meu Painel</span>
         </DropdownMenuItem>
 
-        {hasRole(["admin", "secretaria"]) && (
+        {/* A lista mora em adminMenuItems.ts e e a mesma do menu do
+            desktop (rodape da barra lateral). Atrás de um só disclosure
+            fechado por padrão desde 22/09/2026 — mesmo pedido e mesma
+            medição do AppLayout.tsx: admin+diakonia é a única combinação
+            que vê os quatro grupos da barra inteiros MAIS estes sete
+            itens de administração. */}
+        {(hasRole(["admin", "secretaria"]) || hasRole(["admin", "diakonia"])) && (
           <>
             <DropdownMenuSeparator />
-            {/* A lista mora em adminMenuItems.ts e e a mesma do menu do
-                desktop (rodape da barra lateral). Eram duas copias, e so esta
-                tinha os itens — no desktop nao havia entrada nenhuma.
-
-                Em três grupos desde 09/09/2026, não mais um "Administração"
-                só com sete itens soltos embaixo — ver o comentário no topo
-                de adminMenuItems.ts pelo porquê de cada grupo. */}
-            {ADMIN_MENU_GROUPS.map(({ label: grupo, items }) => (
-              <div key={grupo}>
-                <DropdownMenuLabel className="text-xs uppercase tracking-widest text-muted-foreground/60 py-1">
-                  {grupo}
-                </DropdownMenuLabel>
-                {items.map(({ path, label, icon: Icon }) => (
-                  <DropdownMenuItem key={path} className="gap-2 cursor-pointer py-2.5"
-                    onClick={() => navigate(path)}>
-                    <Icon className="w-4 h-4 text-muted-foreground" />
-                    <span>{label}</span>
-                  </DropdownMenuItem>
+            <Collapsible open={adminAberto} onOpenChange={setAdminAberto}>
+              <CollapsibleTrigger className="flex w-full items-center justify-between rounded-sm px-2 py-2.5 text-sm cursor-pointer hover:bg-accent hover:text-accent-foreground outline-none">
+                <span className="text-muted-foreground">Administração do sistema</span>
+                <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${adminAberto ? "rotate-180" : ""}`} />
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                {hasRole(["admin", "secretaria"]) && ADMIN_MENU_GROUPS.map(({ label: grupo, items }) => (
+                  <div key={grupo}>
+                    <DropdownMenuLabel className="text-xs uppercase tracking-widest text-muted-foreground/60 py-1">
+                      {grupo}
+                    </DropdownMenuLabel>
+                    {items.map(({ path, label, icon: Icon }) => (
+                      <DropdownMenuItem key={path} className="gap-2 cursor-pointer py-2.5"
+                        onClick={() => navigate(path)}>
+                        <Icon className="w-4 h-4 text-muted-foreground" />
+                        <span>{label}</span>
+                      </DropdownMenuItem>
+                    ))}
+                  </div>
                 ))}
-              </div>
-            ))}
-          </>
-        )}
-
-        {/* Configuração de sistema — admin + diakonia (dono do sistema),
-            de propósito FORA de `ADMIN_MENU_GROUPS`: aquele bloco é
-            admin+secretaria (não inclui diakonia), e esta tela é mais
-            restrita, não mais aberta — secretaria não entra aqui. Pedido
-            dela (22/09/2026), ao perguntar onde o resumo semanal por
-            e-mail era configurado. */}
-        {hasRole(["admin", "diakonia"]) && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-xs uppercase tracking-widest text-muted-foreground/60 py-1">
-              Sistema
-            </DropdownMenuLabel>
-            <DropdownMenuItem className="gap-2 cursor-pointer py-2.5"
-              onClick={() => navigate("/admin/resumo-semanal")}>
-              <Mail className="w-4 h-4 text-muted-foreground" />
-              <span>Resumo Semanal por E-mail</span>
-            </DropdownMenuItem>
+                {/* Configuração de sistema — admin + diakonia (dono do
+                    sistema), mais estreito que os grupos acima (que são
+                    admin+secretaria, não incluem diakonia). Pedido dela
+                    (22/09/2026), ao perguntar onde o resumo semanal por
+                    e-mail era configurado. */}
+                {hasRole(["admin", "diakonia"]) && (
+                  <div>
+                    <DropdownMenuLabel className="text-xs uppercase tracking-widest text-muted-foreground/60 py-1">
+                      Sistema
+                    </DropdownMenuLabel>
+                    <DropdownMenuItem className="gap-2 cursor-pointer py-2.5"
+                      onClick={() => navigate("/admin/resumo-semanal")}>
+                      <Mail className="w-4 h-4 text-muted-foreground" />
+                      <span>Resumo Semanal por E-mail</span>
+                    </DropdownMenuItem>
+                  </div>
+                )}
+              </CollapsibleContent>
+            </Collapsible>
           </>
         )}
 

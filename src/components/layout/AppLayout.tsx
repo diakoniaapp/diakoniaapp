@@ -24,6 +24,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 // A estrutura do menu (grupos, rotulos, roles e titulos de pagina) mora em
 // navConfig.ts — compartilhada com o menu mobile, que antes nao existia.
@@ -85,6 +86,18 @@ export default function AppLayout() {
   const [rotasAtalho] = useState<string[]>(() =>
     atalhos(new Set(NAV_GROUPS.flatMap(g => g.items.map(i => "/" + i.to.split("/")[1])))),
   );
+
+  // Pedido dela (22/09/2026), depois de medir: quem é admin+diakonia entra
+  // em TODA lista de `allowedRoles` do menu — é a única combinação que
+  // atravessa os quatro grupos da barra inteiros mais os sete itens do
+  // menu de administração. A barra já aprende sozinha (`grupoMereceAbrir`
+  // acima); o menu de administração não tinha peça nenhuma nesse sentido,
+  // porque só existe desde 09/09/2026 e sempre apareceu por inteiro. Fecha
+  // por padrão a cada vez que o menu abre — sem persistir: diferente da
+  // barra lateral, que fica o tempo todo na tela, este dropdown já é
+  // transitório por natureza (fecha ao clicar fora), não pede memória de
+  // longo prazo.
+  const [adminAberto, setAdminAberto] = useState(false);
 
   useEffect(() => {
     try {
@@ -413,38 +426,50 @@ export default function AppLayout() {
                   itens, e no desktop nao havia entrada nenhuma.
 
                   Em três grupos desde 09/09/2026 — ver o comentário no topo
-                  de adminMenuItems.ts. */}
-              {hasRole(["admin", "secretaria"]) && (
+                  de adminMenuItems.ts. Atrás de um só disclosure fechado por
+                  padrão desde 22/09/2026 — pedido dela, medindo que
+                  admin+diakonia é a única combinação que vê os quatro grupos
+                  da barra inteiros MAIS estes sete itens; o menu de perfil
+                  ficava quase todo tomado por algo que ela abre de vez em
+                  quando, não a cada clique no avatar. */}
+              {(hasRole(["admin", "secretaria"]) || hasRole(["admin", "diakonia"])) && (
                 <>
                   <DropdownMenuSeparator />
-                  {ADMIN_MENU_GROUPS.map(({ label: grupo, items }) => (
-                    <div key={grupo}>
-                      <DropdownMenuLabel className="text-xs uppercase tracking-widest text-muted-foreground/60 py-1">
-                        {grupo}
-                      </DropdownMenuLabel>
-                      {items.map(({ path, label, icon: Icon }) => (
-                        <DropdownMenuItem key={path} className="cursor-pointer" onClick={() => navigate(path)}>
-                          <Icon className="w-4 h-4 mr-2 text-muted-foreground" />
-                          {label}
-                        </DropdownMenuItem>
+                  <Collapsible open={adminAberto} onOpenChange={setAdminAberto}>
+                    <CollapsibleTrigger className="flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-sm cursor-pointer hover:bg-accent hover:text-accent-foreground outline-none">
+                      <span className="text-muted-foreground">Administração do sistema</span>
+                      <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${adminAberto ? "rotate-180" : ""}`} />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      {hasRole(["admin", "secretaria"]) && ADMIN_MENU_GROUPS.map(({ label: grupo, items }) => (
+                        <div key={grupo}>
+                          <DropdownMenuLabel className="text-xs uppercase tracking-widest text-muted-foreground/60 py-1">
+                            {grupo}
+                          </DropdownMenuLabel>
+                          {items.map(({ path, label, icon: Icon }) => (
+                            <DropdownMenuItem key={path} className="cursor-pointer" onClick={() => navigate(path)}>
+                              <Icon className="w-4 h-4 mr-2 text-muted-foreground" />
+                              {label}
+                            </DropdownMenuItem>
+                          ))}
+                        </div>
                       ))}
-                    </div>
-                  ))}
-                </>
-              )}
-              {/* Fora de `ADMIN_MENU_GROUPS` de propósito — mesma nota do
-                  UserMenuButton.tsx: admin+diakonia, não admin+secretaria.
-                  Pedido dela (22/09/2026). */}
-              {hasRole(["admin", "diakonia"]) && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuLabel className="text-xs uppercase tracking-widest text-muted-foreground/60 py-1">
-                    Sistema
-                  </DropdownMenuLabel>
-                  <DropdownMenuItem className="cursor-pointer" onClick={() => navigate("/admin/resumo-semanal")}>
-                    <Mail className="w-4 h-4 mr-2 text-muted-foreground" />
-                    Resumo Semanal por E-mail
-                  </DropdownMenuItem>
+                      {/* Admin+diakonia, não admin+secretaria — mais estreito
+                          que os três grupos acima, ver a nota de
+                          `ROLES_DONO_SISTEMA` em navConfig.ts. */}
+                      {hasRole(["admin", "diakonia"]) && (
+                        <div>
+                          <DropdownMenuLabel className="text-xs uppercase tracking-widest text-muted-foreground/60 py-1">
+                            Sistema
+                          </DropdownMenuLabel>
+                          <DropdownMenuItem className="cursor-pointer" onClick={() => navigate("/admin/resumo-semanal")}>
+                            <Mail className="w-4 h-4 mr-2 text-muted-foreground" />
+                            Resumo Semanal por E-mail
+                          </DropdownMenuItem>
+                        </div>
+                      )}
+                    </CollapsibleContent>
+                  </Collapsible>
                 </>
               )}
               <DropdownMenuSeparator />
