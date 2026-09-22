@@ -12,11 +12,13 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CampoData } from "@/components/CampoData";
+import { paraNumero } from "@/lib/dinheiro";
 import {
-  ArrowLeft, DollarSign, Loader2, Plus, Search, Filter,
+  ArrowLeft, DollarSign, Loader2, Plus, Search, ChevronDown,
   TrendingUp, TrendingDown, Pencil, Trash2, Paperclip,
-  CheckCircle2, Clock, XCircle, Scale, FileUp, Printer, RefreshCw,
+  Scale, FileUp, Printer, RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -50,13 +52,31 @@ const STATUS_COR: Record<FinStatus, string> = {
   aguardando_aprovacao: "text-info-text",
 };
 
-const STATUS_ICONE: Record<FinStatus, JSX.Element> = {
-  realizado:  <CheckCircle2 className="w-3 h-3" />,
-  conciliado: <CheckCircle2 className="w-3 h-3 text-success-text" />,
-  previsto:   <Clock className="w-3 h-3 text-warning-text" />,
-  cancelado:  <XCircle className="w-3 h-3 text-muted-foreground" />,
-  aguardando_aprovacao: <Clock className="w-3 h-3 text-info-text" />,
-};
+// Cabeçalho de coluna com filtro embutido, estilo Excel — pedido da Telma
+// (22/09/2026): "o filtro é para todas as colunas, exceto saldo". Data,
+// Descrição/Fornecedor e Valor usam este popover (cada um com o controle
+// que faz sentido pro tipo do dado); Categoria e Centro de custo usam o
+// próprio `<Select>` como gatilho, que já desenha a mesma setinha sozinho
+// — não duplicado aqui. Mesmo sinal em todos: ponto dourado ao lado do
+// nome quando aquele filtro está ativo, igual o funil "cheio" do Excel.
+function CabecalhoFiltro({ label, ativo, align = "start", children }: {
+  label: string; ativo: boolean; align?: "start" | "end"; children: React.ReactNode;
+}) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button type="button" className="inline-flex items-center gap-1 hover:text-foreground">
+          {label}
+          {ativo && <span className="w-1.5 h-1.5 rounded-full bg-gold shrink-0" />}
+          <ChevronDown className="h-3 w-3 opacity-50 shrink-0" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align={align} className="w-64 p-3 space-y-2 normal-case font-normal text-sm">
+        {children}
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 export default function FinancasConta() {
   const { contaId = "" } = useParams();
@@ -85,16 +105,23 @@ export default function FinancasConta() {
     () => (searchParams.get("tipo") as any) || "todos",
   );
   const [busca, setBusca] = useState(() => searchParams.get("busca") ?? "");
-  // Filtros de coluna (pedido da Telma, 22/09/2026: "crie filtros, em cada
-  // coluna, para facilitar as pesquisas") — Categoria e Centro de custo
-  // são as duas colunas sem filtro equivalente já na faixa de cima (Data
-  // e Descrição já têm o próprio campo lá; Valor/Saldo não têm um recorte
-  // categórico natural). Persistem na URL, mesmo padrão dos outros
-  // filtros desta tela.
+  // Filtros de coluna — Categoria e Centro de custo filtram no servidor
+  // (`listarLancamentosSemTeto`). Persistem na URL, mesmo padrão dos
+  // outros filtros desta tela.
   const [filtroCategoriaId, setFiltroCategoriaId] = useState(() => searchParams.get("categoria") ?? "");
   const [filtroCentroCustoId, setFiltroCentroCustoId] = useState(() => searchParams.get("centro") ?? "");
   const [categorias, setCategorias] = useState<FinCategoria[]>([]);
   const [centros, setCentros] = useState<FinCentroCusto[]>([]);
+  // Valor (min/max) — pedido da Telma (22/09/2026: "o filtro é para todas
+  // as colunas, exceto saldo"). Sem RPC nem coluna nova: filtra em
+  // memória sobre o que `listarLancamentosSemTeto` já trouxe pro período
+  // (mesmo raciocínio de `busca`/`tipo` antes de virarem filtro de
+  // servidor — o volume por conta/mês é pequeno o bastante pra isso não
+  // pesar). Texto livre, não número — mesmo motivo de `saldoInicialTexto`
+  // em ContaForm.tsx: `<input type="number">` recusa vírgula, e "928,00"
+  // é como qualquer brasileiro digita.
+  const [filtroValorMinTexto, setFiltroValorMinTexto] = useState(() => searchParams.get("valorMin") ?? "");
+  const [filtroValorMaxTexto, setFiltroValorMaxTexto] = useState(() => searchParams.get("valorMax") ?? "");
   // U3/F5 do roadmap "90 Dias" (22/09/2026, início pelo Financeiro): sem
   // paginação, uma conta com meses de histórico (algumas passam de 190
   // lançamentos no mês) renderizava a lista inteira de uma vez. Mesmo
@@ -203,8 +230,13 @@ export default function FinancasConta() {
 
   useEffect(() => { carregar(); }, [contaId, filtroTipo, inicioEfetivo, fimEfetivo, busca, filtroCategoriaId, filtroCentroCustoId]);
   // Voltar à página 1 quando o filtro muda — continuar na página 4 de um
-  // período que agora só tem 1 página deixaria a tabela vazia.
-  useEffect(() => { setPagina(1); }, [contaId, filtroTipo, inicioEfetivo, fimEfetivo, busca, filtroCategoriaId, filtroCentroCustoId]);
+  // período que agora só tem 1 página deixaria a tabela vazia. Valor
+  // entra aqui também mesmo sendo filtro em memória (não refaz a busca no
+  // servidor, mas muda quantas linhas sobram pra paginar).
+  useEffect(() => { setPagina(1); }, [
+    contaId, filtroTipo, inicioEfetivo, fimEfetivo, busca,
+    filtroCategoriaId, filtroCentroCustoId, filtroValorMinTexto, filtroValorMaxTexto,
+  ]);
 
   // Espelha os filtros na URL (`replace`, não empilha histórico a cada
   // tecla digitada) — é isso que sobrevive a F5 e a sair/voltar pra tela.
@@ -214,11 +246,13 @@ export default function FinancasConta() {
     if (busca) params.set("busca", busca);
     if (filtroCategoriaId) params.set("categoria", filtroCategoriaId);
     if (filtroCentroCustoId) params.set("centro", filtroCentroCustoId);
+    if (filtroValorMinTexto.trim()) params.set("valorMin", filtroValorMinTexto);
+    if (filtroValorMaxTexto.trim()) params.set("valorMax", filtroValorMaxTexto);
     params.set("de", dataInicio);
     params.set("ate", dataFim);
     setSearchParams(params, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtroTipo, busca, dataInicio, dataFim, filtroCategoriaId, filtroCentroCustoId]);
+  }, [filtroTipo, busca, dataInicio, dataFim, filtroCategoriaId, filtroCentroCustoId, filtroValorMinTexto, filtroValorMaxTexto]);
 
   // Lista de contas pro seletor rápido (item 3) — carregada uma vez só,
   // não depende de `contaId`, e já vem ordenada por `ordem`/`nome`
@@ -370,9 +404,29 @@ export default function FinancasConta() {
     </div>;
   }
 
+  // Referência pra saber se o filtro de Data está "ativo" (mudou do mês
+  // atual, o default) — usado só pro ponto dourado no cabeçalho, mesmo
+  // cálculo que gerou o valor inicial de `dataInicio`/`dataFim`.
+  const dataInicioDefault = toYmd(new Date(hoje.getFullYear(), hoje.getMonth(), 1));
+  const dataFimDefault = toYmd(new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0));
+
+  // Filtro de Valor (min/max) — em memória, sobre o que o servidor já
+  // trouxe pro período (ver comentário do estado, acima). Tudo que
+  // depende do que aparece na tela parte DAQUI, não de `lancamentos` cru,
+  // senão o filtro de valor não bateria com os cartões de resumo, com a
+  // paginação nem com "N lançamentos no período".
+  const valorMin = filtroValorMinTexto.trim() ? paraNumero(filtroValorMinTexto) : null;
+  const valorMax = filtroValorMaxTexto.trim() ? paraNumero(filtroValorMaxTexto) : null;
+  const lancamentosFiltrados = lancamentos.filter(l => {
+    const v = Number(l.valor);
+    if (valorMin != null && v < valorMin) return false;
+    if (valorMax != null && v > valorMax) return false;
+    return true;
+  });
+
   // Compute saldo anterior (do período)
-  const totalEntradasPeriodo = lancamentos.filter(l => l.tipo === "entrada" && (l.status === "realizado" || l.status === "conciliado")).reduce((s, l) => s + Number(l.valor), 0);
-  const totalSaidasPeriodo  = lancamentos.filter(l => l.tipo === "saida"   && (l.status === "realizado" || l.status === "conciliado")).reduce((s, l) => s + Number(l.valor), 0);
+  const totalEntradasPeriodo = lancamentosFiltrados.filter(l => l.tipo === "entrada" && (l.status === "realizado" || l.status === "conciliado")).reduce((s, l) => s + Number(l.valor), 0);
+  const totalSaidasPeriodo  = lancamentosFiltrados.filter(l => l.tipo === "saida"   && (l.status === "realizado" || l.status === "conciliado")).reduce((s, l) => s + Number(l.valor), 0);
 
   // `listarLancamentos` busca do mais recente pro mais antigo (padrão do
   // serviço, usado por várias telas) — aqui na tela do extrato, a Telma
@@ -389,7 +443,7 @@ export default function FinancasConta() {
   // existiu de verdade. Cobre transferência também: a perna que RECEBE é
   // sempre `tipo: "entrada"`, então ordenar por tipo já basta, sem
   // precisar checar `origem` à parte.
-  const lancamentosOrdenados = [...lancamentos].sort((a, b) => {
+  const lancamentosOrdenados = [...lancamentosFiltrados].sort((a, b) => {
     if (a.data !== b.data) return a.data.localeCompare(b.data);
     if (a.tipo !== b.tipo) return a.tipo === "entrada" ? -1 : 1;
     return (a.created_at ?? "").localeCompare(b.created_at ?? "");
@@ -437,17 +491,17 @@ export default function FinancasConta() {
             aria-label={`Selecionar ${l.descricao ?? "lançamento"}`} />
         </td>
         <td className="py-1.5 px-2 whitespace-nowrap">
-          {/* Ícone de situação colado na data — pedido da Telma
-              (22/09/2026): "mantenha a conciliação apenas pela caixa de
-              seleção". Antes o próprio selo era clicável e alternava
-              conciliado/realizado na hora — achado ao vivo que isso
-              confundia com um clique acidental (a mesma célula que
-              seleciona a linha ficava perto de um clique que já MUDAVA o
-              status). Vira texto simples; conciliar continua só pela
-              caixa + botão "Conciliar N" em lote, e desconciliar continua
-              possível editando o lançamento (campo Situação). */}
-          <span className={`inline-flex items-center gap-1 ${STATUS_COR[l.status]}`} title={STATUS_LABEL[l.status]}>
-            {STATUS_ICONE[l.status]} {dataBr(l.data)}
+          {/* Situação colada na data, sem ícone (22/09/2026) — dois pedidos
+              seguidos da Telma: primeiro "mantenha a conciliação apenas
+              pela caixa de seleção" (o selo era clicável e alternava
+              conciliado/realizado na hora — achado como fonte de clique
+              acidental), depois "tire o ícone de check da data" (o ícone
+              STATUS_ICONE continuava ali, só sem função). Cor do texto
+              ainda muda por status (STATUS_COR) — é o único sinal visual
+              que sobrou; o `title` carrega o nome por extenso pra quem
+              passar o mouse. */}
+          <span className={STATUS_COR[l.status]} title={STATUS_LABEL[l.status]}>
+            {dataBr(l.data)}
           </span>
         </td>
         <td className="py-1.5 px-2 min-w-[200px] print:min-w-0">
@@ -807,6 +861,13 @@ export default function FinancasConta() {
             <p className="py-8 text-center text-sm text-muted-foreground italic">
               Nenhum lançamento no período. <button onClick={() => setNovoOpen(true)} className="text-primary underline">Criar o primeiro</button>
             </p>
+          ) : lancamentosFiltrados.length === 0 ? (
+            // Existe lançamento no período, mas o filtro de Valor escondeu
+            // todos — diferente de "período vazio", não faz sentido
+            // oferecer "criar o primeiro" aqui.
+            <p className="py-8 text-center text-sm text-muted-foreground italic">
+              Nenhum lançamento com o filtro de valor atual.
+            </p>
           ) : (
             <table className="w-full text-xs">
               {/* `sticky top-0` no `<thead>` (não em cada `th`) — cola a
@@ -848,8 +909,24 @@ export default function FinancasConta() {
                       Centro de custo VOLTOU como coluna própria em
                       22/09/2026 (tinha saído em 16/09) — pedido dela junto
                       do pedido de filtro por coluna. */}
-                  <th className="text-left py-2 px-2 w-24">Data</th>
-                  <th className="text-left py-2 px-2">Descrição / Fornecedor</th>
+                  <th className="text-left py-2 px-2 w-24">
+                    <CabecalhoFiltro label="Data" ativo={dataInicio !== dataInicioDefault || dataFim !== dataFimDefault}>
+                      <div>
+                        <label className="text-xs text-muted-foreground">Data inicial</label>
+                        <CampoData value={dataInicio} onChange={setDataInicio} />
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground">Data final</label>
+                        <CampoData value={dataFim} onChange={setDataFim} />
+                      </div>
+                    </CabecalhoFiltro>
+                  </th>
+                  <th className="text-left py-2 px-2">
+                    <CabecalhoFiltro label="Descrição / Fornecedor" ativo={busca.length >= 2}>
+                      <label className="text-xs text-muted-foreground">Buscar na descrição</label>
+                      <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Digite ao menos 2 letras..." className="h-8 text-xs" />
+                    </CabecalhoFiltro>
+                  </th>
                   {/* w-36 (144px) cortava nomes de categoria comuns
                       ("Rendimentos de Aplicações") no PDF — achado ao vivo
                       pela Telma na pré-visualização de impressão
@@ -899,7 +976,27 @@ export default function FinancasConta() {
                       </SelectContent>
                     </Select>
                   </th>
-                  <th className="text-right py-2 px-2 w-28">Valor</th>
+                  <th className="text-right py-2 px-2 w-28">
+                    <CabecalhoFiltro label="Valor" align="end" ativo={!!filtroValorMinTexto.trim() || !!filtroValorMaxTexto.trim()}>
+                      <div>
+                        <label className="text-xs text-muted-foreground">Valor mínimo (R$)</label>
+                        <Input type="text" inputMode="decimal" value={filtroValorMinTexto}
+                          onChange={(e) => setFiltroValorMinTexto(e.target.value)} placeholder="Sem mínimo" className="h-8 text-xs" />
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground">Valor máximo (R$)</label>
+                        <Input type="text" inputMode="decimal" value={filtroValorMaxTexto}
+                          onChange={(e) => setFiltroValorMaxTexto(e.target.value)} placeholder="Sem máximo" className="h-8 text-xs" />
+                      </div>
+                    </CabecalhoFiltro>
+                  </th>
+                  {/* Saldo fica de fora de propósito — pedido da Telma
+                      (22/09/2026): "o filtro é para todas as colunas,
+                      exceto saldo". É um acumulado calculado linha a
+                      linha (`saldoPorLancamento`), não um dado próprio do
+                      lançamento — filtrar por ele não teria um sentido
+                      direto (e mudaria a cada filtro de qualquer outra
+                      coluna, sem nunca ficar "parado" pra filtrar). */}
                   <th className="text-right py-2 px-2 w-28">Saldo</th>
                   {/* Ações fixa na borda direita da área rolável — antes ficava
                       fora da tela em qualquer conta com muitas colunas visíveis,
@@ -970,7 +1067,7 @@ export default function FinancasConta() {
           o texto simples de antes já bastava. */}
       <div className="flex items-center justify-between gap-2 print:hidden">
         <p className="text-xs text-muted-foreground">
-          {lancamentos.length} lançamento{lancamentos.length === 1 ? "" : "s"} no período
+          {lancamentosFiltrados.length} lançamento{lancamentosFiltrados.length === 1 ? "" : "s"} no período
         </p>
         {totalPaginas > 1 && (
           <nav className="flex items-center gap-2" aria-label="Paginação do extrato">
