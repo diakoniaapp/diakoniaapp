@@ -189,6 +189,11 @@ export function ImportacaoOmieDialog({ open, onOpenChange, contaId, contaNome, o
       const partes = [`${r.criados} lançamento${r.criados !== 1 ? "s" : ""} importado${r.criados !== 1 ? "s" : ""}`];
       if (r.fornecedoresCriados > 0) partes.push(`${r.fornecedoresCriados} fornecedor(es) novo(s)`);
       if (r.pessoasCriadas > 0) partes.push(`${r.pessoasCriadas} pessoa(s) nova(s)`);
+      // Pareamento automático de transferência (22/09/2026) — ver
+      // `parearTransferenciasImportadas` em omieImportService.ts.
+      if (r.transferenciasPareadas > 0) {
+        partes.push(`${r.transferenciasPareadas / 2} transferência(s) ligada(s) à outra conta`);
+      }
 
       // Fecha a tela sozinha — o "Desfazer" viaja pro toast (ação
       // embutida do sonner), pra não precisar manter a tela aberta só por

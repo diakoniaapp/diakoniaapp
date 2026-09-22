@@ -397,6 +397,59 @@ export interface ResultadoImportacaoOmie {
   fornecedoresCriados: number;
   pessoasCriadas: number;
   loteTag: string;
+  /** Pernas de transferência ligadas à perna irmã (`lancamento_pai_id`)
+   *  automaticamente após esta importação — ver `parearTransferencias
+   *  Importadas` logo abaixo. */
+  transferenciasPareadas: number;
+}
+
+// Pedido da Telma (22/09/2026): "encontre uma solução para extratos
+// importados que trazem transferências entre contas". A importação do
+// Omie já marcava cada perna com `origem='transferencia'`
+// (`ehTransferencia`, acima), mas cada rodada só vê o arquivo de UMA
+// conta — não tem como gravar `lancamento_pai_id` na hora, porque a perna
+// irmã pode nem existir ainda no banco (só entra quando a OUTRA conta for
+// importada, outro dia). Resultado medido em produção antes desta função
+// existir: 2.570 pernas de transferência sem par, de 2.984 no total —
+// consequência prática documentada em `EditarTransferenciaForm.tsx`
+// (edição de só um lado) e `excluirLancamento`/`excluirLancamentosEmLote`
+// (exclusão não arrasta a irmã).
+//
+// Chamada depois de CADA importação (não só a que acabou de rodar):
+// procura, entre TODAS as pernas de transferência sem par no banco
+// inteiro, grupos de (data, valor) com EXATAMENTE 2 linhas — uma entrada,
+// uma saída, em contas diferentes — e liga as duas. Mesma regra,
+// deliberadamente conservadora, da migration `20260922070000_parear_
+// transferencias_importadas_sem_par.sql` que corrigiu o histórico já
+// importado (2.178 das 2.570 pernas, 84,7% — o resto ficou de fora de
+// propósito: grupo com mais de 2 linhas no mesmo dia/valor é ambíguo, e
+// ligar errado corrompe o histórico pior que deixar sem par).
+async function parearTransferenciasImportadas(): Promise<number> {
+  const { data: semPar, error } = await supabase
+    .from("fin_lancamentos")
+    .select("id, conta_id, data, tipo, valor")
+    .eq("origem", "transferencia")
+    .is("lancamento_pai_id", null);
+  if (error || !semPar || semPar.length === 0) return 0;
+
+  const baldes = new Map<string, typeof semPar>();
+  for (const l of semPar) {
+    const chave = `${l.data}|${Number(l.valor)}`;
+    const lista = baldes.get(chave) ?? [];
+    lista.push(l);
+    baldes.set(chave, lista);
+  }
+
+  let pareadas = 0;
+  for (const grupo of baldes.values()) {
+    if (grupo.length !== 2) continue; // ambíguo (mais linhas) ou incompleto (1 só) — fica de fora
+    const [a, b] = grupo;
+    if (a.tipo === b.tipo || a.conta_id === b.conta_id) continue; // não é um par válido
+    await supabase.from("fin_lancamentos").update({ lancamento_pai_id: b.id }).eq("id", a.id);
+    await supabase.from("fin_lancamentos").update({ lancamento_pai_id: a.id }).eq("id", b.id);
+    pareadas += 2;
+  }
+  return pareadas;
 }
 
 /** O que fazer com um CPF de entrada sem membro correspondente — decidido
@@ -606,14 +659,22 @@ export async function confirmarImportacaoOmie(
   // só quando o histórico trazido cobrir vários meses de uma vez).
   const TAMANHO_BLOCO = 200;
   let criados = 0;
+  let temTransferencia = false;
   for (let i = 0; i < linhas.length; i += TAMANHO_BLOCO) {
     const bloco = linhas.slice(i, i + TAMANHO_BLOCO);
     const { data, error } = await supabase.from("fin_lancamentos").insert(bloco as any).select("id");
     if (error) throw error;
     criados += data?.length ?? 0;
+    if (bloco.some(l => l.origem === "transferencia")) temTransferencia = true;
   }
 
-  return { criados, fornecedoresCriados, pessoasCriadas, loteTag };
+  // Só tenta parear se este lote trouxe alguma perna de transferência —
+  // ver `parearTransferenciasImportadas` acima. Roda sobre TODO o banco,
+  // não só este lote, porque a perna irmã de uma importação anterior
+  // (de outra conta, sem par até agora) pode estar esperando esta.
+  const transferenciasPareadas = temTransferencia ? await parearTransferenciasImportadas() : 0;
+
+  return { criados, fornecedoresCriados, pessoasCriadas, loteTag, transferenciasPareadas };
 }
 
 /** Desfaz um lote inteiro pelo carimbo gravado em `observacoes`. Não
