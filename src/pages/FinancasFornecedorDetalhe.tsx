@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   ArrowLeft, Building2, User, Pencil, PowerOff, RotateCcw, TrendingDown,
-  TrendingUp, Paperclip, Wallet, CreditCard, RotateCw, Mail, Phone, MapPin,
+  TrendingUp, Paperclip, Wallet, CreditCard, RotateCw, Mail, Phone, MapPin, Copy,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -27,6 +27,7 @@ import {
 } from "@/services/finService";
 import { FornecedorForm } from "@/components/financas/FornecedorForm";
 import { PaginaSkeleton } from "@/components/ListState";
+import { formatarChavePix } from "@/lib/pix";
 
 function dataBr(s: string) {
   return new Date(s + "T00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
@@ -154,7 +155,21 @@ export default function FinancasFornecedorDetalhe() {
               <p className="flex items-center gap-1.5 text-muted-foreground"><Phone className="w-3.5 h-3.5 shrink-0" /> {fornecedor.telefone}</p>
             )}
             {fornecedor.chave_pix && (
-              <p className="flex items-center gap-1.5 text-muted-foreground"><Wallet className="w-3.5 h-3.5 shrink-0" /> Pix: {fornecedor.chave_pix}</p>
+              <p className="flex items-center gap-1.5 text-muted-foreground min-w-0">
+                <Wallet className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">Pix: {formatarChavePix(fornecedor.chave_pix, fornecedor.tipo_chave_pix)}</span>
+                {/* Fase 7 do roadmap Financeiro (22/09/2026) — "quick win":
+                    a chave já existia, só faltava um jeito de levar pro
+                    app do banco sem redigitar. Copia a chave CRUA (não a
+                    formatada acima, que é só pra leitura) — é isso que
+                    um campo "colar chave Pix" espera. */}
+                <button type="button" onClick={() => {
+                  navigator.clipboard.writeText(fornecedor.chave_pix!);
+                  toast.success("Chave Pix copiada");
+                }} className="shrink-0 text-primary hover:underline inline-flex items-center gap-1 text-xs">
+                  <Copy className="w-3 h-3" /> Copiar
+                </button>
+              </p>
             )}
             {(fornecedor.banco_nome || fornecedor.agencia || fornecedor.conta) && (
               <p className="flex items-center gap-1.5 text-muted-foreground">

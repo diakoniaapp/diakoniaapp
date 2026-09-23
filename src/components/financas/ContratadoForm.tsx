@@ -30,6 +30,7 @@ import {
   criarContratado, atualizarContratado, VINCULO_LABEL,
   type FinContratado, type FinVinculoTipo,
 } from "@/services/folhaService";
+import { TIPOS_CHAVE_PIX, type TipoChavePix } from "@/lib/pix";
 
 interface Props {
   open: boolean;
@@ -47,6 +48,7 @@ const VAZIO = {
   rpaValorPadrao: "",
   prebendaValor: "", prebendaAuxAluguel: "", prebendaAuxOutros: "",
   igrejaTemCebas: false, pastorContribuiInss: true,
+  chavePix: "", tipoChavePix: "" as TipoChavePix | "", bancoNome: "", agencia: "", conta: "",
   observacao: "",
 };
 
@@ -81,6 +83,11 @@ export function ContratadoForm({ open, onOpenChange, contratado, onSaved }: Prop
         prebendaAuxOutros: contratado.prebenda_aux_outros?.toString() ?? "",
         igrejaTemCebas: contratado.igreja_tem_cebas,
         pastorContribuiInss: contratado.pastor_contribui_inss,
+        chavePix: contratado.chave_pix ?? "",
+        tipoChavePix: contratado.tipo_chave_pix ?? "",
+        bancoNome: contratado.banco_nome ?? "",
+        agencia: contratado.agencia ?? "",
+        conta: contratado.conta ?? "",
         observacao: contratado.observacao ?? "",
       });
     } else {
@@ -136,6 +143,11 @@ export function ContratadoForm({ open, onOpenChange, contratado, onSaved }: Prop
         prebenda_aux_outros: num(campos.prebendaAuxOutros) ?? 0,
         igreja_tem_cebas: campos.igrejaTemCebas,
         pastor_contribui_inss: campos.pastorContribuiInss,
+        chave_pix: campos.chavePix.trim() || null,
+        tipo_chave_pix: campos.tipoChavePix || null,
+        banco_nome: campos.bancoNome.trim() || null,
+        agencia: campos.agencia.trim() || null,
+        conta: campos.conta.trim() || null,
         observacao: campos.observacao.trim() || null,
       };
 
@@ -221,6 +233,44 @@ export function ContratadoForm({ open, onOpenChange, contratado, onSaved }: Prop
             <div className="min-w-0">
               <Label>Fim (opcional)</Label>
               <Input type="date" value={campos.dataFim} onChange={(e) => set("dataFim", e.target.value)} min="2000-01-01" max="2099-12-31" className="w-full" />
+            </div>
+          </div>
+
+          {/* Fase 7 do roadmap Financeiro (22/09/2026), gap real achado na
+              auditoria: `fin_contratados` não tinha NENHUM campo de PIX —
+              funcionário/pastor/RPA não tinha como ser pago por PIX pelo
+              sistema. Fora do bloco condicional de vínculo, de propósito:
+              todo mundo recebe, seja CLT, MEI, RPA ou prebenda. */}
+          <div className="border rounded-md p-2 bg-muted/20 space-y-2">
+            <p className="text-xs font-medium">Dados para pagamento</p>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="col-span-2">
+                <Label className="text-xs">Chave Pix</Label>
+                <Input value={campos.chavePix} onChange={(e) => set("chavePix", e.target.value)} className="h-8 text-sm" />
+              </div>
+              <div>
+                <Label className="text-xs">Tipo da chave</Label>
+                <Select value={campos.tipoChavePix} onValueChange={(v) => set("tipoChavePix", v as TipoChavePix)}>
+                  <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="(opcional)" /></SelectTrigger>
+                  <SelectContent>
+                    {TIPOS_CHAVE_PIX.map(t => <SelectItem key={t.valor} value={t.valor}>{t.rotulo}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <Label className="text-xs">Banco</Label>
+                <Input value={campos.bancoNome} onChange={(e) => set("bancoNome", e.target.value)} className="h-8 text-sm" />
+              </div>
+              <div>
+                <Label className="text-xs">Agência</Label>
+                <Input value={campos.agencia} onChange={(e) => set("agencia", e.target.value)} className="h-8 text-sm" />
+              </div>
+              <div>
+                <Label className="text-xs">Conta</Label>
+                <Input value={campos.conta} onChange={(e) => set("conta", e.target.value)} className="h-8 text-sm" />
+              </div>
             </div>
           </div>
 

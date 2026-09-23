@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { conferir } from "@/lib/escritaConferida";
+import type { TipoChavePix } from "@/lib/pix";
 
 export type FinVinculoTipo = "clt" | "mei" | "rpa" | "prebenda" | "estagio" | "voluntario_remunerado";
 
@@ -47,6 +48,17 @@ export interface FinContratado {
   igreja_tem_cebas: boolean;
   pastor_contribui_inss: boolean;
   observacao: string | null;
+  // Fase 7 do roadmap Financeiro (22/09/2026): "PIX nativo" pedia PIX pra
+  // fornecedor, funcionário, pastor, missionário, RPA — todos esses,
+  // exceto fornecedor, moram aqui. Gap real medido antes de construir:
+  // `fin_contratados` não tinha NENHUM campo de PIX/banco — quem recebe
+  // salário ou prebenda não tinha como ser pago por PIX pelo sistema.
+  // Espelha os mesmos campos que `fin_fornecedores` já tem.
+  chave_pix: string | null;
+  tipo_chave_pix: TipoChavePix | null;
+  banco_nome: string | null;
+  agencia: string | null;
+  conta: string | null;
 }
 
 // ─── CRUD ─────────────────────────────────────────────────────────────────

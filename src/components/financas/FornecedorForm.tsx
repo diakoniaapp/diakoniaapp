@@ -15,6 +15,7 @@ import {
   listarCategorias, listarCentrosCusto, criarFornecedor, atualizarFornecedor,
   type FinCategoria, type FinCentroCusto, type FinFornecedor,
 } from "@/services/finService";
+import { TIPOS_CHAVE_PIX, type TipoChavePix } from "@/lib/pix";
 
 interface Props {
   open: boolean;
@@ -25,7 +26,7 @@ interface Props {
 
 const VAZIO = {
   nome: "", tipo: "juridica" as string, cnpjCpf: "", email: "", telefone: "",
-  chavePix: "", bancoNome: "", agencia: "", conta: "",
+  chavePix: "", tipoChavePix: "" as TipoChavePix | "", bancoNome: "", agencia: "", conta: "",
   endereco: "", bairro: "", cidade: "", uf: "", cep: "",
   categoriaPadraoId: "", centroCustoPadraoId: "", observacao: "",
 };
@@ -55,6 +56,7 @@ export function FornecedorForm({ open, onOpenChange, fornecedor, onSaved }: Prop
         email: fornecedor.email ?? "",
         telefone: fornecedor.telefone ?? "",
         chavePix: fornecedor.chave_pix ?? "",
+        tipoChavePix: fornecedor.tipo_chave_pix ?? "",
         bancoNome: fornecedor.banco_nome ?? "",
         agencia: fornecedor.agencia ?? "",
         conta: fornecedor.conta ?? "",
@@ -89,6 +91,7 @@ export function FornecedorForm({ open, onOpenChange, fornecedor, onSaved }: Prop
         email: campos.email.trim() || null,
         telefone: campos.telefone.trim() || null,
         chave_pix: campos.chavePix.trim() || null,
+        tipo_chave_pix: campos.tipoChavePix || null,
         banco_nome: campos.bancoNome.trim() || null,
         agencia: campos.agencia.trim() || null,
         conta: campos.conta.trim() || null,
@@ -173,9 +176,20 @@ export function FornecedorForm({ open, onOpenChange, fornecedor, onSaved }: Prop
 
           <div className="border rounded-md p-2 bg-muted/20 space-y-2">
             <p className="text-xs font-medium">Dados para pagamento</p>
-            <div>
-              <Label className="text-xs">Chave Pix</Label>
-              <Input value={campos.chavePix} onChange={(e) => set("chavePix", e.target.value)} className="h-8 text-sm" />
+            <div className="grid grid-cols-3 gap-2">
+              <div className="col-span-2">
+                <Label className="text-xs">Chave Pix</Label>
+                <Input value={campos.chavePix} onChange={(e) => set("chavePix", e.target.value)} className="h-8 text-sm" />
+              </div>
+              <div>
+                <Label className="text-xs">Tipo da chave</Label>
+                <Select value={campos.tipoChavePix} onValueChange={(v) => set("tipoChavePix", v as TipoChavePix)}>
+                  <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="(opcional)" /></SelectTrigger>
+                  <SelectContent>
+                    {TIPOS_CHAVE_PIX.map(t => <SelectItem key={t.valor} value={t.valor}>{t.rotulo}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="grid grid-cols-3 gap-2">
               <div className="col-span-1">

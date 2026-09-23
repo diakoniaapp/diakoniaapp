@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { hojeLocal, daquiAMeses } from "@/lib/data";
 import { conferir } from "@/lib/escritaConferida";
 import type { ItemNota } from "@/services/ocrService";
+import type { TipoChavePix } from "@/lib/pix";
 
 // ─── Tipos ───────────────────────────────────────────────────────────────
 export type FinContaTipo = "caixa" | "banco" | "pix" | "envelope" | "cartao" | "aplicacao" | "cofre";
@@ -172,6 +173,12 @@ export interface FinFornecedor {
   uf: string | null;
   cep: string | null;
   chave_pix: string | null;
+  // Fase 7 do roadmap Financeiro (22/09/2026): sem isto, "chave_pix" é uma
+  // string solta — quem olha o cadastro não sabe se é CPF, CNPJ, telefone,
+  // e-mail ou chave aleatória, e o payload do BR Code (`src/lib/pix.ts`)
+  // não muda de formatação por causa disso, mas a TELA precisa saber pra
+  // mostrar/validar direito.
+  tipo_chave_pix: TipoChavePix | null;
   // `banco_nome`/`agencia`/`conta` já existiam na tabela (dado bancário pra
   // pagar por transferência) e não estavam nesta interface — por isso
   // nenhuma tela os usava. Acrescentados na Fase 4.1 do roadmap Financeiro
@@ -889,6 +896,76 @@ export async function comprovanteSignedUrl(path: string, segs = 600): Promise<st
   const { data } = await supabase.storage.from("fin-comprovantes").createSignedUrl(path, segs);
   return data?.signedUrl ?? null;
 }
+
+// ─── Anexos (N por lançamento) — Fase 7 do roadmap Financeiro ───────────
+//
+// `comprovante_url` acima continua existindo — é 1 arquivo, e quem já usa
+// esse caminho continua funcionando. Isto é a extensão pedida em
+// "Central Financeira Diakonia" (22/09/2026): documento + XML +
+// comprovante do MESMO lançamento, cada um com seu tipo. Mesmo bucket
+// (`fin-comprovantes`), mesma política de acesso — não é uma segunda
+// regra de LGPD pro mesmo tipo de dado sensível.
+export type FinAnexoTipo = "documento" | "xml" | "comprovante" | "outro";
+
+export const FIN_ANEXO_MIMES = [...FIN_COMPROVANTE_MIMES, "application/xml", "text/xml"];
+
+export interface FinLancamentoAnexo {
+  id: string;
+  lancamento_id: string;
+  tipo: FinAnexoTipo;
+  url: string;
+  nome: string | null;
+  enviado_por: string | null;
+  enviado_em: string;
+}
+
+export async function listarAnexos(lancamentoId: string): Promise<FinLancamentoAnexo[]> {
+  const { data, error } = await supabase
+    .from("fin_lancamento_anexos")
+    .select("*")
+    .eq("lancamento_id", lancamentoId)
+    .order("enviado_em", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as FinLancamentoAnexo[];
+}
+
+export async function adicionarAnexo(
+  lancamentoId: string, file: File, tipo: FinAnexoTipo,
+): Promise<FinLancamentoAnexo> {
+  if (file.size > FIN_COMPROVANTE_MAX) throw new Error("Arquivo > 5MB");
+  if (!FIN_ANEXO_MIMES.includes(file.type)) throw new Error("Formato inválido (JPG/PNG/PDF/XML)");
+  const ext = file.name.split(".").pop()?.toLowerCase() || "bin";
+  const path = `${lancamentoId}/${Date.now()}.${ext}`;
+  const { error: uploadErro } = await supabase.storage
+    .from("fin-comprovantes")
+    .upload(path, file, { upsert: false, contentType: file.type });
+  if (uploadErro) throw uploadErro;
+
+  const { data: { user } } = await supabase.auth.getUser();
+  const { data, error } = await supabase
+    .from("fin_lancamento_anexos")
+    .insert({ lancamento_id: lancamentoId, tipo, url: path, nome: file.name, enviado_por: user?.id ?? null })
+    .select("*")
+    .single();
+  // Upload feito mas a linha não gravou — não deixa arquivo órfão no
+  // bucket (mesmo raciocínio de `removerComprovante` nas exclusões
+  // acima: storage e banco andam juntos, nunca um sem o outro).
+  if (error) { await removerComprovante(path); throw error; }
+  return data as FinLancamentoAnexo;
+}
+
+export async function removerAnexo(id: string): Promise<void> {
+  const { data: anexo } = await supabase.from("fin_lancamento_anexos").select("url").eq("id", id).maybeSingle();
+  const r = conferir(
+    await supabase.from("fin_lancamento_anexos").delete().eq("id", id).select("id"),
+    "O anexo",
+  );
+  if (!r.ok) throw new Error(r.erro);
+  if (anexo?.url) await removerComprovante(anexo.url); // mesmo bucket, mesma função de remoção
+}
+
+/** Mesmo bucket de `comprovanteSignedUrl` — reaproveitada, não duplicada. */
+export const anexoSignedUrl = comprovanteSignedUrl;
 
 // ─── Resumo / Dashboard ─────────────────────────────────────────────────
 export async function resumoFinanceiroMes(): Promise<FinResumoMes | null> {

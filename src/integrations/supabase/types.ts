@@ -4496,9 +4496,13 @@ export type Database = {
       }
       fin_contratados: {
         Row: {
+          agencia: string | null
           ativo: boolean
+          banco_nome: string | null
           cargo: string | null
+          chave_pix: string | null
           cnpj: string | null
+          conta: string | null
           cpf: string | null
           created_at: string
           data_fim: string | null
@@ -4518,6 +4522,7 @@ export type Database = {
           prebenda_valor: number | null
           rpa_valor_padrao: number | null
           salario_base: number | null
+          tipo_chave_pix: string | null
           updated_at: string
           vale_alimentacao_dia: number | null
           vale_transporte_dias: number | null
@@ -4525,9 +4530,13 @@ export type Database = {
           vt_passagem_valor: number | null
         }
         Insert: {
+          agencia?: string | null
           ativo?: boolean
+          banco_nome?: string | null
           cargo?: string | null
+          chave_pix?: string | null
           cnpj?: string | null
+          conta?: string | null
           cpf?: string | null
           created_at?: string
           data_fim?: string | null
@@ -4547,6 +4556,7 @@ export type Database = {
           prebenda_valor?: number | null
           rpa_valor_padrao?: number | null
           salario_base?: number | null
+          tipo_chave_pix?: string | null
           updated_at?: string
           vale_alimentacao_dia?: number | null
           vale_transporte_dias?: number | null
@@ -4554,9 +4564,13 @@ export type Database = {
           vt_passagem_valor?: number | null
         }
         Update: {
+          agencia?: string | null
           ativo?: boolean
+          banco_nome?: string | null
           cargo?: string | null
+          chave_pix?: string | null
           cnpj?: string | null
+          conta?: string | null
           cpf?: string | null
           created_at?: string
           data_fim?: string | null
@@ -4576,6 +4590,7 @@ export type Database = {
           prebenda_valor?: number | null
           rpa_valor_padrao?: number | null
           salario_base?: number | null
+          tipo_chave_pix?: string | null
           updated_at?: string
           vale_alimentacao_dia?: number | null
           vale_transporte_dias?: number | null
@@ -5124,6 +5139,7 @@ export type Database = {
           observacao: string | null
           telefone: string | null
           tipo: string | null
+          tipo_chave_pix: string | null
           uf: string | null
           updated_at: string
         }
@@ -5147,6 +5163,7 @@ export type Database = {
           observacao?: string | null
           telefone?: string | null
           tipo?: string | null
+          tipo_chave_pix?: string | null
           uf?: string | null
           updated_at?: string
         }
@@ -5170,6 +5187,7 @@ export type Database = {
           observacao?: string | null
           telefone?: string | null
           tipo?: string | null
+          tipo_chave_pix?: string | null
           uf?: string | null
           updated_at?: string
         }
@@ -5240,6 +5258,58 @@ export type Database = {
             columns: ["importado_por"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fin_lancamento_anexos: {
+        Row: {
+          enviado_em: string
+          enviado_por: string | null
+          id: string
+          lancamento_id: string
+          nome: string | null
+          tipo: string
+          url: string
+        }
+        Insert: {
+          enviado_em?: string
+          enviado_por?: string | null
+          id?: string
+          lancamento_id: string
+          nome?: string | null
+          tipo: string
+          url: string
+        }
+        Update: {
+          enviado_em?: string
+          enviado_por?: string | null
+          id?: string
+          lancamento_id?: string
+          nome?: string | null
+          tipo?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_lancamento_anexos_enviado_por_fkey"
+            columns: ["enviado_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_lancamento_anexos_lancamento_id_fkey"
+            columns: ["lancamento_id"]
+            isOneToOne: false
+            referencedRelation: "fin_lancamentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_lancamento_anexos_lancamento_id_fkey"
+            columns: ["lancamento_id"]
+            isOneToOne: false
+            referencedRelation: "vw_fin_proximos_vencimentos"
             referencedColumns: ["id"]
           },
         ]

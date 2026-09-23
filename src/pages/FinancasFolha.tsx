@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/tabs";
 import {
   ArrowLeft, Users, Calculator, Loader2, Plus, Briefcase,
-  TrendingUp, AlertCircle, Pencil, PowerOff, RotateCcw,
+  TrendingUp, AlertCircle, Pencil, PowerOff, RotateCcw, Copy,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -602,6 +602,20 @@ function ListaContratados({ contratados, mostrarInativos, onMostrarInativosChang
                   {VINCULO_LABEL[c.vinculo]}
                 </Badge>
                 <div className="flex items-center gap-0.5 shrink-0">
+                  {/* Fase 7 do roadmap Financeiro (22/09/2026) — mesmo
+                      "quick win" da ficha de Fornecedor: a chave só é
+                      útil se dá pra levar pro banco sem redigitar. Só
+                      aparece quando a chave existe — sem prometer o que
+                      não tem pra quem ainda não cadastrou. */}
+                  {c.chave_pix && (
+                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7"
+                      onClick={() => {
+                        navigator.clipboard.writeText(c.chave_pix!);
+                        toast.success("Chave Pix copiada");
+                      }} title="Copiar chave Pix">
+                      <Copy className="w-3.5 h-3.5 text-muted-foreground" />
+                    </Button>
+                  )}
                   <Button type="button" variant="ghost" size="icon" className="h-7 w-7"
                     onClick={() => onEditar(c)} title="Editar">
                     <Pencil className="w-3.5 h-3.5" />
