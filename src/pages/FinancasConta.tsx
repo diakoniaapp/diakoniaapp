@@ -19,7 +19,7 @@ import { paraNumero } from "@/lib/dinheiro";
 import { parseLocalDate } from "@/lib/data";
 import {
   ArrowLeft, DollarSign, Loader2, Plus, Search, ChevronDown,
-  TrendingUp, TrendingDown, Pencil, Trash2, Paperclip,
+  TrendingUp, TrendingDown, Pencil, Trash2, Paperclip, Files,
   Scale, FileUp, Printer, RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -32,6 +32,7 @@ import {
   STATUS_LABEL,
 } from "@/services/finService";
 import { LancamentoForm } from "@/components/financas/LancamentoForm";
+import { AnexosLancamentoDialog } from "@/components/financas/AnexosLancamentoDialog";
 import { EditarTransferenciaForm } from "@/components/financas/EditarTransferenciaForm";
 import { TransferenciaForm } from "@/components/financas/TransferenciaForm";
 import { ConciliacaoOFXDialog } from "@/components/financas/ConciliacaoOFXDialog";
@@ -166,6 +167,11 @@ export default function FinancasConta() {
   // Descrição), não o `LancamentoForm` — pedido da Telma (22/09/2026),
   // ver comentário grande em `EditarTransferenciaForm.tsx`.
   const [editandoTransf, setEditandoTransf] = useState<FinLancamentoExtenso | null>(null);
+  // Fase 9 do roadmap Financeiro ERP (22/09/2026): ver/gerenciar os anexos
+  // de UM lançamento — schema e serviço prontos desde a Fase 7, faltava só
+  // a tela. Guarda o lançamento inteiro (não só o id) pra dar título ao
+  // diálogo sem precisar recarregar nada.
+  const [anexosPara, setAnexosPara] = useState<FinLancamentoExtenso | null>(null);
   const [transfOpen, setTransfOpen] = useState(false);
   const [ofxOpen, setOfxOpen] = useState(false);
   const [omieOpen, setOmieOpen] = useState(false);
@@ -618,6 +624,17 @@ export default function FinancasConta() {
               <button type="button" onClick={() => abrirComprovante(l.comprovante_url!)} title="Ver comprovante"
                 className="text-info-text hover:text-info-text">
                 <Paperclip className="w-3.5 h-3.5" />
+              </button>
+            )}
+            {/* Anexos (Fase 9) sempre visível, ao contrário do Paperclip
+                acima — este é o botão de GERENCIAR (ver, enviar, apagar
+                quantos quiser), não só de abrir o único comprovante que já
+                existe. Transferência não tem lançamento próprio pra
+                anexar (as duas pernas dividem o mesmo diálogo de edição). */}
+            {l.origem !== "transferencia" && (
+              <button type="button" onClick={() => setAnexosPara(l)} title="Anexos"
+                className="text-muted-foreground hover:text-gold">
+                <Files className="w-3.5 h-3.5" />
               </button>
             )}
             <Button type="button" variant="ghost" size="icon" className="h-7 w-7"
@@ -1223,6 +1240,14 @@ export default function FinancasConta() {
         lancamento={editandoTransf}
         onSaved={carregar}
       />
+      {anexosPara && (
+        <AnexosLancamentoDialog
+          open={!!anexosPara}
+          onOpenChange={(v) => !v && setAnexosPara(null)}
+          lancamentoId={anexosPara.id}
+          descricaoLancamento={anexosPara.descricao ?? anexosPara.categoria_nome ?? "Lançamento"}
+        />
+      )}
 
       <AlertDialog open={!!apagando} onOpenChange={(v) => !v && setApagando(null)}>
         <AlertDialogContent>
