@@ -70,6 +70,19 @@ export function ImportacaoOmieDialog({ open, onOpenChange, contaId, contaNome, o
   const [arquivoNome, setArquivoNome] = useState<string | null>(null);
   const [usarSaldoInicial, setUsarSaldoInicial] = useState(true);
   // A conta já tinha ALGUM lançamento antes deste arquivo? `null` = ainda
+  // ---
+  // CORRIGIDO (23/09/2026, "BUG CRÍTICO NA IMPORTAÇÃO DO OMIE"): o padrão
+  // era EXCLUIR sozinho toda linha com a mesma assinatura de outra do
+  // arquivo — e em oferta/dízimo em espécie (sem nome, documento nem
+  // observação preenchidos no Omie), vários pagamentos REAIS e DIFERENTES
+  // no mesmo dia e valor colapsam pra assinatura igual. Sem ID externo do
+  // Omie nesse formato de exportação (a planilha não tem coluna de
+  // id/chave única — conferido nas colunas lidas por `omieImport.ts`),
+  // não existe jeito confiável de distinguir "duas ofertas de R$100
+  // reais" de "a mesma linha exportada em dobro" só pelos dados. Excluir
+  // por padrão arriscava sumir com dízimo de verdade sem ninguém notar —
+  // agora TODAS entram por padrão; a marca "duplicata" continua visível
+  // só como aviso pra revisão manual, nunca mais decide sozinha.
   // não checou. Achado ao vivo pela Telma (15/09/2026): reimportar a
   // Caixinha com um arquivo incremental (13/09-01/12/2026, a conta já
   // tinha 2024-2026 inteiro) sobrescreveu o saldo_inicial CERTO
@@ -78,7 +91,7 @@ export function ImportacaoOmieDialog({ open, onOpenChange, contaId, contaNome, o
   // não o saldo de abertura da conta). "Saldo anterior do arquivo" só é
   // seguro pra virar saldo_inicial na PRIMEIRA importação da conta.
   const [contaJaTinhaHistorico, setContaJaTinhaHistorico] = useState<boolean | null>(null);
-  const [incluirDuplicatas, setIncluirDuplicatas] = useState(false);
+  const [incluirDuplicatas, setIncluirDuplicatas] = useState(true);
   const [confirmando, setConfirmando] = useState(false);
 
   // Trava de arquivo já importado NESTA conta — checada assim que o
@@ -122,7 +135,7 @@ export function ImportacaoOmieDialog({ open, onOpenChange, contaId, contaNome, o
     setSobreposicao(null);
     setContaJaTinhaHistorico(null);
     setUsarSaldoInicial(true);
-    setIncluirDuplicatas(false);
+    setIncluirDuplicatas(true);
     setEscolhasPessoa({});
     setEscolhasTransferencia({});
   }
@@ -358,19 +371,20 @@ export function ImportacaoOmieDialog({ open, onOpenChange, contaId, contaNome, o
             )}
 
             {resumo.duplicatasNoArquivo > 0 && (
-              <div className="rounded-md border border-warning-line bg-warning-soft/30 p-3 space-y-2">
-                <p className="text-sm font-medium text-warning-text flex items-center gap-1.5">
-                  <Copy className="w-4 h-4" /> {resumo.duplicatasNoArquivo} linha(s) idêntica(s) a outra linha deste MESMO arquivo
+              <div className="rounded-md border border-info-line bg-info-soft/20 p-3 space-y-2">
+                <p className="text-sm font-medium text-info-text flex items-center gap-1.5">
+                  <Copy className="w-4 h-4" /> {resumo.duplicatasNoArquivo} linha(s) com os mesmos dados de outra linha deste MESMO arquivo
                 </p>
                 <p className="text-xs text-muted-foreground">
                   Mesma data, valor, categoria, descrição e documento de outra linha já contada —
-                  pode ser o Omie exportando a linha em dobro, ou dois pagamentos iguais de
-                  verdade no mesmo dia (ex.: duas tarifas bancárias idênticas). Por padrão essas
-                  {" "}{resumo.duplicatasNoArquivo} ficam de fora da importação.
+                  em igreja é comum (vários dízimos ou ofertas iguais no mesmo dia são pagamentos
+                  DIFERENTES, não duplicidade). Por isso todas as {resumo.duplicatasNoArquivo} entram
+                  por padrão — desmarque abaixo só se tiver certeza de que é o Omie exportando a
+                  MESMA linha em dobro.
                 </p>
                 <label className="flex items-center gap-2 text-xs cursor-pointer">
                   <Checkbox checked={incluirDuplicatas} onCheckedChange={(v) => setIncluirDuplicatas(v === true)} />
-                  Incluir mesmo assim (confirmei que são pagamentos diferentes)
+                  Incluir estas {resumo.duplicatasNoArquivo} linha(s) (recomendado)
                 </label>
               </div>
             )}
@@ -480,9 +494,13 @@ export function ImportacaoOmieDialog({ open, onOpenChange, contaId, contaNome, o
               </div>
             )}
 
+            {/* Sem opacidade reduzida na linha "mesmos dados" — desde a
+                correção do bug crítico (23/09/2026) essas linhas ENTRAM por
+                padrão, e esmaecer dava a impressão errada de "excluída". Só
+                a Badge abaixo sinaliza, pra revisão, sem parecer descartada. */}
             <div className="space-y-1 max-h-64 overflow-y-auto border rounded-md p-2">
               {amostra.map((r, i) => (
-                <div key={i} className={`flex flex-col gap-1 text-xs border-b border-border/30 py-1 last:border-0 ${r.duplicataDeOutraLinha ? "opacity-40" : ""}`}>
+                <div key={i} className="flex flex-col gap-1 text-xs border-b border-border/30 py-1 last:border-0">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-muted-foreground shrink-0">{dataBr(r.data)}</span>
                     <span className="flex-1 min-w-0 truncate">{r.descricao}</span>
@@ -491,7 +509,7 @@ export function ImportacaoOmieDialog({ open, onOpenChange, contaId, contaNome, o
                       <span className="text-muted-foreground shrink-0 hidden sm:inline">· {r.centroCustoNome}</span>
                     )}
                     {r.duplicataDeOutraLinha && (
-                      <Badge variant="outline" className="shrink-0 text-[10px] px-1 py-0 border-warning-line text-warning-text">duplicata</Badge>
+                      <Badge variant="outline" className="shrink-0 text-[10px] px-1 py-0 border-info-line text-info-text">mesmos dados</Badge>
                     )}
                     <span className={`tabular-nums shrink-0 ${r.tipo === "entrada" ? "text-success-text" : "text-destructive-text"}`}>
                       {r.tipo === "entrada" ? "+" : "−"} {brl(r.valor)}

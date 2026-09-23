@@ -44,11 +44,20 @@
 //          Envelope, sem explicação clara — pode ser o próprio Omie
 //          exportando a linha em dobro): `prepararImportacaoOmie` marca
 //          `duplicataDeOutraLinha` na segunda ocorrência em diante de
-//          (data+tipo+valor+categoria+descrição+documento+cpf) idênticos;
-//          por padrão essas linhas NÃO entram — a tela mostra quantas são
-//          e deixa incluir mesmo assim, pra não esconder um caso real de
-//          dois pagamentos iguais no mesmo dia (aconteceu com tarifa
-//          bancária repetida, que é legítima).
+//          (data+tipo+valor+categoria+descrição+documento+cpf) idênticos.
+//          CORRIGIDO (23/09/2026, "BUG CRÍTICO NA IMPORTAÇÃO DO OMIE"): até
+//          aqui, essas linhas NÃO entravam por padrão — só um clique manual
+//          na tela reincluía. Em oferta/dízimo em espécie, sem nome/
+//          documento/observação preenchidos no Omie, vários pagamentos
+//          REAIS e DIFERENTES no mesmo dia e valor colapsam pra essa mesma
+//          assinatura (é o caso comum em igreja: vários dízimos ou ofertas
+//          de mesmo valor no mesmo culto), e excluir por padrão sumia com
+//          contribuição de verdade sem ninguém perceber. Sem ID externo do
+//          Omie nesse formato de exportação, não existe assinatura mais
+//          forte que resolva o caso sem um dado que a planilha não tem —
+//          então agora TODAS entram por padrão (`ImportacaoOmieDialog.tsx`
+//          nasce com `incluirDuplicatas = true`); a marca continua visível
+//          só como aviso pra revisão manual, nunca mais decide sozinha.
 //
 // Revisto de novo em 15/09/2026, mesmo dia — achado ao vivo depois do item
 // (a) acima entrar no ar: criar pessoa automaticamente por CPF sem dono
