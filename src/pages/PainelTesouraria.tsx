@@ -93,6 +93,10 @@ import { ConciliacaoDrawer } from "@/components/financas/ConciliacaoDrawer";
 import { FornecedoresDrawer } from "@/components/financas/FornecedoresDrawer";
 import { RecorrenciasDrawer } from "@/components/financas/RecorrenciasDrawer";
 import { ExtratoContaDrawer } from "@/components/financas/ExtratoContaDrawer";
+import { EstoqueDrawer } from "@/components/financas/EstoqueDrawer";
+import { ProjetosDrawer } from "@/components/financas/ProjetosDrawer";
+import { ContratadosDrawer } from "@/components/financas/ContratadosDrawer";
+import { OrcamentoDrawer } from "@/components/financas/OrcamentoDrawer";
 import { useAcoesLancamento, BotaoPagar, BotoesAprovacao } from "@/hooks/useAcoesLancamento";
 import { useAuth } from "@/hooks/useAuth";
 import { hojeLocal } from "@/lib/data";
@@ -198,6 +202,11 @@ export default function PainelTesouraria() {
   const [recorrenciasAberto, setRecorrenciasAberto] = useState(false);
   // Fase 11c: maior drawer do mapa — extrato completo de UMA conta.
   const [extratoContaId, setExtratoContaId] = useState<string | null>(null);
+  // Fase 11d: os últimos quatro atalhos de "Ir para" a virar drawer.
+  const [estoqueAberto, setEstoqueAberto] = useState(false);
+  const [projetosAberto, setProjetosAberto] = useState(false);
+  const [contratadosAberto, setContratadosAberto] = useState(false);
+  const [orcamentoAberto, setOrcamentoAberto] = useState(false);
   function abrirConciliacao() {
     // Sem pendência real, não tem conta certa pra abrir — cai no hub de
     // contas mesmo, mais honesto que fingir que sabe onde ir (mesma régua
@@ -684,7 +693,12 @@ export default function PainelTesouraria() {
           <section id="projetos" className="scroll-mt-[220px]">
             <TituloDaSecao
               icone={FolderKanban} tom="violeta" contagem={projetos.length}
-              acao={<Link to="/financas/projetos" className="text-sm text-primary hover:underline">Abrir Projetos</Link>}
+              // Fase 11d (23/09/2026): "Abrir Projetos" agora abre o
+              // ProjetosDrawer (ver todos, inclusive encerrados, e
+              // gerenciar o cadastro) em vez de navegar pra
+              // /financas/projetos — a lista com progresso continua sendo
+              // esta seção, o drawer não a duplica.
+              acao={<button type="button" onClick={() => setProjetosAberto(true)} className="text-sm text-primary hover:underline">Abrir Projetos</button>}
             >
               Projetos em andamento
             </TituloDaSecao>
@@ -901,12 +915,16 @@ export default function PainelTesouraria() {
                 icone={Archive} titulo="Cadastros"
                 descricao="Referência que muda pouco — configure uma vez."
                 links={[
+                  // Fase 11b (23/09/2026), achado ao migrar: Centros de
+                  // Custo é ranking de gasto de 90 dias com duas abas e
+                  // alertas — mais perto de relatório (página) do que de
+                  // lista simples. Fica de fora do drawer de propósito.
                   { to: "/financas/centros", label: "Centros de Custo", icone: Layers },
-                  // Fase 11b: FornecedoresDrawer, mesmo conteúdo de
-                  // /financas/fornecedores.
                   { onClick: () => setFornecedoresAberto(true), label: "Fornecedores", icone: Building2 },
-                  { to: "/financas/estoque", label: "Estoque", icone: Package },
-                  { to: "/financas/orcamento", label: "Planejar Orçamento", icone: Target },
+                  // Fase 11d: EstoqueDrawer e OrcamentoDrawer, mesmo
+                  // conteúdo de /financas/estoque e /financas/orcamento.
+                  { onClick: () => setEstoqueAberto(true), label: "Estoque", icone: Package },
+                  { onClick: () => setOrcamentoAberto(true), label: "Planejar Orçamento", icone: Target },
                 ]}
               />
               <JanelaAssunto
@@ -915,7 +933,11 @@ export default function PainelTesouraria() {
                 links={[
                   { to: "/financas/fiscal", label: "Módulo Fiscal", icone: Receipt },
                   { to: "/financas/relatorio", label: "Malote Contábil", icone: Receipt },
-                  { to: "/financas/folha", label: "Folha", icone: Briefcase },
+                  // Fase 11d: só a lista de Contratados vira drawer — as 4
+                  // calculadoras (CLT/RPA/MEI/Prebenda) são ferramenta de
+                  // trabalho, não referência rápida, e ficam só na página.
+                  { onClick: () => setContratadosAberto(true), label: "Contratados", icone: Briefcase },
+                  { to: "/financas/folha", label: "Calculadoras (Folha)", icone: Briefcase },
                   { to: "/financas/reunioes", label: "Reuniões Financeiras", icone: Handshake },
                   { to: "/financas/prestacao-de-contas", label: "Prestação de Contas", icone: ScrollText },
                 ]}
@@ -966,6 +988,10 @@ export default function PainelTesouraria() {
           onChange={carregar}
         />
       )}
+      <EstoqueDrawer open={estoqueAberto} onOpenChange={setEstoqueAberto} />
+      <ProjetosDrawer open={projetosAberto} onOpenChange={setProjetosAberto} onChange={carregar} />
+      <ContratadosDrawer open={contratadosAberto} onOpenChange={setContratadosAberto} />
+      <OrcamentoDrawer open={orcamentoAberto} onOpenChange={setOrcamentoAberto} />
     </div>
   );
 }
