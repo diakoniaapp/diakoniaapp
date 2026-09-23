@@ -89,6 +89,7 @@ import {
 } from "@/services/painelTesourariaService";
 import { AgendaFiscalUrgente } from "@/components/dashboard/AgendaFiscalUrgente";
 import { AnexosLancamentoDialog } from "@/components/financas/AnexosLancamentoDialog";
+import { ConciliacaoDrawer } from "@/components/financas/ConciliacaoDrawer";
 import { useAcoesLancamento, BotaoPagar, BotoesAprovacao } from "@/hooks/useAcoesLancamento";
 import { useAuth } from "@/hooks/useAuth";
 import { hojeLocal } from "@/lib/data";
@@ -182,6 +183,19 @@ export default function PainelTesouraria() {
   // mesmo diálogo que já existe no extrato de conta (Fase 9).
   const acoes = useAcoesLancamento(carregar);
   const [anexosPara, setAnexosPara] = useState<PendenciaLancamento | null>(null);
+  // Fase 10, parte 3 (22/09/2026), pedido dela: "drawer largo... sem trocar
+  // de rota". Guarda {id, nome} (não o objeto pendência inteiro) porque as
+  // TRÊS entradas pra conciliação (linha da pendência, tile da Mesa,
+  // "Mais ações") levam à mesma conta mas nenhuma delas tem o mesmo shape.
+  const [conciliandoConta, setConciliandoConta] = useState<{ id: string; nome: string } | null>(null);
+  function abrirConciliacao() {
+    // Sem pendência real, não tem conta certa pra abrir — cai no hub de
+    // contas mesmo, mais honesto que fingir que sabe onde ir (mesma régua
+    // de antes desta fase, só que agora só se aplica ao caso vazio).
+    if (aguardandoConciliacao.length === 0) { navigate("/financas"); return; }
+    const p = aguardandoConciliacao[0];
+    setConciliandoConta({ id: p.conta_id, nome: p.conta_nome ?? "Conta" });
+  }
 
   // ── Ofertas para Missões, filtrável por período ──────────────────────────
   //
@@ -462,19 +476,15 @@ export default function PainelTesouraria() {
                     ministério de Administração — não é gesto de tesouraria,
                     é gesto de quem opera o bazar. Mora no painel daquele
                     ministério (`SecaoArrecadacao.tsx`, já existia). */}
-                {/* Conciliação (manual + extrato OFX) ficou pronta em
-                    12/09/2026 — mas é sempre de UMA conta por vez
-                    (`/financas/conta/:id`), sem tela "conciliar tudo" no
-                    sistema. Com pendência real na lista (a seção Pendências
-                    já conta isso — motivo "conciliacao"), o item pula
-                    direto pra conta da primeira pendência, em vez de mandar
-                    escolher no hub; sem pendência, cai no hub de contas
-                    mesmo, mais honesto que fingir que sabe onde ir. */}
-                <DropdownMenuItem asChild>
-                  <Link to={aguardandoConciliacao.length > 0 ? `/financas/conta/${aguardandoConciliacao[0].conta_id}` : "/financas"}>
-                    <Scale className="w-4 h-4 mr-2 text-muted-foreground" />
-                    Conciliar{aguardandoConciliacao.length > 0 ? ` (${aguardandoConciliacao.length})` : ""}
-                  </Link>
+                {/* Conciliação (manual + extrato OFX) — Fase 10, parte 3:
+                    virou drawer, não link. Com pendência real na lista (a
+                    seção Pendências já conta isso — motivo "conciliacao"),
+                    abre direto na conta da primeira pendência; sem
+                    pendência, cai no hub de contas mesmo, mais honesto que
+                    fingir que sabe onde ir. */}
+                <DropdownMenuItem onSelect={abrirConciliacao}>
+                  <Scale className="w-4 h-4 mr-2 text-muted-foreground" />
+                  Conciliar{aguardandoConciliacao.length > 0 ? ` (${aguardandoConciliacao.length})` : ""}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -517,9 +527,7 @@ export default function PainelTesouraria() {
               />
               <Indicador
                 rotulo="Conciliações" valor={aguardandoConciliacao.length} tom="warning"
-                onClick={() => navigate(aguardandoConciliacao.length > 0
-                  ? `/financas/conta/${aguardandoConciliacao[0].conta_id}` : "/financas")}
-                descricao="Ir para conciliar"
+                onClick={abrirConciliacao} descricao="Conciliar"
               />
               <Indicador
                 rotulo="Anexos faltando" valor={mesa ? mesa.anexosFaltando : "—"} tom="warning"
@@ -576,9 +584,9 @@ export default function PainelTesouraria() {
                         <ChevronRight className="w-4 h-4 shrink-0 text-muted-foreground group-hover:text-primary transition-colors" />
                       </Link>
                     ) : p.motivo === "conciliacao" ? (
-                      <Link
-                        to={`/financas/conta/${p.conta_id}`}
-                        className="flex items-center gap-2 px-3 py-2.5 min-h-11 group"
+                      <button type="button"
+                        onClick={() => setConciliandoConta({ id: p.conta_id, nome: p.conta_nome ?? "Conta" })}
+                        className="flex items-center gap-2 px-3 py-2.5 min-h-11 w-full text-left group"
                       >
                         <span className="text-sm min-w-0 flex-1">
                           <span className="font-medium">{p.descricao ?? p.categoria_nome ?? "Lançamento"}</span>
@@ -586,7 +594,7 @@ export default function PainelTesouraria() {
                           <span className="text-info-text"> · aguardando conciliação</span>
                         </span>
                         <ChevronRight className="w-4 h-4 shrink-0 text-muted-foreground group-hover:text-primary transition-colors" />
-                      </Link>
+                      </button>
                     ) : (
                       <div className="flex items-center gap-2 px-3 py-2.5 min-h-11">
                         <span className="text-sm min-w-0 flex-1">
@@ -917,6 +925,15 @@ export default function PainelTesouraria() {
           onOpenChange={(v) => !v && setAnexosPara(null)}
           lancamentoId={anexosPara.id}
           descricaoLancamento={anexosPara.descricao ?? anexosPara.categoria_nome ?? "Lançamento"}
+          onChange={carregar}
+        />
+      )}
+      {conciliandoConta && (
+        <ConciliacaoDrawer
+          open={!!conciliandoConta}
+          onOpenChange={(v) => !v && setConciliandoConta(null)}
+          contaId={conciliandoConta.id}
+          contaNome={conciliandoConta.nome}
           onChange={carregar}
         />
       )}
