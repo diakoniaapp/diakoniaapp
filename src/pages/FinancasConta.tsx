@@ -25,7 +25,7 @@ import {
 import { toast } from "sonner";
 import {
   carregarConta, listarLancamentosSemTeto, excluirLancamento, excluirLancamentosEmLote, brl,
-  comprovanteSignedUrl, CONTA_TIPO_LABEL, listarContas,
+  comprovanteSignedUrl, CONTA_TIPO_LABEL, listarContas, nomeExtrato,
   conciliarEmLote, listarCategorias, listarCentrosCusto,
   type FinConta, type FinLancamentoExtenso, type FinMovimentoTipo, type FinStatus,
   type FinCategoria, type FinCentroCusto,
@@ -560,6 +560,11 @@ export default function FinancasConta() {
   const lancamentosPagina = lancamentosOrdenados.slice(inicioPagina, inicioPagina + POR_PAGINA);
 
   function renderLinha(l: FinLancamentoExtenso) {
+    // Bug de usabilidade (23/09/2026), pedido dela: "a primeira coisa
+    // que a tesouraria precisa ver é o favorecido, não a descrição
+    // digitada" — `nomeExtrato` (finService.ts) prioriza fornecedor/
+    // pessoa; descrição vira a linha secundária, não some.
+    const { principal, secundario } = nomeExtrato(l);
     return (
       <tr key={l.id} className="border-t hover:bg-muted/30 group">
         <td className="py-1.5 px-2 print:hidden">
@@ -569,7 +574,7 @@ export default function FinancasConta() {
               restrição. `conciliarSelecionados` filtra sozinho o
               subconjunto conciliável na hora de agir. */}
           <Checkbox checked={selecionados.has(l.id)} onCheckedChange={() => alternarSelecao(l.id)}
-            aria-label={`Selecionar ${l.descricao ?? "lançamento"}`} />
+            aria-label={`Selecionar ${principal}`} />
         </td>
         <td className="py-1.5 px-2 whitespace-nowrap">
           {/* Situação colada na data, sem ícone (22/09/2026) — dois pedidos
@@ -586,16 +591,14 @@ export default function FinancasConta() {
           </span>
         </td>
         <td className="py-1.5 px-2 min-w-[200px] print:min-w-0">
-          <p className="font-medium truncate">{l.descricao ?? "—"}</p>
-          {/* Suprime a linha do fornecedor quando é o mesmo texto da
-              descrição — lançamentos importados do Omie/fatura
-              repetem o nome do fornecedor em `descricao`, e a
-              segunda linha idêntica só ocupava espaço (visível
-              duplicado no PDF: "SUPERMERCADO MUNDIAL LTDA" duas
-              vezes seguidas). Achado pela Telma (16/09/2026). */}
-          {l.fornecedor_nome && l.fornecedor_nome !== l.descricao && (
-            <p className="text-xs text-muted-foreground truncate">{l.fornecedor_nome}</p>
-          )}
+          <p className="font-medium truncate">{principal}</p>
+          {/* `nomeExtrato` já suprime a segunda linha quando ela seria
+              idêntica à primeira (ex.: lançamento do Omie/fatura onde a
+              descrição JÁ é o nome do fornecedor) — mesmo cuidado que
+              suprimia a duplicata "SUPERMERCADO MUNDIAL LTDA" duas vezes
+              seguidas (achado pela Telma, 16/09/2026), só que agora do
+              lado do favorecido, não da descrição. */}
+          {secundario && <p className="text-xs text-muted-foreground truncate">{secundario}</p>}
         </td>
         <td className="py-1.5 px-2 overflow-hidden">
           {/* max-w-full + truncate — sem isso, uma categoria de
@@ -1252,7 +1255,7 @@ export default function FinancasConta() {
           open={!!anexosPara}
           onOpenChange={(v) => !v && setAnexosPara(null)}
           lancamentoId={anexosPara.id}
-          descricaoLancamento={anexosPara.descricao ?? anexosPara.categoria_nome ?? "Lançamento"}
+          descricaoLancamento={nomeExtrato(anexosPara).principal}
         />
       )}
 

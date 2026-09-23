@@ -26,7 +26,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, Scale, FileUp } from "lucide-react";
 import { toast } from "sonner";
 import {
-  listarLancamentosSemTeto, conciliarEmLote, brl,
+  listarLancamentosSemTeto, conciliarEmLote, brl, nomeExtrato,
   type FinLancamentoExtenso,
 } from "@/services/finService";
 import { DIAS_JANELA_COMPROVANTE } from "@/services/painelTesourariaService";
@@ -131,12 +131,15 @@ export function ConciliacaoDrawer({ open, onOpenChange, contaId, contaNome, onCh
               </p>
             ) : (
               <ul className="divide-y">
-                {lancamentos.map(l => (
+                {lancamentos.map(l => {
+                  const { principal, secundario } = nomeExtrato(l);
+                  return (
                   <li key={l.id}>
                     <label className="flex items-center gap-2.5 px-4 py-2.5 min-h-11 cursor-pointer hover:bg-muted/30">
                       <Checkbox checked={selecionados.has(l.id)} onCheckedChange={() => alternar(l.id)} />
                       <span className="text-sm min-w-0 flex-1">
-                        <span className="font-medium">{l.descricao ?? l.categoria_nome ?? "Lançamento"}</span>
+                        <span className="font-medium">{principal}</span>
+                        {secundario && <span className="text-muted-foreground"> · {secundario}</span>}
                         <span className="text-muted-foreground"> · {dataBr(l.data)}</span>
                       </span>
                       <span className={`text-sm font-semibold tabular-nums shrink-0 ${l.tipo === "entrada" ? "text-success-text" : "text-destructive-text"}`}>
@@ -144,7 +147,8 @@ export function ConciliacaoDrawer({ open, onOpenChange, contaId, contaNome, onCh
                       </span>
                     </label>
                   </li>
-                ))}
+                  );
+                })}
               </ul>
             )}
           </div>

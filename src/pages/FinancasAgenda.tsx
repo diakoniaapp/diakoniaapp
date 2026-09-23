@@ -8,7 +8,7 @@ import {
 import { toast } from "sonner";
 import { PaginaSkeleton } from "@/components/ListState";
 import {
-  listarProximosVencimentos, listarLancamentosSemTeto, brl,
+  listarProximosVencimentos, listarLancamentosSemTeto, brl, nomeExtrato,
   type FinVencimento, type FinLancamentoExtenso,
 } from "@/services/finService";
 import { hojeMaisDias } from "@/lib/data";
@@ -129,19 +129,21 @@ export default function FinancasAgenda() {
           <p className="text-xs uppercase tracking-wide font-medium text-muted-foreground px-1 flex items-center gap-1">
             <Gavel className="w-3 h-3" /> Aguardando aprovação ({aguardandoAprovacao.length})
           </p>
-          {aguardandoAprovacao.map(l => (
+          {aguardandoAprovacao.map(l => {
+            const { principal, secundario } = nomeExtrato(l);
+            return (
             <div key={l.id} className="flex items-center justify-between border rounded-md px-3 py-2 bg-info-soft/40 border-info-line">
               <div className="flex items-center gap-2 min-w-0 flex-1">
                 {l.tipo === "entrada"
                   ? <TrendingUp className="w-4 h-4 text-success-text shrink-0" />
                   : <TrendingDown className="w-4 h-4 text-destructive-text shrink-0" />}
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium truncate">{l.descricao ?? "—"}</p>
+                  <p className="text-sm font-medium truncate">{principal}</p>
                   <p className="text-xs text-muted-foreground flex items-center gap-1.5">
                     <Clock className="w-2.5 h-2.5" /> {dataBr(l.data)}
+                    {secundario && <> · {secundario}</>}
                     {l.conta_nome && <> · {l.conta_nome}</>}
                     {l.centro_nome && <> · {l.centro_nome}</>}
-                    {l.fornecedor_nome && <> · {l.fornecedor_nome}</>}
                   </p>
                 </div>
               </div>
@@ -150,7 +152,8 @@ export default function FinancasAgenda() {
               </p>
               <BotoesAprovacao onAprovar={() => acoes.aprovar(l)} onRejeitar={() => acoes.rejeitar(l)} />
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -176,21 +179,23 @@ export default function FinancasAgenda() {
                   {u === "vencido" && <AlertTriangle className="w-3 h-3 inline mr-1 text-destructive-text" />}
                   {info.label} ({lista.length})
                 </p>
-                {lista.map(v => (
+                {lista.map(v => {
+                  const { principal, secundario } = nomeExtrato(v, "Vencimento");
+                  return (
                   <div key={v.id} className={`flex items-center justify-between border rounded-md px-3 py-2 ${info.cor}`}>
                     <div className="flex items-center gap-2 min-w-0 flex-1">
                       {v.tipo === "entrada"
                         ? <TrendingUp className="w-4 h-4 text-success-text shrink-0" />
                         : <TrendingDown className="w-4 h-4 text-destructive-text shrink-0" />}
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium truncate">{v.descricao ?? "—"}</p>
+                        <p className="text-sm font-medium truncate">{principal}</p>
                         <p className="text-xs flex items-center gap-1.5">
                           <Clock className="w-2.5 h-2.5" /> {dataBr(v.data)}
                           {v.dias_para_vencer >= 0
                             ? <> · em <strong>{v.dias_para_vencer}d</strong></>
                             : <> · <strong>{-v.dias_para_vencer}d em atraso</strong></>}
+                          {secundario && <> · {secundario}</>}
                           {v.conta_nome && <> · {v.conta_nome}</>}
-                          {v.fornecedor_nome && <> · {v.fornecedor_nome}</>}
                         </p>
                       </div>
                     </div>
@@ -199,7 +204,8 @@ export default function FinancasAgenda() {
                     </p>
                     <BotaoPagar vencimento={v} onClick={() => acoes.pagar(v)} />
                   </div>
-                ))}
+                  );
+                })}
               </div>
             );
           })}

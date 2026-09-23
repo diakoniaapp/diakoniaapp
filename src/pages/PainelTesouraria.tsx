@@ -75,6 +75,7 @@ import {
 import { carregarResumoFiscal, type ResumoFiscalDashboard } from "@/services/fiscalService";
 import {
   brl, resumoFinanceiroMes, listarProjetos, listarCategorias, listarLancamentosSemTeto, listarContas,
+  nomeExtrato,
   type FinVencimento, type FinAlertaCentro, type FinResumoMes,
   type FinProjeto, type FinLancamentoExtenso, type FinConta,
 } from "@/services/finService";
@@ -718,7 +719,7 @@ export default function PainelTesouraria() {
                     {atrasadosPagar.slice(0, 5).map(v => (
                       <LinhaVencimento key={v.id} v={v}
                         onPagar={() => acoes.pagar(v)}
-                        onAnexo={() => setAnexosVencimento({ id: v.id, label: nomeParaPagamento(v).principal })} />
+                        onAnexo={() => setAnexosVencimento({ id: v.id, label: nomeExtrato(v).principal })} />
                     ))}
                     {atrasadosPagar.length > 5 && (
                       <li className="text-[11px] text-muted-foreground pt-1">+ {atrasadosPagar.length - 5} outros atrasados.</li>
@@ -740,7 +741,7 @@ export default function PainelTesouraria() {
                     {venceHoje.slice(0, 5).map(v => (
                       <LinhaVencimento key={v.id} v={v}
                         onPagar={() => acoes.pagar(v)}
-                        onAnexo={() => setAnexosVencimento({ id: v.id, label: nomeParaPagamento(v).principal })} />
+                        onAnexo={() => setAnexosVencimento({ id: v.id, label: nomeExtrato(v).principal })} />
                     ))}
                     {venceHoje.length > 5 && (
                       <li className="text-[11px] text-muted-foreground pt-1">+ {venceHoje.length - 5} outros vencendo hoje.</li>
@@ -849,12 +850,18 @@ export default function PainelTesouraria() {
                   </button>
                   {accAberto === "conciliacao" && (
                     <ul className="pb-2 space-y-1.5">
-                      {aguardandoConciliacao.slice(0, 3).map(p => (
-                        <li key={p.id} className="flex items-center justify-between gap-2 text-xs">
-                          <span className="truncate min-w-0">{p.descricao ?? p.categoria_nome ?? "Lançamento"}</span>
-                          <span className="tabular-nums font-medium shrink-0">{brl(p.valor)}</span>
-                        </li>
-                      ))}
+                      {aguardandoConciliacao.slice(0, 3).map(p => {
+                        const { principal, secundario } = nomeExtrato(p);
+                        return (
+                          <li key={p.id} className="flex items-center justify-between gap-2 text-xs">
+                            <span className="truncate min-w-0">
+                              <span className="font-medium">{principal}</span>
+                              {secundario && <span className="text-muted-foreground"> · {secundario}</span>}
+                            </span>
+                            <span className="tabular-nums font-medium shrink-0">{brl(p.valor)}</span>
+                          </li>
+                        );
+                      })}
                     </ul>
                   )}
                 </div>
@@ -933,7 +940,7 @@ export default function PainelTesouraria() {
                         className="flex items-center gap-2 px-3 py-2.5 min-h-11 w-full text-left group"
                       >
                         <span className="text-sm min-w-0 flex-1">
-                          <span className="font-medium">{p.descricao ?? p.categoria_nome ?? "Lançamento"}</span>
+                          <span className="font-medium">{nomeExtrato(p).principal}</span>
                           <span className="text-muted-foreground"> — {brl(p.valor)}</span>
                           <span className="text-info-text"> · aguardando conciliação</span>
                         </span>
@@ -942,7 +949,7 @@ export default function PainelTesouraria() {
                     ) : (
                       <div className="flex items-center gap-2 px-3 py-2.5 min-h-11">
                         <span className="text-sm min-w-0 flex-1">
-                          <span className="font-medium">{p.descricao ?? p.categoria_nome ?? "Lançamento"}</span>
+                          <span className="font-medium">{nomeExtrato(p).principal}</span>
                           <span className="text-muted-foreground"> — {brl(p.valor)}</span>
                           <span className={p.motivo === "aprovacao" ? "text-warning-text" : "text-muted-foreground"}>
                             {" "}· {p.motivo === "aprovacao" ? "aguardando aprovação" : "sem comprovante"}
@@ -987,7 +994,7 @@ export default function PainelTesouraria() {
                   <li key={v.id} className="flex items-center gap-2 px-3 py-2.5 min-h-11">
                     <span className="text-sm min-w-0 flex-1">
                       <span className={v.urgencia === "vencido" ? "font-medium text-destructive-text" : "font-medium"}>
-                        {v.descricao ?? v.categoria_nome ?? v.fornecedor_nome ?? "Vencimento"}
+                        {nomeExtrato(v, "Vencimento").principal}
                       </span>
                       <span className="text-muted-foreground"> — {brl(v.valor)} · {rotuloVencimento(v)}</span>
                     </span>
@@ -1307,7 +1314,7 @@ export default function PainelTesouraria() {
                                 {(d?.atual ?? []).slice(0, 20).map(l => (
                                   <li key={l.id} className="flex items-center justify-between gap-2 text-xs">
                                     <span className="truncate min-w-0">
-                                      {l.descricao ?? l.pessoa_nome ?? e.rotulo}
+                                      {nomeExtrato(l, e.rotulo).principal}
                                       <span className="text-muted-foreground"> · {new Date(l.data + "T00:00:00").toLocaleDateString("pt-BR")}</span>
                                     </span>
                                     <span className="tabular-nums font-medium shrink-0">{brl(l.valor)}</span>
@@ -1523,7 +1530,7 @@ export default function PainelTesouraria() {
           open={!!anexosPara}
           onOpenChange={(v) => !v && setAnexosPara(null)}
           lancamentoId={anexosPara.id}
-          descricaoLancamento={anexosPara.descricao ?? anexosPara.categoria_nome ?? "Lançamento"}
+          descricaoLancamento={nomeExtrato(anexosPara).principal}
           onChange={carregar}
         />
       )}
@@ -1611,7 +1618,7 @@ export default function PainelTesouraria() {
 function LinhaVencimento({ v, onPagar, onAnexo }: {
   v: FinVencimento; onPagar: () => void; onAnexo: () => void;
 }) {
-  const { principal, secundario } = nomeParaPagamento(v);
+  const { principal, secundario } = nomeExtrato(v);
   return (
     <li className="py-1.5 border-t first:border-t-0 first:pt-0">
       <div className="flex items-center justify-between gap-2 text-xs">
@@ -1691,22 +1698,6 @@ function rotuloVencimento(v: FinVencimento): string {
   if (v.dias_para_vencer < 0) return `vencido há ${Math.abs(v.dias_para_vencer)}d`;
   if (v.dias_para_vencer === 0) return "vence hoje";
   return `vence em ${v.dias_para_vencer}d`;
-}
-
-/**
- * Fase 12, revisão da Central de Pagamentos (23/09/2026), Prioridade 2 —
- * pedido dela: "pra uma Central de Pagamentos, favorecido tem que vir
- * antes de descrição. A tesouraria precisa saber pra quem tá pagando".
- * Antes disso a ordem era `descricao ?? categoria_nome ?? fornecedor_nome`
- * — se um lançamento tinha descrição E fornecedor, o fornecedor nunca
- * aparecia. Agora o fornecedor é sempre o principal quando existe; o
- * resto vira detalhe secundário, não escondido, só em segundo plano.
- */
-function nomeParaPagamento(v: FinVencimento): { principal: string; secundario: string | null } {
-  if (v.fornecedor_nome) {
-    return { principal: v.fornecedor_nome, secundario: v.descricao ?? v.categoria_nome };
-  }
-  return { principal: v.descricao ?? v.categoria_nome ?? "Vencimento", secundario: null };
 }
 
 /**

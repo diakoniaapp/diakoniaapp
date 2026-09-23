@@ -65,7 +65,7 @@ import {
 import { toast } from "sonner";
 import {
   carregarConta, listarLancamentosSemTeto, excluirLancamento, excluirLancamentosEmLote, brl,
-  comprovanteSignedUrl, CONTA_TIPO_LABEL,
+  comprovanteSignedUrl, CONTA_TIPO_LABEL, nomeExtrato,
   conciliarEmLote, listarCategorias, listarCentrosCusto,
   type FinConta, type FinLancamentoExtenso, type FinMovimentoTipo, type FinStatus,
   type FinCategoria, type FinCentroCusto,
@@ -303,20 +303,23 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, onChange }: Pr
   const lancamentosPagina = lancamentosOrdenados.slice(inicioPagina, inicioPagina + POR_PAGINA);
 
   function renderLinha(l: FinLancamentoExtenso) {
+    // Bug de usabilidade (23/09/2026), pedido dela: "a primeira coisa
+    // que a tesouraria precisa ver é o favorecido, não a descrição
+    // digitada" — `nomeExtrato` (finService.ts) prioriza fornecedor/
+    // pessoa; descrição vira a linha secundária, não some.
+    const { principal, secundario } = nomeExtrato(l);
     return (
       <tr key={l.id} className="border-t hover:bg-muted/30 group">
         <td className="py-1.5 px-2">
           <Checkbox checked={selecionados.has(l.id)} onCheckedChange={() => alternarSelecao(l.id)}
-            aria-label={`Selecionar ${l.descricao ?? "lançamento"}`} />
+            aria-label={`Selecionar ${principal}`} />
         </td>
         <td className="py-1.5 px-2 whitespace-nowrap">
           <span className={STATUS_COR[l.status]} title={STATUS_LABEL[l.status]}>{dataBr(l.data)}</span>
         </td>
         <td className="py-1.5 px-2 min-w-[160px]">
-          <p className="font-medium truncate">{l.descricao ?? "—"}</p>
-          {l.fornecedor_nome && l.fornecedor_nome !== l.descricao && (
-            <p className="text-xs text-muted-foreground truncate">{l.fornecedor_nome}</p>
-          )}
+          <p className="font-medium truncate">{principal}</p>
+          {secundario && <p className="text-xs text-muted-foreground truncate">{secundario}</p>}
         </td>
         <td className="py-1.5 px-2 overflow-hidden hidden md:table-cell">
           {l.categoria_nome && (
@@ -598,7 +601,7 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, onChange }: Pr
           open={!!anexosPara}
           onOpenChange={(v) => !v && setAnexosPara(null)}
           lancamentoId={anexosPara.id}
-          descricaoLancamento={anexosPara.descricao ?? anexosPara.categoria_nome ?? "Lançamento"}
+          descricaoLancamento={nomeExtrato(anexosPara).principal}
         />
       )}
 

@@ -311,6 +311,48 @@ export function formasPermitidas(conta: FinConta | null, tipo: FinMovimentoTipo)
   return permitidas ?? TODAS_AS_FORMAS;
 }
 
+/**
+ * Bug de usabilidade no extrato (23/09/2026), pedido dela: "a primeira
+ * informação deve ser o favorecido/recebedor, não a descrição digitada —
+ * a tesouraria precisa responder 'pra quem foi isso' antes de qualquer
+ * outra coisa". Ela pediu uma hierarquia de 6 níveis (Fornecedor,
+ * Contratado, Doador, Favorecido, Recebedor, Descrição) — MEDIDO no
+ * banco antes de implementar: `fin_lancamentos` só tem DOIS campos de
+ * nome de verdade, `fornecedor_id` e `pessoa_id` (mutuamente exclusivos,
+ * conferido no código do `LancamentoForm`). "Contratado" não tem FK
+ * própria na tabela de lançamentos — um contratado que é membro entra
+ * por `pessoa_id`; "Doador"/"Favorecido"/"Recebedor" são o MESMO
+ * `pessoa_id`, só o nome conceitual muda com o sentido do lançamento
+ * (quem recebe pagamento vs. quem doou). Os 6 níveis dela colapsam pra
+ * 2 campos reais + 2 de reserva — não é simplificação de mais, é o que
+ * o schema tem.
+ *
+ * Usada em toda tela de extrato/lançamento (Central de Pagamentos,
+ * Central de Arrecadação, Central de Conciliação, Extratos de conta,
+ * Agenda Financeira) — antes cada uma escrevia sua própria ordem
+ * `descricao ?? categoria_nome ?? fornecedor_nome`, com a descrição na
+ * frente. Local único agora — mudar a prioridade de novo só precisa
+ * mudar aqui.
+ */
+export interface NomeExtrato { principal: string; secundario: string | null; }
+
+export function nomeExtrato(
+  l: { fornecedor_nome?: string | null; pessoa_nome?: string | null; descricao?: string | null; categoria_nome?: string | null },
+  generico = "Lançamento",
+): NomeExtrato {
+  const favorecido = l.fornecedor_nome || l.pessoa_nome;
+  if (favorecido) {
+    // Lançamento importado do Omie/fatura às vezes repete o nome do
+    // favorecido dentro de `descricao` — mostrar a mesma string duas
+    // vezes (achado pela Telma, 16/09/2026, "SUPERMERCADO MUNDIAL LTDA"
+    // duplicado no extrato) não vira informação nova só por trocar de
+    // ordem.
+    const detalhe = l.descricao || l.categoria_nome || null;
+    return { principal: favorecido, secundario: detalhe && detalhe !== favorecido ? detalhe : null };
+  }
+  return { principal: l.descricao || l.categoria_nome || generico, secundario: null };
+}
+
 export const STATUS_LABEL: Record<FinStatus, string> = {
   previsto: "Previsto", realizado: "Realizado",
   conciliado: "Conciliado", cancelado: "Cancelado",
