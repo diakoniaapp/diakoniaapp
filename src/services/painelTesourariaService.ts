@@ -232,6 +232,81 @@ export async function listarAlertasTesouraria(): Promise<AlertaTesouraria[]> {
     (x.severidade === "critico" ? 0 : 1) - (y.severidade === "critico" ? 0 : 1));
 }
 
+// ─── Mesa do Tesoureiro ─────────────────────────────────────────────────
+//
+// Fase 9 do roadmap Financeiro ERP (22/09/2026). Dos seis números que a
+// seção mostra, quatro (vence hoje/amanhã, atrasados, valor da semana,
+// conciliações pendentes) nascem de `vencimentos` e `pendencias`, que o
+// painel já carrega — por isso são calculados no componente, não aqui,
+// para não duplicar a mesma consulta. Só os dois que não tinham par
+// pronto no banco entram nesta função:
+//
+// PIX pendentes — mede "quantos compromissos já têm tudo pronto pra pagar
+// AGORA": saída ainda não paga (`previsto` ou `aguardando_aprovacao`) cujo
+// fornecedor já tem chave Pix cadastrada (Fase 7). Medido em produção em
+// 22/09/2026: só 1 dos fornecedores com lançamento pendente tem chave_pix
+// — o número costuma ser 0 hoje, e isso é o retrato real do cadastro
+// incompleto que a Fase 7 começou a corrigir, não um bug desta consulta.
+//
+// Anexos faltando — `realizado`/`conciliado` sem `comprovante_url` (o
+// campo legado, de antes da Fase 7) E sem nenhuma linha em
+// `fin_lancamento_anexos` (o novo, múltiplo — Fase 7). Contado em
+// produção: 60 dos 179 lançamentos. É a métrica que mostra se o hábito de
+// anexar está pegando de verdade — por isso o rótulo é "faltando", não
+// "documentos".
+//
+// Lotes de 150 ids no segundo `.in()`: mesmo motivo do `emLotes` em
+// `finService.ts` — a lista de candidatos cresce com o tempo, e um único
+// `.in()` estoura a URL do PostgREST bem antes de mil ids.
+
+export interface MesaTesoureiro {
+  pixPendentes: number;
+  anexosFaltando: number;
+}
+
+export async function carregarMesaTesoureiro(): Promise<MesaTesoureiro> {
+  const { data: pendentes } = await supabase
+    .from("fin_lancamentos")
+    .select("fornecedor_id")
+    .eq("tipo", "saida")
+    .in("status", ["previsto", "aguardando_aprovacao"])
+    .not("fornecedor_id", "is", null);
+  const listaPendentes = (pendentes ?? []) as { fornecedor_id: string }[];
+
+  let pixPendentes = 0;
+  const fornecedorIds = Array.from(new Set(listaPendentes.map(p => p.fornecedor_id)));
+  if (fornecedorIds.length > 0) {
+    const { data: forns } = await supabase
+      .from("fin_fornecedores").select("id, chave_pix").in("id", fornecedorIds);
+    const comPix = new Set(
+      ((forns ?? []) as { id: string; chave_pix: string | null }[])
+        .filter(f => f.chave_pix).map(f => f.id),
+    );
+    pixPendentes = listaPendentes.filter(p => comPix.has(p.fornecedor_id)).length;
+  }
+
+  const { data: semComprovanteLegado } = await supabase
+    .from("fin_lancamentos")
+    .select("id")
+    .in("status", ["realizado", "conciliado"])
+    .is("comprovante_url", null);
+  const candidatos = ((semComprovanteLegado ?? []) as { id: string }[]).map(l => l.id);
+
+  let anexosFaltando = candidatos.length;
+  if (candidatos.length > 0) {
+    const comAnexo = new Set<string>();
+    for (let i = 0; i < candidatos.length; i += 150) {
+      const lote = candidatos.slice(i, i + 150);
+      const { data } = await supabase
+        .from("fin_lancamento_anexos").select("lancamento_id").in("lancamento_id", lote);
+      ((data ?? []) as { lancamento_id: string }[]).forEach(a => comAnexo.add(a.lancamento_id));
+    }
+    anexosFaltando = candidatos.filter(id => !comAnexo.has(id)).length;
+  }
+
+  return { pixPendentes, anexosFaltando };
+}
+
 // ─── Cruzamento com a Diaconia ────────────────────────────────────────────
 //
 // Pedido dela, verbatim (03/09/2026, ao desenhar a porta de entrada da

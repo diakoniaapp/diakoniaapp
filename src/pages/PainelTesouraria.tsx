@@ -56,7 +56,7 @@
 // decisão de como as duas metades (financeiro e Diaconia) se encontram.
 
 import { useCallback, useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   DollarSign, Receipt, Wallet, ChevronRight, RefreshCw, Sparkles, Package,
   Clock, CalendarClock, Target, HandCoins, Scale, Lightbulb,
@@ -83,6 +83,7 @@ import {
   listarPendencias, type ItemPendencia, type PendenciaLancamento, type PendenciaFechamento, DIAS_JANELA_COMPROVANTE,
   listarVencimentosDaSemana, listarAlertasOrcamento, DIAS_JANELA_VENCIMENTOS,
   listarAlertasTesouraria, type AlertaTesouraria,
+  carregarMesaTesoureiro, type MesaTesoureiro,
   carregarCruzamentoDiaconia, type CruzamentoDiaconia,
 } from "@/services/painelTesourariaService";
 import { AgendaFiscalUrgente } from "@/components/dashboard/AgendaFiscalUrgente";
@@ -92,6 +93,7 @@ import { ROLES_DOADORES, ROLES_PASTORAL_SEM_TITULAR } from "@/components/layout/
 
 export default function PainelTesouraria() {
   const { hasRole } = useAuth();
+  const navigate = useNavigate();
   const [fiscal, setFiscal] = useState<ResumoFiscalDashboard | null>(null);
   // A pergunta que faltava responder: "o painel reflete o módulo
   // financeiro?" — não, ele só mostrava contagem de PROBLEMA (fiscal,
@@ -103,6 +105,7 @@ export default function PainelTesouraria() {
   const [vencimentos, setVencimentos] = useState<FinVencimento[]>([]);
   const [alertasOrc, setAlertasOrc] = useState<FinAlertaCentro[]>([]);
   const [alertas, setAlertas] = useState<AlertaTesouraria[]>([]);
+  const [mesa, setMesa] = useState<MesaTesoureiro | null>(null);
   const [diaconia, setDiaconia] = useState<CruzamentoDiaconia | null>(null);
   // Pedido dela (22/09/2026): "o que foi construído no módulo financeiro é
   // robusto demais para ficar lá embaixo do painel" — projetos em
@@ -121,7 +124,7 @@ export default function PainelTesouraria() {
     setCarregando(true);
     setErro(null);
     try {
-      const [f, r, proj, p, v, a, al, d] = await Promise.all([
+      const [f, r, proj, p, v, a, al, m, d] = await Promise.all([
         carregarResumoFiscal(),
         resumoFinanceiroMes(),
         listarProjetos().then(ativos => Promise.all(ativos.map(async projeto => {
@@ -132,6 +135,7 @@ export default function PainelTesouraria() {
         listarVencimentosDaSemana(),
         listarAlertasOrcamento(),
         listarAlertasTesouraria(),
+        carregarMesaTesoureiro(),
         // A única peça sem par pronto no banco — isolada com o próprio
         // catch, para que uma falha aqui (ministério de Diaconia ainda sem
         // `modulo`, RLS de outra área) não derrube o painel inteiro.
@@ -144,6 +148,7 @@ export default function PainelTesouraria() {
       setVencimentos(v);
       setAlertasOrc(a);
       setAlertas(al);
+      setMesa(m);
       setDiaconia(d);
       setAtualizadoEm(new Date());
     } catch (e: unknown) {
@@ -224,6 +229,19 @@ export default function PainelTesouraria() {
   const orcamentoCriticos = alertasOrc.filter(a => a.severidade === "critico");
   const alertasCriticos = alertas.filter(a => a.severidade === "critico");
 
+  // ── Mesa do Tesoureiro (Fase 9, 22/09/2026) ─────────────────────────────
+  // Quatro dos seis números nascem de `vencimentos`, já carregado acima —
+  // sem consulta nova. Só olham SAÍDA: a mesa é o relógio de PAGAR, não de
+  // receber (a seção "Próximos vencimentos" logo abaixo continua com os
+  // dois tipos, para quem precisa da visão completa).
+  const vencimentosSaida = vencimentos.filter(v => v.tipo === "saida");
+  const venceHoje = vencimentosSaida.filter(v => v.urgencia === "vence_hoje");
+  const venceAmanha = vencimentosSaida.filter(v => v.dias_para_vencer === 1);
+  const atrasadosPagar = vencimentosSaida.filter(v => v.urgencia === "vencido");
+  const valorSemanaPagar = vencimentosSaida
+    .filter(v => v.dias_para_vencer >= 0 && v.dias_para_vencer <= DIAS_JANELA_VENCIMENTOS)
+    .reduce((s, v) => s + Number(v.valor), 0);
+
   return (
     <div className="p-6 space-y-4 max-w-5xl xl:max-w-6xl 2xl:max-w-7xl mx-auto">
       {/* Mesma largura e mesmo cabeçalho fixo do Painel Pastoral e do Painel
@@ -272,7 +290,11 @@ export default function PainelTesouraria() {
             Mesma regra dos outros dois painéis, decidida em 27/08/2026: sem
             `valor`, cada bloco vira atalho de ícone + rótulo + seta. */}
         {fiscal && (
-          <FaixaDeIndicadores colunas={7}>
+          <FaixaDeIndicadores colunas={8}>
+            <Indicador
+              rotulo="Mesa" tom="gold" icone={Wallet}
+              onClick={() => irParaSecao("mesa")} descricao="Ir para a Mesa do Tesoureiro"
+            />
             <Indicador
               rotulo="Fiscal" tom="warning" icone={Receipt}
               onClick={() => irParaSecao("fiscal")} descricao="Ir para Fiscal"
@@ -409,6 +431,53 @@ export default function PainelTesouraria() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+          </section>
+
+          {/* ── Mesa do Tesoureiro ───────────────────────────────────────
+              Fase 9 do roadmap Financeiro ERP (22/09/2026), pedido dela ao
+              validar a Central de Pagamentos (Fase 8): os seis números que
+              respondem "o que preciso decidir hoje, sem entrar em nenhuma
+              seção?". Mesmo componente `Indicador`/`FaixaDeIndicadores` já
+              usado com `valor` no Painel Pastoral (seção "Entrando", faixa
+              de visitantes) — aqui não é a faixa-índice do topo (aquela
+              perdeu os números em 27/08/2026, pedido dela: "competiam com
+              o conteúdo"), é uma SEÇÃO com número de verdade, como aquela.
+              "Anexos faltando" não tem clique — a tela de gerenciar anexos
+              de um lançamento ainda não existe (schema e serviço prontos
+              desde a Fase 7; a tela é a próxima peça pendente). */}
+          <section id="mesa" className="scroll-mt-[220px]">
+            <TituloDaSecao icone={Wallet} tom="gold">Mesa do Tesoureiro</TituloDaSecao>
+            <FaixaDeIndicadores colunas={6}>
+              <Indicador
+                rotulo="Vence hoje/amanhã" valor={venceHoje.length + venceAmanha.length}
+                tom={venceHoje.length > 0 ? "warning" : "info"}
+                onClick={() => irParaSecao("vencimentos")}
+                descricao={`${venceHoje.length} hoje, ${venceAmanha.length} amanhã — ir para Próximos vencimentos`}
+              />
+              <Indicador
+                rotulo="Atrasados" valor={atrasadosPagar.length} tom="warning"
+                onClick={() => irParaSecao("vencimentos")} descricao="Ir para Próximos vencimentos"
+              />
+              <Indicador
+                rotulo="Valor da semana" valor={brl(valorSemanaPagar)} tom="gold"
+                onClick={() => irParaSecao("vencimentos")}
+                descricao={`A pagar nos próximos ${DIAS_JANELA_VENCIMENTOS} dias — ir para Próximos vencimentos`}
+              />
+              <Indicador
+                rotulo="Pix pendentes" valor={mesa ? mesa.pixPendentes : "—"} tom="info"
+                onClick={() => navigate("/financas/agenda?tipo=saida")}
+                descricao="Compromissos com chave Pix pronta — ir para a Central de Pagamentos"
+              />
+              <Indicador
+                rotulo="Conciliações" valor={aguardandoConciliacao.length} tom="warning"
+                onClick={() => navigate(aguardandoConciliacao.length > 0
+                  ? `/financas/conta/${aguardandoConciliacao[0].conta_id}` : "/financas")}
+                descricao="Ir para conciliar"
+              />
+              <Indicador
+                rotulo="Anexos faltando" valor={mesa ? mesa.anexosFaltando : "—"} tom="warning"
+              />
+            </FaixaDeIndicadores>
           </section>
 
           {/* ── Fiscal ─────────────────────────────────────────────────── */}
