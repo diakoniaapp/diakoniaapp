@@ -90,6 +90,8 @@ import {
 import { AgendaFiscalUrgente } from "@/components/dashboard/AgendaFiscalUrgente";
 import { AnexosLancamentoDialog } from "@/components/financas/AnexosLancamentoDialog";
 import { ConciliacaoDrawer } from "@/components/financas/ConciliacaoDrawer";
+import { FornecedoresDrawer } from "@/components/financas/FornecedoresDrawer";
+import { RecorrenciasDrawer } from "@/components/financas/RecorrenciasDrawer";
 import { useAcoesLancamento, BotaoPagar, BotoesAprovacao } from "@/hooks/useAcoesLancamento";
 import { useAuth } from "@/hooks/useAuth";
 import { hojeLocal } from "@/lib/data";
@@ -188,6 +190,11 @@ export default function PainelTesouraria() {
   // TRÊS entradas pra conciliação (linha da pendência, tile da Mesa,
   // "Mais ações") levam à mesma conta mas nenhuma delas tem o mesmo shape.
   const [conciliandoConta, setConciliandoConta] = useState<{ id: string; nome: string } | null>(null);
+  // Fase 11b do Workspace Financeiro (23/09/2026): os dois primeiros
+  // atalhos de "Ir para" a virar drawer, provando o padrão antes de
+  // estender pros outros nove do mapa.
+  const [fornecedoresAberto, setFornecedoresAberto] = useState(false);
+  const [recorrenciasAberto, setRecorrenciasAberto] = useState(false);
   function abrirConciliacao() {
     // Sem pendência real, não tem conta certa pra abrir — cai no hub de
     // contas mesmo, mais honesto que fingir que sabe onde ir (mesma régua
@@ -877,7 +884,10 @@ export default function PainelTesouraria() {
                   { to: "/financas/agenda?tipo=saida", label: "Contas a pagar", icone: TrendingDown },
                   { to: "/financas/agenda?tipo=entrada", label: "Contas a receber", icone: TrendingUp },
                   { to: "/financas/doacoes", label: "Doações", icone: HandCoins },
-                  { to: "/financas/recorrencias", label: "Recorrências", icone: RotateCw },
+                  // Fase 11b (23/09/2026): primeiro atalho a abrir por cima,
+                  // sem trocar de rota — RecorrenciasDrawer, mesmo
+                  // conteúdo de /financas/recorrencias.
+                  { onClick: () => setRecorrenciasAberto(true), label: "Recorrências", icone: RotateCw },
                 ]}
               />
               <JanelaAssunto
@@ -885,7 +895,9 @@ export default function PainelTesouraria() {
                 descricao="Referência que muda pouco — configure uma vez."
                 links={[
                   { to: "/financas/centros", label: "Centros de Custo", icone: Layers },
-                  { to: "/financas/fornecedores", label: "Fornecedores", icone: Building2 },
+                  // Fase 11b: FornecedoresDrawer, mesmo conteúdo de
+                  // /financas/fornecedores.
+                  { onClick: () => setFornecedoresAberto(true), label: "Fornecedores", icone: Building2 },
                   { to: "/financas/estoque", label: "Estoque", icone: Package },
                   { to: "/financas/orcamento", label: "Planejar Orçamento", icone: Target },
                 ]}
@@ -937,6 +949,8 @@ export default function PainelTesouraria() {
           onChange={carregar}
         />
       )}
+      <FornecedoresDrawer open={fornecedoresAberto} onOpenChange={setFornecedoresAberto} />
+      <RecorrenciasDrawer open={recorrenciasAberto} onOpenChange={setRecorrenciasAberto} />
     </div>
   );
 }
@@ -951,7 +965,11 @@ export default function PainelTesouraria() {
  */
 function JanelaAssunto({ icone: Icone, titulo, descricao, links }: {
   icone: LucideIcon; titulo: string; descricao: string;
-  links: { to: string; label: string; icone: LucideIcon }[];
+  // Fase 11b do Workspace Financeiro (23/09/2026): `onClick` é o atalho que
+  // abre um drawer sem trocar de rota — `to` continua existindo pra quem
+  // não tem drawer ainda (a maioria, por enquanto). Nunca os dois juntos
+  // no mesmo link: ou abre por cima (drawer), ou navega (rota).
+  links: { to?: string; onClick?: () => void; label: string; icone: LucideIcon }[];
 }) {
   if (links.length === 0) return null;
   return (
@@ -964,9 +982,13 @@ function JanelaAssunto({ icone: Icone, titulo, descricao, links }: {
         </div>
       </div>
       <div className="flex flex-wrap gap-1.5">
-        {links.map(l => (
+        {links.map(l => l.onClick ? (
+          <Button key={l.label} type="button" variant="outline" size="sm" className="gap-1.5" onClick={l.onClick}>
+            <l.icone className="w-3.5 h-3.5" /> {l.label}
+          </Button>
+        ) : (
           <Button key={l.to} asChild variant="outline" size="sm" className="gap-1.5">
-            <Link to={l.to}><l.icone className="w-3.5 h-3.5" /> {l.label}</Link>
+            <Link to={l.to!}><l.icone className="w-3.5 h-3.5" /> {l.label}</Link>
           </Button>
         ))}
       </div>
