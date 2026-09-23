@@ -66,8 +66,10 @@ export default function Financas() {
   const [imprimirOpen, setImprimirOpen] = useState(false);
   const [contasParaImprimir, setContasParaImprimir] = useState<Set<string>>(new Set());
   const hojeImpressao = new Date();
-  const [printDataInicio, setPrintDataInicio] = useState(toYmd(new Date(hojeImpressao.getFullYear(), hojeImpressao.getMonth(), 1)));
-  const [printDataFim, setPrintDataFim] = useState(toYmd(new Date(hojeImpressao.getFullYear(), hojeImpressao.getMonth() + 1, 0)));
+  // Bug de produtividade (23/09/2026): abria em "01 do mês até hoje" —
+  // ela pediu que todo filtro de período abra em HOJE por padrão.
+  const [printDataInicio, setPrintDataInicio] = useState(toYmd(hojeImpressao));
+  const [printDataFim, setPrintDataFim] = useState(toYmd(hojeImpressao));
   // Mesmo histórico de defeito relatado ao vivo pela Telma em
   // FinancasConta.tsx (17/09/2026): `min` dinâmico + campo cruzado →
   // teclado nativo do `<input type="date">` quebrado no WebView → e por

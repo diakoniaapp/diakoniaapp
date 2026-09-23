@@ -234,15 +234,22 @@ export default function FinancasConta() {
     return () => ro.disconnect();
   }, [faixaFixaEl]);
 
-  // Período do filtro — mês atual por default. `toYmd` (não
-  // `.toISOString().slice(0,10)`) — essa última converte pra UTC antes de
-  // formatar, e lia o mês errado pertinho da virada (ver src/lib/data.ts).
+  // Período do filtro — HOJE por default (23/09/2026, bug de
+  // produtividade: "abre no primeiro dia do mês, a tesouraria trabalha
+  // com 'o que aconteceu hoje'"). Não conflita com o pedido de
+  // 22/09/2026 acima ("PRIORIDADE MÁXIMA" item 4, guardar na URL pra F5
+  // sobreviver): esse fallback só entra quando a URL NÃO tem `de`/`ate`
+  // — quem já escolheu um período tem ele na query string, e a query
+  // string sobrevive ao F5 sozinha, sem precisar deste valor. `toYmd`
+  // (não `.toISOString().slice(0,10)`) — essa última converte pra UTC
+  // antes de formatar, e lia o mês errado pertinho da virada (ver
+  // src/lib/data.ts).
   const hoje = new Date();
   const [dataInicio, setDataInicio] = useState(
-    () => searchParams.get("de") ?? toYmd(new Date(hoje.getFullYear(), hoje.getMonth(), 1)),
+    () => searchParams.get("de") ?? toYmd(hoje),
   );
   const [dataFim, setDataFim] = useState(
-    () => searchParams.get("ate") ?? toYmd(new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0)),
+    () => searchParams.get("ate") ?? toYmd(hoje),
   );
   // Telma reportou ao vivo (17/09/2026), na conta "Caixinha
   // Administrativo", em três rodadas: (1) "eu clico para alterar e ela

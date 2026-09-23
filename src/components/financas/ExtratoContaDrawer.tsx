@@ -136,9 +136,16 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, onChange }: Pr
   const [excluindoLoteBusy, setExcluindoLoteBusy] = useState(false);
   const [saldoAntesDoPeriodo, setSaldoAntesDoPeriodo] = useState(0);
 
+  // Bug de produtividade (23/09/2026), pedido dela: "o sistema deve abrir
+  // com a data atual, não com o primeiro dia do mês — a tesouraria
+  // trabalha com 'o que aconteceu hoje', não 'desde o início do mês'".
+  // Continua reabrindo em HOJE toda vez que o drawer é montado de novo
+  // (troca de conta, fecha e abre) — só não muda enquanto ele permanece
+  // aberto e ela mexe no filtro à mão, que é exatamente o comportamento
+  // que ela pediu para preservar.
   const hoje = new Date();
-  const [dataInicio, setDataInicio] = useState(() => toYmd(new Date(hoje.getFullYear(), hoje.getMonth(), 1)));
-  const [dataFim, setDataFim] = useState(() => toYmd(new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0)));
+  const [dataInicio, setDataInicio] = useState(() => toYmd(hoje));
+  const [dataFim, setDataFim] = useState(() => toYmd(hoje));
   const inicioEfetivo = dataInicio <= dataFim ? dataInicio : dataFim;
   const fimEfetivo = dataInicio <= dataFim ? dataFim : dataInicio;
 

@@ -304,10 +304,20 @@ export default function PainelTesouraria() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Bug de produtividade (23/09/2026), pedido dela: "o sistema deve abrir
+  // sempre com a data atual — a tesouraria trabalha com 'o que aconteceu
+  // hoje', não 'desde o início do mês'". Preset inicial mudou de "mes"
+  // pra "hoje" — afeta de uma vez a Central de Arrecadação, os
+  // Indicadores Eclesiásticos (Dízimos/Ofertas/Missões) e "Enviado no
+  // período" do Saldo Missionário, porque os três leem este mesmo
+  // `eclPreset`. Trocar manualmente pra "Mês atual" (ou qualquer outro)
+  // continua valendo enquanto ela ficar na tela — só reabrir a aba/o
+  // Financeiro de novo volta pra "hoje", porque é um `useState`
+  // reavaliado do zero a cada montagem, não algo persistido.
   type PeriodoPreset = "hoje" | "7d" | "30d" | "mes" | "ano" | "custom";
-  const [eclPreset, setEclPreset] = useState<PeriodoPreset>("mes");
+  const [eclPreset, setEclPreset] = useState<PeriodoPreset>("hoje");
   const hoje = hojeLocal();
-  const [eclCustomInicio, setEclCustomInicio] = useState(() => hoje.slice(0, 7) + "-01");
+  const [eclCustomInicio, setEclCustomInicio] = useState(hoje);
   const [eclCustomFim, setEclCustomFim] = useState(hoje);
 
   const { eclInicio, eclFim } = (() => {

@@ -31,6 +31,7 @@ import {
   type FinConta, type FinLancamentoExtenso,
 } from "@/services/finService";
 import { saldoAcumuladoAntesDe } from "@/services/prestacaoContasService";
+import { toYmd } from "@/lib/data";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { PaginaSkeleton } from "@/components/ListState";
@@ -63,11 +64,15 @@ export default function FinancasRelatorioContas() {
     () => (searchParams.get("contas") ?? "").split(",").filter(Boolean),
     [searchParams],
   );
+  // Bug de produtividade (23/09/2026): fallback era "01 do mês até fim do
+  // mês" — só entra quando a URL não traz `inicio`/`fim` (quem já gerou
+  // um relatório com período escolhido tem os dois na query string, que
+  // sobrevive sozinha). `toYmd`, não `.toISOString().slice(0,10)` — essa
+  // última converte pra UTC antes de formatar e lia o dia errado perto da
+  // virada da meia-noite (ver src/lib/data.ts).
   const hoje = new Date();
-  const dataInicio = searchParams.get("inicio")
-    ?? new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().slice(0, 10);
-  const dataFim = searchParams.get("fim")
-    ?? new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).toISOString().slice(0, 10);
+  const dataInicio = searchParams.get("inicio") ?? toYmd(hoje);
+  const dataFim = searchParams.get("fim") ?? toYmd(hoje);
 
   const [contas, setContas] = useState<FinConta[]>([]);
   const [lancamentos, setLancamentos] = useState<FinLancamentoExtenso[]>([]);
