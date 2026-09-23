@@ -59,7 +59,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   DollarSign, Receipt, Wallet, ChevronRight, RefreshCw, Sparkles, Package,
-  Clock, CalendarClock, Target, HandCoins, Scale, Lightbulb,
+  Clock, CalendarClock, Target, HandCoins, Scale, Lightbulb, Paperclip,
   HeartHandshake, Users, ScrollText, Layers, Handshake, MoreHorizontal,
   TrendingDown, TrendingUp, RotateCw, Briefcase, LineChart, Building2, FolderKanban,
   Globe2, Archive, BookOpenCheck, type LucideIcon,
@@ -87,6 +87,8 @@ import {
   carregarCruzamentoDiaconia, type CruzamentoDiaconia,
 } from "@/services/painelTesourariaService";
 import { AgendaFiscalUrgente } from "@/components/dashboard/AgendaFiscalUrgente";
+import { AnexosLancamentoDialog } from "@/components/financas/AnexosLancamentoDialog";
+import { useAcoesLancamento, BotaoPagar, BotoesAprovacao } from "@/hooks/useAcoesLancamento";
 import { useAuth } from "@/hooks/useAuth";
 import { hojeLocal } from "@/lib/data";
 import { ROLES_DOADORES, ROLES_PASTORAL_SEM_TITULAR } from "@/components/layout/navConfig";
@@ -159,6 +161,18 @@ export default function PainelTesouraria() {
   }, []);
 
   useEffect(() => { carregar(); }, [carregar]);
+
+  // ── Fase 10 (Central Operacional Financeira, 22/09/2026) ─────────────────
+  //
+  // Pedido dela: "o usuário deve conseguir realizar trabalho financeiro sem
+  // navegar entre múltiplas telas". Até aqui, Pendências e Próximos
+  // vencimentos eram fila de LEITURA — cada linha levava pra Agenda
+  // Financeira pra decidir. Agora decide aqui: `useAcoesLancamento` é o
+  // mesmo hook que `FinancasAgenda.tsx` usa (extraído de lá nesta mesma
+  // fase, pra não duplicar Pix/QR/anexo), e `AnexosLancamentoDialog` é o
+  // mesmo diálogo que já existe no extrato de conta (Fase 9).
+  const acoes = useAcoesLancamento(carregar);
+  const [anexosPara, setAnexosPara] = useState<PendenciaLancamento | null>(null);
 
   // ── Ofertas para Missões, filtrável por período ──────────────────────────
   //
@@ -499,10 +513,13 @@ export default function PainelTesouraria() {
           <section id="pendencias" className="scroll-mt-[220px]">
             <TituloDaSecao
               icone={Clock} tom="warning" contagem={pendencias.length}
-              // Vai para a Agenda financeira, não para o hub genérico: é lá
-              // que "aguardando aprovação" agora tem os botões Aprovar/
-              // Rejeitar (12/09/2026) — o hub só listava sem decidir nada.
-              acao={<Link to="/financas/agenda" className="text-sm text-primary hover:underline">Abrir agenda financeira</Link>}
+              // Fase 10: "abrir agenda" saiu daqui — aprovar/rejeitar e
+              // anexar já acontecem na própria linha (ver abaixo). Só
+              // conciliação e fechamento continuam levando pra outro lugar:
+              // a primeira porque bater com o extrato exige ver o extrato
+              // inteiro, não cabe numa linha; a segunda é ritual mensal, não
+              // decisão do dia.
+              acao={<Link to="/financas/agenda" className="text-sm text-primary hover:underline">Ver tudo</Link>}
             >
               Pendências
             </TituloDaSecao>
@@ -512,10 +529,6 @@ export default function PainelTesouraria() {
               </p>
             ) : (
               <ul className="divide-y rounded-md border bg-card">
-                {/* Cada linha leva pro lugar exato onde ela se resolve —
-                    aprovação/comprovante na agenda, conciliação na conta,
-                    fechamento na Prestação de Contas — em vez de só listar
-                    sem dar o próximo passo. */}
                 {pendencias.slice(0, 8).map(p => (
                   <li key={p.motivo === "fechamento" ? p.id : `${p.motivo}-${p.id}`}>
                     {p.motivo === "fechamento" ? (
@@ -529,20 +542,36 @@ export default function PainelTesouraria() {
                         </span>
                         <ChevronRight className="w-4 h-4 shrink-0 text-muted-foreground group-hover:text-primary transition-colors" />
                       </Link>
-                    ) : (
+                    ) : p.motivo === "conciliacao" ? (
                       <Link
-                        to={p.motivo === "conciliacao" ? `/financas/conta/${p.conta_id}` : "/financas/agenda"}
+                        to={`/financas/conta/${p.conta_id}`}
                         className="flex items-center gap-2 px-3 py-2.5 min-h-11 group"
                       >
                         <span className="text-sm min-w-0 flex-1">
                           <span className="font-medium">{p.descricao ?? p.categoria_nome ?? "Lançamento"}</span>
                           <span className="text-muted-foreground"> — {brl(p.valor)}</span>
-                          <span className={p.motivo === "aprovacao" ? "text-warning-text" : p.motivo === "conciliacao" ? "text-info-text" : "text-muted-foreground"}>
-                            {" "}· {p.motivo === "aprovacao" ? "aguardando aprovação" : p.motivo === "conciliacao" ? "aguardando conciliação" : "sem comprovante"}
-                          </span>
+                          <span className="text-info-text"> · aguardando conciliação</span>
                         </span>
                         <ChevronRight className="w-4 h-4 shrink-0 text-muted-foreground group-hover:text-primary transition-colors" />
                       </Link>
+                    ) : (
+                      <div className="flex items-center gap-2 px-3 py-2.5 min-h-11">
+                        <span className="text-sm min-w-0 flex-1">
+                          <span className="font-medium">{p.descricao ?? p.categoria_nome ?? "Lançamento"}</span>
+                          <span className="text-muted-foreground"> — {brl(p.valor)}</span>
+                          <span className={p.motivo === "aprovacao" ? "text-warning-text" : "text-muted-foreground"}>
+                            {" "}· {p.motivo === "aprovacao" ? "aguardando aprovação" : "sem comprovante"}
+                          </span>
+                        </span>
+                        {p.motivo === "aprovacao" ? (
+                          <BotoesAprovacao onAprovar={() => acoes.aprovar(p)} onRejeitar={() => acoes.rejeitar(p)} />
+                        ) : (
+                          <Button size="sm" variant="outline" onClick={() => setAnexosPara(p)}
+                            className="gap-1 h-7 text-xs shrink-0">
+                            <Paperclip className="w-3 h-3" /> Anexar
+                          </Button>
+                        )}
+                      </div>
                     )}
                   </li>
                 ))}
@@ -559,7 +588,7 @@ export default function PainelTesouraria() {
           <section id="vencimentos" className="scroll-mt-[220px]">
             <TituloDaSecao
               icone={CalendarClock} tom="info" contagem={vencimentos.length}
-              acao={<Link to="/financas/agenda" className="text-sm text-primary hover:underline">Abrir agenda</Link>}
+              acao={<Link to="/financas/agenda" className="text-sm text-primary hover:underline">Ver tudo</Link>}
             >
               Próximos vencimentos
             </TituloDaSecao>
@@ -577,6 +606,7 @@ export default function PainelTesouraria() {
                       </span>
                       <span className="text-muted-foreground"> — {brl(v.valor)} · {rotuloVencimento(v)}</span>
                     </span>
+                    <BotaoPagar vencimento={v} onClick={() => acoes.pagar(v)} />
                   </li>
                 ))}
                 {vencimentos.length > 8 && (
@@ -845,6 +875,17 @@ export default function PainelTesouraria() {
             </div>
           </section>
         </>
+      )}
+
+      {acoes.dialogs}
+      {anexosPara && (
+        <AnexosLancamentoDialog
+          open={!!anexosPara}
+          onOpenChange={(v) => !v && setAnexosPara(null)}
+          lancamentoId={anexosPara.id}
+          descricaoLancamento={anexosPara.descricao ?? anexosPara.categoria_nome ?? "Lançamento"}
+          onChange={carregar}
+        />
       )}
     </div>
   );
