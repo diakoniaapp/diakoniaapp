@@ -92,6 +92,7 @@ import { AnexosLancamentoDialog } from "@/components/financas/AnexosLancamentoDi
 import { ConciliacaoDrawer } from "@/components/financas/ConciliacaoDrawer";
 import { FornecedoresDrawer } from "@/components/financas/FornecedoresDrawer";
 import { RecorrenciasDrawer } from "@/components/financas/RecorrenciasDrawer";
+import { ExtratoContaDrawer } from "@/components/financas/ExtratoContaDrawer";
 import { useAcoesLancamento, BotaoPagar, BotoesAprovacao } from "@/hooks/useAcoesLancamento";
 import { useAuth } from "@/hooks/useAuth";
 import { hojeLocal } from "@/lib/data";
@@ -195,6 +196,8 @@ export default function PainelTesouraria() {
   // estender pros outros nove do mapa.
   const [fornecedoresAberto, setFornecedoresAberto] = useState(false);
   const [recorrenciasAberto, setRecorrenciasAberto] = useState(false);
+  // Fase 11c: maior drawer do mapa — extrato completo de UMA conta.
+  const [extratoContaId, setExtratoContaId] = useState<string | null>(null);
   function abrirConciliacao() {
     // Sem pendência real, não tem conta certa pra abrir — cai no hub de
     // contas mesmo, mais honesto que fingir que sabe onde ir (mesma régua
@@ -426,15 +429,19 @@ export default function PainelTesouraria() {
           {/* ── Contas — saldo por conta ────────────────────────────────────
               Fase 10 (Central Operacional), parte 2 (22/09/2026): até agora
               só dava pra ver isto indo em `/financas` — a tela de "Contas
-              correntes" que a Central deveria substituir no dia a dia. Cada
-              card leva pro extrato completo daquela conta — ver o
-              livro-razão inteiro (filtro por período, OFX, impressão) é
-              profundidade ocasional, não cabe numa linha desta central. */}
+              correntes" que a Central deveria substituir no dia a dia.
+              Fase 11c (Workspace Financeiro, 23/09/2026): cada card agora
+              abre o `ExtratoContaDrawer` por cima do Painel, não navega mais
+              pra `/financas/conta/:id` — a página continua existindo (link
+              "Extrato completo" dentro do próprio drawer) pra quem precisa
+              de impressão/PDF ou do filtro fino por coluna, que o drawer
+              não replica de propósito (ver o comentário no topo daquele
+              arquivo). */}
           {contas.length > 0 && (
             <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
               {contas.map(c => (
-                <Link key={c.id} to={`/financas/conta/${c.id}`}
-                  className="rounded-md border bg-card p-2.5 hover:border-gold/50 transition-colors min-w-0">
+                <button key={c.id} type="button" onClick={() => setExtratoContaId(c.id)}
+                  className="rounded-md border bg-card p-2.5 hover:border-gold/50 transition-colors min-w-0 text-left">
                   <p className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-muted-foreground truncate">
                     {ICONE_CONTA[c.tipo] ?? <Wallet className="w-3.5 h-3.5" />}
                     <span className="truncate">{c.nome}</span>
@@ -442,7 +449,7 @@ export default function PainelTesouraria() {
                   <p className="font-semibold tabular-nums mt-0.5 text-base truncate" style={{ color: c.cor ?? undefined }}>
                     {brl(Number(c.saldo_atual))}
                   </p>
-                </Link>
+                </button>
               ))}
             </section>
           )}
@@ -951,6 +958,14 @@ export default function PainelTesouraria() {
       )}
       <FornecedoresDrawer open={fornecedoresAberto} onOpenChange={setFornecedoresAberto} />
       <RecorrenciasDrawer open={recorrenciasAberto} onOpenChange={setRecorrenciasAberto} />
+      {extratoContaId && (
+        <ExtratoContaDrawer
+          open={!!extratoContaId}
+          onOpenChange={(v) => !v && setExtratoContaId(null)}
+          contaId={extratoContaId}
+          onChange={carregar}
+        />
+      )}
     </div>
   );
 }
