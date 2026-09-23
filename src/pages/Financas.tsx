@@ -24,7 +24,7 @@ import { WidgetsDoPainel } from "@/dashboard/WidgetsDoPainel";
 import { ROLES_FINANCEIRO } from "@/components/layout/navConfig";
 import { toYmd } from "@/lib/data";
 
-const ICONE_CONTA: Record<string, JSX.Element> = {
+export const ICONE_CONTA: Record<string, JSX.Element> = {
   caixa:     <Wallet className="w-4 h-4" />,
   banco:     <Building2 className="w-4 h-4" />,
   cartao:    <CreditCard className="w-4 h-4" />,

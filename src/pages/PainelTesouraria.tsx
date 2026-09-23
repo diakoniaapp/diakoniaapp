@@ -75,10 +75,11 @@ import {
 } from "@/components/painel/blocos";
 import { carregarResumoFiscal, type ResumoFiscalDashboard } from "@/services/fiscalService";
 import {
-  brl, resumoFinanceiroMes, listarProjetos, listarCategorias, listarLancamentosSemTeto,
+  brl, resumoFinanceiroMes, listarProjetos, listarCategorias, listarLancamentosSemTeto, listarContas,
   type FinVencimento, type FinAlertaCentro, type FinResumoMes,
-  type FinProjeto, type FinLancamentoExtenso,
+  type FinProjeto, type FinLancamentoExtenso, type FinConta,
 } from "@/services/finService";
+import { ICONE_CONTA } from "@/pages/Financas";
 import {
   listarPendencias, type ItemPendencia, type PendenciaLancamento, type PendenciaFechamento, DIAS_JANELA_COMPROVANTE,
   listarVencimentosDaSemana, listarAlertasOrcamento, DIAS_JANELA_VENCIMENTOS,
@@ -103,6 +104,12 @@ export default function PainelTesouraria() {
   // 12/09/2026: `resumoFinanceiroMes()` já existe, já alimenta os cards
   // de `/financas` — só nunca tinha sido chamado aqui.
   const [resumo, setResumo] = useState<FinResumoMes | null>(null);
+  // Fase 10 (Central Operacional), parte 2 (22/09/2026): saldo por conta
+  // embutido aqui — até agora só dava pra ver isso indo em `/financas`, a
+  // tela que a Central deveria substituir no dia a dia. Ver extrato
+  // completo (filtro, OFX, impressão) continua em `/financas/conta/:id` —
+  // isso é profundidade ocasional, não cabe numa linha desta central.
+  const [contas, setContas] = useState<FinConta[]>([]);
   const [pendencias, setPendencias] = useState<ItemPendencia[]>([]);
   const [vencimentos, setVencimentos] = useState<FinVencimento[]>([]);
   const [alertasOrc, setAlertasOrc] = useState<FinAlertaCentro[]>([]);
@@ -126,9 +133,10 @@ export default function PainelTesouraria() {
     setCarregando(true);
     setErro(null);
     try {
-      const [f, r, proj, p, v, a, al, m, d] = await Promise.all([
+      const [f, r, c, proj, p, v, a, al, m, d] = await Promise.all([
         carregarResumoFiscal(),
         resumoFinanceiroMes(),
+        listarContas(),
         listarProjetos().then(ativos => Promise.all(ativos.map(async projeto => {
           const entradas = await listarLancamentosSemTeto({ projetoId: projeto.id, tipo: "entrada" });
           return { projeto, arrecadado: entradas.reduce((s, l) => s + Number(l.valor), 0) };
@@ -145,6 +153,7 @@ export default function PainelTesouraria() {
       ]);
       setFiscal(f);
       setResumo(r);
+      setContas(c);
       setProjetos(proj);
       setPendencias(p);
       setVencimentos(v);
@@ -390,6 +399,30 @@ export default function PainelTesouraria() {
                 </p>
                 <p className="font-semibold tabular-nums mt-0.5 text-lg text-warning-text">{brl(resumo.previstas_mes)}</p>
               </div>
+            </section>
+          )}
+
+          {/* ── Contas — saldo por conta ────────────────────────────────────
+              Fase 10 (Central Operacional), parte 2 (22/09/2026): até agora
+              só dava pra ver isto indo em `/financas` — a tela de "Contas
+              correntes" que a Central deveria substituir no dia a dia. Cada
+              card leva pro extrato completo daquela conta — ver o
+              livro-razão inteiro (filtro por período, OFX, impressão) é
+              profundidade ocasional, não cabe numa linha desta central. */}
+          {contas.length > 0 && (
+            <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+              {contas.map(c => (
+                <Link key={c.id} to={`/financas/conta/${c.id}`}
+                  className="rounded-md border bg-card p-2.5 hover:border-gold/50 transition-colors min-w-0">
+                  <p className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-muted-foreground truncate">
+                    {ICONE_CONTA[c.tipo] ?? <Wallet className="w-3.5 h-3.5" />}
+                    <span className="truncate">{c.nome}</span>
+                  </p>
+                  <p className="font-semibold tabular-nums mt-0.5 text-base truncate" style={{ color: c.cor ?? undefined }}>
+                    {brl(Number(c.saldo_atual))}
+                  </p>
+                </Link>
+              ))}
             </section>
           )}
 
