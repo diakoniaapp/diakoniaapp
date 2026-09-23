@@ -13,15 +13,17 @@ import {
 } from "@/components/ui/dialog";
 import {
   ArrowLeft, Calendar, Clock, AlertTriangle, CheckCircle2, XCircle, Loader2,
-  TrendingUp, TrendingDown, Gavel,
+  TrendingUp, TrendingDown, Gavel, Copy, QrCode, Paperclip, Wallet,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PaginaSkeleton } from "@/components/ListState";
 import {
   listarProximosVencimentos, confirmarPagamento, listarLancamentosSemTeto,
-  aprovarLancamento, rejeitarLancamento, brl,
-  type FinVencimento, type FinLancamentoExtenso,
+  aprovarLancamento, rejeitarLancamento, brl, buscarFornecedor, adicionarAnexo,
+  type FinVencimento, type FinLancamentoExtenso, type FinFornecedor,
 } from "@/services/finService";
+import { montarPayloadPix, formatarChavePix } from "@/lib/pix";
+import QRCode from "qrcode";
 import { hojeMaisDias } from "@/lib/data";
 import { mensagemErro } from "@/lib/erroRede";
 
@@ -60,6 +62,50 @@ export default function FinancasAgenda() {
   const [confirmando, setConfirmando] = useState<FinVencimento | null>(null);
   const [confirmandoBusy, setConfirmandoBusy] = useState(false);
 
+  // ── Fase 8 do roadmap Financeiro (Central de Pagamentos, 22/09/2026) ────
+  //
+  // "Pagar" deixa de ser só um clique de confirmação — ganha o que o
+  // fornecedor já tem cadastrado (Fase 7): copiar a chave Pix, mostrar o
+  // QR Code, e anexar o comprovante no mesmo instante em que marca como
+  // pago, sem precisar abrir outra tela depois pra lembrar de fazer isso.
+  // Só entra pra SAÍDA (pagamento) — "receber" não paga ninguém, o Pix é
+  // de quem recebe o dinheiro, não de quem registra o recebimento.
+  const [fornecedorPagando, setFornecedorPagando] = useState<FinFornecedor | null>(null);
+  const [carregandoFornecedor, setCarregandoFornecedor] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const [anexoArquivo, setAnexoArquivo] = useState<File | null>(null);
+
+  useEffect(() => {
+    if (!confirmando || confirmando.tipo !== "saida" || !confirmando.fornecedor_id) {
+      setFornecedorPagando(null);
+      setQrDataUrl(null);
+      return;
+    }
+    let cancelado = false;
+    setCarregandoFornecedor(true);
+    buscarFornecedor(confirmando.fornecedor_id)
+      .then(f => {
+        if (cancelado) return;
+        setFornecedorPagando(f);
+        if (f?.chave_pix) {
+          const payload = montarPayloadPix({
+            chave: f.chave_pix, nomeRecebedor: f.nome, valor: Number(confirmando.valor),
+          });
+          // Erro na geração do QR não pode travar o "Pagar" — Copiar PIX
+          // continua funcionando mesmo se isso falhar; mesma régua de
+          // "resolvedor que falha vira null" já usada em outros lugares
+          // do sistema (ex.: tarefaPrincipal.ts).
+          QRCode.toDataURL(payload, { margin: 1, width: 220 })
+            .then(url => { if (!cancelado) setQrDataUrl(url); })
+            .catch(() => { if (!cancelado) setQrDataUrl(null); });
+        } else {
+          setQrDataUrl(null);
+        }
+      })
+      .finally(() => { if (!cancelado) setCarregandoFornecedor(false); });
+    return () => { cancelado = true; };
+  }, [confirmando]);
+
   useEffect(() => { carregar(); }, [filtroTipo]);
 
   async function carregar() {
@@ -87,8 +133,20 @@ export default function FinancasAgenda() {
     setConfirmandoBusy(true);
     try {
       await confirmarPagamento(confirmando.id);
+      // Anexo é melhoria, não pré-requisito — se a marcação como pago já
+      // funcionou (o que importa de verdade: dinheiro saiu, registro
+      // bate), uma falha só no upload do comprovante não pode desfazer
+      // ou travar o pagamento. Avisa em separado, não perde o anexo.
+      if (anexoArquivo) {
+        try {
+          await adicionarAnexo(confirmando.id, anexoArquivo, "comprovante");
+        } catch (e: any) {
+          toast.error(`Pago, mas o comprovante não subiu: ${e?.message ?? "erro"}`);
+        }
+      }
       toast.success(`${confirmando.tipo === "saida" ? "Pago" : "Recebido"}!`);
       setConfirmando(null);
+      setAnexoArquivo(null);
       await carregar();
     } catch (e: any) {
       // "TypeError: Failed to fetch" cru assustava mais do que ajudava —
@@ -342,7 +400,7 @@ export default function FinancasAgenda() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={!!confirmando} onOpenChange={(v) => !v && setConfirmando(null)}>
+      <AlertDialog open={!!confirmando} onOpenChange={(v) => { if (!v) { setConfirmando(null); setAnexoArquivo(null); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
@@ -352,11 +410,71 @@ export default function FinancasAgenda() {
               {confirmando?.descricao ?? "Este lançamento"} — {confirmando && brl(Number(confirmando.valor))}.
             </AlertDialogDescription>
           </AlertDialogHeader>
+
+          {/* Central de Pagamentos — só pra saída, e só quando dá pra
+              fazer algo de verdade (fornecedor com chave Pix cadastrada). */}
+          {confirmando?.tipo === "saida" && (
+            <div className="space-y-2.5">
+              {carregandoFornecedor && (
+                <p className="text-xs text-muted-foreground">Carregando dados do fornecedor…</p>
+              )}
+              {fornecedorPagando?.chave_pix && (
+                <div className="rounded-md border bg-muted/20 p-2.5 space-y-2">
+                  <p className="text-xs font-medium flex items-center gap-1.5">
+                    <Wallet className="w-3.5 h-3.5 text-gold" /> Pix de {fornecedorPagando.nome}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatarChavePix(fornecedorPagando.chave_pix, fornecedorPagando.tipo_chave_pix)}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button type="button" size="sm" variant="outline" className="gap-1.5"
+                      onClick={() => {
+                        const payload = montarPayloadPix({
+                          chave: fornecedorPagando.chave_pix!, nomeRecebedor: fornecedorPagando.nome,
+                          valor: Number(confirmando.valor),
+                        });
+                        navigator.clipboard.writeText(payload);
+                        toast.success("Código Pix copiado — cole no app do seu banco");
+                      }}>
+                      <Copy className="w-3.5 h-3.5" /> Copiar Pix
+                    </Button>
+                    {qrDataUrl && (
+                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                        <QrCode className="w-3.5 h-3.5" /> ou escaneie:
+                      </span>
+                    )}
+                  </div>
+                  {qrDataUrl && (
+                    <img src={qrDataUrl} alt="QR Code do Pix" width={140} height={140}
+                      className="rounded border bg-white p-1 mx-auto" />
+                  )}
+                </div>
+              )}
+              {!carregandoFornecedor && confirmando.fornecedor_id && !fornecedorPagando?.chave_pix && (
+                <p className="text-xs text-muted-foreground">
+                  Este fornecedor ainda não tem chave Pix cadastrada.{" "}
+                  <Link to={`/financas/fornecedor/${confirmando.fornecedor_id}`} className="text-primary hover:underline">
+                    Cadastrar
+                  </Link>
+                </p>
+              )}
+
+              <div>
+                <label className="text-xs font-medium flex items-center gap-1.5 mb-1 cursor-pointer">
+                  <Paperclip className="w-3.5 h-3.5" /> Anexar comprovante (opcional)
+                </label>
+                <input type="file" accept="image/jpeg,image/png,application/pdf"
+                  onChange={(e) => setAnexoArquivo(e.target.files?.[0] ?? null)}
+                  className="text-xs w-full file:mr-2 file:py-1 file:px-2 file:rounded file:border file:text-xs file:bg-background" />
+              </div>
+            </div>
+          )}
+
           <AlertDialogFooter>
             <AlertDialogCancel disabled={confirmandoBusy}>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={(e) => { e.preventDefault(); confirmarPagamentoDialog(); }} disabled={confirmandoBusy}
               className="bg-success hover:bg-success text-white">
-              {confirmandoBusy ? "..." : (confirmando?.tipo === "saida" ? "Pagar" : "Receber")}
+              {confirmandoBusy ? "..." : (confirmando?.tipo === "saida" ? "Marcar como pago" : "Receber")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
