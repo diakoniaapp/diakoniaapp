@@ -22,7 +22,7 @@ import {
   criarLancamento, atualizarLancamento, uploadComprovante, removerComprovante,
   buscarFornecedorPorCnpj, criarFornecedor, sugerirCentroPorCategoria, brl,
   listarRateio, salvarRateio, ordenarCentrosParaSeletor, buscarPessoasParaLancamento,
-  FORMA_LABEL, STATUS_LABEL,
+  FORMA_LABEL, STATUS_LABEL, formasPermitidas,
   type FinConta, type FinCategoria, type FinCentroCusto, type FinFornecedor, type FinProjeto,
   type FinLancamento, type FinLancamentoExtenso, type FinMovimentoTipo, type FinFormaPagamento, type FinStatus,
   type NfDadosExtraidos, type FinPessoaBusca,
@@ -52,6 +52,12 @@ interface Props {
   contaNomeTravado?: string;
   /** Tipo padrão (entrada/saida) */
   tipoPadrao?: FinMovimentoTipo;
+  /** Categoria pré-selecionada ao criar (ex.: "Registrar Remessa
+      Missionária" sempre abre em "Repasses Missionários") — Fase 12
+      (23/09/2026). Só se aplica criando; editando, a categoria do
+      lançamento manda, igual a `contaIdPadrao`. Não trava o campo — a
+      tesoureira pode trocar se precisar. */
+  categoriaIdPadrao?: string;
   /** Lançamento em edição. Aceita a versão "extensa" (com `pessoa_nome`)
       porque é o que as telas de listagem já têm em mãos — sem isso o
       campo Fornecedor/recebedor reabriria mostrando o nome em branco
@@ -68,7 +74,7 @@ interface Props {
 
 export function LancamentoForm({
   open, onOpenChange, contaIdPadrao, tipoPadrao = "entrada",
-  lancamento, rascunho, contaTravada, contaNomeTravado, onSaved,
+  lancamento, rascunho, contaTravada, contaNomeTravado, categoriaIdPadrao, onSaved,
 }: Props) {
   const isEdit = !!lancamento;
 
@@ -164,6 +170,31 @@ export function LancamentoForm({
   // FinancasOrcamento.tsx, RecorrenciaForm.tsx e ImportacaoFaturaDialog.tsx.
   const centrosOrdenados = useMemo(() => ordenarCentrosParaSeletor(centros), [centros]);
 
+  // Fase 12, revisão de Formas por Conta (23/09/2026) — pedido dela:
+  // "qualquer conta aceita qualquer forma hoje, isso gera inconsistência".
+  // `contaAtual` pode ser `undefined` (nenhuma conta escolhida, ou a
+  // lista ainda não carregou) — `formasPermitidas` já trata isso como
+  // "sem restrição", igual ao comportamento de sempre.
+  const contaAtual = contas.find(c => c.id === contaIdEfetivo) ?? null;
+  const formasDisponiveis = useMemo(() => formasPermitidas(contaAtual, tipo), [contaAtual, tipo]);
+
+  // Ao trocar de conta: sugere a forma padrão daquela conta (só se o
+  // campo ainda estiver vazio — nunca sobrescreve escolha manual), e
+  // limpa a forma escolhida se ela deixou de ser permitida na conta nova
+  // (evita salvar um lançamento com forma que a própria conta não
+  // aceita). Nunca roda editando um lançamento existente — trocar de
+  // conta numa edição não deve mexer numa forma já salva.
+  useEffect(() => {
+    if (!open || lancamento || !contaAtual) return;
+    if (!forma) {
+      const padrao = tipo === "entrada" ? contaAtual.forma_entrada_padrao : contaAtual.forma_saida_padrao;
+      if (padrao && formasDisponiveis.includes(padrao)) setForma(padrao);
+    } else if (!formasDisponiveis.includes(forma)) {
+      setForma("");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contaAtual, tipo, open]);
+
   // Comprovante
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -230,14 +261,18 @@ export function LancamentoForm({
     });
   }, [open, tipo]);
 
-  // Auto-sugestão: quando muda categoria e centro está vazio, sugere baseado no histórico
+  // Auto-sugestão: quando muda categoria/fornecedor e centro está vazio,
+  // sugere pela hierarquia da RPC (1º categoria padrão, 2º fornecedor
+  // padrão, 3º histórico — Fase 12, 23/09/2026). Só entra enquanto
+  // `centroCustoId` estiver vazio — uma vez preenchido (auto ou à mão),
+  // nunca sobrescreve.
   useEffect(() => {
     if (!categoriaId || centroCustoId || !open) return;
     (async () => {
-      const sugerido = await sugerirCentroPorCategoria(categoriaId);
+      const sugerido = await sugerirCentroPorCategoria(categoriaId, fornecedorId || undefined);
       if (sugerido) setCentroCustoId(sugerido);
     })();
-  }, [categoriaId, open]);
+  }, [categoriaId, fornecedorId, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -296,7 +331,7 @@ export function LancamentoForm({
       setData(rascunho?.data ?? hojeLocal());
       atualizarValor(rascunho?.valor ?? 0);
       setContaId(contaIdPadrao ?? "");
-      setCategoriaId(""); setCentroCustoId(""); setProjetoId(""); setUsarProjeto(false); setFornecedorId("");
+      setCategoriaId(categoriaIdPadrao ?? ""); setCentroCustoId(""); setProjetoId(""); setUsarProjeto(false); setFornecedorId("");
       setPessoaId(""); setFornecedorBusca(""); setPessoasSugeridas([]);
       setForma(rascunho?.forma ?? ""); setStatus("realizado");
       setDescricao(rascunho?.descricao ?? ""); setDocumentoNumero(""); setObservacoes("");
@@ -890,11 +925,16 @@ export function LancamentoForm({
               <Select value={forma} onValueChange={(v) => setForma(v as FinFormaPagamento)}>
                 <SelectTrigger><SelectValue placeholder="(opcional)" /></SelectTrigger>
                 <SelectContent>
-                  {(Object.entries(FORMA_LABEL) as [FinFormaPagamento, string][]).map(([k, l]) => (
-                    <SelectItem key={k} value={k}>{l}</SelectItem>
+                  {formasDisponiveis.map(k => (
+                    <SelectItem key={k} value={k}>{FORMA_LABEL[k]}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {contaAtual && formasDisponiveis.length < Object.keys(FORMA_LABEL).length && (
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Formas permitidas em "{contaAtual.nome}" — configurável em Cadastros.
+                </p>
+              )}
             </div>
             <div>
               <Label>Situação</Label>

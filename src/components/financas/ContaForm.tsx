@@ -14,8 +14,8 @@ import { toast } from "sonner";
 import { Wallet, Building2 } from "lucide-react";
 import { paraNumero } from "@/lib/dinheiro";
 import {
-  criarConta, atualizarConta, CONTA_TIPO_LABEL,
-  type FinConta, type FinContaTipo,
+  criarConta, atualizarConta, CONTA_TIPO_LABEL, FORMA_LABEL,
+  type FinConta, type FinContaTipo, type FinFormaPagamento,
 } from "@/services/finService";
 
 interface Props {
@@ -41,6 +41,8 @@ const CORES = [
   "#cfa451", "#22d3ee", "#84cc16", "#fb923c",
 ];
 
+const TODAS_AS_FORMAS = Object.keys(FORMA_LABEL) as FinFormaPagamento[];
+
 export function ContaForm({ open, onOpenChange, conta, onSaved }: Props) {
   const isEdit = !!conta;
 
@@ -64,6 +66,32 @@ export function ContaForm({ open, onOpenChange, conta, onSaved }: Props) {
   const [aceitaDespesas, setAceitaDespesas] = useState(true);
   const [aceitaTransferenciaEntrada, setAceitaTransferenciaEntrada] = useState(true);
   const [aceitaTransferenciaSaida, setAceitaTransferenciaSaida] = useState(true);
+
+  // Fase 12, revisão de Formas por Conta (23/09/2026), pedido dela:
+  // "qualquer conta aceita qualquer forma hoje". Diferente de `aceita*`
+  // acima (grosso, por categoria de movimento): aqui é fino, por FORMA —
+  // 9 caixas por direção. `formas_entrada_permitidas`/`formas_saida_
+  // permitidas` `null` no banco = "sem restrição"; nesta tela isso vira
+  // as 9 caixas todas marcadas, e salvar grava a lista explícita — não
+  // existe diferença de comportamento entre `null` e "todas marcadas",
+  // só de representação.
+  const [formasEntrada, setFormasEntrada] = useState<FinFormaPagamento[]>(TODAS_AS_FORMAS);
+  const [formasSaida, setFormasSaida] = useState<FinFormaPagamento[]>(TODAS_AS_FORMAS);
+  const [formaEntradaPadrao, setFormaEntradaPadrao] = useState<FinFormaPagamento | "">("");
+  const [formaSaidaPadrao, setFormaSaidaPadrao] = useState<FinFormaPagamento | "">("");
+
+  function alternarForma(lista: FinFormaPagamento[], setLista: (v: FinFormaPagamento[]) => void, forma: FinFormaPagamento) {
+    setLista(lista.includes(forma) ? lista.filter(f => f !== forma) : [...lista, forma]);
+  }
+
+  // Desmarcar uma forma que era o padrão não pode deixar o Select de
+  // padrão apontando pra uma opção que sumiu da lista.
+  useEffect(() => {
+    if (formaEntradaPadrao && !formasEntrada.includes(formaEntradaPadrao)) setFormaEntradaPadrao("");
+  }, [formasEntrada, formaEntradaPadrao]);
+  useEffect(() => {
+    if (formaSaidaPadrao && !formasSaida.includes(formaSaidaPadrao)) setFormaSaidaPadrao("");
+  }, [formasSaida, formaSaidaPadrao]);
 
   // Cartão
   const [diaVencimento, setDiaVencimento] = useState<number | "">("");
@@ -92,6 +120,10 @@ export function ContaForm({ open, onOpenChange, conta, onSaved }: Props) {
       setAceitaDespesas(conta.aceita_despesas ?? true);
       setAceitaTransferenciaEntrada(conta.aceita_transferencia_entrada ?? true);
       setAceitaTransferenciaSaida(conta.aceita_transferencia_saida ?? true);
+      setFormasEntrada(conta.formas_entrada_permitidas ?? TODAS_AS_FORMAS);
+      setFormasSaida(conta.formas_saida_permitidas ?? TODAS_AS_FORMAS);
+      setFormaEntradaPadrao(conta.forma_entrada_padrao ?? "");
+      setFormaSaidaPadrao(conta.forma_saida_padrao ?? "");
     } else {
       setNome(""); setTipo("banco");
       setBancoNome(""); setBancoCodigo(""); setAgencia(""); setContaNumero("");
@@ -100,6 +132,8 @@ export function ContaForm({ open, onOpenChange, conta, onSaved }: Props) {
       setOrdem(0);
       setAceitaReceitas(true); setAceitaDespesas(true);
       setAceitaTransferenciaEntrada(true); setAceitaTransferenciaSaida(true);
+      setFormasEntrada(TODAS_AS_FORMAS); setFormasSaida(TODAS_AS_FORMAS);
+      setFormaEntradaPadrao(""); setFormaSaidaPadrao("");
     }
   }, [open, conta]);
 
@@ -130,6 +164,10 @@ export function ContaForm({ open, onOpenChange, conta, onSaved }: Props) {
         aceita_despesas: aceitaDespesas,
         aceita_transferencia_entrada: aceitaTransferenciaEntrada,
         aceita_transferencia_saida: aceitaTransferenciaSaida,
+        formas_entrada_permitidas: formasEntrada,
+        formas_saida_permitidas: formasSaida,
+        forma_entrada_padrao: formaEntradaPadrao || null,
+        forma_saida_padrao: formaSaidaPadrao || null,
       };
       if (isEdit && conta) {
         await atualizarConta(conta.id, payload);
@@ -224,6 +262,61 @@ export function ContaForm({ open, onOpenChange, conta, onSaved }: Props) {
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               Ex.: Conta Envelope = Receitas + Despesas + Transferências (entrada e saída) · Conta Banco = idem · Conta Investimento = só Transferências entrada (só recebe, nunca é origem).
+            </p>
+          </div>
+
+          {/* Formas de recebimento/pagamento permitidas — Fase 12
+              (23/09/2026), pedido dela: "qualquer conta aceita qualquer
+              forma hoje, isso gera inconsistência". Diferente do bloco
+              acima (grosso, por categoria de movimento): aqui é fino, por
+              FORMA — 9 caixas por direção, e o Select de forma padrão só
+              oferece o que está marcado na direção correspondente. */}
+          <div>
+            <Label>Formas permitidas nesta conta</Label>
+            <div className="grid grid-cols-2 gap-3 pt-1">
+              <div className="border rounded-md p-2.5 space-y-1">
+                <p className="text-xs font-medium text-muted-foreground mb-1">Recebimento</p>
+                {TODAS_AS_FORMAS.map(f => (
+                  <label key={f} className="flex items-center gap-2 text-sm">
+                    <Checkbox checked={formasEntrada.includes(f)}
+                      onCheckedChange={() => alternarForma(formasEntrada, setFormasEntrada, f)} />
+                    {FORMA_LABEL[f]}
+                  </label>
+                ))}
+              </div>
+              <div className="border rounded-md p-2.5 space-y-1">
+                <p className="text-xs font-medium text-muted-foreground mb-1">Pagamento</p>
+                {TODAS_AS_FORMAS.map(f => (
+                  <label key={f} className="flex items-center gap-2 text-sm">
+                    <Checkbox checked={formasSaida.includes(f)}
+                      onCheckedChange={() => alternarForma(formasSaida, setFormasSaida, f)} />
+                    {FORMA_LABEL[f]}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <div>
+                <Label className="text-xs">Forma padrão de recebimento</Label>
+                <Select value={formaEntradaPadrao} onValueChange={(v) => setFormaEntradaPadrao(v as FinFormaPagamento)}>
+                  <SelectTrigger><SelectValue placeholder="Nenhuma sugestão" /></SelectTrigger>
+                  <SelectContent>
+                    {formasEntrada.map(f => <SelectItem key={f} value={f}>{FORMA_LABEL[f]}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Forma padrão de pagamento</Label>
+                <Select value={formaSaidaPadrao} onValueChange={(v) => setFormaSaidaPadrao(v as FinFormaPagamento)}>
+                  <SelectTrigger><SelectValue placeholder="Nenhuma sugestão" /></SelectTrigger>
+                  <SelectContent>
+                    {formasSaida.map(f => <SelectItem key={f} value={f}>{FORMA_LABEL[f]}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Ao escolher esta conta num lançamento, "Forma de pagamento" mostra só o marcado acima, e já sugere o padrão — sempre editável.
             </p>
           </div>
 

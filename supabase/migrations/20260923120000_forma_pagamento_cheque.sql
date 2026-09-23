@@ -1,0 +1,12 @@
+-- ─── fin_forma_pagamento — acrescenta "cheque" ──────────────────────────
+--
+-- Fase 12, revisão de Formas por Conta (23/09/2026), pedido dela: "Cheque
+-- NÃO deve ser tratado como Outro — é uma forma de recebimento válida pra
+-- realidade da igreja". TED, por decisão dela, NÃO ganha valor próprio —
+-- usa `transferencia`.
+--
+-- `ALTER TYPE ... ADD VALUE` não roda na mesma transação em que o valor é
+-- usado (§6.3 do CLAUDE.md) — por isso esta migration só acrescenta o
+-- valor. Quem lê e escreve `cheque` (colunas novas de formas permitidas,
+-- FORMA_LABEL no front) vem na migration seguinte.
+ALTER TYPE public.fin_forma_pagamento ADD VALUE 'cheque';

@@ -4431,6 +4431,13 @@ export type Database = {
           created_at: string
           dia_fechamento: number | null
           dia_vencimento: number | null
+          // ENTRADA MANUAL (23/09/2026, Fase 12 — Formas por Conta):
+          // migration 20260923120100_formas_por_conta_e_centro_padrao.sql
+          // — regenerar `types.ts` descarta isto até rodar de novo.
+          forma_entrada_padrao: Database["public"]["Enums"]["fin_forma_pagamento"] | null
+          forma_saida_padrao: Database["public"]["Enums"]["fin_forma_pagamento"] | null
+          formas_entrada_permitidas: Database["public"]["Enums"]["fin_forma_pagamento"][] | null
+          formas_saida_permitidas: Database["public"]["Enums"]["fin_forma_pagamento"][] | null
           id: string
           is_principal: boolean
           limite_credito: number | null
@@ -4456,6 +4463,10 @@ export type Database = {
           created_at?: string
           dia_fechamento?: number | null
           dia_vencimento?: number | null
+          forma_entrada_padrao?: Database["public"]["Enums"]["fin_forma_pagamento"] | null
+          forma_saida_padrao?: Database["public"]["Enums"]["fin_forma_pagamento"] | null
+          formas_entrada_permitidas?: Database["public"]["Enums"]["fin_forma_pagamento"][] | null
+          formas_saida_permitidas?: Database["public"]["Enums"]["fin_forma_pagamento"][] | null
           id?: string
           is_principal?: boolean
           limite_credito?: number | null
@@ -4481,6 +4492,10 @@ export type Database = {
           created_at?: string
           dia_fechamento?: number | null
           dia_vencimento?: number | null
+          forma_entrada_padrao?: Database["public"]["Enums"]["fin_forma_pagamento"] | null
+          forma_saida_padrao?: Database["public"]["Enums"]["fin_forma_pagamento"] | null
+          formas_entrada_permitidas?: Database["public"]["Enums"]["fin_forma_pagamento"][] | null
+          formas_saida_permitidas?: Database["public"]["Enums"]["fin_forma_pagamento"][] | null
           id?: string
           is_principal?: boolean
           limite_credito?: number | null
@@ -4889,6 +4904,47 @@ export type Database = {
           {
             foreignKeyName: "fin_estoque_movimentos_user_id_fkey"
             columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      // ENTRADA MANUAL (23/09/2026, Fase 12 — Workspace Financeiro):
+      // tabela criada pela migration 20260923100000_fin_favoritos.sql,
+      // regenerar `types.ts` descarta isto até rodar de novo — reconferir.
+      fin_favoritos: {
+        Row: {
+          created_at: string
+          id: string
+          ordem: number
+          rota: string
+          rotulo: string
+          tipo: string
+          usuario_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ordem?: number
+          rota: string
+          rotulo: string
+          tipo: string
+          usuario_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ordem?: number
+          rota?: string
+          rotulo?: string
+          tipo?: string
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_favoritos_usuario_id_fkey"
+            columns: ["usuario_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -14205,6 +14261,7 @@ export type Database = {
         | "transferencia"
         | "boleto"
         | "envelope"
+        | "cheque"
         | "outro"
       fin_frequencia:
         | "mensal"
@@ -15011,6 +15068,7 @@ export const Constants = {
         "transferencia",
         "boleto",
         "envelope",
+        "cheque",
         "outro",
       ],
       fin_frequencia: [

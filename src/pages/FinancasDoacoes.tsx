@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   ArrowLeft, HandCoins, ChevronLeft, ChevronRight, RotateCw, Users,
   Smartphone, Banknote, CreditCard, Landmark, FileText, Mail, HelpCircle, RefreshCw,
+  FileSignature,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -46,7 +47,7 @@ const FORMA_ICONE: Record<FinFormaPagamento, any> = {
   pix: Smartphone, dinheiro: Banknote,
   cartao_debito: CreditCard, cartao_credito: CreditCard,
   transferencia: Landmark, boleto: FileText,
-  envelope: Mail, outro: HelpCircle,
+  envelope: Mail, cheque: FileSignature, outro: HelpCircle,
 };
 
 function dataBr(s: string) {

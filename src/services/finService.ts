@@ -8,7 +8,11 @@ import type { TipoChavePix } from "@/lib/pix";
 export type FinContaTipo = "caixa" | "banco" | "pix" | "envelope" | "cartao" | "aplicacao" | "cofre";
 export type FinMovimentoTipo = "entrada" | "saida";
 export type FinStatus = "previsto" | "realizado" | "conciliado" | "cancelado" | "aguardando_aprovacao";
-export type FinFormaPagamento = "pix" | "dinheiro" | "cartao_debito" | "cartao_credito" | "transferencia" | "boleto" | "envelope" | "outro";
+// "cheque" acrescentado em 23/09/2026 (migration 20260923120000) — pedido
+// dela: "Cheque NÃO deve ser tratado como Outro — é forma válida pra
+// realidade da igreja". TED, por decisão dela, não ganhou valor próprio —
+// usa "transferencia".
+export type FinFormaPagamento = "pix" | "dinheiro" | "cartao_debito" | "cartao_credito" | "transferencia" | "boleto" | "envelope" | "cheque" | "outro";
 // O enum `fin_centro_vinculo` no banco TEM "evento" (conferido direto no
 // Postgres em 12/09/2026: `ministerio|area|ebd_classe|pgm_grupo|campanha|
 // geral|evento`) — um comentário antigo em `FinancasCentros.tsx` dizia o
@@ -75,6 +79,15 @@ export interface FinConta {
   // nunca sai por transferência) sem nunca poder ser ORIGEM.
   aceita_transferencia_entrada: boolean;
   aceita_transferencia_saida: boolean;
+  // Fase 12, revisão de Formas por Conta (23/09/2026, migration
+  // 20260923120100) — pedido dela: "qualquer conta aceita qualquer forma
+  // hoje, isso gera inconsistência". `null` = sem restrição (compat
+  // retroativa — nenhuma conta existente precisou de backfill). Ver
+  // `formasPermitidas()` abaixo pra quem for ler estes campos.
+  formas_entrada_permitidas: FinFormaPagamento[] | null;
+  formas_saida_permitidas: FinFormaPagamento[] | null;
+  forma_entrada_padrao: FinFormaPagamento | null;
+  forma_saida_padrao: FinFormaPagamento | null;
 }
 
 // Fase 1 do projeto Tesouraria (12/09/2026): classificacao_dre é o
@@ -281,8 +294,22 @@ export const FORMA_LABEL: Record<FinFormaPagamento, string> = {
   pix: "PIX", dinheiro: "Dinheiro",
   cartao_debito: "Cartão Débito", cartao_credito: "Cartão Crédito",
   transferencia: "Transferência", boleto: "Boleto",
-  envelope: "Envelope", outro: "Outro",
+  envelope: "Envelope", cheque: "Cheque", outro: "Outro",
 };
+
+const TODAS_AS_FORMAS = Object.keys(FORMA_LABEL) as FinFormaPagamento[];
+
+/**
+ * Fase 12, revisão de Formas por Conta (23/09/2026) — a lista de formas
+ * que `LancamentoForm.tsx` deve oferecer pra UMA conta, numa direção
+ * (`tipo`). `conta` pode vir `null` (nenhuma conta escolhida ainda): cai
+ * nas 9 formas de sempre, igual ao comportamento antigo — só depois que
+ * uma conta é escolhida é que a lista pode encolher.
+ */
+export function formasPermitidas(conta: FinConta | null, tipo: FinMovimentoTipo): FinFormaPagamento[] {
+  const permitidas = conta ? (tipo === "entrada" ? conta.formas_entrada_permitidas : conta.formas_saida_permitidas) : null;
+  return permitidas ?? TODAS_AS_FORMAS;
+}
 
 export const STATUS_LABEL: Record<FinStatus, string> = {
   previsto: "Previsto", realizado: "Realizado",
@@ -1301,6 +1328,11 @@ export interface FinVencimento {
   fornecedor_id: string | null; fornecedor_nome: string | null;
   dias_para_vencer: number;
   urgencia: "vencido" | "vence_hoje" | "urgente" | "esta_semana" | "futuro";
+  // Migration 20260923110000 (Fase 12, revisão da Central de Pagamentos):
+  // "a Central deve responder qual centro de custo, qual projeto" — a
+  // view não repassava, os dois já existiam em `fin_lancamentos`.
+  projeto_id: string | null; projeto_nome: string | null;
+  centro_custo_id: string | null; centro_custo_nome: string | null;
 }
 
 // ─── CRUD ────────────────────────────────────────────────────────────────
@@ -1812,8 +1844,14 @@ export async function alertasCentros(): Promise<FinAlertaCentro[]> {
 }
 
 // ─── Sugestão automática ───────────────────────────────────────────────
-export async function sugerirCentroPorCategoria(categoriaId: string): Promise<string | null> {
-  const { data, error } = await supabase.rpc("fin_sugerir_centro_por_categoria", { p_categoria_id: categoriaId });
+// Fase 12 (23/09/2026): `p_fornecedor_id` acrescentado na RPC como 2º
+// nível da hierarquia (1º categoria padrão, 2º fornecedor padrão, 3º
+// histórico) — parâmetro opcional, quem já chamava com um argumento só
+// continua funcionando igual.
+export async function sugerirCentroPorCategoria(categoriaId: string, fornecedorId?: string): Promise<string | null> {
+  const { data, error } = await supabase.rpc("fin_sugerir_centro_por_categoria", {
+    p_categoria_id: categoriaId, p_fornecedor_id: fornecedorId ?? null,
+  });
   if (error) return null;
   return (data as string | null) ?? null;
 }

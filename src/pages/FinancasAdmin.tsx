@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -54,6 +54,11 @@ export default function FinancasAdmin() {
   // atrás desta permissão.
   const { podeFazer } = usePermissoes();
   const podeEstruturar = podeFazer("estruturar_financeiro");
+  // Fase 12 (Workspace Financeiro, 23/09/2026): "Contas Financeiras" e
+  // "Categorias" viraram atalhos distintos na aba Cadastros do Workspace —
+  // sem isso, os dois links caíam na mesma aba "Contas" (`defaultValue`
+  // fixo), e "Categorias" nunca abria onde prometia.
+  const [searchParams] = useSearchParams();
 
   const [contas, setContas] = useState<FinConta[]>([]);
   const [categorias, setCategorias] = useState<FinCategoria[]>([]);
@@ -241,7 +246,7 @@ export default function FinancasAdmin() {
         </div>
       </div>
 
-      <Tabs defaultValue="contas">
+      <Tabs defaultValue={searchParams.get("aba") === "categorias" || searchParams.get("aba") === "centros" ? searchParams.get("aba")! : "contas"}>
         <TabsList>
           <TabsTrigger value="contas" className="gap-1.5">
             <Wallet className="w-3.5 h-3.5" /> Contas ({contas.length})
