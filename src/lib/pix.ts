@@ -32,6 +32,9 @@ export type TipoChavePix = "cpf" | "cnpj" | "telefone" | "email" | "aleatoria";
 
 export interface PixPayloadInput {
   chave: string;
+  /** Quando o tipo é "telefone", normaliza pra `+55DDDNUMERO` antes de
+   *  montar o payload — ver `normalizarChaveTelefone` abaixo pro porquê. */
+  tipoChave?: TipoChavePix | null;
   nomeRecebedor: string;
   /** Cidade do recebedor — obrigatória no padrão, mas nada no cadastro de
    *  fornecedor/contratado hoje guarda isso. "SAO PAULO" como fallback
@@ -59,6 +62,28 @@ function tlv(id: string, valor: string): string {
   return id + valor.length.toString().padStart(2, "0") + valor;
 }
 
+// ── Bug real, achado por ela em produção (22/09/2026, print do banco):
+// "Chave Pix vinculado ao QRCode não existe". A chave telefone estava
+// cadastrada como só os 11 dígitos locais ("21983991229"), e o payload
+// levava exatamente isso — mas o DICT do Bacen registra chave de telefone
+// no formato internacional `+5521983991229`, com o código do país. Sem o
+// "+55", a consulta do banco dela não achava a chave em lugar nenhum, e o
+// Pix falhava ANTES mesmo de chegar em quem recebe.
+//
+// A correção é só na hora de montar o payload — não no cadastro. Assim
+// funciona tanto pra quem já digitou com "+55"/"55" quanto pra quem
+// digitou só o DDD+número (o caso mais comum, e o que já estava quebrado).
+// Por comprimento de dígitos, não por prefixo: um DDD "55" (Santa Maria,
+// RS) é um número de 11 dígitos válido que POR ACASO começa com "55" —
+// cortar esse prefixo às cegas destruiria o DDD real. 12/13 dígitos só
+// acontece se o código do país já estiver ali.
+function normalizarChaveTelefone(chave: string): string {
+  const digitos = chave.replace(/\D/g, "");
+  if (digitos.length === 12 || digitos.length === 13) return "+" + digitos;
+  if (digitos.length === 10 || digitos.length === 11) return "+55" + digitos;
+  return chave.trim(); // formato inesperado — não inventa, manda como veio
+}
+
 /**
  * CRC16-CCITT (poly 0x1021, init 0xFFFF) — o checksum que o padrão BR
  * Code exige no campo 63, calculado sobre a string inteira até ali
@@ -80,8 +105,9 @@ export function crc16ccitt(texto: string): string {
  * QR é só essa string codificada visualmente, não um formato à parte).
  */
 export function montarPayloadPix(input: PixPayloadInput): string {
-  const chave = input.chave.trim();
-  if (!chave) throw new Error("Chave PIX vazia");
+  const chaveBruta = input.chave.trim();
+  if (!chaveBruta) throw new Error("Chave PIX vazia");
+  const chave = input.tipoChave === "telefone" ? normalizarChaveTelefone(chaveBruta) : chaveBruta;
 
   const gui = tlv("00", "br.gov.bcb.pix");
   const chaveTlv = tlv("01", chave);

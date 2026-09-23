@@ -54,6 +54,41 @@ describe("montarPayloadPix", () => {
     // (moeda) — se o campo 54 tivesse entrado, haveria algo entre os dois.
     expect(payload).toContain("53039865802BR");
   });
+
+  // Bug real, achado por ela em produção (22/09/2026): chave telefone
+  // cadastrada como só os 11 dígitos locais ("21983991229") gerava um QR
+  // que o banco dela recusava — "chave vinculado ao QRCode não existe" —
+  // porque o DICT do Bacen registra telefone no formato internacional.
+  it("telefone sem código do país ganha +55 no payload", () => {
+    const payload = montarPayloadPix({
+      chave: "21983991229", tipoChave: "telefone", nomeRecebedor: "Fornecedor",
+    });
+    expect(payload).toContain("0114+5521983991229");
+    expect(payload).not.toContain("011121983991229");
+  });
+
+  it("telefone já com código do país não dobra o +55", () => {
+    const payload = montarPayloadPix({
+      chave: "+5521983991229", tipoChave: "telefone", nomeRecebedor: "Fornecedor",
+    });
+    expect(payload).toContain("0114+5521983991229");
+  });
+
+  it("DDD 55 (Santa Maria/RS) não é confundido com código do país", () => {
+    // 11 dígitos, começa com "55" — mas é um DDD real, não o Brasil (+55)
+    // duas vezes. Só 12/13 dígitos indicam que o código do país já está ali.
+    const payload = montarPayloadPix({
+      chave: "55991234567", tipoChave: "telefone", nomeRecebedor: "Fornecedor",
+    });
+    expect(payload).toContain("0114+5555991234567");
+  });
+
+  it("outros tipos de chave não passam pela normalização de telefone", () => {
+    const payload = montarPayloadPix({
+      chave: "12345678901", tipoChave: "cpf", nomeRecebedor: "Fornecedor",
+    });
+    expect(payload).toContain("011112345678901");
+  });
 });
 
 describe("formatarChavePix", () => {

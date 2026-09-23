@@ -71,7 +71,7 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
         setFornecedorPagando(f);
         if (f?.chave_pix) {
           const payload = montarPayloadPix({
-            chave: f.chave_pix, nomeRecebedor: f.nome, valor: Number(confirmando.valor),
+            chave: f.chave_pix, tipoChave: f.tipo_chave_pix, nomeRecebedor: f.nome, valor: Number(confirmando.valor),
           });
           // Erro no QR não pode travar o "Pagar" — Copiar Pix continua
           // funcionando mesmo se isso falhar.
@@ -229,8 +229,8 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
                     <Button type="button" size="sm" variant="outline" className="gap-1.5"
                       onClick={() => {
                         const payload = montarPayloadPix({
-                          chave: fornecedorPagando.chave_pix!, nomeRecebedor: fornecedorPagando.nome,
-                          valor: Number(confirmando.valor),
+                          chave: fornecedorPagando.chave_pix!, tipoChave: fornecedorPagando.tipo_chave_pix,
+                          nomeRecebedor: fornecedorPagando.nome, valor: Number(confirmando.valor),
                         });
                         navigator.clipboard.writeText(payload);
                         toast.success("Código Pix copiado — cole no app do seu banco");
