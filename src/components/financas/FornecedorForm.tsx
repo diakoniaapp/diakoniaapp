@@ -38,40 +38,73 @@ export function FornecedorForm({ open, onOpenChange, fornecedor, onSaved }: Prop
   const [centros, setCentros] = useState<FinCentroCusto[]>([]);
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    if (!open) return;
-    // Categoria padrão é sempre de despesa — fornecedor é de quem a igreja
-    // COMPRA, nunca de quem ela recebe.
-    listarCategorias("saida").then(setCategorias);
-    listarCentrosCusto().then(setCentros);
-  }, [open]);
+  // Bug real dela em produção (23/09/2026, print da tela): editar um
+  // fornecedor que JÁ tinha categoria/centro padrão salvos abria o
+  // diálogo com os dois campos em branco — e salvar assim APAGARIA o que
+  // já estava certo no banco (confirmado com uma consulta direta: o
+  // banco tinha os valores certos o tempo todo, só o diálogo é que
+  // mostrava vazio).
+  //
+  // Causa raiz, achada instrumentando `onValueChange` com stack trace ao
+  // vivo: o Radix `<Select>` mantém por baixo um `<select>` NATIVO
+  // (escondido, só pra acessibilidade/autofill do navegador) espelhando
+  // o `value`. Quando `campos.categoriaPadraoId` chega com um UUID no
+  // MESMO instante em que `categorias.map(...)` ainda está inserindo as
+  // `<option>` desse select nativo, o navegador não acha a opção
+  // correspondente — e o próprio `<select>` nativo dispara um `change`
+  // vazio, que o Radix repassa pro meu `onValueChange("")`, apagando o
+  // valor certo que tinha acabado de chegar. Isso acontecia mesmo já
+  // esperando as duas listas carregarem antes de preencher `campos`
+  // (uma correção que tentei primeiro e não bastou): o problema não é a
+  // ORDEM dos dados, é o navegador reconciliando o DOM do select nativo
+  // um instante depois do React já ter passado o `value`.
+  //
+  // Correção que funciona: `key` no `<Select>` amarrada a
+  // `listasProntas` — força o Radix (e o select nativo por baixo) a
+  // desmontar e remontar do zero assim que as opções chegam, nascendo
+  // JÁ com as `<option>` no lugar antes de receber um `value` não-vazio.
+  // Sem isso, criar um fornecedor NOVO (sem categoria/centro ainda)
+  // continua funcionando normalmente — o bug só aparece quando o
+  // `value` inicial já é um UUID de verdade.
+  const [listasProntas, setListasProntas] = useState(false);
 
   useEffect(() => {
     if (!open) return;
-    if (fornecedor) {
-      setCampos({
-        nome: fornecedor.nome,
-        tipo: fornecedor.tipo ?? "juridica",
-        cnpjCpf: fornecedor.cnpj_cpf ?? "",
-        email: fornecedor.email ?? "",
-        telefone: fornecedor.telefone ?? "",
-        chavePix: fornecedor.chave_pix ?? "",
-        tipoChavePix: fornecedor.tipo_chave_pix ?? "",
-        bancoNome: fornecedor.banco_nome ?? "",
-        agencia: fornecedor.agencia ?? "",
-        conta: fornecedor.conta ?? "",
-        endereco: fornecedor.endereco ?? "",
-        bairro: fornecedor.bairro ?? "",
-        cidade: fornecedor.cidade ?? "",
-        uf: fornecedor.uf ?? "",
-        cep: fornecedor.cep ?? "",
-        categoriaPadraoId: fornecedor.categoria_padrao_id ?? "",
-        centroCustoPadraoId: fornecedor.centro_custo_padrao_id ?? "",
-        observacao: fornecedor.observacao ?? "",
-      });
-    } else {
-      setCampos(VAZIO);
-    }
+    let cancelado = false;
+    setListasProntas(false);
+    // Categoria padrão é sempre de despesa — fornecedor é de quem a igreja
+    // COMPRA, nunca de quem ela recebe.
+    Promise.all([listarCategorias("saida"), listarCentrosCusto()]).then(([cats, cents]) => {
+      if (cancelado) return;
+      setCategorias(cats);
+      setCentros(cents);
+      setListasProntas(true);
+      if (fornecedor) {
+        setCampos({
+          nome: fornecedor.nome,
+          tipo: fornecedor.tipo ?? "juridica",
+          cnpjCpf: fornecedor.cnpj_cpf ?? "",
+          email: fornecedor.email ?? "",
+          telefone: fornecedor.telefone ?? "",
+          chavePix: fornecedor.chave_pix ?? "",
+          tipoChavePix: fornecedor.tipo_chave_pix ?? "",
+          bancoNome: fornecedor.banco_nome ?? "",
+          agencia: fornecedor.agencia ?? "",
+          conta: fornecedor.conta ?? "",
+          endereco: fornecedor.endereco ?? "",
+          bairro: fornecedor.bairro ?? "",
+          cidade: fornecedor.cidade ?? "",
+          uf: fornecedor.uf ?? "",
+          cep: fornecedor.cep ?? "",
+          categoriaPadraoId: fornecedor.categoria_padrao_id ?? "",
+          centroCustoPadraoId: fornecedor.centro_custo_padrao_id ?? "",
+          observacao: fornecedor.observacao ?? "",
+        });
+      } else {
+        setCampos(VAZIO);
+      }
+    });
+    return () => { cancelado = true; };
   }, [open, fornecedor]);
 
   function set<K extends keyof typeof VAZIO>(campo: K, valor: typeof VAZIO[K]) {
@@ -210,7 +243,8 @@ export function FornecedorForm({ open, onOpenChange, fornecedor, onSaved }: Prop
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Categoria padrão de despesa</Label>
-              <Select value={campos.categoriaPadraoId} onValueChange={(v) => set("categoriaPadraoId", v)}>
+              <Select key={listasProntas ? "cat-pronta" : "cat-carregando"}
+                value={campos.categoriaPadraoId} onValueChange={(v) => set("categoriaPadraoId", v)}>
                 <SelectTrigger><SelectValue placeholder="(opcional)" /></SelectTrigger>
                 <SelectContent>
                   {categorias.map(c => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
@@ -219,7 +253,8 @@ export function FornecedorForm({ open, onOpenChange, fornecedor, onSaved }: Prop
             </div>
             <div>
               <Label>Centro de custo padrão</Label>
-              <Select value={campos.centroCustoPadraoId} onValueChange={(v) => set("centroCustoPadraoId", v)}>
+              <Select key={listasProntas ? "centro-pronto" : "centro-carregando"}
+                value={campos.centroCustoPadraoId} onValueChange={(v) => set("centroCustoPadraoId", v)}>
                 <SelectTrigger><SelectValue placeholder="(opcional)" /></SelectTrigger>
                 <SelectContent>
                   {centros.map(c => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
