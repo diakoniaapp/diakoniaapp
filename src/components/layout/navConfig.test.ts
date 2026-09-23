@@ -154,7 +154,11 @@ describe("o pastor titular alcança exatamente o recorte do painel dele", () => 
     // mesmo que o item tivesse sumido do menu por outro motivo.
     for (const rota of [
       "/ministerios", "/organograma", "/governanca", "/estrutura",
-      "/arrecadacao", "/financas", "/financas/fiscal", "/financas/reunioes",
+      // "/financas" virou "/painel-tesouraria" no menu em 22/09/2026 — ver
+      // o comentário no próprio navConfig.ts (o item "Tesouraria" mudou de
+      // destino, mesma guarda ROLES_FINANCEIRO, mesmo motivo de ficar fora
+      // do alcance do pastor titular).
+      "/arrecadacao", "/painel-tesouraria", "/financas/fiscal", "/financas/reunioes",
       "/financas/executivo", "/locais", "/painel-secretaria",
     ]) {
       const item = todosOsItens.find(i => i.to === rota);

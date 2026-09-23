@@ -86,7 +86,13 @@ const ROUTES: CommandRoute[] = [
   { to: "/arrecadacao/espacos", label: "Configurar Bazar/Cantina (taxas)", icon: ShoppingBag, group: "Configurações", keywords: ["taxa","cartao","arrecada","bazar","cantina","espaco"], permissoes: ["gerenciar_arrecadacao","ver_financeiro"] },
 
   // ── Financeiro ────────────────────────────────────────────────────
-  { to: "/financas",         label: "Tesouraria",     icon: DollarSign, group: "Financeiro", keywords: ["dinheiro","caixa","contas","conta"] },
+  // "Tesouraria" mudou de `/financas` pra `/painel-tesouraria` em
+  // 22/09/2026, junto com o item do menu lateral (navConfig.ts) — as duas
+  // telas tinham o mesmo nome na interface. "Contas correntes" é a
+  // entrada nova, pro que sobrou em `/financas` (saldo/extrato por conta,
+  // indicadores eclesiásticos).
+  { to: "/painel-tesouraria", label: "Tesouraria",     icon: DollarSign, group: "Financeiro", keywords: ["dinheiro","caixa","contas","conta","central","pagar","conciliar"] },
+  { to: "/financas",          label: "Contas correntes", icon: DollarSign, group: "Financeiro", keywords: ["dinheiro","caixa","contas","conta","extrato","saldo"] },
   { to: "/financas/fiscal",    label: "Módulo Fiscal",       icon: DollarSign, group: "Financeiro", keywords: ["fgts","dctfweb","esocial","iss","darf","dirf","obrigacao","imposto","tributo","fisco"], permissoes: ["ver_fiscal","ver_financeiro"] },
   { to: "/financas/reunioes",   label: "Reuniões financeiras", icon: DollarSign, group: "Financeiro", keywords: ["pauta","reunia","ata","decisao","tesouraria","balancete","conciliacao"], permissoes: ["ver_financeiro"] },
   { to: "/financas/executivo",  label: "Visão Executiva",      icon: DollarSign, group: "Financeiro", keywords: ["executivo","dashboard","conselho","pastor","tesoureiro","saldo","fluxo","caixa","grafico","dizimo","oferta","missao"], permissoes: ["ver_dashboard_executivo","ver_financeiro"] },

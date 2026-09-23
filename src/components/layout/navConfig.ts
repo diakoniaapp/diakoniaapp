@@ -270,7 +270,18 @@ export const NAV_GROUPS: NavGroup[] = [
     icon: DollarSign,
     allowedRoles: ROLES_FINANCEIRO,
     items: [
-      { to: "/financas",           label: "Tesouraria",          icon: DollarSign, allowedRoles: ROLES_FINANCEIRO },
+      // "Tesouraria" apontava pra `/financas` (Contas correntes) até
+      // 22/09/2026 — duas telas diferentes com o mesmo nome na interface
+      // (achado dela, print do menu: "Traria tudo que temos no
+      // FINANCEIRO para o ERP?"). `/painel-tesouraria` é a Central
+      // Operacional de verdade desde a Fase 10 (saldo por conta, pagar/
+      // aprovar/conciliar inline) — "Tesouraria" agora leva pra lá.
+      // `/financas` continua existindo (indicadores eclesiásticos, atalho
+      // de OFX, destino de "Voltar" das 15 sub-telas do módulo) — só
+      // saiu do topo do menu; alcança-se por "Contas correntes" dentro
+      // do "Ir para" do próprio Painel, ou pelo card de saldo de cada
+      // conta.
+      { to: "/painel-tesouraria",     label: "Tesouraria",          icon: DollarSign, allowedRoles: ROLES_FINANCEIRO },
       { to: "/financas/agenda",       label: "Agenda Financeira",   icon: CalendarDays, allowedRoles: ROLES_FINANCEIRO },
       { to: "/financas/relatorio",    label: "Malote Contábil",     icon: Receipt,       allowedRoles: ROLES_FINANCEIRO },
       { to: "/financas/fiscal",    label: "Módulo Fiscal",       icon: DollarSign, allowedRoles: ROLES_FINANCEIRO },
@@ -415,7 +426,10 @@ export const pageTitles: Record<string, string> = {
   "/membresia":               "Membresia",
   "/governanca":              "Reuniões",
   "/assuntos":                "Assuntos",
-  "/financas":                "Tesouraria",
+  // Era "Tesouraria" — corrigido em 22/09/2026 junto com o item do menu:
+  // esta rota mostra "Contas correntes" (o H1 da própria tela), e
+  // "Tesouraria" agora é só `/painel-tesouraria`, sem ambiguidade.
+  "/financas":                "Contas correntes",
   "/financas/executivo":      "Visão Executiva",
   "/financas/dre":            "DRE Eclesiástica",
   "/financas/prestacao-de-contas": "Prestação de Contas",

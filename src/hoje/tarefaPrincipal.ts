@@ -162,7 +162,11 @@ const conciliacaoPendente: Resolvedor = async (ctx) => {
     subtitulo: `Sem conferir contra o extrato há mais de ${DIAS_CONCILIACAO_PENDENTE} dias`,
     acao: "Conferir",
     abaLabel: "Conciliar",
-    to: "/financas",
+    // Era `/financas` — só mostrava a lista de contas, sem lugar nenhum
+    // pra de fato conciliar. Desde a Fase 10 (22/09/2026), o Painel da
+    // Tesouraria resolve isso na hora (drawer de conciliação, seção
+    // Pendências) — a tarefa agora leva direto pra onde se resolve.
+    to: "/painel-tesouraria",
     icon: Scale,
   };
 };
