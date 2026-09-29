@@ -591,15 +591,15 @@ export function LancamentoForm({
         {!isEdit && (
           <div className="grid grid-cols-2 gap-2">
             <Button type="button" size="sm"
-              variant={tipo === "entrada" ? "default" : "outline"}
+              variant={tipo === "entrada" ? "success" : "outline"}
               onClick={() => setTipo("entrada")}
-              className={tipo === "entrada" ? "bg-success hover:bg-success text-white gap-1.5" : "gap-1.5"}>
+              className="gap-1.5">
               <TrendingUp className="w-3.5 h-3.5" /> Entrada
             </Button>
             <Button type="button" size="sm"
-              variant={tipo === "saida" ? "default" : "outline"}
+              variant={tipo === "saida" ? "destructive" : "outline"}
               onClick={() => setTipo("saida")}
-              className={tipo === "saida" ? "bg-destructive hover:bg-destructive text-white gap-1.5" : "gap-1.5"}>
+              className="gap-1.5">
               <TrendingDown className="w-3.5 h-3.5" /> Saída
             </Button>
           </div>
@@ -1086,8 +1086,8 @@ export function LancamentoForm({
                     </p>
                   )}
                   <div className="flex gap-1.5 pt-1">
-                    <Button type="button" size="sm" onClick={aplicarSugestoesOcr}
-                      className="h-7 text-xs bg-info hover:bg-info text-white gap-1">
+                    <Button type="button" size="sm" variant="info" onClick={aplicarSugestoesOcr}
+                      className="h-7 text-xs gap-1">
                       <Sparkles className="w-3 h-3" /> Aplicar sugestões
                     </Button>
                     {ocr.razaoSocial && ocr.cnpj && !fornecedorOcrSugerido && (
@@ -1121,7 +1121,7 @@ export function LancamentoForm({
               Cancelar
             </Button>
             <Button type="submit" disabled={busy || (rateando && !rateioValido)}
-              className={tipo === "entrada" ? "bg-success hover:bg-success text-white" : "bg-destructive hover:bg-destructive text-white"}>
+              variant={tipo === "entrada" ? "success" : "destructive"}>
               {busy ? "..." : (isEdit ? "Salvar" : "Registrar")}
             </Button>
           </DialogFooter>

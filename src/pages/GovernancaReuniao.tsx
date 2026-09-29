@@ -233,8 +233,7 @@ export default function GovernancaReuniao() {
           </Button>
         )}
         {reun.status === "em_andamento" && (
-          <Button size="sm" onClick={() => trocarStatus("concluida")}
-            className="bg-success hover:bg-success text-white gap-1.5">
+          <Button variant="success" size="sm" onClick={() => trocarStatus("concluida")} className="gap-1.5">
             ✓ Concluir
           </Button>
         )}
@@ -253,7 +252,7 @@ export default function GovernancaReuniao() {
             <Button size="sm" variant="outline" onClick={importarSugestoes} disabled={busy}>
               <Sparkles className="w-3.5 h-3.5 mr-1.5" /> Importar pendências do sistema
             </Button>
-            <Button size="sm" onClick={() => setPautaOpen(true)} className="bg-gold hover:bg-gold/90 text-white">
+            <Button variant="gold" size="sm" onClick={() => setPautaOpen(true)}>
               <Plus className="w-3.5 h-3.5 mr-1.5" /> Nova pauta
             </Button>
             {deliberativas > 0 && (
@@ -283,7 +282,7 @@ export default function GovernancaReuniao() {
             <Button size="sm" variant="outline" onClick={autoConvocar} disabled={busy}>
               <Sparkles className="w-3.5 h-3.5 mr-1.5" /> Auto-convocar liderança
             </Button>
-            <Button size="sm" onClick={() => setPartOpen(true)} className="bg-gold hover:bg-gold/90 text-white">
+            <Button variant="gold" size="sm" onClick={() => setPartOpen(true)}>
               <UserPlus className="w-3.5 h-3.5 mr-1.5" /> Adicionar pessoa
             </Button>
           </div>

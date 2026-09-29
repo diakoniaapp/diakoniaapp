@@ -86,8 +86,7 @@ export default function FinancasRecorrencias() {
         <Button variant="outline" size="sm" onClick={gerarTodos} disabled={gerando}>
           <Sparkles className="w-3.5 h-3.5 mr-1.5" /> {gerando ? "..." : "Gerar próximos"}
         </Button>
-        <Button onClick={() => { setEditando(null); setOpen(true); }}
-          className="gap-1.5 bg-gold hover:bg-gold/90 text-white">
+        <Button variant="gold" onClick={() => { setEditando(null); setOpen(true); }} className="gap-1.5">
           <Plus className="w-4 h-4" /> Nova
         </Button>
       </div>
@@ -160,8 +159,7 @@ export default function FinancasRecorrencias() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={apagandoBusy}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={(e) => { e.preventDefault(); confirmarExcluir(); }} disabled={apagandoBusy}
-              className="bg-destructive hover:bg-destructive/90 text-white">
+            <AlertDialogAction variant="destructive" onClick={(e) => { e.preventDefault(); confirmarExcluir(); }} disabled={apagandoBusy}>
               {apagandoBusy ? "..." : "Excluir"}
             </AlertDialogAction>
           </AlertDialogFooter>

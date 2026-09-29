@@ -54,7 +54,7 @@ export default function Governanca() {
             Reuniões, pautas, assembleias e decisões — gestão estatutária da igreja.
           </p>
         </div>
-        <Button onClick={() => setNovoOpen(true)} className="gap-1.5 bg-gold hover:bg-gold/90 text-white">
+        <Button variant="gold" onClick={() => setNovoOpen(true)} className="gap-1.5">
           <Plus className="w-4 h-4" /> Nova reunião
         </Button>
       </div>

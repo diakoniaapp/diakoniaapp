@@ -177,7 +177,8 @@ export function QuemNinguemProcurou() {
                   <div className="flex items-center gap-1.5 shrink-0">
                     <Button
                       size="sm"
-                      className="h-11 px-3 gap-1.5 bg-[#25D366] hover:bg-[#128C7E] text-white border-0"
+                      variant="whatsapp"
+                      className="h-11 px-3 gap-1.5"
                       onClick={() => abrirWhatsApp(p)}
                     >
                       <MessageCircle className="w-4 h-4" />

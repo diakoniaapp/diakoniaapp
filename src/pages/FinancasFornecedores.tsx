@@ -111,8 +111,7 @@ export default function FinancasFornecedores() {
             Empresas e prestadores a quem a igreja paga — cadastro e histórico de despesas.
           </p>
         </div>
-        <Button onClick={() => { setEditando(null); setFormOpen(true); }}
-          className="gap-1.5 bg-gold hover:bg-gold/90 text-white">
+        <Button variant="gold" onClick={() => { setEditando(null); setFormOpen(true); }} className="gap-1.5">
           <Plus className="w-4 h-4" /> Novo
         </Button>
       </div>

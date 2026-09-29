@@ -262,8 +262,7 @@ export default function FinancasAdmin() {
         {/* ── ABA CONTAS ─────────────────────────────────────────── */}
         <TabsContent value="contas" className="space-y-2">
           <div className="flex justify-end">
-            <Button size="sm" onClick={() => { setContaEdit(null); setContaOpen(true); }}
-              className="gap-1.5 bg-gold hover:bg-gold/90 text-white">
+            <Button variant="gold" size="sm" onClick={() => { setContaEdit(null); setContaOpen(true); }} className="gap-1.5">
               <Plus className="w-3.5 h-3.5" /> Nova conta
             </Button>
           </div>
@@ -331,8 +330,7 @@ export default function FinancasAdmin() {
         <TabsContent value="categorias" className="space-y-3">
           {podeEstruturar && (
             <div className="flex justify-end">
-              <Button size="sm" onClick={() => { setCatEdit(null); setCatOpen(true); }}
-                className="gap-1.5 bg-gold hover:bg-gold/90 text-white">
+              <Button variant="gold" size="sm" onClick={() => { setCatEdit(null); setCatOpen(true); }} className="gap-1.5">
                 <Plus className="w-3.5 h-3.5" /> Nova categoria
               </Button>
             </div>
@@ -381,8 +379,7 @@ export default function FinancasAdmin() {
         <TabsContent value="centros" className="space-y-3">
           {podeEstruturar && (
             <div className="flex justify-end">
-              <Button size="sm" onClick={() => { setCcEdit(null); setCcPaiInicial(null); setCcOpen(true); }}
-                className="gap-1.5 bg-gold hover:bg-gold/90 text-white">
+              <Button variant="gold" size="sm" onClick={() => { setCcEdit(null); setCcPaiInicial(null); setCcOpen(true); }} className="gap-1.5">
                 <Plus className="w-3.5 h-3.5" /> Novo centro de custo
               </Button>
             </div>
@@ -508,8 +505,7 @@ export default function FinancasAdmin() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={excluindoBusy}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmarExcluir} disabled={excluindoBusy || impactoExclusao === null}
-              className="bg-destructive hover:bg-destructive/90 text-white">
+            <AlertDialogAction variant="destructive" onClick={confirmarExcluir} disabled={excluindoBusy || impactoExclusao === null}>
               {excluindoBusy ? "..." : "Excluir"}
             </AlertDialogAction>
           </AlertDialogFooter>

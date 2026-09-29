@@ -245,7 +245,7 @@ export function TransferenciaForm({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={busy} className="bg-info hover:bg-info text-white gap-1.5">
+            <Button variant="info" type="submit" disabled={busy} className="gap-1.5">
               <ArrowRightLeft className="w-3.5 h-3.5" /> {busy ? "..." : "Transferir"}
             </Button>
           </DialogFooter>

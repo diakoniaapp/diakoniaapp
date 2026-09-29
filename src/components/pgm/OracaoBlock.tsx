@@ -23,6 +23,7 @@ import {
   type PgmPedidoComPessoa, type PgmOracaoVisibilidade, type PgmOracaoStatus,
 } from "@/services/pgmService";
 import { BuscaPessoa } from "@/components/ui/BuscaPessoa";
+import { usePromptDialog } from "@/hooks/usePromptDialog";
 
 interface Props {
   grupoId: string;
@@ -44,6 +45,7 @@ export function OracaoBlock({ grupoId, podeEditar }: Props) {
   // confirm() nativo não funciona em WebView (Risco 3 do CLAUDE.md)
   const [pendente, setPendente] = useState<{ pedido: PgmPedidoComPessoa; acao: "arquivar" | "excluir" } | null>(null);
   const [pendenteBusy, setPendenteBusy] = useState(false);
+  const { prompt, dialog: promptDialog } = usePromptDialog();
 
   useEffect(() => { carregar(); }, [grupoId, filtro]);
   useEffect(() => { setNovaVisibilidade("lideranca"); }, []);
@@ -75,7 +77,9 @@ export function OracaoBlock({ grupoId, podeEditar }: Props) {
   }
 
   async function responder(p: PgmPedidoComPessoa) {
-    const resp = prompt("Como foi respondido? (testemunho curto)");
+    // prompt() nativo não funciona em WebView (Risco 3 do CLAUDE.md) —
+    // trocado por usePromptDialog (29/09/2026).
+    const resp = await prompt({ titulo: "Como foi respondido?", placeholder: "Testemunho curto" });
     if (resp === null) return;
     try {
       await responderPedidoOracao(p.id, resp || "");
@@ -248,6 +252,8 @@ export function OracaoBlock({ grupoId, podeEditar }: Props) {
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+
+    {promptDialog}
     </>
   );
 }

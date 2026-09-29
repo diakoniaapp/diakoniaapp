@@ -277,7 +277,7 @@ export default function PgmGrupo() {
               <Cal className="w-4 h-4 text-gold" /> Encontros
             </h3>
             {podeEditar && (
-              <Button size="sm" onClick={startNovaReuniao} disabled={iniciandoReuniao} className="gap-1.5 bg-gold hover:bg-gold/90 text-white">
+              <Button variant="gold" size="sm" onClick={startNovaReuniao} disabled={iniciandoReuniao} className="gap-1.5">
                 <Play className="w-3.5 h-3.5" /> {iniciandoReuniao ? "..." : "Iniciar encontro de hoje"}
               </Button>
             )}

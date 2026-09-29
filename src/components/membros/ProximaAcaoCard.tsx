@@ -44,7 +44,12 @@ const SUGESTAO: Record<string, { acao: string; descricao: string; cor: string }>
     em_acompanhamento: {
           acao: "Verificar necessidades e evolução",
           descricao: "Acompanhamento ativo — checar como a pessoa está se sentindo integrada.",
-          cor: "border-teal-200 bg-teal-50 dark:bg-teal-900/10 dark:border-teal-800/40",
+          // Cor crua trocada por token em 29/09/2026 (auditoria de
+          // padronização visual) — violeta, o mesmo token que
+          // AcolhimentoPanel.tsx passou a usar pro mesmo status
+          // "em_acompanhamento" (as duas telas usavam teal cru, cada uma
+          // com um tom ligeiramente diferente; unificado num token só).
+          cor: "border-violeta-line bg-violeta-soft/10",
     },
     congregado: {
           acao: "Apresentar ao grupo de membros",
@@ -164,11 +169,10 @@ export function ProximaAcaoCard({ pessoaId, nomeCompleto, statusAtual, onRegistr
                                                 onKeyDown={(e) => e.key === "Enter" && handleRegistrar()}
                                                 autoFocus
                                               />
-                                <Button
+                                <Button variant="success"
                                                 size="sm"
                                                 onClick={handleRegistrar}
-                                                disabled={salvando}
-                                                className="h-8 px-3 text-xs bg-success hover:bg-success text-white shrink-0"
+                                                disabled={salvando} className="h-8 px-3 text-xs shrink-0"
                                               >
                                   {salvando ? "..." : "Salvar"}
                                 </Button>

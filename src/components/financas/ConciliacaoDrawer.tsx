@@ -155,7 +155,7 @@ export function ConciliacaoDrawer({ open, onOpenChange, contaId, contaNome, onCh
 
           {selecionados.size > 0 && (
             <div className="p-3 border-t bg-card">
-              <Button type="button" className="w-full gap-1.5 bg-success hover:bg-success text-white"
+              <Button variant="success" type="button" className="w-full gap-1.5"
                 onClick={conciliar} disabled={conciliando}>
                 {conciliando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Scale className="w-4 h-4" />}
                 Conciliar {selecionados.size} {selecionados.size === 1 ? "selecionado" : "selecionados"}

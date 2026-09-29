@@ -231,8 +231,7 @@ export default function GovernancaAssembleia() {
           </Button>
         )}
         {ass.status === "em_andamento" && (
-          <Button size="sm" onClick={() => trocarStatus("concluida")}
-            className="bg-success hover:bg-success text-white gap-1.5">
+          <Button variant="success" size="sm" onClick={() => trocarStatus("concluida")} className="gap-1.5">
             ✓ Concluir
           </Button>
         )}
@@ -432,9 +431,9 @@ function ConvocacaoDialog({ assembleia, pautas, open, onOpenChange, onMarked }: 
                       <p className="text-xs text-muted-foreground">{p.telefone_celular ?? "sem telefone"}</p>
                     </div>
                     {!semTel && (
-                      <Button size="sm" variant={enviado ? "outline" : "default"}
+                      <Button size="sm" variant={enviado ? "outline" : "success"}
                         onClick={() => enviar(p)}
-                        className={`h-7 text-xs gap-1 ${enviado ? "" : "bg-success hover:bg-success text-white"}`}>
+                        className="h-7 text-xs gap-1">
                         {enviado ? <><Check className="w-3 h-3" /> Reenviar</> : <><Send className="w-3 h-3" /> Enviar</>}
                       </Button>
                     )}
@@ -547,8 +546,7 @@ function PautaVotacao({ pauta, aptos, presentes, quorumAtingido, emAndamento, on
         {/* Não decidida — botões grandes */}
         {!decidida && !aberto && (
           <div className="grid grid-cols-3 gap-2 pt-1">
-            <Button size="sm" onClick={() => { setAberto(true); autoVotos("aprovada"); }}
-              className="bg-success hover:bg-success text-white gap-1.5">
+            <Button variant="success" size="sm" onClick={() => { setAberto(true); autoVotos("aprovada"); }} className="gap-1.5">
               <ThumbsUp className="w-3.5 h-3.5" /> Aprovar
             </Button>
             <Button size="sm" onClick={() => { setAberto(true); autoVotos("rejeitada"); }}
@@ -589,10 +587,8 @@ function PautaVotacao({ pauta, aptos, presentes, quorumAtingido, emAndamento, on
             <Input value={observacao} onChange={(e) => setObservacao(e.target.value)}
               placeholder="Observação (opcional)" className="text-xs" />
             <div className="grid grid-cols-4 gap-1">
-              <Button size="sm" onClick={() => decidir("aprovada")} disabled={busy}
-                className="bg-success hover:bg-success text-white text-xs">Aprovar</Button>
-              <Button size="sm" onClick={() => decidir("rejeitada")} disabled={busy}
-                className="bg-destructive hover:bg-destructive text-white text-xs">Rejeitar</Button>
+              <Button variant="success" size="sm" onClick={() => decidir("aprovada")} disabled={busy} className="text-xs">Aprovar</Button>
+              <Button variant="destructive" size="sm" onClick={() => decidir("rejeitada")} disabled={busy} className="text-xs">Rejeitar</Button>
               <Button size="sm" onClick={() => decidir("adiada")} disabled={busy}
                 className="bg-warning hover:bg-warning text-white text-xs">Adiar</Button>
               <Button size="sm" variant="outline" onClick={() => setAberto(false)} disabled={busy} className="text-xs">Cancelar</Button>

@@ -43,6 +43,7 @@ import {
   type EscalaDaArea, type Sugestao, type StatusPresenca,
 } from "@/services/escalaService";
 import { buildWhatsAppLink } from "@/lib/visitantesFluxo";
+import { usePromptDialog } from "@/hooks/usePromptDialog";
 
 interface AreaOpt { id: string; nome: string; ministerio_id: string | null; }
 
@@ -69,6 +70,7 @@ export function EscalaDialog({ open, onOpenChange, evento, areasDoEvento }: Prop
   // por AlertDialog, mesmo padrão já usado em FinancasFornecedores.tsx etc.
   const [apagando, setApagando] = useState<EscalaDaArea | null>(null);
   const [apagandoBusy, setApagandoBusy] = useState(false);
+  const { prompt, dialog: promptDialog } = usePromptDialog();
 
   const [sugestoesDe, setSugestoesDe] = useState<string | null>(null);   // escala_id
   const [sugestoes, setSugestoes] = useState<Sugestao[]>([]);
@@ -184,7 +186,9 @@ export function EscalaDialog({ open, onOpenChange, evento, areasDoEvento }: Prop
   const responder = async (id: string, status: StatusPresenca) => {
     let motivo: string | null = null;
     if (status === "recusado") {
-      motivo = window.prompt("Motivo da recusa (opcional):") ?? null;
+      // prompt() nativo não funciona em WebView (Risco 3 do CLAUDE.md) —
+      // trocado por usePromptDialog (29/09/2026).
+      motivo = await prompt({ titulo: "Motivo da recusa", placeholder: "Opcional" });
     }
     setOcupado(true);
     const r = await responderEscala(id, status, motivo);
@@ -443,6 +447,8 @@ export function EscalaDialog({ open, onOpenChange, evento, areasDoEvento }: Prop
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+
+    {promptDialog}
     </>
   );
 }

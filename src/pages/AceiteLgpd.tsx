@@ -288,10 +288,9 @@ export default function AceiteLgpd() {
           </div>
         )}
 
-        <Button
+        <Button variant="gold"
           onClick={onAceitar}
-          disabled={!lido || busy}
-          className="w-full h-11 text-base font-semibold bg-gold hover:bg-gold/90 text-white shadow-md transition-all active:scale-[0.98] disabled:opacity-50"
+          disabled={!lido || busy} className="w-full h-11 text-base font-semibold shadow-md transition-all active:scale-[0.98] disabled:opacity-50"
         >
           {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : "Aceitar e continuar"}
         </Button>

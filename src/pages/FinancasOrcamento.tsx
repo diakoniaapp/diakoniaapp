@@ -108,7 +108,7 @@ export default function FinancasOrcamento() {
             Planeje gastos por centro de custo — acompanhe real vs planejado.
           </p>
         </div>
-        <Button onClick={() => setDlgOpen(true)} className="gap-1.5 bg-gold hover:bg-gold/90 text-white">
+        <Button variant="gold" onClick={() => setDlgOpen(true)} className="gap-1.5">
           <Plus className="w-4 h-4" /> Nova linha
         </Button>
       </div>
@@ -260,8 +260,7 @@ export default function FinancasOrcamento() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={apagandoBusy}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={(e) => { e.preventDefault(); confirmarDeletar(); }} disabled={apagandoBusy}
-              className="bg-destructive hover:bg-destructive/90 text-white">
+            <AlertDialogAction variant="destructive" onClick={(e) => { e.preventDefault(); confirmarDeletar(); }} disabled={apagandoBusy}>
               {apagandoBusy ? "..." : "Excluir"}
             </AlertDialogAction>
           </AlertDialogFooter>

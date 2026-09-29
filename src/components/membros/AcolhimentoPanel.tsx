@@ -34,7 +34,10 @@ const STATUS_OPTIONS: { value: string; label: string; color: string }[] = [
   { value: "contatado",        label: "Contatado",         color: "bg-warning-soft text-warning-text border-warning-line" },
   { value: "retornou",         label: "Retornou",          color: "bg-success-soft text-success-text border-success-line" },
   { value: "em_relacionamento",label: "Em relacionamento", color: "bg-success-soft text-success-text border-success-line" },
-  { value: "em_acompanhamento",label: "Em acompanhamento", color: "bg-teal-100 text-teal-700 border-teal-300" },
+  // Cor crua trocada por token em 29/09/2026 (auditoria de padronização
+  // visual) — `violeta` é o "sexto lugar" categórico já documentado,
+  // livre aqui (congregado/membro usam gold/primary, não violeta).
+  { value: "em_acompanhamento",label: "Em acompanhamento", color: "bg-violeta-soft text-violeta-text border-violeta-line" },
   // era roxo aqui, verde no PessoaCard e dourado no catálogo — três telas,
   // três cores, a mesma pessoa
   { value: "congregado",       label: "Congregado",        color: TIPO_PESSOA_COR.congregado },
@@ -186,7 +189,8 @@ export function AcolhimentoPanel({ pessoa, onUpdated }: Props) {
                 <Button
                   type="button"
                   size="sm"
-                  className="w-full gap-2 text-xs bg-[#25D366] hover:bg-[#128C7E] text-white border-0"
+                  variant="whatsapp"
+                  className="w-full gap-2 text-xs"
                   onClick={enviarWhatsApp}
                 >
                   <MessageCircle className="w-3.5 h-3.5" />

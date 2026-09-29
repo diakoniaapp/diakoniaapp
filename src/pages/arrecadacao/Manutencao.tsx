@@ -49,14 +49,16 @@ export default function ManutencaoLista() {
   function abrirWhatsAppPorEspaco(espacoId: string, espacoNome: string) {
     const espaco = espacos.find(e => e.id === espacoId) as any;
     if (!espaco?.whatsapp_manutencao) {
-      alert("Configure o WhatsApp do responsável de manutenção em /arrecadacao/espacos primeiro.");
+      // alert() nativo não funciona em WebView (Risco 3 do CLAUDE.md) —
+      // troca por sonner, mesmo padrão de toda a base.
+      toast.error("Configure o WhatsApp do responsável de manutenção em /arrecadacao/espacos primeiro.");
       return;
     }
     const pendentes = problemas.filter(
       p => p.espaco_id === espacoId && (p.status === "aberto" || p.status === "em_andamento")
     );
     if (pendentes.length === 0) {
-      alert("Não há pendências pra este espaço."); return;
+      toast.error("Não há pendências pra este espaço."); return;
     }
     const { url } = montarWhatsAppManutencao(
       pendentes, espacoNome,

@@ -115,7 +115,7 @@ export function MultiplicarDialog({ open, onOpenChange, grupoPaiId, grupoPaiNome
               onClick={() => onOpenChange(false)} disabled={busy}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={busy} className="bg-success hover:bg-success/90 text-white gap-1.5">
+            <Button variant="success" type="submit" disabled={busy} className="gap-1.5">
               <Sparkles className="w-3.5 h-3.5" /> {busy ? "..." : "Multiplicar"}
             </Button>
           </DialogFooter>

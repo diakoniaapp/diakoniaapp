@@ -108,8 +108,7 @@ export function FornecedoresDrawer({ open, onOpenChange }: Props) {
               <SheetTitle className="flex items-center gap-2">
                 <Building2 className="w-4 h-4 text-gold" /> Fornecedores
               </SheetTitle>
-              <Button size="sm" onClick={() => { setEditando(null); setFormOpen(true); }}
-                className="gap-1.5 bg-gold hover:bg-gold/90 text-white shrink-0">
+              <Button variant="gold" size="sm" onClick={() => { setEditando(null); setFormOpen(true); }} className="gap-1.5 shrink-0">
                 <Plus className="w-3.5 h-3.5" /> Novo
               </Button>
             </div>

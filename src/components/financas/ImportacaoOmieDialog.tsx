@@ -546,8 +546,7 @@ export function ImportacaoOmieDialog({ open, onOpenChange, contaId, contaNome, o
             Fechar
           </Button>
           {rascunhos && (
-            <Button type="button" onClick={confirmar} disabled={confirmando}
-              className="bg-gold hover:bg-gold/90 text-white gap-1.5">
+            <Button variant="gold" type="button" onClick={confirmar} disabled={confirmando} className="gap-1.5">
               <Upload className="w-3.5 h-3.5" /> {confirmando ? "Importando..." : `Importar ${qtdValidas} lançamento(s)`}
             </Button>
           )}

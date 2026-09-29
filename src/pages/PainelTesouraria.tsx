@@ -757,7 +757,7 @@ export default function PainelTesouraria() {
                 )}
               </div>
               <div className="mt-auto flex items-center justify-between px-3 py-2 bg-muted/30 border-t">
-                <Button type="button" size="sm" className="h-6 px-2 text-[11px] bg-destructive hover:bg-destructive/90 text-white"
+                <Button type="button" size="sm" variant="destructive" className="h-6 px-2 text-[11px]"
                   onClick={() => setNovoLancamentoAberto("saida")}>
                   + Novo
                 </Button>
@@ -804,7 +804,7 @@ export default function PainelTesouraria() {
                 </div>
               </div>
               <div className="mt-auto flex items-center justify-between px-3 py-2 bg-muted/30 border-t">
-                <Button type="button" size="sm" className="h-6 px-2 text-[11px] bg-info hover:bg-info/90 text-white"
+                <Button type="button" size="sm" variant="info" className="h-6 px-2 text-[11px]"
                   onClick={() => setNovoLancamentoAberto("entrada")}>
                   + Novo
                 </Button>
@@ -867,7 +867,7 @@ export default function PainelTesouraria() {
                 </div>
               )}
               <div className="mt-auto flex items-center justify-between px-3 py-2 bg-muted/30 border-t">
-                <Button type="button" size="sm" className="h-6 px-2 text-[11px] bg-gold hover:bg-gold/90 text-white"
+                <Button type="button" size="sm" variant="gold" className="h-6 px-2 text-[11px]"
                   onClick={abrirConciliacao} disabled={aguardandoConciliacao.length === 0}>
                   Conciliar tudo
                 </Button>
@@ -1227,7 +1227,7 @@ export default function PainelTesouraria() {
                   <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
                     Saldo Missionário — histórico completo
                   </p>
-                  <Button type="button" size="sm" className="h-6 px-2 text-[11px] bg-violeta hover:bg-violeta/90 text-violeta-foreground"
+                  <Button type="button" size="sm" variant="violeta" className="h-6 px-2 text-[11px]"
                     onClick={() => setRemessaMissionariaAberta(true)}>
                     + Registrar remessa
                   </Button>

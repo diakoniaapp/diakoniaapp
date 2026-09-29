@@ -402,8 +402,7 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, onChange }: Pr
                     <ExternalLink className="w-3.5 h-3.5" /> Extrato completo
                   </Link>
                 </Button>
-                <Button size="sm" onClick={() => { setEditando(null); setNovoOpen(true); }}
-                  className="gap-1.5 h-8 text-xs bg-gold hover:bg-gold/90 text-white">
+                <Button variant="gold" size="sm" onClick={() => { setEditando(null); setNovoOpen(true); }} className="gap-1.5 h-8 text-xs">
                   <Plus className="w-3.5 h-3.5" /> Novo
                 </Button>
               </div>
@@ -487,8 +486,7 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, onChange }: Pr
             {selecionados.size > 0 && (
               <div className="flex items-center gap-2 flex-wrap pt-1">
                 {selecionadosConciliaveis.length > 0 && (
-                  <Button size="sm" onClick={conciliarSelecionados} disabled={conciliando || excluindoLoteBusy}
-                    className="gap-1.5 h-8 text-xs bg-success hover:bg-success text-white">
+                  <Button variant="success" size="sm" onClick={conciliarSelecionados} disabled={conciliando || excluindoLoteBusy} className="gap-1.5 h-8 text-xs">
                     <Scale className="w-3.5 h-3.5" />
                     {conciliando ? "..." : `Conciliar ${selecionadosConciliaveis.length}`}
                   </Button>
@@ -619,8 +617,7 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, onChange }: Pr
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={excluindoBusy}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmarExcluir} disabled={excluindoBusy}
-              className="bg-destructive hover:bg-destructive/90 text-white">
+            <AlertDialogAction variant="destructive" onClick={confirmarExcluir} disabled={excluindoBusy}>
               {excluindoBusy ? "..." : "Excluir"}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -641,8 +638,7 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, onChange }: Pr
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={excluindoLoteBusy}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmarExcluirSelecionados} disabled={excluindoLoteBusy}
-              className="bg-destructive hover:bg-destructive/90 text-white">
+            <AlertDialogAction variant="destructive" onClick={confirmarExcluirSelecionados} disabled={excluindoLoteBusy}>
               {excluindoLoteBusy ? "..." : "Excluir"}
             </AlertDialogAction>
           </AlertDialogFooter>

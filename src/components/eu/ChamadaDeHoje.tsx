@@ -68,7 +68,7 @@ export function ChamadaDeHoje({ pessoaId }: { pessoaId: string }) {
           <p className="text-sm font-medium truncate">{classe.nome}</p>
           <p className="text-xs text-muted-foreground">Registrar presença de hoje</p>
         </div>
-        <Button asChild size="sm" className="shrink-0 bg-gold hover:bg-gold/90 text-white border-0">
+        <Button variant="gold" asChild size="sm" className="shrink-0 border-0">
           <Link to={`/ebd/${classe.id}/chamada`}>Fazer chamada</Link>
         </Button>
       </CardContent>

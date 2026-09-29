@@ -213,8 +213,7 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
             Fechar
           </Button>
           {resultado && encontrados.length > 0 && (
-            <Button type="button" onClick={conciliar} disabled={conciliando}
-              className="bg-success hover:bg-success text-white gap-1.5">
+            <Button variant="success" type="button" onClick={conciliar} disabled={conciliando} className="gap-1.5">
               <Scale className="w-3.5 h-3.5" /> {conciliando ? "..." : `Conciliar ${encontrados.length}`}
             </Button>
           )}

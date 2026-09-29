@@ -344,7 +344,11 @@ function CampanhaCard({ campanha: c, onEditar, onExcluir, onStatus }: {
               </Badge>
               <span className="flex items-center gap-0.5" title={`Prioridade ${c.prioridade}`}>
                 {Array.from({ length: c.prioridade }).map((_, i) => (
-                  <Star key={i} className="w-2.5 h-2.5 fill-amber-400 text-warning-text" />
+                  // Cor crua trocada por token em 29/09/2026 (auditoria de
+                  // padronização visual) — `fill-amber-400` cru ao lado de
+                  // `text-warning-text` (token); as duas já eram a mesma
+                  // família de cor (âmbar), só uma delas sem token.
+                  <Star key={i} className="w-2.5 h-2.5 fill-warning text-warning-text" />
                 ))}
               </span>
             </div>

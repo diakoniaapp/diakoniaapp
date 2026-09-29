@@ -104,7 +104,7 @@ export function OrcamentoDrawer({ open, onOpenChange }: Props) {
               <SheetTitle className="flex items-center gap-2">
                 <Target className="w-4 h-4 text-gold" /> Orçamento
               </SheetTitle>
-              <Button size="sm" onClick={() => setDlgOpen(true)} className="gap-1.5 bg-gold hover:bg-gold/90 text-white shrink-0">
+              <Button variant="gold" size="sm" onClick={() => setDlgOpen(true)} className="gap-1.5 shrink-0">
                 <Plus className="w-3.5 h-3.5" /> Nova linha
               </Button>
             </div>
@@ -224,8 +224,7 @@ export function OrcamentoDrawer({ open, onOpenChange }: Props) {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={apagandoBusy}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={(e) => { e.preventDefault(); confirmarDeletar(); }} disabled={apagandoBusy}
-              className="bg-destructive hover:bg-destructive/90 text-white">
+            <AlertDialogAction variant="destructive" onClick={(e) => { e.preventDefault(); confirmarDeletar(); }} disabled={apagandoBusy}>
               {apagandoBusy ? "..." : "Excluir"}
             </AlertDialogAction>
           </AlertDialogFooter>

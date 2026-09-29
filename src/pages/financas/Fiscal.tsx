@@ -16,6 +16,7 @@ import {
 import { toast } from "sonner";
 import { DocumentosFiscaisDialog } from "@/components/fiscal/DocumentosFiscaisDialog";
 import { AnalisarGuiaDialog } from "@/components/fiscal/AnalisarGuiaDialog";
+import { usePromptDialog } from "@/hooks/usePromptDialog";
 import {
   carregarConfig, atualizarConfig,
   listarTiposObrigacao, listarObrigacoesAtivas, definirObrigacaoAtiva,
@@ -238,6 +239,7 @@ function AbaAgenda() {
   const [exportando, setExportando] = useState(false);
   const [loading, setLoading] = useState(true);
   const [gerando, setGerando] = useState(false);
+  const { prompt, dialog: promptDialog } = usePromptDialog();
 
   async function carregar() {
     setLoading(true);
@@ -271,7 +273,10 @@ function AbaAgenda() {
       toast.info("Esta obrigação já tem lançamento vinculado");
       return;
     }
-    const valor = Number(prompt(`Valor estimado para ${it.tipo?.nome}:`)?.replace(",", ".") ?? "");
+    // prompt() nativo não funciona em WebView (Risco 3 do CLAUDE.md) —
+    // trocado por usePromptDialog (29/09/2026).
+    const digitado = await prompt({ titulo: `Valor estimado para ${it.tipo?.nome}`, tipo: "numero", obrigatorio: true });
+    const valor = Number(digitado?.replace(",", ".") ?? "");
     if (isNaN(valor) || valor <= 0) return;
     try {
       await criarLancamentoFiscal(it.id, valor);
@@ -296,7 +301,10 @@ function AbaAgenda() {
   }
 
   async function baixar(it: FiscalAgendaItem) {
-    const valor = Number(prompt(`Valor pago para ${it.tipo?.nome}:`)?.replace(",", ".") ?? "");
+    // prompt() nativo não funciona em WebView (Risco 3 do CLAUDE.md) —
+    // trocado por usePromptDialog (29/09/2026).
+    const digitado = await prompt({ titulo: `Valor pago para ${it.tipo?.nome}`, tipo: "numero", obrigatorio: true });
+    const valor = Number(digitado?.replace(",", ".") ?? "");
     if (isNaN(valor) || valor <= 0) return;
     try {
       await darBaixaObrigacao(it.id, {
@@ -412,6 +420,7 @@ function AbaAgenda() {
           onAplicado={carregar}
         />
       )}
+      {promptDialog}
     </Card>
   );
 }

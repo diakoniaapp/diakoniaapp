@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { PaginaSkeleton } from "@/components/ListState";
+import { usePromptDialog } from "@/hooks/usePromptDialog";
 import {
   carregarReserva, listarChecklist, marcarChecklist,
   aprovarReserva, recusarReserva, iniciarUsoEAbrirCaixa, arquivarReserva,
@@ -72,6 +73,7 @@ export default function ReservaDetalhe() {
   // confirm() nativo não funciona em WebView (Risco 3 do CLAUDE.md)
   const [confirmandoArquivar, setConfirmandoArquivar] = useState(false);
   const [confirmandoEncerrar, setConfirmandoEncerrar] = useState(false);
+  const { prompt, dialog: promptDialog } = usePromptDialog();
 
   async function carregar() {
     if (!id) return;
@@ -277,8 +279,9 @@ export default function ReservaDetalhe() {
               {caixa.estado === "fechado" && (
                 <Button size="lg" variant="outline"
                   onClick={async () => {
-                    const motivo = prompt("Motivo da reabertura (opcional):") ?? undefined;
-                    if (motivo === null) return; // usuário cancelou
+                    // prompt() nativo não funciona em WebView (Risco 3 do
+                    // CLAUDE.md) — trocado por usePromptDialog (29/09/2026).
+                    const motivo = (await prompt({ titulo: "Motivo da reabertura", placeholder: "Opcional" })) ?? undefined;
                     try {
                       await reabrirCaixa(caixa.id, motivo || undefined);
                       toast.success("Caixa reaberto");
@@ -411,6 +414,8 @@ export default function ReservaDetalhe() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {promptDialog}
     </div>
   );
 }

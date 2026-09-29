@@ -392,7 +392,8 @@ export default function AcoesHoje({ limit }: AcoesHojeProps = {}) {
                             Ministerios ja adotaram — e sao justamente as que se
                             usa com o celular na mao, no meio do culto. */}
                         <Button
-                          className="gap-1.5 text-sm h-11 px-3 bg-[#25D366] hover:bg-[#128C7E] text-white border-0"
+                          variant="whatsapp"
+                          className="gap-1.5 text-sm h-11 px-3"
                           disabled={!link || busy}
                           onClick={() => abrirWhatsApp(v)}
                         >

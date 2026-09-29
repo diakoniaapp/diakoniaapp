@@ -330,7 +330,7 @@ export default function EbdClasse() {
               cheia) que já ganhou nos cartões do índice de classes; o resto
               aqui é ocasional (editar, relatório, campanhas), por isso fica
               em contorno, sem competir com ela. */}
-          <Button asChild size="sm" className="gap-1.5 bg-gold hover:bg-gold/90 text-white border-0">
+          <Button variant="gold" asChild size="sm" className="gap-1.5 border-0">
             <Link to={`/ebd/${classeId}/chamada`}>
               <GraduationCap className="w-3.5 h-3.5" /> Fazer chamada
             </Link>

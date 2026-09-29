@@ -826,9 +826,8 @@ export default function Ebd() {
                     <span className="text-muted-foreground"> · {cobertura}% do perfil</span>
                   </p>
 
-                  <Button
-                    asChild size="sm"
-                    className="w-full gap-1.5 h-8 text-xs bg-gold hover:bg-gold/90 text-white border-0"
+                  <Button variant="gold"
+                    asChild size="sm" className="w-full gap-1.5 h-8 text-xs border-0"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <Link to={`/ebd/${c.id}/chamada`}>

@@ -181,10 +181,9 @@ export function ConvidarParaEvento({ open, onOpenChange, ...evento }: Props) {
             {copiado === "fones" ? "Copiados" : `Copiar ${alcance} telefones`}
           </Button>
 
-          <Button
+          <Button variant="success"
             type="button"
-            onClick={abrirWhats}
-            className="gap-1.5 w-full sm:w-auto bg-success hover:bg-success text-white"
+            onClick={abrirWhats} className="gap-1.5 w-full sm:w-auto"
           >
             <MessageCircle className="w-4 h-4" /> Compartilhar
           </Button>

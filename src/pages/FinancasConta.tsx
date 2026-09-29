@@ -784,8 +784,7 @@ export default function FinancasConta() {
         {selecionados.size > 0 && (
           <>
             {selecionadosConciliaveis.length > 0 && (
-              <Button size="sm" onClick={conciliarSelecionados} disabled={conciliando || excluindoLoteBusy}
-                className="gap-1.5 bg-success hover:bg-success text-white">
+              <Button variant="success" size="sm" onClick={conciliarSelecionados} disabled={conciliando || excluindoLoteBusy} className="gap-1.5">
                 <Scale className="w-3.5 h-3.5" />
                 {conciliando ? "..." : `Conciliar ${selecionadosConciliaveis.length}`}
               </Button>
@@ -830,8 +829,7 @@ export default function FinancasConta() {
         <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-1.5">
           <Printer className="w-3.5 h-3.5" /> Imprimir / PDF
         </Button>
-        <Button onClick={() => { setEditando(null); setNovoOpen(true); }}
-          className="gap-1.5 bg-gold hover:bg-gold/90 text-white">
+        <Button variant="gold" onClick={() => { setEditando(null); setNovoOpen(true); }} className="gap-1.5">
           <Plus className="w-4 h-4" /> Novo lançamento
         </Button>
         </div>
@@ -1288,8 +1286,7 @@ export default function FinancasConta() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={excluindoBusy}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmarExcluir} disabled={excluindoBusy}
-              className="bg-destructive hover:bg-destructive/90 text-white">
+            <AlertDialogAction variant="destructive" onClick={confirmarExcluir} disabled={excluindoBusy}>
               {excluindoBusy ? "..." : "Excluir"}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -1320,8 +1317,7 @@ export default function FinancasConta() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={excluindoLoteBusy}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmarExcluirSelecionados} disabled={excluindoLoteBusy}
-              className="bg-destructive hover:bg-destructive/90 text-white">
+            <AlertDialogAction variant="destructive" onClick={confirmarExcluirSelecionados} disabled={excluindoLoteBusy}>
               {excluindoLoteBusy ? "..." : "Excluir"}
             </AlertDialogAction>
           </AlertDialogFooter>

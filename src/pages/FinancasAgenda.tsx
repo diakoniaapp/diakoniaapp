@@ -90,14 +90,9 @@ export default function FinancasAgenda() {
       <div className="flex items-center gap-2">
         <span className="text-xs text-muted-foreground">Mostrar:</span>
         {(["saida", "entrada", "todos"] as const).map(t => (
-          <Button key={t} size="sm" variant={filtroTipo === t ? "default" : "outline"}
-            onClick={() => setFiltroTipo(t)}
-            className={
-              filtroTipo === t
-                ? t === "entrada" ? "bg-success hover:bg-success text-white" :
-                  t === "saida"   ? "bg-destructive hover:bg-destructive text-white" : ""
-                : ""
-            }>
+          <Button key={t} size="sm"
+            variant={filtroTipo !== t ? "outline" : t === "entrada" ? "success" : t === "saida" ? "destructive" : "default"}
+            onClick={() => setFiltroTipo(t)}>
             {t === "saida" ? "A pagar" : t === "entrada" ? "A receber" : "Tudo"}
           </Button>
         ))}

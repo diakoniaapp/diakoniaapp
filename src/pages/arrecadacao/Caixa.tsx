@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { PaginaSkeleton } from "@/components/ListState";
+import { usePromptDialog } from "@/hooks/usePromptDialog";
 import {
   carregarCaixa,
   reabrirCaixa, listarProdutosVendaveis, registrarVendaPDV,
@@ -42,6 +43,7 @@ export default function CaixaPDV() {
   const [produtos, setProdutos] = useState<ProdutoVendavel[]>([]);
   const [resumo, setResumo] = useState<CaixaResumo | null>(null);
   const [loading, setLoading] = useState(true);
+  const { prompt, dialog: promptDialog } = usePromptDialog();
 
   // Vendedor resolvido
   const [vendedor, setVendedor] = useState<{ id: string | null; nome: string } | null>(null);
@@ -166,8 +168,9 @@ export default function CaixaPDV() {
           {caixa.estado === "fechado" && (
             <Button
               onClick={async () => {
-                const motivo = prompt("Motivo da reabertura (opcional):") ?? undefined;
-                if (motivo === null) return;
+                // prompt() nativo não funciona em WebView (Risco 3 do
+                // CLAUDE.md) — trocado por usePromptDialog (29/09/2026).
+                const motivo = (await prompt({ titulo: "Motivo da reabertura", placeholder: "Opcional" })) ?? undefined;
                 try {
                   await reabrirCaixa(caixa.id, motivo || undefined);
                   toast.success("Caixa reaberto");
@@ -181,6 +184,7 @@ export default function CaixaPDV() {
             </Button>
           )}
         </div>
+        {promptDialog}
       </div>
     );
   }

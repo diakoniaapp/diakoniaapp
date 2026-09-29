@@ -335,8 +335,7 @@ export function ImportacaoFaturaDialog({ open, onOpenChange, contaId, contaNome,
             Fechar
           </Button>
           {resumo && arquivosProntos.length > 0 && (
-            <Button type="button" onClick={confirmar} disabled={confirmando}
-              className="bg-gold hover:bg-gold/90 text-white gap-1.5">
+            <Button variant="gold" type="button" onClick={confirmar} disabled={confirmando} className="gap-1.5">
               <Upload className="w-3.5 h-3.5" /> {confirmando ? "Importando..." : `Importar ${resumo.transacoes.length} transação(ões)`}
             </Button>
           )}

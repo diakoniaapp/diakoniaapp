@@ -475,8 +475,7 @@ export function MapaFamilias() {
                         const comTel = f.pessoas.find(p => linkWhats(p.telefone));
                         if (!comTel) return null;
                         return (
-                          <Button asChild size="sm"
-                            className="h-8 text-xs bg-success hover:bg-success text-white">
+                          <Button variant="success" asChild size="sm" className="h-8 text-xs">
                             <a href={linkWhats(comTel.telefone)!} target="_blank" rel="noopener noreferrer">
                               <MessageCircle className="w-3 h-3 mr-1" /> WhatsApp
                             </a>

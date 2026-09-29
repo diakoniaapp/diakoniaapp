@@ -15,6 +15,20 @@ const buttonVariants = cva(
         secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
+        // Quatro variantes acrescentadas em 29/09/2026 (auditoria de
+        // padronização visual): o Financeiro precisa de cor por CATEGORIA
+        // de ação (entrada=info, conciliação=gold, remessa=violeta,
+        // sucesso=success) e, sem variant pronta, cada tela reimplementava
+        // via `className` — 3 dos 4 pontos achados usavam `text-white` cru
+        // em vez do token `-foreground` certo (só o violeta acertava).
+        info: "bg-info text-info-foreground hover:bg-info/90",
+        success: "bg-success text-success-foreground hover:bg-success/90",
+        gold: "bg-gold text-gold-foreground hover:bg-gold/90",
+        violeta: "bg-violeta text-violeta-foreground hover:bg-violeta/90",
+        // A cor de marca do WhatsApp é um par fixo (verde + verde-petróleo
+        // do logo), não uma opacidade do mesmo tom — por isso aponta pro
+        // token `whatsapp-escuro` no hover, não `whatsapp/90` como os outros.
+        whatsapp: "bg-whatsapp text-whatsapp-foreground hover:bg-whatsapp-escuro border-0",
       },
       size: {
         default: "min-h-11 px-4 py-2",

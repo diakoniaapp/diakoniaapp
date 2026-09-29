@@ -299,7 +299,7 @@ export default function FinancasPrestacaoContas() {
               <Button onClick={exportarCSV} size="sm" variant="outline" className="gap-1.5">
                 <Download className="w-3.5 h-3.5" /> CSV
               </Button>
-              <Button onClick={() => window.print()} size="sm" className="gap-1.5 bg-gold hover:bg-gold/90 text-white">
+              <Button variant="gold" onClick={() => window.print()} size="sm" className="gap-1.5">
                 <Printer className="w-3.5 h-3.5" /> Imprimir / PDF
               </Button>
             </div>
@@ -373,7 +373,7 @@ export default function FinancasPrestacaoContas() {
                   </Button>
                 )}
                 {fechamento?.status === "fechado" && souAdmin && (
-                  <Button size="sm" className="gap-1.5 bg-gold hover:bg-gold/90 text-white" onClick={onAprovar} disabled={processando}>
+                  <Button variant="gold" size="sm" className="gap-1.5" onClick={onAprovar} disabled={processando}>
                     <ShieldCheck className="w-3.5 h-3.5" /> Aprovar
                   </Button>
                 )}

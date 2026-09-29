@@ -227,8 +227,7 @@ export default function Home() {
                 {saudacao()}{primeiroNome ? `, ${primeiroNome}` : ""}! 🙏
               </h1>
               {permissoes.has("criar_pessoa") && (
-                <Button size="sm" onClick={() => setAbrirVisitante(true)}
-                  className="md:hidden gap-1.5 shrink-0 bg-gold hover:bg-gold/90 text-white border-0 shadow-sm">
+                <Button variant="gold" size="sm" onClick={() => setAbrirVisitante(true)} className="md:hidden gap-1.5 shrink-0 border-0 shadow-sm">
                   <UserPlus className="w-4 h-4" />
                   <span translate="no">Visitante</span>
                 </Button>
@@ -246,8 +245,7 @@ export default function Home() {
               no alto da tela levando a uma porta fechada. */}
           {permissoes.has("criar_pessoa") && (
             <div className="hidden md:flex gap-2 shrink-0 self-end md:self-auto">
-              <Button onClick={() => setAbrirVisitante(true)}
-                className="gap-2 bg-gold hover:bg-gold/90 text-white border-0 shadow-sm">
+              <Button variant="gold" onClick={() => setAbrirVisitante(true)} className="gap-2 border-0 shadow-sm">
                 <UserPlus className="w-4 h-4" />
                 <span translate="no">Visitante Rápido</span>
               </Button>

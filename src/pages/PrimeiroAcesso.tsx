@@ -149,9 +149,8 @@ export default function PrimeiroAcesso() {
 
           <AuthErro mensagem={erroMsg} />
 
-          <Button
-            type="submit" disabled={busy}
-            className="w-full h-11 text-base font-semibold bg-gold hover:bg-gold/90 text-white shadow-md transition-all active:scale-[0.98]"
+          <Button variant="gold"
+            type="submit" disabled={busy} className="w-full h-11 text-base font-semibold shadow-md transition-all active:scale-[0.98]"
           >
             {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : "Salvar e continuar"}
           </Button>

@@ -177,7 +177,7 @@ export function AcoesDoDia() {
                 <p className="text-xs text-muted-foreground">Lembra de fazer a chamada da EBD?</p>
               </div>
             </div>
-            <Button asChild size="sm" className="gap-1.5 bg-gold hover:bg-gold/90 text-white border-0"><Link to="/ebd">
+            <Button variant="gold" asChild size="sm" className="gap-1.5 border-0"><Link to="/ebd">
                 Abrir EBD <ChevronRight className="w-3.5 h-3.5" />
               </Link></Button>
           </CardContent>
@@ -256,10 +256,9 @@ export function AcoesDoDia() {
                     </div>
                   </div>
                   {hasTel && (
-                    <Button
+                    <Button variant="success"
                       type="button" size="sm" disabled={ocupado}
-                      onClick={() => cumprimentar(ev, resumo, true)}
-                      className="w-full gap-1.5 bg-success hover:bg-success text-white"
+                      onClick={() => cumprimentar(ev, resumo, true)} className="w-full gap-1.5"
                     >
                       <MessageCircle className="w-4 h-4" /> Enviar mensagem
                     </Button>

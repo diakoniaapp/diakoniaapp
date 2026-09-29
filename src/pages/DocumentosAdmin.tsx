@@ -76,9 +76,16 @@ const TAGS_CONCEITUAIS = [
   { value: "doutrina",     label: "Doutrina",     color: "bg-success-soft text-success-text" },
   { value: "liderança",    label: "Liderança",    color: "bg-warning-soft text-warning-text" },
   { value: "oração",       label: "Oração",       color: "bg-destructive-soft text-destructive-text" },
-  { value: "discipulado",  label: "Discipulado",  color: "bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300" },
+  // Cor crua trocada por token em 29/09/2026 (auditoria de padronização
+  // visual): "Discipulado"/"Adoração" caíam fora dos 6 papéis semânticos
+  // (que já se repetem 2-3x nesta lista) e ganhavam Tailwind cru
+  // (`teal-100`/`pink-100`) em vez de token — trocados pelos tokens
+  // CATEGÓRICOS que já existem e não estavam em uso aqui: `dourado`
+  // (não é o mesmo que `gold`, que É terracota — ver index.css) e
+  // `violeta`, o "sexto lugar" já documentado pra paleta categórica.
+  { value: "discipulado",  label: "Discipulado",  color: "bg-dourado-soft text-dourado-text" },
   { value: "evangelismo",  label: "Evangelismo",  color: "bg-info-soft text-info-text" },
-  { value: "adoração",     label: "Adoração",     color: "bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-300" },
+  { value: "adoração",     label: "Adoração",     color: "bg-violeta-soft text-violeta-text" },
   { value: "família",      label: "Família",      color: "bg-success-soft text-success-text" },
   { value: "ministério",   label: "Ministério",   color: "bg-info-soft text-info-text" },
   { value: "outro",        label: "Outro",        color: "bg-muted text-muted-foreground" },

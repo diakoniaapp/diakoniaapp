@@ -99,7 +99,7 @@ export default function ResetSenha() {
               Este link de redefinição não é mais válido. Solicite um novo link através da tela de login.
             </p>
           </div>
-          <Button className="w-full bg-gold hover:bg-gold/90 text-white" onClick={() => navigate("/auth")}>
+          <Button variant="gold" className="w-full" onClick={() => navigate("/auth")}>
             Voltar ao login
           </Button>
         </div>
@@ -121,7 +121,7 @@ export default function ResetSenha() {
               Sua nova senha está ativa. Faça login para continuar acessando o sistema.
             </p>
           </div>
-          <Button className="w-full bg-gold hover:bg-gold/90 text-white" onClick={() => navigate("/auth")}>
+          <Button variant="gold" className="w-full" onClick={() => navigate("/auth")}>
             Ir para o login
           </Button>
         </div>
@@ -221,10 +221,9 @@ export default function ResetSenha() {
               </div>
             )}
 
-            <Button
+            <Button variant="gold"
               type="submit"
-              disabled={busy}
-              className="w-full h-11 text-base font-semibold bg-gold hover:bg-gold/90 text-white shadow-md"
+              disabled={busy} className="w-full h-11 text-base font-semibold shadow-md"
             >
               {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : "Salvar nova senha"}
             </Button>

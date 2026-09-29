@@ -79,8 +79,7 @@ export function EstoqueDrawer({ open, onOpenChange }: Props) {
               <SheetTitle className="flex items-center gap-2">
                 <Package className="w-4 h-4 text-gold" /> Estoque
               </SheetTitle>
-              <Button size="sm" onClick={() => { setItemEdit(null); setItemOpen(true); }}
-                className="gap-1.5 bg-gold hover:bg-gold/90 text-white shrink-0">
+              <Button variant="gold" size="sm" onClick={() => { setItemEdit(null); setItemOpen(true); }} className="gap-1.5 shrink-0">
                 <Plus className="w-3.5 h-3.5" /> Novo item
               </Button>
             </div>

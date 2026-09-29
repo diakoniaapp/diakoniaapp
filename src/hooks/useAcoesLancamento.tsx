@@ -156,8 +156,7 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={decidindo}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmarAprovacao} disabled={decidindo}
-              className="bg-success hover:bg-success text-white">
+            <AlertDialogAction variant="success" onClick={confirmarAprovacao} disabled={decidindo}>
               {decidindo ? <Loader2 className="w-4 h-4 animate-spin" /> : "Aprovar"}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -271,8 +270,7 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
 
           <AlertDialogFooter>
             <AlertDialogCancel disabled={confirmandoBusy}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={(e) => { e.preventDefault(); confirmarPagamentoDialog(); }} disabled={confirmandoBusy}
-              className="bg-success hover:bg-success text-white">
+            <AlertDialogAction variant="success" onClick={(e) => { e.preventDefault(); confirmarPagamentoDialog(); }} disabled={confirmandoBusy}>
               {confirmandoBusy ? "..." : (confirmando?.tipo === "saida" ? "Marcar como pago" : "Receber")}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -292,8 +290,7 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
 /** Botão "Pagar"/"Receber" pronto — mesmo estilo nas duas telas que o usam. */
 export function BotaoPagar({ vencimento, onClick }: { vencimento: FinVencimento; onClick: () => void }) {
   return (
-    <Button size="sm" onClick={onClick}
-      className="bg-success hover:bg-success text-white gap-1 h-7 text-xs shrink-0">
+    <Button variant="success" size="sm" onClick={onClick} className="gap-1 h-7 text-xs shrink-0">
       <CheckCircle2 className="w-3 h-3" /> {vencimento.tipo === "saida" ? "Pagar" : "Receber"}
     </Button>
   );
@@ -307,8 +304,7 @@ export function BotoesAprovacao({ onAprovar, onRejeitar }: { onAprovar: () => vo
         className="gap-1 h-7 text-xs text-destructive-text hover:text-destructive-text border-destructive-line hover:bg-destructive-soft">
         <XCircle className="w-3 h-3" /> Rejeitar
       </Button>
-      <Button size="sm" onClick={onAprovar}
-        className="bg-success hover:bg-success text-white gap-1 h-7 text-xs">
+      <Button variant="success" size="sm" onClick={onAprovar} className="gap-1 h-7 text-xs">
         <CheckCircle2 className="w-3 h-3" /> Aprovar
       </Button>
     </div>

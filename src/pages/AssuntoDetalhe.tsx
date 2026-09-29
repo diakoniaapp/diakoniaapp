@@ -26,6 +26,7 @@ import {
 } from "@/services/assuntosService";
 import { AssuntoForm } from "@/components/assuntos/AssuntoForm";
 import { PaginaSkeleton } from "@/components/ListState";
+import { usePromptDialog } from "@/hooks/usePromptDialog";
 
 export default function AssuntoDetalhe() {
   const { id = "" } = useParams();
@@ -36,6 +37,7 @@ export default function AssuntoDetalhe() {
   const [busy, setBusy] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const { prompt, dialog: promptDialog } = usePromptDialog();
 
   useEffect(() => { carregar(); }, [id]);
 
@@ -61,7 +63,9 @@ export default function AssuntoDetalhe() {
   }
 
   async function concluir() {
-    const obs = prompt("Observação da conclusão (opcional):") ?? undefined;
+    // prompt() nativo não funciona em WebView (Risco 3 do CLAUDE.md) —
+    // trocado por usePromptDialog (29/09/2026).
+    const obs = (await prompt({ titulo: "Observação da conclusão", placeholder: "Opcional" })) ?? undefined;
     setBusy(true);
     try {
       await atualizarAssunto(id, {
@@ -154,8 +158,7 @@ export default function AssuntoDetalhe() {
       {/* Ações rápidas */}
       {!concluido && (
         <div className="flex gap-2 flex-wrap">
-          <Button size="sm" onClick={concluir} disabled={busy}
-            className="bg-success hover:bg-success text-white gap-1.5">
+          <Button variant="success" size="sm" onClick={concluir} disabled={busy} className="gap-1.5">
             <Check className="w-3.5 h-3.5" /> Concluir
           </Button>
           {assunto.status === "aberto" && (
@@ -217,6 +220,8 @@ export default function AssuntoDetalhe() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {promptDialog}
     </div>
   );
 }

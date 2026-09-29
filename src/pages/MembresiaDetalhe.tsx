@@ -24,6 +24,7 @@ import {
   TIPO_LABEL, STATUS_LABEL, STATUS_COR, DOC_MAX_BYTES,
   type SolicitacaoMembresia, type DocumentoSolicitacao, type HistoricoSolicitacao,
 } from "@/services/membresiaService";
+import { usePromptDialog } from "@/hooks/usePromptDialog";
 
 export default function MembresiaDetalhe() {
   const { id = "" } = useParams();
@@ -39,6 +40,7 @@ export default function MembresiaDetalhe() {
   // confirm() nativo não funciona em WebView (Risco 3 do CLAUDE.md)
   const [excluindoDoc, setExcluindoDoc] = useState<DocumentoSolicitacao | null>(null);
   const [confirmandoConcluir, setConfirmandoConcluir] = useState(false);
+  const { prompt, dialog: promptDialog } = usePromptDialog();
 
   useEffect(() => { carregar(); }, [id]);
 
@@ -92,7 +94,9 @@ export default function MembresiaDetalhe() {
   }
 
   async function aprovar() {
-    const obs = prompt("Observação da aprovação (opcional):") ?? undefined;
+    // prompt() nativo não funciona em WebView (Risco 3 do CLAUDE.md) —
+    // trocado por usePromptDialog (29/09/2026).
+    const obs = (await prompt({ titulo: "Observação da aprovação", placeholder: "Opcional" })) ?? undefined;
     setBusy(true);
     try {
       await aprovarSolicitacao(id, obs);
@@ -103,7 +107,7 @@ export default function MembresiaDetalhe() {
   }
 
   async function rejeitar() {
-    const obs = prompt("Motivo da rejeição:");
+    const obs = await prompt({ titulo: "Motivo da rejeição", obrigatorio: true });
     if (!obs) return;
     setBusy(true);
     try {
@@ -249,7 +253,7 @@ export default function MembresiaDetalhe() {
       {/* Ações principais */}
       {sol.status === "pronta_assembleia" && (
         <div className="grid grid-cols-2 gap-2">
-          <Button onClick={aprovar} disabled={busy} className="bg-success hover:bg-success text-white gap-1.5">
+          <Button variant="success" onClick={aprovar} disabled={busy} className="gap-1.5">
             <ThumbsUp className="w-3.5 h-3.5" /> Aprovar
           </Button>
           <Button onClick={rejeitar} disabled={busy} variant="outline" className="text-destructive gap-1.5">
@@ -258,7 +262,7 @@ export default function MembresiaDetalhe() {
         </div>
       )}
       {sol.status === "aprovada" && (
-        <Button onClick={() => setConfirmandoConcluir(true)} disabled={busy} className="w-full bg-gold hover:bg-gold/90 text-white gap-1.5">
+        <Button variant="gold" onClick={() => setConfirmandoConcluir(true)} disabled={busy} className="w-full gap-1.5">
           <Check className="w-3.5 h-3.5" /> Marcar como concluída
         </Button>
       )}
@@ -327,6 +331,8 @@ export default function MembresiaDetalhe() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {promptDialog}
     </div>
   );
 }

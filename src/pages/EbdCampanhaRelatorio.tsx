@@ -173,7 +173,7 @@ export default function EbdCampanhaRelatorio() {
             Mostrar descrição
           </label>
 
-          <Button onClick={() => window.print()} size="sm" className="gap-1.5 bg-gold hover:bg-gold/90 text-white">
+          <Button variant="gold" onClick={() => window.print()} size="sm" className="gap-1.5">
             <Printer className="w-3.5 h-3.5" /> Imprimir
           </Button>
         </div>

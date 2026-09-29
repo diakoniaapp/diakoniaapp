@@ -78,8 +78,7 @@ export default function FinancasEstoque() {
             Materiais de limpeza, escritório, som — alerta antes de acabar.
           </p>
         </div>
-        <Button onClick={() => { setItemEdit(null); setItemOpen(true); }}
-          className="gap-1.5 bg-gold hover:bg-gold/90 text-white">
+        <Button variant="gold" onClick={() => { setItemEdit(null); setItemOpen(true); }} className="gap-1.5">
           <Plus className="w-4 h-4" /> Novo item
         </Button>
       </div>

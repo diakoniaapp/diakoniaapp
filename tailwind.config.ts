@@ -51,6 +51,11 @@ export default {
           DEFAULT: "hsl(var(--teal))",
           foreground: "hsl(var(--teal-foreground))",
         },
+        whatsapp: {
+          DEFAULT: "hsl(var(--whatsapp))",
+          escuro: "hsl(var(--whatsapp-escuro))",
+          foreground: "hsl(var(--whatsapp-foreground))",
+        },
         // Os quatro papéis de cada cor semântica. Ver o comentário longo
         // em index.css: preenchimento, letra, tinta e linha são quatro
         // regras de contraste diferentes, não quatro tons da mesma coisa.

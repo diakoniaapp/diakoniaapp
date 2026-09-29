@@ -362,7 +362,7 @@ function DetalheReuniao({ id, voltar }: { id: string; voltar: () => void }) {
           <AlertDialogFooter>
             <AlertDialogCancel disabled={confirmandoBusy}>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={(e) => { e.preventDefault(); confirmarAcaoPendente(); }} disabled={confirmandoBusy}
-              className={confirmandoAcao === "excluir" ? "bg-destructive hover:bg-destructive/90 text-white" : ""}>
+              variant={confirmandoAcao === "excluir" ? "destructive" : "default"}>
               {confirmandoBusy ? "..." : (confirmandoAcao === "realizar" ? "Marcar realizada" : "Excluir")}
             </AlertDialogAction>
           </AlertDialogFooter>

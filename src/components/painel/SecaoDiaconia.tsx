@@ -143,7 +143,7 @@ export function SecaoDiaconia({ dc, ministerioId }: { dc: BancadaDiaconia; minis
                     <p className="text-xs text-muted-foreground truncate">{p.area_nome}</p>
                   </div>
                   <Button
-                    size="sm" className="h-9 px-3 gap-1.5 text-xs shrink-0 bg-[#25D366] hover:bg-[#128C7E] text-white border-0"
+                    size="sm" variant="whatsapp" className="h-9 px-3 gap-1.5 text-xs shrink-0"
                     disabled={!p.telefone}
                     onClick={() => {
                       if (!p.telefone) { toast.error("Telefone não cadastrado"); return; }
@@ -195,7 +195,7 @@ export function SecaoDiaconia({ dc, ministerioId }: { dc: BancadaDiaconia; minis
                   </p>
                 </div>
                 <Button
-                  size="sm" className="h-9 px-3 gap-1.5 text-xs shrink-0 bg-[#25D366] hover:bg-[#128C7E] text-white border-0"
+                  size="sm" variant="whatsapp" className="h-9 px-3 gap-1.5 text-xs shrink-0"
                   disabled={!r.telefone}
                   onClick={() => {
                     if (!r.telefone) { toast.error("Telefone não cadastrado"); return; }

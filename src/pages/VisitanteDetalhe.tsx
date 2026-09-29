@@ -386,10 +386,9 @@ export default function VisitanteDetalhe() {
                   >
                     <Phone className="w-3.5 h-3.5" /> Ligar
                   </Button>
-                  <Button
+                  <Button variant="success"
                     size="sm"
-                    onClick={() => enviarMensagemPastoral(visitante)}
-                    className="gap-1 bg-success hover:bg-success text-white"
+                    onClick={() => enviarMensagemPastoral(visitante)} className="gap-1"
                   >
                     <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
                   </Button>
@@ -570,8 +569,7 @@ export default function VisitanteDetalhe() {
 
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button
-                  className="w-full gap-2 bg-success hover:bg-success text-white"
+                <Button variant="success" className="w-full gap-2"
                   disabled={tornandoCong}
                 >
                   {tornandoCong
@@ -601,9 +599,8 @@ export default function VisitanteDetalhe() {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={handleTornarCongregado}
-                    className="bg-success hover:bg-success text-white gap-2"
+                  <AlertDialogAction variant="success"
+                    onClick={handleTornarCongregado} className="gap-2"
                   >
                     <CheckCircle2 className="w-4 h-4" /> Confirmar
                   </AlertDialogAction>

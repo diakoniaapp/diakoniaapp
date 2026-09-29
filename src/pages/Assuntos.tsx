@@ -8,6 +8,10 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   CheckSquare, Plus, Loader2, ChevronRight, Search,
   Calendar, AlertTriangle, Clock, MessageCircle, Users as UsersIcon,
 } from "lucide-react";
@@ -30,6 +34,12 @@ export default function Assuntos() {
   const [filtroStatus, setFiltroStatus] = useState<AssuntoStatus | "abertos" | "todos">("abertos");
   const [filtroPrioridade, setFiltroPrioridade] = useState<AssuntoPrioridade | "todas">("todas");
   const [novoOpen, setNovoOpen] = useState(false);
+  // `confirm()` nativo não funciona em WebView (Risco 3 do CLAUDE.md) —
+  // achado numa auditoria em 29/09/2026: esta função não tem botão nenhum
+  // que a chame hoje (grep confirmou, `cobrarTodosAtrasados` não aparece
+  // em JSX nenhum deste arquivo nem é exportada) — corrigido aqui mesmo
+  // pra não deixar o padrão errado à espera de quem reconectar o botão.
+  const [confirmandoCobranca, setConfirmandoCobranca] = useState(false);
 
   useEffect(() => { carregar(); }, [filtroStatus, filtroPrioridade, busca]);
 
@@ -54,12 +64,17 @@ export default function Assuntos() {
     }
   }
 
-  async function cobrarTodosAtrasados() {
+  function cobrarTodosAtrasados() {
     const atrasados = lista.filter(a => a.situacao === "atrasado" && a.responsavel_id);
     if (atrasados.length === 0) {
       toast.info("Nenhum assunto atrasado com responsável definido"); return;
     }
-    if (!confirm(`Vai abrir o WhatsApp em ${atrasados.length} aba(s) — uma por responsável. Continuar?`)) return;
+    setConfirmandoCobranca(true);
+  }
+
+  async function executarCobrancaTodosAtrasados() {
+    setConfirmandoCobranca(false);
+    const atrasados = lista.filter(a => a.situacao === "atrasado" && a.responsavel_id);
 
     // Agrupa por responsável (pode haver mais de um assunto por responsável)
     const porResp = new Map<string, typeof atrasados>();
@@ -134,7 +149,7 @@ export default function Assuntos() {
             Reuniões Administração + Pastoral · cada decisão vira ação com responsável e prazo.
           </p>
         </div>
-        <Button onClick={() => setNovoOpen(true)} className="gap-1.5 bg-gold hover:bg-gold/90 text-white">
+        <Button variant="gold" onClick={() => setNovoOpen(true)} className="gap-1.5">
           <Plus className="w-4 h-4" /> Novo assunto
         </Button>
       </div>
@@ -264,6 +279,21 @@ export default function Assuntos() {
       )}
 
       <AssuntoForm open={novoOpen} onOpenChange={setNovoOpen} onSaved={carregar} />
+
+      <AlertDialog open={confirmandoCobranca} onOpenChange={setConfirmandoCobranca}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cobrar todos os atrasados?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Vai abrir o WhatsApp em {lista.filter(a => a.situacao === "atrasado" && a.responsavel_id).length} aba(s) — uma por responsável.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={executarCobrancaTodosAtrasados}>Continuar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

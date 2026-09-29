@@ -189,7 +189,7 @@ export default function Financas() {
           <Button variant="outline" size="sm" onClick={() => setTransfOpen(true)} className="gap-1.5 text-info-text hover:text-info-text">
             <ArrowRightLeft className="w-3.5 h-3.5" /> Transferir
           </Button>
-          <Button onClick={() => setLancarOpen(true)} className="gap-1.5 bg-gold hover:bg-gold/90 text-white">
+          <Button variant="gold" onClick={() => setLancarOpen(true)} className="gap-1.5">
             <Plus className="w-4 h-4" /> Novo lançamento
           </Button>
         </div>
@@ -354,8 +354,7 @@ export default function Financas() {
           </div>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setImprimirOpen(false)}>Cancelar</Button>
-            <Button size="sm" onClick={gerarRelatorio} disabled={contasParaImprimir.size === 0}
-              className="gap-1.5 bg-gold hover:bg-gold/90 text-white">
+            <Button variant="gold" size="sm" onClick={gerarRelatorio} disabled={contasParaImprimir.size === 0} className="gap-1.5">
               <Printer className="w-3.5 h-3.5" />
               Gerar relatório {contasParaImprimir.size > 0 && `(${contasParaImprimir.size})`}
             </Button>

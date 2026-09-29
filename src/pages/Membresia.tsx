@@ -81,7 +81,7 @@ export default function Membresia() {
               <AlertTriangle className="w-3.5 h-3.5 text-warning-text" /> Painel
               {pendentes > 0 && <Badge variant="outline" className="text-xs bg-warning-soft text-warning-text border-warning-line">{pendentes}</Badge>}
             </Link></Button>
-          <Button onClick={() => setNovoOpen(true)} className="gap-1.5 bg-gold hover:bg-gold/90 text-white">
+          <Button variant="gold" onClick={() => setNovoOpen(true)} className="gap-1.5">
             <Plus className="w-4 h-4" /> Nova solicitação
           </Button>
         </div>

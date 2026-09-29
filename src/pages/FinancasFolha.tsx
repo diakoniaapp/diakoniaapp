@@ -221,7 +221,7 @@ function CalcCLT() {
           </div>
         </div>
 
-        <Button onClick={calcular} disabled={busy} className="bg-gold hover:bg-gold/90 text-white">
+        <Button variant="gold" onClick={calcular} disabled={busy}>
           <Calculator className="w-3.5 h-3.5 mr-1.5" /> {busy ? "..." : "Calcular"}
         </Button>
 
@@ -325,7 +325,7 @@ function CalcRPA() {
           </label>
         </div>
 
-        <Button onClick={calcular} disabled={busy} className="bg-gold hover:bg-gold/90 text-white">
+        <Button variant="gold" onClick={calcular} disabled={busy}>
           <Calculator className="w-3.5 h-3.5 mr-1.5" /> {busy ? "..." : "Calcular"}
         </Button>
 
@@ -419,7 +419,7 @@ function CalcMEI() {
           </div>
         </div>
 
-        <Button onClick={calcular} className="bg-gold hover:bg-gold/90 text-white">
+        <Button variant="gold" onClick={calcular}>
           <Calculator className="w-3.5 h-3.5 mr-1.5" /> Calcular
         </Button>
 
@@ -502,7 +502,7 @@ function CalcPrebenda() {
           </label>
         </div>
 
-        <Button onClick={calcular} disabled={busy} className="bg-gold hover:bg-gold/90 text-white">
+        <Button variant="gold" onClick={calcular} disabled={busy}>
           <Calculator className="w-3.5 h-3.5 mr-1.5" /> {busy ? "..." : "Calcular"}
         </Button>
 
@@ -574,7 +574,7 @@ function ListaContratados({ contratados, mostrarInativos, onMostrarInativosChang
               <input type="checkbox" checked={mostrarInativos} onChange={(e) => onMostrarInativosChange(e.target.checked)} />
               Mostrar inativos
             </label>
-            <Button size="sm" onClick={onNovo} className="gap-1.5 bg-gold hover:bg-gold/90 text-white">
+            <Button variant="gold" size="sm" onClick={onNovo} className="gap-1.5">
               <Plus className="w-3.5 h-3.5" /> Novo
             </Button>
           </div>

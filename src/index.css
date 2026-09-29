@@ -65,6 +65,16 @@
     --teal:               38 45% 40%;
     --teal-foreground:    0 0% 100%;
 
+    /* ── WhatsApp — cor de marca fixa, não muda com o tema ──────
+       Acrescentada em 29/09/2026 (auditoria de padronização visual):
+       6 botões de "Falar no WhatsApp" espalhados usavam
+       `bg-[#25D366] hover:bg-[#128C7E]` cru. É par de marca de
+       verdade (verde + verde-petróleo do logo), não uma cor com
+       opacidade — por isso dois tokens, não um com `/90`. */
+    --whatsapp:            141 65% 49%;
+    --whatsapp-escuro:     170 74% 31%;
+    --whatsapp-foreground: 0 0% 100%;
+
     /* ── Feedback ────────────────────────────────────────────── */
     --success:            142 52% 32%;
     --success-foreground: 0 0% 100%;

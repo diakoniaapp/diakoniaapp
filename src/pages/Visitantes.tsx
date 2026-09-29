@@ -638,8 +638,7 @@ function VisitanteCard({
                       </p>
                     </div>
                   </div>
-                  <Button
-                    className="shrink-0 text-xs h-11 px-3 gap-1 bg-success hover:bg-success/90 text-white border-0"
+                  <Button variant="success" className="shrink-0 text-xs h-11 px-3 gap-1 border-0"
                     disabled={busyPromote}
                     onClick={() => onPromover(evolucao.sugestao!)}
                   >
@@ -690,7 +689,7 @@ function VisitanteCard({
             <Button variant="outline" className="gap-1 text-xs h-11 px-3" disabled={busy} onClick={onContato}>
               <Phone className="w-3.5 h-3.5" /> Contato
             </Button>
-            <Button className="gap-1 text-xs h-11 px-3 bg-[#25D366] hover:bg-[#128C7E] text-white border-0"
+            <Button variant="whatsapp" className="gap-1 text-xs h-11 px-3"
               disabled={busy || !v.telefone_celular} onClick={onWhatsApp}>
               <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
             </Button>

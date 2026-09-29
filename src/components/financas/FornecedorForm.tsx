@@ -171,15 +171,15 @@ export function FornecedorForm({ open, onOpenChange, fornecedor, onSaved }: Prop
         <form onSubmit={onSubmit} className="space-y-3">
           <div className="grid grid-cols-2 gap-2">
             <Button type="button" size="sm"
-              variant={campos.tipo === "juridica" ? "default" : "outline"}
+              variant={campos.tipo === "juridica" ? "gold" : "outline"}
               onClick={() => set("tipo", "juridica")}
-              className={campos.tipo === "juridica" ? "bg-gold hover:bg-gold/90 text-white gap-1.5" : "gap-1.5"}>
+              className="gap-1.5">
               <Building2 className="w-3.5 h-3.5" /> Pessoa jurídica
             </Button>
             <Button type="button" size="sm"
-              variant={campos.tipo === "fisica" ? "default" : "outline"}
+              variant={campos.tipo === "fisica" ? "gold" : "outline"}
               onClick={() => set("tipo", "fisica")}
-              className={campos.tipo === "fisica" ? "bg-gold hover:bg-gold/90 text-white gap-1.5" : "gap-1.5"}>
+              className="gap-1.5">
               <User className="w-3.5 h-3.5" /> Pessoa física
             </Button>
           </div>

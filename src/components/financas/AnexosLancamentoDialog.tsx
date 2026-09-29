@@ -197,8 +197,7 @@ export function AnexosLancamentoDialog({ open, onOpenChange, lancamentoId, descr
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={apagandoBusy}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={(e) => { e.preventDefault(); confirmarExcluir(); }} disabled={apagandoBusy}
-              className="bg-destructive hover:bg-destructive/90 text-white">
+            <AlertDialogAction variant="destructive" onClick={(e) => { e.preventDefault(); confirmarExcluir(); }} disabled={apagandoBusy}>
               {apagandoBusy ? "..." : "Excluir"}
             </AlertDialogAction>
           </AlertDialogFooter>
