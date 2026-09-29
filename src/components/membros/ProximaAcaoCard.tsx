@@ -10,6 +10,7 @@ import { CheckCircle2, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { logHistorico } from "@/lib/historicoFluxo";
+import { hojeLocal } from "@/lib/data";
 import type { StatusAcolhimento } from "@/types/visitante";
 
 // ── Mapeamento de sugestões por status ───────────────────────────────────────
@@ -90,7 +91,10 @@ export function ProximaAcaoCard({ pessoaId, nomeCompleto, statusAtual, onRegistr
                     contato_feito: true,
                     proximo_passo: texto,
                     observacoes: `Ação registrada via Próxima Ação: ${texto}`,
-                    data_contato: new Date().toISOString().split("T")[0],
+                    // BUG DE FUSO corrigido (29/09/2026, auditoria de datas):
+                    // `.toISOString().split("T")[0]` lia o dia seguinte das
+                    // 21h à meia-noite, horário de Brasília.
+                    data_contato: hojeLocal(),
           });
 
           if (error) throw error;

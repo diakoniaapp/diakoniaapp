@@ -14,6 +14,7 @@ import { TIPO_PESSOA_COR } from "@/lib/tipoPessoa";
 import { conferir } from "@/lib/escritaConferida";
 import { idDaAreaDeAcolhimento } from "@/services/bancadaAcolhimentoService";
 import { alternarTarefaAcolhimento } from "@/services/visitanteService";
+import { hojeLocal, daquiADias } from "@/lib/data";
 
 interface Tarefa {
   id: string;
@@ -82,13 +83,15 @@ export function AcolhimentoPanel({ pessoa, onUpdated }: Props) {
     onUpdated?.();
   };
 
+  // BUG DE FUSO corrigido (29/09/2026, auditoria de datas): somava 7 dias
+  // em cima de `new Date()` (a HORA atual) e fatiava `.toISOString()` —
+  // lia o dia seguinte das 21h à meia-noite, horário de Brasília. Mesmo
+  // defeito já documentado e corrigido em `lib/data.ts`.
   const adicionarLembrete = async () => {
-    const d = new Date();
-    d.setDate(d.getDate() + 7);
     const { error } = await supabase.from("acolhimento_tarefas").insert({
       visitante_id: pessoa.id,
       titulo: `Recontato adicional — ${pessoa.nome_completo}`,
-      data: d.toISOString().slice(0, 10),
+      data: daquiADias(hojeLocal(), 7),
       // Sem isto a tarefa nasce órfã — foi assim que as 12 de antes ficaram
       // soltas de área nenhuma.
       area_id: await idDaAreaDeAcolhimento(),

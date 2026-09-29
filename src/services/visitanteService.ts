@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { logHistorico } from "@/lib/historicoFluxo";
 import { conferir } from "@/lib/escritaConferida";
 import { calcularEtapa, getMensagem, buildWhatsAppLink } from "@/lib/visitantesFluxo";
+import { hojeLocal, daquiADias } from "@/lib/data";
 import type { Visitante, StatusAcolhimento, AcompanhamentoItem } from "@/types/visitante";
 
 // ─── Leitura ──────────────────────────────────────────────────────────────────
@@ -135,8 +136,11 @@ export async function registrarAcompanhamento(params: {
       proximo_passo:    params.proximoPasso.trim() || null,
       observacoes:      params.observacoes.trim() || null,
       responsavel_id:   params.responsavelId ?? null,
-      data_contato:     params.contatoFeito ? new Date().toISOString().split("T")[0] : null,
-      data_visita:      params.visitaRealizada ? new Date().toISOString().split("T")[0] : null,
+      // BUG DE FUSO corrigido (29/09/2026, auditoria de datas):
+      // `.toISOString().split("T")[0]` lia o dia seguinte das 21h à
+      // meia-noite, horário de Brasília.
+      data_contato:     params.contatoFeito ? hojeLocal() : null,
+      data_visita:      params.visitaRealizada ? hojeLocal() : null,
     });
 
   if (error) return { ok: false, erro: error.message };
@@ -163,7 +167,10 @@ export async function tornarCongregado(
   visitanteId: string,
   nomeCompleto: string
 ): Promise<{ ok: boolean; erro?: string }> {
-  const hoje = new Date().toISOString().split("T")[0];
+  // BUG DE FUSO corrigido (29/09/2026, auditoria de datas):
+  // `.toISOString().split("T")[0]` lia o dia seguinte das 21h à meia-noite,
+  // horário de Brasília — grave num marco formal como `data_congregado`.
+  const hoje = hojeLocal();
 
   // Este era o pior dos cinco: quando a política barrava, a promoção não
   // acontecia E o histórico logo abaixo gravava "foi recebido como
@@ -204,7 +211,9 @@ export async function tornarMembro(
   pessoaId: string,
   nomeCompleto: string
 ): Promise<{ ok: boolean; erro?: string }> {
-  const hoje = new Date().toISOString().split("T")[0];
+  // BUG DE FUSO corrigido (29/09/2026, auditoria de datas): mesmo defeito
+  // de `tornarCongregado`, aqui gravando `data_membro`.
+  const hoje = hojeLocal();
 
   const r = conferir(
     await supabase
@@ -291,7 +300,9 @@ export async function tornarCongregadoIntegrado(
   }
 
   // Promover na tabela
-  const hoje = new Date().toISOString().split("T")[0];
+  // BUG DE FUSO corrigido (29/09/2026, auditoria de datas): mesmo defeito
+  // de `tornarCongregado` — versão "integrada e segura" tinha o mesmo bug.
+  const hoje = hojeLocal();
   const r = conferir(
     await supabase
       .from("membros")
@@ -411,7 +422,11 @@ export async function getResumoVisitantes(): Promise<ResumoVisitantes> {
   // `data_congregado` preenchida dentro da janela, seja qual for o
   // `tipo_pessoa` atual (hoje só `congregado` chega lá, mas não vale prender
   // a consulta a esse valor específico).
-  const desde = new Date(agora - DIAS_JANELA_CONVERTIDOS * 86_400_000).toISOString().slice(0, 10);
+  // BUG DE FUSO corrigido (29/09/2026, auditoria de datas): calculava a
+  // borda da janela em cima de `Date.now()` (a HORA atual) e fatiava
+  // `.toISOString()` — o corte de 90 dias podia deslocar 1 dia à noite,
+  // horário de Brasília.
+  const desde = daquiADias(hojeLocal(), -DIAS_JANELA_CONVERTIDOS);
   const { data: convertidosRecentes } = await supabase
     .from("membros")
     .select("id")

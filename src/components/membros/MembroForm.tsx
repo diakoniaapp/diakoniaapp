@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { hojeLocal } from "@/lib/data";
+import { hojeLocal, daquiADias } from "@/lib/data";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -249,13 +249,13 @@ function calcIdade(dataNasc: string): number {
   return Math.floor((Date.now() - new Date(dataNasc).getTime()) / (365.25 * 86_400_000));
 }
 
-function addDias(n: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + n);
-  return d.toISOString().slice(0, 10);
-}
-
 // ── Tarefas de acolhimento automáticas ───────────────────────────────────
+// BUG DE FUSO corrigido (29/09/2026, auditoria de datas): o `addDias` local
+// somava dias em cima de `new Date()` (a HORA atual) e só depois fatiava
+// `.toISOString()` — exatamente o defeito já documentado em `lib/data.ts`
+// (lê o dia seguinte das 21h à meia-noite, horário de Brasília). Trocado
+// por `daquiADias(hoje, n)`, que soma dias em cima do "hoje" já calculado
+// certo duas linhas abaixo — nunca mais lê a hora do relógio.
 async function criarTarefasAcolhimento(visitanteId: string, nome: string) {
   const hoje = hojeLocal();
   const { data: evt } = await supabase
@@ -264,9 +264,9 @@ async function criarTarefasAcolhimento(visitanteId: string, nome: string) {
 
   const tarefas = [
     { visitante_id: visitanteId, titulo: `Enviar mensagem de boas-vindas — ${nome}`, data: hoje },
-    { visitante_id: visitanteId, titulo: `Entrar em contato com visitante — ${nome}`, data: addDias(2) },
-    { visitante_id: visitanteId, titulo: `Convidar para proximo evento — ${nome}`, data: evt?.data ?? addDias(5) },
-    { visitante_id: visitanteId, titulo: `Recontato com visitante — ${nome}`, data: addDias(7) },
+    { visitante_id: visitanteId, titulo: `Entrar em contato com visitante — ${nome}`, data: daquiADias(hoje, 2) },
+    { visitante_id: visitanteId, titulo: `Convidar para proximo evento — ${nome}`, data: evt?.data ?? daquiADias(hoje, 5) },
+    { visitante_id: visitanteId, titulo: `Recontato com visitante — ${nome}`, data: daquiADias(hoje, 7) },
   ];
   const { error } = await supabase.from("acolhimento_tarefas").insert(tarefas);
   if (error) console.error("Erro ao criar tarefas:", error.message);
