@@ -249,17 +249,22 @@ export default function FinancasConta() {
   // os dois campos direto) e recalculados a partir do preset nos demais
   // casos (efeito abaixo), sem congelar a data de quando a URL foi salva.
   const hoje = new Date();
+  const contextoSalvo = lerContextoFinancasSalvo();
   const [periodoPreset, setPeriodoPreset] = useState<PeriodoPreset>(
-    () => (searchParams.get("periodo") as PeriodoPreset) || lerContextoFinancasSalvo()?.periodo || "hoje",
+    () => (searchParams.get("periodo") as PeriodoPreset) || contextoSalvo?.periodo || "hoje",
   );
   const periodoInicialResolvido = resolverPeriodo(
     periodoPreset, searchParams.get("de") ?? undefined, searchParams.get("ate") ?? undefined,
   );
+  // "Personalizado" não tem fórmula pra recalcular — precisa das datas de
+  // verdade vindas de algum lugar. Prioridade: URL → localStorage (mesmo
+  // contexto salvo acima, guarda `dataInicio`/`dataFim` só pra esse caso,
+  // ver `ContextoFinancasSalvo`) → hoje.
   const [dataInicio, setDataInicio] = useState(
-    () => periodoPreset === "personalizado" ? (searchParams.get("de") ?? toYmd(hoje)) : periodoInicialResolvido.dataInicio,
+    () => periodoPreset === "personalizado" ? (searchParams.get("de") ?? contextoSalvo?.dataInicio ?? toYmd(hoje)) : periodoInicialResolvido.dataInicio,
   );
   const [dataFim, setDataFim] = useState(
-    () => periodoPreset === "personalizado" ? (searchParams.get("ate") ?? toYmd(hoje)) : periodoInicialResolvido.dataFim,
+    () => periodoPreset === "personalizado" ? (searchParams.get("ate") ?? contextoSalvo?.dataFim ?? toYmd(hoje)) : periodoInicialResolvido.dataFim,
   );
   // Presets diferentes de "Personalizado" recalculam `dataInicio`/`dataFim`
   // toda vez que o preset muda — "Personalizado" não entra aqui de
@@ -386,8 +391,11 @@ export default function FinancasConta() {
       setSaldoAntesDoPeriodo(saldoAntes);
       // Lembra conta+período pra próxima entrada no sistema (ver comentário
       // de `CHAVE_CONTEXTO_FINANCAS` acima) — grava só depois de carregar
-      // com sucesso, pra não lembrar uma conta que deu erro.
-      salvarContextoFinancas(contaId, periodoPreset);
+      // com sucesso, pra não lembrar uma conta que deu erro. `dataInicio`/
+      // `dataFim` vão junto (não só o nome do preset) — sem eles,
+      // "Personalizado" reabria sempre em hoje, não nas datas digitadas
+      // (achado ao vivo pela Telma, 29/09/2026).
+      salvarContextoFinancas(contaId, periodoPreset, dataInicio, dataFim);
     } finally { setLoading(false); }
   }
 

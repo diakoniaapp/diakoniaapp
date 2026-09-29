@@ -209,7 +209,12 @@ export default function Financas() {
           que a Telma mais vai querer ao entrar no módulo: voltar direto pra
           conta e período que estava usando, sem escolher de novo. */}
       {contaContinuar && (
-        <Link to={`/financas/conta/${contaContinuar.id}?periodo=${contextoSalvo!.periodo}`}>
+        // `de`/`ate` só importam pro preset "Personalizado" (os outros
+        // recalculam sozinhos em `resolverPeriodo`) — inclusos sempre que
+        // salvos porque não atrapalham os demais presets, e sem eles o
+        // "Personalizado" reabria em hoje, não nas datas de verdade
+        // (achado ao vivo pela Telma, 29/09/2026).
+        <Link to={`/financas/conta/${contaContinuar.id}?periodo=${contextoSalvo!.periodo}${contextoSalvo!.dataInicio ? `&de=${contextoSalvo!.dataInicio}` : ""}${contextoSalvo!.dataFim ? `&ate=${contextoSalvo!.dataFim}` : ""}`}>
           <Card className="border-gold/50 hover:shadow-md transition-shadow cursor-pointer">
             <CardContent className="py-3 px-4 flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">

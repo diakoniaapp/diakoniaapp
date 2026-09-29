@@ -141,7 +141,17 @@ export function resolverPeriodo(
 // URL explícita continua vencendo. Lido também por `Financas.tsx` (hub),
 // pro "continuar de onde parei" — por isso mora aqui, não dentro da página.
 const CHAVE_CONTEXTO_FINANCAS = "diakonia:financas:contexto";
-export interface ContextoFinancasSalvo { contaId: string; periodo: PeriodoPreset }
+export interface ContextoFinancasSalvo {
+  contaId: string;
+  periodo: PeriodoPreset;
+  // Só têm sentido pra "personalizado" — os outros presets recalculam a
+  // data sozinhos (ver `resolverPeriodo`). Sem isto, "Continuar de onde
+  // parei" reabria "Personalizado" mas caía sempre em hoje, não nas datas
+  // que a Telma tinha digitado (achado ao vivo por ela, 29/09/2026) — o
+  // nome do preset sozinho não bastava pra reconstruir o período.
+  dataInicio?: string;
+  dataFim?: string;
+}
 export function lerContextoFinancasSalvo(): ContextoFinancasSalvo | null {
   try {
     const bruto = localStorage.getItem(CHAVE_CONTEXTO_FINANCAS);
@@ -151,8 +161,10 @@ export function lerContextoFinancasSalvo(): ContextoFinancasSalvo | null {
     return null;
   } catch { return null; }
 }
-export function salvarContextoFinancas(contaId: string, periodo: PeriodoPreset) {
-  try { localStorage.setItem(CHAVE_CONTEXTO_FINANCAS, JSON.stringify({ contaId, periodo })); } catch { /* privado/bloqueado — ignora */ }
+export function salvarContextoFinancas(contaId: string, periodo: PeriodoPreset, dataInicio?: string, dataFim?: string) {
+  try {
+    localStorage.setItem(CHAVE_CONTEXTO_FINANCAS, JSON.stringify({ contaId, periodo, dataInicio, dataFim }));
+  } catch { /* privado/bloqueado — ignora */ }
 }
 
 interface SeletorPeriodoProps {
