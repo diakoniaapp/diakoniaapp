@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { hojeLocal, toYmd } from "@/lib/data";
+import { hojeLocal, toYmd, daquiAMeses } from "@/lib/data";
 import { conferir } from "@/lib/escritaConferida";
 import { montarLinkWhatsApp } from "@/lib/whatsapp";
 
@@ -258,13 +258,12 @@ export async function listarHistorico(entidadeTipo: string, entidadeId: string):
 
 // ─── Recorrência sugerida ────────────────────────────────────────────────
 export function sugerirProximasReunioes(dataAtual: string, qtd = 5): string[] {
-  // Bimestral por padrão
+  // Bimestral por padrão. daquiAMeses() de lib/data.ts em vez de montar
+  // Date à mão e fatiar .toISOString() (auditoria de datas, 29/09/2026) —
+  // já faz exatamente essa conta (data local + N meses), sem duplicar.
   const datas: string[] = [];
-  const d = new Date(dataAtual + "T00:00");
   for (let i = 1; i <= qtd; i++) {
-    const nova = new Date(d);
-    nova.setMonth(nova.getMonth() + 2 * i);
-    datas.push(nova.toISOString().slice(0, 10));
+    datas.push(daquiAMeses(dataAtual, 2 * i));
   }
   return datas;
 }

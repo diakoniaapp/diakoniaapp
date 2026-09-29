@@ -1,6 +1,7 @@
 // ─── ebdService.ts — Operações do módulo EBD ──────────────────────────────
 import { supabase } from "@/integrations/supabase/client";
 import { conferir, type ResultadoEscrita } from "@/lib/escritaConferida";
+import { toYmd } from "@/lib/data";
 
 export interface EbdClasse {
   id: string;
@@ -209,7 +210,9 @@ export interface VisitanteEbd {
  */
 export async function visitantesDoMes(ano: number, mes: number): Promise<VisitanteEbd[]> {
   const inicio = `${ano}-${String(mes).padStart(2, "0")}-01`;
-  const fim = new Date(ano, mes, 1).toISOString().slice(0, 10);
+  // toYmd() em vez de .toISOString().slice(0,10) — auditoria de datas
+  // (29/09/2026): mesma correção já aplicada em ~60 outros pontos.
+  const fim = toYmd(new Date(ano, mes, 1));
 
   const { data: aulas, error: e1 } = await supabase
     .from("ebd_aulas")
@@ -514,7 +517,9 @@ export interface EbdChamadaRow {
  */
 export async function aulasDoMes(classeId: string, ano: number, mes: number): Promise<EbdAula[]> {
   const inicio = `${ano}-${String(mes).padStart(2, "0")}-01`;
-  const fim = new Date(ano, mes, 1).toISOString().slice(0, 10);
+  // toYmd() em vez de .toISOString().slice(0,10) — auditoria de datas
+  // (29/09/2026): mesma correção já aplicada em ~60 outros pontos.
+  const fim = toYmd(new Date(ano, mes, 1));
   const { data, error } = await supabase
     .from("ebd_aulas")
     .select("*")

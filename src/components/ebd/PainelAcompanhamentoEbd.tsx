@@ -43,6 +43,7 @@ import {
   ClipboardList, Loader2, FileText,
 } from "lucide-react";
 import { toast } from "sonner";
+import { toYmd } from "@/lib/data";
 // O cartao de numero vivia aqui, duplicado do PainelPastoral e do PGM.
 import { Indicador, FaixaDeIndicadores } from "@/components/painel/blocos";
 import {
@@ -67,7 +68,11 @@ export function PainelAcompanhamentoEbd() {
       const ano = hoje.getFullYear();
       const mes = hoje.getMonth() + 1;
       const inicioDoMes = `${ano}-${String(mes).padStart(2, "0")}-01`;
-      const fimDoMes = new Date(ano, mes, 1).toISOString().slice(0, 10);
+      // toYmd() em vez de .toISOString().slice(0,10) — auditoria de datas
+      // (29/09/2026): funcionava hoje só porque Brasília é UTC-3 (meia-
+      // noite local nunca cruza pro dia UTC anterior), mas é o padrão
+      // errado, já documentado e corrigido noutros ~60 pontos do sistema.
+      const fimDoMes = toYmd(new Date(ano, mes, 1));
 
       const [r, f, novos] = await Promise.all([
         relatorioGeralResumo(inicioDoMes, fimDoMes),

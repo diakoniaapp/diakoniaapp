@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { hojeLocal, daquiAMeses } from "@/lib/data";
+import { hojeLocal, daquiAMeses, toYmd } from "@/lib/data";
 import { conferir } from "@/lib/escritaConferida";
 import type { ItemNota } from "@/services/ocrService";
 import type { TipoChavePix } from "@/lib/pix";
@@ -1535,7 +1535,9 @@ export interface ResumoMensal {
 
 export async function resumoMensal(ano: number, mes: number): Promise<ResumoMensal> {
   const ini = `${ano}-${String(mes).padStart(2, "0")}-01`;
-  const fim = new Date(ano, mes, 0).toISOString().slice(0, 10); // último dia
+  // toYmd() em vez de .toISOString().slice(0,10) — auditoria de datas
+  // (29/09/2026): mesma correção já aplicada em ~60 outros pontos.
+  const fim = toYmd(new Date(ano, mes, 0)); // último dia
 
   // `listarLancamentos` (teto de 300) até 16/09/2026 — trocado ao achar o
   // mesmo bug em `gerarPrestacaoContas`: 2026 sozinho já soma 1.854

@@ -30,6 +30,7 @@
 // continua usando `listarLancamentos` normalmente — filtrado a UMA
 // pessoa, mesmo depois de anos dificilmente passa de 300 lançamentos.
 import { supabase } from "@/integrations/supabase/client";
+import { toYmd } from "@/lib/data";
 import { listarLancamentos, type FinLancamentoExtenso } from "./finService";
 
 export interface DoadorResumo {
@@ -54,8 +55,10 @@ export async function listarDoadoresComResumo(ano: number, mes?: number): Promis
   // Último dia do mês, não "01 do mês seguinte" — mesmo padrão de
   // `resumoMensal` em finService.ts (`new Date(ano, mes, 0)`, dia 0 do
   // mês seguinte = último dia do mês pedido).
+  // toYmd() em vez de .toISOString().slice(0,10) — auditoria de datas
+  // (29/09/2026): mesma correção já aplicada em ~60 outros pontos.
   const dataFim = mes
-    ? new Date(ano, mes, 0).toISOString().slice(0, 10)
+    ? toYmd(new Date(ano, mes, 0))
     : `${ano}-12-31`;
 
   // Paginado — ver comentário do arquivo. 1000 é o teto real por

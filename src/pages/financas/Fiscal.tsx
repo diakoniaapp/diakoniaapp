@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { hojeLocal } from "@/lib/data";
+import { hojeLocal, toYmd } from "@/lib/data";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -243,9 +243,11 @@ function AbaAgenda() {
 
   async function carregar() {
     setLoading(true);
+    // toYmd() em vez de .toISOString().slice(0,10) — auditoria de datas
+    // (29/09/2026): mesma correção já aplicada em ~60 outros pontos.
     const hoje = new Date();
-    const inicio = new Date(hoje.getFullYear(), 0, 1).toISOString().slice(0,10);
-    const fim    = new Date(hoje.getFullYear() + 1, 11, 31).toISOString().slice(0,10);
+    const inicio = toYmd(new Date(hoje.getFullYear(), 0, 1));
+    const fim    = toYmd(new Date(hoje.getFullYear() + 1, 11, 31));
     setItems(await listarAgenda({ inicio, fim }));
     setLoading(false);
   }
@@ -254,9 +256,11 @@ function AbaAgenda() {
   async function gerar12() {
     setGerando(true);
     try {
+      // toYmd() em vez de .toISOString().slice(0,10) — auditoria de datas
+      // (29/09/2026): mesma correção já aplicada em ~60 outros pontos.
       const hoje = new Date();
-      const inicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().slice(0,10);
-      const fim    = new Date(hoje.getFullYear() + 1, hoje.getMonth(), 0).toISOString().slice(0,10);
+      const inicio = toYmd(new Date(hoje.getFullYear(), hoje.getMonth(), 1));
+      const fim    = toYmd(new Date(hoje.getFullYear() + 1, hoje.getMonth(), 0));
       const result = await gerarAgenda(inicio, fim);
       const novos = result.filter((r: any) => r.novo).length;
       toast.success(`Agenda gerada — ${novos} novo(s) vencimento(s) criado(s)`);

@@ -30,7 +30,7 @@ import {
   FORMA_LABEL, FREQUENCIA_LABEL, lancamentosRealizadosSemTransferencia,
   type FinLancamentoExtenso, type FinRecorrencia, type FinFormaPagamento,
 } from "@/services/finService";
-import { hojeLocal } from "@/lib/data";
+import { hojeLocal, toYmd } from "@/lib/data";
 import { PaginaSkeleton } from "@/components/ListState";
 import { useAuth } from "@/hooks/useAuth";
 import { ROLES_DOADORES } from "@/components/layout/navConfig";
@@ -71,7 +71,9 @@ export default function FinancasDoacoes() {
     setLoading(true);
     try {
       const ini = `${ano}-${String(mes).padStart(2, "0")}-01`;
-      const fim = new Date(ano, mes, 0).toISOString().slice(0, 10); // último dia do mês
+      // toYmd() em vez de .toISOString().slice(0,10) — auditoria de datas
+      // (29/09/2026): mesma correção já aplicada em ~60 outros pontos.
+      const fim = toYmd(new Date(ano, mes, 0)); // último dia do mês
       // `listarLancamentos` (teto de 300) até 16/09/2026: medido em
       // produção, pelo menos 6 meses reais (dez/2024, abr/jun/ago/dez de
       // 2025, jun/2026) já passam de 300 entradas sozinhas — "Total

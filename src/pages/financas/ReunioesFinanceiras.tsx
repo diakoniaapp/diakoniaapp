@@ -25,6 +25,7 @@ import {
   gerarESalvarPauta, listarDecisoes, adicionarDecisao,
   type ReuniaoFinanceira, type DecisaoReuniao, type PautaFinanceira,
 } from "@/services/reunioesFinanceirasService";
+import { toYmd } from "@/lib/data";
 import { CampoData } from "@/components/CampoData";
 
 const STATUS_COR: Record<string, string> = {
@@ -127,9 +128,11 @@ export default function ReunioesFinanceiras() {
 function NovaReuniaoDialog({ open, onOpenChange, onSaved }: {
   open: boolean; onOpenChange: (v: boolean) => void; onSaved: (id: string) => void;
 }) {
+  // toYmd() em vez de .toISOString().slice(0,10) — auditoria de datas
+  // (29/09/2026): mesma correção já aplicada em ~60 outros pontos.
   const hoje = new Date();
-  const inicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().slice(0,10);
-  const fim = new Date(hoje.getFullYear(), hoje.getMonth()+1, 0).toISOString().slice(0,10);
+  const inicio = toYmd(new Date(hoje.getFullYear(), hoje.getMonth(), 1));
+  const fim = toYmd(new Date(hoje.getFullYear(), hoje.getMonth()+1, 0));
 
   const [form, setForm] = useState({
     titulo: `Reunião financeira — ${hoje.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}`,

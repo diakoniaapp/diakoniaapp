@@ -22,6 +22,8 @@
 // que o DANFE compacto. `extrairItensDaNota` mira nesse formato; fora dele,
 // devolve lista vazia — melhor não ter itens do que inventar item errado
 // num formato que não foi calibrado (ver comentário de `ItemNota`).
+import { toYmd } from "@/lib/data";
+
 export interface ItemNota {
   descricao: string;
   quantidade: number;
@@ -126,9 +128,11 @@ function extrairMelhorData(texto: string): string | null {
     candidatas.push(d);
   }
   if (candidatas.length === 0) return null;
-  // Pega a mais recente
+  // Pega a mais recente. toYmd() em vez de .toISOString().slice(0,10) —
+  // auditoria de datas (29/09/2026): mesma correção já aplicada em ~60
+  // outros pontos.
   candidatas.sort((a, b) => b.getTime() - a.getTime());
-  return candidatas[0].toISOString().slice(0, 10);
+  return toYmd(candidatas[0]);
 }
 
 function extrairCnpj(texto: string): { digitos: string | null; formatado: string | null } {

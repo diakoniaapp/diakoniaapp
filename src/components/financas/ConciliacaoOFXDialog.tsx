@@ -26,6 +26,7 @@ import {
 } from "@/services/ofxService";
 import { LancamentoForm } from "./LancamentoForm";
 import { TransferenciaForm } from "./TransferenciaForm";
+import { daquiADias } from "@/lib/data";
 
 interface Props {
   open: boolean;
@@ -38,12 +39,6 @@ interface Props {
 function dataBr(s: string) {
   return new Date(s + "T00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
 }
-function addDias(s: string, n: number): string {
-  const d = new Date(s + "T00:00");
-  d.setDate(d.getDate() + n);
-  return d.toISOString().slice(0, 10);
-}
-
 export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, onSaved }: Props) {
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [processando, setProcessando] = useState(false);
@@ -66,8 +61,11 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
 
   async function recasar(txs: OFXTransacao[]) {
     const datas = txs.map(t => t.data).sort();
-    const dataInicio = addDias(datas[0], -5);
-    const dataFim = addDias(datas[datas.length - 1], 5);
+    // daquiADias() de lib/data.ts em vez de um addDias() local duplicado
+    // (auditoria de datas, 29/09/2026) — o local usava
+    // .toISOString().slice(0,10), o padrão já corrigido noutros ~60 pontos.
+    const dataInicio = daquiADias(datas[0], -5);
+    const dataFim = daquiADias(datas[datas.length - 1], 5);
     const realizados = await listarLancamentos({ contaId, status: "realizado", dataInicio, dataFim });
     setResultado(casarComLancamentos(txs, realizados));
   }

@@ -39,6 +39,7 @@ import {
 } from "@/services/ebdService";
 import { formatarTelefoneSemDDI } from "@/lib/telefone";
 import { montarLinkWhatsApp } from "@/lib/whatsapp";
+import { toYmd } from "@/lib/data";
 import { ebdPorClasse, relatorioGeralResumo, type EbdClasseLinha, type RelatorioMensalGeralResumo } from "@/services/ebdPainelService";
 import { ClasseForm } from "@/components/ebd/ClasseForm";
 import { usePodeOperarModulo } from "@/hooks/usePodeOperarModulo";
@@ -129,7 +130,9 @@ export default function Ebd() {
       const ano = hoje.getFullYear();
       const mes = hoje.getMonth() + 1;
       const inicioDoMes = `${ano}-${String(mes).padStart(2, "0")}-01`;
-      const fimDoMes = new Date(ano, mes, 1).toISOString().slice(0, 10);
+      // toYmd() em vez de .toISOString().slice(0,10) — auditoria de datas
+      // (29/09/2026): mesma correção já aplicada em ~60 outros pontos.
+      const fimDoMes = toYmd(new Date(ano, mes, 1));
 
       const [cs, porClasse, professores, mat, resumo, populacaoAdesao, novos, visitantes] = await Promise.all([
         listarClasses(mostrarInativas),
