@@ -18,6 +18,7 @@ import {
 } from "@/services/finService";
 import { LancamentoForm } from "@/components/financas/LancamentoForm";
 import { TransferenciaForm } from "@/components/financas/TransferenciaForm";
+import { lerContextoFinancasSalvo, PERIODO_PRESET_LABEL } from "@/components/financas/SeletorPeriodo";
 import { useAuth } from "@/hooks/useAuth";
 import { PaginaSkeleton } from "@/components/ListState";
 import { WidgetsDoPainel } from "@/dashboard/WidgetsDoPainel";
@@ -154,6 +155,14 @@ export default function Financas() {
     return <PaginaSkeleton />;
   }
 
+  // "Continuar de onde parei" (pedido da Telma, 29/09/2026) — última
+  // conta+período que `FinancasConta.tsx` salvou em localStorage ao
+  // carregar com sucesso. Só aparece se a conta ainda existir (pode ter
+  // sido inativada) e não for a própria conta já aberta — aqui na tela do
+  // hub isso nunca é o caso, mas é derivação pura, sem custo de checar.
+  const contextoSalvo = lerContextoFinancasSalvo();
+  const contaContinuar = contextoSalvo ? contas.find(c => c.id === contextoSalvo.contaId) : undefined;
+
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-4">
       {/* Cabeçalho */}
@@ -194,6 +203,29 @@ export default function Financas() {
           </Button>
         </div>
       </div>
+
+      {/* "Continuar de onde parei" — ver `contaContinuar` acima. Card
+          destacado (borda dourada), não um botão qualquer, porque é a ação
+          que a Telma mais vai querer ao entrar no módulo: voltar direto pra
+          conta e período que estava usando, sem escolher de novo. */}
+      {contaContinuar && (
+        <Link to={`/financas/conta/${contaContinuar.id}?periodo=${contextoSalvo!.periodo}`}>
+          <Card className="border-gold/50 hover:shadow-md transition-shadow cursor-pointer">
+            <CardContent className="py-3 px-4 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                {ICONE_CONTA[contaContinuar.tipo] ?? <Wallet className="w-4 h-4" />}
+                <div className="min-w-0">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Continuar de onde parei</p>
+                  <p className="text-sm font-medium truncate">
+                    {contaContinuar.nome} · {PERIODO_PRESET_LABEL[contextoSalvo!.periodo]}
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+            </CardContent>
+          </Card>
+        </Link>
+      )}
 
       {/* Stats do mês */}
       {resumo && (

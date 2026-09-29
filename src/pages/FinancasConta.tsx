@@ -32,6 +32,10 @@ import {
   STATUS_LABEL,
 } from "@/services/finService";
 import { LancamentoForm } from "@/components/financas/LancamentoForm";
+import {
+  SeletorPeriodo, resolverPeriodo, lerContextoFinancasSalvo, salvarContextoFinancas,
+  type PeriodoPreset,
+} from "@/components/financas/SeletorPeriodo";
 import { AnexosLancamentoDialog } from "@/components/financas/AnexosLancamentoDialog";
 import { EditarTransferenciaForm } from "@/components/financas/EditarTransferenciaForm";
 import { TransferenciaForm } from "@/components/financas/TransferenciaForm";
@@ -54,6 +58,7 @@ const STATUS_COR: Record<FinStatus, string> = {
   cancelado:  "text-muted-foreground line-through",
   aguardando_aprovacao: "text-info-text",
 };
+
 
 // Cabeçalho de coluna com filtro embutido, estilo Excel — pedido da Telma
 // (22/09/2026): "o filtro é para todas as colunas, exceto saldo". Data,
@@ -234,23 +239,40 @@ export default function FinancasConta() {
     return () => ro.disconnect();
   }, [faixaFixaEl]);
 
-  // Período do filtro — HOJE por default (23/09/2026, bug de
-  // produtividade: "abre no primeiro dia do mês, a tesouraria trabalha
-  // com 'o que aconteceu hoje'"). Não conflita com o pedido de
-  // 22/09/2026 acima ("PRIORIDADE MÁXIMA" item 4, guardar na URL pra F5
-  // sobreviver): esse fallback só entra quando a URL NÃO tem `de`/`ate`
-  // — quem já escolheu um período tem ele na query string, e a query
-  // string sobrevive ao F5 sozinha, sem precisar deste valor. `toYmd`
-  // (não `.toISOString().slice(0,10)`) — essa última converte pra UTC
-  // antes de formatar, e lia o mês errado pertinho da virada (ver
-  // src/lib/data.ts).
+  // Período do filtro — presets estilo Omie (29/09/2026), ver
+  // `SeletorPeriodo.tsx`. Prioridade do valor inicial: URL (`?periodo=`,
+  // sobrevive a F5) → último contexto salvo em localStorage (entre
+  // sessões) → "hoje" (23/09/2026, bug de produtividade: "abre no
+  // primeiro dia do mês, a tesouraria trabalha com 'o que aconteceu
+  // hoje'"). `dataInicio`/`dataFim` continuam existindo como estado
+  // próprio — fonte da verdade pra "Personalizado" (onde o usuário edita
+  // os dois campos direto) e recalculados a partir do preset nos demais
+  // casos (efeito abaixo), sem congelar a data de quando a URL foi salva.
   const hoje = new Date();
+  const [periodoPreset, setPeriodoPreset] = useState<PeriodoPreset>(
+    () => (searchParams.get("periodo") as PeriodoPreset) || lerContextoFinancasSalvo()?.periodo || "hoje",
+  );
+  const periodoInicialResolvido = resolverPeriodo(
+    periodoPreset, searchParams.get("de") ?? undefined, searchParams.get("ate") ?? undefined,
+  );
   const [dataInicio, setDataInicio] = useState(
-    () => searchParams.get("de") ?? toYmd(hoje),
+    () => periodoPreset === "personalizado" ? (searchParams.get("de") ?? toYmd(hoje)) : periodoInicialResolvido.dataInicio,
   );
   const [dataFim, setDataFim] = useState(
-    () => searchParams.get("ate") ?? toYmd(hoje),
+    () => periodoPreset === "personalizado" ? (searchParams.get("ate") ?? toYmd(hoje)) : periodoInicialResolvido.dataFim,
   );
+  // Presets diferentes de "Personalizado" recalculam `dataInicio`/`dataFim`
+  // toda vez que o preset muda — "Personalizado" não entra aqui de
+  // propósito, ali quem manda são os dois `CampoData` direto.
+  useEffect(() => {
+    if (periodoPreset === "personalizado") return;
+    const r = resolverPeriodo(periodoPreset);
+    setDataInicio(r.dataInicio);
+    setDataFim(r.dataFim);
+  }, [periodoPreset]);
+  // "Atrasados" filtra por SITUAÇÃO (previsto vencido), não por uma faixa
+  // contínua de data — `dataFim` (ontem) só limita o teto, sem chão.
+  const statusFiltro: FinStatus | undefined = periodoPreset === "atrasados" ? "previsto" : undefined;
   // Telma reportou ao vivo (17/09/2026), na conta "Caixinha
   // Administrativo", em três rodadas: (1) "eu clico para alterar e ela
   // leva para meses que eu nao digitei" — o `min` dinâmico e o
@@ -270,7 +292,7 @@ export default function FinancasConta() {
   const inicioEfetivo = dataInicio <= dataFim ? dataInicio : dataFim;
   const fimEfetivo = dataInicio <= dataFim ? dataFim : dataInicio;
 
-  useEffect(() => { carregar(); }, [contaId, filtroTipo, inicioEfetivo, fimEfetivo, buscaDebounced, filtroCategoriaId, filtroCentroCustoId]);
+  useEffect(() => { carregar(); }, [contaId, filtroTipo, statusFiltro, inicioEfetivo, fimEfetivo, buscaDebounced, filtroCategoriaId, filtroCentroCustoId]);
   // Trocar de CONTA limpa a lista antes de buscar — sem isso, o fix logo
   // abaixo ("não mostrar spinner se já tem dado em mãos", pro popover não
   // fechar sozinho) mostraria por um instante o extrato da conta ANTERIOR
@@ -299,11 +321,12 @@ export default function FinancasConta() {
     if (filtroValorMinTexto.trim()) params.set("valorMin", filtroValorMinTexto);
     if (filtroValorMaxTexto.trim()) params.set("valorMax", filtroValorMaxTexto);
     if (filtroDataEspecifica) params.set("dataExata", filtroDataEspecifica);
+    params.set("periodo", periodoPreset);
     params.set("de", dataInicio);
     params.set("ate", dataFim);
     setSearchParams(params, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtroTipo, busca, dataInicio, dataFim, filtroCategoriaId, filtroCentroCustoId, filtroValorMinTexto, filtroValorMaxTexto, filtroDataEspecifica]);
+  }, [filtroTipo, busca, periodoPreset, dataInicio, dataFim, filtroCategoriaId, filtroCentroCustoId, filtroValorMinTexto, filtroValorMaxTexto, filtroDataEspecifica]);
 
   // Lista de contas pro seletor rápido (item 3) — carregada uma vez só,
   // não depende de `contaId`, e já vem ordenada por `ordem`/`nome`
@@ -333,6 +356,10 @@ export default function FinancasConta() {
     if (!contaId) return;
     setLoading(true);
     try {
+      // "Atrasados" não tem chão de data (`inicioEfetivo` fica "") — chamar
+      // `saldoAcumuladoAntesDe("")` pediria ao banco um saldo "antes de
+      // nenhuma data", sem sentido pro RPC. Sem período contínuo, saldo
+      // inicial/final não existem nesse preset (ver cards do resumo abaixo).
       const [c, ls, saldoAntes] = await Promise.all([
         carregarConta(contaId),
         // `listarLancamentos` (teto de 300) até 16/09/2026: os cartões
@@ -346,16 +373,21 @@ export default function FinancasConta() {
           contaId,
           tipo: filtroTipo !== "todos" && filtroTipo !== "transferencia" ? filtroTipo : undefined,
           apenasTransferencia: filtroTipo === "transferencia" ? true : undefined,
+          status: statusFiltro,
           dataInicio: inicioEfetivo, dataFim: fimEfetivo,
           busca: buscaDebounced.length >= 2 ? buscaDebounced : undefined,
           categoriaId: filtroCategoriaId || undefined,
           centroCustoId: filtroCentroCustoId || undefined,
         }),
-        saldoAcumuladoAntesDe(inicioEfetivo, contaId),
+        periodoPreset === "atrasados" ? Promise.resolve(0) : saldoAcumuladoAntesDe(inicioEfetivo, contaId),
       ]);
       setConta(c);
       setLancamentos(ls);
       setSaldoAntesDoPeriodo(saldoAntes);
+      // Lembra conta+período pra próxima entrada no sistema (ver comentário
+      // de `CHAVE_CONTEXTO_FINANCAS` acima) — grava só depois de carregar
+      // com sucesso, pra não lembrar uma conta que deu erro.
+      salvarContextoFinancas(contaId, periodoPreset);
     } finally { setLoading(false); }
   }
 
@@ -508,6 +540,18 @@ export default function FinancasConta() {
   // Compute saldo anterior (do período)
   const totalEntradasPeriodo = lancamentosFiltrados.filter(l => l.tipo === "entrada" && (l.status === "realizado" || l.status === "conciliado")).reduce((s, l) => s + Number(l.valor), 0);
   const totalSaidasPeriodo  = lancamentosFiltrados.filter(l => l.tipo === "saida"   && (l.status === "realizado" || l.status === "conciliado")).reduce((s, l) => s + Number(l.valor), 0);
+  // Saldo final = saldo antes do período + o que entrou/saiu de fato nele
+  // (mesma soma que `saldoPorLancamento` acumula linha a linha, aqui só o
+  // total). Não existe em "Atrasados" — sem chão de data, "antes do
+  // período" não tem o que significar (`saldoAntesDoPeriodo` fica 0, nem
+  // é buscado — ver `carregar()`).
+  const saldoFinalPeriodo = saldoAntesDoPeriodo + totalEntradasPeriodo - totalSaidasPeriodo;
+  // "Atrasados" é filtro de SITUAÇÃO (todo `lancamentosFiltrados` já vem
+  // `previsto` do servidor), não de período contínuo — os totais acima
+  // dariam zero (eles só somam realizado/conciliado, de propósito, pro
+  // resto da tela). Total à parte, líquido (entrada soma, saída subtrai),
+  // igual ao "Movimento do período" nos outros presets.
+  const totalVencido = lancamentosFiltrados.reduce((s, l) => s + (l.tipo === "entrada" ? Number(l.valor) : -Number(l.valor)), 0);
 
   // `listarLancamentos` busca do mais recente pro mais antigo (padrão do
   // serviço, usado por várias telas) — aqui na tela do extrato, a Telma
@@ -840,7 +884,10 @@ export default function FinancasConta() {
         <h1 className="font-serif text-2xl">Quarta Igreja Batista do Rio de Janeiro</h1>
         <h2 className="font-serif text-lg mt-1">Extrato — {conta.nome}</h2>
         <p className="text-xs text-muted-foreground mt-1">
-          {dataBr(inicioEfetivo)} a {dataBr(fimEfetivo)} · Saldo atual: <strong>{brl(Number(conta.saldo_atual))}</strong>
+          {/* "Atrasados" não tem chão de data (`inicioEfetivo` vazio) — não
+              é uma faixa contínua pra ler como "de X a Y". */}
+          {inicioEfetivo ? <>{dataBr(inicioEfetivo)} a {dataBr(fimEfetivo)}</> : <>Previstos vencidos até {dataBr(fimEfetivo)}</>}
+          {" "}· Saldo atual: <strong>{brl(Number(conta.saldo_atual))}</strong>
           {" "}· Gerado em {new Date().toLocaleString("pt-BR")}
         </p>
       </div>
@@ -855,30 +902,18 @@ export default function FinancasConta() {
           FinancasDoacoes.tsx nesta sessão. */}
       <Card className="print:hidden">
         <CardContent className="py-2.5 px-3 flex flex-wrap gap-2 items-end">
-          {/* `CampoData` — pedido da Telma em 17/09/2026: "quero a opção
-              de digitar + a opção de escolher pelo calendário, como
-              estava antes, mas obedecendo a digitação, sem bugs". Ver o
-              comentário grande no topo de `components/CampoData.tsx` pra
-              todo o histórico (teclado nativo quebrado no WebView → só
-              calendário tirou a digitação → esta versão devolve as duas,
-              com máscara de texto em vez do input nativo).
-              CORRIGIDO (29/09/2026): até aqui, mudar só "Data Inicial"
-              podia deixar "Data Final" pra trás dela na TELA — a consulta
-              corrigia sozinha na hora de buscar (`inicioEfetivo`/
-              `fimEfetivo` trocavam os dois), mas o campo continuava
-              mostrando a ordem invertida, confuso (achado ao vivo por
-              ela: mudou Data Inicial pra 03/10/2026 e Data Final ficou
-              parada em 29/09/2026, visível e sem sentido). Agora mudar
-              Data Inicial já leva Data Final junto pra mesma data — abre
-              sempre num dia só, e ela alarga o fim se quiser um período. */}
-          <div className="min-w-[150px]">
-            <label className="text-xs uppercase tracking-wide text-muted-foreground">Data inicial</label>
-            <CampoData value={dataInicio} onChange={(v) => { setDataInicio(v); setDataFim(v); }} />
-          </div>
-          <div className="min-w-[150px]">
-            <label className="text-xs uppercase tracking-wide text-muted-foreground">Data final</label>
-            <CampoData value={dataFim} onChange={setDataFim} />
-          </div>
+          {/* Presets de período estilo Omie (29/09/2026) — ver
+              `SeletorPeriodo.tsx`. Datas livres (`CampoData`, digitar +
+              calendário, sem `<input type="date">` nativo — teclado
+              quebrado em WebView) só aparecem no preset "Personalizado";
+              mudar Data inicial ali já realinha Data final pra mesma data
+              (achado ao vivo pela Telma, mesmo dia: "quando alterar a
+              datainicial, corrija imediatamente a data final"). */}
+          <SeletorPeriodo
+            preset={periodoPreset} onPresetChange={setPeriodoPreset}
+            dataInicio={dataInicio} dataFim={dataFim}
+            onDataInicioChange={setDataInicio} onDataFimChange={setDataFim}
+          />
           <div className="w-28">
             <label className="text-xs uppercase tracking-wide text-muted-foreground">Tipo</label>
             <Select value={filtroTipo} onValueChange={(v) => setFiltroTipo(v as any)}>
@@ -908,27 +943,58 @@ export default function FinancasConta() {
         </CardContent>
       </Card>
 
-      {/* Resumo do período */}
-      <div className="avoid-break grid grid-cols-3 gap-2 print:mb-2">
-        <Card className="bg-success-soft/40 border-success-line">
-          <CardContent className="py-2 px-3">
-            <p className="text-xs uppercase text-success-text flex items-center gap-1"><TrendingUp className="w-3 h-3" /> Entradas</p>
-            <p className="text-sm font-semibold text-success-text tabular-nums">{brl(totalEntradasPeriodo)}</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-destructive-soft/40 border-destructive-line">
-          <CardContent className="py-2 px-3">
-            <p className="text-xs uppercase text-destructive-text flex items-center gap-1"><TrendingDown className="w-3 h-3" /> Saídas</p>
-            <p className="text-sm font-semibold text-destructive-text tabular-nums">{brl(totalSaidasPeriodo)}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="py-2 px-3">
-            <p className="text-xs uppercase text-muted-foreground">Movimento do período</p>
-            <p className="text-sm font-semibold tabular-nums">{brl(totalEntradasPeriodo - totalSaidasPeriodo)}</p>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Resumo do período — "Atrasados" não é uma faixa contínua (ver
+          `statusFiltro`), então saldo inicial/final não fazem sentido ali;
+          mostra só contagem e total líquido vencido. */}
+      {periodoPreset === "atrasados" ? (
+        <div className="avoid-break grid grid-cols-2 gap-2 print:mb-2">
+          <Card className="bg-warning-soft/40 border-warning-line">
+            <CardContent className="py-2 px-3">
+              <p className="text-xs uppercase text-warning-text">Itens vencidos</p>
+              <p className="text-sm font-semibold text-warning-text tabular-nums">{lancamentosFiltrados.length}</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-warning-soft/40 border-warning-line">
+            <CardContent className="py-2 px-3">
+              <p className="text-xs uppercase text-warning-text">Total vencido (líquido)</p>
+              <p className="text-sm font-semibold text-warning-text tabular-nums">{brl(totalVencido)}</p>
+            </CardContent>
+          </Card>
+        </div>
+      ) : (
+        <div className="avoid-break grid grid-cols-2 md:grid-cols-5 gap-2 print:mb-2">
+          <Card>
+            <CardContent className="py-2 px-3">
+              <p className="text-xs uppercase text-muted-foreground">Saldo inicial</p>
+              <p className="text-sm font-semibold tabular-nums">{brl(saldoAntesDoPeriodo)}</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-success-soft/40 border-success-line">
+            <CardContent className="py-2 px-3">
+              <p className="text-xs uppercase text-success-text flex items-center gap-1"><TrendingUp className="w-3 h-3" /> Entradas</p>
+              <p className="text-sm font-semibold text-success-text tabular-nums">{brl(totalEntradasPeriodo)}</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-destructive-soft/40 border-destructive-line">
+            <CardContent className="py-2 px-3">
+              <p className="text-xs uppercase text-destructive-text flex items-center gap-1"><TrendingDown className="w-3 h-3" /> Saídas</p>
+              <p className="text-sm font-semibold text-destructive-text tabular-nums">{brl(totalSaidasPeriodo)}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="py-2 px-3">
+              <p className="text-xs uppercase text-muted-foreground">Movimento do período</p>
+              <p className="text-sm font-semibold tabular-nums">{brl(totalEntradasPeriodo - totalSaidasPeriodo)}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="py-2 px-3">
+              <p className="text-xs uppercase text-muted-foreground">Saldo final</p>
+              <p className="text-sm font-semibold tabular-nums">{brl(saldoFinalPeriodo)}</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
       </div>
 
       {/* Tabela de lançamentos */}

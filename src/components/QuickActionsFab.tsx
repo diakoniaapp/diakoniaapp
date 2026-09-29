@@ -22,6 +22,13 @@ function ehPainelDeTrabalho(pathname: string): boolean {
   if (pathname === "/painel-pastoral" || pathname === "/painel-secretaria") return true;
   if (pathname === "/ebd" || pathname.startsWith("/ebd/")) return true;
   if (/^\/ministerios\/[^/]+\/diaconia\//.test(pathname)) return true;
+  // Módulo financeiro (29/09/2026, achado ao vivo — print da Telma: o FAB
+  // ("Novo evento"/"Adicionar pessoa") abria em cima da faixa de filtros e
+  // do botão "Novo lançamento" em FinancasConta.tsx) — mesmo raciocínio de
+  // EBD/Diaconia acima: toda tela daqui já tem a própria ação primária
+  // (Novo lançamento, Transferir), e pessoa/evento não têm relação com o
+  // que se faz aqui.
+  if (pathname === "/painel-tesouraria" || pathname.startsWith("/financas")) return true;
   return false;
 }
 
