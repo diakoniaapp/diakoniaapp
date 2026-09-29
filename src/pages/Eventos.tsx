@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, ChevronLeft, ChevronRight, CalendarDays, Printer } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, CalendarDays, Printer, MapPinOff } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { usePermissoes } from "@/hooks/usePermissoes";
@@ -364,6 +364,18 @@ export default function Eventos() {
   const ocorrencias = ocorrenciasCalc.lista;
   const totalNoPeriodo = ocorrenciasCalc.universo;
   const escondidos = totalNoPeriodo - ocorrencias.length;
+
+  // ── Pendência agregada (Fase 3 do roadmap, Workspace Agenda) ─────────────
+  //
+  // Não existe "evento pendente" no schema — o candidato escolhido (29/09/2026)
+  // foi o único sem custo de consulta nova: `local_id` já vem carregado em
+  // cada ocorrência. Só eventos PRÓPRIOS da igreja contam (`categoria ===
+  // "igreja"`) — externos, aniversários e reservas da Arrecadação não têm
+  // "local a marcar" no mesmo sentido (uma reserva já É a marcação do
+  // espaço). Fica de fora, por enquanto, "sem escala confirmada" — mais
+  // valioso, mas exigiria uma consulta nova por evento ou uma agregada no
+  // serviço de escalas; entra numa rodada futura se fizer falta.
+  const semLocal = ocorrencias.filter(o => o.categoria === "igreja" && !o.evento.local_id).length;
 
   // Navigation
   const nav = (dir: -1 | 0 | 1) => {
@@ -818,6 +830,22 @@ export default function Eventos() {
                 areas={areas.filter((a) => a.ativo)}
                 locais={locais}
               />
+
+              {/* Pendência agregada — some sozinho em zero, como o resto dos
+                  atalhos "a fazer" do sistema (não é um resumo permanente,
+                  é um aviso). Clicar leva pra Lista, onde dá pra ver quais
+                  são pelo nome. Ver o comentário de `semLocal`, acima. */}
+              {semLocal > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setView("lista")}
+                  title="Ver na lista quais eventos estão sem local"
+                  className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-warning-line bg-warning-soft text-warning-text text-sm hover:bg-warning-soft/70 transition-colors"
+                >
+                  <MapPinOff className="w-3.5 h-3.5" />
+                  {semLocal} sem local
+                </button>
+              )}
 
               <Button
                 variant="outline" size="sm"
