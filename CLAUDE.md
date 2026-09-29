@@ -572,6 +572,27 @@ antigas ainda descartam o resultado — ver [Risco 4](#risco-4--escrita-silencio
   `FichaProvider` uma vez no `AppLayout`; `<NomePessoa>` torna qualquer nome
   clicável.
 
+### 6.5 Lista de itens — tabela, `<ul>` ou cards
+
+> Acrescentado em 29/09/2026 (Fase 2 do roadmap de padronização visual). Três
+> padrões coexistem hoje pro mesmo problema ("mostrar uma lista de itens com
+> valor à direita") — **isso não é bagunça a limpar**, os três resolvem contextos
+> diferentes e nenhum module escolheu errado. O que faltava era escrever qual é
+> qual, pra próxima tela nova escolher de propósito em vez de imitar o vizinho
+> mais próximo.
+
+| Padrão | Quando usar | Onde já está assim |
+|---|---|---|
+| **`<table>`** | Tela de **relatório**, pensada pra imprimir ou exportar — precisa de colunas alinhadas de verdade, cabeçalho fixo, e geralmente tem regra `@media print` própria. | A maioria das telas de relatório do Financeiro: `FinancasConta.tsx`, `FinancasRelatorioContas.tsx`, `FinancasDRE.tsx`, `FinancasPrestacaoContas.tsx`, `Membros.tsx` (desktop) |
+| **`<ul className="divide-y">` + `<li>` em flex** | **Painel operacional** — o usuário está ali pra *agir* (marcar, abrir, conciliar), não pra ler uma grade de números. Cada linha é um cartão fino: rótulo à esquerda, valor/ação à direita. | `PainelTesouraria.tsx` (as "3 Centrais"), `ConciliacaoDrawer.tsx`, `ExtratoContaDrawer.tsx` |
+| **Cards, com troca pra `<table>` em desktop** | **Catálogo grande com busca/filtro**, usado tanto no celular quanto no computador — cards evitam rolagem horizontal no celular, tabela aproveita a largura no desktop. | `Membros.tsx` (`hidden md:block` na tabela, cards abaixo dela pro mobile — ver o comentário no próprio arquivo sobre a armadilha do `overflow-hidden` quebrando o `sticky` do cabeçalho) |
+
+**Regra de bolso:** vai imprimir ou exportar → tabela. Vai clicar pra fazer algo
+→ `<ul>`. É um catálogo que cresce (dezenas a centenas de linhas) e precisa
+funcionar bem no celular → cards com tabela de reforço no desktop. Fora desses
+três casos, seguir o padrão que a tela vizinha do MESMO contexto já usa —
+não inventar um quarto padrão pra uma diferença que não existe.
+
 ---
 
 ## 7. Estado dos módulos
