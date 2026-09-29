@@ -91,6 +91,7 @@ import AgendaPastoral from "./pages/AgendaPastoral.tsx";
 import PainelPastoral from "./pages/PainelPastoral.tsx";
 import PainelSecretaria from "./pages/PainelSecretaria.tsx";
 import PainelTesouraria from "./pages/PainelTesouraria.tsx";
+import PainelPessoas from "./pages/PainelPessoas.tsx";
 import PainelDiaconia from "./pages/PainelDiaconia.tsx";
 import ResetSenhaToken from "@/pages/ResetSenhaToken";
 import EsqueciSenha from "@/pages/EsqueciSenha";
@@ -231,6 +232,7 @@ const App = () => (
                   <Route path="/painel-pastoral" element={<PainelPastoral />} />
                   <Route path="/painel-secretaria" element={<PainelSecretaria />} />
                   <Route path="/painel-tesouraria" element={<PainelTesouraria />} />
+                  <Route path="/painel-pessoas" element={<PainelPessoas />} />
                   <Route path="/painel-diaconia" element={<PainelDiaconia />} />
                   <Route path="/admin/recuperacao-senha" element={<RecuperacaoSenhaAdmin />} />
                   <Route path="/admin/lgpd" element={<LgpdAdmin />} />

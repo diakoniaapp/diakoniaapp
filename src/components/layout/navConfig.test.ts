@@ -139,8 +139,14 @@ describe("o pastor titular alcança exatamente o recorte do painel dele", () => 
   // O que o Painel Pastoral cobre: o dia e a agenda, o rebanho, os
   // visitantes, as famílias, o discipulado, os candidatos à membresia e os
   // assuntos urgentes. Mais a Home, que é de todos.
+  //
+  // "/painel-pessoas" entrou em 29/09/2026 (Fase 3 do roadmap, Workspace
+  // Pessoas) com a MESMA guarda de "/membros" (`ROLES_LIDERES`) — mesmo
+  // público, workspace na frente do catálogo. Ver o comentário em
+  // `navConfig.ts` sobre "Tesouraria" liderando o Financeiro pelo mesmo
+  // motivo.
   const DENTRO = [
-    "/", "/painel-pastoral", "/membros", "/visitantes", "/familias",
+    "/", "/painel-pastoral", "/painel-pessoas", "/membros", "/visitantes", "/familias",
     "/ebd", "/pgm", "/membresia", "/assuntos", "/eventos",
   ];
 

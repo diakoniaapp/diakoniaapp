@@ -16,7 +16,7 @@
 import { describe, it, expect } from "vitest";
 import { widgetRegistry, getWidgetsDoPainel, type PainelDoWidget } from "./widgetRegistry";
 
-const PAINEIS: PainelDoWidget[] = ["pastoral", "secretaria", "estrategico", "financas"];
+const PAINEIS: PainelDoWidget[] = ["pastoral", "secretaria", "estrategico", "financas", "pessoas"];
 
 describe("widgetRegistry", () => {
   it("todo widget ativo tem painel — ou diz quem o mostra no lugar", () => {

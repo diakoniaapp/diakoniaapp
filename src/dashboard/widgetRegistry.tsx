@@ -53,7 +53,7 @@ export type Prioridade = 0 | 1 | 2 | 3;
  * linhas de JSX. Um campo aqui é mais barato e, sobretudo, mantém a regra
  * onde ela já estava: o registry é quem sabe quem vê o quê (AD-5).
  */
-export type PainelDoWidget = "pastoral" | "secretaria" | "estrategico" | "financas";
+export type PainelDoWidget = "pastoral" | "secretaria" | "estrategico" | "financas" | "pessoas";
 
 export interface Widget {
   id: string;
@@ -243,7 +243,9 @@ export const widgetRegistry: Widget[] = [
   { id: "vida-das-familias", label: "Vida das famílias",
     subtitulo: "Aniversários e bodas da semana",
     icone: Heart, component: VidaDasFamilias,
-    permissoes: ["ver_familias","ver_painel_pastoral"], prioridade: 2, paineis: ["pastoral"] },
+    // "pessoas" entrou em 29/09/2026 (Fase 3, Workspace Pessoas) — mesmo
+    // widget, sem mudança nele; só passou a aparecer também ali.
+    permissoes: ["ver_familias","ver_painel_pastoral"], prioridade: 2, paineis: ["pastoral", "pessoas"] },
 
   { id: "resumo-ebd", label: "Resumo da EBD",
     subtitulo: "Presença, crescimento e atenção pastoral",
@@ -253,7 +255,9 @@ export const widgetRegistry: Widget[] = [
   { id: "atencao-pessoas", label: "Atenção em pessoas",
     subtitulo: "Visitantes recentes, sem família, sem classe EBD",
     icone: Users, component: AtencaoEmPessoas,
-    permissoes: ["ver_pessoas"], prioridade: 2, paineis: ["pastoral"] },
+    // "pessoas" entrou em 29/09/2026 (Fase 3, Workspace Pessoas) — mesmo
+    // widget, sem mudança nele; só passou a aparecer também ali.
+    permissoes: ["ver_pessoas"], prioridade: 2, paineis: ["pastoral", "pessoas"] },
 
   { id: "resumo-pgm", label: "Pequenos Grupos",
     subtitulo: "Onde a vida da igreja acontece durante a semana",

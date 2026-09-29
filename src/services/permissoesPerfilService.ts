@@ -10,15 +10,24 @@
 //          ações rápidas. Alimenta também `tem_permissao()`, usada por 15
 //          políticas de RLS (arrecadação e manutenção).
 //
-//   MORTO  `permissoes_modulo` (72 linhas, com a grade pode_ver/pode_criar/
-//          pode_editar/pode_excluir) e as funções `fn_permissao`,
+//   MORTO  Existiu como `permissoes_modulo` (72 linhas, grade pode_ver/
+//          pode_criar/pode_editar/pode_excluir) + as funções `fn_permissao`,
 //          `fn_contexto_usuario`, `fn_minha_permissao`,
-//          `fn_todas_minhas_permissoes`. Contado: ZERO políticas e ZERO
-//          código chamam qualquer uma delas.
+//          `fn_todas_minhas_permissoes`. Reconferido em 29/09/2026 (Fase 3
+//          do roadmap, pré-requisito "resolver o modelo de permissão
+//          duplicado antes de generalizar workspaces"): a TABELA já não
+//          existia mais no banco — apagada em algum momento entre 09/09 e
+//          29/09/2026, fora desta base de código (nenhuma migration daqui a
+//          apagou). As 4 funções tinham sobrevivido órfãs, quebradas (o
+//          corpo de cada uma lia de uma tabela que não existia mais) e sem
+//          nenhum dependente (0 políticas de RLS, 0 outras funções as
+//          chamavam) — removidas com `DROP FUNCTION` em 29/09/2026.
+//          A duplicação está fechada: só o modelo VIVO existe hoje.
 //
-// A tela mexe no VIVO. A grade de `permissoes_modulo` tem a forma mais bonita
-// para uma tela de caixas de seleção — e é exatamente por isso que era a
-// armadilha: marcar caixa ali não mudaria nada em lugar nenhum.
+// A tela sempre mexeu só no VIVO. A grade de `permissoes_modulo` tinha a
+// forma mais bonita para uma tela de caixas de seleção — e era exatamente
+// por isso que era a armadilha: marcar caixa ali não mudava nada em lugar
+// nenhum.
 //
 // ── O ALCANCE REAL DE UMA CAIXA MARCADA ────────────────────────────────────
 //

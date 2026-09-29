@@ -226,6 +226,11 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Pessoas",
     icon: Users,
     items: [
+      // Fase 3 do roadmap (Diagnóstico de 29/09/2026): "Painel de Pessoas"
+      // lidera o grupo, mesmo padrão de "Tesouraria" liderando o Financeiro
+      // (linha 284 abaixo) — o workspace é o destino principal, o Catálogo
+      // continua existindo logo em seguida, sem sumir do menu.
+      { to: "/painel-pessoas", label: "Painel de Pessoas", icon: Users, allowedRoles: ROLES_LIDERES },
       { to: "/membros",      label: "Catálogo",    icon: Users,          allowedRoles: ROLES_LIDERES },
       { to: "/visitantes",   label: "Visitantes",  icon: UserCheck },
       { to: "/familias",     label: "Famílias",    icon: Home,           allowedRoles: ROLES_LIDERES },
@@ -413,6 +418,7 @@ export const pageTitles: Record<string, string> = {
   "/painel-pastoral":         "Painel Pastoral",
   "/painel-secretaria":       "Painel da Secretaria",
   "/painel-tesouraria":       "Painel da Tesouraria",
+  "/painel-pessoas":          "Painel de Pessoas",
   "/painel-diaconia":         "Painel da Diaconia",
   "/locais":                  "Espaços",
   "/visitantes":              "Visitantes",
@@ -447,6 +453,8 @@ export const pageTitles: Record<string, string> = {
 
 export const ROUTE_ROLES: Record<string, AppRole[]> = {
   "/membros":            ROLES_LIDERES,
+  // Mesmo público do Catálogo — é a mesma matéria, workspace na frente.
+  "/painel-pessoas":     ROLES_LIDERES,
   "/familias":           ROLES_LIDERES,
   // Sem o pastor titular, aqui e no menu, pelo mesmo motivo: sao telas fora do
   // recorte do painel dele. Esconder so o item do menu deixaria a URL digitada
