@@ -418,7 +418,12 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, onChange }: Pr
             <div className="flex flex-wrap gap-2 items-end pt-1">
               <div className="min-w-[130px]">
                 <label className="text-xs uppercase tracking-wide text-muted-foreground">De</label>
-                <CampoData value={dataInicio} onChange={setDataInicio} className="h-8 text-xs" />
+                {/* Mudar "De" já leva "Até" junto pra mesma data — mesmo
+                    ajuste de FinancasConta.tsx (29/09/2026, achado ao vivo
+                    dela: "De" mudava e "Até" ficava pra trás, visível e
+                    confuso, mesmo a consulta corrigindo sozinha por baixo
+                    via inicioEfetivo/fimEfetivo). */}
+                <CampoData value={dataInicio} onChange={(v) => { setDataInicio(v); setDataFim(v); }} className="h-8 text-xs" />
               </div>
               <div className="min-w-[130px]">
                 <label className="text-xs uppercase tracking-wide text-muted-foreground">Até</label>

@@ -861,14 +861,19 @@ export default function FinancasConta() {
               comentário grande no topo de `components/CampoData.tsx` pra
               todo o histórico (teclado nativo quebrado no WebView → só
               calendário tirou a digitação → esta versão devolve as duas,
-              com máscara de texto em vez do input nativo). Cada campo só
-              grava o que foi escolhido NELE; se sair invertido (final
-              antes de inicial), `inicioEfetivo`/`fimEfetivo` resolve a
-              ordem só na hora de buscar — o usuário nunca vê o próprio
-              campo mudar sozinho. */}
+              com máscara de texto em vez do input nativo).
+              CORRIGIDO (29/09/2026): até aqui, mudar só "Data Inicial"
+              podia deixar "Data Final" pra trás dela na TELA — a consulta
+              corrigia sozinha na hora de buscar (`inicioEfetivo`/
+              `fimEfetivo` trocavam os dois), mas o campo continuava
+              mostrando a ordem invertida, confuso (achado ao vivo por
+              ela: mudou Data Inicial pra 03/10/2026 e Data Final ficou
+              parada em 29/09/2026, visível e sem sentido). Agora mudar
+              Data Inicial já leva Data Final junto pra mesma data — abre
+              sempre num dia só, e ela alarga o fim se quiser um período. */}
           <div className="min-w-[150px]">
             <label className="text-xs uppercase tracking-wide text-muted-foreground">Data inicial</label>
-            <CampoData value={dataInicio} onChange={setDataInicio} />
+            <CampoData value={dataInicio} onChange={(v) => { setDataInicio(v); setDataFim(v); }} />
           </div>
           <div className="min-w-[150px]">
             <label className="text-xs uppercase tracking-wide text-muted-foreground">Data final</label>
