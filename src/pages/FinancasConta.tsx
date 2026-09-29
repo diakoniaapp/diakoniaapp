@@ -1034,6 +1034,17 @@ export default function FinancasConta() {
                         mesmo dia limpa o filtro (alterna), como o "x" que
                         o Omie mostra do lado do campo preenchido. */}
                     <CabecalhoFiltro label="Data" ativo={!!filtroDataEspecifica} semPadding>
+                      {/* Campo de texto (23/09/2026, auditoria de digitação
+                          manual de data): o calendário abaixo já tinha o
+                          comportamento especial de "clicar de novo no mesmo
+                          dia limpa o filtro" — em vez de duplicar isso no
+                          `CampoData` (que não tem essa alternância), só o
+                          texto com máscara dele (`semCalendario`) fica aqui
+                          em cima, escrevendo no MESMO estado que o
+                          calendário já lê/grava. */}
+                      <div className="p-2 pb-1.5">
+                        <CampoData value={filtroDataEspecifica} onChange={setFiltroDataEspecifica} semCalendario />
+                      </div>
                       <CalendarPicker mode="single"
                         selected={filtroDataEspecifica ? parseLocalDate(filtroDataEspecifica) : undefined}
                         defaultMonth={filtroDataEspecifica ? parseLocalDate(filtroDataEspecifica) : parseLocalDate(inicioEfetivo)}

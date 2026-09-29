@@ -37,11 +37,10 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar as CalendarPicker } from "@/components/ui/calendar";
+import { CampoData } from "@/components/CampoData";
 import {
   ArrowLeft, MessageSquare, MessageSquarePlus,
-  ScrollText, Lock, LockOpen, ShieldCheck, Loader2, Printer, Download, Wallet, CalendarDays, RefreshCw,
+  ScrollText, Lock, LockOpen, ShieldCheck, Loader2, Printer, Download, Wallet, RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import logoDiakonia from "@/assets/logo-diakonia.png";
@@ -56,7 +55,7 @@ import {
 } from "@/services/fechamentoPeriodoService";
 import { NotaRelatorioModal } from "@/components/financas/NotaRelatorioModal";
 import { PaginaSkeleton } from "@/components/ListState";
-import { hojeLocal, daquiAMeses } from "@/lib/data";
+import { hojeLocal, daquiAMeses, toYmd, parseLocalDate } from "@/lib/data";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -84,10 +83,10 @@ function periodoAtual(): { ano: number; mes: number } {
 // Trimestral/...) por dois `<input type="month">` — ela queria que
 // CLICAR no campo abrisse um calendário de verdade (o `type="month"`
 // nativo só deixa digitar/girar o valor com o teclado nesta combinação
-// de navegador/SO, sem abrir grade nenhuma). Por isso agora é um
-// `Popover` com o `Calendar` (dia-a-dia) do shadcn — o mesmo primitivo
-// que já existia em `components/ui/calendar.tsx` sem nunca ter sido
-// usado em lugar nenhum do sistema. O relatório continua sendo por MÊS
+// de navegador/SO, sem abrir grade nenhuma). Revisado em 23/09/2026
+// (auditoria de digitação manual de data): virou `CampoData`
+// (components/CampoData.tsx) — soma DIGITAR (o que o calendário sozinho
+// não deixava) e o calendário. O relatório continua sendo por MÊS
 // inteiro: o dia clicado só empresta mês/ano; "Data Inicial" vira o dia
 // 1 do mês escolhido e "Data Final" o último dia do mês escolhido.
 function diferencaEmMeses(anoIni: number, mesIni: number, anoFim: number, mesFim: number): number {
@@ -115,8 +114,6 @@ export default function FinancasPrestacaoContas() {
   const [confirmandoFechar, setConfirmandoFechar] = useState(false);
   const [reabrindo, setReabrindo] = useState(false);
   const [motivoReabertura, setMotivoReabertura] = useState("");
-  const [calInicioAberto, setCalInicioAberto] = useState(false);
-  const [calFimAberto, setCalFimAberto] = useState(false);
   const [nota, setNota] = useState<{
     aberto: boolean; titulo: string; categoriaId: string; centroCustoId: string | null;
   }>({ aberto: false, titulo: "", categoriaId: "", centroCustoId: null });
@@ -199,20 +196,19 @@ export default function FinancasPrestacaoContas() {
     setSearchParams(params);
   }
 
-  // Clicar num dia no calendário de "Data Inicial" mantém "Data Final"
-  // fixa (recalcula quantos meses cabem entre os dois); clicar em "Data
-  // Final" mantém "Data Inicial" fixa. Se a pessoa escolher uma combinação
-  // invertida (Final antes de Inicial), a janela vira um único mês na
-  // ponta que acabou de mudar — nunca fica num intervalo negativo. O dia
-  // do mês clicado não importa, só o mês/ano — ver comentário acima de
-  // `diferencaEmMeses`.
+  // Escolher (digitando ou no calendário do `CampoData`) um dia em "Data
+  // Inicial" mantém "Data Final" fixa (recalcula quantos meses cabem entre
+  // os dois); em "Data Final" mantém "Data Inicial" fixa. Se a pessoa
+  // escolher uma combinação invertida (Final antes de Inicial), a janela
+  // vira um único mês na ponta que acabou de mudar — nunca fica num
+  // intervalo negativo. O dia do mês escolhido não importa, só o mês/ano —
+  // ver comentário acima de `diferencaEmMeses`.
   function mudarInicio(data: Date | undefined) {
     if (!data) return;
     const novoAno = data.getFullYear();
     const novoMes = data.getMonth() + 1;
     const novaQtd = diferencaEmMeses(novoAno, novoMes, anoFim, mesFim);
     atualizarParams(novoAno, novoMes, novaQtd < 1 ? 1 : Math.min(24, novaQtd));
-    setCalInicioAberto(false);
   }
 
   function mudarFim(data: Date | undefined) {
@@ -225,7 +221,6 @@ export default function FinancasPrestacaoContas() {
     } else {
       atualizarParams(ano, mes, Math.min(24, novaQtd));
     }
-    setCalFimAberto(false);
   }
 
   function mudarConta(novaContaId: string) {
@@ -328,54 +323,41 @@ export default function FinancasPrestacaoContas() {
             </Select>
           </div>
 
-          {/* Dois seletores com calendário de verdade (Popover + Calendar do
-              shadcn) em vez dos presets Mensal/Trimestral/Semestral/Anual —
-              pedido da Telma em 15/09/2026: escolher o período clicando no
-              campo, e o clique abrir um calendário pra valer (o
-              `<input type="month">` nativo, tentado primeiro, só deixava
-              digitar/girar o valor nesta combinação de navegador/SO — não
-              abria grade nenhuma). `ano`/`mes`/`qtdMeses` continuam sendo o
-              estado de verdade (mesma URL de sempre); "Data Inicial" edita o
+          {/* Dois campos com máscara de digitação + calendário (`CampoData`)
+              em vez dos presets Mensal/Trimestral/Semestral/Anual — pedido
+              da Telma em 15/09/2026: escolher o período clicando no campo,
+              com um calendário de verdade (o `<input type="month">` nativo,
+              tentado primeiro, só deixava digitar/girar o valor nesta
+              combinação de navegador/SO — não abria grade nenhuma).
+              Revisado em 23/09/2026 (auditoria de digitação manual de
+              data): o Popover+Calendar puro não deixava DIGITAR a data,
+              só clicar — trocado pelo mesmo `CampoData` já usado em
+              FinancasConta.tsx e no Painel da Tesouraria, que soma as
+              duas formas. `ano`/`mes`/`qtdMeses` continuam sendo o estado
+              de verdade (mesma URL de sempre); "Data Inicial" edita o
               começo, "Data Final" edita o fim, cada um recalculando
-              `qtdMeses` a partir do outro extremo fixo. */}
+              `qtdMeses` a partir do outro extremo fixo — só o DIA digitado/
+              clicado não importa, mudarInicio/mudarFim usam só mês/ano. */}
           <div className="flex items-center justify-center gap-1.5 flex-wrap">
-            <Popover open={calInicioAberto} onOpenChange={setCalInicioAberto}>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs font-normal justify-start">
-                  <CalendarDays className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                  <span className="text-muted-foreground">Data Inicial</span>
-                  <span className="font-medium">{new Date(ano, mes - 1, 1).toLocaleDateString("pt-BR")}</span>
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <CalendarPicker
-                  mode="single"
-                  selected={new Date(ano, mes - 1, 1)}
-                  defaultMonth={new Date(ano, mes - 1, 1)}
-                  onSelect={mudarInicio}
-                />
-              </PopoverContent>
-            </Popover>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-muted-foreground">Data Inicial</span>
+              <CampoData
+                value={toYmd(new Date(ano, mes - 1, 1))}
+                onChange={(iso) => mudarInicio(parseLocalDate(iso))}
+                className="w-[148px]"
+              />
+            </div>
 
             <span className="text-xs text-muted-foreground">até</span>
 
-            <Popover open={calFimAberto} onOpenChange={setCalFimAberto}>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs font-normal justify-start">
-                  <CalendarDays className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                  <span className="text-muted-foreground">Data Final</span>
-                  <span className="font-medium">{new Date(anoFim, mesFim, 0).toLocaleDateString("pt-BR")}</span>
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <CalendarPicker
-                  mode="single"
-                  selected={new Date(anoFim, mesFim, 0)}
-                  defaultMonth={new Date(anoFim, mesFim, 0)}
-                  onSelect={mudarFim}
-                />
-              </PopoverContent>
-            </Popover>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-muted-foreground">Data Final</span>
+              <CampoData
+                value={toYmd(new Date(anoFim, mesFim, 0))}
+                onChange={(iso) => mudarFim(parseLocalDate(iso))}
+                className="w-[148px]"
+              />
+            </div>
 
             {!contaId && (
               <>

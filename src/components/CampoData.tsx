@@ -34,6 +34,14 @@ interface Props {
   className?: string;
   anoMin?: number;
   anoMax?: number;
+  /** Só o campo de texto com máscara, sem o botão de calendário — pra
+   *  encaixar digitação num lugar que já tem SEU PRÓPRIO calendário com
+   *  comportamento especial (ex.: o filtro de coluna "Data" em
+   *  FinancasConta.tsx, onde clicar de nome no mesmo dia limpa o filtro —
+   *  comportamento que o calendário embutido deste componente não tem, e
+   *  duplicar o calendário ali criaria dois jeitos de escolher a mesma
+   *  data lado a lado). */
+  semCalendario?: boolean;
 }
 
 function formatarDigitando(bruto: string): string {
@@ -63,7 +71,7 @@ function paraDigitado(iso: string): string {
   return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
 }
 
-export function CampoData({ value, onChange, className, anoMin = 2000, anoMax = 2099 }: Props) {
+export function CampoData({ value, onChange, className, anoMin = 2000, anoMax = 2099, semCalendario }: Props) {
   const [texto, setTexto] = useState(() => paraDigitado(value));
   const [focado, setFocado] = useState(false);
   const [calAberto, setCalAberto] = useState(false);
@@ -100,24 +108,26 @@ export function CampoData({ value, onChange, className, anoMin = 2000, anoMax = 
       <Input value={texto} inputMode="numeric" placeholder="dd/mm/aaaa"
         onFocus={() => setFocado(true)} onBlur={aoSairDoFoco}
         onChange={aoDigitar} className="h-8 text-xs min-w-0 flex-1" />
-      <Popover open={calAberto} onOpenChange={setCalAberto}>
-        <PopoverTrigger asChild>
-          <Button type="button" variant="outline" size="icon" className="h-8 w-8 shrink-0" title="Escolher no calendário">
-            <CalendarDays className="w-3.5 h-3.5 text-muted-foreground" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
-          <CalendarPicker mode="single" selected={value ? parseLocalDate(value) : undefined}
-            defaultMonth={value ? parseLocalDate(value) : undefined}
-            onSelect={(d) => {
-              if (!d) return;
-              const iso = toYmd(d);
-              setTexto(paraDigitado(iso));
-              onChange(iso);
-              setCalAberto(false);
-            }} />
-        </PopoverContent>
-      </Popover>
+      {!semCalendario && (
+        <Popover open={calAberto} onOpenChange={setCalAberto}>
+          <PopoverTrigger asChild>
+            <Button type="button" variant="outline" size="icon" className="h-8 w-8 shrink-0" title="Escolher no calendário">
+              <CalendarDays className="w-3.5 h-3.5 text-muted-foreground" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <CalendarPicker mode="single" selected={value ? parseLocalDate(value) : undefined}
+              defaultMonth={value ? parseLocalDate(value) : undefined}
+              onSelect={(d) => {
+                if (!d) return;
+                const iso = toYmd(d);
+                setTexto(paraDigitado(iso));
+                onChange(iso);
+                setCalAberto(false);
+              }} />
+          </PopoverContent>
+        </Popover>
+      )}
     </div>
   );
 }
