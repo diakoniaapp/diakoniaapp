@@ -9,6 +9,7 @@ import { format, addDays, startOfMonth, endOfMonth } from "date-fns";
 import { AgendaFiltros, CategoriaEvento, EventoStatus, EventoTipo, LocalOpt, MinisterioOpt, AreaOpt, TIPO_LABEL, STATUS_LABEL } from "@/lib/agenda/types";
 import { CATEGORIA_EXTERNAS } from "@/lib/agenda/externalEvents";
 import { CATEGORIA_PESSOAS } from "@/lib/agenda/birthdays";
+import { CampoData } from "@/components/CampoData";
 
 const ALL_CATS: CategoriaEvento[] = ["igreja", "batista", "feriado", "aniversario", "casamento", "arrecadacao"];
 
@@ -78,11 +79,11 @@ export function PrintAgendaDialog({ open, onClose, filtrosAtuais, ministerios, a
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label translate="no">Data inicial</Label>
-              <Input type="date" value={inicio} onChange={(e) => setInicio(e.target.value)} />
+              <CampoData value={inicio} onChange={(v) => setInicio(v)} />
             </div>
             <div>
               <Label translate="no">Data final</Label>
-              <Input type="date" value={fim} onChange={(e) => setFim(e.target.value)} />
+              <CampoData value={fim} onChange={(v) => setFim(v)} />
             </div>
           </div>
           <div className="flex flex-wrap gap-2">

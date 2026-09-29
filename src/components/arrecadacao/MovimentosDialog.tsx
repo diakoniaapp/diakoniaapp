@@ -30,6 +30,7 @@ import {
   uploadAnexoNF, urlNF, listarLancamentosSaidaDisponiveis,
   type Movimento, type MovimentoTipo, type FinLancamentoDisp, type CaixaResumo,
 } from "@/services/arrecadacaoService";
+import { CampoData } from "@/components/CampoData";
 
 const fmtBR = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -306,7 +307,7 @@ function FormReembolso({ caixaId, onSaved }: { caixaId: string; onSaved: () => v
       </Field>
       <div className="grid grid-cols-2 gap-2">
         <Field label="Valor *"><Input value={form.valor} onChange={e => setForm({...form, valor: e.target.value})} /></Field>
-        <Field label="Emitida em *"><Input type="date" value={form.nf_emitida} onChange={e => setForm({...form, nf_emitida: e.target.value})} /></Field>
+        <Field label="Emitida em *"><CampoData value={form.nf_emitida} onChange={(v) => setForm({...form, nf_emitida: v})} /></Field>
         <Field label="Nº da NF *"><Input value={form.nf_numero} onChange={e => setForm({...form, nf_numero: e.target.value})} /></Field>
         <Field label="Série"><Input value={form.nf_serie} onChange={e => setForm({...form, nf_serie: e.target.value})} /></Field>
       </div>
@@ -380,7 +381,7 @@ function FormAbate({ caixaId, onSaved }: { caixaId: string; onSaved: () => void 
       )}
       <div className="grid grid-cols-2 gap-2">
         <Field label="Nº da NF *"><Input value={form.nf_numero} onChange={e => setForm({...form, nf_numero: e.target.value})} /></Field>
-        <Field label="Emitida em *"><Input type="date" value={form.nf_emitida} onChange={e => setForm({...form, nf_emitida: e.target.value})} /></Field>
+        <Field label="Emitida em *"><CampoData value={form.nf_emitida} onChange={(v) => setForm({...form, nf_emitida: v})} /></Field>
       </div>
       <Field label="Descrição *"><Textarea value={form.desc} onChange={e => setForm({...form, desc: e.target.value})} /></Field>
       <Field label="Arquivo da NF (PDF/imagem)">

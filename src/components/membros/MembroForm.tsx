@@ -39,6 +39,7 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import type { Membro } from "@/pages/Membros";
+import { CampoData } from "@/components/CampoData";
 
 // ── Opções "Como conheceu" ────────────────────────────────────────────────
 const COMO_CONHECEU_OPTS = [
@@ -1162,7 +1163,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved, tipoInicial, o
                     </p>
                   </>
                 ) : (
-                  <Input type="date" value={form.data_nascimento} onChange={(e) => set("data_nascimento", e.target.value)} />
+                  <CampoData value={form.data_nascimento} onChange={(v) => set("data_nascimento", v)} />
                 )}
 
                 {candidatoMembresia && (
@@ -1192,7 +1193,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved, tipoInicial, o
                   {mostraCasamento && (
                     <div>
                       <Label translate="no">Data de casamento</Label>
-                      <Input type="date" value={form.data_casamento} onChange={(e) => set("data_casamento", e.target.value)} />
+                      <CampoData value={form.data_casamento} onChange={(v) => set("data_casamento", v)} />
                     </div>
                   )}
                 </>
@@ -1316,7 +1317,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved, tipoInicial, o
 
                   <div className="md:col-span-2">
                     <Label translate="no">Data da visita *</Label>
-                    <Input type="date" value={form.data_entrada} onChange={(e) => set("data_entrada", e.target.value)} />
+                    <CampoData value={form.data_entrada} onChange={(v) => set("data_entrada", v)} />
                   </div>
 
                   <div className="md:col-span-2">
@@ -1374,7 +1375,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved, tipoInicial, o
                   {isMembro && (
                     <div>
                       <Label translate="no">Data de entrada</Label>
-                      <Input type="date" value={form.data_entrada} onChange={(e) => set("data_entrada", e.target.value)} />
+                      <CampoData value={form.data_entrada} onChange={(v) => set("data_entrada", v)} />
                       {/* A dica dizia "Data do batismo/profissão de fé" e
                           supunha o tipo mais comum. Para quem veio por carta
                           de outra igreja isso estava errado, e não havia onde
@@ -1462,12 +1463,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved, tipoInicial, o
                       <Label translate="no">
                         Data de saída <span className="text-destructive">*</span>
                       </Label>
-                      <Input
-                        type="date"
-                        required
-                        value={form.data_saida || ""}
-                        onChange={(e) => set("data_saida", e.target.value)}
-                      />
+                      <CampoData value={form.data_saida || ""} onChange={(v) => set("data_saida", v)} />
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {form.status === "falecido"
                           ? "Data do falecimento."
@@ -1638,11 +1634,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved, tipoInicial, o
                   return (
                     <div key={f} className="md:w-1/2">
                       <Label translate="no">{cfg.rotuloData}</Label>
-                      <Input
-                        type="date"
-                        value={form[cfg.coluna] ?? ""}
-                        onChange={(e) => set(cfg.coluna!, e.target.value)}
-                      />
+                      <CampoData value={form[cfg.coluna] ?? ""} onChange={(v) => set(cfg.coluna!, v)} />
                     </div>
                   );
                 })}
@@ -1655,13 +1647,11 @@ export function MembroForm({ open, onOpenChange, membro, onSaved, tipoInicial, o
                 <div className="grid md:grid-cols-2 gap-3">
                   <div>
                     <Label translate="no">Assumiu em</Label>
-                    <Input type="date" value={form.funcao_inicio ?? ""}
-                      onChange={(e) => set("funcao_inicio", e.target.value)} />
+                    <CampoData value={form.funcao_inicio ?? ""} onChange={(v) => set("funcao_inicio", v)} />
                   </div>
                   <div>
                     <Label translate="no">Até</Label>
-                    <Input type="date" value={form.funcao_fim ?? ""}
-                      onChange={(e) => set("funcao_fim", e.target.value)} />
+                    <CampoData value={form.funcao_fim ?? ""} onChange={(v) => set("funcao_fim", v)} />
                     <p className="text-xs text-muted-foreground mt-1">
                       Registro histórico — não gera alerta de vencimento.
                       {funcoesSelecionadas.filter((f) => FUNCAO_MINISTERIAL[f].tipoData === "vigencia").length > 1

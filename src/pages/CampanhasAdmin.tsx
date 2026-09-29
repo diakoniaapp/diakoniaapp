@@ -28,6 +28,7 @@ import {
 import { toast } from "sonner";
 import { format, addDays, differenceInDays, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { CampoData } from "@/components/CampoData";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -764,13 +765,11 @@ function WizardCampanha({ campanha, onClose, onSalvo }: {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Início *</Label>
-                <Input type="date" value={form.data_inicio}
-                  onChange={(e) => setForm({ ...form, data_inicio: e.target.value })} className="mt-1" />
+                <CampoData value={form.data_inicio} onChange={(v) => setForm({ ...form, data_inicio: v })} className="mt-1" />
               </div>
               <div>
                 <Label>Fim *</Label>
-                <Input type="date" value={form.data_fim}
-                  onChange={(e) => setForm({ ...form, data_fim: e.target.value })} className="mt-1" />
+                <CampoData value={form.data_fim} onChange={(v) => setForm({ ...form, data_fim: v })} className="mt-1" />
               </div>
             </div>
             {dias > 0 && (

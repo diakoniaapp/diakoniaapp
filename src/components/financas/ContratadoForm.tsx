@@ -31,6 +31,7 @@ import {
   type FinContratado, type FinVinculoTipo,
 } from "@/services/folhaService";
 import { TIPOS_CHAVE_PIX, type TipoChavePix } from "@/lib/pix";
+import { CampoData } from "@/components/CampoData";
 
 interface Props {
   open: boolean;
@@ -228,11 +229,11 @@ export function ContratadoForm({ open, onOpenChange, contratado, onSaved }: Prop
           <div className="grid grid-cols-2 gap-3">
             <div className="min-w-0">
               <Label>Início *</Label>
-              <Input type="date" value={campos.dataInicio} onChange={(e) => set("dataInicio", e.target.value)} required min="2000-01-01" max="2099-12-31" className="w-full" />
+              <CampoData value={campos.dataInicio} onChange={(v) => set("dataInicio", v)} className="w-full" />
             </div>
             <div className="min-w-0">
               <Label>Fim (opcional)</Label>
-              <Input type="date" value={campos.dataFim} onChange={(e) => set("dataFim", e.target.value)} min="2000-01-01" max="2099-12-31" className="w-full" />
+              <CampoData value={campos.dataFim} onChange={(v) => set("dataFim", v)} className="w-full" />
             </div>
           </div>
 

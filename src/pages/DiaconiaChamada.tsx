@@ -31,6 +31,7 @@ import { TelefoneInput } from "@/components/ui/TelefoneInput";
 import { PaginaSkeleton } from "@/components/ListState";
 import { supabase } from "@/integrations/supabase/client";
 import { hojeLocal } from "@/lib/data";
+import { CampoData } from "@/components/CampoData";
 
 export default function DiaconiaChamada() {
   const { ministerioId = "", areaId = "" } = useParams();
@@ -184,7 +185,7 @@ export default function DiaconiaChamada() {
         <CardContent className="py-3">
           <div className="flex items-center gap-2">
             <Calendar className="w-4 h-4 text-muted-foreground" />
-            <Input type="date" value={data} onChange={(e) => setData(e.target.value)} className="flex-1" />
+            <CampoData value={data} onChange={(v) => setData(v)} className="flex-1" />
           </div>
         </CardContent>
       </Card>

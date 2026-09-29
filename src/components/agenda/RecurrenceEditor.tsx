@@ -4,6 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import type { RecorrenciaFreq, RecorrenciaRegra } from "@/lib/agenda/types";
 import { descreverRegra, daquiAMeses, hojeLocal } from "@/lib/agenda/recurrence";
 import { cn } from "@/lib/utils";
+import { CampoData } from "@/components/CampoData";
 
 interface Props {
   freq: RecorrenciaFreq;
@@ -136,10 +137,7 @@ export function RecurrenceEditor({ freq, regra, onChange, dataInicio }: Props) {
                     fim: { tipo: "data", data: daquiAMeses(dataInicio || hojeLocal(), 3) },
                   })} />
                 Em
-                <Input type="date" className="h-8 w-40 ml-1"
-                  disabled={regra.fim.tipo !== "data"}
-                  value={regra.fim.tipo === "data" ? regra.fim.data : ""}
-                  onChange={(e) => update({ fim: { tipo: "data", data: e.target.value } })} />
+                <CampoData className="h-8 w-40 ml-1" disabled={regra.fim.tipo !== "data"} value={regra.fim.tipo === "data" ? regra.fim.data : ""} onChange={(v) => update({ fim: { tipo: "data", data: v } })} />
               </label>
               <label className="flex items-center gap-2 text-sm">
                 <input type="radio" checked={regra.fim.tipo === "ocorrencias"}

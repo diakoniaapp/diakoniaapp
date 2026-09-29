@@ -30,6 +30,7 @@ import {
 } from "@/services/finService";
 import { extrairDadosDoComprovante, type OcrResultado, type ItemNota } from "@/services/ocrService";
 import { decodificarBoleto, type BoletoDecodificado } from "@/lib/boleto";
+import { CampoData } from "@/components/CampoData";
 // Carregado sob demanda — ZXing (leitor de câmera) pesa ~460kB no pacote
 // principal, e a maioria das aberturas deste formulário nunca clica em
 // "Ler com câmera". Mesma mitigação que o CLAUDE.md já registra (Risco
@@ -644,7 +645,7 @@ export function LancamentoForm({
                 dentro. Achado pela Telma (16/09/2026). */}
             <div className="min-w-0">
               <Label>Data *</Label>
-              <Input type="date" required value={data} onChange={(e) => setData(e.target.value)} min="2000-01-01" max="2099-12-31" className="w-full" />
+              <CampoData value={data} onChange={(v) => setData(v)} className="w-full" />
             </div>
             <div>
               <Label>Valor (R$) *</Label>

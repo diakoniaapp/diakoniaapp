@@ -23,6 +23,7 @@ import {
   REUNIAO_TIPO_LABEL, REUNIAO_STATUS_LABEL, REUNIAO_STATUS_COR,
   type GovReuniao, type GovReuniaoTipo, type GovAssembleia,
 } from "@/services/governancaService";
+import { CampoData } from "@/components/CampoData";
 
 export default function Governanca() {
   const [reunioes, setReunioes] = useState<GovReuniao[]>([]);
@@ -204,7 +205,7 @@ function NovaReuniaoDialog({ open, onOpenChange, onSaved }: {
             </div>
             <div>
               <Label>Data *</Label>
-              <Input type="date" value={data} onChange={(e) => setData(e.target.value)} required />
+              <CampoData value={data} onChange={(v) => setData(v)} />
             </div>
             <div>
               <Label>Horário</Label>

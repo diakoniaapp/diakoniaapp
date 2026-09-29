@@ -18,6 +18,7 @@ import {
   DIAS, TURNOS, FREQUENCIAS,
   type PerfilServico, type DiaSemana, type Turno, type Frequencia,
 } from "@/services/perfilServico";
+import { CampoData } from "@/components/CampoData";
 
 interface Props {
   valor: PerfilServico;
@@ -171,12 +172,7 @@ export function PassoDisponibilidade({ valor, onChange, novaPessoa }: Props) {
           <div className="grid gap-3 sm:grid-cols-2 pl-3 border-l-2 border-warning-line">
             <div className="space-y-1">
               <Label htmlFor="ps-ate" className="text-xs">Volta em</Label>
-              <Input
-                id="ps-ate"
-                type="date"
-                value={valor.descanso_ate ?? ""}
-                onChange={e => set({ descanso_ate: e.target.value || null })}
-              />
+              <CampoData id="ps-ate" value={valor.descanso_ate ?? ""} onChange={(v) => set({ descanso_ate: v || null })} />
               {/* Sem data, ninguém sabe quando receber a pessoa de volta — e o
                   afastamento vira permanente por esquecimento. */}
               {!valor.descanso_ate && (

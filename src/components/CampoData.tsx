@@ -34,6 +34,16 @@ interface Props {
   className?: string;
   anoMin?: number;
   anoMax?: number;
+  /** Três props acrescentadas em 29/09/2026, migrando os 54
+   *  `<Input type="date">` restantes (Fase 2 do roadmap) — cada uma tinha
+   *  uso real em pelo menos um dos pontos migrados, não é especulativo:
+   *  `id` (VisitanteDialog/MinhaFicha/PassoDisponibilidade, associar
+   *  `<label htmlFor>`), `disabled` (RecurrenceEditor/VisitanteDialog,
+   *  campo condicional) e `placeholder` (ProjetoForm/ReunioesFinanceiras,
+   *  substituindo o "dd/mm/aaaa" padrão por um texto mais específico). */
+  id?: string;
+  disabled?: boolean;
+  placeholder?: string;
   /** Só o campo de texto com máscara, sem o botão de calendário — pra
    *  encaixar digitação num lugar que já tem SEU PRÓPRIO calendário com
    *  comportamento especial (ex.: o filtro de coluna "Data" em
@@ -71,7 +81,10 @@ function paraDigitado(iso: string): string {
   return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
 }
 
-export function CampoData({ value, onChange, className, anoMin = 2000, anoMax = 2099, semCalendario }: Props) {
+export function CampoData({
+  value, onChange, className, anoMin = 2000, anoMax = 2099, semCalendario,
+  id, disabled, placeholder = "dd/mm/aaaa",
+}: Props) {
   const [texto, setTexto] = useState(() => paraDigitado(value));
   const [focado, setFocado] = useState(false);
   const [calAberto, setCalAberto] = useState(false);
@@ -105,13 +118,13 @@ export function CampoData({ value, onChange, className, anoMin = 2000, anoMax = 
           calendário pra fora do espaço reservado ao campo, em vez de
           encolher junto. Mesmo transbordo documentado no CLAUDE.md
           (§6.2), aqui dentro de um componente novo. */}
-      <Input value={texto} inputMode="numeric" placeholder="dd/mm/aaaa"
+      <Input id={id} value={texto} inputMode="numeric" placeholder={placeholder} disabled={disabled}
         onFocus={() => setFocado(true)} onBlur={aoSairDoFoco}
         onChange={aoDigitar} className="h-8 text-xs min-w-0 flex-1" />
       {!semCalendario && (
         <Popover open={calAberto} onOpenChange={setCalAberto}>
           <PopoverTrigger asChild>
-            <Button type="button" variant="outline" size="icon" className="h-8 w-8 shrink-0" title="Escolher no calendário">
+            <Button type="button" variant="outline" size="icon" className="h-8 w-8 shrink-0" title="Escolher no calendário" disabled={disabled}>
               <CalendarDays className="w-3.5 h-3.5 text-muted-foreground" />
             </Button>
           </PopoverTrigger>

@@ -20,6 +20,7 @@ import { AcolhimentoPanel } from "./AcolhimentoPanel";
 import VisitanteTimeline from "./VisitanteTimeline";
 import type { Membro } from "@/pages/Membros";
 import { conferir } from "@/lib/escritaConferida";
+import { CampoData } from "@/components/CampoData";
 
 interface VisitanteMembro extends Membro {
   numero_visitas?:   number | null;
@@ -328,7 +329,7 @@ export default function VisitanteDialog({ open, onOpenChange, pessoa, onSaved }:
               <div className="grid md:grid-cols-3 gap-2">
                 <div>
                   <Label translate="no" className="text-xs">Data</Label>
-                  <Input type="date" value={novaVisita.data} onChange={(e) => setNovaVisita({ ...novaVisita, data: e.target.value })} />
+                  <CampoData value={novaVisita.data} onChange={(v) => setNovaVisita({ ...novaVisita, data: v })} />
                 </div>
                 <div>
                   <Label translate="no" className="text-xs">Origem / culto</Label>
@@ -408,17 +409,17 @@ export default function VisitanteDialog({ open, onOpenChange, pessoa, onSaved }:
                       propósito. Sem data, o prazo padrão por dias corridos
                       (visitantesFluxo.ts) continua valendo sozinho. */}
                   <Label translate="no" className="text-xs">Revisar de novo em (opcional)</Label>
-                  <Input type="date" value={novoAcomp.proxima_revisao_em} onChange={(e) => setNovoAcomp({ ...novoAcomp, proxima_revisao_em: e.target.value })} />
+                  <CampoData value={novoAcomp.proxima_revisao_em} onChange={(v) => setNovoAcomp({ ...novoAcomp, proxima_revisao_em: v })} />
                 </div>
                 <div className="flex items-center gap-2 mt-5">
                   <Checkbox id="contato" checked={novoAcomp.contato_feito} onCheckedChange={(v) => setNovoAcomp({ ...novoAcomp, contato_feito: !!v })} />
                   <Label htmlFor="contato" translate="no" className="text-sm">Contato feito</Label>
-                  <Input className="ml-auto w-40" type="date" disabled={!novoAcomp.contato_feito} value={novoAcomp.data_contato} onChange={(e) => setNovoAcomp({ ...novoAcomp, data_contato: e.target.value })} />
+                  <CampoData className="ml-auto w-40" disabled={!novoAcomp.contato_feito} value={novoAcomp.data_contato} onChange={(v) => setNovoAcomp({ ...novoAcomp, data_contato: v })} />
                 </div>
                 <div className="flex items-center gap-2 mt-5">
                   <Checkbox id="visita" checked={novoAcomp.visita_realizada} onCheckedChange={(v) => setNovoAcomp({ ...novoAcomp, visita_realizada: !!v })} />
                   <Label htmlFor="visita" translate="no" className="text-sm">Visita realizada</Label>
-                  <Input className="ml-auto w-40" type="date" disabled={!novoAcomp.visita_realizada} value={novoAcomp.data_visita} onChange={(e) => setNovoAcomp({ ...novoAcomp, data_visita: e.target.value })} />
+                  <CampoData className="ml-auto w-40" disabled={!novoAcomp.visita_realizada} value={novoAcomp.data_visita} onChange={(v) => setNovoAcomp({ ...novoAcomp, data_visita: v })} />
                 </div>
               </div>
               <Textarea rows={2} placeholder="Observações do acompanhamento" value={novoAcomp.observacoes} onChange={(e) => setNovoAcomp({ ...novoAcomp, observacoes: e.target.value })} />

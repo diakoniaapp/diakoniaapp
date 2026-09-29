@@ -20,6 +20,7 @@ import {
   CheckCircle2, Zap, Sparkles, User, X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { CampoData } from "@/components/CampoData";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -660,8 +661,7 @@ export default function IdentidadeAdmin() {
               </div>
               <div>
                 <Label>Fundada em</Label>
-                <Input type="date" value={form.fundada_em}
-                  onChange={(e) => setForm({ ...form, fundada_em: e.target.value })} />
+                <CampoData value={form.fundada_em} onChange={(v) => setForm({ ...form, fundada_em: v })} />
               </div>
             </div>
 
@@ -977,9 +977,7 @@ export default function IdentidadeAdmin() {
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <Label className="text-xs">Data de nascimento</Label>
-                      <Input type="date"
-                        value={novoPastorForm.data_nascimento}
-                        onChange={(e) => setNovoPastorForm(p => ({ ...p, data_nascimento: e.target.value }))} />
+                      <CampoData value={novoPastorForm.data_nascimento} onChange={(v) => setNovoPastorForm(p => ({ ...p, data_nascimento: v }))} />
                     </div>
                     <div>
                       <Label className="text-xs">Sexo</Label>

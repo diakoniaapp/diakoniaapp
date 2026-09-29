@@ -14,6 +14,7 @@ import {
   type CampanhaEbd, type CampanhaInput,
 } from "@/services/ebdService";
 import { Trash2 } from "lucide-react";
+import { CampoData } from "@/components/CampoData";
 
 interface Props {
   classeId: string;
@@ -121,13 +122,11 @@ export function CampanhaForm({ classeId, open, onOpenChange, campanha, onSaved }
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Início *</Label>
-              <Input type="date" required value={form.data_inicio}
-                onChange={(e) => set("data_inicio", e.target.value)} />
+              <CampoData value={form.data_inicio} onChange={(v) => set("data_inicio", v)} />
             </div>
             <div>
               <Label>Fim *</Label>
-              <Input type="date" required value={form.data_fim}
-                onChange={(e) => set("data_fim", e.target.value)} />
+              <CampoData value={form.data_fim} onChange={(v) => set("data_fim", v)} />
             </div>
           </div>
 

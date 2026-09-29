@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { FolderKanban } from "lucide-react";
 import { paraNumero } from "@/lib/dinheiro";
 import { criarProjeto, atualizarProjeto, type FinProjeto } from "@/services/finService";
+import { CampoData } from "@/components/CampoData";
 
 interface Props {
   open: boolean;
@@ -139,12 +140,11 @@ export function ProjetoForm({ open, onOpenChange, projeto, onSaved }: Props) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Início</Label>
-              <Input type="date" value={campos.dataInicio} onChange={(e) => set("dataInicio", e.target.value)} />
+              <CampoData value={campos.dataInicio} onChange={(v) => set("dataInicio", v)} />
             </div>
             <div>
               <Label>Fim</Label>
-              <Input type="date" value={campos.dataFim} onChange={(e) => set("dataFim", e.target.value)}
-                placeholder="Em andamento" />
+              <CampoData value={campos.dataFim} onChange={(v) => set("dataFim", v)} placeholder="Em andamento" />
             </div>
           </div>
 

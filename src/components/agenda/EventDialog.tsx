@@ -17,6 +17,7 @@ import { Users } from "lucide-react";
 import { toast } from "sonner";
 import { RecurrenceEditor } from "./RecurrenceEditor";
 import { hojeLocal } from "@/lib/agenda/recurrence";
+import { CampoData } from "@/components/CampoData";
 
 export interface EventFormPayload {
   titulo: string;
@@ -262,7 +263,7 @@ export function EventDialog({
 
           <div className="grid grid-cols-3 gap-3">
             <div><Label>Data *</Label>
-              <Input type="date" required value={data} onChange={e => setData(e.target.value)} />
+              <CampoData value={data} onChange={(v) => setData(v)} />
             </div>
             <div><Label>Início</Label>
               <Input type="time" value={hi} onChange={e => setHi(e.target.value)} />

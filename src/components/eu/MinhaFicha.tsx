@@ -44,6 +44,7 @@ import {
   minhaFicha, salvarMeusDados,
   type MinhaFicha as Ficha, type MeusDadosEditaveis,
 } from "@/services/meuEspacoService";
+import { CampoData } from "@/components/CampoData";
 
 /** "14/06/1979" a partir de "1979-06-14", sem passar por Date — ver `idade.ts`. */
 function porExtenso(iso?: string | null): string | null {
@@ -219,8 +220,7 @@ function DialogCorrigir({ aberto, onFechar, ficha, onSalvo }: {
 
           <div className="grid gap-3 sm:grid-cols-2">
             <Campo id="nasc" rotulo="Data de nascimento">
-              <Input id="nasc" type="date" value={form.data_nascimento ?? ""}
-                onChange={e => set("data_nascimento", e.target.value)} />
+              <CampoData id="nasc" value={form.data_nascimento ?? ""} onChange={(v) => set("data_nascimento", v)} />
               {/* O convite só aparece para quem tem a pendência. Para os
                   outros seria ruído num campo já preenchido. */}
               {!ficha.data_nascimento && ficha.nascimento_dia_mes && (
@@ -230,8 +230,7 @@ function DialogCorrigir({ aberto, onFechar, ficha, onSalvo }: {
               )}
             </Campo>
             <Campo id="casam" rotulo="Data de casamento">
-              <Input id="casam" type="date" value={form.data_casamento ?? ""}
-                onChange={e => set("data_casamento", e.target.value)} />
+              <CampoData id="casam" value={form.data_casamento ?? ""} onChange={(v) => set("data_casamento", v)} />
             </Campo>
           </div>
 

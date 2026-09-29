@@ -33,6 +33,7 @@ import {
   ingerirDocumento, validarArquivo, formatarTamanho,
   type ProgressoIngestao,
 } from "@/services/documentoIngestaoService";
+import { CampoData } from "@/components/CampoData";
 type TipoDoc = "estatuto" | "regimento" | "manual" | "ata" | "circular" | "outro";
 
 interface Documento {
@@ -828,7 +829,7 @@ const [uploadando, setUploadando] = useState(false);
               </div>
               <div>
                 <Label>Data de aprovação</Label>
-                <Input type="date" value={formDoc.aprovado_em} onChange={e => setFormDoc({ ...formDoc, aprovado_em: e.target.value })} />
+                <CampoData value={formDoc.aprovado_em} onChange={(v) => setFormDoc({ ...formDoc, aprovado_em: v })} />
               </div>
             </div>
             <div className="space-y-3">

@@ -18,6 +18,7 @@ import {
   PRIORIDADE_LABEL, STATUS_LABEL,
   type Assunto, type AssuntoPrioridade, type AssuntoStatus,
 } from "@/services/assuntosService";
+import { CampoData } from "@/components/CampoData";
 
 interface Props {
   open: boolean;
@@ -148,7 +149,7 @@ export function AssuntoForm({ open, onOpenChange, assunto, reuniaoId, onSaved }:
           </div>
           <div>
             <Label>Prazo</Label>
-            <Input type="date" value={prazo} onChange={(e) => setPrazo(e.target.value)} />
+            <CampoData value={prazo} onChange={(v) => setPrazo(v)} />
             <p className="text-xs text-muted-foreground mt-0.5">Data limite para conclusão (opcional)</p>
           </div>
           <DialogFooter>

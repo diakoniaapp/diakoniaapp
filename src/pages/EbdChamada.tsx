@@ -22,6 +22,7 @@ import {
 } from "@/services/ebdService";
 import { PaginaSkeleton } from "@/components/ListState";
 import { MembroForm } from "@/components/membros/MembroForm";
+import { CampoData } from "@/components/CampoData";
 
 function formatarISOLocal(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -273,12 +274,7 @@ export default function EbdChamada() {
         <CardContent className="py-3 space-y-3">
           <div className="flex items-center gap-2">
             <Calendar className="w-4 h-4 text-muted-foreground" />
-            <Input
-              type="date"
-              value={data}
-              onChange={(e) => setData(e.target.value)}
-              className="flex-1"
-            />
+            <CampoData value={data} onChange={(v) => setData(v)} className="flex-1" />
           </div>
 
           {/* Tema */}

@@ -13,6 +13,7 @@ import { Plus, Users, X, Search } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { formatarTelefoneSemDDI } from "@/lib/telefone";
+import { CampoData } from "@/components/CampoData";
 
 interface Pessoa { id: string; nome_completo: string; cpf: string|null; telefone_celular: string|null; tipo_pessoa: string; status: string; }
 interface Atuacao {
@@ -205,7 +206,7 @@ export default function VoluntariosDialog({ area, open, onOpenChange }: Props) {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div><Label>Função / Papel *</Label><Input required value={funcao} onChange={(e)=>setFuncao(e.target.value)} placeholder="Ex.: Recepção, Som, Diaconia"/></div>
-                <div><Label>Data de início *</Label><Input type="date" required value={dataInicio} onChange={(e)=>setDataInicio(e.target.value)}/></div>
+                <div><Label>Data de início *</Label><CampoData value={dataInicio} onChange={(v) => setDataInicio(v)}/></div>
               </div>
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={resetForm}>Cancelar</Button>

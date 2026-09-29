@@ -50,6 +50,7 @@ import { TelefoneInput } from "@/components/ui/TelefoneInput";
 import { CamposEndereco } from "@/components/ui/CamposEndereco";
 import { PaginaSkeleton } from "@/components/ListState";
 import { supabase } from "@/integrations/supabase/client";
+import { CampoData } from "@/components/CampoData";
 
 /** "Rua Tal, 123 - Bloco B · Bairro, Cidade/UF", só com o que existir. */
 function enderecoResumido(p: Endereco): string | null {
@@ -322,7 +323,7 @@ function NovaPessoaDialog({ open, onOpenChange, areaId, onCriada }: {
           </div>
           <div>
             <Label>Assistida desde</Label>
-            <Input type="date" value={desde} onChange={e => setDesde(e.target.value)} />
+            <CampoData value={desde} onChange={(v) => setDesde(v)} />
             <p className="text-xs text-muted-foreground mt-1">
               Já vem preenchido com hoje. Ao digitar uma ficha de papel antiga, troque pela data
               real do primeiro atendimento.
@@ -507,7 +508,7 @@ function EditarDados({ pessoa, onSalvou, onCancelar }: {
 
       <div>
         <Label className="text-xs">Assistida desde</Label>
-        <Input type="date" value={desde} onChange={e => setDesde(e.target.value)} className="h-8 text-sm" />
+        <CampoData value={desde} onChange={(v) => setDesde(v)} className="h-8 text-sm" />
         <p className="text-xs text-muted-foreground mt-1">
           O primeiro atendimento, não a data em que a ficha foi digitada.
         </p>
@@ -517,7 +518,7 @@ function EditarDados({ pessoa, onSalvou, onCancelar }: {
       <div className="grid grid-cols-2 gap-2">
         <div>
           <Label className="text-xs">Data de nascimento</Label>
-          <Input type="date" value={dataNasc} onChange={e => setDataNasc(e.target.value)} className="h-8 text-sm" />
+          <CampoData value={dataNasc} onChange={(v) => setDataNasc(v)} className="h-8 text-sm" />
         </div>
         <div>
           <Label className="text-xs">Sexo</Label>
@@ -1032,7 +1033,7 @@ function NovaFicha({ pessoaId, limites, onSalvou, onCancelar }: {
             data de próxima revisão, não só um status" — opcional, de
             propósito. Sem data marcada a ficha continua igual a hoje. */}
         <Label className="text-xs">Revisar esta ficha de novo em (opcional)</Label>
-        <Input type="date" value={proximaRevisao} onChange={e => setProximaRevisao(e.target.value)} className="h-8 text-sm" />
+        <CampoData value={proximaRevisao} onChange={(v) => setProximaRevisao(v)} className="h-8 text-sm" />
       </div>
 
       <div className="flex gap-2 justify-end">

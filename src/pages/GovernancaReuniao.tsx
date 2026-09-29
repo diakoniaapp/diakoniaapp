@@ -37,6 +37,7 @@ import {
 import { BuscaPessoa } from "@/components/ui/BuscaPessoa";
 import { supabase } from "@/integrations/supabase/client";
 import { PaginaSkeleton } from "@/components/ListState";
+import { CampoData } from "@/components/CampoData";
 
 export default function GovernancaReuniao() {
   const { id = "" } = useParams();
@@ -592,7 +593,7 @@ function EditarReuniaoDialog({ reuniao, open, onOpenChange, onSaved }: {
             </div>
             <div>
               <Label>Data *</Label>
-              <Input type="date" value={data} onChange={(e) => setData(e.target.value)} required />
+              <CampoData value={data} onChange={(v) => setData(v)} />
             </div>
             <div>
               <Label>Horário</Label>

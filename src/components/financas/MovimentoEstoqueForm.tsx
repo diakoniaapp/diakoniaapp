@@ -19,6 +19,7 @@ import {
   registrarMovimento,
   type EstoqueItem, type EstoqueMovTipo,
 } from "@/services/estoqueService";
+import { CampoData } from "@/components/CampoData";
 
 interface Props {
   open: boolean;
@@ -131,7 +132,7 @@ export function MovimentoEstoqueForm({ open, onOpenChange, item, onSaved }: Prop
                 dentro. Achado pela Telma (16/09/2026). */}
             <div className="min-w-0">
               <Label>Data *</Label>
-              <Input type="date" required value={data} onChange={(e) => setData(e.target.value)} min="2000-01-01" max="2099-12-31" className="w-full" />
+              <CampoData value={data} onChange={(v) => setData(v)} className="w-full" />
             </div>
           </div>
 

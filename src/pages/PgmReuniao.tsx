@@ -25,6 +25,7 @@ import {
 import { formatarTelefoneSemDDI } from "@/lib/telefone";
 import { montarLinkWhatsApp } from "@/lib/whatsapp";
 import { PaginaSkeleton } from "@/components/ListState";
+import { CampoData } from "@/components/CampoData";
 
 export default function PgmReuniaoPage() {
   const { grupoId = "", reuniaoId = "" } = useParams();
@@ -226,7 +227,7 @@ export default function PgmReuniaoPage() {
         <CardContent className="py-3 space-y-2">
           <div>
             <Label className="text-xs">Data do encontro</Label>
-            <Input type="date" value={dataEditavel} onChange={(e) => setDataEditavel(e.target.value)} />
+            <CampoData value={dataEditavel} onChange={(v) => setDataEditavel(v)} />
             <p className="text-xs text-muted-foreground mt-0.5">
               Pode ajustar caso o registro tenha sido feito em outra data.
             </p>

@@ -25,6 +25,7 @@ import {
   gerarESalvarPauta, listarDecisoes, adicionarDecisao,
   type ReuniaoFinanceira, type DecisaoReuniao, type PautaFinanceira,
 } from "@/services/reunioesFinanceirasService";
+import { CampoData } from "@/components/CampoData";
 
 const STATUS_COR: Record<string, string> = {
   agendada: "bg-info-soft text-info-text border-info-line",
@@ -189,12 +190,10 @@ function NovaReuniaoDialog({ open, onOpenChange, onSaved }: {
                 onChange={e => setForm({ ...form, data_reuniao: e.target.value })} />
             </Field>
             <Field label="Competência - início">
-              <Input type="date" value={form.competencia_inicio}
-                onChange={e => setForm({ ...form, competencia_inicio: e.target.value })} />
+              <CampoData value={form.competencia_inicio} onChange={(v) => setForm({ ...form, competencia_inicio: v })} />
             </Field>
             <Field label="Competência - fim">
-              <Input type="date" value={form.competencia_fim}
-                onChange={e => setForm({ ...form, competencia_fim: e.target.value })} />
+              <CampoData value={form.competencia_fim} onChange={(v) => setForm({ ...form, competencia_fim: v })} />
             </Field>
           </div>
           <Field label="Local">
@@ -436,8 +435,7 @@ function DetalheReuniao({ id, voltar }: { id: string; voltar: () => void }) {
               className="mt-1"
             />
             <div className="flex gap-2 mt-2">
-              <Input type="date" value={novoPrazo} onChange={e => setNovoPrazo(e.target.value)}
-                placeholder="Prazo" className="text-xs" />
+              <CampoData value={novoPrazo} onChange={(v) => setNovoPrazo(v)} placeholder="Prazo" className="text-xs" />
               <Button size="sm" onClick={addDecisao} disabled={!novaDecisao.trim()} className="gap-2 shrink-0">
                 <Plus className="w-3.5 h-3.5" /> Adicionar
               </Button>

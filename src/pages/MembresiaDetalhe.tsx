@@ -25,6 +25,7 @@ import {
   type SolicitacaoMembresia, type DocumentoSolicitacao, type HistoricoSolicitacao,
 } from "@/services/membresiaService";
 import { usePromptDialog } from "@/hooks/usePromptDialog";
+import { CampoData } from "@/components/CampoData";
 
 export default function MembresiaDetalhe() {
   const { id = "" } = useParams();
@@ -232,7 +233,7 @@ export default function MembresiaDetalhe() {
           <div className="flex items-end gap-2">
             <div className="flex-1">
               <Label className="text-xs">Data agendada</Label>
-              <Input type="date" value={dataAssembleia} onChange={(e) => setDataAssembleia(e.target.value)} />
+              <CampoData value={dataAssembleia} onChange={(v) => setDataAssembleia(v)} />
             </div>
             <Button size="sm" onClick={salvarDataAssembleia} disabled={busy || !dataAssembleia}>Salvar</Button>
           </div>

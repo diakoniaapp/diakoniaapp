@@ -16,6 +16,7 @@ import {
   listarContas, transferir, brl, FIN_COMPROVANTE_MAX,
   type FinConta,
 } from "@/services/finService";
+import { CampoData } from "@/components/CampoData";
 
 interface Props {
   open: boolean;
@@ -179,7 +180,7 @@ export function TransferenciaForm({
                 dentro. Achado pela Telma (16/09/2026). */}
             <div className="min-w-0">
               <Label>Data *</Label>
-              <Input type="date" required value={data} onChange={(e) => setData(e.target.value)} min="2000-01-01" max="2099-12-31" className="w-full" />
+              <CampoData value={data} onChange={(v) => setData(v)} className="w-full" />
             </div>
           </div>
 

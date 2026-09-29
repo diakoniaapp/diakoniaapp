@@ -49,6 +49,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { STATUS_INFO, type MembroStatus } from "@/components/membros/StatusMembroBadge";
 import { Loader2, Check } from "lucide-react";
+import { CampoData } from "@/components/CampoData";
 
 /** Os três que tiram do rol. `inativo` é ausência: a pessoa continua membro. */
 const STATUS_DE_SAIDA: MembroStatus[] = ["transferido", "desligado", "falecido"];
@@ -196,12 +197,7 @@ export default function SituacaoDialog({
               <Label className="text-sm">
                 Data de saída <span className="text-destructive">*</span>
               </Label>
-              <Input
-                type="date"
-                value={dataSaida}
-                onChange={(e) => setDataSaida(e.target.value)}
-                className={faltaData ? "border-destructive" : ""}
-              />
+              <CampoData value={dataSaida} onChange={(v) => setDataSaida(v)} className={faltaData ? "border-destructive" : ""} />
               <p className="text-[11px] text-muted-foreground mt-0.5">
                 {status === "falecido"
                   ? "Data do falecimento."

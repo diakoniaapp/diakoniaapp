@@ -20,6 +20,7 @@ import {
   type FinConta, type FinCategoria, type FinCentroCusto, type FinFornecedor,
   type FinRecorrencia, type FinMovimentoTipo, type FinFrequencia,
 } from "@/services/finService";
+import { CampoData } from "@/components/CampoData";
 
 interface Props {
   open: boolean;
@@ -236,7 +237,7 @@ export function RecorrenciaForm({ open, onOpenChange, recorrencia, onSaved }: Pr
                 dentro. Achado pela Telma (16/09/2026). */}
             <div className="min-w-0">
               <Label>Início</Label>
-              <Input type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} min="2000-01-01" max="2099-12-31" className="w-full" />
+              <CampoData value={dataInicio} onChange={(v) => setDataInicio(v)} className="w-full" />
             </div>
           </div>
 
@@ -271,7 +272,7 @@ export function RecorrenciaForm({ open, onOpenChange, recorrencia, onSaved }: Pr
 
           <div>
             <Label>Encerra em (opcional)</Label>
-            <Input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} min="2000-01-01" max="2099-12-31" />
+            <CampoData value={dataFim} onChange={(v) => setDataFim(v)} />
             <p className="text-xs text-muted-foreground mt-0.5">Em branco = indefinido</p>
           </div>
 

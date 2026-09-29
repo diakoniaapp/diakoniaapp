@@ -21,6 +21,7 @@ import {
   CENTAVOS_SIMBOLICOS, COMPROVANTE_MAX_BYTES,
   type EntradaEbd,
 } from "@/services/ebdService";
+import { CampoData } from "@/components/CampoData";
 
 interface Props {
   campanhaId: string;
@@ -223,7 +224,7 @@ export function EntradaForm({ campanhaId, open, onOpenChange, onSaved, entrada }
 
           <div>
             <Label>Data *</Label>
-            <Input type="date" required value={data} onChange={(e) => setData(e.target.value)} />
+            <CampoData value={data} onChange={(v) => setData(v)} />
           </div>
 
           <div>
