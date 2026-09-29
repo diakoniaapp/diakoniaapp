@@ -384,7 +384,7 @@ export default function PainelPastoral() {
           <span className="min-w-0">
             {resumoNatural(resumo, candidatos, visitantes)}
             {atualizadoEm && (
-              <span className="text-[10px] text-muted-foreground ml-1.5 whitespace-nowrap">
+              <span className="text-2xs text-muted-foreground ml-1.5 whitespace-nowrap">
                 · {formatarAtualizadoHa(atualizadoEm)}
               </span>
             )}
@@ -561,7 +561,7 @@ export default function PainelPastoral() {
             <TabsTrigger value="acolhimento" className="gap-1.5 text-xs">
               <Users className="w-3.5 h-3.5" /> Acolhimento
               {visitantes && visitantes.semContato > 0 && (
-                <Badge variant="outline" className="ml-1 h-4 px-1 text-[10px] text-warning-text border-warning-line">
+                <Badge variant="outline" className="ml-1 h-4 px-1 text-2xs text-warning-text border-warning-line">
                   {visitantes.semContato}
                 </Badge>
               )}
@@ -569,7 +569,7 @@ export default function PainelPastoral() {
             <TabsTrigger value="candidatos" className="gap-1.5 text-xs">
               <Droplets className="w-3.5 h-3.5" /> Candidatos
               {candidatos && candidatos.elegiveis.length > 0 && (
-                <Badge variant="outline" className="ml-1 h-4 px-1 text-[10px] text-info-text border-info-line">
+                <Badge variant="outline" className="ml-1 h-4 px-1 text-2xs text-info-text border-info-line">
                   {candidatos.elegiveis.length}
                 </Badge>
               )}
@@ -915,7 +915,7 @@ function LinhaData({ item }: { item: ItemData }) {
         title={`${item.titulo} · ${item.detalhe} — sem telefone cadastrado`}
       >
         {conteudo}
-        <span className="text-[10px] uppercase tracking-wide text-muted-foreground shrink-0">
+        <span className="text-2xs uppercase tracking-wide text-muted-foreground shrink-0">
           sem telefone
         </span>
       </div>

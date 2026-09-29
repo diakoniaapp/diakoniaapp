@@ -150,7 +150,7 @@ export default function PainelSecretaria() {
             <span className="min-w-0">
               {resumoNatural(resumo, totalCadastro, totalGovernanca)}
               {atualizadoEm && (
-                <span className="text-[10px] text-muted-foreground ml-1.5 whitespace-nowrap">
+                <span className="text-2xs text-muted-foreground ml-1.5 whitespace-nowrap">
                   · {formatarAtualizadoHa(atualizadoEm)}
                 </span>
               )}

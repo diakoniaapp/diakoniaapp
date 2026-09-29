@@ -165,7 +165,7 @@ export function EventoViewDialog({
                         {e.escalados.map(v => (
                           <li key={v.id} className="flex items-center gap-2 text-xs">
                             <NomePessoa id={v.pessoa_id} nome={v.nome_completo} className="flex-1 min-w-0 truncate" />
-                            <Badge variant="outline" className={`text-[10px] py-0 px-1.5 shrink-0 ${COR_PRESENCA[v.status]}`}>
+                            <Badge variant="outline" className={`text-2xs py-0 px-1.5 shrink-0 ${COR_PRESENCA[v.status]}`}>
                               {ROTULO_PRESENCA[v.status]}
                             </Badge>
                             <Button

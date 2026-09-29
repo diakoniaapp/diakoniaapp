@@ -78,7 +78,7 @@ export function TiraDaSemana({
                 grande respondia a uma pergunta que ninguém tinha feito
                 ainda. Agora o ladrilho diz "sábado, dia 29" e, em voz
                 baixa, "tem 1 coisa". */}
-            <p className={`text-[10px] uppercase tracking-wide truncate ${ehHoje ? "text-gold-text" : "text-muted-foreground"}`}>
+            <p className={`text-2xs uppercase tracking-wide truncate ${ehHoje ? "text-gold-text" : "text-muted-foreground"}`}>
               {rotuloCurto(d.data, hojeIso)}
             </p>
             <p className="text-base font-semibold leading-none tabular-nums mt-0.5">
@@ -88,7 +88,7 @@ export function TiraDaSemana({
                 número e entra na leitura como se fosse contagem de algo.
                 E a linha existe sempre, mesmo vazia, para os sete
                 ladrilhos manterem a mesma altura. */}
-            <p className="text-[10px] text-muted-foreground tabular-nums">
+            <p className="text-2xs text-muted-foreground tabular-nums">
               {n === 0 ? <span className="text-muted-foreground/50">–</span> : n}
             </p>
           </button>

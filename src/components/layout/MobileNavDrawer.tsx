@@ -109,7 +109,7 @@ export function MobileNavDrawer({ children }: { children: React.ReactNode }) {
                 <item.icon className="w-4 h-4 shrink-0" />
                 <span translate="no" className="flex-1">{item.label}</span>
                 {pendencias > 0 && (
-                  <span className="text-[10px] font-semibold leading-none px-1.5 py-0.5 rounded-full bg-destructive-soft text-destructive-text border border-destructive-line tabular-nums">
+                  <span className="text-2xs font-semibold leading-none px-1.5 py-0.5 rounded-full bg-destructive-soft text-destructive-text border border-destructive-line tabular-nums">
                     {pendencias}
                   </span>
                 )}

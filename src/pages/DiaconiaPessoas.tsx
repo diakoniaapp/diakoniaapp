@@ -219,7 +219,7 @@ export default function DiaconiaPessoas() {
                   <div className="text-sm font-medium truncate min-w-0 flex items-center gap-1.5">
                     <span className="truncate">{p.nome_completo}</span>
                     {p.membro_id && (
-                      <Badge variant="outline" className="text-[10px] font-normal shrink-0 gap-0.5 px-1.5 py-0">
+                      <Badge variant="outline" className="text-2xs font-normal shrink-0 gap-0.5 px-1.5 py-0">
                         <UserCheck className="w-2.5 h-2.5" /> Membro
                       </Badge>
                     )}

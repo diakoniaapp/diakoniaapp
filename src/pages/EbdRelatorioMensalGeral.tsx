@@ -488,7 +488,7 @@ function Stat({ label, valor, sub, highlight }: { label: string; valor: number |
     <div className={`border rounded-md py-2 px-2 ${highlight ? "border-gold bg-gold/5" : ""}`}>
       <p className={`font-semibold tabular-nums ${highlight ? "text-2xl text-gold" : "text-xl"}`}>{valor}</p>
       <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
-      {sub && <p className="text-[10px] text-muted-foreground mt-0.5">{sub}</p>}
+      {sub && <p className="text-2xs text-muted-foreground mt-0.5">{sub}</p>}
     </div>
   );
 }

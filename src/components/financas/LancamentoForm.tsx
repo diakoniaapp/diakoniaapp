@@ -892,7 +892,7 @@ export function LancamentoForm({
                     }}
                     className="w-full flex items-center justify-between gap-2 text-left px-2 py-1.5 text-sm hover:bg-muted/40">
                     <span className="truncate">{f.nome}</span>
-                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground shrink-0">Fornecedor</span>
+                    <span className="text-2xs uppercase tracking-wide text-muted-foreground shrink-0">Fornecedor</span>
                   </button>
                 ))}
                 {pessoasSugeridas.map(p => (
@@ -904,7 +904,7 @@ export function LancamentoForm({
                     }}
                     className="w-full flex items-center justify-between gap-2 text-left px-2 py-1.5 text-sm hover:bg-muted/40">
                     <span className="truncate">{p.nome}</span>
-                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground shrink-0">Pessoa</span>
+                    <span className="text-2xs uppercase tracking-wide text-muted-foreground shrink-0">Pessoa</span>
                   </button>
                 ))}
               </div>
@@ -992,7 +992,7 @@ export function LancamentoForm({
 
           {nfItens.length > 0 && (
             <div className="rounded-md border bg-muted/20 p-2 text-xs space-y-1">
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+              <p className="text-2xs uppercase tracking-wide text-muted-foreground">
                 Itens da nota{nfFornecedorLido?.nome ? ` — ${nfFornecedorLido.nome}` : ""}
               </p>
               {nfItens.map((it, i) => (

@@ -290,7 +290,7 @@ export default function AppLayout() {
                     > 0, mesma regra "bloco vazio não existe" (DA-016) que
                     os próprios widgets já seguem. */}
                 {pendencias > 0 && (
-                  <span className="text-[10px] font-semibold leading-none px-1.5 py-0.5 rounded-full bg-destructive-soft text-destructive-text border border-destructive-line tabular-nums">
+                  <span className="text-2xs font-semibold leading-none px-1.5 py-0.5 rounded-full bg-destructive-soft text-destructive-text border border-destructive-line tabular-nums">
                     {pendencias}
                   </span>
                 )}

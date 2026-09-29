@@ -524,17 +524,17 @@ export default function PainelTesouraria() {
           {resumo && (
             <div className="flex items-center gap-4">
               <div className="text-right">
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Disponível</p>
+                <p className="text-2xs uppercase tracking-wide text-muted-foreground font-semibold">Disponível</p>
                 <p className="text-sm font-bold tabular-nums text-success-text">{brl(resumo.saldo_total)}</p>
               </div>
               <div className="w-px h-7 bg-border" />
               <div className="text-right">
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Sai/semana</p>
+                <p className="text-2xs uppercase tracking-wide text-muted-foreground font-semibold">Sai/semana</p>
                 <p className="text-sm font-bold tabular-nums text-destructive-text">{brl(valorSemanaPagar)}</p>
               </div>
               <div className="w-px h-7 bg-border" />
               <div className="text-right">
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Arrecadado ({PRESET_LABEL[eclPreset]})</p>
+                <p className="text-2xs uppercase tracking-wide text-muted-foreground font-semibold">Arrecadado ({PRESET_LABEL[eclPreset]})</p>
                 <p className="text-sm font-bold tabular-nums text-info-text">{brl(arrecTotalAtual)}</p>
               </div>
             </div>
@@ -557,7 +557,7 @@ export default function PainelTesouraria() {
             <span className="min-w-0">
               {resumoNatural(fiscal, aprovacoesPendentes, semComprovante, aguardandoConciliacao, fechamentosPendentes, vencimentos, orcamentoCriticos, alertasOrc, alertasCriticos, alertas)}
               {atualizadoEm && (
-                <span className="text-[10px] text-muted-foreground ml-1.5 whitespace-nowrap">
+                <span className="text-2xs text-muted-foreground ml-1.5 whitespace-nowrap">
                   · {formatarAtualizadoHa(atualizadoEm)}
                 </span>
               )}
@@ -618,7 +618,7 @@ export default function PainelTesouraria() {
               `TransferenciaForm` já aceitam conta opcional — nenhum dos
               dois precisou de prop nova pra funcionar solto aqui. */}
           <section className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mr-1 shrink-0">
+            <span className="text-2xs font-bold uppercase tracking-wide text-muted-foreground mr-1 shrink-0">
               Meu trabalho
             </span>
             <Button type="button" variant="outline" size="sm" className="h-7 rounded-full gap-1.5 text-xs"
@@ -654,7 +654,7 @@ export default function PainelTesouraria() {
               isso continuam visíveis independente de qual seção da tela se
               está olhando. */}
           <section className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mr-1 shrink-0">
+            <span className="text-2xs font-bold uppercase tracking-wide text-muted-foreground mr-1 shrink-0">
               Favoritos
             </span>
             {favoritos.map(f => (
@@ -781,7 +781,7 @@ export default function PainelTesouraria() {
                   <span className="text-sm font-bold">Central de Arrecadação</span>
                 </span>
                 <button type="button" onClick={() => setAba("gestao")}
-                  className="text-[10px] text-muted-foreground hover:text-foreground underline shrink-0">
+                  className="text-2xs text-muted-foreground hover:text-foreground underline shrink-0">
                   {PRESET_LABEL[eclPreset]}
                 </button>
               </div>
@@ -1186,23 +1186,23 @@ export default function PainelTesouraria() {
                   ) : (
                     <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 px-4 pb-4">
                       <div>
-                        <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Arrecadado</p>
+                        <p className="text-2xs uppercase tracking-wide text-muted-foreground font-semibold">Arrecadado</p>
                         <p className="text-lg font-extrabold tabular-nums text-violeta-text">{brl(total)}</p>
                       </div>
                       <div>
-                        <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Contribuições</p>
+                        <p className="text-2xs uppercase tracking-wide text-muted-foreground font-semibold">Contribuições</p>
                         <p className="text-lg font-extrabold tabular-nums">{atual.length}</p>
                       </div>
                       <div>
-                        <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Média</p>
+                        <p className="text-2xs uppercase tracking-wide text-muted-foreground font-semibold">Média</p>
                         <p className="text-lg font-extrabold tabular-nums">{brl(media)}</p>
                       </div>
                       <div>
-                        <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Período anterior</p>
+                        <p className="text-2xs uppercase tracking-wide text-muted-foreground font-semibold">Período anterior</p>
                         <p className="text-lg font-extrabold tabular-nums text-muted-foreground">{brl(totalAnt)}</p>
                       </div>
                       <div>
-                        <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Tendência</p>
+                        <p className="text-2xs uppercase tracking-wide text-muted-foreground font-semibold">Tendência</p>
                         <p className={`text-lg font-extrabold tabular-nums ${tendencia >= 0 ? "text-success-text" : "text-destructive-text"}`}>
                           {tendencia >= 0 ? "▲" : "▼"} {Math.abs(tendencia).toFixed(1)}%
                         </p>
@@ -1240,15 +1240,15 @@ export default function PainelTesouraria() {
                   <>
                     <div className="grid grid-cols-3 gap-3 px-3 pb-3">
                       <div>
-                        <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Arrecadado</p>
+                        <p className="text-2xs uppercase tracking-wide text-muted-foreground font-semibold">Arrecadado</p>
                         <p className="text-lg font-extrabold tabular-nums text-violeta-text">{brl(missoesSaldo.arrecadadoTotal)}</p>
                       </div>
                       <div>
-                        <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Enviado</p>
+                        <p className="text-2xs uppercase tracking-wide text-muted-foreground font-semibold">Enviado</p>
                         <p className="text-lg font-extrabold tabular-nums text-destructive-text">{brl(missoesSaldo.enviadoTotal)}</p>
                       </div>
                       <div>
-                        <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">Saldo disponível</p>
+                        <p className="text-2xs uppercase tracking-wide text-muted-foreground font-semibold">Saldo disponível</p>
                         <p className={`text-lg font-extrabold tabular-nums ${missoesSaldo.arrecadadoTotal - missoesSaldo.enviadoTotal >= 0 ? "text-success-text" : "text-destructive-text"}`}>
                           {brl(missoesSaldo.arrecadadoTotal - missoesSaldo.enviadoTotal)}
                         </p>
@@ -1638,10 +1638,10 @@ function LinhaVencimento({ v, onPagar, onAnexo }: {
       {(v.centro_custo_nome || v.projeto_nome) && (
         <div className="flex items-center gap-1 mt-1 flex-wrap">
           {v.centro_custo_nome && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{v.centro_custo_nome}</span>
+            <span className="text-2xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{v.centro_custo_nome}</span>
           )}
           {v.projeto_nome && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-violeta-soft text-violeta-text">{v.projeto_nome}</span>
+            <span className="text-2xs px-1.5 py-0.5 rounded bg-violeta-soft text-violeta-text">{v.projeto_nome}</span>
           )}
         </div>
       )}

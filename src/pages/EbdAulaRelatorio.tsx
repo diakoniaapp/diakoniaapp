@@ -340,7 +340,7 @@ export default function EbdAulaRelatorio() {
                     <X className="w-3 h-3 shrink-0" />
                     <span className="truncate">{p.nome_completo}</span>
                     {freq && freq.oportunidades > 0 && (
-                      <span className="text-[10px] shrink-0 ml-auto tabular-nums">
+                      <span className="text-2xs shrink-0 ml-auto tabular-nums">
                         {freq.oportunidades - freq.presencas}/{freq.oportunidades} no mês
                       </span>
                     )}
@@ -403,7 +403,7 @@ function Stat({ label, valor, highlight, sub }: {
     <div className={`border rounded-md py-2 px-2 ${highlight ? "border-gold bg-gold/5" : ""}`}>
       <p className={`font-semibold tabular-nums ${highlight ? "text-2xl text-gold" : "text-xl"}`}>{valor}</p>
       <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
-      {sub && <p className="text-[10px] text-muted-foreground mt-0.5">{sub}</p>}
+      {sub && <p className="text-2xs text-muted-foreground mt-0.5">{sub}</p>}
     </div>
   );
 }

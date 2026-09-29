@@ -160,7 +160,7 @@ function CartaoDePainel({ to, nome, paraQue, icon: Icon, sobrescrito }: {
           <Icon className="w-4 h-4 mt-0.5 shrink-0 text-muted-foreground" />
           <div className="min-w-0">
             {sobrescrito && (
-              <span className="block text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+              <span className="block text-2xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
                 {sobrescrito}
               </span>
             )}

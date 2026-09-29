@@ -509,7 +509,7 @@ export function ImportacaoOmieDialog({ open, onOpenChange, contaId, contaNome, o
                       <span className="text-muted-foreground shrink-0 hidden sm:inline">· {r.centroCustoNome}</span>
                     )}
                     {r.duplicataDeOutraLinha && (
-                      <Badge variant="outline" className="shrink-0 text-[10px] px-1 py-0 border-info-line text-info-text">mesmos dados</Badge>
+                      <Badge variant="outline" className="shrink-0 text-2xs px-1 py-0 border-info-line text-info-text">mesmos dados</Badge>
                     )}
                     <span className={`tabular-nums shrink-0 ${r.tipo === "entrada" ? "text-success-text" : "text-destructive-text"}`}>
                       {r.tipo === "entrada" ? "+" : "−"} {brl(r.valor)}

@@ -497,15 +497,15 @@ export default function Ebd() {
                   <span className="grid grid-cols-3 gap-1 text-center">
                     <span className="block">
                       <span className="block text-sm font-semibold tabular-nums">{c.qtd_elegiveis}</span>
-                      <span className="block text-[9px] uppercase tracking-wide text-muted-foreground">Elegíveis</span>
+                      <span className="block text-2xs uppercase tracking-wide text-muted-foreground">Elegíveis</span>
                     </span>
                     <span className="block">
                       <span className="block text-sm font-semibold tabular-nums text-gold">{c.qtd_matriculados}</span>
-                      <span className="block text-[9px] uppercase tracking-wide text-muted-foreground">Matriculados</span>
+                      <span className="block text-2xs uppercase tracking-wide text-muted-foreground">Matriculados</span>
                     </span>
                     <span className="block">
                       <span className="block text-sm font-semibold tabular-nums">{cobertura}%</span>
-                      <span className="block text-[9px] uppercase tracking-wide text-muted-foreground">do perfil</span>
+                      <span className="block text-2xs uppercase tracking-wide text-muted-foreground">do perfil</span>
                     </span>
                   </span>
                 </button>
@@ -626,15 +626,15 @@ export default function Ebd() {
                   <span className="grid grid-cols-3 gap-1 text-center">
                     <span className="block">
                       <span className="block text-sm font-semibold tabular-nums">{c.qtd_elegiveis}</span>
-                      <span className="block text-[9px] uppercase tracking-wide text-muted-foreground">Elegíveis</span>
+                      <span className="block text-2xs uppercase tracking-wide text-muted-foreground">Elegíveis</span>
                     </span>
                     <span className="block">
                       <span className="block text-sm font-semibold tabular-nums">{c.qtd_matriculados}</span>
-                      <span className="block text-[9px] uppercase tracking-wide text-muted-foreground">Matriculados</span>
+                      <span className="block text-2xs uppercase tracking-wide text-muted-foreground">Matriculados</span>
                     </span>
                     <span className="block">
                       <span className="block text-sm font-semibold tabular-nums text-success-text">{pctAdesao}%</span>
-                      <span className="block text-[9px] uppercase tracking-wide text-muted-foreground">Alcance</span>
+                      <span className="block text-2xs uppercase tracking-wide text-muted-foreground">Alcance</span>
                     </span>
                   </span>
                 </button>
@@ -691,15 +691,15 @@ export default function Ebd() {
                   <span className="grid grid-cols-3 gap-1 text-center">
                     <span className="block">
                       <span className="block text-sm font-semibold tabular-nums">{c.qtd_elegiveis}</span>
-                      <span className="block text-[9px] uppercase tracking-wide text-muted-foreground">Elegíveis</span>
+                      <span className="block text-2xs uppercase tracking-wide text-muted-foreground">Elegíveis</span>
                     </span>
                     <span className="block">
                       <span className="block text-sm font-semibold tabular-nums">{matriculadosEfetivos}</span>
-                      <span className="block text-[9px] uppercase tracking-wide text-muted-foreground">Matriculados</span>
+                      <span className="block text-2xs uppercase tracking-wide text-muted-foreground">Matriculados</span>
                     </span>
                     <span className="block">
                       <span className="block text-sm font-semibold tabular-nums text-warning-text">{pct}%</span>
-                      <span className="block text-[9px] uppercase tracking-wide text-muted-foreground">
+                      <span className="block text-2xs uppercase tracking-wide text-muted-foreground">
                         Não alcançados ({ausentesTotal})
                       </span>
                     </span>
@@ -714,7 +714,7 @@ export default function Ebd() {
                       {faltando.length > 0 && <> e {faltando.length} estão matriculados mas não apareceram este mês</>}.
                     </p>
                     <div>
-                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Nunca matriculados</p>
+                      <p className="text-2xs uppercase tracking-wide text-muted-foreground">Nunca matriculados</p>
                       {c.pessoasAusentes.length === 0 ? (
                         <p className="text-xs text-success-text">Todos os elegíveis estão matriculados.</p>
                       ) : (
@@ -730,7 +730,7 @@ export default function Ebd() {
                     </div>
 
                     <div>
-                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                      <p className="text-2xs uppercase tracking-wide text-muted-foreground">
                         Matriculados, mas não apareceram este mês
                       </p>
                       {faltando.length === 0 ? (
@@ -796,7 +796,7 @@ export default function Ebd() {
                     </span>
                     <span className="flex items-center gap-1 shrink-0">
                       {!c.ativo && (
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-warning-soft text-warning-text border-warning-line">
+                        <Badge variant="outline" className="text-2xs px-1.5 py-0 bg-warning-soft text-warning-text border-warning-line">
                           Desativada
                         </Badge>
                       )}
@@ -915,7 +915,7 @@ export default function Ebd() {
                   <CardContent className="p-3 space-y-1.5">
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-medium text-sm truncate">{c.nome}</span>
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0">
+                      <Badge variant="outline" className="text-2xs px-1.5 py-0 shrink-0">
                         {c.classe_nome ?? "Igreja toda"}
                       </Badge>
                     </div>
@@ -1003,7 +1003,7 @@ function Stat({ label, valor, highlight, compacto, ativo, onClick }: {
       <p className={`font-semibold tabular-nums ${highlight || ativo ? "text-gold" : ""} ${compacto ? "text-sm" : "text-lg"}`}>
         {valor}
       </p>
-      <p className={`uppercase tracking-wide text-muted-foreground truncate ${compacto ? "text-[9px]" : "text-[10px]"}`}>
+      <p className={`uppercase tracking-wide text-muted-foreground truncate ${compacto ? "text-2xs" : "text-2xs"}`}>
         {label}
       </p>
     </>

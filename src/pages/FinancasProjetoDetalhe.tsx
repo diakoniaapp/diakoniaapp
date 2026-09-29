@@ -418,7 +418,7 @@ export default function FinancasProjetoDetalhe() {
                       </ResponsiveContainer>
                       <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                         <p className="text-base font-semibold">{brl(totais.totalEntradas)}</p>
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide">receitas</p>
+                        <p className="text-2xs text-muted-foreground uppercase tracking-wide">receitas</p>
                       </div>
                     </div>
                     <ul className="text-xs space-y-1 mt-2">
@@ -453,7 +453,7 @@ export default function FinancasProjetoDetalhe() {
                         <tr key={l.id} className="border-b border-border/40 last:border-0">
                           <td className="py-1.5 pr-2">
                             <p className="truncate max-w-[220px]">{l.descricao ?? "—"}</p>
-                            <p className="text-muted-foreground text-[10px]">{l.categoria_nome ?? "Sem categoria"}</p>
+                            <p className="text-muted-foreground text-2xs">{l.categoria_nome ?? "Sem categoria"}</p>
                           </td>
                           <td className="py-1.5 text-right tabular-nums font-medium text-destructive-text whitespace-nowrap">
                             {brl(Number(l.valor))}
@@ -571,9 +571,9 @@ function KpiCard({ cor, titulo, valor, legenda }: { cor: string; titulo: string;
   return (
     <div className="border border-border/40 rounded-md pl-3 py-2.5 relative overflow-hidden">
       <span className="absolute left-0 top-0 bottom-0 w-1.5" style={{ background: cor }} />
-      <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">{titulo}</p>
+      <p className="text-2xs uppercase tracking-wide text-muted-foreground font-medium">{titulo}</p>
       <p className="text-xl font-semibold tabular-nums" style={{ color: cor }}>{valor}</p>
-      <p className="text-[10px] text-muted-foreground mt-0.5">{legenda}</p>
+      <p className="text-2xs text-muted-foreground mt-0.5">{legenda}</p>
     </div>
   );
 }

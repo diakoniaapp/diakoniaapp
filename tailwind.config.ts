@@ -162,6 +162,17 @@ export default {
       // 1,5 de entrelinha é o que a leitura contínua pede; 1,43 é aperto de
       // tabela aplicado ao sistema inteiro.
       fontSize: {
+        // Rótulo/legenda — abaixo do mínimo de LEITURA (`xs`, §6.2 do
+        // CLAUDE.md). Acrescentado em 29/09/2026 (Fase 2 do roadmap): 55
+        // usos de `text-[10px]`/`text-[9px]` cru já existiam pra esse
+        // mesmo papel (etiqueta de badge, rótulo de KPI, legenda de
+        // gráfico — nunca texto pra ler em frase), inclusive no arquivo
+        // mais recente do sistema (`PainelTesouraria.tsx`, o que mais
+        // usava) — não era descuido de módulo antigo, faltava o degrau no
+        // vocabulário. Os dois valores (`[10px]` e `[9px]`, só em
+        // `Ebd.tsx`) foram unificados aqui: nada no histórico documenta a
+        // diferença como proposital.
+        '2xs': ['0.625rem', { lineHeight: '0.875rem' }],  // 10 / 14
         xs:   ['0.8125rem', { lineHeight: '1.125rem' }],  // 13 / 18
         sm:   ['0.875rem',  { lineHeight: '1.3125rem' }], // 14 / 21
         base: ['1rem',      { lineHeight: '1.5rem' }],    // 16 / 24
