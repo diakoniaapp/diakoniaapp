@@ -12,7 +12,13 @@ export type FinStatus = "previsto" | "realizado" | "conciliado" | "cancelado" | 
 // dela: "Cheque NÃO deve ser tratado como Outro — é forma válida pra
 // realidade da igreja". TED, por decisão dela, não ganhou valor próprio —
 // usa "transferencia".
-export type FinFormaPagamento = "pix" | "dinheiro" | "cartao_debito" | "cartao_credito" | "transferencia" | "boleto" | "envelope" | "cheque" | "outro";
+// "guia" e "fatura" acrescentados em 23/09/2026 (migration
+// 20260923150000), mesmo pedido de fundo: "guia" cobre recolhimento
+// obrigatório (ISS, FGTS, INSS, DARF, DAE, tributos, taxas governamentais)
+// e "fatura" cobre cobrança recorrente que chega por fatura (cartão de
+// crédito, telefonia, internet, energia, fornecedor que fatura
+// mensalmente) — os dois deixam de cair em "Outro".
+export type FinFormaPagamento = "pix" | "dinheiro" | "cartao_debito" | "cartao_credito" | "transferencia" | "boleto" | "envelope" | "cheque" | "guia" | "fatura" | "outro";
 // O enum `fin_centro_vinculo` no banco TEM "evento" (conferido direto no
 // Postgres em 12/09/2026: `ministerio|area|ebd_classe|pgm_grupo|campanha|
 // geral|evento`) — um comentário antigo em `FinancasCentros.tsx` dizia o
@@ -294,7 +300,8 @@ export const FORMA_LABEL: Record<FinFormaPagamento, string> = {
   pix: "PIX", dinheiro: "Dinheiro",
   cartao_debito: "Cartão Débito", cartao_credito: "Cartão Crédito",
   transferencia: "Transferência", boleto: "Boleto",
-  envelope: "Envelope", cheque: "Cheque", outro: "Outro",
+  envelope: "Envelope", cheque: "Cheque",
+  guia: "Guia", fatura: "Fatura", outro: "Outro",
 };
 
 const TODAS_AS_FORMAS = Object.keys(FORMA_LABEL) as FinFormaPagamento[];

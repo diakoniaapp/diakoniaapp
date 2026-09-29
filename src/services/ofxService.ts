@@ -98,6 +98,14 @@ export function inferirFormaPagamento(memo: string): FinFormaPagamento | undefin
   const m = memo.toUpperCase();
   if (m.includes("PIX")) return "pix";
   if (m.includes("TED") || m.includes("TRANSF")) return "transferencia";
+  // "guia"/"fatura" acrescentados em 23/09/2026 (mesma migration
+  // 20260923150000 que criou os dois valores) — padrões de MEMO comuns de
+  // recolhimento (GUIA/DARF/DAE) e de fatura recorrente (cartão,
+  // telefonia, energia). "TRIBUTO" de propósito NÃO entra aqui: o teste
+  // real do Bradesco ("PAGTO ELETRONICO TRIBUTO INTERNET") já é tratado
+  // como "boleto" — ambíguo demais pra reclassificar sem dado novo.
+  if (m.includes("GUIA") || m.includes("DARF") || m.includes("DAE ")) return "guia";
+  if (m.includes("FATURA")) return "fatura";
   if (m.includes("BOLETO") || m.includes("PAGTO ELETRON")) return "boleto";
   return undefined;
 }

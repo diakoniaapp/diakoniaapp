@@ -14263,6 +14263,8 @@ export type Database = {
         | "envelope"
         | "cheque"
         | "outro"
+        | "guia"
+        | "fatura"
       fin_frequencia:
         | "mensal"
         | "bimestral"
@@ -15070,6 +15072,8 @@ export const Constants = {
         "envelope",
         "cheque",
         "outro",
+        "guia",
+        "fatura",
       ],
       fin_frequencia: [
         "mensal",
