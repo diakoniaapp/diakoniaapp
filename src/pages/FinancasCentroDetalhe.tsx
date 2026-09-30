@@ -28,6 +28,14 @@ function dataBr(s: string) {
   return new Date(s + "T00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
 }
 
+/** "2025-05" (chave YYYY-MM de agrupamento) → "05/2025", pedido dela —
+ *  só a exibição; a chave crua continua sendo o que ordena e desempata
+ *  em "Evolução por mês". */
+function mesAno(chaveYyyyMm: string): string {
+  const [ano, mes] = chaveYyyyMm.split("-");
+  return `${mes}/${ano}`;
+}
+
 export default function FinancasCentroDetalhe() {
   const { centroId = "" } = useParams();
   const [centro, setCentro] = useState<CentroInfo | null>(null);
@@ -220,7 +228,7 @@ export default function FinancasCentroDetalhe() {
               {porMes.map(([mes, v]) => (
                 <div key={mes} className="space-y-0.5">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-medium">{mes}</span>
+                    <span className="font-medium">{mesAno(mes)}</span>
                     <span className="text-muted-foreground">{v.qtd} lançamentos</span>
                   </div>
                   <div className="flex gap-1 h-2">
