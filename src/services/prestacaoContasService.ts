@@ -18,13 +18,13 @@
 // inicial direto.
 //
 // ── POR QUE SÓ CATEGORIAS DO PLANO OFICIAL ENTRAM ────────────────────────
-// Só lançamentos cuja categoria tem `classificacao_dre` preenchida somam
-// nos grupos abaixo (as 59 categorias oficiais da Fase 1). Categorias fora
-// do Plano Oficial (Campanhas, Eventos, Vendas, Materiais EBD...) e
-// lançamentos sem categoria (inclusive as transferências entre contas
-// próprias, que não são receita nem despesa de verdade) ficam de fora e
-// contam em `qtdForaDoPlanoOficial` — não somem em silêncio, a tela avisa
-// quantos ficaram fora.
+// Só lançamentos cuja categoria tem `classificacao_dre` preenchida (as 59
+// categorias oficiais da Fase 1) e bate com o tipo (entrada/saída) somam
+// nos grupos abaixo. O resto não some em silêncio — entra em
+// `excluidos`, classificado por MOTIVO (transferência entre contas
+// próprias, sem categoria, categoria inválida/desativada, fora do Plano
+// Oficial, ou classificação incompatível com o tipo — revisão de
+// 29/09/2026, ver o comentário grande de `MotivoExclusao` abaixo).
 //
 // ── A NOTA POR LINHA FICA NO ÚLTIMO MÊS DO PERÍODO ───────────────────────
 // A planilha real tem UMA célula de comentário por linha (categoria dentro
@@ -45,11 +45,109 @@
 import { supabase } from "@/integrations/supabase/client";
 import { daquiAMeses, daquiADias } from "@/lib/data";
 import {
-  listarLancamentosSemTeto, listarContas, listarCategorias, listarCentrosCusto,
-  type FinClassificacaoDRE, type FinCentroCusto,
+  listarLancamentosSemTeto, listarContas, listarCategoriasTodas, listarCentrosCusto, nomeExtrato,
+  type FinClassificacaoDRE, type FinCentroCusto, type FinLancamentoExtenso,
 } from "./finService";
 import { listarNotasDoPeriodo } from "./relatorioNotasService";
 import { normalizarNome } from "@/lib/fuzzyNome";
+
+// ── Auditoria dos lançamentos excluídos da demonstração (29/09/2026) ───────
+//
+// Pedido dela: a nota de rodapé ("237 lançamentos... sem categoria do Plano
+// de Contas Oficial, ou é transferência") misturava três coisas de natureza
+// bem diferente debaixo de um "ou" só — e uma das três nem é problema.
+//
+// Motivo, em ordem de prioridade (cada lançamento cai no PRIMEIRO que bater):
+//
+//   transferencia     origem==="transferencia" — as duas pernas de uma
+//                     transferência entre contas próprias. Não é receita nem
+//                     despesa de verdade — comportamento NORMAL, não erro.
+//   sem_categoria     categoria_id nulo. Precisa de categorização.
+//   categoria_invalida categoria_id aponta pra uma categoria que não existe
+//                     mais, ou foi desativada (`listarCategoriasTodas`, não
+//                     `listarCategorias` — a versão anterior só carregava
+//                     categoria ATIVA, então uma categoria desativada caía
+//                     aqui como se fosse "sem categoria", o que é outra
+//                     coisa: o lançamento TEM uma categoria, só que ela não
+//                     resolve mais).
+//   fora_do_plano     categoria existe e está ativa, mas não é uma das 59
+//                     categorias do Plano Oficial (`classificacao_dre`
+//                     nulo) — Campanhas, Eventos, Vendas, Materiais EBD...
+//                     Categoria legítima, só fora do escopo DESTA
+//                     demonstração — normal, não erro.
+//   inconsistencia_classificacao  categoria tem `classificacao_dre`
+//                     preenchido, mas da POLARIDADE ERRADA pro tipo do
+//                     lançamento (categoria de despesa numa entrada, ou de
+//                     receita numa saída). Achado auditando a pedido dela
+//                     ("pode existir um problema de classificação fazendo
+//                     receitas ou despesas válidas ficarem fora"): a versão
+//                     anterior do código tinha `if (!mapa) return` — o
+//                     lançamento SUMIA sem entrar nem na demonstração nem
+//                     na contagem de excluídos. Bug real, silencioso, sem
+//                     nenhum aviso na tela. Agora conta e aparece.
+//
+// "Vinculados a conta inativa" (o 4º motivo que ela pediu pra auditar) NÃO
+// é um motivo de exclusão aqui — investigado e descartado: esta função
+// nunca consultou `listarContas()`, então o status da conta nunca decidiu
+// se um lançamento entra ou não. E é o comportamento CERTO: uma conta
+// desativada HOJE não apaga retroativamente o dinheiro que se moveu nela
+// dentro do período — só reflete que a igreja parou de usá-la depois.
+export type MotivoExclusao =
+  | "transferencia" | "sem_categoria" | "categoria_invalida"
+  | "fora_do_plano" | "inconsistencia_classificacao";
+
+export const MOTIVO_EXCLUSAO_LABEL: Record<MotivoExclusao, string> = {
+  transferencia: "Transferências entre contas próprias",
+  sem_categoria: "Lançamentos sem categoria",
+  categoria_invalida: "Categoria inválida ou desativada",
+  fora_do_plano: "Fora do Plano de Contas Oficial",
+  inconsistencia_classificacao: "Categoria incompatível com o tipo",
+};
+
+export const MOTIVO_EXCLUSAO_EXPLICACAO: Record<MotivoExclusao, string> = {
+  transferencia: "Não compõem receitas nem despesas — dinheiro só mudou de conta dentro da própria igreja.",
+  sem_categoria: "Precisam de uma categoria do Plano de Contas Oficial para entrar na demonstração.",
+  categoria_invalida: "A categoria vinculada foi desativada ou não existe mais — reclassifique o lançamento.",
+  fora_do_plano: "A categoria existe e está ativa, mas não é uma das categorias do Plano de Contas Oficial (ex.: Campanhas, Eventos, Vendas).",
+  inconsistencia_classificacao: "A categoria vinculada é de despesa numa entrada, ou de receita numa saída — corrija a categoria do lançamento.",
+};
+
+// Só os dois primeiros são normais — o resto pede alguma correção. Ver o
+// comentário grande acima.
+export const MOTIVOS_NORMAIS: MotivoExclusao[] = ["transferencia", "fora_do_plano"];
+
+export interface LancamentoExcluido {
+  id: string;
+  data: string;
+  contaNome: string;
+  favorecido: string;
+  valor: number;
+  tipo: "entrada" | "saida";
+  motivo: MotivoExclusao;
+}
+
+export interface GrupoExclusao { qtd: number; valor: number }
+
+export interface PrestacaoContasExcluidos {
+  porMotivo: Record<MotivoExclusao, GrupoExclusao>;
+  itens: LancamentoExcluido[];
+}
+
+function motivoDoExcluido(
+  l: FinLancamentoExtenso,
+  catMap: Map<string, { ativo: boolean; classificacao_dre: FinClassificacaoDRE | null }>,
+): MotivoExclusao | null {
+  if (l.origem === "transferencia") return "transferencia";
+  if (!l.categoria_id) return "sem_categoria";
+  const cat = catMap.get(l.categoria_id);
+  if (!cat || !cat.ativo) return "categoria_invalida";
+  if (!cat.classificacao_dre) return "fora_do_plano";
+  const receita = cat.classificacao_dre === "receitas_regulares" || cat.classificacao_dre === "outras_receitas";
+  const despesa = !receita; // despesas | despesas_financeiras | outras_despesas
+  if (l.tipo === "entrada" && despesa) return "inconsistencia_classificacao";
+  if (l.tipo === "saida" && receita) return "inconsistencia_classificacao";
+  return null; // classificação bate — entra na demonstração normalmente
+}
 
 export interface PrestacaoContasLinha {
   categoriaId: string;
@@ -85,7 +183,7 @@ export interface PrestacaoContasResultado {
   resultado: number[];
   saldoFinal: number[];
   qtdLancamentos: number;
-  qtdForaDoPlanoOficial: number;
+  excluidos: PrestacaoContasExcluidos;
   // Pedido da Telma (16/09/2026): quantos dizimistas por mês, contados por
   // NOME ÚNICO — não por `pessoa_id`. A maioria dos lançamentos de Dízimo
   // importados do Omie não tem `pessoa_id` vinculado (só o nome cru do
@@ -283,7 +381,10 @@ export async function gerarPrestacaoContas(ano: number, mesInicio: number, qtdMe
 
   const [lancsBrutos, categorias, centros, notasDoMesAncora, saldoAnterior] = await Promise.all([
     listarLancamentosSemTeto({ dataInicio, dataFim, contaId }),
-    listarCategorias(),
+    // Todas, não só ativas (`listarCategorias()`) — precisa saber se uma
+    // categoria referenciada foi desativada, pra distinguir "sem
+    // categoria" de "categoria inválida". Ver `motivoDoExcluido`.
+    listarCategoriasTodas(),
     listarCentrosCusto(),
     listarNotasDoPeriodo(mesAncoraNota.ano, mesAncoraNota.mes),
     Promise.all(mesesChaves.map(chave => saldoAcumuladoAntesDe(`${chave}-01`, contaId))),
@@ -300,7 +401,23 @@ export async function gerarPrestacaoContas(ano: number, mesInicio: number, qtdMe
     return mesesChaves.indexOf(dataYmd.slice(0, 7));
   }
 
-  let qtdForaDoPlanoOficial = 0;
+  const excluidosPorMotivo: Record<MotivoExclusao, GrupoExclusao> = {
+    transferencia: { qtd: 0, valor: 0 },
+    sem_categoria: { qtd: 0, valor: 0 },
+    categoria_invalida: { qtd: 0, valor: 0 },
+    fora_do_plano: { qtd: 0, valor: 0 },
+    inconsistencia_classificacao: { qtd: 0, valor: 0 },
+  };
+  const itensExcluidos: LancamentoExcluido[] = [];
+  function registrarExcluido(l: FinLancamentoExtenso, motivo: MotivoExclusao) {
+    const valor = Number(l.valor);
+    excluidosPorMotivo[motivo].qtd++;
+    excluidosPorMotivo[motivo].valor += valor;
+    itensExcluidos.push({
+      id: l.id, data: l.data, contaNome: l.conta_nome ?? "—",
+      favorecido: nomeExtrato(l).principal, valor, tipo: l.tipo, motivo,
+    });
+  }
 
   // ── Receitas: agrupadas por classificação, nunca por centro ────────────
   const porClassificacaoReceita = new Map<FinClassificacaoDRE, MapaValores>([
@@ -315,11 +432,14 @@ export async function gerarPrestacaoContas(ano: number, mesInicio: number, qtdMe
   const PLACEHOLDER_SEM_IDENTIFICACAO = normalizarNome("OFERTAS NÃO IDENTIFICADAS");
 
   lancs.filter(l => l.tipo === "entrada").forEach(l => {
-    const cat = l.categoria_id ? catMap.get(l.categoria_id) : undefined;
-    if (!cat?.classificacao_dre) { qtdForaDoPlanoOficial++; return; }
+    const motivo = motivoDoExcluido(l, catMap);
+    if (motivo) { registrarExcluido(l, motivo); return; }
+    const cat = catMap.get(l.categoria_id!)!;
     const idx = indiceDoMes(l.data);
-    const mapa = porClassificacaoReceita.get(cat.classificacao_dre);
-    if (!mapa) return; // classificação de despesa numa entrada — inconsistência de dado, ignora sem quebrar a tela
+    // `motivoDoExcluido` já garantiu que `classificacao_dre` é de receita
+    // (senão teria devolvido "inconsistencia_classificacao") — o mapa
+    // sempre existe aqui.
+    const mapa = porClassificacaoReceita.get(cat.classificacao_dre!)!;
     acumular(mapa, cat.id, cat.nome, idx, Number(l.valor), qtdMeses);
 
     if (/d[ií]zimo/i.test(cat.nome)) {
@@ -346,8 +466,9 @@ export async function gerarPrestacaoContas(ano: number, mesInicio: number, qtdMe
   const mapaOutrasDesp: MapaValores = new Map();
 
   lancs.filter(l => l.tipo === "saida").forEach(l => {
-    const cat = l.categoria_id ? catMap.get(l.categoria_id) : undefined;
-    if (!cat?.classificacao_dre) { qtdForaDoPlanoOficial++; return; }
+    const motivo = motivoDoExcluido(l, catMap);
+    if (motivo) { registrarExcluido(l, motivo); return; }
+    const cat = catMap.get(l.categoria_id!)!;
     const idx = indiceDoMes(l.data);
     const valor = Number(l.valor);
 
@@ -360,7 +481,8 @@ export async function gerarPrestacaoContas(ano: number, mesInicio: number, qtdMe
       if (!porCentro.has(centroId)) porCentro.set(centroId, new Map());
       acumular(porCentro.get(centroId)!, cat.id, cat.nome, idx, valor, qtdMeses);
     }
-    // receitas_regulares/outras_receitas numa saída: mesma inconsistência de dado do bloco acima, ignorada.
+    // receitas_regulares/outras_receitas numa saída já virou
+    // "inconsistencia_classificacao" em `motivoDoExcluido`, acima.
   });
 
   const gruposDespesaPorCentroFlat: PrestacaoContasGrupo[] = Array.from(porCentro.entries())
@@ -403,7 +525,7 @@ export async function gerarPrestacaoContas(ano: number, mesInicio: number, qtdMe
     grupoDespesasFinanceiras, grupoOutrasDespesas,
     resultado, saldoFinal,
     qtdLancamentos: lancs.length,
-    qtdForaDoPlanoOficial,
+    excluidos: { porMotivo: excluidosPorMotivo, itens: itensExcluidos },
     dizimistasPorMes,
   };
 }
