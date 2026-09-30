@@ -30,7 +30,7 @@ import {
   CONTA_TIPO_LABEL,
   type FinConta, type FinLancamentoExtenso,
 } from "@/services/finService";
-import { saldoAcumuladoAntesDe } from "@/services/prestacaoContasService";
+import { calcularExtrato, movimentaSaldo, saldoAntesDe } from "@/services/saldoService";
 import { toYmd } from "@/lib/data";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -38,22 +38,6 @@ import { PaginaSkeleton } from "@/components/ListState";
 
 function dataBr(s: string) {
   return new Date(s + "T00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
-}
-
-// Mesma ordem de leitura que `FinancasConta.tsx` já usa no extrato de uma
-// conta só (cronológica, mais antigo primeiro; na mesma data, entrada
-// antes de saída — pra não mostrar um mergulho negativo artificial num
-// dia em que a transferência que cobre a despesa só teria `created_at`
-// depois dela). Duplicado aqui de propósito, não extraído pra um util
-// compartilhado: o padrão do repositório (`CLAUDE.md` §4.1) é lógica de
-// tela ficar na tela, e as duas telas já divergem no que fazem com o
-// resultado (uma mostra ações por linha, a outra soma por seção).
-function ordenarLancamentos(lancs: FinLancamentoExtenso[]): FinLancamentoExtenso[] {
-  return [...lancs].sort((a, b) => {
-    if (a.data !== b.data) return a.data.localeCompare(b.data);
-    if (a.tipo !== b.tipo) return a.tipo === "entrada" ? -1 : 1;
-    return (a.created_at ?? "").localeCompare(b.created_at ?? "");
-  });
 }
 
 export default function FinancasRelatorioContas() {
@@ -100,11 +84,11 @@ export default function FinancasRelatorioContas() {
       // custo (previsto/cancelado/aguardando aprovação não são dinheiro
       // que já circulou).
       setLancamentos(ls.filter(l =>
-        contaIds.includes(l.conta_id) && (l.status === "realizado" || l.status === "conciliado")));
+        contaIds.includes(l.conta_id) && movimentaSaldo(l)));
 
       const saldos = new Map<string, number>();
       await Promise.all(contaIds.map(async (id) => {
-        saldos.set(id, await saldoAcumuladoAntesDe(dataInicio, id));
+        saldos.set(id, await saldoAntesDe(dataInicio, id));
       }));
       setSaldosIniciais(saldos);
 
@@ -246,16 +230,14 @@ export default function FinancasRelatorioContas() {
             numa coluna de saldo só, porque cada conta tem seu próprio
             saldo inicial e sua própria vida. */}
         {contas.map(conta => {
-          const lancsConta = ordenarLancamentos(lancamentos.filter(l => l.conta_id === conta.id));
           const saldoInicial = saldosIniciais.get(conta.id) ?? 0;
-          let acumulado = saldoInicial;
-          const saldoPorLancamento = new Map<string, number>();
-          for (const l of lancsConta) {
-            acumulado += l.tipo === "entrada" ? Number(l.valor) : -Number(l.valor);
-            saldoPorLancamento.set(l.id, acumulado);
-          }
-          const entradasConta = lancsConta.filter(l => l.tipo === "entrada").reduce((s, l) => s + Number(l.valor), 0);
-          const saidasConta = lancsConta.filter(l => l.tipo === "saida").reduce((s, l) => s + Number(l.valor), 0);
+          const {
+            ordenados: lancsConta,
+            saldoPorLancamento,
+            totalEntradas: entradasConta,
+            totalSaidas: saidasConta,
+            saldoFinal: acumulado,
+          } = calcularExtrato(lancamentos.filter(l => l.conta_id === conta.id), saldoInicial);
 
           return (
             <section key={conta.id} className="mb-8">

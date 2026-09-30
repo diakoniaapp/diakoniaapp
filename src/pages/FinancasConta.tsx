@@ -40,7 +40,7 @@ import { AnexosLancamentoDialog } from "@/components/financas/AnexosLancamentoDi
 import { EditarTransferenciaForm } from "@/components/financas/EditarTransferenciaForm";
 import { TransferenciaForm } from "@/components/financas/TransferenciaForm";
 import { ConciliacaoOFXDialog } from "@/components/financas/ConciliacaoOFXDialog";
-import { saldoAcumuladoAntesDe } from "@/services/prestacaoContasService";
+import { calcularExtrato, saldoAntesDe } from "@/services/saldoService";
 import { ImportacaoOmieDialog } from "@/components/financas/ImportacaoOmieDialog";
 import { ImportacaoFaturaDialog } from "@/components/financas/ImportacaoFaturaDialog";
 import { ArrowRightLeft } from "lucide-react";
@@ -384,7 +384,7 @@ export default function FinancasConta() {
           categoriaId: filtroCategoriaId || undefined,
           centroCustoId: filtroCentroCustoId || undefined,
         }),
-        periodoPreset === "atrasados" ? Promise.resolve(0) : saldoAcumuladoAntesDe(inicioEfetivo, contaId),
+        periodoPreset === "atrasados" ? Promise.resolve(0) : saldoAntesDe(inicioEfetivo, contaId),
       ]);
       setConta(c);
       setLancamentos(ls);
@@ -545,58 +545,29 @@ export default function FinancasConta() {
     return true;
   });
 
-  // Compute saldo anterior (do período)
-  const totalEntradasPeriodo = lancamentosFiltrados.filter(l => l.tipo === "entrada" && (l.status === "realizado" || l.status === "conciliado")).reduce((s, l) => s + Number(l.valor), 0);
-  const totalSaidasPeriodo  = lancamentosFiltrados.filter(l => l.tipo === "saida"   && (l.status === "realizado" || l.status === "conciliado")).reduce((s, l) => s + Number(l.valor), 0);
-  // Saldo final = saldo antes do período + o que entrou/saiu de fato nele
-  // (mesma soma que `saldoPorLancamento` acumula linha a linha, aqui só o
-  // total). Não existe em "Atrasados" — sem chão de data, "antes do
-  // período" não tem o que significar (`saldoAntesDoPeriodo` fica 0, nem
-  // é buscado — ver `carregar()`).
-  const saldoFinalPeriodo = saldoAntesDoPeriodo + totalEntradasPeriodo - totalSaidasPeriodo;
+  // Ordem, acumulado linha a linha, totais e saldo final vêm do serviço
+  // único (`saldoService.calcularExtrato`) — mesma conta que o Extrato e o
+  // Relatório por conta fazem, sem cópia local. Ordem cronológica (mais
+  // antigo primeiro), entrada antes de saída na mesma data, e `id` como
+  // desempate final (ver cabeçalho de `saldoService.ts`). Só realizado/
+  // conciliado mexe no saldo. Com filtro de tipo ou busca ativo, a coluna
+  // acumula só o que está filtrado — não é mais o saldo real da conta
+  // linha a linha; aceitável, não escondido. Saldo final não existe em
+  // "Atrasados" — sem chão de data, "antes do período" não tem o que
+  // significar (`saldoAntesDoPeriodo` fica 0, nem é buscado).
+  const {
+    ordenados: lancamentosOrdenados,
+    saldoPorLancamento,
+    totalEntradas: totalEntradasPeriodo,
+    totalSaidas: totalSaidasPeriodo,
+    saldoFinal: saldoFinalPeriodo,
+  } = calcularExtrato(lancamentosFiltrados, saldoAntesDoPeriodo);
   // "Atrasados" é filtro de SITUAÇÃO (todo `lancamentosFiltrados` já vem
   // `previsto` do servidor), não de período contínuo — os totais acima
   // dariam zero (eles só somam realizado/conciliado, de propósito, pro
   // resto da tela). Total à parte, líquido (entrada soma, saída subtrai),
   // igual ao "Movimento do período" nos outros presets.
   const totalVencido = lancamentosFiltrados.reduce((s, l) => s + (l.tipo === "entrada" ? Number(l.valor) : -Number(l.valor)), 0);
-
-  // `listarLancamentos` busca do mais recente pro mais antigo (padrão do
-  // serviço, usado por várias telas) — aqui na tela do extrato, a Telma
-  // pediu ordem cronológica (mais antigo primeiro), igual o extrato do
-  // Omie/banco de verdade lê. Reordenado só pra EXIBIÇÃO, sem mudar
-  // `listarLancamentos` (que outras telas usam esperando a ordem atual).
-  //
-  // Na MESMA data, entrada vem antes de saída — pedido da Telma
-  // (15/09/2026): no Cartão de Crédito, a transferência do Bradesco
-  // chega no mesmo dia das despesas que ela paga, e ordenar só por
-  // `created_at` podia mostrar a despesa antes da transferência que a
-  // cobre — o saldo acumulado da linha (`saldoPorLancamento` abaixo)
-  // mostrava um mergulho negativo artificial no meio do dia que nunca
-  // existiu de verdade. Cobre transferência também: a perna que RECEBE é
-  // sempre `tipo: "entrada"`, então ordenar por tipo já basta, sem
-  // precisar checar `origem` à parte.
-  const lancamentosOrdenados = [...lancamentosFiltrados].sort((a, b) => {
-    if (a.data !== b.data) return a.data.localeCompare(b.data);
-    if (a.tipo !== b.tipo) return a.tipo === "entrada" ? -1 : 1;
-    return (a.created_at ?? "").localeCompare(b.created_at ?? "");
-  });
-
-  // Saldo acumulado por linha — só realizado/conciliado mexe no saldo
-  // (previsto/cancelado/aguardando aprovação não aconteceram de verdade
-  // ainda, mesma regra de `fin_recalc_saldo_conta` no banco). Com filtro
-  // de tipo ou busca ativo, a coluna passa a acumular só o que está
-  // filtrado — não é mais o saldo real da conta linha a linha, é só a
-  // soma do que apareceu na tela; aceitável, não escondido, mas vale
-  // saber se um dia isso confundir.
-  let acumulado = saldoAntesDoPeriodo;
-  const saldoPorLancamento = new Map<string, number>();
-  for (const l of lancamentosOrdenados) {
-    if (l.status === "realizado" || l.status === "conciliado") {
-      acumulado += l.tipo === "entrada" ? Number(l.valor) : -Number(l.valor);
-    }
-    saldoPorLancamento.set(l.id, acumulado);
-  }
 
   // U3/F5 (paginação) — a tela mostra só uma página, mas a impressão
   // continua trazendo o período inteiro (senão "Imprimir/PDF" passaria a

@@ -730,8 +730,18 @@ export interface FiltroLancamento {
   apenasTransferencia?: boolean;
 }
 
+// `id` como último critério (auditoria de saldos, 30/09/2026): um lote da
+// importação Omie é gravado num INSERT só e todas as linhas recebem o
+// MESMO `created_at` (`now()` é fixo na transação). Com a ordem terminando
+// em `created_at`, o Postgres fica livre pra devolver os empatados em
+// qualquer ordem — e `listarLancamentosSemTeto` pagina com `.range()`:
+// se a ordem muda entre uma página e a próxima, uma linha pode vir
+// duplicada e outra sumir, e o saldo somado erra sem aviso nenhum.
 function construirQueryLancamentos(filtro: FiltroLancamento) {
-  let q = supabase.from("fin_lancamentos").select("*").order("data", { ascending: false }).order("created_at", { ascending: false });
+  let q = supabase.from("fin_lancamentos").select("*")
+    .order("data", { ascending: false })
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false });
   if (filtro.contaId) q = q.eq("conta_id", filtro.contaId);
   if (filtro.tipo) q = q.eq("tipo", filtro.tipo);
   if (filtro.apenasTransferencia) q = q.eq("origem", "transferencia");

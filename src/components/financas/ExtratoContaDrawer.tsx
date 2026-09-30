@@ -71,7 +71,7 @@ import {
   type FinCategoria, type FinCentroCusto,
   STATUS_LABEL,
 } from "@/services/finService";
-import { saldoAcumuladoAntesDe } from "@/services/prestacaoContasService";
+import { calcularExtrato, saldoAntesDe } from "@/services/saldoService";
 import { LancamentoForm } from "@/components/financas/LancamentoForm";
 import { AnexosLancamentoDialog } from "@/components/financas/AnexosLancamentoDialog";
 import { EditarTransferenciaForm } from "@/components/financas/EditarTransferenciaForm";
@@ -164,7 +164,7 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, onChange }: Pr
           categoriaId: filtroCategoriaId || undefined,
           centroCustoId: filtroCentroCustoId || undefined,
         }),
-        saldoAcumuladoAntesDe(inicioEfetivo, contaId),
+        saldoAntesDe(inicioEfetivo, contaId),
       ]);
       setConta(c);
       setLancamentos(ls);
@@ -279,23 +279,14 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, onChange }: Pr
     if (valorMax != null && v > valorMax) return false;
     return true;
   });
-  const totalEntradasPeriodo = lancamentosFiltrados.filter(l => l.tipo === "entrada" && (l.status === "realizado" || l.status === "conciliado")).reduce((s, l) => s + Number(l.valor), 0);
-  const totalSaidasPeriodo  = lancamentosFiltrados.filter(l => l.tipo === "saida"   && (l.status === "realizado" || l.status === "conciliado")).reduce((s, l) => s + Number(l.valor), 0);
-
-  const lancamentosOrdenados = [...lancamentosFiltrados].sort((a, b) => {
-    if (a.data !== b.data) return a.data.localeCompare(b.data);
-    if (a.tipo !== b.tipo) return a.tipo === "entrada" ? -1 : 1;
-    return (a.created_at ?? "").localeCompare(b.created_at ?? "");
-  });
-
-  let acumulado = saldoAntesDoPeriodo;
-  const saldoPorLancamento = new Map<string, number>();
-  for (const l of lancamentosOrdenados) {
-    if (l.status === "realizado" || l.status === "conciliado") {
-      acumulado += l.tipo === "entrada" ? Number(l.valor) : -Number(l.valor);
-    }
-    saldoPorLancamento.set(l.id, acumulado);
-  }
+  // Mesmo cálculo da Movimentação da Conta — serviço único, sem cópia local
+  // (ver cabeçalho de `saldoService.ts`).
+  const {
+    ordenados: lancamentosOrdenados,
+    saldoPorLancamento,
+    totalEntradas: totalEntradasPeriodo,
+    totalSaidas: totalSaidasPeriodo,
+  } = calcularExtrato(lancamentosFiltrados, saldoAntesDoPeriodo);
 
   const totalPaginas = Math.max(1, Math.ceil(lancamentosOrdenados.length / POR_PAGINA));
   const paginaAtual = Math.min(pagina, totalPaginas);
