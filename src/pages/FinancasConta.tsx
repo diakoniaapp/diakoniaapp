@@ -20,7 +20,7 @@ import { parseLocalDate } from "@/lib/data";
 import {
   ArrowLeft, DollarSign, Loader2, Plus, Search, ChevronDown,
   TrendingUp, TrendingDown, Pencil, Trash2, Paperclip, Files,
-  Scale, FileUp, Printer, RefreshCw,
+  Scale, FileUp, Printer, RefreshCw, Layers, FolderKanban,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -41,6 +41,7 @@ import { EditarTransferenciaForm } from "@/components/financas/EditarTransferenc
 import { TransferenciaForm } from "@/components/financas/TransferenciaForm";
 import { ConciliacaoOFXDialog } from "@/components/financas/ConciliacaoOFXDialog";
 import { calcularExtrato, saldoAntesDe } from "@/services/saldoService";
+import { iconeConta } from "@/pages/Financas";
 import { ImportacaoOmieDialog } from "@/components/financas/ImportacaoOmieDialog";
 import { ImportacaoFaturaDialog } from "@/components/financas/ImportacaoFaturaDialog";
 import { ArrowRightLeft } from "lucide-react";
@@ -93,6 +94,13 @@ function CabecalhoFiltro({ label, ativo, align = "start", semPadding, children }
 export default function FinancasConta() {
   const { contaId = "" } = useParams();
   const navigate = useNavigate();
+  // "Todas as Contas" (pedido dela, 30/09/2026, vendo a "Movimentação de
+  // Contas" do Omie) — mesmo sentinel de string usado no seletor do
+  // `ExtratoContaDrawer` (lá é `null`; aqui, como `contaId` vem da URL,
+  // vira o segmento literal "todas", `/financas/conta/todas`). Sem rota
+  // nova: `:contaId` já aceita qualquer string, o componente é que decide
+  // o que fazer com ela.
+  const isTodasContas = contaId === "todas";
   // Persistência de filtros (item 4, "PRIORIDADE MÁXIMA" 22/09/2026):
   // escolhida a URL (query params), não localStorage nem só state em
   // memória. Motivo: trocar de conta pelo seletor (item 3) NÃO desmonta
@@ -366,7 +374,7 @@ export default function FinancasConta() {
       // nenhuma data", sem sentido pro RPC. Sem período contínuo, saldo
       // inicial/final não existem nesse preset (ver cards do resumo abaixo).
       const [c, ls, saldoAntes] = await Promise.all([
-        carregarConta(contaId),
+        isTodasContas ? Promise.resolve(null) : carregarConta(contaId),
         // `listarLancamentos` (teto de 300) até 16/09/2026: os cartões
         // "Entradas"/"Saídas"/"Movimento do período" somam em memória a
         // partir desta mesma lista — um período largo (ou "todas as
@@ -375,7 +383,7 @@ export default function FinancasConta() {
         // período inteiro. Mesmo bug achado e corrigido em
         // `gerarPrestacaoContas`.
         listarLancamentosSemTeto({
-          contaId,
+          contaId: isTodasContas ? undefined : contaId,
           tipo: filtroTipo !== "todos" && filtroTipo !== "transferencia" ? filtroTipo : undefined,
           apenasTransferencia: filtroTipo === "transferencia" ? true : undefined,
           status: statusFiltro,
@@ -384,7 +392,7 @@ export default function FinancasConta() {
           categoriaId: filtroCategoriaId || undefined,
           centroCustoId: filtroCentroCustoId || undefined,
         }),
-        periodoPreset === "atrasados" ? Promise.resolve(0) : saldoAntesDe(inicioEfetivo, contaId),
+        periodoPreset === "atrasados" ? Promise.resolve(0) : saldoAntesDe(inicioEfetivo, isTodasContas ? undefined : contaId),
       ]);
       setConta(c);
       setLancamentos(ls);
@@ -506,10 +514,10 @@ export default function FinancasConta() {
     setSelecionados(new Set(lancamentosOrdenados.map(l => l.id)));
   }
 
-  if (loading && !conta) {
+  if (loading && !conta && !isTodasContas) {
     return <PaginaSkeleton />;
   }
-  if (!conta) {
+  if (!conta && !isTodasContas) {
     return <div className="p-8 text-center text-muted-foreground">
       Conta não encontrada. <Link to="/financas" className="text-primary underline">Voltar</Link>
     </div>;
@@ -532,8 +540,8 @@ export default function FinancasConta() {
   // trocar de conta com um filtro já ativo.
   const categoriasParaFiltro = categorias.filter(c => {
     if (c.id === filtroCategoriaId) return true;
-    if (conta.aceita_receitas && !conta.aceita_despesas) return c.tipo === "entrada";
-    if (conta.aceita_despesas && !conta.aceita_receitas) return c.tipo === "saida";
+    if (conta?.aceita_receitas && !conta.aceita_despesas) return c.tipo === "entrada";
+    if (conta?.aceita_despesas && !conta.aceita_receitas) return c.tipo === "saida";
     return true;
   });
 
@@ -614,7 +622,18 @@ export default function FinancasConta() {
           </span>
         </td>
         <td className="py-1.5 px-2 min-w-[200px] print:min-w-0">
-          <p className="font-medium truncate">{principal}</p>
+          <p className="font-medium truncate flex items-center gap-1">
+            {/* Ícone de projeto (pedido dela, 30/09/2026): identificar de
+                relance quais lançamentos estão vinculados a um projeto
+                (120 Anos, Reforma do Templo...), sem precisar abrir cada
+                um. Mesmo ícone/cor do `ExtratoContaDrawer`. */}
+            {l.projeto_nome && (
+              <span title={`Projeto: ${l.projeto_nome}`} className="shrink-0 print:hidden">
+                <FolderKanban className="w-3 h-3 text-violeta" />
+              </span>
+            )}
+            <span className="truncate">{principal}</span>
+          </p>
           {/* `nomeExtrato` já suprime a segunda linha quando ela seria
               idêntica à primeira (ex.: lançamento do Omie/fatura onde a
               descrição JÁ é o nome do fornecedor) — mesmo cuidado que
@@ -623,6 +642,11 @@ export default function FinancasConta() {
               lado do favorecido, não da descrição. */}
           {secundario && <p className="text-xs text-muted-foreground truncate">{secundario}</p>}
         </td>
+        {isTodasContas && (
+          <td className="py-1.5 px-2 overflow-hidden">
+            <span className="text-xs text-muted-foreground truncate block">{l.conta_nome ?? "—"}</span>
+          </td>
+        )}
         <td className="py-1.5 px-2 overflow-hidden">
           {/* max-w-full + truncate — sem isso, uma categoria de
               nome longo ("Assistência Social / Ação Social")
@@ -777,15 +801,23 @@ export default function FinancasConta() {
               <DollarSign className="w-5 h-5 text-gold shrink-0" />
               <SelectValue>
                 <span className="flex items-center gap-2 truncate">
-                  {conta.nome}
-                  <Badge variant="outline" className="text-xs font-sans font-normal">{CONTA_TIPO_LABEL[conta.tipo]}</Badge>
+                  {isTodasContas ? "Todas as Contas" : conta?.nome}
+                  {conta && <Badge variant="outline" className="text-xs font-sans font-normal">{CONTA_TIPO_LABEL[conta.tipo]}</Badge>}
                 </span>
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
+              {/* "Todas as Contas" (pedido dela, 30/09/2026, vendo a
+                  "Movimentação de Contas" do Omie) — visão consolidada,
+                  mesmo sentinel de `ExtratoContaDrawer`, adaptado pra URL
+                  (ver comentário de `isTodasContas` no topo do arquivo). */}
+              <SelectItem value="todas">
+                <span className="flex items-center gap-2"><Layers className="w-3.5 h-3.5" /> Todas as Contas</span>
+              </SelectItem>
               {contas.map(c => (
                 <SelectItem key={c.id} value={c.id}>
                   <span className="flex items-center gap-2">
+                    {iconeConta(c, "w-3.5 h-3.5")}
                     {c.nome}
                     <span className="text-xs text-muted-foreground">{CONTA_TIPO_LABEL[c.tipo]}</span>
                   </span>
@@ -793,9 +825,11 @@ export default function FinancasConta() {
               ))}
             </SelectContent>
           </Select>
-          <p className="text-xs text-muted-foreground truncate">
-            Saldo atual: <strong style={{ color: conta.cor ?? undefined }}>{brl(Number(conta.saldo_atual))}</strong>
-          </p>
+          {conta && (
+            <p className="text-xs text-muted-foreground truncate">
+              Saldo atual: <strong style={{ color: conta.cor ?? undefined }}>{brl(Number(conta.saldo_atual))}</strong>
+            </p>
+          )}
         </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -829,26 +863,34 @@ export default function FinancasConta() {
             )}
           </>
         )}
-        {conta.tipo === "banco" && (
+        {/* Importar OFX/Omie/Fatura e Transferir pedem uma conta-alvo
+            certa — somem no modo "Todas as Contas" (mesmo critério do
+            `ExtratoContaDrawer`); continuam disponíveis abrindo uma
+            conta específica. */}
+        {!isTodasContas && conta?.tipo === "banco" && (
           <Button variant="outline" size="sm" onClick={() => setOfxOpen(true)} className="gap-1.5">
             <FileUp className="w-3.5 h-3.5" /> Importar OFX
           </Button>
         )}
-        <Button variant="outline" size="sm" onClick={() => setOmieOpen(true)} className="gap-1.5">
-          <FileUp className="w-3.5 h-3.5" /> Importar Omie
-        </Button>
+        {!isTodasContas && (
+          <Button variant="outline" size="sm" onClick={() => setOmieOpen(true)} className="gap-1.5">
+            <FileUp className="w-3.5 h-3.5" /> Importar Omie
+          </Button>
+        )}
         {/* Pedido da Telma (15/09/2026): pagamentos de 2024 do cartão, que
             não passaram pelo Omie — só existem em PDF de fatura. Só faz
             sentido pra conta tipo "cartao", mesma lógica do OFX só pra
             "banco" acima. */}
-        {conta.tipo === "cartao" && (
+        {!isTodasContas && conta?.tipo === "cartao" && (
           <Button variant="outline" size="sm" onClick={() => setFaturaOpen(true)} className="gap-1.5">
             <FileUp className="w-3.5 h-3.5" /> Importar Fatura
           </Button>
         )}
-        <Button variant="outline" size="sm" onClick={() => setTransfOpen(true)} className="gap-1.5 text-info-text hover:text-info-text">
-          <ArrowRightLeft className="w-3.5 h-3.5" /> Transferir
-        </Button>
+        {!isTodasContas && (
+          <Button variant="outline" size="sm" onClick={() => setTransfOpen(true)} className="gap-1.5 text-info-text hover:text-info-text">
+            <ArrowRightLeft className="w-3.5 h-3.5" /> Transferir
+          </Button>
+        )}
         <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-1.5">
           <Printer className="w-3.5 h-3.5" /> Imprimir / PDF
         </Button>
@@ -861,12 +903,12 @@ export default function FinancasConta() {
       {/* Cabeçalho imprimível — mesmo padrão de financas/DashboardExecutivo.tsx */}
       <div className="avoid-break hidden print:block text-center mb-3 pb-3 border-b-2 border-gold/30">
         <h1 className="font-serif text-2xl">Quarta Igreja Batista do Rio de Janeiro</h1>
-        <h2 className="font-serif text-lg mt-1">Extrato — {conta.nome}</h2>
+        <h2 className="font-serif text-lg mt-1">Extrato — {conta?.nome ?? "Todas as Contas"}</h2>
         <p className="text-xs text-muted-foreground mt-1">
           {/* "Atrasados" não tem chão de data (`inicioEfetivo` vazio) — não
               é uma faixa contínua pra ler como "de X a Y". */}
           {inicioEfetivo ? <>{dataBr(inicioEfetivo)} a {dataBr(fimEfetivo)}</> : <>Previstos vencidos até {dataBr(fimEfetivo)}</>}
-          {" "}· Saldo atual: <strong>{brl(Number(conta.saldo_atual))}</strong>
+          {conta && <>{" "}· Saldo atual: <strong>{brl(Number(conta.saldo_atual))}</strong></>}
           {" "}· Gerado em {new Date().toLocaleString("pt-BR")}
         </p>
       </div>
@@ -1109,6 +1151,10 @@ export default function FinancasConta() {
                       <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Digite ao menos 2 letras..." className="h-8 text-xs" />
                     </CabecalhoFiltro>
                   </th>
+                  {/* Coluna "Conta" — só no modo "Todas as Contas" (mesmo
+                      critério do `ExtratoContaDrawer`): identifica de onde
+                      veio cada linha quando várias contas aparecem juntas. */}
+                  {isTodasContas && <th className="text-left py-2 px-2 w-32">Conta</th>}
                   {/* w-36 (144px) cortava nomes de categoria comuns
                       ("Rendimentos de Aplicações") no PDF — achado ao vivo
                       pela Telma na pré-visualização de impressão
@@ -1214,6 +1260,7 @@ export default function FinancasConta() {
                   <tr className="border-t bg-muted/20 text-muted-foreground italic">
                     <td className="py-1.5 px-2"></td>
                     <td className="py-1.5 px-2" colSpan={2}>Saldo inicial</td>
+                    {isTodasContas && <td className="py-1.5 px-2"></td>}
                     <td className="py-1.5 px-2">até {dataBr(inicioEfetivo)}</td>
                     <td className="py-1.5 px-2"></td>
                     <td className="py-1.5 px-2 text-right tabular-nums"></td>
@@ -1229,6 +1276,7 @@ export default function FinancasConta() {
                   <tr className="border-t bg-muted/20 text-muted-foreground italic">
                     <td className="py-1.5 px-2"></td>
                     <td className="py-1.5 px-2" colSpan={2}>Saldo inicial</td>
+                    {isTodasContas && <td className="py-1.5 px-2"></td>}
                     <td className="py-1.5 px-2">até {dataBr(inicioEfetivo)}</td>
                     <td className="py-1.5 px-2"></td>
                     <td className="py-1.5 px-2 text-right tabular-nums"></td>
@@ -1269,37 +1317,46 @@ export default function FinancasConta() {
       </div>
 
       {/* Dialogs */}
-      <TransferenciaForm
-        open={transfOpen}
-        onOpenChange={setTransfOpen}
-        contaOrigemPadrao={contaId}
-        onSaved={carregar}
-      />
-      <ConciliacaoOFXDialog
-        open={ofxOpen}
-        onOpenChange={setOfxOpen}
-        contaId={contaId}
-        contaNome={conta.nome}
-        onSaved={carregar}
-      />
-      <ImportacaoOmieDialog
-        open={omieOpen}
-        onOpenChange={setOmieOpen}
-        contaId={contaId}
-        contaNome={conta.nome}
-        onSaved={carregar}
-      />
-      <ImportacaoFaturaDialog
-        open={faturaOpen}
-        onOpenChange={setFaturaOpen}
-        contaId={contaId}
-        contaNome={conta.nome}
-        onSaved={carregar}
-      />
+      {/* OFX/Omie/Fatura/Transferir pedem uma conta-alvo certa — só
+          montam quando `contaId` é real (botão de abrir já some no modo
+          "Todas as Contas", ver botões acima). `LancamentoForm` é o único
+          que funciona sem: sem `contaIdPadrao`, o próprio campo Conta do
+          formulário vira seletor, em vez de vir travado. */}
+      {!isTodasContas && (
+        <>
+          <TransferenciaForm
+            open={transfOpen}
+            onOpenChange={setTransfOpen}
+            contaOrigemPadrao={contaId}
+            onSaved={carregar}
+          />
+          <ConciliacaoOFXDialog
+            open={ofxOpen}
+            onOpenChange={setOfxOpen}
+            contaId={contaId}
+            contaNome={conta?.nome ?? ""}
+            onSaved={carregar}
+          />
+          <ImportacaoOmieDialog
+            open={omieOpen}
+            onOpenChange={setOmieOpen}
+            contaId={contaId}
+            contaNome={conta?.nome ?? ""}
+            onSaved={carregar}
+          />
+          <ImportacaoFaturaDialog
+            open={faturaOpen}
+            onOpenChange={setFaturaOpen}
+            contaId={contaId}
+            contaNome={conta?.nome ?? ""}
+            onSaved={carregar}
+          />
+        </>
+      )}
       <LancamentoForm
         open={novoOpen}
         onOpenChange={(v) => { setNovoOpen(v); if (!v) setEditando(null); }}
-        contaIdPadrao={contaId}
+        contaIdPadrao={isTodasContas ? undefined : contaId}
         lancamento={editando}
         onSaved={carregar}
       />
