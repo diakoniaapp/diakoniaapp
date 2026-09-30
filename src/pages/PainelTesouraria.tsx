@@ -101,6 +101,7 @@ import { LancamentoForm } from "@/components/financas/LancamentoForm";
 import { TransferenciaForm } from "@/components/financas/TransferenciaForm";
 import { FixarFavoritoDialog } from "@/components/financas/FixarFavoritoDialog";
 import { MissoesDrawer } from "@/components/financas/MissoesDrawer";
+import { RemessaMissionariaDetalheDrawer } from "@/components/financas/RemessaMissionariaDetalheDrawer";
 import { listarFavoritos, desfixarFavorito, type FinFavorito } from "@/services/favoritosService";
 import { useAcoesLancamento, BotaoPagar, BotoesAprovacao } from "@/hooks/useAcoesLancamento";
 import { useAuth } from "@/hooks/useAuth";
@@ -417,6 +418,12 @@ export default function PainelTesouraria() {
 
   useEffect(() => { carregarMissoesRemessa(); }, [carregarMissoesRemessa]);
   const [remessaMissionariaAberta, setRemessaMissionariaAberta] = useState(false);
+  // Tela de detalhe de UMA remessa (30/09/2026) — ver o cabeçalho de
+  // `RemessaMissionariaDetalheDrawer.tsx` pro escopo da v1. Dois estados
+  // porque abrir "Editar" a partir do detalhe precisa fechar o Sheet de
+  // leitura e abrir o `LancamentoForm` por cima, não os dois juntos.
+  const [remessaDetalhe, setRemessaDetalhe] = useState<FinLancamentoExtenso | null>(null);
+  const [remessaEditando, setRemessaEditando] = useState<FinLancamentoExtenso | null>(null);
 
   // Destino do "Ver tudo" que N1 acrescentou ao menu lateral do
   // Financeiro (`navConfig.ts`) — `irParaSecao` já existia, mas só era
@@ -1260,6 +1267,25 @@ export default function PainelTesouraria() {
                         {brl(missoesEnviadoPeriodo.reduce((s, l) => s + Number(l.valor), 0))} — {missoesEnviadoPeriodo.length} remessa{missoesEnviadoPeriodo.length === 1 ? "" : "s"}
                       </span>
                     </div>
+                    {/* Cada remessa clicável, abre o detalhe (30/09/2026) —
+                        antes só existia o agregado acima, sem jeito
+                        nenhum de entrar numa remessa específica. */}
+                    {missoesEnviadoPeriodo.length > 0 && (
+                      <ul className="divide-y border-t">
+                        {missoesEnviadoPeriodo.map(l => (
+                          <li key={l.id}>
+                            <button type="button" onClick={() => setRemessaDetalhe(l)}
+                              className="w-full flex items-center justify-between gap-2 px-3 py-2 text-xs text-left hover:bg-muted/40 transition-colors">
+                              <span className="min-w-0 truncate">
+                                {new Date(l.data + "T00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
+                                {" · "}{nomeExtrato(l).principal}
+                              </span>
+                              <span className="font-medium tabular-nums shrink-0">{brl(Number(l.valor))}</span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </>
                 )}
               </div>
@@ -1590,6 +1616,20 @@ export default function PainelTesouraria() {
         tipoPadrao="saida"
         categoriaIdPadrao={repassesCategoriaId ?? undefined}
         onSaved={() => { carregar(); carregarMissoesRemessa(); }}
+      />
+      {/* Detalhe de UMA remessa + "Editar" — ver RemessaMissionariaDetalheDrawer.tsx */}
+      <RemessaMissionariaDetalheDrawer
+        open={!!remessaDetalhe}
+        onOpenChange={(v) => !v && setRemessaDetalhe(null)}
+        lancamento={remessaDetalhe}
+        saldoMissionario={missoesSaldo}
+        onEditar={() => { setRemessaEditando(remessaDetalhe); setRemessaDetalhe(null); }}
+      />
+      <LancamentoForm
+        open={!!remessaEditando}
+        onOpenChange={(v) => !v && setRemessaEditando(null)}
+        lancamento={remessaEditando}
+        onSaved={() => { carregar(); carregarMissoesRemessa(); setRemessaEditando(null); }}
       />
       <FixarFavoritoDialog
         open={fixarAberto}
