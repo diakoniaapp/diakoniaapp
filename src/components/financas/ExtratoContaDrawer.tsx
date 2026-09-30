@@ -60,7 +60,7 @@ import { paraNumero } from "@/lib/dinheiro";
 import {
   DollarSign, Loader2, Plus, Search, TrendingUp, TrendingDown,
   Pencil, Trash2, Paperclip, Files, Scale, FileUp, ExternalLink,
-  ArrowRightLeft, RefreshCw,
+  ArrowRightLeft, RefreshCw, Layers, FolderKanban,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -72,6 +72,7 @@ import {
   STATUS_LABEL,
 } from "@/services/finService";
 import { calcularExtrato, saldoAntesDe } from "@/services/saldoService";
+import { iconeConta } from "@/pages/Financas";
 import { LancamentoForm } from "@/components/financas/LancamentoForm";
 import { AnexosLancamentoDialog } from "@/components/financas/AnexosLancamentoDialog";
 import { EditarTransferenciaForm } from "@/components/financas/EditarTransferenciaForm";
@@ -96,11 +97,28 @@ const STATUS_COR: Record<FinStatus, string> = {
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  contaId: string;
+  // `null` = modo consolidado "Todas as Contas" (pedido dela, 30/09/2026,
+  // vendo o seletor de conta do Omie: uma opção no topo pra ver o extrato
+  // de todas as contas junto, sem escolher uma de cada vez). Nesse modo:
+  // sem `carregarConta` (não existe UMA conta pra mostrar saldo/tipo no
+  // cabeçalho — a soma já aparece no card "Todas as Contas" do Painel),
+  // a coluna "Conta" aparece na tabela pra identificar de onde veio cada
+  // linha, e os botões que exigem uma conta-alvo única (OFX, Omie,
+  // Fatura, Transferir, "Extrato completo") somem — importar/transferir
+  // pede uma conta específica, e continuam disponíveis abrindo o drawer
+  // de uma conta só.
+  contaId: string | null;
+  // Lista de contas pro seletor do cabeçalho (pedido dela, 30/09/2026,
+  // vendo a tela "Movimentação de Contas" do Omie: lá a conta se troca
+  // por uma lista suspensa, sem fechar a tela e escolher outro card).
+  // O Painel já carrega essa lista pro grid de cards — reaproveitada
+  // aqui, não buscada de novo.
+  contas: FinConta[];
+  onTrocarConta: (id: string | null) => void;
   onChange?: () => void;
 }
 
-export function ExtratoContaDrawer({ open, onOpenChange, contaId, onChange }: Props) {
+export function ExtratoContaDrawer({ open, onOpenChange, contaId, contas, onTrocarConta, onChange }: Props) {
   const [conta, setConta] = useState<FinConta | null>(null);
   const [lancamentos, setLancamentos] = useState<FinLancamentoExtenso[]>([]);
   const [loading, setLoading] = useState(true);
@@ -150,13 +168,12 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, onChange }: Pr
   const fimEfetivo = dataInicio <= dataFim ? dataFim : dataInicio;
 
   async function carregar() {
-    if (!contaId) return;
     setLoading(true);
     try {
       const [c, ls, saldoAntes] = await Promise.all([
-        carregarConta(contaId),
+        contaId ? carregarConta(contaId) : Promise.resolve(null),
         listarLancamentosSemTeto({
-          contaId,
+          contaId: contaId ?? undefined,
           tipo: filtroTipo !== "todos" && filtroTipo !== "transferencia" ? filtroTipo : undefined,
           apenasTransferencia: filtroTipo === "transferencia" ? true : undefined,
           dataInicio: inicioEfetivo, dataFim: fimEfetivo,
@@ -164,7 +181,7 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, onChange }: Pr
           categoriaId: filtroCategoriaId || undefined,
           centroCustoId: filtroCentroCustoId || undefined,
         }),
-        saldoAntesDe(inicioEfetivo, contaId),
+        saldoAntesDe(inicioEfetivo, contaId ?? undefined),
       ]);
       setConta(c);
       setLancamentos(ls);
@@ -309,9 +326,26 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, onChange }: Pr
           <span className={STATUS_COR[l.status]} title={STATUS_LABEL[l.status]}>{dataBr(l.data)}</span>
         </td>
         <td className="py-1.5 px-2 min-w-[160px]">
-          <p className="font-medium truncate">{principal}</p>
+          <p className="font-medium truncate flex items-center gap-1">
+            {/* Ícone de projeto (pedido dela, 30/09/2026): identificar de
+                relance quais lançamentos estão vinculados a um projeto
+                (120 Anos, Reforma do Templo...), sem precisar abrir cada
+                um. Mesmo ícone que `PainelTesouraria` já usa pra
+                "Projetos" (`FolderKanban`) — não inventa um novo. */}
+            {l.projeto_nome && (
+              <span title={`Projeto: ${l.projeto_nome}`} className="shrink-0">
+                <FolderKanban className="w-3 h-3 text-violeta" />
+              </span>
+            )}
+            <span className="truncate">{principal}</span>
+          </p>
           {secundario && <p className="text-xs text-muted-foreground truncate">{secundario}</p>}
         </td>
+        {!contaId && (
+          <td className="py-1.5 px-2 overflow-hidden hidden sm:table-cell">
+            <span className="text-xs text-muted-foreground truncate">{l.conta_nome ?? "—"}</span>
+          </td>
+        )}
         <td className="py-1.5 px-2 overflow-hidden hidden md:table-cell">
           {l.categoria_nome && (
             <Badge variant="outline" className="text-xs max-w-full truncate"
@@ -364,35 +398,67 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, onChange }: Pr
         <SheetContent side="right" className="w-full sm:max-w-4xl flex flex-col gap-0 p-0">
           <SheetHeader className="p-3 md:p-4 border-b space-y-2">
             <div className="flex items-center justify-between gap-2 flex-wrap">
-              <SheetTitle className="flex items-center gap-2 min-w-0">
+              <SheetTitle className="flex items-center gap-1.5 min-w-0">
                 <DollarSign className="w-4 h-4 text-gold shrink-0" />
-                <span className="truncate">{conta?.nome ?? "Extrato"}</span>
+                {/* Seletor de conta no próprio cabeçalho (pedido dela,
+                    30/09/2026, vendo a "Movimentação de Contas" do Omie):
+                    trocar de conta sem fechar o drawer e voltar pro grid
+                    de cards. `iconeConta` é o mesmo usado nos cards do
+                    Painel — mesmo ícone em todo lugar que mostra conta. */}
+                <Select value={contaId ?? "__todas__"}
+                  onValueChange={(v) => onTrocarConta(v === "__todas__" ? null : v)}>
+                  <SelectTrigger
+                    className="h-8 w-auto min-w-0 max-w-[220px] border-none shadow-none px-1.5 gap-1.5
+                               font-sans text-base font-semibold truncate [&>span]:truncate [&>span]:flex-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__todas__">
+                      <span className="flex items-center gap-2"><Layers className="w-3.5 h-3.5" /> Todas as Contas</span>
+                    </SelectItem>
+                    {contas.map(c => (
+                      <SelectItem key={c.id} value={c.id}>
+                        <span className="flex items-center gap-2">{iconeConta(c, "w-3.5 h-3.5")} {c.nome}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 {conta && <Badge variant="outline" className="text-xs font-sans font-normal shrink-0">{CONTA_TIPO_LABEL[conta.tipo]}</Badge>}
               </SheetTitle>
               <div className="flex items-center gap-1.5 flex-wrap">
-                {conta?.tipo === "banco" && (
+                {/* OFX, Omie, Fatura, Transferir e "Extrato completo" pedem
+                    UMA conta-alvo certa — no modo "Todas as Contas"
+                    (`contaId === null`) somem; continuam disponíveis
+                    abrindo o drawer de uma conta específica. */}
+                {contaId && conta?.tipo === "banco" && (
                   <Button variant="outline" size="sm" onClick={() => setOfxOpen(true)} className="gap-1.5 h-8 text-xs">
                     <FileUp className="w-3.5 h-3.5" /> OFX
                   </Button>
                 )}
-                <Button variant="outline" size="sm" onClick={() => setOmieOpen(true)} className="gap-1.5 h-8 text-xs">
-                  <FileUp className="w-3.5 h-3.5" /> Omie
-                </Button>
-                {conta?.tipo === "cartao" && (
+                {contaId && (
+                  <Button variant="outline" size="sm" onClick={() => setOmieOpen(true)} className="gap-1.5 h-8 text-xs">
+                    <FileUp className="w-3.5 h-3.5" /> Omie
+                  </Button>
+                )}
+                {contaId && conta?.tipo === "cartao" && (
                   <Button variant="outline" size="sm" onClick={() => setFaturaOpen(true)} className="gap-1.5 h-8 text-xs">
                     <FileUp className="w-3.5 h-3.5" /> Fatura
                   </Button>
                 )}
-                <Button variant="outline" size="sm" onClick={() => setTransfOpen(true)} className="gap-1.5 h-8 text-xs text-info-text hover:text-info-text">
-                  <ArrowRightLeft className="w-3.5 h-3.5" /> Transferir
-                </Button>
+                {contaId && (
+                  <Button variant="outline" size="sm" onClick={() => setTransfOpen(true)} className="gap-1.5 h-8 text-xs text-info-text hover:text-info-text">
+                    <ArrowRightLeft className="w-3.5 h-3.5" /> Transferir
+                  </Button>
+                )}
                 {/* Imprimir/PDF fica só na página — ver comentário do topo
                     do arquivo pro porquê. */}
-                <Button asChild variant="outline" size="sm" className="gap-1.5 h-8 text-xs">
-                  <Link to={`/financas/conta/${contaId}`} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="w-3.5 h-3.5" /> Extrato completo
-                  </Link>
-                </Button>
+                {contaId && (
+                  <Button asChild variant="outline" size="sm" className="gap-1.5 h-8 text-xs">
+                    <Link to={`/financas/conta/${contaId}`} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="w-3.5 h-3.5" /> Extrato completo
+                    </Link>
+                  </Button>
+                )}
                 <Button variant="gold" size="sm" onClick={() => { setEditando(null); setNovoOpen(true); }} className="gap-1.5 h-8 text-xs">
                   <Plus className="w-3.5 h-3.5" /> Novo
                 </Button>
@@ -527,6 +593,7 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, onChange }: Pr
                     </th>
                     <th className="text-left py-2 px-2 w-20">Data</th>
                     <th className="text-left py-2 px-2">Descrição</th>
+                    {!contaId && <th className="text-left py-2 px-2 w-28 hidden sm:table-cell">Conta</th>}
                     <th className="text-left py-2 px-2 w-36 hidden md:table-cell">Categoria</th>
                     <th className="text-right py-2 px-2 w-24">Valor</th>
                     <th className="text-right py-2 px-2 w-24 hidden sm:table-cell">Saldo</th>
@@ -538,6 +605,7 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, onChange }: Pr
                     <tr className="border-t bg-muted/20 text-muted-foreground italic">
                       <td className="py-1.5 px-2"></td>
                       <td className="py-1.5 px-2" colSpan={2}>Saldo inicial</td>
+                      {!contaId && <td className="py-1.5 px-2 hidden sm:table-cell"></td>}
                       <td className="py-1.5 px-2 hidden md:table-cell"></td>
                       <td className="py-1.5 px-2 text-right tabular-nums"></td>
                       <td className="py-1.5 px-2 text-right tabular-nums font-medium whitespace-nowrap hidden sm:table-cell">{brl(saldoAntesDoPeriodo)}</td>
@@ -573,14 +641,23 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, onChange }: Pr
         </SheetContent>
       </Sheet>
 
-      <TransferenciaForm open={transfOpen} onOpenChange={setTransfOpen} contaOrigemPadrao={contaId} onSaved={() => { carregar(); fecharEAvisar(); }} />
-      <ConciliacaoOFXDialog open={ofxOpen} onOpenChange={setOfxOpen} contaId={contaId} contaNome={conta?.nome ?? ""} onSaved={() => { carregar(); fecharEAvisar(); }} />
-      <ImportacaoOmieDialog open={omieOpen} onOpenChange={setOmieOpen} contaId={contaId} contaNome={conta?.nome ?? ""} onSaved={() => { carregar(); fecharEAvisar(); }} />
-      <ImportacaoFaturaDialog open={faturaOpen} onOpenChange={setFaturaOpen} contaId={contaId} contaNome={conta?.nome ?? ""} onSaved={() => { carregar(); fecharEAvisar(); }} />
+      {/* Os quatro diálogos abaixo pedem uma conta-alvo certa — só montam
+          quando `contaId` é real (botão de abrir já some no modo "Todas
+          as Contas", ver cabeçalho acima). `LancamentoForm` é o único que
+          funciona sem: sem `contaIdPadrao`, o próprio campo Conta do
+          formulário vira seletor, em vez de vir travado. */}
+      {contaId && (
+        <>
+          <TransferenciaForm open={transfOpen} onOpenChange={setTransfOpen} contaOrigemPadrao={contaId} onSaved={() => { carregar(); fecharEAvisar(); }} />
+          <ConciliacaoOFXDialog open={ofxOpen} onOpenChange={setOfxOpen} contaId={contaId} contaNome={conta?.nome ?? ""} onSaved={() => { carregar(); fecharEAvisar(); }} />
+          <ImportacaoOmieDialog open={omieOpen} onOpenChange={setOmieOpen} contaId={contaId} contaNome={conta?.nome ?? ""} onSaved={() => { carregar(); fecharEAvisar(); }} />
+          <ImportacaoFaturaDialog open={faturaOpen} onOpenChange={setFaturaOpen} contaId={contaId} contaNome={conta?.nome ?? ""} onSaved={() => { carregar(); fecharEAvisar(); }} />
+        </>
+      )}
       <LancamentoForm
         open={novoOpen}
         onOpenChange={(v) => { setNovoOpen(v); if (!v) setEditando(null); }}
-        contaIdPadrao={contaId}
+        contaIdPadrao={contaId ?? undefined}
         lancamento={editando}
         onSaved={() => { carregar(); fecharEAvisar(); }}
       />

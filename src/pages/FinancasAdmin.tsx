@@ -13,8 +13,7 @@ import {
 import {
   ArrowLeft, DollarSign, Loader2, Plus, Pencil, Trash2,
   Wallet, Tag, Layers, RotateCcw, PowerOff,
-  TrendingUp, TrendingDown,
-  Building2, CreditCard, PiggyBank, Mail, Coins, FolderPlus,
+  TrendingUp, TrendingDown, FolderPlus,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -30,16 +29,7 @@ import { ContaForm } from "@/components/financas/ContaForm";
 import { CategoriaForm } from "@/components/financas/CategoriaForm";
 import { CentroCustoForm } from "@/components/financas/CentroCustoForm";
 import { PaginaSkeleton } from "@/components/ListState";
-
-const ICONE_CONTA: Record<string, JSX.Element> = {
-  caixa:     <Wallet className="w-4 h-4" />,
-  banco:     <Building2 className="w-4 h-4" />,
-  cartao:    <CreditCard className="w-4 h-4" />,
-  envelope:  <Mail className="w-4 h-4" />,
-  aplicacao: <PiggyBank className="w-4 h-4" />,
-  cofre:     <Coins className="w-4 h-4" />,
-  pix:       <Wallet className="w-4 h-4" />,
-};
+import { iconeConta } from "@/pages/Financas";
 
 export default function FinancasAdmin() {
   // "estruturar_financeiro": criar centro de custo à mão e excluir
@@ -281,7 +271,7 @@ export default function FinancasAdmin() {
                   <div className="flex items-center gap-3 min-w-0 flex-1">
                     <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ring-1 ring-border"
                       style={{ background: (c.cor ?? "#cfa451") + "22", color: c.cor ?? "#cfa451" }}>
-                      {ICONE_CONTA[c.tipo] ?? <Wallet className="w-4 h-4" />}
+                      {iconeConta(c)}
                     </div>
                     <div className="min-w-0 flex-1">
                       {/* `<div>`, não `<p>`: `Badge` é sempre um `<div>`

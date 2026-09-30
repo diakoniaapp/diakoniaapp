@@ -25,15 +25,28 @@ import { WidgetsDoPainel } from "@/dashboard/WidgetsDoPainel";
 import { ROLES_FINANCEIRO } from "@/components/layout/navConfig";
 import { toYmd } from "@/lib/data";
 
-export const ICONE_CONTA: Record<string, JSX.Element> = {
-  caixa:     <Wallet className="w-4 h-4" />,
-  banco:     <Building2 className="w-4 h-4" />,
-  cartao:    <CreditCard className="w-4 h-4" />,
-  envelope:  <Mail className="w-4 h-4" />,
-  aplicacao: <PiggyBank className="w-4 h-4" />,
-  cofre:     <Coins className="w-4 h-4" />,
-  pix:       <Wallet className="w-4 h-4" />,
-};
+// Ícone por `tipo` sozinho não diferencia duas contas do MESMO tipo — Caixa
+// de Aplicação e Poupança nasceram as duas como "aplicacao" (30/09/2026,
+// cadastro da Poupança pra fechar o Extrato Unificado do Bradesco) e
+// ficavam com o mesmo porquinho, difícil de distinguir numa lista curta
+// (pedido da Telma, 30/09/2026). Poupança fica com o porquinho — é o ícone
+// que todo mundo já associa a poupança; Aplicação usa um ícone de
+// rendimento, já que ela é quem de fato aplica/resgata todo dia.
+export function iconeConta(conta: Pick<FinConta, "tipo" | "nome">, className = "w-4 h-4"): JSX.Element {
+  if (conta.tipo === "aplicacao" && conta.nome === "Caixa de Aplicação") {
+    return <TrendingUp className={className} />;
+  }
+  switch (conta.tipo) {
+    case "caixa": return <Wallet className={className} />;
+    case "banco": return <Building2 className={className} />;
+    case "cartao": return <CreditCard className={className} />;
+    case "envelope": return <Mail className={className} />;
+    case "aplicacao": return <PiggyBank className={className} />;
+    case "cofre": return <Coins className={className} />;
+    case "pix": return <Wallet className={className} />;
+    default: return <Wallet className={className} />;
+  }
+}
 
 export default function Financas() {
   const { hasRole } = useAuth();
@@ -218,7 +231,7 @@ export default function Financas() {
           <Card className="border-gold/50 hover:shadow-md transition-shadow cursor-pointer">
             <CardContent className="py-3 px-4 flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
-                {ICONE_CONTA[contaContinuar.tipo] ?? <Wallet className="w-4 h-4" />}
+                {iconeConta(contaContinuar)}
                 <div className="min-w-0">
                   <p className="text-xs uppercase tracking-wide text-muted-foreground">Continuar de onde parei</p>
                   <p className="text-sm font-medium truncate">
@@ -266,7 +279,7 @@ export default function Financas() {
                   <CardContent className="py-3 px-4 space-y-1.5">
                     <div className="flex items-center justify-between">
                       <span className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-muted-foreground">
-                        {ICONE_CONTA[c.tipo] ?? <Wallet className="w-3.5 h-3.5" />}
+                        {iconeConta(c, "w-3.5 h-3.5")}
                         {CONTA_TIPO_LABEL[c.tipo]}
                       </span>
                       <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />

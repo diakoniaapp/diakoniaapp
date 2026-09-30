@@ -79,7 +79,7 @@ import {
   type FinVencimento, type FinAlertaCentro, type FinResumoMes,
   type FinProjeto, type FinLancamentoExtenso, type FinConta,
 } from "@/services/finService";
-import { ICONE_CONTA } from "@/pages/Financas";
+import { iconeConta } from "@/pages/Financas";
 import {
   listarPendencias, type ItemPendencia, type PendenciaLancamento, type PendenciaFechamento, DIAS_JANELA_COMPROVANTE,
   listarVencimentosDaSemana, listarAlertasOrcamento, DIAS_JANELA_VENCIMENTOS,
@@ -1489,11 +1489,27 @@ export default function PainelTesouraria() {
           <>
           {contas.length > 0 && (
             <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+              {/* "Todas as Contas" — pedido dela (30/09/2026), vendo o
+                  seletor de conta do Omie: lá existe uma opção no topo do
+                  dropdown pra ver o extrato consolidado de todas as contas
+                  de uma vez, sem escolher uma por uma. Mesmo drawer
+                  (`ExtratoContaDrawer`), `contaId=null` — ver o comentário
+                  lá dentro sobre o que muda no modo consolidado. */}
+              <button type="button" onClick={() => setExtratoContaId("__todas__")}
+                className="rounded-md border-2 border-gold/40 bg-gold/5 p-2.5 hover:border-gold transition-colors min-w-0 text-left">
+                <p className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-gold-text truncate">
+                  <Layers className="w-3.5 h-3.5" />
+                  <span className="truncate">Todas as Contas</span>
+                </p>
+                <p className="font-semibold tabular-nums mt-0.5 text-base truncate">
+                  {brl(contas.reduce((s, c) => s + Number(c.saldo_atual), 0))}
+                </p>
+              </button>
               {contas.map(c => (
                 <button key={c.id} type="button" onClick={() => setExtratoContaId(c.id)}
                   className="rounded-md border bg-card p-2.5 hover:border-gold/50 transition-colors min-w-0 text-left">
                   <p className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-muted-foreground truncate">
-                    {ICONE_CONTA[c.tipo] ?? <Wallet className="w-3.5 h-3.5" />}
+                    {iconeConta(c, "w-3.5 h-3.5")}
                     <span className="truncate">{c.nome}</span>
                   </p>
                   <p className="font-semibold tabular-nums mt-0.5 text-base truncate" style={{ color: c.cor ?? undefined }}>
@@ -1584,7 +1600,9 @@ export default function PainelTesouraria() {
         <ExtratoContaDrawer
           open={!!extratoContaId}
           onOpenChange={(v) => !v && setExtratoContaId(null)}
-          contaId={extratoContaId}
+          contaId={extratoContaId === "__todas__" ? null : extratoContaId}
+          contas={contas}
+          onTrocarConta={(id) => setExtratoContaId(id ?? "__todas__")}
           onChange={carregar}
         />
       )}
