@@ -197,7 +197,10 @@ export default function SituacaoDialog({
               <Label className="text-sm">
                 Data de saída <span className="text-destructive">*</span>
               </Label>
-              <CampoData value={dataSaida} onChange={(v) => setDataSaida(v)} className={faltaData ? "border-destructive" : ""} />
+              {/* anoMin=1900 — mesmo bug documentado em MembroForm.tsx: o
+                  padrão de CampoData (2000-2099) rejeita em silêncio ano
+                  digitado antes de 2000. */}
+              <CampoData value={dataSaida} onChange={(v) => setDataSaida(v)} className={faltaData ? "border-destructive" : ""} anoMin={1900} />
               <p className="text-[11px] text-muted-foreground mt-0.5">
                 {status === "falecido"
                   ? "Data do falecimento."

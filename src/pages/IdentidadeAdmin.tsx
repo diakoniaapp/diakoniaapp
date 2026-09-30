@@ -977,7 +977,8 @@ export default function IdentidadeAdmin() {
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <Label className="text-xs">Data de nascimento</Label>
-                      <CampoData value={novoPastorForm.data_nascimento} onChange={(v) => setNovoPastorForm(p => ({ ...p, data_nascimento: v }))} />
+                      {/* anoMin=1900 — mesmo bug e mesmo motivo de MembroForm.tsx */}
+                      <CampoData value={novoPastorForm.data_nascimento} onChange={(v) => setNovoPastorForm(p => ({ ...p, data_nascimento: v }))} anoMin={1900} />
                     </div>
                     <div>
                       <Label className="text-xs">Sexo</Label>

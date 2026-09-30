@@ -24,15 +24,21 @@
 //
 // Histórico: em 09/09/2026 a Telma pediu para TUDO abrir no WhatsApp Web
 // ("não no aplicativo"). Em 10/09/2026 reviu: "mostre as duas opções... e o
-// usuário escolhe". O padrão continua Web — a preferência dela —, agora
-// trocável no menu do usuário (ver `UserMenuButton.tsx`).
+// usuário escolhe" — trocável no menu do usuário (ver `UserMenuButton.tsx`).
+// Em 29/09/2026 revisou de novo: o padrão passou pra "app" — `wa.me` já
+// detecta sozinho o melhor aplicativo disponível (Desktop/Mobile/Web como
+// último recurso), que é o comportamento que ela queria como objetivo.
+// Achado no mesmo pedido: o toggle só existia no menu do CELULAR
+// (`UserMenuButton.tsx`) — o do DESKTOP (`AppLayout.tsx`) nunca ganhou o
+// mesmo item, então quem usava o sistema no computador não tinha como
+// trocar pra "web" mesmo querendo. Corrigido nos dois arquivos juntos.
 
 import { normalizarTelefone } from "@/lib/telefone";
 
 export type DestinoWhatsApp = "web" | "app";
 
 const CHAVE = "diakonia-whatsapp-destino";
-const PADRAO: DestinoWhatsApp = "web";
+const PADRAO: DestinoWhatsApp = "app";
 
 export const DESTINO_WHATSAPP_LABEL: Record<DestinoWhatsApp, string> = {
   web: "Abrir no WhatsApp Web",

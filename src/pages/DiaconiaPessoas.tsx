@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/dialog";
 import { ArrowLeft, ChevronRight, HeartHandshake, MapPin, Pencil, Phone, Plus, Trash2, Users, UserCheck, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
+import { MenuDeEnvio } from "@/components/MenuDeEnvio";
 import {
   pessoasDaArea, pessoasEncerradasDaArea, criarPessoa, atualizarPessoa, fichasDaPessoa, salvarFicha,
   SITUACOES_MORADIA, SEXOS, ESTADOS_CIVIS, BENEFICIOS_FEDERAIS,
@@ -518,7 +519,8 @@ function EditarDados({ pessoa, onSalvou, onCancelar }: {
       <div className="grid grid-cols-2 gap-2">
         <div>
           <Label className="text-xs">Data de nascimento</Label>
-          <CampoData value={dataNasc} onChange={(v) => setDataNasc(v)} className="h-8 text-sm" />
+          {/* anoMin=1900 — mesmo bug e mesmo motivo de MembroForm.tsx */}
+          <CampoData value={dataNasc} onChange={(v) => setDataNasc(v)} className="h-8 text-sm" anoMin={1900} />
         </div>
         <div>
           <Label className="text-xs">Sexo</Label>
@@ -621,6 +623,16 @@ function FichaDaPessoa({ pessoa, onAtualizou, limites }: {
 
   return (
     <div className="px-3 pb-3 pl-8 space-y-2">
+      {/* Revisão do fluxo de WhatsApp (29/09/2026), pedido dela: era o
+          único dos 3 pontos de maior uso (ficha de pessoa, visitante,
+          diaconia) sem NENHUM jeito de contatar quem é assistido — o
+          telefone só aparecia como texto na linha recolhida, sem ação.
+          Sem `email` — cadastro da Diaconia é leve de propósito (nome,
+          telefone, endereço), `MenuDeEnvio` já esconde a opção sozinho. */}
+      {pessoa.telefone && (
+        <MenuDeEnvio telefone={pessoa.telefone} label="Contatar" className="h-7 text-xs" />
+      )}
+
       {/* Empilhado, não lado a lado: com três botões ("Começou a frequentar"
           é o mais recente) uma linha só não cabe numa tela estreita — o
           texto era cortado na borda em vez de quebrar. Rótulo sempre em

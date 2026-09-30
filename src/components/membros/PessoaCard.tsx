@@ -15,7 +15,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, User, Shield, Church, MapPin, Calendar, Star, Pencil, MessageCircle, NotebookPen, Home as IconeCasa } from "lucide-react";
+import { Loader2, User, Shield, Church, MapPin, Calendar, Star, Pencil, NotebookPen, Home as IconeCasa } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { usePermissoes } from "@/hooks/usePermissoes";
 import { useAuth } from "@/hooks/useAuth";
@@ -26,8 +26,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { LinhaDoTempo } from "@/components/membros/LinhaDoTempo";
 import { historiaDaPessoa, diasDesdeOUltimoContato, type EventoDaHistoria } from "@/services/historiaPessoa";
 import { ROLE_LABEL } from "@/types/usuario";
-import { normalizarTelefone, formatarTelefoneSemDDI } from "@/lib/telefone";
-import { montarLinkWhatsApp } from "@/lib/whatsapp";
+import { MenuDeEnvio } from "@/components/MenuDeEnvio";
 
 // ── Datas ─────────────────────────────────────────────────────
 //
@@ -743,26 +742,18 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
                 não oferecia como falar. O telefone já vinha na consulta e
                 não aparecia em lugar nenhum.
 
-                `<a>` e não `window.open`: navegadores e o WebView do celular
-                tratam `window.open` como pop-up e bloqueiam em silêncio —
-                foi o que deixou mudo o botão de felicitação do Painel
-                Pastoral até 26/08/2026. */}
-            {pessoa.telefone_celular && (
-              <a
-                href={montarLinkWhatsApp({ telefone: pessoa.telefone_celular })}
-                target="_blank"
-                rel="noopener noreferrer"
-                title={`Enviar mensagem para ${pessoa.nome_social ?? pessoa.nome_completo} no WhatsApp`}
-                className="flex items-center gap-2 rounded-lg border border-success-line bg-success-soft/50
-                           px-3 py-2 text-sm text-success-text transition-colors hover:bg-success-soft
-                           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <MessageCircle className="w-4 h-4 shrink-0" />
-                <span className="font-medium">Falar no WhatsApp</span>
-                <span className="text-xs text-muted-foreground ml-auto tabular-nums">
-                  {formatarTelefoneSemDDI(pessoa.telefone_celular)}
-                </span>
-              </a>
+                Revisão do fluxo de WhatsApp (29/09/2026): virou
+                `MenuDeEnvio` — WhatsApp/E-mail/Copiar número, não mais só
+                um link fixo. Ver o comentário grande em `MenuDeEnvio.tsx`
+                sobre por que abrir dentro do clique do item (não depois de
+                um `await`) continua seguro contra bloqueio de pop-up. */}
+            {(pessoa.telefone_celular || pessoa.email) && (
+              <MenuDeEnvio
+                telefone={pessoa.telefone_celular}
+                email={pessoa.email}
+                label="Falar com a pessoa"
+                className="w-full justify-start"
+              />
             )}
 
             {/* ── A família ─────────────────────────────────────────────

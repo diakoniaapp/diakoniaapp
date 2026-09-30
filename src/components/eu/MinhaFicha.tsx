@@ -220,7 +220,10 @@ function DialogCorrigir({ aberto, onFechar, ficha, onSalvo }: {
 
           <div className="grid gap-3 sm:grid-cols-2">
             <Campo id="nasc" rotulo="Data de nascimento">
-              <CampoData id="nasc" value={form.data_nascimento ?? ""} onChange={(v) => set("data_nascimento", v)} />
+              {/* anoMin=1900 — mesmo bug e mesmo motivo de MembroForm.tsx:
+                  data de NASCIMENTO, não o padrão de 2000-2099 pensado pra
+                  data futura. */}
+              <CampoData id="nasc" value={form.data_nascimento ?? ""} onChange={(v) => set("data_nascimento", v)} anoMin={1900} />
               {/* O convite só aparece para quem tem a pendência. Para os
                   outros seria ruído num campo já preenchido. */}
               {!ficha.data_nascimento && ficha.nascimento_dia_mes && (
@@ -230,7 +233,8 @@ function DialogCorrigir({ aberto, onFechar, ficha, onSalvo }: {
               )}
             </Campo>
             <Campo id="casam" rotulo="Data de casamento">
-              <CampoData id="casam" value={form.data_casamento ?? ""} onChange={(v) => set("data_casamento", v)} />
+              {/* anoMin=1900 — mesmo bug de data_nascimento acima */}
+              <CampoData id="casam" value={form.data_casamento ?? ""} onChange={(v) => set("data_casamento", v)} anoMin={1900} />
             </Campo>
           </div>
 

@@ -1,7 +1,11 @@
 import { Outlet, NavLink, useNavigate, useLocation } from "react-router-dom";
 import { FaixaVerComo } from "@/components/layout/VerComoMenu";
 import { useAuth } from "@/hooks/useAuth";
-import { LogOut, ChevronLeft, ChevronDown, Search, Moon, Sun, User, Mail } from "lucide-react";
+import { LogOut, ChevronLeft, ChevronDown, Search, Moon, Sun, User, Mail, Globe, Smartphone } from "lucide-react";
+import {
+  getDestinoWhatsApp, setDestinoWhatsApp, DESTINO_WHATSAPP_LABEL,
+  type DestinoWhatsApp,
+} from "@/lib/whatsapp";
 import { BrandMark } from "@/components/Brand";
 import { useEffect, useState } from "react";
 import { QuickActionsFab } from "@/components/QuickActionsFab";
@@ -36,6 +40,17 @@ export default function AppLayout() {
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Achado ao revisar o fluxo de WhatsApp (29/09/2026): este toggle existia
+  // só no menu do CELULAR (`UserMenuButton.tsx`) — quem usava o sistema no
+  // computador não tinha como trocar de destino. Mesmo mecanismo, mesmo
+  // rótulo, só que aqui no dropdown do rodapé da barra lateral.
+  const [zapDestino, setZapDestino] = useState<DestinoWhatsApp>(getDestinoWhatsApp);
+  const alternarZap = () => {
+    const proximo: DestinoWhatsApp = zapDestino === "web" ? "app" : "web";
+    setDestinoWhatsApp(proximo);
+    setZapDestino(proximo);
+  };
 
   // ── O menu aprende ────────────────────────────────────────────────────
   //
@@ -480,6 +495,23 @@ export default function AppLayout() {
                 {theme === "dark"
                   ? <><Sun className="w-4 h-4 mr-2" /> Tema claro</>
                   : <><Moon className="w-4 h-4 mr-2" /> Tema escuro</>}
+              </DropdownMenuItem>
+              {/* ── Onde o WhatsApp abre ───────────────────────────────────
+                  Preferência por aparelho, mesmo item do menu do celular —
+                  ver o comentário de `zapDestino` acima. */}
+              <DropdownMenuItem
+                className="cursor-pointer"
+                onClick={(e) => { e.preventDefault(); alternarZap(); }}
+              >
+                {zapDestino === "web"
+                  ? <Smartphone className="w-4 h-4 mr-2" />
+                  : <Globe className="w-4 h-4 mr-2" />}
+                <div className="flex flex-col">
+                  <span>{DESTINO_WHATSAPP_LABEL[zapDestino === "web" ? "app" : "web"]}</span>
+                  <span className="text-xs text-muted-foreground">
+                    Agora: {zapDestino === "web" ? "WhatsApp Web" : "aplicativo"}
+                  </span>
+                </div>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={signOut} className="text-destructive focus:text-destructive">

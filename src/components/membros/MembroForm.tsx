@@ -1163,7 +1163,14 @@ export function MembroForm({ open, onOpenChange, membro, onSaved, tipoInicial, o
                     </p>
                   </>
                 ) : (
-                  <CampoData value={form.data_nascimento} onChange={(v) => set("data_nascimento", v)} />
+                  // anoMin=1900 (não o padrão 2000 do componente): data de
+                  // NASCIMENTO, não data futura — o padrão rejeitava em
+                  // silêncio qualquer ano digitado antes de 2000 (a maioria
+                  // dos membros adultos) e revertia o campo pro último valor
+                  // aceito, sem avisar. Achado ao vivo pela Telma
+                  // (29/09/2026): "cadastro o ano e o campo volta para outro
+                  // ano, diferente".
+                  <CampoData value={form.data_nascimento} onChange={(v) => set("data_nascimento", v)} anoMin={1900} />
                 )}
 
                 {candidatoMembresia && (
@@ -1193,7 +1200,9 @@ export function MembroForm({ open, onOpenChange, membro, onSaved, tipoInicial, o
                   {mostraCasamento && (
                     <div>
                       <Label translate="no">Data de casamento</Label>
-                      <CampoData value={form.data_casamento} onChange={(v) => set("data_casamento", v)} />
+                      {/* anoMin=1900 — mesmo bug de data_nascimento acima:
+                          casamento também pode ser de décadas atrás. */}
+                      <CampoData value={form.data_casamento} onChange={(v) => set("data_casamento", v)} anoMin={1900} />
                     </div>
                   )}
                 </>
@@ -1375,7 +1384,9 @@ export function MembroForm({ open, onOpenChange, membro, onSaved, tipoInicial, o
                   {isMembro && (
                     <div>
                       <Label translate="no">Data de entrada</Label>
-                      <CampoData value={form.data_entrada} onChange={(v) => set("data_entrada", v)} />
+                      {/* anoMin=1900 — mesmo bug de data_nascimento acima:
+                          membro antigo pode ter entrado décadas atrás. */}
+                      <CampoData value={form.data_entrada} onChange={(v) => set("data_entrada", v)} anoMin={1900} />
                       {/* A dica dizia "Data do batismo/profissão de fé" e
                           supunha o tipo mais comum. Para quem veio por carta
                           de outra igreja isso estava errado, e não havia onde
@@ -1463,7 +1474,10 @@ export function MembroForm({ open, onOpenChange, membro, onSaved, tipoInicial, o
                       <Label translate="no">
                         Data de saída <span className="text-destructive">*</span>
                       </Label>
-                      <CampoData value={form.data_saida || ""} onChange={(v) => set("data_saida", v)} />
+                      {/* anoMin=1900 — consistência com os demais campos de
+                          data desta ficha (evita o mesmo bug se alguém
+                          registrar uma saída antiga/histórica). */}
+                      <CampoData value={form.data_saida || ""} onChange={(v) => set("data_saida", v)} anoMin={1900} />
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {form.status === "falecido"
                           ? "Data do falecimento."
