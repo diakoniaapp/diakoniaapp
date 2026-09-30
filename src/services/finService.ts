@@ -737,7 +737,35 @@ export interface FiltroLancamento {
 // qualquer ordem — e `listarLancamentosSemTeto` pagina com `.range()`:
 // se a ordem muda entre uma página e a próxima, uma linha pode vir
 // duplicada e outra sumir, e o saldo somado erra sem aviso nenhum.
-function construirQueryLancamentos(filtro: FiltroLancamento) {
+// Busca por nome de fornecedor/pessoa (30/09/2026, achado ao vivo pela
+// Telma: "não consigo pesquisar a despesa pela descrição ou nome do
+// fornecedor"). O campo "Buscar Descrição" só filtrava a coluna
+// `descricao` — mas `nomeExtrato()` (mais abaixo) prioriza o nome do
+// FORNECEDOR/PESSOA vinculado sobre a descrição pra mostrar na tela
+// (é o que a tesouraria lê e busca), e boa parte dos lançamentos
+// importados do Omie tem `descricao` nula justamente porque o nome já
+// vem do fornecedor/pessoa casado — buscar só na coluna errada nunca
+// achava esses. `fornecedor_id`/`pessoa_id` não têm o nome, só o id;
+// resolve pelo nome nas duas tabelas primeiro, depois usa os ids no
+// `.or()` da consulta principal.
+async function idsPorNomeFornecedorOuPessoa(busca: string): Promise<{ fornecedorIds: string[]; pessoaIds: string[] }> {
+  const [forn, pes] = await Promise.all([
+    supabase.from("fin_fornecedores").select("id").ilike("nome", `%${busca}%`).limit(50),
+    supabase.from("membros").select("id").ilike("nome_completo", `%${busca}%`).limit(50),
+  ]);
+  return {
+    fornecedorIds: (forn.data ?? []).map((r: any) => r.id as string),
+    pessoaIds: (pes.data ?? []).map((r: any) => r.id as string),
+  };
+}
+
+// Não é `async`: o builder do supabase-js é "thenable" (tem `.then()`), e
+// uma função `async` que devolve um thenable faz o `await` de quem chama
+// desembrulhar ele por baixo dos panos — a query rodaria sem `.limit()`/
+// `.range()` nenhum aplicado ainda, do jeito errado. Por isso os ids de
+// fornecedor/pessoa da busca são resolvidos ANTES, pelas duas funções
+// abaixo (únicas que chamam esta), e chegam prontos em `buscaIds`.
+function construirQueryLancamentos(filtro: FiltroLancamento, buscaIds?: { fornecedorIds: string[]; pessoaIds: string[] }) {
   let q = supabase.from("fin_lancamentos").select("*")
     .order("data", { ascending: false })
     .order("created_at", { ascending: false })
@@ -753,12 +781,18 @@ function construirQueryLancamentos(filtro: FiltroLancamento) {
   if (filtro.fornecedorId) q = q.eq("fornecedor_id", filtro.fornecedorId);
   if (filtro.dataInicio) q = q.gte("data", filtro.dataInicio);
   if (filtro.dataFim) q = q.lte("data", filtro.dataFim);
-  if (filtro.busca && filtro.busca.length >= 2) q = q.ilike("descricao", `%${filtro.busca}%`);
+  if (filtro.busca && filtro.busca.length >= 2) {
+    const condicoes = [`descricao.ilike.%${filtro.busca}%`];
+    if (buscaIds?.fornecedorIds.length) condicoes.push(`fornecedor_id.in.(${buscaIds.fornecedorIds.join(",")})`);
+    if (buscaIds?.pessoaIds.length) condicoes.push(`pessoa_id.in.(${buscaIds.pessoaIds.join(",")})`);
+    q = q.or(condicoes.join(","));
+  }
   return q;
 }
 
 export async function listarLancamentos(filtro: FiltroLancamento = {}): Promise<FinLancamentoExtenso[]> {
-  const { data, error } = await construirQueryLancamentos(filtro).limit(300);
+  const buscaIds = filtro.busca && filtro.busca.length >= 2 ? await idsPorNomeFornecedorOuPessoa(filtro.busca) : undefined;
+  const { data, error } = await construirQueryLancamentos(filtro, buscaIds).limit(300);
   if (error) throw error;
   return enriquecerLancamentos((data ?? []) as unknown as FinLancamento[]);
 }
@@ -775,11 +809,12 @@ export async function listarLancamentos(filtro: FiltroLancamento = {}): Promise<
 // — chegou o dia. `listarLancamentos` (o teto de 300) continua existindo
 // pras telas leves (extrato, listas) que só mostram uma página por vez.
 export async function listarLancamentosSemTeto(filtro: FiltroLancamento = {}): Promise<FinLancamentoExtenso[]> {
+  const buscaIds = filtro.busca && filtro.busca.length >= 2 ? await idsPorNomeFornecedorOuPessoa(filtro.busca) : undefined;
   const TAMANHO_PAGINA = 1000;
   const brutos: FinLancamento[] = [];
   for (let pagina = 0; ; pagina++) {
     const inicio = pagina * TAMANHO_PAGINA;
-    const { data, error } = await construirQueryLancamentos(filtro).range(inicio, inicio + TAMANHO_PAGINA - 1);
+    const { data, error } = await construirQueryLancamentos(filtro, buscaIds).range(inicio, inicio + TAMANHO_PAGINA - 1);
     if (error) throw error;
     const bloco = (data ?? []) as unknown as FinLancamento[];
     brutos.push(...bloco);
