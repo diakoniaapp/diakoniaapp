@@ -41,14 +41,14 @@ import { CampoData } from "@/components/CampoData";
 import {
   ArrowLeft, MessageSquare, MessageSquarePlus,
   ScrollText, Lock, LockOpen, ShieldCheck, Loader2, Printer, Download, Wallet, RefreshCw,
-  CheckCircle2, AlertTriangle, Eye,
+  AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import logoDiakonia from "@/assets/logo-diakonia.png";
 import { brl, downloadCSV, listarContas, type FinConta } from "@/services/finService";
 import {
   gerarPrestacaoContas, gerarCSVPrestacaoContas,
-  MOTIVO_EXCLUSAO_LABEL, MOTIVO_EXCLUSAO_EXPLICACAO, MOTIVOS_NORMAIS,
+  MOTIVOS_NORMAIS,
   type PrestacaoContasResultado, type PrestacaoContasGrupo, type PrestacaoContasLinha,
   type MotivoExclusao,
 } from "@/services/prestacaoContasService";
@@ -120,9 +120,6 @@ export default function FinancasPrestacaoContas() {
   const [nota, setNota] = useState<{
     aberto: boolean; titulo: string; categoriaId: string; centroCustoId: string | null;
   }>({ aberto: false, titulo: "", categoriaId: "", centroCustoId: null });
-  // Revisão do rodapé de excluídos (29/09/2026) — ver o comentário grande
-  // em `prestacaoContasService.ts` sobre `MotivoExclusao`.
-  const [excluidosOpen, setExcluidosOpen] = useState(false);
 
   async function carregar() {
     setLoading(true);
@@ -507,47 +504,32 @@ export default function FinancasPrestacaoContas() {
           </table>
         </section>
 
-        {dados.excluidos.itens.length > 0 && (() => {
-          const motivos = (Object.keys(dados.excluidos.porMotivo) as MotivoExclusao[])
-            .filter(m => dados.excluidos.porMotivo[m].qtd > 0);
+        {/* Revisado a pedido dela (30/09/2026): o detalhamento por motivo
+            (cartões + tabela) confundia mais do que ajudava — "mostre
+            apenas o que de fato é importante". Uma linha só, e só quando
+            há algo que PRECISA de ação: transferência não entra aqui (não
+            é problema — ver `MOTIVOS_NORMAIS`), os outros 4 motivos somam
+            num número só. O cálculo detalhado por motivo continua em
+            `gerarPrestacaoContas` (`dados.excluidos.porMotivo`/`.itens`),
+            só não é mais exibido nesta tela — fica disponível se um dia
+            fizer falta uma auditoria mais fina, noutro lugar. */}
+        {(() => {
+          const precisaRevisao = (Object.keys(dados.excluidos.porMotivo) as MotivoExclusao[])
+            .filter(m => !MOTIVOS_NORMAIS.includes(m))
+            .reduce((acc, m) => {
+              const g = dados.excluidos.porMotivo[m];
+              return { qtd: acc.qtd + g.qtd, valor: acc.valor + g.valor };
+            }, { qtd: 0, valor: 0 });
+          if (precisaRevisao.qtd === 0) return null;
           return (
-            <section className="avoid-break mb-6 space-y-2">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                Lançamentos excluídos da demonstração
-              </p>
-              {/* Cada motivo tem cartão próprio, sem misturar "normal" com
-                  "precisa de ação" — pedido dela: transferência não é
-                  problema, sem categoria é. Cor e ícone carregam essa
-                  distinção antes mesmo de ler o texto. */}
-              <div className="grid sm:grid-cols-2 gap-2 print:grid-cols-2">
-                {motivos.map(m => {
-                  const grupo = dados.excluidos.porMotivo[m];
-                  const normal = MOTIVOS_NORMAIS.includes(m);
-                  return (
-                    <div key={m} className={`rounded-md border px-3 py-2 text-xs ${
-                      normal ? "border-success-line bg-success-soft/30" : "border-warning-line bg-warning-soft/30"
-                    }`}>
-                      <p className={`flex items-center gap-1.5 font-medium ${normal ? "text-success-text" : "text-warning-text"}`}>
-                        {normal
-                          ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                          : <AlertTriangle className="w-3.5 h-3.5 shrink-0" />}
-                        {MOTIVO_EXCLUSAO_LABEL[m]}
-                      </p>
-                      <p className="text-muted-foreground mt-0.5 tabular-nums">
-                        {grupo.qtd} lançamento{grupo.qtd !== 1 ? "s" : ""} · {brl(grupo.valor)}
-                      </p>
-                      <p className="text-muted-foreground/80 mt-0.5">
-                        {MOTIVO_EXCLUSAO_EXPLICACAO[m]}
-                      </p>
-                    </div>
-                  );
-                })}
-              </div>
-              <Button type="button" variant="outline" size="sm" onClick={() => setExcluidosOpen(true)}
-                className="print:hidden gap-1.5">
-                <Eye className="w-3.5 h-3.5" /> Ver lançamentos excluídos
-              </Button>
-            </section>
+            <p className="avoid-break flex items-start gap-1.5 text-xs text-warning-text mb-6">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+              <span>
+                {precisaRevisao.qtd} lançamento{precisaRevisao.qtd !== 1 ? "s" : ""} do período
+                ({brl(precisaRevisao.valor)}) precisa{precisaRevisao.qtd !== 1 ? "m" : ""} de categorização —
+                sem categoria, categoria inválida, fora do Plano de Contas Oficial, ou incompatível com o tipo.
+              </span>
+            </p>
           );
         })()}
 
@@ -635,59 +617,6 @@ export default function FinancasPrestacaoContas() {
         </DialogContent>
       </Dialog>
 
-      {/* "Ver lançamentos excluídos" (29/09/2026) — Data/Conta/Favorecido/
-          Valor/Motivo, como ela pediu. `<table>`, não `<ul>`: é lista pra
-          conferir linha a linha, não painel de agir (CLAUDE.md §6.5). */}
-      <Dialog open={excluidosOpen} onOpenChange={setExcluidosOpen}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Lançamentos excluídos da demonstração</DialogTitle>
-            <DialogDescription>
-              {dados.excluidos.itens.length} lançamento{dados.excluidos.itens.length !== 1 ? "s" : ""} do
-              período, pelo motivo que cada um ficou de fora.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="max-h-[60vh] overflow-y-auto -mx-1 px-1">
-            <table className="w-full text-xs">
-              <thead className="sticky top-0 bg-background">
-                <tr className="text-left text-muted-foreground uppercase tracking-wide">
-                  <th className="py-1.5 pr-2">Data</th>
-                  <th className="py-1.5 pr-2">Conta</th>
-                  <th className="py-1.5 pr-2">Favorecido</th>
-                  <th className="py-1.5 pr-2 text-right">Valor</th>
-                  <th className="py-1.5 pr-2">Motivo</th>
-                </tr>
-              </thead>
-              <tbody>
-                {dados.excluidos.itens.map(item => {
-                  const normal = MOTIVOS_NORMAIS.includes(item.motivo);
-                  return (
-                    <tr key={item.id} className="border-t">
-                      <td className="py-1.5 pr-2 whitespace-nowrap">
-                        {parseLocalDate(item.data).toLocaleDateString("pt-BR")}
-                      </td>
-                      <td className="py-1.5 pr-2">{item.contaNome}</td>
-                      <td className="py-1.5 pr-2 max-w-[200px] truncate">{item.favorecido}</td>
-                      <td className={`py-1.5 pr-2 text-right tabular-nums whitespace-nowrap ${
-                        item.tipo === "entrada" ? "text-success-text" : "text-destructive-text"
-                      }`}>
-                        {item.tipo === "entrada" ? "+" : "−"} {brl(item.valor)}
-                      </td>
-                      <td className="py-1.5 pr-2">
-                        <Badge variant="outline" className={`text-2xs font-normal ${
-                          normal ? "border-success-line text-success-text" : "border-warning-line text-warning-text"
-                        }`}>
-                          {MOTIVO_EXCLUSAO_LABEL[item.motivo]}
-                        </Badge>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
