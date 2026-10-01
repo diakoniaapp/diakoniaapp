@@ -47,8 +47,16 @@ export async function buscarSaldoConsolidado(): Promise<SaldoConsolidado> {
   return data as unknown as SaldoConsolidado;
 }
 
-export async function buscarFluxo12m(): Promise<FluxoCaixaMes[]> {
-  const { data, error } = await supabase.rpc("fin_exec_fluxo_12m");
+// Período personalizado (01/10/2026, pedido dela) — sem `periodo`, chama
+// a RPC sem argumento e mantém o comportamento de sempre (últimos 12
+// meses terminando no mês atual). Com `periodo`, a RPC itera mês a mês
+// do início ao fim do intervalo escolhido — qualquer tamanho, não só 12
+// (ver migration `fin_exec_fluxo_periodo_personalizado`).
+export async function buscarFluxo12m(periodo?: { de: string; ate: string }): Promise<FluxoCaixaMes[]> {
+  const { data, error } = await supabase.rpc(
+    "fin_exec_fluxo_12m",
+    periodo ? { p_de: periodo.de, p_ate: periodo.ate } : undefined,
+  );
   if (error) throw error;
   return (data ?? []).map((r: any) => ({
     mes: r.mes,

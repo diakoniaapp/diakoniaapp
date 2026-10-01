@@ -18,6 +18,8 @@ import {
   type SaldoConsolidado, type FluxoCaixaMes, type CentroCustoAno,
   type IndicadorEclesiastico, type AlertaExecutivo,
 } from "@/services/dashboardExecutivoService";
+import { CampoData } from "@/components/CampoData";
+import { toYmd, parseLocalDate, daquiAMeses, hojeLocal } from "@/lib/data";
 
 const fmtBR = (n: number | null | undefined) =>
   n == null ? "—" : Number(n).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -38,6 +40,24 @@ export default function DashboardExecutivo() {
   const [alertas, setAlertas] = useState<AlertaExecutivo[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Período personalizado do Fluxo de Caixa (01/10/2026, pedido dela) —
+  // só este card, por ora (Top 5 Centros e Indicadores continuam "ano
+  // atual"/"mês atual", de propósito — são naturalmente anuais, encaixar
+  // no mesmo filtro de dia a dia mudaria o que eles significam; ver
+  // conversa). Default reproduz o que a tela sempre mostrou — últimos 12
+  // meses terminando hoje — pra abrir exatamente igual a antes.
+  const [periodoDe, setPeriodoDe] = useState(() => {
+    const d = new Date();
+    return toYmd(new Date(d.getFullYear(), d.getMonth() - 11, 1));
+  });
+  const [periodoAte, setPeriodoAte] = useState(() => hojeLocal());
+  const [fluxoLoading, setFluxoLoading] = useState(true);
+  const periodoPadrao = useMemo(() => {
+    const d = new Date();
+    return { de: toYmd(new Date(d.getFullYear(), d.getMonth() - 11, 1)), ate: hojeLocal() };
+  }, []);
+  const usandoPeriodoPadrao = periodoDe === periodoPadrao.de && periodoAte === periodoPadrao.ate;
+
   // ── Cinco fontes, cinco falhas possíveis, uma só não trava as outras ──────
   //
   // Era `Promise.all`: um erro em QUALQUER uma das cinco rejeitava o
@@ -54,19 +74,27 @@ export default function DashboardExecutivo() {
   useEffect(() => {
     Promise.allSettled([
       buscarSaldoConsolidado(),
-      buscarFluxo12m(),
       buscarCentrosAno(),
       buscarIndicadoresEclesiasticos(),
       buscarAlertasExecutivos(),
-    ]).then(([s, f, c, i, a]) => {
+    ]).then(([s, c, i, a]) => {
       if (s.status === "fulfilled") setSaldo(s.value); else avisarFalha("o saldo consolidado", s.reason);
-      if (f.status === "fulfilled") setFluxo(f.value); else avisarFalha("o fluxo de caixa", f.reason);
       if (c.status === "fulfilled") setCentros(c.value); else avisarFalha("os centros de custo", c.reason);
       if (i.status === "fulfilled") setIndicadores(i.value); else avisarFalha("os indicadores eclesiásticos", i.reason);
       if (a.status === "fulfilled") setAlertas(a.value); else avisarFalha("os alertas executivos", a.reason);
       setLoading(false);
     });
   }, []);
+
+  // Fluxo de caixa — carregamento à parte, reativo ao período escolhido
+  // (os outros 4 cards carregam uma vez só, no efeito acima).
+  useEffect(() => {
+    setFluxoLoading(true);
+    buscarFluxo12m({ de: periodoDe, ate: periodoAte })
+      .then(setFluxo)
+      .catch((e) => avisarFalha("o fluxo de caixa", e))
+      .finally(() => setFluxoLoading(false));
+  }, [periodoDe, periodoAte]);
 
   // ── Orçamento × Realizado, consolidado ────────────────────────────────
   //
@@ -230,12 +258,35 @@ export default function DashboardExecutivo() {
         </CardContent>
       </Card>
 
-      {/* ZONA 2 — FLUXO DE CAIXA 12 MESES */}
+      {/* ZONA 2 — FLUXO DE CAIXA, PERÍODO PERSONALIZADO (01/10/2026) */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-gold" /> Fluxo de caixa — últimos 12 meses
-          </CardTitle>
+        <CardHeader className="flex flex-row items-start justify-between gap-3 flex-wrap space-y-0">
+          <div>
+            <CardTitle className="text-base flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-gold" /> Fluxo de caixa
+            </CardTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {usandoPeriodoPadrao
+                ? "Últimos 12 meses"
+                : fluxo.length > 0
+                  ? `${fluxo[0].rotulo} a ${fluxo[fluxo.length - 1].rotulo}`
+                  : "Período selecionado"}
+            </p>
+          </div>
+          {/* Só este card tem filtro de período — Top 5 Centros e
+              Indicadores continuam "ano atual"/"mês atual" (ver comentário
+              nos states acima). */}
+          <div className="flex items-end gap-1.5 print:hidden">
+            <div>
+              <label className="text-[10px] uppercase tracking-wide text-muted-foreground">De</label>
+              <CampoData value={periodoDe} onChange={setPeriodoDe} className="h-7 w-[118px] text-xs" />
+            </div>
+            <div>
+              <label className="text-[10px] uppercase tracking-wide text-muted-foreground">Até</label>
+              <CampoData value={periodoAte} onChange={setPeriodoAte} className="h-7 w-[118px] text-xs" />
+            </div>
+            {fluxoLoading && <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground mb-1.5" />}
+          </div>
         </CardHeader>
         <CardContent className="h-72">
           {fluxo.length === 0 ? (
@@ -246,7 +297,12 @@ export default function DashboardExecutivo() {
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={fluxo} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" />
-                <XAxis dataKey="rotulo" tick={{ fontSize: 10 }} />
+                {/* Período > 24 meses: densidade cheia de rótulo vira
+                    faixa ilegível de texto — `interval` do Recharts pula
+                    N ticks entre um rótulo mostrado e o próximo; 2 mostra
+                    1 a cada 3 (trimestral), pedido dela ("Jan/23, Abr/23,
+                    Jul/23..."). Até 24 meses, mostra todo mundo. */}
+                <XAxis dataKey="rotulo" tick={{ fontSize: 10 }} interval={fluxo.length > 24 ? 2 : 0} />
                 <YAxis tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 10 }} />
                 <Tooltip
                   formatter={(v: number) => fmtBR(v)}

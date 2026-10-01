@@ -13358,8 +13358,10 @@ export type Database = {
           realizado: number
         }[]
       }
+      // Entrada manual (20261001101000_fin_exec_fluxo_periodo_personalizado.sql)
+      // — regeneração de types.ts a partir do banco a descarta.
       fin_exec_fluxo_12m: {
-        Args: never
+        Args: { p_ate?: string; p_de?: string }
         Returns: {
           entradas: number
           mes: string
