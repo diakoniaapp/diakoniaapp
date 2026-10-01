@@ -351,7 +351,8 @@ export default function FinancasPrestacaoContas() {
               <CampoData
                 value={toYmd(new Date(ano, mes - 1, 1))}
                 onChange={(iso) => mudarInicio(parseLocalDate(iso))}
-                className="w-[148px]"
+                className="w-[150px]"
+                inputClassName="text-sm"
               />
             </div>
 
@@ -362,7 +363,8 @@ export default function FinancasPrestacaoContas() {
               <CampoData
                 value={toYmd(new Date(anoFim, mesFim, 0))}
                 onChange={(iso) => mudarFim(parseLocalDate(iso))}
-                className="w-[148px]"
+                className="w-[150px]"
+                inputClassName="text-sm"
               />
             </div>
 
