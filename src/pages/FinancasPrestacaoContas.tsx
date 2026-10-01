@@ -57,6 +57,7 @@ import {
   type FinFechamentoPeriodo,
 } from "@/services/fechamentoPeriodoService";
 import { NotaRelatorioModal } from "@/components/financas/NotaRelatorioModal";
+import { PendenciasCategorizacaoDrawer } from "@/components/financas/PendenciasCategorizacaoDrawer";
 import { PaginaSkeleton } from "@/components/ListState";
 import { hojeLocal, daquiAMeses, toYmd, parseLocalDate } from "@/lib/data";
 import { useAuth } from "@/hooks/useAuth";
@@ -120,6 +121,8 @@ export default function FinancasPrestacaoContas() {
   const [nota, setNota] = useState<{
     aberto: boolean; titulo: string; categoriaId: string; centroCustoId: string | null;
   }>({ aberto: false, titulo: "", categoriaId: "", centroCustoId: null });
+  // Central de Pendências (01/10/2026) — o aviso de rodapé vira clicável.
+  const [pendenciasAberto, setPendenciasAberto] = useState(false);
 
   async function carregar() {
     setLoading(true);
@@ -246,6 +249,7 @@ export default function FinancasPrestacaoContas() {
   if (loading) return <PaginaSkeleton />;
   if (!dados) return <div className="p-8 text-center text-muted-foreground">Não foi possível carregar.</div>;
 
+  const itensPendentes = dados.excluidos.itens.filter(i => !MOTIVOS_NORMAIS.includes(i.motivo));
   const primeiro = dados.meses[0];
   const ultimo = dados.meses[dados.meses.length - 1];
   const rotuloPeriodo = qtdMeses === 1
@@ -509,27 +513,27 @@ export default function FinancasPrestacaoContas() {
             apenas o que de fato é importante". Uma linha só, e só quando
             há algo que PRECISA de ação: transferência não entra aqui (não
             é problema — ver `MOTIVOS_NORMAIS`), os outros 4 motivos somam
-            num número só. O cálculo detalhado por motivo continua em
-            `gerarPrestacaoContas` (`dados.excluidos.porMotivo`/`.itens`),
-            só não é mais exibido nesta tela — fica disponível se um dia
-            fizer falta uma auditoria mais fina, noutro lugar. */}
+            num número só.
+            Revisado de novo em 01/10/2026 — virou um BOTÃO: a lista
+            detalhada (`dados.excluidos.itens`) já existia calculada, só
+            não tinha pra onde ir. Clicar abre a Central de Pendências
+            (`PendenciasCategorizacaoDrawer`), que deixa editar um por um
+            ou corrigir vários de uma vez — ver o cabeçalho do componente
+            pro que ficou de fora desta primeira versão. */}
         {(() => {
-          const precisaRevisao = (Object.keys(dados.excluidos.porMotivo) as MotivoExclusao[])
-            .filter(m => !MOTIVOS_NORMAIS.includes(m))
-            .reduce((acc, m) => {
-              const g = dados.excluidos.porMotivo[m];
-              return { qtd: acc.qtd + g.qtd, valor: acc.valor + g.valor };
-            }, { qtd: 0, valor: 0 });
-          if (precisaRevisao.qtd === 0) return null;
+          if (itensPendentes.length === 0) return null;
+          const valorPendente = itensPendentes.reduce((s, i) => s + i.valor, 0);
           return (
-            <p className="avoid-break flex items-start gap-1.5 text-xs text-warning-text mb-6">
+            <button type="button" onClick={() => setPendenciasAberto(true)}
+              className="avoid-break no-print w-full flex items-start gap-1.5 text-xs text-warning-text mb-6 text-left hover:underline decoration-dotted underline-offset-2">
               <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
               <span>
-                {precisaRevisao.qtd} lançamento{precisaRevisao.qtd !== 1 ? "s" : ""} do período
-                ({brl(precisaRevisao.valor)}) precisa{precisaRevisao.qtd !== 1 ? "m" : ""} de categorização —
+                {itensPendentes.length} lançamento{itensPendentes.length !== 1 ? "s" : ""} do período
+                ({brl(valorPendente)}) precisa{itensPendentes.length !== 1 ? "m" : ""} de categorização —
                 sem categoria, categoria inválida, fora do Plano de Contas Oficial, ou incompatível com o tipo.
+                Clique para corrigir.
               </span>
-            </p>
+            </button>
           );
         })()}
 
@@ -568,6 +572,13 @@ export default function FinancasPrestacaoContas() {
         categoriaId={nota.categoriaId}
         centroCustoId={nota.centroCustoId}
         onSalvo={carregar}
+      />
+
+      <PendenciasCategorizacaoDrawer
+        open={pendenciasAberto}
+        onOpenChange={setPendenciasAberto}
+        itens={itensPendentes}
+        onChange={carregar}
       />
 
       <AlertDialog open={confirmandoFechar} onOpenChange={(v) => !processando && setConfirmandoFechar(v)}>

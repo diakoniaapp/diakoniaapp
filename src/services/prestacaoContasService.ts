@@ -124,6 +124,16 @@ export interface LancamentoExcluido {
   valor: number;
   tipo: "entrada" | "saida";
   motivo: MotivoExclusao;
+  // Centro de Pendências (01/10/2026, pedido dela) — categoria/centro
+  // ATUAIS do lançamento (podem ser nulos, ou apontar pra algo inválido —
+  // é exatamente isso que `motivo` está denunciando), e o lançamento
+  // inteiro, pra abrir direto no `LancamentoForm` sem precisar buscar de
+  // novo no banco. `gerarPrestacaoContas` já tem o objeto completo em
+  // mãos no momento em que classifica o motivo — reaproveitado, não
+  // refeito.
+  categoriaNome: string | null;
+  centroNome: string | null;
+  lancamento: FinLancamentoExtenso;
 }
 
 export interface GrupoExclusao { qtd: number; valor: number }
@@ -416,6 +426,8 @@ export async function gerarPrestacaoContas(ano: number, mesInicio: number, qtdMe
     itensExcluidos.push({
       id: l.id, data: l.data, contaNome: l.conta_nome ?? "—",
       favorecido: nomeExtrato(l).principal, valor, tipo: l.tipo, motivo,
+      categoriaNome: l.categoria_nome ?? null, centroNome: l.centro_nome ?? null,
+      lancamento: l,
     });
   }
 

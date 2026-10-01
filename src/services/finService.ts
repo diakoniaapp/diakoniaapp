@@ -1538,6 +1538,28 @@ export async function conciliarEmLote(ids: string[]): Promise<void> {
   if (!r.ok) throw new Error(r.erro);
 }
 
+// Central de Pendências de Categorização (01/10/2026, Fase 1 do pedido
+// dela) — corrigir em lote os lançamentos que a Prestação de Contas
+// aponta como "precisam de categorização" (sem categoria, categoria
+// desativada, fora do Plano Oficial, ou incompatível com o tipo). Mesmo
+// padrão de `conciliarEmLote` acima: `.update().in()` direto, sem passar
+// por `atualizarLancamento` — então sem carimbo de auditoria, igual
+// `conciliarEmLote` já aceita pra operação em lote.
+export async function atualizarCategoriaCentroEmLote(
+  ids: string[], patch: { categoriaId?: string | null; centroCustoId?: string | null },
+): Promise<void> {
+  if (ids.length === 0) return;
+  if (patch.categoriaId === undefined && patch.centroCustoId === undefined) return;
+  const payload: Partial<FinLancamento> = {};
+  if (patch.categoriaId !== undefined) payload.categoria_id = patch.categoriaId;
+  if (patch.centroCustoId !== undefined) payload.centro_custo_id = patch.centroCustoId;
+  const r = conferir(
+    await supabase.from("fin_lancamentos").update(payload as any).in("id", ids).select("id"),
+    "A categorização em lote",
+  );
+  if (!r.ok) throw new Error(r.erro);
+}
+
 // ─── Aprovar/rejeitar — aguardando_aprovacao → realizado | cancelado ────
 //
 // O status `aguardando_aprovacao` existe desde sempre em `fin_lancamentos`
