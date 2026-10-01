@@ -771,7 +771,15 @@ function construirQueryLancamentos(filtro: FiltroLancamento, buscaIds?: { fornec
     .order("created_at", { ascending: false })
     .order("id", { ascending: false });
   if (filtro.contaId) q = q.eq("conta_id", filtro.contaId);
-  if (filtro.tipo) q = q.eq("tipo", filtro.tipo);
+  // Achado ao vivo pela Telma (01/10/2026): filtrar por "Saídas" trazia
+  // também a perna de saída de transferências entre contas próprias —
+  // mesmo já existindo um filtro "Transferências" dedicado
+  // (`apenasTransferencia`, mutuamente exclusivo na tela — ver comentário
+  // de `apenasTransferencia` acima). "Entradas"/"Saídas" agora excluem
+  // `origem = 'transferencia'`; quem quiser ver as duas pernas junto
+  // escolhe "Transferências". "Todos" continua sem filtro nenhum,
+  // mostrando tudo — não é o caso que ela pediu pra mudar.
+  if (filtro.tipo) q = q.eq("tipo", filtro.tipo).neq("origem", "transferencia");
   if (filtro.apenasTransferencia) q = q.eq("origem", "transferencia");
   if (filtro.status) q = q.eq("status", filtro.status);
   if (filtro.categoriaId) q = q.eq("categoria_id", filtro.categoriaId);
