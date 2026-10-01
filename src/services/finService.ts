@@ -493,6 +493,27 @@ export async function listarLancamentosCentroPeriodo(
   return enriquecerLancamentos((data ?? []) as unknown as FinLancamento[]);
 }
 
+// Lançamentos de saída de UMA Categoria, num período — "Indicador por
+// Categoria" do Dashboard Executivo (01/10/2026), espelha
+// `listarLancamentosCentroPeriodo` acima (mesmo motivo: volume pequeno por
+// categoria, uma busca só alimenta composição por centro/evolução/tops).
+// Sem hierarquia pra somar — diferente de centro de custo, nenhuma das 36
+// categorias ativas de saída usa `pai_id` (medido antes de escrever, ver
+// migration 20261001140000).
+export async function listarLancamentosCategoriaPeriodo(
+  categoriaId: string, de: string, ate: string,
+): Promise<FinLancamentoExtenso[]> {
+  const { data, error } = await supabase.from("fin_lancamentos").select("*")
+    .eq("categoria_id", categoriaId)
+    .eq("tipo", "saida")
+    .in("status", ["realizado", "conciliado"])
+    .neq("origem", "transferencia")
+    .gte("data", de).lte("data", ate)
+    .order("valor", { ascending: false });
+  if (error) throw error;
+  return enriquecerLancamentos((data ?? []) as unknown as FinLancamento[]);
+}
+
 // Inclui inativos — só pra tela de administração
 // (`FinancasAdmin.tsx`); `listarCentrosCusto()` continua só-ativos, é o
 // que os formulários de lançamento usam.

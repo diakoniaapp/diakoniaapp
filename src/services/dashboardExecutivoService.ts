@@ -92,6 +92,40 @@ export async function buscarResumoCentro(centroId: string, de: string, ate: stri
   };
 }
 
+export interface RankingCategoria {
+  categoriaId: string;
+  nome: string;
+  valor: number;
+  colocacao: number;
+}
+
+// "Indicador por Categoria" (01/10/2026) — mesmo desenho de
+// `buscarResumoCentro`, sem hierarquia (categoria não tem subcentro).
+export async function buscarResumoCategoria(categoriaId: string, de: string, ate: string): Promise<ResumoCentro> {
+  const { data, error } = await supabase.rpc("fin_categoria_resumo", {
+    p_categoria_id: categoriaId, p_de: de, p_ate: ate,
+  });
+  if (error) throw error;
+  const row = (data ?? [])[0] as any;
+  return {
+    executado: Number(row?.executado ?? 0),
+    periodoAnterior: Number(row?.periodo_anterior ?? 0),
+    totalClassificado: Number(row?.total_classificado ?? 0),
+  };
+}
+
+// Todas as categorias com gasto no período, ranqueadas — alimenta "Top 10
+// Categorias de Despesas" E a colocação da categoria escolhida no resumo
+// executivo, com uma busca só (ver comentário na migration).
+export async function buscarRankingCategorias(de: string, ate: string): Promise<RankingCategoria[]> {
+  const { data, error } = await supabase.rpc("fin_categorias_ranking", { p_de: de, p_ate: ate });
+  if (error) throw error;
+  return (data ?? []).map((r: any) => ({
+    categoriaId: r.categoria_id, nome: r.nome,
+    valor: Number(r.valor ?? 0), colocacao: Number(r.colocacao ?? 0),
+  }));
+}
+
 export async function buscarCentrosAno(): Promise<CentroCustoAno[]> {
   const { data, error } = await supabase.rpc("fin_exec_centros_ano");
   if (error) throw error;

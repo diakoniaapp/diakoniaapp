@@ -20,6 +20,7 @@ import {
 } from "@/services/dashboardExecutivoService";
 import { CampoData } from "@/components/CampoData";
 import { IndicadorCentroCusto } from "@/components/financas/IndicadorCentroCusto";
+import { IndicadorPorCategoria } from "@/components/financas/IndicadorPorCategoria";
 import { toYmd, parseLocalDate, daquiAMeses, hojeLocal } from "@/lib/data";
 
 const fmtBR = (n: number | null | undefined) =>
@@ -323,6 +324,10 @@ export default function DashboardExecutivo() {
 
       {/* ZONA 2B — INDICADOR POR CENTRO DE CUSTO (01/10/2026) */}
       <IndicadorCentroCusto periodoDe={periodoDe} periodoAte={periodoAte} periodoLabel={periodoLabel} />
+
+      {/* ZONA 2C — INDICADOR POR CATEGORIA (01/10/2026) — coexiste com o de
+          Centro de Custo: um responde ONDE, o outro COM O QUÊ. */}
+      <IndicadorPorCategoria periodoDe={periodoDe} periodoAte={periodoAte} periodoLabel={periodoLabel} />
 
       {/* ZONA 3 — INDICADORES + CENTROS DE CUSTO */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

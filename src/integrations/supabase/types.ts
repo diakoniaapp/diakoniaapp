@@ -13338,6 +13338,25 @@ export type Database = {
           total_classificado: number
         }[]
       }
+      // Entrada manual (20261001140000_fin_categoria_resumo_e_ranking.sql)
+      // — regeneração de types.ts a partir do banco a descarta.
+      fin_categoria_resumo: {
+        Args: { p_ate: string; p_categoria_id: string; p_de: string }
+        Returns: {
+          executado: number
+          periodo_anterior: number
+          total_classificado: number
+        }[]
+      }
+      fin_categorias_ranking: {
+        Args: { p_ate: string; p_de: string }
+        Returns: {
+          categoria_id: string
+          colocacao: number
+          nome: string
+          valor: number
+        }[]
+      }
       fin_comparativo_meses: {
         Args: { p_n?: number }
         Returns: {
