@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, lazy, Suspense } from "react";
+import { useState, useEffect, useLayoutEffect, useMemo, lazy, Suspense } from "react";
 import { hojeLocal } from "@/lib/data";
 import { paraNumero } from "@/lib/dinheiro";
 import {
@@ -270,7 +270,15 @@ export function LancamentoForm({
     })();
   }, [categoriaId, fornecedorId, open]);
 
-  useEffect(() => {
+  // `useLayoutEffect`, não `useEffect` (achado ao vivo pela Telma,
+  // 01/10/2026: "a data aparece diferente por alguns segundos e depois
+  // volta"). O Dialog fica montado o tempo todo — `open` só alterna
+  // visibilidade — então o estado (data, valor, conta...) de uma edição
+  // anterior (ou o default de `useState`) continua vivo até este efeito
+  // rodar. `useEffect` roda DEPOIS do navegador pintar a tela: o usuário
+  // via o valor antigo por um instante, só então a correção. `useLayoutEffect`
+  // roda antes da pintura — a correção vira invisível, sem o flash.
+  useLayoutEffect(() => {
     if (!open) return;
     if (lancamento) {
       setTipo(lancamento.tipo);
