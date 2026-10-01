@@ -279,11 +279,11 @@ export default function DashboardExecutivo() {
           <div className="flex items-end gap-1.5 print:hidden">
             <div>
               <label className="text-[10px] uppercase tracking-wide text-muted-foreground">De</label>
-              <CampoData value={periodoDe} onChange={setPeriodoDe} className="h-7 w-[118px] text-xs" />
+              <CampoData value={periodoDe} onChange={setPeriodoDe} className="h-8 w-[148px]" inputClassName="text-sm" />
             </div>
             <div>
               <label className="text-[10px] uppercase tracking-wide text-muted-foreground">Até</label>
-              <CampoData value={periodoAte} onChange={setPeriodoAte} className="h-7 w-[118px] text-xs" />
+              <CampoData value={periodoAte} onChange={setPeriodoAte} className="h-8 w-[148px]" inputClassName="text-sm" />
             </div>
             {fluxoLoading && <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground mb-1.5" />}
           </div>

@@ -44,6 +44,11 @@ interface Props {
   id?: string;
   disabled?: boolean;
   placeholder?: string;
+  /** O campo de texto é sempre `text-xs` por padrão — pra sobrescrever
+   *  (ex.: um filtro isolado, sem outros campos ao lado pra combinar o
+   *  tamanho) sem reabrir esse padrão pros outros ~50 usos do componente,
+   *  já que `className` só afeta o `<div>` por fora, não o `<input>`. */
+  inputClassName?: string;
   /** Só o campo de texto com máscara, sem o botão de calendário — pra
    *  encaixar digitação num lugar que já tem SEU PRÓPRIO calendário com
    *  comportamento especial (ex.: o filtro de coluna "Data" em
@@ -83,7 +88,7 @@ function paraDigitado(iso: string): string {
 
 export function CampoData({
   value, onChange, className, anoMin = 2000, anoMax = 2099, semCalendario,
-  id, disabled, placeholder = "dd/mm/aaaa",
+  id, disabled, placeholder = "dd/mm/aaaa", inputClassName,
 }: Props) {
   const [texto, setTexto] = useState(() => paraDigitado(value));
   const [focado, setFocado] = useState(false);
@@ -120,7 +125,7 @@ export function CampoData({
           (§6.2), aqui dentro de um componente novo. */}
       <Input id={id} value={texto} inputMode="numeric" placeholder={placeholder} disabled={disabled}
         onFocus={() => setFocado(true)} onBlur={aoSairDoFoco}
-        onChange={aoDigitar} className="h-8 text-xs min-w-0 flex-1" />
+        onChange={aoDigitar} className={cn("h-8 text-xs min-w-0 flex-1", inputClassName)} />
       {!semCalendario && (
         <Popover open={calAberto} onOpenChange={setCalAberto}>
           <PopoverTrigger asChild>
