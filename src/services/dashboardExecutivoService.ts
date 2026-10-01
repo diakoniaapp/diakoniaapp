@@ -67,6 +67,31 @@ export async function buscarFluxo12m(periodo?: { de: string; ate: string }): Pro
   }));
 }
 
+export interface ResumoCentro {
+  executado: number;
+  periodoAnterior: number;
+  totalClassificado: number;
+}
+
+// "Indicador por Centro de Custo" (01/10/2026) — o único número desse
+// bloco que precisa varrer `fin_lancamentos` inteira (pra comparar contra
+// TODOS os centros, não só o escolhido) fica no banco; o resto
+// (subcentro, evolução, Top Fornecedores/Despesas) vem de
+// `listarLancamentosCentroPeriodo` em `finService.ts`, já filtrado por
+// centro — ver comentário lá.
+export async function buscarResumoCentro(centroId: string, de: string, ate: string): Promise<ResumoCentro> {
+  const { data, error } = await supabase.rpc("fin_centro_resumo", {
+    p_centro_id: centroId, p_de: de, p_ate: ate,
+  });
+  if (error) throw error;
+  const row = (data ?? [])[0] as any;
+  return {
+    executado: Number(row?.executado ?? 0),
+    periodoAnterior: Number(row?.periodo_anterior ?? 0),
+    totalClassificado: Number(row?.total_classificado ?? 0),
+  };
+}
+
 export async function buscarCentrosAno(): Promise<CentroCustoAno[]> {
   const { data, error } = await supabase.rpc("fin_exec_centros_ano");
   if (error) throw error;

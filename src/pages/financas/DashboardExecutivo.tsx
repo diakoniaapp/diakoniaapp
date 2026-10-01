@@ -19,6 +19,7 @@ import {
   type IndicadorEclesiastico, type AlertaExecutivo,
 } from "@/services/dashboardExecutivoService";
 import { CampoData } from "@/components/CampoData";
+import { IndicadorCentroCusto } from "@/components/financas/IndicadorCentroCusto";
 import { toYmd, parseLocalDate, daquiAMeses, hojeLocal } from "@/lib/data";
 
 const fmtBR = (n: number | null | undefined) =>
@@ -57,6 +58,14 @@ export default function DashboardExecutivo() {
     return { de: toYmd(new Date(d.getFullYear(), d.getMonth() - 11, 1)), ate: hojeLocal() };
   }, []);
   const usandoPeriodoPadrao = periodoDe === periodoPadrao.de && periodoAte === periodoPadrao.ate;
+  // Rótulo do período compartilhado com o Indicador por Centro de Custo
+  // (01/10/2026) — os dois cards leem o MESMO período escolhido aqui, em
+  // vez do Indicador abrir um segundo seletor De/Até redundante.
+  const periodoLabel = usandoPeriodoPadrao
+    ? "Últimos 12 meses"
+    : fluxo.length > 0
+      ? `${fluxo[0].rotulo} a ${fluxo[fluxo.length - 1].rotulo}`
+      : "Período selecionado";
 
   // ── Cinco fontes, cinco falhas possíveis, uma só não trava as outras ──────
   //
@@ -265,13 +274,7 @@ export default function DashboardExecutivo() {
             <CardTitle className="text-base flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-gold" /> Fluxo de caixa
             </CardTitle>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {usandoPeriodoPadrao
-                ? "Últimos 12 meses"
-                : fluxo.length > 0
-                  ? `${fluxo[0].rotulo} a ${fluxo[fluxo.length - 1].rotulo}`
-                  : "Período selecionado"}
-            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">{periodoLabel}</p>
           </div>
           {/* Só este card tem filtro de período — Top 5 Centros e
               Indicadores continuam "ano atual"/"mês atual" (ver comentário
@@ -317,6 +320,9 @@ export default function DashboardExecutivo() {
           )}
         </CardContent>
       </Card>
+
+      {/* ZONA 2B — INDICADOR POR CENTRO DE CUSTO (01/10/2026) */}
+      <IndicadorCentroCusto periodoDe={periodoDe} periodoAte={periodoAte} periodoLabel={periodoLabel} />
 
       {/* ZONA 3 — INDICADORES + CENTROS DE CUSTO */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

@@ -13328,6 +13328,16 @@ export type Database = {
         }
         Returns: string
       }
+      // Entrada manual (20261001120000_fin_centro_resumo_periodo.sql) —
+      // regeneração de types.ts a partir do banco a descarta.
+      fin_centro_resumo: {
+        Args: { p_ate: string; p_centro_id: string; p_de: string }
+        Returns: {
+          executado: number
+          periodo_anterior: number
+          total_classificado: number
+        }[]
+      }
       fin_comparativo_meses: {
         Args: { p_n?: number }
         Returns: {

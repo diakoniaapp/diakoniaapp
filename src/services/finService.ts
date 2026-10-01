@@ -463,6 +463,36 @@ export function ordenarCentrosParaSeletor<
   return linhas;
 }
 
+// Lançamentos de saída de UM Centro de Custo (raiz) + seus subgrupos, num
+// período — "Indicador por Centro de Custo" do Dashboard Executivo
+// (01/10/2026). Não existe RPC pra isso: o volume por centro é pequeno
+// (centenas de linhas no máximo, mesmo em "histórico completo" — medido
+// antes de escrever: só 972 lançamentos no banco inteiro têm
+// `centro_custo_id`), então uma busca só, no cliente, basta pra alimentar
+// composição por subcentro, evolução mensal, Top Fornecedores e Top
+// Despesas de uma vez — sem 4 RPCs pra 4 agregações pequenas. O único
+// número que varre a tabela TODA (`total_classificado`, pra comparar
+// contra todos os centros) fica no banco — ver `fin_centro_resumo`
+// (migration 20261001120000).
+export async function listarLancamentosCentroPeriodo(
+  centroId: string, de: string, ate: string,
+): Promise<FinLancamentoExtenso[]> {
+  const { data: filhos, error: eFilhos } = await supabase
+    .from("fin_centros_custo").select("id").eq("centro_pai_id", centroId);
+  if (eFilhos) throw eFilhos;
+  const escopo = [centroId, ...(filhos ?? []).map((f: any) => f.id as string)];
+
+  const { data, error } = await supabase.from("fin_lancamentos").select("*")
+    .in("centro_custo_id", escopo)
+    .eq("tipo", "saida")
+    .in("status", ["realizado", "conciliado"])
+    .neq("origem", "transferencia")
+    .gte("data", de).lte("data", ate)
+    .order("valor", { ascending: false });
+  if (error) throw error;
+  return enriquecerLancamentos((data ?? []) as unknown as FinLancamento[]);
+}
+
 // Inclui inativos — só pra tela de administração
 // (`FinancasAdmin.tsx`); `listarCentrosCusto()` continua só-ativos, é o
 // que os formulários de lançamento usam.
