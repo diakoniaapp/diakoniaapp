@@ -10,16 +10,15 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import {
-  TrendingUp, TrendingDown, Camera, FileUp, X, Paperclip, Sparkles, Loader2,
+  TrendingUp, TrendingDown, Camera, Sparkles, Loader2,
   SplitSquareHorizontal, Plus, Trash2, Lock, Unlock,
 } from "lucide-react";
 import {
   listarContas, listarCategorias, listarCentrosCusto, listarFornecedores, listarProjetos,
-  criarLancamento, atualizarLancamento, uploadComprovante, removerComprovante,
+  criarLancamento, atualizarLancamento,
   buscarFornecedorPorCnpj, criarFornecedor, sugerirCentroPorCategoria, brl,
   listarRateio, salvarRateio, ordenarCentrosParaSeletor, buscarPessoasParaLancamento,
   FORMA_LABEL, STATUS_LABEL, formasPermitidas,
@@ -196,10 +195,6 @@ export function LancamentoForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contaAtual, tipo, open]);
 
-  // Comprovante
-  const [arquivo, setArquivo] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-
   // OCR
   const [ocrLoading, setOcrLoading] = useState(false);
   const [ocr, setOcr] = useState<OcrResultado | null>(null);
@@ -339,14 +334,12 @@ export function LancamentoForm({
       setRateando(false); setRateio([]);
       setNfItens([]); setNfFornecedorLido(null); setDescricaoTravada(false);
     }
-    setArquivo(null);
-    setPreviewUrl(null);
     setBoletoTexto(""); setBoletoErro(null); setBoletoOk(null);
     // Faltava zerar a leitura de OCR/PDF aqui — sem isso, ao editar um
     // lançamento diferente (ou passar pro próximo, na tela de importação),
     // a caixa "Lemos do texto do PDF" continuava mostrando o resultado do
     // ARQUIVO ANTERIOR, porque nenhum arquivo novo tinha sido escolhido
-    // ainda pra `escolheArquivo` (a única outra função que zera `ocr`)
+    // ainda pra `lerComprovante` (a única outra função que zera `ocr`)
     // rodar. Achado pela Telma (16/09/2026) com print mostrando dados de
     // uma nota da Supermercado Mundial na caixa, editando um lançamento
     // da Agata.
@@ -369,17 +362,15 @@ export function LancamentoForm({
     && rateio.every(r => r.centroCustoId && r.percentual > 0)
     && Math.abs(totalPercentualRateio - 100) < 0.01;
 
-  useEffect(() => {
-    if (!arquivo || !arquivo.type.startsWith("image/")) { setPreviewUrl(null); return; }
-    const u = URL.createObjectURL(arquivo);
-    setPreviewUrl(u);
-    return () => URL.revokeObjectURL(u);
-  }, [arquivo]);
-
-  async function escolheArquivo(file: File | null) {
+  // Lê o arquivo só pra OCR — não guarda, não vira `comprovante_url`. Anexar
+  // de verdade é outro botão, ao lado de editar/excluir de cada lançamento
+  // já salvo (pedido dela, 30/09/2026: "o anexo já existe ali, não precisa
+  // estar no formulário" — isso tirou o campo de comprovante daqui, e junto
+  // foi o único jeito de disparar o OCR; este botão compacto substitui os
+  // dois (Tirar foto/Escolher) só pra continuar lendo).
+  async function lerComprovante(file: File | null) {
     if (!file) return;
     if (file.size > FIN_COMPROVANTE_MAX) { toast.error("Arquivo > 5MB"); return; }
-    setArquivo(file);
     setOcr(null);
     setFornecedorOcrSugerido(null);
     setNfItens([]); setNfFornecedorLido(null); setDescricaoTravada(false);
@@ -495,13 +486,9 @@ export function LancamentoForm({
 
     setBusy(true);
     try {
-      let comprovantePath: string | null = lancamento?.comprovante_url ?? null;
-      if (arquivo) {
-        if (comprovantePath) await removerComprovante(comprovantePath);
-        // upload acontece depois de termos o ID; pra simplificar, usamos um ID temporário
-        const tempId = lancamento?.id ?? "tmp";
-        comprovantePath = await uploadComprovante(arquivo, tempId);
-      }
+      // Comprovante não se anexa mais por aqui (pedido dela, 30/09/2026) —
+      // uma edição preserva o que já estava, e um lançamento novo nasce sem.
+      const comprovantePath: string | null = lancamento?.comprovante_url ?? null;
 
       // Rateado: o centro de MAIOR percentual vira o "principal" do
       // lançamento — ver o comentário de `FinLancamentoRateio` em
@@ -1006,49 +993,14 @@ export function LancamentoForm({
             </div>
           )}
 
-          {/* Comprovante */}
-          <div className="space-y-2">
-            <Label>📎 Comprovante (opcional)</Label>
-            {!arquivo ? (
-              <div className="grid grid-cols-2 gap-2">
-                <label className="cursor-pointer">
-                  <input type="file" accept="image/*" capture="environment"
-                    className="hidden" onChange={(e) => escolheArquivo(e.target.files?.[0] ?? null)} />
-                  <div className="flex flex-col items-center gap-1 border-2 border-dashed rounded-md p-3 hover:border-gold/40 hover:bg-muted/30">
-                    <Camera className="w-5 h-5 text-muted-foreground" />
-                    <span className="text-xs font-medium">Tirar foto</span>
-                  </div>
-                </label>
-                <label className="cursor-pointer">
-                  <input type="file" accept="image/jpeg,image/png,image/jpg,application/pdf"
-                    className="hidden" onChange={(e) => escolheArquivo(e.target.files?.[0] ?? null)} />
-                  <div className="flex flex-col items-center gap-1 border-2 border-dashed rounded-md p-3 hover:border-gold/40 hover:bg-muted/30">
-                    <FileUp className="w-5 h-5 text-muted-foreground" />
-                    <span className="text-xs font-medium">Escolher</span>
-                  </div>
-                </label>
-              </div>
-            ) : (
-              <div className="border rounded-md p-2 flex items-center gap-3 bg-muted/30">
-                {previewUrl ? (
-                  <img src={previewUrl} alt="" className="w-12 h-12 object-cover rounded" />
-                ) : (
-                  <div className="w-12 h-12 flex items-center justify-center bg-muted rounded">
-                    <Paperclip className="w-4 h-4" />
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium truncate">{arquivo.name}</p>
-                  <p className="text-xs text-muted-foreground">{(arquivo.size / 1024).toFixed(0)} KB</p>
-                </div>
-                <Button type="button" variant="ghost" size="icon"
-                  className="h-8 w-8 text-destructive" onClick={() => setArquivo(null)}>
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
-            )}
-            <p className="text-xs text-muted-foreground">JPG, PNG ou PDF — máx 5 MB</p>
-          </div>
+          {/* Leitura automática (OCR) — compacta, só dispara a leitura.
+              Não anexa nada: anexar é o botão ao lado de editar/excluir de
+              cada lançamento já salvo (pedido dela, 30/09/2026). */}
+          <label className="inline-flex items-center gap-1.5 text-xs text-info-text hover:underline cursor-pointer w-fit">
+            <input type="file" accept="image/jpeg,image/png,image/jpg,application/pdf"
+              className="hidden" onChange={(e) => lerComprovante(e.target.files?.[0] ?? null)} />
+            <Sparkles className="w-3.5 h-3.5" /> Ler nota/comprovante (preenche automaticamente)
+          </label>
 
           {/* Resultado do OCR */}
           {(ocrLoading || ocr) && (
@@ -1111,11 +1063,6 @@ export function LancamentoForm({
               )}
             </div>
           )}
-
-          <div>
-            <Label>Observações</Label>
-            <Textarea rows={2} value={observacoes} onChange={(e) => setObservacoes(e.target.value)} />
-          </div>
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
