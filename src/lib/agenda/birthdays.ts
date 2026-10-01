@@ -77,6 +77,24 @@ export function aniversariosNoIntervalo(
   const start = new Date(from.getFullYear(), from.getMonth(), from.getDate());
   const end = new Date(to.getFullYear(), to.getMonth(), to.getDate());
 
+  // Casal junto numa linha só (pedido da Telma, 30/09/2026, vendo "Elizabeth
+  // Batista" e "Alexandre Lourenço Silva" — o mesmo casamento — aparecerem
+  // como dois itens separados). `membros_detalhes.conjuge_nome` existiria
+  // pra isso, mas medido em produção: vazio em todo mundo, ninguém preenche.
+  // Casar pela MESMA `data_casamento` funciona sem precisar dele — medido
+  // também: toda data de casamento compartilhada por duas pessoas na tabela
+  // é exatamente um casal (nenhum trio, nenhuma coincidência entre gente
+  // sem relação, só pares). Agrupa ANTES do loop de dias — uma pessoa sem
+  // par (cônjuge não é membro/congregado, ou sem a data cadastrada) continua
+  // aparecendo sozinha, do jeito que já era.
+  const porDataCasamento = new Map<string, PessoaAniv[]>();
+  for (const p of elegiveis) {
+    if (!p.data_casamento) continue;
+    const lista = porDataCasamento.get(p.data_casamento) ?? [];
+    lista.push(p);
+    porDataCasamento.set(p.data_casamento, lista);
+  }
+
   for (
     let d = new Date(start);
     d.getTime() <= end.getTime();
@@ -116,23 +134,25 @@ export function aniversariosNoIntervalo(
           );
         }
       }
-      // Casamento
-      if (p.data_casamento) {
-        const [yy, mm, dd] = p.data_casamento.split("-").map(Number);
-        if (mm === month && dd === day) {
-          const anos = d.getFullYear() - yy;
-          out.push(
-            buildVirtual({
-              id: `cas-${p.id}-${dataStr}`,
-              titulo: `💍 ${p.nome_completo}`,
-              data: dataStr,
-              descricao: `Aniversário de casamento${anos > 0 ? ` · ${anos} anos` : ""}`,
-              categoria: "casamento",
-              color: CASAMENTO_COLOR,
-            }),
-          );
-        }
-      }
+    }
+
+    // ── Casamento — um evento por CASAL, não por pessoa ──────────────────
+    for (const [dataCasamento, casal] of porDataCasamento) {
+      const [yy, mm, dd] = dataCasamento.split("-").map(Number);
+      if (mm !== month || dd !== day) continue;
+      const anos = d.getFullYear() - yy;
+      const nomes = casal.map((p) => p.nome_completo).join(" & ");
+      const idsOrdenados = casal.map((p) => p.id).sort().join("-");
+      out.push(
+        buildVirtual({
+          id: `cas-${idsOrdenados}-${dataStr}`,
+          titulo: `💍 ${nomes}`,
+          data: dataStr,
+          descricao: `Aniversário de casamento${anos > 0 ? ` · ${anos} anos` : ""}`,
+          categoria: "casamento",
+          color: CASAMENTO_COLOR,
+        }),
+      );
     }
   }
   return out;
