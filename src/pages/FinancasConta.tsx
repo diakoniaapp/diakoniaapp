@@ -52,6 +52,20 @@ function dataBr(s: string) {
   return new Date(s + "T00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
 }
 
+// Centro de custo e subcentro são o MESMO campo (`centro_custo_id`) — não
+// existe uma segunda coluna "subcentro" no banco (medido no Indicador por
+// Centro de Custo, 01/10/2026: um subcentro é só um `fin_centros_custo`
+// com `centro_pai_id` preenchido, e o `nome` dele já vem gravado como
+// "Pai · Filho", ex. "Administração · Pessoal"). Pra exibir como dois
+// badges separados (pedido dela), só precisa partir essa string — nenhum
+// dado novo.
+function centroESubcentro(nome: string | null | undefined): { centro: string; subcentro: string | null } | null {
+  if (!nome) return null;
+  const i = nome.indexOf(" · ");
+  if (i === -1) return { centro: nome, subcentro: null };
+  return { centro: nome.slice(0, i), subcentro: nome.slice(i + 3) };
+}
+
 const STATUS_COR: Record<FinStatus, string> = {
   realizado:  "text-foreground",
   conciliado: "text-success-text",
@@ -147,6 +161,18 @@ export default function FinancasConta() {
   const [filtroCentroCustoId, setFiltroCentroCustoId] = useState(() => searchParams.get("centro") ?? "");
   const [categorias, setCategorias] = useState<FinCategoria[]>([]);
   const [centros, setCentros] = useState<FinCentroCusto[]>([]);
+  // Modo Resumido/Analítico (01/10/2026, pedido dela: "reduzir largura
+  // horizontal, melhorar leitura rápida no celular"). Categoria e Centro
+  // de custo saíram de coluna própria pra virar badge dentro da célula
+  // Descrição (ver `renderLinha`) nos dois modos; Resumido ainda esconde
+  // Conta/Saldo e a 2ª linha de descrição, pra sobrar só o essencial pra
+  // escanear rápido. `sessionStorage` — lembra enquanto a aba fica
+  // aberta, não vira preferência permanente cravada sem ela escolher de
+  // novo depois.
+  const [modoResumido, setModoResumido] = useState(() => sessionStorage.getItem("diakonia-extrato-modo") === "resumido");
+  useEffect(() => {
+    sessionStorage.setItem("diakonia-extrato-modo", modoResumido ? "resumido" : "analitico");
+  }, [modoResumido]);
   // Valor (min/max) — pedido da Telma (22/09/2026: "o filtro é para todas
   // as colunas, exceto saldo"). Sem RPC nem coluna nova: filtra em
   // memória sobre o que `listarLancamentosSemTeto` já trouxe pro período
@@ -639,42 +665,56 @@ export default function FinancasConta() {
               descrição JÁ é o nome do fornecedor) — mesmo cuidado que
               suprimia a duplicata "SUPERMERCADO MUNDIAL LTDA" duas vezes
               seguidas (achado pela Telma, 16/09/2026), só que agora do
-              lado do favorecido, não da descrição. */}
-          {secundario && <p className="text-xs text-muted-foreground truncate">{secundario}</p>}
+              lado do favorecido, não da descrição. Some no Resumido —
+              pedido dela (01/10/2026): só o essencial pra escanear rápido. */}
+          {secundario && !modoResumido && <p className="text-xs text-muted-foreground truncate">{secundario}</p>}
+          {/* Categoria/Centro/Subcentro (01/10/2026) — saíram de coluna
+              própria pra virar badge AQUI, dentro de Descrição (pedido
+              dela: "reduzir quantidade de colunas... Fornecedor,
+              Categoria, Centro/Subcentro num único bloco visual"). Centro
+              e Subcentro são o MESMO campo partido em dois badges (ver
+              `centroESubcentro`) — nenhum dado novo, só exibição. Resumido
+              mostra só a Categoria (1 badge); Analítico mostra os três. */}
+          {(() => {
+            const cc = centroESubcentro(l.centro_nome);
+            if (!l.categoria_nome && !cc) return null;
+            return (
+              <p className="flex flex-wrap items-center gap-1 mt-0.5 print:mt-0">
+                {l.categoria_nome && (
+                  <Badge variant="outline" className="text-[10px] h-4 px-1.5 max-w-[160px] truncate print:border-0 print:px-0 print:py-0 print:rounded-none print:bg-transparent print:font-normal"
+                    style={l.categoria_cor ? { borderColor: l.categoria_cor, color: l.categoria_cor } : undefined}>
+                    {l.categoria_nome}
+                  </Badge>
+                )}
+                {cc && !modoResumido && (
+                  <>
+                    <Badge variant="secondary" className="text-[10px] h-4 px-1.5 max-w-[140px] truncate font-normal print:border print:bg-transparent">
+                      {cc.centro}
+                    </Badge>
+                    {cc.subcentro && (
+                      <Badge variant="secondary" className="text-[10px] h-4 px-1.5 max-w-[140px] truncate font-normal text-muted-foreground print:border print:bg-transparent">
+                        {cc.subcentro}
+                      </Badge>
+                    )}
+                  </>
+                )}
+              </p>
+            );
+          })()}
         </td>
-        {isTodasContas && (
+        {isTodasContas && !modoResumido && (
           <td className="py-1.5 px-2 overflow-hidden">
             <span className="text-xs text-muted-foreground truncate block">{l.conta_nome ?? "—"}</span>
           </td>
         )}
-        <td className="py-1.5 px-2 overflow-hidden">
-          {/* max-w-full + truncate — sem isso, uma categoria de
-              nome longo ("Assistência Social / Ação Social")
-              crescia além da largura da coluna e vazava por
-              cima da coluna vizinha (Valor) na impressão,
-              depois do table-layout:fixed passar a travar a
-              largura em vez de deixar crescer. Achado ao gerar
-              o PDF de teste (16/09/2026). */}
-          {l.categoria_nome && (
-            <Badge variant="outline" className="text-xs max-w-full truncate print:border-0 print:px-0 print:py-0 print:rounded-none print:bg-transparent print:font-normal"
-              style={l.categoria_cor ? { borderColor: l.categoria_cor, color: l.categoria_cor } : undefined}>
-              {l.categoria_nome}
-            </Badge>
-          )}
-        </td>
-        {/* Centro de custo — pedido da Telma (22/09/2026): "insira a coluna
-            centro de custo após a coluna categoria". Sem badge própria
-            (categoria já usa a cor da badge pra se diferenciar); truncate
-            simples porque nomes de centro tendem a ser mais curtos. */}
-        <td className="py-1.5 px-2 overflow-hidden">
-          <span className="text-xs text-muted-foreground truncate block">{l.centro_nome ?? "—"}</span>
-        </td>
         <td className={`py-1.5 px-2 text-right tabular-nums font-medium whitespace-nowrap ${l.tipo === "entrada" ? "text-success-text" : "text-destructive-text"}`}>
           {l.tipo === "entrada" ? "+" : "−"} {brl(Number(l.valor))}
         </td>
-        <td className="py-1.5 px-2 text-right tabular-nums text-muted-foreground whitespace-nowrap">
-          {brl(saldoPorLancamento.get(l.id) ?? 0)}
-        </td>
+        {!modoResumido && (
+          <td className="py-1.5 px-2 text-right tabular-nums text-muted-foreground whitespace-nowrap">
+            {brl(saldoPorLancamento.get(l.id) ?? 0)}
+          </td>
+        )}
         <td className="py-1.5 px-1 sticky right-0 bg-background group-hover:bg-muted/30 border-l print:hidden">
           <div className="flex items-center gap-0.5 justify-end">
             {l.comprovante_url && (
@@ -722,8 +762,10 @@ export default function FinancasConta() {
           própria (w-8/w-24/w-32.../a única sem largura é Descrição, que
           absorve o resto); forçado em tabela sem isso, espreme a coluna
           de rótulo (testado ao vivo, revertido — ver src/index.css).
-          Paisagem A4 também é específica — a tabela tem 7 colunas,
-          retrato apertaria Categoria/Centro de custo/Saldo. */}
+          Paisagem A4 continua específica daqui mesmo com menos colunas
+          (01/10/2026, Categoria/Centro viraram badge dentro de Descrição
+          — ver `renderLinha`) — Descrição com os badges quer mais
+          respiro do que retrato dá. */}
       <style>{`
         @media print {
           @page { size: A4 landscape; margin: 1cm 1.2cm; }
@@ -854,6 +896,19 @@ export default function FinancasConta() {
             <ArrowRightLeft className="w-3.5 h-3.5" /> Transferir
           </Button>
         )}
+        {/* Resumido/Analítico (01/10/2026) — pedido dela: menos coluna,
+            leitura mais rápida no celular. Par de botões, mesmo visual dos
+            presets de período (pill) já usados em PainelTesouraria.tsx. */}
+        <div className="inline-flex rounded-full border p-0.5 gap-0.5">
+          <button type="button" onClick={() => setModoResumido(true)}
+            className={`rounded-full px-2.5 py-1 text-xs font-medium ${modoResumido ? "bg-gold text-white" : "text-muted-foreground hover:text-foreground"}`}>
+            Resumido
+          </button>
+          <button type="button" onClick={() => setModoResumido(false)}
+            className={`rounded-full px-2.5 py-1 text-xs font-medium ${!modoResumido ? "bg-gold text-white" : "text-muted-foreground hover:text-foreground"}`}>
+            Analítico
+          </button>
+        </div>
         <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-1.5">
           <Printer className="w-3.5 h-3.5" /> Imprimir / PDF
         </Button>
@@ -907,6 +962,35 @@ export default function FinancasConta() {
                 <SelectItem value="entrada">Entradas</SelectItem>
                 <SelectItem value="saida">Saídas</SelectItem>
                 <SelectItem value="transferencia">Transferências</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {/* Categoria e Centro de custo (01/10/2026) — saíram de cabeçalho
+              de coluna (estilo Excel) pra cá, porque as colunas em si
+              saíram da tabela (viraram badge dentro de Descrição, ver
+              `renderLinha`). Mesmo filtro de sempre, mesmo estado
+              (`filtroCategoriaId`/`filtroCentroCustoId`), só de lugar novo. */}
+          <div className="w-36">
+            <label className="text-xs uppercase tracking-wide text-muted-foreground">Categoria</label>
+            <Select value={filtroCategoriaId || "__todas__"} onValueChange={(v) => setFiltroCategoriaId(v === "__todas__" ? "" : v)}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__todas__">Todas categorias</SelectItem>
+                {categoriasParaFiltro.map(c => (
+                  <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="w-36">
+            <label className="text-xs uppercase tracking-wide text-muted-foreground">Centro de custo</label>
+            <Select value={filtroCentroCustoId || "__todos__"} onValueChange={(v) => setFiltroCentroCustoId(v === "__todos__" ? "" : v)}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__todos__">Todos centros</SelectItem>
+                {centros.map(c => (
+                  <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -1114,59 +1198,17 @@ export default function FinancasConta() {
                       <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Digite ao menos 2 letras..." className="h-8 text-xs" />
                     </CabecalhoFiltro>
                   </th>
-                  {/* Coluna "Conta" — só no modo "Todas as Contas" (mesmo
-                      critério do `ExtratoContaDrawer`): identifica de onde
-                      veio cada linha quando várias contas aparecem juntas. */}
-                  {isTodasContas && <th className="text-left py-2 px-2 w-32">Conta</th>}
-                  {/* w-36 (144px) cortava nomes de categoria comuns
-                      ("Rendimentos de Aplicações") no PDF — achado ao vivo
-                      pela Telma na pré-visualização de impressão
-                      (17/09/2026). w-48 (192px) — sobra de Descrição/
-                      Fornecedor, a única coluna sem largura fixa, que tem
-                      folga em A4 paisagem. */}
-                  {/* Filtro embutido no próprio cabeçalho, estilo Excel
-                      (pedido da Telma, 22/09/2026, revendo o primeiro
-                      formato em linha própria: "insira o filtro diretamente
-                      no nome da coluna, como é usado no Excel") — o nome da
-                      coluna É o gatilho do `Select`; sem `SelectValue`
-                      (não mostra "Todas categorias" escrito), só a seta
-                      pequena que o componente já desenha sozinho. Um ponto
-                      dourado ao lado acende quando o filtro está ativo —
-                      mesmo papel do ícone de funil ficar "cheio" no Excel
-                      quando a coluna está filtrada. Só Categoria e Centro
-                      de custo: Data e Descrição já têm campo equivalente
-                      na faixa de filtros acima da tabela, e Valor/Saldo não
-                      têm um recorte categórico que faça sentido filtrar.
-                      Aplicado no servidor (`listarLancamentosSemTeto`),
-                      não em memória — mesmo padrão dos outros filtros. */}
-                  <th className="text-left py-2 px-2 w-48">
-                    <Select value={filtroCategoriaId || "__todas__"} onValueChange={(v) => { if (v) setFiltroCategoriaId(v === "__todas__" ? "" : v); }}>
-                      <SelectTrigger className="h-auto border-0 bg-transparent shadow-none p-0 gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground [&>span]:hidden focus:ring-0 focus:ring-offset-0">
-                        Categoria
-                        {filtroCategoriaId && <span className="w-1.5 h-1.5 rounded-full bg-gold shrink-0" />}
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__todas__">Todas categorias</SelectItem>
-                        {categoriasParaFiltro.map(c => (
-                          <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </th>
-                  <th className="text-left py-2 px-2 w-40">
-                    <Select value={filtroCentroCustoId || "__todos__"} onValueChange={(v) => { if (v) setFiltroCentroCustoId(v === "__todos__" ? "" : v); }}>
-                      <SelectTrigger className="h-auto border-0 bg-transparent shadow-none p-0 gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground [&>span]:hidden focus:ring-0 focus:ring-offset-0">
-                        Centro de custo
-                        {filtroCentroCustoId && <span className="w-1.5 h-1.5 rounded-full bg-gold shrink-0" />}
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__todos__">Todos centros</SelectItem>
-                        {centros.map(c => (
-                          <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </th>
+                  {/* Coluna "Conta" — só no modo "Todas as Contas" E
+                      Analítico (Resumido esconde até isso, de propósito —
+                      pedido dela, 01/10/2026: "o máximo de informação
+                      possível fora da tela, pra escanear rápido"). */}
+                  {isTodasContas && !modoResumido && <th className="text-left py-2 px-2 w-32">Conta</th>}
+                  {/* Categoria e Centro de custo (01/10/2026) — saíram
+                      daqui: viraram badge dentro de Descrição (ver
+                      `renderLinha`), nos dois modos. O FILTRO continua
+                      existindo — só mudou de lugar, pra faixa de filtros
+                      acima da tabela (mesmo estado,
+                      `filtroCategoriaId`/`filtroCentroCustoId`). */}
                   <th className="text-right py-2 px-2 w-28">
                     <CabecalhoFiltro label="Valor" align="end" ativo={!!filtroValorMinTexto.trim() || !!filtroValorMaxTexto.trim()}>
                       <div>
@@ -1181,14 +1223,9 @@ export default function FinancasConta() {
                       </div>
                     </CabecalhoFiltro>
                   </th>
-                  {/* Saldo fica de fora de propósito — pedido da Telma
-                      (22/09/2026): "o filtro é para todas as colunas,
-                      exceto saldo". É um acumulado calculado linha a
-                      linha (`saldoPorLancamento`), não um dado próprio do
-                      lançamento — filtrar por ele não teria um sentido
-                      direto (e mudaria a cada filtro de qualquer outra
-                      coluna, sem nunca ficar "parado" pra filtrar). */}
-                  <th className="text-right py-2 px-2 w-28">Saldo</th>
+                  {/* Saldo só no Analítico — Resumido é pra escanear rápido,
+                      não pra conferir saldo linha a linha. */}
+                  {!modoResumido && <th className="text-right py-2 px-2 w-28">Saldo</th>}
                   {/* Ações fixa na borda direita da área rolável — antes ficava
                       fora da tela em qualquer conta com muitas colunas visíveis,
                       obrigando rolar pra achar o lápis. Achado pela Telma em
@@ -1222,12 +1259,21 @@ export default function FinancasConta() {
                 {paginaAtual === 1 && filtroTipo === "todos" && buscaDebounced.length < 2 && (
                   <tr className="border-t bg-muted/20 text-muted-foreground italic">
                     <td className="py-1.5 px-2"></td>
-                    <td className="py-1.5 px-2" colSpan={2}>Saldo inicial</td>
-                    {isTodasContas && <td className="py-1.5 px-2"></td>}
-                    <td className="py-1.5 px-2">até {dataBr(inicioEfetivo)}</td>
-                    <td className="py-1.5 px-2"></td>
+                    {/* "até {data}" morava numa célula própria, na antiga
+                        coluna Categoria — sem essa coluna (virou badge em
+                        Descrição), o texto entrou direto no rótulo. No
+                        Resumido (sem coluna Saldo) o valor também entra
+                        aqui, senão o número não tinha onde aparecer. */}
+                    <td className="py-1.5 px-2" colSpan={2}>
+                      {modoResumido
+                        ? <>Saldo inicial: {brl(saldoAntesDoPeriodo)} · até {dataBr(inicioEfetivo)}</>
+                        : <>Saldo inicial · até {dataBr(inicioEfetivo)}</>}
+                    </td>
+                    {isTodasContas && !modoResumido && <td className="py-1.5 px-2"></td>}
                     <td className="py-1.5 px-2 text-right tabular-nums"></td>
-                    <td className="py-1.5 px-2 text-right tabular-nums font-medium whitespace-nowrap">{brl(saldoAntesDoPeriodo)}</td>
+                    {!modoResumido && (
+                      <td className="py-1.5 px-2 text-right tabular-nums font-medium whitespace-nowrap">{brl(saldoAntesDoPeriodo)}</td>
+                    )}
                     <td className="py-1.5 px-1 sticky right-0 bg-muted/20"></td>
                   </tr>
                 )}
@@ -1238,12 +1284,16 @@ export default function FinancasConta() {
                 {filtroTipo === "todos" && buscaDebounced.length < 2 && (
                   <tr className="border-t bg-muted/20 text-muted-foreground italic">
                     <td className="py-1.5 px-2"></td>
-                    <td className="py-1.5 px-2" colSpan={2}>Saldo inicial</td>
-                    {isTodasContas && <td className="py-1.5 px-2"></td>}
-                    <td className="py-1.5 px-2">até {dataBr(inicioEfetivo)}</td>
-                    <td className="py-1.5 px-2"></td>
+                    <td className="py-1.5 px-2" colSpan={2}>
+                      {modoResumido
+                        ? <>Saldo inicial: {brl(saldoAntesDoPeriodo)} · até {dataBr(inicioEfetivo)}</>
+                        : <>Saldo inicial · até {dataBr(inicioEfetivo)}</>}
+                    </td>
+                    {isTodasContas && !modoResumido && <td className="py-1.5 px-2"></td>}
                     <td className="py-1.5 px-2 text-right tabular-nums"></td>
-                    <td className="py-1.5 px-2 text-right tabular-nums font-medium whitespace-nowrap">{brl(saldoAntesDoPeriodo)}</td>
+                    {!modoResumido && (
+                      <td className="py-1.5 px-2 text-right tabular-nums font-medium whitespace-nowrap">{brl(saldoAntesDoPeriodo)}</td>
+                    )}
                     <td className="py-1.5 px-1 sticky right-0 bg-muted/20"></td>
                   </tr>
                 )}
