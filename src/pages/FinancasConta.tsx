@@ -679,7 +679,7 @@ export default function FinancasConta() {
             const cc = centroESubcentro(l.centro_nome);
             if (!l.categoria_nome && !cc) return null;
             return (
-              <p className="flex flex-wrap items-center gap-1 mt-0.5 print:mt-0">
+              <div className="flex flex-wrap items-center gap-1 mt-0.5 print:mt-0">
                 {l.categoria_nome && (
                   <Badge variant="outline" className="text-[10px] h-4 px-1.5 max-w-[160px] truncate print:border-0 print:px-0 print:py-0 print:rounded-none print:bg-transparent print:font-normal"
                     style={l.categoria_cor ? { borderColor: l.categoria_cor, color: l.categoria_cor } : undefined}>
@@ -698,7 +698,7 @@ export default function FinancasConta() {
                     )}
                   </>
                 )}
-              </p>
+              </div>
             );
           })()}
         </td>
