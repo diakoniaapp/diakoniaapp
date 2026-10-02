@@ -81,38 +81,12 @@ export default function FinancasRelatorio() {
 
   return (
     <div className="bg-background min-h-screen">
+      {/* Impressão — padrão global (src/index.css, "IMPRESSÃO — padrão
+          único"; a explicação do left+right+width que vivia aqui, achada
+          em 17/09/2026, foi pra lá também). Só o @page é deste relatório. */}
       <style>{`
         @media print {
           @page { size: A4; margin: 1.2cm 1.5cm; }
-          html, body { background: white !important; height: auto !important; overflow: visible !important; }
-          body * { visibility: hidden !important; }
-          .relatorio-page, .relatorio-page * { visibility: visible !important; }
-          .relatorio-page {
-            position: absolute !important;
-            /* right: 0 junto do left: 0 (17/09/2026) — Telma reportou com
-               print: a última coluna da tabela (Movimento líquido)
-               cortada na margem direita do PDF. width: 100% sozinho
-               depende do navegador calcular certo a largura do bloco
-               conteinedor na hora de imprimir, e o Chrome erra essa conta
-               por uma fração nesse caminho (posicionado + página A4) —
-               left/right juntos fazem o navegador calcular a largura
-               direto, ponta a ponta do bloco conteinedor, sem essa
-               referência intermediária. Mesmo ajuste replicado nos outros
-               12 relatórios do sistema que usam este padrão de impressão
-               (grep por relatorio-page abre-chaves). */
-            left: 0 !important; top: 0 !important; right: 0 !important;
-            width: 100% !important; max-width: 100% !important;
-            margin: 0 !important; padding: 0 !important;
-            box-shadow: none !important; border: none !important;
-            background: white !important;
-          }
-          /* Sem isso, o navegador some com toda cor de fundo ao imprimir/
-             exportar PDF (economia de tinta por padrão). */
-          .relatorio-page * {
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-          .avoid-break { page-break-inside: avoid; }
         }
       `}</style>
 

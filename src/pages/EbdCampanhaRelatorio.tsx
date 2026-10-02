@@ -99,44 +99,14 @@ export default function EbdCampanhaRelatorio() {
 
   return (
     <div className="bg-background min-h-screen">
-      {/* Print styles */}
+      {/* Impressão — padrão global (src/index.css, "IMPRESSÃO — padrão
+          único"). Aqui só o @page e duas classes próprias deste
+          relatório: `.page-break` (quebra antes de uma seção) e
+          `.print-only` (conteúdo que só aparece no papel). */}
       <style>{`
         @media print {
           @page { size: A4; margin: 1.2cm 1.5cm; }
-          html, body { background: white !important; height: auto !important; overflow: visible !important; }
-
-          /* Esconde TUDO do shell do app (sidebar, topbar mobile, bottom nav etc.) */
-          body * { visibility: hidden !important; }
-
-          /* Mostra somente o container do relatório e seus filhos */
-          .relatorio-page, .relatorio-page * { visibility: visible !important; }
-
-          /* Posiciona o relatório ocupando o papel inteiro, sem cards/sombras da UI */
-          .relatorio-page {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            right: 0 !important;
-            width: 100% !important;
-            max-width: 100% !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            box-shadow: none !important;
-            border: none !important;
-            background: white !important;
-          }
-
-          /* Sem isso, o navegador some com toda cor de fundo ao imprimir/
-             exportar PDF (economia de tinta por padrão). */
-          .relatorio-page * {
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-
           .page-break { page-break-before: always; }
-          .avoid-break { page-break-inside: avoid; }
-          table { page-break-inside: auto; }
-          tr { page-break-inside: avoid; page-break-after: auto; }
           .print-only { display: block !important; }
         }
         .print-only { display: none; }

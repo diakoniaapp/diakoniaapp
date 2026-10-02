@@ -123,27 +123,17 @@ export default function FinancasRelatorioContas() {
 
   return (
     <div className="bg-background min-h-screen">
+      {/* Impressão — padrão global (src/index.css, "IMPRESSÃO — padrão
+          único"). `table-layout: fixed` continua local aqui — cada `<th>`
+          já tem largura própria (Data/Categoria/Valor/Saldo fixas,
+          Descrição absorve o resto); virou regra geral, mas testado ao
+          vivo numa tabela SEM larguras por coluna, espreme o rótulo — por
+          isso ficou de fora do padrão único (ver src/index.css). Paisagem
+          A4 é deste relatório (muitas colunas). */}
       <style>{`
         @media print {
           @page { size: A4 landscape; margin: 1cm 1.2cm; }
-          html, body { background: white !important; height: auto !important; overflow: visible !important; }
-          body * { visibility: hidden !important; }
-          .relatorio-page, .relatorio-page * { visibility: visible !important; }
-          .relatorio-page {
-            position: absolute !important;
-            left: 0 !important; top: 0 !important; right: 0 !important;
-            width: 100% !important; max-width: 100% !important;
-            margin: 0 !important; padding: 0 !important;
-            box-shadow: none !important; border: none !important;
-            background: white !important;
-          }
-          .relatorio-page * {
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-          .relatorio-page table { width: 100% !important; table-layout: fixed !important; }
-          .relatorio-page tr { page-break-inside: avoid; }
-          .avoid-break { page-break-inside: avoid; }
+          .relatorio-page table { table-layout: fixed !important; }
         }
       `}</style>
 

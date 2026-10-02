@@ -262,30 +262,14 @@ export default function FinancasPrestacaoContas() {
 
   return (
     <div className="bg-background min-h-screen">
+      {/* O grosso do CSS de impressão (escape do <main>, tabela com rolagem
+          horizontal, quebra de página) é global — src/index.css, seção
+          "IMPRESSÃO — padrão único". Aqui só o que é específico deste
+          relatório: orientação paisagem (tabela de lançamentos tem muitas
+          colunas) e as margens. */}
       <style>{`
         @media print {
           @page { size: A4 landscape; margin: 1.2cm 1.5cm; }
-          html, body { background: white !important; height: auto !important; overflow: visible !important; }
-          body * { visibility: hidden !important; }
-          .relatorio-page, .relatorio-page * { visibility: visible !important; }
-          .relatorio-page {
-            position: absolute !important;
-            left: 0 !important; top: 0 !important; right: 0 !important;
-            width: 100% !important; max-width: 100% !important;
-            margin: 0 !important; padding: 0 !important;
-            box-shadow: none !important; border: none !important;
-            background: white !important;
-          }
-          .relatorio-page * {
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-          .avoid-break { page-break-inside: avoid; }
-          /* Botão de nota some no papel — o \`.no-print\` de fora já sumia
-             sozinho (fora de .relatorio-page, pego pela regra de visibility
-             acima); este está DENTRO da página impressa, por isso precisa
-             da própria regra. */
-          .relatorio-page .no-print { display: none !important; }
         }
       `}</style>
 

@@ -124,38 +124,12 @@ export default function GovernancaAssembleia() {
 
   return (
     <div className="relatorio-page p-4 md:p-6 max-w-5xl mx-auto space-y-4 print:max-w-full print:p-0">
-      {/* Impressão ("Imprimir ata") — achado ao revisar todas as telas de
-          impressão (17/09/2026, pedido da Telma: "está limitando apenas
-          para alguns dados"). Esta tela nunca tinha ganho o escape do
-          `<main>` do AppLayout: `<main>` tem `overflow-y-auto` dentro de um
-          `h-screen overflow-hidden`, e impressão não expande scroll — só
-          saía a parte da página que já estava visível na rolagem no
-          momento do clique, cortando pautas e presentes fora da tela.
-          Mesmo padrão já comprovado em `FinancasRelatorio.tsx`/
-          `FinancasConta.tsx`: `.relatorio-page` escapa via `position:
-          absolute` e `body * { visibility: hidden }` esconde tudo,
-          inclusive o menu, sem precisar mexer em cada componente do
-          AppLayout. */}
+      {/* Impressão ("Imprimir ata") — padrão global (src/index.css,
+          "IMPRESSÃO — padrão único"). Só o @page e a regra do Radix Tabs
+          abaixo são desta tela. */}
       <style>{`
         @media print {
           @page { size: A4; margin: 1.5cm; }
-          html, body { background: white !important; height: auto !important; overflow: visible !important; }
-          body * { visibility: hidden !important; }
-          .relatorio-page, .relatorio-page * { visibility: visible !important; }
-          .relatorio-page {
-            position: absolute !important;
-            left: 0 !important; top: 0 !important; right: 0 !important;
-            width: 100% !important; max-width: 100% !important;
-            margin: 0 !important; padding: 0 !important;
-            box-shadow: none !important; border: none !important;
-            background: white !important;
-          }
-          .relatorio-page * {
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-          .relatorio-page tr { page-break-inside: avoid; }
-          .avoid-break { page-break-inside: avoid; }
           /* A ata precisa das DUAS abas (Pautas e Presentes) no papel, mas
              o Radix Tabs desmonta do DOM a aba que não está selecionada —
              sem isso, imprimir com "Presentes" aberta nunca mostrava as

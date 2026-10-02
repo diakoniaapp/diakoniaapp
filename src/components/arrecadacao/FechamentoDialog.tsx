@@ -72,38 +72,14 @@ export function FechamentoDialog({ open, onOpenChange, caixaId, reservaFinalidad
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="relatorio-page max-w-2xl">
-        {/* Impressão — achado ao revisar todas as telas de impressão
-            (17/09/2026, pedido da Telma: "está limitando apenas para
-            alguns dados"). Este Dialog nunca tinha o escape do `<main>` do
-            AppLayout nem do próprio `DialogContent` — que por padrão
-            (`components/ui/dialog.tsx`) é `position: fixed` com
-            `max-h-[92vh] overflow-y-auto`: sem override, a impressão só
-            capturava o que já estava visível dentro dessa caixa de 92vh
-            rolada até onde a Telma estava olhando, cortando o resto do
-            fechamento. Mesmo padrão de `FinancasConta.tsx`, adaptado pra
-            cancelar o `fixed`/`transform`/altura máxima do Dialog. */}
+        {/* Impressão — padrão global (src/index.css, "IMPRESSÃO — padrão
+            único"; inclui o cancelamento do `fixed`/`transform`/altura
+            máxima que o `DialogContent` do Radix aplica por padrão, achado
+            aqui em 17/09/2026 — ".relatorio-page" É o próprio
+            DialogContent). Só o @page é deste diálogo. */}
         <style>{`
           @media print {
             @page { size: A4; margin: 1.5cm; }
-            html, body { background: white !important; height: auto !important; overflow: visible !important; }
-            body * { visibility: hidden !important; }
-            .relatorio-page, .relatorio-page * { visibility: visible !important; }
-            .relatorio-page {
-              position: absolute !important;
-              left: 0 !important; top: 0 !important; right: 0 !important;
-              width: 100% !important; max-width: 100% !important;
-              max-height: none !important; overflow: visible !important;
-              transform: none !important;
-              margin: 0 !important; padding: 0 !important;
-              box-shadow: none !important; border: none !important;
-              background: white !important;
-            }
-            .relatorio-page * {
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-            .relatorio-page .overflow-y-auto { overflow: visible !important; max-height: none !important; }
-            .relatorio-page tr { page-break-inside: avoid; }
           }
         `}</style>
         <DialogHeader>

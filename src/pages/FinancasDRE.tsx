@@ -67,25 +67,11 @@ export default function FinancasDRE() {
 
   return (
     <div className="bg-background min-h-screen">
+      {/* Impressão — padrão global (src/index.css, "IMPRESSÃO — padrão
+          único"). Só o @page é deste relatório. */}
       <style>{`
         @media print {
           @page { size: A4; margin: 1.2cm 1.5cm; }
-          html, body { background: white !important; height: auto !important; overflow: visible !important; }
-          body * { visibility: hidden !important; }
-          .relatorio-page, .relatorio-page * { visibility: visible !important; }
-          .relatorio-page {
-            position: absolute !important;
-            left: 0 !important; top: 0 !important; right: 0 !important;
-            width: 100% !important; max-width: 100% !important;
-            margin: 0 !important; padding: 0 !important;
-            box-shadow: none !important; border: none !important;
-            background: white !important;
-          }
-          .relatorio-page * {
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-          .avoid-break { page-break-inside: avoid; }
         }
       `}</style>
 

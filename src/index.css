@@ -673,3 +673,99 @@
   .delay-300 { animation-delay: 0.30s; }
   .delay-400 { animation-delay: 0.40s; }
 }
+
+/* ════════════════════════════════════════════════════════════════════
+   IMPRESSÃO — padrão único (01/10/2026)
+
+   Pedido dela: "verifique TODOS os pontos que usam impressão/PDF, crie
+   um padrão único". Medido antes de mexer: não há react-to-print,
+   html2canvas, html2pdf, jsPDF nem pdfMake em lugar nenhum do projeto —
+   "Exportar PDF" É `window.print()` (o "Salvar como PDF" do navegador),
+   mesmo código deste bloco. 19 arquivos usam `window.print()`, cada um
+   com o PRÓPRIO `@media print` colado — todos convergiram pro mesmo
+   padrão (`.relatorio-page`), mas uma correção achada num arquivo nunca
+   se propagava pras cópias mais antigas: `.overflow-x-auto`/
+   `table-layout: fixed` (achado em FinancasConta.tsx, 16/09/2026, "Saldo"
+   cortado num PDF real) só existia em 2 dos 19; `transform: none`
+   (achado em FechamentoDialog.tsx, dentro de um Sheet) só existia ali.
+   Centralizado aqui, cada arquivo mantém só o próprio `@page` (A4 retrato
+   ou paisagem, depende de quantas colunas o relatório tem — correto por
+   design, não um bug a uniformizar) e o que for genuinamente específico
+   dele (ex.: GovernancaAssembleia precisa forçar as duas abas do Radix
+   Tabs visíveis, FinancasProjetoDetalhe tem quebra de página antes do
+   anexo).
+
+   Causa raiz do corte lateral reportado agora na Prestação de Contas,
+   achada ao vivo nesta sessão: `<main>` (components/layout/AppLayout.tsx)
+   tem a classe `animate-fade-in` — enquanto a declaração `animation`
+   continua aplicada (mesmo com `fill-mode: both` já tendo "terminado" em
+   `transform: translateY(0)`), o Chrome trata o elemento como tendo uma
+   animação de `transform` em andamento e o promove a "containing block"
+   de descendentes `position: absolute`, INDEPENDENTE do que uma regra
+   `transform: none !important` separada diga sobre a propriedade
+   `transform` em si — testado ao vivo: só `transform: none` NÃO bastou
+   (`.relatorio-page` seguiu presa a `offsetParent: <main>`, 745px); só
+   `animation: none !important` resolveu de vez (`offsetParent: <body>`,
+   largura cheia da janela). Toda `.relatorio-page` escapa da rolagem do
+   `<main>` exatamente com `position: absolute` — por isso ficava presa à
+   CAIXA do `<main>` em vez do papel inteiro. Zero efeito visual na tela
+   normal (a impressão não roda animação nenhuma de qualquer forma), só
+   reabre o escape pro papel. */
+@media print {
+  main { animation: none !important; transform: none !important; }
+
+  html, body { background: white !important; height: auto !important; overflow: visible !important; }
+  body * { visibility: hidden !important; }
+  .relatorio-page, .relatorio-page * { visibility: visible !important; }
+  .relatorio-page {
+    position: absolute !important;
+    /* left E right juntos (não só width:100%) — achado em
+       FinancasRelatorio.tsx (17/09/2026): com só `width: 100%`, o Chrome
+       às vezes erra por uma fração a largura calculada do bloco
+       conteinedor no caminho posicionado+página A4, cortando a última
+       coluna da tabela. left/right juntos fazem o navegador calcular a
+       largura direto, ponta a ponta, sem essa referência intermediária. */
+    left: 0 !important; top: 0 !important; right: 0 !important;
+    width: 100% !important; max-width: 100% !important;
+    max-height: none !important; overflow: visible !important;
+    transform: none !important;
+    margin: 0 !important; padding: 0 !important;
+    box-shadow: none !important; border: none !important;
+    background: white !important;
+  }
+  /* Sem isso, o navegador some com toda cor de fundo ao imprimir/exportar
+     PDF (economia de tinta por padrão) — categorias coloridas, barras de
+     gráfico e qualquer destaque saem em branco. */
+  .relatorio-page * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .relatorio-page .no-print { display: none !important; }
+
+  /* Dentro de um Sheet/Dialog (Radix) — achado em FechamentoDialog.tsx —
+     o próprio contêiner trava altura e rolagem; generalizado aqui pra
+     qualquer relatório que algum dia abra dentro de um. */
+  .relatorio-page .overflow-y-auto { overflow: visible !important; max-height: none !important; }
+
+  /* `overflow-x-auto` (rolagem horizontal já usada em telas com tabela
+     larga, ex. FinancasConta.tsx) precisa se abrir — senão corta colunas
+     do mesmo jeito que o `<main>` cortava linhas antes do escape acima. */
+  .relatorio-page .overflow-x-auto { overflow: visible !important; }
+
+  /* `table-layout: fixed` NÃO entra aqui de propósito — testado ao vivo
+     nesta sessão: forçado em TODA tabela, ele espreme a coluna de rótulo
+     da Prestação de Contas (1ª coluna, texto como "Total Receitas") pro
+     mesmo tamanho das colunas de valor, quebrando o texto letra a letra.
+     Só funciona bem em tabelas que JÁ têm largura própria definida em
+     CADA `<th>` (ex. FinancasConta.tsx, FinancasRelatorioContas.tsx) —
+     por isso continua local a esses dois arquivos, não virou regra geral.
+     Aqui, globalmente, só a rede de segurança genérica: nenhuma tabela
+     ultrapassa 100% da página, e texto comprido quebra linha em vez de
+     esticar a coluna (cobre o resto dos relatórios sem risco de espremer
+     uma tabela que não foi desenhada pra isso). */
+  .relatorio-page table { width: 100% !important; }
+  .relatorio-page td, .relatorio-page th { word-break: break-word; }
+
+  .relatorio-page tr { page-break-inside: avoid; break-inside: avoid; }
+  .avoid-break { page-break-inside: avoid; break-inside: avoid; }
+}

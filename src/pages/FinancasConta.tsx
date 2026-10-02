@@ -714,57 +714,20 @@ export default function FinancasConta() {
 
   return (
     <div className="relatorio-page p-3 md:p-5 max-w-7xl mx-auto space-y-3 print:max-w-full print:p-0">
-      {/* Impressão — refeita em 15/09/2026 ("melhore a visualização do pdf
-          de impressão... não está bom"). A primeira versão só marcava
-          `print:hidden`/`print:block` DENTRO desta página e confiava que o
-          resto cuidaria de si — não cuidava: o menu lateral do AppLayout
-          nunca escondia (ia inteiro pro papel), e o `<main>` que envolve
-          `<Outlet/>` tem `overflow-y-auto` dentro de um `h-screen
-          overflow-hidden` — impressão não expande scroll, então só saía a
-          página inteira que já cabia visível na tela, cortando o resto do
-          extrato. A correção usa o mesmo padrão já comprovado em
-          `FinancasRelatorio.tsx`: `.relatorio-page` escapa do layout via
-          `position: absolute` (funciona porque nenhum ancestral entre aqui
-          e o body tem `position` diferente de `static`) e
-          `body * { visibility: hidden }` esconde tudo — inclusive o menu,
-          sem precisar mexer em cada componente do AppLayout — enquanto
-          `.relatorio-page, .relatorio-page *` volta a ficar visível. Além
-          disso: `print:hidden` no AppLayout (defesa extra pra quem não usa
-          esse padrão), paisagem A4 (a tabela tem 7 colunas — retrato
-          apertaria Categoria/Centro custo/Saldo), `overflow: visible` no
-          scroll horizontal da tabela (senão corta colunas do mesmo jeito
-          que o `<main>` cortava linhas) e quebra de página evitada dentro
-          de cada linha. */}
+      {/* Impressão — o escape do <main> e o `overflow-x-auto` da tabela
+          agora são globais (src/index.css, "IMPRESSÃO — padrão único",
+          01/10/2026). `table-layout: fixed` continua AQUI, não virou regra
+          geral — achado em 16/09/2026 ("Saldo" cortado num PDF real) e só
+          funciona bem porque cada `<th>` desta tabela já tem largura
+          própria (w-8/w-24/w-32.../a única sem largura é Descrição, que
+          absorve o resto); forçado em tabela sem isso, espreme a coluna
+          de rótulo (testado ao vivo, revertido — ver src/index.css).
+          Paisagem A4 também é específica — a tabela tem 7 colunas,
+          retrato apertaria Categoria/Centro de custo/Saldo. */}
       <style>{`
         @media print {
           @page { size: A4 landscape; margin: 1cm 1.2cm; }
-          html, body { background: white !important; height: auto !important; overflow: visible !important; }
-          body * { visibility: hidden !important; }
-          .relatorio-page, .relatorio-page * { visibility: visible !important; }
-          .relatorio-page {
-            position: absolute !important;
-            left: 0 !important; top: 0 !important; right: 0 !important;
-            width: 100% !important; max-width: 100% !important;
-            margin: 0 !important; padding: 0 !important;
-            box-shadow: none !important; border: none !important;
-            background: white !important;
-          }
-          .relatorio-page * {
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-          .relatorio-page .overflow-x-auto { overflow: visible !important; }
-          /* table-layout fixed — sem isso, a coluna de Descrição/Fornecedor
-             (a única sem largura fixa) cresce pelo CONTEÚDO real (nomes
-             longos de fornecedor) em vez de dividir o que sobra depois das
-             outras 6 colunas com largura fixa — e a tabela inteira passa a
-             ultrapassar a página, cortando "Saldo" fora do papel. Achado
-             pela Telma (16/09/2026) num PDF real onde "Saldo" saía cortado
-             na borda direita. Com fixed, a única coluna sem largura fixa
-             sempre recebe exatamente o que resta — nunca mais, nunca menos. */
-          .relatorio-page table { width: 100% !important; table-layout: fixed !important; }
-          .relatorio-page tr { page-break-inside: avoid; }
-          .avoid-break { page-break-inside: avoid; }
+          .relatorio-page table { table-layout: fixed !important; }
         }
       `}</style>
 
