@@ -163,15 +163,16 @@ export default function FinancasConta() {
   const [centros, setCentros] = useState<FinCentroCusto[]>([]);
   // Modo Resumido/Analítico (01/10/2026, pedido dela: "reduzir largura
   // horizontal, melhorar leitura rápida no celular"). Categoria e Centro
-  // de custo saíram de coluna própria pra virar badge dentro da célula
-  // Descrição (ver `renderLinha`) nos dois modos; Resumido ainda esconde
-  // Conta/Saldo e a 2ª linha de descrição, pra sobrar só o essencial pra
-  // escanear rápido. `sessionStorage` — lembra enquanto a aba fica
-  // aberta, não vira preferência permanente cravada sem ela escolher de
-  // novo depois.
-  const [modoResumido, setModoResumido] = useState(() => sessionStorage.getItem("diakonia-extrato-modo") === "resumido");
+  // de custo saíram de coluna própria pra virar badge/indicador dentro da
+  // célula Descrição (ver `renderLinha`) nos dois modos; Resumido ainda
+  // esconde Conta/Saldo e a 2ª linha de descrição, pra sobrar só o
+  // essencial pra escanear rápido. `localStorage` (trocado de
+  // `sessionStorage` em 02/10/2026, pedido dela: "o sistema deve lembrar
+  // a última visualização utilizada" — sessão não sobrevivia fechar a
+  // aba, o pedido novo é persistir de verdade).
+  const [modoResumido, setModoResumido] = useState(() => localStorage.getItem("diakonia-extrato-modo") === "resumido");
   useEffect(() => {
-    sessionStorage.setItem("diakonia-extrato-modo", modoResumido ? "resumido" : "analitico");
+    localStorage.setItem("diakonia-extrato-modo", modoResumido ? "resumido" : "analitico");
   }, [modoResumido]);
   // Valor (min/max) — pedido da Telma (22/09/2026: "o filtro é para todas
   // as colunas, exceto saldo"). Sem RPC nem coluna nova: filtra em
@@ -668,35 +669,37 @@ export default function FinancasConta() {
               lado do favorecido, não da descrição. Some no Resumido —
               pedido dela (01/10/2026): só o essencial pra escanear rápido. */}
           {secundario && !modoResumido && <p className="text-xs text-muted-foreground truncate">{secundario}</p>}
-          {/* Categoria/Centro/Subcentro (01/10/2026) — saíram de coluna
-              própria pra virar badge AQUI, dentro de Descrição (pedido
-              dela: "reduzir quantidade de colunas... Fornecedor,
-              Categoria, Centro/Subcentro num único bloco visual"). Centro
-              e Subcentro são o MESMO campo partido em dois badges (ver
-              `centroESubcentro`) — nenhum dado novo, só exibição. Resumido
-              mostra só a Categoria (1 badge); Analítico mostra os três. */}
+          {/* Categoria/Centro/Subcentro — evolução de UX (02/10/2026),
+              pedido dela depois de ver os dois badges lado a lado com o
+              MESMO peso visual ("parecem três categorias independentes").
+              Correção: Categoria continua badge colorida cheia — é a
+              classificação que a pessoa escolhe/edita, merece destaque.
+              Centro/Subcentro vira um PONTO colorido + texto discreto com
+              "›" entre os dois — tira da disputa de peso com a Categoria
+              e deixa explícita a relação pai→filho, sem precisar de uma
+              segunda caixa. A cor do ponto vem de `centro_cor`
+              (`fin_centros_custo.cor`, populada com 11 cores reais por
+              centro-raiz na migration 20261002090000 — subcentro herda a
+              do pai). Resumido mostra só a Categoria; Analítico mostra
+              os dois. */}
           {(() => {
             const cc = centroESubcentro(l.centro_nome);
             if (!l.categoria_nome && !cc) return null;
             return (
-              <div className="flex flex-wrap items-center gap-1 mt-0.5 print:mt-0">
+              <div className="flex flex-col gap-0.5 mt-0.5 print:mt-0">
                 {l.categoria_nome && (
-                  <Badge variant="outline" className="text-[10px] h-4 px-1.5 max-w-[160px] truncate print:border-0 print:px-0 print:py-0 print:rounded-none print:bg-transparent print:font-normal"
+                  <Badge variant="outline" className="text-[10px] h-4 px-1.5 w-fit max-w-[200px] truncate print:border-0 print:px-0 print:py-0 print:rounded-none print:bg-transparent print:font-normal"
                     style={l.categoria_cor ? { borderColor: l.categoria_cor, color: l.categoria_cor } : undefined}>
                     {l.categoria_nome}
                   </Badge>
                 )}
                 {cc && !modoResumido && (
-                  <>
-                    <Badge variant="secondary" className="text-[10px] h-4 px-1.5 max-w-[140px] truncate font-normal print:border print:bg-transparent">
-                      {cc.centro}
-                    </Badge>
-                    {cc.subcentro && (
-                      <Badge variant="secondary" className="text-[10px] h-4 px-1.5 max-w-[140px] truncate font-normal text-muted-foreground print:border print:bg-transparent">
-                        {cc.subcentro}
-                      </Badge>
-                    )}
-                  </>
+                  <div className="flex items-center gap-1 text-[10px] text-muted-foreground min-w-0">
+                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: l.centro_cor ?? "#888" }} />
+                    <span className="truncate">
+                      {cc.centro}{cc.subcentro && <> › {cc.subcentro}</>}
+                    </span>
+                  </div>
                 )}
               </div>
             );

@@ -277,6 +277,7 @@ export interface FinLancamentoExtenso extends FinLancamento {
   categoria_nome?: string;
   categoria_cor?: string | null;
   centro_nome?: string;
+  centro_cor?: string | null;
   fornecedor_nome?: string;
   pessoa_nome?: string;
   projeto_nome?: string;
@@ -896,7 +897,15 @@ async function enriquecerLancamentos(lancs: FinLancamento[]): Promise<FinLancame
   const [{ data: contas }, { data: cats }, { data: ccs }, { data: forns }, { data: pessoas }, { data: projs }] = await Promise.all([
     contaIds.length ? supabase.from("fin_contas").select("id, nome").in("id", contaIds) : Promise.resolve({ data: [] }),
     catIds.length   ? supabase.from("fin_categorias").select("id, nome, cor").in("id", catIds) : Promise.resolve({ data: [] }),
-    ccIds.length    ? supabase.from("fin_centros_custo").select("id, nome").in("id", ccIds) : Promise.resolve({ data: [] }),
+    // `cor` (01/10/2026) — pedido dela: reconhecer o centro de custo pela
+    // cor, sem precisar ler o texto. A coluna já existia no banco (todos
+    // os 40 centros ativos tinham `cor`, mas o MESMO valor "#888" em
+    // todos — nunca tinha sido diferenciada nem lida por tela nenhuma,
+    // medido antes de mexer). Centros-raiz ganharam 11 cores reais numa
+    // migration de dados (sem schema novo); subcentros herdam a cor do
+    // pai (mesmo UPDATE, ver migration) — essa linha só lê o que já está
+    // na tabela, não decide cor nenhuma aqui.
+    ccIds.length    ? supabase.from("fin_centros_custo").select("id, nome, cor").in("id", ccIds) : Promise.resolve({ data: [] }),
     fornIds.length  ? supabase.from("fin_fornecedores").select("id, nome").in("id", fornIds) : Promise.resolve({ data: [] }),
     pessoaIds.length ? supabase.from("membros").select("id, nome_completo").in("id", pessoaIds) : Promise.resolve({ data: [] }),
     projIds.length  ? supabase.from("fin_projetos").select("id, nome").in("id", projIds) : Promise.resolve({ data: [] }),
@@ -904,7 +913,7 @@ async function enriquecerLancamentos(lancs: FinLancamento[]): Promise<FinLancame
 
   const mC = new Map((contas ?? []).map((c: any) => [c.id, c.nome]));
   const mK = new Map((cats ?? []).map((c: any) => [c.id, { nome: c.nome, cor: c.cor }]));
-  const mCC = new Map((ccs ?? []).map((c: any) => [c.id, c.nome]));
+  const mCC = new Map((ccs ?? []).map((c: any) => [c.id, { nome: c.nome, cor: c.cor }]));
   const mF = new Map((forns ?? []).map((f: any) => [f.id, f.nome]));
   const mP = new Map((pessoas ?? []).map((p: any) => [p.id, p.nome_completo]));
   const mPr = new Map((projs ?? []).map((p: any) => [p.id, p.nome]));
@@ -914,7 +923,8 @@ async function enriquecerLancamentos(lancs: FinLancamento[]): Promise<FinLancame
     conta_nome:      mC.get(l.conta_id),
     categoria_nome:  l.categoria_id ? mK.get(l.categoria_id)?.nome : undefined,
     categoria_cor:   l.categoria_id ? mK.get(l.categoria_id)?.cor ?? null : null,
-    centro_nome:     l.centro_custo_id ? mCC.get(l.centro_custo_id) : undefined,
+    centro_nome:     l.centro_custo_id ? mCC.get(l.centro_custo_id)?.nome : undefined,
+    centro_cor:      l.centro_custo_id ? mCC.get(l.centro_custo_id)?.cor ?? null : null,
     fornecedor_nome: l.fornecedor_id ? mF.get(l.fornecedor_id) : undefined,
     pessoa_nome:     l.pessoa_id ? mP.get(l.pessoa_id) : undefined,
     projeto_nome:    l.projeto_id ? mPr.get(l.projeto_id) : undefined,
