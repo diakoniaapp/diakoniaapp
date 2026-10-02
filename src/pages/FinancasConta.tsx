@@ -663,53 +663,50 @@ export default function FinancasConta() {
           </p>
           {/* `nomeExtrato` já suprime a segunda linha quando ela seria
               idêntica à primeira (ex.: lançamento do Omie/fatura onde a
-              descrição JÁ é o nome do fornecedor) — mesmo cuidado que
-              suprimia a duplicata "SUPERMERCADO MUNDIAL LTDA" duas vezes
-              seguidas (achado pela Telma, 16/09/2026), só que agora do
-              lado do favorecido, não da descrição. Some no Resumido —
-              pedido dela (01/10/2026): só o essencial pra escanear rápido. */}
-          {secundario && !modoResumido && <p className="text-xs text-muted-foreground truncate">{secundario}</p>}
-          {/* Categoria/Centro/Subcentro — evolução de UX (02/10/2026),
-              pedido dela depois de ver os dois badges lado a lado com o
-              MESMO peso visual ("parecem três categorias independentes").
-              Correção: Categoria continua badge colorida cheia — é a
-              classificação que a pessoa escolhe/edita, merece destaque.
-              Centro/Subcentro vira um PONTO colorido + texto discreto com
-              "›" entre os dois — tira da disputa de peso com a Categoria
-              e deixa explícita a relação pai→filho, sem precisar de uma
-              segunda caixa. A cor do ponto vem de `centro_cor`
-              (`fin_centros_custo.cor`, populada com 11 cores reais por
-              centro-raiz na migration 20261002090000 — subcentro herda a
-              do pai). Resumido mostra só a Categoria; Analítico mostra
-              os dois. */}
-          {(() => {
-            const cc = centroESubcentro(l.centro_nome);
-            if (!l.categoria_nome && !cc) return null;
-            return (
-              <div className="flex flex-col gap-0.5 mt-0.5 print:mt-0">
-                {l.categoria_nome && (
-                  <Badge variant="outline" className="text-[10px] h-4 px-1.5 w-fit max-w-[200px] truncate print:border-0 print:px-0 print:py-0 print:rounded-none print:bg-transparent print:font-normal"
-                    style={l.categoria_cor ? { borderColor: l.categoria_cor, color: l.categoria_cor } : undefined}>
-                    {l.categoria_nome}
-                  </Badge>
-                )}
-                {cc && !modoResumido && (
-                  <div className="flex items-center gap-1 text-[10px] text-muted-foreground min-w-0">
-                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: l.centro_cor ?? "#888" }} />
-                    <span className="truncate">
-                      {cc.centro}{cc.subcentro && <> › {cc.subcentro}</>}
-                    </span>
-                  </div>
-                )}
-              </div>
-            );
-          })()}
+              descrição JÁ é o nome do fornecedor); esta linha some TAMBÉM
+              quando é idêntica à Categoria (achado medindo ao vivo,
+              02/10/2026: lançamento do Omie com descrição "Dizimos" e
+              categoria "Dizimos" mostrava a MESMA palavra duas vezes,
+              uma embaixo da outra — puro peso de linha sem informação
+              nova). Some inteira no Resumido. */}
+          {secundario && secundario !== l.categoria_nome && !modoResumido && (
+            <p className="text-xs text-muted-foreground truncate">{secundario}</p>
+          )}
         </td>
         {isTodasContas && !modoResumido && (
           <td className="py-1.5 px-2 overflow-hidden">
             <span className="text-xs text-muted-foreground truncate block">{l.conta_nome ?? "—"}</span>
           </td>
         )}
+        {/* Categoria/Centro de custo — voltaram a ser coluna própria
+            (02/10/2026, ver comentário no <thead>): uma linha só, sem
+            badge grande, cabendo no espaço que antes ficava vazio ao
+            lado de Descrição. */}
+        {!modoResumido && (
+          <td className="py-1.5 px-2 overflow-hidden hidden md:table-cell">
+            {l.categoria_nome && (
+              <Badge variant="outline" className="text-[10px] h-4 px-1.5 max-w-full truncate print:border-0 print:px-0 print:py-0 print:rounded-none print:bg-transparent print:font-normal"
+                style={l.categoria_cor ? { borderColor: l.categoria_cor, color: l.categoria_cor } : undefined}>
+                {l.categoria_nome}
+              </Badge>
+            )}
+          </td>
+        )}
+        {!modoResumido && (() => {
+          const cc = centroESubcentro(l.centro_nome);
+          return (
+            <td className="py-1.5 px-2 overflow-hidden hidden md:table-cell">
+              {cc && (
+                <div className="flex items-center gap-1 text-xs text-muted-foreground min-w-0">
+                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: l.centro_cor ?? "#888" }} />
+                  <span className="truncate">
+                    {cc.centro}{cc.subcentro && <> › {cc.subcentro}</>}
+                  </span>
+                </div>
+              )}
+            </td>
+          );
+        })()}
         <td className={`py-1.5 px-2 text-right tabular-nums font-medium whitespace-nowrap ${l.tipo === "entrada" ? "text-success-text" : "text-destructive-text"}`}>
           {l.tipo === "entrada" ? "+" : "−"} {brl(Number(l.valor))}
         </td>
@@ -1206,12 +1203,22 @@ export default function FinancasConta() {
                       pedido dela, 01/10/2026: "o máximo de informação
                       possível fora da tela, pra escanear rápido"). */}
                   {isTodasContas && !modoResumido && <th className="text-left py-2 px-2 w-32">Conta</th>}
-                  {/* Categoria e Centro de custo (01/10/2026) — saíram
-                      daqui: viraram badge dentro de Descrição (ver
-                      `renderLinha`), nos dois modos. O FILTRO continua
-                      existindo — só mudou de lugar, pra faixa de filtros
-                      acima da tabela (mesmo estado,
-                      `filtroCategoriaId`/`filtroCentroCustoId`). */}
+                  {/* Categoria/Centro voltaram a ser coluna própria
+                      (02/10/2026) — tinham saído em 01/10/2026 pra dentro
+                      de Descrição, mas medido ao vivo: isso deixava
+                      Descrição com 48% da largura da tabela e linhas de
+                      92px de altura (4 "camadas" empilhadas numa célula
+                      só). Devolvidas como coluna, mas COMPACTAS (uma
+                      linha, sem badge grande) — é o que sobra pra
+                      preencher o espaço que ficava vazio. `hidden
+                      md:table-cell`: em tela estreita somem sozinhas
+                      (mesmo padrão já comprovado no
+                      `ExtratoContaDrawer.tsx`), sem precisar de modo
+                      extra. Só no Analítico — Resumido continua só
+                      Data/Fornecedor/Valor. O filtro continua na faixa
+                      de filtros acima (mesmo estado de sempre). */}
+                  {!modoResumido && <th className="text-left py-2 px-2 w-32 hidden md:table-cell">Categoria</th>}
+                  {!modoResumido && <th className="text-left py-2 px-2 w-40 hidden md:table-cell">Centro de custo</th>}
                   <th className="text-right py-2 px-2 w-28">
                     <CabecalhoFiltro label="Valor" align="end" ativo={!!filtroValorMinTexto.trim() || !!filtroValorMaxTexto.trim()}>
                       <div>
@@ -1273,6 +1280,8 @@ export default function FinancasConta() {
                         : <>Saldo inicial · até {dataBr(inicioEfetivo)}</>}
                     </td>
                     {isTodasContas && !modoResumido && <td className="py-1.5 px-2"></td>}
+                    {!modoResumido && <td className="py-1.5 px-2 hidden md:table-cell"></td>}
+                    {!modoResumido && <td className="py-1.5 px-2 hidden md:table-cell"></td>}
                     <td className="py-1.5 px-2 text-right tabular-nums"></td>
                     {!modoResumido && (
                       <td className="py-1.5 px-2 text-right tabular-nums font-medium whitespace-nowrap">{brl(saldoAntesDoPeriodo)}</td>
@@ -1293,6 +1302,8 @@ export default function FinancasConta() {
                         : <>Saldo inicial · até {dataBr(inicioEfetivo)}</>}
                     </td>
                     {isTodasContas && !modoResumido && <td className="py-1.5 px-2"></td>}
+                    {!modoResumido && <td className="py-1.5 px-2 hidden md:table-cell"></td>}
+                    {!modoResumido && <td className="py-1.5 px-2 hidden md:table-cell"></td>}
                     <td className="py-1.5 px-2 text-right tabular-nums"></td>
                     {!modoResumido && (
                       <td className="py-1.5 px-2 text-right tabular-nums font-medium whitespace-nowrap">{brl(saldoAntesDoPeriodo)}</td>
