@@ -1116,11 +1116,14 @@ export async function comprovanteSignedUrl(path: string, segs = 600): Promise<st
 // aceito pelo banco e lido, mas não é mais oferecido (ver
 // `FIN_ANEXO_TIPOS_OFERECIDOS`): os anexos que já o têm não são reescritos.
 //
-// RPA, RPS e DPS entraram em 03/10/2026 como tipos NATIVOS (pedido dela): recibo
-// de pagamento a autônomo, recibo provisório de serviços e declaração de
-// prestação de serviços. São documentos que, sozinhos, sustentam uma saída de
-// folha/serviço — não são "nota fiscal" nem "outro". Migration
-// 20261002200000 (a mesma, atualizada antes de ser aplicada).
+// RPA, RPS e DPS entraram em 03/10/2026 como tipos NATIVOS (pedido dela): RPA =
+// Recibo de Pagamento a Autônomo, RPS = Recibo de Sustento Pastoral, DPS =
+// Demonstrativo de Pagamento de Salário. São documentos que, sozinhos, sustentam
+// uma saída de folha/sustento — não são "nota fiscal" nem "outro". (A 1ª versão
+// deste comentário e das dicas trazia significados INVENTADOS por mim —
+// "Recibo Provisório de Serviços" e "Declaração de Prestação de Serviços", que são
+// termos de NFS-e; ela corrigiu em 03/10/2026 olhando os documentos reais.)
+// Migration 20261002200000 (a mesma, atualizada antes de ser aplicada).
 export type FinAnexoTipo =
   | "nota_fiscal" | "boleto" | "comprovante" | "fatura" | "contrato"
   | "xml" | "rpa" | "rps" | "dps" | "outro" | "documento";
@@ -1142,8 +1145,8 @@ export const FIN_ANEXO_TIPO_LABEL: Record<FinAnexoTipo, string> = {
 /** Explicação curta dos tipos que não são óbvios (dica na tela). */
 export const FIN_ANEXO_TIPO_DICA: Partial<Record<FinAnexoTipo, string>> = {
   rpa: "Recibo de Pagamento a Autônomo",
-  rps: "Recibo Provisório de Serviços",
-  dps: "Declaração de Prestação de Serviços",
+  rps: "Recibo de Sustento Pastoral",
+  dps: "Demonstrativo de Pagamento de Salário",
 };
 
 /** Os tipos que a tela de anexos oferece, na ordem de exibição. */

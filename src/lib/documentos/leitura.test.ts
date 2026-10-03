@@ -241,11 +241,17 @@ describe("RPA, RPS e DPS (tipos nativos)", () => {
   it("RPA pela sigla", () => {
     expect(lerDocumento("RPA nº 987\nValor líquido R$ 380,00").tipo).toBe("rpa");
   });
-  it("RPS pela frase por extenso", () => {
-    expect(lerDocumento("Recibo Provisório de Serviços\nPrestador EXEMPLO LTDA").tipo).toBe("rps");
+  it("RPS = Recibo de Sustento Pastoral, pelo título que a igreja imprime", () => {
+    const t = "QUARTA IGREJA BATISTA DO RIO DE JANEIRO\nRecibo de Sustento Pastoral\n01/08/2026 a 31/08/2026\n27.639.285/0001-61";
+    expect(lerDocumento(t).tipo).toBe("rps");
   });
-  it("DPS pela frase por extenso", () => {
-    expect(lerDocumento("DECLARAÇÃO DE PRESTAÇÃO DE SERVIÇOS\nNúmero 852").tipo).toBe("dps");
+  it("DPS = Demonstrativo de Pagamento de Salário, pelo título que a igreja imprime", () => {
+    const t = "00150 QUARTA IGREJA BATISTA DO RIO DE JANEIRO\nDemonstrativo de Pagamento de Salário\n01/09/2026 a 30/09/2026\nASSISTENTE ADMINISTRATIVO";
+    expect(lerDocumento(t).tipo).toBe("dps");
+  });
+  it("os significados fiscais antigos (inventados por engano) NÃO viram RPS/DPS", () => {
+    expect(lerDocumento("Recibo Provisório de Serviços\nPrestador EXEMPLO LTDA").tipo).not.toBe("rps");
+    expect(lerDocumento("DECLARAÇÃO DE PRESTAÇÃO DE SERVIÇOS\nNúmero 852").tipo).not.toBe("dps");
   });
   it("uma NFS-e nacional que CITA a DPS continua sendo NFS-e", () => {
     const t = "Número da NFS-e 123\nNúmero da DPS 45\nSérie da DPS 1\nPrestador do Serviço";

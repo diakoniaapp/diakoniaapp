@@ -62,6 +62,7 @@ export function tipoSugerido(leitura?: DocumentoLido, nome?: NomeLido, ehXml = f
   // o nome do arquivo da tesouraria às vezes diz (RPA/RPS, BOLETO, FATURA)
   if (nome?.recibo === "RPA") return "rpa";
   if (nome?.recibo === "RPS" || nome?.recibo === "RSP") return "rps";
+  if (nome?.recibo === "DPS") return "dps";
   if (nome?.tipoDocumento === "BOLETO") return "boleto";
   if (nome?.tipoDocumento === "FATURA") return "fatura";
   if (nome?.nf) return "nota_fiscal";

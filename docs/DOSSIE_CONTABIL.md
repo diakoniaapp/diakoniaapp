@@ -188,6 +188,15 @@ primeira classe em Anexos, Auditoria, Central, Relatórios, Filtros e Indicadore
 essas telas já leem a mesma lista (`FIN_ANEXO_TIPOS_OFERECIDOS` / `FIN_ANEXO_TIPO_LABEL`
 em `finService.ts`); o rótulo passou a ser "Comprovante de Pagamento", como na lista dela.
 
+**Significado das siglas (corrigido por ela em 03/10/2026, olhando os documentos
+reais):** **RPA** = Recibo de Pagamento a Autônomo · **RPS** = Recibo de Sustento
+Pastoral · **DPS** = Demonstrativo de Pagamento de Salário. Eu havia escrito "Recibo
+Provisório de Serviços" e "Declaração de Prestação de Serviços" — termos de NFS-e, que
+**não** são os dela; as dicas das telas e a detecção automática foram corrigidas (a Central
+agora reconhece os títulos "Recibo de Sustento Pastoral" e "Demonstrativo de Pagamento de
+Salário", os que a igreja imprime). Ela escreveu "RSP" na mensagem; a sigla do sistema, do
+banco e dos nomes de arquivo é **RPS**, e "RSP" é aceito na leitura do nome do arquivo.
+
 **Um arquivo principal por lançamento.** O escritório não recebe vários documentos do
 mesmo pagamento: `Fornecedor_NF.pdf` + `_Boleto.pdf` + `_Comprovante.pdf` viram **um**
 `Fornecedor.pdf` com tudo dentro.

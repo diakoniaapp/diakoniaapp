@@ -6,9 +6,9 @@
 --
 -- ATUALIZADO em 03/10/2026 (antes de ser aplicada — o aviso "falta aplicar a
 -- migration 20261002200000" na tela de anexos mostra que ainda NÃO rodou em
--- produção): entram também **RPA, RPS e DPS** como tipos nativos (recibo de
--- pagamento a autônomo, recibo provisório de serviços, declaração de prestação
--- de serviços). Um SQL só cobre tudo — não há uma segunda migration pra aplicar.
+-- produção): entram também **RPA, RPS e DPS** como tipos nativos (Recibo de
+-- Pagamento a Autônomo, Recibo de Sustento Pastoral, Demonstrativo de Pagamento
+-- de Salário). Um SQL só cobre tudo — não há uma segunda migration pra aplicar.
 --
 -- MEDIDO antes de mexer (02/10/2026): a tabela tem 2 linhas, as duas com
 -- tipo `documento` (NF em PDF). Por isso `documento` FICA na lista aceita —
