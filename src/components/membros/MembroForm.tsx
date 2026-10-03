@@ -34,8 +34,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { conferir } from "@/lib/escritaConferida";
 import { Camera, X as XIcon } from "lucide-react";
 import {
-  MESES, diasDoMes, montarMeiaData, diaDeMeiaData, mesDeMeiaData,
+  MESES, diasDoMes, montarMeiaData, diaDeMeiaData, mesDeMeiaData, idadeEm,
 } from "@/lib/idade";
+import { IDADE_MINIMA_BATISMO } from "@/services/painelPastoralService";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import type { Membro } from "@/pages/Membros";
@@ -245,10 +246,12 @@ interface Props {
 
 
 // ── Helpers ───────────────────────────────────────────────────────────────
-function calcIdade(dataNasc: string): number {
-  if (!dataNasc) return 0;
-  return Math.floor((Date.now() - new Date(dataNasc).getTime()) / (365.25 * 86_400_000));
-}
+// A conta de idade que vivia aqui (`calcIdade`: milissegundos ÷ 365,25 dias,
+// com `new Date("aaaa-mm-dd")` em UTC) saiu em 02/10/2026 — era uma SEGUNDA
+// conta, diferente da `idadeEm` que o Painel Pastoral usa pra decidir quem é
+// candidato ao batismo, e podia discordar dela por um dia no aniversário de
+// 9 anos (o selo "Candidato a membresia" daqui dizia uma coisa, a lista do
+// painel outra). Agora é `idadeEm` nos dois.
 
 // ── Tarefas de acolhimento automáticas ───────────────────────────────────
 // BUG DE FUSO corrigido (29/09/2026, auditoria de datas): o `addDias` local
@@ -282,6 +285,13 @@ export function MembroForm({ open, onOpenChange, membro, onSaved, tipoInicial, o
 
   const [form, setForm] = useState<any>(empty);
   const [busy, setBusy] = useState(false);
+  // Campos de data com texto que não fecha uma data válida (ver
+  // `CampoData`). O formulário só enxerga o último valor VÁLIDO de cada
+  // um — sem isto, salvar com "15/03/90" na tela gravaria a data ANTIGA e
+  // diria "Pessoa atualizada" (achado em 02/10/2026). `onSubmit` barra.
+  const [datasInvalidas, setDatasInvalidas] = useState<Record<string, boolean>>({});
+  const dataInvalida = (campo: string) => (inv: boolean) =>
+    setDatasInvalidas(p => (!!p[campo] === inv ? p : { ...p, [campo]: inv }));
   const [confirmDelete, setConfirmDelete] = useState(false);
   // "Poderia dar o acesso só após salvar; escolhendo dar acesso ou não" —
   // membro/congregado (novo OU em edição) ganha essa tela assim que o
@@ -613,6 +623,10 @@ export function MembroForm({ open, onOpenChange, membro, onSaved, tipoInicial, o
 
     if (!form.nome_completo.trim()) return toast.error("Informe o nome");
 
+    if (Object.values(datasInvalidas).some(Boolean)) {
+      return toast.error("Há uma data incompleta ou inválida — corrija o campo em vermelho antes de salvar.");
+    }
+
     // Telefone obrigatorio para visitante
     if (form.tipo_pessoa === "visitante" && !form.telefone_celular.trim()) {
       return toast.error("Telefone é obrigatório para visitantes");
@@ -923,8 +937,8 @@ export function MembroForm({ open, onOpenChange, membro, onSaved, tipoInicial, o
   const mostraCasamento = form.estado_civil === "casado";
   const mostraQuemConvidou = PRECISA_QUEM_CONVIDOU.includes(form.como_conheceu);
   const mostraDescreva = form.como_conheceu === "outros";
-  const idadeEstimada = calcIdade(form.data_nascimento);
-  const candidatoMembresia = isCongregado && form.data_nascimento && idadeEstimada >= 9;
+  const idadeEstimada = idadeEm(form.data_nascimento) ?? 0;
+  const candidatoMembresia = isCongregado && form.data_nascimento && idadeEstimada >= IDADE_MINIMA_BATISMO;
 
   const tituloDialog = membro
     ? "Editar pessoa"
@@ -1170,7 +1184,8 @@ export function MembroForm({ open, onOpenChange, membro, onSaved, tipoInicial, o
                   // aceito, sem avisar. Achado ao vivo pela Telma
                   // (29/09/2026): "cadastro o ano e o campo volta para outro
                   // ano, diferente".
-                  <CampoData value={form.data_nascimento} onChange={(v) => set("data_nascimento", v)} anoMin={1900} />
+                  <CampoData value={form.data_nascimento} onChange={(v) => set("data_nascimento", v)}
+                    anoMin={1900} anoMax={new Date().getFullYear()} onInvalidoChange={dataInvalida("data_nascimento")} />
                 )}
 
                 {candidatoMembresia && (
@@ -1202,7 +1217,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved, tipoInicial, o
                       <Label translate="no">Data de casamento</Label>
                       {/* anoMin=1900 — mesmo bug de data_nascimento acima:
                           casamento também pode ser de décadas atrás. */}
-                      <CampoData value={form.data_casamento} onChange={(v) => set("data_casamento", v)} anoMin={1900} />
+                      <CampoData value={form.data_casamento} onChange={(v) => set("data_casamento", v)} anoMin={1900} onInvalidoChange={dataInvalida("data_casamento")} />
                     </div>
                   )}
                 </>
@@ -1326,7 +1341,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved, tipoInicial, o
 
                   <div className="md:col-span-2">
                     <Label translate="no">Data da visita *</Label>
-                    <CampoData value={form.data_entrada} onChange={(v) => set("data_entrada", v)} />
+                    <CampoData value={form.data_entrada} onChange={(v) => set("data_entrada", v)} onInvalidoChange={dataInvalida("data_entrada_a")} />
                   </div>
 
                   <div className="md:col-span-2">
@@ -1386,7 +1401,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved, tipoInicial, o
                       <Label translate="no">Data de entrada</Label>
                       {/* anoMin=1900 — mesmo bug de data_nascimento acima:
                           membro antigo pode ter entrado décadas atrás. */}
-                      <CampoData value={form.data_entrada} onChange={(v) => set("data_entrada", v)} anoMin={1900} />
+                      <CampoData value={form.data_entrada} onChange={(v) => set("data_entrada", v)} anoMin={1900} onInvalidoChange={dataInvalida("data_entrada_b")} />
                       {/* A dica dizia "Data do batismo/profissão de fé" e
                           supunha o tipo mais comum. Para quem veio por carta
                           de outra igreja isso estava errado, e não havia onde
@@ -1477,7 +1492,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved, tipoInicial, o
                       {/* anoMin=1900 — consistência com os demais campos de
                           data desta ficha (evita o mesmo bug se alguém
                           registrar uma saída antiga/histórica). */}
-                      <CampoData value={form.data_saida || ""} onChange={(v) => set("data_saida", v)} anoMin={1900} />
+                      <CampoData value={form.data_saida || ""} onChange={(v) => set("data_saida", v)} anoMin={1900} onInvalidoChange={dataInvalida("data_saida")} />
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {form.status === "falecido"
                           ? "Data do falecimento."
@@ -1648,7 +1663,7 @@ export function MembroForm({ open, onOpenChange, membro, onSaved, tipoInicial, o
                   return (
                     <div key={f} className="md:w-1/2">
                       <Label translate="no">{cfg.rotuloData}</Label>
-                      <CampoData value={form[cfg.coluna] ?? ""} onChange={(v) => set(cfg.coluna!, v)} />
+                      <CampoData value={form[cfg.coluna] ?? ""} onChange={(v) => set(cfg.coluna!, v)} onInvalidoChange={dataInvalida(String(cfg.coluna))} />
                     </div>
                   );
                 })}
@@ -1661,11 +1676,11 @@ export function MembroForm({ open, onOpenChange, membro, onSaved, tipoInicial, o
                 <div className="grid md:grid-cols-2 gap-3">
                   <div>
                     <Label translate="no">Assumiu em</Label>
-                    <CampoData value={form.funcao_inicio ?? ""} onChange={(v) => set("funcao_inicio", v)} />
+                    <CampoData value={form.funcao_inicio ?? ""} onChange={(v) => set("funcao_inicio", v)} onInvalidoChange={dataInvalida("funcao_inicio")} />
                   </div>
                   <div>
                     <Label translate="no">Até</Label>
-                    <CampoData value={form.funcao_fim ?? ""} onChange={(v) => set("funcao_fim", v)} />
+                    <CampoData value={form.funcao_fim ?? ""} onChange={(v) => set("funcao_fim", v)} onInvalidoChange={dataInvalida("funcao_fim")} />
                     <p className="text-xs text-muted-foreground mt-1">
                       Registro histórico — não gera alerta de vencimento.
                       {funcoesSelecionadas.filter((f) => FUNCAO_MINISTERIAL[f].tipoData === "vigencia").length > 1

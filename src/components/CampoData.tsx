@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { CalendarDays } from "lucide-react";
+import { toast } from "sonner";
 import { toYmd, parseLocalDate } from "@/lib/data";
 import { cn } from "@/lib/utils";
 
@@ -57,6 +58,11 @@ interface Props {
    *  duplicar o calendário ali criaria dois jeitos de escolher a mesma
    *  data lado a lado). */
   semCalendario?: boolean;
+  /** Chamado com `true` enquanto o campo tem um texto que não fecha uma
+   *  data válida, e `false` quando some. É pra tela barrar o "Salvar" —
+   *  ela só enxerga o último valor VÁLIDO, então sem isto salvaria a data
+   *  antiga enquanto o campo mostra outra coisa (MembroForm usa). */
+  onInvalidoChange?: (invalido: boolean) => void;
 }
 
 function formatarDigitando(bruto: string): string {
@@ -86,34 +92,68 @@ function paraDigitado(iso: string): string {
   return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
 }
 
+// Por que o texto que ficou no campo não fecha uma data — a mensagem diz o
+// que corrigir, em vez de só recusar.
+function motivoDoErro(digitado: string, anoMin: number, anoMax: number): string {
+  const m = digitado.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!m) return "Data incompleta — use dd/mm/aaaa";
+  const aaaa = Number(m[3]);
+  if (aaaa < anoMin || aaaa > anoMax) return `Ano fora do intervalo (${anoMin} a ${anoMax})`;
+  return "Essa data não existe no calendário";
+}
+
 export function CampoData({
   value, onChange, className, anoMin = 2000, anoMax = 2099, semCalendario,
-  id, disabled, placeholder = "dd/mm/aaaa", inputClassName,
+  id, disabled, placeholder = "dd/mm/aaaa", inputClassName, onInvalidoChange,
 }: Props) {
   const [texto, setTexto] = useState(() => paraDigitado(value));
   const [focado, setFocado] = useState(false);
   const [calAberto, setCalAberto] = useState(false);
+  // Texto digitado que não fecha uma data válida (incompleto, ano fora do
+  // intervalo, "31/02/2026"). Ver `aoSairDoFoco` — antes o texto era
+  // apagado em silêncio.
+  const [erro, setErro] = useState<string | null>(null);
+
+  // Valor de fora mudou (calendário, outra tela, outra pessoa aberta): o
+  // erro de um texto antigo não vale mais.
+  useEffect(() => { setErro(null); }, [value]);
 
   // Sincroniza com o valor de fora (escolhido pelo calendário, ou filtro
   // trocado pela própria tela) — só quando o campo não está sendo
-  // digitado, senão apagaria o que a pessoa está no meio de escrever.
+  // digitado, senão apagaria o que a pessoa está no meio de escrever. Nem
+  // quando há erro pendente: o texto errado tem que continuar na tela pra
+  // ser corrigido.
   useEffect(() => {
-    if (!focado) setTexto(paraDigitado(value));
-  }, [value, focado]);
+    if (!focado && !erro) setTexto(paraDigitado(value));
+  }, [value, focado, erro]);
+
+  // Avisa a tela que usa o campo, pra ela poder barrar o "Salvar" — o valor
+  // que ela guarda continua sendo o último VÁLIDO, não o texto errado.
+  useEffect(() => { onInvalidoChange?.(!!erro); }, [erro]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => onInvalidoChange?.(false), []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function aoDigitar(e: React.ChangeEvent<HTMLInputElement>) {
     const formatado = formatarDigitando(e.target.value);
     setTexto(formatado);
+    setErro(null);
     const iso = paraIso(formatado, anoMin, anoMax);
     if (iso) onChange(iso);
   }
 
   function aoSairDoFoco() {
     setFocado(false);
-    // Se o que ficou no campo não fecha uma data válida (incompleto, ou
-    // "31/02/2026"), volta a mostrar o último valor válido — não deixa
-    // texto quebrado preso na tela.
-    setTexto(paraDigitado(value));
+    // Campo vazio: volta ao último valor (comportamento de sempre).
+    if (!texto) { setTexto(paraDigitado(value)); return; }
+    if (paraIso(texto, anoMin, anoMax)) return; // válida — já foi pra tela
+    // Texto que não fecha uma data: ANTES era apagado em silêncio e o
+    // campo voltava ao valor anterior — a pessoa "corrigia" a data de
+    // nascimento, salvava, a tela dizia "Pessoa atualizada" e nada mudava
+    // (achado em 02/10/2026, teste ponta a ponta: digitar 15/03/90 e sair
+    // do campo apagava o texto, sem aviso). Agora o texto fica, o campo
+    // fica vermelho e um aviso diz o que está errado.
+    const motivo = motivoDoErro(texto, anoMin, anoMax);
+    setErro(motivo);
+    toast.error(motivo);
   }
 
   return (
@@ -125,7 +165,8 @@ export function CampoData({
           (§6.2), aqui dentro de um componente novo. */}
       <Input id={id} value={texto} inputMode="numeric" placeholder={placeholder} disabled={disabled}
         onFocus={() => setFocado(true)} onBlur={aoSairDoFoco}
-        onChange={aoDigitar} className={cn("h-8 text-xs min-w-0 flex-1", inputClassName)} />
+        onChange={aoDigitar} aria-invalid={!!erro} title={erro ?? undefined}
+        className={cn("h-8 text-xs min-w-0 flex-1", erro && "border-destructive focus-visible:ring-destructive", inputClassName)} />
       {!semCalendario && (
         <Popover open={calAberto} onOpenChange={setCalAberto}>
           <PopoverTrigger asChild>
@@ -139,6 +180,7 @@ export function CampoData({
               onSelect={(d) => {
                 if (!d) return;
                 const iso = toYmd(d);
+                setErro(null);
                 setTexto(paraDigitado(iso));
                 onChange(iso);
                 setCalAberto(false);

@@ -520,7 +520,7 @@ function EditarDados({ pessoa, onSalvou, onCancelar }: {
         <div>
           <Label className="text-xs">Data de nascimento</Label>
           {/* anoMin=1900 — mesmo bug e mesmo motivo de MembroForm.tsx */}
-          <CampoData value={dataNasc} onChange={(v) => setDataNasc(v)} className="h-8 text-sm" anoMin={1900} />
+          <CampoData value={dataNasc} onChange={(v) => setDataNasc(v)} className="h-8 text-sm" anoMin={1900} anoMax={new Date().getFullYear()} />
         </div>
         <div>
           <Label className="text-xs">Sexo</Label>

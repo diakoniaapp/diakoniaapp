@@ -223,7 +223,7 @@ function DialogCorrigir({ aberto, onFechar, ficha, onSalvo }: {
               {/* anoMin=1900 — mesmo bug e mesmo motivo de MembroForm.tsx:
                   data de NASCIMENTO, não o padrão de 2000-2099 pensado pra
                   data futura. */}
-              <CampoData id="nasc" value={form.data_nascimento ?? ""} onChange={(v) => set("data_nascimento", v)} anoMin={1900} />
+              <CampoData id="nasc" value={form.data_nascimento ?? ""} onChange={(v) => set("data_nascimento", v)} anoMin={1900} anoMax={new Date().getFullYear()} />
               {/* O convite só aparece para quem tem a pendência. Para os
                   outros seria ruído num campo já preenchido. */}
               {!ficha.data_nascimento && ficha.nascimento_dia_mes && (
