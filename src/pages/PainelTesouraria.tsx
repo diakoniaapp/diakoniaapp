@@ -1140,11 +1140,11 @@ export default function PainelTesouraria() {
                 <span className="flex items-end gap-2 ml-1">
                   <span>
                     <label className="text-xs text-muted-foreground block">De</label>
-                    <CampoData value={eclCustomInicio} onChange={setEclCustomInicio} className="h-8 w-[150px]" inputClassName="text-sm" />
+                    <CampoData value={eclCustomInicio} onChange={setEclCustomInicio} className="h-8 w-[10.5rem]" inputClassName="text-sm" />
                   </span>
                   <span>
                     <label className="text-xs text-muted-foreground block">Até</label>
-                    <CampoData value={eclCustomFim} onChange={setEclCustomFim} className="h-8 w-[150px]" inputClassName="text-sm" />
+                    <CampoData value={eclCustomFim} onChange={setEclCustomFim} className="h-8 w-[10.5rem]" inputClassName="text-sm" />
                   </span>
                 </span>
               )}

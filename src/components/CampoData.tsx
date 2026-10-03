@@ -156,8 +156,14 @@ export function CampoData({
     toast.error(motivo);
   }
 
+  // Piso de largura (03/10/2026): "01/11/2025" em 14px precisa de ~107px de campo com o
+  // padding padrão, e com o botão do calendário (32px + 4px de respiro) a caixa inteira de
+  // ~148px deixava só ~112px — no limite; em máquinas com a fonte um pouco mais larga a data
+  // aparecia cortada ("01/11/202"). Aqui: padding lateral menor (px-2) e um piso de 9rem
+  // (144px) na caixa com calendário, que deixa ~108px para o texto contra ~99px necessários.
+  // O campo SEM calendário não leva piso extra.
   return (
-    <div className={cn("flex gap-1", className)}>
+    <div className={cn("flex gap-1", !semCalendario && "min-w-[9rem]", className)}>
       {/* min-w-0 — um `<input>` dentro de flex não encolhe abaixo do
           próprio conteúdo por padrão; sem isso ele empurra o botão de
           calendário pra fora do espaço reservado ao campo, em vez de
@@ -166,7 +172,7 @@ export function CampoData({
       <Input id={id} value={texto} inputMode="numeric" placeholder={placeholder} disabled={disabled}
         onFocus={() => setFocado(true)} onBlur={aoSairDoFoco}
         onChange={aoDigitar} aria-invalid={!!erro} title={erro ?? undefined}
-        className={cn("h-8 text-xs min-w-0 flex-1", erro && "border-destructive focus-visible:ring-destructive", inputClassName)} />
+        className={cn("h-8 px-2 text-xs min-w-0 flex-1", erro && "border-destructive focus-visible:ring-destructive", inputClassName)} />
       {!semCalendario && (
         <Popover open={calAberto} onOpenChange={setCalAberto}>
           <PopoverTrigger asChild>
