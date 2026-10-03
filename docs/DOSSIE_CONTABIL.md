@@ -92,11 +92,17 @@ já são recusados no envio; portanto não há outro formato a mesclar.
 
 ## 4. Padrão de nomes — como ficou a regra
 
-Formato: `DDMMAAAA_DOCUMENTO_FORNECEDOR.pdf`
+> **Atualizado em 03/10/2026 (ver §8):** o **valor** passou a fazer parte obrigatória do
+> nome. Formato oficial: `DDMMAAAA_VALOR_DOCUMENTO_FORNECEDOR.pdf`
+> (`01092026_86,13_12345_MUNDIAL.pdf`). Os exemplos e a regra de colisão abaixo são da
+> versão anterior (sem valor) e valem apenas nas demais partes.
+
+Formato: `DDMMAAAA_VALOR_DOCUMENTO_FORNECEDOR.pdf`
 
 | Parte | Regra |
 |---|---|
 | `DDMMAAAA` | dia do pagamento: `data_pagamento`, ou `data` se vazia (a mesma da pasta do dia) |
+| `VALOR` | valor do lançamento, **sem símbolo e sem separador de milhar**, vírgula decimal: `760,00` · `12548,92` |
 | `DOCUMENTO` | **1º** o número do documento (`12345`); **2º**, sem número, o tipo (`RPA`, `RPS`, `DPS`, `NF`, `FATURA`, `BOLETO`, `CONTRATO`) |
 | `FORNECEDOR` | o nome do **fornecedor**; se o lançamento for de pessoa, o do **funcionário** |
 | Normalização | maiúsculas · sem acento · só letras e números · barras, aspas e símbolos viram espaço · espaços múltiplos colapsados · espaço → `_` |
@@ -114,9 +120,11 @@ Exemplos (como pedido): `01092026_12345_MUNDIAL.pdf`,
   `documento_numero` ao vincular, se estiver vazio; **(b)** o número que o nome do arquivo
   da tesouraria já traz (`NF577`), que já é lido por `nomeArquivo.ts`. Sem isso, a
   maioria dos nomes cairia no tipo (`..._NF_MUNDIAL.pdf`).
-- **Colisão** (mesmo dia + mesmo número/tipo + mesmo fornecedor, ex.: duas faturas da
-  Light de R$ 281,46 no mesmo dia): mantém a regra já aprovada — acrescenta o **valor** e,
-  só se nem ele desempatar, o **início do ID**: `15092026_FATURA_LIGHT_281_46.pdf`.
+- **Colisão** (mesmo dia + mesmo valor + mesmo número/tipo + mesmo fornecedor, ex.: duas
+  faturas da Light de R$ 281,46 no mesmo dia): como o valor agora **já está sempre no
+  nome**, ele deixa de ser o primeiro desempate — sobra o **início do ID** do lançamento
+  (`15092026_281,46_FATURA_LIGHT_7a44cf.pdf`). Colisões caem muito: dois lançamentos só
+  colidem se coincidirem dia, valor, documento **e** fornecedor.
 - **Limites:** nome do fornecedor cortado em 60 caracteres (caminho máximo hoje: 117 de 260
   do Windows).
 
@@ -226,6 +234,46 @@ intacto no sistema.
 pagamento — `01092026_12345_MUNDIAL.pdf` (NF + boleto + comprovante),
 `01092026_9876_LIGHT.pdf` (fatura + comprovante),
 `01092026_RPA_ANA_PATRICIA_DA_SILVA_DE_LIMA_OLIVEIRA.pdf` (RPA + comprovante).
+
+### 8.1 Alteração: o valor entra no nome (03/10/2026, mesma noite)
+
+*"O valor passa a ser parte obrigatória do nome de todos os arquivos do Dossiê
+Contábil."* Motivos dela: conferência pelo escritório, localização rápida, identificação
+visual, menos colisões, análise sem abrir o PDF.
+
+**Padrão oficial: `DDMMAAAA_VALOR_DOCUMENTO_FORNECEDOR`**, na ordem de prioridade
+**1 data · 2 valor · 3 número do documento** (sem número, o tipo):
+
+| Caso | Nome |
+|---|---|
+| NF com número | `01092026_86,13_12345_MUNDIAL.pdf` |
+| Fatura com número | `15092026_281,46_98765_LIGHT.pdf` |
+| RPA sem número | `04092026_760,00_RPA_ANA_PATRICIA_DA_SILVA_DE_LIMA_OLIVEIRA.pdf` |
+| DPS sem número | `05092026_350,00_DPS_TAYANE_CLAUDIO_REZENDE_DE_SOUZA.pdf` |
+| RPS com número | `12092026_1200,00_456_RPS_APOIO_CONTABIL_LTDA.pdf` |
+
+**Valor:** o valor financeiro **do lançamento**, sem símbolo de moeda e **sem separador
+de milhar** (`R$ 12.548,92` → `12548,92`; `R$ 760,00` → `760,00`). Numa compra
+parcelada, cada parcela leva o valor **da sua parcela**.
+
+**XML:** mesma nomenclatura do PDF — `01092026_86,13_12345_MUNDIAL.pdf` e
+`01092026_86,13_12345_MUNDIAL.xml`.
+
+**Os exemplos dela confirmam a "leitura minha" nº 1 acima:** a fatura da Light com número
+(`98765_LIGHT`) não leva o tipo, e o RPS com número (`456_RPS_…`) leva. Passa de leitura a
+regra: **com número, RPA/RPS/DPS mantêm o tipo depois dele; os demais levam só o número.**
+
+**Consequências práticas (medidas por aritmética, não por geração real):**
+- O nome cresce no máximo ~12 caracteres (`12548,92_`). O maior caminho medido antes era
+  117 de 260 do Windows, então fica em torno de **129** — folga mantida.
+- A vírgula é válida em nome de arquivo no Windows e no ZIP. O `INDICE.csv` já usa
+  `;`/aspas pt-BR (`csvPtBr`), então a vírgula do nome não o quebra.
+- O desempate de colisão (§4) passa a ser só o início do ID.
+- Impacto no código: `lib/documentos/dossie.ts` (a ser criado) formata o valor com
+  `toFixed(2).replace(".", ",")` — o mesmo formato que `relatorioLote.ts` já usa — e o
+  `planejarPacote` atual (`Fornecedor_Tipo.ext`) é substituído por este padrão junto com
+  o resto do dossiê. Testes obrigatórios: `12548.92` → `12548,92`; `760` → `760,00`; `0` → `0,00`; e
+  valor negativo (estorno) não pode gerar `-` solto no nome — usa o valor absoluto.
 
 **Ainda em aberto do §7 (não respondidas pela mensagem):** 2 (gravar o número lido em
 `documento_numero` — sem isso a maioria dos nomes cairá no tipo, pois só 1 de 283
