@@ -32,11 +32,11 @@ describe("pedaços do nome", () => {
   it("estorno (negativo) usa o valor absoluto — sem '-' no nome", () => {
     expect(valorNoNome(-45.9)).toBe("45,90");
   });
-  it("com número: nota/fatura só o número; RPA/RPS/DPS mantêm a sigla depois", () => {
+  it("com número: nota/fatura só o número; RPA/RSP/DPS mantêm a sigla depois", () => {
     expect(documentoNoNome("12345", "nota_fiscal")).toBe("12345");
     expect(documentoNoNome("98765", "fatura")).toBe("98765");
     expect(documentoNoNome("987", "rpa")).toBe("987_RPA");
-    expect(documentoNoNome("456", "rps")).toBe("456_RPS");
+    expect(documentoNoNome("456", "rsp")).toBe("456_RSP");
     expect(documentoNoNome("7", "dps")).toBe("7_DPS");
   });
   it("sem número: a sigla do tipo", () => {
@@ -60,7 +60,7 @@ describe("pedaços do nome", () => {
 
 describe("ordem documental", () => {
   it("a lista é exatamente a que ela definiu", () => {
-    expect(ORDEM_DOCUMENTAL).toEqual(["nota_fiscal", "rpa", "rps", "dps", "fatura", "boleto", "contrato", "outro", "comprovante"]);
+    expect(ORDEM_DOCUMENTAL).toEqual(["nota_fiscal", "rpa", "rsp", "dps", "fatura", "boleto", "contrato", "outro", "comprovante"]);
   });
   it("comprovante vai sempre por último; 'documento' (antigo) conta como 'outro'", () => {
     const partes = [
@@ -118,8 +118,8 @@ describe("nome-base do dossiê", () => {
     expect(nomeBaseDoDossie({ ...base, dia: "2026-09-15", valor: 281.46, numero: "98765", principal: "fatura", fornecedor: "Light" })).toBe("15092026_281,46_98765_LIGHT");
     expect(nomeBaseDoDossie({ ...base, dia: "2026-09-04", valor: 760, numero: null, principal: "rpa", fornecedor: "Ana Patrícia da Silva de Lima Oliveira" }))
       .toBe("04092026_760,00_RPA_ANA_PATRICIA_DA_SILVA_DE_LIMA_OLIVEIRA");
-    expect(nomeBaseDoDossie({ ...base, dia: "2026-09-12", valor: 1200, numero: "456", principal: "rps", fornecedor: "Apoio Contábil Ltda" }))
-      .toBe("12092026_1200,00_456_RPS_APOIO_CONTABIL_LTDA");
+    expect(nomeBaseDoDossie({ ...base, dia: "2026-09-12", valor: 1200, numero: "456", principal: "rsp", fornecedor: "Apoio Contábil Ltda" }))
+      .toBe("12092026_1200,00_456_RSP_APOIO_CONTABIL_LTDA");
   });
   it("fornecedor ausente não gera nome quebrado", () => {
     expect(nomeBaseDoDossie({ ...base, numero: null, principal: "boleto", fornecedor: null })).toBe("01092026_86,13_BOLETO_SEM_FORNECEDOR");

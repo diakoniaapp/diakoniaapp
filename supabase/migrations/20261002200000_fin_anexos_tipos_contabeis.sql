@@ -6,7 +6,7 @@
 --
 -- ATUALIZADO em 03/10/2026 (antes de ser aplicada — o aviso "falta aplicar a
 -- migration 20261002200000" na tela de anexos mostra que ainda NÃO rodou em
--- produção): entram também **RPA, RPS e DPS** como tipos nativos (Recibo de
+-- produção): entram também **RPA, RSP e DPS** como tipos nativos (Recibo de
 -- Pagamento a Autônomo, Recibo de Sustento Pastoral, Demonstrativo de Pagamento
 -- de Salário). Um SQL só cobre tudo — não há uma segunda migration pra aplicar.
 --
@@ -42,6 +42,6 @@ ALTER TABLE public.fin_lancamento_anexos
   ADD CONSTRAINT fin_lancamento_anexos_tipo_check
   CHECK (tipo IN (
     'nota_fiscal', 'boleto', 'comprovante', 'fatura', 'contrato',
-    'xml', 'rpa', 'rps', 'dps', 'outro',
+    'xml', 'rpa', 'rsp', 'dps', 'outro',
     'documento'   -- antigo: aceito, não mais oferecido pela tela
   ));

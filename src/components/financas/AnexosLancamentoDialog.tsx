@@ -114,7 +114,7 @@ export function AnexosLancamentoDialog({ open, onOpenChange, lancamentoId, descr
             <Files className="w-4 h-4 text-gold" /> Anexos — {descricaoLancamento}
           </DialogTitle>
           <DialogDescription className="text-xs">
-            Nota fiscal, boleto, comprovante, fatura, contrato, XML, RPA, RPS ou DPS deste lançamento — quantos precisar, cada um com o próprio tipo. Tudo vai pro Pacote Contábil do mês.
+            Nota fiscal, boleto, comprovante, fatura, contrato, XML, RPA, RSP ou DPS deste lançamento — quantos precisar, cada um com o próprio tipo. Tudo vai pro Pacote Contábil do mês.
           </DialogDescription>
         </DialogHeader>
 

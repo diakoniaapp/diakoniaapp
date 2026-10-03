@@ -103,7 +103,7 @@ Formato: `DDMMAAAA_VALOR_DOCUMENTO_FORNECEDOR.pdf`
 |---|---|
 | `DDMMAAAA` | dia do pagamento: `data_pagamento`, ou `data` se vazia (a mesma da pasta do dia) |
 | `VALOR` | valor do lançamento, **sem símbolo e sem separador de milhar**, vírgula decimal: `760,00` · `12548,92` |
-| `DOCUMENTO` | **1º** o número do documento (`12345`); **2º**, sem número, o tipo (`RPA`, `RPS`, `DPS`, `NF`, `FATURA`, `BOLETO`, `CONTRATO`) |
+| `DOCUMENTO` | **1º** o número do documento (`12345`); **2º**, sem número, o tipo (`RPA`, `RSP`, `DPS`, `NF`, `FATURA`, `BOLETO`, `CONTRATO`) |
 | `FORNECEDOR` | o nome do **fornecedor**; se o lançamento for de pessoa, o do **funcionário** |
 | Normalização | maiúsculas · sem acento · só letras e números · barras, aspas e símbolos viram espaço · espaços múltiplos colapsados · espaço → `_` |
 
@@ -183,19 +183,12 @@ regra **responde** uma pergunta do §7, está dito; onde dá para ler de dois je
 leitura adotada está marcada como **leitura minha**.
 
 **Tipos oficiais (lista fechada, nesta ordem):** Nota Fiscal · Boleto · Comprovante de
-Pagamento · Fatura · Contrato · XML · RPA · RPS · DPS · Outro. RPA, RPS e DPS são de
+Pagamento · Fatura · Contrato · XML · RPA · RSP · DPS · Outro. RPA, RSP e DPS são de
 primeira classe em Anexos, Auditoria, Central, Relatórios, Filtros e Indicadores — todas
 essas telas já leem a mesma lista (`FIN_ANEXO_TIPOS_OFERECIDOS` / `FIN_ANEXO_TIPO_LABEL`
 em `finService.ts`); o rótulo passou a ser "Comprovante de Pagamento", como na lista dela.
 
-**Significado das siglas (corrigido por ela em 03/10/2026, olhando os documentos
-reais):** **RPA** = Recibo de Pagamento a Autônomo · **RPS** = Recibo de Sustento
-Pastoral · **DPS** = Demonstrativo de Pagamento de Salário. Eu havia escrito "Recibo
-Provisório de Serviços" e "Declaração de Prestação de Serviços" — termos de NFS-e, que
-**não** são os dela; as dicas das telas e a detecção automática foram corrigidas (a Central
-agora reconhece os títulos "Recibo de Sustento Pastoral" e "Demonstrativo de Pagamento de
-Salário", os que a igreja imprime). Ela escreveu "RSP" na mensagem; a sigla do sistema, do
-banco e dos nomes de arquivo é **RPS**, e "RSP" é aceito na leitura do nome do arquivo.
+**Significado das siglas — DEFINIÇÃO FINAL (03/10/2026, ver §8.3):** **RPA** = Recibo de Pagamento a Autônomo · **RSP** = Recibo de Sustento Pastoral · **DPS** = Demonstrativo de Pagamento de Salário. O **RPS** deixou de existir.
 
 **Um arquivo principal por lançamento.** O escritório não recebe vários documentos do
 mesmo pagamento: `Fornecedor_NF.pdf` + `_Boleto.pdf` + `_Comprovante.pdf` viram **um**
@@ -222,10 +215,10 @@ se ela quiser que valha a ordem em que soltou os arquivos, é uma linha de mudan
    (`Ana Patrícia da Silva de Lima Oliveira` → `ANA_PATRICIA_DA_SILVA_DE_LIMA_OLIVEIRA`).
 
    → **responde a pergunta 1 do §7:** os exemplos dela confirmam **só o número** (`12345`,
-   não `NF12345`). **Detalhe novo que os exemplos revelam:** nos de RPA e RPS o **tipo
+   não `NF12345`). **Detalhe novo que os exemplos revelam:** nos de RPA e RSP o **tipo
    aparece depois do número** (`987_RPA_…`, `456_RPS_…`), enquanto na nota fiscal ele
    **não** aparece (`12345_MUNDIAL`). **Leitura minha:** com número, Nota Fiscal, Boleto
-   e Fatura levam só o número; **RPA, RPS e DPS mantêm o tipo depois do número**, porque
+   e Fatura levam só o número; **RPA, RSP e DPS mantêm o tipo depois do número**, porque
    o número de um recibo sozinho não diz o que é. Sem número, o tipo entra para todos.
 
 **Estrutura do pacote:** `Conta Financeira → Data → Arquivos`, **sem** pasta de fornecedor
@@ -259,7 +252,7 @@ visual, menos colisões, análise sem abrir o PDF.
 | Fatura com número | `15092026_281,46_98765_LIGHT.pdf` |
 | RPA sem número | `04092026_760,00_RPA_ANA_PATRICIA_DA_SILVA_DE_LIMA_OLIVEIRA.pdf` |
 | DPS sem número | `05092026_350,00_DPS_TAYANE_CLAUDIO_REZENDE_DE_SOUZA.pdf` |
-| RPS com número | `12092026_1200,00_456_RPS_APOIO_CONTABIL_LTDA.pdf` |
+| RSP com número | `12092026_1200,00_456_RSP_APOIO_CONTABIL_LTDA.pdf` |
 
 **Valor:** o valor financeiro **do lançamento**, sem símbolo de moeda e **sem separador
 de milhar** (`R$ 12.548,92` → `12548,92`; `R$ 760,00` → `760,00`). Numa compra
@@ -269,8 +262,8 @@ parcelada, cada parcela leva o valor **da sua parcela**.
 `01092026_86,13_12345_MUNDIAL.xml`.
 
 **Os exemplos dela confirmam a "leitura minha" nº 1 acima:** a fatura da Light com número
-(`98765_LIGHT`) não leva o tipo, e o RPS com número (`456_RPS_…`) leva. Passa de leitura a
-regra: **com número, RPA/RPS/DPS mantêm o tipo depois dele; os demais levam só o número.**
+(`98765_LIGHT`) não leva o tipo, e o RSP com número (`456_RSP_…`) leva. Passa de leitura a
+regra: **com número, RPA/RSP/DPS mantêm o tipo depois dele; os demais levam só o número.**
 
 **Consequências práticas (medidas por aritmética, não por geração real):**
 - O nome cresce no máximo ~12 caracteres (`12548,92_`). O maior caminho medido antes era
@@ -288,8 +281,8 @@ regra: **com número, RPA/RPS/DPS mantêm o tipo depois dele; os demais levam s�
 
 | # | Pergunta | Resposta dela | Situação |
 |---|---|---|---|
-| 2 | Gravar o número em `documento_numero` | **Sim** — pesquisa, auditoria, relatórios, conferência, duplicidade | Feito: a Central grava o número lido (nota, RPA, RPS, DPS, fatura) só onde está **vazio**, e o **Desfazer lote** o esvazia de volta. Boleto, comprovante, contrato, XML e "outro" não gravam número. |
-| 3 | Ordem das páginas | **Lógica documental**, não a do upload: NF · RPA · RPS · DPS · Fatura · Boleto · Contrato · Outro · **Comprovante por último** | Feito (`ordenarPartes`). Dentro do mesmo tipo vale a ordem de envio. O XML não entra. |
+| 2 | Gravar o número em `documento_numero` | **Sim** — pesquisa, auditoria, relatórios, conferência, duplicidade | Feito: a Central grava o número lido (nota, RPA, RSP, DPS, fatura) só onde está **vazio**, e o **Desfazer lote** o esvazia de volta. Boleto, comprovante, contrato, XML e "outro" não gravam número. |
+| 3 | Ordem das páginas | **Lógica documental**, não a do upload: NF · RPA · RSP · DPS · Fatura · Boleto · Contrato · Outro · **Comprovante por último** | Feito (`ordenarPartes`). Dentro do mesmo tipo vale a ordem de envio. O XML não entra. |
 | 4 | Foto grande | **Sim**, reduzir **só na cópia do dossiê**; nunca alterar o original | Feito: lado maior em 1.600 px (JPEG 0,85; PNG continua PNG); JPEG com rotação EXIF passa pelo canvas para sair em pé. O armazenado não é tocado. |
 | 5 | 15 lançamentos de 01/09 | **Validar antes** | Feito: [`VALIDACAO_DATAS_01_09.md`](./VALIDACAO_DATAS_01_09.md) — nenhuma data errada. |
 | 6 | Carimbo | **Não** (sem marca d'água, número de página, "X de Y", nome do sistema, rodapé, cabeçalho) | Feito, com teste: nº de páginas do dossiê = soma dos originais. Um dossiê de **uma** parte em PDF sai com os bytes originais. |
@@ -314,10 +307,7 @@ existem 6 anexos no banco); o merge dos dois que ela montou à mão deu 2 págin
 sem falhas; caminho máximo 120 de 200. Foto sintética 3000×2000 → 1600×1067 (282 KB → 53 KB);
 PNG de 5,8 MB → 0,88 MB; imagem pequena sai idêntica.
 
-**Em aberto (uma pergunta):** a sigla no **nome do arquivo** do Recibo de Sustento Pastoral.
-Nos exemplos de nome ela escreveu `RPS` (§8.1) e, no exemplo "definitivo", `456_RSP_APOIO_CONTABIL_LTDA`;
-ao corrigir o significado escreveu "RSP". A chave no banco e na tela é `rps`. A sigla no
-arquivo é `SIGLA_NO_NOME.rps` em `dossie.ts` — hoje `RPS`; trocar para `RSP` é uma linha.
+**Sigla do Recibo de Sustento Pastoral:** resolvida em §8.3 — é **RSP**, no banco, na tela e no nome do arquivo.
 
 **Antes de gerar o pacote de setembro** (ações dela): rodar a migration `20261002200000`
 e `sql/reclassificar_anexos_rpa_dps_2026-10-03.sql`; sem isso os dois dossiês de RPA/DPS saem
@@ -328,3 +318,43 @@ com `DOCUMENTO` no lugar de `RPA`/`DPS`, porque os anexos ainda estão como "Out
 lançamentos de setembro tem número), 4 (reduzir foto grande só na cópia do dossiê),
 5 (conferir os 15 lançamentos datados 01/09 — o nome do arquivo leva a data, então um
 dia errado vira nome errado) e 6 (sem carimbo de página).
+
+### 8.3 Correção definitiva dos tipos (03/10/2026, depois da implementação)
+
+Revisados os documentos reais, a classificação final é:
+
+| Tipo | Significado | Usado para |
+|---|---|---|
+| **RPA** | Recibo de Pagamento a Autônomo | prestadores autônomos; pessoa física sem vínculo empregatício |
+| **RSP** | Recibo de Sustento Pastoral | sustento pastoral, verba pastoral, ajuda ministerial, sustento ministerial |
+| **DPS** | Demonstrativo de Pagamento de Salário | contracheque, holerite, folha individual de pagamento |
+
+**RPS (Recibo Provisório de Serviços) foi removido por completo** — "não faz parte da rotina
+da igreja e está causando confusão". Lista oficial: Nota Fiscal · Boleto · Comprovante de
+Pagamento · Fatura · Contrato · XML · RPA · RSP · DPS · Outro.
+
+**Classificação automática** (o usuário sempre pode trocar), do mais firme ao mais solto:
+1. o **título** impresso: "Recibo de Pagamento a Autônomo" → RPA · "Recibo de Sustento
+   Pastoral" → RSP · "Demonstrativo de Pagamento de Salário" → DPS;
+2. as **expressões** que ela listou: *Folha de Pagamento, Contracheque, Holerite, Recibo de
+   Salário* → DPS · *Sustento Pastoral, Verba Pastoral, Ajuda Ministerial, Sustento
+   Ministerial* → RSP;
+3. a **sigla** sozinha (RPA, RSP, DPS).
+
+Os degraus 2 e 3 não valem quando o texto parece NFS-e (uma nota de serviço pode citar "folha
+de pagamento" ou "DPS" com outro sentido). O título completo vence a expressão solta.
+
+**Nomes** seguem `DDMMAAAA_VALOR_DOCUMENTO_FORNECEDOR`; com número o tipo fica depois dele:
+`30092026_4500,00_RSP_CAIO_MARCELO_MENDES_DA_SILVA.pdf` ·
+`30092026_3250,00_DPS_MARIA_APARECIDA_DOS_SANTOS.pdf` · `15092026_760,00_RPA_JOSE_DA_SILVA.pdf`.
+A ordem das páginas troca RPS por RSP na mesma posição: NF · RPA · RSP · DPS · Fatura ·
+Boleto · Contrato · Outro · Comprovante.
+
+**Banco:** medido por tentativa de inserção sem gravar nada (lançamento inexistente: tipo
+recusado dá erro de CHECK, tipo aceito dá erro de chave estrangeira), o banco **ainda não tem**
+RPA/RPS/RSP/DPS — só a lista antiga. Por isso a migration `20261002200000` (ainda não aplicada)
+foi corrigida **no lugar**: `rsp` em vez de `rps`, e nenhum dado precisou ser convertido.
+
+**Um ponto a saber:** o arquivo real de agosto da tesouraria usa `RPS` nos nomes (ex.: uma
+faxineira). O leitor de nome continua reconhecendo o termo para **tirá-lo do fornecedor**, mas
+não sugere tipo nenhum a partir dele (não vou adivinhar se aquilo era RPA).

@@ -66,10 +66,10 @@ describe("planejarPacote — Dossiê Contábil: um PDF por lançamento", () => {
     const p = planejarPacote(2026, 9, [l], [
       t("comprovante", "2026-10-03T01:00"), t("boleto", "2026-10-03T01:01"), t("contrato", "2026-10-03T01:02"),
       t("nota_fiscal", "2026-10-03T01:03"), t("outro", "2026-10-03T01:04"), t("fatura", "2026-10-03T01:05"),
-      t("dps", "2026-10-03T01:06"), t("rps", "2026-10-03T01:07"), t("rpa", "2026-10-03T01:08"),
+      t("dps", "2026-10-03T01:06"), t("rsp", "2026-10-03T01:07"), t("rpa", "2026-10-03T01:08"),
     ]);
     expect(p.dossies[0].partes.map(x => x.tipo)).toEqual(
-      ["nota_fiscal", "rpa", "rps", "dps", "fatura", "boleto", "contrato", "outro", "comprovante"]);
+      ["nota_fiscal", "rpa", "rsp", "dps", "fatura", "boleto", "contrato", "outro", "comprovante"]);
   });
 
   it("exemplo dela: NF + Contrato + Comprovante → página 1 NF, 2 Contrato, 3 Comprovante", () => {
@@ -98,12 +98,12 @@ describe("planejarPacote — Dossiê Contábil: um PDF por lançamento", () => {
     expect(nomeDoPdf(p.dossies[0])).toBe("05092026_350,00_DPS_TAYANE_CLAUDIO_REZENDE_DE_SOUZA.pdf");
   });
 
-  it("com número: RPS mantém a sigla depois do número; fatura e nota levam só o número", () => {
-    const rps = saida({ data_pagamento: "2026-09-12", valor: 1200, fornecedor_nome: "Apoio Contabil Ltda", documento_numero: "456" });
+  it("com número: RSP mantém a sigla depois do número; fatura e nota levam só o número", () => {
+    const rsp = saida({ data_pagamento: "2026-09-12", valor: 1200, fornecedor_nome: "Apoio Contabil Ltda", documento_numero: "456" });
     const fat = saida({ data_pagamento: "2026-09-15", valor: 281.46, fornecedor_nome: "Light", documento_numero: "98765" });
-    const p = planejarPacote(2026, 9, [rps, fat], [anexo(rps, "rps"), anexo(fat, "fatura")]);
+    const p = planejarPacote(2026, 9, [rsp, fat], [anexo(rsp, "rsp"), anexo(fat, "fatura")]);
     expect(p.dossies.map(nomeDoPdf).sort()).toEqual([
-      "12092026_1200,00_456_RPS_APOIO_CONTABIL_LTDA.pdf",
+      "12092026_1200,00_456_RSP_APOIO_CONTABIL_LTDA.pdf",
       "15092026_281,46_98765_LIGHT.pdf",
     ]);
   });

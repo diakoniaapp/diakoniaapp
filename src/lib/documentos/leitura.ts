@@ -33,7 +33,7 @@
 export const CNPJ_DA_IGREJA = "27639285000161";
 
 export type TipoDocumentoLido =
-  | "nfe" | "nfce" | "nfse" | "boleto" | "fatura" | "rpa" | "rps" | "dps" | "xml" | "desconhecido";
+  | "nfe" | "nfce" | "nfse" | "boleto" | "fatura" | "rpa" | "rsp" | "dps" | "xml" | "desconhecido";
 
 export interface ValorCandidato {
   valor: number;
@@ -110,16 +110,26 @@ function descobrirTipo(texto: string, modelo: string | null): TipoDocumentoLido 
   if (modelo === "55") return "nfe";
   if (modelo === "65") return "nfce";
   const t = plano(texto);
-  // RPA / RPS / DPS (tipos nativos desde 03/10/2026): a frase por extenso manda —
-  // RPA = Recibo de Pagamento a Autônomo, RPS = Recibo de Sustento Pastoral, DPS =
-  // Demonstrativo de Pagamento de Salário (os títulos que a própria igreja imprime,
-  // conferidos nas imagens que ela mandou). A sigla sozinha só vale quando não há
-  // cara de NFS-e (a NFS-e cita "RPS"/"DPS" com outro sentido: Recibo Provisório de
-  // Serviços e Declaração de Prestação de Serviços — termos fiscais, não os dela).
+  // RPA / RSP / DPS (tipos nativos): RPA = Recibo de Pagamento a Autônomo, RSP = Recibo de
+  // Sustento Pastoral, DPS = Demonstrativo de Pagamento de Salário (definição final dela,
+  // 03/10/2026, olhando os documentos reais). Três degraus, do mais firme ao mais solto:
+  //   1. o TÍTULO que a igreja imprime;
+  //   2. as expressões do dia a dia que ela listou (DPS: folha de pagamento, contracheque,
+  //      holerite, recibo de salário · RSP: sustento/verba pastoral, ajuda/sustento
+  //      ministerial);
+  //   3. a sigla sozinha.
+  // Os degraus 2 e 3 só valem sem cara de NFS-e (uma nota de serviço pode citar "folha de
+  // pagamento" ou "DPS" com outro sentido). RPS (Recibo Provisório de Serviços) deixou de
+  // existir como tipo: não é da rotina da igreja.
   const ehNfse = /nfs-?e|nota fiscal de servico/.test(t);
-  if (/recibo de pagamento (a|de) autonomo/.test(t) || (!ehNfse && /\brpa\b/.test(t))) return "rpa";
-  if (/recibo de sustento pastoral/.test(t) || (!ehNfse && /\brps\b/.test(t))) return "rps";
-  if (/demonstrativo de pagamento de salario/.test(t) || (!ehNfse && /\bdps\b/.test(t))) return "dps";
+  if (/recibo de pagamento (a|de) autonomo/.test(t)) return "rpa";
+  if (/recibo de sustento pastoral/.test(t)) return "rsp";
+  if (/demonstrativo de pagamento de salario/.test(t)) return "dps";
+  if (!ehNfse && /sustento pastoral|verba pastoral|ajuda ministerial|sustento ministerial/.test(t)) return "rsp";
+  if (!ehNfse && /folha de pagamento|contra-?cheque|holerite|recibo de salario/.test(t)) return "dps";
+  if (!ehNfse && /\brpa\b/.test(t)) return "rpa";
+  if (!ehNfse && /\brsp\b/.test(t)) return "rsp";
+  if (!ehNfse && /\bdps\b/.test(t)) return "dps";
   if (/nfs-?e|prestador do servico|prestador de servicos|nota fiscal de servico/.test(t)) return "nfse";
   if (/danfe/.test(t) && !/nfc-?e|consumidor/.test(t)) return "nfe";
   if (/nfc-?e|nota fiscal de consumidor|via consumidor/.test(t)) return "nfce";

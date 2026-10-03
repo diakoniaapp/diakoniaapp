@@ -5,7 +5,7 @@
 //
 //   · nome  `DDMMAAAA_VALOR_DOCUMENTO_FORNECEDOR`  (valor obrigatório);
 //   · ordem das páginas por LÓGICA DOCUMENTAL, não por ordem de upload:
-//     Nota Fiscal · RPA · RPS · DPS · Fatura · Boleto · Contrato · Outro ·
+//     Nota Fiscal · RPA · RSP · DPS · Fatura · Boleto · Contrato · Outro ·
 //     Comprovante de Pagamento (o comprovante SEMPRE por último);
 //   · XML fica separado, com o mesmo nome-base, e não entra no merge;
 //   · colisão (mesma data + valor + documento + fornecedor): acrescenta o
@@ -20,7 +20,7 @@ import type { FinAnexoTipo } from "@/services/finService";
 // ── ordem documental ────────────────────────────────────────────────────────
 
 export const ORDEM_DOCUMENTAL: FinAnexoTipo[] = [
-  "nota_fiscal", "rpa", "rps", "dps", "fatura", "boleto", "contrato", "outro", "comprovante",
+  "nota_fiscal", "rpa", "rsp", "dps", "fatura", "boleto", "contrato", "outro", "comprovante",
 ];
 
 /** Posição na ordem documental. `documento` (tipo antigo) e qualquer tipo
@@ -90,14 +90,7 @@ export function valorNoNome(valor: number): string {
   return Math.abs(Number(valor)).toFixed(2).replace(".", ",");
 }
 
-/**
- * A sigla do tipo usada no nome quando o lançamento NÃO tem número de documento.
- *
- * ATENÇÃO — `rps`: ela escreveu "RPS" nos exemplos de nome e "RSP" ao corrigir o
- * significado ("Recibo de Sustento Pastoral"). A chave do banco e do sistema é
- * `rps`; a sigla no ARQUIVO é esta constante — uma linha pra trocar quando ela
- * decidir (pergunta em aberto em docs/DOSSIE_CONTABIL.md §8).
- */
+/** A sigla do tipo usada no nome quando o lançamento NÃO tem número de documento. */
 export const SIGLA_NO_NOME: Record<FinAnexoTipo, string> = {
   nota_fiscal: "NF",
   boleto: "BOLETO",
@@ -106,15 +99,15 @@ export const SIGLA_NO_NOME: Record<FinAnexoTipo, string> = {
   contrato: "CONTRATO",
   xml: "NF",
   rpa: "RPA",
-  rps: "RPS",
+  rsp: "RSP",
   dps: "DPS",
   outro: "DOCUMENTO",
   documento: "DOCUMENTO",
 };
 
-/** Com número, estes tipos mantêm a sigla depois dele (`456_RPS_…`); os demais
+/** Com número, estes tipos mantêm a sigla depois dele (`456_RSP_…`); os demais
  *  levam só o número (`12345_MUNDIAL`). Visto nos exemplos dela, 03/10/2026. */
-const SIGLA_DEPOIS_DO_NUMERO = new Set<FinAnexoTipo>(["rpa", "rps", "dps"]);
+const SIGLA_DEPOIS_DO_NUMERO = new Set<FinAnexoTipo>(["rpa", "rsp", "dps"]);
 
 /** Número do documento pronto pra nome: só letras e números, no máximo 20. */
 export function numeroNoNome(numero: string | null | undefined): string {

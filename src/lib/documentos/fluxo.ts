@@ -56,13 +56,13 @@ export function tipoSugerido(leitura?: DocumentoLido, nome?: NomeLido, ehXml = f
     case "boleto": return "boleto";
     case "fatura": return "fatura";
     case "rpa": return "rpa";
-    case "rps": return "rps";
+    case "rsp": return "rsp";
     case "dps": return "dps";
     default: break;
   }
-  // o nome do arquivo da tesouraria às vezes diz (RPA/RPS, BOLETO, FATURA)
+  // o nome do arquivo da tesouraria às vezes diz (RPA/RSP/DPS, BOLETO, FATURA)
   if (nome?.recibo === "RPA") return "rpa";
-  if (nome?.recibo === "RPS" || nome?.recibo === "RSP") return "rps";
+  if (nome?.recibo === "RSP") return "rsp";
   if (nome?.recibo === "DPS") return "dps";
   if (nome?.tipoDocumento === "BOLETO") return "boleto";
   if (nome?.tipoDocumento === "FATURA") return "fatura";
@@ -144,7 +144,7 @@ export function contagens(itens: ItemCentral[]): Contagens {
 /**
  * Ordem em que os vínculos de UM lote são gravados (e carimbados com `enviado_em`).
  * Decisão dela (03/10/2026): a ordem das páginas do dossiê NÃO segue a ordem em que
- * os arquivos foram soltos, e sim a lógica documental — Nota Fiscal, RPA, RPS, DPS,
+ * os arquivos foram soltos, e sim a lógica documental — Nota Fiscal, RPA, RSP, DPS,
  * Fatura, Boleto, Contrato, Outro e, por último, o Comprovante. O dossiê reordena por
  * tipo de qualquer jeito (`ordenarPartes`); gravar já nessa ordem só mantém o
  * `enviado_em` coerente com ela, pra quem olhar o histórico dos anexos.
@@ -163,7 +163,7 @@ export function ordemDeGravacao<T extends { tipo: FinAnexoTipo }>(vinculos: T[])
 /** Tipos cujo número identifica o DOCUMENTO e vale como `documento_numero` do
  *  lançamento. Boleto (o "número" lido é nosso-número/linha), comprovante (nº de
  *  controle do banco), contrato, XML e "outro" ficam de fora de propósito. */
-const TIPOS_COM_NUMERO = new Set<FinAnexoTipo>(["nota_fiscal", "rpa", "rps", "dps", "fatura"]);
+const TIPOS_COM_NUMERO = new Set<FinAnexoTipo>(["nota_fiscal", "rpa", "rsp", "dps", "fatura"]);
 
 /**
  * O número que a Central grava em `fin_lancamentos.documento_numero` (decisão dela,

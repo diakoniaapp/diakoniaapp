@@ -1,9 +1,9 @@
 -- ─── Reclassificar 2 anexos "Outro" → RPA e DPS — NÃO EXECUTADO ──────────
 --
 -- Em 03/10/2026 a Telma anexou, pela tela de anexos, os documentos de dois
--- lançamentos antes de existirem os tipos RPA/RPS/DPS, e usou "Outro" para eles
+-- lançamentos antes de existirem os tipos RPA/RSP/DPS, e usou "Outro" para eles
 -- (o comprovante de cada um foi anexado como "Comprovante", que já existia).
--- Agora que RPA, RPS e DPS são tipos nativos, estas duas linhas devem refletir
+-- Agora que RPA, RSP e DPS são tipos nativos, estas duas linhas devem refletir
 -- o que são — o dossiê e a Auditoria dependem do tipo.
 --
 -- ORDEM: rodar DEPOIS da migration 20261002200000 (que cria os tipos). Antes dela,

@@ -30,7 +30,7 @@
 -- timestamp.pdf).
 --
 -- PRÉ-REQUISITO: a migration 20261002200000 (tipos de documento, agora com RPA,
--- RPS e DPS). O bloco abaixo a repete de forma idempotente, por segurança — e a
+-- RSP e DPS). O bloco abaixo a repete de forma idempotente, por segurança — e a
 -- lista de tipos TEM que ser idêntica à da migration: se este bloco recriasse a
 -- constraint com uma lista MENOR, tiraria os tipos novos.
 
@@ -51,7 +51,7 @@ END $$;
 
 ALTER TABLE public.fin_lancamento_anexos
   ADD CONSTRAINT fin_lancamento_anexos_tipo_check
-  CHECK (tipo IN ('nota_fiscal','boleto','comprovante','fatura','contrato','xml','rpa','rps','dps','outro','documento'));
+  CHECK (tipo IN ('nota_fiscal','boleto','comprovante','fatura','contrato','xml','rpa','rsp','dps','outro','documento'));
 
 WITH v(lancamento_id, url, tipo, nome, enviado_em) AS (VALUES
     ('fd01c259-cd7c-4783-a23a-7b8f4b151407', '0a932409-4082-43c3-8c77-1a0c6808cfd1/1789356095700.pdf', 'nota_fiscal', 'NFC-e Supermercado Mundial LTDA 13/08/2026 R$ 52,74 (recuperado do envio de 14/09).pdf', '2026-09-14T03:21:34.960Z'),  -- 100% Caixinha 13/08/2026 R$ 52,74

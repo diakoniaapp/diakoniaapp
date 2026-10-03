@@ -94,12 +94,12 @@ describe("contagens do cabeçalho e do rodapé", () => {
 
 describe("tipo sugerido", () => {
   const lido = (tipo: string) => ({ tipo, emitente: null, cnpj: null, numero: null, emissao: null, vencimento: null, valores: [], duplicatas: [], chave: null }) as never;
-  it("segue o que o leitor reconheceu, inclusive RPA, RPS e DPS", () => {
+  it("segue o que o leitor reconheceu, inclusive RPA, RSP e DPS", () => {
     expect(tipoSugerido(lido("nfce"))).toBe("nota_fiscal");
     expect(tipoSugerido(lido("boleto"))).toBe("boleto");
     expect(tipoSugerido(lido("fatura"))).toBe("fatura");
     expect(tipoSugerido(lido("rpa"))).toBe("rpa");
-    expect(tipoSugerido(lido("rps"))).toBe("rps");
+    expect(tipoSugerido(lido("rsp"))).toBe("rsp");
     expect(tipoSugerido(lido("dps"))).toBe("dps");
   });
   it("XML é sempre xml; sem pista nenhuma, 'outro'", () => {
@@ -120,10 +120,10 @@ describe("ordem de gravação = lógica documental (decisão dela, 03/10/2026)",
   it("o comprovante vai depois do documento fiscal, mesmo solto antes", () => {
     expect(ordemDeGravacao(v(["comprovante", "rpa", "boleto"])).map(x => x.n)).toEqual([1, 2, 0]);
   });
-  it("a ordem inteira: NF · RPA · RPS · DPS · Fatura · Boleto · Contrato · Outro · Comprovante", () => {
-    const embaralhado = v(["comprovante", "outro", "contrato", "boleto", "fatura", "dps", "rps", "rpa", "nota_fiscal"]);
+  it("a ordem inteira: NF · RPA · RSP · DPS · Fatura · Boleto · Contrato · Outro · Comprovante", () => {
+    const embaralhado = v(["comprovante", "outro", "contrato", "boleto", "fatura", "dps", "rsp", "rpa", "nota_fiscal"]);
     expect(ordemDeGravacao(embaralhado).map(x => x.tipo)).toEqual(
-      ["nota_fiscal", "rpa", "rps", "dps", "fatura", "boleto", "contrato", "outro", "comprovante"]);
+      ["nota_fiscal", "rpa", "rsp", "dps", "fatura", "boleto", "contrato", "outro", "comprovante"]);
   });
   it("XML fica depois de tudo (não vira página)", () => {
     expect(ordemDeGravacao(v(["xml", "comprovante", "nota_fiscal"])).map(x => x.tipo)).toEqual(["nota_fiscal", "comprovante", "xml"]);
@@ -136,8 +136,8 @@ describe("ordem de gravação = lógica documental (decisão dela, 03/10/2026)",
 describe("numeroParaGravar — documento_numero (decisão dela, 03/10/2026)", () => {
   const com = (p: Partial<ItemCentral>) => ({ tipo: "nota_fiscal" as const, ...p });
   const lido = (numero: string | null) => ({ tipo: "nfe", emitente: null, cnpj: null, numero, emissao: null, vencimento: null, valores: [], duplicatas: [], chave: null }) as unknown as ItemCentral["leitura"];
-  it("grava o número lido do documento (nota, RPA, RPS, DPS, fatura)", () => {
-    for (const tipo of ["nota_fiscal", "rpa", "rps", "dps", "fatura"] as const) {
+  it("grava o número lido do documento (nota, RPA, RSP, DPS, fatura)", () => {
+    for (const tipo of ["nota_fiscal", "rpa", "rsp", "dps", "fatura"] as const) {
       expect(numeroParaGravar({ tipo, leitura: lido("14937") })).toBe("14937");
     }
   });

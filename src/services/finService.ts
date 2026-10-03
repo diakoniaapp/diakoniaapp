@@ -1116,17 +1116,16 @@ export async function comprovanteSignedUrl(path: string, segs = 600): Promise<st
 // aceito pelo banco e lido, mas não é mais oferecido (ver
 // `FIN_ANEXO_TIPOS_OFERECIDOS`): os anexos que já o têm não são reescritos.
 //
-// RPA, RPS e DPS entraram em 03/10/2026 como tipos NATIVOS (pedido dela): RPA =
-// Recibo de Pagamento a Autônomo, RPS = Recibo de Sustento Pastoral, DPS =
+// RPA, RSP e DPS entraram em 03/10/2026 como tipos NATIVOS (pedido dela): RPA =
+// Recibo de Pagamento a Autônomo, RSP = Recibo de Sustento Pastoral, DPS =
 // Demonstrativo de Pagamento de Salário. São documentos que, sozinhos, sustentam
-// uma saída de folha/sustento — não são "nota fiscal" nem "outro". (A 1ª versão
-// deste comentário e das dicas trazia significados INVENTADOS por mim —
-// "Recibo Provisório de Serviços" e "Declaração de Prestação de Serviços", que são
-// termos de NFS-e; ela corrigiu em 03/10/2026 olhando os documentos reais.)
+// uma saída de folha/sustento — não são "nota fiscal" nem "outro". O RPS (Recibo
+// Provisório de Serviços) NÃO existe: foi um significado inventado por mim e depois
+// removido por ela ("não faz parte da rotina da igreja"). A chave do banco é `rsp`.
 // Migration 20261002200000 (a mesma, atualizada antes de ser aplicada).
 export type FinAnexoTipo =
   | "nota_fiscal" | "boleto" | "comprovante" | "fatura" | "contrato"
-  | "xml" | "rpa" | "rps" | "dps" | "outro" | "documento";
+  | "xml" | "rpa" | "rsp" | "dps" | "outro" | "documento";
 
 export const FIN_ANEXO_TIPO_LABEL: Record<FinAnexoTipo, string> = {
   nota_fiscal: "Nota Fiscal",
@@ -1136,7 +1135,7 @@ export const FIN_ANEXO_TIPO_LABEL: Record<FinAnexoTipo, string> = {
   contrato: "Contrato",
   xml: "XML",
   rpa: "RPA",
-  rps: "RPS",
+  rsp: "RSP",
   dps: "DPS",
   outro: "Outro",
   documento: "Documento (antigo)",
@@ -1145,13 +1144,13 @@ export const FIN_ANEXO_TIPO_LABEL: Record<FinAnexoTipo, string> = {
 /** Explicação curta dos tipos que não são óbvios (dica na tela). */
 export const FIN_ANEXO_TIPO_DICA: Partial<Record<FinAnexoTipo, string>> = {
   rpa: "Recibo de Pagamento a Autônomo",
-  rps: "Recibo de Sustento Pastoral",
+  rsp: "Recibo de Sustento Pastoral",
   dps: "Demonstrativo de Pagamento de Salário",
 };
 
 /** Os tipos que a tela de anexos oferece, na ordem de exibição. */
 export const FIN_ANEXO_TIPOS_OFERECIDOS: FinAnexoTipo[] = [
-  "nota_fiscal", "boleto", "comprovante", "fatura", "contrato", "xml", "rpa", "rps", "dps", "outro",
+  "nota_fiscal", "boleto", "comprovante", "fatura", "contrato", "xml", "rpa", "rsp", "dps", "outro",
 ];
 
 export const FIN_ANEXO_MIMES = [...FIN_COMPROVANTE_MIMES, "application/xml", "text/xml"];

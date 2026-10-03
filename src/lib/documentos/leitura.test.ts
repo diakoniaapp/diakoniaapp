@@ -234,31 +234,58 @@ VALOR AGUA 556,40 0,00 0,50 4,54`;
   });
 });
 
-describe("RPA, RPS e DPS (tipos nativos)", () => {
+describe("RPA, RSP e DPS (tipos nativos — definição final dela, 03/10/2026)", () => {
   it("RPA pela frase por extenso", () => {
     expect(lerDocumento("RECIBO DE PAGAMENTO A AUTÔNOMO\nBeneficiário: PESSOA EXEMPLO\nValor R$ 760,00").tipo).toBe("rpa");
   });
   it("RPA pela sigla", () => {
     expect(lerDocumento("RPA nº 987\nValor líquido R$ 380,00").tipo).toBe("rpa");
   });
-  it("RPS = Recibo de Sustento Pastoral, pelo título que a igreja imprime", () => {
+  it("RSP = Recibo de Sustento Pastoral, pelo título que a igreja imprime", () => {
     const t = "QUARTA IGREJA BATISTA DO RIO DE JANEIRO\nRecibo de Sustento Pastoral\n01/08/2026 a 31/08/2026\n27.639.285/0001-61";
-    expect(lerDocumento(t).tipo).toBe("rps");
+    expect(lerDocumento(t).tipo).toBe("rsp");
   });
   it("DPS = Demonstrativo de Pagamento de Salário, pelo título que a igreja imprime", () => {
     const t = "00150 QUARTA IGREJA BATISTA DO RIO DE JANEIRO\nDemonstrativo de Pagamento de Salário\n01/09/2026 a 30/09/2026\nASSISTENTE ADMINISTRATIVO";
     expect(lerDocumento(t).tipo).toBe("dps");
   });
-  it("os significados fiscais antigos (inventados por engano) NÃO viram RPS/DPS", () => {
-    expect(lerDocumento("Recibo Provisório de Serviços\nPrestador EXEMPLO LTDA").tipo).not.toBe("rps");
+
+  describe("expressões do dia a dia que ela listou", () => {
+    it.each([
+      "Folha de Pagamento", "CONTRACHEQUE", "Contra-cheque", "Holerite do mês", "Recibo de Salário",
+    ])("«%s» sugere DPS", (frase) => {
+      expect(lerDocumento(`QUARTA IGREJA BATISTA\n${frase}\nCompetência 09/2026`).tipo).toBe("dps");
+    });
+    it.each([
+      "Sustento Pastoral", "Verba Pastoral", "Ajuda Ministerial", "Sustento Ministerial", "SUSTENTO PASTORAL — AGOSTO",
+    ])("«%s» sugere RSP", (frase) => {
+      expect(lerDocumento(`QUARTA IGREJA BATISTA\n${frase}\nValor R$ 4.500,00`).tipo).toBe("rsp");
+    });
+    it("a sigla sozinha também vale", () => {
+      expect(lerDocumento("RSP nº 12\nValor R$ 4.500,00").tipo).toBe("rsp");
+      expect(lerDocumento("DPS nº 7\nLíquido R$ 3.250,00").tipo).toBe("dps");
+    });
+    it("o título completo vence a expressão solta", () => {
+      // um recibo de sustento pastoral que cita "folha de pagamento" continua RSP
+      expect(lerDocumento("Recibo de Sustento Pastoral\nLançado na folha de pagamento\nR$ 4.500,00").tipo).toBe("rsp");
+    });
+  });
+
+  it("uma NFS-e que cita DPS ou folha de pagamento continua sendo NFS-e", () => {
+    expect(lerDocumento("Número da NFS-e 123\nNúmero da DPS 45\nSérie da DPS 1\nPrestador do Serviço").tipo).toBe("nfse");
+    expect(lerDocumento("NFS-e 55\nServiço: processamento de folha de pagamento\nPrestador do Serviço").tipo).toBe("nfse");
+  });
+
+  it("RPS (Recibo Provisório de Serviços) NÃO é mais um tipo: nunca é sugerido", () => {
+    for (const texto of ["Recibo Provisório de Serviços\nPrestador EXEMPLO LTDA", "RPS nº 3\nValor R$ 100,00"]) {
+      expect(lerDocumento(texto).tipo).not.toBe("rps");
+      expect(lerDocumento(texto).tipo).not.toBe("rsp");
+    }
+  });
+  it("os significados fiscais antigos (inventados por engano) NÃO viram DPS", () => {
     expect(lerDocumento("DECLARAÇÃO DE PRESTAÇÃO DE SERVIÇOS\nNúmero 852").tipo).not.toBe("dps");
   });
-  it("uma NFS-e nacional que CITA a DPS continua sendo NFS-e", () => {
-    const t = "Número da NFS-e 123\nNúmero da DPS 45\nSérie da DPS 1\nPrestador do Serviço";
-    expect(lerDocumento(t).tipo).toBe("nfse");
-  });
 });
-
 describe("extrairChave", () => {
   it("aceita blocos de 4 dígitos com espaço ou 44 dígitos colados; recusa menos que 44", () => {
     const c = "33260822753989000147550070000245531000754460";

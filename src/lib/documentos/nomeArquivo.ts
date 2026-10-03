@@ -26,7 +26,7 @@ export interface NomeLido {
   parcela: { numero: number; total: number } | null;
   /** BOLETO / FATURA / GUIA, quando o nome diz. */
   tipoDocumento: "BOLETO" | "FATURA" | "GUIA" | null;
-  /** RPA, RPS (também escrito RSP) ou DPS no nome: o "fornecedor" é a FUNÇÃO, não a pessoa. */
+  /** RPA, RSP ou DPS no nome (e o antigo RPS, que o arquivo da tesouraria ainda usa): o "fornecedor" é a FUNÇÃO, não a pessoa. */
   recibo: string | null;
 }
 
@@ -53,6 +53,8 @@ export function lerNomeDeArquivo(nomeArquivo: string): NomeLido {
     if (/^NF[\s]?[\d.]+$/i.test(s)) r.nf = s.replace(/^NF\s?/i, "").replace(/\./g, "");
     else if (/^PG\s+/i.test(s)) r.forma = semAcento(s.replace(/^PG\s+/i, "")).trim();
     else if (/^\d{1,2}_\d{1,2}$/.test(s)) { const [n, t] = s.split("_").map(Number); r.parcela = { numero: n, total: t }; }
+    // RPS não é mais um tipo (removido por ela em 03/10/2026), mas o arquivo da tesouraria ainda traz
+    // "_ RPS _ FAXINEIRA _": o termo precisa SAIR do fornecedor; só não vira sugestão de tipo.
     else if (/^(RPS|RPA|RSP|DPS)$/i.test(s)) r.recibo = s.toUpperCase();
     else if (/^(BOLETO|FATURA|GUIA)$/i.test(s)) r.tipoDocumento = s.toUpperCase() as NomeLido["tipoDocumento"];
     else if (/^\d{5,}$/.test(s) || /^\d+\.\d$/.test(s)) continue; // código solto / retenção "3.3"
