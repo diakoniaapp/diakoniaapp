@@ -162,11 +162,51 @@ nenhum PDF nem nome real foi versionado):
 **Antes (análise de hoje cedo): 20 automáticos.** Agora: **25 prontos + 2 duplicatas**.
 O ganho vem dos defeitos do leitor, não de afrouxar regra.
 
-**Falta para a v1:** gravação (upload/insert, desfazer, referência por caminho), leitura
-de XML de NF-e, parser do nome de arquivo, e a **tela**. Aguardo sua validação desta
-proposta antes de construir a tela.
+**Falta para a v1 (atualizado em §10):** nada da lista original — a tela e a gravação
+entraram em 03/10/2026. A leitura de XML de NF-e ficou para a Fase 2, de propósito.
 
-## 10. Fase 2 (só depois de alguns fechamentos)
+## 10. Andamento (03/10/2026, noite) — a tela está no ar: `/financas/documentos`
+
+**O que existe:** card de Cobertura Documental como primeiro elemento (KPI oficial, trilha
+0,3% → 15% → 45% → 80%, meta 80%, ideal 95%); entrada por **pasta** (arrastar ou
+"Escolher pasta") ou arquivos, com PDF/JPG/PNG/XML até 5 MB; os **"arquivos soltos no
+armazenamento"** como origem opcional; leitura em duas passadas (texto primeiro, OCR só
+nas digitalizações); quatro grupos com filtro e contagem — ✅ Vinculação automática, ⚠
+Revisão necessária, ❌ Não identificado, ↺ Já anexado; por cartão: documento lido,
+melhor candidato, confiança, motivos por extenso, **Confirmar**, **Escolher outro
+lançamento**, deixar de fora; parcelados com o mesmo documento em **todas** as parcelas
+(cada parcela pode ser desmarcada); rodapé "Gravar N vínculos" com confirmação;
+**Desfazer o último lote**; relatório do lote em CSV; aviso ao sair com trabalho não
+gravado. **Nenhuma tabela nova e nenhuma fila persistida.**
+
+**Verificado ao vivo, em produção, sem gravar documento real:**
+
+| Verificação | Resultado |
+|---|---|
+| 37 arquivos soltos, lidos de ponta a ponta | **25 automáticos · 5 revisão · 4 não identificados · 3 já anexados** (a soma é 37) |
+| Teste de gravação com 1 XML sintético (24 bytes) vinculado a um lançamento | anexo criado (tipo `xml`), KPI foi de 0,5% para 0,6% na hora |
+| Desfazer o lote | anexos de volta a **6** (igual ao antes), pasta do lançamento vazia, 37 pastas na raiz (igual) — o arquivo solto original **nunca** é apagado pelo desfazer |
+| Celular (375 px) | barra de gravação acima da navegação inferior, sem rolagem horizontal |
+
+**Defeitos achados e corrigidos na própria verificação:** (1) a leitura começava com a
+lista vazia (o espelho de estado só atualizava depois do render) — 37 arquivos presos em
+"na fila"; (2) o nome de exibição dos soltos terminava em `.pdf)` e o PDF ia ao Tesseract
+como imagem — `lerArquivo` agora também confia no tipo do blob; (3) a barra de gravação
+`fixed` caiu no meio da lista por causa do contêiner de rolagem — virou `sticky`; (4) a
+lista de "Escolher outro lançamento" abria com recorrências **previstas até 2030** —
+realizados vêm antes; (5) o selo "Vinculado" saía vermelho.
+
+**Ganchos deixados para a Fase 2 (comentados no código, nada implementado):**
+leitura automática do **XML de NF-e** (`lerArquivo` hoje devolve `nao_lido` para `.xml`,
+e o arquivo continua podendo ser ligado à mão); **identificação por CNPJ** do
+fornecedor (o CNPJ já é lido e usado como pontuação, mas não cadastra fornecedor);
+**sugestão de fornecedor, categoria e centro de custo** a partir do documento.
+
+**Pendência conhecida, fora desta entrega:** `navConfig.test.ts` falha em
+`/financas/reunioes sumiu do menu` — falha anterior a este trabalho (reproduzida com as
+mudanças guardadas); o teste espera um item de menu que não existe mais.
+
+## 11. Fase 2 (só depois de alguns fechamentos)
 
 Persistir a fila (`fin_documentos_fila`: arquivo, hash, dados extraídos, candidatos,
 confiança, motivo, estado) para retomar revisão depois e para medir acerto ao longo do

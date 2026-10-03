@@ -53,6 +53,7 @@ import FinancasRecorrencias from "./pages/FinancasRecorrencias.tsx";
 import FinancasAgenda from "./pages/FinancasAgenda.tsx";
 import FinancasRelatorio from "./pages/FinancasRelatorio.tsx";
 import FinancasAuditoriaAnexos from "./pages/FinancasAuditoriaAnexos.tsx";
+import FinancasCentralDocumentos from "./pages/FinancasCentralDocumentos.tsx";
 import FinancasRelatorioContas from "./pages/FinancasRelatorioContas.tsx";
 import FinancasEstoque from "./pages/FinancasEstoque.tsx";
 import FinancasInsights from "./pages/FinancasInsights.tsx";
@@ -198,6 +199,7 @@ const App = () => (
                   <Route path="/financas/relatorio" element={<FinancasRelatorio />} />
                   <Route path="/financas/relatorio/:ano/:mes" element={<FinancasRelatorio />} />
                   <Route path="/financas/auditoria-anexos" element={<FinancasAuditoriaAnexos />} />
+                  <Route path="/financas/documentos" element={<FinancasCentralDocumentos />} />
                   <Route path="/financas/estoque" element={<FinancasEstoque />} />
                   <Route path="/financas/insights" element={<FinancasInsights />} />
                   <Route path="/financas/centros" element={<FinancasCentros />} />
