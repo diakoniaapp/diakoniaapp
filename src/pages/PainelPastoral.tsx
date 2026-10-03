@@ -68,7 +68,7 @@
 //    `pgm_alertas_ausencia` e `vw_pgm_grupos_resumo` já existiam, entre os
 //    objetos que nunca eram consultados.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -240,8 +240,37 @@ export default function PainelPastoral() {
   // Recarrega na montagem e a cada virada de dia — e devolve o foco para hoje.
   useEffect(() => { setDiaAberto(hoje); carregar(); /* eslint-disable-next-line */ }, [hoje]);
 
-  async function carregar() {
-    setLoading(true);
+  // Voltar para esta aba/janela depois de editar uma pessoa em outro lugar
+  // (outra aba, o app instalado, outro computador): o painel só carregava
+  // ao montar, então quem deixava o Painel Pastoral aberto e voltava não via
+  // a edição — candidato ao batismo que "não aparecia" mesmo com o banco
+  // certo (caso José Ildo, 02/10/2026: data de nascimento corrigida de 2019
+  // para 1966, banco e API já o listavam aos 60 anos). Recarrega em
+  // silêncio, só se os dados têm mais de 30 s, pra não piscar a cada troca
+  // de aba.
+  const atualizadoRef = useRef<Date | null>(null);
+  useEffect(() => { atualizadoRef.current = atualizadoEm; }, [atualizadoEm]);
+  useEffect(() => {
+    const aoVoltar = () => {
+      if (document.visibilityState !== "visible") return;
+      const t = atualizadoRef.current;
+      if (t && Date.now() - t.getTime() < 30_000) return;
+      carregar(true);
+    };
+    document.addEventListener("visibilitychange", aoVoltar);
+    window.addEventListener("focus", aoVoltar);
+    return () => {
+      document.removeEventListener("visibilitychange", aoVoltar);
+      window.removeEventListener("focus", aoVoltar);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // `silencioso`: recarga em segundo plano — não liga o `loading` (que troca
+  // a tela inteira por esqueleto e perderia a aba aberta) e, se falhar,
+  // mantém o que já está na tela em vez de avisar de um erro que ninguém pediu.
+  async function carregar(silencioso = false) {
+    if (!silencioso) setLoading(true);
     try {
       const [ev, r, cm, vs, mb, ta] = await Promise.all([
         proximosDias(DIAS_A_FRENTE),
@@ -262,7 +291,7 @@ export default function PainelPastoral() {
       setTarefasAcolhimento(ta);
       setAtualizadoEm(new Date());
     } catch (e: any) {
-      toast.error(e?.message ?? "Erro ao carregar painel");
+      if (!silencioso) toast.error(e?.message ?? "Erro ao carregar painel");
     } finally {
       setLoading(false);
     }
