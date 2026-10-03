@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useRotuloDaTela } from "@/hooks/useNavegacao";
 import { hojeLocal } from "@/lib/data";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
@@ -32,6 +33,7 @@ export default function AssuntoDetalhe() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
   const [assunto, setAssunto] = useState<Assunto | null>(null);
+  useRotuloDaTela(assunto?.titulo); // nome real na trilha de navegação (BarraDeContexto)
   const [hist, setHist] = useState<HistoricoAssunto[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -99,7 +101,6 @@ export default function AssuntoDetalhe() {
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-4">
       <div className="flex items-center gap-2 flex-wrap">
-        <Button asChild variant="ghost" size="icon"><Link to="/assuntos"><ArrowLeft className="w-4 h-4" /></Link></Button>
         <div className="flex-1 min-w-0">
           <h1 className="font-serif text-xl flex items-center gap-2 flex-wrap">
             <span>{PRIORIDADE_ICONE[assunto.prioridade]}</span>

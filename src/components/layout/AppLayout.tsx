@@ -1,7 +1,7 @@
 import { Outlet, NavLink, useNavigate, useLocation } from "react-router-dom";
 import { FaixaVerComo } from "@/components/layout/VerComoMenu";
 import { useAuth } from "@/hooks/useAuth";
-import { LogOut, ChevronLeft, ChevronDown, Search, Moon, Sun, User, Mail, Globe, Smartphone } from "lucide-react";
+import { LogOut, ChevronDown, Search, Moon, Sun, User, Mail, Globe, Smartphone } from "lucide-react";
 import {
   getDestinoWhatsApp, setDestinoWhatsApp, DESTINO_WHATSAPP_LABEL,
   type DestinoWhatsApp,
@@ -16,6 +16,9 @@ import { openCommandPalette } from "@/lib/commandPalette";
 import { registrarVisita, atalhos, grupoMereceAbrir, temHistoricoBastante } from "@/lib/navUso";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
 import { UserMenuButton } from "@/components/layout/UserMenuButton";
+import { BarraDeContexto } from "@/components/layout/BarraDeContexto";
+import { NavegacaoProvider } from "@/hooks/useNavegacao";
+import { tituloDaTela } from "@/lib/navegacao";
 import {
   NAV_GROUPS, PAINEL, ATALHOS_TOPO, pageTitles, papeisExigidosPara,
   type NavGroup, type NavItem,
@@ -227,7 +230,9 @@ export default function AppLayout() {
     membro: "Membro",
   };
 
-  const currentTitle = pageTitles[location.pathname] ?? "Diakonia";
+  // O registro de rotas (lib/navegacao.ts) nomeia as 89 telas, inclusive as com :param; o
+  // mapa antigo `pageTitles` só tinha 37 — as outras 52 apareciam como "Diakonia".
+  const currentTitle = tituloDaTela(location.pathname) ?? pageTitles[location.pathname] ?? "Diakonia";
   const isHome = location.pathname === "/";
 
   // Filtragem por role
@@ -257,6 +262,7 @@ export default function AppLayout() {
   // estado — era por isso que só três telas tinham ficha clicável.
   return (
     <FichaProvider>
+    <NavegacaoProvider>
     <div className="h-screen overflow-hidden flex w-full bg-background">
       {/* Sidebar desktop */}
       {/* `print:hidden` — achado em 15/09/2026: nenhuma tela com botão
@@ -528,15 +534,8 @@ export default function AppLayout() {
       <div className="flex-1 min-w-0 flex flex-col min-h-0">
         {/* Header mobile */}
         <header className="md:hidden sticky top-0 z-40 flex items-center gap-2 h-14 px-3 bg-sidebar text-sidebar-foreground border-b border-sidebar-border pt-safe print:hidden">
-          {!isHome && (
-            <button
-              onClick={() => navigate(-1)}
-              aria-label="Voltar"
-              className="w-10 h-10 -ml-1 rounded-full flex items-center justify-center hover:bg-sidebar-accent active:scale-95 transition shrink-0"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-          )}
+          {/* O "voltar" do celular era um navigate(-1) cego, que podia tirar a pessoa do
+              sistema; agora o Voltar vive na BarraDeContexto, abaixo, e respeita o histórico. */}
           <BrandMark className="text-base text-sidebar-foreground shrink-0" />
           {!isHome && (
             <h1 translate="no" className="font-serif text-base truncate ml-auto text-sidebar-foreground/90 mr-1">
@@ -562,6 +561,7 @@ export default function AppLayout() {
           className="flex-1 overflow-x-hidden overflow-y-auto pb-20 md:pb-0 animate-fade-in"
         >
           <FaixaVerComo />
+          <BarraDeContexto />
           <Outlet />
         </main>
 
@@ -570,6 +570,7 @@ export default function AppLayout() {
         <MobileBottomNav />
       </div>
     </div>
+    </NavegacaoProvider>
     </FichaProvider>
   );
 }

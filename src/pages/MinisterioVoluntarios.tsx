@@ -209,11 +209,6 @@ export default function MinisterioVoluntarios() {
       <PageHeader
         title={nomeMinisterio || "Voluntários"}
         description={`${lista.length} ${lista.length === 1 ? "pessoa serve" : "pessoas servem"} neste ministério`}
-        actions={
-          <Button asChild variant="outline" className="gap-2">
-            <Link to="/ministerios"><ArrowLeft className="w-4 h-4" /> Ministérios</Link>
-          </Button>
-        }
       />
 
       <div className="p-4 md:p-8 space-y-4 max-w-5xl">

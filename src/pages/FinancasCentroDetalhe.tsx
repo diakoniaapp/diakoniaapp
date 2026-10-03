@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useRotuloDaTela } from "@/hooks/useNavegacao";
 import { Link, useParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,7 @@ function mesAno(chaveYyyyMm: string): string {
 export default function FinancasCentroDetalhe() {
   const { centroId = "" } = useParams();
   const [centro, setCentro] = useState<CentroInfo | null>(null);
+  useRotuloDaTela(centro?.nome); // nome real na trilha de navegação (BarraDeContexto)
   const [centroPai, setCentroPai] = useState<FinCentroCusto | null>(null);
   // Subgrupos contábeis DESTE centro — pedido da Telma (17/09/2026):
   // "clicando em min adm, abre os subgrupos deste centro... e assim com
@@ -127,7 +129,6 @@ export default function FinancasCentroDetalhe() {
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-4">
       <div className="flex items-center gap-2">
-        <Button asChild variant="ghost" size="icon"><Link to="/financas/centros"><ArrowLeft className="w-4 h-4" /></Link></Button>
         <div className="flex-1 min-w-0">
           {/* Breadcrumb pro centro pai — só existe quando ESTE centro é
               um subgrupo (`centro_pai_id` preenchido). Sem isso, quem

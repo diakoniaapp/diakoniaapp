@@ -89,7 +89,6 @@ export default function FinancasDoadores() {
           FinancasDoacoes.tsx (17/09/2026) pra não espremer o título numa
           coluna estreita quando a linha de controles fica longa. */}
       <div className="flex items-center gap-2">
-        <Button asChild variant="ghost" size="icon"><Link to="/financas/doacoes"><ArrowLeft className="w-4 h-4" /></Link></Button>
         <div className="flex-1 min-w-0">
           <h1 className="font-serif text-xl flex items-center gap-2">
             <Users className="w-5 h-5 text-gold" /> Doadores

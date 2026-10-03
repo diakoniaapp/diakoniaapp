@@ -175,11 +175,6 @@ export default function EbdClasseRelatorioMensal() {
       {/* Barra de controles (não imprime) */}
       <div className="no-print sticky top-0 z-10 bg-card border-b">
         <div className="max-w-4xl mx-auto px-4 py-2 flex items-center gap-2 flex-wrap">
-          <Button asChild variant="ghost" size="sm" className="gap-1.5">
-            <Link to={`/ebd/${classeId}`}>
-              <ArrowLeft className="w-3.5 h-3.5" /> Voltar
-            </Link>
-          </Button>
           <div className="flex items-center gap-1.5 ml-2">
             <Label className="text-xs text-muted-foreground shrink-0">Mês</Label>
             <Input type="month" value={mesIso} onChange={(e) => setMesIso(e.target.value)} className="h-8 w-auto" />

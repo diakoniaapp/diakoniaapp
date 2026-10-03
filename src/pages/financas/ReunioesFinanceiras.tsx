@@ -310,8 +310,9 @@ function DetalheReuniao({ id, voltar }: { id: string; voltar: () => void }) {
         }
       `}</style>
       <header className="flex items-center gap-2 print:hidden">
+        {/* Este Voltar NÃO é de rota: fecha o detalhe e volta à lista dentro da mesma tela. */}
         <Button size="sm" variant="ghost" onClick={voltar} className="gap-1">
-          <ArrowLeft className="w-3.5 h-3.5" /> Voltar
+          <ArrowLeft className="w-3.5 h-3.5" /> Voltar à lista
         </Button>
         <h1 className="font-serif text-lg md:text-xl flex-1 truncate">{reuniao.titulo}</h1>
         <Button size="sm" variant="outline" onClick={() => window.print()} className="gap-1.5">

@@ -187,9 +187,6 @@ export default function DiaconiaPessoas() {
   return (
     <div className="p-4 max-w-2xl mx-auto space-y-4">
       <div className="flex items-center gap-2">
-        <Button asChild variant="ghost" size="icon">
-          <Link to={`/ministerios/${ministerioId}/painel`}><ArrowLeft className="w-4 h-4" /></Link>
-        </Button>
         <div className="min-w-0">
           <h1 className="font-serif text-xl flex items-center gap-2 truncate">
             <HeartHandshake className="w-5 h-5 text-gold" />

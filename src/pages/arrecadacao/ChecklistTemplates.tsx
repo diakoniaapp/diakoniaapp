@@ -110,9 +110,6 @@ export default function ChecklistTemplates() {
   return (
     <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-4">
       <header className="flex items-center gap-2 flex-wrap">
-        <Button size="sm" variant="ghost" asChild>
-          <Link to="/arrecadacao"><ArrowLeft className="w-4 h-4" /></Link>
-        </Button>
         <ListChecks className="w-5 h-5 text-gold" />
         <h1 className="font-serif text-xl">Checklist · templates</h1>
         <Badge variant="outline" className="text-xs ml-2">{itens.length} {itens.length === 1 ? "item" : "itens"}</Badge>

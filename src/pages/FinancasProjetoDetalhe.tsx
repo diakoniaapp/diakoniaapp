@@ -16,6 +16,7 @@
 // aparece como nota complementar, sem substituir os 3 cartões principais
 // — as duas coisas respondem perguntas diferentes.
 import { useEffect, useMemo, useState } from "react";
+import { useRotuloDaTela } from "@/hooks/useNavegacao";
 import { Link, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -52,6 +53,8 @@ export default function FinancasProjetoDetalhe() {
   const { user } = useAuth();
 
   const [projeto, setProjeto] = useState<FinProjeto | null>(null);
+
+  useRotuloDaTela(projeto?.nome); // nome real na trilha de navegação (BarraDeContexto)
   const [todosLancs, setTodosLancs] = useState<FinLancamentoExtenso[]>([]);
   const [loading, setLoading] = useState(true);
   const [emitidoPor, setEmitidoPor] = useState("");
@@ -251,9 +254,6 @@ export default function FinancasProjetoDetalhe() {
       {/* Barra de controles */}
       <div className="no-print sticky top-0 z-10 bg-card border-b">
         <div className="max-w-5xl mx-auto px-4 py-2 flex items-center gap-2 flex-wrap">
-          <Button asChild variant="ghost" size="sm" className="gap-1.5">
-            <Link to="/financas/projetos"><ArrowLeft className="w-3.5 h-3.5" /> Voltar</Link>
-          </Button>
           <Button onClick={() => setEditOpen(true)} variant="outline" size="sm" className="gap-1.5">
             <Pencil className="w-3.5 h-3.5" /> Editar
           </Button>

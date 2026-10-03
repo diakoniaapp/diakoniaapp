@@ -2,6 +2,7 @@
 // Rota: /visitantes/:id
 
 import { useEffect, useState } from "react";
+import { useRotuloDaTela } from "@/hooks/useNavegacao";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
@@ -193,6 +194,8 @@ export default function VisitanteDetalhe() {
   const navigate = useNavigate();
 
   const [visitante,      setVisitante]      = useState<Visitante | null>(null);
+
+  useRotuloDaTela(visitante?.nome_completo); // nome real na trilha de navegação (BarraDeContexto)
   const [nomeResp,       setNomeResp]       = useState<string | null>(null);
   const [carregando,     setCarregando]     = useState(true);
   const [observacoes,    setObservacoes]    = useState("");
@@ -313,17 +316,8 @@ export default function VisitanteDetalhe() {
     <div className="p-4 md:p-6 max-w-3xl mx-auto space-y-4">
 
       {/* Navegação */}
-      {/* Volta para onde a pessoa veio. Esta ficha agora e alcancada tambem
-          pela tela de Pessoas, e um membro que clicasse em "voltar" ia parar
-          na lista de Visitantes — uma tela onde ele nao esta. */}
-      <Button
-        variant="ghost" size="sm"
-        onClick={() => navigate(isCongregadoOuMembro ? "/membros" : "/visitantes")}
-        className="gap-1 -ml-2 text-muted-foreground"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        {isCongregadoOuMembro ? "Pessoas" : "Visitantes"}
-      </Button>
+      {/* O "voltar" desta ficha vive na barra de contexto do topo (lib/navegacao.ts): ela
+          volta para onde a pessoa veio — Pessoas ou Visitantes — pelo histórico. */}
 
       {/* ── Alerta de inatividade ─────────────────────────────────────────────── */}
       {!isCongregadoOuMembro && (

@@ -140,7 +140,6 @@ export default function FinancasDoacoes() {
           sumir em vez de quebrar linha (o mesmo defeito de espremer já
           corrigido em FinancasConta.tsx nesta sessão, 17/09/2026). */}
       <div className="flex items-start gap-2">
-        <Button asChild variant="ghost" size="icon"><Link to="/financas"><ArrowLeft className="w-4 h-4" /></Link></Button>
         <div className="flex-1 min-w-0">
           <h1 className="font-serif text-xl flex items-center gap-2">
             <HandCoins className="w-5 h-5 text-gold" /> Doações

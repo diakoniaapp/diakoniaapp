@@ -348,9 +348,6 @@ export default function FinancasCentralDocumentos() {
       <CoberturaDocumentalCard atualizacao={kpi} />
 
       <header className="flex items-start gap-3 flex-wrap">
-        <Button asChild variant="ghost" size="sm" className="gap-1.5">
-          <Link to="/financas/auditoria-anexos"><ArrowLeft className="w-3.5 h-3.5" /> Auditoria</Link>
-        </Button>
         <div className="min-w-0 flex-1 basis-60">
           <h1 className="font-serif text-2xl flex items-center gap-2"><FileStack className="w-5 h-5 text-gold shrink-0" /> Central de Documentos</h1>
           <p className="text-sm text-muted-foreground">Solte uma pasta com os documentos: o sistema lê, sugere o lançamento de cada um e você confere.</p>

@@ -175,7 +175,6 @@ export default function GovernancaReuniao() {
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-4">
       <div className="flex items-center gap-2 flex-wrap">
-        <Button asChild variant="ghost" size="icon"><Link to="/governanca"><ArrowLeft className="w-4 h-4" /></Link></Button>
         <div className="flex-1 min-w-0">
           <h1 className="font-serif text-xl flex items-center gap-2 flex-wrap">
             <ScrollText className="w-5 h-5 text-gold" />

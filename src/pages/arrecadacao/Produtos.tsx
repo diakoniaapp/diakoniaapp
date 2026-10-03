@@ -84,9 +84,6 @@ export default function ArrecadacaoProdutos() {
   return (
     <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-4">
       <header className="flex items-center gap-2 flex-wrap">
-        <Button size="sm" variant="ghost" asChild>
-          <Link to="/arrecadacao"><ArrowLeft className="w-4 h-4" /></Link>
-        </Button>
         <Package className="w-5 h-5 text-gold" />
         <div className="flex-1 min-w-0">
           <h1 className="font-serif text-xl truncate">Produtos · {espaco?.nome ?? "..."}</h1>

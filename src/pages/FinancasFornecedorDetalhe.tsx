@@ -7,6 +7,7 @@
 // jamais mostrava — ver Fase 4.4 do mesmo roadmap, que ainda falta expor
 // isso também na própria lista de Recorrências).
 import { useEffect, useMemo, useState } from "react";
+import { useRotuloDaTela } from "@/hooks/useNavegacao";
 import { Link, useParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,7 @@ function dataBr(s: string) {
 export default function FinancasFornecedorDetalhe() {
   const { id = "" } = useParams();
   const [fornecedor, setFornecedor] = useState<FinFornecedor | null>(null);
+  useRotuloDaTela(fornecedor?.nome); // nome real na trilha de navegação (BarraDeContexto)
   const [lancs, setLancs] = useState<FinLancamentoExtenso[]>([]);
   const [recorrencias, setRecorrencias] = useState<FinRecorrencia[]>([]);
   const [loading, setLoading] = useState(true);
@@ -101,7 +103,6 @@ export default function FinancasFornecedorDetalhe() {
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-4">
       <div className="flex items-center gap-2">
-        <Button asChild variant="ghost" size="icon"><Link to="/financas/fornecedores"><ArrowLeft className="w-4 h-4" /></Link></Button>
         <div className="flex-1 min-w-0">
           <h1 className="font-serif text-xl flex items-center gap-2 flex-wrap">
             {fornecedor.tipo === "fisica" ? <User className="w-5 h-5 text-gold" /> : <Building2 className="w-5 h-5 text-gold" />}

@@ -177,11 +177,6 @@ export default function FinancasCentroPrestacaoContas() {
       {/* Barra de controles */}
       <div className="no-print sticky top-0 z-10 bg-card border-b">
         <div className="max-w-5xl mx-auto px-4 py-2 flex items-center gap-2 flex-wrap">
-          <Button asChild variant="ghost" size="sm" className="gap-1.5">
-            <Link to={`/financas/centro/${centroId}`}>
-              <ArrowLeft className="w-3.5 h-3.5" /> Voltar
-            </Link>
-          </Button>
           {anosDisponiveis.length > 0 && (
             <Select value={periodo} onValueChange={setPeriodo}>
               <SelectTrigger className="w-40 h-8 text-xs"><SelectValue /></SelectTrigger>

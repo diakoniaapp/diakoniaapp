@@ -219,7 +219,11 @@ export default function PainelTesouraria() {
   // Trabalho e Favoritos ficam FORA do `switch` (renderizados sempre,
   // pedido dela: "são transversais, pertencem ao usuário, não à área").
   type Aba = "operacoes" | "gestao" | "cadastros" | "fechamento";
-  const [aba, setAba] = useState<Aba>("operacoes");
+  const [aba, setAbaInterno] = useState<Aba>("operacoes");
+  // Trocar de aba também grava a aba no endereço (`#fechamento`), SUBSTITUINDO a entrada
+  // atual do histórico: ir para outra tela e voltar reabre o painel na aba de onde a
+  // pessoa saiu, e a trilha "Financeiro › Fechamento" aponta para um endereço real.
+  const setAba = (a: Aba) => { setAbaInterno(a); navigate({ hash: a }, { replace: true }); };
 
   // ── Fase 12 (Workspace Financeiro, 23/09/2026) ───────────────────────────
   // Meu Trabalho: `LancamentoForm` e `TransferenciaForm` já aceitam conta
@@ -444,6 +448,14 @@ export default function PainelTesouraria() {
   useEffect(() => {
     if (location.hash === "#ir-para" && !carregando) irParaSecao("ir-para");
   }, [location.hash, carregando]);
+
+  // A trilha de navegação (BarraDeContexto) liga "Financeiro › Fechamento" a
+  // `/painel-tesouraria#fechamento`: abrir o painel por esse endereço cai direto na aba
+  // certa. Antes a aba era só estado interno e não havia endereço para ela (03/10/2026).
+  useEffect(() => {
+    const h = location.hash.replace("#", "");
+    if (h === "operacoes" || h === "gestao" || h === "cadastros" || h === "fechamento") setAbaInterno(h);
+  }, [location.hash]);
 
   const totalFiscal = fiscal ? fiscal.total_atrasados + fiscal.total_urgentes + fiscal.total_proximos : 0;
   const aprovacoesPendentes = pendencias.filter((p): p is PendenciaLancamento => p.motivo === "aprovacao");

@@ -102,9 +102,6 @@ export default function NovaReserva() {
   return (
     <div className="p-4 md:p-8 max-w-2xl mx-auto space-y-4">
       <header className="flex items-center gap-2">
-        <Button size="sm" variant="ghost" asChild>
-          <Link to="/arrecadacao"><ArrowLeft className="w-4 h-4" /></Link>
-        </Button>
         <ShoppingBag className="w-5 h-5 text-gold" />
         <h1 className="font-serif text-xl">Nova reserva</h1>
       </header>

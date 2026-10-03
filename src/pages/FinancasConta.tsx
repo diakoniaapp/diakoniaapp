@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useRotuloDaTela } from "@/hooks/useNavegacao";
 import { Link, useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -128,6 +129,7 @@ export default function FinancasConta() {
   // vazaria filtro de uma conta pra outra aba/sessão sem relação).
   const [searchParams, setSearchParams] = useSearchParams();
   const [conta, setConta] = useState<FinConta | null>(null);
+  useRotuloDaTela(conta?.nome); // nome real na trilha de navegação (BarraDeContexto)
   const [contas, setContas] = useState<FinConta[]>([]);
   const [lancamentos, setLancamentos] = useState<FinLancamentoExtenso[]>([]);
   const [loading, setLoading] = useState(true);
@@ -792,7 +794,6 @@ export default function FinancasConta() {
           `.relatorio-page`. */}
       <div className="flex items-center justify-between gap-2 flex-wrap print:hidden">
         <div className="flex items-center gap-2 min-w-0">
-        <Button asChild variant="ghost" size="icon"><Link to="/financas"><ArrowLeft className="w-4 h-4" /></Link></Button>
         <div className="min-w-0">
           {/* Troca rápida entre contas (item 3, "PRIORIDADE MÁXIMA"
               22/09/2026) — pedido explícito: "sem sair da tela e sem

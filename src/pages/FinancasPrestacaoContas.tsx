@@ -277,9 +277,6 @@ export default function FinancasPrestacaoContas() {
       <div className="no-print sticky top-0 z-10 bg-card border-b">
         <div className="max-w-5xl mx-auto px-4 py-2 space-y-2">
           <div className="flex items-center justify-between gap-2 flex-wrap">
-            <Button asChild variant="ghost" size="sm" className="gap-1.5">
-              <Link to="/financas"><ArrowLeft className="w-3.5 h-3.5" /> Contas correntes</Link>
-            </Button>
             <span className="text-sm font-medium px-1 text-center">{rotuloPeriodo}</span>
             <div className="flex items-center gap-1.5">
               {/* Pedido da Telma (17/09/2026): recarregar sem precisar mexer

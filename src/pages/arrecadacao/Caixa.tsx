@@ -192,11 +192,6 @@ export default function CaixaPDV() {
   return (
     <div className="p-3 md:p-6 max-w-6xl mx-auto space-y-3">
       <header className="flex items-center gap-2">
-        <Button size="sm" variant="ghost" asChild>
-          <Link to={`/arrecadacao/reserva/${caixa.reserva_id}`}>
-            <ArrowLeft className="w-4 h-4" />
-          </Link>
-        </Button>
         <div className="flex-1 min-w-0">
           <h1 className="font-serif text-lg truncate">
             PDV — {reserva?.espaco?.nome} · {reserva?.finalidade}

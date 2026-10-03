@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useRotuloDaTela } from "@/hooks/useNavegacao";
 import { hojeLocal } from "@/lib/data";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
@@ -46,6 +47,7 @@ export default function PgmGrupo() {
   // botões de operação (editar, multiplicar, iniciar encontro, participantes).
   const podeEditar = usePodeOperarModulo("pgm");
   const [grupo, setGrupo] = useState<PgmGrupoResumo | null>(null);
+  useRotuloDaTela(grupo?.nome); // nome real na trilha de navegação (BarraDeContexto)
   const [membros, setMembros] = useState<PgmMembroComPessoa[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -193,7 +195,6 @@ export default function PgmGrupo() {
     <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-4">
       {/* Cabeçalho */}
       <div className="flex items-start gap-2 flex-wrap">
-        <Button asChild variant="ghost" size="icon"><Link to="/pgm"><ArrowLeft className="w-4 h-4" /></Link></Button>
         <div className="flex-1 min-w-0">
           <h1 className="font-serif text-xl flex items-center gap-2">
             <Users className="w-5 h-5 text-gold" />

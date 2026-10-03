@@ -200,7 +200,6 @@ export default function PgmReuniaoPage() {
     <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-4 pb-32">
       {/* Cabeçalho */}
       <div className="flex items-center gap-2">
-        <Button asChild variant="ghost" size="icon"><Link to={`/pgm/${grupoId}`}><ArrowLeft className="w-4 h-4" /></Link></Button>
         <div className="flex-1 min-w-0">
           <h1 className="font-serif text-xl flex items-center gap-2 truncate">
             <Calendar className="w-5 h-5 text-gold" />

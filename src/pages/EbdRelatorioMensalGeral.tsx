@@ -286,11 +286,6 @@ export default function EbdRelatorioMensalGeral() {
 
       <div className="no-print sticky top-0 z-10 bg-card border-b">
         <div className="max-w-4xl mx-auto px-4 py-2 flex items-center gap-2 flex-wrap">
-          <Button asChild variant="ghost" size="sm" className="gap-1.5">
-            <Link to="/painel-pastoral">
-              <ArrowLeft className="w-3.5 h-3.5" /> Voltar
-            </Link>
-          </Button>
 
           <div className="flex items-center gap-1 ml-2 border rounded-md p-0.5">
             {(["semana", "mes", "ano"] as const).map(p => (

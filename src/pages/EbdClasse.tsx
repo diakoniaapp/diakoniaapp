@@ -1,5 +1,6 @@
 // ─── EbdClasse.tsx — Detalhe de uma classe ─────────────────────────────────
 import { useEffect, useState } from "react";
+import { useRotuloDaTela } from "@/hooks/useNavegacao";
 import { NomePessoa } from "@/components/membros/ficha";
 import { useParams, Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -47,6 +48,7 @@ function calcIdade(dn: string | null): number | null {
 export default function EbdClasse() {
   const { classeId = "" } = useParams();
   const [classe, setClasse] = useState<EbdClasse | null>(null);
+  useRotuloDaTela(classe?.nome); // nome real na trilha de navegação (BarraDeContexto)
   const [esperados, setEsperados] = useState<EbdEsperado[]>([]);
   /** Quem está prestes a ser trazido de outra classe. Null = diálogo fechado. */
   const [aMover, setAMover] = useState<EbdEsperado | null>(null);
@@ -314,7 +316,6 @@ export default function EbdClasse() {
       {/* Cabeçalho */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3">
-          <Button asChild variant="ghost" size="icon"><Link to="/ebd"><ArrowLeft className="w-4 h-4" /></Link></Button>
           <div>
             <h1 className="font-serif text-2xl flex items-center gap-2">
               <GraduationCap className="w-6 h-6 text-gold" />

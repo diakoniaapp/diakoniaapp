@@ -131,7 +131,6 @@ export default function EbdCampanha() {
     <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-4">
       {/* Cabeçalho */}
       <div className="flex items-center gap-2">
-        <Button asChild variant="ghost" size="icon"><Link to={`/ebd/${classeId}/campanhas`}><ArrowLeft className="w-4 h-4" /></Link></Button>
         <div className="flex-1 min-w-0">
           {/* `truncate` no `<span>` do nome, não no `<h1>` inteiro: um `<h1>`
               com `truncate` e vários filhos flex trunca a LINHA toda como
