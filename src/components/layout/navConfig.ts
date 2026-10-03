@@ -13,7 +13,7 @@ import {
   CheckSquare, UserCheck, Sprout, Gavel,
   ShoppingBag, type LucideIcon,
   ClipboardCheck, Wallet,
-  Receipt, LayoutGrid,
+  Receipt, LayoutGrid, FileStack,
 } from "lucide-react";
 import type { AppRole } from "@/hooks/useAuth";
 
@@ -289,6 +289,10 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: "/painel-tesouraria",     label: "Tesouraria",          icon: DollarSign, allowedRoles: ROLES_FINANCEIRO },
       { to: "/financas/agenda",       label: "Agenda Financeira",   icon: CalendarDays, allowedRoles: ROLES_FINANCEIRO },
       { to: "/financas/relatorio",    label: "Malote Contábil",     icon: Receipt,       allowedRoles: ROLES_FINANCEIRO },
+      // Central de Documentos (03/10/2026): até aqui só se chegava por dentro da
+      // aba "4 Fechamento" do Painel da Tesouraria — ela perguntou "onde está esta
+      // tela?". Vive ao lado do Malote porque é o passo anterior a ele.
+      { to: "/financas/documentos",   label: "Central de Documentos", icon: FileStack,  allowedRoles: ROLES_FINANCEIRO },
       { to: "/financas/fiscal",    label: "Módulo Fiscal",       icon: DollarSign, allowedRoles: ROLES_FINANCEIRO },
       { to: "/financas/executivo", label: "Visão Executiva",     icon: DollarSign, allowedRoles: ROLES_PASTORAL_SEM_TITULAR },
       { to: "/financas/dre",       label: "DRE Eclesiástica",    icon: ScrollText, allowedRoles: ROLES_PASTORAL_SEM_TITULAR },
@@ -440,7 +444,8 @@ export const pageTitles: Record<string, string> = {
   "/financas/dre":            "DRE Eclesiástica",
   "/financas/prestacao-de-contas": "Prestação de Contas",
   "/financas/doadores":       "Doadores",
-  "/arrecadacao":             "Bazar e Cantina",
+  "/financas/documentos":     "Central de Documentos",
+  "/arrecadacao":            "Bazar e Cantina",
   "/admin/recuperacao-senha": "Recuperar Senha",
   "/admin/lgpd":              "LGPD",
   "/admin/identidade":        "Identidade",
