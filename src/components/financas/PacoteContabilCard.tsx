@@ -96,6 +96,13 @@ export function PacoteContabilCard({ ano, mes }: { ano: number; mes: number }) {
             )}
           </p>
 
+          {plano.nomesAjustados > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {plano.nomesAjustados} nome(s) de arquivo ajustado(s) por colisão (terminam em "(2)") — o
+              INDICE.csv mostra qual é qual.
+            </p>
+          )}
+
           {plano.totalSaidas > 0 && pendencias.length === 0 && (
             <p className="text-xs text-success-text flex items-center gap-1.5">
               <CheckCircle2 className="w-3.5 h-3.5" /> Todas as saídas do mês têm documento.

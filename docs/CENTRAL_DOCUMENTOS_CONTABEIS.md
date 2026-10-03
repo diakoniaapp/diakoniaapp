@@ -341,3 +341,42 @@ taxa real de acerto com PDFs novos antes de investir no resto.
 Ver itens 6.1 e 6.2. Arquivos: 0e48…2876 (Modamusic), c2aa…1212 (Manehel),
 cc2f…7169 (Passarinho), fc85…1707 (Renova-Teck), 8bb1…5905 e f730…2341
 (TNTINFO, idênticos) · e `tmp…6917` (Del Castilho, sem lançamento).
+
+## Anexo D — Conferência final dos 18 vínculos aprovados (03/10/2026)
+
+**Aprovados pela Telma. NÃO gravados.** Antes desta tabela, cada um foi relido do banco
+e conferido em 10 verificações — **18 de 18 passaram em todas**:
+
+1. o lançamento existe · 2. é saída paga (realizado/conciliado) · 3. não é transferência ·
+4. a data confere · 5. o valor confere · 6. o fornecedor confere · 7. o arquivo existe
+no armazenamento · 8. com o mesmo tamanho de bytes · 9. o lançamento não tem anexo ·
+10. nenhum anexo aponta para o arquivo.
+
+Além disso: 18 lançamentos distintos e 18 arquivos distintos (nenhum disputado);
+todos `conciliado`; soma R$ 1.507,23 (Caixinha 17 · Bradesco 1); **o script SQL contém
+exatamente este conjunto** (checksum `5f4be54cd2de5a8f` idêntico ao do banco).
+
+| Arquivo | Lançamento | Data | Fornecedor (CNPJ) | Conta | Valor (R$) | Conf. | Motivo |
+|---|---|---|---|---|---|---|---|
+| 50cd…5442 | 141a5cb2 | 03/08/26 | Sendas Distribuidora S.A. (06.057.223/0426-80) | Caixinha | 29,90 | 100% | CNPJ confere; valor igual; data igual |
+| 892b…0270 | 58f8995b | 04/08/26 | Supermercado Mundial LTDA (33.304.981/0006-24) | Caixinha | 32,77 | 97% | CNPJ confere; valor = total 33,78 − descontos 1,01; data igual |
+| a13a…4352 | 01870c54 | 04/08/26 | Supermercado Mundial LTDA (33.304.981/0006-24) | Caixinha | 172,52 | 97% | CNPJ confere; valor = total 179,67 − descontos 7,15; data igual |
+| e95f…2094 | 0442ec79 | 11/08/26 | Supermercado Mundial LTDA (33.304.981/0006-24) | Caixinha | 147,63 | 97% | CNPJ confere; valor = total 154,06 − descontos 6,43; data igual |
+| tmp…2874 | 938efd2e | 12/08/26 | Fer-Fix 390 Comercial (07.123.696/0001-92) | Caixinha | 14,00 | 100% | CNPJ confere; valor igual; data igual |
+| tmp…0094 | 9eca5a3a | 12/08/26 | Fer-Fix 390 Comercial (07.123.696/0001-92) | Caixinha | 13,00 | 100% | CNPJ confere; valor igual; data igual |
+| 0a93…5700 | fd01c259 | 13/08/26 | Supermercado Mundial LTDA (33.304.981/0006-24) | Caixinha | 52,74 | 100% | CNPJ confere; valor igual; data igual |
+| 9205…6157 | 9664914d | 15/08/26 | Supermercado Mundial LTDA (33.304.981/0006-24) | Caixinha | 39,95 | 100% | CNPJ confere; valor igual; data igual (OCR) |
+| 2781…5353 | 7ad66ace | 18/08/26 | Supermercado Mundial LTDA (33.304.981/0006-24) | Caixinha | 45,94 | 97% | CNPJ confere; valor = dinheiro 50,00 − troco 4,06; data igual |
+| e29c…4646 | 2c318585 | 18/08/26 | Supermercado Mundial LTDA (33.304.981/0006-24) | Caixinha | 104,75 | 97% | CNPJ confere; valor = total 115,47 − descontos 10,72; data igual |
+| d6d3…3293 | 8589c34f | 21/08/26 | Agata Com. Prod. de Hig. e Descartaveis (18.301.506/0001-04) | Caixinha | 94,00 | 100% | CNPJ confere; valor igual; data igual |
+| 4807…1499 | 6d9ef4b2 | 25/08/26 | Supermercado Mundial LTDA (33.304.981/0006-24) | Caixinha | 86,13 | 97% | CNPJ confere; valor = total 94,45 − descontos 8,32; data igual |
+| ce3b…7795 | fabe829b | 26/08/26 | Supermercado Mundial LTDA (33.304.981/0006-24) | Caixinha | 25,92 | 97% | CNPJ confere; valor = total 27,92 − descontos 2,00; data igual |
+| 703f…4253 | c07c0a7e | 05/09/26 | Prodesc Benfica Embalagens (06.058.769/0001-47) | Caixinha | 117,90 | 100% | CNPJ confere; valor igual; data igual |
+| a395…6659 | 4d378c44 | 05/09/26 | Supermercado Mundial LTDA (33.304.981/0006-24) | Caixinha | 108,90 | 100% | CNPJ confere; valor igual; data igual |
+| tmp…0089 | 1d4a2d9c | 05/09/26 | Jafi Decoracoes LTDA (27.654.631/0001-80) | Caixinha | 89,50 | 100% | CNPJ confere; valor igual; data igual (NF-e) |
+| tmp…1602 | 217d12ba | 09/09/26 | Supermercado Mundial LTDA (33.304.981/0006-24) | Caixinha | 31,78 | 97% | CNPJ confere; valor = dinheiro 35,00 − troco 3,22; data igual |
+| cfd9…0382 | c0f17e88 | 23/09/26 | Freecolor Comercio de Tintas (01.756.077/0001-59) | Bradesco | 299,90 | 100% | CNPJ confere; valor igual; data igual (boleto) |
+
+**Pontos de atenção:** 9 dos 18 são cupons com desconto/troco (97%): o valor do
+lançamento é o **líquido** (conferido pela aritmética exata acima). 5 são de setembro,
+**sem** fonte independente (os 13 de agosto batem com arquivo real da tesouraria).

@@ -91,6 +91,9 @@ export interface PlanoPacote {
   /** Saídas sem anexo que dispensam documento (tarifa bancária). Total =
    *  comAnexo + dispensam + pendencias.length — nenhuma é contada duas vezes. */
   dispensam: number;
+  /** Quantos nomes a rede final (`unico`) precisou ajustar com "(2)": colisão
+   *  que o valor e o ID não resolveram, ou dois anexos do mesmo tipo. */
+  nomesAjustados: number;
   arquivos: ArquivoPlanejado[];
   indice: LinhaIndice[];
   pendencias: FinLancamentoExtenso[];
@@ -388,6 +391,7 @@ export function planejarPacote(
   const pendencias: FinLancamentoExtenso[] = [];
   let comAnexo = 0;
   let dispensam = 0;
+  let nomesAjustados = 0;
 
   for (const l of ordenadas) {
     const conta = nomeSeguro(l.conta_nome, 40);
@@ -418,7 +422,12 @@ export function planejarPacote(
       // `unico` é a rede de segurança final: dois anexos do mesmo tipo no
       // mesmo lançamento (`..._NotaFiscal (2).pdf`) e qualquer colisão que os
       // degraus acima não previram — o JSZip sobrescreve nome repetido em silêncio.
-      const arquivo = unico(`${rotulo}_${TIPO_NOME_ARQUIVO[a.tipo] ?? "Outro"}.${extensao(a)}`, usadosNoDia, true);
+      const nomeDesejado = `${rotulo}_${TIPO_NOME_ARQUIVO[a.tipo] ?? "Outro"}.${extensao(a)}`;
+      const arquivo = unico(nomeDesejado, usadosNoDia, true);
+      // Monitoramento pedido por ela (03/10/2026): quantas vezes a rede final
+      // precisou mexer no nome. Os degraus de valor/ID não contam — esses são o
+      // desenho. Aqui só entra o que ninguém previu (ou dois anexos do mesmo tipo).
+      if (arquivo !== nomeDesejado) nomesAjustados += 1;
       const relativo = `${conta}/${dataPasta(dia)}/${arquivo}`;
       arquivos.push({
         lancamentoId: l.id, tipo: a.tipo, storagePath: a.url,
@@ -433,6 +442,6 @@ export function planejarPacote(
 
   return {
     ano, mes, raiz, totalSaidas: ordenadas.length, comAnexo, dispensam,
-    arquivos, indice, pendencias,
+    nomesAjustados, arquivos, indice, pendencias,
   };
 }

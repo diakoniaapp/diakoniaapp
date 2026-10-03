@@ -110,6 +110,19 @@ describe("planejarPacote", () => {
     expect(p.arquivos.map(a => a.caminhoZip.split("/").pop())).toEqual(["Ecoprint_NotaFiscal.pdf", "Ecoprint_NotaFiscal (2).pdf"]);
   });
 
+  it("conta quantos nomes a rede final ajustou — os degraus de valor e de ID não contam", () => {
+    // Desenho normal (Light 281,46 x2 + 1.700): resolvido por valor e ID, 0 ajustes.
+    const a = saida({ fornecedor_nome: "Light", valor: 281.46 });
+    const b = saida({ fornecedor_nome: "Light", valor: 281.46 });
+    const c = saida({ fornecedor_nome: "Light", valor: 1700 });
+    const normal = planejarPacote(2026, 9, [a, b, c], [anexo(a, "fatura"), anexo(b, "fatura"), anexo(c, "fatura")]);
+    expect(normal.nomesAjustados).toBe(0);
+    // Dois anexos do mesmo tipo no mesmo lançamento: a rede final ajusta 1.
+    const l = saida({});
+    const dupla = planejarPacote(2026, 9, [l], [anexo(l, "nota_fiscal", "a.pdf"), anexo(l, "nota_fiscal", "b.pdf")]);
+    expect(dupla.nomesAjustados).toBe(1);
+  });
+
   it("saída sem anexo vai pra pendências e o índice, e o pacote continua montado", () => {
     const com = saida({ fornecedor_nome: "Agata" });
     const sem = saida({ fornecedor_nome: "Sem Doc", valor: 53 });

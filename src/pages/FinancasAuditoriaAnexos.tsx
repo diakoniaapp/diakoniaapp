@@ -156,7 +156,11 @@ export default function FinancasAuditoriaAnexos() {
       ? { ano: a, mes: m } : null;
   }, [periodo.dataInicio, periodo.dataFim, periodoValido]);
 
-  const pct = (n: number) => (exigem > 0 ? Math.round((n / exigem) * 100) : 0);
+  const pctNum = (n: number) => (exigem > 0 ? (n / exigem) * 100 : 0);
+  // Uma casa decimal: a cobertura documental hoje é 0,3% (2 de 770) — arredondar
+  // pra inteiro mostrava "0%" / "100%" e escondia justamente o número que a
+  // Central de Documentos precisa fazer subir.
+  const pct = (n: number) => `${pctNum(n).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
 
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-6 space-y-4">
@@ -229,9 +233,9 @@ export default function FinancasAuditoriaAnexos() {
             <Total rotulo={filtrando ? "Saídas (filtradas)" : "Saídas no período"} valor={resumo.total}
               nota="pagas, sem transferências" />
             <Total rotulo="Com documentos" valor={resumo.com} tom="ok"
-              nota={exigem > 0 ? `${pct(resumo.com)}% das que exigem` : undefined} />
+              nota={exigem > 0 ? `${pct(resumo.com)} das que exigem` : undefined} />
             <Total rotulo="Sem documentos" valor={resumo.sem} tom={resumo.sem > 0 ? "alerta" : "ok"}
-              nota={exigem > 0 ? `${pct(resumo.sem)}% das que exigem` : undefined} />
+              nota={exigem > 0 ? `${pct(resumo.sem)} das que exigem` : undefined} />
             <Total rotulo="Dispensam documento" valor={resumo.dispensa} tom="neutro"
               nota="tarifas bancárias" />
           </section>
@@ -250,10 +254,10 @@ export default function FinancasAuditoriaAnexos() {
                   <li key={t} className="flex items-center gap-3 text-sm">
                     <span className="w-48 shrink-0 truncate">{t === "documento" ? "Documento (tipo antigo)" : FIN_ANEXO_TIPO_LABEL[t]}</span>
                     <span className="flex-1 h-2 rounded bg-muted overflow-hidden" aria-hidden>
-                      <span className="block h-full bg-gold/70" style={{ width: `${pct(resumo.porTipo[t])}%` }} />
+                      <span className="block h-full bg-gold/70" style={{ width: `${pctNum(resumo.porTipo[t])}%` }} />
                     </span>
                     <span className="w-28 text-right tabular-nums text-xs text-muted-foreground">
-                      <strong className="text-foreground">{resumo.porTipo[t]}</strong> · {pct(resumo.porTipo[t])}%
+                      <strong className="text-foreground">{resumo.porTipo[t]}</strong> · {pct(resumo.porTipo[t])}
                     </span>
                   </li>
                 ))}
