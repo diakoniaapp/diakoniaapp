@@ -150,12 +150,25 @@ describe("tarifa bancária dispensa documento", () => {
   const tarifa = (p: Partial<FinLancamentoExtenso> = {}) =>
     saida({ fornecedor_nome: "Banco Bradesco S.A. 237", categoria_nome: "Tarifas Bancárias", valor: 9.8, ...p });
 
-  it("reconhece a categoria (com ou sem acento/plural)", () => {
-    expect(dispensaDocumento({ categoria_nome: "Tarifas Bancárias" })).toBe(true);
-    expect(dispensaDocumento({ categoria_nome: "Tarifa Bancaria" })).toBe(true);
+  it("reconhece as categorias que dispensam (com ou sem acento/maiúscula)", () => {
+    for (const n of ["Tarifas Bancárias", "Tarifa Bancaria", "IOF", "iof", "Juros", "Encargos Bancários", "  Tarifas  Bancárias "]) {
+      expect(dispensaDocumento({ categoria_nome: n }), n).toBe(true);
+    }
     expect(dispensaDocumento({ categoria_nome: "Energia Elétrica" })).toBe(false);
     expect(dispensaDocumento({ categoria_nome: null })).toBe(false);
     expect(dispensaDocumento({})).toBe(false);
+  });
+
+  it("NÃO dispensa 'Encargos Trabalhistas' (guias de FGTS/INSS têm documento) nem 'Multas'", () => {
+    expect(dispensaDocumento({ categoria_nome: "Encargos Trabalhistas" })).toBe(false);
+    expect(dispensaDocumento({ categoria_nome: "Multas" })).toBe(false);
+    expect(dispensaDocumento({ categoria_nome: "Impostos e Taxas" })).toBe(false);
+  });
+
+  it("é por categoria, não por fornecedor: o mesmo banco com outra categoria exige documento", () => {
+    expect(dispensaDocumento({ categoria_nome: "Título de Capitalização", fornecedor_nome: "Banco Bradesco S.A. 237" } as any)).toBe(false);
+    expect(dispensaDocumento({ categoria_nome: null, fornecedor_nome: "Banco Bradesco S.A. 237" } as any)).toBe(false);
+    expect(dispensaDocumento({ categoria_nome: "Tarifas Bancárias", fornecedor_nome: "Qualquer Um" } as any)).toBe(true);
   });
 
   it("não entra em PENDENCIAS, mas é contada e aparece no índice como dispensa", () => {

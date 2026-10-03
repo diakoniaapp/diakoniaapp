@@ -111,15 +111,33 @@ export interface PlanoPacote {
  * pra sempre (a conferência nunca chegaria a zero), e as repetições delas
  * sujariam o nome dos documentos reais (`..._281,46_a1b2c3_...`).
  *
- * Regra por NOME da categoria (não há coluna `exige_documento`): evita
- * migration, mas quebra se a categoria for renomeada. Se aparecer um segundo
- * caso (IOF, juros), vale virar coluna em `fin_categorias`.
+ * A regra é por CATEGORIA, nunca por fornecedor (decisão dela, 03/10/2026) —
+ * medido em 2026: o MESMO fornecedor, Banco Bradesco S.A. 237, tem 271
+ * lançamentos de "Tarifas Bancárias", 1 de "Título de Capitalização" e 1 sem
+ * categoria; os dois últimos PRECISAM de documento, e uma regra por
+ * fornecedor os dispensaria por engano.
+ *
+ * E é por NOME EXATO, não por padrão de texto: existe a categoria "Encargos
+ * Trabalhistas" (10 saídas, R$ 42.509 em 2026 — guias de FGTS/INSS, com
+ * documento) e uma regra tipo /encargos/ a dispensaria. Das categorias que ela
+ * listou, hoje existem "Tarifas Bancárias" (273 saídas em 2026) e "Juros" (0
+ * uso); "IOF" e "Encargos Bancários" NÃO existem — ficam na lista porque a
+ * regra passa a valer sozinha no dia em que forem criadas. "Multas" existe
+ * mas fica de fora de propósito: multa de tributo se paga por guia, que é
+ * documento.
+ *
+ * Por NOME porque não há coluna `exige_documento` em `fin_categorias` (evita
+ * migration); quebra se a categoria for renomeada. A saída robusta é essa
+ * coluna + um interruptor na tela de categorias — não feita ainda.
  */
-const CATEGORIAS_SEM_DOCUMENTO = [/^tarifas?\b/i];
+const CATEGORIAS_SEM_DOCUMENTO = new Set([
+  "tarifas bancarias", "tarifa bancaria", "iof", "juros", "encargos bancarios",
+]);
 
 export function dispensaDocumento(l: { categoria_nome?: string | null }): boolean {
-  const nome = (l.categoria_nome ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "");
-  return CATEGORIAS_SEM_DOCUMENTO.some(re => re.test(nome));
+  const nome = (l.categoria_nome ?? "")
+    .normalize("NFD").replace(/[̀-ͯ]/g, "").trim().replace(/\s+/g, " ").toLowerCase();
+  return CATEGORIAS_SEM_DOCUMENTO.has(nome);
 }
 
 // ─── datas ───────────────────────────────────────────────────────────────
