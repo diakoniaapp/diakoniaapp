@@ -21,8 +21,8 @@ import {
   enriquecerLancamentos, type FinLancamento, type FinLancamentoExtenso,
 } from "@/services/finService";
 import {
-  indiceCsv, pendenciasCsv, planejarPacote,
-  type AnexoPacote, type PlanoPacote,
+  auditarAnexos, indiceCsv, pendenciasCsv, planejarPacote,
+  type AnexoPacote, type LinhaAuditoria, type PlanoPacote,
 } from "@/lib/pacoteContabil";
 
 const BUCKET = "fin-comprovantes";
@@ -38,9 +38,7 @@ const DOWNLOADS_EM_PARALELO = 4;
  * vazia — ver o cabeçalho de `lib/pacoteContabil.ts`), sem transferência e só
  * realizadas/conciliadas: a mesma regra do Malote Contábil.
  */
-async function saidasDoMes(ano: number, mes: number, contaId?: string): Promise<FinLancamentoExtenso[]> {
-  const ini = `${ano}-${String(mes).padStart(2, "0")}-01`;
-  const fim = toYmd(new Date(ano, mes, 0));
+export async function saidasDoPeriodo(ini: string, fim: string, contaId?: string): Promise<FinLancamentoExtenso[]> {
   const brutos: FinLancamento[] = [];
   for (let pagina = 0; ; pagina++) {
     let q = supabase.from("fin_lancamentos").select("*")
@@ -64,6 +62,10 @@ async function saidasDoMes(ano: number, mes: number, contaId?: string): Promise<
     if (bloco.length < PAGINA) break;
   }
   return enriquecerLancamentos(brutos);
+}
+
+function saidasDoMes(ano: number, mes: number, contaId?: string): Promise<FinLancamentoExtenso[]> {
+  return saidasDoPeriodo(`${ano}-${String(mes).padStart(2, "0")}-01`, toYmd(new Date(ano, mes, 0)), contaId);
 }
 
 async function anexosDe(lancamentos: FinLancamentoExtenso[]): Promise<AnexoPacote[]> {
@@ -93,6 +95,16 @@ export async function prepararPacoteContabil(ano: number, mes: number, contaId?:
   const saidas = await saidasDoMes(ano, mes, contaId);
   const anexos = saidas.length ? await anexosDe(saidas) : [];
   return planejarPacote(ano, mes, saidas, anexos);
+}
+
+/** Auditoria de anexos de QUALQUER período: cada saída paga com sua situação
+ *  (com documento / sem / dispensa) e os tipos que tem. Os filtros de conta,
+ *  centro de custo e fornecedor são aplicados pela tela, em memória — o
+ *  período (que decide o volume) é o único filtro que vai ao banco. */
+export async function auditarPeriodo(ini: string, fim: string): Promise<LinhaAuditoria[]> {
+  const saidas = await saidasDoPeriodo(ini, fim);
+  const anexos = saidas.length ? await anexosDe(saidas) : [];
+  return auditarAnexos(saidas, anexos);
 }
 
 export interface ResultadoPacote {

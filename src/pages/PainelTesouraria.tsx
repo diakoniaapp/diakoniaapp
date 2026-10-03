@@ -62,7 +62,7 @@ import {
   Clock, CalendarClock, Target, HandCoins, Scale, Lightbulb, Paperclip,
   HeartHandshake, Users, ScrollText, Layers, Handshake,
   TrendingDown, TrendingUp, RotateCw, Briefcase, LineChart, Building2, FolderKanban,
-  Globe2, Archive, BookOpenCheck, Star, Plus, ArrowUpCircle, ArrowDownCircle,
+  Globe2, Archive, BookOpenCheck, ClipboardCheck, Star, Plus, ArrowUpCircle, ArrowDownCircle,
   ArrowLeftRight, Download, CheckCircle2, X, type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -1557,6 +1557,7 @@ export default function PainelTesouraria() {
               links={[
                 { to: "/financas/fiscal", label: "Módulo Fiscal", icone: Receipt },
                 { to: "/financas/relatorio", label: "Malote Contábil", icone: Receipt },
+                { to: "/financas/auditoria-anexos", label: "Auditoria de documentos", icone: ClipboardCheck },
                 { to: "/financas/reunioes", label: "Reuniões Financeiras", icone: Handshake },
                 { to: "/financas/prestacao-de-contas", label: "Prestação de Contas", icone: ScrollText },
               ]}

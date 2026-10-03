@@ -77,6 +77,8 @@ export interface LinhaIndice {
   /** `storagePath` do arquivo, pra marcar falha de download depois. */
   storagePath: string | null;
   semAnexo: boolean;
+  /** Sem anexo, mas de categoria que não exige (tarifa) — não é pendência. */
+  dispensa: boolean;
 }
 
 export interface PlanoPacote {
@@ -84,10 +86,40 @@ export interface PlanoPacote {
   mes: number;
   raiz: string;
   totalSaidas: number;
+  /** Saídas com pelo menos um anexo (de qualquer categoria). */
   comAnexo: number;
+  /** Saídas sem anexo que dispensam documento (tarifa bancária). Total =
+   *  comAnexo + dispensam + pendencias.length — nenhuma é contada duas vezes. */
+  dispensam: number;
   arquivos: ArquivoPlanejado[];
   indice: LinhaIndice[];
   pendencias: FinLancamentoExtenso[];
+}
+
+// ─── o que NÃO precisa de documento ──────────────────────────────────────
+
+/**
+ * Categorias de saída que, por natureza, não têm documento fiscal pra anexar:
+ * a tarifa o banco debita sozinho. Medido em 03/10/2026 sobre as 19 saídas que
+ * precisaram de ID no nome do arquivo em setembro: 15 eram Tarifas Bancárias
+ * (R$ 9,80 do Bradesco repetidas até 10 vezes no mesmo dia) e 4 eram contas de
+ * energia; em junho/julho/agosto, 31 de 31 eram tarifas. No arquivo real de
+ * agosto (103 PDFs da tesouraria) não há UM arquivo de tarifa, e 33 das 40
+ * saídas sem arquivo eram tarifas.
+ *
+ * Sem esta exceção, 21 saídas de setembro entrariam na lista de "sem documento"
+ * pra sempre (a conferência nunca chegaria a zero), e as repetições delas
+ * sujariam o nome dos documentos reais (`..._281,46_a1b2c3_...`).
+ *
+ * Regra por NOME da categoria (não há coluna `exige_documento`): evita
+ * migration, mas quebra se a categoria for renomeada. Se aparecer um segundo
+ * caso (IOF, juros), vale virar coluna em `fin_categorias`.
+ */
+const CATEGORIAS_SEM_DOCUMENTO = [/^tarifas?\b/i];
+
+export function dispensaDocumento(l: { categoria_nome?: string | null }): boolean {
+  const nome = (l.categoria_nome ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "");
+  return CATEGORIAS_SEM_DOCUMENTO.some(re => re.test(nome));
 }
 
 // ─── datas ───────────────────────────────────────────────────────────────
@@ -188,7 +220,8 @@ export function indiceCsv(plano: PlanoPacote, falhas: Set<string> = new Set()): 
   const linhas = plano.indice.map(l => [
     l.conta, l.dataPagamento, l.fornecedor, l.descricao, l.categoria,
     valorBr(l.valor), l.documentoNumero, l.tipo, l.arquivoNoPacote, l.arquivoOriginal,
-    l.semAnexo ? "SEM ANEXO" : l.storagePath && falhas.has(l.storagePath) ? "FALHA NO DOWNLOAD" : "Ok",
+    l.semAnexo ? (l.dispensa ? "Dispensa documento (tarifa)" : "SEM ANEXO")
+      : l.storagePath && falhas.has(l.storagePath) ? "FALHA NO DOWNLOAD" : "Ok",
   ]);
   return csvPtBr([CABECALHO_INDICE, ...linhas]);
 }
@@ -202,6 +235,63 @@ export function pendenciasCsv(plano: PlanoPacote): string {
     ["Conta", "Data do pagamento", "Fornecedor", "Descrição", "Categoria", "Valor (R$)", "Documento nº"],
     ...linhas,
   ]);
+}
+
+// ─── auditoria de anexos ─────────────────────────────────────────────────
+//
+// A conferência da tela de auditoria usa a MESMA classificação do pacote:
+// toda saída cai em exatamente uma de três situações, então
+// `total = com + sem + dispensa` sempre fecha.
+//   · com      — tem pelo menos um anexo (de qualquer tipo);
+//   · dispensa — sem anexo e de categoria que não exige (tarifa bancária);
+//   · sem      — sem anexo e exige: é a lista de trabalho antes do ZIP.
+
+export type SituacaoDocumento = "com" | "sem" | "dispensa";
+
+export interface LinhaAuditoria {
+  lancamento: FinLancamentoExtenso;
+  /** Tipos distintos de anexo que o lançamento tem. */
+  tipos: FinAnexoTipo[];
+  qtd: number;
+  situacao: SituacaoDocumento;
+}
+
+export function auditarAnexos(saidas: FinLancamentoExtenso[], anexos: AnexoPacote[]): LinhaAuditoria[] {
+  const porLanc = new Map<string, AnexoPacote[]>();
+  for (const a of anexos) {
+    const lista = porLanc.get(a.lancamento_id) ?? [];
+    lista.push(a);
+    porLanc.set(a.lancamento_id, lista);
+  }
+  return saidas.map(l => {
+    const lista = porLanc.get(l.id) ?? [];
+    const situacao: SituacaoDocumento = lista.length > 0 ? "com" : dispensaDocumento(l) ? "dispensa" : "sem";
+    return { lancamento: l, tipos: [...new Set(lista.map(a => a.tipo))], qtd: lista.length, situacao };
+  });
+}
+
+export interface ResumoAuditoria {
+  total: number;
+  com: number;
+  sem: number;
+  dispensa: number;
+  /** Quantas saídas têm pelo menos um anexo DE CADA TIPO (uma saída com NF e
+   *  boleto conta nos dois — por isso a soma pode passar de `com`). */
+  porTipo: Record<FinAnexoTipo, number>;
+}
+
+export function resumirAuditoria(linhas: LinhaAuditoria[]): ResumoAuditoria {
+  const porTipo = Object.fromEntries(
+    (Object.keys(FIN_ANEXO_TIPO_LABEL) as FinAnexoTipo[]).map(t => [t, 0]),
+  ) as Record<FinAnexoTipo, number>;
+  let com = 0, sem = 0, dispensa = 0;
+  for (const l of linhas) {
+    if (l.situacao === "com") com += 1;
+    else if (l.situacao === "sem") sem += 1;
+    else dispensa += 1;
+    for (const t of l.tipos) porTipo[t] += 1;
+  }
+  return { total: linhas.length, com, sem, dispensa, porTipo };
 }
 
 // ─── o plano ─────────────────────────────────────────────────────────────
@@ -255,7 +345,12 @@ export function planejarPacote(
   const valorNome = (l: FinLancamentoExtenso) => Number(l.valor).toFixed(2).replace(".", ",");
   const tamanhoFornecedorDia = new Map<string, number>();
   const tamanhoComValor = new Map<string, number>();
+  // Só lançamentos que EXIGEM documento entram na contagem: as repetições de
+  // tarifa (Banco Bradesco, R$ 9,80, até 10 por dia) não podem forçar valor/ID
+  // no nome de um documento real do mesmo fornecedor. Se uma tarifa mesmo
+  // assim ganhar anexo, `unico()` (abaixo) resolve com "(2)".
   for (const l of ordenadas) {
+    if (dispensaDocumento(l)) continue;
     const k = chaveFornecedorDia(l);
     tamanhoFornecedorDia.set(k, (tamanhoFornecedorDia.get(k) ?? 0) + 1);
     tamanhoComValor.set(`${k}|${valorNome(l)}`, (tamanhoComValor.get(`${k}|${valorNome(l)}`) ?? 0) + 1);
@@ -263,6 +358,7 @@ export function planejarPacote(
   function rotuloDoLancamento(l: FinLancamentoExtenso): string {
     const k = chaveFornecedorDia(l);
     let rotulo = nomeSeguro(nomeExtrato(l).principal, NOME_MAX);
+    if (dispensaDocumento(l)) return rotulo;
     if ((tamanhoFornecedorDia.get(k) ?? 0) > 1) rotulo += `_${valorNome(l)}`;
     if ((tamanhoComValor.get(`${k}|${valorNome(l)}`) ?? 0) > 1) rotulo += `_${l.id.replace(/-/g, "").slice(0, 6)}`;
     return rotulo;
@@ -273,6 +369,7 @@ export function planejarPacote(
   const indice: LinhaIndice[] = [];
   const pendencias: FinLancamentoExtenso[] = [];
   let comAnexo = 0;
+  let dispensam = 0;
 
   for (const l of ordenadas) {
     const conta = nomeSeguro(l.conta_nome, 40);
@@ -292,8 +389,9 @@ export function planejarPacote(
 
     const lista = anexosPorLanc.get(l.id) ?? [];
     if (lista.length === 0) {
-      pendencias.push(l);
-      indice.push({ ...base, tipo: "", arquivoNoPacote: "", arquivoOriginal: "", storagePath: null, semAnexo: true });
+      const dispensa = dispensaDocumento(l);
+      if (dispensa) dispensam += 1; else pendencias.push(l);
+      indice.push({ ...base, tipo: "", arquivoNoPacote: "", arquivoOriginal: "", storagePath: null, semAnexo: true, dispensa });
       continue;
     }
 
@@ -310,13 +408,13 @@ export function planejarPacote(
       });
       indice.push({
         ...base, tipo: FIN_ANEXO_TIPO_LABEL[a.tipo] ?? a.tipo,
-        arquivoNoPacote: relativo, arquivoOriginal: a.nome ?? "", storagePath: a.url, semAnexo: false,
+        arquivoNoPacote: relativo, arquivoOriginal: a.nome ?? "", storagePath: a.url, semAnexo: false, dispensa: false,
       });
     }
   }
 
   return {
-    ano, mes, raiz, totalSaidas: ordenadas.length, comAnexo,
+    ano, mes, raiz, totalSaidas: ordenadas.length, comAnexo, dispensam,
     arquivos, indice, pendencias,
   };
 }

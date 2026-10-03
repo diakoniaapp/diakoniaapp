@@ -6,7 +6,8 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {}, supabaseRel: {} }));
 
 import {
-  csvPtBr, dataPasta, diaDoPagamento, indiceCsv, nomeSeguro, pendenciasCsv, planejarPacote,
+  auditarAnexos, csvPtBr, dataPasta, diaDoPagamento, dispensaDocumento, indiceCsv, nomeSeguro,
+  pendenciasCsv, planejarPacote, resumirAuditoria,
   type AnexoPacote,
 } from "./pacoteContabil";
 import type { FinLancamentoExtenso } from "@/services/finService";
@@ -142,6 +143,80 @@ describe("planejarPacote", () => {
     const l = saida({});
     const p = planejarPacote(2026, 9, [l], [anexo(l, "xml", "p/1.XML"), anexo(l, "comprovante", "p/2.jpg")]);
     expect(p.arquivos.map(a => a.caminhoZip.split("/").pop()).sort()).toEqual(["Ecoprint_Comprovante.jpg", "Ecoprint_NotaFiscal-XML.xml"]);
+  });
+});
+
+describe("tarifa bancária dispensa documento", () => {
+  const tarifa = (p: Partial<FinLancamentoExtenso> = {}) =>
+    saida({ fornecedor_nome: "Banco Bradesco S.A. 237", categoria_nome: "Tarifas Bancárias", valor: 9.8, ...p });
+
+  it("reconhece a categoria (com ou sem acento/plural)", () => {
+    expect(dispensaDocumento({ categoria_nome: "Tarifas Bancárias" })).toBe(true);
+    expect(dispensaDocumento({ categoria_nome: "Tarifa Bancaria" })).toBe(true);
+    expect(dispensaDocumento({ categoria_nome: "Energia Elétrica" })).toBe(false);
+    expect(dispensaDocumento({ categoria_nome: null })).toBe(false);
+    expect(dispensaDocumento({})).toBe(false);
+  });
+
+  it("não entra em PENDENCIAS, mas é contada e aparece no índice como dispensa", () => {
+    const real = saida({ fornecedor_nome: "Agata" });
+    const t1 = tarifa(); const t2 = tarifa();
+    const p = planejarPacote(2026, 9, [real, t1, t2], []);
+    expect(p.totalSaidas).toBe(3);
+    expect(p.dispensam).toBe(2);
+    expect(p.pendencias.map(x => x.id)).toEqual([real.id]);
+    expect(p.comAnexo + p.dispensam + p.pendencias.length).toBe(p.totalSaidas);
+    expect(indiceCsv(p)).toContain("Dispensa documento (tarifa)");
+    expect(pendenciasCsv(p)).not.toContain("Banco Bradesco");
+  });
+
+  it("as repetições de tarifa NÃO forçam valor/ID no nome de um documento real do mesmo fornecedor", () => {
+    // Banco Bradesco: 10 tarifas de R$ 9,80 no dia + uma saída real do mesmo
+    // fornecedor com documento. Sem a exceção, o nome real viraria
+    // `Banco Bradesco S.A. 237_1500,00_Boleto.pdf` por causa das tarifas.
+    const tarifas = Array.from({ length: 10 }, () => tarifa());
+    const real = saida({ fornecedor_nome: "Banco Bradesco S.A. 237", categoria_nome: "Empréstimos", valor: 1500 });
+    const p = planejarPacote(2026, 9, [...tarifas, real], [anexo(real, "boleto")]);
+    expect(p.arquivos.map(a => a.caminhoZip.split("/").pop())).toEqual(["Banco Bradesco S.A. 237_Boleto.pdf"]);
+  });
+
+  it("tarifa que mesmo assim ganhou anexo entra no pacote e não colide", () => {
+    const t1 = tarifa(); const t2 = tarifa();
+    const p = planejarPacote(2026, 9, [t1, t2], [anexo(t1, "comprovante"), anexo(t2, "comprovante")]);
+    const nomes = p.arquivos.map(a => a.caminhoZip.split("/").pop()!.toLowerCase());
+    expect(new Set(nomes).size).toBe(2);
+    expect(p.dispensam).toBe(0); // com anexo, conta como "com documento"
+    expect(p.comAnexo).toBe(2);
+  });
+});
+
+describe("auditoria de anexos", () => {
+  it("toda saída cai em exatamente uma situação: total = com + sem + dispensa", () => {
+    const comNf = saida({ fornecedor_nome: "A" });
+    const comDois = saida({ fornecedor_nome: "B" });
+    const sem = saida({ fornecedor_nome: "C" });
+    const t = saida({ fornecedor_nome: "Banco", categoria_nome: "Tarifas Bancárias" });
+    const linhas = auditarAnexos([comNf, comDois, sem, t], [
+      anexo(comNf, "nota_fiscal"), anexo(comDois, "nota_fiscal"), anexo(comDois, "boleto"),
+    ]);
+    const r = resumirAuditoria(linhas);
+    expect(r).toMatchObject({ total: 4, com: 2, sem: 1, dispensa: 1 });
+    expect(r.com + r.sem + r.dispensa).toBe(r.total);
+  });
+
+  it("por tipo: saída com nota e boleto conta nos dois; dois anexos do mesmo tipo contam uma vez", () => {
+    const a = saida({}); const b = saida({});
+    const r = resumirAuditoria(auditarAnexos([a, b], [
+      anexo(a, "nota_fiscal"), anexo(a, "nota_fiscal"), anexo(a, "boleto"), anexo(b, "nota_fiscal"),
+    ]));
+    expect(r.porTipo.nota_fiscal).toBe(2);
+    expect(r.porTipo.boleto).toBe(1);
+    expect(r.porTipo.comprovante).toBe(0);
+    expect(r.porTipo.xml).toBe(0);
+  });
+
+  it("recorte vazio não quebra", () => {
+    expect(resumirAuditoria([])).toMatchObject({ total: 0, com: 0, sem: 0, dispensa: 0 });
   });
 });
 

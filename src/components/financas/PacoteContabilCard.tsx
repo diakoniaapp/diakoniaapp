@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, CheckCircle2, Download, Files, Loader2, PackageOpen } from "lucide-react";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { AnexosLancamentoDialog } from "@/components/financas/AnexosLancamentoDialog";
@@ -90,6 +91,9 @@ export function PacoteContabilCard({ ano, mes }: { ano: number; mes: number }) {
             <strong className={pendencias.length ? "text-warning-text" : "text-success-text"}>
               {pendencias.length}
             </strong>{" "}sem documento
+            {plano.dispensam > 0 && (
+              <span className="text-muted-foreground"> · {plano.dispensam} dispensam (tarifas bancárias)</span>
+            )}
           </p>
 
           {plano.totalSaidas > 0 && pendencias.length === 0 && (
@@ -104,7 +108,10 @@ export function PacoteContabilCard({ ano, mes }: { ano: number; mes: number }) {
                 <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
                 <span>
                   <strong>{pendencias.length} saída(s) sem documento.</strong> O ZIP sai mesmo assim,
-                  com a lista em <code>PENDENCIAS.csv</code>.
+                  com a lista em <code>PENDENCIAS.csv</code>.{" "}
+                  <Link to="/financas/auditoria-anexos" className="underline underline-offset-2">
+                    Abrir a auditoria de documentos
+                  </Link>
                 </span>
               </p>
               <details>
