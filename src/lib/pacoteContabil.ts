@@ -4,7 +4,11 @@
 //
 //   Pacote_Contabil_2026_09/
 //     ├── INDICE.csv · PENDENCIAS.csv · ERROS.txt (só se algo falhar)
-//     └── {Conta}/{dd-mm-aaaa}/{Fornecedor}/NotaFiscal.pdf, Boleto.pdf, ...
+//     └── {Conta}/{dd-mm-aaaa}/{Fornecedor}_NotaFiscal.pdf, {Fornecedor}_Boleto.pdf, ...
+//
+// Até 02/10/2026 havia um nível a mais ({Conta}/{dia}/{Fornecedor}/...); ela
+// pediu pra tirar — o contador abre Conta → Dia e vê tudo, sem entrar em
+// pasta de fornecedor.
 //
 // Aqui só se decide ONDE cada arquivo vai e O QUE entra no índice. Buscar
 // do banco e baixar do storage é `services/pacoteContabilService.ts`.
@@ -233,16 +237,38 @@ export function planejarPacote(
     || Number(a.valor) - Number(b.valor)
     || a.id.localeCompare(b.id));
 
-  // Quantos lançamentos dividem a mesma conta+dia+fornecedor. Só quando há
-  // mais de um a pasta ganha o valor (`Light - R$ 281,46`); sozinho, fica o
-  // nome limpo do exemplo dela (`Ecoprint`). Medido em setembro/2026: 15 das
-  // 90 pastas fornecedor+dia tinham mais de um lançamento.
-  const grupo = (l: FinLancamentoExtenso) =>
-    `${l.conta_nome ?? ""}|${diaDoPagamento(l)}|${nomeSeguro(nomeExtrato(l).principal).toLowerCase()}`;
-  const tamanhoGrupo = new Map<string, number>();
-  for (const l of ordenadas) tamanhoGrupo.set(grupo(l), (tamanhoGrupo.get(grupo(l)) ?? 0) + 1);
+  // SEM subpasta de fornecedor (pedido dela, 03/10/2026): o contador abre
+  // Conta → Dia e vê todos os documentos do dia de uma vez. O fornecedor passou
+  // pro NOME do arquivo (`Ecoprint_NotaFiscal.pdf`). Colisão — mesmo fornecedor
+  // mais de uma vez no mesmo dia (medido em setembro/2026: 15 de 90 pares
+  // fornecedor+dia) — se resolve em dois degraus:
+  //   1. o valor:  `Light_281,46_Fatura.pdf`;
+  //   2. se nem o valor desempata (Light, 15/09: R$ 281,46 duas vezes), o início
+  //      do ID do lançamento: `Light_281,46_a1b2c3_Fatura.pdf`. O ID é estável —
+  //      "(2)" mudaria de dono se um lançamento fosse acrescentado — e o
+  //      INDICE.csv liga cada nome ao lançamento.
+  // Os grupos contam TODAS as saídas do dia, com ou sem anexo: o nome de um
+  // arquivo não pode mudar só porque outro lançamento do dia ganhou documento.
+  const NOME_MAX = 40;
+  const chaveFornecedorDia = (l: FinLancamentoExtenso) =>
+    `${l.conta_nome ?? ""}|${diaDoPagamento(l)}|${nomeSeguro(nomeExtrato(l).principal, NOME_MAX).toLowerCase()}`;
+  const valorNome = (l: FinLancamentoExtenso) => Number(l.valor).toFixed(2).replace(".", ",");
+  const tamanhoFornecedorDia = new Map<string, number>();
+  const tamanhoComValor = new Map<string, number>();
+  for (const l of ordenadas) {
+    const k = chaveFornecedorDia(l);
+    tamanhoFornecedorDia.set(k, (tamanhoFornecedorDia.get(k) ?? 0) + 1);
+    tamanhoComValor.set(`${k}|${valorNome(l)}`, (tamanhoComValor.get(`${k}|${valorNome(l)}`) ?? 0) + 1);
+  }
+  function rotuloDoLancamento(l: FinLancamentoExtenso): string {
+    const k = chaveFornecedorDia(l);
+    let rotulo = nomeSeguro(nomeExtrato(l).principal, NOME_MAX);
+    if ((tamanhoFornecedorDia.get(k) ?? 0) > 1) rotulo += `_${valorNome(l)}`;
+    if ((tamanhoComValor.get(`${k}|${valorNome(l)}`) ?? 0) > 1) rotulo += `_${l.id.replace(/-/g, "").slice(0, 6)}`;
+    return rotulo;
+  }
 
-  const pastasUsadas = new Map<string, Set<string>>(); // por conta+dia
+  const nomesUsadosNoDia = new Map<string, Set<string>>(); // por conta+dia
   const arquivos: ArquivoPlanejado[] = [];
   const indice: LinhaIndice[] = [];
   const pendencias: FinLancamentoExtenso[] = [];
@@ -252,13 +278,11 @@ export function planejarPacote(
     const conta = nomeSeguro(l.conta_nome, 40);
     const dia = diaDoPagamento(l);
     const fornecedor = nomeExtrato(l).principal;
-    let pasta = nomeSeguro(fornecedor);
-    if ((tamanhoGrupo.get(grupo(l)) ?? 0) > 1) pasta = `${pasta} - R$ ${valorBr(l.valor)}`;
+    const rotulo = rotuloDoLancamento(l);
 
     const chaveDia = `${conta}|${dia}`.toLowerCase();
-    const usadasNoDia = pastasUsadas.get(chaveDia) ?? new Set<string>();
-    pastasUsadas.set(chaveDia, usadasNoDia);
-    pasta = unico(pasta, usadasNoDia);
+    const usadosNoDia = nomesUsadosNoDia.get(chaveDia) ?? new Set<string>();
+    nomesUsadosNoDia.set(chaveDia, usadosNoDia);
 
     const base = {
       conta: l.conta_nome ?? "", dataPagamento: dataBr(dia), fornecedor,
@@ -274,10 +298,12 @@ export function planejarPacote(
     }
 
     comAnexo += 1;
-    const nomesUsados = new Set<string>();
     for (const a of lista) {
-      const arquivo = unico(`${TIPO_NOME_ARQUIVO[a.tipo] ?? "Outro"}.${extensao(a)}`, nomesUsados, true);
-      const relativo = `${conta}/${dataPasta(dia)}/${pasta}/${arquivo}`;
+      // `unico` é a rede de segurança final: dois anexos do mesmo tipo no
+      // mesmo lançamento (`..._NotaFiscal (2).pdf`) e qualquer colisão que os
+      // degraus acima não previram — o JSZip sobrescreve nome repetido em silêncio.
+      const arquivo = unico(`${rotulo}_${TIPO_NOME_ARQUIVO[a.tipo] ?? "Outro"}.${extensao(a)}`, usadosNoDia, true);
+      const relativo = `${conta}/${dataPasta(dia)}/${arquivo}`;
       arquivos.push({
         lancamentoId: l.id, tipo: a.tipo, storagePath: a.url,
         nomeOriginal: a.nome, caminhoZip: `${raiz}/${relativo}`,

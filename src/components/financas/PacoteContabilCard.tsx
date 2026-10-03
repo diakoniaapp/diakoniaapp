@@ -65,7 +65,7 @@ export function PacoteContabilCard({ ano, mes }: { ano: number; mes: number }) {
         <div className="min-w-0 flex-1">
           <h2 className="font-serif text-base">Pacote contábil — {mesNome} de {ano}</h2>
           <p className="text-xs text-muted-foreground">
-            ZIP por conta → dia do pagamento → fornecedor, com os documentos de cada saída.
+            ZIP por conta → dia do pagamento, com os documentos de cada saída (o fornecedor vai no nome do arquivo).
           </p>
         </div>
         <Button variant="gold" size="sm" className="gap-1.5" onClick={gerar}

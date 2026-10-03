@@ -44,37 +44,69 @@ describe("nomeSeguro", () => {
 });
 
 describe("planejarPacote", () => {
-  it("monta Conta/dd-mm-aaaa/Fornecedor/Tipo.ext, como no exemplo dela", () => {
+  it("monta Conta/dd-mm-aaaa/Fornecedor_Tipo.ext — sem subpasta de fornecedor", () => {
     const l = saida({ data_pagamento: "2026-09-15" });
     const p = planejarPacote(2026, 9, [l], [
       anexo(l, "nota_fiscal"), anexo(l, "boleto"), anexo(l, "comprovante"),
     ]);
     expect(p.raiz).toBe("Pacote_Contabil_2026_09");
     expect(p.arquivos.map(a => a.caminhoZip)).toEqual([
-      "Pacote_Contabil_2026_09/Bradesco/15-09-2026/Ecoprint/NotaFiscal.pdf",
-      "Pacote_Contabil_2026_09/Bradesco/15-09-2026/Ecoprint/Boleto.pdf",
-      "Pacote_Contabil_2026_09/Bradesco/15-09-2026/Ecoprint/Comprovante.pdf",
+      "Pacote_Contabil_2026_09/Bradesco/15-09-2026/Ecoprint_NotaFiscal.pdf",
+      "Pacote_Contabil_2026_09/Bradesco/15-09-2026/Ecoprint_Boleto.pdf",
+      "Pacote_Contabil_2026_09/Bradesco/15-09-2026/Ecoprint_Comprovante.pdf",
     ]);
     expect(p.pendencias).toHaveLength(0);
   });
 
-  it("dois lançamentos do mesmo fornecedor no mesmo dia ganham o valor na pasta, sem se misturar", () => {
-    // Caso real: Light, 15/09/2026 — R$ 281,46 duas vezes e R$ 1.700.
-    const a = saida({ fornecedor_nome: "Light Servicos de Eletricidade S.A", valor: 281.46 });
+  it("todo documento do dia fica direto em Conta/Dia: 4 níveis, nenhum arquivo dentro de pasta de fornecedor", () => {
+    const a = saida({ fornecedor_nome: "Agata", data_pagamento: "2026-09-15" });
+    const m = saida({ fornecedor_nome: "Mundial", data_pagamento: "2026-09-15" });
+    const p = planejarPacote(2026, 9, [a, m], [anexo(a, "nota_fiscal"), anexo(m, "boleto")]);
+    for (const f of p.arquivos) expect(f.caminhoZip.split("/")).toHaveLength(4); // raiz/conta/dia/arquivo
+    expect(new Set(p.arquivos.map(f => f.caminhoZip.split("/").slice(0, 3).join("/"))).size).toBe(1);
+  });
+
+  it("mesmo fornecedor mais de uma vez no dia: o valor entra no nome (Light, caso real de 15/09)", () => {
+    const a = saida({ fornecedor_nome: "Light Servicos de Eletricidade S.A", valor: 1700 });
     const b = saida({ fornecedor_nome: "Light Servicos de Eletricidade S.A", valor: 281.46 });
-    const c = saida({ fornecedor_nome: "Light Servicos de Eletricidade S.A", valor: 1700 });
+    const p = planejarPacote(2026, 9, [a, b], [anexo(a, "fatura"), anexo(b, "fatura")]);
+    expect(p.arquivos.map(x => x.caminhoZip.split("/").pop()).sort()).toEqual([
+      "Light Servicos de Eletricidade S.A_1700,00_Fatura.pdf",
+      "Light Servicos de Eletricidade S.A_281,46_Fatura.pdf",
+    ]);
+  });
+
+  it("nem o valor desempata (R$ 281,46 duas vezes): entra o início do ID do lançamento", () => {
+    const a = saida({ id: "aaaaaa11-0000-0000-0000-000000000000", fornecedor_nome: "Light", valor: 281.46 });
+    const b = saida({ id: "bbbbbb22-0000-0000-0000-000000000000", fornecedor_nome: "Light", valor: 281.46 });
+    const c = saida({ fornecedor_nome: "Light", valor: 1700 });
     const p = planejarPacote(2026, 9, [a, b, c], [anexo(a, "fatura"), anexo(b, "fatura"), anexo(c, "fatura")]);
-    const pastas = p.arquivos.map(x => x.caminhoZip.split("/")[3]);
-    expect(new Set(pastas.map(s => s.toLowerCase())).size).toBe(3); // nenhuma colide
-    expect(pastas).toContain("Light Servicos de Eletricidade S.A - R$ 1.700,00");
-    expect(pastas).toContain("Light Servicos de Eletricidade S.A - R$ 281,46");
-    expect(pastas).toContain("Light Servicos de Eletricidade S.A - R$ 281,46 (2)");
+    const nomes = p.arquivos.map(x => x.caminhoZip.split("/").pop());
+    expect(new Set(nomes.map(n => n!.toLowerCase())).size).toBe(3); // nenhuma colide
+    expect(nomes).toContain("Light_1700,00_Fatura.pdf");
+    expect(nomes).toContain("Light_281,46_aaaaaa_Fatura.pdf");
+    expect(nomes).toContain("Light_281,46_bbbbbb_Fatura.pdf");
+  });
+
+  it("o nome do arquivo não muda quando outro lançamento do dia ganha ou perde documento", () => {
+    const a = saida({ fornecedor_nome: "Light", valor: 100 });
+    const b = saida({ fornecedor_nome: "Light", valor: 200 });
+    const so_a = planejarPacote(2026, 9, [a, b], [anexo(a, "fatura")]).arquivos[0].caminhoZip;
+    const ambos = planejarPacote(2026, 9, [a, b], [anexo(a, "fatura"), anexo(b, "fatura")]).arquivos[0].caminhoZip;
+    expect(so_a).toBe(ambos);
+  });
+
+  it("fornecedores diferentes no mesmo dia não ganham valor (só quando há repetição)", () => {
+    const a = saida({ fornecedor_nome: "Agata", valor: 53 });
+    const m = saida({ fornecedor_nome: "Mundial", valor: 61.92 });
+    const p = planejarPacote(2026, 9, [a, m], [anexo(a, "nota_fiscal"), anexo(m, "nota_fiscal")]);
+    expect(p.arquivos.map(x => x.caminhoZip.split("/").pop())).toEqual(["Agata_NotaFiscal.pdf", "Mundial_NotaFiscal.pdf"]);
   });
 
   it("dois anexos do mesmo tipo não se sobrescrevem", () => {
     const l = saida({});
     const p = planejarPacote(2026, 9, [l], [anexo(l, "nota_fiscal", "a.pdf"), anexo(l, "nota_fiscal", "b.pdf")]);
-    expect(p.arquivos.map(a => a.caminhoZip.split("/").pop())).toEqual(["NotaFiscal.pdf", "NotaFiscal (2).pdf"]);
+    expect(p.arquivos.map(a => a.caminhoZip.split("/").pop())).toEqual(["Ecoprint_NotaFiscal.pdf", "Ecoprint_NotaFiscal (2).pdf"]);
   });
 
   it("saída sem anexo vai pra pendências e o índice, e o pacote continua montado", () => {
@@ -98,17 +130,18 @@ describe("planejarPacote", () => {
     expect(um).toEqual(dois);
   });
 
-  it("fornecedor com caractere proibido vira pasta válida", () => {
-    const l = saida({ fornecedor_nome: 'Mercado "Bom/Preço": Ltda.' });
+  it("fornecedor com caractere proibido (ou nome enorme) vira nome de arquivo válido", () => {
+    const l = saida({ fornecedor_nome: 'Mercado "Bom/Preço": Ltda. ' + "x".repeat(80) });
     const p = planejarPacote(2026, 9, [l], [anexo(l, "boleto")]);
     expect(p.arquivos[0].caminhoZip).not.toMatch(/[:*?"<>|\\]/);
-    expect(p.arquivos[0].caminhoZip.split("/")).toHaveLength(5); // raiz/conta/dia/pasta/arquivo
+    expect(p.arquivos[0].caminhoZip.split("/")).toHaveLength(4); // raiz/conta/dia/arquivo
+    expect(p.arquivos[0].caminhoZip.split("/").pop()!.length).toBeLessThanOrEqual(40 + "_Boleto.pdf".length);
   });
 
   it("a extensão vem do arquivo guardado (XML, imagem)", () => {
     const l = saida({});
     const p = planejarPacote(2026, 9, [l], [anexo(l, "xml", "p/1.XML"), anexo(l, "comprovante", "p/2.jpg")]);
-    expect(p.arquivos.map(a => a.caminhoZip.split("/").pop()).sort()).toEqual(["Comprovante.jpg", "NotaFiscal-XML.xml"]);
+    expect(p.arquivos.map(a => a.caminhoZip.split("/").pop()).sort()).toEqual(["Ecoprint_Comprovante.jpg", "Ecoprint_NotaFiscal-XML.xml"]);
   });
 });
 

@@ -12,7 +12,8 @@
 //      incompleto sem saber. Aqui toda falha vai pra ERROS.txt, pra coluna
 //      "Situação" do INDICE.csv e pro retorno (a tela avisa).
 //   2. Dois arquivos com o mesmo nome na mesma pasta: o JSZip sobrescreve em
-//      silêncio. O plano já garante nomes únicos (`unico()` na lib).
+//      silêncio. O plano já garante nomes únicos (fornecedor, valor e, por
+//      último, ID do lançamento — ver `rotuloDoLancamento` na lib).
 
 import { supabase } from "@/integrations/supabase/client";
 import { toYmd } from "@/lib/data";
