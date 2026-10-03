@@ -136,7 +136,37 @@ Metas da v1: agosto ≥ 90% (reenviando o arquivo da tesouraria), setembro ≥ 8
 | Aba fechada com revisão pela metade | aviso ao sair; nada se perde (arquivos intactos) |
 | Dados pessoais em arquivos de teste | **não** versionar PDFs nem nomes reais de prestadores; fixtures sintéticos |
 
-## 9. Fase 2 (só depois de alguns fechamentos)
+## 9. Andamento (03/10/2026) — motor de leitura e casamento prontos
+
+Primeira entrega, **sem tela e sem gravação**: dois módulos puros, com 38 testes.
+
+- `src/lib/documentos/leitura.ts` — texto → emitente (pela chave de acesso), CNPJ,
+  número, emissão/vencimento, **vários valores candidatos** (bruto, líquido, total
+  pago), duplicatas. Corrige os 5 defeitos de §7.4 e mais 4 achados ao rodar nos PDFs
+  reais (pagamento misto, total sozinho na linha de baixo, DANFE, NFS-e/boleto/fatura).
+- `src/lib/documentos/casamento.ts` — candidatos com confiança e **motivo por
+  extenso**, bandas (pronto / revisar / sem destino / duplicata), regra do cartão,
+  **compra parcelada (1 documento → N lançamentos)**, divergência de valor sempre em
+  revisão, empate nunca automático.
+
+**Resultado nos 37 órfãos reais** (rodado no navegador contra produção, só leitura;
+nenhum PDF nem nome real foi versionado):
+
+| Banda | Arquivos | Conferência |
+|---|---|---|
+| Pronto | **25** | 17 dos 18 vínculos aprovados, **idênticos** ao aprovado; +5 "prontos" extras e +3 parcelamentos exatos — **todos** confirmados pelo arquivo real de agosto ou pela soma das parcelas. **0 falsos positivos** |
+| Duplicata | 2 | as 2 cópias de anexos existentes, detectadas **sozinhas** pelo hash |
+| Revisar | 5 | o 18º aprovado (OCR de baixa qualidade, candidato certo no topo) · Águas do Rio (2 lançamentos de mesmo valor) · Marcia Auxiliadora · Miranda Flores · Passarinho (falta 1 parcela) |
+| Sem destino | 5 | Del Castilho (sem lançamento) · TNTINFO ×2 (parcelas = 95% da nota) · 2 documentos fracos (OCR e NFS-e) **com o melhor palpite certo** |
+
+**Antes (análise de hoje cedo): 20 automáticos.** Agora: **25 prontos + 2 duplicatas**.
+O ganho vem dos defeitos do leitor, não de afrouxar regra.
+
+**Falta para a v1:** gravação (upload/insert, desfazer, referência por caminho), leitura
+de XML de NF-e, parser do nome de arquivo, e a **tela**. Aguardo sua validação desta
+proposta antes de construir a tela.
+
+## 10. Fase 2 (só depois de alguns fechamentos)
 
 Persistir a fila (`fin_documentos_fila`: arquivo, hash, dados extraídos, candidatos,
 confiança, motivo, estado) para retomar revisão depois e para medir acerto ao longo do
