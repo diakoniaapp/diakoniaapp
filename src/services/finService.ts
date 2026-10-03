@@ -1128,7 +1128,7 @@ export type FinAnexoTipo =
 export const FIN_ANEXO_TIPO_LABEL: Record<FinAnexoTipo, string> = {
   nota_fiscal: "Nota Fiscal",
   boleto: "Boleto",
-  comprovante: "Comprovante de pagamento",
+  comprovante: "Comprovante de Pagamento",
   fatura: "Fatura",
   contrato: "Contrato",
   xml: "XML",

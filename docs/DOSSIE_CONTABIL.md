@@ -167,3 +167,68 @@ gerar o pacote de setembro, vale **conferir esses 15 lançamentos** e corrigir a
 5. **Os 15 lançamentos de 01/09:** quer a lista para conferir as datas antes do pacote?
 6. **Marca nas páginas** (rodapé "RPA · pág. 1/2")? Recomendo **não**: altera o documento
    original; o `INDICE.csv` já traz o mapa de páginas.
+
+## 8. Regras de negócio registradas (03/10/2026, ditadas pela Telma)
+
+Registro das regras como ela as formulou, antes de qualquer código do dossiê. Onde uma
+regra **responde** uma pergunta do §7, está dito; onde dá para ler de dois jeitos, a
+leitura adotada está marcada como **leitura minha**.
+
+**Tipos oficiais (lista fechada, nesta ordem):** Nota Fiscal · Boleto · Comprovante de
+Pagamento · Fatura · Contrato · XML · RPA · RPS · DPS · Outro. RPA, RPS e DPS são de
+primeira classe em Anexos, Auditoria, Central, Relatórios, Filtros e Indicadores — todas
+essas telas já leem a mesma lista (`FIN_ANEXO_TIPOS_OFERECIDOS` / `FIN_ANEXO_TIPO_LABEL`
+em `finService.ts`); o rótulo passou a ser "Comprovante de Pagamento", como na lista dela.
+
+**Um arquivo principal por lançamento.** O escritório não recebe vários documentos do
+mesmo pagamento: `Fornecedor_NF.pdf` + `_Boleto.pdf` + `_Comprovante.pdf` viram **um**
+`Fornecedor.pdf` com tudo dentro.
+
+**Merge.** Todos os PDFs do mesmo lançamento são mesclados ao gerar o Pacote Contábil.
+
+**Ordem das páginas = ordem cronológica do upload** (`ORDER BY` data de envio `ASC`):
+o que foi enviado primeiro é a página 1 (ex.: RPA às 01:52, comprovante às 01:59 →
+página 1 RPA, página 2 comprovante). *"A sequência de envio representa o fluxo real da
+documentação."* → **responde a pergunta 3 do §7 em parte:** vale a ordem de envio. Como
+a Central grava os arquivos de um mesmo lote com `enviado_em` escalonado, a ordem entre
+eles é a que a Central define (documento fiscal antes do comprovante) — **leitura minha**;
+se ela quiser que valha a ordem em que soltou os arquivos, é uma linha de mudança.
+
+**Nome:** `DDMMAAAA_DOCUMENTO-OU-NÚMERO_FORNECEDOR`.
+1. **Prioridade 1 — o número do documento:** `01092026_12345_MUNDIAL.pdf`,
+   `15092026_987_RPA_ANA_PATRICIA.pdf`, `12082026_456_RPS_APOIO_CONTABIL.pdf`.
+2. **Prioridade 2 — sem número, o tipo:** `04092026_RPA_ANA_PATRICIA_DA_SILVA_DE_LIMA_OLIVEIRA.pdf`,
+   `05092026_DPS_TAYANE_CLAUDIO_REZENDE_DE_SOUZA.pdf`.
+3. **Fornecedor ou funcionário**, conforme o lançamento.
+4. **Padronização automática:** sem acento, sem caractere especial, sem barra, sem aspas,
+   sem caractere inválido no Windows, espaço vira `_`, tudo em maiúsculas
+   (`Ana Patrícia da Silva de Lima Oliveira` → `ANA_PATRICIA_DA_SILVA_DE_LIMA_OLIVEIRA`).
+
+   → **responde a pergunta 1 do §7:** os exemplos dela confirmam **só o número** (`12345`,
+   não `NF12345`). **Detalhe novo que os exemplos revelam:** nos de RPA e RPS o **tipo
+   aparece depois do número** (`987_RPA_…`, `456_RPS_…`), enquanto na nota fiscal ele
+   **não** aparece (`12345_MUNDIAL`). **Leitura minha:** com número, Nota Fiscal, Boleto
+   e Fatura levam só o número; **RPA, RPS e DPS mantêm o tipo depois do número**, porque
+   o número de um recibo sozinho não diz o que é. Sem número, o tipo entra para todos.
+
+**Estrutura do pacote:** `Conta Financeira → Data → Arquivos`, **sem** pasta de fornecedor
+(já é a estrutura atual; o exemplo dela é `Bradesco/01-09-2026/…`).
+
+**XML nunca se perde.** Preferência dela: gerar o `….pdf` **e** o `….xml` com o **mesmo
+nome-base, na mesma pasta**; o XML **não entra no merge** e fica disponível ao escritório.
+É a "estratégia B" do §3, agora confirmada como regra.
+
+**JPG e PNG viram PDF** na geração do dossiê e entram nas páginas correspondentes (NF em
+PDF, comprovante em JPG convertido, recibo em PNG convertido). O original continua
+intacto no sistema.
+
+**Objetivo final:** abrir `Bradesco → 01-09-2026` e achar um PDF consolidado por
+pagamento — `01092026_12345_MUNDIAL.pdf` (NF + boleto + comprovante),
+`01092026_9876_LIGHT.pdf` (fatura + comprovante),
+`01092026_RPA_ANA_PATRICIA_DA_SILVA_DE_LIMA_OLIVEIRA.pdf` (RPA + comprovante).
+
+**Ainda em aberto do §7 (não respondidas pela mensagem):** 2 (gravar o número lido em
+`documento_numero` — sem isso a maioria dos nomes cairá no tipo, pois só 1 de 283
+lançamentos de setembro tem número), 4 (reduzir foto grande só na cópia do dossiê),
+5 (conferir os 15 lançamentos datados 01/09 — o nome do arquivo leva a data, então um
+dia errado vira nome errado) e 6 (sem carimbo de página).
