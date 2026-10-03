@@ -5,20 +5,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend,
-} from "recharts";
-import {
   Briefcase, Loader2, Printer, TrendingUp, TrendingDown, Wallet,
   AlertCircle, AlertTriangle, ChevronRight, Building, Sparkles, Heart, Target,
   ScrollText,
 } from "lucide-react";
 import {
-  buscarSaldoConsolidado, buscarFluxo12m, buscarCentrosAno,
+  buscarSaldoConsolidado, buscarFluxoDiario, buscarCentrosAno,
   buscarIndicadoresEclesiasticos, buscarAlertasExecutivos,
-  type SaldoConsolidado, type FluxoCaixaMes, type CentroCustoAno,
+  type SaldoConsolidado, type CentroCustoAno,
   type IndicadorEclesiastico, type AlertaExecutivo,
 } from "@/services/dashboardExecutivoService";
-import { CampoData } from "@/components/CampoData";
+import { FluxoCaixaCard } from "@/components/financas/FluxoCaixaCard";
+import type { DiaFluxo } from "@/lib/fluxoCaixa";
 import { IndicadorCentroCusto } from "@/components/financas/IndicadorCentroCusto";
 import { IndicadorPorCategoria } from "@/components/financas/IndicadorPorCategoria";
 import { toYmd, parseLocalDate, daquiAMeses, hojeLocal } from "@/lib/data";
@@ -36,7 +34,7 @@ function avisarFalha(oQue: string, motivo: unknown) {
 
 export default function DashboardExecutivo() {
   const [saldo, setSaldo] = useState<SaldoConsolidado | null>(null);
-  const [fluxo, setFluxo] = useState<FluxoCaixaMes[]>([]);
+  const [serieFluxo, setSerieFluxo] = useState<DiaFluxo[]>([]);
   const [centros, setCentros] = useState<CentroCustoAno[]>([]);
   const [indicadores, setIndicadores] = useState<IndicadorEclesiastico[]>([]);
   const [alertas, setAlertas] = useState<AlertaExecutivo[]>([]);
@@ -64,8 +62,8 @@ export default function DashboardExecutivo() {
   // vez do Indicador abrir um segundo seletor De/Até redundante.
   const periodoLabel = usandoPeriodoPadrao
     ? "Últimos 12 meses"
-    : fluxo.length > 0
-      ? `${fluxo[0].rotulo} a ${fluxo[fluxo.length - 1].rotulo}`
+    : periodoDe && periodoAte
+      ? `${periodoDe.slice(8, 10)}/${periodoDe.slice(5, 7)}/${periodoDe.slice(0, 4)} a ${periodoAte.slice(8, 10)}/${periodoAte.slice(5, 7)}/${periodoAte.slice(0, 4)}`
       : "Período selecionado";
 
   // ── Cinco fontes, cinco falhas possíveis, uma só não trava as outras ──────
@@ -98,12 +96,22 @@ export default function DashboardExecutivo() {
 
   // Fluxo de caixa — carregamento à parte, reativo ao período escolhido
   // (os outros 4 cards carregam uma vez só, no efeito acima).
+  // Base DIÁRIA (03/10/2026): o gráfico recebe um ponto por dia do período e decide
+  // sozinho (até ~120 dias sempre diário; acima, o usuário escolhe) como desenhar.
   useEffect(() => {
+    // data incompleta/invertida enquanto a pessoa digita: não consulta, não pisca erro
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(periodoDe) || !/^\d{4}-\d{2}-\d{2}$/.test(periodoAte) || periodoDe > periodoAte) {
+      setSerieFluxo([]);
+      setFluxoLoading(false);
+      return;
+    }
+    let atual = true; // descarta a resposta de um período que já foi trocado
     setFluxoLoading(true);
-    buscarFluxo12m({ de: periodoDe, ate: periodoAte })
-      .then(setFluxo)
-      .catch((e) => avisarFalha("o fluxo de caixa", e))
-      .finally(() => setFluxoLoading(false));
+    buscarFluxoDiario(periodoDe, periodoAte)
+      .then((s) => { if (atual) setSerieFluxo(s); })
+      .catch((e) => { if (atual) avisarFalha("o fluxo de caixa", e); })
+      .finally(() => { if (atual) setFluxoLoading(false); });
+    return () => { atual = false; };
   }, [periodoDe, periodoAte]);
 
   // ── Orçamento × Realizado, consolidado ────────────────────────────────
@@ -145,9 +153,9 @@ export default function DashboardExecutivo() {
         }
       `}</style>
       {/* Header */}
-      <header className="flex items-center gap-2 print:hidden">
+      <header className="flex items-center gap-2 flex-wrap print:hidden">
         <Briefcase className="w-5 h-5 text-gold" />
-        <div className="flex-1">
+        <div className="flex-1 min-w-[10rem]">
           <h1 className="font-serif text-xl md:text-2xl">Visão Executiva</h1>
           <p className="text-xs text-muted-foreground">Visão estratégica financeira · {fmtMes()}</p>
         </div>
@@ -248,59 +256,13 @@ export default function DashboardExecutivo() {
         </CardContent>
       </Card>
 
-      {/* ZONA 2 — FLUXO DE CAIXA, PERÍODO PERSONALIZADO (01/10/2026) */}
-      <Card>
-        <CardHeader className="flex flex-row items-start justify-between gap-3 flex-wrap space-y-0">
-          <div>
-            <CardTitle className="text-base flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-gold" /> Fluxo de caixa
-            </CardTitle>
-            <p className="text-xs text-muted-foreground mt-0.5">{periodoLabel}</p>
-          </div>
-          {/* Só este card tem filtro de período — Top 5 Centros e
-              Indicadores continuam "ano atual"/"mês atual" (ver comentário
-              nos states acima). */}
-          <div className="flex items-end gap-1.5 print:hidden">
-            <div>
-              <label className="text-[10px] uppercase tracking-wide text-muted-foreground">De</label>
-              <CampoData value={periodoDe} onChange={setPeriodoDe} className="h-8 w-[148px]" inputClassName="text-sm" />
-            </div>
-            <div>
-              <label className="text-[10px] uppercase tracking-wide text-muted-foreground">Até</label>
-              <CampoData value={periodoAte} onChange={setPeriodoAte} className="h-8 w-[148px]" inputClassName="text-sm" />
-            </div>
-            {fluxoLoading && <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground mb-1.5" />}
-          </div>
-        </CardHeader>
-        <CardContent className="h-72">
-          {fluxo.length === 0 ? (
-            <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
-              Sem dados ainda.
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={fluxo} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" />
-                {/* Período > 24 meses: densidade cheia de rótulo vira
-                    faixa ilegível de texto — `interval` do Recharts pula
-                    N ticks entre um rótulo mostrado e o próximo; 2 mostra
-                    1 a cada 3 (trimestral), pedido dela ("Jan/23, Abr/23,
-                    Jul/23..."). Até 24 meses, mostra todo mundo. */}
-                <XAxis dataKey="rotulo" tick={{ fontSize: 10 }} interval={fluxo.length > 24 ? 2 : 0} />
-                <YAxis tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 10 }} />
-                <Tooltip
-                  formatter={(v: number) => fmtBR(v)}
-                  contentStyle={{ fontSize: "11px" }}
-                />
-                <Legend wrapperStyle={{ fontSize: "11px" }} />
-                <Line type="monotone" dataKey="entradas" stroke="#059669" strokeWidth={2} name="Entradas" dot={{ r: 3 }} />
-                <Line type="monotone" dataKey="saidas"   stroke="#dc2626" strokeWidth={2} name="Saídas"   dot={{ r: 3 }} />
-                <Line type="monotone" dataKey="saldo"    stroke="#b89348" strokeWidth={2} name="Saldo"    dot={{ r: 3 }} strokeDasharray="5 5" />
-              </LineChart>
-            </ResponsiveContainer>
-          )}
-        </CardContent>
-      </Card>
+      {/* ZONA 2 — FLUXO DE CAIXA, BASE DIÁRIA (03/10/2026). Só este card tem filtro de
+          período — Top 5 Centros e Indicadores continuam "ano atual"/"mês atual" (ver
+          comentário nos states acima). */}
+      <FluxoCaixaCard
+        de={periodoDe} ate={periodoAte} onDe={setPeriodoDe} onAte={setPeriodoAte}
+        serie={serieFluxo} carregando={fluxoLoading}
+      />
 
       {/* ZONA 2B — INDICADOR POR CENTRO DE CUSTO (01/10/2026) */}
       <IndicadorCentroCusto periodoDe={periodoDe} periodoAte={periodoAte} periodoLabel={periodoLabel} />

@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { serieDiaria, type DiaFluxo, type Movimento } from "@/lib/fluxoCaixa";
 
 export interface SaldoConsolidado {
   saldo_atual: number;
@@ -8,14 +9,6 @@ export interface SaldoConsolidado {
   previsao_30d: number;
   previsao_60d: number;
   previsao_90d: number;
-}
-
-export interface FluxoCaixaMes {
-  mes: string;        // 'YYYY-MM-01'
-  rotulo: string;     // 'Jun/26'
-  entradas: number;
-  saidas: number;
-  saldo: number;
 }
 
 export interface CentroCustoAno {
@@ -47,26 +40,63 @@ export async function buscarSaldoConsolidado(): Promise<SaldoConsolidado> {
   return data as unknown as SaldoConsolidado;
 }
 
-// Período personalizado (01/10/2026, pedido dela) — sem `periodo`, chama
-// a RPC sem argumento e mantém o comportamento de sempre (últimos 12
-// meses terminando no mês atual). Com `periodo`, a RPC itera mês a mês
-// do início ao fim do intervalo escolhido — qualquer tamanho, não só 12
-// (ver migration `fin_exec_fluxo_periodo_personalizado`).
-export async function buscarFluxo12m(periodo?: { de: string; ate: string }): Promise<FluxoCaixaMes[]> {
-  const { data, error } = await supabase.rpc(
-    "fin_exec_fluxo_12m",
-    periodo ? { p_de: periodo.de, p_ate: periodo.ate } : undefined,
-  );
-  if (error) throw error;
-  return (data ?? []).map((r: any) => ({
-    mes: r.mes,
-    rotulo: r.rotulo,
-    entradas: Number(r.entradas ?? 0),
-    saidas: Number(r.saidas ?? 0),
-    saldo: Number(r.saldo ?? 0),
-  }));
-}
+// Fluxo de caixa DIÁRIO (03/10/2026, pedido dela). Até 01/10 o gráfico vinha da RPC
+// `fin_exec_fluxo_12m`, que só sabe somar por MÊS — um período de 15 dias virava um ou
+// dois pontos mensais. Agora a base é o dia: busca os movimentos realizados do período e
+// o saldo de abertura, e `serieDiaria` (lib/fluxoCaixa.ts) monta um ponto por dia.
+//
+// Sem migration nova: o saldo é reconstruído com o que já existe —
+// `fin_contas.saldo_inicial` + `fin_movimento_antes_de(data, conta)` (a mesma soma do
+// gatilho `fin_recalc_saldo_conta`) — e, medido em 03/10/2026, a soma das 6 contas
+// bate com `fin_exec_saldo_consolidado().saldo_atual` até o centavo. A RPC mensal
+// segue no banco, mas esta tela não a usa mais.
+const PAGINA_MOV = 1000;
 
+export async function buscarFluxoDiario(de: string, ate: string): Promise<DiaFluxo[]> {
+  // Só contas ATIVAS: é a base do "Saldo total" que a própria tela mostra.
+  const { data: contas, error: eContas } = await supabase
+    .from("fin_contas").select("id, saldo_inicial").eq("ativo", true);
+  if (eContas) throw eContas;
+  const ids = (contas ?? []).map(c => c.id);
+  if (ids.length === 0) return serieDiaria([], 0, de, ate);
+
+  // saldo ANTES do primeiro dia, conta a conta (a função soma no banco, sem o teto de linhas)
+  const antes = await Promise.all(ids.map(id =>
+    supabase.rpc("fin_movimento_antes_de", { p_data_limite_exclusiva: de, p_conta_id: id })));
+  let saldoAbertura = 0;
+  antes.forEach((r, i) => {
+    if (r.error) throw r.error;
+    saldoAbertura += Number(contas![i].saldo_inicial ?? 0) + Number(r.data ?? 0);
+  });
+
+  const filtro = () => supabase.from("fin_lancamentos")
+    .select("data, tipo, valor, origem", { count: "exact" })
+    .in("status", ["realizado", "conciliado"]).in("conta_id", ids)
+    .gte("data", de).lte("data", ate).order("data").order("id");
+
+  // 1ª página já traz o total; as demais saem em paralelo
+  const primeira = await filtro().range(0, PAGINA_MOV - 1);
+  if (primeira.error) throw primeira.error;
+  const linhas = [...(primeira.data ?? [])];
+  const total = primeira.count ?? linhas.length;
+  if (total > PAGINA_MOV) {
+    const restantes = await Promise.all(
+      Array.from({ length: Math.ceil(total / PAGINA_MOV) - 1 }, (_, i) =>
+        filtro().range((i + 1) * PAGINA_MOV, (i + 2) * PAGINA_MOV - 1)));
+    for (const r of restantes) {
+      if (r.error) throw r.error;
+      linhas.push(...(r.data ?? []));
+    }
+  }
+
+  const movs: Movimento[] = linhas.map(l => ({
+    data: String(l.data).slice(0, 10),
+    tipo: l.tipo === "entrada" ? "entrada" : "saida",
+    valor: Number(l.valor ?? 0),
+    transferencia: l.origem === "transferencia",
+  }));
+  return serieDiaria(movs, saldoAbertura, de, ate);
+}
 export interface ResumoCentro {
   executado: number;
   periodoAnterior: number;
