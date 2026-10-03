@@ -152,7 +152,35 @@ a DRE. **Se o malote de agosto já foi enviado à contabilidade, convém avisar.
 - **Pacote Contábil de agosto:** passa a ter 1 saída a mais **com** documento.
 - **Cobertura documental de 2026:** + 1 lançamento com documento (+ 0,13 p.p.).
 
-## 8. Decisões que preciso de você
+## 8. Decisões confirmadas pela Telma (03/10/2026) e como executar
+
+| Decisão | Valor |
+|---|---|
+| Nome do fornecedor | **`Del Castilho Madeiras e Construção LTDA`** (com acento e cedilha). **Não** usar "Atacadão Del Castilho" nem "Chave de Acesso Número Nf-E Versão" |
+| Categoria da **entrada** | **Ofertas** — "a mais neutra e mantém os indicadores consistentes até identificarmos a origem exata do recurso" |
+| Categoria da **despesa** | **Material de Consumo** — historicamente a mais compatível |
+| Fluxo | Entrada Caixa de Envelopes → Transferência para Caixinha → Pagamento Del Castilho |
+
+**Passo a passo (pelas telas do sistema; eu não gravo em produção):**
+
+1. **Fornecedores** → abrir "Chave de Acesso Número Nf-E Versão" (CNPJ 22.753.989/0001-47) →
+   renomear para `Del Castilho Madeiras e Construção LTDA`.
+2. **Caixa de Envelopes** → novo lançamento: **Entrada**, R$ 255,30, **10/08/2026**,
+   categoria **Ofertas**, realizado. Descrição sugerida: "NF-e 24553 Del Castilho — origem a
+   identificar" (para a origem exata não se perder).
+3. **Transferência** Caixa de Envelopes → Caixinha Administrativo, R$ 255,30, 10/08/2026.
+4. **Caixinha Administrativo** → novo lançamento: **Saída**, R$ 255,30, 10/08/2026,
+   fornecedor Del Castilho, categoria **Material de Consumo**, realizado; anexar a NF-e
+   (o PDF já está no sistema como arquivo solto: `fin-comprovantes/tmp/1789358496917.pdf`).
+
+Conferência depois: saldos de Caixinha (R$ 57,70) e Envelopes (R$ 0,00) **iguais aos de
+hoje**; resultado de agosto **inalterado** (R$ 8.783,16), com entradas e saídas
+**+ R$ 255,30** cada.
+
+> Aviso: a entrada em **Ofertas** soma R$ 255,30 aos indicadores eclesiásticos de agosto.
+> Se o malote de agosto já foi enviado à contabilidade, convém avisar.
+
+### Pontos que estavam em aberto (resolvidos acima)
 
 1. **Categoria da entrada** no Caixa de Envelopes: `Dizimos`, `Ofertas` ou `Ofertas
    para Missões`? (Recomendo `Ofertas`, a mais comum — 51 das 91 entradas de jul–set —
