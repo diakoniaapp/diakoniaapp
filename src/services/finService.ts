@@ -883,7 +883,10 @@ export async function listarLancamentosSemTeto(filtro: FiltroLancamento = {}): P
   return enriquecerLancamentos(brutos);
 }
 
-async function enriquecerLancamentos(lancs: FinLancamento[]): Promise<FinLancamentoExtenso[]> {
+// Exportada em 02/10/2026 pro Pacote Contábil, que tem a própria consulta
+// (período por `data_pagamento`, não por `data`) mas precisa dos mesmos
+// nomes de conta/categoria/fornecedor — não vale reescrever o join.
+export async function enriquecerLancamentos(lancs: FinLancamento[]): Promise<FinLancamentoExtenso[]> {
   if (lancs.length === 0) return [];
 
   // Join manual com nomes (mais rápido + à prova de fk)
@@ -1095,7 +1098,31 @@ export async function comprovanteSignedUrl(path: string, segs = 600): Promise<st
 // comprovante do MESMO lançamento, cada um com seu tipo. Mesmo bucket
 // (`fin-comprovantes`), mesma política de acesso — não é uma segunda
 // regra de LGPD pro mesmo tipo de dado sensível.
-export type FinAnexoTipo = "documento" | "xml" | "comprovante" | "outro";
+//
+// Tipos ampliados em 02/10/2026 pro Pacote Contábil (a contabilidade recebe
+// a pasta separada por Nota Fiscal / Boleto / Comprovante / Fatura /
+// Contrato). `documento` é o tipo ANTIGO, de antes da ampliação — continua
+// aceito pelo banco e lido, mas não é mais oferecido (ver
+// `FIN_ANEXO_TIPOS_OFERECIDOS`): os anexos que já o têm não são reescritos.
+export type FinAnexoTipo =
+  | "nota_fiscal" | "boleto" | "comprovante" | "fatura" | "contrato"
+  | "xml" | "outro" | "documento";
+
+export const FIN_ANEXO_TIPO_LABEL: Record<FinAnexoTipo, string> = {
+  nota_fiscal: "Nota Fiscal",
+  boleto: "Boleto",
+  comprovante: "Comprovante de pagamento",
+  fatura: "Fatura",
+  contrato: "Contrato",
+  xml: "XML",
+  outro: "Outro",
+  documento: "Documento (antigo)",
+};
+
+/** Os tipos que a tela de anexos oferece, na ordem de exibição. */
+export const FIN_ANEXO_TIPOS_OFERECIDOS: FinAnexoTipo[] = [
+  "nota_fiscal", "boleto", "comprovante", "fatura", "contrato", "xml", "outro",
+];
 
 export const FIN_ANEXO_MIMES = [...FIN_COMPROVANTE_MIMES, "application/xml", "text/xml"];
 
@@ -1140,7 +1167,16 @@ export async function adicionarAnexo(
   // Upload feito mas a linha não gravou — não deixa arquivo órfão no
   // bucket (mesmo raciocínio de `removerComprovante` nas exclusões
   // acima: storage e banco andam juntos, nunca um sem o outro).
-  if (error) { await removerComprovante(path); throw error; }
+  if (error) {
+    await removerComprovante(path);
+    // 23514 = check_violation: o banco ainda tem a lista ANTIGA de tipos
+    // (migration 20261002200000 não aplicada). Sem esta tradução a tesouraria
+    // veria "violates check constraint ..." e não saberia o que fazer.
+    if ((error as { code?: string }).code === "23514") {
+      throw new Error("O banco ainda não aceita este tipo de documento — falta aplicar a migration 20261002200000.");
+    }
+    throw error;
+  }
   return data as FinLancamentoAnexo;
 }
 

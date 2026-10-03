@@ -33,15 +33,9 @@ import { Loader2, Upload, FileText, ExternalLink, Trash2, Files } from "lucide-r
 import { toast } from "sonner";
 import {
   listarAnexos, adicionarAnexo, removerAnexo, anexoSignedUrl,
+  FIN_ANEXO_TIPO_LABEL as TIPO_LABEL, FIN_ANEXO_TIPOS_OFERECIDOS,
   type FinLancamentoAnexo, type FinAnexoTipo,
 } from "@/services/finService";
-
-const TIPO_LABEL: Record<FinAnexoTipo, string> = {
-  documento: "Documento",
-  xml: "XML",
-  comprovante: "Comprovante de pagamento",
-  outro: "Outro",
-};
 
 interface Props {
   open: boolean;
@@ -57,7 +51,7 @@ export function AnexosLancamentoDialog({ open, onOpenChange, lancamentoId, descr
   const [enviando, setEnviando] = useState(false);
 
   const [arquivo, setArquivo] = useState<File | null>(null);
-  const [tipo, setTipo] = useState<FinAnexoTipo>("documento");
+  const [tipo, setTipo] = useState<FinAnexoTipo>("nota_fiscal");
   // `confirm()` nativo não dispara em WebView (CLAUDE.md Risco 3) — mesmo
   // AlertDialog de confirmação que `DocumentosFiscaisDialog` já usa.
   const [apagando, setApagando] = useState<FinLancamentoAnexo | null>(null);
@@ -120,7 +114,7 @@ export function AnexosLancamentoDialog({ open, onOpenChange, lancamentoId, descr
             <Files className="w-4 h-4 text-gold" /> Anexos — {descricaoLancamento}
           </DialogTitle>
           <DialogDescription className="text-xs">
-            Documento, XML ou comprovante deste lançamento — quantos precisar, cada um com o próprio tipo.
+            Nota fiscal, boleto, comprovante, fatura, contrato ou XML deste lançamento — quantos precisar, cada um com o próprio tipo. Tudo vai pro Pacote Contábil do mês.
           </DialogDescription>
         </DialogHeader>
 
@@ -138,8 +132,9 @@ export function AnexosLancamentoDialog({ open, onOpenChange, lancamentoId, descr
             <Select value={tipo} onValueChange={(v) => setTipo(v as FinAnexoTipo)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                {Object.entries(TIPO_LABEL).map(([k, v]) => (
-                  <SelectItem key={k} value={k}>{v}</SelectItem>
+                {/* `documento` (antigo) não é oferecido — só lido. */}
+                {FIN_ANEXO_TIPOS_OFERECIDOS.map(k => (
+                  <SelectItem key={k} value={k}>{TIPO_LABEL[k]}</SelectItem>
                 ))}
               </SelectContent>
             </Select>

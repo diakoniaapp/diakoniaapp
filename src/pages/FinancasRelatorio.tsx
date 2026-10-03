@@ -15,6 +15,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { PaginaSkeleton } from "@/components/ListState";
+import { PacoteContabilCard } from "@/components/financas/PacoteContabilCard";
 
 const MESES = [
   "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
@@ -120,6 +121,12 @@ export default function FinancasRelatorio() {
             </Button>
           </div>
         </div>
+      </div>
+
+      {/* Pacote Contábil (02/10/2026): conferência dos documentos + ZIP.
+          Fora da folha impressa — não é parte do relatório. */}
+      <div className="no-print max-w-5xl mx-auto px-4 pt-4">
+        <PacoteContabilCard ano={ano} mes={mes} />
       </div>
 
       {/* PÁGINA DO RELATÓRIO */}
