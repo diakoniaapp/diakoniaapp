@@ -58,7 +58,7 @@ export async function carregarCandidatos(): Promise<Candidatos> {
 
   const [lancs, forn, contas, cats, anexos] = await Promise.all([
     paginar((de, ate) => supabase.from("fin_lancamentos")
-      .select("id, data, data_pagamento, valor, status, conta_id, fornecedor_id, descricao, categoria_id, comprovante_url")
+      .select("id, data, data_pagamento, valor, status, conta_id, fornecedor_id, descricao, categoria_id, comprovante_url, documento_numero")
       .eq("tipo", "saida").neq("origem", "transferencia").neq("status", "cancelado")
       .gte("data", ini).order("data").order("id").range(de, ate)),
     paginar((de, ate) => supabase.from("fin_fornecedores").select("id, nome, cnpj_cpf").order("id").range(de, ate)),
@@ -98,6 +98,7 @@ export async function carregarCandidatos(): Promise<Candidatos> {
       status: l.status,
       temAnexo: anexosPorLancamento.has(l.id),
       descricao: l.descricao,
+      documentoNumero: l.documento_numero,
     });
   }
   return { pool, urlsReferenciadas, anexosPorLancamento };
@@ -191,6 +192,10 @@ export interface VinculoParaGravar {
   tipo: FinAnexoTipo;
   /** Compra parcelada: o MESMO arquivo é ligado a TODOS estes lançamentos. */
   lancamentoIds: string[];
+  /** Número do documento (NF, RPA…) a gravar em `documento_numero` — só nos
+   *  lançamentos de `semNumero`, que a tela viu VAZIOS. Nunca sobrescreve. */
+  documentoNumero?: string | null;
+  semNumero?: string[];
 }
 
 export interface AnexoCriado { anexoId: string; lancamentoId: string; itemId: string; url: string }
@@ -200,6 +205,10 @@ export interface ResultadoLote {
   /** Arquivos ENVIADOS neste lote (os órfãos já existiam e não entram aqui). */
   arquivosEnviados: string[];
   erros: { itemId: string; mensagem: string }[];
+  /** `documento_numero` preenchidos por este lote (o desfazer os esvazia de volta). */
+  numerosGravados: { lancamentoId: string; numero: string }[];
+  /** Avisos que não impedem o vínculo (ex.: o número não pôde ser gravado). */
+  avisos: string[];
 }
 
 const MIME_POR_EXT: Record<string, string> = {
@@ -209,7 +218,7 @@ const MIME_POR_EXT: Record<string, string> = {
 export async function gravarLote(
   vinculos: VinculoParaGravar[], onProgresso?: (feitos: number, total: number) => void,
 ): Promise<ResultadoLote> {
-  const lote: ResultadoLote = { criados: [], arquivosEnviados: [], erros: [] };
+  const lote: ResultadoLote = { criados: [], arquivosEnviados: [], erros: [], numerosGravados: [], avisos: [] };
   const { data: { user } } = await supabase.auth.getUser();
 
   // Ordem das páginas do dossiê = `enviado_em` crescente. Cada vínculo ganha um
@@ -271,6 +280,21 @@ async function gravarUm(v: VinculoParaGravar, enviadoEm: string, userId: string 
   }
   if (enviado) lote.arquivosEnviados.push(path);
   for (const r of data) lote.criados.push({ anexoId: r.id, lancamentoId: r.lancamento_id, itemId: v.itemId, url: path });
+
+  // documento_numero (decisão dela, 03/10/2026): preenche só onde está VAZIO — a
+  // condição `is null` no UPDATE garante que nunca se sobrescreve um número que
+  // alguém digitou entre a leitura da tela e este instante. Se nada foi alterado,
+  // ou já foi preenchido por outra pessoa, ou a RLS barrou (UPDATE barrado devolve
+  // sucesso com 0 linhas — CLAUDE.md §6.1): vira aviso, nunca falha do vínculo.
+  if (v.documentoNumero) {
+    for (const id of v.semNumero ?? []) {
+      const { data: alt, error: e2 } = await supabase.from("fin_lancamentos")
+        .update({ documento_numero: v.documentoNumero }).eq("id", id)
+        .or("documento_numero.is.null,documento_numero.eq.").select("id"); // vazio = nulo OU texto vazio
+      if (!e2 && alt && alt.length > 0) lote.numerosGravados.push({ lancamentoId: id, numero: v.documentoNumero });
+      else lote.avisos.push(`${v.nome}: o nº ${v.documentoNumero} não foi gravado no lançamento (já preenchido ou sem permissão).`);
+    }
+  }
 }
 
 /** Desfaz um lote: apaga as linhas criadas e os arquivos que o lote enviou (só os
@@ -287,5 +311,12 @@ export async function desfazerLote(lote: ResultadoLote): Promise<{ removidos: nu
     if ((data ?? []).length !== parte.length) erros.push(`${parte.length - (data ?? []).length} vínculo(s) não puderam ser removidos (permissão)`);
   }
   await removerArquivosSemReferencia(lote.arquivosEnviados);
+  // Devolve o documento_numero que ESTE lote preencheu — e só se ainda for o mesmo
+  // número (se alguém o corrigiu depois, a correção dela vale).
+  for (const n of lote.numerosGravados) {
+    const { error } = await supabase.from("fin_lancamentos")
+      .update({ documento_numero: null }).eq("id", n.lancamentoId).eq("documento_numero", n.numero).select("id");
+    if (error) erros.push(`nº ${n.numero}: ${error.message}`);
+  }
   return { removidos, erros };
 }

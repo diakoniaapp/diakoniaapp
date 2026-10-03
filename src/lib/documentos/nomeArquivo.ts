@@ -56,7 +56,16 @@ export function lerNomeDeArquivo(nomeArquivo: string): NomeLido {
     else if (/^(RPS|RPA|RSP|DPS)$/i.test(s)) r.recibo = s.toUpperCase();
     else if (/^(BOLETO|FATURA|GUIA)$/i.test(s)) r.tipoDocumento = s.toUpperCase() as NomeLido["tipoDocumento"];
     else if (/^\d{5,}$/.test(s) || /^\d+\.\d$/.test(s)) continue; // código solto / retenção "3.3"
-    else resto.push(s);
+    else {
+      // "NF215273 SUPERMERCADOS MUNDIAL": o número da nota colado na frase, sem " _ " —
+      // é como os anexos reais da tesouraria aparecem (01.09.2026 R$61,92 NF215273 …).
+      const m = !r.nf ? s.match(/\bNF\s?(\d[\d.]*\d|\d)\b\s*/i) : null;
+      if (m) {
+        r.nf = m[1].replace(/\./g, "");
+        const sem = s.replace(m[0], " ").replace(/\s+/g, " ").trim();
+        if (sem) resto.push(sem);
+      } else resto.push(s);
+    }
   }
   // "TIM SA PG BANKLINE" — forma colada no fim, sem separador
   if (!r.forma && resto.length) {

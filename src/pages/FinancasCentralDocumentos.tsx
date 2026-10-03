@@ -34,7 +34,7 @@ import { EscolherLancamentoDialog } from "@/components/financas/EscolherLancamen
 import { casar } from "@/lib/documentos/casamento";
 import { coletarDeLista, coletarDoArrasto, type Coleta } from "@/lib/documentos/coletarArquivos";
 import {
-  acaoInicial, contagens, destinosEfetivos, grupoDe, podeGravar, tipoSugerido,
+  acaoInicial, contagens, destinosEfetivos, grupoDe, numeroParaGravar, podeGravar, tipoSugerido,
   type GrupoUI, type ItemCentral,
 } from "@/lib/documentos/fluxo";
 import { lerDocumento } from "@/lib/documentos/leitura";
@@ -233,10 +233,17 @@ export default function FinancasCentralDocumentos() {
 
   async function gravar() {
     setConfirmando(false);
-    const vinculos = itensRef.current.filter(podeGravar).map(it => ({
-      itemId: it.id, origem: it.origem, arquivo: arquivos.current.get(it.id), storagePath: it.storagePath,
-      nome: it.nome, tipo: it.tipo, lancamentoIds: destinosEfetivos(it).map(l => l.id),
-    }));
+    const vinculos = itensRef.current.filter(podeGravar).map(it => {
+      const destinos = destinosEfetivos(it);
+      const numero = numeroParaGravar(it);
+      return {
+        itemId: it.id, origem: it.origem, arquivo: arquivos.current.get(it.id), storagePath: it.storagePath,
+        nome: it.nome, tipo: it.tipo, lancamentoIds: destinos.map(l => l.id),
+        // o número do documento vai para os lançamentos que estão sem número
+        documentoNumero: numero,
+        semNumero: numero ? destinos.filter(l => !l.documentoNumero).map(l => l.id) : [],
+      };
+    });
     if (vinculos.length === 0) return;
     setGravando([0, vinculos.length]);
     try {
@@ -247,7 +254,10 @@ export default function FinancasCentralDocumentos() {
       gravarItens(itensRef.current.map(i => (gravados.has(i.id) ? { ...i, gravado: true } : i)));
       if (res.criados.length) setLotes(prev => [...prev, res]);
       if (res.erros.length) toast.warning(`${gravados.size} documento(s) gravado(s); ${res.erros.length} com erro (veja nos cartões).`);
-      else toast.success(`${res.criados.length} vínculo(s) gravado(s) em ${gravados.size} documento(s).`);
+      else toast.success(
+        `${res.criados.length} vínculo(s) gravado(s) em ${gravados.size} documento(s)` +
+        (res.numerosGravados.length ? `; nº do documento registrado em ${res.numerosGravados.length} lançamento(s).` : "."));
+      if (res.avisos.length) toast.warning(res.avisos.slice(0, 3).join(" ") + (res.avisos.length > 3 ? ` (+${res.avisos.length - 3})` : ""));
       setKpi(k => k + 1);
       carregarTudo();
     } catch (e: any) {

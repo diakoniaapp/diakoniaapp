@@ -12,17 +12,22 @@
 //      incompleto sem saber. Aqui toda falha vai pra ERROS.txt, pra coluna
 //      "Situação" do INDICE.csv e pro retorno (a tela avisa).
 //   2. Dois arquivos com o mesmo nome na mesma pasta: o JSZip sobrescreve em
-//      silêncio. O plano já garante nomes únicos (fornecedor, valor e, por
-//      último, ID do lançamento — ver `rotuloDoLancamento` na lib).
+//      silêncio. O plano já garante nomes únicos (data, valor, documento,
+//      fornecedor e, só se tudo isso coincidir, o ID do lançamento — ver
+//      `planejarPacote` na lib).
+//
+// DOSSIÊ (03/10/2026): um PDF consolidado por lançamento; a montagem é
+// `lib/documentos/dossiePdf.ts` e as regras de ordem/nome, `dossie.ts`.
 
 import { supabase } from "@/integrations/supabase/client";
 import { toYmd } from "@/lib/data";
 import {
-  enriquecerLancamentos, type FinLancamento, type FinLancamentoExtenso,
+  FIN_ANEXO_TIPO_LABEL, enriquecerLancamentos,
+  type FinAnexoTipo, type FinLancamento, type FinLancamentoExtenso,
 } from "@/services/finService";
 import {
   auditarAnexos, indiceCsv, pendenciasCsv, planejarPacote,
-  type AnexoPacote, type LinhaAuditoria, type PlanoPacote,
+  type AnexoPacote, type DossiePlanejado, type LinhaAuditoria, type PlanoPacote,
 } from "@/lib/pacoteContabil";
 
 const BUCKET = "fin-comprovantes";
@@ -31,7 +36,9 @@ const BUCKET = "fin-comprovantes";
 // PostgREST longe, mesmo com vários anexos por lançamento.
 const TAMANHO_LOTE = 100;
 const PAGINA = 1000;
-const DOWNLOADS_EM_PARALELO = 4;
+// Dossiês montados ao mesmo tempo: cada um baixa seus arquivos e mescla em memória;
+// 3 mantém o navegador responsivo sem segurar dezenas de PDFs abertos de uma vez.
+const DOSSIES_EM_PARALELO = 3;
 
 /**
  * As saídas do mês pelo dia do PAGAMENTO (`data_pagamento`, ou `data` quando
@@ -108,15 +115,35 @@ export async function auditarPeriodo(ini: string, fim: string): Promise<LinhaAud
 }
 
 export interface ResultadoPacote {
+  /** Arquivos do armazenamento que entraram no pacote (partes + XML). */
   baixados: number;
+  /** PDFs consolidados gerados (um por lançamento com documento em PDF/imagem). */
+  dossies: number;
   falhas: { caminho: string; motivo: string }[];
   pendencias: number;
 }
 
+const rotuloDaParte = (tipo: FinAnexoTipo) => FIN_ANEXO_TIPO_LABEL[tipo] ?? tipo;
+
+async function baixarBytes(path: string): Promise<Uint8Array> {
+  const { data: blob, error } = await supabase.storage.from(BUCKET).download(path);
+  if (error || !blob) throw new Error(error?.message ?? "arquivo vazio");
+  return new Uint8Array(await blob.arrayBuffer());
+}
+
+const extDoCaminho = (p: string) => /\.([A-Za-z0-9]{1,5})$/.exec(p)?.[1].toLowerCase() ?? "bin";
+
 /**
- * Baixa os arquivos do plano e entrega o ZIP. O ZIP SAI MESMO COM
- * PENDÊNCIAS OU FALHAS (decisão dela, 02/10/2026) — o que faltou fica em
- * PENDENCIAS.csv / ERROS.txt e no retorno, pra tela avisar.
+ * Gera o Dossiê Contábil: para cada lançamento, baixa os documentos, mescla num
+ * ÚNICO PDF (ordem documental, comprovante por último) e põe o XML ao lado. O ZIP
+ * SAI MESMO COM PENDÊNCIAS OU FALHAS (decisão dela, 02/10/2026) — o que faltou fica
+ * em PENDENCIAS.csv / ERROS.txt e no retorno, pra tela avisar.
+ *
+ * Nada do que está guardado no sistema é alterado: o merge acontece em memória, e
+ * as fotos só são reduzidas na cópia que vai para o PDF.
+ *
+ * Um documento que não puder ser mesclado (PDF corrompido, protegido por senha)
+ * NÃO se perde: vai ao lado como `…_ORIGINAL_n.ext` e entra em ERROS.txt.
  */
 export async function baixarPacoteContabil(
   plano: PlanoPacote,
@@ -126,45 +153,75 @@ export async function baixarPacoteContabil(
     throw new Error(`Nenhuma saída paga em ${String(plano.mes).padStart(2, "0")}/${plano.ano}.`);
   }
 
-  // Carregados só aqui: o ZIP é uma ação rara, e `jszip` não precisa pesar
-  // no pacote de quem só abre a tela do Malote.
-  const [{ default: JSZip }, { saveAs }] = await Promise.all([import("jszip"), import("file-saver")]);
+  // Carregados só aqui: o ZIP é uma ação rara, e `jszip`/`pdf-lib` não precisam
+  // pesar no pacote de quem só abre a tela do Malote.
+  const [{ default: JSZip }, { saveAs }, { montarDossiePdf, textoDePaginas }, { reduzirImagemNoNavegador }] = await Promise.all([
+    import("jszip"), import("file-saver"),
+    import("@/lib/documentos/dossiePdf"), import("@/lib/documentos/reduzirImagem"),
+  ]);
   const zip = new JSZip();
   const falhas: ResultadoPacote["falhas"] = [];
   const falhouPath = new Set<string>();
+  const paginas = new Map<string, string>();
+  const relativo = (caminhoZip: string) => caminhoZip.slice(plano.raiz.length + 1);
+  let baixados = 0;
+  let pdfs = 0;
+  let feitos = 0;
+  const falhar = (caminho: string, path: string, e: unknown) => {
+    falhas.push({ caminho, motivo: e instanceof Error ? e.message : String(e ?? "erro desconhecido") });
+    falhouPath.add(path);
+  };
+
+  async function fazerDossie(d: DossiePlanejado) {
+    // 1. os documentos que viram páginas
+    const obtidas: { parte: DossiePlanejado["partes"][number]; bytes: Uint8Array }[] = [];
+    for (const parte of d.partes) {
+      try { obtidas.push({ parte, bytes: await baixarBytes(parte.storagePath) }); baixados += 1; }
+      catch (e) { falhar(`${relativo(d.caminhoBase)} (${rotuloDaParte(parte.tipo)})`, parte.storagePath, e); }
+      onProgresso?.(++feitos, plano.totalArquivos);
+    }
+    // 2. os arquivos ao lado (XML), intactos e fora do merge
+    for (const x of d.aoLado) {
+      try { zip.file(x.caminhoZip, await baixarBytes(x.storagePath)); baixados += 1; }
+      catch (e) { falhar(relativo(x.caminhoZip), x.storagePath, e); }
+      onProgresso?.(++feitos, plano.totalArquivos);
+    }
+    if (obtidas.length === 0 || !d.caminhoZip) return;
+
+    // 3. o merge
+    const r = await montarDossiePdf(
+      obtidas.map(o => ({ bytes: o.bytes, formato: o.parte.formato, rotulo: rotuloDaParte(o.parte.tipo) })),
+      { reduzirImagem: reduzirImagemNoNavegador },
+    );
+    if (r.bytes) { zip.file(d.caminhoZip, r.bytes); pdfs += 1; }
+    paginas.set(d.lancamentoId, textoDePaginas(r.paginas));
+    // 4. o que não pôde ser mesclado vai ao lado, original, e fica registrado
+    r.falhas.forEach((f, n) => {
+      const o = obtidas[f.indice];
+      const nome = `${d.caminhoBase}_ORIGINAL_${n + 1}.${extDoCaminho(o.parte.storagePath)}`;
+      zip.file(nome, o.bytes);
+      falhar(`${relativo(d.caminhoBase)} (${f.rotulo}) — entregue sem mesclar em ${relativo(nome)}`, o.parte.storagePath, f.motivo);
+    });
+  }
 
   let proximo = 0;
-  let feitos = 0;
   async function trabalhador() {
-    while (proximo < plano.arquivos.length) {
-      const a = plano.arquivos[proximo++];
-      let motivo: string | null = null;
-      try {
-        const { data: blob, error } = await supabase.storage.from(BUCKET).download(a.storagePath);
-        if (error || !blob) motivo = error?.message ?? "arquivo vazio";
-        else zip.file(a.caminhoZip, blob);
-      } catch (e: any) {
-        motivo = e?.message ?? "erro desconhecido";
-      }
-      if (motivo) {
-        falhas.push({ caminho: a.caminhoZip.slice(plano.raiz.length + 1), motivo });
-        falhouPath.add(a.storagePath);
-      }
-      onProgresso?.(++feitos, plano.arquivos.length);
+    while (proximo < plano.dossies.length) {
+      const d = plano.dossies[proximo++];
+      try { await fazerDossie(d); }
+      catch (e) { falhar(relativo(d.caminhoBase), d.partes[0]?.storagePath ?? d.lancamentoId, e); }
     }
   }
-  await Promise.all(
-    Array.from({ length: Math.min(DOWNLOADS_EM_PARALELO, plano.arquivos.length) }, trabalhador),
-  );
+  await Promise.all(Array.from({ length: Math.min(DOSSIES_EM_PARALELO, plano.dossies.length) }, trabalhador));
 
-  zip.file(`${plano.raiz}/INDICE.csv`, indiceCsv(plano, falhouPath));
+  zip.file(`${plano.raiz}/INDICE.csv`, indiceCsv(plano, falhouPath, paginas));
   zip.file(`${plano.raiz}/PENDENCIAS.csv`, pendenciasCsv(plano));
   if (falhas.length) {
     zip.file(
       `${plano.raiz}/ERROS.txt`,
       [
-        "Estes arquivos estão registrados no sistema mas NÃO puderam ser baixados",
-        "e por isso não entraram neste pacote:",
+        "Estes arquivos estão registrados no sistema mas NÃO puderam ser baixados ou",
+        "mesclados no dossiê, e por isso não entraram como deveriam neste pacote:",
         "",
         ...falhas.map(f => `- ${f.caminho}  (${f.motivo})`),
         "",
@@ -174,5 +231,5 @@ export async function baixarPacoteContabil(
 
   const blob = await zip.generateAsync({ type: "blob" });
   saveAs(blob, `${plano.raiz}.zip`);
-  return { baixados: plano.arquivos.length - falhas.length, falhas, pendencias: plano.pendencias.length };
+  return { baixados, dossies: pdfs, falhas, pendencias: plano.pendencias.length };
 }

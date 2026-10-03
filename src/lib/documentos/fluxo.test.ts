@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  acaoInicial, contagens, destinosEfetivos, grupoDe, ordemDeGravacao, podeGravar, tipoSugerido,
+  acaoInicial, contagens, destinosEfetivos, grupoDe, numeroParaGravar, ordemDeGravacao, podeGravar, tipoSugerido,
   type ItemCentral,
 } from "./fluxo";
 import type { Banda, Candidato, LancamentoPool, ResultadoCasamento } from "./casamento";
@@ -114,13 +114,47 @@ describe("tipo sugerido", () => {
   });
 });
 
-describe("ordem de gravação = ordem das páginas do dossiê", () => {
+describe("ordem de gravação = lógica documental (decisão dela, 03/10/2026)", () => {
+  type T = import("@/services/finService").FinAnexoTipo;
+  const v = (tipos: T[]) => tipos.map((tipo, n) => ({ tipo, n }));
   it("o comprovante vai depois do documento fiscal, mesmo solto antes", () => {
-    const v = [{ tipo: "comprovante", n: 1 }, { tipo: "rpa", n: 2 }, { tipo: "boleto", n: 3 }];
-    expect(ordemDeGravacao(v).map(x => x.n)).toEqual([2, 3, 1]);
+    expect(ordemDeGravacao(v(["comprovante", "rpa", "boleto"])).map(x => x.n)).toEqual([1, 2, 0]);
+  });
+  it("a ordem inteira: NF · RPA · RPS · DPS · Fatura · Boleto · Contrato · Outro · Comprovante", () => {
+    const embaralhado = v(["comprovante", "outro", "contrato", "boleto", "fatura", "dps", "rps", "rpa", "nota_fiscal"]);
+    expect(ordemDeGravacao(embaralhado).map(x => x.tipo)).toEqual(
+      ["nota_fiscal", "rpa", "rps", "dps", "fatura", "boleto", "contrato", "outro", "comprovante"]);
+  });
+  it("XML fica depois de tudo (não vira página)", () => {
+    expect(ordemDeGravacao(v(["xml", "comprovante", "nota_fiscal"])).map(x => x.tipo)).toEqual(["nota_fiscal", "comprovante", "xml"]);
   });
   it("entre iguais, a ordem em que apareceram", () => {
-    const v = [{ tipo: "nota_fiscal", n: 1 }, { tipo: "nota_fiscal", n: 2 }];
-    expect(ordemDeGravacao(v).map(x => x.n)).toEqual([1, 2]);
+    expect(ordemDeGravacao(v(["nota_fiscal", "nota_fiscal"])).map(x => x.n)).toEqual([0, 1]);
+  });
+});
+
+describe("numeroParaGravar — documento_numero (decisão dela, 03/10/2026)", () => {
+  const com = (p: Partial<ItemCentral>) => ({ tipo: "nota_fiscal" as const, ...p });
+  const lido = (numero: string | null) => ({ tipo: "nfe", emitente: null, cnpj: null, numero, emissao: null, vencimento: null, valores: [], duplicatas: [], chave: null }) as unknown as ItemCentral["leitura"];
+  it("grava o número lido do documento (nota, RPA, RPS, DPS, fatura)", () => {
+    for (const tipo of ["nota_fiscal", "rpa", "rps", "dps", "fatura"] as const) {
+      expect(numeroParaGravar({ tipo, leitura: lido("14937") })).toBe("14937");
+    }
+  });
+  it("na falta, usa o NF do nome do arquivo — só para nota fiscal", () => {
+    const nomeLido = { nf: "215273" } as ItemCentral["nomeLido"];
+    expect(numeroParaGravar(com({ leitura: lido(null), nomeLido }))).toBe("215273");
+    expect(numeroParaGravar({ tipo: "rpa", leitura: lido(null), nomeLido })).toBeNull();
+  });
+  it("NÃO grava de boleto, comprovante, contrato, XML nem 'outro' (o número lido não é o do documento)", () => {
+    for (const tipo of ["boleto", "comprovante", "contrato", "xml", "outro"] as const) {
+      expect(numeroParaGravar({ tipo, leitura: lido("123456") })).toBeNull();
+    }
+  });
+  it("rejeita número vazio, só zeros, longo demais ou com lixo", () => {
+    for (const n of [null, "", "   ", "0", "000", "1".repeat(21), "12 34", "ab#1"]) {
+      expect(numeroParaGravar(com({ leitura: lido(n) })), String(n)).toBeNull();
+    }
+    expect(numeroParaGravar(com({ leitura: lido("2026/045-A") }))).toBe("2026/045-A");
   });
 });

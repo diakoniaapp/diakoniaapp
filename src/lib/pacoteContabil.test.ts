@@ -44,83 +44,152 @@ describe("nomeSeguro", () => {
   });
 });
 
-describe("planejarPacote", () => {
-  it("monta Conta/dd-mm-aaaa/Fornecedor_Tipo.ext — sem subpasta de fornecedor", () => {
-    const l = saida({ data_pagamento: "2026-09-15" });
+const nomeDoPdf = (d: { caminhoZip: string | null }) => d.caminhoZip!.split("/").pop()!;
+
+describe("planejarPacote — Dossiê Contábil: um PDF por lançamento", () => {
+  it("NF + boleto + comprovante viram UM arquivo, Conta/dd-mm-aaaa/DDMMAAAA_VALOR_DOCUMENTO_FORNECEDOR.pdf", () => {
+    const l = saida({ data_pagamento: "2026-09-15", valor: 86.13, fornecedor_nome: "Supermercado Mundial LTDA", documento_numero: "12345" });
     const p = planejarPacote(2026, 9, [l], [
       anexo(l, "nota_fiscal"), anexo(l, "boleto"), anexo(l, "comprovante"),
     ]);
     expect(p.raiz).toBe("Pacote_Contabil_2026_09");
-    expect(p.arquivos.map(a => a.caminhoZip)).toEqual([
-      "Pacote_Contabil_2026_09/Bradesco/15-09-2026/Ecoprint_NotaFiscal.pdf",
-      "Pacote_Contabil_2026_09/Bradesco/15-09-2026/Ecoprint_Boleto.pdf",
-      "Pacote_Contabil_2026_09/Bradesco/15-09-2026/Ecoprint_Comprovante.pdf",
-    ]);
+    expect(p.dossies).toHaveLength(1);
+    expect(p.dossies[0].caminhoZip).toBe("Pacote_Contabil_2026_09/Bradesco/15-09-2026/15092026_86,13_12345_SUPERMERCADO_MUNDIAL_LTDA.pdf");
+    expect(p.dossies[0].partes).toHaveLength(3);
     expect(p.pendencias).toHaveLength(0);
   });
 
-  it("todo documento do dia fica direto em Conta/Dia: 4 níveis, nenhum arquivo dentro de pasta de fornecedor", () => {
-    const a = saida({ fornecedor_nome: "Agata", data_pagamento: "2026-09-15" });
-    const m = saida({ fornecedor_nome: "Mundial", data_pagamento: "2026-09-15" });
-    const p = planejarPacote(2026, 9, [a, m], [anexo(a, "nota_fiscal"), anexo(m, "boleto")]);
-    for (const f of p.arquivos) expect(f.caminhoZip.split("/")).toHaveLength(4); // raiz/conta/dia/arquivo
-    expect(new Set(p.arquivos.map(f => f.caminhoZip.split("/").slice(0, 3).join("/"))).size).toBe(1);
+  it("a ordem das páginas é a ORDEM DOCUMENTAL, não a do upload — comprovante sempre por último", () => {
+    const l = saida({});
+    const t = (tipo: AnexoPacote["tipo"], enviado: string): AnexoPacote => ({ ...anexo(l, tipo), url: `${l.id}/${tipo}.pdf`, enviado_em: enviado });
+    // enviados em ordem EMBARALHADA de propósito
+    const p = planejarPacote(2026, 9, [l], [
+      t("comprovante", "2026-10-03T01:00"), t("boleto", "2026-10-03T01:01"), t("contrato", "2026-10-03T01:02"),
+      t("nota_fiscal", "2026-10-03T01:03"), t("outro", "2026-10-03T01:04"), t("fatura", "2026-10-03T01:05"),
+      t("dps", "2026-10-03T01:06"), t("rps", "2026-10-03T01:07"), t("rpa", "2026-10-03T01:08"),
+    ]);
+    expect(p.dossies[0].partes.map(x => x.tipo)).toEqual(
+      ["nota_fiscal", "rpa", "rps", "dps", "fatura", "boleto", "contrato", "outro", "comprovante"]);
   });
 
-  it("mesmo fornecedor mais de uma vez no dia: o valor entra no nome (Light, caso real de 15/09)", () => {
-    const a = saida({ fornecedor_nome: "Light Servicos de Eletricidade S.A", valor: 1700 });
-    const b = saida({ fornecedor_nome: "Light Servicos de Eletricidade S.A", valor: 281.46 });
-    const p = planejarPacote(2026, 9, [a, b], [anexo(a, "fatura"), anexo(b, "fatura")]);
-    expect(p.arquivos.map(x => x.caminhoZip.split("/").pop()).sort()).toEqual([
-      "Light Servicos de Eletricidade S.A_1700,00_Fatura.pdf",
-      "Light Servicos de Eletricidade S.A_281,46_Fatura.pdf",
+  it("exemplo dela: NF + Contrato + Comprovante → página 1 NF, 2 Contrato, 3 Comprovante", () => {
+    const l = saida({});
+    const p = planejarPacote(2026, 9, [l], [anexo(l, "comprovante"), anexo(l, "contrato"), anexo(l, "nota_fiscal")]);
+    expect(p.dossies[0].partes.map(x => x.tipo)).toEqual(["nota_fiscal", "contrato", "comprovante"]);
+  });
+
+  it("dois do mesmo tipo seguem a ordem do upload dentro do tipo", () => {
+    const l = saida({});
+    const a: AnexoPacote = { ...anexo(l, "nota_fiscal", "p/2.pdf"), enviado_em: "2026-10-03T02:00" };
+    const b: AnexoPacote = { ...anexo(l, "nota_fiscal", "p/1.pdf"), enviado_em: "2026-10-03T01:00" };
+    expect(planejarPacote(2026, 9, [l], [a, b]).dossies[0].partes.map(x => x.storagePath)).toEqual(["p/1.pdf", "p/2.pdf"]);
+  });
+
+  it("RPA com comprovante, sem número: DDMMAAAA_760,00_RPA_NOME (exemplo dela)", () => {
+    const l = saida({ data_pagamento: "2026-09-04", valor: 760, fornecedor_nome: "Ana Patrícia da Silva de Lima Oliveira" });
+    const p = planejarPacote(2026, 9, [l], [anexo(l, "rpa"), anexo(l, "comprovante")]);
+    expect(nomeDoPdf(p.dossies[0])).toBe("04092026_760,00_RPA_ANA_PATRICIA_DA_SILVA_DE_LIMA_OLIVEIRA.pdf");
+    expect(p.dossies[0].partes.map(x => x.tipo)).toEqual(["rpa", "comprovante"]);
+  });
+
+  it("DPS sem número: DDMMAAAA_350,00_DPS_NOME", () => {
+    const l = saida({ data_pagamento: "2026-09-05", valor: 350, fornecedor_nome: "Tayane Claudio Rezende de Souza" });
+    const p = planejarPacote(2026, 9, [l], [anexo(l, "dps"), anexo(l, "comprovante")]);
+    expect(nomeDoPdf(p.dossies[0])).toBe("05092026_350,00_DPS_TAYANE_CLAUDIO_REZENDE_DE_SOUZA.pdf");
+  });
+
+  it("com número: RPS mantém a sigla depois do número; fatura e nota levam só o número", () => {
+    const rps = saida({ data_pagamento: "2026-09-12", valor: 1200, fornecedor_nome: "Apoio Contabil Ltda", documento_numero: "456" });
+    const fat = saida({ data_pagamento: "2026-09-15", valor: 281.46, fornecedor_nome: "Light", documento_numero: "98765" });
+    const p = planejarPacote(2026, 9, [rps, fat], [anexo(rps, "rps"), anexo(fat, "fatura")]);
+    expect(p.dossies.map(nomeDoPdf).sort()).toEqual([
+      "12092026_1200,00_456_RPS_APOIO_CONTABIL_LTDA.pdf",
+      "15092026_281,46_98765_LIGHT.pdf",
     ]);
   });
 
-  it("nem o valor desempata (R$ 281,46 duas vezes): entra o início do ID do lançamento", () => {
-    const a = saida({ id: "aaaaaa11-0000-0000-0000-000000000000", fornecedor_nome: "Light", valor: 281.46 });
-    const b = saida({ id: "bbbbbb22-0000-0000-0000-000000000000", fornecedor_nome: "Light", valor: 281.46 });
-    const c = saida({ fornecedor_nome: "Light", valor: 1700 });
-    const p = planejarPacote(2026, 9, [a, b, c], [anexo(a, "fatura"), anexo(b, "fatura"), anexo(c, "fatura")]);
-    const nomes = p.arquivos.map(x => x.caminhoZip.split("/").pop());
-    expect(new Set(nomes.map(n => n!.toLowerCase())).size).toBe(3); // nenhuma colide
-    expect(nomes).toContain("Light_1700,00_Fatura.pdf");
-    expect(nomes).toContain("Light_281,46_aaaaaa_Fatura.pdf");
-    expect(nomes).toContain("Light_281,46_bbbbbb_Fatura.pdf");
+  it("valor sem milhar e sem moeda: 12548,92", () => {
+    const l = saida({ valor: 12548.92, data_pagamento: "2026-09-02", fornecedor_nome: "Obra" });
+    expect(nomeDoPdf(planejarPacote(2026, 9, [l], [anexo(l, "nota_fiscal")]).dossies[0])).toBe("02092026_12548,92_NF_OBRA.pdf");
   });
 
-  it("o nome do arquivo não muda quando outro lançamento do dia ganha ou perde documento", () => {
-    const a = saida({ fornecedor_nome: "Light", valor: 100 });
-    const b = saida({ fornecedor_nome: "Light", valor: 200 });
-    const so_a = planejarPacote(2026, 9, [a, b], [anexo(a, "fatura")]).arquivos[0].caminhoZip;
-    const ambos = planejarPacote(2026, 9, [a, b], [anexo(a, "fatura"), anexo(b, "fatura")]).arquivos[0].caminhoZip;
-    expect(so_a).toBe(ambos);
+  it("sem documento_numero, usa o número que o NOME do anexo já traz (NF215273)", () => {
+    const l = saida({ valor: 61.92, data_pagamento: "2026-09-01", fornecedor_nome: "Supermercados Mundial" });
+    const p = planejarPacote(2026, 9, [l], [anexo(l, "nota_fiscal", "p/1.pdf", "01.09.2026 R$61,92 NF215273 SUPERMERCADOS MUNDIAL.pdf")]);
+    expect(nomeDoPdf(p.dossies[0])).toBe("01092026_61,92_215273_SUPERMERCADOS_MUNDIAL.pdf");
   });
 
-  it("fornecedores diferentes no mesmo dia não ganham valor (só quando há repetição)", () => {
-    const a = saida({ fornecedor_nome: "Agata", valor: 53 });
-    const m = saida({ fornecedor_nome: "Mundial", valor: 61.92 });
-    const p = planejarPacote(2026, 9, [a, m], [anexo(a, "nota_fiscal"), anexo(m, "nota_fiscal")]);
-    expect(p.arquivos.map(x => x.caminhoZip.split("/").pop())).toEqual(["Agata_NotaFiscal.pdf", "Mundial_NotaFiscal.pdf"]);
+  it("XML: mesmo nome-base do PDF, ao lado, fora do merge", () => {
+    const l = saida({ valor: 86.13, data_pagamento: "2026-09-01", fornecedor_nome: "Mundial", documento_numero: "12345" });
+    const p = planejarPacote(2026, 9, [l], [anexo(l, "nota_fiscal"), anexo(l, "xml", "p/1.XML"), anexo(l, "comprovante")]);
+    const d = p.dossies[0];
+    expect(d.partes.map(x => x.tipo)).toEqual(["nota_fiscal", "comprovante"]); // o XML NÃO é parte
+    expect(d.aoLado.map(x => x.caminhoZip)).toEqual(["Pacote_Contabil_2026_09/Bradesco/01-09-2026/01092026_86,13_12345_MUNDIAL.xml"]);
+    expect(d.caminhoZip).toBe("Pacote_Contabil_2026_09/Bradesco/01-09-2026/01092026_86,13_12345_MUNDIAL.pdf");
+    expect(p.totalXml).toBe(1);
+    expect(p.totalArquivos).toBe(3);
   });
 
-  it("dois anexos do mesmo tipo não se sobrescrevem", () => {
+  it("lançamento só com XML: sai o XML com o nome-base, e nenhum PDF", () => {
+    const l = saida({ valor: 50, data_pagamento: "2026-09-03", fornecedor_nome: "Loja" });
+    const d = planejarPacote(2026, 9, [l], [anexo(l, "xml", "p/1.xml")]).dossies[0];
+    expect(d.caminhoZip).toBeNull();
+    expect(d.aoLado[0].caminhoZip.endsWith("03092026_50,00_NF_LOJA.xml")).toBe(true);
+  });
+
+  it("foto (JPG/PNG) é parte do dossiê, não vai ao lado", () => {
     const l = saida({});
-    const p = planejarPacote(2026, 9, [l], [anexo(l, "nota_fiscal", "a.pdf"), anexo(l, "nota_fiscal", "b.pdf")]);
-    expect(p.arquivos.map(a => a.caminhoZip.split("/").pop())).toEqual(["Ecoprint_NotaFiscal.pdf", "Ecoprint_NotaFiscal (2).pdf"]);
+    const d = planejarPacote(2026, 9, [l], [anexo(l, "nota_fiscal", "p/1.pdf"), anexo(l, "comprovante", "p/2.jpg"), anexo(l, "outro", "p/3.PNG")]).dossies[0];
+    expect(d.partes.map(x => x.formato)).toEqual(["pdf", "png", "jpg"]); // nf, outro, comprovante
+    expect(d.aoLado).toHaveLength(0);
   });
 
-  it("conta quantos nomes a rede final ajustou — os degraus de valor e de ID não contam", () => {
-    // Desenho normal (Light 281,46 x2 + 1.700): resolvido por valor e ID, 0 ajustes.
-    const a = saida({ fornecedor_nome: "Light", valor: 281.46 });
-    const b = saida({ fornecedor_nome: "Light", valor: 281.46 });
-    const c = saida({ fornecedor_nome: "Light", valor: 1700 });
-    const normal = planejarPacote(2026, 9, [a, b, c], [anexo(a, "fatura"), anexo(b, "fatura"), anexo(c, "fatura")]);
-    expect(normal.nomesAjustados).toBe(0);
-    // Dois anexos do mesmo tipo no mesmo lançamento: a rede final ajusta 1.
-    const l = saida({});
-    const dupla = planejarPacote(2026, 9, [l], [anexo(l, "nota_fiscal", "a.pdf"), anexo(l, "nota_fiscal", "b.pdf")]);
-    expect(dupla.nomesAjustados).toBe(1);
+  it("COLISÃO: mesma data, valor, documento e fornecedor → entra o ID do lançamento (exemplo dela)", () => {
+    const a = saida({ id: "7a44cf11-0000-0000-0000-000000000000", fornecedor_nome: "Light", valor: 281.46, data_pagamento: "2026-09-15" });
+    const b = saida({ id: "bbbbbb22-0000-0000-0000-000000000000", fornecedor_nome: "Light", valor: 281.46, data_pagamento: "2026-09-15" });
+    const p = planejarPacote(2026, 9, [a, b], [anexo(a, "fatura"), anexo(b, "fatura")]);
+    expect(p.dossies.map(nomeDoPdf).sort()).toEqual([
+      "15092026_281,46_FATURA_LIGHT_7A44CF.pdf",
+      "15092026_281,46_FATURA_LIGHT_BBBBBB.pdf",
+    ]);
+    expect(p.nomesComId).toBe(2);
+    expect(p.nomesAjustados).toBe(0);
+  });
+
+  it("valor diferente NÃO precisa de ID: o valor já está no nome", () => {
+    const a = saida({ fornecedor_nome: "Light", valor: 281.46, data_pagamento: "2026-09-15" });
+    const b = saida({ fornecedor_nome: "Light", valor: 1700, data_pagamento: "2026-09-15" });
+    const p = planejarPacote(2026, 9, [a, b], [anexo(a, "fatura"), anexo(b, "fatura")]);
+    expect(p.dossies.map(nomeDoPdf).sort()).toEqual(["15092026_1700,00_FATURA_LIGHT.pdf", "15092026_281,46_FATURA_LIGHT.pdf"]);
+    expect(p.nomesComId).toBe(0);
+  });
+
+  it("o nome de um não muda quando o outro do grupo de colisão perde o anexo? NÃO: só quem tem arquivo entra no grupo", () => {
+    // Quem NÃO gera arquivo não ocupa nome. Dois lançamentos iguais, só um anexado → nome sem ID.
+    const a = saida({ fornecedor_nome: "Light", valor: 281.46, data_pagamento: "2026-09-15" });
+    const b = saida({ fornecedor_nome: "Light", valor: 281.46, data_pagamento: "2026-09-15" });
+    const p = planejarPacote(2026, 9, [a, b], [anexo(a, "fatura")]);
+    expect(nomeDoPdf(p.dossies[0])).toBe("15092026_281,46_FATURA_LIGHT.pdf");
+  });
+
+  it("nome enorme (pessoa física): trunca só o fornecedor; data, valor e documento ficam", () => {
+    const nome = "Maria das Graças Fernandes de Albuquerque Cavalcanti Nascimento Figueiredo Vasconcelos Bittencourt de Souza e Silva Pereira Mendonça Guimarães Carvalho";
+    const l = saida({ fornecedor_nome: nome, valor: 760, data_pagamento: "2026-09-04", conta_nome: "Conta Corrente de Nome Realmente Muito Comprido Para Testar o Limite" });
+    const p = planejarPacote(2026, 9, [l], [anexo(l, "rpa"), anexo(l, "comprovante")]);
+    const n = nomeDoPdf(p.dossies[0]);
+    expect(n.startsWith("04092026_760,00_RPA_MARIA")).toBe(true);
+    // o caminho relativo cabe no limite (200) mesmo com ID e "(2)" por vir
+    expect(p.dossies[0].caminhoZip!.length).toBeLessThanOrEqual(200 - 11);
+    expect(n.endsWith(".pdf")).toBe(true);
+    expect(n).not.toMatch(/_\.pdf$/);
+  });
+
+  it("todo dossiê fica direto em Conta/Dia: 4 níveis, nunca pasta de fornecedor", () => {
+    const a = saida({ fornecedor_nome: "Agata", data_pagamento: "2026-09-15" });
+    const m = saida({ fornecedor_nome: "Mundial", data_pagamento: "2026-09-15" });
+    const p = planejarPacote(2026, 9, [a, m], [anexo(a, "nota_fiscal"), anexo(m, "boleto")]);
+    for (const d of p.dossies) expect(d.caminhoZip!.split("/")).toHaveLength(4); // raiz/conta/dia/arquivo
+    expect(new Set(p.dossies.map(d => d.caminhoZip!.split("/").slice(0, 3).join("/"))).size).toBe(1);
   });
 
   it("saída sem anexo vai pra pendências e o índice, e o pacote continua montado", () => {
@@ -135,30 +204,30 @@ describe("planejarPacote", () => {
     expect(pendenciasCsv(p)).not.toContain("Agata");
   });
 
+  it("índice: UMA linha por lançamento, com os tipos na ordem das páginas", () => {
+    const l = saida({});
+    const p = planejarPacote(2026, 9, [l], [anexo(l, "comprovante"), anexo(l, "nota_fiscal")]);
+    expect(p.indice).toHaveLength(1);
+    expect(p.indice[0].tipo).toBe("Nota Fiscal + Comprovante de Pagamento");
+    expect(p.indice[0].arquivoNoPacote.startsWith("Bradesco/15-09-2026/")).toBe(true);
+  });
+
   it("ordem não depende da ordem de entrada (pacote igual a cada geração)", () => {
     const x = saida({ fornecedor_nome: "Zeta", data_pagamento: "2026-09-02" });
     const y = saida({ fornecedor_nome: "Alfa", data_pagamento: "2026-09-02" });
     const an = [anexo(x, "boleto"), anexo(y, "boleto")];
-    const um = planejarPacote(2026, 9, [x, y], an).arquivos.map(a => a.caminhoZip);
-    const dois = planejarPacote(2026, 9, [y, x], an).arquivos.map(a => a.caminhoZip);
+    const um = planejarPacote(2026, 9, [x, y], an).dossies.map(d => d.caminhoZip);
+    const dois = planejarPacote(2026, 9, [y, x], an).dossies.map(d => d.caminhoZip);
     expect(um).toEqual(dois);
   });
 
-  it("fornecedor com caractere proibido (ou nome enorme) vira nome de arquivo válido", () => {
-    const l = saida({ fornecedor_nome: 'Mercado "Bom/Preço": Ltda. ' + "x".repeat(80) });
+  it("fornecedor com caractere proibido vira nome válido (sem : * ? \" < > | \\ /)", () => {
+    const l = saida({ fornecedor_nome: 'Mercado "Bom/Preço": Ltda.' });
     const p = planejarPacote(2026, 9, [l], [anexo(l, "boleto")]);
-    expect(p.arquivos[0].caminhoZip).not.toMatch(/[:*?"<>|\\]/);
-    expect(p.arquivos[0].caminhoZip.split("/")).toHaveLength(4); // raiz/conta/dia/arquivo
-    expect(p.arquivos[0].caminhoZip.split("/").pop()!.length).toBeLessThanOrEqual(40 + "_Boleto.pdf".length);
-  });
-
-  it("a extensão vem do arquivo guardado (XML, imagem)", () => {
-    const l = saida({});
-    const p = planejarPacote(2026, 9, [l], [anexo(l, "xml", "p/1.XML"), anexo(l, "comprovante", "p/2.jpg")]);
-    expect(p.arquivos.map(a => a.caminhoZip.split("/").pop()).sort()).toEqual(["Ecoprint_Comprovante.jpg", "Ecoprint_NotaFiscal-XML.xml"]);
+    expect(nomeDoPdf(p.dossies[0])).toMatch(/^[A-Z0-9_,]+\.pdf$/);
+    expect(p.dossies[0].caminhoZip!.split("/")).toHaveLength(4);
   });
 });
-
 describe("tarifa bancária dispensa documento", () => {
   const tarifa = (p: Partial<FinLancamentoExtenso> = {}) =>
     saida({ fornecedor_nome: "Banco Bradesco S.A. 237", categoria_nome: "Tarifas Bancárias", valor: 9.8, ...p });
@@ -203,13 +272,13 @@ describe("tarifa bancária dispensa documento", () => {
     const tarifas = Array.from({ length: 10 }, () => tarifa());
     const real = saida({ fornecedor_nome: "Banco Bradesco S.A. 237", categoria_nome: "Empréstimos", valor: 1500 });
     const p = planejarPacote(2026, 9, [...tarifas, real], [anexo(real, "boleto")]);
-    expect(p.arquivos.map(a => a.caminhoZip.split("/").pop())).toEqual(["Banco Bradesco S.A. 237_Boleto.pdf"]);
+    expect(p.dossies.map(d => d.caminhoZip!.split("/").pop())).toEqual(["15092026_1500,00_BOLETO_BANCO_BRADESCO_S_A_237.pdf"]);
   });
 
   it("tarifa que mesmo assim ganhou anexo entra no pacote e não colide", () => {
     const t1 = tarifa(); const t2 = tarifa();
     const p = planejarPacote(2026, 9, [t1, t2], [anexo(t1, "comprovante"), anexo(t2, "comprovante")]);
-    const nomes = p.arquivos.map(a => a.caminhoZip.split("/").pop()!.toLowerCase());
+    const nomes = p.dossies.map(d => d.caminhoZip!.split("/").pop()!.toLowerCase());
     expect(new Set(nomes).size).toBe(2);
     expect(p.dispensam).toBe(0); // com anexo, conta como "com documento"
     expect(p.comAnexo).toBe(2);

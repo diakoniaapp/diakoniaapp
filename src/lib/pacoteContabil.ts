@@ -4,11 +4,15 @@
 //
 //   Pacote_Contabil_2026_09/
 //     ├── INDICE.csv · PENDENCIAS.csv · ERROS.txt (só se algo falhar)
-//     └── {Conta}/{dd-mm-aaaa}/{Fornecedor}_NotaFiscal.pdf, {Fornecedor}_Boleto.pdf, ...
+//     └── {Conta}/{dd-mm-aaaa}/01092026_86,13_12345_MUNDIAL.pdf   ← o DOSSIÊ
+//                              01092026_86,13_12345_MUNDIAL.xml   ← XML ao lado
 //
-// Até 02/10/2026 havia um nível a mais ({Conta}/{dia}/{Fornecedor}/...); ela
-// pediu pra tirar — o contador abre Conta → Dia e vê tudo, sem entrar em
-// pasta de fornecedor.
+// DOSSIÊ CONTÁBIL (03/10/2026): cada lançamento vira UM PDF com todos os seus
+// documentos (NF + boleto + comprovante…), na ordem documental, com o nome
+// `DDMMAAAA_VALOR_DOCUMENTO_FORNECEDOR`. As regras de ordem e de nome estão em
+// `lib/documentos/dossie.ts`; montar o PDF, em `lib/documentos/dossiePdf.ts`.
+// Antes disso eram N arquivos por lançamento (`Fornecedor_NotaFiscal.pdf`,
+// `Fornecedor_Boleto.pdf`…) e, até 02/10, ainda uma pasta de fornecedor.
 //
 // Aqui só se decide ONDE cada arquivo vai e O QUE entra no índice. Buscar
 // do banco e baixar do storage é `services/pacoteContabilService.ts`.
@@ -31,21 +35,11 @@ import {
   FIN_ANEXO_TIPO_LABEL, nomeExtrato,
   type FinAnexoTipo, type FinLancamentoExtenso,
 } from "@/services/finService";
-
-/** Nome do arquivo DENTRO da pasta do lançamento, por tipo. */
-export const TIPO_NOME_ARQUIVO: Record<FinAnexoTipo, string> = {
-  nota_fiscal: "NotaFiscal",
-  boleto: "Boleto",
-  comprovante: "Comprovante",
-  fatura: "Fatura",
-  contrato: "Contrato",
-  xml: "NotaFiscal-XML",
-  rpa: "RPA",
-  rps: "RPS",
-  dps: "DPS",
-  outro: "Outro",
-  documento: "Documento",
-};
+import {
+  formatoDoArquivo, idCurto, nomeBaseDoDossie, ordenarPartes, tipoPrincipal,
+  type FormatoArquivo,
+} from "@/lib/documentos/dossie";
+import { lerNomeDeArquivo } from "@/lib/documentos/nomeArquivo";
 
 export interface AnexoPacote {
   lancamento_id: string;
@@ -56,13 +50,34 @@ export interface AnexoPacote {
   enviado_em?: string;
 }
 
-export interface ArquivoPlanejado {
-  lancamentoId: string;
+/** Uma página (ou mais) do dossiê: um anexo em PDF ou imagem. */
+export interface ParteDossie {
+  tipo: FinAnexoTipo;
+  storagePath: string;
+  nomeOriginal: string | null;
+  formato: Exclude<FormatoArquivo, "xml" | "outro">;
+  enviadoEm?: string;
+}
+
+/** Arquivo que NÃO entra no merge e vai ao lado do PDF (XML, formato fora do comum). */
+export interface ArquivoAoLado {
   tipo: FinAnexoTipo;
   storagePath: string;
   nomeOriginal: string | null;
   /** Caminho dentro do ZIP, já com a pasta raiz. */
   caminhoZip: string;
+}
+
+/** O que sai no pacote para UM lançamento: um PDF consolidado + os arquivos ao lado. */
+export interface DossiePlanejado {
+  lancamentoId: string;
+  /** Caminho do PDF no ZIP, com a raiz; `null` se o lançamento só tem XML. */
+  caminhoZip: string | null;
+  /** Nome-base (com raiz, sem extensão) — o XML usa o mesmo. */
+  caminhoBase: string;
+  /** Na ORDEM DOCUMENTAL (comprovante por último). */
+  partes: ParteDossie[];
+  aoLado: ArquivoAoLado[];
 }
 
 export interface LinhaIndice {
@@ -73,12 +88,17 @@ export interface LinhaIndice {
   categoria: string;
   valor: number;
   documentoNumero: string;
+  /** "Nota Fiscal + Comprovante de Pagamento", na ordem das páginas. */
   tipo: string;
-  /** Caminho no ZIP, sem a raiz; vazio se o lançamento não tem anexo. */
+  /** PDF consolidado, sem a raiz; vazio se o lançamento não tem anexo. */
   arquivoNoPacote: string;
+  /** XML(s) ao lado, sem a raiz. */
+  arquivosAoLado: string;
+  /** Nomes originais, na ordem das páginas, separados por " | ". */
   arquivoOriginal: string;
-  /** `storagePath` do arquivo, pra marcar falha de download depois. */
-  storagePath: string | null;
+  lancamentoId: string;
+  /** `storagePath` de TODOS os arquivos do lançamento, pra marcar falha depois. */
+  storagePaths: string[];
   semAnexo: boolean;
   /** Sem anexo, mas de categoria que não exige (tarifa) — não é pendência. */
   dispensa: boolean;
@@ -94,10 +114,16 @@ export interface PlanoPacote {
   /** Saídas sem anexo que dispensam documento (tarifa bancária). Total =
    *  comAnexo + dispensam + pendencias.length — nenhuma é contada duas vezes. */
   dispensam: number;
-  /** Quantos nomes a rede final (`unico`) precisou ajustar com "(2)": colisão
-   *  que o valor e o ID não resolveram, ou dois anexos do mesmo tipo. */
+  /** Quantos nomes a rede final (`unico`) precisou ajustar com "(2)": o que o
+   *  identificador do lançamento não resolveu (é raro — não deveria acontecer). */
   nomesAjustados: number;
-  arquivos: ArquivoPlanejado[];
+  /** Quantos nomes ganharam o identificador do lançamento (colisão real: mesma
+   *  data, valor, documento e fornecedor) — o desenho, não um defeito. */
+  nomesComId: number;
+  dossies: DossiePlanejado[];
+  /** Arquivos a baixar do armazenamento (partes + ao lado) — a base do progresso. */
+  totalArquivos: number;
+  totalXml: number;
   indice: LinhaIndice[];
   pendencias: FinLancamentoExtenso[];
 }
@@ -236,16 +262,25 @@ export function csvPtBr(linhas: string[][]): string {
 
 const CABECALHO_INDICE = [
   "Conta", "Data do pagamento", "Fornecedor", "Descrição", "Categoria",
-  "Valor (R$)", "Documento nº", "Tipo do documento", "Arquivo no pacote", "Arquivo original", "Situação",
+  "Valor (R$)", "Documento nº", "Documentos no dossiê", "Páginas", "Arquivo no pacote",
+  "XML ao lado", "Arquivos originais", "Situação",
 ];
 
-/** `falhas`: `storagePath` dos arquivos que não puderam ser baixados. */
-export function indiceCsv(plano: PlanoPacote, falhas: Set<string> = new Set()): string {
+/**
+ * Uma linha por LANÇAMENTO (o dossiê). `falhas`: `storagePath` dos arquivos que não
+ * puderam ser baixados ou mesclados. `paginas`: por lançamento, o mapa de páginas
+ * ("Nota Fiscal: 1-2 · Comprovante de Pagamento: 3"), preenchido depois do merge —
+ * sem carimbo nas páginas (decisão dela), é ele que diz onde cada documento está.
+ */
+export function indiceCsv(
+  plano: PlanoPacote, falhas: Set<string> = new Set(), paginas: Map<string, string> = new Map(),
+): string {
   const linhas = plano.indice.map(l => [
     l.conta, l.dataPagamento, l.fornecedor, l.descricao, l.categoria,
-    valorBr(l.valor), l.documentoNumero, l.tipo, l.arquivoNoPacote, l.arquivoOriginal,
+    valorBr(l.valor), l.documentoNumero, l.tipo, paginas.get(l.lancamentoId) ?? "",
+    l.arquivoNoPacote, l.arquivosAoLado, l.arquivoOriginal,
     l.semAnexo ? (l.dispensa ? "Dispensa documento (tarifa)" : "SEM ANEXO")
-      : l.storagePath && falhas.has(l.storagePath) ? "FALHA NO DOWNLOAD" : "Ok",
+      : l.storagePaths.some(p => falhas.has(p)) ? "FALHA NO DOWNLOAD" : "Ok",
   ]);
   return csvPtBr([CABECALHO_INDICE, ...linhas]);
 }
@@ -320,9 +355,24 @@ export function resumirAuditoria(linhas: LinhaAuditoria[]): ResumoAuditoria {
 
 // ─── o plano ─────────────────────────────────────────────────────────────
 
+interface PreDossie {
+  l: FinLancamentoExtenso;
+  /** O número que entrou no nome: `documento_numero` ou o derivado do nome do anexo. */
+  numero: string | null;
+  conta: string;
+  dia: string;
+  partes: ParteDossie[];
+  aoLado: { tipo: FinAnexoTipo; storagePath: string; nomeOriginal: string | null; formato: FormatoArquivo }[];
+  base: string;
+}
+
 /**
  * Monta o plano a partir das saídas do mês e dos anexos. Não filtra nada:
  * quem chama já entrega só as saídas do período (ver o serviço).
+ *
+ * UM dossiê por lançamento com anexo. O número que entra no nome é o
+ * `documento_numero` do lançamento; sem ele, o número que o NOME de um dos
+ * anexos já traz (`NF215273` → `215273`); sem nenhum, a sigla do tipo.
  */
 export function planejarPacote(
   ano: number, mes: number,
@@ -337,9 +387,6 @@ export function planejarPacote(
     lista.push(a);
     anexosPorLanc.set(a.lancamento_id, lista);
   }
-  for (const lista of anexosPorLanc.values()) {
-    lista.sort((x, y) => (x.enviado_em ?? "").localeCompare(y.enviado_em ?? ""));
-  }
 
   // Ordem estável: conta, dia, fornecedor, valor, id. Sem isso o "(2)" cairia
   // em lançamentos diferentes a cada geração e o pacote mudaria de um
@@ -351,100 +398,125 @@ export function planejarPacote(
     || Number(a.valor) - Number(b.valor)
     || a.id.localeCompare(b.id));
 
-  // SEM subpasta de fornecedor (pedido dela, 03/10/2026): o contador abre
-  // Conta → Dia e vê todos os documentos do dia de uma vez. O fornecedor passou
-  // pro NOME do arquivo (`Ecoprint_NotaFiscal.pdf`). Colisão — mesmo fornecedor
-  // mais de uma vez no mesmo dia (medido em setembro/2026: 15 de 90 pares
-  // fornecedor+dia) — se resolve em dois degraus:
-  //   1. o valor:  `Light_281,46_Fatura.pdf`;
-  //   2. se nem o valor desempata (Light, 15/09: R$ 281,46 duas vezes), o início
-  //      do ID do lançamento: `Light_281,46_a1b2c3_Fatura.pdf`. O ID é estável —
-  //      "(2)" mudaria de dono se um lançamento fosse acrescentado — e o
-  //      INDICE.csv liga cada nome ao lançamento.
-  // Os grupos contam TODAS as saídas do dia, com ou sem anexo: o nome de um
-  // arquivo não pode mudar só porque outro lançamento do dia ganhou documento.
-  const NOME_MAX = 40;
-  const chaveFornecedorDia = (l: FinLancamentoExtenso) =>
-    `${l.conta_nome ?? ""}|${diaDoPagamento(l)}|${nomeSeguro(nomeExtrato(l).principal, NOME_MAX).toLowerCase()}`;
-  const valorNome = (l: FinLancamentoExtenso) => Number(l.valor).toFixed(2).replace(".", ",");
-  const tamanhoFornecedorDia = new Map<string, number>();
-  const tamanhoComValor = new Map<string, number>();
-  // Só lançamentos que EXIGEM documento entram na contagem: as repetições de
-  // tarifa (Banco Bradesco, R$ 9,80, até 10 por dia) não podem forçar valor/ID
-  // no nome de um documento real do mesmo fornecedor. Se uma tarifa mesmo
-  // assim ganhar anexo, `unico()` (abaixo) resolve com "(2)".
-  for (const l of ordenadas) {
-    if (dispensaDocumento(l)) continue;
-    const k = chaveFornecedorDia(l);
-    tamanhoFornecedorDia.set(k, (tamanhoFornecedorDia.get(k) ?? 0) + 1);
-    tamanhoComValor.set(`${k}|${valorNome(l)}`, (tamanhoComValor.get(`${k}|${valorNome(l)}`) ?? 0) + 1);
-  }
-  function rotuloDoLancamento(l: FinLancamentoExtenso): string {
-    const k = chaveFornecedorDia(l);
-    let rotulo = nomeSeguro(nomeExtrato(l).principal, NOME_MAX);
-    if (dispensaDocumento(l)) return rotulo;
-    if ((tamanhoFornecedorDia.get(k) ?? 0) > 1) rotulo += `_${valorNome(l)}`;
-    if ((tamanhoComValor.get(`${k}|${valorNome(l)}`) ?? 0) > 1) rotulo += `_${l.id.replace(/-/g, "").slice(0, 6)}`;
-    return rotulo;
-  }
-
-  const nomesUsadosNoDia = new Map<string, Set<string>>(); // por conta+dia
-  const arquivos: ArquivoPlanejado[] = [];
   const indice: LinhaIndice[] = [];
   const pendencias: FinLancamentoExtenso[] = [];
+  const pre: PreDossie[] = [];
   let comAnexo = 0;
   let dispensam = 0;
-  let nomesAjustados = 0;
 
+  const baseIndice = (l: FinLancamentoExtenso, dia: string) => ({
+    conta: l.conta_nome ?? "", dataPagamento: dataBr(dia), fornecedor: nomeExtrato(l).principal,
+    descricao: l.descricao ?? "", categoria: l.categoria_nome ?? "",
+    valor: Number(l.valor), documentoNumero: l.documento_numero ?? "", lancamentoId: l.id,
+  });
+
+  // 1ª passada: o que cada lançamento leva e o nome-base do seu dossiê
   for (const l of ordenadas) {
     const conta = nomeSeguro(l.conta_nome, 40);
     const dia = diaDoPagamento(l);
-    const fornecedor = nomeExtrato(l).principal;
-    const rotulo = rotuloDoLancamento(l);
-
-    const chaveDia = `${conta}|${dia}`.toLowerCase();
-    const usadosNoDia = nomesUsadosNoDia.get(chaveDia) ?? new Set<string>();
-    nomesUsadosNoDia.set(chaveDia, usadosNoDia);
-
-    const base = {
-      conta: l.conta_nome ?? "", dataPagamento: dataBr(dia), fornecedor,
-      descricao: l.descricao ?? "", categoria: l.categoria_nome ?? "",
-      valor: Number(l.valor), documentoNumero: l.documento_numero ?? "",
-    };
-
     const lista = anexosPorLanc.get(l.id) ?? [];
+
     if (lista.length === 0) {
       const dispensa = dispensaDocumento(l);
       if (dispensa) dispensam += 1; else pendencias.push(l);
-      indice.push({ ...base, tipo: "", arquivoNoPacote: "", arquivoOriginal: "", storagePath: null, semAnexo: true, dispensa });
+      indice.push({
+        ...baseIndice(l, dia), tipo: "", arquivoNoPacote: "", arquivosAoLado: "", arquivoOriginal: "",
+        storagePaths: [], semAnexo: true, dispensa,
+      });
       continue;
     }
 
     comAnexo += 1;
+    const partes: ParteDossie[] = [];
+    const aoLado: PreDossie["aoLado"] = [];
     for (const a of lista) {
-      // `unico` é a rede de segurança final: dois anexos do mesmo tipo no
-      // mesmo lançamento (`..._NotaFiscal (2).pdf`) e qualquer colisão que os
-      // degraus acima não previram — o JSZip sobrescreve nome repetido em silêncio.
-      const nomeDesejado = `${rotulo}_${TIPO_NOME_ARQUIVO[a.tipo] ?? "Outro"}.${extensao(a)}`;
-      const arquivo = unico(nomeDesejado, usadosNoDia, true);
-      // Monitoramento pedido por ela (03/10/2026): quantas vezes a rede final
-      // precisou mexer no nome. Os degraus de valor/ID não contam — esses são o
-      // desenho. Aqui só entra o que ninguém previu (ou dois anexos do mesmo tipo).
-      if (arquivo !== nomeDesejado) nomesAjustados += 1;
-      const relativo = `${conta}/${dataPasta(dia)}/${arquivo}`;
-      arquivos.push({
-        lancamentoId: l.id, tipo: a.tipo, storagePath: a.url,
-        nomeOriginal: a.nome, caminhoZip: `${raiz}/${relativo}`,
-      });
-      indice.push({
-        ...base, tipo: FIN_ANEXO_TIPO_LABEL[a.tipo] ?? a.tipo,
-        arquivoNoPacote: relativo, arquivoOriginal: a.nome ?? "", storagePath: a.url, semAnexo: false, dispensa: false,
-      });
+      const formato = formatoDoArquivo(a);
+      if (formato === "pdf" || formato === "jpg" || formato === "png") {
+        partes.push({ tipo: a.tipo, storagePath: a.url, nomeOriginal: a.nome, formato, enviadoEm: a.enviado_em });
+      } else {
+        // XML (e qualquer formato que não dê pra virar página) vai ao lado, intacto
+        aoLado.push({ tipo: a.tipo, storagePath: a.url, nomeOriginal: a.nome, formato });
+      }
     }
+
+    const numero = l.documento_numero
+      || lista.map(a => (a.nome ? lerNomeDeArquivo(a.nome).nf : null)).find(Boolean)
+      || null;
+    const partesOrdenadas = ordenarPartes(partes);
+    // o tipo principal considera só o que vira página; só XML → nota fiscal
+    const principal = tipoPrincipal(partesOrdenadas.map(p => p.tipo));
+    pre.push({
+      l, numero, conta, dia, partes: partesOrdenadas, aoLado,
+      base: nomeBaseDoDossie({ dia, valor: Number(l.valor), numero, principal, fornecedor: nomeExtrato(l).principal, raiz, conta }),
+    });
   }
+
+  // Colisão: mesma conta + dia + nome-base (= mesma data, valor, documento e
+  // fornecedor). Só nesse caso entra o identificador do lançamento, em TODOS os do
+  // grupo — assim o nome de um não muda conforme o outro foi ou não anexado.
+  const tamanhoDoGrupo = new Map<string, number>();
+  const chave = (p: PreDossie) => `${p.conta}|${p.dia}|${p.base}`.toLowerCase();
+  for (const p of pre) tamanhoDoGrupo.set(chave(p), (tamanhoDoGrupo.get(chave(p)) ?? 0) + 1);
+
+  const dossies: DossiePlanejado[] = [];
+  const usadosNoDia = new Map<string, Set<string>>(); // por conta+dia, sem diferenciar maiúscula
+  let nomesAjustados = 0;
+  let nomesComId = 0;
+  let totalArquivos = 0;
+  let totalXml = 0;
+
+  for (const p of pre) {
+    const comId = (tamanhoDoGrupo.get(chave(p)) ?? 0) > 1;
+    if (comId) nomesComId += 1;
+    const desejado = comId ? `${p.base}_${idCurto(p.l.id)}` : p.base;
+    const pasta = `${p.conta}/${dataPasta(p.dia)}`;
+    const usados = usadosNoDia.get(`${p.conta}|${p.dia}`.toLowerCase()) ?? new Set<string>();
+    usadosNoDia.set(`${p.conta}|${p.dia}`.toLowerCase(), usados);
+
+    // Rede final: dois lançamentos que nem o ID separou (não deveria ocorrer) não
+    // podem se sobrescrever — o JSZip troca um pelo outro em silêncio.
+    const nomeBase = unico(desejado, usados);
+    if (nomeBase !== desejado) nomesAjustados += 1;
+    const caminhoBase = `${raiz}/${pasta}/${nomeBase}`;
+
+    const aoLado: ArquivoAoLado[] = [];
+    const usadosAoLado = new Set<string>();
+    for (const x of p.aoLado) {
+      const ext = x.formato === "xml" ? "xml" : extensao({ url: x.storagePath, nome: x.nomeOriginal });
+      const nomeArq = unico(`${nomeBase}.${ext}`, usadosAoLado, true);
+      aoLado.push({ tipo: x.tipo, storagePath: x.storagePath, nomeOriginal: x.nomeOriginal, caminhoZip: `${raiz}/${pasta}/${nomeArq}` });
+    }
+    totalXml += aoLado.filter(a => /\.xml$/i.test(a.caminhoZip)).length;
+    totalArquivos += p.partes.length + aoLado.length;
+
+    dossies.push({
+      lancamentoId: p.l.id,
+      caminhoZip: p.partes.length > 0 ? `${caminhoBase}.pdf` : null,
+      caminhoBase,
+      partes: p.partes,
+      aoLado,
+    });
+
+    const todas = [...p.partes.map(x => x.storagePath), ...aoLado.map(x => x.storagePath)];
+    indice.push({
+      ...baseIndice(p.l, p.dia),
+      documentoNumero: p.numero ?? "",
+      tipo: [...new Set(p.partes.map(x => FIN_ANEXO_TIPO_LABEL[x.tipo] ?? x.tipo))].join(" + ")
+        || aoLado.map(x => FIN_ANEXO_TIPO_LABEL[x.tipo] ?? x.tipo).join(" + "),
+      arquivoNoPacote: p.partes.length > 0 ? `${pasta}/${nomeBase}.pdf` : "",
+      arquivosAoLado: aoLado.map(x => x.caminhoZip.slice(raiz.length + 1)).join(" | "),
+      arquivoOriginal: [...p.partes, ...aoLado].map(x => x.nomeOriginal ?? "").filter(Boolean).join(" | "),
+      storagePaths: todas, semAnexo: false, dispensa: false,
+    });
+  }
+
+  // O índice sai na mesma ordem das saídas (as sem anexo foram empilhadas na 1ª
+  // passada, as com anexo na 2ª): reordena pelo critério do plano.
+  const posicao = new Map(ordenadas.map((l, i) => [l.id, i]));
+  indice.sort((a, b) => (posicao.get(a.lancamentoId) ?? 0) - (posicao.get(b.lancamentoId) ?? 0));
 
   return {
     ano, mes, raiz, totalSaidas: ordenadas.length, comAnexo, dispensam,
-    nomesAjustados, arquivos, indice, pendencias,
+    nomesAjustados, nomesComId, dossies, totalArquivos, totalXml, indice, pendencias,
   };
 }

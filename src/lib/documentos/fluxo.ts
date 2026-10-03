@@ -14,6 +14,7 @@ import type { FinAnexoTipo } from "@/services/finService";
 import type { DocumentoLido } from "./leitura";
 import type { Banda, LancamentoPool, ResultadoCasamento } from "./casamento";
 import type { NomeLido } from "./nomeArquivo";
+import { ORDEM_DOCUMENTAL, posicaoDocumental } from "./dossie";
 
 export type AcaoItem = "pendente" | "confirmado" | "ignorado";
 export type EtapaItem = "na_fila" | "lendo" | "lido" | "erro";
@@ -138,22 +139,44 @@ export function contagens(itens: ItemCentral[]): Contagens {
   return c;
 }
 
-// ── ordem de gravação (= ordem das páginas do dossiê) ───────────────────────
-
-/** Comprovante é, por natureza, o ÚLTIMO documento da sequência (primeiro a nota
- *  ou o recibo, depois a prova do pagamento). */
-const PRIORIDADE: Record<string, number> = { comprovante: 9, xml: 8, outro: 7 };
+// ── ordem de gravação ───────────────────────────────────────────────────────
 
 /**
- * Ordem em que os vínculos de UM lote devem ser gravados. A ordem das páginas do
- * dossiê é o `enviado_em` crescente, e dentro de um lote os documentos de um mesmo
- * lançamento chegam na ordem em que foram soltos — que não tem relação com a
- * sequência documental. Aqui o documento fiscal vem antes do comprovante; entre
- * iguais, vale a ordem em que apareceram. (Suposição a confirmar com ela.)
+ * Ordem em que os vínculos de UM lote são gravados (e carimbados com `enviado_em`).
+ * Decisão dela (03/10/2026): a ordem das páginas do dossiê NÃO segue a ordem em que
+ * os arquivos foram soltos, e sim a lógica documental — Nota Fiscal, RPA, RPS, DPS,
+ * Fatura, Boleto, Contrato, Outro e, por último, o Comprovante. O dossiê reordena por
+ * tipo de qualquer jeito (`ordenarPartes`); gravar já nessa ordem só mantém o
+ * `enviado_em` coerente com ela, pra quem olhar o histórico dos anexos.
+ * XML fica depois de tudo (não vira página).
  */
-export function ordemDeGravacao<T extends { tipo: string }>(vinculos: T[]): T[] {
+export function ordemDeGravacao<T extends { tipo: FinAnexoTipo }>(vinculos: T[]): T[] {
+  const pos = (t: FinAnexoTipo) => (t === "xml" ? ORDEM_DOCUMENTAL.length : posicaoDocumental(t));
   return vinculos
     .map((v, i) => ({ v, i }))
-    .sort((a, b) => (PRIORIDADE[a.v.tipo] ?? 0) - (PRIORIDADE[b.v.tipo] ?? 0) || a.i - b.i)
+    .sort((a, b) => pos(a.v.tipo) - pos(b.v.tipo) || a.i - b.i)
     .map(x => x.v);
+}
+
+// ── número do documento → documento_numero ──────────────────────────────────
+
+/** Tipos cujo número identifica o DOCUMENTO e vale como `documento_numero` do
+ *  lançamento. Boleto (o "número" lido é nosso-número/linha), comprovante (nº de
+ *  controle do banco), contrato, XML e "outro" ficam de fora de propósito. */
+const TIPOS_COM_NUMERO = new Set<FinAnexoTipo>(["nota_fiscal", "rpa", "rps", "dps", "fatura"]);
+
+/**
+ * O número que a Central grava em `fin_lancamentos.documento_numero` (decisão dela,
+ * 03/10/2026: pesquisa, auditoria, relatórios, conferência e controle de duplicidade).
+ * Vem do documento lido (chave de acesso da NF-e, "Número: 14937") ou, na falta, do
+ * `NF…` do nome do arquivo. `null` quando não há número confiável.
+ */
+export function numeroParaGravar(item: Pick<ItemCentral, "tipo" | "leitura" | "nomeLido">): string | null {
+  if (!TIPOS_COM_NUMERO.has(item.tipo)) return null;
+  const bruto = item.leitura?.numero ?? (item.tipo === "nota_fiscal" ? item.nomeLido?.nf : null) ?? null;
+  const n = (bruto ?? "").toString().trim();
+  if (!n || n.length > 20) return null;
+  if (!/^[A-Za-z0-9][A-Za-z0-9./-]*$/.test(n)) return null;
+  if (/^0+$/.test(n)) return null;
+  return n;
 }

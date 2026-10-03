@@ -38,6 +38,8 @@ export interface LancamentoPool {
   status: string;
   temAnexo: boolean;
   descricao?: string | null;
+  /** `fin_lancamentos.documento_numero` — a Central o preenche quando está vazio. */
+  documentoNumero?: string | null;
 }
 
 export interface EntradaCasamento {

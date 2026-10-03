@@ -284,7 +284,46 @@ regra: **com número, RPA/RPS/DPS mantêm o tipo depois dele; os demais levam s�
   o resto do dossiê. Testes obrigatórios: `12548.92` → `12548,92`; `760` → `760,00`; `0` → `0,00`; e
   valor negativo (estorno) não pode gerar `-` solto no nome — usa o valor absoluto.
 
-**Ainda em aberto do §7 (não respondidas pela mensagem):** 2 (gravar o número lido em
+### 8.2 Respostas finais (03/10/2026, mais tarde) e implementação
+
+| # | Pergunta | Resposta dela | Situação |
+|---|---|---|---|
+| 2 | Gravar o número em `documento_numero` | **Sim** — pesquisa, auditoria, relatórios, conferência, duplicidade | Feito: a Central grava o número lido (nota, RPA, RPS, DPS, fatura) só onde está **vazio**, e o **Desfazer lote** o esvazia de volta. Boleto, comprovante, contrato, XML e "outro" não gravam número. |
+| 3 | Ordem das páginas | **Lógica documental**, não a do upload: NF · RPA · RPS · DPS · Fatura · Boleto · Contrato · Outro · **Comprovante por último** | Feito (`ordenarPartes`). Dentro do mesmo tipo vale a ordem de envio. O XML não entra. |
+| 4 | Foto grande | **Sim**, reduzir **só na cópia do dossiê**; nunca alterar o original | Feito: lado maior em 1.600 px (JPEG 0,85; PNG continua PNG); JPEG com rotação EXIF passa pelo canvas para sair em pé. O armazenado não é tocado. |
+| 5 | 15 lançamentos de 01/09 | **Validar antes** | Feito: [`VALIDACAO_DATAS_01_09.md`](./VALIDACAO_DATAS_01_09.md) — nenhuma data errada. |
+| 6 | Carimbo | **Não** (sem marca d'água, número de página, "X de Y", nome do sistema, rodapé, cabeçalho) | Feito, com teste: nº de páginas do dossiê = soma dos originais. Um dossiê de **uma** parte em PDF sai com os bytes originais. |
+
+**Colisão:** só quando coincidem data, valor, documento **e** fornecedor entra o identificador
+(`15092026_281,46_FATURA_LIGHT_7A44CF.pdf`). **Truncamento:** só o fornecedor/funcionário
+encolhe — 1º tira conectivos (DE, DA, DO…), 2º mantém primeiro e último nome, 3º corte seco;
+data, valor e documento nunca são cortados. Limite do caminho relativo: 200 caracteres (260 do
+Windows menos ~60 de folga para onde o contador extrai).
+
+**Montagem:** `lib/documentos/dossie.ts` (ordem e nome, puro), `dossiePdf.ts` (merge com
+`pdf-lib`, carregado sob demanda — única dependência nova), `reduzirImagem.ts` (canvas),
+`pacoteContabil.ts` (plano: um dossiê por lançamento) e `pacoteContabilService.ts`
+(download, merge, ZIP). **O que não puder ser mesclado não se perde:** vai ao lado como
+`…_ORIGINAL_n.ext` e entra no `ERROS.txt`. O `INDICE.csv` agora tem **uma linha por
+lançamento** e a coluna **Páginas** (`Nota Fiscal: 1-2 · Comprovante de Pagamento: 3`), já
+que não há carimbo nas páginas.
+
+**Medido em produção (setembro/2026, só leitura):** o pacote tem hoje **4 dossiês** (só
+existem 6 anexos no banco); o merge dos dois que ela montou à mão deu 2 páginas cada (tamanho
+≈ soma dos originais, ~0,6 s por dossiê incluindo o download); o ZIP inteiro gerou em 0,6 s
+sem falhas; caminho máximo 120 de 200. Foto sintética 3000×2000 → 1600×1067 (282 KB → 53 KB);
+PNG de 5,8 MB → 0,88 MB; imagem pequena sai idêntica.
+
+**Em aberto (uma pergunta):** a sigla no **nome do arquivo** do Recibo de Sustento Pastoral.
+Nos exemplos de nome ela escreveu `RPS` (§8.1) e, no exemplo "definitivo", `456_RSP_APOIO_CONTABIL_LTDA`;
+ao corrigir o significado escreveu "RSP". A chave no banco e na tela é `rps`. A sigla no
+arquivo é `SIGLA_NO_NOME.rps` em `dossie.ts` — hoje `RPS`; trocar para `RSP` é uma linha.
+
+**Antes de gerar o pacote de setembro** (ações dela): rodar a migration `20261002200000`
+e `sql/reclassificar_anexos_rpa_dps_2026-10-03.sql`; sem isso os dois dossiês de RPA/DPS saem
+com `DOCUMENTO` no lugar de `RPA`/`DPS`, porque os anexos ainda estão como "Outro".
+
+**Ainda em aberto do §7 (superado pelas respostas acima — mantido por histórico):** 2 (gravar o número lido em
 `documento_numero` — sem isso a maioria dos nomes cairá no tipo, pois só 1 de 283
 lançamentos de setembro tem número), 4 (reduzir foto grande só na cópia do dossiê),
 5 (conferir os 15 lançamentos datados 01/09 — o nome do arquivo leva a data, então um

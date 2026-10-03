@@ -37,11 +37,11 @@ export function PacoteContabilCard({ ano, mes }: { ano: number; mes: number }) {
   async function gerar() {
     if (!plano) return;
     setGerando(true);
-    setProgresso([0, plano.arquivos.length]);
+    setProgresso([0, plano.totalArquivos]);
     try {
       const r = await baixarPacoteContabil(plano, (f, t) => setProgresso([f, t]));
       if (r.falhas.length > 0) {
-        toast.warning(`Pacote gerado, mas ${r.falhas.length} arquivo(s) não puderam ser baixados — veja ERROS.txt dentro do ZIP.`);
+        toast.warning(`Pacote gerado, mas ${r.falhas.length} arquivo(s) não puderam ser baixados ou mesclados — veja ERROS.txt dentro do ZIP.`);
       } else if (r.pendencias > 0) {
         toast.warning(`Pacote gerado com ${r.pendencias} saída(s) sem documento — a lista está em PENDENCIAS.csv.`);
       } else {
@@ -66,7 +66,8 @@ export function PacoteContabilCard({ ano, mes }: { ano: number; mes: number }) {
         <div className="min-w-0 flex-1">
           <h2 className="font-serif text-base">Pacote contábil — {mesNome} de {ano}</h2>
           <p className="text-xs text-muted-foreground">
-            ZIP por conta → dia do pagamento, com os documentos de cada saída (o fornecedor vai no nome do arquivo).
+            ZIP por conta → dia do pagamento, com <strong>um PDF por pagamento</strong> reunindo todos os
+            documentos dele (comprovante por último). Nome: data, valor, documento e fornecedor.
           </p>
         </div>
         <Button variant="gold" size="sm" className="gap-1.5" onClick={gerar}
@@ -96,8 +97,16 @@ export function PacoteContabilCard({ ano, mes }: { ano: number; mes: number }) {
             )}
           </p>
 
+          {plano.dossies.length > 0 && (
+            <p className="text-xs text-muted-foreground tabular-nums">
+              {plano.dossies.filter(d => d.caminhoZip).length} PDF(s) consolidado(s)
+              {plano.totalXml > 0 && ` · ${plano.totalXml} XML ao lado`}
+              {plano.nomesComId > 0 && ` · ${plano.nomesComId} nome(s) com o identificador do lançamento (mesma data, valor, documento e fornecedor)`}
+            </p>
+          )}
+
           {plano.nomesAjustados > 0 && (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-warning-text">
               {plano.nomesAjustados} nome(s) de arquivo ajustado(s) por colisão (terminam em "(2)") — o
               INDICE.csv mostra qual é qual.
             </p>
