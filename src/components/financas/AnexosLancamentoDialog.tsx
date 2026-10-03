@@ -33,7 +33,7 @@ import { Loader2, Upload, FileText, ExternalLink, Trash2, Files } from "lucide-r
 import { toast } from "sonner";
 import {
   listarAnexos, adicionarAnexo, removerAnexo, anexoSignedUrl,
-  FIN_ANEXO_TIPO_LABEL as TIPO_LABEL, FIN_ANEXO_TIPOS_OFERECIDOS,
+  FIN_ANEXO_TIPO_LABEL as TIPO_LABEL, FIN_ANEXO_TIPO_DICA, FIN_ANEXO_TIPOS_OFERECIDOS,
   type FinLancamentoAnexo, type FinAnexoTipo,
 } from "@/services/finService";
 
@@ -114,7 +114,7 @@ export function AnexosLancamentoDialog({ open, onOpenChange, lancamentoId, descr
             <Files className="w-4 h-4 text-gold" /> Anexos — {descricaoLancamento}
           </DialogTitle>
           <DialogDescription className="text-xs">
-            Nota fiscal, boleto, comprovante, fatura, contrato ou XML deste lançamento — quantos precisar, cada um com o próprio tipo. Tudo vai pro Pacote Contábil do mês.
+            Nota fiscal, boleto, comprovante, fatura, contrato, XML, RPA, RPS ou DPS deste lançamento — quantos precisar, cada um com o próprio tipo. Tudo vai pro Pacote Contábil do mês.
           </DialogDescription>
         </DialogHeader>
 
@@ -134,7 +134,9 @@ export function AnexosLancamentoDialog({ open, onOpenChange, lancamentoId, descr
               <SelectContent>
                 {/* `documento` (antigo) não é oferecido — só lido. */}
                 {FIN_ANEXO_TIPOS_OFERECIDOS.map(k => (
-                  <SelectItem key={k} value={k}>{TIPO_LABEL[k]}</SelectItem>
+                  <SelectItem key={k} value={k}>
+                    {TIPO_LABEL[k]}{FIN_ANEXO_TIPO_DICA[k] ? ` — ${FIN_ANEXO_TIPO_DICA[k]}` : ""}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>

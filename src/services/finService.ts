@@ -999,11 +999,16 @@ export async function excluirLancamento(id: string): Promise<void> {
     if (par?.comprovante_url) await removerComprovante(par.comprovante_url);
   }
 
+  // Os arquivos dos anexos (N por lançamento) — a linha some por CASCADE, o
+  // arquivo não: sem isto ficava órfão no bucket (ver `removerArquivosSemReferencia`).
+  const urlsAnexos = await urlsDosAnexos(ids);
+
   const r = conferir(
     await supabase.from("fin_lancamentos").delete().in("id", ids).select("id"),
     "O lançamento",
   );
   if (!r.ok) throw new Error(r.erro);
+  await removerArquivosSemReferencia(urlsAnexos);
 }
 
 // Quebra um array em pedaços de `tamanho` — usado só pra não estourar a
@@ -1056,15 +1061,21 @@ export async function excluirLancamentosEmLote(ids: string[]): Promise<void> {
   for (const url of comprovantesUrls) await removerComprovante(url);
 
   const idsFinais = Array.from(idsCompletos);
+  const urlsAnexos = await urlsDosAnexos(idsFinais); // ver `excluirLancamento`
   let apagados = 0;
   for (const lote of emLotes(idsFinais, TAMANHO_LOTE)) {
     const r = conferir(
       await supabase.from("fin_lancamentos").delete().in("id", lote).select("id"),
       "A exclusão",
     );
-    if (!r.ok) throw new Error(`${r.erro} (${apagados} de ${idsFinais.length} já excluídos antes de parar)`);
+    if (!r.ok) {
+      // O que já foi excluído tem os arquivos limpos; o resto fica como está.
+      await removerArquivosSemReferencia(urlsAnexos);
+      throw new Error(`${r.erro} (${apagados} de ${idsFinais.length} já excluídos antes de parar)`);
+    }
     apagados += lote.length;
   }
+  await removerArquivosSemReferencia(urlsAnexos);
 }
 
 // ─── Comprovantes (storage: fin-comprovantes) ───────────────────────────
@@ -1104,9 +1115,15 @@ export async function comprovanteSignedUrl(path: string, segs = 600): Promise<st
 // Contrato). `documento` é o tipo ANTIGO, de antes da ampliação — continua
 // aceito pelo banco e lido, mas não é mais oferecido (ver
 // `FIN_ANEXO_TIPOS_OFERECIDOS`): os anexos que já o têm não são reescritos.
+//
+// RPA, RPS e DPS entraram em 03/10/2026 como tipos NATIVOS (pedido dela): recibo
+// de pagamento a autônomo, recibo provisório de serviços e declaração de
+// prestação de serviços. São documentos que, sozinhos, sustentam uma saída de
+// folha/serviço — não são "nota fiscal" nem "outro". Migration
+// 20261002200000 (a mesma, atualizada antes de ser aplicada).
 export type FinAnexoTipo =
   | "nota_fiscal" | "boleto" | "comprovante" | "fatura" | "contrato"
-  | "xml" | "outro" | "documento";
+  | "xml" | "rpa" | "rps" | "dps" | "outro" | "documento";
 
 export const FIN_ANEXO_TIPO_LABEL: Record<FinAnexoTipo, string> = {
   nota_fiscal: "Nota Fiscal",
@@ -1115,13 +1132,23 @@ export const FIN_ANEXO_TIPO_LABEL: Record<FinAnexoTipo, string> = {
   fatura: "Fatura",
   contrato: "Contrato",
   xml: "XML",
+  rpa: "RPA",
+  rps: "RPS",
+  dps: "DPS",
   outro: "Outro",
   documento: "Documento (antigo)",
 };
 
+/** Explicação curta dos tipos que não são óbvios (dica na tela). */
+export const FIN_ANEXO_TIPO_DICA: Partial<Record<FinAnexoTipo, string>> = {
+  rpa: "Recibo de Pagamento a Autônomo",
+  rps: "Recibo Provisório de Serviços",
+  dps: "Declaração de Prestação de Serviços",
+};
+
 /** Os tipos que a tela de anexos oferece, na ordem de exibição. */
 export const FIN_ANEXO_TIPOS_OFERECIDOS: FinAnexoTipo[] = [
-  "nota_fiscal", "boleto", "comprovante", "fatura", "contrato", "xml", "outro",
+  "nota_fiscal", "boleto", "comprovante", "fatura", "contrato", "xml", "rpa", "rps", "dps", "outro",
 ];
 
 export const FIN_ANEXO_MIMES = [...FIN_COMPROVANTE_MIMES, "application/xml", "text/xml"];
@@ -1187,7 +1214,43 @@ export async function removerAnexo(id: string): Promise<void> {
     "O anexo",
   );
   if (!r.ok) throw new Error(r.erro);
-  if (anexo?.url) await removerComprovante(anexo.url); // mesmo bucket, mesma função de remoção
+  // Só apaga o ARQUIVO se mais nenhuma linha o referencia: na compra parcelada
+  // (Central de Documentos, 03/10/2026) o mesmo arquivo está ligado a todas as
+  // parcelas, e remover o anexo de uma não pode apagar o das outras.
+  if (anexo?.url) await removerArquivosSemReferencia([anexo.url]);
+}
+
+/**
+ * Apaga do armazenamento só os caminhos que NINGUÉM mais referencia — nem
+ * `fin_lancamento_anexos.url`, nem `fin_lancamentos.comprovante_url`. Existe por
+ * dois motivos medidos em 03/10/2026:
+ *  1. a Central de Documentos liga o MESMO arquivo a várias parcelas;
+ *  2. excluir um lançamento apagava a linha do anexo (CASCADE) mas deixava o
+ *     arquivo no bucket — 32 dos 37 PDFs órfãos têm essa cara.
+ * Na dúvida (a contagem falhou) NÃO apaga: arquivo sobrando é recuperável, arquivo
+ * apagado por engano não é.
+ */
+export async function removerArquivosSemReferencia(paths: string[]): Promise<void> {
+  const aApagar: string[] = [];
+  for (const p of new Set(paths.filter(Boolean))) {
+    const [a, c] = await Promise.all([
+      supabase.from("fin_lancamento_anexos").select("id", { count: "exact", head: true }).eq("url", p),
+      supabase.from("fin_lancamentos").select("id", { count: "exact", head: true }).eq("comprovante_url", p),
+    ]);
+    if (a.error || c.error) continue;
+    if ((a.count ?? 1) === 0 && (c.count ?? 1) === 0) aApagar.push(p);
+  }
+  if (aApagar.length > 0) await supabase.storage.from("fin-comprovantes").remove(aApagar);
+}
+
+/** Caminhos dos anexos (N por lançamento) dos lançamentos informados. */
+async function urlsDosAnexos(lancamentoIds: string[]): Promise<string[]> {
+  const urls: string[] = [];
+  for (const lote of emLotes(lancamentoIds, 150)) {
+    const { data } = await supabase.from("fin_lancamento_anexos").select("url").in("lancamento_id", lote);
+    for (const a of data ?? []) if (a.url) urls.push(a.url);
+  }
+  return urls;
 }
 
 /** Mesmo bucket de `comprovanteSignedUrl` — reaproveitada, não duplicada. */

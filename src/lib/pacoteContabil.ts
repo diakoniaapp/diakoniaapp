@@ -40,6 +40,9 @@ export const TIPO_NOME_ARQUIVO: Record<FinAnexoTipo, string> = {
   fatura: "Fatura",
   contrato: "Contrato",
   xml: "NotaFiscal-XML",
+  rpa: "RPA",
+  rps: "RPS",
+  dps: "DPS",
   outro: "Outro",
   documento: "Documento",
 };

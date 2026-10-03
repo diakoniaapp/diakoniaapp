@@ -234,6 +234,25 @@ VALOR AGUA 556,40 0,00 0,50 4,54`;
   });
 });
 
+describe("RPA, RPS e DPS (tipos nativos)", () => {
+  it("RPA pela frase por extenso", () => {
+    expect(lerDocumento("RECIBO DE PAGAMENTO A AUTÔNOMO\nBeneficiário: PESSOA EXEMPLO\nValor R$ 760,00").tipo).toBe("rpa");
+  });
+  it("RPA pela sigla", () => {
+    expect(lerDocumento("RPA nº 987\nValor líquido R$ 380,00").tipo).toBe("rpa");
+  });
+  it("RPS pela frase por extenso", () => {
+    expect(lerDocumento("Recibo Provisório de Serviços\nPrestador EXEMPLO LTDA").tipo).toBe("rps");
+  });
+  it("DPS pela frase por extenso", () => {
+    expect(lerDocumento("DECLARAÇÃO DE PRESTAÇÃO DE SERVIÇOS\nNúmero 852").tipo).toBe("dps");
+  });
+  it("uma NFS-e nacional que CITA a DPS continua sendo NFS-e", () => {
+    const t = "Número da NFS-e 123\nNúmero da DPS 45\nSérie da DPS 1\nPrestador do Serviço";
+    expect(lerDocumento(t).tipo).toBe("nfse");
+  });
+});
+
 describe("extrairChave", () => {
   it("aceita blocos de 4 dígitos com espaço ou 44 dígitos colados; recusa menos que 44", () => {
     const c = "33260822753989000147550070000245531000754460";

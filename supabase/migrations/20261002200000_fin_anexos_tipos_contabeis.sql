@@ -1,8 +1,14 @@
 -- ─── fin_lancamento_anexos — tipos de documento do Pacote Contábil ──────
 --
 -- Pedido dela (02/10/2026), ao especificar o Pacote Contábil mensal (ZIP
--- por Conta → dia do pagamento → fornecedor): os tipos passam a ser
--- Nota Fiscal, Boleto, Comprovante, Fatura, Contrato e Outro, mantendo o XML.
+-- por Conta → dia do pagamento): os tipos passam a ser Nota Fiscal, Boleto,
+-- Comprovante, Fatura, Contrato e Outro, mantendo o XML.
+--
+-- ATUALIZADO em 03/10/2026 (antes de ser aplicada — o aviso "falta aplicar a
+-- migration 20261002200000" na tela de anexos mostra que ainda NÃO rodou em
+-- produção): entram também **RPA, RPS e DPS** como tipos nativos (recibo de
+-- pagamento a autônomo, recibo provisório de serviços, declaração de prestação
+-- de serviços). Um SQL só cobre tudo — não há uma segunda migration pra aplicar.
 --
 -- MEDIDO antes de mexer (02/10/2026): a tabela tem 2 linhas, as duas com
 -- tipo `documento` (NF em PDF). Por isso `documento` FICA na lista aceita —
@@ -36,6 +42,6 @@ ALTER TABLE public.fin_lancamento_anexos
   ADD CONSTRAINT fin_lancamento_anexos_tipo_check
   CHECK (tipo IN (
     'nota_fiscal', 'boleto', 'comprovante', 'fatura', 'contrato',
-    'xml', 'outro',
+    'xml', 'rpa', 'rps', 'dps', 'outro',
     'documento'   -- antigo: aceito, não mais oferecido pela tela
   ));

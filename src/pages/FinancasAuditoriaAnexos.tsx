@@ -38,7 +38,7 @@ import {
   type LinhaAuditoria, type SituacaoDocumento,
 } from "@/lib/pacoteContabil";
 import {
-  brl, nomeExtrato, FIN_ANEXO_TIPO_LABEL, type FinAnexoTipo,
+  brl, nomeExtrato, FIN_ANEXO_TIPO_LABEL, FIN_ANEXO_TIPOS_OFERECIDOS, type FinAnexoTipo,
 } from "@/services/finService";
 import { auditarPeriodo } from "@/services/pacoteContabilService";
 
@@ -48,7 +48,7 @@ const POR_PAGINA = 100;
 // Ordem dos tipos na tela. `documento` (o tipo ANTIGO) só aparece se alguém
 // ainda o tiver — hoje são os 2 anexos de 02/10/2026.
 const TIPOS_NA_TELA: FinAnexoTipo[] = [
-  "nota_fiscal", "boleto", "comprovante", "fatura", "contrato", "xml", "outro", "documento",
+  "nota_fiscal", "boleto", "comprovante", "fatura", "contrato", "xml", "rpa", "rps", "dps", "outro", "documento",
 ];
 
 const VISTA_LABEL: Record<SituacaoDocumento | "todas", string> = {
@@ -76,6 +76,9 @@ export default function FinancasAuditoriaAnexos() {
   const [conta, setConta] = useState(TODOS);
   const [centro, setCentro] = useState(TODOS);
   const [fornecedor, setFornecedor] = useState(TODOS);
+  // Tipo de documento (03/10/2026: RPA, RPS e DPS viraram tipos nativos e têm que
+  // aparecer nos filtros): mostra só as saídas que TÊM um documento deste tipo.
+  const [tipoDoc, setTipoDoc] = useState<string>(TODOS);
   const [vista, setVista] = useState<SituacaoDocumento | "todas">("sem");
   const [visiveis, setVisiveis] = useState(POR_PAGINA);
   const [anexosPara, setAnexosPara] = useState<LinhaAuditoria | null>(null);
@@ -132,13 +135,14 @@ export default function FinancasAuditoriaAnexos() {
   }, [opcoes, conta, centro, fornecedor]);
 
   const filtradas = useMemo(
-    () => linhas.filter(({ lancamento: l }) => passa(l, conta, centro, fornecedor)),
+    () => linhas.filter(x => passa(x.lancamento, conta, centro, fornecedor)
+      && (tipoDoc === TODOS || x.tipos.includes(tipoDoc as FinAnexoTipo))),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [linhas, conta, centro, fornecedor]);
+    [linhas, conta, centro, fornecedor, tipoDoc]);
 
   const resumo = useMemo(() => resumirAuditoria(filtradas), [filtradas]);
   const exigem = resumo.com + resumo.sem; // quem DEVERIA ter documento
-  const filtrando = conta !== TODOS || centro !== TODOS || fornecedor !== TODOS;
+  const filtrando = conta !== TODOS || centro !== TODOS || fornecedor !== TODOS || tipoDoc !== TODOS;
 
   const lista = useMemo(() => {
     const doTipo = vista === "todas" ? filtradas : filtradas.filter(x => x.situacao === vista);
@@ -209,8 +213,10 @@ export default function FinancasAuditoriaAnexos() {
             opcoes={opcoes.centros.map(([id, nome]) => ({ id, nome }))} />
           <FiltroSelect rotulo="Fornecedor" valor={fornecedor} onChange={setFornecedor}
             opcoes={opcoes.fornecedores.map(nome => ({ id: nome, nome }))} />
+          <FiltroSelect rotulo="Tipo de documento" valor={tipoDoc} onChange={setTipoDoc}
+            opcoes={FIN_ANEXO_TIPOS_OFERECIDOS.map(t => ({ id: t, nome: FIN_ANEXO_TIPO_LABEL[t] }))} />
           {filtrando && (
-            <Button variant="ghost" size="sm" onClick={() => { setConta(TODOS); setCentro(TODOS); setFornecedor(TODOS); }}>
+            <Button variant="ghost" size="sm" onClick={() => { setConta(TODOS); setCentro(TODOS); setFornecedor(TODOS); setTipoDoc(TODOS); }}>
               Limpar filtros
             </Button>
           )}

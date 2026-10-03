@@ -33,7 +33,7 @@
 export const CNPJ_DA_IGREJA = "27639285000161";
 
 export type TipoDocumentoLido =
-  | "nfe" | "nfce" | "nfse" | "boleto" | "fatura" | "xml" | "desconhecido";
+  | "nfe" | "nfce" | "nfse" | "boleto" | "fatura" | "rpa" | "rps" | "dps" | "xml" | "desconhecido";
 
 export interface ValorCandidato {
   valor: number;
@@ -110,6 +110,13 @@ function descobrirTipo(texto: string, modelo: string | null): TipoDocumentoLido 
   if (modelo === "55") return "nfe";
   if (modelo === "65") return "nfce";
   const t = plano(texto);
+  // RPA / RPS / DPS (tipos nativos desde 03/10/2026): a frase por extenso manda;
+  // a sigla sozinha só vale quando não há cara de NFS-e (a NFS-e nacional também
+  // cita "DPS" e "RPS" no corpo).
+  const ehNfse = /nfs-?e|nota fiscal de servico/.test(t);
+  if (/recibo de pagamento (a|de) autonomo/.test(t) || (!ehNfse && /\brpa\b/.test(t))) return "rpa";
+  if (/recibo provisorio de servicos/.test(t) || (!ehNfse && /\brps\b/.test(t))) return "rps";
+  if (/declaracao de prestacao de servicos/.test(t) && !ehNfse) return "dps";
   if (/nfs-?e|prestador do servico|prestador de servicos|nota fiscal de servico/.test(t)) return "nfse";
   if (/danfe/.test(t) && !/nfc-?e|consumidor/.test(t)) return "nfe";
   if (/nfc-?e|nota fiscal de consumidor|via consumidor/.test(t)) return "nfce";
