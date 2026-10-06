@@ -58,6 +58,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useNavigationType } from "react-router-dom";
 import { lerRetorno, limparRetorno } from "@/lib/contextoExtrato";
+import { renovarRecorrenciasSemFim } from "@/services/recorrenciaService";
 import {
   DollarSign, Receipt, Wallet, ChevronRight, RefreshCw, Sparkles, Package,
   Clock, CalendarClock, Target, HandCoins, Scale, Lightbulb, Paperclip,
@@ -187,6 +188,11 @@ export default function PainelTesouraria() {
   }, []);
 
   useEffect(() => { carregar(); }, [carregar]);
+  // Recorrência sem data final não acaba: a janela de previstos anda com o tempo (1× por dia).
+  useEffect(() => {
+    renovarRecorrenciasSemFim().then(n => { if (n > 0) carregar(); }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Fase 10 (Central Operacional Financeira, 22/09/2026) ─────────────────
   //

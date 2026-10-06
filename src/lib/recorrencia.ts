@@ -104,6 +104,19 @@ export function limiteDeGeracao(p: ParametrosDaSerie, hoje: string): string {
   return toYmd(new Date(a, m - 1 + MESES_DE_HORIZONTE, d));
 }
 
+/** A série não tem fim (contínua, sem data final): o horizonte é só um recorte técnico, que se renova. */
+export const serieSemFim = (p: Pick<ParametrosDaSerie, "tipo" | "dataFim" | "totalParcelas">): boolean =>
+  !(p.tipo === "parcelamento" && !!p.totalParcelas) && !p.dataFim;
+
+/** Precisa gerar mais? Sim quando faltam menos de ~11 meses à frente (ou nunca gerou). */
+export function precisaRenovar(p: ParametrosDaSerie, ultimoGeradoAte: string | null, hoje: string): boolean {
+  if (!serieSemFim(p)) return false;
+  if (!ultimoGeradoAte) return true;
+  const [a, m, d] = hoje.split("-").map(Number);
+  const alvo = toYmd(new Date(a, m - 1 + (MESES_DE_HORIZONTE - 1), d));
+  return ultimoGeradoAte < alvo;
+}
+
 /**
  * Contínua que começou há muito tempo: não despejar meses de previstos ATRASADOS de uma vez.
  * Ocorrências anteriores a esta data só são geradas em parcelamento (onde a pessoa escolheu

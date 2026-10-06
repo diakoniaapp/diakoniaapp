@@ -35,7 +35,8 @@ export function ResumoDaRecorrencia({ r }: { r: FinRecorrencia }) {
         </span>
       )}
       {!parcelado && r.data_fim && <span>· até {dataBr(r.data_fim)}</span>}
-      {r.ultimo_gerado_ate && <span>· gerada até {dataBr(r.ultimo_gerado_ate)}</span>}
+      {!parcelado && !r.data_fim && <span>· sem data final</span>}
+      {r.ultimo_gerado_ate && <span>· lançamentos até {dataBr(r.ultimo_gerado_ate)}{!parcelado && !r.data_fim ? " (renova sozinho)" : ""}</span>}
     </p>
   );
 }

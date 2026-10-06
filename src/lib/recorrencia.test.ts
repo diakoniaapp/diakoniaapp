@@ -120,3 +120,18 @@ describe("situação da série (o cartão da recorrência)", () => {
     expect(s.proximoVencimento).toBe("2026-11-01");
   });
 });
+
+describe("renovação da série sem fim", () => {
+  const cont = { dataInicio: "2026-10-01", diaVencimento: 5, frequencia: "mensal" as const, tipo: "continua" as const };
+  it("sem data final e com a janela ficando curta: renova; com folga: não", async () => {
+    const { precisaRenovar } = await import("./recorrencia");
+    expect(precisaRenovar(cont, "2026-12-05", "2026-10-06")).toBe(true);
+    expect(precisaRenovar(cont, null, "2026-10-06")).toBe(true);
+    expect(precisaRenovar(cont, "2027-10-05", "2026-10-06")).toBe(false);
+  });
+  it("parcelamento e série com data final nunca renovam", async () => {
+    const { precisaRenovar } = await import("./recorrencia");
+    expect(precisaRenovar({ ...cont, tipo: "parcelamento", totalParcelas: 12 }, "2026-12-05", "2026-10-06")).toBe(false);
+    expect(precisaRenovar({ ...cont, dataFim: "2027-03-01" }, "2026-12-05", "2026-10-06")).toBe(false);
+  });
+});

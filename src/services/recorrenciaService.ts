@@ -15,7 +15,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { hojeLocal } from "@/lib/data";
-import { ocorrenciasAGerar, rotuloDaParcela, type ParametrosDaSerie, type Ocorrencia } from "@/lib/recorrencia";
+import { ocorrenciasAGerar, precisaRenovar, rotuloDaParcela, type ParametrosDaSerie, type Ocorrencia } from "@/lib/recorrencia";
 import { resumirHabitos, PAGAMENTOS_PARA_HABITO, type HabitosDoFavorecido, type PagamentoDoHistorico } from "@/lib/habitosDoFavorecido";
 import { normalizarLiquidacao } from "@/lib/formaLiquidacao";
 import { listarRecorrencias, type FinRecorrencia } from "@/services/finService";
@@ -158,6 +158,25 @@ export async function propagarModelo(rec: FinRecorrencia, descricaoAnterior: str
   const { data, error } = await legado.select("id");
   if (error) throw error;
   n += data?.length ?? 0;  return n;
+}
+
+/**
+ * Recorrência SEM data de fim não tem limite: os previstos são só uma janela de 12 meses que anda
+ * junto com o tempo. Esta função renova a janela de quem está ficando curta — uma vez por dia, em
+ * silêncio, quando o painel da tesouraria abre (relato dela, 06/10/2026: "eu não digitei data e o
+ * sistema gerou até 2027, não deveria ter data limite").
+ */
+export async function renovarRecorrenciasSemFim(hoje = hojeLocal()): Promise<number> {
+  const chave = "diakonia:renovacao-recorrencias";
+  try { if (sessionStorage.getItem(chave) === hoje) return 0; } catch { /* sem sessionStorage: renova assim mesmo */ }
+  const ativas = await listarRecorrencias(false);
+  let total = 0;
+  for (const r of ativas) {
+    if (!precisaRenovar(parametrosDaRecorrencia(r), r.ultimo_gerado_ate, hoje)) continue;
+    try { total += (await gerarOcorrencias(r, hoje)).criados; } catch { /* sem permissão ou migration pendente: a próxima abertura tenta de novo */ }
+  }
+  try { sessionStorage.setItem(chave, hoje); } catch { /* idem */ }
+  return total;
 }
 
 /** O botão "Gerar": completa o horizonte de todas as recorrências ativas. */

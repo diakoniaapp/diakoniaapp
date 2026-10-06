@@ -222,7 +222,10 @@ export function RecorrenciaForm({ open, onOpenChange, recorrencia, onSaved }: Pr
       // parcelas — ver lib/recorrencia.ts): parcelamento gera TODAS as parcelas; contínua, 12 meses.
       const r = await gerarOcorrencias(salva);
       if (r.criados > 0) {
-        toast.success(`${r.criados} lançamento(s) previsto(s) gerado(s)${r.ultimaData ? ` — até ${r.ultimaData.slice(8, 10)}/${r.ultimaData.slice(5, 7)}/${r.ultimaData.slice(0, 4)}` : ""}`);
+        const semFim = !parcelado && !dataFim;
+        toast.success(semFim
+          ? `${r.criados} lançamento(s) previsto(s) gerado(s) — a recorrência não tem data final: o sistema mantém os próximos 12 meses e renova sozinho`
+          : `${r.criados} lançamento(s) previsto(s) gerado(s)${r.ultimaData ? ` — até ${r.ultimaData.slice(8, 10)}/${r.ultimaData.slice(5, 7)}/${r.ultimaData.slice(0, 4)}` : ""}`);
       }
 
       onOpenChange(false);
@@ -421,7 +424,7 @@ export function RecorrenciaForm({ open, onOpenChange, recorrencia, onSaved }: Pr
             <div>
               <Label>Encerra em (opcional)</Label>
               <CampoData value={dataFim} onChange={(v) => setDataFim(v)} permitirVazio />
-              <p className="text-xs text-muted-foreground mt-0.5">Em branco = indefinido</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Em branco = sem data final: o sistema mantém os próximos 12 meses gerados e renova sozinho</p>
             </div>
           )}
 
