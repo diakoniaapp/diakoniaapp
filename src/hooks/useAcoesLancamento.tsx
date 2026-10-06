@@ -33,6 +33,7 @@ import { toast } from "sonner";
 import {
   confirmarPagamento, aprovarLancamento, rejeitarLancamento,
   buscarFornecedor, adicionarAnexo, brl, pessoaDoLancamento, buscarPixDaPessoa, salvarPixDaPessoa,
+  fornecedoresParaNome, atualizarLancamento,
   type FinVencimento, type FinLancamentoExtenso, type FinFornecedor,
 } from "@/services/finService";
 import { montarPayloadPix, formatarChavePix, TIPOS_CHAVE_PIX, type TipoChavePix } from "@/lib/pix";
@@ -40,6 +41,7 @@ import { Input } from "@/components/ui/input";
 import QRCode from "qrcode";
 import { mensagemErro } from "@/lib/erroRede";
 import { dadosParaPagarDoLancamento, type DadosParaPagar } from "@/services/documentoPagamentoService";
+import { fornecedorPeloNome, type FornecedorParaNome } from "@/lib/favorecidoPorNome";
 
 const dataBrCurta = (ymd: string) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.slice(0, 4)}`;
 const juntarEm = (d: string, n: number) => d.match(new RegExp(`.{1,${n}}`, "g"))?.join(" ") ?? d;
@@ -85,6 +87,11 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
     return () => { cancelado = true; };
   }, [confirmando]);
 
+  // Lançamento SEM favorecido ligado (folha/RPA gerados só com a descrição "Salario Caio"): procura o fornecedor pelo
+  // NOME. Só sugere quando o nome identifica um único cadastro; quem liga é o botão "Vincular" (06/10/2026).
+  const [favorecidoProvavel, setFavorecidoProvavel] = useState<FornecedorParaNome | null>(null);
+  const [vinculando, setVinculando] = useState(false);
+
   /** O QR a partir de uma chave — erro no QR nunca trava o "Pagar" (Copiar Pix continua). */
   const gerarQr = useCallback((chave: string, tipo: TipoChavePix | null, nome: string, valor: number, cancelado: () => boolean) => {
     const payload = montarPayloadPix({ chave, tipoChave: tipo, nomeRecebedor: nome, valor });
@@ -109,6 +116,31 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
     })().finally(() => { if (!cancelado) setCarregandoFornecedor(false); });
     return () => { cancelado = true; };
   }, [confirmando, recarregarPix, gerarQr]);
+
+  useEffect(() => {
+    setFavorecidoProvavel(null);
+    if (!confirmando || confirmando.tipo !== "saida" || confirmando.fornecedor_id) return;
+    if (carregandoFornecedor || pessoaPagando?.pix) return; // a pessoa do catálogo já tem a chave: não precisa de palpite
+    const nome = pessoaPagando?.nome ?? confirmando.descricao;
+    if (!nome) return;
+    let cancelado = false;
+    fornecedoresParaNome()
+      .then(lista => { if (!cancelado) setFavorecidoProvavel(fornecedorPeloNome(nome, lista)); })
+      .catch(() => { /* melhoria: sem o palpite o "Pagar" continua como antes */ });
+    return () => { cancelado = true; };
+  }, [confirmando, pessoaPagando, carregandoFornecedor]);
+
+  async function vincularFavorecido() {
+    if (!confirmando || !favorecidoProvavel) return;
+    setVinculando(true);
+    try {
+      await atualizarLancamento(confirmando.id, { fornecedor_id: favorecidoProvavel.id });
+      toast.success(`Lançamento ligado a ${favorecidoProvavel.nome}`);
+      setConfirmando({ ...confirmando, fornecedor_id: favorecidoProvavel.id }); // o Pix aparece pelo caminho normal
+    } catch (e: any) {
+      toast.error(mensagemErro(e, "Não foi possível vincular"));
+    } finally { setVinculando(false); }
+  }
 
   async function guardarChaveDaPessoa() {
     if (!pessoaPagando) return;
@@ -387,7 +419,7 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
                   {qrDataUrl && <img src={qrDataUrl} alt="QR Code do Pix" width={140} height={140} className="rounded border bg-white p-1 mx-auto" />}
                 </div>
               )}
-              {pessoaPagando && !pessoaPagando.pix && !carregandoFornecedor && (
+              {pessoaPagando && !pessoaPagando.pix && !carregandoFornecedor && !favorecidoProvavel?.chave_pix && (
                 <div className="rounded-md border border-dashed p-2.5 space-y-2">
                   <p className="text-xs text-muted-foreground">
                     <strong className="text-foreground">{pessoaPagando.nome}</strong> ainda não tem chave Pix cadastrada.
@@ -405,7 +437,46 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
                   </div>
                 </div>
               )}
-              {!confirmando.fornecedor_id && !pessoaPagando && !carregandoFornecedor && (
+              {favorecidoProvavel && (
+                <div className="rounded-md border border-dashed border-gold/60 bg-muted/20 p-2.5 space-y-2">
+                  <p className="text-xs">
+                    Este lançamento não está ligado a um favorecido. Pelo nome, achei no cadastro de fornecedores:{" "}
+                    <strong>{favorecidoProvavel.nome}</strong>. Confira antes de pagar.
+                  </p>
+                  {favorecidoProvavel.chave_pix ? (
+                    <div className="flex items-center gap-3">
+                      <QrDoPix payload={montarPayloadPix({
+                        chave: favorecidoProvavel.chave_pix, tipoChave: favorecidoProvavel.tipo_chave_pix as TipoChavePix | null,
+                        nomeRecebedor: favorecidoProvavel.nome, valor: Number(confirmando.valor),
+                      })} />
+                      <div className="space-y-1 min-w-0">
+                        <p className="text-xs text-muted-foreground">
+                          {formatarChavePix(favorecidoProvavel.chave_pix, favorecidoProvavel.tipo_chave_pix as TipoChavePix | null)}
+                        </p>
+                        <Button type="button" size="sm" variant="outline" className="h-7 gap-1 text-xs"
+                          onClick={() => {
+                            navigator.clipboard.writeText(montarPayloadPix({
+                              chave: favorecidoProvavel.chave_pix!, tipoChave: favorecidoProvavel.tipo_chave_pix as TipoChavePix | null,
+                              nomeRecebedor: favorecidoProvavel.nome, valor: Number(confirmando.valor),
+                            }));
+                            toast.success("Código Pix copiado — cole no app do seu banco");
+                          }}>
+                          <Copy className="w-3 h-3" /> Copiar Pix
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Esse cadastro ainda não tem chave Pix.{" "}
+                      <Link to={`/financas/fornecedor/${favorecidoProvavel.id}`} className="text-primary hover:underline">Cadastrar</Link>
+                    </p>
+                  )}
+                  <Button type="button" size="sm" variant="outline" className="h-7 text-xs" disabled={vinculando} onClick={vincularFavorecido}>
+                    {vinculando ? <Loader2 className="w-3 h-3 animate-spin" /> : "Vincular este fornecedor ao lançamento"}
+                  </Button>
+                </div>
+              )}
+              {!confirmando.fornecedor_id && !pessoaPagando && !carregandoFornecedor && !favorecidoProvavel && (
                 <p className="text-xs text-muted-foreground rounded-md border border-dashed p-2">
                   Sem QR Code Pix: este lançamento não está ligado a um favorecido (fornecedor ou pessoa do catálogo).
                   Edite o lançamento (ou a recorrência) e escolha o favorecido no cadastro.

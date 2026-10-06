@@ -780,6 +780,22 @@ export async function salvarPixDaPessoa(pessoaId: string, chave: string, tipo: T
   if (!r.ok) throw new Error(r.erro);
 }
 
+/** Todos os fornecedores (id, nome, Pix) para achar o favorecido pelo nome. Cache de 60 s: o Pagar abre várias vezes seguidas. */
+let fornecedoresParaNomeEmCache: { em: number; lista: { id: string; nome: string; chave_pix: string | null; tipo_chave_pix: TipoChavePix | null }[] } | null = null;
+export async function fornecedoresParaNome() {
+  if (fornecedoresParaNomeEmCache && Date.now() - fornecedoresParaNomeEmCache.em < 60_000) return fornecedoresParaNomeEmCache.lista;
+  const lista: NonNullable<typeof fornecedoresParaNomeEmCache>["lista"] = [];
+  for (let de = 0; ; de += 1000) {
+    const { data, error } = await supabase.from("fin_fornecedores")
+      .select("id, nome, chave_pix, tipo_chave_pix").order("id").range(de, de + 999);
+    if (error) throw error;
+    lista.push(...((data ?? []) as typeof lista));
+    if (!data || data.length < 1000) break;
+  }
+  fornecedoresParaNomeEmCache = { em: Date.now(), lista };
+  return lista;
+}
+
 export async function buscarFornecedor(id: string): Promise<FinFornecedor | null> {
   const { data, error } = await supabase.from("fin_fornecedores").select("*").eq("id", id).maybeSingle();
   if (error) throw error;
