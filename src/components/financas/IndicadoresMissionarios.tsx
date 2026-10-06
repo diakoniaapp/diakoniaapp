@@ -23,9 +23,8 @@ import { ClassificarOfertasDialog } from "@/components/financas/ClassificarOfert
 import { brl, nomeExtrato, type FinLancamentoExtenso } from "@/services/finService";
 import type { DadosDeMissoes } from "@/services/missoesService";
 import {
-  PERIODOS_EM_ORDEM, PERIODO_PADRAO, ROTULO_DO_PERIODO, diaDoLancamento, ehRealizado,
-  periodoAnterior, periodoDoPreset, resumoDoPeriodo, serieDoPeriodo, variacaoPercentual,
-  type PeriodoPreset, type PontoDaSerie,
+  diaDoLancamento, ehRealizado, periodoAnterior, periodoDoPreset, resumoDoPeriodo, serieDoPeriodo,
+  variacaoPercentual, type PontoDaSerie,
 } from "@/lib/indicadoresMissionarios";
 import {
   ROTULO_DA_CAMPANHA, enviosDoPeriodo, fundoComAjustes, ofertasSemClassificacao, resumoDasCampanhas,
@@ -57,14 +56,20 @@ export function IndicadoresMissionarios({
   dados, carregando, semCategoriaDeEntrada, semCategoriaDeRepasse, hoje,
   onRegistrarRemessa, onAbrirRemessa, onVerDetalheDasOfertas, onRecarregar,
 }: Props) {
-  const [preset, setPreset] = useState<PeriodoPreset>(PERIODO_PADRAO);
-  const [customInicio, setCustomInicio] = useState(hoje);
+  // Só o período personalizado (pedido dela, 06/10/2026): De/Até sempre à vista, abrindo no mês atual.
+  const primeiroDoMes = `${hoje.slice(0, 7)}-01`;
+  const [customInicio, setCustomInicio] = useState(primeiroDoMes);
   const [customFim, setCustomFim] = useState(hoje);
   const [ajustesAberto, setAjustesAberto] = useState(false);
   const [metasAberto, setMetasAberto] = useState(false);
   const [loteAberto, setLoteAberto] = useState(false);
 
-  const { inicio, fim } = periodoDoPreset(preset, hoje, { inicio: customInicio, fim: customFim });
+  // Data apagada ou incompleta no meio da digitação não pode virar período inválido: volta ao padrão.
+  const dataValida = (d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d);
+  const { inicio, fim } = periodoDoPreset("custom", hoje, {
+    inicio: dataValida(customInicio) ? customInicio : primeiroDoMes,
+    fim: dataValida(customFim) ? customFim : hoje,
+  });
   const ant = periodoAnterior(inicio, fim);
   const ano = Number(fim.slice(0, 4));
   const pronto = !carregando && dados !== null;
@@ -102,27 +107,15 @@ export function IndicadoresMissionarios({
   return (
     <div className="space-y-3 mb-3">
       {/* ── Filtro: vale para as áreas 1, 3 e Envios (o Fundo fica de fora de propósito) ─ */}
-      <div className="flex flex-wrap items-center gap-1.5">
-        {PERIODOS_EM_ORDEM.map(chave => (
-          <button key={chave} type="button" onClick={() => setPreset(chave)} aria-pressed={preset === chave}
-            className={`rounded-full border px-3 py-1 text-xs font-medium ${
-              preset === chave ? "bg-violeta text-violeta-foreground border-transparent" : "bg-card text-muted-foreground hover:text-foreground"
-            }`}>
-            {ROTULO_DO_PERIODO[chave]}
-          </button>
-        ))}
-        {preset === "custom" && (
-          <span className="flex items-end gap-2 ml-1">
-            <span>
-              <label className="text-xs text-muted-foreground block">De</label>
-              <CampoData value={customInicio} onChange={setCustomInicio} className="h-8 w-[10.5rem]" inputClassName="text-sm" />
-            </span>
-            <span>
-              <label className="text-xs text-muted-foreground block">Até</label>
-              <CampoData value={customFim} onChange={setCustomFim} className="h-8 w-[10.5rem]" inputClassName="text-sm" />
-            </span>
-          </span>
-        )}
+      <div className="flex flex-wrap items-end gap-2">
+        <span>
+          <label className="text-xs text-muted-foreground block">De</label>
+          <CampoData value={customInicio} onChange={setCustomInicio} className="h-8 w-[10.5rem]" inputClassName="text-sm" />
+        </span>
+        <span>
+          <label className="text-xs text-muted-foreground block">Até</label>
+          <CampoData value={customFim} onChange={setCustomFim} className="h-8 w-[10.5rem]" inputClassName="text-sm" />
+        </span>
       </div>
 
       {/* ── 1. Fluxo missionário do período ────────────────────────────────── */}
@@ -131,7 +124,7 @@ export function IndicadoresMissionarios({
           <div className="min-w-0">
             <h3 id="mis-fluxo" className="text-sm font-bold text-violeta-text">Fluxo missionário do período</h3>
             <p className="text-[11px] text-muted-foreground">
-              {ROTULO_DO_PERIODO[preset]} · {inicio === fim ? dataBr(inicio) : `${dataBr(inicio)} a ${dataBr(fim)}`}
+              {inicio === fim ? dataBr(inicio) : `${dataBr(inicio)} a ${dataBr(fim)}`}
             </p>
           </div>
           {pronto && !semCategoriaDeEntrada && (
