@@ -5318,6 +5318,50 @@ export type Database = {
           },
         ]
       }
+      fin_malote_envios: {
+        Row: {
+          ano: number
+          created_at: string
+          dossies: number
+          enviado_em: string
+          enviado_por: string | null
+          id: string
+          mes: number
+          observacao: string | null
+          pendencias_documentos: number
+        }
+        Insert: {
+          ano: number
+          created_at?: string
+          dossies?: number
+          enviado_em?: string
+          enviado_por?: string | null
+          id?: string
+          mes: number
+          observacao?: string | null
+          pendencias_documentos?: number
+        }
+        Update: {
+          ano?: number
+          created_at?: string
+          dossies?: number
+          enviado_em?: string
+          enviado_por?: string | null
+          id?: string
+          mes?: number
+          observacao?: string | null
+          pendencias_documentos?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_malote_envios_enviado_por_fkey"
+            columns: ["enviado_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fin_lancamento_anexos: {
         Row: {
           enviado_em: string

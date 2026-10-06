@@ -104,6 +104,7 @@ import { MissoesDrawer } from "@/components/financas/MissoesDrawer";
 import { RemessaMissionariaDetalheDrawer } from "@/components/financas/RemessaMissionariaDetalheDrawer";
 import { listarFavoritos, desfixarFavorito, type FinFavorito } from "@/services/favoritosService";
 import { useAcoesLancamento, BotaoPagar, BotoesAprovacao } from "@/hooks/useAcoesLancamento";
+import { FechamentoMensal } from "@/components/financas/FechamentoMensal";
 import { useAuth } from "@/hooks/useAuth";
 import { hojeLocal, parseLocalDate, daquiADias } from "@/lib/data";
 import { ROLES_DOADORES, ROLES_PASTORAL_SEM_TITULAR } from "@/components/layout/navConfig";
@@ -570,7 +571,7 @@ export default function PainelTesouraria() {
         </div>
 
         {/* ── Resumo em linguagem natural ──────────────────────────────── */}
-        {fiscal && (
+        {fiscal && aba !== "fechamento" && (
           <p className="text-sm text-muted-foreground flex items-start gap-1.5">
             <DollarSign className="w-3.5 h-3.5 text-gold shrink-0 mt-0.5" />
             <span className="min-w-0">
@@ -899,138 +900,40 @@ export default function PainelTesouraria() {
           </>
           )}
 
+          {/* ── 4 Fechamento — CHECKLIST DO MÊS (03/10/2026) ───────────────────
+              Antes: agenda fiscal, "sem comprovante" (duplicado da Central de
+              Documentos), próximos vencimentos — nada disso é o fechamento real
+              dela. Agora: o checklist de `FechamentoMensal` (conciliação →
+              lançamentos → documentação → pacote → envio), que responde "estou
+              pronta para gerar e enviar o malote?". O Fiscal continua em
+              Financeiro > Módulo Fiscal; Caixa do Bazar já saiu daqui em
+              22/09/2026 (mora no painel da Administração). */}
           {aba === "fechamento" && (
           <>
-          {/* ── Fiscal ─────────────────────────────────────────────────── */}
-          <section id="fiscal" className="scroll-mt-[220px]">
-            <TituloDaSecao icone={Receipt} tom="warning" contagem={totalFiscal}>
-              Fiscal
-            </TituloDaSecao>
-            <div className="rounded-md border bg-card p-3">
-              <AgendaFiscalUrgente />
-            </div>
-          </section>
-          </>
-          )}
+          <FechamentoMensal onConciliar={(c) => setConciliandoConta(c)} />
 
-          {/* Caixa SAIU daqui em 22/09/2026 — era 100% dado de Bazar e
-              Cantina (`arr_caixas`), nunca de tesouraria/financeiro de
-              verdade. Já mora no painel certo: `SecaoArrecadacao.tsx`,
-              dentro do painel do ministério de Administração. */}
-
-          {aba === "fechamento" && (
-          <>
-          {/* ── Pendências ─────────────────────────────────────────────── */}
-          <section id="pendencias" className="scroll-mt-[220px]">
-            <TituloDaSecao
-              icone={Clock} tom="warning" contagem={pendencias.length}
-              // Fase 10: "abrir agenda" saiu daqui — aprovar/rejeitar e
-              // anexar já acontecem na própria linha (ver abaixo). Só
-              // conciliação e fechamento continuam levando pra outro lugar:
-              // a primeira porque bater com o extrato exige ver o extrato
-              // inteiro, não cabe numa linha; a segunda é ritual mensal, não
-              // decisão do dia.
-              acao={<Link to="/financas/agenda" className="text-sm text-primary hover:underline">Ver tudo</Link>}
-            >
-              Pendências
-            </TituloDaSecao>
-            {pendencias.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-2 px-3 border rounded-md">
-                Nenhuma aprovação parada, nenhum comprovante faltando, nenhuma conciliação pendente nos últimos {DIAS_JANELA_COMPROVANTE} dias e nenhum mês anterior ficou sem fechar.
-              </p>
-            ) : (
+          {/* A ÚNICA parte da antiga lista de Pendências que não tem outro lar: aprovar ou
+              rejeitar um lançamento parado. Só aparece quando existe uma. */}
+          {aprovacoesPendentes.length > 0 && (
+            <section id="aprovacoes" className="scroll-mt-[220px]">
+              <TituloDaSecao icone={Clock} tom="warning" contagem={aprovacoesPendentes.length}>
+                Aguardando aprovação
+              </TituloDaSecao>
               <ul className="divide-y rounded-md border bg-card">
-                {pendencias.slice(0, 8).map(p => (
-                  <li key={p.motivo === "fechamento" ? p.id : `${p.motivo}-${p.id}`}>
-                    {p.motivo === "fechamento" ? (
-                      <Link
-                        to={`/financas/prestacao-de-contas?ano=${p.ano}&mes=${p.mes}&qtd=1`}
-                        className="flex items-center gap-2 px-3 py-2.5 min-h-11 group"
-                      >
-                        <span className="text-sm min-w-0 flex-1">
-                          <span className="font-medium">{p.rotuloMes}</span>
-                          <span className="text-muted-foreground"> · período não fechado</span>
-                        </span>
-                        <ChevronRight className="w-4 h-4 shrink-0 text-muted-foreground group-hover:text-primary transition-colors" />
-                      </Link>
-                    ) : p.motivo === "conciliacao" ? (
-                      <button type="button"
-                        onClick={() => setConciliandoConta({ id: p.conta_id, nome: p.conta_nome ?? "Conta" })}
-                        className="flex items-center gap-2 px-3 py-2.5 min-h-11 w-full text-left group"
-                      >
-                        <span className="text-sm min-w-0 flex-1">
-                          <span className="font-medium">{nomeExtrato(p).principal}</span>
-                          <span className="text-muted-foreground"> — {brl(p.valor)}</span>
-                          <span className="text-info-text"> · aguardando conciliação</span>
-                        </span>
-                        <ChevronRight className="w-4 h-4 shrink-0 text-muted-foreground group-hover:text-primary transition-colors" />
-                      </button>
-                    ) : (
-                      <div className="flex items-center gap-2 px-3 py-2.5 min-h-11">
-                        <span className="text-sm min-w-0 flex-1">
-                          <span className="font-medium">{nomeExtrato(p).principal}</span>
-                          <span className="text-muted-foreground"> — {brl(p.valor)}</span>
-                          <span className={p.motivo === "aprovacao" ? "text-warning-text" : "text-muted-foreground"}>
-                            {" "}· {p.motivo === "aprovacao" ? "aguardando aprovação" : "sem comprovante"}
-                          </span>
-                        </span>
-                        {p.motivo === "aprovacao" ? (
-                          <BotoesAprovacao onAprovar={() => acoes.aprovar(p)} onRejeitar={() => acoes.rejeitar(p)} />
-                        ) : (
-                          <Button size="sm" variant="outline" onClick={() => setAnexosPara(p)}
-                            className="gap-1 h-7 text-xs shrink-0">
-                            <Paperclip className="w-3 h-3" /> Anexar
-                          </Button>
-                        )}
-                      </div>
-                    )}
-                  </li>
-                ))}
-                {pendencias.length > 8 && (
-                  <li className="px-3 py-2 text-xs text-muted-foreground">
-                    + {pendencias.length - 8} outras — veja todas na agenda financeira.
-                  </li>
-                )}
-              </ul>
-            )}
-          </section>
-
-          {/* ── Próximos vencimentos ──────────────────────────────────── */}
-          <section id="vencimentos" className="scroll-mt-[220px]">
-            <TituloDaSecao
-              icone={CalendarClock} tom="info" contagem={vencimentos.length}
-              acao={<Link to="/financas/agenda" className="text-sm text-primary hover:underline">Ver tudo</Link>}
-            >
-              Próximos vencimentos
-            </TituloDaSecao>
-            {vencimentos.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-2 px-3 border rounded-md">
-                Nada vencendo nos próximos {DIAS_JANELA_VENCIMENTOS} dias.
-              </p>
-            ) : (
-              <ul className="divide-y rounded-md border bg-card">
-                {vencimentos.slice(0, 8).map(v => (
-                  <li key={v.id} className="flex items-center gap-2 px-3 py-2.5 min-h-11">
+                {aprovacoesPendentes.slice(0, 8).map(p => (
+                  <li key={`aprovacao-${p.id}`} className="flex items-center gap-2 px-3 py-2.5 min-h-11">
                     <span className="text-sm min-w-0 flex-1">
-                      <span className={v.urgencia === "vencido" ? "font-medium text-destructive-text" : "font-medium"}>
-                        {nomeExtrato(v, "Vencimento").principal}
-                      </span>
-                      <span className="text-muted-foreground"> — {brl(v.valor)} · {rotuloVencimento(v)}</span>
+                      <span className="font-medium">{nomeExtrato(p).principal}</span>
+                      <span className="text-muted-foreground"> — {brl(p.valor)}</span>
                     </span>
-                    <BotaoPagar vencimento={v} onClick={() => acoes.pagar(v)} />
+                    <BotoesAprovacao onAprovar={() => acoes.aprovar(p)} onRejeitar={() => acoes.rejeitar(p)} />
                   </li>
                 ))}
-                {vencimentos.length > 8 && (
-                  <li className="px-3 py-2 text-xs text-muted-foreground">
-                    + {vencimentos.length - 8} outros nos próximos {DIAS_JANELA_VENCIMENTOS} dias.
-                  </li>
-                )}
               </ul>
-            )}
-          </section>
+            </section>
+          )}
           </>
           )}
-
           {aba === "gestao" && (
           <>
           {/* ── Saldo e movimento (Indicadores Financeiros) ───────────────
@@ -1558,25 +1461,6 @@ export default function PainelTesouraria() {
           </>
           )}
 
-          {/* ── Central de Compliance e Fechamento ─────────────────────────
-              Fase 12, ajuste 3: Contratados e Calculadoras (Folha) saíram
-              daqui — são cadastro/ferramenta, não obrigação com prazo. */}
-          {aba === "fechamento" && (
-          <div className="pt-1">
-            <JanelaAssunto
-              icone={BookOpenCheck} titulo="Compliance & Fechamento"
-              descricao="Obrigação com prazo — o motivo de existir é o mesmo."
-              links={[
-                { to: "/financas/fiscal", label: "Módulo Fiscal", icone: Receipt },
-                { to: "/financas/relatorio", label: "Malote Contábil", icone: Receipt },
-                { to: "/financas/documentos", label: "Central de Documentos", icone: FileStack },
-                { to: "/financas/auditoria-anexos", label: "Auditoria de documentos", icone: ClipboardCheck },
-                { to: "/financas/reunioes", label: "Reuniões Financeiras", icone: Handshake },
-                { to: "/financas/prestacao-de-contas", label: "Prestação de Contas", icone: ScrollText },
-              ]}
-            />
-          </div>
-          )}
         </>
       )}
 
