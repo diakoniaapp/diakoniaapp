@@ -189,14 +189,16 @@ export function FechamentoMensal({ onConciliar }: Props) {
 
       {/* ── 2. lançamentos ──────────────────────────────────────────────── */}
       <Etapa n={2} titulo="Lançamentos" parte={av}
-        situacao={a ? (a.semCategoria.length + a.semCentro.length > 0 ? "bloqueio" : a.semSubcentro.length > 0 ? "atencao" : "ok") : undefined}
-        acao={a && a.semCategoria.length + a.semCentro.length + a.semSubcentro.length > 0 && (
+        situacao={a ? (a.semCategoria.length + a.semCentro.length > 0 ? "bloqueio" : a.semSubcentro.length + a.possiveisOfertasMissionarias.length > 0 ? "atencao" : "ok") : undefined}
+        acao={a && a.semCategoria.length + a.semCentro.length + a.semSubcentro.length + a.possiveisOfertasMissionarias.length > 0 && (
           <Button size="sm" className="h-8 gap-1.5" onClick={() => setCorrecoes(true)}><Wrench className="w-3.5 h-3.5" /> Abrir Correções</Button>
         )}>
         {a && <>
           <Numero rotulo="Sem categoria" valor={String(a.semCategoria.length)} alerta={a.semCategoria.length > 0} />
           <Numero rotulo="Sem centro de custo" valor={String(a.semCentro.length)} alerta={a.semCentro.length > 0} />
           <Numero rotulo="Sem subcentro" valor={String(a.semSubcentro.length)} atencao={a.semSubcentro.length > 0} />
+          <Numero rotulo="⚠ Possível oferta missionária" valor={String(a.possiveisOfertasMissionarias.length)} atencao={a.possiveisOfertasMissionarias.length > 0} />
+          {a.possiveisOfertasMissionarias.length > 0 && <p className="basis-full text-[11px] text-muted-foreground">Pix terminado em ,10 fora de Ofertas para Missões: a tesouraria usa essa marca para missões. É só um aviso para conferir — nada é reclassificado sozinho e o malote não é impedido.</p>}
           {a.semSubcentro.length > 0 && <p className="basis-full text-[11px] text-muted-foreground">Despesa sem subcentro é só atenção: ficou no centro-pai e não impede o malote. Receita (dízimos, ofertas) não precisa de subcentro.</p>}
         </>}
       </Etapa>

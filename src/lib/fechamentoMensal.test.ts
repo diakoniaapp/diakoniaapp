@@ -151,3 +151,25 @@ describe("avaliarFechamento — o que impede o malote", () => {
       .toBe("2 pendências impedem o fechamento de Setembro/2026.");
   });
 });
+
+describe("avaliarFechamento — ⚠ Possível oferta missionária (só atenção)", () => {
+  const pixDizimo = (p: Partial<LancamentoFechamento> = {}) => lanc({
+    tipo: "entrada", valor: 2000.1, categoriaNome: "Dizimos", texto: "DOADOR |  TRANSFERENCIA PIX REM DOADOR 290", ...p,
+  });
+
+  it("Pix ',10' fora de Ofertas para Missões aparece como alerta, mas NÃO bloqueia o malote", () => {
+    const a = avaliarFechamento(2026, 9, [conta()], [pixDizimo(), pixDizimo({ valor: 600.1 })], []);
+    expect(a.possiveisOfertasMissionarias).toHaveLength(2);
+    expect(a.bloqueios).toEqual([]);
+    expect(a.pronto).toBe(true);
+  });
+
+  it("já em Ofertas para Missões, valor sem ',10' ou fora do mês: sem alerta", () => {
+    const a = avaliarFechamento(2026, 9, [conta()], [
+      pixDizimo({ categoriaNome: "Ofertas para Missões" }),
+      pixDizimo({ valor: 2000 }),
+      pixDizimo({ dia: "2026-08-31" }),
+    ], []);
+    expect(a.possiveisOfertasMissionarias).toEqual([]);
+  });
+});

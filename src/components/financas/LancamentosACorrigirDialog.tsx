@@ -16,6 +16,7 @@ import { LancamentoForm } from "@/components/financas/LancamentoForm";
 import { buscarLancamentoParaEditar } from "@/services/fechamentoMensalService";
 import type { FinLancamentoExtenso } from "@/services/finService";
 import type { Avaliacao, LancamentoFechamento } from "@/lib/fechamentoMensal";
+import { AVISO_POSSIVEL_OFERTA_MISSIONARIA } from "@/lib/possivelOfertaMissionaria";
 
 const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const dataBr = (ymd: string) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}`;
@@ -50,6 +51,7 @@ export function LancamentosACorrigirDialog({ open, onOpenChange, avaliacao, onCo
     { chave: "categoria", titulo: "Sem categoria", nota: "Impede o fechamento.", itens: avaliacao.semCategoria, impede: true },
     { chave: "centro", titulo: "Sem centro de custo", nota: "Impede o fechamento.", itens: avaliacao.semCentro, impede: true },
     { chave: "subcentro", titulo: "Sem subcentro", nota: "Só atenção, e só para despesas — o centro escolhido tem subcentros e a despesa ficou no centro-pai. Receita não precisa de subcentro.", itens: avaliacao.semSubcentro, impede: false },
+    { chave: "oferta-missionaria", titulo: "⚠ Possível oferta missionária", nota: AVISO_POSSIVEL_OFERTA_MISSIONARIA, itens: avaliacao.possiveisOfertasMissionarias, impede: false },
   ];
   const total = grupos.reduce((s, g) => s + g.itens.length, 0);
 
@@ -85,7 +87,7 @@ export function LancamentosACorrigirDialog({ open, onOpenChange, avaliacao, onCo
                     <span className="tabular-nums shrink-0">{brl(l.valor)}</span>
                     <Button size="sm" variant="outline" className="h-7 gap-1 text-xs shrink-0"
                       disabled={abrindo === l.id} onClick={() => corrigir(l)}>
-                      {abrindo === l.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Pencil className="w-3 h-3" />} Corrigir
+                      {abrindo === l.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Pencil className="w-3 h-3" />} {g.chave === "oferta-missionaria" ? "Revisar" : "Corrigir"}
                     </Button>
                   </li>
                 ))}

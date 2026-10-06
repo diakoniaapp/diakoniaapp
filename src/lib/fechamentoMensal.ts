@@ -19,8 +19,13 @@
 // pai) e saídas sem documento — o ZIP sai mesmo com pendência (decisão dela, 02/10/2026).
 // NÃO entram: eventos fiscais futuros, obrigações a vencer, vencimentos da semana.
 //
+// TAMBÉM só atenção: "Possível oferta missionária" (Pix ",10" fora de Ofertas para Missões) — ver
+// lib/possivelOfertaMissionaria.ts.
+//
 // Conciliação só vale para conta de tipo `banco` — a única com extrato (OFX) para bater;
 // Caixinha, Envelopes e Cartão não têm (mesma régua do Painel da Tesouraria desde 12/09).
+
+import { possivelOfertaMissionaria } from "@/lib/possivelOfertaMissionaria";
 
 export interface ContaFechamento {
   id: string;
@@ -49,6 +54,10 @@ export interface LancamentoFechamento {
   fornecedor: string;
   /** Texto livre — pode citar quem é, mas NÃO é o fornecedor. */
   descricao?: string;
+  /** Nome da categoria — só para a auditoria "Possível oferta missionária". */
+  categoriaNome?: string;
+  /** Descrição + observações (o banco escreve "TRANSFERENCIA PIX REM …" nas observações). */
+  texto?: string;
 }
 
 export interface CentroFechamento { id: string; paiId: string | null }
@@ -76,6 +85,8 @@ export interface Avaliacao {
   semCategoria: LancamentoFechamento[];
   semCentro: LancamentoFechamento[];
   semSubcentro: LancamentoFechamento[];
+  /** Pix ",10" fora de Ofertas para Missões. Só atenção: nunca bloqueia nem reclassifica. */
+  possiveisOfertasMissionarias: LancamentoFechamento[];
   saldosInconsistentes: { conta: ContaFechamento; esperado: number }[];
   bloqueios: Bloqueio[];
   /** Nada impede gerar o malote. */
@@ -152,6 +163,10 @@ export function avaliarFechamento(
   // (1.101 de Dízimos, 641 de Ofertas); em setembro/2026 eram 31 entradas e 0 despesas.
   const semSubcentro = classificaveis.filter(l => l.tipo === "saida" && !!l.centroId && centrosComFilhos.has(l.centroId));
 
+  // auditoria (06/10/2026): a convenção da tesouraria — Pix terminado em ",10" é oferta missionária —
+  // vira alerta quando o lançamento está em outra categoria. Só atenção; quem decide é a pessoa.
+  const possiveisOfertasMissionarias = classificaveis.filter(l => possivelOfertaMissionaria(l));
+
   // saldo — o saldo gravado tem de ser saldo inicial + movimento
   const saldosInconsistentes = contas
     .filter(c => c.ativo)
@@ -185,7 +200,7 @@ export function avaliarFechamento(
     periodo: { ano, mes, ini, fim, rotulo: rotuloDoMes(ano, mes) },
     conciliacao: { contas: doBanco.length, conciliadas: doBanco.length - pendentes.length, pendentes },
     semMovimento,
-    semCategoria, semCentro, semSubcentro, saldosInconsistentes,
+    semCategoria, semCentro, semSubcentro, possiveisOfertasMissionarias, saldosInconsistentes,
     bloqueios, pronto: bloqueios.length === 0,
   };
 }

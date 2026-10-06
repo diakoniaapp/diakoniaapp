@@ -61,6 +61,8 @@ async function carregarLancamentos(ini: string, fim: string): Promise<Lancamento
     // só o vínculo REAL; usar a descrição aqui apresentava um texto livre como se fosse o fornecedor
     fornecedor: l.fornecedor_nome ?? l.pessoa_nome ?? "",
     descricao: l.descricao ?? "",
+    categoriaNome: l.categoria_nome ?? "",
+    texto: `${l.descricao ?? ""} ${l.observacoes ?? ""}`,
   }));
 }
 
