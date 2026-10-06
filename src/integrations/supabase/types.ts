@@ -5503,6 +5503,9 @@ export type Database = {
           valor: number
           valor_variavel: boolean
           forma_liquidacao: string
+          recorrencia_id: string | null
+          parcela_numero: number | null
+          parcela_total: number | null
         }
         Insert: {
           audit_em?: string | null
@@ -5536,6 +5539,9 @@ export type Database = {
           valor: number
           valor_variavel: boolean
           forma_liquidacao: string
+          recorrencia_id: string | null
+          parcela_numero: number | null
+          parcela_total: number | null
         }
         Update: {
           audit_em?: string | null
@@ -5569,6 +5575,9 @@ export type Database = {
           valor?: number
           valor_variavel?: boolean
           forma_liquidacao?: string
+          recorrencia_id?: string | null
+          parcela_numero?: number | null
+          parcela_total?: number | null
         }
         Relationships: [
           {
@@ -5797,6 +5806,10 @@ export type Database = {
           valor: number
           valor_variavel: boolean
           forma_liquidacao: string
+          pessoa_id: string | null
+          tipo_recorrencia: string
+          total_parcelas: number | null
+          parcela_inicial: number
         }
         Insert: {
           ajusta_dia_util?: boolean
@@ -5822,6 +5835,10 @@ export type Database = {
           valor: number
           valor_variavel?: boolean
           forma_liquidacao?: string
+          pessoa_id?: string | null
+          tipo_recorrencia?: string
+          total_parcelas?: number | null
+          parcela_inicial?: number
         }
         Update: {
           ajusta_dia_util?: boolean
@@ -5847,6 +5864,10 @@ export type Database = {
           valor?: number
           valor_variavel?: boolean
           forma_liquidacao?: string
+          pessoa_id?: string | null
+          tipo_recorrencia?: string
+          total_parcelas?: number | null
+          parcela_inicial?: number
         }
         Relationships: [
           {

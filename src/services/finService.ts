@@ -260,6 +260,10 @@ export interface FinLancamento {
   /** Migration 20261006120000: como será liquidado e se o previsto é só uma estimativa. */
   forma_liquidacao?: FormaLiquidacao;
   valor_variavel?: boolean;
+  /** A recorrência de que nasceu, e a parcela (migration 20261006150000). */
+  recorrencia_id?: string | null;
+  parcela_numero?: number | null;
+  parcela_total?: number | null;
   // Item 7 (22/09/2026): a perna irmã de uma transferência entre contas
   // próprias (`origem === "transferencia"`) — as duas pernas apontam uma
   // pra outra (simétrico, não "pai→filho" de verdade; o nome da coluna já
@@ -1583,11 +1587,20 @@ export interface FinRecorrencia {
   observacao: string | null;
   /** Como a conta é liquidada (migration 20261006120000). Ausente = ainda não migrado = manual. */
   forma_liquidacao?: FormaLiquidacao;
+  /** Favorecido quando é uma PESSOA do catálogo (migration 20261006150000); fornecedor_id é o outro caminho. */
+  pessoa_id?: string | null;
+  /** Contínua (sem fim contado) ou parcelamento (N parcelas). Ausente = contínua. */
+  tipo_recorrencia?: "continua" | "parcelamento";
+  total_parcelas?: number | null;
+  /** O número da parcela que cai em `data_inicio` (1 = a primeira). */
+  parcela_inicial?: number;
   // Preenchido só por `listarRecorrencias()` (join manual, igual
   // `listarLancamentos`) — não existe na tabela. Fase 4.4 do roadmap
   // Financeiro: o dado (`fornecedor_id`) já existia e já era preenchível
   // no formulário desde sempre, mas nenhuma tela mostrava o nome.
   fornecedor_nome?: string;
+  /** Nome da pessoa do catálogo, quando o favorecido é uma pessoa. Preenchido só por `listarRecorrencias()`. */
+  pessoa_nome?: string;
 }
 
 export interface FinVencimento {
@@ -1618,10 +1631,18 @@ export async function listarRecorrencias(incluirInativas = false): Promise<FinRe
   if (recs.length === 0) return recs;
 
   const fornIds = Array.from(new Set(recs.map(r => r.fornecedor_id).filter(Boolean))) as string[];
-  if (fornIds.length === 0) return recs;
-  const { data: forns } = await supabase.from("fin_fornecedores").select("id, nome").in("id", fornIds);
-  const mF = new Map((forns ?? []).map((f: any) => [f.id, f.nome]));
-  return recs.map(r => ({ ...r, fornecedor_nome: r.fornecedor_id ? mF.get(r.fornecedor_id) : undefined }));
+  const pessoaIds = Array.from(new Set(recs.map(r => r.pessoa_id).filter(Boolean))) as string[];
+  const [forns, pessoas] = await Promise.all([
+    fornIds.length ? supabase.from("fin_fornecedores").select("id, nome").in("id", fornIds) : Promise.resolve({ data: [] }),
+    pessoaIds.length ? supabase.from("membros").select("id, nome_completo").in("id", pessoaIds) : Promise.resolve({ data: [] }),
+  ]);
+  const mF = new Map(((forns.data ?? []) as any[]).map(f => [f.id, f.nome]));
+  const mP = new Map(((pessoas.data ?? []) as any[]).map(p => [p.id, p.nome_completo]));
+  return recs.map(r => ({
+    ...r,
+    fornecedor_nome: r.fornecedor_id ? mF.get(r.fornecedor_id) : undefined,
+    pessoa_nome: r.pessoa_id ? mP.get(r.pessoa_id) : undefined,
+  }));
 }
 
 export async function criarRecorrencia(input: Partial<FinRecorrencia>): Promise<FinRecorrencia> {

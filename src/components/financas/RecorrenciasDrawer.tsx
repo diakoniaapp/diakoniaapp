@@ -28,11 +28,13 @@ import {
 import { toast } from "sonner";
 import {
   listarRecorrencias, atualizarRecorrencia, excluirRecorrencia,
-  gerarRecorrencias, FREQUENCIA_LABEL, brl,
+  FREQUENCIA_LABEL, brl,
   type FinRecorrencia,
 } from "@/services/finService";
 import { RecorrenciaForm } from "@/components/financas/RecorrenciaForm";
 import { ROTULO_LIQUIDACAO, normalizarLiquidacao } from "@/lib/formaLiquidacao";
+import { ResumoDaRecorrencia } from "@/components/financas/ResumoDaRecorrencia";
+import { gerarTodasAsRecorrencias } from "@/services/recorrenciaService";
 
 interface Props {
   open: boolean;
@@ -64,7 +66,7 @@ export function RecorrenciasDrawer({ open, onOpenChange }: Props) {
   async function gerarTodos() {
     setGerando(true);
     try {
-      const qtd = await gerarRecorrencias();
+      const qtd = await gerarTodasAsRecorrencias();
       toast.success(`${qtd} lançamento(s) previsto(s) gerado(s)`);
       await carregar();
     } catch (e: any) { toast.error(e?.message ?? "Erro"); }
@@ -139,10 +141,7 @@ export function RecorrenciasDrawer({ open, onOpenChange }: Props) {
                             <Badge variant="outline" className="text-xs bg-info-soft text-info-text border-info-line">{ROTULO_LIQUIDACAO[normalizarLiquidacao(r.forma_liquidacao)]}</Badge>
                           )}
                         </div>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {FREQUENCIA_LABEL[r.frequencia]} · todo dia {r.dia_vencimento}
-                          {r.fornecedor_nome && ` · ${r.fornecedor_nome}`}
-                        </p>
+                        <ResumoDaRecorrencia r={r} />
                       </div>
                     </div>
                     <p className={`text-sm font-semibold tabular-nums shrink-0 ${r.tipo === "entrada" ? "text-success-text" : "text-destructive-text"}`}>
