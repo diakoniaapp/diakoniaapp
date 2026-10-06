@@ -725,6 +725,40 @@ export async function listarFornecedores(busca?: string, incluirInativos = false
   return (data ?? []) as FinFornecedor[];
 }
 
+// ─── Pix de PESSOA (migration 20261006170000) ────────────────────────────
+// A pessoa do catálogo (salário, RPA, côngrua) também recebe por Pix. A chave fica em tabela
+// própria do financeiro (`fin_pessoa_pix`), não em `membros`.
+export interface PixDaPessoa { chave: string; tipo: TipoChavePix | null }
+
+const tabelaDePixAusente = (e: { code?: string; message?: string } | null) =>
+  !!e && (e.code === "42P01" || e.code === "PGRST205" || /fin_pessoa_pix/.test(e.message ?? ""));
+
+/** A pessoa do catálogo a quem o lançamento paga (`pessoa_id`), ou null. */
+export async function pessoaDoLancamento(lancamentoId: string): Promise<{ id: string; nome: string } | null> {
+  const { data: l, error } = await supabase.from("fin_lancamentos").select("pessoa_id").eq("id", lancamentoId).maybeSingle();
+  if (error || !l?.pessoa_id) return null;
+  const { data: p } = await supabase.from("membros").select("id, nome_completo").eq("id", l.pessoa_id).maybeSingle();
+  return p ? { id: p.id, nome: p.nome_completo } : null;
+}
+
+/** `null` = sem chave cadastrada (ou a tabela ainda não existe). */
+export async function buscarPixDaPessoa(pessoaId: string): Promise<PixDaPessoa | null> {
+  const { data, error } = await supabase.from("fin_pessoa_pix").select("chave_pix, tipo_chave_pix").eq("pessoa_id", pessoaId).maybeSingle();
+  if (error) { if (tabelaDePixAusente(error)) return null; throw error; }
+  return data ? { chave: data.chave_pix, tipo: (data.tipo_chave_pix as TipoChavePix | null) } : null;
+}
+
+export async function salvarPixDaPessoa(pessoaId: string, chave: string, tipo: TipoChavePix | null): Promise<void> {
+  const limpa = chave.trim();
+  if (!limpa) throw new Error("Informe a chave Pix");
+  const res = await supabase.from("fin_pessoa_pix")
+    .upsert({ pessoa_id: pessoaId, chave_pix: limpa, tipo_chave_pix: tipo, atualizado_em: new Date().toISOString() })
+    .select("pessoa_id");
+  if (tabelaDePixAusente(res.error)) throw new Error("Falta aplicar a migration 20261006170000 (chave Pix de pessoa) no banco.");
+  const r = conferir(res, "A chave Pix");
+  if (!r.ok) throw new Error(r.erro);
+}
+
 export async function buscarFornecedor(id: string): Promise<FinFornecedor | null> {
   const { data, error } = await supabase.from("fin_fornecedores").select("*").eq("id", id).maybeSingle();
   if (error) throw error;

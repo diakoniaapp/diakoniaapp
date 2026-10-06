@@ -17,7 +17,7 @@
 // — prova que a extração não mudou comportamento nenhum, só o lugar onde
 // mora.
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -32,10 +32,11 @@ import { CheckCircle2, XCircle, Loader2, Copy, QrCode, Paperclip, Wallet } from 
 import { toast } from "sonner";
 import {
   confirmarPagamento, aprovarLancamento, rejeitarLancamento,
-  buscarFornecedor, adicionarAnexo, brl,
+  buscarFornecedor, adicionarAnexo, brl, pessoaDoLancamento, buscarPixDaPessoa, salvarPixDaPessoa,
   type FinVencimento, type FinLancamentoExtenso, type FinFornecedor,
 } from "@/services/finService";
-import { montarPayloadPix, formatarChavePix } from "@/lib/pix";
+import { montarPayloadPix, formatarChavePix, TIPOS_CHAVE_PIX, type TipoChavePix } from "@/lib/pix";
+import { Input } from "@/components/ui/input";
 import QRCode from "qrcode";
 import { mensagemErro } from "@/lib/erroRede";
 
@@ -56,6 +57,50 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
   const [carregandoFornecedor, setCarregandoFornecedor] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [anexoArquivo, setAnexoArquivo] = useState<File | null>(null);
+  // Pagamento a uma PESSOA do catálogo (folha, RPA, côngrua): o lançamento tem `pessoa_id`, não
+  // `fornecedor_id`. A chave Pix dela mora em `fin_pessoa_pix` (migration 20261006170000).
+  const [pessoaPagando, setPessoaPagando] = useState<{ id: string; nome: string; pix: { chave: string; tipo: TipoChavePix | null } | null } | null>(null);
+  const [novaChave, setNovaChave] = useState("");
+  const [novoTipoChave, setNovoTipoChave] = useState<TipoChavePix>("cpf");
+  const [salvandoChave, setSalvandoChave] = useState(false);
+  const [recarregarPix, setRecarregarPix] = useState(0);
+
+  /** O QR a partir de uma chave — erro no QR nunca trava o "Pagar" (Copiar Pix continua). */
+  const gerarQr = useCallback((chave: string, tipo: TipoChavePix | null, nome: string, valor: number, cancelado: () => boolean) => {
+    const payload = montarPayloadPix({ chave, tipoChave: tipo, nomeRecebedor: nome, valor });
+    QRCode.toDataURL(payload, { margin: 1, width: 220 })
+      .then(url => { if (!cancelado()) setQrDataUrl(url); })
+      .catch(() => { if (!cancelado()) setQrDataUrl(null); });
+  }, []);
+
+  useEffect(() => {
+    setPessoaPagando(null); setNovaChave("");
+    if (!confirmando || confirmando.tipo !== "saida" || confirmando.fornecedor_id) return;
+    let cancelado = false;
+    setCarregandoFornecedor(true);
+    (async () => {
+      const p = await pessoaDoLancamento(confirmando.id).catch(() => null);
+      if (!p || cancelado) return;
+      const pix = await buscarPixDaPessoa(p.id).catch(() => null);
+      if (cancelado) return;
+      setPessoaPagando({ id: p.id, nome: p.nome, pix });
+      if (pix) gerarQr(pix.chave, pix.tipo, p.nome, Number(confirmando.valor), () => cancelado);
+      else setQrDataUrl(null);
+    })().finally(() => { if (!cancelado) setCarregandoFornecedor(false); });
+    return () => { cancelado = true; };
+  }, [confirmando, recarregarPix, gerarQr]);
+
+  async function guardarChaveDaPessoa() {
+    if (!pessoaPagando) return;
+    setSalvandoChave(true);
+    try {
+      await salvarPixDaPessoa(pessoaPagando.id, novaChave, novoTipoChave);
+      toast.success(`Chave Pix de ${pessoaPagando.nome} guardada`);
+      setRecarregarPix(n => n + 1);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Não foi possível guardar a chave");
+    } finally { setSalvandoChave(false); }
+  }
 
   useEffect(() => {
     if (!confirmando || confirmando.tipo !== "saida" || !confirmando.fornecedor_id) {
@@ -250,11 +295,50 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
               )}
               {/* Sem fornecedor ligado ao lançamento não há de onde tirar a chave Pix: antes o QR
                   simplesmente não aparecia, sem explicação (relato dela, 06/10/2026). */}
-              {!confirmando.fornecedor_id && (
+              {pessoaPagando?.pix && (
+                <div className="rounded-md border bg-muted/20 p-2.5 space-y-2">
+                  <p className="text-xs font-medium flex items-center gap-1.5">
+                    <Wallet className="w-3.5 h-3.5 text-gold" /> Pix de {pessoaPagando.nome}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{formatarChavePix(pessoaPagando.pix.chave, pessoaPagando.pix.tipo)}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button type="button" size="sm" variant="outline" className="gap-1.5"
+                      onClick={() => {
+                        navigator.clipboard.writeText(montarPayloadPix({
+                          chave: pessoaPagando.pix!.chave, tipoChave: pessoaPagando.pix!.tipo,
+                          nomeRecebedor: pessoaPagando.nome, valor: Number(confirmando.valor),
+                        }));
+                        toast.success("Código Pix copiado — cole no app do seu banco");
+                      }}>
+                      <Copy className="w-3.5 h-3.5" /> Copiar Pix
+                    </Button>
+                    {qrDataUrl && <span className="text-xs text-muted-foreground flex items-center gap-1"><QrCode className="w-3.5 h-3.5" /> ou escaneie:</span>}
+                  </div>
+                  {qrDataUrl && <img src={qrDataUrl} alt="QR Code do Pix" width={140} height={140} className="rounded border bg-white p-1 mx-auto" />}
+                </div>
+              )}
+              {pessoaPagando && !pessoaPagando.pix && !carregandoFornecedor && (
+                <div className="rounded-md border border-dashed p-2.5 space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    <strong className="text-foreground">{pessoaPagando.nome}</strong> ainda não tem chave Pix cadastrada.
+                    Informe uma vez e o QR Code passa a aparecer em todos os pagamentos dela.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <select value={novoTipoChave} onChange={(e) => setNovoTipoChave(e.target.value as TipoChavePix)}
+                      className="h-8 rounded-md border border-input bg-background px-2 text-xs" aria-label="Tipo da chave">
+                      {TIPOS_CHAVE_PIX.map(t => <option key={t.valor} value={t.valor}>{t.rotulo}</option>)}
+                    </select>
+                    <Input value={novaChave} onChange={(e) => setNovaChave(e.target.value)} placeholder="Chave Pix" className="h-8 text-xs flex-1 min-w-[10rem]" />
+                    <Button type="button" size="sm" variant="outline" disabled={!novaChave.trim() || salvandoChave} onClick={guardarChaveDaPessoa}>
+                      {salvandoChave ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Guardar chave"}
+                    </Button>
+                  </div>
+                </div>
+              )}
+              {!confirmando.fornecedor_id && !pessoaPagando && !carregandoFornecedor && (
                 <p className="text-xs text-muted-foreground rounded-md border border-dashed p-2">
-                  Sem QR Code Pix: este lançamento não está ligado a um <strong>fornecedor</strong> com chave Pix cadastrada.
-                  Edite o lançamento (ou a recorrência) e escolha o favorecido no cadastro; se ele for uma pessoa da
-                  folha/RPA, cadastre-a também como fornecedor com a chave Pix.
+                  Sem QR Code Pix: este lançamento não está ligado a um favorecido (fornecedor ou pessoa do catálogo).
+                  Edite o lançamento (ou a recorrência) e escolha o favorecido no cadastro.
                 </p>
               )}
               {!carregandoFornecedor && confirmando.fornecedor_id && !fornecedorPagando?.chave_pix && (

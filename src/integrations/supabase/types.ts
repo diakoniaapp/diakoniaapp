@@ -5687,6 +5687,30 @@ export type Database = {
           },
         ]
       }
+      fin_pessoa_pix: {
+        Row: {
+          atualizado_em: string
+          atualizado_por: string | null
+          chave_pix: string
+          pessoa_id: string
+          tipo_chave_pix: string | null
+        }
+        Insert: {
+          atualizado_em?: string
+          atualizado_por?: string | null
+          chave_pix: string
+          pessoa_id: string
+          tipo_chave_pix?: string | null
+        }
+        Update: {
+          atualizado_em?: string
+          atualizado_por?: string | null
+          chave_pix?: string
+          pessoa_id?: string
+          tipo_chave_pix?: string | null
+        }
+        Relationships: []
+      }
       fin_projetos: {
         Row: {
           cor: string | null
