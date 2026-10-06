@@ -129,3 +129,84 @@ conter duas classes — hoje não precisa.
 - Nenhuma gravação em produção. Todas as medições foram `SELECT`.
 - O universo do "Enviado" não foi alterado (decisão 1 acima).
 - "Ofertas para Missões" ainda busca a categoria por **nome exato** (existe e é única).
+
+## 6. Decisões dela (06/10/2026) e o campo "Campanha Missionária"
+
+**Respostas:** a prebenda do Pastor Missionário é **custo mensal da igreja** (centro
+Missões e Evangelismo), não entra no fundo. Projetos por campanha/ano estão
+**descartados** (manutenção contínua). A campanha de uma oferta depende da **data**:
+Mundiais corre no 1º semestre até a remessa; o saldo deve zerar para abrir Nacionais.
+
+### 6.1 A regra dela contra os dados reais
+
+Regra testada: *a oferta pertence à campanha da próxima remessa; a remessa fecha o ciclo.*
+Resultado (entradas "Ofertas para Missões" × repasses, por ciclo):
+
+| Campanha | Arrecadado | Enviado | Diferença |
+|---|---|---|---|
+| Mundiais 2024 | 25.801,41 | 37.834,10 | −12.032,69 |
+| Nacionais 2024 | 29.563,62 | 24.050,00 | +5.513,62 |
+| Mundiais 2025 | 29.718,89 | 44.046,98 | −14.328,09 |
+| Nacionais 2025 | 28.235,97 | 29.963,58 | −1.727,61 |
+| Mundiais 2026 | 28.587,10 | 26.660,23 | +1.926,87 |
+| Nacionais 2026 (aberta) | 4.040,10 | — | +4.040,10 |
+| **Total** | 145.947,09 | 162.554,89 | **−16.607,80** |
+
+A soma fecha com o fundo da tela, centavo a centavo — a regra particiona o histórico
+sem sobra. Duas leituras: (1) **Nacionais 2025 e Mundiais 2026 quase zeram** (−1,7 mil
+e +1,9 mil), o ciclo que ela descreve existe; (2) **Mundiais 2024 e 2025 enviaram
+12–14 mil acima do arrecadado** — o que explica o fundo negativo: o déficit nasceu nesses
+dois envios. Nacionais 2026 tem R$ 4.040,10 (20% da meta de 20.000) desde 21/07.
+
+Cuidado: o **centro gravado na remessa nem sempre bate com a Junta de destino** (ex.:
+R$ 10.327,58 de 12/07/2024 foi à Junta *Nacional* e está no centro Mundiais; R$ 337,00
+de 08/07/2025 idem). Por isso a campanha da remessa deve vir do **ciclo**, não do centro
+atual — e esses dois lançamentos merecem conferência dela.
+
+### 6.2 Veredito sobre o campo
+
+**Sim, é melhor que projetos** — e já existe a dimensão em forma torta: os centros
+"Missões Mundiais"/"Missões Nacionais" estão fazendo o papel de campanha, misturando
+*onde gastou* com *para qual campanha*. Campanha é ortogonal a centro; um campo próprio
+é o modelo certo e o ano sai da data do lançamento (zero manutenção anual).
+
+- `fin_lancamentos.campanha_missionaria`: `null` (nenhuma) · `mundiais` · `nacionais` ·
+  `especial`. Coluna única, com CHECK; o app usa o padrão de sonda de coluna (funciona
+  antes da migration).
+- **Não é digitado à mão para as 648 ofertas**: o histórico é preenchido por SQL com a
+  regra do ciclo (gerado para ela revisar antes de rodar); daqui em diante o formulário
+  de oferta sugere a **campanha aberta** (a oposta à da última remessa — hoje, Nacionais)
+  e ela troca se for Especial.
+- A **remessa** herda a campanha do que está fechando; na tela de remessa vira um select.
+- **Meta**: sem projeto, a meta precisa morar em algum lugar. Opção recomendada: uma
+  tabela mínima `fin_metas_campanha (campanha, ano, valor)` — uma linha por campanha/ano,
+  opcional; sem ela o painel mostra só o arrecadado. É um número por ano, não um cadastro.
+  (Alternativa sem tabela: usar o arrecadado do ano anterior como referência.)
+
+### 6.3 Estrutura de centros que ela propôs
+
+Centro "Missões e Evangelismo" com subcentros **Sustento Missionário**, **Mobilização
+Missionária**, **Envios Missionários**. Mapeamento do que existe:
+
+| Hoje | Vira | Lançamentos |
+|---|---|---|
+| Pastor Missionário (prebenda) | Sustento Missionário | 11 |
+| Ofertas Missionárias (parcerias R$ 300) | Sustento Missionário | 30 |
+| Missões Mundiais / Nacionais (repasses) | Envios Missionários + campanha | 13 |
+| Missões Mundiais (entradas) | sem centro de custo de gasto; só campanha | 224 |
+| — | Mobilização Missionária | 0 (novo) |
+
+Riscos a conferir antes de mexer nos centros: o Plano de Contas oficial precisa casar
+com os relatórios trimestrais impressos, e orçamento/DRE por centro mudam de rubrica.
+Caminho seguro: criar os 3 subcentros novos, remapear por SQL e **desativar** (não
+apagar) os 4 antigos.
+
+### 6.4 O que isso muda nos painéis
+
+- **Fundo/Campanhas**: arrecadado por campanha (campo) × enviado por campanha (campo
+  nas remessas) → Mundiais, Nacionais e Especial, cada uma com seu saldo e, havendo meta,
+  o percentual.
+- **Custo missionário da igreja** (painel à parte, fora do fundo): prebenda + parcerias,
+  por mês, via subcentro Sustento Missionário.
+- **Pergunta em aberto (a única)**: as **parcerias de R$ 300/mês** são custo da igreja
+  como a prebenda (recomendo — mesmo subcentro Sustento) ou saem do fundo?
