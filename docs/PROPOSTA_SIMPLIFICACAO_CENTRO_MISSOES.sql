@@ -1,4 +1,6 @@
 -- ─── RASCUNHO PARA REVISÃO — simplificação do centro "Min. Evangelismo e Missões" em 4 subcentros ───
+-- (revisão 2, de 06/10/2026, com as respostas dela: campanhas moram em "Campanhas Missionárias";
+--  toda prebenda do pastor missionário Alexandre vai para "Sustento Missionário")
 --
 -- NÃO É UMA MIGRATION: está em docs/ de propósito, para ninguém aplicar por engano. Só vira migration
 -- (supabase/migrations/…) depois da sua aprovação, e então é ensaiada com BEGIN/ROLLBACK, como as outras.
@@ -6,15 +8,19 @@
 -- Proposta e números: docs/PROPOSTA_SIMPLIFICACAO_CENTRO_MISSOES.md
 --
 -- ESTRUTURA FINAL (decisões dela de 06/10/2026):
---   1. Sustento Missionário     — o que já existe; perde os 29 de R$ 300 (vão para Projetos) e ganha as 2 prebendas
---                                 que estão no centro antigo "Pastor Missionário"
---   2. Campanhas de Missões     — o "Envios Missionários" RENOMEADO (mesmo id: nada se perde); ganha 5 despesas da feira
+--   1. Sustento Missionário     — o que já existe; perde os 29 de R$ 300 (vão para Projetos) e ganha TODA prebenda do
+--                                 pastor missionário Alexandre (2 estavam no centro antigo "Pastor Missionário",
+--                                 2 PREVISTOS de nov/dez 2026 estavam sem centro e sem categoria)
+--   2. Campanhas Missionárias   — o "Envios Missionários" RENOMEADO (mesmo id: nada se perde). Aqui moram as campanhas
+--                                 Mundiais e Nacionais: ENTRADAS (ofertas) e SAÍDAS (repasses às Juntas + custo da feira)
 --   3. Projetos Missionários    — NOVO; recebe Cristolândia (2 panetones) e Carreta (29 × R$ 300, projeto novo)
 --   4. Ofertas Missionárias     — o centro antigo de mesmo nome, reaproveitado (só saídas); recebe a oferta ao preletor
---   (Mobilização, Pastor Missionário e Missões Nacionais ficam inativos DEPOIS de vazios — nunca apagados.)
+--   (Mobilização, Pastor Missionário e Missões Nacionais ficam inativos DEPOIS de vazios — nunca apagados.
+--    "Missões Mundiais" ela mesma já excluiu.)
 --
--- O QUE NÃO MUDA: o Fundo Missionário (−7.830,22), o campo "Campanha missionária", categorias, valores, datas,
--- contas, conciliação. Só mudam centro_custo_id (e projeto_id nos 29 da Carreta).
+-- O QUE NÃO MUDA: o Fundo Missionário (é por CATEGORIA), o campo "Campanha missionária", categorias (exceto o centro
+-- padrão de duas), valores, datas, contas, conciliação. Só mudam centro_custo_id (e projeto_id nos 29 da Carreta;
+-- categoria_id só nos 2 previstos do Alexandre, que estão sem categoria).
 --
 -- Cada UPDATE é guardado por id/critério + estado antigo + contagem esperada (rodar de novo não faz nada) e há
 -- verificação final por SOMA em cada subcentro. Qualquer divergência dá RAISE EXCEPTION e desfaz tudo.
@@ -22,9 +28,12 @@
 DO $$
 DECLARE
   c_pai uuid; c_sust uuid; c_camp uuid; c_proj uuid; c_mob uuid; p_carreta uuid; cat_preletores uuid; n int; soma numeric;
-  c_ofer   constant uuid := 'fce184f5-46ff-4201-9778-f8576e06b418';  -- Ofertas Missionárias (centro antigo, reaproveitado)
-  c_pastor constant uuid := 'ae0365b8-adf8-49d9-bcfb-df7cfc63451c';  -- Pastor Missionário (antigo)
-  c_nac    constant uuid := 'bec7c1e9-f524-4902-b336-07ce38ae198b';  -- Missões Nacionais (antigo)
+  c_ofer       constant uuid := 'fce184f5-46ff-4201-9778-f8576e06b418';  -- Ofertas Missionárias (centro antigo, reaproveitado)
+  c_pastor     constant uuid := 'ae0365b8-adf8-49d9-bcfb-df7cfc63451c';  -- Pastor Missionário (antigo)
+  c_nac        constant uuid := 'bec7c1e9-f524-4902-b336-07ce38ae198b';  -- Missões Nacionais (antigo)
+  f_alexandre  constant uuid := 'fb315437-d175-48ea-b9b7-1befc520602c';  -- Alexandre Lourenço Silva (pastor missionário)
+  cat_prebenda constant uuid := '93bbe7b8-4fdf-4d38-9bf5-698b25722d36';  -- Prebenda (saída)
+  cat_ofertas  constant uuid := '42bc6e2a-a73a-4717-bec6-99e851f1bf84';  -- Ofertas para Missões (entrada) = receita do Fundo
 BEGIN
   SELECT id INTO c_pai  FROM public.fin_centros_custo WHERE nome = 'Min. Evangelismo e Missões';
   SELECT id INTO c_sust FROM public.fin_centros_custo WHERE nome = 'Evangelismo e Missões · Sustento Missionário';
@@ -32,14 +41,21 @@ BEGIN
   IF c_pai IS NULL OR c_sust IS NULL OR c_mob IS NULL THEN
     RAISE EXCEPTION 'Centro-pai, Sustento ou Mobilização não encontrado.';
   END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.fin_fornecedores WHERE id = f_alexandre AND nome ILIKE 'ALEXANDRE LOUREN%') THEN
+    RAISE EXCEPTION 'O fornecedor Alexandre Lourenço Silva não foi encontrado pelo id esperado.';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.fin_categorias WHERE id = cat_prebenda AND nome = 'Prebenda' AND tipo = 'saida')
+     OR NOT EXISTS (SELECT 1 FROM public.fin_categorias WHERE id = cat_ofertas AND nome = 'Ofertas para Missões' AND tipo = 'entrada') THEN
+    RAISE EXCEPTION 'Categoria Prebenda ou Ofertas para Missões não encontrada pelo id esperado.';
+  END IF;
 
-  -- 1) Envios Missionários → Campanhas de Missões (renomeia; o id e todos os lançamentos continuam)
+  -- 1) Envios Missionários → Campanhas Missionárias (renomeia; o id e todos os lançamentos continuam)
   UPDATE public.fin_centros_custo
-     SET nome = 'Evangelismo e Missões · Campanhas de Missões',
-         descricao = 'Campanhas Mundiais e Nacionais: repasses às Juntas (Envio Oficial, categoria Repasses Missionários) e o custo de arrecadá-las (feira, banner, material).'
+     SET nome = 'Evangelismo e Missões · Campanhas Missionárias',
+         descricao = 'Campanhas Mundiais e Nacionais: ofertas arrecadadas, repasses às Juntas (Envio Oficial, categoria Repasses Missionários) e o custo de arrecadá-las (feira, banner, material).'
    WHERE nome = 'Evangelismo e Missões · Envios Missionários';
-  SELECT id INTO c_camp FROM public.fin_centros_custo WHERE nome = 'Evangelismo e Missões · Campanhas de Missões';
-  IF c_camp IS NULL THEN RAISE EXCEPTION 'Campanhas de Missões não existe (o Envios Missionários não foi achado).'; END IF;
+  SELECT id INTO c_camp FROM public.fin_centros_custo WHERE nome = 'Evangelismo e Missões · Campanhas Missionárias';
+  IF c_camp IS NULL THEN RAISE EXCEPTION 'Campanhas Missionárias não existe (o Envios Missionários não foi achado).'; END IF;
 
   -- 2) Projetos Missionários (novo)
   INSERT INTO public.fin_centros_custo (nome, vinculo_tipo, centro_pai_id, cor, ativo, descricao)
@@ -53,7 +69,7 @@ BEGIN
   -- 3) Ofertas Missionárias: o centro antigo passa a ser só de SAÍDAS (entregas diretas a missionários)
   UPDATE public.fin_centros_custo
      SET ativo = true, centro_pai_id = c_pai,
-         descricao = 'Entregas diretas a missionários: visitantes, quem prega na igreja, ajuda pontual, vocacionados. NÃO é a receita "Ofertas para Missões".'
+         descricao = 'Entregas diretas a missionários: visitantes, quem prega na igreja, ajuda pontual, vocacionados. NÃO é a receita "Ofertas para Missões" (essa mora em Campanhas Missionárias).'
    WHERE id = c_ofer;
 
   -- 4) Projeto Carreta Missionária (missionário, sem ano)
@@ -95,46 +111,59 @@ BEGIN
   GET DIAGNOSTICS n = ROW_COUNT;
   IF n NOT IN (0, 1) THEN RAISE EXCEPTION 'Esperava 1 oferta ao preletor (ou 0); achei %.', n; END IF;
 
-  -- e) as prebendas que ficaram no centro antigo "Pastor Missionário" (jul e ago/2026) → Sustento. Esperado: 2.
-  UPDATE public.fin_lancamentos SET centro_custo_id = c_sust WHERE tipo = 'saida' AND centro_custo_id = c_pastor;
+  -- e) TODA despesa do pastor missionário Alexandre (filtro pelo FORNECEDOR, não pela categoria — o pastor titular e
+  --    outros também recebem "Prebenda") → Sustento Missionário. Esperado: 4 =
+  --      2 realizadas no centro antigo "Pastor Missionário" (jul e ago/2026, R$ 4.724,00) +
+  --      2 PREVISTAS de 05/11 e 05/12/2026 (R$ 2.362,00 cada), importadas do Omie SEM centro e SEM categoria.
+  --    Nos 2 previstos a categoria vazia vira "Prebenda" (a mesma das 32 já classificadas dele).
+  UPDATE public.fin_lancamentos
+     SET centro_custo_id = c_sust,
+         categoria_id    = COALESCE(categoria_id, cat_prebenda)
+   WHERE tipo = 'saida' AND fornecedor_id = f_alexandre
+     AND (categoria_id = cat_prebenda OR categoria_id IS NULL)
+     AND centro_custo_id IS DISTINCT FROM c_sust;
   GET DIAGNOSTICS n = ROW_COUNT;
-  IF n NOT IN (0, 2) THEN RAISE EXCEPTION 'Esperava 2 prebendas no centro antigo (ou 0); achei %.', n; END IF;
+  IF n NOT IN (0, 4) THEN RAISE EXCEPTION 'Esperava 4 lançamentos do Alexandre fora do Sustento (ou 0); achei %.', n; END IF;
 
-  -- f) ENTRADAS que estavam em subcentros de saída (1 em Campanhas/Envios, 4 em Ofertas Missionárias) → centro-pai,
-  --    que é o centro padrão de "Ofertas para Missões". Esperado: 5 (ou menos, se alguma já foi movida).
-  UPDATE public.fin_lancamentos SET centro_custo_id = c_pai WHERE tipo = 'entrada' AND centro_custo_id IN (c_camp, c_ofer);
+  -- f) as OFERTAS do Fundo ("Ofertas para Missões") passam a morar em Campanhas Missionárias: as sem centro e as 4
+  --    que estavam em Ofertas Missionárias (que agora é só de saídas). Esperado: 651 = 646 conciliadas + 1 realizada
+  --    sem centro + 4 em Ofertas Missionárias — e nenhuma é movida de outro centro. (1 oferta já estava em Envios e
+  --    1 está em "Min. Administração": esta última NÃO é tocada — ver pergunta no documento.)
+  UPDATE public.fin_lancamentos SET centro_custo_id = c_camp
+   WHERE tipo = 'entrada' AND categoria_id = cat_ofertas
+     AND (centro_custo_id IS NULL OR centro_custo_id = c_ofer);
   GET DIAGNOSTICS n = ROW_COUNT;
-  IF n > 5 THEN RAISE EXCEPTION 'Esperava no máximo 5 entradas fora do lugar; achei %.', n; END IF;
+  IF n NOT IN (0, 651) THEN RAISE EXCEPTION 'Esperava 651 ofertas do Fundo para mover (ou 0); achei %.', n; END IF;
 
-  -- g) o centro padrão da categoria "Ofertas à Preletores" passa a ser Ofertas Missionárias
+  -- g) centro padrão das categorias: nova oferta já nasce no lugar certo
+  UPDATE public.fin_categorias SET centro_custo_padrao_id = c_camp WHERE id = cat_ofertas;  -- Ofertas para Missões
   SELECT id INTO cat_preletores FROM public.fin_categorias WHERE nome = 'Ofertas à Preletores' AND tipo = 'saida';
   IF cat_preletores IS NOT NULL THEN
     UPDATE public.fin_categorias SET centro_custo_padrao_id = c_ofer WHERE id = cat_preletores;
   END IF;
+  -- (Repasses Missionários já aponta para o Envios renomeado — mesmo id — e continua certo.)
 
   -- h) desativa (NUNCA apaga) os que ficaram VAZIOS — qualquer lançamento (de qualquer status) segura o centro ativo
   UPDATE public.fin_centros_custo SET ativo = false
    WHERE id IN (c_mob, c_pastor, c_nac)
      AND NOT EXISTS (SELECT 1 FROM public.fin_lancamentos l WHERE l.centro_custo_id = fin_centros_custo.id);
 
-  -- ── verificação final por SOMA (só saídas realizadas/conciliadas) ─────────
+  -- ── verificação final ─────────────────────────────────────────────────────
+  -- por SOMA (só saídas realizadas/conciliadas)
   SELECT COALESCE(SUM(valor), 0) INTO soma FROM public.fin_lancamentos WHERE tipo = 'saida' AND status IN ('realizado', 'conciliado') AND centro_custo_id = c_sust;
   IF soma <> 70592.93 THEN RAISE EXCEPTION 'Sustento deveria somar 70.592,93; soma %.', soma; END IF;
   SELECT COALESCE(SUM(valor), 0) INTO soma FROM public.fin_lancamentos WHERE tipo = 'saida' AND status IN ('realizado', 'conciliado') AND centro_custo_id = c_camp;
-  IF soma <> 158152.29 THEN RAISE EXCEPTION 'Campanhas deveria somar 158.152,29; soma %.', soma; END IF;
+  IF soma <> 158152.29 THEN RAISE EXCEPTION 'Campanhas deveria somar 158.152,29 de saídas; soma %.', soma; END IF;
   SELECT COALESCE(SUM(valor), 0) INTO soma FROM public.fin_lancamentos WHERE tipo = 'saida' AND status IN ('realizado', 'conciliado') AND centro_custo_id = c_proj;
   IF soma <> 13750.00 THEN RAISE EXCEPTION 'Projetos deveria somar 13.750,00; soma %.', soma; END IF;
   SELECT COALESCE(SUM(valor), 0) INTO soma FROM public.fin_lancamentos WHERE tipo = 'saida' AND status IN ('realizado', 'conciliado') AND centro_custo_id = c_ofer;
   IF soma <> 150.00 THEN RAISE EXCEPTION 'Ofertas Missionárias deveria somar 150,00; soma %.', soma; END IF;
-END $$;
 
--- ─── OPCIONAL (decisão dela) — as 647 ofertas do fundo sem centro → "Min. Evangelismo e Missões" ──────────────────
--- Hoje o Fechamento mensal BLOQUEIA o malote por "entrada sem centro de custo"; 647 das 653 entradas do fundo estão
--- assim (o centro "Missões Mundiais", que guardava 224 delas, foi excluído hoje e o banco as deixou sem centro).
--- É o centro padrão da categoria "Ofertas para Missões". Não muda saldo nem fundo.
---
---   UPDATE public.fin_lancamentos
---      SET centro_custo_id = (SELECT id FROM public.fin_centros_custo WHERE nome = 'Min. Evangelismo e Missões')
---    WHERE tipo = 'entrada' AND centro_custo_id IS NULL
---      AND categoria_id = (SELECT id FROM public.fin_categorias WHERE nome = 'Ofertas para Missões' AND tipo = 'entrada');
---   -- esperado: 647 linhas
+  -- por contagem
+  SELECT COUNT(*) INTO n FROM public.fin_lancamentos WHERE fornecedor_id = f_alexandre AND tipo = 'saida' AND centro_custo_id IS DISTINCT FROM c_sust;
+  IF n <> 0 THEN RAISE EXCEPTION 'Ainda há % lançamentos do Alexandre fora do Sustento.', n; END IF;
+  SELECT COUNT(*) INTO n FROM public.fin_lancamentos WHERE tipo = 'entrada' AND categoria_id = cat_ofertas AND centro_custo_id IS NULL;
+  IF n <> 0 THEN RAISE EXCEPTION 'Ainda há % ofertas do Fundo sem centro.', n; END IF;
+  SELECT COUNT(*) INTO n FROM public.fin_lancamentos WHERE tipo = 'entrada' AND centro_custo_id = c_ofer;
+  IF n <> 0 THEN RAISE EXCEPTION 'Ofertas Missionárias deveria ter só saídas; achei % entradas.', n; END IF;
+END $$;
