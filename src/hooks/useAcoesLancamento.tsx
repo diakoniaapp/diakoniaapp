@@ -248,6 +248,15 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
                   )}
                 </div>
               )}
+              {/* Sem fornecedor ligado ao lançamento não há de onde tirar a chave Pix: antes o QR
+                  simplesmente não aparecia, sem explicação (relato dela, 06/10/2026). */}
+              {!confirmando.fornecedor_id && (
+                <p className="text-xs text-muted-foreground rounded-md border border-dashed p-2">
+                  Sem QR Code Pix: este lançamento não está ligado a um <strong>fornecedor</strong> com chave Pix cadastrada.
+                  Edite o lançamento (ou a recorrência) e escolha o favorecido no cadastro; se ele for uma pessoa da
+                  folha/RPA, cadastre-a também como fornecedor com a chave Pix.
+                </p>
+              )}
               {!carregandoFornecedor && confirmando.fornecedor_id && !fornecedorPagando?.chave_pix && (
                 <p className="text-xs text-muted-foreground">
                   Este fornecedor ainda não tem chave Pix cadastrada.{" "}
