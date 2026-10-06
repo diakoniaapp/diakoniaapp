@@ -309,6 +309,35 @@ QUARTA I B R JANEIRO 07/08/2026
     expect(d.rotulo).toBe("Guia de IPTU");
   });
 
+  it("ISS real (06/10/2026): linha digitável, competência e nº da guia — competência vem na linha de baixo do rótulo", () => {
+    const real = `01. RECEITA
+101-5
+02. INSCRIÇÃO MUNICIPAL
+99999926
+10. CONTRIBUÍNTE 03. DATA DE VENCIMENTO
+QUARTA IGREJA BATISTA DO RIO DE JANEIRO 06/10/2026
+11. INFORMAÇÕES COMPLEMENTARES 04. COMPETÊNCIA
+CNPJ: 27.639.285/0001-61 09/2026
+05. GUIA (USO DA REPARTIÇÃO) BASE DE CÁLCULO: R$630,35 ALÍQUOTA: 5,00%
+20260000002984 ISS ORIGINAL: R$31,51 ISS ATUALIZADO: R$31,51
+06. VALOR DO TRIBUTO NOTA(S) FISCAL(IS): 19680587, 19680596
+R$ 31,51
+ISS - IMPOSTO SOBRE SERVIÇOS
+ESTE DOCUMENTO DEVE SER UTILIZADO EXCLUSIVAMENTE PARA PAGAMENTO DE ISS *************
+08. VALOR DA MULTA BANCOS OU CASAS LOTÉRICAS NÃO ESTÃO AUTORIZADOS
+A RECEBER ESSE DARM APÓS 06/10/2026
+*************
+09. VALOR TOTAL
+R$ 31,51
+81680000000.1 31513659202.1 61006101202.3 60000002984.0`;
+    const d = lerDocumentoDePagamento(real);
+    expect(d).toMatchObject({
+      tipo: "guia", subtipoGuia: "iss", valor: 31.51, vencimento: "2026-10-06", competencia: "2026-09",
+      numeroDocumento: "20260000002984", codigoValido: true,
+      linhaDigitavel: "816800000001315136592021610061012023600000029840",
+    });
+  });
+
   it("NFS-e que cita 'ISS retido' continua NÃO sendo guia", () => {
     expect(lerDocumentoDePagamento("NFS-e Nº 55 Prestador LOJA LTDA\nISS retido: R$ 10,00\nValor total 200,00").tipo).not.toBe("guia");
   });

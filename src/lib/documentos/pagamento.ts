@@ -276,6 +276,26 @@ function competenciaDoTexto(p: string): string | null {
   return null;
 }
 
+// ── DARM da Prefeitura (ISS / IPTU) ─────────────────────────────────────────
+
+/**
+ * No DARM do Rio o rótulo "04. COMPETÊNCIA" vem com o valor na linha de BAIXO, depois de outro campo
+ * ("CNPJ: 27.639.285/0001-61 09/2026" — medido na guia de ISS de 06/10/2026). Só aceita mês/ano que não
+ * faça parte de uma data completa (06/10/2026 não vira 10/2026).
+ */
+function competenciaDoDarm(p: string): string | null {
+  const i = p.indexOf("competencia");
+  if (i < 0) return null;
+  const m = p.slice(i, i + 160).match(/(?<![\d/])(0[1-9]|1[0-2])\/(20\d{2})(?!\d)/);
+  return m ? `${m[2]}-${m[1]}` : null;
+}
+
+/** "05. GUIA (USO DA REPARTIÇÃO)": o nº da guia (14 dígitos: 20260000002984) fica numa linha à parte, depois da base de cálculo. */
+function numeroDaGuiaDoDarm(p: string): string | null {
+  const m = p.match(/guia \(uso da reparticao\)[^]{0,200}?(?<![\d.,])(\d{10,20})(?![\d.,])/);
+  return m ? m[1] : null;
+}
+
 // ── fatura ──────────────────────────────────────────────────────────────────
 
 function subtipoDeFatura(p: string, seg: ArrecadacaoDecodificada | null): SubtipoDeFatura | null {
@@ -405,9 +425,12 @@ export function lerDocumentoDePagamento(textoBruto: string): DocumentoDePagament
 
   return {
     tipo, subtipoGuia: sub, subtipoFatura: tipo === "fatura" ? subFatura ?? "outra" : null, rotulo, valor, vencimento,
-    beneficiario, cnpjBeneficiario: cnpj, banco, numeroDocumento: numeroDoDocumento(p, texto),
+    beneficiario, cnpjBeneficiario: cnpj, banco,
+    numeroDocumento: numeroDoDocumento(p, texto) ?? (sub === "iss" || sub === "iptu" ? numeroDaGuiaDoDarm(p) : null),
     // competência só existe em guia e fatura; em boleto/Pix a regex pegava datas soltas (medido: "07/2026" de uma data de emissão)
-    competencia: tipo === "guia" || tipo === "fatura" ? competenciaDoTexto(p) : null, codigoReceita: sub === "darf" || sub === "irrf" ? codigoDaReceita(texto) : null, linhaDigitavel: codigo?.linhaDigitavel ?? null, codigoBarras: codigo?.codigoBarras ?? null,
+    competencia: tipo === "guia" || tipo === "fatura"
+      ? competenciaDoTexto(p) ?? (sub === "iss" || sub === "iptu" ? competenciaDoDarm(p) : null) : null,
+     codigoReceita: sub === "darf" || sub === "irrf" ? codigoDaReceita(texto) : null, linhaDigitavel: codigo?.linhaDigitavel ?? null, codigoBarras: codigo?.codigoBarras ?? null,
     codigoValido: codigo ? codigo.valido : null, pix, convenio, confianca, motivos, avisos,
   };
 }
