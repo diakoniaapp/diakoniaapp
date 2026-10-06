@@ -5364,6 +5364,8 @@ export type Database = {
       }
       fin_lancamento_anexos: {
         Row: {
+          // migration 20261006160000_fin_documentos_guia_leitura_e_aprendizado.sql
+          dados_extraidos: Json | null
           enviado_em: string
           enviado_por: string | null
           id: string
@@ -5373,6 +5375,7 @@ export type Database = {
           url: string
         }
         Insert: {
+          dados_extraidos?: Json | null
           enviado_em?: string
           enviado_por?: string | null
           id?: string
@@ -5382,6 +5385,7 @@ export type Database = {
           url: string
         }
         Update: {
+          dados_extraidos?: Json | null
           enviado_em?: string
           enviado_por?: string | null
           id?: string
@@ -5746,6 +5750,46 @@ export type Database = {
           atualizado_por?: string | null
           campanha?: string
           valor?: number
+        }
+        Relationships: []
+      }
+      // migration 20261006160000_fin_documentos_guia_leitura_e_aprendizado.sql
+      fin_documento_conhecimento: {
+        Row: {
+          atualizado_em: string
+          atualizado_por: string | null
+          categoria_id: string | null
+          centro_custo_id: string | null
+          chave: string
+          chave_tipo: string
+          fornecedor_id: string | null
+          id: string
+          projeto_id: string | null
+          usos: number
+        }
+        Insert: {
+          atualizado_em?: string
+          atualizado_por?: string | null
+          categoria_id?: string | null
+          centro_custo_id?: string | null
+          chave: string
+          chave_tipo: string
+          fornecedor_id?: string | null
+          id?: string
+          projeto_id?: string | null
+          usos?: number
+        }
+        Update: {
+          atualizado_em?: string
+          atualizado_por?: string | null
+          categoria_id?: string | null
+          centro_custo_id?: string | null
+          chave?: string
+          chave_tipo?: string
+          fornecedor_id?: string | null
+          id?: string
+          projeto_id?: string | null
+          usos?: number
         }
         Relationships: []
       }

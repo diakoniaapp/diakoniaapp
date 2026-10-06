@@ -41,6 +41,8 @@ export interface DocumentoDePagamento {
   numeroDocumento: string | null;
   /** `AAAA-MM`. */
   competencia: string | null;
+  /** Código da receita da DARF (4 dígitos): distingue IRRF (1708), IRPJ… — chave de aprendizado da guia. */
+  codigoReceita: string | null;
   /** Só dígitos: 47 (cobrança) ou 48 (arrecadação). */
   linhaDigitavel: string | null;
   /** Só dígitos: 44. */
@@ -255,6 +257,8 @@ function numeroDoDocumento(p: string, original: string): string | null {
   const m = p.match(/(?:numero do documento|n[o°º]\.? ?do documento|nosso numero|numero de referencia|n[o°º]\.? ?documento)[\s:.\-]*([a-z0-9][a-z0-9./-]{2,24})/i);
   if (!m || m.index === undefined) return null;
   const valor = original.slice(m.index + m[0].length - m[1].length, m.index + m[0].length).trim();
+  // boleto em tabela: "Data do documento │ Núm. do documento" e a linha de baixo começa pela DATA — não é o número
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(valor)) return null;
   return /\d/.test(valor) ? valor : null;
 }
 
@@ -363,7 +367,7 @@ export function lerDocumentoDePagamento(textoBruto: string): DocumentoDePagament
   let beneficiario = beneficiarioDoTexto(texto);
   if (!beneficiario && sub) beneficiario = beneficiarioPadraoDaGuia(sub);
   if (!beneficiario && pix?.nomeRecebedor) beneficiario = pix.nomeRecebedor;
-  if (!beneficiario && sub === "iss") {
+  if (!beneficiario && (sub === "iss" || sub === "iptu")) {
     const m = texto.match(/prefeitura\s+(?:municipal\s+)?(?:da cidade\s+)?(?:de|do|da)\s+([A-Za-zÀ-ú ]{3,40})/i);
     if (m) beneficiario = `Prefeitura do ${m[1].trim()}`.replace(/\s{2,}/g, " ");
   }
@@ -402,7 +406,8 @@ export function lerDocumentoDePagamento(textoBruto: string): DocumentoDePagament
   return {
     tipo, subtipoGuia: sub, subtipoFatura: tipo === "fatura" ? subFatura ?? "outra" : null, rotulo, valor, vencimento,
     beneficiario, cnpjBeneficiario: cnpj, banco, numeroDocumento: numeroDoDocumento(p, texto),
-    competencia: competenciaDoTexto(p), linhaDigitavel: codigo?.linhaDigitavel ?? null, codigoBarras: codigo?.codigoBarras ?? null,
+    // competência só existe em guia e fatura; em boleto/Pix a regex pegava datas soltas (medido: "07/2026" de uma data de emissão)
+    competencia: tipo === "guia" || tipo === "fatura" ? competenciaDoTexto(p) : null, codigoReceita: sub === "darf" || sub === "irrf" ? codigoDaReceita(texto) : null, linhaDigitavel: codigo?.linhaDigitavel ?? null, codigoBarras: codigo?.codigoBarras ?? null,
     codigoValido: codigo ? codigo.valido : null, pix, convenio, confianca, motivos, avisos,
   };
 }

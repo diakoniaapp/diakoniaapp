@@ -273,3 +273,59 @@ Vencimento em 13/08/2026`);
     expect(d.valor).toBe(833.34);
   });
 });
+
+describe("DARM da Prefeitura do Rio — ISS e IPTU (mesmo layout, código da receita diferente)", () => {
+  const iss = `01. RECEITA
+101-5
+02. INSCRIÇÃO MUNICIPAL
+10. CONTRIBUÍNTE 03. DATA DE VENCIMENTO
+QUARTA IGREJA BATISTA DO RIO DE JANEIRO 06/08/2026
+05. GUIA (USO DA REPARTIÇÃO) BASE DE CÁLCULO: R$630,35 ALÍQUOTA: 5,00%
+ISS - IMPOSTO SOBRE SERVIÇOS
+ESTE DOCUMENTO DEVE SER UTILIZADO EXCLUSIVAMENTE PARA PAGAMENTO DE ISS
+A RECEBER ESSE DARM APÓS 06/08/2026
+09. VALOR TOTAL
+R$ 31,51`;
+  const iptu = `01.RECEITA
+PREFEITURA DO RIO DE JANEIRO
+310-7 DARM
+Secretaria Municipal de Fazenda 02.INSCRIÇÃO IMOBILIARIA
+Documento de Arrecadação de Receitas Municipais
+10.CONTRIBUINTE 03.DATA DE VENCIMENTO
+QUARTA I B R JANEIRO 07/08/2026
+06.VALOR DO TRIBUTO
+312,70
+09.VALOR TOTAL
+312,70 Emitido pelo Carioca Digital, em 05/08/2026 11:12:02`;
+
+  it("ISS: tipo guia/iss, valor e vencimento", () => {
+    const d = lerDocumentoDePagamento(iss);
+    expect(d).toMatchObject({ tipo: "guia", subtipoGuia: "iss", valor: 31.51, vencimento: "2026-08-06" });
+  });
+
+  it("IPTU: tipo guia/iptu, beneficiário = a Prefeitura do documento", () => {
+    const d = lerDocumentoDePagamento(iptu);
+    expect(d).toMatchObject({ tipo: "guia", subtipoGuia: "iptu", valor: 312.7, vencimento: "2026-08-07" });
+    expect(d.rotulo).toBe("Guia de IPTU");
+  });
+
+  it("NFS-e que cita 'ISS retido' continua NÃO sendo guia", () => {
+    expect(lerDocumentoDePagamento("NFS-e Nº 55 Prestador LOJA LTDA\nISS retido: R$ 10,00\nValor total 200,00").tipo).not.toBe("guia");
+  });
+});
+
+describe("boleto em tabela — número do documento e competência (medido: boleto de impressora)", () => {
+  it("'Núm. do documento' com a DATA na linha de baixo não vira número; boleto não tem competência", () => {
+    const linha = linhaDeBoleto("341", "2026-08-20", 36000);
+    const d = lerDocumentoDePagamento(`RECIBO DO PAGADOR
+${linha}
+Beneficiário
+ECOPRINT IMPRESSORAS LTDA CNPJ: 10.647.756/0001-80
+Data do documento Núm. do documento Espécie Doc. Aceite Data Processamento Nosso Número
+07/08/2026 DSI N 07/08/2026 157 / 00061375 - 0
+Valor do documento R$ 360,00`);
+    expect(d.tipo).toBe("boleto");
+    expect(d.numeroDocumento).toBeNull();
+    expect(d.competencia).toBeNull();
+  });
+});

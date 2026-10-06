@@ -10,7 +10,7 @@
 // tem ("Documento de Arrecadação", "Guia de Recolhimento", "GRF", "DARF"…), nunca a sigla solta de
 // imposto.
 
-export type SubtipoDeGuia = "darf" | "gps" | "fgts" | "irrf" | "iss" | "das" | "taxa" | "outra";
+export type SubtipoDeGuia = "darf" | "gps" | "fgts" | "irrf" | "iss" | "iptu" | "das" | "taxa" | "outra";
 
 export const ROTULO_DA_GUIA: Record<SubtipoDeGuia, string> = {
   darf: "DARF",
@@ -18,6 +18,7 @@ export const ROTULO_DA_GUIA: Record<SubtipoDeGuia, string> = {
   fgts: "Guia do FGTS",
   irrf: "DARF · IRRF",
   iss: "Guia de ISS",
+  iptu: "Guia de IPTU",
   das: "DAS · Simples Nacional",
   taxa: "Taxa / guia de arrecadação",
   outra: "Guia de recolhimento",
@@ -47,6 +48,14 @@ export function identificarGuia(texto: string): SubtipoDeGuia | null {
   if (/documento de arrecadacao do simples nacional|\bpgdas\b|\bdas\b.*simples/.test(t)) return "das";
   // ISS: só com a frase de guia/arrecadação municipal — "ISS retido" numa NFS-e NÃO é guia
   if (/(guia|documento de arrecadacao|dam\b|darm\b).{0,80}(iss\b|issqn|imposto sobre servicos)|(iss\b|issqn|imposto sobre servicos).{0,80}(guia de recolhimento|documento de arrecadacao)/.test(t)) return "iss";
+  // DARM da Prefeitura do Rio (medido nos anexos da igreja): o ISS e o IPTU têm o MESMO layout "01.RECEITA";
+  // o que os distingue é o código da receita (101-5 = ISS, 310-7 = IPTU) e o texto ("exclusivamente para
+  // pagamento de ISS"; "inscrição imobiliária"). Exige a frase de guia municipal — "ISS retido" numa NFS-e NÃO é guia.
+  const municipal = /\bdarm\b|documento de arrecadacao de receitas municipais/.test(t);
+  if (municipal) {
+    if (/\biss\b|issqn|imposto sobre servicos/.test(t) || /01\.?\s*receita\s*101-5/.test(t)) return "iss";
+    if (/\biptu\b|imposto predial|inscricao imobiliaria|01\.?\s*receita\s*310-7/.test(t)) return "iptu";
+  }
   if (/documento de arrecadacao de receitas estaduais|\bdare\b|\bdae\b|funesbom|taxa de (incendio|licenca|fiscalizacao|coleta|vigilancia)/.test(t)) return "taxa";
   if (/guia de recolhimento|guia de arrecadacao|documento de arrecadacao|\bdarm\b|\bdam\b/.test(t)) return "outra";
   return null;

@@ -14,8 +14,13 @@
 // original: `FinLancamentoAnexo` não guarda `tamanho_bytes` nem
 // `observacao` (não existem essas colunas em `fin_lancamento_anexos`), então
 // a lista mostra só nome, tipo e data — nada inventado que o banco não tem.
+//
+// PAGAMENTOS INTELIGENTES (06/10/2026, pedido dela): ao ESCOLHER um boleto/guia/fatura o diálogo LÊ o arquivo
+// (valor, vencimento, beneficiário, linha digitável, Pix), compara com o lançamento, sugere fornecedor/
+// categoria/centro e, ao ENVIAR, guarda a leitura no anexo e APRENDE com o que o lançamento tem. Nada é
+// alterado sem o clique dela; a leitura só ajuda (falhou? o envio continua igual a antes).
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
@@ -29,13 +34,21 @@ import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Upload, FileText, ExternalLink, Trash2, Files } from "lucide-react";
+import { Loader2, Upload, FileText, ExternalLink, Trash2, Files, ScanSearch } from "lucide-react";
 import { toast } from "sonner";
 import {
-  listarAnexos, adicionarAnexo, removerAnexo, anexoSignedUrl,
+  listarAnexos, adicionarAnexo, removerAnexo, anexoSignedUrl, listarCentrosCustoTodas,
   FIN_ANEXO_TIPO_LABEL as TIPO_LABEL, FIN_ANEXO_TIPO_DICA, FIN_ANEXO_TIPOS_OFERECIDOS,
   type FinLancamentoAnexo, type FinAnexoTipo,
 } from "@/services/finService";
+import {
+  RECADO_MIGRATION_DE_DOCUMENTOS, aprenderComEscolha, buscarLancamentoParaLeitura, carregarBaseDeSugestao,
+  corrigirLancamentoPeloDocumento, guardarLeituraNoAnexo, lancamentoJaPago, lerArquivoDePagamento,
+  pareceDocumentoDePagamento, preencherClassificacaoVazia, sugerirParaDocumento, tipoDeAnexoSugerido,
+  type LancamentoLido, type LeituraDoArquivo,
+} from "@/services/documentoPagamentoService";
+import type { Sugestao } from "@/lib/documentos/sugestaoPagamento";
+import { LeituraDoDocumentoPainel } from "@/components/financas/LeituraDoDocumentoPainel";
 
 interface Props {
   open: boolean;
@@ -57,6 +70,17 @@ export function AnexosLancamentoDialog({ open, onOpenChange, lancamentoId, descr
   const [apagando, setApagando] = useState<FinLancamentoAnexo | null>(null);
   const [apagandoBusy, setApagandoBusy] = useState(false);
 
+  // leitura inteligente do documento escolhido
+  const [lendo, setLendo] = useState(false);
+  const [leitura, setLeitura] = useState<LeituraDoArquivo | null>(null);
+  const [sugestao, setSugestao] = useState<Sugestao | null>(null);
+  const [lancamento, setLancamento] = useState<LancamentoLido | null>(null);
+  const [nomes, setNomes] = useState<{ forn: Map<string, string>; cat: Map<string, string>; centro: Map<string, string> }>(
+    { forn: new Map(), cat: new Map(), centro: new Map() });
+  const [aplicando, setAplicando] = useState(false);
+  /** Descarta o resultado de uma leitura antiga quando outro arquivo foi escolhido no meio. */
+  const leituraAtual = useRef(0);
+
   async function carregar() {
     setLoading(true);
     try { setAnexos(await listarAnexos(lancamentoId)); }
@@ -64,13 +88,103 @@ export function AnexosLancamentoDialog({ open, onOpenChange, lancamentoId, descr
   }
   useEffect(() => { if (open) carregar(); }, [open, lancamentoId]);
 
+  // o lançamento e os nomes (fornecedor/categoria/centro) para mostrar a comparação — só ao abrir
+  useEffect(() => {
+    if (!open) return;
+    let vivo = true;
+    (async () => {
+      try {
+        const [l, base, centros] = await Promise.all([buscarLancamentoParaLeitura(lancamentoId), carregarBaseDeSugestao(), listarCentrosCustoTodas()]);
+        if (!vivo) return;
+        setLancamento(l);
+        setNomes({
+          forn: new Map(base.fornecedores.map(f => [f.id, f.nome])),
+          cat: new Map(base.categorias.map(c => [c.id, c.nome])),
+          centro: new Map(centros.map(c => [c.id, c.nome])),
+        });
+      } catch { /* sem a comparação o diálogo continua igual ao de antes */ }
+    })();
+    return () => { vivo = false; };
+  }, [open, lancamentoId]);
+
+  useEffect(() => { if (!open) { setArquivo(null); setLeitura(null); setSugestao(null); } }, [open]);
+
+  async function escolherArquivo(file: File | null) {
+    setArquivo(file);
+    setLeitura(null); setSugestao(null);
+    const minha = ++leituraAtual.current;
+    if (!file) return;
+    setLendo(true);
+    try {
+      const l = await lerArquivoDePagamento(file);
+      if (minha !== leituraAtual.current) return;
+      if (!l || !pareceDocumentoDePagamento(l.documento)) return;
+      setLeitura(l);
+      const sugerido = tipoDeAnexoSugerido(l.documento);
+      if (sugerido) setTipo(sugerido);
+      const s = await sugerirParaDocumento(l.documento);
+      if (minha === leituraAtual.current) setSugestao(s);
+    } catch (e: any) {
+      if (minha === leituraAtual.current) toast.error(`Não consegui ler o documento (${e?.message ?? "erro"}). Dá para anexar assim mesmo.`);
+    } finally {
+      if (minha === leituraAtual.current) setLendo(false);
+    }
+  }
+
+  async function recarregarLancamento() {
+    try { setLancamento(await buscarLancamentoParaLeitura(lancamentoId)); } catch { /* mantém o que tinha */ }
+  }
+
+  async function aplicar(oQue: "valor" | "vencimento" | "classificacao") {
+    if (!leitura || !lancamento) return;
+    setAplicando(true);
+    try {
+      const d = leitura.documento;
+      if (oQue === "valor" && d.valor !== null) { await corrigirLancamentoPeloDocumento(lancamento.id, { valor: d.valor }); toast.success("Valor do lançamento corrigido"); }
+      if (oQue === "vencimento" && d.vencimento) { await corrigirLancamentoPeloDocumento(lancamento.id, { data: d.vencimento }); toast.success("Vencimento do lançamento corrigido"); }
+      if (oQue === "classificacao" && sugestao) {
+        const n = await preencherClassificacaoVazia(lancamento, sugestao);
+        toast.success(n > 0 ? "Preenchi o que estava vazio" : "Nada a preencher");
+      }
+      await recarregarLancamento();
+      onChange?.();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Não foi possível alterar o lançamento");
+    } finally {
+      setAplicando(false);
+    }
+  }
+
+  async function copiar(texto: string, oQue: string) {
+    try { await navigator.clipboard.writeText(texto); toast.success(`${oQue} copiado`); }
+    catch { toast.error("Não consegui copiar — selecione o texto e copie à mão"); }
+  }
+
   async function enviar() {
     if (!arquivo) return;
     setEnviando(true);
     try {
-      await adicionarAnexo(lancamentoId, arquivo, tipo);
-      toast.success("Anexo enviado");
-      setArquivo(null);
+      const anexo = await adicionarAnexo(lancamentoId, arquivo, tipo);
+      let aviso = "";
+      // Guardar a leitura e aprender NUNCA impedem o envio: o arquivo já está salvo.
+      if (leitura) {
+        try {
+          const guardou = await guardarLeituraNoAnexo(anexo.id, leitura.documento);
+          const atual = (await buscarLancamentoParaLeitura(lancamentoId)) ?? lancamento;
+          const ensinou = atual
+            ? await aprenderComEscolha(leitura.documento, {
+                fornecedorId: atual.fornecedor_id, categoriaId: atual.categoria_id, centroId: atual.centro_custo_id, projetoId: atual.projeto_id,
+              })
+            : { gravados: 0, indisponivel: false };
+          if (!guardou || ensinou.indisponivel) aviso = RECADO_MIGRATION_DE_DOCUMENTOS;
+          else if (ensinou.gravados > 0) aviso = "Aprendi a classificação deste documento para a próxima vez.";
+        } catch (e: any) {
+          aviso = `Anexo enviado, mas não consegui guardar a leitura: ${e?.message ?? "erro"}`;
+        }
+      }
+      if (aviso && aviso !== "Aprendi a classificação deste documento para a próxima vez.") toast.warning(`Anexo enviado. ${aviso}`);
+      else toast.success(aviso ? `Anexo enviado. ${aviso}` : "Anexo enviado");
+      setArquivo(null); setLeitura(null); setSugestao(null);
       await carregar();
       onChange?.();
     } catch (err: any) {
@@ -108,13 +222,13 @@ export function AnexosLancamentoDialog({ open, onOpenChange, lancamentoId, descr
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Files className="w-4 h-4 text-gold" /> Anexos — {descricaoLancamento}
           </DialogTitle>
           <DialogDescription className="text-xs">
-            Nota fiscal, boleto, comprovante, fatura, contrato, XML, RPA, RSP ou DPS deste lançamento — quantos precisar, cada um com o próprio tipo. Tudo vai pro Pacote Contábil do mês.
+            Nota fiscal, boleto, guia, comprovante, fatura, contrato, XML, RPA, RSP ou DPS deste lançamento — quantos precisar, cada um com o próprio tipo. Tudo vai pro Pacote Contábil do mês.
           </DialogDescription>
         </DialogHeader>
 
@@ -126,7 +240,7 @@ export function AnexosLancamentoDialog({ open, onOpenChange, lancamentoId, descr
               <Input
                 type="file"
                 accept=".pdf,.png,.jpg,.jpeg,.xml"
-                onChange={e => setArquivo(e.target.files?.[0] ?? null)}
+                onChange={e => escolherArquivo(e.target.files?.[0] ?? null)}
               />
             </div>
             <Select value={tipo} onValueChange={(v) => setTipo(v as FinAnexoTipo)}>
@@ -141,6 +255,11 @@ export function AnexosLancamentoDialog({ open, onOpenChange, lancamentoId, descr
               </SelectContent>
             </Select>
           </div>
+          {lendo && (
+            <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+              <ScanSearch className="w-3.5 h-3.5 animate-pulse" /> Lendo o documento…
+            </p>
+          )}
           <div className="flex justify-end">
             <Button size="sm" onClick={enviar} disabled={!arquivo || enviando} className="gap-2">
               {enviando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
@@ -148,6 +267,24 @@ export function AnexosLancamentoDialog({ open, onOpenChange, lancamentoId, descr
             </Button>
           </div>
         </div>
+
+        {/* O que foi lido do documento escolhido */}
+        {leitura && (
+          <LeituraDoDocumentoPainel
+            leitura={leitura}
+            sugestao={sugestao}
+            lancamento={lancamento}
+            nomeDoFornecedor={id => nomes.forn.get(id) ?? "(fornecedor)"}
+            nomeDaCategoria={id => nomes.cat.get(id) ?? "(categoria)"}
+            nomeDoCentro={id => nomes.centro.get(id) ?? "(centro)"}
+            podeAlterar={!!lancamento && !lancamentoJaPago(lancamento)}
+            ocupado={aplicando || enviando}
+            onUsarValor={() => aplicar("valor")}
+            onUsarVencimento={() => aplicar("vencimento")}
+            onPreencherClassificacao={() => aplicar("classificacao")}
+            onCopiar={copiar}
+          />
+        )}
 
         {/* Lista */}
         <div className="space-y-1.5 max-h-80 overflow-y-auto pt-1">
