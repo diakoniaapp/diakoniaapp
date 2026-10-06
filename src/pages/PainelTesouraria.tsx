@@ -326,27 +326,28 @@ export default function PainelTesouraria() {
 
   // Bug de produtividade (23/09/2026), pedido dela: "o sistema deve abrir
   // sempre com a data atual — a tesouraria trabalha com 'o que aconteceu
-  // hoje', não 'desde o início do mês'". Preset inicial mudou de "mes"
+  // hoje', não 'desde o início do mês'". O período inicial mudou de "mes"
   // pra "hoje" — afeta de uma vez a Central de Arrecadação, os
   // Indicadores Eclesiásticos (Dízimos/Ofertas/Missões) e "Enviado no
   // período" do Saldo Missionário, porque os três leem este mesmo
-  // `eclPreset`. Trocar manualmente pra "Mês atual" (ou qualquer outro)
-  // continua valendo enquanto ela ficar na tela — só reabrir a aba/o
-  // Financeiro de novo volta pra "hoje", porque é um `useState`
-  // reavaliado do zero a cada montagem, não algo persistido.
-  type PeriodoPreset = "hoje" | "7d" | "30d" | "mes" | "ano" | "custom";
-  const [eclPreset, setEclPreset] = useState<PeriodoPreset>("hoje");
+  // período (`eclInicio`/`eclFim`). Mudar as datas continua valendo
+  // enquanto ela ficar na tela — só reabrir a aba/o Financeiro de novo
+  // volta pra "hoje", porque é um `useState` reavaliado do zero a cada
+  // montagem, não algo persistido.
+  //
+  // 06/10/2026, pedido dela: SÓ o filtro por período (De/Até), igual ao dos Indicadores Missionários — sem os
+  // botões Hoje/7 dias/30 dias/Mês/Ano/Personalizado. Continua abrindo em HOJE (a regra de 23/09 acima).
   const hoje = hojeLocal();
   const [eclCustomInicio, setEclCustomInicio] = useState(hoje);
   const [eclCustomFim, setEclCustomFim] = useState(hoje);
 
+  // Data apagada ou incompleta no meio da digitação volta ao padrão (hoje) em vez de quebrar a consulta;
+  // De/Até invertidos pela digitação são trocados, nunca viram período negativo.
+  const eclDataValida = (d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d);
   const { eclInicio, eclFim } = (() => {
-    if (eclPreset === "custom") return { eclInicio: eclCustomInicio, eclFim: eclCustomFim };
-    if (eclPreset === "hoje") return { eclInicio: hoje, eclFim: hoje };
-    if (eclPreset === "7d") return { eclInicio: daquiADias(hoje, -6), eclFim: hoje };
-    if (eclPreset === "30d") return { eclInicio: daquiADias(hoje, -29), eclFim: hoje };
-    if (eclPreset === "ano") return { eclInicio: hoje.slice(0, 4) + "-01-01", eclFim: hoje };
-    return { eclInicio: hoje.slice(0, 7) + "-01", eclFim: hoje }; // "mes"
+    const i = eclDataValida(eclCustomInicio) ? eclCustomInicio : hoje;
+    const f = eclDataValida(eclCustomFim) ? eclCustomFim : hoje;
+    return i <= f ? { eclInicio: i, eclFim: f } : { eclInicio: f, eclFim: i };
   })();
   // Período anterior = mesma duração, terminando um dia antes do início do
   // período atual — definição única que funciona igual pros 6 presets,
@@ -397,7 +398,7 @@ export default function PainelTesouraria() {
   // inteiro) e só contam o que já é dinheiro de verdade (`realizado` ou
   // `conciliado`) — um repasse ainda `previsto` não pode reduzir um saldo
   // que representa caixa disponível agora. "Enviado (período)" já é outra
-  // pergunta — essa sim usa o mesmo filtro de `eclPreset` da seção,
+  // pergunta — essa sim usa o mesmo período (`eclInicio`/`eclFim`) da seção,
   // reaproveitado, não duplicado.
   //
   // 06/10/2026 — o carregamento deixou de depender do período: busca a vida
@@ -553,9 +554,11 @@ export default function PainelTesouraria() {
   const arrecTendencia = arrecTotalAnterior > 0
     ? ((arrecTotalAtual - arrecTotalAnterior) / arrecTotalAnterior) * 100
     : (arrecTotalAtual > 0 ? 100 : 0);
-  const PRESET_LABEL: Record<PeriodoPreset, string> = {
-    hoje: "hoje", "7d": "7 dias", "30d": "30 dias", mes: "mês atual", ano: "ano atual", custom: "personalizado",
-  };
+  // Rótulo do período no cabeçalho: "hoje" quando é o dia de hoje; senão "dd/mm" ou "dd/mm a dd/mm".
+  const eclDiaMes = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
+  const eclRotuloDoPeriodo = eclInicio === eclFim
+    ? (eclInicio === hoje ? "hoje" : eclDiaMes(eclInicio))
+    : `${eclDiaMes(eclInicio)} a ${eclDiaMes(eclFim)}`;
 
   const valorNaoConciliado = aguardandoConciliacao.reduce((s, p) => s + Number(p.valor), 0);
   const contaNaoConciliadaNome = aguardandoConciliacao[0]?.conta_nome ?? null;
@@ -611,7 +614,7 @@ export default function PainelTesouraria() {
                 <>
                   <div className="w-px h-7 bg-border" />
                   <div className="text-right">
-                    <p className="text-2xs uppercase tracking-wide text-muted-foreground font-semibold">Arrecadado ({PRESET_LABEL[eclPreset]})</p>
+                    <p className="text-2xs uppercase tracking-wide text-muted-foreground font-semibold">Arrecadado ({eclRotuloDoPeriodo})</p>
                     <p className="text-sm font-bold tabular-nums text-info-text">{brl(arrecTotalAtual)}</p>
                   </div>
                 </>
@@ -914,30 +917,15 @@ export default function PainelTesouraria() {
             <TituloDaSecao icone={Globe2} tom="info">
               Indicadores Eclesiásticos
             </TituloDaSecao>
-            <div className="flex flex-wrap items-center gap-1.5 mb-3">
-              {([
-                ["hoje", "Hoje"], ["7d", "7 dias"], ["30d", "30 dias"],
-                ["mes", "Mês atual"], ["ano", "Ano atual"], ["custom", "Personalizado"],
-              ] as [PeriodoPreset, string][]).map(([chave, rotulo]) => (
-                <button key={chave} type="button" onClick={() => setEclPreset(chave)}
-                  className={`rounded-full border px-3 py-1 text-xs font-medium ${
-                    eclPreset === chave ? "bg-gold text-white border-transparent" : "bg-card text-muted-foreground hover:text-foreground"
-                  }`}>
-                  {rotulo}
-                </button>
-              ))}
-              {eclPreset === "custom" && (
-                <span className="flex items-end gap-2 ml-1">
-                  <span>
-                    <label className="text-xs text-muted-foreground block">De</label>
-                    <CampoData value={eclCustomInicio} onChange={setEclCustomInicio} className="h-8 w-[10.5rem]" inputClassName="text-sm" />
-                  </span>
-                  <span>
-                    <label className="text-xs text-muted-foreground block">Até</label>
-                    <CampoData value={eclCustomFim} onChange={setEclCustomFim} className="h-8 w-[10.5rem]" inputClassName="text-sm" />
-                  </span>
-                </span>
-              )}
+            <div className="flex flex-wrap items-end gap-2 mb-3">
+              <span>
+                <label className="text-xs text-muted-foreground block">De</label>
+                <CampoData value={eclCustomInicio} onChange={setEclCustomInicio} className="h-8 w-[10.5rem]" inputClassName="text-sm" />
+              </span>
+              <span>
+                <label className="text-xs text-muted-foreground block">Até</label>
+                <CampoData value={eclCustomFim} onChange={setEclCustomFim} className="h-8 w-[10.5rem]" inputClassName="text-sm" />
+              </span>
             </div>
 
             <div className="grid gap-3 md:grid-cols-2">
