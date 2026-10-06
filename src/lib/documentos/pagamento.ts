@@ -209,7 +209,7 @@ function limparNome(s: string): string {
 /** O nome da própria igreja nunca é o beneficiário (aparece como pagador/destinatário em todo documento). */
 const NOME_DA_IGREJA = /quarta igreja batista/i;
 /** Texto que NÃO é um nome: sobra de rótulo ("Agência/Código Beneficiário"), "final" (o campo "Beneficiário final"), autenticação. */
-const NAO_E_NOME = /^(ag[eê]ncia|c[oó]digo|final\b|autentica|recibo|pagador|sacado)/i;
+const NAO_E_NOME = /^(ag[eê]ncia|c[oó]digo|final\b|autentica|recibo|pagador|sacado|escaneie|aponte|pague)|qr code/i;
 
 function nomeAproveitavel(n: string): boolean {
   return n.length >= 4 && !/^[\d\s./-]+$/.test(n) && !PARECE_ROTULO.test(n) && !NAO_E_NOME.test(n) && !NOME_DA_IGREJA.test(n);

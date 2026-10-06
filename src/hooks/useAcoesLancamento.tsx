@@ -315,10 +315,18 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
                       </div>
                     )}
                     {d.pix && (
-                      <Button type="button" size="sm" variant="outline" className="h-7 gap-1 text-xs"
-                        onClick={() => copiar(d.pix!.payload, "Pix do documento")}>
-                        <Copy className="w-3 h-3" /> Copiar Pix do documento
-                      </Button>
+                      <div className="flex items-center gap-3">
+                        <QrDoPix payload={d.pix.payload} />
+                        <div className="space-y-1 min-w-0">
+                          <p className="text-xs text-muted-foreground">
+                            Pix do documento{d.pix.nome ? " · " + d.pix.nome : ""} — escaneie ou copie
+                          </p>
+                          <Button type="button" size="sm" variant="outline" className="h-7 gap-1 text-xs"
+                            onClick={() => copiar(d.pix!.payload, "Pix do documento")}>
+                            <Copy className="w-3 h-3" /> Copiar Pix do documento
+                          </Button>
+                        </div>
+                      </div>
                     )}
                   </div>
                 );
@@ -443,6 +451,19 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
 }
 
 /** Botão "Pagar"/"Receber" pronto — mesmo estilo nas duas telas que o usam. */
+/** O QR do Pix que veio no próprio documento (boleto/fatura). Falha ao desenhar nunca trava o "Pagar". */
+function QrDoPix({ payload }: { payload: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelado = false;
+    QRCode.toDataURL(payload, { margin: 1, width: 160 })
+      .then(u => { if (!cancelado) setUrl(u); })
+      .catch(() => { if (!cancelado) setUrl(null); });
+    return () => { cancelado = true; };
+  }, [payload]);
+  return url ? <img src={url} alt="QR Code do Pix do documento" className="w-28 h-28 rounded bg-white shrink-0" /> : null;
+}
+
 export function BotaoPagar({ vencimento, onClick }: { vencimento: FinVencimento; onClick: () => void }) {
   return (
     <Button variant="success" size="sm" onClick={onClick} className="gap-1 h-7 text-xs shrink-0">

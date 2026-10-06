@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { conferir } from "@/lib/escritaConferida";
 import { anexoSignedUrl, atualizarLancamento } from "@/services/finService";
 import { extrairDadosDoComprovante, textoDoPdf } from "@/services/ocrService";
+import { pixDoQrDoArquivo } from "@/services/qrDoDocumentoService";
 import { dadosParaGuardar, lerDocumentoDePagamento, type DocumentoDePagamento } from "@/lib/documentos/pagamento";
 import {
   aprendizadoDaEscolha, sugerirClassificacao,
@@ -57,8 +58,15 @@ export async function lerArquivoDePagamento(file: File): Promise<LeituraDoArquiv
   const legivel = file.type === "application/pdf" || file.type.startsWith("image/") || /\.(pdf|png|jpe?g)$/.test(nome);
   if (!legivel) return null;
   const r = await extrairDadosDoComprovante(file); // PDF: texto exato primeiro; só vai a OCR se não houver
+  const documento = lerDocumentoDePagamento(r.textoBruto);
+  // O "copia e cola" do Pix muitas vezes NÃO está no texto, só desenhado como QR Code (fatura da Localiza Fleet):
+  // sem isso o Pagar ficava sem Pix. Só procura quando o texto não trouxe um.
+  if (!documento.pix) {
+    const doQr = await pixDoQrDoArquivo(file);
+    if (doQr) documento.pix = doQr;
+  }
   return {
-    documento: lerDocumentoDePagamento(r.textoBruto),
+    documento,
     fonte: r.fonte,
     confiancaDoOcr: r.fonte === "ocr" ? r.confianca : null,
   };
@@ -249,7 +257,15 @@ export async function dadosParaPagarDoLancamento(lancamentoId: string): Promise<
   for (const a of ((data ?? []) as unknown as { id: string; tipo: string; nome: string | null; url: string; dados_extraidos?: Record<string, any> | null }[])) {
     if (saida.length >= MAX_DOCUMENTOS) break;
     const guardado = a.dados_extraidos ? dadosDeGuardado(a, a.dados_extraidos) : null;
-    if (guardado) { saida.push(guardado); continue; }
+    if (guardado) {
+      // Leitura guardada ANTES de o sistema ler o QR Code do Pix: varre uma vez e guarda o resultado (achando ou não).
+      if (!guardado.pix && !a.dados_extraidos?.qrVarrido && /\.(pdf|png|jpe?g)$/i.test(a.nome ?? a.url)) {
+        const pix = await pixDoAnexo(a.url, a.nome);
+        if (pix) guardado.pix = { payload: pix.payload, nome: pix.nomeRecebedor, crcValido: pix.crcValido };
+        if (temColuna) void guardarQrNoAnexo(a.id, a.dados_extraidos!, pix).catch(() => { /* melhoria */ });
+      }
+      saida.push(guardado); continue;
+    }
     if (!/\.pdf$/i.test(a.nome ?? a.url)) continue;
     try {
       const url = await anexoSignedUrl(a.url);
@@ -258,12 +274,42 @@ export async function dadosParaPagarDoLancamento(lancamentoId: string): Promise<
       const texto = await textoDoPdf(new File([blob], a.nome ?? "documento.pdf", { type: "application/pdf" }));
       if (!texto) continue; // escaneado: sem OCR aqui
       const doc = lerDocumentoDePagamento(texto);
+      if (!doc.pix) {
+        const doQr = await pixDoQrDoArquivo(new File([blob], a.nome ?? "documento.pdf", { type: "application/pdf" }));
+        if (doQr) doc.pix = doQr;
+      }
       if (!pareceDocumentoDePagamento(doc)) continue;
       saida.push(dadosDeDocumento(a, doc, "lido agora"));
       if (temColuna) void guardarLeituraNoAnexo(a.id, doc).catch(() => { /* melhoria: não atrapalha o pagamento */ });
     } catch { /* um arquivo ilegível não impede os outros nem o pagamento */ }
   }
   return saida;
+}
+
+/** Baixa o anexo e lê o QR Code do Pix; `null` se não há QR de Pix (ou o arquivo não abre). */
+async function pixDoAnexo(url: string, nome: string | null) {
+  try {
+    const assinada = await anexoSignedUrl(url);
+    if (!assinada) return null;
+    const blob = await (await fetch(assinada)).blob();
+    const tipo = /\.pdf$/i.test(nome ?? url) ? "application/pdf" : blob.type;
+    return await pixDoQrDoArquivo(new File([blob], nome ?? "documento", { type: tipo }));
+  } catch { return null; }
+}
+
+type PixDoQr = NonNullable<Awaited<ReturnType<typeof pixDoQrDoArquivo>>>;
+
+/** Acrescenta o resultado da varredura de QR à leitura já guardada (o resto do JSON fica como estava). */
+async function guardarQrNoAnexo(anexoId: string, atual: Record<string, any>, pix: PixDoQr | null) {
+  const novo = {
+    ...atual, qrVarrido: true,
+    ...(pix ? { pix: { payload: pix.payload, chave: pix.chave, valor: pix.valor, nome: pix.nomeRecebedor, crcValido: pix.crcValido } } : {}),
+  };
+  const r = conferir(
+    await supabase.from("fin_lancamento_anexos").update({ dados_extraidos: novo as never }).eq("id", anexoId).select("id"),
+    "A leitura do QR Code",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 // ── guardar a leitura no anexo ──────────────────────────────────────────────
@@ -273,7 +319,7 @@ export async function guardarLeituraNoAnexo(anexoId: string, documento: Document
   if (!(await existe("fin_lancamento_anexos", "dados_extraidos"))) return false;
   const r = conferir(
     await supabase.from("fin_lancamento_anexos")
-      .update({ dados_extraidos: dadosParaGuardar(documento) as never })
+      .update({ dados_extraidos: { ...dadosParaGuardar(documento), qrVarrido: true } as never })
       .eq("id", anexoId).select("id"),
     "A leitura do documento",
   );
