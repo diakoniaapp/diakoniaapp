@@ -69,7 +69,12 @@ interface Props {
       lançamento correspondente) — só se aplica criando (`!lancamento`);
       a pessoa ainda escolhe categoria/centro de custo, nunca adivinhados
       a partir do texto do banco. */
-  rascunho?: { data?: string; valor?: number; descricao?: string; forma?: FinFormaPagamento };
+  rascunho?: {
+    data?: string; valor?: number; descricao?: string; forma?: FinFormaPagamento;
+    /** Vindos da importação OFX inteligente: o que o sistema sugeriu, para a pessoa só conferir. */
+    categoriaId?: string; centroId?: string;
+    pessoa?: { id: string; nome: string }; fornecedor?: { id: string; nome: string };
+  };
   onSaved: () => void;
 }
 
@@ -161,7 +166,7 @@ export function LancamentoForm({
   const [categorias, setCategorias] = useState<FinCategoria[]>([]);
   const [centros, setCentros] = useState<FinCentroCusto[]>([]);
   const [fornecedores, setFornecedores] = useState<FinFornecedor[]>([]);
-  const semVinculoNaAbertura = lancamento ? !lancamento.fornecedor_id && !lancamento.pessoa_id : true;
+  const semVinculoNaAbertura = lancamento ? !lancamento.fornecedor_id && !lancamento.pessoa_id : !(rascunho?.pessoa || rascunho?.fornecedor);
   const descricaoNaAbertura = (lancamento ? lancamento.descricao : rascunho?.descricao) ?? "";
   useEffect(() => {
     setSugestaoDaDescricao(null); setNomeForaDoCadastro(null);
@@ -361,8 +366,9 @@ export function LancamentoForm({
       setData(rascunho?.data ?? hojeLocal());
       atualizarValor(rascunho?.valor ?? 0);
       setContaId(contaIdPadrao ?? "");
-      setCategoriaId(categoriaIdPadrao ?? ""); setCentroCustoId(""); setProjetoId(""); setUsarProjeto(false); setFornecedorId("");
-      setPessoaId(""); setFornecedorBusca(""); setPessoasSugeridas([]);
+      setCategoriaId(rascunho?.categoriaId ?? categoriaIdPadrao ?? ""); setCentroCustoId(rascunho?.centroId ?? ""); setProjetoId(""); setUsarProjeto(false);
+      setFornecedorId(rascunho?.fornecedor?.id ?? "");
+      setPessoaId(rascunho?.pessoa?.id ?? ""); setFornecedorBusca(rascunho?.pessoa?.nome ?? rascunho?.fornecedor?.nome ?? ""); setPessoasSugeridas([]);
       setForma(rascunho?.forma ?? ""); setStatus("realizado");
       setDescricao(rascunho?.descricao ?? ""); setDocumentoNumero(""); setObservacoes("");
       setRateando(false); setRateio([]);

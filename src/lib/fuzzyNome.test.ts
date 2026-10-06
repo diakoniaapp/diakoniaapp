@@ -4,7 +4,7 @@
 // dos doadores reais — o padrão de erro é real (espaço a mais quebrando
 // tokenização, sobrenome digitado errado), a pessoa não.
 import { describe, it, expect } from "vitest";
-import { normalizarNome, distanciaLevenshtein, encontrarCandidatoPorNome, type CandidatoNome } from "./fuzzyNome";
+import { normalizarNome, distanciaLevenshtein, encontrarCandidatoPorNome, type CandidatoNome , encontrarDetalhado } from "./fuzzyNome";
 
 describe("normalizarNome", () => {
   it("remove acento, baixa caixa e apara espaço", () => {
@@ -70,5 +70,26 @@ describe("encontrarCandidatoPorNome", () => {
   it("não sugere nada pra lista vazia ou nome vazio", () => {
     expect(encontrarCandidatoPorNome("Maria", [])).toBeNull();
     expect(encontrarCandidatoPorNome("", candidatos)).toBeNull();
+  });
+});
+
+describe("encontrarDetalhado — nomes parecidos (um contido no outro)", () => {
+  const cad = [
+    { id: "1", nome: "João Carlos Pereira Lima" },
+    { id: "2", nome: "Ana Paula Souza" },
+    { id: "3", nome: "Ana Paula Santos de Souza" },
+  ];
+  it("sobrenome a mais no cadastro: casa como 'parecido', único candidato", () => {
+    expect(encontrarDetalhado("Joao Pereira", cad)).toMatchObject({ nivel: "parecido", candidato: { id: "1" } });
+  });
+  it("o casamento estrito continua sem aceitar parecido (comportamento do Omie preservado)", () => {
+    expect(encontrarCandidatoPorNome("Joao Pereira", cad)).toBeNull();
+  });
+  it("exige o MESMO primeiro nome e 2+ palavras: 'Silva' sozinho ou 'Paula Souza' não casam", () => {
+    expect(encontrarDetalhado("Silva", cad)).toBeNull();
+    expect(encontrarDetalhado("Paula Souza", cad)).toBeNull();
+  });
+  it("ambíguo (Ana Paula Souza é estrito e vence; 'Ana Paula' casa com as duas) → nada", () => {
+    expect(encontrarDetalhado("Ana Paula", cad)).toBeNull();
   });
 });

@@ -84,23 +84,62 @@ function tokensBatem(alvoTokens: string[], candidatoTokens: string[]): boolean {
   return i >= alvoTokens.length - 1;
 }
 
+/** Quão seguro foi o casamento. `parecido` (um nome contido no outro) NUNCA deve ligar nada
+ *  sozinho: serve de sugestão para a pessoa confirmar. */
+export type NivelDoCasamento = "exato" | "tokens" | "truncado" | "digitacao" | "parecido";
+
+const CONECTIVOS = new Set(["de", "da", "do", "das", "dos", "e"]);
+const significativos = (nome: string) => normalizarNome(nome).split(" ").filter(t => t && !CONECTIVOS.has(t));
+
+/** Os nomes do banco/da planilha costumam ter sobrenome a mais ou a menos: "Maria Jose
+ *  Gregorio" × "Maria José Gregório da Silva". Casa quando o nome MENOR (2+ palavras
+ *  significativas) está inteiro dentro do maior E o primeiro nome é o mesmo — e só se for UM
+ *  candidato. */
+function candidatosPorSubconjunto(alvo: string, candidatos: CandidatoNome[]): CandidatoNome[] {
+  const a = significativos(alvo);
+  if (a.length < 2) return [];
+  return candidatos.filter(c => {
+    const b = significativos(c.nome);
+    if (b.length < 2 || a[0] !== b[0]) return false;
+    const [menor, maior] = a.length <= b.length ? [a, b] : [b, a];
+    return menor.every(t => maior.includes(t));
+  });
+}
+
 /** Acha UM candidato não-ambíguo pra `nomeBruto` dentro de `candidatos`,
  *  ou `null` se não achar nenhum ou achar mais de um (ambíguo — não
  *  adivinha). Cada nível só é tentado se o anterior não resolveu. */
 export function encontrarCandidatoPorNome(nomeBruto: string, candidatos: CandidatoNome[]): CandidatoNome | null {
+  const r = encontrarDetalhado(nomeBruto, candidatos, false);
+  return r ? r.candidato : null;
+}
+
+/** Igual, mas diz com que segurança casou — e, se `permitirParecido`, tenta por último o
+ *  casamento por nomes contidos um no outro (nível `parecido`). */
+export function encontrarDetalhado(
+  nomeBruto: string, candidatos: CandidatoNome[], permitirParecido = true,
+): { candidato: CandidatoNome; nivel: NivelDoCasamento } | null {
+  const c = casarEstrito(nomeBruto, candidatos);
+  if (c) return c;
+  if (!permitirParecido || !nomeBruto?.trim()) return null;
+  const sub = candidatosPorSubconjunto(nomeBruto, candidatos);
+  return sub.length === 1 ? { candidato: sub[0], nivel: "parecido" } : null;
+}
+
+function casarEstrito(nomeBruto: string, candidatos: CandidatoNome[]): { candidato: CandidatoNome; nivel: NivelDoCasamento } | null {
   if (!nomeBruto?.trim() || candidatos.length === 0) return null;
   const alvo = normalizarNome(nomeBruto);
 
   // Nível 1 — idêntico
   const exatos = candidatos.filter(c => normalizarNome(c.nome) === alvo);
-  if (exatos.length === 1) return exatos[0];
+  if (exatos.length === 1) return { candidato: exatos[0], nivel: "exato" };
   if (exatos.length > 1) return null;
 
   // Nível 2 — subsequência de tokens
   const alvoTokens = alvo.split(" ").filter(Boolean);
   if (alvoTokens.length >= 2) {
     const porToken = candidatos.filter(c => tokensBatem(alvoTokens, normalizarNome(c.nome).split(" ").filter(Boolean)));
-    if (porToken.length === 1) return porToken[0];
+    if (porToken.length === 1) return { candidato: porToken[0], nivel: "tokens" };
     if (porToken.length > 1) return null;
   }
 
@@ -113,7 +152,7 @@ export function encontrarCandidatoPorNome(nomeBruto: string, candidatos: Candida
       const junto = semEspacos(normalizarNome(c.nome));
       return junto.length > alvoJunto.length && junto.startsWith(alvoJunto);
     });
-    if (porPrefixo.length === 1) return porPrefixo[0];
+    if (porPrefixo.length === 1) return { candidato: porPrefixo[0], nivel: "truncado" };
     if (porPrefixo.length > 1) return null;
   }
 
@@ -130,7 +169,7 @@ export function encontrarCandidatoPorNome(nomeBruto: string, candidatos: Candida
     .map(c => ({ c, d: distanciaLevenshtein(alvoSemEspaco, semEspacos(normalizarNome(c.nome))) }))
     .filter(({ d }) => d <= tolerancia)
     .sort((a, b) => a.d - b.d);
-  if (distancias.length === 1) return distancias[0].c;
-  if (distancias.length > 1 && distancias[0].d < distancias[1].d) return distancias[0].c;
+  if (distancias.length === 1) return { candidato: distancias[0].c, nivel: "digitacao" };
+  if (distancias.length > 1 && distancias[0].d < distancias[1].d) return { candidato: distancias[0].c, nivel: "digitacao" };
   return null;
 }
