@@ -55,7 +55,9 @@
 // `carregarCruzamentoDiaconia()` em `painelTesourariaService.ts` para a
 // decisão de como as duas metades (financeiro e Diaconia) se encontram.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { IndicadoresMissionarios } from "@/components/financas/IndicadoresMissionarios";
+import { categoriaPadraoDeRepasse, ehCategoriaDeRepasse, fundoAcumulado } from "@/lib/indicadoresMissionarios";
 import { Link, useLocation, useNavigate, useNavigationType } from "react-router-dom";
 import { lerRetorno, limparRetorno } from "@/lib/contextoExtrato";
 import { renovarRecorrenciasSemFim } from "@/services/recorrenciaService";
@@ -396,40 +398,54 @@ export default function PainelTesouraria() {
   // que representa caixa disponível agora. "Enviado (período)" já é outra
   // pergunta — essa sim usa o mesmo filtro de `eclPreset` da seção,
   // reaproveitado, não duplicado.
+  //
+  // 06/10/2026 — o carregamento deixou de depender do período: busca a vida
+  // inteira UMA vez e o componente recorta (período) ou soma tudo (fundo).
+  // Antes refazia as 3 consultas a cada clique no filtro. A categoria de repasse
+  // é procurada pelas DUAS grafias (a oficial "Outros Repasses Missionários" e a
+  // antiga "Repasses Missionários"): só a antiga fazia o painel inteiro sumir se
+  // ela fosse desativada.
   const [repassesCategoriaId, setRepassesCategoriaId] = useState<string | null | undefined>(undefined);
+  const [repassesCategoriasIds, setRepassesCategoriasIds] = useState<string[]>([]);
   useEffect(() => {
     listarCategorias("saida")
-      .then(cats => setRepassesCategoriaId(cats.find(c => c.nome === "Repasses Missionários")?.id ?? null))
+      .then(cats => {
+        const doRepasse = cats.filter(c => ehCategoriaDeRepasse(c.nome));
+        setRepassesCategoriasIds(doRepasse.map(c => c.id));
+        setRepassesCategoriaId(categoriaPadraoDeRepasse(doRepasse)?.id ?? null);
+      })
       .catch(() => setRepassesCategoriaId(null));
   }, []);
 
-  const [missoesSaldo, setMissoesSaldo] = useState<{ arrecadadoTotal: number; enviadoTotal: number } | null>(null);
-  const [missoesEnviadoPeriodo, setMissoesEnviadoPeriodo] = useState<FinLancamentoExtenso[]>([]);
+  const [missoesEntradas, setMissoesEntradas] = useState<FinLancamentoExtenso[]>([]);
+  const [missoesSaidas, setMissoesSaidas] = useState<FinLancamentoExtenso[]>([]);
   const [missoesRemessaCarregando, setMissoesRemessaCarregando] = useState(true);
-
-  const REALIZADOS = new Set(["realizado", "conciliado"]);
+  // Mesmo agregado de antes (o drawer da remessa lê "arrecadadoTotal/enviadoTotal").
+  const missoesSaldo = useMemo(() => {
+    if (repassesCategoriaId === null || repassesCategoriaId === undefined) return null;
+    const f = fundoAcumulado(missoesEntradas, missoesSaidas);
+    return { arrecadadoTotal: f.arrecadado, enviadoTotal: f.enviado };
+  }, [missoesEntradas, missoesSaidas, repassesCategoriaId]);
 
   const carregarMissoesRemessa = useCallback(async () => {
+    // Categorias ainda carregando → espera. Categoria de ENTRADA ausente (null) não
+    // pode deixar o painel em "Carregando…" para sempre: segue só com os repasses.
+    if (Object.keys(categoriasEcl).length === 0 || repassesCategoriaId === undefined) return;
     const missoesCatId = categoriasEcl["missoes"];
-    if (!missoesCatId || repassesCategoriaId === undefined) return;
-    if (repassesCategoriaId === null) { setMissoesSaldo(null); setMissoesRemessaCarregando(false); return; }
+    if (repassesCategoriaId === null) { setMissoesEntradas([]); setMissoesSaidas([]); setMissoesRemessaCarregando(false); return; }
     setMissoesRemessaCarregando(true);
     try {
-      const [arrecadadoTodos, enviadoTodos, enviadoPeriodo] = await Promise.all([
-        listarLancamentosSemTeto({ tipo: "entrada", categoriaId: missoesCatId }),
-        listarLancamentosSemTeto({ tipo: "saida", categoriaId: repassesCategoriaId }),
-        listarLancamentosSemTeto({ tipo: "saida", categoriaId: repassesCategoriaId, dataInicio: eclInicio, dataFim: eclFim }),
+      const [entradas, ...saidasPorCategoria] = await Promise.all([
+        missoesCatId ? listarLancamentosSemTeto({ tipo: "entrada", categoriaId: missoesCatId }) : Promise.resolve([] as FinLancamentoExtenso[]),
+        ...repassesCategoriasIds.map(id => listarLancamentosSemTeto({ tipo: "saida", categoriaId: id })),
       ]);
-      setMissoesSaldo({
-        arrecadadoTotal: arrecadadoTodos.filter(l => REALIZADOS.has(l.status)).reduce((s, l) => s + Number(l.valor), 0),
-        enviadoTotal: enviadoTodos.filter(l => REALIZADOS.has(l.status)).reduce((s, l) => s + Number(l.valor), 0),
-      });
-      setMissoesEnviadoPeriodo(enviadoPeriodo.filter(l => REALIZADOS.has(l.status)));
+      setMissoesEntradas(entradas);
+      setMissoesSaidas(saidasPorCategoria.flat());
     } finally {
       setMissoesRemessaCarregando(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [categoriasEcl, repassesCategoriaId, eclInicio, eclFim]);
+  }, [categoriasEcl, repassesCategoriaId, repassesCategoriasIds]);
 
   useEffect(() => { carregarMissoesRemessa(); }, [carregarMissoesRemessa]);
   const [remessaMissionariaAberta, setRemessaMissionariaAberta] = useState(false);
@@ -924,147 +940,6 @@ export default function PainelTesouraria() {
               )}
             </div>
 
-            {/* ── Ofertas para Missões — card de destaque ────────────────
-                Fase 12, ajuste 2 (23/09/2026), pedido dela: "muito mais
-                relevante pra uma igreja que contas a receber — quero
-                destaque, não mais um indicador igual aos outros". Mesmo
-                `eclDados["missoes"]` que já era buscado pra este card
-                dentro do grid — só ganhou layout maior, a estatística de
-                média (nova) e "Ver detalhes" abrindo o `MissoesDrawer` em
-                vez do acordeão inline que Dízimos/Ofertas ainda usam. */}
-            {(() => {
-              const d = eclDados["missoes"];
-              const catId = categoriasEcl["missoes"];
-              const atual = d?.atual ?? [];
-              const anterior = d?.anterior ?? [];
-              const total = atual.reduce((s, l) => s + Number(l.valor), 0);
-              const totalAnt = anterior.reduce((s, l) => s + Number(l.valor), 0);
-              const media = atual.length > 0 ? total / atual.length : 0;
-              const tendencia = totalAnt > 0 ? ((total - totalAnt) / totalAnt) * 100 : (total > 0 ? 100 : 0);
-              return (
-                <div className="rounded-lg border-2 border-violeta bg-violeta-soft/40 overflow-hidden mb-3">
-                  <div className="p-4 flex flex-wrap items-start justify-between gap-4">
-                    <div className="flex items-center gap-2.5">
-                      <span className="w-9 h-9 rounded-md bg-violeta text-violeta-foreground flex items-center justify-center shrink-0">
-                        <Globe2 className="w-5 h-5" />
-                      </span>
-                      <div>
-                        <p className="text-sm font-bold text-violeta-text">Ofertas para Missões</p>
-                        <p className="text-[11px] text-muted-foreground">arrecadação missionária — indicador de destaque</p>
-                      </div>
-                    </div>
-                    {!eclCarregando && catId !== null && (
-                      <button type="button" onClick={() => setMissoesDrawerAberto(true)}
-                        className="text-xs font-semibold text-violeta-text hover:underline shrink-0">
-                        Ver detalhes →
-                      </button>
-                    )}
-                  </div>
-                  {eclCarregando ? (
-                    <p className="text-sm text-muted-foreground px-4 pb-4">Carregando…</p>
-                  ) : catId === null ? (
-                    <p className="text-xs text-muted-foreground px-4 pb-4">Categoria não encontrada no plano de contas.</p>
-                  ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 px-4 pb-4">
-                      <div>
-                        <p className="text-2xs uppercase tracking-wide text-muted-foreground font-semibold">Arrecadado</p>
-                        <p className="text-lg font-extrabold tabular-nums text-violeta-text">{brl(total)}</p>
-                      </div>
-                      <div>
-                        <p className="text-2xs uppercase tracking-wide text-muted-foreground font-semibold">Contribuições</p>
-                        <p className="text-lg font-extrabold tabular-nums">{atual.length}</p>
-                      </div>
-                      <div>
-                        <p className="text-2xs uppercase tracking-wide text-muted-foreground font-semibold">Média</p>
-                        <p className="text-lg font-extrabold tabular-nums">{brl(media)}</p>
-                      </div>
-                      <div>
-                        <p className="text-2xs uppercase tracking-wide text-muted-foreground font-semibold">Período anterior</p>
-                        <p className="text-lg font-extrabold tabular-nums text-muted-foreground">{brl(totalAnt)}</p>
-                      </div>
-                      <div>
-                        <p className="text-2xs uppercase tracking-wide text-muted-foreground font-semibold">Tendência</p>
-                        <p className={`text-lg font-extrabold tabular-nums ${tendencia >= 0 ? "text-success-text" : "text-destructive-text"}`}>
-                          {tendencia >= 0 ? "▲" : "▼"} {Math.abs(tendencia).toFixed(1)}%
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-
-            {/* ── Saldo Missionário — arrecadado × enviado × saldo ──────────
-                Fase 12 (23/09/2026), pedido dela: vínculo entre "Ofertas
-                para Missões" (entrada) e "Repasses Missionários" (saída) —
-                "quanto entrou, quanto já foi enviado, quanto ainda precisa
-                ser repassado". Saldo é histórico inteiro (não segue o
-                filtro de período — ver comentário de `missoesSaldo` mais
-                acima); "Enviado no período" abaixo já é o outro corte,
-                esse sim seguindo Hoje/7 dias/.../Personalizado. */}
-            {repassesCategoriaId !== null && (
-              <div className="rounded-lg border bg-card overflow-hidden mb-3">
-                <div className="p-3 pb-2 flex items-center justify-between gap-2 flex-wrap">
-                  <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                    Saldo Missionário — histórico completo
-                  </p>
-                  <Button type="button" size="sm" variant="violeta" className="h-6 px-2 text-[11px]"
-                    onClick={() => setRemessaMissionariaAberta(true)}>
-                    + Registrar remessa
-                  </Button>
-                </div>
-                {missoesRemessaCarregando ? (
-                  <p className="text-sm text-muted-foreground px-3 pb-3">Carregando…</p>
-                ) : !missoesSaldo ? (
-                  <p className="text-xs text-muted-foreground px-3 pb-3">Categoria "Repasses Missionários" não encontrada no plano de contas.</p>
-                ) : (
-                  <>
-                    <div className="grid grid-cols-3 gap-3 px-3 pb-3">
-                      <div>
-                        <p className="text-2xs uppercase tracking-wide text-muted-foreground font-semibold">Arrecadado</p>
-                        <p className="text-lg font-extrabold tabular-nums text-violeta-text">{brl(missoesSaldo.arrecadadoTotal)}</p>
-                      </div>
-                      <div>
-                        <p className="text-2xs uppercase tracking-wide text-muted-foreground font-semibold">Enviado</p>
-                        <p className="text-lg font-extrabold tabular-nums text-destructive-text">{brl(missoesSaldo.enviadoTotal)}</p>
-                      </div>
-                      <div>
-                        <p className="text-2xs uppercase tracking-wide text-muted-foreground font-semibold">Saldo disponível</p>
-                        <p className={`text-lg font-extrabold tabular-nums ${missoesSaldo.arrecadadoTotal - missoesSaldo.enviadoTotal >= 0 ? "text-success-text" : "text-destructive-text"}`}>
-                          {brl(missoesSaldo.arrecadadoTotal - missoesSaldo.enviadoTotal)}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="px-3 pb-3 flex items-center justify-between text-xs border-t pt-2">
-                      <span className="text-muted-foreground">Enviado no período ({PRESET_LABEL[eclPreset]})</span>
-                      <span className="font-medium tabular-nums">
-                        {brl(missoesEnviadoPeriodo.reduce((s, l) => s + Number(l.valor), 0))} — {missoesEnviadoPeriodo.length} remessa{missoesEnviadoPeriodo.length === 1 ? "" : "s"}
-                      </span>
-                    </div>
-                    {/* Cada remessa clicável, abre o detalhe (30/09/2026) —
-                        antes só existia o agregado acima, sem jeito
-                        nenhum de entrar numa remessa específica. */}
-                    {missoesEnviadoPeriodo.length > 0 && (
-                      <ul className="divide-y border-t">
-                        {missoesEnviadoPeriodo.map(l => (
-                          <li key={l.id}>
-                            <button type="button" onClick={() => setRemessaDetalhe(l)}
-                              className="w-full flex items-center justify-between gap-2 px-3 py-2 text-xs text-left hover:bg-muted/40 transition-colors">
-                              <span className="min-w-0 truncate">
-                                {new Date(l.data + "T00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
-                                {" · "}{nomeExtrato(l).principal}
-                              </span>
-                              <span className="font-medium tabular-nums shrink-0">{brl(Number(l.valor))}</span>
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
-
             <div className="grid gap-3 md:grid-cols-2">
               {ECCLESIASTICAS.filter(e => e.chave !== "missoes").map(e => {
                 const catId = categoriasEcl[e.chave];
@@ -1133,6 +1008,27 @@ export default function PainelTesouraria() {
                 );
               })}
             </div>
+          </section>
+
+          {/* ── Indicadores Missionários ───────────────────────────────────
+              Pedido dela (06/10/2026): separar o RESULTADO DO PERÍODO do FUNDO
+              ACUMULADO, abrir no mês atual e deixar o gráfico seguir o filtro.
+              Filtro próprio — ver o cabeçalho de IndicadoresMissionarios.tsx. */}
+          <section id="missoes" className="scroll-mt-[220px]">
+            <TituloDaSecao icone={Globe2} tom="violeta">
+              Indicadores Missionários
+            </TituloDaSecao>
+            <IndicadoresMissionarios
+              entradas={missoesEntradas}
+              saidas={missoesSaidas}
+              carregando={missoesRemessaCarregando || eclCarregando}
+              semCategoriaDeEntrada={categoriasEcl["missoes"] === null}
+              semCategoriaDeRepasse={repassesCategoriaId === null}
+              hoje={hoje}
+              onRegistrarRemessa={() => setRemessaMissionariaAberta(true)}
+              onAbrirRemessa={setRemessaDetalhe}
+              onVerDetalheDasOfertas={() => setMissoesDrawerAberto(true)}
+            />
           </section>
 
           {/* ── Orçamento ──────────────────────────────────────────────── */}
