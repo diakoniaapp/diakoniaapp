@@ -233,7 +233,7 @@ export function ContratadoForm({ open, onOpenChange, contratado, onSaved }: Prop
             </div>
             <div className="min-w-0">
               <Label>Fim (opcional)</Label>
-              <CampoData value={campos.dataFim} onChange={(v) => set("dataFim", v)} className="w-full" />
+              <CampoData value={campos.dataFim} onChange={(v) => set("dataFim", v)} className="w-full" permitirVazio />
             </div>
           </div>
 

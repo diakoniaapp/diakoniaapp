@@ -1042,7 +1042,7 @@ function NovaFicha({ pessoaId, limites, onSalvou, onCancelar }: {
             data de próxima revisão, não só um status" — opcional, de
             propósito. Sem data marcada a ficha continua igual a hoje. */}
         <Label className="text-xs">Revisar esta ficha de novo em (opcional)</Label>
-        <CampoData value={proximaRevisao} onChange={(v) => setProximaRevisao(v)} className="h-8 text-sm" />
+        <CampoData value={proximaRevisao} onChange={(v) => setProximaRevisao(v)} className="h-8 text-sm" permitirVazio />
       </div>
 
       <div className="flex gap-2 justify-end">

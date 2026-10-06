@@ -63,6 +63,11 @@ interface Props {
    *  ela só enxerga o último valor VÁLIDO, então sem isto salvaria a data
    *  antiga enquanto o campo mostra outra coisa (MembroForm usa). */
   onInvalidoChange?: (invalido: boolean) => void;
+  /** Campo OPCIONAL (ex.: "Encerra em"): apagar o texto vale como "sem data" — chama `onChange("")` e
+   *  o campo FICA vazio. Sem isto (o padrão, para os campos obrigatórios) um campo apagado volta ao
+   *  último valor ao sair, e a pessoa não conseguia limpar a data de fim de uma recorrência
+   *  (relato dela, 06/10/2026: "não consigo limpar o campo"). */
+  permitirVazio?: boolean;
 }
 
 function formatarDigitando(bruto: string): string {
@@ -104,7 +109,7 @@ function motivoDoErro(digitado: string, anoMin: number, anoMax: number): string 
 
 export function CampoData({
   value, onChange, className, anoMin = 2000, anoMax = 2099, semCalendario,
-  id, disabled, placeholder = "dd/mm/aaaa", inputClassName, onInvalidoChange,
+  id, disabled, placeholder = "dd/mm/aaaa", inputClassName, onInvalidoChange, permitirVazio,
 }: Props) {
   const [texto, setTexto] = useState(() => paraDigitado(value));
   const [focado, setFocado] = useState(false);
@@ -138,12 +143,13 @@ export function CampoData({
     setErro(null);
     const iso = paraIso(formatado, anoMin, anoMax);
     if (iso) onChange(iso);
+    else if (permitirVazio && formatado === "") onChange("");
   }
 
   function aoSairDoFoco() {
     setFocado(false);
     // Campo vazio: volta ao último valor (comportamento de sempre).
-    if (!texto) { setTexto(paraDigitado(value)); return; }
+    if (!texto) { if (!permitirVazio) setTexto(paraDigitado(value)); return; }
     if (paraIso(texto, anoMin, anoMax)) return; // válida — já foi pra tela
     // Texto que não fecha uma data: ANTES era apagado em silêncio e o
     // campo voltava ao valor anterior — a pessoa "corrigia" a data de

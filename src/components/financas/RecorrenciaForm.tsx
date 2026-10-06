@@ -420,7 +420,7 @@ export function RecorrenciaForm({ open, onOpenChange, recorrencia, onSaved }: Pr
           {tipoSerie === "continua" && (
             <div>
               <Label>Encerra em (opcional)</Label>
-              <CampoData value={dataFim} onChange={(v) => setDataFim(v)} />
+              <CampoData value={dataFim} onChange={(v) => setDataFim(v)} permitirVazio />
               <p className="text-xs text-muted-foreground mt-0.5">Em branco = indefinido</p>
             </div>
           )}

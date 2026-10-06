@@ -409,7 +409,7 @@ export default function VisitanteDialog({ open, onOpenChange, pessoa, onSaved }:
                       propósito. Sem data, o prazo padrão por dias corridos
                       (visitantesFluxo.ts) continua valendo sozinho. */}
                   <Label translate="no" className="text-xs">Revisar de novo em (opcional)</Label>
-                  <CampoData value={novoAcomp.proxima_revisao_em} onChange={(v) => setNovoAcomp({ ...novoAcomp, proxima_revisao_em: v })} />
+                  <CampoData value={novoAcomp.proxima_revisao_em} onChange={(v) => setNovoAcomp({ ...novoAcomp, proxima_revisao_em: v })} permitirVazio />
                 </div>
                 <div className="flex items-center gap-2 mt-5">
                   <Checkbox id="contato" checked={novoAcomp.contato_feito} onCheckedChange={(v) => setNovoAcomp({ ...novoAcomp, contato_feito: !!v })} />
