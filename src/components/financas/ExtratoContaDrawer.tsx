@@ -25,15 +25,18 @@
 //                        filtro fino abre a página — ela continua existindo,
 //                        inalterada.
 //
-//   Persistência na URL   fazia sentido pra sobreviver um F5 na PRÓPRIA
-//                        rota da conta. Dentro do drawer, a rota é
-//                        `/painel-tesouraria` — gravar o filtro de UMA
-//                        conta na URL do Painel misturaria os dois estados.
-//                        Os filtros vivem só em memória enquanto o drawer
-//                        está aberto; fechar e reabrir volta ao padrão (mês
-//                        atual), igual abrir a página pela primeira vez.
+//   Persistência na URL   (MUDOU em 06/10/2026) a URL deste painel continua sendo a do Painel
+//                        da Tesouraria, então os filtros NÃO vão para ela. Em vez disso, vivem
+//                        no contexto de trabalho compartilhado (`lib/contextoExtrato.ts`,
+//                        sessionStorage), o mesmo que a página "Extrato completo" lê e grava:
+//                        período, tipo, categoria, centro, fornecedor, busca, faixa de valor e
+//                        tela cheia. Fechar e reabrir o painel — ou ir ao extrato completo e
+//                        voltar — retoma exatamente dali, inclusive a rolagem da lista.
 //
-// O resto — sticky header, seleção em lote, conciliar/excluir em lote,
+// TELA CHEIA: o MESMO painel ocupando a janela, com os filtros numa coluna à esquerda e Saldo
+// inicial/final, Centro e Subcentro à vista. Nada é recarregado: só o layout muda (a tabela
+// continua sendo o mesmo elemento), por isso filtros, busca e rolagem sobrevivem ao alternar.
+//// O resto — sticky header, seleção em lote, conciliar/excluir em lote,
 // todos os 7 diálogos (lançamento, transferência, anexos, OFX, Omie,
 // fatura, exclusão) — é o MESMO serviço e o MESMO comportamento, só que
 // o sticky do cabeçalho da tabela ficou mais simples aqui: o Sheet já tem
@@ -41,8 +44,8 @@
 // pra brigar com o scroll do `<main>` (só existia na página porque lá o
 // cabeçalho competia com o scroll da JANELA inteira).
 
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -60,14 +63,14 @@ import { paraNumero } from "@/lib/dinheiro";
 import {
   DollarSign, Loader2, Plus, Search, TrendingUp, TrendingDown,
   Pencil, Trash2, Paperclip, Files, Scale, FileUp, ExternalLink,
-  ArrowRightLeft, RefreshCw, Layers, FolderKanban,
+  ArrowRightLeft, RefreshCw, Layers, FolderKanban, Maximize2, Minimize2,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
   carregarConta, listarLancamentosSemTeto, excluirLancamento, excluirLancamentosEmLote, brl,
   comprovanteSignedUrl, CONTA_TIPO_LABEL, nomeExtrato,
-  conciliarEmLote, listarCategorias, listarCentrosCusto,
-  type FinConta, type FinLancamentoExtenso, type FinMovimentoTipo, type FinStatus,
+  conciliarEmLote, listarCategorias, listarCentrosCusto, listarFornecedores,
+  type FinFornecedor, type FinConta, type FinLancamentoExtenso, type FinMovimentoTipo, type FinStatus,
   type FinCategoria, type FinCentroCusto,
   STATUS_LABEL,
 } from "@/services/finService";
@@ -81,6 +84,11 @@ import { ConciliacaoOFXDialog } from "@/components/financas/ConciliacaoOFXDialog
 import { ImportacaoOmieDialog } from "@/components/financas/ImportacaoOmieDialog";
 import { ImportacaoFaturaDialog } from "@/components/financas/ImportacaoFaturaDialog";
 import { toYmd } from "@/lib/data";
+import { resolverPeriodo, type PeriodoPreset } from "@/components/financas/SeletorPeriodo";
+import { centroESubcentro } from "@/lib/centroSubcentro";
+import {
+  contextoParaQuery, lerContextoExtrato, prometerRetorno, salvarContextoExtrato,
+} from "@/lib/contextoExtrato";
 
 function dataBr(s: string) {
   return new Date(s + "T00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
@@ -116,25 +124,40 @@ interface Props {
   contas: FinConta[];
   onTrocarConta: (id: string | null) => void;
   onChange?: () => void;
+  /** Voltando do "Extrato completo": quanto a lista estava rolada quando a pessoa saiu. */
+  rolagemInicial?: number;
 }
 
-export function ExtratoContaDrawer({ open, onOpenChange, contaId, contas, onTrocarConta, onChange }: Props) {
+export function ExtratoContaDrawer({ open, onOpenChange, contaId, contas, onTrocarConta, onChange, rolagemInicial }: Props) {
+  // O contêiner rolável da lista. Guardamos a rolagem ao sair para o extrato completo e a
+  // devolvemos quando os dados voltam — "exatamente de onde estava".
+  const listaRef = useRef<HTMLDivElement | null>(null);
+  const rolagemPendente = useRef<number | null>(rolagemInicial ?? null);
   const [conta, setConta] = useState<FinConta | null>(null);
   const [lancamentos, setLancamentos] = useState<FinLancamentoExtenso[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filtroTipo, setFiltroTipo] = useState<FinMovimentoTipo | "transferencia" | "todos">("todos");
-  const [busca, setBusca] = useState("");
-  const [buscaDebounced, setBuscaDebounced] = useState("");
+  // O contexto de trabalho (período, filtros, tela cheia) é COMPARTILHADO com a página
+  // "Extrato completo" — ver lib/contextoExtrato.ts. Lido uma vez, ao montar: este painel só existe
+  // montado enquanto aberto (o Painel da Tesouraria o desmonta ao fechar), então cada abertura
+  // retoma de onde a pessoa parou, em vez de recomeçar em "hoje, sem filtro".
+  const [ctxInicial] = useState(() => lerContextoExtrato() ?? {});
+  const [filtroTipo, setFiltroTipo] = useState<FinMovimentoTipo | "transferencia" | "todos">(ctxInicial.tipo ?? "todos");
+  const [busca, setBusca] = useState(ctxInicial.busca ?? "");
+  const [buscaDebounced, setBuscaDebounced] = useState(ctxInicial.busca ?? "");
+  /** Tela cheia: o mesmo painel, ocupando a janela inteira, com os filtros ao lado. */
+  const [telaCheia, setTelaCheia] = useState(ctxInicial.telaCheia ?? false);
   useEffect(() => {
     const t = setTimeout(() => setBuscaDebounced(busca), 400);
     return () => clearTimeout(t);
   }, [busca]);
-  const [filtroCategoriaId, setFiltroCategoriaId] = useState("");
-  const [filtroCentroCustoId, setFiltroCentroCustoId] = useState("");
+  const [filtroCategoriaId, setFiltroCategoriaId] = useState(ctxInicial.categoriaId ?? "");
+  const [filtroCentroCustoId, setFiltroCentroCustoId] = useState(ctxInicial.centroId ?? "");
+  const [filtroFornecedorId, setFiltroFornecedorId] = useState(ctxInicial.fornecedorId ?? "");
   const [categorias, setCategorias] = useState<FinCategoria[]>([]);
   const [centros, setCentros] = useState<FinCentroCusto[]>([]);
-  const [filtroValorMinTexto, setFiltroValorMinTexto] = useState("");
-  const [filtroValorMaxTexto, setFiltroValorMaxTexto] = useState("");
+  const [fornecedores, setFornecedores] = useState<FinFornecedor[]>([]);
+  const [filtroValorMinTexto, setFiltroValorMinTexto] = useState(ctxInicial.valorMin ?? "");
+  const [filtroValorMaxTexto, setFiltroValorMaxTexto] = useState(ctxInicial.valorMax ?? "");
 
   const POR_PAGINA = 50;
   const [pagina, setPagina] = useState(1);
@@ -161,9 +184,26 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, contas, onTroc
   // (troca de conta, fecha e abre) — só não muda enquanto ele permanece
   // aberto e ela mexe no filtro à mão, que é exatamente o comportamento
   // que ela pediu para preservar.
+  //
+  // 06/10/2026: "reabre em hoje" vale só quando não há contexto guardado. Com contexto (vindo
+  // do extrato completo, ou deste mesmo painel há pouco), o período é o dele — relativo
+  // ("este mês") recalculado para hoje, personalizado com as datas gravadas.
   const hoje = new Date();
-  const [dataInicio, setDataInicio] = useState(() => toYmd(hoje));
-  const [dataFim, setDataFim] = useState(() => toYmd(hoje));
+  const [periodoPreset, setPeriodoPreset] = useState<PeriodoPreset>(
+    () => (ctxInicial.periodo as PeriodoPreset | undefined) ?? "personalizado",
+  );
+  const [dataInicio, setDataInicio] = useState(() => {
+    if (ctxInicial.periodo && ctxInicial.periodo !== "personalizado") {
+      try { return resolverPeriodo(ctxInicial.periodo as PeriodoPreset).dataInicio; } catch { /* preset desconhecido */ }
+    }
+    return ctxInicial.de ?? toYmd(hoje);
+  });
+  const [dataFim, setDataFim] = useState(() => {
+    if (ctxInicial.periodo && ctxInicial.periodo !== "personalizado") {
+      try { return resolverPeriodo(ctxInicial.periodo as PeriodoPreset).dataFim; } catch { /* idem */ }
+    }
+    return ctxInicial.ate ?? toYmd(hoje);
+  });
   const inicioEfetivo = dataInicio <= dataFim ? dataInicio : dataFim;
   const fimEfetivo = dataInicio <= dataFim ? dataFim : dataInicio;
 
@@ -180,6 +220,7 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, contas, onTroc
           busca: buscaDebounced.length >= 2 ? buscaDebounced : undefined,
           categoriaId: filtroCategoriaId || undefined,
           centroCustoId: filtroCentroCustoId || undefined,
+          fornecedorId: filtroFornecedorId || undefined,
         }),
         saldoAntesDe(inicioEfetivo, contaId ?? undefined),
       ]);
@@ -198,13 +239,40 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, contas, onTroc
     setSelecionados(new Set());
     carregar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, contaId, filtroTipo, inicioEfetivo, fimEfetivo, buscaDebounced, filtroCategoriaId, filtroCentroCustoId]);
-  useEffect(() => { setPagina(1); }, [contaId, filtroTipo, inicioEfetivo, fimEfetivo, buscaDebounced, filtroCategoriaId, filtroCentroCustoId, filtroValorMinTexto, filtroValorMaxTexto]);
+  }, [open, contaId, filtroTipo, inicioEfetivo, fimEfetivo, buscaDebounced, filtroCategoriaId, filtroCentroCustoId, filtroFornecedorId]);
+  useEffect(() => { setPagina(1); }, [contaId, filtroTipo, inicioEfetivo, fimEfetivo, buscaDebounced, filtroCategoriaId, filtroCentroCustoId, filtroFornecedorId, filtroValorMinTexto, filtroValorMaxTexto]);
   useEffect(() => {
     if (!open) return;
     listarCategorias().then(setCategorias);
     listarCentrosCusto().then(setCentros);
+    listarFornecedores().then(setFornecedores).catch(() => setFornecedores([]));
   }, [open]);
+
+  // Grava o contexto a cada mudança: é isso que faz o extrato completo (e a próxima abertura
+  // deste painel) continuarem exatamente daqui.
+  const contextoAtual = {
+    periodo: periodoPreset, de: dataInicio, ate: dataFim, tipo: filtroTipo,
+    categoriaId: filtroCategoriaId, centroId: filtroCentroCustoId, fornecedorId: filtroFornecedorId,
+    busca, valorMin: filtroValorMinTexto, valorMax: filtroValorMaxTexto, telaCheia,
+  };
+  useEffect(() => {
+    salvarContextoExtrato(contextoAtual);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [periodoPreset, dataInicio, dataFim, filtroTipo, filtroCategoriaId, filtroCentroCustoId, filtroFornecedorId, busca, filtroValorMinTexto, filtroValorMaxTexto, telaCheia]);
+
+  // "Extrato completo": a MESMA aba (antes era `target="_blank"`: aba nova nasce sem a marca da
+  // LGPD no sessionStorage e a Home era a única parada — ver lib/destinoPosEntrada.ts), levando
+  // conta, período e todos os filtros. O retorno é prometido: "Voltar para movimentações" reabre
+  // este painel, na mesma conta, com o que a pessoa tiver mudado lá.
+  const navigate = useNavigate();
+  const location = useLocation();
+  function abrirExtratoCompleto() {
+    if (!contaId) return;
+    salvarContextoExtrato(contextoAtual);
+    const origem = `${location.pathname}${location.search}${location.hash}`;
+    prometerRetorno(origem, contaId, Date.now(), listaRef.current?.scrollTop);
+    navigate(`/financas/conta/${contaId}?${contextoParaQuery(contextoAtual).toString()}`, { state: { origem, contaId } });
+  }
 
   function fecharEAvisar() {
     onChange?.();
@@ -228,6 +296,18 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, contas, onTroc
       fecharEAvisar();
     } catch (e: any) { toast.error(e?.message ?? "Erro"); }
     finally { setExcluindoBusy(false); }
+  }
+
+  // devolve a rolagem de antes de ir ao extrato completo, uma vez, quando a lista aparece
+  useEffect(() => {
+    if (rolagemPendente.current == null || loading || lancamentos.length === 0 || !listaRef.current) return;
+    listaRef.current.scrollTop = rolagemPendente.current;
+    rolagemPendente.current = null;
+  }, [loading, lancamentos.length]);
+
+  function limparFiltros() {
+    setFiltroTipo("todos"); setFiltroCategoriaId(""); setFiltroCentroCustoId(""); setFiltroFornecedorId("");
+    setBusca(""); setBuscaDebounced(""); setFiltroValorMinTexto(""); setFiltroValorMaxTexto("");
   }
 
   function alternarSelecao(id: string) {
@@ -303,6 +383,7 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, contas, onTroc
     saldoPorLancamento,
     totalEntradas: totalEntradasPeriodo,
     totalSaidas: totalSaidasPeriodo,
+    saldoFinal: saldoFinalPeriodo,
   } = calcularExtrato(lancamentosFiltrados, saldoAntesDoPeriodo);
 
   const totalPaginas = Math.max(1, Math.ceil(lancamentosOrdenados.length / POR_PAGINA));
@@ -354,6 +435,13 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, contas, onTroc
             </Badge>
           )}
         </td>
+        {telaCheia && (() => {
+          const cs = centroESubcentro(l.centro_nome);
+          return (<>
+            <td className="py-1.5 px-2 overflow-hidden"><span className="text-xs truncate block">{cs?.centro ?? ""}</span></td>
+            <td className="py-1.5 px-2 overflow-hidden"><span className="text-xs text-muted-foreground truncate block">{cs?.subcentro ?? ""}</span></td>
+          </>);
+        })()}
         <td className={`py-1.5 px-2 text-right tabular-nums font-medium whitespace-nowrap ${l.tipo === "entrada" ? "text-success-text" : "text-destructive-text"}`}>
           {l.tipo === "entrada" ? "+" : "−"} {brl(Number(l.valor))}
         </td>
@@ -395,9 +483,12 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, contas, onTroc
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="right" className="w-full sm:max-w-4xl flex flex-col gap-0 p-0">
+        <SheetContent side="right"
+          className={`flex flex-col gap-0 p-0 ${telaCheia ? "w-screen max-w-none sm:max-w-none" : "w-full sm:max-w-4xl"}`}
+          // Esc primeiro sai da tela cheia; só o segundo fecha o painel
+          onEscapeKeyDown={(e) => { if (telaCheia) { e.preventDefault(); setTelaCheia(false); } }}>
           <SheetHeader className="p-3 md:p-4 border-b space-y-2">
-            <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center justify-between gap-2 flex-wrap pr-8">
               <SheetTitle className="flex items-center gap-1.5 min-w-0">
                 <DollarSign className="w-4 h-4 text-gold shrink-0" />
                 {/* Seletor de conta no próprio cabeçalho (pedido dela,
@@ -452,11 +543,18 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, contas, onTroc
                 )}
                 {/* Imprimir/PDF fica só na página — ver comentário do topo
                     do arquivo pro porquê. */}
+                {/* Tela cheia: o MESMO painel (mesmos filtros, busca e rolagem), com a janela inteira. */}
+                <Button type="button" variant="outline" size="sm" onClick={() => setTelaCheia(v => !v)}
+                  className="gap-1.5 h-8 text-xs" aria-pressed={telaCheia}
+                  title={telaCheia ? "Sair da tela cheia (Esc)" : "Ocupar a tela inteira com este extrato"}>
+                  {telaCheia ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+                  {telaCheia ? "Sair da tela cheia" : "Tela cheia"}
+                </Button>
+                {/* Extrato completo: a página da conta (impressão/PDF, filtro por coluna), na MESMA
+                    aba e com o contexto de trabalho — não uma consulta nova. */}
                 {contaId && (
-                  <Button asChild variant="outline" size="sm" className="gap-1.5 h-8 text-xs">
-                    <Link to={`/financas/conta/${contaId}`} target="_blank" rel="noopener noreferrer">
-                      <ExternalLink className="w-3.5 h-3.5" /> Extrato completo
-                    </Link>
+                  <Button type="button" variant="outline" size="sm" onClick={abrirExtratoCompleto} className="gap-1.5 h-8 text-xs">
+                    <ExternalLink className="w-3.5 h-3.5" /> Extrato completo
                   </Button>
                 )}
                 <Button variant="gold" size="sm" onClick={() => { setEditando(null); setNovoOpen(true); }} className="gap-1.5 h-8 text-xs">
@@ -471,7 +569,9 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, contas, onTroc
             )}
 
             {/* Filtros — versão enxuta da página: sem popover por coluna,
-                sem Data específica/Valor mín-máx (ver comentário do topo). */}
+                sem Data específica/Valor mín-máx (ver comentário do topo). Em tela cheia
+                eles passam para a coluna da esquerda. */}
+            {!telaCheia && (<>
             <div className="flex flex-wrap gap-2 items-end pt-1">
               <div className="min-w-[130px]">
                 <label className="text-xs uppercase tracking-wide text-muted-foreground">De</label>
@@ -480,11 +580,11 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, contas, onTroc
                     dela: "De" mudava e "Até" ficava pra trás, visível e
                     confuso, mesmo a consulta corrigindo sozinha por baixo
                     via inicioEfetivo/fimEfetivo). */}
-                <CampoData value={dataInicio} onChange={(v) => { setDataInicio(v); setDataFim(v); }} className="h-8 text-xs" />
+                <CampoData value={dataInicio} onChange={(v) => { setDataInicio(v); setDataFim(v); setPeriodoPreset("personalizado"); }} className="h-8 text-xs" />
               </div>
               <div className="min-w-[130px]">
                 <label className="text-xs uppercase tracking-wide text-muted-foreground">Até</label>
-                <CampoData value={dataFim} onChange={setDataFim} className="h-8 text-xs" />
+                <CampoData value={dataFim} onChange={(v) => { setDataFim(v); setPeriodoPreset("personalizado"); }} className="h-8 text-xs" />
               </div>
               <div className="w-28">
                 <label className="text-xs uppercase tracking-wide text-muted-foreground">Tipo</label>
@@ -544,6 +644,7 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, contas, onTroc
                 <p className="text-sm font-semibold tabular-nums">{brl(totalEntradasPeriodo - totalSaidasPeriodo)}</p>
               </div>
             </div>
+            </>)}
 
             {selecionados.size > 0 && (
               <div className="flex items-center gap-2 flex-wrap pt-1">
@@ -567,7 +668,116 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, contas, onTroc
             )}
           </SheetHeader>
 
-          <div className="flex-1 overflow-y-auto overflow-x-auto">
+          {/* Os dois wrappers viram `display: contents` fora da tela cheia: a tabela e o rodapé
+              continuam filhos diretos do painel, e o MESMO elemento da tabela muda de layout em vez
+              de ser recriado — por isso a rolagem e a seleção sobrevivem ao alternar. */}
+          <div className={telaCheia ? "flex flex-1 min-h-0 flex-col md:flex-row" : "contents"}>
+          {telaCheia && (
+            <aside className="w-full md:w-64 md:shrink-0 border-b md:border-b-0 md:border-r max-h-[38vh] md:max-h-none overflow-y-auto p-3 space-y-3 bg-muted/20" aria-label="Filtros do extrato">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Filtros</p>
+              <CampoLateral rotulo="Conta">
+                <Select value={contaId ?? "__todas__"} onValueChange={(v) => onTrocarConta(v === "__todas__" ? null : v)}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__todas__">Todas as Contas</SelectItem>
+                    {contas.map(c => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </CampoLateral>
+              <div className="space-y-3">
+                <CampoLateral rotulo="De">
+                  <CampoData value={dataInicio} onChange={(v) => { setDataInicio(v); setDataFim(v); setPeriodoPreset("personalizado"); }} className="h-8 text-xs" />
+                </CampoLateral>
+                <CampoLateral rotulo="Até">
+                  <CampoData value={dataFim} onChange={(v) => { setDataFim(v); setPeriodoPreset("personalizado"); }} className="h-8 text-xs" />
+                </CampoLateral>
+              </div>
+              <CampoLateral rotulo="Tipo">
+                <Select value={filtroTipo} onValueChange={(v) => setFiltroTipo(v as any)}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos</SelectItem>
+                    <SelectItem value="entrada">Entradas</SelectItem>
+                    <SelectItem value="saida">Saídas</SelectItem>
+                    <SelectItem value="transferencia">Transferências</SelectItem>
+                  </SelectContent>
+                </Select>
+              </CampoLateral>
+              <CampoLateral rotulo="Categoria">
+                <Select value={filtroCategoriaId || "__todas__"} onValueChange={(v) => setFiltroCategoriaId(v === "__todas__" ? "" : v)}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__todas__">Todas</SelectItem>
+                    {categorias.map(c => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </CampoLateral>
+              <CampoLateral rotulo="Centro de custo">
+                <Select value={filtroCentroCustoId || "__todos__"} onValueChange={(v) => setFiltroCentroCustoId(v === "__todos__" ? "" : v)}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__todos__">Todos</SelectItem>
+                    {centros.map(c => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </CampoLateral>
+              <CampoLateral rotulo="Fornecedor">
+                <Select value={filtroFornecedorId || "__todos__"} onValueChange={(v) => setFiltroFornecedorId(v === "__todos__" ? "" : v)}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__todos__">Todos</SelectItem>
+                    {fornecedores.map(f => <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </CampoLateral>
+              <div className="grid grid-cols-2 gap-2">
+                <CampoLateral rotulo="Valor mín.">
+                  <Input value={filtroValorMinTexto} onChange={(e) => setFiltroValorMinTexto(e.target.value)} inputMode="decimal" className="h-8 text-xs" placeholder="0,00" />
+                </CampoLateral>
+                <CampoLateral rotulo="Valor máx.">
+                  <Input value={filtroValorMaxTexto} onChange={(e) => setFiltroValorMaxTexto(e.target.value)} inputMode="decimal" className="h-8 text-xs" placeholder="0,00" />
+                </CampoLateral>
+              </div>
+              <CampoLateral rotulo="Buscar">
+                <div className="relative">
+                  <Search className="w-3 h-3 absolute left-2 top-2.5 text-muted-foreground" />
+                  <Input value={busca} onChange={(e) => setBusca(e.target.value)} className="h-8 text-xs pl-6" placeholder="Descrição, favorecido..." />
+                </div>
+              </CampoLateral>
+              <div className="flex gap-2 pt-1">
+                <Button type="button" variant="outline" size="sm" className="h-8 text-xs flex-1" onClick={limparFiltros}>Limpar filtros</Button>
+                <Button type="button" variant="outline" size="sm" onClick={carregar} disabled={loading} className="h-8 text-xs" title="Atualizar">
+                  <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+                </Button>
+              </div>
+            </aside>
+          )}
+          <div className={telaCheia ? "flex-1 min-w-0 min-h-0 flex flex-col" : "contents"}>
+          {telaCheia && (
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2 p-3 border-b">
+              <div className="rounded-md border px-2.5 py-1.5">
+                <p className="text-xs uppercase text-muted-foreground">Saldo inicial</p>
+                <p className="text-sm font-semibold tabular-nums">{brl(saldoAntesDoPeriodo)}</p>
+              </div>
+              <div className="rounded-md border bg-success-soft/40 border-success-line px-2.5 py-1.5">
+                <p className="text-xs uppercase text-success-text">Entradas</p>
+                <p className="text-sm font-semibold text-success-text tabular-nums">{brl(totalEntradasPeriodo)}</p>
+              </div>
+              <div className="rounded-md border bg-destructive-soft/40 border-destructive-line px-2.5 py-1.5">
+                <p className="text-xs uppercase text-destructive-text">Saídas</p>
+                <p className="text-sm font-semibold text-destructive-text tabular-nums">{brl(totalSaidasPeriodo)}</p>
+              </div>
+              <div className="rounded-md border px-2.5 py-1.5">
+                <p className="text-xs uppercase text-muted-foreground">Movimento</p>
+                <p className="text-sm font-semibold tabular-nums">{brl(totalEntradasPeriodo - totalSaidasPeriodo)}</p>
+              </div>
+              <div className="rounded-md border px-2.5 py-1.5 col-span-2 md:col-span-1">
+                <p className="text-xs uppercase text-muted-foreground">Saldo final</p>
+                <p className="text-sm font-semibold tabular-nums">{brl(saldoFinalPeriodo)}</p>
+              </div>
+            </div>
+          )}
+          <div ref={listaRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-auto">
             {loading && lancamentos.length === 0 ? (
               <div className="py-8 text-center text-muted-foreground">
                 <Loader2 className="w-4 h-4 animate-spin inline mr-1.5" /> Carregando...
@@ -595,6 +805,10 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, contas, onTroc
                     <th className="text-left py-2 px-2">Descrição</th>
                     {!contaId && <th className="text-left py-2 px-2 w-28 hidden sm:table-cell">Conta</th>}
                     <th className="text-left py-2 px-2 w-36 hidden md:table-cell">Categoria</th>
+                    {telaCheia && (<>
+                      <th className="text-left py-2 px-2 w-36">Centro de custo</th>
+                      <th className="text-left py-2 px-2 w-36">Subcentro</th>
+                    </>)}
                     <th className="text-right py-2 px-2 w-24">Valor</th>
                     <th className="text-right py-2 px-2 w-24 hidden sm:table-cell">Saldo</th>
                     <th className="w-24 sticky right-0 bg-muted/60"></th>
@@ -607,6 +821,7 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, contas, onTroc
                       <td className="py-1.5 px-2" colSpan={2}>Saldo inicial</td>
                       {!contaId && <td className="py-1.5 px-2 hidden sm:table-cell"></td>}
                       <td className="py-1.5 px-2 hidden md:table-cell"></td>
+                      {telaCheia && (<><td className="py-1.5 px-2"></td><td className="py-1.5 px-2"></td></>)}
                       <td className="py-1.5 px-2 text-right tabular-nums"></td>
                       <td className="py-1.5 px-2 text-right tabular-nums font-medium whitespace-nowrap hidden sm:table-cell">{brl(saldoAntesDoPeriodo)}</td>
                       <td className="py-1.5 px-1 sticky right-0 bg-muted/20"></td>
@@ -637,6 +852,8 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, contas, onTroc
                 </Button>
               </nav>
             )}
+          </div>
+          </div>
           </div>
         </SheetContent>
       </Sheet>
@@ -718,5 +935,15 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, contas, onTroc
         </AlertDialogContent>
       </AlertDialog>
     </>
+  );
+}
+
+/** Um campo da coluna de filtros da tela cheia: rótulo em cima, controle embaixo. */
+function CampoLateral({ rotulo, children }: { rotulo: string; children: React.ReactNode }) {
+  return (
+    <div className="min-w-0">
+      <label className="text-xs uppercase tracking-wide text-muted-foreground block mb-0.5">{rotulo}</label>
+      {children}
+    </div>
   );
 }

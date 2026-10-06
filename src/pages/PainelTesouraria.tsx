@@ -56,7 +56,8 @@
 // decisão de como as duas metades (financeiro e Diaconia) se encontram.
 
 import { useCallback, useEffect, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate, useNavigationType } from "react-router-dom";
+import { lerRetorno, limparRetorno } from "@/lib/contextoExtrato";
 import {
   DollarSign, Receipt, Wallet, ChevronRight, RefreshCw, Sparkles, Package,
   Clock, CalendarClock, Target, HandCoins, Scale, Lightbulb, Paperclip,
@@ -210,6 +211,8 @@ export default function PainelTesouraria() {
   const [recorrenciasAberto, setRecorrenciasAberto] = useState(false);
   // Fase 11c: maior drawer do mapa — extrato completo de UMA conta.
   const [extratoContaId, setExtratoContaId] = useState<string | null>(null);
+  /** Só preenchida ao voltar do "Extrato completo": a rolagem que a lista tinha ao sair. */
+  const [rolagemDoExtrato, setRolagemDoExtrato] = useState<number | undefined>(undefined);
   // Fase 11d: os últimos quatro atalhos de "Ir para" a virar drawer.
   const [estoqueAberto, setEstoqueAberto] = useState(false);
   const [projetosAberto, setProjetosAberto] = useState(false);
@@ -447,6 +450,35 @@ export default function PainelTesouraria() {
   // lugar nenhum. Disparar só depois do carregamento acabar garante medir
   // a altura final da página.
   const location = useLocation();
+  const tipoDeNavegacao = useNavigationType();
+
+  // Voltando do "Extrato completo": reabre o painel daquela conta, com o contexto de trabalho que
+  // a pessoa deixou (período, filtros, busca — lib/contextoExtrato.ts). Dois caminhos:
+  //   · o botão "Voltar para movimentações" avisa por `location.state.reabrirExtrato`;
+  //   · o "voltar" do navegador (POP) não carrega estado, então vale a promessa gravada ao sair —
+  //     só se for recente e do mesmo endereço, para não abrir o painel do nada, dias depois.
+  // Uma vez só: consome a promessa e limpa o estado do histórico (F5 não reabre de novo).
+  useEffect(() => {
+    const pedido = (location.state as { reabrirExtrato?: string } | null)?.reabrirExtrato;
+    if (pedido) {
+      setRolagemDoExtrato(lerRetorno()?.rolagem);
+      limparRetorno();
+      setExtratoContaId(pedido);
+      navigate({ pathname: location.pathname, search: location.search, hash: location.hash }, { replace: true, state: null });
+      return;
+    }
+    if (tipoDeNavegacao === "POP") {
+      const r = lerRetorno();
+      if (r && r.origem.split(/[?#]/)[0] === location.pathname) {
+        setRolagemDoExtrato(r.rolagem);
+        limparRetorno();
+        setExtratoContaId(r.contaId);
+      }
+    }
+    // só na chegada à tela
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     if (location.hash === "#ir-para" && !carregando) irParaSecao("ir-para");
   }, [location.hash, carregando]);
@@ -1323,6 +1355,7 @@ export default function PainelTesouraria() {
           contas={contas}
           onTrocarConta={(id) => setExtratoContaId(id ?? "__todas__")}
           onChange={carregar}
+          rolagemInicial={rolagemDoExtrato}
         />
       )}
       <EstoqueDrawer open={estoqueAberto} onOpenChange={setEstoqueAberto} />

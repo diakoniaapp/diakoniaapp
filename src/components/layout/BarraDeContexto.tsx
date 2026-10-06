@@ -30,7 +30,7 @@ const ICONE_DO_MODULO: Record<ModuloKey, LucideIcon> = {
 
 export function BarraDeContexto() {
   const location = useLocation();
-  const { anterior, rotulo, voltar } = useNavegacao();
+  const { anterior, rotulo, voltar, voltarPersonalizado } = useNavegacao();
   const [expandido, setExpandido] = useState(false);
 
   const ctx = montarContexto(location.pathname, rotulo);
@@ -44,10 +44,12 @@ export function BarraDeContexto() {
     <div className="max-w-6xl mx-auto px-4 md:px-6 pt-3 print:hidden">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
         <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 shrink-0 max-w-full"
-          onClick={() => voltar(fallback.to)}
-          title={anterior ? `Voltar${nomeDaAnterior ? ` para ${nomeDaAnterior}` : ""}` : `Voltar para ${fallback.rotulo}`}>
+          onClick={() => (voltarPersonalizado ? voltarPersonalizado.acao() : voltar(fallback.to))}
+          title={voltarPersonalizado ? voltarPersonalizado.rotulo : anterior ? `Voltar${nomeDaAnterior ? ` para ${nomeDaAnterior}` : ""}` : `Voltar para ${fallback.rotulo}`}>
           <ArrowLeft className="w-3.5 h-3.5 shrink-0" aria-hidden />
-          {anterior ? (
+          {voltarPersonalizado ? (
+            <span className="truncate">{voltarPersonalizado.rotulo}</span>
+          ) : anterior ? (
             <>
               <span>Voltar</span>
               {nomeDaAnterior && (

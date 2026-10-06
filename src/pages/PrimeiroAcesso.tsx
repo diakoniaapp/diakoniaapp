@@ -6,7 +6,7 @@
 // ============================================================
 
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import { Eye, EyeOff, Lock, Loader2, ShieldCheck } from "lucide-react";
 
 export default function PrimeiroAcesso() {
   const navigate       = useNavigate();
+  const location       = useLocation();
   const { user, loading } = useAuth();
 
   const [novaSenha, setNovaSenha]       = useState("");
@@ -35,7 +36,7 @@ export default function PrimeiroAcesso() {
   useEffect(() => {
     if (!loading && user) {
       const meta = user.user_metadata as Record<string, unknown>;
-      if (!meta?.must_change_password) navigate("/aceite-lgpd", { replace: true });
+      if (!meta?.must_change_password) navigate("/aceite-lgpd", { replace: true, state: location.state });
     }
   }, [user, loading, navigate]);
 
@@ -71,7 +72,7 @@ export default function PrimeiroAcesso() {
 
     setBusy(false);
     toast.success("Senha criada com sucesso! Bem-vindo(a) ao Diakonia 🙏");
-    navigate("/aceite-lgpd", { replace: true });
+    navigate("/aceite-lgpd", { replace: true, state: location.state });
   };
 
   if (loading || !user) {

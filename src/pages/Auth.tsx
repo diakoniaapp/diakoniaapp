@@ -6,7 +6,8 @@
 // ============================================================
 
 import { useState, useEffect } from "react";
-import { useNavigate, useSearchParams, Link } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams, Link } from "react-router-dom";
+import { destinoDoEstado } from "@/lib/destinoPosEntrada";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -65,6 +66,7 @@ function traduzirErro(msg: string): string {
 // ── Componente Principal ───────────────────────────────────
 export default function Auth() {
   const navigate       = useNavigate();
+  const location       = useLocation();
   const { user, loading, roles, rolesCarregados, pessoaId, pessoaCarregada } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -115,11 +117,11 @@ export default function Auth() {
     if (!loading && user) {
       const meta = user.user_metadata as Record<string, unknown>;
       if (meta?.must_change_password) {
-        navigate("/primeiro-acesso", { replace: true });
+        navigate("/primeiro-acesso", { replace: true, state: location.state });
         return;
       }
       const lgpdOk = sessionStorage.getItem(`lgpd_ok_${user.id}`);
-      if (!lgpdOk) { navigate("/aceite-lgpd", { replace: true }); return; }
+      if (!lgpdOk) { navigate("/aceite-lgpd", { replace: true, state: location.state }); return; }
       if (!rolesCarregados) return;
       // ── Espera também o elo conta→ficha ────────────────────────────────
       //
@@ -136,7 +138,8 @@ export default function Auth() {
 
       let cancelado = false;
       destinoInicial(roles, pessoaId).then(destino => {
-        if (!cancelado) navigate(destino, { replace: true });
+        // quem chegou por um link (aba nova, favorito) volta para ele, não para a Home do papel
+        if (!cancelado) navigate(destinoDoEstado(location.state) ?? destino, { replace: true });
       });
       return () => { cancelado = true; };
     }

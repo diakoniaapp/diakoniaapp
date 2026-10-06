@@ -5,7 +5,8 @@
 // ============================================================
 
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+import { destinoDoEstado } from "@/lib/destinoPosEntrada";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { rotaInicialPorPapel } from "@/components/layout/navConfig";
@@ -34,6 +35,9 @@ Dúvidas sobre privacidade: secretaria@qibrj.org.br`;
 
 export default function AceiteLgpd() {
   const navigate          = useNavigate();
+  const location          = useLocation();
+  // Para onde a pessoa queria ir antes de passar por aqui (ver lib/destinoPosEntrada.ts).
+  const destinoPedido     = destinoDoEstado(location.state);
   const { user, loading, roles, rolesCarregados } = useAuth();
 
   /**
@@ -53,9 +57,9 @@ export default function AceiteLgpd() {
 
   useEffect(() => {
     if (liberado && rolesCarregados) {
-      navigate(rotaInicialPorPapel(roles), { replace: true });
+      navigate(destinoPedido ?? rotaInicialPorPapel(roles), { replace: true });
     }
-  }, [liberado, rolesCarregados, roles, navigate]);
+  }, [liberado, rolesCarregados, roles, navigate, destinoPedido]);
 
   const [politica, setPolitica]       = useState(POLITICA_PADRAO);
   const [versao, setVersao]           = useState("1.0");

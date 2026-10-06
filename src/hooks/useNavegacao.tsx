@@ -30,12 +30,18 @@ function gravarTrilha(t: Trilha) {
 }
 const posicaoNoHistorico = () => ((window.history.state as { idx?: number } | null)?.idx ?? 0);
 
+/** Uma tela pode trocar o "Voltar" genérico por um específico ("Voltar para movimentações"). */
+export interface VoltarPersonalizado { caminho: string; rotulo: string; acao: () => void }
+
 interface Valor {
   /** Caminho da tela anterior DENTRO do app, ou `null` se não há para onde voltar. */
   anterior: string | null;
   /** Nome real da tela aberta, se ela informou. */
   rotulo: string | null;
   definirRotulo: (caminho: string, rotulo: string | null) => void;
+  /** O "Voltar" próprio da tela aberta, se ela definiu um. */
+  voltarPersonalizado: VoltarPersonalizado | null;
+  definirVoltar: (v: VoltarPersonalizado | null) => void;
   /** Volta pelo histórico se houver; senão vai para `destinoSemHistorico`. */
   voltar: (destinoSemHistorico: string) => void;
 }
@@ -48,6 +54,7 @@ export function NavegacaoProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const [anterior, setAnterior] = useState<string | null>(null);
   const [override, setOverride] = useState<{ caminho: string; rotulo: string } | null>(null);
+  const [voltarProprio, setVoltarProprio] = useState<VoltarPersonalizado | null>(null);
   const ultimaChave = useRef<string | null>(null);
 
   useEffect(() => {
@@ -71,7 +78,13 @@ export function NavegacaoProvider({ children }: { children: ReactNode }) {
   // o nome só vale para a tela em que foi informado: ao navegar, some sozinho
   const rotulo = override && override.caminho === location.pathname ? override.rotulo : null;
 
-  const valor = useMemo<Valor>(() => ({ anterior, rotulo, definirRotulo, voltar }), [anterior, rotulo, definirRotulo, voltar]);
+  // como o nome: o "Voltar" próprio só vale para a tela em que foi definido
+  const voltarPersonalizado = voltarProprio && voltarProprio.caminho === location.pathname ? voltarProprio : null;
+
+  const valor = useMemo<Valor>(
+    () => ({ anterior, rotulo, definirRotulo, voltar, voltarPersonalizado, definirVoltar: setVoltarProprio }),
+    [anterior, rotulo, definirRotulo, voltar, voltarPersonalizado],
+  );
   return <Ctx.Provider value={valor}>{children}</Ctx.Provider>;
 }
 
@@ -94,5 +107,25 @@ export function useRotuloDaTela(rotulo: string | null | undefined) {
     if (!definir) return;
     definir(location.pathname, rotulo?.trim() || null);
     return () => definir(location.pathname, null);
+  }, [definir, location.pathname, rotulo]);
+}
+
+/**
+ * A tela troca o "← Voltar" da barra de contexto por um específico, com o rótulo e a ação dela.
+ * `null` desfaz (volta ao genérico). Sai sozinho quando a tela fecha.
+ */
+export function useVoltarPersonalizado(v: { rotulo: string; acao: () => void } | null) {
+  const ctx = useContext(Ctx);
+  const location = useLocation();
+  const definir = ctx?.definirVoltar;
+  // a ação muda a cada render (fecha sobre estado); guardamos em ref para não reinscrever à toa
+  const acaoRef = useRef<(() => void) | null>(null);
+  acaoRef.current = v?.acao ?? null;
+  const rotulo = v?.rotulo ?? null;
+  useEffect(() => {
+    if (!definir) return;
+    if (!rotulo) { definir(null); return; }
+    definir({ caminho: location.pathname, rotulo, acao: () => acaoRef.current?.() });
+    return () => definir(null);
   }, [definir, location.pathname, rotulo]);
 }

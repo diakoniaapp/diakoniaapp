@@ -1,4 +1,5 @@
 import { Outlet, NavLink, useNavigate, useLocation } from "react-router-dom";
+import { estadoDeDesvio } from "@/lib/destinoPosEntrada";
 import { FaixaVerComo } from "@/components/layout/VerComoMenu";
 import { useAuth } from "@/hooks/useAuth";
 import { LogOut, ChevronDown, Search, Moon, Sun, User, Mail, Globe, Smartphone } from "lucide-react";
@@ -177,17 +178,20 @@ export default function AppLayout() {
   // Guards de auth + must_change_password + LGPD + role
   useEffect(() => {
     if (loading) return;
-    if (!user) { navigate("/auth", { replace: true }); return; }
+    // O endereço pedido viaja junto (`state.de`): sem isso, abrir um link numa aba nova passa pelo
+    // login/LGPD e termina na Home (achado em 06/10/2026 — ver lib/destinoPosEntrada.ts).
+    const desvio = estadoDeDesvio(location);
+    if (!user) { navigate("/auth", { replace: true, state: desvio }); return; }
 
     const meta = user.user_metadata as Record<string, unknown>;
     if (meta?.must_change_password) {
-      navigate("/primeiro-acesso", { replace: true });
+      navigate("/primeiro-acesso", { replace: true, state: desvio });
       return;
     }
 
     const lgpdOk = sessionStorage.getItem(`lgpd_ok_${user.id}`);
     if (!lgpdOk) {
-      navigate("/aceite-lgpd", { replace: true });
+      navigate("/aceite-lgpd", { replace: true, state: desvio });
       return;
     }
 

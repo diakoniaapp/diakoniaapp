@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
-import { useRotuloDaTela } from "@/hooks/useNavegacao";
-import { Link, useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { useRotuloDaTela, useVoltarPersonalizado } from "@/hooks/useNavegacao";
+import { Link, useParams, useNavigate, useSearchParams, useLocation } from "react-router-dom";
+import { centroESubcentro } from "@/lib/centroSubcentro";
+import { destinoSeguro } from "@/lib/destinoPosEntrada";
+import {
+  contextoParaQuery, lerRetorno, limparRetorno, queryParaContexto, salvarContextoExtrato,
+} from "@/lib/contextoExtrato";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,8 +32,8 @@ import { toast } from "sonner";
 import {
   carregarConta, listarLancamentosSemTeto, excluirLancamento, excluirLancamentosEmLote, brl,
   comprovanteSignedUrl, CONTA_TIPO_LABEL, listarContas, nomeExtrato,
-  conciliarEmLote, listarCategorias, listarCentrosCusto,
-  type FinConta, type FinLancamentoExtenso, type FinMovimentoTipo, type FinStatus,
+  conciliarEmLote, listarCategorias, listarCentrosCusto, listarFornecedores,
+  type FinFornecedor, type FinConta, type FinLancamentoExtenso, type FinMovimentoTipo, type FinStatus,
   type FinCategoria, type FinCentroCusto,
   STATUS_LABEL,
 } from "@/services/finService";
@@ -53,19 +58,8 @@ function dataBr(s: string) {
   return new Date(s + "T00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
 }
 
-// Centro de custo e subcentro são o MESMO campo (`centro_custo_id`) — não
-// existe uma segunda coluna "subcentro" no banco (medido no Indicador por
-// Centro de Custo, 01/10/2026: um subcentro é só um `fin_centros_custo`
-// com `centro_pai_id` preenchido, e o `nome` dele já vem gravado como
-// "Pai · Filho", ex. "Administração · Pessoal"). Pra exibir como dois
-// badges separados (pedido dela), só precisa partir essa string — nenhum
-// dado novo.
-function centroESubcentro(nome: string | null | undefined): { centro: string; subcentro: string | null } | null {
-  if (!nome) return null;
-  const i = nome.indexOf(" · ");
-  if (i === -1) return { centro: nome, subcentro: null };
-  return { centro: nome.slice(0, i), subcentro: nome.slice(i + 3) };
-}
+// `centroESubcentro` (Centro · Subcentro em dois pedaços) mora em lib/centroSubcentro.ts desde
+// 06/10/2026 — o painel em tela cheia usa a mesma regra.
 
 const STATUS_COR: Record<FinStatus, string> = {
   realizado:  "text-foreground",
@@ -129,7 +123,18 @@ export default function FinancasConta() {
   // vazaria filtro de uma conta pra outra aba/sessão sem relação).
   const [searchParams, setSearchParams] = useSearchParams();
   const [conta, setConta] = useState<FinConta | null>(null);
-  useRotuloDaTela(conta?.nome); // nome real na trilha de navegação (BarraDeContexto)
+  useRotuloDaTela(conta?.nome ? `${conta.nome} · Extrato completo` : undefined); // nome real na trilha (BarraDeContexto)
+
+  // Veio do painel da conta (botão "Extrato completo")? Então o "Voltar" da barra de contexto vira
+  // "Voltar para movimentações" e reabre aquele painel, na mesma conta — com o contexto de trabalho
+  // que estiver agora (o painel o lê de lib/contextoExtrato.ts), inclusive o que foi mudado aqui.
+  const location = useLocation();
+  // Capturado na chegada: o espelho dos filtros na URL (`setSearchParams` com `replace`) reescreve a
+  // entrada do histórico e, sem repassar o `state`, ele sumia logo depois da primeira renderização.
+  const [origemDoPainel] = useState(() => destinoSeguro((location.state as { origem?: string } | null)?.origem));
+  useVoltarPersonalizado(origemDoPainel && contaId && contaId !== "todas"
+    ? { rotulo: "Voltar para movimentações", acao: () => navigate(origemDoPainel, { state: { reabrirExtrato: contaId } }) }
+    : null);
   const [contas, setContas] = useState<FinConta[]>([]);
   const [lancamentos, setLancamentos] = useState<FinLancamentoExtenso[]>([]);
   const [loading, setLoading] = useState(true);
@@ -161,6 +166,8 @@ export default function FinancasConta() {
   // outros filtros desta tela.
   const [filtroCategoriaId, setFiltroCategoriaId] = useState(() => searchParams.get("categoria") ?? "");
   const [filtroCentroCustoId, setFiltroCentroCustoId] = useState(() => searchParams.get("centro") ?? "");
+  const [filtroFornecedorId, setFiltroFornecedorId] = useState(() => searchParams.get("fornecedor") ?? "");
+  const [fornecedoresFiltro, setFornecedoresFiltro] = useState<FinFornecedor[]>([]);
   const [categorias, setCategorias] = useState<FinCategoria[]>([]);
   const [centros, setCentros] = useState<FinCentroCusto[]>([]);
   // Modo Resumido/Analítico (01/10/2026, pedido dela: "reduzir largura
@@ -334,7 +341,7 @@ export default function FinancasConta() {
   const inicioEfetivo = dataInicio <= dataFim ? dataInicio : dataFim;
   const fimEfetivo = dataInicio <= dataFim ? dataFim : dataInicio;
 
-  useEffect(() => { carregar(); }, [contaId, filtroTipo, statusFiltro, inicioEfetivo, fimEfetivo, buscaDebounced, filtroCategoriaId, filtroCentroCustoId]);
+  useEffect(() => { carregar(); }, [contaId, filtroTipo, statusFiltro, inicioEfetivo, fimEfetivo, buscaDebounced, filtroCategoriaId, filtroCentroCustoId, filtroFornecedorId]);
   // Trocar de CONTA limpa a lista antes de buscar — sem isso, o fix logo
   // abaixo ("não mostrar spinner se já tem dado em mãos", pro popover não
   // fechar sozinho) mostraria por um instante o extrato da conta ANTERIOR
@@ -349,7 +356,7 @@ export default function FinancasConta() {
   // servidor, mas muda quantas linhas sobram pra paginar).
   useEffect(() => { setPagina(1); }, [
     contaId, filtroTipo, inicioEfetivo, fimEfetivo, buscaDebounced,
-    filtroCategoriaId, filtroCentroCustoId, filtroValorMinTexto, filtroValorMaxTexto, filtroDataEspecifica,
+    filtroCategoriaId, filtroCentroCustoId, filtroFornecedorId, filtroValorMinTexto, filtroValorMaxTexto, filtroDataEspecifica,
   ]);
 
   // Espelha os filtros na URL (`replace`, não empilha histórico a cada
@@ -360,15 +367,25 @@ export default function FinancasConta() {
     if (busca) params.set("busca", busca);
     if (filtroCategoriaId) params.set("categoria", filtroCategoriaId);
     if (filtroCentroCustoId) params.set("centro", filtroCentroCustoId);
+    if (filtroFornecedorId) params.set("fornecedor", filtroFornecedorId);
     if (filtroValorMinTexto.trim()) params.set("valorMin", filtroValorMinTexto);
     if (filtroValorMaxTexto.trim()) params.set("valorMax", filtroValorMaxTexto);
     if (filtroDataEspecifica) params.set("dataExata", filtroDataEspecifica);
     params.set("periodo", periodoPreset);
     params.set("de", dataInicio);
     params.set("ate", dataFim);
-    setSearchParams(params, { replace: true });
+    setSearchParams(params, { replace: true, state: location.state });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtroTipo, busca, periodoPreset, dataInicio, dataFim, filtroCategoriaId, filtroCentroCustoId, filtroValorMinTexto, filtroValorMaxTexto, filtroDataEspecifica]);
+    // O mesmo contexto alimenta o painel da conta (ExtratoContaDrawer): o que se muda aqui vale
+    // lá ao voltar (lib/contextoExtrato.ts). Fora de "atrasados", que é filtro de situação.
+    if (periodoPreset !== "atrasados") {
+      salvarContextoExtrato({
+        periodo: periodoPreset, de: dataInicio, ate: dataFim, tipo: filtroTipo, categoriaId: filtroCategoriaId,
+        centroId: filtroCentroCustoId, fornecedorId: filtroFornecedorId, busca,
+        valorMin: filtroValorMinTexto, valorMax: filtroValorMaxTexto,
+      });
+    }
+  }, [filtroTipo, busca, periodoPreset, dataInicio, dataFim, filtroCategoriaId, filtroCentroCustoId, filtroFornecedorId, filtroValorMinTexto, filtroValorMaxTexto, filtroDataEspecifica]);
 
   // Lista de contas pro seletor rápido (item 3) — carregada uma vez só,
   // não depende de `contaId`, e já vem ordenada por `ordem`/`nome`
@@ -380,6 +397,7 @@ export default function FinancasConta() {
   useEffect(() => {
     listarCategorias().then(setCategorias);
     listarCentrosCusto().then(setCentros);
+    listarFornecedores().then(setFornecedoresFiltro).catch(() => setFornecedoresFiltro([]));
   }, []);
 
   // Trocar de conta pelo seletor: preserva os filtros atuais na URL nova
@@ -420,6 +438,7 @@ export default function FinancasConta() {
           busca: buscaDebounced.length >= 2 ? buscaDebounced : undefined,
           categoriaId: filtroCategoriaId || undefined,
           centroCustoId: filtroCentroCustoId || undefined,
+          fornecedorId: filtroFornecedorId || undefined,
         }),
         periodoPreset === "atrasados" ? Promise.resolve(0) : saldoAntesDe(inicioEfetivo, isTodasContas ? undefined : contaId),
       ]);
@@ -755,7 +774,7 @@ export default function FinancasConta() {
   }
 
   return (
-    <div className="relatorio-page p-3 md:p-5 max-w-7xl mx-auto space-y-3 print:max-w-full print:p-0">
+    <div className="relatorio-page p-3 md:p-5 max-w-[120rem] mx-auto space-y-3 print:max-w-full print:p-0">
       {/* Impressão — o escape do <main> e o `overflow-x-auto` da tabela
           agora são globais (src/index.css, "IMPRESSÃO — padrão único",
           01/10/2026). `table-layout: fixed` continua AQUI, não virou regra
@@ -991,6 +1010,18 @@ export default function FinancasConta() {
                 <SelectItem value="__todos__">Todos centros</SelectItem>
                 {centros.map(c => (
                   <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="w-40">
+            <label className="text-xs uppercase tracking-wide text-muted-foreground">Fornecedor</label>
+            <Select value={filtroFornecedorId || "__todos__"} onValueChange={(v) => setFiltroFornecedorId(v === "__todos__" ? "" : v)}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__todos__">Todos fornecedores</SelectItem>
+                {fornecedoresFiltro.map(f => (
+                  <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
