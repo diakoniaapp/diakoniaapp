@@ -1,29 +1,20 @@
--- ─── RASCUNHO PARA REVISÃO — simplificação do centro "Min. Evangelismo e Missões" em 4 subcentros ───
--- (revisão 2, de 06/10/2026, com as respostas dela: campanhas moram em "Campanhas Missionárias";
---  toda prebenda do pastor missionário Alexandre vai para "Sustento Missionário")
+-- ─── Missões — o centro "Min. Evangelismo e Missões" em 4 subcentros (aprovado por ela em 06/10/2026) ───
 --
--- NÃO É UMA MIGRATION: está em docs/ de propósito, para ninguém aplicar por engano. Só vira migration
--- (supabase/migrations/…) depois da sua aprovação, e então é ensaiada com BEGIN/ROLLBACK, como as outras.
--- NÃO ENSAIADA (o token de gerenciamento do Supabase está sem acesso) e NÃO APLICADA.
--- Proposta e números: docs/PROPOSTA_SIMPLIFICACAO_CENTRO_MISSOES.md
+-- Proposta, números e decisões: docs/PROPOSTA_SIMPLIFICACAO_CENTRO_MISSOES.md.
+--   1. Sustento Missionário   — recebe TODA despesa do pastor missionário Alexandre (fornecedor fb315437…): 2 estavam no
+--                               centro antigo "Pastor Missionário", 2 são PREVISTAS (nov/dez 2026) sem centro e sem categoria
+--   2. Campanhas Missionárias — o "Envios Missionários" RENOMEADO (mesmo id); aqui moram as campanhas Mundiais e Nacionais:
+--                               as ofertas do Fundo (entrada), os repasses às Juntas e o custo de arrecadar (saída)
+--   3. Projetos Missionários  — NOVO; Cristolândia (2 panetones) e Carreta (29 × R$ 300, projeto novo)
+--   4. Ofertas Missionárias   — o centro antigo de mesmo nome, só com saídas (entregas diretas a missionários)
+-- Mobilização, Pastor Missionário e Missões Nacionais ficam inativos DEPOIS de vazios — nunca apagados.
 --
--- ESTRUTURA FINAL (decisões dela de 06/10/2026):
---   1. Sustento Missionário     — o que já existe; perde os 29 de R$ 300 (vão para Projetos) e ganha TODA prebenda do
---                                 pastor missionário Alexandre (2 estavam no centro antigo "Pastor Missionário",
---                                 2 PREVISTOS de nov/dez 2026 estavam sem centro e sem categoria)
---   2. Campanhas Missionárias   — o "Envios Missionários" RENOMEADO (mesmo id: nada se perde). Aqui moram as campanhas
---                                 Mundiais e Nacionais: ENTRADAS (ofertas) e SAÍDAS (repasses às Juntas + custo da feira)
---   3. Projetos Missionários    — NOVO; recebe Cristolândia (2 panetones) e Carreta (29 × R$ 300, projeto novo)
---   4. Ofertas Missionárias     — o centro antigo de mesmo nome, reaproveitado (só saídas); recebe a oferta ao preletor
---   (Mobilização, Pastor Missionário e Missões Nacionais ficam inativos DEPOIS de vazios — nunca apagados.
---    "Missões Mundiais" ela mesma já excluiu.)
+-- O QUE NÃO MUDA: o Fundo Missionário (é por CATEGORIA), o campo "Campanha missionária", valores, datas, contas e
+-- conciliação. Só mudam centro_custo_id (+ projeto_id nos 29 da Carreta, + categoria_id nos 2 previstos sem categoria)
+-- e o centro padrão de 2 categorias.
 --
--- O QUE NÃO MUDA: o Fundo Missionário (é por CATEGORIA), o campo "Campanha missionária", categorias (exceto o centro
--- padrão de duas), valores, datas, contas, conciliação. Só mudam centro_custo_id (e projeto_id nos 29 da Carreta;
--- categoria_id só nos 2 previstos do Alexandre, que estão sem categoria).
---
--- Cada UPDATE é guardado por id/critério + estado antigo + contagem esperada (rodar de novo não faz nada) e há
--- verificação final por SOMA em cada subcentro. Qualquer divergência dá RAISE EXCEPTION e desfaz tudo.
+-- Cada UPDATE é guardado por id/critério + estado antigo + contagem esperada (rodar de novo não faz nada) e há verificação
+-- final por SOMA e por contagem. Qualquer divergência dá RAISE EXCEPTION e desfaz tudo. ENSAIAR com BEGIN/ROLLBACK.
 
 DO $$
 DECLARE

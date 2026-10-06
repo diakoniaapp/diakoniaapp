@@ -7,8 +7,12 @@
 //   Envio Oficial      = saídas da categoria "Repasses Missionários"
 //   Sustento           = saídas do subcentro Sustento Missionário (investimento PRÓPRIO da
 //                        igreja, fora do fundo): pastor missionário, parcerias, sustentados
-//   Mobilização        = subcentro Mobilização Missionária (conferências, preletores, eventos)
-//   Esforço Total      = Envio Oficial + Sustento + Mobilização
+//   Campanhas          = subcentro Campanhas Missionárias: o Envio Oficial + o custo de arrecadar (feira)
+//   Projetos           = subcentro Projetos Missionários (Cristolândia, Carreta…)
+//   Ofertas diretas    = subcentro Ofertas Missionárias (entregas a missionários; só saídas)
+//   Mobilização        = subcentro ANTIGO Mobilização Missionária (some depois da migration dos 4 subcentros)
+//   Esforço Total      = tudo que SAI do centro de Missões = Envio Oficial + custo de campanhas
+//                        + Sustento + Projetos + Ofertas diretas (+ Mobilização, enquanto existir)
 //   Campanha           = campo `campanha_missionaria` do lançamento; o ano vem da DATA.
 //
 // Contas do fluxo e do fundo registrado ficam em `indicadoresMissionarios.ts`.
@@ -32,20 +36,27 @@ const sinAcento = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLo
 const arredondar = (n: number) => Math.round(n * 100) / 100;
 const valorDe = (l: { valor: number | string }) => Number(l.valor) || 0;
 
-export type ClasseDeCentro = "sustento" | "envios" | "mobilizacao";
+export type ClasseDeCentro = "sustento" | "campanhas" | "projetos" | "ofertas" | "mobilizacao";
 
 /**
- * Qual das três naturezas o centro representa. Reconhece os subcentros NOVOS e os 4 antigos, para
- * o painel funcionar antes e depois da migration de remapeamento (20261006190000):
- * Pastor Missionário e Ofertas Missionárias = sustento; Missões Mundiais/Nacionais = envios.
+ * Qual das naturezas o centro representa. Reconhece os 4 subcentros novos E os antigos, para o painel
+ * funcionar antes e depois da migration dos 4 subcentros (06/10/2026):
+ *   sustento    = Sustento Missionário (+ o antigo Pastor Missionário)
+ *   campanhas   = Campanhas Missionárias (+ os antigos Envios Missionários, Missões Mundiais/Nacionais)
+ *   projetos    = Projetos Missionários
+ *   ofertas     = Ofertas Missionárias (entregas diretas; antes da migration o centro só tinha entradas)
+ *   mobilizacao = o antigo Mobilização Missionária
  * Só faz sentido para SAÍDAS (entrada não é custo).
  */
 export function classeDoCentro(nome: string | null | undefined): ClasseDeCentro | null {
   if (!nome) return null;
   const n = sinAcento(nome);
-  if (n.includes("sustento missionario") || n.includes("pastor missionario") || n.includes("ofertas missionarias")) return "sustento";
+  if (n.includes("sustento missionario") || n.includes("pastor missionario")) return "sustento";
+  if (n.includes("projetos missionarios")) return "projetos";
+  if (n.includes("ofertas missionarias")) return "ofertas";
   if (n.includes("mobilizacao missionaria")) return "mobilizacao";
-  if (n.includes("envios missionarios") || n.endsWith("missoes mundiais") || n.endsWith("missoes nacionais")) return "envios";
+  if (n.includes("campanhas missionarias") || n.includes("envios missionarios")
+    || n.endsWith("missoes mundiais") || n.endsWith("missoes nacionais")) return "campanhas";
   return null;
 }
 
@@ -105,17 +116,30 @@ export function fundoComAjustes(
 // ── Envio Oficial × Esforço Total ───────────────────────────────────────────
 
 export interface EnviosDoPeriodo {
+  /** Envio Oficial: categoria Repasses Missionários. */
   oficial: number;
+  /** Custo de arrecadar as campanhas (feira, banner…): saídas do subcentro Campanhas que NÃO são Envio Oficial. */
+  custoDeCampanhas: number;
   sustento: number;
+  projetos: number;
+  ofertas: number;
+  /** Subcentro antigo; 0 depois da migration dos 4 subcentros. */
   mobilizacao: number;
-  /** oficial + sustento + mobilização */
+  /** tudo que sai do centro de Missões: a soma de todas as linhas acima */
   esforcoTotal: number;
+}
+
+/** Saídas de cada subcentro novo, além do Envio Oficial (todas opcionais: antes da migration são vazias). */
+export interface SaidasDosSubcentros {
+  campanhas?: LancamentoMissionario[];
+  projetos?: LancamentoMissionario[];
+  ofertas?: LancamentoMissionario[];
 }
 
 /** Cada lançamento entra UMA vez (se aparecer em dois grupos, o Envio Oficial manda). Sem datas = vida inteira. */
 export function enviosDoPeriodo(
   envios: LancamentoMissionario[], sustento: LancamentoMissionario[], mobilizacao: LancamentoMissionario[],
-  inicio?: string, fim?: string,
+  inicio?: string, fim?: string, subcentros: SaidasDosSubcentros = {},
 ): EnviosDoPeriodo {
   const vistos = new Set<string>();
   const soma = (ls: LancamentoMissionario[]) => somar(ls.filter(l => {
@@ -126,7 +150,12 @@ export function enviosDoPeriodo(
     return true;
   }));
   const oficial = soma(envios), sust = soma(sustento), mob = soma(mobilizacao);
-  return { oficial, sustento: sust, mobilizacao: mob, esforcoTotal: arredondar(oficial + sust + mob) };
+  const custoDeCampanhas = soma(subcentros.campanhas ?? []);
+  const projetos = soma(subcentros.projetos ?? []), ofertas = soma(subcentros.ofertas ?? []);
+  return {
+    oficial, custoDeCampanhas, sustento: sust, projetos, ofertas, mobilizacao: mob,
+    esforcoTotal: arredondar(oficial + custoDeCampanhas + sust + projetos + ofertas + mob),
+  };
 }
 
 // ── Missões permanentes (sustento) ──────────────────────────────────────────

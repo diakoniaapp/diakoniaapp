@@ -77,6 +77,7 @@ export function IndicadoresMissionarios({
   const calc = useMemo(() => {
     if (!dados) return null;
     const { entradas, envios, sustento, mobilizacao, ajustes, metas, recorrenciasDeSustento } = dados;
+    const subcentros = { campanhas: dados.campanhasSaidas, projetos: dados.projetosSaidas, ofertas: dados.ofertasSaidas };
     return {
       periodo: resumoDoPeriodo(entradas, envios, inicio, fim),
       anterior: resumoDoPeriodo(entradas, envios, ant.inicio, ant.fim),
@@ -87,8 +88,8 @@ export function IndicadoresMissionarios({
         .sort((a, b) => diaDoLancamento(b).localeCompare(diaDoLancamento(a))),
       permanentes: resumoPermanentes(sustento, inicio, fim, recorrenciasDeSustento),
       campanhas: resumoDasCampanhas(entradas, envios, metas, ano),
-      enviosPeriodo: enviosDoPeriodo(envios, sustento, mobilizacao, inicio, fim),
-      enviosTotal: enviosDoPeriodo(envios, sustento, mobilizacao),
+      enviosPeriodo: enviosDoPeriodo(envios, sustento, mobilizacao, inicio, fim, subcentros),
+      enviosTotal: enviosDoPeriodo(envios, sustento, mobilizacao, undefined, undefined, subcentros),
       pendentes: ofertasSemClassificacao(entradas),
       grupos: sugerirCampanhasPorCiclo(entradas, envios),
       ajustesAtivos: ajustes.filter(a => a.ativo).length,
@@ -367,27 +368,51 @@ export function IndicadoresMissionarios({
         <div className="p-3 pb-2">
           <h3 id="mis-envios" className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Envios missionários</h3>
           <p className="text-[11px] text-muted-foreground">
-            <strong>Envio Oficial</strong> = Repasses Missionários. <strong>Esforço Total</strong> = Envio Oficial + Sustento + Mobilização.
+            <strong>Envio Oficial</strong> = Repasses Missionários. <strong>Esforço Total</strong> = tudo que sai do centro de Missões
+            (Envio Oficial + custo das campanhas + Sustento + Projetos + Ofertas diretas).
           </p>
         </div>
         {!pronto || !calc ? (
           <p className="text-sm text-muted-foreground px-3 pb-3">Carregando…</p>
         ) : (
           <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-3 px-3 pb-3">
+            {/* As 4 perguntas, uma por subcentro. Antes da migration dos 4 subcentros, Projetos/Ofertas aparecem zerados. */}
             <div className="rounded-md border p-3 min-w-0">
-              <Rotulo>Envio Oficial</Rotulo>
-              <p className="text-lg font-extrabold tabular-nums">{brl(calc.enviosTotal.oficial)}</p>
-              <p className="text-[11px] text-muted-foreground">histórico · no período {brl(calc.enviosPeriodo.oficial)}</p>
+              <Rotulo>Sustento missionário</Rotulo>
+              <p className="text-lg font-extrabold tabular-nums">{brl(calc.enviosTotal.sustento)}</p>
+              <p className="text-[11px] text-muted-foreground">histórico · no período {brl(calc.enviosPeriodo.sustento)}</p>
             </div>
             <div className="rounded-md border p-3 min-w-0">
+              <Rotulo>Campanhas: enviado</Rotulo>
+              <p className="text-lg font-extrabold tabular-nums">{brl(calc.enviosTotal.oficial + calc.enviosTotal.custoDeCampanhas)}</p>
+              <p className="text-[11px] text-muted-foreground">
+                histórico · no período {brl(calc.enviosPeriodo.oficial + calc.enviosPeriodo.custoDeCampanhas)}
+              </p>
+              <p className="text-[11px] text-muted-foreground tabular-nums">
+                Envio Oficial {brl(calc.enviosTotal.oficial)} + custo de arrecadar {brl(calc.enviosTotal.custoDeCampanhas)} · arrecadado {brl(calc.fundo.arrecadado)}
+              </p>
+            </div>
+            <div className="rounded-md border p-3 min-w-0">
+              <Rotulo>Projetos missionários</Rotulo>
+              <p className="text-lg font-extrabold tabular-nums">{brl(calc.enviosTotal.projetos)}</p>
+              <p className="text-[11px] text-muted-foreground">histórico · no período {brl(calc.enviosPeriodo.projetos)}</p>
+            </div>
+            <div className="rounded-md border p-3 min-w-0">
+              <Rotulo>Entregue direto a missionários</Rotulo>
+              <p className="text-lg font-extrabold tabular-nums">{brl(calc.enviosTotal.ofertas)}</p>
+              <p className="text-[11px] text-muted-foreground">histórico · no período {brl(calc.enviosPeriodo.ofertas)}</p>
+            </div>
+            <div className="rounded-md border p-3 min-w-0 min-[420px]:col-span-2">
               <Rotulo>Esforço Missionário Total</Rotulo>
               <p className="text-lg font-extrabold tabular-nums text-violeta-text">{brl(calc.enviosTotal.esforcoTotal)}</p>
               <p className="text-[11px] text-muted-foreground">
                 histórico · no período {brl(calc.enviosPeriodo.esforcoTotal)}
               </p>
-              <p className="text-[11px] text-muted-foreground tabular-nums">
-                oficial {brl(calc.enviosTotal.oficial)} + sustento {brl(calc.enviosTotal.sustento)} + mobilização {brl(calc.enviosTotal.mobilizacao)}
-              </p>
+              {calc.enviosTotal.mobilizacao > 0 && (
+                <p className="text-[11px] text-muted-foreground tabular-nums">
+                  inclui {brl(calc.enviosTotal.mobilizacao)} do subcentro antigo Mobilização Missionária.
+                </p>
+              )}
             </div>
           </div>
         )}

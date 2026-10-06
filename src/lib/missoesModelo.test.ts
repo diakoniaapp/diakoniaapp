@@ -13,10 +13,12 @@ describe("classeDoCentro", () => {
   it("reconhece os subcentros novos e os 4 antigos", () => {
     expect(classeDoCentro("Evangelismo e Missões · Sustento Missionário")).toBe("sustento");
     expect(classeDoCentro("Evangelismo e Missões · Pastor Missionário")).toBe("sustento");
-    expect(classeDoCentro("Evangelismo e Missões · Ofertas Missionárias")).toBe("sustento");
-    expect(classeDoCentro("Evangelismo e Missões · Envios Missionários")).toBe("envios");
-    expect(classeDoCentro("Evangelismo e Missões · Missões Mundiais")).toBe("envios");
-    expect(classeDoCentro("Evangelismo e Missões · Missões Nacionais")).toBe("envios");
+    expect(classeDoCentro("Evangelismo e Missões · Ofertas Missionárias")).toBe("ofertas");
+    expect(classeDoCentro("Evangelismo e Missões · Campanhas Missionárias")).toBe("campanhas");
+    expect(classeDoCentro("Evangelismo e Missões · Projetos Missionários")).toBe("projetos");
+    expect(classeDoCentro("Evangelismo e Missões · Envios Missionários")).toBe("campanhas");
+    expect(classeDoCentro("Evangelismo e Missões · Missões Mundiais")).toBe("campanhas");
+    expect(classeDoCentro("Evangelismo e Missões · Missões Nacionais")).toBe("campanhas");
     expect(classeDoCentro("Evangelismo e Missões · Mobilização Missionária")).toBe("mobilizacao");
   });
   it("não confunde o centro-pai nem outros ministérios", () => {
@@ -65,7 +67,19 @@ describe("fundo registrado × ajustado", () => {
 describe("Envio Oficial × Esforço Total", () => {
   it("196.219,14 = 162.554,89 + 8.850,00 + 24.814,25", () => {
     const e = enviosDoPeriodo([l("2025-06-01", 162554.89)], [l("2025-01-01", 8850), l("2025-01-02", 24814.25)], []);
-    expect(e).toEqual({ oficial: 162554.89, sustento: 33664.25, mobilizacao: 0, esforcoTotal: 196219.14 });
+    expect(e).toEqual({
+      oficial: 162554.89, custoDeCampanhas: 0, sustento: 33664.25, projetos: 0, ofertas: 0, mobilizacao: 0, esforcoTotal: 196219.14,
+    });
+  });
+  it("os 4 subcentros: 242.645,22 = oficial 157.167,89 + feira 984,40 + sustento 70.592,93 + projetos 13.750 + ofertas 150", () => {
+    const oficial = l("2025-06-01", 157167.89);
+    const e = enviosDoPeriodo(
+      [oficial], [l("2026-01-01", 70592.93)], [], undefined, undefined,
+      // o Envio Oficial também mora no subcentro Campanhas: não pode contar duas vezes
+      { campanhas: [oficial, l("2026-02-01", 984.4)], projetos: [l("2026-03-01", 13750)], ofertas: [l("2026-04-01", 150)] },
+    );
+    expect(e.custoDeCampanhas).toBe(984.4);
+    expect(e.esforcoTotal).toBe(242645.22);
   });
   it("mobilização entra no esforço total (decisão dela); previsto não conta", () => {
     const e = enviosDoPeriodo([], [], [l("2026-10-01", 500), l("2026-10-02", 900, { status: "previsto" })]);

@@ -14,7 +14,7 @@ import {
   type FinLancamentoExtenso, type FinProjeto,
 } from "@/services/finService";
 import {
-  classeDoCentro, VALOR_QUE_FECHA_CICLO, type AjusteDoFundo, type CampanhaMissionaria, type MetaDeCampanha,
+  classeDoCentro, VALOR_QUE_FECHA_CICLO, type AjusteDoFundo, type CampanhaMissionaria, type ClasseDeCentro, type MetaDeCampanha,
 } from "@/lib/missoesModelo";
 import { valorMensalDaRecorrencia } from "@/lib/missoesRecorrencia";
 
@@ -66,9 +66,14 @@ export interface DadosDeMissoes {
   entradas: FinLancamentoExtenso[];
   /** Envio Oficial: saídas das categorias de repasse missionário. */
   envios: FinLancamentoExtenso[];
-  /** Saídas dos subcentros de Sustento (e dos antigos Pastor Missionário / Ofertas Missionárias). */
+  /** Saídas dos subcentros de Sustento (e do antigo Pastor Missionário). */
   sustento: FinLancamentoExtenso[];
+  /** Subcentro antigo; vazio depois da migration dos 4 subcentros. */
   mobilizacao: FinLancamentoExtenso[];
+  /** Saídas do subcentro Campanhas (o Envio Oficial também está aqui; o modelo não conta duas vezes). */
+  campanhasSaidas: FinLancamentoExtenso[];
+  projetosSaidas: FinLancamentoExtenso[];
+  ofertasSaidas: FinLancamentoExtenso[];
   ajustes: AjusteDoFundo[];
   metas: MetaDeCampanha[];
   /** Compromisso mensal já convertido em valor por mês; null = nenhuma recorrência de sustento. */
@@ -85,19 +90,22 @@ export async function carregarDadosDeMissoes(opts: {
 }): Promise<DadosDeMissoes> {
   const recursos = await recursosDeMissoes();
   const centros = await listarCentrosCusto();
-  const porClasse = (c: "sustento" | "mobilizacao") => centros.filter(x => classeDoCentro(x.nome) === c).map(x => x.id);
-  // Só SAÍDAS dos centros: a entrada em "Missões Mundiais"/"Ofertas Missionárias" não é custo.
+  const porClasse = (c: ClasseDeCentro) => centros.filter(x => classeDoCentro(x.nome) === c).map(x => x.id);
+  // Só SAÍDAS dos centros: a oferta que mora em Campanhas Missionárias não é custo.
   const buscarSaidasDe = async (ids: string[]) =>
     unicos((await Promise.all(ids.map(id => listarLancamentosSemTeto({ tipo: "saida", centroCustoId: id })))).flat());
   const idsSustento = porClasse("sustento");
 
-  const [entradas, envios, sustento, mobilizacao, ajustes, metas, recorrencias, projetos] = await Promise.all([
+  const [entradas, envios, sustento, mobilizacao, campanhasSaidas, projetosSaidas, ofertasSaidas, ajustes, metas, recorrencias, projetos] = await Promise.all([
     opts.categoriaDeEntradaId
       ? listarLancamentosSemTeto({ tipo: "entrada", categoriaId: opts.categoriaDeEntradaId })
       : Promise.resolve([] as FinLancamentoExtenso[]),
     Promise.all(opts.categoriasDeRepasseIds.map(id => listarLancamentosSemTeto({ tipo: "saida", categoriaId: id }))).then(r => unicos(r.flat())),
     buscarSaidasDe(idsSustento),
     buscarSaidasDe(porClasse("mobilizacao")),
+    buscarSaidasDe(porClasse("campanhas")),
+    buscarSaidasDe(porClasse("projetos")),
+    buscarSaidasDe(porClasse("ofertas")),
     recursos.ajustes ? lerAjustes() : Promise.resolve([] as AjusteDoFundo[]),
     recursos.metas ? lerMetas() : Promise.resolve([] as MetaDeCampanha[]),
     listarRecorrencias().catch(() => []),
@@ -107,7 +115,7 @@ export async function carregarDadosDeMissoes(opts: {
   const doSustento = recorrencias.filter(r =>
     r.ativo && r.tipo === "saida" && r.centro_custo_id && idsSustento.includes(r.centro_custo_id));
   return {
-    entradas, envios, sustento, mobilizacao, ajustes, metas, projetos, recursos,
+    entradas, envios, sustento, mobilizacao, campanhasSaidas, projetosSaidas, ofertasSaidas, ajustes, metas, projetos, recursos,
     recorrenciasDeSustento: doSustento.length
       ? doSustento.map(r => ({ valor: valorMensalDaRecorrencia(Number(r.valor), r.frequencia) }))
       : null,
