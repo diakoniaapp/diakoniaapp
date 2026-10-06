@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   ArrowLeft, Layers, Loader2, Calendar, TrendingUp, TrendingDown,
-  Paperclip, FileText, ChevronRight, CornerUpLeft,
+  Paperclip, FileText, ChevronRight, CornerUpLeft, Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -16,6 +16,7 @@ import {
 } from "@/services/finService";
 import { supabase } from "@/integrations/supabase/client";
 import { PaginaSkeleton } from "@/components/ListState";
+import { LancamentoForm } from "@/components/financas/LancamentoForm";
 
 interface CentroInfo {
   id: string; nome: string;
@@ -53,6 +54,10 @@ export default function FinancasCentroDetalhe() {
   const [subgrupos, setSubgrupos] = useState<FinCentroCusto[]>([]);
   const [lancs, setLancs] = useState<FinLancamentoExtenso[]>([]);
   const [loading, setLoading] = useState(true);
+  // Pedido dela (06/10/2026): "permita corrigir os lançamentos diretamente nos subcentros de custo; é uma forma de
+  // ajustar diretamente no lançamento". O MESMO formulário de edição de todo o Financeiro (categoria, centro/subcentro,
+  // campanha missionária, fornecedor, valor…), aberto daqui — sem ir procurar o lançamento no extrato da conta.
+  const [editando, setEditando] = useState<FinLancamentoExtenso | null>(null);
 
   useEffect(() => { carregar(); }, [centroId]);
 
@@ -298,10 +303,25 @@ export default function FinancasCentroDetalhe() {
               <p className={`text-sm font-semibold tabular-nums shrink-0 ${l.tipo === "entrada" ? "text-success-text" : "text-destructive-text"}`}>
                 {l.tipo === "entrada" ? "+" : "−"} {brl(Number(l.valor))}
               </p>
+              <button type="button" onClick={() => setEditando(l)}
+                className="ml-2 p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground shrink-0"
+                title="Corrigir este lançamento" aria-label={`Corrigir o lançamento ${l.descricao ?? ""}`.trim()}>
+                <Pencil className="w-3.5 h-3.5" />
+              </button>
             </div>
           ))
         )}
       </div>
+
+      {/* Corrigir direto daqui: ao salvar, a lista e os totais do centro (e dos subcentros) se recalculam. */}
+      {editando && (
+        <LancamentoForm
+          open
+          onOpenChange={(v) => { if (!v) setEditando(null); }}
+          lancamento={editando}
+          onSaved={() => { setEditando(null); carregar(); }}
+        />
+      )}
     </div>
   );
 }
