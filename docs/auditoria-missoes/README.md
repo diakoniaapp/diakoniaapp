@@ -13,6 +13,7 @@ A–E (erro de classificação, projeto, sustento, campanha, documento) leva a r
 | 6 | **[REGISTRO_DE_HIPOTESES.md](REGISTRO_DE_HIPOTESES.md)** | **Hipóteses sem prova, com estado e o documento que as fecha** |
 | 7 | [INVESTIGACAO_MUNDIAIS_2024_2025.md](INVESTIGACAO_MUNDIAIS_2024_2025.md) | Mundiais 2024 e 2025: o que foi testado |
 | 8 | **[INVESTIGACAO_MUNDIAIS_2025_FASE2.md](INVESTIGACAO_MUNDIAIS_2025_FASE2.md)** | **Mundiais 2025: complementação, ofertas não classificadas, marca dos R$ 0,10** |
+| 8b | **[INVESTIGACAO_MUNDIAIS_2025_FASE3_MARCA_010.md](INVESTIGACAO_MUNDIAIS_2025_FASE3_MARCA_010.md)** | **O ",10" como convenção real: candidatos reavaliados, Mundiais 2025 em camadas, proposta da regra "⚠ Possível oferta missionária"** |
 | 9 | [PROPOSTA_CICLO_MISSIONARIO.md](PROPOSTA_CICLO_MISSIONARIO.md) | Proposta (não implementada) do campo *Ciclo Missionário* |
 
 Dados: [linha-do-tempo-fundo-missionario.csv](linha-do-tempo-fundo-missionario.csv) · [mundiais-2024-2025-lancamentos.csv](mundiais-2024-2025-lancamentos.csv).

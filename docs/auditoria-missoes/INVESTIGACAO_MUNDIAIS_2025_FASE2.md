@@ -102,6 +102,10 @@ Mesmo com as três, restam **R$ 2.240,81** (e R$ 1,6 mil no melhor cenário). Is
 3. **Contagem de envelopes e fechamento da Feira das Nações 2025** (maio–julho).
 4. Os mesmos comprovantes para o Pix de **R$ 178,10** (07/05/2025).
 
+> **Atualização de 06/10/2026:** a tesouraria confirmou que o ",10" é **convenção intencional**. Os itens "candidata/fraca/descartada" desta fase
+> foram reavaliados em [INVESTIGACAO_MUNDIAIS_2025_FASE3_MARCA_010.md](INVESTIGACAO_MUNDIAIS_2025_FASE3_MARCA_010.md); as ressalvas abaixo sobre
+> "padrão estatístico" ficam como registro do que se sabia na fase 2.
+
 ## 6. Ressalvas honestas
 - A marca ",10" é um **padrão estatístico forte** (13–38% no fundo contra 0,5% nos Dízimos), **não uma prova**: um doador pode ter dado um Dízimo
   que termina em ",10" por coincidência.

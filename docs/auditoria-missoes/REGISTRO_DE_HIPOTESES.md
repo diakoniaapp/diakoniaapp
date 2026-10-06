@@ -57,4 +57,4 @@ Matriz completa: [MATRIZ_HIPOTESES_JMN_12-07-2024.md](MATRIZ_HIPOTESES_JMN_12-07
 | Item | Valor | Hipótese | Por que ainda não está registrada |
 |---|---|---|---|
 | JMM, 12/07/2024 (mesmo dia da H-001) | R$ 1.551,32 | Saldo de Mundiais de 2023, pré-Omie | Você retirou essa linha de raciocínio como principal; aguardo sua instrução |
-| JMM, 22/07/2025 + 19/09/2025 | R$ 5.341,11 | Ver [INVESTIGACAO_MUNDIAIS_2025_FASE2.md](INVESTIGACAO_MUNDIAIS_2025_FASE2.md) | Em investigação |
+| JMM, 22/07/2025 + 19/09/2025 | R$ 5.341,11 | Ver [INVESTIGACAO_MUNDIAIS_2025_FASE2.md](INVESTIGACAO_MUNDIAIS_2025_FASE2.md) | Em investigação — ver [fase 3](INVESTIGACAO_MUNDIAIS_2025_FASE3_MARCA_010.md): com o ",10" confirmado como convenção, 3 Pix (R$ 3.100,30) são candidatos de confiança alta; **aguardam comprovante**; sem reclassificação |
