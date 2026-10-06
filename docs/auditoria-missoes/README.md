@@ -1,5 +1,8 @@
 # Auditoria do Fundo Missionário — índice
 
+> **Documento final de governança (leia primeiro, é o que vale daqui para a frente): [../GOVERNANCA_MISSIONARIA.md](../GOVERNANCA_MISSIONARIA.md).**
+> Os documentos abaixo são o **histórico** da auditoria (evidências e raciocínio).
+
 Ordem de leitura sugerida (cada documento continua o anterior). **Regra geral: nenhum ajuste sem prova documental; qualquer "sim" em
 A–E (erro de classificação, projeto, sustento, campanha, documento) leva a reclassificação, não a ajuste.**
 
