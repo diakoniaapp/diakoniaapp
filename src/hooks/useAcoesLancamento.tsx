@@ -28,7 +28,7 @@ import {
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { CheckCircle2, XCircle, Loader2, Copy, QrCode, Paperclip, Wallet } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, Copy, QrCode, Paperclip, Wallet, FileText, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import {
   confirmarPagamento, aprovarLancamento, rejeitarLancamento,
@@ -39,6 +39,10 @@ import { montarPayloadPix, formatarChavePix, TIPOS_CHAVE_PIX, type TipoChavePix 
 import { Input } from "@/components/ui/input";
 import QRCode from "qrcode";
 import { mensagemErro } from "@/lib/erroRede";
+import { dadosParaPagarDoLancamento, type DadosParaPagar } from "@/services/documentoPagamentoService";
+
+const dataBrCurta = (ymd: string) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.slice(0, 4)}`;
+const juntarEm = (d: string, n: number) => d.match(new RegExp(`.{1,${n}}`, "g"))?.join(" ") ?? d;
 
 export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
   const [aprovando, setAprovando] = useState<FinLancamentoExtenso | null>(null);
@@ -64,6 +68,22 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
   const [novoTipoChave, setNovoTipoChave] = useState<TipoChavePix>("cpf");
   const [salvandoChave, setSalvandoChave] = useState(false);
   const [recarregarPix, setRecarregarPix] = useState(0);
+
+  // Pagamentos inteligentes (06/10/2026): o que está IMPRESSO nos documentos já anexados (linha digitável, Pix do
+  // próprio boleto, valor, vencimento) — para pagar sem abrir o PDF e conferir o valor ANTES de pagar.
+  const [docsPagamento, setDocsPagamento] = useState<DadosParaPagar[]>([]);
+  const [lendoDocs, setLendoDocs] = useState(false);
+  useEffect(() => {
+    setDocsPagamento([]);
+    if (!confirmando || confirmando.tipo !== "saida") return;
+    let cancelado = false;
+    setLendoDocs(true);
+    dadosParaPagarDoLancamento(confirmando.id)
+      .then(d => { if (!cancelado) setDocsPagamento(d); })
+      .catch(() => { /* melhoria: sem a leitura o "Pagar" continua igual ao de antes */ })
+      .finally(() => { if (!cancelado) setLendoDocs(false); });
+    return () => { cancelado = true; };
+  }, [confirmando]);
 
   /** O QR a partir de uma chave — erro no QR nunca trava o "Pagar" (Copiar Pix continua). */
   const gerarQr = useCallback((chave: string, tipo: TipoChavePix | null, nome: string, valor: number, cancelado: () => boolean) => {
@@ -261,6 +281,48 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
               {carregandoFornecedor && (
                 <p className="text-xs text-muted-foreground">Carregando dados do fornecedor…</p>
               )}
+              {lendoDocs && <p className="text-xs text-muted-foreground">Lendo o documento anexado…</p>}
+              {docsPagamento.map(d => {
+                const valorDifere = d.valor !== null && Math.abs(d.valor - Number(confirmando.valor)) > 0.009;
+                const copiar = (texto: string, oQue: string) =>
+                  navigator.clipboard.writeText(texto).then(() => toast.success(`${oQue} copiado — cole no app do seu banco`), () => toast.error("Não consegui copiar"));
+                return (
+                  <div key={d.anexoId} className="rounded-md border bg-muted/20 p-2.5 space-y-1.5">
+                    <p className="text-xs font-medium flex items-center gap-1.5 flex-wrap">
+                      <FileText className="w-3.5 h-3.5 text-gold" /> {d.rotulo}
+                      {d.valor !== null && <span className="tabular-nums">· {brl(d.valor)}</span>}
+                      {d.vencimento && <span className="text-muted-foreground tabular-nums">· vence {dataBrCurta(d.vencimento)}</span>}
+                    </p>
+                    {d.beneficiario && <p className="text-xs text-muted-foreground truncate">{d.beneficiario}</p>}
+                    {valorDifere && (
+                      <p className="text-xs text-warning-text flex items-start gap-1.5">
+                        <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                        O documento diz {brl(d.valor!)}, mas este lançamento está em {brl(Number(confirmando.valor))} — confira antes de pagar (multa, juros ou desconto?).
+                      </p>
+                    )}
+                    {d.codigoValido === false && (
+                      <p className="text-xs text-warning-text flex items-start gap-1.5">
+                        <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" /> Os dígitos da linha digitável não conferem — compare com o documento.
+                      </p>
+                    )}
+                    {(d.linhaDigitavel || d.codigoBarras) && (
+                      <div className="flex items-start gap-2">
+                        <code className="text-2xs break-all flex-1 tabular-nums">{juntarEm((d.linhaDigitavel ?? d.codigoBarras)!, 5)}</code>
+                        <Button type="button" size="sm" variant="outline" className="h-7 gap-1 text-xs shrink-0"
+                          onClick={() => copiar((d.linhaDigitavel ?? d.codigoBarras)!, "Linha digitável")}>
+                          <Copy className="w-3 h-3" /> Copiar
+                        </Button>
+                      </div>
+                    )}
+                    {d.pix && (
+                      <Button type="button" size="sm" variant="outline" className="h-7 gap-1 text-xs"
+                        onClick={() => copiar(d.pix!.payload, "Pix do documento")}>
+                        <Copy className="w-3 h-3" /> Copiar Pix do documento
+                      </Button>
+                    )}
+                  </div>
+                );
+              })}
               {fornecedorPagando?.chave_pix && (
                 <div className="rounded-md border bg-muted/20 p-2.5 space-y-2">
                   <p className="text-xs font-medium flex items-center gap-1.5">

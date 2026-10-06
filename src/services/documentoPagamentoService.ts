@@ -12,8 +12,8 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { conferir } from "@/lib/escritaConferida";
-import { atualizarLancamento } from "@/services/finService";
-import { extrairDadosDoComprovante } from "@/services/ocrService";
+import { anexoSignedUrl, atualizarLancamento } from "@/services/finService";
+import { extrairDadosDoComprovante, textoDoPdf } from "@/services/ocrService";
 import { dadosParaGuardar, lerDocumentoDePagamento, type DocumentoDePagamento } from "@/lib/documentos/pagamento";
 import {
   aprendizadoDaEscolha, sugerirClassificacao,
@@ -191,6 +191,79 @@ export async function preencherClassificacaoVazia(l: LancamentoLido, s: Sugestao
 /** O tipo de anexo que o documento lido indica; `null` = não sugere (Pix solto, nota…). */
 export function tipoDeAnexoSugerido(d: DocumentoDePagamento): "boleto" | "guia" | "fatura" | null {
   return d.tipo === "boleto" || d.tipo === "guia" || d.tipo === "fatura" ? d.tipo : null;
+}
+
+// ── o que PAGAR: dados dos documentos já anexados ao lançamento ─────────────
+
+export interface DadosParaPagar {
+  anexoId: string;
+  nomeDoArquivo: string | null;
+  rotulo: string;
+  valor: number | null;
+  vencimento: string | null;
+  beneficiario: string | null;
+  linhaDigitavel: string | null;
+  codigoBarras: string | null;
+  codigoValido: boolean | null;
+  pix: { payload: string; nome: string | null; crcValido: boolean } | null;
+  /** "guardado" = veio de `dados_extraidos`; "lido agora" = leu o PDF neste instante (anexo anterior à migration). */
+  origem: "guardado" | "lido agora";
+}
+
+const TIPOS_QUE_SE_PAGAM = ["boleto", "guia", "fatura", "outro", "documento"];
+const MAX_DOCUMENTOS = 3;
+
+function dadosDeDocumento(anexo: { id: string; nome: string | null }, d: DocumentoDePagamento, origem: DadosParaPagar["origem"]): DadosParaPagar {
+  return {
+    anexoId: anexo.id, nomeDoArquivo: anexo.nome, rotulo: d.rotulo, valor: d.valor, vencimento: d.vencimento,
+    beneficiario: d.beneficiario, linhaDigitavel: d.linhaDigitavel, codigoBarras: d.codigoBarras, codigoValido: d.codigoValido,
+    pix: d.pix ? { payload: d.pix.payload, nome: d.pix.nomeRecebedor, crcValido: d.pix.crcValido } : null, origem,
+  };
+}
+
+/** `dados_extraidos` (versão 1) → o que a tela do Pagar mostra. */
+function dadosDeGuardado(anexo: { id: string; nome: string | null }, g: Record<string, any>): DadosParaPagar | null {
+  if (!g || g.versao !== 1) return null;
+  return {
+    anexoId: anexo.id, nomeDoArquivo: anexo.nome, rotulo: String(g.rotulo ?? "Documento"), valor: g.valor ?? null,
+    vencimento: g.vencimento ?? null, beneficiario: g.beneficiario ?? null, linhaDigitavel: g.linhaDigitavel ?? null,
+    codigoBarras: g.codigoBarras ?? null, codigoValido: g.codigoValido ?? null,
+    pix: g.pix?.payload ? { payload: g.pix.payload, nome: g.pix.nome ?? null, crcValido: !!g.pix.crcValido } : null, origem: "guardado",
+  };
+}
+
+/**
+ * O que está IMPRESSO nos documentos anexados ao lançamento — para pagar sem abrir o PDF: linha digitável,
+ * Pix copia e cola do próprio boleto, valor e vencimento (e conferir com o lançamento ANTES de pagar).
+ * Usa a leitura guardada; anexo antigo (sem leitura) é lido agora, SÓ quando o PDF tem texto exato
+ * (nunca OCR aqui: demora e erra dígito) — e a leitura é guardada para a próxima vez, se a migration existe.
+ */
+export async function dadosParaPagarDoLancamento(lancamentoId: string): Promise<DadosParaPagar[]> {
+  const temColuna = await existe("fin_lancamento_anexos", "dados_extraidos");
+  const { data, error } = await supabase.from("fin_lancamento_anexos")
+    .select(temColuna ? "id, tipo, nome, url, dados_extraidos" : "id, tipo, nome, url")
+    .eq("lancamento_id", lancamentoId).in("tipo", TIPOS_QUE_SE_PAGAM).order("enviado_em", { ascending: false });
+  if (error) throw new Error(error.message);
+
+  const saida: DadosParaPagar[] = [];
+  for (const a of ((data ?? []) as unknown as { id: string; tipo: string; nome: string | null; url: string; dados_extraidos?: Record<string, any> | null }[])) {
+    if (saida.length >= MAX_DOCUMENTOS) break;
+    const guardado = a.dados_extraidos ? dadosDeGuardado(a, a.dados_extraidos) : null;
+    if (guardado) { saida.push(guardado); continue; }
+    if (!/\.pdf$/i.test(a.nome ?? a.url)) continue;
+    try {
+      const url = await anexoSignedUrl(a.url);
+      if (!url) continue;
+      const blob = await (await fetch(url)).blob();
+      const texto = await textoDoPdf(new File([blob], a.nome ?? "documento.pdf", { type: "application/pdf" }));
+      if (!texto) continue; // escaneado: sem OCR aqui
+      const doc = lerDocumentoDePagamento(texto);
+      if (!pareceDocumentoDePagamento(doc)) continue;
+      saida.push(dadosDeDocumento(a, doc, "lido agora"));
+      if (temColuna) void guardarLeituraNoAnexo(a.id, doc).catch(() => { /* melhoria: não atrapalha o pagamento */ });
+    } catch { /* um arquivo ilegível não impede os outros nem o pagamento */ }
+  }
+  return saida;
 }
 
 // ── guardar a leitura no anexo ──────────────────────────────────────────────

@@ -24,7 +24,7 @@ import {
 import {
   listarContas, listarCategorias, listarCentrosCusto, listarFornecedores, listarProjetos,
   criarLancamento, atualizarLancamento, erroDaLiquidacao,
-  buscarFornecedorPorCnpj, criarFornecedor, sugerirCentroPorCategoria, brl,
+  buscarFornecedorPorCnpj, buscarFornecedor, criarFornecedor, sugerirCentroPorCategoria, brl,
   listarRateio, salvarRateio, ordenarCentrosParaSeletor, buscarPessoasParaLancamento,
   FORMA_LABEL, STATUS_LABEL, formasPermitidas,
   type FinConta, type FinCategoria, type FinCentroCusto, type FinFornecedor, type FinProjeto,
@@ -33,6 +33,13 @@ import {
   FIN_COMPROVANTE_MAX,
 } from "@/services/finService";
 import { extrairDadosDoComprovante, type OcrResultado, type ItemNota } from "@/services/ocrService";
+import { lerDocumentoDePagamento } from "@/lib/documentos/pagamento";
+import type { Sugestao } from "@/lib/documentos/sugestaoPagamento";
+import {
+  RECADO_MIGRATION_DE_DOCUMENTOS, aprenderComEscolha, pareceDocumentoDePagamento, sugerirParaDocumento,
+  type LeituraDoArquivo,
+} from "@/services/documentoPagamentoService";
+import { LeituraDoDocumentoPainel } from "@/components/financas/LeituraDoDocumentoPainel";
 import { decodificarBoleto, type BoletoDecodificado } from "@/lib/boleto";
 import { CampoData } from "@/components/CampoData";
 // Carregado sob demanda — ZXing (leitor de câmera) pesa ~460kB no pacote
@@ -234,6 +241,11 @@ export function LancamentoForm({
   // OCR
   const [ocrLoading, setOcrLoading] = useState(false);
   const [ocr, setOcr] = useState<OcrResultado | null>(null);
+  // Pagamentos inteligentes (06/10/2026): se o arquivo lido é um BOLETO / GUIA / FATURA, a leitura estruturada
+  // (linha digitável, vencimento, beneficiário, Pix) e a sugestão de fornecedor/categoria/centro aparecem no lugar do OCR de nota.
+  const [docPagamento, setDocPagamento] = useState<LeituraDoArquivo | null>(null);
+  const [sugestaoDoc, setSugestaoDoc] = useState<Sugestao | null>(null);
+  const usaPainelDePagamento = !!docPagamento && ["boleto", "guia", "fatura"].includes(docPagamento.documento.tipo);
   const [fornecedorOcrSugerido, setFornecedorOcrSugerido] = useState<FinFornecedor | null>(null);
   // A pessoa/fornecedor que a DESCRIÇÃO cita, achada no cadastro (06/10/2026). Só preenche
   // quando o lançamento não tem vínculo nenhum e o casamento é de UM candidato; a tela
@@ -450,6 +462,7 @@ export function LancamentoForm({
     if (!file) return;
     if (file.size > FIN_COMPROVANTE_MAX) { toast.error("Arquivo > 5MB"); return; }
     setOcr(null);
+    setDocPagamento(null); setSugestaoDoc(null);
     setFornecedorOcrSugerido(null);
     setNfItens([]); setNfFornecedorLido(null); setDescricaoTravada(false);
 
@@ -467,6 +480,14 @@ export function LancamentoForm({
           const f = await buscarFornecedorPorCnpj(res.cnpj).catch(() => null);
           if (f) setFornecedorOcrSugerido(f);
         }
+        // Boleto/guia/fatura: lê o que serve para PAGAR (mesmo texto, sem 2ª leitura do arquivo) e sugere a classificação.
+        try {
+          const documento = lerDocumentoDePagamento(res.textoBruto);
+          if (pareceDocumentoDePagamento(documento)) {
+            setDocPagamento({ documento, fonte: res.fonte, confiancaDoOcr: res.fonte === "ocr" ? res.confianca : null });
+            setSugestaoDoc(await sugerirParaDocumento(documento));
+          }
+        } catch { /* melhoria: sem ela o OCR de sempre continua valendo */ }
       } catch (e: any) {
         toast.error("OCR falhou: " + (e?.message ?? ""));
       } finally { setOcrLoading(false); }
@@ -516,6 +537,26 @@ export function LancamentoForm({
     }
 
     toast.success("Dados aplicados ao formulário");
+  }
+
+  /** Boleto/guia/fatura lido: preenche valor, vencimento, nº do documento, fornecedor e — só se ainda vazios — categoria e centro. */
+  async function aplicarDocumentoDePagamento() {
+    if (!docPagamento) return;
+    const d = docPagamento.documento;
+    const s = sugestaoDoc;
+    if (d.valor && d.valor > 0) atualizarValor(d.valor);
+    if (d.vencimento) setData(d.vencimento);
+    if (d.numeroDocumento) setDocumentoNumero(d.numeroDocumento);
+    if (s?.fornecedorId) {
+      const f = await buscarFornecedor(s.fornecedorId).catch(() => null);
+      if (f) { setFornecedorId(f.id); setPessoaId(""); setFornecedorBusca(f.nome); }
+    } else if (d.beneficiario) {
+      setFornecedorBusca(d.beneficiario);
+    }
+    if (s?.categoriaId && !categoriaId) setCategoriaId(s.categoriaId);
+    if (s?.centroId && !centroCustoId) setCentroCustoId(s.centroId);
+    if (!descricao.trim()) setDescricao(d.beneficiario ?? d.rotulo);
+    toast.success("Dados do documento aplicados ao formulário");
   }
 
   /** "Não é essa nota" / arquivo errado anexado — destrava a descrição pra
@@ -637,6 +678,17 @@ export function LancamentoForm({
         })));
       } else if (isEdit) {
         await salvarRateio(lancamentoId, []);
+      }
+
+      // Aprende com o que ela de fato salvou (a correção vence a sugestão). Melhoria: nunca atrapalha o lançamento
+      // que já foi gravado; sem a migration 20261006160000 só avisa, uma vez, que não guardou.
+      if (docPagamento) {
+        try {
+          const r = await aprenderComEscolha(docPagamento.documento, {
+            fornecedorId: fornecedorId || null, categoriaId: categoriaId || null, centroId: centroPrincipal, projetoId: projetoId || null,
+          });
+          if (r.indisponivel) toast.info(RECADO_MIGRATION_DE_DOCUMENTOS);
+        } catch { /* melhoria: sem ela o lançamento já está salvo */ }
       }
 
       onOpenChange(false);
@@ -1136,15 +1188,43 @@ export function LancamentoForm({
             <Sparkles className="w-3.5 h-3.5" /> Ler nota/comprovante (preenche automaticamente)
           </label>
 
+          {/* Boleto / guia / fatura: leitura estruturada + sugestão (substitui o OCR de nota abaixo) */}
+          {usaPainelDePagamento && docPagamento && (
+            <div className="space-y-1.5">
+              <LeituraDoDocumentoPainel
+                leitura={docPagamento}
+                sugestao={sugestaoDoc}
+                lancamento={null}
+                nomeDoFornecedor={id => fornecedores.find(f => f.id === id)?.nome ?? "(fornecedor)"}
+                nomeDaCategoria={id => categorias.find(c => c.id === id)?.nome ?? "(categoria)"}
+                nomeDoCentro={id => centros.find(c => c.id === id)?.nome ?? "(centro)"}
+                podeAlterar
+                ocupado={busy}
+                onUsarValor={() => {}}
+                onUsarVencimento={() => {}}
+                onPreencherClassificacao={() => {}}
+                onCopiar={(texto, oQue) => navigator.clipboard.writeText(texto).then(() => toast.success(`${oQue} copiado`), () => toast.error("Não consegui copiar"))}
+              />
+              <div className="flex gap-1.5">
+                <Button type="button" size="sm" variant="info" onClick={aplicarDocumentoDePagamento} className="h-7 text-xs gap-1">
+                  <Sparkles className="w-3 h-3" /> Aplicar ao formulário
+                </Button>
+                <Button type="button" size="sm" variant="ghost" onClick={() => { setDocPagamento(null); setSugestaoDoc(null); }} className="h-7 text-xs ml-auto">
+                  Ignorar
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* Resultado do OCR */}
-          {(ocrLoading || ocr) && (
+          {(ocrLoading || (ocr && !usaPainelDePagamento)) && (
             <div className="rounded-md p-3 border border-info-line bg-info-soft/30 text-xs space-y-2">
               {ocrLoading && (
                 <p className="flex items-center gap-1.5 text-info-text">
                   <Loader2 className="w-3.5 h-3.5 animate-spin" /> Lendo comprovante...
                 </p>
               )}
-              {ocr && (
+              {ocr && !usaPainelDePagamento && (
                 <>
                   <p className="flex items-center gap-1.5 text-info-text font-medium">
                     <Sparkles className="w-3.5 h-3.5" />
