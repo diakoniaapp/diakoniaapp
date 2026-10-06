@@ -163,7 +163,11 @@ Fora das tabelas (excluído da regra): `22ec2cf2`, 97,10, Cielo (soma de vendas 
 O `76747416` (média) é de 2026 e não entra em Mundiais 2025. O `bc001639` (alta) é de Nacionais 2024: reclassificá-lo move o saldo total do fundo em +50,10
 (Nacionais 2024: +320,06 → +370,16), sem tocar em Mundiais 2025. **Opcional, só se você confirmar com o doador D:** `e3cffcce` leva a diferença a −1.920,61.
 
-### Perguntas ainda abertas (os campos do seu esclarecimento vieram em branco)
+> **Respondido por ela em 06/10/2026:** o ",10" vale **só para Pix** (nada de espécie, envelope, TED, DOC ou transferência interna) e **",01" não é convenção**
+> (fica só como observação). Os 4 de alta confiança foram **confirmados**; a migration está em
+> `supabase/migrations/20261006240000_missoes_pix_marca_010_alta_confianca.sql`. Continuação: [fase 4](INVESTIGACAO_MUNDIAIS_2025_FASE4_EVIDENCIAS.md).
+
+### Perguntas que estavam abertas (já respondidas — ver acima)
 
 - **Forma de recebimento.** Apliquei **só Pix**, como nos seus critérios. Os dados sustentam isso: **134 das 135** entradas ",10" do fundo são Pix. Em espécie, fora do fundo, há 10 lançamentos ",10"
   (R$ 10.816,00, dos quais R$ 9.108,10 são um dízimo na Poupança de 01/08/2026) — **não os tratei como candidatos**.
