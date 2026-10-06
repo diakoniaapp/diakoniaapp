@@ -238,7 +238,8 @@ export default function FinancasFornecedorDetalhe() {
                   ? <TrendingUp className="w-3.5 h-3.5 text-success-text shrink-0" />
                   : <TrendingDown className="w-3.5 h-3.5 text-destructive-text shrink-0" />}
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium truncate">{l.descricao ?? "—"}</p>
+                  {/* Na página do PRÓPRIO fornecedor o nome dele seria repetido em toda linha: sem descrição, mostra a categoria. */}
+                  <p className="text-sm font-medium truncate">{l.descricao || l.categoria_nome || "—"}</p>
                   <p className="text-xs text-muted-foreground">
                     {dataBr(l.data)}
                     {l.categoria_nome && ` · ${l.categoria_nome}`}

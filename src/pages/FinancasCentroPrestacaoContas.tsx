@@ -27,7 +27,7 @@ import {
 import { toast } from "sonner";
 import logoDiakonia from "@/assets/logo-diakonia.png";
 import {
-  listarLancamentosSemTeto, listarCentrosCusto, gerarCSV, downloadCSV, brl,
+  listarLancamentosSemTeto, listarCentrosCusto, gerarCSV, downloadCSV, brl, rotuloDoLancamento,
   type FinLancamentoExtenso, type FinCentroVinculo,
 } from "@/services/finService";
 import { useAuth } from "@/hooks/useAuth";
@@ -289,7 +289,7 @@ export default function FinancasCentroPrestacaoContas() {
                       <td className={`py-1 pr-1 ${l.tipo === "entrada" ? "text-success-text" : "text-destructive-text"}`}>
                         {l.tipo === "entrada" ? "▲" : "▼"}
                       </td>
-                      <td className="py-1 pr-1 truncate">{l.descricao ?? "—"}</td>
+                      <td className="py-1 pr-1 truncate">{rotuloDoLancamento(l)}</td>
                       <td className="py-1 pr-1 text-muted-foreground truncate">{l.categoria_nome ?? "—"}</td>
                       <td className="py-1 pr-1 text-muted-foreground truncate">{l.documento_numero ?? ""}</td>
                       <td className={`py-1 text-right tabular-nums font-medium ${l.tipo === "entrada" ? "text-success-text" : "text-destructive-text"}`}>

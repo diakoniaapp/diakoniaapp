@@ -26,7 +26,7 @@ import {
 import { toast } from "sonner";
 import logoDiakonia from "@/assets/logo-diakonia.png";
 import {
-  listarContas, listarLancamentosSemTeto, gerarCSV, downloadCSV, brl,
+  listarContas, listarLancamentosSemTeto, gerarCSV, downloadCSV, brl, rotuloDoLancamento,
   CONTA_TIPO_LABEL,
   type FinConta, type FinLancamentoExtenso,
 } from "@/services/finService";
@@ -292,7 +292,7 @@ export default function FinancasRelatorioContas() {
                           que já circulou; não há o que distinguir. */}
                       <td className="py-1 pr-1 whitespace-nowrap">{dataBr(l.data)}</td>
                       <td className="py-1 pr-1 truncate">
-                        {l.descricao ?? "—"}
+                        {rotuloDoLancamento(l)}
                         {l.fornecedor_nome && l.fornecedor_nome !== l.descricao && (
                           <span className="text-muted-foreground"> · {l.fornecedor_nome}</span>
                         )}

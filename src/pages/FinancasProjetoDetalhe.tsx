@@ -31,7 +31,7 @@ import { toast } from "sonner";
 import { hojeLocal } from "@/lib/data";
 import logoDiakonia from "@/assets/logo-diakonia.png";
 import {
-  carregarProjeto, listarLancamentosSemTeto, gerarCSV, downloadCSV, brl,
+  carregarProjeto, listarLancamentosSemTeto, gerarCSV, downloadCSV, brl, rotuloDoLancamento,
   type FinProjeto, type FinLancamentoExtenso,
 } from "@/services/finService";
 import { ProjetoForm } from "@/components/financas/ProjetoForm";
@@ -438,7 +438,7 @@ export default function FinancasProjetoDetalhe() {
                       {topDespesas.map(l => (
                         <tr key={l.id} className="border-b border-border/40 last:border-0">
                           <td className="py-1.5 pr-2">
-                            <p className="truncate max-w-[220px]">{l.descricao ?? "—"}</p>
+                            <p className="truncate max-w-[220px]">{rotuloDoLancamento(l)}</p>
                             <p className="text-muted-foreground text-2xs">{l.categoria_nome ?? "Sem categoria"}</p>
                           </td>
                           <td className="py-1.5 text-right tabular-nums font-medium text-destructive-text whitespace-nowrap">
@@ -590,7 +590,7 @@ function ListagemColuna({ titulo, itens, cor, totalLabel, totalValor }: {
           ) : ordenados.map(l => (
             <tr key={l.id} className="border-b border-border/30">
               <td className="py-1 pr-1 whitespace-nowrap">{dataBr(l.data).slice(0, 5)}</td>
-              <td className="py-1 pr-1 truncate max-w-[160px]">{l.descricao ?? "—"}</td>
+              <td className="py-1 pr-1 truncate max-w-[160px]">{rotuloDoLancamento(l)}</td>
               <td className={`py-1 pr-1 text-right tabular-nums ${corClass}`}>{brl(Number(l.valor))}</td>
             </tr>
           ))}

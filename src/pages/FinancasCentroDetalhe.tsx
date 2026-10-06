@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  listarLancamentosSemTeto, listarCentrosCusto, comprovanteSignedUrl, brl,
+  listarLancamentosSemTeto, listarCentrosCusto, comprovanteSignedUrl, brl, rotuloDoLancamento,
   VINCULO_LABEL, VINCULO_COR,
   type FinLancamentoExtenso, type FinCentroCusto, type FinCentroVinculo,
 } from "@/services/finService";
@@ -279,7 +279,7 @@ export default function FinancasCentroDetalhe() {
                   ? <TrendingUp className="w-3.5 h-3.5 text-success-text shrink-0" />
                   : <TrendingDown className="w-3.5 h-3.5 text-destructive-text shrink-0" />}
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium truncate">{l.descricao ?? "—"}</p>
+                  <p className="text-sm font-medium truncate">{rotuloDoLancamento(l)}</p>
                   <p className="text-xs text-muted-foreground">
                     {dataBr(l.data)}
                     {/* Com subgrupo, a lista mistura lançamentos de mais
@@ -305,7 +305,7 @@ export default function FinancasCentroDetalhe() {
               </p>
               <button type="button" onClick={() => setEditando(l)}
                 className="ml-2 p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground shrink-0"
-                title="Corrigir este lançamento" aria-label={`Corrigir o lançamento ${l.descricao ?? ""}`.trim()}>
+                title="Corrigir este lançamento" aria-label={`Corrigir o lançamento ${rotuloDoLancamento(l, "")}`.trim()}>
                 <Pencil className="w-3.5 h-3.5" />
               </button>
             </div>

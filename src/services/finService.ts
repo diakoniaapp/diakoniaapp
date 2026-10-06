@@ -373,6 +373,23 @@ export function nomeExtrato(
   return { principal: l.descricao || l.categoria_nome || generico, secundario: null };
 }
 
+/**
+ * O TEXTO de uma linha de lançamento, numa linha só: "Favorecido · detalhe" (ou só um dos dois).
+ *
+ * Pedido dela (06/10/2026): "o sistema ainda está lendo a observação do lançamento e, quando não há nada escrito,
+ * deixa em branco e não observa que existe NOME vinculado ao lançamento (campo Fornecedor/Recebedor)". Várias telas
+ * (centro e subcentro, prestação de contas, projeto, relatórios) mostravam só `l.descricao ?? "—"`: lançamento sem
+ * descrição aparecia como "—" mesmo com fornecedor ou pessoa ligados. Esta é a mesma regra de `nomeExtrato` — o
+ * nome vinculado manda, a descrição complementa — em forma de texto único para tabelas.
+ */
+export function rotuloDoLancamento(
+  l: { fornecedor_nome?: string | null; pessoa_nome?: string | null; descricao?: string | null; categoria_nome?: string | null },
+  generico = "—",
+): string {
+  const n = nomeExtrato(l, generico);
+  return n.secundario ? `${n.principal} · ${n.secundario}` : n.principal;
+}
+
 export const STATUS_LABEL: Record<FinStatus, string> = {
   previsto: "Previsto", realizado: "Realizado",
   conciliado: "Conciliado", cancelado: "Cancelado",
