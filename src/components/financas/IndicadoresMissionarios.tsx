@@ -1,31 +1,39 @@
-// ─── IndicadoresMissionarios.tsx — missões em duas perguntas que não se misturam ───
+// ─── IndicadoresMissionarios.tsx — missões em áreas que não se misturam ───
 //
-// Pedido dela (06/10/2026). Antes: o destaque de cima seguia o filtro de período
-// ("Hoje", vazio quase todo dia) e o cartão de baixo mostrava o histórico inteiro,
-// os dois com o rótulo "Arrecadado". Agora:
+// Modelagem aprovada por ela em 06/10/2026 (docs/INDICADORES_MISSIONARIOS_MODELAGEM.md). Antes, o
+// painel misturava Fundo Missionário, campanhas, sustento e envios, e dava conclusões erradas.
 //
-//   (A) RESULTADO DO PERÍODO  — entradas, saídas e resultado líquido, só do filtro;
-//   (B) FUNDO ACUMULADO       — a vida inteira, que NÃO muda com o filtro;
-//   (C) GRÁFICO               — entradas × saídas × resultado acumulado, no filtro.
+//   1. FLUXO DO PERÍODO     — segue o filtro: entradas, saídas (Envio Oficial), resultado, gráfico;
+//   2. FUNDO MISSIONÁRIO    — NUNCA segue o filtro: saldo registrado × saldo ajustado, histórico;
+//   3. MISSÕES PERMANENTES  — investimento próprio da igreja (sustento), FORA do fundo;
+//   4. CAMPANHAS            — meta, arrecadado e % por campanha; o ano vem da data (fim do período);
+//   5. PROJETOS             — só o que é temporário (ex.: templo missionário);
+//   +  ENVIOS               — Envio Oficial × Esforço Total;
+//   +  OFERTAS SEM CLASSIFICAÇÃO — nada é classificado sozinho.
 //
-// O filtro mora aqui dentro (não é o do resto de "Indicadores Eclesiásticos"): a
-// tesouraria abre o restante da tela em "Hoje" por decisão dela de 23/09/2026, e
-// missões, que entra no domingo, precisa de um recorte maior para dizer algo.
-// As contas estão em `lib/indicadoresMissionarios.ts`, com teste.
+// O filtro mora aqui dentro (não é o do resto de "Indicadores Eclesiásticos"): a tesouraria abre o
+// restante da tela em "Hoje" por decisão dela de 23/09/2026. As contas ficam em `lib/`, com teste.
 
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { CampoData } from "@/components/CampoData";
+import { AjustesDoFundoDialog } from "@/components/financas/AjustesDoFundoDialog";
+import { MetasDeCampanhaDialog } from "@/components/financas/MetasDeCampanhaDialog";
+import { ClassificarOfertasDialog } from "@/components/financas/ClassificarOfertasDialog";
 import { brl, nomeExtrato, type FinLancamentoExtenso } from "@/services/finService";
+import type { DadosDeMissoes } from "@/services/missoesService";
 import {
-  PERIODOS_EM_ORDEM, PERIODO_PADRAO, ROTULO_DO_PERIODO, diaDoLancamento, ehRealizado, fundoAcumulado,
+  PERIODOS_EM_ORDEM, PERIODO_PADRAO, ROTULO_DO_PERIODO, diaDoLancamento, ehRealizado,
   periodoAnterior, periodoDoPreset, resumoDoPeriodo, serieDoPeriodo, variacaoPercentual,
   type PeriodoPreset, type PontoDaSerie,
 } from "@/lib/indicadoresMissionarios";
+import {
+  ROTULO_DA_CAMPANHA, enviosDoPeriodo, fundoComAjustes, ofertasSemClassificacao, resumoDasCampanhas,
+  resumoPermanentes, sugerirCampanhasPorCiclo,
+} from "@/lib/missoesModelo";
 
 interface Props {
-  entradas: FinLancamentoExtenso[];
-  saidas: FinLancamentoExtenso[];
+  dados: DadosDeMissoes | null;
   carregando: boolean;
   /** Categoria "Ofertas para Missões" não existe no plano de contas. */
   semCategoriaDeEntrada: boolean;
@@ -35,48 +43,68 @@ interface Props {
   onRegistrarRemessa: () => void;
   onAbrirRemessa: (l: FinLancamentoExtenso) => void;
   onVerDetalheDasOfertas: () => void;
+  /** Recarrega os dados depois de gravar (ajuste, meta, classificação). */
+  onRecarregar: () => void;
 }
 
 const dataBr = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
 
+function Rotulo({ children }: { children: React.ReactNode }) {
+  return <p className="text-2xs uppercase tracking-wide text-muted-foreground font-semibold">{children}</p>;
+}
+
 export function IndicadoresMissionarios({
-  entradas, saidas, carregando, semCategoriaDeEntrada, semCategoriaDeRepasse, hoje,
-  onRegistrarRemessa, onAbrirRemessa, onVerDetalheDasOfertas,
+  dados, carregando, semCategoriaDeEntrada, semCategoriaDeRepasse, hoje,
+  onRegistrarRemessa, onAbrirRemessa, onVerDetalheDasOfertas, onRecarregar,
 }: Props) {
   const [preset, setPreset] = useState<PeriodoPreset>(PERIODO_PADRAO);
   const [customInicio, setCustomInicio] = useState(hoje);
   const [customFim, setCustomFim] = useState(hoje);
+  const [ajustesAberto, setAjustesAberto] = useState(false);
+  const [metasAberto, setMetasAberto] = useState(false);
+  const [loteAberto, setLoteAberto] = useState(false);
 
   const { inicio, fim } = periodoDoPreset(preset, hoje, { inicio: customInicio, fim: customFim });
   const ant = periodoAnterior(inicio, fim);
+  const ano = Number(fim.slice(0, 4));
+  const pronto = !carregando && dados !== null;
 
   const calc = useMemo(() => {
-    const periodo = resumoDoPeriodo(entradas, saidas, inicio, fim);
-    const anterior = resumoDoPeriodo(entradas, saidas, ant.inicio, ant.fim);
+    if (!dados) return null;
+    const { entradas, envios, sustento, mobilizacao, ajustes, metas, recorrenciasDeSustento } = dados;
     return {
-      periodo, anterior,
-      fundo: fundoAcumulado(entradas, saidas),
-      serie: serieDoPeriodo(entradas, saidas, inicio, fim),
-      remessas: saidas
+      periodo: resumoDoPeriodo(entradas, envios, inicio, fim),
+      anterior: resumoDoPeriodo(entradas, envios, ant.inicio, ant.fim),
+      fundo: fundoComAjustes(entradas, envios, ajustes),
+      serie: serieDoPeriodo(entradas, envios, inicio, fim),
+      remessas: envios
         .filter(l => ehRealizado(l) && diaDoLancamento(l) >= inicio && diaDoLancamento(l) <= fim)
         .sort((a, b) => diaDoLancamento(b).localeCompare(diaDoLancamento(a))),
+      permanentes: resumoPermanentes(sustento, inicio, fim, recorrenciasDeSustento),
+      campanhas: resumoDasCampanhas(entradas, envios, metas, ano),
+      enviosPeriodo: enviosDoPeriodo(envios, sustento, mobilizacao, inicio, fim),
+      enviosTotal: enviosDoPeriodo(envios, sustento, mobilizacao),
+      pendentes: ofertasSemClassificacao(entradas),
+      grupos: sugerirCampanhasPorCiclo(entradas, envios),
+      ajustesAtivos: ajustes.filter(a => a.ativo).length,
     };
-  }, [entradas, saidas, inicio, fim, ant.inicio, ant.fim]);
+  }, [dados, inicio, fim, ant.inicio, ant.fim, ano]);
 
-  const { periodo, anterior, fundo, serie, remessas } = calc;
-  const tendencia = variacaoPercentual(periodo.entradas, anterior.entradas);
-  const tomDoResultado = periodo.situacao === "superavit" ? "text-success-text"
-    : periodo.situacao === "deficit" ? "text-destructive-text" : "text-muted-foreground";
-  const rotuloDoResultado = periodo.situacao === "superavit" ? "Superávit"
-    : periodo.situacao === "deficit" ? "Déficit" : "Equilibrado";
+  const periodo = calc?.periodo;
+  const tendencia = periodo && calc ? variacaoPercentual(periodo.entradas, calc.anterior.entradas) : 0;
+  const tomDoResultado = periodo?.situacao === "superavit" ? "text-success-text"
+    : periodo?.situacao === "deficit" ? "text-destructive-text" : "text-muted-foreground";
+  const rotuloDoResultado = periodo?.situacao === "superavit" ? "Superávit"
+    : periodo?.situacao === "deficit" ? "Déficit" : "Equilibrado";
+  const recursos = dados?.recursos;
+  const tomDoSaldo = (v: number) => (v >= 0 ? "text-success-text" : "text-destructive-text");
 
   return (
     <div className="space-y-3 mb-3">
-      {/* ── Filtro: vale para (A) e (C); (B) fica de fora de propósito ───── */}
+      {/* ── Filtro: vale para as áreas 1, 3 e Envios (o Fundo fica de fora de propósito) ─ */}
       <div className="flex flex-wrap items-center gap-1.5">
         {PERIODOS_EM_ORDEM.map(chave => (
-          <button key={chave} type="button" onClick={() => setPreset(chave)}
-            aria-pressed={preset === chave}
+          <button key={chave} type="button" onClick={() => setPreset(chave)} aria-pressed={preset === chave}
             className={`rounded-full border px-3 py-1 text-xs font-medium ${
               preset === chave ? "bg-violeta text-violeta-foreground border-transparent" : "bg-card text-muted-foreground hover:text-foreground"
             }`}>
@@ -97,93 +125,127 @@ export function IndicadoresMissionarios({
         )}
       </div>
 
-      {/* ── (A) Resultado do período ───────────────────────────────────────── */}
-      <section className="rounded-lg border-2 border-violeta bg-violeta-soft/40 overflow-hidden" aria-labelledby="mis-periodo">
+      {/* ── 1. Fluxo missionário do período ────────────────────────────────── */}
+      <section className="rounded-lg border-2 border-violeta bg-violeta-soft/40 overflow-hidden" aria-labelledby="mis-fluxo">
         <div className="p-4 pb-2 flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
-            <h3 id="mis-periodo" className="text-sm font-bold text-violeta-text">Resultado do período</h3>
+            <h3 id="mis-fluxo" className="text-sm font-bold text-violeta-text">Fluxo missionário do período</h3>
             <p className="text-[11px] text-muted-foreground">
               {ROTULO_DO_PERIODO[preset]} · {inicio === fim ? dataBr(inicio) : `${dataBr(inicio)} a ${dataBr(fim)}`}
             </p>
           </div>
-          {!carregando && !semCategoriaDeEntrada && (
+          {pronto && !semCategoriaDeEntrada && (
             <button type="button" onClick={onVerDetalheDasOfertas}
               className="text-xs font-semibold text-violeta-text hover:underline shrink-0">
               Ver detalhe das ofertas →
             </button>
           )}
         </div>
-
-        {carregando ? (
+        {!pronto || !periodo || !calc ? (
           <p className="text-sm text-muted-foreground px-4 pb-4">Carregando…</p>
         ) : (
           <>
             <div className="grid grid-cols-1 min-[420px]:grid-cols-3 gap-3 px-4 pb-3">
               <div className="min-w-0">
-                <p className="text-2xs uppercase tracking-wide text-muted-foreground font-semibold">Entradas missionárias</p>
+                <Rotulo>Entradas missionárias</Rotulo>
                 <p className="text-lg font-extrabold tabular-nums text-violeta-text">{brl(periodo.entradas)}</p>
                 <p className="text-[11px] text-muted-foreground">
                   {periodo.qtdEntradas} contribuiç{periodo.qtdEntradas === 1 ? "ão" : "ões"}
-                  {anterior.entradas > 0 || periodo.entradas > 0 ? ` · ${tendencia >= 0 ? "▲" : "▼"} ${Math.abs(tendencia).toFixed(0)}% vs. período anterior` : ""}
+                  {calc.anterior.entradas > 0 || periodo.entradas > 0 ? ` · ${tendencia >= 0 ? "▲" : "▼"} ${Math.abs(tendencia).toFixed(0)}% vs. período anterior` : ""}
                 </p>
               </div>
               <div className="min-w-0">
-                <p className="text-2xs uppercase tracking-wide text-muted-foreground font-semibold">Saídas missionárias</p>
+                <Rotulo>Saídas missionárias</Rotulo>
                 <p className="text-lg font-extrabold tabular-nums text-destructive-text">{brl(periodo.saidas)}</p>
-                <p className="text-[11px] text-muted-foreground">{periodo.qtdSaidas} remessa{periodo.qtdSaidas === 1 ? "" : "s"}</p>
+                <p className="text-[11px] text-muted-foreground">{periodo.qtdSaidas} remessa{periodo.qtdSaidas === 1 ? "" : "s"} (Envio Oficial)</p>
               </div>
               <div className="min-w-0">
-                <p className="text-2xs uppercase tracking-wide text-muted-foreground font-semibold">Resultado líquido</p>
+                <Rotulo>Resultado líquido</Rotulo>
                 <p className={`text-lg font-extrabold tabular-nums ${tomDoResultado}`}>{brl(periodo.resultado)}</p>
                 <p className={`text-[11px] font-semibold ${tomDoResultado}`}>{rotuloDoResultado}</p>
               </div>
             </div>
-            <p className="px-4 pb-4 text-xs text-muted-foreground">
+            <p className="px-4 pb-3 text-xs text-muted-foreground">
               {periodo.qtdEntradas === 0 && periodo.qtdSaidas === 0
                 ? "Nenhuma oferta nem remessa missionária neste período. Escolha um período maior para comparar."
-                : `Neste período entraram ${brl(periodo.entradas)} e saíram ${brl(periodo.saidas)} para missões — ${
+                : `Neste período entraram ${brl(periodo.entradas)} e saíram ${brl(periodo.saidas)} em remessas — ${
                   periodo.situacao === "superavit" ? `superávit de ${brl(periodo.resultado)}.`
                     : periodo.situacao === "deficit" ? `déficit de ${brl(-periodo.resultado)}.` : "resultado equilibrado."}`}
             </p>
+            <div className="px-4 pb-4"><GraficoMissionario serie={calc.serie} /></div>
+            {calc.remessas.length > 0 && (
+              <ul className="divide-y border-t bg-card" aria-label="Remessas do período">
+                {calc.remessas.map(l => (
+                  <li key={l.id}>
+                    <button type="button" onClick={() => onAbrirRemessa(l)}
+                      className="w-full flex items-center justify-between gap-2 px-4 py-2 text-xs text-left hover:bg-muted/40 transition-colors">
+                      <span className="min-w-0 truncate">
+                        {diaDoLancamento(l).slice(8, 10)}/{diaDoLancamento(l).slice(5, 7)}{" · "}{nomeExtrato(l).principal}
+                      </span>
+                      <span className="font-medium tabular-nums shrink-0">{brl(Number(l.valor))}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </>
         )}
       </section>
 
-      {/* ── (B) Fundo Missionário Acumulado ────────────────────────────────── */}
+      {/* ── 2. Fundo Missionário (acumulado — não segue o filtro) ─────────────── */}
       {!semCategoriaDeRepasse && (
         <section className="rounded-lg border bg-card overflow-hidden" aria-labelledby="mis-fundo">
           <div className="p-3 pb-2 flex items-center justify-between gap-2 flex-wrap">
             <div className="min-w-0">
-              <h3 id="mis-fundo" className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                Fundo Missionário Acumulado
-              </h3>
-              <p className="text-[11px] text-muted-foreground">Desde o início dos registros — não muda com o período escolhido.</p>
+              <h3 id="mis-fundo" className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Fundo Missionário</h3>
+              <p className="text-[11px] text-muted-foreground">Acumulado desde o início dos registros — não muda com o período escolhido.</p>
             </div>
-            <Button type="button" size="sm" variant="violeta" className="h-6 px-2 text-[11px]" onClick={onRegistrarRemessa}>
-              + Registrar remessa
-            </Button>
+            <div className="flex items-center gap-1.5">
+              <Button type="button" size="sm" variant="outline" className="h-6 px-2 text-[11px]" onClick={() => setAjustesAberto(true)}>
+                Ajustes
+              </Button>
+              <Button type="button" size="sm" variant="violeta" className="h-6 px-2 text-[11px]" onClick={onRegistrarRemessa}>
+                + Registrar remessa
+              </Button>
+            </div>
           </div>
-          {carregando ? (
+          {!pronto || !calc ? (
             <p className="text-sm text-muted-foreground px-3 pb-3">Carregando…</p>
           ) : (
             <>
-              <div className="grid grid-cols-1 min-[420px]:grid-cols-3 gap-3 px-3 pb-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-3 pb-3">
                 <div className="min-w-0">
-                  <p className="text-2xs uppercase tracking-wide text-muted-foreground font-semibold">Saldo atual</p>
-                  <p className={`text-lg font-extrabold tabular-nums ${fundo.saldo >= 0 ? "text-success-text" : "text-destructive-text"}`}>{brl(fundo.saldo)}</p>
+                  <Rotulo>Saldo registrado</Rotulo>
+                  <p className={`text-lg font-extrabold tabular-nums ${tomDoSaldo(calc.fundo.saldo)}`}>{brl(calc.fundo.saldo)}</p>
+                  <p className="text-[11px] text-muted-foreground">só o que está no banco</p>
                 </div>
                 <div className="min-w-0">
-                  <p className="text-2xs uppercase tracking-wide text-muted-foreground font-semibold">Total histórico arrecadado</p>
-                  <p className="text-lg font-extrabold tabular-nums text-violeta-text">{brl(fundo.arrecadado)}</p>
+                  <Rotulo>Saldo ajustado</Rotulo>
+                  <p className={`text-lg font-extrabold tabular-nums ${tomDoSaldo(calc.fundo.saldoAjustado)}`}>{brl(calc.fundo.saldoAjustado)}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {calc.ajustesAtivos > 0 ? `com ${calc.ajustesAtivos} ajuste${calc.ajustesAtivos === 1 ? "" : "s"} histórico${calc.ajustesAtivos === 1 ? "" : "s"}` : "sem ajustes"}
+                  </p>
                 </div>
                 <div className="min-w-0">
-                  <p className="text-2xs uppercase tracking-wide text-muted-foreground font-semibold">Total histórico enviado</p>
-                  <p className="text-lg font-extrabold tabular-nums text-destructive-text">{brl(fundo.enviado)}</p>
+                  <Rotulo>Histórico arrecadado</Rotulo>
+                  <p className="text-lg font-extrabold tabular-nums text-violeta-text">{brl(calc.fundo.arrecadado)}</p>
+                </div>
+                <div className="min-w-0">
+                  <Rotulo>Histórico enviado</Rotulo>
+                  <p className="text-lg font-extrabold tabular-nums text-destructive-text">{brl(calc.fundo.enviado)}</p>
                 </div>
               </div>
-              {fundo.saldo < 0 && (
+              {calc.ajustesAtivos > 0 && (
+                <p role="note" className="mx-3 mb-3 rounded-md border border-warning-line bg-warning-soft px-3 py-2 text-xs text-warning-text">
+                  <strong>⚠ Histórico parcialmente incompleto.</strong> Parte dos envios realizados em 2024 refere-se a campanhas
+                  arrecadadas antes da implantação do Omie. O saldo registrado pode não refletir integralmente o histórico
+                  missionário da igreja.
+                </p>
+              )}
+              {calc.fundo.saldoAjustado < 0 && (
                 <p className="px-3 pb-3 text-xs text-muted-foreground">
-                  A igreja já enviou {brl(-fundo.saldo)} a mais do que arrecadou nas ofertas para missões — a diferença saiu do caixa geral.
+                  Mesmo com os ajustes, a igreja enviou {brl(-calc.fundo.saldoAjustado)} a mais do que as ofertas registradas — a
+                  diferença saiu do caixa geral ou de ofertas não lançadas como "Ofertas para Missões".
                 </p>
               )}
             </>
@@ -191,37 +253,183 @@ export function IndicadoresMissionarios({
         </section>
       )}
 
-      {/* ── (C) Gráfico ─────────────────────────────────────────────────────── */}
-      {!carregando && (
-        <section className="rounded-lg border bg-card p-3" aria-labelledby="mis-grafico">
-          <h3 id="mis-grafico" className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-2">
-            Entradas × saídas — {ROTULO_DO_PERIODO[preset].toLowerCase()}
-          </h3>
-          <GraficoMissionario serie={serie} />
-        </section>
-      )}
+      {/* ── 3. Missões permanentes (sustento — investimento próprio, fora do fundo) ── */}
+      <section className="rounded-lg border bg-card overflow-hidden" aria-labelledby="mis-perm">
+        <div className="p-3 pb-2">
+          <h3 id="mis-perm" className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Missões permanentes</h3>
+          <p className="text-[11px] text-muted-foreground">Sustento missionário: investimento próprio da igreja, <strong>fora do Fundo Missionário</strong>.</p>
+        </div>
+        {!pronto || !calc ? (
+          <p className="text-sm text-muted-foreground px-3 pb-3">Carregando…</p>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 px-3 pb-3">
+            <div className="min-w-0">
+              <Rotulo>Sustentados (12 meses)</Rotulo>
+              <p className="text-lg font-extrabold tabular-nums">{calc.permanentes.sustentados}</p>
+            </div>
+            <div className="min-w-0">
+              <Rotulo>Pastor missionário</Rotulo>
+              <p className="text-lg font-extrabold tabular-nums">{brl(calc.permanentes.pastor)}</p>
+            </div>
+            <div className="min-w-0">
+              <Rotulo>Parcerias missionárias</Rotulo>
+              <p className="text-lg font-extrabold tabular-nums">{brl(calc.permanentes.parcerias)}</p>
+            </div>
+            <div className="min-w-0">
+              <Rotulo>Compromisso mensal</Rotulo>
+              {calc.permanentes.compromissoMensal === null ? (
+                <p className="text-xs text-muted-foreground pt-1">Não cadastrado — crie recorrências no subcentro Sustento Missionário.</p>
+              ) : (
+                <p className="text-lg font-extrabold tabular-nums">{brl(calc.permanentes.compromissoMensal)}</p>
+              )}
+            </div>
+            <div className="min-w-0">
+              <Rotulo>Investido no período</Rotulo>
+              <p className="text-lg font-extrabold tabular-nums text-violeta-text">{brl(calc.permanentes.total)}</p>
+            </div>
+          </div>
+        )}
+      </section>
 
-      {/* ── Remessas do período — cada uma abre o detalhe ───────────────────── */}
-      {!carregando && remessas.length > 0 && (
-        <section className="rounded-lg border bg-card overflow-hidden" aria-label="Remessas do período">
-          <p className="px-3 pt-3 pb-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">
-            Remessas no período ({remessas.length})
+      {/* ── 4. Campanhas missionárias ───────────────────────────────────────── */}
+      <section className="rounded-lg border bg-card overflow-hidden" aria-labelledby="mis-camp">
+        <div className="p-3 pb-2 flex items-center justify-between gap-2 flex-wrap">
+          <div className="min-w-0">
+            <h3 id="mis-camp" className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Campanhas missionárias — {ano}</h3>
+            <p className="text-[11px] text-muted-foreground">O ano vem da data do lançamento; não há cadastro por exercício.</p>
+          </div>
+          <Button type="button" size="sm" variant="outline" className="h-6 px-2 text-[11px]" onClick={() => setMetasAberto(true)}>
+            Metas
+          </Button>
+        </div>
+        {!pronto || !calc ? (
+          <p className="text-sm text-muted-foreground px-3 pb-3">Carregando…</p>
+        ) : recursos && !recursos.campanha ? (
+          <p className="mx-3 mb-3 text-xs border border-dashed rounded-md p-3 text-muted-foreground">
+            O campo "Campanha missionária" ainda não existe no banco: falta aplicar as migrations de missões
+            (20261006180000 a 20261006200000). Até lá não é possível medir as campanhas.
           </p>
+        ) : (
           <ul className="divide-y border-t">
-            {remessas.map(l => (
-              <li key={l.id}>
-                <button type="button" onClick={() => onAbrirRemessa(l)}
-                  className="w-full flex items-center justify-between gap-2 px-3 py-2 text-xs text-left hover:bg-muted/40 transition-colors">
-                  <span className="min-w-0 truncate">
-                    {diaDoLancamento(l).slice(8, 10)}/{diaDoLancamento(l).slice(5, 7)}{" · "}{nomeExtrato(l).principal}
+            {calc.campanhas.map(c => (
+              <li key={c.campanha} className="px-3 py-2.5 space-y-1.5">
+                <div className="flex items-baseline justify-between gap-2 flex-wrap">
+                  <span className="text-sm font-semibold">{ROTULO_DA_CAMPANHA[c.campanha]}</span>
+                  <span className="text-xs text-muted-foreground tabular-nums">
+                    Meta: {c.meta !== null ? brl(c.meta) : "não definida"}
                   </span>
-                  <span className="font-medium tabular-nums shrink-0">{brl(Number(l.valor))}</span>
-                </button>
+                </div>
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-lg font-extrabold tabular-nums text-violeta-text">{brl(c.arrecadado)}</span>
+                  <span className="text-sm font-bold tabular-nums">
+                    {c.percentual !== null ? `${c.percentual.toLocaleString("pt-BR", { minimumFractionDigits: 1 })}%` : "—"}
+                  </span>
+                </div>
+                {c.percentual !== null && (
+                  <div className="h-1.5 rounded-full bg-muted overflow-hidden" role="progressbar" aria-valuenow={Math.min(100, c.percentual)} aria-valuemin={0} aria-valuemax={100}>
+                    <div className="h-full bg-violeta" style={{ width: `${Math.min(100, c.percentual)}%` }} />
+                  </div>
+                )}
+                <p className="text-[11px] text-muted-foreground">
+                  {c.qtdOfertas} oferta{c.qtdOfertas === 1 ? "" : "s"} · enviado {brl(c.enviado)} em {c.ano}
+                </p>
               </li>
             ))}
           </ul>
+        )}
+      </section>
+
+      {/* ── 5. Projetos missionários ────────────────────────────────────────── */}
+      <section className="rounded-lg border bg-card overflow-hidden" aria-labelledby="mis-proj">
+        <div className="p-3 pb-2">
+          <h3 id="mis-proj" className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Projetos missionários</h3>
+          <p className="text-[11px] text-muted-foreground">Só o que é temporário (ex.: construção de um templo missionário). Campanhas não são projetos.</p>
+        </div>
+        {!pronto || !dados ? (
+          <p className="text-sm text-muted-foreground px-3 pb-3">Carregando…</p>
+        ) : dados.projetos.length === 0 ? (
+          <p className="mx-3 mb-3 text-xs border border-dashed rounded-md p-3 text-muted-foreground">
+            Nenhum projeto missionário cadastrado. Para criar um, cadastre o projeto em Financeiro → Projetos e marque-o como missionário.
+          </p>
+        ) : (
+          <ul className="divide-y border-t">
+            {dados.projetos.map(({ projeto, arrecadado, gasto }) => (
+              <li key={projeto.id} className="px-3 py-2.5 text-sm space-y-0.5">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="font-semibold min-w-0 truncate">{projeto.nome}</span>
+                  <span className="text-[11px] text-muted-foreground shrink-0">{projeto.status === "ativo" ? "ativo" : "encerrado"}</span>
+                </div>
+                <p className="text-xs text-muted-foreground tabular-nums">
+                  Meta {projeto.meta_valor ? brl(projeto.meta_valor) : "não definida"} · arrecadado {brl(arrecadado)}
+                  {projeto.meta_valor ? ` (${((arrecadado / projeto.meta_valor) * 100).toFixed(1).replace(".", ",")}%)` : ""} · execução (gasto) {brl(gasto)}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {/* ── Envios: oficial × esforço total ─────────────────────────────────── */}
+      <section className="rounded-lg border bg-card overflow-hidden" aria-labelledby="mis-envios">
+        <div className="p-3 pb-2">
+          <h3 id="mis-envios" className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Envios missionários</h3>
+          <p className="text-[11px] text-muted-foreground">
+            <strong>Envio Oficial</strong> = Repasses Missionários. <strong>Esforço Total</strong> = Envio Oficial + Sustento + Mobilização.
+          </p>
+        </div>
+        {!pronto || !calc ? (
+          <p className="text-sm text-muted-foreground px-3 pb-3">Carregando…</p>
+        ) : (
+          <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-3 px-3 pb-3">
+            <div className="rounded-md border p-3 min-w-0">
+              <Rotulo>Envio Oficial</Rotulo>
+              <p className="text-lg font-extrabold tabular-nums">{brl(calc.enviosTotal.oficial)}</p>
+              <p className="text-[11px] text-muted-foreground">histórico · no período {brl(calc.enviosPeriodo.oficial)}</p>
+            </div>
+            <div className="rounded-md border p-3 min-w-0">
+              <Rotulo>Esforço Missionário Total</Rotulo>
+              <p className="text-lg font-extrabold tabular-nums text-violeta-text">{brl(calc.enviosTotal.esforcoTotal)}</p>
+              <p className="text-[11px] text-muted-foreground">
+                histórico · no período {brl(calc.enviosPeriodo.esforcoTotal)}
+              </p>
+              <p className="text-[11px] text-muted-foreground tabular-nums">
+                oficial {brl(calc.enviosTotal.oficial)} + sustento {brl(calc.enviosTotal.sustento)} + mobilização {brl(calc.enviosTotal.mobilizacao)}
+              </p>
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* ── Ofertas missionárias sem classificação ──────────────────────────── */}
+      {pronto && calc && calc.pendentes.quantidade > 0 && (
+        <section className="rounded-lg border border-dashed bg-card p-3 space-y-2" aria-labelledby="mis-pend">
+          <div className="flex items-start justify-between gap-2 flex-wrap">
+            <div className="min-w-0">
+              <h3 id="mis-pend" className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                Ofertas missionárias sem classificação
+              </h3>
+              <p className="text-sm tabular-nums">
+                <strong>{calc.pendentes.quantidade}</strong> registros · <strong>{brl(calc.pendentes.total)}</strong> sem campanha
+              </p>
+              {calc.pendentes.semCentro > 0 && (
+                <p className="text-[11px] text-muted-foreground tabular-nums">
+                  dos quais {calc.pendentes.semCentro} também sem centro de custo ({brl(calc.pendentes.totalSemCentro)}).
+                  Receita não precisa de subcentro: categoria + centro já classificam.
+                </p>
+              )}
+              <p className="text-[11px] text-muted-foreground">Nada é classificado sozinho: você confere a sugestão antes de gravar.</p>
+            </div>
+            <Button type="button" size="sm" variant="violeta" onClick={() => setLoteAberto(true)}>Classificar em lote</Button>
+          </div>
         </section>
       )}
+
+      <AjustesDoFundoDialog open={ajustesAberto} onOpenChange={setAjustesAberto}
+        ajustes={dados?.ajustes ?? []} disponivel={recursos?.ajustes ?? false} onMudou={onRecarregar} />
+      <MetasDeCampanhaDialog open={metasAberto} onOpenChange={setMetasAberto} ano={ano}
+        metas={dados?.metas ?? []} disponivel={recursos?.metas ?? false} onMudou={onRecarregar} />
+      <ClassificarOfertasDialog open={loteAberto} onOpenChange={setLoteAberto}
+        grupos={calc?.grupos ?? []} disponivel={recursos?.campanha ?? false} onAplicado={onRecarregar} />
     </div>
   );
 }

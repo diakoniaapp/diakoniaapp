@@ -57,6 +57,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { IndicadoresMissionarios } from "@/components/financas/IndicadoresMissionarios";
+import { carregarDadosDeMissoes, type DadosDeMissoes } from "@/services/missoesService";
 import { categoriaPadraoDeRepasse, ehCategoriaDeRepasse, fundoAcumulado } from "@/lib/indicadoresMissionarios";
 import { Link, useLocation, useNavigate, useNavigationType } from "react-router-dom";
 import { lerRetorno, limparRetorno } from "@/lib/contextoExtrato";
@@ -417,30 +418,29 @@ export default function PainelTesouraria() {
       .catch(() => setRepassesCategoriaId(null));
   }, []);
 
-  const [missoesEntradas, setMissoesEntradas] = useState<FinLancamentoExtenso[]>([]);
-  const [missoesSaidas, setMissoesSaidas] = useState<FinLancamentoExtenso[]>([]);
+  // 06/10/2026 — modelagem nova: os dados vêm de `carregarDadosDeMissoes` (entradas, Envio Oficial,
+  // sustento, mobilização, ajustes, metas, projetos) e o painel `IndicadoresMissionarios` faz as contas.
+  const [missoes, setMissoes] = useState<DadosDeMissoes | null>(null);
   const [missoesRemessaCarregando, setMissoesRemessaCarregando] = useState(true);
   // Mesmo agregado de antes (o drawer da remessa lê "arrecadadoTotal/enviadoTotal").
   const missoesSaldo = useMemo(() => {
-    if (repassesCategoriaId === null || repassesCategoriaId === undefined) return null;
-    const f = fundoAcumulado(missoesEntradas, missoesSaidas);
+    if (repassesCategoriaId === null || repassesCategoriaId === undefined || !missoes) return null;
+    const f = fundoAcumulado(missoes.entradas, missoes.envios);
     return { arrecadadoTotal: f.arrecadado, enviadoTotal: f.enviado };
-  }, [missoesEntradas, missoesSaidas, repassesCategoriaId]);
+  }, [missoes, repassesCategoriaId]);
 
   const carregarMissoesRemessa = useCallback(async () => {
     // Categorias ainda carregando → espera. Categoria de ENTRADA ausente (null) não
     // pode deixar o painel em "Carregando…" para sempre: segue só com os repasses.
     if (Object.keys(categoriasEcl).length === 0 || repassesCategoriaId === undefined) return;
     const missoesCatId = categoriasEcl["missoes"];
-    if (repassesCategoriaId === null) { setMissoesEntradas([]); setMissoesSaidas([]); setMissoesRemessaCarregando(false); return; }
+    if (repassesCategoriaId === null) { setMissoes(null); setMissoesRemessaCarregando(false); return; }
     setMissoesRemessaCarregando(true);
     try {
-      const [entradas, ...saidasPorCategoria] = await Promise.all([
-        missoesCatId ? listarLancamentosSemTeto({ tipo: "entrada", categoriaId: missoesCatId }) : Promise.resolve([] as FinLancamentoExtenso[]),
-        ...repassesCategoriasIds.map(id => listarLancamentosSemTeto({ tipo: "saida", categoriaId: id })),
-      ]);
-      setMissoesEntradas(entradas);
-      setMissoesSaidas(saidasPorCategoria.flat());
+      setMissoes(await carregarDadosDeMissoes({ categoriaDeEntradaId: missoesCatId ?? null, categoriasDeRepasseIds: repassesCategoriasIds }));
+    } catch (e) {
+      console.error("Indicadores Missionários — falha ao carregar:", e);
+      toast.error("Não foi possível carregar os indicadores missionários.");
     } finally {
       setMissoesRemessaCarregando(false);
     }
@@ -1019,9 +1019,9 @@ export default function PainelTesouraria() {
               Indicadores Missionários
             </TituloDaSecao>
             <IndicadoresMissionarios
-              entradas={missoesEntradas}
-              saidas={missoesSaidas}
+              dados={missoes}
               carregando={missoesRemessaCarregando || eclCarregando}
+              onRecarregar={carregarMissoesRemessa}
               semCategoriaDeEntrada={categoriasEcl["missoes"] === null}
               semCategoriaDeRepasse={repassesCategoriaId === null}
               hoje={hoje}

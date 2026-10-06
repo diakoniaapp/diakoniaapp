@@ -159,6 +159,8 @@ export interface FinProjeto {
   status: FinProjetoStatus;
   cor: string | null;
   created_at?: string;
+  /** Projeto missionário (migration 20261006180000) — aparece no painel de Missões. */
+  missionario?: boolean;
 }
 
 // Um lançamento que serve mais de um centro (a conta de luz do prédio,
@@ -259,6 +261,8 @@ export interface FinLancamento {
   origem: string;
   /** Migration 20261006120000: como será liquidado e se o previsto é só uma estimativa. */
   forma_liquidacao?: FormaLiquidacao;
+  /** Dimensão analítica de missões (migration 20261006180000); o ano vem da data. null/ausente = nenhuma. */
+  campanha_missionaria?: "mundiais" | "nacionais" | "especial" | null;
   valor_variavel?: boolean;
   /** A recorrência de que nasceu, e a parcela (migration 20261006150000). */
   recorrencia_id?: string | null;

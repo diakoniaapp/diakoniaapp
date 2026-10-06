@@ -2,6 +2,9 @@ import { useRef, useState, useEffect, useLayoutEffect, useMemo, lazy, Suspense }
 import { FORMAS_LIQUIDACAO, ROTULO_LIQUIDACAO, DICA_LIQUIDACAO, normalizarLiquidacao, type FormaLiquidacao } from "@/lib/formaLiquidacao";
 import { identificarPorDescricao } from "@/services/identificacaoService";
 import { hojeLocal } from "@/lib/data";
+import { CAMPANHAS_EM_ORDEM, ROTULO_DA_CAMPANHA, campanhaSugeridaPorFornecedor, type CampanhaMissionaria } from "@/lib/missoesModelo";
+import { ehCategoriaDeRepasse } from "@/lib/indicadoresMissionarios";
+import { campanhaAbertaAgora, recursosDeMissoes } from "@/services/missoesService";
 import { paraNumero } from "@/lib/dinheiro";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
@@ -139,6 +142,12 @@ export function LancamentoForm({
   // Como uma saída PREVISTA será liquidada (migration 20261006120000). O padrão "manual" não é
   // enviado ao banco — assim este formulário segue salvando em quem ainda não aplicou a migration.
   const [liquidacao, setLiquidacao] = useState<FormaLiquidacao>("manual");
+  // Campanha missionária (06/10/2026): dimensão do lançamento de missões; "" = Nenhuma. O ano vem da data.
+  // A sugestão (campanha aberta, ou a Junta de destino) só entra enquanto ela não escolheu nada à mão.
+  const [campanha, setCampanha] = useState<CampanhaMissionaria | "">("");
+  const [campanhaSugerida, setCampanhaSugerida] = useState<CampanhaMissionaria | null>(null);
+  const campanhaTocada = useRef(false);
+  const [temCampanha, setTemCampanha] = useState(false);
   const [descricao, setDescricao] = useState("");
   // Fase 3 (15/09/2026), pedido da Telma: "quero que exista um campo de
   // descrição, com os itens da nota... não permitir edição, para ser
@@ -305,6 +314,28 @@ export function LancamentoForm({
     })();
   }, [categoriaId, fornecedorId, open]);
 
+  // Campo "Campanha missionária": só aparece quando a categoria é de missões (oferta ou repasse) e o campo
+  // existe no banco. Oferta nova → sugere a campanha aberta; remessa nova → a Junta de destino (nunca o centro).
+  const categoriaAtual = categorias.find(c => c.id === categoriaId);
+  const ehOfertaDeMissoes = categoriaAtual?.nome === "Ofertas para Missões";
+  const ehRepasseMissionario = !!categoriaAtual && ehCategoriaDeRepasse(categoriaAtual.nome);
+  const mostraCampanha = temCampanha && (ehOfertaDeMissoes || ehRepasseMissionario || campanha !== "");
+  useEffect(() => { if (open) recursosDeMissoes().then(r => setTemCampanha(r.campanha)).catch(() => setTemCampanha(false)); }, [open]);
+  useEffect(() => {
+    if (!open || !temCampanha || campanhaTocada.current || isEdit) return;
+    let vivo = true;
+    (async () => {
+      let sug: CampanhaMissionaria | null = null;
+      if (ehOfertaDeMissoes) sug = await campanhaAbertaAgora(categorias.filter(c => ehCategoriaDeRepasse(c.nome)).map(c => c.id));
+      else if (ehRepasseMissionario) sug = campanhaSugeridaPorFornecedor(fornecedorBusca);
+      if (!vivo || campanhaTocada.current) return;
+      setCampanhaSugerida(sug);
+      setCampanha(sug ?? "");
+    })();
+    return () => { vivo = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, temCampanha, ehOfertaDeMissoes, ehRepasseMissionario, fornecedorBusca, categoriaId]);
+
   // `useLayoutEffect`, não `useEffect` (achado ao vivo pela Telma,
   // 01/10/2026: "a data aparece diferente por alguns segundos e depois
   // volta"). O Dialog fica montado o tempo todo — `open` só alterna
@@ -338,6 +369,7 @@ export function LancamentoForm({
       setForma(lancamento.forma_pagamento ?? "");
       setStatus(lancamento.status);
       setLiquidacao(normalizarLiquidacao(lancamento.forma_liquidacao));
+      setCampanha(lancamento.campanha_missionaria ?? ""); campanhaTocada.current = true; setCampanhaSugerida(null);
       setDescricao(lancamento.descricao ?? "");
       setDocumentoNumero(lancamento.documento_numero ?? "");
       setObservacoes(lancamento.observacoes ?? "");
@@ -375,6 +407,7 @@ export function LancamentoForm({
       setFornecedorId(rascunho?.fornecedor?.id ?? "");
       setPessoaId(rascunho?.pessoa?.id ?? ""); setFornecedorBusca(rascunho?.pessoa?.nome ?? rascunho?.fornecedor?.nome ?? ""); setPessoasSugeridas([]);
       setForma(rascunho?.forma ?? ""); setStatus("realizado"); setLiquidacao("manual");
+      setCampanha(""); campanhaTocada.current = false; setCampanhaSugerida(null);
       setDescricao(rascunho?.descricao ?? ""); setDocumentoNumero(""); setObservacoes("");
       setRateando(false); setRateio([]);
       setNfItens([]); setNfFornecedorLido(null); setDescricaoTravada(false);
@@ -577,6 +610,9 @@ export function LancamentoForm({
       if (tipo === "saida" && status === "previsto" && (liquidacao !== "manual" || liquidacaoOriginal !== "manual")) {
         payload.forma_liquidacao = liquidacao;
       }
+
+      // Só manda o campo quando ele mudou (ou é novo e tem valor): sem a migration, a coluna nem existe.
+      if (temCampanha && campanha !== (lancamento?.campanha_missionaria ?? "")) payload.campanha_missionaria = campanha || null;
 
       let lancamentoId: string;
       if (isEdit && lancamento) {
@@ -1002,6 +1038,25 @@ export function LancamentoForm({
               </Select>
             </div>
           </div>
+
+          {mostraCampanha && (
+            <div>
+              <Label>Campanha missionária</Label>
+              <Select value={campanha === "" ? "nenhuma" : campanha}
+                onValueChange={(v) => { campanhaTocada.current = true; setCampanha(v === "nenhuma" ? "" : (v as CampanhaMissionaria)); }}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="nenhuma">Nenhuma</SelectItem>
+                  {CAMPANHAS_EM_ORDEM.map(c => <SelectItem key={c} value={c}>{ROTULO_DA_CAMPANHA[c]}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                {campanhaSugerida && campanha === campanhaSugerida && !campanhaTocada.current
+                  ? `Sugerida: ${ROTULO_DA_CAMPANHA[campanhaSugerida]} (${ehOfertaDeMissoes ? "campanha aberta" : "Junta de destino"}). Troque se for outra.`
+                  : "O ano da campanha é o da data do lançamento."}
+              </p>
+            </div>
+          )}
 
           {tipo === "saida" && status === "previsto" && (
             <div>

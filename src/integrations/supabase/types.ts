@@ -5472,6 +5472,8 @@ export type Database = {
       }
       fin_lancamentos: {
         Row: {
+          // migration 20261006180000_missoes_aditiva.sql
+          campanha_missionaria: string | null
           audit_em: string | null
           audit_user_id: string | null
           categoria_id: string | null
@@ -5508,6 +5510,7 @@ export type Database = {
           parcela_total: number | null
         }
         Insert: {
+          campanha_missionaria?: string | null
           audit_em?: string | null
           audit_user_id?: string | null
           categoria_id?: string | null
@@ -5544,6 +5547,7 @@ export type Database = {
           parcela_total: number | null
         }
         Update: {
+          campanha_missionaria?: string | null
           audit_em?: string | null
           audit_user_id?: string | null
           categoria_id?: string | null
@@ -5687,6 +5691,64 @@ export type Database = {
           },
         ]
       }
+      // migration 20261006180000_missoes_aditiva.sql
+      fin_ajustes_fundo_missionario: {
+        Row: {
+          ativo: boolean
+          criado_em: string
+          criado_por: string | null
+          data_referencia: string
+          descricao: string
+          id: string
+          justificativa: string | null
+          valor: number
+        }
+        Insert: {
+          ativo?: boolean
+          criado_em?: string
+          criado_por?: string | null
+          data_referencia: string
+          descricao: string
+          id?: string
+          justificativa?: string | null
+          valor: number
+        }
+        Update: {
+          ativo?: boolean
+          criado_em?: string
+          criado_por?: string | null
+          data_referencia?: string
+          descricao?: string
+          id?: string
+          justificativa?: string | null
+          valor?: number
+        }
+        Relationships: []
+      }
+      fin_metas_campanha: {
+        Row: {
+          ano: number
+          atualizado_em: string
+          atualizado_por: string | null
+          campanha: string
+          valor: number
+        }
+        Insert: {
+          ano: number
+          atualizado_em?: string
+          atualizado_por?: string | null
+          campanha: string
+          valor: number
+        }
+        Update: {
+          ano?: number
+          atualizado_em?: string
+          atualizado_por?: string | null
+          campanha?: string
+          valor?: number
+        }
+        Relationships: []
+      }
       fin_pessoa_pix: {
         Row: {
           atualizado_em: string
@@ -5713,6 +5775,8 @@ export type Database = {
       }
       fin_projetos: {
         Row: {
+          // migration 20261006180000_missoes_aditiva.sql
+          missionario: boolean
           cor: string | null
           created_at: string
           data_fim: string | null
@@ -5724,6 +5788,7 @@ export type Database = {
           status: string
         }
         Insert: {
+          missionario?: boolean
           cor?: string | null
           created_at?: string
           data_fim?: string | null
@@ -5735,6 +5800,7 @@ export type Database = {
           status?: string
         }
         Update: {
+          missionario?: boolean
           cor?: string | null
           created_at?: string
           data_fim?: string | null
