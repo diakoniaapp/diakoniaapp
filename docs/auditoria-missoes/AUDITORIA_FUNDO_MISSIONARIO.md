@@ -218,3 +218,22 @@ Total: **R$ 45.778,68** (2024: 14.712,95 · 2025: 26.609,73 · 2026: 4.456,00).
 - Ciclo: as remessas ≥ R$ 20.000 fecham o ciclo; a campanha das ofertas na planilha é **sugerida** (coluna
   "sugerida pelo ciclo"), nada foi gravado.
 - Verificações: 648 ofertas = R$ 145.947,09; saldo final = −R$ 16.270,80; soma dos ciclos = o mesmo saldo.
+
+---
+
+## Aprovado por ela em 06/10/2026 — migration `20261006210000_missoes_correcoes_da_auditoria.sql`
+
+Aprovados: **C1**, **C2**, as **21 prebendas (S1)** e as **despesas de feira/preletor (M1–M5)**.
+Ficam **pendentes de decisão**: C3 (R$ 206,20), C4 (bazar, R$ 2.251,74), C5 (R$ 700), C6 (R$ 10) e C7 (R$ 200 União Feminina).
+
+Resultado esperado depois de aplicar (para conferir na tela):
+
+| Indicador | Antes | Depois |
+|---|---|---|
+| Saldo registrado do Fundo | −16.270,80 | **−15.950,80** (+320,00) |
+| Saldo ajustado (com os 12.032,69) | −4.238,11 | **−3.918,11** |
+| Histórico arrecadado | 145.947,09 | **146.267,09** |
+| Ofertas sem classificação | 648 · 145.947,09 | **649 · 146.197,09** (a de R$ 250 entra na fila do lote) |
+| Sustento (pastor + parcerias) | 33.664,25 | **79.292,93** |
+| Mobilização | 0,00 | **1.134,40** |
+| Esforço Total | 195.882,14 | **242.645,22** |
