@@ -60,7 +60,7 @@ describe("pedaços do nome", () => {
 
 describe("ordem documental", () => {
   it("a lista é exatamente a que ela definiu", () => {
-    expect(ORDEM_DOCUMENTAL).toEqual(["nota_fiscal", "rpa", "rsp", "dps", "fatura", "boleto", "contrato", "outro", "comprovante"]);
+    expect(ORDEM_DOCUMENTAL).toEqual(["nota_fiscal", "rpa", "rsp", "dps", "fatura", "boleto", "guia", "contrato", "outro", "comprovante"]);
   });
   it("comprovante vai sempre por último; 'documento' (antigo) conta como 'outro'", () => {
     const partes = [
@@ -123,6 +123,7 @@ describe("nome-base do dossiê", () => {
   });
   it("fornecedor ausente não gera nome quebrado", () => {
     expect(nomeBaseDoDossie({ ...base, numero: null, principal: "boleto", fornecedor: null })).toBe("01092026_86,13_BOLETO_SEM_FORNECEDOR");
+  expect(nomeBaseDoDossie({ ...base, dia: "2026-10-12", valor: 1250, numero: null, principal: "guia", fornecedor: "PREFEITURA DO RIO DE JANEIRO" })).toBe("12102026_1250,00_GUIA_PREFEITURA_DO_RIO_DE_JANEIRO"); // o exemplo dela: Guia + Comprovante
   });
   it("data, valor e documento NUNCA são cortados, por maior que seja o nome", () => {
     const n = nomeBaseDoDossie({ ...base, numero: "987", principal: "rpa", fornecedor: "X".repeat(300) });

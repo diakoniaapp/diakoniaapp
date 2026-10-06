@@ -20,7 +20,7 @@ import type { FinAnexoTipo } from "@/services/finService";
 // ── ordem documental ────────────────────────────────────────────────────────
 
 export const ORDEM_DOCUMENTAL: FinAnexoTipo[] = [
-  "nota_fiscal", "rpa", "rsp", "dps", "fatura", "boleto", "contrato", "outro", "comprovante",
+  "nota_fiscal", "rpa", "rsp", "dps", "fatura", "boleto", "guia", "contrato", "outro", "comprovante",
 ];
 
 /** Posição na ordem documental. `documento` (tipo antigo) e qualquer tipo
@@ -94,6 +94,7 @@ export function valorNoNome(valor: number): string {
 export const SIGLA_NO_NOME: Record<FinAnexoTipo, string> = {
   nota_fiscal: "NF",
   boleto: "BOLETO",
+  guia: "GUIA",
   comprovante: "COMPROVANTE",
   fatura: "FATURA",
   contrato: "CONTRATO",

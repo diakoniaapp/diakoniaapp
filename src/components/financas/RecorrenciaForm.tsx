@@ -144,12 +144,10 @@ export function RecorrenciaForm({ open, onOpenChange, recorrencia, onSaved }: Pr
     if (sug.categoriaId && !categoriaId) setCategoriaId(sug.categoriaId);
     if (sug.centroId && !centroId) setCentroId(sug.centroId);
     if (sug.valor && !valor) setValor(sug.valor);
-    if (!descricao.trim()) setDescricao(f.nome);
   }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!descricao.trim()) { toast.error("Informe a descrição"); return; }
     if (valor <= 0) { toast.error("Valor inválido"); return; }
     if (!contaId) { toast.error("Selecione a conta"); return; }
     if (diaVencimento < 1 || diaVencimento > 31) { toast.error("Dia inválido"); return; }
@@ -164,7 +162,9 @@ export function RecorrenciaForm({ open, onOpenChange, recorrencia, onSaved }: Pr
     setBusy(true);
     try {
       const payload: any = {
-        descricao: descricao.trim(),
+        // Descrição é OPCIONAL (pedido dela, 06/10/2026): sem ela, vale o nome do favorecido — o
+        // banco exige um texto, e é o que aparece nos lançamentos gerados.
+        descricao: descricao.trim() || favorecido?.nome || categorias.find(c => c.id === categoriaId)?.nome || "Recorrência",
         tipo, valor, valor_variavel: valorVariavel,
         conta_id: contaId,
         categoria_id: categoriaId || null,
@@ -270,9 +270,9 @@ export function RecorrenciaForm({ open, onOpenChange, recorrencia, onSaved }: Pr
             rotulo={tipo === "saida" ? "Fornecedor / Prestador / Favorecido" : "Pessoa / contribuinte (opcional)"} />
 
           <div>
-            <Label>Descrição *</Label>
-            <Input value={descricao} onChange={(e) => setDescricao(e.target.value)} required
-              placeholder="Ex: Aluguel do templo" autoFocus />
+            <Label>Descrição (opcional)</Label>
+            <Input value={descricao} onChange={(e) => setDescricao(e.target.value)}
+              placeholder={favorecido ? `Em branco = "${favorecido.nome}"` : "Ex: Aluguel do templo"} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">

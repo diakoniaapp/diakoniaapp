@@ -48,7 +48,7 @@ const POR_PAGINA = 100;
 // Ordem dos tipos na tela. `documento` (o tipo ANTIGO) só aparece se alguém
 // ainda o tiver — hoje são os 2 anexos de 02/10/2026.
 const TIPOS_NA_TELA: FinAnexoTipo[] = [
-  "nota_fiscal", "boleto", "comprovante", "fatura", "contrato", "xml", "rpa", "rsp", "dps", "outro", "documento",
+  "nota_fiscal", "boleto", "guia", "comprovante", "fatura", "contrato", "xml", "rpa", "rsp", "dps", "outro", "documento",
 ];
 
 const VISTA_LABEL: Record<SituacaoDocumento | "todas", string> = {

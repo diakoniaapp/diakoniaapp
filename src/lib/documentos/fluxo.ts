@@ -54,6 +54,7 @@ export function tipoSugerido(leitura?: DocumentoLido, nome?: NomeLido, ehXml = f
   switch (leitura?.tipo) {
     case "nfe": case "nfce": case "nfse": return "nota_fiscal";
     case "boleto": return "boleto";
+    case "guia": return "guia";
     case "fatura": return "fatura";
     case "rpa": return "rpa";
     case "rsp": return "rsp";
@@ -65,6 +66,7 @@ export function tipoSugerido(leitura?: DocumentoLido, nome?: NomeLido, ehXml = f
   if (nome?.recibo === "RSP") return "rsp";
   if (nome?.recibo === "DPS") return "dps";
   if (nome?.tipoDocumento === "BOLETO") return "boleto";
+  if (nome?.tipoDocumento === "GUIA") return "guia";
   if (nome?.tipoDocumento === "FATURA") return "fatura";
   if (nome?.nf) return "nota_fiscal";
   return "outro";

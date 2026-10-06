@@ -30,10 +30,12 @@
 // emitente, modelo, série e número SEM ambiguidade — é a fonte preferida. O
 // resto (valor, data) é heurística sobre o texto.
 
+import { identificarGuia } from "./guia";
+
 export const CNPJ_DA_IGREJA = "27639285000161";
 
 export type TipoDocumentoLido =
-  | "nfe" | "nfce" | "nfse" | "boleto" | "fatura" | "rpa" | "rsp" | "dps" | "xml" | "desconhecido";
+  | "nfe" | "nfce" | "nfse" | "boleto" | "guia" | "fatura" | "rpa" | "rsp" | "dps" | "xml" | "desconhecido";
 
 export interface ValorCandidato {
   valor: number;
@@ -122,6 +124,10 @@ function descobrirTipo(texto: string, modelo: string | null): TipoDocumentoLido 
   // pagamento" ou "DPS" com outro sentido). RPS (Recibo Provisório de Serviços) deixou de
   // existir como tipo: não é da rotina da igreja.
   const ehNfse = /nfs-?e|nota fiscal de servico/.test(t);
+  // GUIA (ISS, DARF, GPS, FGTS, IRRF, DAS, taxas): vem ANTES de tudo — uma guia de ISS cita NFS-e, e
+  // uma guia nunca deve cair em "boleto"/"fatura"/"outro" (pedido dela, 06/10/2026). O reconhecimento
+  // exige a frase própria da guia, não a sigla solta (folha de pagamento e NFS-e citam INSS/ISS).
+  if (identificarGuia(texto)) return "guia";
   if (/recibo de pagamento (a|de) autonomo/.test(t)) return "rpa";
   if (/recibo de sustento pastoral/.test(t)) return "rsp";
   if (/demonstrativo de pagamento de salario/.test(t)) return "dps";

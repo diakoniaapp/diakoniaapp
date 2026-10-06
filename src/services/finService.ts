@@ -1132,12 +1132,13 @@ export async function comprovanteSignedUrl(path: string, segs = 600): Promise<st
 // removido por ela ("não faz parte da rotina da igreja"). A chave do banco é `rsp`.
 // Migration 20261002200000 (a mesma, atualizada antes de ser aplicada).
 export type FinAnexoTipo =
-  | "nota_fiscal" | "boleto" | "comprovante" | "fatura" | "contrato"
+  | "nota_fiscal" | "boleto" | "guia" | "comprovante" | "fatura" | "contrato"
   | "xml" | "rpa" | "rsp" | "dps" | "outro" | "documento";
 
 export const FIN_ANEXO_TIPO_LABEL: Record<FinAnexoTipo, string> = {
   nota_fiscal: "Nota Fiscal",
   boleto: "Boleto",
+  guia: "Guia",
   comprovante: "Comprovante de Pagamento",
   fatura: "Fatura",
   contrato: "Contrato",
@@ -1151,6 +1152,7 @@ export const FIN_ANEXO_TIPO_LABEL: Record<FinAnexoTipo, string> = {
 
 /** Explicação curta dos tipos que não são óbvios (dica na tela). */
 export const FIN_ANEXO_TIPO_DICA: Partial<Record<FinAnexoTipo, string>> = {
+  guia: "Guia de Recolhimento: ISS, DARF, INSS/GPS, FGTS, IRRF, Simples, taxas",
   rpa: "Recibo de Pagamento a Autônomo",
   rsp: "Recibo de Sustento Pastoral",
   dps: "Demonstrativo de Pagamento de Salário",
@@ -1158,7 +1160,7 @@ export const FIN_ANEXO_TIPO_DICA: Partial<Record<FinAnexoTipo, string>> = {
 
 /** Os tipos que a tela de anexos oferece, na ordem de exibição. */
 export const FIN_ANEXO_TIPOS_OFERECIDOS: FinAnexoTipo[] = [
-  "nota_fiscal", "boleto", "comprovante", "fatura", "contrato", "xml", "rpa", "rsp", "dps", "outro",
+  "nota_fiscal", "boleto", "guia", "comprovante", "fatura", "contrato", "xml", "rpa", "rsp", "dps", "outro",
 ];
 
 export const FIN_ANEXO_MIMES = [...FIN_COMPROVANTE_MIMES, "application/xml", "text/xml"];
@@ -1210,7 +1212,9 @@ export async function adicionarAnexo(
     // (migration 20261002200000 não aplicada). Sem esta tradução a tesouraria
     // veria "violates check constraint ..." e não saberia o que fazer.
     if ((error as { code?: string }).code === "23514") {
-      throw new Error("O banco ainda não aceita este tipo de documento — falta aplicar a migration 20261002200000.");
+      throw new Error(tipo === "guia"
+        ? "O banco ainda não aceita o tipo Guia — falta aplicar a migration 20261006160000."
+        : "O banco ainda não aceita este tipo de documento — falta aplicar a migration 20261002200000.");
     }
     throw error;
   }
