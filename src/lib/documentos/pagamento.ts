@@ -156,9 +156,31 @@ function valorAposRotulo(original: string, p: string, rotulos: RegExp[], janela 
       // vale só se o número não for percentual ("1.084,08%")
       const depois = original.slice(m.index + m[0].length, m.index + m[0].length + 3);
       if (/^\s*%/.test(depois)) continue;
-      return paraNumero(m[m.length - 2], m[m.length - 1]);
+      const v = paraNumero(m[m.length - 2], m[m.length - 1]);
+      if (v <= 0) continue; // "VALOR TOTAL DA NOTA 0,00" (DANFE) não é o valor a pagar: tenta o próximo rótulo
+      return v;
     }
     void janela;
+  }
+  return null;
+}
+
+/**
+ * Valor em TABELA: o rótulo é um cabeçalho de coluna ("… EMISSÃO TOTAL A PAGAR") e o valor vem na linha de baixo,
+ * depois de outros números ("07/2026 09/09/2026 R$ 1.135,07"). Só vale com "R$" na frente (senão pegaria um
+ * número qualquer da linha), e ignora R$ 0,00 e percentuais.
+ */
+function valorEmTabela(original: string, p: string, rotulos: RegExp[], janela = 240): number | null {
+  for (const r of rotulos) {
+    const achou = p.match(new RegExp(`(?:${r.source})`, "i"));
+    if (!achou || achou.index === undefined) continue;
+    const trecho = p.slice(achou.index, achou.index + achou[0].length + janela);
+    for (const m of trecho.matchAll(new RegExp(`r\\$\\s*${REAL}`, "gi"))) {
+      const depois = original.slice(achou.index + (m.index ?? 0) + m[0].length, achou.index + (m.index ?? 0) + m[0].length + 3);
+      if (/^\s*%/.test(depois)) continue;
+      const v = paraNumero(m[m.length - 2], m[m.length - 1]);
+      if (v > 0) return v;
+    }
   }
   return null;
 }
@@ -178,20 +200,36 @@ const ROTULOS_DE_BENEFICIARIO = [
 const PARECE_ROTULO = /^(cnpj|cpf|ag[eê]ncia|vencimento|valor|data|nosso|n[uú]mero|c[oó]digo|endere[cç]o|local|esp[eé]cie|pagador|sacado|compet[eê]ncia)/i;
 
 function limparNome(s: string): string {
-  return s.replace(/\bC\.?N\.?P\.?J\.?[:\s]*[\d./-]+/gi, "").replace(/\bCPF[:\s]*[\d.\-]+/gi, "")
+  return s.replace(/\bC\.?N\.?P\.?J\.?(?:\s*\/\s*C\.?P\.?F\.?)?[:\s]*[\d./-]+/gi, "").replace(/\bCPF[:\s]*[\d.\-]+/gi, "")
     .replace(/\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/g, "").replace(/\s{2,}/g, " ").replace(/^[\s:;,.\-–]+|[\s:;,.\-–]+$/g, "").trim();
 }
 
+/** O nome da própria igreja nunca é o beneficiário (aparece como pagador/destinatário em todo documento). */
+const NOME_DA_IGREJA = /quarta igreja batista/i;
+/** Texto que NÃO é um nome: sobra de rótulo ("Agência/Código Beneficiário"), "final" (o campo "Beneficiário final"), autenticação. */
+const NAO_E_NOME = /^(ag[eê]ncia|c[oó]digo|final\b|autentica|recibo|pagador|sacado)/i;
+
+function nomeAproveitavel(n: string): boolean {
+  return n.length >= 4 && !/^[\d\s./-]+$/.test(n) && !PARECE_ROTULO.test(n) && !NAO_E_NOME.test(n) && !NOME_DA_IGREJA.test(n);
+}
+
 function beneficiarioDoTexto(texto: string): string | null {
+  // DANFE: "RECEBEMOS DE <EMITENTE> OS PRODUTOS…" — o emitente é exato; os rótulos "Nome/Razão social" da nota
+  // listam primeiro o DESTINATÁRIO (a igreja).
+  const danfe = texto.replace(/\s+/g, " ").match(/RECEBEMOS DE (.{4,80}?) OS (?:PRODUTOS|SERVI[CÇ]OS)/i);
+  if (danfe && nomeAproveitavel(limparNome(danfe[1]))) return limparNome(danfe[1]).slice(0, 80);
+
   const linhas = texto.split(/\r?\n/).map(l => l.replace(/\s+/g, " ").trim()).filter(Boolean);
   for (const rot of ROTULOS_DE_BENEFICIARIO) {
     const re = new RegExp(`^(?:${rot})\\b[\\s:.\\-]*(.*)$`, "i");
     for (let i = 0; i < linhas.length; i++) {
       const m = linhas[i].match(re);
       if (!m) continue;
+      if (/^final\b/i.test(m[1].trim())) continue; // "Beneficiário final: CPF…" é OUTRO campo
       let nome = limparNome(m[1]);
-      if (nome.length < 4 && linhas[i + 1] && !PARECE_ROTULO.test(linhas[i + 1])) nome = limparNome(linhas[i + 1]);
-      if (nome.length >= 4 && !/^[\d\s./-]+$/.test(nome) && !PARECE_ROTULO.test(nome)) return nome.slice(0, 80);
+      // rótulo de coluna ("Beneficiário Agência/Código Beneficiário"): o nome vem na linha de baixo
+      if (!nomeAproveitavel(nome) && linhas[i + 1] && !PARECE_ROTULO.test(linhas[i + 1])) nome = limparNome(linhas[i + 1]);
+      if (nomeAproveitavel(nome)) return nome.slice(0, 80);
     }
   }
   return null;
@@ -244,8 +282,10 @@ function subtipoDeFatura(p: string, seg: ArrecadacaoDecodificada | null): Subtip
   if (/energia el[eé]trica|\bluz\b|light|enel|eletropaulo|cemig|energisa|kwh|consumo de energia/.test(p)) return "energia";
   if (/[aá]guas do rio|cedae|sabesp|saneamento|abastecimento de [aá]gua|esgoto|conta de [aá]gua/.test(p)) return "agua";
   if (/g[aá]s natural|naturgy|comg[aá]s|conta de g[aá]s|\bceg\b/.test(p)) return "gas";
-  if (/internet|banda larga|fibra [oó]ptica|provedor/.test(p)) return "internet";
-  if (/telefon|celular|\bvivo\b|\bclaro\b|\btim\b|\boi\b|telecom/.test(p)) return "telefonia";
+  // "internet" e "telefone" SOZINHOS não valem: o texto padrão de todo boleto de banco diz "pague pelo
+  // aplicativo, internet ou em agências" e "SAC … telefones" (medido: boleto de impressora lido como fatura de internet).
+  if (/banda larga|fibra [oó]ptica|provedor|plano de internet|conta de internet|fatura de internet/.test(p)) return "internet";
+  if (/telefonia|conta de telefone|telefone m[oó]vel|celular|\bvivo\b|\bclaro\b|\btim\b|\boi\b|telecom/.test(p)) return "telefonia";
   if (/condom[ií]nio|taxa condominial/.test(p)) return "condominio";
   return null;
 }
@@ -275,12 +315,17 @@ export function lerDocumentoDePagamento(textoBruto: string): DocumentoDePagament
   if (codigo && !codigo.valido) avisos.push("Os dígitos verificadores da linha digitável não conferem — confira os números com o documento.");
 
   // 2. tipo
-  const subtipoGuia = identificarGuia(texto);
+  // Um boleto de COBRANÇA com a linha digitável válida é boleto — mesmo que a 2ª página cite "documento de
+  // arrecadação do Simples" numa declaração (medido: boleto de impressora lido como guia). Só vira guia se o
+  // TÍTULO do documento (os primeiros 300 caracteres) disser que é uma guia (ex.: DAE emitido como boleto).
+  const cobrancaValida = !!(codigo?.cobranca && codigo.valido);
+  const subtipoGuia = cobrancaValida ? identificarGuia(texto.slice(0, 300)) : identificarGuia(texto);
   const arrec = codigo?.arrecadacao ?? null;
   const segmentoDeGuia = arrec && ["prefeitura", "orgao_governamental", "transito"].includes(arrec.segmento);
   const segmentoDeFatura = arrec && ["saneamento", "energia_gas", "telecomunicacoes", "carne"].includes(arrec.segmento);
   const subFatura = subtipoDeFatura(p, arrec);
-  const textoDeFatura = /\bfatura\b|conta de (agua|luz|energia|gas|telefone|internet)|consumo|leitura anterior|unidade consumidora/.test(p);
+  // "consumo" SOZINHO não vale (medido: boleto de impressora com "relatório de consumo" lido como fatura).
+  const textoDeFatura = /\bfatura\b|conta de (agua|luz|energia|gas|telefone|internet)|consumo de (agua|energia|gas)|leitura anterior|unidade consumidora/.test(p);
 
   let tipo: TipoDePagamento = "desconhecido";
   let sub: SubtipoDeGuia | null = null;
@@ -292,9 +337,10 @@ export function lerDocumentoDePagamento(textoBruto: string): DocumentoDePagament
 
   // 3. valor
   const rotulosDeValor = tipo === "guia"
-    ? [/valor total do documento/, /valor total/, /total a pagar/, /valor do documento/, /valor principal/, /valor a pagar/]
-    : [/valor do documento/, /valor cobrado/, /valor a pagar/, /total a pagar/, /valor total/, /\(=\)\s*valor/, /total da fatura/];
-  const valorTexto = valorAposRotulo(texto, p, rotulosDeValor);
+    ? [/total da guia/, /valor a recolher/, /valor total do documento/, /valor total/, /total a pagar/, /valor do documento/, /valor principal/, /valor a pagar/]
+    : [/valor do documento/, /valor cobrado/, /valor a pagar/, /total a pagar/, /fatura a pagar/, /valor total/, /\(=\)\s*valor/, /total da fatura/];
+  const valorTexto = valorAposRotulo(texto, p, rotulosDeValor)
+    ?? valorEmTabela(texto, p, [/total a pagar/, /valor a pagar/, /fatura a pagar/, /total da fatura/, /valor total a pagar/]);
   const valorCodigo = codigo?.cobranca?.valor ?? codigo?.arrecadacao?.valor ?? null;
   let valor = codigo?.valido && valorCodigo ? valorCodigo : valorTexto ?? pix?.valor ?? valorCodigo;
   if (codigo?.valido && valorCodigo) motivos.push(`valor ${valorCodigo.toFixed(2).replace(".", ",")} lido do código`);
@@ -307,7 +353,7 @@ export function lerDocumentoDePagamento(textoBruto: string): DocumentoDePagament
 
   // 4. vencimento
   const vencDoCodigo = codigo?.cobranca?.vencimento ?? null;
-  const vencDoTexto = dataAposRotulo(p, [/data de vencimento/, /vencimento/, /pagar ate/, /pagavel ate/, /vence em/]);
+  const vencDoTexto = dataAposRotulo(p, [/pagar este documento ate/, /data de vencimento/, /vencimento/, /pagar ate/, /pagavel ate/, /vence em/]);
   const vencimento = vencDoCodigo ?? vencDoTexto;
   if (vencDoCodigo) motivos.push("vencimento lido da linha digitável");
   else if (vencDoTexto) motivos.push("vencimento lido do texto");

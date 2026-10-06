@@ -164,3 +164,112 @@ describe("outros", () => {
     expect(JSON.stringify(g)).not.toContain("MINISTÉRIO");
   });
 });
+
+// ── layouts REAIS medidos em 06/10/2026 nos anexos da tesouraria (só texto de empresas) ─────────────────
+describe("layouts reais — defeitos medidos nos anexos da igreja", () => {
+  const linha = linhaDeBoleto("341", "2026-08-20", 36000);
+
+  it("boleto cuja 2ª página cita 'documento de arrecadação do Simples' NÃO vira guia (medido: impressora)", () => {
+    const texto = `RECIBO DO PAGADOR
+341-7 ${linha.slice(0, 5)}.${linha.slice(5, 10)} ${linha.slice(10, 15)}.${linha.slice(15, 21)} ${linha.slice(21, 26)}.${linha.slice(26, 32)} ${linha.slice(32, 33)} ${linha.slice(33)}
+Vencimento
+20/08/2026
+Beneficiário Agência/Código Beneficiário
+ECOPRINT IMPRESSORAS LTDA CNPJ/CPF: 10.647.756/0001-80
+Valor (=) Valor do Documento
+157 R$ 360,00
+Pagador: QUARTA IGREJA BATISTA DO RJ CNPJ/CPF: 27.639.285/0001-61
+Declaramos que recolhemos e pagamos todos os impostos através do documento de arrecadação do Simples Nacional (DAS).`;
+    const d = lerDocumentoDePagamento(texto);
+    expect(d.tipo).toBe("boleto");
+    expect(d.subtipoGuia).toBeNull();
+    expect(d.valor).toBe(360);
+    expect(d.vencimento).toBe("2026-08-20");
+    expect(d.beneficiario).toBe("ECOPRINT IMPRESSORAS LTDA");
+    expect(d.cnpjBeneficiario).toBe("10647756000180");
+  });
+
+  it("'Beneficiário final' é outro campo: não vira nome", () => {
+    const d = lerDocumentoDePagamento(`Beneficiário final: CPF 123.456.789-00\nBeneficiário\nLOJA BOA LTDA\nValor do documento 50,00`);
+    expect(d.beneficiario).toBe("LOJA BOA LTDA");
+  });
+
+  it("fatura de água: o valor está na linha de BAIXO do cabeçalho 'TOTAL A PAGAR' (tabela), e R$ 0,00% não é valor", () => {
+    const d = lerDocumentoDePagamento(`FATURA DE AGUA E ESGOTO
+MATRÍCULA REFERÊNCIA EMISSÃO TOTAL A PAGAR
+QUARTA IGREJA BATISTA DO RJ CPF/CNPJ: 27639285000161 400048718-2 07/2026 09/09/2026 R$ 1.135,07
+Nº DE FATURA IDENTIFICADOR VENCIMENTO
+202893 22271 01/08/2026
+DESCRIÇÃO DOS SERVIÇOS VALOR IBS M IBS E CBS
+R$ 0,00% 0,10% 0,90%
+VALOR AGUA 556,40 0,00 0,50 4,54`);
+    expect(d.tipo).toBe("fatura");
+    expect(d.valor).toBe(1135.07);
+    expect(d.vencimento).toBe("2026-08-01");
+  });
+
+  it("guia do FGTS Digital: 'Valor a recolher' (cabeçalho) e 'Total da Guia', vencimento em 'Pagar este documento até'", () => {
+    const d = lerDocumentoDePagamento(`GFD - Guia do FGTS Digital
+Pagar este documento até
+CPF/CNPJ do Empregador Nome/Razão Social do Empregador
+20/08/2026
+27.639.285 QUARTA IGREJA BATISTA DO RIO DE JANEIRO
+às 21:59:59 (Brasília)
+Valor a recolher
+Núm. de Pág. Identificador Tag
+793,75
+1 0126073152375771-0 31/07/2026 13:18
+Competência Trabalhadores FGTS Mensal Total
+07/2026 3 793,75 0,00 793,75
+Total da Guia: 793,75`);
+    expect(d.tipo).toBe("guia");
+    expect(d.subtipoGuia).toBe("fgts");
+    expect(d.valor).toBe(793.75);
+    expect(d.vencimento).toBe("2026-08-20");
+    expect(d.beneficiario).toBe("Caixa Econômica Federal (FGTS)");
+  });
+
+  it("DANFE + página de fatura: beneficiário é o EMITENTE (nunca a igreja), valor e vencimento da fatura", () => {
+    const d = lerDocumentoDePagamento(`RECEBEMOS DE HANDHELP SOLUCOES E INFORMATICA LTDA OS PRODUTOS CONSTANTES NA NOTA FISCAL INDICADA AO LADO. NF-e
+DESTINATÁRIO / REMETENTE
+NOME / RAZÃO SOCIAL CNPJ / CPF DATA EMISSÃO
+QUARTA IGREJA BATISTA DO RIO DE JANEIRO 27.639.285/0001-61 17/06/2026
+FATURA / DUPLICATA
+001 002 003
+Fatura a pagar
+HANDHELP SOLUCOES E INFORMATICA LTDA
+R$ 833,34
+07.371.640/0001-57
+Vencimento em 13/08/2026`);
+    expect(d.beneficiario).toBe("HANDHELP SOLUCOES E INFORMATICA LTDA");
+    expect(d.valor).toBe(833.34);
+    expect(d.vencimento).toBe("2026-08-13");
+    expect(d.cnpjBeneficiario).toBe("07371640000157");
+  });
+});
+
+describe("layouts reais — texto padrão de banco e nota fiscal com 0,00", () => {
+  it("o texto padrão do boleto ('pague pelo aplicativo, internet… SAC telefones') NÃO faz dele uma fatura de internet", () => {
+    const linha = linhaDeBoleto("341", "2026-08-20", 36000);
+    const d = lerDocumentoDePagamento(`RECIBO DO PAGADOR
+${linha}
+Local de pagamento: Pague pelo aplicativo, internet ou em agências e correspondentes.
+Beneficiário
+ECOPRINT IMPRESSORAS LTDA CNPJ: 10.647.756/0001-80
+SAC 0800 704 0237 - Cancelamentos, reclamações e demais telefones. Deficiente auditivo ou de fala
+Valor do documento R$ 360,00`);
+    expect(d.tipo).toBe("boleto");
+    expect(d.subtipoFatura).toBeNull();
+  });
+
+  it("DANFE: 'VALOR TOTAL DA NOTA 0,00' não é o valor a pagar — vale a 'Fatura a pagar'", () => {
+    const d = lerDocumentoDePagamento(`RECEBEMOS DE LOJA DE INFORMATICA LTDA OS PRODUTOS CONSTANTES NA NOTA FISCAL
+VALOR TOTAL DA NOTA
+0,00 0,00 0,00 0,00 0,00 2.500,00
+Fatura a pagar
+LOJA DE INFORMATICA LTDA
+R$ 833,34
+Vencimento em 13/08/2026`);
+    expect(d.valor).toBe(833.34);
+  });
+});
