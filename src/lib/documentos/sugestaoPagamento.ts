@@ -61,11 +61,13 @@ export function normalizarNome(s: string): string {
 export function chavesDoDocumento(d: DocumentoDePagamento): Chave[] {
   const chaves: Chave[] = [];
   if (d.cnpjBeneficiario) chaves.push({ tipo: "cnpj", chave: d.cnpjBeneficiario });
-  if (d.convenio) chaves.push({ tipo: "convenio", chave: d.convenio });
+  // A GUIA vem ANTES do convênio: o ISS e o IPTU da Prefeitura têm o MESMO convênio e centros diferentes
+  // (medido ao validar o aprendizado nos documentos reais: o 2º ensinamento sobrescrevia o 1º).
   if (d.tipo === "guia" && d.subtipoGuia) {
     // DARF distingue pela receita (1708 ≠ 0561); as demais guias, pelo subtipo
     chaves.push({ tipo: "guia", chave: d.codigoReceita ? `${d.subtipoGuia}:${d.codigoReceita}` : d.subtipoGuia });
   }
+  if (d.convenio) chaves.push({ tipo: "convenio", chave: d.convenio });
   const nome = d.beneficiario ? normalizarNome(d.beneficiario) : "";
   if (nome.length >= 5) chaves.push({ tipo: "beneficiario", chave: nome });
   return chaves;

@@ -42,6 +42,27 @@ describe("chavesDoDocumento", () => {
   });
 });
 
+describe("guia antes do convênio (ISS × IPTU da mesma Prefeitura)", () => {
+  const iss = lerDocumentoDePagamento("01. RECEITA\n101-5\nDARM\nISS - IMPOSTO SOBRE SERVIÇOS\nESTE DOCUMENTO DEVE SER UTILIZADO EXCLUSIVAMENTE PARA PAGAMENTO DE ISS\n03. DATA DE VENCIMENTO 06/08/2026\n09. VALOR TOTAL\nR$ 31,51");
+  const iptu = lerDocumentoDePagamento("01.RECEITA\n310-7 DARM\nDocumento de Arrecadação de Receitas Municipais\n02.INSCRIÇÃO IMOBILIARIA\n03.DATA DE VENCIMENTO 07/08/2026\n09.VALOR TOTAL\n312,70");
+
+  it("a chave da guia precede a do convênio", () => {
+    const k = chavesDoDocumento({ ...iss, convenio: "5-prefeitura" });
+    expect(k.map(x => x.tipo)).toEqual(["guia", "convenio"]);
+  });
+
+  it("ISS e IPTU, com o MESMO convênio aprendido, seguem cada um o seu centro", () => {
+    const conv = { chave_tipo: "convenio" as const, chave: "5-prefeitura", fornecedor_id: null, categoria_id: "c-imp", centro_custo_id: "ce-residencia", projeto_id: null, usos: 1 };
+    const b = base({ conhecimento: [
+      { chave_tipo: "guia", chave: "iss", fornecedor_id: null, categoria_id: "c-imp", centro_custo_id: "ce-servicos", projeto_id: null, usos: 1 },
+      { chave_tipo: "guia", chave: "iptu", fornecedor_id: null, categoria_id: "c-imp", centro_custo_id: "ce-residencia", projeto_id: null, usos: 1 },
+      conv,
+    ] });
+    expect(sugerirClassificacao({ ...iss, convenio: "5-prefeitura" }, b).centroId).toBe("ce-servicos");
+    expect(sugerirClassificacao({ ...iptu, convenio: "5-prefeitura" }, b).centroId).toBe("ce-residencia");
+  });
+});
+
 describe("sugerirClassificacao", () => {
   it("CNPJ do beneficiário acha o fornecedor e herda categoria e centro padrão", () => {
     const s = sugerirClassificacao(boletoEco, base());
