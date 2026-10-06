@@ -13,29 +13,10 @@ import { fileURLToPath } from "node:url";
 
 const aqui = path.dirname(fileURLToPath(import.meta.url));
 const raiz = path.resolve(aqui, "../..");
+import { entradas, remessas } from "./dados.mjs";
 const r2 = n => Math.round(n * 100) / 100;
 
-const entradas = fs.readFileSync(path.join(aqui, "entradas-fundo-2026-10-06.txt"), "utf8").trim().split(";").map(l => {
-  const [dia, valor, centro, id] = l.split("|");
-  return { dia, valor: Number(valor), centro, id, tipo: "entrada" };
-});
-
 // Envio Oficial (categoria "Repasses Missionários") depois das reclassificações de 06/10 (R$ 337 já fora).
-const remessas = [
-  { id: "0cbe1da1", dia: "2024-07-12", valor: 10327.58, junta: "JMN", camp: "nacionais", obs: "Paga à Junta NACIONAL; sem arrecadação de 2024 que a sustente (hipótese: saldo da campanha de 2023, anterior ao Omie). Descrição gravada dizia 'Mundiais'." },
-  { id: "7f39009c", dia: "2024-07-12", valor: 1551.32, junta: "JMM", camp: "mundiais", obs: "Confirmada pelo histórico da Junta Mundial." },
-  { id: "fa5a0467", dia: "2024-08-27", valor: 25955.20, junta: "JMM", camp: "mundiais", obs: "Remessa principal de Mundiais 2024; confirmada pela Junta. Quase igual ao arrecadado do ciclo (25.801,41)." },
-  { id: "6e8decd5", dia: "2024-12-19", valor: 4050.00, junta: "JMN", camp: "nacionais", obs: "" },
-  { id: "e65db633", dia: "2024-12-30", valor: 20000.00, junta: "JMN", camp: "nacionais", obs: "Remessa principal de Nacionais 2024 (fecha o ciclo)." },
-  { id: "9f172950", dia: "2025-02-27", valor: 5000.00, junta: "JMN", camp: "nacionais", obs: "Boleto de oferta voluntária à JMN; campanha Nacionais (decisão dela). Descrição gravada dizia 'Mundiais'. Sem ofertas de Nacionais em 2025 que a sustentem: usa o excedente de 2024." },
-  { id: "e96d4253", dia: "2025-05-27", valor: 4493.56, junta: "JMN", camp: "nacionais", obs: "'REPASSE CAMPANHA JMN'. Descrição gravada dizia 'Mundiais'. Mesma situação do envio de 27/02/2025." },
-  { id: "2641f689", dia: "2025-07-22", valor: 34216.42, junta: "JMM", camp: "mundiais", obs: "Remessa principal de Mundiais 2025; confirmada pela Junta (que a lança em 23/07). Maior que o arrecadado do ciclo." },
-  { id: "623c289f", dia: "2025-09-19", valor: 783.58, junta: "JMM", camp: "mundiais", obs: "Complemento de Mundiais 2025 (34.216,42 + 783,58 = 35.000,00 exatos); confirmada pela Junta. O centro gravado dizia 'Nacionais'." },
-  { id: "5ecb5c32", dia: "2025-12-10", valor: 1000.00, junta: "JMN", camp: "especial", obs: "Oferta à JMN (panetones da Cristolândia): campanha avulsa." },
-  { id: "77b88b7f", dia: "2025-12-29", valor: 28180.00, junta: "JMN", camp: "nacionais", obs: "Remessa principal de Nacionais 2025 (fecha o ciclo). Quase igual ao arrecadado do ciclo (28.235,97)." },
-  { id: "98abdceb", dia: "2026-07-07", valor: 26660.23, junta: "JMM", camp: "mundiais", obs: "Remessa principal de Mundiais 2026. A Junta ainda não validou (o histórico dela vai até set/2025)." },
-].map(r => ({ ...r, tipo: "saida" }));
-
 const LIMITE = 20000;
 const fechadoras = remessas.filter(r => r.valor >= LIMITE && (r.camp === "mundiais" || r.camp === "nacionais")).sort((a, b) => a.dia.localeCompare(b.dia));
 const oposta = c => (c === "mundiais" ? "nacionais" : "mundiais");

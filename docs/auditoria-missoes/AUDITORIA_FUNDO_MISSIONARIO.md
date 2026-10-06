@@ -110,7 +110,7 @@ citam missões/bazar/alvo; despesas de feira/preletor em outros centros; lançam
 | C1 | `397913c3` · 10/03/2024 · R$ 70,00 | "Ofertas", centro Missões Mundiais | **Ofertas para Missões** (campanha Nacionais; edição 2023) | Texto: *"SALDO DA CAMPANHA DE MISSÕES NACIONAIS 2023"*. Já está no centro de missões, só a categoria destoa | **+70,00** | Alta |
 | C2 | `4be7491f` · 09/12/2024 · R$ 250,00 | "Dizimos" | **Ofertas para Missões** | Texto: *"ALVO MISSÕES CLASSE JOVENS I"* | **+250,00** | Alta |
 | C3 | `ebe1ac47` · 07/02/2025 · R$ 206,20 | "Ofertas", sem centro | **Ofertas para Missões** | Texto: *"…ALVO DE MI…"* (cortado) | **+206,20** | Média |
-| C4 | 42 lançamentos · 20–28/02/2025 (10, R$ 507,76) e 06–12/08/2025 (32, R$ 1.743,98) · **R$ 2.251,74** | "Ofertas", sem centro | **Ofertas para Missões** | Vendas do *"BAZAR MINISTÉRIO DE MISSÕES"* / *"BAZAR MISSÕES NINA"*; o destino do bazar é de missões | **+2.251,74** | Média (confirmar se "Nina" é campanha ou apoio a uma missionária) |
+| C4 ⚠ **revista** | 42 lançamentos · 20–28/02/2025 (10, R$ 507,76) e 06–12/08/2025 (32, R$ 1.743,98) · **R$ 2.251,74** | "Ofertas", sem centro | **Ofertas para Missões** | Vendas do *"BAZAR MINISTÉRIO DE MISSÕES"* / *"BAZAR MISSÕES NINA"*; o destino do bazar é de missões | **+2.251,74** | Média (confirmar se "Nina" é campanha ou apoio a uma missionária) |
 | C5 | `2b15ce2b` · 06/04/2026 · R$ 700,00 | "Dizimos" | **Ofertas para Missões** | Texto: *"…ALVO DAS…"* — mesma natureza das 39 ofertas "alvo das classes" já em missões | **+700,00** | Baixa/Média |
 | C6 | `7cf2e6dd` · 19/05/2024 · R$ 10,00 | "Ofertas", centro Administração | **Ofertas para Missões** | *"OFERTA DESIGNADA MINISTÉRIO DE EVANGELISMO E MISSÕES"*, como outras 23 já em missões | **+10,00** | Baixa |
 
@@ -237,3 +237,5 @@ Resultado esperado depois de aplicar (para conferir na tela):
 | Sustento (pastor + parcerias) | 33.664,25 | **79.292,93** |
 | Mobilização | 0,00 | **1.134,40** |
 | Esforço Total | 195.882,14 | **242.645,22** |
+
+> **Atualização (06/10/2026, noite):** a evidência sobre o bazar (ver [INVESTIGACAO_JANELA_BAZAR_E_SIMULACOES.md](INVESTIGACAO_JANELA_BAZAR_E_SIMULACOES.md)) mostra que a igreja trata o bazar como **receita do ministério dono** em todos os outros casos. **C4 deixou de ser recomendada**: fica em suspenso até a decisão sobre a natureza do bazar de missões.
