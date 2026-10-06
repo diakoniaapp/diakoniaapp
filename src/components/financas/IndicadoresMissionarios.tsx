@@ -244,8 +244,8 @@ export function IndicadoresMissionarios({
               )}
               {calc.fundo.saldoAjustado < 0 && (
                 <p className="px-3 pb-3 text-xs text-muted-foreground">
-                  Mesmo com os ajustes, a igreja enviou {brl(-calc.fundo.saldoAjustado)} a mais do que as ofertas registradas — a
-                  diferença saiu do caixa geral ou de ofertas não lançadas como "Ofertas para Missões".
+                  {calc.ajustesAtivos > 0 ? "Mesmo com os ajustes, a" : "A"} igreja enviou {brl(-calc.fundo.saldoAjustado)} a mais do que as ofertas registradas —
+                  a diferença saiu do caixa geral ou de ofertas não lançadas como "Ofertas para Missões".
                 </p>
               )}
             </>
