@@ -45,7 +45,10 @@ export interface LancamentoFechamento {
   categoriaId: string | null;
   centroId: string | null;
   origem: string | null;
+  /** O vínculo REAL (fornecedor ou pessoa cadastrados); vazio se não há. */
   fornecedor: string;
+  /** Texto livre — pode citar quem é, mas NÃO é o fornecedor. */
+  descricao?: string;
 }
 
 export interface CentroFechamento { id: string; paiId: string | null }

@@ -30,6 +30,10 @@ export interface CandidatoNome {
 export function normalizarNome(s: string): string {
   return s.normalize("NFD").replace(/[̀-ͯ]/g, "")
     .toLowerCase()
+    // "Mª José" / "M.ª José" é Maria José — o "ª" não decompõe no NFD e o token virava "mª",
+    // que nunca bate com "maria" (achado em 06/10/2026: "Mª José Gregório" no caixa de
+    // envelopes não achava a "Maria José Gregório" do cadastro).
+    .replace(/\bm\.?\s?ª\.?(?=\s|$)/g, "maria")
     // pontuação fora — "A." de abreviação de nome do meio não pode ficar
     // grudada na letra (senão "a.".length é 2, não 1, e a checagem de
     // inicial no nível 2 nunca bate).
@@ -98,6 +102,19 @@ export function encontrarCandidatoPorNome(nomeBruto: string, candidatos: Candida
     const porToken = candidatos.filter(c => tokensBatem(alvoTokens, normalizarNome(c.nome).split(" ").filter(Boolean)));
     if (porToken.length === 1) return porToken[0];
     if (porToken.length > 1) return null;
+  }
+
+  // Nível 2b — nome TRUNCADO pelo banco. O extrato corta o nome em ~20 letras
+  // ("MARCO ANTONIO HERCULA" é "Marco Antonio Herculano"): o alvo, sem espaços, é o começo
+  // de UM só candidato. Exige 14+ letras para "Maria Jose" não casar com todas as Marias.
+  const alvoJunto = semEspacos(alvo);
+  if (alvoJunto.length >= 14) {
+    const porPrefixo = candidatos.filter(c => {
+      const junto = semEspacos(normalizarNome(c.nome));
+      return junto.length > alvoJunto.length && junto.startsWith(alvoJunto);
+    });
+    if (porPrefixo.length === 1) return porPrefixo[0];
+    if (porPrefixo.length > 1) return null;
   }
 
   // Nível 3 — Levenshtein com tolerância proporcional (sem espaços)

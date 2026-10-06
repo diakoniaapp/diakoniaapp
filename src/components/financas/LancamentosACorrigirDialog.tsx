@@ -78,7 +78,9 @@ export function LancamentosACorrigirDialog({ open, onOpenChange, avaliacao, onCo
                     <span className="w-12 shrink-0 tabular-nums text-xs text-muted-foreground">{dataBr(l.dia)}</span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate">{l.fornecedor || "(sem fornecedor)"}</span>
-                      <span className="block truncate text-xs text-muted-foreground">{l.contaNome}</span>
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {l.descricao ? `descrição: ${l.descricao} · ` : ""}{l.contaNome}
+                      </span>
                     </span>
                     <span className="tabular-nums shrink-0">{brl(l.valor)}</span>
                     <Button size="sm" variant="outline" className="h-7 gap-1 text-xs shrink-0"

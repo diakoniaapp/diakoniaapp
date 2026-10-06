@@ -58,7 +58,9 @@ async function carregarLancamentos(ini: string, fim: string): Promise<Lancamento
     id: l.id, dia: l.data_pagamento || l.data, tipo: l.tipo === "entrada" ? "entrada" : "saida",
     status: l.status, valor: Number(l.valor), contaId: l.conta_id, contaNome: l.conta_nome ?? "",
     categoriaId: l.categoria_id ?? null, centroId: l.centro_custo_id ?? null, origem: l.origem ?? null,
-    fornecedor: l.fornecedor_nome ?? l.descricao ?? "",
+    // só o vínculo REAL; usar a descrição aqui apresentava um texto livre como se fosse o fornecedor
+    fornecedor: l.fornecedor_nome ?? l.pessoa_nome ?? "",
+    descricao: l.descricao ?? "",
   }));
 }
 

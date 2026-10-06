@@ -1,4 +1,5 @@
-import { useState, useEffect, useLayoutEffect, useMemo, lazy, Suspense } from "react";
+import { useRef, useState, useEffect, useLayoutEffect, useMemo, lazy, Suspense } from "react";
+import { identificarPorDescricao } from "@/services/identificacaoService";
 import { hojeLocal } from "@/lib/data";
 import { paraNumero } from "@/lib/dinheiro";
 import {
@@ -160,6 +161,23 @@ export function LancamentoForm({
   const [categorias, setCategorias] = useState<FinCategoria[]>([]);
   const [centros, setCentros] = useState<FinCentroCusto[]>([]);
   const [fornecedores, setFornecedores] = useState<FinFornecedor[]>([]);
+  const semVinculoNaAbertura = lancamento ? !lancamento.fornecedor_id && !lancamento.pessoa_id : true;
+  const descricaoNaAbertura = (lancamento ? lancamento.descricao : rascunho?.descricao) ?? "";
+  useEffect(() => {
+    setSugestaoDaDescricao(null); setNomeForaDoCadastro(null);
+    if (!open || !semVinculoNaAbertura || !descricaoNaAbertura.trim()) return;
+    let vivo = true;
+    identificarPorDescricao(descricaoNaAbertura).then(({ achado, extracao }) => {
+      // a pessoa pode ter escolhido alguém enquanto a busca rodava: não atropela
+      if (!vivo || vinculoAtual.current.fornecedorId || vinculoAtual.current.pessoaId) return;
+      if (!achado) { if (extracao.nome && !extracao.semNome) setNomeForaDoCadastro(extracao.nome); return; }
+      if (achado.tipo === "pessoa") { setPessoaId(achado.id); setFornecedorId(""); }
+      else { setFornecedorId(achado.id); setPessoaId(""); }
+      setFornecedorBusca(achado.nome);
+      setSugestaoDaDescricao({ nome: achado.nome, tipo: achado.tipo });
+    }).catch(() => { /* sem sugestão: o campo segue em branco, como sempre */ });
+    return () => { vivo = false; };
+  }, [open, lancamento?.id, semVinculoNaAbertura, descricaoNaAbertura]);
 
   // Centro de custo, agrupado por pai — achado ao vivo pela Telma
   // (17/09/2026, com print do seletor real): a lista crua vinha só em
@@ -199,6 +217,14 @@ export function LancamentoForm({
   const [ocrLoading, setOcrLoading] = useState(false);
   const [ocr, setOcr] = useState<OcrResultado | null>(null);
   const [fornecedorOcrSugerido, setFornecedorOcrSugerido] = useState<FinFornecedor | null>(null);
+  // A pessoa/fornecedor que a DESCRIÇÃO cita, achada no cadastro (06/10/2026). Só preenche
+  // quando o lançamento não tem vínculo nenhum e o casamento é de UM candidato; a tela
+  // avisa que foi sugestão e deixa desfazer. Ver `identificacaoService`.
+  const [sugestaoDaDescricao, setSugestaoDaDescricao] = useState<{ nome: string; tipo: "pessoa" | "fornecedor" } | null>(null);
+  // o nome está na descrição mas NÃO no cadastro: a tela diz isso em vez de ficar muda
+  const [nomeForaDoCadastro, setNomeForaDoCadastro] = useState<string | null>(null);
+  const vinculoAtual = useRef({ fornecedorId: "", pessoaId: "" });
+  vinculoAtual.current = { fornecedorId, pessoaId };
 
   // Leitor de boleto (Fase 4.2 do roadmap Financeiro) — decodificação
   // determinística da linha digitável, sem OCR. Só faz sentido pra saída
@@ -903,6 +929,22 @@ export function LancamentoForm({
                   </button>
                 ))}
               </div>
+            )}
+            {nomeForaDoCadastro && !fornecedorId && !pessoaId && (
+              <p className="mt-1 text-xs text-muted-foreground" role="status">
+                A descrição cita <strong>{nomeForaDoCadastro}</strong>, mas não achei essa pessoa no catálogo
+                nem nos fornecedores — procure acima com outra grafia ou cadastre antes de vincular.
+              </p>
+            )}
+            {sugestaoDaDescricao && (fornecedorId || pessoaId) && (
+              <p className="mt-1 text-xs text-info-text" role="status">
+                Achei {sugestaoDaDescricao.tipo === "pessoa" ? "no catálogo de pessoas" : "nos fornecedores"} a partir da
+                descrição — confira se é {sugestaoDaDescricao.nome}.{" "}
+                <button type="button" className="underline decoration-dotted"
+                  onClick={() => { setFornecedorId(""); setPessoaId(""); setFornecedorBusca(""); setSugestaoDaDescricao(null); }}>
+                  Não é
+                </button>
+              </p>
             )}
             {(fornecedorId || pessoaId) && (
               <p className="mt-1 text-xs text-muted-foreground">
