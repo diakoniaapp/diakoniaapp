@@ -197,7 +197,7 @@ export function FechamentoMensal({ onConciliar }: Props) {
           <Numero rotulo="Sem categoria" valor={String(a.semCategoria.length)} alerta={a.semCategoria.length > 0} />
           <Numero rotulo="Sem centro de custo" valor={String(a.semCentro.length)} alerta={a.semCentro.length > 0} />
           <Numero rotulo="Sem subcentro" valor={String(a.semSubcentro.length)} atencao={a.semSubcentro.length > 0} />
-          {a.semSubcentro.length > 0 && <p className="basis-full text-[11px] text-muted-foreground">Sem subcentro é só atenção: o lançamento ficou no centro-pai e não impede o malote.</p>}
+          {a.semSubcentro.length > 0 && <p className="basis-full text-[11px] text-muted-foreground">Despesa sem subcentro é só atenção: ficou no centro-pai e não impede o malote. Receita (dízimos, ofertas) não precisa de subcentro.</p>}
         </>}
       </Etapa>
 

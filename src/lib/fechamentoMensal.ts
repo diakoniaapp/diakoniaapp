@@ -145,7 +145,12 @@ export function avaliarFechamento(
   const semCategoria = classificaveis.filter(l => !l.categoriaId);
   const semCentro = classificaveis.filter(l => !l.centroId);
   const centrosComFilhos = new Set(centros.map(c => c.paiId).filter((x): x is string => !!x));
-  const semSubcentro = classificaveis.filter(l => !!l.centroId && centrosComFilhos.has(l.centroId));
+  // SÓ DESPESA. Pedido dela (06/10/2026): a receita entra primeiro — Categoria + Centro já é uma
+  // classificação válida (Dízimos no Min. Administração, Ofertas para Missões no centro de missões); o
+  // detalhamento em subcentro representa a DESTINAÇÃO do gasto, e a destinação aparece nas despesas.
+  // Medido em produção: dos 1.785 lançamentos realizados que caíam aqui, 1.750 (98%) eram ENTRADAS
+  // (1.101 de Dízimos, 641 de Ofertas); em setembro/2026 eram 31 entradas e 0 despesas.
+  const semSubcentro = classificaveis.filter(l => l.tipo === "saida" && !!l.centroId && centrosComFilhos.has(l.centroId));
 
   // saldo — o saldo gravado tem de ser saldo inicial + movimento
   const saldosInconsistentes = contas

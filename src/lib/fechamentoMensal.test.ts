@@ -123,6 +123,18 @@ describe("avaliarFechamento — o que impede o malote", () => {
     expect(a.pronto).toBe(true);
   });
 
+  it("RECEITA no centro-pai não gera pendência de subcentro: categoria + centro já classificam (Dízimos, Ofertas, Ofertas para Missões)", () => {
+    const centros: CentroFechamento[] = [{ id: "pai", paiId: null }, { id: "filho", paiId: "pai" }];
+    const a = avaliarFechamento(2026, 9, [conta()], [
+      lanc({ tipo: "entrada", centroId: "pai" }), lanc({ tipo: "entrada", centroId: "pai" }), // dízimos
+      lanc({ tipo: "saida", centroId: "pai" }),                                              // despesa: continua pedindo subcentro
+    ], centros);
+    expect(a.semSubcentro).toHaveLength(1);
+    expect(a.semSubcentro[0].tipo).toBe("saida");
+    expect(a.semCategoria).toHaveLength(0);
+    expect(a.semCentro).toHaveLength(0);
+  });
+
   it("os ids dos bloqueios são únicos (servem de chave e de contagem)", () => {
     const a = avaliarFechamento(2026, 9, [conta()], [
       lanc({ status: "realizado", categoriaId: null, centroId: null }), lanc({ categoriaId: null }),

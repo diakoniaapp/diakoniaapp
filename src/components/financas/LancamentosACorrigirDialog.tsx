@@ -49,7 +49,7 @@ export function LancamentosACorrigirDialog({ open, onOpenChange, avaliacao, onCo
   const grupos: { chave: string; titulo: string; nota: string; itens: LancamentoFechamento[]; impede: boolean }[] = [
     { chave: "categoria", titulo: "Sem categoria", nota: "Impede o fechamento.", itens: avaliacao.semCategoria, impede: true },
     { chave: "centro", titulo: "Sem centro de custo", nota: "Impede o fechamento.", itens: avaliacao.semCentro, impede: true },
-    { chave: "subcentro", titulo: "Sem subcentro", nota: "Só atenção — o centro escolhido tem subcentros e o lançamento ficou no centro-pai.", itens: avaliacao.semSubcentro, impede: false },
+    { chave: "subcentro", titulo: "Sem subcentro", nota: "Só atenção, e só para despesas — o centro escolhido tem subcentros e a despesa ficou no centro-pai. Receita não precisa de subcentro.", itens: avaliacao.semSubcentro, impede: false },
   ];
   const total = grupos.reduce((s, g) => s + g.itens.length, 0);
 
