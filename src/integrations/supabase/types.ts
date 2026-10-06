@@ -5501,6 +5501,8 @@ export type Database = {
           tipo: Database["public"]["Enums"]["fin_movimento_tipo"]
           updated_at: string
           valor: number
+          valor_variavel: boolean
+          forma_liquidacao: string
         }
         Insert: {
           audit_em?: string | null
@@ -5532,6 +5534,8 @@ export type Database = {
           tipo: Database["public"]["Enums"]["fin_movimento_tipo"]
           updated_at?: string
           valor: number
+          valor_variavel: boolean
+          forma_liquidacao: string
         }
         Update: {
           audit_em?: string | null
@@ -5563,6 +5567,8 @@ export type Database = {
           tipo?: Database["public"]["Enums"]["fin_movimento_tipo"]
           updated_at?: string
           valor?: number
+          valor_variavel?: boolean
+          forma_liquidacao?: string
         }
         Relationships: [
           {
@@ -5790,6 +5796,7 @@ export type Database = {
           updated_at: string
           valor: number
           valor_variavel: boolean
+          forma_liquidacao: string
         }
         Insert: {
           ajusta_dia_util?: boolean
@@ -5814,6 +5821,7 @@ export type Database = {
           updated_at?: string
           valor: number
           valor_variavel?: boolean
+          forma_liquidacao?: string
         }
         Update: {
           ajusta_dia_util?: boolean
@@ -5838,6 +5846,7 @@ export type Database = {
           updated_at?: string
           valor?: number
           valor_variavel?: boolean
+          forma_liquidacao?: string
         }
         Relationships: [
           {
@@ -12604,6 +12613,12 @@ export type Database = {
           status: Database["public"]["Enums"]["fin_lancamento_status"] | null
           tipo: Database["public"]["Enums"]["fin_movimento_tipo"] | null
           urgencia: string | null
+          projeto_id: string | null
+          projeto_nome: string | null
+          centro_custo_id: string | null
+          centro_custo_nome: string | null
+          forma_liquidacao: string | null
+          valor_variavel: boolean | null
           valor: number | null
         }
         Relationships: [

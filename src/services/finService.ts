@@ -3,6 +3,7 @@ import { hojeLocal, daquiAMeses, toYmd } from "@/lib/data";
 import { conferir } from "@/lib/escritaConferida";
 import type { ItemNota } from "@/services/ocrService";
 import type { TipoChavePix } from "@/lib/pix";
+import type { FormaLiquidacao } from "@/lib/formaLiquidacao";
 
 // ─── Tipos ───────────────────────────────────────────────────────────────
 export type FinContaTipo = "caixa" | "banco" | "pix" | "envelope" | "cartao" | "aplicacao" | "cofre";
@@ -256,6 +257,9 @@ export interface FinLancamento {
   data_pagamento: string | null;
   nf_dados_extraidos: NfDadosExtraidos | null;
   origem: string;
+  /** Migration 20261006120000: como será liquidado e se o previsto é só uma estimativa. */
+  forma_liquidacao?: FormaLiquidacao;
+  valor_variavel?: boolean;
   // Item 7 (22/09/2026): a perna irmã de uma transferência entre contas
   // próprias (`origem === "transferencia"`) — as duas pernas apontam uma
   // pra outra (simétrico, não "pai→filho" de verdade; o nome da coluna já
@@ -1577,6 +1581,8 @@ export interface FinRecorrencia {
   lembrar_dia: boolean;
   ultimo_gerado_ate: string | null;
   observacao: string | null;
+  /** Como a conta é liquidada (migration 20261006120000). Ausente = ainda não migrado = manual. */
+  forma_liquidacao?: FormaLiquidacao;
   // Preenchido só por `listarRecorrencias()` (join manual, igual
   // `listarLancamentos`) — não existe na tabela. Fase 4.4 do roadmap
   // Financeiro: o dado (`fornecedor_id`) já existia e já era preenchível
@@ -1597,6 +1603,9 @@ export interface FinVencimento {
   // view não repassava, os dois já existiam em `fin_lancamentos`.
   projeto_id: string | null; projeto_nome: string | null;
   centro_custo_id: string | null; centro_custo_nome: string | null;
+  /** Migration 20261006120000 — ausentes até ela ser aplicada (leia com `normalizarLiquidacao`). */
+  forma_liquidacao?: FormaLiquidacao | null;
+  valor_variavel?: boolean | null;
 }
 
 // ─── CRUD ────────────────────────────────────────────────────────────────
@@ -1635,6 +1644,36 @@ export async function excluirRecorrencia(id: string): Promise<void> {
     "A recorrência",
   );
   if (!r.ok) throw new Error(r.erro);
+}
+
+// ─── Forma de liquidação: propagar para o que já foi gerado ─────────────
+//
+// O gerador (`fin_gerar_recorrencias`) copia a marca para os previstos NOVOS. Os que já existem
+// não têm vínculo com a recorrência (medido em 06/10/2026: 111 previstos, nenhum com
+// `recorrencia_id`), então a mudança é aplicada a quem tem a MESMA descrição, tipo e conta,
+// origem "recorrencia" e ainda está previsto, de hoje em diante — nunca ao passado.
+export async function propagarLiquidacaoParaPrevistos(
+  rec: Pick<FinRecorrencia, "descricao" | "tipo" | "conta_id">,
+  forma: FormaLiquidacao, valorVariavel: boolean,
+): Promise<number> {
+  // Sem `conferir`: zero linhas é um resultado LEGÍTIMO aqui (não há próximo previsto); a
+  // permissão já foi provada pelo `update` da própria recorrência, logo antes.
+  const { data, error } = await supabase.from("fin_lancamentos")
+    .update({ forma_liquidacao: forma, valor_variavel: valorVariavel } as never)
+    .eq("origem", "recorrencia").eq("status", "previsto")
+    .eq("descricao", rec.descricao).eq("tipo", rec.tipo).eq("conta_id", rec.conta_id)
+    .gte("data", hojeLocal())
+    .select("id");
+  if (error) throw new Error(erroDaLiquidacao(error));
+  return data?.length ?? 0;
+}
+
+/** Coluna inexistente (migration ainda não aplicada) vira um recado que a tesouraria entende. */
+export function erroDaLiquidacao(e: { message?: string; code?: string }): string {
+  if (/forma_liquidacao|valor_variavel/.test(e.message ?? "") || e.code === "42703" || e.code === "PGRST204") {
+    return "Falta aplicar a migration 20261006120000 (forma de liquidação) no banco.";
+  }
+  return e.message ?? "Erro ao gravar a forma de liquidação";
 }
 
 // ─── Gerar previstos ────────────────────────────────────────────────────

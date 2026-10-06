@@ -9,7 +9,7 @@
 
 import type { Sugestao } from "./classificacaoOfx";
 
-export type SituacaoDaLinha = "conciliar" | "ja_registrada" | "ambigua" | "nova";
+export type SituacaoDaLinha = "conciliar" | "ja_registrada" | "ambigua" | "debito_encontrado" | "nova";
 
 export interface LinhaDaGrade {
   fitid: string;
@@ -22,7 +22,7 @@ export interface Edicao { categoriaId?: string; centroId?: string }
 
 export type Filtro =
   | "todas" | "identificadas" | "pendencias" | "revisar" | "nao_identificadas"
-  | "transferencias" | "conciliar" | "ja_registradas";
+  | "transferencias" | "debitos" | "conciliar" | "ja_registradas";
 
 export const ROTULO_DO_FILTRO: Record<Filtro, string> = {
   todas: "Todas",
@@ -31,17 +31,19 @@ export const ROTULO_DO_FILTRO: Record<Filtro, string> = {
   revisar: "Revisar",
   nao_identificadas: "Não identificadas",
   transferencias: "Transferências",
+  debitos: "Débitos automáticos",
   conciliar: "A conciliar",
   ja_registradas: "Já registradas",
 };
 
 export const ORDEM_DOS_FILTROS: Filtro[] = [
-  "todas", "identificadas", "pendencias", "revisar", "nao_identificadas", "transferencias", "conciliar", "ja_registradas",
+  "todas", "identificadas", "pendencias", "revisar", "nao_identificadas", "transferencias", "debitos", "conciliar", "ja_registradas",
 ];
 
 export function pertenceAoFiltro(l: LinhaDaGrade, f: Filtro): boolean {
   if (f === "todas") return true;
   if (f === "conciliar") return l.situacao === "conciliar";
+  if (f === "debitos") return l.situacao === "debito_encontrado";
   if (f === "ja_registradas") return l.situacao === "ja_registrada";
   if (l.situacao !== "nova" && l.situacao !== "ambigua") return false;
   const s = l.sugestao;

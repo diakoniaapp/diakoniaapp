@@ -32,6 +32,7 @@ import {
   type FinRecorrencia,
 } from "@/services/finService";
 import { RecorrenciaForm } from "@/components/financas/RecorrenciaForm";
+import { ROTULO_LIQUIDACAO, normalizarLiquidacao } from "@/lib/formaLiquidacao";
 
 interface Props {
   open: boolean;
@@ -133,7 +134,10 @@ export function RecorrenciasDrawer({ open, onOpenChange }: Props) {
                         <div className="font-medium text-sm truncate flex items-center gap-1.5">
                           {r.descricao}
                           {!r.ativo && <Badge variant="outline" className="text-xs bg-warning-soft text-warning-text border-warning-line">Inativa</Badge>}
-                          {r.valor_variavel && <Badge variant="outline" className="text-xs">variável</Badge>}
+                          {r.valor_variavel ? <Badge variant="outline" className="text-xs">variável</Badge> : <Badge variant="outline" className="text-xs text-muted-foreground">fixo</Badge>}
+                          {r.tipo === "saida" && r.forma_liquidacao && r.forma_liquidacao !== "manual" && (
+                            <Badge variant="outline" className="text-xs bg-info-soft text-info-text border-info-line">{ROTULO_LIQUIDACAO[normalizarLiquidacao(r.forma_liquidacao)]}</Badge>
+                          )}
                         </div>
                         <p className="text-xs text-muted-foreground truncate">
                           {FREQUENCIA_LABEL[r.frequencia]} · todo dia {r.dia_vencimento}

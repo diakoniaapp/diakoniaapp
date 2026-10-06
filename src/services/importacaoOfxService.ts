@@ -26,6 +26,9 @@ import {
 } from "@/services/finService";
 import { casarComLancamentos, inferirFormaPagamento, type OFXCasamento, type OFXTransacao } from "@/services/ofxService";
 import { carregarCadastro } from "@/services/identificacaoService";
+import {
+  acharDebitoCompativel, ehAutomatica, type CandidatoDebito, type DebitoEncontrado,
+} from "@/lib/formaLiquidacao";
 
 const MESES_DE_HISTORICO = 24;
 const PAGINA = 1000;
@@ -67,7 +70,7 @@ export async function carregarContexto(): Promise<ContextoOfx> {
 
 // ── a análise do arquivo ────────────────────────────────────────────────────
 
-export type SituacaoLinha = "conciliar" | "ja_registrada" | "ambigua" | "nova";
+export type SituacaoLinha = "conciliar" | "ja_registrada" | "ambigua" | "debito_encontrado" | "nova";
 
 export interface LinhaAnalisada {
   tx: OFXTransacao;
@@ -78,6 +81,9 @@ export interface LinhaAnalisada {
   sugestao?: Sugestao;
   /** `ja_registrada`: por que acreditamos que já existe. */
   motivoJaRegistrada?: string;
+  /** `debito_encontrado`: o débito automático previsto que esta saída do extrato cumpriu
+   *  (`lancamentoId` é o dele). */
+  debito?: DebitoEncontrado;
 }
 
 const MARCA_OFX = /\[ofx:([^\]]+)\]/g;
@@ -99,10 +105,11 @@ export async function analisar(contaId: string, txs: OFXTransacao[], contexto: C
   const datas = txs.map(t => t.data).sort();
   const de = daquiADias(datas[0], -5);
   const ate = daquiADias(datas[datas.length - 1], 5);
-  const [realizados, conciliados, fitids] = await Promise.all([
+  const [realizados, conciliados, fitids, debitos] = await Promise.all([
     listarLancamentos({ contaId, status: "realizado", dataInicio: de, dataFim: ate }),
     listarLancamentos({ contaId, status: "conciliado", dataInicio: de, dataFim: ate }),
     fitidsJaImportados(contaId, de, ate),
+    debitosAutomaticosPrevistos(de, ate),
   ]);
 
   const out: LinhaAnalisada[] = new Array(txs.length);
@@ -123,6 +130,10 @@ export async function analisar(contaId: string, txs: OFXTransacao[], contexto: C
     else semRealizado.push({ tx, i });
   });
 
+  // cada débito previsto só pode ser cumprido por UMA linha do extrato
+  const usados = new Set<string>();
+  const debitosLivres = (todos: CandidatoDebito[]) => todos.filter(d => !usados.has(d.id));
+
   // 3. já conciliados (lançados à mão ou pelo Omie): não criar de novo
   const jaConc = casarComLancamentos(semRealizado.map(r => r.tx), conciliados);
   jaConc.forEach((c, k) => {
@@ -130,10 +141,31 @@ export async function analisar(contaId: string, txs: OFXTransacao[], contexto: C
     if (c.status === "encontrado" || c.status === "ambiguo") {
       out[i] = { tx, situacao: "ja_registrada", motivoJaRegistrada: "já existe lançamento conciliado com este valor e data" };
     } else {
+      // um DÉBITO AUTOMÁTICO previsto que esta saída cumpre: conciliar, não criar outro lançamento
+      const achado = tx.tipo === "saida" ? acharDebitoCompativel(tx, debitosLivres(debitos)) : null;
+      if (achado) {
+        usados.add(achado.candidato.id);
+        out[i] = { tx, situacao: "debito_encontrado", lancamentoId: achado.candidato.id, debito: achado };
+        return;
+      }
       out[i] = { tx, situacao: "nova", sugestao: sugerir({ fitid: tx.fitid, tipo: tx.tipo, data: tx.data, valor: tx.valor, memo: tx.memo }, contexto.ctx) };
     }
   });
   return out;
+}
+
+/** Saídas PREVISTAS cuja forma de liquidação é automática, no entorno das datas do extrato.
+ *  Antes da migration 20261006120000 a coluna não existe: nada é devolvido (e nada quebra). */
+async function debitosAutomaticosPrevistos(de: string, ate: string): Promise<CandidatoDebito[]> {
+  try {
+    const previstos = await listarLancamentos({ status: "previsto", tipo: "saida", dataInicio: de, dataFim: ate });
+    return previstos.filter(l => ehAutomatica(l.forma_liquidacao)).map(l => ({
+      id: l.id, data: l.data, valor: Number(l.valor), status: l.status,
+      descricao: l.descricao, fornecedor: l.fornecedor_nome ?? null, variavel: !!l.valor_variavel,
+    }));
+  } catch {
+    return [];
+  }
 }
 
 // ── gravação em lote ────────────────────────────────────────────────────────
@@ -185,4 +217,36 @@ export async function registrarLote(
 
 export async function desfazerLote(ids: string[]): Promise<void> {
   await excluirLancamentosEmLote(ids);
+}
+
+// ── débitos automáticos: cumprir o previsto ────────────────────────────────
+
+export interface DebitoParaConciliar { lancamentoId: string; tx: OFXTransacao }
+export interface ResultadoDebitos { conciliados: string[]; erros: string[] }
+
+/**
+ * O débito apareceu no extrato: o PREVISTO vira `conciliado` com o dia e o valor que o banco
+ * debitou de verdade (numa conta variável o previsto era só uma estimativa), na conta do extrato,
+ * e leva o FITID — importar o mesmo arquivo de novo reconhece a linha como já registrada.
+ */
+export async function conciliarDebitos(contaId: string, itens: DebitoParaConciliar[]): Promise<ResultadoDebitos> {
+  const res: ResultadoDebitos = { conciliados: [], erros: [] };
+  const userId = (await supabase.auth.getUser()).data.user?.id ?? null;
+  const agora = new Date().toISOString();
+  for (const it of itens) {
+    const { data: atual, error: e1 } = await supabase.from("fin_lancamentos").select("observacoes").eq("id", it.lancamentoId).maybeSingle();
+    if (e1) { res.erros.push(e1.message); continue; }
+    const observacoes = [(atual?.observacoes ?? "").trim(), `[ofx:${it.tx.fitid}] [debito-automatico]`].filter(Boolean).join("\n");
+    const { data, error } = await supabase.from("fin_lancamentos")
+      .update({
+        status: "conciliado", data_pagamento: it.tx.data, valor: it.tx.valor, conta_id: contaId,
+        observacoes, audit_user_id: userId, audit_em: agora,
+      } as never)
+      .eq("id", it.lancamentoId).eq("status", "previsto").select("id");
+    if (error) res.erros.push(error.message);
+    // RLS barrando (ou o previsto já mudou de situação) devolve sucesso com 0 linhas
+    else if (!data || data.length === 0) res.erros.push("um débito não pôde ser conciliado (permissão ou já alterado)");
+    else res.conciliados.push(it.lancamentoId);
+  }
+  return res;
 }

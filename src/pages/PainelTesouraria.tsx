@@ -105,6 +105,7 @@ import { RemessaMissionariaDetalheDrawer } from "@/components/financas/RemessaMi
 import { listarFavoritos, desfixarFavorito, type FinFavorito } from "@/services/favoritosService";
 import { useAcoesLancamento, BotaoPagar, BotoesAprovacao } from "@/hooks/useAcoesLancamento";
 import { FechamentoMensal } from "@/components/financas/FechamentoMensal";
+import { MesaDoTesoureiro } from "@/components/financas/MesaDoTesoureiro";
 import { useAuth } from "@/hooks/useAuth";
 import { hojeLocal, parseLocalDate, daquiADias } from "@/lib/data";
 import { ROLES_DOADORES, ROLES_PASTORAL_SEM_TITULAR } from "@/components/layout/navConfig";
@@ -552,11 +553,15 @@ export default function PainelTesouraria() {
                 <p className="text-2xs uppercase tracking-wide text-muted-foreground font-semibold">Sai/semana</p>
                 <p className="text-sm font-bold tabular-nums text-destructive-text">{brl(valorSemanaPagar)}</p>
               </div>
-              <div className="w-px h-7 bg-border" />
-              <div className="text-right">
-                <p className="text-2xs uppercase tracking-wide text-muted-foreground font-semibold">Arrecadado ({PRESET_LABEL[eclPreset]})</p>
-                <p className="text-sm font-bold tabular-nums text-info-text">{brl(arrecTotalAtual)}</p>
-              </div>
+              {aba !== "operacoes" && (
+                <>
+                  <div className="w-px h-7 bg-border" />
+                  <div className="text-right">
+                    <p className="text-2xs uppercase tracking-wide text-muted-foreground font-semibold">Arrecadado ({PRESET_LABEL[eclPreset]})</p>
+                    <p className="text-sm font-bold tabular-nums text-info-text">{brl(arrecTotalAtual)}</p>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
@@ -696,208 +701,24 @@ export default function PainelTesouraria() {
 
           {aba === "operacoes" && (
           <>
-          {/* ── As 3 Centrais ─────────────────────────────────────────────
-              Fase 12, prioridades 1–3: Pagamentos/Arrecadação/Conciliação
-              deixam de ser "mais uma fila" (Mesa do Tesoureiro, Fase 9) e
-              viram módulo autossuficiente — número grande, dois contadores
-              com seta, acordeão com as linhas de verdade (mesmos
-              `BotaoPagar`/`acoes.pagar` de sempre, nenhuma ação nova), ação
-              própria no rodapé. "Abrir central" rola até "Próximos
-              vencimentos"/Conciliação abre o `ConciliacaoDrawer" — as duas
-              seções continuam existindo mais abaixo pra quem quer a lista
-              inteira sem acordeão. */}
-          <section id="operar" className="grid gap-3 md:grid-cols-3">
-            {/* Central de Pagamentos */}
-            <div className="rounded-lg border border-t-4 border-t-destructive bg-card flex flex-col overflow-hidden">
-              <div className="p-3 pb-0 flex items-center gap-2">
-                <span className="w-7 h-7 rounded-md bg-destructive-soft text-destructive-text flex items-center justify-center shrink-0">
-                  <ArrowUpCircle className="w-4 h-4" />
-                </span>
-                <span className="text-sm font-bold">Central de Pagamentos</span>
-              </div>
-              <div className="px-3 pt-2">
-                <p className="text-xl font-extrabold tabular-nums text-destructive-text">{brl(valorSemanaPagar)}</p>
-                <p className="text-[11px] text-muted-foreground">a pagar nos próximos {DIAS_JANELA_VENCIMENTOS} dias</p>
-              </div>
-              <div className="px-3 pt-1">
-                {/* Fase 12, revisão da Central (23/09/2026), Prioridade 1:
-                    as duas linhas agora ABREM a lista embutida (mesmo
-                    comportamento nas duas), em vez de mandar pra aba
-                    Fechamento — "vence hoje" virou tão operacional quanto
-                    "atrasados" sempre foi. */}
-                <button type="button" onClick={() => setAccAberto(a => a === "pagamentos-atrasados" ? null : "pagamentos-atrasados")}
-                  disabled={atrasadosPagar.length === 0}
-                  className="w-full flex items-center justify-between py-1.5 border-t text-xs text-left disabled:opacity-50">
-                  <span><b>{atrasadosPagar.length}</b> atrasados</span>
-                  <span className="font-bold tabular-nums flex items-center gap-1">
-                    {brl(atrasadosPagar.reduce((s, v) => s + Number(v.valor), 0))}
-                    {atrasadosPagar.length > 0 && <span className="text-muted-foreground">{accAberto === "pagamentos-atrasados" ? "▴" : "▾"}</span>}
-                  </span>
-                </button>
-                {accAberto === "pagamentos-atrasados" && atrasadosPagar.length > 0 && (
-                  <ul className="pb-1.5">
-                    {atrasadosPagar.slice(0, 5).map(v => (
-                      <LinhaVencimento key={v.id} v={v}
-                        onPagar={() => acoes.pagar(v)}
-                        onAnexo={() => setAnexosVencimento({ id: v.id, label: nomeExtrato(v).principal })} />
-                    ))}
-                    {atrasadosPagar.length > 5 && (
-                      <li className="text-[11px] text-muted-foreground pt-1">+ {atrasadosPagar.length - 5} outros atrasados.</li>
-                    )}
-                  </ul>
-                )}
-
-                <button type="button" onClick={() => setAccAberto(a => a === "pagamentos-hoje" ? null : "pagamentos-hoje")}
-                  disabled={venceHoje.length === 0}
-                  className="w-full flex items-center justify-between py-1.5 border-t text-xs text-left disabled:opacity-50">
-                  <span><b>{venceHoje.length}</b> vence hoje</span>
-                  <span className="font-bold tabular-nums flex items-center gap-1">
-                    {brl(venceHoje.reduce((s, v) => s + Number(v.valor), 0))}
-                    {venceHoje.length > 0 && <span className="text-muted-foreground">{accAberto === "pagamentos-hoje" ? "▴" : "▾"}</span>}
-                  </span>
-                </button>
-                {accAberto === "pagamentos-hoje" && venceHoje.length > 0 && (
-                  <ul className="pb-1.5">
-                    {venceHoje.slice(0, 5).map(v => (
-                      <LinhaVencimento key={v.id} v={v}
-                        onPagar={() => acoes.pagar(v)}
-                        onAnexo={() => setAnexosVencimento({ id: v.id, label: nomeExtrato(v).principal })} />
-                    ))}
-                    {venceHoje.length > 5 && (
-                      <li className="text-[11px] text-muted-foreground pt-1">+ {venceHoje.length - 5} outros vencendo hoje.</li>
-                    )}
-                  </ul>
-                )}
-
-                {mesa && mesa.pixPendentes > 0 && (
-                  <div className="w-full flex items-center justify-between py-1.5 border-t text-xs">
-                    <span className="text-muted-foreground">Prontos com chave Pix</span>
-                    <span className="font-bold tabular-nums">{mesa.pixPendentes}</span>
-                  </div>
-                )}
-              </div>
-              <div className="mt-auto flex items-center justify-between px-3 py-2 bg-muted/30 border-t">
-                <Button type="button" size="sm" variant="destructive" className="h-6 px-2 text-[11px]"
-                  onClick={() => setNovoLancamentoAberto("saida")}>
-                  + Novo
-                </Button>
-                <button type="button" onClick={() => setAba("fechamento")}
-                  className="text-[11px] font-semibold text-destructive-text hover:underline">
-                  Abrir central →
-                </button>
-              </div>
-            </div>
-
-            {/* Central de Arrecadação — troca de "Central de Recebimentos"
-                (Fase 12, item 4 do pedido dela). Ver o comentário de
-                `arrecTotalAtual` acima para o porquê da fonte de dado
-                mudar inteira. */}
-            <div className="rounded-lg border border-t-4 border-t-info bg-card flex flex-col overflow-hidden">
-              <div className="p-3 pb-0 flex items-center justify-between gap-2">
-                <span className="flex items-center gap-2">
-                  <span className="w-7 h-7 rounded-md bg-info-soft text-info-text flex items-center justify-center shrink-0">
-                    <Globe2 className="w-4 h-4" />
-                  </span>
-                  <span className="text-sm font-bold">Central de Arrecadação</span>
-                </span>
-                <button type="button" onClick={() => setAba("gestao")}
-                  className="text-2xs text-muted-foreground hover:text-foreground underline shrink-0">
-                  {PRESET_LABEL[eclPreset]}
-                </button>
-              </div>
-              <div className="px-3 pt-2">
-                <p className="text-xl font-extrabold tabular-nums text-info-text">{brl(arrecTotalAtual)}</p>
-                <p className="text-[11px] text-muted-foreground">
-                  Dízimos, Ofertas e Ofertas para Missões — {arrecQtd} lançamento{arrecQtd === 1 ? "" : "s"}
-                </p>
-              </div>
-              <div className="px-3 pt-1">
-                <div className="w-full flex items-center justify-between py-1.5 border-t text-xs">
-                  <span className="text-muted-foreground">Período anterior</span>
-                  <span className="font-bold tabular-nums">{brl(arrecTotalAnterior)}</span>
-                </div>
-                <div className="w-full flex items-center justify-between py-1.5 border-t text-xs">
-                  <span className="text-muted-foreground">Tendência</span>
-                  <span className={`font-bold tabular-nums ${arrecTendencia >= 0 ? "text-success-text" : "text-destructive-text"}`}>
-                    {arrecTendencia >= 0 ? "▲" : "▼"} {Math.abs(arrecTendencia).toFixed(1)}%
-                  </span>
-                </div>
-              </div>
-              <div className="mt-auto flex items-center justify-between px-3 py-2 bg-muted/30 border-t">
-                <Button type="button" size="sm" variant="info" className="h-6 px-2 text-[11px]"
-                  onClick={() => setNovoLancamentoAberto("entrada")}>
-                  + Novo
-                </Button>
-                <button type="button" onClick={() => setAba("gestao")}
-                  className="text-[11px] font-semibold text-info-text hover:underline">
-                  Abrir central →
-                </button>
-              </div>
-            </div>
-
-            {/* Central de Conciliação */}
-            <div className="rounded-lg border border-t-4 border-t-gold bg-card flex flex-col overflow-hidden">
-              <div className="p-3 pb-0 flex items-center gap-2">
-                <span className="w-7 h-7 rounded-md bg-gold/10 text-gold-text flex items-center justify-center shrink-0">
-                  <Scale className="w-4 h-4" />
-                </span>
-                <span className="text-sm font-bold">Central de Conciliação</span>
-              </div>
-              <div className="px-3 pt-2">
-                <p className="text-xl font-extrabold tabular-nums text-gold-text">{aguardandoConciliacao.length}</p>
-                <p className="text-[11px] text-muted-foreground">lançamentos pendentes de conciliar</p>
-              </div>
-              <div className="px-3 pt-1">
-                <button type="button" onClick={abrirConciliacao} disabled={!contaNaoConciliadaNome}
-                  className="w-full flex items-center justify-between py-1.5 border-t text-xs text-left disabled:opacity-50">
-                  <span>{contaNaoConciliadaNome ?? "Nenhuma conta pendente"}</span>
-                  {contaNaoConciliadaNome && <ChevronRight className="w-3 h-3 text-muted-foreground" />}
-                </button>
-                <button type="button" onClick={abrirConciliacao} disabled={aguardandoConciliacao.length === 0}
-                  className="w-full flex items-center justify-between py-1.5 border-t text-xs text-left disabled:opacity-50">
-                  <span>Não conciliado</span>
-                  <span className="font-bold tabular-nums flex items-center gap-1">
-                    {brl(valorNaoConciliado)}
-                    {aguardandoConciliacao.length > 0 && <ChevronRight className="w-3 h-3 text-muted-foreground" />}
-                  </span>
-                </button>
-              </div>
-              {aguardandoConciliacao.length > 0 && (
-                <div className="px-3">
-                  <button type="button" onClick={() => setAccAberto(a => a === "conciliacao" ? null : "conciliacao")}
-                    className="w-full text-left text-[11px] text-muted-foreground py-1.5 border-t border-dashed">
-                    {accAberto === "conciliacao" ? "▴" : "▾"} Ver pendências
-                  </button>
-                  {accAberto === "conciliacao" && (
-                    <ul className="pb-2 space-y-1.5">
-                      {aguardandoConciliacao.slice(0, 3).map(p => {
-                        const { principal, secundario } = nomeExtrato(p);
-                        return (
-                          <li key={p.id} className="flex items-center justify-between gap-2 text-xs">
-                            <span className="truncate min-w-0">
-                              <span className="font-medium">{principal}</span>
-                              {secundario && <span className="text-muted-foreground"> · {secundario}</span>}
-                            </span>
-                            <span className="tabular-nums font-medium shrink-0">{brl(p.valor)}</span>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  )}
-                </div>
-              )}
-              <div className="mt-auto flex items-center justify-between px-3 py-2 bg-muted/30 border-t">
-                <Button type="button" size="sm" variant="gold" className="h-6 px-2 text-[11px]"
-                  onClick={abrirConciliacao} disabled={aguardandoConciliacao.length === 0}>
-                  Conciliar tudo
-                </Button>
-                <button type="button" onClick={abrirImportacao} className="text-[11px] font-semibold text-gold-text hover:underline">
-                  Abrir extrato →
-                </button>
-              </div>
-            </div>
-          </section>
-          </>
+          {/* ── A mesa do tesoureiro (06/10/2026) ──────────────────────────
+              Substitui as 3 Centrais (Pagamentos, Arrecadação, Conciliação): a rotina real
+              é pagar, conferir débitos automáticos, anexar comprovantes e fechar o caixa —
+              não acompanhar arrecadação. Arrecadação segue em "2 Gestão"; conciliação, no
+              checklist do "4 Fechamento" e no importador de extrato. Ver
+              docs/OPERACOES_MESA_DO_TESOUREIRO.md. */}
+          <section id="operar">
+            <MesaDoTesoureiro
+              chaveDeAtualizacao={atualizadoEm?.getTime() ?? 0}
+              aprovacoesPendentes={aprovacoesPendentes.length}
+              onPagar={(v) => acoes.pagar(v)}
+              onAnexo={(a) => setAnexosVencimento(a)}
+              onNovaSaida={() => setNovoLancamentoAberto("saida")}
+              onImportarExtrato={abrirImportacao}
+              onAprovacoes={abrirAprovacoes}
+              onRecorrencias={() => setRecorrenciasAberto(true)}
+            />
+          </section>          </>
           )}
 
           {/* ── 4 Fechamento — CHECKLIST DO MÊS (03/10/2026) ───────────────────

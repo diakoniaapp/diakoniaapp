@@ -19,12 +19,21 @@ describe("filtros da grade", () => {
     { fitid: "x", situacao: "conciliar" },
     { fitid: "j", situacao: "ja_registrada" },
     { fitid: "m", situacao: "ambigua" },
+    { fitid: "d", situacao: "debito_encontrado" },
   ];
 
   it("conta cada linha na faixa certa; transferência não entra em identificadas/revisar", () => {
     expect(contarPorFiltro(linhas)).toEqual({
-      todas: 7, identificadas: 1, pendencias: 4, revisar: 2, nao_identificadas: 1, transferencias: 1, conciliar: 1, ja_registradas: 1,
+      todas: 8, identificadas: 1, pendencias: 4, revisar: 2, nao_identificadas: 1, transferencias: 1, debitos: 1, conciliar: 1, ja_registradas: 1,
     });
+  });
+
+  it("débito automático encontrado tem filtro próprio e não entra nas faixas de identificação", () => {
+    const d = linhas[7];
+    expect(pertenceAoFiltro(d, "debitos")).toBe(true);
+    expect(pertenceAoFiltro(d, "identificadas")).toBe(false);
+    expect(pertenceAoFiltro(d, "pendencias")).toBe(false);
+    expect(podeGravar(d)).toBe(false);
   });
 
   it("linha ambígua cai em 'revisar' (pede olho humano)", () => {

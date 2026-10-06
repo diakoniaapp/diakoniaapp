@@ -15,12 +15,16 @@ import { RotateCw, TrendingUp, TrendingDown } from "lucide-react";
 import {
   listarContas, listarCategorias, listarCentrosCusto, listarFornecedores,
   criarRecorrencia, atualizarRecorrencia, gerarRecorrencias, ordenarCentrosParaSeletor,
+  propagarLiquidacaoParaPrevistos, erroDaLiquidacao,
   sugerirCentroPorCategoria,
   FREQUENCIA_LABEL,
   type FinConta, type FinCategoria, type FinCentroCusto, type FinFornecedor,
   type FinRecorrencia, type FinMovimentoTipo, type FinFrequencia,
 } from "@/services/finService";
 import { CampoData } from "@/components/CampoData";
+import {
+  FORMAS_LIQUIDACAO, ROTULO_LIQUIDACAO, DICA_LIQUIDACAO, normalizarLiquidacao, type FormaLiquidacao,
+} from "@/lib/formaLiquidacao";
 
 interface Props {
   open: boolean;
@@ -36,6 +40,7 @@ export function RecorrenciaForm({ open, onOpenChange, recorrencia, onSaved }: Pr
   const [descricao, setDescricao] = useState("");
   const [valor, setValor] = useState<number>(0);
   const [valorVariavel, setValorVariavel] = useState(false);
+  const [formaLiquidacao, setFormaLiquidacao] = useState<FormaLiquidacao>("manual");
   const [contaId, setContaId] = useState("");
   const [categoriaId, setCategoriaId] = useState("");
   const [centroId, setCentroId] = useState("");
@@ -74,6 +79,7 @@ export function RecorrenciaForm({ open, onOpenChange, recorrencia, onSaved }: Pr
       setDescricao(recorrencia.descricao);
       setValor(Number(recorrencia.valor));
       setValorVariavel(recorrencia.valor_variavel);
+      setFormaLiquidacao(normalizarLiquidacao(recorrencia.forma_liquidacao));
       setContaId(recorrencia.conta_id);
       setCategoriaId(recorrencia.categoria_id ?? "");
       setCentroId(recorrencia.centro_custo_id ?? "");
@@ -87,7 +93,7 @@ export function RecorrenciaForm({ open, onOpenChange, recorrencia, onSaved }: Pr
       setLembrar1d(recorrencia.lembrar_1d);
       setLembrarDia(recorrencia.lembrar_dia);
     } else {
-      setTipo("saida"); setDescricao(""); setValor(0); setValorVariavel(false);
+      setTipo("saida"); setDescricao(""); setValor(0); setValorVariavel(false); setFormaLiquidacao("manual");
       setContaId(""); setCategoriaId(""); setCentroId(""); setFornecedorId("");
       setFrequencia("mensal"); setDiaVencimento(10);
       setDataInicio(hojeLocal()); setDataFim("");
@@ -130,11 +136,24 @@ export function RecorrenciaForm({ open, onOpenChange, recorrencia, onSaved }: Pr
         lembrar_5d: lembrar5d, lembrar_1d: lembrar1d, lembrar_dia: lembrarDia,
       };
 
+      // A coluna só existe depois da migration 20261006120000: manual (o padrão) NÃO é enviado,
+      // para que quem ainda não migrou continue salvando recorrências normalmente.
+      const formaOriginal = normalizarLiquidacao(recorrencia?.forma_liquidacao);
+      const mudouForma = isEdit && formaLiquidacao !== formaOriginal;
+      const saida = tipo === "saida";
+      if (saida && (formaLiquidacao !== "manual" || mudouForma)) payload.forma_liquidacao = formaLiquidacao;
+
       let id: string;
       if (isEdit && recorrencia) {
         await atualizarRecorrencia(recorrencia.id, payload);
         id = recorrencia.id;
         toast.success("Recorrência atualizada");
+        // os previstos que já foram gerados não herdam a mudança sozinhos
+        if (saida && (formaLiquidacao !== "manual" || mudouForma)) {
+          const n = await propagarLiquidacaoParaPrevistos(
+            { descricao: payload.descricao, tipo, conta_id: contaId }, formaLiquidacao, valorVariavel);
+          if (n > 0) toast.success(`${n} lançamento(s) previsto(s) já gerado(s) também mudaram para "${ROTULO_LIQUIDACAO[formaLiquidacao]}"`);
+        }
       } else {
         const novo = await criarRecorrencia(payload);
         id = novo.id;
@@ -148,7 +167,7 @@ export function RecorrenciaForm({ open, onOpenChange, recorrencia, onSaved }: Pr
       onOpenChange(false);
       onSaved();
     } catch (e: any) {
-      toast.error(e?.message ?? "Erro");
+      toast.error(erroDaLiquidacao(e ?? {}));
     } finally { setBusy(false); }
   }
 
@@ -191,13 +210,19 @@ export function RecorrenciaForm({ open, onOpenChange, recorrencia, onSaved }: Pr
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label>Valor *</Label>
+              <Label>{valorVariavel ? "Valor previsto *" : "Valor *"}</Label>
               <Input type="number" step="0.01" min={0.01} required
                 value={valor || ""} onChange={(e) => setValor(Number(e.target.value))} />
-              <label className="flex items-center gap-1.5 text-xs mt-0.5 cursor-pointer">
-                <input type="checkbox" checked={valorVariavel} onChange={(e) => setValorVariavel(e.target.checked)} />
-                Valor varia mês a mês (ex: energia)
-              </label>
+              <div className="mt-1 space-y-0.5 text-xs" role="radiogroup" aria-label="O valor muda todo mês?">
+                <label className="flex items-start gap-1.5 cursor-pointer">
+                  <input type="radio" name="valor-tipo" className="mt-0.5" checked={!valorVariavel} onChange={() => setValorVariavel(false)} />
+                  <span><b>Valor fixo</b> — igual todo mês (condomínio, plano de saúde)</span>
+                </label>
+                <label className="flex items-start gap-1.5 cursor-pointer">
+                  <input type="radio" name="valor-tipo" className="mt-0.5" checked={valorVariavel} onChange={() => setValorVariavel(true)} />
+                  <span><b>Valor variável</b> — muda todo mês (energia, água, telefonia)</span>
+                </label>
+              </div>
             </div>
             <div>
               <Label>Conta *</Label>
@@ -209,6 +234,27 @@ export function RecorrenciaForm({ open, onOpenChange, recorrencia, onSaved }: Pr
               </Select>
             </div>
           </div>
+
+          {tipo === "saida" && (
+            <fieldset className="rounded-md border p-2.5 space-y-1">
+              <legend className="px-1 text-xs font-medium">Forma de liquidação</legend>
+              {FORMAS_LIQUIDACAO.map(f => (
+                <label key={f} className="flex items-start gap-2 text-sm cursor-pointer">
+                  <input type="radio" name="forma-liquidacao" className="mt-1" checked={formaLiquidacao === f}
+                    onChange={() => setFormaLiquidacao(f)} />
+                  <span className="min-w-0">
+                    {ROTULO_LIQUIDACAO[f]}
+                    <span className="block text-xs text-muted-foreground">{DICA_LIQUIDACAO[f]}</span>
+                  </span>
+                </label>
+              ))}
+              {formaLiquidacao !== "manual" && formaLiquidacao !== "boleto_fatura" && (
+                <p className="text-xs text-muted-foreground pt-1">
+                  Não entra em "Contas a pagar": fica em "Débitos automáticos previstos" até o débito aparecer no extrato.
+                </p>
+              )}
+            </fieldset>
+          )}
 
           <div className="grid grid-cols-3 gap-3">
             <div>

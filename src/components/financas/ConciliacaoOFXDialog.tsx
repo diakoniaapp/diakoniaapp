@@ -32,7 +32,7 @@ import {
 import { conciliarEmLote, brl, type FinMovimentoTipo } from "@/services/finService";
 import { parseOFX, encodingDoOFX, inferirFormaPagamento, type OFXTransacao } from "@/services/ofxService";
 import {
-  analisar, carregarContexto, desfazerLote, registrarLote,
+  analisar, carregarContexto, conciliarDebitos, desfazerLote, registrarLote,
   type ContextoOfx, type LinhaAnalisada, type ParaRegistrar,
 } from "@/services/importacaoOfxService";
 import {
@@ -151,6 +151,23 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
   }
 
   const aConciliar = linhas?.filter(l => l.situacao === "conciliar") ?? [];
+  const debitosEncontrados = linhas?.filter(l => l.situacao === "debito_encontrado") ?? [];
+
+  async function conciliarOsDebitos(lista: LinhaAnalisada[]) {
+    if (lista.length === 0 || !transacoes) return;
+    setConciliando(true);
+    try {
+      const r = await conciliarDebitos(contaId, lista.map(l => ({ lancamentoId: l.lancamentoId!, tx: l.tx })));
+      if (r.conciliados.length > 0) toast.success(`${r.conciliados.length} débito${r.conciliados.length > 1 ? "s" : ""} automático${r.conciliados.length > 1 ? "s" : ""} conciliado${r.conciliados.length > 1 ? "s" : ""}`);
+      if (r.erros.length > 0) toast.error(r.erros[0]);
+      await analisarDeNovo(transacoes, true);
+      onSaved();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erro ao conciliar o débito");
+    } finally {
+      setConciliando(false);
+    }
+  }
 
   async function conciliar() {
     if (aConciliar.length === 0) return;
@@ -305,6 +322,17 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
                   Além destas: {contagem.conciliar} a conciliar com lançamentos já feitos · {contagem.ja_registradas} já registrada{contagem.ja_registradas !== 1 ? "s" : ""} (não serão criadas de novo) · {contagem.transferencias} parece{contagem.transferencias !== 1 ? "m" : ""} transferência entre contas.
                 </p>
               )}
+              {debitosEncontrados.length > 0 && (
+                <div className="rounded-md border border-info-line bg-info-soft/40 p-2.5 flex flex-wrap items-center gap-2">
+                  <p className="text-sm flex-1 min-w-0">
+                    <b className="tabular-nums">{debitosEncontrados.length}</b> débito{debitosEncontrados.length > 1 ? "s" : ""} automático{debitosEncontrados.length > 1 ? "s" : ""} encontrado{debitosEncontrados.length > 1 ? "s" : ""} no extrato — já estavam previstos.
+                  </p>
+                  <Button type="button" size="sm" variant="outline" className="gap-1.5" disabled={ocupado}
+                    onClick={() => conciliarOsDebitos(debitosEncontrados)}>
+                    <Scale className="w-3.5 h-3.5" /> Conciliar débitos ({debitosEncontrados.length})
+                  </Button>
+                </div>
+              )}
               <div className="flex flex-wrap gap-2">
                 <Button type="button" size="sm" className="gap-1.5" disabled={ocupado || identificadasProntas.length === 0}
                   onClick={() => pedirConfirmacao(identificadasProntas)}>
@@ -383,6 +411,19 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
                       )}
                       {l.situacao === "ja_registrada" && (
                         <p className="pl-6 text-xs text-muted-foreground">Já registrada: {l.motivoJaRegistrada}. Não será criada de novo.</p>
+                      )}
+                      {l.situacao === "debito_encontrado" && l.debito && (
+                        <div className="pl-6 flex flex-wrap items-center gap-2">
+                          <p className="text-xs flex-1 min-w-0">
+                            <b className="text-info-text">Débito automático encontrado</b>
+                            {" — "}{l.debito.candidato.fornecedor || l.debito.candidato.descricao || "previsto"}, vencimento {dataBr(l.debito.candidato.data)}, previsto {brl(l.debito.candidato.valor)}
+                            <span className="text-muted-foreground"> · {l.debito.confianca}% · {l.debito.motivos.join(" · ")}</span>
+                          </p>
+                          <Button type="button" size="sm" variant="outline" className="h-7 gap-1 text-xs" disabled={ocupado}
+                            onClick={() => conciliarOsDebitos([l])}>
+                            <Scale className="w-3 h-3" /> Conciliar débito
+                          </Button>
+                        </div>
                       )}
                       {l.situacao === "ambigua" && (
                         <div className="pl-6 flex flex-wrap items-center gap-2">

@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect, useLayoutEffect, useMemo, lazy, Suspense } from "react";
+import { FORMAS_LIQUIDACAO, ROTULO_LIQUIDACAO, DICA_LIQUIDACAO, normalizarLiquidacao, type FormaLiquidacao } from "@/lib/formaLiquidacao";
 import { identificarPorDescricao } from "@/services/identificacaoService";
 import { hojeLocal } from "@/lib/data";
 import { paraNumero } from "@/lib/dinheiro";
@@ -19,7 +20,7 @@ import {
 } from "lucide-react";
 import {
   listarContas, listarCategorias, listarCentrosCusto, listarFornecedores, listarProjetos,
-  criarLancamento, atualizarLancamento,
+  criarLancamento, atualizarLancamento, erroDaLiquidacao,
   buscarFornecedorPorCnpj, criarFornecedor, sugerirCentroPorCategoria, brl,
   listarRateio, salvarRateio, ordenarCentrosParaSeletor, buscarPessoasParaLancamento,
   FORMA_LABEL, STATUS_LABEL, formasPermitidas,
@@ -135,6 +136,9 @@ export function LancamentoForm({
   const [pessoasSugeridas, setPessoasSugeridas] = useState<FinPessoaBusca[]>([]);
   const [forma, setForma] = useState<FinFormaPagamento | "">("");
   const [status, setStatus] = useState<FinStatus>("realizado");
+  // Como uma saída PREVISTA será liquidada (migration 20261006120000). O padrão "manual" não é
+  // enviado ao banco — assim este formulário segue salvando em quem ainda não aplicou a migration.
+  const [liquidacao, setLiquidacao] = useState<FormaLiquidacao>("manual");
   const [descricao, setDescricao] = useState("");
   // Fase 3 (15/09/2026), pedido da Telma: "quero que exista um campo de
   // descrição, com os itens da nota... não permitir edição, para ser
@@ -333,6 +337,7 @@ export function LancamentoForm({
       );
       setForma(lancamento.forma_pagamento ?? "");
       setStatus(lancamento.status);
+      setLiquidacao(normalizarLiquidacao(lancamento.forma_liquidacao));
       setDescricao(lancamento.descricao ?? "");
       setDocumentoNumero(lancamento.documento_numero ?? "");
       setObservacoes(lancamento.observacoes ?? "");
@@ -369,7 +374,7 @@ export function LancamentoForm({
       setCategoriaId(rascunho?.categoriaId ?? categoriaIdPadrao ?? ""); setCentroCustoId(rascunho?.centroId ?? ""); setProjetoId(""); setUsarProjeto(false);
       setFornecedorId(rascunho?.fornecedor?.id ?? "");
       setPessoaId(rascunho?.pessoa?.id ?? ""); setFornecedorBusca(rascunho?.pessoa?.nome ?? rascunho?.fornecedor?.nome ?? ""); setPessoasSugeridas([]);
-      setForma(rascunho?.forma ?? ""); setStatus("realizado");
+      setForma(rascunho?.forma ?? ""); setStatus("realizado"); setLiquidacao("manual");
       setDescricao(rascunho?.descricao ?? ""); setDocumentoNumero(""); setObservacoes("");
       setRateando(false); setRateio([]);
       setNfItens([]); setNfFornecedorLido(null); setDescricaoTravada(false);
@@ -568,6 +573,11 @@ export function LancamentoForm({
         nf_dados_extraidos: nfDadosExtraidos,
       };
 
+      const liquidacaoOriginal = normalizarLiquidacao(lancamento?.forma_liquidacao);
+      if (tipo === "saida" && status === "previsto" && (liquidacao !== "manual" || liquidacaoOriginal !== "manual")) {
+        payload.forma_liquidacao = liquidacao;
+      }
+
       let lancamentoId: string;
       if (isEdit && lancamento) {
         await atualizarLancamento(lancamento.id, payload);
@@ -596,7 +606,7 @@ export function LancamentoForm({
       onOpenChange(false);
       onSaved();
     } catch (e: any) {
-      toast.error(e?.message ?? "Erro");
+      toast.error(erroDaLiquidacao(e ?? {}));
     } finally { setBusy(false); }
   }
 
@@ -992,6 +1002,19 @@ export function LancamentoForm({
               </Select>
             </div>
           </div>
+
+          {tipo === "saida" && status === "previsto" && (
+            <div>
+              <Label>Forma de liquidação</Label>
+              <Select value={liquidacao} onValueChange={(v) => setLiquidacao(v as FormaLiquidacao)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {FORMAS_LIQUIDACAO.map(f => <SelectItem key={f} value={f}>{ROTULO_LIQUIDACAO[f]}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground mt-1">{DICA_LIQUIDACAO[liquidacao]}</p>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div>
