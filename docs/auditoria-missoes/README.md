@@ -15,6 +15,7 @@ A–E (erro de classificação, projeto, sustento, campanha, documento) leva a r
 | 8 | **[INVESTIGACAO_MUNDIAIS_2025_FASE2.md](INVESTIGACAO_MUNDIAIS_2025_FASE2.md)** | **Mundiais 2025: complementação, ofertas não classificadas, marca dos R$ 0,10** |
 | 8b | **[INVESTIGACAO_MUNDIAIS_2025_FASE3_MARCA_010.md](INVESTIGACAO_MUNDIAIS_2025_FASE3_MARCA_010.md)** | **O ",10" como convenção real: candidatos reavaliados, Mundiais 2025 em camadas, proposta da regra "⚠ Possível oferta missionária"** |
 | 8c | **[INVESTIGACAO_MUNDIAIS_2025_FASE4_EVIDENCIAS.md](INVESTIGACAO_MUNDIAIS_2025_FASE4_EVIDENCIAS.md)** | **Consolidação: saldo × migrations, os R$ 2.240,81 restantes, evidências e hipóteses abertas** |
+| 8d | **[INVESTIGACAO_MUNDIAIS_2025_FASE5_FEIRA_E_META.md](INVESTIGACAO_MUNDIAIS_2025_FASE5_FEIRA_E_META.md)** + [linha do tempo](mundiais-2025-linha-do-tempo.csv) | **Linha do tempo mai–set/2025, depósito de R$ 800, Feira das Nações, meta de R$ 35.000 e as hipóteses A–E** |
 | 9 | [PROPOSTA_CICLO_MISSIONARIO.md](PROPOSTA_CICLO_MISSIONARIO.md) | Proposta (não implementada) do campo *Ciclo Missionário* |
 
 Dados: [linha-do-tempo-fundo-missionario.csv](linha-do-tempo-fundo-missionario.csv) · [mundiais-2024-2025-lancamentos.csv](mundiais-2024-2025-lancamentos.csv).

@@ -1,0 +1,46 @@
+﻿Data;Evento;Qtd;Valor (R$);Tipo;Observação
+04/05/2025;Envelope missionário;3;180,00;Entrada no fundo;Caixa de Envelopes
+07/05/2025;Pix ",10" de média confiança;1;178,10;FORA do fundo (Dízimos);id 6f2e15e4 — convenção vale, sem histórico do doador
+11/05/2025;Envelope missionário;2;10,00;Entrada no fundo;
+16/05/2025;PIX missionário (,10);1;500,10;Entrada no fundo;
+18/05/2025;Envelope missionário;4;1386,25;Entrada no fundo;
+19/05/2025;Oferta missionária — outros;3;367,80;Entrada no fundo;
+20/05/2025;Oferta missionária — outros;2;353,11;Entrada no fundo;
+25/05/2025;Envelope missionário;1;50,00;Entrada no fundo;
+27/05/2025;Oferta missionária — outros;2;283,42;Entrada no fundo;
+27/05/2025;Remessa JMN (campanha Nacionais — NÃO é Mundiais);1;-4493,56;Saída;boleto à Junta Nacional
+29/05/2025;Pix ",10" CONFIRMADO pela tesouraria;1;2000,10;FORA do fundo (Dízimos);id 9e2d4e16 — migration 240000 pendente
+01/06/2025;Envelope missionário;3;100,00;Entrada no fundo;
+02/06/2025;Pix ",10" CONFIRMADO pela tesouraria;1;600,10;FORA do fundo (Dízimos);id 26e5b39c — migration 240000 pendente
+07/06/2025;Feira das Nações — dinheiro (envelope);1;768,00;Entrada no fundo;sábado da Feira; transferido ao Bradesco em 09/06 (768,00)
+08/06/2025;Envelope missionário;2;28,00;Entrada no fundo;domingo da Feira
+09/06/2025;Depósito em dinheiro (ATM) — "Ofertas não identificadas";1;800,00;FORA do fundo (Ofertas);id 6f2ea418 — ver relatório
+09/06/2025;Feira das Nações — Cielo (débito);3;3732,01;Entrada no fundo;liquidação de 07–08/06
+09/06/2025;Feira das Nações — Pix de venda (07–08/06);44;1447,61;Entrada no fundo;valores no padrão de Pix com taxa (9,91 · 19,82 · 99,08)
+09/06/2025;Oferta missionária — outros;1;200,10;Entrada no fundo;
+10/06/2025;Feira das Nações — Cielo (crédito, rotulado "FEIRA DAS NAÇÕES");2;3073,35;Entrada no fundo;
+11/06/2025;Oferta missionária — Pix;2;30,00;Entrada no fundo;
+11/06/2025;PIX missionário (,10);4;50,40;Entrada no fundo;
+16/06/2025;Oferta missionária — outros;1;800,10;Entrada no fundo;
+22/06/2025;Envelope missionário;3;65,00;Entrada no fundo;
+23/06/2025;Oferta missionária — outros;3;2945,10;Entrada no fundo;
+23/06/2025;PIX missionário (,10);3;1366,30;Entrada no fundo;
+27/06/2025;Pix ",10" CONFIRMADO pela tesouraria;1;500,10;FORA do fundo (Dízimos);id 4f87f5f7 — migration 240000 pendente
+27/06/2025;Oferta missionária — Pix;1;250,00;Entrada no fundo;
+27/06/2025;PIX missionário (,10);3;1600,30;Entrada no fundo;
+29/06/2025;Envelope missionário;2;200,00;Entrada no fundo;
+30/06/2025;Oferta missionária — Pix;1;4673,00;Entrada no fundo;
+30/06/2025;PIX missionário (,10);3;560,30;Entrada no fundo;
+08/07/2025;Oferta missionária — Pix;1;1001,00;Entrada no fundo;
+18/07/2025;Envelope missionário;4;1120,00;Entrada no fundo;
+20/07/2025;Envelope missionário;1;50,00;Entrada no fundo;
+22/07/2025;REMESSA Junta de Missões Mundiais (boleto);1;-34216,42;Saída;PAGTO ELETRON COBRANCA — fecha a janela do ciclo
+25/07/2025;Depósito em dinheiro (ATM) — "Ofertas não identificadas";2;300,00;FORA do fundo (Ofertas);depois do boleto de 22/07
+07/08/2025;Oferta missionária — Pix;1;19,82;Entrada no fundo;linha de bazar que a migration 230000 tira do fundo
+10/08/2025;Envelope missionário;1;10,00;Entrada no fundo;
+17/08/2025;Envelope missionário;1;109,00;Entrada no fundo;
+14/09/2025;Envelope missionário;1;100,00;Entrada no fundo;
+17/09/2025;PIX missionário (,10);1;207,10;Entrada no fundo;
+19/09/2025;REMESSA Junta de Missões Mundiais (boleto "ALVO DE MISSÕES");1;-783,58;Saída;complementa exatamente os R$ 35.000,00 (34.216,42 + 783,58)
+21/09/2025;Envelope missionário;3;165,00;Entrada no fundo;
+28/09/2025;Envelope missionário;2;320,00;Entrada no fundo;
