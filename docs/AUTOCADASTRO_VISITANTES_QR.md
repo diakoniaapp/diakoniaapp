@@ -24,7 +24,7 @@ Ao enviar, a tela mostra o texto que você definiu: *"Obrigado por sua visita! F
 | `consentimento` | o aceite LGPD fica registrado, com canal `qr_code` |
 | `acompanhamentos_visitante` | quem pede oração ou contato entra como *pendente* na tela de acompanhamento que já existe |
 | `normalizar_telefone()` | o mesmo telefone canônico (`55DDDNÚMERO`) usado em todo o sistema |
-| `como_conheceu`, `quem_convidou` | as respostas do formulário caem nos campos atuais |
+| `como_conheceu`, `convidado_nome` | as respostas do formulário caem nos campos atuais (o nome de quem convidou vai em `convidado_nome`, o campo de texto livre que já existe; `quem_convidou` é um vínculo com outro membro) |
 
 ## 3. O que se acrescenta
 

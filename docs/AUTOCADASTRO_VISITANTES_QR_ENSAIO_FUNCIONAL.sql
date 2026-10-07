@@ -26,7 +26,7 @@ BEGIN
   SELECT * INTO m FROM public.membros WHERE telefone_celular = '5521990000001';
   IF m.id IS NULL OR m.tipo_pessoa::text <> 'visitante' OR m.nome_completo <> 'Maria de TESTE Silva' OR m.numero_visitas <> 1
      OR m.origem_cadastro <> 'qr_code' OR m.status_acolhimento::text <> 'novo' OR m.whatsapp_celular <> '5521990000001'
-     OR m.como_conheceu <> 'amigo_familiar' OR m.quem_convidou <> 'João da Igreja' OR NOT m.lgpd_aceito THEN
+     OR m.como_conheceu <> 'amigo_familiar' OR m.convidado_nome <> 'João da Igreja' OR NOT m.lgpd_aceito THEN
     RAISE EXCEPTION 'Caso 1: a ficha do visitante não nasceu como esperado: %', row_to_json(m);
   END IF;
   SELECT count(*) INTO n FROM public.visitas WHERE membro_id = m.id AND origem = 'qr_code';

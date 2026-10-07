@@ -184,7 +184,7 @@ BEGIN
           whatsapp_celular = COALESCE(whatsapp_celular, v_zap),
           como_conheceu    = COALESCE(como_conheceu, v_como),
           como_conheceu_descricao = COALESCE(como_conheceu_descricao, v_como_o),
-          quem_convidou    = COALESCE(quem_convidou, v_quem),
+          convidado_nome   = COALESCE(convidado_nome, v_quem),   -- (membros.quem_convidou é UUID de membro; o nome livre mora em convidado_nome)
           lgpd_aceito      = true,
           data_aceite_lgpd = COALESCE(data_aceite_lgpd, now())
        WHERE id = v_m.id RETURNING numero_visitas INTO v_n;
@@ -195,7 +195,7 @@ BEGIN
     v_novo := true;
     INSERT INTO public.membros (nome_completo, tipo_pessoa, status, status_acolhimento, numero_visitas, origem_cadastro,
                                 telefone_celular, whatsapp_celular, data_nascimento, endereco,
-                                como_conheceu, como_conheceu_descricao, quem_convidou, lgpd_aceito, data_aceite_lgpd)
+                                como_conheceu, como_conheceu_descricao, convidado_nome, lgpd_aceito, data_aceite_lgpd)
     VALUES (v_nome, 'visitante', 'ativo', 'novo', 1, 'qr_code',
             v_tel, v_zap, v_nasc, v_end, v_como, v_como_o, v_quem, true, now())
     RETURNING * INTO v_m;
