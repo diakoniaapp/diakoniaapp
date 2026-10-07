@@ -9,7 +9,8 @@
 DO $ensaio$
 DECLARE
   codigo text; r jsonb; m record; n int; recusou boolean; membro_tel text; tipo_do_membro text; antes record;
-  TEL constant text := '(21) 99000-0001';  -- vira 5521990000001
+  TEL constant text := '(21) 99000-0001';
+  caso text := '0'; ctx text;  -- vira 5521990000001
 BEGIN
   -- se isto falhar, o texto colado veio INCOMPLETO (a parte da modelagem não rodou antes do teste): cole tudo de novo
   IF to_regclass('public.visitante_pontos') IS NULL OR to_regprocedure('public.visitante_autocadastro(text, jsonb)') IS NULL THEN
@@ -19,6 +20,7 @@ BEGIN
   IF codigo IS NULL THEN RAISE EXCEPTION 'Ensaio: o ponto "Recepção" não foi criado.'; END IF;
 
   -- ── caso 1: visitante novo, pedindo oração de saúde e contato ──────────────────────────────────────────
+  caso := '1';
   SET LOCAL ROLE anon;       -- é exatamente o que o visitante é: sem login
   r := public.visitante_autocadastro(codigo, jsonb_build_object(
     'nome', '  Maria   de TESTE Silva ', 'data_nascimento', '1990-05-17', 'telefone', TEL, 'whatsapp', '',
@@ -45,6 +47,7 @@ BEGIN
   END IF;
 
   -- ── caso 2: o mesmo telefone, outro culto = NOVA VISITA (e o mesmo envio repetido NÃO duplica) ───────────
+  caso := '2';
   SET LOCAL ROLE anon;
   r := public.visitante_autocadastro(codigo, jsonb_build_object('nome', 'Maria de Teste', 'telefone', '21990000001', 'lgpd_aceito', true));
   RESET ROLE;
@@ -62,6 +65,7 @@ BEGIN
   IF n <> 2 THEN RAISE EXCEPTION 'Caso 2: esperava 2 visitas; achei %', n; END IF;
 
   -- ── caso 3: quem sabe o telefone NÃO reescreve a ficha (só preenche o que estava vazio) ─────────────────
+  caso := '3';
   UPDATE public.visitante_sessoes SET ativo = false WHERE ativo;
   INSERT INTO public.visitante_sessoes (culto) VALUES ('Culto de TESTE 3');
   SET LOCAL ROLE anon;
@@ -74,6 +78,7 @@ BEGIN
   END IF;
 
   -- ── caso 4: membro/congregado preenche o cartão: a ficha dele não muda ──────────────────────────────────
+  caso := '4';
   SELECT telefone_celular, tipo_pessoa::text INTO membro_tel, tipo_do_membro FROM public.membros
    WHERE tipo_pessoa::text IN ('membro', 'congregado') AND telefone_celular IS NOT NULL LIMIT 1;
   IF membro_tel IS NOT NULL THEN
@@ -89,6 +94,7 @@ BEGIN
   END IF;
 
   -- ── caso 5: entradas inválidas são recusadas (e não gravam nada) ─────────────────────────────────────────
+  caso := '5';
   FOR n IN 1..5 LOOP
     recusou := false;
     BEGIN
@@ -108,6 +114,7 @@ BEGIN
   IF EXISTS (SELECT 1 FROM public.membros WHERE nome_completo = 'Fulano de Tal') THEN RAISE EXCEPTION 'Caso 5: uma entrada inválida gravou pessoa.'; END IF;
 
   -- ── caso 6: freio contra enxurrada (40 em 10 minutos) ───────────────────────────────────────────────────
+  caso := '6';
   INSERT INTO public.visitante_checkins (membro_id, data_visita, novo_cadastro)
     SELECT m.id, CURRENT_DATE, false FROM generate_series(1, 40);
   recusou := false;
@@ -121,11 +128,13 @@ BEGIN
   DELETE FROM public.visitante_checkins WHERE membro_id = m.id AND novo_cadastro = false AND visita_id IS NULL;
 
   -- ── caso 8 (antes do 7, que troca o papel): a fila pastoral põe quem pediu oração primeiro ───────────────
+  caso := '8';
   IF NOT EXISTS (SELECT 1 FROM public.vw_visitantes_aguardando_contato WHERE membro_id = m.id AND prioridade = 1) THEN
     RAISE EXCEPTION 'Caso 8: quem pediu oração deveria estar na fila pastoral com prioridade 1.';
   END IF;
 
   -- ── caso 7: o ANÔNIMO não lê nada além do que a função devolve ──────────────────────────────────────────
+  caso := '7';
   FOR n IN 1..6 LOOP
     DECLARE visto int := 0;
     BEGIN
@@ -140,5 +149,9 @@ BEGIN
     RAISE EXCEPTION 'Caso 7: anon tem SELECT numa view do painel.';
   END IF;
   IF NOT has_function_privilege('anon', 'public.visitante_autocadastro(text, jsonb)', 'EXECUTE') THEN RAISE EXCEPTION 'Caso 7: anon não pode chamar a função (o formulário público não funcionaria).'; END IF;
+EXCEPTION WHEN OTHERS THEN
+  GET STACKED DIAGNOSTICS ctx = PG_EXCEPTION_CONTEXT;
+  RAISE EXCEPTION 'ENSAIO FALHOU no caso %: % [%] | %', caso, SQLERRM, SQLSTATE, replace(ctx, E'
+', ' | ');
 END
 $ensaio$;
