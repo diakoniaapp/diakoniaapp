@@ -11,6 +11,10 @@ DECLARE
   codigo text; r jsonb; m record; n int; recusou boolean; membro_tel text; tipo_do_membro text; antes record;
   TEL constant text := '(21) 99000-0001';  -- vira 5521990000001
 BEGIN
+  -- se isto falhar, o texto colado veio INCOMPLETO (a parte da modelagem não rodou antes do teste): cole tudo de novo
+  IF to_regclass('public.visitante_pontos') IS NULL OR to_regprocedure('public.visitante_autocadastro(text, jsonb)') IS NULL THEN
+    RAISE EXCEPTION 'Ensaio: a modelagem não foi criada antes do teste — cole o texto INTEIRO (Ctrl+A no editor antes de colar).';
+  END IF;
   SELECT p.codigo INTO codigo FROM public.visitante_pontos p WHERE p.ativo ORDER BY created_at LIMIT 1;
   IF codigo IS NULL THEN RAISE EXCEPTION 'Ensaio: o ponto "Recepção" não foi criado.'; END IF;
 
