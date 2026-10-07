@@ -9,6 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ListSkeleton, EmptyState, ErrorState } from "@/components/ListState";
 import VisitanteDialog from "@/components/membros/VisitanteDialog";
 import AcoesHoje from "@/components/membros/AcoesHoje";
+import { AutoCadastroQrPainel } from "@/components/membros/AutoCadastroQrPainel";
+import { FilaPastoralQr } from "@/components/membros/FilaPastoralQr";
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { Membro } from "@/pages/Membros";
@@ -266,6 +268,11 @@ export default function Visitantes() {
           </span>{" "}
           {stats.retornaram === 1 ? "retornou" : "retornaram"} em {DIAS_RETORNO} dias
         </p>
+
+        {/* AutoCadastro por QR Code (07/10/2026): o QR da recepção + "Visitantes de hoje", e a fila pastoral
+            (quem pediu oração ou contato primeiro). Somem sozinhos sem a migration ou sem permissão. */}
+        <AutoCadastroQrPainel />
+        <FilaPastoralQr onAbrirVisitante={(id) => { const v = visitantes.find(x => x.id === id); if (v) setSelected(v); }} />
 
         {/* O motor do painel: quantas tarefas de acolhimento (as 4 que nascem
             automaticamente com cada visitante — boas-vindas, contato, convite,

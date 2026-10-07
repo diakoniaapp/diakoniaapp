@@ -29,6 +29,7 @@ import ExportacaoAdmin from "./pages/ExportacaoAdmin.tsx";
 import CampanhasAdmin from "./pages/CampanhasAdmin.tsx";
 import AgendaPrint from "./pages/AgendaPrint.tsx";
 import Convite from "@/pages/Convite";
+import VisitanteAutocadastro from "@/pages/VisitanteAutocadastro";
 import Ebd from "./pages/Ebd.tsx";
 import EbdClasse from "./pages/EbdClasse.tsx";
 import Areas from "./pages/Areas.tsx";
@@ -125,6 +126,8 @@ const App = () => (
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/auth/reset" element={<ResetSenha />} />
                 <Route path="/convite/:token" element={<Convite />} />
+                {/* AutoCadastro de visitantes pelo QR Code: PÚBLICA, sem login (docs/AUTOCADASTRO_VISITANTES_QR.md) */}
+                <Route path="/visitante" element={<VisitanteAutocadastro />} />
                 <Route path="/reset/:token" element={<ResetSenhaToken />} />
                 <Route path="/esqueci-senha" element={<EsqueciSenha />} />
                 <Route path="/primeiro-acesso" element={<PrimeiroAcesso />} />
