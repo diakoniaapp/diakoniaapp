@@ -24,6 +24,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { brl, nomeExtrato, type FinVencimento } from "@/services/finService";
 import { hojeLocal } from "@/lib/data";
+import { parciaisEmAberto, type ParcialEmAberto } from "@/services/obrigacoesService";
 import { indicadoresDeDebitos, situacaoDoDebito, type SituacaoDoDebito } from "@/lib/formaLiquidacao";
 import {
   agruparVencimentos, coberturaDoCaixa, diasEntreDatas, montarChecklist, pendenciasDoChecklist,
@@ -80,8 +81,8 @@ function Numero({ rotulo, valor, tom, detalhe }: { rotulo: string; valor: string
   );
 }
 
-function LinhaDeConta({ v, temAnexo, onPagar, onAnexo }: {
-  v: FinVencimento; temAnexo: boolean; onPagar: () => void; onAnexo: () => void;
+function LinhaDeConta({ v, temAnexo, parcial, onPagar, onAnexo }: {
+  v: FinVencimento; temAnexo: boolean; parcial?: ParcialEmAberto; onPagar: () => void; onAnexo: () => void;
 }) {
   const { principal, secundario } = nomeExtrato(v);
   const dias = v.dias_para_vencer;
@@ -96,6 +97,11 @@ function LinhaDeConta({ v, temAnexo, onPagar, onAnexo }: {
           {v.centro_custo_nome && <span className="truncate">{v.centro_custo_nome}</span>}
           {v.valor_variavel && <span>valor estimado</span>}
         </span>
+        {parcial && (
+          <span className="block text-xs text-warning-text tabular-nums">
+            Pago parcialmente: {brl(parcial.pago)} de {brl(parcial.original)} · saldo pendente {brl(parcial.saldo)}
+          </span>
+        )}
       </span>
       <span className="tabular-nums font-medium shrink-0">{brl(v.valor)}</span>
       <button type="button" onClick={onAnexo}
@@ -117,6 +123,13 @@ export function MesaDoTesoureiro({
   const [dados, setDados] = useState<DadosDaMesa | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [mostrar30, setMostrar30] = useState(false);
+  // contas pagas parcialmente (liquidação real): a linha do saldo diz quanto já foi pago; sem a migration, mapa vazio
+  const [parciais, setParciais] = useState<Map<string, ParcialEmAberto>>(new Map());
+  useEffect(() => {
+    let cancelado = false;
+    parciaisEmAberto().then(m => { if (!cancelado) setParciais(m); }).catch(() => { /* melhoria: a mesa segue igual */ });
+    return () => { cancelado = true; };
+  }, [chaveDeAtualizacao]);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -163,7 +176,7 @@ export function MesaDoTesoureiro({
       </div>
       <ul>
         {itens.map(v => (
-          <LinhaDeConta key={v.id} v={v} temAnexo={dados.comAnexo.has(v.id)}
+          <LinhaDeConta key={v.id} v={v} temAnexo={dados.comAnexo.has(v.id)} parcial={parciais.get(v.id)}
             onPagar={() => onPagar(v)} onAnexo={() => onAnexo({ id: v.id, label: nomeExtrato(v).principal })} />
         ))}
       </ul>

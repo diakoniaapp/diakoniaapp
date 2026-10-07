@@ -111,6 +111,7 @@ import { listarFavoritos, desfixarFavorito, type FinFavorito } from "@/services/
 import { useAcoesLancamento, BotaoPagar, BotoesAprovacao } from "@/hooks/useAcoesLancamento";
 import { FechamentoMensal } from "@/components/financas/FechamentoMensal";
 import { MesaDoTesoureiro } from "@/components/financas/MesaDoTesoureiro";
+import { LiquidacoesDoPeriodo } from "@/components/financas/LiquidacoesDoPeriodo";
 import { useAuth } from "@/hooks/useAuth";
 import { hojeLocal, parseLocalDate, daquiADias } from "@/lib/data";
 import { ROLES_DOADORES, ROLES_PASTORAL_SEM_TITULAR } from "@/components/layout/navConfig";
@@ -775,7 +776,11 @@ export default function PainelTesouraria() {
               onAprovacoes={abrirAprovacoes}
               onRecorrencias={() => setRecorrenciasAberto(true)}
             />
-          </section>          </>
+          </section>
+          <section id="liquidacoes" className="scroll-mt-[220px]">
+            <LiquidacoesDoPeriodo chaveDeAtualizacao={atualizadoEm?.getTime() ?? 0} />
+          </section>
+          </>
           )}
 
           {/* ── 4 Fechamento — CHECKLIST DO MÊS (03/10/2026) ───────────────────

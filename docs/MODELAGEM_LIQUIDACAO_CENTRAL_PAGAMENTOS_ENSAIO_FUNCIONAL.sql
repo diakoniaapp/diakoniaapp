@@ -107,5 +107,27 @@ BEGIN
   IF o.situacao <> 'pago_integralmente' OR o.valor_original <> 500 OR o.total_pago <> 500 OR o.saldo_pendente <> 0 THEN
     RAISE EXCEPTION 'Caso 7 (lançamento antigo) falhou: %', row_to_json(o);
   END IF;
+
+  -- ── caso 8 (migration 20261007110000): ajuste com motivo aparece em coluna própria; id_pendente aponta o saldo aberto ─
+  INSERT INTO public.fin_lancamentos (conta_id, tipo, status, data, valor, descricao, categoria_id, valor_variavel)
+  VALUES (conta, 'saida', 'previsto', CURRENT_DATE, 100, 'TESTE LIQ 8', cat, false) RETURNING id INTO l1;
+  PERFORM public.fin_liquidar(conta, CURRENT_DATE, pf, 130, jsonb_build_array(jsonb_build_object('lancamento_id', l1, 'valor_pago', 100)),
+    jsonb_build_array(jsonb_build_object('tipo', 'ajuste', 'valor', 30, 'lancamento_id', l1, 'motivo', 'tarifa de cobrança do banco')));
+  SELECT * INTO o FROM public.vw_fin_obrigacoes WHERE obrigacao_id = l1;
+  IF o.ajuste <> 30 OR o.complemento <> 0 OR o.situacao <> 'pago_com_diferenca' OR o.total_pago <> 130 OR o.descricao <> 'TESTE LIQ 8' OR o.referencia IS NULL THEN
+    RAISE EXCEPTION 'Caso 8 (ajuste) falhou: %', row_to_json(o);
+  END IF;
+  SELECT * INTO o FROM public.vw_fin_obrigacoes WHERE descricao = 'TESTE LIQ 1' AND situacao = 'pago_parcialmente';
+  IF o.id_pendente IS NULL OR (SELECT valor FROM public.fin_lancamentos WHERE id = o.id_pendente) <> 120 THEN
+    RAISE EXCEPTION 'Caso 8: id_pendente deveria apontar o saldo previsto de 120,00: %', row_to_json(o);
+  END IF;
+
+  -- ── segurança: a view precisa de security_invoker e NÃO pode ser lida por quem não está logado ───────────
+  IF has_table_privilege('anon', 'public.vw_fin_obrigacoes', 'SELECT') THEN
+    RAISE EXCEPTION 'Segurança: anon ainda consegue ler vw_fin_obrigacoes.';
+  END IF;
+  IF NOT COALESCE((SELECT 'security_invoker=true' = ANY (reloptions) FROM pg_class WHERE oid = 'public.vw_fin_obrigacoes'::regclass), false) THEN
+    RAISE EXCEPTION 'Segurança: vw_fin_obrigacoes não está com security_invoker.';
+  END IF;
 END
 $ensaio$;
