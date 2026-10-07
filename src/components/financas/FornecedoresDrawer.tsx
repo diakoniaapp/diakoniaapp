@@ -6,7 +6,7 @@
 // recria `FinancasFornecedores.tsx` — é o MESMO conteúdo (mesma consulta,
 // mesmo `FornecedorForm`, mesmo alternar ativo/inativo), só dentro de um
 // `Sheet` que abre por cima do Painel da Tesouraria em vez de trocar de
-// rota. `/financas/fornecedores` continua existindo — link direto, aba
+// rota. `/financas/favorecidos` continua existindo — link direto, aba
 // nova, favorito — o drawer é um atalho a mais, não substituição de URL.
 //
 // Diferença deliberada da página: cada linha ganha um lápis de EDITAR
@@ -147,7 +147,7 @@ export function FornecedoresDrawer({ open, onOpenChange }: Props) {
                 {filtrados.map(f => (
                   <div key={f.id}
                     className={`flex items-center justify-between gap-2 border rounded-md px-3 py-2 hover:bg-muted/30 ${!f.ativo ? "opacity-60 border-dashed" : ""}`}>
-                    <Link to={`/financas/fornecedor/${f.id}`} className="flex items-center gap-2 min-w-0 flex-1">
+                    <Link to={`/financas/favorecido/${f.id}`} className="flex items-center gap-2 min-w-0 flex-1">
                       {f.tipo === "fisica" ? <User className="w-4 h-4 text-muted-foreground shrink-0" /> : <Building2 className="w-4 h-4 text-muted-foreground shrink-0" />}
                       <div className="min-w-0 flex-1">
                         <div className="font-medium text-sm truncate flex items-center gap-1.5">
@@ -167,7 +167,7 @@ export function FornecedoresDrawer({ open, onOpenChange }: Props) {
                         {f.ativo ? <PowerOff className="w-3.5 h-3.5 text-warning-text" /> : <RotateCcw className="w-3.5 h-3.5 text-success-text" />}
                       </Button>
                       <Button asChild variant="ghost" size="icon" className="h-7 w-7" title="Ver ficha">
-                        <Link to={`/financas/fornecedor/${f.id}`}><ChevronRight className="w-3.5 h-3.5" /></Link>
+                        <Link to={`/financas/favorecido/${f.id}`}><ChevronRight className="w-3.5 h-3.5" /></Link>
                       </Button>
                     </div>
                   </div>

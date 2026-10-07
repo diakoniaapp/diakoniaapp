@@ -29,6 +29,8 @@ import {
 import { FornecedorForm } from "@/components/financas/FornecedorForm";
 import { PaginaSkeleton } from "@/components/ListState";
 import { formatarChavePix } from "@/lib/pix";
+import { NomePessoa } from "@/components/membros/ficha";
+import { pessoaDoFavorecido } from "@/services/favorecidoService";
 
 function dataBr(s: string) {
   return new Date(s + "T00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
@@ -39,6 +41,9 @@ export default function FinancasFornecedorDetalhe() {
   const [fornecedor, setFornecedor] = useState<FinFornecedor | null>(null);
   useRotuloDaTela(fornecedor?.nome); // nome real na trilha de navegação (BarraDeContexto)
   const [lancs, setLancs] = useState<FinLancamentoExtenso[]>([]);
+  // Favorecido-PESSOA: o que ela recebeu aparece junto — tanto o lançado como "fornecedor" quanto o lançado como "pessoa".
+  const [pessoa, setPessoa] = useState<{ id: string; nome: string; vinculo: string } | null>(null);
+  const [viaPessoa, setViaPessoa] = useState<Set<string>>(new Set());
   const [recorrencias, setRecorrencias] = useState<FinRecorrencia[]>([]);
   const [loading, setLoading] = useState(true);
   const [editOpen, setEditOpen] = useState(false);
@@ -51,19 +56,26 @@ export default function FinancasFornecedorDetalhe() {
     if (!id) return;
     setLoading(true);
     try {
-      const [f, ls, recs] = await Promise.all([
-        buscarFornecedor(id),
+      const f = await buscarFornecedor(id);
+      const [ls, lsPessoa, recs, pes] = await Promise.all([
         // Sem data — histórico do fornecedor inteiro, desde sempre.
         // `listarLancamentos` (teto de 300) até 16/09/2026: "BANCO
         // BRADESCO S.A. 237" já tem 958 lançamentos reais em produção —
         // "Total pago" ficava contando só os ~300 mais recentes. Mesmo
         // bug achado e corrigido em `gerarPrestacaoContas`.
         listarLancamentosSemTeto({ fornecedorId: id }),
+        f?.pessoa_id ? listarLancamentosSemTeto({ pessoaId: f.pessoa_id }) : Promise.resolve([] as FinLancamentoExtenso[]),
         listarRecorrencias(true),
+        f?.pessoa_id ? pessoaDoFavorecido(f.pessoa_id).catch(() => null) : Promise.resolve(null),
       ]);
       setFornecedor(f);
-      setLancs(ls);
-      setRecorrencias(recs.filter(r => r.fornecedor_id === id));
+      // junta os dois caminhos (sem repetir) na ordem do extrato: data, depois criação
+      const vistos = new Set(ls.map(l => l.id));
+      const soPessoa = lsPessoa.filter(l => !vistos.has(l.id));
+      setViaPessoa(new Set(soPessoa.map(l => l.id)));
+      setLancs([...ls, ...soPessoa].sort((a, b) => b.data.localeCompare(a.data) || String(b.created_at).localeCompare(String(a.created_at))));
+      setPessoa(pes);
+      setRecorrencias(recs.filter(r => r.fornecedor_id === id || (!!f?.pessoa_id && r.pessoa_id === f.pessoa_id)));
     } catch (e: any) { toast.error(e?.message ?? "Erro"); }
     finally { setLoading(false); }
   }
@@ -88,16 +100,19 @@ export default function FinancasFornecedorDetalhe() {
 
   const stats = useMemo(() => {
     const realizados = lancs.filter(l => l.status === "realizado" || l.status === "conciliado");
+    const soma = (ls: typeof realizados) => ls.reduce((s, l) => s + Number(l.valor), 0);
     return {
       qtd: realizados.length,
-      total: realizados.reduce((s, l) => s + Number(l.valor), 0),
+      // "Total pago" = o que a igreja PAGOU (saídas); pessoa também recebe da igreja (dízimo, oferta): isso é "recebido"
+      total: soma(realizados.filter(l => l.tipo !== "entrada")),
+      recebido: soma(realizados.filter(l => l.tipo === "entrada")),
       ultima: realizados[0]?.data ?? null,
     };
   }, [lancs]);
 
   if (loading) return <PaginaSkeleton />;
   if (!fornecedor) return <div className="p-8 text-center text-muted-foreground">
-    Favorecido não encontrado. <Link to="/financas/fornecedores" className="text-primary underline">Voltar</Link>
+    Favorecido não encontrado. <Link to="/financas/favorecidos" className="text-primary underline">Voltar</Link>
   </div>;
 
   return (
@@ -110,6 +125,14 @@ export default function FinancasFornecedorDetalhe() {
             {!fornecedor.ativo && <Badge variant="outline" className="text-xs bg-warning-soft text-warning-text border-warning-line">Inativo</Badge>}
           </h1>
           {fornecedor.cnpj_cpf && <p className="text-xs text-muted-foreground">{fornecedor.cnpj_cpf}</p>}
+          {fornecedor.pessoa_id && (
+            <p className="text-xs flex items-center gap-1.5 flex-wrap mt-0.5">
+              <Badge variant="outline" className="text-xs bg-info-soft text-info-text border-info-line">
+                Pessoa{pessoa ? " · " + pessoa.vinculo : ""}
+              </Badge>
+              <NomePessoa id={fornecedor.pessoa_id} nome={pessoa?.nome ?? "Abrir a ficha da pessoa"} className="text-primary hover:underline" />
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setEditOpen(true)}>
@@ -123,7 +146,7 @@ export default function FinancasFornecedorDetalhe() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-2">
+      <div className={`grid gap-2 ${stats.recebido > 0 ? "grid-cols-2 md:grid-cols-4" : "grid-cols-3"}`}>
         <Card>
           <CardContent className="py-2 px-3">
             <p className="text-xs uppercase text-muted-foreground">Lançamentos</p>
@@ -136,6 +159,14 @@ export default function FinancasFornecedorDetalhe() {
             <p className="text-base font-semibold text-destructive-text tabular-nums">− {brl(stats.total)}</p>
           </CardContent>
         </Card>
+        {stats.recebido > 0 && (
+          <Card className="bg-success-soft/30 border-success-line">
+            <CardContent className="py-2 px-3">
+              <p className="text-xs uppercase text-success-text">Total recebido da igreja</p>
+              <p className="text-base font-semibold text-success-text tabular-nums">+ {brl(stats.recebido)}</p>
+            </CardContent>
+          </Card>
+        )}
         <Card>
           <CardContent className="py-2 px-3">
             <p className="text-xs uppercase text-muted-foreground">Última vez</p>
@@ -223,11 +254,12 @@ export default function FinancasFornecedorDetalhe() {
       <div className="space-y-1.5">
         <h3 className="text-xs uppercase tracking-wide text-muted-foreground px-1">
           Histórico de lançamentos ({lancs.length})
+          {viaPessoa.size > 0 && <span className="normal-case tracking-normal"> · {viaPessoa.size} registrado{viaPessoa.size === 1 ? "" : "s"} como pessoa</span>}
         </h3>
         {lancs.length === 0 ? (
           <Card className="border-dashed">
             <CardContent className="py-6 text-center text-sm text-muted-foreground italic">
-              Nenhum lançamento vinculado a este fornecedor ainda.
+              Nenhum lançamento vinculado a este favorecido ainda.
             </CardContent>
           </Card>
         ) : (
@@ -242,6 +274,7 @@ export default function FinancasFornecedorDetalhe() {
                   <p className="text-sm font-medium truncate">{l.descricao || l.categoria_nome || "—"}</p>
                   <p className="text-xs text-muted-foreground">
                     {dataBr(l.data)}
+                    {viaPessoa.has(l.id) && " · como pessoa"}
                     {l.categoria_nome && ` · ${l.categoria_nome}`}
                     {l.conta_nome && ` · ${l.conta_nome}`}
                   </p>
@@ -266,7 +299,7 @@ export default function FinancasFornecedorDetalhe() {
       <AlertDialog open={confirmando} onOpenChange={setConfirmando}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{fornecedor.ativo ? "Inativar fornecedor?" : "Reativar fornecedor?"}</AlertDialogTitle>
+            <AlertDialogTitle>{fornecedor.ativo ? "Inativar favorecido?" : "Reativar favorecido?"}</AlertDialogTitle>
             <AlertDialogDescription>
               {fornecedor.ativo
                 ? `"${fornecedor.nome}" deixa de aparecer na busca ao lançar uma despesa nova. O histórico já feito não muda.`

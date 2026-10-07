@@ -69,7 +69,7 @@ BEGIN
   UPDATE public.visitante_sessoes SET ativo = false WHERE ativo;
   INSERT INTO public.visitante_sessoes (culto) VALUES ('Culto de TESTE 3');
   SET LOCAL ROLE anon;
-  PERFORM public.visitante_autocadastro(codigo, jsonb_build_object('nome', 'OUTRO NOME', 'telefone', TEL, 'endereco', 'Endereço trocado',
+  PERFORM public.visitante_autocadastro(codigo, jsonb_build_object('nome', 'Maria OUTRO NOME', 'telefone', TEL, 'endereco', 'Endereço trocado',
       'data_nascimento', '1950-01-01', 'lgpd_aceito', true));
   RESET ROLE;
   SELECT * INTO m FROM public.membros WHERE telefone_celular = '5521990000001';
@@ -84,13 +84,25 @@ BEGIN
   IF membro_tel IS NOT NULL THEN
     SELECT * INTO antes FROM public.membros WHERE telefone_celular = membro_tel LIMIT 1;
     SET LOCAL ROLE anon;
-    r := public.visitante_autocadastro(codigo, jsonb_build_object('nome', 'Nome Qualquer', 'telefone', membro_tel, 'endereco', 'X', 'lgpd_aceito', true));
+    r := public.visitante_autocadastro(codigo, jsonb_build_object('nome', split_part(antes.nome_completo, ' ', 1) || ' Sobrenome Qualquer', 'telefone', membro_tel, 'endereco', 'X', 'lgpd_aceito', true));
     RESET ROLE;
     IF (r->>'novo')::boolean THEN RAISE EXCEPTION 'Caso 4: criou visitante para um membro/congregado já cadastrado.'; END IF;
     IF EXISTS (SELECT 1 FROM public.membros x WHERE x.id = antes.id AND (x.numero_visitas IS DISTINCT FROM antes.numero_visitas
         OR x.nome_completo <> antes.nome_completo OR x.tipo_pessoa <> antes.tipo_pessoa OR x.endereco IS DISTINCT FROM antes.endereco)) THEN
       RAISE EXCEPTION 'Caso 4: a ficha do % foi alterada.', tipo_do_membro;
     END IF;
+  END IF;
+
+  -- ── caso 10: telefone COMPARTILHADO (família) com OUTRO primeiro nome = outra pessoa; nunca vira "mais uma visita" do membro ──
+  caso := '10';
+  IF membro_tel IS NOT NULL THEN
+    SELECT count(*) INTO n FROM public.membros WHERE telefone_celular = membro_tel;
+    SET LOCAL ROLE anon;
+    r := public.visitante_autocadastro(codigo, jsonb_build_object('nome', 'Zzyzx Parente Da Familia', 'telefone', membro_tel, 'lgpd_aceito', true));
+    RESET ROLE;
+    IF NOT (r->>'novo')::boolean THEN RAISE EXCEPTION 'Caso 10: um parente com outro nome e o MESMO telefone foi engolido como visita de quem já existia.'; END IF;
+    IF (SELECT count(*) FROM public.membros WHERE telefone_celular = membro_tel) <> n + 1 THEN RAISE EXCEPTION 'Caso 10: o parente deveria ter virado uma pessoa nova.'; END IF;
+    IF (SELECT tipo_pessoa::text FROM public.membros WHERE nome_completo = 'Zzyzx Parente Da Familia') <> 'visitante' THEN RAISE EXCEPTION 'Caso 10: o parente deveria entrar como visitante.'; END IF;
   END IF;
 
   -- ── caso 5: entradas inválidas são recusadas (e não gravam nada) ─────────────────────────────────────────

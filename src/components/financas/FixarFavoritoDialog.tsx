@@ -52,7 +52,7 @@ export function FixarFavoritoDialog({ open, onOpenChange, contas, onFixado }: Pr
   const opcoes = tipo === "conta"
     ? contas.map(c => ({ valor: c.id, rotulo: c.nome, rota: `/financas/conta/${c.id}` }))
     : tipo === "fornecedor"
-    ? fornecedores.map(f => ({ valor: f.id, rotulo: f.nome, rota: `/financas/fornecedor/${f.id}` }))
+    ? fornecedores.map(f => ({ valor: f.id, rotulo: f.nome, rota: `/financas/favorecido/${f.id}` }))
     : tipo === "centro_custo"
     ? centros.map(c => ({ valor: c.id, rotulo: c.nome, rota: `/financas/centro/${c.id}` }))
     : RELATORIOS.map(r => ({ valor: r.rota, rotulo: r.rotulo, rota: r.rota }));

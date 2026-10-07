@@ -494,7 +494,7 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
                   ) : (
                     <p className="text-xs text-muted-foreground">
                       Esse cadastro ainda não tem chave Pix.{" "}
-                      <Link to={`/financas/fornecedor/${favorecidoProvavel.id}`} className="text-primary hover:underline">Cadastrar</Link>
+                      <Link to={`/financas/favorecido/${favorecidoProvavel.id}`} className="text-primary hover:underline">Cadastrar</Link>
                     </p>
                   )}
                   <Button type="button" size="sm" variant="outline" className="h-7 text-xs" disabled={vinculando} onClick={vincularFavorecido}>
@@ -511,7 +511,7 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
               {!carregandoFornecedor && confirmando.fornecedor_id && !fornecedorPagando?.chave_pix && (
                 <p className="text-xs text-muted-foreground">
                   Este favorecido ainda não tem chave Pix cadastrada.{" "}
-                  <Link to={`/financas/fornecedor/${confirmando.fornecedor_id}`} className="text-primary hover:underline">
+                  <Link to={`/financas/favorecido/${confirmando.fornecedor_id}`} className="text-primary hover:underline">
                     Cadastrar
                   </Link>
                 </p>

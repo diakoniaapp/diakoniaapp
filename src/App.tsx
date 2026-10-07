@@ -30,6 +30,7 @@ import CampanhasAdmin from "./pages/CampanhasAdmin.tsx";
 import AgendaPrint from "./pages/AgendaPrint.tsx";
 import Convite from "@/pages/Convite";
 import VisitanteAutocadastro from "@/pages/VisitanteAutocadastro";
+import RedirecionaFavorecido from "@/components/RedirecionaFavorecido";
 import Ebd from "./pages/Ebd.tsx";
 import EbdClasse from "./pages/EbdClasse.tsx";
 import Areas from "./pages/Areas.tsx";
@@ -211,8 +212,11 @@ const App = () => (
                   <Route path="/financas/centro/:centroId/prestacao-contas" element={<FinancasCentroPrestacaoContas />} />
                   <Route path="/financas/projetos" element={<FinancasProjetos />} />
                   <Route path="/financas/projeto/:id" element={<FinancasProjetoDetalhe />} />
-                  <Route path="/financas/fornecedores" element={<FinancasFornecedores />} />
-                  <Route path="/financas/fornecedor/:id" element={<FinancasFornecedorDetalhe />} />
+                  <Route path="/financas/favorecidos" element={<FinancasFornecedores />} />
+                  <Route path="/financas/favorecido/:id" element={<FinancasFornecedorDetalhe />} />
+                  {/* endereços antigos (favoritos, links): continuam valendo */}
+                  <Route path="/financas/fornecedores" element={<Navigate to="/financas/favorecidos" replace />} />
+                  <Route path="/financas/fornecedor/:id" element={<RedirecionaFavorecido />} />
                   <Route path="/financas/folha" element={<FinancasFolha />} />
                   <Route path="/financas/fiscal" element={<FinancasFiscal />} />
                   <Route path="/financas/reunioes" element={<ReunioesFinanceiras />} />
