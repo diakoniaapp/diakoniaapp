@@ -21,6 +21,33 @@ export interface Canal {
 export interface LinkExtra { rotulo: string; url: string; ativo: boolean }
 export interface Encontro { titulo: string; quando: string; data: string; local: string; link: string; ativo: boolean }
 
+export type ModoEncontros = "automatico" | "manual";
+
+/** Um encontro que a Agenda tem de futuro (uma série recorrente = UM item, com a próxima data), como o banco entrega à administração. */
+export interface ItemAgenda {
+  chave: string;
+  /** as chaves de todas as séries duplicadas que viraram este item: ligar/desligar vale para o grupo */
+  chaves: string[];
+  titulo: string;
+  tipo: string;
+  recorrente: boolean;
+  quando: string;
+  local: string;
+  proxima: string;
+  /** última data da série (nulo = sem fim, ou avulso) */
+  fim: string | null;
+  /** 1 = cultos e Escola Bíblica · 2 = demais programações recorrentes · 3 = eventos especiais */
+  prioridade: 1 | 2 | 3;
+  /** aparece sem ninguém ter ligado (só o grupo 1) */
+  padrao: boolean;
+}
+
+export const GRUPOS_DA_AGENDA: Record<1 | 2 | 3, string> = {
+  1: "Cultos e Escola Bíblica",
+  2: "Programações recorrentes",
+  3: "Eventos especiais",
+};
+
 export interface ConfigBoasVindas {
   titulo: string;
   mensagem: string;
@@ -30,6 +57,13 @@ export interface ConfigBoasVindas {
   eventos_mostrar: boolean;
   eventos_titulo: string;
   eventos_max: number;
+  /** automático = a agenda decide (cultos e EBD por padrão); manual = só o que a administração marcar, mais os itens digitados */
+  eventos_modo: ModoEncontros;
+  /** séries da agenda que a administração LIGOU (no automático, as que não são padrão; no manual, todas as escolhidas) */
+  agenda_incluidos: string[];
+  /** séries que ela DESLIGOU (só vale no automático) */
+  agenda_ocultos: string[];
+  /** itens digitados à mão (só valem no modo manual) */
   eventos: Encontro[];
 }
 
@@ -141,25 +175,47 @@ export function problemasDaConfig(c: ConfigBoasVindas): string[] {
 }
 
 const DIAS = ["domingo", "segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado"];
-/** "2026-10-10" + "19:00:00" → "sábado, 10/10 às 19h". */
+/** "2026-10-10" + "19:00:00" → "sábado, 10/10 · 19h00" (o mesmo desenho que o banco usa nos itens da agenda). */
 export function descreverQuando(data: string, hora?: string | null): string {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) return "";
   const d = parseLocalDate(data);
   let s = `${DIAS[d.getDay()]}, ${data.slice(8, 10)}/${data.slice(5, 7)}`;
   const h = hora?.match(/^(\d{2}):(\d{2})/);
-  if (h) s += ` às ${Number(h[1])}h${h[2] === "00" ? "" : h[2]}`;
+  if (h) s += ` · ${h[1]}h${h[2]}`;
   return s;
 }
 
-/** A mesma filtragem que `visitante_boasvindas()` faz no banco — para a prévia da configuração. */
-export function paraPublica(c: ConfigBoasVindas, hoje: string): BoasVindasPublica {
-  const eventos = !c.eventos_mostrar ? [] : c.eventos
+type ModoELigados = Pick<ConfigBoasVindas, "eventos_modo" | "agenda_incluidos" | "agenda_ocultos">;
+
+/** Este item da agenda aparece para o visitante? A mesma regra do banco: no automático, padrão − desligados + ligados; no manual, só os ligados. */
+export function itemVisivel(i: ItemAgenda, c: ModoELigados): boolean {
+  const ligado = i.chaves.some(k => c.agenda_incluidos.includes(k));
+  if (c.eventos_modo === "manual") return ligado;
+  return (i.padrao && !i.chaves.some(k => c.agenda_ocultos.includes(k))) || ligado;
+}
+
+/** Liga ou desliga um item, devolvendo as duas listas já ajustadas (só guarda o que foge do padrão do modo). */
+export function alternarItem(i: ItemAgenda, mostrar: boolean, c: ModoELigados): { agenda_incluidos: string[]; agenda_ocultos: string[] } {
+  const sem = (lista: string[]) => lista.filter(k => !i.chaves.includes(k));
+  let incluidos = sem(c.agenda_incluidos), ocultos = sem(c.agenda_ocultos);
+  if (c.eventos_modo === "manual") {
+    if (mostrar) incluidos = [...incluidos, i.chave];
+  } else if (mostrar && !i.padrao) incluidos = [...incluidos, i.chave];
+  else if (!mostrar && i.padrao) ocultos = [...ocultos, i.chave];
+  return { agenda_incluidos: incluidos, agenda_ocultos: ocultos };
+}
+
+/** A mesma filtragem que `visitante_boasvindas()` faz no banco — para a prévia da configuração. `agenda` já vem na ordem do banco. */
+export function paraPublica(c: ConfigBoasVindas, hoje: string, agenda: ItemAgenda[] = []): BoasVindasPublica {
+  const daAgenda = agenda.filter(i => itemVisivel(i, c))
+    .map(i => ({ titulo: i.titulo, quando: i.quando, local: i.local, link: null as string | null }));
+  const digitados = c.eventos_modo !== "manual" ? [] : c.eventos
     .filter(e => e.ativo && e.titulo.trim() !== "" && (!/^\d{4}-\d{2}-\d{2}$/.test(e.data) || e.data >= hoje))
-    .slice(0, c.eventos_max)
     .map(e => {
       const link = normalizarUrl("site", e.link);
       return { titulo: e.titulo.trim(), quando: e.quando.trim(), local: e.local.trim(), link: urlValida(link) ? link : null };
     });
+  const eventos = !c.eventos_mostrar ? [] : [...daAgenda, ...digitados].slice(0, c.eventos_max);
   return {
     titulo: c.titulo.trim() || TITULO_PADRAO,
     mensagem: c.mensagem,

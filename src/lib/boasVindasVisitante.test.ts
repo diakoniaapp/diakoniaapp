@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
-  BOAS_VINDAS_PADRAO, completarCanais, descreverQuando, fecharCanal, lerRespostaPublica, normalizarUrl, numeroDoWhatsApp, paraPublica,
-  problemasDaConfig, urlValida, type ConfigBoasVindas,
+  BOAS_VINDAS_PADRAO, alternarItem, completarCanais, descreverQuando, fecharCanal, itemVisivel, lerRespostaPublica, normalizarUrl, numeroDoWhatsApp, paraPublica,
+  problemasDaConfig, urlValida, type ConfigBoasVindas, type ItemAgenda,
 } from "./boasVindasVisitante";
 
 const base = (extra: Partial<ConfigBoasVindas> = {}): ConfigBoasVindas => ({
   titulo: "Cadastro realizado com sucesso", mensagem: "Bem-vindo", banner_url: null, canais: completarCanais([]), links: [],
-  eventos_mostrar: true, eventos_titulo: "Venha nos visitar de novo", eventos_max: 4, eventos: [], ...extra,
+  eventos_mostrar: true, eventos_titulo: "Venha nos visitar de novo", eventos_max: 4, eventos_modo: "automatico", agenda_incluidos: [], agenda_ocultos: [], eventos: [], ...extra,
 });
 
 describe("endereços", () => {
@@ -72,7 +72,7 @@ describe("o que o visitante vê (a prévia repete o banco)", () => {
       { titulo: "Fixo", quando: "Domingos, 10h30", data: "", local: "", link: "qibrj.org.br/cultos", ativo: true },
       { titulo: "Passa do máximo", quando: "", data: "2026-10-30", local: "", link: "", ativo: true },
     ];
-    const p = paraPublica(base({ canais, eventos, eventos_max: 2 }), hoje);
+    const p = paraPublica(base({ canais, eventos, eventos_max: 2, eventos_modo: "manual" }), hoje);
     expect(p.canais.map(c => c.tipo)).toEqual(["instagram", "whatsapp"]);
     expect(p.canais[1].url).toBe("https://wa.me/5521999990000");
     expect(p.eventos.map(e => e.titulo)).toEqual(["Hoje", "Fixo"]);
@@ -80,7 +80,7 @@ describe("o que o visitante vê (a prévia repete o banco)", () => {
     expect(p.eventos[1].link).toBe("https://qibrj.org.br/cultos");
   });
   it("encontros desligados somem; banner perigoso não passa", () => {
-    expect(paraPublica(base({ eventos_mostrar: false, eventos: [{ titulo: "X", quando: "", data: "", local: "", link: "", ativo: true }] }), hoje).eventos).toEqual([]);
+    expect(paraPublica(base({ eventos_mostrar: false, eventos_modo: "manual", eventos: [{ titulo: "X", quando: "", data: "", local: "", link: "", ativo: true }] }), hoje).eventos).toEqual([]);
     expect(paraPublica(base({ banner_url: "javascript:alert(1)" }), hoje).banner_url).toBeNull();
     expect(paraPublica(base({ banner_url: "https://x.supabase.co/a.webp" }), hoje).banner_url).toBe("https://x.supabase.co/a.webp");
   });
@@ -95,12 +95,50 @@ describe("o que o visitante vê (a prévia repete o banco)", () => {
 
 describe("quando", () => {
   it("dia da semana, dia/mês e hora", () => {
-    expect(descreverQuando("2026-10-10", "19:00:00")).toBe("sábado, 10/10 às 19h");
-    expect(descreverQuando("2026-10-11", "10:30:00")).toBe("domingo, 11/10 às 10h30");
+    expect(descreverQuando("2026-10-10", "19:00:00")).toBe("sábado, 10/10 · 19h00");
+    expect(descreverQuando("2026-10-11", "10:30:00")).toBe("domingo, 11/10 · 10h30");
     expect(descreverQuando("2026-10-11", null)).toBe("domingo, 11/10");
     expect(descreverQuando("", "10:00:00")).toBe("");
   });
   it("fecharCanal monta o WhatsApp a partir do número e da mensagem", () => {
     expect(fecharCanal({ tipo: "whatsapp", url: "", ativo: true, numero: "21999990000", mensagem: "oi" }).url).toBe("https://wa.me/5521999990000?text=oi");
+  });
+});
+
+const item = (extra: Partial<ItemAgenda> = {}): ItemAgenda => ({
+  chave: "a", chaves: ["a"], titulo: "Culto da Noite", tipo: "culto", recorrente: true, quando: "Domingo · 18h30", local: "Templo Principal",
+  proxima: "2026-10-11", fim: null, prioridade: 1, padrao: true, ...extra,
+});
+const live = item({ chave: "l1", chaves: ["l1", "l2"], titulo: "Live Matinal de Oração", tipo: "live", quando: "Segunda a sexta · 06h30", prioridade: 2, padrao: false });
+
+describe("encontros lidos da agenda", () => {
+  it("automático: o padrão (cultos e EBD) aparece; desligar tira; ligar um que não é padrão põe", () => {
+    const auto = base();
+    expect(itemVisivel(item(), auto)).toBe(true);
+    expect(itemVisivel(live, auto)).toBe(false);
+    expect(itemVisivel(item(), { ...auto, agenda_ocultos: ["a"] })).toBe(false);
+    expect(itemVisivel(live, { ...auto, agenda_incluidos: ["l2"] })).toBe(true);   // vale para qualquer duplicata do grupo
+  });
+  it("manual: só o que foi marcado", () => {
+    const man = base({ eventos_modo: "manual" });
+    expect(itemVisivel(item(), man)).toBe(false);
+    expect(itemVisivel(item(), { ...man, agenda_incluidos: ["a"] })).toBe(true);
+  });
+  it("alternarItem só guarda o que foge do padrão do modo, e limpa as chaves de todo o grupo", () => {
+    const auto = base();
+    expect(alternarItem(item(), false, auto)).toEqual({ agenda_incluidos: [], agenda_ocultos: ["a"] });
+    expect(alternarItem(item(), true, { ...auto, agenda_ocultos: ["a"] })).toEqual({ agenda_incluidos: [], agenda_ocultos: [] });
+    expect(alternarItem(live, true, auto)).toEqual({ agenda_incluidos: ["l1"], agenda_ocultos: [] });
+    expect(alternarItem(live, false, { ...auto, agenda_incluidos: ["l1", "l2"] })).toEqual({ agenda_incluidos: [], agenda_ocultos: [] });
+    expect(alternarItem(item(), true, base({ eventos_modo: "manual" }))).toEqual({ agenda_incluidos: ["a"], agenda_ocultos: [] });
+  });
+  it("a prévia mantém a ordem do banco, respeita o máximo e ignora o digitado no automático", () => {
+    const agenda = [item({ chave: "1", chaves: ["1"], titulo: "Escola Bíblica Dominical" }), item({ chave: "2", chaves: ["2"], titulo: "Culto da Manhã" }), live, item({ chave: "3", chaves: ["3"], titulo: "Culto da Noite" })];
+    const digitado = { titulo: "Digitado", quando: "x", data: "", local: "", link: "", ativo: true };
+    const p = paraPublica(base({ eventos: [digitado], agenda_incluidos: ["l1"], eventos_max: 3 }), "2026-10-08", agenda);
+    expect(p.eventos.map(e => e.titulo)).toEqual(["Escola Bíblica Dominical", "Culto da Manhã", "Live Matinal de Oração"]);
+    const m = paraPublica(base({ eventos: [digitado], eventos_modo: "manual", agenda_incluidos: ["2"] }), "2026-10-08", agenda);
+    expect(m.eventos.map(e => e.titulo)).toEqual(["Culto da Manhã", "Digitado"]);
+    expect(p.eventos[0].link).toBeNull();
   });
 });

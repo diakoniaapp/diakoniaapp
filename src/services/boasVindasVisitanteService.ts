@@ -7,10 +7,9 @@
 import { supabase } from "@/integrations/supabase/client";
 import { conferir } from "@/lib/escritaConferida";
 import {
-  completarCanais, fecharCanal, descreverQuando, urlValida, normalizarUrl,
-  type ConfigBoasVindas, type Encontro, type LinkExtra,
+  completarCanais, fecharCanal, urlValida, normalizarUrl,
+  type ConfigBoasVindas, type Encontro, type ItemAgenda, type LinkExtra,
 } from "@/lib/boasVindasVisitante";
-import { hojeLocal } from "@/lib/data";
 
 const BUCKET = "boasvindas-visitante";
 const TAMANHO_MAX = 2 * 1024 * 1024;   // o mesmo limite do bucket
@@ -25,6 +24,9 @@ export async function carregarConfig(): Promise<ConfigBoasVindas | null> {
     canais: completarCanais(Array.isArray(d.canais) ? d.canais : []),
     links: (Array.isArray(d.links) ? d.links : []).map((l: any): LinkExtra => ({ rotulo: l.rotulo ?? "", url: l.url ?? "", ativo: !!l.ativo })),
     eventos_mostrar: !!d.eventos_mostrar, eventos_titulo: d.eventos_titulo ?? "", eventos_max: Number(d.eventos_max) || 4,
+    eventos_modo: d.eventos_modo === "manual" ? "manual" : "automatico",
+    agenda_incluidos: Array.isArray(d.agenda_incluidos) ? d.agenda_incluidos : [],
+    agenda_ocultos: Array.isArray(d.agenda_ocultos) ? d.agenda_ocultos : [],
     eventos: (Array.isArray(d.eventos) ? d.eventos : []).map((e: any): Encontro => ({
       titulo: e.titulo ?? "", quando: e.quando ?? "", data: e.data ?? "", local: e.local ?? "", link: e.link ?? "", ativo: !!e.ativo,
     })),
@@ -43,6 +45,7 @@ export async function salvarConfig(c: ConfigBoasVindas): Promise<void> {
     })),
     links: c.links.map(l => ({ rotulo: l.rotulo.trim(), url: normalizarUrl("site", l.url), ativo: l.ativo })),
     eventos_mostrar: c.eventos_mostrar, eventos_titulo: c.eventos_titulo.trim() || "Venha nos visitar de novo", eventos_max: c.eventos_max,
+    eventos_modo: c.eventos_modo, agenda_incluidos: c.agenda_incluidos, agenda_ocultos: c.agenda_ocultos,
     eventos: c.eventos.map(e => ({ titulo: e.titulo.trim(), quando: e.quando.trim(), data: e.data, local: e.local.trim(), link: e.link.trim() ? normalizarUrl("site", e.link) : "", ativo: e.ativo })),
     atualizado_em: new Date().toISOString(), atualizado_por: uid,
   };
@@ -86,19 +89,15 @@ export async function apagarBanner(url: string | null): Promise<void> {
   await supabase.storage.from(BUCKET).remove([decodeURIComponent(url.slice(i + BUCKET.length + 2).split("?")[0])]).catch(() => undefined);
 }
 
-// ── "trazer da agenda" ─────────────────────────────────────────────────────────────────────────────────────
+// ── a agenda, para a administração escolher ────────────────────────────────────────────────────────────────
 
-export interface EventoDaAgenda { id: string; titulo: string; data: string; hora_inicio: string | null; local: string | null; tipo: string }
-
-/** Os próximos encontros avulsos da agenda (séries recorrentes ficam de fora: cadastre-as à mão, como "Domingos, 10h30"). */
-export async function proximosDaAgenda(): Promise<EventoDaAgenda[]> {
-  const { data, error } = await supabase.from("eventos").select("id, titulo, data, hora_inicio, local, tipo")
-    .gte("data", hojeLocal()).eq("status", "agendado").is("recorrencia_regra", null)
-    .in("tipo", ["culto", "acao_social", "curso", "live", "outro"]).order("data").order("hora_inicio").limit(20);
+/**
+ * Tudo que a Agenda tem de futuro nos próximos 60 dias — cada série recorrente (cultos, EBD, orações, reuniões) vira UM item
+ * com a próxima data e o padrão ("Domingo · 09h00"), sem as datas canceladas ou remarcadas. Já vem na ordem do visitante:
+ * cultos, programações recorrentes, eventos especiais. Só a administração chama (a função do banco confere o papel).
+ */
+export async function carregarAgenda(): Promise<ItemAgenda[]> {
+  const { data, error } = await supabase.rpc("visitante_agenda_candidatos" as never);
   if (error) throw new Error(error.message);
-  return ((data ?? []) as unknown as EventoDaAgenda[]).map(e => ({ ...e, titulo: e.titulo.split(" | ")[0].trim() }));
+  return (Array.isArray(data) ? data : []) as unknown as ItemAgenda[];
 }
-
-export const encontroDaAgenda = (e: EventoDaAgenda): Encontro => ({
-  titulo: e.titulo, quando: descreverQuando(e.data, e.hora_inicio), data: e.data, local: e.local ?? "", link: "", ativo: true,
-});

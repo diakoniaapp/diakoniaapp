@@ -7,7 +7,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowDown, ArrowUp, CalendarPlus, ImagePlus, Loader2, Plus, Save, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ImagePlus, Loader2, Plus, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { PageHeader } from "@/components/PageHeader";
@@ -19,15 +19,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { hojeLocal } from "@/lib/data";
+import { hojeLocal, hojeMaisDias } from "@/lib/data";
 import {
-  CANAIS, paraPublica, problemasDaConfig, type Canal, type ConfigBoasVindas, type Encontro, type LinkExtra,
+  CANAIS, GRUPOS_DA_AGENDA, alternarItem, itemVisivel, paraPublica, problemasDaConfig,
+  type Canal, type ConfigBoasVindas, type Encontro, type ItemAgenda, type LinkExtra, type ModoEncontros,
 } from "@/lib/boasVindasVisitante";
 import {
-  apagarBanner, carregarConfig, encontroDaAgenda, enviarBanner, prepararBanner, proximosDaAgenda, salvarConfig, type EventoDaAgenda,
+  apagarBanner, carregarAgenda, carregarConfig, enviarBanner, prepararBanner, salvarConfig,
 } from "@/services/boasVindasVisitanteService";
 
 const ENCONTRO_VAZIO: Encontro = { titulo: "", quando: "", data: "", local: "", link: "", ativo: true };
+const daquiA30 = hojeMaisDias(30);   // série que termina antes disso ganha um aviso
 
 function mover<T>(lista: T[], i: number, d: -1 | 1): T[] {
   const j = i + d;
@@ -38,7 +40,7 @@ function mover<T>(lista: T[], i: number, d: -1 | 1): T[] {
 }
 
 export default function BoasVindasVisitanteAdmin() {
-  const { hasRole } = useAuth();
+  const { hasRole, rolesCarregados } = useAuth();
   const navigate = useNavigate();
   const [c, setC] = useState<ConfigBoasVindas | null>(null);
   const [carregando, setCarregando] = useState(true);
@@ -47,11 +49,12 @@ export default function BoasVindasVisitanteAdmin() {
   const [enviandoBanner, setEnviandoBanner] = useState(false);
   const [bannerSalvo, setBannerSalvo] = useState<string | null>(null);        // o que está no banco hoje
   const [bannerNaoSalvo, setBannerNaoSalvo] = useState<string | null>(null);  // enviado nesta sessão, ainda sem salvar
-  const [agenda, setAgenda] = useState<EventoDaAgenda[] | null>(null);
-  const [buscandoAgenda, setBuscandoAgenda] = useState(false);
+  const [agenda, setAgenda] = useState<ItemAgenda[] | null>(null);
+  const [erroAgenda, setErroAgenda] = useState<string | null>(null);
   const arquivoRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => { if (!hasRole(["admin", "diakonia", "secretaria"])) navigate("/", { replace: true }); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
+  // só depois de os papéis carregarem: `roles` vazio também quer dizer "ainda não carregou" (ao abrir o endereço direto, isto mandava a administradora para a Home)
+  useEffect(() => { if (rolesCarregados && !hasRole(["admin", "diakonia", "secretaria"])) navigate("/", { replace: true }); }, [rolesCarregados]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     carregarConfig()
@@ -60,7 +63,12 @@ export default function BoasVindasVisitanteAdmin() {
       .finally(() => setCarregando(false));
   }, []);
 
-  const previa = useMemo(() => (c ? paraPublica(c, hojeLocal()) : null), [c]);
+  // a agenda (cultos, EBD, programações recorrentes e eventos especiais), lida do banco já expandida e na ordem do visitante
+  useEffect(() => {
+    carregarAgenda().then(setAgenda).catch(e => { setAgenda([]); setErroAgenda(e?.message ?? "Não foi possível ler a agenda."); });
+  }, []);
+
+  const previa = useMemo(() => (c ? paraPublica(c, hojeLocal(), agenda ?? []) : null), [c, agenda]);
   const set = (p: Partial<ConfigBoasVindas>) => setC(x => (x ? { ...x, ...p } : x));
   const setCanal = (i: number, p: Partial<Canal>) => set({ canais: c!.canais.map((x, k) => (k === i ? { ...x, ...p } : x)) });
   const setLink = (i: number, p: Partial<LinkExtra>) => set({ links: c!.links.map((x, k) => (k === i ? { ...x, ...p } : x)) });
@@ -92,13 +100,6 @@ export default function BoasVindasVisitanteAdmin() {
       toast.success("Boas-vindas salvas. O visitante já vê a nova tela.");
     } catch (err: any) { toast.error(err?.message ?? "Não foi possível salvar"); }
     finally { setSalvando(false); }
-  }
-
-  async function abrirAgenda() {
-    setBuscandoAgenda(true);
-    try { setAgenda(await proximosDaAgenda()); }
-    catch (err: any) { toast.error(err?.message ?? "Não foi possível ler a agenda"); }
-    finally { setBuscandoAgenda(false); }
   }
 
   if (carregando) return <div className="flex h-40 items-center justify-center text-muted-foreground"><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Carregando…</div>;
@@ -201,58 +202,95 @@ export default function BoasVindasVisitanteAdmin() {
                 <div className="flex items-center gap-2 text-sm"><Label htmlFor="bv-ev-mostrar" className="font-normal">Mostrar</Label><Switch id="bv-ev-mostrar" checked={c.eventos_mostrar} onCheckedChange={v => set({ eventos_mostrar: v })} /></div>
               </div>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <p className="text-xs text-muted-foreground">
-                Você escolhe o que o visitante vê — a agenda interna não é exposta. Encontro com data some sozinho depois do dia; sem data, fica sempre
-                (bom para “Domingos, 10h30”).
-              </p>
+            <CardContent className="space-y-4">
+              <fieldset className="space-y-2">
+                <legend className="text-sm font-medium">De onde vêm os encontros</legend>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {([
+                    ["automatico", "Automático (recomendado)", "Lê a Agenda sozinho: cultos e Escola Bíblica já aparecem, e você liga ou desliga o que quiser."],
+                    ["manual", "Manual", "Aparece só o que você marcar na lista da Agenda abaixo, mais o que digitar à mão."],
+                  ] as [ModoEncontros, string, string][]).map(([v, r, d]) => (
+                    <button key={v} type="button" aria-pressed={c.eventos_modo === v} onClick={() => set({ eventos_modo: v })}
+                      className={`rounded-md border p-3 text-left ${c.eventos_modo === v ? "border-primary bg-primary/10" : "border-input"}`}>
+                      <span className="block text-sm font-medium">{r}</span>
+                      <span className="block text-xs text-muted-foreground">{d}</span>
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+
               <div className="grid gap-3 sm:grid-cols-[1fr_120px]">
                 <div><Label htmlFor="bv-ev-titulo">Título da seção</Label><Input id="bv-ev-titulo" maxLength={80} value={c.eventos_titulo} onChange={e => set({ eventos_titulo: e.target.value })} /></div>
-                <div><Label htmlFor="bv-ev-max">Máximo</Label>
+                <div><Label htmlFor="bv-ev-max">Máximo na tela</Label>
                   <Input id="bv-ev-max" type="number" min={1} max={10} value={c.eventos_max} onChange={e => set({ eventos_max: Math.min(10, Math.max(1, Number(e.target.value) || 1)) })} /></div>
               </div>
 
-              {c.eventos.map((e, i) => (
-                <div key={i} className="space-y-2 rounded-md border p-3">
-                  <div className="flex items-center gap-2">
-                    <Input aria-label="Nome do encontro" placeholder="Nome do encontro" maxLength={100} value={e.titulo} onChange={ev => setEncontro(i, { titulo: ev.target.value })} />
-                    <Switch checked={e.ativo} onCheckedChange={v => setEncontro(i, { ativo: v })} aria-label="Mostrar este encontro" />
-                  </div>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    <Input aria-label="Quando" placeholder="Quando (ex.: Domingos, 10h30)" maxLength={80} value={e.quando} onChange={ev => setEncontro(i, { quando: ev.target.value })} />
-                    <Input aria-label="Onde" placeholder="Onde (opcional)" maxLength={80} value={e.local} onChange={ev => setEncontro(i, { local: ev.target.value })} />
-                  </div>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    <div><Label className="text-xs text-muted-foreground">Data (some depois dela; deixe vazio para fixo)</Label><CampoData value={e.data} onChange={v => setEncontro(i, { data: v })} /></div>
-                    <div><Label className="text-xs text-muted-foreground">Link (opcional)</Label><Input aria-label="Link do encontro" placeholder="www.suaigreja.org.br/evento" value={e.link} onChange={ev => setEncontro(i, { link: ev.target.value })} /></div>
-                  </div>
-                  <div className="flex justify-end gap-1">
-                    <Button type="button" size="icon" variant="ghost" aria-label="Subir" onClick={() => set({ eventos: mover(c.eventos, i, -1) })}><ArrowUp className="h-4 w-4" /></Button>
-                    <Button type="button" size="icon" variant="ghost" aria-label="Descer" onClick={() => set({ eventos: mover(c.eventos, i, 1) })}><ArrowDown className="h-4 w-4" /></Button>
-                    <Button type="button" size="icon" variant="ghost" aria-label="Remover encontro" onClick={() => set({ eventos: c.eventos.filter((_, k) => k !== i) })}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                  </div>
+              <section className="space-y-3" aria-label="Encontros da Agenda">
+                <div>
+                  <p className="text-sm font-medium">O que a Agenda tem nos próximos 60 dias</p>
+                  <p className="text-xs text-muted-foreground">
+                    Cada programação que se repete aparece uma vez, com a próxima data; datas canceladas ou remarcadas na Agenda são respeitadas.
+                    O visitante vê primeiro os cultos, depois as programações recorrentes e por fim os eventos especiais.
+                  </p>
                 </div>
-              ))}
+                {agenda === null && <p className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Lendo a Agenda…</p>}
+                {erroAgenda && <p role="alert" className="text-sm text-destructive-text">{erroAgenda}</p>}
+                {agenda !== null && !erroAgenda && agenda.length === 0 && <p className="text-sm text-muted-foreground">A Agenda não tem encontros nos próximos 60 dias.</p>}
+                {([1, 2, 3] as const).map(g => {
+                  const itens = (agenda ?? []).filter(i => i.prioridade === g);
+                  if (itens.length === 0) return null;
+                  return (
+                    <div key={g} className="space-y-1.5">
+                      <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">{GRUPOS_DA_AGENDA[g]}</p>
+                      {itens.map(i => {
+                        const ligado = itemVisivel(i, c);
+                        const terminaLogo = !!i.fim && i.fim <= daquiA30;
+                        return (
+                          <div key={i.chave} className="flex items-center gap-3 rounded-md border p-2.5">
+                            <Switch checked={ligado} onCheckedChange={v => setC(x => (x ? { ...x, ...alternarItem(i, v, x) } : x))} aria-label={`Mostrar ${i.titulo}`} />
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-medium">{i.titulo}</p>
+                              <p className="truncate text-xs text-muted-foreground">{i.quando}{i.local ? ` · ${i.local}` : ""}</p>
+                              {terminaLogo && <p className="text-xs text-warning-text">A série termina em {i.fim!.slice(8, 10)}/{i.fim!.slice(5, 7)}: renove na Agenda para continuar aparecendo.</p>}
+                            </div>
+                            {c.eventos_modo === "automatico" && i.padrao && <span className="shrink-0 rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground">padrão</span>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </section>
 
-              <div className="flex flex-wrap gap-2">
-                {c.eventos.length < 30 && <Button type="button" variant="outline" className="gap-2 border-dashed" onClick={() => set({ eventos: [...c.eventos, { ...ENCONTRO_VAZIO }] })}><Plus className="h-4 w-4" /> Adicionar encontro</Button>}
-                <Button type="button" variant="outline" className="gap-2 border-dashed" disabled={buscandoAgenda} onClick={abrirAgenda}>
-                  {buscandoAgenda ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarPlus className="h-4 w-4" />} Trazer da agenda
-                </Button>
-              </div>
-
-              {agenda && (
-                <div className="space-y-1 rounded-md border bg-muted/30 p-3">
-                  <p className="text-xs font-medium">Próximos encontros avulsos da agenda</p>
-                  {agenda.length === 0 && <p className="text-sm text-muted-foreground">Nenhum encontro avulso agendado. Cultos que se repetem toda semana cadastre acima, à mão.</p>}
-                  {agenda.map(a => (
-                    <div key={a.id} className="flex items-center gap-2 text-sm">
-                      <span className="min-w-0 flex-1 truncate">{a.titulo} <span className="text-muted-foreground">· {a.data.slice(8, 10)}/{a.data.slice(5, 7)}</span></span>
-                      <Button type="button" size="sm" variant="outline" className="h-8 shrink-0" onClick={() => { set({ eventos: [...c.eventos, encontroDaAgenda(a)] }); setAgenda(agenda.filter(x => x.id !== a.id)); }}>Adicionar</Button>
+              {c.eventos_modo === "manual" && (
+                <section className="space-y-3 border-t pt-4" aria-label="Itens digitados">
+                  <div>
+                    <p className="text-sm font-medium">Itens digitados à mão</p>
+                    <p className="text-xs text-muted-foreground">Para o que não está na Agenda. Com data, o item some sozinho depois do dia; sem data, fica sempre.</p>
+                  </div>
+                  {c.eventos.map((e, i) => (
+                    <div key={i} className="space-y-2 rounded-md border p-3">
+                      <div className="flex items-center gap-2">
+                        <Input aria-label="Nome do encontro" placeholder="Nome do encontro" maxLength={100} value={e.titulo} onChange={ev => setEncontro(i, { titulo: ev.target.value })} />
+                        <Switch checked={e.ativo} onCheckedChange={v => setEncontro(i, { ativo: v })} aria-label="Mostrar este encontro" />
+                      </div>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <Input aria-label="Quando" placeholder="Quando (ex.: Domingos · 10h30)" maxLength={80} value={e.quando} onChange={ev => setEncontro(i, { quando: ev.target.value })} />
+                        <Input aria-label="Onde" placeholder="Onde (opcional)" maxLength={80} value={e.local} onChange={ev => setEncontro(i, { local: ev.target.value })} />
+                      </div>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <div><Label className="text-xs text-muted-foreground">Data (some depois dela; vazio = fixo)</Label><CampoData value={e.data} onChange={v => setEncontro(i, { data: v })} /></div>
+                        <div><Label className="text-xs text-muted-foreground">Link (opcional)</Label><Input aria-label="Link do encontro" placeholder="www.suaigreja.org.br/evento" value={e.link} onChange={ev => setEncontro(i, { link: ev.target.value })} /></div>
+                      </div>
+                      <div className="flex justify-end gap-1">
+                        <Button type="button" size="icon" variant="ghost" aria-label="Subir" onClick={() => set({ eventos: mover(c.eventos, i, -1) })}><ArrowUp className="h-4 w-4" /></Button>
+                        <Button type="button" size="icon" variant="ghost" aria-label="Descer" onClick={() => set({ eventos: mover(c.eventos, i, 1) })}><ArrowDown className="h-4 w-4" /></Button>
+                        <Button type="button" size="icon" variant="ghost" aria-label="Remover encontro" onClick={() => set({ eventos: c.eventos.filter((_, k) => k !== i) })}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                      </div>
                     </div>
                   ))}
-                  <button type="button" className="text-xs text-muted-foreground underline" onClick={() => setAgenda(null)}>Fechar</button>
-                </div>
+                  {c.eventos.length < 30 && <Button type="button" variant="outline" className="gap-2 border-dashed" onClick={() => set({ eventos: [...c.eventos, { ...ENCONTRO_VAZIO }] })}><Plus className="h-4 w-4" /> Adicionar item</Button>}
+                </section>
               )}
             </CardContent>
           </Card>
