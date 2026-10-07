@@ -148,10 +148,10 @@ BEGIN
     IF v_saldo > 0.004 THEN  -- baixa parcial: o que falta continua previsto, com a mesma classificação e o mesmo vencimento
       INSERT INTO public.fin_lancamentos (conta_id, tipo, status, data, data_competencia, valor, valor_original, descricao, categoria_id,
         centro_custo_id, projeto_id, fornecedor_id, pessoa_id, forma_pagamento, documento_numero, observacoes, origem, campanha_missionaria,
-        obrigacao_id, componente)
+        valor_variavel, obrigacao_id, componente)
       VALUES (l.conta_id, 'saida', 'previsto', l.data, l.data_competencia, round(v_saldo, 2), v_orig, l.descricao, l.categoria_id,
         l.centro_custo_id, l.projeto_id, l.fornecedor_id, l.pessoa_id, l.forma_pagamento, l.documento_numero, l.observacoes, l.origem, l.campanha_missionaria,
-        v_raiz, 'principal');
+        l.valor_variavel, v_raiz, 'principal');
       -- (recorrencia_id/parcela_* NÃO são copiados: o gerador de recorrências continua vendo o mês como já gerado pelo lançamento pago)
     END IF;
 
@@ -180,10 +180,10 @@ BEGIN
       ELSE ref.categoria_id END;
     IF v_cat IS NULL THEN RAISE EXCEPTION 'Categoria de % não encontrada no plano de contas.', v_tipo; END IF;
     INSERT INTO public.fin_lancamentos (conta_id, tipo, status, data, data_pagamento, valor, descricao, categoria_id, centro_custo_id, projeto_id,
-      fornecedor_id, pessoa_id, forma_pagamento, observacoes, origem, obrigacao_id, liquidacao_id, componente)
+      fornecedor_id, pessoa_id, forma_pagamento, observacoes, origem, valor_variavel, obrigacao_id, liquidacao_id, componente)
     VALUES (p_conta_id, 'saida', 'realizado', p_data, p_data, v_valor,
       initcap(v_tipo) || ' — ' || COALESCE(ref.descricao, 'pagamento'), v_cat, ref.centro_custo_id, ref.projeto_id,
-      ref.fornecedor_id, ref.pessoa_id, p_forma, NULLIF(btrim(en->>'motivo'), ''), 'liquidacao', COALESCE(ref.obrigacao_id, ref.id), liq, v_tipo);
+      ref.fornecedor_id, ref.pessoa_id, p_forma, NULLIF(btrim(en->>'motivo'), ''), 'liquidacao', false, COALESCE(ref.obrigacao_id, ref.id), liq, v_tipo);
     v_total := v_total + v_valor;
   END LOOP;
 

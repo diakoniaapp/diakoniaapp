@@ -73,7 +73,7 @@ Os 2 previstos não entram nessas somas (só realizado/conciliado), então os n�
 **Três coisas que você precisa saber:**
 
 1. **O Esforço Total passa a incluir os projetos** (+ R$ 5.050,00 da Cristolândia, que hoje fica de fora). Ele vira simplesmente "tudo que sai do centro de Missões" = a soma dos 4 subcentros.
-2. **O Fundo não muda:** continua **−7.830,22**.
+2. **O Fundo não muda:** continua **−7.624,02**.
 3. **Campanhas passa a mostrar os dois lados:** as 652 ofertas entram nele, então a tela do subcentro mostra *arrecadado × enviado* de uma vez. Isso responde a pergunta 2, mas o **Esforço Total continua sendo só saída** (as entradas não entram nele).
 
 **Efeito colateral bom:** o Fechamento mensal bloqueava o malote por "entrada sem centro de custo", e 647 das 653 ofertas estavam assim (o centro "Missões Mundiais", que guardava 224, foi excluído e o banco as deixou sem centro). Com a mudança, **sobram 0 ofertas do Fundo sem centro**.
@@ -102,4 +102,4 @@ Os 2 previstos não entram nessas somas (só realizado/conciliado), então os n�
 
 1. ~~Você revisa este documento e o SQL e responde §6.~~ Feito.
 2. ~~Eu transformo o rascunho em migration, publico o código compatível com os dois estados e te passo o ensaio.~~ Feito: `supabase/migrations/20261007000000_missoes_quatro_subcentros.sql` (o painel já funciona antes e depois dela).
-3. Você aplica (ensaio → valer), conferindo: Sustento **70.592,93** · Campanhas **158.152,29** (saídas) · Projetos **13.750,00** · Ofertas **150,00** · Fundo **−7.830,22** · ofertas do Fundo sem centro **0**.
+3. Você aplica (ensaio → valer), conferindo: Sustento **70.592,93** · Campanhas **158.152,29** (saídas) · Projetos **13.750,00** · Ofertas **150,00** · Fundo **−7.624,02** · ofertas do Fundo sem centro **0**.
