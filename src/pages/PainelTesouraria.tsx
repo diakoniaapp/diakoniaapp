@@ -1194,7 +1194,7 @@ export default function PainelTesouraria() {
                 // alertas — mais perto de relatório (página) do que de
                 // lista simples. Fica de fora do drawer de propósito.
                 { to: "/financas/centros", label: "Centros de Custo", icone: Layers },
-                { onClick: () => setFornecedoresAberto(true), label: "Fornecedores", icone: Building2 },
+                { onClick: () => setFornecedoresAberto(true), label: "Favorecidos", icone: Building2 },
                 // Fase 11d: EstoqueDrawer e OrcamentoDrawer, mesmo
                 // conteúdo de /financas/estoque e /financas/orcamento.
                 { onClick: () => setEstoqueAberto(true), label: "Estoque", icone: Package },

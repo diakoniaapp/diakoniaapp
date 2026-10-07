@@ -159,7 +159,7 @@ export function LeituraDoDocumentoPainel({
             {sugestao.origem === "aprendido" && <span className="px-1.5 py-0.5 rounded bg-info-soft text-info-text text-2xs">aprendido com você</span>}
           </div>
           <p className="text-xs">
-            {sugestao.fornecedorId && <>Fornecedor <strong>{nomeDoFornecedor(sugestao.fornecedorId)}</strong> · </>}
+            {sugestao.fornecedorId && <>Favorecido <strong>{nomeDoFornecedor(sugestao.fornecedorId)}</strong> · </>}
             {sugestao.categoriaId && <>Categoria <strong>{nomeDaCategoria(sugestao.categoriaId)}</strong></>}
             {sugestao.centroId && <> · Centro <strong>{nomeDoCentro(sugestao.centroId)}</strong></>}
           </p>

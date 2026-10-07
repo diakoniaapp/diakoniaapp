@@ -208,7 +208,7 @@ export default function FinancasAuditoriaAnexos() {
             opcoes={opcoes.contas.map(([id, nome]) => ({ id, nome }))} />
           <FiltroSelect rotulo="Centro de custo" valor={centro} onChange={setCentro}
             opcoes={opcoes.centros.map(([id, nome]) => ({ id, nome }))} />
-          <FiltroSelect rotulo="Fornecedor" valor={fornecedor} onChange={setFornecedor}
+          <FiltroSelect rotulo="Favorecido" valor={fornecedor} onChange={setFornecedor}
             opcoes={opcoes.fornecedores.map(nome => ({ id: nome, nome }))} />
           <FiltroSelect rotulo="Tipo de documento" valor={tipoDoc} onChange={setTipoDoc}
             opcoes={FIN_ANEXO_TIPOS_OFERECIDOS.map(t => ({ id: t, nome: FIN_ANEXO_TIPO_LABEL[t] }))} />

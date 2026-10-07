@@ -1015,11 +1015,11 @@ export default function FinancasConta() {
             </Select>
           </div>
           <div className="w-40">
-            <label className="text-xs uppercase tracking-wide text-muted-foreground">Fornecedor</label>
+            <label className="text-xs uppercase tracking-wide text-muted-foreground">Favorecido</label>
             <Select value={filtroFornecedorId || "__todos__"} onValueChange={(v) => setFiltroFornecedorId(v === "__todos__" ? "" : v)}>
               <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="__todos__">Todos fornecedores</SelectItem>
+                <SelectItem value="__todos__">Todos os favorecidos</SelectItem>
                 {fornecedoresFiltro.map(f => (
                   <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>
                 ))}
@@ -1182,7 +1182,7 @@ export default function FinancasConta() {
                     )}
                   </th>
                   {/* Situação saiu de coluna própria (16/09/2026, pedido da
-                      Telma: "mostre Data - Descrição/Fornecedor - Categoria
+                      Telma: "mostre Data - Descrição/Favorecido - Categoria
                       - valor - saldo, como um extrato de banco msm") — um
                       extrato de banco de verdade não tem coluna de
                       "situação", só data/descrição/valor/saldo; a situação
@@ -1225,7 +1225,7 @@ export default function FinancasConta() {
                     </CabecalhoFiltro>
                   </th>
                   <th className="text-left py-2 px-2">
-                    <CabecalhoFiltro label="Descrição / Fornecedor" ativo={buscaDebounced.length >= 2}>
+                    <CabecalhoFiltro label="Descrição / Favorecido" ativo={buscaDebounced.length >= 2}>
                       <label className="text-xs text-muted-foreground">Buscar na descrição</label>
                       <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Digite ao menos 2 letras..." className="h-8 text-xs" />
                     </CabecalhoFiltro>
@@ -1247,7 +1247,7 @@ export default function FinancasConta() {
                       (mesmo padrão já comprovado no
                       `ExtratoContaDrawer.tsx`), sem precisar de modo
                       extra. Só no Analítico — Resumido continua só
-                      Data/Fornecedor/Valor. O filtro continua na faixa
+                      Data/Favorecido/Valor. O filtro continua na faixa
                       de filtros acima (mesmo estado de sempre). */}
                   {!modoResumido && <th className="text-left py-2 px-2 w-32 hidden md:table-cell">Categoria</th>}
                   {!modoResumido && <th className="text-left py-2 px-2 w-40 hidden md:table-cell">Centro de custo</th>}

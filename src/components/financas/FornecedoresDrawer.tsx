@@ -61,7 +61,7 @@ export function FornecedoresDrawer({ open, onOpenChange }: Props) {
     try {
       setFornecedores(await listarFornecedores(undefined, mostrarInativos));
     } catch (e: any) {
-      toast.error(e?.message ?? "Erro ao carregar fornecedores");
+      toast.error(e?.message ?? "Erro ao carregar favorecidos");
     }
   }
 
@@ -91,7 +91,7 @@ export function FornecedoresDrawer({ open, onOpenChange }: Props) {
     setBusy(true);
     try {
       await atualizarFornecedor(alternando.id, { ativo: !alternando.ativo });
-      toast.success(alternando.ativo ? "Fornecedor inativado" : "Fornecedor reativado");
+      toast.success(alternando.ativo ? "Favorecido inativado" : "Favorecido reativado");
       setAlternando(null);
       await carregar();
     } catch (e: any) {
@@ -106,7 +106,7 @@ export function FornecedoresDrawer({ open, onOpenChange }: Props) {
           <SheetHeader className="p-4 border-b">
             <div className="flex items-center justify-between gap-2">
               <SheetTitle className="flex items-center gap-2">
-                <Building2 className="w-4 h-4 text-gold" /> Fornecedores
+                <Building2 className="w-4 h-4 text-gold" /> Favorecidos
               </SheetTitle>
               <Button variant="gold" size="sm" onClick={() => { setEditando(null); setFormOpen(true); }} className="gap-1.5 shrink-0">
                 <Plus className="w-3.5 h-3.5" /> Novo
@@ -135,7 +135,7 @@ export function FornecedoresDrawer({ open, onOpenChange }: Props) {
             ) : filtrados.length === 0 ? (
               <div className="py-8 text-center text-sm text-muted-foreground space-y-2">
                 <Building2 className="w-10 h-10 mx-auto opacity-30" />
-                <p>{fornecedores.length === 0 ? "Nenhum fornecedor cadastrado ainda." : "Sem fornecedores com esse filtro."}</p>
+                <p>{fornecedores.length === 0 ? "Nenhum favorecido cadastrado ainda." : "Sem favorecidos com esse filtro."}</p>
                 {fornecedores.length === 0 && (
                   <Button onClick={() => setFormOpen(true)} variant="outline" size="sm" className="gap-1.5 mt-2">
                     <Plus className="w-4 h-4" /> Cadastrar o primeiro

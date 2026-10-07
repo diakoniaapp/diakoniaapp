@@ -71,7 +71,7 @@ export function EscolherLancamentoDialog({ open, onOpenChange, pool, leitura, no
         <div className="relative">
           <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-muted-foreground" />
           <Input autoFocus value={busca} onChange={e => setBusca(e.target.value)} className="pl-8"
-            placeholder="Fornecedor, valor (52,74) ou data (13/08)…" />
+            placeholder="Favorecido, valor (52,74) ou data (13/08)…" />
         </div>
 
         <ul className="max-h-[22rem] overflow-y-auto divide-y border rounded-md">

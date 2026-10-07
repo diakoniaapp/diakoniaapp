@@ -39,7 +39,7 @@ interface Props {
 
 const dataBr = (ymd: string) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.slice(0, 4)}`;
 
-export function SeletorFavorecido({ value, onChange, categorias, centros, obrigatorio, rotulo = "Fornecedor / Prestador / Favorecido" }: Props) {
+export function SeletorFavorecido({ value, onChange, categorias, centros, obrigatorio, rotulo = "Favorecido (empresa, prestador ou pessoa)" }: Props) {
   const [busca, setBusca] = useState("");
   const [achados, setAchados] = useState<Favorecido[]>([]);
   const [buscando, setBuscando] = useState(false);
@@ -116,7 +116,7 @@ export function SeletorFavorecido({ value, onChange, categorias, centros, obriga
           <div className="flex items-center gap-2 text-sm">
             {value.tipo === "pessoa" ? <UserRound className="w-4 h-4 text-muted-foreground shrink-0" /> : <Building2 className="w-4 h-4 text-muted-foreground shrink-0" />}
             <span className="font-medium truncate">{value.nome}</span>
-            <span className="text-2xs uppercase tracking-wide text-muted-foreground shrink-0">{value.tipo === "pessoa" ? "Pessoa do catálogo" : "Fornecedor"}</span>
+            <span className="text-2xs uppercase tracking-wide text-muted-foreground shrink-0">{value.tipo === "pessoa" ? "Pessoa do catálogo" : "Favorecido"}</span>
             <button type="button" className="ml-auto text-xs underline decoration-dotted text-muted-foreground hover:text-foreground shrink-0"
               onClick={() => { onChange(null); setBusca(""); }}>trocar</button>
           </div>
@@ -157,7 +157,7 @@ export function SeletorFavorecido({ value, onChange, categorias, centros, obriga
                 <button key={`${f.tipo}-${f.id}`} type="button" onClick={() => escolher(f)}
                   className="w-full flex items-center justify-between gap-2 text-left px-2.5 py-1.5 text-sm hover:bg-muted/50">
                   <span className="truncate">{f.nome}</span>
-                  <span className="text-2xs uppercase tracking-wide text-muted-foreground shrink-0">{f.tipo === "pessoa" ? "Pessoa" : "Fornecedor"}</span>
+                  <span className="text-2xs uppercase tracking-wide text-muted-foreground shrink-0">{f.tipo === "pessoa" ? "Pessoa" : "Favorecido"}</span>
                 </button>
               ))}
             </div>

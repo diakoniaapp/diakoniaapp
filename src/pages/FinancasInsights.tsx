@@ -258,7 +258,7 @@ export default function FinancasInsights() {
             </h3>
             {topForns.length === 0 ? (
               <p className="text-xs text-muted-foreground italic text-center py-3">
-                Sem fornecedores nos últimos 90 dias.
+                Sem favorecidos nos últimos 90 dias.
               </p>
             ) : (
               <div className="space-y-1">

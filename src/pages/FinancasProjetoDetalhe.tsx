@@ -139,7 +139,7 @@ export default function FinancasProjetoDetalhe() {
     entradas.forEach(l => {
       let key: string; let label: string;
       if (l.pessoa_id) { key = "pessoa"; label = "Pessoa Física"; }
-      else if (l.fornecedor_id) { key = `f:${l.fornecedor_id}`; label = l.fornecedor_nome ?? "Fornecedor"; }
+      else if (l.fornecedor_id) { key = `f:${l.fornecedor_id}`; label = l.fornecedor_nome ?? "Favorecido"; }
       else { const d = (l.descricao ?? "Outros").trim() || "Outros"; key = `d:${d.toLowerCase()}`; label = d; }
       const ex = map.get(key);
       if (ex) ex.valor += Number(l.valor);

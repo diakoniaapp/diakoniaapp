@@ -336,7 +336,7 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
           {confirmando?.tipo === "saida" && (
             <div className="space-y-2.5">
               {carregandoFornecedor && (
-                <p className="text-xs text-muted-foreground">Carregando dados do fornecedor…</p>
+                <p className="text-xs text-muted-foreground">Carregando dados do favorecido…</p>
               )}
               {lendoDocs && <p className="text-xs text-muted-foreground">Lendo o documento anexado…</p>}
               {docsPagamento.map(d => {
@@ -466,7 +466,7 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
               {favorecidoProvavel && (
                 <div className="rounded-md border border-dashed border-gold/60 bg-muted/20 p-2.5 space-y-2">
                   <p className="text-xs">
-                    Este lançamento não está ligado a um favorecido. Pelo nome, achei no cadastro de fornecedores:{" "}
+                    Este lançamento não está ligado a um favorecido. Pelo nome, achei no cadastro de favorecidos:{" "}
                     <strong>{favorecidoProvavel.nome}</strong>. Confira antes de pagar.
                   </p>
                   {favorecidoProvavel.chave_pix ? (
@@ -498,7 +498,7 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
                     </p>
                   )}
                   <Button type="button" size="sm" variant="outline" className="h-7 text-xs" disabled={vinculando} onClick={vincularFavorecido}>
-                    {vinculando ? <Loader2 className="w-3 h-3 animate-spin" /> : "Vincular este fornecedor ao lançamento"}
+                    {vinculando ? <Loader2 className="w-3 h-3 animate-spin" /> : "Vincular este favorecido ao lançamento"}
                   </Button>
                 </div>
               )}
@@ -510,7 +510,7 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
               )}
               {!carregandoFornecedor && confirmando.fornecedor_id && !fornecedorPagando?.chave_pix && (
                 <p className="text-xs text-muted-foreground">
-                  Este fornecedor ainda não tem chave Pix cadastrada.{" "}
+                  Este favorecido ainda não tem chave Pix cadastrada.{" "}
                   <Link to={`/financas/fornecedor/${confirmando.fornecedor_id}`} className="text-primary hover:underline">
                     Cadastrar
                   </Link>

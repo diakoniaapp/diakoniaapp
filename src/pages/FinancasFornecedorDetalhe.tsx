@@ -78,7 +78,7 @@ export default function FinancasFornecedorDetalhe() {
     setBusy(true);
     try {
       await atualizarFornecedor(fornecedor.id, { ativo: !fornecedor.ativo });
-      toast.success(fornecedor.ativo ? "Fornecedor inativado" : "Fornecedor reativado");
+      toast.success(fornecedor.ativo ? "Favorecido inativado" : "Favorecido reativado");
       setConfirmando(false);
       await carregar();
     } catch (e: any) {
@@ -97,7 +97,7 @@ export default function FinancasFornecedorDetalhe() {
 
   if (loading) return <PaginaSkeleton />;
   if (!fornecedor) return <div className="p-8 text-center text-muted-foreground">
-    Fornecedor não encontrado. <Link to="/financas/fornecedores" className="text-primary underline">Voltar</Link>
+    Favorecido não encontrado. <Link to="/financas/fornecedores" className="text-primary underline">Voltar</Link>
   </div>;
 
   return (

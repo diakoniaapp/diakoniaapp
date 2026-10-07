@@ -72,7 +72,7 @@ interface Props {
   categoriaIdPadrao?: string;
   /** Lançamento em edição. Aceita a versão "extensa" (com `pessoa_nome`)
       porque é o que as telas de listagem já têm em mãos — sem isso o
-      campo Fornecedor/recebedor reabriria mostrando o nome em branco
+      campo Favorecido/recebedor reabriria mostrando o nome em branco
       para um lançamento salvo com pessoa, só com o `pessoa_id` certo por
       baixo. */
   lancamento?: FinLancamento | FinLancamentoExtenso | null;
@@ -588,7 +588,7 @@ export function LancamentoForm({
       setFornecedorId(f.id);
       setPessoaId("");
       setFornecedorBusca(f.nome);
-      toast.success("Fornecedor salvo para usar de novo");
+      toast.success("Favorecido salvo para usar de novo");
     } catch (e: any) {
       toast.error(e?.message ?? "Erro");
     }
@@ -970,7 +970,7 @@ export function LancamentoForm({
           <div>
             {/* Telma (17/09/2026): "a descrição está com validação para
                 fornecedores. leve a validação para o campo
-                Fornecedor/recebedor e deixe descrição com texto livre" —
+                Favorecido/recebedor e deixe descrição com texto livre" —
                 desfaz a troca de rótulos de 16/09 (que só tinha trocado o
                 RÓTULO, não o campo de verdade por baixo) e resolve direito:
                 este é agora o campo com busca de verdade, ligado a
@@ -982,7 +982,7 @@ export function LancamentoForm({
                 uma etiqueta dizendo qual é qual — fornecedor e membro têm
                 nomes que se parecem, e a pessoa que lança precisa saber
                 em qual das duas está clicando. */}
-            <Label>Fornecedor/recebedor</Label>
+            <Label>Favorecido/recebedor</Label>
             <Input value={fornecedorBusca}
               onChange={(e) => {
                 const v = e.target.value;
@@ -1017,7 +1017,7 @@ export function LancamentoForm({
                     }}
                     className="w-full flex items-center justify-between gap-2 text-left px-2 py-1.5 text-sm hover:bg-muted/40">
                     <span className="truncate">{f.nome}</span>
-                    <span className="text-2xs uppercase tracking-wide text-muted-foreground shrink-0">Fornecedor</span>
+                    <span className="text-2xs uppercase tracking-wide text-muted-foreground shrink-0">Favorecido</span>
                   </button>
                 ))}
                 {pessoasSugeridas.map(p => (
@@ -1042,7 +1042,7 @@ export function LancamentoForm({
             )}
             {sugestaoDaDescricao && (fornecedorId || pessoaId) && (
               <p className="mt-1 text-xs text-info-text" role="status">
-                Achei {sugestaoDaDescricao.tipo === "pessoa" ? "no catálogo de pessoas" : "nos fornecedores"} a partir da
+                Achei {sugestaoDaDescricao.tipo === "pessoa" ? "no catálogo de pessoas" : "nos favorecidos"} a partir da
                 descrição — confira se é {sugestaoDaDescricao.nome}.{" "}
                 <button type="button" className="underline decoration-dotted"
                   onClick={() => { setFornecedorId(""); setPessoaId(""); setFornecedorBusca(""); setSugestaoDaDescricao(null); }}>
@@ -1052,7 +1052,7 @@ export function LancamentoForm({
             )}
             {(fornecedorId || pessoaId) && (
               <p className="mt-1 text-xs text-muted-foreground">
-                {fornecedorId ? "Fornecedor cadastrado" : "Membro do catálogo de pessoas"} — {" "}
+                {fornecedorId ? "Favorecido cadastrado" : "Membro do catálogo de pessoas"} — {" "}
                 <button type="button" className="underline decoration-dotted hover:text-foreground"
                   onClick={() => { setFornecedorId(""); setPessoaId(""); setFornecedorBusca(""); }}>
                   trocar
@@ -1138,7 +1138,7 @@ export function LancamentoForm({
               {/* Telma (17/09/2026): "deixe descrição com texto livre" —
                   agora é só `descricao`, sem busca nem validação nenhuma.
                   O aviso "lido da nota" e a lista de itens continuam AQUI
-                  (não no Fornecedor/recebedor): o que a leitura da NF trava
+                  (não no Favorecido/recebedor): o que a leitura da NF trava
                   é o TEXTO descritivo fiel ao documento, não a escolha de
                   quem recebeu — essa é uma decisão da pessoa, mesmo numa
                   nota lida por OCR. */}
@@ -1241,7 +1241,7 @@ export function LancamentoForm({
                       <p className="col-span-2"><span className="text-muted-foreground">CNPJ:</span> <strong>{ocr.cnpjFormatado}</strong></p>
                     )}
                     {ocr.razaoSocial && (
-                      <p className="col-span-2"><span className="text-muted-foreground">Fornecedor:</span> <strong>{ocr.razaoSocial}</strong></p>
+                      <p className="col-span-2"><span className="text-muted-foreground">Favorecido:</span> <strong>{ocr.razaoSocial}</strong></p>
                     )}
                     {ocr.numeroDoc && (
                       <p><span className="text-muted-foreground">Nº NF:</span> <strong>{ocr.numeroDoc}</strong></p>
@@ -1249,7 +1249,7 @@ export function LancamentoForm({
                   </div>
                   {fornecedorOcrSugerido && (
                     <p className="text-success-text text-xs">
-                      ✓ Fornecedor reconhecido: <strong>{fornecedorOcrSugerido.nome}</strong>
+                      ✓ Favorecido reconhecido: <strong>{fornecedorOcrSugerido.nome}</strong>
                     </p>
                   )}
                   <div className="flex gap-1.5 pt-1">

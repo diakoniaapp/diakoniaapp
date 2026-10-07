@@ -63,7 +63,7 @@ export default function FinancasFornecedores() {
     try {
       setFornecedores(await listarFornecedores(undefined, mostrarInativos));
     } catch (e: any) {
-      toast.error(e?.message ?? "Erro ao carregar fornecedores");
+      toast.error(e?.message ?? "Erro ao carregar favorecidos");
     }
   }
 
@@ -89,7 +89,7 @@ export default function FinancasFornecedores() {
     setBusy(true);
     try {
       await atualizarFornecedor(alternando.id, { ativo: !alternando.ativo });
-      toast.success(alternando.ativo ? "Fornecedor inativado" : "Fornecedor reativado");
+      toast.success(alternando.ativo ? "Favorecido inativado" : "Favorecido reativado");
       setAlternando(null);
       await carregar();
     } catch (e: any) {
@@ -104,10 +104,10 @@ export default function FinancasFornecedores() {
       <div className="flex items-center gap-2">
         <div className="flex-1">
           <h1 className="font-serif text-xl flex items-center gap-2">
-            <Building2 className="w-5 h-5 text-gold" /> Fornecedores
+            <Building2 className="w-5 h-5 text-gold" /> Favorecidos
           </h1>
           <p className="text-xs text-muted-foreground">
-            Empresas e prestadores a quem a igreja paga — cadastro e histórico de despesas.
+            Quem recebe pagamentos da igreja: pessoas do Cadastro de Pessoas (funcionários, pastores, missionários…) e empresas.
           </p>
         </div>
         <Button variant="gold" onClick={() => { setEditando(null); setFormOpen(true); }} className="gap-1.5">
@@ -133,7 +133,7 @@ export default function FinancasFornecedores() {
         <Card className="border-dashed">
           <CardContent className="py-8 text-center text-sm text-muted-foreground space-y-2">
             <Building2 className="w-10 h-10 mx-auto opacity-30" />
-            <p>{fornecedores.length === 0 ? "Nenhum fornecedor cadastrado ainda." : "Sem fornecedores com esse filtro."}</p>
+            <p>{fornecedores.length === 0 ? "Nenhum favorecido cadastrado ainda." : "Sem favorecidos com esse filtro."}</p>
             {fornecedores.length === 0 && (
               <Button onClick={() => setFormOpen(true)} variant="outline" className="gap-1.5 mt-2">
                 <Plus className="w-4 h-4" /> Cadastrar o primeiro
@@ -151,6 +151,7 @@ export default function FinancasFornecedores() {
                 <div className="min-w-0 flex-1">
                   <div className="font-medium text-sm truncate flex items-center gap-1.5">
                     {f.nome}
+                    {f.pessoa_id ? <Badge variant="outline" className="text-xs bg-info-soft text-info-text border-info-line">Pessoa</Badge> : f.tipo === "fisica" ? <Badge variant="outline" className="text-xs">Pessoa física</Badge> : null}
                     {!f.ativo && <Badge variant="outline" className="text-xs bg-warning-soft text-warning-text border-warning-line">Inativo</Badge>}
                   </div>
                   {f.cnpj_cpf && <p className="text-xs text-muted-foreground">{f.cnpj_cpf}</p>}
@@ -176,7 +177,7 @@ export default function FinancasFornecedores() {
       <AlertDialog open={!!alternando} onOpenChange={(v) => !v && setAlternando(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{alternando?.ativo ? "Inativar fornecedor?" : "Reativar fornecedor?"}</AlertDialogTitle>
+            <AlertDialogTitle>{alternando?.ativo ? "Inativar favorecido?" : "Reativar favorecido?"}</AlertDialogTitle>
             <AlertDialogDescription>
               {alternando?.ativo
                 ? `"${alternando?.nome}" deixa de aparecer na busca ao lançar uma despesa nova. O histórico de lançamentos já feitos não muda.`

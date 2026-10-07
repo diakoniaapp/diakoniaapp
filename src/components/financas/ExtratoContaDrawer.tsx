@@ -721,7 +721,7 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, contas, onTroc
                   </SelectContent>
                 </Select>
               </CampoLateral>
-              <CampoLateral rotulo="Fornecedor">
+              <CampoLateral rotulo="Favorecido">
                 <Select value={filtroFornecedorId || "__todos__"} onValueChange={(v) => setFiltroFornecedorId(v === "__todos__" ? "" : v)}>
                   <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                   <SelectContent>

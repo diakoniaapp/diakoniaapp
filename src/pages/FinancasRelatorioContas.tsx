@@ -251,7 +251,7 @@ export default function FinancasRelatorioContas() {
                       crus com todos os campos). */}
                   <tr className="border-b-2 border-gold/40 text-left">
                     <th className="py-1 pr-1 w-16">Data</th>
-                    <th className="py-1 pr-1">Descrição / Fornecedor</th>
+                    <th className="py-1 pr-1">Descrição / Favorecido</th>
                     {/* w-28 (112px) cortava nomes de categoria comuns
                         ("Rendimentos de Aplicações") — mesmo ajuste de
                         `FinancasConta.tsx` na mesma sessão (17/09/2026). */}

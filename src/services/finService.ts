@@ -186,6 +186,8 @@ export interface FinFornecedor {
   id: string;
   nome: string;
   tipo: string | null;
+  /** Favorecido que é uma PESSOA do Cadastro de Pessoas (migration 20261007130000). Nulo = empresa ou pessoa física de fora. */
+  pessoa_id?: string | null;
   cnpj_cpf: string | null;
   email: string | null;
   telefone: string | null;
@@ -762,8 +764,15 @@ export async function pessoaDoLancamento(lancamentoId: string): Promise<{ id: st
   return p ? { id: p.id, nome: p.nome_completo } : null;
 }
 
-/** `null` = sem chave cadastrada (ou a tabela ainda não existe). */
+/**
+ * `null` = sem chave cadastrada. Favorecido Financeiro (07/10/2026): a chave de uma PESSOA mora no favorecido dela
+ * (`fin_fornecedores.pessoa_id`); a tabela antiga `fin_pessoa_pix` (vazia) fica só como reserva.
+ */
 export async function buscarPixDaPessoa(pessoaId: string): Promise<PixDaPessoa | null> {
+  const fav = await supabase.from("fin_fornecedores").select("chave_pix, tipo_chave_pix")
+    .eq("pessoa_id" as never, pessoaId as never).not("chave_pix", "is", null).maybeSingle();
+  const doFavorecido = fav.data as unknown as { chave_pix: string | null; tipo_chave_pix: string | null } | null;
+  if (!fav.error && doFavorecido?.chave_pix) return { chave: doFavorecido.chave_pix, tipo: (doFavorecido.tipo_chave_pix as TipoChavePix | null) };
   const { data, error } = await supabase.from("fin_pessoa_pix").select("chave_pix, tipo_chave_pix").eq("pessoa_id", pessoaId).maybeSingle();
   if (error) { if (tabelaDePixAusente(error)) return null; throw error; }
   return data ? { chave: data.chave_pix, tipo: (data.tipo_chave_pix as TipoChavePix | null) } : null;
@@ -772,6 +781,16 @@ export async function buscarPixDaPessoa(pessoaId: string): Promise<PixDaPessoa |
 export async function salvarPixDaPessoa(pessoaId: string, chave: string, tipo: TipoChavePix | null): Promise<void> {
   const limpa = chave.trim();
   if (!limpa) throw new Error("Informe a chave Pix");
+  // Favorecido Financeiro: a chave vai para o favorecido da pessoa (criado/ligado na hora, sem duplicar).
+  const viaFavorecido = (await supabase.rpc("fin_vincular_pessoa_favorecido" as never, { p_pessoa_id: pessoaId, p_fornecedor_id: null } as never)) as unknown as { data: string | null; error: unknown };
+  if (!viaFavorecido.error && viaFavorecido.data) {
+    const r = conferir(
+      await supabase.from("fin_fornecedores").update({ chave_pix: limpa, tipo_chave_pix: tipo } as any).eq("id", viaFavorecido.data).select("id"),
+      "A chave Pix",
+    );
+    if (!r.ok) throw new Error(r.erro);
+    return;
+  }
   const res = await supabase.from("fin_pessoa_pix")
     .upsert({ pessoa_id: pessoaId, chave_pix: limpa, tipo_chave_pix: tipo, atualizado_em: new Date().toISOString() })
     .select("pessoa_id");

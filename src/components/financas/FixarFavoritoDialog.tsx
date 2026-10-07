@@ -86,7 +86,7 @@ export function FixarFavoritoDialog({ open, onOpenChange, contas, onFixado }: Pr
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="conta">Conta financeira</SelectItem>
-                <SelectItem value="fornecedor">Fornecedor</SelectItem>
+                <SelectItem value="fornecedor">Favorecido</SelectItem>
                 <SelectItem value="centro_custo">Centro de custo</SelectItem>
                 <SelectItem value="relatorio">Relatório</SelectItem>
               </SelectContent>

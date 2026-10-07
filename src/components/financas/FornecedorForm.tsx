@@ -16,6 +16,8 @@ import {
   type FinCategoria, type FinCentroCusto, type FinFornecedor,
 } from "@/services/finService";
 import { TIPOS_CHAVE_PIX, type TipoChavePix } from "@/lib/pix";
+import { FavorecidoEscolha } from "@/components/financas/FavorecidoEscolha";
+import { pessoaDoFavorecido } from "@/services/favorecidoService";
 
 interface Props {
   open: boolean;
@@ -31,8 +33,25 @@ const VAZIO = {
   categoriaPadraoId: "", centroCustoPadraoId: "", observacao: "",
 };
 
-export function FornecedorForm({ open, onOpenChange, fornecedor, onSaved }: Props) {
+export function FornecedorForm({ open, onOpenChange, fornecedor: fornecedorDaProp, onSaved }: Props) {
+  // Favorecido Financeiro (07/10/2026): criar começa por "quem é?" — pessoa do Cadastro de Pessoas (vincula, sem duplicar)
+  // ou Favorecido Empresarial. Depois de vincular a pessoa, o diálogo segue como EDIÇÃO dela, só com os dados financeiros.
+  const [vinculado, setVinculado] = useState<FinFornecedor | null>(null);
+  const [etapa, setEtapa] = useState<"escolha" | "formulario">("formulario");
+  const [pessoaNome, setPessoaNome] = useState<string | null>(null);
+  const fornecedor = fornecedorDaProp ?? vinculado;
   const isEdit = !!fornecedor;
+  const ehPessoa = !!fornecedor?.pessoa_id;
+  useEffect(() => {
+    if (!open) return;
+    setVinculado(null);
+    setEtapa(fornecedorDaProp ? "formulario" : "escolha");
+  }, [open, fornecedorDaProp]);
+  useEffect(() => {
+    setPessoaNome(null);
+    if (!fornecedor?.pessoa_id) return;
+    pessoaDoFavorecido(fornecedor.pessoa_id).then(p => setPessoaNome(p ? p.nome : null)).catch(() => { /* melhoria */ });
+  }, [fornecedor?.pessoa_id]);
   const [campos, setCampos] = useState(VAZIO);
   const [categorias, setCategorias] = useState<FinCategoria[]>([]);
   const [centros, setCentros] = useState<FinCentroCusto[]>([]);
@@ -113,26 +132,30 @@ export function FornecedorForm({ open, onOpenChange, fornecedor, onSaved }: Prop
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!campos.nome.trim()) { toast.error("Informe o nome"); return; }
+    if (!ehPessoa && !campos.nome.trim()) { toast.error("Informe o nome"); return; }
 
     setBusy(true);
     try {
-      const payload: Partial<FinFornecedor> = {
+      // Favorecido-PESSOA: nome, CPF, telefone, e-mail e endereço são da ficha da pessoa — aqui só o que é financeiro.
+      const dadosDaPessoa: Partial<FinFornecedor> = ehPessoa ? {} : {
         nome: campos.nome.trim(),
         tipo: campos.tipo,
         cnpj_cpf: campos.cnpjCpf.replace(/\D/g, "") || null,
         email: campos.email.trim() || null,
         telefone: campos.telefone.trim() || null,
-        chave_pix: campos.chavePix.trim() || null,
-        tipo_chave_pix: campos.tipoChavePix || null,
-        banco_nome: campos.bancoNome.trim() || null,
-        agencia: campos.agencia.trim() || null,
-        conta: campos.conta.trim() || null,
         endereco: campos.endereco.trim() || null,
         bairro: campos.bairro.trim() || null,
         cidade: campos.cidade.trim() || null,
         uf: campos.uf.trim().toUpperCase() || null,
         cep: campos.cep.replace(/\D/g, "") || null,
+      };
+      const payload: Partial<FinFornecedor> = {
+        ...dadosDaPessoa,
+        chave_pix: campos.chavePix.trim() || null,
+        tipo_chave_pix: campos.tipoChavePix || null,
+        banco_nome: campos.bancoNome.trim() || null,
+        agencia: campos.agencia.trim() || null,
+        conta: campos.conta.trim() || null,
         categoria_padrao_id: campos.categoriaPadraoId || null,
         centro_custo_padrao_id: campos.centroCustoPadraoId || null,
         observacao: campos.observacao.trim() || null,
@@ -142,16 +165,16 @@ export function FornecedorForm({ open, onOpenChange, fornecedor, onSaved }: Prop
       if (isEdit && fornecedor) {
         await atualizarFornecedor(fornecedor.id, payload);
         salvo = { ...fornecedor, ...payload } as FinFornecedor;
-        toast.success("Fornecedor atualizado");
+        toast.success("Favorecido atualizado");
       } else {
         salvo = await criarFornecedor(payload);
-        toast.success("Fornecedor cadastrado");
+        toast.success("Favorecido cadastrado");
       }
 
       onOpenChange(false);
       onSaved(salvo);
     } catch (e: any) {
-      toast.error(e?.message ?? "Erro ao salvar fornecedor");
+      toast.error(e?.message ?? "Erro ao salvar favorecido");
     } finally { setBusy(false); }
   }
 
@@ -161,14 +184,32 @@ export function FornecedorForm({ open, onOpenChange, fornecedor, onSaved }: Prop
         <DialogHeader>
           <DialogTitle className="font-serif text-xl flex items-center gap-2">
             <Building2 className="w-5 h-5 text-gold" />
-            {isEdit ? "Editar fornecedor" : "Novo fornecedor"}
+            {isEdit ? "Editar favorecido" : "Novo favorecido"}
           </DialogTitle>
           <DialogDescription>
-            Quem a igreja paga — empresa, prestador de serviço ou pessoa física avulsa.
+            {!isEdit && etapa === "escolha"
+              ? "Quem recebe um pagamento da igreja: uma pessoa do Cadastro de Pessoas ou uma empresa."
+              : ehPessoa
+                ? "Pessoa do Cadastro de Pessoas. Aqui ficam só os dados financeiros dela."
+                : "Quem a igreja paga — empresa, prestador de serviço ou pessoa física de fora da igreja."}
           </DialogDescription>
         </DialogHeader>
 
+        {!isEdit && etapa === "escolha" ? (
+          <FavorecidoEscolha onEmpresa={() => setEtapa("formulario")}
+            onFavorecido={(f) => { setVinculado(f); setEtapa("formulario"); onSaved(f); }} />
+        ) : (
         <form onSubmit={onSubmit} className="space-y-3">
+          {ehPessoa && (
+            <div className="rounded-md border bg-muted/20 p-3 flex items-center gap-2">
+              <User className="w-4 h-4 text-muted-foreground shrink-0" />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold truncate">{pessoaNome ?? fornecedor?.nome}</p>
+                <p className="text-xs text-muted-foreground">Nome, CPF, telefone e endereço vêm da ficha da pessoa.</p>
+              </div>
+            </div>
+          )}
+          {!ehPessoa && (<>
           <div className="grid grid-cols-2 gap-2">
             <Button type="button" size="sm"
               variant={campos.tipo === "juridica" ? "gold" : "outline"}
@@ -206,6 +247,7 @@ export function FornecedorForm({ open, onOpenChange, fornecedor, onSaved }: Prop
             <Label>E-mail</Label>
             <Input type="email" value={campos.email} onChange={(e) => set("email", e.target.value)} />
           </div>
+          </>)}
 
           <div className="border rounded-md p-2 bg-muted/20 space-y-2">
             <p className="text-xs font-medium">Dados para pagamento</p>
@@ -263,9 +305,10 @@ export function FornecedorForm({ open, onOpenChange, fornecedor, onSaved }: Prop
             </div>
           </div>
           <p className="text-xs text-muted-foreground -mt-1.5">
-            Os dois vêm preenchidos sozinhos (aguardando confirmação) ao lançar uma despesa com este fornecedor.
+            Os dois vêm preenchidos sozinhos (aguardando confirmação) ao lançar uma despesa com este favorecido.
           </p>
 
+          {!ehPessoa && (<>
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2">
               <Label>Endereço</Label>
@@ -291,6 +334,7 @@ export function FornecedorForm({ open, onOpenChange, fornecedor, onSaved }: Prop
               <Input value={campos.uf} onChange={(e) => set("uf", e.target.value)} maxLength={2} />
             </div>
           </div>
+          </>)}
 
           <div>
             <Label>Observação</Label>
@@ -306,6 +350,7 @@ export function FornecedorForm({ open, onOpenChange, fornecedor, onSaved }: Prop
             </Button>
           </DialogFooter>
         </form>
+        )}
       </DialogContent>
     </Dialog>
   );

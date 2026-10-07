@@ -91,7 +91,7 @@ export function RecorrenciaForm({ open, onOpenChange, recorrencia, onSaved }: Pr
       setCategoriaId(recorrencia.categoria_id ?? "");
       setCentroId(recorrencia.centro_custo_id ?? "");
       setFavorecido(
-        recorrencia.fornecedor_id ? { tipo: "fornecedor", id: recorrencia.fornecedor_id, nome: recorrencia.fornecedor_nome ?? "Fornecedor" }
+        recorrencia.fornecedor_id ? { tipo: "fornecedor", id: recorrencia.fornecedor_id, nome: recorrencia.fornecedor_nome ?? "Favorecido" }
         : recorrencia.pessoa_id ? { tipo: "pessoa", id: recorrencia.pessoa_id, nome: recorrencia.pessoa_nome ?? "Pessoa" }
         : null);
       setTipoSerie(recorrencia.tipo_recorrencia === "parcelamento" ? "parcelamento" : "continua");
@@ -270,7 +270,7 @@ export function RecorrenciaForm({ open, onOpenChange, recorrencia, onSaved }: Pr
           <SeletorFavorecido
             value={favorecido} onChange={aoEscolherFavorecido} categorias={categorias} centros={centros}
             obrigatorio={tipo === "saida"}
-            rotulo={tipo === "saida" ? "Fornecedor / Prestador / Favorecido" : "Pessoa / contribuinte (opcional)"} />
+            rotulo={tipo === "saida" ? "Favorecido (empresa, prestador ou pessoa)" : "Pessoa / contribuinte (opcional)"} />
 
           <div>
             <Label>Descrição (opcional)</Label>

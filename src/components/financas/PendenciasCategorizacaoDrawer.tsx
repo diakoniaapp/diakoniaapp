@@ -156,7 +156,7 @@ export function PendenciasCategorizacaoDrawer({ open, onOpenChange, itens, onCha
                         onCheckedChange={alternarTodos} aria-label="Selecionar todos" />
                     </th>
                     <th className="text-left py-2 px-2 w-20">Data</th>
-                    <th className="text-left py-2 px-2">Descrição / Fornecedor</th>
+                    <th className="text-left py-2 px-2">Descrição / Favorecido</th>
                     <th className="text-left py-2 px-2 w-32">Conta</th>
                     <th className="text-left py-2 px-2 w-36">Categoria atual</th>
                     <th className="text-left py-2 px-2 w-32">Centro atual</th>

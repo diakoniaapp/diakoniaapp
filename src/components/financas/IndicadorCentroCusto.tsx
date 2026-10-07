@@ -225,11 +225,11 @@ export function IndicadorCentroCusto({ periodoDe, periodoAte, periodoLabel }: Pr
               </div>
             )}
 
-            {/* Top fornecedores + Top despesas */}
+            {/* Top favorecidos + Top despesas */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {topFornecedores.length > 0 && (
                 <div>
-                  <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1.5">Top fornecedores</div>
+                  <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1.5">Top favorecidos</div>
                   <div className="space-y-1">
                     {topFornecedores.map(f => (
                       <div key={f.nome} className="flex items-center gap-2 text-sm">
