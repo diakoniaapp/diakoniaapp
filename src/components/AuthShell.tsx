@@ -95,11 +95,13 @@ interface AuthShellProps {
   wide?: boolean;
   /** Oculta o versículo abaixo do card */
   semVersiculo?: boolean;
+  /** Cabeçalho enxuto para formulário longo no celular: logo menor, sem a assinatura, conteúdo colado ao topo */
+  compacto?: boolean;
 }
 
-export function AuthShell({ children, versiculoFixo, wide = false, semVersiculo = false }: AuthShellProps) {
+export function AuthShell({ children, versiculoFixo, wide = false, semVersiculo = false, compacto = false }: AuthShellProps) {
   return (
-    <div className="min-h-screen bg-auth flex flex-col items-center justify-center p-4 relative overflow-hidden">
+    <div className={cn("min-h-screen bg-auth flex flex-col items-center relative overflow-hidden", compacto ? "justify-start p-3 pt-4" : "justify-center p-4")}>
 
       {/* ── Ornamentos decorativos de fundo ── */}
       <div
@@ -126,19 +128,19 @@ export function AuthShell({ children, versiculoFixo, wide = false, semVersiculo 
       <div className={cn("w-full relative z-10", wide ? "max-w-lg" : "max-w-sm")}>
 
         {/* Logo com animação de entrada */}
-        <div className="text-center mb-8 animate-logo-appear">
+        <div className={cn("text-center animate-logo-appear", compacto ? "mb-3" : "mb-8")}>
           <div className="inline-flex flex-col items-center gap-3">
             {/* Duas sombras empilhadas: a escura dá o descolamento do
                 fundo, a dourada difusa é a luz que o metal devolve em
                 volta de si. Só a escura fazia a marca parecer recortada
                 e colada; só a dourada, sem peso. */}
             <div className="drop-shadow-[0_3px_10px_rgba(0,0,0,0.20)] dark:drop-shadow-[0_3px_14px_rgba(0,0,0,0.50)]">
-              <BrandMark className="text-[4rem]" trocaPorTema />
+              <BrandMark className={compacto ? "text-[2.75rem]" : "text-[4rem]"} trocaPorTema />
             </div>
             {/* A assinatura da marca, em dourado. Era cinza a 50% — a
                 mesma tinta do rodapé, o que fazia as duas coisas
                 parecerem igualmente descartáveis. */}
-            <div className="space-y-0.5">
+            <div className={cn("space-y-0.5", compacto && "hidden")}>
               <p className="text-xs tracking-[0.22em] uppercase font-semibold text-dourado-text leading-relaxed">
                 Conectando Pessoas,
               </p>
@@ -171,7 +173,7 @@ export function AuthShell({ children, versiculoFixo, wide = false, semVersiculo 
             razão social sobe para uma tinta legível, e o CNPJ desce para
             uma linha menor — são duas informações de peso diferente, e
             antes tinham exatamente o mesmo. */}
-        <div className="mt-8 animate-fade-in-up delay-300">
+        <div className={cn("animate-fade-in-up delay-300", compacto ? "mt-4" : "mt-8")}>
           <div className="mx-auto w-24 divider-dourado opacity-70" />
           <p className="text-center text-xs text-foreground/75 dark:text-foreground/70 tracking-wide">
             DiakoniaApp <span className="text-dourado-text">—</span> Sistema de Gestão Ministerial

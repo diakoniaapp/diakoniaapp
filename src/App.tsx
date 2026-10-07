@@ -129,6 +129,8 @@ const App = () => (
                 <Route path="/convite/:token" element={<Convite />} />
                 {/* AutoCadastro de visitantes pelo QR Code: PÚBLICA, sem login (docs/AUTOCADASTRO_VISITANTES_QR.md) */}
                 <Route path="/visitante" element={<VisitanteAutocadastro />} />
+                <Route path="/bemvindo" element={<VisitanteAutocadastro />} />
+                <Route path="/visita" element={<VisitanteAutocadastro />} />
                 <Route path="/reset/:token" element={<ResetSenhaToken />} />
                 <Route path="/esqueci-senha" element={<EsqueciSenha />} />
                 <Route path="/primeiro-acesso" element={<PrimeiroAcesso />} />

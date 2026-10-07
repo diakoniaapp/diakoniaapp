@@ -1,13 +1,14 @@
 // ─── AutoCadastroQrPainel — a recepção: o QR Code, o culto de agora e "Visitantes de hoje" ────────────────────
 //
-// O QR aponta para a página pública /visitante?p=<código>. O código é aleatório, desligável e trocável (tabela
-// `visitante_pontos`): se o link vazar, desliga-se e cria-se outro. "Visitantes de hoje" atualiza sozinho; a recepção
-// vê só "pediu oração/contato", nunca o conteúdo do pedido (isso é da fila pastoral).
+// O QR aponta para a página pública /bemvindo (sem código na URL: curto, fácil de falar e de imprimir). Quem quiser fechar o
+// cadastro usa "Pausar cadastro" (desliga o ponto em `visitante_pontos`); os links antigos /visitante?p=<código> seguem valendo
+// enquanto o ponto estiver ativo. "Visitantes de hoje" atualiza sozinho; a recepção vê só "pediu oração/contato", nunca o
+// conteúdo do pedido (isso é da fila pastoral). O aproveitamento do formulário vem do funil (sem dado pessoal).
 // Sem a migration do AutoCadastro o painel não aparece.
 
 import { useCallback, useEffect, useState } from "react";
 import QRCode from "qrcode";
-import { Copy, Loader2, Printer, QrCode, RefreshCw } from "lucide-react";
+import { Copy, Loader2, PauseCircle, PlayCircle, Printer, QrCode } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,8 @@ interface DeHoje {
   oracao_familia: boolean; oracao_saude: boolean; oracao_trabalho: boolean; oracao_outro: boolean;
 }
 
+interface FunilDia { data: string; abriram: number; chegaram_passo_2: number; chegaram_passo_3: number; concluiram: number; tempo_medio_s: number | null }
+
 const hora = (iso: string) => new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
 export function AutoCadastroQrPainel() {
@@ -32,16 +35,23 @@ export function AutoCadastroQrPainel() {
   const [cultoManual, setCultoManual] = useState("");
   const [salvandoCulto, setSalvandoCulto] = useState(false);
 
-  const link = ponto ? `${window.location.origin}/visitante?p=${ponto.codigo}` : "";
+  const [funil, setFunil] = useState<FunilDia[]>([]);
+
+  const link = ponto ? `${window.location.origin}/bemvindo` : "";
 
   const carregarPonto = useCallback(async () => {
-    const { data, error } = await supabase.from("visitante_pontos" as never).select("id, codigo, nome, ativo").eq("ativo" as never, true as never)
-      .order("created_at" as never).limit(1);
+    const { data, error } = await supabase.from("visitante_pontos" as never).select("id, codigo, nome, ativo")
+      .order("created_at" as never, { ascending: false } as never).limit(1);   // o mais recente (ativo ou pausado)
     if (error) { setDisponivel(false); return; }
     setDisponivel(true);
     setPonto(((data ?? []) as unknown as Ponto[])[0] ?? null);
   }, []);
   useEffect(() => { carregarPonto(); }, [carregarPonto]);
+
+  useEffect(() => {
+    if (!disponivel) return;
+    supabase.from("vw_visitante_funil_diario" as never).select("*").limit(7).then(({ data }) => setFunil((data ?? []) as unknown as FunilDia[]));
+  }, [disponivel]);
 
   useEffect(() => {
     if (!link) { setQr(null); return; }
@@ -62,17 +72,15 @@ export function AutoCadastroQrPainel() {
     return () => window.clearInterval(id);
   }, [disponivel, carregarHoje]);
 
-  // "Trocar QR" desativa o atual: pede um segundo toque (sem confirm() nativo, que não funciona em WebView)
-  const [confirmaTroca, setConfirmaTroca] = useState(false);
-  async function trocarCodigo() {
+  // "Pausar cadastro" fecha o link (o visitante vê "não está mais ativo"): pede um segundo toque (sem confirm() nativo, que não funciona em WebView)
+  const [confirmaPausa, setConfirmaPausa] = useState(false);
+  async function alternarCadastro() {
     if (!ponto) return;
-    if (!confirmaTroca) { setConfirmaTroca(true); window.setTimeout(() => setConfirmaTroca(false), 5000); return; }
-    setConfirmaTroca(false);
-    const { data: novo, error } = await supabase.from("visitante_pontos" as never).insert({ nome: ponto.nome } as never).select("id, codigo, nome, ativo");
-    if (error || !novo) { toast.error(error?.message ?? "Não foi possível criar o novo QR"); return; }
-    const r = conferir(await supabase.from("visitante_pontos" as never).update({ ativo: false } as never).eq("id" as never, ponto.id as never).select("id"), "O QR antigo");
+    if (ponto.ativo && !confirmaPausa) { setConfirmaPausa(true); window.setTimeout(() => setConfirmaPausa(false), 5000); return; }
+    setConfirmaPausa(false);
+    const r = conferir(await supabase.from("visitante_pontos" as never).update({ ativo: !ponto.ativo } as never).eq("id" as never, ponto.id as never).select("id"), "O cadastro por QR Code");
     if (!r.ok) { toast.error(r.erro); return; }
-    toast.success("QR novo criado. O antigo deixou de funcionar: imprima o novo.");
+    toast.success(ponto.ativo ? "Cadastro pausado: o link mostra que não está ativo." : "Cadastro reativado.");
     await carregarPonto();
   }
 
@@ -98,7 +106,8 @@ export function AutoCadastroQrPainel() {
       <div className="flex items-start justify-between gap-2 flex-wrap">
         <div className="min-w-0">
           <h2 id="qr-visitantes" className="text-sm font-bold flex items-center gap-1.5"><QrCode className="w-4 h-4" /> AutoCadastro por QR Code</h2>
-          <p className="text-xs text-muted-foreground">O visitante lê o QR com a câmera do celular e preenche em menos de 1 minuto.</p>
+          <p className="text-xs text-muted-foreground">O visitante lê o QR com a câmera do celular e preenche em 3 passos curtos, em menos de 1 minuto.</p>
+          {ponto && !ponto.ativo && <p role="status" className="mt-1 text-xs font-medium text-warning-text">Cadastro pausado: quem ler o QR vê que o link não está ativo.</p>}
         </div>
       </div>
 
@@ -112,8 +121,9 @@ export function AutoCadastroQrPainel() {
             <Button type="button" size="sm" variant="outline" className="h-8 gap-1 text-xs" onClick={() => window.print()}>
               <Printer className="w-3 h-3" /> Imprimir
             </Button>
-            <Button type="button" size="sm" variant="ghost" className="h-8 gap-1 text-xs" onClick={trocarCodigo} title="Se o QR vazar: cria um novo e desativa o atual">
-              <RefreshCw className="w-3 h-3" /> {confirmaTroca ? "Toque de novo para confirmar" : "Trocar QR"}
+            <Button type="button" size="sm" variant="ghost" className="h-8 gap-1 text-xs" onClick={alternarCadastro} title="Fecha ou reabre o link do cadastro">
+              {ponto?.ativo ? <PauseCircle className="w-3 h-3" /> : <PlayCircle className="w-3 h-3" />}
+              {!ponto?.ativo ? "Reativar cadastro" : confirmaPausa ? "Toque de novo para pausar" : "Pausar cadastro"}
             </Button>
           </div>
         </div>
@@ -127,6 +137,8 @@ export function AutoCadastroQrPainel() {
               <Button type="button" size="sm" variant="outline" className="h-8 text-xs shrink-0" disabled={!cultoManual.trim() || salvandoCulto} onClick={definirCulto}>Definir</Button>
             </div>
           </div>
+
+          <ResumoDoFunil dias={funil} />
 
           <div>
             <h3 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Visitantes de hoje · {lista.length}</h3>
@@ -154,5 +166,25 @@ export function AutoCadastroQrPainel() {
         </div>
       </div>
     </section>
+  );
+}
+
+/** O aproveitamento do formulário nos últimos 7 dias (do funil: só contagens e segundos, nenhum dado de pessoa). */
+function ResumoDoFunil({ dias }: { dias: FunilDia[] }) {
+  if (dias.length === 0) return null;
+  const t = dias.reduce((a, d) => ({
+    abriram: a.abriram + d.abriram, p2: a.p2 + d.chegaram_passo_2, p3: a.p3 + d.chegaram_passo_3, ok: a.ok + d.concluiram,
+    seg: a.seg + (d.tempo_medio_s ?? 0) * d.concluiram,
+  }), { abriram: 0, p2: 0, p3: 0, ok: 0, seg: 0 });
+  const pct = t.abriram > 0 ? Math.round((t.ok / t.abriram) * 100) : 0;
+  const medio = t.ok > 0 ? Math.round(t.seg / t.ok) : null;
+  return (
+    <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs" aria-label="Aproveitamento do formulário nos últimos 7 dias">
+      <p className="font-bold uppercase tracking-wide text-muted-foreground">Formulário · últimos {dias.length} dia{dias.length === 1 ? "" : "s"} com uso</p>
+      <p className="mt-0.5 tabular-nums">
+        {t.abriram} abriram · {t.p2} chegaram ao passo 2 · {t.p3} ao passo 3 · <strong>{t.ok} concluíram ({pct}%)</strong>
+        {medio !== null && <> · tempo médio {medio < 60 ? `${medio} s` : `${Math.floor(medio / 60)} min ${medio % 60} s`}</>}
+      </p>
+    </div>
   );
 }

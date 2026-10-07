@@ -11,12 +11,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { conferir } from "@/lib/escritaConferida";
 import { montarLinkWhatsApp } from "@/lib/whatsapp";
-import { rotulosDaOracao } from "@/lib/autocadastroVisitante";
+import { preferenciaDeContato, rotulosDaOracao } from "@/lib/autocadastroVisitante";
 
 interface Item {
   checkin_id: string; membro_id: string; nome_completo: string; whatsapp: string | null; numero_visitas: number | null;
   data_visita: string; culto: string | null; prioridade: number; deseja_contato: boolean; deseja_informacoes: boolean;
   oracao_familia: boolean; oracao_saude: boolean; oracao_trabalho: boolean; oracao_outro: string | null; primeira_visita: boolean | null;
+  canal_contato: string | null; horario_contato: string | null; email: string | null;
 }
 
 const ROTULO: Record<number, { texto: string; classe: string }> = {
@@ -84,7 +85,7 @@ export function FilaPastoralQr({ onAbrirVisitante }: { onAbrirVisitante?: (membr
                 {dataCurta(i.data_visita)}{i.culto ? ` · ${i.culto}` : ""} · visita {i.numero_visitas ?? 1}
                 {oracao.length > 0 && <> · oração: <strong className="text-foreground">{oracao.join(", ")}</strong></>}
                 {i.oracao_outro && <> · “{i.oracao_outro}”</>}
-                {i.deseja_contato && " · quer contato pastoral"}
+                {i.deseja_contato && ` · quer contato pastoral${preferenciaDeContato(i) ? ` (${preferenciaDeContato(i)})` : ""}`}
                 {i.deseja_informacoes && " · aceita receber informações"}
               </p>
               <div className="flex gap-1.5">
