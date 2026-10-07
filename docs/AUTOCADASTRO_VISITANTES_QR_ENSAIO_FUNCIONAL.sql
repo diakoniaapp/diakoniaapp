@@ -35,8 +35,9 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM public.acompanhamentos_visitante WHERE membro_id = m.id AND status = 'pendente') THEN
     RAISE EXCEPTION 'Caso 1: o acompanhamento pastoral pendente não foi criado.';
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM public.consentimento WHERE pessoa_id = m.id AND aceito AND canal = 'qr_code') THEN
-    RAISE EXCEPTION 'Caso 1: o aceite LGPD não foi registrado.';
+  IF NOT EXISTS (SELECT 1 FROM public.visitante_checkins WHERE membro_id = m.id AND aceite_texto_versao = 'autocadastro-1.0')
+     OR m.data_aceite_lgpd IS NULL THEN
+    RAISE EXCEPTION 'Caso 1: o aceite LGPD não foi registrado (check-in e ficha).';
   END IF;
 
   -- ── caso 2: o mesmo telefone, outro culto = NOVA VISITA (e o mesmo envio repetido NÃO duplica) ───────────

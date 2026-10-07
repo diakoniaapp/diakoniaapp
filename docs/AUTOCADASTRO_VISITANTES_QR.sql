@@ -14,7 +14,7 @@
 --   4. membros.whatsapp_celular  (nova, opcional) para o WhatsApp quando difere do telefone
 --   5. visitante_autocadastro()  a porta única
 --   6. vw_visitantes_de_hoje / vw_visitantes_aguardando_contato  (painel da recepção e fila pastoral)
--- Reaproveita, sem alterar: membros (tipo_pessoa='visitante'), visitas, consentimento, acompanhamentos_visitante,
+-- Reaproveita, sem alterar: membros (tipo_pessoa='visitante'), visitas, acompanhamentos_visitante,
 -- normalizar_telefone(), numero_visitas e status_acolhimento (o fluxo de acolhimento existente continua valendo).
 
 -- ── 1) o QR ─────────────────────────────────────────────────────────────────────────────────────────────
@@ -61,6 +61,7 @@ CREATE TABLE IF NOT EXISTS public.visitante_checkins (
   como_conheceu      text,
   quem_convidou      text,
   whatsapp           text,
+  aceite_texto_versao text NOT NULL DEFAULT 'autocadastro-1.0',   -- a prova do aceite LGPD: qual texto o visitante concordou, e quando (criado_em)
   -- fila pastoral: 1 = pediu oração · 2 = quer contato pastoral · 3 = os demais
   prioridade         smallint GENERATED ALWAYS AS (
                        CASE WHEN oracao_familia OR oracao_saude OR oracao_trabalho OR oracao_outro IS NOT NULL THEN 1
@@ -213,12 +214,8 @@ BEGIN
       coalesce(p_dados->>'oracao_trabalho', 'false') = 'true', v_or_out,
       v_como, v_quem, v_zap);
 
-  -- o aceite fica registrado (uma vez por pessoa)
-  IF v_novo THEN
-    INSERT INTO public.consentimento (pessoa_id, tipo, base_legal, aceito, texto_versao, canal, finalidade)
-    VALUES (v_m.id, 'politica_privacidade', 'consentimento', true, 'autocadastro-1.0', 'qr_code',
-            'Cadastro de visitante, contato pastoral e pedidos de oração');
-  END IF;
+  -- O aceite LGPD fica provado no próprio check-in (aceite_texto_versao + criado_em) e em membros.lgpd_aceito/data_aceite_lgpd.
+  -- (A tabela `consentimento` NÃO serve aqui: sua chave pessoa_id aponta para `pessoas`, outra tabela, e não para `membros`.)
 
   -- "Acompanhamento Pastoral": quem pediu oração ou contato entra como pendente (a tela de acompanhamento já existente)
   v_acao := coalesce(p_dados->>'deseja_contato', 'false') = 'true' OR coalesce(p_dados->>'oracao_familia', 'false') = 'true'

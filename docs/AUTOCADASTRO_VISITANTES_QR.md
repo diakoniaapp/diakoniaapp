@@ -21,7 +21,7 @@ Ao enviar, a tela mostra o texto que você definiu: *"Obrigado por sua visita! F
 | `membros` com `tipo_pessoa = 'visitante'` | o visitante novo nasce **aí**, igual ao cadastro de hoje (mesma ficha, mesmo `MembroForm`, mesmo acolhimento) |
 | `visitas` (data, origem, observações) | cada preenchimento vira uma linha: **Visita 1, 2, 3…**, com `origem = 'qr_code'` |
 | `membros.numero_visitas` e `status_acolhimento` | o fluxo de acolhimento atual (boas-vindas, incentivo, cuidado, "retornou" a partir da 2ª visita) continua valendo sozinho |
-| `consentimento` | o aceite LGPD fica registrado, com canal `qr_code` |
+| `membros.lgpd_aceito` / `data_aceite_lgpd` | o aceite LGPD fica na ficha e **provado no check-in** (versão do texto + data e hora). A tabela `consentimento` não serve: ela aponta para a tabela `pessoas`, não para `membros` |
 | `acompanhamentos_visitante` | quem pede oração ou contato entra como *pendente* na tela de acompanhamento que já existe |
 | `normalizar_telefone()` | o mesmo telefone canônico (`55DDDNÚMERO`) usado em todo o sistema |
 | `como_conheceu`, `convidado_nome` | as respostas do formulário caem nos campos atuais (o nome de quem convidou vai em `convidado_nome`, o campo de texto livre que já existe; `quem_convidou` é um vínculo com outro membro) |
