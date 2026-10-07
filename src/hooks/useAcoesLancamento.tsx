@@ -40,8 +40,12 @@ import { montarPayloadPix, formatarChavePix, TIPOS_CHAVE_PIX, type TipoChavePix 
 import { Input } from "@/components/ui/input";
 import QRCode from "qrcode";
 import { mensagemErro } from "@/lib/erroRede";
+import { hojeLocal } from "@/lib/data";
 import { dadosParaPagarDoLancamento, type DadosParaPagar } from "@/services/documentoPagamentoService";
 import { fornecedorPeloNome, type FornecedorParaNome } from "@/lib/favorecidoPorNome";
+import { LiquidacaoPainel } from "@/components/financas/LiquidacaoPainel";
+import { liquidacaoDisponivel, liquidar } from "@/services/liquidacaoService";
+import type { PlanoDeLiquidacao } from "@/lib/liquidacao";
 
 const dataBrCurta = (ymd: string) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.slice(0, 4)}`;
 const juntarEm = (d: string, n: number) => d.match(new RegExp(`.{1,${n}}`, "g"))?.join(" ") ?? d;
@@ -86,6 +90,19 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
       .finally(() => { if (!cancelado) setLendoDocs(false); });
     return () => { cancelado = true; };
   }, [confirmando]);
+
+  // Liquidação real (migration 20261007100000): valor pago × documento, parcial, juros, multa, desconto. Sem a migration
+  // o "Pagar" continua o de antes (`liqDisponivel` = false).
+  const [liqDisponivel, setLiqDisponivel] = useState(false);
+  const [planoLiq, setPlanoLiq] = useState<PlanoDeLiquidacao | null>(null);
+  useEffect(() => {
+    setPlanoLiq(null);
+    if (!confirmando || confirmando.tipo !== "saida") { setLiqDisponivel(false); return; }
+    let cancelado = false;
+    liquidacaoDisponivel().then(ok => { if (!cancelado) setLiqDisponivel(ok); }).catch(() => { if (!cancelado) setLiqDisponivel(false); });
+    return () => { cancelado = true; };
+  }, [confirmando]);
+  const usaLiquidacao = liqDisponivel && confirmando?.tipo === "saida";
 
   // Lançamento SEM favorecido ligado (folha/RPA gerados só com a descrição "Salario Caio"): procura o fornecedor pelo
   // NOME. Só sugere quando o nome identifica um único cadastro; quem liga é o botão "Vincular" (06/10/2026).
@@ -187,7 +204,12 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
     if (!confirmando) return;
     setConfirmandoBusy(true);
     try {
-      await confirmarPagamento(confirmando.id);
+      if (usaLiquidacao) {
+        if (!planoLiq?.pronto) { toast.error(planoLiq?.problemas[0] ?? "Confira o valor pago."); return; }
+        await liquidar({ contaId: confirmando.conta_id, data: hojeLocal(), plano: planoLiq });
+      } else {
+        await confirmarPagamento(confirmando.id);
+      }
       // Anexo é melhoria, não pré-requisito — uma falha só no upload não
       // pode desfazer ou travar um pagamento que já foi confirmado.
       if (anexoArquivo) {
@@ -197,7 +219,10 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
           toast.error(`Pago, mas o comprovante não subiu: ${e?.message ?? "erro"}`);
         }
       }
-      toast.success(`${confirmando.tipo === "saida" ? "Pago" : "Recebido"}!`);
+      toast.success(
+        usaLiquidacao && planoLiq && planoLiq.saldoPendente > 0
+          ? `Pago parcialmente — saldo pendente ${brl(planoLiq.saldoPendente)}`
+          : `${confirmando.tipo === "saida" ? "Pago" : "Recebido"}!`);
       setConfirmando(null);
       setAnexoArquivo(null);
       await onChanged();
@@ -363,6 +388,7 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
                   </div>
                 );
               })}
+              {usaLiquidacao && <LiquidacaoPainel key={confirmando.id} lancamento={confirmando} onPlano={setPlanoLiq} />}
               {fornecedorPagando?.chave_pix && (
                 <div className="rounded-md border bg-muted/20 p-2.5 space-y-2">
                   <p className="text-xs font-medium flex items-center gap-1.5">
@@ -504,7 +530,7 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
 
           <AlertDialogFooter>
             <AlertDialogCancel disabled={confirmandoBusy}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction variant="success" onClick={(e) => { e.preventDefault(); confirmarPagamentoDialog(); }} disabled={confirmandoBusy}>
+            <AlertDialogAction variant="success" onClick={(e) => { e.preventDefault(); confirmarPagamentoDialog(); }} disabled={confirmandoBusy || (usaLiquidacao && !planoLiq?.pronto)}>
               {confirmandoBusy ? "..." : (confirmando?.tipo === "saida" ? "Marcar como pago" : "Receber")}
             </AlertDialogAction>
           </AlertDialogFooter>
