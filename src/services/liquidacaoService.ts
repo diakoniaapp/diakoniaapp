@@ -27,6 +27,8 @@ export interface PedidoDeLiquidacao {
   plano: PlanoDeLiquidacao;
   comprovanteUrl?: string | null;
   observacoes?: string | null;
+  /** Quando o pagamento vem do extrato: o identificador do banco (índice único por conta: o mesmo extrato não liquida duas vezes). */
+  ofxFitid?: string | null;
 }
 
 /** Devolve o id da liquidação. Erros da função (soma que não fecha, status errado…) chegam em português. */
@@ -39,11 +41,22 @@ export async function liquidar(p: PedidoDeLiquidacao): Promise<string> {
     p_itens: p.plano.itens,
     p_encargos: p.plano.encargos,
     p_comprovante_url: p.comprovanteUrl ?? null,
-    p_ofx_fitid: null,
+    p_ofx_fitid: p.ofxFitid ?? null,
     p_observacoes: p.observacoes ?? null,
   } as never);
   if (error) throw new Error(error.message);
-  return data as unknown as string;
+  const liquidacaoId = data as unknown as string;
+  // veio do extrato = o banco já confirmou: os lançamentos da liquidação nascem conciliados
+  if (p.ofxFitid) await conciliarLiquidacao(liquidacaoId);
+  return liquidacaoId;
+}
+
+async function conciliarLiquidacao(liquidacaoId: string): Promise<void> {
+  const r = await supabase.from("fin_lancamentos").update({ status: "conciliado" } as never)
+    .eq("liquidacao_id" as never, liquidacaoId as never).eq("status", "realizado").select("id");
+  // RLS barrando devolve sucesso com 0 linhas (CLAUDE.md §6.1)
+  if (r.error) throw new Error(r.error.message);
+  if (!r.data || r.data.length === 0) throw new Error("A liquidação foi gravada, mas não consegui conciliar os lançamentos (permissão?).");
 }
 
 export interface DocumentoEmAberto {

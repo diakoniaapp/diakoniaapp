@@ -29,6 +29,7 @@ import { carregarCadastro } from "@/services/identificacaoService";
 import {
   acharDebitoCompativel, ehAutomatica, type CandidatoDebito, type DebitoEncontrado,
 } from "@/lib/formaLiquidacao";
+import { acharDocumentosDoExtrato, type DocumentoDoExtrato, type PrevistoParaExtrato } from "@/lib/documentoDoExtrato";
 
 const MESES_DE_HISTORICO = 24;
 const PAGINA = 1000;
@@ -70,7 +71,7 @@ export async function carregarContexto(): Promise<ContextoOfx> {
 
 // ── a análise do arquivo ────────────────────────────────────────────────────
 
-export type SituacaoLinha = "conciliar" | "ja_registrada" | "ambigua" | "debito_encontrado" | "nova";
+export type SituacaoLinha = "conciliar" | "ja_registrada" | "ambigua" | "debito_encontrado" | "documento" | "nova";
 
 export interface LinhaAnalisada {
   tx: OFXTransacao;
@@ -84,6 +85,9 @@ export interface LinhaAnalisada {
   /** `debito_encontrado`: o débito automático previsto que esta saída do extrato cumpriu
    *  (`lancamentoId` é o dele). */
   debito?: DebitoEncontrado;
+  /** `documento`: os documentos a pagar que esta saída provavelmente quitou (o primeiro é o mais provável).
+   *  `diferenca` ≠ 0 abre o fluxo de divergência (Juros / Multa / Outro documento / Ajuste). */
+  documentos?: DocumentoDoExtrato[];
 }
 
 const MARCA_OFX = /\[ofx:([^\]]+)\]/g;
@@ -98,18 +102,38 @@ async function fitidsJaImportados(contaId: string, de: string, ate: string): Pro
     for (const l of data ?? []) for (const m of (l.observacoes ?? "").matchAll(MARCA_OFX)) set.add(m[1]);
     if ((data ?? []).length < PAGINA) break;
   }
+  // liquidações feitas a partir do extrato (migration 20261007100000): sem a tabela, nada a somar
+  try {
+    const { data: liq, error } = await supabase.from("fin_liquidacoes" as never).select("ofx_fitid")
+      .eq("conta_id", contaId).not("ofx_fitid", "is", null).limit(5000);
+    if (!error) for (const l of (liq ?? []) as { ofx_fitid: string | null }[]) if (l.ofx_fitid) set.add(l.ofx_fitid);
+  } catch { /* tabela ausente: segue como antes */ }
   return set;
+}
+
+/** Saídas PREVISTAS ao redor do extrato — candidatas a "este pagamento quitou aquele documento". */
+async function previstosParaExtrato(de: string, ate: string): Promise<(PrevistoParaExtrato & { fornecedor_nome: string | null })[]> {
+  try {
+    const previstos = await listarLancamentos({ status: "previsto", tipo: "saida", dataInicio: daquiADias(de, -20), dataFim: daquiADias(ate, 20) });
+    return previstos.map(l => ({
+      id: l.id, valor: Number(l.valor), data: String(l.data).slice(0, 10), fornecedor_id: l.fornecedor_id ?? null,
+      descricao: l.descricao, fornecedor_nome: l.fornecedor_nome ?? null,
+    }));
+  } catch {
+    return [];
+  }
 }
 
 export async function analisar(contaId: string, txs: OFXTransacao[], contexto: ContextoOfx): Promise<LinhaAnalisada[]> {
   const datas = txs.map(t => t.data).sort();
   const de = daquiADias(datas[0], -5);
   const ate = daquiADias(datas[datas.length - 1], 5);
-  const [realizados, conciliados, fitids, debitos] = await Promise.all([
+  const [realizados, conciliados, fitids, debitos, previstos] = await Promise.all([
     listarLancamentos({ contaId, status: "realizado", dataInicio: de, dataFim: ate }),
     listarLancamentos({ contaId, status: "conciliado", dataInicio: de, dataFim: ate }),
     fitidsJaImportados(contaId, de, ate),
     debitosAutomaticosPrevistos(de, ate),
+    previstosParaExtrato(de, ate),
   ]);
 
   const out: LinhaAnalisada[] = new Array(txs.length);
@@ -148,7 +172,19 @@ export async function analisar(contaId: string, txs: OFXTransacao[], contexto: C
         out[i] = { tx, situacao: "debito_encontrado", lancamentoId: achado.candidato.id, debito: achado };
         return;
       }
-      out[i] = { tx, situacao: "nova", sugestao: sugerir({ fitid: tx.fitid, tipo: tx.tipo, data: tx.data, valor: tx.valor, memo: tx.memo }, contexto.ctx) };
+      const sugestao = sugerir({ fitid: tx.fitid, tipo: tx.tipo, data: tx.data, valor: tx.valor, memo: tx.memo }, contexto.ctx);
+      // um DOCUMENTO a pagar que esta saída provavelmente quitou (igual ou com diferença): liquidar, não criar outro.
+      // Favorecido identificado → situação "documento". Texto genérico do extrato (boleto) → a linha continua "nova"
+      // e leva só a DICA do documento provável (`incerto`), para não esconder uma linha que pode ser outra coisa.
+      const documentos = tx.tipo === "saida" && !sugestao.transferencia
+        ? acharDocumentosDoExtrato(tx, previstos, sugestao.fornecedor?.id, usados)
+        : [];
+      if (documentos.length > 0 && !documentos[0].incerto) {
+        usados.add(documentos[0].documento.id);
+        out[i] = { tx, situacao: "documento", sugestao, documentos };
+        return;
+      }
+      out[i] = { tx, situacao: "nova", sugestao, ...(documentos.length > 0 ? { documentos } : {}) };
     }
   });
   return out;

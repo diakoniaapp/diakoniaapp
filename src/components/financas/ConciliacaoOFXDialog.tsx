@@ -41,6 +41,7 @@ import {
   type Edicao, type Filtro, type LinhaDaGrade,
 } from "@/lib/gradeOfx";
 import { LancamentoForm } from "./LancamentoForm";
+import { LiquidarPeloExtratoDialog } from "./LiquidarPeloExtratoDialog";
 import { TransferenciaForm } from "./TransferenciaForm";
 
 interface Props {
@@ -86,6 +87,8 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
   const [desfazendo, setDesfazendo] = useState(false);
 
   const [editarLinha, setEditarLinha] = useState<LinhaAnalisada | null>(null);
+  // Saída do extrato que quitou um documento a pagar (igual ou com diferença): a divergência abre sozinha ao importar.
+  const [liquidarLinha, setLiquidarLinha] = useState<LinhaAnalisada | null>(null);
   // Pedido da Telma (22/09/2026): uma linha sem correspondência pode ser transferência de outra
   // conta (a `TransferenciaForm` cria as duas pernas atômico), não só um lançamento avulso.
   const [transferirTransacao, setTransferirTransacao] = useState<OFXTransacao | null>(null);
@@ -123,6 +126,10 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
     setContexto(ctx);
     const res = await analisar(contaId, txs, ctx);
     setLinhas(res);
+    if (primeira) {
+      const divergente = res.find(l => l.documentos?.[0] && !l.documentos[0].exato && (l.situacao === "documento" || l.documentos.length === 1));
+      if (divergente) setLiquidarLinha(divergente);
+    }
     const g = res.map(daGrade);
     setMarcadas(prev => primeira ? marcadasIniciais(g) : new Set([...prev].filter(f => g.some(x => x.fitid === f && x.situacao === "nova"))));
   }
@@ -152,6 +159,14 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
 
   const aConciliar = linhas?.filter(l => l.situacao === "conciliar") ?? [];
   const debitosEncontrados = linhas?.filter(l => l.situacao === "debito_encontrado") ?? [];
+  const documentosEncontrados = linhas?.filter(l => l.situacao === "documento") ?? [];
+  const divergentes = documentosEncontrados.filter(l => l.documentos?.[0] && !l.documentos[0].exato);
+
+  async function aoLiquidar() {
+    setLiquidarLinha(null);
+    if (transacoes) await analisarDeNovo(transacoes, true);
+    onSaved();
+  }
 
   async function conciliarOsDebitos(lista: LinhaAnalisada[]) {
     if (lista.length === 0 || !transacoes) return;
@@ -322,6 +337,19 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
                   Além destas: {contagem.conciliar} a conciliar com lançamentos já feitos · {contagem.ja_registradas} já registrada{contagem.ja_registradas !== 1 ? "s" : ""} (não serão criadas de novo) · {contagem.transferencias} parece{contagem.transferencias !== 1 ? "m" : ""} transferência entre contas.
                 </p>
               )}
+              {documentosEncontrados.length > 0 && (
+                <div className="rounded-md border border-warning-line bg-warning-soft/40 p-2.5 flex flex-wrap items-center gap-2">
+                  <p className="text-sm flex-1 min-w-0">
+                    <b className="tabular-nums">{documentosEncontrados.length}</b> pagamento{documentosEncontrados.length > 1 ? "s" : ""} do extrato quita{documentosEncontrados.length > 1 ? "m" : ""} documento{documentosEncontrados.length > 1 ? "s" : ""} a pagar
+                    {divergentes.length > 0 && <> — <b className="tabular-nums text-warning-text">{divergentes.length} com diferença de valor</b></>}.
+                    Revise cada um: nada é liquidado sem o seu clique.
+                  </p>
+                  <Button type="button" size="sm" variant="outline" className="gap-1.5" disabled={ocupado}
+                    onClick={() => setLiquidarLinha(divergentes[0] ?? documentosEncontrados[0])}>
+                    <Scale className="w-3.5 h-3.5" /> Revisar {divergentes.length > 0 ? "diferenças" : "documentos"}
+                  </Button>
+                </div>
+              )}
               {debitosEncontrados.length > 0 && (
                 <div className="rounded-md border border-info-line bg-info-soft/40 p-2.5 flex flex-wrap items-center gap-2">
                   <p className="text-sm flex-1 min-w-0">
@@ -422,6 +450,21 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
                           <Button type="button" size="sm" variant="outline" className="h-7 gap-1 text-xs" disabled={ocupado}
                             onClick={() => conciliarOsDebitos([l])}>
                             <Scale className="w-3 h-3" /> Conciliar débito
+                          </Button>
+                        </div>
+                      )}
+                      {(l.situacao === "documento" || (l.situacao === "nova" && l.documentos?.[0])) && l.documentos?.[0] && (
+                        <div className="pl-6 flex flex-wrap items-center gap-2">
+                          <p className="text-xs flex-1 min-w-0">
+                            <b className={l.documentos[0].exato ? "text-info-text" : "text-warning-text"}>
+                              {l.situacao === "nova" ? (l.documentos[0].exato ? "Pode ser o pagamento de" : "⚠ Pode ser o pagamento de (com diferença)") : (l.documentos[0].exato ? "Documento a pagar encontrado" : "⚠ Diferença identificada")}
+                            </b>
+                            {" — "}{l.documentos[0].documento.descricao ?? "documento"}, vencimento {dataBr(l.documentos[0].documento.data)}, documento {brl(l.documentos[0].documento.valor)}
+                            {!l.documentos[0].exato && <> · diferença <b className="tabular-nums">{l.documentos[0].diferenca > 0 ? "+" : "−"}{brl(Math.abs(l.documentos[0].diferenca))}</b></>}
+                          </p>
+                          <Button type="button" size="sm" variant="outline" className="h-7 gap-1 text-xs" disabled={ocupado}
+                            onClick={() => setLiquidarLinha(l)}>
+                            <Scale className="w-3 h-3" /> {l.documentos[0].exato ? "Liquidar" : "Explicar diferença"}
                           </Button>
                         </div>
                       )}
@@ -531,6 +574,8 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+
+    <LiquidarPeloExtratoDialog linha={liquidarLinha} contaId={contaId} onFechar={() => setLiquidarLinha(null)} onFeito={aoLiquidar} />
 
     {/* Editar uma linha — o MESMO formulário de sempre, já com o que foi sugerido. Dialog irmão,
         nunca aninhado (mesmo padrão de FinancasConta.tsx). */}

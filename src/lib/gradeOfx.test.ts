@@ -24,8 +24,16 @@ describe("filtros da grade", () => {
 
   it("conta cada linha na faixa certa; transferência não entra em identificadas/revisar", () => {
     expect(contarPorFiltro(linhas)).toEqual({
-      todas: 8, identificadas: 1, pendencias: 4, revisar: 2, nao_identificadas: 1, transferencias: 1, debitos: 1, conciliar: 1, ja_registradas: 1,
+      todas: 8, identificadas: 1, pendencias: 4, revisar: 2, nao_identificadas: 1, transferencias: 1, debitos: 1, documentos: 0, conciliar: 1, ja_registradas: 1,
     });
+  });
+
+  it("documento a liquidar (saída do extrato que quitou um previsto) tem filtro próprio e NUNCA é gravado em lote", () => {
+    const d: LinhaDaGrade = { fitid: "doc", situacao: "documento", sugestao: sug() };
+    expect(pertenceAoFiltro(d, "documentos")).toBe(true);
+    expect(pertenceAoFiltro(d, "identificadas")).toBe(false);
+    expect(pertenceAoFiltro(d, "pendencias")).toBe(false);
+    expect(podeGravar(d)).toBe(false);
   });
 
   it("débito automático encontrado tem filtro próprio e não entra nas faixas de identificação", () => {

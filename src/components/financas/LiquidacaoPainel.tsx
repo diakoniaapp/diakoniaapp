@@ -30,11 +30,13 @@ const MOTIVOS_A_MAIOR: { valor: MotivoPagouMais; rotulo: string }[] = [
 
 const txt = (n: number) => String(Math.round(n * 100) / 100).replace(".", ",");
 
-export function LiquidacaoPainel({ lancamento, onPlano }: {
-  lancamento: FinVencimento;
+export function LiquidacaoPainel({ lancamento, onPlano, valorPagoFixo }: {
+  lancamento: Pick<FinVencimento, "id" | "valor" | "data" | "fornecedor_id">;
   onPlano: (p: PlanoDeLiquidacao) => void;
+  /** Pagamento que veio do extrato: o valor pago é o do banco e não se digita. */
+  valorPagoFixo?: number;
 }) {
-  const [valorPagoTxt, setValorPagoTxt] = useState(txt(Number(lancamento.valor)));
+  const [valorPagoTxt, setValorPagoTxt] = useState(txt(valorPagoFixo ?? Number(lancamento.valor)));
   const [extras, setExtras] = useState<DocumentoEmAberto[]>([]);
   const [candidatos, setCandidatos] = useState<DocumentoEmAberto[] | null>(null);
   const [escolhendo, setEscolhendo] = useState(false);
@@ -62,8 +64,8 @@ export function LiquidacaoPainel({ lancamento, onPlano }: {
   // Ao incluir/remover documento o "valor pago" acompanha a soma, enquanto a pessoa não tiver digitado outro.
   const [valorPagoMexido, setValorPagoMexido] = useState(false);
   useEffect(() => {
-    if (!valorPagoMexido) setValorPagoTxt(txt(documentos.reduce((s, d) => s + d.valor, 0)));
-  }, [documentos, valorPagoMexido]);
+    if (!valorPagoMexido && valorPagoFixo === undefined) setValorPagoTxt(txt(documentos.reduce((s, d) => s + d.valor, 0)));
+  }, [documentos, valorPagoMexido, valorPagoFixo]);
 
   async function abrirEscolha() {
     setEscolhendo(true);
@@ -95,9 +97,9 @@ export function LiquidacaoPainel({ lancamento, onPlano }: {
           <p className="h-9 flex items-center text-sm font-semibold tabular-nums">{brl(plano.valorOriginal)}</p>
         </div>
         <div className="min-w-0">
-          <Label htmlFor="liq-valor-pago" className="text-xs">Valor pago (saiu do banco)</Label>
+          <Label htmlFor="liq-valor-pago" className="text-xs">{valorPagoFixo !== undefined ? "Valor no extrato" : "Valor pago (saiu do banco)"}</Label>
           <Input id="liq-valor-pago" type="text" inputMode="decimal" className="h-9 tabular-nums"
-            value={valorPagoTxt}
+            value={valorPagoTxt} readOnly={valorPagoFixo !== undefined}
             onChange={(e) => { setValorPagoMexido(true); setValorPagoTxt(e.target.value); setMotivoMenos(null); setMotivoMais(null); }} />
         </div>
       </div>
