@@ -134,6 +134,8 @@ const App = () => (
                 <Route path="/primeiro-acesso" element={<PrimeiroAcesso />} />
                 <Route path="/aceite-lgpd" element={<AceiteLgpd />} />
                 <Route path="/agenda/imprimir" element={<AgendaPrint />} />
+                {/* Endereço antigo da ficha do favorecido: só redireciona (fora do AppLayout; a rota nova já exige sessão) */}
+                <Route path="/financas/fornecedor/:id" element={<RedirecionaFavorecido />} />
 
                 {/* Rotas protegidas (dentro do AppLayout) */}
                 <Route element={<AppLayout />}>
@@ -216,7 +218,6 @@ const App = () => (
                   <Route path="/financas/favorecido/:id" element={<FinancasFornecedorDetalhe />} />
                   {/* endereços antigos (favoritos, links): continuam valendo */}
                   <Route path="/financas/fornecedores" element={<Navigate to="/financas/favorecidos" replace />} />
-                  <Route path="/financas/fornecedor/:id" element={<RedirecionaFavorecido />} />
                   <Route path="/financas/folha" element={<FinancasFolha />} />
                   <Route path="/financas/fiscal" element={<FinancasFiscal />} />
                   <Route path="/financas/reunioes" element={<ReunioesFinanceiras />} />
