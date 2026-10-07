@@ -72,12 +72,12 @@ CREATE POLICY fin_liquidacoes_equipe ON public.fin_liquidacoes
 -- a sua própria obrigação. "Em Aberto" = sem nada pago e vencimento já passou; "Previsto" = sem nada pago e a vencer.
 CREATE OR REPLACE VIEW public.vw_fin_obrigacoes AS
 WITH base AS (
-  SELECT COALESCE(l.obrigacao_id, l.id) AS obrigacao_id, l.*
+  SELECT COALESCE(l.obrigacao_id, l.id) AS grupo_id, l.*
     FROM public.fin_lancamentos l
    WHERE l.tipo = 'saida' AND l.origem IS DISTINCT FROM 'transferencia'
 ),
 agg AS (
-  SELECT obrigacao_id,
+  SELECT grupo_id AS obrigacao_id,
          COALESCE(MAX(valor_original) FILTER (WHERE componente = 'principal'),
                   SUM(valor + desconto) FILTER (WHERE componente = 'principal' AND status <> 'cancelado'), 0)       AS valor_original,
          COALESCE(SUM(valor)    FILTER (WHERE componente = 'principal' AND status IN ('realizado','conciliado')), 0) AS pago_principal,
@@ -89,7 +89,7 @@ agg AS (
          MIN(data) FILTER (WHERE componente = 'principal')                                                            AS vencimento,
          BOOL_AND(status = 'cancelado')                                                                               AS tudo_cancelado,
          MAX(data_pagamento)                                                                                          AS ultimo_pagamento
-    FROM base GROUP BY obrigacao_id
+    FROM base GROUP BY grupo_id
 )
 SELECT a.*,
        GREATEST(a.valor_original - a.pago_principal - a.desconto, 0)                       AS saldo_pendente,
