@@ -19,15 +19,15 @@ export function BoasVindasVisitante({ dados }: { dados: BoasVindasPublica }) {
 
   return (
     <div className="space-y-5">
+      {dados.banner_url && !bannerQuebrado && (
+        <img src={dados.banner_url} alt="" onError={() => setBannerQuebrado(true)} className="max-h-48 w-full rounded-lg border object-cover" />
+      )}
+
       <div className="space-y-3 text-center" role="status">
         <CheckCircle2 className="mx-auto h-14 w-14 text-success-text" aria-hidden />
         <h1 className="font-serif text-2xl font-semibold leading-tight">{dados.titulo}</h1>
         {dados.mensagem.trim() !== "" && <p className="whitespace-pre-line leading-relaxed text-muted-foreground">{dados.mensagem}</p>}
       </div>
-
-      {dados.banner_url && !bannerQuebrado && (
-        <img src={dados.banner_url} alt="" onError={() => setBannerQuebrado(true)} className="max-h-48 w-full rounded-lg border object-cover" />
-      )}
 
       {canais.length > 0 && (
         <section className="space-y-2" aria-label="Canais da igreja">
