@@ -22,6 +22,7 @@ import EstruturaDaIgreja from "./pages/EstruturaDaIgreja.tsx";
 import RecuperacaoSenhaAdmin from "./pages/RecuperacaoSenhaAdmin.tsx";
 import LgpdAdmin from "./pages/LgpdAdmin.tsx";
 import IdentidadeAdmin from "./pages/IdentidadeAdmin.tsx";
+import BoasVindasVisitanteAdmin from "./pages/BoasVindasVisitanteAdmin.tsx";
 import ResumoSemanalAdmin from "./pages/ResumoSemanalAdmin.tsx";
 import DocumentosAdmin from "./pages/DocumentosAdmin.tsx";
 import ImportacaoMembros from "./pages/ImportacaoMembros.tsx";
@@ -251,6 +252,7 @@ const App = () => (
                   <Route path="/admin/recuperacao-senha" element={<RecuperacaoSenhaAdmin />} />
                   <Route path="/admin/lgpd" element={<LgpdAdmin />} />
                   <Route path="/admin/identidade" element={<IdentidadeAdmin />} />
+                  <Route path="/admin/boas-vindas-visitante" element={<BoasVindasVisitanteAdmin />} />
                   <Route path="/admin/documentos" element={<DocumentosAdmin />} />
                   <Route path="/admin/importacao" element={<ImportacaoMembros />} />
                   <Route path="/admin/exportacao" element={<ExportacaoAdmin />} />

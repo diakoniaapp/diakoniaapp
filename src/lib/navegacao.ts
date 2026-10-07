@@ -174,6 +174,7 @@ export const TELAS: Tela[] = [
   T("/admin/recuperacao-senha", "Recuperar senha", "sistema"),
   T("/admin/lgpd", "LGPD", "sistema"),
   T("/admin/identidade", "Identidade", "sistema"),
+  T("/admin/boas-vindas-visitante", "Boas-vindas ao Visitante", "sistema"),
   T("/admin/documentos", "Documentos", "sistema"),
   T("/admin/importacao", "Importação de membros", "sistema"),
   T("/admin/exportacao", "Exportação", "sistema"),

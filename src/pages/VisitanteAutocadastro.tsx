@@ -10,13 +10,15 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { CheckCircle2, ChevronLeft, Loader2 } from "lucide-react";
+import { ChevronLeft, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthShell } from "@/components/AuthShell";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { BoasVindasVisitante } from "@/components/visitante/BoasVindasVisitante";
+import { BOAS_VINDAS_PADRAO, lerRespostaPublica, type BoasVindasPublica } from "@/lib/boasVindasVisitante";
 import {
   FORMULARIO_VAZIO, OPCOES_COMO_CONHECEU, PASSOS, TEXTO_DO_ACEITE, mascararData, mascararTelefone, montarPedido, problemasDoPasso,
   type FormularioDoVisitante, type Problema,
@@ -80,6 +82,8 @@ export default function VisitanteAutocadastro() {
   const [enviando, setEnviando] = useState(false);
   const [erroEnvio, setErroEnvio] = useState<string | null>(null);
   const [feito, setFeito] = useState(false);
+  // a tela de acolhimento (configurada em Configurações → Boas-vindas ao Visitante), buscada já ao abrir para estar pronta ao concluir
+  const [boasVindas, setBoasVindas] = useState<BoasVindasPublica>(BOAS_VINDAS_PADRAO);
   const sessaoId = useRef(novoId());
   const inicio = useRef(Date.now());
   const titulo = useRef<HTMLHeadingElement>(null);
@@ -89,6 +93,12 @@ export default function VisitanteAutocadastro() {
   };
 
   useEffect(() => { guardarRascunho(f, passo); }, [f, passo]);
+
+  useEffect(() => {
+    Promise.resolve(supabase.rpc("visitante_boasvindas" as never))
+      .then(({ data, error }) => { if (!error) setBoasVindas(lerRespostaPublica(data)); })
+      .catch(() => undefined);   // sem a configuração: fica o acolhimento padrão
+  }, []);
 
   // a medição: o passo que apareceu na tela (nunca falha para o visitante)
   useEffect(() => {
@@ -140,14 +150,7 @@ export default function VisitanteAutocadastro() {
   if (feito) {
     return (
       <AuthShell wide semVersiculo compacto>
-        <div className="rounded-xl border bg-card p-8 text-center space-y-4" role="status">
-          <CheckCircle2 className="mx-auto h-14 w-14 text-success-text" aria-hidden />
-          <h1 className="font-serif text-2xl font-semibold">Cadastro realizado com sucesso</h1>
-          <p className="text-muted-foreground leading-relaxed">
-            Seja muito bem-vindo à <strong className="text-foreground">Quarta Igreja Batista do Rio de Janeiro</strong>.<br />
-            Foi uma alegria receber sua visita.
-          </p>
-        </div>
+        <div className="rounded-xl border bg-card p-6"><BoasVindasVisitante dados={boasVindas} /></div>
       </AuthShell>
     );
   }

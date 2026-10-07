@@ -39,7 +39,7 @@
 //   Dados       levar gente pra dentro do sistema, ou pra fora dele
 
 import {
-  Users, KeyRound, ShieldAlert, Church,
+  Users, KeyRound, ShieldAlert, Church, HeartHandshake,
   FileText, Upload, Download, type LucideIcon,
 } from "lucide-react";
 
@@ -66,6 +66,7 @@ export const ADMIN_MENU_GROUPS: AdminMenuGroup[] = [
     label: "Da igreja",
     items: [
       { path: "/admin/identidade",  label: "Identidade da Igreja", icon: Church },
+      { path: "/admin/boas-vindas-visitante", label: "Boas-vindas ao Visitante", icon: HeartHandshake },
       { path: "/admin/documentos",  label: "Documentos",           icon: FileText },
       { path: "/admin/lgpd",        label: "Painel LGPD",          icon: ShieldAlert },
     ],

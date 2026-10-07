@@ -449,6 +449,7 @@ export const pageTitles: Record<string, string> = {
   "/admin/recuperacao-senha": "Recuperar Senha",
   "/admin/lgpd":              "LGPD",
   "/admin/identidade":        "Identidade",
+  "/admin/boas-vindas-visitante": "Boas-vindas ao Visitante",
   "/admin/documentos":        "Documentos",
   "/admin/importacao":        "Importação",
   "/admin/exportacao":        "Exportação",

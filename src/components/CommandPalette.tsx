@@ -105,6 +105,7 @@ const ROUTES: CommandRoute[] = [
 
   // ── Configurações (raramente buscadas mas indexadas) ──────────────
   { to: "/admin/identidade",        label: "Identidade da igreja", icon: Church,      group: "Configurações", keywords: ["estatuto","missao","visao"] },
+  { to: "/admin/boas-vindas-visitante", label: "Boas-vindas ao visitante", icon: HeartHandshake, group: "Configurações", keywords: ["acolhimento","visitante","qr","redes sociais","instagram","banner"] },
   { to: "/admin/documentos",        label: "Documentos institucionais", icon: ScrollText, group: "Configurações", keywords: ["regimento","atas"] },
   { to: "/admin/campanhas",         label: "Campanhas",            icon: Flame,       group: "Configurações", keywords: ["natal","missoes","ofertas"] },
   { to: "/estrutura",               label: "Estrutura",            icon: Network,     group: "Configurações", keywords: ["organograma","arvore"] },
