@@ -197,7 +197,9 @@ export async function habitosDoFavorecido(alvo: AlvoDoHistorico): Promise<Habito
     .select("id, data, data_pagamento, valor, categoria_id, centro_custo_id, forma_pagamento")
     .eq("tipo", "saida").in("status", ["realizado", "conciliado"]).neq("origem", "transferencia")
     .order("data", { ascending: false }).limit(PAGAMENTOS_PARA_HABITO);
-  q = alvo.fornecedorId ? q.eq("fornecedor_id", alvo.fornecedorId) : q.eq("pessoa_id", alvo.pessoaId!);
+  q = alvo.fornecedorId && alvo.pessoaId
+    ? q.or(`fornecedor_id.eq.${alvo.fornecedorId},pessoa_id.eq.${alvo.pessoaId}`)   // favorecido-PESSOA: os dois caminhos
+    : alvo.fornecedorId ? q.eq("fornecedor_id", alvo.fornecedorId) : q.eq("pessoa_id", alvo.pessoaId!);
   const { data, error } = await q;
   if (error) throw error;
   const lancs = data ?? [];

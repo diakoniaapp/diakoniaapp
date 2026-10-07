@@ -11,13 +11,13 @@ import { Loader2, Search, UserRound, Building2, FileText } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  brl, buscarPessoasParaLancamento, listarFornecedores, FIN_ANEXO_TIPO_LABEL,
+  brl, buscarPessoasParaLancamento, listarFornecedores, buscarFornecedor, FIN_ANEXO_TIPO_LABEL,
   type FinAnexoTipo, type FinCategoria, type FinCentroCusto,
 } from "@/services/finService";
 import { habitosDoFavorecido } from "@/services/recorrenciaService";
 import type { HabitosDoFavorecido } from "@/lib/habitosDoFavorecido";
 
-export interface Favorecido { tipo: "fornecedor" | "pessoa"; id: string; nome: string }
+export interface Favorecido { tipo: "fornecedor" | "pessoa"; id: string; nome: string; /** favorecido que é uma pessoa do cadastro */ pessoaId?: string | null }
 
 /** O que o cadastro/histórico sugere preencher — o formulário só aplica o que ainda está vazio. */
 export interface SugestoesDoFavorecido {
@@ -61,7 +61,7 @@ export function SeletorFavorecido({ value, onChange, categorias, centros, obriga
         ]);
         if (minha !== sequencia.current) return;
         setAchados([
-          ...forns.slice(0, 6).map(f => ({ tipo: "fornecedor" as const, id: f.id, nome: f.nome })),
+          ...forns.slice(0, 6).map(f => ({ tipo: "fornecedor" as const, id: f.id, nome: f.nome, pessoaId: f.pessoa_id ?? null })),
           ...pessoas.slice(0, 6).map(p => ({ tipo: "pessoa" as const, id: p.id, nome: p.nome })),
         ]);
       } finally {
@@ -77,7 +77,12 @@ export function SeletorFavorecido({ value, onChange, categorias, centros, obriga
     if (!value) return;
     let cancelado = false;
     setLendo(true);
-    habitosDoFavorecido(value.tipo === "fornecedor" ? { fornecedorId: value.id } : { pessoaId: value.id })
+    (async () => {
+      // favorecido-pessoa (vindo do formulário de recorrência, que só guarda o id): descobre a pessoa para juntar os dois históricos
+      let pessoaId = value.tipo === "fornecedor" ? value.pessoaId ?? null : value.id;
+      if (value.tipo === "fornecedor" && value.pessoaId === undefined) pessoaId = (await buscarFornecedor(value.id).catch(() => null))?.pessoa_id ?? null;
+      return habitosDoFavorecido(value.tipo === "fornecedor" ? { fornecedorId: value.id, pessoaId } : { pessoaId: value.id });
+    })()
       .then(h => { if (!cancelado) { setHabitos(h); setSemHistorico(!h); } })
       .catch(() => { if (!cancelado) setSemHistorico(true); })
       .finally(() => { if (!cancelado) setLendo(false); });
@@ -114,9 +119,9 @@ export function SeletorFavorecido({ value, onChange, categorias, centros, obriga
       {value ? (
         <div className="mt-1 rounded-md border bg-muted/20 p-2.5 space-y-1.5">
           <div className="flex items-center gap-2 text-sm">
-            {value.tipo === "pessoa" ? <UserRound className="w-4 h-4 text-muted-foreground shrink-0" /> : <Building2 className="w-4 h-4 text-muted-foreground shrink-0" />}
+            {value.tipo === "pessoa" || value.pessoaId ? <UserRound className="w-4 h-4 text-muted-foreground shrink-0" /> : <Building2 className="w-4 h-4 text-muted-foreground shrink-0" />}
             <span className="font-medium truncate">{value.nome}</span>
-            <span className="text-2xs uppercase tracking-wide text-muted-foreground shrink-0">{value.tipo === "pessoa" ? "Pessoa do catálogo" : "Favorecido"}</span>
+            <span className="text-2xs uppercase tracking-wide text-muted-foreground shrink-0">{value.tipo === "pessoa" ? "Pessoa do catálogo" : value.pessoaId ? "Pessoa · favorecido" : "Favorecido"}</span>
             <button type="button" className="ml-auto text-xs underline decoration-dotted text-muted-foreground hover:text-foreground shrink-0"
               onClick={() => { onChange(null); setBusca(""); }}>trocar</button>
           </div>
@@ -157,7 +162,7 @@ export function SeletorFavorecido({ value, onChange, categorias, centros, obriga
                 <button key={`${f.tipo}-${f.id}`} type="button" onClick={() => escolher(f)}
                   className="w-full flex items-center justify-between gap-2 text-left px-2.5 py-1.5 text-sm hover:bg-muted/50">
                   <span className="truncate">{f.nome}</span>
-                  <span className="text-2xs uppercase tracking-wide text-muted-foreground shrink-0">{f.tipo === "pessoa" ? "Pessoa" : "Favorecido"}</span>
+                  <span className="text-2xs uppercase tracking-wide text-muted-foreground shrink-0">{f.tipo === "pessoa" || f.pessoaId ? "Pessoa" : "Favorecido"}</span>
                 </button>
               ))}
             </div>

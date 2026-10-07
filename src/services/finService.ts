@@ -739,13 +739,20 @@ export async function salvarRateio(
 // também não os achava. 1000 é o teto real por requisição do PostgREST
 // deste projeto (mesmo valor usado em `doadorService.ts`), longe do volume
 // atual — quando passar disso, paginar de verdade como lá.
+// Busca sem exigir acento ("jose" acha "José"): vogais e c viram "_" (um caractere qualquer) na consulta ao banco,
+// e o resultado é conferido de novo, já sem acento. Antes, "jose fernandes" não achava "José Fernandes Alves".
+const semAcentoBusca = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+const padraoDeBusca = (busca: string) => "%" + semAcentoBusca(busca.trim()).replace(/[%_]/g, "").replace(/[aeiouc]/g, "_") + "%";
+
 export async function listarFornecedores(busca?: string, incluirInativos = false): Promise<FinFornecedor[]> {
   let q = supabase.from("fin_fornecedores").select("*").order("nome").limit(1000);
   if (!incluirInativos) q = q.eq("ativo", true);
-  if (busca && busca.length >= 2) q = q.ilike("nome", `%${busca}%`);
+  const comBusca = !!busca && busca.length >= 2;
+  if (comBusca) q = q.ilike("nome", padraoDeBusca(busca!));
   const { data, error } = await q;
   if (error) throw error;
-  return (data ?? []) as FinFornecedor[];
+  const lista = (data ?? []) as FinFornecedor[];
+  return comBusca ? lista.filter(f => semAcentoBusca(f.nome).includes(semAcentoBusca(busca!.trim()))) : lista;
 }
 
 // ─── Pix de PESSOA (migration 20261006170000) ────────────────────────────
@@ -835,10 +842,17 @@ export async function buscarPessoasParaLancamento(busca: string): Promise<FinPes
   if (busca.length < 2) return [];
   const { data, error } = await supabase
     .from("membros").select("id, nome_completo")
-    .ilike("nome_completo", `%${busca}%`)
-    .order("nome_completo").limit(8);
+    .ilike("nome_completo", padraoDeBusca(busca))
+    .order("nome_completo").limit(40);
   if (error) throw error;
-  return (data ?? []).map((p: any) => ({ id: p.id, nome: p.nome_completo }));
+  const pessoas = (data ?? []).filter((p: any) => semAcentoBusca(p.nome_completo).includes(semAcentoBusca(busca.trim())))
+    .slice(0, 8).map((p: any) => ({ id: p.id, nome: p.nome_completo }));
+  if (pessoas.length === 0) return pessoas;
+  // Favorecido Financeiro: a pessoa que JÁ é favorecida (ativa) aparece na outra lista, como favorecido — não de novo aqui.
+  const { data: favs } = await supabase.from("fin_fornecedores").select("pessoa_id")
+    .in("pessoa_id" as never, pessoas.map(p => p.id) as never).eq("ativo", true);
+  const jaFavorecidas = new Set(((favs ?? []) as unknown as { pessoa_id: string }[]).map(f => f.pessoa_id));
+  return pessoas.filter(p => !jaFavorecidas.has(p.id));
 }
 
 export async function criarFornecedor(input: Partial<FinFornecedor>): Promise<FinFornecedor> {
