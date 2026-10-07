@@ -75,7 +75,7 @@ WhatsApp (o número e o *aceite de receber informações* já ficam guardados) �
 
 ## 9. Decisões que preciso de você
 
-1. **Culto/evento:** a recepção escolhe o "culto de hoje" numa lista rápida (Culto de domingo manhã/noite, etc.), ou deixo só a dedução automática por dia e hora? Preciso saber os **horários dos cultos** para a dedução (hoje assumi: antes das 12h = manhã, até 18h = tarde, depois = noite).
+1. ~~Culto/evento~~ **Resolvido, lendo a agenda dela** (07/10/2026): domingo tem *Escola Bíblica Dominical* 09:00–10:00, *Culto da Manhã* 10:30–12:30 e *Culto da Noite* 18:30–20:30 (séries semanais até 27/12), além de cultos avulsos (Juventude, Vigília…). A função `visitante_culto_agora()` avalia essas séries: vale o culto cuja janela (1 h antes até 30 min depois) contém a hora do cadastro. Fora de qualquer culto: "Visita de <dia> (fora de culto na agenda)". A recepção ainda pode marcar o "culto de hoje" à mão (sobrepõe a agenda). **Limite:** um culto cancelado ou remarcado numa só data não é descontado da série; se isso acontecer, a recepção marca o culto do dia.
 2. **Quem vê a fila e os pedidos de oração:** admin, secretaria, diakonia (pastor titular) e pastor, como na tabela de visitas. Mais alguém (por ex. a liderança de acolhimento)? Menos alguém?
 3. **"É sua primeira visita?":** guardo só o que o visitante respondeu. Se ele disser "Não" e não existir cadastro, não invento visita anterior (`numero_visitas` continua 1). Combinado?
 4. **Obrigatoriedade:** nome + um número obrigatórios, resto opcional. Quer exigir também a data de nascimento ou o endereço?

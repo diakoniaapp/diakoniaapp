@@ -133,6 +133,17 @@ BEGIN
     RAISE EXCEPTION 'Caso 8: quem pediu oração deveria estar na fila pastoral com prioridade 1.';
   END IF;
 
+  -- ── caso 9: o culto vem da AGENDA (depende da agenda de hoje: domingo 11/10/2026 já está dentro das séries até 27/12) ──
+  caso := '9';
+  IF (SELECT culto FROM public.visitante_culto_agora(TIMESTAMP '2026-10-11 11:00')) IS DISTINCT FROM 'Culto da Manhã'
+     OR (SELECT culto FROM public.visitante_culto_agora(TIMESTAMP '2026-10-11 18:45')) IS DISTINCT FROM 'Culto da Noite'
+     OR (SELECT culto FROM public.visitante_culto_agora(TIMESTAMP '2026-10-11 09:15')) IS DISTINCT FROM 'Escola Bíblica Dominical'
+     OR (SELECT culto FROM public.visitante_culto_agora(TIMESTAMP '2026-10-10 15:00')) IS NOT NULL THEN
+    RAISE EXCEPTION 'Caso 9: o culto deduzido da agenda não bate: manhã=%, noite=%, EBD=%, sábado à tarde=%',
+      (SELECT culto FROM public.visitante_culto_agora(TIMESTAMP '2026-10-11 11:00')), (SELECT culto FROM public.visitante_culto_agora(TIMESTAMP '2026-10-11 18:45')),
+      (SELECT culto FROM public.visitante_culto_agora(TIMESTAMP '2026-10-11 09:15')), (SELECT culto FROM public.visitante_culto_agora(TIMESTAMP '2026-10-10 15:00'));
+  END IF;
+
   -- ── caso 7: o ANÔNIMO não lê nada além do que a função devolve ──────────────────────────────────────────
   caso := '7';
   FOR n IN 1..6 LOOP

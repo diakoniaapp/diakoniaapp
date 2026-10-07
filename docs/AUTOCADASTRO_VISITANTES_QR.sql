@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS public.visitante_pontos (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
--- ── 2) culto/evento do dia (opcional; sem isso o culto é deduzido do dia e da hora) ───────────────────────
+-- ── 2) culto/evento do dia (opcional; sem isso o culto vem da AGENDA, pela data e hora) ──────────────────
 CREATE TABLE IF NOT EXISTS public.visitante_sessoes (
   id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   data       date NOT NULL DEFAULT ((now() AT TIME ZONE 'America/Sao_Paulo')::date),
@@ -103,6 +103,38 @@ END $$;
 -- o QR inicial: um ponto "Recepção", criado uma vez (a tela mostra o código para imprimir)
 INSERT INTO public.visitante_pontos (nome) SELECT 'Recepção' WHERE NOT EXISTS (SELECT 1 FROM public.visitante_pontos);
 
+-- ── 5a) o culto/evento de AGORA, lido da agenda (eventos) ───────────────────────────────────────────────
+-- Medido na agenda dela (07/10/2026): Culto da Manhã (dom 10:30–12:30), Culto da Noite (dom 18:30–20:30), Escola Bíblica
+-- Dominical (dom 09:00–10:00) — séries semanais guardadas como UMA linha-base + `recorrencia_regra` (freq, dias_semana,
+-- intervalo, fim), mais cultos avulsos (Juventude, Vigília…). Aqui a série semanal é avaliada para a data pedida.
+-- Vale o evento cuja janela (1 h antes do início até 30 min depois do fim) contém a hora; havendo mais de um, o de início
+-- mais próximo. Sem evento na agenda, devolve vazio e a função chamadora usa um rótulo genérico.
+-- Limite conhecido: uma ocorrência CANCELADA/remarcada de uma série (linha de exceção) não é descontada da série.
+CREATE OR REPLACE FUNCTION public.visitante_culto_agora(p_agora timestamp DEFAULT (now() AT TIME ZONE 'America/Sao_Paulo'))
+RETURNS TABLE (culto text, evento_id uuid)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public', 'pg_temp'
+AS $f$
+  WITH hoje AS (SELECT p_agora::date AS d, extract(dow FROM p_agora)::int AS dow),
+  cand AS (
+    SELECT e.id, btrim(split_part(e.titulo, ' | ', 1)) AS titulo,   -- na agenda dela o título carrega o ministério ("Culto da Noite | MINISTÉRIO PASTORAL")
+           hoje.d + e.hora_inicio AS ini,
+           hoje.d + COALESCE(e.hora_fim, e.hora_inicio) + CASE WHEN e.hora_fim IS NULL THEN interval '2 hours' ELSE interval '0' END AS fim
+      FROM public.eventos e, hoje
+     WHERE e.status = 'agendado' AND e.hora_inicio IS NOT NULL
+       AND (e.tipo = 'culto' OR e.titulo ILIKE 'Escola Bíblica%')
+       AND ( e.data = hoje.d
+          OR ( e.recorrencia_regra->>'freq' = 'semanal' AND e.data < hoje.d
+               AND hoje.dow IN (SELECT jsonb_array_elements_text(e.recorrencia_regra->'dias_semana')::int)
+               AND ( e.recorrencia_regra->'fim'->>'tipo' = 'nunca' OR (e.recorrencia_regra->'fim'->>'data')::date >= hoje.d )
+               AND (((hoje.d - e.data) / 7) % COALESCE(NULLIF((e.recorrencia_regra->>'intervalo')::int, 0), 1)) = 0 ) )
+  )
+  SELECT c.titulo, c.id FROM cand c
+   WHERE p_agora BETWEEN c.ini - interval '60 minutes' AND c.fim + interval '30 minutes'
+   ORDER BY abs(extract(epoch FROM (p_agora - c.ini))) LIMIT 1
+$f$;
+REVOKE ALL ON FUNCTION public.visitante_culto_agora(timestamp) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.visitante_culto_agora(timestamp) TO authenticated;
+
 -- ── 5) a porta única ────────────────────────────────────────────────────────────────────────────────────
 -- p_dados (jsonb): nome, data_nascimento (AAAA-MM-DD), telefone, whatsapp, endereco, como_conheceu, como_conheceu_outro,
 --   quem_convidou, oracao_familia, oracao_saude, oracao_trabalho, oracao_outro (texto), primeira_visita, deseja_contato,
@@ -159,8 +191,10 @@ BEGIN
   -- culto/evento: o que a recepção marcou para hoje; senão deduzido do dia e da hora
   SELECT * INTO v_sessao FROM public.visitante_sessoes WHERE data = v_hoje AND ativo ORDER BY created_at DESC LIMIT 1;
   IF FOUND THEN v_culto := v_sessao.culto; v_evento := v_sessao.evento_id;
-  ELSE v_culto := 'Culto de ' || v_dias[extract(dow FROM v_agora)::int + 1]
-                  || CASE WHEN extract(hour FROM v_agora) < 12 THEN ' (manhã)' WHEN extract(hour FROM v_agora) < 18 THEN ' (tarde)' ELSE ' (noite)' END;
+  ELSE
+    SELECT a.culto, a.evento_id INTO v_culto, v_evento FROM public.visitante_culto_agora(v_agora) a;
+    -- nenhum culto/evento da agenda neste horário: rótulo genérico (a visita é registrada do mesmo jeito)
+    IF v_culto IS NULL THEN v_culto := 'Visita de ' || v_dias[extract(dow FROM v_agora)::int + 1] || ' (fora de culto na agenda)'; END IF;
   END IF;
 
   -- quem já existe? o telefone (ou o WhatsApp) pelos últimos 11 dígitos, qualquer vínculo (visitante, congregado, membro)
