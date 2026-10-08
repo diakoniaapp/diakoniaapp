@@ -25,7 +25,7 @@
 
 
 DO $ensaio$
-DECLARE resultado text;
+DECLARE resultado text; n_sustento int;
 BEGIN
 
 -- fotografia do que NÃO pode mudar
@@ -128,6 +128,11 @@ SELECT liq_id, conta_id, dia, forma_pagamento, valor, fitid,
 
 -- 6. migra o que o duplicado tem e a obrigação não (anexos, comprovante, projeto, favorecido)
 UPDATE public.fin_lancamento_anexos a SET lancamento_id = q.o_id FROM _liq q WHERE a.lancamento_id = q.d_id;
+-- Conta Corrente de Sustento: um pagamento já ligado a uma competência (sustento_pagamentos, FK RESTRICT) passa a apontar para a OBRIGAÇÃO
+-- baixada, que é quem fica com o dinheiro. Achado no 1º ensaio de 08/10/2026: o PIX de 15/09 (R$ 4.000, N1136D) do Pastor Titular estava
+-- ligado à competência de setembro e o banco recusou apagar o duplicado — a trava funcionou. Valor e conta são os mesmos; o saldo não muda.
+UPDATE public.sustento_pagamentos sp SET lancamento_id = q.o_id FROM _liq q WHERE sp.lancamento_id = q.d_id;
+GET DIAGNOSTICS n_sustento = ROW_COUNT;
 
 -- 7. baixa a obrigação (como `fin_liquidar`): conciliada, data do pagamento, liquidação e obrigação ligadas
 DECLARE n int;
@@ -181,6 +186,14 @@ BEGIN
   SELECT count(*) INTO n_view FROM _liq q JOIN public.vw_fin_obrigacoes v ON v.obrigacao_id = q.o_id WHERE v.situacao = 'pago_integralmente';
   IF n_view <> 12 THEN RAISE EXCEPTION 'Visão de obrigações: só % das 12 constam como pagas integralmente — abortando', n_view; END IF;
 
+  -- o sustento continua inteiro: nenhum pagamento ligado a um lançamento que não existe mais, e o saldo do titular em setembro segue 5.728,00
+  IF EXISTS (SELECT 1 FROM public.sustento_pagamentos sp WHERE NOT EXISTS (SELECT 1 FROM public.fin_lancamentos l WHERE l.id = sp.lancamento_id)) THEN
+    RAISE EXCEPTION 'Há pagamento de sustento ligado a lançamento removido — abortando';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.vw_sustento_conta_corrente WHERE competencia = DATE '2026-09-01' AND tipo = 'pastor_titular' AND saldo_a_pagar <> 5728.00) THEN
+    RAISE EXCEPTION 'O saldo do Pastor Titular em setembro mudou depois da baixa — abortando';
+  END IF;
+
   -- a quantificação bate com o esperado
   SELECT count(*), coalesce(sum(valor), 0) INTO atr_n, atr_soma FROM public.fin_lancamentos
    WHERE status = 'previsto' AND tipo = 'saida' AND data < (now() AT TIME ZONE 'America/Sao_Paulo')::date;
@@ -194,7 +207,8 @@ resultado := jsonb_pretty(jsonb_build_object(
       'encontrada', (SELECT count(*) FROM _pares),
       'corrigida',  (SELECT count(*) FROM _liq q JOIN public.fin_lancamentos o ON o.id = q.o_id WHERE o.status = 'conciliado' AND o.liquidacao_id = q.liq_id),
       'duplicados_removidos', (SELECT count(*) FROM _liq q WHERE NOT EXISTS (SELECT 1 FROM public.fin_lancamentos d WHERE d.id = q.d_id)),
-      'liquidacoes_criadas', (SELECT count(*) FROM _liq)),
+      'liquidacoes_criadas', (SELECT count(*) FROM _liq),
+      'pagamentos_de_sustento_religados_a_obrigacao', n_sustento),
   'saldos_por_conta', (SELECT jsonb_agg(jsonb_build_object('conta', c.nome, 'antes', s.saldo_atual, 'depois', c.saldo_atual, 'mudou', c.saldo_atual IS DISTINCT FROM s.saldo_atual) ORDER BY c.nome)
                          FROM public.fin_contas c JOIN _saldos_antes s USING (id)),
   'obrigacoes_atrasadas', jsonb_build_object(
