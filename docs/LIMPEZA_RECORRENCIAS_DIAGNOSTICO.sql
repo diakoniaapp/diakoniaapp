@@ -3,11 +3,14 @@
 -- (1) lista os gatilhos de fin_lancamentos e as chaves estrangeiras que apontam para ela, dizendo se a coluna que aponta TEM índice —
 --     sem índice, cada linha apagada obriga o banco a varrer a tabela que a referencia (29 mil linhas × uma varredura = minutos);
 -- (2) mede quanto custa montar a lista do que seria removido; (3) apaga uma AMOSTRA de 200 linhas e cronometra — depois extrapola.
+-- 1ª medição (08/10/2026): apagar 200 linhas = 1,68 s → ~247 s para as 29.460, acima do limite do editor. Causa principal: a chave
+-- fin_lancamentos.lancamento_pai_id (auto-referência, ON DELETE SET NULL) NÃO tem índice — cada linha apagada varre as 43 mil linhas da
+-- própria tabela. 2ª medição (esta versão): cria o índice DENTRO do comando (e o desfaz junto com tudo) e mede de novo.
 -- Como os outros ensaios: um único comando que termina SEMPRE com erro de propósito ("DIAGNÓSTICO CONCLUÍDO (nada foi gravado)").
 
 DO $diag$
 DECLARE
-  t0 timestamptz; t_lista numeric; t_amostra numeric; n_lista bigint; n_amostra bigint;
+  t0 timestamptz; t_indice numeric; t_lista numeric; t_amostra numeric; n_lista bigint; n_amostra bigint;
   gatilhos text; fks text; tamanho text; total bigint; previstos bigint;
 BEGIN
   SELECT string_agg(format('%s [%s] %s', t.tgname,
@@ -47,14 +50,19 @@ BEGIN
   t_lista := extract(epoch FROM clock_timestamp() - t0);
 
   -- (3) amostra: apaga 200 linhas com o gatilho de saldo desligado (como o ensaio) e cronometra
+  -- o índice que falta: pequeno (só as linhas com pai) e criado aqui só para medir; o rollback do erro final o desfaz
+  t0 := clock_timestamp();
+  CREATE INDEX fin_lancamentos_pai_idx_diag ON public.fin_lancamentos (lancamento_pai_id) WHERE lancamento_pai_id IS NOT NULL;
+  t_indice := extract(epoch FROM clock_timestamp() - t0);
   ALTER TABLE public.fin_lancamentos DISABLE TRIGGER fin_lanc_saldo;
   t0 := clock_timestamp();
   DELETE FROM public.fin_lancamentos WHERE id IN (SELECT id FROM _limpa LIMIT 200);
   GET DIAGNOSTICS n_amostra = ROW_COUNT;
   t_amostra := extract(epoch FROM clock_timestamp() - t0);
 
-  RAISE EXCEPTION E'DIAGNÓSTICO CONCLUÍDO (nada foi gravado)\n\nfin_lancamentos: % linhas, % (tabela + índices); % previstos de recorrência\n\nGATILHOS:\n%\n\nCHAVES ESTRANGEIRAS que apontam para fin_lancamentos:\n%\n\nMONTAR A LISTA do que seria removido: % linhas em % s\nAMOSTRA: apagar % linhas levou % s  →  estimativa para tudo (%): % s',
+  RAISE EXCEPTION E'DIAGNÓSTICO CONCLUÍDO (nada foi gravado)\n\nfin_lancamentos: % linhas, % (tabela + índices); % previstos de recorrência\n\nGATILHOS:\n%\n\nCHAVES ESTRANGEIRAS que apontam para fin_lancamentos:\n%\n\nMONTAR A LISTA do que seria removido: % linhas em % s\nCOM O ÍNDICE em lancamento_pai_id (criar levou % s)
+AMOSTRA: apagar % linhas levou % s  →  estimativa para tudo (%): % s',
     total, tamanho, previstos, coalesce(gatilhos, '(nenhum)'), coalesce(fks, '(nenhuma)'), n_lista, round(t_lista, 2),
-    n_amostra, round(t_amostra, 2), n_lista, round(t_amostra * n_lista / greatest(n_amostra, 1), 1);
+    round(t_indice, 2), n_amostra, round(t_amostra, 2), n_lista, round(t_amostra * n_lista / greatest(n_amostra, 1), 1);
 END
 $diag$;
