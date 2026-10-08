@@ -183,21 +183,33 @@ BEGIN
   IF atr_n <> esp_n OR atr_soma <> esp_soma THEN RAISE EXCEPTION 'Atrasadas depois (% / %) diferem do esperado (% / %) — abortando', atr_n, atr_soma, esp_n, esp_soma; END IF;
 END $$;
 
--- o resultado (abra o JSON): a tabela dos 12, a quantificação e as verificações
+-- o resultado (abra o JSON): quantidade encontrada/corrigida, saldos e obrigações antes e depois, a tabela dos 12 e as verificações
 SELECT jsonb_pretty(jsonb_build_object(
+  'quantidade', jsonb_build_object(
+      'encontrada', (SELECT count(*) FROM _pares),
+      'corrigida',  (SELECT count(*) FROM _liq q JOIN public.fin_lancamentos o ON o.id = q.o_id WHERE o.status = 'conciliado' AND o.liquidacao_id = q.liq_id),
+      'duplicados_removidos', (SELECT count(*) FROM _liq q WHERE NOT EXISTS (SELECT 1 FROM public.fin_lancamentos d WHERE d.id = q.d_id)),
+      'liquidacoes_criadas', (SELECT count(*) FROM _liq)),
+  'saldos_por_conta', (SELECT jsonb_agg(jsonb_build_object('conta', c.nome, 'antes', s.saldo_atual, 'depois', c.saldo_atual, 'mudou', c.saldo_atual IS DISTINCT FROM s.saldo_atual) ORDER BY c.nome)
+                         FROM public.fin_contas c JOIN _saldos_antes s USING (id)),
+  'obrigacoes_atrasadas', jsonb_build_object(
+      'antes',  jsonb_build_object('quantidade', (SELECT n FROM _atrasadas_antes), 'valor', (SELECT soma FROM _atrasadas_antes)),
+      'depois', jsonb_build_object(
+          'quantidade', (SELECT count(*) FROM public.fin_lancamentos WHERE status = 'previsto' AND tipo = 'saida' AND data < (now() AT TIME ZONE 'America/Sao_Paulo')::date),
+          'valor',      (SELECT coalesce(sum(valor), 0) FROM public.fin_lancamentos WHERE status = 'previsto' AND tipo = 'saida' AND data < (now() AT TIME ZONE 'America/Sao_Paulo')::date)),
+      'valor_baixado', (SELECT sum(valor) FROM _liq)),
+  'as_12_obrigacoes_antes_e_depois', (SELECT jsonb_agg(jsonb_build_object(
+          'ofx', q.fitid, 'obrigacao', coalesce(f.nome, m.nome_completo, o.descricao), 'valor', o.valor,
+          'status_antes', 'previsto', 'status_depois', o.status, 'situacao_na_visao_de_obrigacoes', v.situacao,
+          'liquidacao_ligada', o.liquidacao_id = q.liq_id) ORDER BY o.data, o.descricao)
+        FROM _liq q JOIN public.fin_lancamentos o ON o.id = q.o_id
+        LEFT JOIN public.fin_fornecedores f ON f.id = o.fornecedor_id LEFT JOIN public.membros m ON m.id = o.pessoa_id
+        LEFT JOIN public.vw_fin_obrigacoes v ON v.obrigacao_id = o.id),
   'tabela_dos_12_casos', (SELECT jsonb_agg(linha ORDER BY vencimento, linha ->> 'obrigacao') FROM _tabela),
-  'quantificacao', jsonb_build_object(
-      'atrasadas_hoje',        (SELECT n FROM _atrasadas_antes),
-      'atrasadas_apos',        (SELECT count(*) FROM public.fin_lancamentos WHERE status = 'previsto' AND tipo = 'saida' AND data < (now() AT TIME ZONE 'America/Sao_Paulo')::date),
-      'valor_atrasado_hoje',   (SELECT soma FROM _atrasadas_antes),
-      'valor_atrasado_apos',   (SELECT coalesce(sum(valor), 0) FROM public.fin_lancamentos WHERE status = 'previsto' AND tipo = 'saida' AND data < (now() AT TIME ZONE 'America/Sao_Paulo')::date),
-      'valor_baixado',         (SELECT sum(valor) FROM _liq)),
   'backup', jsonb_build_object('linhas', (SELECT count(*) FROM public.fin_lancamentos_baixa_backup_20261008)),
   'verificacoes', jsonb_build_object(
       'saldos_alterados',      (SELECT count(*) FROM public.fin_contas c JOIN _saldos_antes s USING (id) WHERE c.saldo_atual IS DISTINCT FROM s.saldo_atual),
-      'liquidacoes_criadas',   (SELECT count(*) FROM _liq),
-      'duplicados_removidos',  12,
-      'resultado',             'todas as verificações passaram')
+      'resultado',             'todas as verificações passaram (se alguma falhasse, o script teria abortado com erro)')
 )) AS resultado;
 
 ROLLBACK;
