@@ -46,6 +46,8 @@ interface Props {
   onFormulario: () => void;
   onTransferencia: () => void;
   onConfirmarTransferencia: (alvo: OutraPonta) => void;
+  /** abre a liquidação do documento a pagar que este pagamento provavelmente quitou */
+  onLiquidar: () => void;
   onIgnorar: () => void;
 }
 
@@ -62,6 +64,8 @@ export function CartaoDaLinha(p: Props) {
   // as opções de categoria a um clique: a efetiva, depois as alternativas
   const ids = [v.categoriaId, ...(s.alternativas ?? [])].filter((x, i, a): x is string => !!x && a.indexOf(x) === i).slice(0, 4);
   const documento = l.documentos?.[0];
+  // obrigação prevista de VALOR IGUAL: o caminho certo é liquidá-la (baixa a obrigação); "Confirmar" criaria um lançamento NOVO e a deixaria aberta
+  const obrigacaoExata = !!documento?.exato;
   // 1º a transferência interna, 2º a receita (pedido dela, 08/10/2026)
   const provavel = l.transferenciaProvavel;
   const { modo: modoTransf, alvo, sugerida } = alvoDaTransferencia(!!s.transferencia, provavel, edicao);
@@ -152,14 +156,21 @@ export function CartaoDaLinha(p: Props) {
           </div>
 
           {documento && (
-            <p className="pl-6 text-xs text-info-text">
-              Pode ser o pagamento de <b>{documento.documento.descricao ?? "documento"}</b> (venc. {dataCurta(documento.documento.data)}, {brl(documento.documento.valor)}) — use "Editar" para liquidar o documento.
+            <p className={`pl-6 text-xs ${obrigacaoExata ? "text-success-text" : "text-info-text"}`}>
+              {obrigacaoExata ? <b>✅ Obrigação prevista de valor igual</b> : <>Pode ser o pagamento de</>}{" "}
+              <b>{documento.documento.fornecedor_nome ?? documento.documento.descricao ?? "documento"}</b> (venc. {dataCurta(documento.documento.data)}, {brl(documento.documento.valor)})
+              {obrigacaoExata ? " — liquide-a para baixá-la da lista de contas a pagar; \"Lançar como novo\" deixaria a obrigação aberta." : " — o valor difere; abra \"Liquidar\" para explicar a diferença."}
             </p>
           )}
 
           <div className="flex flex-wrap items-center gap-1.5 pl-6">
-            <Button type="button" size="sm" className="h-8 gap-1 text-xs" disabled={ocupado || !gravavel} onClick={p.onConfirmar}>
-              <CheckCircle2 className="h-3.5 w-3.5" /> Confirmar
+            {documento && (
+              <Button type="button" size="sm" variant={obrigacaoExata ? "default" : "outline"} className="h-8 gap-1 text-xs" disabled={ocupado} onClick={p.onLiquidar}>
+                <CheckCircle2 className="h-3.5 w-3.5" /> {obrigacaoExata ? "Liquidar obrigação prevista" : "Liquidar documento"}
+              </Button>
+            )}
+            <Button type="button" size="sm" variant={obrigacaoExata ? "outline" : "default"} className="h-8 gap-1 text-xs" disabled={ocupado || !gravavel} onClick={p.onConfirmar}>
+              <CheckCircle2 className="h-3.5 w-3.5" /> {obrigacaoExata ? "Lançar como novo" : "Confirmar"}
             </Button>
             <Button type="button" size="sm" variant="outline" className="h-8 gap-1 text-xs" disabled={ocupado} onClick={p.onFormulario}><Pencil className="h-3 w-3" /> Editar</Button>
             {p.ignorarDisponivel && <Button type="button" size="sm" variant="ghost" className="h-8 gap-1 text-xs" disabled={ocupado} onClick={p.onIgnorar}><BanIcon className="h-3 w-3" /> Ignorar</Button>}

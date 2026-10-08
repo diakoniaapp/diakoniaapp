@@ -99,6 +99,7 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
   const [outrasContas, setOutrasContas] = useState<{ id: string; nome: string }[]>([]);
   // o que desfaz cada linha lançada como transferência ligada a um lançamento que já existia (não pode apagar o par inteiro)
   const desfazedores = useRef(new Map<string, () => Promise<void>>());
+  const semDocumento = useRef(new Set<string>());   // linhas que a tesouraria disse "não é este documento"
   const [ignorando, setIgnorando] = useState<LinhaAnalisada | null>(null);
 
   const [editarLinha, setEditarLinha] = useState<LinhaAnalisada | null>(null);
@@ -170,6 +171,7 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
     listarContas().then(cs => setOutrasContas(cs.filter(c => c.id !== contaId).map(c => ({ id: c.id, nome: c.nome })))).catch(() => { /* sem a lista, só o formulário completo */ });
     const [res, ign] = await Promise.all([analisar(contaId, txs, ctx), listarIgnoradas(contaId)]);
     setIgnorarDisponivel(ign.disponivel);
+    for (const x of res) if (x.situacao === "documento" && semDocumento.current.has(x.tx.fitid)) { x.situacao = "nova"; x.documentos = undefined; }
     setLinhas(res);
     setConfirmadas(new Map());   // a reanálise já enxerga o que foi gravado (FITID)
     const g = res.map(daGradeBase);
@@ -223,6 +225,12 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
   const marcar = (fitid: string, r: RegistroDaMedicao) => setRegistros(prev => new Map(prev).set(fitid, r));
   const registroDe = (l: LinhaAnalisada, desfecho: Desfecho, extra: Partial<RegistroDaMedicao> = {}): RegistroDaMedicao =>
     ({ banda: l.sugestao?.banda ?? "sem_sugestao", desfecho, possivelMissoes: l.sugestao?.possivelMissoes, ...extra });
+
+  /** "Não é este documento": a linha volta a ser um pagamento novo (decisão guardada para as próximas análises desta importação). */
+  function naoEEsteDocumento(fitid: string) {
+    semDocumento.current.add(fitid);
+    setLinhas(prev => (prev ?? []).map(x => x.tx.fitid === fitid && x.situacao === "documento" ? { ...x, situacao: "nova" as const, documentos: undefined } : x));
+  }
 
   async function aoLiquidar() {
     setLiquidarLinha(null);
@@ -464,8 +472,10 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
     setMarcadas(prev => { const n = new Set(prev); if (marcada) n.add(fitid); else n.delete(fitid); return n; });
   }
 
-  const identificadasProntas = identificadasParaConfirmar(grade, edicoes, marcadas);
-  const marcadasProntas = marcadasParaGravar(grade, edicoes, marcadas);
+  // o lote nunca cria lançamento novo para um pagamento que tem OBRIGAÇÃO PREVISTA de valor igual: essa é liquidada, para baixar da Mesa de Operações
+  const temObrigacaoExata = (fitid: string) => !!linhasPorFitid.get(fitid)?.documentos?.[0]?.exato;
+  const identificadasProntas = identificadasParaConfirmar(grade, edicoes, marcadas).filter(g => !temObrigacaoExata(g.fitid));
+  const marcadasProntas = marcadasParaGravar(grade, edicoes, marcadas).filter(g => !temObrigacaoExata(g.fitid));
   const resumoDoLote = useMemo(() => {
     const alvo = paraConfirmar ?? [];
     const soma = (t: string) => alvo.filter(l => l.tx.tipo === t).reduce((s, l) => s + l.tx.valor, 0);
@@ -654,6 +664,7 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
                           onEditar={patch => editar(fitid, patch)} onMarcar={c => alternarMarca(fitid, c)}
                           onConfirmar={() => confirmarLinha(l)} onFormulario={() => setEditarLinha(l)}
                           outrasContas={outrasContas} contaNome={contaNome} onConfirmarTransferencia={alvo => confirmarTransferencia(l, alvo)}
+                          onLiquidar={() => setLiquidarLinha(l)}
                           onTransferencia={() => setTransferirTransacao(l.tx)} onIgnorar={() => setIgnorando(l)} />
                       ) : (
                         <>
@@ -712,9 +723,13 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
                                     {!d.ambiguo && <>{" — "}{d.documento.fornecedor_nome ?? d.documento.descricao ?? "documento"}, vencimento {dataBr(d.documento.data)}, documento <b className="tabular-nums">{brl(d.documento.valor)}</b> · confiança <b className="tabular-nums">{d.confianca}%</b></>}
                                     {!d.ambiguo && !d.exato && <> · diferença <b className="tabular-nums">{d.diferenca > 0 ? "+" : "−"}{brl(Math.abs(d.diferenca))}</b></>}
                                   </p>
-                                  <Button type="button" size="sm" variant="outline" className="h-7 gap-1 text-xs" disabled={ocupado}
+                                  <Button type="button" size="sm" variant={d.exato && !d.ambiguo ? "default" : "outline"} className="h-7 gap-1 text-xs" disabled={ocupado}
                                     onClick={() => setLiquidarLinha(l)}>
-                                    <Scale className="w-3 h-3" /> {d.ambiguo ? "Escolher o contrato" : d.exato ? "Liquidar" : "Explicar diferença"}
+                                    <Scale className="w-3 h-3" /> {d.ambiguo ? "Escolher o contrato" : d.exato ? "Liquidar obrigação prevista" : "Explicar diferença"}
+                                  </Button>
+                                  <Button type="button" size="sm" variant="ghost" className="h-7 gap-1 text-xs" disabled={ocupado}
+                                    onClick={() => naoEEsteDocumento(l.tx.fitid)}>
+                                    Não é este documento
                                   </Button>
                                 </div>
                                 {(d.ambiguo || d.segundoContrato) && (

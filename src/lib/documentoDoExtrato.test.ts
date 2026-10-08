@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { acharDocumentosDoExtrato, type PrevistoParaExtrato } from "./documentoDoExtrato";
+import { acharDocumentosDoExtrato, valeComoLiquidacao, type PrevistoParaExtrato } from "./documentoDoExtrato";
 
 const p = (id: string, valor: number, data: string, forn: string | null = "luz"): PrevistoParaExtrato => ({ id, valor, data, fornecedor_id: forn });
 const tx = (valor: number, data = "2026-10-08") => ({ valor, data, tipo: "saida" });
@@ -90,4 +90,19 @@ describe("vários contratos do mesmo fornecedor (Verisure, 08/10/2026)", () => {
     const r = acharDocumentosDoExtrato(tx(278.22, "2026-10-06"), [A, B], null);
     expect(r[0]).toMatchObject({ documento: { id: "b" }, incerto: true, segundoContrato: false, ambiguo: false });
   });
+});
+
+describe("quando o pagamento vira 'Liquidar obrigação prevista' (08/10/2026)", () => {
+  const net = (valor: number, data = "2026-10-10") => ({ valor, data, tipo: "saida" });
+  it("favorecido certo: sempre", () => {
+    expect(valeComoLiquidacao(acharDocumentosDoExtrato(net(1538), [p("a", 1418, "2026-10-08")], "luz"))).toBe(true);
+  });
+  it("texto genérico de boleto + valor IGUAL + um só documento: sim (antes só virava dica e criava lançamento novo)", () => {
+    expect(valeComoLiquidacao(acharDocumentosDoExtrato(net(984.72), [p("a", 984.72, "2026-10-10", null)], null))).toBe(true);
+  });
+  it("texto genérico com valor diferente, ou dois documentos com o mesmo valor: continua só dica", () => {
+    expect(valeComoLiquidacao(acharDocumentosDoExtrato(net(1000), [p("a", 984.72, "2026-10-10", null)], null))).toBe(false);
+    expect(valeComoLiquidacao(acharDocumentosDoExtrato(net(300), [p("a", 300, "2026-10-10", null), p("b", 300, "2026-10-11", null)], null))).toBe(false);
+  });
+  it("sem documento nenhum: não", () => { expect(valeComoLiquidacao([])).toBe(false); });
 });

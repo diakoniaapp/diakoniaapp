@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import { RotateCw, TrendingUp, TrendingDown } from "lucide-react";
 import {
   listarContas, listarCategorias, listarCentrosCusto, listarFornecedores,
-  criarRecorrencia, atualizarRecorrencia, ordenarCentrosParaSeletor,
+  criarRecorrencia, atualizarRecorrencia, listarRecorrencias, ordenarCentrosParaSeletor,
   propagarLiquidacaoParaPrevistos, erroDaLiquidacao,
   sugerirCentroPorCategoria,
   FREQUENCIA_LABEL,
@@ -227,6 +227,13 @@ export function RecorrenciaForm({ open, onOpenChange, recorrencia, onSaved }: Pr
           ? `${r.criados} lançamento(s) previsto(s) gerado(s) — a recorrência não tem data final: o sistema mantém os próximos 12 meses e renova sozinho`
           : `${r.criados} lançamento(s) previsto(s) gerado(s)${r.ultimaData ? ` — até ${r.ultimaData.slice(8, 10)}/${r.ultimaData.slice(5, 7)}/${r.ultimaData.slice(0, 4)}` : ""}`);
       }
+
+      // Dois contratos do mesmo favorecido com a MESMA descrição se confundem na Central de Pagamentos e na conciliação: sugerir um nome
+      try {
+        const iguais = (await listarRecorrencias(false)).filter(r => r.id !== id && r.descricao === payload.descricao
+          && (r.fornecedor_id ?? r.pessoa_id ?? null) === (payload.fornecedor_id ?? payload.pessoa_id ?? null));
+        if (iguais.length > 0) toast.info("Este favorecido já tem outra recorrência com a mesma descrição. Se for outro contrato, dê um nome a cada um (ex.: Templo, Prédio Administrativo) — assim a conciliação e a Central de Pagamentos os distinguem.");
+      } catch { /* só um aviso */ }
 
       onOpenChange(false);
       onSaved();

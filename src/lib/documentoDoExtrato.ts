@@ -19,6 +19,8 @@ export interface PrevistoParaExtrato {
   /** vencimento AAAA-MM-DD */
   data: string;
   fornecedor_id: string | null;
+  /** favorecido-PESSOA (pastor, funcionário): a obrigação também é achada por ele */
+  pessoa_id?: string | null;
   descricao?: string | null;
   fornecedor_nome?: string | null;
   /** a recorrência (contrato) que gerou este previsto, quando há */
@@ -67,12 +69,12 @@ export function acharDocumentosDoExtrato(
   const janela = incerto ? JANELA_SEM_FAVORECIDO : JANELA_COM_FAVORECIDO;
   const [min, max] = incerto ? [0.85, 1.15] : [0.5, 1.5];
   const candidatos = previstos
-    .filter(p => (incerto || p.fornecedor_id === fornecedorId) && !jaUsados.has(p.id) && p.valor > 0
+    .filter(p => (incerto || p.fornecedor_id === fornecedorId || p.pessoa_id === fornecedorId) && !jaUsados.has(p.id) && p.valor > 0
       && dias(p.data, tx.data) <= janela && tx.valor >= p.valor * min && tx.valor <= p.valor * max);
 
   // Os documentos ABERTOS do mesmo favorecido (qualquer valor), no mesmo entorno: são os outros contratos. Antes de chamar uma
   // diferença de "desconto" ou "pagamento parcial", é preciso olhar se o valor pertence a OUTRO documento/contrato dele.
-  const abertos = incerto ? [] : previstos.filter(p => p.fornecedor_id === fornecedorId && !jaUsados.has(p.id) && p.valor > 0 && dias(p.data, tx.data) <= JANELA_COM_FAVORECIDO);
+  const abertos = incerto ? [] : previstos.filter(p => (p.fornecedor_id === fornecedorId || p.pessoa_id === fornecedorId) && !jaUsados.has(p.id) && p.valor > 0 && dias(p.data, tx.data) <= JANELA_COM_FAVORECIDO);
   const contratoDoValor = incerto ? null : contratos.find(k => !k.valorVariavel && Math.abs(k.valor - tx.valor) < 0.005) ?? null;
   const exatos = candidatos.filter(p => Math.abs(tx.valor - p.valor) < 0.005);
   const muitosAbertos = abertos.length >= 2;
@@ -111,4 +113,15 @@ export function acharDocumentosDoExtrato(
     }
     return { documento: p, diferenca: c(tx.valor - p.valor), exato, incerto, confianca, contrato: nome, segundoContrato, ambiguo, outrosAbertos: outros, contratoSemDocumento, motivo };
   });
+}
+
+/**
+ * O pagamento do extrato deve virar "Liquidar obrigação prevista" (e não um lançamento novo)? Sim quando o favorecido é certo, OU quando,
+ * mesmo com texto genérico de boleto, há UM só documento de valor IGUAL a até 5 dias (medido em 08/10/2026: 10 pagamentos assim foram
+ * lançados como novos e as obrigações seguiram abertas na Mesa de Operações). Valor diferente sem favorecido continua só como dica.
+ */
+export function valeComoLiquidacao(documentos: DocumentoDoExtrato[]): boolean {
+  if (documentos.length === 0) return false;
+  if (!documentos[0].incerto) return true;
+  return documentos[0].exato && documentos.filter(d => d.exato).length === 1;
 }

@@ -24,7 +24,7 @@ import {
 import { acharContrapartes, type CandidatoContraparte, type OutraPonta, type ProvavelTransferencia } from "@/lib/transferenciaOfx";
 export type { OutraPonta };
 import {
-  brl, excluirLancamentosEmLote, listarCategorias, listarCentrosCusto, listarContas, listarLancamentos, listarProjetos,
+  brl, excluirLancamentosEmLote, listarCategorias, listarCentrosCusto, listarContas, listarLancamentos, listarLancamentosSemTeto, listarProjetos,
   type FinCategoria, type FinCentroCusto, type FinFormaPagamento, type FinProjeto,
 } from "@/services/finService";
 import { casarComLancamentos, inferirFormaPagamento, type OFXCasamento, type OFXTransacao } from "@/services/ofxService";
@@ -32,7 +32,7 @@ import { carregarCadastro } from "@/services/identificacaoService";
 import {
   acharDebitoCompativel, ehAutomatica, type CandidatoDebito, type DebitoEncontrado,
 } from "@/lib/formaLiquidacao";
-import { acharDocumentosDoExtrato, type ContratoDoFornecedor, type DocumentoDoExtrato, type PrevistoParaExtrato } from "@/lib/documentoDoExtrato";
+import { acharDocumentosDoExtrato, valeComoLiquidacao, type ContratoDoFornecedor, type DocumentoDoExtrato, type PrevistoParaExtrato } from "@/lib/documentoDoExtrato";
 
 const MESES_DE_HISTORICO = 24;
 const PAGINA = 1000;
@@ -180,16 +180,17 @@ async function fitidsJaImportados(contaId: string, de: string, ate: string): Pro
 function contratosDoFornecedor(contexto: ContextoOfx, fornecedorId: string | null | undefined): ContratoDoFornecedor[] {
   if (!fornecedorId) return [];
   return (contexto.ctx.recorrencias ?? [])
-    .filter(r => r.tipo === "saida" && r.fornecedorId === fornecedorId)
+    .filter(r => r.tipo === "saida" && (r.fornecedorId === fornecedorId || r.pessoaId === fornecedorId))
     .map(r => ({ recorrenciaId: r.id, rotulo: r.nome, valor: r.valor, valorVariavel: r.valorVariavel }));
 }
 
 /** Saídas PREVISTAS ao redor do extrato — candidatas a "este pagamento quitou aquele documento". */
 async function previstosParaExtrato(de: string, ate: string): Promise<(PrevistoParaExtrato & { fornecedor_nome: string | null })[]> {
   try {
-    const previstos = await listarLancamentos({ status: "previsto", tipo: "saida", dataInicio: daquiADias(de, -20), dataFim: daquiADias(ate, 20) });
+    // SEM o teto de 300 de `listarLancamentos`: com muitos previstos no período, um corte silencioso faria o documento "sumir" e a linha virar lançamento novo
+    const previstos = await listarLancamentosSemTeto({ status: "previsto", tipo: "saida", dataInicio: daquiADias(de, -20), dataFim: daquiADias(ate, 20) });
     return previstos.map(l => ({
-      id: l.id, valor: Number(l.valor), data: String(l.data).slice(0, 10), fornecedor_id: l.fornecedor_id ?? null,
+      id: l.id, valor: Number(l.valor), data: String(l.data).slice(0, 10), fornecedor_id: l.fornecedor_id ?? null, pessoa_id: l.pessoa_id ?? null,
       descricao: l.descricao, fornecedor_nome: l.fornecedor_nome ?? null, recorrencia_id: (l as { recorrencia_id?: string | null }).recorrencia_id ?? null,
     }));
   } catch {
@@ -253,9 +254,12 @@ export async function analisar(contaId: string, txs: OFXTransacao[], contexto: C
       // Favorecido identificado → situação "documento". Texto genérico do extrato (boleto) → a linha continua "nova"
       // e leva só a DICA do documento provável (`incerto`), para não esconder uma linha que pode ser outra coisa.
       const documentos = tx.tipo === "saida" && !sugestao.transferencia
-        ? acharDocumentosDoExtrato(tx, previstos, sugestao.fornecedor?.id, usados, contratosDoFornecedor(contexto, sugestao.fornecedor?.id))
+        ? acharDocumentosDoExtrato(tx, previstos, sugestao.fornecedor?.id ?? sugestao.pessoa?.id, usados, contratosDoFornecedor(contexto, sugestao.fornecedor?.id ?? sugestao.pessoa?.id))
         : [];
-      if (documentos.length > 0 && !documentos[0].incerto) {
+      // Texto genérico de boleto ("PAGTO ELETRON COBRANCA PAG COBRANCA NET EMPRESA") não diz quem foi pago, mas valor IGUAL + vencimento a
+      // até 5 dias + UM só documento com esse valor é prova suficiente: vira "Liquidar obrigação prevista" (medido em 08/10/2026: 10 pagamentos
+      // assim foram lançados como NOVOS e as obrigações continuaram abertas na Mesa de Operações). Valor diferente continua só como dica.
+      if (valeComoLiquidacao(documentos)) {
         usados.add(documentos[0].documento.id);
         out[i] = { tx, situacao: "documento", sugestao, documentos };
         return;
