@@ -220,9 +220,28 @@ export function regraDoDizimo(hist: Historico[], dizimoId: string | undefined, v
 
 const TRANSFERENCIA_PROPRIA = /\b(transf\s+autoriz\s+entre|baixa\s+automat\s+poupanca|aplic\w*\s+invest|resgate|transf\s+cp\s+autoat|deposit\s+transfer)/;
 
+/**
+ * "TRANSF" no texto do banco NÃO basta para dizer que o dinheiro é da própria igreja (pedido dela, 08/10/2026: "TRANSF AUTORIZ
+ * ENTRE AGS CLAUDIA VILELA DE ALMEIDA" é um membro depositando, não transferência interna). Se, tirando as palavras do banco,
+ * sobra um nome de pessoa — ou há um CPF —, a hipótese principal é contribuição de pessoa. Devolve o que foi visto, ou null.
+ */
+const PALAVRAS_DO_BANCO = new Set([
+  "transf", "transfer", "transferencia", "autoriz", "autorizada", "autorizado", "entre", "ags", "ag", "agencia", "agencias", "baixa", "automat", "automatica",
+  "poupanca", "aplic", "aplicacao", "invest", "facil", "resgate", "cdb", "rdb", "cp", "autoat", "deposit", "saldo", "conta", "corrente", "banco", "fundo", "cota",
+  "ted", "doc", "pix", "mesma", "titularidade", "recebida", "recebido", "enviada", "enviado", "credito", "debito", "pgto",
+  // o nome da própria igreja não é "pessoa": a transferência entre agências dela continua sendo interna
+  "quarta", "igreja", "batista", "qibrj", "rio", "janeiro",
+]);
+export function evidenciaDePessoa(memo: string): string | null {
+  const t = semAcento(memo).toLowerCase();
+  if (/\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/.test(t)) return "um CPF";
+  const palavras = (t.replace(/[^a-z\s]/g, " ").match(/[a-z]{3,}/g) ?? []).filter(w => !PALAVRAS_DO_BANCO.has(w) && !["das", "dos", "com", "para"].includes(w));
+  return palavras.length >= 2 ? "um nome de pessoa" : null;
+}
+
 // ── a sugestão ──────────────────────────────────────────────────────────────
 
-const faixaDe = (confianca: number): Banda => (confianca >= 85 ? "identificada" : confianca >= 60 ? "revisar" : "nao_identificada");
+export const faixaDe = (confianca: number): Banda => (confianca >= 85 ? "identificada" : confianca >= 60 ? "revisar" : "nao_identificada");
 
 const FORMA: Record<string, Sugestao["forma"]> = { pix: "pix", ted: "ted", doc: "doc", deposito: "deposito", boleto: "boleto" };
 
@@ -242,9 +261,13 @@ function sugerirBase(linha: Linha, ctx: Contexto): Sugestao {
     return { forma, ...s, confianca, motivos: s.motivos ?? motivos, banda: faixaDe(confianca) };
   };
 
-  // 1. movimento entre contas
+  // 1. movimento entre contas — só quando o texto NÃO traz uma pessoa (nome/CPF); do contrário a hipótese é contribuição de pessoa
   if (TRANSFERENCIA_PROPRIA.test(semAcento(linha.memo).toLowerCase())) {
-    return pronta({ confianca: 70, transferencia: true, motivos: ["parece transferência entre contas da própria igreja — registre como Transferência"] });
+    const gente = evidenciaDePessoa(linha.memo);
+    if (!gente) {
+      return pronta({ confianca: 70, transferencia: true, motivos: ["só o texto do banco indica movimento entre contas — sem perna correspondente confirmada; confira antes de registrar como Transferência"] });
+    }
+    motivos.push(`o banco escreveu TRANSF, mas o texto traz ${gente}: tratado como contribuição de pessoa, não como transferência interna`);
   }
 
   const hChave = ctx.porChave.get(chave) ?? [];

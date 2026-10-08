@@ -11,6 +11,8 @@ import type { Sugestao } from "./classificacaoOfx";
 
 export type SituacaoDaLinha = "conciliar" | "ja_registrada" | "ambigua" | "debito_encontrado" | "documento" | "nova" | "ignorada";
 
+import type { EscolhaDeTransferencia } from "./transferenciaOfx";
+
 export interface LinhaDaGrade {
   fitid: string;
   situacao: SituacaoDaLinha;
@@ -20,7 +22,7 @@ export interface LinhaDaGrade {
 export interface FavorecidoEscolhido { tipo: "pessoa" | "fornecedor"; id: string; nome: string; /** favorecido que é uma pessoa do cadastro: o lançamento leva as duas ligações */ pessoaId?: string | null }
 
 /** O que a pessoa mudou à mão numa linha (por FITID). `favorecido`: outro favorecido escolhido na linha; `null` = "sem favorecido". */
-export interface Edicao { categoriaId?: string; centroId?: string; projetoId?: string; favorecido?: FavorecidoEscolhido | null }
+export interface Edicao extends EscolhaDeTransferencia { categoriaId?: string; centroId?: string; projetoId?: string; favorecido?: FavorecidoEscolhido | null }
 
 export type Filtro =
   | "todas" | "identificadas" | "pendencias" | "revisar" | "nao_identificadas"
@@ -104,7 +106,8 @@ export function foiCorrigida(l: LinhaDaGrade, e?: Edicao): boolean {
 }
 
 export function podeGravar(l: LinhaDaGrade, e?: Edicao): boolean {
-  if (l.situacao !== "nova" || !l.sugestao || l.sugestao.transferencia) return false;
+  // transferência (sugerida) não vira receita/despesa — a menos que a tesouraria diga "não é transferência"
+  if (l.situacao !== "nova" || !l.sugestao || (l.sugestao.transferencia && !e?.naoETransferencia)) return false;
   return !!valoresEfetivos(l, e).categoriaId;
 }
 

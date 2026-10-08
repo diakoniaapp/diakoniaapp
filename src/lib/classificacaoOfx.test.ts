@@ -154,6 +154,20 @@ describe("sugerir — saídas e transferências", () => {
     expect(s.categoriaId).toBeUndefined();
     expect(s.banda).toBe("revisar");
   });
+  it("'TRANSF AUTORIZ ENTRE AGS <nome de pessoa>' é contribuição de pessoa, NÃO transferência interna", () => {
+    const s = sugerir(linha({ memo: "TRANSF AUTORIZ ENTRE AGS VANESSA DO NASCIMENTO", valor: 830 }), ctx(dizimosMensais(6, 830)));
+    expect(s.transferencia).toBeFalsy();
+    expect(s.pessoa?.id).toBe("p-vanessa");
+    expect(s.motivos.join(" ")).toMatch(/TRANSF, mas o texto traz um nome de pessoa/);
+  });
+  it("com CPF no texto, também é pessoa; sem cadastro, fica para identificar — nunca transferência", () => {
+    const s = sugerir(linha({ memo: "TRANSF AUTORIZ ENTRE AGS 123.456.789-09", valor: 100 }), ctx([]));
+    expect(s.transferencia).toBeFalsy();
+  });
+  it("o nome da própria igreja não conta como pessoa: transferência entre agências dela continua interna", () => {
+    expect(sugerir(linha({ memo: "TRANSF AUTORIZ ENTRE AGS QUARTA IGREJA BATISTA" }), ctx([])).transferencia).toBe(true);
+    expect(sugerir(linha({ memo: "APLIC INVEST FACIL", tipo: "saida" }), ctx([])).transferencia).toBe(true);
+  });
   it("saída para quem não conhecemos: não identificada", () => {
     expect(sugerir(linha({ tipo: "saida", memo: "PIX ENVIADO DES EMPRESA QUE NUNCA VIMOS" }), ctx([])).banda).toBe("nao_identificada");
   });

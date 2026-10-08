@@ -41,6 +41,9 @@ export function PainelDeMedicao({ medicao, rotulo }: { medicao: Medicao; rotulo:
           <p>Ignoradas: <b className="tabular-nums">{r.ignoradas}</b> · decididas em grupo: <b className="tabular-nums">{r.viaGrupo}</b></p>
           <p>Ainda pendentes: <b className="tabular-nums">{medicao.pendentes}</b></p>
           {medicao.errosNaIdentificada > 0 && <p className="text-xs text-warning-text">{medicao.errosNaIdentificada} das identificadas precisaram de correção.</p>}
+          {medicao.agrupamentos && (
+            <p className="text-xs text-muted-foreground">Agrupamentos: {medicao.agrupamentos.seguros.grupos} seguros ({medicao.agrupamentos.seguros.linhas} linhas) · {medicao.agrupamentos.parciais.grupos} parcialmente seguros ({medicao.agrupamentos.parciais.linhas}) · {medicao.agrupamentos.inseguros.grupos} inseguros ({medicao.agrupamentos.inseguros.linhas})</p>
+          )}
           {medicao.missoes.sugeridas > 0 && <p className="text-xs text-muted-foreground">Possível oferta missionária (,10): {medicao.missoes.sugeridas} sugeridas · {medicao.missoes.confirmadas} confirmadas como Missões</p>}
         </div>
       </div>

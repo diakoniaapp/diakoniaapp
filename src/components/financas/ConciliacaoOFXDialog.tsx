@@ -27,22 +27,24 @@ import { toast } from "sonner";
 import {
   FileUp, Scale, CheckCircle2, HelpCircle, Undo2, Loader2, AlertTriangle, XCircle, ChevronLeft, ChevronRight, Layers, RotateCcw, BanIcon,
 } from "lucide-react";
-import { conciliarEmLote, excluirLancamentosEmLote, brl, type FinMovimentoTipo } from "@/services/finService";
+import { conciliarEmLote, excluirLancamentosEmLote, listarContas, brl, type FinMovimentoTipo } from "@/services/finService";
 import { parseOFX, encodingDoOFX, inferirFormaPagamento, type OFXTransacao } from "@/services/ofxService";
 import {
-  analisar, carregarContexto, conciliarDebitos, desfazerLote, ignorarLinha, listarIgnoradas, reativarIgnorada, registrarLote, ROTULO_DO_MOTIVO,
-  type ContextoOfx, type LinhaAnalisada, type MotivoDeIgnorar, type ParaRegistrar,
+  analisar, carregarContexto, conciliarDebitos, desfazerLote, ignorarLinha, listarIgnoradas, reativarIgnorada, registrarLote, registrarTransferenciaDoExtrato, ROTULO_DO_MOTIVO,
+  type ContextoOfx, type LinhaAnalisada, type MotivoDeIgnorar, type OutraPonta, type ParaRegistrar,
 } from "@/services/importacaoOfxService";
 import {
   ORDEM_DOS_FILTROS, ROTULO_DO_FILTRO, contarPorFiltro, favorecidoEfetivo, foiCorrigida, identificadasParaConfirmar, marcadasIniciais,
   marcadasParaGravar, paginar, pertenceAoFiltro, podeGravar, valoresEfetivos,
   type Edicao, type Filtro, type LinhaDaGrade,
 } from "@/lib/gradeOfx";
-import { agruparPorClasse, resumirMedicao, type Desfecho, type Grupo, type Medicao, type RegistroDaMedicao } from "@/lib/mesaOfx";
+import { alvoDaTransferencia } from "@/lib/transferenciaOfx";
+import { agruparPorClasse, resumirAgrupamentos, resumirMedicao, type Desfecho, type Grupo, type Medicao, type RegistroDaMedicao, type ResumoDosAgrupamentos } from "@/lib/mesaOfx";
 import { LancamentoForm } from "./LancamentoForm";
 import { LiquidarPeloExtratoDialog } from "./LiquidarPeloExtratoDialog";
 import { TransferenciaForm } from "./TransferenciaForm";
 import { CartaoDaLinha } from "./mesa/CartaoDaLinha";
+import { AvisoDosGrupos } from "./mesa/AvisoDosGrupos";
 import { CartaoDoGrupo } from "./mesa/CartaoDoGrupo";
 import { IgnorarLinhaDialog } from "./mesa/IgnorarLinhaDialog";
 import { PainelDeMedicao } from "./mesa/PainelDeMedicao";
@@ -90,9 +92,13 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
   const [registros, setRegistros] = useState<Map<string, RegistroDaMedicao>>(new Map());
   const [aoAbrir, setAoAbrir] = useState<Medicao["aoAbrir"] | null>(null);
   const [totalDoArquivo, setTotalDoArquivo] = useState(0);
+  const [agrupamentosAoAbrir, setAgrupamentosAoAbrir] = useState<ResumoDosAgrupamentos | null>(null);
   const alterou = useRef(false);
 
   const [ignorarDisponivel, setIgnorarDisponivel] = useState(false);
+  const [outrasContas, setOutrasContas] = useState<{ id: string; nome: string }[]>([]);
+  // o que desfaz cada linha lançada como transferência ligada a um lançamento que já existia (não pode apagar o par inteiro)
+  const desfazedores = useRef(new Map<string, () => Promise<void>>());
   const [ignorando, setIgnorando] = useState<LinhaAnalisada | null>(null);
 
   const [editarLinha, setEditarLinha] = useState<LinhaAnalisada | null>(null);
@@ -112,14 +118,16 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
     return (linhas ?? []).filter(l => ok.has(l.tx.fitid));
   }, [linhas, grade, filtro]);
 
-  // grupos: linhas do mesmo padrão, sem favorecido, das que estão na tela agora
+  // grupos: linhas parecidas das que estão na tela agora. SÓ o grupo seguro aceita decisão em lote (vira cartão e sai da
+  // fila); os demais viram aviso e as linhas ficam na fila para decidir uma a uma.
   const agrupamento = useMemo(() => {
-    if (!agrupar) return { grupos: [] as Grupo[], avulsas: new Set<string>(), noGrupo: new Set<string>() };
+    if (!agrupar) return { grupos: [] as Grupo[], inseguros: [] as Grupo[], avulsas: new Set<string>(), noGrupo: new Set<string>() };
     const { grupos } = agruparPorClasse(visiveis.map(l => ({
       fitid: l.tx.fitid, tipo: l.tx.tipo, valor: l.tx.valor, memo: l.tx.memo,
       situacao: confirmadas.has(l.tx.fitid) ? "ja_registrada" : l.situacao, sugestao: l.sugestao,
     })));
-    return { grupos, avulsas: new Set<string>(), noGrupo: new Set(grupos.flatMap(g => g.fitids)) };
+    const seguros = grupos.filter(g => g.seguranca === "seguro");
+    return { grupos: seguros, inseguros: grupos.filter(g => g.seguranca !== "seguro"), avulsas: new Set<string>(), noGrupo: new Set(seguros.flatMap(g => g.fitids)) };
   }, [visiveis, confirmadas, agrupar]);
   const naLista = useMemo(() => visiveis.filter(l => !agrupamento.noGrupo.has(l.tx.fitid)), [visiveis, agrupamento]);
   const pag = paginar(naLista, pagina, POR_PAGINA);
@@ -138,11 +146,12 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
       .sort((a, b) => a.rotulo.localeCompare(b.rotulo, "pt-BR"));
   }, [contexto]);
   const nomeDaCategoria = (id?: string | null) => (id ? contexto?.categorias.find(c => c.id === id)?.nome ?? "" : "");
+  const linhasPorFitid = useMemo(() => new Map((linhas ?? []).map(l => [l.tx.fitid, l])), [linhas]);
 
   function reiniciar() {
     setArquivo(null); setTransacoes(null); setLinhas(null); setContexto(null);
     setEdicoes({}); setMarcadas(new Set()); setFiltro("todas"); setPagina(1); setLote(null);
-    setConfirmadas(new Map()); setRegistros(new Map()); setAoAbrir(null); setTotalDoArquivo(0);
+    setConfirmadas(new Map()); setRegistros(new Map()); setAoAbrir(null); setTotalDoArquivo(0); setAgrupamentosAoAbrir(null);
   }
 
   function fechar(v: boolean) {
@@ -158,6 +167,7 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
   async function analisarDeNovo(txs: OFXTransacao[], recarregarContexto: boolean, primeira = false) {
     const ctx = !contexto || recarregarContexto ? await carregarContexto() : contexto;
     setContexto(ctx);
+    listarContas().then(cs => setOutrasContas(cs.filter(c => c.id !== contaId).map(c => ({ id: c.id, nome: c.nome })))).catch(() => { /* sem a lista, só o formulário completo */ });
     const [res, ign] = await Promise.all([analisar(contaId, txs, ctx), listarIgnoradas(contaId)]);
     setIgnorarDisponivel(ign.disponivel);
     setLinhas(res);
@@ -170,6 +180,9 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
         conciliar: c.conciliar, debitos: c.debitos, documentos: c.documentos, transferencias: c.transferencias,
       });
       setTotalDoArquivo(res.length);
+      setAgrupamentosAoAbrir(resumirAgrupamentos(agruparPorClasse(res.map(l => ({
+        fitid: l.tx.fitid, tipo: l.tx.tipo, valor: l.tx.valor, memo: l.tx.memo, situacao: l.situacao, sugestao: l.sugestao,
+      }))).grupos));
       const divergente = res.find(l => l.documentos?.[0] && !l.documentos[0].exato && (l.situacao === "documento" || l.documentos.length === 1));
       if (divergente) setLiquidarLinha(divergente);
     }
@@ -286,12 +299,34 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
 
   async function desfazerLinha(fitid: string, ids: string[]) {
     try {
-      await excluirLancamentosEmLote(ids);
+      const proprio = desfazedores.current.get(fitid);
+      if (proprio) { await proprio(); desfazedores.current.delete(fitid); } else await excluirLancamentosEmLote(ids);
       setConfirmadas(m => { const n = new Map(m); n.delete(fitid); return n; });
       setRegistros(m => { const n = new Map(m); n.delete(fitid); return n; });
       toast.success("Lançamento desfeito — a linha voltou para a fila");
     } catch (e: any) {
       toast.error(e?.message ?? "Não foi possível desfazer");
+    }
+  }
+
+  /** "Confirmar transferência": liga a linha ao lançamento da outra conta (ou cria as duas pernas) e deixa o "Desfazer" à mão. */
+  async function confirmarTransferencia(l: LinhaAnalisada, alvo: OutraPonta) {
+    setSalvandoLinha(true);
+    try {
+      const r = await registrarTransferenciaDoExtrato(contaId, contaNome, l.tx, alvo);
+      desfazedores.current.set(l.tx.fitid, r.desfazer);
+      alterou.current = true;
+      setConfirmadas(m => new Map(m).set(l.tx.fitid, r.ids));
+      setMarcadas(m => { const n = new Set(m); n.delete(l.tx.fitid); return n; });
+      const sug = alvoDaTransferencia(!!l.sugestao?.transferencia, l.transferenciaProvavel).alvo;
+      const aceitouASugestao = !!sug && sug.contaId === alvo.contaId && sug.lancamentoId === alvo.lancamentoId;
+      marcar(l.tx.fitid, registroDe(l, aceitouASugestao ? "aceita" : "corrigida"));
+      toast.success(`Transferência registrada: ${l.tx.tipo === "entrada" ? `${alvo.contaNome} → ${contaNome}` : `${contaNome} → ${alvo.contaNome}`}`,
+        { action: { label: "Desfazer", onClick: () => desfazerLinha(l.tx.fitid, r.ids) } });
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erro ao registrar a transferência");
+    } finally {
+      setSalvandoLinha(false);
     }
   }
 
@@ -439,8 +474,8 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
 
   const medicao = useMemo(() => {
     if (!aoAbrir) return null;
-    return resumirMedicao(aoAbrir, totalDoArquivo, aoAbrir.identificadas + aoAbrir.revisar + aoAbrir.naoIdentificadas, [...registros.values()]);
-  }, [aoAbrir, totalDoArquivo, registros]);
+    return resumirMedicao(aoAbrir, totalDoArquivo, aoAbrir.identificadas + aoAbrir.revisar + aoAbrir.naoIdentificadas, [...registros.values()], agrupamentosAoAbrir ?? undefined);
+  }, [aoAbrir, totalDoArquivo, registros, agrupamentosAoAbrir]);
 
   // o que o formulário "Editar" recebe — memoizado: o efeito do formulário reinicia a cada novo objeto
   const rascunho = useMemo(() => {
@@ -577,7 +612,9 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
               ))}
             </div>
 
-            {/* os grupos: uma decisão para várias linhas do mesmo padrão */}
+            <AvisoDosGrupos grupos={agrupamento.inseguros} linhas={linhasPorFitid} nomeDaCategoria={nomeDaCategoria} />
+
+            {/* os grupos SEGUROS: uma decisão para várias linhas do mesmo padrão */}
             {agrupamento.grupos.length > 0 && (
               <div className="space-y-2" aria-label="Linhas do mesmo padrão">
                 {agrupamento.grupos.map(g => (
@@ -616,6 +653,7 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
                           ignorarDisponivel={ignorarDisponivel}
                           onEditar={patch => editar(fitid, patch)} onMarcar={c => alternarMarca(fitid, c)}
                           onConfirmar={() => confirmarLinha(l)} onFormulario={() => setEditarLinha(l)}
+                          outrasContas={outrasContas} onConfirmarTransferencia={alvo => confirmarTransferencia(l, alvo)}
                           onTransferencia={() => setTransferirTransacao(l.tx)} onIgnorar={() => setIgnorando(l)} />
                       ) : (
                         <>

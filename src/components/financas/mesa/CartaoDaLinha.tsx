@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { brl, type FinCategoria, type FinProjeto } from "@/services/finService";
 import type { LinhaAnalisada } from "@/services/importacaoOfxService";
 import { favorecidoEfetivo, podeGravar, rotuloDaConfianca, valoresEfetivos, type Edicao, type FavorecidoEscolhido } from "@/lib/gradeOfx";
+import { alvoDaTransferencia, ehDepositoEmDinheiro, type OutraPonta } from "@/lib/transferenciaOfx";
 import { EscolhaDeFavorecido } from "./EscolhaDeFavorecido";
 
 const CHIP: Record<string, string> = {
@@ -38,11 +39,14 @@ interface Props {
   projetos: FinProjeto[];
   nomeDaCategoria: (id?: string | null) => string;
   ignorarDisponivel: boolean;
+  /** as OUTRAS contas da igreja: origem (entrada) ou destino (saída) de uma transferência */
+  outrasContas: { id: string; nome: string }[];
   onEditar: (patch: Edicao) => void;
   onMarcar: (v: boolean) => void;
   onConfirmar: () => void;
   onFormulario: () => void;
   onTransferencia: () => void;
+  onConfirmarTransferencia: (alvo: OutraPonta) => void;
   onIgnorar: () => void;
 }
 
@@ -59,6 +63,10 @@ export function CartaoDaLinha(p: Props) {
   // as opções de categoria a um clique: a efetiva, depois as alternativas
   const ids = [v.categoriaId, ...(s.alternativas ?? [])].filter((x, i, a): x is string => !!x && a.indexOf(x) === i).slice(0, 4);
   const documento = l.documentos?.[0];
+  // 1º a transferência interna, 2º a receita (pedido dela, 08/10/2026)
+  const provavel = l.transferenciaProvavel;
+  const { modo: modoTransf, alvo, sugerida } = alvoDaTransferencia(!!s.transferencia, provavel, edicao);
+  const deposito = ehDepositoEmDinheiro(l.tx.memo);
 
   return (
     <div className="space-y-2">
@@ -94,14 +102,57 @@ export function CartaoDaLinha(p: Props) {
         ))}
       </div>
 
-      {s.transferencia ? (
-        <div className="flex flex-wrap items-center gap-2 pl-6">
-          <span className="text-xs text-warning-text">Parece transferência entre contas da igreja — registre como Transferência (as duas pernas).</span>
-          <Button type="button" size="sm" className="h-8 gap-1 text-xs" disabled={ocupado} onClick={p.onTransferencia}><ArrowRightLeft className="h-3.5 w-3.5" /> Registrar transferência</Button>
-          {p.ignorarDisponivel && <Button type="button" size="sm" variant="ghost" className="h-8 gap-1 text-xs" disabled={ocupado} onClick={p.onIgnorar}><BanIcon className="h-3.5 w-3.5" /> Ignorar</Button>}
+      {modoTransf ? (
+        <div className="space-y-2 pl-6">
+          <p className="flex flex-wrap items-center gap-1.5 text-sm font-medium">
+            <ArrowRightLeft className="h-4 w-4 shrink-0 text-info-text" aria-hidden />
+            {sugerida ? "Possível transferência" : "Transferência entre contas"}
+            {alvo && <span className="font-normal text-muted-foreground">— {entrada ? `${alvo.contaNome} → esta conta` : `esta conta → ${alvo.contaNome}`} · {brl(l.tx.valor)}</span>}
+          </p>
+          {sugerida && s.motivos.length > 0 && <p className="text-xs text-muted-foreground">{s.motivos.join(" · ")}</p>}
+          {alvo?.lancamentoId && <p className="text-xs text-muted-foreground">O lançamento de {alvo.contaNome} já existe: será ligado a este extrato, sem duplicar.</p>}
+          <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label={entrada ? "Conta de origem" : "Conta de destino"}>
+            <span className="text-xs text-muted-foreground">{entrada ? "Origem:" : "Destino:"}</span>
+            {p.outrasContas.map(c => (
+              <button key={c.id} type="button" disabled={ocupado} aria-pressed={alvo?.contaId === c.id}
+                onClick={() => p.onEditar({ transferirPara: { contaId: c.id, contaNome: c.nome, lancamentoId: provavel && provavel.contaId === c.id ? provavel.lancamentoId : undefined }, abrirTransferencia: true, naoETransferencia: false })}
+                className={`h-8 rounded-md border px-2.5 text-xs ${alvo?.contaId === c.id ? "border-primary bg-primary/10 font-medium text-primary" : "border-input bg-background hover:bg-muted"}`}>
+                {c.nome}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Button type="button" size="sm" className="h-8 gap-1 text-xs" disabled={ocupado || !alvo} onClick={() => alvo && p.onConfirmarTransferencia(alvo)}>
+              <CheckCircle2 className="h-3.5 w-3.5" /> Confirmar transferência
+            </Button>
+            <Button type="button" size="sm" variant="outline" className="h-8 gap-1 text-xs" disabled={ocupado}
+              onClick={() => p.onEditar({ naoETransferencia: true, abrirTransferencia: false, transferirPara: undefined })}>
+              Não é transferência
+            </Button>
+            <Button type="button" size="sm" variant="outline" className="h-8 gap-1 text-xs" disabled={ocupado} onClick={p.onTransferencia}><Pencil className="h-3 w-3" /> Formulário</Button>
+            {p.ignorarDisponivel && <Button type="button" size="sm" variant="ghost" className="h-8 gap-1 text-xs" disabled={ocupado} onClick={p.onIgnorar}><BanIcon className="h-3.5 w-3.5" /> Ignorar</Button>}
+          </div>
         </div>
       ) : (
         <>
+          {s.motivos.some(m => /TRANSF, mas o texto traz/.test(m)) && (
+            <p className="pl-6 text-xs text-info-text" role="note">
+              👤 <b>Possível contribuição de pessoa</b> — o banco escreveu TRANSF, mas o texto traz {s.pessoa ? "o nome de quem enviou" : "um nome/CPF (identifique quem é)"}. Não é tratada como transferência interna.
+            </p>
+          )}
+          {deposito && (
+            <p className="flex items-start gap-1.5 pl-6 text-xs text-info-text" role="note">
+              <ArrowRightLeft className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+              <span>Depósito em dinheiro: pode ser o Caixa de Envelopes, a Caixinha ou o Caixa sendo depositado no banco — confira se é <b>transferência entre contas</b> antes de lançar como receita.</span>
+            </p>
+          )}
+          {provavel && (
+            <p className="pl-6 text-xs text-info-text" role="note">
+              O mesmo valor ({brl(l.tx.valor)}) {entrada ? "saiu de" : "entrou em"} {provavel.contaNome} em {dataCurta(provavel.data)} —{" "}
+              <button type="button" className="underline underline-offset-2" disabled={ocupado}
+                onClick={() => p.onEditar({ transferirPara: { contaId: provavel.contaId, contaNome: provavel.contaNome, lancamentoId: provavel.lancamentoId }, abrirTransferencia: true, naoETransferencia: false })}>é transferência?</button>
+            </p>
+          )}
           <div className="flex flex-wrap items-center gap-1.5 pl-6" role="group" aria-label="Categoria">
             {ids.map(id => (
               <button key={id} type="button" disabled={ocupado} aria-pressed={v.categoriaId === id} onClick={() => p.onEditar({ categoriaId: id })}
@@ -109,6 +160,10 @@ export function CartaoDaLinha(p: Props) {
                 {nomeCurtoDaCategoria(p.nomeDaCategoria(id))}
               </button>
             ))}
+            <button type="button" disabled={ocupado} onClick={() => p.onEditar({ abrirTransferencia: true, naoETransferencia: false })}
+              className={`inline-flex h-8 items-center gap-1 rounded-md border px-2.5 text-xs hover:bg-muted ${deposito ? "border-info-line bg-info-soft text-info-text" : "border-input bg-background"}`}>
+              <ArrowRightLeft className="h-3 w-3" /> Transferência entre contas
+            </button>
             <select className={`${SELECT} w-36`} aria-label="Outra categoria" disabled={ocupado} value="" onChange={e => { if (e.target.value) p.onEditar({ categoriaId: e.target.value }); }}>
               <option value="">{ids.length ? "Outra…" : "Categoria…"}</option>
               {p.categorias.filter(c => !ids.includes(c.id)).map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
@@ -136,7 +191,6 @@ export function CartaoDaLinha(p: Props) {
               <CheckCircle2 className="h-3.5 w-3.5" /> Confirmar
             </Button>
             <Button type="button" size="sm" variant="outline" className="h-8 gap-1 text-xs" disabled={ocupado} onClick={p.onFormulario}><Pencil className="h-3 w-3" /> Editar</Button>
-            <Button type="button" size="sm" variant="outline" className="h-8 gap-1 text-xs" disabled={ocupado} onClick={p.onTransferencia}><ArrowRightLeft className="h-3 w-3" /> Transferência</Button>
             {p.ignorarDisponivel && <Button type="button" size="sm" variant="ghost" className="h-8 gap-1 text-xs" disabled={ocupado} onClick={p.onIgnorar}><BanIcon className="h-3 w-3" /> Ignorar</Button>}
             {s.motivos.length > 0 && s.banda !== "identificada" && (
               <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground" title={s.motivos.join(" · ")}>{s.motivos[s.motivos.length - 1]}</span>

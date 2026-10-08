@@ -19,10 +19,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { conferir } from "@/lib/escritaConferida";
 import { daquiADias, hojeLocal } from "@/lib/data";
 import {
-  chaveDoMemo, montarContexto, sugerir, type Contexto, type Historico, type Sugestao,
+  chaveDoMemo, faixaDe, montarContexto, sugerir, type Contexto, type Historico, type Sugestao,
 } from "@/lib/classificacaoOfx";
+import { acharContrapartes, type CandidatoContraparte, type OutraPonta, type ProvavelTransferencia } from "@/lib/transferenciaOfx";
+export type { OutraPonta };
 import {
-  excluirLancamentosEmLote, listarCategorias, listarCentrosCusto, listarLancamentos, listarProjetos,
+  brl, excluirLancamentosEmLote, listarCategorias, listarCentrosCusto, listarContas, listarLancamentos, listarProjetos,
   type FinCategoria, type FinCentroCusto, type FinFormaPagamento, type FinProjeto,
 } from "@/services/finService";
 import { casarComLancamentos, inferirFormaPagamento, type OFXCasamento, type OFXTransacao } from "@/services/ofxService";
@@ -94,6 +96,8 @@ export interface LinhaAnalisada {
   /** `documento`: os documentos a pagar que esta saída provavelmente quitou (o primeiro é o mais provável).
    *  `diferenca` ≠ 0 abre o fluxo de divergência (Juros / Multa / Outro documento / Ajuste). */
   documentos?: DocumentoDoExtrato[];
+  /** `nova`: o mesmo valor entrou/saiu em OUTRA conta da igreja em data próxima — pode ser transferência interna, não receita/despesa. */
+  transferenciaProvavel?: ProvavelTransferencia;
 }
 
 // ── linhas ignoradas (migration 20261008140000): a decisão fica guardada por conta + FITID ──────────────
@@ -232,7 +236,115 @@ export async function analisar(contaId: string, txs: OFXTransacao[], contexto: C
       out[i] = { tx, situacao: "nova", sugestao, ...(documentos.length > 0 ? { documentos } : {}) };
     }
   });
+  await marcarTransferenciasProvaveis(contaId, out, de, ate);
   return out;
+}
+
+// ── transferência entre contas: a primeira hipótese para o que entrou/saiu em dinheiro ───────────────────────
+
+/** Lançamentos de OUTRAS contas, ainda fora de qualquer par de transferência, no entorno do extrato. */
+async function contrapartesPossiveis(contaId: string, de: string, ate: string): Promise<CandidatoContraparte[]> {
+  try {
+    const nomes = new Map((await listarContas(true)).map(c => [c.id, c.nome]));
+    const out: CandidatoContraparte[] = [];
+    for (let p = 0; ; p++) {
+      const { data, error } = await supabase.from("fin_lancamentos")
+        .select("id, conta_id, tipo, data, valor")
+        .neq("conta_id", contaId).in("status", ["realizado", "conciliado"]).is("lancamento_pai_id", null)
+        .gte("data", de).lte("data", ate).order("data").order("id").range(p * 1000, p * 1000 + 999);
+      if (error) return [];
+      for (const l of data ?? []) {
+        out.push({ id: l.id, contaId: l.conta_id, contaNome: nomes.get(l.conta_id) ?? "outra conta", tipo: l.tipo === "entrada" ? "entrada" : "saida", data: String(l.data).slice(0, 10), valor: Number(l.valor) });
+      }
+      if ((data ?? []).length < 1000) break;
+    }
+    return out;
+  } catch { return []; }
+}
+
+/** Prioridade do motor (pedido dela, 08/10/2026): 1) transferência interna, 2) receita/despesa. Só SUGERE. */
+async function marcarTransferenciasProvaveis(contaId: string, linhas: LinhaAnalisada[], de: string, ate: string): Promise<void> {
+  const novas = linhas.filter(l => l && l.situacao === "nova" && l.sugestao);
+  if (novas.length === 0) return;
+  const candidatos = await contrapartesPossiveis(contaId, de, ate);
+  if (candidatos.length === 0) return;
+  const achados = acharContrapartes(novas.map(l => ({
+    fitid: l.tx.fitid, tipo: l.tx.tipo, data: l.tx.data, valor: l.tx.valor, memo: l.tx.memo,
+    temFavorecido: !!(l.sugestao!.pessoa || l.sugestao!.fornecedor),
+  })), candidatos);
+  for (const l of novas) {
+    const p = achados.get(l.tx.fitid);
+    if (!p) continue;
+    l.transferenciaProvavel = p;
+    // abaixo de 75% é só uma dica no cartão; a partir daí a linha vira "possível transferência" (e sai de receita/despesa)
+    if (p.confianca < 75) continue;
+    const lado = l.tx.tipo === "entrada" ? `saiu de ${p.contaNome}` : `entrou em ${p.contaNome}`;
+    const mesmoDia = p.data === l.tx.data ? "no mesmo dia" : `em ${p.data.slice(8, 10)}/${p.data.slice(5, 7)}`;
+    l.sugestao = {
+      ...l.sugestao!, transferencia: true, confianca: p.confianca, banda: faixaDe(p.confianca), possivelMissoes: false,
+      motivos: [`o mesmo valor (${brl(l.tx.valor)}) ${lado} ${mesmoDia} — possível transferência interna`, ...(p.outras.length > 0 ? [`também compatível: ${p.outras.map(o => o.contaNome).join(", ")}`] : [])],
+    };
+  }
+}
+
+/**
+ * Confirma uma linha do extrato como TRANSFERÊNCIA entre contas. A perna desta conta nasce conciliada, com a marca do FITID
+ * (a reimportação a reconhece). Se a outra perna já existe como lançamento comum (o caixa registrou a saída), ela é LIGADA
+ * ao par em vez de duplicada; sem ela, as duas pernas são criadas num único INSERT (todas ou nenhuma, como `transferir`).
+ * Devolve o que desfaz exatamente isto — inclusive devolver ao lançamento antigo a origem que ele tinha.
+ */
+export async function registrarTransferenciaDoExtrato(
+  contaId: string, contaNome: string, tx: OFXTransacao, outra: OutraPonta,
+): Promise<{ ids: string[]; desfazer: () => Promise<void> }> {
+  if (outra.contaId === contaId) throw new Error("Origem e destino precisam ser contas diferentes");
+  const userId = (await supabase.auth.getUser()).data.user?.id ?? null;
+  const agora = new Date().toISOString();
+  const origemNome = tx.tipo === "entrada" ? outra.contaNome : contaNome;
+  const destinoNome = tx.tipo === "entrada" ? contaNome : outra.contaNome;
+  const descBase = `Transferência: ${origemNome} → ${destinoNome}`;
+  const idNovo = crypto.randomUUID();
+  const marca = `[ofx:${tx.fitid}] [transferencia-ofx]`;
+  const perna = (id: string, tipo: "entrada" | "saida", conta: string, pai: string, status: string, observacoes: string | null) => ({
+    id, tipo, data: tx.data, valor: tx.valor, conta_id: conta, status, descricao: `${descBase} (${tipo === "entrada" ? "entrada" : "saída"})`,
+    origem: "transferencia", lancamento_pai_id: pai, observacoes, audit_user_id: userId, audit_em: agora,
+  });
+  const oposto = tx.tipo === "entrada" ? "saida" : "entrada";
+
+  if (!outra.lancamentoId) {
+    const idOutra = crypto.randomUUID();
+    const { data, error } = await supabase.from("fin_lancamentos").insert([
+      perna(idNovo, tx.tipo, contaId, idOutra, "conciliado", marca),
+      perna(idOutra, oposto, outra.contaId, idNovo, "realizado", null),
+    ] as never).select("id");
+    if (error) throw error;
+    if ((data?.length ?? 0) !== 2) throw new Error("A transferência não gravou as duas pernas (permissão) — nada foi criado");
+    return { ids: [idNovo], desfazer: () => excluirLancamentosEmLote([idNovo]) };   // apaga o par inteiro (lancamento_pai_id)
+  }
+
+  // a outra perna já existe: conferir que ainda é a mesma coisa antes de ligar
+  const { data: alvo, error: erroAlvo } = await supabase.from("fin_lancamentos")
+    .select("id, origem, valor, tipo, conta_id, lancamento_pai_id").eq("id", outra.lancamentoId).maybeSingle();
+  if (erroAlvo) throw erroAlvo;
+  if (!alvo || alvo.lancamento_pai_id || Math.abs(Number(alvo.valor) - tx.valor) >= 0.005 || alvo.conta_id !== outra.contaId) {
+    throw new Error(`O lançamento de ${outra.contaNome} mudou desde a análise — reabra o extrato para rever a sugestão`);
+  }
+  const origemAntiga = String(alvo.origem);
+  const ins = conferir(await supabase.from("fin_lancamentos").insert(perna(idNovo, tx.tipo, contaId, outra.lancamentoId, "conciliado", marca) as never).select("id"), "A transferência");
+  if (!ins.ok) throw new Error(ins.erro);
+  const lig = conferir(await supabase.from("fin_lancamentos").update({ origem: "transferencia", lancamento_pai_id: idNovo } as never).eq("id", outra.lancamentoId).select("id"), `O lançamento de ${outra.contaNome}`);
+  if (!lig.ok) {
+    await supabase.from("fin_lancamentos").delete().eq("id", idNovo);   // não deixa a perna desta conta órfã
+    throw new Error(lig.erro);
+  }
+  return {
+    ids: [idNovo],
+    desfazer: async () => {
+      const volta = conferir(await supabase.from("fin_lancamentos").update({ origem: origemAntiga, lancamento_pai_id: null } as never).eq("id", outra.lancamentoId!).select("id"), `O lançamento de ${outra.contaNome}`);
+      if (!volta.ok) throw new Error(volta.erro);
+      const apaga = conferir(await supabase.from("fin_lancamentos").delete().eq("id", idNovo).select("id"), "A transferência");
+      if (!apaga.ok) throw new Error(apaga.erro);
+    },
+  };
 }
 
 /** Saídas PREVISTAS cuja forma de liquidação é automática, no entorno das datas do extrato.

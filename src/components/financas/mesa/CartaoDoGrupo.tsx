@@ -50,7 +50,8 @@ export function CartaoDoGrupo({ grupo, linhas, categorias, opcoesDeCentro, proje
       <div className="flex flex-wrap items-center gap-2">
         <Layers className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
         <p className="min-w-0 flex-1 text-sm">
-          <b className="tabular-nums">{grupo.fitids.length}</b> {entrada ? "entradas" : "saídas"} com o mesmo texto: <span className="font-medium" title={grupo.amostra}>{grupo.amostra.replace(/\s+\d{2}\/\d{2}\s*$/, "")}</span>
+          <b className="tabular-nums">{grupo.fitids.length}</b> {entrada ? "entradas" : "saídas"}{grupo.favorecido ? " de " : " com o mesmo padrão: "}<span className="font-medium" title={grupo.amostra}>{grupo.favorecido ?? grupo.amostra.replace(/\s+\d{2}\/\d{2}\s*$/, "")}</span>
+          <span className="ml-1 text-xs text-success-text">✓ agrupamento seguro — {grupo.motivo}</span>
         </p>
         <span className={`shrink-0 text-sm font-medium tabular-nums ${entrada ? "text-success-text" : "text-destructive-text"}`}>{entrada ? "+" : "−"}{brl(grupo.total)}</span>
         <span className="shrink-0 text-xs text-muted-foreground">{dataCurta(datas[0])}{datas.length > 1 && datas[datas.length - 1] !== datas[0] ? ` a ${dataCurta(datas[datas.length - 1])}` : ""}</span>
