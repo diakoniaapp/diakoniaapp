@@ -65,6 +65,8 @@ export function chavesPorAssinatura(lancamentos: LancamentoDoExtrato[]): (l: { d
 export const INDICE_UNICO_DA_CHAVE = "fin_lancamentos_invest_pdf_chave_uq";
 export const AVISO_JA_REGISTRADA = "Transferência já registrada: esta linha do PDF acabou de ser lançada (outra aba ou outro usuário). Nada foi duplicado — reabra o PDF para ver a situação.";
 
+export const AVISO_VINCULO_ALTERADO = "Esta transferência foi alterada por outra aba ou outro usuário enquanto você olhava — nada foi sobrescrito. Reabra o PDF para ver a situação atual.";
+
 /** O erro do banco é a recusa do índice único (23505)? Aceita o objeto do PostgREST ou só a mensagem. */
 export function ehConflitoDaChave(erro: unknown): boolean {
   const e = erro as { message?: string; details?: string } | string | null | undefined;

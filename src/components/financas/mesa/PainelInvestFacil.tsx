@@ -20,7 +20,7 @@ import { reativarIgnorada } from "@/services/importacaoOfxService";
 import {
   candidatasDeAplicacao, gravarTransferenciaDoPdf, ignorarLinhaDoPdf, lerPdfDoInvestFacil, situacaoDasLinhas, vincularEvidencia, type PdfDoInvestFacil,
 } from "@/services/investFacilService";
-import { AVISO_JA_REGISTRADA, resumirLote, type LinhaInvestFacil, type SituacaoDaLinhaInvest } from "@/lib/investFacil";
+import { AVISO_JA_REGISTRADA, AVISO_VINCULO_ALTERADO, resumirLote, type LinhaInvestFacil, type SituacaoDaLinhaInvest } from "@/lib/investFacil";
 import type { OFXTransacao } from "@/services/ofxService";
 
 const dataBr = (iso: string) => iso.split("-").reverse().join("/");
@@ -156,7 +156,12 @@ export function PainelInvestFacil({ contaId, contaNome, transacoes, aoGravar }: 
       setGravadas(prev => new Map(prev).set(l.chave, r.desfazer));
       aoGravar();
       toast.success("Evidência do PDF vinculada à transferência existente.");
-    } catch (e: any) { toast.error(e?.message ?? "Não foi possível vincular."); }
+    } catch (e: any) {
+      const mudouPorOutro = e?.message === AVISO_VINCULO_ALTERADO || e?.message === AVISO_JA_REGISTRADA;
+      if (mudouPorOutro) toast.info(e.message); else toast.error(e?.message ?? "Não foi possível vincular.");
+      // outra aba/usuário alterou a transferência: relê a situação em vez de insistir no cartão antigo
+      if (mudouPorOutro && pdf) await carregarSituacoes(pdf, aplicacaoId).catch(() => { /* a próxima abertura do PDF mostra */ });
+    }
     finally { setOcupado(null); }
   }
 

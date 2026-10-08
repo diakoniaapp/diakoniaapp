@@ -9,11 +9,11 @@
 //   2. IMEDIATAMENTE antes de gravar, a chave é procurada outra vez no banco (outra aba, outro usuário, clique duplo);
 //   3. uma transferência feita à mão (mesmo valor, até 5 dias) não vira duplicata: oferece-se só VINCULAR a evidência.
 import { supabase } from "@/integrations/supabase/client";
-import { conferir } from "@/lib/escritaConferida";
+import { RECADO_SEM_PERMISSAO } from "@/lib/escritaConferida";
 import { daquiADias } from "@/lib/data";
 import { pareceExtratoConsolidado, lerExtratoConsolidado, type ExtratoLido } from "@/lib/extratoConsolidadoPdf";
 import {
-  AVISO_JA_REGISTRADA, chavesNaObservacao, classificarLinhasInvest, ehConflitoDaChave, fitidDaChave, linhasDoInvestFacil, montarEvidencia, validarPdfParaSugestoes,
+  AVISO_JA_REGISTRADA, AVISO_VINCULO_ALTERADO, chavesNaObservacao, classificarLinhasInvest, ehConflitoDaChave, fitidDaChave, linhasDoInvestFacil, montarEvidencia, validarPdfParaSugestoes,
   type LinhaInvestFacil, type SituacaoDaLinhaInvest, type TransferenciaExistente, type ValidacaoDoPdf,
 } from "@/lib/investFacil";
 import { conferirVarredura, type ConferenciaDaVarredura, type MovimentoDoDia } from "@/lib/varredura";
@@ -115,17 +115,37 @@ export async function vincularEvidencia(p: {
 }): Promise<{ desfazer: () => Promise<void> }> {
   const atual = await supabase.from("fin_lancamentos").select("observacoes").eq("id", p.lancamentoId).maybeSingle();
   if (atual.error || !atual.data) throw new Error(atual.error?.message ?? "Lançamento não encontrado.");
-  const antes = atual.data.observacoes ?? "";
-  if (chavesNaObservacao(antes).length > 0) throw new Error("Esta transferência já tem uma evidência de PDF.");
-  const nova = `${antes ? `${antes}\n` : ""}${montarEvidencia({ chave: p.linha.chave, arquivo: p.pdf.arquivo, hash: p.pdf.hash, lidoEm: p.pdf.lidoEm, texto: p.linha.textoOriginal })} [vinculada-a-transferencia-existente]`;
-  const r = conferir(await supabase.from("fin_lancamentos").update({ observacoes: nova } as never).eq("id", p.lancamentoId).select("id"), "A evidência do PDF");
-  if (!r.ok) throw new Error(ehConflitoDaChave(r.erro) ? AVISO_JA_REGISTRADA : r.erro);
+  const original: string | null = atual.data.observacoes ?? null;
+  if (chavesNaObservacao(original).length > 0) throw new Error("Esta transferência já tem uma evidência de PDF.");
+  const nova = `${original ? `${original}\n` : ""}${montarEvidencia({ chave: p.linha.chave, arquivo: p.pdf.arquivo, hash: p.pdf.hash, lidoEm: p.pdf.lidoEm, texto: p.linha.textoOriginal })} [vinculada-a-transferencia-existente]`;
+
+  // UPDATE condicional (compara e troca numa operação só): só grava se a observação AINDA é a que foi lida. Se outra aba/usuário mexeu nela
+  // depois da leitura, a condição falha, nenhuma linha muda e nada é sobrescrito — o próprio banco serializa as duas gravações.
+  const r = await trocarObservacao(p.lancamentoId, original, nova);
+  if (r.erro) throw new Error(ehConflitoDaChave(r.erro) ? AVISO_JA_REGISTRADA : r.erro);
+  if (!r.gravou) {
+    const agora = await supabase.from("fin_lancamentos").select("observacoes").eq("id", p.lancamentoId).maybeSingle();
+    if (agora.error) throw new Error(agora.error.message);
+    if (!agora.data) throw new Error("A transferência não existe mais — reabra o PDF para ver a situação.");
+    if ((agora.data.observacoes ?? null) !== original) throw new Error(AVISO_VINCULO_ALTERADO);
+    throw new Error(`A evidência do PDF não foi salva — ${RECADO_SEM_PERMISSAO}`);
+  }
   return {
     desfazer: async () => {
-      const v = conferir(await supabase.from("fin_lancamentos").update({ observacoes: antes || null } as never).eq("id", p.lancamentoId).select("id"), "O desfazer da evidência");
-      if (!v.ok) throw new Error(v.erro);
+      // mesma proteção na volta: só devolve o texto original se ninguém editou a observação depois do vínculo
+      const v = await trocarObservacao(p.lancamentoId, nova, original);
+      if (v.erro) throw new Error(v.erro);
+      if (!v.gravou) throw new Error("A observação desta transferência foi alterada depois do vínculo (ou a transferência foi apagada): o desfazer não foi aplicado, para não perder essa alteração.");
     },
   };
+}
+
+/** Troca `observacoes` de `esperado` para `novo` SÓ se ela ainda for `esperado` (null = vazia). `gravou` false = a condição não se sustentou, ou a RLS barrou. */
+async function trocarObservacao(id: string, esperado: string | null, novo: string | null): Promise<{ gravou: boolean; erro?: string }> {
+  const q = supabase.from("fin_lancamentos").update({ observacoes: novo } as never).eq("id", id);
+  const r = await (esperado === null ? q.is("observacoes", null) : q.eq("observacoes", esperado)).select("id");
+  if (r.error) return { gravou: false, erro: r.error.message };
+  return { gravou: (r.data ?? []).length > 0 };
 }
 
 export interface ConferenciaDiariaCarregada {
