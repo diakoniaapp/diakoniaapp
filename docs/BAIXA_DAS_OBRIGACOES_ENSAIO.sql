@@ -1,5 +1,11 @@
+-- ─── COMO RODAR (versão de 08/10/2026) ───────────────────────────────────────────────────────────────────────────
+-- É UM ÚNICO comando (um bloco DO) que faz tudo e TERMINA SEMPRE COM UM ERRO de propósito: "ENSAIO CONCLUÍDO (nada foi gravado)"
+-- seguido do resultado. Erro desfaz o comando inteiro, então nada fica gravado em nenhum editor. (A versão anterior usava
+-- BEGIN/ROLLBACK e tabelas temporárias entre vários comandos; o SQL Editor do Supabase não segura isso de um comando para o outro
+-- — "relation _antes does not exist" no ensaio do Sustento — e um ROLLBACK que não vale seria perigoso num script que apaga.)
+-- Se aparecer "ABORTADO …" / "Encontrei …" / outra mensagem em vez de "ENSAIO CONCLUÍDO", uma verificação falhou: a mensagem diz qual.
+--
 -- ─── ENSAIO: baixar as 12 obrigações pagas que ficaram abertas por duplicidade ─────────────────────────────────
--- Roda tudo e DESFAZ (ROLLBACK). NADA fica gravado. O resultado (JSON) traz a tabela dos 12 casos, a quantificação e as verificações.
 --
 -- O problema (auditoria de 08/10/2026): o caminho "Confirmar" da Mesa de Conciliação criou um lançamento NOVO para o pagamento e não baixou
 -- a obrigação prevista; dois pagamentos foram lançados à mão (JMN e FGTS). Resultado: a obrigação segue "aberta" na Mesa de Operações e o
@@ -17,7 +23,10 @@
 --     soma dos lançamentos realizados/conciliados por conta; se algo mudar, ABORTA;
 --   · confere os vínculos OFX (1 liquidação por FITID), as conciliações (12 obrigações `conciliado`) e a visão de obrigações.
 
-BEGIN;
+
+DO $ensaio$
+DECLARE resultado text;
+BEGIN
 
 -- fotografia do que NÃO pode mudar
 CREATE TEMP TABLE _saldos_antes ON COMMIT DROP AS SELECT id, saldo_atual FROM public.fin_contas;
@@ -53,7 +62,6 @@ DELETE FROM _pares p WHERE EXISTS (
   SELECT 1 FROM _pares q WHERE q.d_id = p.d_id AND (q.dias < p.dias OR (q.dias = p.dias AND q.o_id < p.o_id)));
 
 -- 2. a trava: só segue com EXATAMENTE os 12 casos revisados
-DO $$
 DECLARE
   n int; achados text[];
   esperados text[] := ARRAY['N10F7F','N10FAB','N10F95','N10FC1','N10FD7','N1136D','N1146B','N114D9','N11A25','N11CDD','N11F2D','N11D09'];
@@ -77,7 +85,7 @@ BEGIN
      OR EXISTS (SELECT 1 FROM public.fin_lancamentos x WHERE x.obrigacao_id = p.d_id OR x.lancamento_pai_id = p.d_id)) THEN
     RAISE EXCEPTION 'Algum lançamento duplicado tem vínculos (rateio, folha, fiscal, estoque…) — abortando';
   END IF;
-END $$;
+END;
 
 -- 3. a tabela dos 12 casos, ANTES de mexer
 CREATE TEMP TABLE _tabela ON COMMIT DROP AS
@@ -122,7 +130,6 @@ SELECT liq_id, conta_id, dia, forma_pagamento, valor, fitid,
 UPDATE public.fin_lancamento_anexos a SET lancamento_id = q.o_id FROM _liq q WHERE a.lancamento_id = q.d_id;
 
 -- 7. baixa a obrigação (como `fin_liquidar`): conciliada, data do pagamento, liquidação e obrigação ligadas
-DO $$
 DECLARE n int;
 BEGIN
   UPDATE public.fin_lancamentos o
@@ -138,19 +145,17 @@ BEGIN
    WHERE o.id = q.o_id AND o.status = 'previsto';
   GET DIAGNOSTICS n = ROW_COUNT;
   IF n <> 12 THEN RAISE EXCEPTION 'Baixei % obrigações (esperado 12) — abortando', n; END IF;
-END $$;
+END;
 
 -- 8. remove o duplicado
-DO $$
 DECLARE n int;
 BEGIN
   DELETE FROM public.fin_lancamentos WHERE id IN (SELECT d_id FROM _liq);
   GET DIAGNOSTICS n = ROW_COUNT;
   IF n <> 12 THEN RAISE EXCEPTION 'Removi % duplicados (esperado 12) — abortando', n; END IF;
-END $$;
+END;
 
 -- 9. verificações: qualquer diferença ABORTA e desfaz tudo
-DO $$
 DECLARE n_saldo int; n_reais int; n_liq int; n_baixadas int; n_marca int; n_view int; atr_n bigint; atr_soma numeric; esp_n bigint; esp_soma numeric;
 BEGIN
   SELECT count(*) INTO n_saldo FROM public.fin_contas c JOIN _saldos_antes s USING (id) WHERE c.saldo_atual IS DISTINCT FROM s.saldo_atual;
@@ -181,10 +186,10 @@ BEGIN
    WHERE status = 'previsto' AND tipo = 'saida' AND data < (now() AT TIME ZONE 'America/Sao_Paulo')::date;
   SELECT n - 12, soma - (SELECT sum(valor) FROM _liq) INTO esp_n, esp_soma FROM _atrasadas_antes;
   IF atr_n <> esp_n OR atr_soma <> esp_soma THEN RAISE EXCEPTION 'Atrasadas depois (% / %) diferem do esperado (% / %) — abortando', atr_n, atr_soma, esp_n, esp_soma; END IF;
-END $$;
+END;
 
 -- o resultado (abra o JSON): quantidade encontrada/corrigida, saldos e obrigações antes e depois, a tabela dos 12 e as verificações
-SELECT jsonb_pretty(jsonb_build_object(
+resultado := jsonb_pretty(jsonb_build_object(
   'quantidade', jsonb_build_object(
       'encontrada', (SELECT count(*) FROM _pares),
       'corrigida',  (SELECT count(*) FROM _liq q JOIN public.fin_lancamentos o ON o.id = q.o_id WHERE o.status = 'conciliado' AND o.liquidacao_id = q.liq_id),
@@ -210,6 +215,8 @@ SELECT jsonb_pretty(jsonb_build_object(
   'verificacoes', jsonb_build_object(
       'saldos_alterados',      (SELECT count(*) FROM public.fin_contas c JOIN _saldos_antes s USING (id) WHERE c.saldo_atual IS DISTINCT FROM s.saldo_atual),
       'resultado',             'todas as verificações passaram (se alguma falhasse, o script teria abortado com erro)')
-)) AS resultado;
+));
 
-ROLLBACK;
+  RAISE EXCEPTION E'ENSAIO CONCLUÍDO (nada foi gravado)\n%', resultado;
+END
+$ensaio$;

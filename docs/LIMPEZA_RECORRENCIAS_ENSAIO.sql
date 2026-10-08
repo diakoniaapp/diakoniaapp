@@ -1,4 +1,10 @@
--- ENSAIO: roda tudo e DESFAZ (ROLLBACK). O resultado (JSON) traz o resumo, as 37 recorrências e as verificações. NADA fica gravado.
+-- ─── COMO RODAR (versão de 08/10/2026) ───────────────────────────────────────────────────────────────────────────
+-- É UM ÚNICO comando (um bloco DO) que faz tudo e TERMINA SEMPRE COM UM ERRO de propósito: "ENSAIO CONCLUÍDO (nada foi gravado)"
+-- seguido do resultado. Erro desfaz o comando inteiro, então nada fica gravado em nenhum editor. (A versão anterior usava
+-- BEGIN/ROLLBACK e tabelas temporárias entre vários comandos; o SQL Editor do Supabase não segura isso de um comando para o outro
+-- — "relation _antes does not exist" no ensaio do Sustento — e um ROLLBACK que não vale seria perigoso num script que apaga.)
+-- Se aparecer "ABORTADO …" / "Encontrei …" / outra mensagem em vez de "ENSAIO CONCLUÍDO", uma verificação falhou: a mensagem diz qual.
+--
 -- Pode ser rodado ANTES da migration 20261008150000 (veja o item 0 abaixo). A migration definitiva 20261008160000 continua EXIGINDO a 1.
 -- ─── Limpeza dos lançamentos PREVISTOS de recorrência além de 12 meses ───────────────────────────────────────────
 -- Medido em 08/10/2026: ~29.900 previstos de recorrência, 29.460 deles a mais de 12 meses de hoje (até dez/2099), todos criados em
@@ -16,7 +22,10 @@
 --      bateu com o previsto — se algo diferir, ABORTA.
 -- Depois: a data final 2099 das recorrências sem fim vira NULL ("sem data final") e `ultimo_gerado_ate` volta ao último previsto que sobrou.
 
-BEGIN;
+
+DO $ensaio$
+DECLARE resultado text;
+BEGIN
 
 -- 0. ENSAIO (roda ANTES da migration 20261008150000): com o gatilho de saldo atual, cada linha apagada recalcularia a conta e o
 --    ensaio estouraria o tempo. Por isso, SÓ DENTRO desta transação, o gatilho é desligado — e tudo é desfeito no ROLLBACK final
@@ -51,12 +60,11 @@ SELECT l.id, l.conta_id, l.recorrencia_id
    AND NOT EXISTS (SELECT 1 FROM public.fin_estoque_movimentos x WHERE x.lancamento_id = l.id);
 
 -- trava de segurança: o esperado são ~29.460; muito além disso, algo mudou desde a medição
-DO $$
 DECLARE n bigint;
 BEGIN
   SELECT count(*) INTO n FROM _limpa;
   IF n > 35000 THEN RAISE EXCEPTION 'A limpeza apagaria % lançamentos (esperado ~29.460) — abortando', n; END IF;
-END $$;
+END;
 
 -- o resumo ANTES de apagar (o que a tesouraria vai revisar)
 CREATE TEMP TABLE _resumo ON COMMIT DROP AS
@@ -118,7 +126,6 @@ UPDATE public.fin_recorrencias r
    AND (r.data_fim >= DATE '2090-01-01' OR r.ultimo_gerado_ate > ((now() AT TIME ZONE 'America/Sao_Paulo')::date + interval '13 months')::date);
 
 -- verificações: qualquer diferença ABORTA e desfaz tudo
-DO $$
 DECLARE n_saldo int; n_reais int; n_total bigint; esperado bigint;
 BEGIN
   SELECT count(*) INTO n_saldo FROM public.fin_contas c JOIN _saldos_antes s USING (id) WHERE c.saldo_atual IS DISTINCT FROM s.saldo_atual;
@@ -134,10 +141,10 @@ BEGIN
   SELECT count(*) INTO n_total FROM public.fin_lancamentos;
   SELECT (SELECT n FROM _total_antes) - (SELECT count(*) FROM _limpa) INTO esperado;
   IF n_total <> esperado THEN RAISE EXCEPTION 'Total de lançamentos % difere do esperado % — abortando', n_total, esperado; END IF;
-END $$;
+END;
 
 -- o resultado, numa linha só (abra o JSON: "antes" é o resumo; "depois" e "verificacao" são conferências feitas depois de apagar)
-SELECT jsonb_pretty(jsonb_build_object(
+resultado := jsonb_pretty(jsonb_build_object(
   'resumo', (SELECT j FROM _resumo),
   'depois', jsonb_build_object(
       'lancamentos', (SELECT count(*) FROM public.fin_lancamentos),
@@ -153,6 +160,8 @@ SELECT jsonb_pretty(jsonb_build_object(
           WHERE c.saldo_atual IS DISTINCT FROM c.saldo_inicial + coalesce((SELECT sum(CASE WHEN l.tipo = 'entrada' THEN l.valor ELSE -l.valor END)
                 FROM public.fin_lancamentos l WHERE l.conta_id = c.id AND l.status IN ('realizado', 'conciliado')), 0)),
       'resultado', 'todas as verificações passaram')
-)) AS resultado;
+));
 
-ROLLBACK;
+  RAISE EXCEPTION E'ENSAIO CONCLUÍDO (nada foi gravado)\n%', resultado;
+END
+$ensaio$;
