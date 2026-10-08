@@ -4,6 +4,7 @@ import { conferir } from "@/lib/escritaConferida";
 import type { ItemNota } from "@/services/ocrService";
 import type { TipoChavePix } from "@/lib/pix";
 import type { FormaLiquidacao } from "@/lib/formaLiquidacao";
+import { atualizarPrevistosEmBlocos } from "@/services/previstosEmBlocos";
 
 // ─── Tipos ───────────────────────────────────────────────────────────────
 export type FinContaTipo = "caixa" | "banco" | "pix" | "envelope" | "cartao" | "aplicacao" | "cofre";
@@ -1787,14 +1788,16 @@ export async function propagarLiquidacaoParaPrevistos(
 ): Promise<number> {
   // Sem `conferir`: zero linhas é um resultado LEGÍTIMO aqui (não há próximo previsto); a
   // permissão já foi provada pelo `update` da própria recorrência, logo antes.
-  const { data, error } = await supabase.from("fin_lancamentos")
-    .update({ forma_liquidacao: forma, valor_variavel: valorVariavel } as never)
-    .eq("origem", "recorrencia").eq("status", "previsto")
-    .eq("descricao", rec.descricao).eq("tipo", rec.tipo).eq("conta_id", rec.conta_id)
-    .gte("data", hojeLocal())
-    .select("id");
-  if (error) throw new Error(erroDaLiquidacao(error));
-  return data?.length ?? 0;
+  // Em blocos: uma recorrência sem fim chega a ter centenas de previstos e um UPDATE único estoura o statement_timeout.
+  try {
+    return await atualizarPrevistosEmBlocos(
+      q => q.eq("origem", "recorrencia").eq("status", "previsto")
+        .eq("descricao", rec.descricao).eq("tipo", rec.tipo).eq("conta_id", rec.conta_id).gte("data", hojeLocal()),
+      { forma_liquidacao: forma, valor_variavel: valorVariavel },
+    );
+  } catch (e: any) {
+    throw new Error(erroDaLiquidacao(e));
+  }
 }
 
 /** Coluna inexistente (migration ainda não aplicada) vira um recado que a tesouraria entende. */

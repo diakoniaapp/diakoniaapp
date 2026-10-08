@@ -19,8 +19,9 @@ import { ocorrenciasAGerar, precisaRenovar, rotuloDaParcela, type ParametrosDaSe
 import { resumirHabitos, PAGAMENTOS_PARA_HABITO, type HabitosDoFavorecido, type PagamentoDoHistorico } from "@/lib/habitosDoFavorecido";
 import { normalizarLiquidacao } from "@/lib/formaLiquidacao";
 import { listarRecorrencias, type FinRecorrencia } from "@/services/finService";
+import { atualizarPrevistosEmBlocos } from "@/services/previstosEmBlocos";
 
-const BLOCO = 100;
+const BLOCO = 50;   // cada linha dispara os gatilhos de fin_lancamentos: blocos menores ficam longe do statement_timeout
 
 // ── sondagem das colunas novas ─────────────────────────────────────────────
 
@@ -145,19 +146,17 @@ export async function propagarModelo(rec: FinRecorrencia, descricaoAnterior: str
   };
   if (temPessoa) patch.pessoa_id = rec.pessoa_id ?? null;
   if (!rec.valor_variavel) patch.valor = rec.valor;
-  const base = () => (supabase.from("fin_lancamentos").update(patch as never) as any).eq("status", "previsto").gte("data", hoje);
+  // em blocos: uma recorrência sem fim chega a ter centenas de previstos, e um UPDATE único estoura o statement_timeout
+  const base = (q: any) => q.eq("status", "previsto").gte("data", hoje);
   let n = 0;
-  if (temVinculo) {
-    const { data, error } = await base().eq("recorrencia_id", rec.id).select("id");
-    if (error) throw error;
-    n += data?.length ?? 0;
-  }
+  if (temVinculo) n += await atualizarPrevistosEmBlocos(q => base(q).eq("recorrencia_id", rec.id), patch);
   // os de antes do vínculo (sem recorrencia_id): casados pela descrição de antes da edição
-  let legado = base().eq("origem", "recorrencia").eq("descricao", descricaoAnterior).eq("conta_id", rec.conta_id).eq("tipo", rec.tipo);
-  if (temVinculo) legado = legado.is("recorrencia_id", null);
-  const { data, error } = await legado.select("id");
-  if (error) throw error;
-  n += data?.length ?? 0;  return n;
+  n += await atualizarPrevistosEmBlocos(q => {
+    let l = base(q).eq("origem", "recorrencia").eq("descricao", descricaoAnterior).eq("conta_id", rec.conta_id).eq("tipo", rec.tipo);
+    if (temVinculo) l = l.is("recorrencia_id", null);
+    return l;
+  }, patch);
+  return n;
 }
 
 /**
