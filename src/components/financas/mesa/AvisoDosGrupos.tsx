@@ -10,6 +10,7 @@ import { AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
 import { brl } from "@/services/finService";
 import type { LinhaAnalisada } from "@/services/importacaoOfxService";
 import type { Grupo } from "@/lib/mesaOfx";
+import { CriteriosDoGrupo, SELO } from "./CriteriosDoGrupo";
 
 interface Props {
   grupos: Grupo[];
@@ -28,6 +29,7 @@ export function AvisoDosGrupos({ grupos, linhas, nomeDaCategoria }: Props) {
         {grupos.length} {grupos.length > 1 ? "padrões" : "padrão"} repetido{grupos.length > 1 ? "s" : ""} sem segurança para decidir em lote ({total} linhas)
         <span className="font-normal text-muted-foreground"> — cada linha é decidida sozinha</span>
       </summary>
+      <p className="mt-2 text-xs text-muted-foreground">🟢 seguro = todos os critérios atendidos (aceita lote) · 🟡 parcial = parece igual, mas algo diverge · 🔴 inseguro = a natureza muda de uma linha para outra.</p>
       <ul className="mt-2 space-y-3">
         {grupos.map(g => {
           const insuf = g.seguranca === "inseguro";
@@ -41,11 +43,12 @@ export function AvisoDosGrupos({ grupos, linhas, nomeDaCategoria }: Props) {
                   {insuf ? "sem identificação suficiente" : "parecidas, mas com divergência"}
                   {": "}<span className="font-medium">{g.favorecido ?? g.amostra.replace(/\s+\d{2}\/\d{2}\s*$/, "")}</span>
                   <span className="block text-xs text-muted-foreground">
-                    {insuf ? "🔴 Agrupamento inseguro" : "🟡 Agrupamento parcial"} — {g.motivo}
-                    {g.menor !== g.maior && <> · valores de {brl(g.menor)} a {brl(g.maior)}</>}
+                    <span className={`font-medium ${SELO[g.seguranca].classe}`}>{SELO[g.seguranca].emoji} {SELO[g.seguranca].titulo}</span>
+                    {" — "}Motivo: {g.motivo}
                   </span>
                 </p>
               </div>
+              <div className="ml-6 rounded border bg-background p-2"><CriteriosDoGrupo criterios={g.criterios} /></div>
               <ul className="ml-6 divide-y rounded border bg-background text-xs">
                 {g.fitids.map(f => {
                   const l = linhas.get(f);

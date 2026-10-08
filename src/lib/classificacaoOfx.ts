@@ -363,7 +363,7 @@ function sugerirBase(linha: Linha, ctx: Contexto): Sugestao {
     void idPessoaOuForn;
     return pronta({ ...ref, confianca: 45, motivos: [...motivos, "sem pagamento anterior para sugerir a categoria"] });
   }
-  if (ehGenerico(hChave.filter(h => h.tipo === "saida"))) {
+  if (ehGenerico(hChave.filter(h => h.tipo === "saida")) || TEXTO_DE_COBRANCA.test(chave)) {
     // ex.: "PAGTO ELETRON COBRANCA PAG COBRANCA NET EMPR" — 14 boletos de favorecidos diferentes num mês: a pista certa é o
     // DOCUMENTO a pagar (valor + vencimento), não o histórico do texto.
     return pronta({ confianca: 35, generico: true, motivos: [...motivos, "texto genérico do banco (boleto de vários favorecidos): identifique pelo documento a pagar"] });
@@ -379,6 +379,9 @@ function sugerirBase(linha: Linha, ctx: Contexto): Sugestao {
   return pronta({ confianca: 30, motivos: [ex.nome ? `${ex.nome}: sem cadastro nem pagamento anterior` : "sem nome nem padrão conhecido"] });
 }
 
+/** "PAGTO ELETRON COBRANCA …", "PAG COBRANCA …": descreve a OPERAÇÃO bancária (boleto), nunca o favorecido. */
+const TEXTO_DE_COBRANCA = /\b(pagto\s+eletron\s+cobranca|pag\s+cobranca|pagamento\s+de\s+cobranca)\b/;
+
 /** O mesmo texto de banco já pagou 3 ou mais favorecidos diferentes: não é pista de ninguém. */
 function ehGenerico(h: Historico[]): boolean {
   const quem = new Set<string>();
@@ -386,7 +389,7 @@ function ehGenerico(h: Historico[]): boolean {
   return quem.size >= 3;
 }
 
-const ULTIMOS = 3;
+const ULTIMOS = 4;
 
 /** Acrescenta o que a tela precisa para decidir rápido: histórico, alternativas e a marca ",10". */
 export function sugerir(linha: Linha, ctx: Contexto): Sugestao {
@@ -412,7 +415,8 @@ export function sugerir(linha: Linha, ctx: Contexto): Sugestao {
   const historico = (histAlvo ?? []).slice(-ULTIMOS).reverse().map(h => ({ dia: h.dia, valor: h.valor, categoriaId: h.categoriaId }));
   // as alternativas: entrada = Dízimo/Oferta/Missões; saída = o que esse favorecido (ou texto) já recebeu
   let alternativas: string[];
-  if (linha.tipo === "entrada") alternativas = [cat.dizimo, cat.oferta, cat.missoes].filter((x): x is string => !!x && x !== s.categoriaId);
+  if (s.generico) alternativas = [];   // texto genérico (boleto/cobrança): nenhuma categoria é sugerida, nem como alternativa
+  else if (linha.tipo === "entrada") alternativas = [cat.dizimo, cat.oferta, cat.missoes].filter((x): x is string => !!x && x !== s.categoriaId);
   else {
     const contagem = new Map<string, number>();
     for (const h of (histAlvo ?? hChave).filter(x => x.tipo === "saida")) if (h.categoriaId) contagem.set(h.categoriaId, (contagem.get(h.categoriaId) ?? 0) + 1);

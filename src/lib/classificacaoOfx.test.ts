@@ -190,3 +190,13 @@ describe("faixas e painel", () => {
     expect(chaveDoMemo("TARIFA BANCARIA TRANSF PGTO PIX 0109")).toBe("tarifa bancaria transf pgto pix");
   });
 });
+
+describe("texto genérico de cobrança não sugere categoria (pedido dela, 08/10/2026)", () => {
+  it("'PAGTO ELETRON COBRANCA PAG COBRANCA <empresa>' sem favorecido: genérico, sem categoria e sem alternativas", () => {
+    const s = sugerir(linha({ tipo: "saida", memo: "PAGTO ELETRON COBRANCA PAG COBRANCA EMPRESA QUALQUER", valor: 300 }), ctx([]));
+    expect(s.generico).toBe(true);
+    expect(s.categoriaId).toBeUndefined();
+    expect(s.alternativas).toEqual([]);
+    expect(s.banda).toBe("nao_identificada");
+  });
+});

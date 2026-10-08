@@ -25,6 +25,9 @@ export interface LinhaParaAgrupar { fitid: string; tipo: "entrada" | "saida"; va
  */
 export type Seguranca = "seguro" | "parcial" | "inseguro";
 
+/** Um critério da decisão em lote e se o grupo o cumpre. */
+export interface Criterio { rotulo: string; ok: boolean; detalhe?: string }
+
 export interface Grupo {
   /** a identidade do padrão: o id do favorecido, ou o texto do banco sem números nem acento */
   chave: string;
@@ -43,6 +46,8 @@ export interface Grupo {
   centroId?: string;
   menor: number;
   maior: number;
+  /** todos os critérios com ✓/✗: a explicação visual do 🟢/🟡/🔴 */
+  criterios: Criterio[];
 }
 
 export const MINIMO_DO_GRUPO = 3;
@@ -52,55 +57,81 @@ const RAZAO_MAXIMA_DE_VALORES = 3;
 const mesmoValor = (a: number, b: number) => Math.abs(a - b) < 0.005;
 const ehPix = (memo: string) => /\bpix\b/i.test(memo);
 
-function avaliar(lista: LinhaParaAgrupar[], por: Grupo["por"]): Pick<Grupo, "seguranca" | "motivo" | "categoriaId" | "centroId"> {
+type Veredito = Pick<Grupo, "seguranca" | "motivo" | "categoriaId" | "centroId" | "criterios">;
+
+/**
+ * Cada critério que decide se o grupo aceita lote, com o resultado (✓/✗) — é o que a tela mostra para a tesouraria ENTENDER por
+ * que o grupo é seguro, parcial ou inseguro (pedido dela, 08/10/2026: "o tesoureiro não deve interpretar dados bancários").
+ */
+function avaliar(lista: LinhaParaAgrupar[], por: Grupo["por"]): Veredito {
   const sugs = lista.map(l => l.sugestao!);
-  // dinheiro depositado no caixa eletrônico costuma ser o Caixa/Envelopes indo para o banco: transferência interna, não oferta
-  if (lista.some(l => ehDepositoEmDinheiro(l.memo))) return { seguranca: "inseguro", motivo: "depósito em dinheiro: pode ser transferência interna do caixa ou dos envelopes, não receita" };
-  if (sugs.some(s => s.generico)) return { seguranca: "inseguro", motivo: "o texto do banco serve a vários favorecidos (boleto/cobrança genérica)" };
-
-  // ,10 em parte das linhas: cada contribuição da mesma pessoa pode ter uma natureza (dízimo, oferta, oferta missionária)
-  const comSinalMissionario = sugs.filter(s => s.possivelMissoes).length;
-  if (comSinalMissionario > 0 && comSinalMissionario < sugs.length) {
-    return { seguranca: "inseguro", motivo: `${comSinalMissionario} das ${sugs.length} têm o sinal de oferta missionária (,10) e as outras não — cada uma tem natureza própria` };
-  }
-  const cats = new Set(sugs.map(s => s.categoriaId ?? ""));
-  if (cats.size > 1) return { seguranca: "inseguro", motivo: `${cats.size} categorias diferentes sugeridas para o mesmo padrão` };
-  const categoriaId = sugs[0].categoriaId;
-  if (!categoriaId) return { seguranca: "inseguro", motivo: "nenhuma categoria sugerida" };
-
   const comFavorecido = por === "favorecido";
-  // A MESMA pessoa pode dar dízimo, oferta e oferta missionária no mesmo mês: se o histórico dela mistura categorias, o
-  // remetente não diz qual é a natureza desta linha (pedido dela, 08/10/2026).
-  if (comFavorecido) {
-    const habituais = new Set(sugs.flatMap(s => (s.historico ?? []).map(h => h.categoriaId ?? "")));
-    if (habituais.size > 1) return { seguranca: "inseguro", motivo: "o histórico dele(a) mistura categorias (dízimo, oferta…): o remetente não diz a natureza de cada linha", categoriaId };
-  }
-
-  const centros = new Set(sugs.map(s => s.centroId ?? ""));
-  const centroId = centros.size === 1 && sugs[0].centroId ? sugs[0].centroId : undefined;
   const valores = lista.map(l => l.valor);
   const menor = Math.min(...valores), maior = Math.max(...valores);
-  const doisDoMesmoRemetente = comFavorecido || lista.some(l => ehPix(l.memo));
+  const doMesmoRemetente = comFavorecido || lista.some(l => ehPix(l.memo));
+  const cats = new Set(sugs.map(s => s.categoriaId ?? ""));
+  const categoriaId = sugs[0].categoriaId;
+  const centros = new Set(sugs.map(s => s.centroId ?? ""));
+  const centroId = centros.size === 1 && sugs[0].centroId ? sugs[0].centroId : undefined;
+  const comSinal = sugs.filter(s => s.possivelMissoes).length;
+  const habituais = new Set(sugs.flatMap(s => (s.historico ?? []).map(h => h.categoriaId ?? "")));
   const naoIdentificadas = sugs.filter(s => s.banda !== "identificada").length;
+  const deposito = lista.some(l => ehDepositoEmDinheiro(l.memo));
+  const generico = sugs.some(s => s.generico);
+  const historicoCurto = comFavorecido && sugs.some(s => (s.historico?.length ?? 0) < 2);
+  const valorSemPrecedente = comFavorecido && lista[0].tipo === "entrada" && mesmoValor(menor, maior)
+    && lista.some((l, i) => !(sugs[i].historico ?? []).some(h => mesmoValor(h.valor, l.valor)));
+  const valoresIguais = mesmoValor(menor, maior);
+  const faixaDeValores = valoresIguais ? undefined : `de ${brlCurto(menor)} a ${brlCurto(maior)}`;
+
+  const criterios: Criterio[] = [
+    { rotulo: comFavorecido ? "Mesma pessoa/favorecido identificada" : "Pessoa/favorecido identificado", ok: comFavorecido, detalhe: comFavorecido ? undefined : "só o texto do banco agrupa estas linhas (último critério)" },
+    { rotulo: "Mesmo valor", ok: doMesmoRemetente ? valoresIguais : (valoresIguais || maior / Math.max(menor, 0.01) <= RAZAO_MAXIMA_DE_VALORES), detalhe: faixaDeValores },
+    { rotulo: "Mesma categoria sugerida", ok: cats.size === 1 && !!categoriaId, detalhe: cats.size > 1 ? `${cats.size} categorias diferentes` : !categoriaId ? "nenhuma sugerida" : undefined },
+  ];
+  if (comFavorecido) {
+    criterios.push({ rotulo: "Categoria histórica consistente", ok: habituais.size <= 1, detalhe: habituais.size > 1 ? "o histórico mistura categorias (dízimo, oferta…)" : undefined });
+    criterios.push({ rotulo: "Histórico suficiente (2+ lançamentos)", ok: !historicoCurto });
+    if (lista[0].tipo === "entrada") criterios.push({ rotulo: "Valor já visto no histórico", ok: !valorSemPrecedente && valoresIguais });
+  }
+  criterios.push({ rotulo: "Mesmo centro de custo", ok: !!centroId, detalhe: centros.size > 1 ? "centros diferentes" : !centroId ? "nenhum sugerido" : undefined });
+  criterios.push({ rotulo: "Todas identificadas (85%+)", ok: naoIdentificadas === 0, detalhe: naoIdentificadas > 0 ? `${naoIdentificadas} abaixo de 85%` : undefined });
+  criterios.push({ rotulo: "Sem mistura de oferta missionária (,10)", ok: comSinal === 0 || comSinal === sugs.length, detalhe: comSinal > 0 && comSinal < sugs.length ? `${comSinal} de ${sugs.length} têm o sinal` : undefined });
+  criterios.push({ rotulo: "Não é depósito em dinheiro", ok: !deposito, detalhe: deposito ? "pode ser transferência interna do caixa/envelopes" : undefined });
+  criterios.push({ rotulo: "Texto específico (não genérico)", ok: !generico, detalhe: generico ? "o texto serve a vários favorecidos" : undefined });
+  const dev = (v: Omit<Veredito, "criterios">): Veredito => ({ ...v, criterios });
+
+  // ── a decisão (inalterada): o que é inseguro, o que é parcial, o que é seguro ──
+  if (deposito) return dev({ seguranca: "inseguro", motivo: "depósito em dinheiro: pode ser transferência interna do caixa ou dos envelopes, não receita" });
+  if (generico) return dev({ seguranca: "inseguro", motivo: "o texto do banco serve a vários favorecidos (boleto/cobrança genérica)" });
+  if (comSinal > 0 && comSinal < sugs.length) {
+    return dev({ seguranca: "inseguro", motivo: `${comSinal} das ${sugs.length} têm o sinal de oferta missionária (,10) e as outras não — cada uma tem natureza própria` });
+  }
+  if (cats.size > 1) return dev({ seguranca: "inseguro", motivo: `${cats.size} categorias diferentes sugeridas para o mesmo padrão` });
+  if (!categoriaId) return dev({ seguranca: "inseguro", motivo: "nenhuma categoria sugerida" });
+  if (comFavorecido && habituais.size > 1) {
+    return dev({ seguranca: "inseguro", categoriaId, motivo: "o histórico dele(a) mistura categorias (dízimo, oferta…): o remetente não diz a natureza de cada linha" });
+  }
 
   const falhas: string[] = [];
   if (naoIdentificadas > 0) falhas.push(`${naoIdentificadas} com confiança abaixo de 85%`);
   if (!centroId) falhas.push(centros.size > 1 ? "centros de custo diferentes" : "sem centro de custo sugerido");
-  if (comFavorecido && sugs.some(s => (s.historico?.length ?? 0) < 2)) falhas.push("histórico curto (menos de 2 lançamentos anteriores)");
-  if (doisDoMesmoRemetente) {
-    // mesma pessoa só é "o mesmo comportamento" quando o VALOR também se repete — e já apareceu antes
-    if (!mesmoValor(menor, maior)) falhas.push("mesma pessoa, valores diferentes");
-    else if (comFavorecido && lista[0].tipo === "entrada" && lista.some((l, i) => !(sugs[i].historico ?? []).some(h => mesmoValor(h.valor, l.valor)))) falhas.push("valor sem precedente no histórico");
+  if (historicoCurto) falhas.push("histórico curto (menos de 2 lançamentos anteriores)");
+  if (doMesmoRemetente) {
+    if (!valoresIguais) falhas.push("mesma pessoa, valores diferentes");
+    else if (valorSemPrecedente) falhas.push("valor sem precedente no histórico");
   } else if (menor > 0 && maior / menor > RAZAO_MAXIMA_DE_VALORES) {
     falhas.push("valores muito diferentes para o mesmo texto");
   }
-  if (!comFavorecido && !doisDoMesmoRemetente && falhas.length > 1) return { seguranca: "inseguro", motivo: falhas.join(" · "), categoriaId, centroId };
-  if (falhas.length > 0) return { seguranca: "parcial", motivo: falhas.join(" · "), categoriaId, centroId };
-  return {
+  if (!comFavorecido && !doMesmoRemetente && falhas.length > 1) return dev({ seguranca: "inseguro", motivo: falhas.join(" · "), categoriaId, centroId });
+  if (falhas.length > 0) return dev({ seguranca: "parcial", motivo: falhas.join(" · "), categoriaId, centroId });
+  return dev({
     seguranca: "seguro", categoriaId, centroId,
     motivo: comFavorecido ? "mesma pessoa/favorecido, mesmo valor, mesma categoria histórica e mesmo centro" : "mesmo padrão histórico, categoria e centro",
-  };
+  });
 }
+
+const brlCurto = (v: number) => `R$ ${v.toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
 
 /**
  * Forma os grupos de linhas novas parecidas e diz o quão seguro é decidir cada um em lote. Ordem de prioridade da identidade

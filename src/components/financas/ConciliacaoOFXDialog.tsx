@@ -653,7 +653,7 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
                           ignorarDisponivel={ignorarDisponivel}
                           onEditar={patch => editar(fitid, patch)} onMarcar={c => alternarMarca(fitid, c)}
                           onConfirmar={() => confirmarLinha(l)} onFormulario={() => setEditarLinha(l)}
-                          outrasContas={outrasContas} onConfirmarTransferencia={alvo => confirmarTransferencia(l, alvo)}
+                          outrasContas={outrasContas} contaNome={contaNome} onConfirmarTransferencia={alvo => confirmarTransferencia(l, alvo)}
                           onTransferencia={() => setTransferirTransacao(l.tx)} onIgnorar={() => setIgnorando(l)} />
                       ) : (
                         <>

@@ -4,14 +4,18 @@
 // vista, a categoria sugerida com as alternativas a um clique, o centro e o botão Confirmar. O formulário completo só
 // abre em "Editar". Aprendido na comparação com o Omie: decidir na própria linha, com o que foi achado ao lado.
 
-import { AlertTriangle, ArrowRightLeft, BanIcon, CheckCircle2, Pencil } from "lucide-react";
+import { ArrowRightLeft, BanIcon, CheckCircle2, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { brl, type FinCategoria, type FinProjeto } from "@/services/finService";
 import type { LinhaAnalisada } from "@/services/importacaoOfxService";
 import { favorecidoEfetivo, podeGravar, rotuloDaConfianca, valoresEfetivos, type Edicao, type FavorecidoEscolhido } from "@/lib/gradeOfx";
 import { alvoDaTransferencia, ehDepositoEmDinheiro, type OutraPonta } from "@/lib/transferenciaOfx";
+import { montarHipotese, nomeCurtoDaCategoria } from "@/lib/hipoteseOfx";
 import { EscolhaDeFavorecido } from "./EscolhaDeFavorecido";
+import { HipoteseDaLinha } from "./HipoteseDaLinha";
+
+export { nomeCurtoDaCategoria };
 
 const CHIP: Record<string, string> = {
   identificada: "border-success-line bg-success-soft text-success-text",
@@ -20,13 +24,6 @@ const CHIP: Record<string, string> = {
 };
 const SELECT = "h-8 min-w-0 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring";
 
-/** "Ofertas para Missões" → "Missões"; "Dizimos" → "Dízimo": o nome curto cabe num botão. */
-export function nomeCurtoDaCategoria(nome: string): string {
-  if (/miss/i.test(nome)) return "Missões";
-  if (/^diz/i.test(nome)) return "Dízimo";
-  if (/^ofert/i.test(nome)) return "Oferta";
-  return nome;
-}
 const dataCurta = (ymd: string) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}`;
 
 interface Props {
@@ -41,6 +38,8 @@ interface Props {
   ignorarDisponivel: boolean;
   /** as OUTRAS contas da igreja: origem (entrada) ou destino (saída) de uma transferência */
   outrasContas: { id: string; nome: string }[];
+  /** a conta que está sendo conciliada (destino das entradas, origem das saídas) */
+  contaNome: string;
   onEditar: (patch: Edicao) => void;
   onMarcar: (v: boolean) => void;
   onConfirmar: () => void;
@@ -67,6 +66,11 @@ export function CartaoDaLinha(p: Props) {
   const provavel = l.transferenciaProvavel;
   const { modo: modoTransf, alvo, sugerida } = alvoDaTransferencia(!!s.transferencia, provavel, edicao);
   const deposito = ehDepositoEmDinheiro(l.tx.memo);
+  const hipotese = montarHipotese({
+    tx: l.tx, sugestao: s, contaNome: p.contaNome, provavel, alvo, modoTransferencia: modoTransf, sugeridaComoTransferencia: sugerida,
+    favorecido: fav.pessoa ? { nome: fav.pessoa.nome, papel: "pessoa" } : fav.fornecedor ? { nome: fav.fornecedor.nome, papel: "fornecedor" } : null,
+    categoriaId: v.categoriaId, nomeDaCategoria: p.nomeDaCategoria,
+  });
 
   return (
     <div className="space-y-2">
@@ -80,37 +84,15 @@ export function CartaoDaLinha(p: Props) {
         </span>
       </div>
 
-      {s.possivelMissoes && (
-        <p className="flex items-center gap-1.5 pl-6 text-xs text-warning-text" role="note">
-          <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />
-          <b>Possível oferta missionária</b> — PIX terminado em ,10 é a marca da tesouraria. Confirme Missões ou troque.
-        </p>
-      )}
-      {s.generico && (
-        <p className="flex items-center gap-1.5 pl-6 text-xs text-warning-text" role="note">
-          <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden /> Texto genérico do banco (serve a vários favorecidos): escolha o favorecido ou ligue ao documento a pagar.
-        </p>
-      )}
+      <HipoteseDaLinha h={hipotese} />
 
       <div className="flex flex-wrap items-center gap-2 pl-6">
         <EscolhaDeFavorecido atual={atual} sugerido={!!atual && !favorecidoTrocado} disabled={ocupado}
           onChange={(f: FavorecidoEscolhido | null) => p.onEditar({ favorecido: f })} />
-        {(s.historico ?? []).map((h, i) => (
-          <span key={i} className="rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground" title="Lançamentos anteriores desta pessoa/favorecido">
-            {h.categoriaId ? nomeCurtoDaCategoria(p.nomeDaCategoria(h.categoriaId)) : "—"} {brl(h.valor)} · {dataCurta(h.dia)}
-          </span>
-        ))}
       </div>
 
       {modoTransf ? (
         <div className="space-y-2 pl-6">
-          <p className="flex flex-wrap items-center gap-1.5 text-sm font-medium">
-            <ArrowRightLeft className="h-4 w-4 shrink-0 text-info-text" aria-hidden />
-            {sugerida ? "Possível transferência" : "Transferência entre contas"}
-            {alvo && <span className="font-normal text-muted-foreground">— {entrada ? `${alvo.contaNome} → esta conta` : `esta conta → ${alvo.contaNome}`} · {brl(l.tx.valor)}</span>}
-          </p>
-          {sugerida && s.motivos.length > 0 && <p className="text-xs text-muted-foreground">{s.motivos.join(" · ")}</p>}
-          {alvo?.lancamentoId && <p className="text-xs text-muted-foreground">O lançamento de {alvo.contaNome} já existe: será ligado a este extrato, sem duplicar.</p>}
           <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label={entrada ? "Conta de origem" : "Conta de destino"}>
             <span className="text-xs text-muted-foreground">{entrada ? "Origem:" : "Destino:"}</span>
             {p.outrasContas.map(c => (
@@ -135,17 +117,6 @@ export function CartaoDaLinha(p: Props) {
         </div>
       ) : (
         <>
-          {s.motivos.some(m => /TRANSF, mas o texto traz/.test(m)) && (
-            <p className="pl-6 text-xs text-info-text" role="note">
-              👤 <b>Possível contribuição de pessoa</b> — o banco escreveu TRANSF, mas o texto traz {s.pessoa ? "o nome de quem enviou" : "um nome/CPF (identifique quem é)"}. Não é tratada como transferência interna.
-            </p>
-          )}
-          {deposito && (
-            <p className="flex items-start gap-1.5 pl-6 text-xs text-info-text" role="note">
-              <ArrowRightLeft className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-              <span>Depósito em dinheiro: pode ser o Caixa de Envelopes, a Caixinha ou o Caixa sendo depositado no banco — confira se é <b>transferência entre contas</b> antes de lançar como receita.</span>
-            </p>
-          )}
           {provavel && (
             <p className="pl-6 text-xs text-info-text" role="note">
               O mesmo valor ({brl(l.tx.valor)}) {entrada ? "saiu de" : "entrou em"} {provavel.contaNome} em {dataCurta(provavel.data)} —{" "}

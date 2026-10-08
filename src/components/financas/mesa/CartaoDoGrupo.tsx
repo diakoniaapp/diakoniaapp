@@ -11,6 +11,7 @@ import { brl, type FinCategoria, type FinProjeto } from "@/services/finService";
 import type { LinhaAnalisada } from "@/services/importacaoOfxService";
 import type { Grupo } from "@/lib/mesaOfx";
 import { nomeCurtoDaCategoria } from "./CartaoDaLinha";
+import { CriteriosDoGrupo, SELO } from "./CriteriosDoGrupo";
 
 const SELECT = "h-8 min-w-0 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring";
 const dataCurta = (ymd: string) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}`;
@@ -51,7 +52,7 @@ export function CartaoDoGrupo({ grupo, linhas, categorias, opcoesDeCentro, proje
         <Layers className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
         <p className="min-w-0 flex-1 text-sm">
           <b className="tabular-nums">{grupo.fitids.length}</b> {entrada ? "entradas" : "saídas"}{grupo.favorecido ? " de " : " com o mesmo padrão: "}<span className="font-medium" title={grupo.amostra}>{grupo.favorecido ?? grupo.amostra.replace(/\s+\d{2}\/\d{2}\s*$/, "")}</span>
-          <span className="ml-1 text-xs text-success-text">✓ agrupamento seguro — {grupo.motivo}</span>
+          <span className={`ml-1 text-xs ${SELO.seguro.classe}`}>{SELO.seguro.emoji} {SELO.seguro.titulo}</span>
         </p>
         <span className={`shrink-0 text-sm font-medium tabular-nums ${entrada ? "text-success-text" : "text-destructive-text"}`}>{entrada ? "+" : "−"}{brl(grupo.total)}</span>
         <span className="shrink-0 text-xs text-muted-foreground">{dataCurta(datas[0])}{datas.length > 1 && datas[datas.length - 1] !== datas[0] ? ` a ${dataCurta(datas[datas.length - 1])}` : ""}</span>
@@ -85,6 +86,10 @@ export function CartaoDoGrupo({ grupo, linhas, categorias, opcoesDeCentro, proje
           {aberto ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />} ver as linhas
         </button>
       </div>
+      <details className="text-xs">
+        <summary className="cursor-pointer text-muted-foreground">Por que é seguro: {grupo.motivo}</summary>
+        <div className="mt-1.5"><CriteriosDoGrupo criterios={grupo.criterios} /></div>
+      </details>
       {aberto && (
         <ul className="divide-y rounded border bg-background text-xs">
           {linhas.map(l => (
