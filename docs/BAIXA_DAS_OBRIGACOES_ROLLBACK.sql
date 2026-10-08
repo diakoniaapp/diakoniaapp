@@ -1,11 +1,9 @@
--- ─── DESFAZER a baixa das 12 obrigações (só use se a baixa tiver sido aplicada e algo estiver errado) ───────────
+-- ─── DESFAZER a baixa das 12 obrigações (um comando só, atômico) (só use se a baixa tiver sido aplicada e algo estiver errado) ───────────
 -- Usa a cópia `fin_lancamentos_baixa_backup_20261008` criada pela baixa: restaura os 12 duplicados apagados, devolve as 12 obrigações ao
 -- estado de antes (previstas, sem liquidação) e apaga as 12 liquidações criadas. Os saldos não mudam (o valor volta a ser contado uma só vez).
 
-BEGIN;
-
-DO $$
-DECLARE cols text; n int;
+DO $desfazer$
+DECLARE cols text; n int; resultado text;
 BEGIN
   SELECT string_agg(quote_ident(b.column_name), ', ' ORDER BY b.ordinal_position) INTO cols
     FROM information_schema.columns b
@@ -26,11 +24,15 @@ BEGIN
   EXECUTE format(
     'INSERT INTO public.fin_lancamentos (%1$s) SELECT %1$s FROM public.fin_lancamentos_baixa_backup_20261008 b
       WHERE b.papel = ''duplicado'' AND NOT EXISTS (SELECT 1 FROM public.fin_lancamentos l WHERE l.id = b.id)', cols);
-END $$;
+  -- 4. o pagamento de sustento que a baixa religou à obrigação (PIX de 15/09 do Pastor Titular, N1136D) volta ao lançamento original
+  UPDATE public.sustento_pagamentos
+     SET lancamento_id = 'aff731e7-8a1f-42d2-be8b-da0dbf4cee25'
+   WHERE lancamento_id = '009c50dd-2dbb-40ab-8917-7b96b49acb0e'
+     AND EXISTS (SELECT 1 FROM public.fin_lancamentos WHERE id = 'aff731e7-8a1f-42d2-be8b-da0dbf4cee25');
 
-SELECT jsonb_build_object(
-  'obrigacoes_previstas_de_novo', (SELECT count(*) FROM public.fin_lancamentos l JOIN public.fin_lancamentos_baixa_backup_20261008 b ON b.id = l.id AND b.papel = 'obrigacao' WHERE l.status = 'previsto'),
-  'duplicados_restaurados',       (SELECT count(*) FROM public.fin_lancamentos l JOIN public.fin_lancamentos_baixa_backup_20261008 b ON b.id = l.id AND b.papel = 'duplicado')
-) AS resultado;
-
-COMMIT;
+  resultado := jsonb_build_object(
+    'obrigacoes_previstas_de_novo', (SELECT count(*) FROM public.fin_lancamentos l JOIN public.fin_lancamentos_baixa_backup_20261008 b ON b.id = l.id AND b.papel = 'obrigacao' WHERE l.status = 'previsto'),
+    'duplicados_restaurados',       (SELECT count(*) FROM public.fin_lancamentos l JOIN public.fin_lancamentos_baixa_backup_20261008 b ON b.id = l.id AND b.papel = 'duplicado'))::text;
+  RAISE NOTICE 'BAIXA DESFEITA: %', resultado;
+END
+$desfazer$;
