@@ -13,7 +13,7 @@ import { conferir } from "@/lib/escritaConferida";
 import { daquiADias } from "@/lib/data";
 import { pareceExtratoConsolidado, lerExtratoConsolidado, type ExtratoLido } from "@/lib/extratoConsolidadoPdf";
 import {
-  chavesNaObservacao, classificarLinhasInvest, fitidDaChave, linhasDoInvestFacil, montarEvidencia, validarPdfParaSugestoes,
+  AVISO_JA_REGISTRADA, chavesNaObservacao, classificarLinhasInvest, ehConflitoDaChave, fitidDaChave, linhasDoInvestFacil, montarEvidencia, validarPdfParaSugestoes,
   type LinhaInvestFacil, type SituacaoDaLinhaInvest, type TransferenciaExistente, type ValidacaoDoPdf,
 } from "@/lib/investFacil";
 import { conferirVarredura, type ConferenciaDaVarredura, type MovimentoDoDia } from "@/lib/varredura";
@@ -98,9 +98,15 @@ export async function gravarTransferenciaDoPdf(p: {
   // última trava: a chave pode ter sido gravada depois que a tela abriu
   const jaTem = await supabase.from("fin_lancamentos").select("id").eq("conta_id", p.contaId).like("observacoes", `%[invest-pdf:${p.linha.chave}]%`).limit(1);
   if (jaTem.error) throw new Error(jaTem.error.message);
-  if ((jaTem.data ?? []).length > 0) throw new Error("Transferência já registrada: esta linha do PDF já foi lançada.");
+  if ((jaTem.data ?? []).length > 0) throw new Error(AVISO_JA_REGISTRADA);
   const evidencia = montarEvidencia({ chave: p.linha.chave, arquivo: p.pdf.arquivo, hash: p.pdf.hash, lidoEm: p.pdf.lidoEm, texto: p.linha.textoOriginal });
-  return registrarTransferenciaDoExtrato(p.contaId, p.contaNome, txSintetica(p.linha), { contaId: p.aplicacao.id, contaNome: p.aplicacao.nome }, evidencia);
+  try {
+    return await registrarTransferenciaDoExtrato(p.contaId, p.contaNome, txSintetica(p.linha), { contaId: p.aplicacao.id, contaNome: p.aplicacao.nome }, evidencia);
+  } catch (e) {
+    // a corrida entre duas abas: as duas passaram pela conferência acima, o índice único recusou a segunda (e as duas pernas dela, de uma vez)
+    if (ehConflitoDaChave(e)) throw new Error(AVISO_JA_REGISTRADA);
+    throw e;
+  }
 }
 
 /** "Vincular Evidência PDF": acrescenta a evidência a uma transferência que JÁ existe. Não cria nem apaga lançamento; devolve o desfazer. */
@@ -113,7 +119,7 @@ export async function vincularEvidencia(p: {
   if (chavesNaObservacao(antes).length > 0) throw new Error("Esta transferência já tem uma evidência de PDF.");
   const nova = `${antes ? `${antes}\n` : ""}${montarEvidencia({ chave: p.linha.chave, arquivo: p.pdf.arquivo, hash: p.pdf.hash, lidoEm: p.pdf.lidoEm, texto: p.linha.textoOriginal })} [vinculada-a-transferencia-existente]`;
   const r = conferir(await supabase.from("fin_lancamentos").update({ observacoes: nova } as never).eq("id", p.lancamentoId).select("id"), "A evidência do PDF");
-  if (!r.ok) throw new Error(r.erro);
+  if (!r.ok) throw new Error(ehConflitoDaChave(r.erro) ? AVISO_JA_REGISTRADA : r.erro);
   return {
     desfazer: async () => {
       const v = conferir(await supabase.from("fin_lancamentos").update({ observacoes: antes || null } as never).eq("id", p.lancamentoId).select("id"), "O desfazer da evidência");

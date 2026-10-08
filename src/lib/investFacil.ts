@@ -61,7 +61,18 @@ export function chavesPorAssinatura(lancamentos: LancamentoDoExtrato[]): (l: { d
   return (l) => filas.get(assinatura(l))?.shift();
 }
 
-export const fitidDaChave = (chave: string) => `PDF:${chave}`;
+/** O nome do índice único que fecha a corrida entre duas abas (migration 20261008180000). */
+export const INDICE_UNICO_DA_CHAVE = "fin_lancamentos_invest_pdf_chave_uq";
+export const AVISO_JA_REGISTRADA = "Transferência já registrada: esta linha do PDF acabou de ser lançada (outra aba ou outro usuário). Nada foi duplicado — reabra o PDF para ver a situação.";
+
+/** O erro do banco é a recusa do índice único (23505)? Aceita o objeto do PostgREST ou só a mensagem. */
+export function ehConflitoDaChave(erro: unknown): boolean {
+  const e = erro as { message?: string; details?: string } | string | null | undefined;
+  const texto = typeof e === "string" ? e : `${e?.message ?? ""} ${e?.details ?? ""}`;
+  return texto.includes(INDICE_UNICO_DA_CHAVE);   // outra violação de unicidade (a chave primária, por ex.) não é esta
+}
+
+export const fitidDaChave =(chave: string) => `PDF:${chave}`;
 
 /** O alerta: aplicações e resgates que o banco tem e o sistema não (sobraram do pareamento) — o que a conta corrente perdeu de vista. */
 export interface AlertaInvest { aplicacoes: { n: number; total: number }; resgates: { n: number; total: number }; efeitoNaCorrente: number }

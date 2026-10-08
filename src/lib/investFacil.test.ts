@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  alertaDoInvest, chavesPorAssinatura, fitidDaChave, chavesNaObservacao, classificarLinhasInvest, direcaoDoHistorico, lerEvidencia, linhasDoInvestFacil, montarEvidencia, resumirLote,
+  alertaDoInvest, chavesPorAssinatura, ehConflitoDaChave, fitidDaChave, chavesNaObservacao, classificarLinhasInvest, direcaoDoHistorico, lerEvidencia, linhasDoInvestFacil, montarEvidencia, resumirLote,
   validarPdfParaSugestoes, type LinhaInvestFacil, type TransferenciaExistente,
 } from "./investFacil";
 import type { ExtratoLido, LancamentoDoExtrato } from "./extratoConsolidadoPdf";
@@ -126,6 +126,20 @@ describe("auditoria: ligação pela chave e alerta", () => {
     const a = alertaDoInvest([{ classe: "aplicacao", valor: -100 }, { classe: "aplicacao", valor: -50 }, { classe: "resgate", valor: 30 }, { classe: "outro", valor: 999 }, { classe: "rendimento", valor: 1 }]);
     expect(a).toEqual({ aplicacoes: { n: 2, total: 150 }, resgates: { n: 1, total: 30 }, efeitoNaCorrente: -120 });
     expect(alertaDoInvest([])).toEqual({ aplicacoes: { n: 0, total: 0 }, resgates: { n: 0, total: 0 }, efeitoNaCorrente: 0 });
+  });
+});
+
+describe("corrida entre duas abas: a recusa do índice único", () => {
+  const msg = 'duplicate key value violates unique constraint "fin_lancamentos_invest_pdf_chave_uq"';
+  it("reconhece o erro do PostgREST e a mensagem solta", () => {
+    expect(ehConflitoDaChave({ code: "23505", message: msg, details: "Key (conta_id, ...)=(...) already exists." })).toBe(true);
+    expect(ehConflitoDaChave(msg)).toBe(true);
+  });
+  it("outra violação de unicidade, ou outro erro, não é 'já registrada'", () => {
+    expect(ehConflitoDaChave({ code: "23505", message: 'duplicate key value violates unique constraint "fin_lancamentos_pkey"' })).toBe(false);
+    expect(ehConflitoDaChave(new Error("permissão negada"))).toBe(false);
+    expect(ehConflitoDaChave(null)).toBe(false);
+    expect(ehConflitoDaChave(undefined)).toBe(false);
   });
 });
 

@@ -20,7 +20,7 @@ import { reativarIgnorada } from "@/services/importacaoOfxService";
 import {
   candidatasDeAplicacao, gravarTransferenciaDoPdf, ignorarLinhaDoPdf, lerPdfDoInvestFacil, situacaoDasLinhas, vincularEvidencia, type PdfDoInvestFacil,
 } from "@/services/investFacilService";
-import { resumirLote, type LinhaInvestFacil, type SituacaoDaLinhaInvest } from "@/lib/investFacil";
+import { AVISO_JA_REGISTRADA, resumirLote, type LinhaInvestFacil, type SituacaoDaLinhaInvest } from "@/lib/investFacil";
 import type { OFXTransacao } from "@/services/ofxService";
 
 const dataBr = (iso: string) => iso.split("-").reverse().join("/");
@@ -94,18 +94,24 @@ export function PainelInvestFacil({ contaId, contaNome, transacoes, aoGravar }: 
   const ignoradas = linhas.filter(l => !gravadas.has(l.chave) && situacaoDe(l).tipo === "ignorada");
   const resumo = resumirLote(pendentes);
 
-  async function confirmar(l: LinhaInvestFacil, silencioso = false) {
-    if (!pdf || !aplicacao) return false;
+  /** "ja": outra aba/usuário registrou a mesma linha primeiro — nada foi duplicado e a linha passa a constar como já registrada. */
+  async function confirmar(l: LinhaInvestFacil, silencioso = false): Promise<"ok" | "ja" | "erro"> {
+    if (!pdf || !aplicacao) return "erro";
     setOcupado(l.chave);
     try {
       const r = await gravarTransferenciaDoPdf({ contaId, contaNome, aplicacao, linha: l, pdf });
       setGravadas(prev => new Map(prev).set(l.chave, r.desfazer));
       aoGravar();
       if (!silencioso) toast.success(`${ROTULO[l.direcao]} de ${brl(l.valor)} registrada.`);
-      return true;
+      return "ok";
     } catch (e: any) {
+      if (e?.message === AVISO_JA_REGISTRADA) {
+        if (!silencioso) toast.info(AVISO_JA_REGISTRADA);
+        await carregarSituacoes(pdf, aplicacao.id).catch(() => { /* a próxima abertura do PDF mostra */ });
+        return "ja";
+      }
       toast.error(e?.message ?? "Não foi possível registrar a transferência.");
-      return false;
+      return "erro";
     } finally {
       setOcupado(null);
     }
@@ -115,14 +121,17 @@ export function PainelInvestFacil({ contaId, contaNome, transacoes, aoGravar }: 
     setResumoAberto(false);
     const lote = [...pendentes];
     setProgresso({ feitos: 0, total: lote.length });
-    let feitos = 0;
+    let feitos = 0, jaFeitas = 0, parou = false;
     for (const l of lote) {
-      if (!(await confirmar(l, true))) break;       // para no primeiro erro: nada de seguir às cegas
-      setProgresso({ feitos: ++feitos, total: lote.length });
+      const r = await confirmar(l, true);
+      if (r === "erro") { parou = true; break; }     // para no primeiro erro: nada de seguir às cegas
+      if (r === "ja") jaFeitas++; else feitos++;     // "já registrada" por outra aba não é erro: segue com o resto
+      setProgresso({ feitos: feitos + jaFeitas, total: lote.length });
     }
     setProgresso(null);
-    if (feitos === lote.length) toast.success(`${feitos} transferência${feitos !== 1 ? "s" : ""} registrada${feitos !== 1 ? "s" : ""}.`);
-    else toast.error(`Parou depois de ${feitos} de ${lote.length}: as já registradas continuam e têm "Desfazer".`);
+    const jaTxt = jaFeitas > 0 ? ` ${jaFeitas} já ${jaFeitas !== 1 ? "tinham" : "tinha"} sido registrada${jaFeitas !== 1 ? "s" : ""} por outra aba ou usuário (nada duplicado).` : "";
+    if (!parou) toast.success(`${feitos} transferência${feitos !== 1 ? "s" : ""} registrada${feitos !== 1 ? "s" : ""}.${jaTxt}`);
+    else toast.error(`Parou depois de ${feitos + jaFeitas} de ${lote.length}: as já registradas continuam e têm "Desfazer".${jaTxt}`);
   }
 
   async function desfazer(l: LinhaInvestFacil) {
