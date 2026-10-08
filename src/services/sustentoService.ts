@@ -10,12 +10,16 @@
 // `importacaoOfxService.ts` com `fin_extrato_ignorados`.
 import { supabase } from "@/integrations/supabase/client";
 import { conferir } from "@/lib/escritaConferida";
-import type { LinhaDaCompetencia, ModoSustento, TipoBeneficiario, TipoControle } from "@/lib/sustento";
+import { hojeLocal, daquiADias } from "@/lib/data";
+import type { LinhaDaCompetencia, ModoSustento, TipoBeneficiario, TipoControle, TipoDoPagamento } from "@/lib/sustento";
 
 export interface Beneficiario {
   id: string;
   tipo: TipoBeneficiario;
   nomeExibicao: string;
+  /** Quem é, no cadastro: serve para achar os pagamentos dele em fin_lancamentos. */
+  pessoaId: string | null;
+  fornecedorId: string | null;
   /** "Controle por competência": ligado, a pessoa tem competência, adiantamento e saldo a pagar; desligado, segue só pelas recorrências. */
   controleCompetencia: boolean;
   /** Como administrar: automático (sugere pelo histórico), simples ou avançado. Vale só para as PRÓXIMAS competências. */
@@ -99,7 +103,7 @@ const num = (v: unknown): number => (v == null ? 0 : Number(v));
 export async function carregarSustento(): Promise<ResultadoDoSustento> {
   const bens = await supabase
     .from("sustento_beneficiarios" as never)
-    .select("id, tipo, nome_exibicao, controle_por_competencia, tipo_controle, dia_do_liquido, observacoes")
+    .select("id, tipo, nome_exibicao, pessoa_id, fornecedor_id, controle_por_competencia, tipo_controle, dia_do_liquido, observacoes")
     .eq("ativo" as never, true as never)
     .order("nome_exibicao" as never);
   if (bens.error) {
@@ -145,7 +149,7 @@ export async function carregarSustento(): Promise<ResultadoDoSustento> {
 
   type Linha = Record<string, any>;
   const beneficiarios: BeneficiarioComCompetencias[] = ((bens.data ?? []) as unknown as Linha[]).map((b) => ({
-    id: b.id, tipo: b.tipo as TipoBeneficiario, nomeExibicao: b.nome_exibicao,
+    id: b.id, tipo: b.tipo as TipoBeneficiario, nomeExibicao: b.nome_exibicao, pessoaId: b.pessoa_id ?? null, fornecedorId: b.fornecedor_id ?? null,
     controleCompetencia: !!b.controle_por_competencia,
     tipoControle: (b.tipo_controle ?? "automatico") as TipoControle,
     diaDoLiquido: b.dia_do_liquido ?? null, observacoes: b.observacoes ?? null,
@@ -205,4 +209,105 @@ export async function definirTipoDeControle(beneficiarioId: string, tipoControle
     "O tipo de controle",
   );
   return r.ok ? { ok: true } : { ok: false, erro: r.erro };
+}
+
+// ── Fase 2: classificar pagamentos ─────────────────────────────────────────────────────────────────────────────
+// Tudo aqui só mexe nas tabelas sustento_*. `fin_lancamentos` é lido, nunca escrito: o dinheiro continua sendo a verdade do lançamento,
+// e ligar/desligar um pagamento de uma competência não altera saldo, status nem conciliação de nada.
+
+/** Um pagamento real que ainda não pertence a nenhuma competência. */
+export interface PagamentoSolto {
+  id: string;
+  data: string;
+  valor: number;
+  descricao: string | null;
+  status: string;
+  origem: string | null;
+  /** Veio do cadastro do beneficiário (pessoa/favorecido) — ou de uma busca manual. */
+  doBeneficiario: boolean;
+}
+
+const SEIS_MESES = 183;
+
+/** Ids dos lançamentos que já estão ligados a alguma competência (de qualquer beneficiário): um lançamento pertence a UMA só. */
+async function lancamentosJaLigados(): Promise<Set<string>> {
+  const r = await supabase.from("sustento_pagamentos" as never).select("lancamento_id");
+  return new Set(((r.data ?? []) as unknown as Array<{ lancamento_id: string }>).map((x) => x.lancamento_id));
+}
+
+type LinhaLancamento = { id: string; data: string; valor: number | string; descricao: string | null; status: string; origem: string | null };
+
+function paraSolto(l: LinhaLancamento, doBeneficiario: boolean): PagamentoSolto {
+  return { id: l.id, data: l.data, valor: Number(l.valor), descricao: l.descricao, status: l.status, origem: l.origem, doBeneficiario };
+}
+
+/**
+ * Os pagamentos do beneficiário (pelo cadastro: pessoa ou favorecido) dos últimos 6 meses que ainda não estão em competência nenhuma.
+ * Só saída REAL (realizado ou conciliado): previsto é obrigação, não dinheiro que saiu.
+ */
+export async function pagamentosSoltosDoBeneficiario(b: { pessoaId: string | null; fornecedorId: string | null }): Promise<PagamentoSolto[]> {
+  const filtros = [b.pessoaId ? `pessoa_id.eq.${b.pessoaId}` : null, b.fornecedorId ? `fornecedor_id.eq.${b.fornecedorId}` : null].filter(Boolean);
+  if (filtros.length === 0) return [];
+  const [r, ligados] = await Promise.all([
+    supabase.from("fin_lancamentos").select("id, data, valor, descricao, status, origem").eq("tipo", "saida")
+      .in("status", ["realizado", "conciliado"]).gte("data", daquiADias(hojeLocal(), -SEIS_MESES)).or(filtros.join(","))
+      .order("data", { ascending: false }).limit(200),
+    lancamentosJaLigados(),
+  ]);
+  if (r.error) throw new Error(r.error.message);
+  return (r.data ?? []).filter((l) => !ligados.has(l.id)).map((l) => paraSolto(l as LinhaLancamento, true));
+}
+
+/**
+ * Busca manual — para o PIX que a Mesa não soube atribuir à pessoa (os de agosto e setembro do Pastor Titular chegaram sem favorecido):
+ * por trecho da descrição/observação ou por valor exato. Mesmo filtro: saída real, últimos 12 meses, ainda sem competência.
+ */
+export async function buscarPagamentosSoltos(termo: string): Promise<PagamentoSolto[]> {
+  const t = termo.trim();
+  if (t.length < 2) return [];
+  const ehValor = /^[0-9.,]+$/.test(t);
+  const numero = Number(t.replace(/\./g, "").replace(",", "."));
+  const limpo = t.replace(/[,()%*]/g, " ").trim();   // vírgula e parênteses quebrariam o filtro .or() do PostgREST
+  let q = supabase.from("fin_lancamentos").select("id, data, valor, descricao, status, origem").eq("tipo", "saida")
+    .in("status", ["realizado", "conciliado"]).gte("data", daquiADias(hojeLocal(), -365));
+  q = ehValor && Number.isFinite(numero) && numero > 0
+    ? q.eq("valor", numero)
+    : q.or(`descricao.ilike.%${limpo}%,observacoes.ilike.%${limpo}%`);
+  const [r, ligados] = await Promise.all([q.order("data", { ascending: false }).limit(40), lancamentosJaLigados()]);
+  if (r.error) throw new Error(r.error.message);
+  return (r.data ?? []).filter((l) => !ligados.has(l.id)).map((l) => paraSolto(l as LinhaLancamento, false));
+}
+
+/** Liga um pagamento a uma competência. A chave única do banco impede ligar o mesmo lançamento duas vezes. */
+export async function ligarPagamento(p: { competenciaId: string; lancamentoId: string; tipo: TipoDoPagamento }): Promise<{ ok: boolean; erro?: string }> {
+  const r = await supabase.from("sustento_pagamentos" as never)
+    .insert({ competencia_id: p.competenciaId, lancamento_id: p.lancamentoId, tipo: p.tipo } as never).select("id");
+  if (r.error) {
+    return { ok: false, erro: /duplicate key|unique/i.test(r.error.message) ? "Este pagamento já está ligado a uma competência." : r.error.message };
+  }
+  const c = conferir(r as { data: unknown[] | null; error: { message: string } | null }, "A ligação do pagamento");
+  return c.ok ? { ok: true } : { ok: false, erro: c.erro };
+}
+
+/** Desliga: o pagamento volta a ficar solto (o lançamento real não é tocado). */
+export async function desligarPagamento(pagamentoId: string): Promise<{ ok: boolean; erro?: string }> {
+  const c = conferir(
+    await supabase.from("sustento_pagamentos" as never).delete().eq("id" as never, pagamentoId as never).select("id"),
+    "A desligação do pagamento",
+  );
+  return c.ok ? { ok: true } : { ok: false, erro: c.erro };
+}
+
+/**
+ * Abre a competência de um mês para o beneficiário — "aberta", sem valor: ela passa a existir para receber adiantamentos (ou o
+ * valor previsto, que é a etapa seguinte). O modo é o que valia AGORA (resolvido pelo tipo de controle) e fica gravado nela.
+ */
+export async function abrirCompetencia(p: { beneficiarioId: string; competencia: string; modo: ModoSustento }): Promise<{ ok: boolean; erro?: string; id?: string }> {
+  const r = await supabase.from("sustento_competencias" as never)
+    .insert({ beneficiario_id: p.beneficiarioId, competencia: p.competencia, modo: p.modo, status: "aberta" } as never).select("id");
+  if (r.error) {
+    return { ok: false, erro: /duplicate key|unique/i.test(r.error.message) ? "Esta competência já existe." : r.error.message };
+  }
+  const c = conferir(r as { data: unknown[] | null; error: { message: string } | null }, "A abertura da competência");
+  return c.ok ? { ok: true, id: (r.data as Array<{ id: string }>)[0].id } : { ok: false, erro: c.erro };
 }

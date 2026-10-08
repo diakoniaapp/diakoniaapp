@@ -9,16 +9,23 @@ import type { BeneficiarioComCompetencias, CompetenciaDoSustento, ResultadoDoSus
 let resultado: ResultadoDoSustento;
 const definir = vi.fn(async () => ({ ok: true }));
 const definirTipo = vi.fn(async () => ({ ok: true }));
+const desligar = vi.fn(async () => ({ ok: true }));
 vi.mock("@/services/sustentoService", () => ({
   carregarSustento: async () => resultado,
   definirControlePorCompetencia: (...a: unknown[]) => (definir as any)(...a),
   definirTipoDeControle: (...a: unknown[]) => (definirTipo as any)(...a),
+  desligarPagamento: (...a: unknown[]) => (desligar as any)(...a),
+  // a seção "Pagamentos a classificar" tem os seus próprios testes (PagamentosAClassificar.test.tsx); aqui não há pagamento solto
+  pagamentosSoltosDoBeneficiario: async () => [],
+  buscarPagamentosSoltos: async () => [],
+  ligarPagamento: async () => ({ ok: true }),
+  abrirCompetencia: async () => ({ ok: true, id: "nova" }),
 }));
 import Sustento from "./Sustento";
 
 let raiz: Root | null = null;
 let alvo: HTMLDivElement | null = null;
-afterEach(() => { act(() => raiz?.unmount()); alvo?.remove(); raiz = null; alvo = null; definir.mockClear(); definirTipo.mockClear(); });
+afterEach(() => { act(() => raiz?.unmount()); alvo?.remove(); raiz = null; alvo = null; definir.mockClear(); definirTipo.mockClear(); desligar.mockClear(); });
 
 async function montar() {
   alvo = document.createElement("div");
@@ -38,7 +45,7 @@ const comp = (o: Partial<CompetenciaDoSustento>): CompetenciaDoSustento => ({
   id: "c" + Math.random(), beneficiarioId: "b1", competencia: "2026-09-01", status: "fechada", modo: "avancado", liquidoPrevisto: 0, saldoAPagar: 0, ...base, ...o,
 });
 const benef = (o: Partial<BeneficiarioComCompetencias>): BeneficiarioComCompetencias => ({
-  id: "b1", tipo: "pastor_titular", nomeExibicao: "Pastor Titular", controleCompetencia: true, tipoControle: "automatico", diaDoLiquido: 5, observacoes: null,
+  id: "b1", tipo: "pastor_titular", nomeExibicao: "Pastor Titular", pessoaId: "p1", fornecedorId: null, controleCompetencia: true, tipoControle: "automatico", diaDoLiquido: 5, observacoes: null,
   competencias: [], alteracoes: [], ...o,
 });
 
@@ -155,6 +162,24 @@ describe("Conta Corrente de Sustento — tela", () => {
     expect(el.textContent).toContain("Valor previsto");
     expect(el.textContent).not.toContain("Apuração do RSP");
     expect(el.textContent).toContain("Paga parcialmente");
+  });
+
+  it("Fase 2: cada pagamento ligado tem \"Desligar\" (só com o controle ligado) e ele chama o serviço com o id da ligação", async () => {
+    resultado = { pronto: true, beneficiarios: [titular()] };
+    const el = await montar();
+    await clicar([...el.querySelectorAll("button")].find((b) => b.textContent!.includes("setembro/2026"))!);
+    const botoes = [...el.querySelectorAll("button")].filter((b) => b.textContent === "Desligar");
+    expect(botoes).toHaveLength(2);
+    await clicar(botoes[0]);
+    expect(desligar).toHaveBeenCalledWith("p1");
+  });
+
+  it("Fase 2: sem o controle ligado não há Desligar nem 'Pagamentos a classificar'", async () => {
+    resultado = { pronto: true, beneficiarios: [{ ...titular(), controleCompetencia: false }] };
+    const el = await montar();
+    expect(el.textContent).not.toContain("Pagamentos a classificar");
+    await clicar([...el.querySelectorAll("button")].find((b) => b.textContent!.includes("setembro/2026"))!);
+    expect([...el.querySelectorAll("button")].filter((b) => b.textContent === "Desligar")).toHaveLength(0);
   });
 
   it("desligar com saldo a pagar é recusado e não grava nada", async () => {

@@ -6,7 +6,9 @@
 // segue paga pelas recorrências de sempre. A competência mostra as rubricas do RSP quando elas existem e, quando não, o valor previsto.
 // Com o controle ligado, "Tipo de controle": Automático (sugere pelo histórico), Simples ou Avançado. A troca vale só para as próximas
 // competências — cada competência guarda o modo com que nasceu — e o banco registra quem mudou e quando.
-// Só leitura, salvo as duas chaves (controle e tipo de controle). Não cria lançamento nem mexe em saldo — a Fase 1 foi aprovada nestes termos. Os pagamentos mostrados
+// Fase 2: com o controle ligado, "Pagamentos a classificar" liga os pagamentos reais às competências (sugestão pela regra do dia 20 e do
+// saldo mais antigo; quem confirma é a pessoa) e cada pagamento ligado pode ser desligado. Só escreve em sustento_*; nunca em fin_lancamentos.
+// Fora isso, só leitura, salvo as duas chaves (controle e tipo de controle). Não cria lançamento nem mexe em saldo — a Fase 1 foi aprovada nestes termos. Os pagamentos mostrados
 // são os lançamentos que já existem em `fin_lancamentos`, apenas ligados a uma competência.
 //
 // Remuneração de pastor é dado sensível: só `admin` e `tesouraria` (ROUTE_ROLES, o menu e a RLS das quatro tabelas dizem o mesmo).
@@ -19,10 +21,11 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { PagamentosAClassificar } from "@/components/financas/PagamentosAClassificar";
 import { toast } from "sonner";
 import { PaginaSkeleton, ErrorState } from "@/components/ListState";
 import { brl } from "@/services/finService";
-import { carregarSustento, definirControlePorCompetencia, definirTipoDeControle, type BeneficiarioComCompetencias, type CompetenciaDoSustento, type ResultadoDoSustento } from "@/services/sustentoService";
+import { carregarSustento, definirControlePorCompetencia, definirTipoDeControle, desligarPagamento, type BeneficiarioComCompetencias, type CompetenciaDoSustento, type ResultadoDoSustento } from "@/services/sustentoService";
 import {
   ROTULO_TIPO, ROTULO_TIPO_CONTROLE, ROTULO_MODO, modoVigente, motivoParaNaoDesligar, resumirBeneficiario, rotuloCompetencia, situacaoDaCompetencia, sugerirCompetencia, totalPago, TOLERANCIA,
   type SituacaoDaCompetencia, type TipoControle,
@@ -247,6 +250,8 @@ function PainelDoBeneficiario({ b, aoMudar }: { b: BeneficiarioComCompetencias; 
         </CardContent>
       </Card>
 
+      {b.controleCompetencia && <PagamentosAClassificar b={b} aoMudar={aoMudar} />}
+
       {!b.controleCompetencia && b.competencias.length > 0 && (
         <p className="text-xs text-muted-foreground">
           {b.competencias.length} competência{b.competencias.length !== 1 ? "s" : ""} guardada{b.competencias.length !== 1 ? "s" : ""} de quando o controle estava ligado (histórico, só leitura).
@@ -260,7 +265,7 @@ function PainelDoBeneficiario({ b, aoMudar }: { b: BeneficiarioComCompetencias; 
       {b.competencias.length > 0 && (
         <ul className="divide-y rounded-md border" aria-label="Competências">
           {b.competencias.map((c) => (
-            <LinhaDeCompetencia key={c.id} c={c} aberta={aberta === c.id} alternar={() => setAberta(aberta === c.id ? null : c.id)} />
+            <LinhaDeCompetencia key={c.id} c={c} aberta={aberta === c.id} alternar={() => setAberta(aberta === c.id ? null : c.id)} editavel={b.controleCompetencia} aoMudar={aoMudar} />
           ))}
         </ul>
       )}
@@ -288,7 +293,7 @@ function PainelDoBeneficiario({ b, aoMudar }: { b: BeneficiarioComCompetencias; 
   );
 }
 
-function LinhaDeCompetencia({ c, aberta, alternar }: { c: CompetenciaDoSustento; aberta: boolean; alternar: () => void }) {
+function LinhaDeCompetencia({ c, aberta, alternar, editavel, aoMudar }: { c: CompetenciaDoSustento; aberta: boolean; alternar: () => void; editavel: boolean; aoMudar: () => void }) {
   const situacao = situacaoDaCompetencia(c);
   const pago = totalPago(c);
   return (
@@ -307,7 +312,7 @@ function LinhaDeCompetencia({ c, aberta, alternar }: { c: CompetenciaDoSustento;
           {brl(c.saldoAPagar)}
         </span>
       </button>
-      {aberta && <DetalheDaCompetencia c={c} />}
+      {aberta && <DetalheDaCompetencia c={c} editavel={editavel} aoMudar={aoMudar} />}
     </li>
   );
 }
@@ -321,7 +326,13 @@ function Linha({ rotulo, valor, forte, sinal }: { rotulo: string; valor: number;
   );
 }
 
-function DetalheDaCompetencia({ c }: { c: CompetenciaDoSustento }) {
+function DetalheDaCompetencia({ c, editavel, aoMudar }: { c: CompetenciaDoSustento; editavel: boolean; aoMudar: () => void }) {
+  async function desligar(pagamentoId: string) {
+    const r = await desligarPagamento(pagamentoId);
+    if (!r.ok) { toast.error(r.erro ?? "Não foi possível desligar o pagamento."); return; }
+    toast.success("Pagamento desligado. Ele volta para \"Pagamentos a classificar\".");
+    aoMudar();
+  }
   return (
     <div className="px-4 pb-4 pt-1 space-y-3 text-sm bg-muted/20">
       {c.modo === "avancado" && c.nItens > 0 ? (
@@ -356,7 +367,13 @@ function DetalheDaCompetencia({ c }: { c: CompetenciaDoSustento }) {
                   {dataBr(p.data)} · {ROTULO_PAGAMENTO[p.tipo]}
                   {p.status && p.status !== "conciliado" && p.status !== "realizado" && <span className="text-xs text-muted-foreground"> ({p.status})</span>}
                 </span>
-                <span className="shrink-0 tabular-nums">{brl(p.valor)}</span>
+                <span className="shrink-0 flex items-center gap-2">
+                  <span className="tabular-nums">{brl(p.valor)}</span>
+                  {editavel && (
+                    <Button type="button" size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => desligar(p.id)}
+                      aria-label={`Desligar o pagamento de ${dataBr(p.data)}`}>Desligar</Button>
+                  )}
+                </span>
               </li>
             ))}
           </ul>

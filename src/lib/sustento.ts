@@ -58,6 +58,12 @@ export function primeiroDoMes(data: string): string {
   return `${data.slice(0, 7)}-01`;
 }
 
+/** Primeiro dia do mês ANTERIOR ao da data (volta o ano em janeiro) — o líquido de um mês costuma sair no início do seguinte. */
+export function mesAnterior(data: string): string {
+  const [a, m] = data.split("-").map(Number);
+  return m === 1 ? `${a - 1}-12-01` : `${a}-${String(m - 1).padStart(2, "0")}-01`;
+}
+
 /** Primeiro dia do mês seguinte ao da data (vira o ano em dezembro). */
 export function mesSeguinte(data: string): string {
   const [a, m] = data.split("-").map(Number);
@@ -265,4 +271,40 @@ export function motivoParaNaoDesligar(linhas: LinhaDaCompetencia[]): string | nu
   const r = resumirBeneficiario(linhas);
   if (r.saldoPendente <= TOLERANCIA) return null;
   return `Ainda há ${brlCurto(r.saldoPendente)} a pagar em ${r.pendentes.map(rotuloCompetencia).join(", ")}. Quite ou feche essas competências antes de desligar o controle.`;
+}
+
+// ── ligar um pagamento a uma competência (Fase 2) ────────────────────────────────
+
+export type TipoDoPagamento = "adiantamento" | "pagamento_final" | "complemento" | "pagamento";
+
+export const ROTULO_PAGAMENTO: Record<TipoDoPagamento, string> = {
+  adiantamento: "Adiantamento", pagamento_final: "Pagamento final", complemento: "Complemento", pagamento: "Pagamento",
+};
+
+/**
+ * Que tipos de pagamento cada modo aceita — o mesmo desenho da escolha dela: Simples é só valor previsto, pago e saldo (um tipo,
+ * "pagamento"); Avançado distingue adiantamento, pagamento final e complemento. O banco aceita qualquer um dos quatro em qualquer
+ * competência; esta regra é da tela, para a competência simples nunca ganhar um "adiantamento" que ela não sabe mostrar.
+ */
+export function tiposPermitidos(modo: ModoSustento): TipoDoPagamento[] {
+  return modo === "avancado" ? ["adiantamento", "pagamento_final", "complemento"] : ["pagamento"];
+}
+
+/**
+ * O tipo que a tela sugere. Avançado: antes do RSP fechar o dinheiro que sai é adiantamento; depois, pagamento final do líquido
+ * (um complemento só se a pessoa escolher, porque depende de saber que o líquido já foi pago). Simples: pagamento.
+ */
+export function tipoSugerido(c: { modo: ModoSustento; status: "aberta" | "fechada" | "paga" }): TipoDoPagamento {
+  if (c.modo === "simples") return "pagamento";
+  return c.status === "aberta" ? "adiantamento" : "pagamento_final";
+}
+
+/** Uma competência já paga não recebe mais nada: o saldo zerou e qualquer coisa a mais viraria "pago a maior" sem querer. */
+export function podeReceberPagamento(c: { status: "aberta" | "fechada" | "paga" }): boolean {
+  return c.status !== "paga";
+}
+
+/** A competência sugerida existe? Se não, a tela oferece abri-la antes de ligar. */
+export function competenciaExiste(competencia: string, existentes: Array<{ competencia: string }>): boolean {
+  return existentes.some((c) => c.competencia === competencia);
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  sugerirCompetencia, sugerirModo, modoVigente, temSaldoPendente, situacaoDaCompetencia, resumirBeneficiario, motivoParaNaoDesligar,
-  rotuloCompetencia, mesSeguinte, ROTULO_TIPO, type CompetenciaParaSugestao, type LinhaDaCompetencia,
+  sugerirCompetencia, sugerirModo, modoVigente, temSaldoPendente, tiposPermitidos, tipoSugerido, podeReceberPagamento, competenciaExiste, situacaoDaCompetencia, resumirBeneficiario, motivoParaNaoDesligar,
+  rotuloCompetencia, mesSeguinte, mesAnterior, ROTULO_TIPO, type CompetenciaParaSugestao, type LinhaDaCompetencia,
 } from "./sustento";
 
 // uma competência FECHADA com rubricas do RSP (nItens > 0) — o caso do pastor titular
@@ -168,5 +168,27 @@ describe("datas", () => {
     expect(rotuloCompetencia("2026-09-01")).toBe("setembro/2026");
     expect(mesSeguinte("2026-12-15")).toBe("2027-01-01");
     expect(mesSeguinte("2026-01-31")).toBe("2026-02-01");
+    expect(mesAnterior("2026-08-03")).toBe("2026-07-01");
+    expect(mesAnterior("2026-01-15")).toBe("2025-12-01");
+  });
+});
+
+describe("ligar pagamentos — Fase 2", () => {
+  it("o modo decide os tipos: simples só 'pagamento'; avançado distingue adiantamento, final e complemento", () => {
+    expect(tiposPermitidos("simples")).toEqual(["pagamento"]);
+    expect(tiposPermitidos("avancado")).toEqual(["adiantamento", "pagamento_final", "complemento"]);
+  });
+  it("tipo sugerido: antes do RSP fechar é adiantamento; depois, pagamento final; simples, pagamento", () => {
+    expect(tipoSugerido({ modo: "avancado", status: "aberta" })).toBe("adiantamento");
+    expect(tipoSugerido({ modo: "avancado", status: "fechada" })).toBe("pagamento_final");
+    expect(tipoSugerido({ modo: "simples", status: "aberta" })).toBe("pagamento");
+    expect(tipoSugerido({ modo: "simples", status: "fechada" })).toBe("pagamento");
+  });
+  it("competência paga não recebe pagamento; a sugerida pode não existir ainda", () => {
+    expect(podeReceberPagamento({ status: "paga" })).toBe(false);
+    expect(podeReceberPagamento({ status: "fechada" })).toBe(true);
+    expect(podeReceberPagamento({ status: "aberta" })).toBe(true);
+    expect(competenciaExiste("2026-10-01", [{ competencia: "2026-09-01" }])).toBe(false);
+    expect(competenciaExiste("2026-09-01", [{ competencia: "2026-09-01" }])).toBe(true);
   });
 });
