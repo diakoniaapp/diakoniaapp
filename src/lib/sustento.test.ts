@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  sugerirCompetencia, sugerirModo, modoVigente, temSaldoPendente, tiposPermitidos, tipoSugerido, podeReceberPagamento, competenciaExiste, parseValorBR, OPCOES_DE_RUBRICA, statusPeloSaldo, motivoParaNaoFechar, situacaoDaCompetencia, resumirBeneficiario, motivoParaNaoDesligar,
+  sugerirCompetencia, sugerirModo, modoVigente, temSaldoPendente, tiposPermitidos, tipoSugerido, podeReceberPagamento, competenciaExiste, parseValorBR, OPCOES_DE_RUBRICA, statusPeloSaldo, motivoParaNaoFechar, vencimentoDaObrigacao, situacaoDaCompetencia, resumirBeneficiario, motivoParaNaoDesligar,
   rotuloCompetencia, mesSeguinte, mesAnterior, ROTULO_TIPO, type CompetenciaParaSugestao, type LinhaDaCompetencia,
 } from "./sustento";
 
@@ -230,5 +230,17 @@ describe("criar e fechar a competência — Fase 2 (2/3)", () => {
     expect(motivoParaNaoFechar({ modo: "avancado", nItens: 3, sustento: 17451.84, liquidoPrevisto: 13728 })).toBeNull();
     expect(motivoParaNaoFechar({ modo: "simples", nItens: 0, sustento: 0, liquidoPrevisto: 0 })).toContain("valor previsto");
     expect(motivoParaNaoFechar({ modo: "simples", nItens: 0, sustento: 0, liquidoPrevisto: 2362 })).toBeNull();
+  });
+});
+
+describe("vencimento da obrigação — Fase 2 (3/3)", () => {
+  it("o líquido do mês vence no dia habitual do mês seguinte", () => {
+    expect(vencimentoDaObrigacao("2026-09-01", 5)).toBe("2026-10-05");
+    expect(vencimentoDaObrigacao("2026-12-01", 5)).toBe("2027-01-05");
+  });
+  it("dia fora de 1–28 é ajustado; sem dia cadastrado vale 5", () => {
+    expect(vencimentoDaObrigacao("2026-01-01", 31)).toBe("2026-02-28");
+    expect(vencimentoDaObrigacao("2026-01-01", 0)).toBe("2026-02-01");
+    expect(vencimentoDaObrigacao("2026-01-01", null)).toBe("2026-02-05");
   });
 });

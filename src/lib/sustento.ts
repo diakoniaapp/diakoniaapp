@@ -359,3 +359,9 @@ export function motivoParaNaoFechar(c: { modo: ModoSustento; nItens: number; sus
   }
   return c.liquidoPrevisto > TOLERANCIA ? null : "Informe o valor previsto antes de fechar.";
 }
+
+/** O vencimento da obrigação de uma competência: o dia habitual do líquido, no mês seguinte (setembro, dia 5 → 05/10). Dia 1 a 28. */
+export function vencimentoDaObrigacao(competencia: string, diaDoLiquido: number | null): string {
+  const dia = Math.min(Math.max(diaDoLiquido ?? 5, 1), 28);
+  return `${mesSeguinte(competencia).slice(0, 8)}${String(dia).padStart(2, "0")}`;
+}

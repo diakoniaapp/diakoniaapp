@@ -9,6 +9,7 @@
 // Fase 2: com o controle ligado, "Pagamentos a classificar" liga os pagamentos reais às competências (sugestão pela regra do dia 20 e do
 // saldo mais antigo; quem confirma é a pessoa) e cada pagamento ligado pode ser desligado. Só escreve em sustento_*; nunca em fin_lancamentos.
 // Fase 2 (2/3): dentro de cada competência, o valor previsto (simples) ou as rubricas do RSP (avançado) e o fechamento — EditorDaCompetencia.
+// Fase 2 (3/3): a competência fechada com saldo adota (ou cria) a obrigação prevista — ObrigacaoDaCompetencia. Único ponto que escreve em fin_lancamentos.
 // Fora isso, só leitura, salvo as duas chaves (controle e tipo de controle). Não cria lançamento nem mexe em saldo — a Fase 1 foi aprovada nestes termos. Os pagamentos mostrados
 // são os lançamentos que já existem em `fin_lancamentos`, apenas ligados a uma competência.
 //
@@ -24,6 +25,7 @@ import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { PagamentosAClassificar } from "@/components/financas/PagamentosAClassificar";
 import { EditorDaCompetencia } from "@/components/financas/EditorDaCompetencia";
+import { ObrigacaoDaCompetencia } from "@/components/financas/ObrigacaoDaCompetencia";
 import { toast } from "sonner";
 import { PaginaSkeleton, ErrorState } from "@/components/ListState";
 import { brl } from "@/services/finService";
@@ -267,7 +269,7 @@ function PainelDoBeneficiario({ b, aoMudar }: { b: BeneficiarioComCompetencias; 
       {b.competencias.length > 0 && (
         <ul className="divide-y rounded-md border" aria-label="Competências">
           {b.competencias.map((c) => (
-            <LinhaDeCompetencia key={c.id} c={c} aberta={aberta === c.id} alternar={() => setAberta(aberta === c.id ? null : c.id)} editavel={b.controleCompetencia} aoMudar={aoMudar} />
+            <LinhaDeCompetencia key={c.id} b={b} c={c} aberta={aberta === c.id} alternar={() => setAberta(aberta === c.id ? null : c.id)} editavel={b.controleCompetencia} aoMudar={aoMudar} />
           ))}
         </ul>
       )}
@@ -295,7 +297,7 @@ function PainelDoBeneficiario({ b, aoMudar }: { b: BeneficiarioComCompetencias; 
   );
 }
 
-function LinhaDeCompetencia({ c, aberta, alternar, editavel, aoMudar }: { c: CompetenciaDoSustento; aberta: boolean; alternar: () => void; editavel: boolean; aoMudar: () => void }) {
+function LinhaDeCompetencia({ b, c, aberta, alternar, editavel, aoMudar }: { b: BeneficiarioComCompetencias; c: CompetenciaDoSustento; aberta: boolean; alternar: () => void; editavel: boolean; aoMudar: () => void }) {
   const situacao = situacaoDaCompetencia(c);
   const pago = totalPago(c);
   return (
@@ -314,7 +316,7 @@ function LinhaDeCompetencia({ c, aberta, alternar, editavel, aoMudar }: { c: Com
           {brl(c.saldoAPagar)}
         </span>
       </button>
-      {aberta && <DetalheDaCompetencia c={c} editavel={editavel} aoMudar={aoMudar} />}
+      {aberta && <DetalheDaCompetencia b={b} c={c} editavel={editavel} aoMudar={aoMudar} />}
     </li>
   );
 }
@@ -328,7 +330,7 @@ function Linha({ rotulo, valor, forte, sinal }: { rotulo: string; valor: number;
   );
 }
 
-function DetalheDaCompetencia({ c, editavel, aoMudar }: { c: CompetenciaDoSustento; editavel: boolean; aoMudar: () => void }) {
+function DetalheDaCompetencia({ b, c, editavel, aoMudar }: { b: BeneficiarioComCompetencias; c: CompetenciaDoSustento; editavel: boolean; aoMudar: () => void }) {
   async function desligar(pagamentoId: string) {
     const r = await desligarPagamento(pagamentoId);
     if (!r.ok) { toast.error(r.erro ?? "Não foi possível desligar o pagamento."); return; }
@@ -395,6 +397,7 @@ function DetalheDaCompetencia({ c, editavel, aoMudar }: { c: CompetenciaDoSusten
         )}
       </div>
       {editavel && <EditorDaCompetencia c={c} aoMudar={aoMudar} />}
+      {editavel && <ObrigacaoDaCompetencia b={b} c={c} aoMudar={aoMudar} />}
     </div>
   );
 }

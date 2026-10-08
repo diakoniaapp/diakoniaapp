@@ -39,7 +39,7 @@ async function montar(c: CompetenciaDoSustento) {
 const base = {
   adiantamentos: 0, pagamentosFinais: 0, complementos: 0, pagamentosSimples: 0, nItens: 0, valorPrevisto: null, confirmadaEm: null,
   fechadaEm: null, rspUrl: null, obrigacaoId: null, sustento: 0, outrosProventos: 0, proventos: 0, irrf: 0, outrosDescontos: 0,
-  descontos: 0, rubricas: [], pagamentos: [],
+  descontos: 0, rubricas: [], pagamentos: [], obrigacao: null,
 };
 const comp = (o: Partial<CompetenciaDoSustento>): CompetenciaDoSustento => ({
   id: "c1", beneficiarioId: "b1", competencia: "2026-10-01", status: "aberta", modo: "avancado", liquidoPrevisto: 0, saldoAPagar: 0, ...base, ...o,

@@ -36,13 +36,13 @@ async function montar(b: BeneficiarioComCompetencias) {
 const base = {
   adiantamentos: 0, pagamentosFinais: 0, complementos: 0, pagamentosSimples: 0, nItens: 0, valorPrevisto: null, confirmadaEm: null,
   fechadaEm: null, rspUrl: null, obrigacaoId: null, sustento: 0, outrosProventos: 0, proventos: 0, irrf: 0, outrosDescontos: 0,
-  descontos: 0, rubricas: [], pagamentos: [],
+  descontos: 0, rubricas: [], pagamentos: [], obrigacao: null,
 };
 const comp = (id: string, o: Partial<CompetenciaDoSustento>): CompetenciaDoSustento => ({
   id, beneficiarioId: "b1", competencia: "2026-09-01", status: "fechada", modo: "avancado", liquidoPrevisto: 0, saldoAPagar: 0, ...base, ...o,
 });
 const benef = (competencias: CompetenciaDoSustento[], o: Partial<BeneficiarioComCompetencias> = {}): BeneficiarioComCompetencias => ({
-  id: "b1", tipo: "pastor_titular", nomeExibicao: "Lucio Paulo Paz Barreto — Pastor Titular", pessoaId: "p1", fornecedorId: null,
+  id: "b1", tipo: "pastor_titular", nomeExibicao: "Lucio Paulo Paz Barreto — Pastor Titular", pessoaId: "p1", fornecedorId: null, contaId: "ct1", categoriaId: null, centroCustoId: null,
   controleCompetencia: true, tipoControle: "automatico", diaDoLiquido: 5, observacoes: null, competencias, alteracoes: [], ...o,
 });
 const solto = (id: string, data: string, valor: number, descricao = "PIX ENVIADO DES: L cio Paulo Paz Barre"): PagamentoSolto =>
