@@ -1,11 +1,10 @@
--- ─── COMO RODAR (versão de 08/10/2026) ───────────────────────────────────────────────────────────────────────────
--- É UM ÚNICO comando (um bloco DO) que faz tudo e TERMINA SEMPRE COM UM ERRO de propósito: "ENSAIO CONCLUÍDO (nada foi gravado)"
--- seguido do resultado. Erro desfaz o comando inteiro, então nada fica gravado em nenhum editor. (A versão anterior usava
--- BEGIN/ROLLBACK e tabelas temporárias entre vários comandos; o SQL Editor do Supabase não segura isso de um comando para o outro
--- — "relation _antes does not exist" no ensaio do Sustento — e um ROLLBACK que não vale seria perigoso num script que apaga.)
--- Se aparecer "ABORTADO …" / "Encontrei …" / outra mensagem em vez de "ENSAIO CONCLUÍDO", uma verificação falhou: a mensagem diz qual.
+-- ─── APLICAÇÃO DEFINITIVA — só rodar depois do "pode aplicar" dela, e DEPOIS das duas migrations de apoio ────────────
+-- Ordem (cada uma separada, cada uma com o "pode aplicar" dela): 1) 20261008155000_fin_lancamentos_indices_das_chaves.sql (índice que torna
+-- o delete rápido), 2) 20261008150000_fin_saldo_so_quando_o_saldo_muda.sql (o gatilho de saldo deixa de recalcular a conta a cada previsto),
+-- 3) ESTE comando. Ele recusa rodar se (1) ou (2) faltarem. É o mesmo bloco do ensaio (docs/LIMPEZA_RECORRENCIAS_ENSAIO.sql, que passou em
+-- 08/10/2026 com todas as verificações) com duas diferenças: não liga/desliga gatilho nem cria índice por conta própria, e GRAVA em vez de
+-- terminar em erro. Um comando só: qualquer verificação que falhe desfaz tudo. Para desfazer depois: docs/LIMPEZA_RECORRENCIAS_ROLLBACK.sql.
 --
--- Pode ser rodado ANTES da migration 20261008150000 (veja o item 0 abaixo). A migration definitiva 20261008160000 continua EXIGINDO a 1.
 -- ─── Limpeza dos lançamentos PREVISTOS de recorrência além de 12 meses ───────────────────────────────────────────
 -- Medido em 08/10/2026: ~29.900 previstos de recorrência, 29.460 deles a mais de 12 meses de hoje (até dez/2099), todos criados em
 -- 06–07/10 pelo gerador do app, que tratou `data_fim = 2099-12-31` (marcador de "sem fim" do legado) como data final real. São ~69% de
@@ -24,18 +23,18 @@
 -- Depois: a data final 2099 das recorrências sem fim vira NULL ("sem data final") e `ultimo_gerado_ate` volta ao último previsto que sobrou.
 
 
-DO $ensaio$
+
+DO $limpeza$
 DECLARE resultado text;
 BEGIN
 
--- 0. ENSAIO (roda ANTES da migration 20261008150000): com o gatilho de saldo atual, cada linha apagada recalcularia a conta e o
---    ensaio estouraria o tempo. Por isso, SÓ DENTRO desta transação, o gatilho é desligado — e tudo é desfeito no ROLLBACK final
---    (o gatilho volta como estava). A verificação de saldo continua valendo: previsto não entra no saldo.
---    Rode quando ninguém estiver confirmando linhas na Mesa: o comando segura a tabela por alguns segundos.
-ALTER TABLE public.fin_lancamentos DISABLE TRIGGER fin_lanc_saldo;
--- 0b. O índice que faltava (diagnóstico de 08/10/2026): sem ele, apagar 200 linhas levou 1,68 s (≈247 s para as 29.460, acima do limite do
---     editor); com ele, 0,09 s (≈14 s). É a migration 20261008155000; aqui é criado DENTRO do ensaio (e desfeito junto com tudo).
-CREATE INDEX IF NOT EXISTS fin_lancamentos_pai_idx ON public.fin_lancamentos (lancamento_pai_id) WHERE lancamento_pai_id IS NOT NULL;
+-- 0. precondições: o índice e o gatilho novo precisam estar aplicados
+IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE schemaname = 'public' AND tablename = 'fin_lancamentos' AND indexname = 'fin_lancamentos_pai_idx') THEN
+  RAISE EXCEPTION 'Aplique ANTES a migration 20261008155000_fin_lancamentos_indices_das_chaves.sql (sem o índice a limpeza estoura o tempo)';
+END IF;
+IF position('old.status in' in pg_get_functiondef('public.fin_atualiza_saldo()'::regprocedure)) = 0 THEN
+  RAISE EXCEPTION 'Aplique ANTES a migration 20261008150000_fin_saldo_so_quando_o_saldo_muda.sql (o gatilho de saldo ainda recalcula a conta a cada linha)';
+END IF;
 
 -- fotografia do que NÃO pode mudar
 CREATE TEMP TABLE _saldos_antes ON COMMIT DROP AS SELECT id, saldo_atual FROM public.fin_contas;
@@ -171,6 +170,6 @@ resultado := jsonb_pretty(jsonb_build_object(
       'resultado', 'todas as verificações passaram')
 ));
 
-  RAISE EXCEPTION E'ENSAIO CONCLUÍDO (nada foi gravado)\n%', resultado;
+  RAISE NOTICE E'LIMPEZA APLICADA\n%', resultado;
 END
-$ensaio$;
+$limpeza$;
