@@ -32,6 +32,9 @@ BEGIN
 --    (o gatilho volta como estava). A verificação de saldo continua valendo: previsto não entra no saldo.
 --    Rode quando ninguém estiver confirmando linhas na Mesa: o comando segura a tabela por alguns segundos.
 ALTER TABLE public.fin_lancamentos DISABLE TRIGGER fin_lanc_saldo;
+-- 0b. O índice que faltava (diagnóstico de 08/10/2026): sem ele, apagar 200 linhas levou 1,68 s (≈247 s para as 29.460, acima do limite do
+--     editor); com ele, 0,09 s (≈14 s). É a migration 20261008155000; aqui é criado DENTRO do ensaio (e desfeito junto com tudo).
+CREATE INDEX IF NOT EXISTS fin_lancamentos_pai_idx ON public.fin_lancamentos (lancamento_pai_id) WHERE lancamento_pai_id IS NOT NULL;
 
 -- fotografia do que NÃO pode mudar
 CREATE TEMP TABLE _saldos_antes ON COMMIT DROP AS SELECT id, saldo_atual FROM public.fin_contas;
