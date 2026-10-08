@@ -39,6 +39,18 @@ function ocorrenciaDoMes(base: string, k: number, dia: number, frequencia: Frequ
   return diaNoMes(a + Math.floor(total / 12), (total % 12) + 1, dia);
 }
 
+/**
+ * Data final a partir daqui NÃO é data de verdade: é o marcador de "sem fim" que o legado gravou (`2099-12-31`). Medido em
+ * 08/10/2026: 34 das 37 recorrências tinham `data_fim = 2099-12-31` e o gerador a tratou como fim real — criou 29.917 lançamentos
+ * previstos (≈ 880 por recorrência, até dezembro de 2099), 69% de todos os lançamentos do sistema, e fez a edição de recorrência
+ * estourar o tempo limite do banco. Uma recorrência com data final nesse patamar é uma série SEM fim: janela de 12 meses.
+ */
+export const DATA_FIM_SEM_FIM = "2090-01-01";
+export const dataFimReal = (d?: string | null): string | null => (d && d < DATA_FIM_SEM_FIM ? d : null);
+
+/** Teto de ocorrências de uma série contínua numa só geração (20 anos de mensal): defesa contra data final absurda. */
+export const MAXIMO_DE_OCORRENCIAS = 240;
+
 export interface ParametrosDaSerie {
   /** Quando a série começa. */
   dataInicio: string;
@@ -80,11 +92,12 @@ export function calcularOcorrencias(p: ParametrosDaSerie, ate: string): Ocorrenc
   const parcelaInicial = parcelado ? Math.min(Math.max(p.parcelaInicial ?? 1, 1), total) : 1;
   const primeira = primeiraData(p.dataInicio, p.diaVencimento);
   const out: Ocorrencia[] = [];
-  const limite = parcelado ? total - parcelaInicial + 1 : 5000;
+  const limite = parcelado ? total - parcelaInicial + 1 : MAXIMO_DE_OCORRENCIAS;
+  const dataFim = parcelado ? null : dataFimReal(p.dataFim);
   for (let k = 0; k < limite; k++) {
     const data = ocorrenciaDoMes(primeira, k, p.diaVencimento, p.frequencia);
     if (data > ate) break;
-    if (!parcelado && p.dataFim && data > p.dataFim) break;
+    if (dataFim && data > dataFim) break;
     out.push(parcelado ? { data, parcela: parcelaInicial + k, totalParcelas: total } : { data });
   }
   return out;
@@ -99,14 +112,15 @@ export const MESES_DE_HORIZONTE = 12;
  */
 export function limiteDeGeracao(p: ParametrosDaSerie, hoje: string): string {
   if (p.tipo === "parcelamento" && p.totalParcelas) return "9999-12-31";
-  if (p.dataFim) return p.dataFim;
+  const fim = dataFimReal(p.dataFim);
+  if (fim) return fim;
   const [a, m, d] = hoje.split("-").map(Number);
   return toYmd(new Date(a, m - 1 + MESES_DE_HORIZONTE, d));
 }
 
 /** A série não tem fim (contínua, sem data final): o horizonte é só um recorte técnico, que se renova. */
 export const serieSemFim = (p: Pick<ParametrosDaSerie, "tipo" | "dataFim" | "totalParcelas">): boolean =>
-  !(p.tipo === "parcelamento" && !!p.totalParcelas) && !p.dataFim;
+  !(p.tipo === "parcelamento" && !!p.totalParcelas) && !dataFimReal(p.dataFim);
 
 /** Precisa gerar mais? Sim quando faltam menos de ~11 meses à frente (ou nunca gerou). */
 export function precisaRenovar(p: ParametrosDaSerie, ultimoGeradoAte: string | null, hoje: string): boolean {
@@ -154,7 +168,7 @@ export function situacaoDaSerie(p: ParametrosDaSerie, hoje: string): SituacaoDaS
   const todas = calcularOcorrencias(p, parcelado ? "9999-12-31" : daquiADias(hoje, 400));
   const proximo = todas.find(o => o.data >= hoje) ?? null;
   if (!parcelado) {
-    return { parcelaAtual: null, proximaParcela: null, termino: p.dataFim ?? null, proximoVencimento: proximo?.data ?? null, restantes: null };
+    return { parcelaAtual: null, proximaParcela: null, termino: dataFimReal(p.dataFim), proximoVencimento: proximo?.data ?? null, restantes: null };
   }
   const total = p.totalParcelas!;
   // "atual" é a última que já venceu (inclusive hoje); "próxima", a primeira DEPOIS de hoje

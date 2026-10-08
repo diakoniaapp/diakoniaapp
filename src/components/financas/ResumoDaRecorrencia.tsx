@@ -6,7 +6,7 @@
 
 import { AlertTriangle } from "lucide-react";
 import { FREQUENCIA_LABEL, type FinRecorrencia } from "@/services/finService";
-import { situacaoDaSerie } from "@/lib/recorrencia";
+import { dataFimReal, situacaoDaSerie } from "@/lib/recorrencia";
 import { parametrosDaRecorrencia } from "@/services/recorrenciaService";
 import { hojeLocal } from "@/lib/data";
 
@@ -34,9 +34,9 @@ export function ResumoDaRecorrencia({ r }: { r: FinRecorrencia }) {
           {s.termino && <> · término {dataBr(s.termino)}</>}
         </span>
       )}
-      {!parcelado && r.data_fim && <span>· até {dataBr(r.data_fim)}</span>}
-      {!parcelado && !r.data_fim && <span>· sem data final</span>}
-      {r.ultimo_gerado_ate && <span>· lançamentos até {dataBr(r.ultimo_gerado_ate)}{!parcelado && !r.data_fim ? " (renova sozinho)" : ""}</span>}
+      {!parcelado && dataFimReal(r.data_fim) && <span>· até {dataBr(r.data_fim!)}</span>}
+      {!parcelado && !dataFimReal(r.data_fim) && <span>· sem data final</span>}
+      {r.ultimo_gerado_ate && <span>· lançamentos até {dataBr(r.ultimo_gerado_ate)}{!parcelado && !dataFimReal(r.data_fim) ? " (renova sozinho)" : ""}</span>}
     </p>
   );
 }

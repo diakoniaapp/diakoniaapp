@@ -15,7 +15,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { hojeLocal } from "@/lib/data";
-import { ocorrenciasAGerar, precisaRenovar, rotuloDaParcela, type ParametrosDaSerie, type Ocorrencia } from "@/lib/recorrencia";
+import { dataFimReal, ocorrenciasAGerar, precisaRenovar, rotuloDaParcela, type ParametrosDaSerie, type Ocorrencia } from "@/lib/recorrencia";
 import { resumirHabitos, PAGAMENTOS_PARA_HABITO, type HabitosDoFavorecido, type PagamentoDoHistorico } from "@/lib/habitosDoFavorecido";
 import { normalizarLiquidacao } from "@/lib/formaLiquidacao";
 import { listarRecorrencias, type FinRecorrencia } from "@/services/finService";
@@ -53,7 +53,7 @@ export function parametrosDaRecorrencia(rec: FinRecorrencia): ParametrosDaSerie 
     tipo: parcelado ? "parcelamento" : "continua",
     totalParcelas: parcelado ? rec.total_parcelas : null,
     parcelaInicial: parcelado ? rec.parcela_inicial ?? 1 : null,
-    dataFim: parcelado ? null : rec.data_fim,
+    dataFim: parcelado ? null : dataFimReal(rec.data_fim),   // 2099-12-31 = "sem fim" do legado
   };
 }
 

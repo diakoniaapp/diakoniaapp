@@ -23,7 +23,7 @@ import {
 } from "@/services/finService";
 import { CampoData } from "@/components/CampoData";
 import { SeletorFavorecido, type Favorecido, type SugestoesDoFavorecido } from "@/components/financas/SeletorFavorecido";
-import { calcularOcorrencias, situacaoDaSerie, type TipoDeRecorrencia } from "@/lib/recorrencia";
+import { calcularOcorrencias, dataFimReal, situacaoDaSerie, type TipoDeRecorrencia } from "@/lib/recorrencia";
 import { erroDaRecorrencia, gerarOcorrencias, propagarModelo } from "@/services/recorrenciaService";
 import {
   FORMAS_LIQUIDACAO, ROTULO_LIQUIDACAO, DICA_LIQUIDACAO, normalizarLiquidacao, type FormaLiquidacao,
@@ -100,7 +100,7 @@ export function RecorrenciaForm({ open, onOpenChange, recorrencia, onSaved }: Pr
       setFrequencia(recorrencia.frequencia);
       setDiaVencimento(recorrencia.dia_vencimento);
       setDataInicio(recorrencia.data_inicio);
-      setDataFim(recorrencia.data_fim ?? "");
+      setDataFim(dataFimReal(recorrencia.data_fim) ?? "");   // 2099-12-31 era "sem fim": não mostrar nem regravar como data
       setObservacao(recorrencia.observacao ?? "");
       setLembrar5d(recorrencia.lembrar_5d);
       setLembrar1d(recorrencia.lembrar_1d);

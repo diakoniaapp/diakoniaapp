@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  calcularOcorrencias, diaNoMes, limiteDeGeracao, ocorrenciasAGerar, primeiraData, situacaoDaSerie,
+  calcularOcorrencias, dataFimReal, diaNoMes, limiteDeGeracao, ocorrenciasAGerar, precisaRenovar, primeiraData, serieSemFim, situacaoDaSerie,
 } from "./recorrencia";
 
 describe("o teste obrigatório dela: 12 ocorrências a partir de 05/10/2026", () => {
@@ -133,5 +133,24 @@ describe("renovação da série sem fim", () => {
     const { precisaRenovar } = await import("./recorrencia");
     expect(precisaRenovar({ ...cont, tipo: "parcelamento", totalParcelas: 12 }, "2026-12-05", "2026-10-06")).toBe(false);
     expect(precisaRenovar({ ...cont, dataFim: "2027-03-01" }, "2026-12-05", "2026-10-06")).toBe(false);
+  });
+});
+
+describe("data final 2099-12-31 é o marcador de 'sem fim' do legado (08/10/2026)", () => {
+  const cont = { dataInicio: "2026-10-05", diaVencimento: 5, frequencia: "mensal" as const, tipo: "continua" as const };
+  it("não gera até 2099: 12 meses à frente, como toda série sem fim", () => {
+    const o = ocorrenciasAGerar({ ...cont, dataFim: "2099-12-31" }, "2026-10-08", new Set());
+    expect(o.length).toBeLessThanOrEqual(13);
+    expect(o[o.length - 1].data <= "2027-10-31").toBe(true);
+  });
+  it("é série sem fim: renova, e não mostra data final", () => {
+    expect(serieSemFim({ ...cont, dataFim: "2099-12-31" })).toBe(true);
+    expect(dataFimReal("2099-12-31")).toBeNull();
+    expect(dataFimReal("2027-03-01")).toBe("2027-03-01");
+    expect(precisaRenovar({ ...cont, dataFim: "2099-12-31" }, "2026-12-05", "2026-10-08")).toBe(true);
+  });
+  it("data final real continua valendo, e há um teto de 240 ocorrências", () => {
+    expect(ocorrenciasAGerar({ ...cont, dataFim: "2026-12-31" }, "2026-10-08", new Set()).at(-1)?.data).toBe("2026-12-05");
+    expect(calcularOcorrencias({ ...cont, dataFim: null }, "9999-12-31").length).toBe(240);
   });
 });
