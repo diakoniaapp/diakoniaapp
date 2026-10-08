@@ -11,7 +11,13 @@
 // "PAGTO ELETRON COBRANCA PAG COBRANCA NET EMPRESA", sem nome nenhum):
 //   · COM favorecido identificado: mesmo favorecido, vencimento a até 20 dias, valor de 50% a 150% do documento;
 //   · SEM favorecido (texto genérico): vencimento a até 5 dias e valor de 85% a 115% do documento — `incerto`.
-// Exatos primeiro, depois o vencimento mais próximo.
+// Exatos primeiro, depois o vencimento mais próximo — com duas regras de PARCELA/CONTRATO (achado de 08/10/2026, IPTU da Prefeitura):
+//   · um documento já VENCIDO do mesmo favorecido entra mesmo fora da janela, até 90 dias de atraso, quando o valor pago é o dele ou um
+//     pouco mais (até 15%: multa e juros de quem paga atrasado). O PIX de 30/09 (R$ 325,20 = parcela 1/3 de R$ 312,70, vencida em 06/09,
+//     + multa de R$ 12,50) só enxergava a parcela 2/3 (vence 06/10), porque a 1/3 estava a 24 dias — e quitou a parcela errada;
+//   · quando esse documento atrasado e uma parcela mais nova do MESMO contrato (mesma recorrência) disputam o pagamento, vale o mais
+//     ANTIGO em aberto — paga-se a primeira parcela primeiro. Dentro da janela normal nada muda: o vencimento mais próximo continua
+//     desempatando (dois documentos do mesmo contrato a poucos dias um do outro seguem pedindo a confirmação da tesouraria).
 
 export interface PrevistoParaExtrato {
   id: string;
@@ -54,6 +60,9 @@ export interface DocumentoDoExtrato {
 
 const JANELA_COM_FAVORECIDO = 20;
 const JANELA_SEM_FAVORECIDO = 5;
+/** Quanto um documento vencido ainda pode ser o pago, e quanto a mais se aceita (multa e juros). */
+const ATRASO_MAXIMO = 45;
+const ACRESCIMO_DE_ATRASO = 1.15;
 const c = (n: number) => Math.round(n * 100) / 100;
 const dias = (a: string, b: string) => Math.abs(Math.round((Date.parse(`${a}T12:00:00Z`) - Date.parse(`${b}T12:00:00Z`)) / 86_400_000));
 
@@ -68,9 +77,22 @@ export function acharDocumentosDoExtrato(
   const incerto = !fornecedorId;
   const janela = incerto ? JANELA_SEM_FAVORECIDO : JANELA_COM_FAVORECIDO;
   const [min, max] = incerto ? [0.85, 1.15] : [0.5, 1.5];
+  const vencidoCompativel = (p: PrevistoParaExtrato) => !incerto && p.data <= tx.data && dias(p.data, tx.data) <= ATRASO_MAXIMO
+    && tx.valor >= p.valor - 0.005 && tx.valor <= p.valor * ACRESCIMO_DE_ATRASO;
   const candidatos = previstos
     .filter(p => (incerto || p.fornecedor_id === fornecedorId || p.pessoa_id === fornecedorId) && !jaUsados.has(p.id) && p.valor > 0
-      && dias(p.data, tx.data) <= janela && tx.valor >= p.valor * min && tx.valor <= p.valor * max);
+      && ((dias(p.data, tx.data) <= janela && tx.valor >= p.valor * min && tx.valor <= p.valor * max) || vencidoCompativel(p)));
+
+  // o mais antigo em aberto de cada contrato (recorrência) entre os candidatos
+  const maisAntigoDoContrato = new Map<string, string>();
+  for (const k of candidatos) {
+    if (!k.recorrencia_id) continue;
+    const atual = candidatos.find(x => x.id === maisAntigoDoContrato.get(k.recorrencia_id!));
+    if (!atual || k.data < atual.data) maisAntigoDoContrato.set(k.recorrencia_id, k.id);
+  }
+  // só vale para o documento que entrou PELO ATRASO (fora da janela normal): nos demais o critério antigo — o mais próximo — continua
+  const ehOMaisAntigo = (p: PrevistoParaExtrato) => !!p.recorrencia_id && maisAntigoDoContrato.get(p.recorrencia_id) === p.id && dias(p.data, tx.data) > janela;
+  const temIrmaoNoContrato = (p: PrevistoParaExtrato) => !!p.recorrencia_id && candidatos.some(x => x.id !== p.id && x.recorrencia_id === p.recorrencia_id);
 
   // Os documentos ABERTOS do mesmo favorecido (qualquer valor), no mesmo entorno: são os outros contratos. Antes de chamar uma
   // diferença de "desconto" ou "pagamento parcial", é preciso olhar se o valor pertence a OUTRO documento/contrato dele.
@@ -81,6 +103,7 @@ export function acharDocumentosDoExtrato(
 
   const ordenados = [...candidatos].sort((a, b) =>
     Number(Math.abs(tx.valor - b.valor) < 0.005) - Number(Math.abs(tx.valor - a.valor) < 0.005)
+    || Number(ehOMaisAntigo(b) && temIrmaoNoContrato(b)) - Number(ehOMaisAntigo(a) && temIrmaoNoContrato(a))
     || Math.abs(tx.valor - a.valor) - Math.abs(tx.valor - b.valor)
     || dias(a.data, tx.data) - dias(b.data, tx.data));
 
@@ -111,6 +134,10 @@ export function acharDocumentosDoExtrato(
         ? `o valor é o habitual do contrato «${contratoSemDocumento.rotulo}», que não tem documento aberto — pode não ser desconto nem pagamento parcial deste documento`
         : "um só documento aberto do favorecido: a diferença é desconto, juros, multa ou pagamento parcial";
     }
+    if (!incerto && p.data < tx.data && dias(p.data, tx.data) > janela) {
+      motivo = `documento vencido há ${dias(p.data, tx.data)} dias, pago com atraso${exato ? "" : " (a diferença pode ser multa e juros)"}`;
+    }
+    if (ehOMaisAntigo(p) && temIrmaoNoContrato(p)) motivo += "; é a mais antiga em aberto do mesmo contrato — parcelas se pagam em ordem";
     return { documento: p, diferenca: c(tx.valor - p.valor), exato, incerto, confianca, contrato: nome, segundoContrato, ambiguo, outrosAbertos: outros, contratoSemDocumento, motivo };
   });
 }

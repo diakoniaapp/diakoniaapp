@@ -106,3 +106,37 @@ describe("quando o pagamento vira 'Liquidar obrigação prevista' (08/10/2026)",
   });
   it("sem documento nenhum: não", () => { expect(valeComoLiquidacao([])).toBe(false); });
 });
+
+describe("parcelas do mesmo contrato — achado de 08/10/2026 (IPTU da Prefeitura)", () => {
+  const parcela = (id: string, data: string, rec = "iptu"): PrevistoParaExtrato => ({ ...p(id, 312.7, data, "pref"), recorrencia_id: rec });
+
+  it("pagamento com multa (R$ 325,20 em 30/09): é a parcela 1/3 VENCIDA em 06/09, não a 2/3 que só vence em 06/10", () => {
+    const r = acharDocumentosDoExtrato(tx(325.2, "2026-09-30"), [parcela("p2", "2026-10-06"), parcela("p1", "2026-09-06")], "pref");
+    expect(r[0].documento.id).toBe("p1");
+    expect(r[0].diferenca).toBe(12.5);
+    expect(r[0].motivo).toContain("vencido há 24 dias");
+    expect(r[0].motivo).toContain("mais antiga em aberto do mesmo contrato");
+    expect(r.map(x => x.documento.id)).toContain("p2");   // a 2/3 continua como alternativa
+  });
+
+  it("valor exato com duas parcelas abertas: vale a mais antiga, mesmo estando mais longe do pagamento", () => {
+    const r = acharDocumentosDoExtrato(tx(312.7, "2026-10-05"), [parcela("p2", "2026-10-06"), parcela("p1", "2026-09-06")], "pref");
+    expect(r[0].documento.id).toBe("p1");
+    expect(r[0].exato).toBe(true);
+  });
+
+  it("contratos DIFERENTES com o mesmo valor: continua valendo o vencimento mais próximo", () => {
+    const r = acharDocumentosDoExtrato(tx(312.7, "2026-10-05"), [parcela("a", "2026-09-20", "contrato-a"), parcela("b", "2026-10-06", "contrato-b")], "pref");
+    expect(r[0].documento.id).toBe("b");
+  });
+
+  it("vencido há mais de 45 dias, ou pago a MAIS de 15%, ou sem favorecido: não entra pela regra do atraso", () => {
+    expect(acharDocumentosDoExtrato(tx(325.2, "2026-09-30"), [parcela("velha", "2026-06-01")], "pref")).toEqual([]);
+    expect(acharDocumentosDoExtrato(tx(400, "2026-09-30"), [parcela("p1", "2026-09-06")], "pref")).toEqual([]);
+    expect(acharDocumentosDoExtrato(tx(325.2, "2026-09-30"), [parcela("p1", "2026-09-06")], null)).toEqual([]);
+  });
+
+  it("pagar MENOS que o documento vencido não o escolhe pela regra do atraso (isso é pagamento parcial, não multa)", () => {
+    expect(acharDocumentosDoExtrato(tx(200, "2026-09-30"), [parcela("p1", "2026-09-06")], "pref")).toEqual([]);
+  });
+});
