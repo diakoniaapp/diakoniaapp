@@ -30,6 +30,8 @@ export interface BlocoDoExtrato {
 }
 
 export interface ExtratoLido {
+  /** agência e conta de cada "Extrato de: Ag: … | CC: …" do PDF (a tela confere se é a conta certa) */
+  contas: { agencia: string; conta: string }[];
   lancamentos: LancamentoDoExtrato[];
   blocos: BlocoDoExtrato[];
   saldosInvest: { data: string; saldo: number }[];
@@ -43,6 +45,7 @@ const FECHA = new RegExp(String.raw`^(?:(\d{2}/\d{2}/\d{4})\s+)?(.*?)\s*(\d{1,12
 const SALDO_ANTERIOR = new RegExp(String.raw`^(\d{2}/\d{2}/\d{4})\s+SALDO ANTERIOR\s+(${MONEY})$`);
 const TOTAL = new RegExp(String.raw`^Total\s+(${MONEY})\s+(${MONEY})\s+(${MONEY})$`);
 const SALDO_INVEST = new RegExp(String.raw`^(\d{2}/\d{2}/\d{4})\s+SALDO INVEST F[ÁA]CIL\s+(${MONEY})$`);
+const CONTA_DO_EXTRATO = /Extrato de:\s*Ag:\s*(\d+)\s*\|\s*CC:\s*([\d-]+)/i;
 const CABECALHO = /^(Extrato Consolidado|QUARTA IGREJA|Nome do usu|Data da opera|Folha \d|Ag[êe]ncia \||\d{5} \| \d|Extrato de:|Data Lan[çc]amento|Os dados acima|Últimos Lan|Saldos Invest|Data Hist[óo]rico|===== PAGINA)/i;
 const CONTINUACAO = /^(REM:|DES:|INTERNET|CONTA\b|[A-ZÀ-Ú][A-ZÀ-Ú .'-]{4,}$)/;
 const INICIO_DE_HISTORICO = /^(PIX (RECEBIDO|ENVIADO)|TARIFA|TRANSF|LIQUIDACAO|APLIC|RESGATE|RESG|RENTAB|DEPOSIT|PAGTO|REMET)/;
@@ -61,12 +64,14 @@ export function lerExtratoConsolidado(texto: string): ExtratoLido {
   const lancamentos: LancamentoDoExtrato[] = [];
   const blocos: (BlocoDoExtrato & { itens: LancamentoDoExtrato[] })[] = [];
   const saldosInvest: { data: string; saldo: number }[] = [];
+  const contas: { agencia: string; conta: string }[] = [];
   let bloco: (typeof blocos)[number] | null = null;
   let data = "";
   let pendente: string[] = [];
   let ultimo: LancamentoDoExtrato | null = null;
 
   for (const l of linhas) {
+    { const c = CONTA_DO_EXTRATO.exec(l); if (c && !contas.some(x => x.conta === c[2])) contas.push({ agencia: c[1], conta: c[2] }); }
     if (CABECALHO.test(l)) { if (/^Últimos Lan/i.test(l)) bloco = null; continue; }
     let m: RegExpExecArray | null;
     if ((m = SALDO_ANTERIOR.exec(l))) {
@@ -102,7 +107,7 @@ export function lerExtratoConsolidado(texto: string): ExtratoLido {
     }
   });
   return {
-    lancamentos, saldosInvest, quebras, totaisDivergentes,
+    contas, lancamentos, saldosInvest, quebras, totaisDivergentes,
     blocos: blocos.map(({ itens, ...b }) => ({ ...b, n: itens.length })),
   };
 }

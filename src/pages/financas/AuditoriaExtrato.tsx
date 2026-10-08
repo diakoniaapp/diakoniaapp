@@ -118,6 +118,21 @@ export default function AuditoriaExtrato() {
             </div>
           )}
 
+          {resultado.alertaInvest && resultado.alertaInvest.aplicacoes.n + resultado.alertaInvest.resgates.n > 0 && (
+            <div className="rounded-md border border-warning-line bg-warning-soft/40 px-3 py-2 text-sm text-warning-text space-y-0.5" role="alert">
+              <p className="font-medium">
+                {resultado.alertaInvest.aplicacoes.n} aplicaç{resultado.alertaInvest.aplicacoes.n === 1 ? "ão" : "ões"} ({brl(resultado.alertaInvest.aplicacoes.total)}) e{" "}
+                {resultado.alertaInvest.resgates.n} resgate{resultado.alertaInvest.resgates.n !== 1 ? "s" : ""} ({brl(resultado.alertaInvest.resgates.total)}) do Invest Fácil estão no PDF e sem transferência no sistema.
+              </p>
+              <p className="text-xs">Efeito no saldo da conta: {brl(resultado.alertaInvest.efeitoNaCorrente)}. Na Mesa de Conciliação, anexe o mesmo PDF: as transferências aparecem prontas para confirmar.</p>
+            </div>
+          )}
+          {resultado.alertaInvest && resultado.alertaInvest.aplicacoes.n + resultado.alertaInvest.resgates.n === 0 && (
+            <p className="rounded-md border border-success-line bg-success-soft/40 px-3 py-2 text-sm text-success-text" role="status">
+              Todas as aplicações e resgates do Invest Fácil do PDF têm transferência no sistema.
+            </p>
+          )}
+
           <Card>
             <CardContent className="py-3 px-4 space-y-3">
               <p className="text-sm font-medium">{resultado.conta} · {dataBr(resultado.de)} a {dataBr(resultado.ate)}</p>
@@ -225,7 +240,7 @@ function Linhas({ r }: { r: ResultadoDaAuditoria }) {
   for (const s of r.auditoria.soSistema) {
     const causa = causaDoSistema(s, new Set(r.auditoria.duplicatas));
     const k = `S:${causa}`;
-    (grupos.get(k) ?? grupos.set(k, { rotulo: `No sistema, sem linha igual no banco — ${ROTULO_CAUSA_SISTEMA[causa].rotulo}`, itens: [] }).get(k)!).itens.push({ data: s.data, valor: s.valor, texto: `${s.origem} · ${s.descricao.slice(0, 60)}` });
+    (grupos.get(k) ?? grupos.set(k, { rotulo: `No sistema, sem linha igual no banco — ${ROTULO_CAUSA_SISTEMA[causa].rotulo}`, itens: [] }).get(k)!).itens.push({ data: s.data, valor: s.valor, texto: `${s.origem} · ${s.descricao.slice(0, 60)}${s.evidencia ? ` · ${s.evidencia}` : ""}` });
   }
   if (grupos.size === 0) return null;
   return (

@@ -74,7 +74,12 @@ export async function carregarSistema(contaId: string, de: string, ate: string):
     for (const l of r.data ?? []) {
       const quando = String(l.data_pagamento ?? l.data).slice(0, 10);
       if (quando < de) { antes += assinado(l); continue; }
-      lancamentos.push({ id: l.id, data: quando, valor: c2(assinado(l)), origem: l.origem ?? "", status: l.status, descricao: l.descricao ?? "", fitids: [...String(l.observacoes ?? "").matchAll(/\[ofx:([^\]]+)\]/g)].map(m => m[1]) });
+      const ev = lerEvidencia(l.observacoes);
+      lancamentos.push({
+        id: l.id, data: quando, valor: c2(assinado(l)), origem: l.origem ?? "", status: l.status, descricao: l.descricao ?? "",
+        fitids: [...String(l.observacoes ?? "").matchAll(/\[ofx:([^\]]+)\]/g)].map(m => m[1]),
+        ...(ev ? { evidencia: `${ORIGEM_INVEST_PDF} · ${ev.arquivo} · lido em ${ev.lidoEm.slice(0, 10).split("-").reverse().join("/")}` } : {}),
+      });
     }
     if ((r.data ?? []).length < PAGINA) break;
   }
@@ -134,6 +139,7 @@ export async function situacaoDasLinhasDoOfx(contaId: string, ofx: OFXTransacao[
 // ── a auditoria completa ─────────────────────────────────────────────────────────
 
 import { auditar, decompor, relatorioMarkdown, type Auditoria, type Decomposicao } from "@/lib/auditoriaExtrato";
+import { alertaDoInvest, chavesPorAssinatura, direcaoDoHistorico, fitidDaChave, lerEvidencia, ORIGEM_INVEST_PDF, type AlertaInvest } from "@/lib/investFacil";
 
 export interface SaldoDiarioDaAplicacao { data: string; banco: number; sistema: number; diferenca: number }
 
@@ -147,6 +153,8 @@ export interface ResultadoDaAuditoria {
   conferenciaDaLeitura: number;
   /** Invest Fácil: saldo do banco × saldo da conta de aplicação do sistema, dia a dia (só com o PDF) */
   aplicacao: SaldoDiarioDaAplicacao[] | null;
+  /** aplicações e resgates do PDF sem transferência no sistema (null = sem PDF: não há como saber) */
+  alertaInvest: AlertaInvest | null;
   markdown: string;
 }
 
@@ -200,6 +208,15 @@ export async function executarAuditoria(p: {
   let banco = linhasDoBanco(extrato, ofx);
   if (extrato) banco = preencherLacunas(extrato, ofx, banco, avisos);
   banco = atribuirFitids(banco, ofx);
+  if (extrato) {
+    // aplicação/resgate não vêm no OFX: a ligação com o lançamento da Mesa é a chave do PDF, gravada como [ofx:PDF:chave]
+    const chaveDe = chavesPorAssinatura(extrato.lancamentos);
+    banco = banco.map(b => {
+      if (b.fitid || !direcaoDoHistorico(b.historico)) return b;
+      const chave = chaveDe(b);
+      return chave ? { ...b, fitid: fitidDaChave(chave) } : b;
+    });
+  }
   const datas = banco.map(l => l.data).sort();
   const de = datas[0], ate = datas[datas.length - 1];
   const sis = await carregarSistema(p.contaId, de, ate);
@@ -236,5 +253,5 @@ export async function executarAuditoria(p: {
   }
   extra += "\n\n## 6. Convergência\n\n" + decomposicoes.map(d =>
     `- Em ${dataBr(d.corte)}: o banco tem ${reais(d.saldoBanco)} e o sistema ${reais(d.saldoSistema)}. Registradas/corrigidas as linhas da seção 2, o sistema passa a ter ${reais(d.saldoSistema - d.diferenca)} — o do banco.`).join("\n");
-  return { conta: p.contaNome, de, ate, auditoria, cortes, decomposicoes, avisos, conferenciaDaLeitura: sis.conferenciaDaLeitura, aplicacao, markdown: relatorioMarkdown(auditoria, cortes, meta) + extra };
+  return { conta: p.contaNome, de, ate, auditoria, cortes, decomposicoes, avisos, conferenciaDaLeitura: sis.conferenciaDaLeitura, aplicacao, alertaInvest: extrato ? alertaDoInvest(auditoria.soBanco) : null, markdown: relatorioMarkdown(auditoria, cortes, meta) + extra };
 }

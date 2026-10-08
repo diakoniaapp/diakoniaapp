@@ -112,6 +112,7 @@ import { useAcoesLancamento, BotaoPagar, BotoesAprovacao } from "@/hooks/useAcoe
 import { FechamentoMensal } from "@/components/financas/FechamentoMensal";
 import { MesaDoTesoureiro } from "@/components/financas/MesaDoTesoureiro";
 import { LiquidacoesDoPeriodo } from "@/components/financas/LiquidacoesDoPeriodo";
+import { ConferenciaDiariaDaCorrente } from "@/components/financas/ConferenciaDiariaDaCorrente";
 import { useAuth } from "@/hooks/useAuth";
 import { hojeLocal, parseLocalDate, daquiADias } from "@/lib/data";
 import { ROLES_DOADORES, ROLES_PASTORAL_SEM_TITULAR, ROLES_SUSTENTO } from "@/components/layout/navConfig";
@@ -1065,6 +1066,8 @@ export default function PainelTesouraria() {
                 mas sem centro de custo vinculado (mostra o que dá, é
                 honesto sobre o que falta) e com os dois (mostra a conta
                 inteira). */}
+            <ConferenciaDiariaDaCorrente />
+
             {diaconia && (
               <div className="rounded-md border bg-card p-3 mb-2 flex items-start gap-2">
                 <HeartHandshake className="w-4 h-4 text-gold shrink-0 mt-0.5" />

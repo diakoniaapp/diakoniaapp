@@ -82,6 +82,10 @@ describe("extrato consolidado do Bradesco (PDF → lançamentos)", () => {
     expect(r.totaisDivergentes).toEqual([]);
   });
 
+  it("lê a agência e a conta do cabeçalho (a tela confere se o PDF é da conta certa)", () => {
+    expect(r.contas).toEqual([{ agencia: "2013", conta: "0199094-2" }]);
+  });
+
   it("o saldo do Invest Fácil por dia é lido à parte", () => {
     expect(r.saldosInvest).toEqual([{ data: "2026-09-01", saldo: 2378.38 }]);
   });

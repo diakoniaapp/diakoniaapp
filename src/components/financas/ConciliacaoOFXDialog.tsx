@@ -48,6 +48,7 @@ import { AvisoDosGrupos } from "./mesa/AvisoDosGrupos";
 import { CartaoDoGrupo } from "./mesa/CartaoDoGrupo";
 import { IgnorarLinhaDialog } from "./mesa/IgnorarLinhaDialog";
 import { PainelDeMedicao } from "./mesa/PainelDeMedicao";
+import { PainelInvestFacil } from "./mesa/PainelInvestFacil";
 
 interface Props {
   open: boolean;
@@ -599,6 +600,8 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
             </div>
 
             {medicao && <PainelDeMedicao medicao={medicao} rotulo={contaNome} />}
+
+            {transacoes && <PainelInvestFacil contaId={contaId} contaNome={contaNome} transacoes={transacoes} aoGravar={() => { alterou.current = true; }} />}
 
             {lote && (
               <div className="rounded-md border border-success-line bg-success-soft/40 p-3 flex flex-wrap items-center gap-2">

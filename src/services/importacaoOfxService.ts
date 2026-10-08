@@ -342,6 +342,8 @@ async function marcarTransferenciasProvaveis(contaId: string, linhas: LinhaAnali
  */
 export async function registrarTransferenciaDoExtrato(
   contaId: string, contaNome: string, tx: OFXTransacao, outra: OutraPonta,
+  /** rastro gravado em `observacoes` das DUAS pernas (hoje: a evidência do PDF do Invest Fácil — ver lib/investFacil.ts) */
+  evidencia?: string,
 ): Promise<{ ids: string[]; desfazer: () => Promise<void> }> {
   if (outra.contaId === contaId) throw new Error("Origem e destino precisam ser contas diferentes");
   const userId = (await supabase.auth.getUser()).data.user?.id ?? null;
@@ -350,7 +352,7 @@ export async function registrarTransferenciaDoExtrato(
   const destinoNome = tx.tipo === "entrada" ? contaNome : outra.contaNome;
   const descBase = `Transferência: ${origemNome} → ${destinoNome}`;
   const idNovo = crypto.randomUUID();
-  const marca = `[ofx:${tx.fitid}] [transferencia-ofx]`;
+  const marca = `[ofx:${tx.fitid}] [transferencia-ofx]${evidencia ? ` ${evidencia}` : ""}`;
   const perna = (id: string, tipo: "entrada" | "saida", conta: string, pai: string, status: string, observacoes: string | null) => ({
     id, tipo, data: tx.data, valor: tx.valor, conta_id: conta, status, descricao: `${descBase} (${tipo === "entrada" ? "entrada" : "saída"})`,
     origem: "transferencia", lancamento_pai_id: pai, observacoes, audit_user_id: userId, audit_em: agora,
@@ -361,7 +363,7 @@ export async function registrarTransferenciaDoExtrato(
     const idOutra = crypto.randomUUID();
     const { data, error } = await supabase.from("fin_lancamentos").insert([
       perna(idNovo, tx.tipo, contaId, idOutra, "conciliado", marca),
-      perna(idOutra, oposto, outra.contaId, idNovo, "realizado", null),
+      perna(idOutra, oposto, outra.contaId, idNovo, "realizado", evidencia ?? null),
     ] as never).select("id");
     if (error) throw error;
     if ((data?.length ?? 0) !== 2) throw new Error("A transferência não gravou as duas pernas (permissão) — nada foi criado");
