@@ -19,7 +19,7 @@ Levantamento de 08/10/2026, depois do commit do "Vincular Evidência" com UPDATE
 | 9 | **Ignorar** a mesma linha em duas abas | 🟢 `UNIQUE (conta_id, fitid)` + upsert em `fin_extrato_ignorados` | 🟢 | |
 | 10 | **Ignorar × Confirmar** a mesma linha | ⚪ "já registrada" prevalece sobre "ignorada" na classificação | ⚪ | |
 | 11 | **Reativar** uma ignorada que outra aba já reativou | ⚪ delete de 0 linhas mostra "não foi salvo — permissão" (mensagem imprecisa, sem dano) | ⚪ | |
-| 12 | **Saldo da conta** com duas gravações simultâneas | 🟡 gatilho `fin_atualiza_saldo` recalcula por SUM; **a função `fin_recalc_saldo_conta` não está no repositório** — não consegui conferir se duas transações simultâneas podem se perder uma à outra | 🟡 | a Auditoria do extrato acusa se `saldo_atual` não fechar com a soma dos lançamentos (`conferenciaDaLeitura`) |
+| 12 | **Saldo da conta** com duas gravações simultâneas | 🔴→🟡 **risco real, reproduzido** (risco BAIXO): a função recalcula por SUM sem travar a conta antes, e a 2ª transação pode gravar um `saldo_atual` sem a 1ª. Ver `docs/PARECER_SALDO_CONCORRENCIA.md` | 🟢 com a migration `20261008190000` (pendente) | autocorrige no próximo lançamento da conta; a Auditoria do extrato acusa na conta auditada |
 | 13 | **Leitura** do PDF, Auditoria e Conferência diária | ⚪ só leitura; a leitura paginada não é um retrato único, então durante uma gravação pode mostrar um instante intermediário | ⚪ | recarregar resolve |
 
 ## O que continua só na aplicação, de propósito
