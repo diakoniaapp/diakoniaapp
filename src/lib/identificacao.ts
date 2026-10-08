@@ -25,7 +25,8 @@ const semAcento = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "");
 
 // o que o BANCO escreve antes do nome
 const RUIDO_DO_BANCO = [
-  /\btransf\w*\s+autoriz\w*\s+entre\s+ags?\b/g,   // "TRANSF AUTORIZ ENTRE AGS <nome>": o que sobra é o remetente
+  /\btransf\w*[.\s]+autoriz\w*[.\s]+entre\s+(ags?|c\/?c)\b/g,   // "TRANSF AUTORIZ ENTRE AGS <nome>" e "TRANSF.AUTORIZ.ENTRE C/C <nome>": o que sobra é o remetente
+  /\bdeposit\w*\s+transfer\w*\s+bdn\b/g,   // "DEPOSIT TRANSFER BDN <nome>" (depósito por transferência no Bradesco): o que sobra é o remetente
   /\bpix\s+qr\s*code\s*(dinamico|estatico)?\b/g,
   /\bpix\s+(recebido|enviado|agendado|transferencia)\b/g,
   /\btransferencia\s+(recebida|enviada|pix)\b/g,

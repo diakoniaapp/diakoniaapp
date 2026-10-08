@@ -74,3 +74,13 @@ describe("casar o nome extraído com o cadastro", () => {
     expect(encontrarCandidatoPorNome("Fulana de Tal Inexistente", cadastro)).toBeNull();
   });
 });
+
+describe("transferência/depósito de pessoa no extrato — o nome sobra depois do ruído do banco (08/10/2026)", () => {
+  it("DEPOSIT TRANSFER BDN <nome> → o nome da pessoa", () => {
+    expect(extrairNome("DEPOSIT TRANSFER BDN ANA LUCIA GOMES DA SILVA").nome).toBe("ANA LUCIA GOMES DA SILVA");
+  });
+  it("TRANSF AUTORIZ ENTRE AGS e TRANSF.AUTORIZ.ENTRE C/C <nome> → o nome da pessoa", () => {
+    expect(extrairNome("TRANSF AUTORIZ ENTRE AGS CLAUDIA VILELA DE ALMEIDA").nome).toBe("CLAUDIA VILELA DE ALMEIDA");
+    expect(extrairNome("TRANSF.AUTORIZ.ENTRE C/C CLAUDIA VILELA DE ALMEIDA").nome).toBe("CLAUDIA VILELA DE ALMEIDA");
+  });
+});
