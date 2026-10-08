@@ -138,22 +138,30 @@ export function casarComLancamentos(
   lancamentosRealizados: FinLancamentoExtenso[],
 ): OFXCasamento[] {
   const disponiveis = [...lancamentosRealizados];
+  const out: OFXCasamento[] = new Array(transacoes.length);
+  const compativeis = (t: OFXTransacao) => disponiveis.filter(l =>
+    l.tipo === t.tipo && Math.abs(Number(l.valor) - t.valor) < 0.005 && diffDias(l.data, t.data) <= JANELA_DIAS_CASAMENTO);
+  const tomar = (i: number, t: OFXTransacao, l: FinLancamentoExtenso) => {
+    disponiveis.splice(disponiveis.indexOf(l), 1);
+    out[i] = { transacao: t, status: "encontrado", lancamentoId: l.id, candidatos: [] };
+  };
 
-  return transacoes.map(t => {
-    const candidatos = disponiveis.filter(l =>
-      l.tipo === t.tipo &&
-      Math.abs(Number(l.valor) - t.valor) < 0.005 &&
-      diffDias(l.data, t.data) <= JANELA_DIAS_CASAMENTO,
-    );
-
-    if (candidatos.length === 1) {
-      const idx = disponiveis.indexOf(candidatos[0]);
-      disponiveis.splice(idx, 1);
-      return { transacao: t, status: "encontrado" as const, lancamentoId: candidatos[0].id, candidatos: [] };
-    }
-    if (candidatos.length === 0) {
-      return { transacao: t, status: "sem_correspondencia" as const, candidatos: [] };
-    }
-    return { transacao: t, status: "ambiguo" as const, candidatos };
+  // 1ª passada — MESMO DIA: a linha cujo dia e valor têm um só lançamento leva esse lançamento. Sem isto, na ordem do extrato, a
+  // primeira linha de R$ 500 do mês podia levar o lançamento de R$ 500 de OUTRO dia dentro da janela (achado de 08/10/2026).
+  transacoes.forEach((t, i) => {
+    const mesmoDia = compativeis(t).filter(l => diffDias(l.data, t.data) === 0);
+    if (mesmoDia.length === 1) tomar(i, t, mesmoDia[0]);
   });
+
+  // 2ª passada — a janela de dias: o candidato MAIS PRÓXIMO vence quando é único; empate de distância é ambíguo.
+  transacoes.forEach((t, i) => {
+    if (out[i]) return;
+    const candidatos = compativeis(t);
+    if (candidatos.length === 0) { out[i] = { transacao: t, status: "sem_correspondencia", candidatos: [] }; return; }
+    const menor = Math.min(...candidatos.map(l => diffDias(l.data, t.data)));
+    const maisProximos = candidatos.filter(l => diffDias(l.data, t.data) === menor);
+    if (maisProximos.length === 1) { tomar(i, t, maisProximos[0]); return; }
+    out[i] = { transacao: t, status: "ambiguo", candidatos: maisProximos };
+  });
+  return out;
 }

@@ -1204,6 +1204,7 @@ export default function PainelTesouraria() {
                 { to: "/financas/folha", label: "Calculadoras (Folha)", icone: Briefcase },
                 ...(hasRole(ROLES_DOADORES) ? [{ to: "/financas/doadores", label: "Doadores", icone: Users }] : []),
                 // Conta Corrente de Sustento (Fase 1, 08/10/2026): remuneração pastoral, só admin + tesouraria.
+                { to: "/financas/auditoria-extrato", label: "Auditoria do extrato", icone: ClipboardCheck },
                 ...(hasRole(ROLES_SUSTENTO) ? [{ to: "/financas/sustento", label: "Sustento Pastoral", icone: HeartHandshake }] : []),
               ]}
             />

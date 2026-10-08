@@ -203,8 +203,9 @@ export async function analisar(contaId: string, txs: OFXTransacao[], contexto: C
   const de = daquiADias(datas[0], -5);
   const ate = daquiADias(datas[datas.length - 1], 5);
   const [realizados, conciliados, fitids, debitos, previstos, ignoradas] = await Promise.all([
-    listarLancamentos({ contaId, status: "realizado", dataInicio: de, dataFim: ate }),
-    listarLancamentos({ contaId, status: "conciliado", dataInicio: de, dataFim: ate }),
+    // SEM o teto de 300: um mês do Bradesco tem 350+ lançamentos, e o corte silencioso tirava do páreo justamente os mais antigos
+    listarLancamentosSemTeto({ contaId, status: "realizado", dataInicio: de, dataFim: ate }),
+    listarLancamentosSemTeto({ contaId, status: "conciliado", dataInicio: de, dataFim: ate }),
     fitidsJaImportados(contaId, de, ate),
     debitosAutomaticosPrevistos(de, ate),
     previstosParaExtrato(de, ate),
@@ -235,11 +236,19 @@ export async function analisar(contaId: string, txs: OFXTransacao[], contexto: C
   const usados = new Set<string>();
   const debitosLivres = (todos: CandidatoDebito[]) => todos.filter(d => !usados.has(d.id));
 
-  // 3. já conciliados (lançados à mão ou pelo Omie): não criar de novo
-  const jaConc = casarComLancamentos(semRealizado.map(r => r.tx), conciliados);
+  // 3. já conciliados (lançados à mão ou pelo Omie): não criar de novo.
+  //
+  // ACHADO de 08/10/2026 (auditoria do extrato de set/2026): esta regra ESCONDIA 33 movimentos do extrato. Dois defeitos juntos:
+  //   (a) o lançamento que já nasceu de OUTRA linha do extrato (traz a marca [ofx:FITID], ou foi criado por uma liquidação) entrava como
+  //       "par" — então um PIX de R$ 20 novo achava os R$ 20 já importados de outro dia e era dado como "já registrado";
+  //   (b) "ambíguo" (vários candidatos) era tratado como "já registrado", o contrário do que o próprio casarComLancamentos recomenda
+  //       (errar para o lado de pedir revisão). Agora só concorrem lançamentos SEM dono — os feitos à mão ou trazidos pelo Omie — e o
+  //       ambíguo aparece em "revisar", visível.
+  const semDono = conciliados.filter(l => !/\[ofx:/.test(l.observacoes ?? "") && !(l as { liquidacao_id?: string | null }).liquidacao_id);
+  const jaConc = casarComLancamentos(semRealizado.map(r => r.tx), semDono);
   jaConc.forEach((c, k) => {
     const { tx, i } = semRealizado[k];
-    if (c.status === "encontrado" || c.status === "ambiguo") {
+    if (c.status === "encontrado") {
       out[i] = { tx, situacao: "ja_registrada", motivoJaRegistrada: "já existe lançamento conciliado com este valor e data" };
     } else {
       // um DÉBITO AUTOMÁTICO previsto que esta saída cumpre: conciliar, não criar outro lançamento
@@ -249,7 +258,14 @@ export async function analisar(contaId: string, txs: OFXTransacao[], contexto: C
         out[i] = { tx, situacao: "debito_encontrado", lancamentoId: achado.candidato.id, debito: achado };
         return;
       }
-      const sugestao = sugerir({ fitid: tx.fitid, tipo: tx.tipo, data: tx.data, valor: tx.valor, memo: tx.memo }, contexto.ctx);
+      let sugestao = sugerir({ fitid: tx.fitid, tipo: tx.tipo, data: tx.data, valor: tx.valor, memo: tx.memo }, contexto.ctx);
+      // vários lançamentos conciliados parecidos, SEM vínculo com o extrato: a linha segue como NOVA (visível, com o cartão da Mesa) mas
+      // nunca "identificada" — a pessoa confere que não é duplicata antes de confirmar. Esconder era o defeito.
+      if (c.status === "ambiguo") {
+        const teto = Math.min(sugestao.confianca, 80);
+        sugestao = { ...sugestao, confianca: teto, banda: faixaDe(teto),
+          motivos: [...sugestao.motivos, `há ${c.candidatos.length} lançamentos conciliados parecidos sem vínculo com o extrato — confira que não é duplicata`] };
+      }
       // um DOCUMENTO a pagar que esta saída provavelmente quitou (igual ou com diferença): liquidar, não criar outro.
       // Favorecido identificado → situação "documento". Texto genérico do extrato (boleto) → a linha continua "nova"
       // e leva só a DICA do documento provável (`incerto`), para não esconder uma linha que pode ser outra coisa.

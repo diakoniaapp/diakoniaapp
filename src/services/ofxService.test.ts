@@ -182,6 +182,23 @@ describe("casarComLancamentos", () => {
     expect(r[0].candidatos).toHaveLength(2);
   });
 
+  it("o lançamento do MESMO DIA vence o de outro dia da janela (duas linhas de R$ 500: uma em 01/09, outra em 04/09)", () => {
+    const r = casarComLancamentos(
+      [txn({ fitid: "A", data: "2026-09-04" }), txn({ fitid: "B", data: "2026-09-01" })],
+      [lanc({ id: "L1", data: "2026-09-01" }), lanc({ id: "L4", data: "2026-09-04" })],
+    );
+    expect(r[0]).toMatchObject({ status: "encontrado", lancamentoId: "L4" });
+    expect(r[1]).toMatchObject({ status: "encontrado", lancamentoId: "L1" });
+  });
+
+  it("sem lançamento no mesmo dia, o mais PRÓXIMO da janela vence; empate de distância é ambíguo", () => {
+    const proximo = casarComLancamentos([txn({ data: "2026-09-04" })], [lanc({ id: "L1", data: "2026-09-02" }), lanc({ id: "L3", data: "2026-09-03" })]);
+    expect(proximo[0]).toMatchObject({ status: "encontrado", lancamentoId: "L3" });
+    const empate = casarComLancamentos([txn({ data: "2026-09-04" })], [lanc({ id: "Lm", data: "2026-09-03" }), lanc({ id: "Lp", data: "2026-09-05" })]);
+    expect(empate[0].status).toBe("ambiguo");
+    expect(empate[0].candidatos).toHaveLength(2);
+  });
+
   it("é guloso: um lançamento já casado não serve para a próxima transação igual", () => {
     const r = casarComLancamentos(
       [txn({ fitid: "F1" }), txn({ fitid: "F2" })],
