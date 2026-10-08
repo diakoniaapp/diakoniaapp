@@ -4,7 +4,9 @@
 // Quem usa a conta corrente NÃO depende do cargo, e sim da forma de receber: cada beneficiário tem a chave "Controle por
 // competência" (src/lib/sustento.ts). Ligada, aparecem as competências, os adiantamentos e o saldo a pagar; desligada, a pessoa
 // segue paga pelas recorrências de sempre. A competência mostra as rubricas do RSP quando elas existem e, quando não, o valor previsto.
-// Só leitura, salvo a chave. Não cria lançamento nem mexe em saldo — a Fase 1 foi aprovada nestes termos. Os pagamentos mostrados
+// Com o controle ligado, "Tipo de controle": Automático (sugere pelo histórico), Simples ou Avançado. A troca vale só para as próximas
+// competências — cada competência guarda o modo com que nasceu — e o banco registra quem mudou e quando.
+// Só leitura, salvo as duas chaves (controle e tipo de controle). Não cria lançamento nem mexe em saldo — a Fase 1 foi aprovada nestes termos. Os pagamentos mostrados
 // são os lançamentos que já existem em `fin_lancamentos`, apenas ligados a uma competência.
 //
 // Remuneração de pastor é dado sensível: só `admin` e `tesouraria` (ROUTE_ROLES, o menu e a RLS das quatro tabelas dizem o mesmo).
@@ -16,17 +18,26 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
 import { PaginaSkeleton, ErrorState } from "@/components/ListState";
 import { brl } from "@/services/finService";
-import { carregarSustento, definirControlePorCompetencia, type BeneficiarioComCompetencias, type CompetenciaDoSustento, type ResultadoDoSustento } from "@/services/sustentoService";
+import { carregarSustento, definirControlePorCompetencia, definirTipoDeControle, type BeneficiarioComCompetencias, type CompetenciaDoSustento, type ResultadoDoSustento } from "@/services/sustentoService";
 import {
-  ROTULO_TIPO, motivoParaNaoDesligar, resumirBeneficiario, rotuloCompetencia, situacaoDaCompetencia, sugerirCompetencia, totalPago, TOLERANCIA,
-  type SituacaoDaCompetencia,
+  ROTULO_TIPO, ROTULO_TIPO_CONTROLE, ROTULO_MODO, modoVigente, motivoParaNaoDesligar, resumirBeneficiario, rotuloCompetencia, situacaoDaCompetencia, sugerirCompetencia, totalPago, TOLERANCIA,
+  type SituacaoDaCompetencia, type TipoControle,
 } from "@/lib/sustento";
 import { hojeLocal } from "@/lib/data";
 
 const dataBr = (iso: string | null) => (iso ? iso.split("-").reverse().join("/") : "—");
+const dataHoraBr = (iso: string) =>
+  new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+
+const OPCOES_DE_CONTROLE: Array<{ valor: TipoControle; titulo: string; texto: string }> = [
+  { valor: "automatico", titulo: "Automático", texto: "O sistema sugere o mais adequado pelo histórico: adiantamentos ou RSP regulares → Avançado; senão, Simples." },
+  { valor: "simples", titulo: "Simples", texto: "Valor previsto, valor pago e saldo. Sem IRRF, adiantamentos, complementos nem rubricas." },
+  { valor: "avancado", titulo: "Avançado", texto: "Sustento bruto, IRRF, outros descontos, adiantamentos, complementos e valor líquido." },
+];
 
 const ROTULO_PAGAMENTO = { adiantamento: "Adiantamento", pagamento_final: "Pagamento final", complemento: "Complemento", pagamento: "Pagamento" } as const;
 
@@ -133,6 +144,18 @@ function PainelDoBeneficiario({ b, aoMudar }: { b: BeneficiarioComCompetencias; 
   const [aberta, setAberta] = useState<string | null>(null);
   const [dataTeste, setDataTeste] = useState(hojeLocal());
   const [gravando, setGravando] = useState(false);
+  const vigente = useMemo(() => modoVigente(b.tipoControle, b.tipo, b.competencias), [b]);
+  const ultima = b.alteracoes[0] ?? null;
+
+  async function escolherTipoDeControle(novo: TipoControle) {
+    if (novo === b.tipoControle) return;
+    setGravando(true);
+    const r = await definirTipoDeControle(b.id, novo);
+    setGravando(false);
+    if (!r.ok) { toast.error(r.erro ?? "Não foi possível salvar."); return; }
+    toast.success(`Tipo de controle: ${ROTULO_TIPO_CONTROLE[novo]}. Vale a partir das próximas competências.`);
+    aoMudar();
+  }
 
   // se a competência aberta some (troca de beneficiário), recolhe
   useEffect(() => { setAberta(null); }, [b.id]);
@@ -174,6 +197,37 @@ function PainelDoBeneficiario({ b, aoMudar }: { b: BeneficiarioComCompetencias; 
               </span>
             </label>
           </div>
+          {b.controleCompetencia && (
+            <div className="rounded-md border px-3 py-2 space-y-2">
+              <p className="text-sm font-medium">Tipo de controle</p>
+              <RadioGroup value={b.tipoControle} onValueChange={(v) => escolherTipoDeControle(v as TipoControle)} disabled={gravando} className="gap-1.5">
+                {OPCOES_DE_CONTROLE.map((o) => (
+                  <label key={o.valor} htmlFor={`tc-${b.id}-${o.valor}`} className="flex items-start gap-2 cursor-pointer">
+                    <RadioGroupItem value={o.valor} id={`tc-${b.id}-${o.valor}`} className="mt-0.5" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm">{o.titulo}</span>
+                      <span className="block text-xs text-muted-foreground">{o.texto}</span>
+                    </span>
+                  </label>
+                ))}
+              </RadioGroup>
+              <p className="text-xs" data-testid="modo-vigente">
+                <span className="font-medium">Para as próximas competências vale: {ROTULO_MODO[vigente.modo]}</span>
+                <span className="text-muted-foreground"> ({vigente.automatico ? "automático — " : ""}{vigente.motivo})</span>
+              </p>
+              <p className="text-xs text-muted-foreground">
+                A troca não reinterpreta nem recalcula competências antigas: cada uma continua como foi criada.
+              </p>
+              {ultima && (
+                <p className="text-xs text-muted-foreground">
+                  Última alteração: {dataHoraBr(ultima.alteradoEm)}{ultima.alteradoPorNome ? ` por ${ultima.alteradoPorNome}` : ""}
+                  {ultima.tipoControleAnterior && ultima.tipoControleAnterior !== ultima.tipoControleNovo
+                    ? ` — ${ROTULO_TIPO_CONTROLE[ultima.tipoControleAnterior]} → ${ROTULO_TIPO_CONTROLE[ultima.tipoControleNovo]}`
+                    : ultima.controleAnterior === false ? " — controle ligado" : ""}
+                </p>
+              )}
+            </div>
+          )}
           {b.controleCompetencia && (
             <div className="grid grid-cols-2 gap-2">
               <div className="rounded-md border px-3 py-2 min-w-0">
@@ -243,7 +297,7 @@ function LinhaDeCompetencia({ c, aberta, alternar }: { c: CompetenciaDoSustento;
         className="w-full flex items-center gap-2 px-3 py-2.5 text-left hover:bg-muted/30">
         {aberta ? <ChevronDown className="w-4 h-4 shrink-0 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 shrink-0 text-muted-foreground" />}
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium capitalize">{rotuloCompetencia(c.competencia)}</p>
+          <p className="text-sm font-medium"><span className="capitalize">{rotuloCompetencia(c.competencia)}</span> <span className="text-[11px] font-normal text-muted-foreground">· {ROTULO_MODO[c.modo]}</span></p>
           <p className="text-xs text-muted-foreground tabular-nums">
             {c.liquidoPrevisto > 0 ? `líquido ${brl(c.liquidoPrevisto)}` : "sem apuração"} · pago {brl(pago)}
           </p>
@@ -270,7 +324,7 @@ function Linha({ rotulo, valor, forte, sinal }: { rotulo: string; valor: number;
 function DetalheDaCompetencia({ c }: { c: CompetenciaDoSustento }) {
   return (
     <div className="px-4 pb-4 pt-1 space-y-3 text-sm bg-muted/20">
-      {c.nItens > 0 ? (
+      {c.modo === "avancado" && c.nItens > 0 ? (
         <div>
           <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Apuração do RSP</p>
           <Linha rotulo="Sustento pastoral" valor={c.sustento} sinal="+" />

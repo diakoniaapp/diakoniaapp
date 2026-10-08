@@ -8,7 +8,12 @@
 // tem a chave "Controle por competência" (`controleCompetencia`, padrão desligada). Ligada, vale competência mensal, adiantamento,
 // complemento e saldo a pagar; desligada, a pessoa segue paga pelas recorrências de sempre e nada aqui se aplica. Qualquer tipo
 // (pastor, funcionário, missionário, bolsista, PAM, convênio) pode ligar. O `tipo` é só rótulo — não decide comportamento.
-// (A primeira versão derivava um "modo simples/avançado" do tipo; saiu antes de ir ao banco.)
+//
+// TIPO DE CONTROLE — com o controle ligado, a igreja escolhe como administrar o compromisso: Automático (padrão), Simples ou
+// Avançado. "Simples" é valor previsto, valor pago e saldo; "Avançado" acrescenta sustento bruto, IRRF, outros descontos,
+// adiantamentos, complementos e líquido. "Automático" sugere um dos dois pelo histórico (ver `sugerirModo`) — e o rótulo do tipo
+// (pastor titular → avançado, o resto → simples) só serve de ponto de partida quando ainda não há histórico. A troca vale SÓ para
+// novas competências: cada competência guarda o modo com que nasceu e o banco recusa mudá-lo depois que há rubricas ou pagamentos.
 // Sem React, sem banco — o serviço lê, a tela mostra, esta camada decide. Datas sempre "YYYY-MM-DD" (sem `Date`+UTC).
 
 export type TipoBeneficiario =
@@ -28,6 +33,12 @@ export const ROTULO_TIPO: Record<TipoBeneficiario, string> = {
 };
 
 // ── competência ──────────────────────────────────────────────────────────────
+
+export type ModoSustento = "simples" | "avancado";
+export type TipoControle = "automatico" | "simples" | "avancado";
+
+export const ROTULO_TIPO_CONTROLE: Record<TipoControle, string> = { automatico: "Automático", simples: "Simples", avancado: "Avançado" };
+export const ROTULO_MODO: Record<ModoSustento, string> = { simples: "Simples", avancado: "Avançado" };
 
 /** Dia do mês até o qual um adiantamento ainda pertence ao mês corrente; depois dele, ao mês seguinte. */
 export const DIA_LIMITE_ADIANTAMENTO = 20;
@@ -57,6 +68,8 @@ export function mesSeguinte(data: string): string {
 export interface CompetenciaParaSugestao {
   competencia: string;                      // "YYYY-MM-01"
   status: "aberta" | "fechada" | "paga";
+  /** O modo com que a competência NASCEU — não muda com a configuração do beneficiário. */
+  modo: ModoSustento;
   liquidoPrevisto: number;
   saldoAPagar: number;
   /** Quantas rubricas do RSP foram lançadas (0 → o líquido é o valor previsto da competência). */
@@ -65,13 +78,13 @@ export interface CompetenciaParaSugestao {
 
 /**
  * A competência está APURADA e com dinheiro a pagar? Só então ela disputa o pagamento.
- *   · com rubricas do RSP: o saldo só vale depois do fechamento (RSP conferido). Uma competência "aberta" ainda recebe adiantamentos
- *     e o líquido dela é provisório — tratá-la como dívida faria todo adiantamento de setembro parecer pagamento de setembro.
- *   · só com valor previsto: vale desde que haja valor (o valor confirmado já é a apuração).
+ *   · avançada: o saldo só vale depois do fechamento (RSP conferido). Uma competência "aberta" ainda recebe adiantamentos e o
+ *     líquido dela é provisório — tratá-la como dívida faria todo adiantamento de setembro parecer pagamento de setembro.
+ *   · simples: vale desde que haja valor previsto (o valor confirmado já é a apuração).
  */
 export function temSaldoPendente(c: CompetenciaParaSugestao): boolean {
   if (c.status === "paga") return false;
-  if (c.nItens > 0 && c.status !== "fechada") return false;
+  if (c.modo === "avancado" && c.status !== "fechada") return false;
   return c.liquidoPrevisto > TOLERANCIA && c.saldoAPagar > TOLERANCIA;
 }
 
@@ -123,6 +136,60 @@ export function sugerirCompetencia(dataPagamento: string, competencias: Competen
     motivo: "proxima",
     explicacao: `Sem saldo pendente; pagamento depois do dia ${DIA_LIMITE_ADIANTAMENTO} fica na competência seguinte.`,
   };
+}
+
+// ── o modo do beneficiário: Automático, Simples ou Avançado ─────────────────────
+
+export interface SugestaoDeModo {
+  modo: ModoSustento;
+  /** Frase para a tela: por que este modo. */
+  motivo: string;
+}
+
+/** Quantas das últimas competências com movimento entram na leitura do histórico. */
+const JANELA_DO_HISTORICO = 3;
+
+/**
+ * O modo que o "Automático" sugere, pelo HISTÓRICO do beneficiário (pedido dela, 08/10/2026):
+ *   · olha as últimas 3 competências com movimento (rubricas, adiantamento ou pagamento);
+ *   · com 2 ou mais delas: avançado se ao menos 2 tiveram adiantamento ou rubricas do RSP (uso REGULAR), senão simples;
+ *   · com menos de 2 (beneficiário novo): o rótulo do tipo é só o ponto de partida — pastor titular → avançado, o resto → simples.
+ * Quem passa a receber adiantamento regularmente vira avançado sozinho, sem mexer no cadastro da pessoa. É sugestão: o
+ * "Simples" e o "Avançado" fixos da configuração têm precedência.
+ */
+export function sugerirModo(
+  tipo: TipoBeneficiario,
+  competencias: Array<Pick<LinhaDaCompetencia, "competencia" | "adiantamentos" | "nItens" | "pagamentosFinais" | "complementos" | "pagamentosSimples">>,
+): SugestaoDeModo {
+  const comMovimento = competencias
+    .filter((c) => c.adiantamentos > TOLERANCIA || c.nItens > 0 || c.pagamentosFinais + c.complementos + c.pagamentosSimples > TOLERANCIA)
+    .sort((a, b) => (a.competencia < b.competencia ? 1 : -1))
+    .slice(0, JANELA_DO_HISTORICO);
+  if (comMovimento.length >= 2) {
+    const regulares = comMovimento.filter((c) => c.adiantamentos > TOLERANCIA || c.nItens > 0).length;
+    return regulares >= 2
+      ? { modo: "avancado", motivo: `adiantamentos ou RSP em ${regulares} das últimas ${comMovimento.length} competências` }
+      : { modo: "simples", motivo: `sem adiantamentos regulares nas últimas ${comMovimento.length} competências` };
+  }
+  return tipo === "pastor_titular"
+    ? { modo: "avancado", motivo: "ainda sem histórico — o pastor titular costuma receber com adiantamento e IRRF" }
+    : { modo: "simples", motivo: "ainda sem histórico — começa pelo mais simples" };
+}
+
+export interface ModoVigente extends SugestaoDeModo {
+  /** Verdadeiro quando veio do Automático; falso quando a igreja fixou Simples ou Avançado. */
+  automatico: boolean;
+}
+
+/** O modo que vale para as PRÓXIMAS competências do beneficiário. As existentes guardam o modo com que nasceram. */
+export function modoVigente(
+  tipoControle: TipoControle,
+  tipo: TipoBeneficiario,
+  competencias: Parameters<typeof sugerirModo>[1],
+): ModoVigente {
+  if (tipoControle === "simples") return { modo: "simples", motivo: "definido pela igreja", automatico: false };
+  if (tipoControle === "avancado") return { modo: "avancado", motivo: "definido pela igreja", automatico: false };
+  return { ...sugerirModo(tipo, competencias), automatico: true };
 }
 
 // ── a conta corrente de uma competência (o que a tela mostra) ───────────────────

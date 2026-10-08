@@ -6,6 +6,10 @@
 -- "Controle por competência" LIGADO (recebe com adiantamento e saldo); o Pastor Missionário é cadastrado com ele DESLIGADO — segue
 -- pago pela recorrência de sempre, sem competência, e nada dele é ligado aqui. Para ligar depois: a chave na tela, ou
 -- UPDATE public.sustento_beneficiarios SET controle_por_competencia = true WHERE id = '…'.
+-- TIPO DE CONTROLE: ambos nascem em "automatico" (o padrão). Cada competência carregada guarda o modo com que nasceu — as do titular
+-- são 'avancado' (RSP com rubricas, adiantamentos) — e o app resolve o Automático só para as PRÓXIMAS. O ensaio também prova duas
+-- proteções do banco: (1) o histórico de quem alterou o controle é gravado pelo gatilho; (2) o modo de uma competência com
+-- movimento não pode ser trocado.
 -- O que NÃO faz: não altera, não apaga e não cria nenhum lançamento; não toca em saldo, recorrência ou OFX. Só insere nas
 -- tabelas sustento_*. O bloco de verificação compara fin_lancamentos antes e depois e ABORTA se qualquer coisa mudou.
 --
@@ -53,8 +57,8 @@ BEGIN
 
   -- ── Pastor Titular · controle por competência ligado ──
   -- agosto: sem o RSP em mãos; o líquido previsto é o de setembro (13.728,00), "≈" — falta o RSP de agosto para fechar o centavo
-  INSERT INTO public.sustento_competencias (beneficiario_id, competencia, status, valor_previsto, fechada_em, observacoes)
-    VALUES (b_titular, '2026-08-01', 'paga', 13728.00, now(), 'Carga inicial: líquido estimado pelo RSP de setembro; o RSP de agosto fecha o centavo (diferença de R$ 1,00).')
+  INSERT INTO public.sustento_competencias (beneficiario_id, competencia, status, modo, valor_previsto, fechada_em, observacoes)
+    VALUES (b_titular, '2026-08-01', 'paga', 'avancado', 13728.00, now(), 'Carga inicial: líquido estimado pelo RSP de setembro; o RSP de agosto fecha o centavo (diferença de R$ 1,00).')
     RETURNING id INTO c_ago_t;
   INSERT INTO public.sustento_pagamentos (competencia_id, lancamento_id, tipo) VALUES
     (c_ago_t, 'e8f093b5-bf59-446f-8eea-587cad341e2a', 'adiantamento'),
@@ -62,8 +66,8 @@ BEGIN
     (c_ago_t, 'd9d0dad4-3dff-456f-bd6c-20447dd42e80', 'pagamento_final');
 
   -- setembro: o RSP está em mãos → fechada, com as rubricas
-  INSERT INTO public.sustento_competencias (beneficiario_id, competencia, status, fechada_em, observacoes)
-    VALUES (b_titular, '2026-09-01', 'fechada', now(), 'Carga inicial a partir do RSP de setembro/2026.') RETURNING id INTO c_set_t;
+  INSERT INTO public.sustento_competencias (beneficiario_id, competencia, status, modo, fechada_em, observacoes)
+    VALUES (b_titular, '2026-09-01', 'fechada', 'avancado', now(), 'Carga inicial a partir do RSP de setembro/2026.') RETURNING id INTO c_set_t;
   INSERT INTO public.sustento_itens (competencia_id, rubrica, descricao, natureza, valor, ordem) VALUES
     (c_set_t, 'sustento',       'Sustento pastoral',        'provento', 17451.84, 1),
     (c_set_t, 'arredondamento', 'Arredondamento (crédito)', 'provento',     0.48, 2),
@@ -77,13 +81,44 @@ END
 $carga$;
 
 -- ─── quadro de conferência: o que a visão devolve ───────────────────────────────────────────────────────────────
-SELECT nome_exibicao, to_char(competencia, 'MM/YYYY') AS competencia, status,
+SELECT nome_exibicao, to_char(competencia, 'MM/YYYY') AS competencia, status, modo,
        liquido_previsto, adiantamentos, pagamentos_finais, pagamentos_simples, saldo_a_pagar,
        CASE competencia
          WHEN '2026-09-01' THEN (liquido_previsto = 13728.00 AND adiantamentos = 8000.00 AND saldo_a_pagar = 5728.00)
          WHEN '2026-08-01' THEN (adiantamentos = 10300.00 AND pagamentos_finais = 3429.00 AND saldo_a_pagar = -1.00)
        END AS confere
   FROM public.vw_sustento_conta_corrente ORDER BY nome_exibicao, competencia;
+
+-- ─── prova das duas proteções do banco ──────────────────────────────────────────────────────────────────────────
+DO $prova$
+DECLARE v_set uuid; v_titular uuid; n_hist int; falhou boolean := false;
+BEGIN
+  SELECT id INTO v_titular FROM public.sustento_beneficiarios WHERE tipo = 'pastor_titular';
+  SELECT id INTO v_set FROM public.sustento_competencias WHERE beneficiario_id = v_titular AND competencia = '2026-09-01';
+
+  -- (2) a competência de setembro já tem rubricas e pagamentos: trocar o modo tem de ser recusado
+  BEGIN
+    UPDATE public.sustento_competencias SET modo = 'simples' WHERE id = v_set;
+  EXCEPTION WHEN OTHERS THEN falhou := true;
+  END;
+  IF NOT falhou THEN RAISE EXCEPTION 'ABORTADO: o banco deixou trocar o modo de uma competência com movimento'; END IF;
+
+  -- (1) trocar o tipo de controle do titular gera uma linha no histórico (quem/quando); a competência existente não muda
+  UPDATE public.sustento_beneficiarios SET tipo_controle = 'simples' WHERE id = v_titular;
+  SELECT count(*) INTO n_hist FROM public.sustento_controle_historico
+   WHERE beneficiario_id = v_titular AND tipo_controle_anterior = 'automatico' AND tipo_controle_novo = 'simples';
+  IF n_hist <> 1 THEN RAISE EXCEPTION 'ABORTADO: o histórico de alteração não foi gravado (% linhas)', n_hist; END IF;
+  IF (SELECT modo FROM public.sustento_competencias WHERE id = v_set) <> 'avancado' THEN
+    RAISE EXCEPTION 'ABORTADO: a troca do tipo de controle reinterpretou uma competência existente';
+  END IF;
+  UPDATE public.sustento_beneficiarios SET tipo_controle = 'automatico' WHERE id = v_titular;   -- volta (e também fica registrado)
+  RAISE NOTICE 'OK: modo imutável com movimento; histórico de controle gravado pelo gatilho';
+END
+$prova$;
+
+SELECT b.nome_exibicao, h.tipo_controle_anterior, h.tipo_controle_novo, h.controle_anterior, h.controle_novo, h.alterado_por_nome, h.alterado_em
+  FROM public.sustento_controle_historico h JOIN public.sustento_beneficiarios b ON b.id = h.beneficiario_id
+ ORDER BY h.alterado_em, b.nome_exibicao;
 
 -- ─── trava: nada em fin_lancamentos ou nos saldos pode ter mudado ───────────────────────────────────────────────
 DO $trava$
@@ -105,7 +140,7 @@ $trava$;
 SELECT 'fin_lancamentos e saldos intactos' AS trava, (SELECT n FROM _antes) AS lancamentos;
 
 -- os dois beneficiários e a chave de cada um
-SELECT nome_exibicao, tipo, controle_por_competencia AS controle_ligado,
+SELECT nome_exibicao, tipo, controle_por_competencia AS controle_ligado, tipo_controle,
        (SELECT count(*) FROM public.sustento_competencias c WHERE c.beneficiario_id = b.id) AS competencias
   FROM public.sustento_beneficiarios b ORDER BY nome_exibicao;
 

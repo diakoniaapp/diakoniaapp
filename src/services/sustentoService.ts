@@ -10,7 +10,7 @@
 // `importacaoOfxService.ts` com `fin_extrato_ignorados`.
 import { supabase } from "@/integrations/supabase/client";
 import { conferir } from "@/lib/escritaConferida";
-import type { LinhaDaCompetencia, TipoBeneficiario } from "@/lib/sustento";
+import type { LinhaDaCompetencia, ModoSustento, TipoBeneficiario, TipoControle } from "@/lib/sustento";
 
 export interface Beneficiario {
   id: string;
@@ -18,6 +18,8 @@ export interface Beneficiario {
   nomeExibicao: string;
   /** "Controle por competência": ligado, a pessoa tem competência, adiantamento e saldo a pagar; desligado, segue só pelas recorrências. */
   controleCompetencia: boolean;
+  /** Como administrar: automático (sugere pelo histórico), simples ou avançado. Vale só para as PRÓXIMAS competências. */
+  tipoControle: TipoControle;
   diaDoLiquido: number | null;
   observacoes: string | null;
 }
@@ -61,8 +63,20 @@ export interface CompetenciaDoSustento extends LinhaDaCompetencia {
   pagamentos: PagamentoDaCompetencia[];
 }
 
+/** Uma mudança do controle ou do tipo de controle — quem e quando (gravada pelo gatilho do banco, não pelo app). */
+export interface AlteracaoDeControle {
+  id: string;
+  controleAnterior: boolean | null;
+  controleNovo: boolean;
+  tipoControleAnterior: TipoControle | null;
+  tipoControleNovo: TipoControle;
+  alteradoPorNome: string | null;
+  alteradoEm: string;
+}
+
 export interface BeneficiarioComCompetencias extends Beneficiario {
   competencias: CompetenciaDoSustento[];   // da mais nova para a mais antiga
+  alteracoes: AlteracaoDeControle[];       // da mais nova para a mais antiga
 }
 
 // Interface plana, e não união discriminada por `pronto`: o projeto roda sem strictNullChecks, e nesse modo o TypeScript não
@@ -85,7 +99,7 @@ const num = (v: unknown): number => (v == null ? 0 : Number(v));
 export async function carregarSustento(): Promise<ResultadoDoSustento> {
   const bens = await supabase
     .from("sustento_beneficiarios" as never)
-    .select("id, tipo, nome_exibicao, controle_por_competencia, dia_do_liquido, observacoes")
+    .select("id, tipo, nome_exibicao, controle_por_competencia, tipo_controle, dia_do_liquido, observacoes")
     .eq("ativo" as never, true as never)
     .order("nome_exibicao" as never);
   if (bens.error) {
@@ -94,12 +108,15 @@ export async function carregarSustento(): Promise<ResultadoDoSustento> {
       : { pronto: false, beneficiarios: [], motivo: "erro", mensagem: bens.error.message };
   }
 
-  const [comps, itens, pags] = await Promise.all([
+  const [comps, itens, pags, hist] = await Promise.all([
     supabase.from("vw_sustento_conta_corrente" as never).select("*").order("competencia" as never, { ascending: false }),
     supabase.from("sustento_itens" as never).select("id, competencia_id, rubrica, codigo, descricao, natureza, valor, ordem").order("ordem" as never),
     supabase.from("sustento_pagamentos" as never).select("id, competencia_id, lancamento_id, tipo"),
+    supabase.from("sustento_controle_historico" as never)
+      .select("id, beneficiario_id, controle_anterior, controle_novo, tipo_controle_anterior, tipo_controle_novo, alterado_por_nome, alterado_em")
+      .order("alterado_em" as never, { ascending: false }),
   ]);
-  const falha = comps.error ?? itens.error ?? pags.error;
+  const falha = comps.error ?? itens.error ?? pags.error ?? hist.error;
   if (falha) return { pronto: false, beneficiarios: [], motivo: "erro", mensagem: falha.message };
 
   // os lançamentos dos pagamentos, em uma consulta só (sem embed: as tabelas novas não estão nos tipos gerados)
@@ -130,10 +147,19 @@ export async function carregarSustento(): Promise<ResultadoDoSustento> {
   const beneficiarios: BeneficiarioComCompetencias[] = ((bens.data ?? []) as unknown as Linha[]).map((b) => ({
     id: b.id, tipo: b.tipo as TipoBeneficiario, nomeExibicao: b.nome_exibicao,
     controleCompetencia: !!b.controle_por_competencia,
+    tipoControle: (b.tipo_controle ?? "automatico") as TipoControle,
     diaDoLiquido: b.dia_do_liquido ?? null, observacoes: b.observacoes ?? null,
-    competencias: [],
+    competencias: [], alteracoes: [],
   }));
   const porId = new Map(beneficiarios.map((b) => [b.id, b]));
+
+  for (const h of (hist.data ?? []) as unknown as Linha[]) {
+    porId.get(h.beneficiario_id)?.alteracoes.push({
+      id: h.id, controleAnterior: h.controle_anterior ?? null, controleNovo: !!h.controle_novo,
+      tipoControleAnterior: (h.tipo_controle_anterior ?? null) as TipoControle | null, tipoControleNovo: h.tipo_controle_novo as TipoControle,
+      alteradoPorNome: h.alterado_por_nome ?? null, alteradoEm: h.alterado_em,
+    });
+  }
 
   for (const r of (comps.data ?? []) as unknown as Linha[]) {
     const b = porId.get(r.beneficiario_id);
@@ -141,6 +167,8 @@ export async function carregarSustento(): Promise<ResultadoDoSustento> {
     const pagamentos = (pagamentosPor.get(r.competencia_id) ?? []).sort((x, y) => (x.data ?? "").localeCompare(y.data ?? ""));
     b.competencias.push({
       id: r.competencia_id, beneficiarioId: r.beneficiario_id, competencia: r.competencia, status: r.status,
+      // o modo com que a competência NASCEU: trocar o tipo de controle do beneficiário não a reinterpreta
+      modo: r.modo as ModoSustento,
       liquidoPrevisto: num(r.liquido_previsto), saldoAPagar: num(r.saldo_a_pagar),
       adiantamentos: num(r.adiantamentos), pagamentosFinais: num(r.pagamentos_finais), complementos: num(r.complementos),
       pagamentosSimples: num(r.pagamentos_simples), nItens: num(r.n_itens),
@@ -163,6 +191,18 @@ export async function definirControlePorCompetencia(beneficiarioId: string, liga
   const r = conferir(
     await supabase.from("sustento_beneficiarios" as never).update({ controle_por_competencia: ligado } as never).eq("id" as never, beneficiarioId as never).select("id"),
     "O controle por competência",
+  );
+  return r.ok ? { ok: true } : { ok: false, erro: r.erro };
+}
+
+/**
+ * Escolhe o tipo de controle (automático, simples ou avançado). Vale só para as PRÓXIMAS competências: nenhuma competência
+ * existente é tocada (cada uma guarda o modo com que nasceu) e o gatilho do banco registra quem mudou e quando.
+ */
+export async function definirTipoDeControle(beneficiarioId: string, tipoControle: TipoControle): Promise<{ ok: boolean; erro?: string }> {
+  const r = conferir(
+    await supabase.from("sustento_beneficiarios" as never).update({ tipo_controle: tipoControle } as never).eq("id" as never, beneficiarioId as never).select("id"),
+    "O tipo de controle",
   );
   return r.ok ? { ok: true } : { ok: false, erro: r.erro };
 }

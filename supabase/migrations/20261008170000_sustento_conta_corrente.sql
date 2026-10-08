@@ -18,8 +18,17 @@
 --   pastor, funcionário, missionário, bolsista, PAM, convênio — basta a igreja começar a trabalhar com adiantamento, complemento
 --   ou saldo residual. O `tipo` é só rótulo. (A versão anterior deste arquivo amarrava o comportamento ao tipo — pastor_titular
 --   avançado, os demais simples — e tinha as colunas modo_manual*; foi trocada antes de ser aplicada.)
---   Dentro de uma competência não há "modo": havendo rubricas do RSP (sustento_itens) o líquido vem delas; não havendo, vem de
---   `valor_previsto`. A tela se adapta ao que existe.
+-- TIPO DE CONTROLE — com o controle ligado, a igreja escolhe como administrar aquele compromisso (pedido dela, 08/10/2026):
+--   `tipo_controle`: automatico (padrão) | simples | avancado.
+--     simples  = valor previsto, valor pago e saldo; sem IRRF, adiantamento, complemento ou rubricas.
+--     avancado = sustento bruto, IRRF, outros descontos, adiantamentos, complementos e líquido (as rubricas do RSP).
+--     automatico = o app sugere o mais adequado pelo histórico do beneficiário (adiantamentos/rubricas regulares → avançado;
+--                  sem histórico, o rótulo do tipo serve de ponto de partida) — src/lib/sustento.ts: sugerirModo.
+--   A troca vale SÓ PARA NOVAS COMPETÊNCIAS: cada competência guarda o modo com que nasceu (`sustento_competencias.modo`) e o banco
+--   recusa mudá-lo depois que ela tem rubricas ou pagamentos. Nada é reinterpretado nem recalculado.
+--   Quem e quando: o gatilho `sustento_registrar_controle` grava cada mudança de controle ou de tipo de controle em
+--   `sustento_controle_historico` (nome de quem alterou incluído, porque a tesouraria não lê o perfil dos outros usuários). A
+--   tabela só tem política de LEITURA — ninguém escreve nela, só o gatilho; e não há UPDATE nem DELETE.
 --
 -- ACESSO: remuneração de pastor é dado sensível. Só administração e tesouraria (pedido dela: "Tesouraria, Administração.
 -- Avalie posteriormente liberar visualização para perfis específicos"). Sem `diakonia` e sem `secretaria` de propósito — a malha
@@ -34,6 +43,7 @@ CREATE TABLE IF NOT EXISTS public.sustento_beneficiarios (
   -- "Controle por competência": ( ) Não utilizar  ( ) Utilizar Conta Corrente de Sustento. Desligar não apaga competência nenhuma:
   -- o histórico fica guardado e a tela o mostra como histórico.
   controle_por_competencia boolean NOT NULL DEFAULT false,
+  tipo_controle   text NOT NULL DEFAULT 'automatico' CHECK (tipo_controle IN ('automatico', 'simples', 'avancado')),
   pessoa_id       uuid REFERENCES public.membros(id) ON DELETE RESTRICT,
   fornecedor_id   uuid REFERENCES public.fin_fornecedores(id) ON DELETE RESTRICT,
   conta_id        uuid REFERENCES public.fin_contas(id),                 -- conta pagadora habitual
@@ -55,6 +65,9 @@ CREATE TABLE IF NOT EXISTS public.sustento_competencias (
   -- fechada = o RSP saiu: a apuração está conferida e o saldo a pagar vira OBRIGAÇÃO PREVISTA
   -- paga    = saldo a pagar zerado
   status           text NOT NULL DEFAULT 'aberta' CHECK (status IN ('aberta', 'fechada', 'paga')),
+  -- O modo com que a competência NASCEU (o app resolve o "automático" no momento de criar). Sem DEFAULT de propósito: quem cria
+  -- a competência decide; um padrão silencioso reinterpretaria o histórico. Imutável depois que há rubricas ou pagamentos.
+  modo             text NOT NULL CHECK (modo IN ('simples', 'avancado')),
   -- Sem rubricas: só o valor previsto do mês (`valor_previsto`); `confirmada_em` = o valor foi confirmado e a obrigação nasce.
   -- Com rubricas (sustento_itens, as linhas do RSP): o líquido vem delas e a obrigação nasce no fechamento.
   valor_previsto   numeric(14, 2) CHECK (valor_previsto IS NULL OR valor_previsto >= 0),
@@ -98,7 +111,7 @@ CREATE INDEX IF NOT EXISTS sustento_pagamentos_competencia_idx    ON public.sust
 
 -- 5. a conta corrente: o que a tela mostra, calculado (nada é digitado duas vezes)
 CREATE OR REPLACE VIEW public.vw_sustento_conta_corrente WITH (security_invoker = true) AS
-SELECT c.id AS competencia_id, c.beneficiario_id, b.nome_exibicao, b.tipo, b.controle_por_competencia, c.competencia, c.status,
+SELECT c.id AS competencia_id, c.beneficiario_id, b.nome_exibicao, b.tipo, b.controle_por_competencia, c.competencia, c.status, c.modo,
        c.valor_previsto, c.confirmada_em, c.fechada_em, c.rsp_url, c.obrigacao_id,
        i.n_itens, i.sustento, i.outros_proventos, i.proventos,
        i.irrf, i.outros_descontos, i.descontos,
@@ -126,17 +139,74 @@ SELECT c.id AS competencia_id, c.beneficiario_id, b.nome_exibicao, b.tipo, b.con
       JOIN public.fin_lancamentos l ON l.id = sp.lancamento_id AND l.status IN ('realizado', 'conciliado')
      WHERE sp.competencia_id = c.id) p ON true;
 
+-- 5b. quem mudou o controle, e quando (append-only: só o gatilho escreve)
+CREATE TABLE IF NOT EXISTS public.sustento_controle_historico (
+  id                     uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  beneficiario_id        uuid NOT NULL REFERENCES public.sustento_beneficiarios(id) ON DELETE RESTRICT,
+  controle_anterior      boolean,                 -- nulo no cadastro inicial
+  controle_novo          boolean NOT NULL,
+  tipo_controle_anterior text,
+  tipo_controle_novo     text NOT NULL,
+  alterado_por           uuid,                    -- auth.uid(); nulo quando a mudança vem do SQL Editor
+  alterado_por_nome      text,
+  alterado_em            timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS sustento_controle_historico_idx ON public.sustento_controle_historico (beneficiario_id, alterado_em DESC);
+
+CREATE OR REPLACE FUNCTION public.sustento_registrar_controle() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public', 'pg_temp' AS $f$
+DECLARE v_nome text;
+BEGIN
+  IF TG_OP = 'UPDATE' AND NEW.controle_por_competencia IS NOT DISTINCT FROM OLD.controle_por_competencia
+                      AND NEW.tipo_controle IS NOT DISTINCT FROM OLD.tipo_controle THEN
+    RETURN NEW;
+  END IF;
+  SELECT nome INTO v_nome FROM public.profiles WHERE id = auth.uid();
+  INSERT INTO public.sustento_controle_historico
+    (beneficiario_id, controle_anterior, controle_novo, tipo_controle_anterior, tipo_controle_novo, alterado_por, alterado_por_nome)
+  VALUES (NEW.id,
+          CASE WHEN TG_OP = 'UPDATE' THEN OLD.controle_por_competencia END, NEW.controle_por_competencia,
+          CASE WHEN TG_OP = 'UPDATE' THEN OLD.tipo_controle END, NEW.tipo_controle,
+          auth.uid(), v_nome);
+  RETURN NEW;
+END
+$f$;
+REVOKE ALL ON FUNCTION public.sustento_registrar_controle() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS trg_sustento_registrar_controle ON public.sustento_beneficiarios;
+CREATE TRIGGER trg_sustento_registrar_controle
+  AFTER INSERT OR UPDATE OF controle_por_competencia, tipo_controle ON public.sustento_beneficiarios
+  FOR EACH ROW EXECUTE FUNCTION public.sustento_registrar_controle();
+
+-- o modo de uma competência com movimento não se reinterpreta
+CREATE OR REPLACE FUNCTION public.sustento_proteger_modo() RETURNS trigger
+LANGUAGE plpgsql SET search_path TO 'public', 'pg_temp' AS $f$
+BEGIN
+  IF NEW.modo IS DISTINCT FROM OLD.modo
+     AND (EXISTS (SELECT 1 FROM public.sustento_itens WHERE competencia_id = OLD.id)
+          OR EXISTS (SELECT 1 FROM public.sustento_pagamentos WHERE competencia_id = OLD.id)) THEN
+    RAISE EXCEPTION 'O modo de uma competência com rubricas ou pagamentos não pode ser alterado (a troca vale só para novas competências).';
+  END IF;
+  RETURN NEW;
+END
+$f$;
+DROP TRIGGER IF EXISTS trg_sustento_proteger_modo ON public.sustento_competencias;
+CREATE TRIGGER trg_sustento_proteger_modo BEFORE UPDATE OF modo ON public.sustento_competencias
+  FOR EACH ROW EXECUTE FUNCTION public.sustento_proteger_modo();
+
 -- 6. acesso
 ALTER TABLE public.sustento_beneficiarios ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sustento_competencias  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sustento_itens         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sustento_pagamentos    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.sustento_controle_historico ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.sustento_controle_historico FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.sustento_beneficiarios FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.sustento_competencias  FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.sustento_itens         FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.sustento_pagamentos    FORCE ROW LEVEL SECURITY;
 REVOKE ALL ON public.sustento_beneficiarios, public.sustento_competencias, public.sustento_itens, public.sustento_pagamentos,
-              public.vw_sustento_conta_corrente FROM PUBLIC, anon;
+              public.sustento_controle_historico, public.vw_sustento_conta_corrente FROM PUBLIC, anon;
 
 DROP POLICY IF EXISTS "Bloqueia anon" ON public.sustento_beneficiarios;
 CREATE POLICY "Bloqueia anon" ON public.sustento_beneficiarios AS RESTRICTIVE FOR ALL TO anon USING (false) WITH CHECK (false);
@@ -146,6 +216,13 @@ DROP POLICY IF EXISTS "Bloqueia anon" ON public.sustento_itens;
 CREATE POLICY "Bloqueia anon" ON public.sustento_itens AS RESTRICTIVE FOR ALL TO anon USING (false) WITH CHECK (false);
 DROP POLICY IF EXISTS "Bloqueia anon" ON public.sustento_pagamentos;
 CREATE POLICY "Bloqueia anon" ON public.sustento_pagamentos AS RESTRICTIVE FOR ALL TO anon USING (false) WITH CHECK (false);
+
+DROP POLICY IF EXISTS "Bloqueia anon" ON public.sustento_controle_historico;
+CREATE POLICY "Bloqueia anon" ON public.sustento_controle_historico AS RESTRICTIVE FOR ALL TO anon USING (false) WITH CHECK (false);
+-- só LEITURA: quem escreve é o gatilho (SECURITY DEFINER). Sem política de INSERT/UPDATE/DELETE, o histórico não se forja nem se apaga.
+DROP POLICY IF EXISTS "Sustento le" ON public.sustento_controle_historico;
+CREATE POLICY "Sustento le" ON public.sustento_controle_historico FOR SELECT TO authenticated
+  USING (has_any_role((SELECT auth.uid()), ARRAY['admin'::app_role, 'tesouraria'::app_role]));
 
 DROP POLICY IF EXISTS "Sustento" ON public.sustento_beneficiarios;
 CREATE POLICY "Sustento" ON public.sustento_beneficiarios FOR ALL TO authenticated
@@ -165,7 +242,7 @@ CREATE POLICY "Sustento" ON public.sustento_pagamentos FOR ALL TO authenticated
   WITH CHECK (has_any_role((SELECT auth.uid()), ARRAY['admin'::app_role, 'tesouraria'::app_role]));
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.sustento_beneficiarios, public.sustento_competencias, public.sustento_itens, public.sustento_pagamentos TO authenticated;
-GRANT SELECT ON public.vw_sustento_conta_corrente TO authenticated;
+GRANT SELECT ON public.vw_sustento_conta_corrente, public.sustento_controle_historico TO authenticated;
 
 -- ─── Conferência (setembro/2026 do Pastor Titular, a partir do RSP) — o que a visão deve devolver depois da carga ──
 --   sustento 17.451,84 · outros proventos 0,48 (arredondamento) → proventos 17.452,32

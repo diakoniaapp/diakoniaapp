@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
-  sugerirCompetencia, temSaldoPendente, situacaoDaCompetencia, resumirBeneficiario, motivoParaNaoDesligar,
+  sugerirCompetencia, sugerirModo, modoVigente, temSaldoPendente, situacaoDaCompetencia, resumirBeneficiario, motivoParaNaoDesligar,
   rotuloCompetencia, mesSeguinte, ROTULO_TIPO, type CompetenciaParaSugestao, type LinhaDaCompetencia,
 } from "./sustento";
 
 // uma competência FECHADA com rubricas do RSP (nItens > 0) — o caso do pastor titular
 const c = (competencia: string, o: Partial<CompetenciaParaSugestao> = {}): CompetenciaParaSugestao => ({
-  competencia, status: "fechada", liquidoPrevisto: 13728, saldoAPagar: 0, nItens: 5, ...o,
+  competencia, status: "fechada", modo: "avancado", liquidoPrevisto: 13728, saldoAPagar: 0, nItens: 5, ...o,
 });
 
 describe("quem usa a conta corrente", () => {
@@ -52,8 +52,8 @@ describe("sugerirCompetencia — a hierarquia que ela definiu", () => {
     const s = sugerirCompetencia("2026-09-05", [c("2026-10-01", { saldoAPagar: 999 })]);
     expect(s.competencia).toBe("2026-09-01");
   });
-  it("sem rubricas, só valor previsto: já é pendência mesmo sem fechar (quem recebe um valor fixo por mês)", () => {
-    const s = sugerirCompetencia("2026-10-05", [c("2026-09-01", { status: "aberta", liquidoPrevisto: 2362, saldoAPagar: 2362, nItens: 0 })]);
+  it("modo simples, só valor previsto: já é pendência mesmo sem fechar (quem recebe um valor fixo por mês)", () => {
+    const s = sugerirCompetencia("2026-10-05", [c("2026-09-01", { status: "aberta", modo: "simples", liquidoPrevisto: 2362, saldoAPagar: 2362, nItens: 0 })]);
     expect(s).toMatchObject({ competencia: "2026-09-01", motivo: "saldo_pendente" });
   });
 });
@@ -64,9 +64,10 @@ describe("temSaldoPendente", () => {
     expect(temSaldoPendente(c("2026-08-01", { saldoAPagar: 0 }))).toBe(false);
     expect(temSaldoPendente(c("2026-08-01", { saldoAPagar: -1 }))).toBe(false);
   });
-  it("com rubricas do RSP só pende depois de fechada", () => {
+  it("no modo avançado só pende depois de fechada; no simples, basta haver valor", () => {
     expect(temSaldoPendente(c("2026-09-01", { status: "aberta", saldoAPagar: 5728 }))).toBe(false);
     expect(temSaldoPendente(c("2026-09-01", { status: "fechada", saldoAPagar: 5728 }))).toBe(true);
+    expect(temSaldoPendente(c("2026-09-01", { status: "aberta", modo: "simples", nItens: 0, liquidoPrevisto: 2362, saldoAPagar: 2362 }))).toBe(true);
   });
 });
 
@@ -96,6 +97,57 @@ describe("situacaoDaCompetencia e resumo", () => {
     expect(r.saldoPendente).toBe(5728.1);
     expect(r.pendentes).toEqual(["2026-09-01"]);
     expect(r.adiantadoEmAberto).toBe(4000);
+  });
+});
+
+const hist = (competencia: string, o: Partial<LinhaDaCompetencia> = {}) => ({
+  competencia, adiantamentos: 0, nItens: 0, pagamentosFinais: 0, complementos: 0, pagamentosSimples: 0, ...o,
+});
+
+describe("sugerirModo — o Automático olha o histórico", () => {
+  it("adiantamentos regulares viram Avançado, qualquer que seja o tipo (pastor missionário que passa a receber adiantamento)", () => {
+    const r = sugerirModo("pastor_missionario", [hist("2026-08-01", { adiantamentos: 1000 }), hist("2026-09-01", { adiantamentos: 1000 })]);
+    expect(r.modo).toBe("avancado");
+    expect(r.motivo).toContain("2 das últimas 2");
+  });
+  it("RSP com rubricas também conta como uso regular", () => {
+    expect(sugerirModo("funcionario", [hist("2026-08-01", { nItens: 4 }), hist("2026-09-01", { nItens: 4 })]).modo).toBe("avancado");
+  });
+  it("só pagamentos do líquido, sem adiantamento nem rubricas → Simples, mesmo sendo o pastor titular", () => {
+    const r = sugerirModo("pastor_titular", [hist("2026-08-01", { pagamentosSimples: 2362 }), hist("2026-09-01", { pagamentosSimples: 2362 })]);
+    expect(r.modo).toBe("simples");
+  });
+  it("um adiantamento isolado entre vários meses simples não vira Avançado", () => {
+    const r = sugerirModo("pam", [hist("2026-07-01", { pagamentosSimples: 500 }), hist("2026-08-01", { pagamentosSimples: 500 }), hist("2026-09-01", { adiantamentos: 100 })]);
+    expect(r.modo).toBe("simples");
+  });
+  it("só as 3 competências mais recentes com movimento contam", () => {
+    const r = sugerirModo("pam", [
+      hist("2026-03-01", { adiantamentos: 100 }), hist("2026-04-01", { adiantamentos: 100 }),
+      hist("2026-07-01", { pagamentosSimples: 500 }), hist("2026-08-01", { pagamentosSimples: 500 }), hist("2026-09-01", { pagamentosSimples: 500 }),
+    ]);
+    expect(r.modo).toBe("simples");
+  });
+  it("sem histórico (menos de 2 competências com movimento), o rótulo do tipo é só o ponto de partida", () => {
+    expect(sugerirModo("pastor_titular", []).modo).toBe("avancado");
+    expect(sugerirModo("pastor_missionario", []).modo).toBe("simples");
+    expect(sugerirModo("missionario_sustentado", [hist("2026-09-01", { pagamentosSimples: 2362 })]).modo).toBe("simples");
+    expect(sugerirModo("pam", []).modo).toBe("simples");
+    expect(sugerirModo("convenio_missionario", []).modo).toBe("simples");
+  });
+  it("competência sem movimento nenhum não entra na leitura", () => {
+    expect(sugerirModo("pastor_missionario", [hist("2026-09-01"), hist("2026-08-01")]).motivo).toContain("ainda sem histórico");
+  });
+});
+
+describe("modoVigente — a escolha da igreja vence o Automático", () => {
+  const regular = [hist("2026-08-01", { adiantamentos: 1 }), hist("2026-09-01", { adiantamentos: 1 })];
+  it("Automático segue o histórico e diz que é automático", () => {
+    expect(modoVigente("automatico", "pam", regular)).toMatchObject({ modo: "avancado", automatico: true });
+  });
+  it("Simples e Avançado fixos ignoram o histórico e o tipo", () => {
+    expect(modoVigente("simples", "pastor_titular", regular)).toMatchObject({ modo: "simples", automatico: false });
+    expect(modoVigente("avancado", "pam", [])).toMatchObject({ modo: "avancado", automatico: false });
   });
 });
 
