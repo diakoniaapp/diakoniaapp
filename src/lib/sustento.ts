@@ -308,3 +308,54 @@ export function podeReceberPagamento(c: { status: "aberta" | "fechada" | "paga" 
 export function competenciaExiste(competencia: string, existentes: Array<{ competencia: string }>): boolean {
   return existentes.some((c) => c.competencia === competencia);
 }
+
+// ── criar e fechar a competência (Fase 2, parte 2) ───────────────────────────────
+
+/**
+ * Lê um valor digitado em reais: "17.451,84", "17451,84", "17451.84", "R$ 1.234,50", "4000". Devolve null se não for um número
+ * válido e maior ou igual a zero. O ponto sozinho só vale como milhar quando há grupos de três dígitos ("1.234" = 1234; "12.5" = 12,5).
+ */
+export function parseValorBR(texto: string): number | null {
+  let t = (texto ?? "").replace(/R\$/gi, "").replace(/\s/g, "");
+  if (!t) return null;
+  if (t.includes(",")) t = t.replace(/\./g, "").replace(",", ".");
+  else if (/^\d{1,3}(\.\d{3})+$/.test(t)) t = t.replace(/\./g, "");
+  if (!/^\d+(\.\d+)?$/.test(t)) return null;
+  const n = Number(t);
+  return Number.isFinite(n) ? Math.round(n * 100) / 100 : null;
+}
+
+export type RubricaDoRsp = "sustento" | "arredondamento" | "outro_provento" | "irrf" | "inss" | "outro_desconto";
+export type NaturezaDaRubrica = "provento" | "desconto";
+
+/** As linhas que o editor oferece. O arredondamento aparece duas vezes porque no RSP ele pode ser crédito (+0,48) ou débito (−0,77). */
+export const OPCOES_DE_RUBRICA: Array<{ chave: string; rubrica: RubricaDoRsp; natureza: NaturezaDaRubrica; rotulo: string; descricao: string }> = [
+  { chave: "sustento", rubrica: "sustento", natureza: "provento", rotulo: "Sustento pastoral (provento)", descricao: "Sustento pastoral" },
+  { chave: "outro_provento", rubrica: "outro_provento", natureza: "provento", rotulo: "Outro provento", descricao: "Outro provento" },
+  { chave: "arredondamento_credito", rubrica: "arredondamento", natureza: "provento", rotulo: "Arredondamento — crédito", descricao: "Arredondamento (crédito)" },
+  { chave: "irrf", rubrica: "irrf", natureza: "desconto", rotulo: "IRRF (desconto)", descricao: "IRRF" },
+  { chave: "inss", rubrica: "inss", natureza: "desconto", rotulo: "INSS (desconto)", descricao: "INSS" },
+  { chave: "outro_desconto", rubrica: "outro_desconto", natureza: "desconto", rotulo: "Outro desconto", descricao: "Outro desconto" },
+  { chave: "arredondamento_debito", rubrica: "arredondamento", natureza: "desconto", rotulo: "Arredondamento — débito", descricao: "Arredondamento (débito)" },
+];
+
+/**
+ * O status que a competência deve ter depois de uma mudança de valores. Só a "aberta" nunca muda sozinha (quem a fecha é a pessoa, ao
+ * conferir o RSP). Fechada com o líquido todo pago vira "paga"; "paga" que voltou a ter saldo (um pagamento desligado, uma rubrica nova)
+ * volta a "fechada". É o que mantém "Saldo a pagar" e a situação sempre contando a mesma história.
+ */
+export function statusPeloSaldo(c: { status: "aberta" | "fechada" | "paga"; liquidoPrevisto: number; saldoAPagar: number }): "aberta" | "fechada" | "paga" {
+  if (c.status === "aberta") return "aberta";
+  if (c.liquidoPrevisto > TOLERANCIA && c.saldoAPagar <= TOLERANCIA) return "paga";
+  return "fechada";
+}
+
+/** Uma competência só fecha com apuração: avançada, com o sustento lançado; simples, com valor previsto. Devolve o motivo ou null. */
+export function motivoParaNaoFechar(c: { modo: ModoSustento; nItens: number; sustento: number; liquidoPrevisto: number }): string | null {
+  if (c.modo === "avancado") {
+    if (c.nItens === 0 || c.sustento <= TOLERANCIA) return "Lance primeiro o sustento pastoral do RSP.";
+    if (c.liquidoPrevisto <= TOLERANCIA) return "O líquido do RSP precisa ser maior que zero (confira o IRRF e os descontos).";
+    return null;
+  }
+  return c.liquidoPrevisto > TOLERANCIA ? null : "Informe o valor previsto antes de fechar.";
+}

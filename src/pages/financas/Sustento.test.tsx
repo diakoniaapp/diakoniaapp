@@ -20,6 +20,11 @@ vi.mock("@/services/sustentoService", () => ({
   buscarPagamentosSoltos: async () => [],
   ligarPagamento: async () => ({ ok: true }),
   abrirCompetencia: async () => ({ ok: true, id: "nova" }),
+  salvarValorPrevisto: async () => ({ ok: true }),
+  adicionarRubrica: async () => ({ ok: true }),
+  removerRubrica: async () => ({ ok: true }),
+  fecharCompetencia: async () => ({ ok: true }),
+  reabrirCompetencia: async () => ({ ok: true }),
 }));
 import Sustento from "./Sustento";
 

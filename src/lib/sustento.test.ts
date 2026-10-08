@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  sugerirCompetencia, sugerirModo, modoVigente, temSaldoPendente, tiposPermitidos, tipoSugerido, podeReceberPagamento, competenciaExiste, situacaoDaCompetencia, resumirBeneficiario, motivoParaNaoDesligar,
+  sugerirCompetencia, sugerirModo, modoVigente, temSaldoPendente, tiposPermitidos, tipoSugerido, podeReceberPagamento, competenciaExiste, parseValorBR, OPCOES_DE_RUBRICA, statusPeloSaldo, motivoParaNaoFechar, situacaoDaCompetencia, resumirBeneficiario, motivoParaNaoDesligar,
   rotuloCompetencia, mesSeguinte, mesAnterior, ROTULO_TIPO, type CompetenciaParaSugestao, type LinhaDaCompetencia,
 } from "./sustento";
 
@@ -190,5 +190,45 @@ describe("ligar pagamentos — Fase 2", () => {
     expect(podeReceberPagamento({ status: "aberta" })).toBe(true);
     expect(competenciaExiste("2026-10-01", [{ competencia: "2026-09-01" }])).toBe(false);
     expect(competenciaExiste("2026-09-01", [{ competencia: "2026-09-01" }])).toBe(true);
+  });
+});
+
+describe("criar e fechar a competência — Fase 2 (2/3)", () => {
+  it("parseValorBR lê reais do jeito que se digita", () => {
+    expect(parseValorBR("17.451,84")).toBe(17451.84);
+    expect(parseValorBR("17451,84")).toBe(17451.84);
+    expect(parseValorBR("17451.84")).toBe(17451.84);
+    expect(parseValorBR("R$ 1.234,50")).toBe(1234.5);
+    expect(parseValorBR("4000")).toBe(4000);
+    expect(parseValorBR("1.234")).toBe(1234);      // grupos de três → milhar
+    expect(parseValorBR("12.5")).toBe(12.5);
+    expect(parseValorBR("0,77")).toBe(0.77);
+  });
+  it("parseValorBR recusa o que não é número", () => {
+    for (const t of ["", "abc", "12,3,4", "-5", "1,2x"]) expect(parseValorBR(t)).toBeNull();
+  });
+  it("as rubricas têm a natureza certa; o arredondamento pode ser crédito ou débito", () => {
+    const por = (k: string) => OPCOES_DE_RUBRICA.find((o) => o.chave === k)!;
+    expect(por("sustento").natureza).toBe("provento");
+    expect(por("irrf").natureza).toBe("desconto");
+    expect(por("inss").natureza).toBe("desconto");
+    expect(por("arredondamento_credito")).toMatchObject({ rubrica: "arredondamento", natureza: "provento" });
+    expect(por("arredondamento_debito")).toMatchObject({ rubrica: "arredondamento", natureza: "desconto" });
+  });
+  it("statusPeloSaldo: aberta nunca muda sozinha; fechada quitada vira paga; paga com saldo volta a fechada", () => {
+    expect(statusPeloSaldo({ status: "aberta", liquidoPrevisto: 100, saldoAPagar: 0 })).toBe("aberta");
+    expect(statusPeloSaldo({ status: "fechada", liquidoPrevisto: 13728, saldoAPagar: 0 })).toBe("paga");
+    expect(statusPeloSaldo({ status: "fechada", liquidoPrevisto: 13728, saldoAPagar: -1 })).toBe("paga");      // pago a mais por arredondamento
+    expect(statusPeloSaldo({ status: "fechada", liquidoPrevisto: 13728, saldoAPagar: 5728 })).toBe("fechada");
+    expect(statusPeloSaldo({ status: "paga", liquidoPrevisto: 13728, saldoAPagar: 4000 })).toBe("fechada");
+    expect(statusPeloSaldo({ status: "paga", liquidoPrevisto: 13728, saldoAPagar: 0 })).toBe("paga");
+    expect(statusPeloSaldo({ status: "fechada", liquidoPrevisto: 0, saldoAPagar: 0 })).toBe("fechada");        // sem líquido não há o que quitar
+  });
+  it("motivoParaNaoFechar: avançada pede o sustento e líquido > 0; simples pede o valor", () => {
+    expect(motivoParaNaoFechar({ modo: "avancado", nItens: 0, sustento: 0, liquidoPrevisto: 0 })).toContain("sustento pastoral");
+    expect(motivoParaNaoFechar({ modo: "avancado", nItens: 2, sustento: 100, liquidoPrevisto: 0 })).toContain("líquido");
+    expect(motivoParaNaoFechar({ modo: "avancado", nItens: 3, sustento: 17451.84, liquidoPrevisto: 13728 })).toBeNull();
+    expect(motivoParaNaoFechar({ modo: "simples", nItens: 0, sustento: 0, liquidoPrevisto: 0 })).toContain("valor previsto");
+    expect(motivoParaNaoFechar({ modo: "simples", nItens: 0, sustento: 0, liquidoPrevisto: 2362 })).toBeNull();
   });
 });

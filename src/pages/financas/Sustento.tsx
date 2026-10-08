@@ -8,6 +8,7 @@
 // competências — cada competência guarda o modo com que nasceu — e o banco registra quem mudou e quando.
 // Fase 2: com o controle ligado, "Pagamentos a classificar" liga os pagamentos reais às competências (sugestão pela regra do dia 20 e do
 // saldo mais antigo; quem confirma é a pessoa) e cada pagamento ligado pode ser desligado. Só escreve em sustento_*; nunca em fin_lancamentos.
+// Fase 2 (2/3): dentro de cada competência, o valor previsto (simples) ou as rubricas do RSP (avançado) e o fechamento — EditorDaCompetencia.
 // Fora isso, só leitura, salvo as duas chaves (controle e tipo de controle). Não cria lançamento nem mexe em saldo — a Fase 1 foi aprovada nestes termos. Os pagamentos mostrados
 // são os lançamentos que já existem em `fin_lancamentos`, apenas ligados a uma competência.
 //
@@ -22,6 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { PagamentosAClassificar } from "@/components/financas/PagamentosAClassificar";
+import { EditorDaCompetencia } from "@/components/financas/EditorDaCompetencia";
 import { toast } from "sonner";
 import { PaginaSkeleton, ErrorState } from "@/components/ListState";
 import { brl } from "@/services/finService";
@@ -392,6 +394,7 @@ function DetalheDaCompetencia({ c, editavel, aoMudar }: { c: CompetenciaDoSusten
           </p>
         )}
       </div>
+      {editavel && <EditorDaCompetencia c={c} aoMudar={aoMudar} />}
     </div>
   );
 }

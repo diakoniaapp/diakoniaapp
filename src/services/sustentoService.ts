@@ -11,7 +11,8 @@
 import { supabase } from "@/integrations/supabase/client";
 import { conferir } from "@/lib/escritaConferida";
 import { hojeLocal, daquiADias } from "@/lib/data";
-import type { LinhaDaCompetencia, ModoSustento, TipoBeneficiario, TipoControle, TipoDoPagamento } from "@/lib/sustento";
+import { statusPeloSaldo } from "@/lib/sustento";
+import type { LinhaDaCompetencia, ModoSustento, NaturezaDaRubrica, RubricaDoRsp, TipoBeneficiario, TipoControle, TipoDoPagamento } from "@/lib/sustento";
 
 export interface Beneficiario {
   id: string;
@@ -286,16 +287,22 @@ export async function ligarPagamento(p: { competenciaId: string; lancamentoId: s
     return { ok: false, erro: /duplicate key|unique/i.test(r.error.message) ? "Este pagamento já está ligado a uma competência." : r.error.message };
   }
   const c = conferir(r as { data: unknown[] | null; error: { message: string } | null }, "A ligação do pagamento");
-  return c.ok ? { ok: true } : { ok: false, erro: c.erro };
+  if (!c.ok) return { ok: false, erro: c.erro };
+  await ajustarStatusPeloSaldo(p.competenciaId);
+  return { ok: true };
 }
 
 /** Desliga: o pagamento volta a ficar solto (o lançamento real não é tocado). */
 export async function desligarPagamento(pagamentoId: string): Promise<{ ok: boolean; erro?: string }> {
+  const antes = await supabase.from("sustento_pagamentos" as never).select("competencia_id").eq("id" as never, pagamentoId as never);
+  const competenciaId = (antes.data as unknown as Array<{ competencia_id: string }> | null)?.[0]?.competencia_id;
   const c = conferir(
     await supabase.from("sustento_pagamentos" as never).delete().eq("id" as never, pagamentoId as never).select("id"),
     "A desligação do pagamento",
   );
-  return c.ok ? { ok: true } : { ok: false, erro: c.erro };
+  if (!c.ok) return { ok: false, erro: c.erro };
+  if (competenciaId) await ajustarStatusPeloSaldo(competenciaId);
+  return { ok: true };
 }
 
 /**
@@ -310,4 +317,78 @@ export async function abrirCompetencia(p: { beneficiarioId: string; competencia:
   }
   const c = conferir(r as { data: unknown[] | null; error: { message: string } | null }, "A abertura da competência");
   return c.ok ? { ok: true, id: (r.data as Array<{ id: string }>)[0].id } : { ok: false, erro: c.erro };
+}
+
+// ── Fase 2, parte 2: criar e fechar a competência ──────────────────────────────────────────────────────────────
+// Só tabelas sustento_*. Nenhuma destas funções toca em fin_lancamentos, e nenhuma cria obrigação (isso é a parte 3).
+type Res = { ok: boolean; erro?: string };
+
+/**
+ * Depois de qualquer mudança, alinha o status ao saldo da visão: fechada com o líquido todo pago vira "paga"; "paga" que voltou a ter
+ * saldo volta a "fechada" (ver statusPeloSaldo). Lê a linha da visão e só escreve se o status mudar.
+ */
+export async function ajustarStatusPeloSaldo(competenciaId: string): Promise<void> {
+  const r = await supabase.from("vw_sustento_conta_corrente" as never).select("status, liquido_previsto, saldo_a_pagar").eq("competencia_id" as never, competenciaId as never);
+  const v = (r.data ?? [])[0] as unknown as { status: "aberta" | "fechada" | "paga"; liquido_previsto: number; saldo_a_pagar: number } | undefined;
+  if (!v) return;
+  const novo = statusPeloSaldo({ status: v.status, liquidoPrevisto: Number(v.liquido_previsto), saldoAPagar: Number(v.saldo_a_pagar) });
+  if (novo === v.status) return;
+  await supabase.from("sustento_competencias" as never).update({ status: novo } as never).eq("id" as never, competenciaId as never).select("id");
+}
+
+/** Modo simples: grava o valor previsto do mês. Na primeira vez também registra a confirmação. */
+export async function salvarValorPrevisto(competenciaId: string, valor: number): Promise<Res> {
+  const agora = new Date().toISOString();
+  const lido = await supabase.from("sustento_competencias" as never).select("confirmada_em").eq("id" as never, competenciaId as never);
+  const jaConfirmada = !!(lido.data as unknown as Array<{ confirmada_em: string | null }> | null)?.[0]?.confirmada_em;
+  const c = conferir(
+    await supabase.from("sustento_competencias" as never).update({ valor_previsto: valor, ...(jaConfirmada ? {} : { confirmada_em: agora }) } as never).eq("id" as never, competenciaId as never).select("id"),
+    "O valor previsto",
+  );
+  if (!c.ok) return { ok: false, erro: c.erro };
+  await ajustarStatusPeloSaldo(competenciaId);
+  return { ok: true };
+}
+
+/** Modo avançado: acrescenta uma linha do RSP (o valor é sempre positivo; quem diz se soma ou desconta é a natureza). */
+export async function adicionarRubrica(p: { competenciaId: string; rubrica: RubricaDoRsp; natureza: NaturezaDaRubrica; descricao: string; valor: number; codigo?: string }): Promise<Res> {
+  const ordem = await supabase.from("sustento_itens" as never).select("ordem").eq("competencia_id" as never, p.competenciaId as never).order("ordem" as never, { ascending: false }).limit(1);
+  const proxima = (((ordem.data ?? []) as unknown as Array<{ ordem: number }>)[0]?.ordem ?? 0) + 1;
+  const c = conferir(
+    await supabase.from("sustento_itens" as never)
+      .insert({ competencia_id: p.competenciaId, rubrica: p.rubrica, natureza: p.natureza, descricao: p.descricao, valor: p.valor, codigo: p.codigo ?? null, ordem: proxima } as never).select("id"),
+    "A rubrica",
+  );
+  if (!c.ok) return { ok: false, erro: c.erro };
+  await ajustarStatusPeloSaldo(p.competenciaId);
+  return { ok: true };
+}
+
+export async function removerRubrica(competenciaId: string, itemId: string): Promise<Res> {
+  const c = conferir(await supabase.from("sustento_itens" as never).delete().eq("id" as never, itemId as never).select("id"), "A remoção da rubrica");
+  if (!c.ok) return { ok: false, erro: c.erro };
+  await ajustarStatusPeloSaldo(competenciaId);
+  return { ok: true };
+}
+
+/** Fecha a competência (RSP ou valor conferido): daqui em diante o saldo a pagar disputa o pagamento. A obrigação prevista é a parte 3. */
+export async function fecharCompetencia(competenciaId: string): Promise<Res> {
+  const c = conferir(
+    await supabase.from("sustento_competencias" as never).update({ status: "fechada", fechada_em: new Date().toISOString() } as never)
+      .eq("id" as never, competenciaId as never).eq("status" as never, "aberta" as never).select("id"),
+    "O fechamento da competência",
+  );
+  if (!c.ok) return { ok: false, erro: c.erro };
+  await ajustarStatusPeloSaldo(competenciaId);
+  return { ok: true };
+}
+
+/** Reabre uma competência fechada para corrigir a apuração. Não apaga nada: os pagamentos ligados continuam ligados. */
+export async function reabrirCompetencia(competenciaId: string): Promise<Res> {
+  const c = conferir(
+    await supabase.from("sustento_competencias" as never).update({ status: "aberta", fechada_em: null } as never)
+      .eq("id" as never, competenciaId as never).in("status" as never, ["fechada", "paga"] as never).select("id"),
+    "A reabertura da competência",
+  );
+  return c.ok ? { ok: true } : { ok: false, erro: c.erro };
 }
