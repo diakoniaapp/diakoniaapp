@@ -1,11 +1,13 @@
 -- ─── CONTA CORRENTE DE SUSTENTO — carga inicial (ENSAIO: termina em ROLLBACK; NÃO é migration) ────────────────────
 -- Pré-requisito: a migration 20261008170000_sustento_conta_corrente.sql já aplicada (ela só cria 4 tabelas novas e uma visão).
--- O que este roteiro faz: cadastra os dois beneficiários, as competências de agosto e setembro/2026 do Pastor Titular, e LIGA a
--- elas os lançamentos que já existem (PIX de adiantamento, pagamento do líquido).
--- QUEM USA a conta corrente é decidido pela forma de receber, não pelo cargo (revisão dela, 08/10/2026): o Pastor Titular tem o
--- "Controle por competência" LIGADO (recebe com adiantamento e saldo); o Pastor Missionário é cadastrado com ele DESLIGADO — segue
--- pago pela recorrência de sempre, sem competência, e nada dele é ligado aqui. Para ligar depois: a chave na tela, ou
--- UPDATE public.sustento_beneficiarios SET controle_por_competencia = true WHERE id = '…'.
+-- O que este roteiro faz: cadastra os dois beneficiários, as competências de agosto e setembro/2026 de cada um, e LIGA a elas os
+-- lançamentos que já existem (PIX de adiantamento, pagamento do líquido).
+-- QUEM USA a conta corrente é decidido pela forma de receber, não pelo cargo (revisão dela, 08/10/2026). Os dois entram com o
+-- "Controle por competência" LIGADO e o tipo de controle em Automático — o app resolve: titular → Avançado (adiantamentos e RSP),
+-- missionário → Simples (só valor previsto, pago e saldo). Ela validou o resultado esperado em 08/10/2026:
+--   Pastor Titular · setembro/2026:    bruto 17.451,84 · IRRF 3.723,55 · adiantamentos 8.000,00 · saldo a pagar 5.728,00
+--   Pastor Missionário · setembro/2026: valor 2.362,00 · pago 0,00 · saldo 2.362,00
+-- A Carreta Missionária e a Cristolândia NÃO entram aqui (decisão dela): são projetos/ofertas missionárias, não sustento de pessoa.
 -- TIPO DE CONTROLE: ambos nascem em "automatico" (o padrão). Cada competência carregada guarda o modo com que nasceu — as do titular
 -- são 'avancado' (RSP com rubricas, adiantamentos) — e o app resolve o Automático só para as PRÓXIMAS. O ensaio também prova duas
 -- proteções do banco: (1) o histórico de quem alterou o controle é gravado pelo gatilho; (2) o modo de uma competência com
@@ -25,8 +27,9 @@
 --     15/09 R$ 4.000  aff731e7…  adiantamento · setembro      (OFX N1136D)
 --   A recorrência previsto de 05/10 (R$ 2.362, 9810ed42…) e o previsto de 15/09 (R$ 4.000, 009c50dd…) NÃO são ligados: a
 --   Fase 2 decide o destino das obrigações; aqui nada previsto é tocado.
--- Os pagamentos de R$ 2.362 do Pastor Missionário (03/08 a27f8356…, 01/09 c28cb1bb…) ficam como estão: sem controle por competência,
--- nada é ligado a eles.
+--   Pastor Missionário (Alexandre Lourenço Silva) — modo simples
+--     01/09 R$ 2.362  c28cb1bb…  pagamento · agosto           (OFX N103ED)   → o líquido de agosto, pago em 01/09
+--   O pagamento de 03/08 R$ 2.362 (a27f8356…) seria o de julho; fica de fora até haver o valor de julho. O previsto de 05/10 não é ligado.
 
 BEGIN;
 
@@ -44,7 +47,7 @@ DECLARE
   v_cat     uuid := (SELECT id FROM public.fin_categorias WHERE nome = 'Prebenda' LIMIT 1);
   v_lucio   uuid := (SELECT id FROM public.membros WHERE nome_completo = 'Lucio Paulo Paz Barreto' LIMIT 1);
   v_alex    uuid := (SELECT id FROM public.membros WHERE nome_completo = 'Alexandre Lourenço Silva' LIMIT 1);
-  b_titular uuid; b_missio uuid; c_ago_t uuid; c_set_t uuid;
+  b_titular uuid; b_missio uuid; c_ago_t uuid; c_set_t uuid; c_ago_m uuid;
 BEGIN
   IF v_cat IS NULL OR v_lucio IS NULL OR v_alex IS NULL THEN
     RAISE EXCEPTION 'cadastro não encontrado (categoria Prebenda: %, Lucio: %, Alexandre: %) — abortado', v_cat, v_lucio, v_alex;
@@ -53,7 +56,7 @@ BEGIN
   INSERT INTO public.sustento_beneficiarios (tipo, nome_exibicao, pessoa_id, conta_id, categoria_id, dia_do_liquido, controle_por_competencia)
     VALUES ('pastor_titular', 'Lucio Paulo Paz Barreto — Pastor Titular', v_lucio, v_conta, v_cat, 5, true) RETURNING id INTO b_titular;
   INSERT INTO public.sustento_beneficiarios (tipo, nome_exibicao, pessoa_id, conta_id, categoria_id, dia_do_liquido, controle_por_competencia)
-    VALUES ('pastor_missionario', 'Alexandre Lourenço Silva — Pastor Missionário', v_alex, v_conta, v_cat, 5, false) RETURNING id INTO b_missio;
+    VALUES ('pastor_missionario', 'Alexandre Lourenço Silva — Pastor Missionário', v_alex, v_conta, v_cat, 5, true) RETURNING id INTO b_missio;
 
   -- ── Pastor Titular · controle por competência ligado ──
   -- agosto: sem o RSP em mãos; o líquido previsto é o de setembro (13.728,00), "≈" — falta o RSP de agosto para fechar o centavo
@@ -77,17 +80,47 @@ BEGIN
     (c_set_t, 'f817dfcc-1ac5-4a3f-abfb-4819888ab36b', 'adiantamento'),
     (c_set_t, 'aff731e7-8a1f-42d2-be8b-da0dbf4cee25', 'adiantamento');
 
+
+  -- ── Pastor Missionário · simples (o Automático resolve para Simples: sem adiantamento nem RSP) ──
+  INSERT INTO public.sustento_competencias (beneficiario_id, competencia, status, modo, valor_previsto, confirmada_em, observacoes)
+    VALUES (b_missio, '2026-08-01', 'paga', 'simples', 2362.00, now(), 'Carga inicial: líquido de agosto, pago em 01/09.') RETURNING id INTO c_ago_m;
+  INSERT INTO public.sustento_pagamentos (competencia_id, lancamento_id, tipo)
+    VALUES (c_ago_m, 'c28cb1bb-c4d2-4e0d-a21f-f4359754de5a', 'pagamento');
+  INSERT INTO public.sustento_competencias (beneficiario_id, competencia, status, modo, valor_previsto, confirmada_em, observacoes)
+    VALUES (b_missio, '2026-09-01', 'fechada', 'simples', 2362.00, now(), 'RSP de setembro/2026: previsto 2.362,00; IRRF 0,00; sem adiantamento. Ainda não pago.');
 END
 $carga$;
 
 -- ─── quadro de conferência: o que a visão devolve ───────────────────────────────────────────────────────────────
 SELECT nome_exibicao, to_char(competencia, 'MM/YYYY') AS competencia, status, modo,
-       liquido_previsto, adiantamentos, pagamentos_finais, pagamentos_simples, saldo_a_pagar,
-       CASE competencia
-         WHEN '2026-09-01' THEN (liquido_previsto = 13728.00 AND adiantamentos = 8000.00 AND saldo_a_pagar = 5728.00)
-         WHEN '2026-08-01' THEN (adiantamentos = 10300.00 AND pagamentos_finais = 3429.00 AND saldo_a_pagar = -1.00)
+       sustento AS bruto, irrf, liquido_previsto, adiantamentos, pagamentos_finais, pagamentos_simples, saldo_a_pagar,
+       CASE WHEN tipo = 'pastor_titular' THEN
+              CASE competencia
+                WHEN '2026-09-01' THEN (sustento = 17451.84 AND irrf = 3723.55 AND liquido_previsto = 13728.00 AND adiantamentos = 8000.00 AND saldo_a_pagar = 5728.00)
+                WHEN '2026-08-01' THEN (adiantamentos = 10300.00 AND pagamentos_finais = 3429.00 AND saldo_a_pagar = -1.00)
+              END
+            ELSE
+              CASE competencia
+                WHEN '2026-09-01' THEN (liquido_previsto = 2362.00 AND pagamentos_simples = 0 AND saldo_a_pagar = 2362.00)
+                WHEN '2026-08-01' THEN (liquido_previsto = 2362.00 AND pagamentos_simples = 2362.00 AND saldo_a_pagar = 0)
+              END
        END AS confere
   FROM public.vw_sustento_conta_corrente ORDER BY nome_exibicao, competencia;
+
+-- as quatro competências conferem com o que ela validou? (esperado: 4 de 4)
+SELECT count(*) AS competencias, count(*) FILTER (WHERE confere) AS conferem
+  FROM (SELECT CASE WHEN tipo = 'pastor_titular' THEN
+                      CASE competencia
+                        WHEN '2026-09-01' THEN (sustento = 17451.84 AND irrf = 3723.55 AND adiantamentos = 8000.00 AND saldo_a_pagar = 5728.00)
+                        WHEN '2026-08-01' THEN (adiantamentos = 10300.00 AND pagamentos_finais = 3429.00 AND saldo_a_pagar = -1.00)
+                      END
+                    ELSE
+                      CASE competencia
+                        WHEN '2026-09-01' THEN (liquido_previsto = 2362.00 AND pagamentos_simples = 0 AND saldo_a_pagar = 2362.00)
+                        WHEN '2026-08-01' THEN (pagamentos_simples = 2362.00 AND saldo_a_pagar = 0)
+                      END
+               END AS confere
+          FROM public.vw_sustento_conta_corrente) q;
 
 -- ─── prova das duas proteções do banco ──────────────────────────────────────────────────────────────────────────
 DO $prova$
