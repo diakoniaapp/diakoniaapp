@@ -1,10 +1,10 @@
 // ─── Sustento.tsx — Conta Corrente de Sustento (Fase 1: tela de leitura) ──────────────────────────────────────────
 //
-// Pedido dela (08/10/2026), a partir do RSP do Pastor Titular e do Pastor Missionário: sustento − IRRF − adiantamentos = líquido a
-// pagar, por COMPETÊNCIA. Duas visões, definidas pelo TIPO do beneficiário (src/lib/sustento.ts):
-//   · avançada (pastor titular): a apuração do RSP em rubricas, os adiantamentos e o saldo a pagar;
-//   · simples (os demais): valor previsto do mês, o que já foi pago, o que falta.
-// Só leitura. Não grava, não cria lançamento, não mexe em saldo — a Fase 1 foi aprovada nestes termos. Os pagamentos mostrados
+// Pedido dela (08/10/2026), a partir do RSP do Pastor Titular: sustento − IRRF − adiantamentos = líquido a pagar, por COMPETÊNCIA.
+// Quem usa a conta corrente NÃO depende do cargo, e sim da forma de receber: cada beneficiário tem a chave "Controle por
+// competência" (src/lib/sustento.ts). Ligada, aparecem as competências, os adiantamentos e o saldo a pagar; desligada, a pessoa
+// segue paga pelas recorrências de sempre. A competência mostra as rubricas do RSP quando elas existem e, quando não, o valor previsto.
+// Só leitura, salvo a chave. Não cria lançamento nem mexe em saldo — a Fase 1 foi aprovada nestes termos. Os pagamentos mostrados
 // são os lançamentos que já existem em `fin_lancamentos`, apenas ligados a uma competência.
 //
 // Remuneração de pastor é dado sensível: só `admin` e `tesouraria` (ROUTE_ROLES, o menu e a RLS das quatro tabelas dizem o mesmo).
@@ -15,11 +15,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { toast } from "sonner";
 import { PaginaSkeleton, ErrorState } from "@/components/ListState";
 import { brl } from "@/services/finService";
-import { carregarSustento, type BeneficiarioComCompetencias, type CompetenciaDoSustento, type ResultadoDoSustento } from "@/services/sustentoService";
+import { carregarSustento, definirControlePorCompetencia, type BeneficiarioComCompetencias, type CompetenciaDoSustento, type ResultadoDoSustento } from "@/services/sustentoService";
 import {
-  ROTULO_TIPO, resumirBeneficiario, rotuloCompetencia, situacaoDaCompetencia, sugerirCompetencia, totalPago, TOLERANCIA,
+  ROTULO_TIPO, motivoParaNaoDesligar, resumirBeneficiario, rotuloCompetencia, situacaoDaCompetencia, sugerirCompetencia, totalPago, TOLERANCIA,
   type SituacaoDaCompetencia,
 } from "@/lib/sustento";
 import { hojeLocal } from "@/lib/data";
@@ -30,11 +32,10 @@ const ROTULO_PAGAMENTO = { adiantamento: "Adiantamento", pagamento_final: "Pagam
 
 // A cor segue o que a tesouraria precisa ver primeiro: o que ainda falta pagar.
 const COR_DA_SITUACAO: Record<SituacaoDaCompetencia, string> = {
-  "Prevista": "border-info-line bg-info-soft text-info-text",
-  "Paga parcialmente": "border-warning-line bg-warning-soft text-warning-text",
-  "Paga integralmente": "border-success-line bg-success-soft text-success-text",
   "Aberta": "border-info-line bg-info-soft text-info-text",
+  "Prevista": "border-info-line bg-info-soft text-info-text",
   "A pagar": "border-warning-line bg-warning-soft text-warning-text",
+  "Paga parcialmente": "border-warning-line bg-warning-soft text-warning-text",
   "Paga": "border-success-line bg-success-soft text-success-text",
 };
 
@@ -107,37 +108,52 @@ export default function Sustento() {
               {beneficiarios.map((b) => {
                 const ativo = b.id === atual.id;
                 const r = resumirBeneficiario(b.competencias);
+                const pendente = b.controleCompetencia && r.saldoPendente > TOLERANCIA;
                 return (
                   <button key={b.id} type="button" role="tab" aria-selected={ativo} onClick={() => setSelecionado(b.id)}
                     className={`min-w-0 text-left rounded-md border px-3 py-1.5 text-sm transition-colors ${ativo ? "border-gold bg-gold/10" : "hover:bg-muted/40"}`}>
                     <span className="block truncate font-medium">{b.nomeExibicao}</span>
                     <span className="block text-xs text-muted-foreground">
-                      {ROTULO_TIPO[b.tipo]}{r.saldoPendente > TOLERANCIA ? ` · a pagar ${brl(r.saldoPendente)}` : ""}
+                      {ROTULO_TIPO[b.tipo]}{pendente ? ` · a pagar ${brl(r.saldoPendente)}` : b.controleCompetencia ? "" : " · sem controle"}
                     </span>
                   </button>
                 );
               })}
             </div>
           )}
-          <PainelDoBeneficiario b={atual} />
+          <PainelDoBeneficiario b={atual} aoMudar={carregar} />
         </>
       )}
     </div>
   );
 }
 
-function PainelDoBeneficiario({ b }: { b: BeneficiarioComCompetencias }) {
+function PainelDoBeneficiario({ b, aoMudar }: { b: BeneficiarioComCompetencias; aoMudar: () => void }) {
   const resumo = useMemo(() => resumirBeneficiario(b.competencias), [b]);
   const [aberta, setAberta] = useState<string | null>(null);
   const [dataTeste, setDataTeste] = useState(hojeLocal());
+  const [gravando, setGravando] = useState(false);
 
   // se a competência aberta some (troca de beneficiário), recolhe
   useEffect(() => { setAberta(null); }, [b.id]);
 
   const sugestao = useMemo(
-    () => (/^\d{4}-\d{2}-\d{2}$/.test(dataTeste) ? sugerirCompetencia(dataTeste, b.competencias) : null),
+    () => (b.controleCompetencia && /^\d{4}-\d{2}-\d{2}$/.test(dataTeste) ? sugerirCompetencia(dataTeste, b.competencias) : null),
     [dataTeste, b],
   );
+
+  async function alternar(ligar: boolean) {
+    if (!ligar) {
+      const motivo = motivoParaNaoDesligar(b.competencias);
+      if (motivo) { toast.error(motivo); return; }
+    }
+    setGravando(true);
+    const r = await definirControlePorCompetencia(b.id, ligar);
+    setGravando(false);
+    if (!r.ok) { toast.error(r.erro ?? "Não foi possível salvar."); return; }
+    toast.success(ligar ? "Controle por competência ligado." : "Controle por competência desligado. O histórico foi mantido.");
+    aoMudar();
+  }
 
   return (
     <div className="space-y-4">
@@ -146,39 +162,48 @@ function PainelDoBeneficiario({ b }: { b: BeneficiarioComCompetencias }) {
           <div className="flex items-center gap-2 flex-wrap">
             <p className="font-medium min-w-0 truncate">{b.nomeExibicao}</p>
             <Badge variant="outline" className="text-[11px]">{ROTULO_TIPO[b.tipo]}</Badge>
-            <Badge variant="outline" className="text-[11px]">{b.modo === "avancado" ? "Visão avançada — RSP" : "Visão simples"}</Badge>
           </div>
-          {b.modoManual && (
-            <p className="text-xs text-muted-foreground">
-              Exceção de modo desde {dataBr(b.modoManualDesde)}: {b.modoManualMotivo}. Competências anteriores continuam na visão do tipo.
-            </p>
+          <div className="flex items-start gap-3 rounded-md border px-3 py-2">
+            <Switch checked={b.controleCompetencia} onCheckedChange={alternar} disabled={gravando} id={`controle-${b.id}`} aria-label="Controle por competência" className="mt-0.5" />
+            <label htmlFor={`controle-${b.id}`} className="min-w-0 flex-1 cursor-pointer">
+              <span className="block text-sm font-medium">Controle por competência</span>
+              <span className="block text-xs text-muted-foreground">
+                {b.controleCompetencia
+                  ? "Utilizar Conta Corrente de Sustento: competência mensal, adiantamentos, complementos e saldo a pagar."
+                  : "Não utilizar: esta pessoa segue sendo paga pelas recorrências e lançamentos de sempre. Ligue se a igreja passar a trabalhar com adiantamento, complemento ou saldo residual."}
+              </span>
+            </label>
+          </div>
+          {b.controleCompetencia && (
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-md border px-3 py-2 min-w-0">
+                <p className="text-xs text-muted-foreground">Saldo a pagar</p>
+                <p className={`text-lg font-semibold tabular-nums ${resumo.saldoPendente > TOLERANCIA ? "text-warning-text" : "text-success-text"}`}>{brl(resumo.saldoPendente)}</p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {resumo.pendentes.length === 0 ? "Nada em aberto" : resumo.pendentes.map(rotuloCompetencia).join(" · ")}
+                </p>
+              </div>
+              <div className="rounded-md border px-3 py-2 min-w-0">
+                <p className="text-xs text-muted-foreground">Adiantado, aguardando fechamento</p>
+                <p className="text-lg font-semibold tabular-nums">{brl(resumo.adiantadoEmAberto)}</p>
+                <p className="text-xs text-muted-foreground truncate">adiantamentos de competências ainda abertas</p>
+              </div>
+            </div>
           )}
-          <div className="grid grid-cols-2 gap-2">
-            <div className="rounded-md border px-3 py-2 min-w-0">
-              <p className="text-xs text-muted-foreground">Saldo a pagar</p>
-              <p className={`text-lg font-semibold tabular-nums ${resumo.saldoPendente > TOLERANCIA ? "text-warning-text" : "text-success-text"}`}>{brl(resumo.saldoPendente)}</p>
-              <p className="text-xs text-muted-foreground truncate">
-                {resumo.pendentes.length === 0 ? "Nada em aberto" : resumo.pendentes.map(rotuloCompetencia).join(" · ")}
-              </p>
-            </div>
-            <div className="rounded-md border px-3 py-2 min-w-0">
-              <p className="text-xs text-muted-foreground">{b.modo === "avancado" ? "Adiantado, aguardando RSP" : "Dia do líquido"}</p>
-              <p className="text-lg font-semibold tabular-nums">
-                {b.modo === "avancado" ? brl(resumo.adiantadoEmAberto) : b.diaDoLiquido ? `dia ${b.diaDoLiquido}` : "—"}
-              </p>
-              <p className="text-xs text-muted-foreground truncate">
-                {b.modo === "avancado" ? "adiantamentos de competências ainda abertas" : "do mês seguinte à competência"}
-              </p>
-            </div>
-          </div>
         </CardContent>
       </Card>
 
-      {b.competencias.length === 0 ? (
+      {!b.controleCompetencia && b.competencias.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          {b.competencias.length} competência{b.competencias.length !== 1 ? "s" : ""} guardada{b.competencias.length !== 1 ? "s" : ""} de quando o controle estava ligado (histórico, só leitura).
+        </p>
+      )}
+      {b.controleCompetencia && b.competencias.length === 0 && (
         <Card className="border-dashed">
           <CardContent className="py-6 text-center text-sm text-muted-foreground">Nenhuma competência lançada para {b.nomeExibicao}.</CardContent>
         </Card>
-      ) : (
+      )}
+      {b.competencias.length > 0 && (
         <ul className="divide-y rounded-md border" aria-label="Competências">
           {b.competencias.map((c) => (
             <LinhaDeCompetencia key={c.id} c={c} aberta={aberta === c.id} alternar={() => setAberta(aberta === c.id ? null : c.id)} />
@@ -186,23 +211,25 @@ function PainelDoBeneficiario({ b }: { b: BeneficiarioComCompetencias }) {
         </ul>
       )}
 
-      <Card>
-        <CardContent className="py-3 px-4 space-y-2">
-          <p className="text-sm font-medium">Onde cairia um pagamento?</p>
-          <p className="text-xs text-muted-foreground">
-            A regra: 1º a competência mais antiga com saldo a pagar; 2º a atual, se o dia for até 20; 3º a seguinte. É só uma conferência da regra — nada é gravado.
-          </p>
-          <div className="flex flex-wrap items-center gap-2">
-            <Input type="date" value={dataTeste} onChange={(e) => setDataTeste(e.target.value)} className="h-8 w-40 text-xs" aria-label="Data do pagamento" />
-            {sugestao && (
-              <p className="text-sm min-w-0">
-                → <span className="font-medium">{rotuloCompetencia(sugestao.competencia)}</span>
-                <span className="text-xs text-muted-foreground"> — {sugestao.explicacao}</span>
-              </p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+      {b.controleCompetencia && (
+        <Card>
+          <CardContent className="py-3 px-4 space-y-2">
+            <p className="text-sm font-medium">Onde cairia um pagamento?</p>
+            <p className="text-xs text-muted-foreground">
+              A regra: 1º a competência mais antiga com saldo a pagar; 2º a atual, se o dia for até 20; 3º a seguinte. É só uma conferência da regra — nada é gravado.
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <Input type="date" value={dataTeste} onChange={(e) => setDataTeste(e.target.value)} className="h-8 w-40 text-xs" aria-label="Data do pagamento" />
+              {sugestao && (
+                <p className="text-sm min-w-0">
+                  → <span className="font-medium">{rotuloCompetencia(sugestao.competencia)}</span>
+                  <span className="text-xs text-muted-foreground"> — {sugestao.explicacao}</span>
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
@@ -241,29 +268,26 @@ function Linha({ rotulo, valor, forte, sinal }: { rotulo: string; valor: number;
 }
 
 function DetalheDaCompetencia({ c }: { c: CompetenciaDoSustento }) {
-  const avancado = c.modo === "avancado";
   return (
     <div className="px-4 pb-4 pt-1 space-y-3 text-sm bg-muted/20">
-      {avancado ? (
-        c.nItens > 0 ? (
-          <div>
-            <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Apuração do RSP</p>
-            <Linha rotulo="Sustento pastoral" valor={c.sustento} sinal="+" />
-            {c.outrosProventos > 0 && <Linha rotulo="Arredondamento e outros proventos" valor={c.outrosProventos} sinal="+" />}
-            <Linha rotulo="Total de proventos" valor={c.proventos} forte />
-            <Linha rotulo="IRRF" valor={c.irrf} sinal="−" />
-            {c.outrosDescontos > 0 && <Linha rotulo="Arredondamento e outros descontos" valor={c.outrosDescontos} sinal="−" />}
-            <Linha rotulo="Total de descontos" valor={c.descontos} forte />
-            <Linha rotulo="Líquido previsto" valor={c.liquidoPrevisto} forte />
-          </div>
-        ) : (
-          <p className="text-xs text-muted-foreground">O RSP desta competência ainda não foi lançado — por isso só aparecem os adiantamentos.</p>
-        )
-      ) : (
+      {c.nItens > 0 ? (
+        <div>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Apuração do RSP</p>
+          <Linha rotulo="Sustento pastoral" valor={c.sustento} sinal="+" />
+          {c.outrosProventos > 0 && <Linha rotulo="Arredondamento e outros proventos" valor={c.outrosProventos} sinal="+" />}
+          <Linha rotulo="Total de proventos" valor={c.proventos} forte />
+          <Linha rotulo="IRRF" valor={c.irrf} sinal="−" />
+          {c.outrosDescontos > 0 && <Linha rotulo="Arredondamento e outros descontos" valor={c.outrosDescontos} sinal="−" />}
+          <Linha rotulo="Total de descontos" valor={c.descontos} forte />
+          <Linha rotulo="Líquido previsto" valor={c.liquidoPrevisto} forte />
+        </div>
+      ) : c.liquidoPrevisto > 0 ? (
         <div>
           <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Valor do mês</p>
           <Linha rotulo="Valor previsto" valor={c.liquidoPrevisto} />
         </div>
+      ) : (
+        <p className="text-xs text-muted-foreground">A apuração desta competência ainda não foi lançada — por isso só aparecem os pagamentos já feitos.</p>
       )}
 
       <div>
@@ -286,14 +310,14 @@ function DetalheDaCompetencia({ c }: { c: CompetenciaDoSustento }) {
       </div>
 
       <div>
-        {avancado && <Linha rotulo="Adiantamentos" valor={c.adiantamentos} sinal="−" />}
-        {avancado && c.pagamentosFinais > 0 && <Linha rotulo="Pagamento final" valor={c.pagamentosFinais} sinal="−" />}
+        {c.adiantamentos > 0 && <Linha rotulo="Adiantamentos" valor={c.adiantamentos} sinal="−" />}
+        {c.pagamentosFinais > 0 && <Linha rotulo="Pagamento final" valor={c.pagamentosFinais} sinal="−" />}
         {c.complementos > 0 && <Linha rotulo="Complementos" valor={c.complementos} sinal="−" />}
-        {!avancado && <Linha rotulo="Pagamentos" valor={c.pagamentosSimples} sinal="−" />}
+        {c.pagamentosSimples > 0 && <Linha rotulo="Pagamentos" valor={c.pagamentosSimples} sinal="−" />}
         <Linha rotulo="Saldo a pagar" valor={c.saldoAPagar} forte />
         {c.saldoAPagar < -TOLERANCIA && (
           <p className="text-xs text-muted-foreground">
-            Saldo negativo: {avancado && c.status === "aberta" ? "adiantado antes do RSP — ele será abatido do líquido quando a competência for fechada." : "pago a mais que o previsto."}
+            Saldo negativo: {c.status === "aberta" ? "adiantado antes da apuração — será abatido do líquido quando a competência for fechada." : "pago a mais que o previsto."}
           </p>
         )}
       </div>

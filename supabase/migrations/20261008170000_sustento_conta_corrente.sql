@@ -12,9 +12,14 @@
 --   · reversível por inteiro: DROP VIEW vw_sustento_conta_corrente; DROP TABLE sustento_pagamentos, sustento_itens,
 --     sustento_competencias, sustento_beneficiarios; (ninguém mais depende delas).
 --
--- MODO simples × avançado — definido pelo TIPO do beneficiário, no app (src/lib/sustento.ts: modoDoBeneficiario):
---   pastor_titular → avançado (RSP com rubricas, IRRF, adiantamentos); os demais → simples (só o valor previsto do mês).
---   A única coluna é a EXCEÇÃO (`modo_manual`): vale a partir de `modo_manual_desde`, exige motivo, e não reinterpreta o passado.
+-- QUEM USA A CONTA CORRENTE — decidido pela FORMA DE RECEBER, não pelo cargo (revisão dela em 08/10/2026):
+--   `controle_por_competencia` (padrão: não). Ligado, o beneficiário passa a ter competência mensal, adiantamentos, complementos e
+--   saldo a pagar; desligado, ele continua sendo pago pelas recorrências e lançamentos de sempre. Qualquer tipo pode ligar —
+--   pastor, funcionário, missionário, bolsista, PAM, convênio — basta a igreja começar a trabalhar com adiantamento, complemento
+--   ou saldo residual. O `tipo` é só rótulo. (A versão anterior deste arquivo amarrava o comportamento ao tipo — pastor_titular
+--   avançado, os demais simples — e tinha as colunas modo_manual*; foi trocada antes de ser aplicada.)
+--   Dentro de uma competência não há "modo": havendo rubricas do RSP (sustento_itens) o líquido vem delas; não havendo, vem de
+--   `valor_previsto`. A tela se adapta ao que existe.
 --
 -- ACESSO: remuneração de pastor é dado sensível. Só administração e tesouraria (pedido dela: "Tesouraria, Administração.
 -- Avalie posteriormente liberar visualização para perfis específicos"). Sem `diakonia` e sem `secretaria` de propósito — a malha
@@ -24,12 +29,11 @@
 -- 1. quem é sustentado (um cadastro por pessoa/contrato)
 CREATE TABLE IF NOT EXISTS public.sustento_beneficiarios (
   id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  tipo            text NOT NULL CHECK (tipo IN ('pastor_titular', 'pastor_missionario', 'missionario_sustentado', 'pam', 'convenio_missionario', 'prebenda', 'bolsa', 'ajuda_de_custo')),
+  tipo            text NOT NULL CHECK (tipo IN ('pastor_titular', 'pastor_missionario', 'funcionario', 'missionario_sustentado', 'pam', 'convenio_missionario', 'prebenda', 'bolsa', 'ajuda_de_custo')),
   nome_exibicao   text NOT NULL CHECK (length(btrim(nome_exibicao)) > 0),
-  modo_manual        text CHECK (modo_manual IN ('simples', 'avancado')),
-  modo_manual_desde  date,
-  modo_manual_motivo text,
-  CHECK (modo_manual IS NULL OR (modo_manual_desde IS NOT NULL AND btrim(coalesce(modo_manual_motivo, '')) <> '')),
+  -- "Controle por competência": ( ) Não utilizar  ( ) Utilizar Conta Corrente de Sustento. Desligar não apaga competência nenhuma:
+  -- o histórico fica guardado e a tela o mostra como histórico.
+  controle_por_competencia boolean NOT NULL DEFAULT false,
   pessoa_id       uuid REFERENCES public.membros(id) ON DELETE RESTRICT,
   fornecedor_id   uuid REFERENCES public.fin_fornecedores(id) ON DELETE RESTRICT,
   conta_id        uuid REFERENCES public.fin_contas(id),                 -- conta pagadora habitual
@@ -51,8 +55,8 @@ CREATE TABLE IF NOT EXISTS public.sustento_competencias (
   -- fechada = o RSP saiu: a apuração está conferida e o saldo a pagar vira OBRIGAÇÃO PREVISTA
   -- paga    = saldo a pagar zerado
   status           text NOT NULL DEFAULT 'aberta' CHECK (status IN ('aberta', 'fechada', 'paga')),
-  -- MODO SIMPLES: só o valor previsto do mês; `confirmada_em` = o RSP (ou a confirmação do valor) saiu e a obrigação nasce.
-  -- MODO AVANÇADO: o previsto vem das rubricas (sustento_itens) e a obrigação nasce no fechamento (RSP).
+  -- Sem rubricas: só o valor previsto do mês (`valor_previsto`); `confirmada_em` = o valor foi confirmado e a obrigação nasce.
+  -- Com rubricas (sustento_itens, as linhas do RSP): o líquido vem delas e a obrigação nasce no fechamento.
   valor_previsto   numeric(14, 2) CHECK (valor_previsto IS NULL OR valor_previsto >= 0),
   confirmada_em    timestamptz,
   rsp_url          text,                                                   -- o PDF do RSP (armazenamento)
@@ -83,7 +87,7 @@ CREATE TABLE IF NOT EXISTS public.sustento_pagamentos (
   id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   competencia_id  uuid NOT NULL REFERENCES public.sustento_competencias(id) ON DELETE RESTRICT,
   lancamento_id   uuid NOT NULL UNIQUE REFERENCES public.fin_lancamentos(id) ON DELETE RESTRICT,   -- um pagamento pertence a UMA competência
-  tipo            text NOT NULL CHECK (tipo IN ('adiantamento', 'pagamento_final', 'complemento', 'pagamento')),   -- 'pagamento' = modo simples
+  tipo            text NOT NULL CHECK (tipo IN ('adiantamento', 'pagamento_final', 'complemento', 'pagamento')),   -- 'pagamento' = pagamento do líquido sem distinguir adiantamento de pagamento final
   observacoes     text,
   created_at      timestamptz NOT NULL DEFAULT now()
 );
@@ -94,7 +98,7 @@ CREATE INDEX IF NOT EXISTS sustento_pagamentos_competencia_idx    ON public.sust
 
 -- 5. a conta corrente: o que a tela mostra, calculado (nada é digitado duas vezes)
 CREATE OR REPLACE VIEW public.vw_sustento_conta_corrente WITH (security_invoker = true) AS
-SELECT c.id AS competencia_id, c.beneficiario_id, b.nome_exibicao, b.tipo, c.competencia, c.status,
+SELECT c.id AS competencia_id, c.beneficiario_id, b.nome_exibicao, b.tipo, b.controle_por_competencia, c.competencia, c.status,
        c.valor_previsto, c.confirmada_em, c.fechada_em, c.rsp_url, c.obrigacao_id,
        i.n_itens, i.sustento, i.outros_proventos, i.proventos,
        i.irrf, i.outros_descontos, i.descontos,

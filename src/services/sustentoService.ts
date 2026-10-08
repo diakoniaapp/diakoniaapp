@@ -1,7 +1,7 @@
-// ─── sustentoService.ts — Conta Corrente de Sustento (Fase 1: SÓ LEITURA) ────────────────────────────────────────
+// ─── sustentoService.ts — Conta Corrente de Sustento (Fase 1: leitura + a chave do controle) ────────────────────────────────────────
 //
 // Lê as tabelas criadas por 20261008170000_sustento_conta_corrente.sql e entrega a tela já agrupada por beneficiário.
-// Não escreve nada e não toca em `fin_lancamentos` (Fase 1 aprovada em 08/10/2026: "sem alterar lançamentos existentes, sem
+// Só escreve a chave "Controle por competência" do beneficiário (`definirControlePorCompetencia`) e não toca em `fin_lancamentos` (Fase 1 aprovada em 08/10/2026: "sem alterar lançamentos existentes, sem
 // migração destrutiva, sem recálculo de histórico").
 //
 // A migration pode ainda não ter sido aplicada quando a tela abrir (o deploy do app e o SQL Editor andam separados): neste caso
@@ -9,18 +9,15 @@
 // As tabelas novas não estão em `integrations/supabase/types.ts` (gerado); por isso o `as never` das consultas, como em
 // `importacaoOfxService.ts` com `fin_extrato_ignorados`.
 import { supabase } from "@/integrations/supabase/client";
-import {
-  modoDoBeneficiario, type LinhaDaCompetencia, type ModoSustento, type TipoBeneficiario,
-} from "@/lib/sustento";
+import { conferir } from "@/lib/escritaConferida";
+import type { LinhaDaCompetencia, TipoBeneficiario } from "@/lib/sustento";
 
 export interface Beneficiario {
   id: string;
   tipo: TipoBeneficiario;
   nomeExibicao: string;
-  modo: ModoSustento;
-  modoManual: ModoSustento | null;
-  modoManualDesde: string | null;
-  modoManualMotivo: string | null;
+  /** "Controle por competência": ligado, a pessoa tem competência, adiantamento e saldo a pagar; desligado, segue só pelas recorrências. */
+  controleCompetencia: boolean;
   diaDoLiquido: number | null;
   observacoes: string | null;
 }
@@ -88,7 +85,7 @@ const num = (v: unknown): number => (v == null ? 0 : Number(v));
 export async function carregarSustento(): Promise<ResultadoDoSustento> {
   const bens = await supabase
     .from("sustento_beneficiarios" as never)
-    .select("id, tipo, nome_exibicao, modo_manual, modo_manual_desde, modo_manual_motivo, dia_do_liquido, observacoes")
+    .select("id, tipo, nome_exibicao, controle_por_competencia, dia_do_liquido, observacoes")
     .eq("ativo" as never, true as never)
     .order("nome_exibicao" as never);
   if (bens.error) {
@@ -130,15 +127,12 @@ export async function carregarSustento(): Promise<ResultadoDoSustento> {
   }
 
   type Linha = Record<string, any>;
-  const beneficiarios: BeneficiarioComCompetencias[] = ((bens.data ?? []) as unknown as Linha[]).map((b) => {
-    const base = { tipo: b.tipo as TipoBeneficiario, modoManual: (b.modo_manual ?? null) as ModoSustento | null, modoManualDesde: (b.modo_manual_desde ?? null) as string | null };
-    return {
-      id: b.id, tipo: base.tipo, nomeExibicao: b.nome_exibicao,
-      modo: modoDoBeneficiario(base), modoManual: base.modoManual, modoManualDesde: base.modoManualDesde,
-      modoManualMotivo: b.modo_manual_motivo ?? null, diaDoLiquido: b.dia_do_liquido ?? null, observacoes: b.observacoes ?? null,
-      competencias: [],
-    };
-  });
+  const beneficiarios: BeneficiarioComCompetencias[] = ((bens.data ?? []) as unknown as Linha[]).map((b) => ({
+    id: b.id, tipo: b.tipo as TipoBeneficiario, nomeExibicao: b.nome_exibicao,
+    controleCompetencia: !!b.controle_por_competencia,
+    diaDoLiquido: b.dia_do_liquido ?? null, observacoes: b.observacoes ?? null,
+    competencias: [],
+  }));
   const porId = new Map(beneficiarios.map((b) => [b.id, b]));
 
   for (const r of (comps.data ?? []) as unknown as Linha[]) {
@@ -147,8 +141,6 @@ export async function carregarSustento(): Promise<ResultadoDoSustento> {
     const pagamentos = (pagamentosPor.get(r.competencia_id) ?? []).sort((x, y) => (x.data ?? "").localeCompare(y.data ?? ""));
     b.competencias.push({
       id: r.competencia_id, beneficiarioId: r.beneficiario_id, competencia: r.competencia, status: r.status,
-      // o modo é o do beneficiário NAQUELA competência — a exceção manual não reinterpreta o passado
-      modo: modoDoBeneficiario({ tipo: b.tipo, modoManual: b.modoManual, modoManualDesde: b.modoManualDesde }, r.competencia),
       liquidoPrevisto: num(r.liquido_previsto), saldoAPagar: num(r.saldo_a_pagar),
       adiantamentos: num(r.adiantamentos), pagamentosFinais: num(r.pagamentos_finais), complementos: num(r.complementos),
       pagamentosSimples: num(r.pagamentos_simples), nItens: num(r.n_itens),
@@ -160,4 +152,17 @@ export async function carregarSustento(): Promise<ResultadoDoSustento> {
     });
   }
   return { pronto: true, beneficiarios };
+}
+
+/**
+ * Liga ou desliga o "Controle por competência" de um beneficiário. É a ÚNICA escrita da Fase 1 e só mexe numa coluna do cadastro
+ * do beneficiário: não cria lançamento, não move saldo, não apaga competência (desligar guarda o histórico).
+ * Escrita conferida: a RLS barra em silêncio quem não é administração/tesouraria.
+ */
+export async function definirControlePorCompetencia(beneficiarioId: string, ligado: boolean): Promise<{ ok: boolean; erro?: string }> {
+  const r = conferir(
+    await supabase.from("sustento_beneficiarios" as never).update({ controle_por_competencia: ligado } as never).eq("id" as never, beneficiarioId as never).select("id"),
+    "O controle por competência",
+  );
+  return r.ok ? { ok: true } : { ok: false, erro: r.erro };
 }

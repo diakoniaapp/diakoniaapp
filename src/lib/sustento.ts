@@ -2,18 +2,23 @@
 //
 // Pedido dela (08/10/2026), a partir do Recibo de Sustento Pastoral (RSP) de setembro/2026: sustento − IRRF − adiantamentos =
 // líquido a pagar, por COMPETÊNCIA mensal. `fin_lancamentos` continua sendo a verdade do dinheiro; aqui só se decide
-// (1) em que MODO a competência de um beneficiário é tratada e (2) a que competência um pagamento deve ser sugerido.
+// (1) QUEM usa a conta corrente e (2) a que competência um pagamento deve ser sugerido.
+//
+// QUEM USA — revisão dela em 08/10/2026: o que define a necessidade NÃO é o cargo, é a FORMA COMO A PESSOA RECEBE. Cada beneficiário
+// tem a chave "Controle por competência" (`controleCompetencia`, padrão desligada). Ligada, vale competência mensal, adiantamento,
+// complemento e saldo a pagar; desligada, a pessoa segue paga pelas recorrências de sempre e nada aqui se aplica. Qualquer tipo
+// (pastor, funcionário, missionário, bolsista, PAM, convênio) pode ligar. O `tipo` é só rótulo — não decide comportamento.
+// (A primeira versão derivava um "modo simples/avançado" do tipo; saiu antes de ir ao banco.)
 // Sem React, sem banco — o serviço lê, a tela mostra, esta camada decide. Datas sempre "YYYY-MM-DD" (sem `Date`+UTC).
 
 export type TipoBeneficiario =
-  | "pastor_titular" | "pastor_missionario" | "missionario_sustentado" | "pam"
+  | "pastor_titular" | "pastor_missionario" | "funcionario" | "missionario_sustentado" | "pam"
   | "convenio_missionario" | "prebenda" | "bolsa" | "ajuda_de_custo";
-
-export type ModoSustento = "simples" | "avancado";
 
 export const ROTULO_TIPO: Record<TipoBeneficiario, string> = {
   pastor_titular: "Pastor titular",
   pastor_missionario: "Pastor missionário",
+  funcionario: "Funcionário",
   missionario_sustentado: "Missionário sustentado",
   pam: "PAM",
   convenio_missionario: "Convênio missionário",
@@ -21,19 +26,6 @@ export const ROTULO_TIPO: Record<TipoBeneficiario, string> = {
   bolsa: "Bolsa",
   ajuda_de_custo: "Ajuda de custo",
 };
-
-/**
- * O MODO nasce do TIPO: só o pastor titular tem RSP com rubricas, IRRF e adiantamentos (avançado); os demais acompanham só o
- * valor previsto do mês (simples). A exceção manual vale a partir de `modo_manual_desde` — competências anteriores não são
- * reinterpretadas (mudar o modo hoje não pode reescrever setembro).
- */
-export function modoDoBeneficiario(
-  b: { tipo: TipoBeneficiario; modoManual?: ModoSustento | null; modoManualDesde?: string | null },
-  competencia?: string,
-): ModoSustento {
-  if (b.modoManual && b.modoManualDesde && (!competencia || competencia >= b.modoManualDesde)) return b.modoManual;
-  return b.tipo === "pastor_titular" ? "avancado" : "simples";
-}
 
 // ── competência ──────────────────────────────────────────────────────────────
 
@@ -65,20 +57,21 @@ export function mesSeguinte(data: string): string {
 export interface CompetenciaParaSugestao {
   competencia: string;                      // "YYYY-MM-01"
   status: "aberta" | "fechada" | "paga";
-  modo: ModoSustento;
   liquidoPrevisto: number;
   saldoAPagar: number;
+  /** Quantas rubricas do RSP foram lançadas (0 → o líquido é o valor previsto da competência). */
+  nItens: number;
 }
 
 /**
  * A competência está APURADA e com dinheiro a pagar? Só então ela disputa o pagamento.
- *   · avançado: o saldo só vale depois do fechamento (RSP conferido). Uma competência "aberta" ainda recebe adiantamentos e o
- *     líquido dela é provisório — tratá-la como dívida faria todo adiantamento de setembro parecer pagamento de setembro.
- *   · simples: vale desde que haja valor previsto (o RSP/valor confirmado já é a apuração).
+ *   · com rubricas do RSP: o saldo só vale depois do fechamento (RSP conferido). Uma competência "aberta" ainda recebe adiantamentos
+ *     e o líquido dela é provisório — tratá-la como dívida faria todo adiantamento de setembro parecer pagamento de setembro.
+ *   · só com valor previsto: vale desde que haja valor (o valor confirmado já é a apuração).
  */
 export function temSaldoPendente(c: CompetenciaParaSugestao): boolean {
   if (c.status === "paga") return false;
-  if (c.modo === "avancado" && c.status !== "fechada") return false;
+  if (c.nItens > 0 && c.status !== "fechada") return false;
   return c.liquidoPrevisto > TOLERANCIA && c.saldoAPagar > TOLERANCIA;
 }
 
@@ -139,13 +132,9 @@ export interface LinhaDaCompetencia extends CompetenciaParaSugestao {
   pagamentosFinais: number;
   complementos: number;
   pagamentosSimples: number;
-  /** Quantas rubricas do RSP foram lançadas (0 → o líquido é o valor previsto do modo simples). */
-  nItens: number;
 }
 
-export type SituacaoDaCompetencia =
-  | "Prevista" | "Paga parcialmente" | "Paga integralmente"       // modo simples
-  | "Aberta" | "A pagar" | "Paga";                                  // modo avançado
+export type SituacaoDaCompetencia = "Aberta" | "Prevista" | "A pagar" | "Paga parcialmente" | "Paga";
 
 /** Total já pago a esta competência, qualquer que seja o tipo do pagamento. */
 export function totalPago(l: Pick<LinhaDaCompetencia, "adiantamentos" | "pagamentosFinais" | "complementos" | "pagamentosSimples">): number {
@@ -153,18 +142,19 @@ export function totalPago(l: Pick<LinhaDaCompetencia, "adiantamentos" | "pagamen
 }
 
 /**
- * Situação para exibir. Simples: o que já foi pago decide (Prevista → parcial → integral). Avançado: segue o ciclo do RSP —
- * "Aberta" corre e recebe adiantamentos; "A pagar" é a fechada com saldo; "Paga" quando o saldo zera (ou passa de zero a menos,
- * como os R$ 1,00 do arredondamento de agosto).
+ * Situação para exibir, a mesma para qualquer beneficiário (não há mais "modo"):
+ *   · Aberta — a competência corre e recebe adiantamentos; ainda não há líquido apurado;
+ *   · Paga — o líquido está apurado e o saldo zerou (ou passou de zero a menos, como os R$ 1,00 de arredondamento de agosto);
+ *   · Paga parcialmente — já saiu parte do LÍQUIDO (pagamento final, complemento ou pagamento simples);
+ *   · A pagar — a competência fechada (RSP conferido), com só adiantamentos ou nada pago;
+ *   · Prevista — há valor previsto, mas a competência ainda não foi fechada e nada do líquido foi pago.
+ * Adiantamento não conta como "pagamento parcial": é dinheiro que saiu antes da apuração e entra como abatimento dela.
  */
 export function situacaoDaCompetencia(l: LinhaDaCompetencia): SituacaoDaCompetencia {
-  const pago = totalPago(l);
-  if (l.modo === "simples") {
-    if (pago <= TOLERANCIA) return "Prevista";
-    return l.saldoAPagar > TOLERANCIA ? "Paga parcialmente" : "Paga integralmente";
-  }
-  if (l.status === "aberta") return "Aberta";
-  return l.saldoAPagar > TOLERANCIA ? "A pagar" : "Paga";
+  if (l.liquidoPrevisto <= TOLERANCIA) return "Aberta";
+  if (l.saldoAPagar <= TOLERANCIA) return "Paga";
+  if (l.pagamentosFinais + l.complementos + l.pagamentosSimples > TOLERANCIA) return "Paga parcialmente";
+  return l.status === "fechada" ? "A pagar" : "Prevista";
 }
 
 export interface ResumoDoBeneficiario {
@@ -172,7 +162,7 @@ export interface ResumoDoBeneficiario {
   saldoPendente: number;
   /** Competências com saldo pendente, da mais antiga à mais nova. */
   pendentes: string[];
-  /** Adiantamentos já dados em competências ainda não fechadas (avançado) — dinheiro que sai antes do RSP. */
+  /** Adiantamentos já dados em competências ainda abertas — dinheiro que sai antes do RSP. */
   adiantadoEmAberto: number;
 }
 
@@ -182,7 +172,7 @@ export function resumirBeneficiario(linhas: LinhaDaCompetencia[]): ResumoDoBenef
     saldoPendente: arredonda(pendentes.reduce((s, l) => s + l.saldoAPagar, 0)),
     pendentes: pendentes.map((l) => l.competencia),
     adiantadoEmAberto: arredonda(
-      linhas.filter((l) => l.modo === "avancado" && l.status === "aberta").reduce((s, l) => s + l.adiantamentos, 0),
+      linhas.filter((l) => l.status === "aberta").reduce((s, l) => s + l.adiantamentos, 0),
     ),
   };
 }
@@ -197,4 +187,15 @@ function capitalizar(s: string): string {
 
 function brlCurto(v: number): string {
   return `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+/**
+ * Desligar o controle é sempre permitido, mas não com dinheiro devido: uma competência com saldo a pagar deixaria de aparecer
+ * onde a tesouraria a procura, e o saldo ficaria esquecido. Devolve o motivo (para a tela explicar) ou null se pode desligar.
+ * Nada é apagado ao desligar — as competências ficam guardadas como histórico.
+ */
+export function motivoParaNaoDesligar(linhas: LinhaDaCompetencia[]): string | null {
+  const r = resumirBeneficiario(linhas);
+  if (r.saldoPendente <= TOLERANCIA) return null;
+  return `Ainda há ${brlCurto(r.saldoPendente)} a pagar em ${r.pendentes.map(rotuloCompetencia).join(", ")}. Quite ou feche essas competências antes de desligar o controle.`;
 }

@@ -1,24 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
-  modoDoBeneficiario, sugerirCompetencia, temSaldoPendente, situacaoDaCompetencia, resumirBeneficiario,
-  rotuloCompetencia, mesSeguinte, type CompetenciaParaSugestao, type LinhaDaCompetencia,
+  sugerirCompetencia, temSaldoPendente, situacaoDaCompetencia, resumirBeneficiario, motivoParaNaoDesligar,
+  rotuloCompetencia, mesSeguinte, ROTULO_TIPO, type CompetenciaParaSugestao, type LinhaDaCompetencia,
 } from "./sustento";
 
+// uma competência FECHADA com rubricas do RSP (nItens > 0) — o caso do pastor titular
 const c = (competencia: string, o: Partial<CompetenciaParaSugestao> = {}): CompetenciaParaSugestao => ({
-  competencia, status: "fechada", modo: "avancado", liquidoPrevisto: 13728, saldoAPagar: 0, ...o,
+  competencia, status: "fechada", liquidoPrevisto: 13728, saldoAPagar: 0, nItens: 5, ...o,
 });
 
-describe("modoDoBeneficiario", () => {
-  it("o tipo decide: titular é avançado, os demais simples", () => {
-    expect(modoDoBeneficiario({ tipo: "pastor_titular" })).toBe("avancado");
-    expect(modoDoBeneficiario({ tipo: "pastor_missionario" })).toBe("simples");
-    expect(modoDoBeneficiario({ tipo: "prebenda" })).toBe("simples");
-  });
-  it("a exceção vale a partir da data e não reinterpreta o passado", () => {
-    const b = { tipo: "pastor_missionario" as const, modoManual: "avancado" as const, modoManualDesde: "2026-10-01" };
-    expect(modoDoBeneficiario(b, "2026-09-01")).toBe("simples");
-    expect(modoDoBeneficiario(b, "2026-10-01")).toBe("avancado");
-    expect(modoDoBeneficiario(b)).toBe("avancado");
+describe("quem usa a conta corrente", () => {
+  it("qualquer tipo pode ter rótulo, inclusive funcionário — o tipo não decide comportamento", () => {
+    expect(ROTULO_TIPO.funcionario).toBe("Funcionário");
+    expect(Object.keys(ROTULO_TIPO)).toEqual(expect.arrayContaining(["pastor_titular", "pastor_missionario", "missionario_sustentado", "bolsa", "pam", "convenio_missionario"]));
   });
 });
 
@@ -50,16 +44,16 @@ describe("sugerirCompetencia — a hierarquia que ela definiu", () => {
     expect(sugerirCompetencia("2026-12-21", []).competencia).toBe("2027-01-01");
     expect(sugerirCompetencia("2026-08-21", []).motivo).toBe("proxima");
   });
-  it("a competência aberta do avançado NÃO é dívida: adiantamento de 09/09 com setembro já tendo adiantamento fica em setembro", () => {
-    const s = sugerirCompetencia("2026-09-15", [c("2026-09-01", { status: "aberta", liquidoPrevisto: 0, saldoAPagar: -4000 })]);
+  it("a competência aberta com RSP em andamento NÃO é dívida: o adiantamento de 15/09 fica em setembro", () => {
+    const s = sugerirCompetencia("2026-09-15", [c("2026-09-01", { status: "aberta", liquidoPrevisto: 0, saldoAPagar: -4000, nItens: 0 })]);
     expect(s).toMatchObject({ competencia: "2026-09-01", motivo: "atual" });
   });
   it("competência de mês futuro não disputa o item 1", () => {
     const s = sugerirCompetencia("2026-09-05", [c("2026-10-01", { saldoAPagar: 999 })]);
     expect(s.competencia).toBe("2026-09-01");
   });
-  it("modo simples: valor previsto sem pagamento já é pendência", () => {
-    const s = sugerirCompetencia("2026-10-05", [c("2026-09-01", { modo: "simples", status: "aberta", liquidoPrevisto: 2362, saldoAPagar: 2362 })]);
+  it("sem rubricas, só valor previsto: já é pendência mesmo sem fechar (quem recebe um valor fixo por mês)", () => {
+    const s = sugerirCompetencia("2026-10-05", [c("2026-09-01", { status: "aberta", liquidoPrevisto: 2362, saldoAPagar: 2362, nItens: 0 })]);
     expect(s).toMatchObject({ competencia: "2026-09-01", motivo: "saldo_pendente" });
   });
 });
@@ -70,36 +64,50 @@ describe("temSaldoPendente", () => {
     expect(temSaldoPendente(c("2026-08-01", { saldoAPagar: 0 }))).toBe(false);
     expect(temSaldoPendente(c("2026-08-01", { saldoAPagar: -1 }))).toBe(false);
   });
-  it("avançado só pende depois de fechado", () => {
+  it("com rubricas do RSP só pende depois de fechada", () => {
     expect(temSaldoPendente(c("2026-09-01", { status: "aberta", saldoAPagar: 5728 }))).toBe(false);
     expect(temSaldoPendente(c("2026-09-01", { status: "fechada", saldoAPagar: 5728 }))).toBe(true);
   });
 });
 
 const linha = (o: Partial<LinhaDaCompetencia>): LinhaDaCompetencia => ({
-  ...c("2026-09-01"), adiantamentos: 0, pagamentosFinais: 0, complementos: 0, pagamentosSimples: 0, nItens: 0, ...o,
+  ...c("2026-09-01"), adiantamentos: 0, pagamentosFinais: 0, complementos: 0, pagamentosSimples: 0, ...o,
 });
 
 describe("situacaoDaCompetencia e resumo", () => {
-  it("simples: Prevista → Paga parcialmente → Paga integralmente", () => {
-    expect(situacaoDaCompetencia(linha({ modo: "simples", status: "aberta", liquidoPrevisto: 2362, saldoAPagar: 2362 }))).toBe("Prevista");
-    expect(situacaoDaCompetencia(linha({ modo: "simples", liquidoPrevisto: 2362, saldoAPagar: 1000, pagamentosSimples: 1362 }))).toBe("Paga parcialmente");
-    expect(situacaoDaCompetencia(linha({ modo: "simples", liquidoPrevisto: 2362, saldoAPagar: 0, pagamentosSimples: 2362 }))).toBe("Paga integralmente");
-  });
-  it("avançado: Aberta → A pagar → Paga", () => {
-    expect(situacaoDaCompetencia(linha({ status: "aberta", adiantamentos: 8000, saldoAPagar: -8000, liquidoPrevisto: 0 }))).toBe("Aberta");
+  it("Aberta → Prevista → A pagar → Paga parcialmente → Paga", () => {
+    expect(situacaoDaCompetencia(linha({ status: "aberta", adiantamentos: 8000, saldoAPagar: -8000, liquidoPrevisto: 0, nItens: 0 }))).toBe("Aberta");
+    expect(situacaoDaCompetencia(linha({ status: "aberta", nItens: 0, liquidoPrevisto: 2362, saldoAPagar: 2362 }))).toBe("Prevista");
     expect(situacaoDaCompetencia(linha({ status: "fechada", adiantamentos: 8000, saldoAPagar: 5728 }))).toBe("A pagar");
+    expect(situacaoDaCompetencia(linha({ liquidoPrevisto: 2362, saldoAPagar: 1000, pagamentosSimples: 1362 }))).toBe("Paga parcialmente");
+    expect(situacaoDaCompetencia(linha({ status: "fechada", pagamentosFinais: 5000, adiantamentos: 8000, saldoAPagar: 728 }))).toBe("Paga parcialmente");
     expect(situacaoDaCompetencia(linha({ status: "fechada", saldoAPagar: -1 }))).toBe("Paga");
+    expect(situacaoDaCompetencia(linha({ status: "paga", liquidoPrevisto: 2362, saldoAPagar: 0, pagamentosSimples: 2362 }))).toBe("Paga");
+  });
+  it("adiantamento não conta como pagamento parcial do líquido", () => {
+    expect(situacaoDaCompetencia(linha({ status: "fechada", adiantamentos: 8000, saldoAPagar: 5728 }))).not.toBe("Paga parcialmente");
   });
   it("o resumo soma só o que pende e separa o adiantado em competência aberta", () => {
     const r = resumirBeneficiario([
       linha({ competencia: "2026-09-01", status: "fechada", saldoAPagar: 5728.1, adiantamentos: 8000 }),
       linha({ competencia: "2026-08-01", status: "paga", saldoAPagar: -1 }),
-      linha({ competencia: "2026-10-01", status: "aberta", adiantamentos: 4000, saldoAPagar: -4000, liquidoPrevisto: 0 }),
+      linha({ competencia: "2026-10-01", status: "aberta", adiantamentos: 4000, saldoAPagar: -4000, liquidoPrevisto: 0, nItens: 0 }),
     ]);
     expect(r.saldoPendente).toBe(5728.1);
     expect(r.pendentes).toEqual(["2026-09-01"]);
     expect(r.adiantadoEmAberto).toBe(4000);
+  });
+});
+
+describe("desligar o controle", () => {
+  it("é bloqueado com saldo a pagar, e a mensagem diz quanto e onde", () => {
+    const m = motivoParaNaoDesligar([linha({ competencia: "2026-09-01", status: "fechada", saldoAPagar: 5728 })]);
+    expect(m).toContain("5.728,00");
+    expect(m).toContain("setembro/2026");
+  });
+  it("é livre quando nada é devido, ou quando não há competência", () => {
+    expect(motivoParaNaoDesligar([linha({ status: "paga", saldoAPagar: -1 })])).toBeNull();
+    expect(motivoParaNaoDesligar([])).toBeNull();
   });
 });
 
