@@ -150,6 +150,7 @@ export const TELAS: Tela[] = [
   T("/financas/folha", "Calculadoras (Folha)", "financeiro", { secao: "cadastros" }),
   T("/financas/doadores", "Doadores", "financeiro", { secao: "cadastros" }),
   T("/financas/doadores/:pessoaId", "Doador", "financeiro", { pai: "/financas/doadores" }),
+  T("/financas/sustento", "Conta Corrente de Sustento", "financeiro", { secao: "cadastros" }),
   // Fechamento
   T("/financas/fiscal", "Módulo Fiscal", "financeiro", { secao: "fechamento" }),
   T("/financas/relatorio", "Malote Contábil", "financeiro", { secao: "fechamento" }),

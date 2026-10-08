@@ -76,6 +76,7 @@ import FinancasFiscal from "./pages/financas/Fiscal.tsx";
 import ReunioesFinanceiras from "./pages/financas/ReunioesFinanceiras.tsx";
 import DashboardExecutivo from "./pages/financas/DashboardExecutivo.tsx";
 import FinancasDRE from "./pages/FinancasDRE.tsx";
+import FinancasSustento from "./pages/financas/Sustento.tsx";
 import FinancasPrestacaoContas from "./pages/FinancasPrestacaoContas.tsx";
 import ArrecadacaoHome from "./pages/arrecadacao/index.tsx";
 import ArrecadacaoEspacos from "./pages/arrecadacao/Espacos.tsx";
@@ -225,6 +226,7 @@ const App = () => (
                   <Route path="/financas/fiscal" element={<FinancasFiscal />} />
                   <Route path="/financas/reunioes" element={<ReunioesFinanceiras />} />
                   <Route path="/financas/executivo" element={<DashboardExecutivo />} />
+                  <Route path="/financas/sustento" element={<FinancasSustento />} />
                   <Route path="/financas/dre" element={<FinancasDRE />} />
                   <Route path="/financas/dre/:ano" element={<FinancasDRE />} />
                   <Route path="/financas/prestacao-de-contas" element={<FinancasPrestacaoContas />} />

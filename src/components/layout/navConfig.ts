@@ -104,6 +104,14 @@ export const ROLES_FINANCEIRO: AppRole[] = ["admin", "diakonia", "secretaria", "
 // sempre (é o dono do sistema, vê tudo, não é cargo de igreja).
 export const ROLES_DOADORES: AppRole[] = ["admin", "diakonia", "tesouraria"];
 
+// ── SUSTENTO — remuneração do pastor e dos missionários ─────────────────────
+//
+// Pedido dela (08/10/2026) ao desenhar a Conta Corrente de Sustento: "Tesouraria, Administração. Avalie posteriormente liberar
+// visualização para perfis específicos." Mais estreito que `ROLES_FINANCEIRO` e `ROLES_DOADORES` de propósito: fora `secretaria`
+// (que vê o resto do financeiro) e fora `diakonia` (que não é cargo de igreja e não precisa ver a remuneração do próprio pastor
+// titular). A RLS das quatro tabelas sustento_* tem a mesma lista — esta constante é só a experiência de navegação.
+export const ROLES_SUSTENTO: AppRole[] = ["admin", "tesouraria"];
+
 // Configuração de sistema (resumo semanal por e-mail, 22/09/2026) — mais
 // estreito que `ROLES_ADMIN` (que inclui secretaria): admin + diakonia
 // (dono do sistema), ninguém mais. Não é tela de cadastro da igreja, é
@@ -444,6 +452,7 @@ export const pageTitles: Record<string, string> = {
   "/financas/dre":            "DRE Eclesiástica",
   "/financas/prestacao-de-contas": "Prestação de Contas",
   "/financas/doadores":       "Doadores",
+  "/financas/sustento":       "Conta Corrente de Sustento",
   "/financas/documentos":     "Central de Documentos",
   "/arrecadacao":            "Bazar e Cantina",
   "/admin/recuperacao-senha": "Recuperar Senha",
@@ -519,6 +528,9 @@ export const ROUTE_ROLES: Record<string, AppRole[]> = {
   // de ROLES_DOADORES. Cobre "/financas/doadores" e
   // "/financas/doadores/:pessoaId" pelo mesmo casamento por prefixo.
   "/financas/doadores":  ROLES_DOADORES,
+  // Mais específica que "/financas" (ROLES_FINANCEIRO): o prefixo mais longo vence, então a secretaria, que entra no resto do
+  // financeiro, é recusada aqui. Ver ROLES_SUSTENTO.
+  "/financas/sustento":  ROLES_SUSTENTO,
 
   // ── /admin e /areas ───────────────────────────────────────────────────
   //

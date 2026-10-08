@@ -114,7 +114,7 @@ import { MesaDoTesoureiro } from "@/components/financas/MesaDoTesoureiro";
 import { LiquidacoesDoPeriodo } from "@/components/financas/LiquidacoesDoPeriodo";
 import { useAuth } from "@/hooks/useAuth";
 import { hojeLocal, parseLocalDate, daquiADias } from "@/lib/data";
-import { ROLES_DOADORES, ROLES_PASTORAL_SEM_TITULAR } from "@/components/layout/navConfig";
+import { ROLES_DOADORES, ROLES_PASTORAL_SEM_TITULAR, ROLES_SUSTENTO } from "@/components/layout/navConfig";
 
 export default function PainelTesouraria() {
   const { hasRole } = useAuth();
@@ -1203,6 +1203,8 @@ export default function PainelTesouraria() {
                 { onClick: () => setContratadosAberto(true), label: "Contratados", icone: Briefcase },
                 { to: "/financas/folha", label: "Calculadoras (Folha)", icone: Briefcase },
                 ...(hasRole(ROLES_DOADORES) ? [{ to: "/financas/doadores", label: "Doadores", icone: Users }] : []),
+                // Conta Corrente de Sustento (Fase 1, 08/10/2026): remuneração pastoral, só admin + tesouraria.
+                ...(hasRole(ROLES_SUSTENTO) ? [{ to: "/financas/sustento", label: "Sustento Pastoral", icone: HeartHandshake }] : []),
               ]}
             />
           </div>

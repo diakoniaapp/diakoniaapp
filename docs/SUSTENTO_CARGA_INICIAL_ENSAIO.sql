@@ -1,0 +1,113 @@
+-- ─── CONTA CORRENTE DE SUSTENTO — carga inicial (ENSAIO: termina em ROLLBACK; NÃO é migration) ────────────────────
+-- Pré-requisito: a migration 20261008170000_sustento_conta_corrente.sql já aplicada (ela só cria 4 tabelas novas e uma visão).
+-- O que este roteiro faz: cadastra os dois beneficiários, as competências de agosto e setembro/2026 do Pastor Titular e de
+-- agosto e setembro do Pastor Missionário, e LIGA a elas os lançamentos que já existem (PIX de adiantamento, pagamento do líquido).
+-- O que NÃO faz: não altera, não apaga e não cria nenhum lançamento; não toca em saldo, recorrência ou OFX. Só insere nas
+-- tabelas sustento_*. O bloco de verificação compara fin_lancamentos antes e depois e ABORTA se qualquer coisa mudou.
+--
+-- Como usar: rode inteiro no SQL Editor. Termina em ROLLBACK — nada fica gravado; o resultado é o quadro de conferência.
+-- Só depois de ela ver o quadro e dizer "pode aplicar", trocar o ROLLBACK final por COMMIT.
+--
+-- OS IDs DOS LANÇAMENTOS foram lidos em 08/10/2026 (todos conciliados, conta Bradesco 9c6730f9…):
+--   Pastor Titular (Lucio Paulo Paz Barreto)
+--     13/08 R$ 8.000  e8f093b5…  adiantamento · agosto        (Omie)
+--     20/08 R$ 2.300  44914b07…  adiantamento · agosto        (Omie, "PIX … L cio P")
+--     01/09 R$ 3.429  d9d0dad4…  pagamento final · agosto     (OFX N10403)   → líquido de agosto pago em 01/09
+--     09/09 R$ 4.000  f817dfcc…  adiantamento · setembro      (OFX N10EBB)
+--     15/09 R$ 4.000  aff731e7…  adiantamento · setembro      (OFX N1136D)
+--   Pastor Missionário (Alexandre Lourenço Silva) — modo simples
+--     01/09 R$ 2.362  c28cb1bb…  pagamento · agosto           (OFX N103ED)
+--   A recorrência previsto de 05/10 (R$ 2.362, 9810ed42…) e o previsto de 15/09 (R$ 4.000, 009c50dd…) NÃO são ligados: a
+--   Fase 2 decide o destino das obrigações; aqui nada previsto é tocado.
+-- O pagamento de 03/08 R$ 2.362 (a27f8356…) seria o de julho; fica de fora até haver o RSP de julho.
+
+BEGIN;
+
+-- foto de fin_lancamentos ANTES (contagem, soma e um resumo de todas as linhas)
+CREATE TEMP TABLE _antes ON COMMIT DROP AS
+  SELECT count(*) AS n, COALESCE(sum(valor), 0) AS soma,
+         md5(string_agg(id::text || '|' || valor::text || '|' || status || '|' || coalesce(categoria_id::text, '') || '|' || coalesce(pessoa_id::text, ''),
+                        ',' ORDER BY id)) AS resumo
+    FROM public.fin_lancamentos;
+CREATE TEMP TABLE _saldos_antes ON COMMIT DROP AS SELECT id, saldo_atual FROM public.fin_contas;
+
+DO $carga$
+DECLARE
+  v_conta   uuid := '9c6730f9-89a5-4112-b040-1cce5a5d77b3';
+  v_cat     uuid := (SELECT id FROM public.fin_categorias WHERE nome = 'Prebenda' LIMIT 1);
+  v_lucio   uuid := (SELECT id FROM public.membros WHERE nome_completo = 'Lucio Paulo Paz Barreto' LIMIT 1);
+  v_alex    uuid := (SELECT id FROM public.membros WHERE nome_completo = 'Alexandre Lourenço Silva' LIMIT 1);
+  b_titular uuid; b_missio uuid; c_ago_t uuid; c_set_t uuid; c_ago_m uuid; c_set_m uuid;
+BEGIN
+  IF v_cat IS NULL OR v_lucio IS NULL OR v_alex IS NULL THEN
+    RAISE EXCEPTION 'cadastro não encontrado (categoria Prebenda: %, Lucio: %, Alexandre: %) — abortado', v_cat, v_lucio, v_alex;
+  END IF;
+
+  INSERT INTO public.sustento_beneficiarios (tipo, nome_exibicao, pessoa_id, conta_id, categoria_id, dia_do_liquido)
+    VALUES ('pastor_titular', 'Lucio Paulo Paz Barreto — Pastor Titular', v_lucio, v_conta, v_cat, 5) RETURNING id INTO b_titular;
+  INSERT INTO public.sustento_beneficiarios (tipo, nome_exibicao, pessoa_id, conta_id, categoria_id, dia_do_liquido)
+    VALUES ('pastor_missionario', 'Alexandre Lourenço Silva — Pastor Missionário', v_alex, v_conta, v_cat, 5) RETURNING id INTO b_missio;
+
+  -- ── Pastor Titular · avançado ──
+  -- agosto: sem o RSP em mãos; o líquido previsto é o de setembro (13.728,00), "≈" — falta o RSP de agosto para fechar o centavo
+  INSERT INTO public.sustento_competencias (beneficiario_id, competencia, status, valor_previsto, fechada_em, observacoes)
+    VALUES (b_titular, '2026-08-01', 'paga', 13728.00, now(), 'Carga inicial: líquido estimado pelo RSP de setembro; o RSP de agosto fecha o centavo (diferença de R$ 1,00).')
+    RETURNING id INTO c_ago_t;
+  INSERT INTO public.sustento_pagamentos (competencia_id, lancamento_id, tipo) VALUES
+    (c_ago_t, 'e8f093b5-bf59-446f-8eea-587cad341e2a', 'adiantamento'),
+    (c_ago_t, '44914b07-2cb5-4903-a3da-963cded86f82', 'adiantamento'),
+    (c_ago_t, 'd9d0dad4-3dff-456f-bd6c-20447dd42e80', 'pagamento_final');
+
+  -- setembro: o RSP está em mãos → fechada, com as rubricas
+  INSERT INTO public.sustento_competencias (beneficiario_id, competencia, status, fechada_em, observacoes)
+    VALUES (b_titular, '2026-09-01', 'fechada', now(), 'Carga inicial a partir do RSP de setembro/2026.') RETURNING id INTO c_set_t;
+  INSERT INTO public.sustento_itens (competencia_id, rubrica, descricao, natureza, valor, ordem) VALUES
+    (c_set_t, 'sustento',       'Sustento pastoral',        'provento', 17451.84, 1),
+    (c_set_t, 'arredondamento', 'Arredondamento (crédito)', 'provento',     0.48, 2),
+    (c_set_t, 'irrf',           'IRRF',                     'desconto',  3723.55, 3),
+    (c_set_t, 'arredondamento', 'Arredondamento (débito)',  'desconto',     0.77, 4);
+  INSERT INTO public.sustento_pagamentos (competencia_id, lancamento_id, tipo) VALUES
+    (c_set_t, 'f817dfcc-1ac5-4a3f-abfb-4819888ab36b', 'adiantamento'),
+    (c_set_t, 'aff731e7-8a1f-42d2-be8b-da0dbf4cee25', 'adiantamento');
+
+  -- ── Pastor Missionário · simples ──
+  INSERT INTO public.sustento_competencias (beneficiario_id, competencia, status, valor_previsto, confirmada_em)
+    VALUES (b_missio, '2026-08-01', 'paga', 2362.00, now()) RETURNING id INTO c_ago_m;
+  INSERT INTO public.sustento_pagamentos (competencia_id, lancamento_id, tipo)
+    VALUES (c_ago_m, 'c28cb1bb-c4d2-4e0d-a21f-f4359754de5a', 'pagamento');
+  INSERT INTO public.sustento_competencias (beneficiario_id, competencia, status, valor_previsto, confirmada_em, observacoes)
+    VALUES (b_missio, '2026-09-01', 'fechada', 2362.00, now(), 'RSP de setembro/2026: previsto 2.362,00; IRRF 0,00; sem adiantamento.') RETURNING id INTO c_set_m;
+END
+$carga$;
+
+-- ─── quadro de conferência: o que a visão devolve ───────────────────────────────────────────────────────────────
+SELECT nome_exibicao, to_char(competencia, 'MM/YYYY') AS competencia, status,
+       liquido_previsto, adiantamentos, pagamentos_finais, pagamentos_simples, saldo_a_pagar,
+       CASE competencia
+         WHEN '2026-09-01' THEN CASE WHEN tipo = 'pastor_titular' THEN (liquido_previsto = 13728.00 AND adiantamentos = 8000.00 AND saldo_a_pagar = 5728.00)
+                                     ELSE (liquido_previsto = 2362.00 AND saldo_a_pagar = 2362.00) END
+         WHEN '2026-08-01' THEN CASE WHEN tipo = 'pastor_titular' THEN (adiantamentos = 10300.00 AND pagamentos_finais = 3429.00 AND saldo_a_pagar = -1.00)
+                                     ELSE (pagamentos_simples = 2362.00 AND saldo_a_pagar = 0) END
+       END AS confere
+  FROM public.vw_sustento_conta_corrente ORDER BY nome_exibicao, competencia;
+
+-- ─── trava: nada em fin_lancamentos ou nos saldos pode ter mudado ───────────────────────────────────────────────
+DO $trava$
+DECLARE a record; d record; n_saldos int;
+BEGIN
+  SELECT * INTO a FROM _antes;
+  SELECT count(*) AS n, COALESCE(sum(valor), 0) AS soma,
+         md5(string_agg(id::text || '|' || valor::text || '|' || status || '|' || coalesce(categoria_id::text, '') || '|' || coalesce(pessoa_id::text, ''), ',' ORDER BY id)) AS resumo
+    INTO d FROM public.fin_lancamentos;
+  IF a.n <> d.n OR a.soma <> d.soma OR a.resumo <> d.resumo THEN
+    RAISE EXCEPTION 'ABORTADO: fin_lancamentos mudou (antes % linhas / % — depois % / %)', a.n, a.soma, d.n, d.soma;
+  END IF;
+  SELECT count(*) INTO n_saldos FROM public.fin_contas c JOIN _saldos_antes s USING (id) WHERE c.saldo_atual IS DISTINCT FROM s.saldo_atual;
+  IF n_saldos > 0 THEN RAISE EXCEPTION 'ABORTADO: % saldo(s) de conta mudaram', n_saldos; END IF;
+  RAISE NOTICE 'OK: fin_lancamentos e saldos intactos (% lançamentos)', d.n;
+END
+$trava$;
+
+SELECT 'fin_lancamentos e saldos intactos' AS trava, (SELECT n FROM _antes) AS lancamentos;
+
+ROLLBACK;   -- ← só trocar por COMMIT depois da conferência dela
