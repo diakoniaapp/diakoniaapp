@@ -183,7 +183,7 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
       setAgrupamentosAoAbrir(resumirAgrupamentos(agruparPorClasse(res.map(l => ({
         fitid: l.tx.fitid, tipo: l.tx.tipo, valor: l.tx.valor, memo: l.tx.memo, situacao: l.situacao, sugestao: l.sugestao,
       }))).grupos));
-      const divergente = res.find(l => l.documentos?.[0] && !l.documentos[0].exato && (l.situacao === "documento" || l.documentos.length === 1));
+      const divergente = res.find(l => l.documentos?.[0] && !l.documentos[0].exato && !l.documentos[0].ambiguo && (l.situacao === "documento" || l.documentos.length === 1));
       if (divergente) setLiquidarLinha(divergente);
     }
     // quem ainda está pendente não conta como resolvida
@@ -695,21 +695,42 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
                               </Button>
                             </div>
                           )}
-                          {l.situacao === "documento" && l.documentos?.[0] && (
-                            <div className="pl-6 flex flex-wrap items-center gap-2">
-                              <p className="text-xs flex-1 min-w-0">
-                                <b className={l.documentos[0].exato ? "text-info-text" : "text-warning-text"}>
-                                  {l.documentos[0].exato ? "Documento a pagar encontrado" : "⚠ Diferença identificada"}
-                                </b>
-                                {" — "}{l.documentos[0].documento.descricao ?? "documento"}, vencimento {dataBr(l.documentos[0].documento.data)}, documento {brl(l.documentos[0].documento.valor)}
-                                {!l.documentos[0].exato && <> · diferença <b className="tabular-nums">{l.documentos[0].diferenca > 0 ? "+" : "−"}{brl(Math.abs(l.documentos[0].diferenca))}</b></>}
-                              </p>
-                              <Button type="button" size="sm" variant="outline" className="h-7 gap-1 text-xs" disabled={ocupado}
-                                onClick={() => setLiquidarLinha(l)}>
-                                <Scale className="w-3 h-3" /> {l.documentos[0].exato ? "Liquidar" : "Explicar diferença"}
-                              </Button>
-                            </div>
-                          )}
+                          {l.situacao === "documento" && l.documentos?.[0] && (() => {
+                            const d = l.documentos![0];
+                            const todos = [d.documento, ...d.outrosAbertos].sort((a, b) => a.data.localeCompare(b.data));
+                            return (
+                              <div className="pl-6 space-y-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="text-xs flex-1 min-w-0">
+                                    {d.ambiguo ? (
+                                      <b className="text-warning-text">⚠ {todos.length} documentos em aberto do mesmo fornecedor — escolha o contrato</b>
+                                    ) : d.segundoContrato ? (
+                                      <b className="text-success-text">✅ Possível segundo contrato</b>
+                                    ) : (
+                                      <b className={d.exato ? "text-info-text" : "text-warning-text"}>{d.exato ? "Documento a pagar encontrado" : "⚠ Diferença identificada"}</b>
+                                    )}
+                                    {!d.ambiguo && <>{" — "}{d.documento.fornecedor_nome ?? d.documento.descricao ?? "documento"}, vencimento {dataBr(d.documento.data)}, documento <b className="tabular-nums">{brl(d.documento.valor)}</b> · confiança <b className="tabular-nums">{d.confianca}%</b></>}
+                                    {!d.ambiguo && !d.exato && <> · diferença <b className="tabular-nums">{d.diferenca > 0 ? "+" : "−"}{brl(Math.abs(d.diferenca))}</b></>}
+                                  </p>
+                                  <Button type="button" size="sm" variant="outline" className="h-7 gap-1 text-xs" disabled={ocupado}
+                                    onClick={() => setLiquidarLinha(l)}>
+                                    <Scale className="w-3 h-3" /> {d.ambiguo ? "Escolher o contrato" : d.exato ? "Liquidar" : "Explicar diferença"}
+                                  </Button>
+                                </div>
+                                {(d.ambiguo || d.segundoContrato) && (
+                                  <ul className="text-xs text-muted-foreground flex flex-wrap gap-x-3 gap-y-0.5">
+                                    {todos.map(x => (
+                                      <li key={x.id} className={x.id === d.documento.id && d.segundoContrato ? "font-medium text-foreground" : ""}>
+                                        {x.descricao ?? "Contrato"} · vence {dataBr(x.data)} · <span className="tabular-nums">{brl(x.valor)}</span>
+                                        {Math.abs(x.valor - l.tx.valor) < 0.005 && <span className="text-success-text"> ← valor igual</span>}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                )}
+                                <p className="text-[11px] text-muted-foreground">{d.motivo}</p>
+                              </div>
+                            );
+                          })()}
                           {l.situacao === "ambigua" && (
                             <div className="pl-6 flex flex-wrap items-center gap-2">
                               <p className="text-xs text-warning-text flex-1 min-w-0">Há lançamentos parecidos já registrados — confira à mão antes de criar outro.</p>

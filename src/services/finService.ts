@@ -1783,18 +1783,22 @@ export async function excluirRecorrencia(id: string): Promise<void> {
 // `recorrencia_id`), então a mudança é aplicada a quem tem a MESMA descrição, tipo e conta,
 // origem "recorrencia" e ainda está previsto, de hoje em diante — nunca ao passado.
 export async function propagarLiquidacaoParaPrevistos(
-  rec: Pick<FinRecorrencia, "descricao" | "tipo" | "conta_id">,
+  rec: Pick<FinRecorrencia, "descricao" | "tipo" | "conta_id"> & { id?: string },
   forma: FormaLiquidacao, valorVariavel: boolean,
 ): Promise<number> {
   // Sem `conferir`: zero linhas é um resultado LEGÍTIMO aqui (não há próximo previsto); a
   // permissão já foi provada pelo `update` da própria recorrência, logo antes.
   // Em blocos: uma recorrência sem fim chega a ter centenas de previstos e um UPDATE único estoura o statement_timeout.
+  // Dois contratos do mesmo favorecido têm a MESMA descrição: com o id da recorrência, a mudança vale só para os previstos DELA
+  // (e para os antigos, sem vínculo, casados pela descrição) — não para os do outro contrato.
+  const patch = { forma_liquidacao: forma, valor_variavel: valorVariavel };
+  const base = (q: any) => q.eq("origem", "recorrencia").eq("status", "previsto")
+    .eq("descricao", rec.descricao).eq("tipo", rec.tipo).eq("conta_id", rec.conta_id).gte("data", hojeLocal());
   try {
-    return await atualizarPrevistosEmBlocos(
-      q => q.eq("origem", "recorrencia").eq("status", "previsto")
-        .eq("descricao", rec.descricao).eq("tipo", rec.tipo).eq("conta_id", rec.conta_id).gte("data", hojeLocal()),
-      { forma_liquidacao: forma, valor_variavel: valorVariavel },
-    );
+    if (!rec.id) return await atualizarPrevistosEmBlocos(base, patch);
+    const proprios = await atualizarPrevistosEmBlocos(q => q.eq("origem", "recorrencia").eq("status", "previsto").eq("recorrencia_id", rec.id).gte("data", hojeLocal()), patch);
+    const antigos = await atualizarPrevistosEmBlocos(q => base(q).is("recorrencia_id", null), patch);
+    return proprios + antigos;
   } catch (e: any) {
     throw new Error(erroDaLiquidacao(e));
   }

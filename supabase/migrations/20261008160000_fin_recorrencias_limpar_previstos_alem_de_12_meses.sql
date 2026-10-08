@@ -83,9 +83,13 @@ SELECT jsonb_build_object(
         LEFT JOIN (SELECT recorrencia_id, count(*) AS n FROM _limpa GROUP BY 1) k ON k.recorrencia_id = r.id
        GROUP BY 1, 2) t),
   'por_recorrencia', (SELECT coalesce(jsonb_agg(jsonb_build_object(
-        'recorrencia', r.descricao, 'removidos', k.n,
-        'ficam', (SELECT count(*) FROM public.fin_lancamentos l WHERE l.recorrencia_id = r.id AND l.status = 'previsto') - k.n) ORDER BY k.n DESC), '[]'::jsonb)
-      FROM public.fin_recorrencias r JOIN (SELECT recorrencia_id, count(*) AS n FROM _limpa GROUP BY 1) k ON k.recorrencia_id = r.id)
+        'recorrencia', r.descricao, 'tipo', r.tipo_recorrencia::text, 'frequencia', r.frequencia::text, 'valor', r.valor,
+        'dia', r.dia_vencimento, 'data_fim_hoje', r.data_fim, 'ultimo_gerado_ate_hoje', r.ultimo_gerado_ate,
+        'previstos_hoje', (SELECT count(*) FROM public.fin_lancamentos l WHERE l.recorrencia_id = r.id AND l.status = 'previsto'),
+        'removidos', coalesce(k.n, 0),
+        'ficam', (SELECT count(*) FROM public.fin_lancamentos l WHERE l.recorrencia_id = r.id AND l.status = 'previsto') - coalesce(k.n, 0))
+        ORDER BY coalesce(k.n, 0) DESC, r.descricao), '[]'::jsonb)
+      FROM public.fin_recorrencias r LEFT JOIN (SELECT recorrencia_id, count(*) AS n FROM _limpa GROUP BY 1) k ON k.recorrencia_id = r.id)
 ) AS j;
 
 -- cópias de segurança (só quem tem acesso total ao banco lê: RLS ligada, sem política)
@@ -145,6 +149,9 @@ SELECT jsonb_pretty(jsonb_build_object(
       'recorrencias', (SELECT count(*) FROM public.fin_recorrencias_backup_20261008)),
   'verificacao', jsonb_build_object(
       'saldos_alterados', (SELECT count(*) FROM public.fin_contas c JOIN _saldos_antes s USING (id) WHERE c.saldo_atual IS DISTINCT FROM s.saldo_atual),
+      'contas_com_saldo_diferente_da_formula_informativo', (SELECT count(*) FROM public.fin_contas c
+          WHERE c.saldo_atual IS DISTINCT FROM c.saldo_inicial + coalesce((SELECT sum(CASE WHEN l.tipo = 'entrada' THEN l.valor ELSE -l.valor END)
+                FROM public.fin_lancamentos l WHERE l.conta_id = c.id AND l.status IN ('realizado', 'conciliado')), 0)),
       'resultado', 'todas as verificações passaram')
 )) AS resultado;
 

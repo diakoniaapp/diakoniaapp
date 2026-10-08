@@ -32,7 +32,7 @@ import { carregarCadastro } from "@/services/identificacaoService";
 import {
   acharDebitoCompativel, ehAutomatica, type CandidatoDebito, type DebitoEncontrado,
 } from "@/lib/formaLiquidacao";
-import { acharDocumentosDoExtrato, type DocumentoDoExtrato, type PrevistoParaExtrato } from "@/lib/documentoDoExtrato";
+import { acharDocumentosDoExtrato, type ContratoDoFornecedor, type DocumentoDoExtrato, type PrevistoParaExtrato } from "@/lib/documentoDoExtrato";
 
 const MESES_DE_HISTORICO = 24;
 const PAGINA = 1000;
@@ -176,13 +176,21 @@ async function fitidsJaImportados(contaId: string, de: string, ate: string): Pro
   return set;
 }
 
+/** Os contratos ativos de um fornecedor (uma recorrência = um contrato): o valor habitual e o nome que o distingue (ex.: "Templo"). */
+function contratosDoFornecedor(contexto: ContextoOfx, fornecedorId: string | null | undefined): ContratoDoFornecedor[] {
+  if (!fornecedorId) return [];
+  return (contexto.ctx.recorrencias ?? [])
+    .filter(r => r.tipo === "saida" && r.fornecedorId === fornecedorId)
+    .map(r => ({ recorrenciaId: r.id, rotulo: r.nome, valor: r.valor, valorVariavel: r.valorVariavel }));
+}
+
 /** Saídas PREVISTAS ao redor do extrato — candidatas a "este pagamento quitou aquele documento". */
 async function previstosParaExtrato(de: string, ate: string): Promise<(PrevistoParaExtrato & { fornecedor_nome: string | null })[]> {
   try {
     const previstos = await listarLancamentos({ status: "previsto", tipo: "saida", dataInicio: daquiADias(de, -20), dataFim: daquiADias(ate, 20) });
     return previstos.map(l => ({
       id: l.id, valor: Number(l.valor), data: String(l.data).slice(0, 10), fornecedor_id: l.fornecedor_id ?? null,
-      descricao: l.descricao, fornecedor_nome: l.fornecedor_nome ?? null,
+      descricao: l.descricao, fornecedor_nome: l.fornecedor_nome ?? null, recorrencia_id: (l as { recorrencia_id?: string | null }).recorrencia_id ?? null,
     }));
   } catch {
     return [];
@@ -245,7 +253,7 @@ export async function analisar(contaId: string, txs: OFXTransacao[], contexto: C
       // Favorecido identificado → situação "documento". Texto genérico do extrato (boleto) → a linha continua "nova"
       // e leva só a DICA do documento provável (`incerto`), para não esconder uma linha que pode ser outra coisa.
       const documentos = tx.tipo === "saida" && !sugestao.transferencia
-        ? acharDocumentosDoExtrato(tx, previstos, sugestao.fornecedor?.id, usados)
+        ? acharDocumentosDoExtrato(tx, previstos, sugestao.fornecedor?.id, usados, contratosDoFornecedor(contexto, sugestao.fornecedor?.id))
         : [];
       if (documentos.length > 0 && !documentos[0].incerto) {
         usados.add(documentos[0].documento.id);

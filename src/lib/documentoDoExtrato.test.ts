@@ -42,3 +42,52 @@ describe("documento do extrato", () => {
     expect(acharDocumentosDoExtrato(tx(1350), [p("a", 1418, "2026-10-08")], "luz")[0].diferenca).toBe(-68);
   });
 });
+
+describe("vários contratos do mesmo fornecedor (Verisure, 08/10/2026)", () => {
+  const A = { ...p("a", 291.31, "2026-10-05", "verisure"), descricao: "Verisure — Templo", recorrencia_id: "rA" };
+  const B = { ...p("b", 278.22, "2026-10-05", "verisure"), descricao: "Verisure — Prédio Administrativo", recorrencia_id: "rB" };
+  const contratos = [{ recorrenciaId: "rA", rotulo: "Verisure — Templo", valor: 291.31 }, { recorrenciaId: "rB", rotulo: "Verisure — Prédio Administrativo", valor: 278.22 }];
+
+  it("R$ 278,22 com os dois documentos abertos: o de valor igual vem primeiro como 'possível segundo contrato', 98%", () => {
+    const r = acharDocumentosDoExtrato(tx(278.22, "2026-10-06"), [A, B], "verisure", new Set(), contratos);
+    expect(r[0].documento.id).toBe("b");
+    expect(r[0]).toMatchObject({ exato: true, segundoContrato: true, ambiguo: false, confianca: 98 });
+    expect(r[0].outrosAbertos.map(o => o.id)).toEqual(["a"]);
+    expect(r[0].motivo).toMatch(/outro documento aberto/);
+  });
+
+  it("só o documento do OUTRO contrato existe: não é 'desconto' automático — o valor é o habitual do contrato sem documento", () => {
+    const r = acharDocumentosDoExtrato(tx(278.22, "2026-10-06"), [A], "verisure", new Set(), contratos);
+    expect(r[0].documento.id).toBe("a");
+    expect(r[0].exato).toBe(false);
+    expect(r[0].contratoSemDocumento?.rotulo).toBe("Verisure — Prédio Administrativo");
+    expect(r[0].motivo).toMatch(/pode não ser desconto nem pagamento parcial/);
+    expect(r[0].confianca).toBeLessThan(70);
+  });
+
+  it("dois documentos abertos e nenhum com o valor: ambíguo — a tesouraria escolhe o contrato (nada de diferença automática)", () => {
+    const r = acharDocumentosDoExtrato(tx(280, "2026-10-06"), [A, B], "verisure", new Set(), contratos);
+    expect(r).toHaveLength(2);
+    expect(r.every(x => x.ambiguo)).toBe(true);
+    expect(r[0].documento.id).toBe("b");    // o mais próximo em valor primeiro
+    expect(r[0].confianca).toBe(50);
+  });
+
+  it("um único documento aberto e valor diferente: continua sendo a diferença de sempre (desconto/juros/parcial)", () => {
+    const r = acharDocumentosDoExtrato(tx(280, "2026-10-06"), [B], "verisure", new Set(), [contratos[1]]);
+    expect(r[0]).toMatchObject({ exato: false, ambiguo: false, confianca: 70 });
+    expect(r[0].diferenca).toBe(1.78);
+  });
+
+  it("dois documentos com o mesmo valor: vale o de vencimento mais próximo, com confiança menor", () => {
+    const B2 = { ...B, id: "b2", data: "2026-10-20" };
+    const r = acharDocumentosDoExtrato(tx(278.22, "2026-10-19"), [B, B2], "verisure", new Set(), contratos);
+    expect(r[0].documento.id).toBe("b2");
+    expect(r[0].confianca).toBe(90);
+  });
+
+  it("sem favorecido no texto (cobrança genérica): nada de contrato, só valor e data (incerto)", () => {
+    const r = acharDocumentosDoExtrato(tx(278.22, "2026-10-06"), [A, B], null);
+    expect(r[0]).toMatchObject({ documento: { id: "b" }, incerto: true, segundoContrato: false, ambiguo: false });
+  });
+});

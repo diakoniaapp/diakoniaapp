@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 interface Estado { tabela: string; op: string | null; payload: unknown; colunas: string | null; filtros: [string, unknown[]][] }
 const inseridos: Record<string, unknown>[][] = [];
 const atualizacoes: { tabela: string; payload: unknown }[] = [];
+const consultas: Estado[] = [];
 let colunasAusentes: string[] = [];
 
 function responder(e: Estado) {
@@ -14,6 +15,7 @@ function responder(e: Estado) {
     return { data: linhas.map((_, i) => ({ id: `novo-${i}` })), error: null };
   }
   if (e.op === "update") { atualizacoes.push({ tabela: e.tabela, payload: e.payload }); return { data: [{ id: "x" }], error: null }; }
+  if (!e.op) consultas.push(e);
   // sondagem de coluna: select("recorrencia_id").limit(1)
   if (e.colunas && colunasAusentes.includes(e.colunas)) return { data: null, error: { code: "42703", message: `column ${e.colunas} does not exist` } };
   return { data: [], error: null };
@@ -99,5 +101,17 @@ describe("gerarOcorrencias — o caso dela", () => {
     expect(linhas).toHaveLength(12);
     expect(linhas[0].fornecedor_id).toBe("f1");
     for (const k of ["recorrencia_id", "parcela_numero", "parcela_total", "forma_liquidacao", "pessoa_id"]) expect(linhas[0]).not.toHaveProperty(k);
+  });
+});
+
+describe("dois contratos do mesmo favorecido (Verisure, 08/10/2026)", () => {
+  it("as datas que OUTRA recorrência gerou não contam como 'já geradas': a consulta dos antigos exige recorrencia_id nulo", async () => {
+    consultas.length = 0;
+    await gerarOcorrencias({ ...carlos, id: "rec-verisure-b", descricao: "Verisure Brasil Monitoramento", tipo_recorrencia: "continua", total_parcelas: null, parcela_inicial: 1, valor: 278.22 } as unknown as FinRecorrencia, "2026-10-06");
+    const doLegado = consultas.filter(c => c.tabela === "fin_lancamentos" && c.filtros.some(([f, a]) => f === "eq" && a[0] === "descricao"));
+    expect(doLegado.length).toBeGreaterThan(0);
+    expect(doLegado.every(c => c.filtros.some(([f, a]) => f === "is" && a[0] === "recorrencia_id" && a[1] === null))).toBe(true);
+    // e a consulta pelo vínculo continua olhando só a própria recorrência
+    expect(consultas.some(c => c.filtros.some(([f, a]) => f === "eq" && a[0] === "recorrencia_id" && a[1] === "rec-verisure-b"))).toBe(true);
   });
 });

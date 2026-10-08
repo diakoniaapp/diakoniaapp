@@ -70,9 +70,14 @@ async function datasJaGeradas(rec: FinRecorrencia, temVinculo: boolean): Promise
     }
   };
   if (temVinculo) await ler(() => supabase.from("fin_lancamentos").select("data").eq("recorrencia_id", rec.id));
-  // os de antes do vínculo: mesma descrição, conta e tipo, nascidos de recorrência
-  await ler(() => supabase.from("fin_lancamentos").select("data")
-    .eq("origem", "recorrencia").eq("descricao", rec.descricao).eq("conta_id", rec.conta_id).eq("tipo", rec.tipo));
+  // os de antes do vínculo: mesma descrição, conta e tipo, nascidos de recorrência. SÓ os sem vínculo: os que pertencem a OUTRA
+  // recorrência (outro contrato do mesmo favorecido, com a mesma descrição — ex.: dois contratos da Verisure) não contam como
+  // "já gerados" desta. Medido em 08/10/2026: o contrato de R$ 278,22 nunca ganhou um previsto porque o de R$ 291,31 já tinha as datas.
+  await ler(() => {
+    const q = supabase.from("fin_lancamentos").select("data")
+      .eq("origem", "recorrencia").eq("descricao", rec.descricao).eq("conta_id", rec.conta_id).eq("tipo", rec.tipo);
+    return temVinculo ? q.is("recorrencia_id", null) : q;
+  });
   return datas;
 }
 

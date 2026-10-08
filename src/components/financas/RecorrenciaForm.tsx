@@ -208,7 +208,7 @@ export function RecorrenciaForm({ open, onOpenChange, recorrencia, onSaved }: Pr
         // os previstos que já foram gerados não herdam a mudança sozinhos
         if (saida && (formaLiquidacao !== "manual" || mudouForma)) {
           const n = await propagarLiquidacaoParaPrevistos(
-            { descricao: payload.descricao, tipo, conta_id: contaId }, formaLiquidacao, valorVariavel);
+            { id, descricao: payload.descricao, tipo, conta_id: contaId }, formaLiquidacao, valorVariavel);
           if (n > 0) toast.success(`${n} lançamento(s) previsto(s) já gerado(s) também mudaram para "${ROTULO_LIQUIDACAO[formaLiquidacao]}"`);
         }
       } else {

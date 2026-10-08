@@ -1,5 +1,5 @@
--- ENSAIO: roda tudo e DESFAZ (ROLLBACK). O resultado (JSON) mostra o resumo e as verificações. NADA fica gravado.
--- Pré-requisito: a migration 20261008150000 já aplicada (o ensaio também a exige).
+-- ENSAIO: roda tudo e DESFAZ (ROLLBACK). O resultado (JSON) traz o resumo, as 37 recorrências e as verificações. NADA fica gravado.
+-- Pode ser rodado ANTES da migration 20261008150000 (veja o item 0 abaixo). A migration definitiva 20261008160000 continua EXIGINDO a 1.
 -- ─── Limpeza dos lançamentos PREVISTOS de recorrência além de 12 meses ───────────────────────────────────────────
 -- Medido em 08/10/2026: ~29.900 previstos de recorrência, 29.460 deles a mais de 12 meses de hoje (até dez/2099), todos criados em
 -- 06–07/10 pelo gerador do app, que tratou `data_fim = 2099-12-31` (marcador de "sem fim" do legado) como data final real. São ~69% de
@@ -8,7 +8,7 @@
 --   · não é parcela de parcelamento (parcela_numero IS NULL) e a recorrência é contínua SEM data final real;
 --   · sem anexo, rateio, folha, fiscal, estoque nem arrecadação ligados.
 -- Segurança (tudo na MESMA transação — qualquer falha desfaz tudo):
---   0. exige a migration 20261008150000 já aplicada (senão cada linha apagada recalcularia o saldo da conta);
+--   0. (migration definitiva) exige a migration 20261008150000 já aplicada (senão cada linha apagada recalcularia o saldo da conta);
 --   1. copia as linhas para `fin_lancamentos_previstos_backup_20261008` e as recorrências para `fin_recorrencias_backup_20261008`
 --      (RLS ligada, sem acesso do app) — dá para restaurar (ver docs/LIMPEZA_RECORRENCIAS_ROLLBACK.sql);
 --   2. trava: aborta se a limpeza passar de 35.000 linhas;
@@ -18,13 +18,11 @@
 
 BEGIN;
 
--- 0. precondição: o gatilho de saldo já ignora previstos
-DO $$
-BEGIN
-  IF position('old.status in' in pg_get_functiondef('public.fin_atualiza_saldo()'::regprocedure)) = 0 THEN
-    RAISE EXCEPTION 'Aplique ANTES a migration 20261008150000_fin_saldo_so_quando_o_saldo_muda.sql (o gatilho de saldo ainda recalcula a conta a cada linha)';
-  END IF;
-END $$;
+-- 0. ENSAIO (roda ANTES da migration 20261008150000): com o gatilho de saldo atual, cada linha apagada recalcularia a conta e o
+--    ensaio estouraria o tempo. Por isso, SÓ DENTRO desta transação, o gatilho é desligado — e tudo é desfeito no ROLLBACK final
+--    (o gatilho volta como estava). A verificação de saldo continua valendo: previsto não entra no saldo.
+--    Rode quando ninguém estiver confirmando linhas na Mesa: o comando segura a tabela por alguns segundos.
+ALTER TABLE public.fin_lancamentos DISABLE TRIGGER fin_lanc_saldo;
 
 -- fotografia do que NÃO pode mudar
 CREATE TEMP TABLE _saldos_antes ON COMMIT DROP AS SELECT id, saldo_atual FROM public.fin_contas;
@@ -85,9 +83,13 @@ SELECT jsonb_build_object(
         LEFT JOIN (SELECT recorrencia_id, count(*) AS n FROM _limpa GROUP BY 1) k ON k.recorrencia_id = r.id
        GROUP BY 1, 2) t),
   'por_recorrencia', (SELECT coalesce(jsonb_agg(jsonb_build_object(
-        'recorrencia', r.descricao, 'removidos', k.n,
-        'ficam', (SELECT count(*) FROM public.fin_lancamentos l WHERE l.recorrencia_id = r.id AND l.status = 'previsto') - k.n) ORDER BY k.n DESC), '[]'::jsonb)
-      FROM public.fin_recorrencias r JOIN (SELECT recorrencia_id, count(*) AS n FROM _limpa GROUP BY 1) k ON k.recorrencia_id = r.id)
+        'recorrencia', r.descricao, 'tipo', r.tipo_recorrencia::text, 'frequencia', r.frequencia::text, 'valor', r.valor,
+        'dia', r.dia_vencimento, 'data_fim_hoje', r.data_fim, 'ultimo_gerado_ate_hoje', r.ultimo_gerado_ate,
+        'previstos_hoje', (SELECT count(*) FROM public.fin_lancamentos l WHERE l.recorrencia_id = r.id AND l.status = 'previsto'),
+        'removidos', coalesce(k.n, 0),
+        'ficam', (SELECT count(*) FROM public.fin_lancamentos l WHERE l.recorrencia_id = r.id AND l.status = 'previsto') - coalesce(k.n, 0))
+        ORDER BY coalesce(k.n, 0) DESC, r.descricao), '[]'::jsonb)
+      FROM public.fin_recorrencias r LEFT JOIN (SELECT recorrencia_id, count(*) AS n FROM _limpa GROUP BY 1) k ON k.recorrencia_id = r.id)
 ) AS j;
 
 -- cópias de segurança (só quem tem acesso total ao banco lê: RLS ligada, sem política)
@@ -147,6 +149,9 @@ SELECT jsonb_pretty(jsonb_build_object(
       'recorrencias', (SELECT count(*) FROM public.fin_recorrencias_backup_20261008)),
   'verificacao', jsonb_build_object(
       'saldos_alterados', (SELECT count(*) FROM public.fin_contas c JOIN _saldos_antes s USING (id) WHERE c.saldo_atual IS DISTINCT FROM s.saldo_atual),
+      'contas_com_saldo_diferente_da_formula_informativo', (SELECT count(*) FROM public.fin_contas c
+          WHERE c.saldo_atual IS DISTINCT FROM c.saldo_inicial + coalesce((SELECT sum(CASE WHEN l.tipo = 'entrada' THEN l.valor ELSE -l.valor END)
+                FROM public.fin_lancamentos l WHERE l.conta_id = c.id AND l.status IN ('realizado', 'conciliado')), 0)),
       'resultado', 'todas as verificações passaram')
 )) AS resultado;
 

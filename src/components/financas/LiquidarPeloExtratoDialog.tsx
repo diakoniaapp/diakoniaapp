@@ -26,12 +26,14 @@ export function LiquidarPeloExtratoDialog({ linha, contaId, onFechar, onFeito }:
   onFeito: () => void | Promise<void>;
 }) {
   const [escolhido, setEscolhido] = useState(0);
+  // vários documentos abertos do mesmo fornecedor e nenhum com o valor do extrato: NINGUÉM é escolhido de antemão (nada de "desconto" automático)
+  const ambiguo = !!linha?.documentos?.[0]?.ambiguo;
   const [plano, setPlano] = useState<PlanoDeLiquidacao | null>(null);
   const [gravando, setGravando] = useState(false);
-  useEffect(() => { setEscolhido(0); setPlano(null); }, [linha?.tx.fitid]);
+  useEffect(() => { setEscolhido(ambiguo ? -1 : 0); setPlano(null); }, [linha?.tx.fitid, ambiguo]);
 
   const candidatos = linha?.documentos ?? [];
-  const alvo = candidatos[escolhido];
+  const alvo = escolhido >= 0 ? candidatos[escolhido] : undefined;
   const diverge = !!alvo && Math.abs(alvo.diferenca) >= 0.005;
 
   async function confirmar() {
@@ -63,11 +65,11 @@ export function LiquidarPeloExtratoDialog({ linha, contaId, onFechar, onFeito }:
 
         {linha && candidatos.length > 1 && (
           <RadioGroup value={String(escolhido)} onValueChange={(v) => { setEscolhido(Number(v)); setPlano(null); }} className="gap-1.5">
-            <p className="text-xs">Mais de um documento combina. Qual este pagamento quitou?</p>
+            <p className="text-xs">{ambiguo ? "O fornecedor tem mais de um documento em aberto e nenhum com este valor. Qual contrato este pagamento quitou?" : "Mais de um documento combina. Qual este pagamento quitou?"}</p>
             {candidatos.map((c, i) => (
               <label key={c.documento.id} className="flex items-center gap-2 text-xs rounded border px-2 py-1">
                 <RadioGroupItem value={String(i)} />
-                <span className="min-w-0 flex-1 truncate">{c.documento.descricao ?? "Documento"} · vence {dataBr(c.documento.data)}</span>
+                <span className="min-w-0 flex-1 truncate">{c.documento.descricao ?? "Documento"} · vence {dataBr(c.documento.data)}{c.exato && <span className="text-success-text"> · valor igual · {c.confianca}%</span>}</span>
                 <span className="tabular-nums font-medium">{brl(c.documento.valor)}</span>
               </label>
             ))}
