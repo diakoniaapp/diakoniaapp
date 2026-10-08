@@ -22,8 +22,8 @@ import {
   chaveDoMemo, montarContexto, sugerir, type Contexto, type Historico, type Sugestao,
 } from "@/lib/classificacaoOfx";
 import {
-  excluirLancamentosEmLote, listarCategorias, listarCentrosCusto, listarLancamentos,
-  type FinCategoria, type FinCentroCusto, type FinFormaPagamento,
+  excluirLancamentosEmLote, listarCategorias, listarCentrosCusto, listarLancamentos, listarProjetos,
+  type FinCategoria, type FinCentroCusto, type FinFormaPagamento, type FinProjeto,
 } from "@/services/finService";
 import { casarComLancamentos, inferirFormaPagamento, type OFXCasamento, type OFXTransacao } from "@/services/ofxService";
 import { carregarCadastro } from "@/services/identificacaoService";
@@ -35,7 +35,7 @@ import { acharDocumentosDoExtrato, type DocumentoDoExtrato, type PrevistoParaExt
 const MESES_DE_HISTORICO = 24;
 const PAGINA = 1000;
 
-export interface ContextoOfx { ctx: Contexto; categorias: FinCategoria[]; centros: FinCentroCusto[] }
+export interface ContextoOfx { ctx: Contexto; categorias: FinCategoria[]; centros: FinCentroCusto[]; projetos: FinProjeto[] }
 
 /** O texto do extrato que um lançamento antigo guardou (descrição ou, no Omie, `observacoes`). */
 export function memoDoLancamento(l: { descricao: string | null; observacoes: string | null }): string {
@@ -65,9 +65,12 @@ export async function carregarContexto(): Promise<ContextoOfx> {
     }
     if ((data ?? []).length < PAGINA) break;
   }
-  const [cadastro, categorias, centros] = await Promise.all([carregarCadastro(), listarCategorias(), listarCentrosCusto()]);
+  // projetos ativos (120 Anos, Reforma…): a pessoa marca na própria linha; sem projeto cadastrado, o seletor nem aparece
+  const [cadastro, categorias, centros, projetos] = await Promise.all([
+    carregarCadastro(), listarCategorias(), listarCentrosCusto(), listarProjetos().catch(() => [] as FinProjeto[]),
+  ]);
   const ctx = montarContexto(cadastro, categorias.map(c => ({ id: c.id, nome: c.nome, tipo: c.tipo })), historico);
-  return { ctx, categorias, centros };
+  return { ctx, categorias, centros, projetos };
 }
 
 // ── a análise do arquivo ────────────────────────────────────────────────────
@@ -252,6 +255,7 @@ export interface ParaRegistrar {
   tx: OFXTransacao;
   categoriaId: string;
   centroId?: string;
+  projetoId?: string;
   pessoaId?: string;
   fornecedorId?: string;
 }
@@ -276,7 +280,7 @@ export async function registrarLote(
     const bloco = itens.slice(i, i + TAMANHO_BLOCO);
     const linhas = bloco.map(it => ({
       tipo: it.tx.tipo, data: it.tx.data, valor: it.tx.valor, conta_id: contaId, status: "conciliado",
-      categoria_id: it.categoriaId, centro_custo_id: it.centroId ?? null,
+      categoria_id: it.categoriaId, centro_custo_id: it.centroId ?? null, projeto_id: it.projetoId ?? null,
       pessoa_id: it.pessoaId ?? null, fornecedor_id: it.fornecedorId ?? null,
       forma_pagamento: (inferirFormaPagamento(it.tx.memo) ?? null) as FinFormaPagamento | null,
       descricao: it.tx.memo, origem: "importado_ofx",

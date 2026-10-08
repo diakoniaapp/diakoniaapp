@@ -7,7 +7,7 @@
 import { useMemo, useState } from "react";
 import { CheckCircle2, ChevronDown, ChevronRight, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { brl, type FinCategoria } from "@/services/finService";
+import { brl, type FinCategoria, type FinProjeto } from "@/services/finService";
 import type { LinhaAnalisada } from "@/services/importacaoOfxService";
 import type { Grupo } from "@/lib/mesaOfx";
 import { nomeCurtoDaCategoria } from "./CartaoDaLinha";
@@ -20,9 +20,10 @@ interface Props {
   linhas: LinhaAnalisada[];
   categorias: FinCategoria[];
   opcoesDeCentro: { id: string; rotulo: string }[];
+  projetos: FinProjeto[];
   nomeDaCategoria: (id?: string | null) => string;
   ocupado: boolean;
-  onConfirmar: (g: Grupo, escolha: { categoriaId: string; centroId?: string }) => void;
+  onConfirmar: (g: Grupo, escolha: { categoriaId: string; centroId?: string; projetoId?: string }) => void;
 }
 
 /** A sugestão mais repetida entre as linhas do grupo (categoria e centro) — o ponto de partida. */
@@ -32,9 +33,10 @@ function maisComum(linhas: LinhaAnalisada[], campo: "categoriaId" | "centroId"):
   return [...conta.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
 }
 
-export function CartaoDoGrupo({ grupo, linhas, categorias, opcoesDeCentro, nomeDaCategoria, ocupado, onConfirmar }: Props) {
+export function CartaoDoGrupo({ grupo, linhas, categorias, opcoesDeCentro, projetos, nomeDaCategoria, ocupado, onConfirmar }: Props) {
   const [categoriaId, setCategoriaId] = useState<string>(() => maisComum(linhas, "categoriaId") ?? "");
   const [centroId, setCentroId] = useState<string>(() => maisComum(linhas, "centroId") ?? "");
+  const [projetoId, setProjetoId] = useState<string>("");
   const [aberto, setAberto] = useState(false);
   const entrada = grupo.tipo === "entrada";
   const opcoes = useMemo(() => {
@@ -68,8 +70,14 @@ export function CartaoDoGrupo({ grupo, linhas, categorias, opcoesDeCentro, nomeD
           <option value="">Centro de custo…</option>
           {opcoesDeCentro.map(c => <option key={c.id} value={c.id}>{c.rotulo}</option>)}
         </select>
+        {projetos.length > 0 && (
+          <select className={`${SELECT} w-40`} aria-label="Projeto do grupo (opcional)" disabled={ocupado} value={projetoId} onChange={e => setProjetoId(e.target.value)}>
+            <option value="">Sem projeto</option>
+            {projetos.map(pr => <option key={pr.id} value={pr.id}>{pr.nome}</option>)}
+          </select>
+        )}
         <Button type="button" size="sm" className="h-8 gap-1 text-xs" disabled={ocupado || !categoriaId}
-          onClick={() => onConfirmar(grupo, { categoriaId, centroId: centroId || undefined })}>
+          onClick={() => onConfirmar(grupo, { categoriaId, centroId: centroId || undefined, projetoId: projetoId || undefined })}>
           <CheckCircle2 className="h-3.5 w-3.5" /> Confirmar as {grupo.fitids.length}
         </Button>
         <button type="button" className="inline-flex items-center gap-1 text-xs text-muted-foreground underline underline-offset-2" onClick={() => setAberto(v => !v)} aria-expanded={aberto}>

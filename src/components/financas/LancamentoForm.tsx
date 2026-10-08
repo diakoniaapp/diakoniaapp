@@ -83,7 +83,7 @@ interface Props {
   rascunho?: {
     data?: string; valor?: number; descricao?: string; forma?: FinFormaPagamento;
     /** Vindos da importação OFX inteligente: o que o sistema sugeriu, para a pessoa só conferir. */
-    categoriaId?: string; centroId?: string;
+    categoriaId?: string; centroId?: string; projetoId?: string;
     pessoa?: { id: string; nome: string }; fornecedor?: { id: string; nome: string };
   };
   onSaved: () => void;
@@ -415,7 +415,7 @@ export function LancamentoForm({
       setData(rascunho?.data ?? hojeLocal());
       atualizarValor(rascunho?.valor ?? 0);
       setContaId(contaIdPadrao ?? "");
-      setCategoriaId(rascunho?.categoriaId ?? categoriaIdPadrao ?? ""); setCentroCustoId(rascunho?.centroId ?? ""); setProjetoId(""); setUsarProjeto(false);
+      setCategoriaId(rascunho?.categoriaId ?? categoriaIdPadrao ?? ""); setCentroCustoId(rascunho?.centroId ?? ""); setProjetoId(rascunho?.projetoId ?? ""); setUsarProjeto(!!rascunho?.projetoId);
       setFornecedorId(rascunho?.fornecedor?.id ?? "");
       setPessoaId(rascunho?.pessoa?.id ?? ""); setFornecedorBusca(rascunho?.pessoa?.nome ?? rascunho?.fornecedor?.nome ?? ""); setPessoasSugeridas([]);
       setForma(rascunho?.forma ?? ""); setStatus("realizado"); setLiquidacao("manual");

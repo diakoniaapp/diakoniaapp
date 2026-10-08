@@ -7,7 +7,7 @@
 import { AlertTriangle, ArrowRightLeft, BanIcon, CheckCircle2, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { brl, type FinCategoria } from "@/services/finService";
+import { brl, type FinCategoria, type FinProjeto } from "@/services/finService";
 import type { LinhaAnalisada } from "@/services/importacaoOfxService";
 import { favorecidoEfetivo, podeGravar, rotuloDaConfianca, valoresEfetivos, type Edicao, type FavorecidoEscolhido } from "@/lib/gradeOfx";
 import { EscolhaDeFavorecido } from "./EscolhaDeFavorecido";
@@ -35,6 +35,7 @@ interface Props {
   ocupado: boolean;
   categorias: FinCategoria[];
   opcoesDeCentro: { id: string; rotulo: string }[];
+  projetos: FinProjeto[];
   nomeDaCategoria: (id?: string | null) => string;
   ignorarDisponivel: boolean;
   onEditar: (patch: Edicao) => void;
@@ -116,6 +117,12 @@ export function CartaoDaLinha(p: Props) {
               <option value="">Centro de custo…</option>
               {p.opcoesDeCentro.map(c => <option key={c.id} value={c.id}>{c.rotulo}</option>)}
             </select>
+            {p.projetos.length > 0 && (
+              <select className={`${SELECT} w-40`} aria-label="Projeto (opcional)" disabled={ocupado} value={edicao?.projetoId ?? ""} onChange={e => p.onEditar({ projetoId: e.target.value })}>
+                <option value="">Sem projeto</option>
+                {p.projetos.map(pr => <option key={pr.id} value={pr.id}>{pr.nome}</option>)}
+              </select>
+            )}
           </div>
 
           {documento && (

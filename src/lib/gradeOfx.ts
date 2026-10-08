@@ -20,7 +20,7 @@ export interface LinhaDaGrade {
 export interface FavorecidoEscolhido { tipo: "pessoa" | "fornecedor"; id: string; nome: string; /** favorecido que é uma pessoa do cadastro: o lançamento leva as duas ligações */ pessoaId?: string | null }
 
 /** O que a pessoa mudou à mão numa linha (por FITID). `favorecido`: outro favorecido escolhido na linha; `null` = "sem favorecido". */
-export interface Edicao { categoriaId?: string; centroId?: string; favorecido?: FavorecidoEscolhido | null }
+export interface Edicao { categoriaId?: string; centroId?: string; projetoId?: string; favorecido?: FavorecidoEscolhido | null }
 
 export type Filtro =
   | "todas" | "identificadas" | "pendencias" | "revisar" | "nao_identificadas"

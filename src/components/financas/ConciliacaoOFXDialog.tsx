@@ -130,6 +130,7 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
     entrada: (contexto?.categorias ?? []).filter(c => c.tipo === "entrada"),
     saida: (contexto?.categorias ?? []).filter(c => c.tipo === "saida"),
   }), [contexto]);
+  const projetos = contexto?.projetos ?? [];
   const opcoesDeCentro = useMemo(() => {
     const cs = contexto?.centros ?? [];
     const porId = new Map(cs.map(c => [c.id, c]));
@@ -257,7 +258,7 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
     const fav = favorecidoEfetivo(g, ed);
     const escolhido = ed?.favorecido ?? null;
     return {
-      tx: l.tx, categoriaId: v.categoriaId!, centroId: v.centroId,
+      tx: l.tx, categoriaId: v.categoriaId!, centroId: v.centroId, projetoId: ed?.projetoId || undefined,
       pessoaId: fav.pessoa?.id ?? (escolhido?.tipo === "fornecedor" ? escolhido.pessoaId ?? undefined : undefined),
       fornecedorId: fav.fornecedor?.id,
     };
@@ -295,12 +296,12 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
   }
 
   /** Um clique decide o grupo inteiro (mesma categoria e centro para todas as linhas). */
-  async function confirmarGrupo(grupo: Grupo, escolha: { categoriaId: string; centroId?: string }) {
+  async function confirmarGrupo(grupo: Grupo, escolha: { categoriaId: string; centroId?: string; projetoId?: string }) {
     const doGrupo = (linhas ?? []).filter(l => grupo.fitids.includes(l.tx.fitid) && l.situacao === "nova" && !confirmadas.has(l.tx.fitid));
     if (doGrupo.length === 0) return;
     setSalvandoLinha(true);
     try {
-      const itens: ParaRegistrar[] = doGrupo.map(l => ({ tx: l.tx, categoriaId: escolha.categoriaId, centroId: escolha.centroId }));
+      const itens: ParaRegistrar[] = doGrupo.map(l => ({ tx: l.tx, categoriaId: escolha.categoriaId, centroId: escolha.centroId, projetoId: escolha.projetoId }));
       const r = await registrarLote(contaId, itens);
       if (r.erros.length > 0 || r.ids.length !== itens.length) {
         toast.error(`Parte do grupo não foi gravada: ${r.erros[0] ?? "confira"}`);
@@ -450,7 +451,8 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
     return {
       data: editarLinha.tx.data, valor: editarLinha.tx.valor, descricao: editarLinha.tx.memo,
       forma: inferirFormaPagamento(editarLinha.tx.memo),
-      categoriaId: v.categoriaId, centroId: v.centroId, pessoa: f.pessoa, fornecedor: f.fornecedor,
+      categoriaId: v.categoriaId, centroId: v.centroId, projetoId: edicoes[editarLinha.tx.fitid]?.projetoId || undefined,
+      pessoa: f.pessoa, fornecedor: f.fornecedor,
     };
   }, [editarLinha, edicoes]);
 
@@ -580,7 +582,7 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
               <div className="space-y-2" aria-label="Linhas do mesmo padrão">
                 {agrupamento.grupos.map(g => (
                   <CartaoDoGrupo key={`${g.tipo}|${g.chave}|${g.fitids.length}`} grupo={g} linhas={linhasDoGrupo(g)}
-                    categorias={categoriasPorTipo[g.tipo]} opcoesDeCentro={opcoesDeCentro} nomeDaCategoria={nomeDaCategoria}
+                    categorias={categoriasPorTipo[g.tipo]} opcoesDeCentro={opcoesDeCentro} projetos={projetos} nomeDaCategoria={nomeDaCategoria}
                     ocupado={ocupado} onConfirmar={confirmarGrupo} />
                 ))}
               </div>
@@ -610,7 +612,7 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
                         </div>
                       ) : l.situacao === "nova" && l.sugestao ? (
                         <CartaoDaLinha linha={l} edicao={edicoes[fitid]} marcada={marcadas.has(fitid)} ocupado={ocupado}
-                          categorias={categoriasPorTipo[l.tx.tipo]} opcoesDeCentro={opcoesDeCentro} nomeDaCategoria={nomeDaCategoria}
+                          categorias={categoriasPorTipo[l.tx.tipo]} opcoesDeCentro={opcoesDeCentro} projetos={projetos} nomeDaCategoria={nomeDaCategoria}
                           ignorarDisponivel={ignorarDisponivel}
                           onEditar={patch => editar(fitid, patch)} onMarcar={c => alternarMarca(fitid, c)}
                           onConfirmar={() => confirmarLinha(l)} onFormulario={() => setEditarLinha(l)}
