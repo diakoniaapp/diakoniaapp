@@ -156,6 +156,21 @@ function casarEstrito(nomeBruto: string, candidatos: CandidatoNome[]): { candida
     if (porPrefixo.length > 1) return null;
   }
 
+  // Nível 2c — nome TRUNCADO **e** com uma letra perdida/trocada pelo banco: "L cio Paulo Paz Barre" é "Lúcio Paulo Paz Barreto"
+  // (o acento some, deixa um espaço, e o fim é cortado). Mesmo critério do 2b (14+ letras, UM só candidato), com 1 erro de tolerância.
+  // Só quando o texto TEM a marca do acento perdido — uma letra solta ("L cio"). Sem essa marca, uma diferença de uma letra
+  // pode ser outro sobrenome de verdade ("Souza" × "Sousa"); isso fica para o nível 3, que já existia.
+  const temLetraSolta = alvo.split(" ").some(t => t.length === 1);
+  if (alvoJunto.length >= 14 && temLetraSolta) {
+    const tolerantes = candidatos.filter(c => {
+      const junto = semEspacos(normalizarNome(c.nome));
+      if (junto.length <= alvoJunto.length - 1) return false;
+      return [alvoJunto.length - 1, alvoJunto.length, alvoJunto.length + 1].some(L => distanciaLevenshtein(alvoJunto, junto.slice(0, L)) <= 1);
+    });
+    if (tolerantes.length === 1) return { candidato: tolerantes[0], nivel: "truncado" };
+    if (tolerantes.length > 1) return null;
+  }
+
   // Nível 3 — Levenshtein com tolerância proporcional (sem espaços)
   const alvoSemEspaco = semEspacos(alvo);
   if (alvoSemEspaco.length < 6) return null; // nome curto demais pra arriscar

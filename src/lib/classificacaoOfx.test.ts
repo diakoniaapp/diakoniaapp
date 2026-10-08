@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   chaveDoMemo, maisVotado, montarContexto, regraDoDizimo, resumirPainel, sugerir,
-  type CategoriaRef, type Historico, type Linha,
+  type CategoriaRef, type Historico, type Linha, type RecorrenciaRegra,
 } from "./classificacaoOfx";
 
 const CATS: CategoriaRef[] = [
@@ -72,9 +72,12 @@ describe("sugerir — entradas", () => {
     expect(s).toMatchObject({ categoriaId: "mis", confianca: 92, banda: "identificada", pessoa: { id: "p-joao" } });
   });
 
-  it("cadastrada, valor aleatório, sem histórico: Oferta, 62% — vai para revisão", () => {
-    const s = sugerir(linha({ memo: "PIX RECEBIDO REM: PESSOA SEM HISTORICO", valor: 137.9 }), ctx([]));
-    expect(s).toMatchObject({ categoriaId: "ofe", confianca: 62, banda: "revisar" });
+  it("cadastrada, sem histórico: o VALOR sugere (≥ R$ 100 Dízimo, abaixo Oferta), 62% — só sugestão, vai para revisão", () => {
+    const alto = sugerir(linha({ memo: "PIX RECEBIDO REM: PESSOA SEM HISTORICO", valor: 137.9 }), ctx([]));
+    expect(alto).toMatchObject({ categoriaId: "diz", confianca: 62, banda: "revisar", porValor: true });
+    expect(alto.motivos.join(" ")).toMatch(/sugestão pelo VALOR/);
+    const baixo = sugerir(linha({ memo: "PIX RECEBIDO REM: PESSOA SEM HISTORICO", valor: 40 }), ctx([]));
+    expect(baixo).toMatchObject({ categoriaId: "ofe", confianca: 62, banda: "revisar", porValor: true });
   });
 
   it("histórico dominado por Oferta, sem padrão de dízimo: Oferta com confiança proporcional", () => {
@@ -107,7 +110,7 @@ describe("sugerir — entradas", () => {
   it("nome que NÃO está no cadastro: não inventa pessoa; oferta com confiança baixa → revisar", () => {
     const s = sugerir(linha({ memo: "PIX RECEBIDO REM: FULANO DE TAL INEXISTENTE" }), ctx([]));
     expect(s.pessoa).toBeUndefined();
-    expect(s).toMatchObject({ categoriaId: "ofe", confianca: 62, banda: "revisar" });
+    expect(s).toMatchObject({ categoriaId: "diz", confianca: 62, banda: "revisar", porValor: true });   // R$ 500: pelo valor
     expect(s.motivos.join(" ")).toMatch(/não está no cadastro/);
   });
 
@@ -197,6 +200,77 @@ describe("texto genérico de cobrança não sugere categoria (pedido dela, 08/10
     expect(s.generico).toBe(true);
     expect(s.categoriaId).toBeUndefined();
     expect(s.alternativas).toEqual([]);
+    expect(s.banda).toBe("nao_identificada");
+  });
+});
+
+describe("entrada nunca herda categoria de SAÍDA (aprovado em 08/10/2026)", () => {
+  const catSaida: CategoriaRef[] = [...CATS, { id: "man", nome: "Manutenção de Imobilizado", tipo: "saida" }];
+  const comFornecedor = (h: Historico[]) => montarContexto(
+    { pessoas: CADASTRO.pessoas, fornecedores: [...CADASTRO.fornecedores, { id: "f-daniel", nome: "Daniel Alves Souza" }] }, catSaida, h);
+  const pagouAoDaniel = [1, 2, 3].map(i => hist({ tipo: "saida", pessoaId: null, fornecedorId: "f-daniel", categoriaId: "man", valor: 900, dia: `2026-08-0${i}` }));
+
+  it("ENTRADA de quem também é fornecedor: não sugere Manutenção; decide pelo valor", () => {
+    const s = sugerir(linha({ memo: "PIX QR CODE ESTATIC REM: DANIEL ALVES SOUZA", valor: 20 }), comFornecedor(pagouAoDaniel));
+    expect(s.fornecedor?.id).toBe("f-daniel");
+    expect(s.categoriaId).toBe("ofe");
+    expect(s.porValor).toBe(true);
+    expect(s.historico ?? []).toHaveLength(0);   // as saídas dele também não aparecem como "contribuições anteriores"
+  });
+  it("a SAÍDA para o mesmo fornecedor continua usando as saídas dele", () => {
+    const s = sugerir(linha({ tipo: "saida", memo: "PIX ENVIADO DES: DANIEL ALVES SOUZA", valor: 900 }), comFornecedor(pagouAoDaniel));
+    expect(s.categoriaId).toBe("man");
+  });
+  it("pessoa que contribui e também é paga: o histórico de entrada vale só para entradas", () => {
+    const h = [...dizimosMensais(6), hist({ tipo: "saida", categoriaId: "man", valor: 300, dia: "2026-08-20" })];
+    const s = sugerir(linha({}), comFornecedor(h));
+    expect(s.categoriaId).toBe("diz");
+  });
+});
+
+describe("recorrência como regra de classificação da despesa (aprovado em 08/10/2026)", () => {
+  const rec = (p: Partial<RecorrenciaRegra> = {}): RecorrenciaRegra => ({
+    id: "r1", nome: "Alexandre Lourenço Silva", tipo: "saida", valor: 2362, valorVariavel: false, diaDoVencimento: 1,
+    categoriaId: "pre", centroId: "c-pastoral", fornecedorId: null, pessoaId: "p-alexandre", favorecidoNome: "Alexandre Lourenço Silva", ...p,
+  });
+  const catsRec: CategoriaRef[] = [...CATS, { id: "pre", nome: "Prebenda", tipo: "saida" }, { id: "gas", nome: "Gás", tipo: "saida" }, { id: "cond", nome: "Condomínio", tipo: "saida" }];
+  const cad = { pessoas: [...CADASTRO.pessoas, { id: "p-alexandre", nome: "Alexandre Lourenço Silva" }], fornecedores: CADASTRO.fornecedores };
+  const comRec = (recs: RecorrenciaRegra[]) => montarContexto(cad, catsRec, [], recs);
+
+  it("pessoa que nunca foi paga pelo PIX antes: a recorrência dela dá categoria e centro (nome truncado pelo banco)", () => {
+    const s = sugerir(linha({ tipo: "saida", memo: "PIX ENVIADO DES: ALEXANDRE LOURENCO SI 01/09", valor: 2362 }), comRec([rec()]));
+    expect(s).toMatchObject({ categoriaId: "pre", centroId: "c-pastoral", confianca: 90, banda: "identificada", pessoa: { id: "p-alexandre" } });
+    expect(s.viaRecorrencia?.nome).toBe("Alexandre Lourenço Silva");
+  });
+  it("valor diferente do cadastrado na recorrência: sugere, mas só para revisar", () => {
+    const s = sugerir(linha({ tipo: "saida", memo: "PIX ENVIADO DES: ALEXANDRE LOURENCO SI", valor: 3000 }), comRec([rec()]));
+    expect(s).toMatchObject({ categoriaId: "pre", confianca: 72, banda: "revisar" });
+  });
+  it("valor variável: vale a recorrência a 88%", () => {
+    const s = sugerir(linha({ tipo: "saida", memo: "PIX ENVIADO DES: ALEXANDRE LOURENCO SI", valor: 1800 }), comRec([rec({ valorVariavel: true })]));
+    expect(s.confianca).toBe(88);
+  });
+  it("duas recorrências do mesmo favorecido com valores diferentes: escolhe a do valor; empate = não sugere", () => {
+    const a = rec({ id: "a", valor: 100, categoriaId: "pre" }), b = rec({ id: "b", valor: 2362, categoriaId: "gas" });
+    expect(sugerir(linha({ tipo: "saida", memo: "PIX ENVIADO DES: ALEXANDRE LOURENCO SI", valor: 2362 }), comRec([a, b])).categoriaId).toBe("gas");
+    const s = sugerir(linha({ tipo: "saida", memo: "PIX ENVIADO DES: ALEXANDRE LOURENCO SI", valor: 2362 }), comRec([rec({ id: "a" }), rec({ id: "b", categoriaId: "gas" })]));
+    expect(s.viaRecorrencia).toBeUndefined();
+  });
+  it("pela marca no texto: 'TITULO DE CAPITALIZACAO' casa com a recorrência de mesmo nome", () => {
+    const r = rec({ id: "r2", nome: "Título de Capitalização Bradesco", categoriaId: "cond", valor: 114.72, pessoaId: null, fornecedorId: "f-cap", favorecidoNome: "Título de Capitalização Bradesco", centroId: null });
+    const s = sugerir(linha({ tipo: "saida", memo: "TITULO DE CAPITALIZACAO CAPITALIZACAO 1137 0050213007-2", valor: 114.72 }), comRec([r]));
+    expect(s).toMatchObject({ categoriaId: "cond", confianca: 90 });
+  });
+  it("boleto genérico: o valor exato + o dia do vencimento ligam à recorrência (Condomínio)", () => {
+    const r = rec({ id: "r3", nome: "Precisão Empreendimentos Imobiliários", categoriaId: "cond", valor: 984.72, diaDoVencimento: 10, pessoaId: null, fornecedorId: "f-prec", favorecidoNome: "Precisão Empreendimentos Imobiliários LTDA" });
+    const s = sugerir(linha({ tipo: "saida", data: "2026-09-10", memo: "PAGTO ELETRON  COBRANCA PAG COBRANCA 12345", valor: 984.72 }), comRec([r]));
+    expect(s).toMatchObject({ categoriaId: "cond", fornecedor: { id: "f-prec" } });
+    const outroValor = sugerir(linha({ tipo: "saida", data: "2026-09-10", memo: "PAGTO ELETRON  COBRANCA PAG COBRANCA 12345", valor: 350 }), comRec([r]));
+    expect(outroValor.generico).toBe(true);
+    expect(outroValor.categoriaId).toBeUndefined();
+  });
+  it("sem recorrência ativa que case, o comportamento antigo continua", () => {
+    const s = sugerir(linha({ tipo: "saida", memo: "PIX ENVIADO DES EMPRESA QUE NUNCA VIMOS" }), comRec([rec()]));
     expect(s.banda).toBe("nao_identificada");
   });
 });

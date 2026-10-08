@@ -49,3 +49,32 @@ describe("o favorecido que o texto do extrato cita", () => {
     expect(favorecidoNoTexto("PIX RECEBIDO REM IGREJA BATISTA DO RIO", so)).toBeNull();
   });
 });
+
+describe("apelido: a sigla em maiúsculas dentro do nome cadastrado (08/10/2026)", () => {
+  const G: CandidatoFavorecido[] = [
+    { id: "ceg", nome: "Companhia Distribuidora de Gás do Rio de Janeiro - CEG", pj: true },
+    { id: "abc", nome: "ABC - Associação de Benefícios e Convênios", pj: true },
+    { id: "x1", nome: "Outra Empresa EPP", pj: true },
+  ];
+  it("'CONTA DE GAS CEG CAPITAL/GDE RIO' é a CEG", () => {
+    const r = favorecidoNoTexto("CONTA DE GAS CEG CAPITAL/GDE RIO-09325622", G);
+    expect(r?.candidato.id).toBe("ceg");
+    expect(r?.via).toBe("apelido");
+  });
+  it("sufixos societários e UF não são apelido; sigla repetida em dois fornecedores não decide", () => {
+    expect(favorecidoNoTexto("PAGTO EPP LTDA RJ", G)).toBeNull();
+    expect(favorecidoNoTexto("CONTA CEG", [...G, { id: "ceg2", nome: "Outra CEG Ltda", pj: true }])).toBeNull();
+  });
+});
+
+describe("apelido só vale em nome cadastrado com maiúsculas e minúsculas (08/10/2026)", () => {
+  it("nome TODO em maiúsculas (Omie/CPF) não vira sigla: 'SOUZA' não é apelido de ninguém", () => {
+    const G: CandidatoFavorecido[] = [{ id: "josimar", nome: "JOSIMAR BIANCHI DE SOUZA 01341978605" }, { id: "ceg", nome: "Companhia Distribuidora de Gás - CEG", pj: true }];
+    expect(favorecidoNoTexto("PIX ENVIADO DES: DANIEL ALVES SOUZA 09/09", G)).toBeNull();
+    expect(favorecidoNoTexto("CONTA DE GAS CEG CAPITAL", G)?.candidato.id).toBe("ceg");
+  });
+  it("o nome inteiro vence o apelido: o apelido é o último recurso", () => {
+    const G: CandidatoFavorecido[] = [{ id: "daniel", nome: "Daniel Alves Souza" }, { id: "ceg", nome: "Companhia Distribuidora de Gás - CEG", pj: true }];
+    expect(favorecidoNoTexto("PIX ENVIADO DES: DANIEL ALVES SOUZA CEG", G)?.candidato.id).toBe("daniel");
+  });
+});

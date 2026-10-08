@@ -16,7 +16,16 @@
 
 export interface CandidatoFavorecido { id: string; nome: string; /** pessoa jurídica (tem CNPJ) */ pj?: boolean }
 
-export interface FavorecidoAchado { candidato: CandidatoFavorecido; via: "nome" | "marca" | "sigla"; motivo: string }
+export interface FavorecidoAchado { candidato: CandidatoFavorecido; via: "nome" | "marca" | "sigla" | "apelido"; motivo: string }
+
+/**
+ * Apelido do fornecedor: a SIGLA escrita em maiúsculas no próprio nome cadastrado ("Companhia Distribuidora de Gás do Rio de
+ * Janeiro - CEG" → CEG; "ABC - Associação de Benefícios…" → ABC). O banco escreve "CONTA DE GAS CEG CAPITAL/GDE RIO" e nenhuma outra
+ * palavra do nome aparece. Só vale se UM fornecedor tem essa sigla e se ela não é sufixo societário/UF.
+ */
+const NAO_E_SIGLA = new Set(["LTDA", "EIRELI", "EPP", "SPE", "CIA", "CNPJ", "CPF", "MEI", "SA", "RJ", "SP", "MG", "ES", "BRASIL", "RIO"]);
+const siglasDoNome = (nome: string): string[] =>
+  nome === nome.toUpperCase() ? [] : [...new Set((nome.match(/\b[A-ZÁÉÍÓÚÂÊÔÃÕÇ]{3,5}\b/g) ?? []).map(t => semAcento(t).toLowerCase()))].filter(t => !NAO_E_SIGLA.has(t.toUpperCase()));
 
 const semAcento = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "");
 const tokens = (s: string) => semAcento(s).toLowerCase().replace(/[^a-z\s]/g, " ").split(/\s+/).filter(t => t.length >= 3);
@@ -68,7 +77,17 @@ export function favorecidoNoTexto(memo: string, candidatos: CandidatoFavorecido[
       achados.push({ c, peso: sig[0].length, via: "marca" });
     }
   }
-  if (achados.length === 0) return null;
+  if (achados.length === 0) {
+  // 3. o apelido (sigla em maiúsculas dentro do nome cadastrado), se for de UM fornecedor só
+  const porSigla = new Map<string, CandidatoFavorecido[]>();
+  for (const c of candidatos) for (const sg of siglasDoNome(c.nome)) porSigla.set(sg, [...(porSigla.get(sg) ?? []), c]);
+  const apelidos = [...porSigla.entries()].filter(([sg, cs]) => cs.length === 1 && doTexto.has(sg));
+  if (apelidos.length === 1) {
+    const [sg, [c]] = apelidos[0];
+    return { candidato: c, via: "apelido", motivo: `a sigla ${sg.toUpperCase()} no texto do extrato → ${c.nome}` };
+  }
+    return null;
+  }
   const topo = Math.max(...achados.map(a => a.peso));
   const melhores = achados.filter(a => a.peso === topo);
   if (melhores.length !== 1) return null; // empate: ambíguo

@@ -93,3 +93,13 @@ describe("encontrarDetalhado — nomes parecidos (um contido no outro)", () => {
     expect(encontrarDetalhado("Ana Paula", cad)).toBeNull();
   });
 });
+describe("nome truncado E com letra perdida pelo banco (08/10/2026)", () => {
+  const C = [{ id: "lucio", nome: "Lucio Paulo Paz Barreto" }, { id: "outro", nome: "Luiz Paulo Paz Barros" }];
+  it("'L cio Paulo Paz Barre' (o acento virou espaço e o fim foi cortado) é o Lúcio, e só ele", () => {
+    expect(encontrarDetalhado("L cio Paulo Paz Barre", C)?.candidato.id).toBe("lucio");
+  });
+  it("não chuta quando dois nomes servem", () => {
+    expect(encontrarDetalhado("L cio Paulo Paz Barre", [...C, { id: "lucio2", nome: "Lucio Paulo Paz Barreira" }])).toBeNull();
+  });
+});
+

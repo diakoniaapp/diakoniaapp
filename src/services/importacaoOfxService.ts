@@ -19,7 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { conferir } from "@/lib/escritaConferida";
 import { daquiADias, hojeLocal } from "@/lib/data";
 import {
-  chaveDoMemo, faixaDe, montarContexto, sugerir, type Contexto, type Historico, type Sugestao,
+  chaveDoMemo, faixaDe, montarContexto, sugerir, type Contexto, type Historico, type RecorrenciaRegra, type Sugestao,
 } from "@/lib/classificacaoOfx";
 import { acharContrapartes, type CandidatoContraparte, type OutraPonta, type ProvavelTransferencia } from "@/lib/transferenciaOfx";
 export type { OutraPonta };
@@ -48,6 +48,24 @@ export function memoDoLancamento(l: { descricao: string | null; observacoes: str
   return linhas[0] ?? "";
 }
 
+/** As recorrências ATIVAS com categoria: a regra de classificação das despesas fixas (sem a tabela, simplesmente nenhuma regra). */
+async function carregarRecorrenciasComoRegra(cadastro: { pessoas: { id: string; nome: string }[]; fornecedores: { id: string; nome: string }[] }): Promise<RecorrenciaRegra[]> {
+  try {
+    const { data, error } = await supabase.from("fin_recorrencias")
+      .select("id, descricao, tipo, valor, valor_variavel, dia_vencimento, categoria_id, centro_custo_id, fornecedor_id, pessoa_id, ativo")
+      .eq("ativo", true).not("categoria_id", "is", null);
+    if (error) return [];
+    const nomeP = new Map(cadastro.pessoas.map(p => [p.id, p.nome]));
+    const nomeF = new Map(cadastro.fornecedores.map(f => [f.id, f.nome]));
+    return (data ?? []).map((r: any) => ({
+      id: r.id, nome: r.descricao, tipo: r.tipo === "entrada" ? "entrada" : "saida", valor: Number(r.valor), valorVariavel: !!r.valor_variavel,
+      diaDoVencimento: r.dia_vencimento ?? null, categoriaId: r.categoria_id, centroId: r.centro_custo_id ?? null,
+      fornecedorId: r.fornecedor_id ?? null, pessoaId: r.pessoa_id ?? null,
+      favorecidoNome: (r.fornecedor_id && nomeF.get(r.fornecedor_id)) || (r.pessoa_id && nomeP.get(r.pessoa_id)) || null,
+    }));
+  } catch { return []; }
+}
+
 export async function carregarContexto(): Promise<ContextoOfx> {
   const desde = daquiADias(hojeLocal(), -30 * MESES_DE_HISTORICO);
   const historico: Historico[] = [];
@@ -71,7 +89,8 @@ export async function carregarContexto(): Promise<ContextoOfx> {
   const [cadastro, categorias, centros, projetos] = await Promise.all([
     carregarCadastro(), listarCategorias(), listarCentrosCusto(), listarProjetos().catch(() => [] as FinProjeto[]),
   ]);
-  const ctx = montarContexto(cadastro, categorias.map(c => ({ id: c.id, nome: c.nome, tipo: c.tipo })), historico);
+  const recorrencias = await carregarRecorrenciasComoRegra(cadastro);
+  const ctx = montarContexto(cadastro, categorias.map(c => ({ id: c.id, nome: c.nome, tipo: c.tipo })), historico, recorrencias);
   return { ctx, categorias, centros, projetos };
 }
 

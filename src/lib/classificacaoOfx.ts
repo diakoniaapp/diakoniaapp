@@ -46,6 +46,27 @@ export interface Historico {
 
 export interface Cadastro { pessoas: CandidatoNome[]; fornecedores: CandidatoFavorecido[] }
 
+/**
+ * Uma recorrência ativa como REGRA de classificação de despesa (aprovado em 08/10/2026): quem a tesouraria já cadastrou como
+ * "todo mês, este favorecido, esta categoria e este centro" não precisa ser reaprendido pelo histórico — e cobre quem nunca foi
+ * pago pelo PIX antes (pastor, funcionário, plano de saúde).
+ */
+export interface RecorrenciaRegra {
+  id: string;
+  /** a descrição da recorrência (em geral, o nome do favorecido) */
+  nome: string;
+  tipo: Tipo;
+  valor: number;
+  valorVariavel: boolean;
+  diaDoVencimento: number | null;
+  categoriaId: string | null;
+  centroId: string | null;
+  fornecedorId: string | null;
+  pessoaId: string | null;
+  /** o nome do favorecido cadastrado (para mostrar) */
+  favorecidoNome: string | null;
+}
+
 export interface Sugestao {
   pessoa?: { id: string; nome: string };
   fornecedor?: { id: string; nome: string };
@@ -63,6 +84,10 @@ export interface Sugestao {
   possivelMissoes?: boolean;
   /** O texto do banco serve a vários favorecidos (boleto genérico): não vale como pista de categoria. */
   generico?: boolean;
+  /** A categoria/centro vieram de uma recorrência cadastrada (despesa fixa), não do histórico do extrato. */
+  viaRecorrencia?: { nome: string; valor: number };
+  /** Dízimo × Oferta decidido só pelo VALOR (sem histórico da pessoa): é uma sugestão fraca, sempre para revisar. */
+  porValor?: boolean;
   /** Os últimos lançamentos da pessoa/favorecido identificado — o contexto para decidir com um olhar. */
   historico?: EvidenciaDoHistorico[];
   /** Outras categorias plausíveis (ids), para trocar com um clique. */
@@ -111,9 +136,11 @@ export interface Contexto {
   marca10: { missoes: number; total: number };
   /** Os lançamentos de cada categoria (para sugerir o centro junto da categoria). */
   porCategoria: Map<string, Historico[]>;
+  /** Recorrências ativas: regra de classificação das despesas fixas. */
+  recorrencias: RecorrenciaRegra[];
 }
 
-export function montarContexto(cadastro: Cadastro, cats: CategoriaRef[], historico: Historico[]): Contexto {
+export function montarContexto(cadastro: Cadastro, cats: CategoriaRef[], historico: Historico[], recorrencias: RecorrenciaRegra[] = []): Contexto {
   const porPessoa = new Map<string, Historico[]>();
   const porFornecedor = new Map<string, Historico[]>();
   const porChave = new Map<string, Historico[]>();
@@ -136,7 +163,7 @@ export function montarContexto(cadastro: Cadastro, cats: CategoriaRef[], histori
       if (categorias.missoes && h.categoriaId === categorias.missoes) marca10.missoes += 1;
     }
   }
-  return { cadastro, categorias, porPessoa, porFornecedor, porChave, marca10, porCategoria };
+  return { cadastro, categorias, porPessoa, porFornecedor, porChave, marca10, porCategoria, recorrencias };
 }
 
 /** Termina em ,10 e vale pelo menos R$ 1 (R$ 0,10 é rendimento de aplicação, não oferta). */
@@ -294,7 +321,8 @@ function sugerirBase(linha: Linha, ctx: Contexto): Sugestao {
 
     if (pessoa) {
       motivos.push(`${pessoa.nome} está no cadastro`);
-      const hist = ctx.porPessoa.get(pessoa.id) ?? [];
+      // só as ENTRADAS dela: quem também é paga (saída) não herda a categoria das saídas numa entrada
+      const hist = (ctx.porPessoa.get(pessoa.id) ?? []).filter(h => h.tipo === "entrada");
       const regra = regraDoDizimo(hist, cat.dizimo, linha.valor, linha.data);
       if (regra.aplica && cat.dizimo) {
         motivos.push(...regra.motivos, "regra do dízimo: mais de 3, mesma faixa, mensal");
@@ -314,16 +342,21 @@ function sugerirBase(linha: Linha, ctx: Contexto): Sugestao {
           centroId: maisVotado(hist.filter(h => h.categoriaId === voto.id), "centroId")?.id, confianca: confiancaDoVoto(voto),
         });
       }
-      // cadastrada, sem histórico: sem padrão = oferta (a regra dela)
-      motivos.push("sem histórico de contribuição — sem padrão, vale como oferta");
-      return pronta({ pessoa: { id: pessoa.id, nome: pessoa.nome }, categoriaId: cat.oferta, confianca: 62 });
+      // cadastrada, sem histórico de contribuição: o VALOR sugere (apenas sugestão, sempre para revisar)
+      const porValor = categoriaPorValor(linha.valor, cat);
+      motivos.push(porValor.motivo);
+      return pronta({ pessoa: { id: pessoa.id, nome: pessoa.nome }, categoriaId: porValor.id, confianca: 62, porValor: true });
     }
 
     if (fornecedor) {
       motivos.push(`${fornecedor.nome} é fornecedor cadastrado`);
-      const voto = maisVotado(ctx.porFornecedor.get(fornecedor.id) ?? [], "categoriaId");
-      if (voto) return pronta({ fornecedor: { id: fornecedor.id, nome: fornecedor.nome }, categoriaId: voto.id, centroId: maisVotado(ctx.porFornecedor.get(fornecedor.id) ?? [], "centroId")?.id, confianca: confiancaDoVoto(voto) });
-      return pronta({ fornecedor: { id: fornecedor.id, nome: fornecedor.nome }, confianca: 45 });
+      // uma ENTRADA de fornecedor nunca herda a categoria das SAÍDAS dele (Manutenção, Prestação de Serviços…): só entradas anteriores
+      const hEntradas = (ctx.porFornecedor.get(fornecedor.id) ?? []).filter(h => h.tipo === "entrada");
+      const voto = maisVotado(hEntradas, "categoriaId");
+      if (voto) return pronta({ fornecedor: { id: fornecedor.id, nome: fornecedor.nome }, categoriaId: voto.id, centroId: maisVotado(hEntradas, "centroId")?.id, confianca: confiancaDoVoto(voto) });
+      const porValor = categoriaPorValor(linha.valor, cat);
+      motivos.push("sem entrada anterior deste favorecido — " + porValor.motivo);
+      return pronta({ fornecedor: { id: fornecedor.id, nome: fornecedor.nome }, categoriaId: porValor.id, confianca: 60, porValor: true });
     }
 
     // texto que se repete (rendimento, depósito em ATM…): o histórico daquele texto decide
@@ -343,12 +376,18 @@ function sugerirBase(linha: Linha, ctx: Contexto): Sugestao {
     }
     if (ex.nome) {
       motivos.push(`${ex.nome} não está no cadastro de pessoas nem de fornecedores — fica sem vínculo (ou cadastre antes)`);
-      return pronta({ categoriaId: dicaId ?? cat.oferta, confianca: dicaId ? 72 : 62 });
+      if (dicaId) return pronta({ categoriaId: dicaId, confianca: 72 });
+      const porValor = categoriaPorValor(linha.valor, cat);
+      motivos.push(porValor.motivo);
+      return pronta({ categoriaId: porValor.id, confianca: 62, porValor: true });
     }
     return pronta({ categoriaId: dicaId, confianca: 40, motivos: ["o texto do extrato não traz nome nem padrão conhecido"] });
   }
 
   // ── SAÍDA ──
+  // 0. uma recorrência ativa que bate com este pagamento: categoria e centro vêm dela (despesa fixa)
+  const viaRec = classificarPorRecorrencia(linha, ex.nome, fornecedor, pessoa, ctx);
+  if (viaRec) return pronta(viaRec);
   const idPessoaOuForn = fornecedor?.id ?? pessoa?.id;
   const histEnt = fornecedor ? ctx.porFornecedor.get(fornecedor.id) : pessoa ? ctx.porPessoa.get(pessoa.id) : undefined;
   if (fornecedor || pessoa) {
@@ -391,6 +430,68 @@ function ehGenerico(h: Historico[]): boolean {
 
 const ULTIMOS = 4;
 
+/** A partir deste valor, sem outra evidência, uma contribuição costuma ser dízimo; abaixo, oferta (medido em 08/10/2026: 59 dízimos × 15 ofertas a partir de R$ 100; 7 × 47 abaixo). */
+export const LIMITE_DO_DIZIMO = 100;
+function categoriaPorValor(valor: number, cat: Categorias): { id: string | undefined; motivo: string } {
+  const dizimo = valor >= LIMITE_DO_DIZIMO && !!cat.dizimo;
+  return {
+    id: dizimo ? cat.dizimo : cat.oferta,
+    motivo: `sem histórico de contribuição — sugestão pelo VALOR (a partir de R$ 100 costuma ser dízimo; abaixo, oferta). Só sugestão: confira`,
+  };
+}
+
+const valorBate = (valor: number, r: RecorrenciaRegra) => r.valorVariavel || Math.abs(valor - r.valor) <= Math.max(1, 0.05 * r.valor);
+
+/**
+ * Despesa fixa: acha a recorrência ativa deste pagamento — pelo favorecido já identificado, pelo nome (inclusive truncado ou
+ * com letra perdida), pela marca/sigla no texto, ou — para boleto genérico — pelo VALOR exato e dia próximo do vencimento. Só
+ * quando é UMA recorrência (duas = ambíguo, não sugere). A categoria e o centro são os que a tesouraria cadastrou.
+ */
+function classificarPorRecorrencia(
+  linha: Linha, nome: string | null | undefined, fornecedor: CandidatoNome | null, pessoa: CandidatoNome | null, ctx: Contexto,
+): Omit<Sugestao, "banda" | "forma" | "motivos"> & { motivos?: string[] } | null {
+  const recs = (ctx.recorrencias ?? []).filter(r => r.tipo === linha.tipo && r.categoriaId);
+  if (recs.length === 0) return null;
+  const chave = chaveDoMemo(linha.memo);
+  let achadas: RecorrenciaRegra[] = [];
+  let como = "";
+  const byId = recs.filter(r => (fornecedor && r.fornecedorId === fornecedor.id) || (pessoa && r.pessoaId === pessoa.id));
+  if (byId.length > 0) { achadas = byId; como = "o favorecido tem recorrência ativa"; }
+  if (achadas.length === 0 && nome) {
+    const n = encontrarDetalhado(nome, recs.map(r => ({ id: r.id, nome: r.nome })));
+    if (n) { achadas = recs.filter(r => r.id === n.candidato.id); como = `o nome casa com a recorrência «${n.candidato.nome}»`; }
+  }
+  if (achadas.length === 0) {
+    const t = favorecidoNoTexto(linha.memo, recs.map(r => ({ id: r.id, nome: r.nome, pj: true })));
+    if (t) { achadas = recs.filter(r => r.id === t.candidato.id); como = `o texto cita a recorrência «${t.candidato.nome}»`; }
+  }
+  // boleto genérico: nenhum nome — vale o valor exato + o dia do vencimento
+  if (achadas.length === 0 && TEXTO_DE_COBRANCA.test(chave)) {
+    const dia = Number(linha.data.slice(8, 10));
+    const porValorEDia = recs.filter(r => !r.valorVariavel && Math.abs(linha.valor - r.valor) < 0.01 && r.diaDoVencimento != null && Math.abs(dia - r.diaDoVencimento) <= 5);
+    if (porValorEDia.length === 1) { achadas = porValorEDia; como = "o valor exato e o dia batem com a recorrência"; }
+  }
+  if (achadas.length > 1) {
+    const exatas = achadas.filter(r => valorBate(linha.valor, r) && !r.valorVariavel);
+    achadas = exatas.length === 1 ? exatas : [];
+  }
+  if (achadas.length !== 1) return null;
+  const r = achadas[0];
+  const favorito = fornecedor ?? pessoa;
+  const ref = favorito
+    ? (fornecedor ? { fornecedor: { id: favorito.id, nome: favorito.nome } } : { pessoa: { id: favorito.id, nome: favorito.nome } })
+    : r.fornecedorId ? { fornecedor: { id: r.fornecedorId, nome: r.favorecidoNome ?? r.nome } }
+    : r.pessoaId ? { pessoa: { id: r.pessoaId, nome: r.favorecidoNome ?? r.nome } } : {};
+  const bate = valorBate(linha.valor, r);
+  const confianca = bate ? (r.valorVariavel ? 88 : 90) : 72;
+  const aviso = bate ? (r.valorVariavel ? "valor variável" : `valor igual ao da recorrência (R$ ${r.valor.toFixed(2).replace(".", ",")})`) : `valor diferente do da recorrência (R$ ${r.valor.toFixed(2).replace(".", ",")}) — confira`;
+  return {
+    ...ref, categoriaId: r.categoriaId!, centroId: r.centroId ?? undefined, confianca,
+    viaRecorrencia: { nome: r.nome, valor: r.valor },
+    motivos: [`recorrência ativa «${r.nome}»: ${como}`, `categoria e centro vêm da recorrência cadastrada; ${aviso}`],
+  };
+}
+
 /** Acrescenta o que a tela precisa para decidir rápido: histórico, alternativas e a marca ",10". */
 export function sugerir(linha: Linha, ctx: Contexto): Sugestao {
   let s = sugerirBase(linha, ctx);
@@ -412,7 +513,7 @@ export function sugerir(linha: Linha, ctx: Contexto): Sugestao {
   }
 
   // o contexto: os últimos lançamentos do favorecido
-  const historico = (histAlvo ?? []).slice(-ULTIMOS).reverse().map(h => ({ dia: h.dia, valor: h.valor, categoriaId: h.categoriaId }));
+  const historico = (histAlvo ?? []).filter(h => h.tipo === linha.tipo).slice(-ULTIMOS).reverse().map(h => ({ dia: h.dia, valor: h.valor, categoriaId: h.categoriaId }));
   // as alternativas: entrada = Dízimo/Oferta/Missões; saída = o que esse favorecido (ou texto) já recebeu
   let alternativas: string[];
   if (s.generico) alternativas = [];   // texto genérico (boleto/cobrança): nenhuma categoria é sugerida, nem como alternativa
