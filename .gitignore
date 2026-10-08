@@ -41,3 +41,6 @@ playwright-report/
 # Rascunho de sessão — ver workspace/README.md
 workspace/*
 !workspace/README.md
+
+# Relatórios com nomes/valores de membros — nunca no Git
+docs/privado/
