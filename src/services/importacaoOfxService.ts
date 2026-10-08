@@ -16,6 +16,7 @@
 // lançamentos já registrados (realizados E conciliados) — na dúvida, a linha NÃO é criada.
 
 import { supabase } from "@/integrations/supabase/client";
+import { conferir } from "@/lib/escritaConferida";
 import { daquiADias, hojeLocal } from "@/lib/data";
 import {
   chaveDoMemo, montarContexto, sugerir, type Contexto, type Historico, type Sugestao,
@@ -71,7 +72,7 @@ export async function carregarContexto(): Promise<ContextoOfx> {
 
 // ── a análise do arquivo ────────────────────────────────────────────────────
 
-export type SituacaoLinha = "conciliar" | "ja_registrada" | "ambigua" | "debito_encontrado" | "documento" | "nova";
+export type SituacaoLinha = "conciliar" | "ja_registrada" | "ambigua" | "debito_encontrado" | "documento" | "nova" | "ignorada";
 
 export interface LinhaAnalisada {
   tx: OFXTransacao;
@@ -82,12 +83,50 @@ export interface LinhaAnalisada {
   sugestao?: Sugestao;
   /** `ja_registrada`: por que acreditamos que já existe. */
   motivoJaRegistrada?: string;
+  /** `ignorada`: o que a tesouraria disse ao ignorar. */
+  ignorada?: { motivo: MotivoDeIgnorar; observacao: string | null };
   /** `debito_encontrado`: o débito automático previsto que esta saída do extrato cumpriu
    *  (`lancamentoId` é o dele). */
   debito?: DebitoEncontrado;
   /** `documento`: os documentos a pagar que esta saída provavelmente quitou (o primeiro é o mais provável).
    *  `diferenca` ≠ 0 abre o fluxo de divergência (Juros / Multa / Outro documento / Ajuste). */
   documentos?: DocumentoDoExtrato[];
+}
+
+// ── linhas ignoradas (migration 20261008140000): a decisão fica guardada por conta + FITID ──────────────
+
+export type MotivoDeIgnorar = "duplicado" | "devolvido" | "nao_e_da_igreja" | "outro";
+export const ROTULO_DO_MOTIVO: Record<MotivoDeIgnorar, string> = {
+  duplicado: "Movimento duplicado", devolvido: "Valor devolvido", nao_e_da_igreja: "Não é da igreja", outro: "Outro motivo",
+};
+
+/** As linhas que a tesouraria já mandou ignorar nesta conta. `disponivel: false` = a migration ainda não foi aplicada (a Mesa esconde "Ignorar"). */
+export async function listarIgnoradas(contaId: string): Promise<{ disponivel: boolean; porFitid: Map<string, { motivo: MotivoDeIgnorar; observacao: string | null }> }> {
+  const porFitid = new Map<string, { motivo: MotivoDeIgnorar; observacao: string | null }>();
+  try {
+    const { data, error } = await supabase.from("fin_extrato_ignorados" as never).select("fitid, motivo, observacao").eq("conta_id" as never, contaId as never).limit(5000);
+    if (error) return { disponivel: false, porFitid };
+    for (const l of (data ?? []) as unknown as { fitid: string; motivo: MotivoDeIgnorar; observacao: string | null }[]) porFitid.set(l.fitid, { motivo: l.motivo, observacao: l.observacao });
+    return { disponivel: true, porFitid };
+  } catch { return { disponivel: false, porFitid }; }
+}
+
+export async function ignorarLinha(contaId: string, tx: OFXTransacao, motivo: MotivoDeIgnorar, observacao?: string): Promise<void> {
+  const r = conferir(
+    await supabase.from("fin_extrato_ignorados" as never).upsert(
+      { conta_id: contaId, fitid: tx.fitid, motivo, observacao: observacao?.trim() || null, data: tx.data, valor: tx.valor, memo: tx.memo } as never,
+      { onConflict: "conta_id,fitid" } as never).select("id"),
+    "A linha ignorada",
+  );
+  if (!r.ok) throw new Error(r.erro);
+}
+
+export async function reativarIgnorada(contaId: string, fitid: string): Promise<void> {
+  const r = conferir(
+    await supabase.from("fin_extrato_ignorados" as never).delete().eq("conta_id" as never, contaId as never).eq("fitid" as never, fitid as never).select("id"),
+    "A linha ignorada",
+  );
+  if (!r.ok) throw new Error(r.erro);
 }
 
 const MARCA_OFX = /\[ofx:([^\]]+)\]/g;
@@ -128,19 +167,22 @@ export async function analisar(contaId: string, txs: OFXTransacao[], contexto: C
   const datas = txs.map(t => t.data).sort();
   const de = daquiADias(datas[0], -5);
   const ate = daquiADias(datas[datas.length - 1], 5);
-  const [realizados, conciliados, fitids, debitos, previstos] = await Promise.all([
+  const [realizados, conciliados, fitids, debitos, previstos, ignoradas] = await Promise.all([
     listarLancamentos({ contaId, status: "realizado", dataInicio: de, dataFim: ate }),
     listarLancamentos({ contaId, status: "conciliado", dataInicio: de, dataFim: ate }),
     fitidsJaImportados(contaId, de, ate),
     debitosAutomaticosPrevistos(de, ate),
     previstosParaExtrato(de, ate),
+    listarIgnoradas(contaId),
   ]);
 
   const out: LinhaAnalisada[] = new Array(txs.length);
   // 1. o que já veio deste mesmo arquivo (FITID gravado)
   const restantes: { tx: OFXTransacao; i: number }[] = [];
   txs.forEach((tx, i) => {
-    if (tx.fitid && fitids.has(tx.fitid)) out[i] = { tx, situacao: "ja_registrada", motivoJaRegistrada: "já importada deste extrato (mesmo identificador do banco)" };
+    const ig = tx.fitid ? ignoradas.porFitid.get(tx.fitid) : undefined;
+    if (ig) out[i] = { tx, situacao: "ignorada", ignorada: ig };
+    else if (tx.fitid && fitids.has(tx.fitid)) out[i] = { tx, situacao: "ja_registrada", motivoJaRegistrada: "já importada deste extrato (mesmo identificador do banco)" };
     else restantes.push({ tx, i });
   });
 

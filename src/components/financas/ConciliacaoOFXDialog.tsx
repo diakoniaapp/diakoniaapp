@@ -1,20 +1,20 @@
-// ─── ConciliacaoOFXDialog.tsx — importar extrato (OFX) ──────────────────────────
+// ─── ConciliacaoOFXDialog.tsx — a Mesa de Conciliação (importar o extrato OFX e decidir) ───────────────────────
 //
-// Item 7 do roadmap do ERP financeiro, evoluído em 06/10/2026 para a IMPORTAÇÃO INTELIGENTE.
-// Mesmo padrão de Dialog que `TransferenciaForm.tsx`/`LancamentoForm.tsx` usam.
+// Item 7 do roadmap do ERP financeiro, evoluído em 06/10/2026 para a IMPORTAÇÃO INTELIGENTE e, em 08/10/2026, para a MESA
+// DE CONCILIAÇÃO (comparação com o Omie: docs/ANALISE_CONCILIACAO_OMIE_VS_DIAKONIA.md).
 //
-// O que cada linha do extrato vira:
-//   · `conciliar`      — casa com um lançamento já registrado como "Realizado": um clique concilia
-//                        (o comportamento de sempre, `conciliarEmLote`);
-//   · `ja_registrada`  — já existe (mesmo FITID de uma importação anterior, ou lançamento
-//                        conciliado de mesmo valor/data): NÃO é criada de novo;
-//   · `nova`           — o sistema SUGERE pessoa, categoria e centro (`lib/classificacaoOfx.ts`),
-//                        com confiança e os motivos; a pessoa confirma em massa o que veio
-//                        identificado e edita só as exceções.
+// O extrato vira uma FILA DE DECISÕES em três pilhas — ✓ identificadas · ⚠ precisam de revisão · ❌ não identificadas — e cada
+// linha nova é um CARTÃO: o que o banco disse, quem o sistema identificou (trocável ali mesmo), o histórico da pessoa, a
+// categoria sugerida com as alternativas a um clique e o botão Confirmar. O formulário completo só abre em "Editar".
+//   · `conciliar`     — casa com um lançamento já registrado como "Realizado": um clique concilia;
+//   · `ja_registrada` — já existe (mesmo FITID, ou lançamento conciliado de mesmo valor/data): NÃO é criada de novo;
+//   · `ignorada`      — a tesouraria mandou ignorar (migration 20261008140000): fica recolhida, com opção de reativar;
+//   · `nova`          — o cartão de decisão. Linhas do mesmo padrão sem favorecido viram UM cartão de grupo.
 //
-// Nada é gravado sem um clique. O lote criado carrega `[lote-ofx:ID]` e pode ser desfeito logo
-// depois; e as correções que ela faz aqui viram o histórico que ensina a próxima importação.
-import { useEffect, useMemo, useState } from "react";
+// Nada é gravado sem um clique. "Confirmar" grava a linha na hora (com "Desfazer"); os lotes ("Confirmar identificadas",
+// "Lançar marcadas") pedem confirmação e podem ser desfeitos. As correções viram o histórico que ensina a próxima importação.
+// O painel de MEDIÇÃO conta quantas linhas o sistema acertou sozinho, quantas pediram uma olhada e quantas foram à mão.
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
@@ -23,26 +23,29 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import {
-  FileUp, Scale, CheckCircle2, HelpCircle, ArrowRightLeft, Pencil, Undo2, Loader2, AlertTriangle, XCircle,
-  ChevronLeft, ChevronRight,
+  FileUp, Scale, CheckCircle2, HelpCircle, Undo2, Loader2, AlertTriangle, XCircle, ChevronLeft, ChevronRight, Layers, RotateCcw, BanIcon,
 } from "lucide-react";
-import { conciliarEmLote, brl, type FinMovimentoTipo } from "@/services/finService";
+import { conciliarEmLote, excluirLancamentosEmLote, brl, type FinMovimentoTipo } from "@/services/finService";
 import { parseOFX, encodingDoOFX, inferirFormaPagamento, type OFXTransacao } from "@/services/ofxService";
 import {
-  analisar, carregarContexto, conciliarDebitos, desfazerLote, registrarLote,
-  type ContextoOfx, type LinhaAnalisada, type ParaRegistrar,
+  analisar, carregarContexto, conciliarDebitos, desfazerLote, ignorarLinha, listarIgnoradas, reativarIgnorada, registrarLote, ROTULO_DO_MOTIVO,
+  type ContextoOfx, type LinhaAnalisada, type MotivoDeIgnorar, type ParaRegistrar,
 } from "@/services/importacaoOfxService";
 import {
-  ORDEM_DOS_FILTROS, ROTULO_DO_FILTRO, contarPorFiltro, identificadasParaConfirmar, marcadasIniciais,
-  marcadasParaGravar, paginar, pertenceAoFiltro, podeGravar, rotuloDaConfianca, valoresEfetivos,
+  ORDEM_DOS_FILTROS, ROTULO_DO_FILTRO, contarPorFiltro, favorecidoEfetivo, foiCorrigida, identificadasParaConfirmar, marcadasIniciais,
+  marcadasParaGravar, paginar, pertenceAoFiltro, podeGravar, valoresEfetivos,
   type Edicao, type Filtro, type LinhaDaGrade,
 } from "@/lib/gradeOfx";
+import { agruparPorClasse, resumirMedicao, type Desfecho, type Grupo, type Medicao, type RegistroDaMedicao } from "@/lib/mesaOfx";
 import { LancamentoForm } from "./LancamentoForm";
 import { LiquidarPeloExtratoDialog } from "./LiquidarPeloExtratoDialog";
 import { TransferenciaForm } from "./TransferenciaForm";
+import { CartaoDaLinha } from "./mesa/CartaoDaLinha";
+import { CartaoDoGrupo } from "./mesa/CartaoDoGrupo";
+import { IgnorarLinhaDialog } from "./mesa/IgnorarLinhaDialog";
+import { PainelDeMedicao } from "./mesa/PainelDeMedicao";
 
 interface Props {
   open: boolean;
@@ -58,15 +61,8 @@ function dataBr(s: string) {
   return new Date(s + "T00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
 }
 
-const daGrade = (l: LinhaAnalisada): LinhaDaGrade => ({ fitid: l.tx.fitid, situacao: l.situacao, sugestao: l.sugestao });
-
-const CHIP: Record<string, string> = {
-  identificada: "border-success-line bg-success-soft text-success-text",
-  revisar: "border-warning-line bg-warning-soft text-warning-text",
-  nao_identificada: "border-destructive-line bg-destructive-soft text-destructive-text",
-};
-
-const SELECT = "h-8 min-w-0 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring";
+/** A linha como a grade a vê. As que foram lançadas AGORA (sem reanalisar o arquivo) contam como já registradas. */
+const daGradeBase = (l: LinhaAnalisada): LinhaDaGrade => ({ fitid: l.tx.fitid, situacao: l.situacao, sugestao: l.sugestao });
 
 export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, onSaved }: Props) {
   const [arquivo, setArquivo] = useState<File | null>(null);
@@ -80,11 +76,24 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
   const [marcadas, setMarcadas] = useState<Set<string>>(new Set());
   const [filtro, setFiltro] = useState<Filtro>("todas");
   const [pagina, setPagina] = useState(1);
+  const [agrupar, setAgrupar] = useState(true);
 
   const [paraConfirmar, setParaConfirmar] = useState<LinhaAnalisada[] | null>(null);
   const [gravando, setGravando] = useState<{ feitos: number; total: number } | null>(null);
   const [lote, setLote] = useState<{ loteId: string; ids: string[] } | null>(null);
   const [desfazendo, setDesfazendo] = useState(false);
+  const [salvandoLinha, setSalvandoLinha] = useState(false);
+
+  // o que foi lançado AGORA, linha a linha (fitid → ids dos lançamentos): sai da fila sem reanalisar o arquivo inteiro
+  const [confirmadas, setConfirmadas] = useState<Map<string, string[]>>(new Map());
+  // a medição da rodada
+  const [registros, setRegistros] = useState<Map<string, RegistroDaMedicao>>(new Map());
+  const [aoAbrir, setAoAbrir] = useState<Medicao["aoAbrir"] | null>(null);
+  const [totalDoArquivo, setTotalDoArquivo] = useState(0);
+  const alterou = useRef(false);
+
+  const [ignorarDisponivel, setIgnorarDisponivel] = useState(false);
+  const [ignorando, setIgnorando] = useState<LinhaAnalisada | null>(null);
 
   const [editarLinha, setEditarLinha] = useState<LinhaAnalisada | null>(null);
   // Saída do extrato que quitou um documento a pagar (igual ou com diferença): a divergência abre sozinha ao importar.
@@ -93,15 +102,29 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
   // conta (a `TransferenciaForm` cria as duas pernas atômico), não só um lançamento avulso.
   const [transferirTransacao, setTransferirTransacao] = useState<OFXTransacao | null>(null);
 
-  const grade = useMemo(() => (linhas ?? []).map(daGrade), [linhas]);
+  const daGrade = (l: LinhaAnalisada): LinhaDaGrade =>
+    confirmadas.has(l.tx.fitid) ? { fitid: l.tx.fitid, situacao: "ja_registrada" } : daGradeBase(l);
+
+  const grade = useMemo(() => (linhas ?? []).map(daGrade), [linhas, confirmadas]); // eslint-disable-line react-hooks/exhaustive-deps
   const contagem = useMemo(() => contarPorFiltro(grade), [grade]);
   const visiveis = useMemo(() => {
     const ok = new Set(grade.filter(g => pertenceAoFiltro(g, filtro)).map(g => g.fitid));
     return (linhas ?? []).filter(l => ok.has(l.tx.fitid));
   }, [linhas, grade, filtro]);
-  const pag = paginar(visiveis, pagina, POR_PAGINA);
 
-  useEffect(() => { setPagina(1); }, [filtro]);
+  // grupos: linhas do mesmo padrão, sem favorecido, das que estão na tela agora
+  const agrupamento = useMemo(() => {
+    if (!agrupar) return { grupos: [] as Grupo[], avulsas: new Set<string>(), noGrupo: new Set<string>() };
+    const { grupos } = agruparPorClasse(visiveis.map(l => ({
+      fitid: l.tx.fitid, tipo: l.tx.tipo, valor: l.tx.valor, memo: l.tx.memo,
+      situacao: confirmadas.has(l.tx.fitid) ? "ja_registrada" : l.situacao, sugestao: l.sugestao,
+    })));
+    return { grupos, avulsas: new Set<string>(), noGrupo: new Set(grupos.flatMap(g => g.fitids)) };
+  }, [visiveis, confirmadas, agrupar]);
+  const naLista = useMemo(() => visiveis.filter(l => !agrupamento.noGrupo.has(l.tx.fitid)), [visiveis, agrupamento]);
+  const pag = paginar(naLista, pagina, POR_PAGINA);
+
+  useEffect(() => { setPagina(1); }, [filtro, agrupar]);
 
   const categoriasPorTipo = useMemo(() => ({
     entrada: (contexto?.categorias ?? []).filter(c => c.tipo === "entrada"),
@@ -113,24 +136,45 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
     return cs.map(c => ({ id: c.id, rotulo: c.centro_pai_id && porId.get(c.centro_pai_id) ? `${porId.get(c.centro_pai_id)!.nome} › ${c.nome}` : c.nome }))
       .sort((a, b) => a.rotulo.localeCompare(b.rotulo, "pt-BR"));
   }, [contexto]);
-  const nomeDaCategoria = (id?: string) => contexto?.categorias.find(c => c.id === id)?.nome ?? "";
+  const nomeDaCategoria = (id?: string | null) => (id ? contexto?.categorias.find(c => c.id === id)?.nome ?? "" : "");
 
   function reiniciar() {
     setArquivo(null); setTransacoes(null); setLinhas(null); setContexto(null);
     setEdicoes({}); setMarcadas(new Set()); setFiltro("todas"); setPagina(1); setLote(null);
+    setConfirmadas(new Map()); setRegistros(new Map()); setAoAbrir(null); setTotalDoArquivo(0);
+  }
+
+  function fechar(v: boolean) {
+    if (ocupado && !v) return;
+    onOpenChange(v);
+    if (!v) {
+      if (alterou.current) { alterou.current = false; onSaved(); }
+      reiniciar();
+    }
   }
 
   /** `recarregarContexto`: depois de gravar, o que foi gravado passa a fazer parte da memória. */
   async function analisarDeNovo(txs: OFXTransacao[], recarregarContexto: boolean, primeira = false) {
     const ctx = !contexto || recarregarContexto ? await carregarContexto() : contexto;
     setContexto(ctx);
-    const res = await analisar(contaId, txs, ctx);
+    const [res, ign] = await Promise.all([analisar(contaId, txs, ctx), listarIgnoradas(contaId)]);
+    setIgnorarDisponivel(ign.disponivel);
     setLinhas(res);
+    setConfirmadas(new Map());   // a reanálise já enxerga o que foi gravado (FITID)
+    const g = res.map(daGradeBase);
     if (primeira) {
+      const c = contarPorFiltro(g);
+      setAoAbrir({
+        identificadas: c.identificadas, revisar: c.revisar, naoIdentificadas: c.nao_identificadas, jaRegistradas: c.ja_registradas,
+        conciliar: c.conciliar, debitos: c.debitos, documentos: c.documentos, transferencias: c.transferencias,
+      });
+      setTotalDoArquivo(res.length);
       const divergente = res.find(l => l.documentos?.[0] && !l.documentos[0].exato && (l.situacao === "documento" || l.documentos.length === 1));
       if (divergente) setLiquidarLinha(divergente);
     }
-    const g = res.map(daGrade);
+    // quem ainda está pendente não conta como resolvida
+    const novas = new Set(res.filter(l => l.situacao === "nova").map(l => l.tx.fitid));
+    setRegistros(prev => new Map([...prev].filter(([f]) => !novas.has(f))));
     setMarcadas(prev => primeira ? marcadasIniciais(g) : new Set([...prev].filter(f => g.some(x => x.fitid === f && x.situacao === "nova"))));
   }
 
@@ -162,10 +206,14 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
   const documentosEncontrados = linhas?.filter(l => l.situacao === "documento") ?? [];
   const divergentes = documentosEncontrados.filter(l => l.documentos?.[0] && !l.documentos[0].exato);
 
+  const marcar = (fitid: string, r: RegistroDaMedicao) => setRegistros(prev => new Map(prev).set(fitid, r));
+  const registroDe = (l: LinhaAnalisada, desfecho: Desfecho, extra: Partial<RegistroDaMedicao> = {}): RegistroDaMedicao =>
+    ({ banda: l.sugestao?.banda ?? "sem_sugestao", desfecho, possivelMissoes: l.sugestao?.possivelMissoes, ...extra });
+
   async function aoLiquidar() {
     setLiquidarLinha(null);
+    alterou.current = true;
     if (transacoes) await analisarDeNovo(transacoes, true);
-    onSaved();
   }
 
   async function conciliarOsDebitos(lista: LinhaAnalisada[]) {
@@ -175,8 +223,8 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
       const r = await conciliarDebitos(contaId, lista.map(l => ({ lancamentoId: l.lancamentoId!, tx: l.tx })));
       if (r.conciliados.length > 0) toast.success(`${r.conciliados.length} débito${r.conciliados.length > 1 ? "s" : ""} automático${r.conciliados.length > 1 ? "s" : ""} conciliado${r.conciliados.length > 1 ? "s" : ""}`);
       if (r.erros.length > 0) toast.error(r.erros[0]);
+      alterou.current = true;
       await analisarDeNovo(transacoes, true);
-      onSaved();
     } catch (e: any) {
       toast.error(e?.message ?? "Erro ao conciliar o débito");
     } finally {
@@ -190,12 +238,130 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
     try {
       await conciliarEmLote(aConciliar.map(r => r.lancamentoId!));
       toast.success(`${aConciliar.length} lançamento${aConciliar.length > 1 ? "s" : ""} conciliado${aConciliar.length > 1 ? "s" : ""}`);
+      alterou.current = true;
       if (transacoes) await analisarDeNovo(transacoes, false);
-      onSaved();
     } catch (e: any) {
       toast.error(e?.message ?? "Erro");
     } finally {
       setConciliando(false);
+    }
+  }
+
+  // ── gravação ──
+
+  /** O que será gravado para uma linha, com o que a pessoa escolheu por cima do que foi sugerido. */
+  function itemDaLinha(l: LinhaAnalisada): ParaRegistrar {
+    const g = daGradeBase(l);
+    const ed = edicoes[l.tx.fitid];
+    const v = valoresEfetivos(g, ed);
+    const fav = favorecidoEfetivo(g, ed);
+    const escolhido = ed?.favorecido ?? null;
+    return {
+      tx: l.tx, categoriaId: v.categoriaId!, centroId: v.centroId,
+      pessoaId: fav.pessoa?.id ?? (escolhido?.tipo === "fornecedor" ? escolhido.pessoaId ?? undefined : undefined),
+      fornecedorId: fav.fornecedor?.id,
+    };
+  }
+
+  /** "Confirmar" na própria linha: grava na hora e deixa o "Desfazer" à mão. */
+  async function confirmarLinha(l: LinhaAnalisada) {
+    const g = daGradeBase(l);
+    if (!podeGravar(g, edicoes[l.tx.fitid])) return;
+    setSalvandoLinha(true);
+    try {
+      const r = await registrarLote(contaId, [itemDaLinha(l)]);
+      if (r.erros.length > 0 || r.ids.length !== 1) { toast.error(r.erros[0] ?? "Não foi possível lançar esta linha"); return; }
+      alterou.current = true;
+      setConfirmadas(m => new Map(m).set(l.tx.fitid, r.ids));
+      setMarcadas(m => { const n = new Set(m); n.delete(l.tx.fitid); return n; });
+      marcar(l.tx.fitid, registroDe(l, foiCorrigida(g, edicoes[l.tx.fitid]) ? "corrigida" : "aceita"));
+      toast.success(`Lançado: ${l.tx.memo.slice(0, 40)}`, { action: { label: "Desfazer", onClick: () => desfazerLinha(l.tx.fitid, r.ids) } });
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erro ao lançar");
+    } finally {
+      setSalvandoLinha(false);
+    }
+  }
+
+  async function desfazerLinha(fitid: string, ids: string[]) {
+    try {
+      await excluirLancamentosEmLote(ids);
+      setConfirmadas(m => { const n = new Map(m); n.delete(fitid); return n; });
+      setRegistros(m => { const n = new Map(m); n.delete(fitid); return n; });
+      toast.success("Lançamento desfeito — a linha voltou para a fila");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Não foi possível desfazer");
+    }
+  }
+
+  /** Um clique decide o grupo inteiro (mesma categoria e centro para todas as linhas). */
+  async function confirmarGrupo(grupo: Grupo, escolha: { categoriaId: string; centroId?: string }) {
+    const doGrupo = (linhas ?? []).filter(l => grupo.fitids.includes(l.tx.fitid) && l.situacao === "nova" && !confirmadas.has(l.tx.fitid));
+    if (doGrupo.length === 0) return;
+    setSalvandoLinha(true);
+    try {
+      const itens: ParaRegistrar[] = doGrupo.map(l => ({ tx: l.tx, categoriaId: escolha.categoriaId, centroId: escolha.centroId }));
+      const r = await registrarLote(contaId, itens);
+      if (r.erros.length > 0 || r.ids.length !== itens.length) {
+        toast.error(`Parte do grupo não foi gravada: ${r.erros[0] ?? "confira"}`);
+        if (r.ids.length > 0 && transacoes) { alterou.current = true; await analisarDeNovo(transacoes, true); }
+        return;
+      }
+      alterou.current = true;
+      setConfirmadas(m => { const n = new Map(m); doGrupo.forEach((l, i) => n.set(l.tx.fitid, [r.ids[i]])); return n; });
+      setRegistros(m => {
+        const n = new Map(m);
+        for (const l of doGrupo) {
+          const s = l.sugestao;
+          const mudou = escolha.categoriaId !== s?.categoriaId || (!!escolha.centroId && escolha.centroId !== s?.centroId);
+          n.set(l.tx.fitid, registroDe(l, mudou ? "corrigida" : "aceita", { emGrupo: true }));
+        }
+        return n;
+      });
+      toast.success(`${doGrupo.length} linhas lançadas de uma vez`, { action: { label: "Desfazer", onClick: () => desfazerGrupo(doGrupo.map((l, i) => [l.tx.fitid, r.ids[i]] as [string, string])) } });
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erro ao lançar o grupo");
+    } finally {
+      setSalvandoLinha(false);
+    }
+  }
+
+  async function desfazerGrupo(pares: [string, string][]) {
+    try {
+      await excluirLancamentosEmLote(pares.map(p => p[1]));
+      const fitids = new Set(pares.map(p => p[0]));
+      setConfirmadas(m => new Map([...m].filter(([f]) => !fitids.has(f))));
+      setRegistros(m => new Map([...m].filter(([f]) => !fitids.has(f))));
+      toast.success(`${pares.length} lançamentos do grupo desfeitos`);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Não foi possível desfazer");
+    }
+  }
+
+  async function ignorar(l: LinhaAnalisada, motivo: MotivoDeIgnorar, observacao: string) {
+    setSalvandoLinha(true);
+    try {
+      await ignorarLinha(contaId, l.tx, motivo, observacao);
+      setIgnorando(null);
+      marcar(l.tx.fitid, registroDe(l, "ignorada"));
+      setMarcadas(m => { const n = new Set(m); n.delete(l.tx.fitid); return n; });
+      toast.success("Movimento ignorado — não volta nas próximas importações");
+      if (transacoes) await analisarDeNovo(transacoes, false);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Não foi possível ignorar");
+    } finally {
+      setSalvandoLinha(false);
+    }
+  }
+
+  async function reativar(l: LinhaAnalisada) {
+    try {
+      await reativarIgnorada(contaId, l.tx.fitid);
+      setRegistros(m => { const n = new Map(m); n.delete(l.tx.fitid); return n; });
+      toast.success("Movimento de volta à fila");
+      if (transacoes) await analisarDeNovo(transacoes, false);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Não foi possível reativar");
     }
   }
 
@@ -210,23 +376,18 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
     const alvo = paraConfirmar;
     setParaConfirmar(null);
     if (!alvo || !transacoes) return;
-    const itens: ParaRegistrar[] = alvo.map(l => {
-      const v = valoresEfetivos(daGrade(l), edicoes[l.tx.fitid]);
-      return {
-        tx: l.tx, categoriaId: v.categoriaId!, centroId: v.centroId,
-        pessoaId: l.sugestao?.pessoa?.id, fornecedorId: l.sugestao?.fornecedor?.id,
-      };
-    });
+    const itens = alvo.map(itemDaLinha);
     setGravando({ feitos: 0, total: itens.length });
     try {
       const r = await registrarLote(contaId, itens, (feitos, total) => setGravando({ feitos, total }));
       if (r.erros.length > 0) toast.error(`Parte não foi gravada: ${r.erros[0]}`);
       if (r.ids.length > 0) {
+        alterou.current = true;
         setLote({ loteId: r.loteId, ids: r.ids });
         toast.success(`${r.ids.length} lançamento${r.ids.length > 1 ? "s" : ""} criado${r.ids.length > 1 ? "s" : ""}.`);
+        for (const l of alvo) marcar(l.tx.fitid, registroDe(l, foiCorrigida(daGradeBase(l), edicoes[l.tx.fitid]) ? "corrigida" : "aceita"));
       }
       await analisarDeNovo(transacoes, true);
-      onSaved();
     } catch (e: any) {
       toast.error(e?.message ?? "Erro ao gravar");
     } finally {
@@ -241,8 +402,8 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
       await desfazerLote(lote.ids);
       toast.success(`${lote.ids.length} lançamento${lote.ids.length > 1 ? "s" : ""} do lote desfeito${lote.ids.length > 1 ? "s" : ""}.`);
       setLote(null);
+      alterou.current = true;
       await analisarDeNovo(transacoes, true);
-      onSaved();
     } catch (e: any) {
       toast.error(e?.message ?? "Não foi possível desfazer");
     } finally {
@@ -251,10 +412,13 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
   }
 
   async function aoSalvarForm() {
+    const fitid = editarLinha?.tx.fitid ?? transferirTransacao?.fitid;
+    const linha = editarLinha ?? (linhas ?? []).find(l => l.tx.fitid === fitid) ?? null;
     setEditarLinha(null);
     setTransferirTransacao(null);
+    alterou.current = true;
+    if (fitid && linha) marcar(fitid, registroDe(linha, "manual"));
     if (transacoes) await analisarDeNovo(transacoes, true);
-    onSaved();
   }
 
   function editar(fitid: string, patch: Edicao) {
@@ -272,34 +436,46 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
     return { n: alvo.length, entradas: soma("entrada"), saidas: soma("saida") };
   }, [paraConfirmar]);
 
+  const medicao = useMemo(() => {
+    if (!aoAbrir) return null;
+    return resumirMedicao(aoAbrir, totalDoArquivo, aoAbrir.identificadas + aoAbrir.revisar + aoAbrir.naoIdentificadas, [...registros.values()]);
+  }, [aoAbrir, totalDoArquivo, registros]);
+
   // o que o formulário "Editar" recebe — memoizado: o efeito do formulário reinicia a cada novo objeto
   const rascunho = useMemo(() => {
     if (!editarLinha) return undefined;
-    const v = valoresEfetivos(daGrade(editarLinha), edicoes[editarLinha.tx.fitid]);
-    const s = editarLinha.sugestao;
+    const g = daGradeBase(editarLinha);
+    const v = valoresEfetivos(g, edicoes[editarLinha.tx.fitid]);
+    const f = favorecidoEfetivo(g, edicoes[editarLinha.tx.fitid]);
     return {
       data: editarLinha.tx.data, valor: editarLinha.tx.valor, descricao: editarLinha.tx.memo,
       forma: inferirFormaPagamento(editarLinha.tx.memo),
-      categoriaId: v.categoriaId, centroId: v.centroId, pessoa: s?.pessoa, fornecedor: s?.fornecedor,
+      categoriaId: v.categoriaId, centroId: v.centroId, pessoa: f.pessoa, fornecedor: f.fornecedor,
     };
   }, [editarLinha, edicoes]);
 
-  const painel = contagem;
   const total = linhas?.length ?? 0;
-  const ocupado = conciliando || !!gravando || desfazendo;
+  const ocupado = conciliando || !!gravando || desfazendo || salvandoLinha;
+  const linhasDoGrupo = (g: Grupo) => (linhas ?? []).filter(l => g.fitids.includes(l.tx.fitid) && !confirmadas.has(l.tx.fitid));
+  const pilha = (f: Filtro, n: number, classe: string, icone: React.ReactNode, texto: string) => (
+    <button type="button" onClick={() => setFiltro(f)} aria-pressed={filtro === f}
+      className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-sm ${classe} ${filtro === f ? "ring-2 ring-ring" : ""}`}>
+      {icone} <b className="tabular-nums">{n}</b> {texto}
+    </button>
+  );
 
   return (
     <>
-    <Dialog open={open} onOpenChange={(v) => { if (ocupado && !v) return; onOpenChange(v); if (!v) reiniciar(); }}>
+    <Dialog open={open} onOpenChange={fechar}>
       <DialogContent className="max-w-5xl w-[96vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-serif text-xl flex items-center gap-2">
-            <Scale className="w-5 h-5 text-gold" /> Importar extrato (OFX)
+            <Scale className="w-5 h-5 text-gold" /> Mesa de conciliação (extrato OFX)
           </DialogTitle>
           <DialogDescription>
-            Lê o extrato de <strong>{contaNome}</strong>, identifica quem é cada movimento e sugere categoria e
-            centro de custo. Você confirma em massa o que veio identificado e edita só as exceções — nada é
-            gravado antes do seu clique, e o lote pode ser desfeito.
+            Lê o extrato de <strong>{contaNome}</strong>, identifica quem é cada movimento e sugere categoria e centro de custo.
+            Você confirma o que veio certo, troca o que veio errado na própria linha e só abre o formulário nas exceções — nada é
+            gravado antes do seu clique, e tudo pode ser desfeito.
           </DialogDescription>
         </DialogHeader>
 
@@ -318,23 +494,17 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
           </p>
         ) : (
           <div className="space-y-3">
-            {/* o painel: quantas, e o que cada botão faz */}
+            {/* a fila: três pilhas, cada uma é um filtro */}
             <div className="rounded-md border p-3 space-y-2.5">
               <p className="text-sm font-medium">{total} movimentações no extrato</p>
-              <div className="flex flex-wrap gap-2 text-sm">
-                <span className="inline-flex items-center gap-1.5 rounded-md border border-success-line bg-success-soft px-2.5 py-1 text-success-text">
-                  <CheckCircle2 className="w-4 h-4" /> <b className="tabular-nums">{painel.identificadas}</b> identificadas
-                </span>
-                <span className="inline-flex items-center gap-1.5 rounded-md border border-warning-line bg-warning-soft px-2.5 py-1 text-warning-text">
-                  <AlertTriangle className="w-4 h-4" /> <b className="tabular-nums">{painel.revisar}</b> precisam de revisão
-                </span>
-                <span className="inline-flex items-center gap-1.5 rounded-md border border-destructive-line bg-destructive-soft px-2.5 py-1 text-destructive-text">
-                  <XCircle className="w-4 h-4" /> <b className="tabular-nums">{painel.nao_identificadas}</b> não identificadas
-                </span>
+              <div className="flex flex-wrap gap-2">
+                {pilha("identificadas", contagem.identificadas, "border-success-line bg-success-soft text-success-text", <CheckCircle2 className="w-4 h-4" />, "identificadas")}
+                {pilha("revisar", contagem.revisar, "border-warning-line bg-warning-soft text-warning-text", <AlertTriangle className="w-4 h-4" />, "precisam de revisão")}
+                {pilha("nao_identificadas", contagem.nao_identificadas, "border-destructive-line bg-destructive-soft text-destructive-text", <XCircle className="w-4 h-4" />, "não identificadas")}
               </div>
-              {(contagem.transferencias + contagem.conciliar + contagem.ja_registradas) > 0 && (
+              {(contagem.transferencias + contagem.conciliar + contagem.ja_registradas + contagem.ignoradas) > 0 && (
                 <p className="text-xs text-muted-foreground">
-                  Além destas: {contagem.conciliar} a conciliar com lançamentos já feitos · {contagem.ja_registradas} já registrada{contagem.ja_registradas !== 1 ? "s" : ""} (não serão criadas de novo) · {contagem.transferencias} parece{contagem.transferencias !== 1 ? "m" : ""} transferência entre contas.
+                  Fora da fila: {contagem.conciliar} a conciliar com lançamentos já feitos · {contagem.ja_registradas} já registrada{contagem.ja_registradas !== 1 ? "s" : ""} (não serão criadas de novo) · {contagem.ignoradas} ignorada{contagem.ignoradas !== 1 ? "s" : ""} · {contagem.transferencias} parece{contagem.transferencias !== 1 ? "m" : ""} transferência entre contas.
                 </p>
               )}
               {documentosEncontrados.length > 0 && (
@@ -370,6 +540,9 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
                   onClick={() => setFiltro("pendencias")}>
                   <HelpCircle className="w-3.5 h-3.5" /> Revisar pendências ({contagem.pendencias})
                 </Button>
+                <Button type="button" size="sm" variant={agrupar ? "secondary" : "outline"} className="gap-1.5" aria-pressed={agrupar} onClick={() => setAgrupar(v => !v)}>
+                  <Layers className="w-3.5 h-3.5" /> Agrupar por padrão
+                </Button>
               </div>
               {gravando && (
                 <p className="text-xs text-muted-foreground flex items-center gap-2" role="status">
@@ -377,6 +550,8 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
                 </p>
               )}
             </div>
+
+            {medicao && <PainelDeMedicao medicao={medicao} rotulo={contaNome} />}
 
             {lote && (
               <div className="rounded-md border border-success-line bg-success-soft/40 p-3 flex flex-wrap items-center gap-2">
@@ -391,7 +566,7 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
 
             {/* filtros */}
             <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Filtrar movimentações">
-              {ORDEM_DOS_FILTROS.map(f => (
+              {ORDEM_DOS_FILTROS.filter(f => f !== "ignoradas" || contagem.ignoradas > 0).map(f => (
                 <button key={f} type="button" role="tab" aria-selected={filtro === f}
                   onClick={() => setFiltro(f)}
                   className={`rounded-full border px-3 py-1 text-xs transition-colors ${filtro === f ? "bg-primary text-primary-foreground border-primary" : "hover:bg-muted"}`}>
@@ -400,124 +575,115 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
               ))}
             </div>
 
-            {/* a grade */}
+            {/* os grupos: uma decisão para várias linhas do mesmo padrão */}
+            {agrupamento.grupos.length > 0 && (
+              <div className="space-y-2" aria-label="Linhas do mesmo padrão">
+                {agrupamento.grupos.map(g => (
+                  <CartaoDoGrupo key={`${g.tipo}|${g.chave}|${g.fitids.length}`} grupo={g} linhas={linhasDoGrupo(g)}
+                    categorias={categoriasPorTipo[g.tipo]} opcoesDeCentro={opcoesDeCentro} nomeDaCategoria={nomeDaCategoria}
+                    ocupado={ocupado} onConfirmar={confirmarGrupo} />
+                ))}
+              </div>
+            )}
+
+            {/* a fila de cartões */}
             {pag.itens.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-6">Nenhuma movimentação neste filtro.</p>
+              <p className="text-sm text-muted-foreground text-center py-6">{agrupamento.grupos.length > 0 ? "O resto desta pilha está nos grupos acima." : "Nenhuma movimentação neste filtro."}</p>
             ) : (
               <ul className="divide-y rounded-md border">
                 {pag.itens.map(l => {
                   const fitid = l.tx.fitid;
-                  const g = daGrade(l);
-                  const s = l.sugestao;
-                  const ed = edicoes[fitid];
-                  const v = valoresEfetivos(g, ed);
-                  const gravavel = podeGravar(g, ed);
                   const entrada = l.tx.tipo === "entrada";
-                  const ehNova = l.situacao === "nova";
+                  const lancadaAgora = confirmadas.get(fitid);
                   return (
                     <li key={fitid} className="px-3 py-2 space-y-1.5 text-sm">
-                      <div className="flex items-center gap-2 min-w-0">
-                        {ehNova ? (
-                          <Checkbox aria-label={`Marcar ${l.tx.memo}`} checked={marcadas.has(fitid)} disabled={!gravavel || ocupado}
-                            onCheckedChange={(c) => alternarMarca(fitid, c === true)} />
-                        ) : <span className="w-4 shrink-0" />}
-                        <span className="w-11 shrink-0 tabular-nums text-xs text-muted-foreground">{dataBr(l.tx.data)}</span>
-                        <span className="min-w-0 flex-1 truncate" title={l.tx.memo}>{l.tx.memo}</span>
-                        <span className={`shrink-0 tabular-nums ${entrada ? "text-success-text" : "text-destructive-text"}`}>
-                          {entrada ? "+" : "−"}{brl(l.tx.valor)}
-                        </span>
-                        {s && ehNova && (
-                          <span title={s.motivos.join(" · ")}
-                            className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] tabular-nums ${CHIP[s.banda]}`}>
-                            {s.confianca}% · {rotuloDaConfianca(s.banda)}
-                          </span>
-                        )}
-                      </div>
-
-                      {l.situacao === "conciliar" && (
-                        <p className="pl-6 text-xs text-muted-foreground">Casa com um lançamento já registrado — será conciliada.</p>
-                      )}
-                      {l.situacao === "ja_registrada" && (
-                        <p className="pl-6 text-xs text-muted-foreground">Já registrada: {l.motivoJaRegistrada}. Não será criada de novo.</p>
-                      )}
-                      {l.situacao === "debito_encontrado" && l.debito && (
-                        <div className="pl-6 flex flex-wrap items-center gap-2">
-                          <p className="text-xs flex-1 min-w-0">
-                            <b className="text-info-text">Débito automático encontrado</b>
-                            {" — "}{l.debito.candidato.fornecedor || l.debito.candidato.descricao || "previsto"}, vencimento {dataBr(l.debito.candidato.data)}, previsto {brl(l.debito.candidato.valor)}
-                            <span className="text-muted-foreground"> · {l.debito.confianca}% · {l.debito.motivos.join(" · ")}</span>
-                          </p>
-                          <Button type="button" size="sm" variant="outline" className="h-7 gap-1 text-xs" disabled={ocupado}
-                            onClick={() => conciliarOsDebitos([l])}>
-                            <Scale className="w-3 h-3" /> Conciliar débito
+                      {lancadaAgora ? (
+                        <div className="flex items-center gap-2 min-w-0">
+                          <CheckCircle2 className="w-4 h-4 shrink-0 text-success-text" aria-hidden />
+                          <span className="w-11 shrink-0 tabular-nums text-xs text-muted-foreground">{dataBr(l.tx.data)}</span>
+                          <span className="min-w-0 flex-1 truncate text-muted-foreground" title={l.tx.memo}>{l.tx.memo}</span>
+                          <span className="shrink-0 tabular-nums text-muted-foreground">{entrada ? "+" : "−"}{brl(l.tx.valor)}</span>
+                          <span className="shrink-0 text-xs text-success-text">lançado</span>
+                          <Button type="button" size="sm" variant="ghost" className="h-7 gap-1 text-xs" disabled={ocupado} onClick={() => desfazerLinha(fitid, lancadaAgora)}>
+                            <Undo2 className="w-3 h-3" /> Desfazer
                           </Button>
                         </div>
-                      )}
-                      {(l.situacao === "documento" || (l.situacao === "nova" && l.documentos?.[0])) && l.documentos?.[0] && (
-                        <div className="pl-6 flex flex-wrap items-center gap-2">
-                          <p className="text-xs flex-1 min-w-0">
-                            <b className={l.documentos[0].exato ? "text-info-text" : "text-warning-text"}>
-                              {l.situacao === "nova" ? (l.documentos[0].exato ? "Pode ser o pagamento de" : "⚠ Pode ser o pagamento de (com diferença)") : (l.documentos[0].exato ? "Documento a pagar encontrado" : "⚠ Diferença identificada")}
-                            </b>
-                            {" — "}{l.documentos[0].documento.descricao ?? "documento"}, vencimento {dataBr(l.documentos[0].documento.data)}, documento {brl(l.documentos[0].documento.valor)}
-                            {!l.documentos[0].exato && <> · diferença <b className="tabular-nums">{l.documentos[0].diferenca > 0 ? "+" : "−"}{brl(Math.abs(l.documentos[0].diferenca))}</b></>}
-                          </p>
-                          <Button type="button" size="sm" variant="outline" className="h-7 gap-1 text-xs" disabled={ocupado}
-                            onClick={() => setLiquidarLinha(l)}>
-                            <Scale className="w-3 h-3" /> {l.documentos[0].exato ? "Liquidar" : "Explicar diferença"}
-                          </Button>
-                        </div>
-                      )}
-                      {l.situacao === "ambigua" && (
-                        <div className="pl-6 flex flex-wrap items-center gap-2">
-                          <p className="text-xs text-warning-text flex-1 min-w-0">Há lançamentos parecidos já registrados — confira à mão antes de criar outro.</p>
-                          <Button type="button" size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={() => setEditarLinha(l)}>
-                            <Pencil className="w-3 h-3" /> Lançar
-                          </Button>
-                        </div>
-                      )}
-
-                      {ehNova && s && (
-                        <div className="pl-6 flex flex-wrap items-center gap-2">
-                          {(s.pessoa || s.fornecedor) && (
-                            <span className="text-xs rounded bg-muted px-1.5 py-0.5 max-w-[14rem] truncate" title={s.pessoa?.nome ?? s.fornecedor?.nome}>
-                              {s.pessoa ? "👤" : "🏢"} {s.pessoa?.nome ?? s.fornecedor?.nome}
+                      ) : l.situacao === "nova" && l.sugestao ? (
+                        <CartaoDaLinha linha={l} edicao={edicoes[fitid]} marcada={marcadas.has(fitid)} ocupado={ocupado}
+                          categorias={categoriasPorTipo[l.tx.tipo]} opcoesDeCentro={opcoesDeCentro} nomeDaCategoria={nomeDaCategoria}
+                          ignorarDisponivel={ignorarDisponivel}
+                          onEditar={patch => editar(fitid, patch)} onMarcar={c => alternarMarca(fitid, c)}
+                          onConfirmar={() => confirmarLinha(l)} onFormulario={() => setEditarLinha(l)}
+                          onTransferencia={() => setTransferirTransacao(l.tx)} onIgnorar={() => setIgnorando(l)} />
+                      ) : (
+                        <>
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="w-4 shrink-0" />
+                            <span className="w-11 shrink-0 tabular-nums text-xs text-muted-foreground">{dataBr(l.tx.data)}</span>
+                            <span className="min-w-0 flex-1 truncate" title={l.tx.memo}>{l.tx.memo}</span>
+                            <span className={`shrink-0 tabular-nums ${entrada ? "text-success-text" : "text-destructive-text"}`}>
+                              {entrada ? "+" : "−"}{brl(l.tx.valor)}
                             </span>
-                          )}
-                          {s.transferencia ? (
-                            <span className="text-xs text-warning-text">Parece transferência entre contas — registre como Transferência.</span>
-                          ) : (
-                            <>
-                              <select className={`${SELECT} w-40`} aria-label="Categoria" value={v.categoriaId ?? ""} disabled={ocupado}
-                                onChange={(e) => editar(fitid, { categoriaId: e.target.value })}>
-                                <option value="">Categoria…</option>
-                                {categoriasPorTipo[l.tx.tipo].map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-                              </select>
-                              <select className={`${SELECT} w-44`} aria-label="Centro de custo" value={v.centroId ?? ""} disabled={ocupado}
-                                onChange={(e) => editar(fitid, { centroId: e.target.value })}>
-                                <option value="">Centro de custo…</option>
-                                {opcoesDeCentro.map(c => <option key={c.id} value={c.id}>{c.rotulo}</option>)}
-                              </select>
-                            </>
-                          )}
-                          <div className="flex gap-1 ml-auto">
-                            <Button type="button" size="sm" variant="outline" className="h-7 text-xs px-2 gap-1" disabled={ocupado}
-                              onClick={() => setEditarLinha(l)}>
-                              <Pencil className="w-3 h-3" /> Editar
-                            </Button>
-                            {/* Transferência entre contas — a mesma linha pode ser o lado de cá de um
-                                movimento interno, não receita/despesa (pedido de 22/09/2026). */}
-                            <Button type="button" size="sm" variant="outline" className="h-7 text-xs px-2 gap-1" disabled={ocupado}
-                              onClick={() => setTransferirTransacao(l.tx)}>
-                              <ArrowRightLeft className="w-3 h-3" /> Transferência
-                            </Button>
                           </div>
-                          {!s.transferencia && s.banda !== "identificada" && s.motivos.length > 0 && (
-                            <p className="basis-full text-[11px] text-muted-foreground truncate" title={s.motivos.join(" · ")}>
-                              {s.motivos[s.motivos.length - 1]}{v.categoriaId && ` · sugestão: ${nomeDaCategoria(s.categoriaId)}`}
-                            </p>
+
+                          {l.situacao === "conciliar" && (
+                            <p className="pl-6 text-xs text-muted-foreground">Casa com um lançamento já registrado — será conciliada.</p>
                           )}
-                        </div>
+                          {l.situacao === "ja_registrada" && (
+                            <p className="pl-6 text-xs text-muted-foreground">Já registrada: {l.motivoJaRegistrada}. Não será criada de novo.</p>
+                          )}
+                          {l.situacao === "ignorada" && l.ignorada && (
+                            <div className="pl-6 flex flex-wrap items-center gap-2">
+                              <p className="text-xs text-muted-foreground flex-1 min-w-0">
+                                <BanIcon className="mr-1 inline h-3 w-3" aria-hidden />Ignorada — {ROTULO_DO_MOTIVO[l.ignorada.motivo]}{l.ignorada.observacao ? `: ${l.ignorada.observacao}` : ""}. Não volta nas próximas importações.
+                              </p>
+                              <Button type="button" size="sm" variant="outline" className="h-7 gap-1 text-xs" disabled={ocupado} onClick={() => reativar(l)}>
+                                <RotateCcw className="w-3 h-3" /> Reativar
+                              </Button>
+                            </div>
+                          )}
+                          {l.situacao === "debito_encontrado" && l.debito && (
+                            <div className="pl-6 flex flex-wrap items-center gap-2">
+                              <p className="text-xs flex-1 min-w-0">
+                                <b className="text-info-text">Débito automático encontrado</b>
+                                {" — "}{l.debito.candidato.fornecedor || l.debito.candidato.descricao || "previsto"}, vencimento {dataBr(l.debito.candidato.data)}, previsto {brl(l.debito.candidato.valor)}
+                                <span className="text-muted-foreground"> · {l.debito.confianca}% · {l.debito.motivos.join(" · ")}</span>
+                              </p>
+                              <Button type="button" size="sm" variant="outline" className="h-7 gap-1 text-xs" disabled={ocupado}
+                                onClick={() => conciliarOsDebitos([l])}>
+                                <Scale className="w-3 h-3" /> Conciliar débito
+                              </Button>
+                            </div>
+                          )}
+                          {l.situacao === "documento" && l.documentos?.[0] && (
+                            <div className="pl-6 flex flex-wrap items-center gap-2">
+                              <p className="text-xs flex-1 min-w-0">
+                                <b className={l.documentos[0].exato ? "text-info-text" : "text-warning-text"}>
+                                  {l.documentos[0].exato ? "Documento a pagar encontrado" : "⚠ Diferença identificada"}
+                                </b>
+                                {" — "}{l.documentos[0].documento.descricao ?? "documento"}, vencimento {dataBr(l.documentos[0].documento.data)}, documento {brl(l.documentos[0].documento.valor)}
+                                {!l.documentos[0].exato && <> · diferença <b className="tabular-nums">{l.documentos[0].diferenca > 0 ? "+" : "−"}{brl(Math.abs(l.documentos[0].diferenca))}</b></>}
+                              </p>
+                              <Button type="button" size="sm" variant="outline" className="h-7 gap-1 text-xs" disabled={ocupado}
+                                onClick={() => setLiquidarLinha(l)}>
+                                <Scale className="w-3 h-3" /> {l.documentos[0].exato ? "Liquidar" : "Explicar diferença"}
+                              </Button>
+                            </div>
+                          )}
+                          {l.situacao === "ambigua" && (
+                            <div className="pl-6 flex flex-wrap items-center gap-2">
+                              <p className="text-xs text-warning-text flex-1 min-w-0">Há lançamentos parecidos já registrados — confira à mão antes de criar outro.</p>
+                              <Button type="button" size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={() => setEditarLinha(l)}>
+                                Lançar
+                              </Button>
+                              {ignorarDisponivel && (
+                                <Button type="button" size="sm" variant="ghost" className="h-7 gap-1 text-xs" onClick={() => setIgnorando(l)}>
+                                  <BanIcon className="w-3 h-3" /> Ignorar
+                                </Button>
+                              )}
+                            </div>
+                          )}
+                        </>
                       )}
                     </li>
                   );
@@ -530,7 +696,7 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
                 <Button type="button" size="sm" variant="ghost" className="h-7 gap-1" disabled={pag.pagina <= 1} onClick={() => setPagina(pag.pagina - 1)}>
                   <ChevronLeft className="w-3.5 h-3.5" /> Anterior
                 </Button>
-                <span className="tabular-nums">Página {pag.pagina} de {pag.paginas} · {visiveis.length} linhas</span>
+                <span className="tabular-nums">Página {pag.pagina} de {pag.paginas} · {naLista.length} linhas</span>
                 <Button type="button" size="sm" variant="ghost" className="h-7 gap-1" disabled={pag.pagina >= pag.paginas} onClick={() => setPagina(pag.pagina + 1)}>
                   Próxima <ChevronRight className="w-3.5 h-3.5" />
                 </Button>
@@ -542,7 +708,7 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
         )}
 
         <DialogFooter className="gap-2 sm:gap-2">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={ocupado}>Fechar</Button>
+          <Button type="button" variant="outline" onClick={() => fechar(false)} disabled={ocupado}>Fechar</Button>
           {linhas && aConciliar.length > 0 && (
             <Button variant="success" type="button" onClick={conciliar} disabled={ocupado} className="gap-1.5">
               <Scale className="w-3.5 h-3.5" /> {conciliando ? "..." : `Conciliar ${aConciliar.length}`}
@@ -574,6 +740,8 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+
+    <IgnorarLinhaDialog linha={ignorando} ocupado={salvandoLinha} onFechar={() => setIgnorando(null)} onConfirmar={ignorar} />
 
     <LiquidarPeloExtratoDialog linha={liquidarLinha} contaId={contaId} onFechar={() => setLiquidarLinha(null)} onFeito={aoLiquidar} />
 

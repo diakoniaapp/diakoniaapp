@@ -9,7 +9,7 @@
 
 import type { Sugestao } from "./classificacaoOfx";
 
-export type SituacaoDaLinha = "conciliar" | "ja_registrada" | "ambigua" | "debito_encontrado" | "documento" | "nova";
+export type SituacaoDaLinha = "conciliar" | "ja_registrada" | "ambigua" | "debito_encontrado" | "documento" | "nova" | "ignorada";
 
 export interface LinhaDaGrade {
   fitid: string;
@@ -17,12 +17,14 @@ export interface LinhaDaGrade {
   sugestao?: Sugestao;
 }
 
-/** O que a pessoa mudou à mão numa linha (por FITID). */
-export interface Edicao { categoriaId?: string; centroId?: string }
+export interface FavorecidoEscolhido { tipo: "pessoa" | "fornecedor"; id: string; nome: string; /** favorecido que é uma pessoa do cadastro: o lançamento leva as duas ligações */ pessoaId?: string | null }
+
+/** O que a pessoa mudou à mão numa linha (por FITID). `favorecido`: outro favorecido escolhido na linha; `null` = "sem favorecido". */
+export interface Edicao { categoriaId?: string; centroId?: string; favorecido?: FavorecidoEscolhido | null }
 
 export type Filtro =
   | "todas" | "identificadas" | "pendencias" | "revisar" | "nao_identificadas"
-  | "transferencias" | "debitos" | "documentos" | "conciliar" | "ja_registradas";
+  | "transferencias" | "debitos" | "documentos" | "conciliar" | "ja_registradas" | "ignoradas";
 
 export const ROTULO_DO_FILTRO: Record<Filtro, string> = {
   todas: "Todas",
@@ -35,10 +37,11 @@ export const ROTULO_DO_FILTRO: Record<Filtro, string> = {
   documentos: "Documentos a liquidar",
   conciliar: "A conciliar",
   ja_registradas: "Já registradas",
+  ignoradas: "Ignoradas",
 };
 
 export const ORDEM_DOS_FILTROS: Filtro[] = [
-  "todas", "identificadas", "pendencias", "revisar", "nao_identificadas", "transferencias", "debitos", "documentos", "conciliar", "ja_registradas",
+  "todas", "identificadas", "pendencias", "revisar", "nao_identificadas", "transferencias", "debitos", "documentos", "conciliar", "ja_registradas", "ignoradas",
 ];
 
 export function pertenceAoFiltro(l: LinhaDaGrade, f: Filtro): boolean {
@@ -47,6 +50,7 @@ export function pertenceAoFiltro(l: LinhaDaGrade, f: Filtro): boolean {
   if (f === "debitos") return l.situacao === "debito_encontrado";
   if (f === "documentos") return l.situacao === "documento";
   if (f === "ja_registradas") return l.situacao === "ja_registrada";
+  if (f === "ignoradas") return l.situacao === "ignorada";
   if (l.situacao !== "nova" && l.situacao !== "ambigua") return false;
   const s = l.sugestao;
   if (f === "transferencias") return !!s?.transferencia;
@@ -73,6 +77,30 @@ export function valoresEfetivos(l: LinhaDaGrade, e?: Edicao): { categoriaId?: st
     categoriaId: e?.categoriaId || l.sugestao?.categoriaId,
     centroId: e?.centroId || l.sugestao?.centroId,
   };
+}
+
+/** Quem é o favorecido da linha: o que a pessoa escolheu na linha, senão o que o sistema identificou. */
+export function favorecidoEfetivo(l: LinhaDaGrade, e?: Edicao): { pessoa?: { id: string; nome: string }; fornecedor?: { id: string; nome: string } } {
+  if (e && e.favorecido !== undefined) {
+    if (e.favorecido === null) return {};
+    return e.favorecido.tipo === "pessoa"
+      ? { pessoa: { id: e.favorecido.id, nome: e.favorecido.nome } }
+      : { fornecedor: { id: e.favorecido.id, nome: e.favorecido.nome } };
+  }
+  return { ...(l.sugestao?.pessoa ? { pessoa: l.sugestao.pessoa } : {}), ...(l.sugestao?.fornecedor ? { fornecedor: l.sugestao.fornecedor } : {}) };
+}
+
+/** A pessoa mudou algo do que o sistema sugeriu (categoria, centro ou favorecido)? É o que separa "aceitou" de "corrigiu". */
+export function foiCorrigida(l: LinhaDaGrade, e?: Edicao): boolean {
+  if (!e) return false;
+  const s = l.sugestao;
+  if (e.categoriaId && e.categoriaId !== s?.categoriaId) return true;
+  if (e.centroId && e.centroId !== s?.centroId) return true;
+  if (e.favorecido !== undefined) {
+    const f = favorecidoEfetivo(l, e);
+    return (f.pessoa?.id ?? null) !== (s?.pessoa?.id ?? null) || (f.fornecedor?.id ?? null) !== (s?.fornecedor?.id ?? null);
+  }
+  return false;
 }
 
 export function podeGravar(l: LinhaDaGrade, e?: Edicao): boolean {

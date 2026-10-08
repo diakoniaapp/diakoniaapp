@@ -11,11 +11,12 @@
 import { supabase } from "@/integrations/supabase/client";
 import { limparFornecedor } from "@/lib/documentos/dossie";
 import { encontrarCandidatoPorNome, type CandidatoNome } from "@/lib/fuzzyNome";
+import type { CandidatoFavorecido } from "@/lib/favorecidoNoTexto";
 import { extrairNome, type ExtracaoDeNome } from "@/lib/identificacao";
 
 export interface Achado { tipo: "pessoa" | "fornecedor"; id: string; nome: string }
 
-export interface Cadastro { pessoas: CandidatoNome[]; fornecedores: CandidatoNome[] }
+export interface Cadastro { pessoas: CandidatoNome[]; fornecedores: CandidatoFavorecido[] }
 
 const VALIDADE_MS = 5 * 60 * 1000;
 let cache: { em: number; dados: Cadastro } | null = null;
@@ -36,12 +37,12 @@ export async function carregarCadastro(forcar = false): Promise<Cadastro> {
   if (!forcar && cache && Date.now() - cache.em < VALIDADE_MS) return cache.dados;
   const [pessoas, fornecedores] = await Promise.all([
     paginar((de, ate) => supabase.from("membros").select("id, nome_completo").order("id").range(de, ate)),
-    paginar((de, ate) => supabase.from("fin_fornecedores").select("id, nome").eq("ativo", true).order("id").range(de, ate)),
+    paginar((de, ate) => supabase.from("fin_fornecedores").select("id, nome, cnpj_cpf").eq("ativo", true).order("id").range(de, ate)),
   ]);
   const dados: Cadastro = {
     pessoas: pessoas.map(p => ({ id: p.id, nome: p.nome_completo })),
     // o Omie grava o CNPJ-base na frente do nome ("59.407.727 Marco Antonio …"); atrapalha o casamento
-    fornecedores: fornecedores.map(f => ({ id: f.id, nome: limparFornecedor(f.nome) })),
+    fornecedores: fornecedores.map(f => ({ id: f.id, nome: limparFornecedor(f.nome), pj: (f.cnpj_cpf ?? "").replace(/\D/g, "").length === 14 })),
   };
   cache = { em: Date.now(), dados };
   return dados;

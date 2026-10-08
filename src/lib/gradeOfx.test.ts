@@ -24,7 +24,7 @@ describe("filtros da grade", () => {
 
   it("conta cada linha na faixa certa; transferência não entra em identificadas/revisar", () => {
     expect(contarPorFiltro(linhas)).toEqual({
-      todas: 8, identificadas: 1, pendencias: 4, revisar: 2, nao_identificadas: 1, transferencias: 1, debitos: 1, documentos: 0, conciliar: 1, ja_registradas: 1,
+      todas: 8, identificadas: 1, pendencias: 4, revisar: 2, nao_identificadas: 1, transferencias: 1, debitos: 1, documentos: 0, conciliar: 1, ja_registradas: 1, ignoradas: 0,
     });
   });
 

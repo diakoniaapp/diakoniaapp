@@ -22,6 +22,7 @@
 
 import { extrairNome, type DicaCategoria } from "./identificacao";
 import { encontrarDetalhado, type CandidatoNome, type NivelDoCasamento } from "./fuzzyNome";
+import { favorecidoNoTexto, type CandidatoFavorecido } from "./favorecidoNoTexto";
 
 export type Tipo = "entrada" | "saida";
 export type Banda = "identificada" | "revisar" | "nao_identificada";
@@ -43,7 +44,7 @@ export interface Historico {
   chave: string;
 }
 
-export interface Cadastro { pessoas: CandidatoNome[]; fornecedores: CandidatoNome[] }
+export interface Cadastro { pessoas: CandidatoNome[]; fornecedores: CandidatoFavorecido[] }
 
 export interface Sugestao {
   pessoa?: { id: string; nome: string };
@@ -58,7 +59,17 @@ export interface Sugestao {
   motivos: string[];
   /** Parece movimento entre contas da própria igreja: não vira receita nem despesa. */
   transferencia?: boolean;
+  /** PIX terminado em ",10": a marca da tesouraria para oferta missionária. Sugere Missões, NUNCA grava sozinho (sempre "revisar"). */
+  possivelMissoes?: boolean;
+  /** O texto do banco serve a vários favorecidos (boleto genérico): não vale como pista de categoria. */
+  generico?: boolean;
+  /** Os últimos lançamentos da pessoa/favorecido identificado — o contexto para decidir com um olhar. */
+  historico?: EvidenciaDoHistorico[];
+  /** Outras categorias plausíveis (ids), para trocar com um clique. */
+  alternativas?: string[];
 }
+
+export interface EvidenciaDoHistorico { dia: string; valor: number; categoriaId: string | null }
 
 // ── normalização ────────────────────────────────────────────────────────────
 
@@ -96,6 +107,10 @@ export interface Contexto {
   porPessoa: Map<string, Historico[]>;
   porFornecedor: Map<string, Historico[]>;
   porChave: Map<string, Historico[]>;
+  /** Quantas entradas ",10" (PIX, R$ 1 ou mais, fora rendimento) viraram Missões — a prova de que a regra ainda vale. */
+  marca10: { missoes: number; total: number };
+  /** Os lançamentos de cada categoria (para sugerir o centro junto da categoria). */
+  porCategoria: Map<string, Historico[]>;
 }
 
 export function montarContexto(cadastro: Cadastro, cats: CategoriaRef[], historico: Historico[]): Contexto {
@@ -111,8 +126,21 @@ export function montarContexto(cadastro: Cadastro, cats: CategoriaRef[], histori
     juntar(porFornecedor, h.fornecedorId, h);
     juntar(porChave, h.chave || null, h);
   }
-  return { cadastro, categorias: papelDasCategorias(cats), porPessoa, porFornecedor, porChave };
+  const categorias = papelDasCategorias(cats);
+  const porCategoria = new Map<string, Historico[]>();
+  const marca10 = { missoes: 0, total: 0 };
+  for (const h of [...historico].sort((a, b) => a.dia.localeCompare(b.dia))) {
+    juntar(porCategoria, h.categoriaId, h);
+    if (h.tipo === "entrada" && terminaEm10(h.valor) && !/rentab|rendimento/.test(h.chave)) {
+      marca10.total += 1;
+      if (categorias.missoes && h.categoriaId === categorias.missoes) marca10.missoes += 1;
+    }
+  }
+  return { cadastro, categorias, porPessoa, porFornecedor, porChave, marca10, porCategoria };
 }
+
+/** Termina em ,10 e vale pelo menos R$ 1 (R$ 0,10 é rendimento de aplicação, não oferta). */
+export const terminaEm10 = (valor: number) => valor >= 1 && Math.round((valor % 1) * 100) === 10;
 
 // ── votação do histórico ────────────────────────────────────────────────────
 
@@ -198,7 +226,7 @@ const faixaDe = (confianca: number): Banda => (confianca >= 85 ? "identificada" 
 
 const FORMA: Record<string, Sugestao["forma"]> = { pix: "pix", ted: "ted", doc: "doc", deposito: "deposito", boleto: "boleto" };
 
-export function sugerir(linha: Linha, ctx: Contexto): Sugestao {
+function sugerirBase(linha: Linha, ctx: Contexto): Sugestao {
   const ex = extrairNome(linha.memo);
   const chave = chaveDoMemo(linha.memo);
   const motivos: string[] = [];
@@ -229,6 +257,11 @@ export function sugerir(linha: Linha, ctx: Contexto): Sugestao {
     const f = encontrarDetalhado(ex.nome, ctx.cadastro.fornecedores);
     if (p && f) motivos.push("o nome casa com uma pessoa E com um fornecedor — ambíguo");
     else { pessoa = p?.candidato ?? null; fornecedor = f?.candidato ?? null; nivel = (p ?? f)?.nivel ?? null; }
+  }
+  // sem nome de gente (conta de consumo, guia): o favorecido que o TEXTO cita — o nome da empresa, a marca ou a sigla do tributo
+  if (!pessoa && !fornecedor) {
+    const achado = favorecidoNoTexto(linha.memo, ctx.cadastro.fornecedores);
+    if (achado) { fornecedor = achado.candidato; motivos.push(achado.motivo); }
   }
 
   // ── ENTRADA ──
@@ -272,6 +305,9 @@ export function sugerir(linha: Linha, ctx: Contexto): Sugestao {
 
     // texto que se repete (rendimento, depósito em ATM…): o histórico daquele texto decide
     const votoChave = maisVotado(hChave, "categoriaId");
+    if (ehGenerico(hChave)) {
+      return pronta({ confianca: 35, generico: true, motivos: [...motivos, "o texto do banco serve a vários favorecidos: não indica categoria"] });
+    }
     if (votoChave && hChave.length >= 2) {
       motivos.push(`já lançado ${hChave.length}× com este mesmo texto do extrato`);
       return pronta({ categoriaId: votoChave.id, centroId: maisVotado(hChave, "centroId")?.id, confianca: confiancaDoVoto(votoChave) });
@@ -304,6 +340,11 @@ export function sugerir(linha: Linha, ctx: Contexto): Sugestao {
     void idPessoaOuForn;
     return pronta({ ...ref, confianca: 45, motivos: [...motivos, "sem pagamento anterior para sugerir a categoria"] });
   }
+  if (ehGenerico(hChave.filter(h => h.tipo === "saida"))) {
+    // ex.: "PAGTO ELETRON COBRANCA PAG COBRANCA NET EMPR" — 14 boletos de favorecidos diferentes num mês: a pista certa é o
+    // DOCUMENTO a pagar (valor + vencimento), não o histórico do texto.
+    return pronta({ confianca: 35, generico: true, motivos: [...motivos, "texto genérico do banco (boleto de vários favorecidos): identifique pelo documento a pagar"] });
+  }
   const votoChave = maisVotado(hChave.filter(h => h.tipo === "saida"), "categoriaId");
   if (votoChave) {
     motivos.push(`já lançado ${hChave.length}× com este mesmo texto do extrato`);
@@ -313,6 +354,48 @@ export function sugerir(linha: Linha, ctx: Contexto): Sugestao {
     return pronta({ categoriaId: ctx.categorias.tarifa, confianca: 92, motivos: ["tarifa bancária (texto do banco)"] });
   }
   return pronta({ confianca: 30, motivos: [ex.nome ? `${ex.nome}: sem cadastro nem pagamento anterior` : "sem nome nem padrão conhecido"] });
+}
+
+/** O mesmo texto de banco já pagou 3 ou mais favorecidos diferentes: não é pista de ninguém. */
+function ehGenerico(h: Historico[]): boolean {
+  const quem = new Set<string>();
+  for (const x of h) { const id = x.fornecedorId ?? x.pessoaId; if (id) quem.add(id); }
+  return quem.size >= 3;
+}
+
+const ULTIMOS = 3;
+
+/** Acrescenta o que a tela precisa para decidir rápido: histórico, alternativas e a marca ",10". */
+export function sugerir(linha: Linha, ctx: Contexto): Sugestao {
+  let s = sugerirBase(linha, ctx);
+  const cat = ctx.categorias;
+  const histAlvo = s.fornecedor ? ctx.porFornecedor.get(s.fornecedor.id) : s.pessoa ? ctx.porPessoa.get(s.pessoa.id) : undefined;
+  const hChave = ctx.porChave.get(chaveDoMemo(linha.memo)) ?? [];
+
+  // a marca ",10" — PIX terminado em ,10 é oferta missionária por convenção da tesouraria (a pergunta é sempre feita, nunca respondida sozinha)
+  const rendimento = /rentab|rendimento/.test(chaveDoMemo(linha.memo)) || s.categoriaId === cat.rendimento;
+  const valeAMarca = ctx.marca10.total < 10 || ctx.marca10.missoes / ctx.marca10.total >= 0.5;
+  if (linha.tipo === "entrada" && !s.transferencia && terminaEm10(linha.valor) && /\bpix\b/i.test(linha.memo) && !rendimento
+      && cat.missoes && s.categoriaId !== cat.missoes && valeAMarca) {
+    const confianca = Math.min(78, Math.max(65, s.confianca));
+    s = {
+      ...s, categoriaId: cat.missoes, centroId: maisVotado(ctx.porCategoria.get(cat.missoes) ?? [], "centroId")?.id ?? s.centroId,
+      confianca, banda: faixaDe(confianca), possivelMissoes: true,
+      motivos: [...s.motivos, `PIX terminado em ,10: marca da tesouraria para oferta missionária (${ctx.marca10.missoes} de ${ctx.marca10.total} entradas assim já foram Missões) — confirme`],
+    };
+  }
+
+  // o contexto: os últimos lançamentos do favorecido
+  const historico = (histAlvo ?? []).slice(-ULTIMOS).reverse().map(h => ({ dia: h.dia, valor: h.valor, categoriaId: h.categoriaId }));
+  // as alternativas: entrada = Dízimo/Oferta/Missões; saída = o que esse favorecido (ou texto) já recebeu
+  let alternativas: string[];
+  if (linha.tipo === "entrada") alternativas = [cat.dizimo, cat.oferta, cat.missoes].filter((x): x is string => !!x && x !== s.categoriaId);
+  else {
+    const contagem = new Map<string, number>();
+    for (const h of (histAlvo ?? hChave).filter(x => x.tipo === "saida")) if (h.categoriaId) contagem.set(h.categoriaId, (contagem.get(h.categoriaId) ?? 0) + 1);
+    alternativas = [...contagem.entries()].sort((a, b) => b[1] - a[1]).map(([id]) => id).filter(id => id !== s.categoriaId).slice(0, 3);
+  }
+  return { ...s, ...(historico.length ? { historico } : {}), alternativas };
 }
 
 // ── o painel ────────────────────────────────────────────────────────────────
