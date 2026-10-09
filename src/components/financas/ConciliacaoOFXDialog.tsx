@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { conciliarEmLote, excluirLancamentosEmLote, listarContas, brl, type FinMovimentoTipo } from "@/services/finService";
 import { parseOFX, encodingDoOFX, inferirFormaPagamento, type OFXTransacao } from "@/services/ofxService";
+import { sincronizarOrdemComOfx } from "@/services/auditoriaExtratoService";
 import {
   analisar, carregarContexto, conciliarDebitos, desfazerLote, ignorarLinha, listarIgnoradas, reativarIgnorada, registrarLote, registrarTransferenciaDoExtrato, ROTULO_DO_MOTIVO,
   type ContextoOfx, type LinhaAnalisada, type MotivoDeIgnorar, type OutraPonta, type ParaRegistrar,
@@ -161,7 +162,16 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
     onOpenChange(v);
     if (!v) {
       if (alterou.current) { alterou.current = false; onSaved(); }
+      // A ordem do OFX é a do extrato do banco: grava em cada lançamento da conta a posição dele no dia, para o extrato do sistema sair na mesma
+      // sequência. Em segundo plano, sem travar o fechamento; se não puder (migration ainda não aplicada, permissão), o extrato segue na regra de sempre.
+      const lidas = transacoes;
       reiniciar();
+      if (lidas) {
+        sincronizarOrdemComOfx(contaId, lidas)
+          .then(r => { if (r && r.alterados > 0) onSaved(); })
+          .catch(() => { /* a ordem é um refinamento visual: nunca atrapalha o fechamento da Mesa */ });
+      }
+      return;
     }
   }
 

@@ -74,7 +74,8 @@ import {
   type FinCategoria, type FinCentroCusto,
   STATUS_LABEL,
 } from "@/services/finService";
-import { calcularExtrato, dataEfetiva, saldoAntesDe, vencimentoDiferente } from "@/services/saldoService";
+import { calcularExtrato, dataEfetiva, fechamentosDoDia, saldoAntesDe, vencimentoDiferente } from "@/services/saldoService";
+import { LinhaDeFechamentoDoDia, podeMostrarFechamentos } from "@/components/financas/LinhaDeFechamentoDoDia";
 import { iconeConta } from "@/pages/Financas";
 import { LancamentoForm } from "@/components/financas/LancamentoForm";
 import { AnexosLancamentoDialog } from "@/components/financas/AnexosLancamentoDialog";
@@ -386,6 +387,16 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, contas, onTroc
     totalSaidas: totalSaidasPeriodo,
     saldoFinal: saldoFinalPeriodo,
   } = calcularExtrato(lancamentosFiltrados, saldoAntesDoPeriodo);
+  // "SALDO DO DIA" entre os dias (pedido dela, 08/10/2026) — só quando a coluna Saldo é o saldo real (lista completa).
+  const fechamentos = fechamentosDoDia(lancamentosOrdenados, saldoPorLancamento);
+  const mostrarFechamentos = podeMostrarFechamentos({
+    periodoPreset, filtroTipo, busca: buscaDebounced, categoriaId: filtroCategoriaId, centroCustoId: filtroCentroCustoId, fornecedorId: filtroFornecedorId,
+    valorMin, valorMax,
+  });
+  const comFechamentos = (lista: FinLancamentoExtenso[]) => lista.flatMap(l => {
+    const f = mostrarFechamentos ? fechamentos.get(l.id) : undefined;
+    return f ? [renderLinha(l), <LinhaDeFechamentoDoDia key={`fechamento-${l.id}`} data={f.data} saldo={f.saldo} />] : [renderLinha(l)];
+  });
 
   const totalPaginas = Math.max(1, Math.ceil(lancamentosOrdenados.length / POR_PAGINA));
   const paginaAtual = Math.min(pagina, totalPaginas);
@@ -833,7 +844,7 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, contas, onTroc
                       <td className="py-1.5 px-1 sticky right-0 bg-muted/20"></td>
                     </tr>
                   )}
-                  {lancamentosPagina.map(renderLinha)}
+                  {comFechamentos(lancamentosPagina)}
                 </tbody>
               </table>
             )}

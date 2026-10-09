@@ -138,7 +138,8 @@ export async function situacaoDasLinhasDoOfx(contaId: string, ofx: OFXTransacao[
 
 // ── a auditoria completa ─────────────────────────────────────────────────────────
 
-import { auditar, decompor, relatorioMarkdown, type Auditoria, type Decomposicao } from "@/lib/auditoriaExtrato";
+import { auditar, decompor, parear, relatorioMarkdown, type Auditoria, type Decomposicao } from "@/lib/auditoriaExtrato";
+import { numerarPorDia, planejarOrdem, type ItemDeOrdem } from "@/lib/ordemDoExtrato";
 import { alertaDoInvest, chavesPorAssinatura, direcaoDoHistorico, fitidDaChave, lerEvidencia, ORIGEM_INVEST_PDF, type AlertaInvest } from "@/lib/investFacil";
 
 export interface SaldoDiarioDaAplicacao { data: string; banco: number; sistema: number; diferenca: number }
@@ -155,6 +156,8 @@ export interface ResultadoDaAuditoria {
   aplicacao: SaldoDiarioDaAplicacao[] | null;
   /** aplicações e resgates do PDF sem transferência no sistema (null = sem PDF: não há como saber) */
   alertaInvest: AlertaInvest | null;
+  /** a posição de cada lançamento pareado no extrato do banco — o que "Gravar a ordem do banco" grava */
+  planoDeOrdem: ItemDeOrdem[];
   markdown: string;
 }
 
@@ -207,6 +210,7 @@ export async function executarAuditoria(p: {
 
   let banco = linhasDoBanco(extrato, ofx);
   if (extrato) banco = preencherLacunas(extrato, ofx, banco, avisos);
+  banco = numerarPorDia(banco);   // a posição de cada linha dentro do dia, na ordem do extrato do banco (PDF; senão OFX)
   banco = atribuirFitids(banco, ofx);
   if (extrato) {
     // aplicação/resgate não vêm no OFX: a ligação com o lançamento da Mesa é a chave do PDF, gravada como [ofx:PDF:chave]
@@ -253,5 +257,46 @@ export async function executarAuditoria(p: {
   }
   extra += "\n\n## 6. Convergência\n\n" + decomposicoes.map(d =>
     `- Em ${dataBr(d.corte)}: o banco tem ${reais(d.saldoBanco)} e o sistema ${reais(d.saldoSistema)}. Registradas/corrigidas as linhas da seção 2, o sistema passa a ter ${reais(d.saldoSistema - d.diferenca)} — o do banco.`).join("\n");
-  return { conta: p.contaNome, de, ate, auditoria, cortes, decomposicoes, avisos, conferenciaDaLeitura: sis.conferenciaDaLeitura, aplicacao, alertaInvest: extrato ? alertaDoInvest(auditoria.soBanco) : null, markdown: relatorioMarkdown(auditoria, cortes, meta) + extra };
+  return {
+    conta: p.contaNome, de, ate, auditoria, cortes, decomposicoes, avisos, conferenciaDaLeitura: sis.conferenciaDaLeitura, aplicacao,
+    alertaInvest: extrato ? alertaDoInvest(auditoria.soBanco) : null, planoDeOrdem: planejarOrdem(auditoria.pares),
+    markdown: relatorioMarkdown(auditoria, cortes, meta) + extra,
+  };
+}
+
+// ── a ordem do extrato do banco, gravada nos lançamentos ────────────────────────────────────────────────────────
+
+const LOTE_DA_ORDEM = 100;
+
+/**
+ * Grava `ordem_banco` (migration 20261008210000) nos lançamentos do plano, em lotes pela função `fin_gravar_ordem_banco` (que respeita a RLS).
+ * `semPermissao` = quantos ids a RLS não deixou enxergar; `semMigration` = a função/coluna ainda não existe (o extrato segue na regra antiga).
+ */
+export async function gravarOrdemDoBanco(plano: ItemDeOrdem[]): Promise<{ enviados: number; alterados: number; semPermissao: number; semMigration: boolean }> {
+  let alterados = 0, alvos = 0;
+  for (let i = 0; i < plano.length; i += LOTE_DA_ORDEM) {
+    const lote = plano.slice(i, i + LOTE_DA_ORDEM);
+    const { data, error } = await supabase.rpc("fin_gravar_ordem_banco" as never, { p_itens: lote } as never);
+    if (error) {
+      if (/fin_gravar_ordem_banco|schema cache|does not exist|ordem_banco/i.test(error.message)) return { enviados: plano.length, alterados, semPermissao: 0, semMigration: true };
+      throw new Error(error.message);
+    }
+    const r = data as unknown as { alvos: number; alterados: number };
+    alvos += Number(r?.alvos ?? 0); alterados += Number(r?.alterados ?? 0);
+  }
+  return { enviados: plano.length, alterados, semPermissao: Math.max(0, plano.length - alvos), semMigration: false };
+}
+
+/**
+ * Sincroniza a ordem com o OFX que acabou de ser lido na Mesa (a ordem do arquivo = a do extrato do banco): pareia as linhas do OFX com os lançamentos
+ * da conta (marca do OFX → mesmo dia → …, o mesmo pareamento da Auditoria) e grava a posição de cada uma. Só OFX: as aplicações/resgates do PDF ficam
+ * para a Auditoria com OFX + PDF. Devolve null se o OFX estiver vazio.
+ */
+export async function sincronizarOrdemComOfx(contaId: string, ofx: OFXTransacao[]) {
+  if (ofx.length === 0) return null;
+  const banco = atribuirFitids(numerarPorDia(ofx.map(t => ({ data: t.data, valor: (t.tipo === "entrada" ? 1 : -1) * t.valor, historico: t.memo, fitid: t.fitid }))), ofx);
+  const datas = ofx.map(t => t.data).sort();
+  const sis = await carregarSistema(contaId, datas[0], datas[datas.length - 1]);
+  const { pares } = parear(banco, sis.lancamentos);
+  return gravarOrdemDoBanco(planejarOrdem(pares));
 }

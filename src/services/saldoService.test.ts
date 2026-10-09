@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ajusteDeCaixaAntesDe, calcularExtrato, dataEfetiva, ordenarParaExtrato, vencimentoDiferente } from "./saldoService";
+import { ajusteDeCaixaAntesDe, calcularExtrato, dataEfetiva, fechamentosDoDia, ordenarParaExtrato, vencimentoDiferente } from "./saldoService";
 import { filtroDePeriodoDeCaixa } from "./finService";
 
 // Bradesco, 20/03/2026 — os 21 lançamentos das duas telas comparadas na
@@ -123,5 +123,67 @@ describe("extrato por data de caixa", () => {
     // limite aberto de um lado só (ex.: "atrasados" sem chão)
     expect(filtroDePeriodoDeCaixa(undefined, "2026-09-18")).toContain("data_pagamento.lte.2026-09-18)");
     expect(filtroDePeriodoDeCaixa(undefined, "2026-09-18")).not.toContain(".gte.");
+  });
+});
+
+// ── a ordem do extrato do BANCO e a linha "SALDO DO DIA" ────────────────────────────────────────────────────────────
+// 03/08/2026 do Omie: Águas do Rio, Patrícia, Tarifa, Tarifa, Flora — e 04/08: Tayane, Ulisses. Saldo do dia 03/08 = R$ 1,00.
+const T = "2026-08-05T12:00:00.000Z";
+const l0 = (id: string, data: string, tipo: "entrada" | "saida", valor: number, ordem?: number, extra: Record<string, unknown> = {}) =>
+  ({ id, data, tipo, valor, status: "conciliado", created_at: T, data_pagamento: null, ...(ordem === undefined ? {} : { ordem_banco: ordem }), ...extra });
+
+describe("ordem do banco no extrato", () => {
+  const AGOSTO = [
+    l0("flora", "2026-08-03", "saida", 411.16, 5), l0("tarifa2", "2026-08-03", "saida", 114.72, 4), l0("agua", "2026-08-03", "saida", 1135.07, 1),
+    l0("patricia", "2026-08-03", "saida", 380, 2), l0("tarifa1", "2026-08-03", "saida", 9.8, 3),
+    l0("tayane", "2026-08-04", "entrada", 23, 1), l0("ulisses", "2026-08-04", "entrada", 10, 2),
+  ];
+
+  it("dentro do mesmo dia, a sequência é a do banco — qualquer que seja a ordem de chegada", () => {
+    const a = ordenarParaExtrato(AGOSTO as any).map(l => l.id);
+    const b = ordenarParaExtrato([...AGOSTO].reverse() as any).map(l => l.id);
+    expect(a).toEqual(["agua", "patricia", "tarifa1", "tarifa2", "flora", "tayane", "ulisses"]);
+    expect(b).toEqual(a);
+  });
+
+  it("o banco manda até sobre 'entrada antes de saída' (o extrato do banco tem a sequência dele)", () => {
+    const r = ordenarParaExtrato([l0("saida", "2026-08-03", "saida", 5, 1), l0("entrada", "2026-08-03", "entrada", 5, 2)] as any).map(l => l.id);
+    expect(r).toEqual(["saida", "entrada"]);
+  });
+
+  it("sem ordem (não sincronizado) a regra antiga continua; quem tem ordem vem antes de quem não tem, e a ordem total é estável", () => {
+    const mistura = [l0("manualSaida", "2026-08-03", "saida", 1), l0("banco2", "2026-08-03", "saida", 1, 2), l0("manualEntrada", "2026-08-03", "entrada", 1), l0("banco1", "2026-08-03", "saida", 1, 1)];
+    const a = ordenarParaExtrato(mistura as any).map(l => l.id);
+    expect(a).toEqual(["banco1", "banco2", "manualEntrada", "manualSaida"]);
+    expect(ordenarParaExtrato([...mistura].reverse() as any).map(l => l.id)).toEqual(a);
+  });
+
+  it("a ordem só vale dentro do dia: outra data continua pesando mais", () => {
+    expect(ordenarParaExtrato([l0("tarde", "2026-08-04", "saida", 1, 1), l0("cedo", "2026-08-03", "saida", 1, 9)] as any).map(l => l.id)).toEqual(["cedo", "tarde"]);
+  });
+});
+
+describe("fechamentosDoDia — a linha SALDO DO DIA", () => {
+  it("devolve o saldo depois da última linha de cada data (03/08 fecha em R$ 1,00)", () => {
+    // saldo anterior R$ 1.152,44 → depois das 5 saídas de 03/08 o saldo é R$ 1,00
+    const dia3 = [l0("agua", "2026-08-03", "saida", 1135.07, 1), l0("pat", "2026-08-03", "saida", 380, 2), l0("t1", "2026-08-03", "saida", 9.8, 3), l0("t2", "2026-08-03", "saida", 114.72, 4), l0("flora", "2026-08-03", "saida", 411.16, 5)];
+    const dia4 = [l0("tayane", "2026-08-04", "entrada", 23, 1), l0("ulisses", "2026-08-04", "entrada", 10, 2)];
+    const r = calcularExtrato([...dia3, ...dia4] as any, 2051.75);
+    const f = fechamentosDoDia(r.ordenados as any, r.saldoPorLancamento);
+    expect([...f.entries()].map(([id, x]) => [id, x.data, x.saldo])).toEqual([["flora", "2026-08-03", 1], ["ulisses", "2026-08-04", 34]]);
+  });
+
+  it("usa a data de CAIXA: o pagamento de 18/09 com vencimento em 20/09 fecha o dia 18, não o 20", () => {
+    const lancs = [l0("pix", "2026-09-18", "saida", 350, 1), l0("darf", "2026-09-20", "saida", 100, 2, { data_pagamento: "2026-09-18" })];
+    const r = calcularExtrato(lancs as any, 451);
+    const f = fechamentosDoDia(r.ordenados as any, r.saldoPorLancamento);
+    expect([...f.values()]).toEqual([{ data: "2026-09-18", saldo: 1 }]);
+  });
+
+  it("previsto no fim do dia não muda o fechamento; lista vazia não gera nada", () => {
+    const lancs = [l0("pg", "2026-09-01", "saida", 10, 1), l0("prev", "2026-09-01", "saida", 99, undefined, { status: "previsto" })];
+    const r = calcularExtrato(lancs as any, 11);
+    expect([...fechamentosDoDia(r.ordenados as any, r.saldoPorLancamento).values()]).toEqual([{ data: "2026-09-01", saldo: 1 }]);
+    expect(fechamentosDoDia([], new Map()).size).toBe(0);
   });
 });

@@ -30,7 +30,8 @@ import {
   CONTA_TIPO_LABEL,
   type FinConta, type FinLancamentoExtenso,
 } from "@/services/finService";
-import { calcularExtrato, dataEfetiva, movimentaSaldo, saldoAntesDe, vencimentoDiferente } from "@/services/saldoService";
+import { calcularExtrato, dataEfetiva, fechamentosDoDia, movimentaSaldo, saldoAntesDe, vencimentoDiferente } from "@/services/saldoService";
+import { LinhaDeFechamentoDoDia } from "@/components/financas/LinhaDeFechamentoDoDia";
 import { toYmd } from "@/lib/data";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -225,6 +226,8 @@ export default function FinancasRelatorioContas() {
             totalSaidas: saidasConta,
             saldoFinal: acumulado,
           } = calcularExtrato(lancamentos.filter(l => l.conta_id === conta.id), saldoInicial);
+          // "SALDO DO DIA" entre os dias — este relatório é a lista completa (só realizado/conciliado, sem filtro de conteúdo): o saldo é o real
+          const fechamentos = fechamentosDoDia(lancsConta, saldoPorLancamento);
 
           return (
             <section key={conta.id} className="mb-8">
@@ -283,7 +286,7 @@ export default function FinancasRelatorioContas() {
                         Nenhum lançamento realizado ou conciliado no período.
                       </td>
                     </tr>
-                  ) : lancsConta.map(l => (
+                  ) : lancsConta.flatMap(l => [(
                     <tr key={l.id} className="border-b border-border/40">
                       {/* Sem ícone de situação aqui — diferente de
                           `FinancasConta.tsx`, este relatório já filtra só
@@ -306,7 +309,7 @@ export default function FinancasRelatorioContas() {
                       </td>
                       <td className="py-1 pr-1 text-right tabular-nums text-muted-foreground whitespace-nowrap">{brl(saldoPorLancamento.get(l.id) ?? 0)}</td>
                     </tr>
-                  ))}
+                  ), ...(fechamentos.get(l.id) ? [<LinhaDeFechamentoDoDia key={`fechamento-${l.id}`} data={fechamentos.get(l.id)!.data} saldo={fechamentos.get(l.id)!.saldo} />] : [])])}
                 </tbody>
               </table>
             </section>

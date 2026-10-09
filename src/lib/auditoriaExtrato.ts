@@ -15,7 +15,11 @@
 // Nada aqui grava ou corrige: só mede e explica.
 
 /** `fitid`: o identificador da MESMA linha no OFX (achado pela data, valor e texto) — quando existe, é a ligação certa com o lançamento que traz a marca [ofx:FITID]. */
-export interface LinhaBanco { data: string; valor: number; historico: string; documento?: string; fitid?: string }
+export interface LinhaBanco {
+  data: string; valor: number; historico: string; documento?: string; fitid?: string;
+  /** posição da linha dentro do dia, na ordem do extrato do banco (lib/ordemDoExtrato.ts); só a sincronização da ordem usa */
+  ordem?: number;
+}
 /** `fitids`: as marcas [ofx:…] que o lançamento carrega (veio de uma linha do OFX). */
 export interface LinhaSistema { id: string; data: string; valor: number; origem: string; status: string; descricao: string; fitids?: string[];
   /** transferência criada a partir do PDF do Invest Fácil: de qual arquivo e linha veio */

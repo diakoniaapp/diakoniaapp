@@ -30,7 +30,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { saldoAcumuladoAntesDe } from "@/services/prestacaoContasService";
 import type { FinLancamento } from "@/services/finService";
 
-type LancamentoParaSaldo = Pick<FinLancamento, "id" | "data" | "tipo" | "valor" | "status" | "created_at"> & { data_pagamento?: string | null };
+type LancamentoParaSaldo = Pick<FinLancamento, "id" | "data" | "tipo" | "valor" | "status" | "created_at"> & {
+  data_pagamento?: string | null;
+  /** Posição da linha dentro do dia no extrato do BANCO (1 = a primeira). null/ausente = ainda não sincronizada com um extrato. */
+  ordem_banco?: number | null;
+};
 
 /** Só o que de fato aconteceu mexe no saldo — mesma regra de `fin_recalc_saldo_conta`. */
 export function movimentaSaldo(l: Pick<FinLancamento, "status">): boolean {
@@ -68,6 +72,12 @@ export function efeitoNoSaldo(l: Pick<FinLancamento, "status" | "tipo" | "valor"
 export function compararParaExtrato(a: LancamentoParaSaldo, b: LancamentoParaSaldo): number {
   const da = dataEfetiva(a), db = dataEfetiva(b);
   if (da !== db) return da < db ? -1 : 1;
+  // Mesma data: a ORDEM DO BANCO manda (08/10/2026, "o extrato do sistema na mesma sequência do extrato do banco"). Quem já foi sincronizado com um
+  // extrato (`ordem_banco`) vem primeiro, na sequência do banco; quem não foi (lançamento manual sem par, previsto) vem depois, pela regra de sempre.
+  // Ordem total e transitiva: (tem ordem?, ordem, …regra antiga).
+  const oa = a.ordem_banco ?? null, ob = b.ordem_banco ?? null;
+  if (oa !== null && ob !== null && oa !== ob) return oa - ob;
+  if ((oa === null) !== (ob === null)) return oa === null ? 1 : -1;
   if (a.tipo !== b.tipo) return a.tipo === "entrada" ? -1 : 1;
   const ca = a.created_at ?? "", cb = b.created_at ?? "";
   if (ca !== cb) return ca < cb ? -1 : 1;
@@ -120,6 +130,23 @@ export function calcularExtrato<T extends LancamentoParaSaldo>(lancs: T[], saldo
     totalSaidas: saidas / 100,
     saldoFinal: acumulado / 100,
   };
+}
+
+export interface FechamentoDoDia { data: string; saldo: number }
+
+/**
+ * O saldo de FECHAMENTO de cada dia do extrato (a linha "SALDO DO DIA", como no Omie e no extrato do banco): o acumulado depois da ÚLTIMA linha do dia,
+ * na data efetiva (caixa). Chave = id da última linha do dia — a tela desenha a linha de fechamento logo depois dela. Previsto/cancelado não movem o
+ * acumulado, então o fechamento é o mesmo com ou sem eles no fim do dia.
+ */
+export function fechamentosDoDia<T extends LancamentoParaSaldo>(ordenados: T[], saldoPorLancamento: Map<string, number>): Map<string, FechamentoDoDia> {
+  const out = new Map<string, FechamentoDoDia>();
+  for (let i = 0; i < ordenados.length; i++) {
+    const hoje = dataEfetiva(ordenados[i]);
+    const proximo = i + 1 < ordenados.length ? dataEfetiva(ordenados[i + 1]) : null;
+    if (proximo !== hoje) out.set(ordenados[i].id, { data: hoje, saldo: saldoPorLancamento.get(ordenados[i].id) ?? 0 });
+  }
+  return out;
 }
 
 /**

@@ -46,7 +46,8 @@ import { AnexosLancamentoDialog } from "@/components/financas/AnexosLancamentoDi
 import { EditarTransferenciaForm } from "@/components/financas/EditarTransferenciaForm";
 import { TransferenciaForm } from "@/components/financas/TransferenciaForm";
 import { ConciliacaoOFXDialog } from "@/components/financas/ConciliacaoOFXDialog";
-import { calcularExtrato, dataEfetiva, saldoAntesDe, vencimentoDiferente } from "@/services/saldoService";
+import { calcularExtrato, dataEfetiva, fechamentosDoDia, saldoAntesDe, vencimentoDiferente } from "@/services/saldoService";
+import { LinhaDeFechamentoDoDia, podeMostrarFechamentos } from "@/components/financas/LinhaDeFechamentoDoDia";
 import { iconeConta } from "@/pages/Financas";
 import { ImportacaoOmieDialog } from "@/components/financas/ImportacaoOmieDialog";
 import { ImportacaoFaturaDialog } from "@/components/financas/ImportacaoFaturaDialog";
@@ -619,6 +620,17 @@ export default function FinancasConta() {
     totalSaidas: totalSaidasPeriodo,
     saldoFinal: saldoFinalPeriodo,
   } = calcularExtrato(lancamentosFiltrados, saldoAntesDoPeriodo);
+  // "SALDO DO DIA" entre os dias (pedido dela, 08/10/2026): o saldo de fechamento de cada data, para conferir contra o extrato do banco. Só quando
+  // a coluna Saldo é o saldo real (lista completa) — ver `podeMostrarFechamentos`.
+  const fechamentos = fechamentosDoDia(lancamentosOrdenados, saldoPorLancamento);
+  const mostrarFechamentos = podeMostrarFechamentos({
+    periodoPreset, filtroTipo, busca: buscaDebounced, categoriaId: filtroCategoriaId, centroCustoId: filtroCentroCustoId, fornecedorId: filtroFornecedorId,
+    valorMin, valorMax, dataEspecifica: filtroDataEspecifica,
+  });
+  const comFechamentos = (lista: FinLancamentoExtenso[]) => lista.flatMap(l => {
+    const f = mostrarFechamentos ? fechamentos.get(l.id) : undefined;
+    return f ? [renderLinha(l), <LinhaDeFechamentoDoDia key={`fechamento-${l.id}`} data={f.data} saldo={f.saldo} />] : [renderLinha(l)];
+  });
   // "Atrasados" é filtro de SITUAÇÃO (todo `lancamentosFiltrados` já vem
   // `previsto` do servidor), não de período contínuo — os totais acima
   // dariam zero (eles só somam realizado/conciliado, de propósito, pro
@@ -1327,7 +1339,7 @@ export default function FinancasConta() {
                     <td className="py-1.5 px-1 sticky right-0 bg-muted/20"></td>
                   </tr>
                 )}
-                {lancamentosPagina.map(renderLinha)}
+                {comFechamentos(lancamentosPagina)}
               </tbody>
               {/* tbody só de IMPRESSÃO — período inteiro, nunca paginado */}
               <tbody className="hidden print:table-row-group">
@@ -1349,7 +1361,7 @@ export default function FinancasConta() {
                     <td className="py-1.5 px-1 sticky right-0 bg-muted/20"></td>
                   </tr>
                 )}
-                {lancamentosOrdenados.map(renderLinha)}
+                {comFechamentos(lancamentosOrdenados)}
               </tbody>
             </table>
           )}

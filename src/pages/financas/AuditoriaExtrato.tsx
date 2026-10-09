@@ -4,7 +4,7 @@
 // divergência é erro de importação. Recebe o OFX e, de preferência, o PDF do extrato consolidado do Bradesco — que traz o que o OFX NÃO
 // traz (aplicação e resgate do Invest Fácil) — e mostra: o saldo dos dois lados em cada fim de mês, a diferença decomposta por causa
 // (a soma dos componentes tem de dar a diferença: o "resíduo" tem de ser R$ 0,00), o dia em que o saldo deixa de bater e as linhas
-// responsáveis. Nada é gravado nem corrigido aqui.
+// responsáveis. Nada é corrigido aqui. A única gravação (só ao clicar em "Gravar a ordem do banco") é a posição de cada lançamento no extrato do banco.
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, ClipboardCopy, FileSearch, Loader2 } from "lucide-react";
@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { listarContas, brl } from "@/services/finService";
-import { executarAuditoria, type ResultadoDaAuditoria } from "@/services/auditoriaExtratoService";
+import { executarAuditoria, gravarOrdemDoBanco, type ResultadoDaAuditoria } from "@/services/auditoriaExtratoService";
 import { causaDoBanco, causaDoSistema, porDia, primeiroDiaQueDiverge, ROTULO_CAUSA_BANCO, ROTULO_CAUSA_SISTEMA, type Decomposicao } from "@/lib/auditoriaExtrato";
 
 const dataBr = (d: string) => d.split("-").reverse().join("/");
@@ -27,6 +27,7 @@ export default function AuditoriaExtrato() {
   const [rodando, setRodando] = useState(false);
   const [resultado, setResultado] = useState<ResultadoDaAuditoria | null>(null);
   const [corteEscolhido, setCorteEscolhido] = useState<string | null>(null);
+  const [gravandoOrdem, setGravandoOrdem] = useState(false);
 
   useEffect(() => {
     listarContas(true).then((cs) => {
@@ -49,6 +50,23 @@ export default function AuditoriaExtrato() {
       toast.error(e?.message ?? "Não foi possível auditar.");
     } finally {
       setRodando(false);
+    }
+  }
+
+  // A ÚNICA coisa que esta tela grava (e só quando se clica): a posição de cada lançamento no extrato do banco, para o extrato do sistema sair na mesma
+  // sequência. Não altera valor, data, categoria nem saldo.
+  async function gravarOrdem() {
+    if (!resultado) return;
+    setGravandoOrdem(true);
+    try {
+      const r = await gravarOrdemDoBanco(resultado.planoDeOrdem);
+      if (r.semMigration) toast.error("A ordem do banco ainda não pode ser gravada: falta aplicar a migration 20261008210000.");
+      else if (r.semPermissao > 0) toast.error(`${r.semPermissao} lançamento${r.semPermissao !== 1 ? "s" : ""} não ${r.semPermissao !== 1 ? "puderam" : "pôde"} ser atualizado${r.semPermissao !== 1 ? "s" : ""} (permissão). Os demais foram gravados.`);
+      else toast.success(r.alterados === 0 ? "A ordem do banco já estava gravada em todos os lançamentos." : `Ordem do banco gravada em ${r.alterados} lançamento${r.alterados !== 1 ? "s" : ""}.`);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Não foi possível gravar a ordem.");
+    } finally {
+      setGravandoOrdem(false);
     }
   }
 
@@ -179,6 +197,10 @@ export default function AuditoriaExtrato() {
           <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="outline" className="gap-1.5" onClick={copiar}><ClipboardCopy className="w-3.5 h-3.5" /> Copiar relatório</Button>
             <Button size="sm" variant="outline" onClick={baixar}>Baixar (.md)</Button>
+            <Button size="sm" variant="outline" className="gap-1.5" disabled={gravandoOrdem || resultado.planoDeOrdem.length === 0} onClick={gravarOrdem}
+              title="Grava em cada lançamento a posição dele no extrato do banco, para o extrato do sistema sair na mesma sequência. Não altera valor, data nem saldo.">
+              {gravandoOrdem ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null} Gravar a ordem do banco ({resultado.planoDeOrdem.length})
+            </Button>
           </div>
         </>
       )}
