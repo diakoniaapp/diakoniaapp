@@ -24,6 +24,8 @@ import { Button } from "@/components/ui/button";
 import { LancamentosACorrigirDialog } from "@/components/financas/LancamentosACorrigirDialog";
 import { hojeLocal } from "@/lib/data";
 import { formatarPercentual } from "@/lib/documentos/cobertura";
+import { cicloDoMes, type ResumoDoCiclo } from "@/services/cicloDoMesService";
+import { ROTULO_DO_CICLO } from "@/lib/cicloDaDespesa";
 import {
   mesEmFechamento, rotuloDoMes, ultimosMeses, veredito, type Avaliacao,
 } from "@/lib/fechamentoMensal";
@@ -59,6 +61,7 @@ export function FechamentoMensal({ onConciliar }: Props) {
   const [av, setAv] = useState<Parte<Avaliacao>>(carregando());
   const [doc, setDoc] = useState<Parte<ResumoDocumentacao>>(carregando());
   const [pacote, setPacote] = useState<Parte<ResumoPacote>>(carregando());
+  const [ciclo, setCiclo] = useState<Parte<ResumoDoCiclo>>(carregando());
   const [envio, setEnvio] = useState<Parte<EstadoDoEnvio>>(carregando());
   const [correcoes, setCorrecoes] = useState(false);
   const [gerando, setGerando] = useState<[number, number] | null>(null);
@@ -69,11 +72,12 @@ export function FechamentoMensal({ onConciliar }: Props) {
   const rotulo = rotuloDoMes(ano, mes);
 
   const carregar = useCallback(() => {
-    setAv(carregando()); setDoc(carregando()); setPacote(carregando()); setEnvio(carregando());
+    setAv(carregando()); setDoc(carregando()); setPacote(carregando()); setCiclo(carregando()); setEnvio(carregando());
     setGerouAgora(false);
     void como(() => avaliarMes(ano, mes)).then(setAv);
     void como(() => documentacaoDoMes(ano, mes)).then(setDoc);
     void como(() => pacoteDoMes(ano, mes)).then(setPacote);
+    void como(() => cicloDoMes(ano, mes)).then(setCiclo);
     void como(() => ultimoEnvio(ano, mes)).then(setEnvio);
   }, [ano, mes]);
   useEffect(() => { carregar(); }, [carregar]);
@@ -212,6 +216,16 @@ export function FechamentoMensal({ onConciliar }: Props) {
           <Numero rotulo="Pendências" valor={String(doc.dados.pendencias)} atencao={doc.dados.pendencias > 0} />
           <p className="basis-full text-[11px] text-muted-foreground">
             {doc.dados.comDocumento} de {doc.dados.exigem} saídas com documento em {rotulo}. Faltar documento não impede gerar o malote (vai em PENDENCIAS.csv).
+          </p>
+        </>}
+        {ciclo.estado === "ok" && ciclo.dados.total > 0 && <>
+          <p className="basis-full text-[11px] font-semibold uppercase tracking-wide text-muted-foreground pt-1">Ciclo das despesas pagas em {rotulo}</p>
+          <Numero rotulo={ROTULO_DO_CICLO.pronta_para_malote} valor={String(ciclo.dados.porEstado.pronta_para_malote)} />
+          <Numero rotulo="Conciliadas com pendência" valor={String(ciclo.dados.porEstado.conciliada)} atencao={ciclo.dados.porEstado.conciliada > 0} />
+          <Numero rotulo="Aguardando conciliação" valor={String(ciclo.dados.naoConciliadas)} atencao={ciclo.dados.naoConciliadas > 0} />
+          <Numero rotulo="Sem comprovante" valor={String(ciclo.dados.semComprovante)} atencao={ciclo.dados.semComprovante > 0} />
+          <p className="basis-full text-[11px] text-muted-foreground">
+            {ciclo.dados.porEstado.pronta_para_malote} de {ciclo.dados.total} despesas já estão prontas (conciliadas, classificadas, com documento e comprovante). Conciliada = falta só documento ou comprovante; aguardando conciliação = paga, mas nenhuma linha do extrato foi ligada a ela. É o mesmo estado que aparece ao clicar no lançamento do extrato.
           </p>
         </>}
       </Etapa>

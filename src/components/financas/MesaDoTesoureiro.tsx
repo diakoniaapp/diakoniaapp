@@ -21,6 +21,7 @@ import {
   AlertTriangle, ArrowRight, CheckCircle2, ChevronDown, ChevronUp, Circle, Clock, FileText, Landmark,
   Loader2, Paperclip, RefreshCw, RotateCw, Wallet,
 } from "lucide-react";
+import { ContasJaPagas } from "@/components/financas/ContasJaPagas";
 import { Button } from "@/components/ui/button";
 import { brl, nomeExtrato, type FinVencimento } from "@/services/finService";
 import { hojeLocal } from "@/lib/data";
@@ -209,6 +210,8 @@ export function MesaDoTesoureiro({
         <Cartao id="mesa-contas" className="lg:col-span-2" titulo="Contas a pagar"
           subtitulo="Boletos, faturas e pagamentos manuais — o que depende de você"
           direita={<Button size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={onNovaSaida}>+ Nova conta</Button>}>
+          {/* conta aberta que já tem pagamento no extrato (criada depois dele, ou a linha entrou como lançamento comum): um registro só */}
+          <ContasJaPagas chave={chaveDeAtualizacao} onMudou={carregar} />
           {nadaAPagar ? (
             <p className="text-sm text-muted-foreground py-4 text-center">
               Nenhuma conta a pagar nos próximos 30 dias. Os débitos automáticos aparecem mais abaixo.

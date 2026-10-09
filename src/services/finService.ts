@@ -262,6 +262,9 @@ export interface FinLancamento {
   data_pagamento: string | null;
   /** posição da linha dentro do dia no extrato do banco (migration 20261008210000); ausente/null = sem extrato para comparar */
   ordem_banco?: number | null;
+  /** o ato de pagar que baixou este lançamento (fin_liquidacoes; migration 20261007100000) e o grupo da obrigação (a raiz, quando houve baixa parcial) */
+  liquidacao_id?: string | null;
+  obrigacao_id?: string | null;
   nf_dados_extraidos: NfDadosExtraidos | null;
   origem: string;
   /** Migration 20261006120000: como será liquidado e se o previsto é só uma estimativa. */

@@ -493,3 +493,31 @@ export async function conciliarDebitos(contaId: string, itens: DebitoParaConcili
   }
   return res;
 }
+
+// ── conciliar o pagamento já REALIZADO (botão Pagar) com a linha do extrato que o encontrou ─────────────────────────────────────────
+// Antes, `conciliarEmLote` só trocava o status para "conciliado": o lançamento NÃO guardava qual linha do OFX o confirmou, nem o dia em que o banco
+// debitou. Resultado: a reimportação só o reconhecia por "mesmo valor e data" (frágil: duas linhas iguais se confundem) e a data de pagamento ficava
+// a do clique em Pagar, não a do banco. Agora a conciliação grava, no próprio lançamento da obrigação: a marca [ofx:FITID] (o "OFX vinculado"),
+// a data de pagamento do banco e o status conciliado — o mesmo que `conciliarDebitos` faz para o débito automático.
+export interface PagamentoParaConciliar { lancamentoId: string; tx: OFXTransacao }
+export interface ResultadoConciliacao { conciliados: string[]; erros: string[] }
+
+export async function conciliarPagamentos(itens: PagamentoParaConciliar[]): Promise<ResultadoConciliacao> {
+  const res: ResultadoConciliacao = { conciliados: [], erros: [] };
+  const userId = (await supabase.auth.getUser()).data.user?.id ?? null;
+  const agora = new Date().toISOString();
+  for (const it of itens) {
+    const { data: atual, error: e1 } = await supabase.from("fin_lancamentos").select("observacoes, status").eq("id", it.lancamentoId).maybeSingle();
+    if (e1) { res.erros.push(e1.message); continue; }
+    if (!atual || atual.status !== "realizado") { res.erros.push("um pagamento já não está 'realizado' (alguém o alterou): reabra a Mesa"); continue; }
+    const jaTem = (atual.observacoes ?? "").includes(`[ofx:${it.tx.fitid}]`);
+    const observacoes = jaTem ? (atual.observacoes ?? null) : [(atual.observacoes ?? "").trim(), `[ofx:${it.tx.fitid}]`].filter(Boolean).join("\n");
+    const { data, error } = await supabase.from("fin_lancamentos")
+      .update({ status: "conciliado", data_pagamento: it.tx.data, observacoes, audit_user_id: userId, audit_em: agora } as never)
+      .eq("id", it.lancamentoId).eq("status", "realizado").select("id");
+    if (error) res.erros.push(error.message);
+    else if (!data || data.length === 0) res.erros.push("um pagamento não pôde ser conciliado (permissão ou já alterado)");
+    else res.conciliados.push(it.lancamentoId);
+  }
+  return res;
+}

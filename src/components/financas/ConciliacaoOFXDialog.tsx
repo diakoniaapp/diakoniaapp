@@ -31,7 +31,7 @@ import { conciliarEmLote, excluirLancamentosEmLote, listarContas, brl, type FinM
 import { parseOFX, encodingDoOFX, inferirFormaPagamento, type OFXTransacao } from "@/services/ofxService";
 import { sincronizarOrdemComOfx } from "@/services/auditoriaExtratoService";
 import {
-  analisar, carregarContexto, conciliarDebitos, desfazerLote, ignorarLinha, listarIgnoradas, reativarIgnorada, registrarLote, registrarTransferenciaDoExtrato, ROTULO_DO_MOTIVO,
+  analisar, carregarContexto, conciliarDebitos, conciliarPagamentos, desfazerLote, ignorarLinha, listarIgnoradas, reativarIgnorada, registrarLote, registrarTransferenciaDoExtrato, ROTULO_DO_MOTIVO,
   type ContextoOfx, type LinhaAnalisada, type MotivoDeIgnorar, type OutraPonta, type ParaRegistrar,
 } from "@/services/importacaoOfxService";
 import {
@@ -269,9 +269,10 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
     if (aConciliar.length === 0) return;
     setConciliando(true);
     try {
-      await conciliarEmLote(aConciliar.map(r => r.lancamentoId!));
-      toast.success(`${aConciliar.length} lançamento${aConciliar.length > 1 ? "s" : ""} conciliado${aConciliar.length > 1 ? "s" : ""}`);
-      alterou.current = true;
+      // concilia GRAVANDO o vínculo: a marca do OFX e o dia em que o banco debitou ficam no lançamento da obrigação ("OFX vinculado")
+      const r = await conciliarPagamentos(aConciliar.map(l => ({ lancamentoId: l.lancamentoId!, tx: l.tx })));
+      if (r.conciliados.length > 0) { toast.success(`${r.conciliados.length} lançamento${r.conciliados.length > 1 ? "s" : ""} conciliado${r.conciliados.length > 1 ? "s" : ""}, com o vínculo do extrato`); alterou.current = true; }
+      if (r.erros.length > 0) toast.error(r.erros[0] + (r.erros.length > 1 ? ` (+${r.erros.length - 1})` : ""));
       if (transacoes) await analisarDeNovo(transacoes, false);
     } catch (e: any) {
       toast.error(e?.message ?? "Erro");

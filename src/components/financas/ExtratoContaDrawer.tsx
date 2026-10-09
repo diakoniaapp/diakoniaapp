@@ -62,7 +62,7 @@ import { CampoData } from "@/components/CampoData";
 import { paraNumero } from "@/lib/dinheiro";
 import {
   DollarSign, Loader2, Plus, Search, TrendingUp, TrendingDown,
-  Pencil, Trash2, Paperclip, Files, Scale, FileUp, ExternalLink,
+  Pencil, Trash2, Paperclip, Files, Info, Scale, FileUp, ExternalLink,
   ArrowRightLeft, RefreshCw, Layers, FolderKanban, Maximize2, Minimize2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -76,6 +76,7 @@ import {
 } from "@/services/finService";
 import { calcularExtrato, dataEfetiva, fechamentosDoDia, saldoAntesDe, vencimentoDiferente } from "@/services/saldoService";
 import { LinhaDeFechamentoDoDia, podeMostrarFechamentos } from "@/components/financas/LinhaDeFechamentoDoDia";
+import { DetalhesDoLancamento } from "@/components/financas/DetalhesDoLancamento";
 import { iconeConta } from "@/pages/Financas";
 import { LancamentoForm } from "@/components/financas/LancamentoForm";
 import { AnexosLancamentoDialog } from "@/components/financas/AnexosLancamentoDialog";
@@ -166,6 +167,8 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, contas, onTroc
   const [editando, setEditando] = useState<FinLancamentoExtenso | null>(null);
   const [editandoTransf, setEditandoTransf] = useState<FinLancamentoExtenso | null>(null);
   const [anexosPara, setAnexosPara] = useState<FinLancamentoExtenso | null>(null);
+  // o painel de detalhes da despesa como uma entidade só (documento, pagamento, OFX, conciliação, comprovante, malote)
+  const [detalhesDe, setDetalhesDe] = useState<FinLancamentoExtenso | null>(null);
   const [transfOpen, setTransfOpen] = useState(false);
   const [ofxOpen, setOfxOpen] = useState(false);
   const [omieOpen, setOmieOpen] = useState(false);
@@ -473,6 +476,10 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, contas, onTroc
                 <Paperclip className="w-3.5 h-3.5" />
               </button>
             )}
+            <button type="button" onClick={() => setDetalhesDe(l)} title="Detalhes: documento, pagamento, OFX, conciliação e comprovante" aria-label="Detalhes do lançamento"
+                className="text-muted-foreground hover:text-gold">
+                <Info className="w-3.5 h-3.5" />
+              </button>
             {l.origem !== "transferencia" && (
               <button type="button" onClick={() => setAnexosPara(l)} title="Anexos"
                 className="text-muted-foreground hover:text-gold">
@@ -901,6 +908,7 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, contas, onTroc
         lancamento={editandoTransf}
         onSaved={() => { carregar(); fecharEAvisar(); }}
       />
+      <DetalhesDoLancamento lancamento={detalhesDe} onFechar={() => setDetalhesDe(null)} onAnexos={setAnexosPara} />
       {anexosPara && (
         <AnexosLancamentoDialog
           open={!!anexosPara}

@@ -25,7 +25,7 @@ import { paraNumero } from "@/lib/dinheiro";
 import { parseLocalDate } from "@/lib/data";
 import {
   ArrowLeft, DollarSign, Loader2, Plus, Search, ChevronDown,
-  TrendingUp, TrendingDown, Pencil, Trash2, Paperclip, Files,
+  TrendingUp, TrendingDown, Pencil, Trash2, Paperclip, Files, Info,
   Scale, FileUp, Printer, RefreshCw, Layers, FolderKanban,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -48,6 +48,7 @@ import { TransferenciaForm } from "@/components/financas/TransferenciaForm";
 import { ConciliacaoOFXDialog } from "@/components/financas/ConciliacaoOFXDialog";
 import { calcularExtrato, dataEfetiva, fechamentosDoDia, saldoAntesDe, vencimentoDiferente } from "@/services/saldoService";
 import { LinhaDeFechamentoDoDia, podeMostrarFechamentos } from "@/components/financas/LinhaDeFechamentoDoDia";
+import { DetalhesDoLancamento } from "@/components/financas/DetalhesDoLancamento";
 import { iconeConta } from "@/pages/Financas";
 import { ImportacaoOmieDialog } from "@/components/financas/ImportacaoOmieDialog";
 import { ImportacaoFaturaDialog } from "@/components/financas/ImportacaoFaturaDialog";
@@ -222,6 +223,8 @@ export default function FinancasConta() {
   // a tela. Guarda o lançamento inteiro (não só o id) pra dar título ao
   // diálogo sem precisar recarregar nada.
   const [anexosPara, setAnexosPara] = useState<FinLancamentoExtenso | null>(null);
+  // o painel de detalhes da despesa como uma entidade só (documento, pagamento, OFX, conciliação, comprovante, malote)
+  const [detalhesDe, setDetalhesDe] = useState<FinLancamentoExtenso | null>(null);
   const [transfOpen, setTransfOpen] = useState(false);
   const [ofxOpen, setOfxOpen] = useState(false);
   const [omieOpen, setOmieOpen] = useState(false);
@@ -767,6 +770,10 @@ export default function FinancasConta() {
                 quantos quiser), não só de abrir o único comprovante que já
                 existe. Transferência não tem lançamento próprio pra
                 anexar (as duas pernas dividem o mesmo diálogo de edição). */}
+            <button type="button" onClick={() => setDetalhesDe(l)} title="Detalhes: documento, pagamento, OFX, conciliação e comprovante" aria-label="Detalhes do lançamento"
+                className="text-muted-foreground hover:text-gold">
+                <Info className="w-3.5 h-3.5" />
+              </button>
             {l.origem !== "transferencia" && (
               <button type="button" onClick={() => setAnexosPara(l)} title="Anexos"
                 className="text-muted-foreground hover:text-gold">
@@ -1443,6 +1450,7 @@ export default function FinancasConta() {
         lancamento={editandoTransf}
         onSaved={carregar}
       />
+      <DetalhesDoLancamento lancamento={detalhesDe} onFechar={() => setDetalhesDe(null)} onAnexos={setAnexosPara} />
       {anexosPara && (
         <AnexosLancamentoDialog
           open={!!anexosPara}
