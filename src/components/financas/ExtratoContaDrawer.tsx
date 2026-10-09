@@ -74,7 +74,7 @@ import {
   type FinCategoria, type FinCentroCusto,
   STATUS_LABEL,
 } from "@/services/finService";
-import { calcularExtrato, saldoAntesDe } from "@/services/saldoService";
+import { calcularExtrato, dataEfetiva, saldoAntesDe, vencimentoDiferente } from "@/services/saldoService";
 import { iconeConta } from "@/pages/Financas";
 import { LancamentoForm } from "@/components/financas/LancamentoForm";
 import { AnexosLancamentoDialog } from "@/components/financas/AnexosLancamentoDialog";
@@ -217,6 +217,7 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, contas, onTroc
           tipo: filtroTipo !== "todos" && filtroTipo !== "transferencia" ? filtroTipo : undefined,
           apenasTransferencia: filtroTipo === "transferencia" ? true : undefined,
           dataInicio: inicioEfetivo, dataFim: fimEfetivo,
+          porDataDeCaixa: true,   // extrato = caixa: o pagamento entra no dia em que o banco o debitou (ver saldoService.dataEfetiva)
           busca: buscaDebounced.length >= 2 ? buscaDebounced : undefined,
           categoriaId: filtroCategoriaId || undefined,
           centroCustoId: filtroCentroCustoId || undefined,
@@ -404,7 +405,12 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, contas, onTroc
             aria-label={`Selecionar ${principal}`} />
         </td>
         <td className="py-1.5 px-2 whitespace-nowrap">
-          <span className={STATUS_COR[l.status]} title={STATUS_LABEL[l.status]}>{dataBr(l.data)}</span>
+          <span className={STATUS_COR[l.status]} title={STATUS_LABEL[l.status]}>{dataBr(dataEfetiva(l))}</span>
+          {vencimentoDiferente(l) && (
+            <span className="ml-1 text-[10px] text-muted-foreground" title="Vencimento — o pagamento caiu em outro dia">
+              venc. {dataBr(vencimentoDiferente(l)!).slice(0, 5)}
+            </span>
+          )}
         </td>
         <td className="py-1.5 px-2 min-w-[160px]">
           <p className="font-medium truncate flex items-center gap-1">

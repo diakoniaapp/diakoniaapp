@@ -30,7 +30,7 @@ import {
   CONTA_TIPO_LABEL,
   type FinConta, type FinLancamentoExtenso,
 } from "@/services/finService";
-import { calcularExtrato, movimentaSaldo, saldoAntesDe } from "@/services/saldoService";
+import { calcularExtrato, dataEfetiva, movimentaSaldo, saldoAntesDe, vencimentoDiferente } from "@/services/saldoService";
 import { toYmd } from "@/lib/data";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -76,7 +76,7 @@ export default function FinancasRelatorioContas() {
         // (`listarLancamentosSemTeto` sem filtro de conta busca TODAS de
         // uma vez, sem teto de 300, e filtra em memória pras escolhidas)
         // — uma chamada só em vez de N em paralelo.
-        listarLancamentosSemTeto({ dataInicio, dataFim }),
+        listarLancamentosSemTeto({ dataInicio, dataFim, porDataDeCaixa: true }),   // extrato impresso = caixa (ver saldoService.dataEfetiva)
       ]);
       setContas(todasContas.filter(c => contaIds.includes(c.id)));
       // Só o que de fato aconteceu entra no extrato impresso — mesma
@@ -290,7 +290,10 @@ export default function FinancasRelatorioContas() {
                           realizado/conciliado no carregamento (ver
                           `carregar()`), então toda linha aqui É dinheiro
                           que já circulou; não há o que distinguir. */}
-                      <td className="py-1 pr-1 whitespace-nowrap">{dataBr(l.data)}</td>
+                      <td className="py-1 pr-1 whitespace-nowrap">
+                        {dataBr(dataEfetiva(l))}
+                        {vencimentoDiferente(l) && <span className="ml-1 text-[9px] text-muted-foreground">(venc. {dataBr(vencimentoDiferente(l)!).slice(0, 5)})</span>}
+                      </td>
                       <td className="py-1 pr-1 truncate">
                         {rotuloDoLancamento(l)}
                         {l.fornecedor_nome && l.fornecedor_nome !== l.descricao && (

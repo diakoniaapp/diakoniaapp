@@ -46,7 +46,7 @@ import { AnexosLancamentoDialog } from "@/components/financas/AnexosLancamentoDi
 import { EditarTransferenciaForm } from "@/components/financas/EditarTransferenciaForm";
 import { TransferenciaForm } from "@/components/financas/TransferenciaForm";
 import { ConciliacaoOFXDialog } from "@/components/financas/ConciliacaoOFXDialog";
-import { calcularExtrato, saldoAntesDe } from "@/services/saldoService";
+import { calcularExtrato, dataEfetiva, saldoAntesDe, vencimentoDiferente } from "@/services/saldoService";
 import { iconeConta } from "@/pages/Financas";
 import { ImportacaoOmieDialog } from "@/components/financas/ImportacaoOmieDialog";
 import { ImportacaoFaturaDialog } from "@/components/financas/ImportacaoFaturaDialog";
@@ -435,6 +435,7 @@ export default function FinancasConta() {
           apenasTransferencia: filtroTipo === "transferencia" ? true : undefined,
           status: statusFiltro,
           dataInicio: inicioEfetivo, dataFim: fimEfetivo,
+          porDataDeCaixa: true,   // extrato = caixa: o pagamento entra no dia em que o banco o debitou (ver saldoService.dataEfetiva)
           busca: buscaDebounced.length >= 2 ? buscaDebounced : undefined,
           categoriaId: filtroCategoriaId || undefined,
           centroCustoId: filtroCentroCustoId || undefined,
@@ -597,7 +598,7 @@ export default function FinancasConta() {
     const v = Number(l.valor);
     if (valorMin != null && v < valorMin) return false;
     if (valorMax != null && v > valorMax) return false;
-    if (filtroDataEspecifica && l.data !== filtroDataEspecifica) return false;
+    if (filtroDataEspecifica && dataEfetiva(l) !== filtroDataEspecifica) return false;
     return true;
   });
 
@@ -666,8 +667,13 @@ export default function FinancasConta() {
               que sobrou; o `title` carrega o nome por extenso pra quem
               passar o mouse. */}
           <span className={STATUS_COR[l.status]} title={STATUS_LABEL[l.status]}>
-            {dataBr(l.data)}
+            {dataBr(dataEfetiva(l))}
           </span>
+          {vencimentoDiferente(l) && (
+            <span className="ml-1 text-[10px] text-muted-foreground" title="Vencimento — o pagamento caiu em outro dia">
+              venc. {dataBr(vencimentoDiferente(l)!).slice(0, 5)}
+            </span>
+          )}
         </td>
         <td className="py-1.5 px-2 min-w-[200px] print:min-w-0">
           <p className="font-medium truncate flex items-center gap-1">

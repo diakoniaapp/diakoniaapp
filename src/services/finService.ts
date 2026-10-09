@@ -885,6 +885,11 @@ export interface FiltroLancamento {
   fornecedorId?: string;
   dataInicio?: string;
   dataFim?: string;
+  /**
+   * Período pela data de CAIXA (só as telas de EXTRATO usam — ver `saldoService.dataEfetiva`): lançamento realizado/conciliado com
+   * `data_pagamento` entra pelo dia do pagamento; o resto (previsto, sem pagamento) continua pelo vencimento (`data`).
+   */
+  porDataDeCaixa?: boolean;
   busca?: string;
   // Pedido da Telma em 15/09/2026: filtrar o extrato só pelas pernas de
   // transferência entre contas próprias (`origem === "transferencia"`,
@@ -930,6 +935,15 @@ async function idsPorNomeFornecedorOuPessoa(busca: string): Promise<{ fornecedor
 // `.range()` nenhum aplicado ainda, do jeito errado. Por isso os ids de
 // fornecedor/pessoa da busca são resolvidos ANTES, pelas duas funções
 // abaixo (únicas que chamam esta), e chegam prontos em `buscaIds`.
+/**
+ * A condição PostgREST do período por data de caixa: (pago → `data_pagamento` dentro do período) OU (sem pagamento, ou ainda não realizado → `data`
+ * dentro do período). Duas condições `.or()` na mesma consulta (esta e a da busca) se combinam com E — conferido no banco.
+ */
+export function filtroDePeriodoDeCaixa(inicio?: string, fim?: string): string {
+  const faixa = (campo: string) => [inicio ? `${campo}.gte.${inicio}` : "", fim ? `${campo}.lte.${fim}` : ""].filter(Boolean).join(",");
+  return `and(status.in.(realizado,conciliado),${faixa("data_pagamento")}),and(${faixa("data")},or(data_pagamento.is.null,status.not.in.(realizado,conciliado)))`;
+}
+
 function construirQueryLancamentos(filtro: FiltroLancamento, buscaIds?: { fornecedorIds: string[]; pessoaIds: string[] }) {
   let q = supabase.from("fin_lancamentos").select("*")
     .order("data", { ascending: false })
@@ -952,8 +966,12 @@ function construirQueryLancamentos(filtro: FiltroLancamento, buscaIds?: { fornec
   if (filtro.projetoId) q = q.eq("projeto_id", filtro.projetoId);
   if (filtro.pessoaId) q = q.eq("pessoa_id", filtro.pessoaId);
   if (filtro.fornecedorId) q = q.eq("fornecedor_id", filtro.fornecedorId);
-  if (filtro.dataInicio) q = q.gte("data", filtro.dataInicio);
-  if (filtro.dataFim) q = q.lte("data", filtro.dataFim);
+  if (filtro.porDataDeCaixa && (filtro.dataInicio || filtro.dataFim)) {
+    q = q.or(filtroDePeriodoDeCaixa(filtro.dataInicio, filtro.dataFim));
+  } else {
+    if (filtro.dataInicio) q = q.gte("data", filtro.dataInicio);
+    if (filtro.dataFim) q = q.lte("data", filtro.dataFim);
+  }
   if (filtro.busca && filtro.busca.length >= 2) {
     const condicoes = [`descricao.ilike.%${filtro.busca}%`];
     if (buscaIds?.fornecedorIds.length) condicoes.push(`fornecedor_id.in.(${buscaIds.fornecedorIds.join(",")})`);

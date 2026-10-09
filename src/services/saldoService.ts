@@ -26,14 +26,29 @@
 // O saldo FINAL não muda com a ordem; o de cada linha, sim. `id` entra como
 // último critério: é único, então duas execuções nunca ordenam diferente.
 
+import { supabase } from "@/integrations/supabase/client";
 import { saldoAcumuladoAntesDe } from "@/services/prestacaoContasService";
 import type { FinLancamento } from "@/services/finService";
 
-type LancamentoParaSaldo = Pick<FinLancamento, "id" | "data" | "tipo" | "valor" | "status" | "created_at">;
+type LancamentoParaSaldo = Pick<FinLancamento, "id" | "data" | "tipo" | "valor" | "status" | "created_at"> & { data_pagamento?: string | null };
 
 /** Só o que de fato aconteceu mexe no saldo — mesma regra de `fin_recalc_saldo_conta`. */
 export function movimentaSaldo(l: Pick<FinLancamento, "status">): boolean {
   return l.status === "realizado" || l.status === "conciliado";
+}
+
+// DATA DE CAIXA (08/10/2026, "o dia 18/09 não fecha em R$ 1,00"): `data` é o VENCIMENTO. Um pagamento de recorrência que vence dia 20 e foi pago
+// pelo banco dia 18 tem data = 20/09 e data_pagamento = 18/09. O extrato ordenava e acumulava só por `data`, então o saldo de 18/09 aparecia
+// R$ 9.022,85 acima do banco (os 4 pagamentos só "aconteciam" em 20/09) — o dinheiro estava certo, a data não. O extrato é a visão de CAIXA: quando o
+// lançamento movimenta o saldo e tem `data_pagamento`, é ela que vale. Previsto/cancelado (sem pagamento) continuam pelo vencimento.
+// Só o EXTRATO muda: DRE, prestação de contas, vencimentos e `fin_movimento_antes_de` seguem por `data`, como sempre.
+export function dataEfetiva(l: Pick<LancamentoParaSaldo, "status" | "data" | "data_pagamento">): string {
+  return String(movimentaSaldo(l) && l.data_pagamento ? l.data_pagamento : l.data).slice(0, 10);
+}
+
+/** O vencimento (dd/mm da `data`), quando o pagamento caiu em OUTRO dia — para a tela mostrar os dois sem esconder nada. Senão, null. */
+export function vencimentoDiferente(l: Pick<LancamentoParaSaldo, "status" | "data" | "data_pagamento">): string | null {
+  return dataEfetiva(l) !== String(l.data).slice(0, 10) ? String(l.data).slice(0, 10) : null;
 }
 
 /** Efeito do lançamento no saldo: entrada soma, saída subtrai, o resto é 0. */
@@ -51,7 +66,8 @@ export function efeitoNoSaldo(l: Pick<FinLancamento, "status" | "tipo" | "valor"
  * mostrava um mergulho negativo artificial no meio do dia.
  */
 export function compararParaExtrato(a: LancamentoParaSaldo, b: LancamentoParaSaldo): number {
-  if (a.data !== b.data) return a.data < b.data ? -1 : 1;
+  const da = dataEfetiva(a), db = dataEfetiva(b);
+  if (da !== db) return da < db ? -1 : 1;
   if (a.tipo !== b.tipo) return a.tipo === "entrada" ? -1 : 1;
   const ca = a.created_at ?? "", cb = b.created_at ?? "";
   if (ca !== cb) return ca < cb ? -1 : 1;
@@ -107,10 +123,51 @@ export function calcularExtrato<T extends LancamentoParaSaldo>(lancs: T[], saldo
 }
 
 /**
- * Saldo de uma conta (ou de todas, sem `contaId`) no instante imediatamente
- * antes de `data`. Reexportado daqui para as telas terem UM ponto de
- * entrada; a soma em si é feita no banco (`fin_movimento_antes_de`).
+ * Quanto o saldo "antes de `limite`" muda ao contar por data de CAIXA em vez de por vencimento. Só os lançamentos que CRUZAM o limite contam:
+ * os que têm vencimento antes e pagamento depois saem da soma; os que têm vencimento depois e pagamento antes entram. Os demais não mudam.
+ * Em centavos inteiros, como `calcularExtrato`.
  */
-export function saldoAntesDe(data: string, contaId?: string): Promise<number> {
-  return saldoAcumuladoAntesDe(data, contaId);
+export function ajusteDeCaixaAntesDe(
+  cruzados: { tipo: string; valor: number | string; data: string; data_pagamento: string | null; status?: string }[], limite: string,
+): number {
+  let centavos = 0;
+  for (const l of cruzados) {
+    if (l.status && !movimentaSaldo({ status: l.status } as Pick<FinLancamento, "status">)) continue;
+    if (!l.data_pagamento) continue;
+    const peso = (l.tipo === "entrada" ? 1 : -1) * Math.round(Number(l.valor) * 100);
+    const vencAntes = String(l.data).slice(0, 10) < limite;
+    const caixaAntes = String(l.data_pagamento).slice(0, 10) < limite;
+    centavos += peso * ((caixaAntes ? 1 : 0) - (vencAntes ? 1 : 0));
+  }
+  return centavos / 100;
+}
+
+/** Os lançamentos pagos cujo vencimento e pagamento ficam em lados opostos de `limite` — poucos (hoje, 4 num mês), nunca a conta inteira. */
+async function lancamentosQueCruzam(limite: string, contaId?: string) {
+  const out: { tipo: string; valor: number; data: string; data_pagamento: string | null; status: string }[] = [];
+  const TAMANHO = 1000;
+  for (let p = 0; ; p++) {
+    let q = supabase.from("fin_lancamentos").select("id, tipo, valor, data, data_pagamento, status")
+      .in("status", ["realizado", "conciliado"])
+      .or(`and(data.lt.${limite},data_pagamento.gte.${limite}),and(data.gte.${limite},data_pagamento.lt.${limite})`)
+      .order("id").range(p * TAMANHO, p * TAMANHO + TAMANHO - 1);
+    if (contaId) q = q.eq("conta_id", contaId);
+    const { data, error } = await q;
+    if (error) throw error;
+    out.push(...((data ?? []) as unknown as typeof out));
+    if ((data ?? []).length < TAMANHO) break;
+  }
+  return out;
+}
+
+/**
+ * Saldo de uma conta (ou de todas, sem `contaId`) no instante imediatamente
+ * antes de `data`, na visão de CAIXA do extrato (ver `dataEfetiva`). Reexportado
+ * daqui para as telas terem UM ponto de entrada. A soma pesada é feita no banco
+ * (`fin_movimento_antes_de`, por vencimento — o que a prestação de contas e o
+ * dashboard seguem usando); aqui só se corrige o punhado de pagamentos que cruzam a data.
+ */
+export async function saldoAntesDe(data: string, contaId?: string): Promise<number> {
+  const [porVencimento, cruzados] = await Promise.all([saldoAcumuladoAntesDe(data, contaId), lancamentosQueCruzam(data, contaId)]);
+  return Math.round((porVencimento + ajusteDeCaixaAntesDe(cruzados, data)) * 100) / 100;
 }
