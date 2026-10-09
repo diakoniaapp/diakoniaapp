@@ -38,6 +38,8 @@ export function ContasJaPagas({ onMudou, chave }: { onMudou: () => void; chave?:
   const [confirmando, setConfirmando] = useState<SugestaoDeLiquidacao | null>(null);
   const [comDiferenca, setComDiferenca] = useState<SugestaoDeLiquidacao | null>(null);
   const [plano, setPlano] = useState<PlanoDeLiquidacao | null>(null);
+  // na janela da diferença: explicar (parcial, desconto, juros…) ou dizer que o valor da obrigação era só uma estimativa
+  const [comoEstimativa, setComoEstimativa] = useState(false);
   const [processando, setProcessando] = useState<string | null>(null);
 
   const carregar = useCallback(async () => {
@@ -55,10 +57,10 @@ export function ContasJaPagas({ onMudou, chave }: { onMudou: () => void; chave?:
     const n = new Set(dispensadas); n.add(chaveDoPar(s)); setDispensadas(n); guardarDispensadas(n);
   }
 
-  async function liquidar(s: SugestaoDeLiquidacao, p: PlanoDeLiquidacao): Promise<boolean> {
+  async function liquidar(s: SugestaoDeLiquidacao, p: PlanoDeLiquidacao, adotarValor = false): Promise<boolean> {
     setProcessando(s.obrigacao.id);
     try {
-      await liquidarComPagamentoExistente({ obrigacaoId: s.obrigacao.id, pagamentoId: s.pagamento.id, plano: p, adotarValor: s.adotarValor });
+      await liquidarComPagamentoExistente({ obrigacaoId: s.obrigacao.id, pagamentoId: s.pagamento.id, plano: p, adotarValor });
       return true;
     } catch (e: any) {
       toast.error(e?.message ?? "Não foi possível liquidar.");
@@ -74,9 +76,17 @@ export function ContasJaPagas({ onMudou, chave }: { onMudou: () => void; chave?:
   }
 
   async function confirmarComDiferenca() {
-    const s = comDiferenca; if (!s || !plano) return;
-    const ok = await liquidar(s, plano);
-    if (ok) { setComDiferenca(null); setPlano(null); toast.success(`${s.obrigacao.nome || "Obrigação"} liquidada — diferença registrada.`); await carregar(); onMudou(); }
+    const s = comDiferenca; if (!s) return;
+    const p = comoEstimativa ? planoDireto(s, true) : plano;
+    if (!p) return;
+    const ok = await liquidar(s, p, comoEstimativa);
+    if (ok) {
+      setComDiferenca(null); setPlano(null); setComoEstimativa(false);
+      toast.success(p.saldoPendente > 0.004
+        ? `${s.obrigacao.nome || "Obrigação"} liquidada em parte: o saldo de ${brl(p.saldoPendente)} continua a pagar na Mesa.`
+        : `${s.obrigacao.nome || "Obrigação"} liquidada${comoEstimativa ? " — o valor real substituiu a estimativa" : " — diferença registrada"}.`);
+      await carregar(); onMudou();
+    }
   }
 
   async function liquidarSeguras() {
@@ -147,11 +157,11 @@ export function ContasJaPagas({ onMudou, chave }: { onMudou: () => void; chave?:
                     : <span className="text-[11px] rounded-full border border-warning-line bg-warning-soft/50 text-warning-text px-2 py-0.5">conferir</span>}
                   <span className="flex-1" />
                   <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs text-muted-foreground" disabled={!!processando} onClick={() => dispensar(s)}><X className="w-3 h-3" /> Não é este</Button>
-                  {(s.adotarValor || Math.abs(s.diferenca) < 0.005)
+                  {Math.abs(s.diferenca) < 0.005
                     ? <Button size="sm" className="h-7 gap-1 text-xs" disabled={!disponivel || !!processando} onClick={() => setConfirmando(s)}>
                         {processando === s.obrigacao.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />} Liquidar com este pagamento
                       </Button>
-                    : <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" disabled={!disponivel || !!processando} onClick={() => { setPlano(null); setComDiferenca(s); }}>
+                    : <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" disabled={!disponivel || !!processando} onClick={() => { setPlano(null); setComoEstimativa(false); setComDiferenca(s); }}>
                         Liquidar explicando a diferença…
                       </Button>}
                 </div>
@@ -169,7 +179,7 @@ export function ContasJaPagas({ onMudou, chave }: { onMudou: () => void; chave?:
               {confirmando && (
                 <div className="space-y-2 text-sm">
                   <p>Vai ficar <b>um registro só</b>: <b>{confirmando.obrigacao.nome}</b>, vencimento {dataBr(confirmando.obrigacao.data)}, <b>paga em {dataBr(confirmando.pagamento.data)}</b> no valor de <b>{brl(confirmando.pagamento.valor)}</b>
-                    {confirmando.adotarValor && <> (o valor estimado de {brl(confirmando.obrigacao.valor)} é trocado pelo real)</>}.</p>
+                    .</p>
                   <p>Os anexos dos dois lados ficam na obrigação, a marca do banco passa para ela e o lançamento duplicado do extrato ({brl(confirmando.pagamento.valor)}) é removido. O saldo da conta não muda.</p>
                 </div>
               )}
@@ -182,7 +192,7 @@ export function ContasJaPagas({ onMudou, chave }: { onMudou: () => void; chave?:
         </AlertDialogContent>
       </AlertDialog>
 
-      <Dialog open={!!comDiferenca} onOpenChange={o => { if (!o && !processando) { setComDiferenca(null); setPlano(null); } }}>
+      <Dialog open={!!comDiferenca} onOpenChange={o => { if (!o && !processando) { setComDiferenca(null); setPlano(null); setComoEstimativa(false); } }}>
         <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle>Explique a diferença</DialogTitle>
@@ -190,17 +200,34 @@ export function ContasJaPagas({ onMudou, chave }: { onMudou: () => void; chave?:
               {comDiferenca && <>{comDiferenca.obrigacao.nome}: o documento é de {brl(comDiferenca.obrigacao.valor)} e o extrato mostra {brl(comDiferenca.pagamento.valor)}.</>}
             </DialogDescription>
           </DialogHeader>
-          {comDiferenca && (
+          {comDiferenca?.podeSerEstimativa && (
+            <div role="radiogroup" aria-label="O que o valor da obrigação era" className="grid gap-2 sm:grid-cols-2">
+              <button type="button" role="radio" aria-checked={!comoEstimativa} onClick={() => setComoEstimativa(false)}
+                className={`rounded-md border p-2.5 text-left text-xs ${!comoEstimativa ? "border-gold bg-gold/10" : "hover:bg-muted/40"}`}>
+                <b className="block text-sm">O valor estava certo</b>
+                {comDiferenca.diferenca < 0 ? "Pagou a menos: o saldo continua a pagar (parcial) ou vira desconto." : "Pagou a mais: juros, multa, complemento ou ajuste."}
+              </button>
+              <button type="button" role="radio" aria-checked={comoEstimativa} onClick={() => setComoEstimativa(true)}
+                className={`rounded-md border p-2.5 text-left text-xs ${comoEstimativa ? "border-gold bg-gold/10" : "hover:bg-muted/40"}`}>
+                <b className="block text-sm">Era só uma estimativa</b>
+                O valor real é {brl(comDiferenca.pagamento.valor)}. Nada fica a pagar.
+              </button>
+            </div>
+          )}
+          {comDiferenca && comoEstimativa && (
+            <p className="text-xs rounded-md border bg-muted/30 px-3 py-2">A obrigação passa a valer <b>{brl(comDiferenca.pagamento.valor)}</b> (o que o banco debitou) e fica liquidada por inteiro. Se na verdade faltou pagar parte, escolha "O valor estava certo" e use pagamento parcial.</p>
+          )}
+          {comDiferenca && !comoEstimativa && (
             <LiquidacaoPainel
               lancamento={{ id: comDiferenca.obrigacao.id, valor: comDiferenca.obrigacao.valor, data: comDiferenca.obrigacao.data, fornecedor_id: comDiferenca.obrigacao.fornecedor_id } as never}
               valorPagoFixo={comDiferenca.pagamento.valor} onPlano={setPlano} />
           )}
-          {plano && plano.itens.length > 1 && (
+          {!comoEstimativa && plano && plano.itens.length > 1 && (
             <p className="text-xs text-destructive-text" role="alert">Aqui o pagamento liquida uma obrigação só. Para incluir outro documento, use o botão Pagar da própria conta.</p>
           )}
           <div className="flex justify-end gap-2">
-            <Button variant="ghost" disabled={!!processando} onClick={() => { setComDiferenca(null); setPlano(null); }}>Cancelar</Button>
-            <Button disabled={!plano || !plano.pronto || plano.itens.length !== 1 || !!processando || !disponivel} onClick={confirmarComDiferenca}>
+            <Button variant="ghost" disabled={!!processando} onClick={() => { setComDiferenca(null); setPlano(null); setComoEstimativa(false); }}>Cancelar</Button>
+            <Button disabled={(!comoEstimativa && (!plano || !plano.pronto || plano.itens.length !== 1)) || !!processando || !disponivel} onClick={confirmarComDiferenca}>
               {processando ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null} Liquidar
             </Button>
           </div>

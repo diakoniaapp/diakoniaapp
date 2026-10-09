@@ -23,17 +23,18 @@ describe("contas abertas que já têm pagamento — os 4 casos reais de 05/10/20
   const r = sugerirLiquidacoes(obrigacoes, pagamentos);
   const por = (id: string) => r.find(s => s.obrigacao.id === id);
 
-  it("Denise: o valor real (R$ 1.358) substitui a estimativa e é segura", () => {
-    expect(por("denise")).toMatchObject({ adotarValor: true, nivel: "segura", diferenca: -80 });
+  it("Denise: pagou R$ 80 a menos — NÃO é automático: pode ser baixa parcial (saldo a pagar), desconto ou estimativa", () => {
+    expect(por("denise")).toMatchObject({ podeSerEstimativa: true, nivel: "conferir", diferenca: -80 });
+    expect(por("denise")!.motivos.join(" ")).toMatch(/a menos.*saldo pode continuar a pagar/);
     expect(por("denise")!.pagamento.id).toBe("pDenise");
   });
   it("Ana: pagou o dobro do estimado — achada, mas pede conferência (e não adota o valor sozinha)", () => {
-    expect(por("ana")).toMatchObject({ nivel: "conferir", adotarValor: false, diferenca: 380 });
+    expect(por("ana")).toMatchObject({ nivel: "conferir", podeSerEstimativa: true, diferenca: 380 });
     expect(por("ana")!.pagamento.id).toBe("pAna");
     expect(por("ana")!.motivos.join(" ")).toMatch(/2×|2,0×|dobro|estimado/);
   });
   it("Carlos: o PIX de 1.630 cobre mais do que a obrigação — achado, com a diferença para explicar", () => {
-    expect(por("carlos")).toMatchObject({ nivel: "conferir", adotarValor: false, diferenca: 1250 });
+    expect(por("carlos")).toMatchObject({ nivel: "conferir", podeSerEstimativa: true, diferenca: 1250 });
   });
   it("Verisure não tem pagamento registrado: não aparece (é caso do OFX, não desta lista)", () => {
     expect(por("verisure")).toBeUndefined();
@@ -47,11 +48,11 @@ describe("contas abertas que já têm pagamento — os 4 casos reais de 05/10/20
 describe("regras de valor e de favorecido", () => {
   it("valor exato do mesmo favorecido é seguro, mesmo sem ser estimativa", () => {
     const r = sugerirLiquidacoes([o("a", "Verisure", 278.22, "2026-10-05")], [p("x", "Verisure", 278.22, "2026-10-05")]);
-    expect(r[0]).toMatchObject({ nivel: "segura", adotarValor: false, diferenca: 0 });
+    expect(r[0]).toMatchObject({ nivel: "segura", podeSerEstimativa: false, diferenca: 0 });
   });
   it("valor FIXO com diferença pequena: achado, mas pede o motivo (juros, multa, desconto) — não adota", () => {
     const r = sugerirLiquidacoes([o("a", "Prefeitura", 312.7, "2026-09-06")], [p("x", "Prefeitura", 325.2, "2026-09-30")]);
-    expect(r[0]).toMatchObject({ nivel: "conferir", adotarValor: false });
+    expect(r[0]).toMatchObject({ nivel: "conferir", podeSerEstimativa: false });
     expect(r[0].motivos.join(" ")).toMatch(/juros, multa ou desconto/);
   });
   it("valor FIXO muito diferente não é sugerido", () => {

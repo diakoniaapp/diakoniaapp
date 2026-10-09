@@ -77,10 +77,13 @@ export async function fusaoDisponivel(): Promise<boolean> {
 }
 export function esquecerSondagemDaFusao() { sondagem = null; }
 
-/** O plano mais simples: o valor real do pagamento liquida a obrigação (valor exato, ou estimativa trocada pelo valor real). */
-export function planoDireto(s: SugestaoDeLiquidacao): PlanoDeLiquidacao {
+/**
+ * O plano mais simples: o pagamento liquida a obrigação. `comoEstimativa` = a obrigação era só uma estimativa e o valor real é o do pagamento
+ * (o documento passa a valer o que foi pago; nada fica a pagar). Sem isso, qualquer diferença exige ser explicada (parcial, desconto, juros…).
+ */
+export function planoDireto(s: SugestaoDeLiquidacao, comoEstimativa = false): PlanoDeLiquidacao {
   return planejarLiquidacao({
-    documentos: [{ id: s.obrigacao.id, valor: s.adotarValor ? s.pagamento.valor : s.obrigacao.valor, vencimento: s.obrigacao.data }],
+    documentos: [{ id: s.obrigacao.id, valor: comoEstimativa ? s.pagamento.valor : s.obrigacao.valor, vencimento: s.obrigacao.data }],
     valorPago: s.pagamento.valor, motivoMenos: null, motivoMais: null, juros: 0, multa: 0, complemento: 0, ajuste: 0, motivoDoAjuste: "",
   });
 }

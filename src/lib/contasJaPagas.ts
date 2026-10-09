@@ -47,8 +47,11 @@ export interface SugestaoDeLiquidacao {
   diferenca: number;
   /** pago ÷ obrigação */
   razao: number;
-  /** a obrigação é estimativa e o valor do pagamento é razoável: o valor real substitui o estimado, sem pedir motivo */
-  adotarValor: boolean;
+  /**
+   * a obrigação é uma ESTIMATIVA (valor variável) e o valor pago difere: a tesouraria PODE dizer que o valor real é o do pagamento. Nunca é automático — quem
+   * pagou a menos pode ter deixado saldo a pagar (baixa parcial), e trocar o valor sem perguntar perderia esse saldo (caso Denise, 09/10/2026).
+   */
+  podeSerEstimativa: boolean;
   nivel: NivelDaSugestao;
   motivos: string[];
   /** havia mais de uma obrigação/pagamento possível: a tesouraria deve olhar */
@@ -111,14 +114,14 @@ export function sugerirLiquidacoes(obrigacoes: ObrigacaoAberta[], pagamentos: Pa
     const motivos: string[] = [k.favorecido === "id" ? "mesmo favorecido" : "nome parecido no extrato"];
     motivos.push(k.dias === 0 ? "no dia do vencimento" : dia(k.p.data) < dia(k.o.data) ? `pago ${k.dias} dia${k.dias !== 1 ? "s" : ""} antes do vencimento` : `pago ${k.dias} dia${k.dias !== 1 ? "s" : ""} depois do vencimento`);
     if (k.exato) motivos.push("valor exato");
-    else if (k.estimativaRazoavel) motivos.push(`valor estimado ${c2(k.o.valor).toLocaleString("pt-BR")} → real ${c2(k.p.valor).toLocaleString("pt-BR")}`);
+    else if (k.p.valor < k.o.valor) motivos.push(`pagou ${c2(k.o.valor - k.p.valor).toLocaleString("pt-BR")} a menos: o saldo pode continuar a pagar (baixa parcial), ser desconto${k.o.valor_variavel ? " ou o valor real de uma estimativa" : ""}`);
     else if (k.o.valor_variavel) motivos.push(`o pagamento é ${k.razao >= 1 ? `${(Math.round(k.razao * 10) / 10).toLocaleString("pt-BR")}×` : `${Math.round(k.razao * 100)}%`} do estimado — pode cobrir outras obrigações`);
     else motivos.push(`diferença de ${c2(k.p.valor - k.o.valor).toLocaleString("pt-BR")}: juros, multa ou desconto?`);
     if (ambigua) motivos.push("há mais de uma combinação possível");
-    const adotarValor = !k.exato && k.estimativaRazoavel;
-    const segura = k.favorecido === "id" && !ambigua && (k.exato || adotarValor) && k.dias <= 30;
+    // SEGURA só quando não há o que decidir: mesmo favorecido, valor exato, sem ambiguidade. Qualquer diferença pede a decisão da tesouraria.
+    const segura = k.favorecido === "id" && !ambigua && k.exato && k.dias <= 30;
     out.push({
-      obrigacao: k.o, pagamento: k.p, diferenca: c2(k.p.valor - k.o.valor), razao: k.razao, adotarValor,
+      obrigacao: k.o, pagamento: k.p, diferenca: c2(k.p.valor - k.o.valor), razao: k.razao, podeSerEstimativa: k.o.valor_variavel && !k.exato,
       nivel: segura ? "segura" : "conferir", motivos, ambigua,
     });
   }
