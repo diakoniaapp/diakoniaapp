@@ -56,6 +56,7 @@ import {
   buscarFechamento, fecharPeriodo, aprovarPeriodo, reabrirPeriodo,
   type FinFechamentoPeriodo,
 } from "@/services/fechamentoPeriodoService";
+import { EncargosDoPeriodo } from "@/components/financas/EncargosDoPeriodo";
 import { NotaRelatorioModal } from "@/components/financas/NotaRelatorioModal";
 import { PendenciasCategorizacaoDrawer } from "@/components/financas/PendenciasCategorizacaoDrawer";
 import { PaginaSkeleton } from "@/components/ListState";
@@ -519,6 +520,12 @@ export default function FinancasPrestacaoContas() {
             </button>
           );
         })()}
+
+        {/* Juros, multas e descontos: atributos das obrigações pagas no período (cada documento continua sendo UM) */}
+        <EncargosDoPeriodo
+          de={`${ano}-${String(mes).padStart(2, "0")}-01`}
+          ate={`${anoFim}-${String(mesFim).padStart(2, "0")}-${String(new Date(anoFim, mesFim, 0).getDate()).padStart(2, "0")}`}
+          contaId={contaId || undefined} />
 
         {/* Assinaturas */}
         <section className="avoid-break mt-12 pt-4">
