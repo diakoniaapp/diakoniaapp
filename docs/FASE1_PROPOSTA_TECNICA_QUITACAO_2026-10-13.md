@@ -313,7 +313,7 @@ Rode antes de qualquer migration e guarde o resultado (é a linha de base de com
 | V2 | Saldo de cada conta e diferença contra a soma dos lançamentos (deve ser zero; é o invariante) |
 | V3 | Quantas obrigações em cada estado de `vw_fin_ciclo` |
 | V4 | Saídas que **parecem** pagas por terceiro (texto com reembolso, adiantamento, "pago pelo", cartão pessoal, ofertado, doado) |
-| V5 | **Padrão fictício antigo**: entrada em ofertas/doações + saída/transferência de mesmo valor em até 3 dias |
+| V5 | **Padrão fictício antigo**, pela assinatura real: entradas descritas como "Oferta de NF" |
 | V6 | Obrigações `previsto` com mais de 90 dias (candidatas a "Não localizado") |
 | V7 | As 17 NFs do escritório: como estão no app hoje |
 | V8 | Reembolsos do módulo de Arrecadação e linhas de `fin_solicitacoes` |

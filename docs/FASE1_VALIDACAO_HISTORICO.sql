@@ -37,18 +37,16 @@ v4n AS (
      AND (COALESCE(l.descricao, '') || ' ' || COALESCE(l.observacoes, '')) ~* '(reembols|adiant|pago pel|paga pel|pago por|cart[aã]o pessoal|ofertad|doad|cortesia|ressarc)'
 ),
 v5 AS (
-  -- padrão fictício: uma ENTRADA em categoria de oferta/doação e uma SAÍDA (ou transferência) de mesmo valor em até 3 dias
-  SELECT 'V5 padrão fictício (entrada + saída de mesmo valor)' AS secao,
-         to_char(e.data, 'YYYY-MM-DD') || ' / ' || to_char(s.data, 'YYYY-MM-DD') AS item, e.valor::text AS valor,
-         left('entrada: ' || COALESCE(e.descricao, '') || ' [' || COALESCE(ce.nome, '-') || '] → saída: ' || COALESCE(s.descricao, '') || ' (' || COALESCE(s.origem, '') || ')', 160) AS detalhe
+  -- ENTRADA FICTÍCIA pela assinatura real: entrada que se descreve como 'Oferta de NF' (a oferta de uma nota paga por alguém, lançada como se fosse dinheiro de envelope).
+  -- (A versão anterior procurava entrada + saída de MESMO VALOR e só achava coincidências e transferências legítimas entre contas: foi abandonada.)
+  SELECT 'V5 entradas "Oferta de NF" (assinatura do padrão fictício)' AS secao,
+         to_char(e.data, 'YYYY-MM-DD') || ' · ' || e.status::text || ' · ' || COALESCE(e.origem, '-') AS item, e.valor::text AS valor,
+         left(COALESCE(e.descricao, '') || ' [' || COALESCE(ce.nome, '-') || '] ' || COALESCE(ct.nome, '') || ' | ' || COALESCE(e.observacoes, ''), 200) AS detalhe
     FROM public.fin_lancamentos e
-    JOIN public.fin_lancamentos s ON s.tipo = 'saida' AND s.valor = e.valor AND abs(s.data - e.data) <= 3 AND s.id <> e.id
     LEFT JOIN public.fin_categorias ce ON ce.id = e.categoria_id
-   WHERE e.tipo = 'entrada' AND e.status IN ('realizado', 'conciliado') AND s.status IN ('realizado', 'conciliado')
-     AND (COALESCE(ce.nome, '') ~* '(oferta|doa[cç]|dízimo|dizimo)' OR COALESCE(e.descricao, '') ~* '(reembols|oferta|doa[cç])')
-     AND (s.origem = 'transferencia' OR COALESCE(s.descricao, '') ~* '(reembols|oferta|doa[cç]|transfer)')
+    LEFT JOIN public.fin_contas ct ON ct.id = e.conta_id
+   WHERE e.tipo = 'entrada' AND COALESCE(e.descricao, '') ~* 'oferta de nf|oferta nf|nf ofertada'
    ORDER BY e.data DESC
-   LIMIT 60
 ),
 v6 AS (
   SELECT 'V6 previstas com mais de 90 dias' AS secao, to_char(l.data, 'YYYY-MM-DD') AS item, l.valor::text AS valor,
