@@ -9,8 +9,9 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ORDEM_DO_CICLO, ROTULO_DO_CICLO, type EstadoDoCiclo } from "@/lib/cicloDaDespesa";
+import { origemDoAnexo } from "@/lib/grupoDaObrigacao";
 import { carregarDetalhesDaDespesa, type DetalhesDaDespesa } from "@/services/cicloDaDespesaService";
-import { brl, comprovanteSignedUrl, FIN_ANEXO_TIPO_LABEL, nomeExtrato, type FinLancamentoExtenso } from "@/services/finService";
+import { brl, comprovanteSignedUrl, FIN_ANEXO_TIPO_LABEL, nomeExtrato, STATUS_LABEL, type FinLancamentoExtenso } from "@/services/finService";
 
 const dataBr = (iso: string | null | undefined) => (iso ? iso.slice(0, 10).split("-").reverse().join("/") : "—");
 
@@ -20,6 +21,12 @@ const COR: Record<EstadoDoCiclo, string> = {
   conciliada: "border-success-line bg-success-soft/60 text-success-text", pronta_para_malote: "border-success-line bg-success-soft text-success-text font-semibold",
   cancelada: "border-border bg-muted text-muted-foreground line-through",
 };
+
+/** "· da obrigação" / "· da parcela de 08/10": de qual linha do grupo o anexo veio (nada quando é da própria linha). */
+function DeOndeVeio({ anexo, atualId, parcelas }: { anexo: { lancamento_id: string }; atualId: string; parcelas: DetalhesDaDespesa["parcelas"] }) {
+  const o = origemDoAnexo(anexo.lancamento_id, atualId, parcelas);
+  return o ? <span className="text-xs text-muted-foreground"> · {o}</span> : null;
+}
 
 export function EstadoDoCicloChip({ estado }: { estado: EstadoDoCiclo }) {
   return <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] ${COR[estado]}`}>{ROTULO_DO_CICLO[estado]}</span>;
@@ -122,26 +129,42 @@ export function DetalhesDoLancamento({ lancamento, onFechar, onAnexos }: { lanca
                   )}
                 </section>
 
+                {d.parcelas.length > 1 && (
+                  <section aria-label="Parcelas da obrigação" className="space-y-1">
+                    <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Parcelas desta obrigação</h3>
+                    <ul className="rounded-md border divide-y text-sm">
+                      {d.parcelas.map(p => (
+                        <li key={p.id} className={`flex items-center gap-2 px-3 py-1.5 ${p.atual ? "bg-gold/10 font-medium" : ""}`}>
+                          <span className="tabular-nums w-20 shrink-0">{dataBr(p.data)}</span>
+                          <span className="tabular-nums flex-1">{brl(p.valor)}</span>
+                          <span className="text-xs text-muted-foreground">{STATUS_LABEL[p.status as keyof typeof STATUS_LABEL] ?? p.status}{p.raiz ? " · obrigação original" : ""}{p.atual ? " · esta linha" : ""}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="text-xs text-muted-foreground">Os documentos abaixo são os de todas as parcelas: o boleto fica na obrigação e o comprovante em cada pagamento.</p>
+                  </section>
+                )}
+
                 <section aria-label="Documentos" className="space-y-1.5">
                   <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Documento original</h3>
                   {documentos.length === 0 ? <p className="text-sm text-muted-foreground">Nenhum documento anexado.</p> : (
                     <ul className="space-y-1">{documentos.map(a => (
                       <li key={a.id} className="flex items-center gap-2 text-sm">
                         <FileText className="w-3.5 h-3.5 text-muted-foreground" />
-                        <span className="min-w-0 flex-1 truncate">{FIN_ANEXO_TIPO_LABEL[a.tipo] ?? a.tipo}{a.nome ? ` · ${a.nome}` : ""}</span>
+                        <span className="min-w-0 flex-1 truncate">{FIN_ANEXO_TIPO_LABEL[a.tipo] ?? a.tipo}{a.nome ? ` · ${a.nome}` : ""}<DeOndeVeio anexo={a} atualId={l.id} parcelas={d.parcelas} /></span>
                         <Button size="sm" variant="ghost" className="h-6 gap-1 text-xs" onClick={() => abrir(a.url)}><ExternalLink className="w-3 h-3" /> Abrir</Button>
                       </li>))}
                     </ul>
                   )}
                   <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground pt-1">Comprovante de pagamento</h3>
-                  {comprovantes.length === 0 && !l.comprovante_url ? <p className="text-sm text-muted-foreground">Nenhum comprovante anexado.</p> : (
+                  {comprovantes.length === 0 && !d.comprovanteAntigo ? <p className="text-sm text-muted-foreground">Nenhum comprovante anexado.</p> : (
                     <ul className="space-y-1">
-                      {l.comprovante_url && comprovantes.length === 0 && (
+                      {d.comprovanteAntigo && comprovantes.length === 0 && (
                         <li className="flex items-center gap-2 text-sm"><Paperclip className="w-3.5 h-3.5 text-muted-foreground" /><span className="flex-1">Comprovante</span>
-                          <Button size="sm" variant="ghost" className="h-6 gap-1 text-xs" onClick={() => abrir(l.comprovante_url!)}><ExternalLink className="w-3 h-3" /> Abrir</Button></li>
+                          <Button size="sm" variant="ghost" className="h-6 gap-1 text-xs" onClick={() => abrir(d.comprovanteAntigo!)}><ExternalLink className="w-3 h-3" /> Abrir</Button></li>
                       )}
                       {comprovantes.map(a => (
-                        <li key={a.id} className="flex items-center gap-2 text-sm"><Paperclip className="w-3.5 h-3.5 text-muted-foreground" /><span className="min-w-0 flex-1 truncate">{a.nome ?? "Comprovante"}</span>
+                        <li key={a.id} className="flex items-center gap-2 text-sm"><Paperclip className="w-3.5 h-3.5 text-muted-foreground" /><span className="min-w-0 flex-1 truncate">{a.nome ?? "Comprovante"}<DeOndeVeio anexo={a} atualId={l.id} parcelas={d.parcelas} /></span>
                           <Button size="sm" variant="ghost" className="h-6 gap-1 text-xs" onClick={() => abrir(a.url)}><ExternalLink className="w-3 h-3" /> Abrir</Button></li>
                       ))}
                     </ul>

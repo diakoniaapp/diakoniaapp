@@ -9,6 +9,8 @@ import {
   DIAS_ANTES_DO_VENCIMENTO, sugerirLiquidacoes, type ObrigacaoAberta, type PagamentoRegistrado, type SugestaoDeLiquidacao,
 } from "@/lib/contasJaPagas";
 import { planejarLiquidacao, type PlanoDeLiquidacao } from "@/lib/liquidacao";
+import { confirmarPagamento } from "@/services/finService";
+import { liquidacaoDisponivel, liquidar } from "@/services/liquidacaoService";
 
 const PAGINA = 1000;
 const ZERO = "00000000-0000-0000-0000-000000000000";
@@ -99,4 +101,54 @@ export async function liquidarComPagamentoExistente(p: { obrigacaoId: string; pa
   }
   esquecerSondagemDaFusao();
   return data as unknown as string;
+}
+
+// ─── a porta do lançamento manual: antes de registrar um pagamento NOVO, existe a conta dele em aberto? ───────────────────────────────
+// (Fase A-1 da análise de 13/10/2026.) Registrar à mão um pagamento de quem tem conta aberta cria dois registros para um fato só — a conta continua
+// na Mesa e o pagamento no extrato. Mesmo critério de `lib/contasJaPagas.ts`; só SUGERE, quem decide é a tesouraria.
+
+export interface PagamentoNovo {
+  conta_id: string;
+  /** o dia do pagamento AAAA-MM-DD */
+  data: string;
+  valor: number;
+  fornecedor_id: string | null;
+  pessoa_id: string | null;
+  descricao: string | null;
+}
+
+/** A conta em aberto (previsto) que este pagamento provavelmente quita, ou null. Sem favorecido, nada a procurar. */
+export async function contaEmAbertoParaPagamento(p: PagamentoNovo): Promise<SugestaoDeLiquidacao | null> {
+  if (!p.fornecedor_id && !p.pessoa_id) return null;
+  const de = daquiADias(p.data, -45), ate = daquiADias(p.data, DIAS_ANTES_DO_VENCIMENTO);
+  const quem = [p.fornecedor_id ? `fornecedor_id.eq.${p.fornecedor_id}` : "", p.pessoa_id ? `pessoa_id.eq.${p.pessoa_id}` : ""].filter(Boolean).join(",");
+  const r = await supabase.from("fin_lancamentos").select("id, data, valor, descricao, fornecedor_id, pessoa_id, valor_variavel, conta_id")
+    .eq("tipo", "saida").eq("status", "previsto").eq("conta_id", p.conta_id).gte("data", de).lte("data", ate).or(quem).order("data").limit(50);
+  if (r.error) throw new Error(r.error.message);
+  const previstos = (r.data ?? []) as Record<string, unknown>[];
+  if (previstos.length === 0) return null;
+  const { forn, pes } = await nomesDe(p.fornecedor_id ? [p.fornecedor_id] : [], p.pessoa_id ? [p.pessoa_id] : []);
+  const nome = (p.fornecedor_id ? forn.get(p.fornecedor_id) : null) ?? (p.pessoa_id ? pes.get(p.pessoa_id) : null) ?? "";
+  const obrigacoes: ObrigacaoAberta[] = previstos.map(x => ({
+    id: String(x.id), valor: Number(x.valor), data: String(x.data).slice(0, 10), fornecedor_id: (x.fornecedor_id as string) ?? null, pessoa_id: (x.pessoa_id as string) ?? null,
+    nome: nome || String(x.descricao ?? ""), valor_variavel: !!x.valor_variavel, conta_id: String(x.conta_id),
+  }));
+  const pagamento: PagamentoRegistrado = {
+    id: "novo", valor: p.valor, data: p.data, nome, descricao: p.descricao ?? "", fornecedor_id: p.fornecedor_id, pessoa_id: p.pessoa_id, origem: "manual", conta_id: p.conta_id,
+  };
+  return sugerirLiquidacoes(obrigacoes, [pagamento])[0] ?? null;
+}
+
+/**
+ * Paga a conta em aberto com os dados do pagamento digitado: a MESMA linha vira realizada (nenhuma linha nova). Pela liquidação real quando a migration
+ * existe — fica o registro do ato de pagar —, senão pelo caminho simples de antes.
+ */
+export async function pagarContaEmAberto(s: SugestaoDeLiquidacao, opcoes: { comoEstimativa: boolean }): Promise<void> {
+  if (await liquidacaoDisponivel()) {
+    const plano = planoDireto(s, opcoes.comoEstimativa);
+    if (!plano.pronto) throw new Error(plano.problemas[0] ?? "A diferença entre a conta e o pagamento ainda não foi explicada: pague pela Mesa de Operações.");
+    await liquidar({ contaId: s.obrigacao.conta_id, data: s.pagamento.data, plano });
+    return;
+  }
+  await confirmarPagamento(s.obrigacao.id, { dataPagamento: s.pagamento.data, valorReal: opcoes.comoEstimativa ? s.pagamento.valor : undefined });
 }

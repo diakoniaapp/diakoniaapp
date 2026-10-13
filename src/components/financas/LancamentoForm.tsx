@@ -33,6 +33,9 @@ import {
   FIN_COMPROVANTE_MAX,
 } from "@/services/finService";
 import { extrairDadosDoComprovante, type OcrResultado, type ItemNota } from "@/services/ocrService";
+import { contaEmAbertoParaPagamento, pagarContaEmAberto } from "@/services/contasJaPagasService";
+import type { SugestaoDeLiquidacao } from "@/lib/contasJaPagas";
+import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { lerDocumentoDePagamento } from "@/lib/documentos/pagamento";
 import type { Sugestao } from "@/lib/documentos/sugestaoPagamento";
 import {
@@ -569,6 +572,23 @@ export function LancamentoForm({
     setNfFornecedorLido(null);
   }
 
+  const [contaEmAberto, setContaEmAberto] = useState<SugestaoDeLiquidacao | null>(null);
+
+  /** "Sim, é o pagamento dessa conta": a conta em aberto é a que evolui — nenhuma linha nova. */
+  async function pagarAContaEmAberto(comoEstimativa: boolean) {
+    if (!contaEmAberto) return;
+    setBusy(true);
+    try {
+      await pagarContaEmAberto(contaEmAberto, { comoEstimativa });
+      toast.success("Pagamento registrado na conta que estava em aberto");
+      setContaEmAberto(null);
+      onOpenChange(false);
+      onSaved();
+    } catch (e: any) {
+      toast.error(e?.message ?? "Não foi possível pagar a conta em aberto");
+    } finally { setBusy(false); }
+  }
+
   async function salvarFornecedorDoOcr() {
     if (!ocr?.razaoSocial || !ocr.cnpj) return;
     try {
@@ -594,8 +614,9 @@ export function LancamentoForm({
     }
   }
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  // `ignorarContaEmAberto`: ela já disse "é outro pagamento" no aviso da conta em aberto (ver abaixo)
+  async function onSubmit(e?: React.FormEvent, ignorarContaEmAberto = false) {
+    e?.preventDefault();
     if (valor <= 0) { toast.error("Valor inválido"); return; }
     if (!contaIdEfetivo) { toast.error("Selecione a conta"); return; }
     if (rateando && !rateioValido) {
@@ -605,6 +626,15 @@ export function LancamentoForm({
 
     setBusy(true);
     try {
+      // Fase A-1 (análise de 13/10/2026): uma saída já paga, digitada à mão, de quem tem conta em aberto, normalmente É o pagamento dessa conta —
+      // criar outra linha deixaria a conta na Mesa e o pagamento no extrato (o caso Ana/Carlos/Denise). Pergunta antes; a falha da consulta nunca bloqueia.
+      if (!isEdit && !ignorarContaEmAberto && tipo === "saida" && (status === "realizado" || status === "conciliado")) {
+        let achada: SugestaoDeLiquidacao | null = null;
+        try {
+          achada = await contaEmAbertoParaPagamento({ conta_id: contaIdEfetivo, data, valor, fornecedor_id: fornecedorId || null, pessoa_id: pessoaId || null, descricao: descricao.trim() || null });
+        } catch { /* melhoria: sem a consulta o lançamento segue como antes */ }
+        if (achada) { setContaEmAberto(achada); setBusy(false); return; }
+      }
       // Comprovante não se anexa mais por aqui (pedido dela, 30/09/2026) —
       // uma edição preserva o que já estava, e um lançamento novo nasce sem.
       const comprovantePath: string | null = lancamento?.comprovante_url ?? null;
@@ -1290,6 +1320,42 @@ export function LancamentoForm({
         </form>
       </DialogContent>
     </Dialog>
+    {/* Fase A-1: este pagamento parece ser o de uma conta que ainda está em aberto. Nada é gravado até ela escolher. */}
+    <AlertDialog open={!!contaEmAberto} onOpenChange={o => { if (!o && !busy) setContaEmAberto(null); }}>
+      <AlertDialogContent>
+        {contaEmAberto && (() => {
+          const s = contaEmAberto, o = s.obrigacao;
+          const dataBr = (iso: string) => iso.slice(0, 10).split("-").reverse().join("/");
+          const exato = Math.abs(s.diferenca) < 0.005;
+          return (
+            <>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Já existe uma conta em aberto deste favorecido</AlertDialogTitle>
+                <AlertDialogDescription asChild>
+                  <div className="space-y-2 text-sm">
+                    <p><b>{o.nome || "Conta a pagar"}</b> — vencimento {dataBr(o.data)}, <b className="tabular-nums">{brl(o.valor)}</b>{o.valor_variavel ? " (valor estimado)" : ""}.</p>
+                    <p>Você está registrando um pagamento de <b className="tabular-nums">{brl(s.pagamento.valor)}</b> em {dataBr(s.pagamento.data)}. É o pagamento dessa conta? Se for, ela mesma passa a paga — não se cria um segundo registro.</p>
+                    <ul className="list-disc pl-5 text-xs text-muted-foreground">{s.motivos.map(m => <li key={m}>{m}</li>)}</ul>
+                    {!exato && !s.podeSerEstimativa && (
+                      <p className="text-warning-text">O valor é diferente do documento: para registrar juros, multa, desconto ou pagamento parcial, pague essa conta pela Mesa de Operações.</p>
+                    )}
+                  </div>
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter className="gap-2 sm:gap-2">
+                <Button type="button" variant="ghost" disabled={busy} onClick={() => setContaEmAberto(null)}>Voltar</Button>
+                <Button type="button" variant="outline" disabled={busy} onClick={() => { setContaEmAberto(null); void onSubmit(undefined, true); }}>Não, é outro pagamento</Button>
+                {(exato || s.podeSerEstimativa) && (
+                  <Button type="button" disabled={busy} onClick={() => void pagarAContaEmAberto(!exato)}>
+                    {exato ? "Sim, é o pagamento dela" : `Sim — o valor real é ${brl(s.pagamento.valor)}`}
+                  </Button>
+                )}
+              </AlertDialogFooter>
+            </>
+          );
+        })()}
+      </AlertDialogContent>
+    </AlertDialog>
     {/* Só monta (e só então baixa o chunk do ZXing) quando a Telma
         realmente clicar em "Ler com câmera" — ver comentário do import
         `lazy` no topo do arquivo. */}
