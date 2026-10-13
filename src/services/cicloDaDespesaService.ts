@@ -2,7 +2,7 @@
 // Só leitura. Reúne o lançamento, seus anexos, a liquidação, a situação da obrigação (juros/multa/desconto), o contrato (recorrência) e o último dia
 // coberto por um extrato importado na conta, e entrega o ciclo calculado por `lib/cicloDaDespesa.ts`.
 import { supabase } from "@/integrations/supabase/client";
-import { cicloDaDespesa, ofxVinculado, type CicloDaDespesa } from "@/lib/cicloDaDespesa";
+import { cicloDaDespesa, ofxVinculado, periodoAprovadoCobre, type CicloDaDespesa } from "@/lib/cicloDaDespesa";
 import { parcelasDoGrupo, raizDaObrigacao, type LinhaDoGrupo, type ParcelaDoGrupo } from "@/lib/grupoDaObrigacao";
 import { dispensaDocumento } from "@/lib/pacoteContabil";
 import { hojeLocal } from "@/lib/data";
@@ -28,6 +28,10 @@ export interface DetalhesDaDespesa {
   vinculos: VinculoDoBanco[];
   /** quem conferiu à mão e quando (null no histórico e onde as colunas ainda não existem) */
   conferidoPor: { em: string; nome: string | null; nota: string | null } | null;
+  /** o envio ATIVO (despesa Enviada ou Arquivada); null = nunca enviada, ou reaberta */
+  envio: { ano: number; mes: number; enviadoEm: string | null; periodoAprovado: boolean } | null;
+  /** as reaberturas desta obrigação: motivo, quando, quem, estado anterior e novo (patrimônio histórico) */
+  reaberturas: { motivo: string; em: string; por: string | null; anterior: string; novo: string }[];
 }
 
 export interface VinculoDoBanco {
@@ -45,7 +49,7 @@ export async function carregarDetalhesDaDespesa(l: FinLancamentoExtenso): Promis
   const conta = await supabase.from("fin_contas").select("nome, tipo").eq("id", l.conta_id).maybeSingle();
   const contaTipo = String(conta.data?.tipo ?? "banco");
   const raiz = raizDaObrigacao(l);
-  const [grupoRes, liq, obr, rec, extrato, vincRes] = await Promise.all([
+  const [grupoRes, liq, obr, rec, extrato, vincRes, itemRes, fechRes, reabRes] = await Promise.all([
     supabase.from("fin_lancamentos").select("id, obrigacao_id, data, data_pagamento, status, valor, comprovante_url").or(`id.eq.${raiz},obrigacao_id.eq.${raiz}`),
     l.liquidacao_id ? supabase.from("fin_liquidacoes" as never).select("id, data_pagamento, valor_total, ofx_fitid, created_at").eq("id" as never, l.liquidacao_id as never).maybeSingle() : Promise.resolve({ data: null }),
     supabase.from("vw_fin_obrigacoes" as never).select("valor_original, juros, multa, complemento, ajuste, desconto, total_pago, situacao").eq("obrigacao_id" as never, (l.obrigacao_id ?? l.id) as never).maybeSingle(),
@@ -56,7 +60,14 @@ export async function carregarDetalhesDaDespesa(l: FinLancamentoExtenso): Promis
     // os vínculos da obrigação (migration 20261013120000): sem a tabela, a lista simplesmente fica vazia
     supabase.from("fin_extrato_vinculos" as never).select("fitid, origem, lancamento_id, vinculado_em, desfeito_em, desfeito_motivo")
       .eq("obrigacao_id" as never, raiz as never).order("vinculado_em" as never),
+    // o envio ativo, os períodos aprovados e as reaberturas (migration 20261013130000): sem as tabelas, a despesa simplesmente não está enviada
+    supabase.from("fin_malote_itens" as never).select("envio_id, ano, mes, incluido_em").eq("lancamento_id" as never, l.id as never).is("reaberto_em" as never, null as never).maybeSingle(),
+    supabase.from("fin_fechamentos_periodo" as never).select("status, ano_inicio, mes_inicio, qtd_meses").eq("status" as never, "aprovado" as never),
+    supabase.from("fin_reaberturas" as never).select("motivo, reaberto_em, reaberto_por, estado_anterior, estado_novo").eq("obrigacao_id" as never, raiz as never).order("reaberto_em" as never),
   ]);
+  const item = itemRes.error ? null : (itemRes.data as unknown as { ano: number; mes: number; incluido_em: string } | null);
+  const envio = item ? { ano: Number(item.ano), mes: Number(item.mes), enviadoEm: item.incluido_em ?? null,
+    periodoAprovado: periodoAprovadoCobre(((fechRes.data ?? []) as unknown as { status: string; ano_inicio: number; mes_inicio: number; qtd_meses: number }[]), Number(item.ano), Number(item.mes)) } : null;
   // o grupo: sempre inclui a própria linha, mesmo que a consulta falhe ou o RLS esconda as irmãs
   const linhas = ((grupoRes.data ?? []) as unknown as LinhaDoGrupo[]);
   const grupo: LinhaDoGrupo[] = linhas.some(x => x.id === l.id) ? linhas : [...linhas, { id: l.id, obrigacao_id: l.obrigacao_id, data: l.data, data_pagamento: l.data_pagamento, status: l.status, valor: l.valor, comprovante_url: l.comprovante_url }];
@@ -70,6 +81,7 @@ export async function carregarDetalhesDaDespesa(l: FinLancamentoExtenso): Promis
   const ciclo = cicloDaDespesa({
     tipo: l.tipo, status: l.status, data: String(l.data).slice(0, 10), data_pagamento: l.data_pagamento, observacoes: l.observacoes, origem: l.origem, contaTipo,
     ultimoExtratoDaConta: ultimo ? String(ultimo.data_pagamento ?? ultimo.data).slice(0, 10) : null,
+    envio: envio ? { ano: envio.ano, mes: envio.mes, periodoAprovado: envio.periodoAprovado } : null,
     temCategoria: !!l.categoria_id, temCentro: !!l.centro_custo_id, temDocumento, temComprovante,
     dispensaDocumento: dispensaDocumento({ categoria_nome: l.categoria_nome }), hoje: hojeLocal(),
   });
@@ -86,7 +98,10 @@ export async function carregarDetalhesDaDespesa(l: FinLancamentoExtenso): Promis
     conferidoPor = { em: conf.conferido_em, nome, nota: conf.conferencia_nota ?? null };
   }
   return {
-    ciclo, anexos, parcelas, comprovanteAntigo, vinculos, conferidoPor,
+    ciclo, anexos, parcelas, comprovanteAntigo, vinculos, conferidoPor, envio,
+    reaberturas: reabRes.error ? [] : ((reabRes.data ?? []) as unknown as Record<string, unknown>[]).map(r => ({
+      motivo: String(r.motivo), em: String(r.reaberto_em), por: null, anterior: String(r.estado_anterior), novo: String(r.estado_novo),
+    })),
     liquidacao: (liq.data as DetalhesDaDespesa["liquidacao"]) ?? null,
     obrigacao: o ? {
       valor_original: Number(o.valor_original), juros: Number(o.juros), multa: Number(o.multa), complemento: Number(o.complemento), ajuste: Number(o.ajuste),

@@ -80,16 +80,17 @@ export function ConciliacaoDrawer({ open, onOpenChange, contaId, contaNome, onCh
     setSelecionados(s => s.size === lancamentos.length ? new Set() : new Set(lancamentos.map(l => l.id)));
   }
 
+// D4 (13/10/2026): marcar à mão é CONFERIR (validação humana); CONCILIAR é ter o vínculo com a linha do banco (OFX ou PDF) — duas provas diferentes.
   async function conciliar() {
     if (selecionados.size === 0) return;
     setConciliando(true);
     try {
       await conciliarEmLote(Array.from(selecionados));
-      toast.success(`${selecionados.size} ${selecionados.size === 1 ? "lançamento conciliado" : "lançamentos conciliados"}`);
+      toast.success(`${selecionados.size} ${selecionados.size === 1 ? "lançamento conferido" : "lançamentos conferidos"}`);
       await carregar();
       onChange?.();
     } catch (e: any) {
-      toast.error(e?.message ?? "Erro ao conciliar");
+      toast.error(e?.message ?? "Erro ao conferir");
     } finally {
       setConciliando(false);
     }
@@ -101,10 +102,10 @@ export function ConciliacaoDrawer({ open, onOpenChange, contaId, contaNome, onCh
         <SheetContent side="right" className="w-full sm:max-w-2xl flex flex-col gap-0 p-0">
           <SheetHeader className="p-4 border-b">
             <SheetTitle className="flex items-center gap-2">
-              <Scale className="w-4 h-4 text-gold" /> Conciliar — {contaNome}
+              <Scale className="w-4 h-4 text-gold" /> Conciliar e conferir — {contaNome}
             </SheetTitle>
             <SheetDescription className="text-xs">
-              Realizados dos últimos {DIAS_JANELA_COMPROVANTE} dias que ainda não bateram com o extrato do banco.
+              Realizados dos últimos {DIAS_JANELA_COMPROVANTE} dias que ainda não bateram com o extrato do banco. Importe o extrato para CONCILIAR (prova no banco) ou marque e use CONFERIR (validação humana, sem vínculo com o banco).
             </SheetDescription>
           </SheetHeader>
 
@@ -158,7 +159,7 @@ export function ConciliacaoDrawer({ open, onOpenChange, contaId, contaNome, onCh
               <Button variant="success" type="button" className="w-full gap-1.5"
                 onClick={conciliar} disabled={conciliando}>
                 {conciliando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Scale className="w-4 h-4" />}
-                Conciliar {selecionados.size} {selecionados.size === 1 ? "selecionado" : "selecionados"}
+                Conferir {selecionados.size} {selecionados.size === 1 ? "selecionado" : "selecionados"}
               </Button>
             </div>
           )}

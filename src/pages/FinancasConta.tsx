@@ -509,13 +509,14 @@ export default function FinancasConta() {
     .filter(l => selecionados.has(l.id) && l.status === "realizado")
     .map(l => l.id);
 
+// D4 (13/10/2026): marcar à mão é CONFERIR (validação humana); CONCILIAR é ter o vínculo com a linha do banco (OFX ou PDF) — duas provas diferentes.
   async function conciliarSelecionados() {
     if (selecionadosConciliaveis.length === 0) return;
     setConciliando(true);
     try {
       await conciliarEmLote(selecionadosConciliaveis);
       const n = selecionadosConciliaveis.length;
-      toast.success(`${n} lançamento${n > 1 ? "s" : ""} conciliado${n > 1 ? "s" : ""}`);
+      toast.success(`${n} lançamento${n > 1 ? "s" : ""} conferido${n > 1 ? "s" : ""}`);
       setSelecionados(new Set());
       await carregar();
     } catch (e: any) { toast.error(e?.message ?? "Erro"); }
@@ -896,7 +897,7 @@ export default function FinancasConta() {
             {selecionadosConciliaveis.length > 0 && (
               <Button variant="success" size="sm" onClick={conciliarSelecionados} disabled={conciliando || excluindoLoteBusy} className="gap-1.5">
                 <Scale className="w-3.5 h-3.5" />
-                {conciliando ? "..." : `Conciliar ${selecionadosConciliaveis.length}`}
+                {conciliando ? "..." : `Conferir ${selecionadosConciliaveis.length}`}
               </Button>
             )}
             <Button size="sm" variant="outline" onClick={() => setApagandoLote(true)} disabled={conciliando || excluindoLoteBusy}

@@ -411,7 +411,8 @@ export function rotuloDoLancamento(
 
 export const STATUS_LABEL: Record<FinStatus, string> = {
   previsto: "Previsto", realizado: "Realizado",
-  conciliado: "Conciliado", cancelado: "Cancelado",
+  // D4 (13/10/2026): o status `conciliado` cobre as DUAS provas — conferido à mão e conciliado com o banco; quem as distingue é o vínculo (vw_fin_ciclo / detalhe da despesa)
+  conciliado: "Conferido / conciliado", cancelado: "Cancelado",
   aguardando_aprovacao: "Aguardando aprovação",
 };
 

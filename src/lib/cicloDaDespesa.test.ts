@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cicloDaDespesa, ofxVinculado, ORDEM_DO_CICLO, type EntradaDoCiclo } from "./cicloDaDespesa";
+import { cicloDaDespesa, ofxVinculado, ORDEM_DO_CICLO, periodoAprovadoCobre, type EntradaDoCiclo } from "./cicloDaDespesa";
 
 // Verisure, vencimento 05/10/2026, R$ 278,22 — o exemplo dela, do nascimento ao malote
 const base: EntradaDoCiclo = {
@@ -56,8 +56,8 @@ describe("o ciclo da despesa — Verisure, 05/10, R$ 278,22", () => {
     expect(c.etapas.every(x => x.feita)).toBe(true);
   });
 
-  it("os seis estados vêm na ordem do ciclo", () => {
-    expect(ORDEM_DO_CICLO).toEqual(["prevista", "em_aberto", "pagamento_realizado", "aguardando_conciliacao", "conciliada", "pronta_para_malote"]);
+  it("os oito estados vêm na ordem do ciclo (Atrasada NÃO é estado)", () => {
+    expect(ORDEM_DO_CICLO).toEqual(["prevista", "em_aberto", "pagamento_realizado", "aguardando_conciliacao", "conciliada", "pronta_para_malote", "enviada", "arquivada"]);
   });
 });
 
@@ -109,5 +109,43 @@ describe("casos de borda", () => {
     expect(ofxVinculado("[ofx:PDF:2026-09-02:APLICACAO:A:100.00]")).toBe("PDF:2026-09-02:APLICACAO:A:100.00");
     expect(ofxVinculado(null)).toBeNull();
     expect(ofxVinculado("sem marca")).toBeNull();
+  });
+});
+
+describe("Enviada e Arquivada (D6)", () => {
+  const pronta = { status: "conciliado", data_pagamento: "2026-10-05", observacoes: "[ofx:N1]", temDocumento: true, temComprovante: true } as const;
+  it("a despesa Pronta que consta de um envio ativo é ENVIADA; com o período aprovado, ARQUIVADA", () => {
+    expect(ciclo(pronta).estado).toBe("pronta_para_malote");
+    const e = ciclo({ ...pronta, envio: { ano: 2026, mes: 10, periodoAprovado: false } });
+    expect(e).toMatchObject({ estado: "enviada", naFilaOperacional: false, pendencias: [] });
+    expect(e.proximoPasso).toMatch(/Enviada ao malote de 10\/2026/);
+    const a = ciclo({ ...pronta, envio: { ano: 2026, mes: 10, periodoAprovado: true } });
+    expect(a.estado).toBe("arquivada");
+    expect(a.proximoPasso).toMatch(/Arquivada.*10\/2026/);
+  });
+  it("NADA regride sozinho depois do envio: sem o comprovante a despesa continua Enviada — e diz o que regularizar", () => {
+    const e = ciclo({ ...pronta, temComprovante: false, envio: { ano: 2026, mes: 10, periodoAprovado: false } });
+    expect(e.estado).toBe("enviada");
+    expect(e.pendencias.join(" ")).toMatch(/comprovante/);
+    expect(e.proximoPasso).toMatch(/regularizar depois do envio/);
+  });
+  it("reaberta (sem envio ativo) volta a ser derivada dos fatos — e sem envio nunca é Enviada", () => {
+    expect(ciclo({ ...pronta, envio: null }).estado).toBe("pronta_para_malote");
+    expect(ciclo({ ...pronta, temComprovante: false, envio: null }).estado).toBe("conciliada");
+  });
+  it("só despesa PAGA entra no envio (uma previsão com item órfão continua Prevista/Em Aberto)", () => {
+    expect(ciclo({ envio: { ano: 2026, mes: 10, periodoAprovado: true } }).estado).toBe("prevista");
+  });
+  it("cancelada continua cancelada", () => {
+    expect(ciclo({ ...pronta, status: "cancelado", envio: { ano: 2026, mes: 10, periodoAprovado: false } }).estado).toBe("cancelada");
+  });
+  it("a regra do arquivamento: só período APROVADO que COBRE o mês do envio", () => {
+    const f = (status: string, ano_inicio: number, mes_inicio: number, qtd_meses: number) => ({ status, ano_inicio, mes_inicio, qtd_meses });
+    expect(periodoAprovadoCobre([f("aprovado", 2026, 10, 1)], 2026, 10)).toBe(true);
+    expect(periodoAprovadoCobre([f("fechado", 2026, 10, 1)], 2026, 10)).toBe(false);          // fechado ainda não é aprovado
+    expect(periodoAprovadoCobre([f("aprovado", 2026, 7, 3)], 2026, 9)).toBe(true);             // trimestre jul–set cobre setembro
+    expect(periodoAprovadoCobre([f("aprovado", 2026, 7, 3)], 2026, 10)).toBe(false);           // ...mas não outubro
+    expect(periodoAprovadoCobre([f("aprovado", 2025, 11, 4)], 2026, 2)).toBe(true);            // vira o ano
+    expect(periodoAprovadoCobre([], 2026, 10)).toBe(false);
   });
 });

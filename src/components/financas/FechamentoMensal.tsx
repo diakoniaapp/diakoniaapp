@@ -21,6 +21,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { ReabrirEnviadaDialog, type AlvoDaReabertura } from "@/components/financas/ReabrirEnviadaDialog";
+import { useAuth } from "@/hooks/useAuth";
 import { LancamentosACorrigirDialog } from "@/components/financas/LancamentosACorrigirDialog";
 import { hojeLocal } from "@/lib/data";
 import { formatarPercentual } from "@/lib/documentos/cobertura";
@@ -67,6 +69,8 @@ export function FechamentoMensal({ onConciliar }: Props) {
   const [gerando, setGerando] = useState<[number, number] | null>(null);
   const [gerouAgora, setGerouAgora] = useState(false);
   const [registrando, setRegistrando] = useState(false);
+  const { hasRole } = useAuth();
+  const [reabrir, setReabrir] = useState<AlvoDaReabertura | null>(null);
 
   const { ano, mes } = alvo;
   const rotulo = rotuloDoMes(ano, mes);
@@ -102,9 +106,11 @@ export function FechamentoMensal({ onConciliar }: Props) {
     if (pacote.estado !== "ok") return;
     setRegistrando(true);
     try {
-      await registrarEnvio(ano, mes, { dossies: pacote.dados.dossies, pendencias: pacote.dados.pendencias });
-      toast.success(`Envio de ${rotulo} registrado`);
+      const e = await registrarEnvio(ano, mes, { dossies: pacote.dados.dossies, pendencias: pacote.dados.pendencias });
+      const n = e.despesas ?? 0;
+      toast.success(n > 0 ? `Envio de ${rotulo} registrado — ${n} despesa${n === 1 ? "" : "s"} Pronta${n === 1 ? "" : "s"} para Malote ${n === 1 ? "ficou" : "ficaram"} Enviada${n === 1 ? "" : "s"}` : `Envio de ${rotulo} registrado`);
       void como(() => ultimoEnvio(ano, mes)).then(setEnvio);
+      void como(() => cicloDoMes(ano, mes)).then(setCiclo);
     } catch (e: any) {
       toast.error(e?.message ?? "Não foi possível registrar o envio");
     } finally {
@@ -221,6 +227,9 @@ export function FechamentoMensal({ onConciliar }: Props) {
         {ciclo.estado === "ok" && ciclo.dados.total > 0 && <>
           <p className="basis-full text-[11px] font-semibold uppercase tracking-wide text-muted-foreground pt-1">Ciclo das despesas pagas em {rotulo}</p>
           <Numero rotulo={ROTULO_DO_CICLO.pronta_para_malote} valor={String(ciclo.dados.porEstado.pronta_para_malote)} />
+          {(ciclo.dados.porEstado.enviada + ciclo.dados.porEstado.arquivada) > 0 && (
+            <Numero rotulo={`${ROTULO_DO_CICLO.enviada} / ${ROTULO_DO_CICLO.arquivada}`} valor={`${ciclo.dados.porEstado.enviada} / ${ciclo.dados.porEstado.arquivada}`} />
+          )}
           <Numero rotulo="Conciliadas com pendência" valor={String(ciclo.dados.porEstado.conciliada)} atencao={ciclo.dados.porEstado.conciliada > 0} />
           <Numero rotulo="Aguardando conciliação" valor={String(ciclo.dados.naoConciliadas)} atencao={ciclo.dados.naoConciliadas > 0} />
           <Numero rotulo="Sem comprovante" valor={String(ciclo.dados.semComprovante)} atencao={ciclo.dados.semComprovante > 0} />
@@ -262,12 +271,24 @@ export function FechamentoMensal({ onConciliar }: Props) {
               <Numero rotulo="Status" valor={envio.dados.envio ? "Enviado" : "Não enviado"} atencao={!envio.dados.envio} />
               {envio.dados.envio && (
                 <p className="basis-full text-[11px] text-muted-foreground">
-                  Foram {envio.dados.envio.dossies} documentos, {envio.dados.envio.pendencias_documentos} saída(s) ainda sem documento.
+                  Foram {envio.dados.envio.dossies} documentos, {envio.dados.envio.pendencias_documentos} saída(s) ainda sem documento
+                  {envio.dados.envio.despesas ? `; ${envio.dados.envio.despesas} despesa(s) Prontas ficaram Enviadas (congeladas)` : ""}.
                 </p>
               )}
+              {envio.dados.envio && (envio.dados.envio.despesas ?? 0) > 0 && hasRole(["admin", "tesouraria"]) && (
+                <p className="basis-full">
+                  <Button size="sm" variant="outline" className="h-7 text-xs"
+                    onClick={() => setReabrir({ tipo: "envio", id: envio.dados.envio!.id, rotulo, despesas: envio.dados.envio!.despesas ?? 0 })}>Reabrir este envio…</Button>
+                </p>
+              )}
+              <p className="basis-full text-[11px] text-muted-foreground">
+                Ao registrar o envio, as despesas que estão <b>Prontas para Malote</b> neste mês ficam <b>Enviadas</b>: o lote do mês é o que conta, nunca despesa por despesa. Documentação que chegar depois continua podendo ser anexada.
+              </p>
               <p className="basis-full text-[11px] text-muted-foreground">O envio em si é por fora (e-mail/WhatsApp); aqui só fica registrado quando foi.</p>
             </>)}
       </Etapa>
+
+      <ReabrirEnviadaDialog alvo={reabrir} onFechar={() => setReabrir(null)} onFeito={carregar} />
 
       <p className="text-xs text-muted-foreground pt-1">
         Fora do fechamento:{" "}

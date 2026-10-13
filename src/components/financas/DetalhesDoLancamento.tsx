@@ -8,6 +8,8 @@ import { CheckCircle2, Circle, ExternalLink, FileText, Loader2, MinusCircle, Pap
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ReabrirEnviadaDialog, type AlvoDaReabertura } from "@/components/financas/ReabrirEnviadaDialog";
+import { useAuth } from "@/hooks/useAuth";
 import { ORDEM_DO_CICLO, ROTULO_DO_CICLO, type EstadoDoCiclo } from "@/lib/cicloDaDespesa";
 import { origemDoAnexo } from "@/lib/grupoDaObrigacao";
 import { carregarDetalhesDaDespesa, type DetalhesDaDespesa } from "@/services/cicloDaDespesaService";
@@ -19,6 +21,7 @@ const COR: Record<EstadoDoCiclo, string> = {
   prevista: "border-border bg-muted text-muted-foreground", em_aberto: "border-warning-line bg-warning-soft/60 text-warning-text",
   pagamento_realizado: "border-info-line bg-info-soft/60 text-info-text", aguardando_conciliacao: "border-warning-line bg-warning-soft/60 text-warning-text",
   conciliada: "border-success-line bg-success-soft/60 text-success-text", pronta_para_malote: "border-success-line bg-success-soft text-success-text font-semibold",
+  enviada: "border-info-line bg-info-soft text-info-text font-semibold", arquivada: "border-border bg-muted text-foreground font-semibold",
   cancelada: "border-border bg-muted text-muted-foreground line-through",
 };
 
@@ -45,6 +48,9 @@ export function EstadoDoCicloChip({ estado, atrasoEmDias }: { estado: EstadoDoCi
 export function DetalhesDoLancamento({ lancamento, onFechar, onAnexos }: { lancamento: FinLancamentoExtenso | null; onFechar: () => void; onAnexos?: (l: FinLancamentoExtenso) => void }) {
   const [d, setD] = useState<DetalhesDaDespesa | null>(null);
   const [erro, setErro] = useState(false);
+  const { hasRole } = useAuth();
+  const [reabrir, setReabrir] = useState<AlvoDaReabertura | null>(null);
+  const [recarga, setRecarga] = useState(0);   // depois de reabrir, o detalhe se recarrega
 
   useEffect(() => {
     setD(null); setErro(false);
@@ -52,7 +58,7 @@ export function DetalhesDoLancamento({ lancamento, onFechar, onAnexos }: { lanca
     let vivo = true;
     carregarDetalhesDaDespesa(lancamento).then(x => { if (vivo) setD(x); }).catch(() => { if (vivo) setErro(true); });
     return () => { vivo = false; };
-  }, [lancamento]);
+  }, [lancamento, recarga]);
 
   async function abrir(path: string) {
     const url = await comprovanteSignedUrl(path);
@@ -66,6 +72,7 @@ export function DetalhesDoLancamento({ lancamento, onFechar, onAnexos }: { lanca
   const o = d?.obrigacao;
 
   return (
+    <>
     <Dialog open={!!l} onOpenChange={o2 => { if (!o2) onFechar(); }}>
       <DialogContent className="max-w-2xl max-h-[88vh] overflow-y-auto">
         {l && (
@@ -155,6 +162,26 @@ export function DetalhesDoLancamento({ lancamento, onFechar, onAnexos }: { lanca
                   </section>
                 )}
 
+                {(d.envio || d.reaberturas.length > 0) && (
+                  <section aria-label="Envio ao malote" className="space-y-1 text-sm">
+                    <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Malote</h3>
+                    {d.envio && (
+                      <p>
+                        <b>{d.envio.periodoAprovado ? "Arquivada" : "Enviada"}</b> no malote de {String(d.envio.mes).padStart(2, "0")}/{d.envio.ano}{d.envio.enviadoEm ? ` (capturada em ${dataBr(d.envio.enviadoEm)})` : ""}.{" "}
+                        {d.envio.periodoAprovado
+                          ? "O período está aprovado: para mudar algo, reabra o período e depois a despesa."
+                          : "Congelada: valor, data, categoria, centro e favorecido só mudam com a reabertura. Conciliar, conferir, vincular o extrato e anexar documentos continuam livres."}
+                      </p>
+                    )}
+                    {d.envio && !d.envio.periodoAprovado && hasRole(["admin", "tesouraria"]) && (
+                      <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setReabrir({ tipo: "despesa", id: l.id, nome })}>Reabrir despesa…</Button>
+                    )}
+                    {d.reaberturas.map(r => (
+                      <p key={r.em} className="text-xs text-muted-foreground">Reaberta em {dataBr(r.em)} — {r.motivo} (de {ROTULO_DO_CICLO[r.anterior as EstadoDoCiclo] ?? r.anterior} para {ROTULO_DO_CICLO[r.novo as EstadoDoCiclo] ?? r.novo}).</p>
+                    ))}
+                  </section>
+                )}
+
                 <section aria-label="Documentos" className="space-y-1.5">
                   <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Documento original</h3>
                   {documentos.length === 0 ? <p className="text-sm text-muted-foreground">Nenhum documento anexado.</p> : (
@@ -209,5 +236,7 @@ export function DetalhesDoLancamento({ lancamento, onFechar, onAnexos }: { lanca
         )}
       </DialogContent>
     </Dialog>
+    <ReabrirEnviadaDialog alvo={reabrir} onFechar={() => setReabrir(null)} onFeito={() => setRecarga(n => n + 1)} />
+    </>
   );
 }

@@ -3,7 +3,7 @@
 // `lib/cicloDaDespesa.ts` (Pagamento Realizado, Aguardando Conciliação, Conciliada, Pronta para o Malote) e aqui só se somam. Só leitura.
 import { supabase } from "@/integrations/supabase/client";
 import { documentosHerdados } from "@/services/grupoDaObrigacaoService";
-import { cicloDaDespesa, ORDEM_DO_CICLO, type EstadoDoCiclo } from "@/lib/cicloDaDespesa";
+import { cicloDaDespesa, ORDEM_DO_CICLO, periodoAprovadoCobre, type EstadoDoCiclo } from "@/lib/cicloDaDespesa";
 import { hojeLocal } from "@/lib/data";
 import { dispensaDocumento } from "@/lib/pacoteContabil";
 import { limitesDoMes } from "@/lib/fechamentoMensal";
@@ -47,6 +47,20 @@ export async function cicloDoMes(ano: number, mes: number): Promise<ResumoDoCicl
   }
   // o documento é da obrigação: a parcela de um pagamento parcial herda o das irmãs (o comprovante, não — cada pagamento prova o seu)
   for (const id of (await documentosHerdados(ids)).keys()) comDocumento.add(id);
+  // D6: as despesas já ENVIADAS (item de malote ativo) e se o período do envio foi aprovado (ARQUIVADA)
+  const enviadas = new Map<string, { ano: number; mes: number }>();
+  let fechamentos: { status: string; ano_inicio: number; mes_inicio: number; qtd_meses: number }[] = [];
+  try {
+    for (let i = 0; i < ids.length; i += 200) {
+      const { data, error } = await supabase.from("fin_malote_itens" as never).select("lancamento_id, ano, mes").in("lancamento_id" as never, ids.slice(i, i + 200) as never).is("reaberto_em" as never, null as never);
+      if (error) break;   // migration ainda não aplicada: nenhuma despesa está enviada
+      for (const x of ((data ?? []) as unknown as { lancamento_id: string; ano: number; mes: number }[])) enviadas.set(x.lancamento_id, { ano: Number(x.ano), mes: Number(x.mes) });
+    }
+    if (enviadas.size > 0) {
+      const f = await supabase.from("fin_fechamentos_periodo" as never).select("status, ano_inicio, mes_inicio, qtd_meses").eq("status" as never, "aprovado" as never);
+      fechamentos = ((f.data ?? []) as unknown as typeof fechamentos);
+    }
+  } catch { /* só o estado Enviada/Arquivada fica de fora */ }
   // o último dia coberto por um extrato, por conta de banco
   const ultimoExtrato = new Map<string, string | null>();
   for (const contaId of new Set(lancs.map(l => String(l.conta_id)))) {
@@ -64,7 +78,8 @@ export async function cicloDoMes(ano: number, mes: number): Promise<ResumoDoCicl
     const dispensa = dispensaDocumento({ categoria_nome: l.categoria_id ? nomeDaCategoria.get(String(l.categoria_id)) : null });
     const c = cicloDaDespesa({
       tipo: "saida", status: String(l.status), data: String(l.data).slice(0, 10), data_pagamento: (l.data_pagamento as string) ?? null,
-      observacoes: (l.observacoes as string) ?? null, origem: (l.origem as string) ?? null, contaTipo: tipoDaConta.get(contaId) ?? "banco", ultimoExtratoDaConta: ultimoExtrato.get(contaId) ?? null,
+      observacoes: (l.observacoes as string) ?? null, origem: (l.origem as string) ?? null,
+      envio: enviadas.has(id) ? { ...enviadas.get(id)!, periodoAprovado: periodoAprovadoCobre(fechamentos, enviadas.get(id)!.ano, enviadas.get(id)!.mes) } : null, contaTipo: tipoDaConta.get(contaId) ?? "banco", ultimoExtratoDaConta: ultimoExtrato.get(contaId) ?? null,
       temCategoria: !!l.categoria_id, temCentro: !!l.centro_custo_id, temDocumento: comDocumento.has(id), temComprovante: comComprovante.has(id) || !!l.comprovante_url,
       dispensaDocumento: dispensa, hoje,
     });

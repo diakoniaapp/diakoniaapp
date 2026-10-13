@@ -14,6 +14,9 @@
 //   Aguardando Conciliação foi paga, o extrato já cobre a data e nenhuma linha dele foi ligada: conferir (pode ter sido paga errado, ou o OFX não foi importado)
 //   Conciliada             a linha do extrato foi ligada ao pagamento (marca do OFX)
 //   Pronta para Malote     conciliada + classificada (categoria e centro) + documento original + comprovante: pode ir para a contabilidade
+//   Enviada                (D6) o malote do mês foi ENVIADO e esta despesa estava Pronta naquele momento — o envio é por lote mensal, nunca despesa por despesa.
+//                          Daí em diante nada regride sozinho; só uma reabertura (Administrador/Tesouraria, com motivo) a tira daqui.
+//   Arquivada              (D6) enviada E o período do envio tem fechamento APROVADO. Vira só história.
 //
 // CONCILIADA × CONFERIDA (D4, 13/10/2026): Conciliada = existe VÍNCULO com a linha do banco (a marca [ofx:…]). Conferida = alguém marcou (status conciliado)
 // sem vínculo: manual, ou "Conferida (Histórico)" — o que veio do Omie, que nunca teve extrato. Em conta COM extrato só o vínculo conta (o histórico do Omie é
@@ -21,13 +24,13 @@
 // mas é preciso conferir: paga sozinha não chega a Pronta.
 // Só despesas (saídas) têm este ciclo; a função devolve null para entradas.
 
-export type EstadoDoCiclo = "prevista" | "em_aberto" | "pagamento_realizado" | "aguardando_conciliacao" | "conciliada" | "pronta_para_malote" | "cancelada";
+export type EstadoDoCiclo = "prevista" | "em_aberto" | "pagamento_realizado" | "aguardando_conciliacao" | "conciliada" | "pronta_para_malote" | "enviada" | "arquivada" | "cancelada";
 
-export const ORDEM_DO_CICLO: EstadoDoCiclo[] = ["prevista", "em_aberto", "pagamento_realizado", "aguardando_conciliacao", "conciliada", "pronta_para_malote"];
+export const ORDEM_DO_CICLO: EstadoDoCiclo[] = ["prevista", "em_aberto", "pagamento_realizado", "aguardando_conciliacao", "conciliada", "pronta_para_malote", "enviada", "arquivada"];
 
 export const ROTULO_DO_CICLO: Record<EstadoDoCiclo, string> = {
   prevista: "Prevista", em_aberto: "Em aberto", pagamento_realizado: "Pagamento realizado", aguardando_conciliacao: "Aguardando conciliação",
-  conciliada: "Conciliada", pronta_para_malote: "Pronta para o malote", cancelada: "Cancelada",
+  conciliada: "Conciliada", pronta_para_malote: "Pronta para o malote", enviada: "Enviada", arquivada: "Arquivada", cancelada: "Cancelada",
 };
 
 export interface EntradaDoCiclo {
@@ -47,6 +50,8 @@ export interface EntradaDoCiclo {
   /** há anexo que não seja só comprovante: boleto, fatura, guia, nota, XML… */
   temDocumento: boolean;
   temComprovante: boolean;
+  /** o envio ATIVO desta despesa (um item de malote não reaberto) e se o período dele já foi aprovado; ausente/null = nunca enviada ou reaberta */
+  envio?: { ano: number; mes: number; periodoAprovado: boolean } | null;
   /** de onde veio o lançamento (`importado_omie` = histórico anterior ao extrato: Conferida (Histórico)) */
   origem?: string | null;
   /** categorias que não têm documento (tarifas bancárias, IOF, juros): ver `dispensaDocumento` */
@@ -114,6 +119,18 @@ export function cicloDaDespesa(e: EntradaDoCiclo): CicloDaDespesa | null {
 
   if (e.status === "cancelado") return { estado: "cancelada", etapas, pendencias: [], naFilaOperacional: false, proximoPasso: "Nada a fazer: obrigação cancelada." };
 
+  // ENVIADA / ARQUIVADA (D6): nada regride sozinho depois do envio — os fatos podem mudar (um comprovante que sai, uma conciliação desfeita), o estado não
+  if (paga && e.envio) {
+    const mm = String(e.envio.mes).padStart(2, "0");
+    const faltaAlgo = faltam("ofx", "conciliacao", "comprovante", "documento", "classificacao").map(k => NOME[k]);
+    return {
+      estado: e.envio.periodoAprovado ? "arquivada" : "enviada", etapas, naFilaOperacional: false, pendencias: faltaAlgo, conferencia,
+      proximoPasso: e.envio.periodoAprovado
+        ? `Arquivada: o período ${mm}/${e.envio.ano} está aprovado. Para mudar algo, reabra o período e depois a despesa.`
+        : `Enviada ao malote de ${mm}/${e.envio.ano}${faltaAlgo.length ? ` — regularizar depois do envio: ${faltaAlgo.join("; ")}` : ""}. Valor, data, categoria, centro e favorecido só mudam com a reabertura (Administrador ou Tesouraria, com motivo).`,
+    };
+  }
+
   if (!paga) {
     const venceuOuVenceHoje = e.data.slice(0, 10) <= e.hoje;
     const atraso = venceuOuVenceHoje ? diasEntre(e.data.slice(0, 10), e.hoje) : 0;
@@ -141,4 +158,10 @@ export function cicloDaDespesa(e: EntradaDoCiclo): CicloDaDespesa | null {
     estado: prontaParaMalote ? "pronta_para_malote" : "conciliada", etapas, naFilaOperacional: false, pendencias, conferencia,
     proximoPasso: prontaParaMalote ? "Pronta: o malote já a enxerga." : `Para o malote: ${pendencias.join("; ")}.`,
   };
+}
+
+/** A regra do ARQUIVAMENTO (a mesma de vw_fin_ciclo): existe fechamento de período APROVADO cobrindo o mês do envio? */
+export function periodoAprovadoCobre(fechamentos: { status: string; ano_inicio: number; mes_inicio: number; qtd_meses: number }[], ano: number, mes: number): boolean {
+  const m = ano * 12 + mes;
+  return fechamentos.some(f => f.status === "aprovado" && m >= f.ano_inicio * 12 + f.mes_inicio && m < f.ano_inicio * 12 + f.mes_inicio + f.qtd_meses);
 }

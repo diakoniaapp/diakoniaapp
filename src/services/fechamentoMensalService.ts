@@ -133,7 +133,11 @@ export interface EnvioMalote {
   enviado_em: string;
   dossies: number;
   pendencias_documentos: number;
+  /** quantas despesas "Prontas para Malote" este envio capturou (D6; 0/ausente nos envios de antes) */
+  despesas?: number;
 }
+
+const COLUNAS_DO_ENVIO = "id, ano, mes, enviado_em, dossies, pendencias_documentos";
 
 /** Tabela ainda não criada (migration não aplicada): PostgREST devolve 42P01 / PGRST205. */
 function tabelaInexistente(e: { code?: string; message?: string } | null): boolean {
@@ -143,9 +147,13 @@ function tabelaInexistente(e: { code?: string; message?: string } | null): boole
 export interface EstadoDoEnvio { envio: EnvioMalote | null; indisponivel: boolean }
 
 export async function ultimoEnvio(ano: number, mes: number): Promise<EstadoDoEnvio> {
-  const { data, error } = await supabase.from("fin_malote_envios")
-    .select("id, ano, mes, enviado_em, dossies, pendencias_documentos")
-    .eq("ano", ano).eq("mes", mes).order("enviado_em", { ascending: false }).limit(1);
+  // `despesas` existe depois da migration 20261013130000; antes dela a leitura recua para as colunas de sempre
+  let { data, error } = await supabase.from("fin_malote_envios").select(`${COLUNAS_DO_ENVIO}, despesas` as never)
+    .eq("ano", ano).eq("mes", mes).order("enviado_em", { ascending: false }).limit(1) as unknown as { data: unknown[] | null; error: { code?: string; message?: string } | null };
+  if (error && /despesas/.test(error.message ?? "")) {
+    ({ data, error } = await supabase.from("fin_malote_envios").select(COLUNAS_DO_ENVIO)
+      .eq("ano", ano).eq("mes", mes).order("enviado_em", { ascending: false }).limit(1) as unknown as { data: unknown[] | null; error: { code?: string; message?: string } | null });
+  }
   if (error) {
     if (tabelaInexistente(error)) return { envio: null, indisponivel: true };
     throw error;
@@ -153,7 +161,19 @@ export async function ultimoEnvio(ano: number, mes: number): Promise<EstadoDoEnv
   return { envio: (data?.[0] as EnvioMalote | undefined) ?? null, indisponivel: false };
 }
 
+/**
+ * ENVIAR o malote do mês (D6): registra o envio E captura, por lote, todas as despesas que estão "Prontas para Malote" neste instante — elas ficam ENVIADAS
+ * (congeladas: valor, data, categoria, centro e favorecido só mudam com a reabertura). Antes da migration 20261013130000 a função não existe e o registro
+ * segue como sempre (só o envio do mês, sem capturar despesas).
+ */
 export async function registrarEnvio(ano: number, mes: number, resumo: { dossies: number; pendencias: number }): Promise<EnvioMalote> {
+  const rpc = await supabase.rpc("fin_enviar_malote" as never, { p_ano: ano, p_mes: mes, p_dossies: resumo.dossies, p_pendencias: resumo.pendencias, p_observacao: null } as never);
+  if (!rpc.error) {
+    const { data } = await supabase.from("fin_malote_envios").select(`${COLUNAS_DO_ENVIO}, despesas` as never).eq("id", rpc.data as never).limit(1) as unknown as { data: EnvioMalote[] | null };
+    if (data && data[0]) return data[0];
+    return { id: String(rpc.data), ano, mes, enviado_em: new Date().toISOString(), dossies: resumo.dossies, pendencias_documentos: resumo.pendencias };
+  }
+  if (!/could not find the function|schema cache|PGRST202/i.test(`${rpc.error.message} ${rpc.error.code}`)) throw new Error(rpc.error.message);
   const { data, error } = await supabase.from("fin_malote_envios")
     .insert({ ano, mes, dossies: resumo.dossies, pendencias_documentos: resumo.pendencias })
     .select("id, ano, mes, enviado_em, dossies, pendencias_documentos");
@@ -166,4 +186,24 @@ export async function registrarEnvio(ano: number, mes: number, resumo: { dossies
   // RLS barrando um INSERT devolve sucesso com 0 linhas (CLAUDE.md §6.1)
   if (!data || data.length === 0) throw new Error("O envio não foi gravado (sem permissão).");
   return data[0] as EnvioMalote;
+}
+
+// ── reabrir (D6): só Administrador e Tesouraria, com motivo; o banco confere o papel e guarda o rastro ──
+
+/** Reabre UMA despesa enviada. O banco recusa quem não é admin/tesouraria, motivo curto e despesa Arquivada (reabra o período antes). */
+export async function reabrirDespesaEnviada(lancamentoId: string, motivo: string): Promise<void> {
+  const { error } = await supabase.rpc("fin_reabrir_despesa_enviada" as never, { p_lancamento: lancamentoId, p_motivo: motivo } as never);
+  if (error) throw new Error(mensagemDaReabertura(error.message));
+}
+
+/** Reabre TODAS as despesas ativas de um envio. Devolve quantas. */
+export async function reabrirEnvio(envioId: string, motivo: string): Promise<number> {
+  const { data, error } = await supabase.rpc("fin_reabrir_envio" as never, { p_envio: envioId, p_motivo: motivo } as never);
+  if (error) throw new Error(mensagemDaReabertura(error.message));
+  return Number(data ?? 0);
+}
+
+function mensagemDaReabertura(m: string): string {
+  if (/could not find the function|schema cache/i.test(m)) return "Falta aplicar a migration 20261013130000 (Enviada e Arquivada) no banco.";
+  return m;
 }
