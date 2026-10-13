@@ -1286,7 +1286,9 @@ export type FinAnexoTipo =
   | "nota_fiscal" | "boleto" | "guia" | "comprovante" | "fatura" | "contrato"
   | "xml" | "rpa" | "rsp" | "dps" | "outro" | "documento"
   // Política de Compras por Terceiros (migration 20261014100000): provam a QUITAÇÃO, não são o documento original da despesa — são anexados pelo cartão Quitação
-  | "declaracao_terceiro" | "pedido_reembolso" | "prova_pagamento_terceiro";
+  | "declaracao_terceiro" | "pedido_reembolso" | "prova_pagamento_terceiro"
+  // Fase 1C-e: o documento do cancelamento da nota com o emitente (migration 20261015130000)
+  | "prova_cancelamento";
 
 export const FIN_ANEXO_TIPO_LABEL: Record<FinAnexoTipo, string> = {
   nota_fiscal: "Nota Fiscal",
@@ -1304,6 +1306,7 @@ export const FIN_ANEXO_TIPO_LABEL: Record<FinAnexoTipo, string> = {
   declaracao_terceiro: "Declaração do Terceiro",
   pedido_reembolso: "Pedido de Reembolso",
   prova_pagamento_terceiro: "Prova do pagamento do terceiro",
+  prova_cancelamento: "Prova de cancelamento",
 };
 
 /** Explicação curta dos tipos que não são óbvios (dica na tela). */
@@ -1315,6 +1318,7 @@ export const FIN_ANEXO_TIPO_DICA: Partial<Record<FinAnexoTipo, string>> = {
   declaracao_terceiro: "Declaração assinada pelo terceiro dizendo se oferta ou pede reembolso",
   pedido_reembolso: "Declaração do terceiro na versão reembolso, com a chave PIX e a lista das notas",
   prova_pagamento_terceiro: "Cupom, fatura do cartão ou comprovante PIX/TED de quem pagou o fornecedor",
+  prova_cancelamento: "Documento do emitente confirmando que a nota foi cancelada",
 };
 
 /** Os tipos que a tela de anexos oferece, na ordem de exibição. */

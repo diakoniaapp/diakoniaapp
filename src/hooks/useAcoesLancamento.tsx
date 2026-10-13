@@ -370,6 +370,13 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
             </button>
           )}
 
+          {confirmando?.tipo === "saida" && !quitacaoDoAlvo && /reembols/i.test(confirmando.descricao ?? "") && (
+            <div role="alert" className="rounded-md border border-warning-line bg-warning-soft px-3 py-2 text-xs text-warning-text space-y-1">
+              <p className="font-semibold flex items-center gap-1.5"><AlertTriangle className="w-4 h-4 shrink-0" /> Esta conta fala em reembolso</p>
+              <p>Confirme se um terceiro já pagou o fornecedor <b>antes</b> de pagá-lo: pagar o fornecedor e depois reembolsar a pessoa é pagar duas vezes. Se alguém já pagou, registre quem pagou (link acima). É só um aviso: nada é bloqueado.</p>
+            </div>
+          )}
+
           {confirmando?.tipo === "saida" && !terceiroJaPagou && (
             <div className="space-y-2.5">
               {carregandoFornecedor && (

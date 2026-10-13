@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { CancelarNotaDialog } from "@/components/financas/CancelarNotaDialog";
 import { PagarReembolsoDialog } from "@/components/financas/PagarReembolsoDialog";
 import { QuitacaoDialog } from "@/components/financas/QuitacaoDialog";
 import { useAuth } from "@/hooks/useAuth";
@@ -60,6 +61,7 @@ export function QuitacaoCard({ lancamento, recarga, onMudou }: { lancamento: Fin
   const [dialogo, setDialogo] = useState<"registrar" | "corrigir" | null>(null);
   const [remover, setRemover] = useState(false);
   const [pagando, setPagando] = useState(false);
+  const [cancelando, setCancelando] = useState(false);
   const [recusar, setRecusar] = useState<null | "reembolso" | "relatado">(null);
   const [motivo, setMotivo] = useState("");
   const [ocupado, setOcupado] = useState(false);
@@ -145,6 +147,7 @@ export function QuitacaoCard({ lancamento, recarga, onMudou }: { lancamento: Fin
         <>
           <p className="text-sm text-muted-foreground">Nenhuma quitação registrada: a conta está em aberto e quem a paga é a igreja. Se um terceiro (pessoa, empresa ou entidade) já pagou o fornecedor, registre — a conta <b>não</b> deve ser paga de novo.</p>
           {podeEscrever && <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={() => setDialogo("registrar")}><UserRoundCheck className="h-3.5 w-3.5" /> Outra pessoa pagou? Registrar</Button>}
+          {podeEscrever && lancamento.status === "previsto" && <Button size="sm" variant="ghost" className="h-8" onClick={() => setCancelando(true)}>Nota cancelada com o emitente…</Button>}
         </>
       )}
 
@@ -221,6 +224,7 @@ export function QuitacaoCard({ lancamento, recarga, onMudou }: { lancamento: Fin
         </>
       )}
 
+      <CancelarNotaDialog alvo={cancelando ? { id: lancamento.id, descricao: lancamento.descricao ?? "" } : null} onFechar={() => setCancelando(false)} onFeito={recarregar} />
       <PagarReembolsoDialog alvo={pagando && q ? q : null} onFechar={() => setPagando(false)} onFeito={recarregar} />
       <QuitacaoDialog alvo={dialogo ? alvo : null} quitacao={dialogo === "corrigir" ? q : null} onFechar={() => setDialogo(null)} onFeito={recarregar} />
 

@@ -108,6 +108,7 @@ export const SIGLA_NO_NOME: Record<FinAnexoTipo, string> = {
   declaracao_terceiro: "DECLARACAO",
   pedido_reembolso: "PEDIDO_REEMBOLSO",
   prova_pagamento_terceiro: "PROVA_PAGAMENTO",
+  prova_cancelamento: "CANCELAMENTO",
 };
 
 /** Com número, estes tipos mantêm a sigla depois dele (`456_RSP_…`); os demais

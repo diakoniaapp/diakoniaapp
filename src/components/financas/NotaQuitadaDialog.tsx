@@ -56,23 +56,24 @@ export function NotaQuitadaDialog({ aberto, onFechar, onFeito }: { aberto: boole
     if (!(valor > 0)) p.push("Informe o valor da nota.");
     if (!contaId) p.push("Escolha a conta em que a obrigação ficará registrada (a oferta não mexe nela).");
     if (chaveLimpa && !chaveNfeValida(chaveLimpa)) p.push("A chave de acesso não confere (44 dígitos, com o dígito verificador correto).");
-    if (v.tipo === "nao_localizado") p.push("Para registrar uma nota já quitada é preciso saber quem pagou (pessoa, empresa ou entidade). Se não se sabe, registre a despesa pelo fluxo normal e marque \"Não localizado\".");
     return [...p, ...problemasDoEstado(v, emitente?.id ?? null, hoje)];
   }, [emitente, dataNota, valor, contaId, chaveLimpa, v, hoje]);
 
   async function salvar() {
-    if (!emitente || v.tipo === "nao_localizado") return;
+    if (!emitente) return;
     setSalvando(true);
     try {
       const declara = v.intencao === "reembolso" || v.intencao === "oferta" || v.intencao === "compensacao_adiantamento";
       const id = await registrarNotaQuitadaPorTerceiro({
         contaId, emitenteId: emitente.id, dataDaNota: dataNota, valor, descricao: descricao.trim() || null, numeroDaNota: numero.trim() || null, chaveDeAcesso: chaveLimpa || null,
-        categoriaId: categoriaId || null, centroCustoId: centroId || null, naturezaItem: v.natureza as NaturezaDoItem, comprador: v.comprador as "cnpj_igreja" | "contratacao_previa",
+        categoriaId: categoriaId || null, centroCustoId: centroId || null, naturezaItem: (v.natureza || null) as NaturezaDoItem, comprador: (v.comprador || null) as "cnpj_igreja" | "contratacao_previa",
         responsavel: v.tipo, pessoaId: v.tipo === "pessoa" ? v.escolhido?.id ?? null : null, fornecedorDoResponsavelId: v.tipo !== "pessoa" ? v.escolhido?.id ?? null : null,
-        intencao: v.intencao, pagoEm: v.pagoEm || null, declaradoEm: declara ? v.declaradoEm || null : null,
-        condicao: v.intencao === "oferta" && v.condicao.trim() ? v.condicao.trim() : null, pedeRecibo: v.intencao === "oferta" && v.pedeRecibo, motivo: motivo.trim() || null,
+        intencao: v.tipo === "nao_localizado" ? "nao_se_aplica" : v.intencao, pagoEm: v.tipo === "nao_localizado" ? null : v.pagoEm || null, declaradoEm: declara && v.tipo !== "nao_localizado" ? v.declaradoEm || null : null,
+        condicao: v.tipo !== "nao_localizado" && v.intencao === "oferta" && v.condicao.trim() ? v.condicao.trim() : null, pedeRecibo: v.tipo !== "nao_localizado" && v.intencao === "oferta" && v.pedeRecibo, motivo: motivo.trim() || null,
       });
-      toast.success("Nota registrada já quitada por terceiro. Anexe a nota fiscal, a prova do pagamento e a declaração no detalhe da despesa.");
+      toast.success(v.tipo === "nao_localizado"
+        ? "Nota registrada em aberto, na fila Investigar: ninguém sabe quem a pagou. Anexe a nota fiscal no detalhe da despesa e descubra quem pagou."
+        : "Nota registrada já quitada por terceiro. Anexe a nota fiscal, a prova do pagamento e a declaração no detalhe da despesa.");
       onFeito(id); onFechar();
     } catch (e) { toast.error(mensagemErro(e)); } finally { setSalvando(false); }
   }
@@ -83,7 +84,7 @@ export function NotaQuitadaDialog({ aberto, onFechar, onFeito }: { aberto: boole
         <DialogHeader>
           <DialogTitle>Registrar NF já quitada por terceiro</DialogTitle>
           <DialogDescription>
-            Para a nota que a contabilidade conhece e o aplicativo ainda não tinha. A nota e a quitação nascem juntas; nenhum dinheiro da igreja se move e nenhuma entrada ou transferência é criada.
+            Para a nota que a contabilidade conhece e o aplicativo ainda não tinha. A nota e a quitação nascem juntas; nenhum dinheiro da igreja se move e nenhuma entrada ou transferência é criada. Se ninguém sabe quem pagou, escolha “Não sei quem pagou”: a nota entra em aberto na fila Investigar (sem prova suficiente, nada é presumido).
           </DialogDescription>
         </DialogHeader>
 

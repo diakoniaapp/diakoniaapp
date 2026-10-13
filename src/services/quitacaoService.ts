@@ -353,3 +353,9 @@ export async function prazosAbertos(): Promise<PrazoAberto[]> {
     };
   });
 }
+
+// ── Cancelada: desfecho próprio, com prova (Fase 1C-e) ───────────────────────────────────────────────────────────────────────────────────────────
+
+/** Cancela a nota com o emitente. A prova do cancelamento (anexo) precisa estar anexada ANTES; o banco recusa sem ela, com quitação registrada, com pagamento ou já enviada. */
+export const cancelarObrigacao = (obrigacaoId: string, motivo: string): Promise<void> => chamar<void>("fin_cancelar_obrigacao", { p_obrigacao: obrigacaoId, p_motivo: motivo });
+export const desfazerCancelamento = (obrigacaoId: string, motivo: string): Promise<void> => chamar<void>("fin_desfazer_cancelamento", { p_obrigacao: obrigacaoId, p_motivo: motivo });
