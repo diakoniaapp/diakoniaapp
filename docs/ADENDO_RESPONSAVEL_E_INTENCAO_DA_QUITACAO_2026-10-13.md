@@ -4,6 +4,8 @@
 >
 > **Veredito curto: sim.** Dois fatos substituem cinco formas de extinção, o "credor atual", a fila "A esclarecer" e três documentos. A parte pesada da obra (extinção sem conta/saldo, aprovação separada do pagamento, malote em dois momentos, Ficha do Bem) **não encolhe**: isso está dito com clareza na seção 9.
 
+> **Status: APROVADO e incorporado à Especificação (versão 2).** Decisões aprovadas: Responsável = **Pessoa, Empresa ou Entidade**; Intenção = Reembolso, Oferta, Compensação de adiantamento, Não declarada; Grau de prova = Formal, Relatado, Nenhum. **Ajuste da aprovação:** a regra do grau Relatado **não depende só do valor**. A proposta "só abaixo de R$ 100" da seção 3 e da decisão 1 da seção 10 foi **substituída** pela **Matriz de suficiência da prova** (Especificação, seção 3.6), que pesa natureza da operação, patrimônio, lastro de NF e risco da relação.
+
 ---
 
 ## 1. Em uma frase
@@ -75,7 +77,7 @@ Saber que "o pastor pagou" não é o mesmo que ter o comprovante do pagamento. C
 
 **Por que isso importa.** O caso real da D Flesh (NF 25597, R$ 137,28) está exatamente no meio: foi *relatado* que o Pr. Patrick pagou em espécie e ofertou, mas o termo assinado ainda não existe. O modelo permite registrar o fato **com o grau que ele realmente tem**, em vez de escolher entre "ignorar" e "tratar como provado".
 
-Regra proposta (a decidir, seção 10): grau **Relatado** na intenção **resolve a identificação** do que aconteceu, mas a obrigação só sai do bloqueio de fechamento com **Formal**, salvo valor abaixo do limite pequeno da especificação.
+~~Regra proposta: Relatado só abaixo do limite pequeno.~~ **Substituída na aprovação:** o valor sozinho não decide. A suficiência do grau Relatado segue a **Matriz de suficiência da prova** (Especificação, seção 3.6): quatro eixos (natureza da operação, patrimônio, lastro de NF, risco da relação), o pior manda, o valor só eleva o risco, e há três desfechos (vale; vale com aprovação do Administrador; exige Formal).
 
 ---
 

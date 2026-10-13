@@ -1,6 +1,8 @@
 # Especificação funcional: compras por terceiros, reembolsos e doações
 
-> **Para aprovação.** Documento de 13/10/2026. **Sem código, sem migration, sem telas, sem protótipo.** Nada foi alterado no app.
+> **Para aprovação. Versão 2 (13/10/2026).** **Sem código, sem migration, sem telas, sem protótipo.** Nada foi alterado no app.
+>
+> **O que a versão 2 incorpora:** o [Adendo sobre Responsável e Intenção da Quitação](ADENDO_RESPONSAVEL_E_INTENCAO_DA_QUITACAO_2026-10-13.md), aprovado, com estas decisões: Responsável = **Pessoa, Empresa ou Entidade**; Intenção = **Reembolso, Oferta, Compensação de adiantamento ou Não declarada**; Grau de prova = **Formal, Relatado ou Nenhum**; e a regra do grau **Relatado** deixa de depender só do valor e passa a ser a **Matriz de suficiência da prova** (seção 3.6), que pesa natureza da operação, patrimônio, lastro de NF e risco da relação.
 >
 > Ele transforma a arquitetura aprovada em regras de funcionamento: o que acontece, quem faz, quais documentos existem, em que estado cada coisa fica e o que chega à contabilidade. As escolhas de política contábil ficam **parametrizáveis** e estão listadas na seção 14, com a recomendação padrão.
 >
@@ -57,9 +59,10 @@
 
 | Pergunta | Respostas possíveis |
 |---|---|
-| **Quem quitou?** | Igreja · Terceiro · Ninguém ainda · Adiantamento prévio · (ou foi cancelada) |
-| **Se foi terceiro, qual a intenção declarada?** | Reembolso · Oferta · **Nenhuma declaração = A esclarecer** |
-| **Que prova existe?** | Documento fiscal, comprovante do pagamento, declaração, aprovação |
+| **Quem quitou?** (Responsável pela Quitação) | Igreja · **Pessoa · Empresa · Entidade** · Ninguém ainda · Não localizado |
+| **Se foi um terceiro, qual a intenção?** (Intenção da Quitação) | Reembolso · Oferta · Compensação de adiantamento · **Não declarada = A esclarecer** |
+| **Que prova existe?** (Grau de prova, para os dois fatos) | **Formal · Relatado · Nenhum**, com a suficiência medida pela matriz da seção 3.6 |
+| *(à parte)* A obrigação foi cancelada? | Desfecho **Cancelada**, com prova. Não é uma quitação |
 
 ### 1.3 Quadro de decisão completo
 
@@ -69,8 +72,9 @@
 | Sim | Terceiro | Reembolso | **Cenário A.** Obrigação com a pessoa até pagar |
 | Sim | Terceiro | Oferta | **Cenário B.** Obrigação extinta na declaração |
 | Sim | Terceiro | **Não declarada** | **A esclarecer.** Fila obrigatória; nada se presume |
+| Sim | Terceiro | Compensação de adiantamento | **Compensada por Adiantamento** (seção 8) |
 | Sim | Ninguém ainda | n/a | **Em Aberto** (conta a pagar normal) |
-| Sim | Adiantamento anterior | n/a | **Compensado por Adiantamento** (seção 8) |
+| Sim | **Não localizado** | n/a | **Sem quitação localizada.** Fila Investigar |
 | Sim | NF cancelada pelo emitente | n/a | **Cancelado** (com prova) |
 | Não | Alguém entregou de graça | n/a | **Doação direta** (D, E ou F) |
 | Não | Alguém pediu ressarcimento de gasto em seu nome | n/a | **Exceção**: não é reembolso. Exige decisão do Administrador (seção 9, R6) |
@@ -94,14 +98,15 @@
 |---|---|
 | **Obrigação** | O que a igreja deve por ter comprado ou contratado. Já existe (`obrigacao_id`) e **nunca muda de identidade**. |
 | **Emitente** | Quem emitiu o documento fiscal (o fornecedor). **Fixo.** |
-| **Credor atual** | A quem a igreja deve **agora**. Começa como o emitente. Se um terceiro quita e quer reembolso, passa a ser a **pessoa**. Se for oferta ou cancelada, deixa de existir. |
-| **Pagador** | Quem desembolsou o dinheiro: a igreja ou uma pessoa. |
-| **Intenção** | O que o terceiro declarou: **reembolso** ou **oferta**. |
-| **Extinção** | Como a obrigação deixou de existir (cinco formas). |
-| **Declaração de intenção** | Documento formal, datado, em que o terceiro diz se quer reembolso ou se oferta. |
+| **Credor atual** | **Derivado.** A quem a igreja deve **agora**. Começa como o emitente. Se um terceiro quitou com intenção de reembolso, passa a ser o **terceiro**. Se foi oferta, compensação ou cancelamento, deixa de existir. |
+| **Responsável pela Quitação** | **Fato guardado.** Quem fez a obrigação com o emitente deixar de existir: **Igreja, Pessoa, Empresa ou Entidade** (ou "Ninguém ainda" / "Não localizado"). Pessoa, Empresa e Entidade são sempre **cadastros**, nunca texto livre. |
+| **Intenção da Quitação** | **Fato guardado.** Por que o terceiro pagou, nas palavras dele: **Reembolso, Oferta, Compensação de adiantamento ou Não declarada**. Só existe quando o responsável não é a igreja. **Nunca presumida.** |
+| **Grau de prova** | **Fato guardado**, para o responsável e para a intenção: **Formal** (documento assinado ou comprovante do pagamento), **Relatado** (informação registrada por terceiro, sem documento) ou **Nenhum**. A suficiência é medida pela matriz da seção 3.6. |
+| **Extinção** | **Derivada** do par (responsável, intenção): Pago pela Igreja · Extinta por terceiro como oferta · Dívida com o terceiro (reembolso) · Compensada por adiantamento. **Cancelada** é um desfecho à parte, sem quitação. |
+| **Declaração do Terceiro** | Documento único, datado e assinado pelo terceiro, que diz **o que ele pagou e qual a sua intenção** (reembolso ou oferta). O Pedido de Reembolso é essa mesma declaração acrescida dos dados bancários e da lista de NFs. |
 | **Doação direta** | Bem, consumo ou serviço recebido de graça, **sem aquisição da igreja**. Não há obrigação. |
 | **Adiantamento** | Dinheiro da igreja entregue **antes** de existir a NF, com prestação de contas pendente. |
-| **A esclarecer** | A obrigação existe, alguém que não é a igreja a pagou, mas **não há declaração formal**. |
+| **A esclarecer** | A obrigação existe, um terceiro identificado a pagou, mas a **intenção não foi declarada** (Intenção = Não declarada). É uma das quatro filas de pendência (seção 4.4). |
 | **Natureza do item** | Consumo, estoque, bem durável ou serviço. Define o destino, **não** o fluxo. |
 | **Valor justo** | Valor de mercado do bem ou serviço quando não há NF (com a base documentada). |
 
@@ -111,17 +116,30 @@
 
 ### 3.1 O que a Obrigação passa a registrar
 
-Já existem: valor, data, emitente, documentos do grupo, comprovante da linha, estados. **Passam a existir:**
+Já existem: valor, data, emitente, documentos do grupo, comprovante da linha, estados. **Passam a ser guardados quatro fatos**:
 
-| Dado | Valores | Observação |
+| Fato guardado | Valores | Observação |
 |---|---|---|
 | **Comprador** | Igreja por documento no CNPJ · Igreja por contratação prévia | Preenchido automaticamente quando o destinatário da NF-e é o CNPJ da igreja |
-| **Natureza do item** | Consumo · Estoque · Bem durável · Serviço | Define destino e documentos extras |
-| **Pagador** | Igreja · Pessoa | Quando Pessoa, é um cadastro de Pessoas |
-| **Intenção** | Reembolso · Oferta · A esclarecer | Só quando o pagador é Pessoa |
-| **Extinção** | Pago pela igreja · Terceiro com reembolso · Terceiro como oferta · Compensado por adiantamento · Cancelado | Pode estar vazia (Em Aberto) |
-| **Credor atual** | Emitente · Pessoa · Nenhum | Derivado dos fatos acima |
+| **Natureza do item** | Consumo · Estoque · Bem durável · Serviço | Define destino, documentos extras e entra na matriz de suficiência da prova |
+| **Quitação** | Ver 3.1.1 | O coração do modelo: responsável, intenção e grau de prova, com data, valor e histórico |
 | **Aprovação** | Quem, quando, decisão, motivo | Independente do pagamento |
+
+**Não são mais guardados, passam a ser derivados:** a forma de extinção, o credor atual, o estado, os indicadores, a fila, a pasta do malote, os documentos exigidos e se a operação mexe no caixa.
+
+#### 3.1.1 A Quitação
+
+| Componente | Valores | Regras |
+|---|---|---|
+| **Responsável pela Quitação** | **Igreja** · **Pessoa** · **Empresa** · **Entidade** · Ninguém ainda · Não localizado | Pessoa, Empresa e Entidade são **cadastros** (Pessoas; Favorecido com CNPJ para Empresa e Entidade). Nunca texto livre. "Não localizado" confessa que falta informação e tem fila própria |
+| **Intenção da Quitação** | **Reembolso** · **Oferta** · **Compensação de adiantamento** · **Não declarada** | Só existe quando o responsável **não é a Igreja**; quando é a Igreja, fica marcada **"não se aplica"**. **Nunca presumida.** Compensação de adiantamento se prova pelo **vínculo explícito** com o adiantamento (nunca por coincidência de valor), e **não admite grau Relatado** |
+| **Grau de prova** (de cada um dos dois fatos) | **Formal** · **Relatado** · **Nenhum** | Se qualquer dos dois estiver em "Nenhum", a quitação **não é suficiente**. Nos demais casos, vale a matriz da seção 3.6 |
+| **Declarante e registrador** | Duas pessoas distintas no histórico | Quem declara a intenção é sempre o **terceiro**; quem registra é a Tesouraria |
+| **Datas** | Do pagamento e da declaração | Declaração posterior ao fato fica marcada **"declarada depois"** e entra na matriz |
+| **Valor** | Parte da NF que esta quitação extinguiu | A soma das quitações nunca passa do valor da NF (R4). **Primeira entrega: uma quitação por terceiro por obrigação**, além dos pagamentos da igreja, que já podem ser vários |
+| **Histórico** | Mudança de intenção ou de responsável **acrescenta**, não apaga | Com motivo, quem e quando. Depois de Enviada, só por reabertura (R7) |
+
+**Cancelamento** (NF cancelada pelo emitente) **não é quitação**: ninguém quitou, a obrigação deixou de existir. É um **desfecho separado**, com a prova de cancelamento.
 
 ### 3.2 A linha do tempo da obrigação
 
@@ -129,9 +147,9 @@ Todo evento fica com **quem e quando**, no padrão da reabertura e da conta audi
 
 1. **Registro** da NF (e a avaliação automática de "a igreja é a compradora?").
 2. **Aprovação** (prévia ou posterior), ou recusa com motivo.
-3. **Quitação por terceiro** (data, valor, prova).
-4. **Declaração de intenção** (data, declarante, documento).
-5. **Liquidação do reembolso**, uma ou mais (dinheiro da igreja saindo para a pessoa).
+3. **Quitação** (responsável, data, valor, grau de prova do pagamento).
+4. **Declaração da intenção** (data, declarante, registrador, documento, grau de prova).
+5. **Liquidação do reembolso**, uma ou mais (dinheiro da igreja saindo para o terceiro). É uma **segunda camada**, distinta da quitação: a quitação extingue a dívida com o emitente; a liquidação extingue a dívida com o terceiro.
 6. **Conferência** humana.
 7. **Aviso de extinção** e **envio** no malote.
 8. **Reabertura** auditada, se houver.
@@ -150,6 +168,84 @@ Vale para **todo bem durável**, qualquer que seja o caminho: comprado e pago pe
 - Obrigação **0..1** Declaração de intenção, **0..N** Adiantamentos compensados, **0..1** Ficha do Bem.
 - Doação direta **1 : N** Documentos, **0..1** Ficha do Bem, **0..N** Movimentos de estoque.
 
+### 3.6 Suficiência da prova: quando o grau Relatado basta
+
+**Princípio.** "Relatado" não é aceitável nem inaceitável por si. Depende do que está em jogo. Por isso a regra **não pode ser o valor**: R$ 40 de reembolso são dinheiro saindo da igreja; R$ 400 de consumo ofertado por quem está fora do circuito não mexem em caixa nenhum.
+
+**Como funciona.** A quitação (os dois fatos, avaliados pelo mais fraco dos dois graus) recebe um **nível de risco** (Baixo, Médio ou Alto), dado por **quatro eixos**. **O pior eixo manda.** Depois, os moduladores podem subir o nível. **O valor nunca rebaixa o risco: só pode elevá-lo.**
+
+#### Eixo 1: natureza da operação (o que a intenção faz acontecer)
+
+| Nível | Quando |
+|---|---|
+| **Baixo** | Oferta de material de consumo ou serviço, sem destinação patrimonial |
+| **Médio** | Oferta com condição, destinação restrita (campanha, ação social, fundo restrito) ou que gera declaração de recebimento ao doador |
+| **Alto** | **Reembolso** (dinheiro da igreja vai sair) · qualquer operação que **altera competência já Enviada ou Arquivada** · Compensação de adiantamento (esta nunca aceita Relatado) |
+
+#### Eixo 2: patrimônio
+
+| Nível | Quando |
+|---|---|
+| **Baixo** | Não gera ativo (consumo, serviço, despesa corrente) |
+| **Médio** | Bem durável abaixo do limite de capitalização (vai à Ficha do Bem, sem capitalização) **[confirmar o limite com o escritório]** |
+| **Alto** | Bem durável acima do limite · veículo, imóvel ou bem registrável · bem com encargo ou restrição · qualquer coisa que aumente patrimônio social ou fundo |
+
+#### Eixo 3: lastro de nota fiscal
+
+| Nível | Quando |
+|---|---|
+| **Baixo** | NF-e ou NFS-e no CNPJ da igreja, com chave de acesso conferida e valor igual ao quitado |
+| **Médio** | Documento fiscal no CNPJ sem chave, cupom com CNPJ legível, ou **divergência** entre o valor da NF e o valor quitado |
+| **Alto** | Sem documento fiscal no CNPJ da igreja (a obrigação vem de contratação formal prévia, sem NF ainda) · documento ilegível, rasurado ou em nome diferente |
+
+#### Eixo 4: risco da relação (quem é o terceiro)
+
+| Nível | Quando |
+|---|---|
+| **Baixo** | Pessoa fora do circuito da operação, sem interesse econômico na igreja |
+| **Médio** | Ministro, diretor ou membro de conselho **fora** do circuito desta operação · Entidade ligada à igreja (convenção, associação) · terceiro com intenção alterada recentemente |
+| **Alto** | Terceiro **participa do circuito** da operação (aprova, registra, concilia ou paga) · **Empresa** fornecedora, prestadora ou locatária da igreja, ou que recebe pagamentos regulares dela · terceiro que pede recibo com efeito fiscal · parentesco declarado com quem aprova |
+
+#### Moduladores (cada um sobe um nível, no máximo dois níveis ao todo)
+
+| # | Modulador | Parâmetro sugerido |
+|---|---|---|
+| **M1** | Intenção **declarada depois** do prazo contado do pagamento | 30 dias |
+| **M2** | Valor da operação acima do **teto 1** | R$ 500,00 |
+| **M3** | Valor acumulado do mesmo terceiro no ano acima do teto anual, ou 3 ou mais operações Relatadas do mesmo terceiro no trimestre | R$ 2.000,00 e 3 |
+| **M4** | Mês de competência com **fechamento já aprovado** | n/a |
+
+#### O que cada nível significa para o grau Relatado
+
+| Nível | O Relatado vale? | Fila | Bloqueia malote e fechamento? | No malote |
+|---|---|---|---|---|
+| **Baixo** | **Sim.** Avança normalmente | Formalização **recomendada**, com prazo (sugestão: 30 dias) | Não | Vai Pronto, com selo **"Relatado"** e nota "formalização pendente" |
+| **Médio** | **Só com aprovação do Administrador**, com motivo registrado | **Formalizar** | **Sim, até a aprovação.** Aprovado, não bloqueia | Vai Pronto, com selo e nota |
+| **Alto** | **Não.** Exige grau **Formal** | **Formalizar** | **Sim** | Não vai |
+
+**Formalização vencida sobe um nível.** Passado o prazo sem o documento assinado, o item sobe um nível: o que era Baixo passa a exigir aprovação do Administrador; o que era Médio passa a exigir Formal. O tempo não "regulariza" nada.
+
+#### Regras duras (que a matriz já produz, ditas à parte para não haver dúvida)
+
+1. **Reembolso nunca é pago com base em Relatado.** O eixo 1 o coloca em Alto: dinheiro da igreja só sai com a intenção **Formal**.
+2. **Compensação de adiantamento não aceita Relatado.** Sua prova é o vínculo explícito com o adiantamento.
+3. **Se o grau do responsável (quem pagou) for "Nenhum", a quitação nunca é suficiente**, qualquer que seja o nível.
+4. **"Não declarada" não é Relatado: é Nenhum.** Vai para a fila A esclarecer.
+5. **Converter oferta em reembolso depois do fato** exige grau Formal, qualquer que seja o nível.
+
+#### Exemplos de leitura (ilustrativos, não são regra)
+
+| Situação | Eixos (natureza · patrimônio · NF · relação) | Resultado |
+|---|---|---|
+| Consumo de R$ 60, NF com chave, terceiro fora do circuito, oferta relatada na hora | Baixo · Baixo · Baixo · Baixo | **Baixo.** Relatado vale; formalizar em até 30 dias |
+| A mesma compra, mas o terceiro é quem **aprova** | Baixo · Baixo · Baixo · **Alto** | **Alto.** Exige Formal |
+| Cabo de R$ 90 que vai à Ficha do Bem, NF com chave | Baixo · **Médio** · Baixo · Baixo | **Médio.** Relatado só com aprovação do Administrador |
+| Oferta de R$ 50 de uma **empresa fornecedora** da igreja | Baixo · Baixo · Baixo · **Alto** | **Alto.** O valor baixo não salva |
+| Reembolso de R$ 40, relatado | **Alto** · Baixo · Baixo · Baixo | **Alto.** Exige Formal |
+| D Flesh (NF 25597, R$ 137,28): oferta relatada pelo Pr. Patrick, declarada ~2 anos depois | Baixo · Baixo · Médio (chave ainda pendente) · a conferir | **Mínimo Médio** (M1 sobe um nível). Se o Pr. Patrick estiver no circuito de aprovação, **Alto**. O termo assinado já prometido ao escritório resolve de vez |
+
+**Parametrização.** Tetos, prazos, limite de capitalização e a lista de "circuito" são **parâmetros** do Administrador, definidos com o escritório **[confirmar]**. Toda mudança de parâmetro é auditada e **não reclassifica retroativamente** itens já Enviados.
+
 ---
 
 ## 4. Estados e transições
@@ -158,16 +254,22 @@ Vale para **todo bem durável**, qualquer que seja o caminho: comprado e pago pe
 
 Os **8 estados aprovados não mudam de nome nem de ordem.** O que muda é o **significado de "Pagamento Realizado"**: passa a ser "obrigação extinta", seja qual for o meio. O estado continua **derivado dos fatos**, como hoje.
 
-### 4.2 Que estados cada extinção percorre
+### 4.2 Que estados cada quitação percorre
 
-| Extinção | Prevista | Em Aberto | Pagamento Realizado | Aguardando Conciliação | Conciliada | **Conferida** | Pronta | Enviada | Arquivada |
-|---|---|---|---|---|---|---|---|---|---|
-| **Pago pela igreja** | sim | sim | sim | só conta com extrato | só conta com extrato | conta sem extrato | sim | sim | sim |
-| **Terceiro com reembolso** | não | **sim, até pagar** (credor = pessoa) | quando a igreja reembolsa | só se o reembolso foi pelo banco | só se bancário | se o reembolso foi em espécie | sim | sim | sim |
-| **Terceiro como oferta** | não | **só até a declaração** | **no ato da declaração** (rótulo "Quitada por terceiro") | **nunca** | **nunca** | **sempre** | sim | sim | sim |
-| **Compensado por adiantamento** | não | sim | quando a NF compensa | herdada do adiantamento | herdada | quando for o caso | sim | sim | sim |
-| **Cancelado** | não | sim | não | não | não | não | não vai ao malote regular | só como registro | sim |
-| **A esclarecer** | não | **sim, bloqueado** | não | não | não | não | **não pode** | não | não |
+Em vez de uma matriz por forma de extinção, **uma regra e uma tabela curta**, ambas geradas pelo par (responsável, intenção):
+
+> **Os estados bancários (Aguardando Conciliação, Conciliada) só existem quando a igreja mexeu em conta. Se não mexeu, a quitação termina em Conferida.**
+
+| Responsável · Intenção | Estado em que fica | Quando avança |
+|---|---|---|
+| **Igreja** · n/a | Fluxo de hoje: Em Aberto → Pagamento Realizado → Aguardando Conciliação → Conciliada (conta com extrato) ou Conferida (conta sem extrato) → Pronta → Enviada → Arquivada | Como hoje |
+| **Terceiro** · Reembolso | **Em Aberto** (indicador "Reembolso a pagar"; credor = o terceiro) | **Pagamento Realizado** quando a igreja reembolsa; depois, Conciliada (reembolso pelo banco) ou Conferida (em espécie) |
+| **Terceiro** · Oferta | Em Aberto só até a declaração | **Pagamento Realizado** no ato da declaração (rótulo "Quitada por terceiro") → **Conferida** (nunca Conciliada) → Pronta |
+| **Terceiro** · Compensação de adiantamento | Em Aberto até o vínculo | **Pagamento Realizado** quando a NF compensa o adiantamento → Conferida (ou herda a conciliação do adiantamento) → Pronta |
+| **Terceiro** · Não declarada | **Em Aberto, bloqueado** (fila A esclarecer) | Não avança até a intenção ser declarada |
+| **Terceiro** · intenção declarada, prova **insuficiente** pela matriz 3.6 | Em Aberto, bloqueado (fila Formalizar) | Quando houver documento Formal, ou aprovação do Administrador no nível Médio |
+| **Não localizado** · n/a | Em Aberto (envelhecida; fila Investigar) | Quando alguém identificar o responsável |
+| **Desfecho Cancelada** | Cancelada (com prova) | Não vai ao malote regular; só como registro |
 
 ### 4.3 A regra de ouro da conferência
 
@@ -175,10 +277,22 @@ Os **8 estados aprovados não mudam de nome nem de ordem.** O que muda é o **si
 
 ### 4.4 Indicadores (não são estados novos)
 
+São também as **quatro filas de pendência** do modelo, cada uma respondendo a uma pergunta:
+
+| Fila | Condição | A pergunta | Bloqueia fechamento e malote? |
+|---|---|---|---|
+| **Investigar** | Responsável = Não localizado | Quem pagou? | Não por si (é conta em aberto), mas aparece no relatório de pendências e envelhece |
+| **A esclarecer** | Terceiro identificado, intenção Não declarada | Qual era a intenção? | **Sim** |
+| **Formalizar** | Intenção declarada, mas prova insuficiente pela matriz 3.6 (ou formalização vencida) | Falta o documento assinado, ou a aprovação do Administrador? | **Sim** |
+| **Reembolso a pagar** | Intenção = Reembolso Formal, sem liquidação completa | Quando a igreja paga? | Não (dívida legítima); vai ao malote como informativo |
+
 | Indicador | Aparece quando |
 |---|---|
-| **Reembolso a pagar** | Em Aberto com credor = pessoa |
-| **A esclarecer** | Pagador pessoa sem declaração |
+| **Reembolso a pagar** | Em Aberto com credor = o terceiro |
+| **A esclarecer** | Terceiro identificado sem intenção declarada |
+| **Formalizar** | Prova insuficiente ou formalização vencida |
+| **Investigar** | Responsável = Não localizado |
+| **Relatado** | Quitação aceita com grau Relatado (selo visível no malote) |
 | **Atrasada** | Passou do vencimento (regra atual) ou do prazo de reembolso |
 | **Adiantamento vencido** | Prestação de contas fora do prazo |
 | **Sem documento** | Falta documento exigido (visível antes do malote) |
@@ -186,7 +300,7 @@ Os **8 estados aprovados não mudam de nome nem de ordem.** O que muda é o **si
 ### 4.5 Guardas
 
 1. **Não chega a Pronta** sem o documento exigido do cenário **e** a conferência.
-2. **A esclarecer não fecha o mês** para itens com data a partir da vigência (seção 9, R14).
+2. **As filas A esclarecer e Formalizar não deixam fechar o mês** para itens com data a partir da vigência (seção 9, R14).
 3. **Depois de Enviada**, a intenção e a forma de extinção ficam congeladas; mudar exige **reabertura auditada** (Administrador ou Tesouraria, com motivo).
 4. Congelamento estreito da Enviada: valor, data, categoria, centro, favorecido e documento principal já congelam hoje; **intenção** e **extinção** entram na lista.
 
@@ -241,11 +355,11 @@ Os tipos de anexo **já existentes** (nota fiscal, comprovante, boleto, fatura, 
 |---|---|---|---|---|
 | **Documento fiscal** (NF-e, NFS-e, cupom com CNPJ) | Emitente | CNPJ do destinatário = igreja, valor, data, chave de acesso quando houver | A, B, C (e pago pela igreja) | Grupo (existente) |
 | **Solicitação de Aprovação de Compra** (novo) | Solicitante | Objeto, valor estimado, fornecedor, centro de custo, justificativa, data | G; recomendada acima do teto 1 | Grupo |
-| **Pedido de Reembolso** (novo) | A pessoa | Nome, CPF, chave PIX, **lista das NFs** (número, emitente, valor), declaração de que pagou com recurso próprio e não recebeu outra restituição, data, assinatura | A | Grupo |
-| **Prova do pagamento do terceiro** (novo tipo) | O terceiro | Cupom, fatura do cartão ou comprovante PIX/TED mostrando valor e data | A, B, C | Grupo |
-| **Declaração de Intenção** (novo) | O terceiro | Declarante, CPF, NF(s), valor, **uma** das frases ("ofereço sem direito a reembolso" ou "solicito reembolso"), data, assinatura | B, C | Grupo |
+| **Declaração do Terceiro** (novo, **documento único**) | O terceiro (Pessoa, Empresa ou Entidade) | Declarante e documento (CPF ou CNPJ), NF(s), valor, data do pagamento, **uma** das frases ("ofereço sem direito a reembolso" ou "solicito reembolso"), data da declaração, assinatura. **Prova a Intenção** | A, B, C | Grupo |
+| **Pedido de Reembolso** (novo, é a **Declaração do Terceiro na versão reembolso**) | O terceiro | A Declaração do Terceiro acrescida de **chave PIX ou dados bancários**, **lista das NFs** (número, emitente, valor) e declaração de que pagou com recurso próprio e não recebeu outra restituição | A | Grupo |
+| **Prova do pagamento do terceiro** (novo tipo) | O terceiro | Cupom, fatura do cartão ou comprovante PIX/TED mostrando valor e data. **Prova o Responsável** (grau Formal) | A, B, C | Grupo |
 | **Comprovante do reembolso** (existente) | Banco ou recibo assinado (se espécie) | Valor, data, favorecido | A | **Linha** da liquidação |
-| **Declaração de Doação de Consumo** (novo) | O doador | Doador, itens e quantidades, valor justo e base, data, destino, aceite da igreja | E | Doação direta |
+| **Declaração de Doação de Consumo** (novo, **mesmo componente da Declaração do Terceiro**, com lista de itens) | O doador | Doador, itens e quantidades, valor justo e base, data, destino, aceite da igreja | E | Doação direta |
 | **Termo de Doação Patrimonial** (novo) | Doador e igreja | Descrição, série, estado, valor justo e base (NF original, avaliação ou pesquisa de preço), condições ou restrições, data, assinaturas, foto | D | Doação direta |
 | **Termo de Adesão ao Serviço Voluntário** (novo) | Voluntário e igreja | Objeto, período, gratuidade, ausência de vínculo, assinaturas (Lei 9.608/1998) | F | Doação direta |
 | **Registro do serviço prestado** (novo) | Tesouraria ou responsável | Descrição, data, horas, local | F | Doação direta |
@@ -254,19 +368,21 @@ Os tipos de anexo **já existentes** (nota fiscal, comprovante, boleto, fatura, 
 | **Termo de Prestação de Contas** (novo) | A pessoa | NFs que comprovam o adiantamento, saldo devolvido ou descontado | Adiantamento | Grupo |
 | **Ficha do Bem** (gerada pelo sistema) | App | Dados da seção 3.4, a partir do termo ou da NF | D e bem durável em A, B, C | Ficha |
 
-### 6.1 Níveis de prova (para valores pequenos)
+### 6.1 Quanto de prova basta
 
-| Valor | Prova mínima recomendada |
-|---|---|
-| Até o **limite pequeno** (decisão 1) | Declaração simples (texto com nome, CPF, valor, data) |
-| Acima | Documento completo, assinado |
-| Qualquer valor com NF no CNPJ da igreja | A NF **já prova a compra**; a declaração prova só a **intenção** |
+**Não depende só do valor.** A suficiência do grau **Relatado** é decidida pela **Matriz de suficiência da prova** (seção 3.6): natureza da operação, patrimônio, lastro de NF e risco da relação, com o valor apenas como modulador que sobe o nível, nunca que o reduz.
+
+Em todos os casos, vale que a **NF no CNPJ da igreja já prova a compra**; a Declaração do Terceiro prova só a **intenção**, e a prova do pagamento do terceiro prova o **responsável**.
+
+Quando a matriz aceita o grau Relatado, o documento exigido pode ser **declaração simples** (texto com nome, CPF ou CNPJ, valor e data, registrado pela Tesouraria), com a Declaração do Terceiro assinada como **formalização recomendada** dentro do prazo.
 
 ---
 
 ## 7. Os seis cenários
 
 > **Convenção:** "o app" é o DiakoniaApp; "contabilidade" é o escritório. As sugestões de lançamento são **informativas**: o escritório decide a conta.
+>
+> **Em termos da Quitação:** o Cenário A é **Responsável = Terceiro, Intenção = Reembolso**; o B é **Terceiro + Oferta**; o C é **Terceiro + Não declarada** (até alguém declarar, quando vira A ou B). O "Pedido de Reembolso" e a "Declaração de Intenção" citados abaixo são a **Declaração do Terceiro** (versão reembolso e versão oferta). Em todos, o grau de prova é medido pela matriz da seção 3.6.
 
 ### Cenário A: compra com reembolso
 
@@ -278,7 +394,7 @@ Os tipos de anexo **já existentes** (nota fiscal, comprovante, boleto, fatura, 
 |---|---|---|---|
 | 1 | Pastor | Compra com dinheiro próprio e entrega a NF, a prova do pagamento e, se houver, o Pedido de Reembolso | n/a |
 | 2 | Tesouraria | Registra a NF. O app lê o destinatário: **CNPJ da igreja ⇒ a igreja é a compradora** | **Em Aberto**, credor = emitente |
-| 3 | Tesouraria | Registra "**pagador = pessoa**" e "**intenção = reembolso**", com o Pedido de Reembolso | Em Aberto, credor = **pessoa** (**surge a dívida com a pessoa**) |
+| 3 | Tesouraria | Registra **Responsável = o terceiro** (Pessoa, Empresa ou Entidade) e **Intenção = Reembolso**, com o Pedido de Reembolso. **O reembolso exige grau Formal** (a matriz o coloca em Alto): sem o documento assinado, o item fica na fila Formalizar | Em Aberto, credor = **o terceiro** (**surge a dívida com o terceiro**) |
 | 4 | Aprovador | Aprova, recusa (5.4) ou pede ajuste. Sem alçada, a Tesouraria aprova | Em Aberto, "Reembolso a pagar" |
 | 5 | Tesouraria | **Aviso de extinção** no malote da competência (seção 10) | Em Aberto |
 | 6 | Tesouraria | Paga a pessoa: **liquidação** (PIX, TED ou espécie), parcial ou total | **Pagamento Realizado** |
@@ -326,7 +442,7 @@ Duas etapas (seção 10): o **Aviso de extinção** (NF, prova do pagamento do p
 |---|---|---|---|
 | 1 | Pastor | Entrega a NF, a prova do pagamento e a **Declaração de Intenção** ("ofereço sem direito a reembolso") | n/a |
 | 2 | Tesouraria | Registra a NF; a igreja é a compradora | **Em Aberto** (credor = emitente) |
-| 3 | Tesouraria | Registra "pagador = pessoa", "intenção = **oferta**", com a declaração | Credor = nenhum. **A obrigação se extingue** |
+| 3 | Tesouraria | Registra **Responsável = o terceiro** e **Intenção = Oferta**, com a declaração. A matriz (3.6) decide se o grau **Relatado** basta ou se exige **Formal** | Credor = nenhum. **A obrigação se extingue** (se a prova for suficiente) |
 | 4 | Sistema | Extinção por terceiro, sem conta | **Pagamento Realizado** (rótulo "Quitada por terceiro") |
 | 5 | Tesouraria | **Confere** (não há extrato) | **Conferida** |
 | 6 | Sistema | Documentos completos | **Pronta para Malote** |
@@ -370,11 +486,12 @@ Uma etapa, na competência: NF, Declaração de Intenção, prova do pagamento d
 #### Como registrar a intenção
 Pela mesma Declaração de Intenção. Se o membro **não pode ser localizado**, a intenção continua **A esclarecer**: o Administrador decide uma das três saídas da seção 5.4. **Nunca** se escolhe oferta por conveniência.
 
-#### A fila "A esclarecer"
-- Lista **única**, ordenada pela idade da NF.
-- Mostra: emitente, valor, data, quem a igreja acha que pagou, o que falta.
-- Tem **dono** (Tesouraria) e **alerta** de prazo.
-- **Bloqueia** o fechamento do mês para NFs a partir da vigência.
+#### As filas deste cenário
+O Cenário C deixa de ser um caso à parte: é o estado **"Intenção = Não declarada"**. Há duas filas possíveis, conforme o que se sabe:
+- **A esclarecer:** sabe-se quem pagou, não a intenção.
+- **Investigar:** não se sabe nem quem pagou (Responsável = Não localizado). É o caso das **13 NFs sem rastro**.
+
+Ambas: lista ordenada pela idade da NF; mostram emitente, valor, data, quem a igreja acha que pagou e o que falta; têm **dono** (Tesouraria) e **alerta** de prazo. **A esclarecer bloqueia** o fechamento e o malote para NFs a partir da vigência; Investigar aparece no relatório de pendências e envelhece.
 
 #### Como extingue
 Só depois da declaração, e o caminho é o de A (credor passa a ser a pessoa) ou o de B (extinta no ato).
@@ -505,8 +622,8 @@ Dinheiro da igreja entregue a uma pessoa **antes** da NF. É **fato financeiro s
 
 | # | Regra |
 |---|---|
-| **R1** | **A intenção nunca se presume.** Sem declaração formal, a situação é "A esclarecer". Vale para todo terceiro que pagou. |
-| **R2** | **Prazo de esclarecimento.** Alerta depois de N dias da NF (decisão 5). A fila "A esclarecer" nunca some sozinha. |
+| **R1** | **A intenção nunca se presume.** Sem declaração, a Intenção é "Não declarada" e a situação é "A esclarecer". Vale para todo terceiro que pagou (Pessoa, Empresa ou Entidade). Propriedade do fato, não regra de tela. |
+| **R2** | **Prazo de esclarecimento.** Alerta depois de N dias da NF (decisão 5). As filas A esclarecer, Formalizar e Investigar nunca somem sozinhas. |
 | **R3** | **Segregação de funções.** Quem aprova não é o favorecido. Quem paga prefere ser diferente de quem aprova. |
 | **R4** | **Valor da NF e valor quitado.** O reembolso nunca passa do valor da NF. O excedente exige declaração de oferta ou devolução. |
 | **R5** | **Duplicidade.** A mesma NF (pela chave de acesso ou por emitente, número e valor) não entra duas vezes. O mesmo comprovante de reembolso não paga duas NFs. |
@@ -520,6 +637,10 @@ Dinheiro da igreja entregue a uma pessoa **antes** da NF. É **fato financeiro s
 | **R13** | **Proibição do fluxo fictício.** Nenhuma operação deste modelo cria **entrada, transferência ou saída** para representar um fato sem dinheiro. **Entrada em espécie exige contagem do envelope** (Caixa de Envelopes). **Transferência só entre contas reais.** O sistema **detecta o padrão antigo** (entrada em ofertas, transferência e saída de mesmo valor no mesmo período) e avisa. |
 | **R14** | **Vigência.** Os bloqueios (a esclarecer, documento, adiantamento vencido) valem para NFs a partir da **data de entrada em produção**. O histórico anterior segue a regularização (seção 15, fase 7). |
 | **R15** | **Nada se reescreve em silêncio.** Qualquer correção do passado é auditada (padrão da reabertura e da conta auditada). |
+| **R16** | **O grau Relatado só vale se a matriz da seção 3.6 o aceitar.** A decisão pesa natureza da operação, patrimônio, lastro de NF e risco da relação; o pior eixo manda; o valor só eleva o risco, nunca o reduz. Formalização vencida sobe um nível. |
+| **R17** | **Reembolso nunca é pago com base em Relatado.** Dinheiro da igreja só sai com intenção Formal. Compensação de adiantamento também não aceita Relatado. |
+| **R18** | **Quem declara não é quem registra.** O declarante é sempre o terceiro; a Tesouraria registra. O terceiro não pode aprovar nem registrar a própria quitação. |
+| **R19** | **Responsável é sempre um cadastro** (Pessoa, Empresa ou Entidade), nunca texto livre. Empresa e Entidade exigem CNPJ. |
 
 ---
 
@@ -555,7 +676,9 @@ Entre as duas, a obrigação aparece no malote como **"obrigação com pessoa em
 | **F: serviço gratuito** | Termo de adesão, registro do serviço, base do valor (nível 1) | **Serviços voluntários** | Mês do serviço |
 | **Compensado por adiantamento** | NF, Termo de Prestação de Contas, referência ao adiantamento | Adiantamentos | Mês da prestação |
 | **Cancelado** | NF, prova do cancelamento | **NFs canceladas** | Mês do cancelamento |
-| **A esclarecer** | **Nada** (não está pronto) | Relatório de pendências | Lista informativa mensal |
+| **A esclarecer / Formalizar** | **Nada** (não está pronto) | Relatório de pendências | Lista informativa mensal |
+| **Investigar** (Responsável = Não localizado) | **Nada** (conta em aberto) | Relatório de pendências | Lista informativa mensal, com a idade da NF |
+| **Quitação aceita com grau Relatado** (níveis Baixo e Médio aprovado) | Os do cenário, **com selo "Relatado"** e nota "formalização pendente" | A do cenário | Na competência; a formalização posterior segue em complemento |
 
 ### 10.4 O que não muda
 Lote mensal, **Enviar Malote** captura as Prontas do mês naquele momento, Enviada congela só os campos já definidos, **Arquivada** exige fechamento aprovado, mês antigo não vira Enviado automaticamente, reabertura só Administrador e Tesouraria com motivo.
@@ -586,7 +709,7 @@ Lote mensal, **Enviar Malote** captura as Prontas do mês naquele momento, Envia
 
 | Parte do sistema | Já existe | Reutilizar | **Criar** | **Alterar** |
 |---|---|---|---|---|
-| **Obrigação** (`obrigacao_id`, grupo, parcelas) | Sim (D1) | Identidade e documentos do grupo | Atributos: comprador, natureza do item, pagador, intenção, extinção, credor atual | Nada na identidade |
+| **Obrigação** (`obrigacao_id`, grupo, parcelas) | Sim (D1) | Identidade e documentos do grupo | Fatos: comprador, natureza do item, **Quitação** (responsável, intenção, grau de prova, histórico) e aprovação. Extinção e credor atual são **derivados** | Nada na identidade |
 | **Ciclo e estados** (view e biblioteca) | Sim (8 estados, derivação por fatos) | Todos os estados e a lógica de derivação | Indicadores (reembolso a pagar, a esclarecer, adiantamento vencido) | O significado de "Pagamento Realizado" (extinção); "Conferida" para extinção não bancária |
 | **Lançamento realizado e saldo** | Sim: realizado exige conta e mexe no saldo | Tudo, para o que é dinheiro | — | **Ponto central:** a extinção por terceiro **não pode exigir conta nem mexer em saldo.** É a maior alteração; a forma técnica será decidida no desenho técnico, e este requisito é inegociável |
 | **Aprovação** (`aguardando_aprovacao`, aprovar e rejeitar) | Sim, mas **aprovar = pagar** | O conceito e a fila "Aprovar pendências" | Decisão registrada: quem, quando, motivo, sem pagar | **Separar aprovação de pagamento** |
@@ -594,7 +717,8 @@ Lote mensal, **Enviar Malote** captura as Prontas do mês naquele momento, Envia
 | **Extrato, OFX, PDF, vínculo único** | Sim (D4) | Integral | — | Nada |
 | **Conciliada × Conferida** | Sim | Integral | — | Nada na definição |
 | **Anexos e documentos** | Sim (tipos, dispensa, documento do grupo e comprovante da linha) | Tipos atuais e as regras de grupo e linha | **Tipos novos** (6.): declaração, pedido, termos, registros, prova de cancelamento, termo de prestação | Regra de "documento exigido" por cenário |
-| **Favorecido e Pessoas** | Sim (favorecido ligado a Pessoas; chave PIX da pessoa) | Pessoa como pagador, doador e beneficiário | O papel de **credor atual** | O pagamento do reembolso usa a Pessoa, não o emitente |
+| **Favorecido e Pessoas** | Sim (favorecido ligado a Pessoas, com CNPJ/CPF; chave PIX da pessoa) | Pessoa como responsável, doador e beneficiário; Favorecido com CNPJ para **Empresa** e **Entidade** | O papel de **credor atual** (derivado) e o vínculo "responsável pela quitação" | O pagamento do reembolso usa o terceiro, não o emitente |
+| **Matriz de suficiência da prova** | Não existe | Parâmetros e auditoria no padrão da conta auditada | **Matriz 3.6**: eixos, moduladores, tetos e prazos parametrizáveis; selo "Relatado" | — |
 | **Mesa de Operações e Contas a pagar** | Sim | Estrutura e filtros | **Filas**: reembolsos a pagar, a esclarecer, adiantamentos a prestar contas | — |
 | **Malote** (lote, Enviada, Arquivada, reabertura, congelamento) | Sim (D6) | Integral | **Aviso de extinção**, pastas novas, relatório de pendências | Lista de campos congelados inclui intenção e extinção |
 | **Estoque** (itens e movimentos) | Sim | Movimentos | Entrada "por doação" sem valor financeiro | — |
@@ -630,7 +754,12 @@ Lote mensal, **Enviar Malote** captura as Prontas do mês naquele momento, Envia
 1. Nenhuma operação deste modelo cria entrada, transferência ou saída em conta.
 2. O saldo de qualquer conta só muda quando há liquidação com dinheiro da igreja.
 3. Toda NF com intenção não declarada aparece em "A esclarecer" e **não** chega a Pronta.
-4. Toda mudança de intenção ou de extinção fica com quem, quando e motivo.
+4. Toda mudança de intenção ou de responsável fica com quem, quando e motivo, **acrescentada ao histórico**, sem apagar a anterior.
+5. **Extinção, credor atual, estado, fila e pasta do malote são derivados** do par (responsável, intenção): não existe campo para editá-los diretamente.
+6. **Reembolso só é pago com intenção Formal.** Dado um reembolso com intenção em grau Relatado, quando se tenta pagar, então o app recusa e a NF vai para a fila Formalizar.
+7. **Dado o mesmo grau Relatado em situações diferentes, o resultado difere conforme a matriz.** Oferta de consumo de R$ 60 com NF e terceiro fora do circuito é aceita; a mesma oferta com o terceiro sendo quem aprova exige Formal; oferta de empresa fornecedora de R$ 50 exige Formal.
+8. **Formalização vencida sobe um nível** (Baixo passa a exigir o Administrador; Médio passa a exigir Formal).
+9. **O valor nunca rebaixa o nível.** Dado um item de valor baixo em eixo Alto, o nível é Alto.
 
 **Cenário A**
 - Dado uma NF no CNPJ da igreja paga por um pastor com pedido aprovado, quando a Tesouraria registra, então a obrigação fica Em Aberto com credor = pessoa e sem movimento de saldo.
@@ -662,9 +791,9 @@ Lote mensal, **Enviar Malote** captura as Prontas do mês naquele momento, Envia
 
 | # | Decisão | Quem | Recomendação padrão |
 |---|---|---|---|
-| 1 | **Limite pequeno** para declaração simples (sem termo) | Igreja | R$ 100,00 (parametrizável) |
+| 1 | **Parâmetros da Matriz de suficiência da prova** (seção 3.6): teto 1 (M2), prazo de declaração (M1), teto anual e quantidade (M3), limite de capitalização (eixo 2), quem compõe o "circuito" (eixo 4) e prazo de formalização | Igreja e escritório | Teto 1 de R$ 500,00; M1 de 30 dias; M3 de R$ 2.000,00 e 3 operações no trimestre; formalização em 30 dias; limite de capitalização **[confirmar]**. **Substitui o antigo "limite pequeno" de R$ 100**: o valor sozinho não decide mais |
 | 2 | **Trabalho voluntário**: nível 0, 1 ou 2 | Igreja e escritório | Nível 0 até o escritório decidir |
-| 3 | **Formalidade da declaração**: assinatura manuscrita (foto ou PDF), assinatura eletrônica externa, ou mensagem de WhatsApp com print | Igreja | Assinada (foto ou PDF); WhatsApp só até o limite pequeno |
+| 3 | **Formalidade da declaração**: assinatura manuscrita (foto ou PDF), assinatura eletrônica externa, ou mensagem de WhatsApp com print | Igreja | Assinada (foto ou PDF) para o grau Formal; mensagem de WhatsApp com print vale como **Relatado**, e só onde a matriz 3.6 aceitar esse grau |
 | 4 | **Alçadas**: teto 1 de reembolso e quem aprova acima | Igreja | Teto 1 de R$ 500,00; Administrador acima; nunca o próprio favorecido |
 | 5 | **Prazos**: esclarecimento de "a esclarecer", reembolso, prestação de contas | Igreja | 30 dias para esclarecer; 10 dias para reembolsar; 30 dias para prestar contas |
 | 6 | **Bem durável**: limite de capitalização; receita imediata ou diferida; quando vai a patrimônio social | Escritório | **[confirmar]** |
@@ -685,7 +814,7 @@ Só a ordem, as entregas e as dependências. Cada fase termina em algo verificá
 | Fase | Entrega | Depende de | O que **não** faz |
 |---|---|---|---|
 | **0** | Aprovação desta especificação e das decisões 1 a 13 (reunião com o escritório) | — | Nada no sistema |
-| **1** | **Guardas e "A esclarecer"**: fila, regra de intenção, aviso do padrão antigo (R13). Resolve as **13 NFs** | Fase 0 | Não muda saldo nem estados |
+| **1** | **Quitação como fato e as quatro filas**: responsável, intenção, grau de prova, matriz de suficiência, filas Investigar, A esclarecer, Formalizar e Reembolso a pagar, aviso do padrão antigo (R13). Dá nome às **13 NFs** | Fase 0 | Não muda saldo nem estados |
 | **2** | **Extinção por terceiro**: oferta e reembolso (declaração, aprovação separada do pagamento, sem conta) | Fase 1 | Não paga reembolso ainda |
 | **3** | **Liquidação do reembolso**: credor diferente do emitente, PIX da pessoa, várias NFs, parcial | Fase 2 | — |
 | **4** | **Doação direta** (consumo, bem, serviço), Ficha do Bem, estoque | Fase 0 | Não calcula depreciação |
@@ -699,7 +828,7 @@ Só a ordem, as entregas e as dependências. Cada fase termina em algo verificá
 
 > **Adotar o Modelo C: Aquisição, Extinção e Doação direta, sobre a obrigação que já existe.**
 
-**Em uma frase:** a igreja é a compradora quando há NF no CNPJ dela ou contratação prévia; então nasce **uma obrigação** que se extingue de cinco maneiras, e **só uma** dessas maneiras mexe no caixa; se a igreja não comprou, a doação **nasce já extinta**; e **a intenção do terceiro nunca se presume**.
+**Em uma frase:** a igreja é a compradora quando há NF no CNPJ dela ou contratação prévia; então nasce **uma obrigação** que responde a duas perguntas, **quem quitou** (Igreja, Pessoa, Empresa ou Entidade) e **por quê** (Reembolso, Oferta ou Compensação de adiantamento), cada uma com seu **grau de prova**; tudo o mais (extinção, credor, estado, fila, malote) é **consequência** desse par, e **só um dos resultados** mexe no caixa; se a igreja não comprou, a doação **nasce já extinta**; a intenção do terceiro **nunca se presume**; e o grau **Relatado** só vale quando a **matriz de suficiência** o aceita, nunca por causa só do valor.
 
 **Por que esta e não outra:**
 1. **Reaproveita quase tudo** (obrigação, 8 estados, liquidação, vínculo bancário, conferência, documentos, malote). A obra já feita é **completada**, não contornada.
