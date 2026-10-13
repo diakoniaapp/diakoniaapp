@@ -34,7 +34,7 @@ import {
 import { RecorrenciaForm } from "@/components/financas/RecorrenciaForm";
 import { ROTULO_LIQUIDACAO, normalizarLiquidacao } from "@/lib/formaLiquidacao";
 import { ResumoDaRecorrencia } from "@/components/financas/ResumoDaRecorrencia";
-import { gerarTodasAsRecorrencias } from "@/services/recorrenciaService";
+import { avisoDeJaPagas, gerarTodasAsRecorrencias } from "@/services/recorrenciaService";
 
 interface Props {
   open: boolean;
@@ -66,8 +66,10 @@ export function RecorrenciasDrawer({ open, onOpenChange }: Props) {
   async function gerarTodos() {
     setGerando(true);
     try {
-      const qtd = await gerarTodasAsRecorrencias();
-      toast.success(`${qtd} lançamento(s) previsto(s) gerado(s)`);
+      const { criados, jaPagas } = await gerarTodasAsRecorrencias();
+      toast.success(`${criados} lançamento(s) previsto(s) gerado(s)`);
+      const aviso = avisoDeJaPagas(jaPagas);
+      if (aviso) toast.warning(aviso, { duration: 12000 });
       await carregar();
     } catch (e: any) { toast.error(e?.message ?? "Erro"); }
     finally { setGerando(false); }

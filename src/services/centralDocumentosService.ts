@@ -16,6 +16,7 @@
 // de custo entra como uma extensão de `ResultadoCasamento`.
 
 import { supabase } from "@/integrations/supabase/client";
+import { documentosHerdados } from "@/services/grupoDaObrigacaoService";
 import { toYmd } from "@/lib/data";
 import { dispensaDocumento } from "@/lib/pacoteContabil";
 import type { LancamentoPool } from "@/lib/documentos/casamento";
@@ -81,6 +82,8 @@ export async function carregarCandidatos(): Promise<Candidatos> {
     anexosPorLancamento.set(a.lancamento_id, lista);
   }
   for (const l of lancs) if (l.comprovante_url) urlsReferenciadas.add(l.comprovante_url);
+  // o documento é da obrigação: a parcela de um pagamento parcial já tem o das irmãs e não precisa receber o mesmo boleto de novo
+  const herdados = await documentosHerdados(lancs.map(l => l.id));
 
   const pool: LancamentoPool[] = [];
   for (const l of lancs) {
@@ -96,7 +99,7 @@ export async function carregarCandidatos(): Promise<Candidatos> {
       contaNome: c?.nome ?? "",
       contaTipo: c?.tipo ?? "",
       status: l.status,
-      temAnexo: anexosPorLancamento.has(l.id),
+      temAnexo: anexosPorLancamento.has(l.id) || herdados.has(l.id),
       descricao: l.descricao,
       documentoNumero: l.documento_numero,
     });

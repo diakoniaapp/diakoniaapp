@@ -20,6 +20,7 @@
 // `lib/documentos/dossiePdf.ts` e as regras de ordem/nome, `dossie.ts`.
 
 import { supabase } from "@/integrations/supabase/client";
+import { documentosHerdados } from "@/services/grupoDaObrigacaoService";
 import { toYmd } from "@/lib/data";
 import {
   FIN_ANEXO_TIPO_LABEL, enriquecerLancamentos,
@@ -84,6 +85,11 @@ async function anexosDe(lancamentos: FinLancamentoExtenso[]): Promise<AnexoPacot
       .in("lancamento_id", ids.slice(i, i + TAMANHO_LOTE));
     if (error) throw error;
     anexos.push(...((data ?? []) as AnexoPacote[]));
+  }
+  // O DOCUMENTO pertence à obrigação: numa obrigação paga em parcelas (várias linhas), cada linha leva no dossiê os documentos das irmãs — senão a parcela
+  // aparece "sem documento" no pacote embora o boleto esteja anexado à linha original. O comprovante, não: cada pagamento prova o seu.
+  for (const [id, docs] of await documentosHerdados(ids)) {
+    for (const d of docs) anexos.push({ lancamento_id: id, tipo: d.tipo, url: d.url, nome: d.nome, enviado_em: d.enviado_em } as AnexoPacote);
   }
   // `comprovante_url`: o campo de 1 arquivo, anterior aos anexos N. Hoje 0 de
   // 13.378 lançamentos o usam, mas a tela ainda mostra o clipe pra quem o

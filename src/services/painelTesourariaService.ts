@@ -28,6 +28,7 @@
 // para a decisão de como ligar as duas.
 
 import { supabase } from "@/integrations/supabase/client";
+import { documentosHerdados } from "@/services/grupoDaObrigacaoService";
 import { hojeMaisDias, hojeLocal, daquiADias, toYmd } from "@/lib/data";
 import {
   listarLancamentos, listarLancamentosSemTeto, listarProximosVencimentos, alertasCentros,
@@ -301,6 +302,8 @@ export async function carregarMesaTesoureiro(): Promise<MesaTesoureiro> {
         .from("fin_lancamento_anexos").select("lancamento_id").in("lancamento_id", lote);
       ((data ?? []) as { lancamento_id: string }[]).forEach(a => comAnexo.add(a.lancamento_id));
     }
+    // a parcela de um pagamento parcial herda o documento das irmãs da mesma obrigação
+    for (const id of (await documentosHerdados(candidatos)).keys()) comAnexo.add(id);
     anexosFaltando = candidatos.filter(id => !comAnexo.has(id)).length;
   }
 

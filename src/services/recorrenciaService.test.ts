@@ -7,6 +7,7 @@ const inseridos: Record<string, unknown>[][] = [];
 const atualizacoes: { tabela: string; payload: unknown }[] = [];
 const consultas: Estado[] = [];
 let colunasAusentes: string[] = [];
+let pagamentosSoltos: Record<string, unknown>[] = [];   // o que a consulta de "pagamentos soltos" do gerador devolve (a única com .neq no filtro)
 
 function responder(e: Estado) {
   if (e.op === "insert") {
@@ -16,6 +17,7 @@ function responder(e: Estado) {
   }
   if (e.op === "update") { atualizacoes.push({ tabela: e.tabela, payload: e.payload }); return { data: [{ id: "x" }], error: null }; }
   if (!e.op) consultas.push(e);
+  if (!e.op && e.tabela === "fin_lancamentos" && e.filtros.some(([f]) => f === "neq")) return { data: pagamentosSoltos, error: null };
   // sondagem de coluna: select("recorrencia_id").limit(1)
   if (e.colunas && colunasAusentes.includes(e.colunas)) return { data: null, error: { code: "42703", message: `column ${e.colunas} does not exist` } };
   return { data: [], error: null };
@@ -42,7 +44,7 @@ vi.mock("@/integrations/supabase/client", () => ({
   },
 }));
 
-import { esquecerSondagem, gerarOcorrencias } from "./recorrenciaService";
+import { avisoDeJaPagas, esquecerSondagem, gerarOcorrencias } from "./recorrenciaService";
 import type { FinRecorrencia } from "@/services/finService";
 
 const carlos = {
@@ -53,7 +55,7 @@ const carlos = {
   forma_liquidacao: "manual", tipo_recorrencia: "parcelamento", total_parcelas: 12, parcela_inicial: 1,
 } as unknown as FinRecorrencia;
 
-beforeEach(() => { inseridos.length = 0; atualizacoes.length = 0; colunasAusentes = []; esquecerSondagem(); });
+beforeEach(() => { inseridos.length = 0; atualizacoes.length = 0; colunasAusentes = []; pagamentosSoltos = []; esquecerSondagem(); });
 
 describe("gerarOcorrencias — o caso dela", () => {
   it("12 parcelas a partir de 05/10/2026 viram 12 previstos até 05/09/2027, já com o favorecido e o modelo", async () => {
@@ -113,5 +115,38 @@ describe("dois contratos do mesmo favorecido (Verisure, 08/10/2026)", () => {
     expect(doLegado.every(c => c.filtros.some(([f, a]) => f === "is" && a[0] === "recorrencia_id" && a[1] === null))).toBe(true);
     // e a consulta pelo vínculo continua olhando só a própria recorrência
     expect(consultas.some(c => c.filtros.some(([f, a]) => f === "eq" && a[0] === "recorrencia_id" && a[1] === "rec-verisure-b"))).toBe(true);
+  });
+});
+
+// A porta do GERADOR (Fase A, 13/10/2026): a ocorrência de 05/10 foi gerada em 08/10, com o PIX de 02/10 já no extrato (caso Ana/Carlos/Denise).
+// O gerador continua criando a ocorrência — a ligação sempre pede um clique — mas AVISA que ela parece já paga.
+describe("gerarOcorrencias — ocorrência vencida que já tem pagamento", () => {
+  const pix = { id: "pix-02-10", data: "2026-10-02", data_pagamento: "2026-10-02", valor: 380, descricao: "PIX ENVIADO", origem: "importado_ofx", fornecedor_id: null, pessoa_id: "pessoa-carlos", conta_id: "bradesco" };
+
+  it("conta a ocorrência vencida que casa com um pagamento solto do mesmo favorecido — e cria todas, sem pular nenhuma", async () => {
+    pagamentosSoltos = [pix];
+    const r = await gerarOcorrencias(carlos, "2026-10-08");
+    expect(r.criados).toBe(12);
+    expect(r.jaPagas).toBe(1);
+  });
+
+  it("sem pagamento solto, nada a avisar", async () => {
+    expect((await gerarOcorrencias(carlos, "2026-10-08")).jaPagas).toBe(0);
+  });
+
+  it("ocorrências que ainda vão vencer não entram na conta (hoje antes do primeiro vencimento)", async () => {
+    pagamentosSoltos = [pix];
+    expect((await gerarOcorrencias(carlos, "2026-10-01")).jaPagas).toBe(0);
+  });
+
+  it("pagamento de outro valor muito diferente de um valor FIXO não é sugerido", async () => {
+    pagamentosSoltos = [{ ...pix, valor: 2000 }];
+    expect((await gerarOcorrencias(carlos, "2026-10-08")).jaPagas).toBe(0);
+  });
+
+  it("a frase do aviso: nada para zero, singular e plural", () => {
+    expect(avisoDeJaPagas(0)).toBeNull();
+    expect(avisoDeJaPagas(1)).toMatch(/^1 ocorrência gerada já venceu e parece já paga/);
+    expect(avisoDeJaPagas(3)).toMatch(/^3 ocorrências geradas já venceram e parecem já pagas/);
   });
 });

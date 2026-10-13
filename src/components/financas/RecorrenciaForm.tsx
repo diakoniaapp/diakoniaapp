@@ -24,7 +24,7 @@ import {
 import { CampoData } from "@/components/CampoData";
 import { SeletorFavorecido, type Favorecido, type SugestoesDoFavorecido } from "@/components/financas/SeletorFavorecido";
 import { calcularOcorrencias, dataFimReal, situacaoDaSerie, type TipoDeRecorrencia } from "@/lib/recorrencia";
-import { erroDaRecorrencia, gerarOcorrencias, propagarModelo } from "@/services/recorrenciaService";
+import { avisoDeJaPagas, erroDaRecorrencia, gerarOcorrencias, propagarModelo } from "@/services/recorrenciaService";
 import {
   FORMAS_LIQUIDACAO, ROTULO_LIQUIDACAO, DICA_LIQUIDACAO, normalizarLiquidacao, type FormaLiquidacao,
 } from "@/lib/formaLiquidacao";
@@ -227,6 +227,9 @@ export function RecorrenciaForm({ open, onOpenChange, recorrencia, onSaved }: Pr
           ? `${r.criados} lançamento(s) previsto(s) gerado(s) — a recorrência não tem data final: o sistema mantém os próximos 12 meses e renova sozinho`
           : `${r.criados} lançamento(s) previsto(s) gerado(s)${r.ultimaData ? ` — até ${r.ultimaData.slice(8, 10)}/${r.ultimaData.slice(5, 7)}/${r.ultimaData.slice(0, 4)}` : ""}`);
       }
+
+      const aviso = avisoDeJaPagas(r.jaPagas);
+      if (aviso) toast.warning(aviso, { duration: 12000 });
 
       // Dois contratos do mesmo favorecido com a MESMA descrição se confundem na Central de Pagamentos e na conciliação: sugerir um nome
       try {

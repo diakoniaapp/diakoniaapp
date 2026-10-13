@@ -34,3 +34,23 @@ export function origemDoAnexo(lancamentoId: string, atualId: string, parcelas: P
   const [, mes, dia] = p.data.split("-");
   return p.raiz ? "da obrigação" : `da parcela de ${dia}/${mes}`;
 }
+
+/**
+ * De uma lista de linhas com `obrigacao_id`, quem tem IRMÃS: cada linha de um grupo com mais de uma linha aponta para as outras. A raiz entra no grupo
+ * mesmo quando a consulta só trouxe as filhas (o `obrigacao_id` dela pode ser nulo). Linha sozinha não aparece no resultado.
+ */
+export function irmaosPorLinha(linhas: { id: string; obrigacao_id?: string | null }[]): Map<string, string[]> {
+  const grupos = new Map<string, Set<string>>();
+  for (const l of linhas) {
+    if (!l.obrigacao_id) continue;
+    const g = grupos.get(l.obrigacao_id) ?? new Set<string>([l.obrigacao_id]);
+    g.add(l.id);
+    grupos.set(l.obrigacao_id, g);
+  }
+  const irmaos = new Map<string, string[]>();
+  for (const g of grupos.values()) {
+    if (g.size < 2) continue;
+    for (const id of g) irmaos.set(id, [...g].filter(x => x !== id));
+  }
+  return irmaos;
+}

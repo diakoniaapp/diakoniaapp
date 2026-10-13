@@ -46,7 +46,8 @@ export async function carregarDetalhesDaDespesa(l: FinLancamentoExtenso): Promis
   const parcelas = parcelasDoGrupo(grupo, l.id, raiz);
   const comprovanteAntigo = l.comprovante_url ?? grupo.find(x => x.comprovante_url)?.comprovante_url ?? null;
   const ultimo = (extrato.data ?? [])[0];
-  const temComprovante = !!comprovanteAntigo || anexos.some(a => a.tipo === "comprovante");
+  // o DOCUMENTO é da obrigação (vale o de qualquer linha do grupo); o COMPROVANTE é do pagamento (só o desta linha)
+  const temComprovante = !!l.comprovante_url || anexos.some(a => a.tipo === "comprovante" && a.lancamento_id === l.id);
   const temDocumento = anexos.some(a => a.tipo !== "comprovante");
   const ciclo = cicloDaDespesa({
     tipo: l.tipo, status: l.status, data: String(l.data).slice(0, 10), data_pagamento: l.data_pagamento, observacoes: l.observacoes, contaTipo,

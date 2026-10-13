@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { origemDoAnexo, parcelasDoGrupo, raizDaObrigacao } from "./grupoDaObrigacao";
+import { irmaosPorLinha, origemDoAnexo, parcelasDoGrupo, raizDaObrigacao } from "./grupoDaObrigacao";
 
 // O caso real (Denise, 10/2026): obrigação de R$ 1.438; a raiz foi paga com R$ 1.358 pelo PIX de 02/10 e os R$ 80 restantes saíram depois
 const RAIZ = { id: "raiz", obrigacao_id: "raiz", data: "2026-10-05", data_pagamento: "2026-10-02", status: "conciliado", valor: 1358 };
@@ -31,5 +31,24 @@ describe("grupo da obrigação", () => {
     expect(origemDoAnexo("resto", "raiz", grupo)).toBe("da parcela de 08/10");
     expect(origemDoAnexo("raiz", "raiz", parcelasDoGrupo([RAIZ], "raiz", "raiz"))).toBeNull();
     expect(origemDoAnexo("outra", "raiz", grupo)).toBeNull();
+  });
+});
+
+describe("irmaosPorLinha", () => {
+  it("o grupo da Denise: a raiz e o resto se enxergam; linha sozinha não aparece", () => {
+    const m = irmaosPorLinha([
+      { id: "raiz", obrigacao_id: "raiz" }, { id: "resto", obrigacao_id: "raiz" },
+      { id: "sozinha", obrigacao_id: "sozinha" }, { id: "sem", obrigacao_id: null },
+    ]);
+    expect(m.get("raiz")).toEqual(["resto"]);
+    expect(m.get("resto")).toEqual(["raiz"]);
+    expect(m.has("sozinha")).toBe(false);
+    expect(m.has("sem")).toBe(false);
+  });
+
+  it("a raiz entra no grupo mesmo quando só as filhas foram consultadas; três linhas se veem duas a duas", () => {
+    const m = irmaosPorLinha([{ id: "a", obrigacao_id: "raiz" }, { id: "b", obrigacao_id: "raiz" }]);
+    expect(m.get("raiz")!.sort()).toEqual(["a", "b"]);
+    expect(m.get("a")!.sort()).toEqual(["b", "raiz"]);
   });
 });

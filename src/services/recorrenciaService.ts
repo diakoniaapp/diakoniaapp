@@ -18,6 +18,8 @@ import { hojeLocal } from "@/lib/data";
 import { dataFimReal, ocorrenciasAGerar, precisaRenovar, rotuloDaParcela, type ParametrosDaSerie, type Ocorrencia } from "@/lib/recorrencia";
 import { resumirHabitos, PAGAMENTOS_PARA_HABITO, type HabitosDoFavorecido, type PagamentoDoHistorico } from "@/lib/habitosDoFavorecido";
 import { normalizarLiquidacao } from "@/lib/formaLiquidacao";
+import { DIAS_ANTES_DO_VENCIMENTO, sugerirLiquidacoes, type ObrigacaoAberta, type PagamentoRegistrado } from "@/lib/contasJaPagas";
+import { daquiADias } from "@/lib/data";
 import { listarRecorrencias, type FinRecorrencia } from "@/services/finService";
 import { atualizarPrevistosEmBlocos } from "@/services/previstosEmBlocos";
 
@@ -83,7 +85,41 @@ async function datasJaGeradas(rec: FinRecorrencia, temVinculo: boolean): Promise
 
 const primeiroDoMes = (ymd: string) => `${ymd.slice(0, 7)}-01`;
 
-export interface ResultadoDaGeracao { criados: number; ultimaData: string | null; ignoradosPorErro: number }
+export interface ResultadoDaGeracao {
+  criados: number; ultimaData: string | null; ignoradosPorErro: number;
+  /** das ocorrências geradas que já venceram (ou vencem hoje), quantas parecem JÁ PAGAS por um lançamento solto — a tesouraria confere em "Contas já pagas" */
+  jaPagas: number;
+}
+
+/**
+ * A porta do GERADOR (Fase A, análise de 13/10/2026): uma ocorrência que já passou pode ter o pagamento feito antes de ela existir — foi o caso
+ * Ana/Carlos/Denise (ocorrência de 05/10 gerada em 08/10, PIX de 02/10 já no extrato). Só CONTA e avisa: a ocorrência continua sendo criada
+ * (nada some em silêncio) e quem liga as duas é a tesouraria, com um clique, em "Contas já pagas" (decisão dela: a ligação sempre pede um clique).
+ * Uma falha aqui nunca derruba a geração.
+ */
+async function contarJaPagas(rec: FinRecorrencia, geradas: { id: string; data: string }[], hoje: string): Promise<number> {
+  const vencidas = geradas.filter(g => g.data <= hoje);
+  if (vencidas.length === 0 || (!rec.fornecedor_id && !rec.pessoa_id)) return 0;
+  try {
+    const desde = daquiADias(vencidas.map(g => g.data).sort()[0], -DIAS_ANTES_DO_VENCIMENTO);
+    const quem = [rec.fornecedor_id ? `fornecedor_id.eq.${rec.fornecedor_id}` : "", rec.pessoa_id ? `pessoa_id.eq.${rec.pessoa_id}` : ""].filter(Boolean).join(",");
+    const { data, error } = await supabase.from("fin_lancamentos")
+      .select("id, data, data_pagamento, valor, descricao, origem, fornecedor_id, pessoa_id, conta_id")
+      .eq("tipo", rec.tipo).in("status", ["realizado", "conciliado"]).eq("conta_id", rec.conta_id)
+      .is("liquidacao_id", null).is("obrigacao_id", null).is("recorrencia_id", null).is("lancamento_pai_id", null).neq("origem", "transferencia")
+      .or(quem).or(`data.gte.${desde},data_pagamento.gte.${desde}`).limit(200);
+    if (error || !data || data.length === 0) return 0;
+    const obrigacoes: ObrigacaoAberta[] = vencidas.map(g => ({
+      id: g.id, valor: Number(rec.valor), data: g.data, fornecedor_id: rec.fornecedor_id ?? null, pessoa_id: rec.pessoa_id ?? null,
+      nome: rec.descricao, valor_variavel: !!rec.valor_variavel, conta_id: rec.conta_id,
+    }));
+    const pagamentos: PagamentoRegistrado[] = (data as Record<string, unknown>[]).map(x => ({
+      id: String(x.id), valor: Number(x.valor), data: String(x.data_pagamento ?? x.data).slice(0, 10), nome: "", descricao: String(x.descricao ?? ""),
+      fornecedor_id: (x.fornecedor_id as string) ?? null, pessoa_id: (x.pessoa_id as string) ?? null, origem: String(x.origem), conta_id: String(x.conta_id),
+    }));
+    return sugerirLiquidacoes(obrigacoes, pagamentos).length;
+  } catch { return 0; }
+}
 
 export async function gerarOcorrencias(rec: FinRecorrencia, hoje = hojeLocal()): Promise<ResultadoDaGeracao> {
   const [temVinculo, temLiquidacao, temPessoa] = await Promise.all([
@@ -94,7 +130,7 @@ export async function gerarOcorrencias(rec: FinRecorrencia, hoje = hojeLocal()):
   const params = parametrosDaRecorrencia(rec);
   const jaGeradas = await datasJaGeradas(rec, temVinculo);
   const novas: Ocorrencia[] = ocorrenciasAGerar(params, hoje, jaGeradas);
-  if (novas.length === 0) return { criados: 0, ultimaData: null, ignoradosPorErro: 0 };
+  if (novas.length === 0) return { criados: 0, ultimaData: null, ignoradosPorErro: 0, jaPagas: 0 };
 
   const userId = (await supabase.auth.getUser()).data.user?.id ?? null;
   const agora = new Date().toISOString();
@@ -119,12 +155,14 @@ export async function gerarOcorrencias(rec: FinRecorrencia, hoje = hojeLocal()):
   });
 
   let criados = 0, falhas = 0;
+  const geradas: { id: string; data: string }[] = [];
   for (let i = 0; i < linhas.length; i += BLOCO) {
     const bloco = linhas.slice(i, i + BLOCO);
     const { data, error } = await supabase.from("fin_lancamentos").insert(bloco as never).select("id");
     if (error) throw error;
     // RLS barrando um INSERT em lote devolve sucesso com 0 linhas (CLAUDE.md §6.1)
     if (!data || data.length !== bloco.length) falhas += bloco.length - (data?.length ?? 0);
+    else data.forEach((d, k) => geradas.push({ id: String((d as { id: string }).id), data: String(bloco[k].data) }));
     criados += data?.length ?? 0;
   }
   if (criados === 0 && falhas > 0) throw new Error("Os lançamentos não foram gravados (sem permissão).");
@@ -133,7 +171,7 @@ export async function gerarOcorrencias(rec: FinRecorrencia, hoje = hojeLocal()):
   if (!rec.ultimo_gerado_ate || ultimaData > rec.ultimo_gerado_ate) {
     await supabase.from("fin_recorrencias").update({ ultimo_gerado_ate: ultimaData }).eq("id", rec.id).select("id");
   }
-  return { criados, ultimaData, ignoradosPorErro: falhas };
+  return { criados, ultimaData, ignoradosPorErro: falhas, jaPagas: await contarJaPagas(rec, geradas, hoje) };
 }
 
 /**
@@ -184,11 +222,17 @@ export async function renovarRecorrenciasSemFim(hoje = hojeLocal()): Promise<num
 }
 
 /** O botão "Gerar": completa o horizonte de todas as recorrências ativas. */
-export async function gerarTodasAsRecorrencias(): Promise<number> {
+export async function gerarTodasAsRecorrencias(): Promise<{ criados: number; jaPagas: number }> {
   const ativas = await listarRecorrencias(false);
-  let total = 0;
-  for (const r of ativas) total += (await gerarOcorrencias(r)).criados;
-  return total;
+  let criados = 0, jaPagas = 0;
+  for (const r of ativas) { const g = await gerarOcorrencias(r); criados += g.criados; jaPagas += g.jaPagas; }
+  return { criados, jaPagas };
+}
+
+/** A frase do aviso quando ocorrências já vencidas parecem pagas (vazia quando não há nenhuma). */
+export function avisoDeJaPagas(jaPagas: number): string | null {
+  if (jaPagas <= 0) return null;
+  return `${jaPagas} ${jaPagas === 1 ? "ocorrência gerada já venceu e parece já paga" : "ocorrências geradas já venceram e parecem já pagas"} — confira em "Contas já pagas" na Mesa de Operações (um clique liga o pagamento à conta, sem duplicar).`;
 }
 
 // ── o histórico do favorecido ──────────────────────────────────────────────
