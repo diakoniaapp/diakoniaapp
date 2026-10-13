@@ -138,14 +138,73 @@ export function precisaRenovar(p: ParametrosDaSerie, ultimoGeradoAte: string | n
  */
 export const DIAS_DE_PASSADO_TOLERADO = 31;
 
+/** Uma linha que a série já tem no banco (em qualquer situação): o que basta para saber QUAL ocorrência ela ocupa. */
+export interface LinhaDaSerie {
+  data: string;
+  /** Mês da competência (a data fica "YYYY-MM-01"); NÃO muda quando a despesa é paga em outro dia. */
+  competencia?: string | null;
+  /** Parcelamento: o número da parcela que a linha representa. */
+  parcela?: number | null;
+}
+
+const mesDe = (ymd: string) => ymd.slice(0, 7);
+
+/**
+ * Qual linha ocupa a ocorrência `o`? A data EXATA não basta: a despesa paga em outro dia (a `data` vira a do pagamento) e a
+ * recorrência que mudou de dia deixam a ocorrência com outra data, e o gerador, vendo a vaga, criava uma segunda — medido em
+ * 13/10/2026: Carreta Missionária e ABC com dois previstos em outubro, Prefeitura com a parcela 1/3 paga em 30/09 e recriada
+ * em 06/09 ("atrasada há 37 dias" sem estar). A ocorrência é identificada pela data, pela parcela (parcelamento) ou pelo MÊS DA
+ * COMPETÊNCIA, que não anda com o pagamento.
+ */
+export function ocupanteDaOcorrencia(o: Ocorrencia, linhas: readonly LinhaDaSerie[]): LinhaDaSerie | undefined {
+  return linhas.find(l => l.data === o.data)
+    ?? (o.parcela != null ? linhas.find(l => l.parcela === o.parcela) : undefined)
+    ?? linhas.find(l => !!l.competencia && mesDe(l.competencia) === mesDe(o.data));
+}
+
 /** O que gerar de fato: tira o que já foi gerado e, na contínua, o passado distante. */
 export function ocorrenciasAGerar(
-  p: ParametrosDaSerie, hoje: string, jaGeradas: ReadonlySet<string>,
+  p: ParametrosDaSerie, hoje: string, jaGeradas: ReadonlySet<string>, linhas: readonly LinhaDaSerie[] = [],
 ): Ocorrencia[] {
   const corte = daquiADias(hoje, -DIAS_DE_PASSADO_TOLERADO);
   return calcularOcorrencias(p, limiteDeGeracao(p, hoje))
-    .filter(o => !jaGeradas.has(o.data))
+    .filter(o => !jaGeradas.has(o.data) && !ocupanteDaOcorrencia(o, linhas))
     .filter(o => p.tipo === "parcelamento" || o.data >= corte);
+}
+
+/** A agenda da série mudou (dia, frequência ou início)? Só então os previstos já gerados precisam andar de data. */
+export function mudouAAgenda(
+  antes: Pick<ParametrosDaSerie, "diaVencimento" | "frequencia" | "dataInicio">,
+  depois: Pick<ParametrosDaSerie, "diaVencimento" | "frequencia" | "dataInicio">,
+): boolean {
+  return antes.diaVencimento !== depois.diaVencimento || antes.frequencia !== depois.frequencia || antes.dataInicio !== depois.dataInicio;
+}
+
+export interface PrevistoDaSerie extends LinhaDaSerie { id: string }
+
+/**
+ * Editou o dia da recorrência: cada previsto ABERTO (deste mês em diante) passa para a data que a agenda nova dá à ocorrência dele.
+ * Sem isso o previsto de 13/10 sobrevive ao "agora é dia 10" e a série fica com duas ocorrências no mesmo mês. Só mexe em quem
+ * tem ocorrência correspondente na agenda nova e cuja data realmente muda; se a data de destino já é de OUTRA linha da série,
+ * não mexe (quem resolve a duplicata é a tesouraria, não um UPDATE às cegas).
+ */
+export function redatarPrevistos(
+  p: ParametrosDaSerie, hoje: string, previstos: readonly PrevistoDaSerie[], todas: readonly LinhaDaSerie[] = previstos,
+): { id: string; de: string; para: string }[] {
+  const primeiroMes = `${mesDe(hoje)}-01`;
+  const agenda = calcularOcorrencias(p, limiteDeGeracao(p, hoje));
+  const ocupadas = new Set(todas.map(l => l.data));
+  const out: { id: string; de: string; para: string }[] = [];
+  const jaUsadas = new Set<string>();
+  for (const pr of [...previstos].sort((a, b) => a.data.localeCompare(b.data))) {
+    if (pr.competencia && pr.competencia < primeiroMes) continue;
+    const o = (pr.parcela != null ? agenda.find(x => x.parcela === pr.parcela) : undefined)
+      ?? agenda.find(x => mesDe(x.data) === mesDe(pr.competencia ?? pr.data));
+    if (!o || o.data === pr.data || ocupadas.has(o.data) || jaUsadas.has(o.data)) continue;
+    jaUsadas.add(o.data);
+    out.push({ id: pr.id, de: pr.data, para: o.data });
+  }
+  return out;
 }
 
 // ── o que mostrar no cartão da recorrência ─────────────────────────────────

@@ -15,7 +15,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { hojeLocal } from "@/lib/data";
-import { dataFimReal, ocorrenciasAGerar, precisaRenovar, rotuloDaParcela, type ParametrosDaSerie, type Ocorrencia } from "@/lib/recorrencia";
+import { dataFimReal, ocorrenciasAGerar, precisaRenovar, redatarPrevistos, rotuloDaParcela, type ParametrosDaSerie, type Ocorrencia, type PrevistoDaSerie } from "@/lib/recorrencia";
 import { resumirHabitos, PAGAMENTOS_PARA_HABITO, type HabitosDoFavorecido, type PagamentoDoHistorico } from "@/lib/habitosDoFavorecido";
 import { normalizarLiquidacao } from "@/lib/formaLiquidacao";
 import { DIAS_ANTES_DO_VENCIMENTO, sugerirLiquidacoes, type ObrigacaoAberta, type PagamentoRegistrado } from "@/lib/contasJaPagas";
@@ -59,28 +59,33 @@ export function parametrosDaRecorrencia(rec: FinRecorrencia): ParametrosDaSerie 
   };
 }
 
-/** As datas que a recorrência já tem (qualquer situação — inclusive cancelada, para não ressuscitar). */
-async function datasJaGeradas(rec: FinRecorrencia, temVinculo: boolean): Promise<Set<string>> {
-  const datas = new Set<string>();
+interface LinhaLida extends PrevistoDaSerie { status: string }
+
+/** As linhas que a recorrência já tem (qualquer situação — inclusive cancelada, para não ressuscitar). */
+async function linhasJaGeradas(rec: FinRecorrencia, temVinculo: boolean): Promise<LinhaLida[]> {
+  const linhas: LinhaLida[] = [];
   // `q` devolve a consulta ainda sem a paginação (tipo solto: o cliente tipado não aceita nome de tabela dinâmico aqui)
   const ler = async (q: () => any) => {
     for (let p = 0; ; p++) {
       const { data, error } = await q().order("data").range(p * 1000, p * 1000 + 999);
       if (error) throw error;
-      for (const l of data ?? []) datas.add(String(l.data).slice(0, 10));
+      for (const l of data ?? []) linhas.push({
+        id: String(l.id), status: String(l.status), data: String(l.data).slice(0, 10),
+        competencia: l.data_competencia ? String(l.data_competencia).slice(0, 10) : null, parcela: l.parcela_numero ?? null,
+      });
       if ((data ?? []).length < 1000) break;
     }
   };
-  if (temVinculo) await ler(() => supabase.from("fin_lancamentos").select("data").eq("recorrencia_id", rec.id));
+  if (temVinculo) await ler(() => supabase.from("fin_lancamentos").select("id, status, data, data_competencia, parcela_numero").eq("recorrencia_id", rec.id));
   // os de antes do vínculo: mesma descrição, conta e tipo, nascidos de recorrência. SÓ os sem vínculo: os que pertencem a OUTRA
   // recorrência (outro contrato do mesmo favorecido, com a mesma descrição — ex.: dois contratos da Verisure) não contam como
   // "já gerados" desta. Medido em 08/10/2026: o contrato de R$ 278,22 nunca ganhou um previsto porque o de R$ 291,31 já tinha as datas.
   await ler(() => {
-    const q = supabase.from("fin_lancamentos").select("data")
+    const q = supabase.from("fin_lancamentos").select("id, status, data, data_competencia")
       .eq("origem", "recorrencia").eq("descricao", rec.descricao).eq("conta_id", rec.conta_id).eq("tipo", rec.tipo);
     return temVinculo ? q.is("recorrencia_id", null) : q;
   });
-  return datas;
+  return linhas;
 }
 
 const primeiroDoMes = (ymd: string) => `${ymd.slice(0, 7)}-01`;
@@ -129,8 +134,8 @@ export async function gerarOcorrencias(rec: FinRecorrencia, hoje = hojeLocal()):
     colunaExiste("fin_lancamentos", "pessoa_id"),
   ]);
   const params = parametrosDaRecorrencia(rec);
-  const jaGeradas = await datasJaGeradas(rec, temVinculo);
-  const novas: Ocorrencia[] = ocorrenciasAGerar(params, hoje, jaGeradas);
+  const existentes = await linhasJaGeradas(rec, temVinculo);
+  const novas: Ocorrencia[] = ocorrenciasAGerar(params, hoje, new Set(existentes.map(l => l.data)), existentes);
   if (novas.length === 0) return { criados: 0, ultimaData: null, ignoradosPorErro: 0, jaPagas: 0 };
 
   const userId = (await supabase.auth.getUser()).data.user?.id ?? null;
@@ -200,6 +205,26 @@ export async function propagarModelo(rec: FinRecorrencia, descricaoAnterior: str
     if (temVinculo) l = l.is("recorrencia_id", null);
     return l;
   }, patch);
+  return n;
+}
+
+/**
+ * Editou o dia (ou a frequência, ou o início) da recorrência: os previstos ABERTOS que ela já gerou, deste mês em diante, andam para
+ * a data que a agenda nova dá à ocorrência de cada um. O previsto pago/vencido é história e não muda (só `previsto` é tocado).
+ * Medido em 13/10/2026: cinco recorrências passaram a dia 10 e os previstos antigos (dia 09/13) ficaram — com o gerador criando
+ * outros no dia 10, a Mesa de Operações mostrava a mesma despesa duas vezes. Devolve quantos previstos mudaram de data.
+ */
+export async function redatarPrevistosDaRecorrencia(rec: FinRecorrencia, hoje = hojeLocal()): Promise<number> {
+  if (!(await colunaExiste("fin_lancamentos", "recorrencia_id"))) return 0;
+  const existentes = await linhasJaGeradas(rec, true);
+  const previstos = existentes.filter(l => l.status === "previsto");
+  const mudancas = redatarPrevistos(parametrosDaRecorrencia(rec), hoje, previstos, existentes);
+  let n = 0;
+  for (const m of mudancas) {
+    const { data, error } = await supabase.from("fin_lancamentos").update({ data: m.para }).eq("id", m.id).eq("status", "previsto").select("id");
+    if (error) throw error;
+    n += data?.length ?? 0;   // RLS barrando devolve sucesso com 0 linhas (CLAUDE.md §6.1)
+  }
   return n;
 }
 

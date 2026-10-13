@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  calcularOcorrencias, dataFimReal, diaNoMes, limiteDeGeracao, ocorrenciasAGerar, precisaRenovar, primeiraData, serieSemFim, situacaoDaSerie,
+  calcularOcorrencias, dataFimReal, diaNoMes, limiteDeGeracao, mudouAAgenda, ocorrenciasAGerar, precisaRenovar, primeiraData, redatarPrevistos, serieSemFim, situacaoDaSerie, type LinhaDaSerie,
 } from "./recorrencia";
 
 describe("o teste obrigatório dela: 12 ocorrências a partir de 05/10/2026", () => {
@@ -152,5 +152,65 @@ describe("data final 2099-12-31 é o marcador de 'sem fim' do legado (08/10/2026
   it("data final real continua valendo, e há um teto de 240 ocorrências", () => {
     expect(ocorrenciasAGerar({ ...cont, dataFim: "2026-12-31" }, "2026-10-08", new Set()).at(-1)?.data).toBe("2026-12-05");
     expect(calcularOcorrencias({ ...cont, dataFim: null }, "9999-12-31").length).toBe(240);
+  });
+});
+
+describe("a ocorrência é identificada pela competência/parcela, não só pela data (13/10/2026)", () => {
+  const mensal = { dataInicio: "2026-09-01", diaVencimento: 10, frequencia: "mensal" as const, tipo: "continua" as const };
+  const datas = (linhas: LinhaDaSerie[]) => ocorrenciasAGerar(mensal, "2026-10-13", new Set(linhas.map(l => l.data)), linhas).map(o => o.data);
+
+  it("previsto de 13/10 (competência outubro) ocupa a ocorrência de 10/10: não gera segunda", () => {
+    const r = datas([{ data: "2026-09-10", competencia: "2026-09-01" }, { data: "2026-10-13", competencia: "2026-10-01" }]);
+    expect(r).not.toContain("2026-10-10");
+    expect(r[0]).toBe("2026-11-10");
+  });
+  it("despesa paga em OUTRO dia continua ocupando a vaga do mês (competência não anda com o pagamento)", () => {
+    const r = datas([{ data: "2026-09-30", competencia: "2026-09-01" }, { data: "2026-10-11", competencia: "2026-10-01" }]);
+    expect(r).not.toContain("2026-10-10");
+  });
+  it("sem a linha de outubro, a ocorrência de outubro continua sendo gerada", () => {
+    expect(datas([{ data: "2026-09-30", competencia: "2026-09-01" }])).toContain("2026-10-10");
+  });
+  it("pagar em outubro uma conta de setembro NÃO tampa a de outubro", () => {
+    expect(datas([{ data: "2026-10-02", competencia: "2026-09-01" }])).toContain("2026-10-10");
+  });
+  it("parcelamento: a parcela 1/3 paga em 30/09 não é recriada em 06/09", () => {
+    const parc = { dataInicio: "2026-09-01", diaVencimento: 6, frequencia: "mensal" as const, tipo: "parcelamento" as const, totalParcelas: 3 };
+    const linhas: LinhaDaSerie[] = [
+      { data: "2026-09-30", competencia: "2026-09-01", parcela: 1 }, { data: "2026-10-06", competencia: "2026-10-01", parcela: 2 }, { data: "2026-11-06", competencia: "2026-11-01", parcela: 3 },
+    ];
+    expect(ocorrenciasAGerar(parc, "2026-10-13", new Set(linhas.map(l => l.data)), linhas)).toEqual([]);
+  });
+});
+
+describe("mudar o dia da recorrência leva os previstos abertos para a data nova", () => {
+  const mensal = { dataInicio: "2026-09-01", diaVencimento: 10, frequencia: "mensal" as const, tipo: "continua" as const };
+  const hoje = "2026-10-13";
+  it("detecta a mudança de agenda", () => {
+    expect(mudouAAgenda({ diaVencimento: 13, frequencia: "mensal", dataInicio: "2026-09-01" }, mensal)).toBe(true);
+    expect(mudouAAgenda(mensal, { ...mensal })).toBe(false);
+  });
+  it("previsto de 13/10 vai para 10/10; os dos meses seguintes também", () => {
+    const previstos = [
+      { id: "a", data: "2026-10-13", competencia: "2026-10-01" }, { id: "b", data: "2026-11-13", competencia: "2026-11-01" },
+    ];
+    expect(redatarPrevistos(mensal, hoje, previstos)).toEqual([
+      { id: "a", de: "2026-10-13", para: "2026-10-10" }, { id: "b", de: "2026-11-13", para: "2026-11-10" },
+    ]);
+  });
+  it("não mexe em previsto de mês passado (história)", () => {
+    expect(redatarPrevistos(mensal, hoje, [{ id: "x", data: "2026-09-13", competencia: "2026-09-01" }])).toEqual([]);
+  });
+  it("não mexe se a data de destino já é de OUTRA linha da série (duplicata fica para a tesouraria)", () => {
+    const todas = [{ id: "a", data: "2026-10-13", competencia: "2026-10-01" }, { id: "n", data: "2026-10-10", competencia: "2026-10-01" }];
+    expect(redatarPrevistos(mensal, hoje, [todas[0]], todas)).toEqual([]);
+  });
+  it("já na data certa: nada a fazer; sem ocorrência correspondente na agenda: não inventa", () => {
+    expect(redatarPrevistos(mensal, hoje, [{ id: "c", data: "2026-10-10", competencia: "2026-10-01" }])).toEqual([]);
+    expect(redatarPrevistos({ ...mensal, frequencia: "trimestral" }, hoje, [{ id: "d", data: "2026-11-13", competencia: "2026-11-01" }])).toEqual([]);
+  });
+  it("parcelamento: a parcela vai para a data da parcela, pelo número", () => {
+    const parc = { dataInicio: "2026-09-01", diaVencimento: 8, frequencia: "mensal" as const, tipo: "parcelamento" as const, totalParcelas: 3 };
+    expect(redatarPrevistos(parc, hoje, [{ id: "p3", data: "2026-11-06", competencia: "2026-11-01", parcela: 3 }])).toEqual([{ id: "p3", de: "2026-11-06", para: "2026-11-08" }]);
   });
 });

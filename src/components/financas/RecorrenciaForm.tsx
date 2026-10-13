@@ -23,8 +23,8 @@ import {
 } from "@/services/finService";
 import { CampoData } from "@/components/CampoData";
 import { SeletorFavorecido, type Favorecido, type SugestoesDoFavorecido } from "@/components/financas/SeletorFavorecido";
-import { calcularOcorrencias, dataFimReal, situacaoDaSerie, type TipoDeRecorrencia } from "@/lib/recorrencia";
-import { avisoDeJaPagas, erroDaRecorrencia, gerarOcorrencias, propagarModelo } from "@/services/recorrenciaService";
+import { calcularOcorrencias, dataFimReal, mudouAAgenda, situacaoDaSerie, type TipoDeRecorrencia } from "@/lib/recorrencia";
+import { avisoDeJaPagas, erroDaRecorrencia, gerarOcorrencias, parametrosDaRecorrencia, propagarModelo, redatarPrevistosDaRecorrencia } from "@/services/recorrenciaService";
 import {
   FORMAS_LIQUIDACAO, ROTULO_LIQUIDACAO, DICA_LIQUIDACAO, normalizarLiquidacao, type FormaLiquidacao,
 } from "@/lib/formaLiquidacao";
@@ -199,6 +199,13 @@ export function RecorrenciaForm({ open, onOpenChange, recorrencia, onSaved }: Pr
         await atualizarRecorrencia(recorrencia.id, payload);
         id = recorrencia.id;
         salva = { ...recorrencia, ...payload, id } as FinRecorrencia;
+        // mudou o dia/frequência/início: os previstos abertos andam para a data nova (senão ficam duplicados com os que o gerador cria a seguir)
+        try {
+          if (mudouAAgenda(parametrosDaRecorrencia(recorrencia), parametrosDaRecorrencia(salva))) {
+            const n = await redatarPrevistosDaRecorrencia(salva);
+            if (n > 0) toast.success(`${n} lançamento(s) previsto(s) passaram para a data nova`);
+          }
+        } catch { /* não impede salvar a recorrência */ }
         // os previstos futuros já gerados passam a seguir o modelo novo
         try {
           const n = await propagarModelo(salva, recorrencia.descricao);
