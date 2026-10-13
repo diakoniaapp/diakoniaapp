@@ -75,6 +75,9 @@ export interface QuitacaoDaObrigacao {
   bloqueiaFechamento: boolean;
   dataDaDespesa: string;
   valorDaObrigacao: number;
+  /** só no reembolso: quanto já saiu do banco para quem pagou, e quanto falta (null nas outras intenções ou antes da Fase 1C-a) */
+  reembolsado: number | null;
+  saldoAReembolsar: number | null;
 }
 
 type Linha = Record<string, unknown>;
@@ -92,6 +95,8 @@ function daLinha(r: Linha, nome: string | null): QuitacaoDaObrigacao {
     aprovacaoDoReembolso: (txt(r.aprovacao_reembolso) as "aprovada" | "recusada" | null), aprovacaoDoRelatado: (txt(r.aprovacao_relatado) as "aprovada" | "recusada" | null),
     resultado: String(r.resultado) as Resultado, credorAtual: String(r.credor_atual) as QuitacaoDaObrigacao["credorAtual"], fila: (txt(r.fila) as Fila | null),
     bloqueiaFechamento: !!r.bloqueia_fechamento, dataDaDespesa: String(r.data_despesa).slice(0, 10), valorDaObrigacao: Number(r.valor_obrigacao),
+    reembolsado: r.reembolsado === null || r.reembolsado === undefined ? null : Number(r.reembolsado),
+    saldoAReembolsar: r.saldo_a_reembolsar === null || r.saldo_a_reembolsar === undefined ? null : Number(r.saldo_a_reembolsar),
   };
 }
 
@@ -270,3 +275,35 @@ export const registrarNotaQuitadaPorTerceiro = (p: PedidoDeNotaQuitada): Promise
   p_responsavel: p.responsavel, p_pessoa: p.pessoaId, p_responsavel_fornecedor: p.fornecedorDoResponsavelId, p_intencao: p.intencao, p_pago_em: p.pagoEm, p_declarado_em: p.declaradoEm,
   p_condicao: p.condicao, p_pede_recibo: p.pedeRecibo, p_motivo: p.motivo ?? null,
 });
+
+/** Os dados para pagar um reembolso: o que o banco calculou (saldo) e a conta/forma/valor que a Tesouraria escolheu. */
+export interface PedidoDeReembolso {
+  quitacaoId: string;
+  contaId: string;
+  /** AAAA-MM-DD */
+  data: string;
+  forma: string | null;
+  valor: number;
+  ofxFitid?: string | null;
+  observacoes?: string | null;
+}
+
+/**
+ * Paga (total ou parcialmente) o reembolso APROVADO. É a casca do banco sobre a liquidação: não cria entrada, transferência nem saída fictícia — o dinheiro sai uma vez, da conta escolhida.
+ * Devolve o id da liquidação. As recusas do banco (não aprovado, valor acima do saldo, já pago) chegam em português.
+ */
+export async function pagarReembolso(p: PedidoDeReembolso): Promise<string> {
+  const { data, error } = await supabase.rpc("fin_liquidar_reembolso" as never, {
+    p_quitacao: p.quitacaoId, p_conta_id: p.contaId, p_data: p.data, p_forma: p.forma, p_valor: p.valor, p_comprovante_url: null, p_ofx_fitid: p.ofxFitid ?? null, p_observacoes: p.observacoes ?? null,
+  } as never);
+  if (error) throw new Error(error.message);
+  esquecerSondagemDeQuitacao();
+  return data as unknown as string;
+}
+
+/** Os lançamentos (parcelas pagas) de uma liquidação — para anexar o comprovante do reembolso, que só existe depois de pago. */
+export async function lancamentosDaLiquidacao(liquidacaoId: string): Promise<string[]> {
+  const { data, error } = await supabase.from("fin_lancamentos").select("id").eq("liquidacao_id" as never, liquidacaoId as never);
+  if (error) return [];
+  return (data ?? []).map(l => String((l as { id: string }).id));
+}

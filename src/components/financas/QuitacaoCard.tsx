@@ -4,11 +4,12 @@
 // o grau de prova nasce dos anexos, e o nível de risco, a suficiência, o resultado, o credor atual e a fila são DERIVADOS pelo banco (vw_fin_quitacao) — nada aqui é digitado.
 // Aprovar o reembolso é uma decisão própria: NÃO paga, NÃO gera liquidação, NÃO mexe em conta nem em saldo.
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { History, Loader2, Paperclip, ShieldCheck, UserRoundCheck } from "lucide-react";
+import { History, Loader2, Paperclip, ShieldCheck, UserRoundCheck, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { PagarReembolsoDialog } from "@/components/financas/PagarReembolsoDialog";
 import { QuitacaoDialog } from "@/components/financas/QuitacaoDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { mensagemErro } from "@/lib/erroRede";
@@ -42,7 +43,7 @@ const COR_GRAU: Record<Grau, string> = { formal: "border-success-line bg-success
 const COR_NIVEL: Record<Nivel, string> = { baixo: "border-success-line bg-success-soft/60 text-success-text", medio: "border-warning-line bg-warning-soft/60 text-warning-text", alto: "border-destructive-line bg-destructive-soft text-destructive-text" };
 const EVENTO: Record<string, string> = {
   registrada: "Registrada", alterada: "Alterada", removida: "Removida", aprovacao_reembolso: "Decisão sobre o reembolso", aprovacao_relatado: "Decisão sobre o grau Relatado", parametros: "Parâmetros alterados",
-  extinta_por_oferta: "Obrigação extinta por oferta", extincao_desfeita: "Extinção desfeita",
+  extinta_por_oferta: "Obrigação extinta por oferta", extincao_desfeita: "Extinção desfeita", reembolso_pago: "Reembolso pago",
 };
 
 function Chip({ cls, children }: { cls: string; children: React.ReactNode }) {
@@ -58,6 +59,7 @@ export function QuitacaoCard({ lancamento, recarga, onMudou }: { lancamento: Fin
   const [aberto, setAberto] = useState(false);
   const [dialogo, setDialogo] = useState<"registrar" | "corrigir" | null>(null);
   const [remover, setRemover] = useState(false);
+  const [pagando, setPagando] = useState(false);
   const [recusar, setRecusar] = useState<null | "reembolso" | "relatado">(null);
   const [motivo, setMotivo] = useState("");
   const [ocupado, setOcupado] = useState(false);
@@ -121,6 +123,7 @@ export function QuitacaoCard({ lancamento, recarga, onMudou }: { lancamento: Fin
   const precisaDeAprovar = q?.fila === "aprovar_reembolso";
   const alcada = q && par ? alcadaDoReembolso(q.valorDaObrigacao, par.teto1) : "tesouraria";
   const possoAprovarReembolso = !!q && precisaDeAprovar && (alcada === "tesouraria" ? hasRole(["admin", "tesouraria"]) : ehAdmin);
+  const possoPagarReembolso = !!q && q.fila === "reembolso_a_pagar" && podeEscrever;
   const possoAprovarRelatado = !!q && q.exigeAprovacaoDoAdministrador && ehAdmin && !q.aprovacaoDoRelatado;
 
   return (
@@ -168,6 +171,9 @@ export function QuitacaoCard({ lancamento, recarga, onMudou }: { lancamento: Fin
           {q.responsavel === "nao_localizado" && <p className="text-xs text-muted-foreground">Ninguém sabe quem pagou (ou se foi paga). Descubra: se a igreja pagar, esta marcação some; se um terceiro pagou, corrija para registrar quem.</p>}
           {q.aprovacaoDoReembolso && (() => { const d = decisaoVigente(eventos, "aprovacao_reembolso"); return (
             <p className="text-xs">Reembolso <b>{q.aprovacaoDoReembolso === "aprovada" ? "aprovado" : "recusado"}</b>{d ? <> por {d.porNome ?? "usuário"} em {dataHoraBr(d.em)}</> : null}. Aprovar não paga: o pagamento é um ato posterior.{d?.motivo ? <> Motivo: {d.motivo}</> : null}</p>); })()}
+          {q.intencao === "reembolso" && q.saldoAReembolsar !== null && (q.reembolsado ?? 0) > 0 && (
+            <p className="text-xs">Reembolsado até agora: <b className="tabular-nums">{brl(q.reembolsado ?? 0)}</b> · falta <b className="tabular-nums">{brl(q.saldoAReembolsar)}</b>.</p>
+          )}
           {q.aprovacaoDoRelatado && (() => { const d = decisaoVigente(eventos, "aprovacao_relatado"); return (
             <p className="text-xs">Grau Relatado <b>{q.aprovacaoDoRelatado === "aprovada" ? "aprovado" : "recusado"}</b> pelo Administrador{d ? <> ({d.porNome ?? "usuário"}, {dataHoraBr(d.em)})</> : null}.</p>); })()}
           <p className="text-[11px] text-muted-foreground">Registrada por {eventos?.find(e => e.evento === "registrada")?.porNome ?? "usuário"} em {dataHoraBr(q.registradoEm)}.</p>
@@ -191,6 +197,7 @@ export function QuitacaoCard({ lancamento, recarga, onMudou }: { lancamento: Fin
               <Button size="sm" variant="outline" className="h-8" disabled={ocupado} onClick={() => { setMotivo(""); setRecusar("reembolso"); }}>Recusar…</Button>
             </>)}
             {precisaDeAprovar && !possoAprovarReembolso && <p className="text-xs text-muted-foreground">Falta a aprovação de {alcada === "administrador" ? "um Administrador (acima do teto)" : "outra pessoa da Tesouraria ou do Administrador"}.</p>}
+            {possoPagarReembolso && <Button size="sm" className="h-8 gap-1.5" disabled={ocupado} onClick={() => setPagando(true)}><Wallet className="h-3.5 w-3.5" /> Pagar reembolso ({brl(q.saldoAReembolsar ?? q.valorDaObrigacao)})</Button>}
             {possoAprovarRelatado && (<>
               <Button size="sm" variant="outline" className="h-8" disabled={ocupado} onClick={() => void decidir("relatado", "aprovada")}>Aprovar o Relatado (Administrador)</Button>
               <Button size="sm" variant="ghost" className="h-8" disabled={ocupado} onClick={() => { setMotivo(""); setRecusar("relatado"); }}>Recusar…</Button>
@@ -214,6 +221,7 @@ export function QuitacaoCard({ lancamento, recarga, onMudou }: { lancamento: Fin
         </>
       )}
 
+      <PagarReembolsoDialog alvo={pagando && q ? q : null} onFechar={() => setPagando(false)} onFeito={recarregar} />
       <QuitacaoDialog alvo={dialogo ? alvo : null} quitacao={dialogo === "corrigir" ? q : null} onFechar={() => setDialogo(null)} onFeito={recarregar} />
 
       <AlertDialog open={remover} onOpenChange={o => { if (!o) setRemover(false); }}>

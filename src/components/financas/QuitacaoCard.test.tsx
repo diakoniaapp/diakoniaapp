@@ -21,6 +21,8 @@ vi.mock("@/services/quitacaoService", () => ({
   dadosDaDespesaParaQuitar: async () => null,
   registrarQuitacao: async () => "x",
   alterarQuitacao: async () => undefined,
+  pagarReembolso: async () => "liq1",
+  lancamentosDaLiquidacao: async () => [],
 }));
 const conciliar = vi.fn(async (..._a: unknown[]) => undefined);
 const desconciliar = vi.fn(async (..._a: unknown[]) => undefined);
@@ -36,7 +38,7 @@ const q = (o: Partial<QuitacaoDaObrigacao> = {}): QuitacaoDaObrigacao => ({
   quitacaoId: "q1", obrigacaoId: "l1", responsavel: "pessoa", pessoaId: "p1", fornecedorId: null, responsavelNome: "Pr. Patrick", intencao: "reembolso", pagoEm: "2026-10-01", declaradoEm: "2026-10-02",
   condicao: null, pedeRecibo: false, registradoEm: "2026-10-03T10:00:00Z", registradoPor: "u1", grauResponsavel: "formal", grauIntencao: "formal", grauConjunto: "formal", nivelRisco: "alto",
   suficiente: true, exigeAprovacaoDoAdministrador: false, motivoInsuficiencia: null, moduladores: [], aprovacaoDoReembolso: null, aprovacaoDoRelatado: null, resultado: "reembolso_em_analise",
-  credorAtual: "em_analise", fila: "aprovar_reembolso", bloqueiaFechamento: false, dataDaDespesa: "2026-10-05", valorDaObrigacao: 100, ...o,
+  credorAtual: "em_analise", fila: "aprovar_reembolso", bloqueiaFechamento: false, dataDaDespesa: "2026-10-05", valorDaObrigacao: 100, reembolsado: null, saldoAReembolsar: null, ...o,
 });
 async function montar(l: FinLancamentoExtenso) {
   alvo = document.createElement("div"); document.body.appendChild(alvo); raiz = createRoot(alvo);
@@ -101,6 +103,18 @@ describe("o cartão Quitação", () => {
     expect(el.textContent).toMatch(/Reembolso aprovado\. Aprovar não paga/);
     expect(el.textContent).toMatch(/O terceiro \(dívida da igreja\)/);
     expect(botao(el, "Aprovar reembolso")).toBeFalsy();
+  });
+  it("reembolso aprovado e a pagar: oferece Pagar reembolso com o saldo, e depois de um pagamento parcial diz quanto já foi e quanto falta", async () => {
+    quitacao = q({ aprovacaoDoReembolso: "aprovada", fila: "reembolso_a_pagar", resultado: "divida_com_terceiro", credorAtual: "terceiro", valorDaObrigacao: 600, reembolsado: 200, saldoAReembolsar: 400 });
+    const el = await montar(lanc({ status: "realizado", valor: 200 } as never));
+    expect(botao(el, "Pagar reembolso")?.textContent).toMatch(/400,00/);
+    expect(el.textContent).toMatch(/Reembolsado até agora: .*200,00.* falta .*400,00/);
+  });
+  it("quem não é do financeiro não vê o botão de pagar o reembolso", async () => {
+    papeis = ["membro"];
+    quitacao = q({ aprovacaoDoReembolso: "aprovada", fila: "reembolso_a_pagar", resultado: "divida_com_terceiro", credorAtual: "terceiro", saldoAReembolsar: 100, reembolsado: 0 });
+    const el = await montar(lanc());
+    expect(botao(el, "Pagar reembolso")).toBeFalsy();
   });
 });
 
