@@ -11,8 +11,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { enriquecerLancamentos, type FinLancamento } from "@/services/finService";
 import {
   avaliarFechamento, limitesDoMes,
-  type Avaliacao, type CentroFechamento, type ContaFechamento, type LancamentoFechamento,
+  type Avaliacao, type CentroFechamento, type ContaFechamento, type LancamentoFechamento, type QuitacaoDoMes,
 } from "@/lib/fechamentoMensal";
+import { listarFilasDeQuitacao, ofertaDisponivel, quitacaoDisponivel } from "@/services/quitacaoService";
+import { hojeLocal } from "@/lib/data";
 import { auditarPeriodo, prepararPacoteContabil } from "@/services/pacoteContabilService";
 import { resumirAuditoria, type ResumoAuditoria } from "@/lib/pacoteContabil";
 import { percentualCobertura } from "@/lib/documentos/cobertura";
@@ -42,9 +44,11 @@ async function carregarContas(): Promise<ContaFechamento[]> {
 
 async function carregarLancamentos(ini: string, fim: string): Promise<LancamentoFechamento[]> {
   const brutos: FinLancamento[] = [];
+  // a oferta extinta (quitado_terceiro) só é pedida depois que o status existe no banco: valor de enum inválido em .in() derruba a consulta inteira
+  const status = (await ofertaDisponivel()) ? ["realizado", "conciliado", "quitado_terceiro"] : ["realizado", "conciliado"];
   for (let p = 0; ; p++) {
     const { data, error } = await supabase.from("fin_lancamentos").select("*")
-      .in("status", ["realizado", "conciliado"])
+      .in("status", status as never)
       // o dia que conta é a data do pagamento, ou a data quando vazia (mesma regra do Pacote)
       .or(`and(data_pagamento.gte.${ini},data_pagamento.lte.${fim}),and(data_pagamento.is.null,data.gte.${ini},data.lte.${fim})`)
       .order("data").order("id").range(p * PAGINA, p * PAGINA + PAGINA - 1);
@@ -83,8 +87,18 @@ export async function buscarLancamentoParaEditar(id: string) {
 /** O que impede o malote — a base do checklist e do selo do menu. */
 export async function avaliarMes(ano: number, mes: number): Promise<Avaliacao> {
   const { ini, fim } = limitesDoMes(ano, mes);
-  const [contas, lancamentos, centros] = await Promise.all([carregarContas(), carregarLancamentos(ini, fim), carregarCentros()]);
-  return avaliarFechamento(ano, mes, contas, lancamentos, centros);
+  const [contas, lancamentos, centros, quitacoes] = await Promise.all([carregarContas(), carregarLancamentos(ini, fim), carregarCentros(), carregarQuitacoesPendentes()]);
+  return avaliarFechamento(ano, mes, contas, lancamentos, centros, quitacoes);
+}
+
+/** As quitações por terceiro ainda sem resposta (todas as filas); a lib separa as do mês e as que bloqueiam. Sem a Política aplicada no banco: nenhuma. */
+async function carregarQuitacoesPendentes(): Promise<QuitacaoDoMes[]> {
+  if (!(await quitacaoDisponivel())) return [];
+  const itens = await listarFilasDeQuitacao(hojeLocal());
+  return itens.filter(i => i.fila).map(i => ({
+    obrigacaoId: i.obrigacaoId, fila: i.fila!, titulo: i.emitente ?? i.descricao ?? "", quem: i.responsavelNome ?? "",
+    valor: i.fila === "reembolso_a_pagar" ? i.saldoAReembolsar ?? i.valorDaObrigacao : i.valorDaObrigacao, dia: i.dataDaDespesa, bloqueia: i.bloqueiaFechamento,
+  }));
 }
 
 // ── documentação e pacote (só o resumo; o trabalho é na Central) ─────────────

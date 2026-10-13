@@ -22,6 +22,11 @@
 // TAMBÉM só atenção: "Possível oferta missionária" (Pix ",10" fora de Ofertas para Missões) — ver
 // lib/possivelOfertaMissionaria.ts.
 //
+// POLÍTICA DE COMPRAS POR TERCEIROS (Fase 1C-c): a despesa cuja quitação por terceiro está "A esclarecer" ou "Formalizar" IMPEDE o fechamento — mas só depois que o Administrador liga a
+// vigência (parâmetro; desligada = a Política só informa). Quem diz se bloqueia é o banco (vw_fin_quitacao.bloqueia_fechamento): aqui não se recalcula nada. "Investigar", "Aprovar reembolso"
+// e "Reembolso a pagar" nunca impedem: aparecem como ATENÇÃO (a dívida com a pessoa não pode passar despercebida). A obrigação extinta por oferta (`quitado_terceiro`) entra na conferência de
+// categoria e centro de custo como qualquer despesa, mas não conta como movimento de banco (não passou pelo extrato).
+//
 // Conciliação só vale para conta de tipo `banco` — a única com extrato (OFX) para bater;
 // Caixinha, Envelopes e Cartão não têm (mesma régua do Painel da Tesouraria desde 12/09).
 
@@ -62,7 +67,20 @@ export interface LancamentoFechamento {
 
 export interface CentroFechamento { id: string; paiId: string | null }
 
-export type TipoBloqueio = "saldo" | "conciliacao" | "sem_categoria" | "sem_centro";
+export type TipoBloqueio = "saldo" | "conciliacao" | "sem_categoria" | "sem_centro" | "a_esclarecer" | "formalizar";
+
+/** Uma quitação por terceiro ainda sem resposta, de uma despesa do mês. Vem de vw_fin_quitacao / das filas; `bloqueia` é a conta do banco (vigência ligada + fila A esclarecer/Formalizar). */
+export interface QuitacaoDoMes {
+  obrigacaoId: string;
+  fila: "investigar" | "a_esclarecer" | "formalizar" | "aprovar_reembolso" | "reembolso_a_pagar";
+  /** emitente ou descrição */
+  titulo: string;
+  quem: string;
+  valor: number;
+  /** `AAAA-MM-DD` da nota */
+  dia: string;
+  bloqueia: boolean;
+}
 
 export interface Bloqueio {
   /** Estável e único — serve de chave na lista e de contagem do selo do menu. */
@@ -88,6 +106,8 @@ export interface Avaliacao {
   /** Pix ",10" fora de Ofertas para Missões. Só atenção: nunca bloqueia nem reclassifica. */
   possiveisOfertasMissionarias: LancamentoFechamento[];
   saldosInconsistentes: { conta: ContaFechamento; esperado: number }[];
+  /** As quitações por terceiro do mês ainda sem resposta: as que bloqueiam (vigência ligada) e as que só avisam. */
+  quitacoes: { bloqueiam: QuitacaoDoMes[]; atencao: QuitacaoDoMes[] };
   bloqueios: Bloqueio[];
   /** Nada impede gerar o malote. */
   pronto: boolean;
@@ -135,10 +155,13 @@ export function avaliarFechamento(
   contas: ContaFechamento[],
   lancamentos: LancamentoFechamento[],
   centros: CentroFechamento[],
+  quitacoesDoMes: QuitacaoDoMes[] = [],
 ): Avaliacao {
   const { ini, fim } = limitesDoMes(ano, mes);
   const noMes = lancamentos.filter(l =>
     (l.status === "realizado" || l.status === "conciliado") && l.dia >= ini && l.dia <= fim);
+  // a oferta extinta (quitado_terceiro) é despesa do mês: precisa de categoria e centro, mas não é movimento de banco
+  const ofertasNoMes = lancamentos.filter(l => l.status === "quitado_terceiro" && l.dia >= ini && l.dia <= fim);
 
   // conciliação — só contas de banco ativas que tiveram movimento no mês
   const bancos = contas.filter(c => c.ativo && c.tipo === "banco");
@@ -152,7 +175,7 @@ export function avaliarFechamento(
   const semMovimento = bancos.filter(c => !noMes.some(l => l.contaId === c.id));
 
   // classificação — transferência entre contas não tem categoria nem centro
-  const classificaveis = noMes.filter(l => l.origem !== "transferencia");
+  const classificaveis = [...noMes, ...ofertasNoMes].filter(l => l.origem !== "transferencia");
   const semCategoria = classificaveis.filter(l => !l.categoriaId);
   const semCentro = classificaveis.filter(l => !l.centroId);
   const centrosComFilhos = new Set(centros.map(c => c.paiId).filter((x): x is string => !!x));
@@ -172,6 +195,9 @@ export function avaliarFechamento(
     .filter(c => c.ativo)
     .map(conta => ({ conta, esperado: Math.round((conta.saldoInicial + conta.movimentoTotal) * 100) / 100 }))
     .filter(x => Math.abs(x.conta.saldoAtual - x.esperado) > 0.005);
+
+  const doMes = quitacoesDoMes.filter(q => q.dia >= ini && q.dia <= fim);
+  const quitacoes = { bloqueiam: doMes.filter(q => q.bloqueia), atencao: doMes.filter(q => !q.bloqueia) };
 
   const bloqueios: Bloqueio[] = [
     ...saldosInconsistentes.map(({ conta, esperado }): Bloqueio => ({
@@ -194,13 +220,18 @@ export function avaliarFechamento(
       titulo: `Sem centro de custo — ${l.fornecedor || "(sem fornecedor)"}`,
       detalhe: `${dataBr(l.dia)} · ${l.contaNome} · ${brl(l.valor)}`,
     })),
+    ...quitacoes.bloqueiam.map((q): Bloqueio => ({
+      id: `quitacao-${q.obrigacaoId}`, tipo: q.fila === "formalizar" ? "formalizar" : "a_esclarecer", lancamentoId: q.obrigacaoId,
+      titulo: `${q.fila === "formalizar" ? "Formalizar" : "A esclarecer"} — ${q.titulo || "(sem fornecedor)"}`,
+      detalhe: `${dataBr(q.dia)} · ${q.quem ? q.quem + " · " : ""}${brl(q.valor)} · ${q.fila === "formalizar" ? "falta o documento assinado" : "qual era a intenção de quem pagou?"}`,
+    })),
   ];
 
   return {
     periodo: { ano, mes, ini, fim, rotulo: rotuloDoMes(ano, mes) },
     conciliacao: { contas: doBanco.length, conciliadas: doBanco.length - pendentes.length, pendentes },
     semMovimento,
-    semCategoria, semCentro, semSubcentro, possiveisOfertasMissionarias, saldosInconsistentes,
+    semCategoria, semCentro, semSubcentro, possiveisOfertasMissionarias, saldosInconsistentes, quitacoes,
     bloqueios, pronto: bloqueios.length === 0,
   };
 }

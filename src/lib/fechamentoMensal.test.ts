@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   avaliarFechamento, limitesDoMes, mesEmFechamento, rotuloDoMes, ultimosMeses, veredito,
-  type CentroFechamento, type ContaFechamento, type LancamentoFechamento,
+  type CentroFechamento, type ContaFechamento, type LancamentoFechamento, type QuitacaoDoMes,
 } from "./fechamentoMensal";
 
 const conta = (p: Partial<ContaFechamento> = {}): ContaFechamento => ({
@@ -171,5 +171,40 @@ describe("avaliarFechamento — ⚠ Possível oferta missionária (só atenção
       pixDizimo({ dia: "2026-08-31" }),
     ], []);
     expect(a.possiveisOfertasMissionarias).toEqual([]);
+  });
+});
+
+describe("avaliarFechamento — Política de compras por terceiros (Fase 1C-c)", () => {
+  const q = (p: Partial<QuitacaoDoMes> = {}): QuitacaoDoMes => ({ obrigacaoId: "o1", fila: "a_esclarecer", titulo: "Agata", quem: "Caio", valor: 62, dia: "2026-09-12", bloqueia: true, ...p });
+
+  it("A esclarecer e Formalizar do mês, com a vigência ligada, IMPEDEM o fechamento e dizem o que resolver", () => {
+    const a = avaliarFechamento(2026, 9, [conta()], [lanc()], [], [q(), q({ obrigacaoId: "o2", fila: "formalizar" })]);
+    expect(a.pronto).toBe(false);
+    expect(a.bloqueios.map(b => b.tipo)).toEqual(["a_esclarecer", "formalizar"]);
+    expect(a.bloqueios[0].detalhe).toMatch(/qual era a intenção/);
+    expect(a.bloqueios[1].detalhe).toMatch(/falta o documento assinado/);
+  });
+  it("sem a vigência (bloqueia = false) a mesma pendência só AVISA: o fechamento não é impedido", () => {
+    const a = avaliarFechamento(2026, 9, [conta()], [lanc()], [], [q({ bloqueia: false })]);
+    expect(a.bloqueios).toEqual([]);
+    expect(a.pronto).toBe(true);
+    expect(a.quitacoes.atencao).toHaveLength(1);
+  });
+  it("Investigar, Aprovar reembolso e Reembolso a pagar nunca impedem: aparecem como atenção", () => {
+    const a = avaliarFechamento(2026, 9, [conta()], [lanc()], [], [q({ fila: "investigar", bloqueia: false }), q({ obrigacaoId: "o3", fila: "reembolso_a_pagar", bloqueia: false })]);
+    expect(a.pronto).toBe(true);
+    expect(a.quitacoes.atencao.map(x => x.fila)).toEqual(["investigar", "reembolso_a_pagar"]);
+  });
+  it("só conta o que é do mês da nota", () => {
+    const a = avaliarFechamento(2026, 9, [conta()], [lanc()], [], [q({ dia: "2026-08-30" })]);
+    expect(a.quitacoes.bloqueiam).toEqual([]);
+    expect(a.pronto).toBe(true);
+  });
+  it("a oferta extinta (quitado_terceiro) precisa de categoria e centro, mas não conta como movimento de banco", () => {
+    const oferta = lanc({ status: "quitado_terceiro", categoriaId: null });
+    const a = avaliarFechamento(2026, 9, [conta()], [oferta], [], []);
+    expect(a.bloqueios.map(b => b.tipo)).toEqual(["sem_categoria"]);
+    expect(a.conciliacao.contas).toBe(0);
+    expect(a.semMovimento).toHaveLength(1);
   });
 });

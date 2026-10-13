@@ -25,6 +25,8 @@ import { ReabrirEnviadaDialog, type AlvoDaReabertura } from "@/components/financ
 import { useAuth } from "@/hooks/useAuth";
 import { LancamentosACorrigirDialog } from "@/components/financas/LancamentosACorrigirDialog";
 import { hojeLocal } from "@/lib/data";
+import { ROTULO_FILA } from "@/lib/quitacao";
+import { brl } from "@/services/finService";
 import { formatarPercentual } from "@/lib/documentos/cobertura";
 import { cicloDoMes, type ResumoDoCiclo } from "@/services/cicloDoMesService";
 import { ROTULO_DO_CICLO } from "@/lib/cicloDaDespesa";
@@ -163,6 +165,27 @@ export function FechamentoMensal({ onConciliar }: Props) {
             ))}
           </ul>
           {a.bloqueios.length > 6 && <p className="text-xs text-muted-foreground">+ {a.bloqueios.length - 6} outras pendências nas etapas abaixo.</p>}
+        </div>
+      )}
+
+      {/* ── a Política de compras por terceiros: o que está sem resposta não passa despercebido (só bloqueia com a vigência ligada) ── */}
+      {a && (a.quitacoes.bloqueiam.length > 0 || a.quitacoes.atencao.length > 0) && (
+        <div className="rounded-md border border-warning-line bg-warning-soft/30 p-3 space-y-1.5">
+          <p className="text-xs uppercase tracking-wide text-warning-text font-semibold">Compras por terceiros sem resposta em {rotulo}</p>
+          <ul className="divide-y text-sm">
+            {[...a.quitacoes.bloqueiam, ...a.quitacoes.atencao].slice(0, 8).map(q => (
+              <li key={q.obrigacaoId} className="py-1.5 flex items-center gap-2">
+                <AlertTriangle className={`w-3.5 h-3.5 shrink-0 ${q.bloqueia ? "text-destructive-text" : "text-warning-text"}`} />
+                <span className="min-w-0 flex-1">
+                  <span className="font-medium">{q.titulo || "(sem fornecedor)"}</span>
+                  <span className="block text-xs text-muted-foreground truncate">
+                    {ROTULO_FILA[q.fila]}{q.quem ? ` · ${q.quem}` : ""} · {q.dia.slice(8, 10)}/{q.dia.slice(5, 7)} · {brl(q.valor)}{q.bloqueia ? " · impede o fechamento" : " · só aviso"}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-[11px] text-muted-foreground">Resolva na Mesa do Tesoureiro (“Quitações a resolver”). A Política só impede o malote e o fechamento depois que o Administrador liga a vigência.</p>
         </div>
       )}
 
