@@ -27,9 +27,14 @@ import {
   type FinAnexoTipo, type FinLancamento, type FinLancamentoExtenso,
 } from "@/services/finService";
 import {
-  auditarAnexos, indiceCsv, pendenciasCsv, planejarPacote,
-  type AnexoPacote, type DossiePlanejado, type LinhaAuditoria, type PlanoPacote,
+  PASTA_AVISOS, PASTA_OFERTADAS, auditarAnexos, indiceCsv, observacaoDeAvisoDeReembolso, observacaoDeOferta, pendenciasCsv, pendenciasDeQuitacaoCsv, planejarPacote,
+  type AnexoPacote, type DossiePlanejado, type LinhaAuditoria, type PendenciaDeQuitacao, type PlanoPacote, type QuitacaoParaOPacote, type RotuloDoPacote,
 } from "@/lib/pacoteContabil";
+import {
+  eventosDaQuitacao, listarFilasDeQuitacao, ofertaDisponivel, quitacaoDisponivel, quitacoesDasObrigacoes, type QuitacaoDaObrigacao,
+} from "@/services/quitacaoService";
+import { hojeLocal } from "@/lib/data";
+import { ROTULO_INTENCAO } from "@/lib/quitacao";
 
 const BUCKET = "fin-comprovantes";
 // Mesmo motivo de `emLotes` em finService: `.in()` vira query string, e
@@ -45,14 +50,18 @@ const DOSSIES_EM_PARALELO = 3;
  * As saídas do mês pelo dia do PAGAMENTO (`data_pagamento`, ou `data` quando
  * vazia — ver o cabeçalho de `lib/pacoteContabil.ts`), sem transferência e só
  * realizadas/conciliadas: a mesma regra do Malote Contábil.
+ *
+ * Fase 1C-b: a obrigação extinta por OFERTA (`quitado_terceiro`) também é despesa da igreja e o escritório precisa da nota. Ela não tem dia de pagamento, então entra
+ * pelo dia da NOTA (o fallback de sempre). O status só é pedido ao banco depois que ele existe no enum: um valor de enum inválido em `.in()` derruba a consulta INTEIRA.
  */
 export async function saidasDoPeriodo(ini: string, fim: string, contaId?: string): Promise<FinLancamentoExtenso[]> {
   const brutos: FinLancamento[] = [];
+  const status = (await ofertaDisponivel()) ? ["realizado", "conciliado", "quitado_terceiro"] : ["realizado", "conciliado"];
   for (let pagina = 0; ; pagina++) {
     let q = supabase.from("fin_lancamentos").select("*")
       .eq("tipo", "saida")
       .neq("origem", "transferencia")
-      .in("status", ["realizado", "conciliado"])
+      .in("status", status as never)
       .or(
         `and(data_pagamento.gte.${ini},data_pagamento.lte.${fim}),` +
         `and(data_pagamento.is.null,data.gte.${ini},data.lte.${fim})`,
@@ -102,12 +111,74 @@ async function anexosDe(lancamentos: FinLancamentoExtenso[]): Promise<AnexoPacot
   return anexos;
 }
 
+const paraOPacote = (q: QuitacaoDaObrigacao, aprovadoPor?: string | null, aprovadoEm?: string | null): QuitacaoParaOPacote => ({
+  responsavelNome: q.responsavelNome, intencao: q.intencao, grauConjunto: q.grauConjunto, valorDaObrigacao: q.valorDaObrigacao, saldoAReembolsar: q.saldoAReembolsar, aprovadoPor, aprovadoEm,
+});
+
+/**
+ * Os AVISOS de reembolso do mês: o reembolso aprovado e ainda não pago é dívida da igreja com a pessoa desde a aprovação, mas ainda não houve pagamento — então não é "saída paga" e
+ * não está em `saidasDoPeriodo`. Entra só como informação, pelo dia da nota. Quando for pago, entra no mês do pagamento (como saída comum, com o comprovante).
+ */
+async function avisosDeReembolsoDoMes(ano: number, mes: number, contaId?: string): Promise<{ lancamentos: FinLancamentoExtenso[]; rotulos: Map<string, RotuloDoPacote> }> {
+  const vazio = { lancamentos: [] as FinLancamentoExtenso[], rotulos: new Map<string, RotuloDoPacote>() };
+  if (!(await quitacaoDisponivel())) return vazio;
+  const ini = `${ano}-${String(mes).padStart(2, "0")}-01`, fim = toYmd(new Date(ano, mes, 0));
+  const { data, error } = await supabase.from("vw_fin_quitacao" as never).select("obrigacao_id, quitacao_id")
+    .eq("resultado" as never, "divida_com_terceiro" as never).eq("reembolsado" as never, 0 as never)
+    .gte("data_despesa" as never, ini as never).lte("data_despesa" as never, fim as never);
+  if (error) throw error;
+  const linhas = (data ?? []) as unknown as { obrigacao_id: string }[];
+  if (linhas.length === 0) return vazio;
+  const ids = linhas.map(l => String(l.obrigacao_id));
+  let q = supabase.from("fin_lancamentos").select("*").in("id", ids).eq("status", "previsto");
+  if (contaId) q = q.eq("conta_id", contaId);
+  const { data: lancs, error: e2 } = await q;
+  if (e2) throw e2;
+  const lancamentos = await enriquecerLancamentos((lancs ?? []) as unknown as FinLancamento[]);
+  const quitacoes = await quitacoesDasObrigacoes(lancamentos.map(l => l.id));
+  const rotulos = new Map<string, RotuloDoPacote>();
+  for (const l of lancamentos) {
+    const qt = quitacoes.get(l.id);
+    if (!qt) continue;
+    const eventos = await eventosDaQuitacao(qt.quitacaoId).catch(() => []);
+    const aprov = [...eventos].filter(e => e.evento === "aprovacao_reembolso" && e.decisao === "aprovada").sort((a, b) => (a.em < b.em ? -1 : 1)).pop();
+    rotulos.set(l.id, { tipo: "aviso_reembolso", pasta: PASTA_AVISOS, observacao: observacaoDeAvisoDeReembolso(paraOPacote(qt, aprov?.porNome ?? null, aprov?.em ?? null)) });
+  }
+  return { lancamentos, rotulos };
+}
+
+/** O que o escritório precisa ler sobre as quitações ainda sem resposta (todas as filas, de qualquer mês). */
+async function quitacoesPendentesDoPacote(): Promise<PendenciaDeQuitacao[]> {
+  if (!(await quitacaoDisponivel())) return [];
+  const itens = await listarFilasDeQuitacao(hojeLocal());
+  return itens.filter(i => i.fila).map(i => ({
+    fila: i.fila!, emitente: i.emitente ?? "", descricao: i.descricao ?? "", quem: i.responsavelNome ?? (i.responsavel === "nao_localizado" ? "Não localizado" : ""),
+    intencao: i.responsavel === "nao_localizado" ? "" : ROTULO_INTENCAO[i.intencao], valor: i.fila === "reembolso_a_pagar" ? i.saldoAReembolsar ?? i.valorDaObrigacao : i.valorDaObrigacao,
+    idadeEmDias: i.idadeEmDias, dataDaNota: i.dataDaDespesa,
+  }));
+}
+
 /** Monta o plano do mês — só consulta o banco, não baixa arquivo nenhum. É
  *  o que a tela usa pra mostrar a conferência antes de gerar o ZIP. */
 export async function prepararPacoteContabil(ano: number, mes: number, contaId?: string): Promise<PlanoPacote> {
-  const saidas = await saidasDoMes(ano, mes, contaId);
+  const pagas = await saidasDoMes(ano, mes, contaId);
+  const rotulos = new Map<string, RotuloDoPacote>();
+  // as ofertas (quitado_terceiro) vêm junto das pagas; o selo do grau de prova sai da quitação delas
+  const ofertadas = pagas.filter(l => (l.status as string) === "quitado_terceiro");
+  if (ofertadas.length > 0) {
+    const quitacoes = await quitacoesDasObrigacoes(ofertadas.map(l => l.obrigacao_id ?? l.id));
+    for (const l of ofertadas) {
+      const qt = quitacoes.get(l.obrigacao_id ?? l.id);
+      rotulos.set(l.id, { tipo: "ofertada", pasta: PASTA_OFERTADAS, observacao: qt ? observacaoDeOferta(paraOPacote(qt)) : "Compra ofertada por terceiro: obrigação extinta sem pagamento da igreja." });
+    }
+  }
+  const avisos = await avisosDeReembolsoDoMes(ano, mes, contaId);
+  for (const [id, r] of avisos.rotulos) rotulos.set(id, r);
+  const saidas = [...pagas, ...avisos.lancamentos];
   const anexos = saidas.length ? await anexosDe(saidas) : [];
-  return planejarPacote(ano, mes, saidas, anexos);
+  const plano = planejarPacote(ano, mes, saidas, anexos, rotulos);
+  plano.quitacoesPendentes = await quitacoesPendentesDoPacote();
+  return plano;
 }
 
 /** Auditoria de anexos de QUALQUER período: cada saída paga com sua situação
@@ -127,6 +198,8 @@ export interface ResultadoPacote {
   dossies: number;
   falhas: { caminho: string; motivo: string }[];
   pendencias: number;
+  /** Quitações por terceiro ainda sem resposta (PENDENCIAS_QUITACAO.csv). */
+  pendenciasQuitacao: number;
 }
 
 const rotuloDaParte = (tipo: FinAnexoTipo) => FIN_ANEXO_TIPO_LABEL[tipo] ?? tipo;
@@ -222,6 +295,7 @@ export async function baixarPacoteContabil(
 
   zip.file(`${plano.raiz}/INDICE.csv`, indiceCsv(plano, falhouPath, paginas));
   zip.file(`${plano.raiz}/PENDENCIAS.csv`, pendenciasCsv(plano));
+  if (plano.quitacoesPendentes.length > 0) zip.file(`${plano.raiz}/PENDENCIAS_QUITACAO.csv`, pendenciasDeQuitacaoCsv(plano.quitacoesPendentes));
   if (falhas.length) {
     zip.file(
       `${plano.raiz}/ERROS.txt`,
@@ -237,5 +311,5 @@ export async function baixarPacoteContabil(
 
   const blob = await zip.generateAsync({ type: "blob" });
   saveAs(blob, `${plano.raiz}.zip`);
-  return { baixados, dossies: pdfs, falhas, pendencias: plano.pendencias.length };
+  return { baixados, dossies: pdfs, falhas, pendencias: plano.pendencias.length, pendenciasQuitacao: plano.quitacoesPendentes.length };
 }

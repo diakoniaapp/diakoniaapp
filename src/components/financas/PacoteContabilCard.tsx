@@ -97,6 +97,14 @@ export function PacoteContabilCard({ ano, mes }: { ano: number; mes: number }) {
             )}
           </p>
 
+          {(plano.ofertadas > 0 || plano.avisos > 0 || plano.quitacoesPendentes.length > 0) && (
+            <p className="text-xs text-muted-foreground">
+              {plano.ofertadas > 0 && <>{plano.ofertadas} compra(s) ofertada(s) por terceiro (pasta “Compras ofertadas”, sem pagamento da igreja). </>}
+              {plano.avisos > 0 && <>{plano.avisos} aviso(s) de reembolso a pagar (pasta “Reembolsos - aviso”, só informativo). </>}
+              {plano.quitacoesPendentes.length > 0 && <>{plano.quitacoesPendentes.length} quitação(ões) por terceiro ainda sem resposta — a lista vai em PENDENCIAS_QUITACAO.csv.</>}
+            </p>
+          )}
+
           {plano.dossies.length > 0 && (
             <p className="text-xs text-muted-foreground tabular-nums">
               {plano.dossies.filter(d => d.caminhoZip).length} PDF(s) consolidado(s)

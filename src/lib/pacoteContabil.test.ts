@@ -7,8 +7,8 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {}, supabaseRel: {}
 
 import {
   auditarAnexos, csvPtBr, dataPasta, diaDoPagamento, dispensaDocumento, indiceCsv, nomeSeguro,
-  pendenciasCsv, planejarPacote, resumirAuditoria,
-  type AnexoPacote,
+  observacaoDeAvisoDeReembolso, observacaoDeOferta, pendenciasCsv, pendenciasDeQuitacaoCsv, planejarPacote, resumirAuditoria,
+  type AnexoPacote, type RotuloDoPacote,
 } from "./pacoteContabil";
 import type { FinLancamentoExtenso } from "@/services/finService";
 
@@ -326,5 +326,47 @@ describe("CSV", () => {
     const p = planejarPacote(2026, 9, [l], [anexo(l, "boleto", "p/quebrado.pdf")]);
     expect(indiceCsv(p)).toContain('"Ok"');
     expect(indiceCsv(p, new Set(["p/quebrado.pdf"]))).toContain('"FALHA NO DOWNLOAD"');
+  });
+});
+
+describe("a Política de compras por terceiros no pacote (Fase 1C-b)", () => {
+  const oferta = () => saida({ status: "quitado_terceiro" as never, data: "2026-09-12", data_pagamento: null, conta_nome: "Caixinha", fornecedor_nome: "D Flesh", valor: 137.28, documento_numero: "25597" });
+  const rotuloOferta = (l: FinLancamentoExtenso): [string, RotuloDoPacote] => [l.id, { tipo: "ofertada", pasta: "Compras ofertadas", observacao: observacaoDeOferta({ responsavelNome: "Pr. Patrick", intencao: "oferta", grauConjunto: "relatado", valorDaObrigacao: 137.28, saldoAReembolsar: null }) }];
+
+  it("a compra ofertada vai para a pasta própria, pelo dia da NOTA, com o selo do grau de prova", () => {
+    const l = oferta();
+    const p = planejarPacote(2026, 9, [l], [anexo(l, "nota_fiscal")], new Map([rotuloOferta(l)]));
+    expect(p.dossies[0].caminhoZip).toMatch(/^Pacote_Contabil_2026_09\/Compras ofertadas\/12-09-2026\//);
+    expect(p.ofertadas).toBe(1);
+    expect(p.avisos).toBe(0);
+    const csv = indiceCsv(p);
+    expect(csv).toContain("Compras por terceiros");
+    expect(csv).toMatch(/Compra ofertada por Pr\. Patrick \(prova Relatada\).*não saiu dinheiro do banco nem do caixa/);
+  });
+  it("sem nenhuma quitação por terceiro o INDICE.csv é o de sempre: nenhuma coluna a mais", () => {
+    const l = saida({});
+    const p = planejarPacote(2026, 9, [l], [anexo(l, "boleto")]);
+    expect(indiceCsv(p)).not.toContain("Compras por terceiros");
+    expect(p.ofertadas + p.avisos).toBe(0);
+    expect(p.quitacoesPendentes).toEqual([]);
+  });
+  it("o aviso de reembolso diz quanto a igreja deve, quem aprovou e que o pagamento entra no mês em que for feito", () => {
+    const t = observacaoDeAvisoDeReembolso({ responsavelNome: "Ana", intencao: "reembolso", grauConjunto: "formal", valorDaObrigacao: 600, saldoAReembolsar: 600, aprovadoPor: "Telma", aprovadoEm: "2026-10-13T15:00:00Z" });
+    expect(t).toMatch(/AVISO/);
+    expect(t).toMatch(/Ana pagou esta nota; a igreja deve 600,00/);
+    expect(t).toMatch(/Aprovado por Telma em 13\/10\/2026/);
+    expect(t).toMatch(/entra no mês em que for feito/);
+  });
+  it("a lista de quitações pendentes traz a fila, a idade da nota e o valor", () => {
+    const csv = pendenciasDeQuitacaoCsv([{ fila: "formalizar", emitente: "Agata", descricao: "Higiene", quem: "Caio", intencao: "Oferta", valor: 62, idadeEmDias: 44, dataDaNota: "2026-08-30" }]);
+    expect(csv).toContain("Formalizar (falta o documento assinado)");
+    expect(csv).toContain("30/08/2026");
+    expect(csv).toContain("62,00");
+    expect(csv).toContain("44");
+  });
+  it("compra ofertada sem nota anexada é pendência como qualquer outra despesa (a Política não dispensa o documento)", () => {
+    const l = oferta();
+    const p = planejarPacote(2026, 9, [l], [], new Map([rotuloOferta(l)]));
+    expect(p.pendencias).toHaveLength(1);
   });
 });

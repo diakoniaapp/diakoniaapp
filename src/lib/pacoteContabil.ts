@@ -30,6 +30,13 @@
 //
 // Mesma exclusão do Malote (`resumoMensal`): status realizado/conciliado e
 // nada de perna de transferência.
+//
+// POLÍTICA DE COMPRAS POR TERCEIROS (Fase 1C-b): duas coisas passam a entrar, SEM mudar o formato do que já existia:
+//   · COMPRAS OFERTADAS — a obrigação extinta por oferta (`quitado_terceiro`) não passou pelo banco da igreja, mas é despesa da igreja e o escritório precisa da nota. Entra na
+//     pasta "Compras ofertadas", pelo dia da NOTA (não há dia de pagamento), com o selo do grau de prova (Formal ou Relatado) na coluna de observação do índice;
+//   · AVISOS DE REEMBOLSO — o reembolso APROVADO e ainda não pago é uma dívida da igreja com a pessoa desde a aprovação. Entra, na pasta "Reembolsos - aviso", pelo dia da nota, só como
+//     INFORMAÇÃO (nota, prova do pagamento do terceiro, Pedido de Reembolso e quem aprovou). Quando o reembolso for pago, entra de novo, agora no mês do PAGAMENTO e com o comprovante.
+// A coluna de observação só existe no índice quando há alguma dessas linhas: sem quitação por terceiro, o INDICE.csv é byte a byte o de antes.
 
 import {
   FIN_ANEXO_TIPO_LABEL, nomeExtrato,
@@ -40,6 +47,17 @@ import {
   type FormatoArquivo,
 } from "@/lib/documentos/dossie";
 import { lerNomeDeArquivo } from "@/lib/documentos/nomeArquivo";
+
+/** Onde uma linha da Política vai no pacote e o que o escritório precisa ler sobre ela. Só as obrigações com quitação por terceiro têm. */
+export interface RotuloDoPacote {
+  tipo: "ofertada" | "aviso_reembolso";
+  /** A pasta (no lugar do nome da conta). */
+  pasta: string;
+  /** Texto da coluna de observação do índice. */
+  observacao: string;
+}
+export const PASTA_OFERTADAS = "Compras ofertadas";
+export const PASTA_AVISOS = "Reembolsos - aviso";
 
 export interface AnexoPacote {
   lancamento_id: string;
@@ -102,6 +120,8 @@ export interface LinhaIndice {
   semAnexo: boolean;
   /** Sem anexo, mas de categoria que não exige (tarifa) — não é pendência. */
   dispensa: boolean;
+  /** O que a Política diz desta linha (compra ofertada, aviso de reembolso); vazio nas demais. */
+  observacao: string;
 }
 
 export interface PlanoPacote {
@@ -126,6 +146,11 @@ export interface PlanoPacote {
   totalXml: number;
   indice: LinhaIndice[];
   pendencias: FinLancamentoExtenso[];
+  /** Quantas linhas são compras ofertadas e quantas são avisos de reembolso (já contadas em totalSaidas). */
+  ofertadas: number;
+  avisos: number;
+  /** As quitações por terceiro ainda sem resposta (Investigar, A esclarecer, Formalizar, Aprovar/Pagar reembolso): vira o PENDENCIAS_QUITACAO.csv. O serviço preenche; vazia ⇒ o arquivo não entra. */
+  quitacoesPendentes: PendenciaDeQuitacao[];
 }
 
 // ─── o que NÃO precisa de documento ──────────────────────────────────────
@@ -275,14 +300,16 @@ const CABECALHO_INDICE = [
 export function indiceCsv(
   plano: PlanoPacote, falhas: Set<string> = new Set(), paginas: Map<string, string> = new Map(),
 ): string {
+  const comPolitica = plano.indice.some(l => l.observacao);
   const linhas = plano.indice.map(l => [
     l.conta, l.dataPagamento, l.fornecedor, l.descricao, l.categoria,
     valorBr(l.valor), l.documentoNumero, l.tipo, paginas.get(l.lancamentoId) ?? "",
     l.arquivoNoPacote, l.arquivosAoLado, l.arquivoOriginal,
     l.semAnexo ? (l.dispensa ? "Dispensa documento (tarifa)" : "SEM ANEXO")
       : l.storagePaths.some(p => falhas.has(p)) ? "FALHA NO DOWNLOAD" : "Ok",
+    ...(comPolitica ? [l.observacao] : []),
   ]);
-  return csvPtBr([CABECALHO_INDICE, ...linhas]);
+  return csvPtBr([comPolitica ? [...CABECALHO_INDICE, "Compras por terceiros"] : CABECALHO_INDICE, ...linhas]);
 }
 
 export function pendenciasCsv(plano: PlanoPacote): string {
@@ -378,8 +405,12 @@ export function planejarPacote(
   ano: number, mes: number,
   saidas: FinLancamentoExtenso[],
   anexos: AnexoPacote[],
+  rotulos: Map<string, RotuloDoPacote> = new Map(),
 ): PlanoPacote {
   const raiz = nomeRaiz(ano, mes);
+  /** A "conta" da pasta e do índice: a da despesa, ou a pasta da Política (compra ofertada, aviso de reembolso). */
+  const contaDe = (l: FinLancamentoExtenso) => rotulos.get(l.id)?.pasta ?? l.conta_nome ?? "";
+  const observacaoDe = (l: FinLancamentoExtenso) => rotulos.get(l.id)?.observacao ?? "";
 
   const anexosPorLanc = new Map<string, AnexoPacote[]>();
   for (const a of anexos) {
@@ -392,7 +423,7 @@ export function planejarPacote(
   // em lançamentos diferentes a cada geração e o pacote mudaria de um
   // download pro outro sem que nada tivesse mudado.
   const ordenadas = [...saidas].sort((a, b) =>
-    (a.conta_nome ?? "").localeCompare(b.conta_nome ?? "", "pt-BR")
+    contaDe(a).localeCompare(contaDe(b), "pt-BR")
     || diaDoPagamento(a).localeCompare(diaDoPagamento(b))
     || nomeExtrato(a).principal.localeCompare(nomeExtrato(b).principal, "pt-BR")
     || Number(a.valor) - Number(b.valor)
@@ -405,14 +436,14 @@ export function planejarPacote(
   let dispensam = 0;
 
   const baseIndice = (l: FinLancamentoExtenso, dia: string) => ({
-    conta: l.conta_nome ?? "", dataPagamento: dataBr(dia), fornecedor: nomeExtrato(l).principal,
+    conta: contaDe(l), observacao: observacaoDe(l), dataPagamento: dataBr(dia), fornecedor: nomeExtrato(l).principal,
     descricao: l.descricao ?? "", categoria: l.categoria_nome ?? "",
     valor: Number(l.valor), documentoNumero: l.documento_numero ?? "", lancamentoId: l.id,
   });
 
   // 1ª passada: o que cada lançamento leva e o nome-base do seu dossiê
   for (const l of ordenadas) {
-    const conta = nomeSeguro(l.conta_nome, 40);
+    const conta = nomeSeguro(contaDe(l), 40);
     const dia = diaDoPagamento(l);
     const lista = anexosPorLanc.get(l.id) ?? [];
 
@@ -518,5 +549,63 @@ export function planejarPacote(
   return {
     ano, mes, raiz, totalSaidas: ordenadas.length, comAnexo, dispensam,
     nomesAjustados, nomesComId, dossies, totalArquivos, totalXml, indice, pendencias,
+    ofertadas: ordenadas.filter(l => rotulos.get(l.id)?.tipo === "ofertada").length,
+    avisos: ordenadas.filter(l => rotulos.get(l.id)?.tipo === "aviso_reembolso").length,
+    quitacoesPendentes: [],
   };
+}
+
+// ─── a Política no pacote (Fase 1C-b) ────────────────────────────────────
+
+/** O que o índice precisa saber de uma quitação por terceiro. Vem de vw_fin_quitacao; nada aqui é calculado de novo. */
+export interface QuitacaoParaOPacote {
+  responsavelNome: string | null;
+  intencao: "reembolso" | "oferta" | "compensacao_adiantamento" | "nao_declarada" | "nao_se_aplica";
+  /** formal | relatado | nenhum */
+  grauConjunto: string;
+  valorDaObrigacao: number;
+  saldoAReembolsar: number | null;
+  /** quem aprovou o reembolso e quando (do histórico); vazio se não houve */
+  aprovadoPor?: string | null;
+  aprovadoEm?: string | null;
+}
+
+const GRAU_TEXTO: Record<string, string> = { formal: "prova Formal", relatado: "prova Relatada", nenhum: "sem prova" };
+
+/** Texto da coluna de observação de uma COMPRA OFERTADA. */
+export function observacaoDeOferta(q: QuitacaoParaOPacote): string {
+  return `Compra ofertada por ${q.responsavelNome ?? "terceiro"} (${GRAU_TEXTO[q.grauConjunto] ?? q.grauConjunto}): obrigação extinta sem pagamento da igreja; não saiu dinheiro do banco nem do caixa.`;
+}
+
+/** Texto da coluna de observação de um AVISO DE REEMBOLSO. Informativo: o pagamento entra no mês em que for feito. */
+export function observacaoDeAvisoDeReembolso(q: QuitacaoParaOPacote): string {
+  const quem = q.responsavelNome ?? "terceiro";
+  const aprovou = q.aprovadoPor ? ` Aprovado por ${q.aprovadoPor}${q.aprovadoEm ? ` em ${dataBr(q.aprovadoEm)}` : ""}.` : "";
+  return `AVISO — reembolso a pagar: ${quem} pagou esta nota; a igreja deve ${valorBr(q.saldoAReembolsar ?? q.valorDaObrigacao)}.${aprovou} Informativo: ainda não houve pagamento; ele entra no mês em que for feito, com o comprovante.`;
+}
+
+/** Uma linha da lista de quitações pendentes (PENDENCIAS_QUITACAO.csv). */
+export interface PendenciaDeQuitacao {
+  fila: "investigar" | "a_esclarecer" | "formalizar" | "aprovar_reembolso" | "reembolso_a_pagar";
+  emitente: string;
+  descricao: string;
+  quem: string;
+  intencao: string;
+  valor: number;
+  /** dias desde a data da nota */
+  idadeEmDias: number;
+  dataDaNota: string;
+}
+
+const ROTULO_FILA_PACOTE: Record<PendenciaDeQuitacao["fila"], string> = {
+  investigar: "Investigar (quem pagou?)", a_esclarecer: "A esclarecer (qual a intenção?)", formalizar: "Formalizar (falta o documento assinado)",
+  aprovar_reembolso: "Aprovar reembolso", reembolso_a_pagar: "Reembolso a pagar",
+};
+
+/** A lista que o escritório lê para saber o que ainda está sem resposta. Vazia ⇒ o arquivo nem entra no ZIP. */
+export function pendenciasDeQuitacaoCsv(itens: PendenciaDeQuitacao[]): string {
+  return csvPtBr([
+    ["Fila", "Data da nota", "Dias desde a nota", "Emitente", "Descrição", "Quem pagou", "Intenção", "Valor (R$)"],
+    ...itens.map(i => [ROTULO_FILA_PACOTE[i.fila], dataBr(i.dataDaNota), String(i.idadeEmDias), i.emitente, i.descricao, i.quem, i.intencao, valorBr(i.valor)]),
+  ]);
 }
