@@ -13,7 +13,7 @@ import { hojeLocal } from "@/lib/data";
 import { ROTULO_DA_SITUACAO, type SituacaoDaObrigacao } from "@/lib/liquidacao";
 import { listarObrigacoes, obrigacoesDisponiveis, totaisDasObrigacoes, type Obrigacao } from "@/services/obrigacoesService";
 
-const ORDEM: SituacaoDaObrigacao[] = ["em_aberto", "pago_parcialmente", "pago_com_diferenca", "pago_integralmente", "previsto", "cancelado"];
+const ORDEM: SituacaoDaObrigacao[] = ["em_aberto", "pago_parcialmente", "pago_com_diferenca", "pago_integralmente", "quitada_por_terceiro", "previsto", "cancelado"];
 
 const CHIP: Record<SituacaoDaObrigacao, string> = {
   previsto: "border-info-line bg-info-soft text-info-text",
@@ -22,6 +22,7 @@ const CHIP: Record<SituacaoDaObrigacao, string> = {
   pago_integralmente: "border-success-line bg-success-soft text-success-text",
   pago_com_diferenca: "border-warning-line bg-warning-soft text-warning-text",
   cancelado: "border-border bg-muted text-muted-foreground",
+  quitada_por_terceiro: "border-info-line bg-info-soft text-info-text",
 };
 
 const dataCurta = (ymd: string | null) => (ymd ? `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}` : "—");

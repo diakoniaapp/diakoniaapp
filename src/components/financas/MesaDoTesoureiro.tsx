@@ -23,11 +23,12 @@ import {
 } from "lucide-react";
 import { ContasJaPagas } from "@/components/financas/ContasJaPagas";
 import { DetalhesDoLancamento } from "@/components/financas/DetalhesDoLancamento";
+import { NotaQuitadaDialog } from "@/components/financas/NotaQuitadaDialog";
 import { PendenciasDeQuitacao } from "@/components/financas/PendenciasDeQuitacao";
 import { SaneamentoDeCadastros } from "@/components/financas/SaneamentoDeCadastros";
 import { buscarLancamentoParaEditar } from "@/services/fechamentoMensalService";
 import { ROTULO_FILA, ROTULO_RESPONSAVEL } from "@/lib/quitacao";
-import { quitacoesDasObrigacoes, type QuitacaoDaObrigacao } from "@/services/quitacaoService";
+import { quitacaoDisponivel, quitacoesDasObrigacoes, type QuitacaoDaObrigacao } from "@/services/quitacaoService";
 import { Button } from "@/components/ui/button";
 import { brl, nomeExtrato, type FinLancamentoExtenso, type FinVencimento } from "@/services/finService";
 import { hojeLocal } from "@/lib/data";
@@ -146,6 +147,10 @@ export function MesaDoTesoureiro({
   // Fase 1A da Quitação: as contas em que um terceiro já pagou o fornecedor (vazio até a migration ser aplicada) e o detalhe aberto a partir delas
   const [quitacoes, setQuitacoes] = useState<Map<string, QuitacaoDaObrigacao>>(new Map());
   const [detalhe, setDetalhe] = useState<FinLancamentoExtenso | null>(null);
+  // Fase 1B: registrar uma NOTA que o aplicativo ainda não tinha, já quitada por terceiro (só depois da migration da Quitação)
+  const [quitacaoOk, setQuitacaoOk] = useState(false);
+  const [notaAberta, setNotaAberta] = useState(false);
+  useEffect(() => { let vivo = true; quitacaoDisponivel().then(ok => { if (vivo) setQuitacaoOk(ok); }); return () => { vivo = false; }; }, [chaveDeAtualizacao]);
   useEffect(() => {
     let cancelado = false;
     parciaisEmAberto().then(m => { if (!cancelado) setParciais(m); }).catch(() => { /* melhoria: a mesa segue igual */ });
@@ -237,7 +242,10 @@ export function MesaDoTesoureiro({
         {/* 2 · contas a pagar */}
         <Cartao id="mesa-contas" className="lg:col-span-2" titulo="Contas a pagar"
           subtitulo="Boletos, faturas e pagamentos manuais — o que depende de você"
-          direita={<Button size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={onNovaSaida}>+ Nova conta</Button>}>
+          direita={<div className="flex flex-wrap justify-end gap-1.5">
+            {quitacaoOk && <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs" onClick={() => setNotaAberta(true)}>NF já quitada por terceiro</Button>}
+            <Button size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={onNovaSaida}>+ Nova conta</Button>
+          </div>}>
           {/* conta aberta que já tem pagamento no extrato (criada depois dele, ou a linha entrou como lançamento comum): um registro só */}
           <ContasJaPagas chave={chaveDeAtualizacao} onMudou={carregar} />
           {nadaAPagar ? (
@@ -384,6 +392,8 @@ export function MesaDoTesoureiro({
       </div>
 
       <DetalhesDoLancamento lancamento={detalhe} onFechar={() => setDetalhe(null)} />
+      <NotaQuitadaDialog aberto={notaAberta} onFechar={() => setNotaAberta(false)}
+        onFeito={id => { void carregar(); void buscarLancamentoParaEditar(id).then(l => { if (l) setDetalhe(l); }).catch(() => { /* só não abre o detalhe */ }); }} />
     </div>
   );
 }

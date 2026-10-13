@@ -10,7 +10,7 @@ import { mensagemErro } from "@/lib/erroRede";
 import { ROTULO_FILA, ROTULO_INTENCAO, ROTULO_RESPONSAVEL, type Fila } from "@/lib/quitacao";
 import { buscarLancamentoParaEditar } from "@/services/fechamentoMensalService";
 import { brl, type FinLancamentoExtenso } from "@/services/finService";
-import { carregarParametros, listarFilasDeQuitacao, type ItemDeFila } from "@/services/quitacaoService";
+import { carregarParametros, listarFilasDeQuitacao, sincronizarQuitacoes, type ItemDeFila } from "@/services/quitacaoService";
 
 const PERGUNTA: Record<Fila, string> = {
   investigar: "Quem pagou?", a_esclarecer: "Qual era a intenção de quem pagou?", formalizar: "Falta o documento assinado (ou a aprovação do Administrador)?",
@@ -28,7 +28,10 @@ export function PendenciasDeQuitacao({ hoje, chave }: { hoje: string; chave: num
 
   useEffect(() => {
     let vivo = true;
-    Promise.all([listarFilasDeQuitacao(hoje), carregarParametros()]).then(([l, p]) => { if (vivo) { setItens(l); setVigencia(p.vigencia); } }).catch(() => { if (vivo) setItens([]); });
+    // a formalização vencida é um fato do tempo: ao abrir, o banco realinha o status das ofertas com o que a Matriz manda (idempotente)
+    sincronizarQuitacoes().catch(() => 0)
+      .then(() => Promise.all([listarFilasDeQuitacao(hoje), carregarParametros()]))
+      .then(([l, p]) => { if (vivo) { setItens(l); setVigencia(p.vigencia); } }).catch(() => { if (vivo) setItens([]); });
     return () => { vivo = false; };
   }, [hoje, chave, recarga]);
 

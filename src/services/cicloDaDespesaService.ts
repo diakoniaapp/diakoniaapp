@@ -94,6 +94,7 @@ export async function carregarDetalhesDaDespesa(l: FinLancamentoExtenso): Promis
     temCategoria: !!l.categoria_id, temCentro: !!l.centro_custo_id, temDocumento, temComprovante,
     dispensaDocumento: dispensaDocumento({ categoria_nome: l.categoria_nome }), hoje: hojeLocal(),
     terceiroQuitou: !!quitacao && ehTerceiro(quitacao.responsavel),
+    conferidoEm: (l as unknown as { conferido_em?: string | null }).conferido_em ?? null,
   });
   const o = obr.data as unknown as Record<string, unknown> | null;
   const vinculos: VinculoDoBanco[] = ((vincRes.data ?? []) as unknown as Record<string, unknown>[]).map(v => ({

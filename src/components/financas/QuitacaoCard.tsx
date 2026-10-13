@@ -15,7 +15,7 @@ import { mensagemErro } from "@/lib/erroRede";
 import {
   ROTULO_FILA, ROTULO_GRAU, ROTULO_INTENCAO, ROTULO_NIVEL, ROTULO_RESPONSAVEL, ROTULO_RESULTADO, alcadaDoReembolso, type Grau, type Nivel,
 } from "@/lib/quitacao";
-import { adicionarAnexo, brl, type FinAnexoTipo, type FinLancamentoExtenso, FIN_ANEXO_TIPO_LABEL } from "@/services/finService";
+import { adicionarAnexo, brl, conciliarLancamento, desconciliarLancamento, type FinAnexoTipo, type FinLancamentoExtenso, FIN_ANEXO_TIPO_LABEL } from "@/services/finService";
 import {
   carregarParametros, decidirQuitacao, eventosDaQuitacao, quitacaoDaObrigacao, quitacaoDisponivel, removerQuitacao,
   type EventoDaQuitacao, type QuitacaoDaObrigacao,
@@ -23,10 +23,26 @@ import {
 import type { ParametrosDaQuitacao } from "@/lib/quitacao";
 
 const dataBr = (iso: string | null | undefined) => (iso ? iso.slice(0, 10).split("-").reverse().join("/") : "—");
+/** data e HORA (auditoria completa: usuário, data, hora). O horário é o de Brasília. */
+const dataHoraBr = (iso: string | null | undefined) => {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return dataBr(iso);
+  return d.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }).replace(",", " às");
+};
+/** A decisão que ainda vale: a mais recente do tipo, e só se a quitação não mudou depois dela (a mesma regra do banco). */
+function decisaoVigente(eventos: EventoDaQuitacao[] | null, tipo: "aprovacao_reembolso" | "aprovacao_relatado"): EventoDaQuitacao | null {
+  if (!eventos) return null;
+  const mudancas = eventos.filter(e => e.evento === "registrada" || e.evento === "alterada").map(e => e.em).sort();
+  const ultimaMudanca = mudancas[mudancas.length - 1] ?? "";
+  const dec = eventos.filter(e => e.evento === tipo && e.em > ultimaMudanca).sort((a, b) => (a.em < b.em ? -1 : 1));
+  return dec[dec.length - 1] ?? null;
+}
 const COR_GRAU: Record<Grau, string> = { formal: "border-success-line bg-success-soft/60 text-success-text", relatado: "border-warning-line bg-warning-soft/60 text-warning-text", nenhum: "border-destructive-line bg-destructive-soft text-destructive-text" };
 const COR_NIVEL: Record<Nivel, string> = { baixo: "border-success-line bg-success-soft/60 text-success-text", medio: "border-warning-line bg-warning-soft/60 text-warning-text", alto: "border-destructive-line bg-destructive-soft text-destructive-text" };
 const EVENTO: Record<string, string> = {
   registrada: "Registrada", alterada: "Alterada", removida: "Removida", aprovacao_reembolso: "Decisão sobre o reembolso", aprovacao_relatado: "Decisão sobre o grau Relatado", parametros: "Parâmetros alterados",
+  extinta_por_oferta: "Obrigação extinta por oferta", extincao_desfeita: "Extinção desfeita",
 };
 
 function Chip({ cls, children }: { cls: string; children: React.ReactNode }) {
@@ -59,13 +75,17 @@ export function QuitacaoCard({ lancamento, recarga, onMudou }: { lancamento: Fin
       const [quitacao, parametros] = await Promise.all([quitacaoDaObrigacao(lancamento.id).catch(() => null), carregarParametros()]);
       if (!vivo) return;
       setQ(quitacao); setPar(parametros);
-      setEventos(quitacao && aberto ? await eventosDaQuitacao(quitacao.quitacaoId).catch(() => []) : null);
+      // o histórico se lê sempre: quem decidiu e quando (usuário, data e hora) aparece no cartão, não só na lista aberta
+      setEventos(quitacao ? await eventosDaQuitacao(quitacao.quitacaoId).catch(() => []) : null);
     })();
     return () => { vivo = false; };
-  }, [lancamento.id, n, recarga, aberto]);
+  }, [lancamento.id, n, recarga]);
 
   if (!pronto || lancamento.tipo !== "saida") return null;
-  const aberta = lancamento.status === "previsto";
+  // quitada por terceiro (oferta): o status do lançamento é `quitado_terceiro` — a obrigação está extinta, sem caixa, sem banco e sem extrato; a quitação ainda pode ser corrigida (se não foi enviada)
+  const quitada = (lancamento.status as string) === "quitado_terceiro";
+  const aberta = lancamento.status === "previsto" || quitada;
+  const conferidaEm = (lancamento as unknown as { conferido_em?: string | null }).conferido_em ?? null;
   const podeEscrever = hasRole(["admin", "diakonia", "secretaria", "tesouraria"]);
   const ehAdmin = hasRole(["admin"]);
   // sem quitação e a despesa já paga (ou cancelada): o cartão não tem o que mostrar
@@ -86,6 +106,11 @@ export function QuitacaoCard({ lancamento, recarga, onMudou }: { lancamento: Fin
       setRecusar(null); setMotivo(""); recarregar();
     } catch (e) { toast.error(mensagemErro(e)); } finally { setOcupado(false); }
   }
+  async function conferir(marcar: boolean) {
+    setOcupado(true);
+    try { if (marcar) await conciliarLancamento(lancamento.id); else await desconciliarLancamento(lancamento.id); toast.success(marcar ? "Conferida. O status não mudou: a obrigação segue quitada por terceiro." : "Conferência desmarcada."); recarregar(); }
+    catch (e) { toast.error(mensagemErro(e)); } finally { setOcupado(false); }
+  }
   async function removerQuitacaoAgora() {
     if (!q) return;
     setOcupado(true);
@@ -105,7 +130,13 @@ export function QuitacaoCard({ lancamento, recarga, onMudou }: { lancamento: Fin
         {q && <Chip cls="border-border bg-muted text-foreground">{ROTULO_RESULTADO[q.resultado]}</Chip>}
         {q?.fila && <Chip cls="border-warning-line bg-warning-soft/60 text-warning-text">Fila: {ROTULO_FILA[q.fila]}</Chip>}
         {q?.bloqueiaFechamento && <Chip cls="border-destructive-line bg-destructive-soft text-destructive-text">Bloqueia o fechamento</Chip>}
+        {quitada && <Chip cls="border-info-line bg-info-soft text-info-text">Quitada por terceiro</Chip>}
       </div>
+      {quitada && (
+        <p className="text-xs text-info-text">
+          Oferta com prova suficiente: a obrigação está <b>extinta</b>, sem caixa, sem banco e sem extrato; nenhum saldo mudou. {conferidaEm ? <>Conferida em {dataHoraBr(conferidaEm)}.</> : <>Falta só a <b>conferência</b> da Tesouraria para ficar Pronta.</>}
+        </p>
+      )}
 
       {!q && (
         <>
@@ -135,8 +166,11 @@ export function QuitacaoCard({ lancamento, recarga, onMudou }: { lancamento: Fin
           )}
           {q.motivoInsuficiencia && !q.suficiente && q.responsavel !== "nao_localizado" && <p className="text-xs text-warning-text">{q.motivoInsuficiencia}</p>}
           {q.responsavel === "nao_localizado" && <p className="text-xs text-muted-foreground">Ninguém sabe quem pagou (ou se foi paga). Descubra: se a igreja pagar, esta marcação some; se um terceiro pagou, corrija para registrar quem.</p>}
-          {q.aprovacaoDoReembolso && <p className="text-xs">Reembolso <b>{q.aprovacaoDoReembolso === "aprovada" ? "aprovado" : "recusado"}</b>. Aprovar não paga: o pagamento é um ato posterior.</p>}
-          {q.aprovacaoDoRelatado && <p className="text-xs">Grau Relatado <b>{q.aprovacaoDoRelatado === "aprovada" ? "aprovado" : "recusado"}</b> pelo Administrador.</p>}
+          {q.aprovacaoDoReembolso && (() => { const d = decisaoVigente(eventos, "aprovacao_reembolso"); return (
+            <p className="text-xs">Reembolso <b>{q.aprovacaoDoReembolso === "aprovada" ? "aprovado" : "recusado"}</b>{d ? <> por {d.porNome ?? "usuário"} em {dataHoraBr(d.em)}</> : null}. Aprovar não paga: o pagamento é um ato posterior.{d?.motivo ? <> Motivo: {d.motivo}</> : null}</p>); })()}
+          {q.aprovacaoDoRelatado && (() => { const d = decisaoVigente(eventos, "aprovacao_relatado"); return (
+            <p className="text-xs">Grau Relatado <b>{q.aprovacaoDoRelatado === "aprovada" ? "aprovado" : "recusado"}</b> pelo Administrador{d ? <> ({d.porNome ?? "usuário"}, {dataHoraBr(d.em)})</> : null}.</p>); })()}
+          <p className="text-[11px] text-muted-foreground">Registrada por {eventos?.find(e => e.evento === "registrada")?.porNome ?? "usuário"} em {dataHoraBr(q.registradoEm)}.</p>
 
           {podeEscrever && q.responsavel !== "nao_localizado" && aberta && (
             <div className="flex flex-wrap gap-1.5 pt-1">
@@ -161,6 +195,8 @@ export function QuitacaoCard({ lancamento, recarga, onMudou }: { lancamento: Fin
               <Button size="sm" variant="outline" className="h-8" disabled={ocupado} onClick={() => void decidir("relatado", "aprovada")}>Aprovar o Relatado (Administrador)</Button>
               <Button size="sm" variant="ghost" className="h-8" disabled={ocupado} onClick={() => { setMotivo(""); setRecusar("relatado"); }}>Recusar…</Button>
             </>)}
+            {podeEscrever && quitada && !conferidaEm && <Button size="sm" className="h-8" disabled={ocupado} onClick={() => void conferir(true)}>Conferir</Button>}
+            {podeEscrever && quitada && !!conferidaEm && <Button size="sm" variant="ghost" className="h-8" disabled={ocupado} onClick={() => void conferir(false)}>Desmarcar conferência</Button>}
             {podeEscrever && aberta && <Button size="sm" variant="ghost" className="h-8" onClick={() => setDialogo("corrigir")}>Corrigir</Button>}
             {podeEscrever && aberta && <Button size="sm" variant="ghost" className="h-8 text-destructive-text" onClick={() => { setMotivo(""); setRemover(true); }}>Remover</Button>}
             <Button size="sm" variant="ghost" className="h-8 gap-1.5" onClick={() => setAberto(a => !a)}><History className="h-3.5 w-3.5" /> Histórico</Button>
@@ -170,7 +206,7 @@ export function QuitacaoCard({ lancamento, recarga, onMudou }: { lancamento: Fin
             eventos === null ? <p className="text-xs text-muted-foreground flex items-center gap-1.5"><Loader2 className="h-3 w-3 animate-spin" /> Lendo o histórico…</p> : (
               <ul className="space-y-0.5 text-xs text-muted-foreground">
                 {eventos.length === 0 ? <li>Sem eventos.</li> : eventos.map(e => (
-                  <li key={e.id}>{dataBr(e.em)} — <b>{EVENTO[e.evento] ?? e.evento}</b>{e.decisao ? ` (${e.decisao})` : ""}{e.porNome ? ` por ${e.porNome}` : ""}{e.motivo ? ` — ${e.motivo}` : ""}</li>
+                  <li key={e.id}>{dataHoraBr(e.em)} — <b>{EVENTO[e.evento] ?? e.evento}</b>{e.decisao ? ` (${e.decisao})` : ""}{e.porNome ? ` por ${e.porNome}` : ""}{e.motivo ? ` — ${e.motivo}` : ""}</li>
                 ))}
               </ul>
             )

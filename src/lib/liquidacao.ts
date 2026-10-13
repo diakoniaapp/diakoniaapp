@@ -143,9 +143,11 @@ export const ROTULO_ENCARGO: Record<EncargoDeLiquidacao["tipo"], string> = {
 
 /** A situação de uma obrigação (vw_fin_obrigacoes), com o rótulo que a tela mostra. */
 export type SituacaoDaObrigacao =
-  "previsto" | "em_aberto" | "pago_parcialmente" | "pago_integralmente" | "pago_com_diferenca" | "cancelado";
+  "previsto" | "em_aberto" | "pago_parcialmente" | "pago_integralmente" | "pago_com_diferenca" | "quitada_por_terceiro" | "cancelado";
 
 export const ROTULO_DA_SITUACAO: Record<SituacaoDaObrigacao, string> = {
   previsto: "Previsto", em_aberto: "Em Aberto", pago_parcialmente: "Pago Parcialmente",
   pago_integralmente: "Pago Integralmente", pago_com_diferenca: "Pago com Diferença", cancelado: "Cancelado",
+  // Fase 1B: oferta — a obrigação foi extinta por um terceiro, sem banco e sem caixa (não é "em aberto" nem "paga pela igreja")
+  quitada_por_terceiro: "Quitada por terceiro",
 };

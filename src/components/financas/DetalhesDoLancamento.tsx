@@ -34,10 +34,11 @@ function DeOndeVeio({ anexo, atualId, parcelas }: { anexo: { lancamento_id: stri
 }
 
 /** O estado do ciclo; em "Em aberto" que já passou do vencimento, o indicador "⚠ Atrasada há N dias" (situação visual — não é um estado). */
-export function EstadoDoCicloChip({ estado, atrasoEmDias }: { estado: EstadoDoCiclo; atrasoEmDias?: number }) {
+export function EstadoDoCicloChip({ estado, atrasoEmDias, quitadaPorTerceiro }: { estado: EstadoDoCiclo; atrasoEmDias?: number; quitadaPorTerceiro?: boolean }) {
   return (
     <>
-      <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] ${COR[estado]}`}>{ROTULO_DO_CICLO[estado]}</span>
+      {/* oferta: a obrigação foi extinta por um terceiro, sem banco e sem caixa — "Pagamento realizado" seria enganoso */}
+      <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] ${COR[estado]}`}>{quitadaPorTerceiro && estado === "pagamento_realizado" ? "Quitada por terceiro" : ROTULO_DO_CICLO[estado]}</span>
       {estado === "em_aberto" && !!atrasoEmDias && atrasoEmDias > 0 && (
         <span className="inline-flex items-center rounded-full border border-destructive-line bg-destructive-soft px-2 py-0.5 text-[11px] font-medium text-destructive-text">
           ⚠ Atrasada há {atrasoEmDias} dia{atrasoEmDias === 1 ? "" : "s"}
@@ -83,7 +84,7 @@ export function DetalhesDoLancamento({ lancamento, onFechar, onAnexos }: { lanca
             <DialogHeader>
               <DialogTitle className="flex flex-wrap items-center gap-2">
                 <span className="min-w-0 truncate">{nome}</span>
-                {d?.ciclo && <EstadoDoCicloChip estado={d.ciclo.estado} atrasoEmDias={d.ciclo.atrasoEmDias} />}
+                {d?.ciclo && <EstadoDoCicloChip estado={d.ciclo.estado} atrasoEmDias={d.ciclo.atrasoEmDias} quitadaPorTerceiro={(l.status as string) === "quitado_terceiro"} />}
               </DialogTitle>
               <DialogDescription>
                 {l.tipo === "entrada" ? "Entrada" : "Despesa"} de <b className="tabular-nums">{brl(Number(l.valor))}</b>{d?.contaNome ? <> · conta {d.contaNome}</> : null}

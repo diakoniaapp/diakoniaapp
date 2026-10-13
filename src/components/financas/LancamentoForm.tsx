@@ -1113,7 +1113,7 @@ export function LancamentoForm({
               <Select value={status} onValueChange={(v) => setStatus(v as FinStatus)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {(Object.entries(STATUS_LABEL) as [FinStatus, string][]).map(([k, l]) => (
+                  {(Object.entries(STATUS_LABEL) as [FinStatus, string][]).filter(([k]) => k !== "quitado_terceiro").map(([k, l]) => (
                     <SelectItem key={k} value={k}>{l}</SelectItem>
                   ))}
                 </SelectContent>

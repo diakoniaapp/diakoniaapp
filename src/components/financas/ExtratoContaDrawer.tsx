@@ -103,6 +103,7 @@ const STATUS_COR: Record<FinStatus, string> = {
   previsto:   "text-warning-text",
   cancelado:  "text-muted-foreground line-through",
   aguardando_aprovacao: "text-info-text",
+  quitado_terceiro: "text-info-text",
 };
 
 interface Props {

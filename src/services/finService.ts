@@ -9,7 +9,9 @@ import { atualizarPrevistosEmBlocos } from "@/services/previstosEmBlocos";
 // ─── Tipos ───────────────────────────────────────────────────────────────
 export type FinContaTipo = "caixa" | "banco" | "pix" | "envelope" | "cartao" | "aplicacao" | "cofre";
 export type FinMovimentoTipo = "entrada" | "saida";
-export type FinStatus = "previsto" | "realizado" | "conciliado" | "cancelado" | "aguardando_aprovacao";
+// "quitado_terceiro" (Fase 1B da Política de Compras por Terceiros): a obrigação foi extinta por um terceiro (oferta), SEM passar por banco nem caixa. Não é pago pela igreja: não entra no saldo,
+// no extrato nem na conciliação. Só nasce de uma quitação do tipo oferta com prova suficiente (o banco o põe e o tira sozinho); a tela nunca o escolhe.
+export type FinStatus = "previsto" | "realizado" | "conciliado" | "cancelado" | "aguardando_aprovacao" | "quitado_terceiro";
 // "cheque" acrescentado em 23/09/2026 (migration 20260923120000) — pedido
 // dela: "Cheque NÃO deve ser tratado como Outro — é forma válida pra
 // realidade da igreja". TED, por decisão dela, não ganhou valor próprio —
@@ -414,6 +416,7 @@ export const STATUS_LABEL: Record<FinStatus, string> = {
   // D4 (13/10/2026): o status `conciliado` cobre as DUAS provas — conferido à mão e conciliado com o banco; quem as distingue é o vínculo (vw_fin_ciclo / detalhe da despesa)
   conciliado: "Conferido / conciliado", cancelado: "Cancelado",
   aguardando_aprovacao: "Aguardando aprovação",
+  quitado_terceiro: "Quitado por terceiro",
 };
 
 // ─── Contas ──────────────────────────────────────────────────────────────
@@ -980,7 +983,7 @@ function construirQueryLancamentos(filtro: FiltroLancamento, buscaIds?: { fornec
   // mostrando tudo — não é o caso que ela pediu pra mudar.
   if (filtro.tipo) q = q.eq("tipo", filtro.tipo).neq("origem", "transferencia");
   if (filtro.apenasTransferencia) q = q.eq("origem", "transferencia");
-  if (filtro.status) q = q.eq("status", filtro.status);
+  if (filtro.status) q = q.eq("status", filtro.status as never);
   if (filtro.categoriaId) q = q.eq("categoria_id", filtro.categoriaId);
   if (filtro.centroCustoId) q = q.eq("centro_custo_id", filtro.centroCustoId);
   if (filtro.projetoId) q = q.eq("projeto_id", filtro.projetoId);
@@ -1927,18 +1930,40 @@ export async function carimboDeConferencia(): Promise<Record<string, unknown>> {
 async function limpezaDeConferencia(): Promise<Record<string, unknown>> {
   return (await temColunasDeConferencia()) ? { conferido_em: null, conferido_por: null, conferencia_nota: null } : {};
 }
+/**
+ * Fase 1B: uma obrigação QUITADA POR TERCEIRO (oferta) nunca passou por banco nem caixa. Conferi-la só CARIMBA quem conferiu e quando; o status continua `quitado_terceiro`
+ * (trocá-lo por `conciliado` a colocaria no saldo — o banco recusa). Marcar como conferida não é pagar.
+ */
+async function ehQuitadoPorTerceiro(lancamentoId: string): Promise<boolean> {
+  const { data } = await supabase.from("fin_lancamentos").select("status").eq("id", lancamentoId).maybeSingle();
+  return String((data as { status?: string } | null)?.status ?? "") === "quitado_terceiro";
+}
 export async function conciliarLancamento(lancamentoId: string): Promise<void> {
+  if (await ehQuitadoPorTerceiro(lancamentoId)) { await atualizarLancamento(lancamentoId, { ...(await carimboDeConferencia()) } as never); return; }
   await atualizarLancamento(lancamentoId, { status: "conciliado", ...(await carimboDeConferencia()) } as never);
 }
 export async function desconciliarLancamento(lancamentoId: string): Promise<void> {
+  if (await ehQuitadoPorTerceiro(lancamentoId)) { await atualizarLancamento(lancamentoId, { ...(await limpezaDeConferencia()) } as never); return; }
   await atualizarLancamento(lancamentoId, { status: "realizado", ...(await limpezaDeConferencia()) } as never);
 }
 
 /** Conciliar vários de uma vez — o caso real de bater um extrato inteiro. */
 export async function conciliarEmLote(ids: string[]): Promise<void> {
   if (ids.length === 0) return;
+  // as quitadas por terceiro só ganham o carimbo de quem conferiu (o status não troca)
+  const quitadas = new Set<string>();
+  for (const lote of emLotes(ids, 150)) {
+    const { data } = await supabase.from("fin_lancamentos").select("id, status").in("id", lote);
+    for (const l of (data ?? []) as { id: string; status: string }[]) if (l.status === "quitado_terceiro") quitadas.add(l.id);
+  }
+  const comuns = ids.filter(i => !quitadas.has(i));
+  if (quitadas.size > 0) {
+    const rq = conferir(await supabase.from("fin_lancamentos").update({ ...(await carimboDeConferencia()) } as never).in("id", [...quitadas]).select("id"), "A conferência das quitadas por terceiro");
+    if (!rq.ok) throw new Error(rq.erro);
+  }
+  if (comuns.length === 0) return;
   const r = conferir(
-    await supabase.from("fin_lancamentos").update({ status: "conciliado", ...(await carimboDeConferencia()) } as never).in("id", ids).select("id"),
+    await supabase.from("fin_lancamentos").update({ status: "conciliado", ...(await carimboDeConferencia()) } as never).in("id", comuns).select("id"),
     "A conferência",
   );
   if (!r.ok) throw new Error(r.erro);

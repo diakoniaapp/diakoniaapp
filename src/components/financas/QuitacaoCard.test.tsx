@@ -22,12 +22,14 @@ vi.mock("@/services/quitacaoService", () => ({
   registrarQuitacao: async () => "x",
   alterarQuitacao: async () => undefined,
 }));
-vi.mock("@/services/finService", async (orig) => ({ ...(await orig<typeof import("@/services/finService")>()), adicionarAnexo: vi.fn() }));
+const conciliar = vi.fn(async (..._a: unknown[]) => undefined);
+const desconciliar = vi.fn(async (..._a: unknown[]) => undefined);
+vi.mock("@/services/finService", async (orig) => ({ ...(await orig<typeof import("@/services/finService")>()), adicionarAnexo: vi.fn(), conciliarLancamento: (...a: unknown[]) => conciliar(...a), desconciliarLancamento: (...a: unknown[]) => desconciliar(...a) }));
 import { QuitacaoCard } from "./QuitacaoCard";
 
 let raiz: Root | null = null;
 let alvo: HTMLDivElement | null = null;
-afterEach(() => { act(() => raiz?.unmount()); alvo?.remove(); raiz = null; alvo = null; quitacao = null; disponivel = true; papeis = ["admin"]; decidir.mockClear(); });
+afterEach(() => { act(() => raiz?.unmount()); alvo?.remove(); raiz = null; alvo = null; quitacao = null; disponivel = true; papeis = ["admin"]; decidir.mockClear(); conciliar.mockClear(); desconciliar.mockClear(); });
 
 const lanc = (o: Partial<FinLancamentoExtenso> = {}) => ({ id: "l1", tipo: "saida", status: "previsto", valor: 100, descricao: "Material", ...o }) as unknown as FinLancamentoExtenso;
 const q = (o: Partial<QuitacaoDaObrigacao> = {}): QuitacaoDaObrigacao => ({
@@ -99,5 +101,44 @@ describe("o cartão Quitação", () => {
     expect(el.textContent).toMatch(/Reembolso aprovado\. Aprovar não paga/);
     expect(el.textContent).toMatch(/O terceiro \(dívida da igreja\)/);
     expect(botao(el, "Aprovar reembolso")).toBeFalsy();
+  });
+});
+
+describe("a oferta já extinta (quitado_terceiro)", () => {
+  const oferta = (o: Partial<QuitacaoDaObrigacao> = {}) => q({ intencao: "oferta", resultado: "extinta_como_oferta", credorAtual: "nenhum", fila: null, nivelRisco: "baixo", grauResponsavel: "relatado", grauIntencao: "relatado", grauConjunto: "relatado", ...o });
+  it("avisa que a obrigação está extinta, sem caixa, sem banco e sem extrato, e que falta só a conferência", async () => {
+    quitacao = oferta();
+    const el = await montar(lanc({ status: "quitado_terceiro" } as never));
+    expect(el.textContent).toMatch(/Quitada por terceiro/);
+    expect(el.textContent).toMatch(/extinta.*sem caixa, sem banco e sem extrato; nenhum saldo mudou/);
+    expect(el.textContent).toMatch(/Falta só a conferência/);
+  });
+  it("Conferir só carimba: chama a conferência (o status não troca) e não oferece Pagar nem aprovar reembolso", async () => {
+    quitacao = oferta();
+    const el = await montar(lanc({ status: "quitado_terceiro" } as never));
+    expect(botao(el, "Aprovar reembolso")).toBeFalsy();
+    const b = botao(el, "Conferir");
+    expect(b).toBeTruthy();
+    await act(async () => { b!.click(); });
+    expect(conciliar).toHaveBeenCalledWith("l1");
+  });
+  it("já conferida: mostra quando e oferece desmarcar", async () => {
+    quitacao = oferta();
+    const el = await montar(lanc({ status: "quitado_terceiro", conferido_em: "2026-10-18T13:00:00Z" } as never));
+    expect(el.textContent).toMatch(/Conferida em 18\/10\/2026/);
+    const b = botao(el, "Desmarcar conferência");
+    await act(async () => { b!.click(); });
+    expect(desconciliar).toHaveBeenCalledWith("l1");
+  });
+  it("a quitação de uma oferta extinta ainda pode ser corrigida (se não enviada)", async () => {
+    quitacao = oferta();
+    const el = await montar(lanc({ status: "quitado_terceiro" } as never));
+    expect(botao(el, "Corrigir")).toBeTruthy();
+    expect(botao(el, "Remover")).toBeTruthy();
+  });
+  it("auditoria: o cartão mostra quem registrou e quando, com data e hora", async () => {
+    quitacao = oferta({ registradoEm: "2026-10-13T17:45:00Z" });
+    const el = await montar(lanc({ status: "quitado_terceiro" } as never));
+    expect(el.textContent).toMatch(/Registrada por .* em 13\/10\/2026 às 14:45/);
   });
 });

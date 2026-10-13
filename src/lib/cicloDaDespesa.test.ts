@@ -166,3 +166,40 @@ describe("terceiro que já pagou o fornecedor (Fase 1A da Quitação)", () => {
     expect(ciclo({}).pendencias.join(" ")).toMatch(/pagar/);
   });
 });
+
+describe("quitada por terceiro — a oferta (Fase 1B)", () => {
+  const quitada = (o: Partial<EntradaDoCiclo> = {}) => ciclo({ status: "quitado_terceiro", hoje: "2026-10-20", temDocumento: true, ...o });
+  it("conta como situação paga, mas NÃO espera o banco: nasce em Pagamento realizado e pede só a conferência", () => {
+    const c = quitada();
+    expect(c.estado).toBe("pagamento_realizado");
+    expect(c.naFilaOperacional).toBe(false);
+    expect(c.pendencias.join(" ")).toMatch(/conferir/);
+    expect(c.pendencias.join(" ")).not.toMatch(/comprovante|vincular|conciliar|pagar\b/);   // nada de banco: só conferir
+    expect(c.proximoPasso).toMatch(/Conferir a quitação por terceiro/);
+    expect(c.conferencia).toBeNull();
+  });
+  it("com o extrato da conta cobrindo o dia, continua sem 'aguardar conciliação': não há linha de banco a ligar", () => {
+    expect(quitada({ contaTipo: "banco", ultimoExtratoDaConta: "2026-10-20" }).estado).toBe("pagamento_realizado");
+  });
+  it("conferida (conferido_em) ⇒ Conferida; com nota e classificação, Pronta para o malote — o comprovante da igreja não se aplica", () => {
+    const c = quitada({ conferidoEm: "2026-10-18T10:00:00Z" });
+    expect(c.estado).toBe("pronta_para_malote");
+    expect(c.conferencia).toBe("manual");
+    expect(c.etapas.find(e => e.chave === "comprovante")).toMatchObject({ feita: true, naoSeAplica: true });
+    expect(c.etapas.find(e => e.chave === "ofx")).toMatchObject({ feita: true, naoSeAplica: true });
+    expect(c.etapas.find(e => e.chave === "conciliacao")).toMatchObject({ rotulo: "Conferência", feita: true });
+  });
+  it("sem a nota (documento original) não é Pronta, mesmo conferida; a prova da quitação não substitui a nota", () => {
+    const c = quitada({ conferidoEm: "2026-10-18T10:00:00Z", temDocumento: false });
+    expect(c.estado).toBe("conciliada");
+    expect(c.pendencias.join(" ")).toMatch(/documento original/);
+  });
+  it("sem classificação não é Pronta", () => {
+    expect(quitada({ conferidoEm: "2026-10-18T10:00:00Z", temCategoria: false }).estado).toBe("conciliada");
+  });
+  it("Enviada: o estado não regride e a pendência do que falta aparece", () => {
+    const c = quitada({ conferidoEm: "2026-10-18T10:00:00Z", envio: { ano: 2026, mes: 10, periodoAprovado: false } });
+    expect(c.estado).toBe("enviada");
+    expect(quitada({ conferidoEm: "2026-10-18T10:00:00Z", envio: { ano: 2026, mes: 10, periodoAprovado: true } }).estado).toBe("arquivada");
+  });
+});

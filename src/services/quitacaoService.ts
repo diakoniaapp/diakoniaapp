@@ -18,7 +18,31 @@ export async function quitacaoDisponivel(): Promise<boolean> {
   sondagem = { em: Date.now(), ok: !error };
   return !error;
 }
-export function esquecerSondagemDeQuitacao() { sondagem = null; }
+export function esquecerSondagemDeQuitacao() { sondagem = null; sondagemOferta = null; }
+
+let sondagemOferta: { em: number; ok: boolean } | null = null;
+/**
+ * `true` quando o status `quitado_terceiro` (Fase 1B) existe no banco: só então a OFERTA pode ser registrada. Sonda pedindo uma linha com esse status — se o valor ainda não existe no enum,
+ * o banco responde com erro de valor inválido. Resultado guardado por 30 s.
+ */
+export async function ofertaDisponivel(): Promise<boolean> {
+  if (sondagemOferta && Date.now() - sondagemOferta.em < 30_000) return sondagemOferta.ok;
+  if (!(await quitacaoDisponivel())) { sondagemOferta = { em: Date.now(), ok: false }; return false; }
+  const { error } = await supabase.from("fin_lancamentos").select("id").eq("status", "quitado_terceiro" as never).limit(1);
+  sondagemOferta = { em: Date.now(), ok: !error };
+  return !error;
+}
+
+/**
+ * A formalização vencida é um fato do TEMPO: uma oferta aceita como Relatado pode deixar de bastar quando o prazo passa. Ao abrir a Mesa, o banco realinha o status das ofertas com o que a Matriz
+ * manda (idempotente; só quem é do financeiro). Devolve quantas obrigações mudaram. Sem a migration, não faz nada.
+ */
+export async function sincronizarQuitacoes(): Promise<number> {
+  if (!(await ofertaDisponivel())) return 0;
+  const { data, error } = await supabase.rpc("fin_quitacao_sincronizar_todas" as never);
+  if (error) return 0;
+  return Number(data ?? 0);
+}
 
 export interface QuitacaoDaObrigacao {
   quitacaoId: string;
@@ -214,3 +238,35 @@ export const decidirQuitacao = (quitacaoId: string, tipo: "reembolso" | "relatad
   chamar<void>("fin_decidir_quitacao", { p_quitacao: quitacaoId, p_tipo: tipo, p_decisao: decisao, p_motivo: motivo ?? null });
 
 export const alterarParametros = (mudancas: Record<string, unknown>, motivo: string): Promise<void> => chamar<void>("fin_quitacao_parametros_alterar", { p_patch: mudancas, p_motivo: motivo });
+
+/** Registrar uma NOTA que o aplicativo ainda não tinha, já quitada por um terceiro: a obrigação e a quitação nascem na MESMA operação (ou nada nasce). */
+export interface PedidoDeNotaQuitada {
+  contaId: string;
+  emitenteId: string;
+  dataDaNota: string;
+  valor: number;
+  descricao: string | null;
+  numeroDaNota: string | null;
+  chaveDeAcesso: string | null;
+  categoriaId: string | null;
+  centroCustoId: string | null;
+  naturezaItem: NaturezaDoItem;
+  comprador: "cnpj_igreja" | "contratacao_previa";
+  responsavel: Exclude<ResponsavelTipo, "igreja" | "ninguem_ainda">;
+  pessoaId: string | null;
+  fornecedorDoResponsavelId: string | null;
+  intencao: Intencao;
+  pagoEm: string | null;
+  declaradoEm: string | null;
+  condicao: string | null;
+  pedeRecibo: boolean;
+  motivo?: string | null;
+}
+
+/** Devolve o id da obrigação criada. */
+export const registrarNotaQuitadaPorTerceiro = (p: PedidoDeNotaQuitada): Promise<string> => chamar<string>("fin_registrar_nf_quitada_por_terceiro", {
+  p_conta: p.contaId, p_fornecedor: p.emitenteId, p_data: p.dataDaNota, p_valor: p.valor, p_descricao: p.descricao, p_documento_numero: p.numeroDaNota, p_chave: p.chaveDeAcesso,
+  p_categoria: p.categoriaId, p_centro: p.centroCustoId, p_natureza_item: p.naturezaItem, p_comprador: p.comprador,
+  p_responsavel: p.responsavel, p_pessoa: p.pessoaId, p_responsavel_fornecedor: p.fornecedorDoResponsavelId, p_intencao: p.intencao, p_pago_em: p.pagoEm, p_declarado_em: p.declaradoEm,
+  p_condicao: p.condicao, p_pede_recibo: p.pedeRecibo, p_motivo: p.motivo ?? null,
+});
