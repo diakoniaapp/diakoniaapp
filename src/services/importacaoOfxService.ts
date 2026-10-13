@@ -103,6 +103,8 @@ export interface LinhaAnalisada {
   situacao: SituacaoLinha;
   /** `conciliar`: o lançamento realizado que casou. */
   lancamentoId?: string;
+  /** `conciliar`: o lançamento que casou já estava CONFERIDO (status conciliado, à mão ou do Omie) mas SEM vínculo com o banco — conciliar aqui é só LIGAR a linha do extrato a ele (D4) */
+  semVinculo?: boolean;
   /** `nova`: o que o sistema sugere. */
   sugestao?: Sugestao;
   /** `ja_registrada`: por que acreditamos que já existe. */
@@ -198,6 +200,20 @@ async function previstosParaExtrato(de: string, ate: string): Promise<(PrevistoP
   }
 }
 
+/** Dos ids de liquidação, os que guardam o identificador de uma linha do banco (fin_liquidacoes.ofx_fitid). Falha da consulta = nenhum (recua para "sem dono"). */
+async function liquidacoesComIdentificador(ids: string[]): Promise<Set<string>> {
+  const out = new Set<string>();
+  const unicos = [...new Set(ids)];
+  try {
+    for (let i = 0; i < unicos.length; i += 150) {
+      const { data, error } = await supabase.from("fin_liquidacoes" as never).select("id, ofx_fitid").in("id" as never, unicos.slice(i, i + 150) as never);
+      if (error) return new Set();
+      for (const l of ((data ?? []) as unknown as { id: string; ofx_fitid: string | null }[])) if (l.ofx_fitid) out.add(l.id);
+    }
+  } catch { return new Set(); }
+  return out;
+}
+
 export async function analisar(contaId: string, txs: OFXTransacao[], contexto: ContextoOfx): Promise<LinhaAnalisada[]> {
   const datas = txs.map(t => t.data).sort();
   const de = daquiADias(datas[0], -5);
@@ -244,12 +260,21 @@ export async function analisar(contaId: string, txs: OFXTransacao[], contexto: C
   //   (b) "ambíguo" (vários candidatos) era tratado como "já registrado", o contrário do que o próprio casarComLancamentos recomenda
   //       (errar para o lado de pedir revisão). Agora só concorrem lançamentos SEM dono — os feitos à mão ou trazidos pelo Omie — e o
   //       ambíguo aparece em "revisar", visível.
-  const semDono = conciliados.filter(l => !/\[ofx:/.test(l.observacoes ?? "") && !(l as { liquidacao_id?: string | null }).liquidacao_id);
+  // "sem dono" = sem marca de extrato E sem liquidação que já carregue o identificador de uma linha do banco. Uma despesa liquidada SEM identificador (a fusão de um pagamento que
+  // nunca teve a marca, como a CBD de 30/09/2026) também está sem dono: antes ficava de fora e a linha do extrato virava lançamento NOVO — duplicata.
+  const liqComBanco = await liquidacoesComIdentificador(conciliados.map(l => (l as { liquidacao_id?: string | null }).liquidacao_id).filter((x): x is string => !!x));
+  const semDono = conciliados.filter(l => {
+    const liq = (l as { liquidacao_id?: string | null }).liquidacao_id;
+    return !/\[ofx:/.test(l.observacoes ?? "") && (!liq || !liqComBanco.has(liq));
+  });
   const jaConc = casarComLancamentos(semRealizado.map(r => r.tx), semDono);
   jaConc.forEach((c, k) => {
     const { tx, i } = semRealizado[k];
     if (c.status === "encontrado") {
-      out[i] = { tx, situacao: "ja_registrada", motivoJaRegistrada: "já existe lançamento conciliado com este valor e data" };
+      // D4 (13/10/2026): "conferido" ≠ "conciliado". Um lançamento marcado à mão (ou vindo do Omie) que casa com a linha do extrato NÃO é "já registrado":
+      // falta provar no banco. Vira "conciliar" — um clique grava a marca [ofx:FITID] (o gatilho cria o vínculo) e mantém o status. Antes ficava "já registrada"
+      // e nenhum vínculo nascia nunca (24 despesas de setembro/2026 esperavam por isso).
+      out[i] = { tx, situacao: "conciliar", lancamentoId: c.lancamentoId, semVinculo: true };
     } else {
       // um DÉBITO AUTOMÁTICO previsto que esta saída cumpre: conciliar, não criar outro lançamento
       const achado = tx.tipo === "saida" ? acharDebitoCompativel(tx, debitosLivres(debitos)) : null;
@@ -507,14 +532,18 @@ export async function conciliarPagamentos(itens: PagamentoParaConciliar[]): Prom
   const userId = (await supabase.auth.getUser()).data.user?.id ?? null;
   const agora = new Date().toISOString();
   for (const it of itens) {
-    const { data: atual, error: e1 } = await supabase.from("fin_lancamentos").select("observacoes, status").eq("id", it.lancamentoId).maybeSingle();
+    const { data: atual, error: e1 } = await supabase.from("fin_lancamentos").select("observacoes, status, data_pagamento").eq("id", it.lancamentoId).maybeSingle();
     if (e1) { res.erros.push(e1.message); continue; }
-    if (!atual || atual.status !== "realizado") { res.erros.push("um pagamento já não está 'realizado' (alguém o alterou): reabra a Mesa"); continue; }
+    // "realizado" (o botão Pagar) ou "conciliado" SEM vínculo (conferido à mão/Omie: só falta ligar ao banco). Já ligado a outra linha do extrato, não.
+    const conferidoSemVinculo = !!atual && atual.status === "conciliado" && !/\[ofx:/.test(atual.observacoes ?? "");
+    if (!atual || (atual.status !== "realizado" && !conferidoSemVinculo)) { res.erros.push("um pagamento já não está 'realizado' nem conferido sem vínculo (alguém o alterou): reabra a Mesa"); continue; }
     const jaTem = (atual.observacoes ?? "").includes(`[ofx:${it.tx.fitid}]`);
     const observacoes = jaTem ? (atual.observacoes ?? null) : [(atual.observacoes ?? "").trim(), `[ofx:${it.tx.fitid}]`].filter(Boolean).join("\n");
+    // o dia do banco substitui o do clique em Pagar; num conferido já há uma data de pagamento (e o mês pode estar fechado): só preenche se faltar
+    const dataDePagamento = conferidoSemVinculo ? (atual.data_pagamento ?? it.tx.data) : it.tx.data;
     const { data, error } = await supabase.from("fin_lancamentos")
-      .update({ status: "conciliado", data_pagamento: it.tx.data, observacoes, audit_user_id: userId, audit_em: agora } as never)
-      .eq("id", it.lancamentoId).eq("status", "realizado").select("id");
+      .update({ status: "conciliado", data_pagamento: dataDePagamento, observacoes, audit_user_id: userId, audit_em: agora } as never)
+      .eq("id", it.lancamentoId).eq("status", atual.status).select("id");
     if (error) res.erros.push(error.message);
     else if (!data || data.length === 0) res.erros.push("um pagamento não pôde ser conciliado (permissão ou já alterado)");
     else res.conciliados.push(it.lancamentoId);

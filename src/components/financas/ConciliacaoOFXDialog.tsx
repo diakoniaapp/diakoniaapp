@@ -706,7 +706,11 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
                           </div>
 
                           {l.situacao === "conciliar" && (
-                            <p className="pl-6 text-xs text-muted-foreground">Casa com um lançamento já registrado — será conciliada.</p>
+                            <p className="pl-6 text-xs text-muted-foreground">
+                              {l.semVinculo
+                                ? "Casa com um lançamento já CONFERIDO, sem vínculo com o banco — será ligada ao extrato (fica Conciliada)."
+                                : "Casa com um lançamento já registrado — será conciliada."}
+                            </p>
                           )}
                           {l.situacao === "ja_registrada" && (
                             <p className="pl-6 text-xs text-muted-foreground">Já registrada: {l.motivoJaRegistrada}. Não será criada de novo.</p>

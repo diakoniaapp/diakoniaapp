@@ -46,9 +46,24 @@ export async function liquidar(p: PedidoDeLiquidacao): Promise<string> {
   } as never);
   if (error) throw new Error(error.message);
   const liquidacaoId = data as unknown as string;
-  // veio do extrato = o banco já confirmou: os lançamentos da liquidação nascem conciliados
-  if (p.ofxFitid) await conciliarLiquidacao(liquidacaoId);
+  // veio do extrato = o banco já confirmou: os lançamentos da liquidação nascem conciliados — e levam a marca da linha do banco (D4: sem ela a despesa fica "conferida sem vínculo")
+  if (p.ofxFitid) { await conciliarLiquidacao(liquidacaoId); await marcarVinculoDaLiquidacao(liquidacaoId, p.ofxFitid); }
   return liquidacaoId;
+}
+
+/**
+ * Liquidação de UMA despesa feita a partir de uma linha do extrato: a despesa leva a marca [ofx:FITID] (o gatilho cria o vínculo). Liquidação de várias despesas não: uma
+ * linha do banco só pode pertencer a UMA despesa — fica registrada em fin_liquidacoes.ofx_fitid. Uma falha aqui nunca desfaz o pagamento (a marca pode ser ligada depois).
+ */
+async function marcarVinculoDaLiquidacao(liquidacaoId: string, fitid: string): Promise<void> {
+  try {
+    const { data, error } = await supabase.from("fin_lancamentos").select("id, observacoes").eq("liquidacao_id" as never, liquidacaoId as never);
+    if (error || !data || data.length !== 1) return;
+    const l = data[0] as { id: string; observacoes: string | null };
+    const obs = l.observacoes ?? "";
+    if (obs.includes(`[ofx:${fitid}]`)) return;
+    await supabase.from("fin_lancamentos").update({ observacoes: [obs.trim(), `[ofx:${fitid}]`].filter(Boolean).join("\n") } as never).eq("id", l.id).select("id");
+  } catch { /* a liquidação já foi gravada */ }
 }
 
 async function conciliarLiquidacao(liquidacaoId: string): Promise<void> {

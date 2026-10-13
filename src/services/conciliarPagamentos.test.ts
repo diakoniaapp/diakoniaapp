@@ -52,11 +52,24 @@ describe("conciliarPagamentos", () => {
     expect(tabela.get("a")!.observacoes).toBe("[ofx:N1]");
   });
 
+  it("D4: um lançamento CONFERIDO (status conciliado) sem vínculo recebe a marca do banco — sem mudar o status e sem mexer na data de pagamento que já tinha", async () => {
+    tabela.set("a", { id: "a", status: "conciliado", observacoes: "conferido à mão", data_pagamento: "2026-09-18" });
+    const r = await conciliarPagamentos([{ lancamentoId: "a", tx: tx("N11481", "2026-09-19") }]);
+    expect(r).toEqual({ conciliados: ["a"], erros: [] });
+    expect(tabela.get("a")).toMatchObject({ status: "conciliado", data_pagamento: "2026-09-18", observacoes: "conferido à mão\n[ofx:N11481]" });
+  });
+
+  it("D4: conferido SEM data de pagamento ganha a data do banco", async () => {
+    tabela.set("a", { id: "a", status: "conciliado", observacoes: null, data_pagamento: null });
+    await conciliarPagamentos([{ lancamentoId: "a", tx: tx("N1", "2026-09-19") }]);
+    expect(tabela.get("a")).toMatchObject({ data_pagamento: "2026-09-19", observacoes: "[ofx:N1]" });
+  });
+
   it("recusa quem já não está 'realizado' (outra aba conciliou ou desfez) e não toca nele", async () => {
     tabela.set("a", { id: "a", status: "conciliado", observacoes: "[ofx:OUTRO]", data_pagamento: "2026-10-02" });
     const r = await conciliarPagamentos([{ lancamentoId: "a", tx: tx("N1", "2026-10-05") }]);
     expect(r.conciliados).toEqual([]);
-    expect(r.erros[0]).toMatch(/já não está/);
+    expect(r.erros[0]).toMatch(/já não está/);   // já ligado a OUTRA linha do extrato
     expect(tabela.get("a")).toMatchObject({ observacoes: "[ofx:OUTRO]", data_pagamento: "2026-10-02" });
   });
 
