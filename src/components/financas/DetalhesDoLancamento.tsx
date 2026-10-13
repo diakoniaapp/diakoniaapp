@@ -8,10 +8,12 @@ import { CheckCircle2, Circle, ExternalLink, FileText, Loader2, MinusCircle, Pap
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { QuitacaoCard } from "@/components/financas/QuitacaoCard";
 import { ReabrirEnviadaDialog, type AlvoDaReabertura } from "@/components/financas/ReabrirEnviadaDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { ORDEM_DO_CICLO, ROTULO_DO_CICLO, type EstadoDoCiclo } from "@/lib/cicloDaDespesa";
 import { origemDoAnexo } from "@/lib/grupoDaObrigacao";
+import { ehAnexoDaQuitacao, ehDocumentoOriginal } from "@/lib/quitacao";
 import { carregarDetalhesDaDespesa, type DetalhesDaDespesa } from "@/services/cicloDaDespesaService";
 import { brl, comprovanteSignedUrl, FIN_ANEXO_TIPO_LABEL, nomeExtrato, STATUS_LABEL, type FinLancamentoExtenso } from "@/services/finService";
 
@@ -67,7 +69,8 @@ export function DetalhesDoLancamento({ lancamento, onFechar, onAnexos }: { lanca
 
   const l = lancamento;
   const nome = l ? nomeExtrato(l).principal : "";
-  const documentos = d?.anexos.filter(a => a.tipo !== "comprovante") ?? [];
+  const documentos = d?.anexos.filter(a => ehDocumentoOriginal(a.tipo)) ?? [];
+  const provasDaQuitacao = d?.anexos.filter(a => ehAnexoDaQuitacao(a.tipo)) ?? [];
   const comprovantes = d?.anexos.filter(a => a.tipo === "comprovante") ?? [];
   const o = d?.obrigacao;
 
@@ -118,6 +121,9 @@ export function DetalhesDoLancamento({ lancamento, onFechar, onAnexos }: { lanca
                     </ul>
                   </section>
                 )}
+
+                {/* Fase 1A da Política de Compras por Terceiros: quem pagou e por quê (só aparece depois da migration) */}
+                <QuitacaoCard lancamento={l} recarga={recarga} onMudou={() => setRecarga(n => n + 1)} />
 
                 <section aria-label="Datas e valores" className="grid grid-cols-2 gap-2 text-sm">
                   <div className="rounded-md border px-3 py-2"><p className="text-[11px] uppercase tracking-wide text-muted-foreground">Vencimento</p><p className="tabular-nums">{dataBr(l.data)}</p></div>
@@ -193,6 +199,16 @@ export function DetalhesDoLancamento({ lancamento, onFechar, onAnexos }: { lanca
                       </li>))}
                     </ul>
                   )}
+                  {provasDaQuitacao.length > 0 && (<>
+                    <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground pt-1">Provas da quitação (quem pagou e a intenção)</h3>
+                    <ul className="space-y-1">{provasDaQuitacao.map(a => (
+                      <li key={a.id} className="flex items-center gap-2 text-sm">
+                        <FileText className="w-3.5 h-3.5 text-muted-foreground" />
+                        <span className="min-w-0 flex-1 truncate">{FIN_ANEXO_TIPO_LABEL[a.tipo] ?? a.tipo}{a.nome ? ` · ${a.nome}` : ""}</span>
+                        <Button size="sm" variant="ghost" className="h-6 gap-1 text-xs" onClick={() => abrir(a.url)}><ExternalLink className="w-3 h-3" /> Abrir</Button>
+                      </li>))}
+                    </ul>
+                  </>)}
                   <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground pt-1">Comprovante de pagamento</h3>
                   {comprovantes.length === 0 && !d.comprovanteAntigo ? <p className="text-sm text-muted-foreground">Nenhum comprovante anexado.</p> : (
                     <ul className="space-y-1">

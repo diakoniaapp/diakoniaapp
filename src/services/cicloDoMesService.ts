@@ -2,6 +2,7 @@
 // O Malote "enxerga a mesma obrigação": em vez de contar documentos num lugar e conciliações em outro, cada despesa paga no mês recebe o estado de
 // `lib/cicloDaDespesa.ts` (Pagamento Realizado, Aguardando Conciliação, Conciliada, Pronta para o Malote) e aqui só se somam. Só leitura.
 import { supabase } from "@/integrations/supabase/client";
+import { ehDocumentoOriginal } from "@/lib/quitacao";
 import { documentosHerdados } from "@/services/grupoDaObrigacaoService";
 import { cicloDaDespesa, ORDEM_DO_CICLO, periodoAprovadoCobre, type EstadoDoCiclo } from "@/lib/cicloDaDespesa";
 import { hojeLocal } from "@/lib/data";
@@ -43,7 +44,10 @@ export async function cicloDoMes(ano: number, mes: number): Promise<ResumoDoCicl
   const ids = lancs.map(l => String(l.id));
   for (let i = 0; i < ids.length; i += 200) {
     const { data } = await supabase.from("fin_lancamento_anexos").select("lancamento_id, tipo").in("lancamento_id", ids.slice(i, i + 200));
-    for (const a of data ?? []) (a.tipo === "comprovante" ? comComprovante : comDocumento).add(String(a.lancamento_id));
+    for (const a of data ?? []) {
+      if (a.tipo === "comprovante") comComprovante.add(String(a.lancamento_id));
+      else if (ehDocumentoOriginal(a.tipo)) comDocumento.add(String(a.lancamento_id));   // as provas da quitação não são o documento original
+    }
   }
   // o documento é da obrigação: a parcela de um pagamento parcial herda o das irmãs (o comprovante, não — cada pagamento prova o seu)
   for (const id of (await documentosHerdados(ids)).keys()) comDocumento.add(id);

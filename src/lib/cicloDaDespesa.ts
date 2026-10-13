@@ -56,6 +56,8 @@ export interface EntradaDoCiclo {
   origem?: string | null;
   /** categorias que não têm documento (tarifas bancárias, IOF, juros): ver `dispensaDocumento` */
   dispensaDocumento: boolean;
+  /** Fase 1A da Quitação: um TERCEIRO (Pessoa, Empresa ou Entidade) já pagou o fornecedor — não há mais "a vencer": a despesa fica Em aberto, aguardando a decisão sobre o terceiro, e a igreja NÃO paga o fornecedor */
+  terceiroQuitou?: boolean;
   hoje: string;
 }
 
@@ -134,10 +136,13 @@ export function cicloDaDespesa(e: EntradaDoCiclo): CicloDaDespesa | null {
   if (!paga) {
     const venceuOuVenceHoje = e.data.slice(0, 10) <= e.hoje;
     const atraso = venceuOuVenceHoje ? diasEntre(e.data.slice(0, 10), e.hoje) : 0;
+    const terceiro = !!e.terceiroQuitou;
     return {
-      estado: venceuOuVenceHoje ? "em_aberto" : "prevista", etapas, naFilaOperacional: true,
-      pendencias: faltam("documento", "classificacao").map(k => NOME[k]).concat(["pagar"]),
-      proximoPasso: !venceuOuVenceHoje ? "Anexar o documento e pagar até o vencimento." : atraso === 0 ? "Pagar hoje — a conta vence hoje." : `Pagar — atrasada há ${atraso} dia${atraso === 1 ? "" : "s"}.`,
+      estado: venceuOuVenceHoje || terceiro ? "em_aberto" : "prevista", etapas, naFilaOperacional: true,
+      // um terceiro já pagou o fornecedor: a igreja não paga de novo — o que falta é decidir a quitação (a Fila diz qual passo)
+      pendencias: faltam("documento", "classificacao").map(k => NOME[k]).concat(terceiro ? [] : ["pagar"]),
+      proximoPasso: terceiro ? "Um terceiro já pagou o fornecedor: não pague de novo. Conclua a quitação (esclarecer, formalizar, aprovar o reembolso)."
+        : !venceuOuVenceHoje ? "Anexar o documento e pagar até o vencimento." : atraso === 0 ? "Pagar hoje — a conta vence hoje." : `Pagar — atrasada há ${atraso} dia${atraso === 1 ? "" : "s"}.`,
       ...(venceuOuVenceHoje ? { atrasoEmDias: atraso } : {}),
     };
   }

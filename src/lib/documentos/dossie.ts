@@ -15,6 +15,7 @@
 //
 // Aqui não há PDF nem rede: só decide ordem e nome. Montar o PDF é `dossiePdf.ts`.
 
+import { ehAnexoDaQuitacao } from "@/lib/quitacao";
 import type { FinAnexoTipo } from "@/services/finService";
 
 // ── ordem documental ────────────────────────────────────────────────────────
@@ -104,6 +105,9 @@ export const SIGLA_NO_NOME: Record<FinAnexoTipo, string> = {
   dps: "DPS",
   outro: "DOCUMENTO",
   documento: "DOCUMENTO",
+  declaracao_terceiro: "DECLARACAO",
+  pedido_reembolso: "PEDIDO_REEMBOLSO",
+  prova_pagamento_terceiro: "PROVA_PAGAMENTO",
 };
 
 /** Com número, estes tipos mantêm a sigla depois dele (`456_RSP_…`); os demais
@@ -121,7 +125,8 @@ export function numeroNoNome(numero: string | null | undefined): string {
 export function tipoPrincipal(tipos: FinAnexoTipo[]): FinAnexoTipo {
   if (tipos.length === 0) return "nota_fiscal";
   const ord = [...tipos].sort((a, b) => posicaoDocumental(a) - posicaoDocumental(b));
-  return ord.find(t => t !== "comprovante") ?? "comprovante";
+  // as provas da quitação só ficam como principal se não houver nenhum documento original
+  return ord.find(t => t !== "comprovante" && !ehAnexoDaQuitacao(t)) ?? ord.find(t => t !== "comprovante") ?? "comprovante";
 }
 
 export function documentoNoNome(numero: string | null | undefined, principal: FinAnexoTipo): string {

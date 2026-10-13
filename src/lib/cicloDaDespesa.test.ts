@@ -149,3 +149,20 @@ describe("Enviada e Arquivada (D6)", () => {
     expect(periodoAprovadoCobre([], 2026, 10)).toBe(false);
   });
 });
+
+describe("terceiro que já pagou o fornecedor (Fase 1A da Quitação)", () => {
+  it("a obrigação futura vira Em aberto (não há mais 'a vencer'), sem a pendência 'pagar' e sem mandar pagar o fornecedor", () => {
+    const c = ciclo({ terceiroQuitou: true });   // vence em 05/10, hoje é 01/10
+    expect(c.estado).toBe("em_aberto");
+    expect(c.pendencias.join(" ")).not.toMatch(/pagar/);
+    expect(c.proximoPasso).toMatch(/não pague de novo/);
+    expect(c.atrasoEmDias).toBeUndefined();   // ainda não venceu: o indicador de atraso continua sendo só do vencimento
+  });
+  it("vencida, continua com o indicador de atraso do vencimento", () => {
+    expect(ciclo({ terceiroQuitou: true, hoje: "2026-10-08" })).toMatchObject({ estado: "em_aberto", atrasoEmDias: 3 });
+  });
+  it("sem terceiro, nada muda", () => {
+    expect(ciclo({ terceiroQuitou: false }).estado).toBe("prevista");
+    expect(ciclo({}).pendencias.join(" ")).toMatch(/pagar/);
+  });
+});

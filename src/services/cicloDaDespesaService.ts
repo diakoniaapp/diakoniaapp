@@ -5,11 +5,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { cicloDaDespesa, ofxVinculado, periodoAprovadoCobre, type CicloDaDespesa } from "@/lib/cicloDaDespesa";
 import { parcelasDoGrupo, raizDaObrigacao, type LinhaDoGrupo, type ParcelaDoGrupo } from "@/lib/grupoDaObrigacao";
 import { dispensaDocumento } from "@/lib/pacoteContabil";
+import { ehDocumentoOriginal, ehTerceiro } from "@/lib/quitacao";
+import { quitacaoDaObrigacao, type QuitacaoDaObrigacao } from "@/services/quitacaoService";
 import { hojeLocal } from "@/lib/data";
 import { listarAnexos, type FinLancamentoAnexo, type FinLancamentoExtenso } from "@/services/finService";
 
 export interface DetalhesDaDespesa {
   ciclo: CicloDaDespesa | null;
+  /** a Quitação (quem pagou e por quê) desta obrigação, quando um terceiro pagou ou a igreja marcou "Não localizado"; null = nenhuma (ou a Política ainda não foi aplicada no banco) */
+  quitacao: QuitacaoDaObrigacao | null;
   /** os anexos de TODAS as linhas da obrigação (cada um traz o `lancamento_id` de onde veio) — num pagamento parcial o boleto fica na raiz e o comprovante na parcela */
   anexos: FinLancamentoAnexo[];
   /** as linhas da obrigação (uma só, quando não houve baixa parcial) */
@@ -51,7 +55,7 @@ export async function carregarDetalhesDaDespesa(l: FinLancamentoExtenso): Promis
   const conta = await supabase.from("fin_contas").select("nome, tipo").eq("id", l.conta_id).maybeSingle();
   const contaTipo = String(conta.data?.tipo ?? "banco");
   const raiz = raizDaObrigacao(l);
-  const [grupoRes, liq, obr, rec, extrato, vincRes, itemRes, fechRes, reabRes, contaAltRes] = await Promise.all([
+  const [grupoRes, liq, obr, rec, extrato, vincRes, itemRes, fechRes, reabRes, contaAltRes, quitacao] = await Promise.all([
     supabase.from("fin_lancamentos").select("id, obrigacao_id, data, data_pagamento, status, valor, comprovante_url").or(`id.eq.${raiz},obrigacao_id.eq.${raiz}`),
     l.liquidacao_id ? supabase.from("fin_liquidacoes" as never).select("id, data_pagamento, valor_total, ofx_fitid, created_at").eq("id" as never, l.liquidacao_id as never).maybeSingle() : Promise.resolve({ data: null }),
     supabase.from("vw_fin_obrigacoes" as never).select("valor_original, juros, multa, complemento, ajuste, desconto, total_pago, situacao").eq("obrigacao_id" as never, (l.obrigacao_id ?? l.id) as never).maybeSingle(),
@@ -67,6 +71,7 @@ export async function carregarDetalhesDaDespesa(l: FinLancamentoExtenso): Promis
     supabase.from("fin_fechamentos_periodo" as never).select("status, ano_inicio, mes_inicio, qtd_meses").eq("status" as never, "aprovado" as never),
     supabase.from("fin_reaberturas" as never).select("motivo, reaberto_em, reaberto_por, estado_anterior, estado_novo").eq("obrigacao_id" as never, raiz as never).order("reaberto_em" as never),
     supabase.from("fin_conta_alteracoes" as never).select("alterado_em, alterado_por, conta_anterior_nome, conta_nova_nome, despesa_enviada").eq("obrigacao_id" as never, raiz as never).order("alterado_em" as never),
+    quitacaoDaObrigacao(l.id).catch(() => null),
   ]);
   const item = itemRes.error ? null : (itemRes.data as unknown as { ano: number; mes: number; incluido_em: string } | null);
   const envio = item ? { ano: Number(item.ano), mes: Number(item.mes), enviadoEm: item.incluido_em ?? null,
@@ -80,13 +85,15 @@ export async function carregarDetalhesDaDespesa(l: FinLancamentoExtenso): Promis
   const ultimo = (extrato.data ?? [])[0];
   // o DOCUMENTO é da obrigação (vale o de qualquer linha do grupo); o COMPROVANTE é do pagamento (só o desta linha)
   const temComprovante = !!l.comprovante_url || anexos.some(a => a.tipo === "comprovante" && a.lancamento_id === l.id);
-  const temDocumento = anexos.some(a => a.tipo !== "comprovante");
+  // as provas da quitação (declaração, pedido de reembolso, prova do pagamento do terceiro) NÃO são o documento original da despesa (a mesma regra de vw_fin_ciclo)
+  const temDocumento = anexos.some(a => ehDocumentoOriginal(a.tipo));
   const ciclo = cicloDaDespesa({
     tipo: l.tipo, status: l.status, data: String(l.data).slice(0, 10), data_pagamento: l.data_pagamento, observacoes: l.observacoes, origem: l.origem, contaTipo,
     ultimoExtratoDaConta: ultimo ? String(ultimo.data_pagamento ?? ultimo.data).slice(0, 10) : null,
     envio: envio ? { ano: envio.ano, mes: envio.mes, periodoAprovado: envio.periodoAprovado } : null,
     temCategoria: !!l.categoria_id, temCentro: !!l.centro_custo_id, temDocumento, temComprovante,
     dispensaDocumento: dispensaDocumento({ categoria_nome: l.categoria_nome }), hoje: hojeLocal(),
+    terceiroQuitou: !!quitacao && ehTerceiro(quitacao.responsavel),
   });
   const o = obr.data as unknown as Record<string, unknown> | null;
   const vinculos: VinculoDoBanco[] = ((vincRes.data ?? []) as unknown as Record<string, unknown>[]).map(v => ({
@@ -101,7 +108,7 @@ export async function carregarDetalhesDaDespesa(l: FinLancamentoExtenso): Promis
     conferidoPor = { em: conf.conferido_em, nome, nota: conf.conferencia_nota ?? null };
   }
   return {
-    ciclo, anexos, parcelas, comprovanteAntigo, vinculos, conferidoPor, envio,
+    ciclo, quitacao, anexos, parcelas, comprovanteAntigo, vinculos, conferidoPor, envio,
     contasAlteradas: contaAltRes.error ? [] : ((contaAltRes.data ?? []) as unknown as Record<string, unknown>[]).map(r => ({
       em: String(r.alterado_em), por: null, de: String(r.conta_anterior_nome ?? "?"), para: String(r.conta_nova_nome ?? "?"), estavaEnviada: !!r.despesa_enviada,
     })),

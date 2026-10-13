@@ -22,8 +22,14 @@ import {
   Loader2, Paperclip, RefreshCw, RotateCw, Wallet,
 } from "lucide-react";
 import { ContasJaPagas } from "@/components/financas/ContasJaPagas";
+import { DetalhesDoLancamento } from "@/components/financas/DetalhesDoLancamento";
+import { PendenciasDeQuitacao } from "@/components/financas/PendenciasDeQuitacao";
+import { SaneamentoDeCadastros } from "@/components/financas/SaneamentoDeCadastros";
+import { buscarLancamentoParaEditar } from "@/services/fechamentoMensalService";
+import { ROTULO_FILA, ROTULO_RESPONSAVEL } from "@/lib/quitacao";
+import { quitacoesDasObrigacoes, type QuitacaoDaObrigacao } from "@/services/quitacaoService";
 import { Button } from "@/components/ui/button";
-import { brl, nomeExtrato, type FinVencimento } from "@/services/finService";
+import { brl, nomeExtrato, type FinLancamentoExtenso, type FinVencimento } from "@/services/finService";
 import { hojeLocal } from "@/lib/data";
 import { parciaisEmAberto, type ParcialEmAberto } from "@/services/obrigacoesService";
 import { indicadoresDeDebitos, situacaoDoDebito, type SituacaoDoDebito } from "@/lib/formaLiquidacao";
@@ -82,9 +88,11 @@ function Numero({ rotulo, valor, tom, detalhe }: { rotulo: string; valor: string
   );
 }
 
-function LinhaDeConta({ v, temAnexo, parcial, onPagar, onAnexo }: {
-  v: FinVencimento; temAnexo: boolean; parcial?: ParcialEmAberto; onPagar: () => void; onAnexo: () => void;
+function LinhaDeConta({ v, temAnexo, parcial, quitacao, onPagar, onAnexo, onAbrir }: {
+  v: FinVencimento; temAnexo: boolean; parcial?: ParcialEmAberto; quitacao?: QuitacaoDaObrigacao; onPagar: () => void; onAnexo: () => void; onAbrir: () => void;
 }) {
+  // Fase 1A da Quitação: se um terceiro já pagou o fornecedor, a igreja NÃO paga de novo — o botão Pagar dá lugar à fila em que a conta está
+  const terceiro = !!quitacao && quitacao.responsavel !== "nao_localizado";
   const { principal, secundario } = nomeExtrato(v);
   const dias = v.dias_para_vencer;
   const quando = dias < 0 ? `há ${Math.abs(dias)}d` : dias === 0 ? "hoje" : dias === 1 ? "amanhã" : dataCurta(v.data);
@@ -98,6 +106,11 @@ function LinhaDeConta({ v, temAnexo, parcial, onPagar, onAnexo }: {
           {v.centro_custo_nome && <span className="truncate">{v.centro_custo_nome}</span>}
           {v.valor_variavel && <span>valor estimado</span>}
         </span>
+        {quitacao && (
+          <span className="block text-xs text-warning-text">
+            {quitacao.responsavel === "nao_localizado" ? "Marcada como Não localizado: ninguém sabe quem pagou" : `Quitada por ${quitacao.responsavelNome ?? ROTULO_RESPONSAVEL[quitacao.responsavel]}`}{quitacao.fila ? ` · fila: ${ROTULO_FILA[quitacao.fila]}` : ""}
+          </span>
+        )}
         {parcial && (
           <span className="block text-xs text-warning-text tabular-nums">
             Pago parcialmente: {brl(parcial.pago)} de {brl(parcial.original)} · saldo pendente {brl(parcial.saldo)}
@@ -110,9 +123,13 @@ function LinhaDeConta({ v, temAnexo, parcial, onPagar, onAnexo }: {
         className={`rounded p-1.5 shrink-0 hover:bg-muted ${temAnexo ? "text-success-text" : "text-warning-text"}`}>
         <Paperclip className="w-3.5 h-3.5" />
       </button>
-      <Button variant="success" size="sm" className="h-7 gap-1 text-xs shrink-0" onClick={onPagar}>
-        <CheckCircle2 className="w-3 h-3" /> Pagar
-      </Button>
+      {terceiro ? (
+        <Button variant="outline" size="sm" className="h-7 gap-1 text-xs shrink-0" onClick={onAbrir}>Ver quitação</Button>
+      ) : (
+        <Button variant="success" size="sm" className="h-7 gap-1 text-xs shrink-0" onClick={onPagar}>
+          <CheckCircle2 className="w-3 h-3" /> Pagar
+        </Button>
+      )}
     </li>
   );
 }
@@ -126,6 +143,9 @@ export function MesaDoTesoureiro({
   const [mostrar30, setMostrar30] = useState(false);
   // contas pagas parcialmente (liquidação real): a linha do saldo diz quanto já foi pago; sem a migration, mapa vazio
   const [parciais, setParciais] = useState<Map<string, ParcialEmAberto>>(new Map());
+  // Fase 1A da Quitação: as contas em que um terceiro já pagou o fornecedor (vazio até a migration ser aplicada) e o detalhe aberto a partir delas
+  const [quitacoes, setQuitacoes] = useState<Map<string, QuitacaoDaObrigacao>>(new Map());
+  const [detalhe, setDetalhe] = useState<FinLancamentoExtenso | null>(null);
   useEffect(() => {
     let cancelado = false;
     parciaisEmAberto().then(m => { if (!cancelado) setParciais(m); }).catch(() => { /* melhoria: a mesa segue igual */ });
@@ -137,6 +157,13 @@ export function MesaDoTesoureiro({
     try { setDados(await carregarMesa(hoje)); } finally { setCarregando(false); }
   }, [hoje]);
   useEffect(() => { carregar(); }, [carregar, chaveDeAtualizacao]);
+
+  useEffect(() => {
+    if (!dados) return;
+    let vivo = true;
+    quitacoesDasObrigacoes(dados.vencimentos.map(v => v.id)).then(mp => { if (vivo) setQuitacoes(mp); }).catch(() => { /* melhoria: a mesa segue igual */ });
+    return () => { vivo = false; };
+  }, [dados, chaveDeAtualizacao]);
 
   const derivados = useMemo(() => {
     if (!dados) return null;
@@ -177,8 +204,9 @@ export function MesaDoTesoureiro({
       </div>
       <ul>
         {itens.map(v => (
-          <LinhaDeConta key={v.id} v={v} temAnexo={dados.comAnexo.has(v.id)} parcial={parciais.get(v.id)}
-            onPagar={() => onPagar(v)} onAnexo={() => onAnexo({ id: v.id, label: nomeExtrato(v).principal })} />
+          <LinhaDeConta key={v.id} v={v} temAnexo={dados.comAnexo.has(v.id)} parcial={parciais.get(v.id)} quitacao={quitacoes.get(v.id)}
+            onPagar={() => onPagar(v)} onAnexo={() => onAnexo({ id: v.id, label: nomeExtrato(v).principal })}
+            onAbrir={() => { void buscarLancamentoParaEditar(v.id).then(l => { if (l) setDetalhe(l); }).catch(() => { /* só não abre */ }); }} />
         ))}
       </ul>
     </div>
@@ -238,6 +266,10 @@ export function MesaDoTesoureiro({
             </>
           )}
         </Cartao>
+
+        {/* 2b · Quitações a resolver (Política de Compras por Terceiros): só aparece depois da migration e quando há algo nas filas */}
+        <PendenciasDeQuitacao hoje={hoje} chave={chaveDeAtualizacao} />
+        <SaneamentoDeCadastros chave={chaveDeAtualizacao} />
 
         {/* 3 · seu dia */}
         <div className="space-y-4">
@@ -350,6 +382,8 @@ export function MesaDoTesoureiro({
           <RefreshCw className={`w-3.5 h-3.5 ${carregando ? "animate-spin" : ""}`} /> Atualizar a mesa
         </Button>
       </div>
+
+      <DetalhesDoLancamento lancamento={detalhe} onFechar={() => setDetalhe(null)} />
     </div>
   );
 }

@@ -9,6 +9,7 @@
 //
 // Custo: só as PARCELAS (obrigacao_id ≠ id) entram na consulta — poucas —, então UMA consulta pagina todas e o resto é em memória.
 import { supabase } from "@/integrations/supabase/client";
+import { ehDocumentoOriginal } from "@/lib/quitacao";
 import { irmaosPorLinha } from "@/lib/grupoDaObrigacao";
 
 const PAGINA = 1000;
@@ -62,7 +63,8 @@ export async function documentosHerdados(ids: string[]): Promise<Map<string, Doc
     const { data, error } = await supabase.from("fin_lancamento_anexos").select("lancamento_id, tipo, url, nome, enviado_em")
       .in("lancamento_id", doadoras.slice(i, i + LOTE)).neq("tipo", "comprovante");
     if (error) throw new Error(error.message);
-    docs.push(...((data ?? []) as typeof docs));
+    // as provas da quitação (declaração, pedido de reembolso, prova do pagamento do terceiro) não são o documento original que a parcela herda
+    docs.push(...((data ?? []) as typeof docs).filter(d => ehDocumentoOriginal(d.tipo)));
   }
   for (const id of herdeiros) {
     const lista = docs.filter(d => irmaos.get(id)!.includes(d.lancamento_id)).map(d => ({ ...d, lancamento_id: id, de: d.lancamento_id }));

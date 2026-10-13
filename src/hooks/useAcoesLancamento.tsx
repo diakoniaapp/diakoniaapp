@@ -46,6 +46,9 @@ import { fornecedorPeloNome, type FornecedorParaNome } from "@/lib/favorecidoPor
 import { LiquidacaoPainel } from "@/components/financas/LiquidacaoPainel";
 import { liquidacaoDisponivel, liquidar } from "@/services/liquidacaoService";
 import type { PlanoDeLiquidacao } from "@/lib/liquidacao";
+import { QuitacaoDialog, type AlvoDaQuitacao } from "@/components/financas/QuitacaoDialog";
+import { ROTULO_FILA, ROTULO_RESPONSAVEL, ehTerceiro } from "@/lib/quitacao";
+import { quitacaoDaObrigacao, quitacaoDisponivel, type QuitacaoDaObrigacao } from "@/services/quitacaoService";
 
 const dataBrCurta = (ymd: string) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.slice(0, 4)}`;
 const juntarEm = (d: string, n: number) => d.match(new RegExp(`.{1,${n}}`, "g"))?.join(" ") ?? d;
@@ -103,6 +106,24 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
     return () => { cancelado = true; };
   }, [confirmando]);
   const usaLiquidacao = liqDisponivel && confirmando?.tipo === "saida";
+
+  // Fase 1A da Quitação (Política de Compras por Terceiros): ANTES de pagar, "quem pagou?". Se um terceiro já pagou o fornecedor, a igreja NÃO paga de novo — o botão trava e o
+  // aviso diz onde a conta está. Sem a migration, nada disto aparece e o "Pagar" é o de sempre.
+  const [quitacaoDoAlvo, setQuitacaoDoAlvo] = useState<QuitacaoDaObrigacao | null>(null);
+  const [quitacaoPossivel, setQuitacaoPossivel] = useState(false);
+  const [quitando, setQuitando] = useState<AlvoDaQuitacao | null>(null);
+  useEffect(() => {
+    setQuitacaoDoAlvo(null); setQuitacaoPossivel(false);
+    if (!confirmando || confirmando.tipo !== "saida") return;
+    let cancelado = false;
+    (async () => {
+      if (!(await quitacaoDisponivel())) return;
+      const q = await quitacaoDaObrigacao(confirmando.id).catch(() => null);
+      if (!cancelado) { setQuitacaoPossivel(true); setQuitacaoDoAlvo(q); }
+    })();
+    return () => { cancelado = true; };
+  }, [confirmando]);
+  const terceiroJaPagou = !!quitacaoDoAlvo && ehTerceiro(quitacaoDoAlvo.responsavel);
 
   // Lançamento SEM favorecido ligado (folha/RPA gerados só com a descrição "Salario Caio"): procura o fornecedor pelo
   // NOME. Só sugere quando o nome identifica um único cadastro; quem liga é o botão "Vincular" (06/10/2026).
@@ -333,7 +354,23 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
             </AlertDialogDescription>
           </AlertDialogHeader>
 
-          {confirmando?.tipo === "saida" && (
+          {confirmando?.tipo === "saida" && terceiroJaPagou && quitacaoDoAlvo && (
+            <div role="alert" className="rounded-md border border-destructive-line bg-destructive-soft px-3 py-2 text-sm text-destructive-text space-y-1">
+              <p className="font-semibold flex items-center gap-1.5"><AlertTriangle className="w-4 h-4 shrink-0" /> Este fornecedor já foi pago por um terceiro</p>
+              <p className="text-xs">
+                {quitacaoDoAlvo.responsavelNome ?? ROTULO_RESPONSAVEL[quitacaoDoAlvo.responsavel]} pagou o fornecedor{quitacaoDoAlvo.fila ? ` (fila: ${ROTULO_FILA[quitacaoDoAlvo.fila]})` : ""}.
+                Não pague de novo. Conclua a quitação no detalhe da despesa (ou, se foi registrada por engano, remova-a lá).
+              </p>
+            </div>
+          )}
+          {confirmando?.tipo === "saida" && quitacaoPossivel && !quitacaoDoAlvo && (
+            <button type="button" className="text-xs text-primary hover:underline text-left"
+              onClick={() => { setQuitando({ id: confirmando.id, descricao: confirmando.descricao ?? "", valor: Number(confirmando.valor) }); setConfirmando(null); setAnexoArquivo(null); }}>
+              Foi outra pessoa, empresa ou entidade que pagou o fornecedor? Registrar quem pagou
+            </button>
+          )}
+
+          {confirmando?.tipo === "saida" && !terceiroJaPagou && (
             <div className="space-y-2.5">
               {carregandoFornecedor && (
                 <p className="text-xs text-muted-foreground">Carregando dados do favorecido…</p>
@@ -530,12 +567,13 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
 
           <AlertDialogFooter>
             <AlertDialogCancel disabled={confirmandoBusy}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction variant="success" onClick={(e) => { e.preventDefault(); confirmarPagamentoDialog(); }} disabled={confirmandoBusy || (usaLiquidacao && !planoLiq?.pronto)}>
+            <AlertDialogAction variant="success" onClick={(e) => { e.preventDefault(); confirmarPagamentoDialog(); }} disabled={confirmandoBusy || terceiroJaPagou || (usaLiquidacao && !planoLiq?.pronto)}>
               {confirmandoBusy ? "..." : (confirmando?.tipo === "saida" ? "Marcar como pago" : "Receber")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <QuitacaoDialog alvo={quitando} onFechar={() => setQuitando(null)} onFeito={() => { void onChanged(); }} />
     </>
   );
 

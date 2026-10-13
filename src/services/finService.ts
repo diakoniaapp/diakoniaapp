@@ -1281,7 +1281,9 @@ export async function comprovanteSignedUrl(path: string, segs = 600): Promise<st
 // Migration 20261002200000 (a mesma, atualizada antes de ser aplicada).
 export type FinAnexoTipo =
   | "nota_fiscal" | "boleto" | "guia" | "comprovante" | "fatura" | "contrato"
-  | "xml" | "rpa" | "rsp" | "dps" | "outro" | "documento";
+  | "xml" | "rpa" | "rsp" | "dps" | "outro" | "documento"
+  // Política de Compras por Terceiros (migration 20261014100000): provam a QUITAÇÃO, não são o documento original da despesa — são anexados pelo cartão Quitação
+  | "declaracao_terceiro" | "pedido_reembolso" | "prova_pagamento_terceiro";
 
 export const FIN_ANEXO_TIPO_LABEL: Record<FinAnexoTipo, string> = {
   nota_fiscal: "Nota Fiscal",
@@ -1296,6 +1298,9 @@ export const FIN_ANEXO_TIPO_LABEL: Record<FinAnexoTipo, string> = {
   dps: "DPS",
   outro: "Outro",
   documento: "Documento (antigo)",
+  declaracao_terceiro: "Declaração do Terceiro",
+  pedido_reembolso: "Pedido de Reembolso",
+  prova_pagamento_terceiro: "Prova do pagamento do terceiro",
 };
 
 /** Explicação curta dos tipos que não são óbvios (dica na tela). */
@@ -1304,6 +1309,9 @@ export const FIN_ANEXO_TIPO_DICA: Partial<Record<FinAnexoTipo, string>> = {
   rpa: "Recibo de Pagamento a Autônomo",
   rsp: "Recibo de Sustento Pastoral",
   dps: "Demonstrativo de Pagamento de Salário",
+  declaracao_terceiro: "Declaração assinada pelo terceiro dizendo se oferta ou pede reembolso",
+  pedido_reembolso: "Declaração do terceiro na versão reembolso, com a chave PIX e a lista das notas",
+  prova_pagamento_terceiro: "Cupom, fatura do cartão ou comprovante PIX/TED de quem pagou o fornecedor",
 };
 
 /** Os tipos que a tela de anexos oferece, na ordem de exibição. */
