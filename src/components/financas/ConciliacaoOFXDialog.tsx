@@ -23,6 +23,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { pedidosDeConfirmacao, type PedidoDeConfirmacao } from "@/lib/ofxCandidatas";
 import { toast } from "sonner";
 import {
   FileUp, Scale, CheckCircle2, HelpCircle, Undo2, Loader2, AlertTriangle, XCircle, ChevronLeft, ChevronRight, Layers, RotateCcw, BanIcon,
@@ -102,6 +103,15 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
   // o que desfaz cada linha lançada como transferência ligada a um lançamento que já existia (não pode apagar o par inteiro)
   const desfazedores = useRef(new Map<string, () => Promise<void>>());
   const semDocumento = useRef(new Set<string>());   // linhas que a tesouraria disse "não é este documento"
+  // D3 (13/10/2026): linha nova que tem uma conta em aberto candidata nunca vira lançamento sem o clique "é outro pagamento"
+  const reconhecidas = useRef(new Set<string>());
+  const [guarda, setGuarda] = useState<{ pedidos: PedidoDeConfirmacao[]; seguir: () => void } | null>(null);
+  function comGuarda(alvo: LinhaAnalisada[], seguir: () => void): boolean {
+    const pedidos = pedidosDeConfirmacao(alvo, reconhecidas.current);
+    if (pedidos.length === 0) return false;
+    setGuarda({ pedidos, seguir });
+    return true;
+  }
   const [ignorando, setIgnorando] = useState<LinhaAnalisada | null>(null);
 
   const [editarLinha, setEditarLinha] = useState<LinhaAnalisada | null>(null);
@@ -301,6 +311,7 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
   async function confirmarLinha(l: LinhaAnalisada) {
     const g = daGradeBase(l);
     if (!podeGravar(g, edicoes[l.tx.fitid])) return;
+    if (comGuarda([l], () => void confirmarLinha(l))) return;
     setSalvandoLinha(true);
     try {
       const r = await registrarLote(contaId, [itemDaLinha(l)]);
@@ -354,6 +365,7 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
   async function confirmarGrupo(grupo: Grupo, escolha: { categoriaId: string; centroId?: string; projetoId?: string }) {
     const doGrupo = (linhas ?? []).filter(l => grupo.fitids.includes(l.tx.fitid) && l.situacao === "nova" && !confirmadas.has(l.tx.fitid));
     if (doGrupo.length === 0) return;
+    if (comGuarda(doGrupo, () => void confirmarGrupo(grupo, escolha))) return;
     setSalvandoLinha(true);
     try {
       const itens: ParaRegistrar[] = doGrupo.map(l => ({ tx: l.tx, categoriaId: escolha.categoriaId, centroId: escolha.centroId, projetoId: escolha.projetoId }));
@@ -425,7 +437,9 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
   function pedirConfirmacao(candidatas: LinhaDaGrade[]) {
     if (candidatas.length === 0) { toast.info("Nenhuma linha pronta para lançar."); return; }
     const ids = new Set(candidatas.map(c => c.fitid));
-    setParaConfirmar((linhas ?? []).filter(l => ids.has(l.tx.fitid)));
+    const alvo = (linhas ?? []).filter(l => ids.has(l.tx.fitid));
+    if (comGuarda(alvo, () => pedirConfirmacao(candidatas))) return;
+    setParaConfirmar(alvo);
   }
 
   async function gravar() {
@@ -828,6 +842,49 @@ export function ConciliacaoOFXDialog({ open, onOpenChange, contaId, contaNome, o
           <AlertDialogCancel>Voltar</AlertDialogCancel>
           <AlertDialogAction onClick={gravar}>Lançar {resumoDoLote.n}</AlertDialogAction>
         </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+
+    {/* D3: este pagamento parece quitar uma conta em aberto. Nada é criado nem ligado até a tesouraria escolher. */}
+    <AlertDialog open={!!guarda} onOpenChange={(v) => { if (!v) setGuarda(null); }}>
+      <AlertDialogContent>
+        {guarda && (() => {
+          const um = guarda.pedidos.length === 1;
+          const dataBr = (iso: string) => iso.slice(0, 10).split("-").reverse().join("/");
+          return (
+            <>
+              <AlertDialogHeader>
+                <AlertDialogTitle>{um ? "Este pagamento parece quitar uma conta em aberto" : `${guarda.pedidos.length} pagamentos parecem quitar contas em aberto`}</AlertDialogTitle>
+                <AlertDialogDescription asChild>
+                  <div className="space-y-2 text-sm">
+                    <p>Se for isso, o certo é <b>liquidar a conta</b> — ela mesma passa a paga, sem criar um segundo registro. Criar como novo deixa a conta aberta na Mesa de Operações.</p>
+                    <ul className="space-y-1.5 max-h-56 overflow-y-auto">
+                      {guarda.pedidos.map(p => (
+                        <li key={p.fitid} className="rounded border px-2 py-1.5 text-xs">
+                          <p className="truncate"><b className="tabular-nums">{brl(p.valor)}</b> em {dataBr(p.data)} — {p.memo}</p>
+                          <p className="text-muted-foreground">Conta em aberto: <b>{p.conta}</b>, vence {dataBr(p.vencimento)}, {brl(p.valorDaConta)}{p.exato ? " (valor igual)" : " (valor diferente)"}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter className="gap-2 sm:gap-2">
+                <AlertDialogCancel>Voltar</AlertDialogCancel>
+                <Button type="button" variant="outline" onClick={() => {
+                  const g = guarda; setGuarda(null);
+                  for (const p of g.pedidos) reconhecidas.current.add(p.fitid);
+                  g.seguir();
+                }}>{um ? "É outro pagamento — criar mesmo assim" : "São outros pagamentos — criar mesmo assim"}</Button>
+                <Button type="button" onClick={() => {
+                  const primeiro = (linhas ?? []).find(l => l.tx.fitid === guarda.pedidos[0].fitid);
+                  setGuarda(null);
+                  if (primeiro) setLiquidarLinha({ ...primeiro, situacao: "documento" });
+                }}>Liquidar a conta em aberto{um ? "" : " (a primeira)"}</Button>
+              </AlertDialogFooter>
+            </>
+          );
+        })()}
       </AlertDialogContent>
     </AlertDialog>
 

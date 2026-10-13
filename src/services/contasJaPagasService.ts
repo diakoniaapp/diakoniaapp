@@ -45,12 +45,13 @@ export async function carregarSugestoesDeLiquidacao(): Promise<SugestaoDeLiquida
   const soltos: Record<string, unknown>[] = [];
   for (let p = 0; ; p++) {
     const r = await supabase.from("fin_lancamentos")
-      .select("id, data, data_pagamento, valor, descricao, origem, fornecedor_id, pessoa_id, conta_id")
+      .select("id, data, data_pagamento, valor, descricao, origem, fornecedor_id, pessoa_id, conta_id, obrigacao_id")
       .eq("tipo", "saida").in("status", ["realizado", "conciliado"])
-      .is("liquidacao_id", null).is("obrigacao_id", null).is("recorrencia_id", null).is("lancamento_pai_id", null).neq("origem", "transferencia")
+      .is("liquidacao_id", null).is("recorrencia_id", null).is("lancamento_pai_id", null).neq("origem", "transferencia")
       .or(`data.gte.${desde},data_pagamento.gte.${desde}`).order("id").range(p * PAGINA, p * PAGINA + PAGINA - 1);
     if (r.error) throw new Error(r.error.message);
-    soltos.push(...((r.data ?? []) as Record<string, unknown>[]));
+    // "solto" = não é parcela de OUTRA obrigação: sem obrigacao_id, ou com o próprio id (D1: toda linha nova nasce assim)
+    soltos.push(...((r.data ?? []) as unknown as Record<string, unknown>[]).filter(x => !x.obrigacao_id || x.obrigacao_id === x.id));
     if ((r.data ?? []).length < PAGINA) break;
   }
   const ids = <K extends string>(xs: Record<string, unknown>[], k: K) => [...new Set(xs.map(x => x[k]).filter((v): v is string => typeof v === "string"))];

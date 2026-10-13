@@ -7,7 +7,7 @@
 // Regra (a do documento de arquitetura): o DOCUMENTO pertence à obrigação — toda linha do grupo o herda; o COMPROVANTE pertence ao pagamento — cada
 // linha prova o seu, e nunca herda o da irmã.
 //
-// Custo: só linhas que passaram por liquidação têm `obrigacao_id` (dezenas, hoje), então UMA consulta pagina todas e o resto é em memória.
+// Custo: só as PARCELAS (obrigacao_id ≠ id) entram na consulta — poucas —, então UMA consulta pagina todas e o resto é em memória.
 import { supabase } from "@/integrations/supabase/client";
 import { irmaosPorLinha } from "@/lib/grupoDaObrigacao";
 
@@ -21,18 +21,27 @@ export function esquecerGrupos() { guardado = null; }
 /** Para cada linha que tem irmãs na mesma obrigação, os ids delas. Linhas sozinhas não aparecem. Falha da consulta = ninguém tem irmã (nunca derruba a tela). */
 export async function irmaosDasLinhas(): Promise<Map<string, string[]>> {
   if (guardado && Date.now() - guardado.em < VALIDADE_MS) return guardado.mapa;
-  const linhas: { id: string; obrigacao_id: string | null }[] = [];
-  try {
-    for (let p = 0; ; p++) {
-      const { data, error } = await supabase.from("fin_lancamentos").select("id, obrigacao_id").not("obrigacao_id", "is", null).order("id").range(p * PAGINA, p * PAGINA + PAGINA - 1);
-      if (error) return new Map();
-      linhas.push(...((data ?? []) as unknown as { id: string; obrigacao_id: string | null }[]));
-      if ((data ?? []).length < PAGINA) break;
-    }
-  } catch { return new Map(); }
+  // D1 (13/10/2026): linha nova nasce com obrigacao_id = o próprio id, então "tem obrigacao_id" não quer mais dizer "tem irmã". A view lista só as PARCELAS
+  // (obrigacao_id ≠ id). Antes da migration 20261013100000 ela não existe: cai na leitura antiga (todas as linhas com obrigacao_id, que eram só as liquidadas).
+  let linhas = await paginar("vw_fin_obrigacao_filhas");
+  if (linhas === null) linhas = await paginar("fin_lancamentos");
+  if (linhas === null) return new Map();
   const mapa = irmaosPorLinha(linhas);
   guardado = { em: Date.now(), mapa };
   return mapa;
+}
+
+async function paginar(origem: "vw_fin_obrigacao_filhas" | "fin_lancamentos"): Promise<{ id: string; obrigacao_id: string | null }[] | null> {
+  const linhas: { id: string; obrigacao_id: string | null }[] = [];
+  try {
+    for (let p = 0; ; p++) {
+      const { data, error } = await supabase.from(origem as never).select("id, obrigacao_id").not("obrigacao_id" as never, "is", null).order("id" as never).range(p * PAGINA, p * PAGINA + PAGINA - 1);
+      if (error) return null;
+      linhas.push(...((data ?? []) as unknown as { id: string; obrigacao_id: string | null }[]));
+      if ((data ?? []).length < PAGINA) break;
+    }
+  } catch { return null; }
+  return linhas;
 }
 
 export interface DocumentoHerdado { lancamento_id: string; de: string; tipo: string; url: string; nome: string | null; enviado_em: string | null }

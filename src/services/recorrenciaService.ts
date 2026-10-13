@@ -104,16 +104,17 @@ async function contarJaPagas(rec: FinRecorrencia, geradas: { id: string; data: s
     const desde = daquiADias(vencidas.map(g => g.data).sort()[0], -DIAS_ANTES_DO_VENCIMENTO);
     const quem = [rec.fornecedor_id ? `fornecedor_id.eq.${rec.fornecedor_id}` : "", rec.pessoa_id ? `pessoa_id.eq.${rec.pessoa_id}` : ""].filter(Boolean).join(",");
     const { data, error } = await supabase.from("fin_lancamentos")
-      .select("id, data, data_pagamento, valor, descricao, origem, fornecedor_id, pessoa_id, conta_id")
+      .select("id, data, data_pagamento, valor, descricao, origem, fornecedor_id, pessoa_id, conta_id, obrigacao_id")
       .eq("tipo", rec.tipo).in("status", ["realizado", "conciliado"]).eq("conta_id", rec.conta_id)
-      .is("liquidacao_id", null).is("obrigacao_id", null).is("recorrencia_id", null).is("lancamento_pai_id", null).neq("origem", "transferencia")
+      .is("liquidacao_id", null).is("recorrencia_id", null).is("lancamento_pai_id", null).neq("origem", "transferencia")
       .or(quem).or(`data.gte.${desde},data_pagamento.gte.${desde}`).limit(200);
     if (error || !data || data.length === 0) return 0;
     const obrigacoes: ObrigacaoAberta[] = vencidas.map(g => ({
       id: g.id, valor: Number(rec.valor), data: g.data, fornecedor_id: rec.fornecedor_id ?? null, pessoa_id: rec.pessoa_id ?? null,
       nome: rec.descricao, valor_variavel: !!rec.valor_variavel, conta_id: rec.conta_id,
     }));
-    const pagamentos: PagamentoRegistrado[] = (data as Record<string, unknown>[]).map(x => ({
+    // "solto" = não é parcela de OUTRA obrigação: sem obrigacao_id, ou com o próprio id (D1: toda linha nova nasce assim)
+    const pagamentos: PagamentoRegistrado[] = (data as unknown as Record<string, unknown>[]).filter(x => !x.obrigacao_id || x.obrigacao_id === x.id).map(x => ({
       id: String(x.id), valor: Number(x.valor), data: String(x.data_pagamento ?? x.data).slice(0, 10), nome: "", descricao: String(x.descricao ?? ""),
       fornecedor_id: (x.fornecedor_id as string) ?? null, pessoa_id: (x.pessoa_id as string) ?? null, origem: String(x.origem), conta_id: String(x.conta_id),
     }));

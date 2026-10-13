@@ -5,6 +5,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 type Linha = Record<string, unknown>;
 const tabelas: Record<string, Linha[]> = {};
 let consultasDeAnexo = 0;
+const tabelasComErro = new Set<string>();   // tabelas/views que respondem erro (view ainda não criada, falha de rede…)
+const consultadas: string[] = [];
 
 function builder(tabela: string) {
   const filtros: ((l: Linha) => boolean)[] = [];
@@ -16,6 +18,8 @@ function builder(tabela: string) {
     order: () => b,
     range: () => b,
     then: (res: (r: unknown) => unknown) => {
+      consultadas.push(tabela);
+      if (tabelasComErro.has(tabela)) return Promise.resolve({ data: null, error: { message: "falhou" } }).then(res);
       if (tabela === "fin_lancamento_anexos") consultasDeAnexo++;
       return Promise.resolve({ data: (tabelas[tabela] ?? []).filter(l => filtros.every(f => f(l))), error: null }).then(res);
     },
@@ -31,7 +35,9 @@ const anexo = (id: string, lancamento_id: string, tipo: string) => ({ id, lancam
 
 describe("documentos herdados do grupo da obrigação", () => {
   beforeEach(() => {
-    esquecerGrupos(); consultasDeAnexo = 0;
+    esquecerGrupos(); consultasDeAnexo = 0; tabelasComErro.clear(); consultadas.length = 0;
+    // D1: com a migration, a view lista só as PARCELAS (obrigacao_id ≠ id)
+    tabelas.vw_fin_obrigacao_filhas = [{ id: "resto", obrigacao_id: "raiz" }];
     tabelas.fin_lancamentos = [
       { id: "raiz", obrigacao_id: "raiz" }, { id: "resto", obrigacao_id: "raiz" }, { id: "verisure", obrigacao_id: "verisure" }, { id: "comum", obrigacao_id: null },
     ];
@@ -60,11 +66,20 @@ describe("documentos herdados do grupo da obrigação", () => {
     expect([...m.keys()].sort()).toEqual(["raiz", "resto"]);
   });
 
+  it("com a migration lê só a view das parcelas — nunca a tabela inteira", async () => {
+    await irmaosDasLinhas();
+    expect(consultadas).toEqual(["vw_fin_obrigacao_filhas"]);
+  });
+
+  it("antes da migration (view inexistente) cai na leitura antiga e continua achando o grupo", async () => {
+    tabelasComErro.add("vw_fin_obrigacao_filhas");
+    const m = await irmaosDasLinhas();
+    expect([...m.keys()].sort()).toEqual(["raiz", "resto"]);
+    expect(consultadas).toEqual(["vw_fin_obrigacao_filhas", "fin_lancamentos"]);
+  });
+
   it("falha ao ler os grupos nunca derruba a tela: ninguém tem irmã", async () => {
-    esquecerGrupos();
-    const antes = tabelas.fin_lancamentos;
-    tabelas.fin_lancamentos = undefined as unknown as Linha[];
+    tabelasComErro.add("vw_fin_obrigacao_filhas"); tabelasComErro.add("fin_lancamentos");
     expect((await documentosHerdados(["resto"])).size).toBe(0);
-    tabelas.fin_lancamentos = antes;
   });
 });

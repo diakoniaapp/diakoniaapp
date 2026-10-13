@@ -28,8 +28,18 @@ function DeOndeVeio({ anexo, atualId, parcelas }: { anexo: { lancamento_id: stri
   return o ? <span className="text-xs text-muted-foreground"> · {o}</span> : null;
 }
 
-export function EstadoDoCicloChip({ estado }: { estado: EstadoDoCiclo }) {
-  return <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] ${COR[estado]}`}>{ROTULO_DO_CICLO[estado]}</span>;
+/** O estado do ciclo; em "Em aberto" que já passou do vencimento, o indicador "⚠ Atrasada há N dias" (situação visual — não é um estado). */
+export function EstadoDoCicloChip({ estado, atrasoEmDias }: { estado: EstadoDoCiclo; atrasoEmDias?: number }) {
+  return (
+    <>
+      <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] ${COR[estado]}`}>{ROTULO_DO_CICLO[estado]}</span>
+      {estado === "em_aberto" && !!atrasoEmDias && atrasoEmDias > 0 && (
+        <span className="inline-flex items-center rounded-full border border-destructive-line bg-destructive-soft px-2 py-0.5 text-[11px] font-medium text-destructive-text">
+          ⚠ Atrasada há {atrasoEmDias} dia{atrasoEmDias === 1 ? "" : "s"}
+        </span>
+      )}
+    </>
+  );
 }
 
 export function DetalhesDoLancamento({ lancamento, onFechar, onAnexos }: { lancamento: FinLancamentoExtenso | null; onFechar: () => void; onAnexos?: (l: FinLancamentoExtenso) => void }) {
@@ -63,7 +73,7 @@ export function DetalhesDoLancamento({ lancamento, onFechar, onAnexos }: { lanca
             <DialogHeader>
               <DialogTitle className="flex flex-wrap items-center gap-2">
                 <span className="min-w-0 truncate">{nome}</span>
-                {d?.ciclo && <EstadoDoCicloChip estado={d.ciclo.estado} />}
+                {d?.ciclo && <EstadoDoCicloChip estado={d.ciclo.estado} atrasoEmDias={d.ciclo.atrasoEmDias} />}
               </DialogTitle>
               <DialogDescription>
                 {l.tipo === "entrada" ? "Entrada" : "Despesa"} de <b className="tabular-nums">{brl(Number(l.valor))}</b>{d?.contaNome ? <> · conta {d.contaNome}</> : null}

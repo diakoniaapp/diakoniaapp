@@ -9,9 +9,21 @@ const base: EntradaDoCiclo = {
 const ciclo = (o: Partial<EntradaDoCiclo>) => cicloDaDespesa({ ...base, ...o })!;
 
 describe("o ciclo da despesa — Verisure, 05/10, R$ 278,22", () => {
-  it("1) a obrigação nasce Prevista e, vencida, vira Em Aberto — as duas pedem ação na Mesa de Operações", () => {
+  it("1) a obrigação nasce Prevista; NO DIA do vencimento vira Em Aberto; depois dele continua Em Aberto, só com o indicador de atraso (sem estado novo)", () => {
     expect(ciclo({})).toMatchObject({ estado: "prevista", naFilaOperacional: true });
-    expect(ciclo({ hoje: "2026-10-06" })).toMatchObject({ estado: "em_aberto", naFilaOperacional: true });
+    expect(ciclo({}).atrasoEmDias).toBeUndefined();
+    expect(ciclo({ hoje: "2026-10-04" }).estado).toBe("prevista");                                              // véspera
+    expect(ciclo({ hoje: "2026-10-05" })).toMatchObject({ estado: "em_aberto", atrasoEmDias: 0, naFilaOperacional: true });   // no dia
+    expect(ciclo({ hoje: "2026-10-05" }).proximoPasso).toMatch(/vence hoje/);
+    expect(ciclo({ hoje: "2026-10-06" })).toMatchObject({ estado: "em_aberto", atrasoEmDias: 1 });             // depois: mesmo estado
+    expect(ciclo({ hoje: "2026-10-20" })).toMatchObject({ estado: "em_aberto", atrasoEmDias: 15 });
+    expect(ciclo({ hoje: "2026-10-20" }).proximoPasso).toBe("Pagar — atrasada há 15 dias.");
+    expect(ciclo({ hoje: "2026-10-06" }).proximoPasso).toBe("Pagar — atrasada há 1 dia.");
+  });
+
+  it("1b) paga (ou cancelada) não tem indicador de atraso, por mais antigo que seja o vencimento", () => {
+    expect(ciclo({ hoje: "2026-12-01", status: "realizado", data_pagamento: "2026-10-05" }).atrasoEmDias).toBeUndefined();
+    expect(ciclo({ hoje: "2026-12-01", status: "cancelado" }).atrasoEmDias).toBeUndefined();
   });
 
   it("2) o documento entra na obrigação (a pendência 'anexar documento' some)", () => {

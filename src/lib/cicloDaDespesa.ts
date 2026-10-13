@@ -7,7 +7,9 @@
 //   Prevista → Em Aberto → Pagamento Realizado → Aguardando Conciliação → Conciliada → Pronta para Malote
 //
 //   Prevista               ainda não venceu (nada a fazer hoje)
-//   Em Aberto              venceu e não foi paga — é a ÚNICA fase que pede ação da tesouraria na Mesa de Operações
+//   Em Aberto              chegou o dia do vencimento (ou já passou) e não foi paga — é a ÚNICA fase que pede ação da tesouraria na Mesa de Operações.
+//                          Decisão dela (13/10/2026): Em Aberto começa NO DIA do vencimento; depois dele continua Em Aberto, só com o indicador de atraso
+//                          (`atrasoEmDias`) — "atrasada" NÃO é um estado, é uma situação visual da mesma fase, porque a ação é a mesma.
 //   Pagamento Realizado    foi paga (botão Pagar) e o extrato do banco ainda não chegou até a data
 //   Aguardando Conciliação foi paga, o extrato já cobre a data e nenhuma linha dele foi ligada: conferir (pode ter sido paga errado, ou o OFX não foi importado)
 //   Conciliada             a linha do extrato foi ligada ao pagamento (marca do OFX)
@@ -64,12 +66,16 @@ export interface CicloDaDespesa {
   /** só "Em aberto" (e "Prevista", que aparece na Mesa para quem quiser se antecipar) pede ação — o resto já saiu da fila operacional */
   naFilaOperacional: boolean;
   proximoPasso: string;
+  /** só em "Em aberto": quantos dias passou do vencimento (0 = vence hoje). Ausente nos outros estados. */
+  atrasoEmDias?: number;
 }
 
 /** A marca [ofx:FITID] do vínculo com o extrato (a do PDF do Invest Fácil, `[ofx:PDF:…]`, também é vínculo: veio de um extrato do banco). */
 export function ofxVinculado(observacoes: string | null | undefined): string | null {
   return /\[ofx:([^\]]+)\]/.exec(observacoes ?? "")?.[1] ?? null;
 }
+
+const diasEntre = (de: string, ate: string) => Math.round((Date.parse(`${ate}T12:00:00Z`) - Date.parse(`${de}T12:00:00Z`)) / 86_400_000);
 
 export function cicloDaDespesa(e: EntradaDoCiclo): CicloDaDespesa | null {
   if (e.tipo !== "saida") return null;
@@ -96,11 +102,13 @@ export function cicloDaDespesa(e: EntradaDoCiclo): CicloDaDespesa | null {
   if (e.status === "cancelado") return { estado: "cancelada", etapas, pendencias: [], naFilaOperacional: false, proximoPasso: "Nada a fazer: obrigação cancelada." };
 
   if (!paga) {
-    const vencida = e.data.slice(0, 10) < e.hoje;
+    const venceuOuVenceHoje = e.data.slice(0, 10) <= e.hoje;
+    const atraso = venceuOuVenceHoje ? diasEntre(e.data.slice(0, 10), e.hoje) : 0;
     return {
-      estado: vencida ? "em_aberto" : "prevista", etapas, naFilaOperacional: true,
+      estado: venceuOuVenceHoje ? "em_aberto" : "prevista", etapas, naFilaOperacional: true,
       pendencias: faltam("documento", "classificacao").map(k => NOME[k]).concat(["pagar"]),
-      proximoPasso: vencida ? "Pagar — a conta venceu." : "Anexar o documento e pagar até o vencimento.",
+      proximoPasso: !venceuOuVenceHoje ? "Anexar o documento e pagar até o vencimento." : atraso === 0 ? "Pagar hoje — a conta vence hoje." : `Pagar — atrasada há ${atraso} dia${atraso === 1 ? "" : "s"}.`,
+      ...(venceuOuVenceHoje ? { atrasoEmDias: atraso } : {}),
     };
   }
 
