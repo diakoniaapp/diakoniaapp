@@ -113,6 +113,7 @@ import { FechamentoMensal } from "@/components/financas/FechamentoMensal";
 import { MesaDoTesoureiro } from "@/components/financas/MesaDoTesoureiro";
 import { LiquidacoesDoPeriodo } from "@/components/financas/LiquidacoesDoPeriodo";
 import { ConferenciaDiariaDaCorrente } from "@/components/financas/ConferenciaDiariaDaCorrente";
+import { PrazosDaQuitacao } from "@/components/financas/PrazosDaQuitacao";
 import { useAuth } from "@/hooks/useAuth";
 import { hojeLocal, parseLocalDate, daquiADias } from "@/lib/data";
 import { ROLES_DOADORES, ROLES_PASTORAL_SEM_TITULAR, ROLES_SUSTENTO } from "@/components/layout/navConfig";
@@ -1067,6 +1068,8 @@ export default function PainelTesouraria() {
                 honesto sobre o que falta) e com os dois (mostra a conta
                 inteira). */}
             <ConferenciaDiariaDaCorrente />
+            {/* os prazos da Política de compras por terceiros: vencidos e que vencem em 7 dias (compacto aqui; a lista completa está na Mesa) */}
+            <PrazosDaQuitacao chave={atualizadoEm?.getTime() ?? 0} compacto />
 
             {diaconia && (
               <div className="rounded-md border bg-card p-3 mb-2 flex items-start gap-2">

@@ -307,3 +307,49 @@ export async function lancamentosDaLiquidacao(liquidacaoId: string): Promise<str
   if (error) return [];
   return (data ?? []).map(l => String((l as { id: string }).id));
 }
+
+// ── os prazos derivados (Fase 1C-d) ──────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+export type TipoDePrazo = "formalizacao" | "esclarecimento" | "reembolso";
+export interface PrazoAberto {
+  quitacaoId: string;
+  obrigacaoId: string;
+  prazo: TipoDePrazo;
+  /** AAAA-MM-DD */
+  limite: string;
+  diasRestantes: number;
+  situacao: "vencido" | "vence_em_7_dias" | "no_prazo";
+  valor: number;
+  /** quem pagou e o emitente da nota, para a lista dizer do que se trata */
+  responsavelNome: string | null;
+  emitente: string | null;
+}
+
+/**
+ * Os prazos da Política que VENCERAM ou VENCEM EM ATÉ 7 DIAS, do mais urgente ao menos. Tudo derivado pelo banco (vw_fin_quitacao_prazos): aqui só se lê. Sem a Fase 1C-d aplicada,
+ * devolve vazio e a tela some.
+ */
+export async function prazosAbertos(): Promise<PrazoAberto[]> {
+  if (!(await quitacaoDisponivel())) return [];
+  const { data, error } = await supabase.from("vw_fin_quitacao_prazos" as never).select("*").in("situacao" as never, ["vencido", "vence_em_7_dias"] as never).order("limite" as never);
+  if (error) return [];
+  const linhas = (data ?? []) as unknown as Linha[];
+  if (linhas.length === 0) return [];
+  const qs = await supabase.from("fin_quitacoes" as never).select("id, responsavel_pessoa_id, responsavel_fornecedor_id, obrigacao_id").in("id" as never, linhas.map(l => String(l.quitacao_id)) as never);
+  const nomes = await nomesDosResponsaveis((qs.data ?? []) as unknown as Linha[]);
+  const lancs = await supabase.from("fin_lancamentos").select("id, fornecedor_id").in("id", linhas.map(l => String(l.obrigacao_id)));
+  const fornIds = [...new Set((lancs.data ?? []).map(l => txt(l.fornecedor_id)).filter((x): x is string => !!x))];
+  const emit = new Map<string, string>();
+  if (fornIds.length) { const f = await supabase.from("fin_fornecedores").select("id, nome").in("id", fornIds); for (const x of f.data ?? []) emit.set(String(x.id), String(x.nome)); }
+  const qPorId = new Map(((qs.data ?? []) as unknown as Linha[]).map(r => [String(r.id), r]));
+  const lPorId = new Map((lancs.data ?? []).map(l => [String(l.id), l]));
+  return linhas.map(r => {
+    const q = qPorId.get(String(r.quitacao_id));
+    const nome = q && txt(q.responsavel_pessoa_id) ? nomes.pessoas.get(String(q.responsavel_pessoa_id)) ?? null : q && txt(q.responsavel_fornecedor_id) ? nomes.fornecedores.get(String(q.responsavel_fornecedor_id)) ?? null : null;
+    const l = lPorId.get(String(r.obrigacao_id));
+    return {
+      quitacaoId: String(r.quitacao_id), obrigacaoId: String(r.obrigacao_id), prazo: String(r.prazo) as TipoDePrazo, limite: String(r.limite).slice(0, 10), diasRestantes: Number(r.dias_restantes),
+      situacao: String(r.situacao) as PrazoAberto["situacao"], valor: Number(r.valor), responsavelNome: nome, emitente: l && txt(l.fornecedor_id) ? emit.get(String(l.fornecedor_id)) ?? null : null,
+    };
+  });
+}

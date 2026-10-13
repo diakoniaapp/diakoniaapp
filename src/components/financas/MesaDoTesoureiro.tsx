@@ -25,6 +25,7 @@ import { ContasJaPagas } from "@/components/financas/ContasJaPagas";
 import { DetalhesDoLancamento } from "@/components/financas/DetalhesDoLancamento";
 import { NotaQuitadaDialog } from "@/components/financas/NotaQuitadaDialog";
 import { PendenciasDeQuitacao } from "@/components/financas/PendenciasDeQuitacao";
+import { PrazosDaQuitacao } from "@/components/financas/PrazosDaQuitacao";
 import { SaneamentoDeCadastros } from "@/components/financas/SaneamentoDeCadastros";
 import { buscarLancamentoParaEditar } from "@/services/fechamentoMensalService";
 import { ROTULO_FILA, ROTULO_RESPONSAVEL } from "@/lib/quitacao";
@@ -276,6 +277,7 @@ export function MesaDoTesoureiro({
         </Cartao>
 
         {/* 2b · Quitações a resolver (Política de Compras por Terceiros): só aparece depois da migration e quando há algo nas filas */}
+        <PrazosDaQuitacao chave={chaveDeAtualizacao} />
         <PendenciasDeQuitacao hoje={hoje} chave={chaveDeAtualizacao} />
         <SaneamentoDeCadastros chave={chaveDeAtualizacao} />
 
