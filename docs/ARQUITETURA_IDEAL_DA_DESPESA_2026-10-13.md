@@ -10,7 +10,7 @@ Proposta **conceitual** de 13/10/2026, sem código. Parte da análise de [ANALIS
 |---|---|---|
 | D1 | A identidade da despesa é a **obrigação**; cada linha de `fin_lancamentos` é uma **parcela de pagamento** dela | **Sim** — e *não* separar em duas tabelas agora (ver §2.3) |
 | D2 | O estado da despesa é **derivado de fatos**, nunca digitado | **Sim** — com um único lugar que o calcula |
-| D3 | OFX só **evolui** a despesa existente; linha sem candidata nasce como despesa **já paga**, aberta à fusão tardia | **Sim** |
+| D3 | OFX só **evolui** a despesa existente — **sempre com um clique de confirmação** quando há candidata (decidido); linha sem candidata nasce como despesa **já paga**, aberta à fusão tardia | **Sim** |
 | D4 | **Conferida** (um humano atestou) ≠ **Conciliada** (há vínculo com a linha do banco) | **Sim** — e o histórico do Omie vira "Conferida (histórico)" |
 | D5 | **Pronta para Malote** nasce sozinha quando documento + comprovante + liquidação + conciliação existem | **Sim**, com 2 dispensas explícitas (§6.2) |
 | D6 | **Enviada ao Malote** congela a despesa; **Arquivada** = enviada + mês aprovado | **Sim** — mudar depois exige "reabrir" com motivo |
@@ -103,7 +103,7 @@ Mais dois destinos que não são degraus: **Cancelada** e **Pago parcialmente** 
 |---|---|---|---|
 | 0 | O FITID já está ligado a algo | Nada (já registrada) | — |
 | 1 | Débito automático **previsto** com valor e janela compatíveis | Evolui a despesa existente (paga + ligada) | ninguém — automático, **desfazível** |
-| 2 | Obrigação aberta do **mesmo favorecido**, **valor exato**, uma só candidata | Evolui a despesa existente | automático **só nesta combinação**; senão proposta |
+| 2 | Obrigação aberta do **mesmo favorecido**, **valor exato**, uma só candidata | **Proposta já preenchida**: a linha do banco aparece ligada à despesa, e um clique confirma | tesouraria, **sempre um clique** (decisão dela, 13/10/2026) |
 | 3 | Candidata com valor diferente (juros, multa, desconto, parcial, estimativa) | **Proposta** com a diferença explicada — **nunca** cria linha por conta própria | tesouraria, num clique |
 | 4 | Há **mais de uma** candidata (duas mensalidades, dois contratos) | Proposta com a lista | tesouraria |
 | 5 | Nenhuma candidata | Nasce uma despesa **já paga e ligada** — uma só, sem obrigação anterior | automático (tarifa, PIX avulso) ou revisão |
@@ -194,11 +194,11 @@ Se o comprovante for apagado ou a conciliação desfeita, a despesa **sai** de *
 ## 9. Perguntas que só você responde
 
 - **Q1.** *Prevista* × *Em Aberto*: quantos dias antes do vencimento a despesa entra em "Em Aberto"? (Hoje a regra é "venceu"; a Mesa mostra 7 dias — proponho **7**, o mesmo da Mesa.)
-- **Q2.** O OFX deve ligar **sozinho** a camada 2 (mesmo favorecido, valor exato, uma só candidata), ou **sempre** pedir um clique? (Recomendo sozinho, com "desfazer lote".)
+- **Q2. RESPONDIDA (13/10):** o OFX **sempre pede um clique** quando há candidata — nenhuma camada liga sozinha. (O débito automático previsto de valor e janela compatíveis, camada 1, já era conciliado com um clique na importação.)
 - **Q3.** O histórico do Omie (≈12.800 conciliados sem vínculo) entra nos malotes dos meses antigos como *Conferida (histórico)* — aceito pela contabilidade?
 - **Q4.** Conta sem extrato (caixinha, envelopes, cartão): a *Conferida* basta para chegar a *Pronta*?
 - **Q5.** *Enviada* trava a despesa. Quem pode **reabrir**, e com que registro?
-- **Q6.** Um comprovante cobrindo vários documentos e uma guia cobrindo várias obrigações são casos **frequentes** na tesouraria (folha, FGTS, GPS)? Se sim, o N para N sobe de prioridade.
+- **Q6. RESPONDIDA (13/10):** **não são casos frequentes.** O N para N entre documento e obrigação **sai do caminho**: continua 1 documento por obrigação; nos casos raros, o anexo é repetido (referência) e a tesouraria é avisada.
 
 ---
 
@@ -213,6 +213,6 @@ Se o comprovante for apagado ou a conciliação desfeita, a despesa **sai** de *
 | 5 | Tabela de vínculos do extrato; "Conferida" separada de "Conciliada" | ❌ (migration + classificação do histórico) |
 | 6 | Itens do malote por despesa; estados *Enviada* e *Arquivada*; travar enviada | ❌ |
 | 7 | Leitura oficial do estado (view) com os oito estados | ❌ |
-| 8 | Documento como peça própria (N para N) | ❌ — só se Q6 confirmar |
+| 8 | Documento como peça própria (N para N) | ⛔ **descartado** (Q6: casos raros) |
 
 **O que eu faria a seguir** (nesta ordem): o passo 3 e o gerador do passo 1 — não precisam de migration e fecham as duas lacunas que ainda produzem duplicidade e dossiê incompleto —; depois, o desenho detalhado dos passos 4–6 para você aprovar **antes** de qualquer migration.
