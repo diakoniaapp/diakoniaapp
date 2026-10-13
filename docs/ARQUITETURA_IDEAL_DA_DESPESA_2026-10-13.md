@@ -193,11 +193,11 @@ Se o comprovante for apagado ou a conciliação desfeita, a despesa **sai** de *
 
 ## 9. Perguntas que só você responde
 
-- **Q1.** *Prevista* × *Em Aberto*: quantos dias antes do vencimento a despesa entra em "Em Aberto"? (Hoje a regra é "venceu"; a Mesa mostra 7 dias — proponho **7**, o mesmo da Mesa.)
+- **Q1. RESPONDIDA (13/10):** **0 dias** — antes do vencimento *Prevista*; no dia *Em Aberto*; depois *Atrasada* (se é 9º estado ou situação de Em Aberto: pendente, ver resumo D1–D7).
 - **Q2. RESPONDIDA (13/10):** o OFX **sempre pede um clique** quando há candidata — nenhuma camada liga sozinha. (O débito automático previsto de valor e janela compatíveis, camada 1, já era conciliado com um clique na importação.)
-- **Q3.** O histórico do Omie (≈12.800 conciliados sem vínculo) entra nos malotes dos meses antigos como *Conferida (histórico)* — aceito pela contabilidade?
-- **Q4.** Conta sem extrato (caixinha, envelopes, cartão): a *Conferida* basta para chegar a *Pronta*?
-- **Q5.** *Enviada* trava a despesa. Quem pode **reabrir**, e com que registro?
+- **Q3. RESPONDIDA (13/10):** sim — o histórico do Omie vira **Conferida (Histórico)**, nunca *Conciliada*.
+- **Q4. RESPONDIDA (13/10):** sim — em conta sem extrato, **documento + comprovante + conferência humana** bastam para *Pronta para Malote*.
+- **Q5. RESPONDIDA (13/10):** reabrir despesa enviada: só **Administrador** e **Tesouraria**; registrar motivo, data, hora, usuário, estado anterior e estado novo.
 - **Q6. RESPONDIDA (13/10):** **não são casos frequentes.** O N para N entre documento e obrigação **sai do caminho**: continua 1 documento por obrigação; nos casos raros, o anexo é repetido (referência) e a tesouraria é avisada.
 
 ---
