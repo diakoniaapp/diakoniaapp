@@ -72,10 +72,30 @@ describe("casos de borda", () => {
     expect(c.estado).toBe("pronta_para_malote");
     expect(c.etapas.find(x => x.chave === "documento")).toMatchObject({ feita: true, naoSeAplica: true });
   });
-  it("conta sem extrato (caixinha): não há OFX nem conciliação — paga e documentada já segue para o malote", () => {
-    const c = ciclo({ contaTipo: "caixa", status: "realizado", data_pagamento: "2026-10-03", temDocumento: true, temComprovante: true, ultimoExtratoDaConta: null });
-    expect(c.estado).toBe("pronta_para_malote");
-    expect(c.etapas.find(x => x.chave === "ofx")).toMatchObject({ naoSeAplica: true, feita: true });
+  it("conta sem extrato (caixinha): sem OFX; documento + comprovante + CONFERÊNCIA humana bastam (Q4) — paga sozinha não chega a Pronta", () => {
+    const paga = { contaTipo: "caixa", status: "realizado", data_pagamento: "2026-10-03", temDocumento: true, temComprovante: true, ultimoExtratoDaConta: null };
+    const naoConferida = ciclo(paga);
+    expect(naoConferida.estado).toBe("aguardando_conciliacao");
+    expect(naoConferida.proximoPasso).toMatch(/Conferir o pagamento/);
+    expect(naoConferida.etapas.find(x => x.chave === "ofx")).toMatchObject({ naoSeAplica: true, feita: true });
+    const conferida = ciclo({ ...paga, status: "conciliado" });
+    expect(conferida).toMatchObject({ estado: "pronta_para_malote", conferencia: "manual" });
+    expect(conferida.etapas.find(x => x.chave === "conciliacao")).toMatchObject({ rotulo: "Conferência", feita: true, detalhe: "Conferida" });
+  });
+  it("Conciliada ≠ Conferida (D4): em conta com extrato, status 'conciliado' SEM vínculo não concilia — fica esperando o banco", () => {
+    const c = ciclo({ status: "conciliado", data_pagamento: "2026-10-05", temDocumento: true, temComprovante: true, ultimoExtratoDaConta: "2026-10-05" });
+    expect(c.estado).toBe("aguardando_conciliacao");
+    expect(c.conferencia).toBe("manual");
+    expect(c.etapas.find(x => x.chave === "conciliacao")).toMatchObject({ feita: false, detalhe: "Conferida (sem vínculo bancário)" });
+  });
+  it("Conferida (Histórico): o que veio do Omie não tem vínculo e é aceito como está — nunca é chamado de Conciliada", () => {
+    const c = ciclo({ status: "conciliado", origem: "importado_omie", data_pagamento: "2026-08-10", temDocumento: true, temComprovante: true });
+    expect(c).toMatchObject({ estado: "pronta_para_malote", conferencia: "historico" });
+    expect(c.etapas.find(x => x.chave === "conciliacao")).toMatchObject({ feita: true, detalhe: "Conferida (Histórico)" });
+    expect(c.etapas.find(x => x.chave === "ofx")).toMatchObject({ feita: true, naoSeAplica: true, detalhe: "histórico anterior ao extrato" });
+  });
+  it("com vínculo é Conciliada, venha de onde vier", () => {
+    expect(ciclo({ status: "conciliado", origem: "importado_omie", observacoes: "[ofx:N5]", temDocumento: true, temComprovante: true }).conferencia).toBe("vinculo");
   });
   it("pagamento sem nenhum extrato importado na conta: continua 'Pagamento realizado', não 'aguardando'", () => {
     expect(ciclo({ status: "realizado", data_pagamento: "2026-10-05", ultimoExtratoDaConta: null }).estado).toBe("pagamento_realizado");

@@ -50,7 +50,7 @@ export async function carregarDetalhesDaDespesa(l: FinLancamentoExtenso): Promis
   const temComprovante = !!l.comprovante_url || anexos.some(a => a.tipo === "comprovante" && a.lancamento_id === l.id);
   const temDocumento = anexos.some(a => a.tipo !== "comprovante");
   const ciclo = cicloDaDespesa({
-    tipo: l.tipo, status: l.status, data: String(l.data).slice(0, 10), data_pagamento: l.data_pagamento, observacoes: l.observacoes, contaTipo,
+    tipo: l.tipo, status: l.status, data: String(l.data).slice(0, 10), data_pagamento: l.data_pagamento, observacoes: l.observacoes, origem: l.origem, contaTipo,
     ultimoExtratoDaConta: ultimo ? String(ultimo.data_pagamento ?? ultimo.data).slice(0, 10) : null,
     temCategoria: !!l.categoria_id, temCentro: !!l.centro_custo_id, temDocumento, temComprovante,
     dispensaDocumento: dispensaDocumento({ categoria_nome: l.categoria_nome }), hoje: hojeLocal(),

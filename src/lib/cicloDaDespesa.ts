@@ -15,7 +15,10 @@
 //   Conciliada             a linha do extrato foi ligada ao pagamento (marca do OFX)
 //   Pronta para Malote     conciliada + classificada (categoria e centro) + documento original + comprovante: pode ir para a contabilidade
 //
-// Conta sem extrato (caixinha, envelopes, cartão): não há o que conciliar — a etapa não se aplica, a obrigação paga já pode seguir para o malote.
+// CONCILIADA × CONFERIDA (D4, 13/10/2026): Conciliada = existe VÍNCULO com a linha do banco (a marca [ofx:…]). Conferida = alguém marcou (status conciliado)
+// sem vínculo: manual, ou "Conferida (Histórico)" — o que veio do Omie, que nunca teve extrato. Em conta COM extrato só o vínculo conta (o histórico do Omie é
+// aceito como está, sem ser vendido como "conciliado"); em conta SEM extrato (caixinha, envelopes, cartão, aplicações) a conferência humana basta (Q4) —
+// mas é preciso conferir: paga sozinha não chega a Pronta.
 // Só despesas (saídas) têm este ciclo; a função devolve null para entradas.
 
 export type EstadoDoCiclo = "prevista" | "em_aberto" | "pagamento_realizado" | "aguardando_conciliacao" | "conciliada" | "pronta_para_malote" | "cancelada";
@@ -44,6 +47,8 @@ export interface EntradaDoCiclo {
   /** há anexo que não seja só comprovante: boleto, fatura, guia, nota, XML… */
   temDocumento: boolean;
   temComprovante: boolean;
+  /** de onde veio o lançamento (`importado_omie` = histórico anterior ao extrato: Conferida (Histórico)) */
+  origem?: string | null;
   /** categorias que não têm documento (tarifas bancárias, IOF, juros): ver `dispensaDocumento` */
   dispensaDocumento: boolean;
   hoje: string;
@@ -58,8 +63,12 @@ export interface EtapaDoCiclo {
   detalhe: string | null;
 }
 
+/** Como a obrigação paga foi confirmada: pelo banco (vínculo), por quem a conferiu à mão, ou é histórico do Omie. null = ainda não confirmada. */
+export type Conferencia = "vinculo" | "manual" | "historico" | null;
+
 export interface CicloDaDespesa {
   estado: EstadoDoCiclo;
+  conferencia?: Conferencia;
   etapas: EtapaDoCiclo[];
   /** o que falta para o malote, em palavras (vazio = pronta) */
   pendencias: string[];
@@ -82,21 +91,25 @@ export function cicloDaDespesa(e: EntradaDoCiclo): CicloDaDespesa | null {
   const temExtrato = e.contaTipo === "banco";
   const fitid = ofxVinculado(e.observacoes);
   const paga = e.status === "realizado" || e.status === "conciliado";
-  const conciliada = e.status === "conciliado";
+  const marcada = e.status === "conciliado";
+  const conferencia: Conferencia = !paga ? null : fitid ? "vinculo" : marcada ? (e.origem === "importado_omie" ? "historico" : "manual") : null;
+  // conta com extrato: só o vínculo (ou o histórico, aceito como está) concilia; conta sem extrato: a conferência humana basta
+  const conciliada = temExtrato ? conferencia === "vinculo" || conferencia === "historico" : conferencia !== null;
   const dataDoPagamento = (e.data_pagamento ?? e.data).slice(0, 10);
 
   const etapas: EtapaDoCiclo[] = [
     { chave: "documento", rotulo: "Documento original", feita: e.temDocumento || e.dispensaDocumento, naoSeAplica: !e.temDocumento && e.dispensaDocumento, detalhe: !e.temDocumento && e.dispensaDocumento ? "esta categoria não exige documento" : null },
     { chave: "pagamento", rotulo: "Pagamento", feita: paga, naoSeAplica: false, detalhe: paga ? dataDoPagamento : null },
-    { chave: "ofx", rotulo: "OFX vinculado", feita: !!fitid || !temExtrato, naoSeAplica: !temExtrato, detalhe: fitid ?? (temExtrato ? null : "conta sem extrato bancário") },
-    { chave: "conciliacao", rotulo: "Conciliação", feita: conciliada || (!temExtrato && paga), naoSeAplica: !temExtrato, detalhe: !temExtrato ? "conta sem extrato bancário" : null },
+    { chave: "ofx", rotulo: "OFX vinculado", feita: !!fitid || !temExtrato || conferencia === "historico", naoSeAplica: !temExtrato || conferencia === "historico", detalhe: fitid ?? (!temExtrato ? "conta sem extrato bancário" : conferencia === "historico" ? "histórico anterior ao extrato" : null) },
+    { chave: "conciliacao", rotulo: temExtrato ? "Conciliação" : "Conferência", feita: conciliada, naoSeAplica: false,
+      detalhe: conferencia === "historico" ? "Conferida (Histórico)" : conferencia === "manual" ? (temExtrato ? "Conferida (sem vínculo bancário)" : "Conferida") : !temExtrato ? "conta sem extrato bancário: conferir à mão" : null },
     { chave: "comprovante", rotulo: "Comprovante de pagamento", feita: e.temComprovante || e.dispensaDocumento, naoSeAplica: !e.temComprovante && e.dispensaDocumento, detalhe: !e.temComprovante && e.dispensaDocumento ? "o extrato é o comprovante" : null },
     { chave: "classificacao", rotulo: "Categoria e centro de custo", feita: e.temCategoria && e.temCentro, naoSeAplica: false, detalhe: null },
   ];
   const faltam = (...chaves: EtapaDoCiclo["chave"][]) => chaves.filter(k => !etapas.find(x => x.chave === k)!.feita);
   const NOME: Record<EtapaDoCiclo["chave"], string> = {
     documento: "anexar o documento original (boleto, fatura, guia…)", pagamento: "pagar", ofx: "vincular a linha do extrato (importar o OFX)",
-    conciliacao: "conciliar com o extrato", comprovante: "anexar o comprovante de pagamento", classificacao: "classificar (categoria e centro de custo)",
+    conciliacao: temExtrato ? "conciliar com o extrato" : "conferir o pagamento (conta sem extrato)", comprovante: "anexar o comprovante de pagamento", classificacao: "classificar (categoria e centro de custo)",
   };
 
   if (e.status === "cancelado") return { estado: "cancelada", etapas, pendencias: [], naFilaOperacional: false, proximoPasso: "Nada a fazer: obrigação cancelada." };
@@ -113,16 +126,19 @@ export function cicloDaDespesa(e: EntradaDoCiclo): CicloDaDespesa | null {
   }
 
   const pendencias = faltam("ofx", "conciliacao", "comprovante", "documento", "classificacao").map(k => NOME[k]);
-  if (!conciliada && temExtrato) {
-    const cobre = !!e.ultimoExtratoDaConta && e.ultimoExtratoDaConta >= dataDoPagamento;
+  if (!conciliada) {
+    const cobre = temExtrato && !!e.ultimoExtratoDaConta && e.ultimoExtratoDaConta >= dataDoPagamento;
+    // conta sem extrato nunca "espera o banco": o que falta é a conferência humana, que já é o próximo passo
+    const aguardando = cobre || !temExtrato;
     return {
-      estado: cobre ? "aguardando_conciliacao" : "pagamento_realizado", etapas, naFilaOperacional: false, pendencias,
-      proximoPasso: cobre ? "O extrato já cobre o dia do pagamento e nenhuma linha foi ligada: conferir na Mesa de Conciliação." : "Importar o OFX quando o banco compensar: a conciliação é automática.",
+      estado: aguardando ? "aguardando_conciliacao" : "pagamento_realizado", etapas, naFilaOperacional: false, pendencias, conferencia,
+      proximoPasso: !temExtrato ? "Conferir o pagamento (conta sem extrato bancário) e marcá-lo como conferido."
+        : cobre ? "O extrato já cobre o dia do pagamento e nenhuma linha foi ligada: conferir na Mesa de Conciliação." : "Importar o OFX quando o banco compensar: a conciliação é automática.",
     };
   }
   const prontaParaMalote = pendencias.length === 0;
   return {
-    estado: prontaParaMalote ? "pronta_para_malote" : "conciliada", etapas, naFilaOperacional: false, pendencias,
+    estado: prontaParaMalote ? "pronta_para_malote" : "conciliada", etapas, naFilaOperacional: false, pendencias, conferencia,
     proximoPasso: prontaParaMalote ? "Pronta: o malote já a enxerga." : `Para o malote: ${pendencias.join("; ")}.`,
   };
 }

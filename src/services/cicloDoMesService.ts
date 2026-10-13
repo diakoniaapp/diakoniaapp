@@ -24,7 +24,7 @@ export async function cicloDoMes(ano: number, mes: number): Promise<ResumoDoCicl
   const lancs: Record<string, unknown>[] = [];
   for (let p = 0; ; p++) {
     const { data, error } = await supabase.from("fin_lancamentos")
-      .select("id, status, data, data_pagamento, observacoes, conta_id, categoria_id, centro_custo_id, comprovante_url")
+      .select("id, status, data, data_pagamento, observacoes, origem, conta_id, categoria_id, centro_custo_id, comprovante_url")
       .eq("tipo", "saida").in("status", ["realizado", "conciliado"]).neq("origem", "transferencia")
       .or(`and(data_pagamento.gte.${ini},data_pagamento.lte.${fim}),and(data_pagamento.is.null,data.gte.${ini},data.lte.${fim})`)
       .order("id").range(p * PAGINA, p * PAGINA + PAGINA - 1);
@@ -64,7 +64,7 @@ export async function cicloDoMes(ano: number, mes: number): Promise<ResumoDoCicl
     const dispensa = dispensaDocumento({ categoria_nome: l.categoria_id ? nomeDaCategoria.get(String(l.categoria_id)) : null });
     const c = cicloDaDespesa({
       tipo: "saida", status: String(l.status), data: String(l.data).slice(0, 10), data_pagamento: (l.data_pagamento as string) ?? null,
-      observacoes: (l.observacoes as string) ?? null, contaTipo: tipoDaConta.get(contaId) ?? "banco", ultimoExtratoDaConta: ultimoExtrato.get(contaId) ?? null,
+      observacoes: (l.observacoes as string) ?? null, origem: (l.origem as string) ?? null, contaTipo: tipoDaConta.get(contaId) ?? "banco", ultimoExtratoDaConta: ultimoExtrato.get(contaId) ?? null,
       temCategoria: !!l.categoria_id, temCentro: !!l.centro_custo_id, temDocumento: comDocumento.has(id), temComprovante: comComprovante.has(id) || !!l.comprovante_url,
       dispensaDocumento: dispensa, hoje,
     });
