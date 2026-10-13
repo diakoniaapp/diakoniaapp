@@ -47,7 +47,6 @@ export function DetalhesDoLancamento({ lancamento, onFechar, onAnexos }: { lanca
   const documentos = d?.anexos.filter(a => a.tipo !== "comprovante") ?? [];
   const comprovantes = d?.anexos.filter(a => a.tipo === "comprovante") ?? [];
   const o = d?.obrigacao;
-  const temDiferenca = !!o && (o.juros + o.multa + o.complemento + o.ajuste + o.desconto) > 0.004;
 
   return (
     <Dialog open={!!l} onOpenChange={o2 => { if (!o2) onFechar(); }}>
@@ -102,12 +101,22 @@ export function DetalhesDoLancamento({ lancamento, onFechar, onAnexos }: { lanca
                   {o && (
                     <div className="col-span-2 rounded-md border px-3 py-2">
                       <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Obrigação</p>
-                      <p className="tabular-nums">Valor original {brl(o.valor_original)}
-                        {temDiferenca && <>
-                          {o.juros > 0 && <> · juros {brl(o.juros)}</>}{o.multa > 0 && <> · multa {brl(o.multa)}</>}
-                          {o.complemento + o.ajuste > 0 && <> · outros {brl(o.complemento + o.ajuste)}</>}{o.desconto > 0 && <> · desconto − {brl(o.desconto)}</>}
-                          {" "}· <b>total pago {brl(o.total_pago)}</b></>}
-                      </p>
+                      {/* Uma obrigação, um lançamento: o valor pago já contém os encargos; aqui eles aparecem separados, só para quem quiser abrir (opção A, 13/10/2026). */}
+                      <dl className="mt-1 grid grid-cols-2 sm:grid-cols-5 gap-x-3 gap-y-1 text-sm tabular-nums">
+                        {[
+                          { rotulo: "Valor original", valor: o.valor_original, forte: false, menos: false },
+                          { rotulo: "Juros", valor: o.juros, forte: false, menos: false },
+                          { rotulo: "Multa", valor: o.multa, forte: false, menos: false },
+                          { rotulo: "Desconto", valor: o.desconto, forte: false, menos: true },
+                          { rotulo: "Valor pago", valor: o.total_pago, forte: true, menos: false },
+                        ].map(c => (
+                          <div key={c.rotulo} className={c.valor === 0 && !c.forte ? "text-muted-foreground" : ""}>
+                            <dt className="text-[11px] text-muted-foreground">{c.rotulo}</dt>
+                            <dd className={c.forte ? "font-semibold" : ""}>{c.menos && c.valor > 0 ? "− " : ""}{brl(c.valor)}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                      {o.complemento + o.ajuste > 0.004 && <p className="text-xs text-muted-foreground mt-1">Inclui também {brl(o.complemento + o.ajuste)} de complemento/ajuste.</p>}
                       {d.contrato && <p className="text-xs text-muted-foreground">Contrato: {d.contrato}</p>}
                     </div>
                   )}

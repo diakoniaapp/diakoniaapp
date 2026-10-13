@@ -265,6 +265,17 @@ export interface FinLancamento {
   /** o ato de pagar que baixou este lançamento (fin_liquidacoes; migration 20261007100000) e o grupo da obrigação (a raiz, quando houve baixa parcial) */
   liquidacao_id?: string | null;
   obrigacao_id?: string | null;
+  /**
+   * Juros, multa e desconto são CAMPOS da obrigação, não lançamentos (migrations 20261007100000 e 20261008200000). `valor` = o que saiu do banco
+   * (já com os encargos dentro); `valor_original` = o que o documento dizia. Ver lib/encargos.ts.
+   */
+  valor_original?: number | null;
+  juros?: number | null;
+  multa?: number | null;
+  complemento?: number | null;
+  ajuste?: number | null;
+  desconto?: number | null;
+  motivo_diferenca?: string | null;
   nf_dados_extraidos: NfDadosExtraidos | null;
   origem: string;
   /** Migration 20261006120000: como será liquidado e se o previsto é só uma estimativa. */
@@ -880,6 +891,8 @@ export async function atualizarFornecedor(id: string, patch: Partial<FinForneced
 
 // ─── Lançamentos ────────────────────────────────────────────────────────
 export interface FiltroLancamento {
+  /** um lançamento só, pelo id (abrir o detalhe de uma obrigação a partir de um relatório) */
+  lancamentoId?: string;
   contaId?: string;
   tipo?: FinMovimentoTipo;
   status?: FinStatus;
@@ -954,8 +967,9 @@ function construirQueryLancamentos(filtro: FiltroLancamento, buscaIds?: { fornec
     .order("data", { ascending: false })
     .order("created_at", { ascending: false })
     .order("id", { ascending: false });
+  if (filtro.lancamentoId) q = q.eq("id", filtro.lancamentoId);
   if (filtro.contaId) q = q.eq("conta_id", filtro.contaId);
-  // Achado ao vivo pela Telma (01/10/2026): filtrar por "Saídas" trazia
+  // Achado ao vivo pela Telma (01/10/2026): filtrar por "Saídas"trazia
   // também a perna de saída de transferências entre contas próprias —
   // mesmo já existindo um filtro "Transferências" dedicado
   // (`apenasTransferencia`, mutuamente exclusivo na tela — ver comentário
@@ -984,6 +998,11 @@ function construirQueryLancamentos(filtro: FiltroLancamento, buscaIds?: { fornec
     q = q.or(condicoes.join(","));
   }
   return q;
+}
+
+/** O lançamento com os nomes (conta, categoria, fornecedor…) que o extrato mostra — para abrir o detalhe a partir de outra tela. */
+export async function buscarLancamentoExtenso(id: string): Promise<FinLancamentoExtenso | null> {
+  return (await listarLancamentos({ lancamentoId: id }))[0] ?? null;
 }
 
 export async function listarLancamentos(filtro: FiltroLancamento = {}): Promise<FinLancamentoExtenso[]> {

@@ -76,6 +76,7 @@ import {
 } from "@/services/finService";
 import { calcularExtrato, dataEfetiva, fechamentosDoDia, saldoAntesDe, vencimentoDiferente } from "@/services/saldoService";
 import { LinhaDeFechamentoDoDia, podeMostrarFechamentos } from "@/components/financas/LinhaDeFechamentoDoDia";
+import { DetalheDeEncargos } from "@/components/financas/DetalheDeEncargos";
 import { DetalhesDoLancamento } from "@/components/financas/DetalhesDoLancamento";
 import { iconeConta } from "@/pages/Financas";
 import { LancamentoForm } from "@/components/financas/LancamentoForm";
@@ -441,6 +442,7 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, contas, onTroc
             <span className="truncate">{principal}</span>
           </p>
           {secundario && <p className="text-xs text-muted-foreground truncate">{secundario}</p>}
+          <DetalheDeEncargos lancamento={l} />
         </td>
         {!contaId && (
           <td className="py-1.5 px-2 overflow-hidden hidden sm:table-cell">

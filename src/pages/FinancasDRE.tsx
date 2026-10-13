@@ -23,6 +23,7 @@ import { gerarDRE, gerarCSVDRE, type DREResultado } from "@/services/dreService"
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { PaginaSkeleton } from "@/components/ListState";
+import { IndicadoresDeEncargos } from "@/components/financas/IndicadoresDeEncargos";
 
 export default function FinancasDRE() {
   const { ano: anoUrl } = useParams();
@@ -159,6 +160,9 @@ export default function FinancasDRE() {
             </div>
           </div>
         </section>
+
+        {/* Informativo (opção A, 13/10/2026): o total pago de cada obrigação já está na categoria dela; juros/multa/desconto NÃO são linha da DRE. */}
+        <IndicadoresDeEncargos de={`${ano}-01-01`} ate={`${ano}-12-31`} className="avoid-break mb-6" />
 
         {/* Demonstração formal — Receitas → Despesas → Resultado */}
         <section className="mb-6">

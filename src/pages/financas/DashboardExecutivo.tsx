@@ -19,6 +19,7 @@ import { FluxoCaixaCard } from "@/components/financas/FluxoCaixaCard";
 import type { DiaFluxo } from "@/lib/fluxoCaixa";
 import { IndicadorCentroCusto } from "@/components/financas/IndicadorCentroCusto";
 import { IndicadorPorCategoria } from "@/components/financas/IndicadorPorCategoria";
+import { IndicadoresDeEncargos } from "@/components/financas/IndicadoresDeEncargos";
 import { toYmd, parseLocalDate, daquiAMeses, hojeLocal } from "@/lib/data";
 
 const fmtBR = (n: number | null | undefined) =>
@@ -263,6 +264,9 @@ export default function DashboardExecutivo() {
         de={periodoDe} ate={periodoAte} onDe={setPeriodoDe} onAte={setPeriodoAte}
         serie={serieFluxo} carregando={fluxoLoading}
       />
+
+      {/* Informativo (opção A, 13/10/2026): juros/multa/desconto do mesmo período do fluxo — o total pago segue na categoria, nada vira linha nova. */}
+      <IndicadoresDeEncargos de={periodoDe} ate={periodoAte} />
 
       {/* ZONA 2B — INDICADOR POR CENTRO DE CUSTO (01/10/2026) */}
       <IndicadorCentroCusto periodoDe={periodoDe} periodoAte={periodoAte} periodoLabel={periodoLabel} />

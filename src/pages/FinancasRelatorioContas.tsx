@@ -32,6 +32,7 @@ import {
 } from "@/services/finService";
 import { calcularExtrato, dataEfetiva, fechamentosDoDia, movimentaSaldo, saldoAntesDe, vencimentoDiferente } from "@/services/saldoService";
 import { LinhaDeFechamentoDoDia } from "@/components/financas/LinhaDeFechamentoDoDia";
+import { DetalheDeEncargos } from "@/components/financas/DetalheDeEncargos";
 import { toYmd } from "@/lib/data";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -302,6 +303,7 @@ export default function FinancasRelatorioContas() {
                         {l.fornecedor_nome && l.fornecedor_nome !== l.descricao && (
                           <span className="text-muted-foreground"> · {l.fornecedor_nome}</span>
                         )}
+                        <DetalheDeEncargos lancamento={l} className="text-[10px]" />
                       </td>
                       <td className="py-1 pr-1 text-muted-foreground truncate">{l.categoria_nome ?? "—"}</td>
                       <td className={`py-1 pr-1 text-right tabular-nums font-medium whitespace-nowrap ${l.tipo === "entrada" ? "text-success-text" : "text-destructive-text"}`}>

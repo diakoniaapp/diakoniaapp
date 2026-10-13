@@ -48,6 +48,7 @@ import { TransferenciaForm } from "@/components/financas/TransferenciaForm";
 import { ConciliacaoOFXDialog } from "@/components/financas/ConciliacaoOFXDialog";
 import { calcularExtrato, dataEfetiva, fechamentosDoDia, saldoAntesDe, vencimentoDiferente } from "@/services/saldoService";
 import { LinhaDeFechamentoDoDia, podeMostrarFechamentos } from "@/components/financas/LinhaDeFechamentoDoDia";
+import { DetalheDeEncargos } from "@/components/financas/DetalheDeEncargos";
 import { DetalhesDoLancamento } from "@/components/financas/DetalhesDoLancamento";
 import { iconeConta } from "@/pages/Financas";
 import { ImportacaoOmieDialog } from "@/components/financas/ImportacaoOmieDialog";
@@ -714,6 +715,8 @@ export default function FinancasConta() {
           {secundario && secundario !== l.categoria_nome && !modoResumido && (
             <p className="text-xs text-muted-foreground truncate">{secundario}</p>
           )}
+          {/* Juros/multa/desconto não são linhas: a obrigação é UMA e o extrato mostra o total pago; o detalhe vem aqui embaixo (opção A, 13/10/2026). */}
+          {!modoResumido && <DetalheDeEncargos lancamento={l} />}
         </td>
         {isTodasContas && !modoResumido && (
           <td className="py-1.5 px-2 overflow-hidden">

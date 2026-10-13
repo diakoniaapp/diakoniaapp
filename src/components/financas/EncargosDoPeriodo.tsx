@@ -5,7 +5,9 @@
 // (juros, multa, outros) ou a menos (desconto) e o total que saiu do banco — e os totais que respondem "quanto pagamos de juros / de multa /
 // quanto economizamos". Lê `vw_fin_obrigacoes` (antes da migration que a cria, o bloco simplesmente não aparece).
 import { useEffect, useState } from "react";
-import { brl } from "@/services/finService";
+import { toast } from "sonner";
+import { DetalhesDoLancamento } from "@/components/financas/DetalhesDoLancamento";
+import { brl, buscarLancamentoExtenso, type FinLancamentoExtenso } from "@/services/finService";
 import { listarObrigacoes, obrigacoesDisponiveis, totaisDasObrigacoes, type Obrigacao } from "@/services/obrigacoesService";
 
 const dataBr = (iso: string | null) => (iso ? iso.slice(0, 10).split("-").reverse().join("/") : "—");
@@ -14,6 +16,15 @@ interface Props { de: string; ate: string; contaId?: string }
 
 export function EncargosDoPeriodo({ de, ate, contaId }: Props) {
   const [lista, setLista] = useState<Obrigacao[] | null>(null);
+  const [detalhe, setDetalhe] = useState<FinLancamentoExtenso | null>(null);
+
+  // O lançamento continua UM: aqui só se abre o detalhe dele (valor original, juros, multa, desconto, valor pago, documento, comprovante).
+  async function abrirDetalhe(o: Obrigacao) {
+    try {
+      const l = await buscarLancamentoExtenso(o.obrigacao_id);
+      if (l) setDetalhe(l); else toast.error("Não encontrei o lançamento desta obrigação.");
+    } catch { toast.error("Não foi possível abrir o detalhe."); }
+  }
 
   useEffect(() => {
     let vivo = true;
@@ -62,8 +73,9 @@ export function EncargosDoPeriodo({ de, ate, contaId }: Props) {
                 <tr key={o.obrigacao_id} className="border-b border-border/40 align-top">
                   <td className="py-1 pr-2 whitespace-nowrap tabular-nums">{dataBr(o.ultimo_pagamento)}</td>
                   <td className="py-1 pr-2 min-w-0">
-                    <span className="font-medium">{o.descricao ?? "—"}</span>
-                    {o.fornecedor_nome && o.fornecedor_nome !== o.descricao && <span className="text-muted-foreground"> · {o.fornecedor_nome}</span>}
+                    <button type="button" onClick={() => abrirDetalhe(o)} className="font-medium text-left underline-offset-2 hover:underline print:no-underline"
+                      title="Abrir o detalhe: valor original, juros, multa, desconto, valor pago e documentos">{o.descricao ?? o.fornecedor_nome ?? "Obrigação"}</button>
+                    {o.descricao && o.fornecedor_nome && o.fornecedor_nome !== o.descricao && <span className="text-muted-foreground"> · {o.fornecedor_nome}</span>}
                     {o.situacao === "pago_parcialmente" && <span className="text-warning-text"> · pago parcialmente (falta {brl(o.saldo_pendente)})</span>}
                   </td>
                   <td className="py-1 pr-2 text-right tabular-nums">{brl(o.valor_original)}</td>
@@ -88,6 +100,7 @@ export function EncargosDoPeriodo({ de, ate, contaId }: Props) {
           </table>
         </div>
       )}
+      <DetalhesDoLancamento lancamento={detalhe} onFechar={() => setDetalhe(null)} />
     </section>
   );
 }

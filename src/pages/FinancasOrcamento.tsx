@@ -20,6 +20,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { PaginaSkeleton } from "@/components/ListState";
+import { IndicadoresDeEncargos } from "@/components/financas/IndicadoresDeEncargos";
+import { hojeLocal } from "@/lib/data";
 import {
   listarOrcamentoVsReal, listarCentrosComResumo, criarOrcamento, excluirOrcamento,
   ordenarCentrosParaSeletor, brl, type FinOrcamentoVsReal, type FinCentroResumo,
@@ -93,6 +95,7 @@ export default function FinancasOrcamento() {
 
   if (loading) return <PaginaSkeleton />;
 
+  const anoCorrente = hojeLocal().slice(0, 4);   // hojeLocal(): `new Date().toISOString()` lê o ano seguinte na noite de 31/12
   const acimaLimite = orc.filter(o => Number(o.percentual_consumido) >= 100).length;
   const proximoLimite = orc.filter(o => Number(o.percentual_consumido) >= 80 && Number(o.percentual_consumido) < 100).length;
 
@@ -111,6 +114,9 @@ export default function FinancasOrcamento() {
           <Plus className="w-4 h-4" /> Nova linha
         </Button>
       </div>
+
+      {/* Informativo (opção A, 13/10/2026): o orçamento compara a categoria/centro pelo TOTAL pago; juros/multa/desconto não viram linha aqui. Ano corrente. */}
+      <IndicadoresDeEncargos de={`${anoCorrente}-01-01`} ate={`${anoCorrente}-12-31`} />
 
       {/* Stats */}
       {orc.length > 0 && (
