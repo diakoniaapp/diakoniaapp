@@ -181,10 +181,19 @@ export function DetalhesDoLancamento({ lancamento, onFechar, onAnexos }: { lanca
                   )}
                 </section>
 
-                {(d.ofx || d.liquidacao) && (
+                {(d.ofx || d.liquidacao || d.vinculos.length > 0 || d.conferidoPor || d.ciclo?.conferencia) && (
                   <section aria-label="Vínculo com o banco" className="space-y-1 text-sm">
                     <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Banco e liquidação</h3>
-                    {d.ofx && <p>Linha do extrato (OFX): <span className="font-mono text-xs">{d.ofx}</span></p>}
+                    {d.ofx && <p>Linha do extrato ({d.ofx.startsWith("PDF:") ? "PDF" : "OFX"}): <span className="font-mono text-xs break-all">{d.ofx}</span></p>}
+                    {/* patrimônio histórico: o vínculo que foi fechado continua aparecendo, com o motivo */}
+                    {d.vinculos.filter(v => !v.ativo).map(v => (
+                      <p key={v.fitid + v.vinculadoEm} className="text-xs text-muted-foreground">
+                        Vínculo anterior ({v.origem === "pdf" ? "PDF" : "OFX"}) <span className="font-mono break-all">{v.fitid}</span>, de {dataBr(v.vinculadoEm)}, desfeito em {dataBr(v.desfeitoEm)} — {v.desfeitoMotivo}
+                      </p>
+                    ))}
+                    {d.ciclo?.conferencia === "historico" && <p>Conferida (Histórico) — anterior ao extrato: sem vínculo com o banco.</p>}
+                    {d.ciclo?.conferencia === "manual" && !d.conferidoPor && <p>Conferida à mão — sem vínculo com o banco.</p>}
+                    {d.conferidoPor && <p>Conferida{d.conferidoPor.nome ? ` por ${d.conferidoPor.nome}` : ""} em {dataBr(d.conferidoPor.em)}{d.conferidoPor.nota ? ` — ${d.conferidoPor.nota}` : ""}.</p>}
                     {d.liquidacao && <p>Liquidação de {dataBr(d.liquidacao.data_pagamento)} · {brl(d.liquidacao.valor_total)} saiu do banco</p>}
                   </section>
                 )}

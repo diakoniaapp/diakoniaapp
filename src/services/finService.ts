@@ -1900,19 +1900,37 @@ export async function confirmarPagamento(lancamentoId: string, opts?: {
 //
 // Conciliar é reversível de propósito — um "bati" errado precisa ter
 // volta sem virar exclusão.
+// D4 (13/10/2026): marcar à mão é CONFERIR (ação humana), não conciliar (isso exige vínculo com o banco). A marcação passa a guardar quem e quando
+// (`conferido_em`/`conferido_por`, migration 20261013120000); sem a migration, grava só o status, como antes. Desmarcar limpa o rastro.
+let conferenciaDisponivel: boolean | null = null;
+async function temColunasDeConferencia(): Promise<boolean> {
+  if (conferenciaDisponivel !== null) return conferenciaDisponivel;
+  const { error } = await supabase.from("fin_lancamentos").select("conferido_em" as never).limit(1);
+  conferenciaDisponivel = !error;
+  return conferenciaDisponivel;
+}
+/** O que a marcação manual grava além do status: quem conferiu e quando (vazio se as colunas ainda não existem). */
+export async function carimboDeConferencia(): Promise<Record<string, unknown>> {
+  if (!(await temColunasDeConferencia())) return {};
+  const userId = (await supabase.auth.getUser()).data.user?.id ?? null;
+  return { conferido_em: new Date().toISOString(), conferido_por: userId };
+}
+async function limpezaDeConferencia(): Promise<Record<string, unknown>> {
+  return (await temColunasDeConferencia()) ? { conferido_em: null, conferido_por: null, conferencia_nota: null } : {};
+}
 export async function conciliarLancamento(lancamentoId: string): Promise<void> {
-  await atualizarLancamento(lancamentoId, { status: "conciliado" });
+  await atualizarLancamento(lancamentoId, { status: "conciliado", ...(await carimboDeConferencia()) } as never);
 }
 export async function desconciliarLancamento(lancamentoId: string): Promise<void> {
-  await atualizarLancamento(lancamentoId, { status: "realizado" });
+  await atualizarLancamento(lancamentoId, { status: "realizado", ...(await limpezaDeConferencia()) } as never);
 }
 
 /** Conciliar vários de uma vez — o caso real de bater um extrato inteiro. */
 export async function conciliarEmLote(ids: string[]): Promise<void> {
   if (ids.length === 0) return;
   const r = conferir(
-    await supabase.from("fin_lancamentos").update({ status: "conciliado" }).in("id", ids).select("id"),
-    "A conciliação",
+    await supabase.from("fin_lancamentos").update({ status: "conciliado", ...(await carimboDeConferencia()) } as never).in("id", ids).select("id"),
+    "A conferência",
   );
   if (!r.ok) throw new Error(r.erro);
 }

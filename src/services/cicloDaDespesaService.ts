@@ -24,13 +24,28 @@ export interface DetalhesDaDespesa {
   contaNome: string;
   contaTipo: string;
   ofx: string | null;
+  /** os vínculos com a linha do banco desta obrigação — os ativos e os já fechados (patrimônio histórico: nunca somem) */
+  vinculos: VinculoDoBanco[];
+  /** quem conferiu à mão e quando (null no histórico e onde as colunas ainda não existem) */
+  conferidoPor: { em: string; nome: string | null; nota: string | null } | null;
+}
+
+export interface VinculoDoBanco {
+  fitid: string;
+  origem: "ofx" | "pdf";
+  vinculadoEm: string;
+  ativo: boolean;
+  desfeitoEm: string | null;
+  desfeitoMotivo: string | null;
+  /** o vínculo é desta linha (e não de uma irmã da mesma obrigação) */
+  daLinha: boolean;
 }
 
 export async function carregarDetalhesDaDespesa(l: FinLancamentoExtenso): Promise<DetalhesDaDespesa> {
   const conta = await supabase.from("fin_contas").select("nome, tipo").eq("id", l.conta_id).maybeSingle();
   const contaTipo = String(conta.data?.tipo ?? "banco");
   const raiz = raizDaObrigacao(l);
-  const [grupoRes, liq, obr, rec, extrato] = await Promise.all([
+  const [grupoRes, liq, obr, rec, extrato, vincRes] = await Promise.all([
     supabase.from("fin_lancamentos").select("id, obrigacao_id, data, data_pagamento, status, valor, comprovante_url").or(`id.eq.${raiz},obrigacao_id.eq.${raiz}`),
     l.liquidacao_id ? supabase.from("fin_liquidacoes" as never).select("id, data_pagamento, valor_total, ofx_fitid, created_at").eq("id" as never, l.liquidacao_id as never).maybeSingle() : Promise.resolve({ data: null }),
     supabase.from("vw_fin_obrigacoes" as never).select("valor_original, juros, multa, complemento, ajuste, desconto, total_pago, situacao").eq("obrigacao_id" as never, (l.obrigacao_id ?? l.id) as never).maybeSingle(),
@@ -38,6 +53,9 @@ export async function carregarDetalhesDaDespesa(l: FinLancamentoExtenso): Promis
     contaTipo === "banco"
       ? supabase.from("fin_lancamentos").select("data, data_pagamento").eq("conta_id", l.conta_id).like("observacoes", "%[ofx:%").not("observacoes", "like", "%[ofx:PDF:%").order("data", { ascending: false }).limit(1)
       : Promise.resolve({ data: [] as { data: string; data_pagamento: string | null }[] }),
+    // os vínculos da obrigação (migration 20261013120000): sem a tabela, a lista simplesmente fica vazia
+    supabase.from("fin_extrato_vinculos" as never).select("fitid, origem, lancamento_id, vinculado_em, desfeito_em, desfeito_motivo")
+      .eq("obrigacao_id" as never, raiz as never).order("vinculado_em" as never),
   ]);
   // o grupo: sempre inclui a própria linha, mesmo que a consulta falhe ou o RLS esconda as irmãs
   const linhas = ((grupoRes.data ?? []) as unknown as LinhaDoGrupo[]);
@@ -56,8 +74,19 @@ export async function carregarDetalhesDaDespesa(l: FinLancamentoExtenso): Promis
     dispensaDocumento: dispensaDocumento({ categoria_nome: l.categoria_nome }), hoje: hojeLocal(),
   });
   const o = obr.data as unknown as Record<string, unknown> | null;
+  const vinculos: VinculoDoBanco[] = ((vincRes.data ?? []) as unknown as Record<string, unknown>[]).map(v => ({
+    fitid: String(v.fitid), origem: v.origem === "pdf" ? "pdf" : "ofx", vinculadoEm: String(v.vinculado_em), ativo: !v.desfeito_em,
+    desfeitoEm: (v.desfeito_em as string) ?? null, desfeitoMotivo: (v.desfeito_motivo as string) ?? null, daLinha: v.lancamento_id === l.id || v.lancamento_id == null,
+  }));
+  const conf = l as unknown as { conferido_em?: string | null; conferido_por?: string | null; conferencia_nota?: string | null };
+  let conferidoPor: DetalhesDaDespesa["conferidoPor"] = null;
+  if (conf.conferido_em) {
+    let nome: string | null = null;
+    if (conf.conferido_por) { try { nome = (await supabase.from("profiles").select("nome").eq("id", conf.conferido_por).maybeSingle()).data?.nome ?? null; } catch { /* só o nome */ } }
+    conferidoPor = { em: conf.conferido_em, nome, nota: conf.conferencia_nota ?? null };
+  }
   return {
-    ciclo, anexos, parcelas, comprovanteAntigo,
+    ciclo, anexos, parcelas, comprovanteAntigo, vinculos, conferidoPor,
     liquidacao: (liq.data as DetalhesDaDespesa["liquidacao"]) ?? null,
     obrigacao: o ? {
       valor_original: Number(o.valor_original), juros: Number(o.juros), multa: Number(o.multa), complemento: Number(o.complemento), ajuste: Number(o.ajuste),
