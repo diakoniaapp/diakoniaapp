@@ -2,6 +2,13 @@
 -- GRAVA: 1 visão nova (vw_fin_quitacao_prazos), 1 função nova (fin_quitacao_sincronizar_agendada, NÃO exposta à API) e 1 job no pg_cron (quitacao-sincronizar, todo dia às 09:00 de Brasília).
 -- NENHUM dado existente é alterado. Idêntico a supabase/migrations/20261015120000. Pode rodar mais de uma vez (o job é regravado pelo nome). Para desfazer: docs/QUITACAO_1C_D_ROLLBACK.sql.
 -- Antes de rodar: rode docs/QUITACAO_1C_D_ENSAIO.sql e confira "TUDO OK, pode aplicar".
+-- TRAVA DE PRÉ-REQUISITOS: se faltar alguma fase anterior, este arquivo para aqui, com a mensagem do que aplicar antes, e NÃO grava nada.
+DO $pre$ BEGIN
+  IF to_regclass('public.fin_quitacoes') IS NULL THEN RAISE EXCEPTION 'Falta aplicar a Fase 1A antes desta: rode docs/QUITACAO_APLICAR.sql.'; END IF;
+  IF to_regprocedure('public.fin_quitacao_sincronizar(uuid)') IS NULL THEN RAISE EXCEPTION 'Falta aplicar a Fase 1B antes desta: rode docs/QUITACAO_1B_M0_APLICAR.sql (sozinho) e depois docs/QUITACAO_1B_APLICAR.sql.'; END IF;
+  IF to_regprocedure('public.fin_liquidar_reembolso(uuid,uuid,date,public.fin_forma_pagamento,numeric,text,text,text)') IS NULL THEN RAISE EXCEPTION 'Falta aplicar a Fase 1C-a antes desta: rode docs/QUITACAO_1C_A_APLICAR.sql.'; END IF;
+END $pre$;
+
 -- ─── Fase 1C-d: a FILA AUTOMÁTICA — prazos derivados e o realinhamento diário, sem depender de alguém abrir uma tela ───────────────────────────────────────────
 -- Depende da 1A, do M0, da 1B e da 1C-a (aplicadas ANTES). Nenhum dado existente é alterado.
 --

@@ -3,6 +3,13 @@
 -- (canceladas; candidatas à regularização, SOMENTE LEITURA) e 1 tabela de backup (vazia). NENHUM lançamento existente é alterado e NENHUM caso real é regularizado.
 -- Idêntico a supabase/migrations/20261015130000. Pode rodar mais de uma vez. Para desfazer: docs/QUITACAO_1C_E_ROLLBACK.sql.
 -- Antes de rodar: rode docs/QUITACAO_1C_E_ENSAIO.sql e confira "TUDO OK, pode aplicar".
+-- TRAVA DE PRÉ-REQUISITOS: se faltar alguma fase anterior, este arquivo para aqui, com a mensagem do que aplicar antes, e NÃO grava nada.
+DO $pre$ BEGIN
+  IF to_regclass('public.fin_quitacoes') IS NULL THEN RAISE EXCEPTION 'Falta aplicar a Fase 1A antes desta: rode docs/QUITACAO_APLICAR.sql.'; END IF;
+  IF to_regprocedure('public.fin_quitacao_sincronizar(uuid)') IS NULL THEN RAISE EXCEPTION 'Falta aplicar a Fase 1B antes desta: rode docs/QUITACAO_1B_M0_APLICAR.sql (sozinho) e depois docs/QUITACAO_1B_APLICAR.sql.'; END IF;
+  IF to_regprocedure('public.fin_liquidar_reembolso(uuid,uuid,date,public.fin_forma_pagamento,numeric,text,text,text)') IS NULL THEN RAISE EXCEPTION 'Falta aplicar a Fase 1C-a antes desta: rode docs/QUITACAO_1C_A_APLICAR.sql.'; END IF;
+END $pre$;
+
 -- ─── Fase 1C-e: CANCELADA como desfecho próprio e as FERRAMENTAS de regularização histórica (nada é regularizado aqui) ──────────────────────────────────────────
 -- Depende da 1A, do M0, da 1B e da 1C-a (aplicadas ANTES). Nenhum dado existente é alterado.
 --

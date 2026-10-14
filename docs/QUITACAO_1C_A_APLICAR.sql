@@ -2,6 +2,12 @@
 -- GRAVA: 1 evento novo no histórico (reembolso_pago), 1 função nova (fin_liquidar_reembolso) e a atualização de vw_fin_quitacao (olha a obrigação inteira; 2 colunas novas só no fim).
 -- NENHUM lançamento, saldo ou quitação existente é alterado. Idêntico a supabase/migrations/20261015100000. Pode rodar mais de uma vez. Para desfazer: docs/QUITACAO_1C_A_ROLLBACK.sql.
 -- Antes de rodar: rode docs/QUITACAO_1C_A_ENSAIO.sql e confira "TUDO OK, pode aplicar".
+-- TRAVA DE PRÉ-REQUISITOS: se faltar alguma fase anterior, este arquivo para aqui, com a mensagem do que aplicar antes, e NÃO grava nada.
+DO $pre$ BEGIN
+  IF to_regclass('public.fin_quitacoes') IS NULL THEN RAISE EXCEPTION 'Falta aplicar a Fase 1A antes desta: rode docs/QUITACAO_APLICAR.sql.'; END IF;
+  IF to_regprocedure('public.fin_quitacao_sincronizar(uuid)') IS NULL THEN RAISE EXCEPTION 'Falta aplicar a Fase 1B antes desta: rode docs/QUITACAO_1B_M0_APLICAR.sql (sozinho) e depois docs/QUITACAO_1B_APLICAR.sql.'; END IF;
+END $pre$;
+
 -- ─── Fase 1C-a: PAGAR O REEMBOLSO — a ponta que faltava entre "aprovado" e "pago", sem coluna nova e sem lançamento fictício ───────────────────────────────
 -- Depende da 1A (20261014100000/110000/120000), do M0 (20261014130000) e da 1B (20261014140000/150000), todas aplicadas ANTES. Nenhum dado existente é alterado.
 --
