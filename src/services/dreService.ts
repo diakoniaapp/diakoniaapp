@@ -29,7 +29,7 @@
 // perderia granularidade que a Telma já está acostumada a ver aqui. A
 // correção troca só as CHAVES para o nome oficial atual, mantendo a
 // mesma estrutura de 5 baldes.
-import { listarLancamentosSemTeto, lancamentosRealizadosSemTransferencia, type FinLancamentoExtenso } from "./finService";
+import { listarLancamentosSemTeto, lancamentosDeCompetenciaSemTransferencia, type FinLancamentoExtenso } from "./finService";
 
 const GRUPO_RECEITA: Record<string, string> = {
   "dizimos": "Contribuições",
@@ -127,6 +127,8 @@ export interface DREResultado {
   resultado: number;
   qtdLancamentos: number;
   lancamentos: FinLancamentoExtenso[];
+  /** Compras ofertadas por terceiros (quitado_terceiro) já contadas em totalDespesas: despesa da igreja que NÃO moveu caixa. Sem receita correspondente até a contabilidade definir a conta. */
+  ofertadas: { qtd: number; valor: number };
 }
 
 function normaliza(s: string): string {
@@ -189,7 +191,8 @@ export async function gerarDRE(ano: number): Promise<DREResultado> {
   // TOTAL vendo "Outras Receitas Operacionais / Sem categoria" com o valor
   // exato de uma transferência — transferência não tem categoria, por isso
   // caía no fallback em vez de sumir.
-  const realizados = lancamentosRealizadosSemTransferencia(lancs);
+  // Fase 1C-f: o DRE é de COMPETÊNCIA — a compra ofertada por terceiro (quitado_terceiro) é despesa da igreja, mesmo sem ter movido caixa.
+  const realizados = lancamentosDeCompetenciaSemTransferencia(lancs);
 
   const entradas = realizados.filter(l => l.tipo === "entrada");
   const saidas = realizados.filter(l => l.tipo === "saida");
@@ -204,6 +207,10 @@ export async function gerarDRE(ano: number): Promise<DREResultado> {
     resultado: totalReceitas - totalDespesas,
     qtdLancamentos: realizados.length,
     lancamentos: realizados,
+    ofertadas: {
+      qtd: saidas.filter(l => l.status === "quitado_terceiro").length,
+      valor: saidas.filter(l => l.status === "quitado_terceiro").reduce((s, l) => s + Number(l.valor), 0),
+    },
   };
 }
 

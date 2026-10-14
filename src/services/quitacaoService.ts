@@ -359,3 +359,14 @@ export async function prazosAbertos(): Promise<PrazoAberto[]> {
 /** Cancela a nota com o emitente. A prova do cancelamento (anexo) precisa estar anexada ANTES; o banco recusa sem ela, com quitação registrada, com pagamento ou já enviada. */
 export const cancelarObrigacao = (obrigacaoId: string, motivo: string): Promise<void> => chamar<void>("fin_cancelar_obrigacao", { p_obrigacao: obrigacaoId, p_motivo: motivo });
 export const desfazerCancelamento = (obrigacaoId: string, motivo: string): Promise<void> => chamar<void>("fin_desfazer_cancelamento", { p_obrigacao: obrigacaoId, p_motivo: motivo });
+
+// ── despesa de COMPETÊNCIA (Fase 1C-f) ───────────────────────────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Os status que contam como DESPESA nos relatórios de COMPETÊNCIA (DRE, despesa por categoria e por centro, orçamento × real): o que a igreja pagou (realizado, conciliado) E a obrigação
+ * extinta por oferta (quitado_terceiro) — a compra é despesa da igreja mesmo sem ter saído dinheiro do banco. Os relatórios de CAIXA (saldo, fluxo, resumo do mês) NUNCA usam esta lista.
+ * O status só é pedido ao banco depois que ele existe no enum (valor inválido em .in() derruba a consulta inteira).
+ */
+export async function statusDeDespesaDeCompetencia(): Promise<string[]> {
+  return (await ofertaDisponivel()) ? ["realizado", "conciliado", "quitado_terceiro"] : ["realizado", "conciliado"];
+}

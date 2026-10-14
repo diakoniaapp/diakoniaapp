@@ -161,6 +161,14 @@ export default function FinancasDRE() {
           </div>
         </section>
 
+        {/* Fase 1C-f (Política de compras por terceiros): a compra ofertada é despesa da igreja (competência), mas não moveu caixa e ainda não tem receita correspondente. */}
+        {dre.ofertadas.qtd > 0 && (
+          <p className="avoid-break mb-6 rounded-md border border-info-line bg-info-soft px-3 py-2 text-xs text-info-text">
+            As despesas incluem <b>{brl(dre.ofertadas.valor)}</b> em {dre.ofertadas.qtd} compra{dre.ofertadas.qtd === 1 ? "" : "s"} ofertada{dre.ofertadas.qtd === 1 ? "" : "s"} por terceiros: despesa da igreja que
+            <b> não saiu do caixa nem do banco</b>. Enquanto a contabilidade não definir a conta da doação não monetária, não há receita correspondente, e o resultado do período fica menor por esse valor sem que o saldo das contas mude.
+          </p>
+        )}
+
         {/* Informativo (opção A, 13/10/2026): o total pago de cada obrigação já está na categoria dela; juros/multa/desconto NÃO são linha da DRE. */}
         <IndicadoresDeEncargos de={`${ano}-01-01`} ate={`${ano}-12-31`} className="avoid-break mb-6" />
 

@@ -1,3 +1,4 @@
+import { statusDeDespesaDeCompetencia } from "@/services/quitacaoService";
 import { supabase } from "@/integrations/supabase/client";
 import { hojeLocal, daquiAMeses, toYmd } from "@/lib/data";
 import { conferir } from "@/lib/escritaConferida";
@@ -538,7 +539,7 @@ export async function listarLancamentosCentroPeriodo(
   const { data, error } = await supabase.from("fin_lancamentos").select("*")
     .in("centro_custo_id", escopo)
     .eq("tipo", "saida")
-    .in("status", ["realizado", "conciliado"])
+    .in("status", (await statusDeDespesaDeCompetencia()) as never)
     .neq("origem", "transferencia")
     .gte("data", de).lte("data", ate)
     .order("valor", { ascending: false });
@@ -559,7 +560,7 @@ export async function listarLancamentosCategoriaPeriodo(
   const { data, error } = await supabase.from("fin_lancamentos").select("*")
     .eq("categoria_id", categoriaId)
     .eq("tipo", "saida")
-    .in("status", ["realizado", "conciliado"])
+    .in("status", (await statusDeDespesaDeCompetencia()) as never)
     .neq("origem", "transferencia")
     .gte("data", de).lte("data", ate)
     .order("valor", { ascending: false });
@@ -1119,6 +1120,17 @@ export function lancamentosRealizadosSemTransferencia<T extends { status: FinSta
 ): T[] {
   return lancs.filter(l =>
     (l.status === "realizado" || l.status === "conciliado") && l.origem !== "transferencia");
+}
+
+/**
+ * Para os relatórios de COMPETÊNCIA (DRE): o que a igreja pagou E a obrigação extinta por oferta (`quitado_terceiro`, só saída). A oferta é despesa da igreja, mas NÃO moveu caixa nem banco —
+ * por isso `lancamentosRealizadosSemTransferencia` (caixa) segue sem ela. Fase 1C-f da Política de Compras por Terceiros.
+ */
+export function lancamentosDeCompetenciaSemTransferencia<T extends { status: FinStatus; origem: string; tipo: string }>(
+  lancs: T[],
+): T[] {
+  return lancs.filter(l => l.origem !== "transferencia"
+    && (l.status === "realizado" || l.status === "conciliado" || (l.status === "quitado_terceiro" && l.tipo === "saida")));
 }
 
 // `audit_user_id`/`audit_em` existiam desde a criação da tabela e

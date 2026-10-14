@@ -27,6 +27,7 @@
 // se encontraram numa consulta. Ver `carregarCruzamentoDiaconia()` abaixo
 // para a decisão de como ligar as duas.
 
+import { statusDeDespesaDeCompetencia } from "@/services/quitacaoService";
 import { supabase } from "@/integrations/supabase/client";
 import { documentosHerdados } from "@/services/grupoDaObrigacaoService";
 import { hojeMaisDias, hojeLocal, daquiADias, toYmd } from "@/lib/data";
@@ -389,7 +390,7 @@ export async function carregarCruzamentoDiaconia(): Promise<CruzamentoDiaconia |
     .select("valor")
     .in("centro_custo_id", centroIds)
     .eq("tipo", "saida")
-    .in("status", ["realizado", "conciliado"])
+    .in("status", (await statusDeDespesaDeCompetencia()) as never)
     .gte("data", inicioMes);
 
   const gastoMes = ((lancs ?? []) as { valor: number }[]).reduce((s, l) => s + Number(l.valor), 0);
