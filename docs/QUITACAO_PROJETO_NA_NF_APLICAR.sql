@@ -1,3 +1,5 @@
+-- ✅ APLICADA EM PRODUÇÃO em 14/10/2026. Ensaio antes: TUDO OK (13.939 lançamentos, 4.039 obrigações e 2 quitações idênticos; P1–P5 ok; nenhuma entrada, nenhum saldo mudou).
+--    Conferido depois: assinatura nova presente, antiga removida, fin_nf_quitada_aceita_projeto() = true.
 -- APLICAÇÃO DEFINITIVA — Projeto na "NF já quitada por terceiro". Só depois do "TUDO OK, pode aplicar" do ensaio. PRÉ-REQUISITO: Fase 1D-a aplicada.
 -- Idêntico a supabase/migrations/20261016110000. Pode rodar mais de uma vez. Para desfazer: docs/QUITACAO_PROJETO_NA_NF_ROLLBACK.sql.
 -- TRAVA: se faltar a 1D-a, ou se a função viva não for mais a da 1D-a, este arquivo para no primeiro bloco e NÃO grava nada.
