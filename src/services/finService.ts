@@ -859,16 +859,26 @@ export async function buscarFornecedor(id: string): Promise<FinFornecedor | null
  * mesmo caminho, em vez de só aceitar `fornecedor_id`.
  */
 export interface FinPessoaBusca { id: string; nome: string; }
-export async function buscarPessoasParaLancamento(busca: string): Promise<FinPessoaBusca[]> {
+/**
+ * Busca de pessoa do cadastro. `incluirFavorecidas`: a Quitação precisa achar QUALQUER pessoa (quem pagou a nota pode ser, e costuma ser, alguém que a igreja já
+ * cadastrou como favorecido — o pastor, um fornecedor-pessoa); as telas de lançamento escondem quem já é favorecido porque ela aparece na outra lista.
+ *
+ * O padrão do banco troca vogais e "c" por curinga (para casar acento sem depender de extensão): "Lúc" vira "l__" e casa quase todo nome com "l". Por isso o filtro de verdade é feito
+ * aqui, sem acento, e a lista vem ordenada por relevância (nome que COMEÇA com o que foi digitado primeiro). Antes o corte era 40 linhas por ordem alfabética, e "Lúcio" nunca chegava.
+ */
+export async function buscarPessoasParaLancamento(busca: string, incluirFavorecidas = false): Promise<FinPessoaBusca[]> {
   if (busca.length < 2) return [];
   const { data, error } = await supabase
     .from("membros").select("id, nome_completo")
     .ilike("nome_completo", padraoDeBusca(busca))
-    .order("nome_completo").limit(40);
+    .order("nome_completo").limit(2000);
   if (error) throw error;
-  const pessoas = (data ?? []).filter((p: any) => semAcentoBusca(p.nome_completo).includes(semAcentoBusca(busca.trim())))
+  const termo = semAcentoBusca(busca.trim());
+  const comecaPor = (nome: string) => semAcentoBusca(nome).split(/\s+/).some(w => w.startsWith(termo)) ? 0 : 1;
+  const pessoas = (data ?? []).filter((p: any) => semAcentoBusca(p.nome_completo).includes(termo))
+    .sort((a: any, b: any) => comecaPor(a.nome_completo) - comecaPor(b.nome_completo) || String(a.nome_completo).localeCompare(String(b.nome_completo), "pt-BR"))
     .slice(0, 8).map((p: any) => ({ id: p.id, nome: p.nome_completo }));
-  if (pessoas.length === 0) return pessoas;
+  if (pessoas.length === 0 || incluirFavorecidas) return pessoas;
   // Favorecido Financeiro: a pessoa que JÁ é favorecida (ativa) aparece na outra lista, como favorecido — não de novo aqui.
   const { data: favs } = await supabase.from("fin_fornecedores").select("pessoa_id")
     .in("pessoa_id" as never, pessoas.map(p => p.id) as never).eq("ativo", true);

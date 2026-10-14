@@ -57,7 +57,7 @@ export function CamposDaQuitacao({ valor: v, onChange, ofertaLiberada, hoje }: {
     const t = setTimeout(async () => {
       try {
         let lista: Escolhido[];
-        if (v.tipo === "pessoa") lista = (await buscarPessoasParaLancamento(busca.trim()).catch(() => [])).map(p => ({ id: p.id, nome: p.nome }));
+        if (v.tipo === "pessoa") lista = (await buscarPessoasParaLancamento(busca.trim(), true).catch(() => [])).map(p => ({ id: p.id, nome: p.nome }));
         else lista = (await listarFornecedores(busca.trim()).catch(() => [] as FinFornecedor[])).slice(0, 12).map(f => ({ id: f.id, nome: f.nome, cnpj: f.cnpj_cpf }));
         if (minha === seq.current) setAchados(lista.slice(0, 12));
       } finally { if (minha === seq.current) setBuscando(false); }
