@@ -1,6 +1,6 @@
 # Especificação funcional: compras por terceiros, reembolsos e doações
 
-> **Para aprovação. Versão 2 (13/10/2026).** **Sem código, sem migration, sem telas, sem protótipo.** Nada foi alterado no app.
+> **Versão 3 (14/10/2026).** A versão 2 foi aprovada e implementada nas Fases 1A a 1C. A **versão 3** incorpora a [Revisão do reembolso e da Declaração do Terceiro](ADENDO_2_DECLARACAO_DO_TERCEIRO_E_REEMBOLSO_ESCALONADO_2026-10-14.md): (1) a **Declaração do Terceiro** é **gerada pelo sistema** e é o **único** documento da intenção (extingue o Pedido de Reembolso e as declarações separadas); (2) o **reembolso** ganha **matriz escalonada própria** (seção 3.6.1): a prova do pagamento do terceiro é dispensada no nível Baixo (até R$ 300,00), facultativa no Médio (até R$ 1.500,00) e obrigatória no Alto. A **oferta não mudou**. O que foi escrito na versão 2 e foi substituído está marcado nas seções 3.6, 5.2, 6, 9 (R16, R17) e 10.2.
 >
 > **O que a versão 2 incorpora:** o [Adendo sobre Responsável e Intenção da Quitação](ADENDO_RESPONSAVEL_E_INTENCAO_DA_QUITACAO_2026-10-13.md), aprovado, com estas decisões: Responsável = **Pessoa, Empresa ou Entidade**; Intenção = **Reembolso, Oferta, Compensação de adiantamento ou Não declarada**; Grau de prova = **Formal, Relatado ou Nenhum**; e a regra do grau **Relatado** deixa de depender só do valor e passa a ser a **Matriz de suficiência da prova** (seção 3.6), que pesa natureza da operação, patrimônio, lastro de NF e risco da relação.
 >
@@ -103,7 +103,7 @@
 | **Intenção da Quitação** | **Fato guardado.** Por que o terceiro pagou, nas palavras dele: **Reembolso, Oferta, Compensação de adiantamento ou Não declarada**. Só existe quando o responsável não é a igreja. **Nunca presumida.** |
 | **Grau de prova** | **Fato guardado**, para o responsável e para a intenção: **Formal** (documento assinado ou comprovante do pagamento), **Relatado** (informação registrada por terceiro, sem documento) ou **Nenhum**. A suficiência é medida pela matriz da seção 3.6. |
 | **Extinção** | **Derivada** do par (responsável, intenção): Pago pela Igreja · Extinta por terceiro como oferta · Dívida com o terceiro (reembolso) · Compensada por adiantamento. **Cancelada** é um desfecho à parte, sem quitação. |
-| **Declaração do Terceiro** | Documento único, datado e assinado pelo terceiro, que diz **o que ele pagou e qual a sua intenção** (reembolso ou oferta). O Pedido de Reembolso é essa mesma declaração acrescida dos dados bancários e da lista de NFs. |
+| **Declaração do Terceiro** | Documento único, datado e assinado pelo terceiro, que diz **o que ele pagou e qual a sua intenção** (reembolso ou oferta). **Gerada pelo sistema** (versão 3): o usuário não a escreve, e cada via traz **uma única frase**, a da intenção registrada. O "Pedido de Reembolso" deixou de existir como documento à parte: é a Declaração do Terceiro, versão reembolso, com a chave PIX. |
 | **Doação direta** | Bem, consumo ou serviço recebido de graça, **sem aquisição da igreja**. Não há obrigação. |
 | **Adiantamento** | Dinheiro da igreja entregue **antes** de existir a NF, com prestação de contas pendente. |
 | **A esclarecer** | A obrigação existe, um terceiro identificado a pagou, mas a **intenção não foi declarada** (Intenção = Não declarada). É uma das quatro filas de pendência (seção 4.4). |
@@ -172,7 +172,7 @@ Vale para **todo bem durável**, qualquer que seja o caminho: comprado e pago pe
 
 **Princípio.** "Relatado" não é aceitável nem inaceitável por si. Depende do que está em jogo. Por isso a regra **não pode ser o valor**: R$ 40 de reembolso são dinheiro saindo da igreja; R$ 400 de consumo ofertado por quem está fora do circuito não mexem em caixa nenhum.
 
-**Como funciona.** A quitação (os dois fatos, avaliados pelo mais fraco dos dois graus) recebe um **nível de risco** (Baixo, Médio ou Alto), dado por **quatro eixos**. **O pior eixo manda.** Depois, os moduladores podem subir o nível. **O valor nunca rebaixa o risco: só pode elevá-lo.**
+**Como funciona.** A quitação (os dois fatos, avaliados pelo mais fraco dos dois graus) recebe um **nível de risco** (Baixo, Médio ou Alto), dado por **quatro eixos**. **O pior eixo manda.** Depois, os moduladores podem subir o nível. **Na oferta, o valor nunca rebaixa o risco: só pode elevá-lo. No reembolso (3.6.1), o valor é um eixo da matriz própria.**
 
 #### Eixo 1: natureza da operação (o que a intenção faz acontecer)
 
@@ -180,7 +180,7 @@ Vale para **todo bem durável**, qualquer que seja o caminho: comprado e pago pe
 |---|---|
 | **Baixo** | Oferta de material de consumo ou serviço, sem destinação patrimonial |
 | **Médio** | Oferta com condição, destinação restrita (campanha, ação social, fundo restrito) ou que gera declaração de recebimento ao doador |
-| **Alto** | **Reembolso** (dinheiro da igreja vai sair) · qualquer operação que **altera competência já Enviada ou Arquivada** · Compensação de adiantamento (esta nunca aceita Relatado) |
+| **Alto** | qualquer operação que **altera competência já Enviada ou Arquivada** · Compensação de adiantamento (esta nunca aceita Relatado) |
 
 #### Eixo 2: patrimônio
 
@@ -227,7 +227,7 @@ Vale para **todo bem durável**, qualquer que seja o caminho: comprado e pago pe
 
 #### Regras duras (que a matriz já produz, ditas à parte para não haver dúvida)
 
-1. **Reembolso nunca é pago com base em Relatado.** O eixo 1 o coloca em Alto: dinheiro da igreja só sai com a intenção **Formal**.
+1. **O reembolso só é pago com a Declaração do Terceiro assinada** (intenção Formal). A prova do pagamento do terceiro varia com o nível da matriz do reembolso (3.6.1). *(Substitui a regra da versão 2, "reembolso nunca é pago com base em Relatado".)*
 2. **Compensação de adiantamento não aceita Relatado.** Sua prova é o vínculo explícito com o adiantamento.
 3. **Se o grau do responsável (quem pagou) for "Nenhum", a quitação nunca é suficiente**, qualquer que seja o nível.
 4. **"Não declarada" não é Relatado: é Nenhum.** Vai para a fila A esclarecer.
@@ -241,10 +241,39 @@ Vale para **todo bem durável**, qualquer que seja o caminho: comprado e pago pe
 | A mesma compra, mas o terceiro é quem **aprova** | Baixo · Baixo · Baixo · **Alto** | **Alto.** Exige Formal |
 | Cabo de R$ 90 que vai à Ficha do Bem, NF com chave | Baixo · **Médio** · Baixo · Baixo | **Médio.** Relatado só com aprovação do Administrador |
 | Oferta de R$ 50 de uma **empresa fornecedora** da igreja | Baixo · Baixo · Baixo · **Alto** | **Alto.** O valor baixo não salva |
-| Reembolso de R$ 40, relatado | **Alto** · Baixo · Baixo · Baixo | **Alto.** Exige Formal |
+| Reembolso de R$ 40 em dinheiro, NF com chave, pessoa fora do circuito, Declaração assinada | Matriz do reembolso (3.6.1): Baixo · Baixo · Baixo · Baixo | **Baixo.** Basta a Declaração assinada; sem comprovante do terceiro; Tesouraria aprova |
+| Reembolso de R$ 900, consumo, NF com chave | Médio · Baixo · Baixo · Baixo | **Médio.** Declaração assinada + aprovação do Administrador; comprovante facultativo |
+| Reembolso de R$ 80 a quem **aprova** o financeiro | Baixo · Baixo · Baixo · **Alto** | **Alto.** Comprovante do pagamento obrigatório |
 | D Flesh (NF 25597, R$ 137,28): oferta relatada pelo Pr. Patrick, declarada ~2 anos depois | Baixo · Baixo · Médio (chave ainda pendente) · a conferir | **Mínimo Médio** (M1 sobe um nível). Se o Pr. Patrick estiver no circuito de aprovação, **Alto**. O termo assinado já prometido ao escritório resolve de vez |
 
 **Parametrização.** Tetos, prazos, limite de capitalização e a lista de "circuito" são **parâmetros** do Administrador, definidos com o escritório **[confirmar]**. Toda mudança de parâmetro é auditada e **não reclassifica retroativamente** itens já Enviados.
+
+### 3.6.1 Reembolso: matriz própria, escalonada por risco (versão 3)
+
+**Por que uma matriz própria.** O reembolso é a **única** operação deste modelo em que **dinheiro da igreja sai**. Por isso o valor conta, e por isso ele **pode ser baixo**: um reembolso de R$ 40 em dinheiro é diferente de um de R$ 4.000. A regra da versão 2 (prova do pagamento do terceiro sempre obrigatória) obrigava quem comprou um item pequeno em dinheiro a apresentar um comprovante que não existe. A versão 3 mantém o controle onde o risco está e tira a burocracia onde não está.
+
+**O que continua obrigatório em todos os níveis:** nota fiscal válida no CNPJ da igreja (ou contratação formal) · **Declaração do Terceiro assinada** (a intenção é obrigatória e **nunca presumida**) · aprovação por **pessoa diferente do favorecido** · comprovante do pagamento **da igreja** ao terceiro · trava contra pagamento duplicado.
+
+| Eixo | Baixo | Médio | Alto |
+|---|---|---|---|
+| **1. Valor da nota** | Até **R$ 300,00** | De R$ 300,01 a **R$ 1.500,00** | Acima de **R$ 1.500,00** |
+| **2. Natureza do item** | Consumo e estoque (compra pontual) | Bem durável abaixo do limite de capitalização | Bem durável acima do limite (ou limite não definido) · **serviço ou prestador** · bem registrável · aumento de patrimônio |
+| **3. Lastro de NF** | NF-e/NFS-e no CNPJ da igreja, chave conferida, valor igual | Documento fiscal sem chave, cupom legível ou valor diferente | Contratação formal sem nota ainda · documento ilegível, rasurado ou em nome diferente |
+| **4. Relação** | Pessoa **fora do circuito financeiro** | Ministro, diretor ou conselheiro fora do circuito · intenção alterada recentemente | Terceiro **no circuito** (aprova, registra, concilia, paga) · **Empresa ou Entidade** · pede recibo com efeito fiscal · parentesco com quem aprova |
+
+**Moduladores** (sobem um nível cada; máximo dois): M1 Declaração assinada mais de 30 dias depois do pagamento · M3 acumulado do terceiro acima de R$ 2.000,00 no ano ou 3 ou mais reembolsos sem prova do pagamento no trimestre · M4 competência com fechamento aprovado · formalização vencida (Declaração não assinada em 30 dias). **M2 não se aplica ao reembolso** (o valor já é um eixo).
+
+| Nível | O que basta | Prova do pagamento do terceiro | Quem aprova |
+|---|---|---|---|
+| **Baixo** | NF válida + Declaração assinada | **Dispensada** | Tesouraria (outra pessoa) |
+| **Médio** | NF válida + Declaração assinada + aprovação do Administrador | **Facultativa** | Administrador |
+| **Alto** | NF válida + Declaração assinada + prova do pagamento do terceiro | **Obrigatória** | Administrador |
+
+**Sem a Declaração assinada nada avança**, em nenhum nível: intenção não declarada vai para **A esclarecer**; declaração gerada e não assinada, ou desatualizada, vai para **Formalizar**.
+
+**Pagamento declarado.** No Baixo e no Médio sem comprovante, o pagamento do terceiro é registrado como **declarado** (a forma de pagamento consta da Declaração). Vai ao malote com o selo "pagamento declarado" e entra no relatório mensal para amostragem do Conselho.
+
+**Declaração do Terceiro gerada pelo sistema.** Uma só versão de documento, com **uma única frase** (a da intenção registrada), **sem caixas para marcar**: *reembolso* ("...solicito o reembolso do valor pago") ou *oferta* ("...estou ofertando esta despesa, sem solicitar reembolso"). Conteúdo: número e código de verificação, declarante e CPF/CNPJ, fornecedor, NF (número, chave, data), valor, centro e categoria (informativos), forma de pagamento usada pelo terceiro, data do pagamento, chave PIX (só no reembolso), data e assinatura. O sistema guarda o que gerou; se um dado declarado mudar depois, a via assinada **deixa de valer** e é preciso nova via. Centro e categoria não invalidam. A **oferta continua regida pela matriz das seções 3.6** (não foi endurecida).
 
 ---
 
@@ -325,8 +354,8 @@ O app **não tem acesso para o membro comum** (a base de usuários é a administ
 
 | Situação | Aprovação recomendada |
 |---|---|
-| Reembolso até o **teto 1** | Tesouraria |
-| Reembolso acima do teto 1 | **Administrador** |
+| Reembolso de nível **Baixo** (3.6.1) | Tesouraria (pessoa diferente do favorecido) |
+| Reembolso de nível **Médio** ou **Alto** (3.6.1) | **Administrador** |
 | Reembolso para **a própria pessoa que aprova** | **Outro aprovador**, sempre |
 | Compra prévia (G) | **Antes** da compra, acima do teto 1; opcional abaixo |
 | Aceite de doação de bem durável | Administrador (e diretoria, se a igreja quiser) |
@@ -355,9 +384,9 @@ Os tipos de anexo **já existentes** (nota fiscal, comprovante, boleto, fatura, 
 |---|---|---|---|---|
 | **Documento fiscal** (NF-e, NFS-e, cupom com CNPJ) | Emitente | CNPJ do destinatário = igreja, valor, data, chave de acesso quando houver | A, B, C (e pago pela igreja) | Grupo (existente) |
 | **Solicitação de Aprovação de Compra** (novo) | Solicitante | Objeto, valor estimado, fornecedor, centro de custo, justificativa, data | G; recomendada acima do teto 1 | Grupo |
-| **Declaração do Terceiro** (novo, **documento único**) | O terceiro (Pessoa, Empresa ou Entidade) | Declarante e documento (CPF ou CNPJ), NF(s), valor, data do pagamento, **uma** das frases ("ofereço sem direito a reembolso" ou "solicito reembolso"), data da declaração, assinatura. **Prova a Intenção** | A, B, C | Grupo |
-| **Pedido de Reembolso** (novo, é a **Declaração do Terceiro na versão reembolso**) | O terceiro | A Declaração do Terceiro acrescida de **chave PIX ou dados bancários**, **lista das NFs** (número, emitente, valor) e declaração de que pagou com recurso próprio e não recebeu outra restituição | A | Grupo |
-| **Prova do pagamento do terceiro** (novo tipo) | O terceiro | Cupom, fatura do cartão ou comprovante PIX/TED mostrando valor e data. **Prova o Responsável** (grau Formal) | A, B, C | Grupo |
+| **Declaração do Terceiro** (**gerada pelo sistema**, documento único) | O terceiro assina (Pessoa, Empresa ou Entidade); quem gera é o sistema | Número e código de verificação, declarante e CPF/CNPJ, NF (número, chave, data), valor, centro e categoria (informativos), **forma de pagamento do terceiro**, data do pagamento, **chave PIX** (reembolso), **uma única frase** (a da intenção registrada; sem caixas para marcar), data e assinatura. **Prova a Intenção** | A, B, C | Grupo |
+| **Pedido de Reembolso** (**extinto na versão 3**) | — | Substituído pela Declaração do Terceiro, versão reembolso. Documentos assinados antes continuam válidos, como declaração **externa** | — | — |
+| **Prova do pagamento do terceiro** (novo tipo) | O terceiro | Cupom, fatura do cartão ou comprovante PIX/TED mostrando valor e data. **Prova o Responsável** (grau Formal). **No reembolso: obrigatória no nível Alto, facultativa no Médio, dispensada no Baixo** (3.6.1) | A, B, C | Grupo |
 | **Comprovante do reembolso** (existente) | Banco ou recibo assinado (se espécie) | Valor, data, favorecido | A | **Linha** da liquidação |
 | **Declaração de Doação de Consumo** (novo, **mesmo componente da Declaração do Terceiro**, com lista de itens) | O doador | Doador, itens e quantidades, valor justo e base, data, destino, aceite da igreja | E | Doação direta |
 | **Termo de Doação Patrimonial** (novo) | Doador e igreja | Descrição, série, estado, valor justo e base (NF original, avaliação ou pesquisa de preço), condições ou restrições, data, assinaturas, foto | D | Doação direta |
@@ -382,7 +411,7 @@ Quando a matriz aceita o grau Relatado, o documento exigido pode ser **declaraç
 
 > **Convenção:** "o app" é o DiakoniaApp; "contabilidade" é o escritório. As sugestões de lançamento são **informativas**: o escritório decide a conta.
 >
-> **Em termos da Quitação:** o Cenário A é **Responsável = Terceiro, Intenção = Reembolso**; o B é **Terceiro + Oferta**; o C é **Terceiro + Não declarada** (até alguém declarar, quando vira A ou B). O "Pedido de Reembolso" e a "Declaração de Intenção" citados abaixo são a **Declaração do Terceiro** (versão reembolso e versão oferta). Em todos, o grau de prova é medido pela matriz da seção 3.6.
+> **Em termos da Quitação:** o Cenário A é **Responsável = Terceiro, Intenção = Reembolso**; o B é **Terceiro + Oferta**; o C é **Terceiro + Não declarada** (até alguém declarar, quando vira A ou B). O "Pedido de Reembolso" e a "Declaração de Intenção" citados abaixo são a **Declaração do Terceiro** (versão reembolso e versão oferta), gerada pelo sistema. O grau de prova é medido pela matriz da seção 3.6 (oferta) ou 3.6.1 (reembolso).
 
 ### Cenário A: compra com reembolso
 
@@ -392,9 +421,9 @@ Quando a matriz aceita o grau Relatado, o documento exigido pode ser **declaraç
 
 | # | Quem | O que acontece | Estado da obrigação |
 |---|---|---|---|
-| 1 | Pastor | Compra com dinheiro próprio e entrega a NF, a prova do pagamento e, se houver, o Pedido de Reembolso | n/a |
+| 1 | Pastor | Compra com dinheiro próprio e entrega a NF (e a prova do pagamento, se tiver) | n/a |
 | 2 | Tesouraria | Registra a NF. O app lê o destinatário: **CNPJ da igreja ⇒ a igreja é a compradora** | **Em Aberto**, credor = emitente |
-| 3 | Tesouraria | Registra **Responsável = o terceiro** (Pessoa, Empresa ou Entidade) e **Intenção = Reembolso**, com o Pedido de Reembolso. **O reembolso exige grau Formal** (a matriz o coloca em Alto): sem o documento assinado, o item fica na fila Formalizar | Em Aberto, credor = **o terceiro** (**surge a dívida com o terceiro**) |
+| 3 | Tesouraria | Registra **Responsável = o terceiro** (Pessoa, Empresa ou Entidade) e **Intenção = Reembolso** e a forma de pagamento; o sistema **gera a Declaração do Terceiro**; o terceiro assina e a Tesouraria anexa a via assinada (intenção Formal). O nível sai da matriz do reembolso (3.6.1): sem a Declaração assinada o item fica em Formalizar | Em Aberto, credor = **o terceiro** (**surge a dívida com o terceiro**) |
 | 4 | Aprovador | Aprova, recusa (5.4) ou pede ajuste. Sem alçada, a Tesouraria aprova | Em Aberto, "Reembolso a pagar" |
 | 5 | Tesouraria | **Aviso de extinção** no malote da competência (seção 10) | Em Aberto |
 | 6 | Tesouraria | Paga a pessoa: **liquidação** (PIX, TED ou espécie), parcial ou total | **Pagamento Realizado** |
@@ -414,7 +443,7 @@ Quando a matriz aceita o grau Relatado, o documento exigido pode ser **declaraç
 Pedido simples: aprovação **posterior** (decisão sobre aceitar a dívida). Compra prévia (G): aprovação **antes**, pela Solicitação de Aprovação. As alçadas estão na seção 5.2.
 
 #### Documentos que exigem
-NF (CNPJ da igreja), prova do pagamento do pastor, Pedido de Reembolso, aprovação, comprovante do reembolso. Com G, a Solicitação de Aprovação também.
+NF (CNPJ da igreja), Declaração do Terceiro assinada, prova do pagamento do pastor (obrigatória só no nível Alto), aprovação, comprovante do reembolso. Com G, a Solicitação de Aprovação também.
 
 #### Como aparece para a contabilidade
 - **Fato econômico:** a igreja adquiriu o bem ou serviço na data da NF.
@@ -630,15 +659,15 @@ Dinheiro da igreja entregue a uma pessoa **antes** da NF. É **fato financeiro s
 | **R6** | **Documento fora do CNPJ da igreja.** Reembolso de NF em CPF ou sem identificação **não é regra**. É exceção do **Administrador**, tratada como adiantamento a regularizar, com motivo e prazo. Risco de remuneração disfarçada (IRRF e INSS) indicado na tela. |
 | **R7** | **Mudança de intenção** antes do envio: permitida, com motivo, quem e quando. Depois: **reabertura auditada**. |
 | **R8** | **Reembolso parcial:** aceito. O saldo continua "a pagar". |
-| **R9** | **Vários itens num pedido:** o Pedido de Reembolso agrupa NFs de uma pessoa. O pagamento único se liga à liquidação, não a uma NF só. |
+| **R9** | **Vários itens numa declaração:** a Declaração do Terceiro poderá agrupar NFs de uma pessoa (evolução decidida à parte; a primeira versão gera uma declaração por nota). O pagamento único se liga à liquidação, não a uma NF só. |
 | **R10** | **Pastor e prebenda:** o reembolso de despesa nunca se mistura com o sustento. |
 | **R11** | **Doação com condição ou encargo:** exige o aceite escrito das condições e guarda a restrição na ficha. |
 | **R12** | **LGPD:** declarações e termos têm CPF. Acesso só para as funções do financeiro. Registro de entrega sem dados de beneficiários. |
 | **R13** | **Proibição do fluxo fictício.** Nenhuma operação deste modelo cria **entrada, transferência ou saída** para representar um fato sem dinheiro. **Entrada em espécie exige contagem do envelope** (Caixa de Envelopes). **Transferência só entre contas reais.** O sistema **detecta o padrão antigo** (entrada em ofertas, transferência e saída de mesmo valor no mesmo período) e avisa. |
 | **R14** | **Vigência.** Os bloqueios (a esclarecer, documento, adiantamento vencido) valem para NFs a partir da **data de entrada em produção**. O histórico anterior segue a regularização (seção 15, fase 7). |
 | **R15** | **Nada se reescreve em silêncio.** Qualquer correção do passado é auditada (padrão da reabertura e da conta auditada). |
-| **R16** | **O grau Relatado só vale se a matriz da seção 3.6 o aceitar.** A decisão pesa natureza da operação, patrimônio, lastro de NF e risco da relação; o pior eixo manda; o valor só eleva o risco, nunca o reduz. Formalização vencida sobe um nível. |
-| **R17** | **Reembolso nunca é pago com base em Relatado.** Dinheiro da igreja só sai com intenção Formal. Compensação de adiantamento também não aceita Relatado. |
+| **R16** | **O grau Relatado só vale se a matriz o aceitar.** Na oferta, a decisão pesa natureza da operação, patrimônio, lastro de NF e risco da relação (seção 3.6; o valor só eleva o risco). No reembolso, vale a matriz da seção 3.6.1 (o valor é um eixo). Formalização vencida sobe um nível. |
+| **R17** | **O reembolso só é pago com a Declaração do Terceiro assinada.** A prova do pagamento do terceiro é dispensada no nível Baixo, facultativa no Médio e obrigatória no Alto. Compensação de adiantamento continua não aceitando Relatado. *(Substitui a R17 da versão 2.)* |
 | **R18** | **Quem declara não é quem registra.** O declarante é sempre o terceiro; a Tesouraria registra. O terceiro não pode aprovar nem registrar a própria quitação. |
 | **R19** | **Responsável é sempre um cadastro** (Pessoa, Empresa ou Entidade), nunca texto livre. Empresa e Entidade exigem CNPJ. |
 
@@ -658,7 +687,7 @@ Por isso, no Cenário A, o malote tem **dois momentos**:
 
 | Etapa | O que vai | Quando |
 |---|---|---|
-| **1. Aviso de extinção** | NF, prova do pagamento do terceiro, Pedido de Reembolso, aprovação | No mês da NF (competência) |
+| **1. Aviso de extinção** | NF, Declaração do Terceiro assinada, prova do pagamento do terceiro (quando houver), aprovação | No mês da NF (competência) |
 | **2. Liquidação do reembolso** | Comprovante do reembolso | No mês em que a igreja reembolsa |
 
 Entre as duas, a obrigação aparece no malote como **"obrigação com pessoa em aberto"** (informativa, sem congelar), e o escritório reclassifica o fornecedor para "reembolso a pagar".
