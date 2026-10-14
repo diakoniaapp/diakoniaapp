@@ -10,6 +10,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { CancelarNotaDialog } from "@/components/financas/CancelarNotaDialog";
+import { DeclaracaoDoTerceiroCard } from "@/components/financas/DeclaracaoDoTerceiroCard";
 import { PagarReembolsoDialog } from "@/components/financas/PagarReembolsoDialog";
 import { QuitacaoDialog } from "@/components/financas/QuitacaoDialog";
 import { useAuth } from "@/hooks/useAuth";
@@ -19,7 +20,7 @@ import {
 } from "@/lib/quitacao";
 import { adicionarAnexo, brl, conciliarLancamento, desconciliarLancamento, type FinAnexoTipo, type FinLancamentoExtenso, FIN_ANEXO_TIPO_LABEL } from "@/services/finService";
 import {
-  carregarParametros, decidirQuitacao, eventosDaQuitacao, quitacaoDaObrigacao, quitacaoDisponivel, removerQuitacao,
+  carregarParametros, decidirQuitacao, declaracaoDisponivel, eventosDaQuitacao, quitacaoDaObrigacao, quitacaoDisponivel, removerQuitacao,
   type EventoDaQuitacao, type QuitacaoDaObrigacao,
 } from "@/services/quitacaoService";
 import type { ParametrosDaQuitacao } from "@/lib/quitacao";
@@ -61,6 +62,7 @@ export function QuitacaoCard({ lancamento, recarga, onMudou }: { lancamento: Fin
   const [dialogo, setDialogo] = useState<"registrar" | "corrigir" | null>(null);
   const [remover, setRemover] = useState(false);
   const [pagando, setPagando] = useState(false);
+  const [declDisp, setDeclDisp] = useState(false);   // Fase 1D-a: com a Declaração do Terceiro gerada pelo sistema, os botões de anexar declaração/pedido à mão saem
   const [cancelando, setCancelando] = useState(false);
   const [recusar, setRecusar] = useState<null | "reembolso" | "relatado">(null);
   const [motivo, setMotivo] = useState("");
@@ -79,6 +81,7 @@ export function QuitacaoCard({ lancamento, recarga, onMudou }: { lancamento: Fin
       const [quitacao, parametros] = await Promise.all([quitacaoDaObrigacao(lancamento.id).catch(() => null), carregarParametros()]);
       if (!vivo) return;
       setQ(quitacao); setPar(parametros);
+      setDeclDisp(await declaracaoDisponivel().catch(() => false));
       // o histórico se lê sempre: quem decidiu e quando (usuário, data e hora) aparece no cartão, não só na lista aberta
       setEventos(quitacao ? await eventosDaQuitacao(quitacao.quitacaoId).catch(() => []) : null);
     })();
@@ -181,10 +184,13 @@ export function QuitacaoCard({ lancamento, recarga, onMudou }: { lancamento: Fin
             <p className="text-xs">Grau Relatado <b>{q.aprovacaoDoRelatado === "aprovada" ? "aprovado" : "recusado"}</b> pelo Administrador{d ? <> ({d.porNome ?? "usuário"}, {dataHoraBr(d.em)})</> : null}.</p>); })()}
           <p className="text-[11px] text-muted-foreground">Registrada por {eventos?.find(e => e.evento === "registrada")?.porNome ?? "usuário"} em {dataHoraBr(q.registradoEm)}.</p>
 
+          {q.responsavel !== "nao_localizado" && <DeclaracaoDoTerceiroCard q={q} podeEscrever={podeEscrever} aberta={aberta} recarga={n} onMudou={onMudou} />}
+
           {podeEscrever && q.responsavel !== "nao_localizado" && aberta && (
             <div className="flex flex-wrap gap-1.5 pt-1">
               {([["prova_pagamento_terceiro", "Anexar prova do pagamento"], [q.intencao === "reembolso" ? "pedido_reembolso" : "declaracao_terceiro", q.intencao === "reembolso" ? "Anexar Pedido de Reembolso" : "Anexar declaração do terceiro"]] as const)
                 .filter(([t]) => !(t === "declaracao_terceiro" && (q.intencao === "nao_declarada" || q.intencao === "nao_se_aplica")))
+                .filter(([t]) => !(declDisp && (t === "declaracao_terceiro" || t === "pedido_reembolso")))
                 .map(([t, r]) => (
                   <label key={t} className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border px-2.5 text-xs hover:bg-muted/60">
                     <Paperclip className="h-3.5 w-3.5" /> {r}

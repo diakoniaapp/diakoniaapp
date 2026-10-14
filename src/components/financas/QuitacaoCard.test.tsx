@@ -9,6 +9,8 @@ import type { FinLancamentoExtenso } from "@/services/finService";
 let disponivel = true;
 let quitacao: QuitacaoDaObrigacao | null = null;
 let papeis: string[] = ["admin"];
+let declDisp = false;
+let situacao: unknown = null;
 const decidir = vi.fn(async (..._a: unknown[]) => undefined);
 vi.mock("@/hooks/useAuth", () => ({ useAuth: () => ({ hasRole: (rs: string[]) => rs.some(r => papeis.includes(r)) }) }));
 vi.mock("@/services/quitacaoService", () => ({
@@ -22,6 +24,10 @@ vi.mock("@/services/quitacaoService", () => ({
   registrarQuitacao: async () => "x",
   alterarQuitacao: async () => undefined,
   pagarReembolso: async () => "liq1",
+  declaracaoDisponivel: async () => declDisp,
+  situacaoDaDeclaracao: async () => situacao,
+  gerarDeclaracao: async () => "d1",
+  registrarAssinaturaDaDeclaracao: async () => undefined,
   lancamentosDaLiquidacao: async () => [],
 }));
 const conciliar = vi.fn(async (..._a: unknown[]) => undefined);
@@ -31,7 +37,7 @@ import { QuitacaoCard } from "./QuitacaoCard";
 
 let raiz: Root | null = null;
 let alvo: HTMLDivElement | null = null;
-afterEach(() => { act(() => raiz?.unmount()); alvo?.remove(); raiz = null; alvo = null; quitacao = null; disponivel = true; papeis = ["admin"]; decidir.mockClear(); conciliar.mockClear(); desconciliar.mockClear(); });
+afterEach(() => { act(() => raiz?.unmount()); alvo?.remove(); raiz = null; alvo = null; quitacao = null; declDisp = false; situacao = null; disponivel = true; papeis = ["admin"]; decidir.mockClear(); conciliar.mockClear(); desconciliar.mockClear(); });
 
 const lanc = (o: Partial<FinLancamentoExtenso> = {}) => ({ id: "l1", tipo: "saida", status: "previsto", valor: 100, descricao: "Material", ...o }) as unknown as FinLancamentoExtenso;
 const q = (o: Partial<QuitacaoDaObrigacao> = {}): QuitacaoDaObrigacao => ({
@@ -154,5 +160,63 @@ describe("a oferta já extinta (quitado_terceiro)", () => {
     quitacao = oferta({ registradoEm: "2026-10-13T17:45:00Z" });
     const el = await montar(lanc({ status: "quitado_terceiro" } as never));
     expect(el.textContent).toMatch(/Registrada por .* em 13\/10\/2026 às 14:45/);
+  });
+});
+
+describe("a Declaração do Terceiro no cartão (Fase 1D-a)", () => {
+  const sit = (estado: string, forma: string | null = "dinheiro") => ({ estado, forma, ultima: estado === "sem_declaracao" ? null : { id: "d1", numero: "DT-2026-0001", versao: 1, codigo: "abc", geradaEm: "2026-10-13T10:00:00Z", assinadaEm: estado === "assinada" ? "2026-10-13" : null, assinadaAnexoId: estado === "assinada" ? "a1" : null, conteudo: {} }, });
+  const reembolso = () => q({ aprovacaoDoReembolso: null, fila: "aprovar_reembolso", resultado: "reembolso_em_analise" });
+
+  it("sem a Fase 1D-a no banco o cartão segue como antes: os anexos de declaração e Pedido de Reembolso à mão", async () => {
+    quitacao = reembolso();
+    const el = await montar(lanc());
+    expect(el.textContent).toMatch(/Anexar Pedido de Reembolso/);
+    expect(el.textContent).not.toMatch(/Declaração do Terceiro/);
+  });
+  it("com a Declaração gerada pelo sistema, sai o botão do Pedido de Reembolso e entra o bloco da Declaração", async () => {
+    declDisp = true; situacao = sit("sem_declaracao");
+    quitacao = reembolso();
+    const el = await montar(lanc());
+    expect(el.textContent).not.toMatch(/Anexar Pedido de Reembolso/);
+    expect(el.textContent).toMatch(/Anexar prova do pagamento/);
+    expect(el.textContent).toMatch(/Declaração do Terceiro/);
+    expect(el.textContent).toMatch(/Ainda não gerada/);
+    expect(botao(el, "Gerar Declaração (PDF)")).toBeTruthy();
+  });
+  it("sem a forma de pagamento do terceiro pede a forma e ainda não oferece gerar", async () => {
+    declDisp = true; situacao = sit("sem_declaracao", null);
+    quitacao = reembolso();
+    const el = await montar(lanc());
+    expect(el.textContent).toMatch(/Como o terceiro pagou o fornecedor/);
+    expect(botao(el, "Gerar Declaração (PDF)")).toBeFalsy();
+  });
+  it("aguardando assinatura: mostra o número e a versão e oferece registrar a via assinada", async () => {
+    declDisp = true; situacao = sit("aguardando_assinatura");
+    quitacao = reembolso();
+    const el = await montar(lanc());
+    expect(el.textContent).toMatch(/Aguardando assinatura/);
+    expect(el.textContent).toMatch(/DT-2026-0001 · versão 1/);
+    expect(botao(el, "Registrar assinatura")).toBeTruthy();
+  });
+  it("desatualizada: avisa que a via assinada não vale mais e oferece gerar nova via", async () => {
+    declDisp = true; situacao = sit("desatualizada");
+    quitacao = reembolso();
+    const el = await montar(lanc());
+    expect(el.textContent).toMatch(/Desatualizada/);
+    expect(el.textContent).toMatch(/a via assinada não vale mais/);
+    expect(botao(el, "Gerar nova via")).toBeTruthy();
+  });
+  it("assinada: mostra a data e não oferece nova assinatura", async () => {
+    declDisp = true; situacao = sit("assinada");
+    quitacao = reembolso();
+    const el = await montar(lanc());
+    expect(el.textContent).toMatch(/assinada em 13\/10\/2026/);
+    expect(botao(el, "Registrar assinatura")).toBeFalsy();
+  });
+  it("não aparece para quem não se sabe quem pagou nem para intenção não declarada", async () => {
+    declDisp = true; situacao = sit("sem_declaracao");
+    quitacao = q({ intencao: "nao_declarada", fila: "a_esclarecer", resultado: "a_esclarecer" });
+    const el = await montar(lanc());
+    expect(el.textContent).not.toMatch(/Ainda não gerada/);
   });
 });

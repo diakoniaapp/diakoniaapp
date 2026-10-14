@@ -5,8 +5,9 @@
 // fin_registrar_quitacao / fin_alterar_quitacao / fin_remover_quitacao / fin_decidir_quitacao validam, auditam e recusam o que a Política não permite; a tela só avisa antes.
 // A regra de negócio pura (Matriz, resultado, fila) está em lib/quitacao.ts; AQUI nada é recalculado — o que o banco derivou (vw_fin_quitacao) é o que se mostra.
 import { supabase } from "@/integrations/supabase/client";
+import type { ConteudoDaDeclaracao } from "@/lib/declaracaoDoTerceiro";
 import {
-  PARAMETROS_PADRAO, type Fila, type Grau, type Intencao, type Nivel, type NaturezaDoItem, type ParametrosDaQuitacao, type Resultado, type ResponsavelTipo,
+  PARAMETROS_PADRAO, type FormaDePagamento, type Fila, type Grau, type Intencao, type Nivel, type NaturezaDoItem, type ParametrosDaQuitacao, type Resultado, type ResponsavelTipo,
 } from "@/lib/quitacao";
 
 let sondagem: { em: number; ok: boolean } | null = null;
@@ -208,6 +209,8 @@ export async function dadosDaDespesaParaQuitar(lancamentoId: string): Promise<{ 
 // ── escritas (sempre pelas funções do banco; a mensagem do banco já vem em português) ──────────────────────────────────────────────────────────────
 
 export interface PedidoDeRegistro {
+  /** Fase 1D-a: como o terceiro pagou (obrigatório na tela; o banco só passa a exigir na 1D-b). Só é enviado quando o banco já tem a Fase 1D-a. */
+  formaPagamentoTerceiro?: FormaDePagamento | null;
   lancamentoId: string;
   responsavel: Exclude<ResponsavelTipo, "igreja" | "ninguem_ainda">;
   pessoaId: string | null;
@@ -229,9 +232,10 @@ async function chamar<T>(nome: string, args: Record<string, unknown>): Promise<T
   return data as T;
 }
 
-export const registrarQuitacao = (p: PedidoDeRegistro): Promise<string> => chamar<string>("fin_registrar_quitacao", {
+export const registrarQuitacao = async (p: PedidoDeRegistro): Promise<string> => chamar<string>("fin_registrar_quitacao", {
   p_lancamento: p.lancamentoId, p_responsavel: p.responsavel, p_pessoa: p.pessoaId, p_fornecedor: p.fornecedorId, p_intencao: p.intencao,
   p_pago_em: p.pagoEm, p_declarado_em: p.declaradoEm, p_natureza_item: p.naturezaItem, p_comprador: p.comprador, p_condicao: p.condicao, p_pede_recibo: p.pedeRecibo, p_motivo: p.motivo ?? null,
+  ...(p.formaPagamentoTerceiro && (await declaracaoDisponivel()) ? { p_forma_pagamento_terceiro: p.formaPagamentoTerceiro } : {}),
 });
 
 export const alterarQuitacao = (quitacaoId: string, mudancas: Record<string, unknown>, motivo: string): Promise<void> =>
@@ -246,6 +250,7 @@ export const alterarParametros = (mudancas: Record<string, unknown>, motivo: str
 
 /** Registrar uma NOTA que o aplicativo ainda não tinha, já quitada por um terceiro: a obrigação e a quitação nascem na MESMA operação (ou nada nasce). */
 export interface PedidoDeNotaQuitada {
+  formaPagamentoTerceiro?: FormaDePagamento | null;
   contaId: string;
   emitenteId: string;
   dataDaNota: string;
@@ -269,7 +274,8 @@ export interface PedidoDeNotaQuitada {
 }
 
 /** Devolve o id da obrigação criada. */
-export const registrarNotaQuitadaPorTerceiro = (p: PedidoDeNotaQuitada): Promise<string> => chamar<string>("fin_registrar_nf_quitada_por_terceiro", {
+export const registrarNotaQuitadaPorTerceiro = async (p: PedidoDeNotaQuitada): Promise<string> => chamar<string>("fin_registrar_nf_quitada_por_terceiro", {
+  ...(p.formaPagamentoTerceiro && (await declaracaoDisponivel()) ? { p_forma_pagamento_terceiro: p.formaPagamentoTerceiro } : {}),
   p_conta: p.contaId, p_fornecedor: p.emitenteId, p_data: p.dataDaNota, p_valor: p.valor, p_descricao: p.descricao, p_documento_numero: p.numeroDaNota, p_chave: p.chaveDeAcesso,
   p_categoria: p.categoriaId, p_centro: p.centroCustoId, p_natureza_item: p.naturezaItem, p_comprador: p.comprador,
   p_responsavel: p.responsavel, p_pessoa: p.pessoaId, p_responsavel_fornecedor: p.fornecedorDoResponsavelId, p_intencao: p.intencao, p_pago_em: p.pagoEm, p_declarado_em: p.declaradoEm,
@@ -370,3 +376,47 @@ export const desfazerCancelamento = (obrigacaoId: string, motivo: string): Promi
 export async function statusDeDespesaDeCompetencia(): Promise<string[]> {
   return (await ofertaDisponivel()) ? ["realizado", "conciliado", "quitado_terceiro"] : ["realizado", "conciliado"];
 }
+
+// ── a Declaração do Terceiro, gerada pelo sistema (Fase 1D-a) ────────────────────────────────────────────────────────────────────────────────
+
+let sondagemDeclaracao: { em: number; ok: boolean } | null = null;
+/** `true` quando a Fase 1D-a está aplicada (a tabela das declarações existe). Resultado guardado por 30 s. */
+export async function declaracaoDisponivel(): Promise<boolean> {
+  if (sondagemDeclaracao && Date.now() - sondagemDeclaracao.em < 30_000) return sondagemDeclaracao.ok;
+  const { error } = await supabase.from("fin_declaracoes_terceiro" as never).select("id").limit(1);
+  sondagemDeclaracao = { em: Date.now(), ok: !error };
+  return !error;
+}
+
+export type EstadoDaDeclaracao = "sem_declaracao" | "aguardando_assinatura" | "assinada" | "desatualizada" | "externa";
+export interface ViaDaDeclaracao {
+  id: string; numero: string; versao: number; codigo: string; geradaEm: string; assinadaEm: string | null; assinadaAnexoId: string | null; conteudo: ConteudoDaDeclaracao;
+}
+export interface SituacaoDaDeclaracao { estado: EstadoDaDeclaracao; forma: FormaDePagamento | null; ultima: ViaDaDeclaracao | null }
+
+/** O que a tela precisa para o bloco da Declaração: o estado (derivado pelo banco), a forma de pagamento do terceiro e a via mais recente. */
+export async function situacaoDaDeclaracao(quitacaoId: string): Promise<SituacaoDaDeclaracao | null> {
+  if (!(await declaracaoDisponivel())) return null;
+  const [est, q, v] = await Promise.all([
+    supabase.rpc("fin_declaracao_estado" as never, { p_quitacao: quitacaoId } as never),
+    supabase.from("fin_quitacoes" as never).select("forma_pagamento_terceiro").eq("id" as never, quitacaoId as never).maybeSingle(),
+    supabase.from("fin_declaracoes_terceiro" as never).select("*").eq("quitacao_id" as never, quitacaoId as never).order("versao" as never, { ascending: false } as never).limit(1),
+  ]);
+  if (est.error) return null;
+  const linha = ((v.data ?? []) as unknown as Linha[])[0];
+  return {
+    estado: String(est.data) as EstadoDaDeclaracao,
+    forma: ((q.data as unknown as Linha | null)?.forma_pagamento_terceiro ?? null) as FormaDePagamento | null,
+    ultima: linha ? {
+      id: String(linha.id), numero: String(linha.numero), versao: Number(linha.versao), codigo: String(linha.hash).slice(0, 12), geradaEm: String(linha.gerada_em),
+      assinadaEm: txt(linha.assinada_em)?.slice(0, 10) ?? null, assinadaAnexoId: txt(linha.assinada_anexo_id), conteudo: linha.conteudo as ConteudoDaDeclaracao,
+    } : null,
+  };
+}
+
+/** Gera (ou devolve, se nada mudou) a via atual da Declaração. Devolve o id da via. As recusas do banco (sem forma de pagamento, sem chave PIX…) chegam em português. */
+export const gerarDeclaracao = (quitacaoId: string): Promise<string> => chamar<string>("fin_gerar_declaracao_terceiro", { p_quitacao: quitacaoId });
+
+/** Registra a via assinada: o anexo (tipo declaracao_terceiro) e a data escrita nela. */
+export const registrarAssinaturaDaDeclaracao = (declaracaoId: string, anexoId: string, dataDaAssinatura: string): Promise<void> =>
+  chamar<void>("fin_registrar_assinatura_declaracao", { p_declaracao: declaracaoId, p_anexo: anexoId, p_data_assinatura: dataDaAssinatura });

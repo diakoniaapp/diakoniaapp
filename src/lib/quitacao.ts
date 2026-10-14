@@ -318,3 +318,10 @@ export function problemasDoRegistro(q: {
   } else if (q.responsavel === "nao_localizado" && q.intencao !== "nao_se_aplica") erros.push("Quando não se sabe quem pagou, a intenção não se aplica.");
   return erros;
 }
+
+// ── a forma de pagamento do terceiro (Fase 1D-a) ─────────────────────────────────────────────────────────────────────────────────────────────
+export type FormaDePagamento = "dinheiro" | "pix" | "cartao_credito" | "cartao_debito" | "transferencia" | "outro";
+export const FORMAS_DE_PAGAMENTO: FormaDePagamento[] = ["dinheiro", "pix", "cartao_credito", "cartao_debito", "transferencia", "outro"];
+export const ROTULO_FORMA: Record<FormaDePagamento, string> = {
+  dinheiro: "Dinheiro", pix: "PIX", cartao_credito: "Cartão de crédito", cartao_debito: "Cartão de débito", transferencia: "Transferência", outro: "Outro",
+};

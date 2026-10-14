@@ -7,7 +7,7 @@ import { Loader2, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { cnpjValido, problemasDoRegistro, type Intencao, type NaturezaDoItem } from "@/lib/quitacao";
+import { FORMAS_DE_PAGAMENTO, ROTULO_FORMA, cnpjValido, problemasDoRegistro, type FormaDePagamento, type Intencao, type NaturezaDoItem } from "@/lib/quitacao";
 import { buscarPessoasParaLancamento, listarFornecedores, type FinFornecedor } from "@/services/finService";
 
 export type TipoEscolhido = "pessoa" | "empresa" | "entidade" | "nao_localizado";
@@ -23,16 +23,18 @@ export interface EstadoDaQuitacao {
   pedeRecibo: boolean;
   natureza: NaturezaDoItem | "";
   comprador: "cnpj_igreja" | "contratacao_previa" | "";
+  /** Fase 1D-a: como o terceiro pagou o fornecedor (vai impressa na Declaração do Terceiro) */
+  forma: FormaDePagamento | "";
 }
 
-export const ESTADO_VAZIO: EstadoDaQuitacao = { tipo: "pessoa", escolhido: null, pagoEm: "", intencao: "nao_declarada", declaradoEm: "", condicao: "", pedeRecibo: false, natureza: "", comprador: "" };
+export const ESTADO_VAZIO: EstadoDaQuitacao = { tipo: "pessoa", escolhido: null, pagoEm: "", intencao: "nao_declarada", declaradoEm: "", condicao: "", pedeRecibo: false, natureza: "", comprador: "", forma: "" };
 
 export const NATUREZAS: { valor: NaturezaDoItem; rotulo: string }[] = [
   { valor: "consumo", rotulo: "Material de consumo" }, { valor: "estoque", rotulo: "Estoque" }, { valor: "duravel", rotulo: "Bem durável (equipamento, móvel…)" }, { valor: "servico", rotulo: "Serviço" },
 ];
 
 /** O que impede de salvar, em palavras (o banco confere de novo e recusa o que a Política não permite). */
-export function problemasDoEstado(e: EstadoDaQuitacao, emitenteId: string | null, hoje: string): string[] {
+export function problemasDoEstado(e: EstadoDaQuitacao, emitenteId: string | null, hoje: string, pedirForma = false): string[] {
   if (e.tipo === "nao_localizado") return [];
   const declara = e.intencao === "reembolso" || e.intencao === "oferta" || e.intencao === "compensacao_adiantamento";
   const p = problemasDoRegistro({
@@ -41,10 +43,11 @@ export function problemasDoEstado(e: EstadoDaQuitacao, emitenteId: string | null
     cnpjDoFornecedor: e.tipo !== "pessoa" ? e.escolhido?.cnpj ?? null : null,
   });
   if (!e.comprador) p.push("Diga se a igreja é a compradora.");
+  if (pedirForma && !e.forma) p.push("Informe a forma de pagamento usada pelo terceiro.");
   return p;
 }
 
-export function CamposDaQuitacao({ valor: v, onChange, ofertaLiberada, hoje }: { valor: EstadoDaQuitacao; onChange: (parte: Partial<EstadoDaQuitacao>) => void; ofertaLiberada: boolean; hoje: string }) {
+export function CamposDaQuitacao({ valor: v, onChange, ofertaLiberada, hoje, pedirForma = false }: { valor: EstadoDaQuitacao; onChange: (parte: Partial<EstadoDaQuitacao>) => void; ofertaLiberada: boolean; hoje: string; pedirForma?: boolean }) {
   const [busca, setBusca] = useState("");
   const [achados, setAchados] = useState<Escolhido[]>([]);
   const [buscando, setBuscando] = useState(false);
@@ -135,6 +138,17 @@ export function CamposDaQuitacao({ valor: v, onChange, ofertaLiberada, hoje }: {
               </select>
             </div>
           </div>
+
+          {pedirForma && (
+            <div className="space-y-1.5">
+              <Label htmlFor="q-forma">Como o terceiro pagou o fornecedor?</Label>
+              <select id="q-forma" className="h-10 w-full rounded-md border bg-background px-3 text-sm" value={v.forma} onChange={e => onChange({ forma: e.target.value as FormaDePagamento | "" })}>
+                <option value="">Escolha…</option>
+                {FORMAS_DE_PAGAMENTO.map(f => <option key={f} value={f}>{ROTULO_FORMA[f]}</option>)}
+              </select>
+              <p className="text-xs text-muted-foreground">Vai impressa na Declaração do Terceiro e ajuda a auditoria.</p>
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <Label>A igreja é a compradora?</Label>

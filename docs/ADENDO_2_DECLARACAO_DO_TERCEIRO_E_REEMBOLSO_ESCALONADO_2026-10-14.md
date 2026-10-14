@@ -23,7 +23,7 @@ Controle que **não muda**, em todos os casos: nota fiscal válida (ou contrata�
 |---|---|---|---|
 | **1. Valor da nota** | até **R$ 300,00** | **R$ 300,01 a R$ 1.500,00** | acima de **R$ 1.500,00** |
 | **2. Natureza do item** | consumo e estoque | bem durável abaixo do limite de capitalização | durável acima do limite (ou limite ainda não definido) · serviço ou prestador · bem registrável · aumento de patrimônio |
-| **3. Lastro de NF** | NF-e/NFS-e no CNPJ da igreja, chave conferida, valor igual | documento fiscal no CNPJ sem chave · cupom legível · valor diferente | contratação formal sem nota ainda · documento ilegível, rasurado ou em nome diferente |
+| **3. Lastro de NF** | NF-e/NFS-e no CNPJ da igreja, chave conferida, valor igual · **cupom fiscal legível no CNPJ da igreja, até R$ 300,00** | documento fiscal no CNPJ sem chave · cupom legível **acima de R$ 300,00** · valor diferente | contratação formal sem nota ainda · documento ilegível, rasurado ou em nome diferente |
 | **4. Relação** | pessoa fora do circuito financeiro | ministro, diretor ou conselheiro fora do circuito · intenção alterada recentemente | terceiro **no circuito** (aprova, registra, concilia, paga) · **Empresa ou Entidade** · pede recibo com efeito fiscal · parentesco com quem aprova |
 
 **Moduladores** (sobem um nível cada; máximo dois ao todo): **M1** Declaração assinada mais de 30 dias depois do pagamento · **M3** acumulado do terceiro acima de R$ 2.000,00 no ano, ou 3 ou mais reembolsos no trimestre sem prova do pagamento · **M4** competência com fechamento aprovado · **formalização vencida** (Declaração não assinada em 30 dias). **M2 deixa de valer para o reembolso**: o valor já é um eixo (contá-lo duas vezes puniria o mesmo fato).
@@ -39,7 +39,8 @@ Controle que **não muda**, em todos os casos: nota fiscal válida (ou contrata�
 | Situação | Nível | O que acontece |
 |---|---|---|
 | R$ 40 em dinheiro, consumo, NF com chave, pessoa fora do circuito | **Baixo** | Basta a Declaração. Tesouraria aprova. Sem comprovante do terceiro |
-| R$ 40, mas o cupom não tem chave conferida | **Médio** (lastro) | Administrador aprova; comprovante facultativo |
+| R$ 40 com **cupom fiscal legível** no CNPJ da igreja (sem chave digitada) | **Baixo** (decisão de 14/10) | Basta a Declaração; Tesouraria aprova |
+| R$ 450 com cupom legível, sem chave | **Médio** (valor e lastro) | Administrador aprova |
 | R$ 280, consumo, quem comprou é pastor/diretor fora do circuito | **Médio** (relação) | Administrador aprova |
 | R$ 280, mas quem comprou é quem concilia o financeiro | **Alto** | Comprovante obrigatório |
 | R$ 900, consumo | **Médio** | Administrador aprova |
@@ -161,14 +162,19 @@ Controle que **não muda**, em todos os casos: nota fiscal válida (ou contrata�
 - Telas: o cartão **Quem pagou** (gerar Declaração, anexar via assinada com data, mostrar nível e o que falta), o diálogo de registro (forma de pagamento; sai a data da declaração), `NotaQuitadaDialog`, a fila e o pacote contábil.
 - O **PDF** sai com a mesma biblioteca já usada no dossiê (`pdf-lib`).
 
-## 7. Pontos que preciso que você confirme
+## 7. Decisões aprovadas (14/10/2026)
 
-1. **"Prestadores":** entendi como **serviço contratado** (natureza do item) e também **terceiro prestador de serviço pago pela igreja** (relação). Está certo, ou "prestador" é só o segundo?
-2. **Estoque** conta como consumo (Baixo)? Entendi que sim.
-3. **Cupom fiscal legível, sem chave digitada**, é Médio (Administrador aprova). Se a igreja preferir aceitá-lo no Baixo até R$ 300, é um ajuste de uma linha na matriz.
-4. **Limites inclusivos:** R$ 300,00 é Baixo; R$ 1.500,00 é Médio.
-5. **Uma declaração por nota** na primeira versão (agrupada fica para depois).
-6. **Assinatura eletrônica:** fora desta fase; só depois do escritório.
+| # | Decisão | Efeito |
+|---|---|---|
+| 1 | **Prestadores = Alto risco** | Serviço contratado e terceiro prestador entram no nível Alto: comprovante obrigatório |
+| 2 | **Estoque = consumo (Baixo)** | Reposição de estoque segue as faixas de valor |
+| 3 | **Cupom fiscal legível até R$ 300 permanece Baixo** | O lastro Baixo aceita cupom legível no CNPJ da igreja até o limite do nível Baixo; acima disso, Médio |
+| 4 | **Limites inclusivos** | R$ 300,00 é Baixo; R$ 1.500,00 é Médio |
+| 5 | **Declaração individual por NF** | Agrupar várias notas fica como evolução futura |
+| 6 | **Assinatura eletrônica fora desta fase** | Só assinatura manuscrita (papel, foto ou PDF) |
+| 7 | **Forma de pagamento do terceiro: campo obrigatório** | Dinheiro · PIX · Cartão de crédito · Cartão de débito · Transferência · Outro |
+
+**Como o campo obrigatório entra, sem derrubar a tela que está no ar:** a tela (1D-a) já pede a forma de pagamento e só a envia quando o banco tem a 1D-a; o banco passa a **exigi-la no registro** na **1D-b**, depois que a tela estiver publicada. A quitação que já existe (Leandro) tem a forma em branco: a tela pede a informação antes de gerar a Declaração.
 
 ## 8. Riscos que continuam e como são cobertos
 

@@ -16,7 +16,7 @@ import { paraNumero } from "@/lib/dinheiro";
 import { mensagemErro } from "@/lib/erroRede";
 import { chaveNfeValida, type NaturezaDoItem } from "@/lib/quitacao";
 import { listarCategorias, listarCentrosCusto, listarContas, listarFornecedores, type FinCategoria, type FinCentroCusto, type FinConta, type FinFornecedor } from "@/services/finService";
-import { ofertaDisponivel, registrarNotaQuitadaPorTerceiro } from "@/services/quitacaoService";
+import { declaracaoDisponivel, ofertaDisponivel, registrarNotaQuitadaPorTerceiro } from "@/services/quitacaoService";
 
 export function NotaQuitadaDialog({ aberto, onFechar, onFeito }: { aberto: boolean; onFechar: () => void; onFeito: (obrigacaoId: string) => void }) {
   const hoje = hojeLocal();
@@ -29,6 +29,7 @@ export function NotaQuitadaDialog({ aberto, onFechar, onFeito }: { aberto: boole
   const [contaId, setContaId] = useState(""); const [categoriaId, setCategoriaId] = useState(""); const [centroId, setCentroId] = useState(""); const [motivo, setMotivo] = useState("");
   const [contas, setContas] = useState<FinConta[]>([]); const [categorias, setCategorias] = useState<FinCategoria[]>([]); const [centros, setCentros] = useState<FinCentroCusto[]>([]);
   const [ofertaLiberada, setOfertaLiberada] = useState(false);
+  const [pedirForma, setPedirForma] = useState(false);   // Fase 1D-a: só pede a forma de pagamento do terceiro quando o banco já a tem
   const [salvando, setSalvando] = useState(false);
 
   useEffect(() => {
@@ -36,6 +37,7 @@ export function NotaQuitadaDialog({ aberto, onFechar, onFeito }: { aberto: boole
     setV(ESTADO_VAZIO); setEmitente(null); setBuscaEmit(""); setNumero(""); setChave(""); setDataNota(""); setValorTxt(""); setDescricao(""); setContaId(""); setCategoriaId(""); setCentroId(""); setMotivo("");
     let vivo = true;
     ofertaDisponivel().then(ok => { if (vivo) setOfertaLiberada(ok); });
+    declaracaoDisponivel().then(ok => { if (vivo) setPedirForma(ok); });
     Promise.all([listarContas().catch(() => []), listarCategorias("saida").catch(() => []), listarCentrosCusto().catch(() => [])]).then(([c, cat, ce]) => { if (vivo) { setContas(c); setCategorias(cat); setCentros(ce); } });
     return () => { vivo = false; };
   }, [aberto]);
@@ -56,8 +58,8 @@ export function NotaQuitadaDialog({ aberto, onFechar, onFeito }: { aberto: boole
     if (!(valor > 0)) p.push("Informe o valor da nota.");
     if (!contaId) p.push("Escolha a conta em que a obrigação ficará registrada (a oferta não mexe nela).");
     if (chaveLimpa && !chaveNfeValida(chaveLimpa)) p.push("A chave de acesso não confere (44 dígitos, com o dígito verificador correto).");
-    return [...p, ...problemasDoEstado(v, emitente?.id ?? null, hoje)];
-  }, [emitente, dataNota, valor, contaId, chaveLimpa, v, hoje]);
+    return [...p, ...problemasDoEstado(v, emitente?.id ?? null, hoje, pedirForma)];
+  }, [emitente, dataNota, valor, contaId, chaveLimpa, v, hoje, pedirForma]);
 
   async function salvar() {
     if (!emitente) return;
@@ -68,6 +70,7 @@ export function NotaQuitadaDialog({ aberto, onFechar, onFeito }: { aberto: boole
         contaId, emitenteId: emitente.id, dataDaNota: dataNota, valor, descricao: descricao.trim() || null, numeroDaNota: numero.trim() || null, chaveDeAcesso: chaveLimpa || null,
         categoriaId: categoriaId || null, centroCustoId: centroId || null, naturezaItem: (v.natureza || null) as NaturezaDoItem, comprador: (v.comprador || null) as "cnpj_igreja" | "contratacao_previa",
         responsavel: v.tipo, pessoaId: v.tipo === "pessoa" ? v.escolhido?.id ?? null : null, fornecedorDoResponsavelId: v.tipo !== "pessoa" ? v.escolhido?.id ?? null : null,
+        formaPagamentoTerceiro: v.tipo === "nao_localizado" || !v.forma ? null : v.forma,
         intencao: v.tipo === "nao_localizado" ? "nao_se_aplica" : v.intencao, pagoEm: v.tipo === "nao_localizado" ? null : v.pagoEm || null, declaradoEm: declara && v.tipo !== "nao_localizado" ? v.declaradoEm || null : null,
         condicao: v.tipo !== "nao_localizado" && v.intencao === "oferta" && v.condicao.trim() ? v.condicao.trim() : null, pedeRecibo: v.tipo !== "nao_localizado" && v.intencao === "oferta" && v.pedeRecibo, motivo: motivo.trim() || null,
       });
@@ -140,7 +143,7 @@ export function NotaQuitadaDialog({ aberto, onFechar, onFeito }: { aberto: boole
           </section>
 
           <section aria-label="Quem pagou" className="rounded-md border p-3">
-            <CamposDaQuitacao valor={v} onChange={mudar} ofertaLiberada={ofertaLiberada} hoje={hoje} />
+            <CamposDaQuitacao valor={v} onChange={mudar} ofertaLiberada={ofertaLiberada} hoje={hoje} pedirForma={pedirForma} />
           </section>
 
           <div className="space-y-1.5">

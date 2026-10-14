@@ -14,7 +14,7 @@ import { CamposDaQuitacao, ESTADO_VAZIO, problemasDoEstado, type EstadoDaQuitaca
 import { hojeLocal } from "@/lib/data";
 import { mensagemErro } from "@/lib/erroRede";
 import type { NaturezaDoItem } from "@/lib/quitacao";
-import { alterarQuitacao, dadosDaDespesaParaQuitar, ofertaDisponivel, registrarQuitacao, type QuitacaoDaObrigacao } from "@/services/quitacaoService";
+import { alterarQuitacao, dadosDaDespesaParaQuitar, declaracaoDisponivel, ofertaDisponivel, registrarQuitacao, situacaoDaDeclaracao, type QuitacaoDaObrigacao } from "@/services/quitacaoService";
 
 export interface AlvoDaQuitacao { id: string; descricao: string; valor: number }
 
@@ -25,6 +25,9 @@ export function QuitacaoDialog({ alvo, quitacao, onFechar, onFeito }: { alvo: Al
   const [emitenteId, setEmitenteId] = useState<string | null>(null);
   const [motivo, setMotivo] = useState("");
   const [ofertaLiberada, setOfertaLiberada] = useState(false);
+  // Fase 1D-a: a forma de pagamento do terceiro só é pedida quando o banco já tem a Declaração do Terceiro
+  const [pedirForma, setPedirForma] = useState(false);
+  const [formaInicial, setFormaInicial] = useState<string>("");
   const [salvando, setSalvando] = useState(false);
   const mudar = (parte: Partial<EstadoDaQuitacao>) => setV(x => ({ ...x, ...parte }));
 
@@ -34,6 +37,12 @@ export function QuitacaoDialog({ alvo, quitacao, onFechar, onFeito }: { alvo: Al
     setMotivo("");
     let vivo = true;
     ofertaDisponivel().then(ok => { if (vivo) setOfertaLiberada(ok); });
+    setFormaInicial("");
+    declaracaoDisponivel().then(async ok => {
+      if (!vivo) return;
+      setPedirForma(ok);
+      if (ok && quitacao) { const s = await situacaoDaDeclaracao(quitacao.quitacaoId).catch(() => null); if (vivo && s?.forma) { setFormaInicial(s.forma); setV(x => ({ ...x, forma: s.forma! })); } }
+    });
     const base: EstadoDaQuitacao = quitacao
       ? {
         ...ESTADO_VAZIO, tipo: quitacao.responsavel, pagoEm: quitacao.pagoEm ?? "", intencao: quitacao.intencao === "nao_se_aplica" ? "nao_declarada" : quitacao.intencao, declaradoEm: quitacao.declaradoEm ?? "",
@@ -47,7 +56,7 @@ export function QuitacaoDialog({ alvo, quitacao, onFechar, onFeito }: { alvo: Al
   }, [alvo, quitacao]);
 
   const declara = v.intencao === "reembolso" || v.intencao === "oferta" || v.intencao === "compensacao_adiantamento";
-  const problemas = useMemo(() => (alvo ? problemasDoEstado(v, emitenteId, hoje) : []), [alvo, v, emitenteId, hoje]);
+  const problemas = useMemo(() => (alvo ? problemasDoEstado(v, emitenteId, hoje, pedirForma) : []), [alvo, v, emitenteId, hoje, pedirForma]);
   const semMotivo = editando && motivo.trim().length < 5;
   const invalido = v.tipo !== "nao_localizado" && problemas.length > 0;
 
@@ -61,6 +70,7 @@ export function QuitacaoDialog({ alvo, quitacao, onFechar, onFeito }: { alvo: Al
           intencao: v.tipo === "nao_localizado" ? "nao_se_aplica" : v.intencao, pagoEm: v.tipo === "nao_localizado" ? null : v.pagoEm || null, declaradoEm: v.tipo !== "nao_localizado" && declara ? v.declaradoEm || null : null,
           naturezaItem: v.tipo === "nao_localizado" ? null : (v.natureza || null) as NaturezaDoItem | null, comprador: v.tipo === "nao_localizado" ? null : (v.comprador || null),
           condicao: v.intencao === "oferta" && v.condicao.trim() ? v.condicao.trim() : null, pedeRecibo: v.intencao === "oferta" && v.pedeRecibo, motivo: motivo.trim() || null,
+          formaPagamentoTerceiro: v.tipo === "nao_localizado" || !v.forma ? null : v.forma,
         });
         toast.success(v.tipo === "nao_localizado" ? "Marcada como \"Não localizado\": entrou na fila Investigar."
           : "Quitação registrada. Anexe a prova do pagamento e a declaração do terceiro para formalizar (o sistema diz, no cartão, o que ainda falta).");
@@ -76,6 +86,7 @@ export function QuitacaoDialog({ alvo, quitacao, onFechar, onFeito }: { alvo: Al
           const cond = v.intencao === "oferta" && v.condicao.trim() ? v.condicao.trim() : null;
           if (cond !== q.condicao) mudancas.condicao = cond;
           if ((v.intencao === "oferta" && v.pedeRecibo) !== q.pedeRecibo) mudancas.pede_recibo = v.intencao === "oferta" && v.pedeRecibo;
+          if (pedirForma && v.forma && v.forma !== formaInicial) mudancas.forma_pagamento_terceiro = v.forma;
         }
         if (Object.keys(mudancas).length === 0) { toast.info("Nada mudou."); onFechar(); return; }
         await alterarQuitacao(q.quitacaoId, mudancas, motivo.trim());
@@ -97,7 +108,7 @@ export function QuitacaoDialog({ alvo, quitacao, onFechar, onFeito }: { alvo: Al
         </DialogHeader>
 
         <div className="space-y-4">
-          <CamposDaQuitacao valor={v} onChange={mudar} ofertaLiberada={ofertaLiberada} hoje={hoje} />
+          <CamposDaQuitacao valor={v} onChange={mudar} ofertaLiberada={ofertaLiberada} hoje={hoje} pedirForma={pedirForma} />
           <div className="space-y-1.5">
             <Label htmlFor="q-motivo">{editando ? "Motivo da correção (obrigatório)" : "Observação (opcional)"}</Label>
             <Textarea id="q-motivo" rows={2} value={motivo} onChange={e => setMotivo(e.target.value)} placeholder={editando ? "Por que está mudando?" : "Ex.: pagou no cartão dele, cupom em mãos"} />
