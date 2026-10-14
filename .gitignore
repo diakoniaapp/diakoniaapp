@@ -44,3 +44,6 @@ workspace/*
 
 # Relatórios com nomes/valores de membros — nunca no Git
 docs/privado/
+
+# saídas da correção histórica da data de pagamento: têm o texto dos comprovantes (nomes, contas)
+scripts/correcao-data-pagamento/saida/

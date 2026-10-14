@@ -12,7 +12,11 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:layout": "playwright test",
-    "test:layout:ui": "playwright test --ui"
+    "test:layout:ui": "playwright test --ui",
+    "correcao-data:ler": "vite-node scripts/correcao-data-pagamento/ler.ts",
+    "correcao-data:plano": "vite-node scripts/correcao-data-pagamento/corrigir.ts",
+    "correcao-data:aplicar": "vite-node scripts/correcao-data-pagamento/corrigir.ts -- --aplicar",
+    "correcao-data:desfazer": "vite-node scripts/correcao-data-pagamento/desfazer.ts --"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
