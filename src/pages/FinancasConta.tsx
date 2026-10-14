@@ -51,7 +51,6 @@ import { LinhaDeFechamentoDoDia, podeMostrarFechamentos } from "@/components/fin
 import { DetalheDeEncargos } from "@/components/financas/DetalheDeEncargos";
 import { DetalhesDoLancamento } from "@/components/financas/DetalhesDoLancamento";
 import { iconeConta } from "@/pages/Financas";
-import { ImportacaoOmieDialog } from "@/components/financas/ImportacaoOmieDialog";
 import { ImportacaoFaturaDialog } from "@/components/financas/ImportacaoFaturaDialog";
 import { ArrowRightLeft } from "lucide-react";
 import { PaginaSkeleton } from "@/components/ListState";
@@ -229,7 +228,6 @@ export default function FinancasConta() {
   const [detalhesDe, setDetalhesDe] = useState<FinLancamentoExtenso | null>(null);
   const [transfOpen, setTransfOpen] = useState(false);
   const [ofxOpen, setOfxOpen] = useState(false);
-  const [omieOpen, setOmieOpen] = useState(false);
   const [faturaOpen, setFaturaOpen] = useState(false);
   // Conciliação manual (item 6 do roadmap do ERP): seleção só de
   // `realizado` — não faz sentido conciliar algo que ainda não aconteceu
@@ -918,18 +916,13 @@ export default function FinancasConta() {
             )}
           </>
         )}
-        {/* Importar OFX/Omie/Fatura e Transferir pedem uma conta-alvo
+        {/* Importar OFX/Fatura e Transferir pedem uma conta-alvo
             certa — somem no modo "Todas as Contas" (mesmo critério do
             `ExtratoContaDrawer`); continuam disponíveis abrindo uma
             conta específica. */}
         {!isTodasContas && conta?.tipo === "banco" && (
           <Button variant="outline" size="sm" onClick={() => setOfxOpen(true)} className="gap-1.5">
             <FileUp className="w-3.5 h-3.5" /> Importar OFX
-          </Button>
-        )}
-        {!isTodasContas && (
-          <Button variant="outline" size="sm" onClick={() => setOmieOpen(true)} className="gap-1.5">
-            <FileUp className="w-3.5 h-3.5" /> Importar Omie
           </Button>
         )}
         {/* Pedido da Telma (15/09/2026): pagamentos de 2024 do cartão, que
@@ -1406,7 +1399,7 @@ export default function FinancasConta() {
       </div>
 
       {/* Dialogs */}
-      {/* OFX/Omie/Fatura/Transferir pedem uma conta-alvo certa — só
+      {/* OFX/Fatura/Transferir pedem uma conta-alvo certa — só
           montam quando `contaId` é real (botão de abrir já some no modo
           "Todas as Contas", ver botões acima). `LancamentoForm` é o único
           que funciona sem: sem `contaIdPadrao`, o próprio campo Conta do
@@ -1422,13 +1415,6 @@ export default function FinancasConta() {
           <ConciliacaoOFXDialog
             open={ofxOpen}
             onOpenChange={setOfxOpen}
-            contaId={contaId}
-            contaNome={conta?.nome ?? ""}
-            onSaved={carregar}
-          />
-          <ImportacaoOmieDialog
-            open={omieOpen}
-            onOpenChange={setOmieOpen}
             contaId={contaId}
             contaNome={conta?.nome ?? ""}
             onSaved={carregar}

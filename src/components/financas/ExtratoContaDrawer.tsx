@@ -37,7 +37,7 @@
 // inicial/final, Centro e Subcentro à vista. Nada é recarregado: só o layout muda (a tabela
 // continua sendo o mesmo elemento), por isso filtros, busca e rolagem sobrevivem ao alternar.
 //// O resto — sticky header, seleção em lote, conciliar/excluir em lote,
-// todos os 7 diálogos (lançamento, transferência, anexos, OFX, Omie,
+// todos os diálogos (lançamento, transferência, anexos, OFX,
 // fatura, exclusão) — é o MESMO serviço e o MESMO comportamento, só que
 // o sticky do cabeçalho da tabela ficou mais simples aqui: o Sheet já tem
 // scroll próprio, sem precisar medir a "faixa fixa" com ResizeObserver
@@ -84,7 +84,6 @@ import { AnexosLancamentoDialog } from "@/components/financas/AnexosLancamentoDi
 import { EditarTransferenciaForm } from "@/components/financas/EditarTransferenciaForm";
 import { TransferenciaForm } from "@/components/financas/TransferenciaForm";
 import { ConciliacaoOFXDialog } from "@/components/financas/ConciliacaoOFXDialog";
-import { ImportacaoOmieDialog } from "@/components/financas/ImportacaoOmieDialog";
 import { ImportacaoFaturaDialog } from "@/components/financas/ImportacaoFaturaDialog";
 import { toYmd } from "@/lib/data";
 import { resolverPeriodo, type PeriodoPreset } from "@/components/financas/SeletorPeriodo";
@@ -173,7 +172,6 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, contas, onTroc
   const [detalhesDe, setDetalhesDe] = useState<FinLancamentoExtenso | null>(null);
   const [transfOpen, setTransfOpen] = useState(false);
   const [ofxOpen, setOfxOpen] = useState(false);
-  const [omieOpen, setOmieOpen] = useState(false);
   const [faturaOpen, setFaturaOpen] = useState(false);
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   const [conciliando, setConciliando] = useState(false);
@@ -545,18 +543,13 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, contas, onTroc
                 {conta && <Badge variant="outline" className="text-xs font-sans font-normal shrink-0">{CONTA_TIPO_LABEL[conta.tipo]}</Badge>}
               </SheetTitle>
               <div className="flex items-center gap-1.5 flex-wrap">
-                {/* OFX, Omie, Fatura, Transferir e "Extrato completo" pedem
+                {/* OFX, Fatura, Transferir e "Extrato completo" pedem
                     UMA conta-alvo certa — no modo "Todas as Contas"
                     (`contaId === null`) somem; continuam disponíveis
                     abrindo o drawer de uma conta específica. */}
                 {contaId && conta?.tipo === "banco" && (
                   <Button variant="outline" size="sm" onClick={() => setOfxOpen(true)} className="gap-1.5 h-8 text-xs">
                     <FileUp className="w-3.5 h-3.5" /> OFX
-                  </Button>
-                )}
-                {contaId && (
-                  <Button variant="outline" size="sm" onClick={() => setOmieOpen(true)} className="gap-1.5 h-8 text-xs">
-                    <FileUp className="w-3.5 h-3.5" /> Omie
                   </Button>
                 )}
                 {contaId && conta?.tipo === "cartao" && (
@@ -895,7 +888,6 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, contas, onTroc
         <>
           <TransferenciaForm open={transfOpen} onOpenChange={setTransfOpen} contaOrigemPadrao={contaId} onSaved={() => { carregar(); fecharEAvisar(); }} />
           <ConciliacaoOFXDialog open={ofxOpen} onOpenChange={setOfxOpen} contaId={contaId} contaNome={conta?.nome ?? ""} onSaved={() => { carregar(); fecharEAvisar(); }} />
-          <ImportacaoOmieDialog open={omieOpen} onOpenChange={setOmieOpen} contaId={contaId} contaNome={conta?.nome ?? ""} onSaved={() => { carregar(); fecharEAvisar(); }} />
           <ImportacaoFaturaDialog open={faturaOpen} onOpenChange={setFaturaOpen} contaId={contaId} contaNome={conta?.nome ?? ""} onSaved={() => { carregar(); fecharEAvisar(); }} />
         </>
       )}

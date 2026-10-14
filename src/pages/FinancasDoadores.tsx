@@ -32,7 +32,7 @@ function dataBr(s: string) {
 // escrever) não batia com "ANA LUCIA GOMES DA SILVA" (gravado sem
 // acento) — achado ao vivo pela Telma em 15/09/2026: a busca sempre
 // devolvia "sem doadores", mesmo com gente na lista. Mesmo padrão de
-// normalização já usado em `omieImportService.ts` (casar categoria/
+// normalização já usado em `omieImportService.ts` (aposentado em 14/10/2026; ver histórico do git) (casar categoria/
 // fornecedor ignorando acento e maiúscula).
 function normalizar(s: string): string {
   return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();

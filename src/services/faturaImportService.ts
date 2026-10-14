@@ -8,7 +8,7 @@
 // um fornecedor, com o mesmo aprendizado de categoria/centro de custo que
 // já existe (`categoria_padrao_id`/`centro_custo_padrao_id`).
 //
-// Mesmo padrão de segurança do `omieImportService.ts` — reaproveitado
+// Mesmo padrão de segurança do `omieImportService.ts` (aposentado em 14/10/2026; ver histórico do git) — reaproveitado
 // direto, não reinventado: `calcularHashArquivo` + `fin_import_arquivos`
 // (trava contra reimportar o MESMO arquivo), `verificarSobreposicaoPeriodo`
 // (aviso, não bloqueio, se a conta já tem lançamento no período), lote
@@ -24,9 +24,9 @@
 // (existente ou recém-criado) — sem heurística de texto tentando adivinhar.
 import { supabase } from "@/integrations/supabase/client";
 import { conferir } from "@/lib/escritaConferida";
-import { calcularHashArquivo } from "@/lib/omieImport";
+import { calcularHashArquivo } from "@/lib/importacaoArquivos";
 import { lerFaturaCartaoDeArquivo, type FaturaCartaoLida, type TransacaoFatura } from "@/lib/faturaCartao";
-import { verificarArquivoJaImportado, verificarSobreposicaoPeriodo } from "./omieImportService";
+import { verificarArquivoJaImportado, verificarSobreposicaoPeriodo } from "./importacaoArquivosService";
 
 function normalizarNomeFornecedor(s: string): string {
   return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase().trim().replace(/\s+/g, " ");
@@ -76,7 +76,7 @@ export interface ResumoImportacaoFatura {
     de um titular). Arquivos já importados (mesmo hash nesta conta) ficam
     marcados em `jaImportado` — a tela decide se avisa e segue com o
     restante ou cancela tudo; esta função não bloqueia sozinha, só informa
-    (mesma divisão de responsabilidade do `omieImportService`). */
+    (mesma divisão de responsabilidade do `omieImportService` (aposentado em 14/10/2026; ver histórico do git)). */
 export async function prepararImportacaoFatura(
   arquivos: File[], contaId: string,
 ): Promise<ResumoImportacaoFatura> {
@@ -263,7 +263,7 @@ export async function confirmarImportacaoFatura(
 }
 
 /** Desfaz o lote inteiro (todos os arquivos importados juntos) — mesmo
-    padrão exato do `desfazerImportacaoOmie`. */
+    padrão exato do `desfazerImportacaoOmie` (aposentado em 14/10/2026; ver histórico do git). */
 export async function desfazerImportacaoFatura(loteTag: string): Promise<number> {
   const resultado = await supabase
     .from("fin_lancamentos")

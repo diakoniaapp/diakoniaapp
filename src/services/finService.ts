@@ -856,7 +856,7 @@ export async function buscarFornecedor(id: string): Promise<FinFornecedor | null
  * (17/09/2026): "temos recebimento dos membros para validar sem ter que
  * digitar". `pessoa_id` já existe em `fin_lancamentos` desde sempre e já é
  * usado pela importação do Omie (ela casa o nome do lote com `membros` —
- * ver `omieImportService.ts`); só faltava o formulário MANUAL oferecer o
+ * ver `omieImportService.ts` (aposentado em 14/10/2026; ver histórico do git)); só faltava o formulário MANUAL oferecer o
  * mesmo caminho, em vez de só aceitar `fornecedor_id`.
  */
 export interface FinPessoaBusca { id: string; nome: string; }

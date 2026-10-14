@@ -268,7 +268,7 @@ export default function PainelTesouraria() {
 
   function abrirImportacao() {
     // Igual a `abrirConciliacao()` abaixo: importar OFX é sempre de UMA
-    // conta, e a `ConciliacaoOFXDialog`/`ImportacaoOmieDialog` vivem dentro
+    // conta, e a `ConciliacaoOFXDialog`/`ImportacaoOmieDialog` (já aposentado) vivem dentro
     // do `ExtratoContaDrawer` (Fase 11c) — abrir o extrato da primeira
     // conta ativa é o caminho real pra chegar lá, não um botão novo.
     if (contas.length === 0) { navigate("/financas"); return; }

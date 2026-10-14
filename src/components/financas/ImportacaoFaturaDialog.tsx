@@ -3,7 +3,7 @@
 // Pedido da Telma (15/09/2026): trazer os pagamentos de 2024 do cartão
 // Visa — não passaram pelo Omie, ela só tem os PDFs de fatura em mãos, um
 // por titular de cartão ("alguns meses estão com duas faturas cada").
-// Mesmo padrão de segurança do `ImportacaoOmieDialog.tsx`, reaproveitado
+// Mesmo padrão de segurança do `ImportacaoOmieDialog.tsx` (aposentado em 14/10/2026; ver histórico do git), reaproveitado
 // direto: trava de arquivo repetido (`fin_import_arquivos`), aviso de
 // sobreposição de período, tela fecha sozinha ao confirmar com "Desfazer"
 // embutido no toast.
