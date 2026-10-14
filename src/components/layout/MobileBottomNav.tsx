@@ -25,6 +25,9 @@ const items: {
   { to: "/eventos",    label: "Agenda",     icon: Calendar },
 ];
 
+const VALIDADE_MS = 3 * 60_000;
+let tarefaGuardada: { chave: string; em: number; tarefa: TarefaPrincipal | null } | null = null;
+
 const tabClass =
   "flex-1 flex flex-col items-center justify-center py-2 min-h-[56px] text-xs gap-0.5 transition-colors";
 
@@ -36,8 +39,18 @@ export function MobileBottomNav() {
   // Aba adaptativa: o mesmo resolvedor que alimenta a faixa "Sua tarefa" do
   // HOJE. Para o professor ela diz Chamada; para o operador, Caixa. É ela
   // que encurta os fluxos que hoje custam cinco cliques.
+  //
+  // O resolvedor percorre até dez consultas em fila (a de lançamentos a conciliar
+  // chegou a 35 mil chamadas em produção), então o resultado fica guardado por
+  // usuário durante `VALIDADE_MS`: recarregar a página ou voltar à aba não o
+  // refaz. `permissoes.size` entra na chave porque o conjunto muda a tarefa.
   useEffect(() => {
     if (!user?.id || permissoes.size === 0) return;
+    const chave = `${user.id}|${[...permissoes].sort().join(",")}`;
+    if (tarefaGuardada && tarefaGuardada.chave === chave && Date.now() - tarefaGuardada.em < VALIDADE_MS) {
+      setTarefa(tarefaGuardada.tarefa);
+      return;
+    }
     let cancelado = false;
     (async () => {
       const { data } = await supabase
@@ -46,7 +59,9 @@ export function MobileBottomNav() {
       const t = await resolverTarefaPrincipal({
         pessoaId: data?.pessoa_id ?? null, permissoes,
       });
-      if (!cancelado) setTarefa(t);
+      if (cancelado) return;
+      tarefaGuardada = { chave, em: Date.now(), tarefa: t };
+      setTarefa(t);
     })();
     return () => { cancelado = true; };
   }, [user?.id, permissoes]);

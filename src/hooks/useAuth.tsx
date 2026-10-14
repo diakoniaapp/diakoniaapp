@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useVerComo } from "@/hooks/useVerComo";
@@ -105,6 +105,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * comum é a navegação ganhar e todo mundo cair na Home.
    */
   const [rolesCarregados, setRolesCarregados] = useState(false);
+  /** O id de quem está logado agora — para distinguir "outra pessoa entrou" de "o mesmo token foi renovado". */
+  const uidAtual = useRef<string | null>(null);
 
   const fetchRoles = async (uid: string) => {
     // `finally` porque agora há quem ESPERE por esta bandeira. A tela de login
@@ -139,8 +141,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, sess) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((evento, sess) => {
       setSession(sess);
+      // ── Mesma pessoa não é "entrou de novo" ─────────────────────────────
+      //
+      // O supabase-js avisa (SIGNED_IN, TOKEN_REFRESHED) a cada renovação de
+      // token e toda vez que a aba volta ao primeiro plano, SEMPRE com um
+      // objeto `user` novo. Tratar isso como troca de usuário refazia tudo o
+      // que depende de `user`: papéis, ficha, permissões em cada componente que
+      // as lê, a tarefa da barra de baixo e o contador de pendências dos três
+      // painéis. Medido em produção (pg_stat_statements): a busca de
+      // lançamentos a conciliar somava 35 mil chamadas, os alertas da EBD 22
+      // mil e `minhas_permissoes` mais de 200 mil — numa igreja de 6 usuários.
+      //
+      // Só a identidade manda: o mesmo id mantém o objeto que já está na tela e
+      // não refaz consulta nenhuma. `USER_UPDATED` (senha, metadados) ainda
+      // atualiza o objeto, mas também não refaz papéis nem ficha.
+      const uid = sess?.user?.id ?? null;
+      if (uid && uid === uidAtual.current) {
+        if (evento === "USER_UPDATED") setUser(sess!.user);
+        return;
+      }
+      uidAtual.current = uid;
       setUser(sess?.user ?? null);
       if (sess?.user) {
         setRolesCarregados(false);   // trocou de usuário: o que havia não vale
@@ -155,7 +177,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     supabase.auth.getSession().then(({ data: { session: sess } }) => {
       setSession(sess);
-      setUser(sess?.user ?? null);
+      uidAtual.current = sess?.user?.id ?? null;
+      setUser(prev => (sess?.user && prev?.id === sess.user.id ? prev : sess?.user ?? null));
       if (sess?.user) {
         // Só `loading` espera os papéis: é ele que segura a navegação. A ficha
         // é assunto de tela, e uma tela pode desenhar o esqueleto enquanto ela

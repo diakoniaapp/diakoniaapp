@@ -83,7 +83,31 @@ async function contarAgendaFiscal(): Promise<number> {
  *  Qualquer falha de uma consulta individual vira 0 pra ela, não derruba o
  *  badge inteiro — mesma prudência de `.catch(() => [])` que os próprios
  *  widgets já usam. */
-export async function contarPendenciasP0(painel: PainelDoWidget): Promise<number> {
+export function contarPendenciasP0(painel: PainelDoWidget): Promise<number> {
+  const guardado = memoria.get(painel);
+  if (guardado && Date.now() - guardado.em < VALIDADE_MS) return guardado.promessa;
+  const promessa = calcularPendenciasP0(painel);
+  memoria.set(painel, { em: Date.now(), promessa });
+  return promessa;
+}
+
+// ── Um número por painel a cada poucos minutos, não a cada carga ─────────
+//
+// O contador alimenta a sidebar (AppLayout) e a gaveta do celular, e cada
+// chamada dispara de 1 a 4 consultas por painel — o painel pastoral baixa todos
+// os visitantes, a lista de famílias sem sobrenome, os alertas de idade da EBD.
+// Sem cache, cada recarga de página, cada abertura da gaveta e cada volta de
+// aba refazia as três. Em produção (pg_stat_statements, 14/10/2026) isso somou
+// 22 mil leituras de `vw_ebd_alertas_idade` e 24 mil de
+// `pessoas_sem_familia_sobrenome_conhecido`, a ~200 ms cada. Um número que é "um
+// resumo do que precisa de decisão" não precisa ser mais fresco que isto.
+const VALIDADE_MS = 3 * 60_000;
+const memoria = new Map<PainelDoWidget, { em: number; promessa: Promise<number> }>();
+
+/** Esquece os números guardados — para quando quem está logado muda. */
+export function esquecerPendenciasP0(): void { memoria.clear(); }
+
+async function calcularPendenciasP0(painel: PainelDoWidget): Promise<number> {
   const tarefas: Promise<number>[] =
     painel === "pastoral"
       ? [contarAcolhimento(), contarAcoesDoDia(), contarAlertasInteligentes(), contarAssuntosUrgentes()]

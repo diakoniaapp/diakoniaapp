@@ -24,7 +24,7 @@ import {
   NAV_GROUPS, PAINEL, ATALHOS_TOPO, pageTitles, papeisExigidosPara,
   type NavGroup, type NavItem,
 } from "@/components/layout/navConfig";
-import { contarPendenciasP0, PAINEL_POR_ROTA } from "@/dashboard/pendenciasP0";
+import { contarPendenciasP0, esquecerPendenciasP0, PAINEL_POR_ROTA } from "@/dashboard/pendenciasP0";
 import { toast } from "sonner";
 import { ADMIN_MENU_GROUPS } from "@/components/layout/adminMenuItems";
 import { supabase } from "@/integrations/supabase/client";
@@ -172,8 +172,9 @@ export default function AppLayout() {
     ).then(pares => {
       if (!cancelled) setPendenciasP0(Object.fromEntries(pares));
     });
-    return () => { cancelled = true; };
-  }, [user]);
+    // outra pessoa na mesma aba não pode herdar os números da anterior
+    return () => { cancelled = true; esquecerPendenciasP0(); };
+  }, [user?.id]);
 
   // Guards de auth + must_change_password + LGPD + role
   useEffect(() => {
