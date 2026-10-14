@@ -25,7 +25,7 @@ import {
 } from "recharts";
 import {
   ArrowLeft, Printer, Download, Pencil, TrendingUp, TrendingDown, DollarSign,
-  Target, AlertTriangle, Info, BarChart3, PieChart as PieChartIcon,
+  Target, AlertTriangle, Info, BarChart3, PieChart as PieChartIcon, HandHeart,
 } from "lucide-react";
 import { toast } from "sonner";
 import { hojeLocal } from "@/lib/data";
@@ -38,6 +38,7 @@ import { ProjetoForm } from "@/components/financas/ProjetoForm";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { PaginaSkeleton } from "@/components/ListState";
+import { quitacoesDasObrigacoes } from "@/services/quitacaoService";
 
 const VERMELHO = "#dc2626";
 const VERDE = "#059669";
@@ -59,6 +60,8 @@ export default function FinancasProjetoDetalhe() {
   const [loading, setLoading] = useState(true);
   const [emitidoPor, setEmitidoPor] = useState("");
   const [editOpen, setEditOpen] = useState(false);
+  // quem pagou cada oferta (obrigação → nome do terceiro); vazio se a Quitação não estiver no banco
+  const [pagoPor, setPagoPor] = useState<Map<string, string>>(new Map());
 
   useEffect(() => { carregar(); }, [id]);
 
@@ -72,6 +75,11 @@ export default function FinancasProjetoDetalhe() {
       ]);
       setProjeto(p);
       setTodosLancs(lancs);
+      const ofs = lancs.filter(l => l.tipo === "saida" && (l.status as string) === "quitado_terceiro");
+      if (ofs.length > 0) {
+        const qs = await quitacoesDasObrigacoes(ofs.map(l => l.obrigacao_id ?? l.id)).catch(() => new Map());
+        setPagoPor(new Map(ofs.map(l => [l.id, qs.get(l.obrigacao_id ?? l.id)?.responsavelNome ?? ""] as [string, string])));
+      } else setPagoPor(new Map());
 
       if (user) {
         const { data: prof } = await supabase
@@ -91,6 +99,16 @@ export default function FinancasProjetoDetalhe() {
   // Só pro alerta de "receita parada" — despesas que ainda vão vencer,
   // pra não alarmar sobre um projeto que só ainda não teve despesa
   // nenhuma prevista.
+  // Despesas CUSTEADAS POR TERCEIROS (oferta extinta: status quitado_terceiro). Despesa do projeto, mas o dinheiro não
+  // passou pelo caixa nem pelo banco da igreja — por isso ficam FORA de `lancamentos` (a demonstração de caixa acima),
+  // do saldo, da arrecadação, do déficit, do termômetro e dos gráficos, e aparecem só na seção própria "Custeado por
+  // terceiros" e no custo total. Mesma regra dos relatórios de competência (Fase 1C-f): a oferta é despesa da igreja,
+  // sem mover caixa. Uma oferta cuja prova deixa de bastar volta a "previsto" e sai daqui sozinha.
+  const ofertadas = useMemo(
+    () => todosLancs.filter(l => l.tipo === "saida" && (l.status as string) === "quitado_terceiro"),
+    [todosLancs],
+  );
+  const totalOfertado = useMemo(() => ofertadas.reduce((s, l) => s + Number(l.valor), 0), [ofertadas]);
   const despesasFuturasPendentes = useMemo(
     () => todosLancs.filter(l => l.tipo === "saida" && l.status === "previsto" && l.data > hojeLocal()),
     [todosLancs],
@@ -217,7 +235,8 @@ export default function FinancasProjetoDetalhe() {
 
   function exportarCSV() {
     if (!projeto) return;
-    const csv = gerarCSV(lancamentos);
+    // as ofertas vão junto, com o status quitado_terceiro na coluna Status — a planilha não as confunde com pagamento
+    const csv = gerarCSV([...lancamentos, ...ofertadas]);
     downloadCSV(`QIBRJ_Projeto_${projeto.nome.replace(/\s+/g, "-")}.csv`, csv);
     toast.success("CSV exportado");
   }
@@ -232,6 +251,7 @@ export default function FinancasProjetoDetalhe() {
   const hojeBr = new Date().toLocaleDateString("pt-BR");
   const horaBr = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   const temDespesas = totais.totalSaidas > 0;
+  const temOfertas = ofertadas.length > 0;
   const pctArrecadadoMeta = temDespesas ? Math.min(100, (totais.totalEntradas / totais.totalSaidas) * 100) : 0;
   const pctDeficitMeta = 100 - pctArrecadadoMeta;
   // Meta de arrecadação definida manualmente (separada da "meta" =
@@ -303,15 +323,17 @@ export default function FinancasProjetoDetalhe() {
         </header>
 
         {lancamentos.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center italic py-12">
-            Nenhum lançamento realizado ou conciliado ainda para este projeto.
+          <p className={`text-sm text-muted-foreground text-center italic ${temOfertas ? "py-6" : "py-12"}`}>
+            {temOfertas
+              ? "Nenhum lançamento realizado ou conciliado ainda: a igreja não pagou nem recebeu nada por este projeto pelo caixa ou pelo banco."
+              : "Nenhum lançamento realizado ou conciliado ainda para este projeto."}
           </p>
         ) : (
           <>
             {/* 3 CARTÕES DE KPI */}
             <section className={`avoid-break grid gap-3 my-6 ${temDespesas ? "grid-cols-3" : "grid-cols-2"}`}>
               {temDespesas && (
-                <KpiCard cor={VERMELHO} titulo="Meta de despesas (total)" valor={brl(totais.totalSaidas)}
+                <KpiCard cor={VERMELHO} titulo={temOfertas ? "Pagas pela igreja (meta)" : "Meta de despesas (total)"} valor={brl(totais.totalSaidas)}
                   legenda={`${totais.qtdSaidas} lançamento${totais.qtdSaidas !== 1 ? "s" : ""} (100%)`} />
               )}
               <KpiCard cor={VERDE} titulo="Total arrecadado (doações)" valor={brl(totais.totalEntradas)}
@@ -474,14 +496,18 @@ export default function FinancasProjetoDetalhe() {
           </>
         )}
 
+        {temOfertas && (
+          <CustoDoProjeto pagas={totais.totalSaidas} qtdPagas={totais.qtdSaidas} ofertadas={totalOfertado} qtdOfertadas={ofertadas.length} />
+        )}
+
         <p className="text-center text-xs text-muted-foreground pt-2 border-t border-border/40">
           Tesouraria · DiakoniaApp — página 1 de 2
         </p>
       </div>
 
       {/* PÁGINA 2 — ANEXO: LISTAGEM COMPLETA */}
-      {lancamentos.length > 0 && (
-        <div className="relatorio-page pagina-anexo max-w-5xl mx-auto bg-white text-foreground p-8 md:p-10 my-4 md:my-6 shadow-elevated border border-border/40 rounded-md print:my-0">
+      {(lancamentos.length > 0 || temOfertas) && (
+        <div className="relatorio-page pagina-anexo max-w-5xl mx-auto bg-white text-foreground p-4 md:p-10 my-4 md:my-6 shadow-elevated border border-border/40 rounded-md print:my-0">
           <header className="avoid-break flex flex-col print:flex-row print:items-start print:justify-between gap-2 pb-4 border-b-2 border-gold/30">
             <div className="min-w-0">
               <h2 className="font-serif text-xl">Listagem completa de lançamentos</h2>
@@ -492,8 +518,10 @@ export default function FinancasProjetoDetalhe() {
 
           <section className="grid grid-cols-2 gap-6 my-6">
             <ListagemColuna titulo="Receitas" itens={entradas} cor="success" totalLabel="Total arrecadado" totalValor={totais.totalEntradas} />
-            <ListagemColuna titulo="Despesas" itens={saidas} cor="destructive" totalLabel="Total de despesas" totalValor={totais.totalSaidas} />
+            <ListagemColuna titulo={temOfertas ? "Despesas pagas pela igreja" : "Despesas"} itens={saidas} cor="destructive" totalLabel={temOfertas ? "Total pago pela igreja" : "Total de despesas"} totalValor={totais.totalSaidas} />
           </section>
+
+          {temOfertas && <ListagemOfertas itens={ofertadas} pagoPor={pagoPor} total={totalOfertado} />}
 
           {temDespesas && (
             <section className="avoid-break border border-border/40 rounded-md p-4 mb-6 max-w-sm mx-auto">
@@ -504,7 +532,7 @@ export default function FinancasProjetoDetalhe() {
                 <table className="w-full text-xs">
                   <tbody>
                     <tr className="border-b border-border/40">
-                      <td className="py-1">Despesas totais (meta)</td>
+                      <td className="py-1">{temOfertas ? "Pagas pela igreja (meta)" : "Despesas totais (meta)"}</td>
                       <td className="py-1 text-right font-medium tabular-nums">{brl(totais.totalSaidas)} (100,0%)</td>
                     </tr>
                     <tr className="border-b border-border/40">
@@ -554,6 +582,87 @@ export default function FinancasProjetoDetalhe() {
 
       <ProjetoForm open={editOpen} onOpenChange={setEditOpen} projeto={projeto} onSaved={carregar} />
     </div>
+  );
+}
+
+// Seção própria das despesas custeadas por terceiros: as três linhas aprovadas em 14/10/2026. O custo total soma as duas,
+// mas NADA disto entra no saldo, na arrecadação, no déficit ou no termômetro acima — esses são de caixa.
+function CustoDoProjeto({ pagas, qtdPagas, ofertadas, qtdOfertadas }: { pagas: number; qtdPagas: number; ofertadas: number; qtdOfertadas: number }) {
+  const total = pagas + ofertadas;
+  const pct = (v: number) => (total > 0 ? `${((v / total) * 100).toFixed(1).replace(".", ",")}%` : "—");
+  const qtd = (n: number) => `${n} ${n === 1 ? "despesa" : "despesas"}`;
+  return (
+    <section className="avoid-break mb-6 rounded-md border border-gold/40 p-4" aria-label="Custo do projeto">
+      <h3 className="text-sm font-medium mb-1 flex items-center gap-1.5">
+        <HandHeart className="w-3.5 h-3.5 text-gold-text" /> Custo do projeto — custeado por terceiros
+      </h3>
+      <p className="text-xs text-muted-foreground mb-3">
+        Despesas do projeto pagas diretamente por um terceiro, como oferta (nota quitada por terceiro). O dinheiro não passou pelo caixa nem pelo banco
+        da igreja: não entra no saldo, na arrecadação nem no déficit acima.
+      </p>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <tbody>
+            <tr className="border-b border-border/40">
+              <td className="py-1.5">Despesas pagas pela igreja <span className="text-xs text-muted-foreground">({qtd(qtdPagas)})</span></td>
+              <td className="py-1.5 text-right tabular-nums font-medium">{brl(pagas)}</td>
+              <td className="py-1.5 pl-3 text-right tabular-nums text-xs text-muted-foreground w-16">{pct(pagas)}</td>
+            </tr>
+            <tr className="border-b border-border/40">
+              <td className="py-1.5">Despesas custeadas por terceiros <span className="text-xs text-muted-foreground">({qtd(qtdOfertadas)})</span></td>
+              <td className="py-1.5 text-right tabular-nums font-medium text-gold-text">{brl(ofertadas)}</td>
+              <td className="py-1.5 pl-3 text-right tabular-nums text-xs text-muted-foreground w-16">{pct(ofertadas)}</td>
+            </tr>
+            <tr className="border-t-2 border-gold/40 font-semibold">
+              <td className="py-1.5">Custo total do projeto</td>
+              <td className="py-1.5 text-right tabular-nums">{brl(total)}</td>
+              <td className="py-1.5 pl-3 text-right tabular-nums text-xs text-muted-foreground w-16">100%</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+// A listagem das ofertas, separada das receitas e das despesas pagas: cada uma com o terceiro que pagou.
+function ListagemOfertas({ itens, pagoPor, total }: { itens: FinLancamentoExtenso[]; pagoPor: Map<string, string>; total: number }) {
+  const ordenados = itens.slice().sort((a, b) => a.data.localeCompare(b.data));
+  return (
+    <section className="avoid-break mb-6" aria-label="Custeado por terceiros">
+      <div className="flex items-baseline justify-between mb-1.5">
+        <h3 className="text-sm font-medium">Custeado por terceiros (oferta) — fora do caixa</h3>
+        <span className="text-xs text-muted-foreground">{itens.length} {itens.length === 1 ? "item" : "itens"}</span>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-[11px] border-collapse">
+          <thead>
+            <tr className="border-b-2 border-gold/40 text-left text-muted-foreground">
+              <th className="py-1 pr-1 w-10">Data</th>
+              <th className="py-1 pr-1">Descrição</th>
+              <th className="py-1 pr-1">Pago por</th>
+              <th className="py-1 pr-1 text-right w-20">Valor</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ordenados.map(l => (
+              <tr key={l.id} className="border-b border-border/30">
+                <td className="py-1 pr-1 whitespace-nowrap">{dataBr(l.data).slice(0, 5)}</td>
+                <td className="py-1 pr-1 truncate max-w-[160px]">{rotuloDoLancamento(l)}</td>
+                <td className="py-1 pr-1 truncate max-w-[140px]">{pagoPor.get(l.id) || "—"}</td>
+                <td className="py-1 pr-1 text-right tabular-nums text-gold-text">{brl(Number(l.valor))}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr className="border-t-2 border-gold/40 font-semibold">
+              <td colSpan={3} className="py-1.5 text-xs">Total custeado por terceiros</td>
+              <td className="py-1.5 text-right tabular-nums text-xs text-gold-text">{brl(total)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </section>
   );
 }
 

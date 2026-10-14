@@ -19,7 +19,7 @@ export async function quitacaoDisponivel(): Promise<boolean> {
   sondagem = { em: Date.now(), ok: !error };
   return !error;
 }
-export function esquecerSondagemDeQuitacao() { sondagem = null; sondagemOferta = null; }
+export function esquecerSondagemDeQuitacao() { sondagem = null; sondagemOferta = null; sondagemProjeto = null; }
 
 let sondagemOferta: { em: number; ok: boolean } | null = null;
 /**
@@ -271,16 +271,33 @@ export interface PedidoDeNotaQuitada {
   condicao: string | null;
   pedeRecibo: boolean;
   motivo?: string | null;
+  /** Dimensão da OBRIGAÇÃO, como categoria e centro — não da quitação. Só vai ao banco quando a migration 20261016110000 está aplicada. */
+  projetoId?: string | null;
+}
+
+let sondagemProjeto: { em: number; ok: boolean } | null = null;
+/** `true` quando o banco aceita o projeto na NF quitada por terceiro (migration 20261016110000). Resultado guardado por 30 s. */
+export async function projetoNaNotaDisponivel(): Promise<boolean> {
+  if (sondagemProjeto && Date.now() - sondagemProjeto.em < 30_000) return sondagemProjeto.ok;
+  const { error } = await supabase.rpc("fin_nf_quitada_aceita_projeto" as never);
+  sondagemProjeto = { em: Date.now(), ok: !error };
+  return !error;
 }
 
 /** Devolve o id da obrigação criada. */
-export const registrarNotaQuitadaPorTerceiro = async (p: PedidoDeNotaQuitada): Promise<string> => chamar<string>("fin_registrar_nf_quitada_por_terceiro", {
+export const registrarNotaQuitadaPorTerceiro = async (p: PedidoDeNotaQuitada): Promise<string> => {
+  // Projeto escolhido e banco sem a migration: recusa em vez de gravar sem ele — a tela diria "registrada" e o projeto teria sumido.
+  // (A tela só mostra o campo quando a sondagem confirma; isto cobre a migration desfeita com o diálogo aberto.)
+  if (p.projetoId && !(await projetoNaNotaDisponivel())) throw new Error("O banco ainda não aceita projeto nesta nota. Registre sem projeto ou peça a atualização do sistema.");
+  return chamar<string>("fin_registrar_nf_quitada_por_terceiro", {
+  ...(p.projetoId ? { p_projeto: p.projetoId } : {}),
   ...(p.formaPagamentoTerceiro && (await declaracaoDisponivel()) ? { p_forma_pagamento_terceiro: p.formaPagamentoTerceiro } : {}),
   p_conta: p.contaId, p_fornecedor: p.emitenteId, p_data: p.dataDaNota, p_valor: p.valor, p_descricao: p.descricao, p_documento_numero: p.numeroDaNota, p_chave: p.chaveDeAcesso,
   p_categoria: p.categoriaId, p_centro: p.centroCustoId, p_natureza_item: p.naturezaItem, p_comprador: p.comprador,
   p_responsavel: p.responsavel, p_pessoa: p.pessoaId, p_responsavel_fornecedor: p.fornecedorDoResponsavelId, p_intencao: p.intencao, p_pago_em: p.pagoEm, p_declarado_em: p.declaradoEm,
   p_condicao: p.condicao, p_pede_recibo: p.pedeRecibo, p_motivo: p.motivo ?? null,
-});
+  });
+};
 
 /** Os dados para pagar um reembolso: o que o banco calculou (saldo) e a conta/forma/valor que a Tesouraria escolheu. */
 export interface PedidoDeReembolso {

@@ -6,17 +6,19 @@ import { useEffect, useMemo, useState } from "react";
 import { Loader2, Search } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { CamposDaQuitacao, ESTADO_VAZIO, problemasDoEstado, type EstadoDaQuitacao } from "@/components/financas/CamposDaQuitacao";
 import { hojeLocal } from "@/lib/data";
 import { paraNumero } from "@/lib/dinheiro";
 import { mensagemErro } from "@/lib/erroRede";
 import { chaveNfeValida, type NaturezaDoItem } from "@/lib/quitacao";
-import { listarCategorias, listarCentrosCusto, listarContas, listarFornecedores, type FinCategoria, type FinCentroCusto, type FinConta, type FinFornecedor } from "@/services/finService";
-import { declaracaoDisponivel, ofertaDisponivel, registrarNotaQuitadaPorTerceiro } from "@/services/quitacaoService";
+import { listarCategorias, listarCentrosCusto, listarContas, listarFornecedores, listarProjetos, type FinCategoria, type FinCentroCusto, type FinConta, type FinFornecedor, type FinProjeto } from "@/services/finService";
+import { declaracaoDisponivel, ofertaDisponivel, projetoNaNotaDisponivel, registrarNotaQuitadaPorTerceiro } from "@/services/quitacaoService";
 
 export function NotaQuitadaDialog({ aberto, onFechar, onFeito }: { aberto: boolean; onFechar: () => void; onFeito: (obrigacaoId: string) => void }) {
   const hoje = hojeLocal();
@@ -31,13 +33,19 @@ export function NotaQuitadaDialog({ aberto, onFechar, onFeito }: { aberto: boole
   const [ofertaLiberada, setOfertaLiberada] = useState(false);
   const [pedirForma, setPedirForma] = useState(false);   // Fase 1D-a: só pede a forma de pagamento do terceiro quando o banco já a tem
   const [salvando, setSalvando] = useState(false);
+  // Projeto: dimensão da OBRIGAÇÃO (aprovado em 14/10/2026), ao lado de categoria e centro — não da quitação. Mesmo comportamento do LancamentoForm:
+  // caixa que revela o seletor, item "Nenhum", só projetos ativos, e nada aparece sem projeto ativo. Aqui também some sem a migration 20261016110000.
+  const [projetos, setProjetos] = useState<FinProjeto[]>([]); const [usarProjeto, setUsarProjeto] = useState(false); const [projetoId, setProjetoId] = useState("");
+  const [aceitaProjeto, setAceitaProjeto] = useState(false);
 
   useEffect(() => {
     if (!aberto) return;
-    setV(ESTADO_VAZIO); setEmitente(null); setBuscaEmit(""); setNumero(""); setChave(""); setDataNota(""); setValorTxt(""); setDescricao(""); setContaId(""); setCategoriaId(""); setCentroId(""); setMotivo("");
+    setV(ESTADO_VAZIO); setEmitente(null); setBuscaEmit(""); setNumero(""); setChave(""); setDataNota(""); setValorTxt(""); setDescricao(""); setContaId(""); setCategoriaId(""); setCentroId(""); setMotivo(""); setUsarProjeto(false); setProjetoId("");
     let vivo = true;
     ofertaDisponivel().then(ok => { if (vivo) setOfertaLiberada(ok); });
     declaracaoDisponivel().then(ok => { if (vivo) setPedirForma(ok); });
+    projetoNaNotaDisponivel().then(ok => { if (vivo) setAceitaProjeto(ok); });
+    listarProjetos().catch(() => [] as FinProjeto[]).then(p => { if (vivo) setProjetos(p); });
     Promise.all([listarContas().catch(() => []), listarCategorias("saida").catch(() => []), listarCentrosCusto().catch(() => [])]).then(([c, cat, ce]) => { if (vivo) { setContas(c); setCategorias(cat); setCentros(ce); } });
     return () => { vivo = false; };
   }, [aberto]);
@@ -68,7 +76,7 @@ export function NotaQuitadaDialog({ aberto, onFechar, onFeito }: { aberto: boole
       const declara = v.intencao === "reembolso" || v.intencao === "oferta" || v.intencao === "compensacao_adiantamento";
       const id = await registrarNotaQuitadaPorTerceiro({
         contaId, emitenteId: emitente.id, dataDaNota: dataNota, valor, descricao: descricao.trim() || null, numeroDaNota: numero.trim() || null, chaveDeAcesso: chaveLimpa || null,
-        categoriaId: categoriaId || null, centroCustoId: centroId || null, naturezaItem: (v.natureza || null) as NaturezaDoItem, comprador: (v.comprador || null) as "cnpj_igreja" | "contratacao_previa",
+        categoriaId: categoriaId || null, centroCustoId: centroId || null, projetoId: aceitaProjeto && usarProjeto && projetoId ? projetoId : null, naturezaItem: (v.natureza || null) as NaturezaDoItem, comprador: (v.comprador || null) as "cnpj_igreja" | "contratacao_previa",
         responsavel: v.tipo, pessoaId: v.tipo === "pessoa" ? v.escolhido?.id ?? null : null, fornecedorDoResponsavelId: v.tipo !== "pessoa" ? v.escolhido?.id ?? null : null,
         formaPagamentoTerceiro: v.tipo === "nao_localizado" || !v.forma ? null : v.forma,
         intencao: v.tipo === "nao_localizado" ? "nao_se_aplica" : v.intencao, pagoEm: v.tipo === "nao_localizado" ? null : v.pagoEm || null, declaradoEm: declara && v.tipo !== "nao_localizado" ? v.declaradoEm || null : null,
@@ -140,6 +148,28 @@ export function NotaQuitadaDialog({ aberto, onFechar, onFeito }: { aberto: boole
                 </select>
               </div>
             </div>
+            {aceitaProjeto && projetos.length > 0 && (
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <Checkbox checked={usarProjeto} onCheckedChange={(x) => {
+                    const marcado = x === true;
+                    setUsarProjeto(marcado);
+                    if (!marcado) setProjetoId("");
+                  }} />
+                  Projeto (opcional)
+                </label>
+                {usarProjeto && (
+                  // sentinela "__nenhum__" e a guarda do onValueChange: os mesmos do LancamentoForm (ver o comentário lá sobre a autocorreção do Radix)
+                  <Select value={projetoId || "__nenhum__"} onValueChange={(x) => { if (x) setProjetoId(x === "__nenhum__" ? "" : x); }}>
+                    <SelectTrigger aria-label="Projeto"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__nenhum__" className="text-muted-foreground">Nenhum</SelectItem>
+                      {projetos.map(p => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+            )}
           </section>
 
           <section aria-label="Quem pagou" className="rounded-md border p-3">
