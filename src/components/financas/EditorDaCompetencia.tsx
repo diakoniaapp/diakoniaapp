@@ -62,7 +62,7 @@ export function EditorDaCompetencia({ c, aoMudar }: { c: CompetenciaDoSustento; 
       {c.modo === "simples" ? (
         <div className="flex flex-wrap items-center gap-2">
           <Input value={valor} onChange={(e) => setValor(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") salvarValor(); }}
-            className="h-8 w-36 text-xs" placeholder="2.362,00" aria-label="Valor previsto" disabled={ocupado} />
+            className="h-8 w-36 text-base md:text-xs" placeholder="2.362,00" aria-label="Valor previsto" disabled={ocupado} />
           <Button size="sm" className="h-8" onClick={salvarValor} disabled={ocupado}>Salvar valor</Button>
         </div>
       ) : (
@@ -87,7 +87,7 @@ export function EditorDaCompetencia({ c, aoMudar }: { c: CompetenciaDoSustento; 
               {OPCOES_DE_RUBRICA.map((o) => <option key={o.chave} value={o.chave}>{o.rotulo}</option>)}
             </select>
             <Input value={valorRubrica} onChange={(e) => setValorRubrica(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") incluirRubrica(); }}
-              className="h-8 w-32 text-xs" placeholder="17.451,84" aria-label="Valor da rubrica" disabled={ocupado} />
+              className="h-8 w-32 text-base md:text-xs" placeholder="17.451,84" aria-label="Valor da rubrica" disabled={ocupado} />
             <Button size="sm" variant="outline" className="h-8" onClick={incluirRubrica} disabled={ocupado}>Lançar</Button>
           </div>
           <p className="text-xs text-muted-foreground">

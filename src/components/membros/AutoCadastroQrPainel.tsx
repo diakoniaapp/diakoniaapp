@@ -133,7 +133,7 @@ export function AutoCadastroQrPainel() {
             <span className="text-muted-foreground">Culto/evento agora (pela agenda): </span>
             <strong>{cultoAgora ?? "nenhum culto na agenda neste horário"}</strong>
             <div className="mt-1.5 flex gap-1.5 print:hidden">
-              <Input value={cultoManual} onChange={e => setCultoManual(e.target.value)} placeholder="Ou digite o culto/evento de hoje" className="h-8 text-xs" />
+              <Input value={cultoManual} onChange={e => setCultoManual(e.target.value)} placeholder="Ou digite o culto/evento de hoje" className="h-8 text-base md:text-xs" />
               <Button type="button" size="sm" variant="outline" className="h-8 text-xs shrink-0" disabled={!cultoManual.trim() || salvandoCulto} onClick={definirCulto}>Definir</Button>
             </div>
           </div>

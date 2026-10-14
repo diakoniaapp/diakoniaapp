@@ -335,7 +335,7 @@ function ItemEditavel({
   return (
     <div className="border-2 border-success-line rounded p-2 space-y-2 bg-success-soft/40">
       <Input value={draft.item} onChange={(e) => setDraft({...draft, item: e.target.value})}
-        className="text-xs" />
+        className="text-base md:text-xs" />
       <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5 text-xs">
         <Input type="number" value={draft.ordem}
           onChange={(e) => setDraft({...draft, ordem: Number(e.target.value) || 0})}

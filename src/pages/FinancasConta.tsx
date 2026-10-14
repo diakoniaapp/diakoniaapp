@@ -1054,7 +1054,7 @@ export default function FinancasConta() {
             <div className="relative">
               <Search className="w-3 h-3 absolute left-2 top-2.5 text-muted-foreground" />
               <Input value={busca} onChange={(e) => setBusca(e.target.value)}
-                className="h-8 text-xs pl-6" placeholder="Digite..." />
+                className="h-8 text-base md:text-xs pl-6" placeholder="Digite..." />
             </div>
           </div>
           {/* Pedido da Telma (17/09/2026): recarregar sem precisar mexer na
@@ -1250,7 +1250,7 @@ export default function FinancasConta() {
                   <th className="text-left py-2 px-2">
                     <CabecalhoFiltro label="Descrição / Favorecido" ativo={buscaDebounced.length >= 2}>
                       <label className="text-xs text-muted-foreground">Buscar na descrição</label>
-                      <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Digite ao menos 2 letras..." className="h-8 text-xs" />
+                      <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Digite ao menos 2 letras..." className="h-8 text-base md:text-xs" />
                     </CabecalhoFiltro>
                   </th>
                   {/* Coluna "Conta" — só no modo "Todas as Contas" E
@@ -1279,12 +1279,12 @@ export default function FinancasConta() {
                       <div>
                         <label className="text-xs text-muted-foreground">Valor mínimo (R$)</label>
                         <Input type="text" inputMode="decimal" value={filtroValorMinTexto}
-                          onChange={(e) => setFiltroValorMinTexto(e.target.value)} placeholder="Sem mínimo" className="h-8 text-xs" />
+                          onChange={(e) => setFiltroValorMinTexto(e.target.value)} placeholder="Sem mínimo" className="h-8 text-base md:text-xs" />
                       </div>
                       <div>
                         <label className="text-xs text-muted-foreground">Valor máximo (R$)</label>
                         <Input type="text" inputMode="decimal" value={filtroValorMaxTexto}
-                          onChange={(e) => setFiltroValorMaxTexto(e.target.value)} placeholder="Sem máximo" className="h-8 text-xs" />
+                          onChange={(e) => setFiltroValorMaxTexto(e.target.value)} placeholder="Sem máximo" className="h-8 text-base md:text-xs" />
                       </div>
                     </CabecalhoFiltro>
                   </th>

@@ -103,7 +103,7 @@ export default function ContatoResultadoDialog({
           </label>
           <Textarea
             placeholder="Ex: vai tentar vir no próximo domingo..."
-            className="resize-none text-sm"
+            className="resize-none text-base md:text-sm"
             rows={2}
             value={observacao}
             onChange={(e) => setObservacao(e.target.value)}

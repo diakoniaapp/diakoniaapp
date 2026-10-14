@@ -137,7 +137,7 @@ export function ConvidarParaEvento({ open, onOpenChange, ...evento }: Props) {
               value={mensagem}
               onChange={e => setMensagem(e.target.value)}
               rows={7}
-              className="mt-1 font-mono text-sm"
+              className="mt-1 font-mono text-base md:text-sm"
             />
           </div>
 

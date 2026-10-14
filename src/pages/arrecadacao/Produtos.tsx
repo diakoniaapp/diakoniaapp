@@ -408,7 +408,7 @@ function ProdutoDialog({
           <Field label="Observação">
             <Textarea value={form.observacao}
               onChange={(e) => setForm({...form, observacao: e.target.value})}
-              placeholder="opcional" className="min-h-[40px] text-xs" />
+              placeholder="opcional" className="min-h-[40px] text-base md:text-xs" />
           </Field>
 
           {editando && (

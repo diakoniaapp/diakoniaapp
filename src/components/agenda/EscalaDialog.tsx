@@ -337,7 +337,7 @@ export function EscalaDialog({ open, onOpenChange, evento, areasDoEvento }: Prop
                         value={termoBusca}
                         onChange={e => setTermoBusca(e.target.value)}
                         placeholder="Buscar qualquer voluntário da área por nome…"
-                        className="h-8 pl-8 text-sm bg-background"
+                        className="h-8 pl-8 text-base md:text-sm bg-background"
                       />
                     </div>
 

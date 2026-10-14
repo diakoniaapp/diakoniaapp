@@ -812,7 +812,9 @@ export default function PainelPastoral() {
               requestAnimationFrame(() => irParaSecao("discipulado")));
           }}
         >
-          <TabsList className="mb-3">
+          {/* max-w-full + overflow-x-auto: as 4 abas com ícone somam ~430px, e em
+              375px o <main> (overflow-x-hidden) cortava "Crescimento" em vez de rolar. */}
+          <TabsList className="mb-3 max-w-full justify-start overflow-x-auto">
             <TabsTrigger value="ebd" className="gap-1.5 text-xs">
               <GraduationCap className="w-3.5 h-3.5" /> EBD
             </TabsTrigger>

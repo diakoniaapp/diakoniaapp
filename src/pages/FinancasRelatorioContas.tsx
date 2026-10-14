@@ -157,7 +157,7 @@ export default function FinancasRelatorioContas() {
       </div>
 
       {/* PÁGINA DO RELATÓRIO */}
-      <div className="relatorio-page max-w-6xl mx-auto bg-white text-foreground p-8 md:p-10 my-4 md:my-6 shadow-elevated border border-border/40 rounded-md print:my-0">
+      <div className="relatorio-page max-w-6xl mx-auto bg-white text-foreground p-4 md:p-10 my-4 md:my-6 shadow-elevated border border-border/40 rounded-md print:my-0">
         <header className="avoid-break flex items-start justify-between gap-4 pb-4 border-b-2 border-gold/30">
           <div className="flex flex-col items-center gap-1">
             <img src={logoDiakonia} alt="DIAKONIA" className="h-14 w-auto object-contain"
@@ -246,74 +246,76 @@ export default function FinancasRelatorioContas() {
                 </p>
               </div>
 
-              <table className="w-full text-xs border-collapse">
-                <thead>
-                  {/* Só 5 colunas, igual `FinancasConta.tsx` (16/09/2026,
-                      mesmo pedido: "como um extrato de banco msm") —
-                      Situação virou ícone colado na data, Centro custo
-                      saiu (continua no CSV, que exporta os lançamentos
-                      crus com todos os campos). */}
-                  <tr className="border-b-2 border-gold/40 text-left">
-                    <th className="py-1 pr-1 w-16">Data</th>
-                    <th className="py-1 pr-1">Descrição / Favorecido</th>
-                    {/* w-28 (112px) cortava nomes de categoria comuns
-                        ("Rendimentos de Aplicações") — mesmo ajuste de
-                        `FinancasConta.tsx` na mesma sessão (17/09/2026). */}
-                    <th className="py-1 pr-1 w-40">Categoria</th>
-                    {/* `w-20` (5rem) quebrava valores de 4 dígitos em duas
-                        linhas ("+" numa linha, "R$ 1.285,00" na outra) —
-                        achado ao vivo pela Telma num relatório com
-                        dízimo de R$1.285. `w-24` + `whitespace-nowrap`
-                        cobre até R$99.999,99 numa linha só. */}
-                    <th className="py-1 pr-1 w-24 text-right">Valor</th>
-                    <th className="py-1 pr-1 w-24 text-right">Saldo</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {/* Linha "Saldo inicial" — mesmo padrão pedido pra
-                      `FinancasConta.tsx` na mesma sessão: mostra de onde o
-                      acumulado da coluna Saldo começa, do jeito que um
-                      extrato de banco de verdade sempre abre com "SALDO
-                      ANTERIOR". */}
-                  <tr className="border-b border-border/40 text-muted-foreground italic">
-                    <td className="py-1 pr-1" colSpan={2}>Saldo inicial</td>
-                    <td className="py-1 pr-1">até {dataBr(dataInicio)}</td>
-                    <td className="py-1 pr-1 text-right"></td>
-                    <td className="py-1 pr-1 text-right tabular-nums font-medium whitespace-nowrap">{brl(saldoInicial)}</td>
-                  </tr>
-                  {lancsConta.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="py-3 text-center text-muted-foreground italic">
-                        Nenhum lançamento realizado ou conciliado no período.
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs border-collapse">
+                  <thead>
+                    {/* Só 5 colunas, igual `FinancasConta.tsx` (16/09/2026,
+                        mesmo pedido: "como um extrato de banco msm") —
+                        Situação virou ícone colado na data, Centro custo
+                        saiu (continua no CSV, que exporta os lançamentos
+                        crus com todos os campos). */}
+                    <tr className="border-b-2 border-gold/40 text-left">
+                      <th className="py-1 pr-1 w-16">Data</th>
+                      <th className="py-1 pr-1">Descrição / Favorecido</th>
+                      {/* w-28 (112px) cortava nomes de categoria comuns
+                          ("Rendimentos de Aplicações") — mesmo ajuste de
+                          `FinancasConta.tsx` na mesma sessão (17/09/2026). */}
+                      <th className="py-1 pr-1 w-40">Categoria</th>
+                      {/* `w-20` (5rem) quebrava valores de 4 dígitos em duas
+                          linhas ("+" numa linha, "R$ 1.285,00" na outra) —
+                          achado ao vivo pela Telma num relatório com
+                          dízimo de R$1.285. `w-24` + `whitespace-nowrap`
+                          cobre até R$99.999,99 numa linha só. */}
+                      <th className="py-1 pr-1 w-24 text-right">Valor</th>
+                      <th className="py-1 pr-1 w-24 text-right">Saldo</th>
                     </tr>
-                  ) : lancsConta.flatMap(l => [(
-                    <tr key={l.id} className="border-b border-border/40">
-                      {/* Sem ícone de situação aqui — diferente de
-                          `FinancasConta.tsx`, este relatório já filtra só
-                          realizado/conciliado no carregamento (ver
-                          `carregar()`), então toda linha aqui É dinheiro
-                          que já circulou; não há o que distinguir. */}
-                      <td className="py-1 pr-1 whitespace-nowrap">
-                        {dataBr(dataEfetiva(l))}
-                        {vencimentoDiferente(l) && <span className="ml-1 text-[9px] text-muted-foreground">(venc. {dataBr(vencimentoDiferente(l)!).slice(0, 5)})</span>}
-                      </td>
-                      <td className="py-1 pr-1 truncate">
-                        {rotuloDoLancamento(l)}
-                        {l.fornecedor_nome && l.fornecedor_nome !== l.descricao && (
-                          <span className="text-muted-foreground"> · {l.fornecedor_nome}</span>
-                        )}
-                        <DetalheDeEncargos lancamento={l} className="text-[10px]" />
-                      </td>
-                      <td className="py-1 pr-1 text-muted-foreground truncate">{l.categoria_nome ?? "—"}</td>
-                      <td className={`py-1 pr-1 text-right tabular-nums font-medium whitespace-nowrap ${l.tipo === "entrada" ? "text-success-text" : "text-destructive-text"}`}>
-                        {l.tipo === "entrada" ? "+" : "−"} {brl(Number(l.valor))}
-                      </td>
-                      <td className="py-1 pr-1 text-right tabular-nums text-muted-foreground whitespace-nowrap">{brl(saldoPorLancamento.get(l.id) ?? 0)}</td>
+                  </thead>
+                  <tbody>
+                    {/* Linha "Saldo inicial" — mesmo padrão pedido pra
+                        `FinancasConta.tsx` na mesma sessão: mostra de onde o
+                        acumulado da coluna Saldo começa, do jeito que um
+                        extrato de banco de verdade sempre abre com "SALDO
+                        ANTERIOR". */}
+                    <tr className="border-b border-border/40 text-muted-foreground italic">
+                      <td className="py-1 pr-1" colSpan={2}>Saldo inicial</td>
+                      <td className="py-1 pr-1">até {dataBr(dataInicio)}</td>
+                      <td className="py-1 pr-1 text-right"></td>
+                      <td className="py-1 pr-1 text-right tabular-nums font-medium whitespace-nowrap">{brl(saldoInicial)}</td>
                     </tr>
-                  ), ...(fechamentos.get(l.id) ? [<LinhaDeFechamentoDoDia key={`fechamento-${l.id}`} data={fechamentos.get(l.id)!.data} saldo={fechamentos.get(l.id)!.saldo} />] : [])])}
-                </tbody>
-              </table>
+                    {lancsConta.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="py-3 text-center text-muted-foreground italic">
+                          Nenhum lançamento realizado ou conciliado no período.
+                        </td>
+                      </tr>
+                    ) : lancsConta.flatMap(l => [(
+                      <tr key={l.id} className="border-b border-border/40">
+                        {/* Sem ícone de situação aqui — diferente de
+                            `FinancasConta.tsx`, este relatório já filtra só
+                            realizado/conciliado no carregamento (ver
+                            `carregar()`), então toda linha aqui É dinheiro
+                            que já circulou; não há o que distinguir. */}
+                        <td className="py-1 pr-1 whitespace-nowrap">
+                          {dataBr(dataEfetiva(l))}
+                          {vencimentoDiferente(l) && <span className="ml-1 text-[9px] text-muted-foreground">(venc. {dataBr(vencimentoDiferente(l)!).slice(0, 5)})</span>}
+                        </td>
+                        <td className="py-1 pr-1 truncate">
+                          {rotuloDoLancamento(l)}
+                          {l.fornecedor_nome && l.fornecedor_nome !== l.descricao && (
+                            <span className="text-muted-foreground"> · {l.fornecedor_nome}</span>
+                          )}
+                          <DetalheDeEncargos lancamento={l} className="text-[10px]" />
+                        </td>
+                        <td className="py-1 pr-1 text-muted-foreground truncate">{l.categoria_nome ?? "—"}</td>
+                        <td className={`py-1 pr-1 text-right tabular-nums font-medium whitespace-nowrap ${l.tipo === "entrada" ? "text-success-text" : "text-destructive-text"}`}>
+                          {l.tipo === "entrada" ? "+" : "−"} {brl(Number(l.valor))}
+                        </td>
+                        <td className="py-1 pr-1 text-right tabular-nums text-muted-foreground whitespace-nowrap">{brl(saldoPorLancamento.get(l.id) ?? 0)}</td>
+                      </tr>
+                    ), ...(fechamentos.get(l.id) ? [<LinhaDeFechamentoDoDia key={`fechamento-${l.id}`} data={fechamentos.get(l.id)!.data} saldo={fechamentos.get(l.id)!.saldo} />] : [])])}
+                  </tbody>
+                </table>
+              </div>
             </section>
           );
         })}

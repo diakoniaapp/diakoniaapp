@@ -592,7 +592,7 @@ export default function ImportacaoMembros() {
                           <td className="py-2 pr-2 text-muted-foreground">{l._idx}</td>
                           <td className="py-2 pr-3">
                             <Input
-                              className="h-7 text-xs w-36"
+                              className="h-7 text-base md:text-xs w-36"
                               value={l.nome}
                               onChange={(e) => editarCampo(l._idx, "nome", e.target.value)}
                               disabled={l._ignorar}
@@ -600,7 +600,7 @@ export default function ImportacaoMembros() {
                           </td>
                           <td className="py-2 pr-3">
                             <Input
-                              className="h-7 text-xs w-36"
+                              className="h-7 text-base md:text-xs w-36"
                               value={l.email}
                               onChange={(e) => editarCampo(l._idx, "email", e.target.value)}
                               disabled={l._ignorar}

@@ -261,8 +261,10 @@ export function EventDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
-            <div><Label>Data *</Label>
+          {/* No celular a data ocupa a linha inteira e Início/Fim dividem a de baixo:
+              em 3 colunas cada campo ficava com ~100px num diálogo de 375px. */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div className="col-span-2 sm:col-span-1"><Label>Data *</Label>
               <CampoData value={data} onChange={(v) => setData(v)} />
             </div>
             <div><Label>Início</Label>

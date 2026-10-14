@@ -980,7 +980,7 @@ export function LancamentoForm({
                     </Select>
                     <Input type="number" min={0} max={100} step="0.1" value={r.percentual || ""}
                       onChange={(e) => mudarLinhaRateio(r.chave, { percentual: Number(e.target.value) })}
-                      className="w-16 h-8 text-xs" placeholder="%" />
+                      className="w-16 h-8 text-base md:text-xs" placeholder="%" />
                     <span className="text-xs text-muted-foreground tabular-nums w-20 shrink-0 text-right">
                       {valor > 0 ? brl(valor * ((r.percentual || 0) / 100)) : "—"}
                     </span>

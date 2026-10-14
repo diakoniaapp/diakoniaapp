@@ -354,8 +354,8 @@ export function ContaForm({ open, onOpenChange, conta, onSaved }: Props) {
           {tipo === "cartao" && (
             <div className="space-y-2 border rounded-md p-3 bg-muted/20">
               <p className="text-xs font-medium text-muted-foreground">💳 Cartão</p>
-              <div className="grid grid-cols-3 gap-2">
-                <div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <div className="col-span-2 sm:col-span-1">
                   <Label className="text-xs">Limite (R$)</Label>
                   <Input type="number" step="0.01" value={limiteCredito || ""}
                     onChange={(e) => setLimiteCredito(Number(e.target.value) || "")} />

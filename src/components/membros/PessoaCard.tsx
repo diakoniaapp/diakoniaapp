@@ -825,7 +825,7 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
                       rows={5}
                       autoFocus
                       placeholder="O que a igreja precisa lembrar sobre esta pessoa."
-                      className="text-sm"
+                      className="text-base md:text-sm"
                     />
                     <div className="flex items-center gap-2">
                       <Button type="button" size="sm" onClick={salvarObservacoes} disabled={salvandoObs}>
@@ -850,7 +850,7 @@ export default function PessoaCard({ pessoaId, open, onClose, somenteLeitura = f
                         <Textarea
                           value={rascunho}
                           onChange={(e) => setRascunho(e.target.value)}
-                          rows={4} autoFocus className="text-sm"
+                          rows={4} autoFocus className="text-base md:text-sm"
                         />
                         <div className="flex items-center gap-2">
                           <Button type="button" size="sm" onClick={salvarEdicao} disabled={salvandoObs}>

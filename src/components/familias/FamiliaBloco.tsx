@@ -394,7 +394,7 @@ export function FamiliaBloco({ pessoaId, nomeCompleto, endereco, onChange }: Pro
               // Enter aqui submeteria o formulário de 6 passos inteiro.
               onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }}
               placeholder="Nome de quem já está cadastrado"
-              className="h-9 text-sm"
+              className="h-9 text-base md:text-sm"
             />
             {/* O resultado NÃO sai aqui: ele cai no cartão logo abaixo, o
                 mesmo das sugestões automáticas. Uma lista de pessoas só, com

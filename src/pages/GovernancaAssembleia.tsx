@@ -261,7 +261,7 @@ export default function GovernancaAssembleia() {
             <CardContent className="py-2.5 px-3 relative">
               <Search className="w-3 h-3 absolute left-5 top-4 text-muted-foreground" />
               <Input value={busca} onChange={(e) => setBusca(e.target.value)}
-                className="h-8 text-xs pl-6" placeholder="Buscar membro..." />
+                className="h-8 text-base md:text-xs pl-6" placeholder="Buscar membro..." />
             </CardContent>
           </Card>
           {presentes.length === 0 ? (
@@ -542,23 +542,23 @@ function PautaVotacao({ pauta, aptos, presentes, quorumAtingido, emAndamento, on
             <div className="grid grid-cols-4 gap-1">
               <div>
                 <Label className="text-xs">✓ Sim</Label>
-                <Input type="number" min={0} value={votosSim} onChange={(e) => setVotosSim(Number(e.target.value) || 0)} className="h-7 text-xs" />
+                <Input type="number" min={0} value={votosSim} onChange={(e) => setVotosSim(Number(e.target.value) || 0)} className="h-7 text-base md:text-xs" />
               </div>
               <div>
                 <Label className="text-xs">✗ Não</Label>
-                <Input type="number" min={0} value={votosNao} onChange={(e) => setVotosNao(Number(e.target.value) || 0)} className="h-7 text-xs" />
+                <Input type="number" min={0} value={votosNao} onChange={(e) => setVotosNao(Number(e.target.value) || 0)} className="h-7 text-base md:text-xs" />
               </div>
               <div>
                 <Label className="text-xs">⚬ Abstenção</Label>
-                <Input type="number" min={0} value={votosAbst} onChange={(e) => setVotosAbst(Number(e.target.value) || 0)} className="h-7 text-xs" />
+                <Input type="number" min={0} value={votosAbst} onChange={(e) => setVotosAbst(Number(e.target.value) || 0)} className="h-7 text-base md:text-xs" />
               </div>
               <div>
                 <Label className="text-xs">⊘ Impedimento</Label>
-                <Input type="number" min={0} value={votosImp} onChange={(e) => setVotosImp(Number(e.target.value) || 0)} className="h-7 text-xs" />
+                <Input type="number" min={0} value={votosImp} onChange={(e) => setVotosImp(Number(e.target.value) || 0)} className="h-7 text-base md:text-xs" />
               </div>
             </div>
             <Input value={observacao} onChange={(e) => setObservacao(e.target.value)}
-              placeholder="Observação (opcional)" className="text-xs" />
+              placeholder="Observação (opcional)" className="text-base md:text-xs" />
             <div className="grid grid-cols-4 gap-1">
               <Button variant="success" size="sm" onClick={() => decidir("aprovada")} disabled={busy} className="text-xs">Aprovar</Button>
               <Button variant="destructive" size="sm" onClick={() => decidir("rejeitada")} disabled={busy} className="text-xs">Rejeitar</Button>

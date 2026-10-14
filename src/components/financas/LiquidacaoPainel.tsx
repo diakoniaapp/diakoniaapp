@@ -184,7 +184,7 @@ export function LiquidacaoPainel({ lancamento, onPlano, valorPagoFixo }: {
                   <ValorDoMotivo rotulo="Ajuste (R$)" valor={ajusteTxt} onChange={setAjusteTxt} />
                   <div>
                     <Label htmlFor="liq-motivo-ajuste" className="text-xs">Motivo do ajuste (obrigatório)</Label>
-                    <Input id="liq-motivo-ajuste" className="h-8 text-xs" value={motivoAjuste} onChange={(e) => setMotivoAjuste(e.target.value)} placeholder="Por que o valor pago é diferente?" />
+                    <Input id="liq-motivo-ajuste" className="h-8 text-base md:text-xs" value={motivoAjuste} onChange={(e) => setMotivoAjuste(e.target.value)} placeholder="Por que o valor pago é diferente?" />
                   </div>
                 </>
               )}
@@ -206,7 +206,7 @@ function ValorDoMotivo({ rotulo, valor, onChange }: { rotulo: string; valor: str
   return (
     <div className="flex items-center gap-2">
       <Label className="text-xs w-32 shrink-0">{rotulo}</Label>
-      <Input type="text" inputMode="decimal" className="h-8 text-xs tabular-nums" value={valor} onChange={(e) => onChange(e.target.value)} />
+      <Input type="text" inputMode="decimal" className="h-8 text-base md:text-xs tabular-nums" value={valor} onChange={(e) => onChange(e.target.value)} />
     </div>
   );
 }

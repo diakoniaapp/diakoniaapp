@@ -643,7 +643,7 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, contas, onTroc
                 <label className="text-xs uppercase tracking-wide text-muted-foreground">Buscar</label>
                 <div className="relative">
                   <Search className="w-3 h-3 absolute left-2 top-2.5 text-muted-foreground" />
-                  <Input value={busca} onChange={(e) => setBusca(e.target.value)} className="h-8 text-xs pl-6" placeholder="Descrição..." />
+                  <Input value={busca} onChange={(e) => setBusca(e.target.value)} className="h-8 text-base md:text-xs pl-6" placeholder="Descrição..." />
                 </div>
               </div>
               <Button type="button" variant="outline" size="sm" onClick={carregar} disabled={loading} className="h-8 text-xs gap-1.5">
@@ -753,16 +753,16 @@ export function ExtratoContaDrawer({ open, onOpenChange, contaId, contas, onTroc
               </CampoLateral>
               <div className="grid grid-cols-2 gap-2">
                 <CampoLateral rotulo="Valor mín.">
-                  <Input value={filtroValorMinTexto} onChange={(e) => setFiltroValorMinTexto(e.target.value)} inputMode="decimal" className="h-8 text-xs" placeholder="0,00" />
+                  <Input value={filtroValorMinTexto} onChange={(e) => setFiltroValorMinTexto(e.target.value)} inputMode="decimal" className="h-8 text-base md:text-xs" placeholder="0,00" />
                 </CampoLateral>
                 <CampoLateral rotulo="Valor máx.">
-                  <Input value={filtroValorMaxTexto} onChange={(e) => setFiltroValorMaxTexto(e.target.value)} inputMode="decimal" className="h-8 text-xs" placeholder="0,00" />
+                  <Input value={filtroValorMaxTexto} onChange={(e) => setFiltroValorMaxTexto(e.target.value)} inputMode="decimal" className="h-8 text-base md:text-xs" placeholder="0,00" />
                 </CampoLateral>
               </div>
               <CampoLateral rotulo="Buscar">
                 <div className="relative">
                   <Search className="w-3 h-3 absolute left-2 top-2.5 text-muted-foreground" />
-                  <Input value={busca} onChange={(e) => setBusca(e.target.value)} className="h-8 text-xs pl-6" placeholder="Descrição, favorecido..." />
+                  <Input value={busca} onChange={(e) => setBusca(e.target.value)} className="h-8 text-base md:text-xs pl-6" placeholder="Descrição, favorecido..." />
                 </div>
               </CampoLateral>
               <div className="flex gap-2 pt-1">

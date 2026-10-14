@@ -281,7 +281,10 @@ export default function VisitanteDialog({ open, onOpenChange, pessoa, onSaved }:
         )}
 
         <Tabs defaultValue="visitas">
-          <TabsList className="grid w-full grid-cols-5">
+          {/* Em 375px cada uma das 5 colunas ficava com ~64px, e o gatilho é
+              nowrap: "Acolhimento 💙" (~100px) passava por cima da aba vizinha.
+              No celular a lista rola de lado; de `sm` para cima volta a grade. */}
+          <TabsList className="flex w-full justify-start overflow-x-auto sm:grid sm:grid-cols-5">
             <TabsTrigger value="visitas" translate="no">
               <CalendarCheck className="w-4 h-4 mr-1" /> Visitas
             </TabsTrigger>

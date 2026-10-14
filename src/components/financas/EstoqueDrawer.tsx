@@ -98,7 +98,7 @@ export function EstoqueDrawer({ open, onOpenChange }: Props) {
               <div className="relative flex-1 min-w-[140px]">
                 <Search className="w-3 h-3 absolute left-2 top-2.5 text-muted-foreground" />
                 <Input value={busca} onChange={(e) => setBusca(e.target.value)}
-                  className="h-8 text-xs pl-6" placeholder="Buscar item..." />
+                  className="h-8 text-base md:text-xs pl-6" placeholder="Buscar item..." />
               </div>
               <Select value={filtroCategoria} onValueChange={setFiltroCategoria}>
                 <SelectTrigger className="h-8 text-xs w-32"><SelectValue /></SelectTrigger>

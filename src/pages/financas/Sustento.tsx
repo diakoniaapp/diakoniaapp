@@ -282,7 +282,7 @@ function PainelDoBeneficiario({ b, aoMudar }: { b: BeneficiarioComCompetencias; 
               A regra: 1º a competência mais antiga com saldo a pagar; 2º a atual, se o dia for até 20; 3º a seguinte. É só uma conferência da regra — nada é gravado.
             </p>
             <div className="flex flex-wrap items-center gap-2">
-              <Input type="date" value={dataTeste} onChange={(e) => setDataTeste(e.target.value)} className="h-8 w-40 text-xs" aria-label="Data do pagamento" />
+              <Input type="date" value={dataTeste} onChange={(e) => setDataTeste(e.target.value)} className="h-8 w-40 text-base md:text-xs" aria-label="Data do pagamento" />
               {sugestao && (
                 <p className="text-sm min-w-0">
                   → <span className="font-medium">{rotuloCompetencia(sugestao.competencia)}</span>

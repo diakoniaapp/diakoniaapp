@@ -99,7 +99,7 @@ function SelectOuOutro({ opcoes, valor, onChange, placeholder = "Selecione" }: {
         </SelectContent>
       </Select>
       {modoOutro && (
-        <Input placeholder="Qual?" value={valor} onChange={e => onChange(e.target.value)} className="h-8 text-sm" />
+        <Input placeholder="Qual?" value={valor} onChange={e => onChange(e.target.value)} className="h-8 text-base md:text-sm" />
       )}
     </div>
   );
@@ -383,7 +383,7 @@ function BuscaMembroDiaconia({ onEscolher }: { onEscolher: (m: MembroEncontrado)
         value={busca}
         onFocus={() => setAberto(true)}
         onChange={e => { setBusca(e.target.value); setAberto(true); }}
-        className="h-8 text-sm pr-8"
+        className="h-8 text-base md:text-sm pr-8"
       />
       {buscando && <Loader2 className="absolute right-2.5 top-2 w-3.5 h-3.5 animate-spin text-muted-foreground" />}
       {aberto && busca.trim().length >= 2 && (
@@ -489,7 +489,7 @@ function EditarDados({ pessoa, onSalvou, onCancelar }: {
 
       <div>
         <Label className="text-xs">Nome completo</Label>
-        <Input value={nome} onChange={e => setNome(e.target.value)} className="h-8 text-sm" />
+        <Input value={nome} onChange={e => setNome(e.target.value)} className="h-8 text-base md:text-sm" />
       </div>
       <div>
         <Label className="text-xs">Telefone</Label>
@@ -537,11 +537,11 @@ function EditarDados({ pessoa, onSalvou, onCancelar }: {
       <div className="grid grid-cols-2 gap-2">
         <div>
           <Label className="text-xs">RG</Label>
-          <Input value={rg} onChange={e => setRg(e.target.value)} className="h-8 text-sm" />
+          <Input value={rg} onChange={e => setRg(e.target.value)} className="h-8 text-base md:text-sm" />
         </div>
         <div>
           <Label className="text-xs">CPF</Label>
-          <Input value={cpf} onChange={e => setCpf(e.target.value)} className="h-8 text-sm" />
+          <Input value={cpf} onChange={e => setCpf(e.target.value)} className="h-8 text-base md:text-sm" />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-2">
@@ -551,7 +551,7 @@ function EditarDados({ pessoa, onSalvou, onCancelar }: {
         </div>
         <div>
           <Label className="text-xs">Naturalidade (cidade)</Label>
-          <Input value={naturalidade} onChange={e => setNaturalidade(e.target.value)} className="h-8 text-sm" />
+          <Input value={naturalidade} onChange={e => setNaturalidade(e.target.value)} className="h-8 text-base md:text-sm" />
         </div>
       </div>
       <div>
@@ -933,7 +933,7 @@ function NovaFicha({ pessoaId, limites, onSalvou, onCancelar }: {
       {possuiRenda && (
         <div>
           <Label className="text-xs">Renda mensal (R$) — para calcular a per capita</Label>
-          <Input type="number" min={0} step="0.01" value={rendaMensal} onChange={e => setRendaMensal(e.target.value)} className="h-8 text-sm" />
+          <Input type="number" min={0} step="0.01" value={rendaMensal} onChange={e => setRendaMensal(e.target.value)} className="h-8 text-base md:text-sm" />
         </div>
       )}
 
@@ -946,7 +946,7 @@ function NovaFicha({ pessoaId, limites, onSalvou, onCancelar }: {
           <SelectOuOutro opcoes={BENEFICIOS_FEDERAIS} valor={qualBeneficio} onChange={setQualBeneficio} placeholder="Qual benefício" />
           <div>
             <Label className="text-xs">Valor do benefício (R$) — para calcular a per capita</Label>
-            <Input type="number" min={0} step="0.01" value={valorBeneficio} onChange={e => setValorBeneficio(e.target.value)} className="h-8 text-sm" />
+            <Input type="number" min={0} step="0.01" value={valorBeneficio} onChange={e => setValorBeneficio(e.target.value)} className="h-8 text-base md:text-sm" />
           </div>
         </div>
       )}
@@ -987,10 +987,10 @@ function NovaFicha({ pessoaId, limites, onSalvou, onCancelar }: {
             {familiares.map((f, i) => (
               <div key={i} className="rounded border bg-background px-2 py-2 space-y-1.5">
                 <div className="grid grid-cols-[1fr_auto_auto] gap-1.5">
-                  <Input placeholder="Nome" value={f.nome} onChange={e => alterarFamiliar(i, "nome", e.target.value)} className="h-7 text-xs" />
+                  <Input placeholder="Nome" value={f.nome} onChange={e => alterarFamiliar(i, "nome", e.target.value)} className="h-7 text-base md:text-xs" />
                   <Input type="number" min={0} placeholder="Idade" value={f.idade ?? ""}
                     onChange={e => alterarFamiliar(i, "idade", e.target.value ? Number(e.target.value) : null)}
-                    className="h-7 text-xs w-16" />
+                    className="h-7 text-base md:text-xs w-16" />
                   <Button type="button" size="sm" variant="ghost" className="h-7 px-1.5"
                     onClick={() => setFamiliares(prev => prev.filter((_, idx) => idx !== i))}>
                     <Trash2 className="w-3 h-3" />
@@ -1011,7 +1011,7 @@ function NovaFicha({ pessoaId, limites, onSalvou, onCancelar }: {
                 </div>
                 {f.pcd && (
                   <Input placeholder="Qual deficiência" value={f.qual_pcd ?? ""}
-                    onChange={e => alterarFamiliar(i, "qual_pcd", e.target.value)} className="h-7 text-xs" />
+                    onChange={e => alterarFamiliar(i, "qual_pcd", e.target.value)} className="h-7 text-base md:text-xs" />
                 )}
               </div>
             ))}
@@ -1035,7 +1035,7 @@ function NovaFicha({ pessoaId, limites, onSalvou, onCancelar }: {
       </div>
       <div>
         <Label className="text-xs">Informações adicionais</Label>
-        <Textarea rows={2} value={obs} onChange={e => setObs(e.target.value)} className="text-sm" />
+        <Textarea rows={2} value={obs} onChange={e => setObs(e.target.value)} className="text-base md:text-sm" />
       </div>
       <div>
         {/* Bússola (22/09/2026): "todo caso de acompanhamento ganha uma

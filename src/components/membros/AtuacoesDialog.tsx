@@ -160,7 +160,7 @@ export default function AtuacoesDialog({ pessoa, open, onOpenChange }: Props) {
                           }}
                           list={`funcoes-${r.id}`}
                           placeholder="O que faz aqui?"
-                          className="h-8 w-44 text-sm"
+                          className="h-8 w-44 text-base md:text-sm"
                         />
                         <datalist id={`funcoes-${r.id}`}>
                           {sugestoes.map(s => <option key={s} value={s} />)}

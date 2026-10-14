@@ -144,7 +144,7 @@ export default function FinancasCentros() {
               <div className="md:col-span-2 relative">
                 <Search className="w-3 h-3 absolute left-2 top-2.5 text-muted-foreground" />
                 <Input value={busca} onChange={(e) => setBusca(e.target.value)}
-                  className="h-8 text-xs pl-6" placeholder="Buscar centro..." />
+                  className="h-8 text-base md:text-xs pl-6" placeholder="Buscar centro..." />
               </div>
               <Select value={filtroTipo} onValueChange={(v) => setFiltroTipo(v as any)}>
                 <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>

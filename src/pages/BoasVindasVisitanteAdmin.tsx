@@ -305,7 +305,9 @@ export default function BoasVindasVisitanteAdmin() {
         </aside>
       </div>
 
-      <div className="sticky bottom-4 px-4 md:hidden">
+      {/* 4,25rem e não bottom-4: a MobileBottomNav (56px) cobre o fundo do <main>,
+          e a 16px o botão ficava escondido embaixo dela. */}
+      <div className="sticky bottom-[4.25rem] px-4 md:hidden">
         <Button className="w-full shadow-elevated" onClick={salvar} disabled={salvando}>{salvando ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />} Salvar</Button>
       </div>
     </div>

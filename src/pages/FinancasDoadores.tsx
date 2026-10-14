@@ -127,7 +127,7 @@ export default function FinancasDoadores() {
           <div className="md:col-span-2 relative">
             <Search className="w-3 h-3 absolute left-2 top-2.5 text-muted-foreground" />
             <Input value={busca} onChange={(e) => setBusca(e.target.value)}
-              className="h-8 text-xs pl-6" placeholder="Buscar nome..." />
+              className="h-8 text-base md:text-xs pl-6" placeholder="Buscar nome..." />
           </div>
           <Select value={ordenacao} onValueChange={(v) => setOrdenacao(v as Ordenacao)}>
             <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>

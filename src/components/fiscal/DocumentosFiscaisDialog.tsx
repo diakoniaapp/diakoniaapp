@@ -139,7 +139,7 @@ export function DocumentosFiscaisDialog({ open, onOpenChange, agendaId, nomeObri
             placeholder="Observação (opcional)"
             value={obs}
             onChange={e => setObs(e.target.value)}
-            className="text-xs"
+            className="text-base md:text-xs"
           />
           <div className="flex justify-end">
             <Button size="sm" onClick={enviar} disabled={!arquivo || enviando} className="gap-2">

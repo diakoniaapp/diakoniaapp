@@ -895,7 +895,7 @@ function ChecklistDaArea({ areaId, areaNome, tarefas, podeEditar, aoMudar }: {
           <Input value={nova} onChange={e => setNova(e.target.value)}
             onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); adicionar(); } }}
             placeholder="Nova tarefa — ex.: conferir microfones"
-            className="h-8 text-sm" />
+            className="h-8 text-base md:text-sm" />
           <Button size="sm" onClick={adicionar} disabled={salvando || !nova.trim()}
             className="gap-1.5 shrink-0">
             <Plus className="w-3.5 h-3.5" /> Add

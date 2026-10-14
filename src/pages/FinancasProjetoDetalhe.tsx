@@ -269,7 +269,7 @@ export default function FinancasProjetoDetalhe() {
       </div>
 
       {/* PÁGINA 1 — RESUMO EXECUTIVO */}
-      <div className="relatorio-page max-w-5xl mx-auto bg-white text-foreground p-8 md:p-10 my-4 md:my-6 shadow-elevated border border-border/40 rounded-md print:my-0">
+      <div className="relatorio-page max-w-5xl mx-auto bg-white text-foreground p-4 md:p-10 my-4 md:my-6 shadow-elevated border border-border/40 rounded-md print:my-0">
         {/* Sempre em coluna na TELA, só em linha na IMPRESSÃO — achado ao
             vivo (17/09/2026) testando com um nome de projeto longo. A
             causa real: o bloco de data à direita tem `shrink-0` (nunca
@@ -433,21 +433,23 @@ export default function FinancasProjetoDetalhe() {
                 {topDespesas.length === 0 ? (
                   <p className="text-xs text-muted-foreground italic py-4 text-center">Sem despesas ainda.</p>
                 ) : (
-                  <table className="w-full text-xs">
-                    <tbody>
-                      {topDespesas.map(l => (
-                        <tr key={l.id} className="border-b border-border/40 last:border-0">
-                          <td className="py-1.5 pr-2">
-                            <p className="truncate max-w-[220px]">{rotuloDoLancamento(l)}</p>
-                            <p className="text-muted-foreground text-2xs">{l.categoria_nome ?? "Sem categoria"}</p>
-                          </td>
-                          <td className="py-1.5 text-right tabular-nums font-medium text-destructive-text whitespace-nowrap">
-                            {brl(Number(l.valor))}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <tbody>
+                        {topDespesas.map(l => (
+                          <tr key={l.id} className="border-b border-border/40 last:border-0">
+                            <td className="py-1.5 pr-2">
+                              <p className="truncate max-w-[220px]">{rotuloDoLancamento(l)}</p>
+                              <p className="text-muted-foreground text-2xs">{l.categoria_nome ?? "Sem categoria"}</p>
+                            </td>
+                            <td className="py-1.5 text-right tabular-nums font-medium text-destructive-text whitespace-nowrap">
+                              {brl(Number(l.valor))}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
               </div>
 
@@ -498,26 +500,28 @@ export default function FinancasProjetoDetalhe() {
               <h3 className="text-xs uppercase tracking-wide text-muted-foreground text-center mb-2">
                 Balanço consolidado do projeto
               </h3>
-              <table className="w-full text-xs">
-                <tbody>
-                  <tr className="border-b border-border/40">
-                    <td className="py-1">Despesas totais (meta)</td>
-                    <td className="py-1 text-right font-medium tabular-nums">{brl(totais.totalSaidas)} (100,0%)</td>
-                  </tr>
-                  <tr className="border-b border-border/40">
-                    <td className="py-1">Arrecadação concluída</td>
-                    <td className="py-1 text-right font-medium tabular-nums text-success-text">
-                      {brl(totais.totalEntradas)} ({pctArrecadadoMeta.toFixed(1)}%)
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="py-1">{totais.resultado >= 0 ? "Superávit" : "Não alcançado (déficit)"}</td>
-                    <td className={`py-1 text-right font-medium tabular-nums ${totais.resultado >= 0 ? "text-success-text" : "text-destructive-text"}`}>
-                      {totais.resultado >= 0 ? "+" : "-"}{brl(Math.abs(totais.resultado))} ({pctDeficitMeta.toFixed(1)}%)
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <tbody>
+                    <tr className="border-b border-border/40">
+                      <td className="py-1">Despesas totais (meta)</td>
+                      <td className="py-1 text-right font-medium tabular-nums">{brl(totais.totalSaidas)} (100,0%)</td>
+                    </tr>
+                    <tr className="border-b border-border/40">
+                      <td className="py-1">Arrecadação concluída</td>
+                      <td className="py-1 text-right font-medium tabular-nums text-success-text">
+                        {brl(totais.totalEntradas)} ({pctArrecadadoMeta.toFixed(1)}%)
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="py-1">{totais.resultado >= 0 ? "Superávit" : "Não alcançado (déficit)"}</td>
+                      <td className={`py-1 text-right font-medium tabular-nums ${totais.resultado >= 0 ? "text-success-text" : "text-destructive-text"}`}>
+                        {totais.resultado >= 0 ? "+" : "-"}{brl(Math.abs(totais.resultado))} ({pctDeficitMeta.toFixed(1)}%)
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </section>
           )}
 
@@ -576,34 +580,36 @@ function ListagemColuna({ titulo, itens, cor, totalLabel, totalValor }: {
         <h3 className="text-sm font-medium">{titulo}</h3>
         <span className="text-xs text-muted-foreground">{itens.length} {itens.length === 1 ? "item" : "itens"}</span>
       </div>
-      <table className="w-full text-[11px] border-collapse">
-        <thead>
-          <tr className="border-b-2 border-gold/40 text-left text-muted-foreground">
-            <th className="py-1 pr-1 w-10">Data</th>
-            <th className="py-1 pr-1">Descrição</th>
-            <th className="py-1 pr-1 text-right w-20">Valor</th>
-          </tr>
-        </thead>
-        <tbody>
-          {ordenados.length === 0 ? (
-            <tr><td colSpan={3} className="py-2 text-center text-muted-foreground italic">Nenhum lançamento</td></tr>
-          ) : ordenados.map(l => (
-            <tr key={l.id} className="border-b border-border/30">
-              <td className="py-1 pr-1 whitespace-nowrap">{dataBr(l.data).slice(0, 5)}</td>
-              <td className="py-1 pr-1 truncate max-w-[160px]">{rotuloDoLancamento(l)}</td>
-              <td className={`py-1 pr-1 text-right tabular-nums ${corClass}`}>{brl(Number(l.valor))}</td>
+      <div className="overflow-x-auto">
+        <table className="w-full text-[11px] border-collapse">
+          <thead>
+            <tr className="border-b-2 border-gold/40 text-left text-muted-foreground">
+              <th className="py-1 pr-1 w-10">Data</th>
+              <th className="py-1 pr-1">Descrição</th>
+              <th className="py-1 pr-1 text-right w-20">Valor</th>
             </tr>
-          ))}
-        </tbody>
-        {ordenados.length > 0 && (
-          <tfoot>
-            <tr className="border-t-2 border-gold/40 font-semibold">
-              <td colSpan={2} className="py-1.5 text-xs">{totalLabel}</td>
-              <td className={`py-1.5 text-right tabular-nums text-xs ${corClass}`}>{brl(totalValor)}</td>
-            </tr>
-          </tfoot>
-        )}
-      </table>
+          </thead>
+          <tbody>
+            {ordenados.length === 0 ? (
+              <tr><td colSpan={3} className="py-2 text-center text-muted-foreground italic">Nenhum lançamento</td></tr>
+            ) : ordenados.map(l => (
+              <tr key={l.id} className="border-b border-border/30">
+                <td className="py-1 pr-1 whitespace-nowrap">{dataBr(l.data).slice(0, 5)}</td>
+                <td className="py-1 pr-1 truncate max-w-[160px]">{rotuloDoLancamento(l)}</td>
+                <td className={`py-1 pr-1 text-right tabular-nums ${corClass}`}>{brl(Number(l.valor))}</td>
+              </tr>
+            ))}
+          </tbody>
+          {ordenados.length > 0 && (
+            <tfoot>
+              <tr className="border-t-2 border-gold/40 font-semibold">
+                <td colSpan={2} className="py-1.5 text-xs">{totalLabel}</td>
+                <td className={`py-1.5 text-right tabular-nums text-xs ${corClass}`}>{brl(totalValor)}</td>
+              </tr>
+            </tfoot>
+          )}
+        </table>
+      </div>
     </div>
   );
 }

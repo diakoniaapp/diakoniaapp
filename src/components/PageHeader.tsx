@@ -8,7 +8,11 @@ export function PageHeader({ title, description, actions }: { title: string; des
           <h1 translate="no" className="text-2xl md:text-4xl font-serif text-foreground truncate">{title}</h1>
           {description && <p translate="no" className="text-sm md:text-base text-muted-foreground mt-0.5 md:mt-1">{description}</p>}
         </div>
-        {actions && <div className="hidden md:flex gap-2 shrink-0 whitespace-nowrap" translate="no">{actions}</div>}
+        {/* As ações aparecem também no celular. Eram `hidden md:flex` desde a primeira
+            versão, e 10 telas (Famílias, Ministérios, Locais, Campanhas…) ficavam sem
+            "Novo" abaixo de 768px, sem outro caminho. No celular o cabeçalho já é
+            coluna: as ações caem sob o título e quebram linha se não couberem. */}
+        {actions && <div className="flex flex-wrap gap-2 md:shrink-0 md:flex-nowrap md:whitespace-nowrap" translate="no">{actions}</div>}
       </div>
     </div>
   );

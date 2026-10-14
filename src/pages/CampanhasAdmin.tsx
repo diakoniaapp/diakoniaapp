@@ -870,7 +870,7 @@ function WizardCampanha({ campanha, onClose, onSalvo }: {
                   <Label className="text-xs">Contexto espiritual / propósito</Label>
                   <Textarea
                     rows={2}
-                    className="mt-1 text-sm resize-none"
+                    className="mt-1 text-base md:text-sm resize-none"
                     placeholder="Descreva como esta campanha se conecta com a identidade da igreja…"
                     value={form.contexto_espiritual}
                     onChange={(e) => setForm({ ...form, contexto_espiritual: e.target.value })}
@@ -951,7 +951,7 @@ function WizardCampanha({ campanha, onClose, onSalvo }: {
                         value={d.tema}
                         onChange={(e) => updateEstrutura(idx, "tema", e.target.value)}
                         placeholder="Tema do dia…"
-                        className="h-7 text-sm mt-0.5"
+                        className="h-7 text-base md:text-sm mt-0.5"
                       />
                     </div>
                   </div>

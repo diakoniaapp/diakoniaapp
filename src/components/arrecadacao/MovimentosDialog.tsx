@@ -130,7 +130,9 @@ export function MovimentosDialog({ open, onOpenChange, caixaId, onChange }: Prop
           </p>
         )}
         <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
-          <TabsList className="w-full grid grid-cols-5">
+          {/* Mesmo caso da ficha do visitante: 5 colunas de ~64px em 375px e
+              "Abate CNPJ" não cabe. Rola de lado no celular, grade de `sm` para cima. */}
+          <TabsList className="flex w-full justify-start overflow-x-auto sm:grid sm:grid-cols-5">
             <TabsTrigger value="lista">Lista</TabsTrigger>
             <TabsTrigger value="custo">Custo</TabsTrigger>
             <TabsTrigger value="reembolso">Reembolso</TabsTrigger>

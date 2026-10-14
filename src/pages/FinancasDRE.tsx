@@ -104,7 +104,7 @@ export default function FinancasDRE() {
       </div>
 
       {/* PÁGINA DO RELATÓRIO */}
-      <div className="relatorio-page max-w-5xl mx-auto bg-white text-foreground p-8 md:p-10 my-4 md:my-6 shadow-elevated border border-border/40 rounded-md print:my-0">
+      <div className="relatorio-page max-w-5xl mx-auto bg-white text-foreground p-4 md:p-10 my-4 md:my-6 shadow-elevated border border-border/40 rounded-md print:my-0">
         <header className="avoid-break flex items-start justify-between gap-4 pb-4 border-b-2 border-gold/30">
           <div className="flex flex-col items-center gap-1">
             <img src={logoDiakonia} alt="DIAKONIA" className="h-14 w-auto object-contain"
@@ -174,46 +174,48 @@ export default function FinancasDRE() {
 
         {/* Demonstração formal — Receitas → Despesas → Resultado */}
         <section className="mb-6">
-          <table className="w-full text-xs border-collapse">
-            <tbody>
-              <tr>
-                <td colSpan={2} className="pt-1 pb-2">
-                  <h3 className="font-serif text-base text-gold uppercase tracking-wide">Receitas</h3>
-                </td>
-              </tr>
-              {dre.gruposReceita.length === 0 ? (
-                <tr><td colSpan={2} className="py-2 text-muted-foreground italic">Sem receitas no período.</td></tr>
-              ) : dre.gruposReceita.map(g => (
-                <GrupoLinhas key={g.nome} grupo={g} cor="text-success-text" />
-              ))}
-              <tr className="border-t-2 border-gold/50 font-semibold">
-                <td className="py-2 uppercase tracking-wide">Total de Receitas</td>
-                <td className="py-2 text-right tabular-nums text-success-text">{brl(dre.totalReceitas)}</td>
-              </tr>
-
-              <tr><td colSpan={2} className="pt-6 pb-2">
-                <h3 className="font-serif text-base text-gold uppercase tracking-wide">Despesas</h3>
-              </td></tr>
-              {dre.gruposDespesa.length === 0 ? (
-                <tr><td colSpan={2} className="py-2 text-muted-foreground italic">Sem despesas no período.</td></tr>
-              ) : dre.gruposDespesa.map(g => (
-                <GrupoLinhas key={g.nome} grupo={g} cor="text-destructive-text" />
-              ))}
-              <tr className="border-t-2 border-gold/50 font-semibold">
-                <td className="py-2 uppercase tracking-wide">Total de Despesas</td>
-                <td className="py-2 text-right tabular-nums text-destructive-text">{brl(dre.totalDespesas)}</td>
-              </tr>
-
-              <tr className={`border-t-2 font-bold text-sm ${dre.resultado >= 0 ? "border-success-line" : "border-destructive-line"}`}>
-                <td className="pt-3 uppercase tracking-wide">
-                  Resultado do Período ({dre.resultado >= 0 ? "Superávit" : "Déficit"})
-                </td>
-                <td className={`pt-3 text-right tabular-nums ${dre.resultado >= 0 ? "text-success-text" : "text-destructive-text"}`}>
-                  {dre.resultado >= 0 ? "+" : ""}{brl(dre.resultado)}
-                </td>
-              </tr>
-            </tbody>
-          </table>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs border-collapse">
+              <tbody>
+                <tr>
+                  <td colSpan={2} className="pt-1 pb-2">
+                    <h3 className="font-serif text-base text-gold uppercase tracking-wide">Receitas</h3>
+                  </td>
+                </tr>
+                {dre.gruposReceita.length === 0 ? (
+                  <tr><td colSpan={2} className="py-2 text-muted-foreground italic">Sem receitas no período.</td></tr>
+                ) : dre.gruposReceita.map(g => (
+                  <GrupoLinhas key={g.nome} grupo={g} cor="text-success-text" />
+                ))}
+                <tr className="border-t-2 border-gold/50 font-semibold">
+                  <td className="py-2 uppercase tracking-wide">Total de Receitas</td>
+                  <td className="py-2 text-right tabular-nums text-success-text">{brl(dre.totalReceitas)}</td>
+                </tr>
+  
+                <tr><td colSpan={2} className="pt-6 pb-2">
+                  <h3 className="font-serif text-base text-gold uppercase tracking-wide">Despesas</h3>
+                </td></tr>
+                {dre.gruposDespesa.length === 0 ? (
+                  <tr><td colSpan={2} className="py-2 text-muted-foreground italic">Sem despesas no período.</td></tr>
+                ) : dre.gruposDespesa.map(g => (
+                  <GrupoLinhas key={g.nome} grupo={g} cor="text-destructive-text" />
+                ))}
+                <tr className="border-t-2 border-gold/50 font-semibold">
+                  <td className="py-2 uppercase tracking-wide">Total de Despesas</td>
+                  <td className="py-2 text-right tabular-nums text-destructive-text">{brl(dre.totalDespesas)}</td>
+                </tr>
+  
+                <tr className={`border-t-2 font-bold text-sm ${dre.resultado >= 0 ? "border-success-line" : "border-destructive-line"}`}>
+                  <td className="pt-3 uppercase tracking-wide">
+                    Resultado do Período ({dre.resultado >= 0 ? "Superávit" : "Déficit"})
+                  </td>
+                  <td className={`pt-3 text-right tabular-nums ${dre.resultado >= 0 ? "text-success-text" : "text-destructive-text"}`}>
+                    {dre.resultado >= 0 ? "+" : ""}{brl(dre.resultado)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </section>
 
         {/* Assinaturas */}

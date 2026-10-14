@@ -147,7 +147,7 @@ export default function EbdCampanhaRelatorio() {
       </div>
 
       {/* ── Página do relatório ───────────────────────────────── */}
-      <div className="relatorio-page max-w-4xl mx-auto bg-white text-foreground p-8 md:p-10 my-4 md:my-6 shadow-elevated border border-border/40 rounded-md print:my-0">
+      <div className="relatorio-page max-w-4xl mx-auto bg-white text-foreground p-4 md:p-10 my-4 md:my-6 shadow-elevated border border-border/40 rounded-md print:my-0">
         {/* Cabeçalho institucional */}
         <header className="avoid-break flex items-start justify-between gap-4 pb-4 border-b-2 border-gold/30">
           <div className="flex flex-col items-center gap-1">
@@ -288,43 +288,45 @@ export default function EbdCampanhaRelatorio() {
         {mostraDetalhes && entradas.length > 0 && (
           <section className="mb-6">
             <h3 className="font-serif text-base mb-3 text-gold">Detalhamento das Entradas</h3>
-            <table className="w-full text-xs border-collapse">
-              <thead>
-                <tr className="border-b-2 border-gold/40 text-left">
-                  <th className="py-1.5 pr-2 w-8">#</th>
-                  <th className="py-1.5 pr-2 w-24">Data</th>
-                  <th className="py-1.5 pr-2 w-28 text-right">Valor</th>
-                  <th className="py-1.5 pr-2 w-20">Tipo</th>
-                  <th className="py-1.5 pr-2 w-24">Forma</th>
-                  {mostrarDescricao && <th className="py-1.5 pr-2">Descrição</th>}
-                  <th className="py-1.5 w-12 text-center">Comp.</th>
-                </tr>
-              </thead>
-              <tbody>
-                {entradas.slice().reverse().map((e, idx) => (
-                  <tr key={e.id} className="border-b border-border/60">
-                    <td className="py-1.5 pr-2 text-muted-foreground">{idx + 1}</td>
-                    <td className="py-1.5 pr-2 whitespace-nowrap">{dataBr(e.data)}</td>
-                    <td className="py-1.5 pr-2 text-right tabular-nums font-medium">{brl(e.valor)}</td>
-                    <td className="py-1.5 pr-2">{TIPO_LABEL[e.tipo]}</td>
-                    <td className="py-1.5 pr-2">{FORMA_LABEL[e.forma]}</td>
-                    {mostrarDescricao && (
-                      <td className="py-1.5 pr-2 text-muted-foreground">
-                        {e.descricao ?? <span className="text-muted-foreground/50">—</span>}
-                      </td>
-                    )}
-                    <td className="py-1.5 text-center">{e.comprovante_url ? "✓" : ""}</td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs border-collapse">
+                <thead>
+                  <tr className="border-b-2 border-gold/40 text-left">
+                    <th className="py-1.5 pr-2 w-8">#</th>
+                    <th className="py-1.5 pr-2 w-24">Data</th>
+                    <th className="py-1.5 pr-2 w-28 text-right">Valor</th>
+                    <th className="py-1.5 pr-2 w-20">Tipo</th>
+                    <th className="py-1.5 pr-2 w-24">Forma</th>
+                    {mostrarDescricao && <th className="py-1.5 pr-2">Descrição</th>}
+                    <th className="py-1.5 w-12 text-center">Comp.</th>
                   </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="border-t-2 border-gold/40 font-semibold">
-                  <td colSpan={2} className="py-2 text-right uppercase text-xs tracking-wide pr-2">Total</td>
-                  <td className="py-2 pr-2 text-right tabular-nums">{brl(totalEntradas)}</td>
-                  <td colSpan={mostrarDescricao ? 4 : 3}></td>
-                </tr>
-              </tfoot>
-            </table>
+                </thead>
+                <tbody>
+                  {entradas.slice().reverse().map((e, idx) => (
+                    <tr key={e.id} className="border-b border-border/60">
+                      <td className="py-1.5 pr-2 text-muted-foreground">{idx + 1}</td>
+                      <td className="py-1.5 pr-2 whitespace-nowrap">{dataBr(e.data)}</td>
+                      <td className="py-1.5 pr-2 text-right tabular-nums font-medium">{brl(e.valor)}</td>
+                      <td className="py-1.5 pr-2">{TIPO_LABEL[e.tipo]}</td>
+                      <td className="py-1.5 pr-2">{FORMA_LABEL[e.forma]}</td>
+                      {mostrarDescricao && (
+                        <td className="py-1.5 pr-2 text-muted-foreground">
+                          {e.descricao ?? <span className="text-muted-foreground/50">—</span>}
+                        </td>
+                      )}
+                      <td className="py-1.5 text-center">{e.comprovante_url ? "✓" : ""}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-gold/40 font-semibold">
+                    <td colSpan={2} className="py-2 text-right uppercase text-xs tracking-wide pr-2">Total</td>
+                    <td className="py-2 pr-2 text-right tabular-nums">{brl(totalEntradas)}</td>
+                    <td colSpan={mostrarDescricao ? 4 : 3}></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
           </section>
         )}
 
@@ -396,23 +398,25 @@ function Bloco({ titulo, children }: { titulo: string; children: React.ReactNode
 
 function Tabelinha({ linhas, total }: { linhas: [string, string][]; total: string }) {
   return (
-    <table className="w-full text-xs">
-      <tbody>
-        {linhas.length === 0 ? (
-          <tr><td className="py-1 text-muted-foreground italic">Sem dados</td></tr>
-        ) : linhas.map(([k, v]) => (
-          <tr key={k} className="border-b border-border/40">
-            <td className="py-1">{k}</td>
-            <td className="py-1 text-right tabular-nums font-medium">{v}</td>
+    <div className="overflow-x-auto">
+      <table className="w-full text-xs">
+        <tbody>
+          {linhas.length === 0 ? (
+            <tr><td className="py-1 text-muted-foreground italic">Sem dados</td></tr>
+          ) : linhas.map(([k, v]) => (
+            <tr key={k} className="border-b border-border/40">
+              <td className="py-1">{k}</td>
+              <td className="py-1 text-right tabular-nums font-medium">{v}</td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr className="border-t-2 border-gold/40 font-semibold">
+            <td className="pt-1.5 text-xs uppercase tracking-wide">Total</td>
+            <td className="pt-1.5 text-right tabular-nums">{total}</td>
           </tr>
-        ))}
-      </tbody>
-      <tfoot>
-        <tr className="border-t-2 border-gold/40 font-semibold">
-          <td className="pt-1.5 text-xs uppercase tracking-wide">Total</td>
-          <td className="pt-1.5 text-right tabular-nums">{total}</td>
-        </tr>
-      </tfoot>
-    </table>
+        </tfoot>
+      </table>
+    </div>
   );
 }

@@ -165,7 +165,7 @@ export function ProximaAcaoCard({ pessoaId, nomeCompleto, statusAtual, onRegistr
                                                 value={descricao}
                                                 onChange={(e) => setDescricao(e.target.value)}
                                                 placeholder={`Ex: ${sugestao.acao}...`}
-                                                className="text-sm h-8 bg-white/80 dark:bg-white/10"
+                                                className="text-base md:text-sm h-8 bg-white/80 dark:bg-white/10"
                                                 onKeyDown={(e) => e.key === "Enter" && handleRegistrar()}
                                                 autoFocus
                                               />

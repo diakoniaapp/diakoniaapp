@@ -329,7 +329,7 @@ export default function AcoesHoje({ limit }: AcoesHojeProps = {}) {
                             </Button>
                           </div>
                           <Textarea
-                            className="text-xs resize-none min-h-[120px] leading-relaxed"
+                            className="text-base md:text-xs resize-none min-h-[120px] leading-relaxed"
                             value={mensagensEditadas[v.id] ?? ""}
                             onChange={(e) =>
                               setMensagensEditadas((prev) => ({ ...prev, [v.id]: e.target.value }))

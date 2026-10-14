@@ -196,7 +196,7 @@ export function PostosDoVinculo({
               if (e.key === "Escape") { setCriando(false); setRascunho(""); }
             }}
             placeholder={`Novo posto em ${areaNome}`}
-            className="h-7 w-44 text-xs"
+            className="h-7 w-44 text-base md:text-xs"
           />
           <button type="button" onClick={criar} aria-label="Criar posto"
             className="rounded p-1 text-primary hover:bg-primary/10">

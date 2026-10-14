@@ -128,7 +128,7 @@ export function PosUsoCheckDialog({ open, onOpenChange, reservaId, onConcluido }
 
               {(expandido[item.id] || item.observacao || item.problema_reportado) && (
                 <Textarea
-                  className="mt-2 text-xs"
+                  className="mt-2 text-base md:text-xs"
                   rows={2}
                   placeholder={
                     item.problema_reportado

@@ -167,7 +167,7 @@ export function PagamentosAClassificar({ b, aoMudar }: { b: BeneficiarioComCompe
           <div className="relative flex-1 min-w-0">
             <Search className="w-3 h-3 absolute left-2 top-2.5 text-muted-foreground" />
             <Input value={termo} onChange={(e) => setTermo(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") buscar(); }}
-              className="h-8 text-xs pl-6" placeholder="Procurar outro pagamento: nome no extrato ou valor (ex.: 4000)" aria-label="Procurar outro pagamento" />
+              className="h-8 text-base md:text-xs pl-6" placeholder="Procurar outro pagamento: nome no extrato ou valor (ex.: 4000)" aria-label="Procurar outro pagamento" />
           </div>
           <Button size="sm" variant="outline" className="h-8" onClick={buscar}>Procurar</Button>
         </div>

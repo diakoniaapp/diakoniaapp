@@ -198,7 +198,7 @@ export default function FinancasCentroPrestacaoContas() {
       </div>
 
       {/* PÁGINA DO RELATÓRIO */}
-      <div className="relatorio-page max-w-5xl mx-auto bg-white text-foreground p-8 md:p-10 my-4 md:my-6 shadow-elevated border border-border/40 rounded-md print:my-0">
+      <div className="relatorio-page max-w-5xl mx-auto bg-white text-foreground p-4 md:p-10 my-4 md:my-6 shadow-elevated border border-border/40 rounded-md print:my-0">
         <header className="avoid-break flex items-start justify-between gap-4 pb-4 border-b-2 border-gold/30">
           <div className="flex flex-col items-center gap-1">
             <img src={logoDiakonia} alt="DIAKONIA" className="h-14 w-auto object-contain"
@@ -271,42 +271,44 @@ export default function FinancasCentroPrestacaoContas() {
 
             <section className="mb-6">
               <h3 className="font-serif text-base mb-2 text-gold">Lançamentos detalhados</h3>
-              <table className="w-full text-xs border-collapse">
-                <thead>
-                  <tr className="border-b-2 border-gold/40 text-left">
-                    <th className="py-1 pr-1 w-12">Data</th>
-                    <th className="py-1 pr-1 w-12">Tipo</th>
-                    <th className="py-1 pr-1">Descrição</th>
-                    <th className="py-1 pr-1">Categoria</th>
-                    <th className="py-1 pr-1 w-16">Doc.</th>
-                    <th className="py-1 pr-1 w-24 text-right">Valor</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {lancamentos.slice().sort((a, b) => a.data.localeCompare(b.data)).map(l => (
-                    <tr key={l.id} className="border-b border-border/40">
-                      <td className="py-1 pr-1 whitespace-nowrap">{dataBr(l.data)}</td>
-                      <td className={`py-1 pr-1 ${l.tipo === "entrada" ? "text-success-text" : "text-destructive-text"}`}>
-                        {l.tipo === "entrada" ? "▲" : "▼"}
-                      </td>
-                      <td className="py-1 pr-1 truncate">{rotuloDoLancamento(l)}</td>
-                      <td className="py-1 pr-1 text-muted-foreground truncate">{l.categoria_nome ?? "—"}</td>
-                      <td className="py-1 pr-1 text-muted-foreground truncate">{l.documento_numero ?? ""}</td>
-                      <td className={`py-1 text-right tabular-nums font-medium ${l.tipo === "entrada" ? "text-success-text" : "text-destructive-text"}`}>
-                        {l.tipo === "entrada" ? "+" : "−"} {brl(Number(l.valor))}
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b-2 border-gold/40 text-left">
+                      <th className="py-1 pr-1 w-12">Data</th>
+                      <th className="py-1 pr-1 w-12">Tipo</th>
+                      <th className="py-1 pr-1">Descrição</th>
+                      <th className="py-1 pr-1">Categoria</th>
+                      <th className="py-1 pr-1 w-16">Doc.</th>
+                      <th className="py-1 pr-1 w-24 text-right">Valor</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lancamentos.slice().sort((a, b) => a.data.localeCompare(b.data)).map(l => (
+                      <tr key={l.id} className="border-b border-border/40">
+                        <td className="py-1 pr-1 whitespace-nowrap">{dataBr(l.data)}</td>
+                        <td className={`py-1 pr-1 ${l.tipo === "entrada" ? "text-success-text" : "text-destructive-text"}`}>
+                          {l.tipo === "entrada" ? "▲" : "▼"}
+                        </td>
+                        <td className="py-1 pr-1 truncate">{rotuloDoLancamento(l)}</td>
+                        <td className="py-1 pr-1 text-muted-foreground truncate">{l.categoria_nome ?? "—"}</td>
+                        <td className="py-1 pr-1 text-muted-foreground truncate">{l.documento_numero ?? ""}</td>
+                        <td className={`py-1 text-right tabular-nums font-medium ${l.tipo === "entrada" ? "text-success-text" : "text-destructive-text"}`}>
+                          {l.tipo === "entrada" ? "+" : "−"} {brl(Number(l.valor))}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t-2 border-gold/40 font-semibold">
+                      <td colSpan={5} className="py-2 text-right uppercase text-xs tracking-wide pr-2">Resultado</td>
+                      <td className={`py-2 text-right tabular-nums ${totais.resultado >= 0 ? "text-success-text" : "text-destructive-text"}`}>
+                        {totais.resultado >= 0 ? "+" : ""}{brl(totais.resultado)}
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="border-t-2 border-gold/40 font-semibold">
-                    <td colSpan={5} className="py-2 text-right uppercase text-xs tracking-wide pr-2">Resultado</td>
-                    <td className={`py-2 text-right tabular-nums ${totais.resultado >= 0 ? "text-success-text" : "text-destructive-text"}`}>
-                      {totais.resultado >= 0 ? "+" : ""}{brl(totais.resultado)}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
+                  </tfoot>
+                </table>
+              </div>
             </section>
           </>
         )}
@@ -355,27 +357,29 @@ function CategoriasBox({ titulo, itens, cor, total }: {
   return (
     <div>
       <h4 className={`text-xs uppercase tracking-wider mb-2 font-medium ${corClass}`}>{titulo}</h4>
-      <table className="w-full text-xs">
-        <tbody>
-          {itens.length === 0 ? (
-            <tr><td className="py-1 text-muted-foreground italic">Sem registros</td></tr>
-          ) : itens.map((c, i) => (
-            <tr key={i} className="border-b border-border/40">
-              <td className="py-1 flex items-center gap-1.5">
-                {c.cor && <span className="w-2 h-2 rounded-full shrink-0" style={{ background: c.cor }} />}
-                <span className="truncate">{c.nome}</span>
-              </td>
-              <td className={`py-1 text-right tabular-nums font-medium ${corClass}`}>{brl(c.total)}</td>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <tbody>
+            {itens.length === 0 ? (
+              <tr><td className="py-1 text-muted-foreground italic">Sem registros</td></tr>
+            ) : itens.map((c, i) => (
+              <tr key={i} className="border-b border-border/40">
+                <td className="py-1 flex items-center gap-1.5">
+                  {c.cor && <span className="w-2 h-2 rounded-full shrink-0" style={{ background: c.cor }} />}
+                  <span className="truncate">{c.nome}</span>
+                </td>
+                <td className={`py-1 text-right tabular-nums font-medium ${corClass}`}>{brl(c.total)}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr className="border-t-2 border-gold/40 font-semibold">
+              <td className="pt-1.5 text-xs uppercase tracking-wide">Total</td>
+              <td className={`pt-1.5 text-right tabular-nums ${corClass}`}>{brl(total)}</td>
             </tr>
-          ))}
-        </tbody>
-        <tfoot>
-          <tr className="border-t-2 border-gold/40 font-semibold">
-            <td className="pt-1.5 text-xs uppercase tracking-wide">Total</td>
-            <td className={`pt-1.5 text-right tabular-nums ${corClass}`}>{brl(total)}</td>
-          </tr>
-        </tfoot>
-      </table>
+          </tfoot>
+        </table>
+      </div>
     </div>
   );
 }

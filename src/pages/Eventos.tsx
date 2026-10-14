@@ -847,15 +847,6 @@ export default function Eventos() {
                 </button>
               )}
 
-              <Button
-                variant="outline" size="sm"
-                onClick={() => setPrintOpen(true)}
-                className="h-11 gap-1.5 md:hidden"
-              >
-                <Printer className="w-4 h-4" />
-                Imprimir
-              </Button>
-
               {/* Já apareceu no computador e no celular: o seletor de visão é
                   o que faz o celular deixar de estar preso à lista. */}
               <div className="ml-auto">

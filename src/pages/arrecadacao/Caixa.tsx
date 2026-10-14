@@ -351,7 +351,7 @@ export default function CaixaPDV() {
 
             {pagamento === "outros" && (
               <Input placeholder="Identificação do pagamento" value={clienteNome}
-                onChange={e => setClienteNome(e.target.value)} className="text-xs" />
+                onChange={e => setClienteNome(e.target.value)} className="text-base md:text-xs" />
             )}
 
             <Button onClick={finalizar}

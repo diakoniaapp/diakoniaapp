@@ -108,7 +108,7 @@ export default function FinancasEstoque() {
           <div className="md:col-span-2 relative">
             <Search className="w-3 h-3 absolute left-2 top-2.5 text-muted-foreground" />
             <Input value={busca} onChange={(e) => setBusca(e.target.value)}
-              className="h-8 text-xs pl-6" placeholder="Buscar item..." />
+              className="h-8 text-base md:text-xs pl-6" placeholder="Buscar item..." />
           </div>
           <div className="grid grid-cols-2 gap-1">
             <Select value={filtroCategoria} onValueChange={setFiltroCategoria}>

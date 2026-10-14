@@ -185,7 +185,7 @@ export function FechamentoDialog({ open, onOpenChange, caixaId, reservaFinalidad
           <div className="print:hidden">
             <Label className="text-xs">Observação</Label>
             <Textarea value={observacao} onChange={e => setObservacao(e.target.value)}
-              placeholder="Ex: caixa conferido, sem divergências" className="mt-1 text-xs" />
+              placeholder="Ex: caixa conferido, sem divergências" className="mt-1 text-base md:text-xs" />
           </div>
 
           {/* Assinaturas — só na impressão */}

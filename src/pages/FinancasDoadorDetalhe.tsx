@@ -114,7 +114,7 @@ export default function FinancasDoadorDetalhe() {
         </div>
       </div>
 
-      <div className="relatorio-page max-w-4xl mx-auto bg-white text-foreground p-8 md:p-10 my-4 md:my-6 shadow-elevated border border-border/40 rounded-md print:my-0">
+      <div className="relatorio-page max-w-4xl mx-auto bg-white text-foreground p-4 md:p-10 my-4 md:my-6 shadow-elevated border border-border/40 rounded-md print:my-0">
         <header className="avoid-break flex items-start justify-between gap-4 pb-4 border-b-2 border-gold/30">
           <div className="flex flex-col items-center gap-1">
             <img src={logoDiakonia} alt="DIAKONIA" className="h-14 w-auto object-contain"
@@ -166,32 +166,34 @@ export default function FinancasDoadorDetalhe() {
           </p>
         ) : (
           <section className="mb-6">
-            <table className="w-full text-xs border-collapse">
-              <thead>
-                <tr className="border-b-2 border-gold/40 text-left">
-                  <th className="py-1 pr-1 w-16">Data</th>
-                  <th className="py-1 pr-1">Categoria</th>
-                  <th className="py-1 pr-1">Forma</th>
-                  <th className="py-1 pr-1 w-24 text-right">Valor</th>
-                </tr>
-              </thead>
-              <tbody>
-                {contribuicoes.slice().sort((a, b) => a.data.localeCompare(b.data)).map(l => (
-                  <tr key={l.id} className="border-b border-border/40">
-                    <td className="py-1 pr-1 whitespace-nowrap">{dataBr(l.data)}</td>
-                    <td className="py-1 pr-1 text-muted-foreground truncate">{l.categoria_nome ?? "—"}</td>
-                    <td className="py-1 pr-1 text-muted-foreground truncate">{l.forma_pagamento ? FORMA_LABEL[l.forma_pagamento] : "—"}</td>
-                    <td className="py-1 text-right tabular-nums font-medium text-success-text">{brl(Number(l.valor))}</td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs border-collapse">
+                <thead>
+                  <tr className="border-b-2 border-gold/40 text-left">
+                    <th className="py-1 pr-1 w-16">Data</th>
+                    <th className="py-1 pr-1">Categoria</th>
+                    <th className="py-1 pr-1">Forma</th>
+                    <th className="py-1 pr-1 w-24 text-right">Valor</th>
                   </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="border-t-2 border-gold/40 font-semibold">
-                  <td colSpan={3} className="py-2 text-right uppercase text-xs tracking-wide pr-2">Total</td>
-                  <td className="py-2 text-right tabular-nums text-success-text">{brl(total)}</td>
-                </tr>
-              </tfoot>
-            </table>
+                </thead>
+                <tbody>
+                  {contribuicoes.slice().sort((a, b) => a.data.localeCompare(b.data)).map(l => (
+                    <tr key={l.id} className="border-b border-border/40">
+                      <td className="py-1 pr-1 whitespace-nowrap">{dataBr(l.data)}</td>
+                      <td className="py-1 pr-1 text-muted-foreground truncate">{l.categoria_nome ?? "—"}</td>
+                      <td className="py-1 pr-1 text-muted-foreground truncate">{l.forma_pagamento ? FORMA_LABEL[l.forma_pagamento] : "—"}</td>
+                      <td className="py-1 text-right tabular-nums font-medium text-success-text">{brl(Number(l.valor))}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-gold/40 font-semibold">
+                    <td colSpan={3} className="py-2 text-right uppercase text-xs tracking-wide pr-2">Total</td>
+                    <td className="py-2 text-right tabular-nums text-success-text">{brl(total)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
           </section>
         )}
 

@@ -251,10 +251,10 @@ export function FornecedorForm({ open, onOpenChange, fornecedor: fornecedorDaPro
 
           <div className="border rounded-md p-2 bg-muted/20 space-y-2">
             <p className="text-xs font-medium">Dados para pagamento</p>
-            <div className="grid grid-cols-3 gap-2">
-              <div className="col-span-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div className="sm:col-span-2">
                 <Label className="text-xs">Chave Pix</Label>
-                <Input value={campos.chavePix} onChange={(e) => set("chavePix", e.target.value)} className="h-8 text-sm" />
+                <Input value={campos.chavePix} onChange={(e) => set("chavePix", e.target.value)} className="h-8 text-base md:text-sm" />
               </div>
               <div>
                 <Label className="text-xs">Tipo da chave</Label>
@@ -266,18 +266,18 @@ export function FornecedorForm({ open, onOpenChange, fornecedor: fornecedorDaPro
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-2">
-              <div className="col-span-1">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              <div className="col-span-2 sm:col-span-1">
                 <Label className="text-xs">Banco</Label>
-                <Input value={campos.bancoNome} onChange={(e) => set("bancoNome", e.target.value)} className="h-8 text-sm" />
+                <Input value={campos.bancoNome} onChange={(e) => set("bancoNome", e.target.value)} className="h-8 text-base md:text-sm" />
               </div>
               <div>
                 <Label className="text-xs">Agência</Label>
-                <Input value={campos.agencia} onChange={(e) => set("agencia", e.target.value)} className="h-8 text-sm" />
+                <Input value={campos.agencia} onChange={(e) => set("agencia", e.target.value)} className="h-8 text-base md:text-sm" />
               </div>
               <div>
                 <Label className="text-xs">Conta</Label>
-                <Input value={campos.conta} onChange={(e) => set("conta", e.target.value)} className="h-8 text-sm" />
+                <Input value={campos.conta} onChange={(e) => set("conta", e.target.value)} className="h-8 text-base md:text-sm" />
               </div>
             </div>
           </div>
@@ -309,8 +309,8 @@ export function FornecedorForm({ open, onOpenChange, fornecedor: fornecedorDaPro
           </p>
 
           {!ehPessoa && (<>
-          <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="sm:col-span-2">
               <Label>Endereço</Label>
               <Input value={campos.endereco} onChange={(e) => set("endereco", e.target.value)} />
             </div>
@@ -320,8 +320,8 @@ export function FornecedorForm({ open, onOpenChange, fornecedor: fornecedorDaPro
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-1">
+          <div className="grid grid-cols-[minmax(0,1fr)_4rem] sm:grid-cols-3 gap-3">
+            <div className="col-span-2 sm:col-span-1">
               <Label>Bairro</Label>
               <Input value={campos.bairro} onChange={(e) => set("bairro", e.target.value)} />
             </div>

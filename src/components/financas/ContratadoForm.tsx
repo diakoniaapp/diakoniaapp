@@ -244,10 +244,10 @@ export function ContratadoForm({ open, onOpenChange, contratado, onSaved }: Prop
               todo mundo recebe, seja CLT, MEI, RPA ou prebenda. */}
           <div className="border rounded-md p-2 bg-muted/20 space-y-2">
             <p className="text-xs font-medium">Dados para pagamento</p>
-            <div className="grid grid-cols-3 gap-2">
-              <div className="col-span-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div className="sm:col-span-2">
                 <Label className="text-xs">Chave Pix</Label>
-                <Input value={campos.chavePix} onChange={(e) => set("chavePix", e.target.value)} className="h-8 text-sm" />
+                <Input value={campos.chavePix} onChange={(e) => set("chavePix", e.target.value)} className="h-8 text-base md:text-sm" />
               </div>
               <div>
                 <Label className="text-xs">Tipo da chave</Label>
@@ -259,18 +259,18 @@ export function ContratadoForm({ open, onOpenChange, contratado, onSaved }: Prop
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-2">
-              <div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              <div className="col-span-2 sm:col-span-1">
                 <Label className="text-xs">Banco</Label>
-                <Input value={campos.bancoNome} onChange={(e) => set("bancoNome", e.target.value)} className="h-8 text-sm" />
+                <Input value={campos.bancoNome} onChange={(e) => set("bancoNome", e.target.value)} className="h-8 text-base md:text-sm" />
               </div>
               <div>
                 <Label className="text-xs">Agência</Label>
-                <Input value={campos.agencia} onChange={(e) => set("agencia", e.target.value)} className="h-8 text-sm" />
+                <Input value={campos.agencia} onChange={(e) => set("agencia", e.target.value)} className="h-8 text-base md:text-sm" />
               </div>
               <div>
                 <Label className="text-xs">Conta</Label>
-                <Input value={campos.conta} onChange={(e) => set("conta", e.target.value)} className="h-8 text-sm" />
+                <Input value={campos.conta} onChange={(e) => set("conta", e.target.value)} className="h-8 text-base md:text-sm" />
               </div>
             </div>
           </div>
@@ -281,27 +281,27 @@ export function ContratadoForm({ open, onOpenChange, contratado, onSaved }: Prop
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <Label className="text-xs">Salário base</Label>
-                  <Input type="text" inputMode="decimal" value={campos.salarioBase} onChange={(e) => set("salarioBase", e.target.value)} className="h-8 text-sm" />
+                  <Input type="text" inputMode="decimal" value={campos.salarioBase} onChange={(e) => set("salarioBase", e.target.value)} className="h-8 text-base md:text-sm" />
                 </div>
                 <div>
                   <Label className="text-xs">Jornada (h/semana)</Label>
-                  <Input type="number" value={campos.jornada} onChange={(e) => set("jornada", e.target.value)} className="h-8 text-sm" />
+                  <Input type="number" value={campos.jornada} onChange={(e) => set("jornada", e.target.value)} className="h-8 text-base md:text-sm" />
                 </div>
                 <div>
                   <Label className="text-xs">Dependentes</Label>
-                  <Input type="number" min={0} value={campos.numDependentes} onChange={(e) => set("numDependentes", e.target.value)} className="h-8 text-sm" />
+                  <Input type="number" min={0} value={campos.numDependentes} onChange={(e) => set("numDependentes", e.target.value)} className="h-8 text-base md:text-sm" />
                 </div>
                 <div>
                   <Label className="text-xs">Vale-alimentação/dia</Label>
-                  <Input type="text" inputMode="decimal" value={campos.valeAlimentacaoDia} onChange={(e) => set("valeAlimentacaoDia", e.target.value)} className="h-8 text-sm" />
+                  <Input type="text" inputMode="decimal" value={campos.valeAlimentacaoDia} onChange={(e) => set("valeAlimentacaoDia", e.target.value)} className="h-8 text-base md:text-sm" />
                 </div>
                 <div>
                   <Label className="text-xs">Vale-transporte (dias/mês)</Label>
-                  <Input type="number" min={0} value={campos.valeTransporteDias} onChange={(e) => set("valeTransporteDias", e.target.value)} className="h-8 text-sm" />
+                  <Input type="number" min={0} value={campos.valeTransporteDias} onChange={(e) => set("valeTransporteDias", e.target.value)} className="h-8 text-base md:text-sm" />
                 </div>
                 <div>
                   <Label className="text-xs">Valor da passagem (VT)</Label>
-                  <Input type="text" inputMode="decimal" value={campos.vtPassagemValor} onChange={(e) => set("vtPassagemValor", e.target.value)} className="h-8 text-sm" />
+                  <Input type="text" inputMode="decimal" value={campos.vtPassagemValor} onChange={(e) => set("vtPassagemValor", e.target.value)} className="h-8 text-base md:text-sm" />
                 </div>
               </div>
             </div>
@@ -320,15 +320,15 @@ export function ContratadoForm({ open, onOpenChange, contratado, onSaved }: Prop
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <Label className="text-xs">CNPJ</Label>
-                  <Input value={campos.cnpj} onChange={(e) => set("cnpj", e.target.value)} className="h-8 text-sm" placeholder="Só números" />
+                  <Input value={campos.cnpj} onChange={(e) => set("cnpj", e.target.value)} className="h-8 text-base md:text-sm" placeholder="Só números" />
                 </div>
                 <div>
                   <Label className="text-xs">Valor mensal</Label>
-                  <Input type="text" inputMode="decimal" value={campos.meiValorMensal} onChange={(e) => set("meiValorMensal", e.target.value)} className="h-8 text-sm" />
+                  <Input type="text" inputMode="decimal" value={campos.meiValorMensal} onChange={(e) => set("meiValorMensal", e.target.value)} className="h-8 text-base md:text-sm" />
                 </div>
                 <div className="col-span-2">
                   <Label className="text-xs">Atividade</Label>
-                  <Input value={campos.meiAtividade} onChange={(e) => set("meiAtividade", e.target.value)} className="h-8 text-sm" />
+                  <Input value={campos.meiAtividade} onChange={(e) => set("meiAtividade", e.target.value)} className="h-8 text-base md:text-sm" />
                 </div>
               </div>
             </div>
@@ -347,15 +347,15 @@ export function ContratadoForm({ open, onOpenChange, contratado, onSaved }: Prop
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <Label className="text-xs">Prebenda mensal</Label>
-                  <Input type="text" inputMode="decimal" value={campos.prebendaValor} onChange={(e) => set("prebendaValor", e.target.value)} className="h-8 text-sm" />
+                  <Input type="text" inputMode="decimal" value={campos.prebendaValor} onChange={(e) => set("prebendaValor", e.target.value)} className="h-8 text-base md:text-sm" />
                 </div>
                 <div>
                   <Label className="text-xs">Auxílio aluguel</Label>
-                  <Input type="text" inputMode="decimal" value={campos.prebendaAuxAluguel} onChange={(e) => set("prebendaAuxAluguel", e.target.value)} className="h-8 text-sm" />
+                  <Input type="text" inputMode="decimal" value={campos.prebendaAuxAluguel} onChange={(e) => set("prebendaAuxAluguel", e.target.value)} className="h-8 text-base md:text-sm" />
                 </div>
                 <div className="col-span-2">
                   <Label className="text-xs">Outros auxílios</Label>
-                  <Input type="text" inputMode="decimal" value={campos.prebendaAuxOutros} onChange={(e) => set("prebendaAuxOutros", e.target.value)} className="h-8 text-sm" />
+                  <Input type="text" inputMode="decimal" value={campos.prebendaAuxOutros} onChange={(e) => set("prebendaAuxOutros", e.target.value)} className="h-8 text-base md:text-sm" />
                 </div>
               </div>
               <label className="flex items-center gap-1.5 text-xs cursor-pointer">

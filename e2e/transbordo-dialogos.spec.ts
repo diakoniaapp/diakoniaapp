@@ -35,7 +35,9 @@ test.describe("diálogos não vazam em 375px", () => {
       test.skip(true, `Redirecionado para ${destino}. Veja e2e/README.md.`);
     }
 
-    await page.getByRole("button", { name: /^Imprimir$/ }).click();
+    // O botão do celular ("Imprimir") saiu: desde que o PageHeader mostra as ações
+    // em qualquer largura, o do cabeçalho é o único, também em 375px.
+    await page.getByRole("button", { name: "Imprimir / PDF", exact: true }).click();
     const dialogo = page.getByRole("dialog");
     await expect(dialogo).toBeVisible();
     await page.waitForTimeout(300);

@@ -63,7 +63,7 @@ export function EscolhaDeFavorecido({ atual, sugerido, disabled, onChange }: Pro
       <PopoverContent align="start" className="w-80 p-2">
         <div className="relative">
           <Search className="pointer-events-none absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" aria-hidden />
-          <Input autoFocus value={busca} onChange={e => setBusca(e.target.value)} placeholder="Nome da pessoa ou do favorecido…" className="h-9 pl-8 text-sm" />
+          <Input autoFocus value={busca} onChange={e => setBusca(e.target.value)} placeholder="Nome da pessoa ou do favorecido…" className="h-9 pl-8 text-base md:text-sm" />
         </div>
         <ul className="mt-2 max-h-56 overflow-y-auto" role="listbox" aria-label="Resultados">
           {buscando && <li className="flex items-center gap-2 px-2 py-2 text-xs text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Buscando…</li>}

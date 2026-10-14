@@ -823,7 +823,7 @@ export default function IdentidadeAdmin() {
                         </button>
                       </div>
                       <Input value={v.descricao} onChange={(e) => updateValor(idx, "descricao", e.target.value)}
-                        placeholder="Descrição opcional…" className="text-sm text-muted-foreground" />
+                        placeholder="Descrição opcional…" className="text-base md:text-sm text-muted-foreground" />
                     </div>
                   );
                 })}
@@ -1240,8 +1240,10 @@ export default function IdentidadeAdmin() {
           </CardContent>
         </Card>
 
-        {/* Botão sticky mobile */}
-        <div className="sticky bottom-4 md:hidden">
+        {/* Botão sticky mobile. 4,25rem e não bottom-4: o <main> vai até o fim da
+            tela e a MobileBottomNav (56px) se sobrepõe a ele — a 16px do fundo o
+            botão ficava inteiro embaixo da barra. Mesmo ajuste de FinancasCentralDocumentos. */}
+        <div className="sticky bottom-[4.25rem] md:hidden">
           <Button className="w-full shadow-elevated" onClick={salvar} disabled={saving}>
             {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
             Salvar tudo

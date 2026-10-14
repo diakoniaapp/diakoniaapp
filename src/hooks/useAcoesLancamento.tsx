@@ -409,7 +409,7 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
                       className="h-8 rounded-md border border-input bg-background px-2 text-xs" aria-label="Tipo da chave">
                       {TIPOS_CHAVE_PIX.map(t => <option key={t.valor} value={t.valor}>{t.rotulo}</option>)}
                     </select>
-                    <Input value={novaChave} onChange={(e) => setNovaChave(e.target.value)} placeholder="Chave Pix" className="h-8 text-xs flex-1 min-w-[10rem]" />
+                    <Input value={novaChave} onChange={(e) => setNovaChave(e.target.value)} placeholder="Chave Pix" className="h-8 text-base md:text-xs flex-1 min-w-[10rem]" />
                     <Button type="button" size="sm" variant="outline" disabled={!novaChave.trim() || salvandoChave} onClick={guardarChaveDaPessoa}>
                       {salvandoChave ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Guardar chave"}
                     </Button>

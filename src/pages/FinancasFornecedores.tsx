@@ -120,7 +120,7 @@ export default function FinancasFornecedores() {
           <div className="relative flex-1">
             <Search className="w-3 h-3 absolute left-2 top-2.5 text-muted-foreground" />
             <Input value={busca} onChange={(e) => setBusca(e.target.value)}
-              className="h-8 text-xs pl-6" placeholder="Buscar por nome ou CNPJ/CPF..." />
+              className="h-8 text-base md:text-xs pl-6" placeholder="Buscar por nome ou CNPJ/CPF..." />
           </div>
           <label className="flex items-center gap-1.5 text-xs cursor-pointer shrink-0 px-1">
             <input type="checkbox" checked={mostrarInativos} onChange={(e) => setMostrarInativos(e.target.checked)} />
