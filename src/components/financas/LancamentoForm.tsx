@@ -1109,11 +1109,12 @@ export function LancamentoForm({
               )}
             </div>
             <div>
+              {/* "Aguardando aprovação" foi aposentada em 14/10/2026: ninguém a usava (0 lançamentos) e aprovar, ali, era pagar. Só aparece se um lançamento antigo ainda estiver nesse estado. */}
               <Label>Situação</Label>
               <Select value={status} onValueChange={(v) => setStatus(v as FinStatus)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {(Object.entries(STATUS_LABEL) as [FinStatus, string][]).filter(([k]) => k !== "quitado_terceiro").map(([k, l]) => (
+                  {(Object.entries(STATUS_LABEL) as [FinStatus, string][]).filter(([k]) => k !== "quitado_terceiro" && (k !== "aguardando_aprovacao" || status === k)).map(([k, l]) => (
                     <SelectItem key={k} value={k}>{l}</SelectItem>
                   ))}
                 </SelectContent>

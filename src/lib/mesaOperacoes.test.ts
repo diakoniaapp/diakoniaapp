@@ -65,7 +65,7 @@ describe("caixa", () => {
 });
 
 describe("checklist do dia", () => {
-  const limpo = { atrasadas: 0, venceHoje: 0, debitosAConferir: 0, comprovantesPendentes: 0, diasSemExtrato: 1, aprovacoesParadas: 0, documentosFaltando: 0 };
+  const limpo = { atrasadas: 0, venceHoje: 0, debitosAConferir: 0, comprovantesPendentes: 0, diasSemExtrato: 1, documentosFaltando: 0 };
   it("tudo em dia → nenhuma pendência", () => {
     const c = montarChecklist(limpo);
     expect(pendenciasDoChecklist(c)).toBe(0);

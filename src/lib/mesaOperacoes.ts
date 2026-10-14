@@ -102,7 +102,6 @@ export interface EntradasDoChecklist {
   comprovantesPendentes: number;
   /** Dias desde o último movimento lançado numa conta de banco; null = sem dado. */
   diasSemExtrato: number | null;
-  aprovacoesParadas: number;
   /** Saídas pagas no mês que exigem documento e ainda não têm. */
   documentosFaltando: number;
 }
@@ -131,7 +130,6 @@ export function montarChecklist(e: EntradasDoChecklist): ItemDoChecklist[] {
     item("comprovantes", "Anexar comprovantes", e.comprovantesPendentes, `${plural(e.comprovantesPendentes, "pagamento sem comprovante", "pagamentos sem comprovante")}`, "Comprovantes em dia"),
     item("extrato", "Importar o extrato do banco", extratoAtrasado ? 1 : 0,
       e.diasSemExtrato != null ? `último movimento há ${e.diasSemExtrato} dias` : "sem movimento", "Extrato em dia"),
-    item("aprovacoes", "Decidir aprovações paradas", e.aprovacoesParadas, plural(e.aprovacoesParadas, "lançamento aguarda aprovação", "lançamentos aguardam aprovação"), "Nenhuma aprovação parada"),
     item("documentos", "Documentos para a contabilidade", e.documentosFaltando, `${plural(e.documentosFaltando, "pagamento sem documento", "pagamentos sem documento")} neste mês`, "Documentação em dia"),
   ];
 }

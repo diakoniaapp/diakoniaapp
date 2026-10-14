@@ -11,7 +11,7 @@
 // COMPORTAMENTO — estado, chamadas de serviço, os três diálogos prontos —
 // de onde ele é DISPARADO. Qualquer tela que já carregue vencimentos ou
 // pendências (Agenda, Painel da Tesouraria) monta `{dialogs}` uma vez e
-// chama `pagar(v)`/`aprovar(l)`/`rejeitar(l)` a partir da própria lista.
+// chama `pagar(v)` a partir da própria lista (aprovar/rejeitar saíram em 14/10/2026).
 //
 // `FinancasAgenda.tsx` foi refeito pra usar este hook em vez da cópia local
 // — prova que a extração não mudou comportamento nenhum, só o lugar onde
@@ -31,7 +31,7 @@ import {
 import { CheckCircle2, XCircle, Loader2, Copy, QrCode, Paperclip, Wallet, FileText, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import {
-  confirmarPagamento, aprovarLancamento, rejeitarLancamento,
+  confirmarPagamento,
   buscarFornecedor, adicionarAnexo, brl, pessoaDoLancamento, buscarPixDaPessoa, salvarPixDaPessoa,
   fornecedoresParaNome, atualizarLancamento,
   type FinVencimento, type FinLancamentoExtenso, type FinFornecedor,
@@ -54,10 +54,6 @@ const dataBrCurta = (ymd: string) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${y
 const juntarEm = (d: string, n: number) => d.match(new RegExp(`.{1,${n}}`, "g"))?.join(" ") ?? d;
 
 export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
-  const [aprovando, setAprovando] = useState<FinLancamentoExtenso | null>(null);
-  const [rejeitando, setRejeitando] = useState<FinLancamentoExtenso | null>(null);
-  const [motivoRejeicao, setMotivoRejeicao] = useState("");
-  const [decidindo, setDecidindo] = useState(false);
 
   // `confirm()` nativo não dispara em WebView (CLAUDE.md Risco 3) — por
   // isso os três são AlertDialog/Dialog, nunca `window.confirm`.
@@ -253,95 +249,8 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
     finally { setConfirmandoBusy(false); }
   }
 
-  async function confirmarAprovacao() {
-    if (!aprovando) return;
-    setDecidindo(true);
-    try {
-      await aprovarLancamento(aprovando.id);
-      toast.success("Aprovado");
-      setAprovando(null);
-      await onChanged();
-    } catch (e: any) { toast.error(e?.message ?? "Erro"); }
-    finally { setDecidindo(false); }
-  }
-
-  async function confirmarRejeicao() {
-    if (!rejeitando || !motivoRejeicao.trim()) return;
-    setDecidindo(true);
-    try {
-      await rejeitarLancamento(rejeitando.id, motivoRejeicao);
-      toast.success("Rejeitado");
-      setRejeitando(null);
-      setMotivoRejeicao("");
-      await onChanged();
-    } catch (e: any) { toast.error(e?.message ?? "Erro"); }
-    finally { setDecidindo(false); }
-  }
-
   const dialogs = (
     <>
-      {/* ── Aprovar ── */}
-      <AlertDialog open={!!aprovando} onOpenChange={(v) => !v && setAprovando(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Aprovar lançamento?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {aprovando && (
-                <>
-                  {aprovando.tipo === "saida" ? "Pagamento" : "Recebimento"} de{" "}
-                  <strong className="text-foreground">{brl(Number(aprovando.valor))}</strong>
-                  {" "}— {aprovando.descricao ?? "sem descrição"}.
-                  {" "}Vira <strong className="text-foreground">realizado</strong>, com data de
-                  pagamento hoje.
-                </>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={decidindo}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction variant="success" onClick={confirmarAprovacao} disabled={decidindo}>
-              {decidindo ? <Loader2 className="w-4 h-4 animate-spin" /> : "Aprovar"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* ── Rejeitar — pede o motivo, por isso é Dialog e não AlertDialog:
-          o botão de confirmar precisa ficar desabilitado até haver texto. */}
-      <Dialog open={!!rejeitando} onOpenChange={(v) => { if (!v) { setRejeitando(null); setMotivoRejeicao(""); } }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Rejeitar lançamento</DialogTitle>
-            <DialogDescription>
-              {rejeitando && (
-                <>
-                  {brl(Number(rejeitando.valor))} — {rejeitando.descricao ?? "sem descrição"}.
-                  {" "}Vira <strong className="text-foreground">cancelado</strong>. O motivo fica
-                  registrado nas observações do lançamento.
-                </>
-              )}
-            </DialogDescription>
-          </DialogHeader>
-          <Textarea
-            value={motivoRejeicao}
-            onChange={(e) => setMotivoRejeicao(e.target.value)}
-            placeholder="Por que está sendo rejeitado?"
-            rows={3}
-            autoFocus
-          />
-          <DialogFooter>
-            <Button variant="outline" disabled={decidindo}
-              onClick={() => { setRejeitando(null); setMotivoRejeicao(""); }}>
-              Cancelar
-            </Button>
-            <Button variant="destructive" disabled={decidindo || !motivoRejeicao.trim()}
-              onClick={confirmarRejeicao}>
-              {decidindo ? <Loader2 className="w-4 h-4 animate-spin" /> : "Rejeitar"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       {/* ── Confirmar pagamento/recebimento — Central de Pagamentos (Fase 8) ── */}
       <AlertDialog open={!!confirmando} onOpenChange={(v) => { if (!v) { setConfirmando(null); setAnexoArquivo(null); } }}>
         <AlertDialogContent>
@@ -586,8 +495,6 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
 
   return {
     pagar: (v: FinVencimento) => setConfirmando(v),
-    aprovar: (l: FinLancamentoExtenso) => setAprovando(l),
-    rejeitar: (l: FinLancamentoExtenso) => setRejeitando(l),
     dialogs,
   };
 }
@@ -614,17 +521,3 @@ export function BotaoPagar({ vencimento, onClick }: { vencimento: FinVencimento;
   );
 }
 
-/** Par "Aprovar"/"Rejeitar" pronto — mesmo estilo nas duas telas que o usam. */
-export function BotoesAprovacao({ onAprovar, onRejeitar }: { onAprovar: () => void; onRejeitar: () => void }) {
-  return (
-    <div className="flex items-center gap-1 shrink-0">
-      <Button size="sm" variant="outline" onClick={onRejeitar}
-        className="gap-1 h-7 text-xs text-destructive-text hover:text-destructive-text border-destructive-line hover:bg-destructive-soft">
-        <XCircle className="w-3 h-3" /> Rejeitar
-      </Button>
-      <Button variant="success" size="sm" onClick={onAprovar} className="gap-1 h-7 text-xs">
-        <CheckCircle2 className="w-3 h-3" /> Aprovar
-      </Button>
-    </div>
-  );
-}

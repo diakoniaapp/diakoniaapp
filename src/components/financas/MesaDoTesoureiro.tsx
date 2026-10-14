@@ -42,14 +42,12 @@ import {
 import { carregarMesa, type DadosDaMesa, type DebitoDoMes, type PagoRecente } from "@/services/mesaOperacoesService";
 
 interface Props {
-  /** Muda quando o painel recarrega (depois de pagar, aprovar…): a mesa lê de novo. */
+  /** Muda quando o painel recarrega (depois de pagar…): a mesa lê de novo. */
   chaveDeAtualizacao: number;
-  aprovacoesPendentes: number;
   onPagar: (v: FinVencimento) => void;
   onAnexo: (a: { id: string; label: string }) => void;
   onNovaSaida: () => void;
   onImportarExtrato: () => void;
-  onAprovacoes: () => void;
   onRecorrencias: () => void;
 }
 
@@ -137,7 +135,7 @@ function LinhaDeConta({ v, temAnexo, parcial, quitacao, onPagar, onAnexo, onAbri
 }
 
 export function MesaDoTesoureiro({
-  chaveDeAtualizacao, aprovacoesPendentes, onPagar, onAnexo, onNovaSaida, onImportarExtrato, onAprovacoes, onRecorrencias,
+  chaveDeAtualizacao, onPagar, onAnexo, onNovaSaida, onImportarExtrato, onRecorrencias,
 }: Props) {
   const hoje = hojeLocal();
   const [dados, setDados] = useState<DadosDaMesa | null>(null);
@@ -185,12 +183,11 @@ export function MesaDoTesoureiro({
       atrasadas: aPagar.atrasadas.length, venceHoje: aPagar.hoje.length, debitosAConferir,
       comprovantesPendentes: semComprovante.length,
       diasSemExtrato: dados.ultimoMovimentoBanco ? diasEntreDatas(dados.ultimoMovimentoBanco, hoje) : null,
-      aprovacoesParadas: aprovacoesPendentes,
       documentosFaltando: (dados.documentos?.pendencias ?? 0) + (dados.documentosAnterior?.resumo.pendencias ?? 0),
     });
     const porId = new Map(dados.vencimentos.map(v => [v.id, v]));
     return { aPagar, automaticos, caixa, compromissos7, cobertura, ind, debitosAConferir, pagosHoje, semComprovante, checklist, porId };
-  }, [dados, hoje, aprovacoesPendentes]);
+  }, [dados, hoje]);
 
   if (!dados || !derivados) {
     return (
@@ -287,7 +284,7 @@ export function MesaDoTesoureiro({
             subtitulo={pendentesDoDia === 0 ? "Tudo em dia" : `${pendentesDoDia} ${pendentesDoDia === 1 ? "item pede" : "itens pedem"} sua atenção`}>
             <ul className="space-y-0.5">
               {checklist.map(i => <ItemChecklist key={i.chave} item={i}
-                acao={acaoDoItem(i.chave, { onImportarExtrato, onAprovacoes })} />)}
+                acao={acaoDoItem(i.chave, { onImportarExtrato })} />)}
             </ul>
           </Cartao>
 
@@ -419,12 +416,11 @@ function ResumoDeDocumentos({ rotulo, r }: { rotulo: string; r: { exigem: number
   );
 }
 
-function acaoDoItem(chave: string, a: { onImportarExtrato: () => void; onAprovacoes: () => void }): (() => void) | null {
+function acaoDoItem(chave: string, a: { onImportarExtrato: () => void }): (() => void) | null {
   switch (chave) {
     case "atrasadas": case "hoje": return () => rolarPara("mesa-contas");
     case "debitos": return () => rolarPara("mesa-debitos");
     case "extrato": return a.onImportarExtrato;
-    case "aprovacoes": return a.onAprovacoes;
     default: return null;
   }
 }

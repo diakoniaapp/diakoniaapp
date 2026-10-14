@@ -3,16 +3,16 @@ import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-  ArrowLeft, Calendar, Clock, AlertTriangle, CheckCircle2, TrendingUp, TrendingDown, Gavel,
+  ArrowLeft, Calendar, Clock, AlertTriangle, CheckCircle2, TrendingUp, TrendingDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PaginaSkeleton } from "@/components/ListState";
 import {
-  listarProximosVencimentos, listarLancamentosSemTeto, brl, nomeExtrato,
-  type FinVencimento, type FinLancamentoExtenso,
+  listarProximosVencimentos, brl, nomeExtrato,
+  type FinVencimento,
 } from "@/services/finService";
 import { hojeMaisDias } from "@/lib/data";
-import { useAcoesLancamento, BotaoPagar, BotoesAprovacao } from "@/hooks/useAcoesLancamento";
+import { useAcoesLancamento, BotaoPagar } from "@/hooks/useAcoesLancamento";
 
 function dataBr(s: string) {
   return new Date(s + "T00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
@@ -28,17 +28,11 @@ const URGENCIA_INFO: Record<FinVencimento["urgencia"], { cor: string; label: str
 
 export default function FinancasAgenda() {
   const [vencimentos, setVencimentos] = useState<FinVencimento[]>([]);
-  // "Aguardando aprovação" é decisão, não vencimento — por isso não entra na
-  // lista de cima (que é organizada por urgência de DATA). Carregada à
-  // parte, sempre visível, independente do filtro Entrada/Saída de baixo:
-  // uma aprovação parada não fica menos urgente por não bater com o filtro
-  // do dia. Ver o comentário em `painelTesourariaService.listarPendencias`.
-  const [aguardandoAprovacao, setAguardandoAprovacao] = useState<FinLancamentoExtenso[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtroTipo, setFiltroTipo] = useState<"todos" | "entrada" | "saida">("saida");
 
-  // Fase 10 (Central Operacional, 22/09/2026): Pagar/Aprovar/Rejeitar
-  // deixaram de morar aqui — viraram `useAcoesLancamento`, pra o Painel da
+  // Fase 10 (Central Operacional, 22/09/2026): Pagar
+  // deixou de morar aqui — virou `useAcoesLancamento`, pra o Painel da
   // Tesouraria também poder disparar a mesma fila sem duplicar Pix/QR/anexo.
   const acoes = useAcoesLancamento(carregar);
 
@@ -48,18 +42,11 @@ export default function FinancasAgenda() {
     setLoading(true);
     try {
       const ate30 = hojeMaisDias(30);
-      const [venc, pend] = await Promise.all([
-        listarProximosVencimentos({
-          ateData: ate30,
-          tipo: filtroTipo !== "todos" ? filtroTipo : undefined,
-        }),
-        // Sem data — a fila de aprovação não "expira" com o tempo (mesmo
-        // motivo de painelTesourariaService.ts). `listarLancamentosSemTeto`
-        // pra não perder pendência antiga do teto de 300 se o backlog crescer.
-        listarLancamentosSemTeto({ status: "aguardando_aprovacao" }),
-      ]);
+      const venc = await listarProximosVencimentos({
+        ateData: ate30,
+        tipo: filtroTipo !== "todos" ? filtroTipo : undefined,
+      });
       setVencimentos(venc);
-      setAguardandoAprovacao(pend);
     } catch (e: any) { toast.error(e?.message ?? "Erro"); }
     finally { setLoading(false); }
   }
@@ -112,44 +99,6 @@ export default function FinancasAgenda() {
           </CardContent>
         </Card>
       </div>
-
-      {/* ── Aguardando aprovação ──────────────────────────────────────────
-          Fica ANTES dos vencimentos por urgência: uma decisão parada não
-          tem "dias para vencer" — ela só fica mais cara de resolver quanto
-          mais espera. Ligado em 12/09/2026: o status já existia, o Painel
-          da Tesouraria já listava, faltava o botão que decidisse. */}
-      {aguardandoAprovacao.length > 0 && (
-        <div className="space-y-1.5">
-          <p className="text-xs uppercase tracking-wide font-medium text-muted-foreground px-1 flex items-center gap-1">
-            <Gavel className="w-3 h-3" /> Aguardando aprovação ({aguardandoAprovacao.length})
-          </p>
-          {aguardandoAprovacao.map(l => {
-            const { principal, secundario } = nomeExtrato(l);
-            return (
-            <div key={l.id} className="flex items-center justify-between border rounded-md px-3 py-2 bg-info-soft/40 border-info-line">
-              <div className="flex items-center gap-2 min-w-0 flex-1">
-                {l.tipo === "entrada"
-                  ? <TrendingUp className="w-4 h-4 text-success-text shrink-0" />
-                  : <TrendingDown className="w-4 h-4 text-destructive-text shrink-0" />}
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium truncate">{principal}</p>
-                  <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                    <Clock className="w-2.5 h-2.5" /> {dataBr(l.data)}
-                    {secundario && <> · {secundario}</>}
-                    {l.conta_nome && <> · {l.conta_nome}</>}
-                    {l.centro_nome && <> · {l.centro_nome}</>}
-                  </p>
-                </div>
-              </div>
-              <p className={`text-sm font-semibold tabular-nums mr-2 ${l.tipo === "entrada" ? "text-success-text" : "text-destructive-text"}`}>
-                {brl(Number(l.valor))}
-              </p>
-              <BotoesAprovacao onAprovar={() => acoes.aprovar(l)} onRejeitar={() => acoes.rejeitar(l)} />
-            </div>
-            );
-          })}
-        </div>
-      )}
 
       {vencimentos.length === 0 ? (
         <Card className="border-dashed">

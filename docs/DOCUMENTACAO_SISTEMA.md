@@ -734,7 +734,7 @@ se o papel `admin` também deveria cair no Painel da Tesouraria no login
 | `/financas` | Contas correntes — saldo e extrato de cada conta, lançar, transferir (navegação completa do módulo mora em `/painel-tesouraria`, ver acima) |
 | `/financas/conta/:id` | Extrato de uma conta — conciliação manual (badge clicável + lote) e, em contas `tipo: banco`, botão "Importar OFX" |
 | `/financas/recorrencias` | Despesas/receitas que se repetem — gera lançamentos previstos |
-| `/financas/agenda` | Contas a pagar / a receber + seção "Aguardando aprovação" (aprovar/rejeitar `status: aguardando_aprovacao`) |
+| `/financas/agenda` | Contas a pagar / a receber (a antiga seção "Aguardando aprovação" foi aposentada em 14/10/2026) |
 | `/financas/relatorio` · `/financas/relatorio/:ano/:mes` | Relatório mensal (malote) |
 | `/financas/estoque` | Estoque |
 | `/financas/insights` | Previsão de caixa 30/60/90 dias (`fin_previsao_caixa`) |
@@ -751,10 +751,14 @@ se o papel `admin` também deveria cair no Painel da Tesouraria no login
 | `/financas/prestacao-de-contas` | Prestação de Contas — ver bloco abaixo |
 | `/financas/admin` | Config do módulo |
 
-**Fluxo de aprovação (v1, um nível):** `fin_lancamentos.status` tem
-`aguardando_aprovacao`; quem tem papel `admin`/`diakonia`/`secretaria`/
-`tesouraria` aprova (`realizado`) ou rejeita (`cancelado`, motivo em
-`observacoes`) em `/financas/agenda`. **Não existe** nível "Solicitante"
+**Fluxo de aprovação (v1, um nível) — APOSENTADO em 14/10/2026.** O status
+`aguardando_aprovacao` e os botões Aprovar/Rejeitar (que, na prática, pagavam:
+virava `realizado` e baixava o saldo) saíram do aplicativo; ninguém criava
+esse estado (0 lançamentos). A aprovação que importa — a do reembolso — mora
+na Quitação (`fin_decidir_quitacao`). A migration
+`20261016090000_fin_aposenta_aguardando_aprovacao.sql` impede o banco de
+gravar o estado de novo. Análise e manual: `docs/MANUAL_APROVAR_PENDENCIAS_TESOURARIA_2026-10-14.md`.
+**Não existe** nível "Solicitante"
 (liderança de ministério pedindo despesa) — decisão confirmada com a Telma
 em 12/09/2026: só tesoureiro e administrador do sistema operam o módulo,
 a migration `20260902210000_lideranca_nao_opera_o_financeiro.sql` continua

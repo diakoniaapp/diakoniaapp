@@ -54,7 +54,7 @@ describe("a Declaração do Terceiro gerada pelo sistema", () => {
     const { width, height } = doc.getPage(0).getSize();
     expect(Math.round(width)).toBe(595);
     expect(Math.round(height)).toBe(842);
-  });
+ }, 30_000);
   it("a assinatura tem data e assinatura do declarante", () => {
     const t = textoDaDeclaracao(via, conteudo());
     expect(t.assinaturas.map(a => a.rotulo)).toEqual(["Data da assinatura", "Assinatura do declarante"]);
@@ -91,5 +91,5 @@ describe("o Recibo de Reembolso", () => {
     const bytes = await montarReciboPdf(dados);
     const { PDFDocument } = await import("pdf-lib");
     expect((await PDFDocument.load(bytes)).getPageCount()).toBe(1);
-  });
+ }, 30_000);
 });

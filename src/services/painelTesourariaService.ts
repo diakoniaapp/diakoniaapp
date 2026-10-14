@@ -32,7 +32,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { documentosHerdados } from "@/services/grupoDaObrigacaoService";
 import { hojeMaisDias, hojeLocal, daquiADias, toYmd } from "@/lib/data";
 import {
-  listarLancamentos, listarLancamentosSemTeto, listarProximosVencimentos, alertasCentros,
+  listarLancamentos, listarProximosVencimentos, alertasCentros,
   anomaliasMes, alertasFinanceiros, listarContas, brl,
   type FinLancamentoExtenso, type FinVencimento, type FinAlertaCentro,
   type FinAnomalia, type FinAlertaFinanceiro,
@@ -50,8 +50,9 @@ import { NOME_MES } from "@/services/prestacaoContasService";
 
 // ─── Pendências ─────────────────────────────────────────────────────────
 //
-// Quatro naturezas diferentes, por isso o `motivo` em vez de uma lista só:
-// "aguardando aprovação" é decisão (alguém precisa dizer sim ou não),
+// Três naturezas diferentes, por isso o `motivo` em vez de uma lista só:
+// (a "aguardando aprovação" saiu em 14/10/2026: ninguém criava esse estado e a
+// aprovação de reembolso mora na Quitação — ver docs/MANUAL_APROVAR_PENDENCIAS_TESOURARIA_2026-10-14.md)
 // "sem comprovante" é documentação faltando na prestação de contas do mês,
 // "aguardando conciliação" (12/09/2026, junto com a conciliação bancária
 // em si) é lançamento `realizado` numa conta banco que ainda não foi
@@ -67,10 +68,10 @@ import { NOME_MES } from "@/services/prestacaoContasService";
 // das outras três. Forçar o molde seria escrita que mente, o mesmo
 // defeito que `escritaConferida.ts` existe para evitar do outro lado.
 
-export type MotivoPendencia = "aprovacao" | "comprovante" | "conciliacao" | "fechamento";
+export type MotivoPendencia = "comprovante" | "conciliacao" | "fechamento";
 
 export interface PendenciaLancamento extends FinLancamentoExtenso {
-  motivo: "aprovacao" | "comprovante" | "conciliacao";
+  motivo: "comprovante" | "conciliacao";
 }
 
 export interface PendenciaFechamento {
@@ -115,15 +116,7 @@ export async function listarFechamentosPendentes(): Promise<PendenciaFechamento[
 }
 
 export async function listarPendencias(): Promise<ItemPendencia[]> {
-  const [aguardando, realizadosRecentes, contas, fechamentosPendentes] = await Promise.all([
-    // Sem `dataInicio`: aprovação parada é decisão em aberto, e fica mais
-    // urgente com o tempo — não menos. Não faz sentido ela "expirar" da
-    // lista — por isso é `listarLancamentosSemTeto`, não `listarLancamentos`
-    // (teto de 300): um backlog grande faria a aprovação MAIS antiga (a
-    // mais urgente) ser exatamente a que some da tela, ao contrário do que
-    // o comentário acima pede. Zero pendências hoje, mas é o mesmo bug de
-    // `gerarPrestacaoContas` se um dia crescer.
-    listarLancamentosSemTeto({ status: "aguardando_aprovacao" }),
+  const [realizadosRecentes, contas, fechamentosPendentes] = await Promise.all([
     listarLancamentos({ status: "realizado", dataInicio: hojeMaisDias(-DIAS_JANELA_COMPROVANTE) }),
     listarContas(),
     listarFechamentosPendentes(),
@@ -137,7 +130,6 @@ export async function listarPendencias(): Promise<ItemPendencia[]> {
   const aguardandoConciliacao = realizadosRecentes.filter(l => contasBanco.has(l.conta_id));
 
   return [
-    ...aguardando.map(l => ({ ...l, motivo: "aprovacao" as const })),
     ...semComprovante.map(l => ({ ...l, motivo: "comprovante" as const })),
     ...aguardandoConciliacao.map(l => ({ ...l, motivo: "conciliacao" as const })),
     ...fechamentosPendentes,
@@ -244,7 +236,7 @@ export async function listarAlertasTesouraria(): Promise<AlertaTesouraria[]> {
 // pronto no banco entram nesta função:
 //
 // PIX pendentes — mede "quantos compromissos já têm tudo pronto pra pagar
-// AGORA": saída ainda não paga (`previsto` ou `aguardando_aprovacao`) cujo
+// AGORA": saída ainda não paga (`previsto`) cujo
 // fornecedor já tem chave Pix cadastrada (Fase 7). Medido em produção em
 // 22/09/2026: só 1 dos fornecedores com lançamento pendente tem chave_pix
 // — o número costuma ser 0 hoje, e isso é o retrato real do cadastro
@@ -271,7 +263,7 @@ export async function carregarMesaTesoureiro(): Promise<MesaTesoureiro> {
     .from("fin_lancamentos")
     .select("fornecedor_id")
     .eq("tipo", "saida")
-    .in("status", ["previsto", "aguardando_aprovacao"])
+    .eq("status", "previsto")
     .not("fornecedor_id", "is", null);
   const listaPendentes = (pendentes ?? []) as { fornecedor_id: string }[];
 

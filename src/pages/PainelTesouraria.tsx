@@ -108,7 +108,7 @@ import { FixarFavoritoDialog } from "@/components/financas/FixarFavoritoDialog";
 import { MissoesDrawer } from "@/components/financas/MissoesDrawer";
 import { RemessaMissionariaDetalheDrawer } from "@/components/financas/RemessaMissionariaDetalheDrawer";
 import { listarFavoritos, desfixarFavorito, type FinFavorito } from "@/services/favoritosService";
-import { useAcoesLancamento, BotaoPagar, BotoesAprovacao } from "@/hooks/useAcoesLancamento";
+import { useAcoesLancamento, BotaoPagar } from "@/hooks/useAcoesLancamento";
 import { FechamentoMensal } from "@/components/financas/FechamentoMensal";
 import { MesaDoTesoureiro } from "@/components/financas/MesaDoTesoureiro";
 import { LiquidacoesDoPeriodo } from "@/components/financas/LiquidacoesDoPeriodo";
@@ -273,11 +273,6 @@ export default function PainelTesouraria() {
     // conta ativa é o caminho real pra chegar lá, não um botão novo.
     if (contas.length === 0) { navigate("/financas"); return; }
     setExtratoContaId(contas[0].id);
-  }
-
-  function abrirAprovacoes() {
-    if (aprovacoesPendentes.length === 0) { toast.info("Nenhuma aprovação parada."); return; }
-    setAba("fechamento");
   }
 
   function abrirConciliacao() {
@@ -518,7 +513,6 @@ export default function PainelTesouraria() {
   }, [location.hash]);
 
   const totalFiscal = fiscal ? fiscal.total_atrasados + fiscal.total_urgentes + fiscal.total_proximos : 0;
-  const aprovacoesPendentes = pendencias.filter((p): p is PendenciaLancamento => p.motivo === "aprovacao");
   const semComprovante = pendencias.filter((p): p is PendenciaLancamento => p.motivo === "comprovante");
   const aguardandoConciliacao = pendencias.filter((p): p is PendenciaLancamento => p.motivo === "conciliacao");
   const fechamentosPendentes = pendencias.filter((p): p is PendenciaFechamento => p.motivo === "fechamento");
@@ -640,7 +634,7 @@ export default function PainelTesouraria() {
           <p className="text-sm text-muted-foreground flex items-start gap-1.5">
             <DollarSign className="w-3.5 h-3.5 text-gold shrink-0 mt-0.5" />
             <span className="min-w-0">
-              {resumoNatural(fiscal, aprovacoesPendentes, semComprovante, aguardandoConciliacao, fechamentosPendentes, vencimentos, orcamentoCriticos, alertasOrc, alertasCriticos, alertas)}
+              {resumoNatural(fiscal, semComprovante, aguardandoConciliacao, fechamentosPendentes, vencimentos, orcamentoCriticos, alertasOrc, alertasCriticos, alertas)}
               {atualizadoEm && (
                 <span className="text-2xs text-muted-foreground ml-1.5 whitespace-nowrap">
                   · {formatarAtualizadoHa(atualizadoEm)}
@@ -722,11 +716,6 @@ export default function PainelTesouraria() {
               onClick={abrirImportacao}>
               <Download className="w-3 h-3" /> Importar extrato
             </Button>
-            <Button type="button" variant="outline" size="sm" className="h-7 rounded-full gap-1.5 text-xs"
-              onClick={abrirAprovacoes}>
-              <CheckCircle2 className="w-3 h-3" /> Aprovar pendências
-              {aprovacoesPendentes.length > 0 ? ` (${aprovacoesPendentes.length})` : ""}
-            </Button>
             <Button asChild type="button" variant="outline" size="sm" className="h-7 rounded-full gap-1.5 text-xs">
               <Link to="/financas/prestacao-de-contas"><Archive className="w-3 h-3" /> Fechar o mês</Link>
             </Button>
@@ -770,12 +759,10 @@ export default function PainelTesouraria() {
           <section id="operar">
             <MesaDoTesoureiro
               chaveDeAtualizacao={atualizadoEm?.getTime() ?? 0}
-              aprovacoesPendentes={aprovacoesPendentes.length}
               onPagar={(v) => acoes.pagar(v)}
               onAnexo={(a) => setAnexosVencimento(a)}
               onNovaSaida={() => setNovoLancamentoAberto("saida")}
               onImportarExtrato={abrirImportacao}
-              onAprovacoes={abrirAprovacoes}
               onRecorrencias={() => setRecorrenciasAberto(true)}
             />
           </section>
@@ -797,26 +784,6 @@ export default function PainelTesouraria() {
           <>
           <FechamentoMensal onConciliar={(c) => setConciliandoConta(c)} />
 
-          {/* A ÚNICA parte da antiga lista de Pendências que não tem outro lar: aprovar ou
-              rejeitar um lançamento parado. Só aparece quando existe uma. */}
-          {aprovacoesPendentes.length > 0 && (
-            <section id="aprovacoes" className="scroll-mt-[220px]">
-              <TituloDaSecao icone={Clock} tom="warning" contagem={aprovacoesPendentes.length}>
-                Aguardando aprovação
-              </TituloDaSecao>
-              <ul className="divide-y rounded-md border bg-card">
-                {aprovacoesPendentes.slice(0, 8).map(p => (
-                  <li key={`aprovacao-${p.id}`} className="flex items-center gap-2 px-3 py-2.5 min-h-11">
-                    <span className="text-sm min-w-0 flex-1">
-                      <span className="font-medium">{nomeExtrato(p).principal}</span>
-                      <span className="text-muted-foreground"> — {brl(p.valor)}</span>
-                    </span>
-                    <BotoesAprovacao onAprovar={() => acoes.aprovar(p)} onRejeitar={() => acoes.rejeitar(p)} />
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
           </>
           )}
           {aba === "gestao" && (
@@ -1421,7 +1388,6 @@ function rotuloVencimento(v: FinVencimento): string {
  */
 function resumoNatural(
   fiscal: ResumoFiscalDashboard,
-  aprovacoesPendentes: PendenciaLancamento[],
   semComprovante: PendenciaLancamento[],
   aguardandoConciliacao: PendenciaLancamento[],
   fechamentosPendentes: PendenciaFechamento[],
@@ -1436,12 +1402,6 @@ function resumoNatural(
   if (fiscal.total_atrasados > 0) {
     partes.push(`${fiscal.total_atrasados} ${fiscal.total_atrasados === 1
       ? "obrigação fiscal atrasada" : "obrigações fiscais atrasadas"}`);
-  }
-  // Aprovação parada é decisão que trava outra pessoa — mesmo peso do que
-  // gera multa, porque também não se resolve sozinha.
-  if (aprovacoesPendentes.length > 0) {
-    partes.push(`${aprovacoesPendentes.length} ${aprovacoesPendentes.length === 1
-      ? "aprovação pendente" : "aprovações pendentes"}`);
   }
   if (orcamentoCriticos.length > 0) {
     partes.push(`${orcamentoCriticos.length} ${orcamentoCriticos.length === 1
