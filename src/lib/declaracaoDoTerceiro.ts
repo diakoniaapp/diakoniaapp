@@ -1,8 +1,11 @@
-// ─── declaracaoDoTerceiro.ts — o TEXTO e o PDF da Declaração do Terceiro, gerada pelo sistema ───────────────────────────────────────────────────────────────
+// ─── declaracaoDoTerceiro.ts — o TEXTO e o PDF da Declaração do Terceiro e do Recibo de Reembolso, gerados pelo sistema ──────────────────────────────────────────────
 //
 // Fase 1D-a. O usuário não escreve o documento: o sistema o monta com o que já está cadastrado (o conteúdo vem do banco, fin_declaracao_conteudo, e é o mesmo que fica guardado e com código de
 // verificação). Cada via traz UMA frase, a da intenção registrada: não há caixas para marcar, então a intenção não pode ser trocada depois da assinatura. Aqui só se decide COMO o conteúdo vira texto e
 // PDF; nada é recalculado. Centro e categoria saem como informação da igreja, fora do que o terceiro assina.
+//
+// O PDF é uma folha A4 com DUAS VIAS em A5 (a da igreja e a do declarante), separadas por uma linha de corte: imprime-se uma folha, corta-se ao meio, as duas partes são assinadas.
+// O RECIBO DE REEMBOLSO (pagamento em espécie, cláusula 5.5 da Política) usa a mesma folha.
 import { ROTULO_FORMA, type FormaDePagamento } from "@/lib/quitacao";
 
 export interface DeclaradoNaDeclaracao {
@@ -23,6 +26,8 @@ export interface DeclaradoNaDeclaracao {
 export interface ConteudoDaDeclaracao { declarado: DeclaradoNaDeclaracao; informativo: { centro: string | null; categoria: string | null } }
 export interface IdentificacaoDaVia { numero: string; versao: number; /** os 12 primeiros caracteres do código de verificação */ codigo: string }
 
+export const IGREJA = { nome: "Quarta Igreja Batista do Rio de Janeiro", cnpj: "27.639.285/0001-61" } as const;
+
 const dataBr = (ymd: string | null) => (ymd ? ymd.slice(0, 10).split("-").reverse().join("/") : "—");
 const brl = (n: number) => Number(n).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -34,18 +39,56 @@ export function fraseDaIntencao(d: Pick<DeclaradoNaDeclaracao, "intencao" | "dec
     : `${eu} declaro que realizei o pagamento da(s) despesa(s) abaixo em nome da igreja e ESTOU OFERTANDO esta despesa, sem solicitar reembolso.`;
 }
 
-export interface TextoDaDeclaracao {
+// ── valor por extenso (o recibo escreve o valor também em palavras) ─────────────────────────────────────────────────────────────────────────────
+
+const UN = ["zero", "um", "dois", "três", "quatro", "cinco", "seis", "sete", "oito", "nove", "dez", "onze", "doze", "treze", "quatorze", "quinze", "dezesseis", "dezessete", "dezoito", "dezenove"];
+const DZ = ["", "", "vinte", "trinta", "quarenta", "cinquenta", "sessenta", "setenta", "oitenta", "noventa"];
+const CT = ["", "cento", "duzentos", "trezentos", "quatrocentos", "quinhentos", "seiscentos", "setecentos", "oitocentos", "novecentos"];
+
+function ate999(n: number): string {
+  if (n === 100) return "cem";
+  const c = Math.floor(n / 100), r = n % 100, partes: string[] = [];
+  if (c) partes.push(CT[c]);
+  if (r) partes.push(r < 20 ? UN[r] : DZ[Math.floor(r / 10)] + (r % 10 ? ` e ${UN[r % 10]}` : ""));
+  return partes.join(" e ");
+}
+function inteiroPorExtenso(n: number): string {
+  if (n === 0) return "zero";
+  const m = Math.floor(n / 1_000_000), mil = Math.floor((n % 1_000_000) / 1000), resto = n % 1000, seg: { t: string; v: number }[] = [];
+  if (m) seg.push({ t: m === 1 ? "um milhão" : `${ate999(m)} milhões`, v: m * 1_000_000 });
+  if (mil) seg.push({ t: mil === 1 ? "mil" : `${ate999(mil)} mil`, v: mil * 1000 });
+  if (resto) seg.push({ t: ate999(resto), v: resto });
+  return seg.map((s, i) => {
+    if (i === 0) return s.t;
+    const ultimo = i === seg.length - 1;
+    return (ultimo && (s.v < 100 || s.v % 100 === 0) ? " e " : ", ") + s.t;
+  }).join("");
+}
+/** 1500 → "mil e quinhentos reais"; 240,5 → "duzentos e quarenta reais e cinquenta centavos". */
+export function valorPorExtenso(valor: number): string {
+  const total = Math.round(Math.abs(valor) * 100), reais = Math.floor(total / 100), cent = total % 100;
+  const partes: string[] = [];
+  if (reais > 0) partes.push(`${inteiroPorExtenso(reais)}${reais >= 1_000_000 && reais % 1_000_000 === 0 ? " de" : ""} ${reais === 1 ? "real" : "reais"}`);
+  if (cent > 0) partes.push(`${inteiroPorExtenso(cent)} ${cent === 1 ? "centavo" : "centavos"}`);
+  return partes.length ? partes.join(" e ") : "zero real";
+}
+
+// ── o conteúdo de cada documento, linha a linha ─────────────────────────────────────────────────────────────────────────────────────────────
+
+export interface TextoDoDocumento {
   titulo: string;
   identificacao: string;
   frase: string;
   campos: [string, string][];
   informativos: [string, string][];
-  assinatura: [string, string][];
+  /** [rótulo, nome ou apoio impresso sob a linha] */
+  assinaturas: { rotulo: string; apoio: string }[];
   rodape: string;
 }
+export type TextoDaDeclaracao = TextoDoDocumento;
 
-/** O texto, linha a linha, na ordem do documento. Reembolso leva a chave PIX; oferta não. */
-export function textoDaDeclaracao(via: IdentificacaoDaVia, c: ConteudoDaDeclaracao): TextoDaDeclaracao {
+/** A Declaração do Terceiro. Reembolso leva a chave PIX quando houver; oferta não. */
+export function textoDaDeclaracao(via: IdentificacaoDaVia, c: ConteudoDaDeclaracao): TextoDoDocumento {
   const d = c.declarado;
   const campos: [string, string][] = [
     ["Declarante", [d.declarante_nome ?? "—", d.declarante_documento ? `(${d.declarante_documento})` : ""].filter(Boolean).join(" ")],
@@ -63,10 +106,53 @@ export function textoDaDeclaracao(via: IdentificacaoDaVia, c: ConteudoDaDeclarac
     frase: fraseDaIntencao(d),
     campos,
     informativos: [["Centro de custo", c.informativo.centro ?? "—"], ["Categoria", c.informativo.categoria ?? "—"]],
-    assinatura: [["Data da assinatura", "____ / ____ / ________"], ["Assinatura", "______________________________________________"]],
-    rodape: "Este documento foi gerado pelo DiakoniaApp. O código de verificação identifica o conteúdo declarado; se algum dado mudar depois, uma nova via deve ser gerada e assinada.",
+    assinaturas: [{ rotulo: "Data da assinatura", apoio: "" }, { rotulo: "Assinatura do declarante", apoio: d.declarante_nome ?? "" }],
+    rodape: "Gerado pelo DiakoniaApp. O código de verificação identifica o conteúdo declarado; se algum dado mudar depois, uma nova via deve ser gerada e assinada.",
   };
 }
+
+export interface DadosDoRecibo {
+  beneficiarioNome: string;
+  beneficiarioDocumento: string | null;
+  valor: number;
+  /** AAAA-MM-DD */
+  dataDoPagamento: string;
+  /** como a igreja entrega o dinheiro: espécie, PIX, transferência… (texto) */
+  formaDeRecebimento: string;
+  fornecedor: string | null;
+  notaNumero: string | null;
+  notaData: string | null;
+  /** número da Declaração do Terceiro a que o recibo se refere, quando houver */
+  declaracaoNumero: string | null;
+  /** quanto já havia sido reembolsado antes e quanto falta depois deste pagamento (reembolso parcial) */
+  saldoDepois: number | null;
+}
+
+/** O Recibo de Reembolso: o beneficiário declara ter recebido da igreja o valor que pagou. Em espécie é o documento que a Política exige (cláusula 5.5). */
+export function textoDoRecibo(r: DadosDoRecibo): TextoDoDocumento {
+  const ref = [r.fornecedor ?? "fornecedor", r.notaNumero ? `NF nº ${r.notaNumero}` : "", r.notaData ? `de ${dataBr(r.notaData)}` : ""].filter(Boolean).join(", ");
+  const campos: [string, string][] = [
+    ["Beneficiário", [r.beneficiarioNome, r.beneficiarioDocumento ? `(${r.beneficiarioDocumento})` : ""].filter(Boolean).join(" ")],
+    ["Valor recebido", brl(r.valor)],
+    ["Por extenso", valorPorExtenso(r.valor)],
+    ["Forma de recebimento", r.formaDeRecebimento],
+    ["Data do pagamento", dataBr(r.dataDoPagamento)],
+    ["Referente a", ref],
+  ];
+  if (r.declaracaoNumero) campos.push(["Declaração do Terceiro", r.declaracaoNumero]);
+  if (r.saldoDepois !== null && r.saldoDepois > 0.004) campos.push(["Saldo a reembolsar", `${brl(r.saldoDepois)} (reembolso parcial)`]);
+  return {
+    titulo: "RECIBO DE REEMBOLSO",
+    identificacao: r.declaracaoNumero ? `referente à Declaração do Terceiro ${r.declaracaoNumero}` : "reembolso de despesa paga com recurso próprio",
+    frase: `Eu, ${r.beneficiarioNome}, declaro que recebi da ${IGREJA.nome} a quantia de ${brl(r.valor)} (${valorPorExtenso(r.valor)}), como reembolso da despesa descrita abaixo, que paguei com recurso próprio em nome da igreja. Dou plena quitação deste valor.`,
+    campos,
+    informativos: [],
+    assinaturas: [{ rotulo: "Data", apoio: "" }, { rotulo: "Assinatura do beneficiário", apoio: r.beneficiarioNome }],
+    rodape: "Gerado pelo DiakoniaApp. Em pagamento em espécie, este recibo assinado é o comprovante do reembolso (cláusula 5.5 da Política).",
+  };
+}
+
+// ── o PDF: uma folha A4 com duas vias A5 ────────────────────────────────────────────────────────────────────────────────────────────────────
 
 /** Quebra um texto em linhas que caibam na largura (em pontos), medindo com a fonte. */
 function quebrar(texto: string, medir: (t: string) => number, largura: number): string[] {
@@ -80,40 +166,89 @@ function quebrar(texto: string, medir: (t: string) => number, largura: number): 
   return linhas;
 }
 
-/** O PDF (uma página A4). `pdf-lib` é carregado sob demanda: só quem gera a Declaração paga o peso. */
-export async function montarDeclaracaoPdf(via: IdentificacaoDaVia, c: ConteudoDaDeclaracao): Promise<Uint8Array> {
+const A4 = { w: 595.28, h: 841.89 };
+const AZUL: [number, number, number] = [0.12, 0.23, 0.30];     // o azul-petróleo da Política
+const CINZA: [number, number, number] = [0.42, 0.42, 0.42];
+const TINTA: [number, number, number] = [0.1, 0.1, 0.1];
+const FUNDO: [number, number, number] = [0.955, 0.965, 0.97];
+
+/** Monta a folha A4 (retrato) com o documento desenhado DUAS vezes, uma em cada metade (A5 paisagem): via da igreja em cima, via do declarante embaixo. */
+async function montarFolhaDuasVias(t: TextoDoDocumento, titulo: string, vias: [string, string]): Promise<Uint8Array> {
   const { PDFDocument, StandardFonts, rgb } = await import("pdf-lib");
-  const t = textoDaDeclaracao(via, c);
   const doc = await PDFDocument.create();
-  doc.setTitle(`Declaração do Terceiro ${via.numero}`);
-  const pagina = doc.addPage([595.28, 841.89]);
+  doc.setTitle(titulo);
+  doc.setCreator("DiakoniaApp");
+  const pagina = doc.addPage([A4.w, A4.h]);
   const normal = await doc.embedFont(StandardFonts.Helvetica);
   const negrito = await doc.embedFont(StandardFonts.HelveticaBold);
-  const margem = 56, largura = 595.28 - margem * 2;
-  let y = 841.89 - 70;
-  const escrever = (txt: string, o: { fonte?: typeof normal; tam?: number; cor?: [number, number, number]; depois?: number } = {}) => {
-    const fonte = o.fonte ?? normal, tam = o.tam ?? 11;
-    for (const linha of quebrar(txt, s => fonte.widthOfTextAtSize(s, tam), largura)) {
-      pagina.drawText(linha, { x: margem, y, size: tam, font: fonte, color: rgb(...(o.cor ?? [0.1, 0.1, 0.1])) });
-      y -= tam * 1.45;
+  const cor = (c: [number, number, number]) => rgb(c[0], c[1], c[2]);
+  const meia = A4.h / 2, margem = 38, largura = A4.w - margem * 2;
+
+  function via(y0: number, rotuloDaVia: string) {
+    const topo = y0 + meia;
+    let y = topo - 30;
+    // faixa da igreja e a etiqueta da via
+    pagina.drawRectangle({ x: 0, y: topo - 8, width: A4.w, height: 8, color: cor(AZUL) });
+    pagina.drawText(IGREJA.nome.toUpperCase(), { x: margem, y, size: 9, font: negrito, color: cor(AZUL) });
+    pagina.drawText(`CNPJ ${IGREJA.cnpj}`, { x: margem, y: y - 11, size: 7.5, font: normal, color: cor(CINZA) });
+    const wEt = negrito.widthOfTextAtSize(rotuloDaVia, 7.5) + 16;
+    pagina.drawRectangle({ x: A4.w - margem - wEt, y: y - 9, width: wEt, height: 17, borderColor: cor(AZUL), borderWidth: 0.8 });
+    pagina.drawText(rotuloDaVia, { x: A4.w - margem - wEt + 8, y: y - 3.5, size: 7.5, font: negrito, color: cor(AZUL) });
+    y -= 36;
+    // título e identificação
+    pagina.drawText(t.titulo, { x: margem, y, size: 15, font: negrito, color: cor(TINTA) });
+    y -= 13;
+    pagina.drawText(t.identificacao, { x: margem, y, size: 7.5, font: normal, color: cor(CINZA) });
+    y -= 16;
+    // a frase
+    for (const l of quebrar(t.frase, s => normal.widthOfTextAtSize(s, 9.5), largura)) { pagina.drawText(l, { x: margem, y, size: 9.5, font: normal, color: cor(TINTA) }); y -= 13; }
+    y -= 4;
+    // os campos, num quadro
+    const rotuloW = 112, valorW = largura - rotuloW - 16;
+    const linhasDosCampos = t.campos.map(([r, v]) => ({ r, linhas: quebrar(v, s => normal.widthOfTextAtSize(s, 9), valorW) }));
+    const alturaQuadro = linhasDosCampos.reduce((s, c) => s + Math.max(1, c.linhas.length) * 12 + 3, 0) + 12;
+    pagina.drawRectangle({ x: margem, y: y - alturaQuadro + 4, width: largura, height: alturaQuadro, color: cor(FUNDO), borderColor: rgb(0.82, 0.85, 0.87), borderWidth: 0.6 });
+    let yc = y - 8;
+    for (const c of linhasDosCampos) {
+      pagina.drawText(`${c.r}:`, { x: margem + 8, y: yc, size: 8.5, font: negrito, color: cor(AZUL) });
+      c.linhas.forEach((l, i) => pagina.drawText(l, { x: margem + 8 + rotuloW, y: yc - i * 12, size: 9, font: normal, color: cor(TINTA) }));
+      yc -= Math.max(1, c.linhas.length) * 12 + 3;
     }
-    y -= o.depois ?? 0;
-  };
-  escrever(t.titulo, { fonte: negrito, tam: 18, depois: 2 });
-  escrever(t.identificacao, { tam: 9, cor: [0.35, 0.35, 0.35], depois: 16 });
-  escrever(t.frase, { depois: 14 });
-  for (const [rotulo, valor] of t.campos) {
-    pagina.drawText(`${rotulo}:`, { x: margem, y, size: 10.5, font: negrito, color: rgb(0.1, 0.1, 0.1) });
-    const linhas = quebrar(valor, s => normal.widthOfTextAtSize(s, 10.5), largura - 130);
-    linhas.forEach((l, i) => { pagina.drawText(l, { x: margem + 130, y: y - i * 14.5, size: 10.5, font: normal, color: rgb(0.1, 0.1, 0.1) }); });
-    y -= Math.max(1, linhas.length) * 14.5 + 4;
+    y -= alturaQuadro + 6;
+    // a classificação da igreja
+    if (t.informativos.length) {
+      pagina.drawText(`Classificação da igreja (informativa): ${t.informativos.map(([r, v]) => `${r}: ${v}`).join("  ·  ")}`, { x: margem, y, size: 7, font: normal, color: cor(CINZA) });
+      y -= 10;
+    }
+    // assinaturas, no pé da via
+    const ya = y0 + 66;
+    const wData = largura * 0.36, folga = 24, wAss = largura - wData - folga;
+    t.assinaturas.forEach((a, i) => {
+      const xi = i === 0 ? margem : margem + wData + folga, w = i === 0 ? wData : wAss;
+      pagina.drawLine({ start: { x: xi, y: ya }, end: { x: xi + w, y: ya }, thickness: 0.7, color: cor(TINTA) });
+      pagina.drawText(i === 0 ? `${a.rotulo}  ____ / ____ / ________` : a.rotulo, { x: xi, y: ya - 10, size: 7.5, font: i === 0 ? normal : negrito, color: cor(CINZA) });
+      if (a.apoio) pagina.drawText(a.apoio, { x: xi, y: ya - 20, size: 7.5, font: normal, color: cor(CINZA) });
+    });
+    // rodapé
+    for (const [i, l] of quebrar(t.rodape, s => normal.widthOfTextAtSize(s, 6.5), largura).entries()) pagina.drawText(l, { x: margem, y: y0 + 22 - i * 8, size: 6.5, font: normal, color: cor(CINZA) });
   }
-  y -= 8;
-  escrever("Classificação da igreja (informativa, não faz parte do que o terceiro assina)", { fonte: negrito, tam: 9, cor: [0.35, 0.35, 0.35] });
-  for (const [r, v] of t.informativos) escrever(`${r}: ${v}`, { tam: 9, cor: [0.35, 0.35, 0.35] });
-  y -= 36;
-  for (const [r, v] of t.assinatura) { escrever(`${r}: ${v}`, { tam: 11, depois: 10 }); }
-  y = 60;
-  for (const linha of quebrar(t.rodape, s => normal.widthOfTextAtSize(s, 8), largura)) { pagina.drawText(linha, { x: margem, y, size: 8, font: normal, color: rgb(0.45, 0.45, 0.45) }); y -= 11; }
+
+  via(meia, vias[0]);
+  via(0, vias[1]);
+  // a linha de corte, no meio da folha
+  pagina.drawLine({ start: { x: 18, y: meia }, end: { x: A4.w - 18, y: meia }, thickness: 0.6, color: cor(CINZA), dashArray: [5, 4] });
+  const corte = "recorte aqui";
+  pagina.drawRectangle({ x: A4.w / 2 - 28, y: meia - 4, width: 56, height: 8, color: rgb(1, 1, 1) });
+  pagina.drawText(corte, { x: A4.w / 2 - normal.widthOfTextAtSize(corte, 6) / 2, y: meia - 2, size: 6, font: normal, color: cor(CINZA) });
   return doc.save();
+}
+
+/** O PDF da Declaração do Terceiro: A4 com duas vias A5 (da igreja e do declarante). `pdf-lib` é carregado sob demanda: só quem gera paga o peso. */
+export function montarDeclaracaoPdf(via: IdentificacaoDaVia, c: ConteudoDaDeclaracao): Promise<Uint8Array> {
+  return montarFolhaDuasVias(textoDaDeclaracao(via, c), `Declaração do Terceiro ${via.numero}`, ["VIA DA IGREJA", "VIA DO DECLARANTE"]);
+}
+
+/** O PDF do Recibo de Reembolso: A4 com duas vias A5 (da igreja e do beneficiário). */
+export function montarReciboPdf(r: DadosDoRecibo): Promise<Uint8Array> {
+  return montarFolhaDuasVias(textoDoRecibo(r), "Recibo de Reembolso", ["VIA DA IGREJA", "VIA DO BENEFICIÁRIO"]);
 }

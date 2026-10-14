@@ -4,7 +4,7 @@
 // (até o saldo a reembolsar). O banco (fin_liquidar_reembolso) confere tudo de novo e usa a liquidação de sempre: o dinheiro sai UMA vez, da conta escolhida. Não nasce entrada, transferência
 // nem saída duplicada. O Pix e o QR são DE QUEM RECEBE (a pessoa), não do fornecedor da nota — pagar o fornecedor outra vez é justamente o erro que esta tela existe para evitar.
 import { useEffect, useMemo, useState } from "react";
-import { Copy, Loader2, Paperclip, QrCode, Wallet } from "lucide-react";
+import { Copy, FileDown, Loader2, Paperclip, QrCode, Wallet } from "lucide-react";
 import QRCode from "qrcode";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,8 @@ import { ROTULO_RESPONSAVEL } from "@/lib/quitacao";
 import {
   adicionarAnexo, brl, buscarFornecedor, buscarPixDaPessoa, FORMA_LABEL, formasPermitidas, listarContas, type FinConta, type FinFormaPagamento,
 } from "@/services/finService";
-import { lancamentosDaLiquidacao, pagarReembolso, type QuitacaoDaObrigacao } from "@/services/quitacaoService";
+import { montarReciboPdf } from "@/lib/declaracaoDoTerceiro";
+import { lancamentosDaLiquidacao, pagarReembolso, situacaoDaDeclaracao, type QuitacaoDaObrigacao } from "@/services/quitacaoService";
 import { supabase } from "@/integrations/supabase/client";
 
 /** O que a tela precisa saber do reembolso a pagar (a linha da fila, ou o cartão da despesa). */
@@ -27,6 +28,16 @@ export type AlvoDoReembolso = Pick<QuitacaoDaObrigacao, "quitacaoId" | "obrigaca
   descricao?: string | null;
   emitente?: string | null;
 };
+
+/** CPF/CNPJ de quem recebe, do cadastro (pessoa ou favorecido); sem ele o recibo sai só com o nome. */
+async function documentoDeQuemRecebe(pessoaId: string | null | undefined, fornecedorId: string | null | undefined): Promise<string | null> {
+  if (pessoaId) {
+    const { data } = await supabase.from("membros").select("cpf").eq("id", pessoaId).maybeSingle();
+    return (data as unknown as { cpf?: string | null } | null)?.cpf ?? null;
+  }
+  if (fornecedorId) return (await buscarFornecedor(fornecedorId))?.cnpj_cpf ?? null;
+  return null;
+}
 
 const txt = (n: number) => String(Math.round(n * 100) / 100).replace(".", ",");
 
@@ -42,6 +53,7 @@ export function PagarReembolsoDialog({ alvo, onFechar, onFeito }: { alvo: AlvoDo
   const [pix, setPix] = useState<{ chave: string; tipo: TipoChavePix | null } | null>(null);
   const [carregandoPix, setCarregandoPix] = useState(false);
   const [qr, setQr] = useState<string | null>(null);
+  const [dadosRecibo, setDadosRecibo] = useState<{ documento: string | null; notaNumero: string | null; notaData: string | null; declaracao: string | null } | null>(null);
 
   // abrir: carrega as contas (a da despesa é a sugerida) e a chave Pix de QUEM RECEBE
   useEffect(() => {
@@ -59,6 +71,20 @@ export function PagarReembolsoDialog({ alvo, onFechar, onFeito }: { alvo: AlvoDo
         const daDespesa = (l.data as unknown as { conta_id?: string } | null)?.conta_id;
         setContaId(daDespesa && cs.some(c => c.id === daDespesa) ? daDespesa : cs[0]?.id ?? "");
       } catch (e) { if (vivo) toast.error(mensagemErro(e)); }
+    })();
+    // o que o recibo precisa e a tela ainda não tem: documento de quem recebe, número e data da nota, número da Declaração
+    setDadosRecibo(null);
+    (async () => {
+      try {
+        const [l, dec, doc] = await Promise.all([
+          supabase.from("fin_lancamentos").select("documento_numero, data").eq("id", alvo.obrigacaoId).maybeSingle(),
+          situacaoDaDeclaracao(alvo.quitacaoId),
+          documentoDeQuemRecebe(alvo.pessoaId, alvo.fornecedorId),
+        ]);
+        const nota = l.data as unknown as { documento_numero?: string | null; data?: string | null } | null;
+        const d = dec?.ultima?.conteudo?.declarado;
+        if (vivo) setDadosRecibo({ documento: d?.declarante_documento ?? doc, notaNumero: d?.nota_numero ?? nota?.documento_numero ?? null, notaData: d?.nota_data ?? nota?.data ?? null, declaracao: dec?.ultima?.numero ?? null });
+      } catch { /* o recibo sai sem esses dados: são complementares */ }
     })();
     setCarregandoPix(true); setPix(null);
     (async () => {
@@ -104,6 +130,20 @@ export function PagarReembolsoDialog({ alvo, onFechar, onFeito }: { alvo: AlvoDo
       onFeito(); onFechar();
     } catch (e) { toast.error(mensagemErro(e, "Não foi possível pagar o reembolso")); }
     finally { setOcupado(false); }
+  }
+  /** O Recibo de Reembolso (A4, duas vias A5): em espécie é o comprovante que a Política exige; nas outras formas serve de registro assinado. */
+  async function imprimirRecibo() {
+    if (!alvo || problema) return;
+    try {
+      const bytes = await montarReciboPdf({
+        beneficiarioNome: alvo.responsavelNome ?? ROTULO_RESPONSAVEL[alvo.responsavel], beneficiarioDocumento: dadosRecibo?.documento ?? null, valor, dataDoPagamento: data,
+        formaDeRecebimento: forma ? FORMA_LABEL[forma] : "a combinar com a Tesouraria", fornecedor: alvo.emitente ?? null,
+        notaNumero: dadosRecibo?.notaNumero ?? null, notaData: dadosRecibo?.notaData ?? null, declaracaoNumero: dadosRecibo?.declaracao ?? null,
+        saldoDepois: parcial ? saldo - valor : null,
+      });
+      const { saveAs } = await import("file-saver");
+      saveAs(new Blob([bytes as BlobPart], { type: "application/pdf" }), `Recibo_de_Reembolso_${(alvo.responsavelNome ?? "beneficiario").replace(/\s+/g, "_")}_${data}.pdf`);
+    } catch (e) { toast.error(mensagemErro(e, "Não foi possível gerar o recibo")); }
   }
   async function copiar(t: string, o: string) { try { await navigator.clipboard.writeText(t); toast.success(`${o} copiado — cole no app do seu banco`); } catch { toast.error("Não consegui copiar"); } }
 
@@ -173,6 +213,7 @@ export function PagarReembolsoDialog({ alvo, onFechar, onFeito }: { alvo: AlvoDo
         </div>
 
         <DialogFooter>
+          <Button variant="outline" className="gap-1.5" disabled={ocupado || !!problema} onClick={() => void imprimirRecibo()}><FileDown className="w-3.5 h-3.5" /> Recibo (2 vias)</Button>
           <Button variant="outline" disabled={ocupado} onClick={onFechar}>Cancelar</Button>
           <Button disabled={ocupado || !!problema} onClick={() => void pagar()}>{ocupado ? "…" : parcial ? "Pagar parte" : "Pagar reembolso"}</Button>
         </DialogFooter>

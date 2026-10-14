@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fraseDaIntencao, montarDeclaracaoPdf, textoDaDeclaracao, type ConteudoDaDeclaracao } from "./declaracaoDoTerceiro";
+import { fraseDaIntencao, montarDeclaracaoPdf, montarReciboPdf, textoDaDeclaracao, textoDoRecibo, valorPorExtenso, type ConteudoDaDeclaracao, type DadosDoRecibo } from "./declaracaoDoTerceiro";
 
 const conteudo = (o: Partial<ConteudoDaDeclaracao["declarado"]> = {}): ConteudoDaDeclaracao => ({
   declarado: {
@@ -44,9 +44,52 @@ describe("a Declaração do Terceiro gerada pelo sistema", () => {
     expect(t.informativos).toEqual([["Centro de custo", "Ministério de Ensino"], ["Categoria", "Material de consumo"]]);
     expect(t.campos.map(c => c[0])).not.toContain("Centro de custo");
   });
-  it("o PDF sai com uma página e começa como PDF", async () => {
+  it("o PDF sai em UMA folha A4 (duas vias A5) e começa como PDF", async () => {
     const bytes = await montarDeclaracaoPdf(via, conteudo());
     expect(new TextDecoder().decode(bytes.slice(0, 5))).toBe("%PDF-");
     expect(bytes.length).toBeGreaterThan(1500);
+    const { PDFDocument } = await import("pdf-lib");
+    const doc = await PDFDocument.load(bytes);
+    expect(doc.getPageCount()).toBe(1);
+    const { width, height } = doc.getPage(0).getSize();
+    expect(Math.round(width)).toBe(595);
+    expect(Math.round(height)).toBe(842);
+  });
+  it("a assinatura tem data e assinatura do declarante", () => {
+    const t = textoDaDeclaracao(via, conteudo());
+    expect(t.assinaturas.map(a => a.rotulo)).toEqual(["Data da assinatura", "Assinatura do declarante"]);
+    expect(t.assinaturas[1].apoio).toBe("Ana Souza");
+  });
+});
+
+describe("valorPorExtenso", () => {
+  it("escreve reais e centavos em português", () => {
+    expect(valorPorExtenso(1500)).toBe("mil e quinhentos reais");
+    expect(valorPorExtenso(240.5)).toBe("duzentos e quarenta reais e cinquenta centavos");
+    expect(valorPorExtenso(2345.67)).toBe("dois mil, trezentos e quarenta e cinco reais e sessenta e sete centavos");
+    expect(valorPorExtenso(1)).toBe("um real");
+  });
+});
+
+describe("o Recibo de Reembolso", () => {
+  const dados: DadosDoRecibo = {
+    beneficiarioNome: "Lucio Paulo", beneficiarioDocumento: "712.042.024-00", valor: 1500, dataDoPagamento: "2026-10-14", formaDeRecebimento: "Espécie",
+    fornecedor: "Leandro Dias", notaNumero: "0017", notaData: "2026-09-22", declaracaoNumero: "DT-2026-0001", saldoDepois: null,
+  };
+  it("o beneficiário declara ter recebido, com o valor por extenso, e liga à Declaração", () => {
+    const t = textoDoRecibo(dados);
+    expect(t.titulo).toBe("RECIBO DE REEMBOLSO");
+    expect(t.frase).toMatch(/Eu, Lucio Paulo, declaro que recebi .* \(mil e quinhentos reais\)/);
+    expect(t.campos.find(c => c[0] === "Declaração do Terceiro")?.[1]).toBe("DT-2026-0001");
+    expect(t.campos.map(c => c[0])).not.toContain("Saldo a reembolsar");
+  });
+  it("reembolso parcial mostra o saldo que falta", () => {
+    const t = textoDoRecibo({ ...dados, valor: 1000, saldoDepois: 500 });
+    expect(t.campos.find(c => c[0] === "Saldo a reembolsar")?.[1]).toMatch(/500,00.*parcial/);
+  });
+  it("sai em uma folha A4 com duas vias", async () => {
+    const bytes = await montarReciboPdf(dados);
+    const { PDFDocument } = await import("pdf-lib");
+    expect((await PDFDocument.load(bytes)).getPageCount()).toBe(1);
   });
 });
