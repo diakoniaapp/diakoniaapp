@@ -49,6 +49,8 @@ import type { PlanoDeLiquidacao } from "@/lib/liquidacao";
 import { QuitacaoDialog, type AlvoDaQuitacao } from "@/components/financas/QuitacaoDialog";
 import { ROTULO_FILA, ROTULO_RESPONSAVEL, ehTerceiro } from "@/lib/quitacao";
 import { quitacaoDaObrigacao, quitacaoDisponivel, type QuitacaoDaObrigacao } from "@/services/quitacaoService";
+import { DataDoPagamento, type EstadoDaDataDoPagamento } from "@/components/financas/DataDoPagamento";
+import { auditoriaDaDataDisponivel, registrarDecisaoDaData } from "@/services/comprovanteService";
 
 const dataBrCurta = (ymd: string) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.slice(0, 4)}`;
 const juntarEm = (d: string, n: number) => d.match(new RegExp(`.{1,${n}}`, "g"))?.join(" ") ?? d;
@@ -66,6 +68,9 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
   const [carregandoFornecedor, setCarregandoFornecedor] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [anexoArquivo, setAnexoArquivo] = useState<File | null>(null);
+  // A data em que o dinheiro saiu (14/10/2026): sugerida pelo comprovante, decidida pela pessoa — não mais "hoje" sem perguntar.
+  const [dataPag, setDataPag] = useState<EstadoDaDataDoPagamento | null>(null);
+  useEffect(() => { setDataPag(null); }, [confirmando?.id]);   // só quando muda a DESPESA (vincular favorecido troca o objeto, não a despesa)
   // Pagamento a uma PESSOA do catálogo (folha, RPA, côngrua): o lançamento tem `pessoa_id`, não
   // `fornecedor_id`. A chave Pix dela mora em `fin_pessoa_pix` (migration 20261006170000).
   const [pessoaPagando, setPessoaPagando] = useState<{ id: string; nome: string; pix: { chave: string; tipo: TipoChavePix | null } | null } | null>(null);
@@ -221,11 +226,23 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
     if (!confirmando) return;
     setConfirmandoBusy(true);
     try {
+      const saida = confirmando.tipo === "saida";
+      if (saida && dataPag && !dataPag.pronto) { toast.error(dataPag.problema ?? "Confira a data do pagamento."); return; }
+      const dataEfetiva = (saida && dataPag?.data) || hojeLocal();
+      let liquidacaoId: string | null = null;
       if (usaLiquidacao) {
         if (!planoLiq?.pronto) { toast.error(planoLiq?.problemas[0] ?? "Confira o valor pago."); return; }
-        await liquidar({ contaId: confirmando.conta_id, data: hojeLocal(), plano: planoLiq });
+        liquidacaoId = await liquidar({ contaId: confirmando.conta_id, data: dataEfetiva, plano: planoLiq });
       } else {
-        await confirmarPagamento(confirmando.id);
+        await confirmarPagamento(confirmando.id, { dataPagamento: dataEfetiva });
+      }
+      // a decisão sobre a data (o que o comprovante sugeriu × o que foi escolhido) — registro, não pré-requisito: o pagamento já valeu
+      if (saida && dataPag?.comprovante && (await auditoriaDaDataDisponivel())) {
+        try {
+          await registrarDecisaoDaData({ lancamentoId: confirmando.id, liquidacaoId, comprovante: dataPag.comprovante, dataEscolhida: dataEfetiva, motivo: dataPag.motivo });
+        } catch (e) {
+          toast.error(`Pago, mas o registro da data do comprovante não foi gravado: ${e instanceof Error ? e.message : "erro"}`);
+        }
       }
       // Anexo é melhoria, não pré-requisito — uma falha só no upload não
       // pode desfazer ou travar um pagamento que já foi confirmado.
@@ -239,7 +256,7 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
       toast.success(
         usaLiquidacao && planoLiq && planoLiq.saldoPendente > 0
           ? `Pago parcialmente — saldo pendente ${brl(planoLiq.saldoPendente)}`
-          : `${confirmando.tipo === "saida" ? "Pago" : "Recebido"}!`);
+          : `${confirmando.tipo === "saida" ? "Pago" : "Recebido"}${confirmando.tipo === "saida" && dataPag && dataPag.data !== hojeLocal() ? ` em ${dataPag.data.split("-").reverse().join("/")}` : ""}!`);
       setConfirmando(null);
       setAnexoArquivo(null);
       await onChanged();
@@ -478,12 +495,14 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
                   onChange={(e) => setAnexoArquivo(e.target.files?.[0] ?? null)}
                   className="text-xs w-full file:mr-2 file:py-1 file:px-2 file:rounded file:border file:text-xs file:bg-background" />
               </div>
+              <DataDoPagamento key={confirmando.id} lancamentoId={confirmando.id} arquivo={anexoArquivo}
+                valorEsperado={usaLiquidacao ? (planoLiq?.valorPago ?? null) : Number(confirmando.valor)} onMudar={setDataPag} />
             </div>
           )}
 
           <AlertDialogFooter>
             <AlertDialogCancel disabled={confirmandoBusy}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction variant="success" onClick={(e) => { e.preventDefault(); confirmarPagamentoDialog(); }} disabled={confirmandoBusy || terceiroJaPagou || (usaLiquidacao && !planoLiq?.pronto)}>
+            <AlertDialogAction variant="success" onClick={(e) => { e.preventDefault(); confirmarPagamentoDialog(); }} disabled={confirmandoBusy || terceiroJaPagou || (usaLiquidacao && !planoLiq?.pronto) || (confirmando?.tipo === "saida" && !!dataPag && !dataPag.pronto)}>
               {confirmandoBusy ? "..." : (confirmando?.tipo === "saida" ? "Marcar como pago" : "Receber")}
             </AlertDialogAction>
           </AlertDialogFooter>
