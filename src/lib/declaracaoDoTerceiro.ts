@@ -55,7 +55,8 @@ export function textoDaDeclaracao(via: IdentificacaoDaVia, c: ConteudoDaDeclarac
     ["Forma de pagamento", ROTULO_FORMA[d.forma_pagamento] ?? d.forma_pagamento],
     ["Data do pagamento", dataBr(d.data_pagamento)],
   ];
-  if (d.intencao === "reembolso") campos.push(["Chave PIX", d.chave_pix ?? "—"]);
+  // a chave PIX é "quando aplicável": sem ela, o reembolso se combina com a Tesouraria (espécie com recibo assinado, ou transferência)
+  if (d.intencao === "reembolso") campos.push(d.chave_pix ? ["Chave PIX", d.chave_pix] : ["Recebimento do reembolso", "sem chave PIX informada: forma combinada com a Tesouraria (espécie, com recibo assinado, ou transferência)"]);
   return {
     titulo: "DECLARAÇÃO DO TERCEIRO",
     identificacao: `nº ${via.numero} · versão ${via.versao} · código de verificação ${via.codigo}`,

@@ -154,7 +154,6 @@ BEGIN
     ELSE
       pix := resp.chave_pix; pixtipo := resp.tipo_chave_pix;
     END IF;
-    IF pix IS NULL THEN RAISE EXCEPTION 'Cadastre a chave PIX de quem pagou antes de gerar a Declaração de reembolso.'; END IF;
   END IF;
   SELECT cc.nome INTO centro FROM public.fin_centros_custo cc WHERE cc.id = l.centro_custo_id;
   SELECT ct.nome INTO cat FROM public.fin_categorias ct WHERE ct.id = l.categoria_id;
@@ -541,11 +540,10 @@ $function$;$m28$;
     BEGIN
       q3 := public.fin_registrar_quitacao(l3, 'pessoa', pessoa_y, NULL, 'reembolso', current_date - 4, current_date - 3, 'consumo', 'cnpj_igreja', NULL, false, 'ENSAIO', 'pix');
       BEGIN
-        PERFORM public.fin_gerar_declaracao_terceiro(q3);
-        ok := false; rel := rel || ' FALHOU A7a: gerou reembolso sem chave PIX.';
-      EXCEPTION WHEN OTHERS THEN
-        IF SQLERRM ILIKE '%chave PIX%' THEN rel := rel || ' A7a ok (reembolso sem chave PIX não gera a Declaração).'; ELSE ok := false; rel := rel || ' FALHOU A7a: ' || SQLERRM; END IF;
-      END;
+        d3 := public.fin_gerar_declaracao_terceiro(q3);
+        IF (SELECT (conteudo->'declarado'->>'chave_pix') IS NULL FROM public.fin_declaracoes_terceiro WHERE id = d3) THEN rel := rel || ' A7a ok (o reembolso de quem não tem chave PIX gera a Declaração: o recebimento pode ser em espécie, com recibo, ou por TED).';
+        ELSE ok := false; rel := rel || ' FALHOU A7a: apareceu uma chave PIX que ninguém cadastrou.'; END IF;
+      EXCEPTION WHEN OTHERS THEN ok := false; rel := rel || ' FALHOU A7a: ' || SQLERRM; END;
       q4 := public.fin_registrar_quitacao(l4, 'pessoa', pessoa_y, NULL, 'oferta', current_date - 4, current_date - 3, 'consumo', 'cnpj_igreja', NULL, false, 'ENSAIO', 'cartao_debito');
       d3 := public.fin_gerar_declaracao_terceiro(q4);
       IF (SELECT conteudo->'declarado' ? 'chave_pix' FROM public.fin_declaracoes_terceiro WHERE id = d3) AND (SELECT (conteudo->'declarado'->>'chave_pix') IS NULL FROM public.fin_declaracoes_terceiro WHERE id = d3) THEN

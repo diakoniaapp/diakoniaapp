@@ -133,7 +133,7 @@ BEGIN
     ELSE
       pix := resp.chave_pix; pixtipo := resp.tipo_chave_pix;
     END IF;
-    IF pix IS NULL THEN RAISE EXCEPTION 'Cadastre a chave PIX de quem pagou antes de gerar a Declaração de reembolso.'; END IF;
+    -- a chave PIX é "quando aplicável": quem recebe em espécie (com recibo assinado) ou por TED não precisa ter chave; a forma de pagar o reembolso se decide no pagamento (cláusula 5.5)
   END IF;
   SELECT cc.nome INTO centro FROM public.fin_centros_custo cc WHERE cc.id = l.centro_custo_id;
   SELECT ct.nome INTO cat FROM public.fin_categorias ct WHERE ct.id = l.categoria_id;

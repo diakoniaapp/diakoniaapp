@@ -82,7 +82,7 @@ Controle que **não muda**, em todos os casos: nota fiscal válida (ou contrata�
 | Centro, categoria | Classificação da despesa (**informativos**) |
 | **Forma de pagamento do terceiro** | **Fato novo**, informado ao registrar a quitação (dinheiro, PIX, cartão, transferência, outro). É o único campo novo |
 | Data do pagamento | Já existe (data em que o terceiro pagou) |
-| Chave PIX | Cadastro da pessoa ou do favorecido (só reembolso). Se não houver, o sistema pede para cadastrar **antes** de gerar |
+| Chave PIX | Cadastro da pessoa ou do favorecido (só reembolso, **quando houver**). Sem chave, a Declaração diz que o recebimento se combina com a Tesouraria (**espécie com recibo assinado, ou transferência**): ninguém é obrigado a ter chave PIX |
 | Frase da intenção | A intenção registrada: **ela decide qual das duas versões imprime** |
 | Número e código | Sequência anual e código de verificação do conteúdo |
 

@@ -27,6 +27,11 @@ describe("a Declaração do Terceiro gerada pelo sistema", () => {
     expect(re.campos.find(c => c[0] === "Chave PIX")?.[1]).toBe("ana@exemplo.com");
     expect(of.campos.map(c => c[0])).not.toContain("Chave PIX");
   });
+  it("reembolso sem chave PIX (recebimento em espécie ou por TED) também gera, dizendo como será combinado", () => {
+    const t = textoDaDeclaracao(via, conteudo({ chave_pix: null, tipo_chave_pix: null }));
+    expect(t.campos.map(c => c[0])).not.toContain("Chave PIX");
+    expect(t.campos.find(c => c[0] === "Recebimento do reembolso")?.[1]).toMatch(/espécie, com recibo assinado, ou transferência/);
+  });
   it("mostra número, versão e código de verificação, a forma de pagamento por extenso e o valor em reais", () => {
     const t = textoDaDeclaracao(via, conteudo({ forma_pagamento: "cartao_debito" }));
     expect(t.identificacao).toBe("nº DT-2026-0007 · versão 2 · código de verificação a1b2c3d4e5f6");
