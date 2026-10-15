@@ -73,6 +73,7 @@ export function QuitacaoDialog({ alvo, quitacao, onFechar, onFeito }: { alvo: Al
           formaPagamentoTerceiro: v.tipo === "nao_localizado" || !v.forma ? null : v.forma,
         });
         toast.success(v.tipo === "nao_localizado" ? "Marcada como \"Não localizado\": entrou na fila Investigar."
+          : v.intencao === "oferta" ? "Quitação registrada. Anexe a nota fiscal e a Declaração do Terceiro assinada para formalizar a oferta (o sistema diz, no cartão, o que ainda falta)."
           : "Quitação registrada. Anexe a prova do pagamento e a declaração do terceiro para formalizar (o sistema diz, no cartão, o que ainda falta).");
       } else {
         const q = quitacao!, mudancas: Record<string, unknown> = {};

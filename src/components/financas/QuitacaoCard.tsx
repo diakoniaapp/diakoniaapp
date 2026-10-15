@@ -16,7 +16,7 @@ import { QuitacaoDialog } from "@/components/financas/QuitacaoDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { mensagemErro } from "@/lib/erroRede";
 import {
-  ROTULO_FILA, ROTULO_GRAU, ROTULO_INTENCAO, ROTULO_NIVEL, ROTULO_RESPONSAVEL, ROTULO_RESULTADO, alcadaDoReembolso, type Grau, type Nivel,
+  MOTIVO_OFERTA_ALTO_RISCO, ROTULO_FILA, ROTULO_GRAU, ROTULO_INTENCAO, ROTULO_NIVEL, ROTULO_RESPONSAVEL, ROTULO_RESULTADO, alcadaDoReembolso, type Grau, type Nivel,
 } from "@/lib/quitacao";
 import { adicionarAnexo, brl, conciliarLancamento, desconciliarLancamento, type FinAnexoTipo, type FinLancamentoExtenso, FIN_ANEXO_TIPO_LABEL } from "@/services/finService";
 import {
@@ -65,6 +65,7 @@ export function QuitacaoCard({ lancamento, recarga, onMudou }: { lancamento: Fin
   const [declDisp, setDeclDisp] = useState(false);   // Fase 1D-a: com a Declaração do Terceiro gerada pelo sistema, os botões de anexar declaração/pedido à mão saem
   const [cancelando, setCancelando] = useState(false);
   const [recusar, setRecusar] = useState<null | "reembolso" | "relatado">(null);
+  const [aprovando, setAprovando] = useState(false);   // a aprovação do Administrador exige a justificativa (pelo menos 10 letras): fica registrada na quitação
   const [motivo, setMotivo] = useState("");
   const [ocupado, setOcupado] = useState(false);
   const [n, setN] = useState(0);
@@ -109,8 +110,8 @@ export function QuitacaoCard({ lancamento, recarga, onMudou }: { lancamento: Fin
     setOcupado(true);
     try {
       await decidirQuitacao(q.quitacaoId, tipo, decisao, motivo.trim() || undefined);
-      toast.success(decisao === "aprovada" ? (tipo === "reembolso" ? "Reembolso aprovado: a igreja assume a dívida com o terceiro. Nada foi pago." : "Grau Relatado aprovado.") : "Decisão registrada.");
-      setRecusar(null); setMotivo(""); recarregar();
+      toast.success(decisao === "aprovada" ? (tipo === "reembolso" ? "Reembolso aprovado: a igreja assume a dívida com o terceiro. Nada foi pago." : "Aprovação do Administrador registrada, com a justificativa.") : "Decisão registrada.");
+      setRecusar(null); setAprovando(false); setMotivo(""); recarregar();
     } catch (e) { toast.error(mensagemErro(e)); } finally { setOcupado(false); }
   }
   async function conferir(marcar: boolean) {
@@ -130,6 +131,9 @@ export function QuitacaoCard({ lancamento, recarga, onMudou }: { lancamento: Fin
   const possoAprovarReembolso = !!q && precisaDeAprovar && (alcada === "tesouraria" ? hasRole(["admin", "tesouraria"]) : ehAdmin);
   const possoPagarReembolso = !!q && q.fila === "reembolso_a_pagar" && podeEscrever;
   const possoAprovarRelatado = !!q && q.exigeAprovacaoDoAdministrador && ehAdmin && !q.aprovacaoDoRelatado;
+  // Oferta: a nota da igreja + a Declaração do Terceiro assinada bastam (15/10/2026). O comprovante do pagamento do terceiro só entra no ALTO RISCO, onde a alternativa é a aprovação do Administrador.
+  const ofertaAltoRisco = !!q && q.intencao === "oferta" && (q.nivelRisco === "alto" && (q.motivoInsuficiencia ?? "").startsWith(MOTIVO_OFERTA_ALTO_RISCO));
+  const ofertaSemComprovante = !!q && q.intencao === "oferta" && q.nivelRisco !== "alto";
 
   return (
     <section aria-label="Quitação" className="space-y-2 rounded-md border px-3 py-2.5">
@@ -166,7 +170,9 @@ export function QuitacaoCard({ lancamento, recarga, onMudou }: { lancamento: Fin
           {q.responsavel !== "nao_localizado" && (
             <div className="flex flex-wrap items-center gap-1.5 text-xs">
               <span className="text-muted-foreground">Prova:</span>
-              <Chip cls={COR_GRAU[q.grauResponsavel]}>pagamento {ROTULO_GRAU[q.grauResponsavel]}</Chip>
+              {ofertaSemComprovante && q.grauResponsavel !== "formal"
+                ? <Chip cls="border-border text-muted-foreground">pagamento do terceiro: não exigido</Chip>
+                : <Chip cls={COR_GRAU[q.grauResponsavel]}>pagamento {ROTULO_GRAU[q.grauResponsavel]}</Chip>}
               <Chip cls={COR_GRAU[q.grauIntencao]}>intenção {ROTULO_GRAU[q.grauIntencao]}</Chip>
               <span className="text-muted-foreground">Risco:</span>
               <Chip cls={COR_NIVEL[q.nivelRisco]}>{ROTULO_NIVEL[q.nivelRisco]}</Chip>
@@ -181,15 +187,16 @@ export function QuitacaoCard({ lancamento, recarga, onMudou }: { lancamento: Fin
             <p className="text-xs">Reembolsado até agora: <b className="tabular-nums">{brl(q.reembolsado ?? 0)}</b> · falta <b className="tabular-nums">{brl(q.saldoAReembolsar)}</b>.</p>
           )}
           {q.aprovacaoDoRelatado && (() => { const d = decisaoVigente(eventos, "aprovacao_relatado"); return (
-            <p className="text-xs">Grau Relatado <b>{q.aprovacaoDoRelatado === "aprovada" ? "aprovado" : "recusado"}</b> pelo Administrador{d ? <> ({d.porNome ?? "usuário"}, {dataHoraBr(d.em)})</> : null}.</p>); })()}
+            <p className="text-xs">{q.intencao === "oferta" ? "Oferta" : "Grau Relatado"} <b>{q.aprovacaoDoRelatado === "aprovada" ? "aprovada" : "recusada"}</b> pelo Administrador{d ? <> ({d.porNome ?? "usuário"}, {dataHoraBr(d.em)})</> : null}.{d?.motivo ? <> Justificativa: {d.motivo}</> : null}</p>); })()}
           <p className="text-[11px] text-muted-foreground">Registrada por {eventos?.find(e => e.evento === "registrada")?.porNome ?? "usuário"} em {dataHoraBr(q.registradoEm)}.</p>
 
           {q.responsavel !== "nao_localizado" && <DeclaracaoDoTerceiroCard q={q} podeEscrever={podeEscrever} aberta={aberta} recarga={n} onMudou={onMudou} />}
 
           {podeEscrever && q.responsavel !== "nao_localizado" && aberta && (
             <div className="flex flex-wrap gap-1.5 pt-1">
-              {([["prova_pagamento_terceiro", "Anexar prova do pagamento"], [q.intencao === "reembolso" ? "pedido_reembolso" : "declaracao_terceiro", q.intencao === "reembolso" ? "Anexar Pedido de Reembolso" : "Anexar declaração do terceiro"]] as const)
+              {([["prova_pagamento_terceiro", q.intencao === "oferta" ? "Anexar comprovante do pagamento do terceiro" : "Anexar prova do pagamento"], [q.intencao === "reembolso" ? "pedido_reembolso" : "declaracao_terceiro", q.intencao === "reembolso" ? "Anexar Pedido de Reembolso" : "Anexar declaração do terceiro"]] as const)
                 .filter(([t]) => !(t === "declaracao_terceiro" && (q.intencao === "nao_declarada" || q.intencao === "nao_se_aplica")))
+                .filter(([t]) => !(t === "prova_pagamento_terceiro" && q.intencao === "oferta" && !ofertaAltoRisco))   // oferta comum não pede comprovante: pedir leva a anexar documento que não existe
                 .filter(([t]) => !(declDisp && (t === "declaracao_terceiro" || t === "pedido_reembolso")))
                 .map(([t, r]) => (
                   <label key={t} className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border px-2.5 text-xs hover:bg-muted/60">
@@ -208,7 +215,7 @@ export function QuitacaoCard({ lancamento, recarga, onMudou }: { lancamento: Fin
             {precisaDeAprovar && !possoAprovarReembolso && <p className="text-xs text-muted-foreground">Falta a aprovação de {alcada === "administrador" ? "um Administrador (acima do teto)" : "outra pessoa da Tesouraria ou do Administrador"}.</p>}
             {possoPagarReembolso && <Button size="sm" className="h-8 gap-1.5" disabled={ocupado} onClick={() => setPagando(true)}><Wallet className="h-3.5 w-3.5" /> Pagar reembolso ({brl(q.saldoAReembolsar ?? q.valorDaObrigacao)})</Button>}
             {possoAprovarRelatado && (<>
-              <Button size="sm" variant="outline" className="h-8" disabled={ocupado} onClick={() => void decidir("relatado", "aprovada")}>Aprovar o Relatado (Administrador)</Button>
+              <Button size="sm" variant="outline" className="h-8" disabled={ocupado} onClick={() => { setMotivo(""); setAprovando(true); }}>{q.intencao === "oferta" ? "Aprovar a oferta (Administrador)…" : "Aprovar o Relatado (Administrador)…"}</Button>
               <Button size="sm" variant="ghost" className="h-8" disabled={ocupado} onClick={() => { setMotivo(""); setRecusar("relatado"); }}>Recusar…</Button>
             </>)}
             {podeEscrever && quitada && !conferidaEm && <Button size="sm" className="h-8" disabled={ocupado} onClick={() => void conferir(true)}>Conferir</Button>}
@@ -244,6 +251,22 @@ export function QuitacaoCard({ lancamento, recarga, onMudou }: { lancamento: Fin
           <AlertDialogFooter>
             <AlertDialogCancel disabled={ocupado}>Cancelar</AlertDialogCancel>
             <AlertDialogAction disabled={ocupado || motivo.trim().length < 5} onClick={e => { e.preventDefault(); void removerQuitacaoAgora(); }}>{ocupado ? "…" : "Remover"}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={aprovando} onOpenChange={o => { if (!o && !ocupado) setAprovando(false); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{q?.intencao === "oferta" ? "Aprovar esta oferta?" : "Aprovar o grau Relatado?"}</AlertDialogTitle>
+            <AlertDialogDescription>
+              A aprovação do Administrador dispensa documento que não existe, mas exige a justificativa: ela fica registrada na quitação, com seu nome, a data e a hora.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Textarea rows={3} value={motivo} onChange={e => setMotivo(e.target.value)} placeholder="Justificativa (obrigatória, pelo menos 10 letras)" />
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={ocupado}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction disabled={ocupado || motivo.trim().length < 10} onClick={e => { e.preventDefault(); void decidir("relatado", "aprovada"); }}>{ocupado ? "…" : "Aprovar"}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

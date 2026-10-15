@@ -55,7 +55,8 @@ export function ConsequenciaDaIntencao({ intencao }: { intencao: Intencao }) {
       itens: [
         "A nota é despesa da igreja e se extingue sem pagamento da igreja quando a prova bastar. Nenhum dinheiro da igreja se move.",
         "Não gera entrada, transferência nem saída, e não se liga a nenhuma conta financeira.",
-        "Documentos: a nota fiscal e a Declaração do Terceiro (gerada pelo sistema, para assinar). Sem a declaração assinada a prova é só Relatada.",
+        "Documentos: a nota fiscal em nome da igreja e a Declaração do Terceiro assinada (gerada pelo sistema). Com as duas a oferta está formalizada: não precisa do comprovante do pagamento do terceiro, e a chave de acesso é opcional (se informada, tem de ser válida).",
+        "Alto risco (pessoa do circuito financeiro, empresa que recebe pagamentos da igreja, bem durável ou pedido de recibo com efeito fiscal): o comprovante do pagamento do terceiro OU a aprovação formal do Administrador, com justificativa.",
       ],
     },
     reembolso: {

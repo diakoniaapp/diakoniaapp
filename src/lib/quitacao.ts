@@ -141,6 +141,8 @@ export interface EntradaDaMatriz {
   temNotaAnexada: boolean;
   /** o comprador é a igreja por documento no CNPJ (e não por contratação prévia) */
   compradorCnpjIgreja: boolean;
+  /** a chave de acesso foi digitada (a oferta não a exige; se informada, tem de ser válida e do emitente) */
+  chaveInformada?: boolean;
   chaveValida: boolean;
   /** o CNPJ dentro da chave é o do fornecedor cadastrado */
   chaveConfereComEmitente: boolean;
@@ -175,7 +177,14 @@ export interface AvaliacaoDaMatriz {
   exigeAprovacaoDoAdministrador: boolean;
   /** quando insuficiente, por quê (para a tela dizer o que falta) */
   motivo: string | null;
+  /** só para OFERTA: a regra simples que decidiu (revisão da Matriz de 15/10/2026); `null` = valeu a Matriz de sempre */
+  regraDaOferta: RegraDaOferta | null;
 }
+
+/** `oferta_formalizada` = nota da igreja + Declaração do Terceiro assinada, sem comprovante do pagamento; `oferta_alto_risco` = comprovante do pagamento OU aprovação formal do Administrador. */
+export type RegraDaOferta = "oferta_formalizada" | "oferta_alto_risco";
+/** O começo da mensagem de uma oferta de alto risco (a tela só oferece "anexar o comprovante" nesse caso). */
+export const MOTIVO_OFERTA_ALTO_RISCO = "Oferta de alto risco";
 
 const NIVEIS: Nivel[] = ["baixo", "medio", "alto"];
 const maxNivel = (...ns: Nivel[]): Nivel => NIVEIS[Math.max(...ns.map(n => NIVEIS.indexOf(n)))];
@@ -190,42 +199,91 @@ export function avaliarQuitacao(e: EntradaDaMatriz): AvaliacaoDaMatriz {
   const patrimonio: Nivel = e.naturezaItem === null ? "alto"
     : e.naturezaItem !== "duravel" ? "baixo"
     : p.limiteCapitalizacao === null || e.valor >= p.limiteCapitalizacao ? "alto" : "medio";
+  const chaveOk = e.chaveValida && e.chaveConfereComEmitente;
   // eixo 3 — lastro de nota fiscal
-  const lastro: Nivel = !e.temNotaAnexada ? "alto"
-    : e.compradorCnpjIgreja && e.chaveValida && e.chaveConfereComEmitente ? "baixo" : "medio";
+  let lastro: Nivel = !e.temNotaAnexada ? "alto"
+    : e.compradorCnpjIgreja && chaveOk ? "baixo" : "medio";
   // eixo 4 — risco da relação
   let relacao: Nivel = "baixo";
   if (e.responsavel === "pessoa") relacao = e.pedeReciboFiscal || e.terceiroNoCircuito ? "alto" : e.terceiroMinistro || e.intencaoAlteradaRecentemente ? "medio" : "baixo";
   else if (e.responsavel === "empresa") relacao = e.pedeReciboFiscal || e.empresaComPagamentos12m ? "alto" : "medio";
   else if (e.responsavel === "entidade") relacao = e.pedeReciboFiscal ? "alto" : "medio";
 
-  const grauConjunto = menorGrau(e.grauResponsavel, e.grauIntencao);
+  let grauConjunto = menorGrau(e.grauResponsavel, e.grauIntencao);
 
-  const moduladores: string[] = [];
+  let moduladores: string[] = [];
   if (e.diasEntrePagamentoEDeclaracao !== null && e.diasEntrePagamentoEDeclaracao > p.prazoDeclaracaoDias) moduladores.push("M1");
   if (e.valor > p.teto1) moduladores.push("M2");
   if (e.acumuladoAnoDoTerceiro > p.tetoAnualTerceiro || e.qtdRelatadasNoTrimestre >= p.qtdRelatadasTrimestre) moduladores.push("M3");
   if (e.periodoDaDespesaAprovado) moduladores.push("M4");
   const vencida = grauConjunto === "relatado" && e.formalizacaoVencida;
+  const qtdModuladores = moduladores.length;
   if (vencida) moduladores.push("vencida");
 
   const base = maxNivel(natureza, patrimonio, lastro, relacao);
   // até dois níveis pelos moduladores M1–M4; a formalização vencida sobe mais um (cláusulas 3.7.3 e 3.7.4)
-  const passos = Math.min(2, moduladores.filter(m => m !== "vencida").length) + (vencida ? 1 : 0);
-  const nivel = sobe(base, passos);
+  const passos = Math.min(2, qtdModuladores) + (vencida ? 1 : 0);
+  let nivel = sobe(base, passos);
 
   let suficiente = false, exige = false, motivo: string | null = null;
-  if (e.intencao === "nao_declarada" || e.intencao === "nao_se_aplica") motivo = "A intenção do terceiro não foi declarada.";
+  let regra: RegraDaOferta | null = null;
+  const grauResp = ORDEM_GRAU[e.grauResponsavel], grauInt = ORDEM_GRAU[e.grauIntencao];
+
+  // ── OFERTA: simples (decisão de 15/10/2026). Reembolso e compensação NÃO passam por aqui ──
+  if (e.intencao === "oferta" && grauResp > 0) {
+    // a nota está em nome da igreja, e a chave de acesso (que não é obrigatória) bate quando foi informada
+    const nfOk = e.temNotaAnexada && e.compradorCnpjIgreja && (!e.chaveInformada || chaveOk);
+    // alto risco: pede recibo com efeito fiscal, pessoa do circuito financeiro, empresa com relação financeira, bem durável (ou sem natureza informada)
+    const causas: string[] = [];
+    if (e.pedeReciboFiscal) causas.push("pede recibo com efeito fiscal");
+    if (e.responsavel === "pessoa" && e.terceiroNoCircuito) causas.push("o terceiro participa do circuito financeiro da igreja");
+    if (e.responsavel === "empresa" && e.empresaComPagamentos12m) causas.push("a empresa tem relação financeira com a igreja");
+    if (patrimonio === "alto") causas.push(e.naturezaItem === null ? "a natureza do item não foi informada" : p.limiteCapitalizacao === null ? "bem durável, e o limite de capitalização ainda não foi definido" : "bem durável acima do limite de capitalização");
+
+    if (causas.length > 0) {
+      regra = "oferta_alto_risco"; nivel = "alto";
+      if (grauConjunto === "formal") suficiente = true;            // o comprovante do pagamento do terceiro (e a declaração)
+      else if (e.aprovadoPeloAdministrador) suficiente = true;     // OU a aprovação formal do Administrador, com justificativa registrada
+      else { exige = true; motivo = `${MOTIVO_OFERTA_ALTO_RISCO} (${causas.join("; ")}): anexe o comprovante do pagamento do terceiro OU peça a aprovação formal do Administrador, com justificativa.`; }
+    } else if (nfOk && grauInt === 2) {
+      // OFERTA FORMALIZADA: nota da igreja + Declaração do Terceiro assinada. Não se exige o comprovante do pagamento do terceiro
+      regra = "oferta_formalizada"; grauConjunto = "formal"; lastro = "baixo"; moduladores = [];
+      if (e.acumuladoAnoDoTerceiro > p.tetoAnualTerceiro) {
+        nivel = "medio";                                           // acima do limite anual: revisão administrativa, sem virar Alto Risco
+        if (e.aprovadoPeloAdministrador) suficiente = true;
+        else { exige = true; motivo = "Oferta formalizada acima do limite anual do terceiro: precisa da revisão do Administrador, com justificativa."; }
+      } else { nivel = "baixo"; suficiente = true; }
+    }
+  }
+
+  // o que falta para formalizar uma oferta (só para a mensagem)
+  const faltas: string[] = [];
+  if (e.intencao === "oferta") {
+    if (!e.temNotaAnexada) faltas.push("anexe a nota fiscal da compra");
+    else if (!e.compradorCnpjIgreja) faltas.push("a nota precisa estar em nome da igreja (CNPJ da igreja)");
+    if (e.temNotaAnexada && e.chaveInformada && !chaveOk) faltas.push("a chave de acesso informada não confere (deve ser válida e do emitente): corrija ou deixe em branco");
+    if (grauInt < 2) faltas.push("falta a Declaração do Terceiro assinada");
+  }
+  const oQueFalta = faltas.join("; ") || "formalize a oferta";
+
+  // suficiência
+  if (regra !== null) { /* decidida acima */ }
+  else if (e.intencao === "nao_declarada" || e.intencao === "nao_se_aplica") motivo = "A intenção do terceiro não foi declarada.";
   else if (e.grauResponsavel === "nenhum") motivo = "Falta identificar quem pagou.";
   else if (e.grauIntencao === "nenhum") motivo = "Falta a declaração da intenção.";
   else if (grauConjunto === "formal") suficiente = true;
   else if (e.intencao === "reembolso") motivo = "Reembolso só se paga com a prova Formal: anexe o Pedido de Reembolso e o comprovante do pagamento do terceiro.";
   else if (e.intencao === "compensacao_adiantamento") motivo = "A compensação de adiantamento exige a prova Formal.";
   else if (nivel === "baixo") suficiente = true;
-  else if (nivel === "medio") { if (e.aprovadoPeloAdministrador) suficiente = true; else { exige = true; motivo = "O Relatado, neste nível de risco, precisa da aprovação do Administrador."; } }
-  else motivo = "Neste nível de risco o Relatado não basta: anexe a declaração assinada e a prova do pagamento do terceiro.";
+  else if (nivel === "medio") {
+    if (e.aprovadoPeloAdministrador) suficiente = true;
+    else {
+      exige = true;
+      motivo = e.intencao === "oferta" ? `Oferta ainda não formalizada: ${oQueFalta}, ou peça a aprovação do Administrador, com justificativa.` : "O Relatado, neste nível de risco, precisa da aprovação do Administrador.";
+    }
+  } else motivo = e.intencao === "oferta" ? `Oferta ainda não formalizada: ${oQueFalta}.` : "Neste nível de risco o Relatado não basta: anexe a declaração assinada e a prova do pagamento do terceiro.";
 
-  return { eixos: { natureza, patrimonio, lastro, relacao }, moduladores, nivel, grauConjunto, suficiente, exigeAprovacaoDoAdministrador: exige, motivo };
+  return { eixos: { natureza, patrimonio, lastro, relacao }, moduladores, nivel, grauConjunto, suficiente, exigeAprovacaoDoAdministrador: exige, motivo, regraDaOferta: regra };
 }
 
 // ── resultado, credor e fila (tudo derivado) ───────────────────────────────────────────────────────────────────────────────────────

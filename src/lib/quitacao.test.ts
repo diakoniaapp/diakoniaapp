@@ -80,11 +80,13 @@ describe("Matriz de suficiência da prova — os exemplos da Política", () => {
     expect(r.nivel).toBe("baixo");
     expect(r.suficiente).toBe(true);
   });
-  it("a mesma compra, mas o terceiro participa do circuito (aprova): Alto, exige Formal", () => {
+  it("a mesma compra, mas o terceiro participa do circuito (aprova): Alto; aceita o comprovante OU a aprovação formal do Administrador", () => {
     const r = avaliarQuitacao(base({ terceiroNoCircuito: true }));
     expect(r.nivel).toBe("alto");
     expect(r.suficiente).toBe(false);
-    expect(r.motivo).toMatch(/Relatado não basta/);
+    expect(r.exigeAprovacaoDoAdministrador).toBe(true);
+    expect(r.motivo).toMatch(/^Oferta de alto risco \(o terceiro participa do circuito financeiro da igreja\)/);
+    expect(r.motivo).toMatch(/comprovante do pagamento do terceiro OU .* aprovação formal do Administrador/);
   });
   it("com a prova Formal, o mesmo caso passa mesmo em nível Alto", () => {
     expect(avaliarQuitacao(base({ terceiroNoCircuito: true, grauResponsavel: "formal", grauIntencao: "formal" })).suficiente).toBe(true);
@@ -214,6 +216,124 @@ describe("moduladores", () => {
   });
   it("a formalização vencida só conta quando o grau do conjunto é Relatado", () => {
     expect(avaliarQuitacao(base({ formalizacaoVencida: true, grauResponsavel: "formal", grauIntencao: "formal" })).moduladores).toEqual([]);
+  });
+});
+
+// ═══ REVISÃO DA MATRIZ PARA OFERTAS (aprovada em 15/10/2026): oferta simples, reembolso rigoroso ═══════════════════════════════════════════════════════
+// Oferta FORMALIZADA = nota em nome da igreja + Declaração do Terceiro assinada (grau da intenção Formal). Não exige o comprovante do pagamento do terceiro.
+// ALTO RISCO = pede recibo fiscal, pessoa do circuito financeiro, empresa com relação financeira, bem durável sem limite: comprovante OU aprovação formal do Administrador.
+describe("oferta formalizada: a Matriz simples (15/10/2026)", () => {
+  const assinada = (o: Partial<EntradaDaMatriz> = {}) => base({ grauIntencao: "formal", chaveInformada: true, valor: 100, ...o });
+
+  it("nota da igreja com chave + declaração assinada: Formal, suficiente, sem comprovante do pagamento e sem aprovação", () => {
+    const r = avaliarQuitacao(assinada());
+    expect(r).toMatchObject({ suficiente: true, exigeAprovacaoDoAdministrador: false, grauConjunto: "formal", nivel: "baixo", regraDaOferta: "oferta_formalizada", motivo: null, moduladores: [] });
+  });
+  it("a chave de acesso NÃO é obrigatória: nota sem chave também formaliza", () => {
+    const r = avaliarQuitacao(assinada({ chaveInformada: false, chaveValida: false, chaveConfereComEmitente: false }));
+    expect(r.suficiente).toBe(true);
+    expect(r.regraDaOferta).toBe("oferta_formalizada");
+    expect(r.eixos.lastro).toBe("baixo");
+  });
+  it("mas a chave INFORMADA tem de ser válida e do emitente: errada, a oferta não formaliza e a mensagem diz o que corrigir", () => {
+    const r = avaliarQuitacao(assinada({ chaveValida: false }));
+    expect(r.regraDaOferta).toBeNull();
+    expect(r.suficiente).toBe(false);
+    expect(r.exigeAprovacaoDoAdministrador).toBe(true);
+    expect(r.motivo).toBe("Oferta ainda não formalizada: a chave de acesso informada não confere (deve ser válida e do emitente): corrija ou deixe em branco, ou peça a aprovação do Administrador, com justificativa.");
+  });
+  it("sem a nota anexada: a mensagem manda ANEXAR A NOTA, e não o comprovante do pagamento", () => {
+    const r = avaliarQuitacao(assinada({ temNotaAnexada: false }));
+    expect(r.suficiente).toBe(false);
+    expect(r.motivo).toBe("Oferta ainda não formalizada: anexe a nota fiscal da compra.");
+    expect(r.motivo).not.toMatch(/comprovante|prova do pagamento/i);
+  });
+  it("nota que não está em nome da igreja não caracteriza a compra", () => {
+    const r = avaliarQuitacao(assinada({ compradorCnpjIgreja: false }));
+    expect(r.suficiente).toBe(false);
+    expect(r.motivo).toMatch(/a nota precisa estar em nome da igreja/);
+  });
+  it("sem a declaração assinada (só Relatada), a Matriz de sempre vale: Baixo ainda passa, Médio pede o Administrador e diz o que falta", () => {
+    expect(avaliarQuitacao(base()).suficiente).toBe(true);
+    const r = avaliarQuitacao(base({ chaveInformada: false, chaveValida: false, chaveConfereComEmitente: false }));
+    expect(r.exigeAprovacaoDoAdministrador).toBe(true);
+    expect(r.motivo).toBe("Oferta ainda não formalizada: falta a Declaração do Terceiro assinada, ou peça a aprovação do Administrador, com justificativa.");
+  });
+  it.each([
+    ["valor acima do teto 1", { valor: 800 }],
+    ["terceiro ministro", { terceiroMinistro: true }],
+    ["empresa sem pagamentos da igreja", { responsavel: "empresa" as const }],
+    ["entidade", { responsavel: "entidade" as const }],
+    ["declaração 45 dias depois do pagamento", { diasEntrePagamentoEDeclaracao: 45 }],
+    ["oferta com condição ou destinação restrita", { ofertaComCondicao: true }],
+    ["três Relatadas no trimestre", { qtdRelatadasNoTrimestre: 5 }],
+    ["período com fechamento aprovado", { periodoDaDespesaAprovado: true }],
+    ["intenção alterada recentemente", { intencaoAlteradaRecentemente: true }],
+  ])("o que pedia o Administrador sem necessidade passa, formalizada: %s", (_nome, o) => {
+    const r = avaliarQuitacao(assinada(o));
+    expect(r.suficiente).toBe(true);
+    expect(r.exigeAprovacaoDoAdministrador).toBe(false);
+    expect(r.regraDaOferta).toBe("oferta_formalizada");
+  });
+  it("acima do limite anual do terceiro: REVISÃO do Administrador (com justificativa), sem virar Alto Risco", () => {
+    const r = avaliarQuitacao(assinada({ acumuladoAnoDoTerceiro: 2500 }));
+    expect(r).toMatchObject({ nivel: "medio", suficiente: false, exigeAprovacaoDoAdministrador: true, regraDaOferta: "oferta_formalizada" });
+    expect(r.motivo).toBe("Oferta formalizada acima do limite anual do terceiro: precisa da revisão do Administrador, com justificativa.");
+    expect(avaliarQuitacao(assinada({ acumuladoAnoDoTerceiro: 2500, aprovadoPeloAdministrador: true })).suficiente).toBe(true);
+    expect(avaliarQuitacao(assinada({ acumuladoAnoDoTerceiro: 2000 })).suficiente).toBe(true);          // no limite exato ainda não revisa
+  });
+});
+
+describe("oferta de ALTO RISCO: o comprovante do pagamento OU a aprovação formal do Administrador", () => {
+  const alto = (o: Partial<EntradaDaMatriz> = {}) => base({ grauIntencao: "formal", chaveInformada: true, valor: 100, ...o });
+  const casos: [string, Partial<EntradaDaMatriz>, string][] = [
+    ["pede recibo com efeito fiscal", { pedeReciboFiscal: true }, "pede recibo com efeito fiscal"],
+    ["pessoa do circuito financeiro", { terceiroNoCircuito: true }, "o terceiro participa do circuito financeiro da igreja"],
+    ["empresa com relação financeira com a igreja", { responsavel: "empresa", empresaComPagamentos12m: true }, "a empresa tem relação financeira com a igreja"],
+    ["bem durável sem limite de capitalização definido", { naturezaItem: "duravel" }, "bem durável, e o limite de capitalização ainda não foi definido"],
+    ["natureza do item não informada", { naturezaItem: null }, "a natureza do item não foi informada"],
+  ];
+  it.each(casos)("%s: fica Alto e pede o comprovante OU o Administrador", (_nome, o, causa) => {
+    const r = avaliarQuitacao(alto(o));
+    expect(r).toMatchObject({ nivel: "alto", suficiente: false, exigeAprovacaoDoAdministrador: true, regraDaOferta: "oferta_alto_risco" });
+    expect(r.motivo).toBe(`Oferta de alto risco (${causa}): anexe o comprovante do pagamento do terceiro OU peça a aprovação formal do Administrador, com justificativa.`);
+  });
+  it.each(casos)("%s: passa com o comprovante do pagamento (prova Formal)", (_nome, o) => {
+    expect(avaliarQuitacao(alto({ ...o, grauResponsavel: "formal" })).suficiente).toBe(true);
+  });
+  it.each(casos)("%s: passa com a aprovação formal do Administrador, sem documento", (_nome, o) => {
+    const r = avaliarQuitacao(alto({ ...o, aprovadoPeloAdministrador: true }));
+    expect(r).toMatchObject({ suficiente: true, nivel: "alto", regraDaOferta: "oferta_alto_risco" });
+  });
+  it("bem durável abaixo do limite de capitalização NÃO é alto risco: segue a regra simples", () => {
+    const r = avaliarQuitacao(alto({ naturezaItem: "duravel", valor: 90, parametros: { ...PARAMS, limiteCapitalizacao: 200 } }));
+    expect(r.regraDaOferta).toBe("oferta_formalizada");
+    expect(r.suficiente).toBe(true);
+  });
+  it("várias causas aparecem juntas na mensagem", () => {
+    const r = avaliarQuitacao(alto({ pedeReciboFiscal: true, terceiroNoCircuito: true }));
+    expect(r.motivo).toContain("pede recibo com efeito fiscal; o terceiro participa do circuito financeiro da igreja");
+  });
+  it("a aprovação do Administrador não vale para um responsável não identificado (Não localizado)", () => {
+    expect(avaliarQuitacao(alto({ grauResponsavel: "nenhum", aprovadoPeloAdministrador: true })).suficiente).toBe(false);
+  });
+});
+
+describe("o REEMBOLSO continua exatamente rigoroso", () => {
+  const reemb = (o: Partial<EntradaDaMatriz> = {}) => base({ intencao: "reembolso", grauIntencao: "formal", chaveInformada: true, valor: 100, ...o });
+  it("com a nota da igreja e a declaração assinada, mas sem o comprovante do pagamento: NÃO basta (o contrário da oferta)", () => {
+    const r = avaliarQuitacao(reemb());
+    expect(r).toMatchObject({ suficiente: false, grauConjunto: "relatado", regraDaOferta: null });
+    expect(r.motivo).toBe("Reembolso só se paga com a prova Formal: anexe o Pedido de Reembolso e o comprovante do pagamento do terceiro.");
+  });
+  it("com a prova Formal dos dois lados, passa", () => {
+    expect(avaliarQuitacao(reemb({ grauResponsavel: "formal" })).suficiente).toBe(true);
+  });
+  it("a aprovação do Administrador NÃO substitui a prova no reembolso", () => {
+    expect(avaliarQuitacao(reemb({ aprovadoPeloAdministrador: true })).suficiente).toBe(false);
+  });
+  it("compensação de adiantamento também fica como estava", () => {
+    expect(avaliarQuitacao(reemb({ intencao: "compensacao_adiantamento" })).motivo).toBe("A compensação de adiantamento exige a prova Formal.");
   });
 });
 

@@ -88,6 +88,7 @@ export function NotaQuitadaDialog({ aberto, onFechar, onFeito }: { aberto: boole
       });
       toast.success(v.tipo === "nao_localizado"
         ? "Nota registrada em aberto, na fila Investigar: ninguém sabe quem a pagou. Anexe a nota fiscal no detalhe da despesa e descubra quem pagou."
+        : v.intencao === "oferta" ? "Nota registrada como oferta de terceiro. Anexe a nota fiscal e a Declaração do Terceiro assinada no detalhe da despesa: com as duas a oferta está formalizada."
         : "Nota registrada já quitada por terceiro. Anexe a nota fiscal, a prova do pagamento e a declaração no detalhe da despesa.");
       onFeito(id); onFechar();
     } catch (e) { toast.error(mensagemErro(e)); } finally { setSalvando(false); }

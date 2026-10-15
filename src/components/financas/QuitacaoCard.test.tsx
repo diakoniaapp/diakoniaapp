@@ -220,3 +220,64 @@ describe("a Declaração do Terceiro no cartão (Fase 1D-a)", () => {
     expect(el.textContent).not.toMatch(/Ainda não gerada/);
   });
 });
+
+describe("oferta: simples; o alto risco aceita o comprovante OU a aprovação do Administrador (15/10/2026)", () => {
+  const MOTIVO_ALTO = "Oferta de alto risco (bem durável, e o limite de capitalização ainda não foi definido): anexe o comprovante do pagamento do terceiro OU peça a aprovação formal do Administrador, com justificativa.";
+  const oferta = (o: Partial<QuitacaoDaObrigacao> = {}) => q({ intencao: "oferta", grauResponsavel: "relatado", grauIntencao: "formal", grauConjunto: "formal", nivelRisco: "baixo", suficiente: true, fila: null, resultado: "extinta_como_oferta", credorAtual: "nenhum", ...o });
+  const digitar = async (campo: HTMLTextAreaElement, texto: string) => {
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(campo, texto);
+      campo.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+  };
+
+  it("oferta formalizada: não pede nem oferece o comprovante do pagamento, e diz que ele não é exigido", async () => {
+    quitacao = oferta();
+    const el = await montar(lanc());
+    expect(el.textContent).toMatch(/pagamento do terceiro: não exigido/);
+    expect(el.textContent).not.toMatch(/Anexar prova do pagamento|Anexar comprovante do pagamento/);
+    expect(el.textContent).toMatch(/Anexar declaração do terceiro/);
+  });
+  it("oferta ainda sem a nota: a mensagem manda anexar a nota e a tela não oferece o comprovante", async () => {
+    quitacao = oferta({ suficiente: false, nivelRisco: "alto", grauConjunto: "relatado", motivoInsuficiencia: "Oferta ainda não formalizada: anexe a nota fiscal da compra.", fila: "formalizar", resultado: "a_formalizar" });
+    const el = await montar(lanc());
+    expect(el.textContent).toMatch(/anexe a nota fiscal da compra/);
+    expect(el.textContent).not.toMatch(/Anexar prova do pagamento|Anexar comprovante do pagamento/);
+  });
+  it("oferta de alto risco: oferece anexar o comprovante do pagamento do terceiro e a aprovação do Administrador", async () => {
+    quitacao = oferta({ suficiente: false, nivelRisco: "alto", grauConjunto: "relatado", exigeAprovacaoDoAdministrador: true, motivoInsuficiencia: MOTIVO_ALTO, fila: "formalizar", resultado: "a_formalizar" });
+    const el = await montar(lanc());
+    expect(el.textContent).toMatch(/Anexar comprovante do pagamento do terceiro/);
+    expect(botao(el, "Aprovar a oferta (Administrador)")).toBeTruthy();
+    expect(el.textContent).toMatch(/pagamento Relatado/);
+  });
+  it("só o Administrador vê o botão de aprovar a oferta", async () => {
+    papeis = ["tesouraria"];
+    quitacao = oferta({ suficiente: false, nivelRisco: "alto", grauConjunto: "relatado", exigeAprovacaoDoAdministrador: true, motivoInsuficiencia: MOTIVO_ALTO });
+    const el = await montar(lanc());
+    expect(botao(el, "Aprovar a oferta")).toBeFalsy();
+  });
+  it("aprovar exige a justificativa (10 letras): sem ela o botão fica travado; com ela, vai para o banco", async () => {
+    quitacao = oferta({ suficiente: false, nivelRisco: "alto", grauConjunto: "relatado", exigeAprovacaoDoAdministrador: true, motivoInsuficiencia: MOTIVO_ALTO });
+    const el = await montar(lanc());
+    await act(async () => { botao(el, "Aprovar a oferta (Administrador)")!.click(); });
+    const campo = document.body.querySelector("textarea") as HTMLTextAreaElement;
+    expect(campo).toBeTruthy();
+    expect(document.body.textContent).toMatch(/fica registrada na quitação/);
+    const confirmar = () => [...document.body.querySelectorAll("button")].find(b => b.textContent === "Aprovar") as HTMLButtonElement;
+    expect(confirmar().disabled).toBe(true);
+    await digitar(campo, "curta");
+    expect(confirmar().disabled).toBe(true);
+    await digitar(campo, "Bem durável doado; a diretoria avaliou e aceitou.");
+    expect(confirmar().disabled).toBe(false);
+    await act(async () => { confirmar().click(); });
+    expect(decidir).toHaveBeenCalledWith("q1", "relatado", "aprovada", "Bem durável doado; a diretoria avaliou e aceitou.");
+  });
+  it("o reembolso continua oferecendo a prova do pagamento e não ganha o caminho do Administrador", async () => {
+    quitacao = q({ suficiente: false, grauConjunto: "relatado", grauResponsavel: "relatado", grauIntencao: "formal", nivelRisco: "alto", fila: "formalizar", resultado: "a_formalizar", motivoInsuficiencia: "Reembolso só se paga com a prova Formal: anexe o Pedido de Reembolso e o comprovante do pagamento do terceiro." });
+    const el = await montar(lanc());
+    expect(el.textContent).toMatch(/Anexar prova do pagamento/);
+    expect(botao(el, "Aprovar a oferta")).toBeFalsy();
+    expect(botao(el, "Aprovar o Relatado")).toBeFalsy();
+  });
+});
