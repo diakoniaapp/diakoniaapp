@@ -33,8 +33,8 @@ import { toast } from "sonner";
 import {
   confirmarPagamento,
   buscarFornecedor, adicionarAnexo, brl, pessoaDoLancamento, buscarPixDaPessoa, salvarPixDaPessoa,
-  fornecedoresParaNome, atualizarLancamento,
-  type FinVencimento, type FinLancamentoExtenso, type FinFornecedor,
+  fornecedoresParaNome, atualizarLancamento, listarContas,
+  type FinVencimento, type FinLancamentoExtenso, type FinFornecedor, type FinConta,
 } from "@/services/finService";
 import { montarPayloadPix, formatarChavePix, TIPOS_CHAVE_PIX, type TipoChavePix } from "@/lib/pix";
 import { Input } from "@/components/ui/input";
@@ -47,7 +47,7 @@ import { LiquidacaoPainel } from "@/components/financas/LiquidacaoPainel";
 import { liquidacaoDisponivel, liquidar } from "@/services/liquidacaoService";
 import type { PlanoDeLiquidacao } from "@/lib/liquidacao";
 import { QuitacaoDialog, type AlvoDaQuitacao } from "@/components/financas/QuitacaoDialog";
-import { ROTULO_FILA, ROTULO_RESPONSAVEL, ehTerceiro } from "@/lib/quitacao";
+import { CONTA_NAO_APLICAVEL_ID, ROTULO_FILA, ROTULO_RESPONSAVEL, ehTerceiro } from "@/lib/quitacao";
 import { quitacaoDaObrigacao, quitacaoDisponivel, type QuitacaoDaObrigacao } from "@/services/quitacaoService";
 import { DataDoPagamento, type EstadoDaDataDoPagamento } from "@/components/financas/DataDoPagamento";
 import { auditoriaDaDataDisponivel, registrarDecisaoDaData } from "@/services/comprovanteService";
@@ -107,6 +107,19 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
     return () => { cancelado = true; };
   }, [confirmando]);
   const usaLiquidacao = liqDisponivel && confirmando?.tipo === "saida";
+
+  // Despesa que está na conta estrutural "Não Aplicável" (compra paga por terceiro que voltou a ser da igreja, por exemplo quando a prova da oferta deixou de bastar): não tem conta
+  // financeira, então o pagamento pede de qual conta sai. As demais despesas seguem pagando da conta delas, como sempre.
+  const semContaFinanceira = confirmando?.conta_id === CONTA_NAO_APLICAVEL_ID;
+  const [contasParaPagar, setContasParaPagar] = useState<FinConta[]>([]);
+  const [contaDoPagamento, setContaDoPagamento] = useState("");
+  useEffect(() => {
+    setContaDoPagamento("");
+    if (!semContaFinanceira) { setContasParaPagar([]); return; }
+    let cancelado = false;
+    listarContas().then(cs => { if (!cancelado) setContasParaPagar(cs.filter(c => c.aceita_despesas !== false)); }).catch(() => { if (!cancelado) setContasParaPagar([]); });
+    return () => { cancelado = true; };
+  }, [semContaFinanceira, confirmando?.id]);
 
   // Fase 1A da Quitação (Política de Compras por Terceiros): ANTES de pagar, "quem pagou?". Se um terceiro já pagou o fornecedor, a igreja NÃO paga de novo — o botão trava e o
   // aviso diz onde a conta está. Sem a migration, nada disto aparece e o "Pagar" é o de sempre.
@@ -229,12 +242,14 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
       const saida = confirmando.tipo === "saida";
       if (saida && dataPag && !dataPag.pronto) { toast.error(dataPag.problema ?? "Confira a data do pagamento."); return; }
       const dataEfetiva = (saida && dataPag?.data) || hojeLocal();
+      if (semContaFinanceira && !contaDoPagamento) { toast.error("Escolha a conta de onde sai o pagamento."); return; }
+      const contaDePagamento = semContaFinanceira ? contaDoPagamento : confirmando.conta_id;
       let liquidacaoId: string | null = null;
       if (usaLiquidacao) {
         if (!planoLiq?.pronto) { toast.error(planoLiq?.problemas[0] ?? "Confira o valor pago."); return; }
-        liquidacaoId = await liquidar({ contaId: confirmando.conta_id, data: dataEfetiva, plano: planoLiq });
+        liquidacaoId = await liquidar({ contaId: contaDePagamento, data: dataEfetiva, plano: planoLiq });
       } else {
-        await confirmarPagamento(confirmando.id, { dataPagamento: dataEfetiva });
+        await confirmarPagamento(confirmando.id, { dataPagamento: dataEfetiva, ...(semContaFinanceira ? { contaId: contaDePagamento } : {}) });
       }
       // a decisão sobre a data (o que o comprovante sugeriu × o que foi escolhido) — registro, não pré-requisito: o pagamento já valeu
       if (saida && dataPag?.comprovante && (await auditoriaDaDataDisponivel())) {
@@ -358,6 +373,14 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
                   </div>
                 );
               })}
+              {semContaFinanceira && (
+                <div className="rounded-md border border-warning-line bg-warning-soft/40 p-2.5 space-y-1.5">
+                  <label htmlFor="pagar-conta" className="text-xs font-medium">Esta despesa não tem conta financeira. De qual conta sai o pagamento?</label>
+                  <select id="pagar-conta" value={contaDoPagamento} onChange={e => setContaDoPagamento(e.target.value)} className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm">
+                    <option value="">Escolha…</option>{contasParaPagar.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                  </select>
+                </div>
+              )}
               {usaLiquidacao && <LiquidacaoPainel key={confirmando.id} lancamento={confirmando} onPlano={setPlanoLiq} />}
               {fornecedorPagando?.chave_pix && (
                 <div className="rounded-md border bg-muted/20 p-2.5 space-y-2">
@@ -502,7 +525,7 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
 
           <AlertDialogFooter>
             <AlertDialogCancel disabled={confirmandoBusy}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction variant="success" onClick={(e) => { e.preventDefault(); confirmarPagamentoDialog(); }} disabled={confirmandoBusy || terceiroJaPagou || (usaLiquidacao && !planoLiq?.pronto) || (confirmando?.tipo === "saida" && !!dataPag && !dataPag.pronto)}>
+            <AlertDialogAction variant="success" onClick={(e) => { e.preventDefault(); confirmarPagamentoDialog(); }} disabled={confirmandoBusy || terceiroJaPagou || (semContaFinanceira && !contaDoPagamento) || (usaLiquidacao && !planoLiq?.pronto) || (confirmando?.tipo === "saida" && !!dataPag && !dataPag.pronto)}>
               {confirmandoBusy ? "..." : (confirmando?.tipo === "saida" ? "Marcar como pago" : "Receber")}
             </AlertDialogAction>
           </AlertDialogFooter>

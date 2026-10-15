@@ -7,7 +7,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { ConteudoDaDeclaracao } from "@/lib/declaracaoDoTerceiro";
 import {
-  PARAMETROS_PADRAO, type FormaDePagamento, type Fila, type Grau, type Intencao, type Nivel, type NaturezaDoItem, type ParametrosDaQuitacao, type Resultado, type ResponsavelTipo,
+  CONTA_NAO_APLICAVEL_ID, PARAMETROS_PADRAO, type FormaDePagamento, type Fila, type Grau, type Intencao, type Nivel, type NaturezaDoItem, type ParametrosDaQuitacao, type Resultado, type ResponsavelTipo,
 } from "@/lib/quitacao";
 
 let sondagem: { em: number; ok: boolean } | null = null;
@@ -251,7 +251,8 @@ export const alterarParametros = (mudancas: Record<string, unknown>, motivo: str
 /** Registrar uma NOTA que o aplicativo ainda não tinha, já quitada por um terceiro: a obrigação e a quitação nascem na MESMA operação (ou nada nasce). */
 export interface PedidoDeNotaQuitada {
   formaPagamentoTerceiro?: FormaDePagamento | null;
-  contaId: string;
+  /** Oferta não usa conta financeira: vai `null` e o banco a põe na conta "Não Aplicável". Reembolso e relatado seguem pedindo conta. */
+  contaId: string | null;
   emitenteId: string;
   dataDaNota: string;
   valor: number;
@@ -273,6 +274,15 @@ export interface PedidoDeNotaQuitada {
   motivo?: string | null;
   /** Dimensão da OBRIGAÇÃO, como categoria e centro — não da quitação. Só vai ao banco quando a migration 20261016110000 está aplicada. */
   projetoId?: string | null;
+}
+
+let sondagemContaNeutra: { em: number; ok: boolean } | null = null;
+/** `true` quando a conta "Não Aplicável" existe no banco (migration 20261016140100): só então a oferta dispensa a escolha de conta. Resultado guardado por 30 s. */
+export async function contaNaoAplicavelDisponivel(): Promise<boolean> {
+  if (sondagemContaNeutra && Date.now() - sondagemContaNeutra.em < 30_000) return sondagemContaNeutra.ok;
+  const { data, error } = await supabase.from("fin_contas").select("id").eq("id", CONTA_NAO_APLICAVEL_ID).maybeSingle();
+  sondagemContaNeutra = { em: Date.now(), ok: !error && !!data };
+  return sondagemContaNeutra.ok;
 }
 
 let sondagemProjeto: { em: number; ok: boolean } | null = null;

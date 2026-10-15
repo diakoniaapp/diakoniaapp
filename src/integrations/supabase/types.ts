@@ -14497,6 +14497,7 @@ export type Database = {
         | "cartao"
         | "aplicacao"
         | "cofre"
+        | "nao_aplicavel"
       fin_estoque_movimento_tipo: "entrada" | "saida" | "ajuste"
       fin_forma_pagamento:
         | "pix"
@@ -15305,6 +15306,7 @@ export const Constants = {
         "cartao",
         "aplicacao",
         "cofre",
+        "nao_aplicavel",
       ],
       fin_estoque_movimento_tipo: ["entrada", "saida", "ajuste"],
       fin_forma_pagamento: [

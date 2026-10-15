@@ -18,6 +18,10 @@ export type Intencao = "reembolso" | "oferta" | "compensacao_adiantamento" | "na
 export type Grau = "nenhum" | "relatado" | "formal";
 export type Nivel = "baixo" | "medio" | "alto";
 export type NaturezaDoItem = "consumo" | "estoque" | "duravel" | "servico";
+/** A conta estrutural das compras pagas por terceiros (oferta): não é conta financeira, é invisível nos seletores e tem saldo zero. Mesmo id do banco (migration 20261016140100). */
+export const CONTA_NAO_APLICAVEL_ID = "00000000-0000-4000-8000-0000000000a1";
+export const NOME_CONTA_NAO_APLICAVEL = "Não Aplicável (Compras Pagas por Terceiros)";
+
 export type Fila = "investigar" | "a_esclarecer" | "formalizar" | "aprovar_reembolso" | "reembolso_a_pagar";
 export type Resultado =
   | "em_aberto" | "pago_pela_igreja" | "sem_quitacao_localizada" | "a_esclarecer" | "a_formalizar"

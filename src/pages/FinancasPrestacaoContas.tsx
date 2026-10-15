@@ -521,6 +521,52 @@ export default function FinancasPrestacaoContas() {
           );
         })()}
 
+        {/* Compras OFERTADAS por terceiros (14/10/2026): despesa da igreja que não moveu caixa. Seção própria, FORA da demonstração acima: não entra em receitas, despesas, resultado nem saldo. */}
+        {dados.comprasOfertadas.itens.length > 0 && (
+          <section className="avoid-break mb-6" aria-label="Compras ofertadas por terceiros">
+            <div className="flex items-baseline justify-between mb-1">
+              <h3 className="font-serif text-sm text-gold uppercase tracking-wide">Compras ofertadas por terceiros — fora do caixa</h3>
+              <span className="text-xs text-muted-foreground">
+                {dados.comprasOfertadas.itens.length} {dados.comprasOfertadas.itens.length === 1 ? "compra" : "compras"}
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground mb-2">
+              Despesas da igreja pagas diretamente por um terceiro, como oferta. Não passaram por banco, caixa, aplicação nem cartão, não se ligam a nenhuma conta
+              e não entram em receitas, despesas, resultado nem saldo acima.
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-[11px] border-collapse">
+                <thead>
+                  <tr className="border-b-2 border-gold/40 text-left text-muted-foreground">
+                    <th className="py-1 pr-2 w-16">Data</th>
+                    <th className="py-1 pr-2">Fornecedor</th>
+                    <th className="py-1 pr-2">Categoria</th>
+                    <th className="py-1 pr-2">Centro de custo</th>
+                    <th className="py-1 text-right w-24">Valor</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dados.comprasOfertadas.itens.map(i => (
+                    <tr key={i.id} className="border-b border-border/30">
+                      <td className="py-1 pr-2 whitespace-nowrap">{i.data.split("-").reverse().join("/")}</td>
+                      <td className="py-1 pr-2 max-w-[220px] truncate">{i.favorecido}</td>
+                      <td className="py-1 pr-2">{i.categoriaNome ?? "—"}</td>
+                      <td className="py-1 pr-2">{i.centroNome ?? "—"}</td>
+                      <td className="py-1 text-right tabular-nums">{brl(i.valor)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-gold/40 font-semibold">
+                    <td colSpan={4} className="py-1.5 text-xs">Total de compras ofertadas por terceiros</td>
+                    <td className="py-1.5 text-right tabular-nums">{brl(dados.comprasOfertadas.total)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </section>
+        )}
+
         {/* Juros, multas e descontos: atributos das obrigações pagas no período (cada documento continua sendo UM) */}
         <EncargosDoPeriodo
           de={`${ano}-${String(mes).padStart(2, "0")}-01`}

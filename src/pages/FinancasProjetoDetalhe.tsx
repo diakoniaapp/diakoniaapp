@@ -99,9 +99,9 @@ export default function FinancasProjetoDetalhe() {
   // Só pro alerta de "receita parada" — despesas que ainda vão vencer,
   // pra não alarmar sobre um projeto que só ainda não teve despesa
   // nenhuma prevista.
-  // Despesas CUSTEADAS POR TERCEIROS (oferta extinta: status quitado_terceiro). Despesa do projeto, mas o dinheiro não
+  // COMPRAS OFERTADAS POR TERCEIROS (oferta extinta: status quitado_terceiro). Despesa do projeto, mas o dinheiro não
   // passou pelo caixa nem pelo banco da igreja — por isso ficam FORA de `lancamentos` (a demonstração de caixa acima),
-  // do saldo, da arrecadação, do déficit, do termômetro e dos gráficos, e aparecem só na seção própria "Custeado por
+  // do saldo, da arrecadação, do déficit, do termômetro e dos gráficos, e aparecem só na seção própria "Compras ofertadas por
   // terceiros" e no custo total. Mesma regra dos relatórios de competência (Fase 1C-f): a oferta é despesa da igreja,
   // sem mover caixa. Uma oferta cuja prova deixa de bastar volta a "previsto" e sai daqui sozinha.
   const ofertadas = useMemo(
@@ -585,7 +585,7 @@ export default function FinancasProjetoDetalhe() {
   );
 }
 
-// Seção própria das despesas custeadas por terceiros: as três linhas aprovadas em 14/10/2026. O custo total soma as duas,
+// Seção própria das COMPRAS OFERTADAS POR TERCEIROS (nome aprovado em 14/10/2026): as três linhas do custo. O custo total soma as duas,
 // mas NADA disto entra no saldo, na arrecadação, no déficit ou no termômetro acima — esses são de caixa.
 function CustoDoProjeto({ pagas, qtdPagas, ofertadas, qtdOfertadas }: { pagas: number; qtdPagas: number; ofertadas: number; qtdOfertadas: number }) {
   const total = pagas + ofertadas;
@@ -594,11 +594,11 @@ function CustoDoProjeto({ pagas, qtdPagas, ofertadas, qtdOfertadas }: { pagas: n
   return (
     <section className="avoid-break mb-6 rounded-md border border-gold/40 p-4" aria-label="Custo do projeto">
       <h3 className="text-sm font-medium mb-1 flex items-center gap-1.5">
-        <HandHeart className="w-3.5 h-3.5 text-gold-text" /> Custo do projeto — custeado por terceiros
+        <HandHeart className="w-3.5 h-3.5 text-gold-text" /> Custo do projeto — compras ofertadas por terceiros
       </h3>
       <p className="text-xs text-muted-foreground mb-3">
-        Despesas do projeto pagas diretamente por um terceiro, como oferta (nota quitada por terceiro). O dinheiro não passou pelo caixa nem pelo banco
-        da igreja: não entra no saldo, na arrecadação nem no déficit acima.
+        Compras do projeto pagas diretamente por um terceiro, como oferta. O dinheiro não passou por banco, caixa, aplicação nem cartão da igreja, e a nota
+        não se liga a nenhuma conta: não entra no saldo, na arrecadação nem no déficit acima.
       </p>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
@@ -609,7 +609,7 @@ function CustoDoProjeto({ pagas, qtdPagas, ofertadas, qtdOfertadas }: { pagas: n
               <td className="py-1.5 pl-3 text-right tabular-nums text-xs text-muted-foreground w-16">{pct(pagas)}</td>
             </tr>
             <tr className="border-b border-border/40">
-              <td className="py-1.5">Despesas custeadas por terceiros <span className="text-xs text-muted-foreground">({qtd(qtdOfertadas)})</span></td>
+              <td className="py-1.5">Compras ofertadas por terceiros <span className="text-xs text-muted-foreground">({qtd(qtdOfertadas)})</span></td>
               <td className="py-1.5 text-right tabular-nums font-medium text-gold-text">{brl(ofertadas)}</td>
               <td className="py-1.5 pl-3 text-right tabular-nums text-xs text-muted-foreground w-16">{pct(ofertadas)}</td>
             </tr>
@@ -625,13 +625,13 @@ function CustoDoProjeto({ pagas, qtdPagas, ofertadas, qtdOfertadas }: { pagas: n
   );
 }
 
-// A listagem das ofertas, separada das receitas e das despesas pagas: cada uma com o terceiro que pagou.
+// A listagem das COMPRAS OFERTADAS POR TERCEIROS, separada das receitas e das despesas pagas (fora do caixa): cada uma com o terceiro que pagou.
 function ListagemOfertas({ itens, pagoPor, total }: { itens: FinLancamentoExtenso[]; pagoPor: Map<string, string>; total: number }) {
   const ordenados = itens.slice().sort((a, b) => a.data.localeCompare(b.data));
   return (
-    <section className="avoid-break mb-6" aria-label="Custeado por terceiros">
+    <section className="avoid-break mb-6" aria-label="Compras ofertadas por terceiros">
       <div className="flex items-baseline justify-between mb-1.5">
-        <h3 className="text-sm font-medium">Custeado por terceiros (oferta) — fora do caixa</h3>
+        <h3 className="text-sm font-medium">Compras ofertadas por terceiros — fora do caixa</h3>
         <span className="text-xs text-muted-foreground">{itens.length} {itens.length === 1 ? "item" : "itens"}</span>
       </div>
       <div className="overflow-x-auto">
@@ -656,7 +656,7 @@ function ListagemOfertas({ itens, pagoPor, total }: { itens: FinLancamentoExtens
           </tbody>
           <tfoot>
             <tr className="border-t-2 border-gold/40 font-semibold">
-              <td colSpan={3} className="py-1.5 text-xs">Total custeado por terceiros</td>
+              <td colSpan={3} className="py-1.5 text-xs">Total de compras ofertadas por terceiros</td>
               <td className="py-1.5 text-right tabular-nums text-xs text-gold-text">{brl(total)}</td>
             </tr>
           </tfoot>

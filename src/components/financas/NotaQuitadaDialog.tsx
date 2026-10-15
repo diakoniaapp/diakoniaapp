@@ -18,7 +18,7 @@ import { paraNumero } from "@/lib/dinheiro";
 import { mensagemErro } from "@/lib/erroRede";
 import { chaveNfeValida, type NaturezaDoItem } from "@/lib/quitacao";
 import { listarCategorias, listarCentrosCusto, listarContas, listarFornecedores, listarProjetos, type FinCategoria, type FinCentroCusto, type FinConta, type FinFornecedor, type FinProjeto } from "@/services/finService";
-import { declaracaoDisponivel, ofertaDisponivel, projetoNaNotaDisponivel, registrarNotaQuitadaPorTerceiro } from "@/services/quitacaoService";
+import { contaNaoAplicavelDisponivel, declaracaoDisponivel, ofertaDisponivel, projetoNaNotaDisponivel, registrarNotaQuitadaPorTerceiro } from "@/services/quitacaoService";
 
 export function NotaQuitadaDialog({ aberto, onFechar, onFeito }: { aberto: boolean; onFechar: () => void; onFeito: (obrigacaoId: string) => void }) {
   const hoje = hojeLocal();
@@ -31,6 +31,7 @@ export function NotaQuitadaDialog({ aberto, onFechar, onFeito }: { aberto: boole
   const [contaId, setContaId] = useState(""); const [categoriaId, setCategoriaId] = useState(""); const [centroId, setCentroId] = useState(""); const [motivo, setMotivo] = useState("");
   const [contas, setContas] = useState<FinConta[]>([]); const [categorias, setCategorias] = useState<FinCategoria[]>([]); const [centros, setCentros] = useState<FinCentroCusto[]>([]);
   const [ofertaLiberada, setOfertaLiberada] = useState(false);
+  const [contaNeutra, setContaNeutra] = useState(false);   // o banco já tem a conta "Não Aplicável": oferta não escolhe conta
   const [pedirForma, setPedirForma] = useState(false);   // Fase 1D-a: só pede a forma de pagamento do terceiro quando o banco já a tem
   const [salvando, setSalvando] = useState(false);
   // Projeto: dimensão da OBRIGAÇÃO (aprovado em 14/10/2026), ao lado de categoria e centro — não da quitação. Mesmo comportamento do LancamentoForm:
@@ -43,6 +44,7 @@ export function NotaQuitadaDialog({ aberto, onFechar, onFeito }: { aberto: boole
     setV(ESTADO_VAZIO); setEmitente(null); setBuscaEmit(""); setNumero(""); setChave(""); setDataNota(""); setValorTxt(""); setDescricao(""); setContaId(""); setCategoriaId(""); setCentroId(""); setMotivo(""); setUsarProjeto(false); setProjetoId("");
     let vivo = true;
     ofertaDisponivel().then(ok => { if (vivo) setOfertaLiberada(ok); });
+    contaNaoAplicavelDisponivel().then(ok => { if (vivo) setContaNeutra(ok); }).catch(() => { if (vivo) setContaNeutra(false); });
     declaracaoDisponivel().then(ok => { if (vivo) setPedirForma(ok); });
     projetoNaNotaDisponivel().then(ok => { if (vivo) setAceitaProjeto(ok); });
     listarProjetos().catch(() => [] as FinProjeto[]).then(p => { if (vivo) setProjetos(p); });
@@ -57,6 +59,8 @@ export function NotaQuitadaDialog({ aberto, onFechar, onFeito }: { aberto: boole
     return () => { vivo = false; clearTimeout(t); };
   }, [buscaEmit, emitente]);
 
+  // Oferta não passa por banco, caixa, aplicação nem cartão: sem conta financeira (14/10/2026). A obrigação nasce na conta estrutural "Não Aplicável".
+  const semConta = contaNeutra && v.tipo !== "nao_localizado" && v.intencao === "oferta";
   const valor = useMemo(() => paraNumero(valorTxt), [valorTxt]);
   const chaveLimpa = chave.replace(/\s/g, "");
   const problemas = useMemo(() => {
@@ -64,10 +68,10 @@ export function NotaQuitadaDialog({ aberto, onFechar, onFeito }: { aberto: boole
     if (!emitente) p.push("Escolha o fornecedor que emitiu a nota.");
     if (!dataNota) p.push("Informe a data da nota."); else if (dataNota > hoje) p.push("A data da nota não pode ser futura.");
     if (!(valor > 0)) p.push("Informe o valor da nota.");
-    if (!contaId) p.push("Escolha a conta em que a obrigação ficará registrada (a oferta não mexe nela).");
+    if (!contaId && !semConta) p.push("Escolha a conta em que a obrigação ficará registrada.");
     if (chaveLimpa && !chaveNfeValida(chaveLimpa)) p.push("A chave de acesso não confere (44 dígitos, com o dígito verificador correto).");
     return [...p, ...problemasDoEstado(v, emitente?.id ?? null, hoje, pedirForma)];
-  }, [emitente, dataNota, valor, contaId, chaveLimpa, v, hoje, pedirForma]);
+  }, [emitente, dataNota, valor, contaId, semConta, chaveLimpa, v, hoje, pedirForma]);
 
   async function salvar() {
     if (!emitente) return;
@@ -75,7 +79,7 @@ export function NotaQuitadaDialog({ aberto, onFechar, onFeito }: { aberto: boole
     try {
       const declara = v.intencao === "reembolso" || v.intencao === "oferta" || v.intencao === "compensacao_adiantamento";
       const id = await registrarNotaQuitadaPorTerceiro({
-        contaId, emitenteId: emitente.id, dataDaNota: dataNota, valor, descricao: descricao.trim() || null, numeroDaNota: numero.trim() || null, chaveDeAcesso: chaveLimpa || null,
+        contaId: semConta ? null : contaId, emitenteId: emitente.id, dataDaNota: dataNota, valor, descricao: descricao.trim() || null, numeroDaNota: numero.trim() || null, chaveDeAcesso: chaveLimpa || null,
         categoriaId: categoriaId || null, centroCustoId: centroId || null, projetoId: aceitaProjeto && usarProjeto && projetoId ? projetoId : null, naturezaItem: (v.natureza || null) as NaturezaDoItem, comprador: (v.comprador || null) as "cnpj_igreja" | "contratacao_previa",
         responsavel: v.tipo, pessoaId: v.tipo === "pessoa" ? v.escolhido?.id ?? null : null, fornecedorDoResponsavelId: v.tipo !== "pessoa" ? v.escolhido?.id ?? null : null,
         formaPagamentoTerceiro: v.tipo === "nao_localizado" || !v.forma ? null : v.forma,
@@ -131,9 +135,15 @@ export function NotaQuitadaDialog({ aberto, onFechar, onFeito }: { aberto: boole
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="space-y-1.5">
                 <Label htmlFor="n-conta">Conta da obrigação</Label>
-                <select id="n-conta" className="h-10 w-full rounded-md border bg-background px-3 text-sm" value={contaId} onChange={e => setContaId(e.target.value)}>
-                  <option value="">Escolha…</option>{contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-                </select>
+                {semConta ? (
+                  <p id="n-conta" className="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">
+                    <b className="text-foreground">Não aplicável.</b> Oferta não passa por banco, caixa, aplicação nem cartão: a nota não se liga a nenhuma conta.
+                  </p>
+                ) : (
+                  <select id="n-conta" className="h-10 w-full rounded-md border bg-background px-3 text-sm" value={contaId} onChange={e => setContaId(e.target.value)}>
+                    <option value="">Escolha…</option>{contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                  </select>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="n-cat">Categoria (opcional)</Label>

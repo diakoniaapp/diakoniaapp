@@ -180,6 +180,23 @@ export interface PrestacaoContasGrupo {
 }
 export interface PrestacaoContasMes { ano: number; numero: number; nome: string; }
 
+/** Uma compra OFERTADA por terceiro (obrigação extinta por oferta, status quitado_terceiro): despesa da igreja que NÃO moveu caixa, banco, aplicação nem cartão. */
+export interface CompraOfertada {
+  id: string;
+  data: string;
+  favorecido: string;
+  descricao: string | null;
+  valor: number;
+  categoriaNome: string | null;
+  centroNome: string | null;
+}
+export interface ComprasOfertadasDoPeriodo {
+  itens: CompraOfertada[];
+  /** Um valor por mês do período (mesma ordem de `meses`). */
+  porMes: number[];
+  total: number;
+}
+
 export interface PrestacaoContasResultado {
   meses: PrestacaoContasMes[]; // comprimento = qtdMeses pedido
   mesAncoraNota: { ano: number; mes: number }; // último mês do período — onde a nota de cada linha vive
@@ -193,6 +210,8 @@ export interface PrestacaoContasResultado {
   resultado: number[];
   saldoFinal: number[];
   qtdLancamentos: number;
+  /** Seção própria, FORA da demonstração de caixa: não entra em receitas, despesas, resultado nem saldo. Vazia quando não há oferta no período. */
+  comprasOfertadas: ComprasOfertadasDoPeriodo;
   excluidos: PrestacaoContasExcluidos;
   // Pedido da Telma (16/09/2026): quantos dizimistas por mês, contados por
   // NOME ÚNICO — não por `pessoa_id`. A maioria dos lançamentos de Dízimo
@@ -407,6 +426,21 @@ export async function gerarPrestacaoContas(ano: number, mesInicio: number, qtdMe
   const temNota = (categoriaId: string, centroCustoId: string | null) =>
     notas.has(`${categoriaId}|${centroCustoId ?? ""}`);
 
+  // Compras ofertadas por terceiros: aparecem em seção PRÓPRIA, fora do caixa (14/10/2026). Não têm conta financeira: no relatório "por conta" (contaId) não entram.
+  const ofertadasItens: CompraOfertada[] = lancsBrutos
+    .filter(l => l.tipo === "saida" && (l.status as string) === "quitado_terceiro")
+    .sort((a, b) => a.data.localeCompare(b.data))
+    .map(l => ({
+      id: l.id, data: l.data, favorecido: nomeExtrato(l).principal, descricao: l.descricao ?? null, valor: Number(l.valor),
+      categoriaNome: l.categoria_id ? catMap.get(l.categoria_id)?.nome ?? null : null,
+      centroNome: l.centro_custo_id ? centroMap.get(l.centro_custo_id)?.nome ?? null : null,
+    }));
+  const comprasOfertadas: ComprasOfertadasDoPeriodo = {
+    itens: ofertadasItens,
+    porMes: mesesChaves.map(chave => ofertadasItens.filter(i => i.data.slice(0, 7) === chave).reduce((s, i) => s + i.valor, 0)),
+    total: ofertadasItens.reduce((s, i) => s + i.valor, 0),
+  };
+
   function indiceDoMes(dataYmd: string): number {
     return mesesChaves.indexOf(dataYmd.slice(0, 7));
   }
@@ -537,6 +571,7 @@ export async function gerarPrestacaoContas(ano: number, mesInicio: number, qtdMe
     grupoDespesasFinanceiras, grupoOutrasDespesas,
     resultado, saldoFinal,
     qtdLancamentos: lancs.length,
+    comprasOfertadas,
     excluidos: { porMotivo: excluidosPorMotivo, itens: itensExcluidos },
     dizimistasPorMes,
   };
@@ -556,6 +591,14 @@ export function gerarCSVPrestacaoContas(r: PrestacaoContasResultado): string {
   });
   linhas.push(`Receitas;;TOTAL RECEITAS;${r.totalReceitas.map(fmt).join(";")}`);
   linhas.push(`Receitas;;DIZIMISTAS NO PERIODO (nomes unicos);${r.dizimistasPorMes.join(";")}`);
+  // fora do caixa: não entra em receitas, despesas, resultado nem saldo
+  if (r.comprasOfertadas.itens.length > 0) {
+    r.comprasOfertadas.itens.forEach(i => {
+      const colunas = r.meses.map(m => (`${m.ano}-${String(m.numero).padStart(2, "0")}` === i.data.slice(0, 7) ? fmt(i.valor) : fmt(0)));
+      linhas.push(`Compras ofertadas por terceiros (fora do caixa);${i.categoriaNome ?? ""};${i.favorecido.replace(/;/g, ",")} (${i.data});${colunas.join(";")}`);
+    });
+    linhas.push(`Compras ofertadas por terceiros (fora do caixa);;TOTAL;${r.comprasOfertadas.porMes.map(fmt).join(";")}`);
+  }
 
   r.gruposDespesaPorCentro.forEach(g => {
     if (g.subgrupos) {

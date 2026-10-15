@@ -1,4 +1,5 @@
 import { statusDeDespesaDeCompetencia } from "@/services/quitacaoService";
+import { CONTA_NAO_APLICAVEL_ID } from "@/lib/quitacao";
 import { supabase } from "@/integrations/supabase/client";
 import { hojeLocal, daquiAMeses, toYmd } from "@/lib/data";
 import { conferir } from "@/lib/escritaConferida";
@@ -8,7 +9,8 @@ import type { FormaLiquidacao } from "@/lib/formaLiquidacao";
 import { atualizarPrevistosEmBlocos } from "@/services/previstosEmBlocos";
 
 // ─── Tipos ───────────────────────────────────────────────────────────────
-export type FinContaTipo = "caixa" | "banco" | "pix" | "envelope" | "cartao" | "aplicacao" | "cofre";
+// "nao_aplicavel": a conta ESTRUTURAL das compras pagas por terceiros (14/10/2026) — não é conta financeira; ver lib/quitacao.ts (CONTA_NAO_APLICAVEL_ID).
+export type FinContaTipo = "caixa" | "banco" | "pix" | "envelope" | "cartao" | "aplicacao" | "cofre" | "nao_aplicavel";
 export type FinMovimentoTipo = "entrada" | "saida";
 // "quitado_terceiro" (Fase 1B da Política de Compras por Terceiros): a obrigação foi extinta por um terceiro (oferta), SEM passar por banco nem caixa. Não é pago pela igreja: não entra no saldo,
 // no extrato nem na conciliação. Só nasce de uma quitação do tipo oferta com prova suficiente (o banco o põe e o tira sozinho); a tela nunca o escolhe.
@@ -328,7 +330,7 @@ export interface FinResumoMes {
 export const CONTA_TIPO_LABEL: Record<FinContaTipo, string> = {
   caixa: "Caixa", banco: "Banco", pix: "PIX",
   envelope: "Envelope", cartao: "Cartão de Crédito",
-  aplicacao: "Aplicação", cofre: "Cofre",
+  aplicacao: "Aplicação", cofre: "Cofre", nao_aplicavel: "Não aplicável",
 };
 
 export const FORMA_LABEL: Record<FinFormaPagamento, string> = {
@@ -422,7 +424,8 @@ export const STATUS_LABEL: Record<FinStatus, string> = {
 
 // ─── Contas ──────────────────────────────────────────────────────────────
 export async function listarContas(incluirInativas = false): Promise<FinConta[]> {
-  let q = supabase.from("fin_contas").select("*").order("ordem").order("nome");
+  // a conta estrutural "Não Aplicável" (compras pagas por terceiros) NÃO é conta financeira: nunca entra em seletor, relatório por conta nem tela de contas
+  let q = supabase.from("fin_contas").select("*").neq("id", CONTA_NAO_APLICAVEL_ID).order("ordem").order("nome");
   if (!incluirInativas) q = q.eq("ativo", true);
   const { data, error } = await q;
   if (error) throw error;
@@ -1917,12 +1920,15 @@ export async function listarProximosVencimentos(opts: {
 // ─── Confirmar pagamento — previsto → realizado ─────────────────────────
 export async function confirmarPagamento(lancamentoId: string, opts?: {
   dataPagamento?: string; valorReal?: number;
+  /** Só quando a despesa estava na conta "Não Aplicável" (sem conta financeira): a conta de onde sai o pagamento. */
+  contaId?: string;
 }): Promise<void> {
   const patch: any = {
     status: "realizado",
     data_pagamento: opts?.dataPagamento ?? hojeLocal(),
   };
   if (opts?.valorReal && opts.valorReal > 0) patch.valor = opts.valorReal;
+  if (opts?.contaId) patch.conta_id = opts.contaId;
   await atualizarLancamento(lancamentoId, patch);
 }
 
