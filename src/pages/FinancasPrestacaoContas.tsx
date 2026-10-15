@@ -480,11 +480,15 @@ export default function FinancasPrestacaoContas() {
 
               {/* Despesas financeiras (15/10/2026): seção própria, sempre presente (mesmo zerada, o Conselho vê que não houve), com subtotal de tarifas,
                   título de capitalização e demais encargos. Os valores são os mesmos que já entravam no Resultado. */}
+              </tbody>
+              <tbody style={{ breakInside: "avoid" }}>
               <LinhaSecao titulo="Despesas Financeiras" />
               {financeiras.subgrupos.map(g => (
                 <BlocoFinanceiro key={g.chave} subgrupo={g} onNota={abrirNota} />
               ))}
               <LinhaTotal titulo="Total Despesas Financeiras" valores={financeiras.valores} destaque cor="text-destructive-text" />
+              </tbody>
+              <tbody>
               {dados.grupoOutrasDespesas && (
                 <>
                   <LinhaSecao titulo="Outras Despesas" />
@@ -493,6 +497,8 @@ export default function FinancasPrestacaoContas() {
                 </>
               )}
 
+              </tbody>
+              <tbody style={{ breakInside: "avoid" }}>
               <LinhaTotal titulo="Total Geral de Despesas" valores={despesaTotalPorMes(dados)} destaque cor="text-destructive-text" />
               <LinhaTotal titulo={resumo.situacao === "deficit" ? "Resultado do Período (Déficit)" : resumo.situacao === "superavit" ? "Resultado do Período (Superávit)" : "Resultado do Período"} valores={dados.resultado} destaque forte
                 cor={dados.resultado.every(v => v >= 0) ? "text-success-text" : undefined} />
@@ -572,7 +578,7 @@ export default function FinancasPrestacaoContas() {
                     {dados.comprasOfertadas.itens.map(i => (
                       <tr key={i.id} className="border-b border-border/30">
                         <td className="py-1 pr-2 whitespace-nowrap">{i.data.split("-").reverse().join("/")}</td>
-                        <td className="py-1 pr-2 max-w-[220px] truncate">{i.favorecido}</td>
+                        <td className="py-1 pr-2 max-w-[260px] break-words">{i.favorecido}</td>
                         <td className="py-1 pr-2">{i.categoriaNome ?? "—"}</td>
                         <td className="py-1 pr-2">{i.centroNome ?? "—"}</td>
                         <td className="py-1 text-right tabular-nums">{brl(i.valor)}</td>
@@ -709,7 +715,7 @@ const CLASSE_BADGE: Record<string, string> = {
 
 function LinhaSecao({ titulo }: { titulo: string }) {
   return (
-    <tr>
+    <tr style={{ breakAfter: "avoid" }}>
       <td colSpan={99} className="pt-7 pb-1">
         <h3 className="font-serif text-sm text-gold uppercase tracking-[0.12em] border-b-2 border-gold/40 pb-1">{titulo}</h3>
       </td>
@@ -747,7 +753,7 @@ function Bloco({ grupo, centroCustoId, onNota, corTotal, semSubtotalProprio }: {
   return (
     <>
       {!semSubtotalProprio && (
-        <tr className="border-b border-border/40 bg-muted/20" style={{ printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" }}>
+        <tr className="border-b border-border/40 bg-muted/20" style={{ printColorAdjust: "exact", WebkitPrintColorAdjust: "exact", breakAfter: "avoid" }}>
           <td className="py-1 font-medium">{grupo.titulo}</td>
           {grupo.valores.map((v, i) => (
             <td key={i} className={`py-1 text-right tabular-nums whitespace-nowrap font-medium ${corTotal}`}>{brl(v)}</td>
@@ -772,9 +778,28 @@ function BlocoFinanceiro({ subgrupo, onNota }: {
   subgrupo: { chave: string; titulo: string; valores: number[]; total: number; linhas: PrestacaoContasLinha[] };
   onNota: (titulo: string, categoriaId: string, centroCustoId: string | null) => void;
 }) {
+  // um bloco de uma categoria só, com o mesmo nome (ex.: Tarifas Bancárias): o subtotal já é a própria linha — não se repete
+  const unica = subgrupo.linhas.length === 1 && subgrupo.linhas[0].nome === subgrupo.titulo ? subgrupo.linhas[0] : null;
+  if (unica) {
+    return (
+      <tr className="border-b border-border/40 bg-muted/20 group" style={{ printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" }}>
+        <td className="py-1 font-medium">
+          <button type="button" onClick={() => onNota(`${unica.nome} · ${subgrupo.titulo}`, unica.categoriaId, null)} className="no-print inline-flex items-center gap-1 hover:underline decoration-dotted underline-offset-2" title={unica.temNota ? "Ver/editar nota" : "Adicionar nota"}>
+            {subgrupo.titulo}
+            {unica.temNota ? <MessageSquare className="w-3 h-3 text-gold shrink-0" /> : <MessageSquarePlus className="w-3 h-3 opacity-0 group-hover:opacity-60 shrink-0 transition-opacity" />}
+          </button>
+          <span className="hidden print:inline">{subgrupo.titulo}{unica.temNota ? " 💬" : ""}</span>
+          <span className="font-normal text-muted-foreground"> · subtotal</span>
+        </td>
+        {subgrupo.valores.map((v, i) => (
+          <td key={i} className="py-1 text-right tabular-nums whitespace-nowrap font-medium text-destructive-text">{v === 0 ? "—" : brl(v)}</td>
+        ))}
+      </tr>
+    );
+  }
   return (
     <>
-      <tr className="border-b border-border/40 bg-muted/20" style={{ printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" }}>
+      <tr className="border-b border-border/40 bg-muted/20" style={{ printColorAdjust: "exact", WebkitPrintColorAdjust: "exact", breakAfter: "avoid" }}>
         <td className="py-1 font-medium">{subgrupo.titulo} <span className="font-normal text-muted-foreground">· subtotal</span></td>
         {subgrupo.valores.map((v, i) => (
           <td key={i} className="py-1 text-right tabular-nums whitespace-nowrap font-medium text-destructive-text">{v === 0 ? "—" : brl(v)}</td>
@@ -794,7 +819,7 @@ function BlocoSubgrupo({ subgrupo, onNota, corTotal }: {
 }) {
   return (
     <>
-      <tr className="border-b border-border/30">
+      <tr className="border-b border-border/30" style={{ breakAfter: "avoid" }}>
         <td className="py-1 pl-3 text-sm text-muted-foreground">{subgrupo.titulo}</td>
         {subgrupo.valores.map((v, i) => (
           <td key={i} className={`py-1 text-right tabular-nums whitespace-nowrap text-sm ${corTotal}`}>{brl(v)}</td>

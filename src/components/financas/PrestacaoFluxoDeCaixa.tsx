@@ -57,6 +57,12 @@ export function GraficoDeFluxo({ pontos, resumoAcessivel }: { pontos: PontoFluxo
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img" aria-label={resumoAcessivel} style={EXATO}>
       <title>{resumoAcessivel}</title>
+      <defs>
+        <pattern id="hachura-saidas" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <rect width="5" height="5" fill={vermelho} />
+          <line x1="0" y1="0" x2="0" y2="5" stroke="#ffffff" strokeWidth="1.6" />
+        </pattern>
+      </defs>
       {eixoE.ticks.map((v, k) => (
         <g key={k}>
           <line x1={L} x2={W - R} y1={yBarra(v)} y2={yBarra(v)} stroke={grade} strokeWidth={k === 0 ? 1.2 : 0.6} strokeDasharray={k === 0 ? undefined : "3 3"} />
@@ -69,7 +75,7 @@ export function GraficoDeFluxo({ pontos, resumoAcessivel }: { pontos: PontoFluxo
         <g key={p.chave}>
           <title>{`${p.titulo}\nEntradas ${brl(p.entradas)} · Saídas ${brl(p.saidas)}\nSaldo acumulado ${brl(p.saldo)}`}</title>
           <rect x={cx(i) - bw - 0.5} y={yBarra(p.entradas)} width={bw} height={Math.max(0, T + ph - yBarra(p.entradas))} fill={verde} rx={1} />
-          <rect x={cx(i) + 0.5} y={yBarra(p.saidas)} width={bw} height={Math.max(0, T + ph - yBarra(p.saidas))} fill={vermelho} rx={1} />
+          <rect x={cx(i) + 0.5} y={yBarra(p.saidas)} width={bw} height={Math.max(0, T + ph - yBarra(p.saidas))} fill="url(#hachura-saidas)" stroke={vermelho} strokeWidth={0.8} rx={1} />
           {i % passo === 0 && <text x={cx(i)} y={H - B + 16} textAnchor="middle" fontSize={10.5} fill={texto}>{p.rotulo}</text>}
         </g>
       ))}
@@ -85,7 +91,7 @@ function Cartao({ titulo, valor, detalhe, cor }: { titulo: string; valor: string
     <div className="rounded-md border border-border/60 bg-white p-3 min-w-0" style={EXATO}>
       <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">{titulo}</dt>
       <dd className="mt-0.5 min-w-0">
-        <span className={`block font-serif text-lg tabular-nums ${cor ?? ""}`}>{valor}</span>
+        <span className={`block font-serif text-[15px] sm:text-lg tabular-nums whitespace-nowrap ${cor ?? ""}`}>{valor}</span>
         {detalhe && <span className="block text-[11px] text-muted-foreground mt-0.5">{detalhe}</span>}
       </dd>
     </div>
@@ -136,16 +142,17 @@ export function FluxoDeCaixaDaPrestacao({ r, contaFiltrada }: { r: BaseDaPrestac
         </div>
         <div className="flex items-center gap-4 text-[11px] text-muted-foreground mb-1">
           <span className="inline-flex items-center gap-1"><i className="inline-block w-3 h-2.5 rounded-sm" style={{ background: "hsl(var(--success))", ...EXATO }} /> Entradas</span>
-          <span className="inline-flex items-center gap-1"><i className="inline-block w-3 h-2.5 rounded-sm" style={{ background: "hsl(var(--destructive))", ...EXATO }} /> Saídas</span>
+          <span className="inline-flex items-center gap-1"><i className="inline-block w-3 h-2.5 rounded-sm border" style={{ background: "repeating-linear-gradient(135deg, hsl(var(--destructive)) 0 2px, #ffffff 2px 4px)", borderColor: "hsl(var(--destructive))", ...EXATO }} /> Saídas</span>
           <span className="inline-flex items-center gap-1"><i className="inline-block w-4 h-0.5" style={{ background: "hsl(var(--gold))", ...EXATO }} /> Saldo acumulado</span>
         </div>
         {fluxo.pontos.length === 0
           ? <p className="text-sm text-muted-foreground italic py-8 text-center">Sem movimento no período.</p>
-          : <GraficoDeFluxo pontos={fluxo.pontos} resumoAcessivel={resumoAcessivel} />}
+          : <div className="overflow-x-auto"><div className="min-w-[640px]"><GraficoDeFluxo pontos={fluxo.pontos} resumoAcessivel={resumoAcessivel} /></div></div>}
       </div>
 
+      <div className="avoid-break">
       <h3 className="font-serif text-sm text-gold uppercase tracking-wide mt-6 mb-2">Indicadores Gerenciais</h3>
-      <dl className="avoid-break grid grid-cols-2 md:grid-cols-3 gap-2.5">
+      <dl className="grid grid-cols-2 md:grid-cols-3 gap-2.5">
         <Cartao titulo="Maior arrecadação do período" valor={ind.maiorArrecadacao ? brl(ind.maiorArrecadacao.valor) : "—"} cor="text-success-text"
           detalhe={ind.maiorArrecadacao ? `Mês da maior arrecadação: ${ind.maiorArrecadacao.mes}` : "sem receitas no período"} />
         <Cartao titulo="Maior despesa do período" valor={ind.maiorDespesa ? brl(ind.maiorDespesa.valor) : "—"} cor="text-destructive-text"
@@ -164,6 +171,7 @@ export function FluxoDeCaixaDaPrestacao({ r, contaFiltrada }: { r: BaseDaPrestac
           <ChipDeTendencia rotulo="saídas" t={tSaidas} />
         </p>
       )}
+      </div>
     </section>
   );
 }

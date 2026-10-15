@@ -11,7 +11,7 @@ function Cartao({ titulo, valor, detalhe, cor, forte }: { titulo: string; valor:
     <div className={`rounded-md border bg-white p-3 min-w-0 ${forte ? "border-gold/60" : "border-border/60"}`} style={EXATO}>
       <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">{titulo}</dt>
       <dd className="mt-0.5 min-w-0">
-        <span className={`block font-serif tabular-nums ${forte ? "text-xl" : "text-lg"} ${cor ?? ""}`}>{valor}</span>
+        <span className={`block font-serif tabular-nums whitespace-nowrap ${forte ? "text-[15px] sm:text-xl" : "text-[15px] sm:text-lg"} ${cor ?? ""}`}>{valor}</span>
         {detalhe && <span className="block text-[11px] text-muted-foreground mt-0.5">{detalhe}</span>}
       </dd>
     </div>

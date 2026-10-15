@@ -145,7 +145,7 @@ describe("Prestação de Contas — o documento depois das melhorias", () => {
   it("o agrupamento troca o gráfico (diário → mensal) e o rótulo da visão", async () => {
     completo();
     const el = await abrir();
-    const barras = () => el.querySelectorAll("svg[role='img'] rect").length;
+    const barras = () => el.querySelectorAll("svg[role='img'] g > rect").length;
     const diario = [...el.querySelectorAll("button")].find(b => b.textContent === "Diário")!;
     await act(async () => { diario.click(); });
     expect(el.textContent).toContain("visão diária");
