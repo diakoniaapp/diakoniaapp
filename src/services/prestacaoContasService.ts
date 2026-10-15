@@ -50,6 +50,10 @@ import {
 } from "./finService";
 import { listarNotasDoPeriodo } from "./relatorioNotasService";
 import { normalizarNome } from "@/lib/fuzzyNome";
+import {
+  rotuloInstitucional, resumoExecutivo, despesasFinanceiras, fluxoDoRelatorio, indicadoresGerenciais,
+  type IndicadoresDeDizimos, type MovimentoDaPrestacao,
+} from "@/lib/prestacaoIndicadores";
 
 // ── Auditoria dos lançamentos excluídos da demonstração (29/09/2026) ───────
 //
@@ -223,6 +227,10 @@ export interface PrestacaoContasResultado {
   // entrar no Set de cada mês, e "OFERTAS NÃO IDENTIFICADAS" (o placeholder
   // do Omie pra depósito sem identificação) é excluído — não é uma pessoa.
   dizimistasPorMes: number[];
+  /** Dízimos do período INTEIRO: dizimistas únicos (não a soma dos meses), valor total e valor médio por dizimista. */
+  indicadoresDizimos: IndicadoresDeDizimos;
+  /** Os lançamentos que formam a demonstração (receitas e despesas classificadas), um por linha — alimentam o gráfico de fluxo de caixa. Não incluem as compras ofertadas por terceiros. */
+  fluxo: MovimentoDaPrestacao[];
 }
 
 // Exportado — painelTesourariaService.ts reaproveita pro rótulo do "período
@@ -246,6 +254,11 @@ function novaLinha(qtdMeses: number): number[] {
 function acumular(mapa: MapaValores, id: string, nome: string, idx: number, valor: number, qtdMeses: number) {
   if (!mapa.has(id)) mapa.set(id, { nome, valores: novaLinha(qtdMeses) });
   mapa.get(id)!.valores[idx] += valor;
+}
+
+/** O nome do cadastro, padronizado só na apresentação (ver `rotuloInstitucional`); nulo se não houver. */
+function rotuloOuNulo(nome: string | undefined | null): string | null {
+  return nome ? rotuloInstitucional(nome) : null;
 }
 
 function somaMeses(valores: number[]): number {
@@ -311,7 +324,7 @@ function agruparAdministracao(
   const compostos: PrestacaoContasGrupo[] = [];
 
   subgruposPorPai.forEach((filhosCentro, paiId) => {
-    const paiNome = centroMap.get(paiId)?.nome ?? "Centro removido";
+    const paiNome = rotuloInstitucional(centroMap.get(paiId)?.nome ?? "Centro removido");
 
     const gruposFilhos: PrestacaoContasGrupo[] = [];
     filhosCentro.forEach(sg => {
@@ -432,8 +445,8 @@ export async function gerarPrestacaoContas(ano: number, mesInicio: number, qtdMe
     .sort((a, b) => a.data.localeCompare(b.data))
     .map(l => ({
       id: l.id, data: l.data, favorecido: nomeExtrato(l).principal, descricao: l.descricao ?? null, valor: Number(l.valor),
-      categoriaNome: l.categoria_id ? catMap.get(l.categoria_id)?.nome ?? null : null,
-      centroNome: l.centro_custo_id ? centroMap.get(l.centro_custo_id)?.nome ?? null : null,
+      categoriaNome: l.categoria_id ? rotuloOuNulo(catMap.get(l.categoria_id)?.nome) : null,
+      centroNome: l.centro_custo_id ? rotuloOuNulo(centroMap.get(l.centro_custo_id)?.nome) : null,
     }));
   const comprasOfertadas: ComprasOfertadasDoPeriodo = {
     itens: ofertadasItens,
@@ -475,6 +488,10 @@ export async function gerarPrestacaoContas(ano: number, mesInicio: number, qtdMe
   // finService.ts, invertido de propósito aqui também não importa porque
   // não há "missão"/"oferta" em jogo, só dízimo).
   const nomesDizimistasPorMes: Set<string>[] = Array.from({ length: qtdMeses }, () => new Set<string>());
+  const nomesDizimistasDoPeriodo = new Set<string>();   // únicos no período INTEIRO (quem deu em dois meses conta uma vez)
+  let valorDosDizimos = 0;
+  let valorDizimosSemNome = 0;
+  const fluxo: MovimentoDaPrestacao[] = [];
   const PLACEHOLDER_SEM_IDENTIFICACAO = normalizarNome("OFERTAS NÃO IDENTIFICADAS");
 
   lancs.filter(l => l.tipo === "entrada").forEach(l => {
@@ -486,12 +503,14 @@ export async function gerarPrestacaoContas(ano: number, mesInicio: number, qtdMe
     // (senão teria devolvido "inconsistencia_classificacao") — o mapa
     // sempre existe aqui.
     const mapa = porClassificacaoReceita.get(cat.classificacao_dre!)!;
-    acumular(mapa, cat.id, cat.nome, idx, Number(l.valor), qtdMeses);
+    acumular(mapa, cat.id, rotuloInstitucional(cat.nome), idx, Number(l.valor), qtdMeses);
+    fluxo.push({ data: l.data, tipo: "entrada", valor: Number(l.valor) });
 
     if (/d[ií]zimo/i.test(cat.nome)) {
       const nomeBruto = l.pessoa_nome ?? l.descricao ?? "";
       const nome = normalizarNome(nomeBruto);
-      if (nome && nome !== PLACEHOLDER_SEM_IDENTIFICACAO) nomesDizimistasPorMes[idx].add(nome);
+      valorDosDizimos += Number(l.valor);
+      if (nome && nome !== PLACEHOLDER_SEM_IDENTIFICACAO) { nomesDizimistasPorMes[idx].add(nome); nomesDizimistasDoPeriodo.add(nome); } else valorDizimosSemNome += Number(l.valor);
     }
   });
   const dizimistasPorMes = nomesDizimistasPorMes.map(s => s.size);
@@ -519,14 +538,15 @@ export async function gerarPrestacaoContas(ano: number, mesInicio: number, qtdMe
     const valor = Number(l.valor);
 
     if (cat.classificacao_dre === "despesas_financeiras") {
-      acumular(mapaDespFin, cat.id, cat.nome, idx, valor, qtdMeses);
+      acumular(mapaDespFin, cat.id, rotuloInstitucional(cat.nome), idx, valor, qtdMeses);
     } else if (cat.classificacao_dre === "outras_despesas") {
-      acumular(mapaOutrasDesp, cat.id, cat.nome, idx, valor, qtdMeses);
+      acumular(mapaOutrasDesp, cat.id, rotuloInstitucional(cat.nome), idx, valor, qtdMeses);
     } else if (cat.classificacao_dre === "despesas") {
       const centroId = l.centro_custo_id ?? CENTRO_SEM;
       if (!porCentro.has(centroId)) porCentro.set(centroId, new Map());
-      acumular(porCentro.get(centroId)!, cat.id, cat.nome, idx, valor, qtdMeses);
+      acumular(porCentro.get(centroId)!, cat.id, rotuloInstitucional(cat.nome), idx, valor, qtdMeses);
     }
+    fluxo.push({ data: l.data, tipo: "saida", valor });
     // receitas_regulares/outras_receitas numa saída já virou
     // "inconsistencia_classificacao" em `motivoDoExcluido`, acima.
   });
@@ -537,7 +557,7 @@ export async function gerarPrestacaoContas(ano: number, mesInicio: number, qtdMe
         Array.from(mapa.keys()).filter(id => temNota(id, centroId === CENTRO_SEM ? null : centroId)),
       ));
       const valores = subtotalPorMes(linhas, qtdMeses);
-      const titulo = centroId === CENTRO_SEM ? "Sem centro de custo" : (centroMap.get(centroId)?.nome ?? "Centro removido");
+      const titulo = centroId === CENTRO_SEM ? "Sem centro de custo" : rotuloInstitucional(centroMap.get(centroId)?.nome ?? "Centro removido");
       return { chave: centroId, titulo, linhas, valores, total: somaMeses(valores) };
     })
     .filter(g => g.linhas.length > 0);
@@ -574,6 +594,13 @@ export async function gerarPrestacaoContas(ano: number, mesInicio: number, qtdMe
     comprasOfertadas,
     excluidos: { porMotivo: excluidosPorMotivo, itens: itensExcluidos },
     dizimistasPorMes,
+    indicadoresDizimos: {
+      dizimistasUnicos: nomesDizimistasDoPeriodo.size,
+      valorTotal: Math.round(valorDosDizimos * 100) / 100,
+      valorNaoIdentificado: Math.round(valorDizimosSemNome * 100) / 100,
+      valorMedio: nomesDizimistasDoPeriodo.size > 0 ? Math.round(((valorDosDizimos - valorDizimosSemNome) / nomesDizimistasDoPeriodo.size) * 100) / 100 : 0,
+    },
+    fluxo,
   };
 }
 
@@ -624,5 +651,39 @@ export function gerarCSVPrestacaoContas(r: PrestacaoContasResultado): string {
 
   linhas.push(`;;RESULTADO DO PERIODO;${r.resultado.map(fmt).join(";")}`);
   linhas.push(`;;SALDO FINAL;${r.saldoFinal.map(fmt).join(";")}`);
+
+  // ── Resumo, despesas financeiras, dízimos, indicadores e fluxo de caixa: ACRESCENTADOS depois das linhas de sempre (nada acima mudou) ──
+  const resumo = resumoExecutivo(r);
+  linhas.push(`Resumo Executivo;;Receita Total;${fmt(resumo.receitaTotal)}`);
+  linhas.push(`Resumo Executivo;;Despesa Total;${fmt(resumo.despesaTotal)}`);
+  linhas.push(`Resumo Executivo;;Despesas Financeiras;${fmt(resumo.despesasFinanceiras)}`);
+  linhas.push(`Resumo Executivo;;Resultado do Periodo (${resumo.situacao === "deficit" ? "Deficit" : resumo.situacao === "superavit" ? "Superavit" : "Equilibrio"});${fmt(resumo.resultado)}`);
+  linhas.push(`Resumo Executivo;;Saldo Inicial;${fmt(resumo.saldoInicial)}`);
+  linhas.push(`Resumo Executivo;;Saldo Final;${fmt(resumo.saldoFinal)}`);
+  if (resumo.comprasOfertadasQtd > 0) {
+    linhas.push(`Resumo Executivo;;Compras ofertadas por terceiros (fora do caixa) - quantidade;${resumo.comprasOfertadasQtd}`);
+    linhas.push(`Resumo Executivo;;Compras ofertadas por terceiros (fora do caixa) - valor;${fmt(resumo.comprasOfertadasValor)}`);
+  }
+  const fin = despesasFinanceiras(r);
+  fin.subgrupos.forEach(g => linhas.push(`Despesas Financeiras;${g.titulo};SUBTOTAL;${g.valores.map(fmt).join(";")}`));
+  linhas.push(`Despesas Financeiras;;TOTAL DESPESAS FINANCEIRAS;${fin.valores.map(fmt).join(";")}`);
+  if (r.indicadoresDizimos) {
+    linhas.push(`Indicadores de Dizimos;;Dizimistas unicos no periodo;${r.indicadoresDizimos.dizimistasUnicos}`);
+    linhas.push(`Indicadores de Dizimos;;Valor total de dizimos;${fmt(r.indicadoresDizimos.valorTotal)}`);
+    linhas.push(`Indicadores de Dizimos;;Valor medio por dizimista;${fmt(r.indicadoresDizimos.valorMedio)}`);
+  }
+  const fluxo = fluxoDoRelatorio(r, "automatico");
+  if (fluxo.serie.length > 0) {
+    const g = indicadoresGerenciais(r, fluxo.serie);
+    const marco = (rot: string, m: { valor: number; mes: string } | null) => linhas.push(`Indicadores Gerenciais;;${rot};${m ? `${fmt(m.valor)};${m.mes}` : "-"}`);
+    marco("Maior arrecadacao do periodo (valor;mes)", g.maiorArrecadacao);
+    marco("Maior despesa do periodo (valor;mes)", g.maiorDespesa);
+    marco("Menor saldo registrado (valor;mes)", g.menorSaldo);
+    linhas.push(`Indicadores Gerenciais;;Meses com saldo negativo;${g.mesesComSaldoNegativo} de ${g.totalDeMeses}`);
+    linhas.push(`Indicadores Gerenciais;;Media mensal de receitas;${fmt(g.mediaMensalReceitas)}`);
+    linhas.push(`Indicadores Gerenciais;;Media mensal de despesas;${fmt(g.mediaMensalDespesas)}`);
+    linhas.push(`Fluxo de Caixa (visao ${fluxo.granularidade === "dia" ? "diaria" : fluxo.granularidade === "semana" ? "semanal" : "mensal"});Periodo;Entradas;Saidas;Resultado;Saldo acumulado`);
+    fluxo.pontos.forEach(p => linhas.push(`Fluxo de Caixa;${p.titulo};${fmt(p.entradas)};${fmt(p.saidas)};${fmt(p.resultado)};${fmt(p.saldo)}`));
+  }
   return linhas.join("\n");
 }

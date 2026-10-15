@@ -57,6 +57,9 @@ import {
   type FinFechamentoPeriodo,
 } from "@/services/fechamentoPeriodoService";
 import { EncargosDoPeriodo } from "@/components/financas/EncargosDoPeriodo";
+import { IndicadoresDeDizimosDaPrestacao, ResumoExecutivoDaPrestacao } from "@/components/financas/PrestacaoResumo";
+import { FluxoDeCaixaDaPrestacao } from "@/components/financas/PrestacaoFluxoDeCaixa";
+import { despesaTotalPorMes, despesasFinanceiras, resumoExecutivo } from "@/lib/prestacaoIndicadores";
 import { NotaRelatorioModal } from "@/components/financas/NotaRelatorioModal";
 import { PendenciasCategorizacaoDrawer } from "@/components/financas/PendenciasCategorizacaoDrawer";
 import { PaginaSkeleton } from "@/components/ListState";
@@ -258,6 +261,8 @@ export default function FinancasPrestacaoContas() {
     : primeiro.ano === ultimo.ano
       ? `${NOME_MES_ABREV[primeiro.numero]}–${NOME_MES_ABREV[ultimo.numero]} · ${primeiro.ano}`
       : `${NOME_MES_ABREV[primeiro.numero]}/${primeiro.ano}–${NOME_MES_ABREV[ultimo.numero]}/${ultimo.ano}`;
+  const resumo = resumoExecutivo(dados);
+  const financeiras = despesasFinanceiras(dados);
   const hojeBr = new Date().toLocaleDateString("pt-BR");
   const horaBr = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
@@ -430,6 +435,9 @@ export default function FinancasPrestacaoContas() {
           </p>
         </div>
 
+        {/* Resumo executivo (15/10/2026): a leitura rápida da situação, antes da grade. Sai dos mesmos totais da tabela abaixo. */}
+        <ResumoExecutivoDaPrestacao resumo={resumo} />
+
         <section className="mb-6 overflow-x-auto">
           <table className="w-full text-xs border-collapse">
             <thead>
@@ -443,7 +451,7 @@ export default function FinancasPrestacaoContas() {
               </tr>
             </thead>
             <tbody>
-              <LinhaTotal titulo="Saldo Anterior" valores={dados.saldoAnterior} />
+              <LinhaTotal titulo="Saldo Inicial" valores={dados.saldoAnterior} />
 
               <LinhaSecao titulo="Receitas" />
               {dados.gruposReceita.length === 0 ? (
@@ -462,21 +470,21 @@ export default function FinancasPrestacaoContas() {
               <LinhaTotal titulo="Dizimistas no período (nomes únicos)" valores={dados.dizimistasPorMes}
                 formatador={(n) => String(n)} />
 
-              <LinhaSecao titulo="Despesas" />
+              <LinhaSecao titulo="Despesas dos Ministérios" />
               {dados.gruposDespesaPorCentro.length === 0 ? (
                 <LinhaVazia texto="Sem despesas oficiais no período." colSpan={dados.meses.length + 1} />
               ) : dados.gruposDespesaPorCentro.map(g => (
                 <Bloco key={g.chave} grupo={g} centroCustoId={g.chave === "__sem_centro__" ? null : g.chave} onNota={abrirNota} corTotal="text-destructive-text" />
               ))}
-              <LinhaTotal titulo="Total Despesas" valores={dados.totalDespesas} destaque cor="text-destructive-text" />
+              <LinhaTotal titulo="Total Despesas dos Ministérios" valores={dados.totalDespesas} destaque cor="text-destructive-text" />
 
-              {dados.grupoDespesasFinanceiras && (
-                <>
-                  <LinhaSecao titulo="Despesas Financeiras" />
-                  <Bloco grupo={dados.grupoDespesasFinanceiras} centroCustoId={null} onNota={abrirNota}
-                    corTotal="text-destructive-text" semSubtotalProprio />
-                </>
-              )}
+              {/* Despesas financeiras (15/10/2026): seção própria, sempre presente (mesmo zerada, o Conselho vê que não houve), com subtotal de tarifas,
+                  título de capitalização e demais encargos. Os valores são os mesmos que já entravam no Resultado. */}
+              <LinhaSecao titulo="Despesas Financeiras" />
+              {financeiras.subgrupos.map(g => (
+                <BlocoFinanceiro key={g.chave} subgrupo={g} onNota={abrirNota} />
+              ))}
+              <LinhaTotal titulo="Total Despesas Financeiras" valores={financeiras.valores} destaque cor="text-destructive-text" />
               {dados.grupoOutrasDespesas && (
                 <>
                   <LinhaSecao titulo="Outras Despesas" />
@@ -485,7 +493,8 @@ export default function FinancasPrestacaoContas() {
                 </>
               )}
 
-              <LinhaTotal titulo="Resultado do Período" valores={dados.resultado} destaque forte
+              <LinhaTotal titulo="Total Geral de Despesas" valores={despesaTotalPorMes(dados)} destaque cor="text-destructive-text" />
+              <LinhaTotal titulo={resumo.situacao === "deficit" ? "Resultado do Período (Déficit)" : resumo.situacao === "superavit" ? "Resultado do Período (Superávit)" : "Resultado do Período"} valores={dados.resultado} destaque forte
                 cor={dados.resultado.every(v => v >= 0) ? "text-success-text" : undefined} />
               <LinhaTotal titulo="Saldo Final" valores={dados.saldoFinal} destaque />
             </tbody>
@@ -521,49 +530,64 @@ export default function FinancasPrestacaoContas() {
           );
         })()}
 
-        {/* Compras OFERTADAS por terceiros (14/10/2026): despesa da igreja que não moveu caixa. Seção própria, FORA da demonstração acima: não entra em receitas, despesas, resultado nem saldo. */}
-        {dados.comprasOfertadas.itens.length > 0 && (
+        {/* Indicadores de dízimos (15/10/2026): do período inteiro (dizimistas únicos, não a soma dos meses). */}
+        <IndicadoresDeDizimosDaPrestacao ind={dados.indicadoresDizimos} />
+
+        {/* Compras OFERTADAS por terceiros (14/10/2026; revisada em 15/10/2026): despesa da igreja que não moveu caixa. Seção própria, FORA da demonstração
+            acima: não entra em receitas, despesas, resultado nem saldo. Num relatório de UMA conta ela não se aplica (a oferta não tem conta). */}
+        {(dados.comprasOfertadas.itens.length > 0 || !contaId) && (
           <section className="avoid-break mb-6" aria-label="Compras ofertadas por terceiros">
             <div className="flex items-baseline justify-between mb-1">
-              <h3 className="font-serif text-sm text-gold uppercase tracking-wide">Compras ofertadas por terceiros — fora do caixa</h3>
-              <span className="text-xs text-muted-foreground">
-                {dados.comprasOfertadas.itens.length} {dados.comprasOfertadas.itens.length === 1 ? "compra" : "compras"}
-              </span>
+              <h3 className="font-serif text-sm text-gold uppercase tracking-wide">Compras Ofertadas por Terceiros</h3>
             </div>
-            <p className="text-xs text-muted-foreground mb-2">
-              Despesas da igreja pagas diretamente por um terceiro, como oferta. Não passaram por banco, caixa, aplicação nem cartão, não se ligam a nenhuma conta
-              e não entram em receitas, despesas, resultado nem saldo acima.
+            <p className="text-xs mb-2 rounded-md border border-gold/40 border-l-4 border-l-gold px-3 py-2 font-medium"
+              style={{ background: "hsl(var(--gold) / 0.08)", printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" }}>
+              As compras ofertadas por terceiros são registradas apenas para fins de controle e prestação de contas, não impactando as receitas, despesas, resultado ou saldo financeiro da igreja.
             </p>
-            <div className="overflow-x-auto">
-              <table className="w-full text-[11px] border-collapse">
-                <thead>
-                  <tr className="border-b-2 border-gold/40 text-left text-muted-foreground">
-                    <th className="py-1 pr-2 w-16">Data</th>
-                    <th className="py-1 pr-2">Fornecedor</th>
-                    <th className="py-1 pr-2">Categoria</th>
-                    <th className="py-1 pr-2">Centro de custo</th>
-                    <th className="py-1 text-right w-24">Valor</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {dados.comprasOfertadas.itens.map(i => (
-                    <tr key={i.id} className="border-b border-border/30">
-                      <td className="py-1 pr-2 whitespace-nowrap">{i.data.split("-").reverse().join("/")}</td>
-                      <td className="py-1 pr-2 max-w-[220px] truncate">{i.favorecido}</td>
-                      <td className="py-1 pr-2">{i.categoriaNome ?? "—"}</td>
-                      <td className="py-1 pr-2">{i.centroNome ?? "—"}</td>
-                      <td className="py-1 text-right tabular-nums">{brl(i.valor)}</td>
+            <dl className="grid grid-cols-2 gap-2.5 mb-2 max-w-md">
+              <div className="rounded-md border border-border/60 bg-white p-2.5">
+                <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">Quantidade de compras ofertadas</dt>
+                <dd className="font-serif text-lg tabular-nums">{dados.comprasOfertadas.itens.length}</dd>
+              </div>
+              <div className="rounded-md border border-border/60 bg-white p-2.5">
+                <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">Valor total ofertado</dt>
+                <dd className="font-serif text-lg tabular-nums">{brl(dados.comprasOfertadas.total)}</dd>
+              </div>
+            </dl>
+            {dados.comprasOfertadas.itens.length === 0 ? (
+              <p className="text-xs text-muted-foreground italic">Nenhuma compra ofertada por terceiros no período.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-[11px] border-collapse">
+                  <thead>
+                    <tr className="border-b-2 border-gold/40 text-left text-muted-foreground">
+                      <th className="py-1 pr-2 w-16">Data</th>
+                      <th className="py-1 pr-2">Fornecedor</th>
+                      <th className="py-1 pr-2">Categoria</th>
+                      <th className="py-1 pr-2">Centro de custo</th>
+                      <th className="py-1 text-right w-24">Valor</th>
                     </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="border-t-2 border-gold/40 font-semibold">
-                    <td colSpan={4} className="py-1.5 text-xs">Total de compras ofertadas por terceiros</td>
-                    <td className="py-1.5 text-right tabular-nums">{brl(dados.comprasOfertadas.total)}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {dados.comprasOfertadas.itens.map(i => (
+                      <tr key={i.id} className="border-b border-border/30">
+                        <td className="py-1 pr-2 whitespace-nowrap">{i.data.split("-").reverse().join("/")}</td>
+                        <td className="py-1 pr-2 max-w-[220px] truncate">{i.favorecido}</td>
+                        <td className="py-1 pr-2">{i.categoriaNome ?? "—"}</td>
+                        <td className="py-1 pr-2">{i.centroNome ?? "—"}</td>
+                        <td className="py-1 text-right tabular-nums">{brl(i.valor)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t-2 border-gold/40 font-semibold">
+                      <td colSpan={4} className="py-1.5 text-xs uppercase tracking-wide">Total de compras ofertadas por terceiros</td>
+                      <td className="py-1.5 text-right tabular-nums">{brl(dados.comprasOfertadas.total)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
           </section>
         )}
 
@@ -572,6 +596,9 @@ export default function FinancasPrestacaoContas() {
           de={`${ano}-${String(mes).padStart(2, "0")}-01`}
           ate={`${anoFim}-${String(mesFim).padStart(2, "0")}-${String(new Date(anoFim, mesFim, 0).getDate()).padStart(2, "0")}`}
           contaId={contaId || undefined} />
+
+        {/* Indicadores Financeiros e Fluxo de Caixa (15/10/2026): complementa a prestação acima, não a substitui. Sai na impressão/PDF, em página própria. */}
+        <FluxoDeCaixaDaPrestacao r={dados} contaFiltrada={!!contaId} />
 
         {/* Assinaturas */}
         <section className="avoid-break mt-12 pt-4">
@@ -683,8 +710,8 @@ const CLASSE_BADGE: Record<string, string> = {
 function LinhaSecao({ titulo }: { titulo: string }) {
   return (
     <tr>
-      <td colSpan={99} className="pt-4 pb-1">
-        <h3 className="font-serif text-sm text-gold uppercase tracking-wide">{titulo}</h3>
+      <td colSpan={99} className="pt-7 pb-1">
+        <h3 className="font-serif text-sm text-gold uppercase tracking-[0.12em] border-b-2 border-gold/40 pb-1">{titulo}</h3>
       </td>
     </tr>
   );
@@ -700,7 +727,8 @@ function LinhaTotal({ titulo, valores, destaque, forte, cor, formatador }: {
 }) {
   const fmt = formatador ?? brl;
   return (
-    <tr className={destaque ? `border-t-2 border-gold/40 font-semibold ${forte ? "text-sm" : ""}` : "text-muted-foreground"}>
+    <tr className={destaque ? `border-t-2 border-gold/40 font-semibold ${forte ? "text-sm bg-gold/10" : "bg-muted/40"}` : "text-muted-foreground"}
+      style={{ printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" }}>
       <td className={`py-1.5 ${destaque ? "uppercase tracking-wide" : ""}`}>{titulo}</td>
       {valores.map((v, i) => (
         <td key={i} className={`py-1.5 text-right tabular-nums whitespace-nowrap ${cor ?? ""}`}>{fmt(v)}</td>
@@ -719,7 +747,7 @@ function Bloco({ grupo, centroCustoId, onNota, corTotal, semSubtotalProprio }: {
   return (
     <>
       {!semSubtotalProprio && (
-        <tr className="border-b border-border/40">
+        <tr className="border-b border-border/40 bg-muted/20" style={{ printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" }}>
           <td className="py-1 font-medium">{grupo.titulo}</td>
           {grupo.valores.map((v, i) => (
             <td key={i} className={`py-1 text-right tabular-nums whitespace-nowrap font-medium ${corTotal}`}>{brl(v)}</td>
@@ -735,6 +763,26 @@ function Bloco({ grupo, centroCustoId, onNota, corTotal, semSubtotalProprio }: {
             <LinhaCategoria key={l.categoriaId} linha={l} tituloGrupo={grupo.titulo}
               centroCustoId={centroCustoId} onNota={onNota} indentClass="pl-4" />
           ))}
+    </>
+  );
+}
+
+/** Um dos três blocos das despesas financeiras: o subtotal em destaque (zerado aparece como "—") e as categorias, com a nota por linha de sempre. */
+function BlocoFinanceiro({ subgrupo, onNota }: {
+  subgrupo: { chave: string; titulo: string; valores: number[]; total: number; linhas: PrestacaoContasLinha[] };
+  onNota: (titulo: string, categoriaId: string, centroCustoId: string | null) => void;
+}) {
+  return (
+    <>
+      <tr className="border-b border-border/40 bg-muted/20" style={{ printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" }}>
+        <td className="py-1 font-medium">{subgrupo.titulo} <span className="font-normal text-muted-foreground">· subtotal</span></td>
+        {subgrupo.valores.map((v, i) => (
+          <td key={i} className="py-1 text-right tabular-nums whitespace-nowrap font-medium text-destructive-text">{v === 0 ? "—" : brl(v)}</td>
+        ))}
+      </tr>
+      {subgrupo.linhas.map(l => (
+        <LinhaCategoria key={l.categoriaId} linha={l} tituloGrupo={subgrupo.titulo} centroCustoId={null} onNota={onNota} indentClass="pl-4" />
+      ))}
     </>
   );
 }
