@@ -1156,9 +1156,11 @@ export async function criarLancamento(input: Partial<FinLancamento>): Promise<Fi
   return data as unknown as FinLancamento;
 }
 
-export async function atualizarLancamento(id: string, patch: Partial<FinLancamento>): Promise<void> {
+// `motivo` (Fase 2A, 15/10/2026): o motivo da edição viaja no MESMO UPDATE, pela coluna-canal `motivo_edicao`; o gatilho do banco o leva para a trilha imutável de edição
+// (e o exige quando a edição invalida a declaração do terceiro) e zera a coluna. Sem a migration, a coluna não existe: só é enviada quando há motivo.
+export async function atualizarLancamento(id: string, patch: Partial<FinLancamento>, motivo?: string): Promise<void> {
   const userId = (await supabase.auth.getUser()).data.user?.id;
-  const payload = { ...patch, audit_user_id: userId ?? null, audit_em: new Date().toISOString() };
+  const payload = { ...patch, audit_user_id: userId ?? null, audit_em: new Date().toISOString(), ...(motivo && motivo.trim() ? { motivo_edicao: motivo.trim() } : {}) };
   const r = conferir(
     await supabase.from("fin_lancamentos").update(payload as any).eq("id", id).select("id"),
     "O lançamento",

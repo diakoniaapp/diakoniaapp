@@ -45,6 +45,9 @@ import {
 import { LeituraDoDocumentoPainel } from "@/components/financas/LeituraDoDocumentoPainel";
 import { decodificarBoleto, type BoletoDecodificado } from "@/lib/boleto";
 import { CampoData } from "@/components/CampoData";
+import { Textarea } from "@/components/ui/textarea";
+import { AVISO_DE_INVALIDACAO, MOTIVO_MINIMO_DA_EDICAO, patchDeclarado, type ImpactoDaEdicao } from "@/lib/edicaoDeLancamento";
+import { impactoDaEdicao } from "@/services/edicaoLancamentoService";
 // Carregado sob demanda — ZXing (leitor de câmera) pesa ~460kB no pacote
 // principal, e a maioria das aberturas deste formulário nunca clica em
 // "Ler com câmera". Mesma mitigação que o CLAUDE.md já registra (Risco
@@ -172,6 +175,9 @@ export function LancamentoForm({
   const [documentoNumero, setDocumentoNumero] = useState("");
   const [observacoes, setObservacoes] = useState("");
   const [busy, setBusy] = useState(false);
+  // Fase 2A: editar a nota quando já existe declaração/aprovação invalida ambas — pede confirmação e motivo antes de gravar
+  const [confirmarEdicao, setConfirmarEdicao] = useState<ImpactoDaEdicao | null>(null);
+  const [motivoEdicao, setMotivoEdicao] = useState("");
 
   // ── Rateio entre centros de custo ────────────────────────────────────
   // `fin_lancamento_rateio` existia desde sempre, zero linhas, nenhuma
@@ -615,7 +621,7 @@ export function LancamentoForm({
   }
 
   // `ignorarContaEmAberto`: ela já disse "é outro pagamento" no aviso da conta em aberto (ver abaixo)
-  async function onSubmit(e?: React.FormEvent, ignorarContaEmAberto = false) {
+  async function onSubmit(e?: React.FormEvent, ignorarContaEmAberto = false, motivoDaEdicao?: string) {
     e?.preventDefault();
     if (valor <= 0) { toast.error("Valor inválido"); return; }
     if (!contaIdEfetivo) { toast.error("Selecione a conta"); return; }
@@ -687,7 +693,12 @@ export function LancamentoForm({
 
       let lancamentoId: string;
       if (isEdit && lancamento) {
-        await atualizarLancamento(lancamento.id, payload);
+        // a declaração manda: se esta edição muda o que o terceiro assinou, avisa e pede o motivo ANTES de gravar (o banco também recusa sem motivo)
+        if (!motivoDaEdicao) {
+          const imp = await impactoDaEdicao(lancamento.id, patchDeclarado({ valor: payload.valor, data: payload.data, fornecedor_id: payload.fornecedor_id, documento_numero: payload.documento_numero }));
+          if (imp?.invalida) { setMotivoEdicao(""); setConfirmarEdicao(imp); setBusy(false); return; }
+        }
+        await atualizarLancamento(lancamento.id, payload, motivoDaEdicao);
         lancamentoId = lancamento.id;
         toast.success("Lançamento atualizado");
       } else {
@@ -1355,6 +1366,32 @@ export function LancamentoForm({
             </>
           );
         })()}
+      </AlertDialogContent>
+    </AlertDialog>
+    {/* Fase 2A: a edição invalida a declaração do terceiro. Nada é gravado até a pessoa confirmar, com o motivo. */}
+    <AlertDialog open={!!confirmarEdicao} onOpenChange={o => { if (!o && !busy) setConfirmarEdicao(null); }}>
+      <AlertDialogContent>
+        {confirmarEdicao && (
+          <>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Esta alteração invalida a declaração</AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-2 text-sm">
+                  <p><b>{AVISO_DE_INVALIDACAO}</b></p>
+                  <p>Muda: {confirmarEdicao.campos.join(", ")}. A declaração em vigor deixa de valer, a intenção volta a "Relatado" até a nova via ser assinada{confirmarEdicao.derrubaAprovacoes ? " e as aprovações já dadas são canceladas: será preciso decidir de novo" : ""}.</p>
+                  <Label htmlFor="motivo-edicao" className="text-xs">Motivo da alteração (fica registrado, com seu nome, a data e a hora)</Label>
+                  <Textarea id="motivo-edicao" value={motivoEdicao} onChange={e => setMotivoEdicao(e.target.value)} rows={3} placeholder="Ex.: o fornecedor emitiu a nota de novo com o valor correto" />
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="gap-2 sm:gap-2">
+              <Button type="button" variant="ghost" disabled={busy} onClick={() => setConfirmarEdicao(null)}>Voltar</Button>
+              <Button type="button" disabled={busy || motivoEdicao.trim().length < MOTIVO_MINIMO_DA_EDICAO} onClick={() => { const m = motivoEdicao.trim(); setConfirmarEdicao(null); void onSubmit(undefined, true, m); }}>
+                Confirmar e invalidar
+              </Button>
+            </AlertDialogFooter>
+          </>
+        )}
       </AlertDialogContent>
     </AlertDialog>
     {/* Só monta (e só então baixa o chunk do ZXing) quando a Telma

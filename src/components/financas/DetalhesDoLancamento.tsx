@@ -14,6 +14,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { ORDEM_DO_CICLO, ROTULO_DO_CICLO, type EstadoDoCiclo } from "@/lib/cicloDaDespesa";
 import { origemDoAnexo } from "@/lib/grupoDaObrigacao";
 import { ehAnexoDaQuitacao, ehDocumentoOriginal } from "@/lib/quitacao";
+import { dataHoraDaEdicao, textoDaEdicao } from "@/lib/edicaoDeLancamento";
 import { carregarDetalhesDaDespesa, type DetalhesDaDespesa } from "@/services/cicloDaDespesaService";
 import { brl, comprovanteSignedUrl, FIN_ANEXO_TIPO_LABEL, nomeExtrato, STATUS_LABEL, type FinLancamentoExtenso } from "@/services/finService";
 
@@ -184,7 +185,7 @@ export function DetalhesDoLancamento({ lancamento, onFechar, onAnexos }: { lanca
                       <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setReabrir({ tipo: "despesa", id: l.id, nome })}>Reabrir despesa…</Button>
                     )}
                     {d.reaberturas.map(r => (
-                      <p key={r.em} className="text-xs text-muted-foreground">Reaberta em {dataBr(r.em)} — {r.motivo} (de {ROTULO_DO_CICLO[r.anterior as EstadoDoCiclo] ?? r.anterior} para {ROTULO_DO_CICLO[r.novo as EstadoDoCiclo] ?? r.novo}).</p>
+                      <p key={r.em} className="text-xs text-muted-foreground">Reaberta em {dataBr(r.em)}{r.por ? ` por ${r.por}` : ""} — {r.motivo} (de {ROTULO_DO_CICLO[r.anterior as EstadoDoCiclo] ?? r.anterior} para {ROTULO_DO_CICLO[r.novo as EstadoDoCiclo] ?? r.novo}).</p>
                     ))}
                   </section>
                 )}
@@ -236,12 +237,28 @@ export function DetalhesDoLancamento({ lancamento, onFechar, onAnexos }: { lanca
                       </p>
                     ))}
                     {d.contasAlteradas.map(c => (
-                      <p key={c.em} className="text-xs text-muted-foreground">Conta alterada em {dataBr(c.em)}: de {c.de} para {c.para}{c.estavaEnviada ? " (a despesa já estava Enviada)" : ""}.</p>
+                      <p key={c.em} className="text-xs text-muted-foreground">Conta alterada em {dataBr(c.em)}{c.por ? ` por ${c.por}` : ""}: de {c.de} para {c.para}{c.estavaEnviada ? " (a despesa já estava Enviada)" : ""}.</p>
                     ))}
                     {d.ciclo?.conferencia === "historico" && <p>Conferida (Histórico) — anterior ao extrato: sem vínculo com o banco.</p>}
                     {d.ciclo?.conferencia === "manual" && !d.conferidoPor && <p>Conferida à mão — sem vínculo com o banco.</p>}
                     {d.conferidoPor && <p>Conferida{d.conferidoPor.nome ? ` por ${d.conferidoPor.nome}` : ""} em {dataBr(d.conferidoPor.em)}{d.conferidoPor.nota ? ` — ${d.conferidoPor.nota}` : ""}.</p>}
                     {d.liquidacao && <p>Liquidação de {dataBr(d.liquidacao.data_pagamento)} · {brl(d.liquidacao.valor_total)} saiu do banco</p>}
+                  </section>
+                )}
+
+                {d.edicoes.length > 0 && (
+                  <section aria-label="Histórico de edições" className="space-y-1 text-sm">
+                    <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Histórico de edições</h3>
+                    <ul className="space-y-1">
+                      {d.edicoes.map(e => (
+                        <li key={e.id} className="text-xs">
+                          <span className="text-muted-foreground">{dataHoraDaEdicao(e.em)}</span> — <b>{textoDaEdicao(e)}</b>
+                          <span className="text-muted-foreground"> · {e.porNome ?? "usuário"}{e.motivo ? ` — ${e.motivo}` : ""}</span>
+                          {e.invalidouDeclaracao && <span className="ml-1 inline-flex items-center rounded-full border border-warning-line bg-warning-soft/60 px-1.5 py-0 text-[10px] text-warning-text">invalidou a declaração</span>}
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="text-[11px] text-muted-foreground">Este histórico não se altera nem se apaga.</p>
                   </section>
                 )}
 

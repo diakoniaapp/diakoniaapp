@@ -9,6 +9,9 @@ import { ehDocumentoOriginal, ehTerceiro } from "@/lib/quitacao";
 import { quitacaoDaObrigacao, type QuitacaoDaObrigacao } from "@/services/quitacaoService";
 import { hojeLocal } from "@/lib/data";
 import { listarAnexos, type FinLancamentoAnexo, type FinLancamentoExtenso } from "@/services/finService";
+import { listarEdicoes } from "@/services/edicaoLancamentoService";
+import { nomesDosUsuarios } from "@/services/usuariosNomesService";
+import type { EdicaoDoLancamento } from "@/lib/edicaoDeLancamento";
 
 export interface DetalhesDaDespesa {
   ciclo: CicloDaDespesa | null;
@@ -38,6 +41,8 @@ export interface DetalhesDaDespesa {
   reaberturas: { motivo: string; em: string; por: string | null; anterior: string; novo: string }[];
   /** trocas da conta desta despesa (a conta NÃO é congelada pelo envio, mas toda troca fica registrada) */
   contasAlteradas: { em: string; por: string | null; de: string; para: string; estavaEnviada: boolean }[];
+  /** a trilha imutável de edição (valor, data, fornecedor, favorecido, categoria, centro, projeto, conta, número e chave da nota): antes, depois, quem, quando e o motivo */
+  edicoes: EdicaoDoLancamento[];
 }
 
 export interface VinculoDoBanco {
@@ -55,7 +60,7 @@ export async function carregarDetalhesDaDespesa(l: FinLancamentoExtenso): Promis
   const conta = await supabase.from("fin_contas").select("nome, tipo").eq("id", l.conta_id).maybeSingle();
   const contaTipo = String(conta.data?.tipo ?? "banco");
   const raiz = raizDaObrigacao(l);
-  const [grupoRes, liq, obr, rec, extrato, vincRes, itemRes, fechRes, reabRes, contaAltRes, quitacao] = await Promise.all([
+  const [grupoRes, liq, obr, rec, extrato, vincRes, itemRes, fechRes, reabRes, contaAltRes, quitacao, edicoes] = await Promise.all([
     supabase.from("fin_lancamentos").select("id, obrigacao_id, data, data_pagamento, status, valor, comprovante_url").or(`id.eq.${raiz},obrigacao_id.eq.${raiz}`),
     l.liquidacao_id ? supabase.from("fin_liquidacoes" as never).select("id, data_pagamento, valor_total, ofx_fitid, created_at").eq("id" as never, l.liquidacao_id as never).maybeSingle() : Promise.resolve({ data: null }),
     supabase.from("vw_fin_obrigacoes" as never).select("valor_original, juros, multa, complemento, ajuste, desconto, total_pago, situacao").eq("obrigacao_id" as never, (l.obrigacao_id ?? l.id) as never).maybeSingle(),
@@ -72,6 +77,7 @@ export async function carregarDetalhesDaDespesa(l: FinLancamentoExtenso): Promis
     supabase.from("fin_reaberturas" as never).select("motivo, reaberto_em, reaberto_por, estado_anterior, estado_novo").eq("obrigacao_id" as never, raiz as never).order("reaberto_em" as never),
     supabase.from("fin_conta_alteracoes" as never).select("alterado_em, alterado_por, conta_anterior_nome, conta_nova_nome, despesa_enviada").eq("obrigacao_id" as never, raiz as never).order("alterado_em" as never),
     quitacaoDaObrigacao(l.id).catch(() => null),
+    listarEdicoes([l.id, raiz]),
   ]);
   const item = itemRes.error ? null : (itemRes.data as unknown as { ano: number; mes: number; incluido_em: string } | null);
   const envio = item ? { ano: Number(item.ano), mes: Number(item.mes), enviadoEm: item.incluido_em ?? null,
@@ -105,17 +111,22 @@ export async function carregarDetalhesDaDespesa(l: FinLancamentoExtenso): Promis
   let conferidoPor: DetalhesDaDespesa["conferidoPor"] = null;
   if (conf.conferido_em) {
     let nome: string | null = null;
-    if (conf.conferido_por) { try { nome = (await supabase.from("profiles").select("nome").eq("id", conf.conferido_por).maybeSingle()).data?.nome ?? null; } catch { /* só o nome */ } }
+    if (conf.conferido_por) { nome = (await nomesDosUsuarios([conf.conferido_por])).get(conf.conferido_por) ?? null; }
     conferidoPor = { em: conf.conferido_em, nome, nota: conf.conferencia_nota ?? null };
   }
+  // quem reabriu e quem trocou a conta: antes saíam em branco (a tabela de perfis não deixa a Tesouraria ler o nome dos outros)
+  const linhasReab = reabRes.error ? [] : ((reabRes.data ?? []) as unknown as Record<string, unknown>[]);
+  const linhasConta = contaAltRes.error ? [] : ((contaAltRes.data ?? []) as unknown as Record<string, unknown>[]);
+  const nomes = await nomesDosUsuarios([...linhasReab.map(r => r.reaberto_por as string | null), ...linhasConta.map(r => r.alterado_por as string | null)]);
   return {
     ciclo, quitacao, anexos, parcelas, comprovanteAntigo, vinculos, conferidoPor, envio,
-    contasAlteradas: contaAltRes.error ? [] : ((contaAltRes.data ?? []) as unknown as Record<string, unknown>[]).map(r => ({
-      em: String(r.alterado_em), por: null, de: String(r.conta_anterior_nome ?? "?"), para: String(r.conta_nova_nome ?? "?"), estavaEnviada: !!r.despesa_enviada,
+    contasAlteradas: linhasConta.map(r => ({
+      em: String(r.alterado_em), por: r.alterado_por ? nomes.get(String(r.alterado_por)) ?? null : null, de: String(r.conta_anterior_nome ?? "?"), para: String(r.conta_nova_nome ?? "?"), estavaEnviada: !!r.despesa_enviada,
     })),
-    reaberturas: reabRes.error ? [] : ((reabRes.data ?? []) as unknown as Record<string, unknown>[]).map(r => ({
-      motivo: String(r.motivo), em: String(r.reaberto_em), por: null, anterior: String(r.estado_anterior), novo: String(r.estado_novo),
+    reaberturas: linhasReab.map(r => ({
+      motivo: String(r.motivo), em: String(r.reaberto_em), por: r.reaberto_por ? nomes.get(String(r.reaberto_por)) ?? null : null, anterior: String(r.estado_anterior), novo: String(r.estado_novo),
     })),
+    edicoes,
     liquidacao: (liq.data as DetalhesDaDespesa["liquidacao"]) ?? null,
     obrigacao: o ? {
       valor_original: Number(o.valor_original), juros: Number(o.juros), multa: Number(o.multa), complemento: Number(o.complemento), ajuste: Number(o.ajuste),

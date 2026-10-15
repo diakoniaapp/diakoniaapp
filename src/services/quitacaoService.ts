@@ -5,6 +5,7 @@
 // fin_registrar_quitacao / fin_alterar_quitacao / fin_remover_quitacao / fin_decidir_quitacao validam, auditam e recusam o que a Política não permite; a tela só avisa antes.
 // A regra de negócio pura (Matriz, resultado, fila) está em lib/quitacao.ts; AQUI nada é recalculado — o que o banco derivou (vw_fin_quitacao) é o que se mostra.
 import { supabase } from "@/integrations/supabase/client";
+import { nomesDosUsuarios } from "@/services/usuariosNomesService";
 import type { ConteudoDaDeclaracao } from "@/lib/declaracaoDoTerceiro";
 import {
   CONTA_NAO_APLICAVEL_ID, PARAMETROS_PADRAO, type FormaDePagamento, type Fila, type Grau, type Intencao, type Nivel, type NaturezaDoItem, type ParametrosDaQuitacao, type Resultado, type ResponsavelTipo,
@@ -177,9 +178,8 @@ export async function eventosDaQuitacao(quitacaoId: string): Promise<EventoDaQui
   const { data, error } = await supabase.from("fin_quitacao_eventos" as never).select("*").eq("quitacao_id" as never, quitacaoId as never).order("em" as never);
   if (error) return [];
   const linhas = (data ?? []) as unknown as Linha[];
-  const por = [...new Set(linhas.map(l => txt(l.por)).filter((x): x is string => !!x))];
-  const nomes = new Map<string, string>();
-  if (por.length) { const p = await supabase.from("profiles").select("id, nome").in("id", por); for (const x of p.data ?? []) nomes.set(String(x.id), String(x.nome)); }
+  // o nome de quem agiu vem pela função do financeiro (a leitura direta de `profiles` deixava a Tesouraria sem ver o nome dos outros)
+  const nomes = await nomesDosUsuarios(linhas.map(l => txt(l.por)));
   return linhas.map(l => ({ id: String(l.id), evento: String(l.evento), decisao: txt(l.decisao), motivo: txt(l.motivo), em: String(l.em), por: txt(l.por), porNome: txt(l.por) ? nomes.get(String(l.por)) ?? null : null, de: (l.de as Linha) ?? null, para: (l.para as Linha) ?? null }));
 }
 

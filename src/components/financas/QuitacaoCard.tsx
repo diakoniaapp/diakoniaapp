@@ -33,12 +33,18 @@ const dataHoraBr = (iso: string | null | undefined) => {
   if (Number.isNaN(d.getTime())) return dataBr(iso);
   return d.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }).replace(",", " às");
 };
-/** A decisão que ainda vale: a mais recente do tipo, e só se a quitação não mudou depois dela (a mesma regra do banco). */
+/** A decisão que ainda vale: a mais recente do tipo, e só se a quitação (ou os dados da declaração) não mudou depois dela (a mesma regra do banco). */
 function decisaoVigente(eventos: EventoDaQuitacao[] | null, tipo: "aprovacao_reembolso" | "aprovacao_relatado"): EventoDaQuitacao | null {
   if (!eventos) return null;
-  const mudancas = eventos.filter(e => e.evento === "registrada" || e.evento === "alterada").map(e => e.em).sort();
+  const mudancas = eventos.filter(e => e.evento === "registrada" || e.evento === "alterada" || e.evento === "declaracao_invalidada").map(e => e.em).sort();
   const ultimaMudanca = mudancas[mudancas.length - 1] ?? "";
   const dec = eventos.filter(e => e.evento === tipo && e.em > ultimaMudanca).sort((a, b) => (a.em < b.em ? -1 : 1));
+  return dec[dec.length - 1] ?? null;
+}
+/** A última decisão POSITIVA do tipo, mesmo que já tenha caído: serve para avisar que foi preciso decidir de novo. */
+function decisaoQueCaiu(eventos: EventoDaQuitacao[] | null, tipo: "aprovacao_reembolso" | "aprovacao_relatado"): EventoDaQuitacao | null {
+  if (!eventos) return null;
+  const dec = eventos.filter(e => e.evento === tipo && e.decisao === "aprovada").sort((a, b) => (a.em < b.em ? -1 : 1));
   return dec[dec.length - 1] ?? null;
 }
 const COR_GRAU: Record<Grau, string> = { formal: "border-success-line bg-success-soft/60 text-success-text", relatado: "border-warning-line bg-warning-soft/60 text-warning-text", nenhum: "border-destructive-line bg-destructive-soft text-destructive-text" };
@@ -46,6 +52,7 @@ const COR_NIVEL: Record<Nivel, string> = { baixo: "border-success-line bg-succes
 const EVENTO: Record<string, string> = {
   registrada: "Registrada", alterada: "Alterada", removida: "Removida", aprovacao_reembolso: "Decisão sobre o reembolso", aprovacao_relatado: "Decisão sobre o grau Relatado", parametros: "Parâmetros alterados",
   extinta_por_oferta: "Obrigação extinta por oferta", extincao_desfeita: "Extinção desfeita", reembolso_pago: "Reembolso pago",
+  declaracao_gerada: "Declaração do Terceiro gerada", declaracao_assinada: "Declaração do Terceiro assinada", declaracao_invalidada: "Declaração invalidada (os dados mudaram)",
 };
 
 function Chip({ cls, children }: { cls: string; children: React.ReactNode }) {
@@ -188,6 +195,14 @@ export function QuitacaoCard({ lancamento, recarga, onMudou }: { lancamento: Fin
           )}
           {q.aprovacaoDoRelatado && (() => { const d = decisaoVigente(eventos, "aprovacao_relatado"); return (
             <p className="text-xs">{q.intencao === "oferta" ? "Oferta" : "Grau Relatado"} <b>{q.aprovacaoDoRelatado === "aprovada" ? "aprovada" : "recusada"}</b> pelo Administrador{d ? <> ({d.porNome ?? "usuário"}, {dataHoraBr(d.em)})</> : null}.{d?.motivo ? <> Justificativa: {d.motivo}</> : null}</p>); })()}
+          {(["aprovacao_reembolso", "aprovacao_relatado"] as const).map(tipo => {
+            const vigente = tipo === "aprovacao_reembolso" ? q.aprovacaoDoReembolso : q.aprovacaoDoRelatado;
+            const caiu = vigente ? null : decisaoQueCaiu(eventos, tipo);
+            return caiu ? (
+              <p key={tipo} className="text-xs text-warning-text">
+                A {tipo === "aprovacao_reembolso" ? "aprovação do reembolso" : "aprovação do Administrador"} dada por {caiu.porNome ?? "usuário"} em {dataHoraBr(caiu.em)} <b>deixou de valer</b>: os dados da declaração mudaram depois dela. A nova via precisa ser assinada e a decisão, tomada de novo.
+              </p>) : null;
+          })}
           <p className="text-[11px] text-muted-foreground">Registrada por {eventos?.find(e => e.evento === "registrada")?.porNome ?? "usuário"} em {dataHoraBr(q.registradoEm)}.</p>
 
           {q.responsavel !== "nao_localizado" && <DeclaracaoDoTerceiroCard q={q} podeEscrever={podeEscrever} aberta={aberta} recarga={n} onMudou={onMudou} />}
@@ -229,7 +244,7 @@ export function QuitacaoCard({ lancamento, recarga, onMudou }: { lancamento: Fin
             eventos === null ? <p className="text-xs text-muted-foreground flex items-center gap-1.5"><Loader2 className="h-3 w-3 animate-spin" /> Lendo o histórico…</p> : (
               <ul className="space-y-0.5 text-xs text-muted-foreground">
                 {eventos.length === 0 ? <li>Sem eventos.</li> : eventos.map(e => (
-                  <li key={e.id}>{dataHoraBr(e.em)} — <b>{EVENTO[e.evento] ?? e.evento}</b>{e.decisao ? ` (${e.decisao})` : ""}{e.porNome ? ` por ${e.porNome}` : ""}{e.motivo ? ` — ${e.motivo}` : ""}</li>
+                  <li key={e.id}>{dataHoraBr(e.em)} — <b>{EVENTO[e.evento] ?? e.evento}</b>{e.decisao ? ` (${e.decisao})` : ""}{e.evento === "declaracao_invalidada" && Array.isArray((e.para as { campos?: unknown } | null)?.campos) ? ` — mudou: ${((e.para as { campos: string[] }).campos).join(", ")}` : ""}{e.porNome ? ` por ${e.porNome}` : ""}{e.motivo ? ` — ${e.motivo}` : ""}</li>
                 ))}
               </ul>
             )

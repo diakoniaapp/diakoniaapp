@@ -11,13 +11,14 @@ let quitacao: QuitacaoDaObrigacao | null = null;
 let papeis: string[] = ["admin"];
 let declDisp = false;
 let situacao: unknown = null;
+let eventosDoBanco: unknown[] = [];
 const decidir = vi.fn(async (..._a: unknown[]) => undefined);
 vi.mock("@/hooks/useAuth", () => ({ useAuth: () => ({ hasRole: (rs: string[]) => rs.some(r => papeis.includes(r)) }) }));
 vi.mock("@/services/quitacaoService", () => ({
   quitacaoDisponivel: async () => disponivel,
   quitacaoDaObrigacao: async () => quitacao,
   carregarParametros: async () => ({ vigencia: null, teto1: 500, prazoDeclaracaoDias: 30, tetoAnualTerceiro: 2000, qtdRelatadasTrimestre: 3, prazoFormalizacaoDias: 30, prazoEsclarecimentoDias: 30, prazoReembolsoDias: 10, limiteCapitalizacao: null }),
-  eventosDaQuitacao: async () => [],
+  eventosDaQuitacao: async () => eventosDoBanco,
   decidirQuitacao: (...a: unknown[]) => decidir(...a),
   removerQuitacao: async () => undefined,
   dadosDaDespesaParaQuitar: async () => null,
@@ -37,7 +38,7 @@ import { QuitacaoCard } from "./QuitacaoCard";
 
 let raiz: Root | null = null;
 let alvo: HTMLDivElement | null = null;
-afterEach(() => { act(() => raiz?.unmount()); alvo?.remove(); raiz = null; alvo = null; quitacao = null; declDisp = false; situacao = null; disponivel = true; papeis = ["admin"]; decidir.mockClear(); conciliar.mockClear(); desconciliar.mockClear(); });
+afterEach(() => { act(() => raiz?.unmount()); alvo?.remove(); raiz = null; alvo = null; quitacao = null; declDisp = false; situacao = null; eventosDoBanco = []; disponivel = true; papeis = ["admin"]; decidir.mockClear(); conciliar.mockClear(); desconciliar.mockClear(); });
 
 const lanc = (o: Partial<FinLancamentoExtenso> = {}) => ({ id: "l1", tipo: "saida", status: "previsto", valor: 100, descricao: "Material", ...o }) as unknown as FinLancamentoExtenso;
 const q = (o: Partial<QuitacaoDaObrigacao> = {}): QuitacaoDaObrigacao => ({
@@ -279,5 +280,40 @@ describe("oferta: simples; o alto risco aceita o comprovante OU a aprovação do
     expect(el.textContent).toMatch(/Anexar prova do pagamento/);
     expect(botao(el, "Aprovar a oferta")).toBeFalsy();
     expect(botao(el, "Aprovar o Relatado")).toBeFalsy();
+  });
+});
+
+describe("a Declaração manda: a decisão que caiu e o histórico da invalidação (Fase 2A)", () => {
+  const ev = (id: string, evento: string, em: string, o: Record<string, unknown> = {}) => ({ id, evento, decisao: null, motivo: null, em, por: "u1", porNome: "Pr. Ana", de: null, para: null, ...o });
+  const oferta2 = (o: Partial<QuitacaoDaObrigacao> = {}) => q({ intencao: "oferta", grauResponsavel: "relatado", grauIntencao: "relatado", grauConjunto: "relatado", suficiente: false, exigeAprovacaoDoAdministrador: true, fila: "formalizar", resultado: "a_formalizar", ...o });
+
+  it("a aprovação do Administrador que deixou de valer é dita com quem decidiu, quando, e o que fazer", async () => {
+    quitacao = oferta2({ aprovacaoDoRelatado: null });
+    eventosDoBanco = [ev("1", "registrada", "2026-10-10T10:00:00Z"), ev("2", "aprovacao_relatado", "2026-10-11T10:00:00Z", { decisao: "aprovada" }), ev("3", "declaracao_invalidada", "2026-10-12T10:00:00Z", { para: { campos: ["valor"] } })];
+    const el = await montar(lanc());
+    expect(el.textContent).toMatch(/aprovação do Administrador dada por Pr\. Ana em 11\/10\/2026/);
+    expect(el.textContent).toMatch(/deixou de valer/);
+    expect(el.textContent).toMatch(/tomada de novo/);
+  });
+  it("a aprovação que ainda vale NÃO ganha o aviso", async () => {
+    quitacao = oferta2({ aprovacaoDoRelatado: "aprovada", suficiente: true });
+    eventosDoBanco = [ev("1", "registrada", "2026-10-10T10:00:00Z"), ev("2", "aprovacao_relatado", "2026-10-11T10:00:00Z", { decisao: "aprovada" })];
+    const el = await montar(lanc());
+    expect(el.textContent).not.toMatch(/deixou de valer/);
+  });
+  it("a aprovação de reembolso que caiu também é dita", async () => {
+    quitacao = q({ aprovacaoDoReembolso: null });
+    eventosDoBanco = [ev("1", "registrada", "2026-10-10T10:00:00Z"), ev("2", "aprovacao_reembolso", "2026-10-11T10:00:00Z", { decisao: "aprovada" }), ev("3", "declaracao_invalidada", "2026-10-12T10:00:00Z", { para: { campos: ["emitente (fornecedor)"] } })];
+    const el = await montar(lanc());
+    expect(el.textContent).toMatch(/aprovação do reembolso dada por Pr\. Ana/);
+  });
+  it("o histórico mostra a invalidação, o que mudou, quem e o motivo", async () => {
+    quitacao = oferta2();
+    eventosDoBanco = [ev("1", "registrada", "2026-10-10T10:00:00Z"), ev("3", "declaracao_invalidada", "2026-10-12T10:00:00Z", { motivo: "nota corrigida pelo fornecedor", para: { campos: ["valor", "número da nota"] } })];
+    const el = await montar(lanc());
+    await act(async () => { botao(el, "Histórico")!.click(); });
+    expect(el.textContent).toMatch(/Declaração invalidada \(os dados mudaram\)/);
+    expect(el.textContent).toMatch(/mudou: valor, número da nota/);
+    expect(el.textContent).toMatch(/por Pr\. Ana — nota corrigida pelo fornecedor/);
   });
 });

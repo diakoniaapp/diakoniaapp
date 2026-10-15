@@ -33,7 +33,7 @@ import { useEffect, useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Send, Paperclip, Pencil } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { nomesDosUsuarios } from "@/services/usuariosNomesService";
 import {
   brl, buscarFornecedor, comprovanteSignedUrl, FORMA_LABEL,
   type FinLancamentoExtenso, type FinFornecedor,
@@ -67,8 +67,7 @@ export function RemessaMissionariaDetalheDrawer({
     Promise.all([
       lancamento.fornecedor_id ? buscarFornecedor(lancamento.fornecedor_id) : Promise.resolve(null),
       lancamento.audit_user_id
-        ? supabase.from("profiles").select("nome").eq("id", lancamento.audit_user_id).maybeSingle()
-            .then(r => r.data?.nome ?? null)
+        ? nomesDosUsuarios([lancamento.audit_user_id]).then(m => m.get(lancamento.audit_user_id!) ?? null)
         : Promise.resolve(null),
     ])
       .then(([f, nome]) => { setFornecedor(f); setNomeAutor(nome); })
