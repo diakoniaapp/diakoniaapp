@@ -3,7 +3,7 @@
 // Pedido dela (03/10/2026): a aba mostrava informação que não é o fechamento real
 // (agenda fiscal, "sem comprovante" duplicado da Central, próximos vencimentos). O
 // processo real é: conferir conciliações → conferir classificação (categoria, centro) →
-// conferir documentos (na Central) → gerar o Malote → enviar à contabilidade.
+// conferir documentos (na Central) → anexar os documentos do fechamento (extratos, OFX, cartões, adquirentes) → gerar o Malote → enviar à contabilidade.
 //
 // A pergunta que a aba responde ao abrir: "Estou pronta para gerar e enviar o malote?".
 // Só entra aqui o que IMPEDE o fechamento (conta sem conciliar, sem categoria, sem centro,
@@ -38,6 +38,8 @@ import {
   type EstadoDoEnvio, type ResumoDocumentacao, type ResumoPacote,
 } from "@/services/fechamentoMensalService";
 import { baixarPacoteContabil, prepararPacoteContabil } from "@/services/pacoteContabilService";
+import { DocumentosDoFechamento } from "@/components/financas/DocumentosDoFechamento";
+import { documentosDoFechamentoDisponivel } from "@/services/fechamentoDocumentosService";
 
 type Parte<T> = { estado: "carregando" } | { estado: "ok"; dados: T } | { estado: "erro"; msg: string };
 const carregando = <T,>(): Parte<T> => ({ estado: "carregando" });
@@ -46,6 +48,9 @@ async function como<T>(f: () => Promise<T>): Promise<Parte<T>> {
   try { return { estado: "ok", dados: await f() }; }
   catch (e: any) { return { estado: "erro", msg: e?.message ?? "erro desconhecido" }; }
 }
+
+/** O que a aba precisa saber dos documentos do fechamento: se a seção existe no banco e como está o checklist deles. */
+interface ResumoDosDocumentos { disponivel: boolean; completo: boolean; faltando: number; documentos: number }
 
 const dataHoraBr = (iso: string) => {
   const d = new Date(iso);
@@ -67,6 +72,7 @@ export function FechamentoMensal({ onConciliar }: Props) {
   const [pacote, setPacote] = useState<Parte<ResumoPacote>>(carregando());
   const [ciclo, setCiclo] = useState<Parte<ResumoDoCiclo>>(carregando());
   const [envio, setEnvio] = useState<Parte<EstadoDoEnvio>>(carregando());
+  const [docsFech, setDocsFech] = useState<Parte<ResumoDosDocumentos>>(carregando());
   const [correcoes, setCorrecoes] = useState(false);
   const [gerando, setGerando] = useState<[number, number] | null>(null);
   const [gerouAgora, setGerouAgora] = useState(false);
@@ -78,13 +84,14 @@ export function FechamentoMensal({ onConciliar }: Props) {
   const rotulo = rotuloDoMes(ano, mes);
 
   const carregar = useCallback(() => {
-    setAv(carregando()); setDoc(carregando()); setPacote(carregando()); setCiclo(carregando()); setEnvio(carregando());
+    setAv(carregando()); setDoc(carregando()); setPacote(carregando()); setCiclo(carregando()); setEnvio(carregando()); setDocsFech(carregando());
     setGerouAgora(false);
     void como(() => avaliarMes(ano, mes)).then(setAv);
     void como(() => documentacaoDoMes(ano, mes)).then(setDoc);
     void como(() => pacoteDoMes(ano, mes)).then(setPacote);
     void como(() => cicloDoMes(ano, mes)).then(setCiclo);
     void como(() => ultimoEnvio(ano, mes)).then(setEnvio);
+    void como(async () => ({ disponivel: await documentosDoFechamentoDisponivel(), completo: false, faltando: 4, documentos: 0 })).then(setDocsFech);
   }, [ano, mes]);
   useEffect(() => { carregar(); }, [carregar]);
 
@@ -262,8 +269,17 @@ export function FechamentoMensal({ onConciliar }: Props) {
         </>}
       </Etapa>
 
-      {/* ── 4. pacote contábil ──────────────────────────────────────────── */}
-      <Etapa n={4} titulo="Pacote contábil" parte={pacote}
+      {/* ── 4. documentos do fechamento (extratos, OFX, cartões, adquirentes…): do MÊS, não de despesa ──────────── */}
+      <Etapa n={4} titulo="Documentos do fechamento" parte={docsFech}
+        situacao={docsFech.estado === "ok" && docsFech.dados.disponivel ? (docsFech.dados.completo ? "ok" : "atencao") : undefined}>
+        {docsFech.estado === "ok" && (docsFech.dados.disponivel
+          ? <DocumentosDoFechamento ano={ano} mes={mes} rotulo={rotulo}
+              onMudou={r => setDocsFech({ estado: "ok", dados: { disponivel: true, completo: r.completo, faltando: r.faltando, documentos: r.documentos } })} />
+          : <p className="text-sm text-muted-foreground">Documentos do fechamento indisponíveis: falta aplicar a migration <code>20261016150000</code> no banco.</p>)}
+      </Etapa>
+
+      {/* ── 5. pacote contábil ──────────────────────────────────────────── */}
+      <Etapa n={5} titulo="Pacote contábil" parte={pacote}
         situacao={pacote.estado === "ok" ? (a && !a.pronto ? "atencao" : "ok") : undefined}
         acao={
           <Button size="sm" className="h-8 gap-1.5" disabled={!!gerando || pacote.estado !== "ok"} onClick={gerarMalote}>
@@ -274,12 +290,13 @@ export function FechamentoMensal({ onConciliar }: Props) {
           <Numero rotulo="Período" valor={rotulo} />
           <Numero rotulo="Documentos (dossiês)" valor={String(pacote.dados.dossies)} />
           <Numero rotulo="Saídas sem documento" valor={String(pacote.dados.pendencias)} atencao={pacote.dados.pendencias > 0} />
+          {docsFech.estado === "ok" && docsFech.dados.disponivel && <Numero rotulo="Documentos do fechamento" valor={String(docsFech.dados.documentos)} atencao={!docsFech.dados.completo} />}
           {a && !a.pronto && <p className="basis-full text-[11px] text-warning-text">Há pendências que impedem o fechamento (acima) — o malote sai mesmo assim, mas o ideal é resolvê-las antes.</p>}
         </>}
       </Etapa>
 
-      {/* ── 5. envio à contabilidade ────────────────────────────────────── */}
-      <Etapa n={5} titulo="Envio à contabilidade" parte={envio}
+      {/* ── 6. envio à contabilidade ────────────────────────────────────── */}
+      <Etapa n={6} titulo="Envio à contabilidade" parte={envio}
         situacao={envio.estado === "ok" ? (envio.dados.envio ? "ok" : "pendente") : undefined}
         acao={envio.estado === "ok" && !envio.dados.indisponivel && (
           <Button size="sm" variant={gerouAgora || !envio.dados.envio ? "default" : "outline"} className="h-8 gap-1.5"

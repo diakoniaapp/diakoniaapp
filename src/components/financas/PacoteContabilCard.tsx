@@ -105,6 +105,12 @@ export function PacoteContabilCard({ ano, mes }: { ano: number; mes: number }) {
             </p>
           )}
 
+          {plano.documentosDoFechamento.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {plano.documentosDoFechamento.length} documento(s) do fechamento (extratos, OFX, cartões, adquirentes…) na pasta “Documentos do fechamento”, com índice próprio.
+            </p>
+          )}
+
           {plano.dossies.length > 0 && (
             <p className="text-xs text-muted-foreground tabular-nums">
               {plano.dossies.filter(d => d.caminhoZip).length} PDF(s) consolidado(s)

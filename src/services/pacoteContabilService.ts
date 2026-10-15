@@ -34,6 +34,8 @@ import {
   eventosDaQuitacao, listarFilasDeQuitacao, ofertaDisponivel, quitacaoDisponivel, quitacoesDasObrigacoes, type QuitacaoDaObrigacao,
 } from "@/services/quitacaoService";
 import { hojeLocal } from "@/lib/data";
+import { PASTA_DOCUMENTOS_DO_FECHAMENTO, caminhoNoPacote, indiceDosDocumentosCsv } from "@/lib/fechamentoDocumentos";
+import { baixarBytesDoDocumento, documentosParaOPacote } from "@/services/fechamentoDocumentosService";
 import { ROTULO_INTENCAO } from "@/lib/quitacao";
 
 const BUCKET = "fin-comprovantes";
@@ -178,6 +180,7 @@ export async function prepararPacoteContabil(ano: number, mes: number, contaId?:
   const anexos = saidas.length ? await anexosDe(saidas) : [];
   const plano = planejarPacote(ano, mes, saidas, anexos, rotulos);
   plano.quitacoesPendentes = await quitacoesPendentesDoPacote();
+  plano.documentosDoFechamento = await documentosParaOPacote(ano, mes, contaId);
   return plano;
 }
 
@@ -200,6 +203,8 @@ export interface ResultadoPacote {
   pendencias: number;
   /** Quitações por terceiro ainda sem resposta (PENDENCIAS_QUITACAO.csv). */
   pendenciasQuitacao: number;
+  /** Documentos do fechamento do mês que entraram no pacote (pasta "Documentos do fechamento"). */
+  documentosDoFechamento: number;
 }
 
 const rotuloDaParte = (tipo: FinAnexoTipo) => FIN_ANEXO_TIPO_LABEL[tipo] ?? tipo;
@@ -228,7 +233,7 @@ export async function baixarPacoteContabil(
   plano: PlanoPacote,
   onProgresso?: (feitos: number, total: number) => void,
 ): Promise<ResultadoPacote> {
-  if (plano.totalSaidas === 0) {
+  if (plano.totalSaidas === 0 && plano.documentosDoFechamento.length === 0) {
     throw new Error(`Nenhuma saída paga em ${String(plano.mes).padStart(2, "0")}/${plano.ano}.`);
   }
 
@@ -293,6 +298,22 @@ export async function baixarPacoteContabil(
   }
   await Promise.all(Array.from({ length: Math.min(DOSSIES_EM_PARALELO, plano.dossies.length) }, trabalhador));
 
+  // os documentos do FECHAMENTO (extratos, OFX, cartões, adquirentes…): não são de despesa; vão numa pasta própria, com índice, e um que falhar não derruba o pacote
+  const nomesUsados = new Set<string>();
+  const doFechamento: { doc: (typeof plano.documentosDoFechamento)[number]; caminho: string }[] = [];
+  for (const doc of plano.documentosDoFechamento) {
+    const caminho = caminhoNoPacote(plano.raiz, doc, nomesUsados);
+    try { zip.file(caminho, await baixarBytesDoDocumento(doc.storagePath)); baixados += 1; doFechamento.push({ doc, caminho }); }
+    catch (e) { falhar(`${relativo(caminho)} (documento do fechamento)`, doc.storagePath, e); }
+    onProgresso?.(++feitos, plano.totalArquivos + plano.documentosDoFechamento.length);
+  }
+  if (doFechamento.length > 0) {
+    zip.file(`${plano.raiz}/${PASTA_DOCUMENTOS_DO_FECHAMENTO}/INDICE_DOCUMENTOS.csv`, indiceDosDocumentosCsv(
+      doFechamento.map(x => ({ tipo: x.doc.tipo, arquivoNome: x.doc.arquivoNome, caminho: relativo(x.caminho), descricao: x.doc.descricao, contaNome: x.doc.contaNome, tamanhoBytes: x.doc.tamanhoBytes, incluidoEm: x.doc.incluidoEm, incluidoPorNome: x.doc.incluidoPorNome })),
+      iso => { const d = new Date(iso); const p = (n: number) => String(n).padStart(2, "0"); return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`; },
+    ));
+  }
+
   zip.file(`${plano.raiz}/INDICE.csv`, indiceCsv(plano, falhouPath, paginas));
   zip.file(`${plano.raiz}/PENDENCIAS.csv`, pendenciasCsv(plano));
   if (plano.quitacoesPendentes.length > 0) zip.file(`${plano.raiz}/PENDENCIAS_QUITACAO.csv`, pendenciasDeQuitacaoCsv(plano.quitacoesPendentes));
@@ -311,5 +332,5 @@ export async function baixarPacoteContabil(
 
   const blob = await zip.generateAsync({ type: "blob" });
   saveAs(blob, `${plano.raiz}.zip`);
-  return { baixados, dossies: pdfs, falhas, pendencias: plano.pendencias.length, pendenciasQuitacao: plano.quitacoesPendentes.length };
+  return { baixados, dossies: pdfs, falhas, pendencias: plano.pendencias.length, pendenciasQuitacao: plano.quitacoesPendentes.length, documentosDoFechamento: doFechamento.length };
 }

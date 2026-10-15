@@ -47,6 +47,7 @@ import {
   type FormatoArquivo,
 } from "@/lib/documentos/dossie";
 import { lerNomeDeArquivo } from "@/lib/documentos/nomeArquivo";
+import type { DocumentoDoPacote } from "@/lib/fechamentoDocumentos";
 
 /** Onde uma linha da Política vai no pacote e o que o escritório precisa ler sobre ela. Só as obrigações com quitação por terceiro têm. */
 export interface RotuloDoPacote {
@@ -151,6 +152,8 @@ export interface PlanoPacote {
   avisos: number;
   /** As quitações por terceiro ainda sem resposta (Investigar, A esclarecer, Formalizar, Aprovar/Pagar reembolso): vira o PENDENCIAS_QUITACAO.csv. O serviço preenche; vazia ⇒ o arquivo não entra. */
   quitacoesPendentes: PendenciaDeQuitacao[];
+  /** Os documentos do FECHAMENTO do mês (extratos, OFX, cartões, adquirentes…): não são de despesa nenhuma e vão numa pasta própria do pacote. O serviço preenche. */
+  documentosDoFechamento: DocumentoDoPacote[];
 }
 
 // ─── o que NÃO precisa de documento ──────────────────────────────────────
@@ -552,6 +555,7 @@ export function planejarPacote(
     ofertadas: ordenadas.filter(l => rotulos.get(l.id)?.tipo === "ofertada").length,
     avisos: ordenadas.filter(l => rotulos.get(l.id)?.tipo === "aviso_reembolso").length,
     quitacoesPendentes: [],
+    documentosDoFechamento: [],
   };
 }
 
