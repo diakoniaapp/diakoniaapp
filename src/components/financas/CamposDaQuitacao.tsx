@@ -47,6 +47,40 @@ export function problemasDoEstado(e: EstadoDaQuitacao, emitenteId: string | null
   return p;
 }
 
+/** O que acontece com a obrigação conforme a intenção: o fluxo "quem pagou → o que quer → como será tratada" (14/10/2026). Só informa: a decisão é sempre da pessoa e nada aqui é presumido. */
+export function ConsequenciaDaIntencao({ intencao }: { intencao: Intencao }) {
+  const texto: Partial<Record<Intencao, { titulo: string; itens: string[] }>> = {
+    oferta: {
+      titulo: "Como a obrigação será tratada: oferta",
+      itens: [
+        "A nota é despesa da igreja e se extingue sem pagamento da igreja quando a prova bastar. Nenhum dinheiro da igreja se move.",
+        "Não gera entrada, transferência nem saída, e não se liga a nenhuma conta financeira.",
+        "Documentos: a nota fiscal e a Declaração do Terceiro (gerada pelo sistema, para assinar). Sem a declaração assinada a prova é só Relatada.",
+      ],
+    },
+    reembolso: {
+      titulo: "Como a obrigação será tratada: reembolso",
+      itens: [
+        "A nota continua em aberto como dívida da igreja com a pessoa. O fornecedor não é pago de novo.",
+        "Aprovação: o reembolso é aprovado por outra pessoa (acima do teto da Política, só o Administrador). Só depois de aprovado se paga.",
+        "Documentos: a nota fiscal, a Declaração do Terceiro assinada e, conforme o nível de risco, a prova do pagamento. A conta de onde sai o pagamento se escolhe na hora de pagar.",
+      ],
+    },
+    nao_declarada: {
+      titulo: "Como a obrigação será tratada: ainda sem declaração",
+      itens: ["A nota fica em aberto na fila A esclarecer, sem pagar o fornecedor nem a pessoa, até ela declarar o que quer: reembolso ou oferta."],
+    },
+  };
+  const t = texto[intencao];
+  if (!t) return null;
+  return (
+    <div className="rounded-md border border-dashed bg-muted/10 p-3 text-xs text-muted-foreground space-y-1" aria-label="O que acontece com a obrigação">
+      <p className="font-semibold text-foreground">{t.titulo}</p>
+      <ul className="list-disc pl-4 space-y-0.5">{t.itens.map(i => <li key={i}>{i}</li>)}</ul>
+    </div>
+  );
+}
+
 export function CamposDaQuitacao({ valor: v, onChange, ofertaLiberada, hoje, pedirForma = false }: { valor: EstadoDaQuitacao; onChange: (parte: Partial<EstadoDaQuitacao>) => void; ofertaLiberada: boolean; hoje: string; pedirForma?: boolean }) {
   const [busca, setBusca] = useState("");
   const [achados, setAchados] = useState<Escolhido[]>([]);
@@ -78,6 +112,17 @@ export function CamposDaQuitacao({ valor: v, onChange, ofertaLiberada, hoje, ped
 
   return (
     <div className="space-y-4">
+      {v.tipo !== "nao_localizado" && (
+      <div className="space-y-1.5">
+        <Label>A igreja é a compradora?</Label>
+        <RadioGroup value={v.comprador} onValueChange={c => onChange({ comprador: c as "cnpj_igreja" | "contratacao_previa" })} className="grid gap-2 sm:grid-cols-2">
+          <label className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm cursor-pointer ${v.comprador === "cnpj_igreja" ? "border-primary bg-primary/5" : ""}`}><RadioGroupItem value="cnpj_igreja" /> Sim, a nota está no CNPJ da igreja</label>
+          <label className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm cursor-pointer ${v.comprador === "contratacao_previa" ? "border-primary bg-primary/5" : ""}`}><RadioGroupItem value="contratacao_previa" /> Sim, por contratação prévia</label>
+        </RadioGroup>
+      </div>
+
+      )}
+
       <div className="space-y-1.5">
         <Label>Quem pagou o fornecedor?</Label>
         <RadioGroup value={v.tipo} onValueChange={t => { onChange({ tipo: t as TipoEscolhido, escolhido: null }); setBusca(""); }} className="grid grid-cols-2 gap-2">
@@ -151,14 +196,6 @@ export function CamposDaQuitacao({ valor: v, onChange, ofertaLiberada, hoje, ped
           )}
 
           <div className="space-y-1.5">
-            <Label>A igreja é a compradora?</Label>
-            <RadioGroup value={v.comprador} onValueChange={c => onChange({ comprador: c as "cnpj_igreja" | "contratacao_previa" })} className="grid gap-2 sm:grid-cols-2">
-              <label className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm cursor-pointer ${v.comprador === "cnpj_igreja" ? "border-primary bg-primary/5" : ""}`}><RadioGroupItem value="cnpj_igreja" /> Sim, a nota está no CNPJ da igreja</label>
-              <label className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm cursor-pointer ${v.comprador === "contratacao_previa" ? "border-primary bg-primary/5" : ""}`}><RadioGroupItem value="contratacao_previa" /> Sim, por contratação prévia</label>
-            </RadioGroup>
-          </div>
-
-          <div className="space-y-1.5">
             <Label>O que essa pessoa quer? <span className="text-xs font-normal text-muted-foreground">(nunca presumido)</span></Label>
             <RadioGroup value={v.intencao} onValueChange={i => onChange({ intencao: i as Intencao })} className="grid gap-2">
               {OPCOES.map(([k, r, off, dica]) => (
@@ -174,6 +211,7 @@ export function CamposDaQuitacao({ valor: v, onChange, ofertaLiberada, hoje, ped
                 <p className="text-xs text-muted-foreground">A intenção só é <b>Formal</b> com a declaração assinada anexada. Sem ela é <b>Relatado</b>: vale para uma oferta de risco baixo; reembolso não se paga com Relatado.</p>
               </div>
             )}
+            <ConsequenciaDaIntencao intencao={v.intencao} />
             {v.intencao === "oferta" && (
               <div className="space-y-2 rounded-md border bg-muted/20 p-3">
                 <div className="space-y-1">

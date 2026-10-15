@@ -1,7 +1,7 @@
 // ─── NotaQuitadaDialog — "Registrar NF já quitada por terceiro": a NOTA que o aplicativo ainda não tinha, nascendo JUNTO com a quitação ──────────────────────────────
 //
 // Fase 1B. É o caso das 17 NFs que o escritório conhece e o aplicativo nunca teve: a obrigação e a quitação são criadas na MESMA operação do banco (ou nada nasce) — não fica uma conta "a pagar"
-// ao fornecedor que um terceiro já pagou. A conta escolhida é só onde a obrigação mora: a oferta NÃO mexe nela (sem banco, sem caixa). Não cria entrada, transferência nem saída realizada.
+// ao fornecedor que um terceiro já pagou. Oferta NÃO usa conta financeira (a nota nasce na conta estrutural "Não Aplicável"); reembolso e relatado escolhem a conta onde a nota fica registrada. A ORDEM da tela segue a Política (14/10/2026): a nota, a igreja é a compradora, quem pagou, o que a pessoa quer, e SÓ DEPOIS a classificação (categoria, centro, projeto). Não cria entrada, transferência nem saída realizada.
 import { useEffect, useMemo, useState } from "react";
 import { Loader2, Search } from "lucide-react";
 import { toast } from "sonner";
@@ -132,19 +132,26 @@ export function NotaQuitadaDialog({ aberto, onFechar, onFeito }: { aberto: boole
             </div>
             <div className="space-y-1.5"><Label htmlFor="n-chave">Chave de acesso (44 dígitos, opcional)</Label><Input id="n-chave" inputMode="numeric" value={chave} onChange={e => setChave(e.target.value)} placeholder="Com a chave conferida, o risco da operação cai" /></div>
             <div className="space-y-1.5"><Label htmlFor="n-desc">Descrição (opcional)</Label><Input id="n-desc" value={descricao} onChange={e => setDescricao(e.target.value)} /></div>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="n-conta">Conta da obrigação</Label>
-                {semConta ? (
-                  <p id="n-conta" className="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">
-                    <b className="text-foreground">Não aplicável.</b> Oferta não passa por banco, caixa, aplicação nem cartão: a nota não se liga a nenhuma conta.
-                  </p>
-                ) : (
+          </section>
+
+          <section aria-label="Quem pagou" className="rounded-md border p-3">
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Quem pagou e o que quer</h3>
+            <CamposDaQuitacao valor={v} onChange={mudar} ofertaLiberada={ofertaLiberada} hoje={hoje} pedirForma={pedirForma} />
+          </section>
+
+          {/* Só DEPOIS de saber quem pagou e o que a pessoa quer: classificar a despesa. */}
+          <section aria-label="Classificação" className="space-y-3 rounded-md border p-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Classificação da despesa</h3>
+            <div className={`grid gap-3 ${semConta ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
+              {!semConta && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="n-conta">Conta da obrigação</Label>
                   <select id="n-conta" className="h-10 w-full rounded-md border bg-background px-3 text-sm" value={contaId} onChange={e => setContaId(e.target.value)}>
                     <option value="">Escolha…</option>{contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
                   </select>
-                )}
-              </div>
+                  {v.intencao === "reembolso" && <p className="text-[11px] text-muted-foreground">Só onde a nota fica registrada: o reembolso escolhe a conta no pagamento.</p>}
+                </div>
+              )}
               <div className="space-y-1.5">
                 <Label htmlFor="n-cat">Categoria (opcional)</Label>
                 <select id="n-cat" className="h-10 w-full rounded-md border bg-background px-3 text-sm" value={categoriaId} onChange={e => setCategoriaId(e.target.value)}>
@@ -180,10 +187,6 @@ export function NotaQuitadaDialog({ aberto, onFechar, onFeito }: { aberto: boole
                 )}
               </div>
             )}
-          </section>
-
-          <section aria-label="Quem pagou" className="rounded-md border p-3">
-            <CamposDaQuitacao valor={v} onChange={mudar} ofertaLiberada={ofertaLiberada} hoje={hoje} pedirForma={pedirForma} />
           </section>
 
           <div className="space-y-1.5">
