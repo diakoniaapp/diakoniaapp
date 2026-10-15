@@ -81,6 +81,10 @@ export function QuitacaoDialog({ alvo, quitacao, onFechar, onFeito }: { alvo: Al
         if (v.tipo === "pessoa" && (v.escolhido?.id ?? null) !== q.pessoaId) mudancas.responsavel_pessoa_id = v.escolhido?.id ?? null;
         if (v.tipo !== "pessoa" && v.tipo !== "nao_localizado" && (v.escolhido?.id ?? null) !== q.fornecedorId) mudancas.responsavel_fornecedor_id = v.escolhido?.id ?? null;
         if (v.tipo !== "nao_localizado") {
+          if ((q.intencao === "oferta" && v.intencao === "reembolso") || (q.intencao === "reembolso" && v.intencao === "oferta")) {
+            toast.error("Para mudar entre Oferta e Reembolso use a ação \"Mudar intenção\" do cartão: ela invalida a declaração e as aprovações e gera a nova via.");
+            setSalvando(false); return;
+          }
           if (v.intencao !== q.intencao) mudancas.intencao = v.intencao;
           if ((v.pagoEm || null) !== q.pagoEm) mudancas.pago_em = v.pagoEm || null;
           if ((declara ? v.declaradoEm || null : null) !== q.declaradoEm) mudancas.declarado_em = declara ? v.declaradoEm || null : null;

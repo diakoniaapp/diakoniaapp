@@ -12,15 +12,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { CancelarNotaDialog } from "@/components/financas/CancelarNotaDialog";
 import { DeclaracaoDoTerceiroCard } from "@/components/financas/DeclaracaoDoTerceiroCard";
 import { PagarReembolsoDialog } from "@/components/financas/PagarReembolsoDialog";
+import { MudarIntencaoDialog } from "@/components/financas/MudarIntencaoDialog";
 import { QuitacaoDialog } from "@/components/financas/QuitacaoDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { mensagemErro } from "@/lib/erroRede";
+import { bloqueioDaMudanca, ehTrocavel } from "@/lib/mudarIntencao";
 import {
   MOTIVO_OFERTA_ALTO_RISCO, ROTULO_FILA, ROTULO_GRAU, ROTULO_INTENCAO, ROTULO_NIVEL, ROTULO_RESPONSAVEL, ROTULO_RESULTADO, alcadaDoReembolso, type Grau, type Nivel,
 } from "@/lib/quitacao";
 import { adicionarAnexo, brl, conciliarLancamento, desconciliarLancamento, type FinAnexoTipo, type FinLancamentoExtenso, FIN_ANEXO_TIPO_LABEL } from "@/services/finService";
 import {
-  carregarParametros, decidirQuitacao, declaracaoDisponivel, eventosDaQuitacao, quitacaoDaObrigacao, quitacaoDisponivel, removerQuitacao,
+  carregarParametros, decidirQuitacao, declaracaoDisponivel, eventosDaQuitacao, mudarIntencaoDisponivel, quitacaoDaObrigacao, quitacaoDisponivel, removerQuitacao,
   type EventoDaQuitacao, type QuitacaoDaObrigacao,
 } from "@/services/quitacaoService";
 import type { ParametrosDaQuitacao } from "@/lib/quitacao";
@@ -36,7 +38,7 @@ const dataHoraBr = (iso: string | null | undefined) => {
 /** A decisão que ainda vale: a mais recente do tipo, e só se a quitação (ou os dados da declaração) não mudou depois dela (a mesma regra do banco). */
 function decisaoVigente(eventos: EventoDaQuitacao[] | null, tipo: "aprovacao_reembolso" | "aprovacao_relatado"): EventoDaQuitacao | null {
   if (!eventos) return null;
-  const mudancas = eventos.filter(e => e.evento === "registrada" || e.evento === "alterada" || e.evento === "declaracao_invalidada").map(e => e.em).sort();
+  const mudancas = eventos.filter(e => e.evento === "registrada" || e.evento === "alterada" || e.evento === "declaracao_invalidada" || e.evento === "intencao_mudada").map(e => e.em).sort();
   const ultimaMudanca = mudancas[mudancas.length - 1] ?? "";
   const dec = eventos.filter(e => e.evento === tipo && e.em > ultimaMudanca).sort((a, b) => (a.em < b.em ? -1 : 1));
   return dec[dec.length - 1] ?? null;
@@ -52,7 +54,7 @@ const COR_NIVEL: Record<Nivel, string> = { baixo: "border-success-line bg-succes
 const EVENTO: Record<string, string> = {
   registrada: "Registrada", alterada: "Alterada", removida: "Removida", aprovacao_reembolso: "Decisão sobre o reembolso", aprovacao_relatado: "Decisão sobre o grau Relatado", parametros: "Parâmetros alterados",
   extinta_por_oferta: "Obrigação extinta por oferta", extincao_desfeita: "Extinção desfeita", reembolso_pago: "Reembolso pago",
-  declaracao_gerada: "Declaração do Terceiro gerada", declaracao_assinada: "Declaração do Terceiro assinada", declaracao_invalidada: "Declaração invalidada (os dados mudaram)",
+  declaracao_gerada: "Declaração do Terceiro gerada", declaracao_assinada: "Declaração do Terceiro assinada", declaracao_invalidada: "Declaração invalidada (os dados mudaram)", intencao_mudada: "Intenção mudada",
 };
 
 function Chip({ cls, children }: { cls: string; children: React.ReactNode }) {
@@ -71,6 +73,8 @@ export function QuitacaoCard({ lancamento, recarga, onMudou }: { lancamento: Fin
   const [pagando, setPagando] = useState(false);
   const [declDisp, setDeclDisp] = useState(false);   // Fase 1D-a: com a Declaração do Terceiro gerada pelo sistema, os botões de anexar declaração/pedido à mão saem
   const [cancelando, setCancelando] = useState(false);
+  const [mudarDisp, setMudarDisp] = useState(false);   // Fase 2B aplicada no banco: só então a ação "Mudar intenção" aparece
+  const [mudando, setMudando] = useState(false);
   const [recusar, setRecusar] = useState<null | "reembolso" | "relatado">(null);
   const [aprovando, setAprovando] = useState(false);   // a aprovação do Administrador exige a justificativa (pelo menos 10 letras): fica registrada na quitação
   const [motivo, setMotivo] = useState("");
@@ -90,6 +94,7 @@ export function QuitacaoCard({ lancamento, recarga, onMudou }: { lancamento: Fin
       if (!vivo) return;
       setQ(quitacao); setPar(parametros);
       setDeclDisp(await declaracaoDisponivel().catch(() => false));
+      setMudarDisp(await mudarIntencaoDisponivel().catch(() => false));
       // o histórico se lê sempre: quem decidiu e quando (usuário, data e hora) aparece no cartão, não só na lista aberta
       setEventos(quitacao ? await eventosDaQuitacao(quitacao.quitacaoId).catch(() => []) : null);
     })();
@@ -103,6 +108,8 @@ export function QuitacaoCard({ lancamento, recarga, onMudou }: { lancamento: Fin
   const conferidaEm = (lancamento as unknown as { conferido_em?: string | null }).conferido_em ?? null;
   const podeEscrever = hasRole(["admin", "diakonia", "secretaria", "tesouraria"]);
   const ehAdmin = hasRole(["admin"]);
+  // Fase 2B: Oferta ⇄ Reembolso é uma ação própria; reembolso já pago não volta a Oferta (é caso do estorno)
+  const bloqueioMudanca = q ? bloqueioDaMudanca({ intencao: q.intencao, reembolsado: q.reembolsado, aberta }) : null;
   // sem quitação e a despesa já paga (ou cancelada): o cartão não tem o que mostrar
   if (!q && !aberta) return null;
 
@@ -222,6 +229,7 @@ export function QuitacaoCard({ lancamento, recarga, onMudou }: { lancamento: Fin
             </div>
           )}
 
+          {podeEscrever && aberta && mudarDisp && bloqueioMudanca && <p className="text-xs text-muted-foreground">{bloqueioMudanca}</p>}
           <div className="flex flex-wrap gap-1.5">
             {possoAprovarReembolso && (<>
               <Button size="sm" className="h-8 gap-1.5" disabled={ocupado || !q.suficiente} onClick={() => void decidir("reembolso", "aprovada")}><ShieldCheck className="h-3.5 w-3.5" /> Aprovar reembolso ({brl(q.valorDaObrigacao)})</Button>
@@ -235,6 +243,7 @@ export function QuitacaoCard({ lancamento, recarga, onMudou }: { lancamento: Fin
             </>)}
             {podeEscrever && quitada && !conferidaEm && <Button size="sm" className="h-8" disabled={ocupado} onClick={() => void conferir(true)}>Conferir</Button>}
             {podeEscrever && quitada && !!conferidaEm && <Button size="sm" variant="ghost" className="h-8" disabled={ocupado} onClick={() => void conferir(false)}>Desmarcar conferência</Button>}
+            {podeEscrever && aberta && mudarDisp && ehTrocavel(q.intencao) && !bloqueioMudanca && <Button size="sm" variant="outline" className="h-8" disabled={ocupado} onClick={() => setMudando(true)}>Mudar intenção…</Button>}
             {podeEscrever && aberta && <Button size="sm" variant="ghost" className="h-8" onClick={() => setDialogo("corrigir")}>Corrigir</Button>}
             {podeEscrever && aberta && <Button size="sm" variant="ghost" className="h-8 text-destructive-text" onClick={() => { setMotivo(""); setRemover(true); }}>Remover</Button>}
             <Button size="sm" variant="ghost" className="h-8 gap-1.5" onClick={() => setAberto(a => !a)}><History className="h-3.5 w-3.5" /> Histórico</Button>
@@ -244,7 +253,7 @@ export function QuitacaoCard({ lancamento, recarga, onMudou }: { lancamento: Fin
             eventos === null ? <p className="text-xs text-muted-foreground flex items-center gap-1.5"><Loader2 className="h-3 w-3 animate-spin" /> Lendo o histórico…</p> : (
               <ul className="space-y-0.5 text-xs text-muted-foreground">
                 {eventos.length === 0 ? <li>Sem eventos.</li> : eventos.map(e => (
-                  <li key={e.id}>{dataHoraBr(e.em)} — <b>{EVENTO[e.evento] ?? e.evento}</b>{e.decisao ? ` (${e.decisao})` : ""}{e.evento === "declaracao_invalidada" && Array.isArray((e.para as { campos?: unknown } | null)?.campos) ? ` — mudou: ${((e.para as { campos: string[] }).campos).join(", ")}` : ""}{e.porNome ? ` por ${e.porNome}` : ""}{e.motivo ? ` — ${e.motivo}` : ""}</li>
+                  <li key={e.id}>{dataHoraBr(e.em)} — <b>{EVENTO[e.evento] ?? e.evento}</b>{e.decisao ? ` (${e.decisao})` : ""}{e.evento === "intencao_mudada" ? ` — de ${String((e.de as { intencao?: string } | null)?.intencao ?? "?")} para ${String((e.para as { intencao?: string } | null)?.intencao ?? "?")}` : ""}{e.evento === "declaracao_invalidada" && Array.isArray((e.para as { campos?: unknown } | null)?.campos) ? ` — mudou: ${((e.para as { campos: string[] }).campos).join(", ")}` : ""}{e.porNome ? ` por ${e.porNome}` : ""}{e.motivo ? ` — ${e.motivo}` : ""}</li>
                 ))}
               </ul>
             )
@@ -254,6 +263,7 @@ export function QuitacaoCard({ lancamento, recarga, onMudou }: { lancamento: Fin
 
       <CancelarNotaDialog alvo={cancelando ? { id: lancamento.id, descricao: lancamento.descricao ?? "" } : null} onFechar={() => setCancelando(false)} onFeito={recarregar} />
       <PagarReembolsoDialog alvo={pagando && q ? q : null} onFechar={() => setPagando(false)} onFeito={recarregar} />
+      {q && ehTrocavel(q.intencao) && <MudarIntencaoDialog quitacaoId={q.quitacaoId} atual={q.intencao} aberto={mudando} onFechar={() => setMudando(false)} onFeito={recarregar} />}
       <QuitacaoDialog alvo={dialogo ? alvo : null} quitacao={dialogo === "corrigir" ? q : null} onFechar={() => setDialogo(null)} onFeito={recarregar} />
 
       <AlertDialog open={remover} onOpenChange={o => { if (!o) setRemover(false); }}>

@@ -12,6 +12,8 @@ let papeis: string[] = ["admin"];
 let declDisp = false;
 let situacao: unknown = null;
 let eventosDoBanco: unknown[] = [];
+let mudarDisp = false;
+const mudar = vi.fn(async (..._a: unknown[]) => "via2" as string | null);
 const decidir = vi.fn(async (..._a: unknown[]) => undefined);
 vi.mock("@/hooks/useAuth", () => ({ useAuth: () => ({ hasRole: (rs: string[]) => rs.some(r => papeis.includes(r)) }) }));
 vi.mock("@/services/quitacaoService", () => ({
@@ -19,6 +21,8 @@ vi.mock("@/services/quitacaoService", () => ({
   quitacaoDaObrigacao: async () => quitacao,
   carregarParametros: async () => ({ vigencia: null, teto1: 500, prazoDeclaracaoDias: 30, tetoAnualTerceiro: 2000, qtdRelatadasTrimestre: 3, prazoFormalizacaoDias: 30, prazoEsclarecimentoDias: 30, prazoReembolsoDias: 10, limiteCapitalizacao: null }),
   eventosDaQuitacao: async () => eventosDoBanco,
+  mudarIntencaoDisponivel: async () => mudarDisp,
+  mudarIntencao: (...a: unknown[]) => mudar(...a),
   decidirQuitacao: (...a: unknown[]) => decidir(...a),
   removerQuitacao: async () => undefined,
   dadosDaDespesaParaQuitar: async () => null,
@@ -38,7 +42,7 @@ import { QuitacaoCard } from "./QuitacaoCard";
 
 let raiz: Root | null = null;
 let alvo: HTMLDivElement | null = null;
-afterEach(() => { act(() => raiz?.unmount()); alvo?.remove(); raiz = null; alvo = null; quitacao = null; declDisp = false; situacao = null; eventosDoBanco = []; disponivel = true; papeis = ["admin"]; decidir.mockClear(); conciliar.mockClear(); desconciliar.mockClear(); });
+afterEach(() => { act(() => raiz?.unmount()); alvo?.remove(); raiz = null; alvo = null; quitacao = null; declDisp = false; situacao = null; eventosDoBanco = []; mudarDisp = false; mudar.mockClear(); disponivel = true; papeis = ["admin"]; decidir.mockClear(); conciliar.mockClear(); desconciliar.mockClear(); });
 
 const lanc = (o: Partial<FinLancamentoExtenso> = {}) => ({ id: "l1", tipo: "saida", status: "previsto", valor: 100, descricao: "Material", ...o }) as unknown as FinLancamentoExtenso;
 const q = (o: Partial<QuitacaoDaObrigacao> = {}): QuitacaoDaObrigacao => ({
@@ -315,5 +319,61 @@ describe("a Declaração manda: a decisão que caiu e o histórico da invalidaç
     expect(el.textContent).toMatch(/Declaração invalidada \(os dados mudaram\)/);
     expect(el.textContent).toMatch(/mudou: valor, número da nota/);
     expect(el.textContent).toMatch(/por Pr\. Ana — nota corrigida pelo fornecedor/);
+  });
+});
+
+describe("Mudar intenção no cartão (Fase 2B)", () => {
+  const oferta3 = (o: Partial<QuitacaoDaObrigacao> = {}) => q({ intencao: "oferta", grauResponsavel: "relatado", grauIntencao: "formal", grauConjunto: "relatado", suficiente: false, fila: "formalizar", resultado: "a_formalizar", ...o });
+  async function digitar(el: HTMLTextAreaElement, valor: string) {
+    await act(async () => { Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(el, valor); el.dispatchEvent(new Event("input", { bubbles: true })); });
+  }
+
+  it("com a Fase 2B aplicada, a oferta em aberto oferece \"Mudar intenção\"", async () => {
+    mudarDisp = true; quitacao = oferta3();
+    expect(botao(await montar(lanc()), "Mudar intenção")).toBeTruthy();
+  });
+  it("sem a Fase 2B no banco, a ação não aparece (a tela segue como antes)", async () => {
+    mudarDisp = false; quitacao = oferta3();
+    expect(botao(await montar(lanc()), "Mudar intenção")).toBeFalsy();
+  });
+  it("quem não é do financeiro não vê a ação", async () => {
+    mudarDisp = true; papeis = ["lideranca"]; quitacao = oferta3();
+    expect(botao(await montar(lanc()), "Mudar intenção")).toBeFalsy();
+  });
+  it("intenção que não é Oferta nem Reembolso não oferece a ação", async () => {
+    mudarDisp = true; quitacao = q({ intencao: "nao_declarada" });
+    expect(botao(await montar(lanc()), "Mudar intenção")).toBeFalsy();
+  });
+  it("reembolso já pago: sem o botão, com a orientação para o estorno", async () => {
+    mudarDisp = true; quitacao = q({ reembolsado: 50, saldoAReembolsar: 50 });
+    const el = await montar(lanc());
+    expect(botao(el, "Mudar intenção")).toBeFalsy();
+    expect(el.textContent).toMatch(/já foi pago .* fluxo de estorno do reembolso/);
+  });
+  it("a confirmação mostra a intenção atual, a nova e as consequências, e exige o motivo", async () => {
+    mudarDisp = true; quitacao = oferta3();
+    const el = await montar(lanc());
+    await act(async () => { botao(el, "Mudar intenção")!.click(); });
+    const txt = document.body.textContent ?? "";
+    expect(txt).toMatch(/Mudar a intenção de Oferta para Reembolso/);
+    expect(txt).toMatch(/Intenção atual: Oferta .* nova intenção: Reembolso/);
+    expect(txt).toMatch(/Declaração do Terceiro atual deixa de valer/);
+    expect(txt).toMatch(/Toda aprovação já dada perde a validade/);
+    const confirmar = () => [...document.body.querySelectorAll("button")].find(b => b.textContent!.includes("Mudar para Reembolso")) as HTMLButtonElement;
+    expect(confirmar().disabled).toBe(true);
+    const ta = document.body.querySelector("textarea[aria-label='Motivo da mudança de intenção']") as HTMLTextAreaElement;
+    await digitar(ta, "abc");
+    expect(confirmar().disabled).toBe(true);
+    await digitar(ta, "o terceiro quer ser reembolsado");
+    expect(confirmar().disabled).toBe(false);
+    await act(async () => { confirmar().click(); });
+    expect(mudar).toHaveBeenCalledWith("q1", "reembolso", "o terceiro quer ser reembolsado");
+  });
+  it("o histórico mostra a mudança de intenção, de quê para quê, quem e o motivo", async () => {
+    mudarDisp = true; quitacao = oferta3();
+    eventosDoBanco = [{ id: "1", evento: "intencao_mudada", decisao: null, motivo: "o terceiro quer ser reembolsado", em: "2026-10-12T10:00:00Z", por: "u1", porNome: "Pr. Ana", de: { intencao: "reembolso" }, para: { intencao: "oferta" } }];
+    const el = await montar(lanc());
+    await act(async () => { botao(el, "Histórico")!.click(); });
+    expect(el.textContent).toMatch(/Intenção mudada — de reembolso para oferta por Pr. Ana — o terceiro quer ser reembolsado/);
   });
 });

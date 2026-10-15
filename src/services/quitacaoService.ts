@@ -447,3 +447,27 @@ export const gerarDeclaracao = (quitacaoId: string): Promise<string> => chamar<s
 /** Registra a via assinada: o anexo (tipo declaracao_terceiro) e a data escrita nela. */
 export const registrarAssinaturaDaDeclaracao = (declaracaoId: string, anexoId: string, dataDaAssinatura: string): Promise<void> =>
   chamar<void>("fin_registrar_assinatura_declaracao", { p_declaracao: declaracaoId, p_anexo: anexoId, p_data_assinatura: dataDaAssinatura });
+
+// ── Mudar intenção (Fase 2B): Oferta ⇄ Reembolso, ação própria ────────────────────────────────────────────────────────────────────────────────────────
+
+let sondagemMudarIntencao: { em: number; ok: boolean } | null = null;
+/**
+ * `true` quando a Fase 2B está aplicada. Sonda chamando a função com um motivo vazio: ela recusa o motivo ANTES de olhar qualquer dado (nada é lido nem gravado);
+ * só a ausência da função (PGRST202) conta como "não aplicada". Resultado guardado por 30 s.
+ */
+export async function mudarIntencaoDisponivel(): Promise<boolean> {
+  if (sondagemMudarIntencao && Date.now() - sondagemMudarIntencao.em < 30_000) return sondagemMudarIntencao.ok;
+  let ok = false;
+  try {
+    const r = await supabase.rpc("fin_mudar_intencao" as never, { p_quitacao: "00000000-0000-0000-0000-000000000000", p_nova: "oferta", p_motivo: "" } as never);
+    ok = !(r.error && (r.error.code === "PGRST202" || /could not find the function|does not exist/i.test(r.error.message ?? "")));
+  } catch { ok = false; }
+  sondagemMudarIntencao = { em: Date.now(), ok };
+  return ok;
+}
+
+/** Muda a intenção entre Oferta e Reembolso. Devolve o id da nova via da Declaração do Terceiro (nulo quando ainda faltam dados para gerá-la). */
+export async function mudarIntencao(quitacaoId: string, nova: "oferta" | "reembolso", motivo: string): Promise<string | null> {
+  const r = await chamar<string | null>("fin_mudar_intencao", { p_quitacao: quitacaoId, p_nova: nova, p_motivo: motivo });
+  return r ?? null;
+}
