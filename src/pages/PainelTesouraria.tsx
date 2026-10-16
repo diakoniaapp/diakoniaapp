@@ -68,7 +68,7 @@ import {
   HeartHandshake, Users, ScrollText, Layers, Handshake,
   TrendingDown, TrendingUp, RotateCw, Briefcase, LineChart, Building2, FolderKanban,
   Globe2, Archive, BookOpenCheck, ClipboardCheck, FileStack, Star, Plus, ArrowUpCircle, ArrowDownCircle,
-  ArrowLeftRight, Download, CheckCircle2, X, type LucideIcon,
+  ArrowLeftRight, Download, CheckCircle2, X, FileText, ListChecks, type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -1107,6 +1107,17 @@ export default function PainelTesouraria() {
                 ] : []),
               ]}
             />
+            {/* Relatórios (16/10/2026): o Extrato de Obrigações (todas as obrigações do período, inclusive as quitadas por terceiros) e a Prestação de Contas, à mão no workspace. */}
+            <div className="mt-2.5">
+              <JanelaAssunto
+                icone={FileText} titulo="Relatórios"
+                descricao="Para consultar, imprimir e exportar."
+                links={[
+                  { to: "/financas/extrato-de-obrigacoes", label: "Extrato de Obrigações", icone: ListChecks },
+                  { to: "/financas/prestacao-de-contas", label: "Prestação de Contas", icone: ScrollText },
+                ]}
+              />
+            </div>
           </div>
           </>
           )}
