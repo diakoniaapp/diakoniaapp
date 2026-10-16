@@ -125,7 +125,7 @@ export const ATALHOS: { id: string; rotulo: string; icone: LucideIcon }[] = [
 ];
 
 export default function Home() {
-  const { roles, pessoaId, pessoaCarregada } = useAuth();
+  const { roles, pessoaId, pessoaCarregada, hasRole } = useAuth();
   const { permissoes } = usePermissoes();
   const [ficha, setFicha] = useState<Ficha | null>(null);
   const [abrirVisitante, setAbrirVisitante] = useState(false);
@@ -183,6 +183,12 @@ export default function Home() {
 
   const papel = ROLE_LABEL[roles[0] ?? ""] ?? null;
 
+  // Quem cadastra visitante na ficha completa (MembroForm) é quem tem `criar_pessoa`: admin, secretaria, pastor titular. O VOLUNTÁRIO — o perfil de quem recebe e acompanha a
+  // igreja sem mexer em cadastro (16/10/2026) — registra pelo mesmo formulário que o visitante preencheria sozinho ao ler o QR: `/bemvindo`, três passos, com o aceite de dados
+  // do próprio visitante e a regra de "quem volta" (nova visita, não nova pessoa). Zero permissão, zero política de RLS: a função pública já faz o trabalho e só ela escreve.
+  const registraVisitante = permissoes.has("criar_pessoa");
+  const indicaVisitante = !registraVisitante && hasRole(["voluntario"]);
+
   // ── A tira de atalhos ────────────────────────────────────────────────
   //
   // Cada seção avisa se tem ou não o que mostrar, e a tira monta a partir
@@ -226,12 +232,13 @@ export default function Home() {
               <h1 className="font-serif text-xl md:text-4xl text-foreground min-w-0">
                 {saudacao()}{primeiroNome ? `, ${primeiroNome}` : ""}! 🙏
               </h1>
-              {permissoes.has("criar_pessoa") && (
+              {registraVisitante && (
                 <Button variant="gold" size="sm" onClick={() => setAbrirVisitante(true)} className="md:hidden gap-1.5 shrink-0 border-0 shadow-sm">
                   <UserPlus className="w-4 h-4" />
                   <span translate="no">Visitante</span>
                 </Button>
               )}
+              {indicaVisitante && <BotaoRegistrarVisitante tamanho="sm" className="md:hidden" rotulo="Visitante" />}
             </div>
             <p className="font-serif text-sm md:text-base leading-snug text-foreground/95">
               &ldquo;{verse.texto}&rdquo;
@@ -243,12 +250,17 @@ export default function Home() {
           {/* O atalho de visitante é trabalho de quem recebe, não de todo
               mundo: para quem não cadastra ninguém ele seria um botão dourado
               no alto da tela levando a uma porta fechada. */}
-          {permissoes.has("criar_pessoa") && (
+          {registraVisitante && (
             <div className="hidden md:flex gap-2 shrink-0 self-end md:self-auto">
               <Button variant="gold" onClick={() => setAbrirVisitante(true)} className="gap-2 border-0 shadow-sm">
                 <UserPlus className="w-4 h-4" />
                 <span translate="no">Visitante Rápido</span>
               </Button>
+            </div>
+          )}
+          {indicaVisitante && (
+            <div className="hidden md:flex gap-2 shrink-0 self-end md:self-auto">
+              <BotaoRegistrarVisitante rotulo="Registrar visitante" />
             </div>
           )}
         </div>
@@ -372,6 +384,21 @@ export default function Home() {
         membro={null} tipoInicial="visitante" onSaved={() => {}}
       />
     </div>
+  );
+}
+
+/**
+ * "Registrar visitante" para quem não cadastra pessoa (o voluntário): abre o formulário público de boas-vindas numa aba nova. É o mesmo que o visitante vê ao ler o QR da
+ * recepção — quem recebe passa o celular, ou preenche junto: o aceite do uso dos dados é do próprio visitante.
+ */
+function BotaoRegistrarVisitante({ rotulo, tamanho, className }: { rotulo: string; tamanho?: "sm"; className?: string }) {
+  return (
+    <Button asChild variant="gold" size={tamanho} className={`gap-2 shrink-0 border-0 shadow-sm ${className ?? ""}`}>
+      <a href="/bemvindo" target="_blank" rel="noopener noreferrer">
+        <UserPlus className="w-4 h-4" />
+        <span translate="no">{rotulo}</span>
+      </a>
+    </Button>
   );
 }
 

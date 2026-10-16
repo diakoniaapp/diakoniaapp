@@ -240,7 +240,9 @@ export const NAV_GROUPS: NavGroup[] = [
       // continua existindo logo em seguida, sem sumir do menu.
       { to: "/painel-pessoas", label: "Painel de Pessoas", icon: Users, allowedRoles: ROLES_LIDERES },
       { to: "/membros",      label: "Catálogo",    icon: Users,          allowedRoles: ROLES_LIDERES },
-      { to: "/visitantes",   label: "Visitantes",  icon: UserCheck },
+      // Só quem acompanha visitantes (16/10/2026): o voluntário e o membro abriam a tela e a RLS devolvia lista vazia — um item de menu que promete e não entrega. Quem
+      // registra visita pelo perfil de voluntário usa o botão "Registrar visitante" da Home (/bemvindo).
+      { to: "/visitantes",   label: "Visitantes",  icon: UserCheck, allowedRoles: ROLES_LIDERES },
       { to: "/familias",     label: "Famílias",    icon: Home,           allowedRoles: ROLES_LIDERES },
       { to: "/ministerios",  label: "Ministérios", icon: HeartHandshake, allowedRoles: ROLES_LIDERES_SEM_TITULAR },
       // Organograma veio de "Configurações". Ele nao configura nada: e uma
@@ -471,6 +473,8 @@ export const pageTitles: Record<string, string> = {
 
 export const ROUTE_ROLES: Record<string, AppRole[]> = {
   "/membros":            ROLES_LIDERES,
+  // A tela e a ficha de acolhimento (`/visitantes/:id`, casamento por prefixo): mesma guarda do item do menu.
+  "/visitantes":         ROLES_LIDERES,
   // Mesmo público do Catálogo — é a mesma matéria, workspace na frente.
   "/painel-pessoas":     ROLES_LIDERES,
   "/familias":           ROLES_LIDERES,
