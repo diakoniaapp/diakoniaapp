@@ -172,42 +172,32 @@ describe("Prestação de Contas — papel do PDF: retrato (menos folhas) ou pais
   const css = () => [...document.querySelectorAll("style")].map(x => x.textContent).join("\n");
   const botao = (el: HTMLElement, trecho: string) => [...el.querySelectorAll("button")].find(b => b.textContent!.includes(trecho)) as HTMLButtonElement;
 
-  it("até 4 meses o padrão é retrato: A4 em pé, margens menores e a página compacta", async () => {
+  it("o papel é SEMPRE vertical (A4 em pé, margens menores, página compacta), de 1 a 12 meses", async () => {
     completo();
-    const el = await abrir("/financas/prestacao-de-contas?ano=2026&mes=9&qtd=2");
-    expect(css()).toMatch(/size: A4 portrait; margin: 1\.5cm 1\.8cm/);
-    expect(el.querySelector(".relatorio-page")!.className).toContain("rel-retrato");
-    expect(botao(el, "Retrato").getAttribute("aria-pressed")).toBe("true");
-    expect(botao(el, "Paisagem").getAttribute("aria-pressed")).toBe("false");
+    for (const qtd of [2, 6, 12]) {
+      const el = await abrir(`/financas/prestacao-de-contas?ano=2026&mes=9&qtd=${qtd}`);
+      expect(css()).toMatch(/size: A4 portrait; margin: 1\.5cm 1\.8cm/);
+      expect(css()).not.toMatch(/size: A4 landscape/);
+      expect(el.querySelector(".relatorio-page")!.className).toContain("rel-retrato");
+      act(() => raiz?.unmount()); document.body.innerHTML = "";
+    }
   });
 
-  it("a escolha explícita por paisagem volta ao papel de sempre (A4 deitado, sem a compactação)", async () => {
+  it("não há seletor de papel na tela (nem com ?opcoes=1)", async () => {
+    completo();
+    for (const url of ["/financas/prestacao-de-contas?ano=2026&mes=9&qtd=2", "/financas/prestacao-de-contas?ano=2026&mes=9&qtd=2&opcoes=1"]) {
+      const el = await abrir(url);
+      expect(el.querySelector("[aria-label='Papel do PDF']")).toBeNull();
+      expect([...el.querySelectorAll("button")].some(b => /Paisagem|Retrato/.test(b.textContent ?? ""))).toBe(false);
+      act(() => raiz?.unmount()); document.body.innerHTML = "";
+    }
+  });
+
+  it("?orientacao=paisagem na URL ainda vale, para quem pedir de propósito (A4 deitado, sem a compactação)", async () => {
     completo();
     const el = await abrir("/financas/prestacao-de-contas?ano=2026&mes=9&qtd=2&orientacao=paisagem");
     expect(css()).toMatch(/size: A4 landscape; margin: 1\.3cm 1\.8cm/);
     expect(el.querySelector(".relatorio-page")!.className).not.toContain("rel-retrato");
-    expect(botao(el, "Paisagem").getAttribute("aria-pressed")).toBe("true");
-  });
-
-  it("acima de 4 meses o padrão é paisagem; pedir retrato não vale (as colunas não caberiam) e a tela explica", async () => {
-    completo();
-    let el = await abrir("/financas/prestacao-de-contas?ano=2026&mes=7&qtd=6");
-    expect(css()).toMatch(/size: A4 landscape/);
-    expect(el.textContent).not.toContain("Retrato vale para até 4 meses");
-    act(() => raiz?.unmount()); document.body.innerHTML = "";
-    el = await abrir("/financas/prestacao-de-contas?ano=2026&mes=7&qtd=6&orientacao=retrato");
-    expect(css()).toMatch(/size: A4 landscape/);
-    expect(el.querySelector(".relatorio-page")!.className).not.toContain("rel-retrato");
-    expect(el.textContent).toContain("Retrato vale para até 4 meses");
-  });
-
-  it("clicar em Paisagem troca o papel e preserva o período", async () => {
-    completo();
-    const el = await abrir("/financas/prestacao-de-contas?ano=2026&mes=9&qtd=2");
-    await act(async () => { botao(el, "Paisagem").click(); });
-    expect(css()).toMatch(/size: A4 landscape/);
-    expect(botao(el, "Paisagem").getAttribute("aria-pressed")).toBe("true");
-    expect(el.textContent).toContain("Set");   // o período segue o mesmo (setembro–outubro)
   });
 
   it("em retrato, a seção do fluxo de caixa não força página nova (o gráfico e os indicadores seguem inteiros)", async () => {
@@ -236,9 +226,23 @@ describe("Prestação de Contas — versão simples (uma folha) e versão avanç
   const base = "/financas/prestacao-de-contas?ano=2026&mes=9&qtd=2";
   const botao = (el: HTMLElement, trecho: string) => [...el.querySelectorAll("button")].find(b => b.textContent!.includes(trecho)) as HTMLButtonElement;
 
-  it("a avançada é o padrão e o seletor mostra as duas versões", async () => {
+  it("por padrão os seletores de versão e de papel ficam escondidos; a URL (?versao=, ?orientacao=) continua valendo", async () => {
     completo();
     const el = await abrir(base);
+    expect(el.querySelector("[aria-label='Versão do relatório']")).toBeNull();
+    expect(el.querySelector("[aria-label='Papel do PDF']")).toBeNull();
+    expect(el.textContent).not.toContain("Papel do PDF");
+    expect(el.textContent).toContain("Resumo Executivo");   // abre na Avançada
+    expect([...document.querySelectorAll("style")].map(x => x.textContent).join("\n")).toMatch(/size: A4 portrait/);   // e no papel vertical
+    act(() => raiz?.unmount()); document.body.innerHTML = "";
+    const simples = await abrir(base + "&versao=simples");
+    expect(simples.textContent).not.toContain("Resumo Executivo");
+    expect(simples.querySelector("[aria-label='Versão do relatório']")).toBeNull();
+  });
+
+  it("a avançada é o padrão e o seletor mostra as duas versões", async () => {
+    completo();
+    const el = await abrir(base + "&opcoes=1");
     expect(botao(el, "Avançada").getAttribute("aria-pressed")).toBe("true");
     expect(botao(el, "Simples").getAttribute("aria-pressed")).toBe("false");
     expect(el.textContent).toContain("Resumo Executivo");
@@ -246,7 +250,7 @@ describe("Prestação de Contas — versão simples (uma folha) e versão avanç
 
   it("a simples tira o resumo executivo, os indicadores de dízimos, o fluxo de caixa e os indicadores gerenciais", async () => {
     completo();
-    const el = await abrir(base + "&versao=simples");
+    const el = await abrir(base + "&versao=simples&opcoes=1");
     const t = el.textContent!;
     expect(botao(el, "Simples").getAttribute("aria-pressed")).toBe("true");
     for (const fora of ["Resumo Executivo", "Indicadores de Dízimos", "Indicadores Financeiros e Fluxo de Caixa", "Indicadores Gerenciais", "Total Geral de Despesas"]) expect(t).not.toContain(fora);
@@ -291,15 +295,16 @@ describe("Prestação de Contas — versão simples (uma folha) e versão avanç
     expect(t).not.toContain("Sacolas");
   });
 
-  it("trocar de versão preserva o período e o papel", async () => {
+  it("trocar de versão (com ?opcoes=1) preserva o período e mantém o papel vertical", async () => {
     completo();
-    const el = await abrir(base + "&orientacao=paisagem");
+    const el = await abrir(base + "&opcoes=1");
     await act(async () => { botao(el, "Simples").click(); });
     expect(botao(el, "Simples").getAttribute("aria-pressed")).toBe("true");
-    expect(botao(el, "Paisagem").getAttribute("aria-pressed")).toBe("true");
+    expect(el.querySelector(".relatorio-page")!.className).toContain("rel-retrato");
     await act(async () => { botao(el, "Avançada").click(); });
     expect(el.textContent).toContain("Resumo Executivo");
-    expect(botao(el, "Paisagem").getAttribute("aria-pressed")).toBe("true");
+    expect(el.querySelector(".relatorio-page")!.className).toContain("rel-retrato");
+    expect(el.textContent).toContain("Set");   // o período segue o mesmo
   });
 
   it("a simples tem o CSS de uma folha (retrato e paisagem)", async () => {
@@ -350,5 +355,32 @@ describe("Prestação de Contas — Posição Financeira das Contas e o fecho no
     expect(fecho.style.paddingTop).toBe("321px");
     act(() => { window.dispatchEvent(new Event("afterprint")); });
     expect(fecho.style.paddingTop).toBe("");
+  });
+});
+
+describe("Prestação de Contas — mais de 6 meses em papel vertical", () => {
+  const tabela = (el: HTMLElement) => el.querySelector(".tabela-prestacao") as HTMLElement;
+
+  it("as células vão só com o número ('Valores em R$' no cabeçalho) e os meses abreviados; até 6 meses segue como sempre", async () => {
+    completo();
+    let el = await abrir("/financas/prestacao-de-contas?ano=2026&mes=9&qtd=8");
+    const t = tabela(el);
+    expect(t.className).toContain("tabela-larga");
+    expect(t.querySelector("thead")!.textContent).toContain("Valores em R$");
+    expect(t.querySelector("thead")!.textContent).toMatch(/SET|Set/);          // mês abreviado (3 letras)
+    expect(t.querySelector("thead")!.textContent).not.toMatch(/Setembro|SETEMBRO/);
+    expect(t.querySelector("tbody")!.textContent).not.toContain("R$");        // nenhuma célula repete "R$ "
+    expect(t.querySelector("tbody")!.textContent).toMatch(/\d,\d\d/);          // mas os valores estão lá
+    act(() => raiz?.unmount()); document.body.innerHTML = "";
+    el = await abrir("/financas/prestacao-de-contas?ano=2026&mes=9&qtd=2");
+    expect(tabela(el).querySelector("thead")!.textContent).not.toContain("Valores em R$");
+    expect(tabela(el).querySelector("tbody")!.textContent).toContain("R$");
+  });
+
+  it("a simples com mais de 4 meses usa a linha-resumo das compras ofertadas (para continuar em UMA folha)", async () => {
+    completo();
+    const el = await abrir("/financas/prestacao-de-contas?ano=2026&mes=9&qtd=5&versao=simples");
+    expect(el.textContent).toContain("Compras ofertadas por terceiros");
+    expect(el.textContent).toContain("A relação completa está na versão Avançada");
   });
 });

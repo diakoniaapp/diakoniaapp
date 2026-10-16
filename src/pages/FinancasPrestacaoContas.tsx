@@ -22,7 +22,7 @@
 // "Fechar período" trava — por isso os controles de fechamento somem
 // quando há filtro de conta, com uma nota explicando por quê, em vez de
 // deixar parecer que fechar ali fecharia só aquela conta.
-import { useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -40,7 +40,7 @@ import {
 import { CampoData } from "@/components/CampoData";
 import {
   ArrowLeft, MessageSquare, MessageSquarePlus,
-  ScrollText, Lock, LockOpen, ShieldCheck, Loader2, Printer, Download, Wallet, RefreshCw, RectangleHorizontal, RectangleVertical,
+  ScrollText, Lock, LockOpen, ShieldCheck, Loader2, Printer, Download, Wallet, RefreshCw,
   AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -68,6 +68,13 @@ import { PaginaSkeleton } from "@/components/ListState";
 import { hojeLocal, daquiAMeses, toYmd, parseLocalDate } from "@/lib/data";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+
+/**
+ * Como as células da demonstração escrevem dinheiro. Com mais de 6 meses o papel é vertical e as 12 colunas de valor não cabem com "R$ " em cada célula (o navegador encolhia a página toda
+ * para caber, e o fecho no pé errava a conta): nesse caso as células vão só com o número e o cabeçalho diz "valores em R$". Nos demais períodos, igual a sempre.
+ */
+const MoedaCtx = createContext<(v: number) => string>(brl);
+const semRs = (v: number) => brl(v).replace(/R\$\s*/, "");
 
 const STATUS_FECHAMENTO_LABEL: Record<string, string> = {
   aberto: "Aberto", em_revisao: "Em revisão", fechado: "Fechado", aprovado: "Aprovado",
@@ -112,13 +119,15 @@ export default function FinancasPrestacaoContas() {
   const mes = Number(searchParams.get("mes")) || padrao.mes;
   const qtdMeses = Math.min(24, Math.max(1, Number(searchParams.get("qtd")) || 1));
   const contaId = searchParams.get("conta") || "";
-  // Papel do PDF: paisagem (o de sempre) ou retrato, mais econômico (vai na URL, como o resto do período)
+  // Papel do PDF: vertical por padrão; `?orientacao=paisagem` só se pedido de propósito
   const orientacaoParam = searchParams.get("orientacao") === "retrato" ? "retrato" : searchParams.get("orientacao") === "paisagem" ? "paisagem" : null;
   // Versão: SIMPLES (a de antes de 15/10/2026: demonstração, compras ofertadas e encargos) ou AVANÇADA (a atual: resumo executivo, despesas financeiras em blocos, dízimos, fluxo de caixa e indicadores)
   const simples = searchParams.get("versao") === "simples";
-  const MAX_MESES_EM_RETRATO = 4;
-  const retratoPedido = (orientacaoParam ?? (qtdMeses <= MAX_MESES_EM_RETRATO ? "retrato" : "paisagem")) === "retrato";
-  const retrato = retratoPedido && qtdMeses <= MAX_MESES_EM_RETRATO;
+  // O seletor "Versão do relatório" fica ESCONDIDO por padrão (pedido dela, 16/10/2026): o relatório abre na Avançada e em papel vertical. `?opcoes=1` o mostra de novo;
+  // `?versao=` e `?orientacao=` na URL continuam valendo, com ou sem os botões.
+  const mostrarOpcoes = searchParams.get("opcoes") === "1";
+  // SEMPRE vertical (pedido dela, 16/10/2026), qualquer que seja o período. Não há mais seletor de papel; `?orientacao=paisagem` na URL ainda vale, só para quem pedir de propósito.
+  const retrato = (orientacaoParam ?? "retrato") === "retrato";
   const [anoFim, mesFim] = daquiAMeses(`${ano}-${String(mes).padStart(2, "0")}-01`, qtdMeses - 1)
     .split("-").map(Number);
 
@@ -214,13 +223,7 @@ export default function FinancasPrestacaoContas() {
     if (novaContaId) params.conta = novaContaId;
     if (orientacaoParam) params.orientacao = orientacaoParam;
     if (simples) params.versao = "simples";
-    setSearchParams(params);
-  }
-
-  function mudarOrientacao(o: "retrato" | "paisagem") {
-    const params: Record<string, string> = { ano: String(ano), mes: String(mes), qtd: String(qtdMeses), orientacao: o };
-    if (contaId) params.conta = contaId;
-    if (simples) params.versao = "simples";
+    if (mostrarOpcoes) params.opcoes = "1";
     setSearchParams(params);
   }
 
@@ -229,6 +232,7 @@ export default function FinancasPrestacaoContas() {
     if (contaId) params.conta = contaId;
     if (orientacaoParam) params.orientacao = orientacaoParam;
     if (v === "simples") params.versao = "simples";
+    if (mostrarOpcoes) params.opcoes = "1";
     setSearchParams(params);
   }
 
@@ -367,6 +371,10 @@ export default function FinancasPrestacaoContas() {
           .tabela-larga td, .tabela-larga th { font-size: 9px !important; padding-left: 1px !important; padding-right: 1px !important; }
           .tabela-larga td:first-child, .tabela-larga th:first-child { min-width: 38mm; width: 38mm; word-break: normal !important; padding-right: 4px !important; }
           .tabela-larga td:not(:first-child), .tabela-larga th:not(:first-child) { letter-spacing: -0.2px; }
+          /* Mais de 6 meses em papel VERTICAL (sempre, desde 16/10/2026): 12 colunas em 17,4 cm — rótulo mais estreito e algarismos em 7,5px para os valores não se encostarem. */
+          .relatorio-page.rel-retrato .tabela-prestacao.tabela-larga, .relatorio-page.rel-retrato .tabela-prestacao.tabela-larga td, .relatorio-page.rel-retrato .tabela-prestacao.tabela-larga th { font-size: 7.5px !important; }
+          .relatorio-page.rel-retrato .tabela-prestacao.tabela-larga td:first-child, .relatorio-page.rel-retrato .tabela-prestacao.tabela-larga th:first-child { min-width: 34mm !important; width: 34mm !important; }
+          .relatorio-page.rel-simples.rel-retrato .tabela-prestacao.tabela-larga td:first-child, .relatorio-page.rel-simples.rel-retrato .tabela-prestacao.tabela-larga th:first-child { min-width: 46mm !important; width: 46mm !important; }
         }
         /* Retrato (A4 em pé, 19 cm úteis): espaços verticais menores, cartões compactos e tabela em 8 pt. Só na impressão; a tela segue legível. */
         @media print {
@@ -437,6 +445,7 @@ export default function FinancasPrestacaoContas() {
             </Select>
           </div>
 
+          {mostrarOpcoes && <>
           <div className="flex items-center justify-center gap-1.5 flex-wrap" role="group" aria-label="Versão do relatório">
             <span className="text-xs text-muted-foreground">Versão do relatório</span>
             <Button size="sm" variant={simples ? "default" : "outline"} aria-pressed={simples} className="h-8 text-xs" title="Demonstração, compras ofertadas e encargos — o relatório de antes" onClick={() => mudarVersao("simples")}>
@@ -447,16 +456,7 @@ export default function FinancasPrestacaoContas() {
             </Button>
           </div>
 
-          <div className="flex items-center justify-center gap-1.5 flex-wrap" role="group" aria-label="Papel do PDF">
-            <span className="text-xs text-muted-foreground">Papel do PDF</span>
-            <Button size="sm" variant={retrato ? "outline" : "default"} aria-pressed={!retrato} className="h-8 gap-1.5 text-xs" onClick={() => mudarOrientacao("paisagem")}>
-              <RectangleHorizontal className="w-3.5 h-3.5" /> Paisagem
-            </Button>
-            <Button size="sm" variant={retrato ? "default" : "outline"} aria-pressed={retrato} className="h-8 gap-1.5 text-xs" onClick={() => mudarOrientacao("retrato")}>
-              <RectangleVertical className="w-3.5 h-3.5" /> Retrato (menos folhas)
-            </Button>
-            {retratoPedido && !retrato && <span className="text-xs text-warning-text">Retrato vale para até {MAX_MESES_EM_RETRATO} meses; este período sai em paisagem, para as colunas caberem sem ficar pequenas.</span>}
-          </div>
+          </>}
 
           {/* Dois campos com máscara de digitação + calendário (`CampoData`)
               em vez dos presets Mensal/Trimestral/Semestral/Anual — pedido
@@ -583,13 +583,15 @@ export default function FinancasPrestacaoContas() {
         {!simples && <PosicaoDasContasDaPrestacao posicao={dados.posicaoContas} diferenca={diferencaParaADemonstracao(dados.posicaoContas, resumo.saldoFinal)} />}
 
         <section className="mb-6 overflow-x-auto">
+          <MoedaCtx.Provider value={qtdMeses > 6 ? semRs : brl}>
           <table className={`tabela-prestacao ${qtdMeses > 6 ? "tabela-larga" : ""} w-full text-xs border-collapse`}>
             <thead>
               <tr className="border-b border-border/60">
-                <th className="text-left font-medium py-1.5"></th>
+                <th className="text-left font-medium py-1.5 text-2xs text-muted-foreground">{qtdMeses > 6 ? "Valores em R$" : ""}</th>
                 {dados.meses.map((m, i) => (
                   <th key={i} className="text-right font-medium py-1.5 uppercase tracking-wide text-muted-foreground whitespace-nowrap">
-                    {m.nome}{m.ano !== dados.meses[0].ano ? `/${m.ano}` : ""}
+                    {/* mais de 6 meses em papel vertical: o mês abreviado (JAN, FEV…) — o nome inteiro de cada coluna era o que impedia as 12 colunas de caber em 17,4 cm */}
+                    {qtdMeses > 6 ? m.nome.slice(0, 3) : m.nome}{m.ano !== dados.meses[0].ano ? `/${qtdMeses > 6 ? String(m.ano).slice(2) : m.ano}` : ""}
                   </th>
                 ))}
               </tr>
@@ -660,6 +662,7 @@ export default function FinancasPrestacaoContas() {
               <LinhaTotal titulo="Saldo Final" valores={dados.saldoFinal} destaque />
             </tbody>
           </table>
+          </MoedaCtx.Provider>
         </section>
 
         {/* Revisado a pedido dela (30/09/2026): o detalhamento por motivo
@@ -696,7 +699,7 @@ export default function FinancasPrestacaoContas() {
 
         {/* Compras OFERTADAS por terceiros (14/10/2026; revisada em 15/10/2026): despesa da igreja que não moveu caixa. Seção própria, FORA da demonstração
             acima: não entra em receitas, despesas, resultado nem saldo. Num relatório de UMA conta ela não se aplica (a oferta não tem conta). */}
-        {simples && retrato && dados.comprasOfertadas.itens.length > 0 && dados.comprasOfertadas.itens.length <= 5 && (
+        {simples && retrato && dados.comprasOfertadas.itens.length > 0 && dados.comprasOfertadas.itens.length <= 5 && qtdMeses <= 4 && (
           <section className="secao-rel avoid-break mb-6" aria-label="Compras ofertadas por terceiros">
             <div className="flex items-baseline justify-between mb-1">
               <h3 className="font-serif text-sm text-gold uppercase tracking-wide">Compras ofertadas por terceiros — fora do caixa</h3>
@@ -738,7 +741,7 @@ export default function FinancasPrestacaoContas() {
             </div>
           </section>
         )}
-        {simples && dados.comprasOfertadas.itens.length > 0 && (!retrato || dados.comprasOfertadas.itens.length > 5) && (
+        {simples && dados.comprasOfertadas.itens.length > 0 && (!retrato || dados.comprasOfertadas.itens.length > 5 || qtdMeses > 4) && (
           <section className="secao-rel avoid-break mb-6" aria-label="Compras ofertadas por terceiros">
             <h3 className="font-serif text-sm text-gold uppercase tracking-wide mb-1">Compras ofertadas por terceiros — fora do caixa</h3>
             <p className="text-xs">
@@ -933,6 +936,7 @@ function LinhaSecao({ titulo }: { titulo: string }) {
 
 /** Um grupo em UMA linha (título + valor de cada mês), sem as categorias: a versão simples. */
 function LinhaDoGrupo({ titulo, valores, cor }: { titulo: string; valores: number[]; cor: string }) {
+  const brl = useContext(MoedaCtx);
   return (
     <tr className="border-b border-border/30">
       <td className="py-0.5 pl-3">{titulo}</td>
@@ -951,6 +955,7 @@ function LinhaTotal({ titulo, valores, destaque, forte, cor, formatador }: {
   titulo: string; valores: number[]; destaque?: boolean; forte?: boolean; cor?: string;
   formatador?: (v: number) => string;
 }) {
+  const brl = useContext(MoedaCtx);
   const fmt = formatador ?? brl;
   return (
     <tr className={destaque ? `border-t-2 border-gold/40 font-semibold ${forte ? "text-sm bg-gold/10" : "bg-muted/40"}` : "text-muted-foreground"}
@@ -970,6 +975,7 @@ function Bloco({ grupo, centroCustoId, onNota, corTotal, semSubtotalProprio }: {
   corTotal: string;
   semSubtotalProprio?: boolean;
 }) {
+  const brl = useContext(MoedaCtx);
   return (
     <>
       {!semSubtotalProprio && (
@@ -998,6 +1004,7 @@ function BlocoFinanceiro({ subgrupo, onNota }: {
   subgrupo: { chave: string; titulo: string; valores: number[]; total: number; linhas: PrestacaoContasLinha[] };
   onNota: (titulo: string, categoriaId: string, centroCustoId: string | null) => void;
 }) {
+  const brl = useContext(MoedaCtx);
   // um bloco de uma categoria só, com o mesmo nome (ex.: Tarifas Bancárias): o subtotal já é a própria linha — não se repete
   const unica = subgrupo.linhas.length === 1 && subgrupo.linhas[0].nome === subgrupo.titulo ? subgrupo.linhas[0] : null;
   if (unica) {
@@ -1037,6 +1044,7 @@ function BlocoSubgrupo({ subgrupo, onNota, corTotal }: {
   onNota: (titulo: string, categoriaId: string, centroCustoId: string | null) => void;
   corTotal: string;
 }) {
+  const brl = useContext(MoedaCtx);
   return (
     <>
       <tr className="border-b border-border/30" style={{ breakAfter: "avoid" }}>
@@ -1060,6 +1068,7 @@ function LinhaCategoria({ linha, tituloGrupo, centroCustoId, onNota, indentClass
   onNota: (titulo: string, categoriaId: string, centroCustoId: string | null) => void;
   indentClass: string;
 }) {
+  const brl = useContext(MoedaCtx);
   return (
     <tr className="border-b border-border/20 text-muted-foreground group">
       <td className={`py-0.5 ${indentClass}`}>
