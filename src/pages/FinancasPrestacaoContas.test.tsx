@@ -173,7 +173,7 @@ describe("Prestação de Contas — papel do PDF: retrato (menos folhas) ou pais
   it("até 4 meses o padrão é retrato: A4 em pé, margens menores e a página compacta", async () => {
     completo();
     const el = await abrir("/financas/prestacao-de-contas?ano=2026&mes=9&qtd=2");
-    expect(css()).toMatch(/size: A4 portrait; margin: 0\.9cm 1cm/);
+    expect(css()).toMatch(/size: A4 portrait; margin: 1\.5cm 1\.8cm/);
     expect(el.querySelector(".relatorio-page")!.className).toContain("rel-retrato");
     expect(botao(el, "Retrato").getAttribute("aria-pressed")).toBe("true");
     expect(botao(el, "Paisagem").getAttribute("aria-pressed")).toBe("false");
@@ -182,7 +182,7 @@ describe("Prestação de Contas — papel do PDF: retrato (menos folhas) ou pais
   it("a escolha explícita por paisagem volta ao papel de sempre (A4 deitado, sem a compactação)", async () => {
     completo();
     const el = await abrir("/financas/prestacao-de-contas?ano=2026&mes=9&qtd=2&orientacao=paisagem");
-    expect(css()).toMatch(/size: A4 landscape; margin: 1\.2cm 1\.5cm/);
+    expect(css()).toMatch(/size: A4 landscape; margin: 1\.3cm 1\.8cm/);
     expect(el.querySelector(".relatorio-page")!.className).not.toContain("rel-retrato");
     expect(botao(el, "Paisagem").getAttribute("aria-pressed")).toBe("true");
   });

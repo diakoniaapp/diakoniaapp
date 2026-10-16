@@ -299,7 +299,7 @@ export default function FinancasPrestacaoContas() {
           colunas) e as margens. */}
       <style>{`
         @media print {
-          @page { size: A4 ${retrato ? "portrait" : "landscape"}; margin: ${retrato ? "0.9cm 1cm" : "1.2cm 1.5cm"}; }
+          @page { size: A4 ${retrato ? "portrait" : "landscape"}; margin: ${retrato ? "1.5cm 1.8cm" : "1.3cm 1.8cm"}; }
         }
         /* Versão SIMPLES: cabe em UMA folha. Ministérios em uma linha, compras ofertadas em resumo, espaços e letra compactos (vale em retrato e em paisagem). */
         @media print {
@@ -311,15 +311,16 @@ export default function FinancasPrestacaoContas() {
           .rel-simples .rel-titulo h1 { font-size: 17px !important; margin-top: 0 !important; }
           .rel-simples .rel-titulo p { font-size: 9px !important; margin: 0 !important; }
           .rel-simples .tabela-prestacao, .rel-simples .tabela-prestacao td, .rel-simples .tabela-prestacao th { font-size: 10px !important; line-height: 1.2 !important; }
-          .rel-simples .tabela-prestacao td, .rel-simples .tabela-prestacao th { padding-top: 1px !important; padding-bottom: 1px !important; }
-          .rel-simples .tabela-prestacao td.pt-7 { padding-top: 6px !important; }
+          .rel-simples .tabela-prestacao td, .rel-simples .tabela-prestacao th { padding-top: 0.5px !important; padding-bottom: 0.5px !important; }
+          .rel-simples .tabela-prestacao td.pt-7 { padding-top: 5px !important; }
           .rel-simples .tabela-prestacao h3 { font-size: 10.5px !important; padding-bottom: 0 !important; }
           .rel-simples .secao-rel { margin-bottom: 6px !important; }
           .rel-simples .tabela-compras, .rel-simples .tabela-compras td, .rel-simples .tabela-compras th { font-size: 9px !important; padding-top: 0 !important; padding-bottom: 0 !important; }
           .rel-simples .obs-ofertadas { display: none !important; }
           .rel-simples section.mb-6 { margin-bottom: 6px !important; }
-          .rel-simples .bloco-assinaturas { margin-top: 14px !important; padding-top: 0 !important; }
-          .rel-simples .rel-rodape { margin-top: 8px !important; padding-top: 4px !important; }
+          .rel-simples .bloco-assinaturas { margin-top: 8px !important; padding-top: 0 !important; }
+          .rel-simples .rel-rodape { margin-top: 4px !important; padding-top: 3px !important; }
+          .rel-simples .rel-rodape p { margin: 0 !important; line-height: 1.25 !important; }
         }
         @media print {
           .rel-simples:not(.rel-retrato) .rel-cabecalho img { height: 22px !important; }
@@ -688,7 +689,6 @@ export default function FinancasPrestacaoContas() {
                     <th className="py-1 pr-2 w-16">Data</th>
                     <th className="py-1 pr-2">Fornecedor</th>
                     <th className="py-1 pr-2">Categoria</th>
-                    <th className="py-1 pr-2">Centro de custo</th>
                     <th className="py-1 text-right w-24">Valor</th>
                   </tr>
                 </thead>
@@ -697,15 +697,14 @@ export default function FinancasPrestacaoContas() {
                     <tr key={i.id} className="border-b border-border/30">
                       <td className="py-1 pr-2 whitespace-nowrap">{i.data.split("-").reverse().join("/")}</td>
                       <td className="py-1 pr-2 max-w-[260px] break-words">{i.favorecido}</td>
-                      <td className="py-1 pr-2">{i.categoriaNome ?? "—"}</td>
-                      <td className="py-1 pr-2">{i.centroNome ?? "—"}</td>
+                      <td className="py-1 pr-2 whitespace-nowrap">{i.categoriaNome ?? "—"}</td>
                       <td className="py-1 text-right tabular-nums">{brl(i.valor)}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot>
                   <tr className="border-t-2 border-gold/40 font-semibold">
-                    <td colSpan={4} className="py-1.5 text-xs">Total de compras ofertadas por terceiros</td>
+                    <td colSpan={3} className="py-1.5 text-xs">Total de compras ofertadas por terceiros</td>
                     <td className="py-1.5 text-right tabular-nums">{brl(dados.comprasOfertadas.total)}</td>
                   </tr>
                 </tfoot>
