@@ -8,11 +8,11 @@ const EXATO = { printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" } as 
 
 function Cartao({ titulo, valor, detalhe, cor, forte }: { titulo: string; valor: string; detalhe?: React.ReactNode; cor?: string; forte?: boolean }) {
   return (
-    <div className={`rounded-md border bg-white p-3 min-w-0 ${forte ? "border-gold/60" : "border-border/60"}`} style={EXATO}>
-      <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">{titulo}</dt>
+    <div className={`cartao-rel rounded-md border bg-white p-3 min-w-0 ${forte ? "border-gold/60" : "border-border/60"}`} style={EXATO}>
+      <dt className="cartao-rel-t text-[10px] uppercase tracking-wide text-muted-foreground">{titulo}</dt>
       <dd className="mt-0.5 min-w-0">
-        <span className={`block font-serif tabular-nums whitespace-nowrap ${forte ? "text-[15px] sm:text-xl" : "text-[15px] sm:text-lg"} ${cor ?? ""}`}>{valor}</span>
-        {detalhe && <span className="block text-[11px] text-muted-foreground mt-0.5">{detalhe}</span>}
+        <span className={`cartao-rel-v block font-serif tabular-nums whitespace-nowrap ${forte ? "text-[15px] sm:text-xl" : "text-[15px] sm:text-lg"} ${cor ?? ""}`}>{valor}</span>
+        {detalhe && <span className="cartao-rel-d block text-[11px] text-muted-foreground mt-0.5">{detalhe}</span>}
       </dd>
     </div>
   );
@@ -23,9 +23,9 @@ const ROTULO_RESULTADO: Record<ResumoExecutivo["situacao"], string> = { superavi
 export function ResumoExecutivoDaPrestacao({ resumo }: { resumo: ResumoExecutivo }) {
   const cor = resumo.situacao === "deficit" ? "text-destructive-text" : resumo.situacao === "superavit" ? "text-success-text" : "text-foreground";
   return (
-    <section aria-label="Resumo executivo" className="avoid-break mb-6 rounded-lg border-2 border-gold/40 p-4" style={{ ...EXATO, background: "hsl(var(--gold) / 0.06)" }}>
+    <section aria-label="Resumo executivo" className="secao-resumo avoid-break mb-6 rounded-lg border-2 border-gold/40 p-4" style={{ ...EXATO, background: "hsl(var(--gold) / 0.06)" }}>
       <h2 className="font-serif text-sm text-gold uppercase tracking-[0.15em] mb-3">Resumo Executivo</h2>
-      <dl className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+      <dl className="grade-cartoes grid grid-cols-2 md:grid-cols-4 gap-2.5">
         <Cartao titulo="Receita Total" valor={brl(resumo.receitaTotal)} cor="text-success-text" />
         <Cartao titulo="Despesa Total" valor={brl(resumo.despesaTotal)} cor="text-destructive-text"
           detalhe={resumo.despesasDosMinisterios !== resumo.despesaTotal ? `ministérios ${brl(resumo.despesasDosMinisterios)} + financeiras e outras` : "dos ministérios"} />
@@ -44,9 +44,9 @@ export function ResumoExecutivoDaPrestacao({ resumo }: { resumo: ResumoExecutivo
 
 export function IndicadoresDeDizimosDaPrestacao({ ind }: { ind: IndicadoresDeDizimos }) {
   return (
-    <section aria-label="Indicadores de dízimos" className="avoid-break mb-6">
+    <section aria-label="Indicadores de dízimos" className="secao-rel avoid-break mb-6">
       <h3 className="font-serif text-sm text-gold uppercase tracking-wide mb-2">Indicadores de Dízimos</h3>
-      <dl className="grid grid-cols-3 gap-2.5">
+      <dl className="grade-cartoes grid grid-cols-3 gap-2.5">
         <Cartao titulo="Dizimistas únicos no período" valor={String(ind.dizimistasUnicos)} detalhe="quem deu em mais de um mês conta uma vez" />
         <Cartao titulo="Valor total de dízimos" valor={brl(ind.valorTotal)} cor="text-success-text"
           detalhe={ind.valorNaoIdentificado > 0 ? `inclui ${brl(ind.valorNaoIdentificado)} sem identificação de quem deu` : undefined} />

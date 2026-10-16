@@ -40,7 +40,7 @@ import {
 import { CampoData } from "@/components/CampoData";
 import {
   ArrowLeft, MessageSquare, MessageSquarePlus,
-  ScrollText, Lock, LockOpen, ShieldCheck, Loader2, Printer, Download, Wallet, RefreshCw,
+  ScrollText, Lock, LockOpen, ShieldCheck, Loader2, Printer, Download, Wallet, RefreshCw, RectangleHorizontal, RectangleVertical,
   AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -110,6 +110,11 @@ export default function FinancasPrestacaoContas() {
   const mes = Number(searchParams.get("mes")) || padrao.mes;
   const qtdMeses = Math.min(24, Math.max(1, Number(searchParams.get("qtd")) || 1));
   const contaId = searchParams.get("conta") || "";
+  // Papel do PDF: paisagem (o de sempre) ou retrato, mais econômico (vai na URL, como o resto do período)
+  const orientacaoParam = searchParams.get("orientacao") === "retrato" ? "retrato" : searchParams.get("orientacao") === "paisagem" ? "paisagem" : null;
+  const MAX_MESES_EM_RETRATO = 4;
+  const retratoPedido = (orientacaoParam ?? (qtdMeses <= MAX_MESES_EM_RETRATO ? "retrato" : "paisagem")) === "retrato";
+  const retrato = retratoPedido && qtdMeses <= MAX_MESES_EM_RETRATO;
   const [anoFim, mesFim] = daquiAMeses(`${ano}-${String(mes).padStart(2, "0")}-01`, qtdMeses - 1)
     .split("-").map(Number);
 
@@ -203,6 +208,13 @@ export default function FinancasPrestacaoContas() {
   function atualizarParams(novoAno: number, novoMes: number, novaQtd: number, novaContaId = contaId) {
     const params: Record<string, string> = { ano: String(novoAno), mes: String(novoMes), qtd: String(novaQtd) };
     if (novaContaId) params.conta = novaContaId;
+    if (orientacaoParam) params.orientacao = orientacaoParam;
+    setSearchParams(params);
+  }
+
+  function mudarOrientacao(o: "retrato" | "paisagem") {
+    const params: Record<string, string> = { ano: String(ano), mes: String(mes), qtd: String(qtdMeses), orientacao: o };
+    if (contaId) params.conta = contaId;
     setSearchParams(params);
   }
 
@@ -275,7 +287,40 @@ export default function FinancasPrestacaoContas() {
           colunas) e as margens. */}
       <style>{`
         @media print {
-          @page { size: A4 landscape; margin: 1.2cm 1.5cm; }
+          @page { size: A4 ${retrato ? "portrait" : "landscape"}; margin: ${retrato ? "0.9cm 1cm" : "1.2cm 1.5cm"}; }
+        }
+        /* Mais de 6 meses (muitas colunas de valor): o nome da categoria mantém uma largura mínima e o texto fica um pouco menor. */
+        @media print {
+          .tabela-larga { font-size: 9px !important; }
+          .tabela-larga td, .tabela-larga th { font-size: 9px !important; padding-left: 1px !important; padding-right: 1px !important; }
+          .tabela-larga td:first-child, .tabela-larga th:first-child { min-width: 38mm; width: 38mm; word-break: normal !important; padding-right: 4px !important; }
+          .tabela-larga td:not(:first-child), .tabela-larga th:not(:first-child) { letter-spacing: -0.2px; }
+        }
+        /* Retrato (A4 em pé, 19 cm úteis): espaços verticais menores, cartões compactos e tabela em 8 pt. Só na impressão; a tela segue legível. */
+        @media print {
+          .rel-retrato .rel-cabecalho { padding-bottom: 4px !important; }
+          .rel-retrato .rel-cabecalho img { height: 34px !important; }
+          .rel-retrato .rel-titulo { margin: 6px 0 !important; }
+          .rel-retrato .rel-titulo h1 { font-size: 19px !important; margin-top: 1px !important; }
+          .rel-retrato .secao-resumo { margin-bottom: 8px !important; padding: 7px 8px !important; }
+          .rel-retrato .secao-resumo h2 { margin-bottom: 4px !important; }
+          .rel-retrato .secao-rel { margin-bottom: 8px !important; }
+          .rel-retrato .secao-rel h3 { margin-bottom: 3px !important; }
+          .rel-retrato .grade-cartoes { gap: 5px !important; }
+          .rel-retrato .cartao-rel { padding: 4px 7px !important; }
+          .rel-retrato .cartao-rel-t { font-size: 8px !important; }
+          .rel-retrato .cartao-rel-v { font-size: 13px !important; }
+          .rel-retrato .cartao-rel-d { font-size: 8px !important; margin-top: 0 !important; line-height: 1.15 !important; }
+          .rel-retrato .grade-gerencial { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+          .rel-retrato .tabela-prestacao { font-size: 10.5px !important; }
+          .rel-retrato .tabela-prestacao td, .rel-retrato .tabela-prestacao th { font-size: 10.5px !important; padding-top: 1px !important; padding-bottom: 1px !important; line-height: 1.25 !important; }
+          .rel-retrato .tabela-prestacao td.pt-7 { padding-top: 9px !important; }
+          .rel-retrato .tabela-prestacao h3 { font-size: 11px !important; }
+          .rel-retrato .tabela-compras { font-size: 9.5px !important; }
+          .rel-retrato .tabela-compras td, .rel-retrato .tabela-compras th { padding-top: 1px !important; padding-bottom: 1px !important; }
+          .rel-retrato .obs-ofertadas { padding: 4px 8px !important; font-size: 9.5px !important; margin-bottom: 4px !important; }
+          .rel-retrato .bloco-assinaturas { margin-top: 12px !important; padding-top: 0 !important; }
+          .rel-retrato .rel-rodape { margin-top: 8px !important; padding-top: 5px !important; }
         }
       `}</style>
 
@@ -315,6 +360,17 @@ export default function FinancasPrestacaoContas() {
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="flex items-center justify-center gap-1.5 flex-wrap" role="group" aria-label="Papel do PDF">
+            <span className="text-xs text-muted-foreground">Papel do PDF</span>
+            <Button size="sm" variant={retrato ? "outline" : "default"} aria-pressed={!retrato} className="h-8 gap-1.5 text-xs" onClick={() => mudarOrientacao("paisagem")}>
+              <RectangleHorizontal className="w-3.5 h-3.5" /> Paisagem
+            </Button>
+            <Button size="sm" variant={retrato ? "default" : "outline"} aria-pressed={retrato} className="h-8 gap-1.5 text-xs" onClick={() => mudarOrientacao("retrato")}>
+              <RectangleVertical className="w-3.5 h-3.5" /> Retrato (menos folhas)
+            </Button>
+            {retratoPedido && !retrato && <span className="text-xs text-warning-text">Retrato vale para até {MAX_MESES_EM_RETRATO} meses; este período sai em paisagem, para as colunas caberem sem ficar pequenas.</span>}
           </div>
 
           {/* Dois campos com máscara de digitação + calendário (`CampoData`)
@@ -396,8 +452,8 @@ export default function FinancasPrestacaoContas() {
       </div>
 
       {/* PÁGINA DO RELATÓRIO */}
-      <div className="relatorio-page max-w-5xl mx-auto bg-white text-foreground p-8 md:p-10 my-4 md:my-6 shadow-elevated border border-border/40 rounded-md print:my-0">
-        <header className="avoid-break flex items-start justify-between gap-4 pb-4 border-b-2 border-gold/30">
+      <div className={`relatorio-page ${retrato ? "rel-retrato" : ""} max-w-5xl mx-auto bg-white text-foreground p-8 md:p-10 my-4 md:my-6 shadow-elevated border border-border/40 rounded-md print:my-0`}>
+        <header className="rel-cabecalho avoid-break flex items-start justify-between gap-4 pb-4 border-b-2 border-gold/30">
           <div className="flex flex-col items-center gap-1">
             <img src={logoDiakonia} alt="DIAKONIA" className="h-14 w-auto object-contain"
               style={{
@@ -420,7 +476,7 @@ export default function FinancasPrestacaoContas() {
           </div>
         </header>
 
-        <div className="text-center my-6 avoid-break">
+        <div className="rel-titulo text-center my-6 avoid-break">
           <p className="text-xs tracking-[0.25em] uppercase text-gold flex items-center justify-center gap-1.5">
             <ScrollText className="w-3.5 h-3.5" /> Prestação de Contas
           </p>
@@ -439,7 +495,7 @@ export default function FinancasPrestacaoContas() {
         <ResumoExecutivoDaPrestacao resumo={resumo} />
 
         <section className="mb-6 overflow-x-auto">
-          <table className="w-full text-xs border-collapse">
+          <table className={`tabela-prestacao ${qtdMeses > 6 ? "tabela-larga" : ""} w-full text-xs border-collapse`}>
             <thead>
               <tr className="border-b border-border/60">
                 <th className="text-left font-medium py-1.5"></th>
@@ -542,29 +598,29 @@ export default function FinancasPrestacaoContas() {
         {/* Compras OFERTADAS por terceiros (14/10/2026; revisada em 15/10/2026): despesa da igreja que não moveu caixa. Seção própria, FORA da demonstração
             acima: não entra em receitas, despesas, resultado nem saldo. Num relatório de UMA conta ela não se aplica (a oferta não tem conta). */}
         {(dados.comprasOfertadas.itens.length > 0 || !contaId) && (
-          <section className="avoid-break mb-6" aria-label="Compras ofertadas por terceiros">
+          <section className="secao-rel avoid-break mb-6" aria-label="Compras ofertadas por terceiros">
             <div className="flex items-baseline justify-between mb-1">
               <h3 className="font-serif text-sm text-gold uppercase tracking-wide">Compras Ofertadas por Terceiros</h3>
             </div>
-            <p className="text-xs mb-2 rounded-md border border-gold/40 border-l-4 border-l-gold px-3 py-2 font-medium"
+            <p className="obs-ofertadas text-xs mb-2 rounded-md border border-gold/40 border-l-4 border-l-gold px-3 py-2 font-medium"
               style={{ background: "hsl(var(--gold) / 0.08)", printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" }}>
               As compras ofertadas por terceiros são registradas apenas para fins de controle e prestação de contas, não impactando as receitas, despesas, resultado ou saldo financeiro da igreja.
             </p>
-            <dl className="grid grid-cols-2 gap-2.5 mb-2 max-w-md">
-              <div className="rounded-md border border-border/60 bg-white p-2.5">
-                <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">Quantidade de compras ofertadas</dt>
-                <dd className="font-serif text-lg tabular-nums">{dados.comprasOfertadas.itens.length}</dd>
+            <dl className="grade-cartoes grid grid-cols-2 gap-2.5 mb-2 max-w-md">
+              <div className="cartao-rel rounded-md border border-border/60 bg-white p-2.5">
+                <dt className="cartao-rel-t text-[10px] uppercase tracking-wide text-muted-foreground">Quantidade de compras ofertadas</dt>
+                <dd className="cartao-rel-v font-serif text-lg tabular-nums">{dados.comprasOfertadas.itens.length}</dd>
               </div>
-              <div className="rounded-md border border-border/60 bg-white p-2.5">
-                <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">Valor total ofertado</dt>
-                <dd className="font-serif text-lg tabular-nums">{brl(dados.comprasOfertadas.total)}</dd>
+              <div className="cartao-rel rounded-md border border-border/60 bg-white p-2.5">
+                <dt className="cartao-rel-t text-[10px] uppercase tracking-wide text-muted-foreground">Valor total ofertado</dt>
+                <dd className="cartao-rel-v font-serif text-lg tabular-nums">{brl(dados.comprasOfertadas.total)}</dd>
               </div>
             </dl>
             {dados.comprasOfertadas.itens.length === 0 ? (
               <p className="text-xs text-muted-foreground italic">Nenhuma compra ofertada por terceiros no período.</p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-[11px] border-collapse">
+                <table className="tabela-compras w-full text-[11px] border-collapse">
                   <thead>
                     <tr className="border-b-2 border-gold/40 text-left text-muted-foreground">
                       <th className="py-1 pr-2 w-16">Data</th>
@@ -604,10 +660,10 @@ export default function FinancasPrestacaoContas() {
           contaId={contaId || undefined} />
 
         {/* Indicadores Financeiros e Fluxo de Caixa (15/10/2026): complementa a prestação acima, não a substitui. Sai na impressão/PDF, em página própria. */}
-        <FluxoDeCaixaDaPrestacao r={dados} contaFiltrada={!!contaId} />
+        <FluxoDeCaixaDaPrestacao r={dados} contaFiltrada={!!contaId} retrato={retrato} />
 
         {/* Assinaturas */}
-        <section className="avoid-break mt-12 pt-4">
+        <section className="bloco-assinaturas avoid-break mt-12 pt-4">
           <div className="grid grid-cols-2 gap-12 text-center text-xs">
             <div>
               <div className="border-t border-foreground/60 pt-1 mx-4">
@@ -624,7 +680,7 @@ export default function FinancasPrestacaoContas() {
           </div>
         </section>
 
-        <footer className="avoid-break mt-10 pt-4 border-t border-gold/30 text-center">
+        <footer className="rel-rodape avoid-break mt-10 pt-4 border-t border-gold/30 text-center">
           <p className="text-xs italic text-muted-foreground font-serif">
             "Tudo, porém, deve ser feito com decência e ordem."
           </p>

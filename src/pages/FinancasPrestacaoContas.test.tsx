@@ -159,9 +159,73 @@ describe("Prestação de Contas — o documento depois das melhorias", () => {
 
   it("o que só vale na tela some na impressão (botões de agrupamento) e a seção nova começa página própria", async () => {
     completo();
-    const el = await abrir();
+    const el = await abrir("/financas/prestacao-de-contas?ano=2026&mes=9&qtd=2&orientacao=paisagem");
     const grupo = el.querySelector("[aria-label='Agrupamento do gráfico']")!;
     expect(grupo.className).toContain("no-print");
     expect(el.querySelector("section[aria-label='Indicadores Financeiros e Fluxo de Caixa']")!.className).toContain("print:break-before-page");
+  });
+});
+
+describe("Prestação de Contas — papel do PDF: retrato (menos folhas) ou paisagem", () => {
+  const css = () => [...document.querySelectorAll("style")].map(x => x.textContent).join("\n");
+  const botao = (el: HTMLElement, trecho: string) => [...el.querySelectorAll("button")].find(b => b.textContent!.includes(trecho)) as HTMLButtonElement;
+
+  it("até 4 meses o padrão é retrato: A4 em pé, margens menores e a página compacta", async () => {
+    completo();
+    const el = await abrir("/financas/prestacao-de-contas?ano=2026&mes=9&qtd=2");
+    expect(css()).toMatch(/size: A4 portrait; margin: 0\.9cm 1cm/);
+    expect(el.querySelector(".relatorio-page")!.className).toContain("rel-retrato");
+    expect(botao(el, "Retrato").getAttribute("aria-pressed")).toBe("true");
+    expect(botao(el, "Paisagem").getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("a escolha explícita por paisagem volta ao papel de sempre (A4 deitado, sem a compactação)", async () => {
+    completo();
+    const el = await abrir("/financas/prestacao-de-contas?ano=2026&mes=9&qtd=2&orientacao=paisagem");
+    expect(css()).toMatch(/size: A4 landscape; margin: 1\.2cm 1\.5cm/);
+    expect(el.querySelector(".relatorio-page")!.className).not.toContain("rel-retrato");
+    expect(botao(el, "Paisagem").getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("acima de 4 meses o padrão é paisagem; pedir retrato não vale (as colunas não caberiam) e a tela explica", async () => {
+    completo();
+    let el = await abrir("/financas/prestacao-de-contas?ano=2026&mes=7&qtd=6");
+    expect(css()).toMatch(/size: A4 landscape/);
+    expect(el.textContent).not.toContain("Retrato vale para até 4 meses");
+    act(() => raiz?.unmount()); document.body.innerHTML = "";
+    el = await abrir("/financas/prestacao-de-contas?ano=2026&mes=7&qtd=6&orientacao=retrato");
+    expect(css()).toMatch(/size: A4 landscape/);
+    expect(el.querySelector(".relatorio-page")!.className).not.toContain("rel-retrato");
+    expect(el.textContent).toContain("Retrato vale para até 4 meses");
+  });
+
+  it("clicar em Paisagem troca o papel e preserva o período", async () => {
+    completo();
+    const el = await abrir("/financas/prestacao-de-contas?ano=2026&mes=9&qtd=2");
+    await act(async () => { botao(el, "Paisagem").click(); });
+    expect(css()).toMatch(/size: A4 landscape/);
+    expect(botao(el, "Paisagem").getAttribute("aria-pressed")).toBe("true");
+    expect(el.textContent).toContain("Set");   // o período segue o mesmo (setembro–outubro)
+  });
+
+  it("em retrato, a seção do fluxo de caixa não força página nova (o gráfico e os indicadores seguem inteiros)", async () => {
+    completo();
+    const el = await abrir("/financas/prestacao-de-contas?ano=2026&mes=9&qtd=2");
+    const sec = el.querySelector("section[aria-label='Indicadores Financeiros e Fluxo de Caixa']")!;
+    expect(sec.className).not.toContain("print:break-before-page");
+    expect(el.querySelector("svg[role='img']")!.getAttribute("viewBox")).toBe("0 0 720 290");
+  });
+
+  it("em paisagem o gráfico segue em 960 × 340", async () => {
+    completo();
+    const el = await abrir("/financas/prestacao-de-contas?ano=2026&mes=9&qtd=2&orientacao=paisagem");
+    expect(el.querySelector("svg[role='img']")!.getAttribute("viewBox")).toBe("0 0 960 340");
+  });
+
+  it("período longo (mais de 6 meses) ganha a tabela larga: o nome da categoria mantém largura mínima", async () => {
+    completo();
+    const el = await abrir("/financas/prestacao-de-contas?ano=2026&mes=1&qtd=12");
+    expect(el.querySelector("table.tabela-prestacao")!.className).toContain("tabela-larga");
+    expect(css()).toContain(".tabela-larga td:first-child");
   });
 });

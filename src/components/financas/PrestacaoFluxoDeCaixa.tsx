@@ -17,7 +17,7 @@ const compacto = new Intl.NumberFormat("pt-BR", { notation: "compact", maximumFr
 const NOME_DA_VISAO = { dia: "diária", semana: "semanal", mes: "mensal" } as const;
 const UNIDADE = { dia: "dias", semana: "semanas", mes: "meses" } as const;
 
-const L = 74, R = 74, T = 16, B = 48, W = 960, H = 340;
+const L = 74, R = 74, T = 16, B = 48;
 
 /** Escala linear: `min`→y0 e `max`→y1. */
 function escala(min: number, max: number, y0: number, y1: number) {
@@ -39,7 +39,8 @@ export function eixoBonito(min: number, max: number, alvo = 4): { min: number; m
   return { min: lo, max: hi, ticks };
 }
 
-export function GraficoDeFluxo({ pontos, resumoAcessivel }: { pontos: PontoFluxo[]; resumoAcessivel: string }) {
+export function GraficoDeFluxo({ pontos, resumoAcessivel, retrato = false }: { pontos: PontoFluxo[]; resumoAcessivel: string; retrato?: boolean }) {
+  const W = retrato ? 720 : 960, H = retrato ? 290 : 340;
   const n = pontos.length;
   const pw = W - L - R, ph = H - T - B;
   const eixoE = eixoBonito(0, Math.max(...pontos.flatMap(p => [p.entradas, p.saidas]), 0));
@@ -50,7 +51,7 @@ export function GraficoDeFluxo({ pontos, resumoAcessivel }: { pontos: PontoFluxo
   const banda = pw / Math.max(n, 1);
   const bw = Math.max(2, Math.min(18, banda * 0.36));
   const cx = (i: number) => L + banda * (i + 0.5);
-  const passo = Math.max(1, Math.ceil(n / 12));
+  const passo = Math.max(1, Math.ceil(n / (retrato ? 9 : 12)));
   const linhaSaldo = pontos.map((p, i) => `${i === 0 ? "M" : "L"}${cx(i).toFixed(1)},${ySaldo(p.saldo).toFixed(1)}`).join(" ");
   const verde = "hsl(var(--success))", vermelho = "hsl(var(--destructive))", ouro = "hsl(var(--gold))", grade = "hsl(var(--border))", texto = "hsl(var(--muted-foreground))";
 
@@ -88,11 +89,11 @@ export function GraficoDeFluxo({ pontos, resumoAcessivel }: { pontos: PontoFluxo
 
 function Cartao({ titulo, valor, detalhe, cor }: { titulo: string; valor: string; detalhe?: string; cor?: string }) {
   return (
-    <div className="rounded-md border border-border/60 bg-white p-3 min-w-0" style={EXATO}>
-      <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">{titulo}</dt>
+    <div className="cartao-rel rounded-md border border-border/60 bg-white p-3 min-w-0" style={EXATO}>
+      <dt className="cartao-rel-t text-[10px] uppercase tracking-wide text-muted-foreground">{titulo}</dt>
       <dd className="mt-0.5 min-w-0">
-        <span className={`block font-serif text-[15px] sm:text-lg tabular-nums whitespace-nowrap ${cor ?? ""}`}>{valor}</span>
-        {detalhe && <span className="block text-[11px] text-muted-foreground mt-0.5">{detalhe}</span>}
+        <span className={`cartao-rel-v block font-serif text-[15px] sm:text-lg tabular-nums whitespace-nowrap ${cor ?? ""}`}>{valor}</span>
+        {detalhe && <span className="cartao-rel-d block text-[11px] text-muted-foreground mt-0.5">{detalhe}</span>}
       </dd>
     </div>
   );
@@ -109,7 +110,7 @@ function ChipDeTendencia({ rotulo, t }: { rotulo: string; t: Tendencia | null })
   );
 }
 
-export function FluxoDeCaixaDaPrestacao({ r, contaFiltrada }: { r: BaseDaPrestacao; contaFiltrada: boolean }) {
+export function FluxoDeCaixaDaPrestacao({ r, contaFiltrada, retrato = false }: { r: BaseDaPrestacao; contaFiltrada: boolean; retrato?: boolean }) {
   const [modo, setModo] = useState<ModoDoGrafico>("automatico");
   const fluxo = useMemo(() => fluxoDoRelatorio(r, modo), [r, modo]);
   const ind = useMemo(() => indicadoresGerenciais(r, fluxo.serie), [r, fluxo.serie]);
@@ -120,14 +121,14 @@ export function FluxoDeCaixaDaPrestacao({ r, contaFiltrada }: { r: BaseDaPrestac
   const resumoAcessivel = fluxo.pontos.length === 0 ? "Sem dados" : `Fluxo de caixa em ${fluxo.pontos.length} ${un}, visão ${NOME_DA_VISAO[fluxo.granularidade]}. Saldo final ${brl(ultimo.saldo)}.`;
 
   return (
-    <section aria-label="Indicadores Financeiros e Fluxo de Caixa" className="mt-10 print:break-before-page">
+    <section aria-label="Indicadores Financeiros e Fluxo de Caixa" className={`secao-rel mt-10 ${retrato ? "" : "print:break-before-page"}`}>
+      <div className="avoid-break">
       <h2 className="font-serif text-lg text-gold uppercase tracking-wide border-b-2 border-gold/30 pb-1 mb-1">Indicadores Financeiros e Fluxo de Caixa</h2>
       <p className="text-xs text-muted-foreground mb-4">
         Complementam a prestação de contas acima — não a substituem. Mesmos lançamentos da demonstração; o saldo do último dia de cada mês é o Saldo Final do quadro.
         {contaFiltrada ? " Relatório de uma conta só." : ""}
       </p>
 
-      <div className="avoid-break">
         <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
           <h3 className="font-serif text-sm text-gold uppercase tracking-wide">Fluxo de Caixa · visão {NOME_DA_VISAO[fluxo.granularidade]}</h3>
           <div className="no-print flex items-center gap-1.5 flex-wrap" role="group" aria-label="Agrupamento do gráfico">
@@ -147,12 +148,12 @@ export function FluxoDeCaixaDaPrestacao({ r, contaFiltrada }: { r: BaseDaPrestac
         </div>
         {fluxo.pontos.length === 0
           ? <p className="text-sm text-muted-foreground italic py-8 text-center">Sem movimento no período.</p>
-          : <div className="overflow-x-auto"><div className="min-w-[640px]"><GraficoDeFluxo pontos={fluxo.pontos} resumoAcessivel={resumoAcessivel} /></div></div>}
+          : <div className="overflow-x-auto"><div className="min-w-[640px] rel-grafico"><GraficoDeFluxo pontos={fluxo.pontos} resumoAcessivel={resumoAcessivel} retrato={retrato} /></div></div>}
       </div>
 
       <div className="avoid-break">
       <h3 className="font-serif text-sm text-gold uppercase tracking-wide mt-6 mb-2">Indicadores Gerenciais</h3>
-      <dl className="grid grid-cols-2 md:grid-cols-3 gap-2.5">
+      <dl className="grade-cartoes grade-gerencial grid grid-cols-2 md:grid-cols-3 gap-2.5">
         <Cartao titulo="Maior arrecadação do período" valor={ind.maiorArrecadacao ? brl(ind.maiorArrecadacao.valor) : "—"} cor="text-success-text"
           detalhe={ind.maiorArrecadacao ? `Mês da maior arrecadação: ${ind.maiorArrecadacao.mes}` : "sem receitas no período"} />
         <Cartao titulo="Maior despesa do período" valor={ind.maiorDespesa ? brl(ind.maiorDespesa.valor) : "—"} cor="text-destructive-text"
