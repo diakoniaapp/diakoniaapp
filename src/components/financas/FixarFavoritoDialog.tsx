@@ -24,6 +24,7 @@ const RELATORIOS = [
   { rota: "/financas/orcamento", rotulo: "Orçamento" },
   { rota: "/financas/executivo", rotulo: "Visão Executiva" },
   { rota: "/financas/prestacao-de-contas", rotulo: "Prestação de Contas" },
+  { rota: "/financas/extrato-de-obrigacoes", rotulo: "Extrato de Obrigações" },
   { rota: "/financas/agenda", rotulo: "Agenda Financeira" },
 ];
 

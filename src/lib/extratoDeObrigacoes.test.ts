@@ -1,0 +1,153 @@
+// Extrato de Obrigações (16/10/2026): a situação de cada obrigação, o agrupamento do pagamento parcial, o resumo e o CSV.
+import { describe, expect, it } from "vitest";
+import {
+  CABECALHO_DO_EXTRATO, diasEntre, filtrarPorSituacao, gerarCSVDoExtrato, montarExtratoDeObrigacoes, resumoDoExtrato, situacaoDaObrigacao,
+  type LinhaDeObrigacao, type NomesDoExtrato, type QuitacaoDoExtrato,
+} from "./extratoDeObrigacoes";
+
+const l = (o: Partial<LinhaDeObrigacao> & { id: string }): LinhaDeObrigacao => ({
+  obrigacao_id: null, data: "2026-09-10", status: "previsto", valor: 100, valor_original: null, descricao: "Despesa", documento_numero: null,
+  fornecedor_id: "f1", pessoa_id: null, categoria_id: "c1", centro_custo_id: "ce1", projeto_id: null, ...o,
+});
+const nomes: NomesDoExtrato = {
+  fornecedores: new Map([["f1", "Papelaria Central"], ["f2", "Gráfica"]]), pessoas: new Map([["p1", "Ana Souza"]]),
+  categorias: new Map([["c1", "Material de Consumo"]]), centros: new Map([["ce1", "Ministério Pastoral"]]), projetos: new Map([["pr1", "Reforma"]]),
+};
+const montar = (linhas: LinhaDeObrigacao[], quitacoes: [string, QuitacaoDoExtrato][] = [], hoje = "2026-10-16") =>
+  montarExtratoDeObrigacoes({ linhas, quitacoes: new Map(quitacoes), nomes, hoje });
+
+describe("situação da obrigação", () => {
+  it("previsto sem quitação = em aberto; realizado/conciliado = paga; cancelado = cancelada", () => {
+    expect(situacaoDaObrigacao([{ status: "previsto" }], null)).toBe("em_aberto");
+    expect(situacaoDaObrigacao([{ status: "realizado" }], null)).toBe("paga");
+    expect(situacaoDaObrigacao([{ status: "conciliado" }], null)).toBe("paga");
+    expect(situacaoDaObrigacao([{ status: "cancelado" }], null)).toBe("cancelada");
+  });
+  it("quitada por terceiro (status quitado_terceiro, mesmo sem dinheiro) aparece como tal", () => {
+    expect(situacaoDaObrigacao([{ status: "quitado_terceiro" }], { responsavel: "pessoa", responsavelNome: "Ana", intencao: "oferta" })).toBe("quitada_por_terceiro");
+    expect(situacaoDaObrigacao([{ status: "quitado_terceiro" }], null)).toBe("quitada_por_terceiro");
+  });
+  it("terceiro pagou com intenção de reembolso = reembolso (a obrigação segue com a igreja, que reembolsa)", () => {
+    expect(situacaoDaObrigacao([{ status: "previsto" }], { responsavel: "pessoa", responsavelNome: "Ana", intencao: "reembolso" })).toBe("reembolso");
+    expect(situacaoDaObrigacao([{ status: "realizado" }], { responsavel: "empresa", responsavelNome: null, intencao: "reembolso" })).toBe("reembolso");
+  });
+  it("'não localizado' não é terceiro: a obrigação continua em aberto", () => {
+    expect(situacaoDaObrigacao([{ status: "previsto" }], { responsavel: "nao_localizado", responsavelNome: null, intencao: "nao_se_aplica" })).toBe("em_aberto");
+  });
+  it("pagamento parcial: uma linha paga e outra prevista = paga parcialmente", () => {
+    expect(situacaoDaObrigacao([{ status: "realizado" }, { status: "previsto" }], null)).toBe("paga_parcialmente");
+  });
+});
+
+describe("montagem do extrato", () => {
+  it("uma obrigação com pagamento parcial vira UMA linha: valor original, saldo em aberto e atraso do que falta", () => {
+    const ex = montar([
+      l({ id: "raiz", status: "realizado", valor: 60, valor_original: 100 }),
+      l({ id: "filha", obrigacao_id: "raiz", status: "previsto", valor: 40, data: "2026-10-01" }),
+    ]);
+    expect(ex).toHaveLength(1);
+    expect(ex[0]).toMatchObject({ obrigacaoId: "raiz", valor: 100, saldoEmAberto: 40, situacao: "paga_parcialmente", diasEmAtraso: 15 });
+  });
+
+  it("traz fornecedor (ou, sem ele, a pessoa), documento, categoria, centro e projeto pelos nomes", () => {
+    const ex = montar([
+      l({ id: "a", documento_numero: "NF 123", projeto_id: "pr1" }),
+      l({ id: "b", fornecedor_id: null, pessoa_id: "p1", data: "2026-09-11" }),
+    ]);
+    expect(ex[0]).toMatchObject({ fornecedor: "Papelaria Central", documento: "NF 123", categoria: "Material de Consumo", centro: "Ministério Pastoral", projeto: "Reforma" });
+    expect(ex[1].fornecedor).toBe("Ana Souza");
+  });
+
+  it("dias em atraso: só para o que está em aberto e já venceu; paga, futura e cancelada não têm", () => {
+    const ex = montar([
+      l({ id: "venc", data: "2026-10-01" }), l({ id: "futura", data: "2026-10-30" }), l({ id: "paga", status: "realizado", data: "2026-09-01" }),
+      l({ id: "canc", status: "cancelado", data: "2026-09-01" }),
+    ]);
+    const por = Object.fromEntries(ex.map(x => [x.obrigacaoId, x.diasEmAtraso]));
+    expect(por).toEqual({ venc: 15, futura: null, paga: null, canc: null });
+  });
+
+  it("responsável e intenção: igreja quando ela pagou; 'Ninguém ainda' em aberto; o nome do terceiro quando houve quitação; '—' na cancelada", () => {
+    const ex = montar([
+      l({ id: "igreja", status: "realizado", data: "2026-09-01" }), l({ id: "aberta", data: "2026-09-02" }),
+      l({ id: "terc", status: "quitado_terceiro", data: "2026-09-03" }), l({ id: "canc", status: "cancelado", data: "2026-09-04" }),
+    ], [["terc", { responsavel: "pessoa", responsavelNome: "Ana Souza", intencao: "oferta" }]]);
+    const por = Object.fromEntries(ex.map(x => [x.obrigacaoId, [x.responsavel, x.intencao]]));
+    expect(por.igreja).toEqual(["Igreja", "—"]);
+    expect(por.aberta).toEqual(["Ninguém ainda", "—"]);
+    expect(por.terc).toEqual(["Pessoa — Ana Souza", "Oferta"]);
+    expect(por.canc).toEqual(["—", "—"]);
+  });
+
+  it("a quitada por terceiro entra no extrato normalmente, sem nenhuma movimentação financeira (valor integral, nenhum saldo em aberto)", () => {
+    const ex = montar([l({ id: "t", status: "quitado_terceiro", valor: 250 })], [["t", { responsavel: "empresa", responsavelNome: "Mercado X", intencao: "oferta" }]]);
+    expect(ex).toHaveLength(1);
+    expect(ex[0]).toMatchObject({ situacao: "quitada_por_terceiro", valor: 250, saldoEmAberto: 0, diasEmAtraso: null });
+  });
+
+  it("ordena por data e, no empate, por fornecedor", () => {
+    const ex = montar([
+      l({ id: "3", data: "2026-09-12" }), l({ id: "2", data: "2026-09-10", fornecedor_id: "f2" }), l({ id: "1", data: "2026-09-10", fornecedor_id: "f1" }),
+    ]);
+    expect(ex.map(x => x.obrigacaoId)).toEqual(["2", "1", "3"]);
+    expect(ex.map(x => x.fornecedor)).toEqual(["Gráfica", "Papelaria Central", "Papelaria Central"]);
+  });
+});
+
+describe("filtro por situação e resumo", () => {
+  const ex = montar([
+    l({ id: "a1", data: "2026-10-01", valor: 100 }), l({ id: "a2", data: "2026-10-30", valor: 50 }),
+    l({ id: "p1", status: "realizado", valor: 200, data: "2026-09-01" }),
+    l({ id: "r1", valor: 300, data: "2026-09-02" }), l({ id: "t1", status: "quitado_terceiro", valor: 400, data: "2026-09-03" }),
+    l({ id: "c1", status: "cancelado", valor: 999, data: "2026-09-04" }),
+    l({ id: "pp", status: "realizado", valor: 70, valor_original: 100, data: "2026-09-05" }), l({ id: "pp2", obrigacao_id: "pp", valor: 30, data: "2026-11-01" }),
+  ], [
+    ["r1", { responsavel: "pessoa", responsavelNome: "Ana", intencao: "reembolso" }],
+    ["t1", { responsavel: "empresa", responsavelNome: "Mercado", intencao: "oferta" }],
+  ]);
+
+  it("o resumo conta cada situação; o valor total não inclui as canceladas; 'em aberto' soma o saldo a pagar (parciais incluídas)", () => {
+    const r = resumoDoExtrato(ex);
+    expect(r.quantidade).toBe(7);
+    expect(r.valorTotal).toBe(100 + 50 + 200 + 300 + 400 + 100);   // 1.150, sem os 999 da cancelada
+    expect(r.emAberto).toEqual({ quantidade: 3, valor: 100 + 50 + 30 });
+    expect(r.pagas).toEqual({ quantidade: 1, valor: 200 });
+    expect(r.reembolsos).toEqual({ quantidade: 1, valor: 300 });
+    expect(r.quitadasPorTerceiros).toEqual({ quantidade: 1, valor: 400 });
+    expect(r.canceladas).toEqual({ quantidade: 1, valor: 999 });
+  });
+
+  it("o filtro de situação: 'em aberto' inclui a parcialmente paga; as demais são exatas; 'todas' não filtra", () => {
+    expect(filtrarPorSituacao(ex, "todas")).toHaveLength(7);
+    expect(filtrarPorSituacao(ex, "em_aberto").map(x => x.obrigacaoId).sort()).toEqual(["a1", "a2", "pp"]);
+    expect(filtrarPorSituacao(ex, "paga").map(x => x.obrigacaoId)).toEqual(["p1"]);
+    expect(filtrarPorSituacao(ex, "reembolso").map(x => x.obrigacaoId)).toEqual(["r1"]);
+    expect(filtrarPorSituacao(ex, "quitada_por_terceiro").map(x => x.obrigacaoId)).toEqual(["t1"]);
+    expect(filtrarPorSituacao(ex, "cancelada").map(x => x.obrigacaoId)).toEqual(["c1"]);
+  });
+});
+
+describe("dias e CSV", () => {
+  it("diasEntre conta dias corridos sem fuso", () => {
+    expect(diasEntre("2026-10-01", "2026-10-16")).toBe(15);
+    expect(diasEntre("2026-02-27", "2026-03-02")).toBe(3);
+    expect(diasEntre("2026-10-16", "2026-10-16")).toBe(0);
+  });
+
+  it("o CSV tem BOM, as 12 colunas na ordem pedida, data em dd/mm/aaaa, aspas onde há ';' e o resumo no fim", () => {
+    const ex = montarExtratoDeObrigacoes({
+      linhas: [l({ id: "a", descricao: 'Papel; "A4"', documento_numero: "NF 1" })], quitacoes: new Map(), nomes, hoje: "2026-10-16",
+    });
+    const csv = gerarCSVDoExtrato(ex, resumoDoExtrato(ex), ["Período: 01/09/2026 a 30/09/2026"]);
+    expect(csv.charCodeAt(0)).toBe(0xFEFF);
+    const linhas = csv.slice(1).split("\r\n");
+    expect(linhas[0]).toBe("Data;Fornecedor;Documento;Descrição;Categoria;Centro de custo;Projeto;Valor;Situação;Responsável pela quitação;Intenção;Dias em atraso");
+    expect(CABECALHO_DO_EXTRATO).toHaveLength(12);
+    expect(linhas[1]).toBe('10/09/2026;Papelaria Central;NF 1;"Papel; ""A4""";Material de Consumo;Ministério Pastoral;;100.00;Em aberto;Ninguém ainda;—;36');
+    expect(csv).toContain("RESUMO;Quantidade;Valor");
+    expect(csv).toContain("Total (valor sem canceladas);1;100.00");
+    expect(csv).toContain("Em aberto;1;100.00");
+    expect(csv).toContain("Quitadas por terceiros;0;0.00");
+    expect(csv).toContain("Filtros: Período: 01/09/2026 a 30/09/2026");
+  });
+});

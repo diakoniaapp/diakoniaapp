@@ -1,0 +1,105 @@
+// ─── extratoDeObrigacoesService — lê as obrigações de um período para o "Extrato de Obrigações" ──────────────────────────────────────────────────────
+// Só leitura. A obrigação é a despesa (saída que não é transferência); as linhas do mesmo grupo (pagamento parcial) viram uma só. Os previstos, os pagos, os quitados por terceiros
+// e os cancelados entram TODOS: o relatório não depende de ter havido movimentação financeira. As regras estão em `lib/extratoDeObrigacoes.ts`.
+import { supabase } from "@/integrations/supabase/client";
+import { hojeLocal } from "@/lib/data";
+import {
+  montarExtratoDeObrigacoes, type LinhaDeObrigacao, type LinhaDoExtrato, type NomesDoExtrato, type QuitacaoDoExtrato,
+} from "@/lib/extratoDeObrigacoes";
+import type { Intencao, ResponsavelTipo } from "@/lib/quitacao";
+import { listarCategoriasTodas, listarCentrosCustoTodas, listarProjetosTodos } from "@/services/finService";
+
+export interface FiltrosDoExtrato {
+  /** AAAA-MM-DD */
+  de: string;
+  ate: string;
+  fornecedorId?: string;
+  categoriaId?: string;
+  centroId?: string;
+  projetoId?: string;
+}
+
+const COLUNAS = "id, obrigacao_id, data, status, valor, valor_original, descricao, documento_numero, fornecedor_id, pessoa_id, categoria_id, centro_custo_id, projeto_id";
+const PAGINA = 1000;
+const LOTE = 50;
+
+const lotes = <T,>(xs: T[], n: number): T[][] => { const r: T[][] = []; for (let i = 0; i < xs.length; i += n) r.push(xs.slice(i, i + n)); return r; };
+const normalizar = (r: Record<string, unknown>): LinhaDeObrigacao => ({
+  id: String(r.id), obrigacao_id: (r.obrigacao_id as string | null) ?? null, data: String(r.data).slice(0, 10), status: String(r.status),
+  valor: Number(r.valor ?? 0), valor_original: r.valor_original === null || r.valor_original === undefined ? null : Number(r.valor_original),
+  descricao: (r.descricao as string | null) ?? null, documento_numero: (r.documento_numero as string | null) ?? null,
+  fornecedor_id: (r.fornecedor_id as string | null) ?? null, pessoa_id: (r.pessoa_id as string | null) ?? null, categoria_id: (r.categoria_id as string | null) ?? null,
+  centro_custo_id: (r.centro_custo_id as string | null) ?? null, projeto_id: (r.projeto_id as string | null) ?? null,
+});
+
+async function linhasDoPeriodo(f: FiltrosDoExtrato): Promise<LinhaDeObrigacao[]> {
+  const todas = new Map<string, LinhaDeObrigacao>();
+  for (let p = 0; ; p++) {
+    let q = supabase.from("fin_lancamentos").select(COLUNAS).eq("tipo", "saida").neq("origem", "transferencia").gte("data", f.de).lte("data", f.ate);
+    if (f.fornecedorId) q = q.eq("fornecedor_id", f.fornecedorId);
+    if (f.categoriaId) q = q.eq("categoria_id", f.categoriaId);
+    if (f.centroId) q = q.eq("centro_custo_id", f.centroId);
+    if (f.projetoId) q = q.eq("projeto_id", f.projetoId);
+    const { data, error } = await q.order("data").order("id").range(p * PAGINA, p * PAGINA + PAGINA - 1);
+    if (error) throw new Error(error.message);
+    const linhas = (data ?? []) as unknown as Record<string, unknown>[];
+    linhas.forEach(r => { const l = normalizar(r); todas.set(l.id, l); });
+    if (linhas.length < PAGINA) break;
+  }
+  // as irmãs de cada obrigação (o saldo de um pagamento parcial pode ter outra data, ou estar fora do período): sem elas a obrigação sairia incompleta
+  const chaves = [...new Set([...todas.values()].map(l => l.obrigacao_id ?? l.id))];
+  for (const grupo of lotes(lotes(chaves, LOTE), 6)) {
+    const respostas = await Promise.all(grupo.map(ks => {
+      const lista = ks.join(",");
+      return supabase.from("fin_lancamentos").select(COLUNAS).eq("tipo", "saida").or(`id.in.(${lista}),obrigacao_id.in.(${lista})`);
+    }));
+    for (const r of respostas) {
+      if (r.error) throw new Error(r.error.message);
+      ((r.data ?? []) as unknown as Record<string, unknown>[]).forEach(x => { const l = normalizar(x); todas.set(l.id, l); });
+    }
+  }
+  return [...todas.values()];
+}
+
+interface QuitacaoBruta { obrigacao_id: string; responsavel_tipo: ResponsavelTipo; responsavel_pessoa_id: string | null; responsavel_fornecedor_id: string | null; intencao: Intencao }
+
+async function quitacoesDe(chaves: string[]): Promise<QuitacaoBruta[]> {
+  const brutas: QuitacaoBruta[] = [];
+  for (const grupo of lotes(lotes(chaves, 100), 6)) {
+    const respostas = await Promise.all(grupo.map(ks => supabase.from("vw_fin_quitacao" as never)
+      .select("obrigacao_id, responsavel_tipo, responsavel_pessoa_id, responsavel_fornecedor_id, intencao").in("obrigacao_id" as never, ks as never)));
+    // a Política de Quitação pode ainda não estar aplicada no banco: sem a visão, ninguém tem quitação registrada
+    for (const r of respostas) if (!r.error) brutas.push(...((r.data ?? []) as unknown as typeof brutas));
+  }
+  return brutas;
+}
+
+async function nomesPor(tabela: "fin_fornecedores" | "membros", coluna: "nome" | "nome_completo", ids: string[]): Promise<Map<string, string>> {
+  const mapa = new Map<string, string>();
+  for (const grupo of lotes(lotes([...new Set(ids)], 100), 6)) {
+    const respostas = await Promise.all(grupo.map(ks => supabase.from(tabela).select(`id, ${coluna}`).in("id", ks)));
+    for (const r of respostas) ((r.data ?? []) as unknown as Record<string, string>[]).forEach(x => mapa.set(x.id, x[coluna]));
+  }
+  return mapa;
+}
+
+export async function carregarExtratoDeObrigacoes(f: FiltrosDoExtrato): Promise<LinhaDoExtrato[]> {
+  const linhas = await linhasDoPeriodo(f);
+  const chaves = [...new Set(linhas.map(l => l.obrigacao_id ?? l.id))];
+  const [brutas, categorias, centros, projetos] = await Promise.all([quitacoesDe(chaves), listarCategoriasTodas(), listarCentrosCustoTodas(), listarProjetosTodos()]);
+  const [fornecedores, pessoas] = await Promise.all([
+    nomesPor("fin_fornecedores", "nome", [...linhas.map(l => l.fornecedor_id).filter((x): x is string => !!x), ...brutas.map(b => b.responsavel_fornecedor_id).filter((x): x is string => !!x)]),
+    nomesPor("membros", "nome_completo", [...linhas.map(l => l.pessoa_id).filter((x): x is string => !!x), ...brutas.map(b => b.responsavel_pessoa_id).filter((x): x is string => !!x)]),
+  ]);
+  // o nome de quem quitou (pessoa, empresa ou entidade) vem do cadastro: a visão só guarda o id
+  const quitacoes = new Map<string, QuitacaoDoExtrato>();
+  brutas.forEach(b => quitacoes.set(b.obrigacao_id, {
+    responsavel: b.responsavel_tipo, intencao: b.intencao ?? "nao_se_aplica",
+    responsavelNome: (b.responsavel_pessoa_id && pessoas.get(b.responsavel_pessoa_id)) || (b.responsavel_fornecedor_id && fornecedores.get(b.responsavel_fornecedor_id)) || null,
+  }));
+  const nomes: NomesDoExtrato = {
+    fornecedores, pessoas,
+    categorias: new Map(categorias.map(c => [c.id, c.nome])), centros: new Map(centros.map(c => [c.id, c.nome])), projetos: new Map(projetos.map(p => [p.id, p.nome])),
+  };
+  return montarExtratoDeObrigacoes({ linhas, quitacoes, nomes, hoje: hojeLocal() });
+}

@@ -305,6 +305,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: "/financas/executivo", label: "Visão Executiva",     icon: DollarSign, allowedRoles: ROLES_PASTORAL_SEM_TITULAR },
       { to: "/financas/dre",       label: "DRE Eclesiástica",    icon: ScrollText, allowedRoles: ROLES_PASTORAL_SEM_TITULAR },
       { to: "/financas/prestacao-de-contas", label: "Prestação de Contas", icon: ScrollText, allowedRoles: ROLES_FINANCEIRO },
+      { to: "/financas/extrato-de-obrigacoes", label: "Extrato de Obrigações", icon: ScrollText, allowedRoles: ROLES_FINANCEIRO },
       // N2/F6 do roadmap "90 Dias" (22/09/2026): o grupo tinha chegado a 18
       // itens (Recorrências, Fornecedores, Orçamento, Estoque, Folha,
       // Centros de Custo, Projetos, Insights, Doações, Doadores, Reuniões
@@ -451,6 +452,7 @@ export const pageTitles: Record<string, string> = {
   "/financas/executivo":      "Visão Executiva",
   "/financas/dre":            "DRE Eclesiástica",
   "/financas/prestacao-de-contas": "Prestação de Contas",
+  "/financas/extrato-de-obrigacoes": "Extrato de Obrigações",
   "/financas/doadores":       "Doadores",
   "/financas/sustento":       "Conta Corrente de Sustento",
   "/financas/auditoria-extrato": "Auditoria do extrato",

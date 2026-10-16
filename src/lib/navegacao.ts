@@ -160,6 +160,7 @@ export const TELAS: Tela[] = [
   T("/financas/auditoria-anexos", "Auditoria de documentos", "financeiro", { secao: "fechamento" }),
   T("/financas/reunioes", "Reuniões Financeiras", "financeiro", { secao: "fechamento" }),
   T("/financas/prestacao-de-contas", "Prestação de Contas", "financeiro", { secao: "fechamento" }),
+  T("/financas/extrato-de-obrigacoes", "Extrato de Obrigações", "financeiro", { secao: "fechamento" }),
   // Bazar e Cantina e Espaços moram no grupo Financeiro do menu
   T("/arrecadacao", "Bazar e Cantina", "financeiro"),
   T("/arrecadacao/espacos", "Espaços do Bazar", "financeiro", { pai: "/arrecadacao" }),
