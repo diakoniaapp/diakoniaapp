@@ -14,7 +14,8 @@ describe("atalhos do Extrato de Obrigações", () => {
   it("menu lateral, navegação (Ctrl+K), favoritos e rota", () => {
     expect(fonte("src/components/layout/navConfig.ts")).toContain(`to: "${ROTA}"`);
     expect(fonte("src/lib/navegacao.ts")).toContain(`T("${ROTA}"`);
-    expect(fonte("src/components/financas/FixarFavoritoDialog.tsx")).toContain(ROTA);
+    expect(fonte("src/components/financas/FixarFavoritoDialog.tsx")).toContain("telasFixaveis()");   // a lista vem do registro de telas: o Extrato entra sem linha própria
+    expect(fonte("src/lib/navegacao.ts")).not.toMatch(/extrato-de-obrigacoes[^\n]*naoFixavel/);
     expect(fonte("src/App.tsx")).toContain(`path="${ROTA}"`);
   });
 });

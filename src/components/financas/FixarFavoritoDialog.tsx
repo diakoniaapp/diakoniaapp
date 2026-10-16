@@ -1,10 +1,9 @@
 // ─── FixarFavoritoDialog.tsx — fixar um atalho pessoal na Home ─────────
 //
 // Fase 12 (Workspace Financeiro, 23/09/2026): "Favoritos reais" —
-// prioridade 4 da lista dela. Quatro destinos cobertos (conta, fornecedor,
-// centro de custo, um dos 5 relatórios fixos do módulo) porque são o que
-// já está carregado ou é barato de buscar nesta tela — não é todo destino
-// possível do Financeiro, é o que já se mede sem inventar consulta nova.
+// prioridade 4 da lista dela. Quatro destinos: conta, favorecido, centro de custo e TELA do Financeiro.
+// 16/10/2026: a lista de telas deixou de ser fixa (6 relatórios escolhidos à mão, e toda tela nova ficava de fora). Vem do registro único
+// das telas (lib/favoritosFinanceiros.ts): tela nova do Financeiro entra sozinha, salvo motivo técnico registrado.
 
 import { useEffect, useState } from "react";
 import {
@@ -18,15 +17,7 @@ import {
 import { toast } from "sonner";
 import { listarFornecedores, listarCentrosCusto, type FinConta, type FinFornecedor, type FinCentroCusto } from "@/services/finService";
 import { fixarFavorito, type FinFavoritoTipo } from "@/services/favoritosService";
-
-const RELATORIOS = [
-  { rota: "/financas/dre", rotulo: "DRE Eclesiástica" },
-  { rota: "/financas/orcamento", rotulo: "Orçamento" },
-  { rota: "/financas/executivo", rotulo: "Visão Executiva" },
-  { rota: "/financas/prestacao-de-contas", rotulo: "Prestação de Contas" },
-  { rota: "/financas/extrato-de-obrigacoes", rotulo: "Extrato de Obrigações" },
-  { rota: "/financas/agenda", rotulo: "Agenda Financeira" },
-];
+import { telasFixaveis } from "@/lib/favoritosFinanceiros";
 
 interface Props {
   open: boolean;
@@ -56,7 +47,7 @@ export function FixarFavoritoDialog({ open, onOpenChange, contas, onFixado }: Pr
     ? fornecedores.map(f => ({ valor: f.id, rotulo: f.nome, rota: `/financas/favorecido/${f.id}` }))
     : tipo === "centro_custo"
     ? centros.map(c => ({ valor: c.id, rotulo: c.nome, rota: `/financas/centro/${c.id}` }))
-    : RELATORIOS.map(r => ({ valor: r.rota, rotulo: r.rotulo, rota: r.rota }));
+    : telasFixaveis().map(t => ({ valor: t.rota, rotulo: t.rotulo, rota: t.rota, exibicao: t.secao ? `${t.rotulo} · ${t.secao}` : t.rotulo }));
 
   async function confirmar() {
     const escolhida = opcoes.find(o => o.valor === destino);
@@ -89,7 +80,7 @@ export function FixarFavoritoDialog({ open, onOpenChange, contas, onFixado }: Pr
                 <SelectItem value="conta">Conta financeira</SelectItem>
                 <SelectItem value="fornecedor">Favorecido</SelectItem>
                 <SelectItem value="centro_custo">Centro de custo</SelectItem>
-                <SelectItem value="relatorio">Relatório</SelectItem>
+                <SelectItem value="relatorio">Tela ou relatório</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -98,7 +89,7 @@ export function FixarFavoritoDialog({ open, onOpenChange, contas, onFixado }: Pr
             <Select value={destino} onValueChange={setDestino}>
               <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
               <SelectContent>
-                {opcoes.map(o => <SelectItem key={o.valor} value={o.valor}>{o.rotulo}</SelectItem>)}
+                {opcoes.map(o => <SelectItem key={o.valor} value={o.valor}>{(o as { exibicao?: string }).exibicao ?? o.rotulo}</SelectItem>)}
                 {opcoes.length === 0 && <div className="px-2 py-1.5 text-xs text-muted-foreground">Nada disponível</div>}
               </SelectContent>
             </Select>

@@ -22,6 +22,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { useNavegacao } from "@/hooks/useNavegacao";
 import { montarContexto, tituloDaTela, type ModuloKey } from "@/lib/navegacao";
+import { destinoDaRota } from "@/lib/favoritosFinanceiros";
+import { BotaoFavoritar } from "@/components/layout/BotaoFavoritar";
 
 const ICONE_DO_MODULO: Record<ModuloKey, LucideIcon> = {
   financeiro: Landmark, pessoas: Users, diaconia: HeartHandshake, discipulado: GraduationCap,
@@ -39,6 +41,8 @@ export function BarraDeContexto() {
   const { migalhas, fallback } = ctx;
   const nomeDaAnterior = anterior ? tituloDaTela(anterior.split(/[?#]/)[0]) : null;
   const encurtavel = migalhas.length > 3;
+  // ★ Favoritar: toda tela do Financeiro que o registro considera fixável (nome real do que está aberto, quando a tela informou)
+  const destinoFavorito = destinoDaRota(location.pathname, rotulo);
 
   return (
     <div className="max-w-6xl mx-auto px-4 md:px-6 pt-3 print:hidden">
@@ -99,6 +103,8 @@ export function BarraDeContexto() {
             })}
           </ol>
         </nav>
+
+        {destinoFavorito && <BotaoFavoritar key={destinoFavorito.rota} destino={destinoFavorito} />}
       </div>
     </div>
   );

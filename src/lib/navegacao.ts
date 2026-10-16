@@ -58,6 +58,8 @@ export interface Tela {
   secao?: SecaoFinanceiro;
   /** Tela de onde esta se abre. Os `:param` do pai têm de existir no padrão desta. */
   pai?: string;
+  /** Só no Financeiro: toda tela pode ser fixada nos Favoritos da Tesouraria, salvo MOTIVO TÉCNICO — escreva-o aqui (ver lib/favoritosFinanceiros.ts). */
+  naoFixavel?: string;
 }
 
 const T = (padrao: string, titulo: string, modulo?: ModuloKey, extra: Partial<Tela> = {}): Tela =>
@@ -126,7 +128,7 @@ export const TELAS: Tela[] = [
   // Operações
   T("/financas", "Contas correntes", "financeiro", { secao: "operacoes" }),
   T("/financas/conta/:contaId", "Conta", "financeiro", { pai: "/financas" }),
-  T("/financas/relatorio-contas", "Relatório de contas", "financeiro", { pai: "/financas" }),
+  T("/financas/relatorio-contas", "Relatório de contas", "financeiro", { pai: "/financas", naoFixavel: "só abre com as contas escolhidas na URL (?contas=…); sem elas mostra \"nenhuma conta selecionada\"" }),
   T("/financas/agenda", "Agenda financeira", "financeiro", { secao: "operacoes" }),
   T("/financas/doacoes", "Doações", "financeiro", { secao: "operacoes" }),
   // Gestão
@@ -164,7 +166,7 @@ export const TELAS: Tela[] = [
   // Bazar e Cantina e Espaços moram no grupo Financeiro do menu
   T("/arrecadacao", "Bazar e Cantina", "financeiro"),
   T("/arrecadacao/espacos", "Espaços do Bazar", "financeiro", { pai: "/arrecadacao" }),
-  T("/arrecadacao/reservas/nova", "Nova reserva", "financeiro", { pai: "/arrecadacao" }),
+  T("/arrecadacao/reservas/nova", "Nova reserva", "financeiro", { pai: "/arrecadacao", naoFixavel: "formulário de criação: não há o que consultar nem voltar a abrir" }),
   T("/arrecadacao/reserva/:id", "Reserva", "financeiro", { pai: "/arrecadacao" }),
   T("/arrecadacao/caixa/:id", "Caixa", "financeiro", { pai: "/arrecadacao" }),
   T("/arrecadacao/produtos/:espacoId", "Produtos", "financeiro", { pai: "/arrecadacao" }),
