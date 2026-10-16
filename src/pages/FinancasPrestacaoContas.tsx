@@ -22,7 +22,7 @@
 // "Fechar período" trava — por isso os controles de fechamento somem
 // quando há filtro de conta, com uma nota explicando por quê, em vez de
 // deixar parecer que fechar ali fecharia só aquela conta.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -59,7 +59,9 @@ import {
 import { EncargosDoPeriodo } from "@/components/financas/EncargosDoPeriodo";
 import { IndicadoresDeDizimosDaPrestacao, ResumoExecutivoDaPrestacao } from "@/components/financas/PrestacaoResumo";
 import { FluxoDeCaixaDaPrestacao } from "@/components/financas/PrestacaoFluxoDeCaixa";
-import { despesaTotalPorMes, despesasFinanceiras, resumoExecutivo } from "@/lib/prestacaoIndicadores";
+import { medirFolgaDoFecho } from "@/lib/fechoNoRodape";
+import { PosicaoDasContasDaPrestacao } from "@/components/financas/PrestacaoPosicaoContas";
+import { despesaTotalPorMes, despesasFinanceiras, diferencaParaADemonstracao, resumoExecutivo } from "@/lib/prestacaoIndicadores";
 import { NotaRelatorioModal } from "@/components/financas/NotaRelatorioModal";
 import { PendenciasCategorizacaoDrawer } from "@/components/financas/PendenciasCategorizacaoDrawer";
 import { PaginaSkeleton } from "@/components/ListState";
@@ -274,6 +276,24 @@ export default function FinancasPrestacaoContas() {
 
   const contaAtual = contas.find(c => c.id === contaId) ?? null;
 
+  // Assinaturas no pé da ÚLTIMA página (15/10/2026): a folga que sobra na última folha é medida numa paginação de verdade (lib/fechoNoRodape) assim que o relatório
+  // assenta, e devolvida como respiro acima do bloco final só durante a impressão (beforeprint → afterprint). Na tela nada muda.
+  const paginaRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (loading || !dados) return;
+    let folga: number | null = null;
+    let cancelado = false;
+    const fecho = () => paginaRef.current?.querySelector<HTMLElement>(".fecho-relatorio") ?? null;
+    const medir = setTimeout(async () => {
+      if (paginaRef.current) { const f = await medirFolgaDoFecho(paginaRef.current, ".fecho-relatorio", retrato); if (!cancelado) folga = f; }
+    }, 500);
+    const antes = () => { const el = fecho(); if (el && folga) el.style.paddingTop = `${folga}px`; };
+    const depois = () => { fecho()?.style.removeProperty("padding-top"); };
+    window.addEventListener("beforeprint", antes);
+    window.addEventListener("afterprint", depois);
+    return () => { cancelado = true; clearTimeout(medir); window.removeEventListener("beforeprint", antes); window.removeEventListener("afterprint", depois); depois(); };
+  }, [dados, fechamento, loading, retrato, simples, emitidoPor]);
+
   if (loading) return <PaginaSkeleton />;
   if (!dados) return <div className="p-8 text-center text-muted-foreground">Não foi possível carregar.</div>;
 
@@ -368,6 +388,9 @@ export default function FinancasPrestacaoContas() {
           .rel-retrato .tabela-prestacao td, .rel-retrato .tabela-prestacao th { font-size: 11px !important; padding-top: 1px !important; padding-bottom: 1px !important; line-height: 1.25 !important; }
           .rel-retrato .tabela-prestacao td.pt-7 { padding-top: 9px !important; }
           .rel-retrato .tabela-prestacao h3 { font-size: 11.5px !important; }
+          .rel-retrato .tabela-posicao, .rel-retrato .tabela-posicao td, .rel-retrato .tabela-posicao th { font-size: 10.5px !important; line-height: 1.2 !important; }
+          .rel-retrato .tabela-posicao td, .rel-retrato .tabela-posicao th { padding-top: 1px !important; padding-bottom: 1px !important; }
+          .rel-retrato .nota-posicao { font-size: 9px !important; line-height: 1.2 !important; }
           .rel-retrato .tabela-compras { font-size: 10px !important; }
           .rel-retrato .tabela-compras td, .rel-retrato .tabela-compras th { padding-top: 1px !important; padding-bottom: 1px !important; }
           .rel-retrato .obs-ofertadas { padding: 4px 8px !important; font-size: 10px !important; margin-bottom: 4px !important; }
@@ -514,7 +537,7 @@ export default function FinancasPrestacaoContas() {
       </div>
 
       {/* PÁGINA DO RELATÓRIO */}
-      <div className={`relatorio-page ${retrato ? "rel-retrato" : ""} ${simples ? "rel-simples" : ""} max-w-5xl mx-auto bg-white text-foreground p-8 md:p-10 my-4 md:my-6 shadow-elevated border border-border/40 rounded-md print:my-0`}>
+      <div ref={paginaRef} className={`relatorio-page ${retrato ? "rel-retrato" : ""} ${simples ? "rel-simples" : ""} max-w-5xl mx-auto bg-white text-foreground p-8 md:p-10 my-4 md:my-6 shadow-elevated border border-border/40 rounded-md print:my-0`}>
         <header className="rel-cabecalho avoid-break flex items-start justify-between gap-4 pb-4 border-b-2 border-gold/30">
           <div className="flex flex-col items-center gap-1">
             <img src={logoDiakonia} alt="DIAKONIA" className="h-14 w-auto object-contain"
@@ -555,6 +578,9 @@ export default function FinancasPrestacaoContas() {
 
         {/* Resumo executivo (15/10/2026): a leitura rápida da situação, antes da grade. Sai dos mesmos totais da tabela abaixo. */}
         {!simples && <ResumoExecutivoDaPrestacao resumo={resumo} />}
+
+        {/* Posição financeira das contas (15/10/2026): saldo inicial e final de cada conta e o consolidado. Só leitura; não entra em nenhum cálculo da demonstração. */}
+        {!simples && <PosicaoDasContasDaPrestacao posicao={dados.posicaoContas} diferenca={diferencaParaADemonstracao(dados.posicaoContas, resumo.saldoFinal)} />}
 
         <section className="mb-6 overflow-x-auto">
           <table className={`tabela-prestacao ${qtdMeses > 6 ? "tabela-larga" : ""} w-full text-xs border-collapse`}>
@@ -786,7 +812,8 @@ export default function FinancasPrestacaoContas() {
         {/* Indicadores Financeiros e Fluxo de Caixa (15/10/2026): complementa a prestação acima, não a substitui. Sai na impressão/PDF, em página própria. */}
         {!simples && <FluxoDeCaixaDaPrestacao r={dados} contaFiltrada={!!contaId} retrato={retrato} />}
 
-        {/* Assinaturas */}
+        {/* Fecho do relatório: assinaturas + versículo, sempre juntos e, na impressão, no pé da última página (ver o efeito acima) */}
+        <div className="fecho-relatorio avoid-break">
         <section className="bloco-assinaturas avoid-break mt-12 pt-4">
           <div className="grid grid-cols-2 gap-12 text-center text-xs">
             <div>
@@ -810,6 +837,7 @@ export default function FinancasPrestacaoContas() {
           </p>
           <p className="text-xs text-gold tracking-wide mt-1">1 Coríntios 14:40</p>
         </footer>
+        </div>
       </div>
 
       <NotaRelatorioModal

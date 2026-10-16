@@ -239,3 +239,29 @@ export function tendenciaMensal(valores: number[]): Tendencia | null {
   const variacao = Math.round(((segunda / primeira) - 1) * 1000) / 10;
   return { sentido: variacao > 5 ? "alta" : variacao < -5 ? "queda" : "estavel", variacao };
 }
+
+// ── 6) posição financeira das contas ────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+export interface PosicaoDaConta { id: string; nome: string; saldoInicial: number; saldoFinal: number }
+export interface PosicaoDasContas {
+  contas: PosicaoDaConta[];
+  totalInicial: number;
+  totalFinal: number;
+}
+
+/**
+ * O saldo de cada conta no primeiro e no último dia do período, e o consolidado. Entram as contas ativas e, mesmo inativas, as que ainda têm saldo em algum dos
+ * dois dias (senão o consolidado deixaria de bater com o "Saldo Inicial" do relatório, que soma todas). Conta inativa e zerada nos dois dias fica de fora.
+ */
+export function montarPosicaoDasContas(contas: { id: string; nome: string; ativo: boolean; saldoInicial: number; saldoFinal: number }[]): PosicaoDasContas {
+  const lista = contas
+    .filter(c => c.ativo || Math.abs(c.saldoInicial) >= 0.005 || Math.abs(c.saldoFinal) >= 0.005)
+    .map(c => ({ id: c.id, nome: c.nome, saldoInicial: round2(c.saldoInicial), saldoFinal: round2(c.saldoFinal) }));
+  return { contas: lista, totalInicial: soma(lista.map(c => c.saldoInicial)), totalFinal: soma(lista.map(c => c.saldoFinal)) };
+}
+
+/** Quanto o saldo final consolidado difere do "Saldo Final" da demonstração (0 quando fecham). Difere quando há lançamento realizado que a demonstração ainda não inclui. */
+export function diferencaParaADemonstracao(posicao: Pick<PosicaoDasContas, "totalFinal">, saldoFinalDaDemonstracao: number): number {
+  const d = round2(posicao.totalFinal - saldoFinalDaDemonstracao);
+  return Math.abs(d) < 0.01 ? 0 : d;
+}

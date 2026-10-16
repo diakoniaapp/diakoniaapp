@@ -31,6 +31,8 @@ vi.mock("@/components/financas/EncargosDoPeriodo", () => ({ EncargosDoPeriodo: (
 vi.mock("@/components/financas/NotaRelatorioModal", () => ({ NotaRelatorioModal: () => null }));
 vi.mock("@/components/financas/PendenciasCategorizacaoDrawer", () => ({ PendenciasCategorizacaoDrawer: () => null }));
 vi.mock("@/components/CampoData", () => ({ CampoData: () => null }));
+// o medidor de paginação precisa de um navegador de verdade (iframe com layout); aqui ele devolve uma folga fixa
+vi.mock("@/lib/fechoNoRodape", () => ({ medirFolgaDoFecho: async () => 321 }));
 
 import FinancasPrestacaoContas from "./FinancasPrestacaoContas";
 
@@ -306,5 +308,47 @@ describe("Prestação de Contas — versão simples (uma folha) e versão avanç
     const css = [...document.querySelectorAll("style")].map(x => x.textContent).join("\n");
     expect(css).toContain(".rel-simples .rel-cabecalho");
     expect(css).toContain(".rel-simples:not(.rel-retrato) .tabela-prestacao");
+  });
+});
+
+describe("Prestação de Contas — Posição Financeira das Contas e o fecho no pé da página", () => {
+  const SECAO_POSICAO = "section[aria-label='Posição financeira das contas']";
+
+  it("a posição das contas vem logo depois do resumo executivo e antes da demonstração, com o total geral", async () => {
+    completo();
+    const el = await abrir();
+    const pos = ordem(el, "Resumo Executivo", "Posição Financeira das Contas", "Total Geral", "Receitas Regulares");
+    expect(pos.every(p => p >= 0)).toBe(true);
+    expect([...pos].sort((a, b) => a - b)).toEqual(pos);
+    const secao = el.querySelector(SECAO_POSICAO)!;
+    for (const x of ["Bradesco", "Saldo Inicial", "Saldo Final"]) expect(secao.textContent).toContain(x);
+  });
+
+  it("a versão simples não traz a posição das contas", async () => {
+    completo();
+    const el = await abrir("/financas/prestacao-de-contas?ano=2026&mes=9&qtd=2&versao=simples");
+    expect(el.querySelector(SECAO_POSICAO)).toBeNull();
+    expect(el.textContent).not.toContain("Posição Financeira das Contas");
+  });
+
+  it("assinaturas e versículo formam UM bloco, o último do relatório", async () => {
+    completo();
+    const el = await abrir();
+    const pagina = el.querySelector(".relatorio-page")!;
+    const fecho = pagina.querySelector(".fecho-relatorio")!;
+    expect(pagina.lastElementChild).toBe(fecho);
+    for (const x of ["Tesouraria", "Conselho Fiscal", "1 Coríntios 14:40"]) expect(fecho.textContent).toContain(x);
+  });
+
+  it("ao imprimir, o fecho ganha a folga medida (vai para o pé da última folha); depois, volta ao normal", async () => {
+    completo();
+    const el = await abrir();
+    await act(async () => { await new Promise(r => setTimeout(r, 700)); });   // o medidor roda depois de o relatório assentar
+    const fecho = el.querySelector<HTMLElement>(".fecho-relatorio")!;
+    expect(fecho.style.paddingTop).toBe("");
+    act(() => { window.dispatchEvent(new Event("beforeprint")); });
+    expect(fecho.style.paddingTop).toBe("321px");
+    act(() => { window.dispatchEvent(new Event("afterprint")); });
+    expect(fecho.style.paddingTop).toBe("");
   });
 });

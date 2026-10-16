@@ -51,8 +51,8 @@ import {
 import { listarNotasDoPeriodo } from "./relatorioNotasService";
 import { normalizarNome } from "@/lib/fuzzyNome";
 import {
-  rotuloInstitucional, resumoExecutivo, despesasFinanceiras, fluxoDoRelatorio, indicadoresGerenciais,
-  type IndicadoresDeDizimos, type MovimentoDaPrestacao,
+  rotuloInstitucional, resumoExecutivo, despesasFinanceiras, fluxoDoRelatorio, indicadoresGerenciais, montarPosicaoDasContas,
+  type IndicadoresDeDizimos, type MovimentoDaPrestacao, type PosicaoDasContas,
 } from "@/lib/prestacaoIndicadores";
 
 // ── Auditoria dos lançamentos excluídos da demonstração (29/09/2026) ───────
@@ -229,6 +229,8 @@ export interface PrestacaoContasResultado {
   dizimistasPorMes: number[];
   /** Dízimos do período INTEIRO: dizimistas únicos (não a soma dos meses), valor total e valor médio por dizimista. */
   indicadoresDizimos: IndicadoresDeDizimos;
+  /** O saldo de cada conta financeira no primeiro e no último dia do período, e o consolidado. Só leitura: não entra em nenhum cálculo da demonstração. */
+  posicaoContas: PosicaoDasContas;
   /** Os lançamentos que formam a demonstração (receitas e despesas classificadas), um por linha — alimentam o gráfico de fluxo de caixa. Não incluem as compras ofertadas por terceiros. */
   fluxo: MovimentoDaPrestacao[];
 }
@@ -400,6 +402,26 @@ export async function saldoAcumuladoAntesDe(dataLimiteExclusiva: string, contaId
 }
 
 /**
+ * O saldo de cada conta financeira no primeiro dia do período e no dia seguinte ao último (= o saldo ao fim do último dia). Mesma conta de `saldoAcumuladoAntesDe`
+ * (saldo_inicial da conta + movimento realizado antes da data, somado no banco), mas por conta. Com `contaId`, só aquela conta.
+ */
+export async function posicaoDasContas(dataInicio: string, dataFimExclusiva: string, contaId?: string): Promise<PosicaoDasContas> {
+  const todas = await listarContas(true);
+  const contas = contaId ? todas.filter(c => c.id === contaId) : todas;
+  const saldoAntes = async (limite: string, id: string, saldoInicial: number) => {
+    const { data, error } = await supabase.rpc("fin_movimento_antes_de", { p_data_limite_exclusiva: limite, p_conta_id: id });
+    if (error) throw error;
+    return Number(saldoInicial) + Number(data ?? 0);
+  };
+  const linhas = await Promise.all(contas.map(async c => ({
+    id: c.id, nome: c.nome, ativo: c.ativo !== false,
+    saldoInicial: await saldoAntes(dataInicio, c.id, c.saldo_inicial),
+    saldoFinal: await saldoAntes(dataFimExclusiva, c.id, c.saldo_inicial),
+  })));
+  return montarPosicaoDasContas(linhas);
+}
+
+/**
  * @param ano       ano do primeiro mês do período
  * @param mesInicio 1-12
  * @param qtdMeses  quantos meses o período tem, a partir de `mesInicio` — 1 (padrão/mensal), 3 (o antigo "trimestre", agora só um preset da tela), 6, 12, ou qualquer outro número que a tesouraria escolher
@@ -421,7 +443,7 @@ export async function gerarPrestacaoContas(ano: number, mesInicio: number, qtdMe
   const ultimoMes = meses[meses.length - 1];
   const mesAncoraNota = { ano: ultimoMes.ano, mes: ultimoMes.numero };
 
-  const [lancsBrutos, categorias, centros, notasDoMesAncora, saldoAnterior] = await Promise.all([
+  const [lancsBrutos, categorias, centros, notasDoMesAncora, saldoAnterior, posicaoContas] = await Promise.all([
     listarLancamentosSemTeto({ dataInicio, dataFim, contaId }),
     // Todas, não só ativas (`listarCategorias()`) — precisa saber se uma
     // categoria referenciada foi desativada, pra distinguir "sem
@@ -430,6 +452,7 @@ export async function gerarPrestacaoContas(ano: number, mesInicio: number, qtdMe
     listarCentrosCusto(),
     listarNotasDoPeriodo(mesAncoraNota.ano, mesAncoraNota.mes),
     Promise.all(mesesChaves.map(chave => saldoAcumuladoAntesDe(`${chave}-01`, contaId))),
+    posicaoDasContas(dataInicio, dataFimExclusiva, contaId),
   ]);
 
   const lancs = lancsBrutos.filter(l => l.status === "realizado" || l.status === "conciliado");
@@ -594,6 +617,7 @@ export async function gerarPrestacaoContas(ano: number, mesInicio: number, qtdMe
     comprasOfertadas,
     excluidos: { porMotivo: excluidosPorMotivo, itens: itensExcluidos },
     dizimistasPorMes,
+    posicaoContas,
     indicadoresDizimos: {
       dizimistasUnicos: nomesDizimistasDoPeriodo.size,
       valorTotal: Math.round(valorDosDizimos * 100) / 100,
@@ -666,6 +690,14 @@ export function gerarCSVPrestacaoContas(r: PrestacaoContasResultado, opcoes: { s
   if (resumo.comprasOfertadasQtd > 0) {
     linhas.push(`Resumo Executivo;;Compras ofertadas por terceiros (fora do caixa) - quantidade;${resumo.comprasOfertadasQtd}`);
     linhas.push(`Resumo Executivo;;Compras ofertadas por terceiros (fora do caixa) - valor;${fmt(resumo.comprasOfertadasValor)}`);
+  }
+  if (r.posicaoContas) {
+    r.posicaoContas.contas.forEach(c => {
+      linhas.push(`Posicao das Contas;${c.nome.replace(/;/g, ",")};Saldo Inicial;${fmt(c.saldoInicial)}`);
+      linhas.push(`Posicao das Contas;${c.nome.replace(/;/g, ",")};Saldo Final;${fmt(c.saldoFinal)}`);
+    });
+    linhas.push(`Posicao das Contas;TOTAL GERAL;Saldo Inicial Consolidado;${fmt(r.posicaoContas.totalInicial)}`);
+    linhas.push(`Posicao das Contas;TOTAL GERAL;Saldo Final Consolidado;${fmt(r.posicaoContas.totalFinal)}`);
   }
   const fin = despesasFinanceiras(r);
   fin.subgrupos.forEach(g => linhas.push(`Despesas Financeiras;${g.titulo};SUBTOTAL;${g.valores.map(fmt).join(";")}`));
