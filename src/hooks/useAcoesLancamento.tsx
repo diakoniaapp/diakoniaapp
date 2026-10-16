@@ -381,7 +381,9 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
                   </select>
                 </div>
               )}
-              {usaLiquidacao && <LiquidacaoPainel key={confirmando.id} lancamento={confirmando} onPlano={setPlanoLiq} />}
+              {/* As duas chaves (esta e a do DataDoPagamento, mais abaixo) TÊM de ser diferentes: irmãs com a mesma `key` fazem o React duplicar/remontar os filhos sem parar
+                  (o painel remontava a cada renderização e o diálogo "Pagar" crescia sem fim — 15/10/2026, introduzido em 016f145). */}
+              {usaLiquidacao && <LiquidacaoPainel key={`liquidacao-${confirmando.id}`} lancamento={confirmando} onPlano={setPlanoLiq} />}
               {fornecedorPagando?.chave_pix && (
                 <div className="rounded-md border bg-muted/20 p-2.5 space-y-2">
                   <p className="text-xs font-medium flex items-center gap-1.5">
@@ -518,7 +520,7 @@ export function useAcoesLancamento(onChanged: () => void | Promise<void>) {
                   onChange={(e) => setAnexoArquivo(e.target.files?.[0] ?? null)}
                   className="text-xs w-full file:mr-2 file:py-1 file:px-2 file:rounded file:border file:text-xs file:bg-background" />
               </div>
-              <DataDoPagamento key={confirmando.id} lancamentoId={confirmando.id} arquivo={anexoArquivo}
+              <DataDoPagamento key={`data-pagamento-${confirmando.id}`} lancamentoId={confirmando.id} arquivo={anexoArquivo}
                 valorEsperado={usaLiquidacao ? (planoLiq?.valorPago ?? null) : Number(confirmando.valor)} onMudar={setDataPag} />
             </div>
           )}
