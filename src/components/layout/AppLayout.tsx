@@ -216,7 +216,7 @@ export default function AppLayout() {
 
   if (loading || !user) {
     return (
-      <div className="h-screen overflow-hidden flex items-center justify-center text-muted-foreground">
+      <div className="h-screen supports-[height:1dvh]:h-dvh overflow-hidden flex items-center justify-center text-muted-foreground">
         Carregando...
       </div>
     );
@@ -268,7 +268,7 @@ export default function AppLayout() {
   return (
     <FichaProvider>
     <NavegacaoProvider>
-    <div className="h-screen overflow-hidden flex w-full bg-background">
+    <div className="h-screen supports-[height:1dvh]:h-dvh overflow-hidden flex w-full bg-background">
       {/* Sidebar desktop */}
       {/* `print:hidden` — achado em 15/09/2026: nenhuma tela com botão
           "Imprimir/PDF" (FinancasConta, FinancasRelatorio...) escondia o

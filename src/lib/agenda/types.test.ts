@@ -108,3 +108,65 @@ describe("migrarFiltros — o que não pode quebrar", () => {
     expect(f.colorBy).toBe("ministerio");
   });
 });
+
+// ─── A agenda nunca abre vazia por filtro desmarcado (16/10/2026) ────────────────────────────────────────────────────────────────────────────
+import {
+  TODAS_AS_CATEGORIAS, TODOS_OS_STATUS, algumFiltroRestringe, filtrosTodosMarcados, incluirNovos,
+} from "./types";
+
+describe("migrarFiltros — nenhuma lista fica vazia", () => {
+  it("status vazio (o que 'Mostrar tudo' gravava) volta com as três caixas marcadas", () => {
+    expect(migrarFiltros({ status: [] }).status).toEqual(TODOS_OS_STATUS);
+    expect(migrarFiltros({}).status).toEqual(TODOS_OS_STATUS);
+  });
+  it("categorias vazias (que escondiam a agenda inteira) voltam todas marcadas", () => {
+    expect(migrarFiltros({ categorias: [] }).categorias).toEqual(TODAS_AS_CATEGORIAS);
+  });
+  it("a escolha que a pessoa fez de verdade é preservada", () => {
+    const f = migrarFiltros({ status: ["agendado"], categorias: ["igreja", "feriado"] });
+    expect(f.status).toEqual(["agendado"]);
+    expect(f.categorias).toEqual(["igreja", "feriado", "arrecadacao"]);   // a camada de arrecadação entra, como sempre
+  });
+  it("o padrão de quem nunca abriu a agenda é tudo marcado", () => {
+    expect(DEFAULT_FILTROS.status).toEqual(TODOS_OS_STATUS);
+    expect(DEFAULT_FILTROS.categorias).toEqual(TODAS_AS_CATEGORIAS);
+    expect(DEFAULT_FILTROS.tipos).toEqual(TODOS_OS_TIPOS);
+  });
+});
+
+describe("filtrosTodosMarcados e algumFiltroRestringe", () => {
+  const universo = { ministerios: ["m1", "m2", "m3"], areas: ["a1", "a2"], locais: ["l1", "l2"] };
+
+  it("marca todas as opções, mantém só a preferência de cor", () => {
+    const f = filtrosTodosMarcados({ ...DEFAULT_FILTROS, colorBy: "ministerio", ministerios: ["m1"], locais: ["l2"], status: ["cancelado"], categorias: ["igreja"] }, universo);
+    expect(f).toMatchObject({ ministerios: ["m1", "m2", "m3"], areas: ["a1", "a2"], locais: ["l1", "l2"], status: TODOS_OS_STATUS, categorias: TODAS_AS_CATEGORIAS, tipos: TODOS_OS_TIPOS, colorBy: "ministerio" });
+    expect(algumFiltroRestringe(f, universo)).toBe(false);
+  });
+
+  it("restringe quando falta ALGUMA opção; vazio ou tudo marcado não restringem (mesma definição do contador do botão)", () => {
+    const todos = filtrosTodosMarcados(DEFAULT_FILTROS, universo);
+    expect(algumFiltroRestringe(todos, universo)).toBe(false);
+    expect(algumFiltroRestringe({ ...todos, locais: ["l1"] }, universo)).toBe(true);
+    expect(algumFiltroRestringe({ ...todos, status: ["agendado"] }, universo)).toBe(true);
+    expect(algumFiltroRestringe({ ...todos, categorias: ["igreja"] }, universo)).toBe(true);
+    expect(algumFiltroRestringe({ ...todos, ministerios: [] }, universo)).toBe(false);
+  });
+});
+
+describe("incluirNovos — restaurar a última seleção sem perder o que nasceu depois", () => {
+  it("lista vazia: tudo marcado", () => {
+    expect(incluirNovos([], undefined, ["a", "b"])).toEqual({ selecionados: ["a", "b"], conhecidos: ["a", "b"], mudou: true });
+  });
+  it("com memória: o que foi desmarcado continua desmarcado e nada muda", () => {
+    expect(incluirNovos(["a"], ["a", "b"], ["a", "b"])).toEqual({ selecionados: ["a"], conhecidos: ["a", "b"], mudou: false });
+  });
+  it("com memória: só o item NOVO entra marcado", () => {
+    expect(incluirNovos(["a"], ["a", "b"], ["a", "b", "c"])).toEqual({ selecionados: ["a", "c"], conhecidos: ["a", "b", "c"], mudou: true });
+  });
+  it("sem memória (legado): todos contam como novos uma vez", () => {
+    expect(incluirNovos(["a"], undefined, ["a", "b"])).toEqual({ selecionados: ["a", "b"], conhecidos: ["a", "b"], mudou: true });
+  });
+  it("não duplica", () => {
+    expect(incluirNovos(["a", "c"], ["a"], ["a", "c"]).selecionados).toEqual(["a", "c"]);
+  });
+});

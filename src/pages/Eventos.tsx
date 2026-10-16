@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { conferir } from "@/lib/escritaConferida";
@@ -28,7 +28,7 @@ import {
   AgendaFiltros,
   AgendaView,
   AreaOpt,
-  DEFAULT_FILTROS, migrarFiltros,
+  DEFAULT_FILTROS, migrarFiltros, TODAS_AS_CATEGORIAS, algumFiltroRestringe, filtrosTodosMarcados, incluirNovos,
   EventoOcorrencia,
   EventoRow,
   LocalOpt,
@@ -190,33 +190,29 @@ export default function Eventos() {
     load();
   }, [load]);
 
-  // Auto-include any new ministerios not yet in the persisted filter (fix invisible events bug)
+  // Ministério, local ou área NOVO entra marcado sozinho (fix invisible events bug) — e só ele. O que a pessoa desmarcou continua desmarcado na próxima abertura
+  // (16/10/2026: antes todo id fora da seleção era remarcado a cada carga, e a escolha "só o Templo" nunca sobrevivia). Ver `incluirNovos`.
   useEffect(() => {
     if (ministerios.length === 0) return;
     setFiltros((prev) => {
-      const newMin = ministerios.map((m) => m.id).filter((id) => !prev.ministerios.includes(id));
-      if (newMin.length === 0) return prev;
-      return { ...prev, ministerios: [...prev.ministerios, ...newMin] };
+      const r = incluirNovos(prev.ministerios, prev.ministeriosConhecidos, ministerios.map((m) => m.id));
+      return r.mudou ? { ...prev, ministerios: r.selecionados, ministeriosConhecidos: r.conhecidos } : prev;
     });
   }, [ministerios, setFiltros]);
 
-  // Auto-include any new locais not yet in the persisted filter
   useEffect(() => {
     if (locais.length === 0) return;
     setFiltros((prev) => {
-      const newLoc = locais.map((l) => l.id).filter((id) => !prev.locais.includes(id));
-      if (newLoc.length === 0) return prev;
-      return { ...prev, locais: [...prev.locais, ...newLoc] };
+      const r = incluirNovos(prev.locais, prev.locaisConhecidos, locais.map((l) => l.id));
+      return r.mudou ? { ...prev, locais: r.selecionados, locaisConhecidos: r.conhecidos } : prev;
     });
   }, [locais, setFiltros]);
 
-  // Auto-include any new areas not yet in the persisted filter
   useEffect(() => {
     if (areas.length === 0) return;
     setFiltros((prev) => {
-      const newAr = areas.map((a) => a.id).filter((id) => !prev.areas.includes(id));
-      if (newAr.length === 0) return prev;
-      return { ...prev, areas: [...prev.areas, ...newAr] };
+      const r = incluirNovos(prev.areas, prev.areasConhecidas, areas.map((a) => a.id));
+      return r.mudou ? { ...prev, areas: r.selecionados, areasConhecidas: r.conhecidos } : prev;
     });
   }, [areas, setFiltros]);
 
@@ -273,7 +269,8 @@ export default function Eventos() {
     }));
     const externos = eventosExternos(from, to);
     const aniversarios = aniversariosNoIntervalo(pessoasAniv, from, to);
-    const cats = filtros.categorias ?? ["igreja", "batista", "feriado", "aniversario", "casamento", "arrecadacao"];
+    // Categoria vazia NÃO esconde a agenda inteira (16/10/2026): sem nenhuma categoria marcada vale todas. Era o único filtro em que "nada marcado" = "nada na tela".
+    const cats = filtros.categorias && filtros.categorias.length > 0 ? filtros.categorias : TODAS_AS_CATEGORIAS;
     // O universo do período, ANTES de qualquer filtro. É o denominador que
     // permite dizer "61 de 102" em vez de só "61" — ver o cabeçalho.
     const universo = [...internos, ...externos, ...aniversarios, ...reservasOcc];
@@ -364,6 +361,22 @@ export default function Eventos() {
   const ocorrencias = ocorrenciasCalc.lista;
   const totalNoPeriodo = ocorrenciasCalc.universo;
   const escondidos = totalNoPeriodo - ocorrencias.length;
+
+  // ── A agenda nunca abre vazia por causa de um filtro esquecido (16/10/2026) ──────────────────────────────────────────────────────────────
+  // O filtro fica salvo no navegador e vale na próxima abertura (isso é bom: restaura a última seleção). Mas se a seleção salva esconde TODOS os eventos do período —
+  // por exemplo, só "Local: Auditório" marcado e o mês não tem nada lá — a pessoa vê uma agenda vazia e conclui que ela perdeu os eventos. Nesse caso, e só na primeira
+  // abertura, volta tudo marcado e avisa. Se o período está vazio de verdade (nada no universo), nada é mexido.
+  const jaConferiuOsFiltros = useRef(false);
+  useEffect(() => {
+    if (loading || jaConferiuOsFiltros.current) return;
+    jaConferiuOsFiltros.current = true;
+    const universo = { ministerios: ministerios.map((m) => m.id), areas: areas.map((a) => a.id), locais: locais.map((l) => l.id) };
+    if (totalNoPeriodo > 0 && ocorrencias.length === 0 && algumFiltroRestringe(filtros, universo)) {
+      setFiltros((f) => filtrosTodosMarcados(f, universo));
+      toast.info("Os filtros salvos escondiam todos os eventos do período — voltei a mostrar tudo.");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
 
   // ── Pendência agregada (Fase 3 do roadmap, Workspace Agenda) ─────────────
   //

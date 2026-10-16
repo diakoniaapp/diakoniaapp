@@ -7,14 +7,14 @@ import { Filter, Palette } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   AgendaFiltros, AreaOpt, CategoriaEvento, EventoStatus, EventoTipo, LocalOpt, MinisterioOpt,
-  STATUS_LABEL, TIPO_LABEL, TODOS_OS_TIPOS,
+  STATUS_LABEL, TIPO_LABEL, TODAS_AS_CATEGORIAS, TODOS_OS_STATUS, TODOS_OS_TIPOS, filtrosTodosMarcados,
 } from "@/lib/agenda/types";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { CATEGORIA_EXTERNAS } from "@/lib/agenda/externalEvents";
 import { CATEGORIA_PESSOAS } from "@/lib/agenda/birthdays";
 
-const ALL_CATS: CategoriaEvento[] = ["igreja", "batista", "feriado", "aniversario", "casamento", "arrecadacao"];
+const ALL_CATS: CategoriaEvento[] = TODAS_AS_CATEGORIAS;
 
 interface Props {
   filtros: AgendaFiltros;
@@ -61,10 +61,10 @@ function MultiPopover({
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-64 p-2 max-h-72 overflow-y-auto" align="start">
+      <PopoverContent className="w-64 p-2 max-h-[min(18rem,var(--radix-popover-content-available-height))] overflow-y-auto" align="start">
         <div className="flex items-center justify-between px-1 pb-1">
           <span className="text-xs font-medium text-muted-foreground">{label}</span>
-          <button type="button" onClick={onClear} className="text-xs text-primary hover:underline">Limpar</button>
+          <button type="button" onClick={onClear} className="text-xs text-primary hover:underline">Marcar todos</button>
         </div>
         {items.length === 0 ? (
           <p className="text-xs text-muted-foreground p-2">Nenhum item.</p>
@@ -85,13 +85,21 @@ export function AgendaFilters({ filtros, onChange, ministerios, areas, locais }:
   const statusItems = useMemo(() => (Object.entries(STATUS_LABEL) as [EventoStatus, string][])
     .map(([id, nome]) => ({ id, nome })), []);
 
-  const toggle = <K extends keyof AgendaFiltros>(key: K, value: string) => {
+  // Os universos de cada filtro: o que "tudo marcado" significa.
+  const universo = {
+    ministerios: ministerios.map(m => m.id), areas: areas.map(a => a.id), locais: locais.map(l => l.id),
+  };
+  const todosDe = (key: "ministerios" | "areas" | "locais" | "status"): string[] => (key === "status" ? TODOS_OS_STATUS : universo[key]);
+
+  // Nunca fica nada desmarcado (16/10/2026): quem tira a ÚLTIMA caixa de uma lista volta a ter todas marcadas. Vazio, aqui, não é um estado que a tela saiba mostrar com
+  // honestidade: para a lista significa "sem restrição" (e as caixas dizem o contrário) e, para categoria, "agenda vazia".
+  const toggle = <K extends "ministerios" | "areas" | "locais" | "status">(key: K, value: string) => {
     const arr = filtros[key] as unknown as string[];
     const next = arr.includes(value) ? arr.filter((x) => x !== value) : [...arr, value];
-    onChange({ ...filtros, [key]: next } as AgendaFiltros);
+    onChange({ ...filtros, [key]: next.length === 0 ? todosDe(key) : next } as AgendaFiltros);
   };
-  const clear = <K extends keyof AgendaFiltros>(key: K) =>
-    onChange({ ...filtros, [key]: [] } as AgendaFiltros);
+  const marcarTodos = (key: "ministerios" | "areas" | "locais" | "status") =>
+    onChange({ ...filtros, [key]: todosDe(key) } as AgendaFiltros);
 
   // Quantos filtros de fato restringem — a mesma definicao do contador de cada
   // chip. Serve de aviso no celular, onde os chips ficam recolhidos: sem isso,
@@ -110,21 +118,25 @@ export function AgendaFilters({ filtros, onChange, ministerios, areas, locais }:
   const chips = (
     <>
       <MultiPopover label="Ministério" items={ministerios.map(m => ({ id: m.id, nome: m.nome }))}
-        selected={filtros.ministerios} onToggle={(v) => toggle("ministerios", v)} onClear={() => clear("ministerios")} />
+        selected={filtros.ministerios} onToggle={(v) => toggle("ministerios", v)} onClear={() => marcarTodos("ministerios")} />
       <MultiPopover label="Área" items={areas.map(a => ({ id: a.id, nome: a.nome }))}
-        selected={filtros.areas} onToggle={(v) => toggle("areas", v)} onClear={() => clear("areas")} />
+        selected={filtros.areas} onToggle={(v) => toggle("areas", v)} onClear={() => marcarTodos("areas")} />
       {/* "Limpar" aqui MARCA todos, não desmarca — igual ao de Categoria.
           Desmarcar as nove devolveria a tela ao estado que se veio consertar:
           nada marcado e a agenda cheia, porque vazio significa "sem
           restrição" no `if` que filtra. Limpar o filtro é voltar a ver tudo,
           e ver tudo agora se escreve com as nove caixas marcadas. */}
       <MultiPopover label="Tipo" items={tiposItems}
-        selected={filtros.tipos} onToggle={(v) => toggle("tipos", v)}
+        selected={filtros.tipos}
+        onToggle={(v) => {
+          const next = filtros.tipos.includes(v as EventoTipo) ? filtros.tipos.filter((x) => x !== v) : [...filtros.tipos, v as EventoTipo];
+          onChange({ ...filtros, tipos: next.length === 0 ? TODOS_OS_TIPOS : next });
+        }}
         onClear={() => onChange({ ...filtros, tipos: TODOS_OS_TIPOS })} />
       <MultiPopover label="Local" items={locais.map(l => ({ id: l.id, nome: l.nome_completo || l.nome }))}
-        selected={filtros.locais} onToggle={(v) => toggle("locais", v)} onClear={() => clear("locais")} />
+        selected={filtros.locais} onToggle={(v) => toggle("locais", v)} onClear={() => marcarTodos("locais")} />
       <MultiPopover label="Status" items={statusItems}
-        selected={filtros.status} onToggle={(v) => toggle("status", v)} onClear={() => clear("status")} />
+        selected={filtros.status} onToggle={(v) => toggle("status", v)} onClear={() => marcarTodos("status")} />
       <MultiPopover
         label="Categoria"
         items={[
@@ -139,7 +151,7 @@ export function AgendaFilters({ filtros, onChange, ministerios, areas, locais }:
           const next = cur.includes(v as CategoriaEvento)
             ? cur.filter((x) => x !== v)
             : [...cur, v as CategoriaEvento];
-          onChange({ ...filtros, categorias: next });
+          onChange({ ...filtros, categorias: next.length === 0 ? ALL_CATS : next });
         }}
         onClear={() => onChange({ ...filtros, categorias: ALL_CATS })}
       />
@@ -174,23 +186,13 @@ export function AgendaFilters({ filtros, onChange, ministerios, areas, locais }:
   // "Cor por" veio junto: e preferencia de exibicao, nao filtro, e ninguem
   // troca duas vezes no mesmo dia.
   /**
-   * Devolve tudo ao estado de "não filtrando".
+   * Devolve tudo ao estado de "não filtrando": TODAS as caixas marcadas.
    *
-   * Não existia, e a falta dela é metade do problema: um filtro fica salvo no
-   * navegador e continua valendo depois de fechar o sistema. Para voltar a ver
-   * a agenda inteira era preciso abrir o painel e REMARCAR caixa por caixa —
-   * vinte e uma áreas, onze ministérios, nove tipos. Ninguém faz isso; a
-   * pessoa conclui que a agenda perdeu eventos.
-   *
-   * "Tudo marcado" e "nada marcado" filtram igual (ver o comentário sobre
-   * narrow em Eventos.tsx), e a lista vazia é a que sobrevive a criar uma
-   * área nova — por isso limpa para vazio, e não para tudo-marcado.
+   * Antes limpava ministérios, áreas, locais, status e tipos para VAZIO — "a lista vazia sobrevive a criar uma área nova". Funcionava por dentro e enganava por fora:
+   * depois de "Mostrar tudo" a pessoa abria o painel e via tudo desmarcado (e o Status ficava assim para sempre, gravado no navegador). Áreas, ministérios e locais novos
+   * já entram marcados sozinhos (efeito em Eventos.tsx), então o vazio não faz mais falta.
    */
-  const limparTudo = () => onChange({
-    ...filtros,
-    ministerios: [], areas: [], tipos: [], locais: [], status: [],
-    categorias: ALL_CATS,
-  });
+  const limparTudo = () => onChange(filtrosTodosMarcados(filtros, universo));
 
   return (
     <Sheet>
@@ -206,7 +208,7 @@ export function AgendaFilters({ filtros, onChange, ministerios, areas, locais }:
           )}
         </Button>
       </SheetTrigger>
-      <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto">
+      <SheetContent side="bottom">
         <SheetHeader className="text-left">
           <SheetTitle className="font-serif">Filtros da agenda</SheetTitle>
         </SheetHeader>

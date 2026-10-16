@@ -83,6 +83,13 @@ export interface AgendaFiltros {
    * esconde eventos que ninguém pediu para esconder — ver `migrarFiltros`.
    */
   tiposConhecidos?: EventoTipo[];
+  /**
+   * O mesmo para ministérios, áreas e locais (16/10/2026): os ids que existiam da última vez. Sem essa memória a tela tratava TODO id fora da seleção como "novo" e o
+   * remarcava a cada abertura — a escolha "só o Templo" não sobrevivia a fechar a Agenda. Com ela, só o que nasceu depois entra marcado sozinho.
+   */
+  ministeriosConhecidos?: string[];
+  areasConhecidas?: string[];
+  locaisConhecidos?: string[];
 }
 
 export const TIPO_LABEL: Record<EventoTipo, string> = {
@@ -113,6 +120,10 @@ export const STATUS_LABEL: Record<EventoStatus, string> = {
  */
 export const TODOS_OS_TIPOS = Object.keys(TIPO_LABEL) as EventoTipo[];
 
+/** Todas as categorias da agenda (igreja, Batista, feriados, aniversários, casamentos, arrecadação). */
+export const TODAS_AS_CATEGORIAS: CategoriaEvento[] = ["igreja", "batista", "feriado", "aniversario", "casamento", "arrecadacao"];
+export const TODOS_OS_STATUS = Object.keys(STATUS_LABEL) as EventoStatus[];
+
 export const DEFAULT_FILTROS: AgendaFiltros = {
   ministerios: [],
   areas: [],
@@ -126,9 +137,9 @@ export const DEFAULT_FILTROS: AgendaFiltros = {
   // parecem um filtro quebrado.
   tipos: TODOS_OS_TIPOS,
   locais: [],
-  status: ["agendado", "realizado", "cancelado"],
+  status: TODOS_OS_STATUS,
   colorBy: "tipo",
-  categorias: ["igreja", "batista", "feriado", "aniversario", "casamento", "arrecadacao"],
+  categorias: TODAS_AS_CATEGORIAS,
   tiposConhecidos: TODOS_OS_TIPOS,
 };
 
@@ -165,6 +176,10 @@ export const DEFAULT_FILTROS: AgendaFiltros = {
 export function migrarFiltros(gravado: unknown): AgendaFiltros {
   const p = { ...(gravado as Record<string, unknown>) };
 
+  // Categorias vazias ANTES de qualquer outra regra: "nenhuma categoria" escondia a agenda inteira, e o passo da arrecadação abaixo transformava o vazio em ["arrecadacao"] —
+  // quem desmarcou tudo reabria vendo só a camada de arrecadação.
+  if (!Array.isArray(p.categorias) || p.categorias.length === 0) p.categorias = TODAS_AS_CATEGORIAS;
+
   // Camada de arrecadação: quem tem filtro anterior a ela não a veria.
   if (Array.isArray(p.categorias) && !p.categorias.includes("arrecadacao")) {
     p.categorias = [...p.categorias, "arrecadacao"];
@@ -194,5 +209,51 @@ export function migrarFiltros(gravado: unknown): AgendaFiltros {
   }
   p.tiposConhecidos = TODOS_OS_TIPOS;
 
+  // Status e categorias também nunca ficam vazios (16/10/2026). Status vazio era gravado por "Mostrar tudo"/"Limpar" e voltava com as três caixas desmarcadas; categorias vazias
+  // escondem a agenda INTEIRA (o filtro de categoria, ao contrário dos outros, não trata vazio como "sem restrição"). Em ambos, vazio ⇒ tudo marcado: o que a pessoa via não muda.
+  if (!Array.isArray(p.status) || p.status.length === 0) p.status = TODOS_OS_STATUS;
+
   return { ...DEFAULT_FILTROS, ...(p as Partial<AgendaFiltros>) };
+}
+
+/** Os universos de opções que só a tela conhece (ministérios, áreas e locais carregados do banco). */
+export interface UniversoDosFiltros { ministerios: string[]; areas: string[]; locais: string[] }
+
+/**
+ * Todos os filtros marcados — a Agenda como ela deve abrir. Preserva só a preferência de exibição (`colorBy`).
+ *
+ * "Nenhuma caixa marcada" nunca é um estado válido: para os filtros de lista vazio significa "sem restrição" e para categoria significa "agenda vazia"; nos dois casos a tela mostra
+ * quadradinhos vazios, que é como um filtro quebrado parece. O estado de "ver tudo" se escreve com tudo marcado.
+ */
+export function filtrosTodosMarcados(atual: AgendaFiltros, universo: UniversoDosFiltros): AgendaFiltros {
+  return {
+    ...atual,
+    ministerios: universo.ministerios, areas: universo.areas, locais: universo.locais,
+    tipos: TODOS_OS_TIPOS, status: TODOS_OS_STATUS, categorias: TODAS_AS_CATEGORIAS,
+    tiposConhecidos: TODOS_OS_TIPOS,
+    ministeriosConhecidos: universo.ministerios, areasConhecidas: universo.areas, locaisConhecidos: universo.locais,
+  };
+}
+
+/**
+ * Inclui, marcados, os itens que NASCERAM depois da última vez (ministério, área ou local novo) — e só eles.
+ *
+ * · lista vazia (nunca houve seleção) ⇒ tudo marcado, que é como a Agenda abre;
+ * · sem memória (filtro gravado antes desta regra) ⇒ todos os itens contam como novos, uma única vez: nada some do que a pessoa via;
+ * · com memória ⇒ o que a pessoa desmarcou continua desmarcado: é a "última seleção" sendo restaurada.
+ */
+export function incluirNovos(selecionados: string[], conhecidos: string[] | undefined, todos: string[]): { selecionados: string[]; conhecidos: string[]; mudou: boolean } {
+  const sabidos = conhecidos ?? [];
+  const novos = todos.filter((id) => !sabidos.includes(id));
+  if (selecionados.length === 0) return { selecionados: todos, conhecidos: todos, mudou: true };
+  if (novos.length === 0) return { selecionados, conhecidos: sabidos, mudou: false };
+  return { selecionados: [...selecionados, ...novos.filter((id) => !selecionados.includes(id))], conhecidos: [...new Set([...sabidos, ...todos])], mudou: true };
+}
+
+/** Algum filtro deixa de fora parte do que existe? (a mesma definição do contador do botão Filtros) */
+export function algumFiltroRestringe(f: AgendaFiltros, universo: UniversoDosFiltros): boolean {
+  const restringe = (sel: number, total: number) => sel > 0 && sel < total;
+  return restringe(f.ministerios.length, universo.ministerios.length) || restringe(f.areas.length, universo.areas.length)
+    || restringe(f.locais.length, universo.locais.length) || restringe(f.tipos.length, TODOS_OS_TIPOS.length)
+    || restringe(f.status.length, TODOS_OS_STATUS.length) || restringe((f.categorias ?? TODAS_AS_CATEGORIAS).length, TODAS_AS_CATEGORIAS.length);
 }

@@ -552,6 +552,17 @@
    ════════════════════════════════════════════════════════════ */
 @layer utilities {
 
+  /* ── Altura máxima das caixas no celular (16/10/2026) ─────────────────────────────────────────────────────────────────────
+     `vh` é a altura da tela com a barra do navegador RECOLHIDA; com ela visível, uma caixa de 90vh passa do que se enxerga e o rodapé (Salvar) fica
+     fora de alcance. `dvh` acompanha a barra. Sobrescreve as classes `max-h-[Nvh]` já usadas nos diálogos, sem mexer em cada tela. */
+  @supports (height: 1dvh) {
+    .max-h-\[80vh\] { max-height: 80dvh; }
+    .max-h-\[85vh\] { max-height: 85dvh; }
+    .max-h-\[88vh\] { max-height: 88dvh; }
+    .max-h-\[90vh\] { max-height: 90dvh; }
+    .max-h-\[92vh\] { max-height: 92dvh; }
+  }
+
   /* ── Scrollbar ───────────────────────────────────────────── */
   ::-webkit-scrollbar       { width: 5px; height: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
