@@ -112,6 +112,8 @@ export default function FinancasPrestacaoContas() {
   const contaId = searchParams.get("conta") || "";
   // Papel do PDF: paisagem (o de sempre) ou retrato, mais econômico (vai na URL, como o resto do período)
   const orientacaoParam = searchParams.get("orientacao") === "retrato" ? "retrato" : searchParams.get("orientacao") === "paisagem" ? "paisagem" : null;
+  // Versão: SIMPLES (a de antes de 15/10/2026: demonstração, compras ofertadas e encargos) ou AVANÇADA (a atual: resumo executivo, despesas financeiras em blocos, dízimos, fluxo de caixa e indicadores)
+  const simples = searchParams.get("versao") === "simples";
   const MAX_MESES_EM_RETRATO = 4;
   const retratoPedido = (orientacaoParam ?? (qtdMeses <= MAX_MESES_EM_RETRATO ? "retrato" : "paisagem")) === "retrato";
   const retrato = retratoPedido && qtdMeses <= MAX_MESES_EM_RETRATO;
@@ -209,12 +211,22 @@ export default function FinancasPrestacaoContas() {
     const params: Record<string, string> = { ano: String(novoAno), mes: String(novoMes), qtd: String(novaQtd) };
     if (novaContaId) params.conta = novaContaId;
     if (orientacaoParam) params.orientacao = orientacaoParam;
+    if (simples) params.versao = "simples";
     setSearchParams(params);
   }
 
   function mudarOrientacao(o: "retrato" | "paisagem") {
     const params: Record<string, string> = { ano: String(ano), mes: String(mes), qtd: String(qtdMeses), orientacao: o };
     if (contaId) params.conta = contaId;
+    if (simples) params.versao = "simples";
+    setSearchParams(params);
+  }
+
+  function mudarVersao(v: "simples" | "avancada") {
+    const params: Record<string, string> = { ano: String(ano), mes: String(mes), qtd: String(qtdMeses) };
+    if (contaId) params.conta = contaId;
+    if (orientacaoParam) params.orientacao = orientacaoParam;
+    if (v === "simples") params.versao = "simples";
     setSearchParams(params);
   }
 
@@ -256,7 +268,7 @@ export default function FinancasPrestacaoContas() {
   function exportarCSV() {
     if (!dados) return;
     const sufixoConta = contaAtual ? `_${contaAtual.nome.replace(/\s+/g, "")}` : "";
-    downloadCSV(`QIBRJ_Prestacao_de_Contas_${ano}${String(mes).padStart(2, "0")}_${qtdMeses}m${sufixoConta}.csv`, gerarCSVPrestacaoContas(dados));
+    downloadCSV(`QIBRJ_Prestacao_de_Contas_${ano}${String(mes).padStart(2, "0")}_${qtdMeses}m${sufixoConta}.csv`, gerarCSVPrestacaoContas(dados, { simples }));
     toast.success("CSV exportado");
   }
 
@@ -289,6 +301,45 @@ export default function FinancasPrestacaoContas() {
         @media print {
           @page { size: A4 ${retrato ? "portrait" : "landscape"}; margin: ${retrato ? "0.9cm 1cm" : "1.2cm 1.5cm"}; }
         }
+        /* Versão SIMPLES: cabe em UMA folha. Ministérios em uma linha, compras ofertadas em resumo, espaços e letra compactos (vale em retrato e em paisagem). */
+        @media print {
+          .rel-simples .rel-cabecalho { padding-bottom: 3px !important; }
+          .rel-simples .rel-cabecalho img { height: 28px !important; }
+          .rel-simples .rel-cabecalho h2 { font-size: 13px !important; }
+          .rel-simples .rel-cabecalho p { font-size: 9px !important; margin: 0 !important; }
+          .rel-simples .rel-titulo { margin: 4px 0 !important; }
+          .rel-simples .rel-titulo h1 { font-size: 17px !important; margin-top: 0 !important; }
+          .rel-simples .rel-titulo p { font-size: 9px !important; margin: 0 !important; }
+          .rel-simples .tabela-prestacao, .rel-simples .tabela-prestacao td, .rel-simples .tabela-prestacao th { font-size: 10px !important; line-height: 1.2 !important; }
+          .rel-simples .tabela-prestacao td, .rel-simples .tabela-prestacao th { padding-top: 1px !important; padding-bottom: 1px !important; }
+          .rel-simples .tabela-prestacao td.pt-7 { padding-top: 6px !important; }
+          .rel-simples .tabela-prestacao h3 { font-size: 10.5px !important; padding-bottom: 0 !important; }
+          .rel-simples .secao-rel { margin-bottom: 6px !important; }
+          .rel-simples .tabela-compras, .rel-simples .tabela-compras td, .rel-simples .tabela-compras th { font-size: 9px !important; padding-top: 0 !important; padding-bottom: 0 !important; }
+          .rel-simples .obs-ofertadas { display: none !important; }
+          .rel-simples section.mb-6 { margin-bottom: 6px !important; }
+          .rel-simples .bloco-assinaturas { margin-top: 14px !important; padding-top: 0 !important; }
+          .rel-simples .rel-rodape { margin-top: 8px !important; padding-top: 4px !important; }
+        }
+        @media print {
+          .rel-simples:not(.rel-retrato) .rel-cabecalho img { height: 22px !important; }
+          .rel-simples:not(.rel-retrato) .rel-cabecalho { padding-bottom: 2px !important; }
+          .rel-simples:not(.rel-retrato) .rel-titulo { margin: 2px 0 !important; }
+          .rel-simples:not(.rel-retrato) .rel-titulo h1 { font-size: 15px !important; }
+          .rel-simples:not(.rel-retrato) .tabela-prestacao, .rel-simples:not(.rel-retrato) .tabela-prestacao td, .rel-simples:not(.rel-retrato) .tabela-prestacao th { font-size: 9.5px !important; line-height: 1.1 !important; }
+          .rel-simples:not(.rel-retrato) .tabela-prestacao td, .rel-simples:not(.rel-retrato) .tabela-prestacao th { padding-top: 0.5px !important; padding-bottom: 0.5px !important; }
+          .rel-simples:not(.rel-retrato) .tabela-prestacao td.pt-7 { padding-top: 4px !important; }
+          .rel-simples:not(.rel-retrato) .bloco-assinaturas { margin-top: 6px !important; }
+          .rel-simples:not(.rel-retrato) .bloco-assinaturas p { font-size: 9.5px !important; line-height: 1.15 !important; }
+          .rel-simples:not(.rel-retrato) .rel-rodape { margin-top: 3px !important; padding-top: 2px !important; }
+          .rel-simples:not(.rel-retrato) .rel-rodape p { font-size: 9px !important; margin: 0 !important; }
+          .rel-simples:not(.rel-retrato) section.mb-6 { margin-bottom: 3px !important; }
+          .rel-simples .tabela-larga td:first-child, .rel-simples .tabela-larga th:first-child { min-width: 52mm !important; width: 52mm !important; }
+          .rel-simples:not(.rel-retrato) section[aria-label='Compras ofertadas por terceiros'] h3 { font-size: 10px !important; margin: 0 !important; }
+          .rel-simples:not(.rel-retrato) section[aria-label='Compras ofertadas por terceiros'] p { font-size: 9.5px !important; margin: 0 !important; }
+          .rel-simples:not(.rel-retrato) .bloco-assinaturas { margin-top: 4px !important; }
+          .rel-simples:not(.rel-retrato) .rel-rodape { margin-top: 2px !important; display: flex !important; justify-content: center; align-items: baseline; gap: 8px; }
+        }
         /* Mais de 6 meses (muitas colunas de valor): o nome da categoria mantém uma largura mínima e o texto fica um pouco menor. */
         @media print {
           .tabela-larga { font-size: 9px !important; }
@@ -307,18 +358,18 @@ export default function FinancasPrestacaoContas() {
           .rel-retrato .secao-rel { margin-bottom: 8px !important; }
           .rel-retrato .secao-rel h3 { margin-bottom: 3px !important; }
           .rel-retrato .grade-cartoes { gap: 5px !important; }
-          .rel-retrato .cartao-rel { padding: 4px 7px !important; }
-          .rel-retrato .cartao-rel-t { font-size: 8px !important; }
-          .rel-retrato .cartao-rel-v { font-size: 13px !important; }
-          .rel-retrato .cartao-rel-d { font-size: 8px !important; margin-top: 0 !important; line-height: 1.15 !important; }
+          .rel-retrato .cartao-rel { padding: 5px 8px !important; }
+          .rel-retrato .cartao-rel-t { font-size: 9.5px !important; }
+          .rel-retrato .cartao-rel-v { font-size: 15px !important; line-height: 1.2 !important; }
+          .rel-retrato .cartao-rel-d { font-size: 9px !important; margin-top: 1px !important; line-height: 1.2 !important; }
           .rel-retrato .grade-gerencial { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
-          .rel-retrato .tabela-prestacao { font-size: 10.5px !important; }
-          .rel-retrato .tabela-prestacao td, .rel-retrato .tabela-prestacao th { font-size: 10.5px !important; padding-top: 1px !important; padding-bottom: 1px !important; line-height: 1.25 !important; }
+          .rel-retrato .tabela-prestacao { font-size: 11px !important; }
+          .rel-retrato .tabela-prestacao td, .rel-retrato .tabela-prestacao th { font-size: 11px !important; padding-top: 1px !important; padding-bottom: 1px !important; line-height: 1.25 !important; }
           .rel-retrato .tabela-prestacao td.pt-7 { padding-top: 9px !important; }
-          .rel-retrato .tabela-prestacao h3 { font-size: 11px !important; }
-          .rel-retrato .tabela-compras { font-size: 9.5px !important; }
+          .rel-retrato .tabela-prestacao h3 { font-size: 11.5px !important; }
+          .rel-retrato .tabela-compras { font-size: 10px !important; }
           .rel-retrato .tabela-compras td, .rel-retrato .tabela-compras th { padding-top: 1px !important; padding-bottom: 1px !important; }
-          .rel-retrato .obs-ofertadas { padding: 4px 8px !important; font-size: 9.5px !important; margin-bottom: 4px !important; }
+          .rel-retrato .obs-ofertadas { padding: 4px 8px !important; font-size: 10px !important; margin-bottom: 4px !important; }
           .rel-retrato .bloco-assinaturas { margin-top: 12px !important; padding-top: 0 !important; }
           .rel-retrato .rel-rodape { margin-top: 8px !important; padding-top: 5px !important; }
         }
@@ -360,6 +411,16 @@ export default function FinancasPrestacaoContas() {
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="flex items-center justify-center gap-1.5 flex-wrap" role="group" aria-label="Versão do relatório">
+            <span className="text-xs text-muted-foreground">Versão do relatório</span>
+            <Button size="sm" variant={simples ? "default" : "outline"} aria-pressed={simples} className="h-8 text-xs" title="Demonstração, compras ofertadas e encargos — o relatório de antes" onClick={() => mudarVersao("simples")}>
+              Simples
+            </Button>
+            <Button size="sm" variant={simples ? "outline" : "default"} aria-pressed={!simples} className="h-8 text-xs" title="Inclui resumo executivo, despesas financeiras, dízimos, fluxo de caixa e indicadores" onClick={() => mudarVersao("avancada")}>
+              Avançada
+            </Button>
           </div>
 
           <div className="flex items-center justify-center gap-1.5 flex-wrap" role="group" aria-label="Papel do PDF">
@@ -452,7 +513,7 @@ export default function FinancasPrestacaoContas() {
       </div>
 
       {/* PÁGINA DO RELATÓRIO */}
-      <div className={`relatorio-page ${retrato ? "rel-retrato" : ""} max-w-5xl mx-auto bg-white text-foreground p-8 md:p-10 my-4 md:my-6 shadow-elevated border border-border/40 rounded-md print:my-0`}>
+      <div className={`relatorio-page ${retrato ? "rel-retrato" : ""} ${simples ? "rel-simples" : ""} max-w-5xl mx-auto bg-white text-foreground p-8 md:p-10 my-4 md:my-6 shadow-elevated border border-border/40 rounded-md print:my-0`}>
         <header className="rel-cabecalho avoid-break flex items-start justify-between gap-4 pb-4 border-b-2 border-gold/30">
           <div className="flex flex-col items-center gap-1">
             <img src={logoDiakonia} alt="DIAKONIA" className="h-14 w-auto object-contain"
@@ -492,7 +553,7 @@ export default function FinancasPrestacaoContas() {
         </div>
 
         {/* Resumo executivo (15/10/2026): a leitura rápida da situação, antes da grade. Sai dos mesmos totais da tabela abaixo. */}
-        <ResumoExecutivoDaPrestacao resumo={resumo} />
+        {!simples && <ResumoExecutivoDaPrestacao resumo={resumo} />}
 
         <section className="mb-6 overflow-x-auto">
           <table className={`tabela-prestacao ${qtdMeses > 6 ? "tabela-larga" : ""} w-full text-xs border-collapse`}>
@@ -507,7 +568,7 @@ export default function FinancasPrestacaoContas() {
               </tr>
             </thead>
             <tbody>
-              <LinhaTotal titulo="Saldo Inicial" valores={dados.saldoAnterior} />
+              <LinhaTotal titulo={simples ? "Saldo Anterior" : "Saldo Inicial"} valores={dados.saldoAnterior} />
 
               <LinhaSecao titulo="Receitas" />
               {dados.gruposReceita.length === 0 ? (
@@ -526,17 +587,20 @@ export default function FinancasPrestacaoContas() {
               <LinhaTotal titulo="Dizimistas no período (nomes únicos)" valores={dados.dizimistasPorMes}
                 formatador={(n) => String(n)} />
 
-              <LinhaSecao titulo="Despesas dos Ministérios" />
+              <LinhaSecao titulo={simples ? "Despesas" : "Despesas dos Ministérios"} />
               {dados.gruposDespesaPorCentro.length === 0 ? (
                 <LinhaVazia texto="Sem despesas oficiais no período." colSpan={dados.meses.length + 1} />
-              ) : dados.gruposDespesaPorCentro.map(g => (
+              ) : simples ? dados.gruposDespesaPorCentro.map(g => (
+                <LinhaDoGrupo key={g.chave} titulo={g.titulo} valores={g.valores} cor="text-destructive-text" />
+              )) : dados.gruposDespesaPorCentro.map(g => (
                 <Bloco key={g.chave} grupo={g} centroCustoId={g.chave === "__sem_centro__" ? null : g.chave} onNota={abrirNota} corTotal="text-destructive-text" />
               ))}
-              <LinhaTotal titulo="Total Despesas dos Ministérios" valores={dados.totalDespesas} destaque cor="text-destructive-text" />
+              <LinhaTotal titulo={simples ? "Total Despesas" : "Total Despesas dos Ministérios"} valores={dados.totalDespesas} destaque cor="text-destructive-text" />
 
               {/* Despesas financeiras (15/10/2026): seção própria, sempre presente (mesmo zerada, o Conselho vê que não houve), com subtotal de tarifas,
                   título de capitalização e demais encargos. Os valores são os mesmos que já entravam no Resultado. */}
               </tbody>
+              {!simples && (
               <tbody style={{ breakInside: "avoid" }}>
               <LinhaSecao titulo="Despesas Financeiras" />
               {financeiras.subgrupos.map(g => (
@@ -544,7 +608,15 @@ export default function FinancasPrestacaoContas() {
               ))}
               <LinhaTotal titulo="Total Despesas Financeiras" valores={financeiras.valores} destaque cor="text-destructive-text" />
               </tbody>
+              )}
               <tbody>
+              {simples && dados.grupoDespesasFinanceiras && (
+                <>
+                  <LinhaSecao titulo="Despesas Financeiras" />
+                  <Bloco grupo={dados.grupoDespesasFinanceiras} centroCustoId={null} onNota={abrirNota}
+                    corTotal="text-destructive-text" semSubtotalProprio />
+                </>
+              )}
               {dados.grupoOutrasDespesas && (
                 <>
                   <LinhaSecao titulo="Outras Despesas" />
@@ -555,8 +627,8 @@ export default function FinancasPrestacaoContas() {
 
               </tbody>
               <tbody style={{ breakInside: "avoid" }}>
-              <LinhaTotal titulo="Total Geral de Despesas" valores={despesaTotalPorMes(dados)} destaque cor="text-destructive-text" />
-              <LinhaTotal titulo={resumo.situacao === "deficit" ? "Resultado do Período (Déficit)" : resumo.situacao === "superavit" ? "Resultado do Período (Superávit)" : "Resultado do Período"} valores={dados.resultado} destaque forte
+              {!simples && <LinhaTotal titulo="Total Geral de Despesas" valores={despesaTotalPorMes(dados)} destaque cor="text-destructive-text" />}
+              <LinhaTotal titulo={simples ? "Resultado do Período" : resumo.situacao === "deficit" ? "Resultado do Período (Déficit)" : resumo.situacao === "superavit" ? "Resultado do Período (Superávit)" : "Resultado do Período"} valores={dados.resultado} destaque forte
                 cor={dados.resultado.every(v => v >= 0) ? "text-success-text" : undefined} />
               <LinhaTotal titulo="Saldo Final" valores={dados.saldoFinal} destaque />
             </tbody>
@@ -593,11 +665,64 @@ export default function FinancasPrestacaoContas() {
         })()}
 
         {/* Indicadores de dízimos (15/10/2026): do período inteiro (dizimistas únicos, não a soma dos meses). */}
-        <IndicadoresDeDizimosDaPrestacao ind={dados.indicadoresDizimos} />
+        {!simples && <IndicadoresDeDizimosDaPrestacao ind={dados.indicadoresDizimos} />}
 
         {/* Compras OFERTADAS por terceiros (14/10/2026; revisada em 15/10/2026): despesa da igreja que não moveu caixa. Seção própria, FORA da demonstração
             acima: não entra em receitas, despesas, resultado nem saldo. Num relatório de UMA conta ela não se aplica (a oferta não tem conta). */}
-        {(dados.comprasOfertadas.itens.length > 0 || !contaId) && (
+        {simples && retrato && dados.comprasOfertadas.itens.length > 0 && dados.comprasOfertadas.itens.length <= 5 && (
+          <section className="secao-rel avoid-break mb-6" aria-label="Compras ofertadas por terceiros">
+            <div className="flex items-baseline justify-between mb-1">
+              <h3 className="font-serif text-sm text-gold uppercase tracking-wide">Compras ofertadas por terceiros — fora do caixa</h3>
+              <span className="text-xs text-muted-foreground">
+                {dados.comprasOfertadas.itens.length} {dados.comprasOfertadas.itens.length === 1 ? "compra" : "compras"}
+              </span>
+            </div>
+            <p className="obs-ofertadas text-xs text-muted-foreground mb-2">
+              Despesas da igreja pagas diretamente por um terceiro, como oferta. Não passaram por banco, caixa, aplicação nem cartão, não se ligam a nenhuma conta
+              e não entram em receitas, despesas, resultado nem saldo acima.
+            </p>
+            <div className="overflow-x-auto">
+              <table className="tabela-compras w-full text-[11px] border-collapse">
+                <thead>
+                  <tr className="border-b-2 border-gold/40 text-left text-muted-foreground">
+                    <th className="py-1 pr-2 w-16">Data</th>
+                    <th className="py-1 pr-2">Fornecedor</th>
+                    <th className="py-1 pr-2">Categoria</th>
+                    <th className="py-1 pr-2">Centro de custo</th>
+                    <th className="py-1 text-right w-24">Valor</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dados.comprasOfertadas.itens.map(i => (
+                    <tr key={i.id} className="border-b border-border/30">
+                      <td className="py-1 pr-2 whitespace-nowrap">{i.data.split("-").reverse().join("/")}</td>
+                      <td className="py-1 pr-2 max-w-[260px] break-words">{i.favorecido}</td>
+                      <td className="py-1 pr-2">{i.categoriaNome ?? "—"}</td>
+                      <td className="py-1 pr-2">{i.centroNome ?? "—"}</td>
+                      <td className="py-1 text-right tabular-nums">{brl(i.valor)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-gold/40 font-semibold">
+                    <td colSpan={4} className="py-1.5 text-xs">Total de compras ofertadas por terceiros</td>
+                    <td className="py-1.5 text-right tabular-nums">{brl(dados.comprasOfertadas.total)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </section>
+        )}
+        {simples && dados.comprasOfertadas.itens.length > 0 && (!retrato || dados.comprasOfertadas.itens.length > 5) && (
+          <section className="secao-rel avoid-break mb-6" aria-label="Compras ofertadas por terceiros">
+            <h3 className="font-serif text-sm text-gold uppercase tracking-wide mb-1">Compras ofertadas por terceiros — fora do caixa</h3>
+            <p className="text-xs">
+              <b>{dados.comprasOfertadas.itens.length} {dados.comprasOfertadas.itens.length === 1 ? "compra" : "compras"}</b> · <b className="tabular-nums">{brl(dados.comprasOfertadas.total)}</b>. Fora do caixa: não entram em receitas, despesas, resultado nem saldo.
+              A relação completa está na versão Avançada.
+            </p>
+          </section>
+        )}
+        {!simples && (dados.comprasOfertadas.itens.length > 0 || !contaId) && (
           <section className="secao-rel avoid-break mb-6" aria-label="Compras ofertadas por terceiros">
             <div className="flex items-baseline justify-between mb-1">
               <h3 className="font-serif text-sm text-gold uppercase tracking-wide">Compras Ofertadas por Terceiros</h3>
@@ -608,12 +733,12 @@ export default function FinancasPrestacaoContas() {
             </p>
             <dl className="grade-cartoes grid grid-cols-2 gap-2.5 mb-2 max-w-md">
               <div className="cartao-rel rounded-md border border-border/60 bg-white p-2.5">
-                <dt className="cartao-rel-t text-[10px] uppercase tracking-wide text-muted-foreground">Quantidade de compras ofertadas</dt>
-                <dd className="cartao-rel-v font-serif text-lg tabular-nums">{dados.comprasOfertadas.itens.length}</dd>
+                <dt className="cartao-rel-t text-[11px] font-semibold uppercase tracking-wide text-foreground/70">Quantidade de compras ofertadas</dt>
+                <dd className="cartao-rel-v font-sans font-semibold text-xl tabular-nums">{dados.comprasOfertadas.itens.length}</dd>
               </div>
               <div className="cartao-rel rounded-md border border-border/60 bg-white p-2.5">
-                <dt className="cartao-rel-t text-[10px] uppercase tracking-wide text-muted-foreground">Valor total ofertado</dt>
-                <dd className="cartao-rel-v font-serif text-lg tabular-nums">{brl(dados.comprasOfertadas.total)}</dd>
+                <dt className="cartao-rel-t text-[11px] font-semibold uppercase tracking-wide text-foreground/70">Valor total ofertado</dt>
+                <dd className="cartao-rel-v font-sans font-semibold text-xl tabular-nums">{brl(dados.comprasOfertadas.total)}</dd>
               </div>
             </dl>
             {dados.comprasOfertadas.itens.length === 0 ? (
@@ -654,13 +779,13 @@ export default function FinancasPrestacaoContas() {
         )}
 
         {/* Juros, multas e descontos: atributos das obrigações pagas no período (cada documento continua sendo UM) */}
-        <EncargosDoPeriodo
+        {!simples && <EncargosDoPeriodo
           de={`${ano}-${String(mes).padStart(2, "0")}-01`}
           ate={`${anoFim}-${String(mesFim).padStart(2, "0")}-${String(new Date(anoFim, mesFim, 0).getDate()).padStart(2, "0")}`}
-          contaId={contaId || undefined} />
+          contaId={contaId || undefined} />}
 
         {/* Indicadores Financeiros e Fluxo de Caixa (15/10/2026): complementa a prestação acima, não a substitui. Sai na impressão/PDF, em página própria. */}
-        <FluxoDeCaixaDaPrestacao r={dados} contaFiltrada={!!contaId} retrato={retrato} />
+        {!simples && <FluxoDeCaixaDaPrestacao r={dados} contaFiltrada={!!contaId} retrato={retrato} />}
 
         {/* Assinaturas */}
         <section className="bloco-assinaturas avoid-break mt-12 pt-4">
@@ -775,6 +900,18 @@ function LinhaSecao({ titulo }: { titulo: string }) {
       <td colSpan={99} className="pt-7 pb-1">
         <h3 className="font-serif text-sm text-gold uppercase tracking-[0.12em] border-b-2 border-gold/40 pb-1">{titulo}</h3>
       </td>
+    </tr>
+  );
+}
+
+/** Um grupo em UMA linha (título + valor de cada mês), sem as categorias: a versão simples. */
+function LinhaDoGrupo({ titulo, valores, cor }: { titulo: string; valores: number[]; cor: string }) {
+  return (
+    <tr className="border-b border-border/30">
+      <td className="py-0.5 pl-3">{titulo}</td>
+      {valores.map((v, i) => (
+        <td key={i} className={`py-0.5 text-right tabular-nums whitespace-nowrap ${cor}`}>{v === 0 ? "—" : brl(v)}</td>
+      ))}
     </tr>
   );
 }

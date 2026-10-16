@@ -90,10 +90,10 @@ export function GraficoDeFluxo({ pontos, resumoAcessivel, retrato = false }: { p
 function Cartao({ titulo, valor, detalhe, cor }: { titulo: string; valor: string; detalhe?: string; cor?: string }) {
   return (
     <div className="cartao-rel rounded-md border border-border/60 bg-white p-3 min-w-0" style={EXATO}>
-      <dt className="cartao-rel-t text-[10px] uppercase tracking-wide text-muted-foreground">{titulo}</dt>
+      <dt className="cartao-rel-t text-[11px] font-semibold uppercase tracking-wide text-foreground/70">{titulo}</dt>
       <dd className="mt-0.5 min-w-0">
-        <span className={`cartao-rel-v block font-serif text-[15px] sm:text-lg tabular-nums whitespace-nowrap ${cor ?? ""}`}>{valor}</span>
-        {detalhe && <span className="cartao-rel-d block text-[11px] text-muted-foreground mt-0.5">{detalhe}</span>}
+        <span className={`cartao-rel-v block font-sans font-semibold text-[15px] sm:text-xl tabular-nums whitespace-nowrap ${cor ?? ""}`}>{valor}</span>
+        {detalhe && <span className="cartao-rel-d block text-xs text-muted-foreground mt-1">{detalhe}</span>}
       </dd>
     </div>
   );

@@ -9,10 +9,10 @@ const EXATO = { printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" } as 
 function Cartao({ titulo, valor, detalhe, cor, forte }: { titulo: string; valor: string; detalhe?: React.ReactNode; cor?: string; forte?: boolean }) {
   return (
     <div className={`cartao-rel rounded-md border bg-white p-3 min-w-0 ${forte ? "border-gold/60" : "border-border/60"}`} style={EXATO}>
-      <dt className="cartao-rel-t text-[10px] uppercase tracking-wide text-muted-foreground">{titulo}</dt>
-      <dd className="mt-0.5 min-w-0">
-        <span className={`cartao-rel-v block font-serif tabular-nums whitespace-nowrap ${forte ? "text-[15px] sm:text-xl" : "text-[15px] sm:text-lg"} ${cor ?? ""}`}>{valor}</span>
-        {detalhe && <span className="cartao-rel-d block text-[11px] text-muted-foreground mt-0.5">{detalhe}</span>}
+      <dt className="cartao-rel-t text-[11px] font-semibold uppercase tracking-wide text-foreground/70">{titulo}</dt>
+      <dd className="mt-1 min-w-0">
+        <span className={`cartao-rel-v block font-sans font-semibold tabular-nums whitespace-nowrap ${forte ? "text-[15px] sm:text-2xl" : "text-[15px] sm:text-xl"} ${cor ?? ""}`}>{valor}</span>
+        {detalhe && <span className="cartao-rel-d block text-xs text-muted-foreground mt-1">{detalhe}</span>}
       </dd>
     </div>
   );

@@ -229,3 +229,82 @@ describe("Prestação de Contas — papel do PDF: retrato (menos folhas) ou pais
     expect(css()).toContain(".tabela-larga td:first-child");
   });
 });
+
+describe("Prestação de Contas — versão simples (uma folha) e versão avançada", () => {
+  const base = "/financas/prestacao-de-contas?ano=2026&mes=9&qtd=2";
+  const botao = (el: HTMLElement, trecho: string) => [...el.querySelectorAll("button")].find(b => b.textContent!.includes(trecho)) as HTMLButtonElement;
+
+  it("a avançada é o padrão e o seletor mostra as duas versões", async () => {
+    completo();
+    const el = await abrir(base);
+    expect(botao(el, "Avançada").getAttribute("aria-pressed")).toBe("true");
+    expect(botao(el, "Simples").getAttribute("aria-pressed")).toBe("false");
+    expect(el.textContent).toContain("Resumo Executivo");
+  });
+
+  it("a simples tira o resumo executivo, os indicadores de dízimos, o fluxo de caixa e os indicadores gerenciais", async () => {
+    completo();
+    const el = await abrir(base + "&versao=simples");
+    const t = el.textContent!;
+    expect(botao(el, "Simples").getAttribute("aria-pressed")).toBe("true");
+    for (const fora of ["Resumo Executivo", "Indicadores de Dízimos", "Indicadores Financeiros e Fluxo de Caixa", "Indicadores Gerenciais", "Total Geral de Despesas"]) expect(t).not.toContain(fora);
+    expect(el.querySelector("svg[role='img']")).toBeNull();
+    expect(el.querySelector(".relatorio-page")!.className).toContain("rel-simples");
+  });
+
+  it("a simples mantém a demonstração de antes: Saldo Anterior, Despesas, Total Despesas, Resultado e Saldo Final", async () => {
+    completo();
+    const t = (await abrir(base + "&versao=simples")).textContent!;
+    for (const x of ["Saldo Anterior", "Total Receitas", "Total Despesas", "Resultado do Período", "Saldo Final", "Dizimistas no período (nomes únicos)"]) expect(t).toContain(x);
+    expect(t).not.toContain("Saldo Inicial");
+    expect(t).not.toContain("Total Despesas dos Ministérios");
+  });
+
+  it("na simples cada ministério ocupa UMA linha: sem subgrupos nem categorias de despesa", async () => {
+    completo();
+    const t = (await abrir(base + "&versao=simples")).textContent!;
+    expect(t).toContain("Ministério Pastoral");
+    expect(t).not.toContain("Ofertas a Preletores");        // a categoria some; o total do ministério fica
+    expect(t).not.toContain("· Sem subgrupo");
+  });
+
+  it("na simples as despesas financeiras voltam a ser as linhas de antes (só as que existem), sem os três blocos", async () => {
+    completo();
+    const t = (await abrir(base + "&versao=simples")).textContent!;
+    expect(t).toContain("Despesas Financeiras");
+    expect(t).toContain("Tarifas Bancárias");
+    expect(t).not.toContain("subtotal");
+    expect(t).not.toContain("Outros encargos financeiros");
+  });
+
+  it("na simples as compras ofertadas seguem a seção de antes (retrato: relação; paisagem: uma linha de resumo)", async () => {
+    completo();
+    let t = (await abrir(base + "&versao=simples")).textContent!;
+    expect(t).toContain("Compras ofertadas por terceiros — fora do caixa");
+    expect(t).toContain("Sacolas");
+    expect(t).not.toContain("registradas apenas para fins de controle");
+    act(() => raiz?.unmount()); document.body.innerHTML = "";
+    t = (await abrir(base + "&versao=simples&orientacao=paisagem")).textContent!;
+    expect(t).toMatch(/1 compra\s*·\s*R\$\s*80,00/);
+    expect(t).not.toContain("Sacolas");
+  });
+
+  it("trocar de versão preserva o período e o papel", async () => {
+    completo();
+    const el = await abrir(base + "&orientacao=paisagem");
+    await act(async () => { botao(el, "Simples").click(); });
+    expect(botao(el, "Simples").getAttribute("aria-pressed")).toBe("true");
+    expect(botao(el, "Paisagem").getAttribute("aria-pressed")).toBe("true");
+    await act(async () => { botao(el, "Avançada").click(); });
+    expect(el.textContent).toContain("Resumo Executivo");
+    expect(botao(el, "Paisagem").getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("a simples tem o CSS de uma folha (retrato e paisagem)", async () => {
+    completo();
+    await abrir(base + "&versao=simples");
+    const css = [...document.querySelectorAll("style")].map(x => x.textContent).join("\n");
+    expect(css).toContain(".rel-simples .rel-cabecalho");
+    expect(css).toContain(".rel-simples:not(.rel-retrato) .tabela-prestacao");
+  });
+});

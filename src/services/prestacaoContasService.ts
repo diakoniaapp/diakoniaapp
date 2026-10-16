@@ -605,7 +605,8 @@ export async function gerarPrestacaoContas(ano: number, mesInicio: number, qtdMe
 }
 
 // ─── Fase 7: exportação — mesmo formato de linha do gerarCSVDRE ─────────
-export function gerarCSVPrestacaoContas(r: PrestacaoContasResultado): string {
+/** `simples`: só as linhas de antes de 15/10/2026 (a demonstração e as compras ofertadas); sem o resumo, as despesas financeiras em blocos, os dízimos, os indicadores e o fluxo. */
+export function gerarCSVPrestacaoContas(r: PrestacaoContasResultado, opcoes: { simples?: boolean } = {}): string {
   const colunasMes = r.meses.map(m => `${m.nome}${m.ano !== r.meses[0].ano ? `/${m.ano}` : ""}`);
   const linhas: string[] = [`Secao;Grupo;Categoria;${colunasMes.join(";")}`];
 
@@ -651,6 +652,8 @@ export function gerarCSVPrestacaoContas(r: PrestacaoContasResultado): string {
 
   linhas.push(`;;RESULTADO DO PERIODO;${r.resultado.map(fmt).join(";")}`);
   linhas.push(`;;SALDO FINAL;${r.saldoFinal.map(fmt).join(";")}`);
+
+  if (opcoes.simples) return linhas.join("\n");
 
   // ── Resumo, despesas financeiras, dízimos, indicadores e fluxo de caixa: ACRESCENTADOS depois das linhas de sempre (nada acima mudou) ──
   const resumo = resumoExecutivo(r);

@@ -83,6 +83,14 @@ describe("gerarPrestacaoContas — a demonstração segue igual e ganha o que a 
     expect(indicadoresGerenciais(r, fluxoDoRelatorio(r, "diario").serie).maiorArrecadacao).toEqual({ valor: 230, mes: "Outubro" });
   });
 
+  it("o CSV da versão simples é o de antes: sem o resumo, as despesas financeiras em blocos, os dízimos, os indicadores e o fluxo", () => {
+    const csv = gerarCSVPrestacaoContas(r, { simples: true });
+    expect(csv).toContain(";;SALDO FINAL;888.00;1130.00");
+    for (const novo of ["Resumo Executivo", "Indicadores de Dizimos", "Indicadores Gerenciais", "Fluxo de Caixa", "SUBTOTAL"]) expect(csv).not.toContain(novo);
+    expect(csv.split("\n").at(-1)).toBe(";;SALDO FINAL;888.00;1130.00");
+    expect(gerarCSVPrestacaoContas(r).startsWith(csv)).toBe(true);        // o completo é o simples + o que foi acrescentado no fim
+  });
+
   it("o CSV de sempre continua igual no começo, e ganha o resumo, as despesas financeiras, os dízimos, os indicadores e o fluxo no fim", () => {
     const csv = gerarCSVPrestacaoContas(r);
     const linhas = csv.split("\n");
