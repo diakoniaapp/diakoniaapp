@@ -482,8 +482,15 @@
   }
 
   html {
-    overflow-x: hidden;
+    /* `clip`, e não `hidden` (17/10/2026): com `overflow-x: hidden` no html E no body, o body virava uma caixa de rolagem aninhada — `overflow-x: hidden` obriga o eixo y a `auto` — e o
+       `overscroll-behavior-y: none` que ele trazia IMPEDIA o gesto de passar dali para a página. Resultado medido em Chromium com toque e com roda do mouse: nas telas públicas
+       (entrada, convite, aceite da LGPD, cadastro de visitante) a página não rolava com UM dedo, só por código — o jeito de chegar ao botão era arrastar com dois dedos. `clip` esconde
+       o excesso lateral do mesmo jeito, sem criar caixa de rolagem. A tela do app (AppLayout) rola dentro do próprio <main> e não é afetada. */
+    overflow-x: hidden;   /* navegador sem suporte a clip: fica como era */
+    overflow-x: clip;
     scroll-behavior: smooth;
+    /* O "puxar" nativo do navegador fica desligado na página (o app tem o próprio, em PullToRefresh). Mora no html: é ele que vale para a janela inteira. */
+    overscroll-behavior-y: none;
   }
 
   /* ── A escala da interface cresce com a tela ──────────────────────────
@@ -525,8 +532,8 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     -webkit-tap-highlight-color: transparent;
-    overscroll-behavior-y: none;
-    overflow-x: hidden;
+    /* sem `overscroll-behavior-y` aqui e com `clip`: ver a nota em `html` acima */
+    overflow-x: clip;
     transition: background-color 0.25s ease, color 0.25s ease;
   }
 

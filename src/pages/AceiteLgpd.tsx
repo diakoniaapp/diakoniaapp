@@ -13,7 +13,7 @@ import { rotaInicialPorPapel } from "@/components/layout/navConfig";
 import { Button } from "@/components/ui/button";
 import { AuthShell, AuthCard } from "@/components/AuthShell";
 import { toast } from "sonner";
-import { ShieldCheck, Loader2, ScrollText, CheckCircle2, AlertTriangle } from "lucide-react";
+import { ShieldCheck, Loader2, ScrollText, CheckCircle2, AlertTriangle, ChevronDown } from "lucide-react";
 
 const POLITICA_PADRAO = `**1. Quais dados coletamos?**
 O DiakoniaApp coleta dados pessoais fornecidos voluntariamente pelos membros e lideranças da Igreja, como nome completo, telefone, e-mail, endereço, data de nascimento e informações de participação ministerial.
@@ -64,6 +64,10 @@ export default function AceiteLgpd() {
   const [politica, setPolitica]       = useState(POLITICA_PADRAO);
   const [versao, setVersao]           = useState("1.0");
   const [lido, setLido]               = useState(false);
+  // A política abre sozinha só em tela larga. No celular ela começa recolhida: aberta, o texto empurrava o checkbox e o botão para fora da tela (16/10/2026).
+  const [politicaAberta, setPoliticaAberta] = useState(
+    () => typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(min-width: 768px)").matches,
+  );
   const [busy, setBusy]               = useState(false);
   const [erroMsg, setErroMsg]         = useState<string | null>(null);
   const [verificando, setVerificando] = useState(true);
@@ -212,7 +216,7 @@ export default function AceiteLgpd() {
     });
 
   return (
-    <AuthShell wide>
+    <AuthShell wide compacto>
       <AuthCard>
 
         {/* Cabeçalho */}
@@ -236,38 +240,38 @@ export default function AceiteLgpd() {
 
         <div className="divider-gold" />
 
-        {/* Texto da política */}
-        <div className="relative">
-          <div
-            className="h-64 overflow-y-auto rounded-xl border border-border/60 dark:border-border/40 bg-muted/30 dark:bg-muted/20 p-4 space-y-2 text-sm scroll-smooth"
-            onScroll={(e) => {
-              const el = e.currentTarget;
-              if (el.scrollHeight - el.scrollTop - el.clientHeight < 24) setLido(true);
-            }}
+        {/* ── Texto da política ──────────────────────────────────────────────
+            Era uma caixa de 256 px de altura com rolagem PRÓPRIA. No celular ela ocupava quase toda a tela abaixo do logo: o dedo sobre o texto rolava só a caixinha, nunca a
+            página, e o checkbox e o botão "Aceitar" ficavam fora da tela — só se chegava a eles arrastando a página com dois dedos (medido em 390×700: caixa de 432 a 688 px,
+            checkbox em 721, botão em 865). Agora o texto é um bloco que se abre NA PÁGINA, sem rolagem aninhada: a página inteira rola com um dedo, e fechado cabe tudo numa tela. */}
+        <div className="rounded-xl border border-border/60 dark:border-border/40 bg-muted/30 dark:bg-muted/20">
+          <button
+            type="button"
+            onClick={() => setPoliticaAberta((a) => !a)}
+            aria-expanded={politicaAberta}
+            aria-controls="texto-da-politica"
+            className="flex w-full min-h-12 items-center gap-2 px-4 py-3 text-left"
           >
-            <div className="flex items-center gap-2 text-gold mb-3">
-              <ScrollText className="w-4 h-4" />
-              <span className="font-bold text-xs uppercase tracking-widest">
-                Versão {versao}
-              </span>
-            </div>
-            {renderPolitica()}
-            <div className="flex items-center gap-2 pt-3 border-t border-border/40 dark:border-border/30 mt-2">
-              <CheckCircle2 className="w-4 h-4 text-success-text shrink-0" />
-              <span className="text-xs text-muted-foreground">Fim — Versão {versao}</span>
-            </div>
-          </div>
-          {!lido && (
-            <div className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-muted/80 dark:from-card/80 to-transparent rounded-b-xl pointer-events-none flex items-end justify-center pb-1">
-              <span className="text-xs text-muted-foreground animate-bounce-subtle">
-                ▼ role para ler
-              </span>
+            <ScrollText className="w-4 h-4 text-gold shrink-0" />
+            <span className="flex-1 text-sm font-semibold text-foreground">
+              {politicaAberta ? "Política de Privacidade" : "Ler a Política de Privacidade completa"}
+              <span className="ml-2 text-xs font-normal text-muted-foreground">versão {versao}</span>
+            </span>
+            <ChevronDown className={"w-5 h-5 text-muted-foreground shrink-0 transition-transform " + (politicaAberta ? "rotate-180" : "")} aria-hidden />
+          </button>
+          {politicaAberta && (
+            <div id="texto-da-politica" className="px-4 pb-4 space-y-2 text-sm border-t border-border/40 dark:border-border/30">
+              {renderPolitica()}
+              <div className="flex items-center gap-2 pt-3 border-t border-border/40 dark:border-border/30 mt-2">
+                <CheckCircle2 className="w-4 h-4 text-success-text shrink-0" />
+                <span className="text-xs text-muted-foreground">Fim — Versão {versao}</span>
+              </div>
             </div>
           )}
         </div>
 
-        {/* Checkbox */}
-        <label className={"flex items-start gap-3 cursor-pointer select-none rounded-xl px-3 py-2.5 border transition-colors " + (
+        {/* Checkbox — o aceite é sempre um gesto explícito da pessoa (antes, rolar até o fim do texto marcava a caixa sozinho). Área de toque larga. */}
+        <label className={"flex items-start gap-3 cursor-pointer select-none rounded-xl px-3 py-3 min-h-14 border transition-colors " + (
           lido
             ? "bg-gold/8 dark:bg-gold/10 border-gold/25 dark:border-gold/20"
             : "bg-muted/30 dark:bg-muted/20 border-border/40 dark:border-border/30"
@@ -275,7 +279,7 @@ export default function AceiteLgpd() {
           <input
             type="checkbox" checked={lido}
             onChange={(e) => setLido(e.target.checked)}
-            className="mt-0.5 rounded border-border w-4 h-4 accent-gold shrink-0"
+            className="mt-0.5 rounded border-border w-6 h-6 accent-gold shrink-0"
           />
           <span className="text-sm text-foreground/80 dark:text-foreground/70 leading-snug">
             Li e concordo com a <strong>Política de Privacidade</strong> do DiakoniaApp,
