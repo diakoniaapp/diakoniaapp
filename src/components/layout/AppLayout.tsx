@@ -16,6 +16,7 @@ import { CommandPalette } from "@/components/CommandPalette";
 import { openCommandPalette } from "@/lib/commandPalette";
 import { registrarVisita, atalhos, grupoMereceAbrir, temHistoricoBastante } from "@/lib/navUso";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
+import { PullToRefresh } from "@/components/layout/PullToRefresh";
 import { UserMenuButton } from "@/components/layout/UserMenuButton";
 import { BarraDeContexto } from "@/components/layout/BarraDeContexto";
 import { NavegacaoProvider } from "@/hooks/useNavegacao";
@@ -573,6 +574,8 @@ export default function AppLayout() {
         <CommandPalette />
         <QuickActionsFab />
         <MobileBottomNav />
+        {/* Arrastar a tela para baixo atualiza o sistema, em qualquer tela interna (16/10/2026) */}
+        <PullToRefresh />
       </div>
     </div>
     </NavegacaoProvider>
