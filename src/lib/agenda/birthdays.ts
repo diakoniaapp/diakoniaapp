@@ -12,6 +12,63 @@ export interface PessoaAniv {
   nascimento_dia_mes?: string | null;
   data_casamento: string | null;
   tipo_pessoa: "membro" | "congregado" | "visitante";
+  /** O cônjuge pelo vínculo de FAMÍLIA (a função `agenda_aniversarios_casamentos` entrega; a leitura direta de `membros` não). */
+  conjuge_id?: string | null;
+  conjuge_nome?: string | null;
+  /** É o responsável da família — quando os cônjuges discordam da data, a dele vale (a mesma regra da tela de Famílias). */
+  responsavel_familia?: boolean | null;
+}
+
+const mesEDia = (ymdStr: string) => ymdStr.slice(5);
+
+export interface CasalDeBodas { ids: string[]; nomes: string[]; data: string }
+
+/**
+ * Os casais da igreja: uma linha por CASAL, com os dois nomes juntos (16/10/2026).
+ *
+ * Antes o casal só se formava quando os dois tinham a MESMA `data_casamento`. Bastava um deles estar sem a data, ou com o ano digitado diferente (medido em produção: Vitorino,
+ * março contra maio, e Bittencourt, 2018 contra 2020; e 3 famílias em que só o cônjuge tem a data), para a agenda mostrar o casamento duas vezes, um nome em cada.
+ *
+ * Agora o par também vem do vínculo de família (`conjuge_id`), com uma trava: só se juntam duas pessoas se o outro lado não tem data OU tem o mesmo dia e mês — nunca se funde o
+ * casamento de gente com datas realmente diferentes. Quando o cônjuge nem aparece na lista (sem data nenhuma, ou visitante), o nome dele entra mesmo assim (`conjuge_nome`).
+ * Se os dois têm a data e ela difere, vale a do responsável da família (como na tela de Famílias); sem responsável, a mais antiga.
+ */
+export function casaisDeBodas(elegiveis: PessoaAniv[]): CasalDeBodas[] {
+  const comData = elegiveis.filter((p) => p.data_casamento);
+  const porId = new Map(comData.map((p) => [p.id, p]));
+  const raiz = new Map<string, string>(comData.map((p) => [p.id, p.id]));
+  const achar = (id: string): string => { let r = id; while (raiz.get(r) !== r) r = raiz.get(r)!; return r; };
+  const unir = (a: string, b: string) => { const ra = achar(a), rb = achar(b); if (ra !== rb) raiz.set(rb, ra); };
+
+  // 1) a mesma data de casamento: é o casal (medido: toda data repetida na tabela era um par)
+  const primeiroDaData = new Map<string, string>();
+  for (const p of comData) {
+    const antes = primeiroDaData.get(p.data_casamento!);
+    if (antes) unir(antes, p.id); else primeiroDaData.set(p.data_casamento!, p.id);
+  }
+  // 2) o vínculo de família: o cônjuge que tem outra data (mesmo dia e mês) ou que veio sem ela
+  for (const p of comData) {
+    const c = p.conjuge_id ? porId.get(p.conjuge_id) : undefined;
+    if (c && mesEDia(c.data_casamento!) === mesEDia(p.data_casamento!)) unir(p.id, c.id);
+  }
+
+  const grupos = new Map<string, PessoaAniv[]>();
+  for (const p of comData) { const r = achar(p.id); grupos.set(r, [...(grupos.get(r) ?? []), p]); }
+
+  const casais: CasalDeBodas[] = [];
+  for (const membros of grupos.values()) {
+    const ordenados = [...membros].sort((a, b) => Number(!!b.responsavel_familia) - Number(!!a.responsavel_familia) || a.nome_completo.localeCompare(b.nome_completo, "pt-BR"));
+    const idsNoGrupo = new Set(ordenados.map((p) => p.id));
+    const nomes = ordenados.map((p) => p.nome_completo);
+    // o cônjuge que não está na lista com data (sem data nenhuma, ou fora de membro/congregado): o nome dele completa o casal
+    if (ordenados.length === 1) {
+      const p = ordenados[0];
+      if (p.conjuge_id && !idsNoGrupo.has(p.conjuge_id) && !porId.has(p.conjuge_id) && p.conjuge_nome) nomes.push(p.conjuge_nome);
+    }
+    const dataValida = (ordenados.find((p) => p.responsavel_familia) ?? ordenados.slice().sort((a, b) => a.data_casamento!.localeCompare(b.data_casamento!))[0]).data_casamento!;
+    casais.push({ ids: [...ordenados.map((p) => p.id), ...(ordenados.length === 1 && ordenados[0].conjuge_id && nomes.length > 1 ? [ordenados[0].conjuge_id] : [])], nomes, data: dataValida });
+  }
+  return casais;
 }
 
 function ymd(d: Date): string {
@@ -77,23 +134,8 @@ export function aniversariosNoIntervalo(
   const start = new Date(from.getFullYear(), from.getMonth(), from.getDate());
   const end = new Date(to.getFullYear(), to.getMonth(), to.getDate());
 
-  // Casal junto numa linha só (pedido da Telma, 30/09/2026, vendo "Elizabeth
-  // Batista" e "Alexandre Lourenço Silva" — o mesmo casamento — aparecerem
-  // como dois itens separados). `membros_detalhes.conjuge_nome` existiria
-  // pra isso, mas medido em produção: vazio em todo mundo, ninguém preenche.
-  // Casar pela MESMA `data_casamento` funciona sem precisar dele — medido
-  // também: toda data de casamento compartilhada por duas pessoas na tabela
-  // é exatamente um casal (nenhum trio, nenhuma coincidência entre gente
-  // sem relação, só pares). Agrupa ANTES do loop de dias — uma pessoa sem
-  // par (cônjuge não é membro/congregado, ou sem a data cadastrada) continua
-  // aparecendo sozinha, do jeito que já era.
-  const porDataCasamento = new Map<string, PessoaAniv[]>();
-  for (const p of elegiveis) {
-    if (!p.data_casamento) continue;
-    const lista = porDataCasamento.get(p.data_casamento) ?? [];
-    lista.push(p);
-    porDataCasamento.set(p.data_casamento, lista);
-  }
+  // Casal junto numa linha só (pedido dela, 30/09 e 16/10/2026) — ver `casaisDeBodas`: mesma data OU vínculo de família, nomes dos dois juntos.
+  const casais = casaisDeBodas(elegiveis);
 
   for (
     let d = new Date(start);
@@ -137,12 +179,12 @@ export function aniversariosNoIntervalo(
     }
 
     // ── Casamento — um evento por CASAL, não por pessoa ──────────────────
-    for (const [dataCasamento, casal] of porDataCasamento) {
-      const [yy, mm, dd] = dataCasamento.split("-").map(Number);
+    for (const casal of casais) {
+      const [yy, mm, dd] = casal.data.split("-").map(Number);
       if (mm !== month || dd !== day) continue;
       const anos = d.getFullYear() - yy;
-      const nomes = casal.map((p) => p.nome_completo).join(" & ");
-      const idsOrdenados = casal.map((p) => p.id).sort().join("-");
+      const nomes = casal.nomes.join(" & ");
+      const idsOrdenados = [...casal.ids].sort().join("-");
       out.push(
         buildVirtual({
           id: `cas-${idsOrdenados}-${dataStr}`,
