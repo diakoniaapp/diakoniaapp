@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { AuthShell, AuthCard, AuthCampo, AuthErro } from "@/components/AuthShell";
 import { Loader2, Eye, EyeOff, Lock, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
+import { mensagemDeErroAuth } from "@/lib/erroAuth";
 
 interface DadosConvite {
   valido: boolean;
@@ -67,7 +68,8 @@ export default function Convite() {
     const email = data[0].email;
     const { error: loginErr } = await supabase.auth.signInWithPassword({ email, password: senha });
     if (loginErr) {
-      toast.error("Conta criada mas o login automático falhou. Vá para /auth e entre.");
+      // A senha JÁ foi gravada: o que falhou foi só entrar. A causa vem do Auth e aparece inteira (17/10/2026 — antes era descartada, e uma conta quebrada ficou invisível).
+      toast.error(`Sua senha foi criada, mas não foi possível entrar automaticamente. ${mensagemDeErroAuth(loginErr)}`, { duration: 20000 });
       navigate("/auth", { replace: true });
       return;
     }

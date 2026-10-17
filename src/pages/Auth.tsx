@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { destinoInicial } from "@/lib/destinoInicial";
 import { toast } from "sonner";
+import { mensagemDeErroAuth } from "@/lib/erroAuth";
 import {
   AuthShell, AuthCard, AuthCampo, AuthErro, getSaudacao,
 } from "@/components/AuthShell";
@@ -47,21 +48,6 @@ function mascaraTelefone(valor: string): string {
   return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`;
 }
 
-
-const ERROS: Record<string, string> = {
-  "Invalid login credentials":    "Telefone ou senha incorretos 😕 Verifique seus dados.",
-  "Email not confirmed":          "Acesso não confirmado. Fale com a secretaria da Igreja.",
-  "Password should be at least 6 characters": "A senha precisa ter no mínimo 6 caracteres.",
-  "For security purposes, you can only request this once every 60 seconds":
-    "Aguarde 1 minuto antes de solicitar novamente.",
-};
-
-function traduzirErro(msg: string): string {
-  for (const [k, v] of Object.entries(ERROS)) {
-    if (msg.includes(k)) return v;
-  }
-  return "Algo deu errado 😕 Tente novamente ou fale com a secretaria.";
-}
 
 // ── Componente Principal ───────────────────────────────────
 export default function Auth() {
@@ -161,7 +147,7 @@ export default function Auth() {
       email: telefoneParaEmail(telefone), password: senha,
     });
     setBusy(false);
-    if (error) { setErroMsg(traduzirErro(error.message)); return; }
+    if (error) { setErroMsg(mensagemDeErroAuth(error)); return; }
     if (lembrar) localStorage.setItem("diakonia_tel", telefone);
     else         localStorage.removeItem("diakonia_tel");
     toast.success(`${getSaudacao()}! Seja bem-vindo(a) 🙏`);
@@ -193,7 +179,7 @@ export default function Auth() {
     await supabase.rpc("pedir_recuperacao_senha", { p_telefone: telefone });
     setBusy(false);
     if (error && !error.message.includes("For security purposes")) {
-      setErroMsg(traduzirErro(error.message)); return;
+      setErroMsg(mensagemDeErroAuth(error)); return;
     }
     setTela("recuperar_ok");
   };

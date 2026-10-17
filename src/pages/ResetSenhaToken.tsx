@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { AuthShell, AuthCard, AuthCampo, AuthErro } from "@/components/AuthShell";
 import { Loader2, Eye, EyeOff, Lock, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
+import { mensagemDeErroAuth } from "@/lib/erroAuth";
 
 export default function ResetSenhaToken() {
   const { token } = useParams<{ token: string }>();
@@ -59,7 +60,8 @@ export default function ResetSenhaToken() {
     const email = data[0].email;
     const { error: loginErr } = await supabase.auth.signInWithPassword({ email, password: senha });
     if (loginErr) {
-      toast.success("Senha redefinida! Faça login.");
+      // Antes: um aviso de SUCESSO e a tela de login — escondia o erro real do login automático (17/10/2026).
+      toast.error(`Sua senha foi redefinida, mas não foi possível entrar automaticamente. ${mensagemDeErroAuth(loginErr)}`, { duration: 20000 });
       navigate("/auth", { replace: true });
       return;
     }
