@@ -23,6 +23,11 @@ interface Props {
   refDate: Date;
 }
 
+/** Marcou algumas, mas não todas? (vazio e "todas" são o mesmo: sem restrição) */
+export function restringe(selecionados: string[], total: number): boolean {
+  return selecionados.length > 0 && selecionados.length < total;
+}
+
 function toggle<T extends string>(arr: T[], v: T): T[] {
   return arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v];
 }
@@ -53,10 +58,13 @@ export function PrintAgendaDialog({ open, onClose, filtrosAtuais, ministerios, a
     const p = new URLSearchParams();
     p.set("inicio", inicio);
     p.set("fim", fim);
-    if (mins.length) p.set("ministerios", mins.join(","));
-    if (locs.length) p.set("locais", locs.join(","));
-    if (tipos.length) p.set("tipos", tipos.join(","));
-    if (status.length) p.set("status", status.join(","));
+    // Só vai na URL o filtro que RESTRINGE (algumas marcadas, não todas). A Agenda abre com tudo marcado; mandar "todos os ministérios" e "todos os locais" fazia a página de
+    // impressão exigir vínculo com um ministério e um local — e os eventos sem ministério ou sem local (cultos avulsos, reservas) sumiam do papel, mesmo com tudo marcado.
+    const minsAtivos = ministerios.filter((m) => m.ativo).map((m) => m.id);
+    if (restringe(mins, minsAtivos.length)) p.set("ministerios", mins.join(","));
+    if (restringe(locs, locais.length)) p.set("locais", locs.join(","));
+    if (restringe(tipos, Object.keys(TIPO_LABEL).length)) p.set("tipos", tipos.join(","));
+    if (restringe(status, Object.keys(STATUS_LABEL).length)) p.set("status", status.join(","));
     if (cats.length) p.set("categorias", cats.join(","));
     window.open(`/agenda/imprimir?${p.toString()}`, "_blank");
     onClose();

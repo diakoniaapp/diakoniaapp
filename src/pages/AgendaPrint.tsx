@@ -9,6 +9,7 @@ import { aniversariosNoIntervalo, type PessoaAniv } from "@/lib/agenda/birthdays
 import type { CategoriaEvento, EventoOcorrencia, EventoRow, EventoStatus, EventoTipo } from "@/lib/agenda/types";
 import { Button } from "@/components/ui/button";
 import { Printer } from "lucide-react";
+import { carregarAniversarios } from "@/services/agendaAniversariosService";
 
 interface Min { id: string; nome: string; sigla: string | null; }
 interface Area { id: string; nome: string; }
@@ -46,11 +47,7 @@ export default function AgendaPrint() {
         supabase.from("evento_ministerios").select("evento_id, ministerio_id, responsabilidade").limit(20000),
         supabase.from("evento_areas").select("evento_id, area_id").limit(20000),
       ]);
-      const { data: pa } = await supabase
-        .from("membros")
-        .select("id, nome_completo, data_nascimento, nascimento_dia_mes, data_casamento, tipo_pessoa")
-        .in("tipo_pessoa", ["membro", "congregado"])
-        .or("data_nascimento.not.is.null,nascimento_dia_mes.not.is.null,data_casamento.not.is.null");
+      const { data: pa } = await carregarAniversarios();
       const { data: masters } = await supabase
         .from("eventos")
         .select("*")
@@ -140,7 +137,9 @@ export default function AgendaPrint() {
         <span className="text-sm text-neutral-600">Use a opção “Salvar como PDF” na janela de impressão.</span>
       </div>
 
-      <div className="print-doc max-w-4xl mx-auto px-8 py-10">
+      {/* `relatorio-page` é o que o padrão de impressão do app (src/index.css) deixa visível: ele esconde TUDO (`body * { visibility: hidden }`) e mostra só o que tem esta classe.
+          Sem ela, a Agenda imprimia folhas em branco (16/10/2026). A margem do papel vem do `@page` acima; o recuo da tela (px-8 py-10) sai na impressão. */}
+      <div className="relatorio-page print-doc max-w-4xl mx-auto px-8 py-10">
         <header className="border-b-2 border-black pb-4 mb-6">
           <div className="text-xs tracking-[0.25em] uppercase text-neutral-600">DIAKONIA · Igreja</div>
           <h1 className="text-3xl font-bold mt-1">Agenda da Igreja</h1>
@@ -187,7 +186,7 @@ export default function AgendaPrint() {
                               {o.categoria === "batista" && <span className="ml-2 text-xs uppercase text-neutral-600">[Institucional Batista]</span>}
                               {o.categoria === "aniversario" && <span className="ml-2 text-xs uppercase text-neutral-600">[Aniversário]</span>}
                               {o.categoria === "casamento" && <span className="ml-2 text-xs uppercase text-neutral-600">[Casamento]</span>}
-                              {o.evento.status === "cancelado" && <span className="ml-2 text-xs uppercase text-destructive-text">[Cancelado]</span>}
+                              {o.evento.status === "cancelado" && <span className="ml-2 text-xs uppercase" style={{ color: "#991b1b" }}>[Cancelado]</span>}
                             </div>
                             <div className="text-sm text-neutral-700">
                               {local && <>Local: {local}{(principalNome || arNames.length) ? " · " : ""}</>}
